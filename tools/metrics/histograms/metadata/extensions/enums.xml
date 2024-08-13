@@ -754,6 +754,7 @@ Called by update_extension_histograms.py.-->
       label="ACCESSIBILITY_PRIVATE_ON_SELECT_TO_SPEAK_FOCUS_CHANGED"/>
   <int value="555" label="TTS_ON_VOICES_CHANGED"/>
   <int value="556" label="OS_DIAGNOSTICS_ON_ROUTINE_FINISHED"/>
+  <int value="557" label="ACCESSIBILITY_PRIVATE_ON_CHROMEVOX_FOCUS_CHANGED"/>
 </enum>
 
 <enum name="ExtensionForceInstalledPreInstalledDeprecatedSite">
@@ -1773,7 +1774,7 @@ Called by update_extension_histograms.py.-->
   <int value="971" label="INPUTMETHODPRIVATE_FETCHALLDICTIONARYWORDS"/>
   <int value="972" label="INPUTMETHODPRIVATE_ADDWORDTODICTIONARY"/>
   <int value="973"
-      label="DASHBOARDPRIVATE_SHOWPERMISSIONPROMPTFORDELEGATEDINSTALL"/>
+      label="DELETED_DASHBOARDPRIVATE_SHOWPERMISSIONPROMPTFORDELEGATEDINSTALL"/>
   <int value="974" label="PRINTERPROVIDERINTERNAL_GETPRINTDATA"/>
   <int value="975" label="VIRTUALKEYBOARDPRIVATE_SETMODE"/>
   <int value="976" label="NETWORKINGPRIVATE_STARTACTIVATE"/>
@@ -1864,7 +1865,7 @@ Called by update_extension_histograms.py.-->
   <int value="1058"
       label="FILESYSTEMPROVIDERINTERNAL_GETACTIONSREQUESTEDSUCCESS"/>
   <int value="1059"
-      label="DASHBOARDPRIVATE_SHOWPERMISSIONPROMPTFORDELEGATEDBUNDLEINSTALL"/>
+      label="DELETED_DASHBOARDPRIVATE_SHOWPERMISSIONPROMPTFORDELEGATEDBUNDLEINSTALL"/>
   <int value="1060" label="FILEMANAGERPRIVATEINTERNAL_GETCUSTOMACTIONS"/>
   <int value="1061" label="FILEMANAGERPRIVATEINTERNAL_EXECUTECUSTOMACTION"/>
   <int value="1062" label="MDNS_FORCEDISCOVERY"/>
@@ -2747,6 +2748,10 @@ Called by update_extension_histograms.py.-->
   <int value="1889" label="WEBSTOREPRIVATE_GETMV2DEPRECATIONSTATUS"/>
   <int value="1890" label="PERMISSIONS_ADDSITEACCESSREQUEST"/>
   <int value="1891" label="PERMISSIONS_REMOVESITEACCESSREQUEST"/>
+  <int value="1892" label="ACCESSIBILITY_PRIVATE_SETCHROMEVOXFOCUS"/>
+  <int value="1893" label="PASSWORDSPRIVATE_DELETEALLPASSWORDMANAGERDATA"/>
+  <int value="1894"
+      label="DEVELOPERPRIVATE_DISMISSMV2DEPRECATIONNOTICEFOREXTENSION"/>
 </enum>
 
 <enum name="ExtensionInstallationCrxInstallError">
@@ -3313,6 +3318,13 @@ Called by update_extension_permission.py.-->
   <int value="3" label="Manifest Version 3 extensions only"/>
 </enum>
 
+<enum name="MV2ExtensionState">
+  <int value="0" label="Unaffected"/>
+  <int value="1" label="Soft-disabled by Chrome"/>
+  <int value="2" label="Re-enabled by user"/>
+  <int value="3" label="Other (e.g. disabled for another reason)"/>
+</enum>
+
 <enum name="ReadDynamicRulesJSONStatus">
   <int value="0" label="kSuccess"/>
   <int value="1" label="kFileDoesNotExist"/>
@@ -3361,7 +3373,7 @@ Called by update_extension_permission.py.-->
   <int value="4" label="(Obsolete) Locally Managed"/>
   <int value="5" label="Kiosk App"/>
   <int value="6" label="Regular Supervised"/>
-  <int value="7" label="ARC Kiosk"/>
+  <int value="7" label="(Obsolete) ARC Kiosk"/>
   <int value="8" label="Active Directory"/>
   <int value="9" label="Web App Kiosk"/>
 </enum>

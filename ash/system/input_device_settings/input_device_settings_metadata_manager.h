@@ -51,6 +51,11 @@ class ASH_EXPORT InputDeviceSettingsMetadataManager {
   std::optional<std::string> GetCachedDeviceImageDataUri(
       const std::string& device_key);
 
+  const base::flat_map<std::string, std::vector<ImageDownloadCallback>>&
+  GetDeviceCallbackMapForTesting() {
+    return device_callback_map_;
+  }
+
   static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 
  private:
@@ -69,7 +74,8 @@ class ASH_EXPORT InputDeviceSettingsMetadataManager {
   std::unique_ptr<DeviceImageStorage> device_image_storage_;
   // Tracks image download requests for input devices. Maps a device's unique
   // key to the callback that should be executed when the image is downloaded.
-  base::flat_map<std::string, ImageDownloadCallback> device_callback_map_;
+  base::flat_map<std::string, std::vector<ImageDownloadCallback>>
+      device_callback_map_;
   base::WeakPtrFactory<InputDeviceSettingsMetadataManager> weak_ptr_factory_{
       this};
 };

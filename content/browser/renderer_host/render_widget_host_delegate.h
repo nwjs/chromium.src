@@ -42,6 +42,7 @@ class Size;
 
 namespace input {
 struct NativeWebKeyboardEvent;
+class RenderWidgetHostInputEventRouter;
 }  // namespace input
 
 namespace ui {
@@ -53,7 +54,6 @@ namespace content {
 class BrowserAccessibilityManager;
 class RenderFrameProxyHost;
 class RenderWidgetHostImpl;
-class RenderWidgetHostInputEventRouter;
 class RenderViewHostDelegateView;
 class TextInputManager;
 class VisibleTimeRequestTrigger;
@@ -170,7 +170,7 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // Request the renderer to Move the caret to the new position.
   virtual void MoveCaret(const gfx::Point& extent) {}
 
-  virtual RenderWidgetHostInputEventRouter* GetInputEventRouter();
+  virtual input::RenderWidgetHostInputEventRouter* GetInputEventRouter();
 
   virtual void GetRenderWidgetHostAtPointAsynchronously(
       RenderWidgetHostViewBase* root_view,
@@ -334,9 +334,6 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // indicate the absence of a vertical scroll direction.
   virtual void OnVerticalScrollDirectionChanged(
       viz::VerticalScrollDirection scroll_direction) {}
-
-  // Returns true if the delegate is a portal.
-  virtual bool IsPortal();
 
   // Notify the delegate that the screen orientation has been changed.
   virtual void DidChangeScreenOrientation() {}

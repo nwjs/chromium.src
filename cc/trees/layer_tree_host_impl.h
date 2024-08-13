@@ -63,7 +63,6 @@
 #include "cc/trees/render_frame_metadata.h"
 #include "cc/trees/task_runner_provider.h"
 #include "cc/trees/throttle_decider.h"
-#include "cc/trees/ukm_manager.h"
 #include "components/viz/client/client_resource_provider.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/gpu/context_cache_controller.h"
@@ -77,6 +76,10 @@
 
 namespace gfx {
 class PointF;
+}
+
+namespace ukm {
+class UkmRecorder;
 }
 
 namespace cc {
@@ -135,7 +138,6 @@ class LayerTreeHostImplClient {
   virtual void PostDelayedAnimationTaskOnImplThread(base::OnceClosure task,
                                                     base::TimeDelta delay) = 0;
   virtual void DidActivateSyncTree() = 0;
-  virtual void WillPrepareTiles() = 0;
   virtual void DidPrepareTiles() = 0;
 
   // Called when page scale animation has completed on the impl thread.
@@ -145,7 +147,7 @@ class LayerTreeHostImplClient {
   virtual void OnDrawForLayerTreeFrameSink(bool resourceless_software_draw,
                                            bool skip_draw) = 0;
 
-  virtual void NeedsImplSideInvalidation(
+  virtual void SetNeedsImplSideInvalidation(
       bool needs_first_draw_on_activation) = 0;
 
   virtual void NotifyImageDecodeRequestFinished(int request_id,
@@ -221,7 +223,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
     // frame_token is populated by the LayerTreeHostImpl when submitted.
     uint32_t frame_token = 0;
 
-    bool has_missing_content = false;
+    bool checkerboarded_needs_raster = false;
+    bool checkerboarded_needs_record = false;
 
     std::vector<viz::SurfaceId> activation_dependencies;
     std::optional<uint32_t> deadline_in_frames;
@@ -549,7 +552,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   size_t GetFrameIndexForImage(const PaintImage& paint_image,
                                WhichTree tree) const override;
   int GetMSAASampleCountForRaster(
-      const scoped_refptr<DisplayItemList>& display_list) override;
+      const DisplayItemList& display_list) const override;
 
   bool HasPendingTree() override;
 
@@ -676,7 +679,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   const LayerTreeImpl* recycle_tree() const { return recycle_tree_.get(); }
   // Returns the tree LTH synchronizes with.
   LayerTreeImpl* sync_tree() const {
-    return CommitToActiveTree() ? active_tree_.get() : pending_tree_.get();
+    return CommitsToActiveTree() ? active_tree_.get() : pending_tree_.get();
   }
   virtual void CreatePendingTree();
   virtual void ActivateSyncTree();
@@ -806,7 +809,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // Only valid for synchronous (non-scheduled) single-threaded case.
   void SynchronouslyInitializeAllTiles();
 
-  bool CommitToActiveTree() const;
+  bool CommitsToActiveTree() const;
 
   // Virtual so tests can inject their own.
   virtual std::unique_ptr<RasterBufferProvider> CreateRasterBufferProvider();
@@ -851,7 +854,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
           decoding_mode_map);
 
   void InitializeUkm(std::unique_ptr<ukm::UkmRecorder> recorder);
-  UkmManager* ukm_manager() { return ukm_manager_.get(); }
 
   ActiveFrameSequenceTrackers FrameSequenceTrackerActiveTypes() {
     return frame_trackers_.FrameSequenceTrackerActiveTypes();
@@ -913,6 +915,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool IsReadyToActivate() const;
 
   void RequestImplSideInvalidationForRerasterTiling();
+  void RequestImplSideInvalidationForRasterInducingScroll(
+      ElementId scroll_element_id);
 
   void SetDownsampleMetricsForTesting(bool value) {
     downsample_metrics_ = value;
@@ -1252,8 +1256,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   ImageAnimationController image_animation_controller_;
 
-  std::unique_ptr<UkmManager> ukm_manager_;
-
   // Provides RenderFrameMetadata to the Browser process upon the submission of
   // each CompositorFrame.
   std::unique_ptr<RenderFrameMetadataObserver> render_frame_metadata_observer_;
@@ -1341,6 +1343,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   base::UnguessableToken screenshot_destination_;
 
   float top_controls_visible_height_ = 0.f;
+
+  base::flat_set<ElementId> pending_invalidation_raster_inducing_scrolls_;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

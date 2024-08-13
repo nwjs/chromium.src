@@ -113,6 +113,7 @@
 <translation id="2891975107962658722">Neļaujiet vietnei saglabāt datus jūsu ierīcē</translation>
 <translation id="2903493209154104877">Adreses</translation>
 <translation id="2910701580606108292">Jautāt, pirms atļaut vietnēm atskaņot aizsargātu saturu</translation>
+<translation id="2918484639460781603">Pāriet uz iestatījumiem</translation>
 <translation id="2932883381142163287">Ziņot par ļaunprātīgu izmantošanu</translation>
 <translation id="2939338015096024043">Kad šis slēdzis ir ieslēgts, vietnes var pieprasīt atļauju izsekot kameras pozīciju un iegūt informāciju par jūsu apkārtni. Kad šis slēdzis ir izslēgts, vietnes nevar izsekot kameras pozīciju un iegūt informāciju par jūsu apkārtni.</translation>
 <translation id="2968755619301702150">Sertifikātu skatītājs</translation>
@@ -171,6 +172,7 @@
 <translation id="385051799172605136">Atpakaļ</translation>
 <translation id="3859306556332390985">Pārtīt uz priekšu</translation>
 <translation id="3895926599014793903">Tālummaiņas piespiedu iespējošana</translation>
+<translation id="3905475044299942653">Apturiet pārmērīgus paziņojumus</translation>
 <translation id="3908288065506437185">Bloķēt trešo pušu sīkfailus inkognito režīmā</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Dažas funkcijas var nedarboties. Saistītās vietnes joprojām var izmantot trešo pušu sīkfailus.</translation>
@@ -218,6 +220,7 @@
 <translation id="4751476147751820511">Kustību vai gaismas sensori</translation>
 <translation id="4755971844837804407">Kad šis slēdzis ir ieslēgts, vietnēs var tikt rādītas jebkādas reklāmas. Kad šis slēdzis ir izslēgts, vietnēs nevar rādīt traucējošas vai maldinošas reklāmas.</translation>
 <translation id="4779083564647765204">Tālummaiņa</translation>
+<translation id="4807122856660838973">Ieslēdziet drošu pārlūkošanu</translation>
 <translation id="4811450222531576619">Uzziniet par tās avotu un tēmu.</translation>
 <translation id="4836046166855586901">Vaicāt, ja vietne vēlas zināt, kad jūs aktīvi lietojat šo ierīci</translation>
 <translation id="483914009762354899">Iekļaut visas šī domēna vietnes</translation>
@@ -231,6 +234,7 @@
 <translation id="4994033804516042629">Nav atrasta neviena kontaktpersona</translation>
 <translation id="4996978546172906250">Kopīgošanas veids:</translation>
 <translation id="5001526427543320409">Trešo pušu sīkfaili</translation>
+<translation id="5007392906805964215">Pārskatīt</translation>
 <translation id="5039804452771397117">Atļaut</translation>
 <translation id="5048398596102334565">Atļaut vietnēm piekļūt kustību sensoriem (ieteicams)</translation>
 <translation id="5050380848339752099">Šī vietne tūlīt kopīgos informāciju ar lietotni, kas nav inkognito režīmā.</translation>
@@ -281,6 +285,7 @@
 <translation id="5706552988683188916">Tiks dzēsti sīkfaili un citi vietnes <ph name="WEBSITE" /> dati</translation>
 <translation id="5723967018671998714">Trešo pušu sīkfaili ir bloķēti inkognito režīmā</translation>
 <translation id="5740126560802162366">Vietnes var saglabāt datus jūsu ierīcē</translation>
+<translation id="5749085587985334212">Paslēpt moduli Drošības pārbaude</translation>
 <translation id="5771720122942595109">Bloķēta: <ph name="PERMISSION_1" /></translation>
 <translation id="5804241973901381774">Atļaujas</translation>
 <translation id="5844448279347999754">Kad šis slēdzis ir ieslēgts, vietnes var pieprasīt atļauju skatīt starpliktuvē saglabāto tekstu un attēlus. Kad šis slēdzis ir izslēgts, vietnes nevar skatīt starpliktuvē saglabāto tekstu vai attēlus.</translation>
@@ -361,6 +366,7 @@
 <translation id="6945221475159498467">Atlasīt</translation>
 <translation id="6950072572526089586">Apmeklētā vietne var saglabāt informāciju par jūsu veiktajām darbībām, lai nodrošinātu pienācīgu tās darbību, piemēram, pierakstīšanos vietnē vai iepirkumu grozā ievietoto preču saglabāšanu. Bieži vien vietnes šo informāciju jūsu ierīcē saglabā īslaicīgi.</translation>
 <translation id="6965382102122355670">Labi</translation>
+<translation id="6980861169612950611">Vai dzēst vietnes datus? <ph name="SITE_NAME" /></translation>
 <translation id="6981982820502123353">Pieejamība</translation>
 <translation id="6992289844737586249">Jautāt, pirms atļaut vietnēm izmantot jūsu mikrofonu (ieteicams)</translation>
 <translation id="7000754031042624318">Izslēgta Android iestatījumos</translation>
@@ -388,6 +394,7 @@
 <translation id="7366415735885268578">Vietnes pievienošana</translation>
 <translation id="7368695150573390554">Visi bezsaistes dati tiks izdzēsti</translation>
 <translation id="7383715096023715447">Domēna <ph name="DOMAIN" /> iestatījumi</translation>
+<translation id="7399802613464275309">Drošības pārbaude</translation>
 <translation id="7406113532070524618">Šis iestatījums darbojas, neidentificējot jūs vai neatļaujot vietnēm skatīt jūsu pārlūkošanas vēsturi, taču verifikācijas nolūkos vietnes var kopīgot nelielu informācijas daudzumu</translation>
 <translation id="7423098979219808738">Vispirms jautāt</translation>
 <translation id="7423538860840206698">Bloķēta starpliktuves satura lasīšana</translation>
@@ -456,6 +463,7 @@
 <translation id="8441146129660941386">Pārtīt atpakaļ</translation>
 <translation id="8444433999583714703">Lai atļautu lietotnei <ph name="APP_NAME" /> piekļūt jūsu atrašanās vietas datiem, ieslēdziet atrašanās vietas noteikšanu arī <ph name="BEGIN_LINK" />Android iestatījumos<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Atsaukt ierīces atļauju</translation>
+<translation id="8473055640493819707">Lietotne <ph name="APP_NAME" /> ir novecojusi. Lūdzu, atkārtoti instalējiet lietotni.</translation>
 <translation id="8487700953926739672">Pieejams bezsaistē</translation>
 <translation id="848952951823693243">Vienmēr pieprasīt vietni mobilajām ierīcēm</translation>
 <translation id="8499083585497694743">Ieslēgt mikrofonu</translation>
@@ -472,6 +480,7 @@
 <translation id="8681886425883659911">Reklāmas tiek bloķētas vietnēs, kurās ir konstatēta traucējošu vai maldinošu reklāmu rādīšana</translation>
 <translation id="868929229000858085">Meklējiet kontaktpersonas</translation>
 <translation id="8712637175834984815">Sapratu!</translation>
+<translation id="8715862698998036666">Lai izietu no pilnekrāna režīma, velciet no augšas un no ekrāna kreisās vai labās malas.</translation>
 <translation id="8719283222052720129"><ph name="BEGIN_LINK" />Android iestatījumos<ph name="END_LINK" /> ieslēdziet atļauju lietotnei <ph name="APP_NAME" />.</translation>
 <translation id="8721719390026067591">Kad šis slēdzis ir ieslēgts, vietnes var pieprasīt atļauju meklēt Bluetooth ierīces. Kad šis slēdzis ir izslēgts, vietnes nevar meklēt Bluetooth ierīces.</translation>
 <translation id="8725066075913043281">Mēģināt vēlreiz</translation>

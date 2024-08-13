@@ -21,17 +21,22 @@ import {
 import {Filenamer} from '../models/file_namer.js';
 import {getI18nMessage} from '../models/load_time_data.js';
 import {ResultSaver} from '../models/result_saver.js';
-import {ChromeHelper, createBigBufferFromBlob} from '../mojo/chrome_helper.js';
+import {
+  ChromeHelper,
+  createBigBufferFromBlob,
+  createNumArrayFromBlob,
+} from '../mojo/chrome_helper.js';
 import {
   BigBuffer,
   PdfBuilderRemote,
-  ToteMetricFormat,
 } from '../mojo/type.js';
 import * as nav from '../nav.js';
+import {PerfLogger} from '../perf.js';
 import {speakMessage} from '../spoken_msg.js';
 import {show as showToast} from '../toast.js';
 import {
   MimeType,
+  PerfEvent,
   Rotation,
   ViewName,
 } from '../type.js';
@@ -243,22 +248,31 @@ export class DocumentReview extends View {
             this.pages.length > 1 ? MimeType.PDF : MimeType.JPEG,
         );
       },
-      onSave: (mimeType: MimeType.JPEG|MimeType.PDF) => {
+      onSave: async (mimeType: MimeType.JPEG|MimeType.PDF) => {
+        const perfLogger = PerfLogger.getInstance();
+        if (mimeType === MimeType.PDF) {
+          perfLogger.start(PerfEvent.DOCUMENT_PDF_SAVING);
+        }
         this.sendResultEvent(
             mimeType === MimeType.JPEG ? DocScanResultActionType.SAVE_AS_PHOTO :
                                          DocScanResultActionType.SAVE_AS_PDF);
         nav.open(ViewName.FLASH);
-        this.save(mimeType)
-            .then(() => {
-              this.clearPages();
-              this.close();
-            })
-            .catch(() => {
-              showToast(I18nString.ERROR_MSG_SAVE_FILE_FAILED);
-            })
-            .finally(() => {
-              nav.close(ViewName.FLASH);
-            });
+        let hasError = false;
+        const pageCount = this.pages.length;
+        try {
+          await this.save(mimeType);
+          this.clearPages();
+          this.close();
+        } catch (e) {
+          hasError = true;
+          showToast(I18nString.ERROR_MSG_SAVE_FILE_FAILED);
+        } finally {
+          nav.close(ViewName.FLASH);
+          if (mimeType === MimeType.PDF) {
+            perfLogger.stop(
+                PerfEvent.DOCUMENT_PDF_SAVING, {hasError, pageCount});
+          }
+        }
       },
     });
     this.modes = {
@@ -303,12 +317,10 @@ export class DocumentReview extends View {
     const blobs = this.pages.map((page) => page.croppedBlob);
     const name = (new Filenamer()).newDocumentName(mimeType);
     if (mimeType === MimeType.JPEG) {
-      await this.resultSaver.savePhoto(
-          blobs[0], ToteMetricFormat.kScanJpg, name, null);
+      await this.resultSaver.savePhoto(blobs[0], name, null);
     } else {
       const blob = await this.pdfBuilder.save();
-      await this.resultSaver.savePhoto(
-          blob, ToteMetricFormat.kScanPdf, name, null);
+      await this.resultSaver.savePhoto(blob, name, null);
     }
     this.lastFileProcessingTime = performance.now() - startTime;
   }
@@ -632,8 +644,17 @@ class PdfBuilder {
    */
   async addPage(jpg: Blob, index: number): Promise<void> {
     assert(this.builder !== null);
-    const bigBuffer = await createBigBufferFromBlob(jpg);
-    this.builder.addPage(bigBuffer, index);
+    try {
+      if (ChromeHelper.useBigBuffer) {
+        const bigBuffer = await createBigBufferFromBlob(jpg);
+        this.builder.addPage(bigBuffer, index);
+        return;
+      }
+    } catch (e) {
+      ChromeHelper.handleBigBufferError(e);
+    }
+    const numArray = await createNumArrayFromBlob(jpg);
+    this.builder.addPageInline(numArray, index);
   }
 
   /**
@@ -649,8 +670,16 @@ class PdfBuilder {
    */
   async save(): Promise<Blob> {
     assert(this.builder !== null);
-    const {pdf} = await this.builder.save();
-    return this.createPdfBlob(pdf);
+    try {
+      if (ChromeHelper.useBigBuffer) {
+        const {pdf} = await this.builder.save();
+        return this.createPdfBlob(pdf);
+      }
+    } catch (e) {
+      ChromeHelper.handleBigBufferError(e);
+    }
+    const {pdf} = await this.builder.saveInline();
+    return new Blob([new Uint8Array(pdf)], {type: MimeType.PDF});
   }
 
   /**

@@ -17,7 +17,6 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ActivityType;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -136,8 +135,7 @@ public class TabModelImpl extends TabModelJniBridge {
                 // Reset the index first so the event is raised properly as a index change and not
                 // re-using the current index.
                 mIndex = INVALID_TAB_INDEX;
-                TabModelUtils.setIndex(
-                        TabModelImpl.this, insertIndex, false, TabSelectionType.FROM_UNDO);
+                TabModelUtils.setIndex(TabModelImpl.this, insertIndex, TabSelectionType.FROM_UNDO);
             } else if (wasInvalidIndex && !isActiveModel()) {
                 mCurrentTabSupplier.set(TabModelUtils.getCurrentTab(TabModelImpl.this));
             }
@@ -239,7 +237,7 @@ public class TabModelImpl extends TabModelJniBridge {
         if (hasValidTab() && mIndex == INVALID_TAB_INDEX) {
             // Actually select the first tab if it is the active model, otherwise just set mIndex.
             if (isActiveModel()) {
-                TabModelUtils.setIndex(this, 0, false);
+                TabModelUtils.setIndex(this, 0);
             } else {
                 mIndex = 0;
                 mCurrentTabSupplier.set(TabModelUtils.getCurrentTab(this));
@@ -281,7 +279,7 @@ public class TabModelImpl extends TabModelJniBridge {
             for (TabModelObserver obs : mObservers) obs.willAddTab(tab, type);
 
             boolean selectTab =
-                    mOrderController.willOpenInForeground(type, isIncognito())
+                    mOrderController.willOpenInForeground(type, isIncognitoBranded())
                             || (mTabs.size() == 0
                                     && type == TabLaunchType.FROM_LONGPRESS_BACKGROUND);
 
@@ -328,7 +326,7 @@ public class TabModelImpl extends TabModelJniBridge {
             }
 
             // setIndex takes care of making sure the appropriate model is active.
-            if (selectTab) setIndex(newIndex, TabSelectionType.FROM_NEW, false);
+            if (selectTab) setIndex(newIndex, TabSelectionType.FROM_NEW);
         } finally {
             TraceEvent.end("TabModelImpl.addTab");
         }
@@ -374,9 +372,9 @@ public class TabModelImpl extends TabModelJniBridge {
     }
 
     private Tab findTabInAllTabModels(int tabId) {
-        Tab tab = TabModelUtils.getTabById(mModelDelegate.getModel(isIncognito()), tabId);
+        Tab tab = mModelDelegate.getModel(isIncognito()).getTabById(tabId);
         if (tab != null) return tab;
-        return TabModelUtils.getTabById(mModelDelegate.getModel(!isIncognito()), tabId);
+        return mModelDelegate.getModel(!isIncognito()).getTabById(tabId);
     }
 
     private Tab findNearbyNotClosingTab(int closingIndex) {
@@ -407,11 +405,12 @@ public class TabModelImpl extends TabModelJniBridge {
 
     /**
      * See public getNextTabIfClosed documentation
-     * @param tabCloseType the type of tab closure occurring. This is used to avoid searching for
-     *                     a nearby tab when closing all tabs.
+     *
+     * @param tabCloseType the type of tab closure occurring. This is used to avoid searching for a
+     *     nearby tab when closing all tabs.
      */
     private Tab getNextTabIfClosed(int id, boolean uponExit, @TabCloseType int tabCloseType) {
-        Tab tabToClose = TabModelUtils.getTabById(this, id);
+        Tab tabToClose = getTabById(id);
         Tab currentTab = TabModelUtils.getCurrentTab(this);
         if (tabToClose == null) return currentTab;
 
@@ -675,11 +674,7 @@ public class TabModelImpl extends TabModelJniBridge {
     }
 
     private boolean containsTab(Tab tab) {
-        if (ChromeFeatureList.sTabIdMap.isEnabled()) {
-            return mTabIdToTabs.containsKey(tab.getId());
-        } else {
-            return mTabs.contains(tab);
-        }
+        return mTabIdToTabs.containsKey(tab.getId());
     }
 
     @Override
@@ -689,7 +684,7 @@ public class TabModelImpl extends TabModelJniBridge {
 
     // This function is complex and its behavior depends on persisted state, including mIndex.
     @Override
-    public void setIndex(int i, final @TabSelectionType int type, boolean skipLoadingTab) {
+    public void setIndex(int i, final @TabSelectionType int type) {
         try {
             TraceEvent.begin("TabModelImpl.setIndex");
             int lastId = getLastId(type);
@@ -706,7 +701,7 @@ public class TabModelImpl extends TabModelJniBridge {
 
             Tab tab = TabModelUtils.getCurrentTab(this);
 
-            if (!skipLoadingTab || tab == null) mModelDelegate.requestToShowTab(tab, type);
+            mModelDelegate.requestToShowTab(tab, type);
 
             mCurrentTabSupplier.set(tab);
             if (tab != null) {
@@ -820,7 +815,7 @@ public class TabModelImpl extends TabModelJniBridge {
             }
 
             TabModel nextModel = mModelDelegate.getModel(nextIsIncognito);
-            nextModel.setIndex(nextTabIndex, selectionType, false);
+            nextModel.setIndex(nextTabIndex, selectionType);
         } else {
             mIndex = nextTabIndex;
             mCurrentTabSupplier.set(TabModelUtils.getCurrentTab(this));
@@ -933,7 +928,7 @@ public class TabModelImpl extends TabModelJniBridge {
         // tab restore service.
         mModelDelegate.openMostRecentlyClosedEntry(this);
         // If there is only one tab, select it.
-        if (getCount() == 1) setIndex(0, TabSelectionType.FROM_NEW, false);
+        if (getCount() == 1) setIndex(0, TabSelectionType.FROM_NEW);
     }
 
     @Override

@@ -57,11 +57,6 @@ content::WebContents* GetWebContentsFromDialog() {
 
 class AppInstallDialogBrowserTest : public InProcessBrowserTest {
  public:
-  AppInstallDialogBrowserTest() {
-    feature_list_.InitWithFeatures(
-        {chromeos::features::kCrosWebAppInstallDialog}, {});
-  }
-
   void SetUpOnMainThread() override {
     embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
         &AppInstallDialogBrowserTest::HandleRequest, base::Unretained(this)));
@@ -138,7 +133,6 @@ class AppInstallDialogBrowserTest : public InProcessBrowserTest {
  protected:
   std::map<GURL, std::unique_ptr<net::test_server::BasicHttpResponse>>
       response_map_;
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(AppInstallDialogBrowserTest, InstallApp) {
@@ -164,9 +158,7 @@ IN_PROC_BROWSER_TEST_F(AppInstallDialogBrowserTest, InstallApp) {
       /*app_name=*/"Test app",
       /*app_url=*/app_url,
       /*app_description=*/"",
-      /*icon_url=*/GURL(),
-      /*icon_width=*/0,
-      /*is_icon_maskable=*/false,
+      /*icon=*/std::nullopt,
       /*screenshots=*/{},
       /*dialog_accepted_callback=*/dialog_accepted_future.GetCallback());
   navigation_observer_dialog.Wait();
@@ -272,9 +264,7 @@ IN_PROC_BROWSER_TEST_F(AppInstallDialogBrowserTest, FailedInstall) {
       /*app_name=*/"Test app",
       /*app_url=*/GURL(kAppUrl),
       /*app_description=*/"",
-      /*icon_url=*/GURL(),
-      /*icon_width=*/0,
-      /*is_icon_maskable=*/false,
+      /*icon=*/std::nullopt,
       /*screenshots=*/{},
       base::BindOnce(
           [](base::WeakPtr<AppInstallDialog> dialog_handle,

@@ -128,8 +128,9 @@ class AvailableValuesFilter {
       std::string child_path = CombineKeys(current_path, it.first);
 
       // Unavailable key, skip it.
-      if (!CanAccessFeature(manifest, child_path))
+      if (!CanAccessFeature(manifest, child_path)) {
         continue;
+      }
 
       // If |child_path| corresponds to a leaf node, copy it.
       bool is_leaf_node = !it.second.is_dict();
@@ -163,8 +164,9 @@ class AvailableValuesFilter {
     // available) but is probably not correct for top-level features. We
     // should see if false can be returned for these non-existent top-level
     // features here.
-    if (!feature)
+    if (!feature) {
       return true;
+    }
 
     return feature
         ->IsAvailableToManifest(
@@ -175,8 +177,9 @@ class AvailableValuesFilter {
 
   static std::string CombineKeys(const std::string& parent,
                                  const std::string& child) {
-    if (parent.empty())
+    if (parent.empty()) {
       return child;
+    }
 
     return base::StrCat({parent, ".", child});
   }
@@ -187,8 +190,9 @@ class AvailableValuesFilter {
 // static
 ManifestLocation Manifest::GetHigherPriorityLocation(ManifestLocation loc1,
                                                      ManifestLocation loc2) {
-  if (loc1 == loc2)
+  if (loc1 == loc2) {
     return loc1;
+  }
 
   int loc1_rank = GetLocationRank(loc1);
   int loc2_rank = GetLocationRank(loc2);
@@ -198,7 +202,7 @@ ManifestLocation Manifest::GetHigherPriorityLocation(ManifestLocation loc1,
   CHECK(loc1_rank != loc2_rank);
 
   // Highest rank has highest priority.
-  return (loc1_rank > loc2_rank ? loc1 : loc2 );
+  return loc1_rank > loc2_rank ? loc1 : loc2;
 }
 
 // static
@@ -243,15 +247,18 @@ Manifest::Type Manifest::GetTypeFromManifestValue(
 // static
 bool Manifest::ShouldAlwaysLoadExtension(ManifestLocation location,
                                          bool is_theme) {
-  if (location == ManifestLocation::kComponent)
+  if (location == ManifestLocation::kComponent) {
     return true;  // Component extensions are always allowed.
+  }
 
-  if (is_theme)
+  if (is_theme) {
     return true;  // Themes are allowed, even with --disable-extensions.
+  }
 
   // TODO(devlin): This seems wrong. See https://crbug.com/833540.
-  if (Manifest::IsExternalLocation(location))
+  if (Manifest::IsExternalLocation(location)) {
     return true;
+  }
 
   return false;
 }
@@ -297,13 +304,15 @@ void Manifest::ValidateManifest(std::vector<InstallWarning>* warnings) const {
   const FeatureProvider* manifest_feature_provider =
       FeatureProvider::GetManifestFeatures();
   for (const auto& map_entry : manifest_feature_provider->GetAllFeatures()) {
-    if (!value_.FindByDottedPath(map_entry.first))
+    if (!value_.FindByDottedPath(map_entry.first)) {
       continue;
+    }
 
     Feature::Availability result = map_entry.second->IsAvailableToManifest(
         hashed_id_, type_, location_, manifest_version_, kUnspecifiedContextId);
-    if (!result.is_available())
+    if (!result.is_available()) {
       warnings->emplace_back(result.message(), map_entry.first);
+    }
   }
 #if 0
   // Also generate warnings for keys that are not features.
@@ -351,8 +360,9 @@ const base::Value::Dict* Manifest::FindDictPath(std::string_view path) const {
 bool Manifest::GetList(const std::string& path,
                        const base::Value** out_value) const {
   const base::Value* value = available_values_.FindByDottedPath(path);
-  if (!value || !value->is_list())
+  if (!value || !value->is_list()) {
     return false;
+  }
   *out_value = value;
   return true;
 }

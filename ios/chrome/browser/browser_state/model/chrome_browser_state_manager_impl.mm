@@ -40,6 +40,7 @@
 #import "ios/chrome/browser/signin/model/account_reconcilor_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/supervised_user/model/child_account_service_factory.h"
+#import "ios/chrome/browser/supervised_user/model/list_family_members_service_factory.h"
 #import "ios/chrome/browser/supervised_user/model/supervised_user_service_factory.h"
 #import "ios/chrome/browser/unified_consent/model/unified_consent_service_factory.h"
 
@@ -119,22 +120,28 @@ ChromeBrowserStateManagerImpl::~ChromeBrowserStateManagerImpl() {}
 
 ChromeBrowserState*
 ChromeBrowserStateManagerImpl::GetLastUsedBrowserStateDeprecatedDoNotUse() {
-  ChromeBrowserState* browser_state = GetBrowserStateByPath(
-      GetUserDataDir().Append(GetLastUsedBrowserStateName()));
+  ChromeBrowserState* browser_state =
+      GetBrowserStateByName(GetLastUsedBrowserStateName());
   CHECK(browser_state);
   return browser_state;
 }
 
-ChromeBrowserState* ChromeBrowserStateManagerImpl::GetBrowserStateByPath(
-    const base::FilePath& path) {
+ChromeBrowserState* ChromeBrowserStateManagerImpl::GetBrowserStateByName(
+    const std::string& name) {
   // If the browser state is already loaded, just return it.
-  auto iter = browser_states_.find(path);
+  auto iter = browser_states_.find(name);
   if (iter != browser_states_.end()) {
     DCHECK(iter->second.get());
     return iter->second.get();
   }
 
   return nullptr;
+}
+
+ChromeBrowserState* ChromeBrowserStateManagerImpl::GetBrowserStateByPath(
+    const base::FilePath& path) {
+  DCHECK_EQ(path.DirName(), GetUserDataDir());
+  return GetBrowserStateByName(path.BaseName().AsUTF8Unsafe());
 }
 
 std::string ChromeBrowserStateManagerImpl::GetLastUsedBrowserStateName() const {
@@ -198,9 +205,8 @@ void ChromeBrowserStateManagerImpl::LoadBrowserStates() {
     }
   }
 
-  for (std::string browser_state_dir : last_active_browser_states_set) {
-    LoadBrowserState(GetUserDataDir().AppendASCII(browser_state_dir),
-                     base::DoNothing());
+  for (const std::string& browser_state_name : last_active_browser_states_set) {
+    LoadBrowserState(browser_state_name, base::DoNothing());
   }
 }
 
@@ -220,13 +226,14 @@ void ChromeBrowserStateManagerImpl::OnChromeBrowserStateCreationFinished(
 }
 
 void ChromeBrowserStateManagerImpl::LoadBrowserState(
-    const base::FilePath& path,
+    const std::string& name,
     BrowserStateLoadedCallback callback) {
-  DCHECK(!base::Contains(browser_states_, path));
+  DCHECK(!base::Contains(browser_states_, name));
 
   auto [iter, inserted] = browser_states_.insert(std::make_pair(
-      path, ChromeBrowserState::CreateBrowserState(
-                path, ChromeBrowserState::CreationMode::kSynchronous, this)));
+      name, ChromeBrowserState::CreateBrowserState(
+                GetUserDataDir().Append(name), name,
+                ChromeBrowserState::CreationMode::kSynchronous, this)));
   DCHECK(inserted);
   DCHECK(iter != browser_states_.end());
 
@@ -280,6 +287,7 @@ void ChromeBrowserStateManagerImpl::DoFinalInitForServices(
 
   ChildAccountServiceFactory::GetForBrowserState(browser_state)->Init();
   SupervisedUserServiceFactory::GetForBrowserState(browser_state)->Init();
+  ListFamilyMembersServiceFactory::GetForBrowserState(browser_state)->Init();
 
   // The AboutThisSiteService needs to be created at startup in order to
   // register its OptimizationType with OptimizationGuideDecider.

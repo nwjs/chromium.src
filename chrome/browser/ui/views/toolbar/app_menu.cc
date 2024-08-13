@@ -19,6 +19,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
+#include "base/not_fatal_until.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -44,6 +45,8 @@
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
+#include "chrome/browser/ui/safety_hub/safety_hub_hats_service.h"
+#include "chrome/browser/ui/safety_hub/safety_hub_hats_service_factory.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
@@ -1319,11 +1322,9 @@ void AppMenu::OnMenuClosed(views::MenuItemView* menu) {
       [&](int id) { return command_id_to_entry_.contains(id); });
   if (has_safety_hub_notification &&
       menu_opened_timer_.Elapsed() >= base::Seconds(5)) {
-    if (TrustSafetySentimentService* sentiment_service =
-            TrustSafetySentimentServiceFactory::GetForProfile(
-                browser_->profile())) {
-      sentiment_service->TriggerSafetyHubSurvey(
-          TrustSafetySentimentService::FeatureArea::kSafetyHubNotification);
+    if (SafetyHubHatsService* hats_service =
+            SafetyHubHatsServiceFactory::GetForProfile(browser_->profile())) {
+      hats_service->SafetyHubNotificationSeen();
     }
   }
 
@@ -1568,7 +1569,7 @@ void AppMenu::CreateBookmarkMenu() {
 
 size_t AppMenu::ModelIndexFromCommandId(int command_id) const {
   auto ix = command_id_to_entry_.find(command_id);
-  DCHECK(ix != command_id_to_entry_.end());
+  CHECK(ix != command_id_to_entry_.end(), base::NotFatalUntil::M130);
   return ix->second.second;
 }
 

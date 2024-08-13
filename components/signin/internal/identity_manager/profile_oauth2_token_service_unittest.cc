@@ -6,9 +6,11 @@
 
 #include <string>
 
+#include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
+#include "base/scoped_observation.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
@@ -595,7 +597,10 @@ TEST_F(ProfileOAuth2TokenServiceTest, InvalidateTokensForMultiloginDesktop) {
       std::make_unique<FakeProfileOAuth2TokenServiceDelegateDesktop>();
   ProfileOAuth2TokenService token_service(&prefs_, std::move(delegate));
   MockOAuth2TokenServiceObserver observer;
-  token_service.GetDelegate()->AddObserver(&observer);
+  base::ScopedObservation<ProfileOAuth2TokenService,
+                          ProfileOAuth2TokenServiceObserver>
+      token_service_observation{&observer};
+  token_service_observation.Observe(&token_service);
   EXPECT_CALL(observer,
               OnAuthErrorChanged(
                   account_id_,
@@ -619,13 +624,14 @@ TEST_F(ProfileOAuth2TokenServiceTest, InvalidateTokensForMultiloginDesktop) {
             GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
   EXPECT_EQ(token_service.GetDelegate()->GetAuthError(account_id_2).state(),
             GoogleServiceAuthError::NONE);
-
-  token_service.GetDelegate()->RemoveObserver(&observer);
 }
 
 TEST_F(ProfileOAuth2TokenServiceTest, InvalidateTokensForMultiloginMobile) {
   MockOAuth2TokenServiceObserver observer;
-  oauth2_service_->GetDelegate()->AddObserver(&observer);
+  base::ScopedObservation<ProfileOAuth2TokenService,
+                          ProfileOAuth2TokenServiceObserver>
+      token_service_observation{&observer};
+  token_service_observation.Observe(oauth2_service_.get());
   EXPECT_CALL(
       observer,
       OnAuthErrorChanged(account_id_,
@@ -646,8 +652,6 @@ TEST_F(ProfileOAuth2TokenServiceTest, InvalidateTokensForMultiloginMobile) {
             GoogleServiceAuthError::NONE);
   EXPECT_EQ(oauth2_service_->GetDelegate()->GetAuthError(account_id_2).state(),
             GoogleServiceAuthError::NONE);
-
-  oauth2_service_->GetDelegate()->RemoveObserver(&observer);
 }
 
 TEST_F(ProfileOAuth2TokenServiceTest, InvalidateToken) {
@@ -769,7 +773,7 @@ TEST_F(ProfileOAuth2TokenServiceTest, RequestParametersOrderTest) {
   }
 }
 
-TEST_F(ProfileOAuth2TokenServiceTest, FixRequestErrorIfPossible) {
+TEST_F(ProfileOAuth2TokenServiceTest, FixAccountErrorIfPossible) {
   oauth2_service_->GetDelegate()->UpdateCredentials(account_id_,
                                                     "refreshToken");
   std::unique_ptr<OAuth2AccessTokenManager::Request> request(
@@ -778,22 +782,33 @@ TEST_F(ProfileOAuth2TokenServiceTest, FixRequestErrorIfPossible) {
   EXPECT_EQ(0, consumer_.number_of_successful_tokens_);
   EXPECT_EQ(0, consumer_.number_of_errors_);
 
-  delegate_ptr_->set_fix_request_if_possible(true);
+  auto callback = base::BindRepeating(
+      [](ProfileOAuth2TokenService* service,
+         const CoreAccountId& account_id) -> bool {
+        service->GetDelegate()->UpdateCredentials(account_id,
+                                                  "validRefreshToken");
+        return true;
+      },
+      oauth2_service_.get(), account_id_);
+  delegate_ptr_->set_fix_request_if_possible(std::move(callback));
+
+  MockOAuth2TokenServiceObserver observer;
+  base::ScopedObservation<ProfileOAuth2TokenService,
+                          ProfileOAuth2TokenServiceObserver>
+      token_service_observation{&observer};
+  token_service_observation.Observe(oauth2_service_.get());
+  EXPECT_CALL(observer,
+              OnAuthErrorChanged(account_id_,
+                                 GoogleServiceAuthError::FromServiceError(""),
+                                 testing::_))
+      .Times(1);
+  EXPECT_CALL(
+      observer,
+      OnAuthErrorChanged(account_id_, GoogleServiceAuthError::AuthErrorNone(),
+                         testing::_))
+      .Times(1);
   SimulateOAuthTokenResponse("", net::HTTP_UNAUTHORIZED);
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(0, consumer_.number_of_successful_tokens_);
-  EXPECT_EQ(0, consumer_.number_of_errors_);
-
-  SimulateOAuthTokenResponse(GetValidTokenResponse("token", 3600));
-  base::RunLoop().RunUntilIdle();
-  for (int max_reties = 5;
-       max_reties >= 0 && consumer_.number_of_successful_tokens_ != 1;
-       --max_reties) {
-    base::RunLoop().RunUntilIdle();
-    base::PlatformThread::Sleep(base::Seconds(1));
-  }
-
-  EXPECT_EQ(1, consumer_.number_of_successful_tokens_);
-  EXPECT_EQ(0, consumer_.number_of_errors_);
-  EXPECT_EQ("token", consumer_.last_token_);
+  EXPECT_EQ(1, consumer_.number_of_errors_);
 }

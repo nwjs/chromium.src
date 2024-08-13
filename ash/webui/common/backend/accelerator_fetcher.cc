@@ -45,7 +45,10 @@ std::vector<mojom::StandardAcceleratorPropertiesPtr> GetAcceleratorsForActionId(
 }  // namespace
 
 AcceleratorFetcher::AcceleratorFetcher() {
-  CHECK(::features::IsShortcutCustomizationEnabled());
+  if (!::features::IsShortcutCustomizationEnabled()) {
+    return;
+  }
+
   if (Shell::HasInstance()) {
     Shell::Get()
         ->accelerator_controller()
@@ -58,6 +61,10 @@ AcceleratorFetcher::AcceleratorFetcher() {
 }
 
 AcceleratorFetcher::~AcceleratorFetcher() {
+  if (!::features::IsShortcutCustomizationEnabled()) {
+    return;
+  }
+
   if (Shell::HasInstance()) {
     Shell::Get()
         ->accelerator_controller()
@@ -100,9 +107,10 @@ void AcceleratorFetcher::OnAcceleratorsUpdated() {
   }
 }
 
-void AcceleratorFetcher::HasLauncherKey(HasLauncherKeyCallback callback) {
+void AcceleratorFetcher::GetMetaKeyToDisplay(
+    GetMetaKeyToDisplayCallback callback) {
   std::move(callback).Run(
-      Shell::Get()->keyboard_capability()->HasLauncherButtonOnAnyKeyboard());
+      Shell::Get()->keyboard_capability()->GetMetaKeyToDisplay());
 }
 
 void AcceleratorFetcher::OnObserverDisconnect(mojo::RemoteSetElementId id) {

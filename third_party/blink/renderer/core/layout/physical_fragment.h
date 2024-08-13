@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_PHYSICAL_FRAGMENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_PHYSICAL_FRAGMENT_H_
 
@@ -85,6 +90,9 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
     // includes a non-optional kPageArea child.
     // See https://drafts.csswg.org/css-page-3/#page-model
     kPageBorderBox,
+    // Page margin fragment (e.g. author-specified header / footer). Used by
+    // printing.
+    kPageMargin,
     // A page area fragment. Used by printing. This is a fragmentainer, into
     // which document contents flow and get fragmented. It is sized with respect
     // to any given @page size when possible, and also honors scaling from print

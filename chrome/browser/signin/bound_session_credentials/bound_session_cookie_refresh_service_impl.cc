@@ -20,6 +20,7 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_cookie_controller.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_cookie_controller_impl.h"
+#include "chrome/browser/signin/bound_session_credentials/bound_session_debug_info.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_key.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_params_storage.h"
 #include "chrome/browser/signin/bound_session_credentials/bound_session_params_util.h"
@@ -56,6 +57,8 @@ size_t GetResumeBlockedRequestsTriggerPriority(
       return 5;
     case ResumeBlockedRequestsTrigger::kTimeout:
       return 6;
+    case ResumeBlockedRequestsTrigger::kThrottlingRequestsPaused:
+      return 7;
   }
 }
 
@@ -73,6 +76,24 @@ chrome::mojom::ResumeBlockedRequestsTrigger AggregateMultipleTriggers(
       });
 }
 
+chrome::mojom::BoundSessionThrottlerParamsPtr
+GetThrottlerParamsForRequestCoverage(
+    const BoundSessionCookieController* controller) {
+  if (!controller->ShouldPauseThrottlingRequests()) {
+    return controller->bound_session_throttler_params();
+  }
+
+  // Throttling is paused, `chrome::mojom::BoundSessionThrottlerParamsPtr` is
+  // expected to be null. Construct throttler params to compute request
+  // coverage. Use time in the past to ensure that a throttler will be added to
+  // blocking throttlers if it covers a request. The controller will resume the
+  // request immediately.
+  // Note: This is needed to ensure the correctness of metrics in case of
+  // outages.
+  return chrome::mojom::BoundSessionThrottlerParams::New(
+      controller->scope_url().host(), controller->scope_url().path(),
+      base::Time());
+}
 }  // namespace
 
 BASE_FEATURE(kMultipleBoundSessionsEnabled,
@@ -147,7 +168,7 @@ void BoundSessionCookieRefreshServiceImpl::RegisterNewBoundSession(
       bool clear_params = controller->GetBoundSessionKey() !=
                           bound_session_credentials::GetBoundSessionKey(params);
       if (clear_params) {
-        session_params_storage_->ClearParams(controller->url(),
+        session_params_storage_->ClearParams(controller->site(),
                                              controller->session_id());
       }
       cookie_controllers_.clear();
@@ -194,7 +215,11 @@ std::vector<chrome::mojom::BoundSessionThrottlerParamsPtr>
 BoundSessionCookieRefreshServiceImpl::GetBoundSessionThrottlerParams() const {
   std::vector<chrome::mojom::BoundSessionThrottlerParamsPtr> result;
   for (const auto& [key, controller] : cookie_controllers_) {
-    result.push_back(controller->bound_session_throttler_params());
+    if (chrome::mojom::BoundSessionThrottlerParamsPtr params =
+            controller->bound_session_throttler_params();
+        params) {
+      result.push_back(std::move(params));
+    }
   }
   return result;
 }
@@ -233,13 +258,15 @@ void BoundSessionCookieRefreshServiceImpl::HandleRequestBlockedOnCookie(
   bool request_covered_by_at_least_one_session = false;
   if (!base::FeatureList::IsEnabled(kMultipleBoundSessionsEnabled)) {
     blocking_controllers.push_back(cookie_controller());
-    // Assume by default that the only controller covers all incoming requests.
+    // Assume by default that the only controller covers all incoming
+    // requests.
     request_covered_by_at_least_one_session = true;
   } else {
     for (const auto& [key, controller] : cookie_controllers_) {
       std::vector<chrome::mojom::BoundSessionThrottlerParamsPtr>
           throttler_params;
-      throttler_params.push_back(controller->bound_session_throttler_params());
+      throttler_params.push_back(
+          GetThrottlerParamsForRequestCoverage(controller.get()));
       GoogleURLLoaderThrottle::RequestBoundSessionStatus status =
           GoogleURLLoaderThrottle::GetRequestBoundSessionStatus(
               untrusted_request_url, throttler_params);
@@ -330,6 +357,16 @@ void BoundSessionCookieRefreshServiceImpl::RemoveObserver(
   observers_.RemoveObserver(observer);
 }
 
+std::vector<BoundSessionDebugInfo>
+BoundSessionCookieRefreshServiceImpl::GetBoundSessionDebugInfo() const {
+  std::vector<BoundSessionDebugInfo> bound_session_debug_info;
+  for (const auto& [key, controller] : cookie_controllers_) {
+    bound_session_debug_info.push_back(
+        BoundSessionDebugInfo::Create(*controller));
+  }
+  return bound_session_debug_info;
+}
+
 BoundSessionCookieController*
 BoundSessionCookieRefreshServiceImpl::cookie_controller() const {
   if (cookie_controllers_.empty()) {
@@ -394,7 +431,7 @@ void BoundSessionCookieRefreshServiceImpl::OnStorageKeyDataCleared(
     // Bound sessions are only supported in first-party contexts, so it's
     // acceptable to use `blink::StorageKey::CreateFirstParty()`.
     if (!storage_key_matcher.Run(blink::StorageKey::CreateFirstParty(
-            url::Origin::Create(controller->url())))) {
+            url::Origin::Create(controller->scope_url())))) {
       continue;
     }
 

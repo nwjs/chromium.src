@@ -38,8 +38,8 @@ class NavigationEntryScreenshotCache;
 //
 // If the user clears the navigation history, the screenshot is deleted when
 // its owning `NavigationEntry` is destroyed. The screenshot is never recreated
-// or cloned even when its `NavigationEntry` is cloned (tab clone / Portals) or
-// restored (i.e., by restoring the last closed tab), because
+// or cloned even when its `NavigationEntry` is cloned (tab clone) or restored
+// (i.e., by restoring the last closed tab), because
 // `base::SupportsUserData::Data::Clone()` is not implemented by
 // `NavigationEntryScreenshot`.
 class CONTENT_EXPORT NavigationEntryScreenshot
@@ -48,9 +48,7 @@ class CONTENT_EXPORT NavigationEntryScreenshot
  public:
   const static void* const kUserDataKey;
 
-  NavigationEntryScreenshot(const SkBitmap& bitmap,
-                            int navigation_entry_id,
-                            bool is_copied_from_embedder);
+  NavigationEntryScreenshot(const SkBitmap& bitmap, int navigation_entry_id);
   NavigationEntryScreenshot(const NavigationEntryScreenshot&) = delete;
   NavigationEntryScreenshot& operator=(const NavigationEntryScreenshot&) =
       delete;
@@ -78,8 +76,6 @@ class CONTENT_EXPORT NavigationEntryScreenshot
 
   int navigation_entry_id() const { return navigation_entry_id_; }
 
-  bool is_copied_from_embedder() const { return is_copied_from_embedder_; }
-
   SkBitmap GetBitmapForTesting() const;
 
  private:
@@ -100,9 +96,6 @@ class CONTENT_EXPORT NavigationEntryScreenshot
   // This screenshot is cached for the navigation entry of
   // `navigation_entry_id_`.
   const int navigation_entry_id_;
-
-  // This screenshot is copied from embedder.
-  const bool is_copied_from_embedder_;
 };
 
 }  // namespace content

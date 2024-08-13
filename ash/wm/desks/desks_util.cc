@@ -186,15 +186,21 @@ const Desk* GetDeskForContext(aura::Window* context) {
 }
 
 bool ShouldDesksBarBeCreated() {
-  // Never show desk bar in pine session.
+  // Never show desk bar in an informed restore session.
   auto* overview_session = GetOverviewSession();
   if (overview_session && overview_session->enter_exit_overview_type() ==
-                              OverviewEnterExitType::kPine) {
+                              OverviewEnterExitType::kInformedRestore) {
     return false;
   }
 
-  // If it is in tablet mode, only show desk bar with more than one desks.
+  // If it is in tablet mode, hide the desk bar in split view. Otherwise, only
+  // show desk bar with more than one desks.
   if (display::Screen::GetScreen()->InTabletMode()) {
+    for (auto& root : Shell::GetAllRootWindows()) {
+      if (SplitViewController::Get(root)->InSplitViewMode()) {
+        return false;
+      }
+    }
     return DesksController::Get()->desks().size() > 1;
   }
 

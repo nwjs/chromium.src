@@ -26,7 +26,7 @@
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "components/translate/core/browser/translate_prefs.h"
-#include "components/variations/service/google_groups_updater_service.h"
+#include "components/variations/service/google_groups_manager.h"
 
 namespace sync_preferences {
 
@@ -309,7 +309,7 @@ constexpr auto kCommonSyncablePrefsAllowlist =
 
 std::optional<SyncablePrefMetadata>
 CommonSyncablePrefsDatabase::GetSyncablePrefMetadata(
-    const std::string& pref_name) const {
+    std::string_view pref_name) const {
   const auto it = kCommonSyncablePrefsAllowlist.find(pref_name);
   if (it == kCommonSyncablePrefsAllowlist.end()) {
     return std::nullopt;

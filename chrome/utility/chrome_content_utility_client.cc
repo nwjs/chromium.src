@@ -32,10 +32,6 @@
 #include "sandbox/policy/sandbox_type.h"
 #endif
 
-#if defined(OS_WIN)
-#pragma warning(disable:4065)
-#endif
-
 ChromeContentUtilityClient::ChromeContentUtilityClient() = default;
 
 ChromeContentUtilityClient::~ChromeContentUtilityClient() = default;

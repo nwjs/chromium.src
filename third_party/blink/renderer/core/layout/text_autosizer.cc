@@ -120,9 +120,10 @@ static bool IsPotentialClusterRoot(const LayoutObject* layout_object) {
   if (layout_object->IsInline() &&
       !layout_object->StyleRef().IsDisplayReplacedType())
     return false;
-  if (layout_object->IsListItemIncludingNG())
+  if (layout_object->IsListItem()) {
     return (layout_object->IsFloating() ||
             layout_object->IsOutOfFlowPositioned());
+  }
 
   return true;
 }
@@ -191,9 +192,10 @@ static bool BlockHeightConstrained(const LayoutBlock* block) {
   // the content is already overflowing before autosizing kicks in.
   for (; block; block = block->ContainingBlock()) {
     const ComputedStyle& style = block->StyleRef();
-    if (style.OverflowY() != EOverflow::kVisible
-        && style.OverflowY() != EOverflow::kHidden)
+    if (style.OverflowY() != EOverflow::kVisible &&
+        style.OverflowY() != EOverflow::kHidden) {
       return false;
+    }
     if (style.Height().IsSpecified() || style.MaxHeight().IsSpecified() ||
         block->IsOutOfFlowPositioned()) {
       // Some sites (e.g. wikipedia) set their html and/or body elements to
@@ -494,7 +496,7 @@ float TextAutosizer::Inflate(LayoutObject* parent,
 
   if (has_text_child) {
     ApplyMultiplier(parent, multiplier);  // Parent handles line spacing.
-  } else if (!parent->IsListItemIncludingNG()) {
+  } else if (!parent->IsListItem()) {
     // For consistency, a block with no immediate text child should always have
     // a multiplier of 1.
     ApplyMultiplier(parent, 1);
@@ -875,9 +877,7 @@ TextAutosizer::Fingerprint TextAutosizer::ComputeFingerprint(
   if (layout_object->IsTableCell())
     data.column_ = layout_object->GetNode()->NodeIndex();
 
-  return StringHasher::ComputeHash<UChar>(
-      static_cast<const UChar*>(static_cast<const void*>(&data)),
-      sizeof data / sizeof(UChar));
+  return StringHasher::HashMemory(&data, sizeof(data));
 }
 
 TextAutosizer::Cluster* TextAutosizer::MaybeCreateCluster(LayoutBlock* block) {
@@ -1028,9 +1028,9 @@ float TextAutosizer::WidthFromBlock(const LayoutBlock* block) const {
   CHECK(block);
   CHECK(block->Style());
 
-  if (!(block->IsTable() || block->IsTableCell() ||
-        block->IsListItemIncludingNG()))
+  if (!(block->IsTable() || block->IsTableCell() || block->IsListItem())) {
     return ContentInlineSize(block);
+  }
 
   if (!block->ContainingBlock())
     return 0;
@@ -1146,8 +1146,9 @@ const LayoutObject* TextAutosizer::FindTextLeaf(
     size_t& depth,
     TextLeafSearch first_or_last) const {
   // List items are treated as text due to the marker.
-  if (parent->IsListItemIncludingNG())
+  if (parent->IsListItem()) {
     return parent;
+  }
 
   if (parent->IsText())
     return parent;

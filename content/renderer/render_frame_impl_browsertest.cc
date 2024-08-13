@@ -502,7 +502,8 @@ TEST_F(RenderFrameImplTest, FileUrlPathAlias) {
     WebURLRequest request;
     request.SetUrl(GURL(test_case.original));
     GetMainRenderFrame()->WillSendRequest(
-        request, blink::WebLocalFrameClient::ForRedirect(false));
+        request, blink::WebLocalFrameClient::ForRedirect(false),
+        /*upstream_url=*/GURL());
     EXPECT_EQ(test_case.transformed, request.Url().GetString().Utf8());
   }
 }
@@ -662,7 +663,7 @@ class FrameHostTestInterfaceRequestIssuer : public RenderFrameObserver {
   void RequestTestInterfaceOnFrameEvent(const std::string& event) {
     mojo::Remote<mojom::FrameHostTestInterface> remote;
     blink::WebDocument document = render_frame()->GetWebFrame()->GetDocument();
-    render_frame()->GetBrowserInterfaceBroker()->GetInterface(
+    render_frame()->GetBrowserInterfaceBroker().GetInterface(
         remote.BindNewPipeAndPassReceiver());
     remote->Ping(
         !document.IsNull() ? GURL(document.Url()) : GURL(kNoDocumentMarkerURL),

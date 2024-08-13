@@ -105,7 +105,6 @@ PersistentPrefStore* CreateTrackedPersistentPrefStore(
 
   mojo::Remote<prefs::mojom::TrackedPreferenceValidationDelegate>
       validation_delegate;
-  if (config->validation_delegate)
   validation_delegate.Bind(std::move(config->validation_delegate));
   auto validation_delegate_ref = base::MakeRefCounted<base::RefCountedData<
       mojo::Remote<prefs::mojom::TrackedPreferenceValidationDelegate>>>(
@@ -115,13 +114,13 @@ PersistentPrefStore* CreateTrackedPersistentPrefStore(
                          GetExternalVerificationPrefHashStorePair(
                              *config, temp_scoped_dir_cleaner),
                          unprotected_configuration, mojo::NullRemote(),
-                         nullptr, config->reporting_ids_count));
+                         validation_delegate_ref, config->reporting_ids_count));
   std::unique_ptr<PrefHashFilter> protected_pref_hash_filter(new PrefHashFilter(
       CreatePrefHashStore(*config, true),
       GetExternalVerificationPrefHashStorePair(*config,
                                                temp_scoped_dir_cleaner),
       protected_configuration, std::move(config->reset_on_load_observer),
-      nullptr, config->reporting_ids_count));
+      validation_delegate_ref, config->reporting_ids_count));
 
   PrefHashFilter* raw_unprotected_pref_hash_filter =
       unprotected_pref_hash_filter.get();

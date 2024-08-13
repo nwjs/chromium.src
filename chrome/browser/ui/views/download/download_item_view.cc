@@ -230,10 +230,10 @@ bool has_warning_label(download::DownloadItemMode mode) {
 }
 
 float GetDPIScaleForView(views::View* view) {
-  const display::Screen* const screen = display::Screen::GetScreen();
-  DCHECK(screen);
-  return screen->GetDisplayNearestView(view->GetWidget()->GetNativeView())
-      .device_scale_factor();
+  DCHECK(display::Screen::GetScreen());
+  return display::Screen::GetScreen()
+      ->GetPreferredScaleFactorForView(view->GetWidget()->GetNativeView())
+      .value_or(1.0f);
 }
 }  // namespace
 
@@ -411,8 +411,9 @@ void DownloadItemView::Layout(PassKey) {
     gfx::Rect button_bounds(gfx::Point(label->bounds().right() + kLabelPadding,
                                        CenterY(button_size.height())),
                             button_size);
-    for (auto* button : {save_button_, discard_button_, scan_button_,
-                         open_now_button_, review_button_}) {
+    for (const raw_ptr<views::MdTextButton>& button :
+         {save_button_, discard_button_, scan_button_, open_now_button_,
+          review_button_}) {
       button->SetBoundsRect(button_bounds);
       if (button->GetVisible())
         button_bounds.set_x(button_bounds.right() + kSaveDiscardButtonPadding);
@@ -815,7 +816,6 @@ void DownloadItemView::UpdateLabels() {
     StyleFilename(*warning_label_, filename_offset, filename.length());
     warning_label_->SizeToFit(GetLabelWidth(*warning_label_));
   }
-#if 0
 
   deep_scanning_label_->SetVisible(mode_ ==
                                    download::DownloadItemMode::kDeepScanning);
@@ -832,7 +832,6 @@ void DownloadItemView::UpdateLabels() {
     StyleFilename(*deep_scanning_label_, filename_offset, filename.length());
     deep_scanning_label_->SizeToFit(GetLabelWidth(*deep_scanning_label_));
   }
-#endif
 }
 
 void DownloadItemView::UpdateButtons() {
@@ -1224,9 +1223,6 @@ void DownloadItemView::ReviewButtonPressed() {
 }
 
 void DownloadItemView::ShowOpenDialog(content::WebContents* web_contents) {
-#if 1
-  ExecuteCommand(DownloadCommands::BYPASS_DEEP_SCANNING);
-#else
   if (mode_ == download::DownloadItemMode::kDeepScanning) {
     TabModalConfirmDialog::Create(
         std::make_unique<safe_browsing::DeepScanningModalDialog>(
@@ -1244,7 +1240,6 @@ void DownloadItemView::ShowOpenDialog(content::WebContents* web_contents) {
                        weak_ptr_factory_.GetWeakPtr(),
                        DownloadCommands::BYPASS_DEEP_SCANNING_AND_OPEN));
   }
-#endif
 }
 
 void DownloadItemView::ShowContextMenuImpl(const gfx::Rect& rect,
@@ -1281,7 +1276,7 @@ void DownloadItemView::ShowContextMenuImpl(const gfx::Rect& rect,
 }
 
 void DownloadItemView::OpenDownloadDuringAsyncScanning() {
-  //model_->CompleteSafeBrowsingScan();
+  model_->CompleteSafeBrowsingScan();
   model_->SetOpenWhenComplete(true);
 }
 

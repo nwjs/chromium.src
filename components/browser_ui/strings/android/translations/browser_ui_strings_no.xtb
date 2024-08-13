@@ -113,6 +113,7 @@
 <translation id="2891975107962658722">Blokker et nettsted fra å lagre data på enheten din</translation>
 <translation id="2903493209154104877">Adresser</translation>
 <translation id="2910701580606108292">Spør før nettsteder kan spille av beskyttet innhold</translation>
+<translation id="2918484639460781603">Gå til Innstillinger</translation>
 <translation id="2932883381142163287">Rapporter uriktig bruk</translation>
 <translation id="2939338015096024043">Når dette er på, kan nettsteder be om å få spore kameraposisjonen din og finne ut mer om omgivelsene dine. Når dette er av, kan ikke nettsteder spore kameraposisjonen din eller finne ut mer om omgivelsene dine.</translation>
 <translation id="2968755619301702150">Visningsprogram for sertifikater</translation>
@@ -171,6 +172,7 @@
 <translation id="385051799172605136">Tilbake</translation>
 <translation id="3859306556332390985">Spol fremover</translation>
 <translation id="3895926599014793903">Tving zoom på</translation>
+<translation id="3905475044299942653">Stopp mange varsler</translation>
 <translation id="3908288065506437185">Blokker informasjonskapsler fra tredjeparter i Inkognitomodus</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Enkelte funksjoner vil kanskje ikke fungere. Relaterte nettsteder kan fortsatt bruke informasjonskapsler fra tredjepart.</translation>
@@ -218,6 +220,7 @@
 <translation id="4751476147751820511">Bevegelses- eller lyssensorer</translation>
 <translation id="4755971844837804407">Når dette er på, kan nettsteder vise deg alle slags annonser. Når dette er av, kan ikke nettsteder vise forstyrrende eller villedende annonser.</translation>
 <translation id="4779083564647765204">Zoom</translation>
+<translation id="4807122856660838973">Slå på Safe Browsing</translation>
 <translation id="4811450222531576619">Finn ut mer om kilden og emnet</translation>
 <translation id="4836046166855586901">Spør når nettsteder vil vite når du bruker denne enheten aktivt</translation>
 <translation id="483914009762354899">Inkluder alle nettsteder under dette domenet</translation>
@@ -231,6 +234,7 @@
 <translation id="4994033804516042629">Fant ingen kontakter</translation>
 <translation id="4996978546172906250">Del via</translation>
 <translation id="5001526427543320409">Tredjeparts informasjonskapsler</translation>
+<translation id="5007392906805964215">Se gjennom</translation>
 <translation id="5039804452771397117">Tillat</translation>
 <translation id="5048398596102334565">Gi nettsteder tilgang til bevegelsessensorer (anbefalt)</translation>
 <translation id="5050380848339752099">Dette nettstedet er i ferd med å dele informasjon med en app utenfor Inkognitomodus.</translation>
@@ -281,6 +285,7 @@
 <translation id="5706552988683188916">Dette medfører sletting av informasjonskapsler og andre nettstedsdata for <ph name="WEBSITE" /></translation>
 <translation id="5723967018671998714">Informasjonskapsler fra tredjeparter er blokkert i inkognitomodus</translation>
 <translation id="5740126560802162366">Nettsteder kan lagre data på enheten din</translation>
+<translation id="5749085587985334212">Skjul sikkerhetssjekken</translation>
 <translation id="5771720122942595109"><ph name="PERMISSION_1" /> er blokkert</translation>
 <translation id="5804241973901381774">Tillatelser</translation>
 <translation id="5844448279347999754">Når dette er på, kan nettsteder be om å få se tekst og bilder som er lagret på utklippstavlen. Når dette er av, kan ikke nettsteder se tekst eller bilder som er lagret på utklippstavlen.</translation>
@@ -361,6 +366,7 @@
 <translation id="6945221475159498467">Velg</translation>
 <translation id="6950072572526089586">Nettsteder du besøker, kan lagre informasjon om hva du gjør, slik at nettstedene fungerer som forventet – for eksempel for å holde deg pålogget eller for å lagre varer i handlekurven din. Ofte lagrer nettsteder denne informasjonen midlertidig på enheten din.</translation>
 <translation id="6965382102122355670">OK</translation>
+<translation id="6980861169612950611">Vil du slette nettstedsdata? <ph name="SITE_NAME" /></translation>
 <translation id="6981982820502123353">Tilgjengelighet</translation>
 <translation id="6992289844737586249">Spør før nettsteder får bruke mikrofonen (anbefales)</translation>
 <translation id="7000754031042624318">Slått av i Android-innstillingene</translation>
@@ -388,6 +394,7 @@
 <translation id="7366415735885268578">Legg til et nettsted</translation>
 <translation id="7368695150573390554">Alle data som er lagret for bruk uten nett, blir slettet</translation>
 <translation id="7383715096023715447">Innstillinger for <ph name="DOMAIN" /></translation>
+<translation id="7399802613464275309">Sikkerhetssjekk</translation>
 <translation id="7406113532070524618">Denne innstillingen fungerer uten at du blir identifisert, og uten at nettsteder kan se nettleserloggen din, men nettsteder kan dele noe informasjon som en del av bekreftelsesprosessen</translation>
 <translation id="7423098979219808738">Spør først</translation>
 <translation id="7423538860840206698">Blokkert fra å lese utklippstavlen</translation>
@@ -456,6 +463,7 @@
 <translation id="8441146129660941386">Spol bakover</translation>
 <translation id="8444433999583714703">For å gi <ph name="APP_NAME" /> tilgang til posisjonen din må du også slå på posisjon i <ph name="BEGIN_LINK" />Android-innstillingene<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Opphev tillatelsen til enhetstilgang</translation>
+<translation id="8473055640493819707">«<ph name="APP_NAME" />» er utdatert. Installer appen på nytt.</translation>
 <translation id="8487700953926739672">Tilgjengelig utenfor nettet</translation>
 <translation id="848952951823693243">Be alltid om mobilnettstedet</translation>
 <translation id="8499083585497694743">Slå på mikrofonen</translation>
@@ -472,6 +480,7 @@
 <translation id="8681886425883659911">Annonser blokkeres på nettsteder som er kjent for å vise forstyrrende eller villedende annonser</translation>
 <translation id="868929229000858085">Søk i kontaktene dine</translation>
 <translation id="8712637175834984815">Skjønner</translation>
+<translation id="8715862698998036666">Dra fra toppen og sveip fra venstre eller høyre kant for å avslutte fullskjerm.</translation>
 <translation id="8719283222052720129">Slå på tillatelsen for <ph name="APP_NAME" /> i <ph name="BEGIN_LINK" />Android-innstillingene<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Når dette er på, kan nettsteder be om å få se etter Bluetooth-enheter. Når dette er av, kan ikke nettsteder se etter Bluetooth-enheter.</translation>
 <translation id="8725066075913043281">Prøv på nytt</translation>

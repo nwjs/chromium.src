@@ -34,6 +34,7 @@
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/clipboard_types.h"
 #include "content/public/browser/commit_deferring_condition.h"
+#include "content/public/browser/digital_identity_interstitial_type.h"
 #include "content/public/browser/digital_identity_provider.h"
 #include "content/public/browser/file_system_access_permission_context.h"
 #include "content/public/browser/generated_code_cache_settings.h"
@@ -122,6 +123,7 @@ class ManagedConfigurationService;
 class RendererPreferenceWatcher;
 class WindowFeatures;
 enum class WebFeature : int32_t;
+enum class WebDXFeature : int32_t;
 }  // namespace mojom
 namespace web_pref {
 struct WebPreferences;
@@ -309,6 +311,21 @@ class CONTENT_EXPORT ContentBrowserClient {
                               const ClipboardPasteData& data,
                               std::optional<std::u16string> replacement_data)>;
 
+  // Records the detailed reason for ShouldUseSpareRenderProcessHost returning
+  // .
+  //
+  // LINT.IfChange(SpareProcessRefusedByEmbedderReason)
+  enum class SpareProcessRefusedByEmbedderReason {
+    DefaultDisabled = 0,
+    NoProfile = 1,
+    TopFrameChromeWebUI = 2,
+    InstantRendererForNewTabPage = 3,
+    ExtensionProcess = 4,
+    JitDisabled = 5,
+    kMaxValue = JitDisabled,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/browser/enums.xml:SpareProcessRefusedByEmbedderReason)
+
   virtual ~ContentBrowserClient() = default;
 
   // Allows the embedder to set any number of custom BrowserMainParts
@@ -346,6 +363,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns true if the embedder is in the process of shutting down, whether
   // because of the user closing the browser or the OS is shutting down.
   virtual bool IsShuttingDown();
+
+  // Indicating that the thread pool will terminate shortly.
+  virtual void ThreadPoolWillTerminate();
 
   // If content creates the WebContentsView implementation, it will ask the
   // embedder to return an (optional) delegate to customize it.
@@ -412,7 +432,9 @@ class CONTENT_EXPORT ContentBrowserClient {
       BrowserContext* context);
 
   // Returns whether a spare RenderProcessHost should be used for navigating to
-  // the specified site URL.
+  // the specified site URL. If the spare render process can be used, the
+  // function will return an empty value. Otherwise the detailed reason will be
+  // returned.
   //
   // Using the spare RenderProcessHost is advisable, because it can improve
   // performance of a navigation that requires a new process.  On the other
@@ -421,8 +443,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // ContentBrowserClient::AppendExtraCommandLineSwitches and add some cmdline
   // switches at navigation time (and this won't work for the spare, because the
   // spare RenderProcessHost is launched ahead of time).
-  virtual bool ShouldUseSpareRenderProcessHost(BrowserContext* browser_context,
-                                               const GURL& site_url);
+  virtual std::optional<SpareProcessRefusedByEmbedderReason>
+  ShouldUseSpareRenderProcessHost(BrowserContext* browser_context,
+                                  const GURL& site_url);
 
   // Returns true if site isolation should be enabled for |effective_site_url|.
   // This call allows the embedder to supplement the site isolation policy
@@ -431,6 +454,16 @@ class CONTENT_EXPORT ContentBrowserClient {
   // policy (e.g. because of --site-per-process).
   virtual bool DoesSiteRequireDedicatedProcess(BrowserContext* browser_context,
                                                const GURL& effective_site_url);
+
+  // Returns true if a sandboxed document with `precursor` as the opaque
+  // origin's precursor, and the specified `url`, is allowed to be put into a
+  // separate process, if the IsolateSandboxedIframes feature is enabled.
+  // Defaults to true, but allows embedders to skip isolated sandboxed frames
+  // for certain cases.
+  virtual bool ShouldAllowCrossProcessSandboxedFrameForPrecursor(
+      BrowserContext* browser_context,
+      const GURL& precursor,
+      const GURL& url);
 
   // Returns true unless the effective URL is part of a site that cannot live in
   // a process restricted to just that site.  This is only called if site
@@ -1219,9 +1252,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   // `web_contents` may be null if the requestor was called from something
   // without an associated WebContents, like a service worker. In this case, UI
   // should not be shown, but a certificate may still be provided (such as when
-  // the certificate is auto-selected by policy).
+  // the certificate is auto-selected by policy). `process_id` corresponds to
+  // the ID of the renderer process initiating the request.
   virtual base::OnceClosure SelectClientCertificate(
       BrowserContext* browser_context,
+      int process_id,
       WebContents* web_contents,
       net::SSLCertRequestInfo* cert_request_info,
       net::ClientCertIdentityList client_certs,
@@ -1665,9 +1700,9 @@ class CONTENT_EXPORT ContentBrowserClient {
       sandbox::mojom::Sandbox sandbox_type,
       AppContainerFlags flags);
 
-  // Returns true if renderer App Container should be disabled.
-  // This is called on the UI thread.
-  virtual bool IsRendererAppContainerDisabled();
+  // Returns true if App Container should be disabled for the specified
+  // `sandbox_type`. This is called on the UI thread.
+  virtual bool IsAppContainerDisabled(sandbox::mojom::Sandbox sandbox_type);
 
   // Returns the LPAC capability name to use for file data that the network
   // service needs to access to when running within LPAC sandbox. Embedders
@@ -1678,6 +1713,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns whether renderer code integrity is enabled.
   // This is called on the UI thread.
   virtual bool IsRendererCodeIntegrityEnabled();
+
+  // Returns whether PDF fallback fonts are proxied to child processes. If false
+  // they may require direct file system access. This is a short-term API and
+  // will be removed once crbug.com/344643689 is launched.
+  virtual bool IsPdfFontProxyEnabled();
 
   // Performs a fast and orderly shutdown of the browser. If present,
   // `control_type` is a CTRL_* value from a Windows console control handler;
@@ -2058,6 +2098,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       content::NavigationUIData* navigation_ui_data,
       int frame_tree_node_id,
       int64_t navigation_id,
+      bool force_no_https_upgrade,
       scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner);
 
   // Callback to handle a request for a URLLoader.
@@ -2367,6 +2408,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void LogWebFeatureForCurrentPage(
       content::RenderFrameHost* render_frame_host,
       blink::mojom::WebFeature feature) {}
+  virtual void LogWebDXFeatureForCurrentPage(
+      content::RenderFrameHost* render_frame_host,
+      blink::mojom::WebDXFeature feature) {}
 
   // Returns a string describing the embedder product name and version,
   // of the form "productname/version", with no other slashes.
@@ -2531,7 +2575,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // ui::ClipboardFormatType::HtmlType() is used.
   //
   // It is also possible for the data type to be
-  // ui::ClipboardFormatType::WebCustomDataType() indicating that the paste
+  // ui::ClipboardFormatType::DataTransferCustomType() indicating that the paste
   // uses a custom data format.  It is up to the implementation to attempt to
   // understand the type if possible.  It is acceptable to deny pastes of
   // unknown data types.
@@ -2650,27 +2694,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // given |web_contents|.
   virtual std::unique_ptr<IdentityRequestDialogController>
   CreateIdentityRequestDialogController(WebContents* web_contents);
-
-  // Determines whether to show interstitial to prompt user whether they want to
-  // share their identity with the web page. Shows the interstitial if one is
-  // needed. Runs callback immediately if no interestitial is needed or after
-  // the user dismisses the interstitial if an interstitial is needed.
-  // `is_only_requesting_age` indicates whether the real-world-identity request
-  // is only requesting an assertion about whether the user is over a specific
-  // age.
-  // Returns a callback to call if the digital identity request is aborted. The
-  // callback updates the interstial UI to inform the user that the credential
-  // request has been canceled. Returns an empty callback if no interstitial was
-  // shown.
-  using DigitalIdentityInterstitialAbortCallback = base::OnceClosure;
-  using DigitalIdentityInterstitialCallback = base::OnceCallback<void(
-      DigitalIdentityProvider::RequestStatusForMetrics status_for_metrics)>;
-  virtual DigitalIdentityInterstitialAbortCallback
-  ShowDigitalIdentityInterstitialIfNeeded(
-      WebContents& web_contents,
-      const url::Origin& origin,
-      bool is_only_requesting_age,
-      DigitalIdentityInterstitialCallback callback);
 
   // Creates a digital credential provider to fetch from native apps.
   virtual std::unique_ptr<DigitalIdentityProvider>
@@ -2950,7 +2973,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool ShouldSuppressAXLoadComplete(RenderFrameHost* rfh);
 
   virtual void BindAIManager(
-      RenderFrameHost* rfh,
+      BrowserContext* browser_context,
       mojo::PendingReceiver<blink::mojom::AIManager> receiver);
 
 #if !BUILDFLAG(IS_ANDROID)

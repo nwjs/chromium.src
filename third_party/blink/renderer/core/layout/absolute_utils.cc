@@ -743,9 +743,9 @@ const LayoutResult* ComputeOofBlockDimensions(
         // The |fragmentainer_offset_delta| will not make a difference in the
         // initial column balancing pass.
         SetupSpaceBuilderForFragmentation(
-            space, node, /* fragmentainer_offset_delta */ LayoutUnit(),
-            &builder, /* is_new_fc */ true,
-            /* requires_content_before_breaking */ false);
+            space, node, /*fragmentainer_offset_delta=*/LayoutUnit(),
+            space.FragmentainerBlockSize(),
+            /*requires_content_before_breaking=*/false, &builder);
       }
       result = node.Layout(builder.ToConstraintSpace());
     }

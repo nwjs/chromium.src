@@ -126,7 +126,9 @@ class StructuredLogAdapter(logging.Handler):
         log = getattr(self._logger, record.levelname.lower(),
                       self._logger.debug)
         try:
-            log(record.getMessage(), component=record.name)
+            log(record.getMessage(),
+                component=record.name,
+                exc_info=record.exc_info)
         except mozlog.structuredlog.LoggerShutdownError:
             self._fallback_handler.emit(record)
 
@@ -151,6 +153,7 @@ class WPTAdapter:
             self.port,
             artifacts_dir=self.port.artifacts_directory(),
             reset_results=self.options.reset_results,
+            repeat_each=self.options.repeat_each,
             processes=product.processes)
         self._expectations = TestExpectations(self.port)
 
@@ -179,7 +182,9 @@ class WPTAdapter:
         return WPTAdapter(product, port, options, tests)
 
     def set_up_derived_options(self):
-        if not self.paths and not self.options.test_list and self.options.smoke is None:
+        explicit_tests = self.paths or self.options.test_list
+        if (not explicit_tests and self.options.smoke is None
+                and not self.using_upstream_wpt):
             self.options.smoke = self.port.default_smoke_test_only()
         if self.options.smoke:
             if not self.paths and not self.options.test_list and self.options.num_retries is None:
@@ -236,8 +241,7 @@ class WPTAdapter:
                 mozlog.commandline.log_formatters[name][1],
             )
 
-        product_name = 'chrome' if self.product.name == 'headless_shell' else self.product.name
-        runner_options = parser.parse_args(['--product', product_name])
+        runner_options = parser.parse_args(['--product', self.product.name])
         runner_options.include = []
         runner_options.exclude = []
 
@@ -462,6 +466,11 @@ class WPTAdapter:
                 'config': {
                     'binary_args': subsuite_args,
                 },
+                # The Blink implementation of `TestLoader` needs the
+                # `virtual_suite` property to derive virtual test names.
+                'run_info': {
+                    'virtual_suite': subsuite_name,
+                },
                 'include': tests,
             }
             subsuite_json[subsuite_name] = subsuite
@@ -530,6 +539,8 @@ class WPTAdapter:
                 tests_root = self.tools_root
             else:
                 tests_root = self.finder.path_from_wpt_tests()
+                TestLoader.install(self.port, self._expectations,
+                                   runner_options.include)
             runner_options.tests_root = tests_root
             runner_options.metadata_root = tests_root
             logger.debug('Using WPT tests (external) from %s', tests_root)
@@ -538,8 +549,6 @@ class WPTAdapter:
             runner_options.run_info = tmp_dir
             self._initialize_tmp_dir(tmp_dir, tests_root)
 
-            TestLoader.install(self.port, self._expectations,
-                               runner_options.include)
             stack.enter_context(
                 self.process_and_upload_results(runner_options))
             self.port.setup_test_run()  # Start Xvfb, if necessary.
@@ -568,17 +577,20 @@ class WPTAdapter:
             self.tools_root) != self.fs.realpath(vended_wpt)
 
     def run_tests(self) -> int:
-        with self.test_env() as runner_options:
-            run = _load_entry_point()
-            exit_code = run(**vars(runner_options))
-            # Reopen the `web-platform-tests` logger so that `update-metadata`
-            # can use it.
-            #
-            # TODO(crbug.com/1480061): Find a better way to handle logger
-            # lifecycles.
-            from wptrunner.metadata import logger
-            logger._state.has_shutdown = False
-            return 1 if exit_code or self._processor.num_regressions > 0 else 0
+        exit_code = 0
+        try:
+            with self.test_env() as runner_options:
+                run = _load_entry_point()
+                exit_code = 1 if run(**vars(runner_options)) else 0
+        except KeyboardInterrupt:
+            logger.critical('Harness exited after signal interrupt')
+            exit_code = exit_codes.INTERRUPTED_EXIT_STATUS
+        # Write the partial results for an interrupted run. This also ensures
+        # the results directory is rotated next time.
+        self._processor.copy_results_viewer()
+        results_json = self._processor.process_results_json(
+            self.port.get_option('json_test_results'))
+        return exit_code or int(results_json['num_regressions'] > 0)
 
     def _initialize_tmp_dir(self, tmp_dir: str, tests_root: str):
         assert self.fs.isdir(tmp_dir), tmp_dir
@@ -617,17 +629,12 @@ class WPTAdapter:
 
     @contextlib.contextmanager
     def process_and_upload_results(self, runner_options: argparse.Namespace):
-        with self._processor.stream_results() as events:
-            runner_options.log.add_handler(events.put)
-            try:
+        if self.using_upstream_wpt:
+            yield
+        else:
+            with self._processor.stream_results() as events:
+                runner_options.log.add_handler(events.put)
                 yield
-            finally:
-                # Always copy `results.html` into `layout-test-results/` so that
-                # the partial results can be viewed, and the directory is
-                # archived next run. See crbug.com/1475556.
-                self._processor.copy_results_viewer()
-                self._processor.process_results_json(
-                    self.port.get_option('json_test_results'))
         if runner_options.log_wptreport:
             self._processor.process_wpt_report(
                 runner_options.log_wptreport[0].name)
@@ -792,7 +799,7 @@ def main(argv) -> int:
             adapter.set_up_derived_options()
             exit_code = adapter.run_tests()
     except KeyboardInterrupt:
-        logger.critical('Harness exited after signal interrupt')
+        # This clause catches interrupts outside `WPTAdapter.run_tests()`.
         exit_code = exit_codes.INTERRUPTED_EXIT_STATUS
     except Exception as error:
         logger.exception(error)

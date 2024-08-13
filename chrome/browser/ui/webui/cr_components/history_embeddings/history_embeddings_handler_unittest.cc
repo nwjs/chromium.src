@@ -13,14 +13,17 @@
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_annotations_service_factory.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/history_embeddings/history_embeddings_features.h"
 #include "components/history_embeddings/history_embeddings_service.h"
 #include "components/page_content_annotations/core/test_page_content_annotations_service.h"
+#include "components/user_education/test/mock_feature_promo_controller.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/test/browser_task_environment.h"
+#include "content/public/test/test_web_ui.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/time_format.h"
@@ -29,6 +32,28 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chromeos/constants/chromeos_features.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+namespace {
+
+class MockPage : public history_embeddings::mojom::Page {
+ public:
+  MockPage() = default;
+  ~MockPage() override = default;
+
+  mojo::PendingRemote<history_embeddings::mojom::Page> BindAndGetRemote() {
+    DCHECK(!receiver_.is_bound());
+    return receiver_.BindNewPipeAndPassRemote();
+  }
+  mojo::Receiver<history_embeddings::mojom::Page> receiver_{this};
+
+  void FlushForTesting() { receiver_.FlushForTesting(); }
+
+  MOCK_METHOD(void,
+              SearchResultChanged,
+              (history_embeddings::mojom::SearchResultPtr));
+};
+
+}  // namespace
 
 std::unique_ptr<KeyedService> BuildTestHistoryEmbeddingsService(
     content::BrowserContext* browser_context) {
@@ -42,7 +67,9 @@ std::unique_ptr<KeyedService> BuildTestHistoryEmbeddingsService(
       OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
   return std::make_unique<history_embeddings::HistoryEmbeddingsService>(
       history_service, page_content_annotations_service,
-      optimization_guide_keyed_service, nullptr);
+      optimization_guide_keyed_service, optimization_guide_keyed_service,
+      nullptr, TestingBrowserProcess::GetGlobal()->os_crypt_async(),
+      optimization_guide_keyed_service);
 }
 
 std::unique_ptr<KeyedService> BuildTestPageContentAnnotationsService(
@@ -62,12 +89,15 @@ std::unique_ptr<KeyedService> BuildTestOptimizationGuideKeyedService(
       testing::NiceMock<MockOptimizationGuideKeyedService>>();
 }
 
-class HistoryEmbeddingsHandlerTest : public testing::Test {
+class HistoryEmbeddingsHandlerTest : public BrowserWithTestWindowTest {
  public:
   void SetUp() override {
+    BrowserWithTestWindowTest::SetUp();
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/{{history_embeddings::kHistoryEmbeddings,
                                {{"UseMlEmbedder", "false"}}},
+                              {feature_engagement::kIPHHistorySearchFeature,
+                               {}},
 #if BUILDFLAG(IS_CHROMEOS)
                               {chromeos::features::
                                    kFeatureManagementHistoryEmbedding,
@@ -75,41 +105,63 @@ class HistoryEmbeddingsHandlerTest : public testing::Test {
 #endif  // BUILDFLAG(IS_CHROMEOS)
         },
         /*disabled_features=*/{});
-
-    profile_manager_ = std::make_unique<TestingProfileManager>(
-        TestingBrowserProcess::GetGlobal());
-    ASSERT_TRUE(profile_manager_->SetUp());
-
     MockOptimizationGuideKeyedService::InitializeWithExistingTestLocalState();
 
-    profile_ = profile_manager_->CreateTestingProfile(
+    TestingProfile* profile_ = profile_manager()->CreateTestingProfile(
         "History Embeddings Test User",
         {
-            {HistoryServiceFactory::GetInstance(),
-             HistoryServiceFactory::GetDefaultFactory()},
-            {HistoryEmbeddingsServiceFactory::GetInstance(),
-             base::BindRepeating(&BuildTestHistoryEmbeddingsService)},
-            {PageContentAnnotationsServiceFactory::GetInstance(),
-             base::BindRepeating(&BuildTestPageContentAnnotationsService)},
-            {OptimizationGuideKeyedServiceFactory::GetInstance(),
-             base::BindRepeating(&BuildTestOptimizationGuideKeyedService)},
+            TestingProfile::TestingFactory{
+                HistoryServiceFactory::GetInstance(),
+                HistoryServiceFactory::GetDefaultFactory()},
+            TestingProfile::TestingFactory{
+                HistoryEmbeddingsServiceFactory::GetInstance(),
+                base::BindRepeating(&BuildTestHistoryEmbeddingsService)},
+            TestingProfile::TestingFactory{
+                PageContentAnnotationsServiceFactory::GetInstance(),
+                base::BindRepeating(&BuildTestPageContentAnnotationsService)},
+            TestingProfile::TestingFactory{
+                OptimizationGuideKeyedServiceFactory::GetInstance(),
+                base::BindRepeating(&BuildTestOptimizationGuideKeyedService)},
         });
+
+    web_contents_ = content::WebContents::Create(
+        content::WebContents::CreateParams(profile_));
+    web_ui_.set_web_contents(web_contents_.get());
+    browser()->tab_strip_model()->AppendWebContents(std::move(web_contents_),
+                                                    true);
+
+    static_cast<TestBrowserWindow*>(window())->SetFeaturePromoController(
+        std::make_unique<user_education::test::MockFeaturePromoController>());
 
     handler_ = std::make_unique<HistoryEmbeddingsHandler>(
         mojo::PendingReceiver<history_embeddings::mojom::PageHandler>(),
-        profile_->GetWeakPtr());
+        profile_->GetWeakPtr(), web_ui());
+    handler_->SetPage(page_.BindAndGetRemote());
   }
 
-  void TearDown() override { handler_.reset(); }
+  void TearDown() override {
+    browser()->tab_strip_model()->CloseAllTabs();
+    web_contents_.reset();
+    handler_.reset();
+    MockOptimizationGuideKeyedService::ResetForTesting();
+    BrowserWithTestWindowTest::TearDown();
+  }
+
+  content::TestWebUI* web_ui() { return &web_ui_; }
 
   base::HistogramTester& histogram_tester() { return histogram_tester_; }
 
+  user_education::test::MockFeaturePromoController* mock_promo_controller() {
+    return static_cast<user_education::test::MockFeaturePromoController*>(
+        static_cast<TestBrowserWindow*>(window())->GetFeaturePromoController());
+  }
+
  protected:
   base::test::ScopedFeatureList feature_list_;
-  content::BrowserTaskEnvironment task_environment_;
+  std::unique_ptr<content::WebContents> web_contents_;
+  content::TestWebUI web_ui_;
   std::unique_ptr<HistoryEmbeddingsHandler> handler_;
-  std::unique_ptr<TestingProfileManager> profile_manager_;
-  raw_ptr<TestingProfile> profile_ = nullptr;
+  testing::NiceMock<MockPage> page_;
   base::HistogramTester histogram_tester_;
 };
 
@@ -117,36 +169,42 @@ TEST_F(HistoryEmbeddingsHandlerTest, Searches) {
   auto query = history_embeddings::mojom::SearchQuery::New();
   query->query = "search query for empty result";
   base::test::TestFuture<history_embeddings::mojom::SearchResultPtr> future;
-  handler_->Search(std::move(query), future.GetCallback());
+  EXPECT_CALL(page_, SearchResultChanged)
+      .WillOnce(base::test::InvokeFuture(future));
+  handler_->Search(std::move(query));
   auto result = future.Take();
   ASSERT_EQ(result->items.size(), 0u);
 }
 
 TEST_F(HistoryEmbeddingsHandlerTest, FormatsMojoResults) {
   history_embeddings::ScoredUrlRow scored_url_row(
-      history_embeddings::ScoredUrl(0, 0, {}, .5, 0u, {}));
+      history_embeddings::ScoredUrl(0, 0, {}, .5));
   scored_url_row.row = history::URLRow{GURL{"https://google.com"}};
   scored_url_row.row.set_title(u"my title");
   scored_url_row.row.set_last_visit(base::Time::Now() - base::Hours(1));
   history_embeddings::SearchResult embeddings_result;
   embeddings_result.scored_url_rows = {scored_url_row};
+  embeddings_result.query = "search query";
+  embeddings_result.answer = "the answer";
 
-  auto query = history_embeddings::mojom::SearchQuery::New();
-  query->query = "search query";
   base::test::TestFuture<history_embeddings::mojom::SearchResultPtr> future;
-  handler_->OnReceivedSearchResult(future.GetCallback(), embeddings_result);
+  EXPECT_CALL(page_, SearchResultChanged)
+      .WillOnce(base::test::InvokeFuture(future));
+  handler_->OnReceivedSearchResult(embeddings_result);
 
-  auto mojo_results = future.Take();
-  ASSERT_EQ(mojo_results->items.size(), 1u);
-  EXPECT_EQ(mojo_results->items[0]->title, "my title");
-  EXPECT_EQ(mojo_results->items[0]->url.spec(), "https://google.com/");
-  EXPECT_EQ(mojo_results->items[0]->relative_time,
+  auto mojo_result = future.Take();
+  EXPECT_EQ(mojo_result->query, "search query");
+  EXPECT_EQ(mojo_result->answer, "the answer");
+  ASSERT_EQ(mojo_result->items.size(), 1u);
+  EXPECT_EQ(mojo_result->items[0]->title, "my title");
+  EXPECT_EQ(mojo_result->items[0]->url.spec(), "https://google.com/");
+  EXPECT_EQ(mojo_result->items[0]->relative_time,
             base::UTF16ToUTF8(ui::TimeFormat::Simple(
                 ui::TimeFormat::FORMAT_ELAPSED, ui::TimeFormat::LENGTH_SHORT,
                 base::Time::Now() - scored_url_row.row.last_visit())));
-  EXPECT_EQ(mojo_results->items[0]->last_url_visit_timestamp,
+  EXPECT_EQ(mojo_result->items[0]->last_url_visit_timestamp,
             scored_url_row.row.last_visit().InMillisecondsFSinceUnixEpoch());
-  EXPECT_EQ(mojo_results->items[0]->url_for_display, "google.com");
+  EXPECT_EQ(mojo_result->items[0]->url_for_display, "google.com");
 }
 
 TEST_F(HistoryEmbeddingsHandlerTest, RecordsMetrics) {
@@ -171,4 +229,13 @@ TEST_F(HistoryEmbeddingsHandlerTest, RecordsMetrics) {
   histogram_tester().ExpectBucketCount(
       "History.Embeddings.UserActions",
       HistoryEmbeddingsUserActions::kEmbeddingsResultClicked, 1);
+}
+
+TEST_F(HistoryEmbeddingsHandlerTest, ShowsPromo) {
+  EXPECT_CALL(*mock_promo_controller(),
+              MaybeShowPromo(user_education::test::MatchFeaturePromoParams(
+                  feature_engagement::kIPHHistorySearchFeature)))
+      .Times(1)
+      .WillOnce(testing::Return(user_education::FeaturePromoResult::Success()));
+  handler_->MaybeShowFeaturePromo();
 }

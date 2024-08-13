@@ -1175,11 +1175,6 @@ void ExtractUnderlines(NSAttributedString* string,
 
   NativeWebKeyboardEvent event((base::apple::OwnedNSEvent(theEvent)));
   ui::LatencyInfo latencyInfo;
-  if (event.GetType() == blink::WebInputEvent::Type::kRawKeyDown ||
-      event.GetType() == blink::WebInputEvent::Type::kChar) {
-    latencyInfo.set_source_event_type(ui::SourceEventType::KEY_PRESS);
-  }
-
   latencyInfo.AddLatencyNumber(ui::INPUT_EVENT_LATENCY_UI_COMPONENT);
 
   // If KeyboardLock has been requested for this keyCode, then mark the event
@@ -1412,7 +1407,6 @@ void ExtractUnderlines(NSAttributedString* string,
     fakeEvent.SetType(blink::WebInputEvent::Type::kKeyUp);
     fakeEvent.skip_if_unhandled = true;
     ui::LatencyInfo fakeEventLatencyInfo = latencyInfo;
-    fakeEventLatencyInfo.set_source_event_type(ui::SourceEventType::OTHER);
     _hostHelper->ForwardKeyboardEvent(fakeEvent, fakeEventLatencyInfo);
     _hostHelper->ForwardKeyboardEventWithCommands(event, fakeEventLatencyInfo,
                                                   std::move(_editCommands));

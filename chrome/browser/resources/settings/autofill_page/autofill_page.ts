@@ -71,17 +71,16 @@ export class SettingsAutofillPageElement extends
           return map;
         },
       },
-      isPlusAddressSettingEnabled_: {
+      isPlusAddressAutofillLevelSettingEnabled_: {
         type: Boolean,
-        value: () => !!loadTimeData.getString('plusAddressManagementUrl'),
+        value: () => !!loadTimeData.getString('plusAddressManagementUrl') &&
+            !loadTimeData.getBoolean('plusAddressSettingInAddressSection'),
       },
       plusAddressIcon_: {
         type: String,
         value() {
           // <if expr="_google_chrome">
-          return loadTimeData.getBoolean('plusAddressUiRedesign') ?
-              'settings-internal:plus-address-logo-medium' :
-              'settings-internal:plus-addresses-logo';
+          return 'settings-internal:plus-address-logo-medium';
           // </if>
           // <if expr="not _google_chrome">
           return 'settings:email';

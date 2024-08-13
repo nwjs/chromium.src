@@ -13,6 +13,7 @@
 <translation id="1361748954329991663">Chromium เป็นเวอร์ชันเก่า หากไม่มีอัปเดตพร้อมใช้งานใน <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> แสดงว่าอุปกรณ์ของคุณอาจไม่รองรับ Chromium เวอร์ชันใหม่อีกต่อไป</translation>
 <translation id="1423007117030725713">เริ่มการค้นหาในแท็บใหม่ของ Chromium</translation>
 <translation id="1431818719585918472">ให้ Chromium ล็อกแท็บที่ไม่ระบุตัวตน</translation>
+<translation id="146407871188825689">ใช้ Chromium ใน iPad โดยค่าเริ่มต้น</translation>
 <translation id="1472013873724362412">บัญชีของคุณไม่ทำงานใน Chromium โปรดติดต่อผู้ดูแลระบบโดเมนหรือใช้บัญชี Google ปกติเพื่อลงชื่อเข้าใช้</translation>
 <translation id="1503199973012840174">Chromium ของคุณเป็นเวอร์ชันเก่า โปรดอัปเดตเพื่อความปลอดภัย</translation>
 <translation id="1507010443238049608">ช่วยปรับปรุงฟีเจอร์และประสิทธิภาพของ Chromium</translation>
@@ -122,6 +123,7 @@
 
 หากต้องการเปลี่ยนการตั้งค่านี้ ให้<ph name="BEGIN_LINK" />ลบข้อมูล Chromium ในบัญชี<ph name="END_LINK" /></translation>
 <translation id="4576283463017113841">เปิดหน้าการตั้งค่าวิธีการชำระเงินใน Chromium</translation>
+<translation id="458786853569524949">ตอนนี้คุณสามารถใช้ Chromium ทุกครั้งที่แตะลิงก์ในอีเมล เอกสาร และแอปอื่นๆ</translation>
 <translation id="459080529287102949">ค้นหาภาพใน Chromium</translation>
 <translation id="4633738821577273991">รับ Safe Browsing พร้อมการปกป้องที่ดียิ่งขึ้นสำหรับโปรไฟล์ Chromium นี้ด้วย</translation>
 <translation id="4638625642619341392">ดาวน์โหลด Chromium ที่นี่</translation>
@@ -129,7 +131,6 @@
 <translation id="4675485352217495362">ลบข้อมูลการท่องเว็บใน Chromium</translation>
 <translation id="4681781466797808448">เปิดโปรแกรมสแกนของ Chromium</translation>
 <translation id="4736424910885271643">บัญชีของคุณจัดการโดย <ph name="HOSTED_DOMAIN" /> ระบบจึงจะล้างข้อมูล Chromium จากอุปกรณ์นี้</translation>
-<translation id="4773487571745795781">คุณปิดการลงชื่อเข้าใช้ Chromium ไว้</translation>
 <translation id="4790638144988730920">ใช้ข้อมูล Chromium ในบัญชี Google ต่อไป</translation>
 <translation id="4828317641996116749">Chromium ตรวจสอบรหัสผ่านได้ไม่ครบทั้งหมด โปรดลองอีกครั้งภายหลัง</translation>
 <translation id="4962295957157529683">ทำสิ่งที่กำลังทำในหน้าต่าง Chromium ที่เปิดอยู่อีกหน้าต่างหนึ่งให้เสร็จสิ้น</translation>
@@ -157,6 +158,7 @@
 <translation id="5522297504975449419">ฟีเจอร์บางอย่างของ Chromium จะใช้งานไม่ได้อีกต่อไป</translation>
 <translation id="5534584691915394889">ระบบจะใช้เพื่อสร้างกิจกรรมจาก Chromium และ Google Lens ในปฏิทินของ Apple</translation>
 <translation id="5571094606370987472">เปิดแท็บล่าสุดใน Chromium</translation>
+<translation id="5603085937604338780">chromium</translation>
 <translation id="5623083843656850677">ล็อกแท็บที่ไม่ระบุตัวตนเมื่อคุณออกจาก Chromium หรือเปลี่ยนไปใช้แอปอื่น</translation>
 <translation id="5671188105328420281">เคล็ดลับในการใช้ Chromium</translation>
 <translation id="5688047395118852662">การ์ดนี้แสดงคำแนะนำเกี่ยวกับวิธีใช้ Chromium ให้เกิดประโยชน์สูงสุด</translation>
@@ -232,6 +234,7 @@
 <translation id="7395825497086981028">ระบบจะบันทึกรหัสผ่านไว้ในเครื่องมือจัดการรหัสผ่านสำหรับ <ph name="EMAIL" /></translation>
 <translation id="7400689562045506105">ใช้ Chromium ได้ทุกที่</translation>
 <translation id="7523464085759699266">เปิด "ล็อกแท็บที่ไม่ระบุตัวตนเมื่อปิด Chromium"</translation>
+<translation id="7531461704633548377">จาก Chromium</translation>
 <translation id="7674213385180944843">เปิดการตั้งค่า &gt; ความเป็นส่วนตัว &gt; กล้อง &gt; Chromium แล้วเปิดกล้องถ่ายรูป</translation>
 <translation id="7710137812207066069">เปิดแท็บใหม่ใน Chromium</translation>
 <translation id="7747820849741499258">ค้นหาใน Chromium</translation>
@@ -247,7 +250,6 @@
 <translation id="7971753607796745700">เพิ่มรายการเรื่องรออ่านใน Chromium</translation>
 <translation id="7980860476903281594">Chromium แชร์ตำแหน่งกับเว็บไซต์ที่คุณอนุญาต</translation>
 <translation id="7994322153108931467">หากต้องการรับเคล็ดลับที่มีประโยชน์เกี่ยวกับ Chromium ให้เปิดการแจ้งเตือนในการตั้งค่า iOS</translation>
-<translation id="7995166854192397899">คำแนะนำต่างๆ จะอิงตามกิจกรรมการท่องเว็บในอุปกรณ์อื่นๆ ของคุณ หากต้องการรับคำแนะนำ ให้ลงชื่อเข้าใช้ Chromium ในอุปกรณ์ทั้งหมดของคุณ</translation>
 <translation id="800195749539500647">รับประโยชน์สูงสุดจาก Chromium</translation>
 <translation id="8013573822802650211">ลงชื่อเข้าใช้ในอุปกรณ์ทุกเครื่องเพื่อดูแท็บที่เปิดไว้จากอุปกรณ์ที่คุณใช้ Chromium</translation>
 <translation id="8071041515667087705">ไปที่การตั้งค่า Chromium</translation>
@@ -288,6 +290,7 @@
 ข้อมูลของคุณมีการเข้ารหัสด้วยรหัสผ่านเมื่อ <ph name="TIME" /> ป้อนรหัสผ่านเพื่อใช้และบันทึกข้อมูล Chromium ในบัญชี Google</translation>
 <translation id="9022552996538154597">ลงชื่อเข้าใช้ Chromium</translation>
 <translation id="9050790730841755540">ใช้ Chromium ทุกครั้งที่คุณแตะลิงก์ในแอปอื่นๆ</translation>
+<translation id="9057082013386654559">ใช้ Chromium สำหรับ iPad โดยค่าเริ่มต้น</translation>
 <translation id="9059693977935746710">คุณไม่จำเป็นต้องจำรหัสผ่านนี้ เพราะระบบจะบันทึกไว้ในเครื่องมือจัดการรหัสผ่านสำหรับ <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">Chromium ล้าสมัย</translation>
 <translation id="9110075932708282655">ใช้ Chromium โดยค่าเริ่มต้น</translation>

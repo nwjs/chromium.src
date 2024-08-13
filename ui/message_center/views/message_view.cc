@@ -138,7 +138,7 @@ std::u16string MessageView::CreateAccessibleName(
 
 void MessageView::UpdateWithNotification(const Notification& notification) {
   pinned_ = notification.pinned();
-  SetAccessibleName(CreateAccessibleName(notification));
+  GetViewAccessibility().SetName(CreateAccessibleName(notification));
   slide_out_controller_.set_slide_mode(CalculateSlideMode());
 }
 
@@ -301,7 +301,7 @@ void MessageView::OnBlur() {
 }
 
 void MessageView::OnGestureEvent(ui::GestureEvent* event) {
-  if (event->type() == ui::ET_GESTURE_TAP) {
+  if (event->type() == ui::EventType::kGestureTap) {
     MessageCenter::Get()->ClickOnNotification(notification_id_);
     event->SetHandled();
     return;

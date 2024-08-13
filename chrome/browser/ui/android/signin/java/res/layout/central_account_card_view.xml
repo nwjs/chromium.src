@@ -5,8 +5,6 @@ Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 -->
 
-<!-- TODO(b/326574743): Adjust the margins to match the intended size. -->
-
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/PreferenceLayout"
@@ -36,22 +34,20 @@ found in the LICENSE file.
         </FrameLayout>
 
         <TextView
-            android:id="@+id/central_account_name"
+            android:id="@+id/central_account_primary_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center"
             android:textAlignment="center"
-            android:textAppearance="@style/TextAppearance.TextLarge.Primary"
-            android:includeFontPadding="false"/>
+            android:textAppearance="@style/TextAppearance.TextLarge.Primary"/>
 
         <TextView
-            android:id="@+id/central_account_email"
+            android:id="@+id/central_account_secondary_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center"
             android:textAlignment="center"
-            android:textAppearance="@style/TextAppearance.TextSmall.Secondary"
-            android:includeFontPadding="false"/>
+            android:textAppearance="@style/TextAppearance.TextSmall.Secondary"/>
 
     </LinearLayout>
 

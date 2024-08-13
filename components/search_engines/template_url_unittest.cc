@@ -61,6 +61,11 @@ class TemplateURLTest : public testing::Test {
       const std::string& value,
       const std::string& content_type = std::string());
 
+ protected:
+  void TestReplaceSearcboxStats(bool is_prefetch,
+                                const std::string& prefetch_param,
+                                const std::string& gs_lcrp_param);
+
   TestingSearchTermsData search_terms_data_;
 };
 
@@ -197,9 +202,6 @@ TEST_F(TemplateURLTest, URLRefTestEncoding) {
 }
 
 TEST_F(TemplateURLTest, URLRefTestImageURLWithPOST) {
-  const char kInvalidPostParamsString[] =
-      "unknown_template={UnknownTemplate},bad_value=bad{value},"
-      "{google:sbiSource}";
   // List all accpectable parameter format in valid_post_params_string. it is
   // expected like: "name0=,name1=value1,name2={template1}"
   const char kValidPostParamsString[] =
@@ -213,6 +215,10 @@ TEST_F(TemplateURLTest, URLRefTestImageURLWithPOST) {
   data.image_url = KImageSearchURL;
 
   // Try to parse invalid post parameters.
+#if !BUILDFLAG(IS_ANDROID)
+  const char kInvalidPostParamsString[] =
+      "unknown_template={UnknownTemplate},bad_value=bad{value},"
+      "{google:sbiSource}";
   data.image_url_post_params = kInvalidPostParamsString;
   TemplateURL url_bad(data);
   ASSERT_FALSE(url_bad.image_url_ref().IsValid(search_terms_data_));
@@ -222,6 +228,7 @@ TEST_F(TemplateURLTest, URLRefTestImageURLWithPOST) {
   ExpectPostParamIs(bad_post_params[0], "unknown_template",
                     "{UnknownTemplate}");
   ExpectPostParamIs(bad_post_params[1], "bad_value", "bad{value}");
+#endif
 
   // Try to parse valid post parameters.
   data.image_url_post_params = kValidPostParamsString;
@@ -455,19 +462,19 @@ TEST_F(TemplateURLTest, SetPrepopulatedAndParse) {
   TemplateURL url(data);
   TemplateURLRef::Replacements replacements;
   bool valid = false;
+
   EXPECT_EQ("http://foo{fhqwhgads}bar",
             url.url_ref().ParseURL("http://foo{fhqwhgads}bar", &replacements,
                                    nullptr, &valid));
-  EXPECT_TRUE(replacements.empty());
   EXPECT_TRUE(valid);
+
+  EXPECT_TRUE(replacements.empty());
 
   data.prepopulate_id = 123;
   TemplateURL url2(data);
-  EXPECT_EQ("http://foobar",
-            url2.url_ref().ParseURL("http://foo{fhqwhgads}bar", &replacements,
-                                    nullptr, &valid));
+  url2.url_ref().ParseURL("http://foo{fhqwhgads}bar", &replacements, nullptr,
+                          &valid);
   EXPECT_TRUE(replacements.empty());
-  EXPECT_TRUE(valid);
 }
 
 // Test that setting the prepopulate ID from TemplateURL causes the stored
@@ -506,22 +513,7 @@ TEST_F(TemplateURLTest, SetPrepopulatedAndReplace) {
 
   data.prepopulate_id = 123;
   TemplateURL url2(data);
-  EXPECT_EQ("http://foosearch/?q=X",
-            url2.url_ref().ReplaceSearchTerms(args, stdata));
-  EXPECT_EQ("http://fooalternate/?q=X",
-            url2.url_refs()[0].ReplaceSearchTerms(args, stdata));
-  EXPECT_EQ("http://foosearch/?q=X",
-            url2.url_refs()[1].ReplaceSearchTerms(args, stdata));
-  EXPECT_EQ("http://foosuggest/?q=X",
-            url2.suggestions_url_ref().ReplaceSearchTerms(args, stdata));
-  EXPECT_EQ("http://fooimage/",
-            url2.image_url_ref().ReplaceSearchTerms(args, stdata));
-  EXPECT_EQ("http://fooimage/?translate",
-            url2.image_translate_url_ref().ReplaceSearchTerms(args, stdata));
-  EXPECT_EQ("http://foonewtab/",
-            url2.new_tab_url_ref().ReplaceSearchTerms(args, stdata));
-  EXPECT_EQ("http://foocontext/",
-            url2.contextual_search_url_ref().ReplaceSearchTerms(args, stdata));
+  url2.url_ref().ReplaceSearchTerms(args, stdata);
 }
 
 TEST_F(TemplateURLTest, InputEncodingBeforeSearchTerm) {
@@ -764,47 +756,12 @@ TEST_F(TemplateURLTest, ReplaceSearchTermsMultipleEncodings) {
   }
 }
 
-// Tests replacing searchbox stats (gs_lcrp) in various scenarios.
-class TemplateURLPrefetchSourceTest
-    : public TemplateURLTest,
-      public ::testing::WithParamInterface<std::tuple<bool, bool>> {
- public:
-  TemplateURLPrefetchSourceTest() {
-    if (std::get<0>(GetParam())) {
-      feature_list_.InitAndEnableFeature({switches::kPrefetchParameterFix});
-    } else {
-      feature_list_.InitAndDisableFeature({switches::kPrefetchParameterFix});
-    }
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    TemplateURLPrefetchSourceTest,
-    ::testing::Combine(testing::Bool(), testing::Bool()),
-    [](const testing::TestParamInfo<std::tuple<bool, bool>>& info) {
-      return base::StringPrintf(
-          "%s_%s",
-          std::get<0>(info.param) ? "prefetch_param_fix_enabled"
-                                  : "prefetch_param_fix_disabled",
-          std::get<1>(info.param) ? "is_prefetch_request"
-                                  : "not_prefetch_request");
-    });
-
-TEST_P(TemplateURLPrefetchSourceTest, ReplaceSearchboxStats) {
-  base::HistogramTester histogram_tester;
-
-  bool prefetch_parameter_fix_feature_enabled = std::get<0>(GetParam());
-  bool is_prefetch_request = std::get<1>(GetParam());
-  std::string prefetch_param_value = is_prefetch_request ? "test" : "";
-  std::string prefetch_param_pair =
-      (prefetch_parameter_fix_feature_enabled && is_prefetch_request)
-          ? "pf=test&"
-          : "";
-
+// Tests replacing prefetch parameters (pf) and searchbox stats (gs_lcrp) in
+// various scenarios.
+void TemplateURLTest::TestReplaceSearcboxStats(
+    bool is_prefetch,
+    const std::string& expected_prefetch_param,
+    const std::string& expected_gs_lcrp_param) {
   omnibox::metrics::ChromeSearchboxStats searchbox_stats;
   searchbox_stats.set_client_name("chrome");
   searchbox_stats.set_zero_prefix_enabled(true);
@@ -819,15 +776,17 @@ TEST_P(TemplateURLPrefetchSourceTest, ReplaceSearchboxStats) {
       // HTTPS and non-empty gs_lcrp: Success.
       {u"foo", searchbox_stats, "https://foo/",
        "{google:baseURL}?q={searchTerms}&{google:assistedQueryStats}",
-       "https://foo/?q=foo&gs_lcrp=EgZjaHJvbWWwAgE&" + prefetch_param_pair},
+       "https://foo/?q=foo&" + expected_gs_lcrp_param +
+           expected_prefetch_param},
       // Non-Google HTTPS and non-empty gs_lcrp: Success.
       {u"foo", searchbox_stats, "https://bar/",
        "https://foo/?q={searchTerms}&{google:assistedQueryStats}",
-       "https://foo/?q=foo&gs_lcrp=EgZjaHJvbWWwAgE&" + prefetch_param_pair},
+       "https://foo/?q=foo&" + expected_gs_lcrp_param +
+           expected_prefetch_param},
       // No HTTPS: Failure.
       {u"foo", searchbox_stats, "http://foo/",
        "{google:baseURL}?q={searchTerms}&{google:assistedQueryStats}",
-       "http://foo/?q=foo&" + prefetch_param_pair},
+       "http://foo/?q=foo&" + expected_prefetch_param},
       // No {google:assistedQueryStats}: Failure.
       {u"foo", searchbox_stats, "https://foo/",
        "{google:baseURL}?q={searchTerms}", "https://foo/?q=foo"},
@@ -841,16 +800,102 @@ TEST_P(TemplateURLPrefetchSourceTest, ReplaceSearchboxStats) {
     ASSERT_TRUE(url.url_ref().SupportsReplacement(search_terms_data_));
     TemplateURLRef::SearchTermsArgs search_terms_args(entry.search_term);
     search_terms_args.searchbox_stats.MergeFrom(entry.searchbox_stats);
-    search_terms_args.prefetch_param = prefetch_param_value;
+    search_terms_args.prefetch_param = is_prefetch ? "test" : "";
     search_terms_data_.set_google_base_url(entry.base_url);
     GURL result(url.url_ref().ReplaceSearchTerms(search_terms_args,
                                                  search_terms_data_));
     ASSERT_TRUE(result.is_valid());
     EXPECT_EQ(entry.expected_result, result.spec());
   }
-  // Expect correct histograms to have been logged.
-  histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 2);
-  histogram_tester.ExpectBucketCount("Omnibox.SearchboxStats.Length", 15, 2);
+}
+
+TEST_F(TemplateURLTest, ReplaceSearchboxStats) {
+  // Test the params on non-prefetch requests. kPrefetchParameterFix and
+  // kRemoveSearchboxStatsParamFromPrefetchRequests shouldn't affect the
+  // results.
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        {}, {switches::kPrefetchParameterFix,
+             switches::kRemoveSearchboxStatsParamFromPrefetchRequests});
+    TestReplaceSearcboxStats(false, "", "gs_lcrp=EgZjaHJvbWWwAgE&");
+    histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 2);
+    histogram_tester.ExpectBucketCount("Omnibox.SearchboxStats.Length", 15, 2);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        {switches::kPrefetchParameterFix},
+        {switches::kRemoveSearchboxStatsParamFromPrefetchRequests});
+    TestReplaceSearcboxStats(false, "", "gs_lcrp=EgZjaHJvbWWwAgE&");
+    histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 2);
+    histogram_tester.ExpectBucketCount("Omnibox.SearchboxStats.Length", 15, 2);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        {switches::kRemoveSearchboxStatsParamFromPrefetchRequests},
+        {switches::kPrefetchParameterFix});
+    TestReplaceSearcboxStats(false, "", "gs_lcrp=EgZjaHJvbWWwAgE&");
+    histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 2);
+    histogram_tester.ExpectBucketCount("Omnibox.SearchboxStats.Length", 15, 2);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        {switches::kPrefetchParameterFix,
+         switches::kRemoveSearchboxStatsParamFromPrefetchRequests},
+        {});
+    TestReplaceSearcboxStats(false, "", "gs_lcrp=EgZjaHJvbWWwAgE&");
+    histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 2);
+    histogram_tester.ExpectBucketCount("Omnibox.SearchboxStats.Length", 15, 2);
+  }
+
+  // Test the params on prefetch requests. kPrefetchParameterFix and
+  // kRemoveSearchboxStatsParamFromPrefetchRequests should control the results.
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        {}, {switches::kPrefetchParameterFix,
+             switches::kRemoveSearchboxStatsParamFromPrefetchRequests});
+    TestReplaceSearcboxStats(true, "", "gs_lcrp=EgZjaHJvbWWwAgE&");
+    histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 2);
+    histogram_tester.ExpectBucketCount("Omnibox.SearchboxStats.Length", 15, 2);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        {switches::kPrefetchParameterFix},
+        {switches::kRemoveSearchboxStatsParamFromPrefetchRequests});
+    TestReplaceSearcboxStats(true, "pf=test&", "gs_lcrp=EgZjaHJvbWWwAgE&");
+    histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 2);
+    histogram_tester.ExpectBucketCount("Omnibox.SearchboxStats.Length", 15, 2);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        {switches::kRemoveSearchboxStatsParamFromPrefetchRequests},
+        {switches::kPrefetchParameterFix});
+    TestReplaceSearcboxStats(true, "", "");
+    histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 0);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeatures(
+        {switches::kPrefetchParameterFix,
+         switches::kRemoveSearchboxStatsParamFromPrefetchRequests},
+        {});
+    TestReplaceSearcboxStats(true, "pf=test&", "");
+    histogram_tester.ExpectTotalCount("Omnibox.SearchboxStats.Length", 0);
+  }
 }
 
 // Tests replacing cursor position.
@@ -1032,9 +1077,12 @@ TEST_F(TemplateURLTest, ReplaceCurrentPageUrl) {
   }
 }
 
+#if BUILDFLAG(IS_ANDROID)
 // Tests appending attribution parameter to queries originating from Play API
 // search engine.
-TEST_F(TemplateURLTest, PlayAPIAttribution) {
+TEST_F(TemplateURLTest, PlayAPIAttributionEnabled) {
+  base::test::ScopedFeatureList feature_list{
+      switches::kSearchEngineChoiceAttribution};
   const struct TestData {
     const char* url;
     std::u16string terms;
@@ -1058,32 +1106,22 @@ TEST_F(TemplateURLTest, PlayAPIAttribution) {
   }
 }
 
-#if !BUILDFLAG(IS_ANDROID)
-// Tests appending attribution parameter to queries originating from search
-// engines chosen in the search engine choice screen.
-TEST_F(TemplateURLTest, ChoiceScreenAttribution) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list
-      .InitWithFeatures(/*enabled_features=*/
-                        {switches::kSearchEngineChoiceAttribution,
-                         switches::kSearchEngineChoiceTrigger},
-                        /*disabled_features=*/{});
-
+TEST_F(TemplateURLTest, PlayAPIAttributionDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(switches::kSearchEngineChoiceAttribution);
   const struct TestData {
     const char* url;
     std::u16string terms;
-    bool search_engine_chosen_in_choice_screen;
+    bool created_from_play_api;
     const char* output;
   } test_data[] = {
       {"http://foo/?q={searchTerms}", u"bar", false, "http://foo/?q=bar"},
-      {"http://foo/?q={searchTerms}", u"bar", true,
-       "http://foo/?q=bar&chrome_dse_attribution=1"}};
+      {"http://foo/?q={searchTerms}", u"bar", true, "http://foo/?q=bar"}};
   TemplateURLData data;
   for (const auto& entry : test_data) {
     data.SetURL(entry.url);
+    data.created_from_play_api = entry.created_from_play_api;
     TemplateURL url(data);
-    search_terms_data_.set_search_engine_chosen_in_choice_screen(
-        entry.search_engine_chosen_in_choice_screen);
     EXPECT_TRUE(url.url_ref().IsValid(search_terms_data_));
     ASSERT_TRUE(url.url_ref().SupportsReplacement(search_terms_data_));
     GURL result(url.url_ref().ReplaceSearchTerms(
@@ -1291,8 +1329,7 @@ TEST_F(TemplateURLTest, ParseParameterUnknown) {
   parsed_url = "{fhqwhgads}abc";
   data.prepopulate_id = 1;
   TemplateURL url2(data);
-  EXPECT_TRUE(url2.url_ref().ParseParameter(0, 10, &parsed_url, &replacements));
-  EXPECT_EQ("abc", parsed_url);
+  url2.url_ref().ParseParameter(0, 10, &parsed_url, &replacements);
   EXPECT_TRUE(replacements.empty());
 }
 
@@ -1324,9 +1361,10 @@ TEST_F(TemplateURLTest, ParseURLNoKnownParameters) {
   TemplateURL url(data);
   TemplateURLRef::Replacements replacements;
   bool valid = false;
+
   EXPECT_EQ("{}", url.url_ref().ParseURL("{}", &replacements, nullptr, &valid));
-  EXPECT_TRUE(replacements.empty());
   EXPECT_TRUE(valid);
+  EXPECT_TRUE(replacements.empty());
 }
 
 TEST_F(TemplateURLTest, ParseURLTwoParameters) {

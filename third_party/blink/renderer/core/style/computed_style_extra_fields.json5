@@ -96,9 +96,9 @@
       type_name: "bool",
       inherited: true,
     },
-    // Style has content property with attr() values.
+    // Style has a property with attr() values.
     {
-      name: "HasAttrContent",
+      name: "HasAttrFunction",
       field_template: "monotonic_flag",
       default_value: "false",
       reset_on_new_style: true,
@@ -1301,6 +1301,13 @@
       default_value: "false",
       inherited: true,
       invalidate: ["layout", "paint", "scrollbar-color"],
+    },
+    {
+      name: "IsPageMarginBox",
+      field_template: "primitive",
+      type_name: "bool",
+      default_value: "false",
+      inherited: false,
     },
   ],
 }

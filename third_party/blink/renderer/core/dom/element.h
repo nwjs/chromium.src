@@ -31,7 +31,6 @@
 #include "base/types/pass_key.h"
 #include "third_party/blink/public/common/input/pointer_id.h"
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
-#include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_typedefs.h"
 #include "third_party/blink/renderer/core/animation/animatable.h"
@@ -189,15 +188,13 @@ enum class NamedItemType {
   kNameOrIdWithName,
 };
 
-enum class InvokeAction {
+enum class CommandEventType {
   // Action is neither custom, nor built-in (effectively invalid)
   kNone,
 
   // Custom actions include a `-`.
   kCustom,
 
-  // The "auto" state (empty string or missing)
-  kAuto,
   // Popover
   kTogglePopover,
   kHidePopover,
@@ -440,6 +437,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   int ClientTopNoLayout() const;
   int clientWidth();
   int clientHeight();
+  double currentCSSZoom();
   double scrollLeft();
   double scrollTop();
   void setScrollLeft(double);
@@ -979,13 +977,15 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
       Element* new_focused_element,
       InputDeviceCapabilities* source_capabilities = nullptr);
 
-  // This allows customization of how Invokes are handled, per element.
+  // This allows customization of how Invoker Commands are handled, per element.
   // See: crbug.com/1490919, https://open-ui.org/components/invokers.explainer/
-  virtual bool IsValidInvokeAction(HTMLElement& invoker, InvokeAction action) {
-    return action == InvokeAction::kAuto;
+  virtual bool IsValidCommand(HTMLElement& invoker, CommandEventType command) {
+    return false;
   }
-  virtual bool HandleInvokeInternal(HTMLElement& invoker, InvokeAction action) {
-    CHECK(action != InvokeAction::kCustom && action != InvokeAction::kNone);
+  virtual bool HandleCommandInternal(HTMLElement& invoker,
+                                     CommandEventType command) {
+    CHECK(command != CommandEventType::kCustom &&
+          command != CommandEventType::kNone);
     return false;
   }
 
@@ -1425,13 +1425,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   // are met.
   void HideNonce();
 
-  // This method calls Document::AddConsoleMessage but also attaches this
-  // element to the console message so developers can see the relevant element
-  // in DevTools.
-  void AddConsoleMessage(mojom::blink::ConsoleMessageSource source,
-                         mojom::blink::ConsoleMessageLevel level,
-                         const String& message);
-
   // These update every scroll container that is an ancestor of
   // of this element, letting them know which snap area of theirs, if any,
   // either is a targeted[1] element or contains a targeted[1] element.
@@ -1672,14 +1665,12 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void DetachPseudoElement(PseudoId, bool performing_reattach);
 
   void AttachPrecedingPseudoElements(AttachContext& context) {
-    AttachPseudoElement(kPseudoIdScrollMarkerGroupBefore, context);
     AttachPseudoElement(kPseudoIdMarker, context);
     AttachPseudoElement(kPseudoIdBefore, context);
   }
 
   void AttachSucceedingPseudoElements(AttachContext& context) {
     AttachPseudoElement(kPseudoIdAfter, context);
-    AttachPseudoElement(kPseudoIdScrollMarkerGroupAfter, context);
     AttachPseudoElement(kPseudoIdBackdrop, context);
     UpdateFirstLetterPseudoElement(StyleUpdatePhase::kAttachLayoutTree);
     AttachPseudoElement(kPseudoIdFirstLetter, context);

@@ -20,7 +20,6 @@ import android.view.ViewOutlineProvider;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.core.view.ViewCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -240,6 +239,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
 
         // By default RecyclerViews come with item animators.
         setItemAnimator(null);
+        addItemDecoration(new SuggestionHorizontalDivider(context));
 
         mLayoutScrollListener = new SuggestionLayoutScrollListener(context);
         setLayoutManager(mLayoutScrollListener);
@@ -251,7 +251,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
                 resources.getDimensionPixelOffset(R.dimen.omnibox_suggestion_list_padding_bottom);
         int paddingTop =
                 resources.getDimensionPixelOffset(R.dimen.omnibox_suggestion_list_padding_top);
-        ViewCompat.setPaddingRelative(this, 0, paddingTop, 0, paddingBottom);
+        this.setPaddingRelative(0, paddingTop, 0, paddingBottom);
 
         if (OmniboxFeatures.sAsyncViewInflation.isEnabled()) {
             setRecycledViewPool(new PreWarmingRecycledViewPool(mAdapter, context));
@@ -486,6 +486,15 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         View selectedView = mSelectionController.getSelectedView();
         if (selectedView != null && selectedView.onKeyDown(keyCode, event)) {
             return true;
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_TAB) {
+            boolean maybeProcessed = super.onKeyDown(keyCode, event);
+            if (maybeProcessed) return true;
+            if (event.isShiftPressed()) {
+                return mSelectionController.selectPreviousItem();
+            }
+            return mSelectionController.selectNextItem();
         }
 
         if (KeyNavigationUtil.isGoDown(event)) {

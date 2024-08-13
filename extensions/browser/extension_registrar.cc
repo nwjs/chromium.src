@@ -8,6 +8,7 @@
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/metrics/histogram_functions.h"
 
 #include "content/nw/src/nw_content.h"
 
@@ -232,7 +233,8 @@ void ExtensionRegistrar::DisableExtension(const ExtensionId& extension_id,
             DISABLE_PUBLISHED_IN_STORE_REQUIRED_BY_POLICY |
         extensions::disable_reason::DISABLE_BLOCKED_BY_POLICY |
         extensions::disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED |
-        extensions::disable_reason::DISABLE_REINSTALL;
+        extensions::disable_reason::DISABLE_REINSTALL |
+        extensions::disable_reason::DISABLE_UNSUPPORTED_MANIFEST_VERSION;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     // For controlled extensions, only allow disabling not ash-keeplisted
@@ -542,7 +544,15 @@ void ExtensionRegistrar::UnregisterServiceWorkerWithRootScope(
 void ExtensionRegistrar::NotifyServiceWorkerUnregistered(
     const ExtensionId& extension_id,
     bool success) {
+  base::UmaHistogramBoolean(
+      "Extensions.ServiceWorkerBackground.WorkerUnregistrationState", success);
+  base::UmaHistogramBoolean(
+      "Extensions.ServiceWorkerBackground.WorkerUnregistrationState_"
+      "AddExtension",
+      success);
+
   if (!success) {
+    // TODO(crbug.com/346732739): Handle this case.
     LOG(ERROR) << "Failed to unregister service worker for extension "
                << extension_id;
   }

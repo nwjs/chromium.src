@@ -88,7 +88,6 @@ class SharedURLLoaderFactory;
 namespace blink {
 
 class AssociatedInterfaceProvider;
-class BrowserInterfaceBrokerProxy;
 class DocumentLoader;
 class HTMLFencedFrameElement;
 class HTMLFormElement;
@@ -194,7 +193,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
       mojo::PendingRemote<mojom::blink::NavigationStateKeepAliveHandle>
           initiator_navigation_state_keep_alive_handle,
       bool is_container_initiated,
-      bool is_fullscreen_requested) = 0;
+      bool has_rel_opener) = 0;
 
   virtual void DispatchWillSendSubmitEvent(HTMLFormElement*) = 0;
 
@@ -245,11 +244,6 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   // Reports that visible elements in the frame shifted (bit.ly/lsm-explainer).
   virtual void DidObserveLayoutShift(double score, bool after_input_or_scroll) {
   }
-
-  // Notifies the observers of the origins for which subresource redirect
-  // optimizations can be preloaded.
-  virtual void PreloadSubresourceOptimizationsForOrigins(
-      const WTF::HashSet<scoped_refptr<const SecurityOrigin>>& origins) {}
 
   // Transmits the change in the set of watched CSS selectors property that
   // match any element on the frame.
@@ -342,8 +336,6 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   // Overwrites the given URL to use an HTML5 embed if possible. An empty URL is
   // returned if the URL is not overriden.
   virtual KURL OverrideFlashEmbedWithHTML(const KURL&) { return KURL(); }
-
-  virtual BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() = 0;
 
   virtual AssociatedInterfaceProvider*
   GetRemoteNavigationAssociatedInterfaces() = 0;

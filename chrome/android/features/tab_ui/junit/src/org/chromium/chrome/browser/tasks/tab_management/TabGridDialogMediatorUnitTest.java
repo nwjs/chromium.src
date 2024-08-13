@@ -23,6 +23,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -37,9 +38,7 @@ import android.widget.EditText;
 import androidx.annotation.Nullable;
 
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -53,7 +52,6 @@ import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -90,7 +88,6 @@ import java.util.List;
 @RunWith(BaseRobolectricTestRunner.class)
 @EnableFeatures(ChromeFeatureList.ANDROID_TAB_GROUP_STABLE_IDS)
 public class TabGridDialogMediatorUnitTest {
-    @Rule public TestRule mProcessor = new Features.JUnitProcessor();
 
     private static final String TAB1_TITLE = "Tab1";
     private static final String TAB2_TITLE = "Tab2";
@@ -177,7 +174,7 @@ public class TabGridDialogMediatorUnitTest {
         doReturn(null).when(mRecyclerViewPositionSupplier).get();
 
         mActivity = Robolectric.buildActivity(TestActivity.class).get();
-        mModel = new PropertyModel(TabGridDialogProperties.ALL_KEYS);
+        mModel = spy(new PropertyModel(TabGridDialogProperties.ALL_KEYS));
         mMediator =
                 new TabGridDialogMediator(
                         mActivity,
@@ -807,26 +804,6 @@ public class TabGridDialogMediatorUnitTest {
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.ANDROID_HUB)
-    public void tabSelection_HubDisabled() {
-        // Mock that the animation source view is not null, and the dialog is showing.
-        mModel.set(TabGridDialogProperties.ANIMATION_SOURCE_VIEW, mView);
-        mModel.set(TabGridDialogProperties.IS_DIALOG_VISIBLE, true);
-
-        mTabModelObserverCaptor
-                .getValue()
-                .didSelectTab(mTab1, TabSelectionType.FROM_USER, Tab.INVALID_TAB_ID);
-
-        assertThat(mModel.get(TabGridDialogProperties.ANIMATION_SOURCE_VIEW), equalTo(null));
-        assertFalse(mModel.get(TabGridDialogProperties.IS_DIALOG_VISIBLE));
-
-        // Simulate the animation finishing.
-        mModel.get(TabGridDialogProperties.VISIBILITY_LISTENER).finishedHidingDialogView();
-
-        verify(mDialogController).resetWithListOfTabs(null);
-    }
-
-    @Test
     public void tabSelection_stripContext() {
         mMediator.destroy();
         mMediator =
@@ -928,6 +905,28 @@ public class TabGridDialogMediatorUnitTest {
         // Animation source view should be specified.
         assertThat(mModel.get(TabGridDialogProperties.ANIMATION_SOURCE_VIEW), equalTo(mView));
         assertFalse(mModel.get(TabGridDialogProperties.IS_DIALOG_VISIBLE));
+
+        // Simulate the animation finishing.
+        mModel.get(TabGridDialogProperties.VISIBILITY_LISTENER).finishedHidingDialogView();
+        verify(mDialogController).resetWithListOfTabs(eq(null));
+    }
+
+    @Test
+    public void hideDialog_ForcesAnimationToFinish() {
+        // Mock that the animation source view is null, and the dialog is showing.
+        mModel.set(TabGridDialogProperties.ANIMATION_SOURCE_VIEW, null);
+        mModel.set(TabGridDialogProperties.IS_DIALOG_VISIBLE, true);
+
+        mMediator.setCurrentTabIdForTesting(TAB1_ID);
+        mMediator.hideDialog(true);
+
+        // Animation source view should be specified.
+        assertThat(mModel.get(TabGridDialogProperties.ANIMATION_SOURCE_VIEW), equalTo(mView));
+        assertFalse(mModel.get(TabGridDialogProperties.IS_DIALOG_VISIBLE));
+
+        mMediator.hideDialog(false);
+        verify(mModel).set(TabGridDialogProperties.FORCE_ANIMATION_TO_FINISH, true);
+        assertFalse(mModel.get(TabGridDialogProperties.FORCE_ANIMATION_TO_FINISH));
 
         // Simulate the animation finishing.
         mModel.get(TabGridDialogProperties.VISIBILITY_LISTENER).finishedHidingDialogView();

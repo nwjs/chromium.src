@@ -923,27 +923,6 @@ const base::FeatureParam<bool> kDomainSuggestionsAlternativeScoring(
     "DomainSuggestionsAlternativeScoring",
     false);
 
-const base::FeatureParam<omnibox::CompanyEntityIconAdjustmentGroup>::Option
-    kCompanyEntityIconAdjustmentGroupOptions[] = {
-        {omnibox::CompanyEntityIconAdjustmentGroup::kLeastAggressive,
-         "least-aggressive"},
-        {omnibox::CompanyEntityIconAdjustmentGroup::kModerate, "moderate"},
-        {omnibox::CompanyEntityIconAdjustmentGroup::kMostAggressive,
-         "most-aggressive"},
-};
-
-const base::FeatureParam<omnibox::CompanyEntityIconAdjustmentGroup>
-    kCompanyEntityIconAdjustmentGroup{
-        &omnibox::kCompanyEntityIconAdjustment,
-        "OmniboxCompanyEntityAdjustmentGroup",
-        omnibox::CompanyEntityIconAdjustmentGroup::kModerate,
-        &kCompanyEntityIconAdjustmentGroupOptions};
-
-const base::FeatureParam<bool> kCompanyEntityIconAdjustmentCounterfactual(
-    &omnibox::kCompanyEntityIconAdjustment,
-    "CompanyEntityIconAdjustmentCounterfactual",
-    false);
-
 // ---------------------------------------------------------
 // ML Relevance Scoring ->
 
@@ -1167,6 +1146,12 @@ bool IsFeaturedEnterpriseSearchIPHEnabled() {
       omnibox::kShowFeaturedEnterpriseSiteSearchIPH);
 }
 // <- Featured Enterprise Site Search
+// ---------------------------------------------------------
+// Featured Search ->
+bool IsFeaturedSearchIPHEnabled() {
+  return IsStarterPackIPHEnabled() || IsFeaturedEnterpriseSearchIPHEnabled();
+}
+// <- Featured Search
 // ---------------------------------------------------------
 
 }  // namespace OmniboxFieldTrial

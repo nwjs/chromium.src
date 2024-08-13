@@ -9,7 +9,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
-import android.content.Intent;
 import android.os.Build;
 import android.os.ConditionVariable;
 
@@ -33,23 +32,34 @@ import org.chromium.components.ip_protection_auth.IpProtectionAuthClient;
 import org.chromium.components.ip_protection_auth.IpProtectionAuthServiceCallback;
 import org.chromium.components.ip_protection_auth.IpProtectionByteArrayCallback;
 
+/**
+ * Tests for IpProtectionAuthClient and associated classes.
+ *
+ * <p>These tests mostly call into native code (ip_protection_auth_test_natives.cc) and interact
+ * with "mock" services hosted in a secondary APK.
+ *
+ * <p>The usage of native test code for Java-hosted tests along with using native functionality like
+ * RunLoop and CHECK has the potential to make any test failures more confusing, including native
+ * crashes rather than Java AssertionErrors and global task state contamination across unrelated
+ * test suites. As such, these tests are batched PER_CLASS to isolate such failures.
+ */
 @MediumTest
 @RunWith(BaseJUnit4ClassRunner.class)
-@Batch(Batch.UNIT_TESTS)
+@Batch(Batch.PER_CLASS)
 public final class IpProtectionAuthTest {
     private static final String ACTION = "android.net.http.IpProtectionAuthService";
     private static final String MOCK_PACKAGE_NAME = "org.chromium.components.ip_protection_auth";
 
     private static final String MOCK_CLASS_NAME_FOR_DEFAULT =
-            "org.chromium.components.ip_protection_auth.mock_service.IpProtectionAuthServiceMock";
+            MOCK_PACKAGE_NAME + ".mock_service.IpProtectionAuthServiceMock";
     private static final String MOCK_CLASS_NAME_FOR_NONEXISTANT =
-            "org.chromium.components.ip_protection_auth.mock_service.IntentionallyNonexistantClass";
+            MOCK_PACKAGE_NAME + ".mock_service.IntentionallyNonexistantClass";
     private static final String MOCK_CLASS_NAME_FOR_NULL_BINDING =
-            "org.chromium.components.ip_protection_auth.mock_service.NullBindingService";
+            MOCK_PACKAGE_NAME + ".mock_service.NullBindingService";
     private static final String MOCK_CLASS_NAME_FOR_DISABLED =
-            "org.chromium.components.ip_protection_auth.mock_service.NullBindingService.DisabledService";
+            MOCK_PACKAGE_NAME + ".mock_service.NullBindingService$DisabledService";
     private static final String MOCK_CLASS_NAME_FOR_RESTRICTED =
-            "org.chromium.components.ip_protection_auth.mock_service.NullBindingService.RestrictedService";
+            MOCK_PACKAGE_NAME + ".mock_service.NullBindingService$RestrictedService";
 
     private static final int TIMEOUT_MS = 10000;
 
@@ -109,8 +119,7 @@ public final class IpProtectionAuthTest {
     private class TestByteArrayCallback implements IpProtectionByteArrayCallback {
         private final ConditionVariable mConditionVariable = new ConditionVariable();
         private byte[] mResult;
-        // TODO(b/343932129): Migrate to error codes
-        private byte[] mError;
+        private Integer mError;
 
         @Override
         public void onResult(byte[] result) {
@@ -121,10 +130,9 @@ public final class IpProtectionAuthTest {
         }
 
         @Override
-        public void onError(byte[] error) {
-            assertThat(error).isNotNull();
+        public void onError(int error) {
             assertFirstTime();
-            mError = error;
+            mError = new Integer(error);
             mConditionVariable.open();
         }
 
@@ -144,11 +152,11 @@ public final class IpProtectionAuthTest {
 
         /** Await and expect for an error with a short timeout. */
         @NonNull
-        public byte[] awaitError() {
+        public int awaitError() {
             assertThat(mConditionVariable.block(TIMEOUT_MS)).isTrue();
             assertThat(mResult).isNull();
             assertThat(mError).isNotNull();
-            return mError;
+            return mError.intValue();
         }
     }
 
@@ -168,10 +176,9 @@ public final class IpProtectionAuthTest {
      */
     @NonNull
     private IpProtectionAuthClient getClientForMock(String mockServiceClassName) {
-        Intent intent = new Intent(ACTION);
-        intent.setClassName(MOCK_PACKAGE_NAME, mockServiceClassName);
         TestServiceCallback callback = new TestServiceCallback();
-        IpProtectionAuthClient.createConnectedInstanceForTestingAsync(intent, callback);
+        IpProtectionAuthClient.createConnectedInstanceForTesting(
+                MOCK_PACKAGE_NAME, mockServiceClassName, callback);
         return callback.awaitResult();
     }
 
@@ -183,10 +190,9 @@ public final class IpProtectionAuthTest {
      */
     @NonNull
     private String getErrorForMock(String mockServiceClassName) {
-        Intent intent = new Intent(ACTION);
-        intent.setClassName(MOCK_PACKAGE_NAME, mockServiceClassName);
         TestServiceCallback callback = new TestServiceCallback();
-        IpProtectionAuthClient.createConnectedInstanceForTestingAsync(intent, callback);
+        IpProtectionAuthClient.createConnectedInstanceForTesting(
+                MOCK_PACKAGE_NAME, mockServiceClassName, callback);
         return callback.awaitError();
     }
 
@@ -293,5 +299,60 @@ public final class IpProtectionAuthTest {
     @Test
     public void nativeAuthAndSignTest() throws Exception {
         IpProtectionAuthTestNatives.testAuthAndSign();
+    }
+
+    @Test
+    public void nativeTransientErrorTest() throws Exception {
+        IpProtectionAuthTestNatives.testTransientError();
+    }
+
+    @Test
+    public void nativePersistentErrorTest() throws Exception {
+        IpProtectionAuthTestNatives.testPersistentError();
+    }
+
+    @Test
+    public void nativeIllegalErrorCodeTest() throws Exception {
+        IpProtectionAuthTestNatives.testIllegalErrorCode();
+    }
+
+    @Test
+    public void nativeNullResponseTest() throws Exception {
+        IpProtectionAuthTestNatives.testNullResponse();
+    }
+
+    @Test
+    public void nativeUnparsableResponseTest() throws Exception {
+        IpProtectionAuthTestNatives.testUnparsableResponse();
+    }
+
+    @Test
+    public void nativeSynchronousErrorTest() throws Exception {
+        IpProtectionAuthTestNatives.testSynchronousError();
+    }
+
+    @Test
+    public void nativeUnresolvedWhenClosedTest() throws Exception {
+        IpProtectionAuthTestNatives.testUnresolvedWhenClosed();
+    }
+
+    @Test
+    public void nativeCrashOnRequestSyncWithoutResponse() throws Exception {
+        IpProtectionAuthTestNatives.testCrashOnRequestSyncWithoutResponse();
+    }
+
+    @Test
+    public void nativeCrashOnRequestAsyncWithoutResponse() throws Exception {
+        IpProtectionAuthTestNatives.testCrashOnRequestAsyncWithoutResponse();
+    }
+
+    @Test
+    public void nativeCrashOnRequestSyncWithResponse() throws Exception {
+        IpProtectionAuthTestNatives.testCrashOnRequestSyncWithResponse();
+    }
+
+    @Test
+    public void nativeUnresolvedCallbacksRejectedAfterCrash() throws Exception {
+        IpProtectionAuthTestNatives.testUnresolvedCallbacksRejectedAfterCrash();
     }
 }

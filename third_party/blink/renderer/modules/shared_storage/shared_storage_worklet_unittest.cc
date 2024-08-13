@@ -512,6 +512,9 @@ class SharedStorageWorkletTest : public PageTestBase {
   }
 
  protected:
+  ScopedSharedStorageAPIM125ForTest shared_storage_m125_runtime_enabled_feature{
+      /*enabled=*/true};
+
   mojo::Remote<mojom::SharedStorageWorkletService>
       shared_storage_worklet_service_;
 
@@ -607,7 +610,7 @@ class SharedStorageWorkletTest : public PageTestBase {
             KURL(kModuleScriptSource),
             /*starter_origin=*/
             SecurityOrigin::Create(KURL(kModuleScriptSource)),
-            Vector({mojom::blink::OriginTrialFeature::kSharedStorageAPI}),
+            Vector<blink::mojom::OriginTrialFeature>(),
             /*devtools_worker_token=*/base::UnguessableToken(),
             std::move(pending_devtools_host_remote),
             std::move(pending_code_cache_host_remote),
@@ -1527,6 +1530,7 @@ TEST_F(SharedStorageWorkletTest,
 
           // Those are either not implemented yet, or should stay undefined.
           var expectedUndefinedVariables = [
+            "sharedStorage.createWorklet",
             "sharedStorage.selectURL",
             "sharedStorage.run",
             "sharedStorage.worklet",
@@ -2567,7 +2571,7 @@ TEST_F(SharedStorageWorkletTest, Entries_FirstBatchError_Failure) {
 
   RunResult run_result{run_future.Get<0>(), run_future.Get<1>()};
   EXPECT_FALSE(run_result.success);
-  EXPECT_EQ(run_result.error_message, "Error: Internal error 12345");
+  EXPECT_EQ(run_result.error_message, "OperationError: Internal error 12345");
 
   EXPECT_EQ(test_client_->observed_console_log_messages_.size(), 0u);
 }
@@ -2660,7 +2664,7 @@ TEST_F(SharedStorageWorkletTest, Entries_SecondBatchError_Failure) {
 
   RunResult run_result{run_future.Get<0>(), run_future.Get<1>()};
   EXPECT_FALSE(run_result.success);
-  EXPECT_EQ(run_result.error_message, "Error: Internal error 12345");
+  EXPECT_EQ(run_result.error_message, "OperationError: Internal error 12345");
 
   EXPECT_EQ(test_client_->observed_console_log_messages_.size(), 1u);
 }

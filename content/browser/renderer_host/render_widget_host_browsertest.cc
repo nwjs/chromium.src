@@ -15,16 +15,16 @@
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/input/input_router_impl.h"
+#include "components/input/render_widget_host_input_event_router.h"
+#include "components/input/touch_action_filter.h"
 #include "content/browser/permissions/permission_controller_impl.h"
 #include "content/browser/renderer_host/input/touch_emulator_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
-#include "content/common/input/input_router_impl.h"
-#include "content/common/input/render_widget_host_input_event_router.h"
 #include "content/common/input/synthetic_smooth_drag_gesture.h"
-#include "content/common/input/touch_action_filter.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -115,7 +115,6 @@ class RenderWidgetHostBrowserTest : public ContentBrowserTest {
 class RenderWidgetHostSitePerProcessTest : public ContentBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    ContentBrowserTest::SetUpCommandLine(command_line);
     IsolateAllSitesForTesting(command_line);
     // Slow bots are flaky due to slower loading interacting with
     // deferred commits.
@@ -133,8 +132,9 @@ class RenderWidgetHostSitePerProcessTest : public ContentBrowserTest {
     return static_cast<WebContentsImpl*>(shell()->web_contents());
   }
 
-  TouchActionFilter* GetTouchActionFilterForWidget(RenderWidgetHostImpl* rwhi) {
-    return &static_cast<InputRouterImpl*>(rwhi->input_router())
+  input::TouchActionFilter* GetTouchActionFilterForWidget(
+      RenderWidgetHostImpl* rwhi) {
+    return &static_cast<input::InputRouterImpl*>(rwhi->input_router())
                 ->touch_action_filter_;
   }
 };
@@ -203,7 +203,7 @@ class RenderWidgetHostTouchEmulatorBrowserTest : public ContentBrowserTest {
       event.button = blink::WebMouseEvent::Button::kLeft;
     }
     event.SetTimeStamp(GetNextSimulatedEventTime());
-    RenderWidgetHostInputEventRouter* router =
+    input::RenderWidgetHostInputEventRouter* router =
         static_cast<WebContentsImpl*>(shell()->web_contents())
             ->GetInputEventRouter();
     ASSERT_TRUE(router);
@@ -238,7 +238,7 @@ class RenderWidgetHostTouchEmulatorBrowserTest : public ContentBrowserTest {
 IN_PROC_BROWSER_TEST_F(RenderWidgetHostTouchEmulatorBrowserTest,
                        TouchEmulatorPinchWithGestureFling) {
   auto* touch_emulator = host()->GetTouchEmulator(/*create_if_necessary=*/true);
-  touch_emulator->Enable(TouchEmulator::Mode::kEmulatingTouchFromMouse,
+  touch_emulator->Enable(input::TouchEmulator::Mode::kEmulatingTouchFromMouse,
                          ui::GestureProviderConfigType::GENERIC_MOBILE);
   touch_emulator->SetPinchGestureModeForTesting(true);
 
@@ -300,7 +300,7 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostTouchEmulatorBrowserTest,
                        MAYBE_TouchEmulator) {
   host()
       ->GetTouchEmulator(/*create_if_necessary=*/true)
-      ->Enable(TouchEmulator::Mode::kEmulatingTouchFromMouse,
+      ->Enable(input::TouchEmulator::Mode::kEmulatingTouchFromMouse,
                ui::GestureProviderConfigType::GENERIC_MOBILE);
 
   TestInputEventObserver observer;
@@ -470,7 +470,7 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostTouchEmulatorBrowserTest,
   // Turn on emulation.
   host()
       ->GetTouchEmulator(/*create_if_necessary=*/true)
-      ->Enable(TouchEmulator::Mode::kEmulatingTouchFromMouse,
+      ->Enable(input::TouchEmulator::Mode::kEmulatingTouchFromMouse,
                ui::GestureProviderConfigType::GENERIC_MOBILE);
 
   // Another touch.
@@ -1256,9 +1256,8 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostDelegatedInkMetadataTest,
 
 // If the DelegatedInkTrailPresenter creates a metadata that has the same
 // timestamp as the previous one, it does not set the metadata.
-// TODO(crbug.com/40852704). Flaky.
 IN_PROC_BROWSER_TEST_F(RenderWidgetHostDelegatedInkMetadataTest,
-                       DISABLED_DuplicateMetadata) {
+                       DuplicateMetadata) {
   ASSERT_TRUE(ExecJs(shell()->web_contents(), R"(
       let presenter = null;
       navigator.ink.requestPresenter().then(e => { presenter = e; });

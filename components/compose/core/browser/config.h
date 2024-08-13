@@ -51,6 +51,9 @@ struct Config {
   // The maximum number of bytes allowed in the inner text.
   unsigned int trimmed_inner_text_header_length = 4000;
 
+  // The maximum number of AX nodes to gather for page context.
+  unsigned int max_ax_node_count_for_page_context = 5000;
+
   // Whether to send a compose when the dialog is first opened,
   // if there is an acceptable input text selected.
   bool auto_submit_with_selection = false;
@@ -91,7 +94,16 @@ struct Config {
   bool proactive_nudge_segmentation = true;
 
   // How long to wait to show the proactive nudge.
-  base::TimeDelta proactive_nudge_delay = base::Seconds(3);
+  base::TimeDelta proactive_nudge_delay = base::Seconds(1);
+
+  // Whether the nudge on selection should be enabled.
+  bool selection_nudge_enabled = false;
+
+  // Minimum selection length needed before showing the selection nudge.
+  unsigned int selection_nudge_length = 30;
+
+  // How long to wait to show the selection nudge.
+  base::TimeDelta selection_nudge_delay = base::Milliseconds(500);
 
   // If true, nudge at most once per field per navigation. If false, at most
   // once per field per focus.
@@ -122,7 +134,10 @@ struct Config {
 
   // Finch-controllable list of countries where Compose should be enabled. The
   // default value contains countries where it was already fully launched.
-  std::vector<std::string> enabled_countries = {"us"};
+  std::vector<std::string> enabled_countries = {
+      "bd", "ca", "gh", "in", "ke", "my", "ng", "ph",
+      "pk", "sg", "tz", "ug", "us", "zm", "zw",
+  };
 
   Config();
   Config(const Config& other);

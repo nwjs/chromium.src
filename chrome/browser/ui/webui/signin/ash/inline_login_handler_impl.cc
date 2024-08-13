@@ -331,7 +331,8 @@ void InlineLoginHandlerImpl::CompleteLogin(const CompleteLoginParams& params) {
     return;
   }
 
-  if (AccountAppsAvailability::IsArcAccountRestrictionsEnabled()) {
+  if (AccountAppsAvailability::IsArcAccountRestrictionsEnabled() ||
+      AccountAppsAvailability::IsArcManagedAccountRestrictionEnabled()) {
     ::GetAccountManagerFacade(Profile::FromWebUI(web_ui())->GetPath().value())
         ->GetAccounts(base::BindOnce(
             &InlineLoginHandlerImpl::OnGetAccountsToCompleteLogin,
@@ -354,8 +355,10 @@ void InlineLoginHandlerImpl::OnGetAccountsToCompleteLogin(
       [](const account_manager::Account& account) { return account.key.id(); });
   bool is_available_in_arc = params.is_available_in_arc;
   Profile* profile = Profile::FromWebUI(web_ui());
-  if (profile->IsChild())
+  if (profile->IsChild() ||
+      AccountAppsAvailability::IsArcManagedAccountRestrictionEnabled()) {
     is_available_in_arc = true;
+  }
 
   std::unique_ptr<SigninHelper::ArcHelper> arc_helper =
       std::make_unique<SigninHelper::ArcHelper>(

@@ -10,7 +10,7 @@
 #include "content/public/renderer/render_frame.h"
 #include "media/mojo/mojom/media_player.mojom.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/blink/public/web/web_view_observer.h"
@@ -62,7 +62,7 @@ class MediaLoadDeferrer : public blink::WebViewObserver {
     mojo::PendingReceiver<media::mojom::MediaPlayerObserverClient>
         media_player_observer_client_receiver =
             media_player_observer_client_.BindNewPipeAndPassReceiver();
-    render_frame->GetBrowserInterfaceBroker()->GetInterface(
+    render_frame->GetBrowserInterfaceBroker().GetInterface(
         std::move(media_player_observer_client_receiver));
     media_player_observer_client_->GetHasPlayedBefore(
         base::BindOnce(&MediaLoadDeferrer::OnGetHasPlayedBeforeCallback,

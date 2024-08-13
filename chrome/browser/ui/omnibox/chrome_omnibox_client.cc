@@ -163,7 +163,7 @@ PrefService* ChromeOmniboxClient::GetPrefs() {
   return profile_->GetPrefs();
 }
 
-bookmarks::CoreBookmarkModel* ChromeOmniboxClient::GetBookmarkModel() {
+bookmarks::BookmarkModel* ChromeOmniboxClient::GetBookmarkModel() {
   return BookmarkModelFactory::GetForBrowserContext(profile_);
 }
 
@@ -296,12 +296,10 @@ void ChromeOmniboxClient::OnInputStateChanged() {
   if (!location_bar_->GetWebContents()) {
     return;
   }
-#if 0
   if (auto* helper =
           OmniboxTabHelper::FromWebContents(location_bar_->GetWebContents())) {
     helper->OnInputStateChanged();
   }
-#endif
 }
 
 void ChromeOmniboxClient::OnFocusChanged(OmniboxFocusState state,
@@ -309,12 +307,10 @@ void ChromeOmniboxClient::OnFocusChanged(OmniboxFocusState state,
   if (!location_bar_->GetWebContents()) {
     return;
   }
-#if 0
   if (auto* helper =
           OmniboxTabHelper::FromWebContents(location_bar_->GetWebContents())) {
     helper->OnFocusChanged(state, reason);
   }
-#endif
 }
 
 void ChromeOmniboxClient::OnResultChanged(
@@ -462,21 +458,6 @@ void ChromeOmniboxClient::OnBookmarkLaunched() {
 
 void ChromeOmniboxClient::DiscardNonCommittedNavigations() {
   location_bar_->GetWebContents()->GetController().DiscardNonCommittedEntries();
-}
-
-void ChromeOmniboxClient::OpenUpdateChromeDialog() {
-  const content::WebContents* contents = location_bar_->GetWebContents();
-  if (contents) {
-    Browser* browser = chrome::FindBrowserWithTab(contents);
-    if (browser) {
-      // Here we record and take action more directly than
-      // chrome::OpenUpdateChromeDialog because that call is intended for use
-      // by the delayed-update/auto-nag system, possibly presenting dialogs
-      // that don't apply when the goal is immediate relaunch & update.
-      base::RecordAction(base::UserMetricsAction("UpdateChrome"));
-      browser->window()->ShowUpdateChromeDialog();
-    }
-  }
 }
 
 void ChromeOmniboxClient::FocusWebContents() {

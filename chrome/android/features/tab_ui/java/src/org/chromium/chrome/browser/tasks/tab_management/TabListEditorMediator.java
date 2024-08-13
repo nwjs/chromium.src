@@ -24,9 +24,11 @@ import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.LifecycleObserver;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabListEditorExitMetricGroups;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
@@ -66,8 +68,11 @@ class TabListEditorMediator
     private ListModelChangeProcessor mActionChangeProcessor;
     private TabListEditorMenu mTabListEditorMenu;
     private SnackbarManager mSnackbarManager;
+    private BottomSheetController mBottomSheetController;
     private TabListEditorToolbar mTabListEditorToolbar;
     private TabListEditorCoordinator.NavigationProvider mNavigationProvider;
+    private @TabActionState int mTabActionState;
+    private LifecycleObserver mLifecycleObserver;
 
     private final View.OnClickListener mNavigationClickListener =
             new View.OnClickListener() {
@@ -84,6 +89,7 @@ class TabListEditorMediator
             SelectionDelegate<Integer> selectionDelegate,
             boolean actionOnRelatedTabs,
             SnackbarManager snackbarManager,
+            BottomSheetController bottomSheetController,
             TabListEditorLayout tabListEditorLayout,
             @TabActionState int initialTabActionState) {
         mContext = context;
@@ -92,7 +98,9 @@ class TabListEditorMediator
         mSelectionDelegate = selectionDelegate;
         mActionOnRelatedTabs = actionOnRelatedTabs;
         mSnackbarManager = snackbarManager;
+        mBottomSheetController = bottomSheetController;
         mTabListEditorLayout = tabListEditorLayout;
+        mTabActionState = initialTabActionState;
 
         mTabModelObserver =
                 new TabModelObserver() {
@@ -112,16 +120,14 @@ class TabListEditorMediator
                         if (type == TabLaunchType.FROM_RESTORE
                                 || type == TabLaunchType.FROM_REPARENTING
                                 || type == TabLaunchType.FROM_STARTUP) {
-                            hide();
+                            mNavigationProvider.goBack();
                         }
                     }
 
                     @Override
                     public void willCloseTab(Tab tab, boolean didCloseAlone) {
-                        // TODO(crbug.com/338103697): Query the TabList for the current tab action
-                        // state.
-                        if (initialTabActionState != TabProperties.TabActionState.CLOSABLE) {
-                            hide();
+                        if (mTabActionState != TabProperties.TabActionState.CLOSABLE) {
+                            mNavigationProvider.goBack();
                         }
                     }
 
@@ -129,9 +135,9 @@ class TabListEditorMediator
                     // using a custom click handler when selecting tabs.
                     @Override
                     public void didSelectTab(Tab tab, @TabSelectionType int type, int lastId) {
-                        if (initialTabActionState == TabProperties.TabActionState.CLOSABLE
+                        if (mTabActionState == TabProperties.TabActionState.CLOSABLE
                                 && type == TabSelectionType.FROM_USER) {
-                            hide();
+                            mNavigationProvider.goBack();
                         }
                     }
                 };
@@ -298,6 +304,7 @@ class TabListEditorMediator
 
     private void hideInternal(boolean hiddenByAction) {
         if (!isEditorVisible()) return;
+        if (mLifecycleObserver != null) mLifecycleObserver.willHide();
         mSnackbarManager.setParentView(null);
         TabUiMetricsHelper.recordSelectionEditorExitMetrics(
                 TabListEditorExitMetricGroups.CLOSED, mContext);
@@ -317,6 +324,7 @@ class TabListEditorMediator
                 /* quickMode= */ false);
         mModel.set(TabListEditorProperties.IS_VISIBLE, false);
         mResetHandler.postHiding();
+        if (mLifecycleObserver != null) mLifecycleObserver.didHide();
     }
 
     @Override
@@ -334,6 +342,17 @@ class TabListEditorMediator
             @NonNull TabListEditorCoordinator.NavigationProvider navigationProvider) {
         assert navigationProvider != null;
         mNavigationProvider = navigationProvider;
+    }
+
+    @Override
+    public void setTabActionState(@TabActionState int tabActionState) {
+        mTabActionState = tabActionState;
+        mTabListCoordinator.setTabActionState(tabActionState);
+    }
+
+    @Override
+    public void setLifecycleObserver(LifecycleObserver lifecycleObserver) {
+        mLifecycleObserver = lifecycleObserver;
     }
 
     @Override
@@ -371,6 +390,11 @@ class TabListEditorMediator
     @Override
     public SnackbarManager getSnackbarManager() {
         return mSnackbarManager;
+    }
+
+    @Override
+    public BottomSheetController getBottomSheetController() {
+        return mBottomSheetController;
     }
 
     /** Destroy any members that needs clean up. */

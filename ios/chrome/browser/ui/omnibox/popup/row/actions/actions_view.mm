@@ -9,20 +9,22 @@
 #import "ios/chrome/browser/ui/omnibox/popup/row/actions/suggest_action.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
+#import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/l10n/l10n_util_mac.h"
 
 namespace {
 /// The scroll view height.
 const CGFloat kOmniboxPopupActionsHeight = 44;
 ///  Space between buttons.
-const CGFloat kButtonSpace = 5;
+const CGFloat kButtonSpace = 8;
 /// The padding between the button's image and title.
 const CGFloat kButtonTitleImagePadding = 4;
 /// The button's image size.
 const CGFloat kIconSize = 13;
 /// The button's layer radius.
-const CGFloat kButtonLayerRadius = 12;
-/// Actions leading and trailing padding.
-const CGFloat kLeadingTrailingPadding = 61;
+const CGFloat kButtonLayerRadius = 15;
+/// Actions leading padding.
+const CGFloat kLeadingPadding = 61;
 }  // namespace
 
 @implementation ActionsView {
@@ -54,8 +56,7 @@ const CGFloat kLeadingTrailingPadding = 61;
     AddSameConstraints(self, _actionsScrollView);
     AddSameConstraintsWithInsets(
         _actionsStackView, _actionsScrollView.contentLayoutGuide,
-        NSDirectionalEdgeInsetsMake(0, kLeadingTrailingPadding, 0,
-                                    kLeadingTrailingPadding));
+        NSDirectionalEdgeInsetsMake(0, kLeadingPadding, 0, 0));
 
     [NSLayoutConstraint activateConstraints:@[
       [self.heightAnchor
@@ -65,9 +66,8 @@ const CGFloat kLeadingTrailingPadding = 61;
       // Constraint the stackview's width to be able to scroll to semantic
       // leading.
       [_actionsStackView.widthAnchor
-          constraintGreaterThanOrEqualToAnchor:_actionsScrollView
-                                                   .frameLayoutGuide.widthAnchor
-                                      constant:-2 * kLeadingTrailingPadding]
+          constraintGreaterThanOrEqualToAnchor:_actionsScrollView.widthAnchor
+                                      constant:-kLeadingPadding]
     ]];
   }
   return self;
@@ -105,9 +105,34 @@ const CGFloat kLeadingTrailingPadding = 61;
     (OmniboxPopupActionsRowContentConfiguration*)configuration {
   _configuration = configuration;
   [self setupActionsStackView:configuration];
+  [self scrollToHighlightedAction];
 }
 
 #pragma mark - Private
+
+// Scrolls to the highlighted action, if there is any.
+- (void)scrollToHighlightedAction {
+  if (_configuration.highlightedActionIndex == NSNotFound) {
+    return;
+  }
+
+  // Make sure the scroll view layout is done before computing frames.
+  [_actionsScrollView layoutIfNeeded];
+
+  NSUInteger highlightedActionIndex = _configuration.highlightedActionIndex;
+
+  CHECK(_actionsStackView.arrangedSubviews.count > highlightedActionIndex);
+
+  UIButton* highlightedActionButton =
+      _actionsStackView.arrangedSubviews[highlightedActionIndex];
+
+  CGRect frameInScrollViewCoordinates =
+      [highlightedActionButton convertRect:highlightedActionButton.bounds
+                                    toView:_actionsScrollView];
+  CGRect frameWithPadding =
+      CGRectInset(frameInScrollViewCoordinates, -kLeadingPadding, 0);
+  [_actionsScrollView scrollRectToVisible:frameWithPadding animated:NO];
+}
 
 // Setup the actions buttons with the given configuration actions and adds them
 // to the actions stack view.
@@ -118,9 +143,14 @@ const CGFloat kLeadingTrailingPadding = 61;
     [view removeFromSuperview];
   }
 
-  for (SuggestAction* action in configuration.actions) {
+  for (NSUInteger i = 0; i < configuration.actions.count; i++) {
+    SuggestAction* action = configuration.actions[i];
+
+    BOOL isActionHighlighted = configuration.highlightedActionIndex == i;
+
     UIButton* actionButton =
-        [[self class] actionButtonWithSuggestAction:action];
+        [[self class] actionButtonWithSuggestAction:action
+                                        highlighted:isActionHighlighted];
 
     [_actionsStackView addArrangedSubview:actionButton];
 
@@ -128,14 +158,20 @@ const CGFloat kLeadingTrailingPadding = 61;
       [actionButton addTarget:self
                        action:@selector(callButtonTapped)
              forControlEvents:UIControlEventTouchUpInside];
+      actionButton.accessibilityLabel = l10n_util::GetNSString(
+          IDS_IOS_CALL_OMNIBOX_ACTION_ACCESSIBILITY_LABEL);
     } else if (action.type == omnibox::ActionInfo_ActionType_DIRECTIONS) {
       [actionButton addTarget:self
                        action:@selector(directionsButtonTapped)
              forControlEvents:UIControlEventTouchUpInside];
+      actionButton.accessibilityLabel = l10n_util::GetNSString(
+          IDS_IOS_DIRECTIONS_OMNIBOX_ACTION_ACCESSIBILITY_LABEL);
     } else if (action.type == omnibox::ActionInfo_ActionType_REVIEWS) {
       [actionButton addTarget:self
                        action:@selector(reviewsButtonTapped)
              forControlEvents:UIControlEventTouchUpInside];
+      actionButton.accessibilityLabel = l10n_util::GetNSString(
+          IDS_IOS_REVIEWS_OMNIBOX_ACTION_ACCESSIBILITY_LABEL);
     }
   }
 
@@ -151,7 +187,8 @@ const CGFloat kLeadingTrailingPadding = 61;
 
 // Creates a suggestion action button and setup its configutation attributes
 // (eg. Call action button).
-+ (UIButton*)actionButtonWithSuggestAction:(SuggestAction*)suggestAction {
++ (UIButton*)actionButtonWithSuggestAction:(SuggestAction*)suggestAction
+                               highlighted:(BOOL)highlighted {
   UIButton* button = [[UIButton alloc] init];
   button.layer.cornerRadius = kButtonLayerRadius;
   button.layer.masksToBounds = YES;
@@ -162,6 +199,10 @@ const CGFloat kLeadingTrailingPadding = 61;
       setContentCompressionResistancePriority:UILayoutPriorityRequired
                                       forAxis:UILayoutConstraintAxisVertical];
 
+  button.accessibilityIdentifier =
+      [suggestAction.class accessibilityIdentifierWithType:suggestAction.type
+                                               highlighted:highlighted];
+
   NSAttributedString* attributedTitle = [[NSAttributedString alloc]
       initWithString:suggestAction.title
           attributes:@{
@@ -170,16 +211,19 @@ const CGFloat kLeadingTrailingPadding = 61;
           }];
 
   UIButtonConfiguration* configuration =
-      [UIButtonConfiguration plainButtonConfiguration];
+      highlighted ? [UIButtonConfiguration filledButtonConfiguration]
+                  : [UIButtonConfiguration plainButtonConfiguration];
   configuration.imagePadding = kButtonTitleImagePadding;
   configuration.attributedTitle = attributedTitle;
   configuration.image = [SuggestAction imageIconForAction:suggestAction
                                                      size:kIconSize];
-  UIBackgroundConfiguration* backgroundConfig =
-      [UIBackgroundConfiguration clearConfiguration];
-  backgroundConfig.backgroundColor =
-      [UIColor colorNamed:kFaviconBackgroundColor];
-  configuration.background = backgroundConfig;
+  if (!highlighted) {
+    UIBackgroundConfiguration* backgroundConfig =
+        [UIBackgroundConfiguration clearConfiguration];
+    backgroundConfig.backgroundColor =
+        [UIColor colorNamed:kTertiaryBackgroundColor];
+    configuration.background = backgroundConfig;
+  }
 
   button.configuration = configuration;
 

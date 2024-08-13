@@ -89,7 +89,7 @@ source_set("implementation") {
   visibility = [
     ":*",
     "//chrome/browser",
-    "//chrome/browser/ash/system_web_apps/apps:browser_tests",
+    "//chrome/browser/ash/system_web_apps/apps/help_app:browser_tests",
   ]
 }
 
@@ -145,6 +145,7 @@ source_set("unit_tests") {
       "//chrome/browser/apps/app_service",
       "//chrome/browser/apps/app_service",
       "//chrome/browser/ash:test_support",
+      "//chrome/browser/ash/app_list/arc",
       "//components/arc:arc_test_support",
       "//services/network:test_support",
     ]

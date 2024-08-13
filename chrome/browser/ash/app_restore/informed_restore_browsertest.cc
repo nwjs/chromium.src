@@ -5,7 +5,6 @@
 #include "ash/accelerators/accelerator_controller_impl.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
-#include "ash/constants/ash_switches.h"
 #include "ash/shell.h"
 #include "ash/style/system_dialog_delegate_view.h"
 #include "ash/test/ash_test_util.h"
@@ -15,11 +14,11 @@
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_grid_test_api.h"
 #include "ash/wm/overview/overview_test_util.h"
+#include "ash/wm/window_restore/informed_restore_constants.h"
 #include "ash/wm/window_restore/informed_restore_contents_data.h"
+#include "ash/wm/window_restore/informed_restore_contents_view.h"
+#include "ash/wm/window_restore/informed_restore_controller.h"
 #include "ash/wm/window_restore/informed_restore_test_api.h"
-#include "ash/wm/window_restore/pine_constants.h"
-#include "ash/wm/window_restore/pine_contents_view.h"
-#include "ash/wm/window_restore/pine_controller.h"
 #include "ash/wm/window_restore/window_restore_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -32,6 +31,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
@@ -42,36 +42,40 @@ namespace ash::full_restore {
 
 namespace {
 
-const PineContentsView* GetPineContentsView() {
+const InformedRestoreContentsView* GetInformedRestoreContentsView() {
   OverviewGrid* overview_grid =
       GetOverviewGridForRoot(Shell::GetPrimaryRootWindow());
   if (!overview_grid) {
     return nullptr;
   }
 
-  views::Widget* pine_widget = OverviewGridTestApi(overview_grid).pine_widget();
-  if (!pine_widget) {
+  views::Widget* informed_restore_widget =
+      OverviewGridTestApi(overview_grid).informed_restore_widget();
+  if (!informed_restore_widget) {
     return nullptr;
   }
 
-  return views::AsViewClass<PineContentsView>(pine_widget->GetContentsView());
+  return views::AsViewClass<InformedRestoreContentsView>(
+      informed_restore_widget->GetContentsView());
 }
 
 // Retrieve the "Restore" button from the informed restore dialog, if we are in
-// a overview pine session.
-const PillButton* GetPineDialogRestoreButton() {
-  const PineContentsView* pine_contents_view = GetPineContentsView();
-  return pine_contents_view
-             ? static_cast<const PillButton*>(
-                   pine_contents_view->GetViewByID(pine::kRestoreButtonID))
+// an informed restore session.
+const PillButton* GetInformedRestoreDialogRestoreButton() {
+  const auto* contents_view =
+      GetInformedRestoreContentsView();
+  return contents_view
+             ? static_cast<const PillButton*>(contents_view->GetViewByID(
+                   informed_restore::kRestoreButtonID))
              : nullptr;
 }
 
-const PillButton* GetPineDialogCancelButton() {
-  const PineContentsView* pine_contents_view = GetPineContentsView();
-  return pine_contents_view
-             ? static_cast<const PillButton*>(
-                   pine_contents_view->GetViewByID(pine::kCancelButtonID))
+const PillButton* GetInformedRestoreDialogCancelButton() {
+  const auto* contents_view =
+      GetInformedRestoreContentsView();
+  return contents_view
+             ? static_cast<const PillButton*>(contents_view->GetViewByID(
+                   informed_restore::kCancelButtonID))
              : nullptr;
 }
 
@@ -107,14 +111,11 @@ class BrowsersWaiter : public BrowserListObserver {
 class InformedRestoreTest : public InProcessBrowserTest {
  public:
   InformedRestoreTest() {
-    switches::SetIgnoreForestSecretKeyForTest(true);
     set_launch_browser_for_testing(nullptr);
   }
   InformedRestoreTest(const InformedRestoreTest&) = delete;
   InformedRestoreTest& operator=(const InformedRestoreTest&) = delete;
-  ~InformedRestoreTest() override {
-    switches::SetIgnoreForestSecretKeyForTest(false);
-  }
+  ~InformedRestoreTest() override = default;
 
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
@@ -155,7 +156,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, LaunchBrowsers) {
   // Verify we have entered overview. The restore button will be null if we
   // failed to enter overview.
   WaitForOverviewEnterAnimation();
-  const PillButton* restore_button = GetPineDialogRestoreButton();
+  const PillButton* restore_button = GetInformedRestoreDialogRestoreButton();
   ASSERT_TRUE(restore_button);
 
   // Click the "Restore" button and verify we have launched 2 browsers.
@@ -192,7 +193,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, LaunchSWA) {
   // Verify we have entered overview. The restore button will be null if we
   // failed to enter overview.
   WaitForOverviewEnterAnimation();
-  const PillButton* restore_button = GetPineDialogRestoreButton();
+  const PillButton* restore_button = GetInformedRestoreDialogRestoreButton();
   ASSERT_TRUE(restore_button);
 
   // Click the "Restore" button.
@@ -262,7 +263,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, LaunchBrowsersToDesks) {
   // Verify we have entered overview. The restore button will be null if we
   // failed to enter overview.
   WaitForOverviewEnterAnimation();
-  const PillButton* restore_button = GetPineDialogRestoreButton();
+  const PillButton* restore_button = GetInformedRestoreDialogRestoreButton();
   ASSERT_TRUE(restore_button);
 
   // Click the "Restore" button and verify we have launched 3 browsers.
@@ -327,7 +328,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, DISABLED_WindowStates) {
   // Verify we have entered overview. The restore button will be null if we
   // failed to enter overview.
   WaitForOverviewEnterAnimation();
-  const PillButton* restore_button = GetPineDialogRestoreButton();
+  const PillButton* restore_button = GetInformedRestoreDialogRestoreButton();
   ASSERT_TRUE(restore_button);
 
   // Click the "Restore" button and verify we have launched 5 browsers.
@@ -389,7 +390,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, ClickCancelButton) {
   // Verify we have entered overview. The cancel button will be null if we
   // failed to enter overview.
   WaitForOverviewEnterAnimation();
-  const PillButton* cancel_button = GetPineDialogCancelButton();
+  const PillButton* cancel_button = GetInformedRestoreDialogCancelButton();
   ASSERT_TRUE(cancel_button);
 
   // Click the cancel button. We spin the run loop because launching browsers is
@@ -433,7 +434,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, TabInfoWithinLimit) {
   // The informed restore dialog is built based on the values in this data
   // structure.
   const InformedRestoreContentsData* contents_data =
-      Shell::Get()->pine_controller()->contents_data();
+      Shell::Get()->informed_restore_controller()->contents_data();
   ASSERT_TRUE(contents_data);
   const InformedRestoreContentsData::AppsInfos& apps_infos =
       contents_data->apps_infos;
@@ -485,7 +486,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, TabInfoOutsideLimit) {
   // The informed restore dialog is built based on the values in this data
   // structure.
   const InformedRestoreContentsData* contents_data =
-      Shell::Get()->pine_controller()->contents_data();
+      Shell::Get()->informed_restore_controller()->contents_data();
   ASSERT_TRUE(contents_data);
   const InformedRestoreContentsData::AppsInfos& apps_infos =
       contents_data->apps_infos;
@@ -537,7 +538,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, AppInfo) {
   // The informed restore dialog is built based on the values in this data
   // structure.
   const InformedRestoreContentsData* contents_data =
-      Shell::Get()->pine_controller()->contents_data();
+      Shell::Get()->informed_restore_controller()->contents_data();
   ASSERT_TRUE(contents_data);
   const InformedRestoreContentsData::AppsInfos& apps_infos =
       contents_data->apps_infos;
@@ -558,7 +559,32 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, AppInfo) {
   EXPECT_EQ("jhdjimmaggjajfjphpljagpgkidjilnj", apps_infos[3].app_id);
 }
 
-IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_ReenterOverviewPineSession) {
+IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_Update) {
+  // Need at least one window for restore data.
+  Profile* profile = ProfileManager::GetActiveUserProfile();
+  CreateBrowser(profile);
+  EXPECT_EQ(1u, BrowserList::GetInstance()->size());
+
+  // Prepare for the main test body by setting the version to one that will be
+  // less.
+  profile->GetPrefs()->SetString(prefs::kInformedRestoreLastVersion, "0.0.0.0");
+
+  // Immediate save to full restore file to bypass the 2.5 second throttle.
+  AppLaunchInfoSaveWaiter::Wait();
+}
+
+// Verify that the app info that is sent to ash shell is dialog type update.
+IN_PROC_BROWSER_TEST_F(InformedRestoreTest, Update) {
+  EXPECT_TRUE(BrowserList::GetInstance()->empty());
+
+  const InformedRestoreContentsData* contents_data =
+      Shell::Get()->informed_restore_controller()->contents_data();
+  ASSERT_TRUE(contents_data);
+  EXPECT_EQ(InformedRestoreContentsData::DialogType::kUpdate,
+            contents_data->dialog_type);
+}
+
+IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_ReenterInformedRestoreSession) {
   EXPECT_TRUE(BrowserList::GetInstance()->empty());
   CreateBrowser(ProfileManager::GetActiveUserProfile());
   EXPECT_EQ(1u, BrowserList::GetInstance()->size());
@@ -569,24 +595,24 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_ReenterOverviewPineSession) {
 
 // Test that if we exit overview and reenter without opening a new window, we
 // see the informed restore dialog again.
-IN_PROC_BROWSER_TEST_F(InformedRestoreTest, ReenterOverviewPineSession) {
+IN_PROC_BROWSER_TEST_F(InformedRestoreTest, ReenterInformedRestoreSession) {
   EXPECT_TRUE(BrowserList::GetInstance()->empty());
 
   // Verify we have entered overview with the informed restore dialog.
   WaitForOverviewEnterAnimation();
   ASSERT_TRUE(Shell::Get()->overview_controller()->InOverviewSession());
-  EXPECT_TRUE(GetPineDialogRestoreButton());
-  EXPECT_TRUE(Shell::Get()->pine_controller()->contents_data());
+  EXPECT_TRUE(GetInformedRestoreDialogRestoreButton());
+  EXPECT_TRUE(Shell::Get()->informed_restore_controller()->contents_data());
 
   // Exit overview without clicking restore or cancel.
   ToggleOverview();
   WaitForOverviewExitAnimation();
-  EXPECT_TRUE(Shell::Get()->pine_controller()->contents_data());
+  EXPECT_TRUE(Shell::Get()->informed_restore_controller()->contents_data());
 
   // Reenter overview. Test that the dialog is still visible.
   ToggleOverview();
   WaitForOverviewEnterAnimation();
-  EXPECT_TRUE(GetPineDialogRestoreButton());
+  EXPECT_TRUE(GetInformedRestoreDialogRestoreButton());
 
   // Open a new window using the accelerator. This should delete the informed
   // restore dialog data and the next overview enter will not show the dialog.
@@ -596,15 +622,32 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, ReenterOverviewPineSession) {
   ASSERT_TRUE(Shell::Get()->accelerator_controller()->PerformActionIfEnabled(
       AcceleratorAction::kNewWindow, {}));
   waiter.Wait();
-  EXPECT_FALSE(Shell::Get()->pine_controller()->contents_data());
+  EXPECT_FALSE(Shell::Get()->informed_restore_controller()->contents_data());
 
   // Reentering overview this time should not show the dialog.
   ToggleOverview();
   WaitForOverviewEnterAnimation();
-  EXPECT_FALSE(GetPineDialogRestoreButton());
+  EXPECT_FALSE(GetInformedRestoreDialogRestoreButton());
 }
 
-IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_RestoreOff) {
+class InformedRestoreOnboardingTest : public InformedRestoreTest {
+ public:
+  InformedRestoreOnboardingTest() = default;
+  InformedRestoreOnboardingTest(const InformedRestoreOnboardingTest&) = delete;
+  InformedRestoreOnboardingTest& operator=(
+      const InformedRestoreOnboardingTest&) = delete;
+  ~InformedRestoreOnboardingTest() override = default;
+
+  void SetUpDefaultCommandLine(base::CommandLine* command_line) override {
+    InformedRestoreTest::SetUpDefaultCommandLine(command_line);
+
+    // Onboarding dialog is gated by this switch so it doesn't affect other
+    // browser tests.
+    command_line->RemoveSwitch(::switches::kNoFirstRun);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(InformedRestoreOnboardingTest, PRE_RestoreOff) {
   auto* prefs = ProfileManager::GetActiveUserProfile()->GetPrefs();
   prefs->SetInteger(prefs::kRestoreAppsAndPagesPrefName,
                     static_cast<int>(RestoreOption::kDoNotRestore));
@@ -612,7 +655,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_RestoreOff) {
 }
 
 // Tests that when Restore is off, we show the onboarding dialog.
-IN_PROC_BROWSER_TEST_F(InformedRestoreTest, RestoreOff) {
+IN_PROC_BROWSER_TEST_F(InformedRestoreOnboardingTest, RestoreOff) {
   // The first time after rebooting, we show the onboarding dialog.
   auto* onboarding_dialog = InformedRestoreTestApi().GetOnboardingDialog();
   ASSERT_TRUE(onboarding_dialog);
@@ -631,7 +674,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, RestoreOff) {
                 prefs::kRestoreAppsAndPagesPrefName));
 }
 
-IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_NoRestoreData) {
+IN_PROC_BROWSER_TEST_F(InformedRestoreOnboardingTest, PRE_NoRestoreData) {
   auto* prefs = ProfileManager::GetActiveUserProfile()->GetPrefs();
   EXPECT_EQ(static_cast<int>(RestoreOption::kAskEveryTime),
             prefs->GetInteger(prefs::kRestoreAppsAndPagesPrefName));
@@ -640,7 +683,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_NoRestoreData) {
 
 // Tests that when Restore is 'Ask every time' and there is no restore data, we
 // show the onboarding dialog.
-IN_PROC_BROWSER_TEST_F(InformedRestoreTest, NoRestoreData) {
+IN_PROC_BROWSER_TEST_F(InformedRestoreOnboardingTest, NoRestoreData) {
   // The first time after rebooting, we show the onboarding dialog.
   auto* onboarding_dialog = InformedRestoreTestApi().GetOnboardingDialog();
   ASSERT_TRUE(onboarding_dialog);
@@ -654,7 +697,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, NoRestoreData) {
   EXPECT_FALSE(Shell::Get()->overview_controller()->InOverviewSession());
 }
 
-IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_Onboarding) {
+IN_PROC_BROWSER_TEST_F(InformedRestoreOnboardingTest, PRE_Onboarding) {
   // The restore pref setting is 'Ask every time' by default.
   auto* prefs = ProfileManager::GetActiveUserProfile()->GetPrefs();
   EXPECT_EQ(static_cast<int>(RestoreOption::kAskEveryTime),
@@ -671,7 +714,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, PRE_Onboarding) {
 
 // Tests that when Restore is 'Ask every time' and there is restore data, we
 // show the onboarding dialog.
-IN_PROC_BROWSER_TEST_F(InformedRestoreTest, Onboarding) {
+IN_PROC_BROWSER_TEST_F(InformedRestoreOnboardingTest, Onboarding) {
   // The first time after rebooting, we show the onboarding dialog.
   auto* onboarding_dialog = InformedRestoreTestApi().GetOnboardingDialog();
   ASSERT_TRUE(onboarding_dialog);
@@ -684,7 +727,7 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, Onboarding) {
   // Verify we have entered overview. The restore button will be null if
   // we failed to enter overview.
   WaitForOverviewEnterAnimation();
-  const PillButton* restore_button = GetPineDialogRestoreButton();
+  const PillButton* restore_button = GetInformedRestoreDialogRestoreButton();
   ASSERT_TRUE(restore_button);
 
   // Click the "Restore" button and verify we have launched 1 browser.
@@ -695,8 +738,10 @@ IN_PROC_BROWSER_TEST_F(InformedRestoreTest, Onboarding) {
 
   // Attempt to show the dialog again. Since we've already shown it, we
   // don't show it again.
-  Shell::Get()->pine_controller()->MaybeShowInformedRestoreOnboarding(
-      /*restore_on=*/true);
+  Shell::Get()
+      ->informed_restore_controller()
+      ->MaybeShowInformedRestoreOnboarding(
+          /*restore_on=*/true);
   EXPECT_FALSE(InformedRestoreTestApi().GetOnboardingDialog());
 }
 

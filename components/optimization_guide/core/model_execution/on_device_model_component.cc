@@ -48,15 +48,11 @@ base::WeakPtr<OnDeviceModelComponentStateManager>& GetInstance() {
 }
 
 bool WasAnyOnDeviceEligibleFeatureRecentlyUsed(const PrefService& local_state) {
-  // TODO(b/322818928): Change this to iterate over all on-device model
-  // execution features, including kPromptApi and KTest.
-  for (const auto& feature : kAllUserVisibleFeatureKeys) {
-    if (!features::internal::IsOnDeviceModelEnabled(
-            ToModelBasedCapabilityKey(feature))) {
+  for (const ModelBasedCapabilityKey key : kAllModelBasedCapabilityKeys) {
+    if (!features::internal::IsOnDeviceModelEnabled(key)) {
       continue;
     }
-    if (WasOnDeviceEligibleFeatureRecentlyUsed(
-            ToModelBasedCapabilityKey(feature), local_state)) {
+    if (WasOnDeviceEligibleFeatureRecentlyUsed(key, local_state)) {
       return true;
     }
   }
@@ -148,30 +144,33 @@ void OnDeviceModelComponentStateManager::UninstallComplete() {
   component_installer_registered_ = false;
 }
 
+OnDeviceModelStatus
+OnDeviceModelComponentStateManager::GetOnDeviceModelStatus() {
+  if (GetState() != nullptr) {
+    return OnDeviceModelStatus::kReady;
+  }
+  if (!registration_criteria_) {
+    return OnDeviceModelStatus::kNotReadyForUnknownReason;
+  }
+  if (component_installer_registered_) {
+    return OnDeviceModelStatus::kInstallNotComplete;
+  }
+  if (registration_criteria_->should_install()) {
+    // This may happen before the first registration.
+    return OnDeviceModelStatus::kModelInstallerNotRegisteredForUnknownReason;
+  }
+  return OnDeviceModelStatus::kNotEligible;
+}
+
 void OnDeviceModelComponentStateManager::OnDeviceEligibleFeatureUsed(
     ModelBasedCapabilityKey feature) {
   local_state_->SetTime(
       model_execution::prefs::GetOnDeviceFeatureRecentlyUsedPref(feature),
       base::Time::Now());
 
-  OnDeviceModelStatus status;
-  if (GetState() != nullptr) {
-    status = OnDeviceModelStatus::kReady;
-  } else if (!registration_criteria_) {
-    status = OnDeviceModelStatus::kNotReadyForUnknownReason;
-  } else {
-    if (component_installer_registered_) {
-      status = OnDeviceModelStatus::kInstallNotComplete;
-    } else if (registration_criteria_->should_install()) {
-      status =
-          OnDeviceModelStatus::kModelInstallerNotRegisteredForUnknownReason;
-    } else {
-      status = OnDeviceModelStatus::kNotEligible;
-    }
-  }
-
   base::UmaHistogramEnumeration(
-      "OptimizationGuide.ModelExecution.OnDeviceModelStatusAtUseTime", status);
+      "OptimizationGuide.ModelExecution.OnDeviceModelStatusAtUseTime",
+      GetOnDeviceModelStatus());
 
   if (registration_criteria_) {
     LogInstallCriteria(*registration_criteria_, "AtAttemptedUse");

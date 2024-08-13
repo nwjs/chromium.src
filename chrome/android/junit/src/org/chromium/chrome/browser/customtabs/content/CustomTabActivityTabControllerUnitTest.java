@@ -57,8 +57,6 @@ public class CustomTabActivityTabControllerUnitTest {
     public final CustomTabActivityContentTestEnvironment env =
             new CustomTabActivityContentTestEnvironment();
 
-    @Rule public Features.JUnitProcessor processor = new Features.JUnitProcessor();
-
     private CustomTabActivityTabController mTabController;
 
     @Mock private Profile mProfile;
@@ -178,7 +176,7 @@ public class CustomTabActivityTabControllerUnitTest {
                         any(), anyBoolean(), eq(TEST_NETWORK_HANDLE)))
                 .thenReturn(webContents);
         env.reachNativeInit(mTabController);
-        verify(env.warmupManager, never()).takeSpareWebContents(env.isIncognito, false);
+        verify(env.warmupManager, never()).takeSpareWebContents(env.isOffTheRecord, false);
         assertEquals(webContents, env.webContentsCaptor.getValue());
     }
 
@@ -225,11 +223,11 @@ public class CustomTabActivityTabControllerUnitTest {
                         })
                 .when(env.connection)
                 .setClientDataHeaderForNewTab(any(), any());
-        env.isIncognito = true;
+        env.isOffTheRecord = true;
         mTabController.onPreInflationStartup();
         mTabController.finishNativeInitialization();
         Tab tab = env.prepareTab();
-        assertTrue(tab.isIncognito());
+        assertTrue(tab.isOffTheRecord());
     }
 
     @Test

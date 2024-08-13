@@ -62,6 +62,7 @@
 #include "net/ssl/ssl_connection_status_flags.h"
 #include "net/ssl/ssl_info.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_stream_priority.h"
+#include "net/third_party/quiche/src/quiche/quic/core/quic_types.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_utils.h"
 #include "net/third_party/quiche/src/quiche/quic/platform/api/quic_flags.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
@@ -414,6 +415,7 @@ void QuicChromiumClientSession::Handle::OnSessionClosed(
     quic::ParsedQuicVersion quic_version,
     int net_error,
     quic::QuicErrorCode quic_error,
+    quic::ConnectionCloseSource source,
     bool port_migration_detected,
     bool quic_connection_migration_attempted,
     bool quic_connection_migration_successful,
@@ -425,6 +427,7 @@ void QuicChromiumClientSession::Handle::OnSessionClosed(
   quic_connection_migration_successful_ = quic_connection_migration_successful;
   net_error_ = net_error;
   quic_error_ = quic_error;
+  source_ = source;
   quic_version_ = quic_version;
   connect_timing_ = connect_timing;
   was_ever_used_ = was_ever_used;
@@ -454,6 +457,7 @@ void QuicChromiumClientSession::Handle::PopulateNetErrorDetails(
   } else {
     details->quic_port_migration_detected = port_migration_detected_;
     details->quic_connection_error = quic_error_;
+    details->source = source_;
     details->quic_connection_migration_attempted =
         quic_connection_migration_attempted_;
     details->quic_connection_migration_successful =
@@ -491,7 +495,6 @@ int QuicChromiumClientSession::Handle::RequestStream(
     const NetworkTrafficAnnotationTag& traffic_annotation) {
   DCHECK(!stream_request_);
 
-  // TODO(crbug.com/41491379): Add a regression test.
   if (!session_ || session_->going_away_) {
     return ERR_CONNECTION_CLOSED;
   }
@@ -1128,7 +1131,7 @@ void QuicChromiumClientSession::Initialize() {
 
 size_t QuicChromiumClientSession::WriteHeadersOnHeadersStream(
     quic::QuicStreamId id,
-    spdy::Http2HeaderBlock headers,
+    quiche::HttpHeaderBlock headers,
     bool fin,
     const spdy::SpdyStreamPrecedence& precedence,
     quiche::QuicheReferenceCountedPointer<quic::QuicAckListenerInterface>
@@ -1179,7 +1182,7 @@ void QuicChromiumClientSession::OnAcceptChFrameReceivedViaAlps(
 void QuicChromiumClientSession::AddHandle(Handle* handle) {
   if (going_away_) {
     handle->OnSessionClosed(connection()->version(), ERR_UNEXPECTED, error(),
-                            port_migration_detected_,
+                            source_, port_migration_detected_,
                             quic_connection_migration_attempted_,
                             quic_connection_migration_successful_,
                             GetConnectTiming(), WasConnectionEverUsed());
@@ -1329,8 +1332,8 @@ QuicChromiumClientSession::CreateOutgoingReliableStreamImpl(
     const NetworkTrafficAnnotationTag& traffic_annotation) {
   DCHECK(connection()->connected());
   QuicChromiumClientStream* stream = new QuicChromiumClientStream(
-      GetNextOutgoingBidirectionalStreamId(), this, quic::BIDIRECTIONAL,
-      net_log_, traffic_annotation);
+      GetNextOutgoingBidirectionalStreamId(), this, server_id(),
+      quic::BIDIRECTIONAL, net_log_, traffic_annotation);
   ActivateStream(base::WrapUnique(stream));
   ++num_total_streams_;
   UMA_HISTOGRAM_COUNTS_1M("Net.QuicSession.NumOpenStreams",
@@ -1545,7 +1548,8 @@ QuicChromiumClientSession::CreateIncomingReliableStreamImpl(
   DCHECK(connection()->connected());
 
   QuicChromiumClientStream* stream = new QuicChromiumClientStream(
-      id, this, quic::READ_UNIDIRECTIONAL, net_log_, traffic_annotation);
+      id, this, server_id(), quic::READ_UNIDIRECTIONAL, net_log_,
+      traffic_annotation);
   ActivateStream(base::WrapUnique(stream));
   ++num_total_streams_;
   return stream;
@@ -1557,8 +1561,8 @@ QuicChromiumClientSession::CreateIncomingReliableStreamImpl(
     const NetworkTrafficAnnotationTag& traffic_annotation) {
   DCHECK(connection()->connected());
 
-  QuicChromiumClientStream* stream =
-      new QuicChromiumClientStream(pending, this, net_log_, traffic_annotation);
+  QuicChromiumClientStream* stream = new QuicChromiumClientStream(
+      pending, this, server_id(), net_log_, traffic_annotation);
   ActivateStream(base::WrapUnique(stream));
   ++num_total_streams_;
   return stream;
@@ -1770,6 +1774,7 @@ void QuicChromiumClientSession::OnConnectionClosed(
     quic::ConnectionCloseSource source) {
   DCHECK(!connection()->connected());
   logger_->OnConnectionClosed(frame, source);
+  source_ = source;
 
   UMA_HISTOGRAM_COUNTS_1000("Net.QuicSession.NumDefaultPathDegrading",
                             connection()->GetStats().num_path_degrading);
@@ -2315,6 +2320,11 @@ void QuicChromiumClientSession::OnPortMigrationProbeSucceeded(
   DCHECK(writer);
   DCHECK(reader);
 
+  // Writer must be destroyed before reader, since it points to the socket owned
+  // by reader. C++ doesn't have any guarantees about destruction order of
+  // arguments.
+  std::unique_ptr<QuicChromiumPacketWriter> writer_moved = std::move(writer);
+
   net_log_.AddEvent(NetLogEventType::QUIC_SESSION_CONNECTIVITY_PROBING_FINISHED,
                     [&] {
                       return NetLogProbingResultParams(network, &peer_address,
@@ -2329,7 +2339,7 @@ void QuicChromiumClientSession::OnPortMigrationProbeSucceeded(
   // that was used for probing.
   static_cast<QuicChromiumPacketWriter*>(connection()->writer())
       ->set_delegate(nullptr);
-  writer->set_delegate(this);
+  writer_moved->set_delegate(this);
 
   if (!migrate_idle_session_ && !HasActiveRequestStreams()) {
     // If idle sessions won't be migrated, close the connection.
@@ -2347,7 +2357,7 @@ void QuicChromiumClientSession::OnPortMigrationProbeSucceeded(
   // Migrate to the probed socket immediately: socket, writer and reader will
   // be acquired by connection and used as default on success.
   if (!MigrateToSocket(self_address, peer_address, std::move(reader),
-                       std::move(writer))) {
+                       std::move(writer_moved))) {
     LogMigrateToSocketStatus(false);
     net_log_.AddEvent(
         NetLogEventType::QUIC_CONNECTION_MIGRATION_FAILURE_AFTER_PROBING);
@@ -2451,6 +2461,11 @@ void QuicChromiumClientSession::OnServerPreferredAddressProbeSucceeded(
     const quic::QuicSocketAddress& self_address,
     std::unique_ptr<QuicChromiumPacketWriter> writer,
     std::unique_ptr<QuicChromiumPacketReader> reader) {
+  // Writer must be destroyed before reader, since it points to the socket owned
+  // by reader. C++ doesn't have any guarantees about destruction order of
+  // arguments.
+  std::unique_ptr<QuicChromiumPacketWriter> writer_moved = std::move(writer);
+
   net_log_.AddEvent(NetLogEventType::QUIC_SESSION_CONNECTIVITY_PROBING_FINISHED,
                     [&] {
                       return NetLogProbingResultParams(network, &peer_address,
@@ -2466,12 +2481,12 @@ void QuicChromiumClientSession::OnServerPreferredAddressProbeSucceeded(
   // that was used for probing.
   static_cast<QuicChromiumPacketWriter*>(connection()->writer())
       ->set_delegate(nullptr);
-  writer->set_delegate(this);
+  writer_moved->set_delegate(this);
 
   // Migrate to the probed socket immediately: socket, writer and reader will
   // be acquired by connection and used as default on success.
   if (!MigrateToSocket(self_address, peer_address, std::move(reader),
-                       std::move(writer))) {
+                       std::move(writer_moved))) {
     LogMigrateToSocketStatus(false);
     net_log_.AddEvent(
         NetLogEventType::QUIC_CONNECTION_MIGRATION_FAILURE_AFTER_PROBING);
@@ -2927,7 +2942,7 @@ void QuicChromiumClientSession::CloseAllHandles(int net_error) {
     Handle* handle = *handles_.begin();
     handles_.erase(handle);
     handle->OnSessionClosed(connection()->version(), net_error, error(),
-                            port_migration_detected_,
+                            source_, port_migration_detected_,
                             quic_connection_migration_attempted_,
                             quic_connection_migration_successful_,
                             GetConnectTiming(), WasConnectionEverUsed());
@@ -3855,9 +3870,14 @@ bool QuicChromiumClientSession::MigrateToSocket(
     const quic::QuicSocketAddress& peer_address,
     std::unique_ptr<QuicChromiumPacketReader> reader,
     std::unique_ptr<QuicChromiumPacketWriter> writer) {
+  // Writer must be destroyed before reader, since it points to the socket owned
+  // by reader. C++ doesn't have any guarantees about destruction order of
+  // arguments.
+  std::unique_ptr<QuicChromiumPacketWriter> writer_moved = std::move(writer);
+
   // Sessions carried via a proxy should never migrate, and that is ensured
   // elsewhere (for each possible migration trigger).
-  DCHECK(session_key_.proxy_chain().is_direct());
+  DUMP_WILL_BE_CHECK(session_key_.proxy_chain().is_direct());
 
   // TODO(zhongyi): figure out whether we want to limit the number of
   // connection migrations for v2, which includes migration on platform signals,
@@ -3866,11 +3886,6 @@ bool QuicChromiumClientSession::MigrateToSocket(
       packet_readers_.size() >= kMaxReadersPerQuicSession) {
     HistogramAndLogMigrationFailure(MIGRATION_STATUS_TOO_MANY_CHANGES,
                                     connection_id(), "Too many changes");
-    // Must destroy `writer` before `reader`, as `writer` references the socket
-    // owned by `reader`. Destruction order of parameters is apparently not
-    // specified by the C++ standard, but Clang looks to destroy arguments from
-    // first to last.
-    writer.reset();
     return false;
   }
 
@@ -3878,8 +3893,8 @@ bool QuicChromiumClientSession::MigrateToSocket(
   // Force the writer to be blocked to prevent it being used until
   // WriteToNewSocket completes.
   DVLOG(1) << "Force blocking the packet writer";
-  writer->set_force_write_blocked(true);
-  if (!MigratePath(self_address, peer_address, writer.release(),
+  writer_moved->set_force_write_blocked(true);
+  if (!MigratePath(self_address, peer_address, writer_moved.release(),
                    /*owns_writer=*/true)) {
     HistogramAndLogMigrationFailure(MIGRATION_STATUS_NO_UNUSED_CONNECTION_ID,
                                     connection_id(),
@@ -3900,6 +3915,7 @@ void QuicChromiumClientSession::PopulateNetErrorDetails(
     NetErrorDetails* details) const {
   details->quic_port_migration_detected = port_migration_detected_;
   details->quic_connection_error = error();
+  details->source = source_;
   details->quic_connection_migration_attempted =
       quic_connection_migration_attempted_;
   details->quic_connection_migration_successful =

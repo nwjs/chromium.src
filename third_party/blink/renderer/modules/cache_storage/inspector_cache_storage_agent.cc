@@ -16,10 +16,10 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/cache_storage/cache_storage_utils.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fileapi/file_reader_client.h"
@@ -507,9 +507,8 @@ class CachedResponseFileReaderLoaderClient final
     dispose();
   }
 
-  FileErrorCode DidReceiveData(const char* data,
-                               unsigned data_length) override {
-    data_.Append(data, data_length);
+  FileErrorCode DidReceiveData(base::span<const uint8_t> data) override {
+    data_.Append(data);
     return FileErrorCode::kOK;
   }
 

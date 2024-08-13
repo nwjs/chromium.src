@@ -35,7 +35,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -53,7 +52,6 @@ import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.JniMocker;
@@ -100,7 +98,6 @@ import java.util.Set;
         manifest = Config.NONE,
         shadows = {ShadowApplicationStatus.class})
 public class MultiInstanceManagerApi31UnitTest {
-    @Rule public TestRule mFeaturesProcessorRule = new Features.JUnitProcessor();
 
     @Rule public JniMocker mMocker = new JniMocker();
 
@@ -295,7 +292,7 @@ public class MultiInstanceManagerApi31UnitTest {
         }
 
         @Override
-        protected Set<Integer> getAllChromeTasks(List<AppTask> allTasks) {
+        protected Set<Integer> getAllAppTaskIds(List<AppTask> allTasks) {
             return mAppTasks;
         }
 
@@ -372,6 +369,7 @@ public class MultiInstanceManagerApi31UnitTest {
                     mTabbedActivityTask63,
                 };
         mCurrentActivity = mActivityTask56;
+        TabWindowManagerSingleton.resetTabModelSelectorFactoryForTesting();
         TabWindowManagerSingleton.setTabModelSelectorFactoryForTesting(
                 new TabModelSelectorFactory() {
                     @Override
@@ -1238,6 +1236,7 @@ public class MultiInstanceManagerApi31UnitTest {
 
     @Test
     @Config(sdk = 31)
+    @DisableFeatures(ChromeFeatureList.ANDROID_TAB_DECLUTTER)
     public void testCleanupIfLastInstance() {
         TabGroupSyncServiceFactory.setForTesting(mTabGroupSyncService);
         when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[] {});

@@ -26,15 +26,16 @@ constexpr char FrameNodeImpl::kDefaultPriorityReason[] =
 
 using PriorityAndReason = execution_context_priority::PriorityAndReason;
 
-FrameNodeImpl::FrameNodeImpl(ProcessNodeImpl* process_node,
-                             PageNodeImpl* page_node,
-                             FrameNodeImpl* parent_frame_node,
-                             FrameNodeImpl* outer_document_for_fenced_frame,
-                             int render_frame_id,
-                             const blink::LocalFrameToken& frame_token,
-                             content::BrowsingInstanceId browsing_instance_id,
-                             content::SiteInstanceId site_instance_id,
-                             bool is_current)
+FrameNodeImpl::FrameNodeImpl(
+    ProcessNodeImpl* process_node,
+    PageNodeImpl* page_node,
+    FrameNodeImpl* parent_frame_node,
+    FrameNodeImpl* outer_document_for_fenced_frame,
+    int render_frame_id,
+    const blink::LocalFrameToken& frame_token,
+    content::BrowsingInstanceId browsing_instance_id,
+    content::SiteInstanceGroupId site_instance_group_id,
+    bool is_current)
     : parent_frame_node_(parent_frame_node),
       outer_document_for_fenced_frame_(outer_document_for_fenced_frame),
       page_node_(page_node),
@@ -42,7 +43,7 @@ FrameNodeImpl::FrameNodeImpl(ProcessNodeImpl* process_node,
       render_frame_id_(render_frame_id),
       frame_token_(frame_token),
       browsing_instance_id_(browsing_instance_id),
-      site_instance_id_(site_instance_id),
+      site_instance_group_id_(site_instance_group_id),
       render_frame_host_proxy_(content::GlobalRenderFrameHostId(
           process_node->GetRenderProcessHostId().value(),
           render_frame_id)),
@@ -65,7 +66,6 @@ FrameNodeImpl::~FrameNodeImpl() {
   DCHECK(child_worker_nodes_.empty());
   DCHECK(opened_page_nodes_.empty());
   DCHECK(embedded_page_nodes_.empty());
-  DCHECK(!execution_context_);
 }
 
 void FrameNodeImpl::Bind(
@@ -142,9 +142,9 @@ content::BrowsingInstanceId FrameNodeImpl::GetBrowsingInstanceId() const {
   return browsing_instance_id_;
 }
 
-content::SiteInstanceId FrameNodeImpl::GetSiteInstanceId() const {
+content::SiteInstanceGroupId FrameNodeImpl::GetSiteInstanceGroupId() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return site_instance_id_;
+  return site_instance_group_id_;
 }
 
 resource_attribution::FrameContext FrameNodeImpl::GetResourceContext() const {
@@ -587,6 +587,9 @@ void FrameNodeImpl::OnJoiningGraph() {
   weak_factory_.BindToCurrentSequence(
       base::subtle::BindWeakPtrFactoryPassKey());
 
+  NodeAttachedDataStorage::Create(this);
+  execution_context::FrameExecutionContext::Create(this, this);
+
   // Enable querying this node using process and frame routing ids.
   graph()->RegisterFrameNodeForId(process_node_->GetRenderProcessHostId(),
                                   render_frame_id_, this);
@@ -632,7 +635,7 @@ void FrameNodeImpl::OnBeforeLeavingGraph() {
 
 void FrameNodeImpl::RemoveNodeAttachedData() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  execution_context_.reset();
+  DestroyNodeInlineDataStorage();
 }
 
 void FrameNodeImpl::SeverPageRelationshipsAndMaybeReparent() {
@@ -646,8 +649,7 @@ void FrameNodeImpl::SeverPageRelationshipsAndMaybeReparent() {
   // We also reparent related pages to this frame's parent to maintain the
   // relationship between the distinct frame trees for bookkeeping. For the
   // relationship to be finally severed one of the frame trees must completely
-  // disappear, or it must be explicitly severed (this can happen with
-  // portals).
+  // disappear.
   NodeSet opened_page_nodes_copy = opened_page_nodes_;
   for (const Node* opened_page_node : opened_page_nodes_copy) {
     PageNodeImpl* opened_page = PageNodeImpl::FromNode(opened_page_node);

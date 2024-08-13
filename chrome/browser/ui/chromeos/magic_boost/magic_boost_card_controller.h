@@ -7,8 +7,12 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
+#include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
+#include "chrome/browser/ui/chromeos/magic_boost/magic_boost_constants.h"
+#include "chrome/browser/ui/chromeos/read_write_cards/read_write_card_controller.h"
 #include "chromeos/crosapi/mojom/magic_boost.mojom.h"
 #include "ui/views/widget/unique_widget_ptr.h"
 
@@ -30,44 +34,41 @@ namespace mahi {
 class MahiPrefsController;
 }  // namespace mahi
 
+class Profile;
+
 namespace chromeos {
+
+using OptInFeatures = crosapi::mojom::MagicBoostController::OptInFeatures;
+using TransitionAction = crosapi::mojom::MagicBoostController::TransitionAction;
 
 // The controller that manages the lifetime of opt-in cards.
 // Some functions in this controller are virtual for testing.
-class MagicBoostCardController {
+class MagicBoostCardController : public ReadWriteCardController {
  public:
+  MagicBoostCardController();
   MagicBoostCardController(const MagicBoostCardController&) = delete;
   MagicBoostCardController& operator=(const MagicBoostCardController&) = delete;
+  ~MagicBoostCardController() override;
 
-  static MagicBoostCardController* Get();
+  // ReadWriteCardController:
+  void OnContextMenuShown(Profile* profile) override;
+  void OnTextAvailable(const gfx::Rect& anchor_bounds,
+                       const std::string& selected_text,
+                       const std::string& surrounding_text) override;
+  void OnAnchorBoundsChanged(const gfx::Rect& anchor_bounds) override;
+  void OnDismiss(bool is_other_command_executed) override;
 
   // Shows/closes Magic Boost opt-in widget.
   virtual void ShowOptInUi(const gfx::Rect& anchor_view_bounds);
   virtual void CloseOptInUi();
 
   // Shows/closes Magic Boost disclaimer widget.
-  void ShowDisclaimerUi(
-      int64_t display_id,
-      crosapi::mojom::MagicBoostController::TransitionAction action);
-  void CloseDisclaimerUi();
+  void ShowDisclaimerUi(int64_t display_id);
 
-  // Whether the Quick Answers and Mahi features should show the opt in UI.
-  virtual bool ShouldQuickAnswersAndMahiShowOptIn();
-
-  // Enables or disables all the features (including Quick Answers, Orca, and
-  // Mahi).
-  virtual void SetAllFeaturesState(bool enabled);
-
-  // Enables or disables Quick Answers and Mahi.
-  virtual void SetQuickAnswersAndMahiFeaturesState(bool enabled);
-
-  // Enables or disables Orca.
-  void SetOrcaFeatureState(bool enabled) {}
-
-  bool is_orca_included() { return is_orca_included_; }
-
-  // For testing.
-  void SetIsOrcaIncludedForTest(bool include);
+  // The setter and getter of the features that trigger the magic boost opt in
+  // card.
+  void SetOptInFeature(const OptInFeatures& features);
+  const OptInFeatures& GetOptInFeatures() const;
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   void BindMagicBoostControllerCrosapiForTesting(
@@ -77,38 +78,30 @@ class MagicBoostCardController {
       crosapi::mojom::MagicBoostController* delegate);
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
-  views::Widget* opt_in_widget_for_test() { return opt_in_widget_.get(); }
-  views::Widget* disclaimer_widget_for_test() {
-    return disclaimer_widget_.get();
+  base::WeakPtr<MagicBoostCardController> GetWeakPtr();
+
+  void set_transition_action(TransitionAction action) {
+    transition_action_ = action;
   }
+  TransitionAction transition_action_for_test() { return transition_action_; }
 
- protected:
-  friend class base::NoDestructor<MagicBoostCardController>;
-
-  MagicBoostCardController();
-  ~MagicBoostCardController();
+  views::Widget* opt_in_widget_for_test() { return opt_in_widget_.get(); }
 
  private:
+  TransitionAction transition_action_ = TransitionAction::kDoNothing;
+
   // If Orca feature is included.
   bool is_orca_included_ = false;
 
   views::UniqueWidgetPtr opt_in_widget_;
-  views::UniqueWidgetPtr disclaimer_widget_;
-
-  std::unique_ptr<::mahi::MahiPrefsController> mahi_prefs_controller_;
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   mojo::Remote<crosapi::mojom::MagicBoostController> remote_;
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-};
 
-// Helper class to automatically set and reset the `MagicBoostCardController`
-// global instance for testing.
-class ScopedMagicBoostCardControllerForTesting {
- public:
-  explicit ScopedMagicBoostCardControllerForTesting(
-      MagicBoostCardController* controller_for_testing);
-  ~ScopedMagicBoostCardControllerForTesting();
+  OptInFeatures opt_in_features_;
+
+  base::WeakPtrFactory<MagicBoostCardController> weak_factory_{this};
 };
 
 }  // namespace chromeos

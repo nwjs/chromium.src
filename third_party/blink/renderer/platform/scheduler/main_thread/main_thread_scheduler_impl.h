@@ -142,7 +142,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     base::TimeDelta prioritize_compositing_after_delay_post_fcp;
   };
 
-  static const char* UseCaseToString(UseCase use_case);
   static const char* RAILModeToString(RAILMode rail_mode);
 
   explicit MainThreadSchedulerImpl(
@@ -546,6 +545,10 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
       base::TimeTicks now,
       base::TimeDelta* expected_use_case_duration) const;
 
+  // Helper for computing the RAILMode based on the given UseCase and current
+  // scheduler state.
+  RAILMode ComputeCurrentRAILMode(UseCase) const;
+
   // An input event of some sort happened, the policy may need updating.
   void UpdateForInputEventOnCompositorThread(
       const WebInputEvent& event,
@@ -583,11 +586,17 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   // Used to update the compositor priority on the main thread.
   void UpdateCompositorTaskQueuePriority();
 
-  // Called from OnTaskCompleted, this method checks to see if the compositor
-  // task queue priority needs to be updated.
-  void MaybeUpdateCompositorTaskQueuePriorityOnTaskCompleted(
-      MainThreadTaskQueue* queue,
-      const base::sequence_manager::TaskQueue::TaskTiming& task_timing);
+  // Updates the policy state associated with the current task and updates the
+  // policy if necessary.
+  void MaybeUpdatePolicyOnTaskCompleted(
+      MainThreadTaskQueue*,
+      const base::sequence_manager::TaskQueue::TaskTiming&);
+
+  // Updates the current `RenderingPrioritizationState` used to set the
+  // compositor task queue priority after the current task has finished.
+  void UpdateRenderingPrioritizationStateOnTaskCompleted(
+      MainThreadTaskQueue*,
+      const base::sequence_manager::TaskQueue::TaskTiming&);
 
   // Computes the priority for compositing based on the current use case.
   // Returns nullopt if the use case does not need to set the priority.
@@ -596,8 +605,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   // Computes the compositor task queue priority for the next main frame based
   // on the current `RenderingPrioritizationState`.
   std::optional<TaskPriority> ComputeCompositorPriorityForMainFrame() const;
-
-  void MaybeUpdateIPCTaskQueuePriorityOnTaskCompleted();
 
   static void RunIdleTask(Thread::IdleTask, base::TimeTicks deadline);
 

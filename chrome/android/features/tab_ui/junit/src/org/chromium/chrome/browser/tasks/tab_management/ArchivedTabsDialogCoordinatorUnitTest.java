@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -30,11 +31,16 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
+import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.tab.TabArchiveSettings;
+import org.chromium.chrome.browser.tab_ui.OnTabSelectingListener;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorBase;
@@ -42,7 +48,9 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabLi
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 
 /** Tests for {@link TabListMediator}. */
 @Batch(Batch.UNIT_TESTS)
@@ -54,6 +62,7 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
             new ActivityScenarioRule<>(TestActivity.class);
 
+    @Spy private ViewGroup mRootView;
     @Captor private ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
     @Mock private ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
     @Mock private TabModelSelectorBase mArchivedTabModelSelector;
@@ -63,10 +72,15 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
     @Mock private SnackbarManager mSnackbarManager;
     @Mock private TabListEditorCoordinator mTabListEditorCoordinator;
     @Mock private TabListEditorController mTabListEditorController;
-    @Spy private ViewGroup mRootView;
+    @Mock private TabCreator mRegularTabCreator;
+    @Mock private BackPressManager mBackPressManager;
+    @Mock private OnTabSelectingListener mOnTabSelectingListener;
+    @Mock private TabArchiveSettings mTabArchiveSettings;
+    @Mock private ModalDialogManager mModalDialogManager;
 
     private Context mContext;
     private ArchivedTabsDialogCoordinator mCoordinator;
+    private ObservableSupplierImpl<Integer> mTabCountSupplier = new ObservableSupplierImpl<>();
 
     @Before
     public void setUp() {
@@ -84,7 +98,11 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
                         mTabContentManager,
                         TabListMode.GRID,
                         mRootView,
-                        mSnackbarManager);
+                        mSnackbarManager,
+                        mRegularTabCreator,
+                        mBackPressManager,
+                        mTabArchiveSettings,
+                        mModalDialogManager);
         mCoordinator.setTabListEditorCoordinatorForTesting(mTabListEditorCoordinator);
     }
 
@@ -93,16 +111,18 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
                 .when(mArchivedTabModelOrchestrator)
                 .getTabModelSelector();
         doReturn(mArchivedTabModel).when(mArchivedTabModelSelector).getModel(false);
+        doReturn(mTabCountSupplier).when(mArchivedTabModel).getTabCountSupplier();
 
         doReturn(mTabListEditorController).when(mTabListEditorCoordinator).getController();
     }
 
     @Test
     public void testShow() {
-        mCoordinator.show();
+        mCoordinator.show(mOnTabSelectingListener);
         verify(mRootView).addView(any());
         verify(mTabListEditorController).setNavigationProvider(any());
         verify(mTabListEditorController).setToolbarTitle("0 inactive tabs");
+        verify(mBackPressManager).addHandler(any(), eq(BackPressHandler.Type.ARCHIVED_TABS_DIALOG));
 
         doReturn(1).when(mArchivedTabModel).getCount();
         mCoordinator.updateTitle();
@@ -115,27 +135,36 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
 
     @Test
     public void testAddRemoveTab() {
-        mCoordinator.show();
-        verify(mArchivedTabModel).addObserver(mTabModelObserverCaptor.capture());
-        TabModelObserver observer = mTabModelObserverCaptor.getValue();
+        mCoordinator.show(mOnTabSelectingListener);
 
         // First add a tab
         doReturn(1).when(mArchivedTabModel).getCount();
-        observer.willAddTab(null, 0);
+        mTabCountSupplier.set(1);
         verify(mTabListEditorController).setToolbarTitle("1 inactive tab");
 
         // Then a second
         doReturn(2).when(mArchivedTabModel).getCount();
-        observer.willAddTab(null, 0);
+        mTabCountSupplier.set(2);
         verify(mTabListEditorController).setToolbarTitle("2 inactive tabs");
 
         // Then close bloth
         doReturn(1).when(mArchivedTabModel).getCount();
-        observer.willCloseTab(null, true);
+        mTabCountSupplier.set(1);
         verify(mTabListEditorController, times(2)).setToolbarTitle("1 inactive tab");
 
         doReturn(0).when(mArchivedTabModel).getCount();
-        observer.willCloseTab(null, true);
+        mTabCountSupplier.set(0);
         verify(mRootView).removeView(any());
+    }
+
+    @Test
+    public void testLifecycleObserverHidesDialog() {
+        mCoordinator.show(mOnTabSelectingListener);
+        mCoordinator.getTabListEditorLifecycleObserver().willHide();
+        verify(mRootView).removeView(any());
+
+        mCoordinator.getTabListEditorLifecycleObserver().didHide();
+        verify(mTabListEditorController).setLifecycleObserver(null);
+        verify(mBackPressManager).removeHandler(any());
     }
 }

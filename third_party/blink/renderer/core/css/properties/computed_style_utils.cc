@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 
 #include "base/memory/values_equivalent.h"
@@ -11,6 +16,7 @@
 #include "third_party/blink/renderer/core/css/css_border_image_slice_value.h"
 #include "third_party/blink/renderer/core/css/css_bracketed_value_list.h"
 #include "third_party/blink/renderer/core/css/css_color.h"
+#include "third_party/blink/renderer/core/css/css_color_mix_value.h"
 #include "third_party/blink/renderer/core/css/css_content_distribution_value.h"
 #include "third_party/blink/renderer/core/css/css_counter_value.h"
 #include "third_party/blink/renderer/core/css/css_custom_ident_value.h"
@@ -238,12 +244,33 @@ CSSValue* ComputedStyleUtils::ValueForOffset(const ComputedStyle& style,
   return list;
 }
 
-CSSValue* ComputedStyleUtils::CurrentColorOrValidColor(
+const CSSValue* ComputedStyleUtils::ValueForColor(
+    const StyleColor& style_color) {
+  if (style_color.IsUnresolvedColorMixFunction()) {
+    return style_color.GetUnresolvedColorMix().ToCSSColorMixValue();
+  }
+  if (style_color.IsCurrentColor()) {
+    return CSSIdentifierValue::Create(CSSValueID::kCurrentcolor);
+  }
+  return cssvalue::CSSColor::Create(style_color.GetColor());
+}
+
+const CSSValue* ComputedStyleUtils::ValueForColor(
+    const StyleColor& style_color,
+    const ComputedStyle& style,
+    const Color* override_current_color,
+    CSSValuePhase value_phase) {
+  const Color current_color = override_current_color ? *override_current_color
+                                                     : style.GetCurrentColor();
+  return cssvalue::CSSColor::Create(
+      style_color.Resolve(current_color, style.UsedColorScheme()));
+}
+
+const CSSValue* ComputedStyleUtils::CurrentColorOrValidColor(
     const ComputedStyle& style,
     const StyleColor& color,
     CSSValuePhase value_phase) {
-  return cssvalue::CSSColor::Create(
-      color.Resolve(style.GetCurrentColor(), style.UsedColorScheme()));
+  return ValueForColor(color, style, nullptr, value_phase);
 }
 
 const blink::Color ComputedStyleUtils::BorderSideColor(
@@ -3316,8 +3343,9 @@ CSSValue* ComputedStyleUtils::StrokeDashArrayToCSSValueList(
   return list;
 }
 
-CSSValue* ComputedStyleUtils::ValueForSVGPaint(const SVGPaint& paint,
-                                               const ComputedStyle& style) {
+const CSSValue* ComputedStyleUtils::ValueForSVGPaint(
+    const SVGPaint& paint,
+    const ComputedStyle& style) {
   switch (paint.type) {
     case SVGPaintType::kColor:
       return CurrentColorOrValidColor(style, paint.GetColor(),
@@ -3368,7 +3396,7 @@ CSSValue* ComputedStyleUtils::ValueForShadowData(const ShadowData& shadow,
       shadow.Style() == ShadowStyle::kNormal
           ? nullptr
           : CSSIdentifierValue::Create(CSSValueID::kInset);
-  CSSValue* color =
+  const CSSValue* color =
       CurrentColorOrValidColor(style, shadow.GetColor(), value_phase);
   return MakeGarbageCollected<CSSShadowValue>(x, y, blur, spread, shadow_style,
                                               color);
@@ -4291,6 +4319,39 @@ const CSSValue* ComputedStyleUtils::ComputedPropertyValue(
     const LayoutObject* layout_object) {
   return property.CSSValueFromComputedStyle(style, layout_object, false,
                                             CSSValuePhase::kComputedValue);
+}
+
+CSSValue* ComputedStyleUtils::ValueForPositionTryFallbacks(
+    const PositionTryFallbacks& fallbacks) {
+  CSSValueList* fallback_list = CSSValueList::CreateCommaSeparated();
+  for (const PositionTryFallback& fallback : fallbacks.GetFallbacks()) {
+    if (!fallback.GetInsetArea().IsNone()) {
+      if (RuntimeEnabledFeatures::CSSInsetAreaValueEnabled()) {
+        // <inset-area>
+        fallback_list->Append(*ValueForInsetArea(fallback.GetInsetArea()));
+      } else {
+        // inset-area( <inset-area> )
+        auto* function =
+            MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kInsetArea);
+        function->Append(*ValueForInsetArea(fallback.GetInsetArea()));
+        fallback_list->Append(*function);
+      }
+      continue;
+    }
+    // [<dashed-ident> || <try-tactic>]
+    CSSValueList* fallback_value = CSSValueList::CreateSpaceSeparated();
+    if (const ScopedCSSName* name = fallback.GetPositionTryName()) {
+      fallback_value->Append(*MakeGarbageCollected<CSSCustomIdentValue>(*name));
+    }
+    const TryTacticList& tactic_list = fallback.GetTryTactic();
+    for (TryTactic tactic : tactic_list) {
+      if (tactic != TryTactic::kNone) {
+        fallback_value->Append(*CSSIdentifierValue::Create(tactic));
+      }
+    }
+    fallback_list->Append(*fallback_value);
+  }
+  return fallback_list;
 }
 
 }  // namespace blink

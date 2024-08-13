@@ -8,6 +8,7 @@
 
 #include "base/functional/callback.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/ui/webui/ash/skyvault/local_files_migration_ui.h"
 #include "content/public/browser/webui_config_map.h"
 #include "url/gurl.h"
 
@@ -21,7 +22,6 @@
 #include "chrome/browser/feedback/feedback_dialog_utils.h"  // nogncheck
 // clang-format on
 
-#include "ash/webui/boca_ui/boca_ui.h"
 #include "ash/webui/camera_app_ui/camera_app_ui.h"
 #include "ash/webui/color_internals/color_internals_ui.h"
 #include "ash/webui/connectivity_diagnostics/connectivity_diagnostics_ui.h"
@@ -45,6 +45,7 @@
 #include "ash/webui/shortcut_customization_ui/shortcut_customization_app_ui.h"
 #include "ash/webui/status_area_internals/status_area_internals_ui.h"
 #include "ash/webui/vc_background_ui/vc_background_ui.h"
+#include "chrome/browser/ash/app_mode/kiosk_controller.h"
 #include "chrome/browser/ash/eche_app/eche_app_manager_factory.h"
 #include "chrome/browser/ash/mall/chrome_mall_ui_delegate.h"
 #include "chrome/browser/ash/multidevice_debug/proximity_auth_ui_config.h"
@@ -59,6 +60,7 @@
 #include "chrome/browser/ash/system_web_apps/apps/help_app/help_app_ui_delegate.h"
 #include "chrome/browser/ash/system_web_apps/apps/media_app/chrome_media_app_ui_delegate.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_utils.h"
+#include "chrome/browser/ash/system_web_apps/apps/recorder_app/chrome_recorder_app_ui_delegate.h"
 #include "chrome/browser/ash/system_web_apps/apps/vc_background_ui/vc_background_ui_utils.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service_factory.h"
@@ -73,7 +75,6 @@
 #include "chrome/browser/ui/webui/ash/audio/audio_ui.h"
 #include "chrome/browser/ui/webui/ash/bluetooth_pairing_dialog.h"
 #include "chrome/browser/ui/webui/ash/borealis_installer/borealis_installer_ui.h"
-#include "chrome/browser/ui/webui/ash/certificate_manager_dialog_ui.h"
 #include "chrome/browser/ui/webui/ash/cloud_upload/cloud_upload_ui.h"
 #include "chrome/browser/ui/webui/ash/crostini_installer/crostini_installer_ui.h"
 #include "chrome/browser/ui/webui/ash/crostini_upgrader/crostini_upgrader_ui.h"
@@ -83,7 +84,6 @@
 #include "chrome/browser/ui/webui/ash/enterprise_reporting/enterprise_reporting_ui.h"
 #include "chrome/browser/ui/webui/ash/extended_updates/extended_updates_ui.h"
 #include "chrome/browser/ui/webui/ash/healthd_internals/healthd_internals_ui.h"
-#include "chrome/browser/ui/webui/ash/human_presence_internals_ui.h"
 #include "chrome/browser/ui/webui/ash/in_session_password_change/password_change_ui.h"
 #include "chrome/browser/ui/webui/ash/internet_config_dialog.h"
 #include "chrome/browser/ui/webui/ash/internet_detail_dialog.h"
@@ -238,9 +238,7 @@ void RegisterAshChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<AssistantOptInUIConfig>());
   map.AddWebUIConfig(std::make_unique<AudioUIConfig>());
   map.AddWebUIConfig(std::make_unique<BluetoothPairingDialogUIConfig>());
-  map.AddWebUIConfig(std::make_unique<BocaUIConfig>());
   map.AddWebUIConfig(std::make_unique<BorealisInstallerUIConfig>());
-  map.AddWebUIConfig(std::make_unique<CertificateManagerDialogUIConfig>());
   map.AddWebUIConfig(std::make_unique<cloud_upload::CloudUploadUIConfig>());
   map.AddWebUIConfig(std::make_unique<ColorInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<ConfirmPasswordChangeUIConfig>());
@@ -256,7 +254,11 @@ void RegisterAshChromeWebUIConfigs() {
   map.AddWebUIConfig(
       std::make_unique<extended_updates::ExtendedUpdatesUIConfig>());
   map.AddWebUIConfig(std::make_unique<ash::kiosk_vision::UIConfig>(
-      base::BindRepeating(webui::SetupWebUIDataSource)));
+      base::BindRepeating(webui::SetupWebUIDataSource),
+      base::BindRepeating([]() {
+        return ash::KioskController::Get()
+            .GetKioskVisionInternalsPageProcessor();
+      })));
   map.AddWebUIConfig(
       MakeComponentConfigWithDelegate<FilesInternalsUIConfig, FilesInternalsUI,
                                       ChromeFilesInternalsUIDelegate>());
@@ -270,7 +272,6 @@ void RegisterAshChromeWebUIConfigs() {
   map.AddWebUIConfig(
       MakeComponentConfigWithDelegate<HelpAppUIConfig, HelpAppUI,
                                       ChromeHelpAppUIDelegate>());
-  map.AddWebUIConfig(std::make_unique<HumanPresenceInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<InternetConfigDialogUIConfig>());
   map.AddWebUIConfig(std::make_unique<InternetDetailDialogUIConfig>());
   map.AddWebUIConfig(std::make_unique<KerberosInBrowserUIConfig>());
@@ -315,9 +316,13 @@ void RegisterAshChromeWebUIConfigs() {
   map.AddWebUIConfig(
       std::make_unique<printing::print_preview::PrintPreviewCrosUIConfig>());
   map.AddWebUIConfig(std::make_unique<multidevice::ProximityAuthUIConfig>());
-  map.AddWebUIConfig(std::make_unique<RecorderAppUIConfig>());
+  map.AddWebUIConfig(
+      MakeComponentConfigWithDelegate<RecorderAppUIConfig, RecorderAppUI,
+                                      ChromeRecorderAppUIDelegate>());
   map.AddWebUIConfig(std::make_unique<RemoteMaintenanceCurtainUIConfig>());
-  map.AddWebUIConfig(MakeSanitizeUIConfig());
+  if (base::FeatureList::IsEnabled(ash::features::kSanitize)) {
+    map.AddWebUIConfig(MakeSanitizeUIConfig());
+  }
   map.AddWebUIConfig(
       MakeComponentConfigWithDelegate<ScanningUIConfig, ScanningUI,
                                       ChromeScanningAppDelegate>());
@@ -332,6 +337,8 @@ void RegisterAshChromeWebUIConfigs() {
       std::make_unique<smb_dialog::SmbCredentialsDialogUIConfig>());
   map.AddWebUIConfig(std::make_unique<smb_dialog::SmbShareDialogUIConfig>());
   map.AddWebUIConfig(std::make_unique<SysInternalsUIConfig>());
+  map.AddWebUIConfig(std::make_unique<
+                     policy::local_user_files::LocalFilesMigrationUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<UrgentPasswordExpiryNotificationUIConfig>());
   map.AddWebUIConfig(std::make_unique<VcTrayTesterUIConfig>());

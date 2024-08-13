@@ -337,7 +337,7 @@ void ManagePasswordsUIControllerTest::SetUp() {
       test_federated_form_.url.DeprecatedGetOriginAsURL().spec();
   test_federated_form_.username_value = u"username";
   test_federated_form_.federation_origin =
-      url::Origin::Create(GURL("https://federation.test/"));
+      url::SchemeHostPort(GURL("https://federation.test/"));
   test_federated_form_.match_type = PasswordForm::MatchType::kExact;
 
   submitted_form_ = test_local_form_;
@@ -1729,10 +1729,6 @@ TEST_F(ManagePasswordsUIControllerTest, DiscardUnsyncedCredentials) {
 
 TEST_F(ManagePasswordsUIControllerTest, OpenBubbleForMovableForm) {
   base::HistogramTester histogram_tester;
-  // TODO crbug/40943570: Remove after feature is fully rolled out.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      password_manager::features::kButterOnDesktopFollowup);
 
   std::vector<PasswordForm> matches = {test_local_form()};
   auto test_form_manager =
@@ -1763,9 +1759,6 @@ TEST_F(ManagePasswordsUIControllerTest, OpenBubbleForMovableForm) {
 }
 
 TEST_F(ManagePasswordsUIControllerTest, OpenMoveBubbleFromManagementBubble) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      password_manager::features::kButterOnDesktopFollowup);
   const PasswordForm* test_form_ptr = &test_local_form();
   std::vector<PasswordForm> forms = {*test_form_ptr};
   EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
@@ -1793,9 +1786,6 @@ TEST_F(ManagePasswordsUIControllerTest, OpenMoveBubbleFromManagementBubble) {
 }
 
 TEST_F(ManagePasswordsUIControllerTest, CloseMoveBubble) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      password_manager::features::kButterOnDesktopFollowup);
   const PasswordForm* test_form_ptr = &test_local_form();
   std::vector<PasswordForm> forms = {*test_form_ptr};
   EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
@@ -1966,6 +1956,26 @@ TEST_F(ManagePasswordsUIControllerTest, IsDeviceAuthenticatorObtained) {
 #endif
   controller()->AuthenticateUserWithMessage(
       /*message=*/u"Do you want to enable this feature", result_callback.Get());
+}
+
+TEST_F(ManagePasswordsUIControllerTest, PasskeySavedWithoutGpmPinCreation) {
+  EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
+  controller()->OnPasskeySaved(kExampleUsername, /*gpm_pin_created=*/false);
+  EXPECT_TRUE(controller()->opened_automatic_bubble());
+  ExpectIconAndControllerStateIs(
+      password_manager::ui::PASSKEY_SAVED_CONFIRMATION_STATE);
+  EXPECT_EQ(controller()->GetRecentlySavedPasskeyUsername(), kExampleUsername);
+  EXPECT_FALSE(controller()->GpmPinCreatedDuringRecentPasskeyCreation());
+}
+
+TEST_F(ManagePasswordsUIControllerTest, PasskeySavedWithGpmPinCreation) {
+  EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
+  controller()->OnPasskeySaved(kExampleUsername, /*gpm_pin_created=*/true);
+  EXPECT_TRUE(controller()->opened_automatic_bubble());
+  ExpectIconAndControllerStateIs(
+      password_manager::ui::PASSKEY_SAVED_CONFIRMATION_STATE);
+  EXPECT_EQ(controller()->GetRecentlySavedPasskeyUsername(), kExampleUsername);
+  EXPECT_TRUE(controller()->GpmPinCreatedDuringRecentPasskeyCreation());
 }
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -2270,8 +2280,6 @@ class ManagePasswordsUIControllerWithBrowserTest
   }
 
  private:
-  base::test::ScopedFeatureList feature_list_{
-      password_manager::features::kSharedPasswordNotificationUI};
   TestPasswordManagerClient client_;
 };
 

@@ -7,6 +7,7 @@
 #include "base/check_deref.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
@@ -21,6 +22,8 @@
 #include "components/sync/service/sync_user_settings.h"
 
 namespace autofill {
+
+using PaymentsRpcResult = payments::PaymentsAutofillClient::PaymentsRpcResult;
 
 IbanSaveManager::IbanSaveManager(AutofillClient* client)
     : client_(CHECK_DEREF(client)) {}
@@ -138,7 +141,8 @@ IbanSaveManager::TypeOfOfferToSave IbanSaveManager::DetermineHowToSaveIban(
   if (base::FeatureList::IsEnabled(features::kAutofillEnableServerIban) &&
       IsIbanUploadEnabled(
           client_->GetSyncService(),
-          payments_data_manager().GetPaymentsSigninStateForMetrics())) {
+          payments_data_manager().GetPaymentsSigninStateForMetrics()) &&
+      payments_data_manager().GetServerIbans().size() <= kMaxNumServerIbans) {
     autofill_metrics::LogIbanSaveOfferedCountry(
         import_candidate.GetCountryCode());
     return TypeOfOfferToSave::kOfferServerSave;
@@ -300,7 +304,7 @@ void IbanSaveManager::OnUserDidDecideOnUploadSave(
 void IbanSaveManager::OnDidGetUploadDetails(
     bool show_save_prompt,
     Iban import_candidate,
-    AutofillClient::PaymentsRpcResult result,
+    PaymentsRpcResult result,
     const std::u16string& validation_regex,
     const std::u16string& context_token,
     std::unique_ptr<base::Value::Dict> legal_message) {
@@ -310,7 +314,7 @@ void IbanSaveManager::OnDidGetUploadDetails(
 
   // Upload should only be offered when result is `kSuccess` and the IBAN passes
   // regex validation.
-  if (result == AutofillClient::PaymentsRpcResult::kSuccess &&
+  if (result == PaymentsRpcResult::kSuccess &&
       MatchesRegex(import_candidate.value(), *CompileRegex(validation_regex))) {
     // Upload should only be offered when legal messages are parsed
     // successfully.
@@ -360,26 +364,36 @@ void IbanSaveManager::SendUploadRequest(const Iban& import_candidate,
                                            import_candidate, show_save_prompt));
 }
 
-void IbanSaveManager::OnDidUploadIban(
-    const Iban& import_candidate,
-    bool show_save_prompt,
-    AutofillClient::PaymentsRpcResult result) {
+void IbanSaveManager::OnDidUploadIban(const Iban& import_candidate,
+                                      bool show_save_prompt,
+                                      PaymentsRpcResult result) {
   const std::string& partial_iban_hash =
       GetPartialIbanHashString(base::UTF16ToUTF8(import_candidate.value()));
-  if (result == AutofillClient::PaymentsRpcResult::kSuccess) {
+  if (result == PaymentsRpcResult::kSuccess) {
     // Clear all IbanSave strikes for this IBAN, so that if it's later removed
     // the strike count starts over with respect to re-saving it.
     autofill_metrics::LogStrikesPresentWhenIbanSaved(
         iban_save_strike_database_->GetStrikes(partial_iban_hash),
         /*is_upload_save=*/true);
     GetIbanSaveStrikeDatabase()->ClearStrikes(partial_iban_hash);
-  } else if (show_save_prompt) {
+  } else {
+    // If upload save failed, check if the IBAN already exists locally. If not,
+    // automatically save the IBAN locally so that the IBAN is not left unsaved
+    // since the user intended to save it.
+    bool should_local_save = !MatchesExistingLocalIban(import_candidate);
+    if (should_local_save) {
+      payments_data_manager().AddAsLocalIban(import_candidate);
+    }
+    autofill_metrics::LogIbanUploadSaveFailed(should_local_save);
+
     // If the upload failed and the bubble was actually shown (NOT just the
     // icon), count that as a strike against offering upload in the future.
-    GetIbanSaveStrikeDatabase()->AddStrike(partial_iban_hash);
+    if (show_save_prompt) {
+      GetIbanSaveStrikeDatabase()->AddStrike(partial_iban_hash);
+    }
   }
   if (observer_for_testing_) {
-    if (result == AutofillClient::PaymentsRpcResult::kSuccess) {
+    if (result == PaymentsRpcResult::kSuccess) {
       observer_for_testing_->OnAcceptUploadSaveIbanComplete();
     } else {
       observer_for_testing_->OnAcceptUploadSaveIbanFailed();

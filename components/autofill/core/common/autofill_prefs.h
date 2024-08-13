@@ -8,6 +8,7 @@
 #include "build/build_config.h"
 #include "google_apis/gaia/core_account_id.h"
 
+class PrefRegistrySimple;
 class PrefService;
 
 namespace user_prefs {
@@ -20,6 +21,9 @@ namespace autofill::prefs {
 // component. Keep alphabetized, and document each in the .cc file.
 // Do not get/set the value of this pref directly. Use provided getter/setter.
 
+// String serving as a seed for ablation studies.
+inline constexpr std::string_view kAutofillAblationSeedPref =
+    "autofill.ablation_seed";
 // Boolean that is true if Autofill is enabled and allowed to save credit card
 // data.
 inline constexpr char kAutofillCreditCardEnabled[] =
@@ -48,7 +52,7 @@ inline constexpr char kAutofillLastVersionDeduped[] =
 // To simplify the rollout of AutofillSilentlyRemoveQuasiDuplicates,
 // deduplication can be run a second time per milestone for users enrolled in
 // the experiment. This pref tracks whether deduplication was run a second time.
-// TODO(b/325450676): Remove after the rollout finished.
+// TODO(crbug.com/325450676): Remove after the rollout finished.
 inline constexpr char kAutofillRanQuasiDuplicateExtraDeduplication[] =
     "autofill.ran_quasi_duplicate_extra_deduplication";
 // Integer that is set to the last version where disused addresses were
@@ -147,6 +151,7 @@ enum Flags {
 
 // Registers Autofill prefs.
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
+void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 
 // Migrates deprecated Autofill prefs values.
 void MigrateDeprecatedAutofillPrefs(PrefService* prefs);

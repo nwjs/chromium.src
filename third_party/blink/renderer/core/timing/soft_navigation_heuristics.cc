@@ -41,14 +41,14 @@ const char kPageLoadInternalSoftNavigationOutcome[] =
 // LINT.IfChange
 enum SoftNavigationOutcome {
   kSoftNavigationDetected = 0,
-  kNoAncestorTask = 1,
+
+  kNoSoftNavContextDuringUrlChange = 1,
   kNoPaint = 2,
-  kNoAncestorTaskOrPaint = 3,
   kNoDomModification = 4,
-  kNoAncestorOrDomModification = 5,
-  kNoPaintOrDomModification = 6,
-  kNoConditionsMet = 7,
-  kMaxValue = kNoConditionsMet,
+
+  kNoPaintOrDomModification = kNoPaint | kNoDomModification,
+
+  kMaxValue = kNoPaintOrDomModification,
 };
 // LINT.ThenChange(/tools/metrics/histograms/enums.xml:SoftNavigationOutcome)
 
@@ -116,40 +116,6 @@ EventScopeTypeFromEvent(const Event& event) {
 
 }  // namespace
 
-namespace internal {
-void RecordUmaForPageLoadInternalSoftNavigationFromReferenceInvalidTiming(
-    base::TimeTicks user_interaction_ts,
-    base::TimeTicks reference_ts) {
-  if (user_interaction_ts.is_null()) {
-    if (reference_ts.is_null()) {
-      base::UmaHistogramEnumeration(
-          kPageLoadInternalSoftNavigationFromReferenceInvalidTiming,
-          SoftNavigationFromReferenceInvalidTimingReasons::
-              kUserInteractionTsAndReferenceTsBothNull);
-    } else {
-      base::UmaHistogramEnumeration(
-          kPageLoadInternalSoftNavigationFromReferenceInvalidTiming,
-          SoftNavigationFromReferenceInvalidTimingReasons::
-              kNullUserInteractionTsAndNotNullReferenceTs);
-    }
-  } else {
-    if (reference_ts.is_null()) {
-      base::UmaHistogramEnumeration(
-          kPageLoadInternalSoftNavigationFromReferenceInvalidTiming,
-          SoftNavigationFromReferenceInvalidTimingReasons::
-              kNullReferenceTsAndNotNullUserInteractionTs);
-
-    } else {
-      base::UmaHistogramEnumeration(
-          kPageLoadInternalSoftNavigationFromReferenceInvalidTiming,
-          SoftNavigationFromReferenceInvalidTimingReasons::
-              kUserInteractionTsAndReferenceTsBothNotNull);
-    }
-  }
-}
-
-}  // namespace internal
-
 // static
 const char SoftNavigationHeuristics::kSupplementName[] =
     "SoftNavigationHeuristics";
@@ -193,24 +159,23 @@ void SoftNavigationHeuristics::Dispose() {
 
 void SoftNavigationHeuristics::RecordUmaForNonSoftNavigationInteraction(
     const SoftNavigationContext& context) const {
-  // For all interactions which included a URL modification, log the
-  // criteria which were not met. Note that we assume here that an ancestor
-  // task was found when the URL change was made.
-  if (!context.Url().empty()) {
-    if (!context.HasMainModification()) {
-      if (!paint_conditions_met_) {
-        base::UmaHistogramEnumeration(
-            kPageLoadInternalSoftNavigationOutcome,
-            SoftNavigationOutcome::kNoDomModification);
-      } else {
-        base::UmaHistogramEnumeration(
-            kPageLoadInternalSoftNavigationOutcome,
-            SoftNavigationOutcome::kNoPaintOrDomModification);
-      }
-    } else if (!paint_conditions_met_) {
-      base::UmaHistogramEnumeration(kPageLoadInternalSoftNavigationOutcome,
-                                    SoftNavigationOutcome::kNoPaint);
-    }
+  // For all interactions which included a (soft nav context attributable) URL
+  // modification, yet were not declared soft navs, log the criteria which were
+  // not met.
+  if (context.Url().empty()) {
+    return;
+  }
+
+  if (!paint_conditions_met_ && !context.HasMainModification()) {
+    base::UmaHistogramEnumeration(
+        kPageLoadInternalSoftNavigationOutcome,
+        SoftNavigationOutcome::kNoPaintOrDomModification);
+  } else if (!paint_conditions_met_) {
+    base::UmaHistogramEnumeration(kPageLoadInternalSoftNavigationOutcome,
+                                  SoftNavigationOutcome::kNoPaint);
+  } else if (!context.HasMainModification()) {
+    base::UmaHistogramEnumeration(kPageLoadInternalSoftNavigationOutcome,
+                                  SoftNavigationOutcome::kNoDomModification);
   }
 }
 
@@ -295,8 +260,9 @@ void SoftNavigationHeuristics::SameDocumentNavigationCommitted(
       EmitSoftNavigationEntryIfAllConditionsMet(context);
     }
   } else {
-    base::UmaHistogramEnumeration(kPageLoadInternalSoftNavigationOutcome,
-                                  SoftNavigationOutcome::kNoAncestorTask);
+    base::UmaHistogramEnumeration(
+        kPageLoadInternalSoftNavigationOutcome,
+        SoftNavigationOutcome::kNoSoftNavContextDuringUrlChange);
   }
 }
 
@@ -428,13 +394,6 @@ void SoftNavigationHeuristics::ReportSoftNavigationToMetrics(
   auto soft_navigation_start_time =
       loader->GetTiming().MonotonicTimeToPseudoWallTime(
           context->UserInteractionTimestamp());
-
-  if (soft_navigation_start_time.is_zero()) {
-    internal::
-        RecordUmaForPageLoadInternalSoftNavigationFromReferenceInvalidTiming(
-            context->UserInteractionTimestamp(),
-            loader->GetTiming().ReferenceMonotonicTime());
-  }
 
   LocalDOMWindow* window = GetSupplementable();
 

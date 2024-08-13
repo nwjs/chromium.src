@@ -6,6 +6,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "build/build_config.h"
 
 namespace tab_groups {
 // Core feature flag for tab group sync on Android.
@@ -54,11 +55,12 @@ BASE_FEATURE(kTabGroupSyncUno,
              "TabGroupSyncUno",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Feature flag on Android to control migration from Java SharedPrefs to
-// ModelTypeStore.
-BASE_FEATURE(kMigrationFromJavaSharedPrefs,
-             "MigrationFromJavaSharedPrefs",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Feature flag specific to Desktop platforms. When enabled, desktop platforms
+// will use the TabGroupSyncService. When disabled, desktop platforms will
+// continue to use SavedTabGroupKeyedService.
+BASE_FEATURE(kTabGroupSyncServiceDesktopMigration,
+             "TabGroupSyncServiceDesktopMigration",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Feature flag to remove any merge logic from saved tab group model.
 BASE_FEATURE(kAlwaysAcceptServerDataInModel,
@@ -98,8 +100,16 @@ bool IsTabGroupsSaveUIUpdateEnabled() {
   return base::FeatureList::IsEnabled(kTabGroupsSaveUIUpdate);
 }
 
-bool IsMigrationFromJavaSharedPrefsEnabled() {
-  return base::FeatureList::IsEnabled(kMigrationFromJavaSharedPrefs);
+bool IsTabGroupSyncServiceDesktopMigrationEnabled() {
+  return base::FeatureList::IsEnabled(kTabGroupSyncServiceDesktopMigration);
+}
+
+bool IsTabGroupSyncCoordinatorEnabled() {
+#if BUILDFLAG(IS_ANDROID)
+  return false;
+#else
+  return true;
+#endif
 }
 
 bool AlwaysAcceptServerDataInModel() {

@@ -8,9 +8,11 @@
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "base/containers/adapters.h"
 #include "base/i18n/rtl.h"
+#include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/layer.h"
+#include "ui/events/gesture_event_details.h"
 #include "ui/gfx/geometry/linear_gradient.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -20,6 +22,7 @@
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/layout/flex_layout_view.h"
+#include "ui/views/view_utils.h"
 
 namespace ash {
 
@@ -78,6 +81,50 @@ void SetupOverflowIcon(views::ImageButton* overflow_icon, bool left) {
   overflow_icon->layer()->SetFillsBoundsOpaquely(false);
 }
 
+bool IsVerticalScrollGesture(const ui::Event& event) {
+  if (!event.IsGestureEvent()) {
+    return false;
+  }
+
+  auto is_vertical = [](float x_offset, float y_offset) -> bool {
+    return std::fabs(x_offset) <= std::fabs(y_offset);
+  };
+
+  const auto& details = event.AsGestureEvent()->details();
+  return (event.type() == ui::EventType::kGestureScrollUpdate &&
+          is_vertical(details.scroll_x(), details.scroll_y())) ||
+         (event.type() == ui::EventType::kGestureScrollBegin &&
+          is_vertical(details.scroll_x_hint(), details.scroll_y_hint())) ||
+         (event.type() == ui::EventType::kScrollFlingStart &&
+          is_vertical(details.velocity_x(), details.velocity_y()));
+}
+
+class ChipCarouselScrollView : public views::ScrollView {
+  METADATA_HEADER(ChipCarouselScrollView, views::ScrollView)
+
+ public:
+  explicit ChipCarouselScrollView(ScrollWithLayers scroll_with_layers)
+      : views::ScrollView(scroll_with_layers) {}
+
+  // views::ScrollView:
+  bool OnMouseWheel(const ui::MouseWheelEvent& event) override {
+    // We want this scroll view to only handle the horizontal scroll events on
+    // it; if the user scrolls on it vertically, we want the outer scroll view
+    // to handle it.
+    return horizontal_scroll_bar()->OnScroll(event.x_offset(), 0);
+  }
+
+  // views::View:
+  bool CanAcceptEvent(const ui::Event& event) override {
+    // The vertical scroll gesture event should be handled by the outer scroll
+    // view instead of this view.
+    return views::ScrollView::CanAcceptEvent(event) &&
+           !IsVerticalScrollGesture(event);
+  }
+};
+BEGIN_METADATA(ChipCarouselScrollView)
+END_METADATA
+
 }  // namespace
 
 // `on_chip_pressed` will be called when a task chip is clicked, containing a
@@ -90,10 +137,12 @@ FocusModeChipCarousel::FocusModeChipCarousel(
   SetOrientation(views::BoxLayout::Orientation::kHorizontal);
   SetNotifyEnterExitOnChild(true);
 
-  scroll_view_ = AddChildView(std::make_unique<views::ScrollView>(
+  scroll_view_ = AddChildView(std::make_unique<ChipCarouselScrollView>(
       views::ScrollView::ScrollWithLayers::kEnabled));
   scroll_view_->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kHiddenButEnabled);
+  scroll_view_->SetVerticalScrollBarMode(
+      views::ScrollView::ScrollBarMode::kDisabled);
   scroll_view_->SetDrawOverflowIndicator(false);
   scroll_view_->SetPaintToLayer();
   scroll_view_->SetBackgroundColor(std::nullopt);
@@ -174,6 +223,12 @@ void FocusModeChipCarousel::SetTasks(const std::vector<FocusModeTask>& tasks) {
     SetupChip(chip, /*first=*/(i == 0));
   }
 
+  // After adding the child views to the contents of the scroll view, we need to
+  // manually call the function to update the bounds, so that the horizontal
+  // scroll bar can have a non-zero `max_pos_` to allow the chip carousel to
+  // scroll horizontally. See b/346877741.
+  scroll_view_->contents()->SizeToPreferredSize();
+
   // Scroll back to the beginning after repopulating the carousel.
   scroll_view_->ScrollToOffset(gfx::PointF(0, 0));
 }
@@ -192,6 +247,7 @@ void FocusModeChipCarousel::UpdateGradient() {
 
   // If no gradient is needed, remove the gradient mask.
   if (scroll_view_->contents()->bounds().IsEmpty() ||
+      scroll_view_->bounds().IsEmpty() ||
       (!show_left_gradient && !show_right_gradient)) {
     RemoveGradient();
     return;
@@ -300,6 +356,10 @@ bool FocusModeChipCarousel::HasTasks() const {
 
 int FocusModeChipCarousel::GetTaskCountForTesting() const {
   return scroll_contents_->GetChildrenInZOrder().size();
+}
+
+views::ScrollView* FocusModeChipCarousel::GetScrollViewForTesting() const {
+  return views::AsViewClass<views::ScrollView>(scroll_view_);
 }
 
 BEGIN_METADATA(FocusModeChipCarousel)

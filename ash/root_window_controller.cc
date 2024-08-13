@@ -49,7 +49,6 @@
 #include "ash/touch/touch_hud_debug.h"
 #include "ash/touch/touch_hud_projection.h"
 #include "ash/touch/touch_observer_hud.h"
-#include "ash/utility/forest_util.h"
 #include "ash/wallpaper/views/wallpaper_widget_controller.h"
 #include "ash/wm/always_on_top_controller.h"
 #include "ash/wm/container_finder.h"
@@ -64,6 +63,7 @@
 #include "ash/wm/overview/birch/birch_bar_context_menu_model.h"
 #include "ash/wm/overview/birch/birch_bar_controller.h"
 #include "ash/wm/overview/birch/birch_bar_menu_model_adapter.h"
+#include "ash/wm/overview/birch/birch_privacy_nudge_controller.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/root_window_layout_manager.h"
@@ -238,15 +238,16 @@ void ReparentWindow(aura::Window* window, aura::Window* new_parent) {
 void ReparentAllWindows(aura::Window* src, aura::Window* dst) {
   // Set of windows to move.
   constexpr int kContainerIdsToMove[] = {
+      kShellWindowId_UnparentedContainer,
       kShellWindowId_AlwaysOnTopContainer,
       kShellWindowId_FloatContainer,
       kShellWindowId_PipContainer,
       kShellWindowId_SystemModalContainer,
-      kShellWindowId_LockSystemModalContainer,
-      kShellWindowId_UnparentedContainer,
-      kShellWindowId_OverlayContainer,
       kShellWindowId_LockActionHandlerContainer,
+      kShellWindowId_LockSystemModalContainer,
       kShellWindowId_MenuContainer,
+      kShellWindowId_LiveCaptionContainer,
+      kShellWindowId_OverlayContainer,
   };
   constexpr int kExtraContainerIdsToMoveInUnifiedMode[] = {
       kShellWindowId_LockScreenContainer,
@@ -396,18 +397,18 @@ class RootWindowTargeter : public aura::WindowTargeter {
   // Returns true if the mouse event should be constrainted.
   bool ShouldConstrainMouseClick(ui::LocatedEvent* event,
                                  bool has_capture_target) {
-    if (event->type() == ui::ET_MOUSE_PRESSED && !has_capture_target) {
-      last_mouse_event_type_ = ui::ET_MOUSE_PRESSED;
+    if (event->type() == ui::EventType::kMousePressed && !has_capture_target) {
+      last_mouse_event_type_ = ui::EventType::kMousePressed;
       return true;
     }
-    if (last_mouse_event_type_ == ui::ET_MOUSE_PRESSED &&
-        event->type() == ui::ET_MOUSE_RELEASED && has_capture_target) {
-      last_mouse_event_type_ = ui::ET_UNKNOWN;
+    if (last_mouse_event_type_ == ui::EventType::kMousePressed &&
+        event->type() == ui::EventType::kMouseReleased && has_capture_target) {
+      last_mouse_event_type_ = ui::EventType::kUnknown;
       return true;
     }
     // For other cases, reset the state
-    if (event->type() != ui::ET_MOUSE_CAPTURE_CHANGED) {
-      last_mouse_event_type_ = ui::ET_UNKNOWN;
+    if (event->type() != ui::EventType::kMouseCaptureChanged) {
+      last_mouse_event_type_ = ui::EventType::kUnknown;
     }
     return false;
   }
@@ -417,7 +418,7 @@ class RootWindowTargeter : public aura::WindowTargeter {
                       std::clamp(p.y(), bounds.y(), bounds.bottom() - 1));
   }
 
-  ui::EventType last_mouse_event_type_ = ui::ET_UNKNOWN;
+  ui::EventType last_mouse_event_type_ = ui::EventType::kUnknown;
 };
 
 class ShelfMenuModelAdapter : public AppMenuModelAdapter {
@@ -650,7 +651,7 @@ aura::Window* RootWindowController::FindEventTarget(
   gfx::Point location_in_root(location_in_screen);
   aura::Window* root_window = GetRootWindow();
   ::wm::ConvertPointFromScreen(root_window, &location_in_root);
-  ui::MouseEvent test_event(ui::ET_MOUSE_MOVED, location_in_root,
+  ui::MouseEvent test_event(ui::EventType::kMouseMoved, location_in_root,
                             location_in_root, ui::EventTimeForNow(),
                             ui::EF_NONE, ui::EF_NONE);
   ui::EventTarget* event_handler =
@@ -841,11 +842,12 @@ void RootWindowController::ShowContextMenu(const gfx::Point& location_in_screen,
                                            ui::MenuSourceType source_type) {
   // Show birch bar context menu for the primary user in clamshell mode Overview
   // without a partial split screen.
-  if (IsForestFeatureEnabled() &&
+  if (features::IsForestFeatureEnabled() &&
       Shell::Get()->session_controller()->IsUserPrimary() &&
       OverviewController::Get()->InOverviewSession() &&
       !split_view_overview_session_) {
     root_window_menu_model_adapter_ = BuildBirchMenuModelAdapter(source_type);
+    BirchPrivacyNudgeController::DidShowContextMenu();
   } else {
     root_window_menu_model_adapter_ = BuildShelfMenuModelAdapter(source_type);
   }
@@ -1209,7 +1211,7 @@ void RootWindowController::CreateContainers() {
                   non_lock_screen_containers);
 
   aura::Window* shutdown_screenshot_container = non_lock_screen_containers;
-  if (IsForestFeatureFlagEnabled()) {
+  if (features::IsForestFeatureEnabled()) {
     shutdown_screenshot_container = CreateContainer(
         kShellWindowId_ShutdownScreenshotContainer,
         "ShutdownScreenshotContainer", non_lock_screen_containers);
@@ -1314,6 +1316,11 @@ void RootWindowController::CreateContainers() {
   ::wm::SetChildWindowVisibilityChangesAnimated(settings_bubble_container);
   settings_bubble_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
   settings_bubble_container->SetProperty(kLockedToRootKey, true);
+
+  aura::Window* live_caption_container =
+      CreateContainer(kShellWindowId_LiveCaptionContainer,
+                      "LiveCaptionContainer", lock_screen_related_containers);
+  live_caption_container->SetProperty(wm::kUsesScreenCoordinatesKey, true);
 
   aura::Window* help_bubble_container =
       CreateContainer(kShellWindowId_HelpBubbleContainer, "HelpBubbleContainer",

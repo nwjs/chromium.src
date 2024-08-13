@@ -198,7 +198,7 @@ SnappedAndUnsnappedOutsets BoxBackgroundPaintContext::ObscuredBorderOutsets(
                                                             positioning_area)
           .Rect();
 
-  BorderEdge edges[4];
+  BorderEdgeArray edges;
   style.GetBorderEdgeInfo(edges);
   const PhysicalBoxStrut box_outsets = BorderOutsets();
   SnappedAndUnsnappedOutsets adjust;

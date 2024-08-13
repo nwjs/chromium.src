@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "linux-lacros-builder-rel",
-              "project": "chromium-m127"
+              "project": "chromium-m128"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-chromiumos-archive",
@@ -30,7 +30,7 @@
                 "apply_configs": [
                   "chromeos"
                 ],
-                "config": "chromium_no_telemetry_dependencies"
+                "config": "chromium"
               }
             }
           },
@@ -38,7 +38,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "linux-lacros-tester-rel",
-              "project": "chromium-m127"
+              "project": "chromium-m128"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-chromiumos-archive",
@@ -59,12 +59,12 @@
                   "use_clang_coverage",
                   "chromeos"
                 ],
-                "config": "chromium_no_telemetry_dependencies"
+                "config": "chromium"
               },
               "parent": {
                 "bucket": "ci",
                 "builder": "linux-lacros-builder-rel",
-                "project": "chromium-m127"
+                "project": "chromium-m128"
               }
             }
           }
@@ -74,14 +74,14 @@
         {
           "bucket": "ci",
           "builder": "linux-lacros-builder-rel",
-          "project": "chromium-m127"
+          "project": "chromium-m128"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "linux-lacros-tester-rel",
-          "project": "chromium-m127"
+          "project": "chromium-m128"
         }
       ],
       "mirroring_builder_group_and_names": [

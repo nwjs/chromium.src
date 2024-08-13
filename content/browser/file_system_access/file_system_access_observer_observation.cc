@@ -142,6 +142,11 @@ FileSystemAccessObserverObservation::FileSystemAccessObserverObservation(
 
   CHECK(observation_->scope().Contains(AsHandleBase(handle_).url()));
 
+  // Observe `read_grant` changes in case we lose read permission.
+  const FileSystemAccessManagerImpl::SharedHandleState& handle_state =
+      AsHandleBase(handle_).handle_state();
+  handle_state.read_grant->AddObserver(this);
+
   observation_->SetCallback(
       base::BindRepeating(&FileSystemAccessObserverObservation::OnChanges,
                           weak_factory_.GetWeakPtr()));
@@ -153,8 +158,11 @@ FileSystemAccessObserverObservation::FileSystemAccessObserverObservation(
                      base::Unretained(this)));
 }
 
-FileSystemAccessObserverObservation::~FileSystemAccessObserverObservation() =
-    default;
+FileSystemAccessObserverObservation::~FileSystemAccessObserverObservation() {
+  const FileSystemAccessManagerImpl::SharedHandleState& handle_state =
+      AsHandleBase(handle_).handle_state();
+  handle_state.read_grant->RemoveObserver(this);
+}
 
 const storage::FileSystemURL& FileSystemAccessObserverObservation::handle_url()
     const {
@@ -163,38 +171,42 @@ const storage::FileSystemURL& FileSystemAccessObserverObservation::handle_url()
 }
 
 void FileSystemAccessObserverObservation::OnChanges(
-    const std::list<FileSystemAccessWatcherManager::Observation::Change>&
-        changes) {
+    const std::optional<
+        std::list<FileSystemAccessWatcherManager::Observation::Change>>&
+        changes_or_error) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  FileSystemAccessManagerImpl* manager = AsHandleBase(handle_).manager();
+  if (!changes_or_error.has_value()) {
+    HandleError();
+    return;
+  }
+
+  FileSystemAccessHandleBase& handle_base = AsHandleBase(handle_);
   const FileSystemAccessManagerImpl::BindingContext& binding_context =
-      AsHandleBase(handle_).context();
+      handle_base.context();
+  GlobalRenderFrameHostId render_frame_host_id = binding_context.frame_id;
+  RenderFrameHostImpl* rfh = RenderFrameHostImpl::FromID(render_frame_host_id);
 
   // Make sure the RenderFrameHost is Active before sending changes to the
   // renderer.
-  GlobalRenderFrameHostId render_frame_host_id = binding_context.frame_id;
-  RenderFrameHostImpl* rfh = RenderFrameHostImpl::FromID(render_frame_host_id);
   if (!rfh || !rfh->IsActive()) {
     received_changes_while_in_bf_cache_ = true;
     return;
   }
 
   const FileSystemAccessManagerImpl::SharedHandleState& handle_state =
-      AsHandleBase(handle_).handle_state();
-  const storage::FileSystemURL& handle_url = AsHandleBase(handle_).url();
-
+      handle_base.handle_state();
   // Do not relay changes if the site has lost read permission to the handle.
   // TODO(crbug.com/321980366): Add tests for this.
   if (handle_state.read_grant->GetStatus() !=
       blink::mojom::PermissionStatus::GRANTED) {
-    // TODO(crbug.com/321980366): Proactively listen for permission
-    // changes, rather than (or perhaps in addition to) checking on each change.
     return;
   }
 
+  FileSystemAccessManagerImpl* manager = handle_base.manager();
+  const storage::FileSystemURL& handle_url = handle_base.url();
   std::vector<blink::mojom::FileSystemAccessChangePtr> mojo_changes;
-  for (const auto& change : changes) {
+  for (const auto& change : changes_or_error.value()) {
     // TODO(crbug.com/40105284): Consider refactoring to keep the "scope"
     // concept within the WatcherManager and its associated classes. This method
     // just needs the root url.
@@ -296,7 +308,55 @@ void FileSystemAccessObserverObservation::OnChanges(
         std::move(mojo_change_type)));
   }
 
+  // Report the number of events in a 1s time window.
+  if (callback_count_ == 0) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(
+            &FileSystemAccessObserverObservation::RecordCallbackCountUMA,
+            weak_factory_.GetWeakPtr()),
+        base::Seconds(1));
+  }
+  callback_count_++;
+
   remote_->OnFileChanges(std::move(mojo_changes));
+}
+
+void FileSystemAccessObserverObservation::HandleError() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  FileSystemAccessHandleBase& handle_base = AsHandleBase(handle_);
+  const FileSystemAccessManagerImpl::BindingContext& binding_context =
+      handle_base.context();
+  GlobalRenderFrameHostId render_frame_host_id = binding_context.frame_id;
+  RenderFrameHostImpl* rfh = RenderFrameHostImpl::FromID(render_frame_host_id);
+
+  // Skip sending changes to the renderer if RenderFrameHost is not valid.
+  if (!rfh || !rfh->IsActive()) {
+    host_->RemoveObservation(this);
+    return;
+  }
+
+  std::vector<blink::mojom::FileSystemAccessChangePtr> mojo_changes;
+  const FileSystemAccessManagerImpl::SharedHandleState& handle_state =
+      handle_base.handle_state();
+  FileSystemAccessManagerImpl* manager = handle_base.manager();
+  const storage::FileSystemURL& handle_url = handle_base.url();
+  mojo_changes.emplace_back(blink::mojom::FileSystemAccessChange::New(
+      blink::mojom::FileSystemAccessChangeMetadata::New(
+          CreateEntryForUrl(*manager, binding_context, handle_state, handle_url,
+                            GetHandleType(handle_)),
+          CreateEntryForUrl(*manager, binding_context, handle_state, handle_url,
+                            GetHandleType(handle_)),
+          std::vector<std::string>()),
+      blink::mojom::FileSystemAccessChangeType::NewErrored(
+          blink::mojom::FileSystemAccessChangeTypeErrored::New())));
+  remote_->OnFileChanges(std::move(mojo_changes));
+
+  // Destroys `this`. It not only removes this observation but also its
+  // corresponding watch set up by FileSystemAccessWatcherManager if this
+  // observation is the only one using the watch.
+  host_->RemoveObservation(this);
 }
 
 void FileSystemAccessObserverObservation::RenderFrameHostStateChanged(
@@ -346,6 +406,28 @@ void FileSystemAccessObserverObservation::OnReceiverDisconnect() {
 
   // Destroys `this`.
   host_->RemoveObservation(this);
+}
+
+void FileSystemAccessObserverObservation::OnPermissionStatusChanged() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  const FileSystemAccessManagerImpl::SharedHandleState& handle_state =
+      AsHandleBase(handle_).handle_state();
+  if (handle_state.read_grant->GetStatus() ==
+      blink::mojom::PermissionStatus::GRANTED) {
+    return;
+  }
+
+  // The read permission has been revoked. Send an "errored" event and destroy
+  // this observation.
+  HandleError();
+}
+
+void FileSystemAccessObserverObservation::RecordCallbackCountUMA() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  base::UmaHistogramCounts1000(
+      "Storage.FileSystemAccess.ObservationCallbackRate", callback_count_);
+  callback_count_ = 0;
 }
 
 }  // namespace content

@@ -203,7 +203,9 @@ class NET_EXPORT_PRIVATE QuicSessionRequest {
   // `ExpectOnHostResolution()` was called. This is called after the Job can
   // make no further progress, and includes the result of that progress, perhaps
   // `ERR_IO_PENDING`.
-  void OnHostResolutionComplete(int rv);
+  void OnHostResolutionComplete(int rv,
+                                base::TimeTicks dns_resolution_start_time,
+                                base::TimeTicks dns_resolution_end_time);
 
   // Tells QuicSessionRequest that `QuicSessionPool::Job` will call
   // `OnQuicSessionCreationComplete()` in the future. Must be called before
@@ -242,6 +244,13 @@ class NET_EXPORT_PRIVATE QuicSessionRequest {
 
   const NetLogWithSource& net_log() const { return net_log_; }
 
+  base::TimeTicks dns_resolution_start_time() const {
+    return dns_resolution_start_time_;
+  }
+  base::TimeTicks dns_resolution_end_time() const {
+    return dns_resolution_end_time_;
+  }
+
  private:
   raw_ptr<QuicSessionPool> pool_;
   QuicSessionKey session_key_;
@@ -250,6 +259,9 @@ class NET_EXPORT_PRIVATE QuicSessionRequest {
   CompletionOnceCallback failed_on_default_network_callback_;
   raw_ptr<NetErrorDetails> net_error_details_;  // Unowned.
   std::unique_ptr<QuicChromiumClientSession::Handle> session_;
+
+  base::TimeTicks dns_resolution_start_time_;
+  base::TimeTicks dns_resolution_end_time_;
 
   // Set in Request(). If true, then OnHostResolutionComplete() is expected to
   // be called in the future.
@@ -483,6 +495,14 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   // Returns the stored DNS aliases for the session key.
   const std::set<std::string>& GetDnsAliasesForSessionKey(
       const QuicSessionKey& key) const;
+
+  int CountActiveSessions() { return active_sessions_.size(); }
+
+  // Inject a QUIC session for testing various edge cases.
+  void ActivateSessionForTesting(const url::SchemeHostPort& destination,
+                                 QuicChromiumClientSession* session);
+
+  void DeactivateSessionForTesting(QuicChromiumClientSession* session);
 
   // Returns the QUIC version that would be used with an endpoint associated
   // with `metadata`, or `quic::ParsedQuicVersion::Unsupported()` if the

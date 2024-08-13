@@ -25,10 +25,23 @@ class PlusAddressSettingSyncBridge : public syncer::ModelTypeSyncBridge {
       syncer::OnceModelTypeStoreFactory store_factory);
   ~PlusAddressSettingSyncBridge() override;
 
+  // Factory function to create the bridge (to share the creation logic between
+  // the iOS and non-iOS service factories owning the bridge).
+  static std::unique_ptr<PlusAddressSettingSyncBridge> CreateBridge(
+      syncer::OnceModelTypeStoreFactory store_factory);
+
   // Returns the specifics for the setting of the given `name` if the bridge
   // is aware of any such setting. Otherwise, nullopt is returned.
-  std::optional<sync_pb::PlusAddressSettingSpecifics> GetSetting(
+  // Virtual for testing.
+  virtual std::optional<sync_pb::PlusAddressSettingSpecifics> GetSetting(
       std::string_view name) const;
+
+  // Commits the `specifics` and updates the `store_` as well as the in memory
+  // `settings_` cache. The updated setting is immediately visible through
+  // `GetSetting()`.
+  // Virtual for testing.
+  virtual void WriteSetting(
+      const sync_pb::PlusAddressSettingSpecifics& specifics);
 
   // syncer::ModelTypeSyncBridge:
   std::unique_ptr<syncer::MetadataChangeList> CreateMetadataChangeList()
@@ -41,8 +54,9 @@ class PlusAddressSettingSyncBridge : public syncer::ModelTypeSyncBridge {
       syncer::EntityChangeList entity_changes) override;
   void ApplyDisableSyncChanges(std::unique_ptr<syncer::MetadataChangeList>
                                    delete_metadata_change_list) override;
-  void GetData(StorageKeyList storage_keys, DataCallback callback) override;
-  void GetAllDataForDebugging(DataCallback callback) override;
+  std::unique_ptr<syncer::DataBatch> GetDataForCommit(
+      StorageKeyList storage_keys) override;
+  std::unique_ptr<syncer::DataBatch> GetAllDataForDebugging() override;
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
   std::string GetClientTag(const syncer::EntityData& entity_data) override;
   std::string GetStorageKey(const syncer::EntityData& entity_data) override;

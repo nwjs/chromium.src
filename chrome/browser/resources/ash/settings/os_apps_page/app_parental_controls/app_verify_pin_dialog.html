@@ -4,6 +4,8 @@
     color: var(--cros-text-color-alert);
     display: flex;
     flex-direction: row;
+    /* This max-width matches the width of the PIN input field. */
+    max-width: 200px;
     /* Enough height for two rows. */
     min-height: 48px;
   }
@@ -38,16 +40,17 @@
     padding-top: var(--cr-dialog-button-container-padding-top, 16px);
   }
 
+  cr-dialog::part(dialog) {
+    /* Make sure pin dialog is usable for small window sizes. */
+    max-width: 100%;
+  }
+
   #pinKeyboardDiv {
     justify-content: center;
   }
 
   #pinKeyboard {
     --cr-input-placeholder-letter-spacing: normal;
-  }
-
-  #verifyPinDialogSubtitle {
-    padding-bottom: 16px;
   }
 </style>
 <cr-dialog id="dialog" on-close="close" close-text="$i18n{close}">
@@ -57,7 +60,9 @@
       <pin-keyboard id="pinKeyboard" on-pin-change="onPinChange_"
           on-submit="onPinSubmit_" value="{{pinValue_}}"
           disabled="[[isVerificationPending_]]"
-          aria-label="$i18n{appParentalControlsAccessDialogTitle}">
+          aria-label="$i18n{appParentalControlsAccessDialogTitle}"
+          has-error="[[showError_]]"
+          enable-placeholder>
         <div id="errorDiv" invisible$="[[!showError_]]">
           <iron-icon id="errorIcon" icon="cr:error-outline"></iron-icon>
           <span id="errorMessage">
@@ -77,7 +82,7 @@
         $i18n{cancel}
       </cr-button>
       <cr-button class="action-button" on-click="onPinSubmit_"
-          disabled="[[isConfirmDisabled_(pinValue_, isVerificationPending_)]]">
+          disabled="[[!enableSubmit_]]">
         $i18n{confirm}
       </cr-button>
     </div>

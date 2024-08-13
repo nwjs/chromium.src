@@ -311,7 +311,7 @@ WebLocalFrameImpl* CreateLocalChild(
   auto* frame = To<WebLocalFrameImpl>(
       parent.CreateLocalChild(scope, client, nullptr, LocalFrameToken()));
   client->Bind(frame, std::move(owned_client));
-  finish_creation(frame, DocumentToken());
+  finish_creation(frame, DocumentToken(), mojo::NullRemote());
   return frame;
 }
 
@@ -329,7 +329,7 @@ WebLocalFrameImpl* CreateLocalChild(
   auto* frame = To<WebLocalFrameImpl>(
       parent.CreateLocalChild(scope, client, nullptr, LocalFrameToken()));
   client->Bind(frame, std::move(self_owned));
-  finish_creation(frame, DocumentToken());
+  finish_creation(frame, DocumentToken(), mojo::NullRemote());
   return frame;
 }
 
@@ -449,7 +449,8 @@ WebViewImpl* WebViewHelper::InitializeWithOpener(
   web_frame_client =
       CreateDefaultClientIfNeeded(web_frame_client, owned_web_frame_client);
   WebLocalFrame* frame = WebLocalFrame::CreateMainFrame(
-      web_view_, web_frame_client, nullptr, LocalFrameToken(), DocumentToken(),
+      web_view_, web_frame_client, nullptr, mojo::NullRemote(),
+      LocalFrameToken(), DocumentToken(),
       // Passing a null policy_container will create an empty, default policy
       // container.
       /*policy_container=*/nullptr, opener,
@@ -579,7 +580,7 @@ WebLocalFrameImpl* WebViewHelper::CreateLocalChild(
   auto* frame = To<WebLocalFrameImpl>(parent.CreateLocalChild(
       mojom::blink::TreeScopeType::kDocument, name, FramePolicy(), client,
       nullptr, previous_sibling, properties, LocalFrameToken(), nullptr,
-      DocumentToken(),
+      DocumentToken(), mojo::NullRemote(),
       std::make_unique<WebPolicyContainer>(
           WebPolicyContainerPolicies(),
           mock_policy_container_host.BindNewEndpointAndPassDedicatedRemote())));
@@ -599,8 +600,9 @@ WebLocalFrameImpl* WebViewHelper::CreateProvisional(
   std::unique_ptr<TestWebFrameClient> owned_client;
   client = CreateDefaultClientIfNeeded(client, owned_client);
   auto* frame = To<WebLocalFrameImpl>(WebLocalFrame::CreateProvisional(
-      client, nullptr, LocalFrameToken(), &old_frame, FramePolicy(),
-      WebFrame::ToCoreFrame(old_frame)->Tree().GetName(), old_frame.View()));
+      client, nullptr, mojo::NullRemote(), LocalFrameToken(), &old_frame,
+      FramePolicy(), WebFrame::ToCoreFrame(old_frame)->Tree().GetName(),
+      old_frame.View()));
   client->Bind(frame, std::move(owned_client));
 
   // Create a widget, if necessary.
@@ -737,7 +739,6 @@ void WebViewHelper::InitializeWebView(
   web_view_ = To<WebViewImpl>(
       WebView::Create(web_view_client,
                       /*is_hidden=*/is_prerendering, std::move(prerender_param),
-                      /*is_inside_portal=*/false,
                       /*fenced_frame_mode=*/fenced_frame_mode,
                       /*compositing_enabled=*/true,
                       /*widgets_never_composited=*/false,
@@ -781,7 +782,6 @@ WebViewImpl* WebViewHelper::CreateWebView(WebViewClient* web_view_client,
       WebView::Create(web_view_client,
                       /*is_hidden=*/false,
                       /*prerender_param=*/nullptr,
-                      /*is_inside_portal=*/false,
                       /*fenced_frame_mode=*/std::nullopt, compositing_enabled,
                       /*widgets_never_composited=*/false,
                       /*opener=*/nullptr, mojo::NullAssociatedReceiver(),
@@ -832,7 +832,7 @@ WebLocalFrame* TestWebFrameClient::CreateChildFrame(
   client->sandbox_flags_ = frame_policy.sandbox_flags;
   TestWebFrameClient* client_ptr = client.get();
   client_ptr->Bind(frame, std::move(client));
-  finish_creation(frame, DocumentToken());
+  finish_creation(frame, DocumentToken(), mojo::NullRemote());
   return frame;
 }
 

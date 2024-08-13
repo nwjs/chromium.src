@@ -8,7 +8,6 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
-#include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -18,6 +17,12 @@
 
 namespace autofill {
 
+// The maximum number of IBANs allowed to be saved to Google Payments from
+// Chrome for a single user. Created as a client-side check instead of a
+// server-side one to optimize the user experience.
+inline constexpr int kMaxNumServerIbans = 99;
+
+class AutofillClient;
 class PaymentsDataManager;
 
 // Decides whether an IBAN local save should be offered and handles the workflow
@@ -70,6 +75,7 @@ class IbanSaveManager {
   // the save prompt manually.
   [[nodiscard]] bool AttemptToOfferSave(Iban& import_candidate);
 
+  // TODO(b/352643261): Add TestApi for below ForTesting methods.
   void OnUserDidDecideOnLocalSaveForTesting(
       const Iban& import_candidate,
       payments::PaymentsAutofillClient::SaveIbanOfferUserDecision user_decision,
@@ -108,6 +114,13 @@ class IbanSaveManager {
   TypeOfOfferToSave DetermineHowToSaveIbanForTesting(
       const Iban& import_candidate) {
     return DetermineHowToSaveIban(import_candidate);
+  }
+
+  void OnDidUploadIbanForTesting(
+      const Iban& import_candidate,
+      bool show_save_prompt,
+      payments::PaymentsAutofillClient::PaymentsRpcResult result) {
+    OnDidUploadIban(import_candidate, show_save_prompt, result);
   }
 
   bool HasContextTokenForTesting() const { return !context_token_.empty(); }
@@ -159,21 +172,23 @@ class IbanSaveManager {
   // executed only when there is a successful result and the `legal_message` is
   // parsed successfully. In all other cases, local save will be offered if
   // applicable.
-  void OnDidGetUploadDetails(bool show_save_prompt,
-                             Iban import_candidate,
-                             AutofillClient::PaymentsRpcResult result,
-                             const std::u16string& validation_regex,
-                             const std::u16string& context_token,
-                             std::unique_ptr<base::Value::Dict> legal_message);
+  void OnDidGetUploadDetails(
+      bool show_save_prompt,
+      Iban import_candidate,
+      payments::PaymentsAutofillClient::PaymentsRpcResult result,
+      const std::u16string& validation_regex,
+      const std::u16string& context_token,
+      std::unique_ptr<base::Value::Dict> legal_message);
 
   // Construct `UploadIbanRequestDetails` and send upload IBAN request via
   // PaymentsNetworkInterface.
   void SendUploadRequest(const Iban& import_candidate, bool show_save_prompt);
 
   // Called when an UploadIban call is completed.
-  void OnDidUploadIban(const Iban& import_candidate,
-                       bool show_save_prompt,
-                       AutofillClient::PaymentsRpcResult result);
+  void OnDidUploadIban(
+      const Iban& import_candidate,
+      bool show_save_prompt,
+      payments::PaymentsAutofillClient::PaymentsRpcResult result);
 
   PaymentsDataManager& payments_data_manager();
   const PaymentsDataManager& payments_data_manager() const;

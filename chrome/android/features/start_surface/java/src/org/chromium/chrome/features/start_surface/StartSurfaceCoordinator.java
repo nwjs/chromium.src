@@ -15,18 +15,15 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 
 import com.google.android.material.appbar.AppBarLayout;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
-import org.chromium.base.Log;
 import org.chromium.base.MathUtils;
 import org.chromium.base.ObserverList;
 import org.chromium.base.jank_tracker.JankTracker;
 import org.chromium.base.library_loader.LibraryLoader;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -43,25 +40,20 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.logo.LogoUtils;
 import org.chromium.chrome.browser.magic_stack.HomeModulesConfigManager;
 import org.chromium.chrome.browser.magic_stack.HomeModulesCoordinator;
+import org.chromium.chrome.browser.magic_stack.HomeModulesMetricsUtils;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.share.ShareDelegate;
-import org.chromium.chrome.browser.single_tab.SingleTabSwitcherCoordinator;
 import org.chromium.chrome.browser.suggestions.tile.MostVisitedTilesCoordinator;
 import org.chromium.chrome.browser.suggestions.tile.TileGroupDelegateImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tab_ui.TabSwitcher;
-import org.chromium.chrome.browser.tab_ui.TabSwitcher.TabSwitcherType;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.toolbar.top.Toolbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
-import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.features.tasks.MostVisitedTileNavigationDelegate;
 import org.chromium.chrome.features.tasks.TasksSurfaceProperties;
 import org.chromium.chrome.features.tasks.TasksView;
@@ -102,9 +94,6 @@ public class StartSurfaceCoordinator implements StartSurface {
     private final TabCreatorManager mTabCreatorManager;
     private final Supplier<Toolbar> mToolbarSupplier;
 
-    @VisibleForTesting
-    static final String START_SHOWN_AT_STARTUP_UMA = "Startup.Android.StartSurfaceShownAtStartup";
-
     private static final String TAG = "StartSurface";
 
     private final boolean mUseMagicSpace;
@@ -141,9 +130,6 @@ public class StartSurfaceCoordinator implements StartSurface {
     // For pull-to-refresh.
     @Nullable private FeedSwipeRefreshLayout mSwipeRefreshLayout;
 
-    // The single or carousel Tab switcher module on the Start surface. Null when magic stack is
-    // enabled.
-    @Nullable private TabSwitcher mTabSwitcherModule;
     // The view of Start surface layout.
     private TasksView mView;
     private MostVisitedTilesCoordinator mMostVisitedCoordinator;
@@ -235,7 +221,7 @@ public class StartSurfaceCoordinator implements StartSurface {
             @NonNull OneshotSupplier<ModuleRegistry> moduleRegistrySupplier) {
         mConstructedTimeNs = SystemClock.elapsedRealtimeNanos();
         mActivity = activity;
-        mIsStartSurfaceEnabled = ReturnToChromeUtil.isStartSurfaceEnabled(mActivity);
+        mIsStartSurfaceEnabled = false;
         mBottomSheetController = sheetController;
         mParentTabSupplier = parentTabSupplier;
         mWindowAndroid = windowAndroid;
@@ -255,7 +241,7 @@ public class StartSurfaceCoordinator implements StartSurface {
         mTabStripHeightSupplier = tabStripHeightSupplier;
         mModuleRegistrySupplier = moduleRegistrySupplier;
 
-        mUseMagicSpace = mIsStartSurfaceEnabled && StartSurfaceConfiguration.useMagicStack();
+        mUseMagicSpace = mIsStartSurfaceEnabled && HomeModulesMetricsUtils.useMagicStack();
         mIsSurfacePolishEnabled = ChromeFeatureList.sSurfacePolish.isEnabled();
 
         assert mIsStartSurfaceEnabled;
@@ -268,7 +254,6 @@ public class StartSurfaceCoordinator implements StartSurface {
 
         mStartSurfaceMediator =
                 new StartSurfaceMediator(
-                        mTabSwitcherModule,
                         mTabModelSelector,
                         mPropertyModel,
                         mIsStartSurfaceEnabled,
@@ -338,7 +323,6 @@ public class StartSurfaceCoordinator implements StartSurface {
                 mIsMVTilesInitialized = false;
             }
         }
-        mStartSurfaceMediator.onHide();
     }
 
     @Override
@@ -372,9 +356,6 @@ public class StartSurfaceCoordinator implements StartSurface {
     @Override
     public void setOnTabSelectingListener(StartSurface.OnTabSelectingListener listener) {
         mStartSurfaceMediator.setOnTabSelectingListener(listener);
-        if (mTabSwitcherModule != null) {
-            mTabSwitcherModule.setOnTabSelectingListener(mStartSurfaceMediator);
-        }
     }
 
     @Override
@@ -400,12 +381,15 @@ public class StartSurfaceCoordinator implements StartSurface {
                             mToolbarSupplier,
                             mConstructedTimeNs,
                             mSwipeRefreshLayout,
-                            mTabStripHeightSupplier);
+                            mTabStripHeightSupplier,
+                            mProfileSupplier);
         }
+        Profile profile = mProfileSupplier.get();
+        assert !profile.isOffTheRecord();
         mStartSurfaceMediator.initWithNative(
                 mIsStartSurfaceEnabled ? mOmniboxStubSupplier.get() : null,
                 mExploreSurfaceCoordinatorFactory,
-                UserPrefs.get(ProfileManager.getLastUsedRegularProfile()));
+                UserPrefs.get(profile));
 
         if (mIsInitPending) {
             initialize();
@@ -442,30 +426,10 @@ public class StartSurfaceCoordinator implements StartSurface {
     }
 
     @Override
-    public Supplier<Boolean> getTabGridDialogVisibilitySupplier() {
-        assert mTabSwitcherModule != null;
-        return () -> mTabSwitcherModule.getTabGridDialogVisibilitySupplier() != null;
-    }
-
-    @Override
     public void onOverviewShownAtLaunch(
             boolean isOverviewShownOnStartup, long activityCreationTimeMs) {
         if (isOverviewShownOnStartup) {
             mStartSurfaceMediator.onOverviewShownAtLaunch(activityCreationTimeMs);
-        }
-        if (ReturnToChromeUtil.isStartSurfaceEnabled(mActivity)) {
-            if (isOverviewShownOnStartup) {
-                ReturnToChromeUtil.recordHistogramsWhenOverviewIsShownAtLaunch();
-            }
-            Log.i(TAG, "Recorded %s = %b", START_SHOWN_AT_STARTUP_UMA, isOverviewShownOnStartup);
-            RecordHistogram.recordBooleanHistogram(
-                    START_SHOWN_AT_STARTUP_UMA, isOverviewShownOnStartup);
-
-            // The segmentation results should only be cached when Start is enabled, for example,
-            // not on tablet.
-            if (StartSurfaceConfiguration.START_SURFACE_RETURN_TIME_USE_MODEL.getValue()) {
-                ReturnToChromeUtil.cacheReturnTimeFromSegmentation();
-            }
         }
     }
 
@@ -497,11 +461,6 @@ public class StartSurfaceCoordinator implements StartSurface {
 
         assert mIsStartSurfaceEnabled;
 
-        int tabSwitcherType = TabSwitcherType.NONE;
-        if (!mUseMagicSpace) {
-            tabSwitcherType = TabSwitcherType.SINGLE;
-        }
-
         mView =
                 (TasksView)
                         LayoutInflater.from(mActivity).inflate(R.layout.tasks_view_layout, null);
@@ -509,25 +468,8 @@ public class StartSurfaceCoordinator implements StartSurface {
         mView.initialize(
                 mActivityLifecycleDispatcher,
                 mParentTabSupplier.hasValue() && mParentTabSupplier.get().isIncognito(),
-                mWindowAndroid);
-        if (tabSwitcherType == TabSwitcherType.SINGLE) {
-            // We always pass the parameter isTablet to be false here since StartSurfaceCoordinator
-            // is only created on phones.
-            mTabSwitcherModule =
-                    new SingleTabSwitcherCoordinator(
-                            mActivity,
-                            mView.getCardTabSwitcherContainer(),
-                            mTabModelSelector,
-                            /* isShownOnNtp= */ false,
-                            /* isTablet= */ false,
-                            /* mostRecentTab= */ null,
-                            /* singleTabCardClickedCallback= */ null,
-                            /* seeMoreLinkClickedCallback= */ null,
-                            /* snapshotParentViewRunnable= */ null,
-                            mTabContentManager,
-                            /* uiConfig= */ null,
-                            /* moduleDelegate= */ null);
-        }
+                mWindowAndroid,
+                mProfileSupplier);
         View mvTilesContainer = mView.findViewById(R.id.mv_tiles_container);
         mMostVisitedCoordinator =
                 new MostVisitedTilesCoordinator(
@@ -595,13 +537,7 @@ public class StartSurfaceCoordinator implements StartSurface {
                     resources, StartSurfaceConfiguration.getLogoSizeForLogoPolish());
         }
 
-        if (mIsSurfacePolishEnabled) {
-            return LogoUtils.getLogoTotalHeightPolished(resources);
-        }
-
-        return getPixelSize(R.dimen.ntp_logo_height)
-                + getPixelSize(R.dimen.ntp_logo_margin_top)
-                + getPixelSize(R.dimen.ntp_logo_margin_bottom);
+        return LogoUtils.getLogoTotalHeight(resources);
     }
 
     private void initializeOffsetChangedListener() {
@@ -636,7 +572,7 @@ public class StartSurfaceCoordinator implements StartSurface {
         int realEndPadding =
                 mIsSurfacePolishEnabled
                         ? getPixelSize(R.dimen.location_bar_end_padding)
-                                + getPixelSize(R.dimen.location_bar_url_action_offset_polish)
+                                + getPixelSize(R.dimen.location_bar_url_action_offset_ntp)
                         : 0;
         int endPaddingDiff = fakeEndPadding - realEndPadding;
 
@@ -745,19 +681,15 @@ public class StartSurfaceCoordinator implements StartSurface {
             return;
         }
 
-        Profile profile = ProfileManager.getLastUsedRegularProfile();
+        Profile profile = mProfileSupplier.get();
+        assert !profile.isOffTheRecord();
         MostVisitedTileNavigationDelegate navigationDelegate =
                 new MostVisitedTileNavigationDelegate(mActivity, profile, mParentTabSupplier);
         mSuggestionsUiDelegate =
                 new MostVisitedSuggestionsUiDelegate(
                         mView, navigationDelegate, profile, mSnackbarManager);
         mTileGroupDelegate =
-                new TileGroupDelegateImpl(
-                        mActivity,
-                        profile,
-                        navigationDelegate,
-                        mSnackbarManager,
-                        BrowserUiUtils.HostSurface.START_SURFACE);
+                new TileGroupDelegateImpl(mActivity, profile, navigationDelegate, mSnackbarManager);
 
         mMostVisitedCoordinator.initWithNative(
                 profile, mSuggestionsUiDelegate, mTileGroupDelegate, enabled -> {});

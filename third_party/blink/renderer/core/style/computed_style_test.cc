@@ -43,7 +43,6 @@
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
 #include "third_party/blink/renderer/core/testing/null_execution_context.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/transforms/scale_transform_operation.h"
 #include "ui/base/ui_base_features.h"
@@ -2120,6 +2119,39 @@ TEST_F(ComputedStyleTest, DynamicRangeLimitMixAllThree) {
   EXPECT_FLOAT_EQ(converted_limit.standard_mix, limit.standard_mix);
   EXPECT_FLOAT_EQ(converted_limit.constrained_high_mix,
                   limit.constrained_high_mix);
+}
+
+TEST_F(ComputedStyleTest, UseCountInsideListMarkerPositionQuirk) {
+  Document& document = GetDocument();
+  document.body()->setInnerHTML(R"HTML(
+    <style>.marker-content-none::marker { content: none }</style>
+    <ul><li></li></ul>
+    <ol><li></li></ol>
+    <ul><div><li></li></ul>
+    <ol><li><li></li></li></ol>
+    <div style="display: list-item"></div>
+    <li style="list-style-position: inside"></li>
+    <li style="list-style: none"></li>
+    <li class="marker-content-none"></li>
+    <li style="display: flex"></li>
+  )HTML");
+  document.View()->UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(
+      document.IsUseCounted(WebFeature::kInsideListMarkerPositionQuirk));
+
+  document.body()->setInnerHTML("<li></li>");
+  document.View()->UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(
+      document.IsUseCounted(WebFeature::kInsideListMarkerPositionQuirk));
+}
+
+TEST_F(ComputedStyleTest, ZoomInheritance) {
+  Document& document = GetDocument();
+  document.body()->setInnerHTML(R"HTML(
+    <div id="target" style="line-height: revert; zoom: 2;">Hello, world!</div>
+  )HTML");
+  document.View()->UpdateAllLifecyclePhasesForTest();
+  ASSERT_TRUE(true) << "Test passes if it doesn't hit a DCHECK.";
 }
 
 }  // namespace blink

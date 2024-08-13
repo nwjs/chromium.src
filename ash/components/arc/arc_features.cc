@@ -9,10 +9,22 @@
 namespace arc {
 
 // Controls whether to always start ARC automatically, or wait for the user's
-// action to start it later in an on-demand manner.
-BASE_FEATURE(kArcOnDemandFeature,
-             "ArcOnDemand",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// action to start it later in an on-demand manner. Already enabled by default
+// for managed users. In V2, it will be expand to more users such as unmanaged
+// users.
+BASE_FEATURE(kArcOnDemandV2,
+             "ArcOnDemandV2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether ARC should be activated on any app launches. If set to
+// false, inactive_interval will be checked.
+const base::FeatureParam<bool> kArcOnDemandActivateOnAppLaunch{
+    &kArcOnDemandV2, "activate_on_app_launch", true};
+
+// Controls how long of invactivity are allowed before ARC on Demand is
+// triggered.
+const base::FeatureParam<base::TimeDelta> kArcOnDemandInactiveInterval{
+    &kArcOnDemandV2, "inactive_interval", base::Days(0)};
 
 // Controls whether to start ARC with the GKI kernel.
 BASE_FEATURE(kArcVmGki,
@@ -117,6 +129,12 @@ BASE_FEATURE(kEnableArcVmDataMigration,
              "ArcVmDataMigration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether to enable friendlier error dialog (switching to notification
+// for certain types of ARC error dialogs).
+BASE_FEATURE(kEnableFriendlierErrorDialog,
+             "FriendlierErrorDialog",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls whether WebView Zygote is lazily initialized in ARC.
 BASE_FEATURE(kEnableLazyWebViewInit,
              "LazyWebViewInit",
@@ -168,6 +186,16 @@ BASE_FEATURE(kEnableVirtioBlkMultipleWorkers,
 // Controls whether to extend the input event ANR timeout time.
 BASE_FEATURE(kExtendInputAnrTimeout,
              "ArcExtendInputAnrTimeout",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether to extend the broadcast of intent ANR timeout time.
+BASE_FEATURE(kExtendIntentAnrTimeout,
+             "ArcExtendIntentAnrTimeout",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether to extend the executing service ANR timeout time.
+BASE_FEATURE(kExtendServiceAnrTimeout,
+             "ArcExtendServiceAnrTimeout",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether to allow Android apps to access external storage devices
@@ -233,6 +261,11 @@ const base::FeatureParam<bool> kVirtualSwapEnabled{
 // Controls how often ARCVM's virtual swap device is swapped out in the host.
 const base::FeatureParam<int> kVirtualSwapIntervalMs{
     &kGuestSwap, "virtual_swap_interval_ms", 1000};
+
+// Controls whether to enable virtio-pvclock in ARCVM
+BASE_FEATURE(kArcVmPvclock,
+             "ArcEnablePvclock",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether enable ignoring hover event ANR in input dispatcher.
 BASE_FEATURE(kIgnoreHoverEventAnr,

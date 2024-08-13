@@ -57,6 +57,7 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_access_delegate.h"
 #include "net/cookies/cookie_constants.h"
+#include "net/cookies/cookie_partition_key.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/cookie_store.h"
 #include "net/cookies/cookie_util.h"
@@ -91,6 +92,7 @@
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_config_service.h"
 #include "net/ssl/ssl_connection_status_flags.h"
+#include "net/storage_access_api/status.h"
 #include "net/url_request/clear_site_data.h"
 #include "net/url_request/redirect_util.h"
 #include "net/url_request/url_request.h"
@@ -108,8 +110,8 @@
 #endif
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
-#include "net/device_bound_sessions/device_bound_session_registration_fetcher_param.h"
-#include "net/device_bound_sessions/device_bound_session_service.h"
+#include "net/device_bound_sessions/registration_fetcher_param.h"
+#include "net/device_bound_sessions/session_service.h"
 #endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 
 namespace {
@@ -151,6 +153,7 @@ base::Value::Dict CookieInclusionStatusNetLogParams(
     const std::string& cookie_name,
     const std::string& cookie_domain,
     const std::string& cookie_path,
+    const std::optional<net::CookiePartitionKey>& partition_key,
     const net::CookieInclusionStatus& status,
     net::NetLogCaptureMode capture_mode) {
   base::Value::Dict dict;
@@ -164,6 +167,21 @@ base::Value::Dict CookieInclusionStatusNetLogParams(
     if (!cookie_path.empty())
       dict.Set("path", cookie_path);
   }
+  // The partition key is not sensitive, since it is fully determined by the
+  // structure of the page. The cookie may either be partitioned or not, but
+  // does not have the ability to influence the key's value.
+  std::string partition_key_str;
+  if (partition_key.has_value()) {
+    base::expected<net::CookiePartitionKey::SerializedCookiePartitionKey,
+                   std::string>
+        serialized = net::CookiePartitionKey::Serialize(partition_key);
+    partition_key_str = serialized.has_value()
+                            ? serialized.value().GetDebugString()
+                            : serialized.error();
+  } else {
+    partition_key_str = "(none)";
+  }
+  dict.Set("partition_key", std::move(partition_key_str));
   return dict;
 }
 
@@ -318,6 +336,18 @@ void RecordSTSHistograms(net::SSLUpgradeDecision upgrade_decision,
       GetMetricForSSLUpgradeDecision(upgrade_decision, is_secure));
 }
 
+char const* GetSecFetchStorageAccessHeaderValue(
+    net::cookie_util::StorageAccessStatus storage_access_status) {
+  switch (storage_access_status) {
+    case net::cookie_util::StorageAccessStatus::kInactive:
+      return "inactive";
+    case net::cookie_util::StorageAccessStatus::kActive:
+      return "active";
+    case net::cookie_util::StorageAccessStatus::kNone:
+      return "none";
+  }
+}
+
 }  // namespace
 
 namespace net {
@@ -431,10 +461,11 @@ void URLRequestHttpJob::Start() {
   // benefit from each other's storage access API grants.
   request()->cookie_setting_overrides().PutOrRemove(
       CookieSettingOverride::kStorageAccessGrantEligible,
-      request()->has_storage_access() && request_initiator_site().has_value() &&
+      request()->storage_access_api_status() ==
+              StorageAccessApiStatus::kAccessViaAPI &&
+          request_initiator_site().has_value() &&
           IsSameSiteIgnoringWebSocketProtocol(request_initiator_site().value(),
                                               request()->url()));
-
   CookieStore* cookie_store = request()->context()->cookie_store();
   const CookieAccessDelegate* delegate =
       cookie_store ? cookie_store->cookie_access_delegate() : nullptr;
@@ -452,6 +483,35 @@ void URLRequestHttpJob::Start() {
   if (maybe_metadata.has_value()) {
     auto [metadata, match_info] = std::move(maybe_metadata).value();
     OnGotFirstPartySetMetadata(std::move(metadata), std::move(match_info));
+  }
+}
+
+namespace {
+
+bool ShouldBlockAllCookies(PrivacyMode privacy_mode) {
+  return privacy_mode == PRIVACY_MODE_ENABLED ||
+         privacy_mode == PRIVACY_MODE_ENABLED_WITHOUT_CLIENT_CERTS;
+}
+
+}  // namespace
+
+void URLRequestHttpJob::MaybeSetSecFetchStorageAccessHeader() {
+  if (!base::FeatureList::IsEnabled(features::kStorageAccessHeaders)) {
+    return;
+  }
+  // Avoid attaching the header in cases where the Cookie header is not included
+  // in the request.
+  if (!ShouldAddCookieHeader() ||
+      ShouldBlockAllCookies(request_info_.privacy_mode)) {
+    return;
+  }
+  std::optional<cookie_util::StorageAccessStatus> storage_access_status =
+      request_->network_delegate()->GetStorageAccessStatus(*request_);
+  if (storage_access_status) {
+    storage_access_status_ = storage_access_status.value();
+    request_info_.extra_headers.SetHeader(
+        HttpRequestHeaders::kSecFetchStorageAccess,
+        GetSecFetchStorageAccessHeaderValue(storage_access_status_));
   }
 }
 
@@ -756,6 +816,7 @@ void URLRequestHttpJob::AddExtraHeaders() {
           accept_language);
     }
   }
+  MaybeSetSecFetchStorageAccessHeader();
 }
 
 void URLRequestHttpJob::AddCookieHeaderAndStart() {
@@ -788,15 +849,6 @@ void URLRequestHttpJob::AddCookieHeaderAndStart() {
       base::BindOnce(&URLRequestHttpJob::SetCookieHeaderAndStart,
                      weak_factory_.GetWeakPtr(), options));
 }
-
-namespace {
-
-bool ShouldBlockAllCookies(const PrivacyMode& privacy_mode) {
-  return privacy_mode == PRIVACY_MODE_ENABLED ||
-         privacy_mode == PRIVACY_MODE_ENABLED_WITHOUT_CLIENT_CERTS;
-}
-
-}  // namespace
 
 void URLRequestHttpJob::SetCookieHeaderAndStart(
     const CookieOptions& options,
@@ -917,6 +969,7 @@ void URLRequestHttpJob::SetCookieHeaderAndStart(
                 "send", cookie_with_access_result.cookie.Name(),
                 cookie_with_access_result.cookie.Domain(),
                 cookie_with_access_result.cookie.Path(),
+                cookie_with_access_result.cookie.PartitionKey(),
                 cookie_with_access_result.access_result.status, capture_mode);
           });
     }
@@ -1084,15 +1137,16 @@ void URLRequestHttpJob::OnSetCookieResult(const CookieOptions& options,
                                           std::string cookie_string,
                                           CookieAccessResult access_result) {
   if (request_->net_log().IsCapturing()) {
-    request_->net_log().AddEvent(NetLogEventType::COOKIE_INCLUSION_STATUS,
-                                 [&](NetLogCaptureMode capture_mode) {
-                                   return CookieInclusionStatusNetLogParams(
-                                       "store",
-                                       cookie ? cookie.value().Name() : "",
-                                       cookie ? cookie.value().Domain() : "",
-                                       cookie ? cookie.value().Path() : "",
-                                       access_result.status, capture_mode);
-                                 });
+    request_->net_log().AddEvent(
+        NetLogEventType::COOKIE_INCLUSION_STATUS,
+        [&](NetLogCaptureMode capture_mode) {
+          return CookieInclusionStatusNetLogParams(
+              "store", cookie ? cookie.value().Name() : "",
+              cookie ? cookie.value().Domain() : "",
+              cookie ? cookie.value().Path() : "",
+              cookie ? cookie.value().PartitionKey() : std::nullopt,
+              access_result.status, capture_mode);
+        });
   }
 
   set_cookie_access_result_list_.emplace_back(
@@ -1109,8 +1163,8 @@ void URLRequestHttpJob::OnSetCookieResult(const CookieOptions& options,
 
 #if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 void URLRequestHttpJob::ProcessDeviceBoundSessionsHeader() {
-  std::vector<DeviceBoundSessionRegistrationFetcherParam> params =
-      DeviceBoundSessionRegistrationFetcherParam::CreateIfValid(
+  std::vector<device_bound_sessions::RegistrationFetcherParam> params =
+      device_bound_sessions::RegistrationFetcherParam::CreateIfValid(
           request_->url(), GetResponseHeaders());
   if (auto* service = request_->context()->device_bound_session_service()) {
     for (auto& param : params) {
@@ -1474,6 +1528,11 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
   return upstream;
 }
 
+cookie_util::StorageAccessStatus URLRequestHttpJob::StorageAccessStatus()
+    const {
+  return storage_access_status_;
+}
+
 bool URLRequestHttpJob::CopyFragmentOnRedirect(const GURL& location) const {
   // Allow modification of reference fragments by default, unless
   // |preserve_fragment_on_redirect_url_| is set and equal to the redirect URL.
@@ -1526,6 +1585,7 @@ bool URLRequestHttpJob::NeedsRetryWithStorageAccess() {
     return false;
   }
   if (!ShouldAddCookieHeader() ||
+      storage_access_status_ != cookie_util::StorageAccessStatus::kInactive ||
       request_->cookie_setting_overrides().Has(
           CookieSettingOverride::kStorageAccessGrantEligible) ||
       request_->cookie_setting_overrides().Has(
@@ -1538,6 +1598,12 @@ bool URLRequestHttpJob::NeedsRetryWithStorageAccess() {
 
   HttpResponseHeaders* headers = request_->response_headers();
   return headers && headers->HasStorageAccessRetryHeader();
+}
+
+void URLRequestHttpJob::SetSharedDictionaryGetter(
+    SharedDictionaryGetter dictionary_getter) {
+  CHECK(!request_info_.dictionary_getter);
+  request_info_.dictionary_getter = std::move(dictionary_getter);
 }
 
 std::unique_ptr<AuthChallengeInfo> URLRequestHttpJob::GetAuthChallengeInfo() {
@@ -1698,6 +1764,13 @@ int64_t URLRequestHttpJob::GetTotalSentBytes() const {
   if (transaction_)
     total_sent_bytes += transaction_->GetTotalSentBytes();
   return total_sent_bytes;
+}
+
+int64_t URLRequestHttpJob::GetReceivedBodyBytes() const {
+  if (transaction_) {
+    return transaction_->GetReceivedBodyBytes();
+  }
+  return 0;
 }
 
 void URLRequestHttpJob::DoneReading() {

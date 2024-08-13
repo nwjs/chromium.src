@@ -28,7 +28,7 @@ TEST(ClientSharedImageTest, ImportUnowned) {
   auto mailbox = Mailbox::Generate();
   const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
   SharedImageMetadata metadata{kFormat,
                                kSize,
@@ -55,7 +55,7 @@ TEST(ClientSharedImageTest, CreateViaSharedImageInterface) {
 
   const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
   SharedImageInfo si_info{kFormat,
                           kSize,
@@ -87,7 +87,7 @@ TEST(ClientSharedImageTest, ExportAndImport) {
 
   const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
   SharedImageInfo si_info{kFormat,
                           kSize,
@@ -114,7 +114,7 @@ TEST(ClientSharedImageTest, MakeUnowned) {
 
   const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
   SharedImageInfo si_info{kFormat,
                           kSize,
@@ -142,7 +142,7 @@ TEST(ClientSharedImageTest,
      GetTextureTarget_SinglePlaneFormats_NoNativeBuffer) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   for (auto format : viz::SinglePlaneFormat::kAll) {
@@ -162,21 +162,21 @@ TEST(ClientSharedImageTest,
 
 // When the client provides a native buffer with a single-plane format,
 // GL_TEXTURE_2D should be used as the texture target on all platforms other
-// than Mac, where the MacOS-specific target for native buffers should be used.
+// than Mac, where the target for IO surfaces should be used.
 TEST(ClientSharedImageTest,
      GetTextureTarget_SinglePlaneFormats_ClientNativeBuffer) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
   sii->emulate_client_provided_native_buffer();
 
 #if BUILDFLAG(IS_MAC)
-  // Explicitly set the MacOS-specific texture target to a target other than
+  // Explicitly set the texture target for IO surfaces to a target other than
   // GL_TEXTURE_2D to ensure that the test is meaningful on Mac.
-  const uint32_t kMacOSSpecificTarget = GL_TEXTURE_RECTANGLE_ARB;
-  sii->set_macos_specific_texture_target(kMacOSSpecificTarget);
+  const uint32_t kTargetForIOSurfaces = GL_TEXTURE_RECTANGLE_ARB;
+  sii->set_texture_target_for_io_surfaces(kTargetForIOSurfaces);
 #endif
 
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   for (auto format : viz::SinglePlaneFormat::kAll) {
@@ -191,7 +191,7 @@ TEST(ClientSharedImageTest,
     auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
 
 #if BUILDFLAG(IS_MAC)
-    const uint32_t expected_texture_target = kMacOSSpecificTarget;
+    const uint32_t expected_texture_target = kTargetForIOSurfaces;
 #else
     const uint32_t expected_texture_target = GL_TEXTURE_2D;
 #endif
@@ -200,20 +200,20 @@ TEST(ClientSharedImageTest,
 }
 
 // When the client asks for SCANOUT usage, GL_TEXTURE_2D should be used as the
-// texture target on all platforms other than Mac, where the MacOS-specific
-// target for native buffers should be used.
+// texture target on all platforms other than Mac, where the target for IO
+// surfaces should be used.
 TEST(ClientSharedImageTest, GetTextureTarget_ScanoutUsage) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
 
 #if BUILDFLAG(IS_MAC)
-  // Explicitly set the MacOS-specific texture target to a target other than
+  // Explicitly set the texture target for IO surfaces to a target other than
   // GL_TEXTURE_2D to ensure that the test is meaningful on Mac.
-  const uint32_t kMacOSSpecificTarget = GL_TEXTURE_RECTANGLE_ARB;
-  sii->set_macos_specific_texture_target(kMacOSSpecificTarget);
+  const uint32_t kTargetForIOSurfaces = GL_TEXTURE_RECTANGLE_ARB;
+  sii->set_texture_target_for_io_surfaces(kTargetForIOSurfaces);
 #endif
 
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage = SHARED_IMAGE_USAGE_SCANOUT;
+  const SharedImageUsageSet kUsage = SHARED_IMAGE_USAGE_SCANOUT;
 
   // Test all single-plane formats as well as multiplane formats for which
   // hardware GMBs are supported.
@@ -237,7 +237,7 @@ TEST(ClientSharedImageTest, GetTextureTarget_ScanoutUsage) {
     auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
 
 #if BUILDFLAG(IS_MAC)
-    const uint32_t expected_texture_target = kMacOSSpecificTarget;
+    const uint32_t expected_texture_target = kTargetForIOSurfaces;
 #else
     const uint32_t expected_texture_target = GL_TEXTURE_2D;
 #endif
@@ -246,16 +246,16 @@ TEST(ClientSharedImageTest, GetTextureTarget_ScanoutUsage) {
 }
 
 // When the client asks for WEBGPU usage, GL_TEXTURE_2D should be used as the
-// texture target on all platforms other than Mac, where the MacOS-specific
-// target for native buffers should be used.
+// texture target on all platforms other than Mac, where the target for IO
+// surfaces should be used.
 TEST(ClientSharedImageTest, GetTextureTarget_WebGPUUsage) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
 
 #if BUILDFLAG(IS_MAC)
-  // Explicitly set the MacOS-specific texture target to a target other than
+  // Explicitly set the texture target for IO surfaces to a target other than
   // GL_TEXTURE_2D to ensure that the test is meaningful on Mac.
-  const uint32_t kMacOSSpecificTarget = GL_TEXTURE_RECTANGLE_ARB;
-  sii->set_macos_specific_texture_target(kMacOSSpecificTarget);
+  const uint32_t kTargetForIOSurfaces = GL_TEXTURE_RECTANGLE_ARB;
+  sii->set_texture_target_for_io_surfaces(kTargetForIOSurfaces);
 #endif
 
   // Test all single-plane formats as well as multiplane formats for which
@@ -268,10 +268,10 @@ TEST(ClientSharedImageTest, GetTextureTarget_WebGPUUsage) {
     formats_to_test.push_back(format);
   }
 
-  for (uint32_t webgpu_usage :
+  for (SharedImageUsageSet webgpu_usage :
        {SHARED_IMAGE_USAGE_WEBGPU_READ, SHARED_IMAGE_USAGE_WEBGPU_WRITE}) {
     const gfx::Size kSize(256, 256);
-    const uint32_t kUsage = webgpu_usage;
+    const SharedImageUsageSet kUsage = webgpu_usage;
 
     for (auto format : formats_to_test) {
       SharedImageInfo si_info{format,
@@ -285,7 +285,7 @@ TEST(ClientSharedImageTest, GetTextureTarget_WebGPUUsage) {
       auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
 
 #if BUILDFLAG(IS_MAC)
-      const uint32_t expected_texture_target = kMacOSSpecificTarget;
+      const uint32_t expected_texture_target = kTargetForIOSurfaces;
 #else
       const uint32_t expected_texture_target = GL_TEXTURE_2D;
 #endif
@@ -301,7 +301,7 @@ TEST(ClientSharedImageTest,
      GetTextureTarget_MultiplanarFormats_NoScanoutOrWebGPUUsage) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   // Pass all the multiplanar formats that are used with hardware GMBs.
@@ -332,7 +332,7 @@ TEST(ClientSharedImageTest,
   sii->emulate_client_provided_native_buffer();
 
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   // Pass all the multiplanar formats that are used with hardware GMBs.
@@ -370,7 +370,7 @@ TEST(ClientSharedImageTest, GetTextureTarget_LegacyMultiplanarFormats) {
   sii->emulate_client_provided_native_buffer();
 
   const gfx::Size kSize(256, 256);
-  const uint32_t kUsage =
+  const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   for (auto format : viz::LegacyMultiPlaneFormat::kAll) {

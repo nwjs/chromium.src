@@ -8,7 +8,7 @@
 
 BASE_FEATURE(kLensWebPageEarlyTransitionEnabled,
              "LensWebPageEarlyTransitionEnabled",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kLoadingProgressThreshold[] = "LoadingProgressThreshold";
 
@@ -38,3 +38,7 @@ int LensTranslateToggleMode() {
   return base::GetFieldTrialParamByFeatureAsInt(kLensTranslateToggleModeEnabled,
                                                 kLensTranslateToggleMode, 0);
 }
+
+BASE_FEATURE(kLensWebPageLoadOptimizationEnabled,
+             "LensWebPageLoadOptimizationEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);

@@ -99,9 +99,6 @@ const wchar_t* const kTroublesomeDlls[] = {
 BASE_FEATURE(kEnableCsrssLockdownFeature,
              "EnableCsrssLockdown",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(GpuLockdownDefaultDacl,
-             "GpuLockdownDefaultDacl",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Helper to recording timing information during process creation.
 class SandboxLaunchTimer {
@@ -306,11 +303,6 @@ ResultCode AddDefaultConfigForSandboxedProcess(TargetConfig* config) {
   config->SetLockdownDefaultDacl();
   config->AddKernelObjectToClose(HandleToClose::kDeviceApi);
   config->SetDesktop(Desktop::kAlternateWinstation);
-
-  if (base::FeatureList::IsEnabled(
-          sandbox::policy::features::kWinSboxZeroAppShim)) {
-    config->SetZeroAppShim();
-  }
 
   return SBOX_ALL_OK;
 }
@@ -564,7 +556,6 @@ ResultCode SetupAppContainerProfile(AppContainer* container,
 }
 
 ResultCode GenerateConfigForSandboxedProcess(const base::CommandLine& cmd_line,
-                                             const std::string& process_type,
                                              SandboxDelegate* delegate,
                                              TargetConfig* config) {
   DCHECK(!config->IsConfigured());
@@ -583,11 +574,17 @@ ResultCode GenerateConfigForSandboxedProcess(const base::CommandLine& cmd_line,
   if (!delegate->CetCompatible())
     mitigations |= MITIGATION_CET_DISABLED;
 
+  Sandbox sandbox_type = delegate->GetSandboxType();
+  if (sandbox_type == Sandbox::kRenderer &&
+      base::FeatureList::IsEnabled(
+          sandbox::policy::features::kWinSboxRestrictCoreSharingOnRenderer)) {
+    mitigations |= MITIGATION_RESTRICT_CORE_SHARING;
+  }
+
   ResultCode result = config->SetProcessMitigations(mitigations);
   if (result != SBOX_ALL_OK)
     return result;
 
-  Sandbox sandbox_type = delegate->GetSandboxType();
   // Post-startup mitigations.
   mitigations = MITIGATION_DLL_SEARCH_ORDER;
   if (!cmd_line.HasSwitch(switches::kAllowThirdPartyModules) &&
@@ -608,7 +605,7 @@ ResultCode GenerateConfigForSandboxedProcess(const base::CommandLine& cmd_line,
   if (result != SBOX_ALL_OK)
     return result;
 
-  if (process_type == switches::kRendererProcess) {
+  if (sandbox_type == Sandbox::kRenderer) {
     // TODO(crbug.com/40088338) Remove if we can reliably not load
     // cryptbase.dll.
     config->AddKernelObjectToClose(HandleToClose::kKsecDD);
@@ -624,13 +621,23 @@ ResultCode GenerateConfigForSandboxedProcess(const base::CommandLine& cmd_line,
       return result;
   }
 
+  // Disable apphelp for tightly sandboxed processes that are not running
+  // in WoW or ARM64 emulated modes.
+  if (sandbox_type == Sandbox::kRenderer || sandbox_type == Sandbox::kService) {
+    if (base::FeatureList::IsEnabled(
+            sandbox::policy::features::kWinSboxZeroAppShim) &&
+        base::win::OSInfo::GetInstance()->IsWowDisabled() &&
+        !base::win::OSInfo::IsRunningEmulatedOnArm64()) {
+      config->SetZeroAppShim();
+    }
+  }
+
   result =
       SandboxWin::SetJobLevel(sandbox_type, JobLevel::kLockdown, 0, config);
   if (result != SBOX_ALL_OK)
     return result;
 
-  if (process_type == switches::kGpuProcess &&
-      base::FeatureList::IsEnabled(GpuLockdownDefaultDacl)) {
+  if (sandbox_type == Sandbox::kGpu) {
     config->SetLockdownDefaultDacl();
     config->AddRestrictingRandomSid();
   }
@@ -799,11 +806,12 @@ ResultCode SandboxWin::AddWin32kLockdownPolicy(TargetConfig* config) {
   if (result != SBOX_ALL_OK)
     return result;
 
-  if (base::FeatureList::IsEnabled(features::kWinSboxNoFakeGdiInit)) {
-    return SBOX_ALL_OK;
-  } else {
+  // winmm.dll, used by timeGetTime, depends on user32 and gdi32 until RS1.
+  if (base::win::GetVersion() <= base::win::Version::WIN10_TH2 ||
+      !base::FeatureList::IsEnabled(features::kWinSboxNoFakeGdiInit)) {
     return config->SetFakeGdiInit();
   }
+  return SBOX_ALL_OK;
 }
 
 // static
@@ -817,24 +825,28 @@ ResultCode SandboxWin::AddAppContainerProfileToConfig(
     return SBOX_ALL_OK;
   std::wstring profile_name =
       GetAppContainerProfileName(appcontainer_id, sandbox_type);
+  const ACProfileRegistration registration =
+      base::FeatureList::IsEnabled(features::kWinSboxACProfileWithoutFirewall)
+          ? ACProfileRegistration::kNoFirewall
+          : ACProfileRegistration::kDefault;
+
   ResultCode result =
-      config->AddAppContainerProfile(profile_name.c_str(), true);
+      config->AddAppContainerProfile(profile_name.c_str(), registration);
   if (result != SBOX_ALL_OK)
     return result;
 
-  scoped_refptr<AppContainer> container = config->GetAppContainer();
-  result =
-      SetupAppContainerProfile(container.get(), command_line, sandbox_type);
+  result = SetupAppContainerProfile(config->GetAppContainer(), command_line,
+                                    sandbox_type);
   if (result != SBOX_ALL_OK)
     return result;
 
   DWORD granted_access;
   BOOL granted_access_status;
   bool access_check =
-      container->AccessCheck(command_line.GetProgram().value().c_str(),
-                             base::win::SecurityObjectType::kFile,
-                             GENERIC_READ | GENERIC_EXECUTE, &granted_access,
-                             &granted_access_status) &&
+      config->GetAppContainer()->AccessCheck(
+          command_line.GetProgram().value().c_str(),
+          base::win::SecurityObjectType::kFile, GENERIC_READ | GENERIC_EXECUTE,
+          &granted_access, &granted_access_status) &&
       granted_access_status;
   if (!access_check) {
     PLOG(ERROR) << "Sandbox cannot access executable. Check filesystem "
@@ -926,7 +938,6 @@ bool SandboxWin::InitTargetServices(TargetServices* target_services) {
 // static
 ResultCode SandboxWin::GeneratePolicyForSandboxedProcess(
     const base::CommandLine& cmd_line,
-    const std::string& process_type,
     const base::HandlesToInheritVector& handles_to_inherit,
     SandboxDelegate* delegate,
     TargetPolicy* policy) {
@@ -945,8 +956,8 @@ ResultCode SandboxWin::GeneratePolicyForSandboxedProcess(
     policy->AddHandleToShare(handle);
 
   if (!policy->GetConfig()->IsConfigured()) {
-    ResultCode result = GenerateConfigForSandboxedProcess(
-        cmd_line, process_type, delegate, policy->GetConfig());
+    ResultCode result = GenerateConfigForSandboxedProcess(cmd_line, delegate,
+                                                          policy->GetConfig());
     if (result != SBOX_ALL_OK)
       return result;
   }
@@ -967,7 +978,6 @@ ResultCode SandboxWin::GeneratePolicyForSandboxedProcess(
 // static
 ResultCode SandboxWin::StartSandboxedProcess(
     const base::CommandLine& cmd_line,
-    const std::string& process_type,
     const base::HandlesToInheritVector& handles_to_inherit,
     SandboxDelegate* delegate,
     base::Process* process) {
@@ -984,7 +994,7 @@ ResultCode SandboxWin::StartSandboxedProcess(
   timer.OnPolicyCreated();
 
   ResultCode result = GeneratePolicyForSandboxedProcess(
-      cmd_line, process_type, handles_to_inherit, delegate, policy.get());
+      cmd_line, handles_to_inherit, delegate, policy.get());
   if (SBOX_ALL_OK != result)
     return result;
   timer.OnPolicyGenerated();

@@ -118,6 +118,8 @@ BASE_DECLARE_FEATURE(kAutofillNewFocusEvents);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillDontUpdateLastQueriedElementOnFill);
 COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillFindCachedFieldsByIdOnly);
+COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillSuggestionNStrikeModel);
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::FeatureParam<int> kSuggestionStrikeLimit;
@@ -140,9 +142,15 @@ BASE_DECLARE_FEATURE(kAutofillUseAUAddressModel);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUseBRAddressModel);
 COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillUseCAAddressModel);
+COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUseDEAddressModel);
 COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillUseFRAddressModel);
+COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUseINAddressModel);
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillUseITAddressModel);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUseMXAddressModel);
 COMPONENT_EXPORT(AUTOFILL)
@@ -169,7 +177,7 @@ BASE_DECLARE_FEATURE(kAutofillAlwaysParsePlaceholders);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillPopupDisablePaintChecks);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillPopupImprovedTimingChecksV2);
+BASE_DECLARE_FEATURE(kAutofillPopupMeasureTimeAfterPaint);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillPopupZOrderSecuritySurface);
 COMPONENT_EXPORT(AUTOFILL)
@@ -195,8 +203,6 @@ BASE_DECLARE_FEATURE(kAutofillTestFormWithTestAddresses);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillSilentProfileUpdateForInsufficientImport);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillTextAreaChangeEvents);
-COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillContentEditableChangeEvents);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kComposePopupAnnouncePolitely);
@@ -209,7 +215,27 @@ extern const base::FeatureParam<bool>
     kAutofillAblationStudyEnabledForPaymentsParam;
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::FeatureParam<int>
+    kAutofillAblationStudyAblationWeightPerMilleList1Param;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<int>
+    kAutofillAblationStudyAblationWeightPerMilleList2Param;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<int>
+    kAutofillAblationStudyAblationWeightPerMilleList3Param;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<int>
+    kAutofillAblationStudyAblationWeightPerMilleList4Param;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<int>
+    kAutofillAblationStudyAblationWeightPerMilleList5Param;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<int>
+    kAutofillAblationStudyAblationWeightPerMilleList6Param;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<int>
     kAutofillAblationStudyAblationWeightPerMilleParam;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<bool> kAutofillAblationStudyIsDryRun;
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(
     kAutofillEnableFillingPhoneCountryCodesByAddressCountryCodes);
@@ -235,6 +261,23 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillSilentlyRemoveQuasiDuplicates);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUpdateLowQualityTokenOnImport);
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillUKMExperimentalFields);
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<std::string>
+    kAutofillUKMExperimentalFieldsBucket0;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<std::string>
+    kAutofillUKMExperimentalFieldsBucket1;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<std::string>
+    kAutofillUKMExperimentalFieldsBucket2;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<std::string>
+    kAutofillUKMExperimentalFieldsBucket3;
+COMPONENT_EXPORT(AUTOFILL)
+extern const base::FeatureParam<std::string>
+    kAutofillUKMExperimentalFieldsBucket4;
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(AUTOFILL)

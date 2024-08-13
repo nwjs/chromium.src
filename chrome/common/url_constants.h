@@ -53,6 +53,10 @@ inline constexpr char kAdvancedProtectionDownloadLearnMoreURL[] =
 inline constexpr char kAppNotificationsBrowserSettingsURL[] =
     "chrome://settings/content/notifications";
 
+// "Chrome Settings" URL for the appearance page.
+inline constexpr char kBrowserSettingsSearchEngineURL[] =
+    "chrome://settings/search";
+
 // "Learn more" URL for App Parental Controls.
 // char16_t is used here because this constant may be used to set the src
 // attribute of iframe elements.
@@ -225,6 +229,10 @@ inline constexpr char kCrashReasonFeedbackDisplayedURL[] =
 #else
     "https://support.google.com/chrome?p=e_awsnap_rl";
 #endif
+
+// "Learn more" URL for the inactive tabs appearance setting.
+inline constexpr char16_t kDiscardRingTreatmentLearnMoreUrl[] =
+    u"https://support.google.com/chrome?p=performance_personalization";
 
 // "Learn more" URL for the "Do not track" setting in the privacy section.
 inline constexpr char16_t kDoNotTrackLearnMoreURL[] =
@@ -418,6 +426,10 @@ inline constexpr char kAddressesAndPaymentMethodsLearnMoreURL[] =
     "https://support.google.com/chrome?p=settings_autofill";
 #endif
 
+// "Learn more" URL for the performance intervention notification setting.
+inline constexpr char16_t kPerformanceInterventionLearnMoreUrl[] =
+    u"https://support.google.com/chrome?p=performance_personalization";
+
 // "Learn more" URL for the preloading section in Performance settings.
 inline constexpr char kPreloadingLearnMoreUrl[] =
     "https://support.google.com/chrome/?p=performance_preload_pages";
@@ -523,6 +535,14 @@ inline constexpr char16_t kSyncLearnMoreURL[] =
 // The URL for the "Learn more" page for Help me Write.
 inline constexpr char kComposeLearnMorePageURL[] =
     "https://support.google.com/chrome?p=help_me_write";
+
+// The URL for the "Learn more" links for pages related to History search.
+inline constexpr char kHistorySearchLearnMorePageURL[] =
+    "https://support.google.com/chrome?p=ai_history_search";
+
+// The URL for the Settings page to enable history search.
+inline constexpr char16_t kHistorySearchSettingURL[] =
+    u"chrome://settings/historySearch";
 
 // The URL for the "Learn more" link in the enterprise disclaimer for managed
 // profile in the Signin Intercept bubble.

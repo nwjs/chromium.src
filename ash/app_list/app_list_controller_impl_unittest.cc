@@ -343,7 +343,7 @@ TEST_P(AppListControllerImplTest, VirtualKeyboardNotShownWhenUserStartsTyping) {
 
   // The keyboard should get shown if the user taps on the search box.
   GestureTapOn(GetAppListView()->search_box_view());
-  ASSERT_TRUE(keyboard::WaitUntilShown());
+  ASSERT_TRUE(keyboard::test::WaitUntilShown());
 
   DismissAppListNow();
   base::RunLoop().RunUntilIdle();
@@ -440,11 +440,11 @@ TEST_P(AppListControllerImplTest,
 
   // Tap at the textfield in |window1|. The virtual keyboard should be visible.
   GestureTapOn(text_field_p);
-  ASSERT_TRUE(keyboard::WaitUntilShown());
+  ASSERT_TRUE(keyboard::test::WaitUntilShown());
 
   // Tap at the center of |window2| to hide the virtual keyboard.
   GetEventGenerator()->GestureTapAt(window2->GetBoundsInScreen().CenterPoint());
-  ASSERT_TRUE(keyboard::WaitUntilHidden());
+  ASSERT_TRUE(keyboard::test::WaitUntilHidden());
 
   // Press the home button to show the launcher. Wait for the animation of
   // launcher to finish. Note that the launcher does not exist before toggling
@@ -684,7 +684,7 @@ TEST_P(AppListControllerImplTest, OnlyMinimizeCycleListWindows) {
 
   ash::TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<ui::Event> test_event = std::make_unique<ui::KeyEvent>(
-      ui::EventType::ET_MOUSE_PRESSED, ui::VKEY_UNKNOWN, ui::EF_NONE);
+      ui::EventType::kMousePressed, ui::VKEY_UNKNOWN, ui::EF_NONE);
   Shell::Get()->app_list_controller()->GoHome(GetPrimaryDisplay().id());
   EXPECT_TRUE(WindowState::Get(w1.get())->IsMinimized());
   EXPECT_FALSE(WindowState::Get(w2.get())->IsMinimized());
@@ -698,7 +698,7 @@ TEST_P(AppListControllerImplTest,
   EnterOverview();
 
   // Trigger a display configuration change, this simulates screen rotation.
-  Shell::Get()->app_list_controller()->OnDisplayConfigurationChanged();
+  Shell::Get()->app_list_controller()->OnDidApplyDisplayChanges();
 
   // End overview mode, the home launcher should be visible.
   ExitOverview();

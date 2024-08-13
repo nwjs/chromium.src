@@ -44,6 +44,7 @@
 #include "components/sync/test/fake_model_type_controller.h"
 #include "components/sync/test/fake_sync_api_component_factory.h"
 #include "components/sync/test/fake_sync_engine.h"
+#include "components/sync/test/mock_model_type_local_data_batch_uploader.h"
 #include "components/sync/test/sync_client_mock.h"
 #include "components/sync/test/sync_service_impl_bundle.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -180,6 +181,8 @@ class SyncServiceImplTest : public ::testing::Test {
     ON_CALL(*sync_client, CreateModelTypeControllers)
         .WillByDefault(Return(ByMove(std::move(controllers))));
     ON_CALL(*sync_client, IsPasswordSyncAllowed).WillByDefault(Return(true));
+    ON_CALL(*sync_client, GetIdentityManager)
+        .WillByDefault(Return(identity_manager()));
 
     service_ = std::make_unique<SyncServiceImpl>(
         sync_service_impl_bundle_.CreateBasicInitParams(
@@ -201,12 +204,13 @@ class SyncServiceImplTest : public ::testing::Test {
     sync_client_ = sync_client.get();
     ON_CALL(*sync_client, CreateModelTypeControllers)
         .WillByDefault(Return(ByMove(std::move(controllers))));
+    ON_CALL(*sync_client, GetIdentityManager)
+        .WillByDefault(Return(identity_manager()));
 
     SyncServiceImpl::InitParams init_params =
         sync_service_impl_bundle_.CreateBasicInitParams(std::move(sync_client));
 
     prefs()->SetBoolean(prefs::kEnableLocalSyncBackend, true);
-    init_params.identity_manager = nullptr;
 
     service_ = std::make_unique<SyncServiceImpl>(std::move(init_params));
     service_->Initialize();
@@ -289,6 +293,8 @@ class SyncServiceImplTest : public ::testing::Test {
 
  private:
   base::test::SingleThreadTaskEnvironment task_environment_;
+  base::test::ScopedFeatureList feature_list_{
+      syncer::kSyncEnableModelTypeLocalDataBatchUploaders};
   SyncServiceImplBundle sync_service_impl_bundle_;
   std::unique_ptr<SyncServiceImpl> service_;
   raw_ptr<SyncClientMock, DanglingUntriaged> sync_client_ =
@@ -1079,6 +1085,31 @@ TEST_F(SyncServiceImplTest, CredentialErrorReturned) {
   service()->RemoveObserver(&observer);
 }
 
+TEST_F(SyncServiceImplTest,
+       TransportIsDisabledIfBothAuthErrorAndDisableReason) {
+  prefs()->SetManagedPref(prefs::internal::kSyncManaged, base::Value(true));
+  PopulatePrefsForInitialSyncFeatureSetupComplete();
+  SignInWithSyncConsent();
+  identity_test_env()->SetInvalidRefreshTokenForPrimaryAccount();
+  InitializeService();
+  base::RunLoop().RunUntilIdle();
+  ASSERT_EQ(service()->GetDisableReasons(),
+            SyncService::DisableReasonSet{
+                SyncService::DISABLE_REASON_ENTERPRISE_POLICY});
+
+  // The lower transport state (DISABLED) should be returned.
+  EXPECT_EQ(service()->GetTransportState(),
+            SyncService::TransportState::DISABLED);
+
+  // Remove the disable reason.
+  prefs()->SetManagedPref(prefs::internal::kSyncManaged, base::Value(false));
+  ASSERT_TRUE(service()->GetDisableReasons().empty());
+
+  // Transport is now PAUSED.
+  EXPECT_EQ(service()->GetTransportState(),
+            SyncService::TransportState::PAUSED);
+}
+
 // Verify that credential errors get cleared when a new token is fetched
 // successfully.
 TEST_F(SyncServiceImplTest, CredentialErrorClearsOnNewToken) {
@@ -1828,8 +1859,6 @@ TEST_F(SyncServiceImplTest, ShouldReturnErrorDownloadStatus) {
 }
 
 TEST_F(SyncServiceImplTest, ShouldReturnErrorDownloadStatusWhenSyncDisabled) {
-  base::HistogramTester histogram_tester;
-
   PopulatePrefsForInitialSyncFeatureSetupComplete();
   prefs()->SetManagedPref(prefs::internal::kSyncManaged, base::Value(true));
   SignInWithSyncConsent();
@@ -1841,8 +1870,6 @@ TEST_F(SyncServiceImplTest, ShouldReturnErrorDownloadStatusWhenSyncDisabled) {
   service()->OnInvalidationStatusChanged();
   EXPECT_EQ(service()->GetDownloadStatusFor(syncer::BOOKMARKS),
             SyncService::ModelTypeDownloadStatus::kError);
-  histogram_tester.ExpectTotalCount("Sync.ModelTypeUpToDateTime",
-                                    /*expected_count=*/0);
 }
 
 TEST_F(SyncServiceImplTest, ShouldReturnWaitingDownloadStatus) {
@@ -1884,8 +1911,6 @@ TEST_F(SyncServiceImplTest, ShouldReturnWaitingDownloadStatus) {
 }
 
 TEST_F(SyncServiceImplTest, ShouldReturnErrorWhenDataTypeDisabled) {
-  base::HistogramTester histogram_tester;
-
   PopulatePrefsForInitialSyncFeatureSetupComplete();
   SignInWithSyncConsent();
   InitializeService();
@@ -1906,10 +1931,8 @@ TEST_F(SyncServiceImplTest, ShouldReturnErrorWhenDataTypeDisabled) {
             SyncService::ModelTypeDownloadStatus::kError);
 
   SetInvalidationsEnabled();
-  histogram_tester.ExpectTotalCount("Sync.ModelTypeUpToDateTime.BOOKMARK",
-                                    /*expected_count=*/0);
-  histogram_tester.ExpectTotalCount("Sync.ModelTypeUpToDateTime",
-                                    /*expected_count=*/1);
+  EXPECT_EQ(service()->GetDownloadStatusFor(syncer::BOOKMARKS),
+            SyncService::ModelTypeDownloadStatus::kError);
 }
 
 TEST_F(SyncServiceImplTest, ShouldWaitUntilNoInvalidations) {
@@ -1944,8 +1967,6 @@ TEST_F(SyncServiceImplTest, ShouldWaitForInitializedInvalidations) {
 }
 
 TEST_F(SyncServiceImplTest, ShouldWaitForPollRequest) {
-  base::HistogramTester histogram_tester;
-
   PopulatePrefsForInitialSyncFeatureSetupComplete();
   SignInWithSyncConsent();
   InitializeService();
@@ -1955,11 +1976,6 @@ TEST_F(SyncServiceImplTest, ShouldWaitForPollRequest) {
 
   ASSERT_EQ(service()->GetDownloadStatusFor(syncer::BOOKMARKS),
             SyncService::ModelTypeDownloadStatus::kUpToDate);
-
-  histogram_tester.ExpectTotalCount("Sync.ModelTypeUpToDateTime.BOOKMARK",
-                                    /*expected_count=*/1);
-  histogram_tester.ExpectTotalCount("Sync.ModelTypeUpToDateTime",
-                                    /*expected_count=*/1);
 
   // OnInvalidationStatusChanged() is used to only notify observers, this is
   // required for metrics since they are calculated only when SyncService state
@@ -1973,12 +1989,6 @@ TEST_F(SyncServiceImplTest, ShouldWaitForPollRequest) {
   service()->OnInvalidationStatusChanged();
   EXPECT_EQ(service()->GetDownloadStatusFor(syncer::BOOKMARKS),
             SyncService::ModelTypeDownloadStatus::kUpToDate);
-
-  // The histograms should be recorded only once.
-  histogram_tester.ExpectTotalCount("Sync.ModelTypeUpToDateTime.BOOKMARK",
-                                    /*expected_count=*/1);
-  histogram_tester.ExpectTotalCount("Sync.ModelTypeUpToDateTime",
-                                    /*expected_count=*/1);
 
   // Ignore following poll requests once the first sync cycle is completed.
   service()->OnSyncCycleCompleted(MakeDefaultSyncCycleSnapshot());
@@ -2124,9 +2134,17 @@ TEST_F(SyncServiceImplTest,
 
   // DEVICE_INFO and AUTOFILL are queried from the sync service.
   ModelTypeSet requested_types{DEVICE_INFO, AUTOFILL};
-  // Only DEVICE_INFO is queried from the sync client.
-  EXPECT_CALL(*sync_client(), GetLocalDataDescriptions(
-                                  ModelTypeSet{DEVICE_INFO}, ::testing::_));
+  // Only the DEVICE_INFO uploader is queried.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  auto autofill_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, GetLocalDataDescription);
+  EXPECT_CALL(*autofill_uploader, GetLocalDataDescription).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
+  get_controller(AUTOFILL)->SetLocalDataBatchUploader(
+      std::move(autofill_uploader));
 
   service()->GetLocalDataDescriptions(requested_types, base::DoNothing());
 }
@@ -2145,9 +2163,17 @@ TEST_F(SyncServiceImplTest,
 
   // DEVICE_INFO and AUTOFILL_WALLET_DATA are queried from the sync service.
   ModelTypeSet requested_types{DEVICE_INFO, AUTOFILL_WALLET_DATA};
-  // Only DEVICE_INFO is queried from the sync client.
-  EXPECT_CALL(*sync_client(), GetLocalDataDescriptions(
-                                  ModelTypeSet{DEVICE_INFO}, ::testing::_));
+  // Only the DEVICE_INFO uploader is queried.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  auto wallet_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, GetLocalDataDescription);
+  EXPECT_CALL(*wallet_uploader, GetLocalDataDescription).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
+  get_controller(AUTOFILL_WALLET_DATA)
+      ->SetLocalDataBatchUploader(std::move(wallet_uploader));
 
   service()->GetLocalDataDescriptions(requested_types, base::DoNothing());
 }
@@ -2170,9 +2196,12 @@ TEST_F(SyncServiceImplTest,
 
   // DEVICE_INFO is queried from the sync service.
   ModelTypeSet requested_types{DEVICE_INFO};
-  // No data type queried to the sync client.
-  EXPECT_CALL(*sync_client(),
-              GetLocalDataDescriptions(ModelTypeSet{}, ::testing::_));
+  // No data type queried from the uploader.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, GetLocalDataDescription).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
 
   service()->GetLocalDataDescriptions(requested_types, base::DoNothing());
 }
@@ -2188,9 +2217,12 @@ TEST_F(SyncServiceImplTest,
 
   // DEVICE_INFO is queried from the sync service.
   ModelTypeSet requested_types{DEVICE_INFO};
-  // No data type queried to the sync client.
-  EXPECT_CALL(*sync_client(),
-              GetLocalDataDescriptions(ModelTypeSet{}, ::testing::_));
+  // No data type queried from the uploader.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, GetLocalDataDescription).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
 
   service()->GetLocalDataDescriptions(requested_types, base::DoNothing());
 }
@@ -2207,11 +2239,16 @@ TEST_F(SyncServiceImplTest,
   ASSERT_TRUE(service()->GetPreferredDataTypes().Has(DEVICE_INFO));
 
   // DEVICE_INFO is queried from the sync service.
-  ModelTypeSet requested_types{BOOKMARKS};
+  ModelTypeSet requested_types{DEVICE_INFO};
   base::MockOnceCallback<void(std::map<ModelType, LocalDataDescription>)>
       callback;
-  // No query to the sync client.
-  EXPECT_CALL(*sync_client(), GetLocalDataDescriptions).Times(0);
+  // No query to the uploader.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, GetLocalDataDescription).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
+
   // Returns empty.
   EXPECT_CALL(callback, Run(IsEmpty()));
 
@@ -2231,11 +2268,19 @@ TEST_F(SyncServiceImplTest,
   ASSERT_EQ(service()->GetActiveDataTypes(),
             ModelTypeSet({NIGORI, DEVICE_INFO}));
 
-  // DEVICE_INFO and AUTOFILL are queried from the sync service.
+  // DEVICE_INFO and AUTOFILL are requested to upload from the sync service.
   ModelTypeSet requested_types{DEVICE_INFO, AUTOFILL};
-  // Only DEVICE_INFO is queried from the sync client.
-  EXPECT_CALL(*sync_client(),
-              TriggerLocalDataMigration(ModelTypeSet{DEVICE_INFO}));
+  // Only DEVICE_INFO is uploaded.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  auto autofill_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, TriggerLocalDataMigration);
+  EXPECT_CALL(*autofill_uploader, TriggerLocalDataMigration).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
+  get_controller(AUTOFILL)->SetLocalDataBatchUploader(
+      std::move(autofill_uploader));
 
   service()->TriggerLocalDataMigration(requested_types);
 }
@@ -2253,11 +2298,20 @@ TEST_F(
   service()->ReportDataTypeErrorForTest(AUTOFILL_WALLET_DATA);
   ASSERT_FALSE(service()->GetActiveDataTypes().Has(AUTOFILL_WALLET_DATA));
 
-  // DEVICE_INFO and AUTOFILL_WALLET_DATA are queried from the sync service.
+  // DEVICE_INFO and AUTOFILL_WALLET_DATA are requested to upload from the sync
+  // service.
   ModelTypeSet requested_types{DEVICE_INFO, AUTOFILL_WALLET_DATA};
-  // Only DEVICE_INFO is queried from the sync client.
-  EXPECT_CALL(*sync_client(),
-              TriggerLocalDataMigration(ModelTypeSet{DEVICE_INFO}));
+  // Only DEVICE_INFO is uploaded.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  auto wallet_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, TriggerLocalDataMigration);
+  EXPECT_CALL(*wallet_uploader, TriggerLocalDataMigration).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
+  get_controller(AUTOFILL_WALLET_DATA)
+      ->SetLocalDataBatchUploader(std::move(wallet_uploader));
 
   service()->TriggerLocalDataMigration(requested_types);
 }
@@ -2279,10 +2333,14 @@ TEST_F(
   EXPECT_EQ(SyncService::TransportState::DISABLED,
             service()->GetTransportState());
 
-  // DEVICE_INFO is queried from the sync service.
+  // DEVICE_INFO is requested to upload from the sync service.
   ModelTypeSet requested_types{DEVICE_INFO};
-  // No data type queried to the sync client.
-  EXPECT_CALL(*sync_client(), TriggerLocalDataMigration(ModelTypeSet{}));
+  // No upload should happen.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, TriggerLocalDataMigration).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
 
   service()->TriggerLocalDataMigration(requested_types);
 }
@@ -2296,10 +2354,14 @@ TEST_F(SyncServiceImplTest,
 
   ASSERT_TRUE(service()->GetPreferredDataTypes().Has(DEVICE_INFO));
 
-  // DEVICE_INFO is queried from the sync service.
+  // DEVICE_INFO is requested to upload from the sync service.
   ModelTypeSet requested_types{DEVICE_INFO};
-  // No data type queried to the sync client.
-  EXPECT_CALL(*sync_client(), TriggerLocalDataMigration(ModelTypeSet{}));
+  // No upload should happen.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, TriggerLocalDataMigration).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
 
   service()->TriggerLocalDataMigration(requested_types);
 }
@@ -2315,12 +2377,34 @@ TEST_F(SyncServiceImplTest,
 
   ASSERT_TRUE(service()->GetPreferredDataTypes().Has(DEVICE_INFO));
 
-  // DEVICE_INFO is queried from the sync service.
+  // DEVICE_INFO is requested to upload from the sync service.
   ModelTypeSet requested_types{DEVICE_INFO};
-  // No query to the sync client.
-  EXPECT_CALL(*sync_client(), TriggerLocalDataMigration).Times(0);
+  // No upload.
+  auto device_info_uploader =
+      std::make_unique<MockModelTypeLocalDataBatchUploader>();
+  EXPECT_CALL(*device_info_uploader, TriggerLocalDataMigration).Times(0);
+  get_controller(DEVICE_INFO)
+      ->SetLocalDataBatchUploader(std::move(device_info_uploader));
 
   service()->TriggerLocalDataMigration(requested_types);
+}
+
+TEST_F(SyncServiceImplTest, ShouldRecordLocalDataMigrationRequests) {
+  base::HistogramTester histogram_tester;
+  SignInWithoutSyncConsent();
+  InitializeService(
+      /*registered_types_and_transport_mode_support=*/
+      {{DEVICE_INFO, true}});
+  base::RunLoop().RunUntilIdle();
+
+  service()->TriggerLocalDataMigration({DEVICE_INFO, AUTOFILL_WALLET_DATA});
+
+  // The metric records what was requested, regardless of what types are active.
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Sync.BatchUpload.Requests3"),
+      base::BucketsAre(
+          base::Bucket(ModelTypeForHistograms::kDeviceInfo, 1),
+          base::Bucket(ModelTypeForHistograms::kAutofillWalletData, 1)));
 }
 
 TEST_F(SyncServiceImplTest, ShouldNotifyOnManagedPrefDisabled) {

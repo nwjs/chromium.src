@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -538,14 +539,14 @@ IN_PROC_BROWSER_TEST_F(TabDragControllerTest, GestureEndShouldEndDragTest) {
 
   ui::GestureEvent gesture_tap_down(
       tab_1_center.x(), tab_1_center.x(), 0, base::TimeTicks(),
-      ui::GestureEventDetails(ui::ET_GESTURE_TAP_DOWN));
+      ui::GestureEventDetails(ui::EventType::kGestureTapDown));
   tab_strip->MaybeStartDrag(tab1, gesture_tap_down,
     tab_strip->GetSelectionModel());
   EXPECT_TRUE(TabDragController::IsActive());
 
-  ui::GestureEvent gesture_end(tab_1_center.x(), tab_1_center.x(), 0,
-                               base::TimeTicks(),
-                               ui::GestureEventDetails(ui::ET_GESTURE_END));
+  ui::GestureEvent gesture_end(
+      tab_1_center.x(), tab_1_center.x(), 0, base::TimeTicks(),
+      ui::GestureEventDetails(ui::EventType::kGestureEnd));
   HandleGestureEvent(tab_strip, &gesture_end);
   EXPECT_FALSE(TabDragController::IsActive());
   EXPECT_FALSE(tab_strip->GetDragContext()->IsDragSessionActive());
@@ -554,26 +555,39 @@ IN_PROC_BROWSER_TEST_F(TabDragControllerTest, GestureEndShouldEndDragTest) {
 class DetachToBrowserTabDragControllerTest
     : public TabDragControllerTest,
       public ::testing::WithParamInterface<
+#if !BUILDFLAG(IS_CHROMEOS)
+          testing::tuple<bool, bool, const char*, bool>> {
+#else
           testing::tuple<bool, bool, const char*>> {
+#endif
  public:
   DetachToBrowserTabDragControllerTest() {
     std::vector<base::test::FeatureRef> enabled_features = {};
+    std::vector<base::test::FeatureRef> disabled_features = {
+        features::kWebUITabStrip};
+
+#if BUILDFLAG(IS_WIN)
+    // Disable NativeWinOcclusion to avoid it interfering with test for dragging
+    // over occluded browser window.
+    disabled_features.push_back(features::kCalculateNativeWinOcclusion);
+#endif  // BUILDFLAG(IS_WIN)
+
     if (std::get<0>(GetParam())) {
-      enabled_features.push_back(features::kSplitTabStrip);
+      enabled_features.push_back(tabs::kSplitTabStrip);
     }
     if (std::get<1>(GetParam())) {
       enabled_features.push_back(features::kTearOffWebAppTabOpensWebAppWindow);
     }
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/enabled_features,
-        /*disabled_features=*/{
-            features::kWebUITabStrip,
-#if BUILDFLAG(IS_WIN)
-            // Disable NativeWinOcclusion to avoid it interfering with test
-            // for dragging over occluded browser window.
-            features::kCalculateNativeWinOcclusion,
-#endif  // BUILDFLAG(IS_WIN)
-        });
+#if !BUILDFLAG(IS_CHROMEOS)
+    if (std::get<3>(GetParam())) {
+      enabled_features.push_back(features::kAllowWindowDragUsingSystemDragDrop);
+    } else {
+      // We need to explicitly disable it to override potential field trials.
+      disabled_features.push_back(
+          features::kAllowWindowDragUsingSystemDragDrop);
+    }
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
   DetachToBrowserTabDragControllerTest(
       const DetachToBrowserTabDragControllerTest&) = delete;
@@ -1619,8 +1633,8 @@ bool SubtreeShouldBeExplored(aura::Window* window,
   gfx::Point point_in_root = local_point;
   aura::Window::ConvertPointToTarget(window, window->GetRootWindow(),
                                      &point_in_root);
-  ui::MouseEvent event(ui::ET_MOUSE_MOVED, point_in_parent, point_in_root,
-                       base::TimeTicks::Now(), 0, 0);
+  ui::MouseEvent event(ui::EventType::kMouseMoved, point_in_parent,
+                       point_in_root, base::TimeTicks::Now(), 0, 0);
   return window->targeter()->SubtreeShouldBeExploredForEvent(window, event);
 }
 
@@ -3418,7 +3432,7 @@ class DetachToBrowserTabDragControllerTestWithScrollableTabStripEnabled
     : public DetachToBrowserTabDragControllerTest {
  public:
   DetachToBrowserTabDragControllerTestWithScrollableTabStripEnabled() {
-    scoped_feature_list_.InitWithFeatures({features::kScrollableTabStrip}, {});
+    scoped_feature_list_.InitWithFeatures({tabs::kScrollableTabStrip}, {});
   }
 
  private:
@@ -5238,28 +5252,33 @@ INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserTabDragControllerTest,
     ::testing::Combine(
-        ::testing::Bool(),
+        /*kSplitTabStrip=*/::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("mouse", "touch")));
+        /*input_source=*/::testing::Values("mouse", "touch")));
 INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserTabDragControllerTestWithScrollableTabStripEnabled,
     ::testing::Combine(
-        ::testing::Bool(),
+        /*kSplitTabStrip=*/::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("mouse", "touch")));
+        /*input_source=*/::testing::Values("mouse", "touch")));
 #else
-INSTANTIATE_TEST_SUITE_P(TabDragging,
-                         DetachToBrowserTabDragControllerTest,
-                         ::testing::Combine(::testing::Bool(),
-                                            ::testing::Bool(),
-                                            ::testing::Values("mouse")));
+INSTANTIATE_TEST_SUITE_P(
+    TabDragging,
+    DetachToBrowserTabDragControllerTest,
+    ::testing::Combine(
+        /*kSplitTabStrip=*/::testing::Bool(),
+        /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Bool(),
+        /*input_source=*/::testing::Values("mouse"),
+        /*kAllowWindowDragUsingSystemDragDrop=*/::testing::Bool()));
 INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserTabDragControllerTestWithScrollableTabStripEnabled,
-    ::testing::Combine(::testing::Bool(),
-                       ::testing::Bool(),
-                       ::testing::Values("mouse")));
+    ::testing::Combine(
+        /*kSplitTabStrip=*/::testing::Bool(),
+        /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Bool(),
+        /*input_source=*/::testing::Values("mouse"),
+        /*kAllowWindowDragUsingSystemDragDrop=*/::testing::Bool()));
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -5267,16 +5286,16 @@ INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserInSeparateDisplayTabDragControllerTest,
     ::testing::Combine(
-        ::testing::Bool(),
+        /*kSplitTabStrip=*/::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("mouse")));
+        /*input_source=*/::testing::Values("mouse")));
 INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserTabDragControllerTestTouch,
     ::testing::Combine(
-        ::testing::Bool(),
+        /*kSplitTabStrip=*/::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("touch")));
+        /*input_source=*/::testing::Values("touch")));
 #endif  // BUILDFLAG(IS_CHROMEOS)
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // TODO(crbug.com/40283516): Enable Multi Display Test on lacros
@@ -5284,22 +5303,23 @@ INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DifferentDeviceScaleFactorDisplayTabDragControllerTest,
     ::testing::Combine(
-        ::testing::Bool(),
+        /*kSplitTabStrip=*/::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("mouse")));
+        /*input_source=*/::testing::Values("mouse")));
 INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserInSeparateDisplayAndCancelTabDragControllerTest,
-    ::testing::Combine(::testing::Bool(),
-                       ::testing::Values(false),
-                       ::testing::Values("mouse")));
+    ::testing::Combine(
+        /*kSplitTabStrip=*/::testing::Bool(),
+        /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
+        /*input_source=*/::testing::Values("mouse")));
 INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserTabDragControllerTestWithTabbedSystemApp,
     ::testing::Combine(
-        ::testing::Bool(),
+        /*kSplitTabStrip=*/::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("mouse", "touch")));
+        /*input_source=*/::testing::Values("mouse", "touch")));
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -5307,21 +5327,36 @@ INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserTabDragControllerTestWithTabbedWebApp,
     ::testing::Combine(
-        ::testing::Bool(),
+        /*kSplitTabStrip=*/::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("mouse", "touch")));
+        /*input_source=*/::testing::Values("mouse", "touch")));
 #elif !BUILDFLAG(IS_MAC)
 INSTANTIATE_TEST_SUITE_P(
     TabDragging,
     DetachToBrowserTabDragControllerTestWithTabbedWebApp,
     ::testing::Combine(
-        ::testing::Bool(),
+        /*kSplitTabStrip=*/::testing::Bool(),
         /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Values(false),
-        ::testing::Values("mouse")));
+        /*input_source=*/::testing::Values("mouse"),
+        /*kAllowWindowDragUsingSystemDragDrop=*/::testing::Bool()));
 #endif
 
-INSTANTIATE_TEST_SUITE_P(TabDragging,
-                         DetachTabWithUrlControlledByWebApp,
-                         ::testing::Combine(::testing::Bool(),
-                                            ::testing::Bool(),
-                                            ::testing::Values("mouse")));
+#if BUILDFLAG(IS_CHROMEOS)
+INSTANTIATE_TEST_SUITE_P(
+    TabDragging,
+    DetachTabWithUrlControlledByWebApp,
+    ::testing::Combine(
+        /*kSplitTabStrip=*/::testing::Bool(),
+        /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Bool(),
+        /*input_source=*/::testing::Values("mouse")));
+
+#else
+INSTANTIATE_TEST_SUITE_P(
+    TabDragging,
+    DetachTabWithUrlControlledByWebApp,
+    ::testing::Combine(
+        /*kSplitTabStrip=*/::testing::Bool(),
+        /*kTearOffWebAppTabOpensWebAppWindow=*/::testing::Bool(),
+        /*input_source=*/::testing::Values("mouse"),
+        /*kAllowWindowDragUsingSystemDragDrop=*/::testing::Bool()));
+#endif

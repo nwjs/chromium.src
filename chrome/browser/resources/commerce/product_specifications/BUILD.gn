@@ -9,6 +9,8 @@ build_webui("build") {
 
   static_files = [
     "product_specifications.html",
+    "disclosure/product_specifications_disclosure.html",
+    "images/empty_state_dark.svg",
     "images/empty_state.svg",
   ]
 
@@ -23,7 +25,10 @@ build_webui("build") {
     "table.ts",
   ]
 
-  css_files = [ "loading_state.css" ]
+  css_files = [
+    "loading_state.css",
+    "disclosure/app.css",
+  ]
 
   mojo_files_deps = [
     "//ui/webui/resources/cr_components/commerce:mojo_bindings_ts__generator",
@@ -31,10 +36,13 @@ build_webui("build") {
   mojo_files = [ "$root_gen_dir/ui/webui/resources/cr_components/commerce/shopping_service.mojom-webui.ts" ]
 
   non_web_component_files = [
+    "drag_and_drop_manager.ts",
     "loading_state.html.ts",
     "loading_state.ts",
     "router.ts",
     "utils.ts",
+    "disclosure/app.html.ts",
+    "disclosure/app.ts",
   ]
 
   icons_html_files = [ "images/icons.html" ]

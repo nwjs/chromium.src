@@ -80,14 +80,98 @@ bool SnapGroupController::AreWindowsInSnapGroup(aura::Window* window1,
          window2 == RetrieveTheOtherWindowInSnapGroup(window1);
 }
 
+bool SnapGroupController::OnWindowSnapped(
+    aura::Window* window,
+    WindowSnapActionSource snap_action_source) {
+  // Only consider valid snap action sources or the window is being
+  // auto-snapped or transitioned from tablet mode.
+  const bool can_group_or_replace =
+      CanSnapActionSourceStartFasterSplitView(snap_action_source) ||
+      snap_action_source ==
+          WindowSnapActionSource::kSnapByClamshellTabletTransition ||
+      snap_action_source == WindowSnapActionSource::kAutoSnapInSplitView;
+  if (!can_group_or_replace) {
+    return false;
+  }
+
+  // If there is no opposite snapped window, we are done.
+  aura::Window* opposite = GetOppositeVisibleSnappedWindow(window);
+  if (!opposite) {
+    return false;
+  }
+
+  // Disallow adding to group if the snap ratio gap exceeds the allowed
+  // threshold.
+  if (!IsSnapRatioGapWithinThreshold(window, opposite)) {
+    base::RecordAction(base::UserMetricsAction("SnapGroups_SnapDirect"));
+    return false;
+  }
+
+  // First attempt snap to replace. Snap groups in overview would be excluded by
+  // `GetOppositeVisibleSnappedWindow()`.
+  if (MaybeSnapToReplace(window, opposite, snap_action_source)) {
+    return true;
+  }
+
+  if (auto* snap_group =
+          AddSnapGroup(window, opposite, /*replace=*/false,
+                       /*carry_over_creation_time=*/std::nullopt)) {
+    aura::Window* target_window = nullptr;
+    switch (snap_action_source) {
+      case WindowSnapActionSource::kSnapByWindowLayoutMenu:
+      case WindowSnapActionSource::kLacrosSnapButtonOrWindowLayoutMenu:
+      case WindowSnapActionSource::kSnapByClamshellTabletTransition:
+        // If the window was snapped via the layout menu, respect its
+        // requested snap ratio. We also refresh the bounds for tablet
+        // transition to ensure no divider gap.
+        target_window = window;
+        break;
+      case WindowSnapActionSource::kDragWindowToEdgeToSnap:
+      case WindowSnapActionSource::kLongPressCaptionButtonToSnap:
+      case WindowSnapActionSource::kDragOrSelectOverviewWindowToSnap:
+      case WindowSnapActionSource::kAutoSnapInSplitView:
+        // Else if using a drag to snap or auto-snap action source, respect the
+        // opposite window's snap ratio. This is to give the impression of
+        // filling the layout and feels more intuitive to the user.
+        target_window = opposite;
+        break;
+      default:
+        // Else no need to refresh the group bounds.
+        return true;
+    }
+    const float snap_ratio = window_util::GetSnapRatioForWindow(target_window);
+    // Apply the target window's snap ratio *after* the group creation so we
+    // can actually enforce it.
+    // TODO(b/346624805): See if we can consolidate this with
+    // `AddSnapGroup()` and/or `ShowDivider()`.
+    snap_group->ApplyPrimarySnapRatio(
+        IsPhysicallyLeftOrTop(target_window) ? snap_ratio : 1.f - snap_ratio);
+    return true;
+  }
+
+  return false;
+}
+
 SnapGroup* SnapGroupController::AddSnapGroup(
     aura::Window* window1,
     aura::Window* window2,
     bool replace,
     std::optional<base::TimeTicks> carry_over_creation_time) {
+  // The windows may already be in a snap group, if for example a snap group is
+  // formed, then a window is re-snapped via the window layout menu.
+  if (AreWindowsInSnapGroup(window1, window2)) {
+    return GetSnapGroupForGivenWindow(window1);
+  }
+
   // We should only allow snap group to be created for windows that have the
   // same parent.
   if (window1->parent() != window2->parent()) {
+    return nullptr;
+  }
+
+  // Disallow snap group creation for unresizable windows.
+  if (!WindowState::Get(window1)->CanResize() ||
+      !WindowState::Get(window2)->CanResize()) {
     return nullptr;
   }
 
@@ -119,9 +203,12 @@ SnapGroup* SnapGroupController::AddSnapGroup(
   // will not be precisely calculated see `GetCurrentSnapRatio()` in
   // window_state.cc.
   auto* snap_group_ptr = snap_group.get();
+
   snap_groups_.push_back(std::move(snap_group));
-  snap_group_ptr->UpdateGroupWindowsBounds(
-      /*account_for_divider_width=*/true);
+
+  for (auto& observer : observers_) {
+    observer.OnSnapGroupAdded(snap_group_ptr);
+  }
 
   if (!replace) {
     ReportSnapGroupsCountHistogram(/*count=*/snap_groups_.size());
@@ -198,95 +285,6 @@ SnapGroup* SnapGroupController::GetSnapGroupForGivenWindow(
   return iter != window_to_snap_group_map_.end() ? iter->second : nullptr;
 }
 
-bool SnapGroupController::OnSnappingWindow(
-    aura::Window* to_be_snapped_window,
-    WindowSnapActionSource snap_action_source) {
-  // Early return when
-  // 1. In tablet mode;
-  // 2. `to_be_snapped_window` belongs to a snap group, this can happen when
-  // moving a snap group to another desk with snap groups.
-  if (display::Screen::GetScreen()->InTabletMode() ||
-      GetSnapGroupForGivenWindow(to_be_snapped_window)) {
-    return false;
-  }
-
-  // TODO(b/331305840): Come up with an API to retrieve the snapped window on
-  // the same side as the `to_be_snapped_window` to simplify the logic.
-  SnapGroup* group_to_replace = GetSnapGroupForGivenWindow(
-      GetOppositeVisibleSnappedWindow(to_be_snapped_window));
-  if (!group_to_replace) {
-    return false;
-  }
-
-  WindowState* window_state = WindowState::Get(to_be_snapped_window);
-  const auto window_state_type = window_state->GetStateType();
-
-  aura::Window* curr_primary_window = group_to_replace->window1();
-  aura::Window* curr_secondary_window = group_to_replace->window2();
-  aura::Window* new_primary_window = nullptr;
-  aura::Window* new_secondary_window = nullptr;
-  aura::Window* to_be_replaced_window = nullptr;
-  if (window_state_type == chromeos::WindowStateType::kPrimarySnapped) {
-    to_be_replaced_window = curr_primary_window;
-    new_primary_window = to_be_snapped_window;
-    new_secondary_window = curr_secondary_window;
-  } else {
-    CHECK_EQ(window_state_type, chromeos::WindowStateType::kSecondarySnapped);
-
-    to_be_replaced_window = curr_secondary_window;
-    new_primary_window = curr_primary_window;
-    new_secondary_window = to_be_snapped_window;
-  }
-
-  const float snapped_window_snap_ratio =
-      WindowState::Get(to_be_replaced_window)
-          ->snap_ratio()
-          .value_or(chromeos::kDefaultSnapRatio);
-  const float snapping_window_snap_ratio =
-      window_state->snap_ratio().value_or(chromeos::kDefaultSnapRatio);
-
-  // TODO(michelefan): The two snap action sources from Lacros are currently
-  // bundled together. We should separate them.
-  if (snap_action_source == WindowSnapActionSource::kSnapByWindowLayoutMenu ||
-      snap_action_source ==
-          WindowSnapActionSource::kLacrosSnapButtonOrWindowLayoutMenu) {
-    const float snap_ratio_diff =
-        std::abs(snapped_window_snap_ratio - snapping_window_snap_ratio);
-
-    // Disallow snap-to-replace if the snap ratio difference exceeds the allowed
-    // threshold.
-    if (snap_ratio_diff > kSnapToReplaceRatioDiffThreshold) {
-      base::RecordAction(base::UserMetricsAction("SnapGroups_SnapDirect"));
-      return false;
-    }
-  }
-
-  // If the new windows can't fit, do not allow snap to replace.
-  if (!CanWindowsFitInWorkArea(new_primary_window, new_secondary_window)) {
-    return false;
-  }
-
-  // TODO(b/331470570): Consider directly replacing the `to_be_snapped_window`
-  // within the `snap_group`.
-  const auto carry_over_creation_time =
-      group_to_replace->carry_over_creation_time_;
-  RemoveSnapGroup(group_to_replace, SnapGroupExitPoint::kSnapToReplace);
-  SnapGroup* new_snap_group = AddSnapGroup(
-      new_primary_window, new_secondary_window, /*replace=*/true,
-      /*carry_over_creation_time=*/
-      std::make_optional<base::TimeTicks>(carry_over_creation_time));
-  base::RecordAction(base::UserMetricsAction("SnapGroups_SnapToReplace"));
-
-  // Apply the `primary_window_snap_ratio` to the `new_snap_group` such that the
-  // snap ratio of the `group_to_replace` is preserved.
-  const float primary_window_snap_ratio =
-      new_primary_window == to_be_snapped_window
-          ? snapped_window_snap_ratio
-          : 1 - snapped_window_snap_ratio;
-  new_snap_group->ApplyPrimarySnapRatio(primary_window_snap_ratio);
-  return true;
-}
-
 SnapGroup* SnapGroupController::GetTopmostVisibleSnapGroup(
     const aura::Window* target_root) const {
   for (const aura::Window* top_window : GetActiveDeskAppWindowsInZOrder(
@@ -309,6 +307,8 @@ SnapGroup* SnapGroupController::GetTopmostVisibleSnapGroup(
 }
 
 SnapGroup* SnapGroupController::GetTopmostSnapGroup() const {
+  // Use `BuildMruWindowList()` to include all windows on the active desk across
+  // all root windows.
   for (const aura::Window* window :
        Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk)) {
     if (auto* snap_group = GetSnapGroupForGivenWindow(window);
@@ -402,13 +402,23 @@ void SnapGroupController::RemoveObserver(SnapGroupObserver* observer) {
   observers_.RemoveObserver(observer);
 }
 
+void SnapGroupController::OnFloatUnfloatCompleted(aura::Window* window) {
+  // Needed because float -> snap will trigger a workspace event, during which
+  // we want to ignore bounds events since the window is unfloating. Only when
+  // all the nested unfloat events triggered by the original snap event is
+  // finished and `WindowState::is_handling_float_event_` is reset can we
+  // refresh the group and send bounds events.
+  if (auto* snap_group = GetSnapGroupForGivenWindow(window)) {
+    snap_group->RefreshSnapGroup();
+  }
+}
+
 void SnapGroupController::OnOverviewModeStarting() {
   if (display::Screen::GetScreen()->InTabletMode()) {
     return;
   }
 
   for (const auto& snap_group : snap_groups_) {
-    snap_group->OnOverviewModeStarting();
     snap_group->HideDivider();
   }
 }
@@ -419,8 +429,15 @@ void SnapGroupController::OnOverviewModeEnding(
     return;
   }
 
+  // On Overview mode ending, call `RefreshSnapGroup()` to refresh the bounds
+  // of the snapped windows and divider. This ensures they either maintain a
+  // proper fit within the work area or are gracefully broken from the group
+  // if they no longer fit due to potential device scale factor in Overview.
+  // By doing this refresh after exiting Overview, we prevent heavy visual
+  // updates and re-layout (break `OverviewGroupItem` back to two individual
+  // `Overviewitem`s) while in Overview mode.
   for (const auto& snap_group : snap_groups_) {
-    snap_group->OnOverviewModeEnding();
+    snap_group->RefreshSnapGroup();
   }
 }
 
@@ -450,6 +467,87 @@ void SnapGroupController::OnDisplayTabletStateChanged(
       RestoreSnapGroups();
       break;
   }
+}
+
+bool SnapGroupController::MaybeSnapToReplace(
+    aura::Window* to_be_snapped_window,
+    aura::Window* opposite_snapped_window,
+    WindowSnapActionSource snap_action_source) {
+  // Early return when
+  // 1. In tablet mode;
+  // 2. `to_be_snapped_window` belongs to a snap group, this can happen when
+  // moving a snap group to another desk with snap groups.
+  if (display::Screen::GetScreen()->InTabletMode() ||
+      GetSnapGroupForGivenWindow(to_be_snapped_window)) {
+    return false;
+  }
+
+  // TODO(b/331305840): Come up with an API to retrieve the snapped window on
+  // the same side as the `to_be_snapped_window` to simplify the logic.
+  SnapGroup* group_to_replace =
+      GetSnapGroupForGivenWindow(opposite_snapped_window);
+  if (!group_to_replace) {
+    return false;
+  }
+
+  WindowState* window_state = WindowState::Get(to_be_snapped_window);
+  const auto window_state_type = window_state->GetStateType();
+
+  aura::Window* curr_primary_window = group_to_replace->window1();
+  aura::Window* curr_secondary_window = group_to_replace->window2();
+  aura::Window* new_primary_window = nullptr;
+  aura::Window* new_secondary_window = nullptr;
+  aura::Window* to_be_replaced_window = nullptr;
+  if (window_state_type == chromeos::WindowStateType::kPrimarySnapped) {
+    to_be_replaced_window = curr_primary_window;
+    new_primary_window = to_be_snapped_window;
+    new_secondary_window = curr_secondary_window;
+  } else {
+    CHECK_EQ(window_state_type, chromeos::WindowStateType::kSecondarySnapped);
+
+    to_be_replaced_window = curr_secondary_window;
+    new_primary_window = curr_primary_window;
+    new_secondary_window = to_be_snapped_window;
+  }
+
+  // Disallow snap-to-replace if `to_be_replaced_window` is on a different
+  // parent container with the `to_be_snapped_window`.
+  if (to_be_replaced_window->parent() != to_be_snapped_window->parent()) {
+    return false;
+  }
+
+  // If the new windows can't fit, do not allow snap to replace.
+  if (!CanWindowsFitInWorkArea(new_primary_window, new_secondary_window)) {
+    return false;
+  }
+
+  // TODO(b/331470570): Consider directly replacing the `to_be_snapped_window`
+  // within the `snap_group`.
+  const auto carry_over_creation_time =
+      group_to_replace->carry_over_creation_time_;
+  RemoveSnapGroup(group_to_replace, SnapGroupExitPoint::kSnapToReplace);
+  SnapGroup* new_snap_group = AddSnapGroup(
+      new_primary_window, new_secondary_window, /*replace=*/true,
+      /*carry_over_creation_time=*/
+      std::make_optional<base::TimeTicks>(carry_over_creation_time));
+
+  // Snap Group may not be formed successfully.
+  if (!new_snap_group) {
+    return false;
+  }
+
+  base::RecordAction(base::UserMetricsAction("SnapGroups_SnapToReplace"));
+
+  // Apply the `primary_window_snap_ratio` to the `new_snap_group` such that the
+  // snap ratio of the `group_to_replace` is preserved.
+  const float snapped_window_snap_ratio =
+      window_util::GetSnapRatioForWindow(to_be_replaced_window);
+  const float primary_window_snap_ratio =
+      new_primary_window == to_be_snapped_window
+          ? snapped_window_snap_ratio
+          : 1 - snapped_window_snap_ratio;
+  new_snap_group->ApplyPrimarySnapRatio(primary_window_snap_ratio);
+  return true;
 }
 
 aura::Window* SnapGroupController::RetrieveTheOtherWindowInSnapGroup(

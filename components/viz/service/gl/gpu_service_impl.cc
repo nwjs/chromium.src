@@ -111,7 +111,6 @@
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if !BUILDFLAG(IS_CHROMEOS)
-#include "components/ml/webnn/features.mojom-features.h"
 #include "services/webnn/webnn_context_provider_impl.h"
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -910,8 +909,16 @@ void GpuServiceImpl::BindWebNNContextProvider(
                        std::move(pending_receiver), client_id));
     return;
   }
-  webnn::WebNNContextProviderImpl::Create(std::move(pending_receiver),
-                                          GetContextState(), gpu_feature_info_);
+
+  if (!webnn_context_provider_) {
+    // TODO(crbug.com/345352987): manage `WebNNContextProviderImpl` instance per
+    // `client_id` in order to support memory metrics.
+    webnn_context_provider_ = webnn::WebNNContextProviderImpl::Create(
+        GetContextState(), gpu_feature_info_, gpu_info_);
+  }
+
+  webnn_context_provider_->BindWebNNContextProvider(
+      std::move(pending_receiver));
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -1107,6 +1114,9 @@ void GpuServiceImpl::LoadedBlob(const gpu::GpuDiskCacheHandle& handle,
   }
 
   std::string no_prefix_key = key;
+  const bool clear_shader_cache = base::FeatureList::IsEnabled(
+      features::kClearGrShaderDiskCacheOnInvalidPrefix);
+
   if (base::FeatureList::IsEnabled(
           features::kGenGpuDiskCacheKeyPrefixInGpuService) &&
       GetHandleType(handle) == gpu::GpuDiskCacheType::kGlShaders) {
@@ -1117,6 +1127,13 @@ void GpuServiceImpl::LoadedBlob(const gpu::GpuDiskCacheHandle& handle,
       // Remove the prefix from the key before load.
       no_prefix_key = key.substr(prefix.length() + 1);
     } else {
+      // If the prefix is not ok, its likely that all the other entries in the
+      // cache will have prefix that does not matches. Clear the whole disk
+      // cache in that case to remove all stale entries and make room for newer
+      // entries.
+      if (clear_shader_cache) {
+        gpu_host_->ClearGrShaderDiskCache();
+      }
       return;
     }
   }

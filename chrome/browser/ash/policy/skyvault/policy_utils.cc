@@ -6,6 +6,7 @@
 
 #include "ash/constants/ash_pref_names.h"
 #include "base/feature_list.h"
+#include "base/files/file_path.h"
 #include "chrome/browser/ash/policy/skyvault/file_location_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -58,6 +59,15 @@ FileSaveDestination GetDownloadsDestination(Profile* profile) {
 
 FileSaveDestination GetScreenCaptureDestination(Profile* profile) {
   return GetDestinationForPref(profile, ash::prefs::kCaptureModePolicySavePath);
+}
+
+bool DownloadToTemp(Profile* profile) {
+  return base::FeatureList::IsEnabled(features::kSkyVault) &&
+         GetDownloadsDestination(profile) == FileSaveDestination::kOneDrive;
+}
+
+base::FilePath GetMyFilesPath(Profile* profile) {
+  return profile->GetPath().Append("MyFiles");
 }
 
 }  // namespace policy::local_user_files

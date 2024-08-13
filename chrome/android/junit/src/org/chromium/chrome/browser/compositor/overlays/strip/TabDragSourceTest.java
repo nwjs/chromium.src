@@ -45,7 +45,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -60,7 +59,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -94,6 +92,7 @@ import java.lang.ref.WeakReference;
 
 /** Tests for {@link TabDragSource}. */
 @DisableFeatures(ChromeFeatureList.DRAG_DROP_TAB_TEARING)
+@EnableFeatures(ChromeFeatureList.DRAG_DROP_TAB_TEARING_ENABLE_OEM)
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(qualifiers = "sw600dp", sdk = VERSION_CODES.S, shadows = ShadowToast.class)
 public class TabDragSourceTest {
@@ -109,7 +108,6 @@ public class TabDragSourceTest {
     private static final String[] SUPPORTED_MIME_TYPES = {"chrome/tab"};
     private float mPosY;
     @Rule public MockitoRule mMockitoProcessorRule = MockitoJUnit.rule();
-    @Rule public TestRule mFeaturesProcessorRule = new Features.JUnitProcessor();
     @Mock private DragAndDropDelegate mDragDropDelegate;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock private TabContentManager mTabContentManager;
@@ -357,58 +355,21 @@ public class TabDragSourceTest {
     }
 
     @Test
-    @DisableFeatures({
-        ChromeFeatureList.TAB_DRAG_DROP_ANDROID,
-        ChromeFeatureList.DRAG_DROP_TAB_TEARING
-    })
-    public void test_startTabDragAction_returnTrueForNonSplitScreenSamsung() {
-        // Set params, add Samsung to allowed manufacturer list.
-        when(mMultiWindowUtils.isInMultiWindowMode(mActivity)).thenReturn(false);
-        ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "samsung");
-
-        // Verify.
-        assertTrue(
-                "Tab drag should start",
-                mSourceInstance.startTabDragAction(
-                        mTabsToolbarView,
-                        mTabBeingDragged,
-                        DRAG_START_POINT,
-                        TAB_POSITION_X,
-                        TAB_WIDTH));
-    }
-
-    @Test
     @DisableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
     @EnableFeatures(ChromeFeatureList.DRAG_DROP_TAB_TEARING)
-    public void test_startTabDragAction_FullScreenTabTearingWithMultipleTabs() {
+    public void test_startTabDragAction_FullScreenWithMultipleTabs() {
         // Set params.
         when(mMultiWindowUtils.isInMultiWindowMode(mActivity)).thenReturn(false);
         when(mTabModelSelector.getTotalTabCount()).thenReturn(2);
 
         // Verify.
-        assertTrue(
-                "Tab drag should start.",
-                mSourceInstance.startTabDragAction(
-                        mTabsToolbarView,
-                        mTabBeingDragged,
-                        DRAG_START_POINT,
-                        TAB_POSITION_X,
-                        TAB_WIDTH));
-        var dropDataCaptor = ArgumentCaptor.forClass(ChromeDropDataAndroid.class);
-        verify(mDragDropDelegate)
-                .startDragAndDrop(
-                        eq(mTabsToolbarView),
-                        any(DragShadowBuilder.class),
-                        dropDataCaptor.capture());
-        assertTrue(
-                "DropData.allowTabTearing value is incorrect.",
-                dropDataCaptor.getValue().allowTabTearing);
+        callAndVerifyAllowTabDragToCreateInstance(true);
     }
 
     @Test
     @DisableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
     @EnableFeatures(ChromeFeatureList.DRAG_DROP_TAB_TEARING)
-    public void test_startTabDragAction_FullScreenTabTearingWithOneTab() {
+    public void test_startTabDragAction_FullScreenWithOneTab() {
         // Set params.
         when(mMultiWindowUtils.isInMultiWindowMode(mActivity)).thenReturn(false);
         when(mTabModelSelector.getTotalTabCount()).thenReturn(1);
@@ -427,7 +388,7 @@ public class TabDragSourceTest {
     @Test
     @DisableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
     @EnableFeatures(ChromeFeatureList.DRAG_DROP_TAB_TEARING)
-    public void test_startTabDragAction_FullScreenTabTearingWithMaxChromeInstances() {
+    public void test_startTabDragAction_FullScreenWithMaxChromeInstances() {
         // Set params.
         when(mMultiWindowUtils.isInMultiWindowMode(mActivity)).thenReturn(false);
         when(mTabModelSelector.getTotalTabCount()).thenReturn(2);
@@ -435,52 +396,34 @@ public class TabDragSourceTest {
         MultiWindowUtils.setMaxInstancesForTesting(5);
 
         // Verify.
-        assertTrue(
-                "Tab drag should start.",
-                mSourceInstance.startTabDragAction(
-                        mTabsToolbarView,
-                        mTabBeingDragged,
-                        DRAG_START_POINT,
-                        TAB_POSITION_X,
-                        TAB_WIDTH));
-        var dropDataCaptor = ArgumentCaptor.forClass(ChromeDropDataAndroid.class);
-        verify(mDragDropDelegate)
-                .startDragAndDrop(
-                        eq(mTabsToolbarView),
-                        any(DragShadowBuilder.class),
-                        dropDataCaptor.capture());
-        assertFalse(
-                "DropData.allowTabTearing value is incorrect.",
-                dropDataCaptor.getValue().allowTabTearing);
+        callAndVerifyAllowTabDragToCreateInstance(false);
     }
 
     @Test
     @DisableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
     @EnableFeatures(ChromeFeatureList.DRAG_DROP_TAB_TEARING)
-    public void test_startTabDragAction_SplitScreenTabTearingWithMaxChromeInstances() {
+    public void test_startTabDragAction_FullScreenWithMaxInstanceAllowlistedOEM() {
+        // Set params.
+        when(mMultiWindowUtils.isInMultiWindowMode(mActivity)).thenReturn(false);
+        when(mTabModelSelector.getTotalTabCount()).thenReturn(2);
+        MultiWindowUtils.setInstanceCountForTesting(5);
+        MultiWindowUtils.setMaxInstancesForTesting(5);
+        ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "samsung");
+
+        callAndVerifyAllowTabDragToCreateInstance(true);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
+    @EnableFeatures(ChromeFeatureList.DRAG_DROP_TAB_TEARING)
+    public void test_startTabDragAction_SplitScreenWithMaxChromeInstances() {
         // Set params.
         when(mTabModelSelector.getTotalTabCount()).thenReturn(2);
         MultiWindowUtils.setInstanceCountForTesting(5);
         MultiWindowUtils.setMaxInstancesForTesting(5);
 
         // Verify.
-        assertTrue(
-                "Tab drag should start.",
-                mSourceInstance.startTabDragAction(
-                        mTabsToolbarView,
-                        mTabBeingDragged,
-                        DRAG_START_POINT,
-                        TAB_POSITION_X,
-                        TAB_WIDTH));
-        var dropDataCaptor = ArgumentCaptor.forClass(ChromeDropDataAndroid.class);
-        verify(mDragDropDelegate)
-                .startDragAndDrop(
-                        eq(mTabsToolbarView),
-                        any(DragShadowBuilder.class),
-                        dropDataCaptor.capture());
-        assertFalse(
-                "DropData.allowTabTearing value is incorrect.",
-                dropDataCaptor.getValue().allowTabTearing);
+        callAndVerifyAllowTabDragToCreateInstance(false);
     }
 
     @Test
@@ -757,7 +700,7 @@ public class TabDragSourceTest {
         // Verify that the count is correctly updated in SharedPreferences and the histogram is
         // emitted as expected.
         assertEquals(
-                "Tab tearing max-instance failure count saved in shared prefs is incorrect.",
+                "Tab drag max-instance failure count saved in shared prefs is incorrect.",
                 failureCount,
                 mSharedPreferencesManager.readInt(
                         ChromePreferenceKeys.TAB_TEARING_MAX_INSTANCES_FAILURE_COUNT));
@@ -1151,5 +1094,28 @@ public class TabDragSourceTest {
                                 new Item(dropData.buildTabClipDataText(), null)));
         when(event.getClipDescription()).thenReturn(new ClipDescription("", SUPPORTED_MIME_TYPES));
         return event;
+    }
+
+    private void callAndVerifyAllowTabDragToCreateInstance(
+            boolean expectedAllowTabDragToCreateInstance) {
+        // Verify.
+        assertTrue(
+                "Tab drag should start.",
+                mSourceInstance.startTabDragAction(
+                        mTabsToolbarView,
+                        mTabBeingDragged,
+                        DRAG_START_POINT,
+                        TAB_POSITION_X,
+                        TAB_WIDTH));
+        var dropDataCaptor = ArgumentCaptor.forClass(ChromeDropDataAndroid.class);
+        verify(mDragDropDelegate)
+                .startDragAndDrop(
+                        eq(mTabsToolbarView),
+                        any(DragShadowBuilder.class),
+                        dropDataCaptor.capture());
+        assertEquals(
+                "DropData.allowTabDragToCreateInstance value is not as expected.",
+                expectedAllowTabDragToCreateInstance,
+                dropDataCaptor.getValue().allowTabDragToCreateInstance);
     }
 }

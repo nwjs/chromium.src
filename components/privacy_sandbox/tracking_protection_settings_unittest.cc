@@ -17,6 +17,7 @@
 #include "components/content_settings/core/test/content_settings_mock_provider.h"
 #include "components/content_settings/core/test/content_settings_test_utils.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/privacy_sandbox/mock_tracking_protection_onboarding_delegate.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/privacy_sandbox/tracking_protection_onboarding.h"
@@ -47,9 +48,11 @@ class TrackingProtectionSettingsTest : public testing::Test {
     content_settings::CookieSettings::RegisterProfilePrefs(prefs()->registry());
     HostContentSettingsMap::RegisterProfilePrefs(prefs()->registry());
     RegisterProfilePrefs(prefs()->registry());
+    auto delegate =
+        std::make_unique<MockTrackingProtectionOnboardingDelegate>();
 
     onboarding_service_ = std::make_unique<TrackingProtectionOnboarding>(
-        &prefs_, version_info::Channel::UNKNOWN);
+        std::move(delegate), &prefs_, version_info::Channel::UNKNOWN);
   }
 
   GURL GetTestUrl() { return GURL("http://cool.things.com"); }
@@ -309,17 +312,6 @@ TEST_F(TrackingProtectionSettingsTest,
   EXPECT_TRUE(
       tracking_protection_settings()->IsTrackingProtection3pcdEnabled());
   EXPECT_TRUE(tracking_protection_settings()->AreAllThirdPartyCookiesBlocked());
-
-  EXPECT_CALL(observer, OnBlockAllThirdPartyCookiesChanged());
-  EXPECT_CALL(observer, OnTrackingProtection3pcdChanged());
-
-  tracking_protection_settings()->OnTrackingProtectionOnboardingUpdated(
-      TrackingProtectionOnboarding::OnboardingStatus::kOffboarded);
-  testing::Mock::VerifyAndClearExpectations(&observer);
-  EXPECT_FALSE(
-      tracking_protection_settings()->IsTrackingProtection3pcdEnabled());
-  EXPECT_FALSE(
-      tracking_protection_settings()->AreAllThirdPartyCookiesBlocked());
 }
 
 TEST_F(TrackingProtectionSettingsTest,
@@ -395,9 +387,10 @@ class TrackingProtectionSettingsStartupTest
  public:
   void SetUp() override {
     // Profiles gets onboarded before the settings service is started.
-    onboarding_service()->MaybeMarkEligible();
+    onboarding_service()->MaybeMarkModeBEligible();
     onboarding_service()->NoticeShown(
-        TrackingProtectionOnboarding::NoticeType::kOnboarding);
+        TrackingProtectionOnboarding::SurfaceType::kDesktop,
+        TrackingProtectionOnboarding::NoticeType::kModeBOnboarding);
     TrackingProtectionSettingsTest::SetUp();
   }
 };

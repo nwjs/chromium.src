@@ -81,16 +81,17 @@ void AutofillClient::OfferPlusAddressCreation(
     const url::Origin& main_frame_origin,
     PlusAddressCallback callback) {}
 
-MerchantPromoCodeManager* AutofillClient::GetMerchantPromoCodeManager() {
-  return nullptr;
-}
-
 payments::PaymentsAutofillClient* AutofillClient::GetPaymentsAutofillClient() {
   return nullptr;
 }
 
 AutofillOfferManager* AutofillClient::GetAutofillOfferManager() {
   return nullptr;
+}
+
+const AutofillOfferManager* AutofillClient::GetAutofillOfferManager() const {
+  return const_cast<const AutofillOfferManager*>(
+      const_cast<AutofillClient*>(this)->GetAutofillOfferManager());
 }
 
 GeoIpCountryCode AutofillClient::GetVariationConfigCountryCode() const {
@@ -112,33 +113,12 @@ AutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
   return nullptr;
 }
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-void AutofillClient::ConfirmExpirationDateFixFlow(
-    const CreditCard& card,
-    base::OnceCallback<void(const std::u16string&, const std::u16string&)>
-        callback) {
-}
-#endif
-
 #if !BUILDFLAG(IS_IOS)
 std::unique_ptr<webauthn::InternalAuthenticator>
 AutofillClient::CreateCreditCardInternalAuthenticator(AutofillDriver* driver) {
   return nullptr;
 }
 #endif
-
-void AutofillClient::ConfirmSaveCreditCardLocally(
-    const CreditCard& card,
-    AutofillClient::SaveCreditCardOptions options,
-    LocalSaveCardPromptCallback callback) {
-}
-
-void AutofillClient::ConfirmSaveCreditCardToCloud(
-    const CreditCard& card,
-    const LegalMessageLines& legal_message_lines,
-    SaveCreditCardOptions options,
-    UploadSaveCardPromptCallback callback) {
-}
 
 bool AutofillClient::ShowTouchToFillIban(
     base::WeakPtr<TouchToFillDelegate> delegate,
@@ -150,18 +130,12 @@ LogManager* AutofillClient::GetLogManager() const {
   return nullptr;
 }
 
-const AutofillAblationStudy& AutofillClient::GetAblationStudy() const {
-  // As finch configs are profile independent we can use a static instance here.
-  static base::NoDestructor<AutofillAblationStudy> ablation_study;
-  return *ablation_study;
-}
-
-void AutofillClient::OpenPromoCodeOfferDetailsURL(const GURL& url) {
-  NOTIMPLEMENTED();
-}
-
 bool AutofillClient::ShouldFormatForLargeKeyboardAccessory() const {
   return false;
+}
+
+const AutofillAblationStudy& AutofillClient::GetAblationStudy() const {
+  return AutofillAblationStudy::disabled_study();
 }
 
 void AutofillClient::TriggerUserPerceptionOfAutofillSurvey(

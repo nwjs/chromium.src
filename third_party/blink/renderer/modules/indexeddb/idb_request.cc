@@ -467,7 +467,7 @@ void IDBRequest::HandleResponseAdvanceCursor(
   std::unique_ptr<IDBValue> value =
       optional_value
           ? std::move(optional_value)
-          : std::make_unique<IDBValue>(std::nullopt, Vector<WebBlobInfo>());
+          : std::make_unique<IDBValue>(Vector<char>(), Vector<WebBlobInfo>());
   value->SetIsolate(GetIsolate());
   transaction_->EnqueueResult(std::make_unique<IDBRequestQueueItem>(
       this, std::move(key), std::move(primary_key), std::move(value),
@@ -485,7 +485,8 @@ void IDBRequest::OnClear(bool success) {
 
 void IDBRequest::OnGetAll(
     bool key_only,
-    mojo::PendingReceiver<mojom::blink::IDBDatabaseGetAllResultSink> receiver) {
+    mojo::PendingAssociatedReceiver<mojom::blink::IDBDatabaseGetAllResultSink>
+        receiver) {
   probe::AsyncTask async_task(GetExecutionContext(), &async_task_context_,
                               "success");
   DCHECK(transit_blob_handles_.empty());
@@ -559,7 +560,7 @@ void IDBRequest::OnOpenCursor(
   if (result->get_value()->value) {
     value = std::move(*result->get_value()->value);
   } else {
-    value = std::make_unique<IDBValue>(std::nullopt, Vector<WebBlobInfo>());
+    value = std::make_unique<IDBValue>(Vector<char>(), Vector<WebBlobInfo>());
   }
 
   value->SetIsolate(GetIsolate());
@@ -746,8 +747,8 @@ void IDBRequest::SendResultValue(std::unique_ptr<IDBValue> value) {
   }
 
   if (pending_cursor_) {
-    // Value should be null, signifying the end of the cursor's range.
-    DCHECK(value->IsNull());
+    // Value should be empty, signifying the end of the cursor's range.
+    DCHECK(!value->DataSize());
     DCHECK(!value->BlobInfo().size());
     pending_cursor_->Close();
     pending_cursor_.Clear();

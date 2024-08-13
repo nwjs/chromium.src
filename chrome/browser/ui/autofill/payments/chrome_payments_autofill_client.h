@@ -17,17 +17,29 @@
 #include "content/public/browser/web_contents_observer.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "components/autofill/core/browser/ui/payments/card_expiration_date_fix_flow_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/card_name_fix_flow_controller_impl.h"
 #else  // !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/autofill/payments/manage_migration_ui_controller.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
+class GURL;
+
 namespace autofill {
 
+#if BUILDFLAG(IS_ANDROID)
+class AutofillCvcSaveMessageDelegate;
+#endif  // BUILDFLAG(IS_ANDROID)
 class AutofillErrorDialogControllerImpl;
+#if BUILDFLAG(IS_ANDROID)
+class AutofillMessageController;
+#endif
 class AutofillOfferData;
 class AutofillSaveCardBottomSheetBridge;
 class AutofillSaveIbanBottomSheetBridge;
+#if BUILDFLAG(IS_ANDROID)
+class AutofillSnackbarControllerImpl;
+#endif  // BUILDFLAG(IS_ANDROID)
 class CardUnmaskAuthenticationSelectionDialogControllerImpl;
 struct CardUnmaskChallengeOption;
 class CardUnmaskOtpInputDialogControllerImpl;
@@ -37,15 +49,13 @@ class ContentAutofillClient;
 class CreditCardRiskBasedAuthenticator;
 class IbanAccessManager;
 class IbanManager;
+class MerchantPromoCodeManager;
 struct OfferNotificationOptions;
 class OtpUnmaskDelegate;
 enum class OtpUnmaskResult;
 struct VirtualCardEnrollmentFields;
 class VirtualCardEnrollmentManager;
 struct VirtualCardManualFallbackBubbleOptions;
-#if BUILDFLAG(IS_ANDROID)
-class AutofillSnackbarControllerImpl;
-#endif  // BUILDFLAG(IS_ANDROID)
 
 namespace payments {
 
@@ -64,6 +74,9 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       delete;
   ~ChromePaymentsAutofillClient() override;
 
+  static constexpr base::TimeDelta kSaveCardConfirmationSnackbarDuration =
+      base::Seconds(3);
+
   // RiskDataLoader:
   void LoadRiskData(
       base::OnceCallback<void(const std::string&)> callback) override;
@@ -74,9 +87,12 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
   GetOrCreateAutofillSaveCardBottomSheetBridge() override;
   AutofillSaveIbanBottomSheetBridge*
   GetOrCreateAutofillSaveIbanBottomSheetBridge();
-  AutofillSnackbarControllerImpl* GetAutofillSnackbarController();
   void ConfirmAccountNameFixFlow(
       base::OnceCallback<void(const std::u16string&)> callback) override;
+  void ConfirmExpirationDateFixFlow(
+      const CreditCard& card,
+      base::OnceCallback<void(const std::u16string&, const std::u16string&)>
+          callback) override;
 #else   // !BUILDFLAG(IS_ANDROID)
   void ShowLocalCardMigrationDialog(
       base::OnceClosure show_migration_dialog_closure) override;
@@ -98,6 +114,17 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
   bool CloseWebauthnDialog() override;
   void HideVirtualCardEnrollBubbleAndIconIfVisible() override;
 #endif  // BUILDFLAG(IS_ANDROID)
+  bool HasCreditCardScanFeature() const override;
+  void ScanCreditCard(CreditCardScanCallback callback) override;
+  void ConfirmSaveCreditCardLocally(
+      const CreditCard& card,
+      AutofillClient::SaveCreditCardOptions options,
+      LocalSaveCardPromptCallback callback) override;
+  void ConfirmSaveCreditCardToCloud(
+      const CreditCard& card,
+      const LegalMessageLines& legal_message_lines,
+      AutofillClient::SaveCreditCardOptions options,
+      UploadSaveCardPromptCallback callback) override;
   void CreditCardUploadCompleted(bool card_saved,
                                  std::optional<OnConfirmationClosedCallback>
                                      on_confirmation_closed_callback) override;
@@ -139,8 +166,7 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
           confirm_unmask_challenge_option_callback,
       base::OnceClosure cancel_unmasking_closure) override;
   void DismissUnmaskAuthenticatorSelectionDialog(bool server_success) override;
-  void OnUnmaskVerificationResult(
-      AutofillClient::PaymentsRpcResult result) override;
+  void OnUnmaskVerificationResult(PaymentsRpcResult result) override;
   VirtualCardEnrollmentManager* GetVirtualCardEnrollmentManager() override;
   CreditCardCvcAuthenticator& GetCvcAuthenticator() override;
   CreditCardOtpAuthenticator* GetOtpAuthenticator() override;
@@ -156,6 +182,17 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       const AutofillOfferData& offer,
       const OfferNotificationOptions& options) override;
   void DismissOfferNotification() override;
+  void OpenPromoCodeOfferDetailsURL(const GURL& url) override;
+  MerchantPromoCodeManager* GetMerchantPromoCodeManager() override;
+
+#if BUILDFLAG(IS_ANDROID)
+  // The AutofillSnackbarController is used to show a snackbar notification
+  // on Android.
+  AutofillSnackbarControllerImpl& GetAutofillSnackbarController();
+  // The AutofillMessageController is used to show a message notification
+  // on Android.
+  AutofillMessageController& GetAutofillMessageController();
+#endif
 
   AutofillProgressDialogControllerImpl*
   AutofillProgressDialogControllerForTesting() {
@@ -175,12 +212,22 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
   void SetAutofillSaveCardBottomSheetBridgeForTesting(
       std::unique_ptr<AutofillSaveCardBottomSheetBridge>
           autofill_save_card_bottom_sheet_bridge);
+
+  void SetAutofillSnackbarControllerImplForTesting(
+      std::unique_ptr<AutofillSnackbarControllerImpl>
+          autofill_snackbar_controller_impl);
+
+  void SetAutofillMessageControllerForTesting(
+      std::unique_ptr<AutofillMessageController> autofill_message_controller);
 #endif
 
  private:
   std::u16string GetAccountHolderName() const;
 
 #if BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<AutofillCvcSaveMessageDelegate>
+      autofill_cvc_save_message_delegate_;
+
   std::unique_ptr<AutofillSaveCardBottomSheetBridge>
       autofill_save_card_bottom_sheet_bridge_;
 
@@ -190,7 +237,12 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
   std::unique_ptr<AutofillSnackbarControllerImpl>
       autofill_snackbar_controller_impl_;
 
+  std::unique_ptr<AutofillMessageController> autofill_message_controller_;
+
   CardNameFixFlowControllerImpl card_name_fix_flow_controller_;
+
+  CardExpirationDateFixFlowControllerImpl
+      card_expiration_date_fix_flow_controller_;
 #endif
   const raw_ref<ContentAutofillClient> client_;
 

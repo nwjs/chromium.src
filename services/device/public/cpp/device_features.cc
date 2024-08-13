@@ -4,6 +4,8 @@
 
 #include "services/device/public/cpp/device_features.h"
 
+#include "services/device/public/cpp/geolocation/buildflags.h"
+
 namespace features {
 
 // Enables mitigation algorithm to prevent attempt of calibration from an
@@ -31,13 +33,26 @@ BASE_FEATURE(kGeolocationDiagnosticsObserver,
 BASE_FEATURE(kSerialPortConnected,
              "SerialPortConnected",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
+#if BUILDFLAG(IS_WIN)
+// Enable integration with the Windows system-level location permission.
+BASE_FEATURE(kWinSystemLocationPermission,
+             "WinSystemLocationPermission",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
 // Enables usage of the location provider manager to select between
 // the operating system's location API or our network-based provider
 // as the source of location data for Geolocation API.
 BASE_FEATURE(kLocationProviderManager,
              "LocationProviderManager",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Enables crash key logging for USB device open operations on ChromeOS. See
+// crbug.com/332722607. Can be disabled as a kill switch if needed.
+BASE_FEATURE(kUsbDeviceLinuxOpenCrashKey,
+             "UsbDeviceLinuxOpenCrashKey",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 const base::FeatureParam<device::mojom::LocationProviderManagerMode>::Option
     location_provider_manager_mode_options[] = {
@@ -54,5 +69,15 @@ const base::FeatureParam<device::mojom::LocationProviderManagerMode>
         &kLocationProviderManager, "LocationProviderManagerMode",
         device::mojom::LocationProviderManagerMode::kNetworkOnly,
         &location_provider_manager_mode_options};
+
+bool IsOsLevelGeolocationPermissionSupportEnabled() {
+#if BUILDFLAG(IS_WIN)
+  return base::FeatureList::IsEnabled(features::kWinSystemLocationPermission);
+#elif BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
+  return true;
+#else
+  return false;
+#endif  // BUILDFLAG(IS_WIN)
+}
 
 }  // namespace features

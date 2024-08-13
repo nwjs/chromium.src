@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/indexeddb/indexed_db_blink_mojom_traits.h"
 
 #include <utility>
@@ -169,7 +174,7 @@ UnionTraits<blink::mojom::IDBKeyDataView, std::unique_ptr<blink::IDBKey>>::
 base::span<const uint8_t>
 StructTraits<blink::mojom::IDBValueDataView, std::unique_ptr<blink::IDBValue>>::
     bits(const std::unique_ptr<blink::IDBValue>& input) {
-  return base::as_byte_span(*input->Data());
+  return base::as_byte_span(input->Data());
 }
 
 // static
@@ -221,7 +226,7 @@ bool StructTraits<blink::mojom::IDBValueDataView,
   }
 
   if (value_bits.empty()) {
-    *out = std::make_unique<blink::IDBValue>(std::nullopt,
+    *out = std::make_unique<blink::IDBValue>(std::move(value_bits),
                                              Vector<blink::WebBlobInfo>());
     return true;
   }

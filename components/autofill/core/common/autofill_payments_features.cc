@@ -8,6 +8,15 @@
 
 namespace autofill::features {
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
+    (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
+// When enabled, Chrome will extract the checkout amount from the checkout page
+// of the allowlisted merchant websites.
+BASE_FEATURE(kAutofillEnableAmountExtractionDesktop,
+             "AutofillEnableAmountExtractionDesktop",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 // When enabled, Android N+ devices will be supported for FIDO authentication.
 BASE_FEATURE(kAutofillEnableAndroidNKeyForFidoAuthentication,
              "AutofillEnableAndroidNKeyForFidoAuthentication",
@@ -60,7 +69,7 @@ BASE_FEATURE(kAutofillEnableCvcStorageAndFilling,
 // applied to them.
 BASE_FEATURE(kAutofillEnableNewCardArtAndNetworkImages,
              "AutofillEnableNewCardArtAndNetworkImages",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, a progress dialog will display while authenticating with FIDO.
 // TODO(crbug.com/40229268): Clean up kAutofillEnableFIDOProgressDialog when
@@ -113,11 +122,6 @@ BASE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval,
              "AutofillEnablePrefetchingRiskDataForRetrieval",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, some extra metrics logging for Autofill Downstream will start.
-BASE_FEATURE(kAutofillEnableRemadeDownstreamMetrics,
-             "AutofillEnableRemadeDownstreamMetrics",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, the save card screen will present a loading spinner when
 // uploading the card to the server and present a confirmation screen with the
 // result when completed.
@@ -135,12 +139,6 @@ BASE_FEATURE(kAutofillEnableSaveCardLocalSaveFallback,
 // (International Bank Account Numbers) and autofill server-based IBANs.
 BASE_FEATURE(kAutofillEnableServerIban,
              "AutofillEnableServerIban",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, if the user interacts with the manual fallback bottom sheet
-// on Android, it'll remain sticky until the user dismisses it.
-BASE_FEATURE(kAutofillEnableStickyManualFallbackForCards,
-             "AutofillEnableStickyManualFallbackForCards",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -198,6 +196,20 @@ BASE_FEATURE(kAutofillParseVcnCardOnFileStandaloneCvcFields,
              "AutofillParseVcnCardOnFileStandaloneCvcFields",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, the add/edit local card dialog in chrome://settings on Desktop
+// requires that the card number be valid before saving is allowed.
+BASE_FEATURE(kAutofillRequireValidLocalCardsInSettings,
+             "AutofillRequireValidLocalCardsInSettings",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_IOS)
+// When enabled, manual fill view will be shown directly from form focusing
+// events, if a virtual card has been retrieved previously.
+BASE_FEATURE(kAutofillShowManualFillForVirtualCards,
+             "AutofillShowManualFillForVirtualCards",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
 #if BUILDFLAG(IS_ANDROID)
 // When enabled, IBAN Autofill suggestions are shown via the keyboard accessory
 // instead of the bottom sheet.
@@ -205,6 +217,15 @@ BASE_FEATURE(kAutofillSkipAndroidBottomSheetForIban,
              "AutofillSkipAndroidBottomSheetForIban",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+// When enabled, adds a timeout on the network request for UploadCard requests.
+BASE_FEATURE(kAutofillUploadCardRequestTimeout,
+             "AutofillUploadCardRequestTimeout",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kAutofillUploadCardRequestTimeoutMilliseconds{
+    &kAutofillUploadCardRequestTimeout,
+    "autofill_upload_card_request_timeout_milliseconds",
+    /*default_value=*/7000};
 
 // Controls offering credit card upload to Google Payments. Cannot ever be
 // ENABLED_BY_DEFAULT because the feature state depends on the user's country.
@@ -224,18 +245,21 @@ const base::FeatureParam<int> kAutofillUpstreamUpdatedUiTreatment{
     &kAutofillUpstreamUpdatedUi, "autofill_upstream_updated_ui_treatment", 0};
 
 #if BUILDFLAG(IS_IOS)
-// When enabled, use two '•' when displaying the last four digits of a credit
-// card number. (E.g., '•• 8888' rather than '•••• 8888').
-BASE_FEATURE(kAutofillUseTwoDotsForLastFourDigits,
-             "AutofillUseTwoDotsForLastFourDigits",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When this is enabled, virtual card enrollment and retrieval will be enabled
 // on Bling.
 BASE_FEATURE(kAutofillEnableVirtualCards,
              "AutofillEnableVirtualCards",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
+
+// When enabled, adds a timeout on the network request for VcnEnroll requests.
+BASE_FEATURE(kAutofillVcnEnrollRequestTimeout,
+             "AutofillVcnEnrollRequestTimeout",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kAutofillVcnEnrollRequestTimeoutMilliseconds{
+    &kAutofillVcnEnrollRequestTimeout,
+    "autofill_vcn_enroll_request_timeout_milliseconds",
+    /*default_value=*/7500};
 
 #if BUILDFLAG(IS_ANDROID)
 // When enabled, eWallet accounts are synced from the Google Payments servers

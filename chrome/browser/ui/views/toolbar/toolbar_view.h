@@ -51,12 +51,14 @@ class ChromeLabsButton;
 class HomeButton;
 class IntentChipButton;
 class ExtensionsToolbarCoordinator;
+class ManagementToolbarButton;
 class MediaToolbarButtonView;
 class ReloadButton;
 class PinnedToolbarActionsContainer;
 class ToolbarButton;
 class AvatarToolbarButtonBrowserTest;
 class ToolbarController;
+class OverflowButton;
 class PerformanceInterventionButton;
 
 namespace media_router {
@@ -179,6 +181,10 @@ class ToolbarView : public views::AccessiblePaneView,
 
   views::View* new_tab_button_for_testing() { return new_tab_button_; }
 
+  ManagementToolbarButton* management_toolbar_button() const {
+    return management_toolbar_button_;
+  }
+
   // LocationBarView::Delegate:
   content::WebContents* GetWebContents() override;
   LocationBarModel* GetLocationBarModel() override;
@@ -244,6 +250,7 @@ class ToolbarView : public views::AccessiblePaneView,
   views::View* GetAnchorView(std::optional<PageActionIconType> type) override;
   void ZoomChangedForActiveTab(bool can_show_bubble) override;
   AvatarToolbarButton* GetAvatarToolbarButton() override;
+  ManagementToolbarButton* GetManagementToolbarButton() override;
   ToolbarButton* GetBackButton() override;
   ReloadButton* GetReloadButton() override;
   IntentChipButton* GetIntentChipButton() override;
@@ -297,6 +304,7 @@ class ToolbarView : public views::AccessiblePaneView,
   raw_ptr<PinnedToolbarActionsContainer> pinned_toolbar_actions_container_ =
       nullptr;
   raw_ptr<AvatarToolbarButton> avatar_ = nullptr;
+  raw_ptr<ManagementToolbarButton> management_toolbar_button_ = nullptr;
   raw_ptr<MediaToolbarButtonView> media_button_ = nullptr;
   raw_ptr<send_tab_to_self::SendTabToSelfToolbarIconView>
       send_tab_to_self_button_ = nullptr;
@@ -359,5 +367,7 @@ class ToolbarView : public views::AccessiblePaneView,
   // background_view_left_, as their background depends on active state.
   base::CallbackListSubscription active_state_subscription_;
 };
+
+extern const ui::ClassProperty<bool>* const kActionItemUnderlineIndicatorKey;
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TOOLBAR_TOOLBAR_VIEW_H_

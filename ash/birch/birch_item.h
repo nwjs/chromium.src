@@ -11,6 +11,7 @@
 #include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
 #include "base/time/time.h"
+#include "base/unguessable_token.h"
 #include "ui/base/models/image_model.h"
 #include "url/gurl.h"
 
@@ -30,7 +31,8 @@ enum class BirchItemType {
   kSelfShare = 7,     // Tabs shared to self from ChromeSync API.
   kMostVisited = 8,   // Most frequently visited URLs.
   kLastActive = 9,    // Last active URL.
-  kMaxValue = kLastActive,
+  kLostMedia = 10,
+  kMaxValue = kLostMedia,
 };
 
 // The base item which is stored by the birch model.
@@ -62,7 +64,9 @@ class ASH_EXPORT BirchItem {
 
   // Loads the icon for this image. This may invoke the callback immediately
   // (e.g. with a local icon) or there may be a delay for a network fetch.
-  using LoadIconCallback = base::OnceCallback<void(const ui::ImageModel&)>;
+  // The bool is true if the icon load was successful.
+  using LoadIconCallback =
+      base::OnceCallback<void(const ui::ImageModel&, bool)>;
   virtual void LoadIcon(LoadIconCallback callback) const = 0;
 
   // Records metrics when the user takes an action on the item (e.g. clicks or
@@ -106,13 +110,22 @@ class ASH_EXPORT BirchItem {
 // A birch item which contains calendar event information.
 class ASH_EXPORT BirchCalendarItem : public BirchItem {
  public:
+  // Used for ranking calendar items, `kAccepted` has the highest priority.
+  enum class ResponseStatus {
+    kAccepted = 0,
+    kTentative = 1,
+    kNeedsAction = 2,
+    kDeclined = 3
+  };
+
   BirchCalendarItem(const std::u16string& title,
                     const base::Time& start_time,
                     const base::Time& end_time,
                     const GURL& calendar_url,
                     const GURL& conference_url,
                     const std::string& event_id,
-                    const bool all_day_event);
+                    const bool all_day_event,
+                    ResponseStatus response_status = ResponseStatus::kAccepted);
   BirchCalendarItem(BirchCalendarItem&&);
   BirchCalendarItem(const BirchCalendarItem&);
   BirchCalendarItem& operator=(const BirchCalendarItem&);
@@ -131,6 +144,7 @@ class ASH_EXPORT BirchCalendarItem : public BirchItem {
   const GURL& calendar_url() const { return calendar_url_; }
   const GURL& conference_url() const { return conference_url_; }
   const std::string& event_id() const { return event_id_; }
+  const ResponseStatus& response_status() const { return response_status_; }
 
  private:
   static std::u16string GetSubtitle(base::Time start_time,
@@ -153,6 +167,8 @@ class ASH_EXPORT BirchCalendarItem : public BirchItem {
   // Video conferencing URL (e.g. Google Meet).
   GURL conference_url_;
   std::string event_id_;
+  // The user's current response to this calendar event.
+  ResponseStatus response_status_;
 };
 
 // An attachment (e.g. a file attached to a calendar event). Represented as a
@@ -160,12 +176,12 @@ class ASH_EXPORT BirchCalendarItem : public BirchItem {
 // separately (and ranks them independently).
 class ASH_EXPORT BirchAttachmentItem : public BirchItem {
  public:
-  explicit BirchAttachmentItem(const std::u16string& title,
-                               const GURL& file_url,
-                               const GURL& icon_url,
-                               const base::Time& start_time,
-                               const base::Time& end_time,
-                               const std::string& file_id);
+  BirchAttachmentItem(const std::u16string& title,
+                      const GURL& file_url,
+                      const GURL& icon_url,
+                      const base::Time& start_time,
+                      const base::Time& end_time,
+                      const std::string& file_id);
   BirchAttachmentItem(BirchAttachmentItem&&);
   BirchAttachmentItem& operator=(BirchAttachmentItem&&);
   BirchAttachmentItem(const BirchAttachmentItem&);
@@ -219,6 +235,7 @@ class ASH_EXPORT BirchFileItem : public BirchItem {
   const base::Time& timestamp() const { return timestamp_; }
   const std::string& file_id() const { return file_id_; }
   const std::string& icon_url() const { return icon_url_; }
+  const base::FilePath& file_path() const { return file_path_; }
 
  private:
   static std::u16string GetTitle(const base::FilePath& file_path);
@@ -227,6 +244,8 @@ class ASH_EXPORT BirchFileItem : public BirchItem {
   // BirchFileItem and BirchAttachmentItem.
   std::string file_id_;
   std::string icon_url_;
+  // For Google Drive documents the path looks like:
+  // /media/fuse/drivefs-48de6bc248c2f6d8e809521347ef6190/root/Test doc.gdoc
   base::FilePath file_path_;
   base::Time timestamp_;
 };
@@ -241,7 +260,8 @@ class ASH_EXPORT BirchTabItem : public BirchItem {
                const base::Time& timestamp,
                const GURL& favicon_url,
                const std::string& session_name,
-               const DeviceFormFactor& form_factor);
+               const DeviceFormFactor& form_factor,
+               const ui::ImageModel& backup_icon);
   BirchTabItem(BirchTabItem&&);
   BirchTabItem(const BirchTabItem&);
   BirchTabItem& operator=(const BirchTabItem&);
@@ -269,6 +289,7 @@ class ASH_EXPORT BirchTabItem : public BirchItem {
   GURL favicon_url_;
   std::string session_name_;
   DeviceFormFactor form_factor_;
+  ui::ImageModel backup_icon_;
 };
 
 // A birch item for the last active URL.
@@ -336,7 +357,7 @@ class ASH_EXPORT BirchSelfShareItem : public BirchItem {
                      const GURL& url,
                      const base::Time& shared_time,
                      const std::u16string& device_name,
-                     const GURL& favicon_url,
+                     const ui::ImageModel& backup_icon,
                      base::RepeatingClosure activation_callback);
   BirchSelfShareItem(BirchSelfShareItem&&);
   BirchSelfShareItem(const BirchSelfShareItem&);
@@ -354,7 +375,6 @@ class ASH_EXPORT BirchSelfShareItem : public BirchItem {
   const std::u16string& guid() const { return guid_; }
   const base::Time& shared_time() const { return shared_time_; }
   const GURL& url() const { return url_; }
-  void set_favicon_url(const GURL& favicon_url) { favicon_url_ = favicon_url; }
 
  private:
   static std::u16string GetSubtitle(const std::u16string& device_name,
@@ -363,10 +383,46 @@ class ASH_EXPORT BirchSelfShareItem : public BirchItem {
   std::u16string guid_;
   GURL url_;
   base::Time shared_time_;
-  GURL favicon_url_;
+  ui::ImageModel backup_icon_;
   // `activation_callback_` is triggered when the item is clicked by the user,
   // calling `OnItemPressed()` in `BirchSelfShareProvider` to mark the
   // corresponding `SendTabToSelfEntry` as opened.
+  base::RepeatingClosure activation_callback_;
+};
+
+// A birch item which contains information about a tab that is currently playing
+// media.
+class ASH_EXPORT BirchLostMediaItem : public BirchItem {
+ public:
+  BirchLostMediaItem(const GURL& source_url,
+                     const std::u16string& media_title,
+                     bool is_video_conference_tab,
+                     const ui::ImageModel& backup_icon,
+                     base::RepeatingClosure activation_callback);
+  BirchLostMediaItem(BirchLostMediaItem&&);
+  BirchLostMediaItem(const BirchLostMediaItem&);
+  BirchLostMediaItem& operator=(const BirchLostMediaItem&);
+  bool operator==(const BirchLostMediaItem& rhs) const;
+  ~BirchLostMediaItem() override;
+
+  // BirchItem:
+  BirchItemType GetType() const override;
+  std::string ToString() const override;
+  void PerformAction() override;
+  void PerformSecondaryAction() override;
+  void LoadIcon(LoadIconCallback callback) const override;
+
+  const GURL& source_url() const { return source_url_; }
+  const std::u16string& media_title() const { return media_title_; }
+  bool is_video_conference_tab() const { return is_video_conference_tab_; }
+
+ private:
+  static std::u16string GetSubtitle(bool is_video_conference_tab);
+
+  GURL source_url_;
+  std::u16string media_title_;
+  bool is_video_conference_tab_;
+  ui::ImageModel backup_icon_;
   base::RepeatingClosure activation_callback_;
 };
 

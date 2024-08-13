@@ -21,6 +21,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/css/style_property_serializer.h"
 
 #include <bitset>
@@ -75,7 +80,8 @@ inline TextWrap ToTextWrap(const CSSValue* value) {
 
 bool IsZeroPercent(const CSSValue* value) {
   if (const auto* num = DynamicTo<CSSNumericLiteralValue>(value)) {
-    return num->IsZero() && num->IsPercentage();
+    return num->IsZero() == CSSPrimitiveValue::BoolStatus::kTrue &&
+           num->IsPercentage();
   }
 
   return false;
@@ -699,7 +705,9 @@ String StylePropertySerializer::SerializeShorthand(
     case CSSPropertyID::kScrollStartTarget:
       return ScrollStartTargetValue();
     case CSSPropertyID::kPositionTry:
-      return PositionTryValue();
+      return PositionTryValue(positionTryShorthand());
+    case CSSPropertyID::kAlternativePositionTry:
+      return PositionTryValue(alternativePositionTryShorthand());
     default:
       NOTREACHED_IN_MIGRATION()
           << "Shorthand property "
@@ -1670,7 +1678,8 @@ String StylePropertySerializer::GetLayeredShorthandValue(
         if (property->IDEquals(CSSPropertyID::kTransitionDelay) ||
             property->IDEquals(CSSPropertyID::kTransitionDuration)) {
           auto* numeric_value = DynamicTo<CSSNumericLiteralValue>(value);
-          if (numeric_value && numeric_value->IsZero()) {
+          if (numeric_value &&
+              numeric_value->IsZero() == CSSPrimitiveValue::BoolStatus::kTrue) {
             omit_value = true;
           }
         } else if (property->IDEquals(
@@ -2432,27 +2441,25 @@ String StylePropertySerializer::ScrollStartTargetValue() const {
   return list->CssText();
 }
 
-String StylePropertySerializer::PositionTryValue() const {
-  CHECK_EQ(positionTryShorthand().length(), 2u);
-  CHECK_EQ(positionTryShorthand().properties()[0],
-           &GetCSSPropertyPositionTryOrder());
-  CHECK_EQ(positionTryShorthand().properties()[1],
-           &GetCSSPropertyPositionTryOptions());
+String StylePropertySerializer::PositionTryValue(
+    const StylePropertyShorthand& shorthand) const {
+  CHECK_EQ(shorthand.length(), 2u);
+  CHECK_EQ(shorthand.properties()[0], &GetCSSPropertyPositionTryOrder());
 
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
   const CSSValue* order_value =
       property_set_.GetPropertyCSSValue(GetCSSPropertyPositionTryOrder());
-  const CSSValue* options_value =
-      property_set_.GetPropertyCSSValue(GetCSSPropertyPositionTryOptions());
+  const CSSValue* fallbacks_value =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[1]);
 
   CHECK(order_value);
-  CHECK(options_value);
+  CHECK(fallbacks_value);
 
   if (To<CSSIdentifierValue>(*order_value).GetValueID() !=
       CSSValueID::kNormal) {
     list->Append(*order_value);
   }
-  list->Append(*options_value);
+  list->Append(*fallbacks_value);
   return list->CssText();
 }
 

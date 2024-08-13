@@ -20,7 +20,7 @@
 
 class ChromeBrowserState;
 class GURL;
-class WebLocationBar;
+class OmniboxClient;
 struct AutocompleteMatch;
 @protocol OmniboxAdditionalTextConsumer;
 @class OmniboxTextFieldIOS;
@@ -37,7 +37,7 @@ class OmniboxViewIOS : public OmniboxView,
  public:
   // Retains `field`.
   OmniboxViewIOS(OmniboxTextFieldIOS* field,
-                 WebLocationBar* location_bar,
+                 std::unique_ptr<OmniboxClient> client,
                  ChromeBrowserState* browser_state,
                  id<OmniboxCommands> omnibox_focuser,
                  id<OmniboxFocusDelegate> focus_delegate,
@@ -130,7 +130,6 @@ class OmniboxViewIOS : public OmniboxView,
   void OnDidBeginEditing() override;
   bool OnWillChange(NSRange range, NSString* new_text) override;
   void OnDidChange(bool processing_user_input) override;
-  void OnWillEndEditing() override;
   void EndEditing() override;
   void OnCopy() override;
   void ClearText() override;
@@ -182,7 +181,6 @@ class OmniboxViewIOS : public OmniboxView,
 
   OmniboxTextFieldIOS* field_;
 
-  raw_ptr<WebLocationBar> location_bar_;  // weak, owns us
   // Focuser, used to transition the location bar to focused/defocused state as
   // necessary.
   __weak id<OmniboxCommands> omnibox_focuser_;

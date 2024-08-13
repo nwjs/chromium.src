@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.readaloud.player.mini;
 import android.view.View;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
 
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
@@ -50,40 +51,18 @@ public class MiniPlayerMediator implements BottomControlsLayer {
                         int topControlsMinHeightOffset,
                         int bottomOffset,
                         int bottomControlsMinHeightOffset,
-                        boolean needsAnimate) {
-                    if (!mIsAnimationStarted) {
-                        mIsAnimationStarted = true;
-                    }
-                    if (getVisibility() == VisibilityState.HIDING
-                            && bottomControlsMinHeightOffset == 0) {
-                        onBottomControlsShrunk();
-                    } else if (getVisibility() == VisibilityState.SHOWING
-                            && mLayoutHeightPx == bottomControlsMinHeightOffset) {
-                        onBottomControlsGrown();
-                    }
+                        boolean needsAnimate,
+                        boolean isVisibilityForced) {
+                    // Direct the call to BottomControlsLayer#onBrowserControlsOffsetUpdate.
+                    if (BottomControlsStacker.isDispatchingYOffset()) return;
+
+                    MiniPlayerMediator.this.onControlsOffsetChanged(bottomControlsMinHeightOffset);
                 }
 
                 @Override
                 public void onBottomControlsHeightChanged(
                         int bottomControlContainerHeight, int bottomControlsMinHeight) {
-                    // Hack: bottom controls don't animate on NTP, tab switcher, and potentially
-                    // other non tab pages.
-                    // As a result we show an empty bottom bar with no UI controls. This is trying
-                    // to prevent that from happening by forcing fading in player controls if bottom
-                    // controls are visible and no animation is running.
-                    if (getVisibility() == VisibilityState.SHOWING
-                            && getBrowserControls().getBottomControlsHeight() > 0) {
-                        PostTask.postDelayedTask(
-                                TaskTraits.UI_DEFAULT,
-                                () -> {
-                                    if (getVisibility() == VisibilityState.SHOWING
-                                            && !mIsAnimationStarted
-                                            && getBrowserControls().getBottomControlsHeight() > 0) {
-                                        onBottomControlsGrown();
-                                    }
-                                },
-                                200);
-                    }
+                    MiniPlayerMediator.this.onBottomControlsHeightChanged();
                 }
             };
 
@@ -102,6 +81,16 @@ public class MiniPlayerMediator implements BottomControlsLayer {
 
     void setCoordinator(MiniPlayerCoordinator coordinator) {
         mCoordinator = coordinator;
+    }
+
+    /**
+     * Set the yOffset that the mini player needs to move up. This is used when there are addition
+     * browser controls below the mini player.
+     *
+     * @param yOffset The Y Offset in pixels. A negative yOffset will move the view upwards.
+     */
+    void setYOffset(int yOffset) {
+        mModel.set(Properties.Y_OFFSET, yOffset);
     }
 
     void destroy() {
@@ -157,10 +146,13 @@ public class MiniPlayerMediator implements BottomControlsLayer {
     }
 
     // (3) Done.
-    void onFullOpacityReached() {
+    /**
+     * @param containerForNonErrorView not null if full opacity reached for non-error view
+     */
+    void onFullOpacityReached(@Nullable View containerForNonErrorView) {
         // show() is finished!
         onTransitionFinished(VisibilityState.VISIBLE);
-        mCoordinator.onShown();
+        mCoordinator.onShown(containerForNonErrorView);
     }
 
     /// Dismiss
@@ -207,16 +199,21 @@ public class MiniPlayerMediator implements BottomControlsLayer {
 
     private void growBottomControls() {
         mBottomControlsStacker.notifyBackgroundColor(mModel.get(Properties.BACKGROUND_COLOR_ARGB));
+        int minHeight = getBrowserControls().getBottomControlsMinHeight();
         setBottomControlsHeight(
-                getBrowserControls().getBottomControlsHeight() + mLayoutHeightPx, mLayoutHeightPx);
+                getBrowserControls().getBottomControlsHeight() + mLayoutHeightPx,
+                mLayoutHeightPx + minHeight);
     }
 
     private void shrinkBottomControls() {
         // Hack: Bottom controls animation doesn't work if the new height is 0. Shrink
         // to 1 pixel instead in this case.
         // TODO(b/320750931): fix the underlying issue in browser controls code
+        int minHeight = getBrowserControls().getBottomControlsMinHeight();
+        assert minHeight >= mLayoutHeightPx;
         setBottomControlsHeight(
-                Math.max(getBrowserControls().getBottomControlsHeight() - mLayoutHeightPx, 1), 0);
+                Math.max(getBrowserControls().getBottomControlsHeight() - mLayoutHeightPx, 1),
+                minHeight - mLayoutHeightPx);
     }
 
     private void setBottomControlsHeight(int height, int minHeight) {
@@ -229,6 +226,45 @@ public class MiniPlayerMediator implements BottomControlsLayer {
         return mBottomControlsStacker.getBrowserControls();
     }
 
+    private void onControlsOffsetChanged(int bottomControlsMinHeightOffset) {
+        if (!mIsAnimationStarted) {
+            mIsAnimationStarted = true;
+        }
+        // yOffset is constantly changing during an animation. The easier way to measure transition
+        // stop is to check the relationship between bottomControlsMinHeightOffset and the browser
+        // control's minHeight.
+        boolean controlsFinishAnimating =
+                getBrowserControls().getBottomControlsMinHeight() == bottomControlsMinHeightOffset;
+        if (!controlsFinishAnimating) return;
+
+        if (getVisibility() == VisibilityState.HIDING) {
+            onBottomControlsShrunk();
+        } else if (getVisibility() == VisibilityState.SHOWING) {
+            onBottomControlsGrown();
+        }
+    }
+
+    private void onBottomControlsHeightChanged() {
+        // Hack: bottom controls don't animate on NTP, tab switcher, and potentially
+        // other non tab pages.
+        // As a result we show an empty bottom bar with no UI controls. This is trying
+        // to prevent that from happening by forcing fading in player controls if bottom
+        // controls are visible and no animation is running.
+        if (getVisibility() == VisibilityState.SHOWING
+                && getBrowserControls().getBottomControlsHeight() > 0) {
+            PostTask.postDelayedTask(
+                    TaskTraits.UI_DEFAULT,
+                    () -> {
+                        if (getVisibility() == VisibilityState.SHOWING
+                                && !mIsAnimationStarted
+                                && getBrowserControls().getBottomControlsHeight() > 0) {
+                            onBottomControlsGrown();
+                        }
+                    },
+                    200);
+        }
+    }
+
     // Implements BottomControlsStacker.BottomControlsLayer
 
     @Override
@@ -236,6 +272,7 @@ public class MiniPlayerMediator implements BottomControlsLayer {
         return LayerType.READ_ALOUD_PLAYER;
     }
 
+    /** Get the height represent the layer in the bottom controls, without the yOffset. */
     @Override
     public int getHeight() {
         return mLayoutHeightPx;
@@ -251,5 +288,16 @@ public class MiniPlayerMediator implements BottomControlsLayer {
         // Consider layer visible even it's during transition.
         return mModel.get(Properties.VISIBILITY) == VisibilityState.VISIBLE
                 || mModel.get(Properties.VISIBILITY) == VisibilityState.SHOWING;
+    }
+
+    @Override
+    public void onBrowserControlsOffsetUpdate(int layerYOffset) {
+        assert BottomControlsStacker.isDispatchingYOffset();
+
+        // yOffset for the mini player is a negative number if it has to move up. This value *can*
+        // be positive when we are going through an animation; in which case the player view should
+        // stay invisible.
+        setYOffset(Math.min(0, layerYOffset));
+        onControlsOffsetChanged(getBrowserControls().getBottomControlsMinHeightOffset());
     }
 }

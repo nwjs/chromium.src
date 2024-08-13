@@ -27,6 +27,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/dom/document.h"
 
 #include <memory>
@@ -60,7 +65,6 @@
 #include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/trust_tokens.mojom-blink.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/permissions_policy/document_policy_features.h"
 #include "third_party/blink/public/common/privacy_budget/identifiability_sample_collector.h"
@@ -73,6 +77,7 @@
 #include "third_party/blink/public/mojom/page_state/page_state.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink-forward.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
@@ -166,7 +171,6 @@
 #include "third_party/blink/renderer/core/dom/part_root.h"
 #include "third_party/blink/renderer/core/dom/processing_instruction.h"
 #include "third_party/blink/renderer/core/dom/scripted_animation_controller.h"
-#include "third_party/blink/renderer/core/dom/scripted_idle_task_controller.h"
 #include "third_party/blink/renderer/core/dom/shadow_including_tree_order_traversal.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/slot_assignment.h"
@@ -181,6 +185,7 @@
 #include "third_party/blink/renderer/core/dom/xml_document.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
+#include "third_party/blink/renderer/core/editing/ime/edit_context.h"
 #include "third_party/blink/renderer/core/editing/markers/document_marker_controller.h"
 #include "third_party/blink/renderer/core/editing/position_with_affinity.h"
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
@@ -320,6 +325,7 @@
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_controller.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_entry.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_size.h"
+#include "third_party/blink/renderer/core/scheduler/scripted_idle_task_controller.h"
 #include "third_party/blink/renderer/core/script/detect_javascript_frameworks.h"
 #include "third_party/blink/renderer/core/script/script_runner.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -446,6 +452,9 @@ bool DefaultFaviconAllowedByCSP(const Document* document, const IconURL& icon) {
       ReportingDisposition::kSuppressReporting,
       ContentSecurityPolicy::CheckHeaderType::kCheckAll);
 }
+
+// The sampling rate for UKM.
+constexpr double kUkmSamplingRate = 0.001;
 
 }  // namespace
 
@@ -1812,6 +1821,12 @@ Element* Document::ScrollingElementNoLayout() {
 bool Document::KeyboardFocusableScrollersEnabled() {
   return RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled() &&
          !RuntimeEnabledFeatures::KeyboardFocusableScrollersOptOutEnabled(
+             GetExecutionContext());
+}
+
+bool Document::StandardizedBrowserZoomEnabled() const {
+  return RuntimeEnabledFeatures::StandardizedBrowserZoomEnabled() &&
+         !RuntimeEnabledFeatures::StandardizedBrowserZoomOptOutEnabled(
              GetExecutionContext());
 }
 
@@ -3378,11 +3393,13 @@ bool Document::WillPrintSoon() {
 bool Document::InitiateStyleOrLayoutDependentLoadForPrint() {
   if (auto* view = View()) {
     view->AdjustMediaTypeForPrinting(true);
+    GetStyleEngine().UpdateViewportSize();
     UpdateStyleAndLayout(DocumentUpdateReason::kPrinting);
-
+    GetStyleResolver().LoadPaginationResources();
     view->FlushAnyPendingPostLayoutTasks();
 
     view->AdjustMediaTypeForPrinting(false);
+    GetStyleEngine().UpdateViewportSize();
     UpdateStyleAndLayout(DocumentUpdateReason::kPrinting);
 
     return fetcher_->BlockingRequestCount() > 0;
@@ -4136,16 +4153,6 @@ bool Document::CheckCompletedInternal() {
     if (LCPCriticalPathPredictor* lcpp = GetFrame()->GetLCPP()) {
       lcpp->OnOutermostMainFrameDocumentLoad();
       fetcher_->MaybeRecordLCPPSubresourceMetrics(Url());
-    }
-    if (!data_->accumulated_shape_text_elapsed_time_.is_zero()) {
-      base::UmaHistogramMicrosecondsTimes(
-          "Blink.Layout.InlineNode::ShapeText.TotalTime.InOutermostMainFrame",
-          data_->accumulated_shape_text_elapsed_time_);
-    }
-    if (!data_->max_shape_text_elapsed_time_.is_zero()) {
-      base::UmaHistogramMicrosecondsTimes(
-          "Blink.Layout.InlineNode::ShapeText.MaxTime.InOutermostMainFrame",
-          data_->max_shape_text_elapsed_time_);
     }
   }
 
@@ -5109,14 +5116,16 @@ Node* Document::Clone(Document& factory,
   if (!execution_context_)
     return nullptr;
   Document* clone = CloneDocumentWithoutChildren();
+  clone->CloneDataFromDocument(*this);
   DocumentPartRoot* part_root = nullptr;
+  DCHECK(!data.Has(CloneOption::kPreserveDOMPartsMinimalAPI) || !HasNodePart());
   if (data.Has(CloneOption::kPreserveDOMParts)) {
     DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
+    DCHECK(!RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
     part_root = &clone->getPartRoot();
     data.PushPartRoot(*part_root);
+    PartRoot::CloneParts(*this, *clone, data);
   }
-  clone->CloneDataFromDocument(*this);
-  PartRoot::CloneParts(*this, *clone, data);
   if (data.Has(CloneOption::kIncludeDescendants)) {
     clone->CloneChildNodesFrom(*this, data);
   }
@@ -5545,6 +5554,21 @@ bool Document::SetFocusedElement(Element* new_focused_element,
   UpdateStyleAndLayoutTree();
   if (LocalFrame* frame = GetFrame())
     frame->Selection().DidChangeFocus();
+
+  // EditContext's activation is synced with the associated element being
+  // focused or not. If an element loses focus, its associated EditContext
+  // is deactivated. If getting focus, the EditContext is activated.
+  if (old_focused_element) {
+    if (auto* old_edit_context = old_focused_element->editContext()) {
+      old_edit_context->Blur();
+    }
+  }
+  if (new_focused_element) {
+    if (auto* edit_context = new_focused_element->editContext()) {
+      edit_context->Focus();
+    }
+  }
+
   return !focus_change_blocked;
 }
 
@@ -7497,6 +7521,40 @@ void Document::FinishedParsing() {
 
   // Parser should have picked up all preloads by now
   fetcher_->ClearPreloads(ResourceFetcher::kClearSpeculativeMarkupPreloads);
+
+  if (IsInOutermostMainFrame() && !IsInitialEmptyDocument() &&
+      Url().ProtocolIsInHTTPFamily()) {
+    // Record histograms of ShapeText.
+    base::UmaHistogramMicrosecondsTimes(
+        "Blink.Layout.InlineNode.ShapeText.TotalTime.InOutermostMainFrame3",
+        data_->accumulated_shape_text_elapsed_time_);
+    base::UmaHistogramMicrosecondsTimes(
+        "Blink.Layout.InlineNode.ShapeText.MaxTime.InOutermostMainFrame3",
+        data_->max_shape_text_elapsed_time_);
+
+    // Record histograms of SVGImage.
+    base::UmaHistogramCounts100(
+        "Blink.Layout.SVGImage.Count.InOutermostMainFrame",
+        data_->svg_image_processed_count_);
+    base::UmaHistogramMicrosecondsTimes(
+        "Blink.Layout.SVGImage.TotalTime.InOutermostMainFrame",
+        data_->accumulated_svg_image_elapsed_time_);
+
+    // UKM data is sampled at a frequency of `kUkmSamplingRate`.
+    if (base::RandDouble() < kUkmSamplingRate) {
+      ukm::builders::Blink_ShapeText(UkmSourceID())
+          .SetTotalTime(
+              data_->accumulated_shape_text_elapsed_time_.InMicroseconds())
+          .SetMaxTime(data_->max_shape_text_elapsed_time_.InMicroseconds())
+          .Record(UkmRecorder());
+      ukm::builders::Blink_SVGImage(UkmSourceID())
+          .SetCount(ukm::GetExponentialBucketMinForCounts1000(
+              data_->svg_image_processed_count_))
+          .SetTotalTime(
+              data_->accumulated_svg_image_elapsed_time_.InMicroseconds())
+          .Record(UkmRecorder());
+    }
+  }
 }
 
 void Document::ElementDataCacheClearTimerFired(TimerBase*) {
@@ -7769,13 +7827,16 @@ FontMatchingMetrics* Document::GetFontMatchingMetrics() {
 }
 
 void Document::MaybeRecordShapeTextElapsedTime(base::TimeDelta elapsed_time) {
-  if (!IsInOutermostMainFrame() || IsLoadCompleted() ||
-      IsInitialEmptyDocument() || !Url().ProtocolIsInHTTPFamily()) {
-    return;
-  }
-  data_->accumulated_shape_text_elapsed_time_ += elapsed_time;
-  data_->max_shape_text_elapsed_time_ =
-      std::max(data_->max_shape_text_elapsed_time_, elapsed_time);
+    data_->accumulated_shape_text_elapsed_time_ += elapsed_time;
+    data_->max_shape_text_elapsed_time_ =
+        std::max(data_->max_shape_text_elapsed_time_, elapsed_time);
+}
+
+void Document::MaybeRecordSvgImageProcessingTime(
+    int data_change_count,
+    base::TimeDelta data_change_elapsed_time) const {
+  data_->svg_image_processed_count_ += data_change_count;
+  data_->accumulated_svg_image_elapsed_time_ += data_change_elapsed_time;
 }
 
 bool Document::AllowInlineEventHandler(Node* node,
@@ -8848,6 +8909,9 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(focused_element_change_observers_);
   visitor->Trace(pending_link_header_preloads_);
   visitor->Trace(elements_needing_shadow_tree_);
+#if BUILDFLAG(IS_ANDROID)
+  visitor->Trace(payment_link_handler_);
+#endif  // BUILDFLAG(IS_ANDROID)
   Supplementable<Document>::Trace(visitor);
   TreeScope::Trace(visitor);
   ContainerNode::Trace(visitor);
@@ -9320,6 +9384,24 @@ void Document::UnscheduleShadowTreeCreation(HTMLInputElement& element) {
   elements_needing_shadow_tree_.erase(&element);
 }
 
+#if BUILDFLAG(IS_ANDROID)
+void Document::HandlePaymentLink(const KURL& href) {
+  // Only the first payment link is expected to be handled in a page.
+  if (payment_link_handled_) {
+    return;
+  }
+  // TODO(crbug.com/344997566): Validate the href before triggering the IPC
+  // call.
+  if (!payment_link_handler_.is_bound()) {
+    GetFrame()->GetBrowserInterfaceBroker().GetInterface(
+        payment_link_handler_.BindNewPipeAndPassReceiver(
+            GetExecutionContext()->GetTaskRunner(TaskType::kDOMManipulation)));
+  }
+  payment_link_handled_ = true;
+  payment_link_handler_->HandlePaymentLink(href);
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
 void Document::ProcessScheduledShadowTreeCreationsNow() {
   if (elements_needing_shadow_tree_.empty()) {
     return;
@@ -9328,6 +9410,19 @@ void Document::ProcessScheduledShadowTreeCreationsNow() {
   std::swap(elements_needing_shadow_tree, elements_needing_shadow_tree_);
   for (auto& element : elements_needing_shadow_tree) {
     element->EnsureShadowSubtree();
+  }
+}
+
+void Document::ScheduleSelectionchangeEvent() {
+  if (RuntimeEnabledFeatures::CoalesceSelectionchangeEventEnabled()) {
+    if (has_scheduled_selectionchange_event_on_document_)
+      return;
+    has_scheduled_selectionchange_event_on_document_ = true;
+    EnqueueEvent(*Event::Create(event_type_names::kSelectionchange),
+                 TaskType::kMiscPlatformAPI);
+  } else {
+    EnqueueEvent(*Event::Create(event_type_names::kSelectionchange),
+                 TaskType::kMiscPlatformAPI);
   }
 }
 

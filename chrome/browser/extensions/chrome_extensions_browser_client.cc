@@ -295,6 +295,9 @@ ChromeExtensionsBrowserClient::GetContextRedirectedToOriginal(
   if (force_guest_profile) {
     builder.WithGuest(ProfileSelection::kRedirectedToOriginal);
   }
+  // TODO(crbug.com/41488885): Check if this service is needed for Ash
+  // Internals.
+  builder.WithAshInternals(ProfileSelection::kRedirectedToOriginal);
 
   const ProfileSelections selections = builder.Build();
   return selections.ApplyProfileSelection(Profile::FromBrowserContext(context));
@@ -308,6 +311,9 @@ content::BrowserContext* ChromeExtensionsBrowserClient::GetContextOwnInstance(
   if (force_guest_profile) {
     builder.WithGuest(ProfileSelection::kOwnInstance);
   }
+  // TODO(crbug.com/41488885): Check if this service is needed for Ash
+  // Internals.
+  builder.WithAshInternals(ProfileSelection::kOwnInstance);
 
   const ProfileSelections selections = builder.Build();
   return selections.ApplyProfileSelection(Profile::FromBrowserContext(context));
@@ -321,6 +327,9 @@ ChromeExtensionsBrowserClient::GetContextForOriginalOnly(
   if (force_guest_profile) {
     builder.WithGuest(ProfileSelection::kOriginalOnly);
   }
+  // TODO(crbug.com/41488885): Check if this service is needed for Ash
+  // Internals.
+  builder.WithAshInternals(ProfileSelection::kOriginalOnly);
 
   ProfileSelections selections = builder.Build();
   return selections.ApplyProfileSelection(Profile::FromBrowserContext(context));
@@ -393,11 +402,12 @@ bool ChromeExtensionsBrowserClient::AllowCrossRendererResourceLoad(
     bool is_incognito,
     const Extension* extension,
     const ExtensionSet& extensions,
-    const ProcessMap& process_map) {
+    const ProcessMap& process_map,
+    const GURL& upstream_url) {
   bool allowed = false;
   if (chrome_url_request_util::AllowCrossRendererResourceLoad(
           request, destination, page_transition, child_id, is_incognito,
-          extension, extensions, process_map, &allowed)) {
+          extension, extensions, process_map, upstream_url, &allowed)) {
     return allowed;
   }
 
@@ -799,7 +809,6 @@ void ChromeExtensionsBrowserClient::NotifyExtensionApiTabExecuteScript(
     content::BrowserContext* context,
     const ExtensionId& extension_id,
     const std::string& code) const {
-#if 0
   auto* telemetry_service =
       safe_browsing::ExtensionTelemetryServiceFactory::GetForProfile(
           Profile::FromBrowserContext(context));
@@ -812,25 +821,20 @@ void ChromeExtensionsBrowserClient::NotifyExtensionApiTabExecuteScript(
   auto signal = std::make_unique<safe_browsing::TabsExecuteScriptSignal>(
       extension_id, code);
   telemetry_service->AddSignal(std::move(signal));
-#endif
 }
 
 bool ChromeExtensionsBrowserClient::IsExtensionTelemetryServiceEnabled(
     content::BrowserContext* context) const {
-  return false;
-#if 0
   auto* telemetry_service =
       safe_browsing::ExtensionTelemetryServiceFactory::GetForProfile(
           Profile::FromBrowserContext(context));
   return telemetry_service && telemetry_service->enabled();
-#endif
 }
 
 void ChromeExtensionsBrowserClient::NotifyExtensionApiDeclarativeNetRequest(
     content::BrowserContext* context,
     const ExtensionId& extension_id,
     const std::vector<api::declarative_net_request::Rule>& rules) const {
-#if 0
   auto* telemetry_service =
       safe_browsing::ExtensionTelemetryServiceFactory::GetForProfile(
           Profile::FromBrowserContext(context));
@@ -843,7 +847,6 @@ void ChromeExtensionsBrowserClient::NotifyExtensionApiDeclarativeNetRequest(
   auto signal = std::make_unique<safe_browsing::DeclarativeNetRequestSignal>(
       extension_id, rules);
   telemetry_service->AddSignal(std::move(signal));
-#endif
 }
 
 void ChromeExtensionsBrowserClient::
@@ -852,7 +855,6 @@ void ChromeExtensionsBrowserClient::
         const ExtensionId& extension_id,
         const GURL& request_url,
         const GURL& redirect_url) const {
-#if 0
   auto* telemetry_service =
       safe_browsing::ExtensionTelemetryServiceFactory::GetForProfile(
           Profile::FromBrowserContext(context));
@@ -869,15 +871,12 @@ void ChromeExtensionsBrowserClient::
       CreateDeclarativeNetRequestRedirectActionSignal(extension_id, request_url,
                                                       redirect_url);
   telemetry_service->AddSignal(std::move(signal));
-#endif
 }
 
 void ChromeExtensionsBrowserClient::NotifyExtensionRemoteHostContacted(
     content::BrowserContext* context,
     const ExtensionId& extension_id,
     const GURL& url) const {
-  return;
-#if 0
   // Collect only if new interception feature is disabled to avoid duplicates.
   if (base::FeatureList::IsEnabled(
           safe_browsing::
@@ -909,7 +908,6 @@ void ChromeExtensionsBrowserClient::NotifyExtensionRemoteHostContacted(
       std::make_unique<safe_browsing::RemoteHostContactedSignal>(extension_id,
                                                                  url, protocol);
   telemetry_service->AddSignal(std::move(remote_host_signal));
-#endif
 }
 
 // static
@@ -1078,7 +1076,7 @@ void ChromeExtensionsBrowserClient::GetWebViewStoragePartitionConfig(
 
 void ChromeExtensionsBrowserClient::CreatePasswordReuseDetectionManager(
     content::WebContents* web_contents) const {
-  //ChromePasswordReuseDetectionManagerClient::CreateForWebContents(web_contents);
+  ChromePasswordReuseDetectionManagerClient::CreateForWebContents(web_contents);
 }
 
 media_device_salt::MediaDeviceSaltService*

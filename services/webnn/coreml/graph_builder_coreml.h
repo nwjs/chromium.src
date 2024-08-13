@@ -15,7 +15,9 @@
 #include "base/memory/stack_allocated.h"
 #include "base/numerics/checked_math.h"
 #include "base/types/expected.h"
-#include "services/webnn/public/mojom/webnn_context_provider.mojom-forward.h"
+#include "services/webnn/public/cpp/context_properties.h"
+#include "services/webnn/public/cpp/operand_descriptor.h"
+#include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "services/webnn/public/mojom/webnn_error.mojom-forward.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom.h"
 #include "third_party/coremltools/mlmodel/format/MIL.pb.h"
@@ -40,7 +42,8 @@ concept IsSupportedTensorType =
 inline constexpr char kPlaceholderInputName[] = "placeholder";
 
 // Get name identifiers used in CoreML model files for output operands.
-std::string GetCoreMLNameFromOutput(std::string_view output_name);
+std::string GetCoreMLNameFromOutput(std::string_view output_name,
+                                    uint64_t operand_id);
 
 // Reads the WebNN graph from the mojom::GraphInfo to
 // produce CoreML model and serializes to provided `working_directory`.
@@ -85,7 +88,7 @@ class GraphBuilderCoreml {
     InputOperandInfo();
     InputOperandInfo(std::string name,
                      std::vector<uint32_t> dimensions,
-                     mojom::Operand::DataType data_type);
+                     OperandDataType data_type);
     InputOperandInfo(InputOperandInfo&);
     InputOperandInfo(InputOperandInfo&&);
     ~InputOperandInfo();
@@ -93,7 +96,7 @@ class GraphBuilderCoreml {
     // Identifier for this operand in coreml model file.
     std::string coreml_name;
     std::vector<uint32_t> dimensions;
-    mojom::Operand::DataType data_type;
+    OperandDataType data_type;
   };
 
   struct Result {
@@ -123,9 +126,10 @@ class GraphBuilderCoreml {
   // Returns unexpected if it fails.
   [[nodiscard]] static base::expected<std::unique_ptr<Result>, mojom::ErrorPtr>
   CreateAndBuild(const mojom::GraphInfo& graph_info,
+                 ContextProperties context_properties,
                  const base::FilePath& working_directory);
 
-  static mojom::ContextPropertiesPtr GetContextProperties();
+  static ContextProperties GetContextProperties();
 
   GraphBuilderCoreml(const GraphBuilderCoreml&) = delete;
   GraphBuilderCoreml& operator=(const GraphBuilderCoreml&) = delete;
@@ -134,6 +138,7 @@ class GraphBuilderCoreml {
 
  private:
   GraphBuilderCoreml(const mojom::GraphInfo& graph_info,
+                     ContextProperties context_properties,
                      base::FilePath ml_package_dir);
 
   [[nodiscard]] base::expected<void, mojom::ErrorPtr> BuildCoreMLModel();
@@ -167,6 +172,8 @@ class GraphBuilderCoreml {
                        uint64_t output_operand_id,
                        CoreML::Specification::MILSpec::Block& block,
                        std::string_view operand_op_name);
+  // TODO: crbug.com/345271830 - remove this after all callers check with
+  // `context_properties_.data_type_limits`.
   [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddUnaryOperation(
       SupportedDataType supported_data_type,
       std::string_view op_name,
@@ -174,6 +181,10 @@ class GraphBuilderCoreml {
       uint64_t output_operand_id,
       CoreML::Specification::MILSpec::Block& block,
       std::string_view operand_op_name);
+  void AddUnaryOperation(std::string_view op_name,
+                         uint64_t input_operand_id,
+                         uint64_t output_operand_id,
+                         CoreML::Specification::MILSpec::Block& block);
   template <typename T>
   [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddUnaryOperation(
       SupportedDataType supported_data_type,
@@ -201,6 +212,9 @@ class GraphBuilderCoreml {
 
   // Serialization functions for members of the mojom::Operation union. Keep
   // these functions in the same order as in webnn_graph.mojom.
+  [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForArgMinMax(
+      const mojom::ArgMinMax& operation,
+      CoreML::Specification::MILSpec::Block& block);
   [[nodiscard]] base::expected<void, mojom::ErrorPtr>
   AddOperationForBatchNormalization(
       const mojom::BatchNormalization& operation,
@@ -230,6 +244,9 @@ class GraphBuilderCoreml {
                                   CoreML::Specification::MILSpec::Block& block);
   [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForElu(
       const mojom::Elu& operation,
+      CoreML::Specification::MILSpec::Block& block);
+  [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForExpand(
+      const mojom::Expand& operation,
       CoreML::Specification::MILSpec::Block& block);
   [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForGather(
       const mojom::Gather& operation,
@@ -269,6 +286,9 @@ class GraphBuilderCoreml {
   [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForMatmul(
       const mojom::Matmul& operation,
       CoreML::Specification::MILSpec::Block& block);
+  [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForPad(
+      const mojom::Pad& operation,
+      CoreML::Specification::MILSpec::Block& block);
   [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForPool2d(
       const mojom::Pool2d& operation,
       CoreML::Specification::MILSpec::Block& block);
@@ -293,6 +313,9 @@ class GraphBuilderCoreml {
       CoreML::Specification::MILSpec::Block& block);
   [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForTranspose(
       const mojom::Transpose& operation,
+      CoreML::Specification::MILSpec::Block& block);
+  [[nodiscard]] base::expected<void, mojom::ErrorPtr> AddOperationForWhere(
+      const mojom::Where& operation,
       CoreML::Specification::MILSpec::Block& block);
 
   // Add constants as immediate values in the model file.
@@ -363,6 +386,8 @@ class GraphBuilderCoreml {
   // to CoreML model. The creator of `this` must ensure the GraphInfo reference
   // passed into `CreateAndBuild()` is valid for as long as `this` exists.
   base::raw_ref<const mojom::GraphInfo> graph_info_;
+
+  const ContextProperties context_properties_;
 
   // Used to generate unique names for internal operands generated for WebNN
   // operations that need to be decomposed into multiple CoreML operations.

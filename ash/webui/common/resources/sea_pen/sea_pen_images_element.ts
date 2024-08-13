@@ -11,10 +11,12 @@ import 'chrome://resources/ash/common/personalization/common.css.js';
 import 'chrome://resources/ash/common/personalization/personalization_shared_icons.html.js';
 import 'chrome://resources/ash/common/personalization/wallpaper.css.js';
 import 'chrome://resources/ash/common/sea_pen/sea_pen.css.js';
+import 'chrome://resources/ash/common/sea_pen/sea_pen_icons.html.js';
 import 'chrome://resources/ash/common/sea_pen/surface_effects/sparkle_placeholder.js';
 import 'chrome://resources/ash/common/cr_elements/cr_auto_img/cr_auto_img.js';
 import 'chrome://resources/ash/common/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/ash/common/cr_elements/icons.html.js';
+import './sea_pen_error_element.js';
 import './sea_pen_feedback_element.js';
 import './sea_pen_image_loading_element.js';
 import './sea_pen_zero_state_svg_element.js';
@@ -22,8 +24,8 @@ import './sea_pen_zero_state_svg_element.js';
 import {afterNextRender} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {QUERY, Query, SeaPenImageId} from './constants.js';
-import {isLacrosEnabled, isVcResizeThumbnailEnabled} from './load_time_booleans.js';
-import {MantaStatusCode, SeaPenThumbnail} from './sea_pen.mojom-webui.js';
+import {isLacrosEnabled, isSeaPenTextInputEnabled, isVcResizeThumbnailEnabled} from './load_time_booleans.js';
+import {MantaStatusCode, SeaPenQuery, SeaPenThumbnail, TextQueryHistoryEntry} from './sea_pen.mojom-webui.js';
 import {clearSeaPenThumbnails, openFeedbackDialog, selectSeaPenThumbnail} from './sea_pen_controller.js';
 import {SeaPenTemplateId} from './sea_pen_generated.mojom-webui.js';
 import {getTemplate} from './sea_pen_images_element.html.js';
@@ -140,6 +142,29 @@ export class SeaPenImagesElement extends WithSeaPenStore {
         computed:
             'computeShowError_(thumbnailResponseStatusCode_, thumbnailsLoading_)',
       },
+
+      isSeaPenTextInputEnabled_: {
+        type: Boolean,
+        value() {
+          return isSeaPenTextInputEnabled();
+        },
+      },
+
+      showHistory_: {
+        type: Boolean,
+        computed:
+            'computeShowHistory_(thumbnailsLoading_, seaPenQuery_, textQueryHistory_)',
+      },
+
+      seaPenQuery_: {
+        type: Object,
+        value: null,
+      },
+
+      textQueryHistory_: {
+        type: Array,
+        value: null,
+      },
     };
   }
 
@@ -152,6 +177,9 @@ export class SeaPenImagesElement extends WithSeaPenStore {
   private thumbnailResponseStatusCode_: MantaStatusCode|null;
   private showError_: boolean;
   private cameraFeed_: HTMLVideoElement|null;
+  private isSeaPenTextInputEnabled_: boolean;
+  private seaPenQuery_: SeaPenQuery|null;
+  private textQueryHistory_: TextQueryHistoryEntry[]|null;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -166,36 +194,16 @@ export class SeaPenImagesElement extends WithSeaPenStore {
         'currentSelected_', state => state.currentSelected);
     this.watch<SeaPenImagesElement['pendingSelected_']>(
         'pendingSelected_', state => state.pendingSelected);
+    this.watch<SeaPenImagesElement['seaPenQuery_']>(
+        'seaPenQuery_', state => state.currentSeaPenQuery);
+    this.watch<SeaPenImagesElement['textQueryHistory_']>(
+        'textQueryHistory_', state => state.textQueryHistory);
     this.updateFromStore();
   }
 
   private computeShowError_(
       statusCode: MantaStatusCode|null, thumbnailsLoading: boolean): boolean {
     return !!statusCode && !thumbnailsLoading;
-  }
-
-  private getErrorMessage_(statusCode: MantaStatusCode|null): string {
-    switch (statusCode) {
-      case MantaStatusCode.kNoInternetConnection:
-        return this.i18n('seaPenErrorNoInternet');
-      case MantaStatusCode.kPerUserQuotaExceeded:
-      case MantaStatusCode.kResourceExhausted:
-        return this.i18n('seaPenErrorResourceExhausted');
-      default:
-        return this.i18n('seaPenErrorGeneric');
-    }
-  }
-
-  private getErrorIllo_(statusCode: MantaStatusCode|null): string {
-    switch (statusCode) {
-      case MantaStatusCode.kNoInternetConnection:
-        return 'personalization-shared-illo:network_error';
-      case MantaStatusCode.kPerUserQuotaExceeded:
-      case MantaStatusCode.kResourceExhausted:
-        return 'personalization-shared-illo:resource_error';
-      default:
-        return 'personalization-shared-illo:generic_error';
-    }
   }
 
   private getPoweredByGoogleMessage_(): string {
@@ -207,6 +215,12 @@ export class SeaPenImagesElement extends WithSeaPenStore {
   private onTemplateIdChanged_() {
     this.cameraFeed_?.remove();
     this.cameraFeed_ = null;
+    if (this.templateId === QUERY) {
+      return;
+    }
+    // Clear thumbnails if changing templates.
+    // For Freeform, we need to preserve the thumbnails state when switching
+    // between freeform tabs.
     clearSeaPenThumbnails(this.getStore());
   }
 
@@ -224,6 +238,11 @@ export class SeaPenImagesElement extends WithSeaPenStore {
   private shouldShowImageThumbnails_(
       thumbnailsLoading: boolean, thumbnails: SeaPenThumbnail[]|null): boolean {
     return thumbnailsLoading || isNonEmptyArray(thumbnails);
+  }
+
+  private shouldShowImagesHeading_(
+      isSeaPenTextInputEnabled: boolean, templateId: SeaPenTemplateId|Query) {
+    return !isSeaPenTextInputEnabled || templateId !== QUERY;
   }
 
   private getPlaceholders_(x: number) {
@@ -468,6 +487,13 @@ export class SeaPenImagesElement extends WithSeaPenStore {
       generationSeed: event.detail.thumbnailId,
     };
     openFeedbackDialog(metadata, getSeaPenProvider());
+  }
+
+  private computeShowHistory_(
+      thumbnailsLoading: boolean, seaPenQuery: SeaPenQuery|null,
+      textQueryHistory: TextQueryHistoryEntry[]): boolean {
+    return !thumbnailsLoading && !!seaPenQuery?.textQuery &&
+        isNonEmptyArray(textQueryHistory);
   }
 }
 

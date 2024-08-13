@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <ostream>  // Needed to compile CHECK() with operator <<.
+#include <ranges>
 #include <set>
 #include <string>
 #include <string_view>
@@ -13,6 +14,7 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/dcheck_is_on.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/ranges/algorithm.h"
 #include "sql/sqlite_result_code_values.h"
@@ -163,7 +165,8 @@ constexpr SqliteResultCodeMappingEntry kResultCodeMapping[] = {
     {SQLITE_BUSY_TIMEOUT,
      static_cast<int>(SqliteLoggedResultCode::kUnusedChrome)},
 #ifdef SQLITE_ENABLE_SETLK_TIMEOUT
-#error "This code assumes that Chrome does not use blocking Posix advisory \
+#error \
+    "This code assumes that Chrome does not use blocking Posix advisory \
 file lock requests"
 #endif
 
@@ -316,7 +319,7 @@ SqliteResultCodeMappingEntry FindResultCode(int sqlite_result_code) {
         return sqlite_result_code == rhs.result_code;
       });
 
-  CHECK(mapping_it != base::ranges::end(kResultCodeMapping))
+  CHECK(mapping_it != std::ranges::end(kResultCodeMapping))
       << "Unsupported SQLite result code: " << sqlite_result_code;
   return *mapping_it;
 }
@@ -331,8 +334,9 @@ SqliteResultCode ToSqliteResultCode(int sqlite_result_code) {
 
   DCHECK_NE(logged_code, SqliteLoggedResultCode::kUnusedSqlite)
       << "SQLite reported code marked for internal use: " << sqlite_result_code;
-  DCHECK_NE(logged_code, SqliteLoggedResultCode::kUnusedChrome)
-      << "SQLite reported code that should never show up in Chrome: "
+  DVLOG_IF(1, logged_code == SqliteLoggedResultCode::kUnusedChrome)
+      << "SQLite reported code that should never show up in Chrome unless a "
+         "sql database has been corrupted: "
       << sqlite_result_code;
 
   return static_cast<SqliteResultCode>(sqlite_result_code);
@@ -344,8 +348,9 @@ SqliteErrorCode ToSqliteErrorCode(SqliteResultCode sqlite_error_code) {
 
   DCHECK_NE(logged_code, SqliteLoggedResultCode::kUnusedSqlite)
       << "SQLite reported code marked for internal use: " << sqlite_error_code;
-  DCHECK_NE(logged_code, SqliteLoggedResultCode::kUnusedChrome)
-      << "SQLite reported code that should never show up in Chrome: "
+  DVLOG_IF(1, logged_code == SqliteLoggedResultCode::kUnusedChrome)
+      << "SQLite reported code that should never show up in Chrome unless a "
+         "sql database has been corrupted: "
       << sqlite_error_code;
   DCHECK_NE(logged_code, SqliteLoggedResultCode::kNoError)
       << __func__
@@ -415,13 +420,14 @@ void CheckSqliteLoggedResultCodeForTesting() {
       [](SqliteResultCodeMappingEntry lhs, SqliteResultCodeMappingEntry rhs) {
         return lhs.result_code >= rhs.result_code;
       });
-  DCHECK_EQ(unordered_it, base::ranges::end(kResultCodeMapping))
+  DCHECK_EQ(unordered_it, std::ranges::end(kResultCodeMapping))
       << "Mapping ordering broken at {" << unordered_it->result_code << ", "
       << static_cast<int>(unordered_it->logged_code) << "}";
 
   std::set<int> sqlite_result_codes;
-  for (auto& mapping_entry : kResultCodeMapping)
+  for (auto& mapping_entry : kResultCodeMapping) {
     sqlite_result_codes.insert(mapping_entry.result_code);
+  }
 
   // SQLite doesn't have special messages for extended errors.
   // At the time of this writing, sqlite3_errstr() has a string table for
@@ -430,8 +436,9 @@ void CheckSqliteLoggedResultCodeForTesting() {
   // So, we can only use sqlite3_errstr() to check for holes in the primary
   // message table.
   for (int result_code = 0; result_code <= 256; ++result_code) {
-    if (sqlite_result_codes.count(result_code) != 0)
+    if (sqlite_result_codes.count(result_code) != 0) {
       continue;
+    }
 
     const char* error_message = sqlite3_errstr(result_code);
 

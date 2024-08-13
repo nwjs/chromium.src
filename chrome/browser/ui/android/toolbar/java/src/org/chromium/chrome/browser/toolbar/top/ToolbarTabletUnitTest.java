@@ -31,9 +31,7 @@ import androidx.appcompat.content.res.AppCompatResources;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -63,6 +61,7 @@ import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarAllowCaptureReason;
 import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarBlockCaptureReason;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator.ToolbarColorObserver;
+import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoordinator;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.widget.ToastManager;
 
@@ -73,7 +72,6 @@ import java.util.List;
 @LooperMode(LooperMode.Mode.PAUSED)
 @RunWith(BaseRobolectricTestRunner.class)
 public final class ToolbarTabletUnitTest {
-    @Rule public TestRule mFeaturesProcessorRule = new Features.JUnitProcessor();
     @Mock private LocationBarCoordinator mLocationBar;
     @Mock private LocationBarCoordinatorTablet mLocationBarTablet;
     @Mock private StatusCoordinator mStatusCoordinator;

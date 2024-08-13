@@ -346,6 +346,14 @@ std::vector<OverviewFocusableView*> OverviewGroupItem::GetFocusableViews()
   return focusable_views;
 }
 
+std::vector<views::Widget*> OverviewGroupItem::GetFocusableWidgets() {
+  std::vector<views::Widget*> focusable_widgets;
+  for (const auto& overview_item : overview_items_) {
+    focusable_widgets.push_back(overview_item->item_widget());
+  }
+  return focusable_widgets;
+}
+
 views::View* OverviewGroupItem::GetBackDropView() const {
   return overview_group_container_view_;
 }
@@ -391,7 +399,9 @@ void OverviewGroupItem::OnStartingAnimationComplete() {
 }
 
 void OverviewGroupItem::Restack() {
-  CHECK(!overview_items_.empty());
+  if (overview_items_.empty() || !item_widget_) {
+    return;
+  }
 
   // Sort the items in `sorted_items` based on their stacking order, starting
   // with the lowest.
@@ -477,7 +487,13 @@ void OverviewGroupItem::Shutdown() {
   }
 }
 
-void OverviewGroupItem::AnimateAndCloseItem(bool up) {}
+void OverviewGroupItem::AnimateAndCloseItem(bool up) {
+  animating_to_close_ = true;
+
+  for (const auto& overview_item : overview_items_) {
+    overview_item->AnimateAndCloseItem(up);
+  }
+}
 
 void OverviewGroupItem::StopWidgetAnimation() {
   for (const auto& overview_item : overview_items_) {

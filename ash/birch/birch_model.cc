@@ -54,19 +54,17 @@ BirchModel::PendingRequest::~PendingRequest() = default;
 
 BirchModel::BirchModel()
     : calendar_data_(prefs::kBirchUseCalendar, "Calendar"),
-      attachment_data_(prefs::kBirchUseCalendar, "Attachment"),
+      attachment_data_(prefs::kBirchUseFileSuggest, "Attachment"),
       file_suggest_data_(prefs::kBirchUseFileSuggest, "File"),
-      recent_tab_data_(prefs::kBirchUseRecentTabs, "Tab"),
-      last_active_data_(prefs::kBirchUseLastActive, "LastActive"),
-      most_visited_data_(prefs::kBirchUseMostVisited, "MostVisited"),
-      self_share_data_(prefs::kBirchUseSelfShare, "SelfShare"),
+      recent_tab_data_(prefs::kBirchUseChromeTabs, "Tab"),
+      last_active_data_(prefs::kBirchUseChromeTabs, "LastActive"),
+      most_visited_data_(prefs::kBirchUseChromeTabs, "MostVisited"),
+      self_share_data_(prefs::kBirchUseChromeTabs, "SelfShare"),
+      lost_media_data_(prefs::kBirchUseLostMedia, "LostMedia"),
       release_notes_data_(prefs::kBirchUseReleaseNotes, "ReleaseNotes"),
       weather_data_(prefs::kBirchUseWeather, "Weather"),
       icon_cache_(std::make_unique<BirchIconCache>()) {
-  if (features::IsBirchWeatherEnabled() &&
-      !features::IsBirchWeatherV2Enabled()) {
-    // If BirchWeatherV2 is enabled, the weather provider is owned by birch
-    // client.
+  if (features::IsBirchWeatherEnabled()) {
     weather_provider_ = std::make_unique<BirchWeatherProvider>(this);
   }
   Shell::Get()->session_controller()->AddObserver(this);
@@ -90,10 +88,8 @@ void BirchModel::RemoveObserver(Observer* observer) {
 void BirchModel::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kBirchUseCalendar, true);
   registry->RegisterBooleanPref(prefs::kBirchUseFileSuggest, true);
-  registry->RegisterBooleanPref(prefs::kBirchUseRecentTabs, true);
-  registry->RegisterBooleanPref(prefs::kBirchUseLastActive, true);
-  registry->RegisterBooleanPref(prefs::kBirchUseMostVisited, true);
-  registry->RegisterBooleanPref(prefs::kBirchUseSelfShare, true);
+  registry->RegisterBooleanPref(prefs::kBirchUseChromeTabs, true);
+  registry->RegisterBooleanPref(prefs::kBirchUseLostMedia, true);
   registry->RegisterBooleanPref(prefs::kBirchUseWeather, true);
   registry->RegisterBooleanPref(prefs::kBirchUseReleaseNotes, true);
   // NOTE: If you add a pref here, also update birch_browsertest.cc and
@@ -120,11 +116,24 @@ void BirchModel::SetItems(DataTypeInfo<T>& data_info,
 
 void BirchModel::SetCalendarItems(
     const std::vector<BirchCalendarItem>& calendar_items) {
+  if (!GetPrefService()->GetBoolean(prefs::kBirchUseCalendar)) {
+    // If the kBirchUseCalendar pref is disabled, but the kBirchUseFileSuggest
+    // pref is enabled, the call to StartDataFetchIfNeeded(attachment...) for
+    // calendar attachments will cause the calendar provider to receive a data
+    // fetch request.
+    return;
+  }
   SetItems(calendar_data_, calendar_items, /*record_latency=*/true);
 }
 
 void BirchModel::SetAttachmentItems(
     const std::vector<BirchAttachmentItem>& attachment_items) {
+  if (!GetPrefService()->GetBoolean(prefs::kBirchUseFileSuggest)) {
+    // The fetch is controlled by the calendar prefs, but attachments are
+    // considered file suggestions in the UI. Don't SetItems() so we don't
+    // MaybeRespondToDataFetchRequest() for a data type that's disabled by pref.
+    return;
+  }
   // There is no separate latency measurement for attachments because they come
   // from the calendar provider.
   SetItems(attachment_data_, attachment_items, /*record_latency=*/false);
@@ -154,6 +163,11 @@ void BirchModel::SetMostVisitedItems(
 void BirchModel::SetSelfShareItems(
     const std::vector<BirchSelfShareItem>& self_share_items) {
   SetItems(self_share_data_, self_share_items, /*record_latency=*/true);
+}
+
+void BirchModel::SetLostMediaItems(
+    const std::vector<BirchLostMediaItem>& lost_media_items) {
+  SetItems(lost_media_data_, lost_media_items, /*record_latency=*/true);
 }
 
 void BirchModel::SetWeatherItems(
@@ -219,16 +233,6 @@ void BirchModel::StartDataFetchIfNeeded(DataTypeInfo<T>& data_info,
   data_provider->RequestBirchDataFetch();
 }
 
-BirchDataProvider* BirchModel::GetWeatherProvider() {
-  if (!features::IsBirchWeatherEnabled()) {
-    return nullptr;
-  }
-  if (features::IsBirchWeatherV2Enabled()) {
-    return birch_client_ ? birch_client_->GetWeatherV2Provider() : nullptr;
-  }
-  return weather_provider_.get();
-}
-
 void BirchModel::RequestBirchDataFetch(bool is_post_login,
                                        base::OnceClosure callback) {
   if (!Shell::Get()->session_controller()->IsUserPrimary()) {
@@ -285,10 +289,12 @@ void BirchModel::RequestBirchDataFetch(bool is_post_login,
                            birch_client_->GetMostVisitedProvider());
     StartDataFetchIfNeeded(self_share_data_,
                            birch_client_->GetSelfShareProvider());
+    StartDataFetchIfNeeded(lost_media_data_,
+                           birch_client_->GetLostMediaProvider());
     StartDataFetchIfNeeded(release_notes_data_,
                            birch_client_->GetReleaseNotesProvider());
   }
-  StartDataFetchIfNeeded(weather_data_, GetWeatherProvider());
+  StartDataFetchIfNeeded(weather_data_, weather_provider_.get());
   MaybeRespondToDataFetchRequest();
 }
 
@@ -317,6 +323,7 @@ std::vector<std::unique_ptr<BirchItem>> BirchModel::GetAllItems() {
   ranker.RankSelfShareItems(&self_share_data_.items);
   ranker.RankWeatherItems(&weather_data_.items);
   ranker.RankReleaseNotesItems(&release_notes_data_.items);
+  ranker.RankLostMediaItems(&lost_media_data_.items);
 
   // Avoid showing a duplicate last-active tab with a recent tab by removing
   // the item with the higher ranking.
@@ -398,40 +405,64 @@ std::vector<std::unique_ptr<BirchItem>> BirchModel::GetAllItems() {
     return false;
   });
 
+  // Check prefs before returning items (the user might have toggled a pref
+  // off while the data fetch was in-flight so we check again here).
   std::vector<std::unique_ptr<BirchItem>> all_items;
-  for (auto& event : calendar_data_.items) {
-    all_items.push_back(std::make_unique<BirchCalendarItem>(event));
-  }
-  for (auto& event : file_id_to_attachment_item) {
-    all_items.push_back(std::make_unique<BirchAttachmentItem>(event.second));
-  }
-  for (auto& tab : recent_tab_data_.items) {
-    all_items.push_back(std::make_unique<BirchTabItem>(tab));
-  }
-  if (ShouldShowLastActive()) {
-    for (auto& item : url_to_last_active_item) {
-      all_items.push_back(std::make_unique<BirchLastActiveItem>(item.second));
+  PrefService* prefs = GetPrefService();
+  if (prefs->GetBoolean(prefs::kBirchUseCalendar)) {
+    for (auto& event : calendar_data_.items) {
+      all_items.push_back(std::make_unique<BirchCalendarItem>(event));
     }
-    last_active_last_shown_ = GetNow();
   }
-  if (ShouldShowMostVisited()) {
-    for (auto& item : url_to_most_visited_item) {
-      all_items.push_back(std::make_unique<BirchMostVisitedItem>(item.second));
+
+  if (prefs->GetBoolean(prefs::kBirchUseFileSuggest)) {
+    for (auto& event : file_id_to_attachment_item) {
+      all_items.push_back(std::make_unique<BirchAttachmentItem>(event.second));
     }
-    most_visited_last_shown_ = GetNow();
+    for (auto& file_suggestion : file_suggest_data_.items) {
+      all_items.push_back(std::make_unique<BirchFileItem>(file_suggestion));
+    }
   }
-  for (auto& event : url_to_self_share_item) {
-    all_items.push_back(std::make_unique<BirchSelfShareItem>(event.second));
+
+  if (prefs->GetBoolean(prefs::kBirchUseChromeTabs)) {
+    for (auto& tab : recent_tab_data_.items) {
+      all_items.push_back(std::make_unique<BirchTabItem>(tab));
+    }
+    if (ShouldShowLastActive()) {
+      for (auto& item : url_to_last_active_item) {
+        all_items.push_back(std::make_unique<BirchLastActiveItem>(item.second));
+      }
+      last_active_last_shown_ = GetNow();
+    }
+    if (ShouldShowMostVisited()) {
+      for (auto& item : url_to_most_visited_item) {
+        all_items.push_back(
+            std::make_unique<BirchMostVisitedItem>(item.second));
+      }
+      most_visited_last_shown_ = GetNow();
+    }
+    for (auto& event : url_to_self_share_item) {
+      all_items.push_back(std::make_unique<BirchSelfShareItem>(event.second));
+    }
   }
-  for (auto& file_suggestion : file_suggest_data_.items) {
-    all_items.push_back(std::make_unique<BirchFileItem>(file_suggestion));
+
+  if (prefs->GetBoolean(prefs::kBirchUseLostMedia)) {
+    for (auto& item : lost_media_data_.items) {
+      all_items.push_back(std::make_unique<BirchLostMediaItem>(item));
+    }
   }
-  for (auto& weather_item : weather_data_.items) {
-    all_items.push_back(std::make_unique<BirchWeatherItem>(weather_item));
+
+  if (prefs->GetBoolean(prefs::kBirchUseWeather)) {
+    for (auto& weather_item : weather_data_.items) {
+      all_items.push_back(std::make_unique<BirchWeatherItem>(weather_item));
+    }
   }
-  for (auto& release_notes_item : release_notes_data_.items) {
-    all_items.push_back(
-        std::make_unique<BirchReleaseNotesItem>(release_notes_item));
+
+  if (prefs->GetBoolean(prefs::kBirchUseReleaseNotes)) {
+    for (auto& release_notes_item : release_notes_data_.items) {
+      all_items.push_back(
+          std::make_unique<BirchReleaseNotesItem>(release_notes_item));
+    }
   }
   // Sort items by ranking.
   std::sort(all_items.begin(), all_items.end(),
@@ -450,6 +481,10 @@ std::vector<std::unique_ptr<BirchItem>> BirchModel::GetItemsForDisplay() {
     return item->ranking() == std::numeric_limits<float>::max();
   });
 
+  // Remove any items with no title. These aren't useful to users.
+  std::erase_if(results,
+                [](const auto& item) { return item->title().empty(); });
+
   return results;
 }
 
@@ -464,10 +499,11 @@ bool BirchModel::IsDataFresh() {
       (calendar_data_.is_fresh && attachment_data_.is_fresh &&
        file_suggest_data_.is_fresh && recent_tab_data_.is_fresh &&
        last_active_data_.is_fresh && most_visited_data_.is_fresh &&
-       self_share_data_.is_fresh && release_notes_data_.is_fresh);
+       self_share_data_.is_fresh && lost_media_data_.is_fresh &&
+       release_notes_data_.is_fresh);
 
   // Use the same logic for weather.
-  bool is_weather_fresh = !GetWeatherProvider() || weather_data_.is_fresh;
+  bool is_weather_fresh = !weather_provider_ || weather_data_.is_fresh;
   return is_birch_client_fresh && is_weather_fresh;
 }
 
@@ -479,6 +515,14 @@ void BirchModel::RemoveItem(BirchItem* item) {
   base::UmaHistogramEnumeration("Ash.Birch.Chip.Hidden", item->GetType());
 
   item_remover_->RemoveItem(item);
+
+  // File items must be removed from launcher suggestions.
+  if (item->GetType() == BirchItemType::kFile) {
+    auto* file_item = static_cast<BirchFileItem*>(item);
+    if (birch_client_) {
+      birch_client_->RemoveFileItemFromLauncher(file_item->file_path());
+    }
+  }
 }
 
 void BirchModel::OnActiveUserSessionChanged(const AccountId& account_id) {
@@ -504,6 +548,10 @@ void BirchModel::OnGeolocationPermissionChanged(bool enabled) {
     weather_data_.items.clear();
     weather_data_.is_fresh = false;
   }
+}
+
+BirchDataProvider* BirchModel::GetWeatherProviderForTest() {
+  return weather_provider_.get();
 }
 
 void BirchModel::OverrideWeatherProviderForTest(
@@ -580,6 +628,8 @@ void BirchModel::ClearAllItems() {
   last_active_data_.items.clear();
   most_visited_data_.items.clear();
   weather_data_.items.clear();
+  self_share_data_.items.clear();
+  lost_media_data_.items.clear();
   release_notes_data_.items.clear();
 }
 
@@ -591,6 +641,8 @@ void BirchModel::MarkDataNotFresh() {
   last_active_data_.is_fresh = false;
   most_visited_data_.is_fresh = false;
   weather_data_.is_fresh = false;
+  self_share_data_.is_fresh = false;
+  lost_media_data_.is_fresh = false;
   release_notes_data_.is_fresh = false;
 }
 
@@ -610,25 +662,15 @@ void BirchModel::InitPrefChangeRegistrars() {
       prefs::kBirchUseFileSuggest,
       base::BindRepeating(&BirchModel::OnFileSuggestPrefChanged,
                           base::Unretained(this)));
-  recent_tab_pref_registrar_.Init(prefs);
-  recent_tab_pref_registrar_.Add(
-      prefs::kBirchUseRecentTabs,
-      base::BindRepeating(&BirchModel::OnRecentTabPrefChanged,
+  chrome_tabs_pref_registrar_.Init(prefs);
+  chrome_tabs_pref_registrar_.Add(
+      prefs::kBirchUseChromeTabs,
+      base::BindRepeating(&BirchModel::OnChromeTabsPrefChanged,
                           base::Unretained(this)));
-  last_active_pref_registrar_.Init(prefs);
-  last_active_pref_registrar_.Add(
-      prefs::kBirchUseLastActive,
-      base::BindRepeating(&BirchModel::OnLastActivePrefChanged,
-                          base::Unretained(this)));
-  most_visited_pref_registrar_.Init(prefs);
-  most_visited_pref_registrar_.Add(
-      prefs::kBirchUseMostVisited,
-      base::BindRepeating(&BirchModel::OnMostVisitedPrefChanged,
-                          base::Unretained(this)));
-  self_share_pref_registrar_.Init(prefs);
-  self_share_pref_registrar_.Add(
-      prefs::kBirchUseSelfShare,
-      base::BindRepeating(&BirchModel::OnSelfSharePrefChanged,
+  lost_media_pref_registrar_.Init(prefs);
+  lost_media_pref_registrar_.Add(
+      prefs::kBirchUseLostMedia,
+      base::BindRepeating(&BirchModel::OnLostMediaPrefChanged,
                           base::Unretained(this)));
   weather_pref_registrar_.Init(prefs);
   weather_pref_registrar_.Add(
@@ -646,8 +688,6 @@ void BirchModel::OnCalendarPrefChanged() {
   if (birch_client_) {
     StartDataFetchIfNeeded(calendar_data_,
                            birch_client_->GetCalendarProvider());
-    StartDataFetchIfNeeded(attachment_data_,
-                           birch_client_->GetCalendarProvider());
   }
 }
 
@@ -655,39 +695,34 @@ void BirchModel::OnFileSuggestPrefChanged() {
   if (birch_client_) {
     StartDataFetchIfNeeded(file_suggest_data_,
                            birch_client_->GetFileSuggestProvider());
+    // Event attachments are considered file suggestions.
+    StartDataFetchIfNeeded(attachment_data_,
+                           birch_client_->GetCalendarProvider());
   }
 }
 
-void BirchModel::OnRecentTabPrefChanged() {
+void BirchModel::OnChromeTabsPrefChanged() {
   if (birch_client_) {
     StartDataFetchIfNeeded(recent_tab_data_,
                            birch_client_->GetRecentTabsProvider());
-  }
-}
-
-void BirchModel::OnLastActivePrefChanged() {
-  if (birch_client_) {
     StartDataFetchIfNeeded(last_active_data_,
                            birch_client_->GetLastActiveProvider());
-  }
-}
-
-void BirchModel::OnMostVisitedPrefChanged() {
-  if (birch_client_) {
     StartDataFetchIfNeeded(most_visited_data_,
                            birch_client_->GetMostVisitedProvider());
-  }
-}
-
-void BirchModel::OnSelfSharePrefChanged() {
-  if (birch_client_) {
     StartDataFetchIfNeeded(self_share_data_,
                            birch_client_->GetSelfShareProvider());
   }
 }
 
+void BirchModel::OnLostMediaPrefChanged() {
+  if (birch_client_) {
+    StartDataFetchIfNeeded(lost_media_data_,
+                           birch_client_->GetLostMediaProvider());
+  }
+}
+
 void BirchModel::OnWeatherPrefChanged() {
-  StartDataFetchIfNeeded(weather_data_, GetWeatherProvider());
+  StartDataFetchIfNeeded(weather_data_, weather_provider_.get());
 }
 
 void BirchModel::OnReleaseNotesPrefChanged() {
@@ -707,14 +742,10 @@ void BirchModel::RecordProviderHiddenHistograms() {
                             !prefs->GetBoolean(prefs::kBirchUseCalendar));
   base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.FileSuggest",
                             !prefs->GetBoolean(prefs::kBirchUseFileSuggest));
-  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.RecentTabs",
-                            !prefs->GetBoolean(prefs::kBirchUseRecentTabs));
-  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.LastActive",
-                            !prefs->GetBoolean(prefs::kBirchUseLastActive));
-  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.MostVisited",
-                            !prefs->GetBoolean(prefs::kBirchUseMostVisited));
-  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.SelfShare",
-                            !prefs->GetBoolean(prefs::kBirchUseSelfShare));
+  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.ChromeTabs",
+                            !prefs->GetBoolean(prefs::kBirchUseChromeTabs));
+  base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.LostMedia",
+                            !prefs->GetBoolean(prefs::kBirchUseLostMedia));
   base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.Weather",
                             !prefs->GetBoolean(prefs::kBirchUseWeather));
   base::UmaHistogramBoolean("Ash.Birch.ProviderHidden.ReleaseNotes",

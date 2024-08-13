@@ -9,7 +9,7 @@
 #include <type_traits>
 
 #include "partition_alloc/build_config.h"
-#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
+#include "partition_alloc/buildflags.h"
 
 namespace partition_alloc::internal::base::subtle {
 
@@ -21,7 +21,7 @@ bool RefCountedThreadSafeBase::HasAtLeastOneRef() const {
   return !ref_count_.IsZero();
 }
 
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
 RefCountedThreadSafeBase::~RefCountedThreadSafeBase() {
   PA_BASE_DCHECK(in_dtor_) << "RefCountedThreadSafe object deleted without "
                               "calling Release()";

@@ -23,6 +23,11 @@
  *
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/html/html_element.h"
 
 #include "base/containers/enum_set.h"
@@ -62,6 +67,7 @@
 #include "third_party/blink/renderer/core/dom/slot_assignment_recalc_forbidden_scope.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
+#include "third_party/blink/renderer/core/editing/serializers/markup_accumulator.h"
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
 #include "third_party/blink/renderer/core/editing/spellcheck/spell_checker.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
@@ -113,6 +119,7 @@
 #include "third_party/blink/renderer/core/xml_names.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
@@ -199,6 +206,18 @@ class PopoverCloseWatcherEventListener : public NativeEventListener {
   WeakMember<HTMLElement> popover_;
 };
 
+class NameInHeapSnapshotBuilder : public MarkupAccumulator {
+ public:
+  NameInHeapSnapshotBuilder()
+      : MarkupAccumulator(kDoNotResolveURLs,
+                          SerializationType::kHTML,
+                          ShadowRootInclusion()) {}
+  String GetStartTag(const Element& element) {
+    AppendElement(element);
+    return markup_.ToString();
+  }
+};
+
 }  // anonymous namespace
 
 String HTMLElement::nodeName() const {
@@ -212,6 +231,18 @@ String HTMLElement::nodeName() const {
     return Element::nodeName().UpperASCII();
   }
   return Element::nodeName();
+}
+
+const char* HTMLElement::NameInHeapSnapshot() const {
+  if (!ThreadState::Current()->IsTakingHeapSnapshot()) {
+    // If a heap snapshot is not in progress, we must return a string with
+    // static lifetime rather than allocating something.
+    return Element::NameInHeapSnapshot();
+  }
+  NameInHeapSnapshotBuilder builder;
+  String start_tag = builder.GetStartTag(*this);
+  std::string utf_8 = start_tag.Utf8();
+  return ThreadState::Current()->CopyNameForHeapSnapshot(utf_8.c_str());
 }
 
 bool HTMLElement::ShouldSerializeEndTag() const {
@@ -640,6 +671,8 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
        kNoEvent, nullptr},
       {html_names::kAriaColindexAttr, WebFeature::kARIAColIndexAttribute,
        kNoEvent, nullptr},
+      {html_names::kAriaColindextextAttr,
+       WebFeature::kARIAColIndexTextAttribute, kNoEvent, nullptr},
       {html_names::kAriaColspanAttr, WebFeature::kARIAColSpanAttribute,
        kNoEvent, nullptr},
       {html_names::kAriaControlsAttr, WebFeature::kARIAControlsAttribute,
@@ -706,6 +739,8 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
        kNoEvent, nullptr},
       {html_names::kAriaRowindexAttr, WebFeature::kARIARowIndexAttribute,
        kNoEvent, nullptr},
+      {html_names::kAriaRowindextextAttr,
+       WebFeature::kARIARowIndexTextAttribute, kNoEvent, nullptr},
       {html_names::kAriaRowspanAttr, WebFeature::kARIARowSpanAttribute,
        kNoEvent, nullptr},
       {html_names::kAriaSelectedAttr, WebFeature::kARIASelectedAttribute,
@@ -1988,10 +2023,10 @@ const HTMLElement* NearestTargetPopoverForInvoker(
         if (!form_element) {
           return nullptr;
         }
-        auto* invoke_target_element = form_element->invokeTargetElement();
+        auto* target_element = form_element->commandForElement();
 
-        return invoke_target_element
-                   ? DynamicTo<HTMLElement>(invoke_target_element)
+        return target_element
+                   ? DynamicTo<HTMLElement>(target_element)
                    : form_element->popoverTargetElement().popover.Get();
       });
 }
@@ -2191,7 +2226,7 @@ void HTMLElement::HandlePopoverLightDismiss(const Event& event,
     // presses instead of this.
     DCHECK(!RuntimeEnabledFeatures::CloseWatcherEnabled());
     const KeyboardEvent* key_event = DynamicTo<KeyboardEvent>(event);
-    if (key_event && key_event->key() == "Escape") {
+    if (key_event && key_event->key() == keywords::kEscape) {
       CHECK(!event.GetEventPath().IsEmpty());
       CHECK_EQ(Event::PhaseType::kNone, event.eventPhase());
       // Escape key just pops the topmost popover=auto/hint off the stack.
@@ -2335,29 +2370,29 @@ bool HTMLElement::DispatchFocusEvent(
                                      source_capabilities);
 }
 
-bool HTMLElement::IsValidInvokeAction(HTMLElement& invoker,
-                                      InvokeAction action) {
-  return Element::IsValidInvokeAction(invoker, action) ||
-         action == InvokeAction::kTogglePopover ||
-         action == InvokeAction::kHidePopover ||
-         action == InvokeAction::kShowPopover ||
+bool HTMLElement::IsValidCommand(HTMLElement& invoker,
+                                 CommandEventType command) {
+  return Element::IsValidCommand(invoker, command) ||
+         command == CommandEventType::kTogglePopover ||
+         command == CommandEventType::kHidePopover ||
+         command == CommandEventType::kShowPopover ||
          (RuntimeEnabledFeatures::HTMLInvokeActionsV2Enabled() &&
-          (action == InvokeAction::kToggleFullscreen ||
-           action == InvokeAction::kRequestFullscreen ||
-           action == InvokeAction::kExitFullscreen));
+          (command == CommandEventType::kToggleFullscreen ||
+           command == CommandEventType::kRequestFullscreen ||
+           command == CommandEventType::kExitFullscreen));
 }
 
-bool HTMLElement::HandleInvokeInternal(HTMLElement& invoker,
-                                       InvokeAction action) {
-  CHECK(IsValidInvokeAction(invoker, action));
+bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
+                                        CommandEventType command) {
+  CHECK(IsValidCommand(invoker, command));
 
-  if (Element::HandleInvokeInternal(invoker, action)) {
+  if (Element::HandleCommandInternal(invoker, command)) {
     return true;
   }
 
-  bool is_fullscreen_action = action == InvokeAction::kToggleFullscreen ||
-                              action == InvokeAction::kRequestFullscreen ||
-                              action == InvokeAction::kExitFullscreen;
+  bool is_fullscreen_action = command == CommandEventType::kToggleFullscreen ||
+                              command == CommandEventType::kRequestFullscreen ||
+                              command == CommandEventType::kExitFullscreen;
 
   if (PopoverType() == PopoverValueType::kNone && !is_fullscreen_action) {
     return false;
@@ -2381,16 +2416,14 @@ bool HTMLElement::HandleInvokeInternal(HTMLElement& invoker,
       IsPopoverReady(PopoverTriggerAction::kShow,
                      /*exception_state=*/nullptr,
                      /*include_event_handler_text=*/true, &document) &&
-      (action == InvokeAction::kAuto ||
-       action == InvokeAction::kTogglePopover ||
-       action == InvokeAction::kShowPopover);
+      (command == CommandEventType::kTogglePopover ||
+       command == CommandEventType::kShowPopover);
   bool can_hide =
       IsPopoverReady(PopoverTriggerAction::kHide,
                      /*exception_state=*/nullptr,
                      /*include_event_handler_text=*/true, &document) &&
-      (action == InvokeAction::kAuto ||
-       action == InvokeAction::kTogglePopover ||
-       action == InvokeAction::kHidePopover);
+      (command == CommandEventType::kTogglePopover ||
+       command == CommandEventType::kHidePopover);
   if (can_hide) {
     HidePopoverInternal(
         HidePopoverFocusBehavior::kFocusPreviousElement,
@@ -2399,11 +2432,11 @@ bool HTMLElement::HandleInvokeInternal(HTMLElement& invoker,
     return true;
   } else if (can_show) {
     // TODO(crbug.com/1121840)
-    // HandleInvokeInternal is called for both `popovertarget` and
-    // `invoketarget`. `popovertarget` has one small additional behavior
+    // HandleCommandInternal is called for both `popovertarget` and
+    // `commandfor`. `popovertarget` has one small additional behavior
     // though; a `<selectlist>` can have a `popovertarget` button. The behavior
-    // for `<selectlist>` for `invoketarget` should be handled in
-    // `HTMLSelectListElement::HandleInvokeInternal`, but the `popovertarget`
+    // for `<selectlist>` for `commandfor` should be handled in
+    // `HTMLSelectListElement::HandleCommandInternal`, but the `popovertarget`
     // logic follows a slightly different path, and so for now lives here.
     // The logic checks to see if the invoker was a popovertarget invoker that
     // is intending to invoke a selectlist element, and opens the ListBox in
@@ -2431,7 +2464,7 @@ bool HTMLElement::HandleInvokeInternal(HTMLElement& invoker,
 
   LocalFrame* frame = document.GetFrame();
 
-  if (action == InvokeAction::kToggleFullscreen) {
+  if (command == CommandEventType::kToggleFullscreen) {
     if (Fullscreen::IsFullscreenElement(*this)) {
       Fullscreen::ExitFullscreen(document);
       return true;
@@ -2444,7 +2477,7 @@ bool HTMLElement::HandleInvokeInternal(HTMLElement& invoker,
                         mojom::ConsoleMessageLevel::kWarning, message);
       return false;
     }
-  } else if (action == InvokeAction::kRequestFullscreen) {
+  } else if (command == CommandEventType::kRequestFullscreen) {
     if (Fullscreen::IsFullscreenElement(*this)) {
       return true;
     }
@@ -2457,7 +2490,7 @@ bool HTMLElement::HandleInvokeInternal(HTMLElement& invoker,
                         mojom::ConsoleMessageLevel::kWarning, message);
       return false;
     }
-  } else if (action == InvokeAction::kExitFullscreen) {
+  } else if (command == CommandEventType::kExitFullscreen) {
     if (Fullscreen::IsFullscreenElement(*this)) {
       Fullscreen::ExitFullscreen(document);
     }

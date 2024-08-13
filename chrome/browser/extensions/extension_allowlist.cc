@@ -400,7 +400,6 @@ void ExtensionAllowlist::NotifyExtensionAllowlistWarningStateChanged(
 }
 
 void ExtensionAllowlist::ReportExtensionReEnabledEvent() {
-#if 0
   auto* metrics_collector =
       safe_browsing::SafeBrowsingMetricsCollectorFactory::GetForProfile(
           profile_);
@@ -410,7 +409,6 @@ void ExtensionAllowlist::ReportExtensionReEnabledEvent() {
         safe_browsing::SafeBrowsingMetricsCollector::EventType::
             NON_ALLOWLISTED_EXTENSION_RE_ENABLED);
   }
-#endif
 }
 
 }  // namespace extensions

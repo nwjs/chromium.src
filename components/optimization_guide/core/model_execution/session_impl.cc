@@ -82,6 +82,24 @@ proto::InternalOnDeviceModelExecutionInfo MakeTextSafetyExecutionLog(
   return ts_execution_info;
 }
 
+SamplingParams ResolveSamplingParams(
+    const std::optional<SessionConfigParams>& config_params,
+    const std::optional<SessionImpl::OnDeviceOptions>& on_device_opts) {
+  if (config_params && config_params->sampling_params) {
+    return config_params->sampling_params.value();
+  }
+  if (on_device_opts) {
+    if (auto feature_params = on_device_opts->adapter->MaybeSamplingParams()) {
+      return feature_params.value();
+    }
+  }
+  return SamplingParams{
+      .top_k = static_cast<uint32_t>(features::GetOnDeviceModelDefaultTopK()),
+      .temperature =
+          static_cast<float>(features::GetOnDeviceModelDefaultTemperature()),
+  };
+}
+
 }  // namespace
 
 // Handles incrementally processing context. After the min context size has been
@@ -186,14 +204,7 @@ SessionImpl::SessionImpl(
       execute_remote_fn_(std::move(execute_remote_fn)),
       optimization_guide_logger_(optimization_guide_logger),
       model_quality_uploader_service_(model_quality_uploader_service),
-      sampling_params_(
-          config_params.value_or(SessionConfigParams())
-              .sampling_params.value_or(SamplingParams{
-                  .top_k = static_cast<uint32_t>(
-                      features::GetOnDeviceModelDefaultTopK()),
-                  .temperature = static_cast<float>(
-                      features::GetOnDeviceModelDefaultTemperature()),
-              })) {
+      sampling_params_(ResolveSamplingParams(config_params, on_device_opts)) {
   if (on_device_opts && on_device_opts->ShouldUse()) {
     on_device_state_.emplace(std::move(*on_device_opts), this);
     // Prewarm the initial session to make sure the service is started.
@@ -268,6 +279,22 @@ SessionImpl::AddContextResult SessionImpl::AddContextImpl(
   on_device_state_->context_processor =
       std::make_unique<ContextProcessor>(*this, input->input_string);
   return AddContextResult::kUsingOnDevice;
+}
+
+void SessionImpl::Score(const std::string& text,
+                        OptimizationGuideModelScoreCallback callback) {
+  // Fail if not using on device, or no session was started yet.
+  if (!on_device_state_ || !on_device_state_->session ||
+      // Fail if context is incomplete
+      on_device_state_->add_context_before_execute ||
+      // Fail if execute was called
+      context_start_time_ == base::TimeTicks()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  on_device_state_->session->Score(text, base::BindOnce([](float score) {
+                                           return std::optional<float>(score);
+                                         }).Then(std::move(callback)));
 }
 
 void SessionImpl::ExecuteModel(
@@ -953,6 +980,12 @@ SessionImpl::ExecuteModelHistogramLogger::~ExecuteModelHistogramLogger() {
           {"OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.",
            GetStringNameForModelExecutionFeature(feature_)}),
       result_);
+}
+
+void SessionImpl::GetSizeInTokens(
+    const std::string& text,
+    OptimizationGuideModelSizeInTokenCallback callback) {
+  GetOrCreateSession().GetSizeInTokens(text, std::move(callback));
 }
 
 }  // namespace optimization_guide

@@ -71,7 +71,7 @@
 #endif
 
 #if BUILDFLAG(IS_MAC)
-#include "chrome/browser/web_applications/app_shim_registry_mac.h"
+#include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
 #endif
 
 namespace web_app {
@@ -289,7 +289,7 @@ void OsIntegrationManager::GetAppExistingShortCutLocation(
               base::DoNothingWithBoundArgs(std::move(shortcut_info))))));
 }
 
-void OsIntegrationManager::GetShortcutInfoForApp(
+void OsIntegrationManager::GetShortcutInfoForAppFromRegistrar(
     const webapps::AppId& app_id,
     GetShortcutInfoCallback callback) {
   const WebApp* app = provider_->registrar_unsafe().GetAppById(app_id);
@@ -430,8 +430,6 @@ void OsIntegrationManager::StartSubManagerExecutionIfRequired(
         FROM_HERE, std::move(write_state_to_db));
     return;
   }
-
-  CHECK_OS_INTEGRATION_ALLOWED();
 
   ExecuteNextSubmanager(app_id, options, desired_states_ptr,
                         web_app->current_os_integration_states(), /*index=*/0,

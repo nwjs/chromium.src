@@ -101,12 +101,18 @@ chromeos::WindowStateType SplitViewOverviewSession::GetWindowStateType() const {
 }
 
 void SplitViewOverviewSession::HandleClickOrTap(const ui::LocatedEvent& event) {
-  if (event.type() != ui::ET_MOUSE_PRESSED &&
-      event.type() != ui::ET_TOUCH_RELEASED) {
+  if (event.type() != ui::EventType::kMousePressed &&
+      event.type() != ui::EventType::kTouchReleased) {
     return;
   }
 
   aura::Window* target = static_cast<aura::Window*>(event.target());
+  if (target != window_) {
+    // The target might be in the window layout menu, not `window_` itself, in
+    // which case we don't need to handle it and end overview.
+    return;
+  }
+
   const int client_component =
       window_util::GetNonClientComponent(target, event.location());
   if (client_component != HTCLIENT && client_component != HTCAPTION) {
@@ -185,12 +191,6 @@ void SplitViewOverviewSession::OnWindowBoundsChanged(
     const gfx::Rect& old_bounds,
     const gfx::Rect& new_bounds,
     ui::PropertyChangeReason reason) {
-  // Overview may be ending, during which we don't need to update the
-  // window or grid bounds. `this` will be destroyed soon.
-  if (!IsInOverviewSession()) {
-    return;
-  }
-
   if (WindowState* window_state = WindowState::Get(window);
       window_state->is_dragged()) {
     CHECK_NE(WindowResizer::kBoundsChange_None,
@@ -207,6 +207,12 @@ void SplitViewOverviewSession::OnWindowBoundsChanged(
           WindowResizer::kBoundsChange_Resizes);
     CHECK(presentation_time_recorder_);
     presentation_time_recorder_->RequestNext();
+  }
+
+  // Overview may be ending, during which we don't need to update the
+  // window or grid bounds. `this` will be destroyed soon.
+  if (!IsInOverviewSession()) {
+    return;
   }
 
   // When in clamshell `SplitViewOverviewSession`, we need to manually refresh

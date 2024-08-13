@@ -11,7 +11,7 @@
 #include "base/path_service.h"
 #include "base/test/mock_callback.h"
 #include "pdf/pdf.h"
-#include "pdf/pdf_engine.h"
+#include "pdf/pdfium/pdfium_engine.h"
 #include "services/screen_ai/buildflags/buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/pdfium/public/cpp/fpdf_scopers.h"
@@ -20,6 +20,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/size_f.h"
+#include "ui/gfx/geometry/test/geometry_util.h"
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 #include <memory>
@@ -85,6 +86,31 @@ std::string GetText(base::span<const uint8_t> pdf, int page_index) {
     text += static_cast<char16_t>(char_code);
   }
   return base::UTF16ToUTF8(text);
+}
+
+std::vector<gfx::RectF> GetTextPositions(base::span<const uint8_t> pdf,
+                                         int page_index) {
+  ScopedFPDFDocument document(
+      FPDF_LoadMemDocument64(pdf.data(), pdf.size(), nullptr));
+  CHECK(document);
+  ScopedFPDFPage page(FPDF_LoadPage(document.get(), page_index));
+  CHECK(page);
+  ScopedFPDFTextPage text_page(FPDFText_LoadPage(page.get()));
+  CHECK(text_page);
+  int char_count = FPDFText_CountChars(text_page.get());
+  CHECK_GE(char_count, 0);
+  std::vector<gfx::RectF> positions;
+  positions.reserve(char_count);
+  for (int i = 0; i < char_count; ++i) {
+    double left;
+    double right;
+    double bottom;
+    double top;
+    CHECK(
+        FPDFText_GetCharBox(text_page.get(), i, &left, &right, &bottom, &top));
+    positions.push_back(gfx::RectF(left, bottom, right - left, top - bottom));
+  }
+  return positions;
 }
 
 }  // namespace
@@ -208,8 +234,10 @@ TEST_F(PDFiumEngineExportsTest, Searchify) {
   base::MockCallback<base::RepeatingCallback<
       screen_ai::mojom::VisualAnnotationPtr(const SkBitmap&)>>
       perform_ocr_callback;
+  // The PDF has 3 images, but one of them has a matrix that results in an image
+  // with size 0, and its image cannot be extracted.
   EXPECT_CALL(perform_ocr_callback, Run)
-      .Times(3)
+      .Times(2)
       .WillRepeatedly([](const SkBitmap& bitmap) {
         CHECK(!bitmap.empty());
         auto annotation = screen_ai::mojom::VisualAnnotation::New();
@@ -258,6 +286,72 @@ TEST_F(PDFiumEngineExportsTest, SearchifyBroken) {
   std::vector<uint8_t> output_pdf_buffer =
       Searchify(*pdf_buffer, std::move(broken_perform_ocr_callback));
   EXPECT_TRUE(output_pdf_buffer.empty());
+}
+
+TEST_F(PDFiumEngineExportsTest, SearchifyBigImage) {
+  base::FilePath pdf_path =
+      pdf_data_dir().Append(FILE_PATH_LITERAL("big_image.pdf"));
+  std::optional<std::vector<uint8_t>> pdf_buffer =
+      base::ReadFileToBytes(pdf_path);
+  ASSERT_TRUE(pdf_buffer.has_value());
+
+  base::MockCallback<base::RepeatingCallback<
+      screen_ai::mojom::VisualAnnotationPtr(const SkBitmap&)>>
+      perform_ocr_callback;
+  EXPECT_CALL(perform_ocr_callback, Run).WillOnce([](const SkBitmap& bitmap) {
+    // The returned image is 267x267 as OCR needs at most 300 DPI.
+    EXPECT_EQ(267, bitmap.width());
+    EXPECT_EQ(267, bitmap.height());
+    auto annotation = screen_ai::mojom::VisualAnnotation::New();
+
+    constexpr gfx::Rect kRect1(0, 30, 10, 5);
+    auto line_box1 = screen_ai::mojom::LineBox::New();
+    line_box1->baseline_box = kRect1;
+    line_box1->baseline_box_angle = 0;
+    line_box1->bounding_box = kRect1;
+    line_box1->bounding_box_angle = 0;
+    auto word_box1 = screen_ai::mojom::WordBox::New();
+    word_box1->word = "a";
+    word_box1->bounding_box = kRect1;
+    word_box1->bounding_box_angle = 0;
+    line_box1->words.push_back(std::move(word_box1));
+    annotation->lines.push_back(std::move(line_box1));
+
+    constexpr gfx::Rect kRect2(200, 210, 67, 57);
+    auto line_box2 = screen_ai::mojom::LineBox::New();
+    line_box2->baseline_box = kRect2;
+    line_box2->baseline_box_angle = 0;
+    line_box2->bounding_box = kRect2;
+    line_box2->bounding_box_angle = 0;
+    auto word_box2 = screen_ai::mojom::WordBox::New();
+    word_box2->word = "b";
+    word_box2->bounding_box = kRect2;
+    word_box2->bounding_box_angle = 0;
+    line_box2->words.push_back(std::move(word_box2));
+    annotation->lines.push_back(std::move(line_box2));
+    return annotation;
+  });
+  {
+    ScopedLibraryInitializer initializer;
+    EXPECT_TRUE(GetTextPositions(*pdf_buffer, 0).empty());
+  }
+  std::vector<uint8_t> output_pdf_buffer =
+      Searchify(*pdf_buffer, perform_ocr_callback.Get());
+  ASSERT_FALSE(output_pdf_buffer.empty());
+  {
+    constexpr float kFloatTolerance = 0.0001f;
+    ScopedLibraryInitializer initializer;
+    // The middle 2 positions are for auto-generated "\r\n".
+    const std::vector<gfx::RectF> positions =
+        GetTextPositions(output_pdf_buffer, 0);
+    ASSERT_EQ(4u, positions.size());
+    EXPECT_RECTF_NEAR(gfx::RectF(0, 55.6105f, 2.397f, 1.1985f), positions[0],
+                      kFloatTolerance);
+    EXPECT_TRUE(positions[1].IsEmpty());
+    EXPECT_TRUE(positions[2].IsEmpty());
+    EXPECT_RECTF_NEAR(gfx::RectF(47.9401f, 0, 16.0599f, 13.6629f), positions[3],
+                      kFloatTolerance);
+  }
 }
 
 TEST_F(PDFiumEngineExportsTest, PdfProgressiveSearchifier) {

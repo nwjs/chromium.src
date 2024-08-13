@@ -122,19 +122,23 @@ class NativeWidgetMac::ZoomFocusMonitor : public FocusChangeListener {
 // NativeWidgetMac:
 
 NativeWidgetMac::NativeWidgetMac(internal::NativeWidgetDelegate* delegate)
-    : delegate_(delegate),
+    // TODO(crbug.com/346814969): Investigate where a null `delegate` should
+    // be allowed.
+    : delegate_(delegate ? delegate->AsWidget()->GetWeakPtr() : nullptr),
       ns_window_host_(new NativeWidgetMacNSWindowHost(this)) {}
 
 NativeWidgetMac::~NativeWidgetMac() {
   if (ownership_ == Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET)
-    delegate_.ClearAndDelete();
+    owned_delegate_.reset();
   else
     CloseNow();
 }
 
 void NativeWidgetMac::WindowDestroying() {
   OnWindowDestroying(GetNativeWindow());
-  delegate_->OnNativeWidgetDestroying();
+  if (delegate_) {
+    delegate_->OnNativeWidgetDestroying();
+  }
 }
 
 void NativeWidgetMac::WindowDestroyed() {
@@ -146,7 +150,9 @@ void NativeWidgetMac::WindowDestroyed() {
   bool should_delete_this =
       (ownership_ == Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET) ||
       (ownership_ == Widget::InitParams::CLIENT_OWNS_WIDGET);
-  delegate_->OnNativeWidgetDestroyed();
+  if (delegate_) {
+    delegate_->OnNativeWidgetDestroyed();
+  }
   if (should_delete_this)
     delete this;
 }
@@ -155,8 +161,9 @@ void NativeWidgetMac::OnWindowKeyStatusChanged(
     bool is_key,
     bool is_content_first_responder) {
   Widget* widget = GetWidget();
-  if (!widget->OnNativeWidgetActivationChanged(is_key))
+  if (!widget || !widget->OnNativeWidgetActivationChanged(is_key)) {
     return;
+  }
   // The contentView is the BridgedContentView hosting the views::RootView. The
   // focus manager will already know if a native subview has focus.
   if (!is_content_first_responder)
@@ -203,6 +210,9 @@ bool NativeWidgetMac::ExecuteCommand(
 
 void NativeWidgetMac::InitNativeWidget(Widget::InitParams params) {
   ownership_ = params.ownership;
+  if (ownership_ == Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET) {
+    owned_delegate_ = base::WrapUnique(delegate_.get());
+  }
   name_ = params.name;
   type_ = params.type;
   NativeWidgetMacNSWindowHost* parent_host =
@@ -328,7 +338,8 @@ void NativeWidgetMac::ReparentNativeViewImpl(gfx::NativeView new_parent) {
 
 std::unique_ptr<NonClientFrameView>
 NativeWidgetMac::CreateNonClientFrameView() {
-  return std::make_unique<NativeFrameViewMac>(GetWidget());
+  return GetWidget() ? std::make_unique<NativeFrameViewMac>(GetWidget())
+                     : nullptr;
 }
 
 bool NativeWidgetMac::ShouldUseNativeFrame() const {
@@ -342,6 +353,9 @@ bool NativeWidgetMac::ShouldWindowContentsBeTransparent() const {
 }
 
 void NativeWidgetMac::FrameTypeChanged() {
+  if (!GetWidget()) {
+    return;
+  }
   // This is called when the Theme has changed; forward the event to the root
   // widget.
   GetWidget()->ThemeChanged();
@@ -349,11 +363,11 @@ void NativeWidgetMac::FrameTypeChanged() {
 }
 
 Widget* NativeWidgetMac::GetWidget() {
-  return delegate_->AsWidget();
+  return delegate_ ? delegate_->AsWidget() : nullptr;
 }
 
 const Widget* NativeWidgetMac::GetWidget() const {
-  return delegate_->AsWidget();
+  return delegate_ ? delegate_->AsWidget() : nullptr;
 }
 
 gfx::NativeView NativeWidgetMac::GetNativeView() const {
@@ -444,7 +458,9 @@ ui::InputMethod* NativeWidgetMac::GetInputMethod() {
 }
 
 void NativeWidgetMac::CenterWindow(const gfx::Size& size) {
-  GetNSWindowMojo()->SetSizeAndCenter(size, GetWidget()->GetMinimumSize());
+  if (GetNSWindowMojo() && GetWidget()) {
+    GetNSWindowMojo()->SetSizeAndCenter(size, GetWidget()->GetMinimumSize());
+  }
 }
 
 void NativeWidgetMac::GetWindowPlacement(
@@ -634,7 +650,7 @@ void NativeWidgetMac::CloseNow() {
 
 void NativeWidgetMac::Show(ui::WindowShowState show_state,
                            const gfx::Rect& restore_bounds) {
-  if (!GetNSWindowHost()) {
+  if (!GetNSWindowHost() || !delegate_) {
     return;
   }
 
@@ -789,14 +805,13 @@ void NativeWidgetMac::FlashFrame(bool flash_frame) {
   NOTIMPLEMENTED();
 }
 
-void NativeWidgetMac::RunShellDrag(View* view,
-                                   std::unique_ptr<ui::OSExchangeData> data,
+void NativeWidgetMac::RunShellDrag(std::unique_ptr<ui::OSExchangeData> data,
                                    const gfx::Point& location,
                                    int operation,
                                    ui::mojom::DragEventSource source) {
   if (!ns_window_host_)
     return;
-  ns_window_host_->drag_drop_client()->StartDragAndDrop(view, std::move(data),
+  ns_window_host_->drag_drop_client()->StartDragAndDrop(std::move(data),
                                                         operation, source);
 }
 
@@ -925,8 +940,9 @@ ui::GestureConsumer* NativeWidgetMac::GetGestureConsumer() {
 }
 
 void NativeWidgetMac::OnSizeConstraintsChanged() {
-  if (!GetNSWindowMojo())
+  if (!GetNSWindowMojo() || !GetWidget()) {
     return;
+  }
 
   Widget* widget = GetWidget();
   GetNSWindowMojo()->SetSizeConstraints(
@@ -938,31 +954,30 @@ void NativeWidgetMac::OnSizeConstraintsChanged() {
 void NativeWidgetMac::OnNativeViewHierarchyWillChange() {
   // If this is not top-level, then the FocusManager may change, so remove our
   // listeners.
-  if (!GetWidget()->is_top_level())
+  if (GetWidget() && !GetWidget()->is_top_level()) {
     SetFocusManager(nullptr);
+  }
   parent_key_lock_.reset();
 }
 
 void NativeWidgetMac::OnNativeViewHierarchyChanged() {
-  if (!GetWidget()->is_top_level())
+  if (GetWidget() && !GetWidget()->is_top_level()) {
     SetFocusManager(GetWidget()->GetFocusManager());
+  }
 }
 
 bool NativeWidgetMac::SetAllowScreenshots(bool allow) {
-  // TODO(crbug.com/322519161): Add code to set sharingType on NSWindow here?
-  // Probably need to add a SetAllowScreenshots() method to
-  // ns_window_host_(NativeWidgetMacNSWindowHost) instance.
-  //
-  // Nothing in the apple docs say the sharing type is restricted to top level
-  // windows.
-  // https://developer.apple.com/documentation/appkit/nswindow/1419729-sharingtype
-  NOTIMPLEMENTED();
+  if (ns_window_host_) {
+    ns_window_host_->SetAllowScreenshots(allow);
+    return true;
+  }
   return false;
 }
 
 bool NativeWidgetMac::AreScreenshotsAllowed() {
-  // TODO(crbug.com/322519161): Implement.
-  NOTIMPLEMENTED();
+  if (ns_window_host_) {
+    return ns_window_host_->AllowScreenshots();
+  }
   return true;
 }
 
@@ -980,6 +995,14 @@ NativeWidgetMac::RegisterInitNativeWidgetCallback(
     const base::RepeatingCallback<void(NativeWidgetMac*)>& callback) {
   DCHECK(!callback.is_null());
   return g_init_native_widget_callbacks.Get().Add(callback);
+}
+
+void NativeWidgetMac::PopulateCreateWindowParams(
+    const Widget::InitParams& widget_params,
+    remote_cocoa::mojom::CreateWindowParams* params) {
+  if (widget_params.is_overlay) {
+    params->window_class = remote_cocoa::mojom::WindowClass::kOverlay;
+  }
 }
 
 NativeWidgetMacNSWindow* NativeWidgetMac::CreateNSWindow(
@@ -1018,6 +1041,11 @@ void NativeWidgetMac::SetFocusManager(FocusManager* new_focus_manager) {
     focus_manager_->AddFocusChangeListener(this);
     if (zoom_focus_monitor_)
       focus_manager_->AddFocusChangeListener(zoom_focus_monitor_.get());
+
+    if (!widget_observation_.IsObserving()) {
+      CHECK(GetWidget());
+      widget_observation_.Observe(GetWidget());
+    }
   }
 }
 
@@ -1050,6 +1078,15 @@ ui::EventDispatchDetails NativeWidgetMac::DispatchKeyEventPostIME(
   else
     GetWidget()->OnKeyEvent(key);
   return ui::EventDispatchDetails();
+}
+
+void NativeWidgetMac::OnWidgetDestroyed(Widget* widget) {
+  widget_observation_.Reset();
+  // The `widget` owns the `FocusManager`. As such, `NativeWidgetMac` must
+  // unregister itself as a focus change listener here if it hasn't done so
+  // already, or it may retain a dead focus manager pointer (risking
+  // use-after-free).
+  SetFocusManager(nullptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1117,6 +1154,10 @@ NativeWidgetPrivate* NativeWidgetPrivate::GetTopLevelNativeWidget(
   if (!window_host)
     return nullptr;
   while (window_host->parent()) {
+    if (!window_host->native_widget_mac()->GetWidget()) {
+      return nullptr;
+    }
+
     if (window_host->native_widget_mac()->GetWidget()->is_top_level())
       break;
     window_host = window_host->parent();

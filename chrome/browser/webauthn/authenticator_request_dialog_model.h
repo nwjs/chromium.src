@@ -57,6 +57,7 @@ struct VectorIcon;
 }
 
 class AuthenticatorRequestDialogController;
+class Profile;
 
 //                ┌───────┐
 //                │ View  │
@@ -120,16 +121,11 @@ class AuthenticatorRequestDialogController;
   /* Called when the user accepts the create passkey sheet. */                \
   /* (But not the GPM one.) */                                                \
   AUTHENTICATOR_REQUEST_EVENT_0(OnCreatePasskeyAccepted)                      \
-  /* Called when the user accepts passkey creation in the GPM bubble. */      \
-  /* TODO(enclave): Add transition to authentication or bootstrapping  */     \
-  /* device. */                                                               \
+  /* Called when the user accepts passkey creation dialog. */                 \
   AUTHENTICATOR_REQUEST_EVENT_0(OnGPMCreatePasskey)                           \
   /* Called when the user accepts the warning dialog for creating a GPM */    \
   /* passkey in incognito mode.*/                                             \
   AUTHENTICATOR_REQUEST_EVENT_0(OnGPMConfirmOffTheRecordCreate)               \
-  /* Called when the user accepts a bubble confirming that they want to */    \
-  /* start using passkeys. */                                                 \
-  AUTHENTICATOR_REQUEST_EVENT_0(OnGPMOnboardingAccepted)                      \
   /* Called when the user clicks "Forgot PIN" during UV. */                   \
   AUTHENTICATOR_REQUEST_EVENT_0(OnForgotGPMPinPressed)                        \
   /* Called when the user clicks “Manage Devices” to manage their */      \
@@ -202,29 +198,31 @@ class AuthenticatorRequestDialogController;
   AUTHENTICATOR_REQUEST_EVENT_1(OnReauthComplete, std::string)                \
   /* Called just before the model is destructed. */                           \
   AUTHENTICATOR_REQUEST_EVENT_1(OnModelDestroyed,                             \
-                                AuthenticatorRequestDialogModel*)
+                                AuthenticatorRequestDialogModel*)             \
+  /* Called when the GPM passkeys are reset successfully or not. */           \
+  AUTHENTICATOR_REQUEST_EVENT_1(OnGpmPasskeysReset, bool)
 
 // Each Step defines a unique UI state. Setting a Step causes the matching
-// dialog, bubble, or window to appear.
+// dialog or window to appear.
 #define STEPS                                                                  \
   /* The UX flow has not started yet, the dialog should still be hidden. */    \
   F(kNotStarted)                                                               \
                                                                                \
-  /* Conditionally mediated UI. No dialog is shown, instead credentials are    \
-   * offered to the user on the password autofill prompt. */                   \
+  /* Conditionally mediated UI. No dialog is shown, instead credentials are */ \
+  /* offered to the user on the password autofill prompt. */                   \
   F(kConditionalMediation)                                                     \
                                                                                \
   F(kMechanismSelection)                                                       \
                                                                                \
-  /* The request errored out before completing. Error will only be sent        \
-   * after user interaction. */                                                \
+  /* The request errored out before completing. Error will only be sent */     \
+  /* after user interaction. */                                                \
   F(kErrorNoAvailableTransports)                                               \
   F(kErrorNoPasskeys)                                                          \
   F(kErrorInternalUnrecognized)                                                \
   F(kErrorWindowsHelloNotEnabled)                                              \
                                                                                \
-  /* The request is already complete, but the error dialog should wait         \
-   * until user acknowledgement. */                                            \
+  /* The request is already complete, but the error dialog should wait */      \
+  /* until user acknowledgement. */                                            \
   F(kTimedOut)                                                                 \
   F(kKeyNotRegistered)                                                         \
   F(kKeyAlreadyRegistered)                                                     \
@@ -297,10 +295,12 @@ class AuthenticatorRequestDialogController;
   F(kEnterpriseAttestationPermissionRequest)                                   \
                                                                                \
   /* GPM Pin (6-digit). */                                                     \
+  F(kGPMChangePin)                                                             \
   F(kGPMCreatePin)                                                             \
   F(kGPMEnterPin)                                                              \
                                                                                \
   /* GPM Pin (alphanumeric). */                                                \
+  F(kGPMChangeArbitraryPin)                                                    \
   F(kGPMCreateArbitraryPin)                                                    \
   F(kGPMEnterArbitraryPin)                                                     \
                                                                                \
@@ -308,10 +308,8 @@ class AuthenticatorRequestDialogController;
   F(kGPMTouchID)                                                               \
                                                                                \
   /* GPM passkey creation. */                                                  \
-  F(kGPMOnboarding)                                                            \
   F(kGPMCreatePasskey)                                                         \
   F(kGPMConfirmOffTheRecordCreate)                                             \
-  F(kGPMPasskeySaved)                                                          \
   F(kCreatePasskey)                                                            \
   F(kGPMError)                                                                 \
   F(kGPMConnecting)                                                            \
@@ -322,7 +320,8 @@ class AuthenticatorRequestDialogController;
   F(kTrustThisComputerCreation)                                                \
                                                                                \
   /* Changing GPM PIN. */                                                      \
-  F(kGPMReauthForPinReset)
+  F(kGPMReauthForPinReset)                                                     \
+  F(kGPMLockedPin)
 
 struct AuthenticatorRequestDialogModel {
   enum class Step {
@@ -376,13 +375,16 @@ struct AuthenticatorRequestDialogModel {
     using Phone = base::StrongAlias<class PhoneTag, std::string>;
     using AddPhone = base::StrongAlias<class AddPhoneTag, absl::monostate>;
     using Enclave = base::StrongAlias<class EnclaveTag, absl::monostate>;
+    using SignInAgain =
+        base::StrongAlias<class SignInAgainTag, absl::monostate>;
     using Type = absl::variant<Credential,
                                Transport,
                                WindowsAPI,
                                Phone,
                                AddPhone,
                                ICloudKeychain,
-                               Enclave>;
+                               Enclave,
+                               SignInAgain>;
 
     Mechanism(Type type,
               std::u16string name,
@@ -408,12 +410,6 @@ struct AuthenticatorRequestDialogModel {
     CABLE_V1,
     CABLE_V2_SERVER_LINK,
     CABLE_V2_2ND_FACTOR,
-  };
-
-  // Possible error states during GPM pin entry / creation.
-  enum class GpmPinError {
-    kNone,
-    kWrongPin,
   };
 
   explicit AuthenticatorRequestDialogModel(
@@ -447,10 +443,16 @@ struct AuthenticatorRequestDialogModel {
   Step step() const { return step_; }
   void SetStep(Step step);
 
+  void DisableUiOrShowLoadingDialog();
+
   // This can return nullptr in tests.
   content::WebContents* GetWebContents() const;
   // This can return nullptr in tests.
   content::RenderFrameHost* GetRenderFrameHost() const;
+
+  // generation is incremented each time the request is restarted so that events
+  // from different request generations can be distinguished.
+  int generation = 0;
 
   // The following methods and fields are read by views and both read and
   // written by controllers. Views use these values to determine what
@@ -460,8 +462,6 @@ struct AuthenticatorRequestDialogModel {
   // that either the request has finished, or that the current step
   // has no UI, or a different style of UI.
   bool should_dialog_be_closed() const;
-  // Similar to above, but for bubbles.
-  bool should_bubble_be_closed() const;
 
   const std::optional<content::GlobalRenderFrameHostId> frame_host_id;
   device::FidoRequestType request_type = device::FidoRequestType::kGetAssertion;
@@ -480,6 +480,8 @@ struct AuthenticatorRequestDialogModel {
   std::vector<device::DiscoverableCredentialMetadata> creds;
   // preselected_cred contains a credential preselected by the user.
   std::optional<device::DiscoverableCredentialMetadata> preselected_cred;
+  // Whether the platform can check biometrics and has biometrics configured.
+  std::optional<bool> platform_has_biometrics;
   // offer_try_again_in_ui indicates whether a button to retry the request
   // should be included on the dialog sheet shown when encountering certain
   // errors.
@@ -515,8 +517,10 @@ struct AuthenticatorRequestDialogModel {
   // The name of the current GPM account, or else empty. E.g.
   // "example@gmail.com".
   std::string account_name;
-  // Records the error during GPM pin entry / creation, if any.
-  GpmPinError gpm_pin_error = GpmPinError::kNone;
+
+  // Number of remaining GPM pin entry attempts before getting locked out or
+  // `std::nullopt` if there was no failed attempts during that request.
+  std::optional<int> gpm_pin_remaining_attempts_;
 
   // Whether the UI is currently in a disabled state, which is required for some
   // transitions (e.g. `Step::kWaitingForEnclave`). Each step UI that needs it
@@ -550,6 +554,8 @@ class AuthenticatorRequestDialogController
   using RequestCallback = device::FidoRequestHandlerBase::RequestCallback;
   using TransportAvailabilityInfo =
       device::FidoRequestHandlerBase::TransportAvailabilityInfo;
+  using BlePermissionCallback = base::RepeatingCallback<void(
+      device::FidoRequestHandlerBase::BlePermissionCallback)>;
 
   explicit AuthenticatorRequestDialogController(Model* model);
 
@@ -647,16 +653,19 @@ class AuthenticatorRequestDialogController
   // phone.
   void StartPhonePairing();
 
-  // Ensures that the Bluetooth adapter is powered before proceeding to |step|.
-  //  -- If the adapter is powered, advanced directly to |step|.
+  // Ensures that the Bluetooth adapter is powered before executing |action|.
+  //  -- If the adapter is powered, run |action| directly.
+  //  -- If Chrome does not have Bluetooth permissions, show an error (macOS).
+  //  -- If Chrome has not requested Bluetooth permissions yet, trigger a
+  //     permission prompt (macOS).
   //  -- If the adapter is not powered, but Chrome can turn it automatically,
   //     then advanced to the flow to turn on Bluetooth automatically.
   //  -- Otherwise advanced to the manual Bluetooth power on flow.
   //
-  // Valid action when at step: kNotStarted, kMechanismSelection, and steps
-  // where the other transports menu is shown, namely, kUsbInsertAndActivate,
-  // kCableActivate.
-  void EnsureBleAdapterIsPoweredAndContinueWithStep(Step step);
+  // Valid action whenever contacting a phone or showing the QR code screen is
+  // possible.
+  void EnsureBleAdapterIsPoweredAndContinue(base::OnceClosure action);
+  void OnBleStatusKnown(device::FidoRequestHandlerBase::BleStatus ble_status);
 
   void ContinueWithFlowAfterBleAdapterPowered() override;
   void PowerOnBleAdapter() override;
@@ -749,8 +758,9 @@ class AuthenticatorRequestDialogController
   // request should never have been sent to iCloud Keychain in the first place.
   bool OnNoPasskeys();
 
-  // To be called when the Bluetooth adapter powered state changes.
-  void BluetoothAdapterPowerChanged(bool powered);
+  // To be called when the Bluetooth adapter status changes.
+  void BluetoothAdapterStatusChanged(
+      device::FidoRequestHandlerBase::BleStatus ble_status);
 
   void SetRequestCallback(RequestCallback request_callback);
   void SetAccountPreselectedCallback(
@@ -758,6 +768,7 @@ class AuthenticatorRequestDialogController
           callback);
   void SetBluetoothAdapterPowerOnCallback(
       base::RepeatingClosure bluetooth_adapter_power_on_callback);
+  void SetRequestBlePermissionCallback(BlePermissionCallback callback);
   void OnHavePIN(std::u16string pin) override;
 
   // Called when the user needs to retry user verification with the number of
@@ -867,6 +878,8 @@ class AuthenticatorRequestDialogController
   void set_allow_icloud_keychain(bool);
   void set_should_create_in_icloud_keychain(bool);
 
+  void set_enclave_can_be_default(bool can_be_default);
+
 #if BUILDFLAG(IS_MAC)
   void RecordMacOsStartedHistogram();
   void RecordMacOsSuccessHistogram(device::FidoRequestType,
@@ -969,6 +982,9 @@ class AuthenticatorRequestDialogController
   // Mechanism that should be triggered immediately, if any.
   std::optional<size_t> IndexOfPriorityMechanism();
 
+  std::optional<size_t> IndexOfGetAssertionPriorityMechanism();
+  std::optional<size_t> IndexOfMakeCredentialPriorityMechanism();
+
   // Sets correct step for entering GPM pin based on `gpm_pin_is_arbitrary_`.
   void PromptForGPMPin();
 
@@ -984,6 +1000,10 @@ class AuthenticatorRequestDialogController
   void OnUserConfirmedPriorityMechanism() override;
 
   void OnChromeOSGPMRequestReady() override;
+
+  // Returns true if this request could pick the enclave authenticator by
+  // default. This only makes sense for a create() call.
+  bool CanDefaultToEnclave(Profile* profile);
 
   raw_ptr<Model> model_;
 
@@ -1019,6 +1039,10 @@ class AuthenticatorRequestDialogController
       account_preselected_callback_;
   RequestCallback request_callback_;
   base::RepeatingClosure bluetooth_adapter_power_on_callback_;
+
+  // Triggers a permission prompt on macOS if ble_status is
+  // kPendingPermissionRequest and returns the bluetooth status.
+  BlePermissionCallback request_ble_permission_callback_;
 
   base::OnceClosure bio_enrollment_callback_;
 
@@ -1109,6 +1133,8 @@ class AuthenticatorRequestDialogController
   // syncing is enabled.
   bool has_icloud_drive_enabled_ = false;
 #endif
+
+  bool enclave_can_be_default_ = true;
 
   base::ScopedObservation<webauthn::PasskeyModel,
                           webauthn::PasskeyModel::Observer>

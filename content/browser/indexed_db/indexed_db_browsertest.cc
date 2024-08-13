@@ -104,7 +104,6 @@ class IndexedDBBrowserTest : public ContentBrowserTest {
     // Enable experimental web platform features to enable write access.
     command_line->AppendSwitch(
         switches::kEnableExperimentalWebPlatformFeatures);
-    ContentBrowserTest::SetUpCommandLine(command_line);
   }
 
   void TearDownOnMainThread() override { failure_injector_.reset(); }
@@ -568,6 +567,10 @@ class IndexedDBBrowserTestWithGCExposed : public IndexedDBBrowserTest {
 IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTestWithGCExposed,
                        DatabaseCallbacksTest) {
   SimpleTest(GetTestUrl("indexeddb", "database_callbacks_first.html"));
+}
+
+IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTestWithGCExposed, Bug346955148Test) {
+  SimpleTest(GetTestUrl("indexeddb", "bug_346955148.html"));
 }
 
 struct BlobModificationTime {

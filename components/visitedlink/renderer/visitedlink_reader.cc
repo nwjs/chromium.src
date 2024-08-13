@@ -9,7 +9,7 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/metrics/histogram_functions.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/web/web_view.h"
 
@@ -28,6 +28,27 @@ base::RepeatingCallback<
 VisitedLinkReader::GetBindCallback() {
   return base::BindRepeating(&VisitedLinkReader::Bind,
                              weak_factory_.GetWeakPtr());
+}
+
+uint64_t VisitedLinkReader::ComputePartitionedFingerprint(
+    std::string_view canonical_link_url,
+    const net::SchemefulSite& top_level_site,
+    const url::Origin& frame_origin) {
+  // Ensure that we can determine a valid triple-partition key for this link. If
+  // invalid, we return the null fingerprint.
+  const VisitedLink link = {GURL(canonical_link_url), top_level_site,
+                            frame_origin};
+  if (!link.IsValid()) {
+    return 0;
+  }
+  // Determine the per-origin salt used for this fingerprint.
+  auto it = salts_.find(frame_origin);
+  if (it != salts_.end()) {
+    return VisitedLinkCommon::ComputePartitionedFingerprint(link, it->second);
+  }
+  // If we cannot determine the per-origin salt, we cannot read the hashtable,
+  // so we must return the null fingerprint.
+  return 0;
 }
 
 // Initializes the table with the given shared memory handle. This memory is
@@ -71,8 +92,8 @@ void VisitedLinkReader::UpdateUnpartitionedVisitedLinks(
   hash_table_ = const_cast<Fingerprint*>(reinterpret_cast<const Fingerprint*>(
       static_cast<const SharedHeader*>(table_mapping_.memory()) + 1));
   table_length_ = table_len;
-  UMA_HISTOGRAM_COUNTS_10M("History.VisitedLinks.HashTableLengthOnReaderInit",
-                           table_length_);
+  base::UmaHistogramCounts10M(
+      "History.VisitedLinks.HashTableLengthOnReaderInit", table_length_);
 }
 
 void VisitedLinkReader::UpdatePartitionedVisitedLinks(
@@ -103,6 +124,8 @@ void VisitedLinkReader::UpdatePartitionedVisitedLinks(
       static_cast<const PartitionedSharedHeader*>(table_mapping_.memory()) +
       1));
   table_length_ = table_len;
+  base::UmaHistogramCounts10M(
+      "History.VisitedLinks.HashTableLengthOnReaderInit", table_length_);
 }
 
 void VisitedLinkReader::AddVisitedLinks(
@@ -113,6 +136,15 @@ void VisitedLinkReader::AddVisitedLinks(
 
 void VisitedLinkReader::ResetVisitedLinks(bool invalidate_hashes) {
   WebView::ResetVisitedLinkState(invalidate_hashes);
+}
+
+void VisitedLinkReader::UpdateOriginSalts(
+    const base::flat_map<url::Origin, uint64_t>& origin_salts) {
+  for (const auto& [origin, salt] : origin_salts) {
+    base::UmaHistogramBoolean(
+        "Blink.History.VisitedLinks.IsSaltFromNavigationThrottle", false);
+    AddOrUpdateSalt(origin, salt);
+  }
 }
 
 void VisitedLinkReader::FreeTable() {

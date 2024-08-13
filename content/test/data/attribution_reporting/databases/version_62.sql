@@ -50,4 +50,6 @@ CREATE INDEX aggregatable_debug_rate_limits_context_site_idx ON aggregatable_deb
 
 CREATE INDEX aggregatable_debug_rate_limits_time_idx ON aggregatable_debug_rate_limits(time);
 
+INSERT INTO rate_limits VALUES (0,0,2,'3','4','5','https://a.r.test','https://r.test',6,7,8);
+
 COMMIT;

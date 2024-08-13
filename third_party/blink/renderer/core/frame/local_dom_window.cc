@@ -38,12 +38,13 @@
 #include "build/build_config.h"
 #include "cc/input/snap_selection_strategy.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
+#include "net/storage_access_api/status.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/navigation/impression.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions_policy/policy_disposition.mojom-blink.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -76,7 +77,6 @@
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/dom/frame_request_callback_collection.h"
 #include "third_party/blink/renderer/core/dom/scriptable_document_parser.h"
-#include "third_party/blink/renderer/core/dom/scripted_idle_task_controller.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/editing/ime/input_method_controller.h"
@@ -132,6 +132,7 @@
 #include "third_party/blink/renderer/core/page/scrolling/sync_scroll_attempt_heuristic.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/scheduler/scripted_idle_task_controller.h"
 #include "third_party/blink/renderer/core/script/modulator.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -249,7 +250,6 @@ LocalDOMWindow::LocalDOMWindow(LocalFrame& frame, WindowAgent* agent)
           MakeGarbageCollected<
               HeapHashMap<int, Member<ContentSecurityPolicy>>>()),
       token_(frame.GetLocalFrameToken()),
-      post_message_counter_(PostMessagePartition::kSameProcess),
       network_state_observer_(MakeGarbageCollected<NetworkStateObserver>(this)),
       closewatcher_stack_(
           MakeGarbageCollected<CloseWatcher::WatcherStack>(this)),
@@ -460,8 +460,9 @@ ResourceFetcher* LocalDOMWindow::Fetcher() {
 
 bool LocalDOMWindow::CanExecuteScripts(
     ReasonForCallingCanExecuteScripts reason) {
-  if (!GetFrame())
+  if (!GetFrame()) {
     return false;
+  }
 
   // Detached frames should not be attempting to execute script.
   DCHECK(!GetFrame()->IsDetached());
@@ -484,11 +485,7 @@ bool LocalDOMWindow::CanExecuteScripts(
     }
     return false;
   }
-
-  bool allow_script_renderer = GetFrame()->GetSettings()->GetScriptEnabled();
-  bool allow_script_content_setting =
-      GetFrame()->GetContentSettings()->allow_script;
-  bool script_enabled = allow_script_renderer && allow_script_content_setting;
+  bool script_enabled = GetFrame()->ScriptEnabled();
   if (!script_enabled && reason == kAboutToExecuteScript) {
     WebContentSettingsClient* settings_client =
         GetFrame()->GetContentSettingsClient();
@@ -1156,14 +1153,6 @@ NavigationApi* LocalDOMWindow::navigation() {
 void LocalDOMWindow::SchedulePostMessage(PostedMessage* posted_message) {
   LocalDOMWindow* source = posted_message->source;
 
-  // Record UKM metrics for the postMessage event and don't send message if
-  // gating indicates it should be dropped.
-  if (!post_message_counter_.RecordMessageAndCheckIfShouldSend(
-          source->UkmSourceID(), source->GetStorageKey(), UkmSourceID(),
-          GetStorageKey(), UkmRecorder())) {
-    return;
-  };
-
   // Notify the host if the message contained a delegated capability. That state
   // should be tracked by the browser, and messages from remote hosts already
   // signal the browser via RemoteFrameHost's RouteMessageEvent.
@@ -1588,7 +1577,7 @@ int LocalDOMWindow::innerHeight() const {
     return 0;
 
   return AdjustForAbsoluteZoom::AdjustInt(GetViewportSize().height(),
-                                          GetFrame()->PageZoomFactor());
+                                          GetFrame()->LayoutZoomFactor());
 }
 
 int LocalDOMWindow::innerWidth() const {
@@ -1596,7 +1585,7 @@ int LocalDOMWindow::innerWidth() const {
     return 0;
 
   return AdjustForAbsoluteZoom::AdjustInt(GetViewportSize().width(),
-                                          GetFrame()->PageZoomFactor());
+                                          GetFrame()->LayoutZoomFactor());
 }
 
 int LocalDOMWindow::screenX() const {
@@ -1653,7 +1642,7 @@ double LocalDOMWindow::scrollX() const {
   // crbug.com/505516.
   double viewport_x = view->LayoutViewport()->GetWebExposedScrollOffset().x();
   return AdjustForAbsoluteZoom::AdjustScroll(viewport_x,
-                                             GetFrame()->PageZoomFactor());
+                                             GetFrame()->LayoutZoomFactor());
 }
 
 double LocalDOMWindow::scrollY() const {
@@ -1674,7 +1663,7 @@ double LocalDOMWindow::scrollY() const {
   // crbug.com/505516.
   double viewport_y = view->LayoutViewport()->GetWebExposedScrollOffset().y();
   return AdjustForAbsoluteZoom::AdjustScroll(viewport_y,
-                                             GetFrame()->PageZoomFactor());
+                                             GetFrame()->LayoutZoomFactor());
 }
 
 DOMVisualViewport* LocalDOMWindow::visualViewport() {
@@ -1782,8 +1771,8 @@ void LocalDOMWindow::scrollBy(const ScrollToOptions* scroll_to_options) const {
 
   PaintLayerScrollableArea* viewport = view->LayoutViewport();
   gfx::PointF current_position = viewport->ScrollPosition();
-  gfx::Vector2dF scaled_delta(x * GetFrame()->PageZoomFactor(),
-                              y * GetFrame()->PageZoomFactor());
+  gfx::Vector2dF scaled_delta(x * GetFrame()->LayoutZoomFactor(),
+                              y * GetFrame()->LayoutZoomFactor());
   gfx::PointF new_scaled_position = current_position + scaled_delta;
 
   std::unique_ptr<cc::SnapSelectionStrategy> strategy =
@@ -1844,13 +1833,13 @@ void LocalDOMWindow::scrollTo(const ScrollToOptions* scroll_to_options) const {
   if (scroll_to_options->hasLeft()) {
     scaled_x = ScrollableArea::NormalizeNonFiniteScroll(
                    base::saturated_cast<float>(scroll_to_options->left())) *
-               GetFrame()->PageZoomFactor();
+               GetFrame()->LayoutZoomFactor();
   }
 
   if (scroll_to_options->hasTop()) {
     scaled_y = ScrollableArea::NormalizeNonFiniteScroll(
                    base::saturated_cast<float>(scroll_to_options->top())) *
-               GetFrame()->PageZoomFactor();
+               GetFrame()->LayoutZoomFactor();
   }
 
   gfx::PointF new_scaled_position =
@@ -2297,20 +2286,6 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   if (!result.frame)
     return nullptr;
 
-  // If the resulting frame didn't create a new window and fullscreen was
-  // requested, reset the flag to prevent making a pre-existing frame
-  // fullscreen.
-  if (window_features.is_fullscreen &&
-      (!result.new_window || !window_features.is_popup)) {
-    window_features.is_fullscreen = false;
-    GetFrameConsole()->AddMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kJavaScript,
-        mojom::blink::ConsoleMessageLevel::kWarning,
-        "Fullscreen request ignored: 'fullscreen' "
-        "windowFeature flag requires a new popup window."));
-    frame_request.SetFeaturesForWindowOpen(window_features);
-  }
-
   if (window_features.x_set || window_features.y_set) {
     // This runs after FindOrCreateFrameForNavigation() so blocked popups are
     // not counted.
@@ -2558,12 +2533,14 @@ void LocalDOMWindow::SetIsPictureInPictureWindow() {
   is_picture_in_picture_window_ = true;
 }
 
-bool LocalDOMWindow::HasStorageAccess() const {
-  return has_storage_access_;
+net::StorageAccessApiStatus LocalDOMWindow::GetStorageAccessApiStatus() const {
+  return storage_access_api_status_;
 }
 
-void LocalDOMWindow::SetHasStorageAccess() {
-  has_storage_access_ = true;
+void LocalDOMWindow::SetStorageAccessApiStatus(
+    net::StorageAccessApiStatus status) {
+  CHECK_GE(status, storage_access_api_status_);
+  storage_access_api_status_ = status;
 }
 
 void LocalDOMWindow::GenerateNewNavigationId() {

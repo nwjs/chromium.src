@@ -25,7 +25,6 @@
 #include "base/supports_user_data.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "cc/input/browser_controls_offset_tags_info.h"
 #include "cc/input/browser_controls_state.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/invalidate_type.h"
@@ -39,6 +38,7 @@
 #include "content/public/browser/save_page_type.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/common/stop_find_action.h"
+#include "net/base/network_handle.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom-forward.h"
 #include "third_party/blink/public/mojom/frame/find_in_page.mojom-forward.h"
@@ -75,6 +75,10 @@ class WebInputEvent;
 struct UserAgentOverride;
 struct RendererPreferences;
 }  // namespace blink
+
+namespace cc {
+struct BrowserControlsOffsetTagsInfo;
+}  // namespace cc
 
 namespace device {
 namespace mojom {
@@ -284,6 +288,13 @@ class WebContents : public PageNavigator,
     // Enable preview mode that shows a page with a capability restriction
     // for previewing the page.
     bool preview_mode = false;
+
+    // The network handle bound to a target network, is used to handle the
+    // loading requests over that specific network for the WebContents to be
+    // created. The value `kInvalidNetworkHandle` indicates that the current
+    // default network will be used.
+    net::handles::NetworkHandle target_network =
+        net::handles::kInvalidNetworkHandle;
   };
 
   // Token that causes input to be blocked on this WebContents for at least as
@@ -756,7 +767,7 @@ class WebContents : public PageNavigator,
       const gfx::Size& capture_size,
       bool stay_hidden,
       bool stay_awake,
-      bool is_activity = true) = 0;
+      bool is_activity) = 0;
 
   // Getter for the capture handle, which allows a captured application to
   // opt-in to exposing information to its capturer(s).
@@ -1229,7 +1240,7 @@ class WebContents : public PageNavigator,
   virtual void Find(int request_id,
                     const std::u16string& search_text,
                     blink::mojom::FindOptionsPtr options,
-                    bool skip_delay = false) = 0;
+                    bool skip_delay) = 0;
 
   // Notifies the renderer that the user has closed the FindInPage window
   // (and what action to take regarding the selection).
@@ -1318,7 +1329,7 @@ class WebContents : public PageNavigator,
   // This supports sites using cross-screen window placement capabilities to
   // retain fullscreen and open or place a window on another screen.
   [[nodiscard]] virtual base::ScopedClosureRunner ForSecurityDropFullscreen(
-      int64_t display_id = display::kInvalidDisplayId) = 0;
+      int64_t display_id) = 0;
 
   // Unblocks requests from renderer for a newly created window. This is
   // used in showCreatedWindow() or sometimes later in cases where
@@ -1476,6 +1487,25 @@ class WebContents : public PageNavigator,
   // done.
   virtual void ActivatePreviewPage() = 0;
 
+  // Starts browser-initiated prefetch, triggered by embedder.
+  // - `prefetch_url` is the url the prefetch will be performed.
+  // - If `use_prefetch_proxy` is set to true, private prefetch proxy is used in
+  //   this prefetch request.
+  // - `referrer` is utilized as a value of Referer HTTP request header in this
+  //   prefetch request.
+  // - `referring_origin` represents the initiator origin of prefetch request,
+  //   and is mainly used to regulate prefetch behaviors from some security
+  //   perspectives. Normally it should be nullopt and then the opaque origin is
+  //   used internally, but if necessary, custom value from trusted surfaces can
+  //   be embedded into it here.
+  // - `attempt` is used to record some metrics associated with this prefetch
+  //   request.
+  virtual void StartPrefetch(const GURL& prefetch_url,
+                             bool use_prefetch_proxy,
+                             const blink::mojom::Referrer& referrer,
+                             const std::optional<url::Origin>& referring_origin,
+                             base::WeakPtr<PreloadingAttempt> attempt) = 0;
+
   // Starts an embedder triggered (browser-initiated) prerendering page and
   // returns the unique_ptr<PrerenderHandle>, which cancels prerendering on its
   // destruction. If the prerendering failed to start (e.g. if prerendering is
@@ -1496,6 +1526,7 @@ class WebContents : public PageNavigator,
       PreloadingTriggerType trigger_type,
       const std::string& embedder_histogram_suffix,
       ui::PageTransition page_transition,
+      bool should_warm_up_compositor,
       PreloadingHoldbackStatus holdback_status_override,
       PreloadingAttempt* preloading_attempt,
       base::RepeatingCallback<bool(const GURL&)> url_match_predicate,
@@ -1518,7 +1549,7 @@ class WebContents : public PageNavigator,
   // than `max_dimension_dips` are diallowed in this web contents for as long as
   // any of the returned `ScopedClosureRunner` objects is alive.
   [[nodiscard]] virtual base::ScopedClosureRunner
-  CreateDisallowCustomCursorScope(int max_dimension_dips = 0) = 0;
+  CreateDisallowCustomCursorScope(int max_dimension_dips) = 0;
 
   // Enables overscroll history navigation.
   virtual void SetOverscrollNavigationEnabled(bool enabled) = 0;
@@ -1543,6 +1574,11 @@ class WebContents : public PageNavigator,
   // `features::kBackForwardTransitions` is enabled for the supported platform.
   virtual BackForwardTransitionAnimationManager*
   GetBackForwardTransitionAnimationManager() = 0;
+
+  // Returns the network handle targeting to a specific network. The value
+  // `kInvalidNetworkHandle` indicates that the current default network will
+  // be bound.
+  virtual net::handles::NetworkHandle GetTargetNetwork() = 0;
 
  private:
   // This interface should only be implemented inside content.

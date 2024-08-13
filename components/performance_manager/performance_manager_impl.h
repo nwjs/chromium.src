@@ -110,7 +110,7 @@ class PerformanceManagerImpl : public PerformanceManager {
       int render_frame_id,
       const blink::LocalFrameToken& frame_token,
       content::BrowsingInstanceId browsing_instance_id,
-      content::SiteInstanceId site_instance_id,
+      content::SiteInstanceGroupId site_instance_group_id,
       bool is_current,
       FrameNodeCreationCallback creation_callback =
           FrameNodeCreationCallback());
@@ -119,8 +119,7 @@ class PerformanceManagerImpl : public PerformanceManager {
       const std::string& browser_context_id,
       const GURL& visible_url,
       PagePropertyFlags initial_properties,
-      base::TimeTicks visibility_change_time,
-      PageNode::PageState page_state);
+      base::TimeTicks visibility_change_time);
   static std::unique_ptr<ProcessNodeImpl> CreateProcessNode(
       BrowserProcessNodeTag tag);
   static std::unique_ptr<ProcessNodeImpl> CreateProcessNode(

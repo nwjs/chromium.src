@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "build/build_config.h"
 #include "base/check.h"
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
@@ -33,7 +32,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
-#include "base/uuid.h"
+#include "build/build_config.h"
 #include "build/buildflag.h"
 #include "components/attribution_reporting/constants.h"
 #include "components/attribution_reporting/destination_set.h"
@@ -62,7 +61,6 @@
 #include "content/public/browser/attribution_data_model.h"
 #include "net/base/schemeful_site.h"
 #include "services/network/public/cpp/features.h"
-#include "services/network/public/cpp/trigger_verification.h"
 #include "sql/database.h"
 #include "sql/meta_table.h"
 #include "sql/recovery.h"
@@ -144,6 +142,7 @@ struct AttributionAggregatableMetadataRecord {
     std::optional<uint64_t> high_bits;
     std::optional<uint64_t> low_bits;
     std::optional<uint32_t> value;
+    std::optional<uint64_t> id;
   };
   std::vector<Contribution> contributions;
   std::optional<url::Origin> coordinator_origin;
@@ -152,6 +151,7 @@ struct AttributionAggregatableMetadataRecord {
       source_registration_time_config =
           proto::AttributionCommonAggregatableMetadata::INCLUDE;
   std::optional<std::string> trigger_context_id;
+  std::optional<uint32_t> filtering_id_max_bytes;
 };
 
 struct AttributionNullAggregatableMetadataRecord {
@@ -215,6 +215,9 @@ std::string SerializeReportMetadata(
     if (contribution.value) {
       contribution_msg->set_value(*contribution.value);
     }
+    if (contribution.id) {
+      contribution_msg->set_filtering_id(*contribution.id);
+    }
   }
 
   if (record.coordinator_origin.has_value()) {
@@ -230,6 +233,11 @@ std::string SerializeReportMetadata(
   if (record.trigger_context_id.has_value()) {
     msg.mutable_common_data()->set_trigger_context_id(
         *record.trigger_context_id);
+  }
+
+  if (record.filtering_id_max_bytes.has_value()) {
+    msg.mutable_common_data()->set_filtering_id_max_bytes(
+        *record.filtering_id_max_bytes);
   }
 
   std::string str;
@@ -520,279 +528,6 @@ TEST_F(AttributionStorageSqlTest,
 #else
   EXPECT_TRUE(base::PathExists(db_path()));
 #endif
-}
-
-TEST_F(AttributionStorageSqlTest,
-       StoreAndRetrieveReportWithVerification_FeatureEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      network::features::kAttributionReportingReportVerification);
-  base::HistogramTester histograms;
-
-  OpenDatabase();
-
-  StorableSource source = TestAggregatableSourceProvider()
-                              .GetBuilder()
-                              .SetExpiry(base::Days(30))
-                              .Build();
-  storage()->StoreSource(source);
-
-  auto trigger_verification = network::TriggerVerification::Create(
-      /*token=*/"verification-token", /*aggregatable_report_id=*/
-      base::Uuid::ParseLowercase("55865da3-fb0e-4b71-965e-64fc4bf0a323"));
-  AttributionTrigger trigger =
-      DefaultAggregatableTriggerBuilder()
-          .SetVerifications({trigger_verification.value()})
-          .Build();
-  EXPECT_THAT(storage()->MaybeCreateAndStoreReport(trigger),
-              AllOf(CreateReportEventLevelStatusIs(
-                        AttributionTrigger::EventLevelResult::kSuccess),
-                    CreateReportAggregatableStatusIs(
-                        AttributionTrigger::AggregatableResult::kSuccess)));
-
-  AttributionReport aggregatable_report =
-      storage()->GetAttributionReports(base::Time::Max()).at(1);
-  // Should create the report with the id from the trigger verification.
-  EXPECT_EQ(aggregatable_report.external_report_id(),
-            trigger_verification->aggregatable_report_id());
-
-  // Should store the verification token on the report.
-  const auto* data =
-      absl::get_if<AttributionReport::AggregatableAttributionData>(
-          &aggregatable_report.data());
-  EXPECT_EQ(data->common_data.verification_token.value(),
-            trigger_verification->token());
-
-  CloseDatabase();
-}
-
-TEST_F(AttributionStorageSqlTest,
-       StoreAndRetrieveReportWithoutVerification_FeatureEnabled) {
-  OpenDatabase();
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      network::features::kAttributionReportingReportVerification);
-  base::HistogramTester histograms;
-
-  StorableSource source = TestAggregatableSourceProvider()
-                              .GetBuilder()
-                              .SetExpiry(base::Days(30))
-                              .Build();
-  storage()->StoreSource(source);
-  AttributionTrigger trigger = DefaultAggregatableTriggerBuilder().Build();
-  EXPECT_THAT(storage()->MaybeCreateAndStoreReport(trigger),
-              AllOf(CreateReportEventLevelStatusIs(
-                        AttributionTrigger::EventLevelResult::kSuccess),
-                    CreateReportAggregatableStatusIs(
-                        AttributionTrigger::AggregatableResult::kSuccess)));
-
-  AttributionReport aggregatable_report =
-      storage()->GetAttributionReports(base::Time::Max()).at(1);
-
-  const auto* data =
-      absl::get_if<AttributionReport::AggregatableAttributionData>(
-          &aggregatable_report.data());
-  EXPECT_FALSE(data->common_data.verification_token.has_value());
-
-  CloseDatabase();
-}
-
-TEST_F(AttributionStorageSqlTest, NullReportWithVerification_FeatureEnabled) {
-  OpenDatabase();
-
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      network::features::kAttributionReportingReportVerification);
-  base::HistogramTester histograms;
-
-  delegate()->set_null_aggregatable_reports_lookback_days({0, 1});
-  auto trigger_verification = network::TriggerVerification::Create(
-      /*token=*/"verification-token", /*aggregatable_report_id=*/
-      base::Uuid::ParseLowercase("55865da3-fb0e-4b71-965e-64fc4bf0a323"));
-  auto result = storage()->MaybeCreateAndStoreReport(
-      DefaultAggregatableTriggerBuilder()
-          .SetVerifications({trigger_verification.value()})
-          .Build());
-  EXPECT_TRUE(result.min_null_aggregatable_report_time().has_value());
-
-  auto reports = storage()->GetAttributionReports(base::Time::Max());
-  ASSERT_THAT(reports, SizeIs(2));
-  base::ranges::sort(reports, std::less<>(), &AttributionReport::id);
-
-  // Only the first report was created with the id from the trigger
-  // verification.
-  const AttributionReport& first_report = reports.front();
-  EXPECT_EQ(first_report.external_report_id(),
-            trigger_verification->aggregatable_report_id());
-  // Should store the verification token on the report.
-  const auto* data = absl::get_if<AttributionReport::NullAggregatableData>(
-      &first_report.data());
-  EXPECT_EQ(data->common_data.verification_token.value(),
-            trigger_verification->token());
-
-  // The second report was not created with the trigger verification.
-  const AttributionReport& second_report = reports.back();
-  EXPECT_EQ(second_report.external_report_id(), DefaultExternalReportID());
-  data = absl::get_if<AttributionReport::NullAggregatableData>(
-      &second_report.data());
-  EXPECT_FALSE(data->common_data.verification_token.has_value());
-  CloseDatabase();
-}
-
-TEST_F(AttributionStorageSqlTest,
-       BothRealAndNullReports_OnlyOneReportWithVerification) {
-  OpenDatabase();
-
-  StorableSource source = TestAggregatableSourceProvider().GetBuilder().Build();
-  storage()->StoreSource(source);
-
-  delegate()->set_null_aggregatable_reports_lookback_days({1});
-  auto trigger_verification = network::TriggerVerification::Create(
-      /*token=*/"verification-token", /*aggregatable_report_id=*/
-      base::Uuid::ParseLowercase("55865da3-fb0e-4b71-965e-64fc4bf0a323"));
-  auto result = storage()->MaybeCreateAndStoreReport(
-      DefaultAggregatableTriggerBuilder()
-          .SetVerifications({trigger_verification.value()})
-          .Build(/*generate_event_trigger_data=*/false));
-
-  EXPECT_EQ(result.aggregatable_status(),
-            AttributionTrigger::AggregatableResult::kSuccess);
-  EXPECT_TRUE(result.min_null_aggregatable_report_time().has_value());
-
-  auto reports = storage()->GetAttributionReports(base::Time::Max());
-  ASSERT_THAT(reports, SizeIs(2));
-  base::ranges::sort(reports, std::less<>(), &AttributionReport::id);
-
-  // Only the first report was created with the id from the trigger
-  // verification.
-  const AttributionReport& first_report = reports.front();
-  EXPECT_EQ(first_report.external_report_id(),
-            trigger_verification->aggregatable_report_id());
-  // Should store the verification token on the report.
-  const auto* aggregatable_data =
-      absl::get_if<AttributionReport::AggregatableAttributionData>(
-          &first_report.data());
-  EXPECT_EQ(aggregatable_data->common_data.verification_token.value(),
-            trigger_verification->token());
-
-  // The second report was not created with the trigger verification.
-  const AttributionReport& second_report = reports.back();
-  EXPECT_EQ(second_report.external_report_id(), DefaultExternalReportID());
-  const auto* null_data = absl::get_if<AttributionReport::NullAggregatableData>(
-      &second_report.data());
-  EXPECT_FALSE(null_data->common_data.verification_token.has_value());
-  CloseDatabase();
-}
-
-TEST_F(AttributionStorageSqlTest,
-       BothRealAndNullReportsReverseShuffle_OnlyOneReportWithVerification) {
-  OpenDatabase();
-
-  StorableSource source = TestAggregatableSourceProvider().GetBuilder().Build();
-  storage()->StoreSource(source);
-
-  delegate()->set_null_aggregatable_reports_lookback_days({1});
-  delegate()->set_reverse_reports_on_shuffle(true);
-  auto trigger_verification = network::TriggerVerification::Create(
-      /*token=*/"verification-token", /*aggregatable_report_id=*/
-      base::Uuid::ParseLowercase("55865da3-fb0e-4b71-965e-64fc4bf0a323"));
-  auto result = storage()->MaybeCreateAndStoreReport(
-      DefaultAggregatableTriggerBuilder()
-          .SetVerifications({trigger_verification.value()})
-          .Build(/*generate_event_trigger_data=*/false));
-
-  EXPECT_EQ(result.aggregatable_status(),
-            AttributionTrigger::AggregatableResult::kSuccess);
-  EXPECT_TRUE(result.min_null_aggregatable_report_time().has_value());
-
-  auto reports = storage()->GetAttributionReports(base::Time::Max());
-  ASSERT_THAT(reports, SizeIs(2));
-  base::ranges::sort(reports, std::less<>(), &AttributionReport::id);
-
-  // Only the first report was created with the id from the trigger
-  // verification.
-  const AttributionReport& first_report = reports.front();
-  EXPECT_EQ(first_report.external_report_id(),
-            trigger_verification->aggregatable_report_id());
-  // Should store the verification token on the report.
-  const auto* null_data = absl::get_if<AttributionReport::NullAggregatableData>(
-      &first_report.data());
-  EXPECT_EQ(null_data->common_data.verification_token.value(),
-            trigger_verification->token());
-
-  // The second report was not created with the trigger verification.
-  const AttributionReport& second_report = reports.back();
-  EXPECT_EQ(second_report.external_report_id(), DefaultExternalReportID());
-  const auto* aggregatable_data =
-      absl::get_if<AttributionReport::AggregatableAttributionData>(
-          &second_report.data());
-  EXPECT_FALSE(aggregatable_data->common_data.verification_token.has_value());
-  CloseDatabase();
-}
-
-TEST_F(AttributionStorageSqlTest,
-       BothRealAndNullReports_MultipleReportsWithVerification) {
-  OpenDatabase();
-
-  StorableSource source = TestAggregatableSourceProvider().GetBuilder().Build();
-  storage()->StoreSource(source);
-
-  delegate()->set_null_aggregatable_reports_lookback_days({1});
-  delegate()->set_reverse_verifications_on_shuffle(true);
-
-  std::vector<network::TriggerVerification> verifications = {
-      *network::TriggerVerification::Create(
-          /*token=*/"verification-token-1", /*aggregatable_report_id=*/
-          base::Uuid::ParseLowercase("11865da3-fb0e-4b71-965e-64fc4bf0a323")),
-      *network::TriggerVerification::Create(
-          /*token=*/"verification-token-2", /*aggregatable_report_id=*/
-          base::Uuid::ParseLowercase("22865da3-fb0e-4b71-965e-64fc4bf0a323")),
-      *network::TriggerVerification::Create(
-          /*token=*/"verification-token-3", /*aggregatable_report_id=*/
-          base::Uuid::ParseLowercase("33865da3-fb0e-4b71-965e-64fc4bf0a323"))};
-
-  auto result = storage()->MaybeCreateAndStoreReport(
-      DefaultAggregatableTriggerBuilder()
-          .SetVerifications(verifications)
-          .Build(/*generate_event_trigger_data=*/false));
-
-  EXPECT_EQ(result.aggregatable_status(),
-            AttributionTrigger::AggregatableResult::kSuccess);
-  EXPECT_TRUE(result.min_null_aggregatable_report_time().has_value());
-
-  auto reports = storage()->GetAttributionReports(base::Time::Max());
-  ASSERT_THAT(reports, SizeIs(2));
-  base::ranges::sort(reports, std::less<>(), &AttributionReport::id);
-
-  auto check_report_verification = [](const AttributionReport& report,
-                                      const network::TriggerVerification&
-                                          expected_verification) {
-    EXPECT_EQ(report.external_report_id(),
-              expected_verification.aggregatable_report_id());
-    absl::visit(
-        base::Overloaded{
-            [](const AttributionReport::EventLevelData&) {
-              NOTREACHED_NORETURN();
-            },
-            [&expected_verification](
-                const AttributionReport::AggregatableAttributionData& data) {
-              EXPECT_EQ(data.common_data.verification_token,
-                        expected_verification.token());
-            },
-            [&expected_verification](
-                const AttributionReport::NullAggregatableData& data) {
-              EXPECT_EQ(data.common_data.verification_token,
-                        expected_verification.token());
-            }},
-        report.data());
-  };
-
-  // The reports should have used the last two verification tokens. The last two
-  // because the test shuffling reverse available verifications.
-  check_report_verification(reports.at(0), verifications.at(2));
-  check_report_verification(reports.at(1), verifications.at(1));
-
-  CloseDatabase();
 }
 
 // Create a source with three triggers and craft a query that will target all.
@@ -2113,6 +1848,7 @@ TEST_F(AttributionStorageSqlTest,
                               .low_bits = 2,
                               .value =
                                   attribution_reporting::kMaxAggregatableValue,
+                              .id = 125,
                           },
                       },
               },
@@ -2201,9 +1937,62 @@ TEST_F(AttributionStorageSqlTest,
               },
           .valid = false,
       },
+      {
+          .desc = "invalid_filtering_id_max_bytes_value",
+          .record =
+              AttributionAggregatableMetadataRecord{
+                  .contributions =
+                      {
+                          AttributionAggregatableMetadataRecord::Contribution{
+                              .high_bits = 1,
+                              .low_bits = 2,
+                              .value =
+                                  attribution_reporting::kMaxAggregatableValue,
+                          },
+                      },
+                  .filtering_id_max_bytes = 10,
+              },
+          .valid = false,
+      },
+      {
+          .desc = "invalid_filtering_id_max_bytes",
+          .record =
+              AttributionAggregatableMetadataRecord{
+                  .contributions =
+                      {
+                          AttributionAggregatableMetadataRecord::Contribution{
+                              .high_bits = 1,
+                              .low_bits = 2,
+                              .value =
+                                  attribution_reporting::kMaxAggregatableValue,
+                          },
+                      },
+                  .source_registration_time_config =
+                      proto::AttributionCommonAggregatableMetadata::INCLUDE,
+                  .filtering_id_max_bytes = 2,
+              },
+          .valid = false,
+      },
+      {
+          .desc = "invalid_filtering_id",
+          .record =
+              AttributionAggregatableMetadataRecord{
+                  .contributions =
+                      {
+                          AttributionAggregatableMetadataRecord::Contribution{
+                              .high_bits = 1,
+                              .low_bits = 2,
+                              .value =
+                                  attribution_reporting::kMaxAggregatableValue,
+                              .id = 256},
+                      }},
+          .valid = false,
+      },
   };
 
   for (auto test_case : kTestCases) {
+    SCOPED_TRACE(test_case.desc);
+
     OpenDatabase();
     storage()->StoreSource(SourceBuilder()
                                .SetReportingOrigin(*SuitableOrigin::Deserialize(

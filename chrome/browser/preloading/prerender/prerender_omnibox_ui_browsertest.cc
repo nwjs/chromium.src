@@ -258,8 +258,6 @@ class PrerenderOmniboxUIBrowserTest : public InProcessBrowserTest,
       ukm_entry_builder_;
   bool is_prerendering_page_;
   std::unique_ptr<base::ScopedMockElapsedTimersForTest> scoped_test_timer_;
-  // Disable sampling of UKM preloading logs.
-  content::test::PreloadingConfigOverride preloading_config_override_;
 };
 
 // This test covers the path from starting a omnibox triggered prerendering
@@ -483,14 +481,11 @@ class PrerenderPreloaderHoldbackBrowserTest
     : public PrerenderOmniboxUIBrowserTest {
  public:
   PrerenderPreloaderHoldbackBrowserTest() {
-    preloading_config_override_.SetHoldback(
+    prerender_helper().SetHoldback(
         content::PreloadingType::kPrerender,
         chrome_preloading_predictor::kOmniboxDirectURLInput, true);
   }
   ~PrerenderPreloaderHoldbackBrowserTest() override = default;
-
- private:
-  content::test::PreloadingConfigOverride preloading_config_override_;
 };
 
 IN_PROC_BROWSER_TEST_F(PrerenderPreloaderHoldbackBrowserTest,
@@ -612,13 +607,9 @@ class PrerenderOmniboxSearchSuggestionUIBrowserTest
       : prerender_helper_(base::BindRepeating(
             &PrerenderOmniboxUIBrowserTest::GetActiveWebContents,
             base::Unretained(this))) {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kSupportSearchSuggestionForPrerender2,
-          {
-              {"implementation_type", "use_prefetch"},
-          }}},
-        {prerender_utils::kHidePrefetchParameter,
-         kSearchPrefetchOnlyAllowDefaultMatchPreloading});
+    scoped_feature_list_.InitWithFeatures(
+        {features::kSupportSearchSuggestionForPrerender2},
+        {kSearchPrefetchOnlyAllowDefaultMatchPreloading});
   }
 
   void SetUpOnMainThread() override {

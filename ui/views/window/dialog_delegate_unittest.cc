@@ -103,8 +103,7 @@ class DialogTest : public ViewsTestBase {
     // These tests all expect to use a custom frame on the dialog so they can
     // control hit-testing and other behavior. Custom frames are only supported
     // with a parent widget, so create the parent widget here.
-    parent_widget_ =
-        CreateTestWidget(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+    parent_widget_ = CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
     parent_widget_->Show();
 
     InitializeDialog();
@@ -142,7 +141,7 @@ class DialogTest : public ViewsTestBase {
   void ShowDialog() { CreateDialogWidget(std::move(dialog_))->Show(); }
 
   void SimulateKeyPress(ui::KeyboardCode key) {
-    ui::KeyEvent event(ui::ET_KEY_PRESSED, key, ui::EF_NONE);
+    ui::KeyEvent event(ui::EventType::kKeyPressed, key, ui::EF_NONE);
     if (dialog()->GetFocusManager()->OnKeyEvent(event))
       dialog()->GetWidget()->OnKeyEvent(&event);
   }
@@ -204,7 +203,7 @@ TEST_F(DialogTest, EscButtonCancelsWithoutCloseAction) {
 }
 
 TEST_F(DialogTest, ReturnDirectedToOkButtonPlatformStyle) {
-  const ui::KeyEvent return_event(ui::ET_KEY_PRESSED, ui::VKEY_RETURN,
+  const ui::KeyEvent return_event(ui::EventType::kKeyPressed, ui::VKEY_RETURN,
                                   ui::EF_NONE);
   if (PlatformStyle::kReturnClicksFocusedControl) {
     EXPECT_TRUE(dialog()->GetOkButton()->OnKeyPressed(return_event));
@@ -219,7 +218,7 @@ TEST_F(DialogTest, ReturnDirectedToOkButtonPlatformStyle) {
 }
 
 TEST_F(DialogTest, ReturnDirectedToCancelButtonPlatformBehavior) {
-  const ui::KeyEvent return_event(ui::ET_KEY_PRESSED, ui::VKEY_RETURN,
+  const ui::KeyEvent return_event(ui::EventType::kKeyPressed, ui::VKEY_RETURN,
                                   ui::EF_NONE);
   if (PlatformStyle::kReturnClicksFocusedControl) {
     EXPECT_TRUE(dialog()->GetCancelButton()->OnKeyPressed(return_event));
@@ -565,7 +564,7 @@ TEST_F(DialogDelegateCloseTest, CloseParentWidgetDoesNotInvokeCloseCallback) {
   auto dialog_owned = std::make_unique<DialogDelegateView>();
   DialogDelegateView* dialog = dialog_owned.get();
   std::unique_ptr<Widget> parent =
-      CreateTestWidget(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+      CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
   Widget* widget = DialogDelegate::CreateDialogWidget(
       std::move(dialog_owned), GetContext(), parent->GetNativeView());
 

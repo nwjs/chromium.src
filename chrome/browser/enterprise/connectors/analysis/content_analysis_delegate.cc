@@ -24,7 +24,6 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/enterprise/connectors/analysis/analysis_settings.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_dialog.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_features.h"
 #include "chrome/browser/enterprise/connectors/analysis/files_request_handler.h"
@@ -38,11 +37,12 @@
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/file_analysis_request.h"
-//#include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
+#include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/enterprise/common/files_scan_data.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
+#include "components/enterprise/connectors/analysis/analysis_settings.h"
 #include "components/policy/core/common/chrome_schema.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/web_ui/safe_browsing_ui.h"
@@ -1117,7 +1117,6 @@ void ContentAnalysisDelegate::AckAllRequests() {
 void ContentAnalysisDelegate::FinishLargeDataRequestEarly(
     std::unique_ptr<safe_browsing::BinaryUploadService::Request> request,
     safe_browsing::BinaryUploadService::Result result) {
-#if 0
   // We add the request here in case we never actually uploaded anything, so
   // it wasn't added in OnGetRequestData
   safe_browsing::WebUIInfoSingleton::GetInstance()->AddToDeepScanRequests(
@@ -1126,7 +1125,7 @@ void ContentAnalysisDelegate::FinishLargeDataRequestEarly(
   safe_browsing::WebUIInfoSingleton::GetInstance()->AddToDeepScanResponses(
       /*token=*/"", safe_browsing::BinaryUploadService::ResultToString(result),
       enterprise_connectors::ContentAnalysisResponse());
-#endif
+
   request->FinishRequest(result,
                          enterprise_connectors::ContentAnalysisResponse());
 }

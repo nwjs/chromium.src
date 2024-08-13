@@ -10,7 +10,8 @@ static_library("browser_sync") {
   sources = [
     "active_devices_provider_impl.cc",
     "active_devices_provider_impl.h",
-    "browser_sync_client.h",
+    "common_controller_builder.cc",
+    "common_controller_builder.h",
     "signin_confirmation_helper.cc",
     "signin_confirmation_helper.h",
     "sync_api_component_factory_impl.cc",
@@ -34,6 +35,7 @@ static_library("browser_sync") {
     "//components/bookmarks/browser",
     "//components/commerce/core:feature_list",
     "//components/commerce/core/product_specifications:product_specifications",
+    "//components/consent_auditor",
     "//components/data_sharing/public",
     "//components/history/core/browser",
     "//components/history/core/common",
@@ -55,9 +57,11 @@ static_library("browser_sync") {
     "//components/sync_sessions",
     "//components/sync_user_events",
     "//components/url_formatter",
+    "//components/variations/service",
     "//components/version_info",
     "//components/version_info:generate_version_info",
     "//components/webauthn/core/browser",
+    "//components/webauthn/core/browser:passkey_model",
     "//ui/base",
   ]
 

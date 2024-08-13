@@ -123,6 +123,7 @@ constexpr char kHatsSurveyTriggerTrustSafetyV2SafeBrowsingInterstitial[] =
 constexpr char kHatsSurveyTriggerWallpaperSearch[] = "wallpaper-search";
 #else   // BUILDFLAG(IS_ANDROID)
 constexpr char kHatsSurveyTriggerAndroidStartupSurvey[] = "startup_survey";
+constexpr char kHatsSurveyTriggerQuickDelete[] = "quick_delete_survey";
 #endif  // #if !BUILDFLAG(IS_ANDROID)
 
 constexpr char kHatsSurveyTriggerTesting[] = "testing";
@@ -169,7 +170,9 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
           permissions::kPermissionsPromptSurveyReleaseChannelKey,
           permissions::kPermissionsPromptSurveyDisplayTimeKey,
           permissions::kPermissionPromptSurveyOneTimePromptsDecidedBucketKey,
-          permissions::kPermissionPromptSurveyUrlKey});
+          permissions::kPermissionPromptSurveyUrlKey,
+          permissions::kPermissionPromptSurveyPepcPromptPositionKey,
+          permissions::kPermissionPromptSurveyInitialPermissionStatusKey});
 
 #if !BUILDFLAG(IS_ANDROID)
   // Dev tools surveys.
@@ -453,7 +456,7 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
   // What's New survey.
   survey_configs.emplace_back(
       &features::kHappinessTrackingSurveysForDesktopWhatsNew,
-      kHatsSurveyTriggerWhatsNew);
+      kHatsSurveyTriggerWhatsNew, "SYLcvnoRH0ugnJ3q1cK0RAHYFycs");
 
   // Performance Controls surveys.
   survey_configs.emplace_back(
@@ -548,6 +551,11 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
 #else
   survey_configs.emplace_back(&chrome::android::kChromeSurveyNextAndroid,
                               kHatsSurveyTriggerAndroidStartupSurvey);
+
+  survey_configs.emplace_back(
+      &chrome::android::kQuickDeleteAndroidSurvey,
+      kHatsSurveyTriggerQuickDelete,
+      chrome::android::kQuickDeleteAndroidSurveyTriggerId.Get());
 
 #endif  // #if !BUILDFLAG(IS_ANDROID)
 

@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/core/scroll/scrollbar.h"
 #include "third_party/blink/renderer/platform/graphics/paint/display_item.h"
 #include "third_party/blink/renderer/platform/graphics/scrollbar_theme_settings.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace ui {
@@ -78,11 +79,8 @@ class CORE_EXPORT ScrollbarTheme {
   }
 
   virtual bool IsSolidColor() const { return false; }
-  virtual SkColor4f GetSolidColor(
-      const std::optional<Color>& css_thumb_color) const {
-    NOTREACHED_NORETURN();
-  }
   virtual bool UsesOverlayScrollbars() const { return false; }
+  virtual bool UsesFluentScrollbars() const { return false; }
   virtual bool UsesFluentOverlayScrollbars() const { return false; }
   virtual gfx::Rect ShrinkMainThreadedMinimalModeThumbRect(
       const Scrollbar&,
@@ -125,6 +123,9 @@ class CORE_EXPORT ScrollbarTheme {
   virtual void PaintTickmarks(GraphicsContext&,
                               const Scrollbar&,
                               const gfx::Rect&);
+  virtual SkColor4f ThumbColor(const Scrollbar&) const {
+    NOTREACHED_NORETURN();
+  }
 
   virtual bool ShouldCenterOnThumb(const Scrollbar&,
                                    const WebMouseEvent&) const {
@@ -190,11 +191,9 @@ class CORE_EXPORT ScrollbarTheme {
                           const Scrollbar&,
                           const gfx::Rect&) {}
 
-  // |offset| is from the space of the scrollbar's FrameRect() to |context|'s
-  // current space.
-  void PaintTrackButtonsTickmarks(GraphicsContext& context,
+  void PaintTrackButtonsTickmarks(GraphicsContext&,
                                   const Scrollbar&,
-                                  const gfx::Vector2d& offset);
+                                  const gfx::Rect&);
 
   virtual int MaxOverlapBetweenPages() const {
     return std::numeric_limits<int>::max();
@@ -214,6 +213,8 @@ class CORE_EXPORT ScrollbarTheme {
   virtual bool IsMockTheme() const { return false; }
 
   virtual bool UsesNinePatchThumbResource() const { return false; }
+  virtual bool UsesSolidColorThumb() const { return false; }
+  virtual bool UsesNinePatchTrackAndButtonsResource() const { return false; }
 
   // For a nine-patch scrollbar, this defines the painting canvas size which the
   // painting code will use to paint the scrollbar into. The actual scrollbar
@@ -229,6 +230,20 @@ class CORE_EXPORT ScrollbarTheme {
   virtual gfx::Rect NinePatchThumbAperture(const Scrollbar&) const {
     NOTREACHED_IN_MIGRATION();
     return gfx::Rect();
+  }
+
+  // For a nine-patch scrollbar, this defines the painting canvas size which the
+  // painting code will use to paint the scrollbar into. The actual scrollbar
+  // dimensions will be ignored for purposes of painting since the resource can
+  // be then resized without a repaint.
+  virtual gfx::Size NinePatchTrackAndButtonsCanvasSize(const Scrollbar&) const {
+    NOTREACHED_NORETURN();
+  }
+
+  // For a nine-patch resource, the aperture defines the center patch that will
+  // be stretched out.
+  virtual gfx::Rect NinePatchTrackAndButtonsAperture(const Scrollbar&) const {
+    NOTREACHED_NORETURN();
   }
 
   virtual bool AllowsHitTest() const { return true; }
@@ -250,7 +265,7 @@ class CORE_EXPORT ScrollbarTheme {
   // scrollbar's FrameRect().
   virtual void PaintTrackAndButtons(GraphicsContext& context,
                                     const Scrollbar&,
-                                    const gfx::Vector2d& offset);
+                                    const gfx::Rect&);
 
   // Paint the thumb with Opacity() applied.
   virtual void PaintThumbWithOpacity(GraphicsContext& context,

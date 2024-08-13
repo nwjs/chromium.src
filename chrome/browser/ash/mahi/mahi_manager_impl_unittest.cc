@@ -10,6 +10,8 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/shell.h"
+#include "ash/system/mahi/mahi_constants.h"
+#include "ash/system/toast/anchored_nudge_manager_impl.h"
 #include "ash/test/ash_test_base.h"
 #include "base/auto_reset.h"
 #include "base/command_line.h"
@@ -17,8 +19,10 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/unguessable_token.h"
+#include "chrome/browser/ash/magic_boost/magic_boost_state_ash.h"
 #include "chrome/browser/ash/mahi/fake_mahi_browser_delegate_ash.h"
 #include "chrome/browser/ash/mahi/mahi_cache_manager.h"
+#include "chromeos/components/magic_boost/public/cpp/magic_boost_state.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/crosapi/mojom/mahi.mojom-forward.h"
 #include "chromeos/crosapi/mojom/mahi.mojom.h"
@@ -29,9 +33,11 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/lottie/resource.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
+
 using ::testing::IsNull;
 
 constexpr char kFakeSummary[] = "Fake summary";
@@ -56,6 +62,12 @@ class FakeMahiProvider : public manta::MahiProvider {
  private:
   int num_summarize_call_ = 0;
 };
+
+bool IsMahiNudgeShown() {
+  return ash::Shell::Get()->anchored_nudge_manager()->IsNudgeShown(
+      ash::mahi_constants::kMahiNudgeId);
+}
+
 }  // namespace
 
 namespace ash {
@@ -64,7 +76,14 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
  public:
   MahiManagerImplTest()
       : NoSessionAshTestBase(
-            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
+    // Sets the default functions for the test to create image with the lottie
+    // resource id. Otherwise there's no `g_parse_lottie_as_still_image_` set in
+    // the `ResourceBundle`.
+    ui::ResourceBundle::SetLottieParsingFunctions(
+        &lottie::ParseLottieAsStillImage,
+        &lottie::ParseLottieAsThemedStillImage);
+  }
 
   MahiManagerImplTest(const MahiManagerImplTest&) = delete;
   MahiManagerImplTest& operator=(const MahiManagerImplTest&) = delete;
@@ -74,6 +93,8 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
   // NoSessionAshTestBase::
   void SetUp() override {
     NoSessionAshTestBase::SetUp();
+
+    magic_boost_state_ = std::make_unique<MagicBoostStateAsh>();
     mahi_manager_impl_ = std::make_unique<MahiManagerImpl>();
     mahi_manager_impl_->mahi_provider_ = CreateMahiProvider();
 
@@ -87,12 +108,14 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
 
   void TearDown() override {
     mahi_manager_impl_.reset();
+    magic_boost_state_.reset();
+    fake_mahi_browser_delegate_ash_.reset();
     NoSessionAshTestBase::TearDown();
   }
 
-  void SetUserPref(bool enabled) {
+  void SetMahiEnabledByUserPref(bool enabled) {
     Shell::Get()->session_controller()->GetActivePrefService()->SetBoolean(
-        ash::prefs::kMahiEnabled, enabled);
+        ash::prefs::kHmrEnabled, enabled);
   }
 
   FakeMahiProvider* GetMahiProvider() {
@@ -115,6 +138,10 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
     return mahi_manager_impl_->cache_manager_.get();
   }
 
+  void NotifyRefreshAvailability(bool available) {
+    mahi_manager_impl_->NotifyRefreshAvailability(available);
+  }
+
   void RequestSummary() {
     // Sets the page that needed to get summary.
     mahi_manager_impl_->SetCurrentFocusedPageInfo(
@@ -130,13 +157,11 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
             &test_url_loader_factory_),
         identity_test_env_.identity_manager());
   }
-
+  std::unique_ptr<MagicBoostStateAsh> magic_boost_state_;
   std::unique_ptr<MahiManagerImpl> mahi_manager_impl_;
 
  private:
   base::test::ScopedFeatureList feature_list_{chromeos::features::kMahi};
-  base::AutoReset<bool> ignore_mahi_secret_key_ =
-      ash::switches::SetIgnoreMahiSecretKeyForTest();
   network::TestURLLoaderFactory test_url_loader_factory_;
   signin::IdentityTestEnvironment identity_test_env_;
   std::unique_ptr<FakeMahiBrowserDelegateAsh> fake_mahi_browser_delegate_ash_;
@@ -185,7 +210,7 @@ TEST_F(MahiManagerImplTest, TurnOffSettingsClearCache) {
   EXPECT_EQ(GetCacheManager()->size(), 1);
 
   // Cache must be empty after user turn off the settings.
-  SetUserPref(false);
+  SetMahiEnabledByUserPref(false);
   EXPECT_EQ(GetCacheManager()->size(), 0);
 }
 
@@ -194,14 +219,14 @@ TEST_F(MahiManagerImplTest, SetMahiPrefOnLogin) {
   // true or false.
   for (bool mahi_enabled : {false, true}) {
     // Sets the pref for the default user.
-    SetUserPref(mahi_enabled);
+    SetMahiEnabledByUserPref(mahi_enabled);
     ASSERT_EQ(IsEnabled(), mahi_enabled);
     const AccountId user1_account_id =
         Shell::Get()->session_controller()->GetActiveAccountId();
 
     // Sets the pref for the second user.
     SimulateUserLogin("other@user.test");
-    SetUserPref(!mahi_enabled);
+    SetMahiEnabledByUserPref(!mahi_enabled);
     EXPECT_EQ(IsEnabled(), !mahi_enabled);
 
     // Switching back to the previous user will update to correct pref.
@@ -216,39 +241,29 @@ TEST_F(MahiManagerImplTest, SetMahiPrefOnLogin) {
 
 TEST_F(MahiManagerImplTest, OnPreferenceChanged) {
   for (bool mahi_enabled : {false, true, false}) {
-    SetUserPref(mahi_enabled);
+    SetMahiEnabledByUserPref(mahi_enabled);
     EXPECT_EQ(IsEnabled(), mahi_enabled);
   }
 }
 
-class MahiManagerImplFeatureKeyTest : public NoSessionAshTestBase {
- public:
-  MahiManagerImplFeatureKeyTest() {
-    base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-    command_line->AppendSwitchASCII(ash::switches::kMahiFeatureKey, "hello");
-  }
+// Tests that the Mahi educational nudge is shown when the user visits eligible
+// content and they have not opted in to the feature.
+TEST_F(MahiManagerImplTest, ShowEducationalNudge) {
+  SetMahiEnabledByUserPref(false);
 
-  // NoSessionAshTestBase::
-  void SetUp() override {
-    NoSessionAshTestBase::SetUp();
-    mahi_manager_impl_ = std::make_unique<MahiManagerImpl>();
-    CreateUserSessions(1);
-  }
+  EXPECT_FALSE(IsMahiNudgeShown());
 
-  void TearDown() override {
-    mahi_manager_impl_.reset();
-    NoSessionAshTestBase::TearDown();
-  }
+  // Notifying that a refresh is not available should have no effect.
+  NotifyRefreshAvailability(/*available=*/false);
+  EXPECT_FALSE(IsMahiNudgeShown());
 
- protected:
-  std::unique_ptr<MahiManagerImpl> mahi_manager_impl_;
+  // Notifying that a refresh is available should show the nudge.
+  NotifyRefreshAvailability(/*available=*/true);
+  EXPECT_TRUE(IsMahiNudgeShown());
 
- private:
-  base::test::ScopedFeatureList feature_list_{chromeos::features::kMahi};
-};
-
-TEST_F(MahiManagerImplFeatureKeyTest, IsNotEnabledIfFeatureKeyIsWrong) {
-  EXPECT_FALSE(mahi_manager_impl_->IsEnabled());
+  // Notifying that a refresh is not available should have no effect.
+  NotifyRefreshAvailability(/*available=*/false);
+  EXPECT_TRUE(IsMahiNudgeShown());
 }
 
 }  // namespace ash

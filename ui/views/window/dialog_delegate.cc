@@ -2,12 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if defined(UNSAFE_BUFFERS_BUILD)
-// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
-// then remove this pragma.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/views/window/dialog_delegate.h"
 
 #include <utility>
@@ -124,11 +118,13 @@ Widget::InitParams DialogDelegate::GetDialogWidgetInitParams(
     gfx::NativeWindow context,
     gfx::NativeView parent,
     const gfx::Rect& bounds) {
+  DialogDelegate* dialog = delegate->AsDialogDelegate();
+
   views::Widget::InitParams params(
-      Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
+      dialog ? dialog->ownership_of_new_widget_
+             : Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
   params.delegate = delegate;
   params.bounds = bounds;
-  DialogDelegate* dialog = delegate->AsDialogDelegate();
 
   if (dialog)
     dialog->params_.custom_frame &= CanSupportCustomFrame(parent);
@@ -153,10 +149,6 @@ Widget::InitParams DialogDelegate::GetDialogWidgetInitParams(
   params.child = parent && (delegate->GetModalType() == ui::MODAL_TYPE_CHILD);
 #endif
 
-  if (dialog && dialog->widget_owns_native_widget_) {
-    params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-  }
-
   if (BubbleDialogDelegate* bubble = delegate->AsBubbleDialogDelegate()) {
     // TODO(crbug.com/41493925): Remove this CHECK once native frame dialogs
     // support autosize.
@@ -171,10 +163,12 @@ Widget::InitParams DialogDelegate::GetDialogWidgetInitParams(
 int DialogDelegate::GetDefaultDialogButton() const {
   if (GetParams().default_button.has_value())
     return *GetParams().default_button;
-  if (GetDialogButtons() & ui::DIALOG_BUTTON_OK)
+  if (buttons() & ui::DIALOG_BUTTON_OK) {
     return ui::DIALOG_BUTTON_OK;
-  if (GetDialogButtons() & ui::DIALOG_BUTTON_CANCEL)
+  }
+  if (buttons() & ui::DIALOG_BUTTON_CANCEL) {
     return ui::DIALOG_BUTTON_CANCEL;
+  }
   return ui::DIALOG_BUTTON_NONE;
 }
 
@@ -186,7 +180,7 @@ std::u16string DialogDelegate::GetDialogButtonLabel(
   if (button == ui::DIALOG_BUTTON_OK)
     return l10n_util::GetStringUTF16(IDS_APP_OK);
   CHECK_EQ(button, ui::DIALOG_BUTTON_CANCEL);
-  return GetDialogButtons() & ui::DIALOG_BUTTON_OK
+  return buttons() & ui::DIALOG_BUTTON_OK
              ? l10n_util::GetStringUTF16(IDS_APP_CANCEL)
              : l10n_util::GetStringUTF16(IDS_APP_CLOSE);
 }
@@ -262,7 +256,7 @@ View* DialogDelegate::GetInitiallyFocusedView() {
     return nullptr;
 
   // The default button should be a button we have.
-  CHECK(default_button & GetDialogButtons());
+  CHECK(default_button & buttons());
 
   if (default_button & ui::DIALOG_BUTTON_OK)
     return dcv->ok_button();
@@ -472,9 +466,10 @@ void DialogDelegate::SetCloseCallback(base::OnceClosure callback) {
   close_callback_ = std::move(callback);
 }
 
-void DialogDelegate::SetWidgetOwnsNativeWidget() {
+void DialogDelegate::SetOwnershipOfNewWidget(
+    Widget::InitParams::Ownership ownership) {
   CHECK(!GetWidget());
-  widget_owns_native_widget_ = true;
+  ownership_of_new_widget_ = ownership;
 }
 
 std::optional<std::unique_ptr<View>> DialogDelegate::DisownExtraView() {

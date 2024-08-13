@@ -135,7 +135,8 @@ struct FrameTokenWithPredecessor {
 // [3] https://html.spec.whatwg.org/multipage/custom-elements.html#custom-elements-face-example
 // [4] https://html.spec.whatwg.org/multipage/input.html#attr-input-type
 // clang-format on
-struct FormData {
+class FormData {
+ public:
   struct FillData;
   // Returns true if many members of forms |a| and |b| are identical.
   //
@@ -314,8 +315,13 @@ struct FormData {
   //   come from subframes, they're flattened into the same FormData, which then
   //   contains two representations of F; that is, FormData::fields contains two
   //   fields with the same FormFieldData::global_id().
-  std::vector<FormFieldData> fields;
-
+  const std::vector<FormFieldData>& fields() const { return fields_; }
+  void set_fields(std::vector<FormFieldData> new_fields) {
+    fields_ = std::move(new_fields);
+  }
+  [[nodiscard]] std::vector<FormFieldData> ExtractFields() {
+    return std::exchange(fields_, std::vector<FormFieldData>());
+  }
   class MutableFieldsPassKey {
     constexpr MutableFieldsPassKey() = default;
     friend class AutofillAgent;
@@ -324,13 +330,7 @@ struct FormData {
     friend class internal::FormForest;
   };
   std::vector<FormFieldData>& mutable_fields(MutableFieldsPassKey pass_key) {
-    return fields;
-  }
-  void set_fields(std::vector<FormFieldData> new_fields) {
-    fields = std::move(new_fields);
-  }
-  [[nodiscard]] std::vector<FormFieldData> ExtractFields() {
-    return std::exchange(fields, std::vector<FormFieldData>());
+    return fields_;
   }
 
   // Contains unique renderer IDs of text elements which are predicted to be
@@ -362,6 +362,8 @@ struct FormData {
 #endif
 
  private:
+  friend class FormDataTestApi;
+
   std::u16string id_attribute_;
   std::u16string name_attribute_;
   std::u16string name_;
@@ -377,6 +379,7 @@ struct FormData {
   std::vector<FrameTokenWithPredecessor> child_frames_;
   mojom::SubmissionIndicatorEvent submission_event_ =
       mojom::SubmissionIndicatorEvent::NONE;
+  std::vector<FormFieldData> fields_;
   std::vector<FieldRendererId> username_predictions_;
   bool is_gaia_with_skip_save_password_form_ = false;
 #if BUILDFLAG(IS_IOS)
@@ -389,6 +392,12 @@ bool FormHasNonEmptyPasswordField(const FormData& form);
 
 // For testing.
 std::ostream& operator<<(std::ostream& os, const FormData& form);
+
+#if defined(UNIT_TEST)
+inline bool operator==(const FormData& lhs, const FormData& rhs) {
+  return FormData::DeepEqual(lhs, rhs);
+}
+#endif  // defined(UNIT_TEST)
 
 // Serialize FormData. Used by the PasswordManager to persist FormData
 // pertaining to password forms. Serialized data is appended to |pickle|.

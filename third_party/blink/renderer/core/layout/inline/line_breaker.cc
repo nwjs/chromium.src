@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/layout/inline/line_breaker.h"
 
 #include "base/containers/adapters.h"
@@ -1300,7 +1305,9 @@ void LineBreaker::HandleText(const InlineItem& item,
   }
 
   if (auto_wrap_) {
-    if (mode_ == LineBreakerMode::kMinContent &&
+    // Check `parent_breaker_` because sub-LineInfo instances for <ruby>
+    // require non-null InlineItemResult::shape_result.
+    if (mode_ == LineBreakerMode::kMinContent && !parent_breaker_ &&
         HandleTextForFastMinContent(item_result, item, shape_result,
                                     line_info)) {
       return;
@@ -1924,10 +1931,14 @@ bool LineBreaker::HandleTextForFastMinContent(InlineItemResult* item_result,
   unsigned next_break = 0;
   unsigned non_hangable_run_end = 0;
   bool can_break_after = false;
+  const bool set_start_offset =
+      RuntimeEnabledFeatures::BreakIteratorSetStartOffsetEnabled();
   while (start_offset < end_offset) {
-    // TODO(crbug.com/332328872): `following()` scans back to the start of the
-    // string. Resetting the ICU `BreakIterator` is faster than the scanning.
-    break_iterator_.SetStartOffset(start_offset);
+    if (set_start_offset) {
+      // TODO(crbug.com/332328872): `following()` scans back to the start of the
+      // string. Resetting the ICU `BreakIterator` is faster than the scanning.
+      break_iterator_.SetStartOffset(start_offset);
+    }
     next_break = break_iterator_.NextBreakOpportunity(
         start_offset + 1, std::min(item_end_offset + 1, text.length()));
 
@@ -2964,7 +2975,8 @@ void LineBreaker::HandleAtomicInline(const InlineItem& item,
 
   const LayoutUnit remaining_width = RemainingAvailableWidth();
   bool ignore_overflow_if_negative_margin = false;
-  if (state_ == LineBreakState::kContinue && remaining_width < 0) {
+  if (state_ == LineBreakState::kContinue && remaining_width < 0 &&
+      (!parent_breaker_ || auto_wrap_)) {
     const unsigned item_index = current_.item_index;
     DCHECK_EQ(item_index, static_cast<unsigned>(&item - Items().begin()));
     HandleOverflow(line_info);
@@ -3284,16 +3296,18 @@ bool LineBreaker::HandleRuby(LineInfo* line_info, LayoutUnit retry_size) {
   if ((retry_size == kIndefiniteSize &&
        ruby_size <= available + overhang.start) ||
       is_monolithic) {
-    // Recreate lines because lines created with LineBreakerMode::kMaxContent
-    // are not usable in InlineLayoutAlgorithm.
-    base_line_info =
-        CreateSubLineInfo(base_start, base_end_index, LineBreakerMode::kContent,
-                          kIndefiniteSize, trailing_whitespace_);
-    for (wtf_size_t i = 0; i < annotation_data.size(); ++i) {
-      annotation_line_list[i] = CreateSubLineInfo(
-          annotation_data[i].start, annotation_data[i].end_item_index,
-          LineBreakerMode::kContent, kIndefiniteSize,
-          WhitespaceState::kLeading);
+    if (mode_ == LineBreakerMode::kContent) {
+      // Recreate lines because lines created with LineBreakerMode::kMaxContent
+      // are not usable in InlineLayoutAlgorithm.
+      base_line_info = CreateSubLineInfo(base_start, base_end_index,
+                                         LineBreakerMode::kContent,
+                                         kIndefiniteSize, trailing_whitespace_);
+      for (wtf_size_t i = 0; i < annotation_data.size(); ++i) {
+        annotation_line_list[i] = CreateSubLineInfo(
+            annotation_data[i].start, annotation_data[i].end_item_index,
+            LineBreakerMode::kContent, kIndefiniteSize,
+            WhitespaceState::kLeading);
+      }
     }
 
     InlineItemResult* result =
@@ -3313,9 +3327,8 @@ bool LineBreaker::HandleRuby(LineInfo* line_info, LayoutUnit retry_size) {
   LayoutUnit base_target = retry_size == kIndefiniteSize
                                ? (available * base_intrinsic_size / ruby_size)
                                : retry_size - 1;
-  base_line_info =
-      CreateSubLineInfo(base_start, base_end_index, LineBreakerMode::kContent,
-                        base_target, trailing_whitespace_);
+  base_line_info = CreateSubLineInfo(base_start, base_end_index, mode_,
+                                     base_target, trailing_whitespace_);
 
   bool annotation_is_broken = false;
   for (wtf_size_t i = 0; i < number_of_annotations; ++i) {
@@ -3325,16 +3338,23 @@ bool LineBreaker::HandleRuby(LineInfo* line_info, LayoutUnit retry_size) {
     // non-breakable and we need to continue handling the following InlineItems
     // in such case. However it's very difficult if annotation items remain.
     LayoutUnit limit = kIndefiniteSize;
+    LineBreakerMode mode = mode_;
     if (base_line_info.GetBreakToken()) {
       if (retry_size != kIndefiniteSize) {
         limit = line.Width() * base_line_info.Width() / base_intrinsic_size;
       } else {
         limit = available * line.Width() / ruby_size;
       }
+    } else {
+      // If the base is consumed entirely, the corresponding annotations should
+      // be consumed entirely too.
+      if (mode == LineBreakerMode::kMinContent) {
+        mode = LineBreakerMode::kMaxContent;
+      }
     }
-    line = CreateSubLineInfo(
-        annotation_data[i].start, annotation_data[i].end_item_index,
-        LineBreakerMode::kContent, limit, WhitespaceState::kLeading);
+    line = CreateSubLineInfo(annotation_data[i].start,
+                             annotation_data[i].end_item_index, mode, limit,
+                             WhitespaceState::kLeading);
     annotation_is_broken = annotation_is_broken || line.GetBreakToken();
   }
 
@@ -3449,6 +3469,9 @@ LineInfo LineBreaker::CreateSubLineInfo(
   // available_width_.
   sub_line_breaker.OverrideAvailableWidth(limit);
   sub_line_breaker.NextLine(&sub_line_info);
+  if (disallow_auto_wrap) {
+    CHECK(sub_line_breaker.IsAtEnd());
+  }
   return sub_line_info;
 }
 
@@ -3667,7 +3690,9 @@ void LineBreaker::HandleFloat(const InlineItem& item,
       constraint_space_.PercentageResolutionSize(),
       constraint_space_.ReplacedPercentageResolutionSize(),
       {constraint_space_.GetBfcOffset().line_offset, bfc_block_offset},
-      constraint_space_, node_.Style(), is_hidden_for_paint);
+      constraint_space_, node_.Style(),
+      constraint_space_.FragmentainerBlockSize(),
+      constraint_space_.FragmentainerOffset(), is_hidden_for_paint);
 
   bool float_after_line =
       ShouldPushFloatAfterLine(&unpositioned_float, line_info);

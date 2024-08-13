@@ -5,9 +5,12 @@
 #ifndef COMPONENTS_OPTIMIZATION_GUIDE_CORE_OPTIMIZATION_GUIDE_FEATURES_H_
 #define COMPONENTS_OPTIMIZATION_GUIDE_CORE_OPTIMIZATION_GUIDE_FEATURES_H_
 
+#include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/component_export.h"
 #include "base/containers/enum_set.h"
@@ -283,11 +286,11 @@ base::TimeDelta PredictionModelFetchStartupDelay();
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 base::TimeDelta PredictionModelFetchInterval();
 
-// Returns the time to wait for starting a model fetch when a new optimization
-// target observer registration happens, after the initial model fetch is
-// completed.
+// Returns the random delay time to wait for starting a model fetch when a new
+// optimization target observer registration happens, after the initial model
+// fetch is completed.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-base::TimeDelta PredictionModelNewRegistrationFetchDelay();
+base::TimeDelta PredictionModelNewRegistrationFetchRandomDelay();
 
 // Whether to use the model execution watchdog.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
@@ -358,6 +361,10 @@ bool ShouldLoadOnDeviceModelExecutionConfigWithHigherPriority();
 // Returns the idle timeout before the on device model service shuts down.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 base::TimeDelta GetOnDeviceModelIdleTimeout();
+
+// Returns whether to enable multiple sessions support with the on device model.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+bool GetOnDeviceModelSupportMultipleSessions();
 
 // Returns the delay before starting the on device model inference when
 // running validation.

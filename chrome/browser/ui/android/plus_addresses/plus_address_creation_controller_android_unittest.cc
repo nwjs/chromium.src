@@ -8,25 +8,31 @@
 #include <optional>
 
 #include "base/functional/bind.h"
+#include "base/test/bind.h"
 #include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/plus_addresses/plus_address_service_factory.h"
+#include "chrome/browser/plus_addresses/plus_address_setting_service_factory.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/plus_addresses/fake_plus_address_service.h"
 #include "components/plus_addresses/features.h"
 #include "components/plus_addresses/metrics/plus_address_metrics.h"
 #include "components/plus_addresses/plus_address_types.h"
+#include "components/plus_addresses/settings/mock_plus_address_setting_service.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/web_contents_tester.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace plus_addresses {
 
 namespace {
+
+using ::testing::Return;
 
 constexpr char kPlusAddressModalEventHistogram[] = "PlusAddresses.Modal.Events";
 constexpr base::TimeDelta kDuration = base::Milliseconds(3600);
@@ -56,29 +62,28 @@ class PlusAddressCreationControllerAndroidEnabledTest
  public:
   PlusAddressCreationControllerAndroidEnabledTest()
       : ChromeRenderViewHostTestHarness(
-            base::test::TaskEnvironment::TimeSource::MOCK_TIME),
-        override_profile_selections_(
-            PlusAddressServiceFactory::GetInstance(),
-            PlusAddressServiceFactory::CreateProfileSelections()) {}
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
 
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
-    PlusAddressServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+    PlusAddressServiceFactory::GetInstance()->SetTestingFactory(
         browser_context(),
-        base::BindRepeating(&PlusAddressCreationControllerAndroidEnabledTest::
-                                PlusAddressServiceTestFactory,
-                            base::Unretained(this)));
+        base::BindLambdaForTesting([&](content::BrowserContext* context)
+                                       -> std::unique_ptr<KeyedService> {
+          return std::make_unique<FakePlusAddressService>(
+              identity_test_env_.identity_manager(),
+              &plus_address_setting_service());
+        }));
+    PlusAddressSettingServiceFactory::GetInstance()->SetTestingFactory(
+        browser_context(),
+        base::BindRepeating([](content::BrowserContext* context)
+                                -> std::unique_ptr<KeyedService> {
+          return std::make_unique<MockPlusAddressSettingService>();
+        }));
   }
+
   void TearDown() override {
-    fake_plus_address_service_ = nullptr;
     ChromeRenderViewHostTestHarness::TearDown();
-  }
-  std::unique_ptr<KeyedService> PlusAddressServiceTestFactory(
-      content::BrowserContext* context) {
-    auto unique_service = std::make_unique<FakePlusAddressService>(
-        identity_test_env_.identity_manager());
-    fake_plus_address_service_ = unique_service.get();
-    return unique_service;
   }
 
  protected:
@@ -87,7 +92,14 @@ class PlusAddressCreationControllerAndroidEnabledTest
   }
 
   FakePlusAddressService& plus_address_service() {
-    return *fake_plus_address_service_;
+    return static_cast<FakePlusAddressService&>(
+        *PlusAddressServiceFactory::GetForBrowserContext(browser_context()));
+  }
+
+  MockPlusAddressSettingService& plus_address_setting_service() {
+    return static_cast<MockPlusAddressSettingService&>(
+        *PlusAddressSettingServiceFactory::GetForBrowserContext(
+            browser_context()));
   }
 
   base::HistogramTester histogram_tester_;
@@ -96,15 +108,21 @@ class PlusAddressCreationControllerAndroidEnabledTest
   base::test::ScopedFeatureList features_{features::kPlusAddressesEnabled};
   // Ensures that the feature is known to be enabled, such that
   // `PlusAddressServiceFactory` doesn't bail early with a null return.
-  profiles::testing::ScopedProfileSelectionsForFactoryTesting
-      override_profile_selections_;
   signin::IdentityTestEnvironment identity_test_env_;
-  raw_ptr<FakePlusAddressService> fake_plus_address_service_ = nullptr;
 };
 
-TEST_F(PlusAddressCreationControllerAndroidEnabledTest, DirectCallback) {
+// Tests that accepting the bottomsheet calls Autofill to fill the plus address
+// and records metrics.
+TEST_F(PlusAddressCreationControllerAndroidEnabledTest, AcceptCreation) {
+  base::test::ScopedFeatureList features_{
+      features::kPlusAddressUserOnboardingEnabled};
   std::unique_ptr<content::WebContents> web_contents =
       ChromeRenderViewHostTestHarness::CreateTestWebContents();
+
+  ON_CALL(plus_address_setting_service(), GetHasAcceptedNotice)
+      .WillByDefault(Return(true));
+  // The setting service is not called if the notice is already accepted.
+  EXPECT_CALL(plus_address_setting_service(), SetHasAcceptedNotice).Times(0);
 
   PlusAddressCreationControllerAndroid::CreateForWebContents(
       web_contents.get());
@@ -131,6 +149,83 @@ TEST_F(PlusAddressCreationControllerAndroidEnabledTest, DirectCallback) {
       FormatRefreshHistogramNameFor(
           metrics::PlusAddressModalCompletionStatus::kModalConfirmed),
       0, 1);
+}
+
+// Tests that no notice is shown if the onboarding feature is disabled.
+TEST_F(PlusAddressCreationControllerAndroidEnabledTest,
+       NoNoticeIfOnboardingFeatureIsDisabled) {
+  std::unique_ptr<content::WebContents> web_contents =
+      ChromeRenderViewHostTestHarness::CreateTestWebContents();
+
+  ON_CALL(plus_address_setting_service(), GetHasAcceptedNotice)
+      .WillByDefault(Return(false));
+  EXPECT_CALL(plus_address_setting_service(), SetHasAcceptedNotice).Times(0);
+
+  PlusAddressCreationControllerAndroid::CreateForWebContents(
+      web_contents.get());
+  PlusAddressCreationControllerAndroid* controller =
+      PlusAddressCreationControllerAndroid::FromWebContents(web_contents.get());
+  controller->set_suppress_ui_for_testing(true);
+  base::test::TestFuture<const std::string&> future;
+  controller->OfferCreation(
+      url::Origin::Create(GURL("https://mattwashere.example")),
+      future.GetCallback());
+  FastForwardBy(kDuration);
+  controller->OnConfirmed();
+  EXPECT_TRUE(future.IsReady());
+}
+
+// Tests that the notice is shown and its acceptance registered if the
+// `kPlusAddressUserOnboardingEnabled` feature is enabled and the notice has not
+// been accepted before.
+TEST_F(PlusAddressCreationControllerAndroidEnabledTest, ShowNoticeAccept) {
+  base::test::ScopedFeatureList features_{
+      features::kPlusAddressUserOnboardingEnabled};
+  std::unique_ptr<content::WebContents> web_contents =
+      ChromeRenderViewHostTestHarness::CreateTestWebContents();
+
+  ON_CALL(plus_address_setting_service(), GetHasAcceptedNotice)
+      .WillByDefault(Return(false));
+  EXPECT_CALL(plus_address_setting_service(), SetHasAcceptedNotice);
+
+  PlusAddressCreationControllerAndroid::CreateForWebContents(
+      web_contents.get());
+  PlusAddressCreationControllerAndroid* controller =
+      PlusAddressCreationControllerAndroid::FromWebContents(web_contents.get());
+  controller->set_suppress_ui_for_testing(true);
+  base::test::TestFuture<const std::string&> future;
+  controller->OfferCreation(
+      url::Origin::Create(GURL("https://mattwashere.example")),
+      future.GetCallback());
+  FastForwardBy(kDuration);
+  controller->OnConfirmed();
+  EXPECT_TRUE(future.IsReady());
+}
+
+// Tests that the notice is shown if the  `kPlusAddressUserOnboardingEnabled`,
+// but cancelling the dialog does not call the settings service.
+TEST_F(PlusAddressCreationControllerAndroidEnabledTest, ShowNoticeCancel) {
+  base::test::ScopedFeatureList features_{
+      features::kPlusAddressUserOnboardingEnabled};
+  std::unique_ptr<content::WebContents> web_contents =
+      ChromeRenderViewHostTestHarness::CreateTestWebContents();
+
+  ON_CALL(plus_address_setting_service(), GetHasAcceptedNotice)
+      .WillByDefault(Return(false));
+  EXPECT_CALL(plus_address_setting_service(), SetHasAcceptedNotice).Times(0);
+
+  PlusAddressCreationControllerAndroid::CreateForWebContents(
+      web_contents.get());
+  PlusAddressCreationControllerAndroid* controller =
+      PlusAddressCreationControllerAndroid::FromWebContents(web_contents.get());
+  controller->set_suppress_ui_for_testing(true);
+  base::test::TestFuture<const std::string&> future;
+  controller->OfferCreation(
+      url::Origin::Create(GURL("https://mattwashere.example")),
+      future.GetCallback());
+  FastForwardBy(kDuration);
+  controller->OnCanceled();
+  EXPECT_FALSE(future.IsReady());
 }
 
 TEST_F(PlusAddressCreationControllerAndroidEnabledTest, RefreshPlusAddress) {

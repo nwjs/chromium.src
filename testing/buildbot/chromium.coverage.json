@@ -1618,6 +1618,39 @@
             "--bucket",
             "chromium-result-details",
             "--test-name",
+            "fuzzing_unittests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "fuzzing_unittests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "fuzzing_unittests",
+        "test_id_prefix": "ninja://testing/libfuzzer/tests:fuzzing_unittests/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
             "gcm_unit_tests"
           ],
           "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
@@ -3298,6 +3331,409 @@
       }
     ]
   },
+  "android-webview-code-coverage": {
+    "gtest_tests": [
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "android_webview_unittests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "android_webview_unittests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "android_webview_unittests",
+        "test_id_prefix": "ninja://android_webview/test:android_webview_unittests/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "system_webview_shell_layout_test_apk"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "system_webview_shell_layout_test_apk",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "system_webview_shell_layout_test_apk",
+        "test_id_prefix": "ninja://android_webview/tools/system_webview_shell:system_webview_shell_layout_test_apk/"
+      },
+      {
+        "args": [
+          "--store-tombstones",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_cts_tests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_cts_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "cipd_packages": [
+            {
+              "cipd_package": "chromium/android_webview/tools/cts_archive",
+              "location": "android_webview/tools/cts_archive/cipd",
+              "revision": "UYQZhJpB3MWpJIAcesI-M1bqRoTghiKCYr_SD9tPDewC"
+            }
+          ],
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 2
+        },
+        "test": "webview_cts_tests",
+        "test_id_prefix": "ninja://android_webview/test:webview_cts_tests/"
+      },
+      {
+        "args": [
+          "--disable-field-trial-config",
+          "--store-tombstones",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_cts_tests_no_field_trial"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_cts_tests_no_field_trial",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "cipd_packages": [
+            {
+              "cipd_package": "chromium/android_webview/tools/cts_archive",
+              "location": "android_webview/tools/cts_archive/cipd",
+              "revision": "UYQZhJpB3MWpJIAcesI-M1bqRoTghiKCYr_SD9tPDewC"
+            }
+          ],
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 2
+        },
+        "test": "webview_cts_tests",
+        "test_id_prefix": "ninja://android_webview/test:webview_cts_tests/"
+      },
+      {
+        "args": [
+          "--use-apk-under-test-flags-file",
+          "--webview-mutations-enabled",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_instrumentation_test_apk_mutations"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_instrumentation_test_apk_mutations",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 12
+        },
+        "test": "webview_instrumentation_test_apk",
+        "test_id_prefix": "ninja://android_webview/test:webview_instrumentation_test_apk/"
+      },
+      {
+        "args": [
+          "--disable-field-trial-config",
+          "--use-apk-under-test-flags-file",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_instrumentation_test_apk_no_field_trial"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_instrumentation_test_apk_no_field_trial",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 12
+        },
+        "test": "webview_instrumentation_test_apk",
+        "test_id_prefix": "ninja://android_webview/test:webview_instrumentation_test_apk/"
+      },
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_ui_test_app_test_apk"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_ui_test_app_test_apk",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "webview_ui_test_app_test_apk",
+        "test_id_prefix": "ninja://android_webview/tools/automated_ui_tests:webview_ui_test_app_test_apk/"
+      },
+      {
+        "args": [
+          "--disable-field-trial-config",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_ui_test_app_test_apk_no_field_trial"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_ui_test_app_test_apk_no_field_trial",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "webview_ui_test_app_test_apk",
+        "test_id_prefix": "ninja://android_webview/tools/automated_ui_tests:webview_ui_test_app_test_apk/"
+      }
+    ]
+  },
+  "android-webview-code-coverage-native": {
+    "gtest_tests": [
+      {
+        "args": [
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "android_webview_unittests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "android_webview_unittests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "android_webview_unittests",
+        "test_id_prefix": "ninja://android_webview/test:android_webview_unittests/"
+      },
+      {
+        "args": [
+          "--use-apk-under-test-flags-file",
+          "--webview-mutations-enabled",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_instrumentation_test_apk_mutations"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_instrumentation_test_apk_mutations",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 60
+        },
+        "test": "webview_instrumentation_test_apk",
+        "test_id_prefix": "ninja://android_webview/test:webview_instrumentation_test_apk/"
+      },
+      {
+        "args": [
+          "--disable-field-trial-config",
+          "--use-apk-under-test-flags-file",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_instrumentation_test_apk_no_field_trial"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_instrumentation_test_apk_no_field_trial",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_os_type": "userdebug",
+            "device_type": "walleye",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 30
+        },
+        "test": "webview_instrumentation_test_apk",
+        "test_id_prefix": "ninja://android_webview/test:webview_instrumentation_test_apk/"
+      }
+    ]
+  },
   "android-x86-code-coverage": {
     "additional_compile_targets": [
       "chrome_nocompile_tests"
@@ -4750,6 +5186,53 @@
         },
         "test": "events_unittests",
         "test_id_prefix": "ninja://ui/events:events_unittests/"
+      },
+      {
+        "args": [
+          "--use-persistent-shell",
+          "--avd-config=../../tools/android/avd/proto/generic_android26.textpb",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "fuzzing_unittests"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "fuzzing_unittests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "cores": "4",
+            "cpu": "x86-64",
+            "device_os": null,
+            "device_type": null,
+            "os": "Ubuntu-22.04",
+            "pool": "chromium.tests.avd"
+          },
+          "named_caches": [
+            {
+              "name": "generic_android26",
+              "path": ".android_emulator/generic_android26"
+            }
+          ],
+          "optional_dimensions": {
+            "60": {
+              "caches": "generic_android26"
+            }
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "fuzzing_unittests",
+        "test_id_prefix": "ninja://testing/libfuzzer/tests:fuzzing_unittests/"
       },
       {
         "args": [
@@ -6432,7 +6915,7 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/android_webview/tools/cts_archive",
-              "location": "android_webview/tools/cts_archive",
+              "location": "android_webview/tools/cts_archive/cipd",
               "revision": "UYQZhJpB3MWpJIAcesI-M1bqRoTghiKCYr_SD9tPDewC"
             }
           ],
@@ -8719,8 +9202,6 @@
     "isolated_scripts": [
       {
         "args": [
-          "bin/run_angle_unittests",
-          "--logs-dir=${ISOLATED_OUTDIR}/logs",
           "--code-coverage-dir=${ISOLATED_OUTDIR}",
           "--device-spec=virtual_device_large"
         ],
@@ -16105,6 +16586,22 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
+        "name": "fuzzing_unittests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "fuzzing_unittests",
+        "test_id_prefix": "ninja://testing/libfuzzer/tests:fuzzing_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
         "name": "gcm_unit_tests",
         "swarming": {
           "dimensions": {
@@ -16842,7 +17339,7 @@
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "usage_time_limit_unittests",
-        "test_id_prefix": "ninja://chrome/test:usage_time_limit_unittests/"
+        "test_id_prefix": "ninja://chrome/browser/ash/child_accounts/time_limit_consistency_test:usage_time_limit_unittests/"
       },
       {
         "isolate_profile_data": true,
@@ -17521,6 +18018,21 @@
         },
         "test": "filesystem_service_unittests",
         "test_id_prefix": "ninja://components/services/filesystem:filesystem_service_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "fuzzing_unittests",
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "fuzzing_unittests",
+        "test_id_prefix": "ninja://testing/libfuzzer/tests:fuzzing_unittests/"
       },
       {
         "isolate_profile_data": true,
@@ -19526,6 +20038,22 @@
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
+        "name": "fuzzing_unittests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "fuzzing_unittests",
+        "test_id_prefix": "ninja://testing/libfuzzer/tests:fuzzing_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
         "name": "gcm_unit_tests",
         "swarming": {
           "dimensions": {
@@ -19637,9 +20165,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6533.50/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6533.94/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 127.0.6533.50",
+        "description": "Run with ash-chrome version 127.0.6533.94",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19649,8 +20177,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v127.0.6533.50",
-              "revision": "version:127.0.6533.50"
+              "location": "lacros_version_skew_tests_v127.0.6533.94",
+              "revision": "version:127.0.6533.94"
             }
           ],
           "dimensions": {
@@ -19667,9 +20195,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6610.0/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v129.0.6641.0/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 128.0.6610.0",
+        "description": "Run with ash-chrome version 129.0.6641.0",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19679,8 +20207,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v128.0.6610.0",
-              "revision": "version:128.0.6610.0"
+              "location": "lacros_version_skew_tests_v129.0.6641.0",
+              "revision": "version:129.0.6641.0"
             }
           ],
           "dimensions": {
@@ -19697,9 +20225,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6600.0/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6613.12/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 128.0.6600.0",
+        "description": "Run with ash-chrome version 128.0.6613.12",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19709,8 +20237,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v128.0.6600.0",
-              "revision": "version:128.0.6600.0"
+              "location": "lacros_version_skew_tests_v128.0.6613.12",
+              "revision": "version:128.0.6613.12"
             }
           ],
           "dimensions": {
@@ -19727,9 +20255,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6478.178/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6478.222/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 126.0.6478.178",
+        "description": "Run with ash-chrome version 126.0.6478.222",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19739,8 +20267,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v126.0.6478.178",
-              "revision": "version:126.0.6478.178"
+              "location": "lacros_version_skew_tests_v126.0.6478.222",
+              "revision": "version:126.0.6478.222"
             }
           ],
           "dimensions": {
@@ -19793,9 +20321,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6533.50/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6533.94/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 127.0.6533.50",
+        "description": "Run with ash-chrome version 127.0.6533.94",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19805,8 +20333,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v127.0.6533.50",
-              "revision": "version:127.0.6533.50"
+              "location": "lacros_version_skew_tests_v127.0.6533.94",
+              "revision": "version:127.0.6533.94"
             }
           ],
           "dimensions": {
@@ -19823,9 +20351,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6610.0/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v129.0.6641.0/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 128.0.6610.0",
+        "description": "Run with ash-chrome version 129.0.6641.0",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19835,8 +20363,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v128.0.6610.0",
-              "revision": "version:128.0.6610.0"
+              "location": "lacros_version_skew_tests_v129.0.6641.0",
+              "revision": "version:129.0.6641.0"
             }
           ],
           "dimensions": {
@@ -19853,9 +20381,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6600.0/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6613.12/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 128.0.6600.0",
+        "description": "Run with ash-chrome version 128.0.6613.12",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19865,8 +20393,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v128.0.6600.0",
-              "revision": "version:128.0.6600.0"
+              "location": "lacros_version_skew_tests_v128.0.6613.12",
+              "revision": "version:128.0.6613.12"
             }
           ],
           "dimensions": {
@@ -19883,9 +20411,9 @@
       {
         "args": [
           "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-          "--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6478.178/test_ash_chrome"
+          "--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6478.222/test_ash_chrome"
         ],
-        "description": "Run with ash-chrome version 126.0.6478.178",
+        "description": "Run with ash-chrome version 126.0.6478.222",
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -19895,8 +20423,8 @@
           "cipd_packages": [
             {
               "cipd_package": "chromium/testing/linux-ash-chromium/x86_64/ash.zip",
-              "location": "lacros_version_skew_tests_v126.0.6478.178",
-              "revision": "version:126.0.6478.178"
+              "location": "lacros_version_skew_tests_v126.0.6478.222",
+              "revision": "version:126.0.6478.222"
             }
           ],
           "dimensions": {
@@ -21024,6 +21552,22 @@
         },
         "test": "filesystem_service_unittests",
         "test_id_prefix": "ninja://components/services/filesystem:filesystem_service_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "fuzzing_unittests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Mac-14"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "fuzzing_unittests",
+        "test_id_prefix": "ninja://testing/libfuzzer/tests:fuzzing_unittests/"
       },
       {
         "isolate_profile_data": true,
@@ -22368,6 +22912,21 @@
         },
         "test": "filesystem_service_unittests",
         "test_id_prefix": "ninja://components/services/filesystem:filesystem_service_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "name": "fuzzing_unittests",
+        "swarming": {
+          "dimensions": {
+            "os": "Windows-10-19045"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "fuzzing_unittests",
+        "test_id_prefix": "ninja://testing/libfuzzer/tests:fuzzing_unittests/"
       },
       {
         "isolate_profile_data": true,

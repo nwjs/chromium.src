@@ -455,10 +455,15 @@ class TelemetryCommandGenerator(object):
     return []
 
   def _generate_repeat_args(self):
+    pageset_repeat = None
     if self._options.isolated_script_test_repeat:
-      return [
-          '--pageset-repeat=' + str(self._options.isolated_script_test_repeat)
-      ]
+      pageset_repeat = self._options.isolated_script_test_repeat
+    elif (self._story_selection_config is not None
+          and self._story_selection_config.get('pageset_repeat')):
+      pageset_repeat = self._story_selection_config.get('pageset_repeat')
+
+    if pageset_repeat:
+      return ['--pageset-repeat=' + str(pageset_repeat)]
     return []
 
   def _generate_also_run_disabled_tests_args(self):
@@ -678,32 +683,65 @@ class CrossbenchTest(object):
   def __init__(self, options, isolated_out_dir):
     self.options = options
     self.isolated_out_dir = isolated_out_dir
-    self._find_desktop_browser(options.passthrough_args)
+    browser_arg = self._get_browser_arg(options.passthrough_args)
+    self._find_desktop_browser(browser_arg)
+    self.driver_path_arg = self._find_chromedriver(browser_arg)
 
-  # TODO: Implement similar method for Android.
-  def _find_desktop_browser(self, args):
+  def _get_browser_arg(self, args):
     browser_args = [arg for arg in args if arg.startswith('--browser=')]
     if len(browser_args) != 1:
       raise ValueError('Expects exactly one --browser=... arg on command line')
-    if '/' in browser_args[0] or '\\' in browser_args[0]:
+    return browser_args[0].split('=', 1)[1]
+
+  # TODO: Implement similar method for Android.
+  def _find_desktop_browser(self, browser_arg):
+    if '/' in browser_arg or '\\' in browser_arg:
       # The --browser arg looks like a path. Use it as-is.
-      self.browser = browser_args[0]
+      self.browser = self.CHROME_BROWSER % browser_arg
       return
     options = browser_options.BrowserFinderOptions()
     parser = options.CreateParser()
     binary_manager.InitDependencyManager(None)
-    parser.parse_args(browser_args)
+    parser.parse_args([self.CHROME_BROWSER % browser_arg])
     possible_browser = browser_finder.FindBrowser(options)
     if not possible_browser:
-      raise ValueError(
-          f'Unable to find Chrome browser of type: {browser_args[0]}')
+      raise ValueError(f'Unable to find Chrome browser of type: {browser_arg}')
     self.browser = self.CHROME_BROWSER % possible_browser._local_executable
+
+  def _find_chromedriver(self, browser_arg):
+    browser_arg = browser_arg.lower()
+    if browser_arg == 'release_x64':
+      path = '../Release_x64'
+    elif browser_arg.startswith('android'):
+      path = 'clang_x64'
+    else:
+      path = '.'
+
+    abspath = pathlib.Path(path).absolute()
+    if ((driver_path := (abspath / 'chromedriver')).exists()
+        or (driver_path := (abspath / 'chromedriver.exe')).exists()):
+      return [f'--driver-path={driver_path}']
+    # Unable to find ChromeDriver, will rely on crossbench to download one.
+    return []
+
+  def _get_default_args(self):
+    return [
+        '--no-symlinks',
+        '--enable-field-trial-config',
+        # Required until crbug/41491492 and crbug/346323630 are fixed.
+        '--enable-features=DisablePrivacySandboxPrompts',
+    ]
 
   def _generate_command_list(self, benchmark, benchmark_args, working_dir):
     return ([sys.executable] + [self.options.executable] + [benchmark] +
-            [self.OUTDIR % working_dir] + [self.browser] + benchmark_args)
+            [self.OUTDIR % working_dir] + [self.browser] + benchmark_args +
+            self.driver_path_arg + self._get_default_args())
 
-  def execute_benchmark(self, benchmark, display_name, benchmark_args):
+  def execute_benchmark(self,
+                        benchmark,
+                        display_name,
+                        benchmark_args,
+                        is_unittest=False):
     start = time.time()
 
     env = os.environ.copy()
@@ -713,9 +751,8 @@ class CrossbenchTest(object):
     output_paths = OutputFilePaths(self.isolated_out_dir, display_name).SetUp()
     infra_failure = False
     try:
-      working_dir = tempfile.mkdtemp(suffix='crossbench')
       command = self._generate_command_list(benchmark, benchmark_args,
-                                            working_dir)
+                                            output_paths.benchmark_path)
       if self.options.xvfb:
         # When running with xvfb, we currently output both to stdout and to the
         # file. It would be better to only output to the file to keep the logs
@@ -731,26 +768,19 @@ class CrossbenchTest(object):
 
       if return_code == 0:
         crossbench_result_converter.convert(
-            pathlib.Path(working_dir) / 'output',
+            pathlib.Path(output_paths.benchmark_path) / 'output',
             pathlib.Path(output_paths.perf_results), display_name,
-            self.STORY_LABEL)
+            self.STORY_LABEL, self.options.results_label)
     except Exception:
       print('The following exception may have prevented the code from '
             'outputing structured test results and perf results output:')
       print(traceback.format_exc())
       infra_failure = True
-    finally:
-      # On swarming bots, don't remove output directory, since Result Sink might
-      # still be uploading files to Result DB. Also, swarming bots automatically
-      # clean up at the end of each task.
-      if 'SWARMING_TASK_ID' not in os.environ:
-        # Add ignore_errors=True because otherwise rmtree may fail due to leaky
-        # processes of tests are still holding opened handles to files under
-        # |tempfile_dir|. For example, see crbug.com/865896
-        shutil.rmtree(working_dir, ignore_errors=True)
 
     write_simple_test_results(return_code, output_paths.test_results,
                               display_name)
+    if not is_unittest:
+      upload_simple_test_results(return_code, display_name)
 
     print_duration(f'Executing benchmark: {benchmark}', start)
 
@@ -968,11 +998,11 @@ def _run_benchmarks_on_shardmap(shard_map, options, isolated_out_dir,
   overall_return_code = 0
   # TODO(crbug.com/40631538): shard environment variables are not specified
   # for single-shard shard runs.
-  if 'GTEST_SHARD_INDEX' not in os.environ and '1' not in shard_map.keys():
+  if 'GTEST_SHARD_INDEX' not in os.environ and '1' in shard_map.keys():
     raise Exception(
         'Setting GTEST_SHARD_INDEX environment variable is required '
         'when you use a shard map.')
-  shard_index = os.environ.get('GTEST_SHARD_INDEX', 0)
+  shard_index = os.environ.get('GTEST_SHARD_INDEX', '0')
   shard_configuration = shard_map[shard_index]
   if not [x for x in shard_configuration if x in PERF_TOOLS]:
     raise Exception(

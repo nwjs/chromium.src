@@ -19,6 +19,7 @@
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice_client.h"
 #include "components/live_caption/pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/soda/constants.h"
 #include "components/soda/pref_names.h"
 #include "components/soda/soda_features.h"
 #include "components/soda/soda_installer.h"
@@ -95,8 +96,6 @@ SodaInstallerImplChromeOS::ConstructAvailableLanguages() const {
   available_languages.insert(
       {"fr-BE", {"libsoda-model-fr-be-df24d1", LanguageCode::kFrBe}});
   available_languages.insert(
-      {"fr-FR", {"libsoda-model-fr-fr-df24d1", LanguageCode::kFrFr}});
-  available_languages.insert(
       {"fr-CH", {"libsoda-model-fr-ch-df24d1", LanguageCode::kFrCh}});
   available_languages.insert(
       {"en-IN", {"libsoda-model-en-in-df24d1", LanguageCode::kEnIn}});
@@ -112,23 +111,64 @@ SodaInstallerImplChromeOS::ConstructAvailableLanguages() const {
       {"es-US", {"libsoda-model-es-us-df24d1", LanguageCode::kEsUs}});
   available_languages.insert(
       {"es-ES", {"libsoda-model-es-us-df24d1", LanguageCode::kEsEs}});
+  available_languages.insert(
+      {"fr-CA", {"libsoda-model-fr-ca-df24d1", LanguageCode::kFrCa}});
+  available_languages.insert(
+      {"hi-IN", {"libsoda-model-hi-in-df24d1", LanguageCode::kHiIn}});
+  available_languages.insert(
+      {"id-ID", {"libsoda-model-id-id-df24d1", LanguageCode::kIdId}});
+  available_languages.insert(
+      {"ko-KR", {"libsoda-model-ko-kr-df24d1", LanguageCode::kKoKr}});
+  available_languages.insert(
+      {"pl-PL", {"libsoda-model-pl-pl-df24d1", LanguageCode::kPlPl}});
+  available_languages.insert(
+      {"th-TH", {"libsoda-model-th-th-df24d1", LanguageCode::kThTh}});
+  available_languages.insert(
+      {"tr-TR", {"libsoda-model-tr-tr-df24d1", LanguageCode::kTrTr}});
+  available_languages.insert(
+      {"cmn-Hant-TW", {"libsoda-model-zh-tw-df24d1", LanguageCode::kZhTw}});
+  available_languages.insert(
+      {"cmn-Hans-CN", {"libsoda-model-zh-cn-df24d1", LanguageCode::kZhCn}});
+  available_languages.insert(
+      {"pt-BR", {"libsoda-model-pt-br-df24d1", LanguageCode::kPtBr}});
+  available_languages.insert(
+      {"ru-RU", {"libsoda-model-ru-ru-df24d1", LanguageCode::kRuRu}});
+  available_languages.insert(
+      {"vi-VN", {"libsoda-model-vi-vn-df24d1", LanguageCode::kViVn}});
   available_languages.insert({"da-DK", {"", LanguageCode::kDaDk}});
-  available_languages.insert({"fr-CA", {"", LanguageCode::kFrCa}});
-  available_languages.insert({"hi-IN", {"", LanguageCode::kHiIn}});
-  available_languages.insert({"id-ID", {"", LanguageCode::kIdId}});
-  available_languages.insert({"ko-KR", {"", LanguageCode::kKoKr}});
-  available_languages.insert({"id-ID", {"", LanguageCode::kIdId}});
   available_languages.insert({"nb-NO", {"", LanguageCode::kNbNo}});
   available_languages.insert({"nl-NL", {"", LanguageCode::kNlNl}});
-  available_languages.insert({"pl-PL", {"", LanguageCode::kPlPl}});
   available_languages.insert({"sv-SE", {"", LanguageCode::kSvSe}});
-  available_languages.insert({"th-TH", {"", LanguageCode::kThTh}});
-  available_languages.insert({"tr-TR", {"", LanguageCode::kTrTr}});
-  available_languages.insert({"zh-TW", {"", LanguageCode::kZhTw}});
-  available_languages.insert({"zh-CN", {"", LanguageCode::kZhCn}});
-  available_languages.insert({"pt-BR", {"", LanguageCode::kPtBr}});
-  available_languages.insert({"ru-RU", {"", LanguageCode::kRuRu}});
-  available_languages.insert({"vi-VN", {"", LanguageCode::kViVn}});
+
+  if (base::FeatureList::IsEnabled(kFeatureManagementCrosSodaConchLanguages) &&
+      base::FeatureList::IsEnabled(kCrosSodaConchLanguages)) {
+    available_languages["de-DE"] = {"libsoda-model-de-de-cnch24d1",
+                                    LanguageCode::kDeDe};
+    available_languages["en-US"] = {"libsoda-model-en-us-cnch24d1",
+                                    LanguageCode::kEnUs};
+    available_languages["fr-FR"] = {"libsoda-model-fr-fr-cnch24d1",
+                                    LanguageCode::kFrFr};
+    available_languages["en-AU"] = {"libsoda-model-en-au-cnch24d1",
+                                    LanguageCode::kEnAu};
+    available_languages["en-GB"] = {"libsoda-model-en-gb-cnch24d1",
+                                    LanguageCode::kEnGb};
+    available_languages["en-IE"] = {"libsoda-model-en-ie-cnch24d1",
+                                    LanguageCode::kEnIe};
+    available_languages["en-SG"] = {"libsoda-model-en-sg-cnch24d1",
+                                    LanguageCode::kEnSg};
+    available_languages["es-ES"] = {"libsoda-model-es-es-cnch24d1",
+                                    LanguageCode::kEsEs};
+    available_languages["es-US"] = {"libsoda-model-es-es-cnch24d1",
+                                    LanguageCode::kEsUs};
+    available_languages["hi-IN"] = {"libsoda-model-hi-in-cnch24d1",
+                                    LanguageCode::kHiIn};
+    available_languages["it-IT"] = {"libsoda-model-it-it-cnch24d1",
+                                    LanguageCode::kItIt};
+    available_languages["ja-JP"] = {"libsoda-model-ja-jp-cnch24d1",
+                                    LanguageCode::kJaJp};
+    available_languages["sv-SE"] = {"libsoda-model-sv-se-cnch24d1",
+                                    LanguageCode::kSvSe};
+  }
 
   // Add in from feature flags. the value is of the format:
   // "en-AU:libsoda-modelname,fr-CA:,de-CH:libsoda-pizzaface,"

@@ -16,6 +16,7 @@
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "media/base/simple_sync_token_client.h"
 #include "media/base/video_frame.h"
 #include "media/renderers/video_frame_rgba_to_yuva_converter.h"
@@ -60,7 +61,7 @@ class Context : public media::RenderableGpuMemoryBufferVideoFramePool::Context {
       const gfx::ColorSpace& color_space,
       GrSurfaceOrigin surface_origin,
       SkAlphaType alpha_type,
-      uint32_t usage,
+      gpu::SharedImageUsageSet usage,
       gpu::SyncToken& sync_token) override {
     auto* sii = SharedImageInterface();
     if (!sii) {
@@ -76,21 +77,28 @@ class Context : public media::RenderableGpuMemoryBufferVideoFramePool::Context {
   }
 
   scoped_refptr<gpu::ClientSharedImage> CreateSharedImage(
-      gfx::GpuMemoryBuffer* gpu_memory_buffer,
-      gfx::BufferPlane plane,
+      const gfx::Size& size,
+      gfx::BufferUsage buffer_usage,
+      const viz::SharedImageFormat& si_format,
       const gfx::ColorSpace& color_space,
       GrSurfaceOrigin surface_origin,
       SkAlphaType alpha_type,
-      uint32_t usage,
+      gpu::SharedImageUsageSet usage,
       gpu::SyncToken& sync_token) override {
     auto* sii = SharedImageInterface();
-    if (!sii || !gmb_manager_)
+    if (!sii) {
       return nullptr;
-    auto client_shared_image =
-        sii->CreateSharedImage(gpu_memory_buffer, gmb_manager_, plane,
-                               {color_space, surface_origin, alpha_type, usage,
-                                "WebGraphicsContext2DVideoFramePool"});
-    CHECK(client_shared_image);
+    }
+    auto client_shared_image = sii->CreateSharedImage(
+        {si_format, size, color_space, surface_origin, alpha_type, usage,
+         "WebGraphicsContext3DVideoFramePool"},
+        gpu::kNullSurfaceHandle, buffer_usage);
+    if (!client_shared_image) {
+      return nullptr;
+    }
+#if BUILDFLAG(IS_MAC)
+    client_shared_image->SetColorSpaceOnNativeBuffer(color_space);
+#endif
     sync_token = sii->GenVerifiedSyncToken();
     return client_shared_image;
   }

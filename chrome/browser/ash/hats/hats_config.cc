@@ -24,7 +24,7 @@ HatsConfig::HatsConfig(const base::Feature& feature,
       cycle_end_timestamp_pref_name(cycle_end_timestamp_pref_name),
       survey_last_interaction_timestamp_pref_name(nullptr),
       threshold_time(base::TimeDelta()),
-      global_cap_opt_out(false) {
+      prioritized(false) {
   DCHECK(new_device_threshold.InDaysFloored() >= kMinDaysThreshold);
 }
 
@@ -42,7 +42,7 @@ HatsConfig::HatsConfig(
       survey_last_interaction_timestamp_pref_name(
           survey_last_interaction_timestamp_pref_name),
       threshold_time(threshold_time),
-      global_cap_opt_out(true) {
+      prioritized(true) {
   DCHECK(new_device_threshold.InDaysFloored() >= kMinDaysThreshold);
 }
 
@@ -190,6 +190,23 @@ const HatsConfig kHatsGeneralCameraSurvey = {
     prefs::kHatsGeneralCameraSurveyCycleEndTs,  // cycle_end_timestamp_pref_name
 };
 
+// Prioritized General Camera Survey -- shown after camera is closed after being
+// open for at least 15 seconds by using any app (e.g. Chrome or Android app).
+const HatsConfig kHatsGeneralCameraPrioritizedSurvey = {
+    // feature
+    ::features::kHappinessTrackingGeneralCameraPrioritized,
+    // new_device_threshold
+    base::Days(7),
+    // is_selected_pref_name
+    prefs::kHatsGeneralCameraPrioritizedIsSelected,
+    // cycle_end_timestamp_pref_name
+    prefs::kHatsGeneralCameraPrioritizedSurveyCycleEndTs,
+    // survey_last_interaction_timestamp_pref_name
+    prefs::kHatsGeneralCameraPrioritizedLastInteractionTimestamp,
+    // threshold_time
+    base::Days(120),
+};
+
 // Bluetooth revamp experience survey -- shown 5 mins after interacting with new
 // Bluetooth UI surfaces.
 const HatsConfig kHatsBluetoothRevampSurvey = {
@@ -263,6 +280,16 @@ const HatsConfig kHatsLauncherAppsNeedingSurvey = {
     base::Hours(2),                                     // new_device_threshold
     prefs::kHatsLauncherAppsSurveyIsSelected,           // is_selected_pref_name
     prefs::kHatsLauncherAppsSurveyCycleEndTs,  // cycle_end_timestamp_pref_name
+};
+
+// Office integration survey -- Shown after the user opens an Office file:
+// For MS365 and Docs/Sheets/Slides, shown when the app is inactive or closed.
+// For QuickOffice, shown 1 minute after launch.
+const HatsConfig kHatsOfficeSurvey = {
+    ::features::kHappinessTrackingOffice,  // feature
+    base::Days(1),                         // new_device_threshold
+    prefs::kHatsOfficeSurveyIsSelected,    // is_selected_pref_name
+    prefs::kHatsOfficeSurveyCycleEndTs,    // cycle_end_timestamp_pref_name
 };
 
 }  // namespace ash

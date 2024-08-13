@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "ash/constants/ash_features.h"
 #include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -40,6 +41,7 @@ class FakeContextObserver : public EditorContext::Observer {
 
   // EditorContext::Observer overrides
   void OnContextUpdated() override {}
+  void OnImeChange(std::string_view engine_id) override {}
 };
 
 class FakeSystem : public EditorContext::System {
@@ -279,6 +281,24 @@ TEST_P(EditorStateMetrics, RecordsFormalizeSegmentForRewrite) {
                                      1);
 }
 
+TEST_P(EditorStateMetrics, RecordsProofreadSegmentForRewrite) {
+  const EditorStates& state = GetParam();
+  FakeSystem system;
+  FakeContextObserver observer;
+  EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
+  EditorContext context(&observer, &system, &geolocation_provider);
+  EditorMetricsRecorder metrics_recorder(&context,
+                                         EditorOpportunityMode::kRewrite);
+
+  metrics_recorder.SetTone(EditorTone::kProofread);
+  metrics_recorder.LogEditorState(state);
+
+  histogram_tester_.ExpectBucketCount("InputMethod.Manta.Orca.States.Proofread",
+                                      state, 1);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Proofread",
+                                     1);
+}
+
 TEST_P(EditorStateMetrics, RecordsFreeformRewriteSegmentForRewrite) {
   const EditorStates& state = GetParam();
   FakeSystem system;
@@ -351,6 +371,8 @@ TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForWrite) {
   metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kFormalize);
   metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kProofread);
+  metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kFreeformRewrite);
   metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kUnset);
@@ -367,6 +389,8 @@ TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForWrite) {
   histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Elaborate",
                                      0);
   histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Formalize",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Proofread",
                                      0);
   histogram_tester_.ExpectTotalCount(
       "InputMethod.Manta.Orca.States.FreeformRewrite", 0);
@@ -394,6 +418,8 @@ TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForNotAllowed) {
   metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kFormalize);
   metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kProofread);
+  metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kFreeformRewrite);
   metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kUnset);
@@ -410,6 +436,8 @@ TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForNotAllowed) {
   histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Elaborate",
                                      0);
   histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Formalize",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Proofread",
                                      0);
   histogram_tester_.ExpectTotalCount(
       "InputMethod.Manta.Orca.States.FreeformRewrite", 0);
@@ -437,6 +465,8 @@ TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForInvalidInput) {
   metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kFormalize);
   metrics_recorder.LogEditorState(state);
+  metrics_recorder.SetTone(EditorTone::kProofread);
+  metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kFreeformRewrite);
   metrics_recorder.LogEditorState(state);
   metrics_recorder.SetTone(EditorTone::kUnset);
@@ -453,6 +483,8 @@ TEST_P(EditorStateMetrics, DoesNotRecordToneSegmentsForInvalidInput) {
   histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Elaborate",
                                      0);
   histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Formalize",
+                                     0);
+  histogram_tester_.ExpectTotalCount("InputMethod.Manta.Orca.States.Proofread",
                                      0);
   histogram_tester_.ExpectTotalCount(
       "InputMethod.Manta.Orca.States.FreeformRewrite", 0);
@@ -522,6 +554,9 @@ INSTANTIATE_TEST_SUITE_P(
         {"Formalize", EditorOpportunityMode::kRewrite, EditorTone::kFormalize,
          /*number_of_characters=*/1,
          /*tone_string=*/"Formalize"},
+        {"Proofread", EditorOpportunityMode::kRewrite, EditorTone::kProofread,
+         /*number_of_characters=*/1,
+         /*tone_string=*/"Proofread"},
         {"FreeformRewrite", EditorOpportunityMode::kRewrite,
          EditorTone::kFreeformRewrite,
          /*number_of_characters=*/1,
@@ -608,6 +643,10 @@ INSTANTIATE_TEST_SUITE_P(EditorMetricsRecorderTest,
                               /*query_tone_string=*/"FORMALIZE",
                               /*freeform_text=*/std::nullopt,
                               /*tone_string=*/"Formalize"},
+                             {"Proofread",
+                              /*query_tone_string=*/"PROOFREAD",
+                              /*freeform_text=*/std::nullopt,
+                              /*tone_string=*/"Proofread"},
                              {"FreeformRewrite",
                               /*query_tone_string=*/std::nullopt,
                               /*freeform_text=*/"write me a story",
@@ -695,7 +734,36 @@ struct LanguageSegmentationCase {
 
 class EditorStateMetricsSegmentedByLanguage
     : public EditorMetricsRecorderTest,
-      public testing::WithParamInterface<LanguageSegmentationCase> {};
+      public testing::WithParamInterface<LanguageSegmentationCase> {
+ public:
+  void EnableInternationalFlags() {
+    feature_list_.InitWithFeatures(
+        {
+            features::kOrcaDanish,
+            features::kOrcaDutch,
+            features::kOrcaFinnish,
+            features::kOrcaFrench,
+            features::kOrcaGerman,
+            features::kOrcaItalian,
+            features::kOrcaJapanese,
+            features::kOrcaPortugese,
+            features::kOrcaSpanish,
+            features::kOrcaSwedish,
+        },
+        {});
+  }
+
+  void EnableEnglishFlagsOnly() {
+    feature_list_.InitWithFeatures({}, {
+                                           features::kOrcaFrench,
+                                           features::kOrcaGerman,
+                                           features::kOrcaJapanese,
+                                       });
+  }
+
+ protected:
+  ScopedFeatureList feature_list_;
+};
 
 INSTANTIATE_TEST_SUITE_P(
     EditorMetricsRecorderTest,
@@ -734,6 +802,28 @@ INSTANTIATE_TEST_SUITE_P(
         {"xkb:jp::jpn", "InputMethod.Manta.Orca.Japanese.States."},
         {"nacl_mozc_us", "InputMethod.Manta.Orca.Japanese.States."},
         {"nacl_mozc_jp", "InputMethod.Manta.Orca.Japanese.States."},
+        // Danish
+        {"xkb:dk::dan", "InputMethod.Manta.Orca.Danish.States."},
+        // Dutch
+        {"xkb:be::nld", "InputMethod.Manta.Orca.Dutch.States."},
+        {"xkb:us:intl_pc:nld", "InputMethod.Manta.Orca.Dutch.States."},
+        {"xkb:us:intl:nld", "InputMethod.Manta.Orca.Dutch.States."},
+        // Finnish
+        {"xkb:fi::fin", "InputMethod.Manta.Orca.Finnish.States."},
+        // Italian
+        {"xkb:it::ita", "InputMethod.Manta.Orca.Italian.States."},
+        // Norwegian
+        {"xkb:no::nob", "InputMethod.Manta.Orca.Norwegian.States."},
+        // Portugese
+        {"xkb:br::por", "InputMethod.Manta.Orca.Portugese.States."},
+        {"xkb:pt::por", "InputMethod.Manta.Orca.Portugese.States."},
+        {"xkb:us:intl_pc:por", "InputMethod.Manta.Orca.Portugese.States."},
+        {"xkb:us:intl:por", "InputMethod.Manta.Orca.Portugese.States."},
+        // Spanish
+        {"xkb:latam::spa", "InputMethod.Manta.Orca.Spanish.States."},
+        {"xkb:es::spa", "InputMethod.Manta.Orca.Spanish.States."},
+        // Swedish
+        {"xkb:se::swe", "InputMethod.Manta.Orca.Swedish.States."},
     }));
 
 TEST_P(EditorStateMetricsSegmentedByLanguage,
@@ -741,7 +831,7 @@ TEST_P(EditorStateMetricsSegmentedByLanguage,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram =
       base::StrCat({test_case.expected_histogram_prefix, "Write"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -767,7 +857,7 @@ TEST_P(EditorStateMetricsSegmentedByLanguage,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram =
       base::StrCat({test_case.expected_histogram_prefix, "Rewrite"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -792,7 +882,7 @@ TEST_P(EditorStateMetricsSegmentedByLanguage, DoesntRecordIfFlagDisabled) {
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram =
       base::StrCat({test_case.expected_histogram_prefix, "Rewrite"});
-  ScopedFeatureList feature_list;
+  EnableEnglishFlagsOnly();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -809,7 +899,36 @@ TEST_P(EditorStateMetricsSegmentedByLanguage, DoesntRecordIfFlagDisabled) {
 
 class EditorAuxiliaryMetricsSegmentedByEnglishAndOther
     : public EditorMetricsRecorderTest,
-      public testing::WithParamInterface<LanguageSegmentationCase> {};
+      public testing::WithParamInterface<LanguageSegmentationCase> {
+ public:
+  void EnableInternationalFlags() {
+    feature_list_.InitWithFeatures(
+        {
+            features::kOrcaDanish,
+            features::kOrcaDutch,
+            features::kOrcaFinnish,
+            features::kOrcaFrench,
+            features::kOrcaGerman,
+            features::kOrcaItalian,
+            features::kOrcaJapanese,
+            features::kOrcaPortugese,
+            features::kOrcaSpanish,
+            features::kOrcaSwedish,
+        },
+        {});
+  }
+
+  void EnableEnglishFlagsOnly() {
+    feature_list_.InitWithFeatures({}, {
+                                           features::kOrcaFrench,
+                                           features::kOrcaGerman,
+                                           features::kOrcaJapanese,
+                                       });
+  }
+
+ protected:
+  ScopedFeatureList feature_list_;
+};
 
 // Note that auxiliary metrics are not segmented by each language enabled, but
 // by two high level buckets; kEnglish and kOther. This is to prevent an
@@ -852,6 +971,28 @@ INSTANTIATE_TEST_SUITE_P(
         {"xkb:jp::jpn", "InputMethod.Manta.Orca.Other."},
         {"nacl_mozc_us", "InputMethod.Manta.Orca.Other."},
         {"nacl_mozc_jp", "InputMethod.Manta.Orca.Other."},
+        // Danish
+        {"xkb:dk::dan", "InputMethod.Manta.Orca.Other."},
+        // Dutch
+        {"xkb:be::nld", "InputMethod.Manta.Orca.Other."},
+        {"xkb:us:intl_pc:nld", "InputMethod.Manta.Orca.Other."},
+        {"xkb:us:intl:nld", "InputMethod.Manta.Orca.Other."},
+        // Finnish
+        {"xkb:fi::fin", "InputMethod.Manta.Orca.Other."},
+        // Italian
+        {"xkb:it::ita", "InputMethod.Manta.Orca.Other."},
+        // Norwegian
+        {"xkb:no::nob", "InputMethod.Manta.Orca.Other."},
+        // Portugese
+        {"xkb:br::por", "InputMethod.Manta.Orca.Other."},
+        {"xkb:pt::por", "InputMethod.Manta.Orca.Other."},
+        {"xkb:us:intl_pc:por", "InputMethod.Manta.Orca.Other."},
+        {"xkb:us:intl:por", "InputMethod.Manta.Orca.Other."},
+        // Spanish
+        {"xkb:latam::spa", "InputMethod.Manta.Orca.Other."},
+        {"xkb:es::spa", "InputMethod.Manta.Orca.Other."},
+        // Swedish
+        {"xkb:se::swe", "InputMethod.Manta.Orca.Other."},
     }));
 
 TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
@@ -859,7 +1000,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram = base::StrCat(
       {test_case.expected_histogram_prefix, "CharactersInserted.Write"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -878,7 +1019,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram = base::StrCat(
       {test_case.expected_histogram_prefix, "CharactersInserted.Rewrite"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -897,7 +1038,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram = base::StrCat(
       {test_case.expected_histogram_prefix, "CharactersInserted.Rewrite"});
-  ScopedFeatureList feature_list;
+  EnableEnglishFlagsOnly();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -916,7 +1057,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const std::string expected_histogram =
       base::StrCat({test_case.expected_histogram_prefix,
                     "CharactersSelectedForInsert.Write"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -936,7 +1077,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const std::string expected_histogram =
       base::StrCat({test_case.expected_histogram_prefix,
                     "CharactersSelectedForInsert.Rewrite"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -956,7 +1097,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const std::string expected_histogram =
       base::StrCat({test_case.expected_histogram_prefix,
                     "CharactersSelectedForInsert.Rewrite"});
-  ScopedFeatureList feature_list;
+  EnableEnglishFlagsOnly();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -974,7 +1115,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram =
       base::StrCat({test_case.expected_histogram_prefix, "NumResponses.Write"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -993,7 +1134,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram = base::StrCat(
       {test_case.expected_histogram_prefix, "NumResponses.Rewrite"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -1012,7 +1153,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram = base::StrCat(
       {test_case.expected_histogram_prefix, "NumResponses.Rewrite"});
-  ScopedFeatureList feature_list;
+  EnableEnglishFlagsOnly();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -1030,7 +1171,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram = base::StrCat(
       {test_case.expected_histogram_prefix, "LengthOfLongestResponse.Write"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -1049,7 +1190,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram = base::StrCat(
       {test_case.expected_histogram_prefix, "LengthOfLongestResponse.Rewrite"});
-  ScopedFeatureList feature_list(chromeos::features::kOrcaInternationalize);
+  EnableInternationalFlags();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);
@@ -1068,7 +1209,7 @@ TEST_P(EditorAuxiliaryMetricsSegmentedByEnglishAndOther,
   const LanguageSegmentationCase& test_case = GetParam();
   const std::string expected_histogram = base::StrCat(
       {test_case.expected_histogram_prefix, "LengthOfLongestResponse.Rewrite"});
-  ScopedFeatureList feature_list;
+  EnableEnglishFlagsOnly();
   FakeSystem system;
   FakeContextObserver observer;
   EditorGeolocationMockProvider geolocation_provider(kAllowedCountryCode);

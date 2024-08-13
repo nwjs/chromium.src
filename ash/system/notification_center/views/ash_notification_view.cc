@@ -207,17 +207,19 @@ views::Builder<views::BoxLayoutView> CreateCollapsedSummaryBuilder(
       .AddChild(
           views::Builder<views::Label>()
               .SetText(notification.title())
+              .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
               .SetFontList(gfx::FontList({kGoogleSansFont}, gfx::Font::NORMAL,
                                          ash::kNotificationTitleLabelSize,
                                          gfx::Font::Weight::MEDIUM)))
       .AddChild(
           views::Builder<views::Label>()
               .SetText(notification.message())
+              .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
               .SetTextContext(views::style::CONTEXT_DIALOG_BODY_TEXT)
               .SetTextStyle(views::style::STYLE_SECONDARY)
               .SetFontList(gfx::FontList({kGoogleSansFont}, gfx::Font::NORMAL,
                                          ash::kNotificationMessageLabelSize,
-                                         gfx::Font::Weight::MEDIUM)));
+                                         gfx::Font::Weight::NORMAL)));
 }
 
 views::Builder<ash::AshNotificationView::GroupedNotificationsContainer>
@@ -290,6 +292,8 @@ using Orientation = views::BoxLayout::Orientation;
 
 BEGIN_METADATA(AshNotificationView, NotificationTitleRow)
 END_METADATA
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AshNotificationView, kBubbleIdForTesting);
 
 void AshNotificationView::AddedToWidget() {
   MessageView::AddedToWidget();
@@ -456,6 +460,8 @@ AshNotificationView::AshNotificationView(
     set_drag_controller(
         Shell::Get()->message_center_controller()->drag_controller());
   }
+
+  SetProperty(views::kElementIdentifierKey, kBubbleIdForTesting);
 
   message_center_observer_.Observe(message_center::MessageCenter::Get());
   // TODO(crbug.com/40780100): fix views and layout to match spec.

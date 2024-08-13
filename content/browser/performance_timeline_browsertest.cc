@@ -38,10 +38,6 @@ class PerformanceTimelineBrowserTest : public ContentBrowserTest {
     return static_cast<WebContentsImpl*>(shell()->web_contents());
   }
 
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    ContentBrowserTest::SetUpCommandLine(command_line);
-  }
-
   RenderFrameHostImpl* current_frame_host() {
     return web_contents()->GetPrimaryFrameTree().root()->current_frame_host();
   }
@@ -211,8 +207,7 @@ class PerformanceTimelineNavigationIdBrowserTest
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     PerformanceTimelineBrowserTest::SetUpCommandLine(command_line);
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        "--enable-blink-test-features");
+    command_line->AppendSwitch("--enable-blink-test-features");
   }
 };
 
@@ -241,9 +236,9 @@ IN_PROC_BROWSER_TEST_F(PerformanceTimelineNavigationIdBrowserTest,
 
     // Verify `rfh_a` is stored in back/forward cache in case back/forward cache
     // feature is enabled.
-    if (IsBackForwardCacheEnabled())
+    if (IsBackForwardCacheEnabled()) {
       ASSERT_TRUE(rfh_a->IsInBackForwardCache());
-    else {
+    } else {
       // Verify `rfh_a` is deleted in case back/forward cache feature is
       // disabled.
       ASSERT_TRUE(rfh_a.WaitUntilRenderFrameDeleted());
@@ -308,8 +303,8 @@ class PerformanceTimelineBackForwardCacheRestorationBrowserTest
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     ContentBrowserTest::SetUpCommandLine(command_line);
-    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-        switches::kEnableBlinkTestFeatures, "NavigationId");
+    command_line->AppendSwitchASCII(switches::kEnableBlinkTestFeatures,
+                                    "NavigationId");
     command_line->AppendSwitch(switches::kExposeInternalsForTesting);
   }
 
@@ -458,10 +453,8 @@ class PerformanceEventTimingBrowserTest
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     PerformanceTimelineBrowserTest::SetUpCommandLine(command_line);
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        "--enable-blink-test-features");
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kExposeInternalsForTesting);
+    command_line->AppendSwitch("--enable-blink-test-features");
+    command_line->AppendSwitch(switches::kExposeInternalsForTesting);
   }
 
   content::EvalJsResult setEventTimingBufferSize(int size) const {

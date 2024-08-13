@@ -35,6 +35,7 @@
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/not_fatal_until.h"
 #include "base/synchronization/lock.h"
 #include "base/time/time.h"
 #include "cc/layers/layer.h"
@@ -216,7 +217,7 @@ void RemoveElementFromDocumentMap(HTMLMediaElement* element,
                                   Document* document) {
   DocumentElementSetMap& map = DocumentToElementSetMap();
   auto it = map.find(document);
-  DCHECK(it != map.end());
+  CHECK(it != map.end(), base::NotFatalUntil::M130);
   WeakMediaElementSet* set = it->value;
   set->erase(element);
   if (set->empty())
@@ -1441,29 +1442,31 @@ LocalFrame* HTMLMediaElement::LocalFrameForPlayer() {
                           : GetDocument().GetFrame();
 }
 
-bool HTMLMediaElement::IsValidInvokeAction(HTMLElement& invoker,
-                                           InvokeAction action) {
+bool HTMLMediaElement::IsValidCommand(HTMLElement& invoker,
+                                      CommandEventType command) {
   if (!RuntimeEnabledFeatures::HTMLInvokeActionsV2Enabled()) {
-    return HTMLElement::IsValidInvokeAction(invoker, action);
+    return HTMLElement::IsValidCommand(invoker, command);
   }
 
-  return HTMLElement::IsValidInvokeAction(invoker, action) ||
-         action == InvokeAction::kPlaypause || action == InvokeAction::kPause ||
-         action == InvokeAction::kPlay || action == InvokeAction::kToggleMuted;
+  return HTMLElement::IsValidCommand(invoker, command) ||
+         command == CommandEventType::kPlaypause ||
+         command == CommandEventType::kPause ||
+         command == CommandEventType::kPlay ||
+         command == CommandEventType::kToggleMuted;
 }
 
-bool HTMLMediaElement::HandleInvokeInternal(HTMLElement& invoker,
-                                            InvokeAction action) {
-  CHECK(IsValidInvokeAction(invoker, action));
+bool HTMLMediaElement::HandleCommandInternal(HTMLElement& invoker,
+                                             CommandEventType command) {
+  CHECK(IsValidCommand(invoker, command));
 
-  if (HTMLElement::HandleInvokeInternal(invoker, action)) {
+  if (HTMLElement::HandleCommandInternal(invoker, command)) {
     return true;
   }
 
   Document& document = GetDocument();
   LocalFrame* frame = document.GetFrame();
 
-  if (action == InvokeAction::kPlaypause) {
+  if (command == CommandEventType::kPlaypause) {
     if (paused_) {
       if (LocalFrame::HasTransientUserActivation(frame)) {
         Play();
@@ -1479,12 +1482,12 @@ bool HTMLMediaElement::HandleInvokeInternal(HTMLElement& invoker,
       pause();
       return true;
     }
-  } else if (action == InvokeAction::kPause) {
+  } else if (command == CommandEventType::kPause) {
     if (!paused_) {
       pause();
     }
     return true;
-  } else if (action == InvokeAction::kPlay) {
+  } else if (command == CommandEventType::kPlay) {
     if (paused_) {
       if (LocalFrame::HasTransientUserActivation(frame)) {
         Play();
@@ -1497,7 +1500,7 @@ bool HTMLMediaElement::HandleInvokeInternal(HTMLElement& invoker,
       }
     }
     return true;
-  } else if (action == InvokeAction::kToggleMuted) {
+  } else if (command == CommandEventType::kToggleMuted) {
     // No user activation check as `setMuted` already handles the autoplay
     // policy check.
     setMuted(!muted_);

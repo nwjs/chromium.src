@@ -25,7 +25,9 @@ interface Page {
 // State contains the information the page needs to display itself.
 struct State {
   Status status;
+  array<Label> labels;
   array<Box> boxes;
+  array<Face> faces;
 };
 
 // The status of the feature as reported from the C++ side.
@@ -42,11 +44,29 @@ enum Status {
   kError = 4,
 };
 
+// The label to be displayed above a `Box`. Useful to identify the box visually
+// over time.
+struct Label {
+  int32 id;
+  int32 x;
+  int32 y;
+};
+
 // A Box represents a rectangular area that should be highlighted in the camera
 // feed on the page.
 struct Box {
-  uint32 top;
-  uint32 left;
-  uint32 right;
-  uint32 bottom;
+  int32 x;
+  int32 y;
+  int32 width;
+  int32 height;
+};
+
+// A face includes the angles used to display the face direction arrows, and
+// the face bounding box.
+struct Face {
+  // `roll`, `pan`, and `tilt` are the face pose angles.
+  float roll;
+  float pan;
+  float tilt;
+  Box box;
 };

@@ -34,6 +34,7 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/compositor/property_change_reason.h"
 #include "ui/display/screen.h"
 #include "ui/display/tablet_state.h"
 #include "ui/wm/core/window_util.h"
@@ -200,13 +201,28 @@ void GameDashboardController::OnWindowBoundsChanged(
     const gfx::Rect& new_bounds,
     ui::PropertyChangeReason reason) {
   if (auto* context = GetGameDashboardContext(window)) {
-    context->OnWindowBoundsChanged();
+    context->OnWindowBoundsChanged(reason ==
+                                   ui::PropertyChangeReason::FROM_ANIMATION);
   }
 }
 
 void GameDashboardController::OnWindowDestroying(aura::Window* window) {
   window_observations_.RemoveObservation(window);
   game_window_contexts_.erase(window);
+}
+
+void GameDashboardController::OnWindowTransformed(
+    aura::Window* window,
+    ui::PropertyChangeReason reason) {
+  if (auto* context = GetGameDashboardContext(window);
+      context && game_dashboard_utils::ShouldEnableFeatures()) {
+    // Enable the features if the window is not minimized or undergoing an
+    // animation. Otherwise, disable them.
+    const bool enable = (reason == ui::PropertyChangeReason::FROM_ANIMATION) &&
+                        !(WindowState::Get(window)->IsMinimized());
+    context->EnableFeatures(enable,
+                            GameDashboardMainMenuToggleMethod::kAnimation);
+  }
 }
 
 void GameDashboardController::OnRecordingStarted(aura::Window* current_root) {

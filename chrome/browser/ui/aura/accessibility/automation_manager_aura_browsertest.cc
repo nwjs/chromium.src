@@ -487,7 +487,7 @@ IN_PROC_BROWSER_TEST_F(AutomationManagerAuraBrowserTest, MAYBE_TableView) {
     ui::AXNode* cell =
         waiter.ax_tree()->GetFromId(ax_cell_0_0_wrapper->GetUniqueId());
     ASSERT_TRUE(cell);
-    EXPECT_EQ(ax::mojom::Role::kCell, cell->GetRole());
+    EXPECT_EQ(ax::mojom::Role::kGridCell, cell->GetRole());
     gfx::RectF cell_bounds = waiter.ax_tree()->GetTreeBounds(cell);
     SCOPED_TRACE("Cell: " + cell_bounds.ToString());
 
@@ -646,7 +646,7 @@ IN_PROC_BROWSER_TEST_F(AutomationManagerAuraBrowserTest, GetFocusOnChildTree) {
   EXPECT_EQ(cache.GetOrCreate(widget->GetRootView()), cache.GetFocus());
 
   // Now, there's a tree id.
-  child->GetViewAccessibility().OverrideChildTreeID(
+  child->GetViewAccessibility().SetChildTreeID(
       ui::AXTreeID::CreateNewAXTreeID());
   EXPECT_EQ(cache.GetOrCreate(child), cache.GetFocus());
 

@@ -176,6 +176,14 @@ void AutofillDriverRouter::CaretMovedInFormField(
   form_forest_.UpdateTreeOfRendererForm(std::move(form), source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
+  if (!base::Contains(browser_form.fields(), field_id,
+                      &FormFieldData::global_id)) {
+    // To avoid very large flattened forms, UpdateTreeOfRendererForm() may have
+    // cut the tree into two and, as a result, may have lost some fields. We
+    // drop such events.
+    // See `kMaxVisits` in FormForest::UpdateTreeOfRendererForm() for details.
+    return;
+  }
   auto* target = DriverOfFrame(browser_form.host_frame());
   callback(CHECK_DEREF(target), browser_form, field_id, caret_bounds);
 }
@@ -193,6 +201,14 @@ void AutofillDriverRouter::TextFieldDidChange(
   TriggerFormExtractionExcept(source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
+  if (!base::Contains(browser_form.fields(), field_id,
+                      &FormFieldData::global_id)) {
+    // To avoid very large flattened forms, UpdateTreeOfRendererForm() may have
+    // cut the tree into two and, as a result, may have lost some fields. We
+    // drop such events.
+    // See `kMaxVisits` in FormForest::UpdateTreeOfRendererForm() for details.
+    return;
+  }
   auto* target = DriverOfFrame(browser_form.host_frame());
   callback(CHECK_DEREF(target), browser_form, field_id, timestamp);
 }
@@ -208,6 +224,14 @@ void AutofillDriverRouter::TextFieldDidScroll(
   TriggerFormExtractionExcept(source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
+  if (!base::Contains(browser_form.fields(), field_id,
+                      &FormFieldData::global_id)) {
+    // To avoid very large flattened forms, UpdateTreeOfRendererForm() may have
+    // cut the tree into two and, as a result, may have lost some fields. We
+    // drop such events.
+    // See `kMaxVisits` in FormForest::UpdateTreeOfRendererForm() for details.
+    return;
+  }
   auto* target = DriverOfFrame(browser_form.host_frame());
   callback(CHECK_DEREF(target), browser_form, field_id);
 }
@@ -223,6 +247,14 @@ void AutofillDriverRouter::SelectControlDidChange(
   TriggerFormExtractionExcept(source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
+  if (!base::Contains(browser_form.fields(), field_id,
+                      &FormFieldData::global_id)) {
+    // To avoid very large flattened forms, UpdateTreeOfRendererForm() may have
+    // cut the tree into two and, as a result, may have lost some fields. We
+    // drop such events.
+    // See `kMaxVisits` in FormForest::UpdateTreeOfRendererForm() for details.
+    return;
+  }
   auto* target = DriverOfFrame(browser_form.host_frame());
   callback(CHECK_DEREF(target), browser_form, field_id);
 }
@@ -243,6 +275,14 @@ void AutofillDriverRouter::AskForValuesToFill(
   TriggerFormExtractionExcept(source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
+  if (!base::Contains(browser_form.fields(), field_id,
+                      &FormFieldData::global_id)) {
+    // To avoid very large flattened forms, UpdateTreeOfRendererForm() may have
+    // cut the tree into two and, as a result, may have lost some fields. We
+    // drop such events.
+    // See `kMaxVisits` in FormForest::UpdateTreeOfRendererForm() for details.
+    return;
+  }
   auto* target = DriverOfFrame(browser_form.host_frame());
   callback(CHECK_DEREF(target), browser_form, field_id, caret_bounds,
            trigger_source);
@@ -306,6 +346,14 @@ void AutofillDriverRouter::FocusOnFormField(
   TriggerFormExtractionExcept(source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
+  if (!base::Contains(browser_form.fields(), field_id,
+                      &FormFieldData::global_id)) {
+    // To avoid very large flattened forms, UpdateTreeOfRendererForm() may have
+    // cut the tree into two and, as a result, may have lost some fields. We
+    // drop such events.
+    // See `kMaxVisits` in FormForest::UpdateTreeOfRendererForm() for details.
+    return;
+  }
   auto* target = DriverOfFrame(browser_form.host_frame());
   callback(CHECK_DEREF(target), browser_form, field_id);
 }
@@ -366,6 +414,14 @@ void AutofillDriverRouter::JavaScriptChangedAutofilledValue(
   TriggerFormExtractionExcept(source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
+  if (!base::Contains(browser_form.fields(), field_id,
+                      &FormFieldData::global_id)) {
+    // To avoid very large flattened forms, UpdateTreeOfRendererForm() may have
+    // cut the tree into two and, as a result, may have lost some fields. We
+    // drop such events.
+    // See `kMaxVisits` in FormForest::UpdateTreeOfRendererForm() for details.
+    return;
+  }
   auto* target = DriverOfFrame(browser_form.host_frame());
   callback(CHECK_DEREF(target), browser_form, field_id, old_value,
            formatting_only);
@@ -405,7 +461,7 @@ base::flat_set<FieldGlobalId> AutofillDriverRouter::ApplyFormAction(
       fields_of_driver;
   for (FormData& renderer_form : renderer_forms.renderer_forms) {
     if (auto* target = DriverOfFrame(renderer_form.host_frame())) {
-      for (const FormFieldData& field : renderer_form.fields) {
+      for (const FormFieldData& field : renderer_form.fields()) {
         // Skip unsafe fields so that they do not get filled in the renderer.
         if (renderer_forms.safe_fields.contains(field.global_id())) {
           fields_of_driver[target].emplace_back(field);
@@ -468,7 +524,7 @@ void AutofillDriverRouter::ExtractForm(
   }
 }
 
-void AutofillDriverRouter::SendAutofillTypePredictionsToRenderer(
+void AutofillDriverRouter::SendTypePredictionsToRenderer(
     RoutedCallback<const std::vector<FormDataPredictions>&> callback,
     const std::vector<FormDataPredictions>& browser_fdps) {
   // Splits each FrameDataPredictions according to the respective FormData's
@@ -478,11 +534,11 @@ void AutofillDriverRouter::SendAutofillTypePredictionsToRenderer(
   for (const FormDataPredictions& browser_fdp : browser_fdps) {
     // Builds an index of the field predictions by the field's global ID.
     std::map<FieldGlobalId, FormFieldDataPredictions> field_predictions;
-    DCHECK_EQ(browser_fdp.data.fields.size(), browser_fdp.fields.size());
-    for (size_t i = 0; i < std::min(browser_fdp.data.fields.size(),
+    DCHECK_EQ(browser_fdp.data.fields().size(), browser_fdp.fields.size());
+    for (size_t i = 0; i < std::min(browser_fdp.data.fields().size(),
                                     browser_fdp.fields.size());
          ++i) {
-      field_predictions.emplace(browser_fdp.data.fields[i].global_id(),
+      field_predictions.emplace(browser_fdp.data.fields()[i].global_id(),
                                 browser_fdp.fields[i]);
     }
 
@@ -490,16 +546,16 @@ void AutofillDriverRouter::SendAutofillTypePredictionsToRenderer(
     // the renderer form's frame in |renderer_fdps|.
     internal::FormForest::RendererForms renderer_forms =
         form_forest_.GetRendererFormsOfBrowserFields(
-            browser_fdp.data.fields, {&browser_fdp.data.main_frame_origin(),
-                                      &browser_fdp.data.main_frame_origin(),
-                                      /*field_type_map=*/nullptr});
+            browser_fdp.data.fields(), {&browser_fdp.data.main_frame_origin(),
+                                        &browser_fdp.data.main_frame_origin(),
+                                        /*field_type_map=*/nullptr});
     for (FormData& renderer_form : renderer_forms.renderer_forms) {
       LocalFrameToken frame = renderer_form.host_frame();
       FormDataPredictions renderer_fdp;
       renderer_fdp.data = std::move(renderer_form);
       renderer_fdp.signature = browser_fdp.signature;
       renderer_fdp.alternative_signature = browser_fdp.alternative_signature;
-      for (const FormFieldData& field : renderer_fdp.data.fields) {
+      for (const FormFieldData& field : renderer_fdp.data.fields()) {
         renderer_fdp.fields.push_back(
             std::move(field_predictions[field.global_id()]));
       }
@@ -554,7 +610,7 @@ std::vector<FormData> AutofillDriverRouter::GetRendererForms(
     const FormData& browser_form) const {
   return form_forest_
       .GetRendererFormsOfBrowserFields(
-          browser_form.fields,
+          browser_form.fields(),
           internal::FormForest::SecurityOptions::TrustAllOrigins())
       .renderer_forms;
 }

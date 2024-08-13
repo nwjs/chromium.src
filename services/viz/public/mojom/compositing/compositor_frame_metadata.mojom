@@ -32,7 +32,6 @@ struct CompositorFrameMetadata {
   gfx.mojom.ContentColorUsage content_color_usage;
   bool may_contain_video;
   bool may_throttle_if_undrawn_frames;
-  bool is_resourceless_software_draw_with_scroll_or_animation;
   bool is_handling_interaction;
   skia.mojom.SkColor4f root_background_color;
   array<ui.mojom.LatencyInfo> latency_info;
@@ -42,17 +41,11 @@ struct CompositorFrameMetadata {
   BeginFrameAck begin_frame_ack;
   uint32 frame_token;
   bool send_frame_token_to_embedder;
-  // TODO(crbug.com/40489779): This should be a absl::optional<float>.
+  // TODO(crbug.com/40489779): This should be a `float?`.
   bool top_controls_visible_height_set;
   float top_controls_visible_height;
 
   float min_page_scale_factor;
-
-  // Specifies the interval at which the client's content is updated. This can
-  // be used to configure the display to the optimal vsync interval available.
-  // If unspecified, or set to BeginFrameArgs::MinInterval, it is assumed that
-  // the client can animate at the maximum frame rate supported by the Display.
-  mojo_base.mojom.TimeDelta? preferred_frame_interval;
 
   gfx.mojom.OverlayTransform display_transform_hint;
 

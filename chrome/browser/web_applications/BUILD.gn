@@ -1,11 +1,9 @@
-# Copyright 2018 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
+# Copyright 2018 The Chromium Authors
 # found in the LICENSE file.
 
 import("//build/config/chromeos/ui_mode.gni")
-import("//build/util/branding.gni")
 import("//chrome/browser/buildflags.gni")
-import("//chrome/version.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 import("//testing/test.gni")
 
@@ -88,12 +86,12 @@ source_set("web_applications") {
     "generated_icon_fix_util.h",
     "install_bounce_metric.cc",
     "install_bounce_metric.h",
-    "install_state.cc",
-    "install_state.h",
     "isolated_web_apps/check_isolated_web_app_bundle_installability_command.cc",
     "isolated_web_apps/check_isolated_web_app_bundle_installability_command.h",
     "isolated_web_apps/chrome_content_browser_client_isolated_web_apps_part.cc",
     "isolated_web_apps/chrome_content_browser_client_isolated_web_apps_part.h",
+    "isolated_web_apps/cleanup_orphaned_isolated_web_apps_command.cc",
+    "isolated_web_apps/cleanup_orphaned_isolated_web_apps_command.h",
     "isolated_web_apps/error/uma_logging.cc",
     "isolated_web_apps/error/uma_logging.h",
     "isolated_web_apps/error/unusable_swbn_file_error.cc",
@@ -120,6 +118,8 @@ source_set("web_applications") {
     "isolated_web_apps/isolated_web_app_install_source.h",
     "isolated_web_apps/isolated_web_app_installation_manager.cc",
     "isolated_web_apps/isolated_web_app_installation_manager.h",
+    "isolated_web_apps/isolated_web_app_integrity_block_data.cc",
+    "isolated_web_apps/isolated_web_app_integrity_block_data.h",
     "isolated_web_apps/isolated_web_app_prepare_and_store_update_command.cc",
     "isolated_web_apps/isolated_web_app_prepare_and_store_update_command.h",
     "isolated_web_apps/isolated_web_app_reader_registry.cc",
@@ -152,6 +152,10 @@ source_set("web_applications") {
     "isolated_web_apps/isolated_web_app_validator.h",
     "isolated_web_apps/isolated_web_app_version.cc",
     "isolated_web_apps/isolated_web_app_version.h",
+    "isolated_web_apps/iwa_identity_validator.cc",
+    "isolated_web_apps/iwa_identity_validator.h",
+    "isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.cc",
+    "isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.h",
     "isolated_web_apps/pending_install_info.cc",
     "isolated_web_apps/pending_install_info.h",
     "isolated_web_apps/remove_isolated_web_app_data.cc",
@@ -386,15 +390,29 @@ source_set("web_applications") {
 
   if (is_mac) {
     sources += [
-      "app_shim_registry_mac.cc",
-      "app_shim_registry_mac.h",
-      "os_integration/icns_encoder.cc",
-      "os_integration/icns_encoder.h",
-      "os_integration/web_app_file_handler_registration_mac.cc",
-      "os_integration/web_app_protocol_handler_registration_mac.cc",
-      "os_integration/web_app_run_on_os_login_mac.mm",
-      "os_integration/web_app_shortcut_mac.h",
-      "os_integration/web_app_shortcut_mac.mm",
+      "os_integration/mac/app_shim_launch.h",
+      "os_integration/mac/app_shim_launch.mm",
+      "os_integration/mac/app_shim_registry.cc",
+      "os_integration/mac/app_shim_registry.h",
+      "os_integration/mac/app_shim_termination_observer.h",
+      "os_integration/mac/app_shim_termination_observer.mm",
+      "os_integration/mac/apps_folder_support.h",
+      "os_integration/mac/apps_folder_support.mm",
+      "os_integration/mac/bundle_info_plist.h",
+      "os_integration/mac/bundle_info_plist.mm",
+      "os_integration/mac/icns_encoder.cc",
+      "os_integration/mac/icns_encoder.h",
+      "os_integration/mac/icon_utils.h",
+      "os_integration/mac/icon_utils.mm",
+      "os_integration/mac/web_app_auto_login_util.cc",
+      "os_integration/mac/web_app_auto_login_util.h",
+      "os_integration/mac/web_app_file_handler_registration_mac.cc",
+      "os_integration/mac/web_app_protocol_handler_registration_mac.cc",
+      "os_integration/mac/web_app_run_on_os_login_mac.mm",
+      "os_integration/mac/web_app_shortcut_creator.h",
+      "os_integration/mac/web_app_shortcut_creator.mm",
+      "os_integration/mac/web_app_shortcut_mac.h",
+      "os_integration/mac/web_app_shortcut_mac.mm",
     ]
   }
 
@@ -552,6 +570,7 @@ source_set("web_applications") {
       "//ash/public/cpp",
       "//ash/webui/system_apps/public:system_web_app_type",
       "//chrome/browser/ash/crosapi:browser_util",
+      "//chrome/browser/ash/profiles",
       "//chrome/browser/ash/system_web_apps/types",
       "//chrome/common/chromeos/extensions",
       "//chromeos/ash/components/browser_context_helper",
@@ -567,53 +586,21 @@ source_set("web_applications") {
 
   if (is_chromeos) {
     deps += [
+      "//chrome/browser/chromeos/echo",
       "//chromeos/components/mgs",
       "//chromeos/constants:constants",
     ]
   }
 
   public_deps = [
+    "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/web_applications/isolated_web_apps/key_distribution/proto",
     "//chrome/browser/web_applications/mojom:mojom_web_apps_enum",
     "//chrome/browser/web_applications/proto",
+    "//chrome/browser/web_applications/proto:proto_helpers",
     "//components/permissions:permissions",
     "//components/services/app_service",
   ]
-}
-
-if (is_mac) {
-  source_set("web_app_shortcut_copier_lib") {
-    sources = [ "os_integration/web_app_shortcut_copier_mac.mm" ]
-
-    deps = [
-      "//base",
-      "//chrome/browser/apps/app_shim:app_shim",
-      "//content/public/common:main_function_params",
-    ]
-  }
-
-  executable("web_app_shortcut_copier") {
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
-    sources = [ "os_integration/web_app_shortcut_copier_main_mac.cc" ]
-
-    deps = [ "//chrome:chrome_framework+link_nested" ]
-
-    ldflags = []
-    if (is_component_build) {
-      ldflags += [
-        # The helper is in Chromium.app/Contents/Frameworks/Chromium Framework.framework/Versions/X/Helpers
-        # so set rpath up to the base.
-        "-Wl,-rpath,@executable_path/../../../../../../..",
-      ]
-    } else {
-      ldflags += [
-        # The helper is a standalone tool rather than a bundled app so the
-        # framework's install name does not work as-is. Rewrite it so the
-        # relative path is correct given the executable's location.
-        "-Wcrl,installnametool,-change,@executable_path/../Frameworks/${chrome_product_full_name} Framework.framework/Versions/${chrome_version_full}/${chrome_product_full_name} Framework,@executable_path/../${chrome_product_full_name} Framework",
-      ]
-    }
-  }
 }
 
 # This test_support library doesn't use extensions. It must not depend on
@@ -622,12 +609,15 @@ source_set("web_applications_test_support") {
   testonly = true
 
   sources = [
+    "isolated_web_apps/test/integrity_block_data_matcher.h",
     "isolated_web_apps/test/isolated_web_app_builder.cc",
     "isolated_web_apps/test/isolated_web_app_builder.h",
     "isolated_web_apps/test/isolated_web_app_fake_response_reader_factory.cc",
     "isolated_web_apps/test/isolated_web_app_fake_response_reader_factory.h",
     "isolated_web_apps/test/iwa_test_server_configurator.cc",
     "isolated_web_apps/test/iwa_test_server_configurator.h",
+    "isolated_web_apps/test/key_distribution/test_utils.cc",
+    "isolated_web_apps/test/key_distribution/test_utils.h",
     "isolated_web_apps/test/test_signed_web_bundle_builder.cc",
     "isolated_web_apps/test/test_signed_web_bundle_builder.h",
     "test/debug_info_printer.cc",
@@ -681,17 +671,25 @@ source_set("web_applications_test_support") {
   ]
   if (is_chromeos) {
     sources += [
+      "isolated_web_apps/test/mock_isolated_web_app_install_command_wrapper.cc",
+      "isolated_web_apps/test/mock_isolated_web_app_install_command_wrapper.h",
       "isolated_web_apps/test/policy_generator.cc",
       "isolated_web_apps/test/policy_generator.h",
+      "isolated_web_apps/test/test_iwa_installer_factory.cc",
+      "isolated_web_apps/test/test_iwa_installer_factory.h",
     ]
   }
-  public_deps = [ "//components/webapps/common:mojo_bindings" ]
+  public_deps = [
+    "//chrome/browser/web_applications/isolated_web_apps/key_distribution/proto",
+    "//components/webapps/common:mojo_bindings",
+  ]
   deps = [
     ":web_applications",
     "//base/test:test_support",
     "//chrome/app:command_ids",
     "//chrome/app/theme:chrome_unscaled_resources_grit",
     "//chrome/browser",
+    "//chrome/browser:browser_process",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
@@ -811,6 +809,7 @@ source_set("web_applications_unit_tests") {
     "isolated_web_apps/isolated_web_app_url_loader_factory_unittest.cc",
     "isolated_web_apps/isolated_web_app_validator_unittest.cc",
     "isolated_web_apps/isolated_web_app_version_unittest.cc",
+    "isolated_web_apps/key_distribution/iwa_key_distribution_info_provider_unittest.cc",
     "isolated_web_apps/pending_install_info_unittest.cc",
     "isolated_web_apps/signed_web_bundle_metadata_unittest.cc",
     "isolated_web_apps/signed_web_bundle_reader_unittest.cc",
@@ -868,11 +867,11 @@ source_set("web_applications_unit_tests") {
 
   if (is_mac) {
     sources += [
-      "app_shim_registry_mac_unittest.cc",
-      "os_integration/icns_encoder_unittest.cc",
-      "os_integration/shortcuts_versioning_mac_unittest.cc",
-      "os_integration/web_app_run_on_os_login_mac_unittest.mm",
-      "os_integration/web_app_shortcut_mac_unittest.mm",
+      "os_integration/mac/app_shim_registry_unittest.cc",
+      "os_integration/mac/icns_encoder_unittest.cc",
+      "os_integration/mac/shortcuts_versioning_mac_unittest.cc",
+      "os_integration/mac/web_app_run_on_os_login_mac_unittest.mm",
+      "os_integration/mac/web_app_shortcut_creator_unittest.mm",
     ]
   }
 
@@ -946,6 +945,7 @@ source_set("web_applications_unit_tests") {
       "//ash/constants",
       "//chrome/browser/ash",
       "//chrome/browser/ash:test_support",
+      "//chrome/browser/ash/app_list/arc:test_support",
       "//chrome/browser/ash/system_web_apps/test_support",
       "//chrome/browser/ash/system_web_apps/types",
       "//chrome/common/chromeos/extensions",
@@ -1011,6 +1011,7 @@ source_set("web_applications_browser_tests") {
     "isolated_web_apps/isolated_web_app_prepare_and_store_update_command_browsertest.cc",
     "isolated_web_apps/isolated_web_app_uninstall_browsertest.cc",
     "isolated_web_apps/isolated_web_app_url_loader_factory_browsertest.cc",
+    "isolated_web_apps/key_distribution/iwa_key_distribution_component_installer_browsertest.cc",
     "manifest_update_manager_browsertest.cc",
     "policy/web_app_policy_manager_browsertest.cc",
     "preinstalled_web_app_manager_browsertest.cc",
@@ -1085,6 +1086,10 @@ source_set("web_applications_browser_tests") {
   if (is_chromeos_ash) {
     deps += [
       "//chrome/browser/ash:test_support",
+      "//chrome/browser/ash/login:test_support",
+      "//chrome/browser/ash/login/ui",
+      "//chrome/browser/ash/policy/core",
+      "//chrome/browser/ash/policy/core:test_support",
       "//chrome/browser/ash/system_web_apps/test_support",
       "//chrome/browser/ash/system_web_apps/test_support:test_support_ui",
     ]

@@ -175,6 +175,9 @@ void SystemWebDialogDelegate::Focus() {
   // preventing interaction with any dialog. TODO(stevenjb): Investigate and
   // fix, https://crbug.com/914133.
   if (GetDialogModalType() == ui::MODAL_TYPE_NONE) {
+    if (!dialog_window()->IsVisible()) {
+      dialog_window()->Show();
+    }
     dialog_window()->Focus();
   }
 }
@@ -197,7 +200,7 @@ void SystemWebDialogDelegate::OnDialogShown(content::WebUI* webui) {
   auto* zoom_map = content::HostZoomMap::GetForWebContents(web_contents);
   // Temporary means the lifetime of the WebContents.
   zoom_map->SetTemporaryZoomLevel(rfh->GetGlobalId(),
-                                  blink::PageZoomFactorToZoomLevel(1.0));
+                                  blink::ZoomFactorToZoomLevel(1.0));
 }
 
 void SystemWebDialogDelegate::ShowSystemDialogForBrowserContext(

@@ -13,6 +13,7 @@
 <translation id="1361748954329991663">Przeglądarka Chromium jest nieaktualna. Jeśli w <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> nie ma dostępnej aktualizacji, Twoje urządzenie może już nie obsługiwać nowych wersji Chromium.</translation>
 <translation id="1423007117030725713">Rozpocznij wyszukiwanie na nowej karcie Chromium.</translation>
 <translation id="1431818719585918472">Pozwól Chromium blokować karty incognito.</translation>
+<translation id="146407871188825689">Domyślnie używaj Chromium na iPada</translation>
 <translation id="1472013873724362412">Twoje konto nie działa w Chromium. Skontaktuj się z administratorem domeny lub zaloguj się przy użyciu zwykłego konta Google.</translation>
 <translation id="1503199973012840174">Twoja przeglądarka Chromium jest nieaktualna. Zaktualizuj ją dla bezpieczeństwa.</translation>
 <translation id="1507010443238049608">Pomóż w ulepszaniu funkcji i działania Chromium</translation>
@@ -122,6 +123,7 @@ Dane zostały zaszyfrowane za pomocą Twojego hasła wielowyrazowego. Podaj to h
 
 Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />usuń dane Chromium na swoim koncie<ph name="END_LINK" />.</translation>
 <translation id="4576283463017113841">Otwiera stronę ustawień form płatności w Chromium.</translation>
+<translation id="458786853569524949">Teraz możesz używać Chromium za każdym razem, gdy klikniesz link w e-mailach, dokumentach i w innych aplikacjach.</translation>
 <translation id="459080529287102949">Wyszukaj elementy wizualne w Chromium</translation>
 <translation id="4633738821577273991">Włącz też Ulepszone Bezpieczne przeglądanie na tym profilu Chromium</translation>
 <translation id="4638625642619341392">Tutaj możesz pobrać Chromium.</translation>
@@ -129,7 +131,6 @@ Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />usuń dane Chromium na swoim
 <translation id="4675485352217495362">Usuń dane przeglądania w Chromium</translation>
 <translation id="4681781466797808448">Włącz skaner Chromium</translation>
 <translation id="4736424910885271643">Twoim kontem zarządza <ph name="HOSTED_DOMAIN" />, więc Twoje dane z Chromium zostaną usunięte z tego urządzenia</translation>
-<translation id="4773487571745795781">Wyłączyłeś(-aś) logowanie w Chromium.</translation>
 <translation id="4790638144988730920">Nadal korzystaj z danych Chromium na koncie Google.</translation>
 <translation id="4828317641996116749">Przeglądarce Chromium nie udało się sprawdzić wszystkich haseł. Spróbuj ponownie później.</translation>
 <translation id="4962295957157529683">Dokończ czynności rozpoczęte w innym otwartym oknie Chromium.</translation>
@@ -157,6 +158,7 @@ Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />usuń dane Chromium na swoim
 <translation id="5522297504975449419">Niektóre funkcje Chromium nie będą już dostępne.</translation>
 <translation id="5534584691915394889">Będziemy z tego korzystać, aby tworzyć wydarzenia z Chromium i Obiektywu Google w kalendarzu Apple.</translation>
 <translation id="5571094606370987472">Otwiera ostatnie karty w Chromium.</translation>
+<translation id="5603085937604338780">chromium</translation>
 <translation id="5623083843656850677">Po zamknięciu Chromium lub przełączeniu się na inną aplikację zablokuj karty incognito.</translation>
 <translation id="5671188105328420281">Chromium – wskazówki</translation>
 <translation id="5688047395118852662">Ta karta zawiera sugestie, które pomogą Ci w pełni wykorzystać możliwości Chromium.</translation>
@@ -232,6 +234,7 @@ Twoje zaszyfrowane dane może odczytać tylko osoba znająca hasło. Nie jest on
 <translation id="7395825497086981028">Hasło zostanie zapisane w menedżerze haseł na koncie <ph name="EMAIL" />.</translation>
 <translation id="7400689562045506105">Korzystaj z Chromium w dowolnym miejscu</translation>
 <translation id="7523464085759699266">Włącz „Blokuj karty incognito po zamknięciu Chromium”.</translation>
+<translation id="7531461704633548377">Z Chromium</translation>
 <translation id="7674213385180944843">Wybierz Ustawienia &gt; Prywatność &gt; Aparat &gt; Chromium i włącz aparat.</translation>
 <translation id="7710137812207066069">Otwiera nową kartę w Chromium.</translation>
 <translation id="7747820849741499258">Wyszukaj w Chromium</translation>
@@ -247,7 +250,6 @@ Twoje zaszyfrowane dane może odczytać tylko osoba znająca hasło. Nie jest on
 <translation id="7971753607796745700">Dodaj element listy Do przeczytania do Chromium</translation>
 <translation id="7980860476903281594">Chromium udostępnia Twoją lokalizację witrynom, którym zgadzasz się ją ujawnić.</translation>
 <translation id="7994322153108931467">Aby otrzymywać przydatne wskazówki dotyczące Chromium, włącz powiadomienia w ustawieniach iOS.</translation>
-<translation id="7995166854192397899">Sugestie są tworzone na podstawie Twojej aktywności związanej z przeglądaniem na innych urządzeniach. Aby otrzymywać sugestie, zaloguj się w Chromium na wszystkich swoich urządzeniach.</translation>
 <translation id="800195749539500647">Wykorzystaj maksymalnie potencjał Chromium</translation>
 <translation id="8013573822802650211">Aby widzieć swoje karty zawsze, kiedy korzystasz z Chromium, zaloguj się na wszystkich urządzeniach</translation>
 <translation id="8071041515667087705">Otwórz ustawienia Chromium.</translation>
@@ -288,6 +290,7 @@ Twoje zaszyfrowane dane może odczytać tylko osoba znająca hasło. Nie jest on
 Dane zostały zaszyfrowane hasłem wielowyrazowym <ph name="TIME" />. Podaj to hasło, aby korzystać z danych Chromium i zapisywać je na swoim koncie Google.</translation>
 <translation id="9022552996538154597">Zaloguj się w Chromium</translation>
 <translation id="9050790730841755540">Używaj Chromium, zawsze gdy klikasz linki w innych aplikacjach.</translation>
+<translation id="9057082013386654559">Domyślnie używaj Chromium na iPada</translation>
 <translation id="9059693977935746710">Nie musisz go zapamiętywać. Menedżer haseł zapisze je na koncie <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">Chromium jest nieaktualny</translation>
 <translation id="9110075932708282655">Używaj domyślnie Chromium</translation>

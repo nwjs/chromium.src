@@ -61,6 +61,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/crash_keys.h"
 #include "chrome/common/logging_chrome.h"
+#include "chrome/common/profiler/main_thread_stack_sampling_profiler.h"
 #include "chrome/common/profiler/process_type.h"
 #include "chrome/common/profiler/unwind_util.h"
 #include "chrome/common/url_constants.h"
@@ -227,6 +228,7 @@
 #endif  // BUILDFLAG(ENABLE_PROCESS_SINGLETON)
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
+#include "base/scoped_add_feature_flags.h"
 #include "chrome/common/chrome_paths_lacros.h"
 #include "chromeos/crosapi/cpp/crosapi_constants.h"  // nogncheck
 #include "chromeos/crosapi/mojom/crosapi.mojom.h"    // nogncheck
@@ -242,16 +244,12 @@
 #include "media/base/media_switches.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/resource/data_pack_with_resource_sharing_lacros.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/switches.h"
 #endif
 
 #if BUILDFLAG(IS_OZONE)
-#include "base/scoped_add_feature_flags.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/ozone/public/ozone_platform.h"
-#if BUILDFLAG(IS_LINUX)
-#include "chrome/browser/chrome_browser_main_extra_parts_linux.h"
-#endif
 #endif  // BUILDFLAG(IS_OZONE)
 
 #include "third_party/node-nw/src/node_webkit.h"
@@ -774,23 +772,26 @@ void InitLogging(const std::string& process_type) {
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-void RecordMainStartupMetrics(base::TimeTicks application_start_time) {
+void RecordMainStartupMetrics(const StartupTimestamps& timestamps) {
   const base::TimeTicks now = base::TimeTicks::Now();
 
 #if BUILDFLAG(IS_WIN)
-  DUMP_WILL_BE_CHECK(!application_start_time.is_null());
-  startup_metric_utils::GetCommon().RecordApplicationStartTime(
-      application_start_time);
-#elif BUILDFLAG(IS_ANDROID)
+  startup_metric_utils::GetCommon().RecordPreReadTime(
+      timestamps.preread_begin_ticks, timestamps.preread_end_ticks);
+#endif
+
   // On Android the main entry point time is the time when the Java code starts.
   // This happens before the shared library containing this code is even loaded.
   // The Java startup code has recorded that time, but the C++ code can't fetch
   // it from the Java side until it has initialized the JNI. See
   // ChromeMainDelegateAndroid.
-#else
-  // On other platforms, |application_start_time| == |now| since the application
-  // starts with ChromeMain().
-  startup_metric_utils::GetCommon().RecordApplicationStartTime(now);
+#if !BUILDFLAG(IS_ANDROID)
+  // On all other platforms, `timestamps.exe_entry_point_ticks` contains the exe
+  // entry point time (on some platforms this is ChromeMain, on some it is
+  // before).
+  CHECK(!timestamps.exe_entry_point_ticks.is_null());
+  startup_metric_utils::GetCommon().RecordApplicationStartTime(
+      timestamps.exe_entry_point_ticks);
 #endif
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || \
@@ -850,15 +851,17 @@ bool IsCanaryDev() {
 
 }  // namespace
 
+#if BUILDFLAG(IS_ANDROID)
 ChromeMainDelegate::ChromeMainDelegate()
-    : ChromeMainDelegate(base::TimeTicks()) {}
+    : ChromeMainDelegate(StartupTimestamps{}) {}
+#endif
 
-ChromeMainDelegate::ChromeMainDelegate(base::TimeTicks exe_entry_point_ticks) {
+ChromeMainDelegate::ChromeMainDelegate(const StartupTimestamps& timestamps) {
   // Record startup metrics in the browser process. For component builds, there
   // is no way to know the type of process (process command line is not yet
   // initialized), so the function below will also be called in renderers.
   // This doesn't matter as it simply sets global variables.
-  RecordMainStartupMetrics(exe_entry_point_ticks);
+  RecordMainStartupMetrics(timestamps);
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -990,14 +993,6 @@ std::optional<int> ChromeMainDelegate::PostEarlyInitialization(
   ui::SetOzonePlatformForLinuxIfNeeded(*base::CommandLine::ForCurrentProcess());
 #endif
   ui::OzonePlatform::PreEarlyInitialization();
-
-  // Disable currently unsupported web features per platform properties.
-  if (!ui::OzonePlatform::GetInstance()
-           ->GetPlatformProperties()
-           .supports_color_picker_dialog) {
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        features::kEyeDropperNotSupported);
-  }
 #endif  // BUILDFLAG(IS_OZONE)
 
   content::InitializeMojoCore();
@@ -1126,6 +1121,17 @@ bool ChromeMainDelegate::ShouldCreateFeatureList(InvokedIn invoked_in) {
 
 bool ChromeMainDelegate::ShouldInitializeMojo(InvokedIn invoked_in) {
   return ShouldCreateFeatureList(invoked_in);
+}
+
+void ChromeMainDelegate::CreateThreadPool(std::string_view name) {
+  base::ThreadPoolInstance::Create(name);
+// `ChromeMainDelegateAndroid::PreSandboxStartup` creates the profiler a little
+// later.
+#if !BUILDFLAG(IS_ANDROID)
+  // Start the sampling profiler as early as possible - namely, once the thread
+  // pool has been created.
+  sampling_profiler_ = std::make_unique<MainThreadStackSamplingProfiler>();
+#endif
 }
 
 void ChromeMainDelegate::CommonEarlyInitialization(InvokedIn invoked_in) {
@@ -1837,7 +1843,8 @@ void ChromeMainDelegate::PreSandboxStartup() {
 
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
   // Zygote needs to call InitCrashReporter() in RunZygote().
-  if (process_type != switches::kZygoteProcess) {
+  if (process_type != switches::kZygoteProcess &&
+      !command_line.HasSwitch(switches::kDisableCrashpadForTesting)) {
     if (command_line.HasSwitch(switches::kPreCrashpadCrashTest)) {
       // Crash for the purposes of testing the handling of crashes that happen
       // before crashpad is initialized. Please leave this check immediately
@@ -2028,6 +2035,12 @@ content::ContentBrowserClient*
 ChromeMainDelegate::CreateContentBrowserClient() {
   chrome_content_browser_client_ =
       std::make_unique<ChromeContentBrowserClient>();
+#if !BUILDFLAG(IS_ANDROID)
+  // Android does this in `ChromeMainDelegateAndroid::PreSandboxStartup`.
+  CHECK(sampling_profiler_);
+  chrome_content_browser_client_->SetSamplingProfiler(
+      std::move(sampling_profiler_));
+#endif
   return chrome_content_browser_client_.get();
 }
 

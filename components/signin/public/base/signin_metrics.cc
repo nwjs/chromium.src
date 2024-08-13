@@ -272,6 +272,28 @@ void RecordRefreshTokenRevokedFromSource(
   UMA_HISTOGRAM_ENUMERATION("Signin.RefreshTokenRevoked.Source", source);
 }
 
+#if BUILDFLAG(IS_IOS)
+void RecordSignoutConfirmationFromDataLossAlert(
+    SignoutDataLossAlertReason reason,
+    bool signout_confirmed) {
+  const char* histogram;
+  switch (reason) {
+    case SignoutDataLossAlertReason::kSignoutWithUnsyncedData:
+      histogram = "Sync.SignoutWithUnsyncedData";
+      break;
+    case SignoutDataLossAlertReason::kSignoutWithClearDataForManagedUser:
+      histogram = "Signin.SignoutAndClearDataFromManagedAccount";
+      break;
+  }
+  base::UmaHistogramBoolean(histogram, signout_confirmed);
+}
+
+void RecordSignoutForceClearDataChoice(bool force_clear_data) {
+  base::UmaHistogramBoolean("Signin.UserRequestedWipeDataOnSignout",
+                            force_clear_data);
+}
+#endif  // BUILDFLAG(IS_IOS)
+
 // --------------------------------------------------------------
 // User actions
 // --------------------------------------------------------------
@@ -480,6 +502,10 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromAvatarBubbleSigninWithSyncPromo"));
       break;
+    case AccessPoint::ACCESS_POINT_ACCOUNT_MENU:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromAccountMenu"));
+      break;
     case AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED_IN_MIGRATION();
       break;
@@ -644,6 +670,7 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
     case AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO:
+    case AccessPoint::ACCESS_POINT_ACCOUNT_MENU:
     case AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED_IN_MIGRATION() << "Signin_Impression_From* user actions"
                                 << " are not recorded for access point "

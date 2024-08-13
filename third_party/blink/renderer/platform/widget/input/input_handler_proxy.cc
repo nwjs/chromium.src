@@ -562,6 +562,16 @@ void InputHandlerProxy::GenerateAndDispatchSytheticScrollPrediction(
           args.frame_time, args.interval,
           currently_active_gesture_device_.value(),
           current_active_gesture_scroll_modifiers_.value_or(0));
+  int64_t trace_id = event_with_callback->latency_info().trace_id();
+  TRACE_EVENT("input,benchmark,latencyInfo", "LatencyInfo.Flow",
+              [trace_id](perfetto::EventContext ctx) {
+                ChromeLatencyInfo* info =
+                    ctx.event()->set_chrome_latency_info();
+                info->set_trace_id(trace_id);
+                info->set_step(ChromeLatencyInfo::STEP_HANDLE_INPUT_EVENT_IMPL);
+                tracing::FillFlowEvent(ctx, TrackEvent::LegacyEvent::FLOW_INOUT,
+                                       trace_id);
+              });
   DispatchSingleInputEvent(std::move(event_with_callback));
 }
 
@@ -615,7 +625,6 @@ void InputHandlerProxy::InjectScrollbarGestureScroll(
   // Send in a LatencyInfo with SCROLLBAR type so that the end to end latency
   // is calculated specifically for scrollbars.
   ui::LatencyInfo scrollbar_latency_info(latency_info);
-  scrollbar_latency_info.set_source_event_type(ui::SourceEventType::SCROLLBAR);
 
   // This latency_info should not have already been scheduled for rendering -
   // i.e. it should be the original latency_info that was associated with the

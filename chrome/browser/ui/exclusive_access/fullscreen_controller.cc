@@ -228,9 +228,11 @@ bool FullscreenController::CanEnterFullscreenModeForTab(
   auto* web_contents = WebContents::FromRenderFrameHost(requesting_frame);
   DCHECK(web_contents);
 
-  if (web_contents !=
-      exclusive_access_manager()->context()->GetActiveWebContents())
+  if (web_contents != exclusive_access_manager()
+                          ->context()
+                          ->GetWebContentsForExclusiveAccess()) {
     return false;
+  }
 
   return true;
 }
@@ -478,7 +480,7 @@ void FullscreenController::RunOrDeferUntilTransitionIsComplete(
 bool FullscreenController::HandleUserPressedEscape() {
   return false;
   WebContents* const active_web_contents =
-      exclusive_access_manager()->context()->GetActiveWebContents();
+      exclusive_access_manager()->context()->GetWebContentsForExclusiveAccess();
   if (IsFullscreenWithinTab(active_web_contents)) {
     active_web_contents->ExitFullscreen(
         /* will_cause_resize */ IsFullscreenCausedByTab());

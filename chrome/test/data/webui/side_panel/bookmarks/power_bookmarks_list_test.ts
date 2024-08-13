@@ -119,10 +119,12 @@ suite('SidePanelPowerBookmarksListTest', () => {
   async function performSearch(query: string) {
     const searchField = powerBookmarksList.shadowRoot!.querySelector(
         'cr-toolbar-search-field')!;
+    const searchChanged = eventToPromise('search-changed', searchField);
     searchField.$.searchInput.value = query;
     searchField.onSearchTermInput();
     searchField.onSearchTermSearch();
 
+    await searchChanged;
     await flushTasks();
   }
 
@@ -139,8 +141,28 @@ suite('SidePanelPowerBookmarksListTest', () => {
         eventToPromise('checkbox-change', getPowerBookmarksRowElement(id)!);
     const bookmarkListItem = getCrUrlListItemElementWithId(id);
     assertTrue(!!bookmarkListItem);
+    await bookmarkListItem.updateComplete;
     bookmarkListItem.click();
     await checkboxClicked;
+  }
+
+  async function initializeUI() {
+    // Remove all children from document.body
+    while (document.body.firstChild) {
+      document.body.removeChild(document.body.firstChild);
+    }
+    powerBookmarksList = document.createElement('power-bookmarks-list');
+
+    // Ensure the PowerBookmarksListElement is given a fixed height to expand
+    // to.
+    const parentElement = document.createElement('div');
+    parentElement.style.height = '500px';
+    parentElement.appendChild(powerBookmarksList);
+    document.body.appendChild(parentElement);
+
+    await bookmarksApi.whenCalled('getFolders');
+    await waitAfterNextRender(powerBookmarksList);
+    flush();
   }
 
   setup(async () => {
@@ -169,20 +191,10 @@ suite('SidePanelPowerBookmarksListTest', () => {
       emptyBodyFolder: 'folder body',
       emptyTitleGuest: 'guest title',
       emptyBodyGuest: 'guest body',
+      bookmarksTreeViewEnabled: false,
     });
 
-    powerBookmarksList = document.createElement('power-bookmarks-list');
-
-    // Ensure the PowerBookmarksListElement is given a fixed height to expand
-    // to.
-    const parentElement = document.createElement('div');
-    parentElement.style.height = '500px';
-    parentElement.appendChild(powerBookmarksList);
-    document.body.appendChild(parentElement);
-
-    await bookmarksApi.whenCalled('getFolders');
-    await waitAfterNextRender(powerBookmarksList);
-    flush();
+    await initializeUI();
   });
 
   test('GetsAndShowsTopLevelBookmarks', () => {
@@ -222,7 +234,7 @@ suite('SidePanelPowerBookmarksListTest', () => {
     assertEquals(2, getBookmarksInList(1).length);
   });
 
-  test('UpdatesChangedBookmarks', () => {
+  test('UpdatesChangedBookmarks', async () => {
     const changedBookmark = folders[1]!.children![0]!;
     bookmarksApi.callbackRouter.onChanged.callListeners(changedBookmark.id, {
       title: 'New title',
@@ -238,6 +250,7 @@ suite('SidePanelPowerBookmarksListTest', () => {
 
     const crUrlListItemElement = getCrUrlListItemElementWithId('3');
     assertTrue(!!crUrlListItemElement);
+    await crUrlListItemElement.updateComplete;
 
     assertEquals('New title', crUrlListItemElement.title);
   });
@@ -646,11 +659,35 @@ suite('SidePanelPowerBookmarksListTest', () => {
         currentPrice: '$56',
         previousPrice: '$78',
         clusterId: BigInt(12345),
+        categoryLabels: [],
       },
     };
     shoppingServiceApi.getCallbackRouterRemote().priceTrackedForBookmark(
         newProduct);
     await flushTasks();
     assertFalse(isHidden(labels));
+  });
+
+  test('ShowsExpandButtonForFolders', async () => {
+    // Enabling the feature flag for ShowsExpandButtonForFolders test.
+    loadTimeData.overrideValues({bookmarksTreeViewEnabled: true});
+    await initializeUI();
+
+    const folderElement = getPowerBookmarksRowElement('5');
+    assertTrue(!!folderElement);
+
+    let expandButton =
+        folderElement.shadowRoot!.querySelector<PowerBookmarkRowElement>(
+            '#expandButton');
+    // Assert that the expand button is present for folders
+    assertTrue(!!expandButton);
+
+    const singleBookmarkElement = getPowerBookmarksRowElement('3');
+    assertTrue(!!singleBookmarkElement);
+
+    expandButton = singleBookmarkElement.shadowRoot!
+                       .querySelector<PowerBookmarkRowElement>('#expandButton');
+    // Assert that the expand button is not present for single bookmarks
+    assertFalse(!!expandButton);
   });
 });

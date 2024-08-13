@@ -68,6 +68,10 @@ class Point;
 class Rect;
 }
 
+namespace input {
+class CursorManager;
+}  // namespace input
+
 namespace ui {
 enum class DomCode : uint32_t;
 class InputMethod;
@@ -84,7 +88,6 @@ class LegacyRenderWidgetHostHWND;
 class DirectManipulationBrowserTestBase;
 #endif
 
-class CursorManager;
 class DelegatedFrameHost;
 class DelegatedFrameHostClient;
 class MouseWheelPhaseHandler;
@@ -142,7 +145,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   void Focus() override;
   void UpdateCursor(const ui::Cursor& cursor) override;
   void DisplayCursor(const ui::Cursor& cursor) override;
-  CursorManager* GetCursorManager() override;
+  input::CursorManager* GetCursorManager() override;
   void SetIsLoading(bool is_loading) override;
   void RenderProcessGone() override;
   void ShowWithVisibility(PageVisibilityState page_visibility) final;
@@ -164,6 +167,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   void WheelEventAck(const blink::WebMouseWheelEvent& event,
                      blink::mojom::InputEventResultState ack_result) override;
   void GestureEventAck(const blink::WebGestureEvent& event,
+                       blink::mojom::InputEventResultSource ack_source,
                        blink::mojom::InputEventResultState ack_result) override;
   void DidOverscroll(const ui::DidOverscrollParams& params) override;
   void ProcessAckedTouchEvent(
@@ -210,10 +214,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   void DidNavigate() override;
   void TakeFallbackContentFrom(RenderWidgetHostView* view) override;
   bool CanSynchronizeVisualProperties() override;
-  std::vector<std::unique_ptr<ui::TouchEvent>> ExtractAndCancelActiveTouches()
-      override;
-  void TransferTouches(
-      const std::vector<std::unique_ptr<ui::TouchEvent>>& touches) override;
   // TODO(lanwei): Use TestApi interface to write functions that are used in
   // tests and remove FRIEND_TEST_ALL_PREFIXES.
   void SetLastPointerType(ui::EventPointerType last_pointer_type) override;
@@ -784,7 +784,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   // equals to the FrameSinkId of that widget.
   const viz::FrameSinkId frame_sink_id_;
 
-  std::unique_ptr<CursorManager> cursor_manager_;
+  std::unique_ptr<input::CursorManager> cursor_manager_;
 
   // Latest capture sequence number which is incremented when the caller
   // requests surfaces be synchronized via

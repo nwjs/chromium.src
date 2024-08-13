@@ -410,11 +410,15 @@ bool CookieSettingsBase::ShouldConsiderMitigationsFor3pcd(
 
 bool CookieSettingsBase::IsBlockedByTopLevel3pcdOriginTrial(
     const GURL& first_party_url) const {
+#if BUILDFLAG(IS_IOS)
+  return false;
+#else
   return base::FeatureList::IsEnabled(
              net::features::kTopLevelTpcdOriginTrial) &&
          GetContentSetting(first_party_url, first_party_url,
                            ContentSettingsType::TOP_LEVEL_TPCD_ORIGIN_TRIAL,
                            /*info=*/nullptr) == CONTENT_SETTING_BLOCK;
+#endif
 }
 
 bool CookieSettingsBase::IsAllowedBy3pcdTrialSettings(
@@ -748,6 +752,28 @@ CookieSettingsBase::GetCookieSettingInternal(
   CHECK(!out.BlockedByThirdPartyCookieBlocking());
   CHECK(!out.allow_partitioned_cookies());
   return out;
+}
+
+std::optional<net::cookie_util::StorageAccessStatus>
+CookieSettingsBase::GetStorageAccessStatus(
+    const GURL& url,
+    const net::SiteForCookies& site_for_for_cookies,
+    const std::optional<url::Origin>& top_frame_origin,
+    net::CookieSettingOverrides overrides) const {
+  if (!IsThirdPartyRequest(url, site_for_for_cookies)) {
+    return std::nullopt;
+  }
+  if (IsFullCookieAccessAllowed(url, site_for_for_cookies, top_frame_origin,
+                                overrides)) {
+    return net::cookie_util::StorageAccessStatus::kActive;
+  }
+  overrides.Put(
+      net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader);
+  if (IsFullCookieAccessAllowed(url, site_for_for_cookies, top_frame_origin,
+                                overrides)) {
+    return net::cookie_util::StorageAccessStatus::kInactive;
+  }
+  return net::cookie_util::StorageAccessStatus::kNone;
 }
 
 bool CookieSettingsBase::IsAllowedByStorageAccessGrant(

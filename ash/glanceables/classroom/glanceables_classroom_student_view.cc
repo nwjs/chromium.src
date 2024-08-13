@@ -101,11 +101,16 @@ constexpr char kCollapseAnimationSmoothnessHistogramName[] =
     "Ash.Glanceables.TimeManagement.Classroom.Collapse.AnimationSmoothness";
 
 constexpr size_t kMaxAssignments = 100;
-constexpr size_t kMaxAssignmentsForV2 = 3;
+
+// The interior margin should be 12, but space needs to be left for the focus in
+// the child views.
+constexpr int kTotalInteriorMargin = 12;
+constexpr int kSpaceForFocusRing = 4;
+constexpr int kInteriorGlanceableBubbleMargin =
+    kTotalInteriorMargin - kSpaceForFocusRing;
 
 constexpr auto kEmptyListLabelMargins = gfx::Insets::TLBR(24, 0, 32, 0);
 constexpr auto kHeaderIconButtonMargins = gfx::Insets::TLBR(0, 0, 0, 2);
-constexpr auto kViewInteriorMargins = gfx::Insets::TLBR(12, 12, 12, 12);
 constexpr auto kFooterMargins = gfx::Insets::TLBR(12, 2, 0, 0);
 
 // This should be the same value as the one in ash/style/combobox.cc
@@ -120,31 +125,6 @@ std::u16string GetAssignmentListName(size_t index) {
 
   return l10n_util::GetStringUTF16(iter->second);
 }
-
-class ClassroomExpandButton : public CounterExpandButton {
-  METADATA_HEADER(ClassroomExpandButton, CounterExpandButton)
- public:
-  ClassroomExpandButton() = default;
-  ClassroomExpandButton(const ClassroomExpandButton&) = delete;
-  ClassroomExpandButton& operator=(const ClassroomExpandButton&) = delete;
-  ~ClassroomExpandButton() override = default;
-
-  std::u16string GetExpandedStateTooltipText() override {
-    // The tooltip tells users that clicking on the button will collapse the
-    // Classroom view.
-    return l10n_util::GetStringUTF16(
-        IDS_GLANCEABLES_CLASSROOM_EXPAND_BUTTON_COLLAPSE_TOOLTIP);
-  }
-  std::u16string GetCollapsedStateTooltipText() override {
-    // The tooltip tells users that clicking on the button will expand the
-    // Classroom view.
-    return l10n_util::GetStringUTF16(
-        IDS_GLANCEABLES_CLASSROOM_EXPAND_BUTTON_EXPAND_TOOLTIP);
-  }
-};
-
-BEGIN_METADATA(ClassroomExpandButton)
-END_METADATA
 
 class ClassroomStudentComboboxModel : public ui::ComboboxModel {
  public:
@@ -178,7 +158,7 @@ class ClassroomStudentComboboxModel : public ui::ComboboxModel {
 
 GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
     : shown_time_(base::Time::Now()) {
-  SetInteriorMargin(kViewInteriorMargins);
+  SetInteriorMargin(gfx::Insets(kInteriorGlanceableBubbleMargin));
   SetOrientation(views::LayoutOrientation::kVertical);
 
   auto* header_container =
@@ -191,6 +171,8 @@ GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
       header_container->AddChildView(std::make_unique<views::FlexLayoutView>());
   header_view_->SetCrossAxisAlignment(views::LayoutAlignment::kCenter);
   header_view_->SetOrientation(views::LayoutOrientation::kHorizontal);
+  header_view_->SetInteriorMargin(gfx::Insets::TLBR(
+      kSpaceForFocusRing, kSpaceForFocusRing, 0, kSpaceForFocusRing));
   header_view_->SetProperty(
       views::kFlexBehaviorKey,
       views::FlexSpecification(views::LayoutOrientation::kHorizontal,
@@ -208,12 +190,12 @@ GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
   header_icon->SetBackgroundColor(SK_ColorTRANSPARENT);
   header_icon->SetProperty(views::kMarginsKey, kHeaderIconButtonMargins);
   header_icon->SetID(
-      base::to_underlying(GlanceablesViewId::kClassroomBubbleHeaderIcon));
+      base::to_underlying(GlanceablesViewId::kTimeManagementBubbleHeaderIcon));
 
   combo_box_view_ = header_view_->AddChildView(std::make_unique<Combobox>(
       std::make_unique<ClassroomStudentComboboxModel>()));
   combo_box_view_->SetID(
-      base::to_underlying(GlanceablesViewId::kClassroomBubbleComboBox));
+      base::to_underlying(GlanceablesViewId::kTimeManagementBubbleComboBox));
   combo_box_view_->SetTooltipText(l10n_util::GetStringUTF16(
       IDS_GLANCEABLES_CLASSROOM_DROPDOWN_ACCESSIBLE_NAME));
   combo_box_view_->GetViewAccessibility().SetDescription(u"");
@@ -221,7 +203,6 @@ GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
       &GlanceablesClassroomStudentView::SelectedAssignmentListChanged,
       base::Unretained(this),
       /*initial_update=*/false));
-  combobox_view_observation_.Observe(combo_box_view_);
 
   auto text_on_combobox = combo_box_view_->GetTextForRow(
       combo_box_view_->GetSelectedIndex().value());
@@ -231,7 +212,8 @@ GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
                                            kComboboxBorderInsets);
   combobox_replacement_label_->SetProperty(
       views::kFlexBehaviorKey,
-      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+      views::FlexSpecification(views::LayoutOrientation::kHorizontal,
+                               views::MinimumFlexSizeRule::kScaleToZero,
                                views::MaximumFlexSizeRule::kPreferred));
   combobox_replacement_label_->SetHorizontalAlignment(
       gfx::HorizontalAlignment::ALIGN_LEFT);
@@ -243,9 +225,11 @@ GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
   combobox_replacement_label_->SetVisible(false);
 
   expand_button_ =
-      header_container->AddChildView(std::make_unique<ClassroomExpandButton>());
-  expand_button_->SetID(
-      base::to_underlying(GlanceablesViewId::kClassroomBubbleExpandButton));
+      header_container->AddChildView(std::make_unique<GlanceablesExpandButton>(
+          IDS_GLANCEABLES_CLASSROOM_EXPAND_BUTTON_EXPAND_TOOLTIP,
+          IDS_GLANCEABLES_CLASSROOM_EXPAND_BUTTON_COLLAPSE_TOOLTIP));
+  expand_button_->SetID(base::to_underlying(
+      GlanceablesViewId::kTimeManagementBubbleExpandButton));
   // This is only set visible when both Tasks and Classroom exist, where the
   // elevated background is created in that case.
   expand_button_->SetVisible(false);
@@ -253,33 +237,28 @@ GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
       base::BindRepeating(&GlanceablesClassroomStudentView::ToggleExpandState,
                           base::Unretained(this)));
 
-  if (features::AreGlanceablesV2Enabled()) {
-    // TODO(b/338917100): Remove body_container_ if GlanceablesV2 flag is
-    // removed, as we only need `content_scroll_view_` after that.
-    body_container_ = AddChildView(std::make_unique<views::FlexLayoutView>());
-  } else {
-    content_scroll_view_ = AddChildView(
-        std::make_unique<GlanceablesContentsScrollView>(Context::kClassroom));
-    body_container_ = content_scroll_view_->SetContents(
-        std::make_unique<views::FlexLayoutView>());
-  }
-  body_container_->SetOrientation(views::LayoutOrientation::kVertical);
-
-  progress_bar_ = body_container_->AddChildView(
-      std::make_unique<GlanceablesProgressBarView>());
+  progress_bar_ = AddChildView(std::make_unique<GlanceablesProgressBarView>());
   progress_bar_->UpdateProgressBarVisibility(/*visible=*/false);
 
+  content_scroll_view_ = AddChildView(
+      std::make_unique<GlanceablesContentsScrollView>(Context::kClassroom));
+  auto* body_container = content_scroll_view_->SetContents(
+      std::make_unique<views::FlexLayoutView>());
+  body_container->SetOrientation(views::LayoutOrientation::kVertical);
+
   list_container_view_ =
-      body_container_->AddChildView(std::make_unique<views::BoxLayoutView>());
-  list_container_view_->SetID(
-      base::to_underlying(GlanceablesViewId::kClassroomBubbleListContainer));
+      body_container->AddChildView(std::make_unique<views::BoxLayoutView>());
+  list_container_view_->SetID(base::to_underlying(
+      GlanceablesViewId::kTimeManagementBubbleListContainer));
   list_container_view_->SetOrientation(
       views::BoxLayout::Orientation::kVertical);
+  list_container_view_->SetInsideBorderInsets(
+      gfx::Insets::VH(0, kSpaceForFocusRing));
   list_container_view_->SetBetweenChildSpacing(4);
   list_container_view_->GetViewAccessibility().SetRole(ax::mojom::Role::kList);
 
   const auto* const typography_provider = TypographyProvider::Get();
-  empty_list_label_ = body_container_->AddChildView(
+  empty_list_label_ = body_container->AddChildView(
       views::Builder<views::Label>()
           .SetProperty(views::kMarginsKey, kEmptyListLabelMargins)
           .SetEnabledColorId(cros_tokens::kCrosSysOnSurface)
@@ -292,7 +271,7 @@ GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
           .Build());
 
   list_footer_view_ =
-      body_container_->AddChildView(std::make_unique<GlanceablesListFooterView>(
+      body_container->AddChildView(std::make_unique<GlanceablesListFooterView>(
           l10n_util::GetStringUTF16(
               IDS_GLANCEABLES_LIST_FOOTER_SEE_ALL_ASSIGNMENTS_LABEL),
           l10n_util::GetStringUTF16(
@@ -300,7 +279,7 @@ GlanceablesClassroomStudentView::GlanceablesClassroomStudentView()
           base::BindRepeating(&GlanceablesClassroomStudentView::OnSeeAllPressed,
                               base::Unretained(this))));
   list_footer_view_->SetID(
-      base::to_underlying(GlanceablesViewId::kClassroomBubbleListFooter));
+      base::to_underlying(GlanceablesViewId::kTimeManagementBubbleListFooter));
   list_footer_view_->SetVisible(false);
 
   SelectedAssignmentListChanged(/*initial_update=*/true);
@@ -334,18 +313,14 @@ void GlanceablesClassroomStudentView::ClearUserStatePrefs(
   pref_service->ClearPref(kLastSelectedAssignmentsListPref);
 }
 
-void GlanceablesClassroomStudentView::OnViewFocused(views::View* view) {
-  CHECK_EQ(view, combo_box_view_);
-
-  AnnounceListStateOnComboBoxAccessibility();
-}
-
 bool GlanceablesClassroomStudentView::IsExpanded() const {
   return is_expanded_;
 }
 
 int GlanceablesClassroomStudentView::GetCollapsedStatePreferredHeight() const {
-  return GetInteriorMargin().height() + header_view_->height();
+  return kTotalInteriorMargin * 2 +
+         combobox_replacement_label_->GetLineHeight() +
+         kComboboxBorderInsets.height();
 }
 
 void GlanceablesClassroomStudentView::CancelUpdates() {
@@ -359,14 +334,15 @@ void GlanceablesClassroomStudentView::CreateElevatedBackground() {
   expand_button_->SetVisible(true);
   expand_button_->SetExpanded(is_expanded_);
 
-  if (content_scroll_view_) {
-    content_scroll_view_->SetOnOverscrollCallback(
-        base::BindRepeating(&GlanceablesClassroomStudentView::SetExpandState,
-                            base::Unretained(this), /*is_expanded=*/false));
-  }
+  content_scroll_view_->SetOnOverscrollCallback(
+      base::BindRepeating(&GlanceablesClassroomStudentView::SetExpandState,
+                          base::Unretained(this), /*is_expanded=*/false,
+                          /*expand_by_overscroll=*/true));
 }
 
-void GlanceablesClassroomStudentView::SetExpandState(bool is_expanded) {
+void GlanceablesClassroomStudentView::SetExpandState(
+    bool is_expanded,
+    bool expand_by_overscroll) {
   if (is_expanded_ == is_expanded) {
     return;
   }
@@ -374,15 +350,29 @@ void GlanceablesClassroomStudentView::SetExpandState(bool is_expanded) {
   is_expanded_ = is_expanded;
   expand_button_->SetExpanded(is_expanded);
 
-  if (content_scroll_view_) {
-    content_scroll_view_->SetVisible(is_expanded_);
-  }
-  body_container_->SetVisible(is_expanded_);
+  progress_bar_->SetVisible(is_expanded_);
+  content_scroll_view_->SetVisible(is_expanded_);
   combo_box_view_->SetVisible(is_expanded_);
   combobox_replacement_label_->SetVisible(!is_expanded_);
 
+  if (is_expanded) {
+    if (expand_by_overscroll) {
+      content_scroll_view_->LockScroll();
+    } else {
+      content_scroll_view_->UnlockScroll();
+    }
+  }
+
+  SetInteriorMargin(is_expanded
+                        ? gfx::Insets(kInteriorGlanceableBubbleMargin)
+                        : gfx::Insets::TLBR(kInteriorGlanceableBubbleMargin,
+                                            kInteriorGlanceableBubbleMargin,
+                                            kTotalInteriorMargin,
+                                            kInteriorGlanceableBubbleMargin));
+
   for (auto& observer : observers_) {
-    observer.OnExpandStateChanged(Context::kClassroom, is_expanded_);
+    observer.OnExpandStateChanged(Context::kClassroom, is_expanded_,
+                                  expand_by_overscroll);
   }
 
   AnimateResize();
@@ -545,10 +535,7 @@ void GlanceablesClassroomStudentView::OnGetAssignments(
   list_container_view_->RemoveAllChildViews();
   total_assignments_ = assignments.size();
 
-  const size_t num_assignments =
-      features::AreGlanceablesV2Enabled()
-          ? std::min(kMaxAssignmentsForV2, assignments.size())
-          : std::min(kMaxAssignments, assignments.size());
+  const size_t num_assignments = std::min(kMaxAssignments, assignments.size());
   for (size_t i = 0; i < num_assignments; ++i) {
     list_container_view_->AddChildView(
         std::make_unique<GlanceablesClassroomItemView>(
@@ -558,19 +545,13 @@ void GlanceablesClassroomStudentView::OnGetAssignments(
                 base::Unretained(this), initial_update, assignments[i]->link)));
   }
   const size_t shown_assignments = list_container_view_->children().size();
-  // TODO(b/338917100): Revisit the counter used on the expand button later to
-  // see if we want to use the shown one or the total one.
   expand_button_->UpdateCounter(shown_assignments);
 
   const bool is_list_empty = shown_assignments == 0;
   empty_list_label_->SetVisible(is_list_empty);
 
   bool should_show_footer_view;
-  if (features::AreGlanceablesV2Enabled()) {
-    should_show_footer_view = !is_list_empty;
-  } else {
     should_show_footer_view = assignments.size() >= kMaxAssignments;
-  }
   list_footer_view_->SetVisible(should_show_footer_view);
   list_footer_view_->SetProperty(views::kMarginsKey, kFooterMargins);
 
@@ -580,10 +561,6 @@ void GlanceablesClassroomStudentView::OnGetAssignments(
   list_container_view_->NotifyAccessibilityEvent(
       ax::mojom::Event::kChildrenChanged,
       /*send_native_event=*/true);
-
-  // The list is shown in response to the action on the assignment selector
-  // combobox, notify the user of the list state id the combox is still focused.
-  AnnounceListStateOnComboBoxAccessibility();
 
   if (old_preferred_size != GetPreferredSize()) {
     PreferredSizeChanged();
@@ -618,19 +595,6 @@ void GlanceablesClassroomStudentView::OnGetAssignments(
             base::Unretained(this)),
         GlanceablesErrorMessageView::ButtonActionType::kDismiss);
     error_message()->SetProperty(views::kViewIgnoredByLayoutKey, true);
-  }
-}
-
-// TODO(b/338917100): Remove this along with the view observer as the
-// announcement is not needed anymore.
-void GlanceablesClassroomStudentView::
-    AnnounceListStateOnComboBoxAccessibility() {
-  if (empty_list_label_->GetVisible()) {
-    combo_box_view_->GetViewAccessibility().AnnounceText(
-        empty_list_label_->GetText());
-  } else if (list_footer_view_->title_label()->GetVisible()) {
-    combo_box_view_->GetViewAccessibility().AnnounceText(
-        list_footer_view_->title_label()->GetText());
   }
 }
 

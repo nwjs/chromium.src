@@ -74,6 +74,13 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
+    name = "android_12l_landscape_emulator_gtests",
+    basic_suites = {
+        "android_emulator_specific_chrome_public_tests": None,
+    },
+)
+
+targets.legacy_matrix_compound_suite(
     name = "android_13_emulator_gtests",
     basic_suites = {
         "android_ci_only_fieldtrial_webview_tests": None,
@@ -106,6 +113,53 @@ targets.legacy_matrix_compound_suite(
         "android_trichrome_smoke_tests": None,
         "android_smoke_tests": None,
         "android_specific_chromium_gtests": None,  # Already includes gl_gtests.
+        "chromium_gtests": None,
+        "chromium_gtests_for_devices_with_graphical_output": None,
+        "linux_flavor_specific_chromium_gtests": None,
+        "system_webview_shell_instrumentation_tests": None,  # Not an experimental test
+        "webview_trichrome_64_cts_tests_suite": targets.legacy_matrix_config(
+            variants = [
+                "WEBVIEW_TRICHROME_FULL_CTS_TESTS",
+                "WEBVIEW_TRICHROME_INSTANT_CTS_TESTS",
+            ],
+        ),
+        "webview_trichrome_64_cts_tests_no_field_trial_suite": None,
+        "webview_ui_instrumentation_tests": None,
+    },
+)
+
+targets.legacy_matrix_compound_suite(
+    name = "android_14_device_fyi_gtests",
+    basic_suites = {
+        "chrome_public_tests": None,
+        "system_webview_shell_instrumentation_tests": None,
+        "webview_trichrome_64_cts_tests_suite": targets.legacy_matrix_config(
+            variants = [
+                "WEBVIEW_TRICHROME_FULL_CTS_TESTS",
+                "WEBVIEW_TRICHROME_INSTANT_CTS_TESTS",
+            ],
+        ),
+        "webview_ui_instrumentation_tests": None,
+    },
+)
+
+targets.legacy_matrix_compound_suite(
+    name = "android_14_device_gtests",
+    basic_suites = {
+        "android_hardware_specific_gtests": None,
+        "android_limited_capacity_gtests": None,
+        "android_trichrome_smoke_tests": None,
+        "android_smoke_tests": None,
+    },
+)
+
+targets.legacy_matrix_compound_suite(
+    name = "android_14_tablet_gtests",
+    basic_suites = {
+        "android_trichrome_smoke_tests": None,
+        "android_smoke_tests": None,
+        "android_specific_chromium_gtests": None,  # Already includes gl_gtests.
+        "chrome_public_tests": None,
         "chromium_gtests": None,
         "chromium_gtests_for_devices_with_graphical_output": None,
         "linux_flavor_specific_chromium_gtests": None,
@@ -179,7 +233,59 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
-    name = "chromeos_betty_vmlab_tests",
+    name = "chromeos_vmlab_tests",
+    basic_suites = {
+        "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+            mixins = [
+                "shards-20",
+            ],
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_chrome_criticalstaging_tast_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_chrome_disabled_tast_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_integration_tests_suite": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_system_friendly_gtests_vmlab": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_system_friendly_gtests_fails_vmlab": targets.legacy_matrix_config(
+            # TODO: remove experimentals after stablization.
+            mixins = [
+                "experiments",
+            ],
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_vaapi_gtests": targets.legacy_matrix_config(
+            # TODO: remove experimentals after stablization.
+            mixins = [
+                "experiments",
+            ],
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+    },
+)
+
+targets.legacy_matrix_compound_suite(
+    name = "chromeos_vmlab_tests_no_gtests",
     basic_suites = {
         "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
             variants = [
@@ -201,12 +307,32 @@ targets.legacy_matrix_compound_suite(
                 "CROS_RELEASE_LKGM",
             ],
         ),
-        "chromeos_system_friendly_gtests": targets.legacy_matrix_config(
+    },
+)
+
+targets.legacy_matrix_compound_suite(
+    name = "chromeos_vmlab_tests_no_gtests_no_arc",
+    basic_suites = {
+        "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
         ),
-        "chromeos_vaapi_gtests": targets.legacy_matrix_config(
+        "chromeos_chrome_criticalstaging_tast_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_chrome_disabled_tast_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_integration_tests_suite": targets.legacy_matrix_config(
+            # TODO(b/353643755): Remove once ARC tests not compiled in.
+            mixins = [
+                "crosier-no-arc",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
@@ -462,9 +588,36 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
-    name = "chromeos_brya_preuprev_tests",
+    # Standard set of test scheduled via CTP for preuprev.
+    name = "chromeos_ctp_preuprev_tests",
     basic_suites = {
         "chromeos_chrome_cq_medium_tast_tests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_integration_tests_suite": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+        "chromeos_device_only_gtests": targets.legacy_matrix_config(
+            variants = [
+                "CROS_RELEASE_LKGM",
+            ],
+        ),
+    },
+)
+
+targets.legacy_matrix_compound_suite(
+    # Extended set of test scheduled via CTP for preuprev for DUT with more capacity.
+    name = "chromeos_ctp_preuprev_tests_extended",
+    basic_suites = {
+        "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
+            mixins = [
+                # Board with more capacity will run full tast test with many shards.
+                "shards-30",
+            ],
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
@@ -490,27 +643,6 @@ targets.legacy_matrix_compound_suite(
                 # jacuzzi is slow. So that we use more number of shards.
                 "shards-10",
             ],
-            variants = [
-                "CROS_RELEASE_LKGM",
-            ],
-        ),
-        "chromeos_integration_tests_suite": targets.legacy_matrix_config(
-            variants = [
-                "CROS_RELEASE_LKGM",
-            ],
-        ),
-        "chromeos_device_only_gtests": targets.legacy_matrix_config(
-            variants = [
-                "CROS_RELEASE_LKGM",
-            ],
-        ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
-    name = "chromeos_volteer_preuprev_tests",
-    basic_suites = {
-        "chromeos_chrome_cq_medium_tast_tests": targets.legacy_matrix_config(
             variants = [
                 "CROS_RELEASE_LKGM",
             ],
@@ -795,7 +927,7 @@ targets.legacy_matrix_compound_suite(
     basic_suites = {
         "ios_common_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_16_4",
+                "SIM_IPHONE_15_18_0",
             ],
         ),
         "ios_eg2_tests": targets.legacy_matrix_config(
@@ -804,10 +936,10 @@ targets.legacy_matrix_compound_suite(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPHONE_14_16_4",
-                "SIM_IPAD_AIR_5TH_GEN_16_4",
-                "SIM_IPAD_10TH_GEN_16_4",
-                "SIM_IPAD_PRO_6TH_GEN_16_4",
+                "SIM_IPHONE_15_18_0",
+                "SIM_IPAD_AIR_6TH_GEN_18_0",
+                "SIM_IPAD_10TH_GEN_18_0",
+                "SIM_IPAD_PRO_7TH_GEN_18_0",
             ],
         ),
         "ios_eg2_cq_tests": targets.legacy_matrix_config(
@@ -816,17 +948,17 @@ targets.legacy_matrix_compound_suite(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPHONE_14_16_4",
-                "SIM_IPAD_10TH_GEN_16_4",
-                "SIM_IPAD_AIR_5TH_GEN_16_4",
+                "SIM_IPHONE_15_18_0",
+                "SIM_IPAD_10TH_GEN_18_0",
+                "SIM_IPAD_AIR_6TH_GEN_18_0",
             ],
         ),
         "ios_screen_size_dependent_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_16_4",
-                "SIM_IPHONE_14_PRO_MAX_16_4",
-                "SIM_IPAD_AIR_5TH_GEN_16_4",
-                "SIM_IPAD_PRO_6TH_GEN_16_4",
+                "SIM_IPHONE_15_18_0",
+                "SIM_IPHONE_15_PRO_MAX_18_0",
+                "SIM_IPAD_AIR_6TH_GEN_18_0",
+                "SIM_IPAD_PRO_7TH_GEN_18_0",
             ],
         ),
         "ios_crash_xcuitests": targets.legacy_matrix_config(
@@ -834,7 +966,7 @@ targets.legacy_matrix_compound_suite(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPHONE_14_16_4",
+                "SIM_IPHONE_15_18_0",
             ],
         ),
     },
@@ -845,7 +977,8 @@ targets.legacy_matrix_compound_suite(
     basic_suites = {
         "ios_common_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_16_4",
+                "SIM_IPHONE_15_18_0",
+                "SIM_IPHONE_14_17_5",
             ],
         ),
         "ios_crash_xcuitests": targets.legacy_matrix_config(
@@ -853,7 +986,8 @@ targets.legacy_matrix_compound_suite(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPHONE_14_16_4",
+                "SIM_IPHONE_15_18_0",
+                "SIM_IPHONE_14_17_5",
             ],
         ),
         "ios_eg2_tests": targets.legacy_matrix_config(
@@ -862,9 +996,9 @@ targets.legacy_matrix_compound_suite(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPHONE_14_16_4",
-                "SIM_IPAD_AIR_5TH_GEN_16_4",
-                "SIM_IPAD_PRO_6TH_GEN_16_4",
+                "SIM_IPHONE_15_18_0",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPAD_PRO_7TH_GEN_18_0",
             ],
         ),
         "ios_eg2_cq_tests": targets.legacy_matrix_config(
@@ -873,17 +1007,17 @@ targets.legacy_matrix_compound_suite(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPHONE_14_16_4",
-                "SIM_IPAD_AIR_5TH_GEN_16_4",
-                "SIM_IPAD_PRO_6TH_GEN_16_4",
+                "SIM_IPHONE_15_18_0",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPAD_PRO_7TH_GEN_18_0",
             ],
         ),
         "ios_screen_size_dependent_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_16_4",
-                "SIM_IPHONE_SE_3RD_GEN_16_4",
-                "SIM_IPAD_AIR_5TH_GEN_16_4",
-                "SIM_IPAD_PRO_6TH_GEN_16_4",
+                "SIM_IPHONE_15_18_0",
+                "SIM_IPHONE_SE_3RD_GEN_18_0",
+                "SIM_IPAD_AIR_6TH_GEN_18_0",
+                "SIM_IPAD_PRO_7TH_GEN_18_0",
             ],
         ),
     },
@@ -1499,18 +1633,6 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
-    name = "linux_optional_gpu_tests_rel_gtests",
-    basic_suites = {
-        "gpu_gles2_conform_gtests": targets.legacy_matrix_config(
-            variants = [
-                "LINUX_INTEL_UHD_630_STABLE",
-                "LINUX_NVIDIA_GTX_1660_STABLE",
-            ],
-        ),
-    },
-)
-
-targets.legacy_matrix_compound_suite(
     name = "mac_optional_gpu_tests_rel_gpu_telemetry_tests",
     basic_suites = {
         "gpu_common_and_optional_telemetry_tests": targets.legacy_matrix_config(
@@ -1589,13 +1711,6 @@ targets.legacy_matrix_compound_suite(
             ],
         ),
         "gpu_fyi_mac_specific_gtests": targets.legacy_matrix_config(
-            variants = [
-                "MAC_MINI_INTEL_GPU_STABLE",
-                "MAC_RETINA_AMD_GPU_STABLE",
-                "MAC_RETINA_NVIDIA_GPU_STABLE",
-            ],
-        ),
-        "gpu_gles2_conform_gtests": targets.legacy_matrix_config(
             variants = [
                 "MAC_MINI_INTEL_GPU_STABLE",
                 "MAC_RETINA_AMD_GPU_STABLE",
@@ -1809,12 +1924,6 @@ targets.legacy_matrix_compound_suite(
             ],
         ),
         "gpu_fyi_and_optional_win_specific_gtests": targets.legacy_matrix_config(
-            variants = [
-                "WIN10_INTEL_UHD_630_STABLE",
-                "WIN10_NVIDIA_GTX_1660_STABLE",
-            ],
-        ),
-        "gpu_gles2_conform_gtests": targets.legacy_matrix_config(
             variants = [
                 "WIN10_INTEL_UHD_630_STABLE",
                 "WIN10_NVIDIA_GTX_1660_STABLE",

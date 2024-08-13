@@ -5,10 +5,10 @@
 #include "content/browser/private_aggregation/private_aggregation_host.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <bit>
 #include <iterator>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -54,14 +54,6 @@
 namespace content {
 
 namespace {
-
-// Helper to add a random delay to reports being sent. This delay is picked
-// uniformly at random from the range [10 minutes, 1 hour).
-// TODO(alexmt): Consider making this configurable for easier testing.
-base::Time GetScheduledReportTime(base::Time report_issued_time) {
-  return report_issued_time + base::Minutes(10) +
-         base::RandDouble() * base::Minutes(50);
-}
 
 void RecordPipeResultHistogram(PrivateAggregationHost::PipeResult result) {
   base::UmaHistogramEnumeration(
@@ -125,6 +117,10 @@ struct PrivateAggregationHost::ReceiverContext {
   // schedule the timeout task. This should be nullptr iff no timeout is
   // specified by the client.
   std::unique_ptr<base::OneShotTimer> timeout_timer;
+
+  // Tracks the duration of time that the mojo pipe has been open. Used for
+  // duration measurement to ensure each pipe is being closed appropriately.
+  base::ElapsedTimer pipe_duration_timer;
 };
 
 PrivateAggregationHost::PrivateAggregationHost(
@@ -155,13 +151,10 @@ PrivateAggregationHost::~PrivateAggregationHost() {
     RecordTimeoutResultHistogram(TimeoutResult::kStillScheduledOnShutdown);
   }
 
-  if (pipe_duration_timers_.empty()) {
-    return;
-  }
-  for (auto& [id, elapsed_timer] : pipe_duration_timers_) {
+  for (const auto& [id, context_ptr] : receiver_set_.GetAllContexts()) {
     base::UmaHistogramLongTimes(
         "PrivacySandbox.PrivateAggregation.Host.PipeOpenDurationOnShutdown",
-        elapsed_timer.Elapsed());
+        context_ptr->pipe_duration_timer.Elapsed());
   }
 }
 
@@ -217,10 +210,11 @@ bool PrivateAggregationHost::BindNewReceiver(
                           std::move(aggregation_coordinator_origin),
                       .filtering_id_max_bytes = filtering_id_max_bytes});
 
-  ReceiverContext* receiver_context_raw_ptr = receiver_set_.GetContext(id);
-
   if (timeout) {
     CHECK(timeout->is_positive());
+
+    ReceiverContext* receiver_context_raw_ptr = receiver_set_.GetContext(id);
+    CHECK(receiver_context_raw_ptr);
 
     pipes_with_timeout_count_++;
     receiver_context_raw_ptr->timeout_timer =
@@ -233,9 +227,6 @@ bool PrivateAggregationHost::BindNewReceiver(
         base::BindOnce(&PrivateAggregationHost::OnTimeoutBeforeDisconnect,
                        base::Unretained(this), id));
   }
-
-  auto emplace_result = pipe_duration_timers_.emplace(id, base::ElapsedTimer());
-  CHECK(emplace_result.second);  // The ID should not already be present.
 
   return true;
 }
@@ -325,6 +316,7 @@ AggregatableReportRequest PrivateAggregationHost::GenerateReportRequest(
     base::ElapsedTimer timeout_or_disconnect_timer,
     blink::mojom::DebugModeDetailsPtr debug_mode_details,
     base::Time scheduled_report_time,
+    AggregatableReportRequest::DelayType delay_type,
     base::Uuid report_id,
     const url::Origin& reporting_origin,
     PrivateAggregationBudgetKey::Api api_for_budgeting,
@@ -399,7 +391,7 @@ AggregatableReportRequest PrivateAggregationHost::GenerateReportRequest(
 
   std::optional<AggregatableReportRequest> report_request =
       AggregatableReportRequest::Create(
-          std::move(payload_contents), std::move(shared_info),
+          std::move(payload_contents), std::move(shared_info), delay_type,
           std::move(reporting_path), debug_key, std::move(additional_fields));
 
   // All failure cases should've been handled by earlier validation code.
@@ -445,11 +437,11 @@ void PrivateAggregationHost::CloseCurrentPipe(PipeResult pipe_result) {
 
   mojo::ReceiverId current_receiver = receiver_set_.current_receiver();
   receiver_set_.Remove(current_receiver);
-  pipe_duration_timers_.erase(current_receiver);
 }
 
 void PrivateAggregationHost::OnTimeoutBeforeDisconnect(mojo::ReceiverId id) {
   ReceiverContext* receiver_context = receiver_set_.GetContext(id);
+  CHECK(receiver_context);
 
   SendReportOnTimeoutOrDisconnect(*receiver_context,
                                   /*remaining_timeout=*/base::TimeDelta());
@@ -459,12 +451,9 @@ void PrivateAggregationHost::OnTimeoutBeforeDisconnect(mojo::ReceiverId id) {
       TimeoutResult::kOccurredBeforeRemoteDisconnection);
 
   receiver_set_.Remove(id);
-  pipe_duration_timers_.erase(id);
 }
 
 void PrivateAggregationHost::OnReceiverDisconnected() {
-  pipe_duration_timers_.erase(receiver_set_.current_receiver());
-
   ReceiverContext& current_context = receiver_set_.current_context();
   if (!current_context.timeout_timer) {
     SendReportOnTimeoutOrDisconnect(current_context,
@@ -472,16 +461,22 @@ void PrivateAggregationHost::OnReceiverDisconnected() {
     return;
   }
 
-  // The timeout hasn't been reached.
   CHECK(current_context.timeout_timer->IsRunning());
   pipes_with_timeout_count_--;
 
   RecordTimeoutResultHistogram(
       TimeoutResult::kOccurredAfterRemoteDisconnection);
 
+  // TODO(https://crbug.com/354124875) Add UMA histogram to measure the
+  // magnitude of negative `remaining_timeout` values. Also in
+  // `OnTimeoutBeforeDisconnect()`.
   base::TimeDelta remaining_timeout =
       current_context.timeout_timer->desired_run_time() -
       base::TimeTicks::Now();
+
+  if (remaining_timeout.is_negative()) {
+    remaining_timeout = base::TimeDelta();
+  }
 
   SendReportOnTimeoutOrDisconnect(current_context, remaining_timeout);
 }
@@ -489,6 +484,7 @@ void PrivateAggregationHost::OnReceiverDisconnected() {
 void PrivateAggregationHost::SendReportOnTimeoutOrDisconnect(
     ReceiverContext& receiver_context,
     base::TimeDelta remaining_timeout) {
+  CHECK(!remaining_timeout.is_negative());
   base::ElapsedTimer timeout_or_disconnect_timer;
 
   const url::Origin& reporting_origin = receiver_context.worklet_origin;
@@ -528,22 +524,38 @@ void PrivateAggregationHost::SendReportOnTimeoutOrDisconnect(
         blink::mojom::DebugModeDetails::New();
   }
 
-  base::Time now = base::Time::Now();
+  const base::Time now = base::Time::Now();
 
   // If the timeout hasn't been reached, use a modified report issued time.
-  base::Time report_issued_time = now + remaining_timeout;
+  base::Time scheduled_report_time = now + remaining_timeout;
 
-  bool should_not_delay_this_report =
+  // Add a tiny window to account for local processing time, the majority of
+  // which we expect to be spent in `PrivateAggregationBudgeter`. Otherwise, the
+  // report time could passively leak information about the previous budgeting
+  // history. For context, see <https://crbug.com/324314568>.
+  scheduled_report_time += kTimeForLocalProcessing;
+
+  const bool use_reduced_delay =
       should_not_delay_reports_ || receiver_context.timeout_timer;
+
+  if (!use_reduced_delay) {
+    // Add a full delay to the report time. The full delay is picked uniformly
+    // at random from the range [10 minutes, 1 hour).
+    // TODO(alexmt): Consider making this configurable for easier testing.
+    scheduled_report_time +=
+        base::Minutes(10) + base::RandDouble() * base::Minutes(50);
+  }
+
+  const AggregatableReportRequest::DelayType delay_type =
+      use_reduced_delay
+          ? AggregatableReportRequest::DelayType::ScheduledWithReducedDelay
+          : AggregatableReportRequest::DelayType::ScheduledWithFullDelay;
 
   ReportRequestGenerator report_request_generator = base::BindOnce(
       GenerateReportRequest, std::move(timeout_or_disconnect_timer),
-      std::move(receiver_context.report_debug_details),
-      /*scheduled_report_time=*/
-      should_not_delay_this_report ? report_issued_time
-                                   : GetScheduledReportTime(report_issued_time),
-      /*report_id=*/base::Uuid::GenerateRandomV4(), reporting_origin,
-      receiver_context.api_for_budgeting,
+      std::move(receiver_context.report_debug_details), scheduled_report_time,
+      delay_type, /*report_id=*/base::Uuid::GenerateRandomV4(),
+      reporting_origin, receiver_context.api_for_budgeting,
       std::move(receiver_context.context_id),
       std::move(receiver_context.aggregation_coordinator_origin),
       receiver_context.filtering_id_max_bytes);

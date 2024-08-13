@@ -113,6 +113,7 @@
 <translation id="2891975107962658722">Impedisci a un sito di salvare dati sul dispositivo</translation>
 <translation id="2903493209154104877">Indirizzi</translation>
 <translation id="2910701580606108292">Chiedi prima di consentire ai siti di riprodurre contenuti protetti</translation>
+<translation id="2918484639460781603">Passa alle impostazioni</translation>
 <translation id="2932883381142163287">Segnala abuso</translation>
 <translation id="2939338015096024043">Quando l'opzione è attiva, i siti possono chiedere di monitorare la posizione della fotocamera e scoprire di più sull'ambiente circostante. Quando l'opzione è disattivata, i siti non possono monitorare la posizione della fotocamera o scoprire l'ambiente circostante.</translation>
 <translation id="2968755619301702150">Visualizzatore certificati</translation>
@@ -171,6 +172,7 @@
 <translation id="385051799172605136">Indietro</translation>
 <translation id="3859306556332390985">Posiziona avanti</translation>
 <translation id="3895926599014793903">Attivazione forzata dello zoom</translation>
+<translation id="3905475044299942653">Interrompi notifiche eccessive</translation>
 <translation id="3908288065506437185">Blocca i cookie di terze parti in modalità di navigazione in incognito</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Alcune funzionalità potrebbero non essere disponibili. I siti correlati possono comunque utilizzare i cookie di terze parti.</translation>
@@ -218,6 +220,7 @@
 <translation id="4751476147751820511">Sensori di movimento o della luce</translation>
 <translation id="4755971844837804407">Quando l'opzione è attiva, i siti possono mostrarti qualsiasi annuncio. Quando l'opzione è disattivata, i siti non possono mostrare annunci invasivi o fuorvianti.</translation>
 <translation id="4779083564647765204">Zoom</translation>
+<translation id="4807122856660838973">Attiva Navigazione sicura</translation>
 <translation id="4811450222531576619">Scopri la fonte e l'argomento</translation>
 <translation id="4836046166855586901">Chiedi conferma quando un sito vuole sapere quando usi attivamente questo dispositivo</translation>
 <translation id="483914009762354899">Includi tutti i siti di questo dominio</translation>
@@ -231,6 +234,7 @@
 <translation id="4994033804516042629">Nessun contatto trovato</translation>
 <translation id="4996978546172906250">Condividi tramite</translation>
 <translation id="5001526427543320409">Cookie di terze parti</translation>
+<translation id="5007392906805964215">Visualizza</translation>
 <translation id="5039804452771397117">Consenti</translation>
 <translation id="5048398596102334565">Consenti ai siti di accedere ai sensori di movimento (opzione consigliata)</translation>
 <translation id="5050380848339752099">Questo sito sta per condividere informazioni con un'app esterna alla modalità di navigazione in incognito.</translation>
@@ -281,6 +285,7 @@
 <translation id="5706552988683188916">Vengono eliminati i cookie e altri dati dei siti per <ph name="WEBSITE" /></translation>
 <translation id="5723967018671998714">I cookie di terze parti sono bloccati in modalità di navigazione in incognito</translation>
 <translation id="5740126560802162366">I siti possono salvare dati sul dispositivo</translation>
+<translation id="5749085587985334212">Nascondi controllo di sicurezza</translation>
 <translation id="5771720122942595109">Autorizzazione <ph name="PERMISSION_1" /> bloccata</translation>
 <translation id="5804241973901381774">Autorizzazioni</translation>
 <translation id="5844448279347999754">Quando l'opzione è attiva, i siti possono chiedere di vedere testo e immagini salvati negli appunti. Quando l'opzione è disattivata, i siti non possono vedere il testo o le immagini salvati negli appunti.</translation>
@@ -361,6 +366,7 @@
 <translation id="6945221475159498467">Seleziona</translation>
 <translation id="6950072572526089586">Un sito che visiti può salvare informazioni su ciò che stai facendo affinché possa funzionare come previsto, ad esempio per mantenere l'accesso al sito o salvare gli articoli nel tuo carrello degli acquisti. Spesso i siti salvano temporaneamente queste informazioni sul dispositivo.</translation>
 <translation id="6965382102122355670">OK</translation>
+<translation id="6980861169612950611">Vuoi eliminare i dati del sito? <ph name="SITE_NAME" /></translation>
 <translation id="6981982820502123353">Accessibilità</translation>
 <translation id="6992289844737586249">Chiedi conferma prima di consentire ai siti di utilizzare il microfono (opzione consigliata)</translation>
 <translation id="7000754031042624318">Disattivata nelle impostazioni Android</translation>
@@ -388,6 +394,7 @@
 <translation id="7366415735885268578">Aggiungi un sito</translation>
 <translation id="7368695150573390554">I dati offline verranno eliminati</translation>
 <translation id="7383715096023715447">Impostazioni di <ph name="DOMAIN" /></translation>
+<translation id="7399802613464275309">Controllo di sicurezza</translation>
 <translation id="7406113532070524618">Questa impostazione funziona senza identificarti o consentire ai siti di vedere la cronologia di navigazione, ma i siti possono condividere una piccola quantità di informazioni durante la verifica</translation>
 <translation id="7423098979219808738">Chiedi prima</translation>
 <translation id="7423538860840206698">Lettura degli appunti non consentita</translation>
@@ -456,6 +463,7 @@
 <translation id="8441146129660941386">Posiziona indietro</translation>
 <translation id="8444433999583714703">Per consentire all'app <ph name="APP_NAME" /> di accedere alla tua posizione, devi attivare la posizione anche nelle <ph name="BEGIN_LINK" />Impostazioni Android<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Revoca autorizzazione dispositivo</translation>
+<translation id="8473055640493819707">L'app "<ph name="APP_NAME" />" è obsoleta. Reinstalla l'app.</translation>
 <translation id="8487700953926739672">Disponibile offline</translation>
 <translation id="848952951823693243">Richiedi sempre sito mobile</translation>
 <translation id="8499083585497694743">Riattiva microfono</translation>
@@ -472,6 +480,7 @@
 <translation id="8681886425883659911">Gli annunci vengono bloccati sui siti noti che mostrano annunci invasivi o fuorvianti</translation>
 <translation id="868929229000858085">Cerca nei contatti</translation>
 <translation id="8712637175834984815">Ok</translation>
+<translation id="8715862698998036666">Trascina dall'alto e scorri dal bordo sinistro o destro per uscire dalla modalità a schermo intero.</translation>
 <translation id="8719283222052720129">Attiva l'autorizzazione per l'app <ph name="APP_NAME" /> nelle <ph name="BEGIN_LINK" />Impostazioni Android<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Quando l'opzione è attiva, i siti potrebbero chiedere di cercare dispositivi Bluetooth. Quando l'opzione è disattivata, i siti non possono cercare dispositivi Bluetooth.</translation>
 <translation id="8725066075913043281">Riprova</translation>

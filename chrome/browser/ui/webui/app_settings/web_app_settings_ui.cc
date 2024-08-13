@@ -145,7 +145,6 @@ WebAppSettingsUI::WebAppSettingsUI(content::WebUI* web_ui)
 
 void WebAppSettingsUI::BindInterface(
     mojo::PendingReceiver<app_management::mojom::PageHandlerFactory> receiver) {
-#if 0
   if (!app_management_page_handler_factory_) {
     auto window_delegate = std::make_unique<WebAppSettingsWindowDelegate>(
         Profile::FromWebUI(web_ui()));
@@ -155,7 +154,6 @@ void WebAppSettingsUI::BindInterface(
             Profile::FromWebUI(web_ui()), std::move(window_delegate));
   }
   app_management_page_handler_factory_->Bind(std::move(receiver));
-#endif
 }
 
 void WebAppSettingsUI::OnWebAppUninstalled(

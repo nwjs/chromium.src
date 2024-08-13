@@ -110,7 +110,7 @@ public class TrackingProtectionNoticeController {
     }
 
     private static boolean shouldShowNotice(TrackingProtectionBridge trackingProtectionBridge) {
-        return trackingProtectionBridge.getRequiredNotice() != NoticeType.NONE;
+        return trackingProtectionBridge.getRequiredNotice(SurfaceType.BR_APP) != NoticeType.NONE;
     }
 
     /**
@@ -161,8 +161,8 @@ public class TrackingProtectionNoticeController {
             logNoticeControllerEvent(NoticeControllerEvent.NOTICE_ALREADY_SHOWING);
         }
 
-        if (getNoticeType() == NoticeType.SILENT_ONBOARDING) {
-            mTrackingProtectionBridge.noticeShown(getNoticeType());
+        if (getNoticeType() == NoticeType.MODE_B_SILENT_ONBOARDING) {
+            mTrackingProtectionBridge.noticeShown(SurfaceType.BR_APP, getNoticeType());
             destroy();
             return;
         }
@@ -175,27 +175,16 @@ public class TrackingProtectionNoticeController {
                         .with(
                                 MessageBannerProperties.TITLE,
                                 resources.getString(
-                                        getNoticeType() == NoticeType.ONBOARDING
-                                                ? R.string
-                                                        .tracking_protection_onboarding_notice_title
-                                                : R.string
-                                                        .tracking_protection_offboarding_notice_title))
+                                        R.string.tracking_protection_onboarding_notice_title))
                         .with(
                                 MessageBannerProperties.DESCRIPTION,
                                 resources.getString(
-                                        getNoticeType() == NoticeType.ONBOARDING
-                                                ? R.string
-                                                        .tracking_protection_onboarding_notice_body
-                                                : R.string
-                                                        .tracking_protection_offboarding_notice_body))
+                                        R.string.tracking_protection_onboarding_notice_body))
                         .with(
                                 MessageBannerProperties.PRIMARY_BUTTON_TEXT,
                                 resources.getString(
-                                        getNoticeType() == NoticeType.ONBOARDING
-                                                ? R.string
-                                                        .tracking_protection_onboarding_notice_ack_button_label
-                                                : R.string
-                                                        .tracking_protection_offboarding_notice_ack_button_label))
+                                        R.string
+                                                .tracking_protection_onboarding_notice_ack_button_label))
                         .with(
                                 MessageBannerProperties.SECONDARY_MENU_BUTTON_DELEGATE,
                                 new SecondaryMenuButtonDelegate())
@@ -205,14 +194,16 @@ public class TrackingProtectionNoticeController {
                                 R.drawable.ic_settings_gear_24dp)
                         .with(
                                 MessageBannerProperties.DISMISSAL_DURATION,
-                                getNoticeType() == NoticeType.ONBOARDING
+                                getNoticeType() == NoticeType.MODE_B_ONBOARDING
                                         ? AUTODISMISS_DURATION_ONE_DAY
                                         : AUTODISMISS_DURATION_8_SECONDS)
                         .with(
                                 MessageBannerProperties.ON_PRIMARY_ACTION,
                                 () -> {
                                     mTrackingProtectionBridge.noticeActionTaken(
-                                            getNoticeType(), NoticeAction.GOT_IT);
+                                            SurfaceType.BR_APP,
+                                            getNoticeType(),
+                                            NoticeAction.GOT_IT);
                                     return PrimaryActionClickBehavior.DISMISS_IMMEDIATELY;
                                 })
                         .with(MessageBannerProperties.ON_DISMISSED, onNoticeDismissed())
@@ -226,7 +217,7 @@ public class TrackingProtectionNoticeController {
     private Callback<Boolean> onNoticeShown() {
         return (shown) -> {
             if (shown) {
-                mTrackingProtectionBridge.noticeShown(getNoticeType());
+                mTrackingProtectionBridge.noticeShown(SurfaceType.BR_APP, getNoticeType());
                 logNoticeControllerEvent(NoticeControllerEvent.NOTICE_REQUESTED_AND_SHOWN);
             }
         };
@@ -237,7 +228,7 @@ public class TrackingProtectionNoticeController {
             switch (dismissReason) {
                 case DismissReason.GESTURE:
                     mTrackingProtectionBridge.noticeActionTaken(
-                            getNoticeType(), NoticeAction.CLOSED);
+                            SurfaceType.BR_APP, getNoticeType(), NoticeAction.CLOSED);
                     break;
                 case DismissReason.PRIMARY_ACTION:
                 case DismissReason.SECONDARY_ACTION:
@@ -250,7 +241,7 @@ public class TrackingProtectionNoticeController {
                     break;
                 default:
                     mTrackingProtectionBridge.noticeActionTaken(
-                            getNoticeType(), NoticeAction.OTHER);
+                            SurfaceType.BR_APP, getNoticeType(), NoticeAction.OTHER);
             }
         };
     }
@@ -298,26 +289,17 @@ public class TrackingProtectionNoticeController {
                     getMenuItem(
                             SETTINGS_ITEM_ID,
                             res.getString(
-                                    getNoticeType() == NoticeType.ONBOARDING
-                                            ? R.string
-                                                    .tracking_protection_onboarding_notice_settings_button_label
-                                            : R.string
-                                                    .tracking_protection_offboarding_notice_settings_button_label));
+                                    R.string
+                                            .tracking_protection_onboarding_notice_settings_button_label));
             ListItem learnMoreItem =
                     getMenuItem(
                             LEARN_MORE_ITEM_ID,
                             res.getString(
-                                    getNoticeType() == NoticeType.ONBOARDING
-                                            ? R.string
-                                                    .tracking_protection_onboarding_notice_learn_more_button_label
-                                            : R.string
-                                                    .tracking_protection_offboarding_notice_learn_more_button_label),
+                                    R.string
+                                            .tracking_protection_onboarding_notice_learn_more_button_label),
                             res.getString(
-                                    getNoticeType() == NoticeType.ONBOARDING
-                                            ? R.string
-                                                    .tracking_protection_onboarding_notice_learn_more_button_a11y_label
-                                            : R.string
-                                                    .tracking_protection_offboarding_notice_learn_more_button_a11y_label));
+                                    R.string
+                                            .tracking_protection_onboarding_notice_learn_more_button_a11y_label));
 
             MVCListAdapter.ModelList menuItems = new MVCListAdapter.ModelList();
             menuItems.add(settingsItem);
@@ -343,7 +325,7 @@ public class TrackingProtectionNoticeController {
                 int clickedItemID = clickedItem.get(ListMenuItemProperties.MENU_ITEM_ID);
 
                 if (clickedItemID == SETTINGS_ITEM_ID) {
-                    if (getNoticeType() == NoticeType.ONBOARDING) {
+                    if (getNoticeType() == NoticeType.MODE_B_ONBOARDING) {
                         mSettingsLauncher.launchSettingsActivity(
                                 mContext, TrackingProtectionSettings.class);
                     } else {
@@ -361,11 +343,13 @@ public class TrackingProtectionNoticeController {
                     }
 
                     mTrackingProtectionBridge.noticeActionTaken(
+                            SurfaceType.BR_APP,
                             getNoticeType(),
                             org.chromium.chrome.browser.privacy_sandbox.NoticeAction.SETTINGS);
                 } else if (clickedItemID == LEARN_MORE_ITEM_ID) {
                     openUrlInCct(TRACKING_PROTECTION_HELP_CENTER);
                     mTrackingProtectionBridge.noticeActionTaken(
+                            SurfaceType.BR_APP,
                             getNoticeType(),
                             org.chromium.chrome.browser.privacy_sandbox.NoticeAction.LEARN_MORE);
                 }
@@ -389,7 +373,7 @@ public class TrackingProtectionNoticeController {
     }
 
     private @NoticeType int getNoticeType() {
-        return mTrackingProtectionBridge.getRequiredNotice();
+        return mTrackingProtectionBridge.getRequiredNotice(SurfaceType.BR_APP);
     }
 
     public void destroy() {

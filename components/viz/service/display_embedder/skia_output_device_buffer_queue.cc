@@ -14,6 +14,7 @@
 #include "base/compiler_specific.h"
 #include "base/debug/alias.h"
 #include "base/feature_list.h"
+#include "base/not_fatal_until.h"
 #include "build/build_config.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/switches.h"
@@ -105,8 +106,8 @@ class SkiaOutputDeviceBufferQueue::OverlayData {
 
   void OnReuse() const {
     // This is a proxy check for single-buffered overlay.
-    if ((representation_->usage() &
-         gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE) &&
+    if (representation_->usage().Has(
+            gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE) &&
         base::FeatureList::IsEnabled(
             kRestartReadAccessForConcurrentReadWrite)) {
       // If this is a single-buffered overlay, want to restart read access to
@@ -285,11 +286,10 @@ void SkiaOutputDeviceBufferQueue::PageFlipComplete(
   num_pending_swap_completion_callbacks_for_testing_--;
 
   // If there is no displayed image, then purge one available image.
-  if (base::FeatureList::IsEnabled(features::kBufferQueueImageSetPurgeable)) {
-    if (!displayed_image_) {
-      for (auto* image_to_discard : available_images_) {
-        if (image_to_discard->SetPurgeable())
-          break;
+  if (!displayed_image_) {
+    for (auto* image_to_discard : available_images_) {
+      if (image_to_discard->SetPurgeable()) {
+        break;
       }
     }
   }
@@ -438,8 +438,8 @@ void SkiaOutputDeviceBufferQueue::ScheduleOverlays(
     std::unique_ptr<gfx::GpuFence> acquire_fence;
     if (context_state_->GrContextIsGL() && access &&
         !overlay_has_been_submitted &&
-        (access->representation()->usage() &
-         gpu::SHARED_IMAGE_USAGE_RASTER_DELEGATED_COMPOSITING) &&
+        access->representation()->usage().Has(
+            gpu::SHARED_IMAGE_USAGE_RASTER_DELEGATED_COMPOSITING) &&
         gl::GLFence::IsGpuFenceSupported()) {
       DCHECK(features::IsDelegatedCompositingEnabled());
       // Create a single fence that will be duplicated and inserted into each
@@ -534,7 +534,7 @@ void SkiaOutputDeviceBufferQueue::DoFinishSwapBuffers(
   // have been replaced.
   for (const auto& mailbox : overlay_mailboxes) {
     auto it = overlays_.find(mailbox);
-    DCHECK(it != overlays_.end());
+    CHECK(it != overlays_.end(), base::NotFatalUntil::M130);
     it->Unref();
   }
 

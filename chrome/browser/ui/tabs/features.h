@@ -11,7 +11,20 @@ namespace tabs {
 
 // TODO(346837232) move all flags to this file.
 
+BASE_DECLARE_FEATURE(kSplitTabStrip);
+
+BASE_DECLARE_FEATURE(kScrollableTabStrip);
+extern const char kMinimumTabWidthFeatureParameterName[];
+
+BASE_DECLARE_FEATURE(kScrollableTabStripWithDragging);
+extern const char kTabScrollingWithDraggingModeName[];
+
+BASE_DECLARE_FEATURE(kScrollableTabStripOverflow);
+extern const char kScrollableTabStripOverflowModeName[];
+
 BASE_DECLARE_FEATURE(kTabSearchPositionSetting);
+
+BASE_DECLARE_FEATURE(kTabStripCollectionStorage);
 
 extern bool CanShowTabSearchPositionSetting();
 

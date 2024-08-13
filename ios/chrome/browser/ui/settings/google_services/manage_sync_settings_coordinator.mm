@@ -25,7 +25,6 @@
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
-#import "ios/chrome/browser/shared/public/commands/browsing_data_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
@@ -106,7 +105,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   // Dismiss callback for Web and app setting details view.
   DismissViewCallback _dismissWebAndAppSettingDetailsController;
   // Dismiss callback for account details view.
-  DismissViewCallback _dismissAccountDetailsController;
+  DismissViewCallback _accountDetailsControllerDismissCallback;
   // The account sync state.
   SyncSettingsAccountState _accountState;
   // The navigation controller to use only when presenting the
@@ -115,7 +114,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   // The coordinator for the Personalize Google Services view.
   PersonalizeGoogleServicesCoordinator* _personalizeGoogleServicesCoordinator;
   // Prevents any data from syncing while the UI is open.
-  // TODO(crbug.com/330772894): This is currently needed for syncing users,
+  // TODO(crbug.com/40066949): This is currently needed for syncing users,
   // otherwise accidentally touching a toggle immediately uploads existing data.
   // For non-syncing users that's not true. So remove this after the syncing
   // state is gone on iOS.
@@ -196,8 +195,6 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
       HandlerForProtocol(dispatcher, ApplicationCommands);
   viewController.browserHandler =
       HandlerForProtocol(dispatcher, BrowserCommands);
-  viewController.browsingDataHandler =
-      HandlerForProtocol(dispatcher, BrowsingDataCommands);
   viewController.settingsHandler =
       HandlerForProtocol(dispatcher, SettingsCommands);
   viewController.snackbarHandler =
@@ -251,6 +248,10 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 #pragma mark - Private
 
+- (void)resetDismissAccountDetailsController {
+  _accountDetailsControllerDismissCallback.Reset();
+}
+
 - (void)stopBulkUpload {
   [_bulkUploadCoordinator stop];
   _bulkUploadCoordinator.delegate = nil;
@@ -272,8 +273,9 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
       std::move(_dismissWebAndAppSettingDetailsController)
           .Run(/*animated*/ false);
     }
-    if (!_dismissAccountDetailsController.is_null()) {
-      std::move(_dismissAccountDetailsController).Run(/*animated=*/false);
+    if (!_accountDetailsControllerDismissCallback.is_null()) {
+      std::move(_accountDetailsControllerDismissCallback)
+          .Run(/*animated=*/false);
     }
 
     NSEnumerator<UIViewController*>* inversedViewControllers =
@@ -458,14 +460,20 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 - (void)showManageYourGoogleAccount {
-  _dismissAccountDetailsController =
+  __weak __typeof(self) weakself = self;
+  _accountDetailsControllerDismissCallback =
       GetApplicationContext()
           ->GetSystemIdentityManager()
           ->PresentAccountDetailsController(
               self.authService->GetPrimaryIdentity(
                   signin::ConsentLevel::kSignin),
               self.viewController,
-              /*animated=*/YES, base::DoNothing());
+              /*animated=*/YES,
+              base::BindOnce(
+                  [](__typeof(self) weakSelf) {
+                    [weakSelf resetDismissAccountDetailsController];
+                  },
+                  weakself));
 }
 
 #pragma mark - SignoutActionSheetCoordinatorDelegate

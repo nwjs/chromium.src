@@ -9,9 +9,12 @@
 #include "third_party/blink/renderer/core/css/css_container_values.h"
 #include "third_party/blink/renderer/core/css/media_values_cached.h"
 #include "third_party/blink/renderer/core/css/resolver/match_result.h"
+#include "third_party/blink/renderer/core/css/snapped_query_scroll_snapshot.h"
 #include "third_party/blink/renderer/core/css/stuck_query_scroll_snapshot.h"
+#include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_recalc_context.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 
@@ -70,9 +73,7 @@ bool NameMatches(const ComputedStyle& style,
 
 bool TypeMatches(const ComputedStyle& style,
                  const ContainerSelector& container_selector) {
-  DCHECK(
-      !container_selector.HasUnknownFeature() ||
-      !RuntimeEnabledFeatures::CSSUnknownContainerQueriesNoSelectionEnabled());
+  DCHECK(!container_selector.HasUnknownFeature());
   unsigned type = container_selector.Type(style.GetWritingMode());
   return !type || ((style.ContainerType() & type) == type);
 }
@@ -114,13 +115,22 @@ ContainerQueryEvaluator::ContainerQueryEvaluator(Element& container) {
 }
 
 // static
+Element* ContainerQueryEvaluator::ParentContainerCandidateElement(
+    Element& element) {
+  if (RuntimeEnabledFeatures::CSSFlatTreeContainerEnabled()) {
+    return FlatTreeTraversal::ParentElement(element);
+  }
+  return element.ParentOrShadowHostElement();
+}
+
+// static
 Element* ContainerQueryEvaluator::FindContainer(
     Element* starting_element,
     const ContainerSelector& container_selector,
     const TreeScope* selector_tree_scope) {
   // TODO(crbug.com/1213888): Cache results.
   for (Element* element = starting_element; element;
-       element = element->ParentOrShadowHostElement()) {
+       element = ParentContainerCandidateElement(*element)) {
     if (const ComputedStyle* style = element->GetComputedStyle()) {
       if (style->StyleType() == kPseudoIdNone) {
         if (Matches(*style, container_selector, selector_tree_scope)) {
@@ -140,8 +150,7 @@ bool ContainerQueryEvaluator::EvalAndAdd(
     ContainerSelectorCache& container_selector_cache,
     MatchResult& match_result) {
   const ContainerSelector& selector = query.Selector();
-  if (selector.HasUnknownFeature() &&
-      RuntimeEnabledFeatures::CSSUnknownContainerQueriesNoSelectionEnabled()) {
+  if (selector.HasUnknownFeature()) {
     return false;
   }
   bool selects_size = selector.SelectsSizeContainers();
@@ -294,14 +303,39 @@ ContainerQueryEvaluator::Change ContainerQueryEvaluator::SizeContainerChanged(
   return change;
 }
 
-ContainerQueryEvaluator::Change ContainerQueryEvaluator::ApplyScrollSnapshot() {
-  if (stuck_snapshot_) {
-    return StickyContainerChanged(stuck_snapshot_->StuckHorizontal(),
-                                  stuck_snapshot_->StuckVertical());
+void ContainerQueryEvaluator::SetPendingSnappedStateFromScrollSnapshot(
+    const SnappedQueryScrollSnapshot& snapshot) {
+  Element* container = ContainerElement();
+  pending_snapped_ =
+      static_cast<ContainerSnappedFlags>(ContainerSnapped::kNone);
+  if (snapshot.GetSnappedTargetX() == container) {
+    pending_snapped_ |=
+        static_cast<ContainerSnappedFlags>(ContainerSnapped::kX);
   }
-  // TODO(crbug.com/40279568): Call SnapContainerChanged() based on snapshot for
-  // scroll snapping.
-  return ContainerQueryEvaluator::Change::kNone;
+  if (snapshot.GetSnappedTargetY() == container) {
+    pending_snapped_ |=
+        static_cast<ContainerSnappedFlags>(ContainerSnapped::kY);
+  }
+
+  if (pending_snapped_ != snapped_) {
+    // TODO(crbug.com/40279568): The kLocalStyleChange is not necessary for the
+    // container itself, but it is a way to reach reach ApplyScrollState() in
+    // Element::RecalcOwnStyle() for the next lifecycle update.
+    container->SetNeedsStyleRecalc(kLocalStyleChange,
+                                   StyleChangeReasonForTracing::Create(
+                                       style_change_reason::kScrollTimeline));
+  }
+}
+
+ContainerQueryEvaluator::Change ContainerQueryEvaluator::ApplyScrollState() {
+  Change change = Change::kNone;
+  if (stuck_snapshot_) {
+    change = StickyContainerChanged(stuck_snapshot_->StuckHorizontal(),
+                                    stuck_snapshot_->StuckVertical());
+  }
+  Change snap_change = SnapContainerChanged(pending_snapped_);
+  change = std::max(change, snap_change);
+  return change;
 }
 
 ContainerQueryEvaluator::Change ContainerQueryEvaluator::StickyContainerChanged(

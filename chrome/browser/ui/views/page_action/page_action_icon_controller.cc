@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/views/autofill/payments/save_payment_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/virtual_card_enroll_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/virtual_card_manual_fallback_icon_view.h"
+#include "chrome/browser/ui/views/commerce/discounts_icon_view.h"
 #include "chrome/browser/ui/views/commerce/price_insights_icon_view.h"
 #include "chrome/browser/ui/views/commerce/price_tracking_icon_view.h"
 #include "chrome/browser/ui/views/commerce/product_specifications_icon_view.h"
@@ -129,6 +130,11 @@ void PageActionIconController::Init(const PageActionIconParams& params,
                       params.browser, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
         break;
+      case PageActionIconType::kDiscounts:
+        add_page_action_icon(type, std::make_unique<DiscountsIconView>(
+                                       params.icon_label_bubble_delegate,
+                                       params.page_action_icon_delegate));
+        break;
       case PageActionIconType::kFind:
         add_page_action_icon(
             type, std::make_unique<FindBarIcon>(
@@ -158,7 +164,7 @@ void PageActionIconController::Init(const PageActionIconParams& params,
         add_page_action_icon(
             type, std::make_unique<ManagePasswordsIconViews>(
                       params.command_updater, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate));
+                      params.page_action_icon_delegate, params.browser));
         break;
       case PageActionIconType::kMandatoryReauth:
         add_page_action_icon(

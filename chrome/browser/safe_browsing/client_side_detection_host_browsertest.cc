@@ -276,13 +276,14 @@ class ClientSideDetectionHostPrerenderExclusiveAccessBrowserTest
 
   void SetUp() override {
     prerender_helper_.RegisterServerRequestMonitor(embedded_test_server());
-    InProcessBrowserTest::SetUp();
+    ExclusiveAccessTest::SetUp();
   }
 
   void SetUpOnMainThread() override {
     set_up_client_side_model();
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(embedded_test_server()->Start());
+    ExclusiveAccessTest::SetUpOnMainThread();
   }
 
   content::test::PrerenderTestHelper& prerender_helper() {
@@ -392,7 +393,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostPrerenderBrowserTest,
   // Bypass the pre-classification checks.
   csd_host->OnPhishingPreClassificationDone(
       ClientSideDetectionType::TRIGGER_MODELS, /*should_classify=*/true,
-      /*is_sample_ping=*/false);
+      /*is_sample_ping=*/false, /*did_match_high_confidence_allowlist=*/false);
 
   // A prerendered navigation committing should not cancel classification.
   // We simulate the commit of a prerendered navigation to avoid races
@@ -452,7 +453,7 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostPrerenderBrowserTest,
   // Bypass the pre-classification checks.
   csd_host->OnPhishingPreClassificationDone(
       ClientSideDetectionType::TRIGGER_MODELS, /*should_classify=*/true,
-      /*is_sample_ping=*/false);
+      /*is_sample_ping=*/false, /*did_match_high_confidence_allowlist=*/false);
 
   run_loop.Run();
 
@@ -505,7 +506,7 @@ IN_PROC_BROWSER_TEST_F(
   // Bypass the pre-classification checks.
   csd_host->OnPhishingPreClassificationDone(
       ClientSideDetectionType::TRIGGER_MODELS, /*should_classify=*/true,
-      /*is_sample_ping=*/false);
+      /*is_sample_ping=*/false, /*did_match_high_confidence_allowlist=*/false);
 
   run_loop.Run();
 
@@ -578,7 +579,7 @@ IN_PROC_BROWSER_TEST_F(
   // Bypass the pre-classification checks.
   csd_host->OnPhishingPreClassificationDone(
       ClientSideDetectionType::TRIGGER_MODELS, /*should_classify=*/true,
-      /*is_sample_ping=*/false);
+      /*is_sample_ping=*/false, /*did_match_high_confidence_allowlist=*/false);
 
   run_loop.Run();
 
@@ -748,7 +749,8 @@ IN_PROC_BROWSER_TEST_F(
   // "NO_CLASSIFY_PRIVATE_IP".
   csd_host->OnPhishingPreClassificationDone(
       ClientSideDetectionType::KEYBOARD_LOCK_REQUESTED,
-      /*should_classify=*/true, /*is_sample_ping=*/false);
+      /*should_classify=*/true, /*is_sample_ping=*/false,
+      /*did_match_high_confidence_allowlist=*/false);
 
   run_loop.Run();
 
@@ -820,7 +822,8 @@ IN_PROC_BROWSER_TEST_F(
   // "NO_CLASSIFY_PRIVATE_IP".
   csd_host->OnPhishingPreClassificationDone(
       ClientSideDetectionType::POINTER_LOCK_REQUESTED,
-      /*should_classify=*/true, /*is_sample_ping=*/false);
+      /*should_classify=*/true, /*is_sample_ping=*/false,
+      /*did_match_high_confidence_allowlist=*/false);
 
   run_loop.Run();
 
@@ -1059,7 +1062,8 @@ IN_PROC_BROWSER_TEST_F(ClientSideDetectionHostVibrateTest,
   // "NO_CLASSIFY_PRIVATE_IP".
   csd_host->OnPhishingPreClassificationDone(
       ClientSideDetectionType::VIBRATION_API,
-      /*should_classify=*/true, /*is_sample_ping=*/false);
+      /*should_classify=*/true, /*is_sample_ping=*/false,
+      /*did_match_high_confidence_allowlist=*/false);
   run_loop.Run();
 
   histogram_tester.ExpectTotalCount(

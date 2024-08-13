@@ -19,15 +19,16 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.base.test.util.TestAnimations;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.test.util.DeviceRestriction;
 
 /** Tests for WebContentsAccessibilityImpl integration with accessibility services. */
@@ -36,6 +37,7 @@ import org.chromium.ui.test.util.DeviceRestriction;
 @Batch(Batch.PER_CLASS)
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
 @DisableFeatures(ContentFeatureList.ACCESSIBILITY_UNIFIED_SNAPSHOTS)
+@TestAnimations.EnableAnimations
 public class WebContentsAccessibilityTreeTest {
     // File path that holds all the relevant tests.
     private static final String BASE_ACCNAME_FILE_PATH = "content/test/data/accessibility/accname/";
@@ -202,7 +204,7 @@ public class WebContentsAccessibilityTreeTest {
         TestViewStructure testViewStructure = new TestViewStructure();
         testViewStructure.setShouldIncludeScreenSizeDependentAttributes(
                 sIncludeScreenSizeDependentAttributes);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> mActivityTestRule.mWcax.onProvideVirtualStructure(testViewStructure, false));
         CriteriaHelper.pollUiThread(
                 mActivityTestRule.mWcax::hasFinishedLatestAccessibilitySnapshotForTesting,
@@ -233,7 +235,7 @@ public class WebContentsAccessibilityTreeTest {
 
     // Helper method to create an AccessibilityNodeInfo object.
     private AccessibilityNodeInfoCompat createAccessibilityNodeInfo(int virtualViewId) {
-        return TestThreadUtils.runOnUiThreadBlockingNoException(
+        return ThreadUtils.runOnUiThreadBlocking(
                 () -> mActivityTestRule.mNodeProvider.createAccessibilityNodeInfo(virtualViewId));
     }
 
@@ -784,6 +786,7 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    @DisableIf.Build(supported_abis_includes = "x86_64", message = "https://crbug.com/349962563")
     public void test_ariaOption() {
         performAriaTest("aria-option.html");
     }
@@ -1953,6 +1956,30 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    public void test_inputTypesWithPlaceholder() {
+        performHtmlTest("input-types-with-placeholder.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_inputTypesWithValueAndPlaceholder() {
+        performHtmlTest("input-types-with-value-and-placeholder.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_inputTypesWithValue() {
+        performHtmlTest("input-types-with-value.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_inputTypes() {
+        performHtmlTest("input-types.html");
+    }
+
+    @Test
+    @SmallTest
     public void test_inputUrl() {
         performHtmlTest("input-url.html");
     }
@@ -2080,6 +2107,7 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    @DisableIf.Build(supported_abis_includes = "x86_64", message = "https://crbug.com/349962563")
     public void test_nestedlist() {
         performHtmlTest("nestedlist.html");
     }

@@ -641,16 +641,6 @@ StoreMetricsReporter::CredentialsCount ReportAllMetrics(
   return credentials_count;
 }
 
-// Enum to track the reasons of password loss.
-//
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-enum class PasswordManagerCredentialRemovalReason {
-  // TODO(crbug.com/342519805): Add reasons.
-  kToBeDefined = 0,  // Stored as (1<<0) in the bit vector.
-  kMaxValue = kToBeDefined,
-};
-
 void ReportBiometricAuthenticationBeforeFillingMetrics(PrefService* prefs) {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   base::UmaHistogramBoolean(
@@ -778,7 +768,9 @@ void StoreMetricsReporter::OnGetPasswordStoreResultsFrom(
           weak_ptr_factory_.GetWeakPtr()));
 }
 
-StoreMetricsReporter::~StoreMetricsReporter() = default;
+StoreMetricsReporter::~StoreMetricsReporter() {
+  prefs_ = nullptr;
+}
 
 void StoreMetricsReporter::OnBackgroundMetricsReportingCompleted(
     CredentialsCount credentials_count) {
@@ -832,8 +824,8 @@ void StoreMetricsReporter::OnBackgroundMetricsReportingCompleted(
   prefs_->ClearPref(prefs::kPasswordRemovalReasonForAccount);
   prefs_->ClearPref(prefs::kPasswordRemovalReasonForProfile);
 
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, std::move(done_callback_));
+  // `done_callback_` may delete `this` object.
+  std::move(done_callback_).Run();
 }
 
 }  // namespace password_manager

@@ -431,72 +431,19 @@ export class Output extends OutputInterface {
   /** Executes all specified output. */
   go(): void {
     // Speech.
-    let queueMode = this.determineQueueMode_();
-
-    let encounteredNonWhitespace = false;
-    for (let i = 0; i < this.speechBuffer_.length; i++) {
-      const buff = this.speechBuffer_[i];
-      const text = buff.toString();
-
-      // Consider empty strings as non-whitespace; they often have earcons
-      // associated with them, so need to be "spoken".
-      const isNonWhitespace = text === '' || /\S+/.test(text);
-      encounteredNonWhitespace = isNonWhitespace || encounteredNonWhitespace;
-
-      // Skip whitespace if we've already encountered non-whitespace. This
-      // prevents output like 'foo', 'space', 'bar'.
-      if (!isNonWhitespace && encounteredNonWhitespace) {
-        continue;
-      }
-
-      const speechProps = this.getSpeechPropsForBuff_(buff);
-
-      if (i === this.speechBuffer_.length - 1) {
-        speechProps.endCallback = this.speechEndCallback_;
-      }
-
-      let finalSpeech = buff.toString();
-      for (const text in this.replacements_) {
-        finalSpeech = finalSpeech.replace(text, this.replacements_[text]);
-      }
-      ChromeVox.tts.speak(finalSpeech, queueMode, speechProps);
-
-      // Skip resetting |queueMode| if the |text| is empty. If we don't do this,
-      // and the tts engine doesn't generate a callback, we might not properly
-      // flush.
-      if (text !== '') {
-        queueMode = QueueMode.QUEUE;
-      }
-    }
-    this.speechFormatLog_.commitLogs();
+    this.sendSpeech_();
 
     // Braille.
     if (this.brailleBuffer_.length) {
-      const buff = this.mergeBraille_(this.brailleBuffer_);
-      const selSpan = buff.getSpanInstanceOf(outputTypes.OutputSelectionSpan);
-      let startIndex = -1;
-      let endIndex = -1;
-      if (selSpan) {
-        const valueStart = buff.getSpanStart(selSpan);
-        const valueEnd = buff.getSpanEnd(selSpan);
-        startIndex = valueStart + selSpan.startIndex;
-        endIndex = valueStart + selSpan.endIndex;
-        try {
-          buff.setSpan(new ValueSpan(0), valueStart, valueEnd);
-          buff.setSpan(new ValueSelectionSpan(), startIndex, endIndex);
-        } catch (e) {
-        }
-      }
-
-      const output = new NavBraille({text: buff, startIndex, endIndex});
-
-      ChromeVox.braille.write(output);
-      this.brailleFormatLog_.commitLogs();
+      this.sendBraille_();
     }
 
     // Display.
     if (this.speechCategory_ !== TtsCategory.LIVE && this.drawFocusRing_) {
       FocusBounds.set(this.locations_);
+      if (this.locations_ !== undefined && this.locations_.length !== 0) {
+        chrome.accessibilityPrivate.setChromeVoxFocus(this.locations_[0]);
+      }
     }
   }
 
@@ -542,6 +489,71 @@ export class Output extends OutputInterface {
     };
 
     return speechProps;
+  }
+
+  private sendBraille_(): void {
+    const buff = this.mergeBraille_(this.brailleBuffer_);
+    const selSpan = buff.getSpanInstanceOf(outputTypes.OutputSelectionSpan);
+    let startIndex = -1;
+    let endIndex = -1;
+    if (selSpan) {
+      const valueStart = buff.getSpanStart(selSpan);
+      const valueEnd = buff.getSpanEnd(selSpan);
+      startIndex = valueStart + selSpan.startIndex;
+      endIndex = valueStart + selSpan.endIndex;
+      try {
+        buff.setSpan(new ValueSpan(0), valueStart, valueEnd);
+        buff.setSpan(new ValueSelectionSpan(), startIndex, endIndex);
+      } catch (e) {
+        console.log(e);
+      }
+    }
+
+    const output = new NavBraille({text: buff, startIndex, endIndex});
+
+    ChromeVox.braille.write(output);
+    this.brailleFormatLog_.commitLogs();
+  }
+
+  private sendSpeech_(): void {
+    let queueMode = this.determineQueueMode_();
+
+    let encounteredNonWhitespace = false;
+    for (let i = 0; i < this.speechBuffer_.length; i++) {
+      const buff = this.speechBuffer_[i];
+      const text = buff.toString();
+
+      // Consider empty strings as non-whitespace; they often have earcons
+      // associated with them, so need to be "spoken".
+      const isNonWhitespace = text === '' || /\S+/.test(text);
+      encounteredNonWhitespace = isNonWhitespace || encounteredNonWhitespace;
+
+      // Skip whitespace if we've already encountered non-whitespace. This
+      // prevents output like 'foo', 'space', 'bar'.
+      if (!isNonWhitespace && encounteredNonWhitespace) {
+        continue;
+      }
+
+      const speechProps = this.getSpeechPropsForBuff_(buff);
+
+      if (i === this.speechBuffer_.length - 1) {
+        speechProps.endCallback = this.speechEndCallback_;
+      }
+
+      let finalSpeech = buff.toString();
+      for (const text in this.replacements_) {
+        finalSpeech = finalSpeech.replace(text, this.replacements_[text]);
+      }
+      ChromeVox.tts.speak(finalSpeech, queueMode, speechProps);
+
+      // Skip resetting |queueMode| if the |text| is empty. If we don't do this,
+      // and the tts engine doesn't generate a callback, we might not properly
+      // flush.
+      if (text !== '') {
+        queueMode = QueueMode.QUEUE;
+      }
+    }
+    this.speechFormatLog_.commitLogs();
   }
 
   /**
@@ -1406,17 +1418,7 @@ export class Output extends OutputInterface {
    * @returns a human friendly string with the contents of output.
    */
   override toString(): string {
-    return this.speechBuffer_
-        .reduce((prev: Spannable|null, cur: Spannable|null) => {
-          if (prev === null || prev.toString() === '') {
-            // TODO(b/314203187): Determine if not null assertion is acceptable.
-            return cur!;
-          }
-          // TODO(b/314203187): Determine if not null assertion is acceptable.
-          prev.append(' ' + cur!.toString());
-          return prev;
-          // TODO(b/314203187): Determine if not null assertion is acceptable.
-        }, null)!.toString();
+    return this.speechBuffer_.map(v => v.toString()).join(' ');
   }
 
   /**

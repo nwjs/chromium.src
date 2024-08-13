@@ -405,8 +405,7 @@ void HTMLVideoElement::RequestVisibility(
     return;
   }
 
-  std::move(request_visibility_cb)
-      .Run(visibility_tracker_->ComputeVisibilityOnDemand());
+  visibility_tracker_->RequestVisibility(std::move(request_visibility_cb));
 }
 
 void HTMLVideoElement::PaintCurrentFrame(cc::PaintCanvas* canvas,
@@ -821,6 +820,15 @@ void HTMLVideoElement::OnWebMediaPlayerCleared() {
     vfc_requester->OnWebMediaPlayerCleared();
 
   UpdateVideoVisibilityTracker();
+}
+
+void HTMLVideoElement::RecordVideoOcclusionState(
+    std::string_view occlusion_state) const {
+  if (!GetWebMediaPlayer()) {
+    return;
+  }
+
+  GetWebMediaPlayer()->RecordVideoOcclusionState(occlusion_state);
 }
 
 void HTMLVideoElement::AttributeChanged(

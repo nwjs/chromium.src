@@ -126,6 +126,10 @@ void OnDidScriptedPrint(
 
   if (printer_query->last_status() != mojom::ResultCode::kSuccess ||
       !printer_query->settings().dpi()) {
+    // Notify user of the error, unless it was explicitly canceled.
+    if (printer_query->last_status() != mojom::ResultCode::kCanceled) {
+      ShowPrintErrorDialogForGenericError();
+    }
     std::move(callback).Run(nullptr);
     return;
   }
@@ -408,6 +412,7 @@ void PrintViewManagerBase::OnPrintSettingsDone(
       UnregisterSystemPrintClient();
     }
 #endif
+    ShowPrintErrorDialogForGenericError();
     std::move(callback).Run(base::Value("Update settings failed"));
     return;
   }
@@ -436,7 +441,7 @@ void PrintViewManagerBase::StartLocalPrintJob(
     PrinterHandler::PrintCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-#if 0//BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   // Populating `content_analysis_before_printing_document_` if needed should be
   // done first in this function's workflow, this way other code can check if
   // content analysis is going to happen and delay starting `print_job_` to
@@ -834,7 +839,7 @@ void PrintViewManagerBase::ScriptedPrint(mojom::ScriptedPrintParamsPtr params,
     return;
   }
 #endif
-#if  0 //BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ContentAnalysisDelegate::Data>
       scanning_data = enterprise_data_protection::GetPrintAnalysisData(
           web_contents(), enterprise_data_protection::PrintScanningContext::
@@ -1352,7 +1357,6 @@ void PrintViewManagerBase::CompletePrintDocumentAfterContentAnalysis(
   PrintDocument(print_data, page_size, content_area, offsets);
 }
 
-#if 0
 void PrintViewManagerBase::ContentAnalysisBeforePrintingDocument(
     enterprise_connectors::ContentAnalysisDelegate::Data scanning_data,
     scoped_refptr<base::RefCountedMemory> print_data,
@@ -1367,14 +1371,10 @@ void PrintViewManagerBase::ContentAnalysisBeforePrintingDocument(
       weak_ptr_factory_.GetWeakPtr(), print_data, page_size, content_area,
       offsets);
 
-  std::move(on_verdict).Run(true);
-#if 0
   enterprise_data_protection::PrintIfAllowedByPolicy(
       print_data, web_contents()->GetOutermostWebContents(),
       std::move(scanning_data), std::move(on_verdict));
-#endif
 }
-#endif
 
 void PrintViewManagerBase::set_analyzing_content(bool analyzing) {
   PRINTER_LOG(EVENT) << (analyzing ? "Starting" : "Completed")

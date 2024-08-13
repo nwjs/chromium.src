@@ -33,9 +33,9 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
-#include "build/branding_buildflags.h"
+#include "chromeos/components/magic_boost/public/cpp/views/experiment_badge.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
-#include "chromeos/components/mahi/public/cpp/views/experiment_badge.h"
+#include "chromeos/ui/vector_icons/vector_icons.h"
 #include "components/vector_icons/vector_icons.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkScalar.h"
@@ -44,6 +44,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
+#include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
@@ -71,16 +72,12 @@
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "chromeos/ash/resources/internal/strings/grit/ash_internal_strings.h"
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
 namespace ash {
 
 namespace {
 
 constexpr SkScalar kContentScrollViewCornerRadius = 16;
-constexpr int kPanelChildSpacing = 8;
+constexpr int kPanelChildSpacing = 12;
 constexpr int kHeaderRowSpacing = 8;
 
 // Ask Question container constants.
@@ -94,16 +91,19 @@ constexpr gfx::Insets kInputTextfieldPadding = gfx::Insets::TLBR(0, 0, 0, 8);
 // the following spec, where an order is designated for the first, second, and
 // third curves of the cutout in the content section's bottom-right corner:
 // http://screen/9K4tXBZXihWN9KA.
+constexpr int kInfoSparkIconSize = 18;
+constexpr gfx::Insets kInfoSparkIconPadding = gfx::Insets::VH(0, 2);
 constexpr int kFeedbackButtonIconSize = 20;
 constexpr int kFeedbackButtonIconPaddingAbove = 8;
 constexpr int kFeedbackButtonIconPaddingBetween = 16;
 constexpr int kFeedbackButtonIconPaddingLeft = 12;
+constexpr int kFeedbackButtonIconPaddingRight = 8;
 
 // Width of the cutout in the content section's bottom-right corner, not
 // including the rounded corner immediately to its left.
-constexpr int kCutoutWidth = kFeedbackButtonIconPaddingLeft +
-                             kFeedbackButtonIconSize * 2 +
-                             kFeedbackButtonIconPaddingBetween;
+constexpr int kCutoutWidth =
+    kFeedbackButtonIconPaddingLeft + kFeedbackButtonIconPaddingRight +
+    kFeedbackButtonIconSize * 2 + kFeedbackButtonIconPaddingBetween;
 // Height of the cutout in the content section's bottom-right corner, not
 // including the rounded corner immediately above it.
 constexpr int kCutoutHeight =
@@ -144,23 +144,6 @@ void InstallTextfieldFocusRing(views::View* question_textfield,
       question_textfield,
       gfx::Insets::TLBR(0, focus_ring_left_inset, 0, focus_ring_right_inset),
       kAskQuestionContainerCornerRadius);
-}
-
-// TODO(b/331127382): Finalize Mahi panel strings.
-std::u16string GetMahiPanelTitle() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return l10n_util::GetStringUTF16(IDS_MAHI_PANEL_TITLE);
-#else
-  return l10n_util::GetStringUTF16(IDS_ASH_MAHI_PANEL_TITLE);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-}
-
-std::u16string GetMahiPanelDisclaimer() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return l10n_util::GetStringUTF16(IDS_MAHI_PANEL_DISCLAIMER);
-#else
-  return l10n_util::GetStringUTF16(IDS_ASH_MAHI_PANEL_DISCLAIMER);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
 
 // FeedbackButton --------------------------------------------------------------
@@ -265,7 +248,6 @@ class GoToSummaryOutlinesButton : public IconButton,
  public:
   // NOTE: `controller` outlives `GoToSummaryOutlinesButton` so it is safe to
   // use `base::Unretained()` here.
-  // TODO(b/319264190): Replace the a11y string.
   explicit GoToSummaryOutlinesButton(MahiUiController* ui_controller)
       : IconButton(
             /*callback=*/base::BindRepeating(
@@ -279,7 +261,9 @@ class GoToSummaryOutlinesButton : public IconButton,
                 base::Unretained(ui_controller)),
             IconButton::Type::kSmallFloating,
             &kEcheArrowBackIcon,
-            /*accessible_name=*/u"Back to summary",
+            /*accessible_name=*/
+            l10n_util::GetStringUTF16(
+                IDS_ASH_MAHI_PANEL_GO_TO_SUMMARY_BUTTON_ACCESSIBLE_NAME),
             /*is_togglable=*/false,
             /*has_border=*/false),
         MahiUiController::Delegate(ui_controller) {}
@@ -321,7 +305,6 @@ class GoToQuestionAndAnswerButton : public IconButton,
  public:
   // NOTE: `controller` outlives `GoToQuestionAndAnswerButton` so it is safe to
   // use `base::Unretained()` here.
-  // TODO(b/319264190): Replace the a11y string.
   explicit GoToQuestionAndAnswerButton(MahiUiController* ui_controller)
       : IconButton(
             /*callback=*/base::BindRepeating(
@@ -336,7 +319,9 @@ class GoToQuestionAndAnswerButton : public IconButton,
                 base::Unretained(ui_controller)),
             IconButton::Type::kSmallFloating,
             &kQuickSettingsRightArrowIcon,
-            /*accessible_name=*/u"Back to Q&A view",
+            /*accessible_name=*/
+            l10n_util::GetStringUTF16(
+                IDS_ASH_MAHI_PANEL_GO_TO_QUESTION_AND_ANSWER_BUTTON_ACCESSIBLE_NAME),
             /*is_togglable=*/false,
             /*has_border=*/false),
         MahiUiController::Delegate(ui_controller) {}
@@ -585,6 +570,8 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
               // Add buttons for the user to give feedback on the content.
               views::Builder<views::BoxLayoutView>()
                   .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
+                  .SetInsideBorderInsets(gfx::Insets::TLBR(
+                      0, 0, 0, kFeedbackButtonIconPaddingRight))
                   .SetMainAxisAlignment(
                       views::BoxLayout::MainAxisAlignment::kEnd)
                   .SetCrossAxisAlignment(
@@ -675,8 +662,8 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
                           .SetBackgroundEnabled(false)
                           .SetBorder(
                               views::CreateEmptyBorder(kInputTextfieldPadding))
-                          // TODO(b/319264190): Replace string.
-                          .SetPlaceholderText(u"Ask a question.")
+                          .SetPlaceholderText(l10n_util::GetStringUTF16(
+                              IDS_ASH_MAHI_PANEL_INPUT_PLACEHOLDER_TEXT))
                           .SetFontList(
                               TypographyProvider::Get()->ResolveTypographyToken(
                                   TypographyToken::kCrosAnnotation1))
@@ -700,8 +687,8 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
           .SetVectorIcon(&vector_icons::kSendIcon)
           .SetCallback(base::BindRepeating(&MahiPanelView::OnSendButtonPressed,
                                            weak_ptr_factory_.GetWeakPtr()))
-          // TODO(b/319264190): Replace string.
-          .SetAccessibleName(u"Send")
+          .SetAccessibleName(l10n_util::GetStringUTF16(
+              IDS_ASH_MAHI_PANEL_INPUT_TEXTFIELD_SEND_BUTTON_ACCESSIBLE_NAME))
           .Build());
 
   question_textfield_->RemoveHoverEffect();
@@ -713,17 +700,15 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
           .SetMainAxisAlignment(views::BoxLayout::MainAxisAlignment::kCenter)
           .SetBetweenChildSpacing(kFooterSpacing)
           .AddChildren(
-              views::Builder<views::Label>().SetText(GetMahiPanelDisclaimer()),
+              views::Builder<views::Label>().SetText(
+                  l10n_util::GetStringUTF16(IDS_ASH_MAHI_PANEL_DISCLAIMER)),
               views::Builder<views::Link>()
                   .SetText(l10n_util::GetStringUTF16(
                       IDS_ASH_MAHI_LEARN_MORE_LINK_LABEL_TEXT))
                   .SetCallback(base::BindRepeating(
                       &MahiPanelView::OnLearnMoreLinkClicked,
                       weak_ptr_factory_.GetWeakPtr()))
-                  .SetID(mahi_constants::ViewId::kLearnMoreLink)
-                  // TODO(b/333111220): Re-enable the link when there's a
-                  // website available.
-                  .SetVisible(false))
+                  .SetID(mahi_constants::ViewId::kLearnMoreLink))
           .Build());
 
   // Refresh contents after all child views are built.
@@ -785,34 +770,45 @@ std::unique_ptr<views::View> MahiPanelView::CreateHeaderRow() {
           views::Builder<GoToSummaryOutlinesButton>(
               std::make_unique<GoToSummaryOutlinesButton>(ui_controller_))
               .SetID(mahi_constants::ViewId::kGoToSummaryOutlinesButton),
+          views::Builder<views::ImageView>()
+              .SetID(mahi_constants::ViewId::kInfoSparkIcon)
+              .SetImage(ui::ImageModel::FromVectorIcon(chromeos::kInfoSparkIcon,
+                                                       ui::kColorMenuIcon,
+                                                       kInfoSparkIconSize))
+              .SetBorder(views::CreateEmptyBorder(kInfoSparkIconPadding)),
           // The Panel's title label
           views::Builder<views::Label>()
-              // TODO(b/319264190): Replace the string used here with the
-              // correct string ID.
-              .SetText(GetMahiPanelTitle())
+              .SetText(l10n_util::GetStringUTF16(IDS_ASH_MAHI_PANEL_TITLE))
               .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
               .SetFontList(TypographyProvider::Get()->ResolveTypographyToken(
-                  TypographyToken::kCrosTitle1))
+                  TypographyToken::kCrosButton1))
               .SetEnabledColorId(cros_tokens::kCrosSysOnSurface),
           // Experimental badge
           views::Builder<views::View>(
-              std::make_unique<chromeos::mahi::ExperimentBadge>()),
+              std::make_unique<chromeos::ExperimentBadge>())
+              .CustomConfigure(base::BindOnce([](views::View* view) {
+                static_cast<chromeos::ExperimentBadge*>(view)
+                    ->label()
+                    ->SetFontList(
+                        ash::TypographyProvider::Get()->ResolveTypographyToken(
+                            ash::TypographyToken::kCrosLabel1));
+              })),
           // Close Button, aligned to the right by setting a `FlexSpecification`
           // with unbounded maximum flex size and `LayoutAlignment::kEnd`.
           views::Builder<views::Button>(
               IconButton::Builder()
                   .SetType(IconButton::Type::kMediumFloating)
                   .SetVectorIcon(&kMediumOrLargeCloseButtonIcon)
-                  // TODO(b/319264190): Replace the string used here with
-                  // the correct string ID.
+                  .SetAccessibleName(l10n_util::GetStringUTF16(
+                      IDS_ASH_MAHI_PANEL_CLOSE_BUTTON_ACCESSIBLE_NAME))
                   .Build())
               .SetID(mahi_constants::ViewId::kCloseButton)
-              .SetAccessibleName(u"Close button")
               .SetCallback(
                   base::BindRepeating(&MahiPanelView::OnCloseButtonPressed,
                                       weak_ptr_factory_.GetWeakPtr()))
               .SetProperty(views::kFlexBehaviorKey,
                            views::FlexSpecification(
+                               views::LayoutOrientation::kHorizontal,
                                views::MinimumFlexSizeRule::kPreferred,
                                views::MaximumFlexSizeRule::kUnbounded)
                                .WithAlignment(views::LayoutAlignment::kEnd)))
@@ -821,7 +817,7 @@ std::unique_ptr<views::View> MahiPanelView::CreateHeaderRow() {
 
 bool MahiPanelView::HandleKeyEvent(views::Textfield* textfield,
                                    const ui::KeyEvent& key_event) {
-  if (key_event.type() != ui::EventType::ET_KEY_PRESSED) {
+  if (key_event.type() != ui::EventType::kKeyPressed) {
     return false;
   }
 

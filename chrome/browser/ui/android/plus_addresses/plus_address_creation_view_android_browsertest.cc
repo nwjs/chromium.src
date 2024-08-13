@@ -16,6 +16,7 @@
 #include "components/plus_addresses/features.h"
 #include "components/plus_addresses/plus_address_service.h"
 #include "components/plus_addresses/plus_address_types.h"
+#include "components/plus_addresses/settings/fake_plus_address_setting_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -26,10 +27,7 @@ namespace plus_addresses {
 // presumably switch to the `PlatformBrowserTest` pattern.
 class PlusAddressCreationViewAndroidBrowserTest : public AndroidBrowserTest {
  public:
-  PlusAddressCreationViewAndroidBrowserTest()
-      : override_profile_selections_(
-            PlusAddressServiceFactory::GetInstance(),
-            PlusAddressServiceFactory::CreateProfileSelections()) {}
+  PlusAddressCreationViewAndroidBrowserTest() = default;
 
   void SetUpOnMainThread() override {
     AndroidBrowserTest::SetUpOnMainThread();
@@ -43,7 +41,7 @@ class PlusAddressCreationViewAndroidBrowserTest : public AndroidBrowserTest {
   std::unique_ptr<KeyedService> PlusAddressServiceTestFactory(
       content::BrowserContext* context) {
     return std::make_unique<FakePlusAddressService>(
-        IdentityManagerFactory::GetForProfile(profile()));
+        IdentityManagerFactory::GetForProfile(profile()), &setting_service_);
   }
 
  protected:
@@ -52,9 +50,11 @@ class PlusAddressCreationViewAndroidBrowserTest : public AndroidBrowserTest {
     return Profile::FromBrowserContext(web_contents->GetBrowserContext());
   }
 
+ private:
+  // Ensures that the feature is known to be enabled, such that
+  // `PlusAddressServiceFactory` doesn't bail early with a null return.
   base::test::ScopedFeatureList features_{features::kPlusAddressesEnabled};
-  profiles::testing::ScopedProfileSelectionsForFactoryTesting
-      override_profile_selections_;
+  FakePlusAddressSettingService setting_service_;
 };
 
 IN_PROC_BROWSER_TEST_F(PlusAddressCreationViewAndroidBrowserTest, OfferUi) {

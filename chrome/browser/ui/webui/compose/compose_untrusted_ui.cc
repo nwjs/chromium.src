@@ -12,6 +12,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/compose/chrome_compose_client.h"
+#include "chrome/browser/compose/compose_enabling.h"
 #include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/grit/compose_resources.h"
@@ -26,10 +27,18 @@
 #include "ui/resources/grit/webui_resources.h"
 #include "ui/webui/color_change_listener/color_change_handler.h"
 
+ComposeUIUntrustedConfig::ComposeUIUntrustedConfig()
+    : DefaultTopChromeWebUIConfig(content::kChromeUIUntrustedScheme,
+                                  chrome::kChromeUIUntrustedComposeHost) {}
+
 bool ComposeUIUntrustedConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
   return ComposeEnabling::IsEnabledForProfile(
       Profile::FromBrowserContext(browser_context));
+}
+
+bool ComposeUIUntrustedConfig::ShouldAutoResizeHost() {
+  return true;
 }
 
 ComposeUntrustedUI::ComposeUntrustedUI(content::WebUI* web_ui)

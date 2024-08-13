@@ -362,7 +362,7 @@ PrivacySection::PrivacySection(Profile* profile,
 
   // Fingerprint search tags are added if necessary. Remove fingerprint search
   // tags update dynamically during a user session.
-  if (!IsGuestModeActive() /*&& AreFingerprintSettingsAllowed()*/) {
+  if (!IsGuestModeActive() && AreFingerprintSettingsAllowed()) {
     updater.AddSearchTags(GetFingerprintSearchConcepts());
 
     fingerprint_pref_change_registrar_.Init(pref_service_);
@@ -524,12 +524,22 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCESS_LEVEL_ONLY_ALLOWED_FOR_SYSTEM},
       {"geolocationAccessLevelDisallowed",
        IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCESS_LEVEL_DISALLOWED},
+      {"geolocationChangeAccessButtonText",
+       IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_CHANGE_ACCESS_BUTTON_TEXT},
       {"geolocationAllowedModeDescription",
        IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCESS_LEVEL_DESCRIPTION_ALLOWED},
       {"geolocationOnlyAllowedForSystemModeDescription",
        IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCESS_LEVEL_DESCRIPTION_ONLY_ALLOWED_FOR_SYSTEM},
       {"geolocationBlockedModeDescription",
        IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCESS_LEVEL_DESCRIPTION_DISALLOWED},
+      {"geolocationDialogAllowedModeDescription",
+       IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCESS_LEVEL_DIALOG_DESCRIPTION_ALLOWED},
+      {"geolocationDialogOnlyAllowedForSystemModeDescription",
+       IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCESS_LEVEL_DIALOG_DESCRIPTION_ONLY_ALLOWED_FOR_SYSTEM},
+      {"geolocationDialogBlockedModeDescription",
+       IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCESS_LEVEL_DIALOG_DESCRIPTION_DISALLOWED},
+      {"geolocationAccessLevelDialogConfirmButton", IDS_SETTINGS_DONE_BUTTON},
+      {"geolocationAccessLevelDialogCancelButton", IDS_SETTINGS_CANCEL_BUTTON},
       {"geolocationAccuracyToggleText",
        IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ACCURACY_TOGGLE_TEXT},
       {"geolocationAccuracyToggleTitle",
@@ -538,8 +548,10 @@ void PrivacySection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_OS_SETTINGS_PRIVACY_HUB_GEOLOCATION_ADVANCED_AREA_TITLE},
       {"systemGeolocationDialogTitle",
        IDS_SETTINGS_PRIVACY_HUB_GEOLOCATION_DIALOG_TITLE},
-      {"systemGeolocationDialogBody",
-       IDS_SETTINGS_PRIVACY_HUB_GEOLOCATION_DIALOG_BODY},
+      {"systemGeolocationDialogBodyParagraph1",
+       IDS_SETTINGS_PRIVACY_HUB_GEOLOCATION_DIALOG_BODY_PARAGRAPH1},
+      {"systemGeolocationDialogBodyParagraph2",
+       IDS_SETTINGS_PRIVACY_HUB_GEOLOCATION_DIALOG_BODY_PARAGRAPH2},
       {"systemGeolocationDialogConfirmButton",
        IDS_SETTINGS_PRIVACY_HUB_GEOLOCATION_DIALOG_CONFIRM_BUTTON},
       {"systemGeolocationDialogCancelButton",

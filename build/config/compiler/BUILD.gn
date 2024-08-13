@@ -424,7 +424,11 @@ config("compiler") {
       # links.
       ldflags += [ "-Wl,--build-id=sha1" ]
     } else if (current_os != "aix" && current_os != "zos") {
-      ldflags += [ "-Wl,--build-id" ]
+      if (use_lld && !is_nacl) {
+        ldflags += [ "-Wl,--build-id=fast" ]
+      } else {
+        ldflags += [ "-Wl,--build-id" ]
+      }
     }
 
     if (!is_android) {
@@ -555,7 +559,7 @@ config("compiler") {
     ldflags += [ "-Wl,-z,keep-text-section-prefix" ]
   }
 
-  if (is_clang && !is_nacl && current_os != "zos") {
+  if (is_clang && !is_nacl) {
     cflags += [ "-fcrash-diagnostics-dir=" + clang_diagnostic_dir ]
     if (save_reproducers_on_lld_crash && use_lld) {
       ldflags += [
@@ -678,7 +682,7 @@ config("compiler") {
     }
   }
 
-  if (is_clang && current_os != "zos") {
+  if (is_clang) {
     # C++17 removes trigraph support, but clang still warns that it ignores
     # them when seeing them.  Don't.
     cflags_cc += [ "-Wno-trigraphs" ]
@@ -780,9 +784,7 @@ config("compiler") {
         # FIXME(inglorion): maybe tune these?
         # TODO(b/271459198): Revert limit on amd64 to 30 when fixed.
         import_instr_limit = 20
-      } else if (is_android && (optimize_for_size || use_order_profiling)) {
-        # Reduce inlining for the orderfile instrumented build to mitigate
-        # crbug.com/330761384.
+      } else if (is_android && optimize_for_size) {
         # TODO(crbug.com/40219076): Investigate if we can get the > 6% perf win
         # of import_instr_limit 30 with a binary size hit smaller than ~2 MiB.
         import_instr_limit = 5
@@ -1560,7 +1562,13 @@ config("compiler_deterministic") {
       # -ffile-compilation-dir is an alias for both -fdebug-compilation-dir=
       # and -fcoverage-compilation-dir=.
       cflags += [ "-ffile-compilation-dir=." ]
-      swiftflags += [ "-file-compilation-dir=." ]
+
+      # Convert absolute paths to relative paths. Expands to, for example:
+      #   -file-prefix-map /path/to/chromium/src=../..
+      swiftflags += [
+        "-file-prefix-map",
+        rebase_path("//.", "") + "=" + rebase_path("//.", root_build_dir),
+      ]
     }
     if (!is_win) {
       # We don't use clang -cc1as on Windows (yet? https://crbug.com/762167)
@@ -1600,7 +1608,8 @@ config("compiler_deterministic") {
 }
 
 config("clang_revision") {
-  if (is_clang && clang_base_path == default_clang_base_path) {
+  if (is_clang && clang_base_path == default_clang_base_path &&
+      current_os != "zos") {
     update_args = [
       "--print-revision",
       "--verify-version=$clang_version",
@@ -1654,6 +1663,34 @@ config("compiler_arm") {
     # arm is normally the default mode for clang, but on chromeos a wrapper
     # is used to pass -mthumb, and therefor change the default.
     cflags = [ "-marm" ]
+  }
+}
+
+config("libcxx_module") {
+  if (use_libcxx_modules) {
+    modulemap = rebase_path("//third_party/libc++/src/include/module.modulemap",
+                            root_build_dir)
+    cflags_cc = [
+      "-fmodules",
+      "-fmodule-map-file=" + modulemap,
+      "-fno-implicit-module-maps",
+      "-fbuiltin-module-map",
+      "-fmodules-cache-path=" +
+          rebase_path("$libcxx_module_prefix/module_cache", root_build_dir),
+
+      "-Xclang",
+      "-fmodules-local-submodule-visibility",  # required for builtins
+
+      # TODO(crbug.com/1456385): Figure out if this can be removed.
+      "-Wno-modules-ambiguous-internal-linkage",
+
+      # TODO(crbug.com/40440396): Clean up.
+      "-Wno-modules-import-nested-redundant",
+
+      # Needed to allow using builtin modules when the headers are
+      # unnecessarily using extern "C".
+      "-Wno-module-import-in-extern-c",
+    ]
   }
 }
 
@@ -1897,15 +1934,8 @@ config("default_warnings") {
         # TODO(crbug.com/330524456): -Wcast-function-type is under -Wextra now.
         "-Wno-cast-function-type",
 
-        # Ignore warnings about MSVC optimization pragmas.
-        # TODO(thakis): Only for no_chromium_code? http://crbug.com/912662
-        "-Wno-ignored-pragma-optimize",
-
         # TODO(crbug.com/40231599) Evaluate and possibly enable.
         "-Wno-deprecated-builtins",
-
-        # TODO(crbug.com/40234766) Evaluate and possibly enable.
-        "-Wno-bitfield-constant-conversion",
 
         # TODO(crbug.com/40255410) Evaluate and possibly enable.
         "-Wno-deprecated-this-capture",
@@ -1931,10 +1961,8 @@ config("default_warnings") {
           "-Wno-c++11-narrowing-const-reference",
         ]
 
-        if (llvm_force_head_revision) {
-          # TODO(crbug.com/344680447): Fix and re-enable.
-          cflags_cc += [ "-Wno-missing-template-arg-list-after-template-kw" ]
-        }
+        # TODO(crbug.com/344680447): Fix and re-enable.
+        cflags_cc += [ "-Wno-missing-template-arg-list-after-template-kw" ]
       }
     }
 
@@ -1948,6 +1976,11 @@ config("default_warnings") {
         "-Wno-error=unknown-pragmas",
       ]
     }
+  }
+
+  # TODO(crbug.com/354162568): Clean up and enable.
+  if (llvm_force_head_revision && is_apple && use_lld) {
+    ldflags += [ "-Wl,--no-warn-duplicate-rpath" ]
   }
 
   # Rust warnings
@@ -2439,7 +2472,12 @@ config("default_stack_frames") {
 # [2]: https://crrev.com/c/5447532
 config("optimize") {
   if (is_win) {
-    cflags = [ "/O2" ] + common_optimize_on_cflags
+    # clang-cl's /O2 corresponds to clang's -O3, and really want -O2 for
+    # consistency with the other platforms.
+    cflags = [
+               "/O2",
+               "/clang:-O2",
+             ] + common_optimize_on_cflags
 
     # The `-O3` for clang turns on extra optimizations compared to the standard
     # `-O2`. But for rust, `-Copt-level=3` is the default and is thus reliable
@@ -2622,12 +2660,10 @@ if (is_clang && is_a_target_toolchain) {
     if (is_android || is_castos) {
       _clang_sample_profile = "//chrome/android/profiles/afdo.prof"
     } else {
-      assert(
-          chromeos_afdo_platform == "atom" ||
-              chromeos_afdo_platform == "bigcore" ||
-              chromeos_afdo_platform == "arm" ||
-              chromeos_afdo_platform == "arm-exp",
-          "Only 'atom', 'bigcore', 'arm' and 'arm-exp' are valid ChromeOS profiles.")
+      assert(chromeos_afdo_platform == "atom" ||
+                 chromeos_afdo_platform == "bigcore" ||
+                 chromeos_afdo_platform == "arm",
+             "Only 'atom', 'bigcore', and 'arm' are valid ChromeOS profiles.")
       _clang_sample_profile =
           "//chromeos/profiles/${chromeos_afdo_platform}.afdo.prof"
     }
@@ -2750,7 +2786,8 @@ config("symbols") {
     }
 
     # On aix -gdwarf causes linker failures due to thread_local variables.
-    if (!is_nacl && current_os != "aix") {
+    # On zos -gdwarf causes INSUFFICIENT ABOVE THE LINE STORAGE WAS AVAILABLE.
+    if (!is_nacl && current_os != "aix" && current_os != "zos") {
       if (use_dwarf5) {
         cflags += [ "-gdwarf-5" ]
         rustflags += [ "-Zdwarf-version=5" ]
@@ -2834,13 +2871,12 @@ config("symbols") {
 
   # Compress debug on 32-bit ARM to stay under 4GB file size limit.
   # https://b/243982712, https://crbug.com/1354616, https://crbug.com/334073642
-  if (symbol_level == 2 && !use_debug_fission && !is_nacl &&
-      (is_chromeos_device || is_android) &&
+  if (symbol_level == 2 && !use_debug_fission && !is_nacl && !is_win &&
       (current_cpu == "arm" || current_cpu == "x86")) {
     configs += [ "//build/config:compress_debug_sections" ]
   }
 
-  if (is_clang && (!is_nacl || is_nacl_saigo) && current_os != "zos") {
+  if (is_clang && (!is_nacl || is_nacl_saigo)) {
     if (is_apple) {
       # TODO(crbug.com/40117949): Investigate missing debug info on mac.
       # Make sure we don't use constructor homing on mac.
@@ -2924,7 +2960,7 @@ config("minimal_symbols") {
       cflags += [ "-g1" ]
     }
 
-    if (!is_nacl && is_clang && !is_tsan && !is_asan) {
+    if (!is_nacl && is_clang && !is_tsan && !is_asan && current_os != "zos") {
       # See comment for -gdwarf-aranges in config("symbols").
       cflags += [ "-gdwarf-aranges" ]
     }

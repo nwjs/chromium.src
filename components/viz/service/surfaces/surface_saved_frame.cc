@@ -22,7 +22,7 @@
 #include "components/viz/common/quads/compositor_render_pass.h"
 #include "components/viz/common/quads/compositor_render_pass_draw_quad.h"
 #include "components/viz/common/quads/draw_quad.h"
-#include "components/viz/common/resources/shared_image_format.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "components/viz/common/transition_utils.h"
 #include "components/viz/service/surfaces/surface.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
@@ -155,7 +155,6 @@ void SurfaceSavedFrame::RequestCopyOfOutput(
           [](scoped_refptr<gpu::ClientSharedImage> image,
              const gpu::SyncToken& sync_token, bool is_lost) {
             image->UpdateDestructionSyncToken(sync_token);
-            image->MarkForDestruction();
           },
           std::move(shared_image));
     }
@@ -197,34 +196,32 @@ std::unique_ptr<CopyOutputRequest> SurfaceSavedFrame::CreateCopyRequestIfNeeded(
     const auto& display_color_spaces = directive_.display_color_spaces();
     bool has_transparent_background = render_pass.has_transparent_background;
 
-    auto image_format = SinglePlaneFormat::FromBufferFormat(
-        display_color_spaces.GetOutputBufferFormat(content_color_usage,
-                                                   has_transparent_background));
+    auto image_format =
+        GetSharedImageFormat(display_color_spaces.GetOutputBufferFormat(
+            content_color_usage, has_transparent_background));
     auto color_space = ColorSpaceUtils::CompositingColorSpace(
         display_color_spaces, content_color_usage, has_transparent_background);
 
     if (is_software) {
-      uint32_t flags = gpu::SHARED_IMAGE_USAGE_CPU_WRITE;
+      gpu::SharedImageUsageSet flags = gpu::SHARED_IMAGE_USAGE_CPU_WRITE;
       shared_image =
           shared_image_interface_
               ->CreateSharedImage({image_format, draw_data.size, color_space,
                                    flags, "ViewTransitionTexture"})
               .shared_image;
     } else {
-      uint32_t flags = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
-                       gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE;
+      gpu::SharedImageUsageSet flags = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
+                                       gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE;
       shared_image = shared_image_interface_->CreateSharedImage(
           {image_format, draw_data.size, color_space, flags,
            "ViewTransitionTexture"},
           gpu::kNullSurfaceHandle);
     }
     request->set_result_selection(gfx::Rect(draw_data.size));
-    request->set_blit_request(
-        BlitRequest(gfx::Point(), LetterboxingBehavior::kDoNotLetterbox,
-                    {gpu::MailboxHolder(shared_image->mailbox(),
-                                        shared_image->creation_sync_token(),
-                                        GL_TEXTURE_2D)},
-                    /*populates_gpu_memory_buffer=*/false));
+    request->set_blit_request(BlitRequest(
+        gfx::Point(), LetterboxingBehavior::kDoNotLetterbox,
+        shared_image->mailbox(), shared_image->creation_sync_token(),
+        /*populates_gpu_memory_buffer=*/false));
   }
   return request;
 }
@@ -285,8 +282,8 @@ void SurfaceSavedFrame::NotifyCopyOfOutputComplete(
     slot->is_software = true;
   } else {
     auto output_copy_texture = *output_copy->GetTextureResult();
-    slot->mailbox = output_copy_texture.mailbox_holders[0].mailbox;
-    slot->sync_token = output_copy_texture.mailbox_holders[0].sync_token;
+    slot->mailbox = output_copy_texture.mailbox;
+    slot->sync_token = gpu::SyncToken();
     slot->color_space = output_copy_texture.color_space;
     slot->is_software = false;
 

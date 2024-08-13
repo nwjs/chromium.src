@@ -99,7 +99,8 @@ class LegacyRunner:
                skip_prompts,
                build_dir=None,
                additional_test_args=None,
-               reuse_task=None):
+               reuse_task=None,
+               skip_coverage=False):
     """Constructor for LegacyRunner
 
     Args:
@@ -112,12 +113,14 @@ class LegacyRunner:
       skip_compile: If True, the UTR will only run the tests.
       skip_test: If True, the UTR will only compile.
       skip_prompts: If True, skip Y/N prompts for warnings.
+      skip_coverage: If True, skip code coverage instrumentation.
       build_dir: pathlib.Path to the build dir to build in. Will use the UTR's
           default otherwise if needed.
       additional_test_args: List of additional args to pass to the tests.
       reuse_task: String of a swarming task to reuse.
     """
     self._recipes_py = recipes_py
+    self._skip_coverage = skip_coverage
     self._skip_prompts = skip_prompts
     self._console_printer = console.Console()
     assert self._recipes_py.exists()
@@ -187,6 +190,18 @@ class LegacyRunner:
     input_props['$build/siso']['project'] = self._get_siso_project()
     self._input_props = input_props
 
+  def _merge_rerun_props(self, rerun_props_from_recipe):
+    """Merges user's preferred rerun props with the recipe's.
+
+    The user may explicitly opt-out of some behavior controlled via rerun props.
+    Use this method to make sure the recipe doesn't overwrite their preference.
+    """
+    merged_rerun_props = rerun_props_from_recipe.copy()
+    if self._skip_coverage:
+      merged_rerun_props['bypass_branch_check'] = True
+      merged_rerun_props['skip_instrumentation'] = True
+    return merged_rerun_props
+
   def _get_cmd_output(self, cmd):
     p = subprocess.run(cmd,
                        stdout=subprocess.PIPE,
@@ -226,7 +241,7 @@ class LegacyRunner:
         a dict of rerun_props the recipe should be re-invoked with
     """
     input_props = self._input_props.copy()
-    input_props['rerun_options'] = rerun_props or {}
+    input_props['rerun_options'] = self._merge_rerun_props(rerun_props or {})
     with tempfile.TemporaryDirectory() as tmp_dir:
 
       output_path = pathlib.Path(tmp_dir).joinpath('out.json')
@@ -328,6 +343,7 @@ class LegacyRunner:
       # seems the least weird-looking.
       pretty_md = markdown.Markdown(failure_md, inline_code_lexer='python')
       if not rerun_prop_options:
+        logging.warning('')
         if exit_code:
           # Use the markdown printer from "rich" to better format the text in
           # a terminal.
@@ -335,13 +351,7 @@ class LegacyRunner:
           self._console_printer.print(md, style='red')
         else:
           logging.info('[green]Success![/]')
-
-        results_link = adapter.GetTestResultsLink()
-        if results_link:
-          logging.info('')
-          logging.info('For futher information, see the full test results at:')
-          logging.info(results_link)
-        return exit_code, 'Build/test failure' if exit_code else None
+        return exit_code, None  # Assume the recipe's failure_md is sufficient
       logging.warning('')
       self._console_printer.print(pretty_md)
       logging.warning('')

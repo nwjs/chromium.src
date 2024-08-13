@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_form_test_utils.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/browser_autofill_manager.h"
@@ -42,6 +43,7 @@
 #include "components/autofill/core/common/autofill_util.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/form_data.h"
+#include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -183,7 +185,7 @@ class FormFillerTest : public testing::Test {
           .trigger_source = AutofillTriggerSource::kPopup}) {
     std::vector<FormFieldData> filled_fields;
     std::vector<FieldGlobalId> global_ids;
-    for (const FormFieldData& field : form.fields) {
+    for (const FormFieldData& field : form.fields()) {
       global_ids.push_back(field.global_id());
     }
     // After the call, `filled_fields` will only contain the fields that were
@@ -204,7 +206,7 @@ class FormFillerTest : public testing::Test {
           trigger_details);
     }
     // Copy the filled data into the form.
-    for (FormFieldData& field : form.fields) {
+    for (FormFieldData& field : test_api(form).fields()) {
       if (auto it = base::ranges::find(filled_fields, field.global_id(),
                                        &FormFieldData::global_id);
           it != filled_fields.end()) {
@@ -245,13 +247,14 @@ class FormFillerTest : public testing::Test {
 
     EXPECT_CALL(autofill_driver_, ApplyFormAction).Times(AtLeast(1));
     browser_autofill_manager_->AuthenticateThenFillCreditCardForm(
-        form, form.fields.front(), card,
+        form, form.fields().front(), card,
         {.trigger_source = AutofillTriggerSource::kPopup});
   }
 
-  void OnDidGetRealPan(AutofillClient::PaymentsRpcResult result,
-                       const std::string& real_pan,
-                       bool is_virtual_card = false) {
+  void OnDidGetRealPan(
+      payments::PaymentsAutofillClient::PaymentsRpcResult result,
+      const std::string& real_pan,
+      bool is_virtual_card = false) {
     payments::FullCardRequest* full_card_request =
         browser_autofill_manager_->client()
             .GetPaymentsAutofillClient()
@@ -266,9 +269,10 @@ class FormFillerTest : public testing::Test {
 
     // Mock payments response.
     payments::PaymentsNetworkInterface::UnmaskResponseDetails response;
-    response.card_type = is_virtual_card
-                             ? AutofillClient::PaymentsRpcCardType::kVirtualCard
-                             : AutofillClient::PaymentsRpcCardType::kServerCard;
+    response.card_type = is_virtual_card ? payments::PaymentsAutofillClient::
+                                               PaymentsRpcCardType::kVirtualCard
+                                         : payments::PaymentsAutofillClient::
+                                               PaymentsRpcCardType::kServerCard;
     full_card_request->OnDidGetRealPan(result,
                                        response.with_real_pan(real_pan));
   }
@@ -290,7 +294,7 @@ class FormFillerTest : public testing::Test {
   test::AutofillUnitTestEnvironment autofill_test_environment_;
   NiceMock<MockAutofillClient> autofill_client_;
   NiceMock<MockAutofillDriver> autofill_driver_{&autofill_client_};
-  // TODO(b/41490871): Replace with FormFiller.
+  // TODO(crbug.com/41490871): Replace with FormFiller.
   std::unique_ptr<TestBrowserAutofillManager> browser_autofill_manager_;
 };
 
@@ -308,10 +312,10 @@ TEST_F(FormFillerTest, FillingDetails_FieldTypesToFill_FillOnlySpecificFields) {
   // Only `NAME_FIRST` fields should be filled.
   FieldTypeSet target_fields = FieldTypeSet({NAME_FIRST});
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile,
+      FillAutofillFormData(form, form.fields()[0], &profile,
                            {.trigger_source = AutofillTriggerSource::kPopup,
                             .field_types_to_fill = target_fields})
-          .fields;
+          .fields();
 
   ASSERT_EQ(filled_fields.size(), 2u);
   EXPECT_THAT(filled_fields[0],
@@ -335,7 +339,7 @@ TEST_F(FormFillerTest, FillTriggeredSection) {
   }
 
   AutofillProfile profile = test::GetFullProfile();
-  FillAutofillFormData(form, form.fields[1], &profile);
+  FillAutofillFormData(form, form.fields()[1], &profile);
 
   EXPECT_FALSE(form_structure->field(0)->is_autofilled());
   EXPECT_TRUE(form_structure->field(1)->is_autofilled());
@@ -346,11 +350,11 @@ TEST_F(FormFillerTest, FillTriggeredSection) {
 TEST_F(FormFillerTest, DoNotFillIfFormFieldChanged) {
   FormData form = test::CreateTestAddressFormData();
   FormsSeen({form});
-  form.fields.back() = FormFieldData();
+  test_api(form).field(-1) = FormFieldData();
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
 
   EXPECT_THAT(filled_fields.back(), HasValue(u""));
   filled_fields.pop_back();
@@ -362,11 +366,11 @@ TEST_F(FormFillerTest, DoNotFillIfFormFieldChanged) {
 TEST_F(FormFillerTest, DoNotFillIfFormChanged) {
   FormData form = test::CreateTestAddressFormData();
   FormsSeen({form});
-  form.fields.pop_back();
+  test_api(form).Remove(-1);
 
   EXPECT_CALL(autofill_driver_, ApplyFormAction).Times(0);
   browser_autofill_manager_->FillOrPreviewProfileForm(
-      mojom::ActionPersistence::kFill, form, form.fields.front(),
+      mojom::ActionPersistence::kFill, form, form.fields().front(),
       test::GetFullProfile(), /*trigger_details=*/{});
 }
 
@@ -390,7 +394,7 @@ TEST_F(FormFillerTest, SkipFillIfFieldIsMeaningfullyPreFilled) {
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
 
   auto expect_hash = [&](const FormFieldData& field,
                          std::optional<size_t> expected_hash) {
@@ -420,7 +424,7 @@ TEST_F(FormFillerTest, SkipFillIfFieldIsMeaningfullyPreFilled) {
               AutofilledWith(profile.GetInfo(EMAIL_ADDRESS, kAppLocale)));
   expect_hash(filled_fields[2], std::nullopt);
   EXPECT_FALSE(filled_fields[3].is_autofilled());
-  EXPECT_EQ(filled_fields[3].value(), form.fields[3].value());
+  EXPECT_EQ(filled_fields[3].value(), form.fields()[3].value());
   expect_hash(filled_fields[3],
               base::FastHash(base::UTF16ToUTF8(
                   profile.GetInfo(kSkippedType, kAppLocale))));
@@ -446,10 +450,10 @@ TEST_F(FormFillerTest, SkipAllPreFilledFieldsExceptIfFieldIsAPlaceholder) {
            {.role = ADDRESS_HOME_STATE,
             .value = kSelectedState,
             .form_control_type = FormControlType::kSelectOne,
-            .select_options = {SelectOption{.value = kSelectedState,
-                                            .content = kSelectedState},
-                               SelectOption{.value = kToBeFilledState,
-                                            .content = kToBeFilledState}}}}});
+            .select_options = {
+                SelectOption{.value = kSelectedState, .text = kSelectedState},
+                SelectOption{.value = kToBeFilledState,
+                             .text = kToBeFilledState}}}}});
   FormsSeen({form});
 
   FormStructure* form_structure = GetFormStructure(form);
@@ -459,16 +463,16 @@ TEST_F(FormFillerTest, SkipAllPreFilledFieldsExceptIfFieldIsAPlaceholder) {
   form_structure->fields()[4]->set_may_use_prefilled_placeholder(std::nullopt);
 
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
 
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FIRST, kAppLocale)));
   EXPECT_THAT(filled_fields[1],
               AutofilledWith(profile.GetInfo(NAME_LAST, kAppLocale)));
   EXPECT_FALSE(filled_fields[2].is_autofilled());
-  EXPECT_EQ(filled_fields[2].value(), form.fields[2].value());
+  EXPECT_EQ(filled_fields[2].value(), form.fields()[2].value());
   EXPECT_FALSE(filled_fields[3].is_autofilled());
-  EXPECT_EQ(filled_fields[3].value(), form.fields[3].value());
+  EXPECT_EQ(filled_fields[3].value(), form.fields()[3].value());
   EXPECT_THAT(filled_fields[4], AutofilledWith(kToBeFilledState));
 }
 
@@ -476,19 +480,19 @@ TEST_F(FormFillerTest, UndoSavesFormFillingData) {
   FormData form = test::CreateTestAddressFormData();
   FormsSeen({form});
 
-  base::flat_set<FieldGlobalId> safe_fields{form.fields.front().global_id()};
+  base::flat_set<FieldGlobalId> safe_fields{form.fields().front().global_id()};
   EXPECT_CALL(autofill_driver_, ApplyFormAction)
       .Times(2)
       .WillRepeatedly(Return(safe_fields));
 
   browser_autofill_manager_->FillOrPreviewProfileForm(
-      mojom::ActionPersistence::kFill, form, form.fields.front(),
+      mojom::ActionPersistence::kFill, form, form.fields().front(),
       test::GetFullProfile(), /*trigger_details=*/{});
   // Undo early returns if it has no filling history for the trigger field,
   // which is initially empty, therefore calling the driver is proof that data
   // was successfully stored.
   browser_autofill_manager_->UndoAutofill(mojom::ActionPersistence::kFill, form,
-                                          form.fields.front());
+                                          form.fields().front());
 }
 
 TEST_F(FormFillerTest, UndoSavesFieldByFieldFillingData) {
@@ -498,36 +502,35 @@ TEST_F(FormFillerTest, UndoSavesFieldByFieldFillingData) {
   EXPECT_CALL(autofill_driver_, ApplyFieldAction);
   browser_autofill_manager_->FillOrPreviewField(
       mojom::ActionPersistence::kFill, mojom::FieldActionType::kReplaceAll,
-      form, form.fields.front(), u"Some Name",
+      form, form.fields().front(), u"Some Name",
       SuggestionType::kAddressFieldByFieldFilling, NAME_FULL);
   // Undo early returns if it has no filling history for the trigger field,
   // which is initially empty, therefore calling the driver is proof that data
   // was successfully stored.
   EXPECT_CALL(autofill_driver_, ApplyFormAction);
   browser_autofill_manager_->UndoAutofill(mojom::ActionPersistence::kFill, form,
-                                          form.fields.front());
+                                          form.fields().front());
 }
 
 TEST_F(FormFillerTest, UndoResetsCachedAutofillState) {
   FormData form = test::CreateTestAddressFormData();
 
-  AutofillField filled_autofill_field(form.fields.front());
-  FormFieldData* field_ptr = &form.fields.front();
-  AutofillField* autofill_field_ptr = &filled_autofill_field;
-  form.fields.front().set_is_autofilled(false);
+  AutofillField filled_autofill_field(form.fields().front());
+  test_api(form).field(0).set_is_autofilled(false);
   test_api(test_api(*browser_autofill_manager_).form_filler())
-      .AddFormFillEntry(base::make_span(&field_ptr, 1u),
-                        base::make_span(&autofill_field_ptr, 1u),
-                        FillingProduct::kAddress, /*is_refill=*/false);
+      .AddFormFillEntry(
+          std::to_array<const FormFieldData*>({&form.fields().front()}),
+          std::to_array<const AutofillField*>({&filled_autofill_field}),
+          FillingProduct::kAddress, /*is_refill=*/false);
 
-  form.fields.front().set_is_autofilled(true);
+  test_api(form).field(0).set_is_autofilled(true);
   FormsSeen({form});
 
   const AutofillField* autofill_field =
-      GetAutofillField(form, form.fields.front());
+      GetAutofillField(form, form.fields().front());
   ASSERT_TRUE(autofill_field->is_autofilled());
   browser_autofill_manager_->UndoAutofill(mojom::ActionPersistence::kFill, form,
-                                          form.fields.front());
+                                          form.fields().front());
   EXPECT_FALSE(autofill_field->is_autofilled());
 }
 
@@ -537,7 +540,7 @@ TEST_F(FormFillerTest, FillOrPreviewDataModelFormCallsDidFillOrPreviewForm) {
 
   AutofillProfile profile = test::GetFullProfile();
   EXPECT_CALL(autofill_client_, DidFillOrPreviewForm);
-  FillAutofillFormData(form, form.fields.front(), &profile);
+  FillAutofillFormData(form, form.fields().front(), &profile);
 }
 
 // Tests that for autocomplete=unrecognized fields:
@@ -561,7 +564,7 @@ TEST_F(FormFillerTest,
   // gets filled.
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FIRST, kAppLocale)));
   EXPECT_FALSE(filled_fields[1].is_autofilled());
@@ -574,7 +577,7 @@ TEST_F(FormFillerTest,
       .WillOnce(DoAll(SaveArgElementsTo<2>(&filled_fields),
                       Return(base::flat_set<FieldGlobalId>{})));
   browser_autofill_manager_->FillOrPreviewProfileForm(
-      mojom::ActionPersistence::kFill, form, form.fields[0], profile,
+      mojom::ActionPersistence::kFill, form, form.fields()[0], profile,
       {.trigger_source = AutofillTriggerSource::kManualFallback});
 
   EXPECT_THAT(filled_fields[0],
@@ -593,7 +596,7 @@ TEST_F(FormFillerTest, FillCreditCardForm_Simple) {
 
   CreditCard credit_card = test::GetCreditCard();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
   ASSERT_EQ(filled_fields.size(), 5u);
   EXPECT_THAT(filled_fields[0], AutofilledWith(credit_card.GetInfo(
                                     CREDIT_CARD_NAME_FULL, kAppLocale)));
@@ -621,13 +624,13 @@ TEST_F(FormFillerTest, FillCreditCardForm_StripCardNumber) {
   FormsSeen({form});
 
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card_whitespace)
-          .fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card_whitespace)
+          .fields();
   EXPECT_THAT(filled_fields[0], AutofilledWith(u"4234567890123456"));
 
   filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card_separator)
-          .fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card_separator)
+          .fields();
   EXPECT_THAT(filled_fields[0], AutofilledWith(u"4234567890123456"));
 }
 
@@ -665,7 +668,7 @@ TEST_P(PartialCreditCardDateTest, FillWithPartialDate) {
   FormsSeen({form});
 
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
   ASSERT_EQ(filled_fields.size(), 4u);
   EXPECT_THAT(filled_fields[0], AutofilledWith(credit_card.GetInfo(
                                     CREDIT_CARD_NAME_FULL, kAppLocale)));
@@ -685,7 +688,7 @@ TEST_F(FormFillerTest, FillOnlyFirstNineteenCreditCardNumberFields) {
 
   CreditCard credit_card = test::GetCreditCard();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
 
   // Verify that the first 19 credit card number fields are filled.
   for (size_t i = 0; i < 19; i++) {
@@ -705,13 +708,13 @@ TEST_F(FormFillerTest, FillCreditCardNumberIntoSingleDigitFields) {
                              20, {.autocomplete_attribute = "cc-number"})});
   // Set the size limit of the first nineteen fields to 1.
   for (size_t i = 0; i < 19; i++) {
-    form.fields[i].set_max_length(1);
+    test_api(form).field(i).set_max_length(1);
   }
   FormsSeen({form});
 
   CreditCard credit_card = test::GetCreditCard();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
 
   // Verify that the first 19 card number fields are filled.
   std::u16string card_number =
@@ -735,8 +738,8 @@ TEST_F(FormFillerTest, FillCreditCardForm_SplitName) {
 
   CreditCard credit_card = test::GetCreditCard();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
-  ASSERT_EQ(form.fields.size(), 6u);
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
+  ASSERT_EQ(form.fields().size(), 6u);
   EXPECT_THAT(filled_fields[0], AutofilledWith(credit_card.GetInfo(
                                     CREDIT_CARD_NAME_FIRST, kAppLocale)));
   EXPECT_THAT(filled_fields[1], AutofilledWith(credit_card.GetInfo(
@@ -764,13 +767,13 @@ TEST_F(FormFillerTest, OnlyCountFilledSelectionBoxesForTypeFillingLimit) {
   // Add 20 selection boxes that should be fillable since the correct
   // entry is present.
   for (int i = 0; i < 20; i++) {
-    form.fields.push_back(
+    test_api(form).Append(
         test::CreateTestSelectField("State", "state", "", "address-level1",
                                     {"AA", "BB", "CA"}, {"AA", "BB", "CA"}));
   }
   // Add 10 other a selection box for the country.
   for (int i = 0; i < 10; ++i) {
-    form.fields.push_back(
+    test_api(form).Append(
         test::CreateTestSelectField("Country", "country", "", "country",
                                     {"DE", "FR", "US"}, {"DE", "FR", "US"}));
   }
@@ -778,7 +781,7 @@ TEST_F(FormFillerTest, OnlyCountFilledSelectionBoxesForTypeFillingLimit) {
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
 
   ASSERT_EQ(filled_fields.size(), 31u);
   for (size_t i = 1; i <= 20; ++i) {
@@ -807,7 +810,7 @@ TEST_F(FormFillerTest, FillAddressForm_AutocompleteOffFillingBehavior) {
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
   ASSERT_EQ(filled_fields.size(), 3u);
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FIRST, kAppLocale)));
@@ -837,7 +840,7 @@ TEST_F(FormFillerTest, FillAddressForm_PlaceholderEqualsValue) {
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
   ASSERT_EQ(filled_fields.size(), 3u);
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FIRST, kAppLocale)));
@@ -854,12 +857,12 @@ TEST_F(FormFillerTest,
   // Create a form where the middle name field has autocomplete=off.
   FormData form = test::CreateTestCreditCardFormData(/*is_https=*/true,
                                                      /*use_month_type=*/false);
-  form.fields.front().set_autocomplete_attribute("unrecognized");
+  test_api(form).field(0).set_autocomplete_attribute("unrecognized");
   FormsSeen({form});
 
   CreditCard credit_card = test::GetCreditCard();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
   EXPECT_THAT(filled_fields.front(), AutofilledWith(credit_card.GetInfo(
                                          CREDIT_CARD_NAME_FULL, kAppLocale)));
 }
@@ -869,12 +872,12 @@ TEST_F(FormFillerTest,
 TEST_F(FormFillerTest, FillCreditCardForm_AutocompleteOffBehavior) {
   FormData form = test::CreateTestCreditCardFormData(/*is_https=*/true,
                                                      /*use_month_type=*/false);
-  form.fields.front().set_autocomplete_attribute("off");
+  test_api(form).field(0).set_autocomplete_attribute("off");
   FormsSeen({form});
 
   CreditCard credit_card = test::GetCreditCard();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
   EXPECT_THAT(filled_fields.front(), AutofilledWith(credit_card.GetInfo(
                                          CREDIT_CARD_NAME_FULL, kAppLocale)));
 }
@@ -891,7 +894,8 @@ TEST_F(FormFillerTest, FillCreditCardForm_ExpiredCard) {
   FormsSeen({form});
 
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, *form.fields.begin(), &expired_card).fields;
+      FillAutofillFormData(form, *form.fields().begin(), &expired_card)
+          .fields();
   ASSERT_EQ(filled_fields.size(), 5u);
   EXPECT_THAT(filled_fields[0], AutofilledWith(expired_card.GetInfo(
                                     CREDIT_CARD_NAME_FULL, kAppLocale)));
@@ -912,7 +916,7 @@ TEST_F(FormFillerTest, PreviewCreditCardForm_VirtualCard) {
 
   CreditCard virtual_card = test::GetVirtualCard();
   std::vector<FormFieldData> filled_fields =
-      PreviewVirtualCardDataAndGetResults(form, form.fields[1], virtual_card);
+      PreviewVirtualCardDataAndGetResults(form, form.fields()[1], virtual_card);
 
   std::u16string expected_cardholder_name = u"Lorem Ipsum";
   // Virtual card number using obfuscated dots only: Virtual card Mastercard
@@ -945,20 +949,20 @@ TEST_F(FormFillerTest, DoNotFillUnfocusableFieldsExceptForSelect) {
       {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"},
                   {.role = ADDRESS_HOME_COUNTRY,
                    .autocomplete_attribute = "country"}}});
-  form.fields.back().set_is_focusable(false);
-  form.fields.push_back(test::CreateTestSelectOrSelectListField(
+  test_api(form).field(-1).set_is_focusable(false);
+  test_api(form).Append(test::CreateTestSelectOrSelectListField(
       "Country", "country", "", "country", {"CA", "US"},
       {"Canada", "United States"}, FormControlType::kSelectList));
-  form.fields.back().set_is_focusable(false);
-  form.fields.push_back(test::CreateTestSelectOrSelectListField(
+  test_api(form).field(-1).set_is_focusable(false);
+  test_api(form).Append(test::CreateTestSelectOrSelectListField(
       "Country", "country", "", "country", {"CA", "US"},
       {"Canada", "United States"}, FormControlType::kSelectOne));
-  form.fields.back().set_is_focusable(false);
+  test_api(form).field(-1).set_is_focusable(false);
   FormsSeen({form});
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
 
   ASSERT_EQ(4u, filled_fields.size());
   EXPECT_THAT(filled_fields[0],
@@ -990,9 +994,9 @@ TEST_F(FormFillerTest, FillFormWithAuthorSpecifiedSections) {
   // Fill the unnamed section.
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
   ASSERT_EQ(filled_fields.size(), 5u);
-  // TODO(b/40264633): Replace with GetInfo.
+  // TODO(crbug.com/40264633): Replace with GetInfo.
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetRawInfo(ADDRESS_HOME_COUNTRY)));
   EXPECT_FALSE(filled_fields[1].is_autofilled());
@@ -1005,7 +1009,8 @@ TEST_F(FormFillerTest, FillFormWithAuthorSpecifiedSections) {
               AutofilledWith(profile.GetInfo(EMAIL_ADDRESS, kAppLocale)));
 
   // Fill the address portion of the billing section.
-  filled_fields = FillAutofillFormData(form, form.fields[1], &profile).fields;
+  filled_fields =
+      FillAutofillFormData(form, form.fields()[1], &profile).fields();
   ASSERT_EQ(filled_fields.size(), 5u);
   EXPECT_FALSE(filled_fields[0].is_autofilled());
   EXPECT_TRUE(filled_fields[0].value().empty());
@@ -1021,7 +1026,7 @@ TEST_F(FormFillerTest, FillFormWithAuthorSpecifiedSections) {
   // Fill the credit card portion of the billing section.
   CreditCard credit_card = test::GetCreditCard();
   filled_fields =
-      FillAutofillFormData(form, form.fields[2], &credit_card).fields;
+      FillAutofillFormData(form, form.fields()[2], &credit_card).fields();
   ASSERT_EQ(filled_fields.size(), 5u);
   EXPECT_FALSE(filled_fields[0].is_autofilled());
   EXPECT_TRUE(filled_fields[0].value().empty());
@@ -1046,7 +1051,7 @@ TEST_F(FormFillerTest, FillFormWithMultipleEmails) {
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
   ASSERT_EQ(filled_fields.size(), 3u);
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FULL, kAppLocale)));
@@ -1062,14 +1067,14 @@ TEST_F(FormFillerTest, FillAutofilledAddressForm) {
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"},
                   {.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
-  for (FormFieldData& field : form.fields) {
+  for (FormFieldData& field : test_api(form).fields()) {
     field.set_is_autofilled(true);
   }
   FormsSeen({form});
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
   ASSERT_EQ(filled_fields.size(), 2u);
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FULL, kAppLocale)));
@@ -1084,14 +1089,14 @@ TEST_F(FormFillerTest, FillAutofilledCreditCardForm) {
                                      .autocomplete_attribute = "cc-name"},
                                     {.role = CREDIT_CARD_NUMBER,
                                      .autocomplete_attribute = "cc-number"}}});
-  for (FormFieldData& field : form.fields) {
+  for (FormFieldData& field : test_api(form).fields()) {
     field.set_is_autofilled(true);
   }
   FormsSeen({form});
 
   CreditCard credit_card = test::GetCreditCard();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
   ASSERT_EQ(filled_fields.size(), 2u);
   EXPECT_THAT(filled_fields[0], AutofilledWith(credit_card.GetInfo(
                                     CREDIT_CARD_NAME_FULL, kAppLocale)));
@@ -1107,18 +1112,18 @@ TEST_F(FormFillerTest, FillPartlyManuallyFilledAddressForm) {
            {.role = NAME_LAST, .autocomplete_attribute = "family-name"}}});
   // Michael will be overridden with Elvis because Autofill is triggered from
   // the first field.
-  form.fields[0].set_value(u"Michael");
-  form.fields[0].set_properties_mask(form.fields[0].properties_mask() |
-                                     kUserTyped);
+  test_api(form).field(0).set_value(u"Michael");
+  test_api(form).field(0).set_properties_mask(
+      form.fields()[0].properties_mask() | kUserTyped);
   // Jackson will be preserved.
-  form.fields[2].set_value(u"Jackson");
-  form.fields[2].set_properties_mask(form.fields[2].properties_mask() |
-                                     kUserTyped);
+  test_api(form).field(2).set_value(u"Jackson");
+  test_api(form).field(2).set_properties_mask(
+      form.fields()[2].properties_mask() | kUserTyped);
   FormsSeen({form});
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
   ASSERT_EQ(filled_fields.size(), 3u);
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FIRST, kAppLocale)));
@@ -1138,19 +1143,19 @@ TEST_F(FormFillerTest, FillPartlyManuallyFilledCreditCardForm) {
                    .autocomplete_attribute = "cc-number"}}});
   // Michael will be overridden with Elvis because Autofill is triggered from
   // the first field.
-  form.fields[0].set_value(u"Michael");
-  form.fields[0].set_properties_mask(form.fields[0].properties_mask() |
-                                     kUserTyped);
+  test_api(form).field(0).set_value(u"Michael");
+  test_api(form).field(0).set_properties_mask(
+      form.fields()[0].properties_mask() | kUserTyped);
   // Jackson will be preserved.
-  form.fields[1].set_value(u"Jackson");
-  form.fields[1].set_properties_mask(form.fields[1].properties_mask() |
-                                     kUserTyped);
+  test_api(form).field(1).set_value(u"Jackson");
+  test_api(form).field(1).set_properties_mask(
+      form.fields()[1].properties_mask() | kUserTyped);
   FormsSeen({form});
 
   // First fill the address data.
   CreditCard credit_card = test::GetCreditCard();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &credit_card).fields;
+      FillAutofillFormData(form, form.fields().front(), &credit_card).fields();
   ASSERT_EQ(filled_fields.size(), 3u);
   EXPECT_THAT(filled_fields[0], AutofilledWith(credit_card.GetInfo(
                                     CREDIT_CARD_NAME_FIRST, kAppLocale)));
@@ -1189,13 +1194,13 @@ TEST_F(FormFillerTest, FillPhoneNumber) {
     FormFieldData field = test::CreateTestFormField(
         test_field.label, test_field.name, "", FormControlType::kInputText, "",
         test_field.max_length);
-    form_with_us_number_max_length.fields.push_back(field);
+    test_api(form_with_us_number_max_length).Append(field);
 
     field.set_max_length(default_max_length);
     field.set_autocomplete_attribute(test_field.autocomplete_attribute);
     field.set_parsed_autocomplete(
         ParseAutocompleteAttribute(test_field.autocomplete_attribute));
-    form_with_autocompletetype.fields.push_back(field);
+    test_api(form_with_autocompletetype).Append(field);
   }
 
   FormsSeen({form_with_us_number_max_length, form_with_autocompletetype});
@@ -1205,42 +1210,42 @@ TEST_F(FormFillerTest, FillPhoneNumber) {
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   FormData filled_form1 = FillAutofillFormData(
       form_with_us_number_max_length,
-      form_with_us_number_max_length.fields.front(), &profile);
-  ASSERT_EQ(4u, filled_form1.fields.size());
-  EXPECT_EQ(u"1", filled_form1.fields[0].value());
-  EXPECT_EQ(u"650", filled_form1.fields[1].value());
-  EXPECT_EQ(u"555", filled_form1.fields[2].value());
-  EXPECT_EQ(u"4567", filled_form1.fields[3].value());
+      form_with_us_number_max_length.fields().front(), &profile);
+  ASSERT_EQ(4u, filled_form1.fields().size());
+  EXPECT_EQ(u"1", filled_form1.fields()[0].value());
+  EXPECT_EQ(u"650", filled_form1.fields()[1].value());
+  EXPECT_EQ(u"555", filled_form1.fields()[2].value());
+  EXPECT_EQ(u"4567", filled_form1.fields()[3].value());
 
-  FormData filled_form2 =
-      FillAutofillFormData(form_with_autocompletetype,
-                           form_with_autocompletetype.fields.front(), &profile);
-  ASSERT_EQ(4u, filled_form2.fields.size());
-  EXPECT_EQ(u"1", filled_form2.fields[0].value());
-  EXPECT_EQ(u"650", filled_form2.fields[1].value());
-  EXPECT_EQ(u"555", filled_form2.fields[2].value());
-  EXPECT_EQ(u"4567", filled_form2.fields[3].value());
+  FormData filled_form2 = FillAutofillFormData(
+      form_with_autocompletetype, form_with_autocompletetype.fields().front(),
+      &profile);
+  ASSERT_EQ(4u, filled_form2.fields().size());
+  EXPECT_EQ(u"1", filled_form2.fields()[0].value());
+  EXPECT_EQ(u"650", filled_form2.fields()[1].value());
+  EXPECT_EQ(u"555", filled_form2.fields()[2].value());
+  EXPECT_EQ(u"4567", filled_form2.fields()[3].value());
 
   // For other countries, fill prefix and suffix fields with best effort.
   profile.SetRawInfo(ADDRESS_HOME_COUNTRY, u"GB");
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"447700954321");
   FormData filled_form3 = FillAutofillFormData(
       form_with_us_number_max_length,
-      form_with_us_number_max_length.fields.front(), &profile);
-  ASSERT_EQ(4u, filled_form3.fields.size());
-  EXPECT_EQ(u"4", filled_form3.fields[0].value());
-  EXPECT_EQ(u"700", filled_form3.fields[1].value());
-  EXPECT_EQ(u"95", filled_form3.fields[2].value());
-  EXPECT_EQ(u"4321", filled_form3.fields[3].value());
+      form_with_us_number_max_length.fields().front(), &profile);
+  ASSERT_EQ(4u, filled_form3.fields().size());
+  EXPECT_EQ(u"4", filled_form3.fields()[0].value());
+  EXPECT_EQ(u"700", filled_form3.fields()[1].value());
+  EXPECT_EQ(u"95", filled_form3.fields()[2].value());
+  EXPECT_EQ(u"4321", filled_form3.fields()[3].value());
 
-  FormData filled_form4 =
-      FillAutofillFormData(form_with_autocompletetype,
-                           form_with_autocompletetype.fields.front(), &profile);
-  ASSERT_EQ(4u, filled_form4.fields.size());
-  EXPECT_EQ(u"44", filled_form4.fields[0].value());
-  EXPECT_EQ(u"7700", filled_form4.fields[1].value());
-  EXPECT_EQ(u"95", filled_form4.fields[2].value());
-  EXPECT_EQ(u"4321", filled_form4.fields[3].value());
+  FormData filled_form4 = FillAutofillFormData(
+      form_with_autocompletetype, form_with_autocompletetype.fields().front(),
+      &profile);
+  ASSERT_EQ(4u, filled_form4.fields().size());
+  EXPECT_EQ(u"44", filled_form4.fields()[0].value());
+  EXPECT_EQ(u"7700", filled_form4.fields()[1].value());
+  EXPECT_EQ(u"95", filled_form4.fields()[2].value());
+  EXPECT_EQ(u"4321", filled_form4.fields()[3].value());
 }
 
 TEST_F(FormFillerTest, FillPhoneNumber_ForPhonePrefixOrSuffix) {
@@ -1263,7 +1268,7 @@ TEST_F(FormFillerTest, FillPhoneNumber_ForPhonePrefixOrSuffix) {
   AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"1800FLOWERS");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
 
   ASSERT_EQ(4U, filled_fields.size());
   EXPECT_THAT(filled_fields[2], AutofilledWith(u"356"));
@@ -1281,7 +1286,7 @@ TEST_F(FormFillerTest, FillPhoneNumber_WithMaxLengthLimit) {
   AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"+886123456789");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
 
   ASSERT_EQ(1u, filled_fields.size());
   EXPECT_THAT(filled_fields[0], AutofilledWith(u"123456789"));
@@ -1310,7 +1315,7 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_ComponentizedNumbers) {
   AutofillProfile profile = test::GetFullProfile();
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
   // Verify only the first complete set of phone number fields are filled.
   ASSERT_EQ(7u, filled_fields.size());
   EXPECT_EQ(u"John H. Doe", filled_fields[0].value());
@@ -1335,7 +1340,7 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_WholeNumbers) {
   AutofillProfile profile = test::GetFullProfile();
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
   // Verify only the first complete set of phone number fields are filled.
   ASSERT_EQ(3u, filled_fields.size());
   EXPECT_EQ(u"John H. Doe", filled_fields[0].value());
@@ -1358,7 +1363,7 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_FillPartsOnceOnly) {
   AutofillProfile profile = test::GetFullProfile();
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
   // Verify only the first complete set of phone number fields are filled,
   // and phone components are not filled more than once.
   ASSERT_EQ(4u, filled_fields.size());
@@ -1383,7 +1388,7 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_NotFillMisclassifiedExtention) {
   AutofillProfile profile = test::GetFullProfile();
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
   // Verify the misclassified extension field is not filled.
   ASSERT_EQ(3u, filled_fields.size());
   EXPECT_EQ(u"John H. Doe", filled_fields[0].value());
@@ -1405,7 +1410,7 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_BestEffortFilling) {
   AutofillProfile profile = test::GetFullProfile();
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
   // Verify that we fill with best effort.
   ASSERT_EQ(2U, filled_fields.size());
   EXPECT_EQ(u"John H. Doe", filled_fields[0].value());
@@ -1427,7 +1432,7 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_FocusOnSecondPhoneNumber) {
   AutofillProfile profile = test::GetFullProfile();
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[2], &profile).fields;
+      FillAutofillFormData(form, form.fields()[2], &profile).fields();
   // Verify when the second phone number field is being focused, we fill
   // that field *AND* the first phone number field.
   ASSERT_EQ(3u, filled_fields.size());
@@ -1449,7 +1454,7 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_HiddenFieldShouldNotCount) {
   AutofillProfile profile = test::GetFullProfile();
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields.front(), &profile).fields;
+      FillAutofillFormData(form, form.fields().front(), &profile).fields();
   // Verify hidden/non-focusable phone field is set to only_fill_when_focused.
   ASSERT_EQ(3u, filled_fields.size());
   EXPECT_EQ(u"John H. Doe", filled_fields[0].value());
@@ -1462,27 +1467,29 @@ TEST_F(FormFillerTest, FormWithHiddenOrPresentationalFields) {
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"}}});
 
-  form.fields.push_back(
+  test_api(form).Append(
       test::CreateTestSelectField("Country", "country", "", "country",
                                   {"CA", "US"}, {"Canada", "United States"}));
-  form.fields.back().set_is_focusable(false);
-  form.fields.push_back(
+  test_api(form).field(-1).set_is_focusable(false);
+  test_api(form).Append(
       test::CreateTestSelectField("State", "state", "", "address-level1",
                                   {"NY", "CA"}, {"New York", "California"}));
-  form.fields.back().set_role(FormFieldData::RoleAttribute::kPresentation);
+  test_api(form).field(-1).set_role(
+      FormFieldData::RoleAttribute::kPresentation);
 
-  form.fields.push_back(test::CreateTestFormField("City", "city", "",
+  test_api(form).Append(test::CreateTestFormField("City", "city", "",
                                                   FormControlType::kInputText));
-  form.fields.back().set_is_focusable(false);
-  form.fields.push_back(test::CreateTestFormField(
+  test_api(form).field(-1).set_is_focusable(false);
+  test_api(form).Append(test::CreateTestFormField(
       "Street Address", "address", "", FormControlType::kInputText, "address"));
-  form.fields.back().set_role(FormFieldData::RoleAttribute::kPresentation);
+  test_api(form).field(-1).set_role(
+      FormFieldData::RoleAttribute::kPresentation);
   FormsSeen({form});
 
   base::HistogramTester histogram_tester;
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
 
   ASSERT_EQ(filled_fields.size(), 5u);
   EXPECT_THAT(filled_fields[0],
@@ -1511,7 +1518,7 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_MultipleSectionFilledCorrectly) {
   profile.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"16505554567");
   // Fill first section.
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
   // Verify first section is filled with rationalization.
   ASSERT_EQ(6u, filled_fields.size());
   EXPECT_EQ(u"John H. Doe", filled_fields[0].value());
@@ -1522,7 +1529,8 @@ TEST_F(FormFillerTest, FillFirstPhoneNumber_MultipleSectionFilledCorrectly) {
   EXPECT_EQ(std::u16string(), filled_fields[5].value());
 
   // Fill the second section.
-  filled_fields = FillAutofillFormData(form, form.fields[3], &profile).fields;
+  filled_fields =
+      FillAutofillFormData(form, form.fields()[3], &profile).fields();
   // Verify second section is filled with rationalization.
   ASSERT_EQ(6u, filled_fields.size());
   EXPECT_EQ(std::u16string(), filled_fields[0].value());
@@ -1541,12 +1549,12 @@ TEST_F(FormFillerTest, FormChangesRemoveField) {
                   {.role = PHONE_HOME_WHOLE_NUMBER,
                    .autocomplete_attribute = "tel"}}});
   FormsSeen({form});
-  form.fields.pop_back();
+  test_api(form).Remove(-1);
   FormsSeen({form});
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
   ASSERT_EQ(filled_fields.size(), 2u);
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FULL, kAppLocale)));
@@ -1559,13 +1567,13 @@ TEST_F(FormFillerTest, FormChangesAddField) {
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FULL, .autocomplete_attribute = "name"}}});
   FormsSeen({form});
-  form.fields.push_back(test::CreateTestFormField(
+  test_api(form).Append(test::CreateTestFormField(
       "email", "email", "", FormControlType::kInputText, "email"));
   FormsSeen({form});
 
   AutofillProfile profile = test::GetFullProfile();
   std::vector<FormFieldData> filled_fields =
-      FillAutofillFormData(form, form.fields[0], &profile).fields;
+      FillAutofillFormData(form, form.fields()[0], &profile).fields();
   ASSERT_EQ(filled_fields.size(), 2u);
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FULL, kAppLocale)));
@@ -1591,21 +1599,21 @@ TEST_F(FormFillerTest, FormChangesVisibilityOfFields) {
   // Fill the form with the first profile. The hidden fields will not get
   // filled.
   AutofillProfile profile = test::GetFullProfile();
-  FormData filled_form = FillAutofillFormData(form, form.fields[0], &profile);
+  FormData filled_form = FillAutofillFormData(form, form.fields()[0], &profile);
 
-  ASSERT_EQ(4u, filled_form.fields.size());
-  EXPECT_THAT(filled_form.fields[0],
+  ASSERT_EQ(4u, filled_form.fields().size());
+  EXPECT_THAT(filled_form.fields()[0],
               AutofilledWith(profile.GetInfo(NAME_FULL, kAppLocale)));
-  EXPECT_THAT(filled_form.fields[1],
+  EXPECT_THAT(filled_form.fields()[1],
               AutofilledWith(profile.GetInfo(ADDRESS_HOME_LINE1, kAppLocale)));
-  EXPECT_FALSE(filled_form.fields[2].is_autofilled());
-  EXPECT_FALSE(filled_form.fields[3].is_autofilled());
+  EXPECT_FALSE(filled_form.fields()[2].is_autofilled());
+  EXPECT_FALSE(filled_form.fields()[3].is_autofilled());
 
   // Two other fields will show up. Select the second profile. The fields that
   // were already filled, would be left unchanged, and the rest would be filled
   // with the second profile.
-  filled_form.fields[2].set_is_focusable(true);
-  filled_form.fields[3].set_is_focusable(true);
+  test_api(filled_form).field(2).set_is_focusable(true);
+  test_api(filled_form).field(3).set_is_focusable(true);
 
   // Reparse the form to validate the visibility changes. Fast forward so that
   // no refill is triggered automatically.
@@ -1614,8 +1622,8 @@ TEST_F(FormFillerTest, FormChangesVisibilityOfFields) {
 
   AutofillProfile profile2 = test::GetFullProfile2();
   std::vector<FormFieldData> later_filled_fields =
-      FillAutofillFormData(filled_form, filled_form.fields[2], &profile2)
-          .fields;
+      FillAutofillFormData(filled_form, filled_form.fields()[2], &profile2)
+          .fields();
   ASSERT_EQ(4u, later_filled_fields.size());
   EXPECT_THAT(later_filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FULL, kAppLocale)));
@@ -1623,7 +1631,7 @@ TEST_F(FormFillerTest, FormChangesVisibilityOfFields) {
               AutofilledWith(profile.GetInfo(ADDRESS_HOME_LINE1, kAppLocale)));
   EXPECT_THAT(later_filled_fields[2],
               AutofilledWith(profile2.GetInfo(ADDRESS_HOME_ZIP, kAppLocale)));
-  // TODO(b/40264633): Replace with GetInfo.
+  // TODO(crbug.com/40264633): Replace with GetInfo.
   EXPECT_THAT(later_filled_fields[3],
               AutofilledWith(profile2.GetRawInfo(ADDRESS_HOME_COUNTRY)));
 }
@@ -1636,7 +1644,7 @@ TEST_F(FormFillerTest, FillInUpdatedExpirationDate) {
   details.exp_month = u"02";
   details.exp_year = u"2018";
   full_card_unmask_delegate()->OnUnmaskPromptAccepted(details);
-  OnDidGetRealPan(AutofillClient::PaymentsRpcResult::kSuccess,
+  OnDidGetRealPan(payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
                   "4012888888881881");
 }
 
@@ -1654,7 +1662,7 @@ TEST_F(FormFillerTest, TrackFillingOrigin) {
   ASSERT_TRUE(form_structure);
 
   AutofillProfile profile = test::GetFullProfile();
-  FillAutofillFormData(form, form.fields[0], &profile);
+  FillAutofillFormData(form, form.fields()[0], &profile);
   ASSERT_EQ(form_structure->field_count(), 4u);
   EXPECT_THAT(form_structure->field(0), AutofilledWithProfile(profile));
   EXPECT_THAT(form_structure->field(1), AutofilledWithProfile(profile));
@@ -1676,16 +1684,17 @@ TEST_F(FormFillerTest, TrackFillingOriginWithUsingMultipleProfiles) {
   // Fill the form with a profile without email
   AutofillProfile profile1 = test::GetFullProfile();
   profile1.ClearFields({EMAIL_ADDRESS});
-  FormData filled_form = FillAutofillFormData(form, form.fields[0], &profile1);
+  FormData filled_form =
+      FillAutofillFormData(form, form.fields()[0], &profile1);
 
   // Check that the email field has no filling source.
-  ASSERT_EQ(form.fields[2].label(), u"E-mail address");
+  ASSERT_EQ(form.fields()[2].label(), u"E-mail address");
   EXPECT_EQ(form_structure->field(2)->autofill_source_profile_guid(),
             std::nullopt);
 
   // Then fill the email field using the second profile
   AutofillProfile profile2 = test::GetFullProfile2();
-      FillAutofillFormData(filled_form, form.fields[2], &profile2);
+  FillAutofillFormData(filled_form, form.fields()[2], &profile2);
 
   // Check that the first three fields have the first profile as filling source
   // and the last field has the second profile.
@@ -1707,12 +1716,12 @@ TEST_F(FormFillerTest, TrackFillingOriginOnEditedField) {
   ASSERT_TRUE(form_structure);
 
   AutofillProfile profile = test::GetFullProfile();
-  FormData filled_form = FillAutofillFormData(form, form.fields[0], &profile);
+  FormData filled_form = FillAutofillFormData(form, form.fields()[0], &profile);
 
   // Simulate editing the first field.
-  filled_form.fields[0].set_value(u"");
+  test_api(filled_form).field(0).set_value(u"");
   browser_autofill_manager_->OnTextFieldDidChange(
-      filled_form, filled_form.fields[0].global_id(), base::TimeTicks::Now());
+      filled_form, filled_form.fields()[0].global_id(), base::TimeTicks::Now());
 
   ASSERT_TRUE(form_structure->field(0)->previously_autofilled());
   EXPECT_FALSE(form_structure->field(0)->is_autofilled());
@@ -1738,7 +1747,7 @@ TEST_F(FormFillerTest, PreFilledCCFieldInAddressFormDoesNotCauseCrash) {
   FormsSeen({form});
 
   AutofillProfile profile = test::GetFullProfile();
-  FillAutofillFormData(form, form.fields.front(), &profile);
+  FillAutofillFormData(form, form.fields().front(), &profile);
   // Expect that this test doesn't cause a crash.
 }
 
@@ -1778,11 +1787,11 @@ TEST_P(ExpirationDateRefillTest, RefillJavascriptModifiedExpirationDates) {
                           "4234567890123456",  // Visa
                           "04", "2999", "1");
   FormData first_fill_data =
-      FillAutofillFormData(form, form.fields.front(), &credit_card);
-  ASSERT_EQ(3u, first_fill_data.fields.size());
-  EXPECT_THAT(first_fill_data.fields[0], AutofilledWith(u"Elvis Presley"));
-  EXPECT_THAT(first_fill_data.fields[1], AutofilledWith(u"4234567890123456"));
-  EXPECT_THAT(first_fill_data.fields[2], AutofilledWith(u"04/2999"));
+      FillAutofillFormData(form, form.fields().front(), &credit_card);
+  ASSERT_EQ(3u, first_fill_data.fields().size());
+  EXPECT_THAT(first_fill_data.fields()[0], AutofilledWith(u"Elvis Presley"));
+  EXPECT_THAT(first_fill_data.fields()[1], AutofilledWith(u"4234567890123456"));
+  EXPECT_THAT(first_fill_data.fields()[2], AutofilledWith(u"04/2999"));
 
   std::vector<FormFieldData> refilled_fields;
   if (test_case.triggers_refill) {
@@ -1797,10 +1806,12 @@ TEST_P(ExpirationDateRefillTest, RefillJavascriptModifiedExpirationDates) {
 
   // Simulate that JavaScript modifies the expiration date field.
   FormData form_after_js_modification = first_fill_data;
-  form_after_js_modification.fields[2].set_value(test_case.exp_date_from_js);
+  test_api(form_after_js_modification)
+      .field(2)
+      .set_value(test_case.exp_date_from_js);
   browser_autofill_manager_->OnJavaScriptChangedAutofilledValue(
       form_after_js_modification,
-      form_after_js_modification.fields[2].global_id(), u"04/2999",
+      form_after_js_modification.fields()[2].global_id(), u"04/2999",
       /*formatting_only=*/false);
 
   testing::Mock::VerifyAndClearExpectations(&autofill_driver_);
@@ -1810,7 +1821,7 @@ TEST_P(ExpirationDateRefillTest, RefillJavascriptModifiedExpirationDates) {
     // The first two fields aren't filled since their values do not change, so
     // they're removed from refilled_fields`. Therefore the only field in
     // `refilled_fields` corresponds the the third field in `form`.
-    EXPECT_EQ(refilled_fields[0].global_id(), form.fields[2].global_id());
+    EXPECT_EQ(refilled_fields[0].global_id(), form.fields()[2].global_id());
     EXPECT_THAT(refilled_fields[0],
                 AutofilledWith(test_case.refilled_exp_date));
     EXPECT_TRUE(refilled_fields[0].force_override());

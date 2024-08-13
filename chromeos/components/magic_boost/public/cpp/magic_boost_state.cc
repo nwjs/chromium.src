@@ -26,6 +26,8 @@ MagicBoostState::MagicBoostState() {
 }
 
 MagicBoostState::~MagicBoostState() {
+  NotifyOnIsDeleting();
+
   CHECK_EQ(g_magic_boost_state, this);
   g_magic_boost_state = nullptr;
 }
@@ -38,8 +40,16 @@ void MagicBoostState::RemoveObserver(MagicBoostState::Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
+void MagicBoostState::UpdateHMREnabled(bool enabled) {
+  hmr_enabled_ = enabled;
+
+  for (auto& observer : observers_) {
+    observer.OnHMREnabledUpdated(hmr_enabled_.value());
+  }
+}
+
 void MagicBoostState::UpdateHMRConsentStatus(HMRConsentStatus consent_status) {
-  hmr_consent_status_ = std::make_optional(consent_status);
+  hmr_consent_status_ = consent_status;
 
   for (auto& observer : observers_) {
     observer.OnHMRConsentStatusUpdated(hmr_consent_status_.value());
@@ -49,6 +59,12 @@ void MagicBoostState::UpdateHMRConsentStatus(HMRConsentStatus consent_status) {
 void MagicBoostState::UpdateHMRConsentWindowDismissCount(
     int32_t dismiss_count) {
   hmr_consent_window_dismiss_count_ = dismiss_count;
+}
+
+void MagicBoostState::NotifyOnIsDeleting() {
+  for (auto& observer : observers_) {
+    observer.OnIsDeleting();
+  }
 }
 
 }  // namespace chromeos

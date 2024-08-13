@@ -5,16 +5,22 @@
 #ifndef COMPONENTS_PLUS_ADDRESSES_SETTINGS_PLUS_ADDRESS_SETTING_SYNC_TEST_UTIL_H_
 #define COMPONENTS_PLUS_ADDRESSES_SETTINGS_PLUS_ADDRESS_SETTING_SYNC_TEST_UTIL_H_
 
-#include <string_view>
-
-#include "components/sync/protocol/plus_address_setting_specifics.pb.h"
-#include "third_party/abseil-cpp/absl/types/variant.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 namespace plus_addresses {
 
-sync_pb::PlusAddressSettingSpecifics CreateSettingSpecifics(
-    std::string_view name,
-    absl::variant<bool, const char*, int32_t> value);
+// Matchers for `PlusAddressSettingSpecifics` args with given name and values.
+MATCHER_P2(HasBoolSetting, name, value, "") {
+  return arg.name() == name && arg.has_bool_value() &&
+         arg.bool_value() == value;
+}
+MATCHER_P2(HasStringSetting, name, value, "") {
+  return arg.name() == name && arg.has_string_value() &&
+         arg.string_value() == value;
+}
+MATCHER_P2(HasIntSetting, name, value, "") {
+  return arg.name() == name && arg.has_int_value() && arg.int_value() == value;
+}
 
 }  // namespace plus_addresses
 

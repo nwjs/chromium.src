@@ -94,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Notifications.Actions" enum="NotificationActionType"
-    expires_after="2024-11-03">
+    expires_after="2025-01-05">
   <owner>dewittj@chromium.org</owner>
   <owner>leandre@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
@@ -129,7 +129,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobIsAlreadyPending{IntentAction}"
-    enum="Boolean" expires_after="2024-09-22">
+    enum="Boolean" expires_after="2024-12-08">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -145,7 +145,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobNativeStartupDuration{IntentAction}"
-    units="ms" expires_after="2024-09-22">
+    units="ms" expires_after="2024-12-08">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -163,7 +163,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobPendingReason{IntentAction}"
-    enum="NotificationPendingJobReason" expires_after="2024-09-22">
+    enum="NotificationPendingJobReason" expires_after="2024-12-08">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -179,7 +179,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobScheduleResult{IntentAction}"
-    enum="BooleanSuccess" expires_after="2024-09-22">
+    enum="BooleanSuccess" expires_after="2024-12-08">
   <owner>peter@chromium.org</owner>
   <owner>engey@chromium.org</owner>
   <summary>
@@ -194,7 +194,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobStage{IntentAction}"
-    enum="NotificationJobStage" expires_after="2024-09-22">
+    enum="NotificationJobStage" expires_after="2024-12-08">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -210,7 +210,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.JobStartDelay{IntentAction}" units="ms"
-    expires_after="2024-09-22">
+    expires_after="2024-12-08">
   <owner>peter@chromium.org</owner>
   <owner>engedy@chromium.org</owner>
   <summary>
@@ -386,7 +386,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Cros.Actions.{NotificationAction}"
-    enum="NotificationTypeDetailed" expires_after="2024-09-22">
+    enum="NotificationTypeDetailed" expires_after="2024-12-08">
   <owner>leandre@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
   <summary>
@@ -617,7 +617,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.NotificationHelper.ComServerModuleStatus"
-    enum="NotificationHelperComServerModuleStatus" expires_after="2024-11-03">
+    enum="NotificationHelperComServerModuleStatus" expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -630,7 +630,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Notifications.NotificationHelper.NotificationActivatorPrimaryStatus"
     enum="NotificationHelperNotificationActivatorPrimaryStatus"
-    expires_after="2024-11-03">
+    expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -734,7 +734,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.PerNotificationActions"
-    enum="NotificationActionType" expires_after="2024-10-20">
+    enum="NotificationActionType" expires_after="2024-12-24">
   <owner>dewittj@chromium.org</owner>
   <owner>leandre@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
@@ -824,7 +824,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.PersistentNotificationActionCount"
-    units="buttons" expires_after="2024-11-03">
+    units="buttons" expires_after="2025-01-05">
   <owner>peter@chromium.org</owner>
   <summary>
     The number of action buttons the developer provided for a persistent Web
@@ -883,18 +883,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Notifications.Scheduler.IhnrActionButtonEvent"
-    enum="NotificationSchedulerActionButtonEvent" expires_after="2022-12-31">
-<!-- Name completed by histogram_suffixes name="NotificationSchedulerClientType" -->
-
-  <owner>shaktisahu@chromium.org</owner>
-  <owner>nyquist@chromium.org</owner>
-  <summary>
-    Records events for inline helpful/unhelpful action buttons on the
-    notification when the buttons are shown or clicked.
-  </summary>
-</histogram>
-
 <histogram name="Notifications.Scheduler.NotificationLifeCycleEvent"
     enum="NotificationSchedulerNotificationLifeCycleEvent"
     expires_after="2023-03-05">
@@ -905,17 +893,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records life cycle events for a scheduled notification, when notification is
     scheduled, shown or encountering any error.
-  </summary>
-</histogram>
-
-<histogram name="Notifications.Scheduler.UserAction"
-    enum="NotificationSchedulerUserActionType" expires_after="2022-12-31">
-<!-- Name completed by histogram_suffixes name="NotificationSchedulerClientType" -->
-
-  <owner>dtrainor@chromium.org</owner>
-  <summary>
-    Records the type of user action when the user interacts with notification
-    sent from notification scheduler system.
   </summary>
 </histogram>
 
@@ -963,7 +940,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.ActivationStatus"
-    enum="WindowsNotificationActivationStatus" expires_after="2024-11-03">
+    enum="WindowsNotificationActivationStatus" expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -998,7 +975,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.DisplayFailure" enum="Hresult"
-    expires_after="2024-11-03">
+    expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -1008,7 +985,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.DisplayStatus"
-    enum="WindowsNotificationDisplayStatus" expires_after="2024-11-03">
+    enum="WindowsNotificationDisplayStatus" expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -1023,7 +1000,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Notifications.Windows.GetDisplayedLaunchIdStatus"
     enum="WindowsNotificationGetDisplayedLaunchIdStatus"
-    expires_after="2024-11-03">
+    expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -1035,7 +1012,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.GetDisplayedStatus"
-    enum="WindowsNotificationGetDisplayedStatus" expires_after="2024-11-03">
+    enum="WindowsNotificationGetDisplayedStatus" expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -1084,7 +1061,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.GetSettingStatus"
-    enum="WindowsNotificationGetSettingStatus" expires_after="2024-11-03">
+    enum="WindowsNotificationGetSettingStatus" expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -1106,7 +1083,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.HandleEventStatus"
-    enum="WindowsNotificationHandleEventStatus" expires_after="2024-11-03">
+    enum="WindowsNotificationHandleEventStatus" expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -1142,7 +1119,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.OnFailedStatus"
-    enum="WindowsNotificationOnFailedStatus" expires_after="2024-11-03">
+    enum="WindowsNotificationOnFailedStatus" expires_after="2025-01-05">
   <owner>chengx@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -1165,7 +1142,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Windows.ShowFailedErrorCode" enum="Hresult"
-    expires_after="2024-11-03">
+    expires_after="2025-01-05">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>

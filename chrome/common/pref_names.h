@@ -711,6 +711,11 @@ inline constexpr char kHatsPeripheralsIsSelected[] =
 inline constexpr char kHatsLastInteractionTimestamp[] =
     "hats_last_interaction_timestamp";
 
+// An int64 pref. This is a timestamp, microseconds after epoch, of the most
+// recent time the profile took or dismissed prioritized HaTS survey.
+inline constexpr char kHatsPrioritizedLastInteractionTimestamp[] =
+    "hats_prioritized_last_interaction_timestamp";
+
 // An int64 pref. This is the timestamp, microseconds after epoch, that
 // indicates the end of the most recent survey cycle (general survey).
 inline constexpr char kHatsSurveyCycleEndTimestamp[] =
@@ -868,6 +873,21 @@ inline constexpr char kHatsGeneralCameraSurveyCycleEndTs[] =
 inline constexpr char kHatsGeneralCameraIsSelected[] =
     "hats_general_camera_is_selected";
 
+// An int64 pref. This is the timestamp, microseconds after epoch, that
+// indicated the end of the most recent prioritized general camera survey cycle.
+inline constexpr char kHatsGeneralCameraPrioritizedSurveyCycleEndTs[] =
+    "hats_general_camera_prioritized_cycle_end_timestamp";
+
+// A boolean pref. Indicated if the device is selected for the prioritized
+// general camera survey.
+inline constexpr char kHatsGeneralCameraPrioritizedIsSelected[] =
+    "hats_general_camera_prioritized_is_selected";
+
+// An base::Time pref. This is the timestamp that indicates the end of the
+// most recent prioritized general camera survey.
+inline constexpr char kHatsGeneralCameraPrioritizedLastInteractionTimestamp[] =
+    "hats_general_camera_prioritized_last_interaction_timestamp";
+
 // A boolean pref. Indicated if the device is selected for the Privacy Hub
 // post launch survey.
 inline constexpr char kHatsPrivacyHubPostLaunchIsSelected[] =
@@ -902,6 +922,15 @@ inline constexpr char kHatsLauncherAppsSurveyCycleEndTs[] =
 // Apps satisfaction survey.
 inline constexpr char kHatsLauncherAppsSurveyIsSelected[] =
     "hats_launcher_apps_is_selected";
+
+// A boolean pref. Indicated if the device is selected for the Office
+// integration survey.
+inline constexpr char kHatsOfficeSurveyIsSelected[] = "hats_office_is_selected";
+
+// An int64 pref. This is the timestamp, microseconds after epoch, that
+// indicated the end of the most recent Office integration survey cycle.
+inline constexpr char kHatsOfficeSurveyCycleEndTs[] =
+    "hats_office_end_timestamp";
 
 // A boolean pref. Indicates if we've already shown a notification to inform the
 // current user about the quick unlock feature.
@@ -1320,11 +1349,6 @@ inline constexpr char kShowHomeButton[] = "browser.show_home_button";
 // A boolean pref set to true if the Forward button should be visible on the
 // toolbar.
 inline constexpr char kShowForwardButton[] = "browser.show_forward_button";
-
-// Boolean pref to define the default setting for "block offensive words".
-// The old key value is kept to avoid unnecessary migration code.
-inline constexpr char kSpeechRecognitionFilterProfanities[] =
-    "browser.speechinput_censor_results";
 
 // Comma separated list of domain names (e.g. "google.com,school.edu").
 // When this pref is set, the user will be able to access Google Apps
@@ -1833,11 +1857,6 @@ inline constexpr char kWebRtcTextLogCollectionAllowed[] =
 // Boolean that indicates that the first run experience has been finished (or
 // skipped by some policy) for this browser install.
 inline constexpr char kFirstRunFinished[] = "browser.first_run_finished";
-
-// String that refers to the study group in which this install was enrolled.
-// Used to implement the sticky experiment tracking.
-// TODO(crbug.com/40257496): Clean up experiment setup.
-inline constexpr char kFirstRunStudyGroup[] = "browser.first_run_study_group";
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1961,6 +1980,11 @@ inline constexpr char kChromeDataRegionSetting[] = "chrome_data_region_setting";
 // Stored as a dict with annotation hash codes as keys.
 inline constexpr char kNetworkAnnotationBlocklist[] =
     "network_annotation_blocklist";
+
+// A dictionary pref that can contain a list of configured endpoints for
+// reports to be sent to.
+inline constexpr char kReportingEndpoints[] =
+    "enterprise_reporting.reporting_endpoints";
 
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
@@ -2194,9 +2218,10 @@ inline constexpr char kOfficeFileMovedToGoogleDrive[] =
 inline constexpr char kLocalUserFilesAllowed[] =
     "filebrowser.local_user_files_allowed";
 
-// Pref that contains the value of the LocalUserFilesMigrationEnabled policy.
-inline constexpr char kLocalUserFilesMigrationEnabled[] =
-    "filebrowser.local_user_files_migration_enabled";
+// Pref that contains the value of the LocalUserFilesMigrationDestination
+// policy.
+inline constexpr char kLocalUserFilesMigrationDestination[] =
+    "filebrowser.local_user_files_migration_destination";
 
 // Whether the user can remove OneDrive.
 inline constexpr char kAllowUserToRemoveODFS[] = "allow_user_to_remove_odfs";
@@ -2277,10 +2302,10 @@ inline constexpr char kCommandLineFlagSecurityWarningsEnabled[] =
     "browser.command_line_flag_security_warnings_enabled";
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
-// Pref name for the policy controlling presentation of full-tab promotional
-// and/or educational content.
-inline constexpr char kPromotionalTabsEnabled[] =
-    "browser.promotional_tabs_enabled";
+// Pref name for controlling presentation of promotions, including full-tab
+// promotional and/or educational content.
+// This preference replaces browser.promotional_tabs_enabled.
+inline constexpr char kPromotionsEnabled[] = "browser.promotions_enabled";
 
 // Boolean that specifies whether or not showing the unsupported OS warning is
 // suppressed. False by default. Controlled by the SuppressUnsupportedOSWarning
@@ -2330,23 +2355,19 @@ inline constexpr char kNtpDisabledModules[] = "NewTabPage.DisabledModules";
 inline constexpr char kNtpModulesOrder[] = "NewTabPage.ModulesOrder";
 // Whether NTP modules are visible.
 inline constexpr char kNtpModulesVisible[] = "NewTabPage.ModulesVisible";
-// Number of times user has seen an NTP module.
-inline constexpr char kNtpModulesShownCount[] = "NewTabPage.ModulesShownCount";
 // Dictionary of number of times a module has loaded.
 inline constexpr char kNtpModulesLoadedCountDict[] =
     "NewTabPage.ModulesLoadedCountDict";
 // Dictionary of number of times the user has interacted with a module.
 inline constexpr char kNtpModulesInteractedCountDict[] =
     "NewTabPage.ModulesInteractedCountDict";
-// Time modules were first shown to user.
-inline constexpr char kNtpModulesFirstShownTime[] =
-    "NewTabPage.ModulesFirstShownTime";
-// Whether Modular NTP Desktop v1 First Run Experience is visible.
-inline constexpr char kNtpModulesFreVisible[] = "NewTabPage.ModulesFreVisible";
 // List of promos that the user has dismissed while on the NTP.
 inline constexpr char kNtpPromoBlocklist[] = "ntp.promo_blocklist";
 // Whether the promo is visible.
 inline constexpr char kNtpPromoVisible[] = "ntp.promo_visible";
+// Number of times NTP wallpaper search button animation has been visible.
+inline constexpr char kNtpWallpaperSearchButtonShownCount[] =
+    "NewTabPage.WallpaperSearchButtonShownCount";
 // List of ids for past wallpaper search themes.
 inline constexpr char kNtpWallpaperSearchHistory[] =
     "ntp.wallpaper_search_history";
@@ -2691,6 +2712,10 @@ inline constexpr char kHSTSPolicyBypassList[] =
 // If false, disable post-quantum key agreement in TLS connections.
 inline constexpr char kPostQuantumKeyAgreementEnabled[] =
     "ssl.post_quantum_enabled";
+#if BUILDFLAG(IS_CHROMEOS)
+inline constexpr char kDevicePostQuantumKeyAgreementEnabled[] =
+    "ssl.device_post_quantum_enabled";
+#endif
 
 // If false, disable Encrypted ClientHello (ECH) in TLS connections.
 inline constexpr char kEncryptedClientHelloEnabled[] = "ssl.ech_enabled";
@@ -3109,6 +3134,11 @@ inline constexpr char kKioskMetrics[] = "kiosk-metrics";
 inline constexpr char kKioskTroubleshootingToolsEnabled[] =
     "kiosk_troubleshooting_tools_enabled";
 
+// Pref name for providing additional urls which can access browser permissions
+// already available to the kiosk web apps.
+inline constexpr char kKioskBrowserPermissionsAllowedForOrigins[] =
+    "policy.kiosk_browser_permissions_allowed_for_origins";
+
 // A boolean pref which determines whether a Web Kiosk can open more than one
 // browser window.
 inline constexpr char kNewWindowsInKioskAllowed[] =
@@ -3133,7 +3163,8 @@ inline constexpr char kDeviceWeeklyScheduledSuspend[] =
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_ANDROID)
 // Defines administrator-set availability of Chrome for Testing.
 inline constexpr char kChromeForTestingAllowed[] = "chrome_for_testing.allowed";
 #endif
@@ -3142,6 +3173,19 @@ inline constexpr char kChromeForTestingAllowed[] = "chrome_for_testing.allowed";
 inline constexpr char kUiAutomationProviderEnabled[] =
     "accessibility.ui_automation_provider_enabled";
 #endif
+
+// A boolean pref which determines whether the QR Code generator feature is
+// enabled. Controlled by QRCodeGeneratorEnabled policy.
+inline constexpr char kQRCodeGeneratorEnabled[] = "qr_code_generator_enabled";
+
+#if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+inline constexpr char kOsUpdateHandlerEnabled[] = "os_update_handler_enabled";
+
+// A boolean pref that determines whether Chrome shows system notifications
+// about its features.
+inline constexpr char kFeatureNotificationsEnabled[] =
+    "feature_notifications_enabled";
+#endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 // *************** SERVICE PREFS ***************
 // These are attached to the service process.
@@ -3238,6 +3282,10 @@ inline constexpr char kShelfDefaultPinLayoutRollsForTabletFormFactor[] =
 // to prevent applying the default pin twice (after the user unpins the app).
 inline constexpr char kShelfContainerAppPinRolls[] =
     "shelf_container_app_pin_layout_rolls";
+// Keeps track of whether the Mall app was pinned to shelf as a default app,
+// to prevent applying the default pin twice (after the user unpins the app).
+inline constexpr char kShelfMallAppPinRolls[] =
+    "shelf_mall_app_pin_layout_rolls";
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_WIN)
@@ -3567,6 +3615,12 @@ inline constexpr char kDynamicCodeSettings[] = "dynamic_code_settings";
 inline constexpr char kApplicationBoundEncryptionEnabled[] =
     "application_bound_encryption_enabled";
 
+// A boolean that controls whether or not the Printing LPAC Sandbox is enabled
+// or not. This is linked via a PolicyToPreferenceMapEntry to the underlying
+// policy PrintingLPACSandboxEnabled.
+inline constexpr char kPrintingLPACSandboxEnabled[] =
+    "printing_lpac_sandbox_enabled";
+
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -3754,12 +3808,6 @@ inline constexpr char kCACertificateManagementAllowed[] =
     "ca_certificate_management_allowed";
 #endif
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-inline constexpr char kEnforceLocalAnchorConstraintsEnabled[] =
-    "enforce_local_anchor_constraints_enabled";
-#endif
-
 inline constexpr char kSharingVapidKey[] = "sharing.vapid_key";
 inline constexpr char kSharingFCMRegistration[] = "sharing.fcm_registration";
 inline constexpr char kSharingLocalSharingInfo[] = "sharing.local_sharing_info";
@@ -3945,6 +3993,11 @@ inline constexpr char kFetchKeepaliveDurationOnShutdown[] =
 inline constexpr char kPdfAnnotationsEnabled[] = "pdf.enable_annotations";
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+// Boolean pref to control whether to enable Lens integration with media app
+inline constexpr char kMediaAppLensEnabled[] = "media_app.enable_lens";
+#endif
+
 // A comma-separated list of ports on which outgoing connections will be
 // permitted even if they would otherwise be blocked.
 inline constexpr char kExplicitlyAllowedNetworkPorts[] =
@@ -3968,6 +4021,9 @@ inline constexpr char kDesktopSharingHubEnabled[] =
 // Pref name for the last major version where the What's New page was
 // successfully shown.
 inline constexpr char kLastWhatsNewVersion[] = "browser.last_whats_new_version";
+// Pref name for the percent threshold to show HaTS on the What's New page.
+inline constexpr char kWhatsNewHatsActivationThreshold[] =
+    "browser.whats_new_hats_activation_threshold";
 // A boolean indicating whether the Lens Region search feature should be enabled
 // if supported.
 inline constexpr char kLensRegionSearchEnabled[] =
@@ -3976,6 +4032,15 @@ inline constexpr char kLensRegionSearchEnabled[] =
 // if supported.
 inline constexpr char kLensDesktopNTPSearchEnabled[] =
     "policy.lens_desktop_ntp_search_enabled";
+#endif
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+// A dict mapping the edition name with the major version it was shown.
+inline constexpr char kWhatsNewEditionUsed[] = "browser.whats_new.edition_used";
+// A list containing the features of each module in order of when they
+// were first enabled.
+inline constexpr char kWhatsNewFirstEnabledOrder[] =
+    "browser.whats_new.enabled_order";
 #endif
 
 // An integer indicating the number of times the Lens Overlay was started.
@@ -4188,8 +4253,9 @@ inline constexpr char kToolbarAvatarLabelSettings[] =
 // Url to an image representing the enterprise logo.
 inline constexpr char kEnterpriseLogoUrl[] = "enterprise_logo.url";
 
-// String value of the custom label of a managed profile.
-inline constexpr char kCustomProfileLabel[] = "profile.label.custom_value";
+// String value of the custom label for the entity managing the profile.
+inline constexpr char kEnterpriseCustomLabel[] =
+    "enterprise_label.custom_value";
 
 // IntegerValue of the custom label preset of a managed profile.
 inline constexpr char kProfileLabelPreset[] = "profile.label.preset";

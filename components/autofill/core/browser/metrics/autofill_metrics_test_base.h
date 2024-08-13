@@ -14,6 +14,7 @@
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/browser_autofill_manager_test_api.h"
 #include "components/autofill/core/browser/payments/test_credit_card_save_manager.h"
+#include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_driver.h"
 #include "components/autofill/core/browser/test_browser_autofill_manager.h"
@@ -28,7 +29,6 @@ constexpr char kTestProfileId[] = "00000000-0000-0000-0000-000000000001";
 constexpr char kTestProfile2Id[] = "00000000-0000-0000-0000-000000000002";
 constexpr char kTestLocalCardId[] = "10000000-0000-0000-0000-000000000001";
 constexpr char kTestMaskedCardId[] = "10000000-0000-0000-0000-000000000002";
-constexpr char kTestFullServerCardId[] = "10000000-0000-0000-0000-000000000003";
 // These variables store the GUIDs of a Local and a masked Server card which
 // have the same card attributes, i.e., are duplicates of each other.
 constexpr char kTestDuplicateLocalCardId[] =
@@ -69,14 +69,12 @@ class AutofillMetricsBaseTest {
   // something.
   void RecreateCreditCards(bool include_local_credit_card,
                            bool include_masked_server_credit_card,
-                           bool include_full_server_credit_card,
                            bool masked_card_is_enrolled_for_virtual_card);
 
-  // Creates a local, masked server, full server, and/or virtual credit card,
-  // according to the parameters.
+  // Creates a local, masked server, and/or virtual credit card, according to
+  // the parameters.
   void CreateCreditCards(bool include_local_credit_card,
                          bool include_masked_server_credit_card,
-                         bool include_full_server_credit_card,
                          bool masked_card_is_enrolled_for_virtual_card);
 
   // Creates a local card and then a duplicate server card with the same
@@ -94,9 +92,10 @@ class AutofillMetricsBaseTest {
   void SetFidoEligibility(bool is_verifiable);
 
   // Mocks a RPC response from Payments.
-  void OnDidGetRealPan(AutofillClient::PaymentsRpcResult result,
-                       const std::string& real_pan,
-                       bool is_virtual_card = false);
+  void OnDidGetRealPan(
+      payments::PaymentsAutofillClient::PaymentsRpcResult result,
+      const std::string& real_pan,
+      bool is_virtual_card = false);
 
   // Mocks a RPC response from Payments, but where a non-HTTP_OK response
   // stopped it from parsing a valid response.
@@ -189,7 +188,7 @@ class AutofillMetricsBaseTest {
       SuggestionType suggestion_type = SuggestionType::kAddressEntry) {
     autofill_manager().DidShowSuggestions(
         std::vector<SuggestionType>({suggestion_type}), form,
-        form.fields[field_index]);
+        form.fields()[field_index]);
   }
 
   void FillTestProfile(const FormData& form) {
@@ -199,14 +198,14 @@ class AutofillMetricsBaseTest {
   void FillProfileByGUID(const FormData& form,
                          const std::string& profile_guid) {
     autofill_manager().FillOrPreviewProfileForm(
-        mojom::ActionPersistence::kFill, form, form.fields.front(),
+        mojom::ActionPersistence::kFill, form, form.fields().front(),
         *personal_data().address_data_manager().GetProfileByGUID(profile_guid),
         {.trigger_source = AutofillTriggerSource::kPopup});
   }
 
   void UndoAutofill(const FormData& form) {
     autofill_manager().UndoAutofill(mojom::ActionPersistence::kFill, form,
-                                    form.fields.front());
+                                    form.fields().front());
   }
 
   [[nodiscard]] FormData CreateEmptyForm() {
@@ -223,7 +222,7 @@ class AutofillMetricsBaseTest {
 
   [[nodiscard]] FormData CreateForm(std::vector<FormFieldData> fields) {
     FormData form = CreateEmptyForm();
-    form.fields = std::move(fields);
+    form.set_fields(std::move(fields));
     return form;
   }
 

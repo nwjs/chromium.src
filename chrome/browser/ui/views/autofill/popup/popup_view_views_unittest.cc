@@ -83,7 +83,7 @@ using CellType = PopupRowView::CellType;
 const std::vector<SuggestionType> kClickableSuggestionTypes{
     SuggestionType::kAutocompleteEntry,
     SuggestionType::kPasswordEntry,
-    SuggestionType::kClearForm,
+    SuggestionType::kUndoOrClear,
     SuggestionType::kManageAddress,
     SuggestionType::kManageCreditCard,
     SuggestionType::kManageIban,
@@ -334,6 +334,26 @@ TEST_F(PopupViewViewsTest, ShowHideTest) {
   view().Hide();
 }
 
+TEST_F(PopupViewViewsTest, ExpandedCollapsedAccessiblityStateTest) {
+  CreateAndShowView({SuggestionType::kAutocompleteEntry});
+  ui::AXNodeData node_data;
+  view().GetViewAccessibility().GetAccessibleNodeData(&node_data);
+  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kExpanded));
+  EXPECT_FALSE(node_data.HasState(ax::mojom::State::kCollapsed));
+
+  view().Hide();
+  node_data = ui::AXNodeData();
+  view().GetViewAccessibility().GetAccessibleNodeData(&node_data);
+  EXPECT_FALSE(node_data.HasState(ax::mojom::State::kExpanded));
+  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kCollapsed));
+
+  CreateAndShowView({SuggestionType::kAutocompleteEntry});
+  node_data = ui::AXNodeData();
+  view().GetViewAccessibility().GetAccessibleNodeData(&node_data);
+  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kExpanded));
+  EXPECT_FALSE(node_data.HasState(ax::mojom::State::kCollapsed));
+}
+
 TEST_F(PopupViewViewsTest, CanShowDropdownInBounds) {
   CreateAndShowView({SuggestionType::kAutocompleteEntry,
                      SuggestionType::kSeparator,
@@ -372,7 +392,7 @@ TEST_F(PopupViewViewsTest, CanShowDropdownInBounds) {
 // This is a regression test for crbug.com/1113255.
 TEST_F(PopupViewViewsTest, ShowViewWithOnlyFooterItemsShouldNotCrash) {
   // Set suggestions to have only a footer item.
-  std::vector<SuggestionType> suggestion_ids = {SuggestionType::kClearForm};
+  std::vector<SuggestionType> suggestion_ids = {SuggestionType::kUndoOrClear};
   controller().set_suggestions(suggestion_ids);
   CreateAndShowView();
 }
@@ -502,9 +522,10 @@ TEST_F(PopupViewViewsTest, ClickDisabledEntry) {
   EXPECT_CALL(controller(), AcceptSuggestion).Times(0);
 
   gfx::Point inside_point(GetRowViewAt(0).x() + 1, GetRowViewAt(0).y() + 1);
-  ui::MouseEvent click_mouse_event(
-      ui::ET_MOUSE_PRESSED, inside_point, inside_point, ui::EventTimeForNow(),
-      ui::EF_RIGHT_MOUSE_BUTTON, ui::EF_RIGHT_MOUSE_BUTTON);
+  ui::MouseEvent click_mouse_event(ui::EventType::kMousePressed, inside_point,
+                                   inside_point, ui::EventTimeForNow(),
+                                   ui::EF_RIGHT_MOUSE_BUTTON,
+                                   ui::EF_RIGHT_MOUSE_BUTTON);
   widget().OnMouseEvent(&click_mouse_event);
 }
 
@@ -1218,8 +1239,9 @@ TEST_F(PopupViewViewsDeathTest, OpenSubPopupWithNoChildrenCheckCrash) {
 #endif
 
 TEST_F(PopupViewViewsTest, SubPopupHidingOnNoSelection) {
-  ui::MouseEvent fake_event(ui::ET_MOUSE_MOVED, gfx::Point(), gfx::Point(),
-                            ui::EventTimeForNow(), ui::EF_IS_SYNTHESIZED, 0);
+  ui::MouseEvent fake_event(ui::EventType::kMouseMoved, gfx::Point(),
+                            gfx::Point(), ui::EventTimeForNow(),
+                            ui::EF_IS_SYNTHESIZED, 0);
   controller().set_suggestions({
       CreateSuggestionWithChildren({Suggestion(u"Child #1")}),
       Suggestion(u"Suggestion #2"),
@@ -1271,9 +1293,9 @@ TEST_F(PopupViewViewsTest, SubPopupHidingIsCanceledOnSelection) {
   view().SetSelectedCell(std::nullopt, PopupCellSelectionSource::kNonUserInput);
 
   // This triggers the no-selection hiding timer.
-  sub_view->OnMouseExited(ui::MouseEvent(ui::ET_MOUSE_MOVED, gfx::Point(),
-                                         gfx::Point(), ui::EventTimeForNow(),
-                                         ui::EF_IS_SYNTHESIZED, 0));
+  sub_view->OnMouseExited(
+      ui::MouseEvent(ui::EventType::kMouseMoved, gfx::Point(), gfx::Point(),
+                     ui::EventTimeForNow(), ui::EF_IS_SYNTHESIZED, 0));
 
   // A cell is selected - the timer should be canceled.
   view().SetSelectedCell(cell, PopupCellSelectionSource::kNonUserInput);
@@ -1300,8 +1322,9 @@ TEST_F(PopupViewViewsTest, SubPopupHidingIsCanceledOnParentHiding) {
 }
 
 TEST_F(PopupViewViewsTest, SubPopupOwnSelectionPreventsHiding) {
-  ui::MouseEvent fake_event(ui::ET_MOUSE_MOVED, gfx::Point(), gfx::Point(),
-                            ui::EventTimeForNow(), ui::EF_IS_SYNTHESIZED, 0);
+  ui::MouseEvent fake_event(ui::EventType::kMouseMoved, gfx::Point(),
+                            gfx::Point(), ui::EventTimeForNow(),
+                            ui::EF_IS_SYNTHESIZED, 0);
   controller().set_suggestions({
       CreateSuggestionWithChildren({Suggestion(u"Child #1")}),
       Suggestion(u"Suggestion #2"),

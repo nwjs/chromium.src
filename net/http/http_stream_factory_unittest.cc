@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
@@ -85,6 +86,7 @@
 #include "net/test/gtest_util.h"
 #include "net/test/test_data_directory.h"
 #include "net/test/test_with_task_environment.h"
+#include "net/third_party/quiche/src/quiche/common/http/http_header_block.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_server_id.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_utils.h"
 #include "net/third_party/quiche/src/quiche/quic/test_tools/crypto_test_utils.h"
@@ -95,8 +97,6 @@
 // This file can be included from net/http even though
 // it is in net/websockets because it doesn't
 // introduce any link dependency to net/websockets.
-#include <optional>
-
 #include "net/websockets/websocket_handshake_stream_base.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -518,6 +518,8 @@ TEST_F(HttpStreamFactoryTest, PreconnectDirect) {
   for (const auto& test : kTests) {
     SpdySessionDependencies session_deps(
         ConfiguredProxyResolutionService::CreateDirect());
+    session_deps.http_user_agent_settings =
+        std::make_unique<StaticHttpUserAgentSettings>("*", "test-ua");
     std::unique_ptr<HttpNetworkSession> session(
         SpdySessionDependencies::SpdyCreateSession(&session_deps));
     HttpNetworkSessionPeer peer(session.get());
@@ -544,6 +546,8 @@ TEST_F(HttpStreamFactoryTest, PreconnectHttpProxy) {
     SpdySessionDependencies session_deps(
         ConfiguredProxyResolutionService::CreateFixedForTest(
             "http_proxy", TRAFFIC_ANNOTATION_FOR_TESTS));
+    session_deps.http_user_agent_settings =
+        std::make_unique<StaticHttpUserAgentSettings>("*", "test-ua");
     std::unique_ptr<HttpNetworkSession> session(
         SpdySessionDependencies::SpdyCreateSession(&session_deps));
     HttpNetworkSessionPeer peer(session.get());
@@ -570,6 +574,8 @@ TEST_F(HttpStreamFactoryTest, PreconnectSocksProxy) {
     SpdySessionDependencies session_deps(
         ConfiguredProxyResolutionService::CreateFixedForTest(
             "socks4://socks_proxy:1080", TRAFFIC_ANNOTATION_FOR_TESTS));
+    session_deps.http_user_agent_settings =
+        std::make_unique<StaticHttpUserAgentSettings>("*", "test-ua");
     std::unique_ptr<HttpNetworkSession> session(
         SpdySessionDependencies::SpdyCreateSession(&session_deps));
     HttpNetworkSessionPeer peer(session.get());
@@ -594,6 +600,8 @@ TEST_F(HttpStreamFactoryTest, PreconnectDirectWithExistingSpdySession) {
   for (const auto& test : kTests) {
     SpdySessionDependencies session_deps(
         ConfiguredProxyResolutionService::CreateDirect());
+    session_deps.http_user_agent_settings =
+        std::make_unique<StaticHttpUserAgentSettings>("*", "test-ua");
     std::unique_ptr<HttpNetworkSession> session(
         SpdySessionDependencies::SpdyCreateSession(&session_deps));
     HttpNetworkSessionPeer peer(session.get());
@@ -709,8 +717,8 @@ TEST_F(HttpStreamFactoryTest, PreconnectNetworkIsolationKey) {
   peer.SetClientSocketPoolManager(std::move(mock_pool_manager));
 
   const GURL kURL("http://foo.test/");
-  SchemefulSite kSiteFoo(GURL("http://foo.test"));
-  SchemefulSite kSiteBar(GURL("http://bar.test"));
+  const SchemefulSite kSiteFoo(GURL("http://foo.test"));
+  const SchemefulSite kSiteBar(GURL("http://bar.test"));
   const auto kKey1 = NetworkAnonymizationKey::CreateSameSite(kSiteFoo);
   const auto kKey2 = NetworkAnonymizationKey::CreateSameSite(kSiteBar);
   PreconnectHelperForURL(1, kURL, kKey1, SecureDnsPolicy::kAllow,
@@ -747,8 +755,8 @@ TEST_F(HttpStreamFactoryTest, PreconnectDisableSecureDns) {
   peer.SetClientSocketPoolManager(std::move(mock_pool_manager));
 
   const GURL kURL("http://foo.test/");
-  SchemefulSite kSiteFoo(GURL("http://foo.test"));
-  SchemefulSite kSiteBar(GURL("http://bar.test"));
+  const SchemefulSite kSiteFoo(GURL("http://foo.test"));
+  const SchemefulSite kSiteBar(GURL("http://bar.test"));
   PreconnectHelperForURL(1, kURL, NetworkAnonymizationKey(),
                          SecureDnsPolicy::kAllow, session.get());
   EXPECT_EQ(1, transport_conn_pool->last_num_streams());
@@ -907,6 +915,8 @@ TEST_F(HttpStreamFactoryTest, QuicProxyMarkedAsBad) {
     TransportSecurityState transport_security_state;
     session_context.transport_security_state = &transport_security_state;
     QuicContext quic_context;
+    StaticHttpUserAgentSettings http_user_agent_settings("*", "test-ua");
+    session_context.http_user_agent_settings = &http_user_agent_settings;
     session_context.proxy_resolution_service = proxy_resolution_service.get();
     session_context.ssl_config_service = &ssl_config_service;
     session_context.http_server_properties = &http_server_properties;
@@ -964,25 +974,25 @@ class TestBidirectionalDelegate : public BidirectionalStreamImpl::Delegate {
  public:
   void WaitUntilDone() { loop_.Run(); }
 
-  const spdy::Http2HeaderBlock& response_headers() const {
+  const quiche::HttpHeaderBlock& response_headers() const {
     return response_headers_;
   }
 
  private:
   void OnStreamReady(bool request_headers_sent) override {}
   void OnHeadersReceived(
-      const spdy::Http2HeaderBlock& response_headers) override {
+      const quiche::HttpHeaderBlock& response_headers) override {
     response_headers_ = response_headers.Clone();
     loop_.Quit();
   }
   void OnDataRead(int bytes_read) override { NOTREACHED_IN_MIGRATION(); }
   void OnDataSent() override { NOTREACHED_IN_MIGRATION(); }
-  void OnTrailersReceived(const spdy::Http2HeaderBlock& trailers) override {
+  void OnTrailersReceived(const quiche::HttpHeaderBlock& trailers) override {
     NOTREACHED_IN_MIGRATION();
   }
   void OnFailed(int error) override { NOTREACHED_IN_MIGRATION(); }
   base::RunLoop loop_;
-  spdy::Http2HeaderBlock response_headers_;
+  quiche::HttpHeaderBlock response_headers_;
 };
 
 }  // namespace
@@ -2004,8 +2014,9 @@ class HttpStreamFactoryQuicTest
       uint64_t packet_num_received,
       uint64_t smallest_received,
       uint64_t largest_received) {
-    return packet_maker.MakeAckPacket(packet_number, packet_num_received,
-                                      smallest_received, largest_received);
+    return packet_maker.Packet(packet_number)
+        .AddAckFrame(packet_num_received, smallest_received, largest_received)
+        .Build();
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructConnectUdpRequestPacket(
@@ -2015,7 +2026,7 @@ class HttpStreamFactoryQuicTest
       std::string authority,
       std::string path,
       bool fin) {
-    spdy::Http2HeaderBlock headers;
+    quiche::HttpHeaderBlock headers;
     headers[":scheme"] = "https";
     headers[":path"] = path;
     headers[":protocol"] = "connect-udp";
@@ -2037,7 +2048,7 @@ class HttpStreamFactoryQuicTest
       uint64_t packet_number,
       quic::QuicStreamId stream_id,
       bool fin) {
-    spdy::Http2HeaderBlock headers = packet_maker.GetResponseHeaders("200");
+    quiche::HttpHeaderBlock headers = packet_maker.GetResponseHeaders("200");
     size_t spdy_headers_frame_len;
     return packet_maker.MakeResponseHeadersPacket(packet_number, stream_id, fin,
                                                   std::move(headers),
@@ -2071,7 +2082,7 @@ class HttpStreamFactoryQuicTest
       uint64_t quarter_stream_id,
       uint64_t context_id,
       std::vector<std::unique_ptr<quic::QuicEncryptedPacket>> packets) {
-    std::vector<std::string> datagrams;
+    auto& builder = packet_maker.Packet(packet_number);
     for (auto& packet : packets) {
       std::string data;
       // Allow enough space for payload and two varint-62's.
@@ -2081,9 +2092,9 @@ class HttpStreamFactoryQuicTest
       CHECK(writer.WriteVarInt62(context_id));
       CHECK(writer.WriteBytes(packet->data(), packet->length()));
       data.resize(writer.length());
-      datagrams.push_back(std::move(data));
+      builder.AddMessageFrame(data);
     }
-    return packet_maker.MakeDatagramPacket(packet_number, datagrams);
+    return builder.Build();
   }
 
   // Make a `QuicTestPacketMaker` for the current test with the given
@@ -3852,6 +3863,7 @@ class ProcessAlternativeServicesTest : public TestWithTaskEnvironment {
     session_context_.transport_security_state = &transport_security_state_;
     session_context_.client_socket_factory = &socket_factory_;
     session_context_.ssl_config_service = &ssl_config_service_;
+    session_context_.http_user_agent_settings = &http_user_agent_settings_;
     session_context_.http_server_properties = &http_server_properties_;
     session_context_.quic_context = &quic_context_;
   }
@@ -3862,6 +3874,7 @@ class ProcessAlternativeServicesTest : public TestWithTaskEnvironment {
   std::unique_ptr<ProxyResolutionService> proxy_resolution_service_ =
       ConfiguredProxyResolutionService::CreateDirect();
   SSLConfigServiceDefaults ssl_config_service_;
+  StaticHttpUserAgentSettings http_user_agent_settings_ = {"*", "test-ua"};
   MockClientSocketFactory socket_factory_;
   MockHostResolver host_resolver_;
   MockCertVerifier cert_verifier_;

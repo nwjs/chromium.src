@@ -356,13 +356,10 @@
       self.contentSuggestionsMetricsRecorder;
   self.contentSuggestionsMediator.magicStackRankingModel =
       _magicStackRankingModel;
-  if (IsIOSMagicStackCollectionViewEnabled()) {
-    _magicStackRankingModel.delegate = self.contentSuggestionsMediator;
-  }
+  _magicStackRankingModel.delegate = self.contentSuggestionsMediator;
   _magicStackRankingModel.homeStartDataSource = self.homeStartDataSource;
 
-  if (!IsIOSMagicStackCollectionViewEnabled() ||
-      !ShouldPutMostVisitedSitesInMagicStack()) {
+  if (!ShouldPutMostVisitedSitesInMagicStack()) {
     ContentSuggestionsViewController* viewController =
         [[ContentSuggestionsViewController alloc] init];
     viewController.audience = self;
@@ -370,31 +367,15 @@
         UrlLoadingBrowserAgent::FromBrowser(self.browser);
     viewController.contentSuggestionsMetricsRecorder =
         self.contentSuggestionsMetricsRecorder;
-    viewController.layoutGuideCenter =
-        LayoutGuideCenterForBrowser(self.browser);
-    viewController.parcelTrackingCommandHandler = HandlerForProtocol(
-        self.browser->GetCommandDispatcher(), ParcelTrackingOptInCommands);
     self.contentSuggestionsViewController = viewController;
   }
 
-  if (IsIOSMagicStackCollectionViewEnabled()) {
-    _magicStackCollectionView =
-        [[MagicStackCollectionViewController alloc] init];
-    _magicStackCollectionView.audience = self;
-  }
-
-  if (_magicStackRankingModel) {
-    _magicStackRankingModel.consumer = self.contentSuggestionsViewController;
-  }
-  _shortcutsMediator.consumer = self.contentSuggestionsViewController;
-  _safetyCheckMediator.consumer = self.contentSuggestionsViewController;
+  _magicStackCollectionView = [[MagicStackCollectionViewController alloc] init];
+  _magicStackCollectionView.audience = self;
   _mostVisitedTilesMediator.consumer = self.contentSuggestionsViewController;
-  _setUpListMediator.consumer = self.contentSuggestionsViewController;
 
-  if (IsIOSMagicStackCollectionViewEnabled()) {
-    self.contentSuggestionsMediator.magicStackConsumer =
-        _magicStackCollectionView;
-  }
+  self.contentSuggestionsMediator.magicStackConsumer =
+      _magicStackCollectionView;
   self.contentSuggestionsMediator.consumer =
       self.contentSuggestionsViewController;
   [self.browser->GetCommandDispatcher()
@@ -449,6 +430,9 @@
 - (void)refresh {
   // Refresh in case there are new MVT to show.
   [_mostVisitedTilesMediator refreshMostVisitedTiles];
+  [_safetyCheckMediator reset];
+  [_parcelTrackingMediator reset];
+  [_magicStackRankingModel fetchLatestMagicStackRanking];
 }
 
 #pragma mark - ContentSuggestionsCommands
@@ -472,9 +456,10 @@
     UISheetPresentationControllerDetent.largeDetent
   ];
   presentationController.preferredCornerRadius = 16;
-  [self.viewController presentViewController:_setUpListShowMoreViewController
-                                    animated:YES
-                                  completion:nil];
+  [_magicStackCollectionView
+      presentViewController:_setUpListShowMoreViewController
+                   animated:YES
+                 completion:nil];
 }
 
 #pragma mark - ContentSuggestionsViewControllerAudience
@@ -510,9 +495,9 @@
     UISheetPresentationControllerDetent.mediumDetent,
     UISheetPresentationControllerDetent.largeDetent
   ];
-  [self.viewController presentViewController:navViewController
-                                    animated:YES
-                                  completion:nil];
+  [_magicStackCollectionView presentViewController:navViewController
+                                          animated:YES
+                                        completion:nil];
 }
 
 - (void)showMagicStackParcelList {
@@ -533,9 +518,9 @@
     UISheetPresentationControllerDetent.mediumDetent,
     UISheetPresentationControllerDetent.largeDetent
   ];
-  [self.viewController presentViewController:navViewController
-                                    animated:YES
-                                  completion:nil];
+  [_magicStackCollectionView presentViewController:navViewController
+                                          animated:YES
+                                        completion:nil];
 }
 
 - (void)didTapSetUpListItemView:(SetUpListItemView*)view {
@@ -641,6 +626,10 @@
                                [weakSettingsHandler showNotificationsSettings];
                              }
                           completionAction:nil];
+}
+
+- (void)customizeCardsWasTapped {
+  [self didTapMagicStackEditButton];
 }
 
 #pragma mark - MagicStackHalfSheetTableViewControllerDelegate

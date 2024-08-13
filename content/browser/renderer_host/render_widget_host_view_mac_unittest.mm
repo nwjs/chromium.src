@@ -480,7 +480,7 @@ class MockRenderWidgetHostImpl : public RenderWidgetHostImpl {
     return input_handler()->GetAndResetDispatchedMessages();
   }
 
-  RenderInputRouter* GetRenderInputRouter() override {
+  input::RenderInputRouter* GetRenderInputRouter() override {
     return render_input_router_.get();
   }
 
@@ -1002,24 +1002,6 @@ TEST_F(RenderWidgetHostViewMacTest, LastWheelEventLatencyInfoExists) {
 
   events = host_->GetAndResetDispatchedMessages();
   EXPECT_EQ("GestureScrollBegin GestureScrollUpdate", GetMessageNames(events));
-}
-
-TEST_F(RenderWidgetHostViewMacTest, SourceEventTypeExistsInLatencyInfo) {
-  process_host_->sink().ClearMessages();
-
-  // Send a wheel event for scrolling by 3 lines.
-  // Verifies that SourceEventType exists in forwarded LatencyInfo object.
-  NSEvent* wheelEvent = MockScrollWheelEventWithPhase(@selector(phaseBegan), 3);
-  [rwhv_mac_->GetInProcessNSView() scrollWheel:wheelEvent];
-
-  MockWidgetInputHandler::MessageVector events =
-      host_->GetAndResetDispatchedMessages();
-  EXPECT_EQ("MouseWheel", GetMessageNames(events));
-  events[0]->ToEvent()->CallCallback(
-      blink::mojom::InputEventResultState::kConsumed);
-
-  ASSERT_TRUE(host_->LastWheelEventLatencyInfo().source_event_type() ==
-              ui::SourceEventType::WHEEL);
 }
 
 TEST_F(RenderWidgetHostViewMacTest, ScrollWheelEndEventDelivery) {

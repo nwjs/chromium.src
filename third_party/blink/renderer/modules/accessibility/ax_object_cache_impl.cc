@@ -66,9 +66,7 @@
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_label_element.h"
-#include "third_party/blink/renderer/core/html/forms/html_opt_group_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
-#include "third_party/blink/renderer/core/html/forms/html_options_collection.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/html_area_element.h"
@@ -211,26 +209,6 @@ bool HasAriaCellRole(Element* elem) {
 
   return ui::IsCellOrTableHeader(
       AXObject::FirstValidRoleInRoleString(role_str));
-}
-
-// Can role="presentation" aka "none" propagate to descendants of this node?
-// Example: it propagates from table->tbody->tr->td, making them all ignored.
-bool RolePresentationPropagates(Node* node) {
-  // Check for list markup.
-  if (IsA<HTMLMenuElement>(node) || IsA<HTMLUListElement>(node) ||
-      IsA<HTMLOListElement>(node)) {
-    return true;
-  }
-
-  // Check for <table>.
-  if (IsA<HTMLTableElement>(node))
-    return true;  // table section, table row, table cells,
-
-  // Check for display: table CSS.
-  if (node->GetLayoutObject() && node->GetLayoutObject()->IsTable())
-    return true;
-
-  return false;
 }
 
 // Return true if whitespace is not necessary to keep adjacent_node separate
@@ -564,6 +542,14 @@ bool IsSubtreePrunedForAccessibility(const Element* node) {
   if (IsA<HTMLTitleElement>(node))
     return true;
 
+  // ::scroll-marker pseudo elements are attached to the
+  // ::scroll-marker-group's layout object, so don't create them
+  // here, instead they will be created as part of the
+  // AXNodeObject::AddPseudoElementChildrenFromLayoutTree.
+  if (node->IsScrollMarkerPseudoElement()) {
+    return true;
+  }
+
   return false;
 }
 
@@ -814,6 +800,12 @@ AXObjectCache* AXObjectCacheImpl::Create(Document& document,
 AXObjectCacheImpl::AXObjectCacheImpl(Document& document,
                                      const ui::AXMode& ax_mode)
     : document_(document),
+#if DCHECK_IS_ON()
+      // TODO(accessibility): turn on the UI checker for devtools.
+      internal_ui_checker_on_(GetDocument().Url().Protocol() == "chrome"),
+#else
+      internal_ui_checker_on_(false),
+#endif
       ax_mode_(ax_mode),
       validation_message_axid_(0),
       active_aria_modal_dialog_(nullptr),
@@ -887,7 +879,7 @@ AXObject* AXObjectCacheImpl::Root() {
     return root;
   }
 
-  ProcessDeferredAccessibilityEvents(GetDocument(), /*force*/ true);
+  CommitAXUpdates(GetDocument(), /*force*/ true);
   return Get(document_);
 }
 
@@ -946,7 +938,7 @@ void AXObjectCacheImpl::UpdateAXForAllDocuments() {
   // Next flush all accessibility events and dirty objects, for both the main
   // and popup document, and update tree if needed.
   if (IsDirty() || HasObjectsPendingSerialization()) {
-    ProcessDeferredAccessibilityEvents(GetDocument(), /*force*/ true);
+    CommitAXUpdates(GetDocument(), /*force*/ true);
   }
 }
 
@@ -1205,15 +1197,15 @@ bool AXObjectCacheImpl::IsRelevantPseudoElement(const Node& node) {
   if (!node.GetLayoutObject())
     return false;
 
-  // ::before, ::after, ::marker and ::scroll-marker-group are relevant.
-  // Allowing these pseudo elements ensures that all visible descendant
-  // pseudo content will be reached, despite only being able to walk layout
-  // inside of pseudo content.
-  // However, AXObjects aren't created for ::first-letter subtrees. The text
-  // of ::first-letter is already available in the child text node of the
-  // element that the CSS ::first letter applied to.
+  // ::before, ::after, ::marker, ::scroll-marker and ::scroll-marker-group are
+  // relevant. Allowing these pseudo elements ensures that all visible
+  // descendant pseudo content will be reached, despite only being able to walk
+  // layout inside of pseudo content. However, AXObjects aren't created for
+  // ::first-letter subtrees. The text of ::first-letter is already available in
+  // the child text node of the element that the CSS ::first letter applied to.
   if (node.IsMarkerPseudoElement() || node.IsBeforePseudoElement() ||
-      node.IsAfterPseudoElement() || node.IsScrollMarkerGroupPseudoElement()) {
+      node.IsAfterPseudoElement() || node.IsScrollMarkerGroupPseudoElement() ||
+      node.IsScrollMarkerPseudoElement()) {
     // Ignore non-inline whitespace content, which is used by many pages as
     // a "Micro Clearfix Hack" to clear floats without extra HTML tags. See
     // http://nicolasgallagher.com/micro-clearfix-hack/
@@ -2806,7 +2798,6 @@ void AXObjectCacheImpl::ChildrenChangedWithCleanLayout(Node* optional_node,
 }
 
 void AXObjectCacheImpl::FinalizeTree() {
-  lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kFinalizingTree);
   if (Root()->HasDirtyDescendants()) {
     HeapDeque<Member<AXObject>> objects_to_process;
     objects_to_process.push_back(Root());
@@ -3031,21 +3022,7 @@ int AXObjectCacheImpl::GetLocationSerializationDelay() {
   return kDelayForLocationUpdatesNonFocused;
 }
 
-bool AXObjectCacheImpl::IsReadyToProcessDeferredEvents() {
-  // Special case for open <select> with incomplete <option> bounds:
-  // When there are too many options, layout does not build them all at once. Do
-  // not process until there is an option bound for each option.
-  if (current_menu_list_axid_) {
-    if (AXObject* ax_select = ObjectFromAXID(current_menu_list_axid_)) {
-      HTMLSelectElement* select = To<HTMLSelectElement>(ax_select->GetNode());
-      return select->options()->length() == options_bounds_.size();
-    }
-  }
-  return true;
-}
-
-void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document,
-                                                           bool force) {
+void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
   if (IsPopup(document)) {
     // Only process popup document together with main document.
     DCHECK_EQ(&document, GetPopupDocumentIfShowing());
@@ -3127,16 +3104,16 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document,
 
   weak_factory_for_serialization_pipeline_.Invalidate();
 
-  if (!IsReadyToProcessDeferredEvents()) {
-    return;
-  }
-
   if (GetPopupDocumentIfShowing()) {
     UpdateLifecycleIfNeeded(*GetPopupDocumentIfShowing());
     CheckStyleIsComplete(*GetPopupDocumentIfShowing());
   }
 
   lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kProcessDeferredUpdates);
+
+  SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
+      "Accessibility.Performance.TotalAccessibilityCleanLayoutLifecycleStages");
+  TRACE_EVENT0("accessibility", "TotalAccessibilityCleanLayoutLifecycleStages");
 
   // Upon exiting this function, listen for tree updates again.
   absl::Cleanup lifecycle_returns_to_queueing_updates = [this] {
@@ -3148,10 +3125,9 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document,
   // ------------ Process deferred events and update tree  --------------------
   {
     {
-      // Start traces after early returns, including all all significant work.
       SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
-          "Accessibility.Performance.ProcessDeferredAccessibilityEvents2");
-      TRACE_EVENT0("accessibility", "ProcessDeferredAccessibilityEvents2");
+          "Accessibility.Performance.ProcessDeferredUpdatesLifecycleStage");
+      TRACE_EVENT0("accessibility", "ProcessDeferredUpdatesLifecycleStage");
 
       // If this is the first update, ensure that both an initial tree exists
       // and that the relation cache is initialized. Any existing content with
@@ -3171,9 +3147,9 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document,
 
       if (IsDirty()) {
         if (GetPopupDocumentIfShowing()) {
-          ProcessDeferredAccessibilityEventsImpl(*GetPopupDocumentIfShowing());
+          CommitAXUpdatesImpl(*GetPopupDocumentIfShowing());
         }
-        ProcessDeferredAccessibilityEventsImpl(document);
+        CommitAXUpdatesImpl(document);
       }
     }
 
@@ -3188,10 +3164,6 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document,
     tree_update_callback_queue_popup_.clear();
 
     {
-      SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
-          "Accessibility.Performance.UpdateTreeIfNeeded");
-      TRACE_EVENT0("accessibility", "UpdateTreeIfNeeded");
-
 #if defined(REDUCE_AX_INLINE_TEXTBOXES)
       // On Android, the inline textboxes of focused editable subtrees are
       // always loaded, but only if inline text boxes are enabled.
@@ -3221,18 +3193,30 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document,
       CHECK(nodes_with_pending_children_changed_.empty());
       CHECK(nodes_with_pending_scroll_changed_.empty());
 
-      // Build out tree, such that each node has computed its children.
-      FinalizeTree();
+      {
+        lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kFinalizingTree);
+        SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
+            "Accessibility.Performance.FinalizingTreeLifecycleStage");
+        TRACE_EVENT0("accessibility", "FinalizingTreeLifecycleStage");
 
-      CHECK(tree_update_callback_queue_main_.empty());
-      CHECK(tree_update_callback_queue_popup_.empty());
-      CHECK(nodes_with_pending_children_changed_.empty());
-      CHECK(nodes_with_pending_scroll_changed_.empty());
+        // Build out tree, such that each node has computed its children.
+        FinalizeTree();
 
-      // Updating the tree did not add dirty objects.
-      DUMP_WILL_BE_CHECK(!IsDirty());
+        CHECK(tree_update_callback_queue_main_.empty());
+        CHECK(tree_update_callback_queue_popup_.empty());
+        CHECK(nodes_with_pending_children_changed_.empty());
+        CHECK(nodes_with_pending_scroll_changed_.empty());
+
+        // Updating the tree did not add dirty objects.
+        DUMP_WILL_BE_CHECK(!IsDirty());
+      }
     }
   }
+
+  lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kSerialize);
+  SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
+      "Accessibility.Performance.SerializeLifecycleStage");
+  TRACE_EVENT0("accessibility", "SerializeLifecycleStage");
 
   // Check whether serializations are needed, or whether we are just here to
   // update as part of a tree snapshot.
@@ -3247,8 +3231,6 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document,
     // will be called again.
     return;
   }
-
-  lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kSerialize);
 
   // ------------------------ Freeze and serialize ---------------------------
   {
@@ -3383,8 +3365,7 @@ bool AXObjectCacheImpl::SerializeUpdatesAndEvents() {
   return success;
 }
 
-void AXObjectCacheImpl::ProcessDeferredAccessibilityEventsImpl(
-    Document& document) {
+void AXObjectCacheImpl::CommitAXUpdatesImpl(Document& document) {
   // Call the queued callback methods that do processing which must occur when
   // layout is clean. These callbacks are stored in
   // tree_update_callback_queue_, and have names like
@@ -3427,7 +3408,7 @@ bool AXObjectCacheImpl::IsDirty() {
     return true;
   }
   // If tree updates are paused, consider the cache dirty. The next time
-  // ProcessDeferredAccessibilityEvents() is called, the entire tree will be
+  // CommitAXUpdates() is called, the entire tree will be
   // rebuilt from the root.
   if (tree_updates_paused_) {
     return true;
@@ -4146,19 +4127,11 @@ void AXObjectCacheImpl::HandleRoleChangeWithCleanLayout(Node* node) {
     ChildrenChangedOnAncestorOf(obj);
 
     if (!obj->IsDetached()) {
-      // When the role of `obj` is changed, its AXObject needs to be destroyed
-      // and a new one needs to be created in its place.
-      if (RolePresentationPropagates(node) || IsA<HTMLSelectElement>(node)) {
-        // If role changes on a table, menu, or list invalidate the subtree of
-        // objects that may require a specific parent role in order to keep
-        // their role. For example, rows and cells require a table ancestor, and
-        // list items require a parent list (must be direct DOM parent).
-        RemoveSubtree(node, /* remove_root */ true,
-                      /* notify_parent */ false);
-      } else {
-        // The children of this thing need to detach from parent.
-        Remove(obj, /* notify_parent */ false);
-      }
+      // Remove and rebuild the subtree, because some descendant computations
+      // rely on the role of ancestors.
+      // Examples, whether rows return true from SupportsNameFromContents(),
+      // propagation of role="none", some table descendant roles.
+      RemoveSubtree(node, /* remove_root */ true, /* notify_parent */ false);
     }
 
     if (was_owned) {
@@ -4297,6 +4270,8 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
     }
   } else if (attr_name == html_names::kIdAttr) {
     DeferTreeUpdate(TreeUpdateReason::kIdChanged, element);
+  } else if (attr_name == html_names::kClassAttr) {
+    MarkElementDirty(element);  // Reserialize the class.
   } else if (attr_name == html_names::kTabindexAttr) {
     MarkElementDirty(element);
   } else if (attr_name == html_names::kValueAttr) {
@@ -4778,11 +4753,11 @@ bool AXObjectCacheImpl::IsImmediateProcessingRequired(
 // AXObjectCacheImpl::AddEventToSerializationQueue to queue it.
 //
 // 2) When the lifecycle is ready to be serialized,
-// AXObjectCacheImpl::ProcessDeferredAccessibilityEvents is called which first
+// AXObjectCacheImpl::CommitAXUpdates is called which first
 // checks if it's time to make a new serialization, and if not, it will early
 // return in order to add a delay between serializations.
 //
-// 3) AXObjectCacheImpl::ProcessDeferredAccessibilityEvents then calls
+// 3) AXObjectCacheImpl::CommitAXUpdates then calls
 // RenderAccessibilityImpl:AXReadyCallback to start serialization process.
 //
 // Check the below CL for more information:
@@ -5346,10 +5321,6 @@ void AXObjectCacheImpl::GetUpdatesAndEventsForSerialization(
     std::vector<ui::AXEvent>& events,
     bool& had_end_of_test_event,
     bool& had_load_complete_messages) {
-  TRACE_EVENT0("accessibility", "GetUpdatesAndEventsForSerialization");
-  SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
-      "Accessibility.Performance.GetUpdatesAndEventsForSerialization");
-
   HashSet<int32_t> already_serialized_ids;
 
   DCHECK_GE(GetDocument().Lifecycle().GetState(),
@@ -5536,6 +5507,15 @@ void AXObjectCacheImpl::UpdatePluginIncludedNodeCount() {
       }
     }
   }
+}
+
+bool AXObjectCacheImpl::IsInternalUICheckerOn(const AXObject& obj) const {
+  if (internal_ui_checker_on_) {
+    return true;
+  }
+  // Also turn on for nodes that are inside of a UA shadow root, which is
+  // used for complex form controls built into the browser.
+  return obj.GetNode() && obj.GetNode()->IsInUserAgentShadowRoot();
 }
 #endif  // DCHECK_IS_ON()
 
@@ -5869,7 +5849,7 @@ const AtomicString& AXObjectCacheImpl::ComputedRoleForNode(Node* node) {
   // from the main document, and hence any forced update to the popup document's
   // lifecycle here is not re-entrance but rather a "forced" lifecycle update.
   DocumentLifecycle::DisallowTransitionScope scoped(document_->Lifecycle());
-  ProcessDeferredAccessibilityEvents(GetDocument(), /*force*/ true);
+  CommitAXUpdates(GetDocument(), /*force*/ true);
   ScopedFreezeAXCache scoped_freeze_cache(*this);
   AXObject* obj = Get(node);
   return AXObject::AriaRoleName(obj ? obj->ComputeFinalRoleForSerialization()
@@ -5880,7 +5860,7 @@ String AXObjectCacheImpl::ComputedNameForNode(Node* node) {
   // Accessibility tree must be updated before getting an object. See comment in
   // ComputedRoleForNode() for explanation of disallow transition scope usage.
   DocumentLifecycle::DisallowTransitionScope scoped(document_->Lifecycle());
-  ProcessDeferredAccessibilityEvents(GetDocument(), /*force*/ true);
+  CommitAXUpdates(GetDocument(), /*force*/ true);
   ScopedFreezeAXCache scoped_freeze_cache(*this);
   AXObject* obj = Get(node);
   return obj ? obj->ComputedName() : "";

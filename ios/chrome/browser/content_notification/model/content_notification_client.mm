@@ -90,7 +90,6 @@ void ContentNotificationClient::HandleNotificationInteraction(
 // and in the future they should be here once background refresh is available.
 UIBackgroundFetchResult ContentNotificationClient::HandleNotificationReception(
     NSDictionary<NSString*, id>* payload) {
-
   return UIBackgroundFetchResultNoData;
 }
 

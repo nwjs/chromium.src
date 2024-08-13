@@ -125,14 +125,9 @@ RemoteFrame::RemoteFrame(
       task_runner_(page.GetPageScheduler()
                        ->GetAgentGroupScheduler()
                        .DefaultTaskRunner()) {
-  // TODO(crbug.com/1094850): Remove this check once the renderer is correctly
-  // handling errors during the creation of HTML portal elements, which would
-  // otherwise cause RemoteFrame() being created with empty frame tokens.
-  if (!frame_token.value().is_empty()) {
-    auto frame_tracking_result = GetRemoteFramesMap().insert(
-        RemoteFrameToken::Hasher()(frame_token), this);
-    CHECK(frame_tracking_result.stored_value) << "Inserting a duplicate item.";
-  }
+  auto frame_tracking_result = GetRemoteFramesMap().insert(
+      RemoteFrameToken::Hasher()(frame_token), this);
+  CHECK(frame_tracking_result.stored_value) << "Inserting a duplicate item.";
 
   dom_window_ = MakeGarbageCollected<RemoteDOMWindow>(*this);
 
@@ -295,6 +290,7 @@ void RemoteFrame::Navigate(FrameLoadRequest& frame_request,
     params->source_location->line = source_location->LineNumber();
     params->source_location->column = source_location->ColumnNumber();
   }
+  params->storage_access_api_status = window->GetStorageAccessApiStatus();
 
   params->impression = frame_request.Impression();
 
@@ -315,6 +311,8 @@ void RemoteFrame::Navigate(FrameLoadRequest& frame_request,
                                                   is_ad_script_in_stack);
 
   params->is_container_initiated = frame_request.IsContainerInitiated();
+  params->has_rel_opener = frame_request.GetWindowFeatures().explicit_opener;
+
   GetRemoteFrameHostRemote().OpenURL(std::move(params));
 }
 
@@ -1060,8 +1058,10 @@ void RemoteFrame::DidChangeScreenInfos(
   SynchronizeVisualProperties();
 }
 
-void RemoteFrame::ZoomLevelChanged(double zoom_level) {
-  pending_visual_properties_.zoom_level = zoom_level;
+void RemoteFrame::ZoomFactorChanged(double zoom_factor) {
+  pending_visual_properties_.zoom_level =
+      GetPage()->GetChromeClient().GetWebView()->ZoomFactorToZoomLevel(
+          zoom_factor);
   SynchronizeVisualProperties();
 }
 

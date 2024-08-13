@@ -35,11 +35,11 @@ struct TooltipView: View {
   /// Size of the text.
   static let textSize = 11.0
 
-  /// Color representing green (50).
-  static let green50 = UIColor(named: kGreen50Color) ?? .green
+  /// Color for the tool tip background.
+  static let tooltipBackgroundColor = "tooltip_background_color"
 
-  /// Color representing green (800).
-  static let green800 = UIColor(named: kGreen800Color) ?? .black
+  /// Color for the tool tip text.
+  static let tooltipTextColor = "tooltip_text_color"
 
   /// Tooltip width value.
   @State private var tooltipWidth: CGFloat = 0
@@ -58,13 +58,13 @@ struct TooltipView: View {
 
     Text(tooltipText)
       .font(.system(size: Self.textSize))
-      .foregroundColor(Color(uiColor: Self.green800))
+      .foregroundColor(Color(Self.tooltipTextColor))
       .padding([.leading, .trailing], Self.verticalPadding)
       .padding([.bottom, .top], Self.horizontalPadding)
       .background(
         GeometryReader { geo in
           RoundedRectangle(cornerRadius: Self.cornerRadius)
-            .fill(Color(uiColor: Self.green50))
+            .fill(Color(Self.tooltipBackgroundColor))
             .preference(key: TooltipViewWidthKey.self, value: geo.size.width)
         }
       )
@@ -103,10 +103,13 @@ struct HistoryGraph: View {
   static let blue600 = UIColor(named: kBlue600Color) ?? .blue
 
   /// Color representing solid white.
-  static let solidWhite = UIColor(named: kSolidWhiteColor) ?? .white
+  static let backgroundColor = UIColor(named: kBackgroundColor) ?? .white
+
+  /// Color representing grey 200.
+  static let grey200 = UIColor(named: kGrey200Color) ?? .gray
 
   /// Number of ticks on the Y-axis.
-  static let tickCountY = 4
+  static let tickCountY = 3
 
   /// The selected date on the graph.
   @State private var selectedDate: Date?
@@ -116,6 +119,14 @@ struct HistoryGraph: View {
 
   /// The width of the entire chart.
   @State private var chartWidth: CGFloat?
+
+  /// If the user is currently dragging on the graph. This lets the hover code
+  /// know if the user is also dragging for any necessary adjustments.
+  @State private var dragging = false
+
+  //. If the user is currently hovering over the graph. This lets the drag code
+  /// know if the user is also hovering for any necessary adjustments.
+  @State private var hovering = false
 
   /// Color scheme environment value .
   @Environment(\.colorScheme) var colorScheme
@@ -174,7 +185,7 @@ struct HistoryGraph: View {
       .interpolationMethod(.stepEnd)
     }
     .chartBackground { chartProxy in
-      Color(uiColor: Self.solidWhite)
+      Color(uiColor: Self.backgroundColor)
     }
     .chartYScale(domain: axisYRange)
     .chartYAxis {
@@ -182,39 +193,50 @@ struct HistoryGraph: View {
       AxisMarks(position: .leading, values: axisTicksY) { price in
         if let price = price.as(Double.self) {
           if price == axisTicksY.first {
-            AxisTick()
+            AxisTick(length: .longestLabel, stroke: StrokeStyle(lineWidth: 1))
+              .foregroundStyle(Color(uiColor: Self.grey200))
           } else {
             AxisValueLabel(
               format: .currency(code: currency).precision(.fractionLength(0)))
             AxisTick(stroke: StrokeStyle(lineWidth: 0))
           }
         }
-        AxisGridLine()
+        AxisGridLine(stroke: StrokeStyle(lineWidth: 1))
+          .foregroundStyle(Color(uiColor: Self.grey200))
       }
     }
-    /// TODO(b/334988024): Polish chartXAxis y adding chartXAxis.
     .chartXScale(domain: axisXRange)
+    .chartXAxis {
+      AxisMarks(preset: .aligned, stroke: StrokeStyle(lineWidth: 0))
+    }
     .chartOverlay { proxy in
       /// Gesture for selecting date on the graph.
       GeometryReader { geometry in
         Rectangle().fill(.clear).contentShape(Rectangle())
+          .onContinuousHover(perform: { phase in
+            switch phase {
+            case .active(let location):
+              hovering = true
+              updateSelectionData(location: location, geometry: geometry, chart: proxy)
+            case .ended:
+              hovering = false
+              if dragging {
+                return
+              }
+              selectedDate = nil
+            }
+          })
           .gesture(
             DragGesture()
               .onChanged { value in
-                let startX = geometry[proxy.plotAreaFrame].origin.x
-                let currentX = value.location.x - startX
-                if let index: Date = proxy.value(atX: currentX) {
-                  selectedDate = closestDate(to: index, in: history)
-                }
-
-                if let selectedDate = selectedDate {
-                  if let xPosition = proxy.position(forX: selectedDate) {
-                    selectedXPosition = xPosition + startX
-                  }
-                }
-                chartWidth = geometry.size.width
+                dragging = true
+                updateSelectionData(location: value.location, geometry: geometry, chart: proxy)
               }
               .onEnded { _ in
+                dragging = false
+                if hovering {
+                  return
+                }
                 selectedDate = nil
               }
           )
@@ -235,6 +257,23 @@ struct HistoryGraph: View {
         }
       }
     )
+  }
+
+  /// Updates the selected data when the given `location` is selected inside the given
+  /// `geometry` and `chart`.
+  private func updateSelectionData(location: CGPoint, geometry: GeometryProxy, chart: ChartProxy) {
+    let startX = geometry[chart.plotAreaFrame].origin.x
+    let currentX = location.x - startX
+    if let index: Date = chart.value(atX: currentX) {
+      selectedDate = closestDate(to: index, in: history)
+    }
+
+    if let selectedDate = selectedDate {
+      if let xPosition = chart.position(forX: selectedDate) {
+        selectedXPosition = xPosition + startX
+      }
+    }
+    chartWidth = geometry.size.width
   }
 
   /// Finds the closest date to the given date from the price history dictionary.
@@ -265,7 +304,7 @@ struct HistoryGraph: View {
 
     let valueRange = paddedMaxPrice - paddedMinPrice
     var tickInterval = valueRange / Double(Self.tickCountY - 1)
-    var tickLow = 0.0
+    var tickLow = paddedMinPrice
 
     /// Ensure the tick interval is a multiple of below values to improve the
     /// readability. Bigger values are used when possible.

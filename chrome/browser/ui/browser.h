@@ -153,7 +153,6 @@ class Browser : public TabStripModelObserver,
                 public base::SupportsUserData,
                 public BookmarkTabHelperObserver,
                 public zoom::ZoomObserver,
-                public content::PageNavigator,
                 public ThemeServiceObserver,
                 public translate::ContentTranslateDriver::TranslationObserver,
                 public ui::SelectFileDialog::Listener,
@@ -803,12 +802,6 @@ class Browser : public TabStripModelObserver,
 
   // Interface implementations ////////////////////////////////////////////////
 
-  // Overridden from content::PageNavigator:
-  content::WebContents* OpenURL(
-      const content::OpenURLParams& params,
-      base::OnceCallback<void(content::NavigationHandle&)>
-          navigation_handle_callback) override;
-
   // Overridden from TabStripModelObserver:
   void OnTabStripModelChanged(
       TabStripModel* tab_strip_model,
@@ -826,7 +819,7 @@ class Browser : public TabStripModelObserver,
   // Overridden from tab_groups::SavedTabGroupModelObserver:
   void SavedTabGroupAddedLocally(const base::Uuid& guid) override;
   void SavedTabGroupRemovedLocally(
-      const tab_groups::SavedTabGroup* removed_group) override;
+      const tab_groups::SavedTabGroup& removed_group) override;
 
   // Overridden from content::WebContentsDelegate:
   void ActivateContents(content::WebContents* contents) override;
@@ -870,10 +863,6 @@ class Browser : public TabStripModelObserver,
   bool IsBackForwardCacheSupported(content::WebContents& web_contents) override;
   content::PreloadingEligibility IsPrerender2Supported(
       content::WebContents& web_contents) override;
-  void UpdateInspectedWebContentsIfNecessary(
-      content::WebContents* old_contents,
-      content::WebContents* new_contents,
-      base::OnceCallback<void()> callback) override;
   bool ShouldShowStaleContentOnEviction(content::WebContents* source) override;
   void MediaWatchTimeChanged(
       const content::MediaPlayerWatchTime& watch_time) override;
@@ -933,7 +922,11 @@ class Browser : public TabStripModelObserver,
 
   // BrowserWindowInterface overrides:
   views::WebView* GetWebView() override;
-  void OpenURL(const GURL& gurl, WindowOpenDisposition disposition) override;
+  void OpenGURL(const GURL& gurl, WindowOpenDisposition disposition) override;
+  content::WebContents* OpenURL(
+      const content::OpenURLParams& params,
+      base::OnceCallback<void(content::NavigationHandle&)>
+          navigation_handle_callback) override;
   const SessionID& GetSessionID() override;
   bool IsTabStripVisible() override;
   views::View* TopContainer() override;
@@ -1165,10 +1158,8 @@ class Browser : public TabStripModelObserver,
       const zoom::ZoomController::ZoomChangedEventData& data) override;
 
   // Overridden from SelectFileDialog::Listener:
-  void FileSelected(const ui::SelectedFileInfo& file_info,
-                    int index,
-                    void* params) override;
-  void FileSelectionCanceled(void* params) override;
+  void FileSelected(const ui::SelectedFileInfo& file_info, int index) override;
+  void FileSelectionCanceled() override;
 
   // Overridden from ThemeServiceObserver:
   void OnThemeChanged() override;
@@ -1263,11 +1254,6 @@ class Browser : public TabStripModelObserver,
   // browser object is set as a delegate for |web_contents| components, else
   // is is removed as a delegate.
   void SetAsDelegate(content::WebContents* web_contents, bool set_delegate);
-
-  // Shows the Find Bar, optionally selecting the next entry that matches the
-  // existing search string for that Tab. |forward_direction| controls the
-  // search direction.
-  void FindInPage(bool find_next, bool forward_direction);
 
   void TabDetachedAtImpl(content::WebContents* contents,
                          bool was_active,

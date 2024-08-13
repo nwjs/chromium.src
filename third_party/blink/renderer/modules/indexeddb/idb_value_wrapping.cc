@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/indexeddb/idb_value_wrapping.h"
 
 #include <cstdint>
@@ -206,8 +211,7 @@ void IDBValueWrapper::MaybeCompress() {
 void IDBValueWrapper::MaybeStoreInBlob() {
   const unsigned wrapping_threshold =
       wrapping_threshold_override_.value_or(mojom::blink::kIDBWrapThreshold);
-  size_t wire_data_size = wire_data_.size();
-  if (wire_data_size <= wrapping_threshold) {
+  if (wire_data_.size() <= wrapping_threshold) {
     return;
   }
 
@@ -219,12 +223,13 @@ void IDBValueWrapper::MaybeStoreInBlob() {
   if (wire_data_buffer_.empty()) {
     DCHECK(!base::FeatureList::IsEnabled(
         features::kIndexedDBCompressValuesWithSnappy));
-    wrapper_blob_data->AppendBytes(wire_data_.data(), wire_data_size);
+    wrapper_blob_data->AppendBytes(wire_data_);
   } else {
     scoped_refptr<RawData> raw_data = RawData::Create();
     raw_data->MutableData()->swap(wire_data_buffer_);
     wrapper_blob_data->AppendData(std::move(raw_data));
   }
+  const size_t wire_data_size = wire_data_.size();
   scoped_refptr<BlobDataHandle> wrapper_handle =
       BlobDataHandle::Create(std::move(wrapper_blob_data), wire_data_size);
   blob_info_.emplace_back(wrapper_handle);
@@ -276,10 +281,10 @@ IDBValueUnwrapper::IDBValueUnwrapper() {
 bool IDBValueUnwrapper::IsWrapped(IDBValue* value) {
   DCHECK(value);
 
-  if (!value->data_ || value->data_->size() < kHeaderSize) {
+  if (value->DataSize() < kHeaderSize) {
     return false;
   }
-  base::span<const uint8_t> data_span = base::as_byte_span(*value->data_);
+  base::span<const uint8_t> data_span = base::as_byte_span(value->Data());
   return data_span[0] == kVersionTag &&
          data_span[1] == kRequiresProcessingSSVPseudoVersion &&
          data_span[2] == kReplaceWithBlob;
@@ -297,12 +302,9 @@ bool IDBValueUnwrapper::IsWrapped(
 
 // static
 void IDBValueUnwrapper::Unwrap(Vector<char>&& wrapper_blob_content,
-                               IDBValue* wrapped_value) {
-  DCHECK(wrapped_value);
-  DCHECK(wrapped_value->data_);
-
-  wrapped_value->SetData(std::move(wrapper_blob_content));
-  wrapped_value->TakeLastBlob();
+                               IDBValue& wrapped_value) {
+  wrapped_value.SetData(std::move(wrapper_blob_content));
+  wrapped_value.TakeLastBlob();
 }
 
 // static
@@ -341,8 +343,8 @@ bool IDBValueUnwrapper::Parse(IDBValue* value) {
   if (!IDBValueUnwrapper::IsWrapped(value))
     return false;
 
-  const uint8_t* data = reinterpret_cast<const uint8_t*>(value->data_->data());
-  end_ = data + value->data_->size();
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(value->Data().data());
+  end_ = data + value->DataSize();
   current_ = data + kHeaderSize;
 
   if (!ReadVarInt(blob_size_))

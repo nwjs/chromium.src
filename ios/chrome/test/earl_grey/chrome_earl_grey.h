@@ -223,9 +223,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Forces every request to fail in a way that simulates a network failure.
 - (void)disconnectFakeSyncServerNetwork;
 
-// Signs in with `identity` without sync consent.
-- (void)signInWithoutSyncWithIdentity:(FakeSystemIdentity*)identity;
-
 // Injects user demographics into the fake sync server. `rawBirthYear` is the
 // true birth year, pre-noise, and the gender corresponds to the proto enum
 // UserDemographicsProto::Gender.
@@ -827,6 +824,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // State contains the preferences that are shared between all browser states.
 - (void)setTimeValue:(base::Time)value
     forLocalStatePref:(const std::string&)prefName;
+
+// Sets the time value for the user pref in the original browser state.
+- (void)setTimeValue:(base::Time)value
+         forUserPref:(const std::string&)UTF8PrefName;
 
 // Sets the string value for the local state pref with `prefName`. `value` Local
 // State contains the preferences that are shared between all browser states.

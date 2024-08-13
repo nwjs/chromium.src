@@ -11,8 +11,8 @@
 #include "ash/birch/birch_model.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
-#include "ash/constants/ash_switches.h"
 #include "ash/shell.h"
+#include "ash/system/video_conference/fake_video_conference_tray_controller.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
@@ -34,6 +34,7 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/ash/birch/birch_file_suggest_provider.h"
 #include "chrome/browser/ui/ash/birch/birch_keyed_service_factory.h"
+#include "chrome/browser/ui/ash/birch/birch_lost_media_provider.h"
 #include "chrome/browser/ui/ash/birch/birch_self_share_provider.h"
 #include "chrome/browser/ui/ash/holding_space/scoped_test_mount_point.h"
 #include "chrome/common/pref_names.h"
@@ -54,6 +55,7 @@
 #include "components/sync_sessions/session_sync_service.h"
 #include "components/sync_sessions/synced_session.h"
 #include "components/user_manager/scoped_user_manager.h"
+#include "services/media_session/public/cpp/test/test_media_controller.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -295,15 +297,23 @@ std::unique_ptr<KeyedService> BuildTestSendTabToSelfSyncService(
 
 class FaviconServiceMock : public favicon::MockFaviconService {
  public:
-  FaviconServiceMock() = default;
+  FaviconServiceMock() {
+    // This default implementation is provided to satisfy both actual
+    // functionality and the ability to set expectations in tests.
+    ON_CALL(*this,
+            GetFaviconImageForPageURL(testing::_, testing::_, testing::_))
+        .WillByDefault(testing::Invoke(
+            this, &FaviconServiceMock::DefaultGetFaviconImageForPageURL));
+  }
   ~FaviconServiceMock() override = default;
   FaviconServiceMock(const FaviconServiceMock&) = delete;
   FaviconServiceMock& operator=(const FaviconServiceMock&) = delete;
 
-  base::CancelableTaskTracker::TaskId GetFaviconImageForPageURL(
+ private:
+  base::CancelableTaskTracker::TaskId DefaultGetFaviconImageForPageURL(
       const GURL& page_url,
       favicon_base::FaviconImageCallback callback,
-      base::CancelableTaskTracker* tracker) override {
+      base::CancelableTaskTracker* tracker) {
     favicon_base::FaviconImageResult result;
     result.image = gfx::Image();
     result.icon_url = GURL("https://example.com/favicon.ico");
@@ -325,6 +335,8 @@ std::unique_ptr<KeyedService> BuildFaviconServiceMock(
 // space to remove the dependency on holding space code.
 using ash::holding_space::ScopedTestMountPoint;
 
+using media_session::test::TestMediaController;
+
 class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
  public:
   BirchKeyedServiceTest()
@@ -333,11 +345,10 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
         fake_user_manager_(std::make_unique<FakeChromeUserManager>()) {}
 
   void SetUp() override {
-    switches::SetIgnoreForestSecretKeyForTest(true);
-
     feature_list_.InitWithFeatures(
         {features::kForestFeature,
-         ash::features::kReleaseNotesNotificationAllChannels},
+         ash::features::kReleaseNotesNotificationAllChannels,
+         ash::features::kBirchVideoConferenceSuggestions},
         {});
 
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
@@ -370,6 +381,17 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
     favicon_service_ =
         static_cast<FaviconServiceMock*>(FaviconServiceFactory::GetForProfile(
             GetProfile(), ServiceAccessType::EXPLICIT_ACCESS));
+
+    // Inject the test media controller into the media controls view.
+    media_controller_ = std::make_unique<TestMediaController>();
+
+    GetLostMediaProvider()->set_fake_media_controller_for_testing(
+        media_controller_->CreateMediaControllerRemote());
+
+    vc_controller_ = std::make_unique<FakeVideoConferenceTrayController>();
+
+    GetLostMediaProvider()->set_fake_video_conference_controller_for_testing(
+        vc_controller_.get());
   }
 
   void SetSessionServiceToReturnOpenTabsDelegate(bool return_delegate) {
@@ -379,6 +401,10 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
   }
 
   void TearDown() override {
+    GetLostMediaProvider()->set_fake_video_conference_controller_for_testing(
+        nullptr);
+    vc_controller_.reset();
+    media_controller_.reset();
     send_tab_to_self_model_ = nullptr;
     mount_point_.reset();
     birch_keyed_service_ = nullptr;
@@ -388,7 +414,6 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
     release_notes_storage_ = nullptr;
     favicon_service_ = nullptr;
     BrowserWithTestWindowTest::TearDown();
-    switches::SetIgnoreForestSecretKeyForTest(false);
   }
 
   void LogIn(const std::string& email) override {
@@ -424,6 +449,31 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
     send_tab_to_self_model_->AddEntry(kUrl, kTitle, kTargetDeviceSyncCacheGuid);
   }
 
+  void SimulateMediaMetadataInit() {
+    media_session::MediaMetadata metadata;
+    metadata.source_title = u"testtube.com-1";
+    metadata.title = u"title-1";
+
+    GetLostMediaProvider()->MediaSessionMetadataChanged(metadata);
+  }
+
+  void SimulateMediaMetadataEnd() {
+    media_session::MediaMetadata metadata;
+    GetLostMediaProvider()->MediaSessionMetadataChanged(metadata);
+  }
+
+  void ClearMediaApps() { vc_controller_->ClearMediaApps(); }
+
+  void AddMediaApp() {
+    vc_controller_->AddMediaApp(
+        crosapi::mojom::VideoConferenceMediaAppInfo::New(
+            /*id=*/base::UnguessableToken::Create(),
+            /*last_activity_time=*/base::Time::Now(),
+            /*is_capturing_camera=*/true, /*is_capturing_microphone=*/false,
+            /*is_capturing_screen=*/false, /*title=*/u"Google Meet",
+            /*url=*/GURL("https://meet.google.com/0")));
+  }
+
   void ClearReleaseNotesSurfacesTimesLeftToShowPref() {
     GetProfile()->GetPrefs()->ClearPref(
         ::prefs::kReleaseNotesSuggestionChipTimesLeftToShow);
@@ -447,6 +497,11 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
     return ash_test_helper()->test_session_controller_client();
   }
 
+  BirchLostMediaProvider* GetLostMediaProvider() {
+    return static_cast<BirchLostMediaProvider*>(
+        birch_keyed_service()->GetLostMediaProvider());
+  }
+
   MockFileSuggestKeyedService* file_suggest_service() {
     return file_suggest_service_;
   }
@@ -461,6 +516,14 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
 
   FaviconServiceMock* favicon_service() { return favicon_service_; }
 
+  TestMediaController* media_controller() const {
+    return media_controller_.get();
+  }
+
+  FakeVideoConferenceTrayController* vc_controller() const {
+    return vc_controller_.get();
+  }
+
   syncer::TestSyncService* sync_service() { return sync_service_; }
 
   BirchKeyedService* birch_keyed_service() { return birch_keyed_service_; }
@@ -469,18 +532,23 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
 
   TestingProfile::TestingFactories GetTestingFactories() override {
     return {
-        {SyncServiceFactory::GetInstance(),
-         base::BindRepeating(&BuildTestSyncService)},
-        {FileSuggestKeyedServiceFactory::GetInstance(),
-         base::BindRepeating(
-             &MockFileSuggestKeyedService::BuildMockFileSuggestKeyedService,
-             temp_dir_.GetPath())},
-        {SessionSyncServiceFactory::GetInstance(),
-         base::BindRepeating(&BuildMockSessionSyncService)},
-        {SendTabToSelfSyncServiceFactory::GetInstance(),
-         base::BindRepeating(&BuildTestSendTabToSelfSyncService)},
-        {FaviconServiceFactory::GetInstance(),
-         base::BindRepeating(&BuildFaviconServiceMock)},
+        TestingProfile::TestingFactory{
+            SyncServiceFactory::GetInstance(),
+            base::BindRepeating(&BuildTestSyncService)},
+        TestingProfile::TestingFactory{
+            FileSuggestKeyedServiceFactory::GetInstance(),
+            base::BindRepeating(
+                &MockFileSuggestKeyedService::BuildMockFileSuggestKeyedService,
+                temp_dir_.GetPath())},
+        TestingProfile::TestingFactory{
+            SessionSyncServiceFactory::GetInstance(),
+            base::BindRepeating(&BuildMockSessionSyncService)},
+        TestingProfile::TestingFactory{
+            SendTabToSelfSyncServiceFactory::GetInstance(),
+            base::BindRepeating(&BuildTestSendTabToSelfSyncService)},
+        TestingProfile::TestingFactory{
+            FaviconServiceFactory::GetInstance(),
+            base::BindRepeating(&BuildFaviconServiceMock)},
     };
   }
 
@@ -508,6 +576,10 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
 
   raw_ptr<FaviconServiceMock> favicon_service_;
 
+  std::unique_ptr<TestMediaController> media_controller_;
+
+  std::unique_ptr<FakeVideoConferenceTrayController> vc_controller_;
+
   MockOpenTabsUIDelegate open_tabs_delegate_;
 
   std::unique_ptr<ReleaseNotesStorage> release_notes_storage_;
@@ -519,11 +591,11 @@ TEST_F(BirchKeyedServiceTest, HasDataProviders) {
   WaitUntilFileSuggestServiceReady(
       ash::FileSuggestKeyedServiceFactory::GetInstance()->GetService(
           GetProfile()));
-
   EXPECT_TRUE(birch_keyed_service()->GetCalendarProvider());
   EXPECT_TRUE(birch_keyed_service()->GetFileSuggestProvider());
   EXPECT_TRUE(birch_keyed_service()->GetRecentTabsProvider());
   EXPECT_TRUE(birch_keyed_service()->GetSelfShareProvider());
+  EXPECT_TRUE(birch_keyed_service()->GetLostMediaProvider());
 }
 
 TEST_F(BirchKeyedServiceTest, BirchFileSuggestProvider) {
@@ -579,6 +651,7 @@ TEST_F(BirchKeyedServiceTest, BirchFileSuggestProvider_NoFilesAvailable) {
   model->SetLastActiveItems({});
   model->SetMostVisitedItems({});
   model->SetSelfShareItems({});
+  model->SetLostMediaItems({});
   model->SetWeatherItems({});
   model->SetReleaseNotesItems({});
   model->SetAttachmentItems({});
@@ -743,12 +816,87 @@ TEST_F(BirchKeyedServiceTest, SelfShareProvider) {
   model->SetRecentTabItems(std::vector<BirchTabItem>());
   model->SetFileSuggestItems(std::vector<BirchFileItem>());
   model->SetReleaseNotesItems(std::vector<BirchReleaseNotesItem>());
+  model->SetLostMediaItems(std::vector<BirchLostMediaItem>());
   EXPECT_EQ(model->GetSelfShareItemsForTest().size(), 1u);
 
   // Mark Self Share Item as opened, the provider should now return zero items.
   model->GetSelfShareItemsForTest()[0].PerformAction();
   self_share_provider->RequestBirchDataFetch();
   EXPECT_EQ(model->GetSelfShareItemsForTest().size(), 0u);
+}
+
+TEST_F(BirchKeyedServiceTest, LostMediaProvider) {
+  BirchModel* model = Shell::Get()->birch_model();
+  BirchDataProvider* lost_media_provider =
+      birch_keyed_service()->GetLostMediaProvider();
+  ClearMediaApps();
+
+  EXPECT_EQ(model->GetLostMediaItemsForTest().size(), 0u);
+
+  SimulateMediaMetadataInit();
+  lost_media_provider->RequestBirchDataFetch();
+  model->SetCalendarItems(std::vector<BirchCalendarItem>());
+  model->SetRecentTabItems(std::vector<BirchTabItem>());
+  model->SetFileSuggestItems(std::vector<BirchFileItem>());
+  model->SetReleaseNotesItems(std::vector<BirchReleaseNotesItem>());
+  model->SetSelfShareItems(std::vector<BirchSelfShareItem>());
+
+  auto& lost_media_items = model->GetLostMediaItemsForTest();
+  EXPECT_EQ(lost_media_items.size(), 1u);
+  EXPECT_EQ(lost_media_items[0].source_url(),
+            GURL("https://www.testtube.com-1"));
+  EXPECT_EQ(lost_media_items[0].title(), u"title-1");
+  EXPECT_EQ(lost_media_items[0].is_video_conference_tab(), false);
+
+  // Media item should still show after activation.
+  lost_media_items[0].PerformAction();
+  lost_media_items = model->GetLostMediaItemsForTest();
+  lost_media_provider->RequestBirchDataFetch();
+  EXPECT_EQ(lost_media_items.size(), 1u);
+  EXPECT_EQ(lost_media_items[0].source_url(),
+            GURL("https://www.testtube.com-1"));
+  EXPECT_EQ(lost_media_items[0].title(), u"title-1");
+  EXPECT_EQ(lost_media_items[0].is_video_conference_tab(), false);
+
+  // There should be no items if metadata does not have a valid `source_url`
+  // or `title`.
+  SimulateMediaMetadataEnd();
+  lost_media_provider->RequestBirchDataFetch();
+  lost_media_items = model->GetLostMediaItemsForTest();
+  ASSERT_EQ(lost_media_items.size(), 0u);
+
+  // There should be one video conference item if there is both vc and
+  // media items available.
+  SimulateMediaMetadataInit();
+  AddMediaApp();
+  lost_media_provider->RequestBirchDataFetch();
+  model->SetCalendarItems(std::vector<BirchCalendarItem>());
+  model->SetRecentTabItems(std::vector<BirchTabItem>());
+  model->SetFileSuggestItems(std::vector<BirchFileItem>());
+  model->SetReleaseNotesItems(std::vector<BirchReleaseNotesItem>());
+  model->SetSelfShareItems(std::vector<BirchSelfShareItem>());
+
+  lost_media_items = model->GetLostMediaItemsForTest();
+  ASSERT_EQ(lost_media_items.size(), 1u);
+  EXPECT_EQ(lost_media_items[0].source_url(),
+            GURL("https://meet.google.com/0"));
+  EXPECT_EQ(lost_media_items[0].title(), u"Google Meet");
+  EXPECT_EQ(lost_media_items[0].is_video_conference_tab(), true);
+
+  // VC item still should show after activation.
+  lost_media_items[0].PerformAction();
+  lost_media_items = model->GetLostMediaItemsForTest();
+  lost_media_provider->RequestBirchDataFetch();
+  model->SetCalendarItems(std::vector<BirchCalendarItem>());
+  model->SetRecentTabItems(std::vector<BirchTabItem>());
+  model->SetFileSuggestItems(std::vector<BirchFileItem>());
+  model->SetReleaseNotesItems(std::vector<BirchReleaseNotesItem>());
+  model->SetSelfShareItems(std::vector<BirchSelfShareItem>());
+  ASSERT_EQ(lost_media_items.size(), 1u);
+  EXPECT_EQ(lost_media_items[0].source_url(),
+            GURL("https://meet.google.com/0"));
+  EXPECT_EQ(lost_media_items[0].title(), u"Google Meet");
+  EXPECT_EQ(lost_media_items[0].is_video_conference_tab(), true);
 }
 
 TEST_F(BirchKeyedServiceTest, NoTabSuggestionsWithDisabledChromeSyncPref) {
@@ -768,6 +916,45 @@ TEST_F(BirchKeyedServiceTest, NoTabSuggestionsWithDisabledChromeSyncPref) {
   birch_keyed_service()->GetSelfShareProvider()->RequestBirchDataFetch();
   EXPECT_EQ(model->GetTabsForTest().size(), 0u);
   EXPECT_EQ(model->GetSelfShareItemsForTest().size(), 0u);
+}
+
+TEST_F(BirchKeyedServiceTest, RemoveFileItemFromLauncher) {
+  WaitUntilFileSuggestServiceReady(
+      ash::FileSuggestKeyedServiceFactory::GetInstance()->GetService(
+          GetProfile()));
+
+  // Override the default behavior in MockFileSuggestKeyedService, which calls
+  // into the production code and causes failures.
+  ON_CALL(*file_suggest_service(), RemoveSuggestionsAndNotify(testing::_))
+      .WillByDefault([](const std::vector<base::FilePath>& paths) {
+        // Do nothing.
+      });
+
+  base::FilePath test_path(
+      "/media/fuse/drivefs-48de6bc248c2f6d8e809521347ef6190/root/Test "
+      "doc.gdoc");
+  std::vector<base::FilePath> paths = {test_path};
+
+  // Removing a file item via the birch keyed service will call into file
+  // suggest keyed service and remove it.
+  EXPECT_CALL(*file_suggest_service(), RemoveSuggestionsAndNotify(paths));
+  birch_keyed_service()->RemoveFileItemFromLauncher(test_path);
+}
+
+// Verifies that `GetFaviconImageForIconURL` calls the favicon service.
+TEST_F(BirchKeyedServiceTest, GetFaviconImageForIconURL) {
+  GURL icon_url("http://example.com/favicon.ico");
+  EXPECT_CALL(*favicon_service(),
+              GetFaviconImage(icon_url, testing::_, testing::_));
+  birch_keyed_service()->GetFaviconImageForIconURL(icon_url, base::DoNothing());
+}
+
+// Verifies that `GetFaviconImageForPageURL` calls the favicon service.
+TEST_F(BirchKeyedServiceTest, GetFaviconImageForPageURL) {
+  GURL page_url("http://example.com/");
+  EXPECT_CALL(*favicon_service(),
+              GetFaviconImageForPageURL(page_url, testing::_, testing::_));
+  birch_keyed_service()->GetFaviconImageForPageURL(page_url, base::DoNothing());
 }
 
 }  // namespace ash

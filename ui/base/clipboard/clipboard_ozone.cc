@@ -464,10 +464,10 @@ void ClipboardOzone::ReadAvailableTypes(
   // Special handling for chromium/x-web-custom-data.
   // We must read the data and deserialize it to find the list
   // of mime types to report.
-  if (IsFormatAvailable(ClipboardFormatType::WebCustomDataType(), buffer,
+  if (IsFormatAvailable(ClipboardFormatType::DataTransferCustomType(), buffer,
                         data_dst)) {
     auto data = async_clipboard_ozone_->ReadClipboardDataAndWait(
-        buffer, ClipboardFormatType::WebCustomDataType().GetName());
+        buffer, ClipboardFormatType::DataTransferCustomType().GetName());
     ReadCustomDataTypes(data, types);
   }
 }
@@ -578,14 +578,15 @@ void ClipboardOzone::ReadPng(ClipboardBuffer buffer,
   std::move(callback).Run(png_data);
 }
 
-void ClipboardOzone::ReadCustomData(ClipboardBuffer buffer,
-                                    const std::u16string& type,
-                                    const DataTransferEndpoint* data_dst,
-                                    std::u16string* result) const {
+void ClipboardOzone::ReadDataTransferCustomData(
+    ClipboardBuffer buffer,
+    const std::u16string& type,
+    const DataTransferEndpoint* data_dst,
+    std::u16string* result) const {
   DCHECK(CalledOnValidThread());
 
   auto custom_data = async_clipboard_ozone_->ReadClipboardDataAndWait(
-      buffer, kMimeTypeWebCustomData);
+      buffer, kMimeTypeDataTransferCustomData);
 
   if (!IsReadAllowed(GetSource(buffer), data_dst, custom_data))
     return;

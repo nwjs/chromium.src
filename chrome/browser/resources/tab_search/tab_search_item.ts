@@ -11,7 +11,7 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
-import {ariaLabel, normalizeURL, type TabData, TabItemType} from './tab_data.js';
+import {normalizeURL, TabData, TabItemType} from './tab_data.js';
 import {colorName} from './tab_group_color_helper.js';
 import type {Tab} from './tab_search.mojom-webui.js';
 import {getCss} from './tab_search_item.css.js';
@@ -62,7 +62,6 @@ export class TabSearchItemElement extends TabSearchItemBase {
     return {
       data: {type: Object},
       buttonRipples_: {type: Boolean},
-      index: {type: Number},
       inSuggestedGroup: {type: Boolean},
 
       compact: {
@@ -72,9 +71,24 @@ export class TabSearchItemElement extends TabSearchItemBase {
     };
   }
 
-  data: TabData;
+  data: TabData = new TabData(
+      {
+        active: false,
+        faviconUrl: null,
+        groupId: null,
+        alertStates: [],
+        index: 0,
+        isDefaultFavicon: false,
+        lastActiveElapsedText: '',
+        lastActiveTimeTicks: {internalValue: BigInt(0)},
+        pinned: false,
+        showIcon: false,
+        tabId: 1,
+        title: '',
+        url: {url: ''},
+      },
+      TabItemType.OPEN_TAB, '');
   protected buttonRipples_: boolean = loadTimeData.getBoolean('useRipples');
-  index: number;
   inSuggestedGroup: boolean = false;
   compact: boolean = false;
 
@@ -209,10 +223,6 @@ export class TabSearchItemElement extends TabSearchItemBase {
     if (protocol === 'chrome:') {
       this.$.secondaryText.prepend(document.createTextNode('chrome://'));
     }
-  }
-
-  protected ariaLabelForText_(): string {
-    return ariaLabel(this.data);
   }
 
   protected ariaLabelForButton_(): string {

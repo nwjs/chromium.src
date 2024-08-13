@@ -12,7 +12,9 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/saved_tab_groups/saved_tab_group_model.h"
 #include "components/saved_tab_groups/saved_tab_group_sync_bridge.h"
+#include "components/saved_tab_groups/tab_group_sync_bridge_mediator.h"
 #include "components/saved_tab_groups/tab_group_sync_metrics_logger.h"
+#include "components/saved_tab_groups/types.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "ui/gfx/range/range.h"
 
@@ -26,6 +28,8 @@ class DeviceInfoTracker;
 }
 
 namespace tab_groups {
+
+class TabGroupServiceWrapper;
 
 // Serves to instantiate and own the SavedTabGroup infrastructure for the
 // browser.
@@ -49,6 +53,8 @@ class SavedTabGroupKeyedService : public KeyedService,
   SavedTabGroupModel* model() { return &model_; }
   base::WeakPtr<syncer::ModelTypeControllerDelegate>
   GetSavedTabGroupControllerDelegate();
+  base::WeakPtr<syncer::ModelTypeControllerDelegate>
+  GetSharedTabGroupControllerDelegate();
   Profile* profile() { return profile_; }
 
   // SavedTabGroupController
@@ -71,7 +77,7 @@ class SavedTabGroupKeyedService : public KeyedService,
 
   // SavedTabGroupModelObserver
   void SavedTabGroupModelLoaded() override;
-  void SavedTabGroupRemovedFromSync(const SavedTabGroup* group) override;
+  void SavedTabGroupRemovedFromSync(const SavedTabGroup& group) override;
   void SavedTabGroupUpdatedFromSync(
       const base::Uuid& group_guid,
       const std::optional<base::Uuid>& tab_guid) override;
@@ -179,6 +185,10 @@ class SavedTabGroupKeyedService : public KeyedService,
   // The profile used to instantiate the keyed service.
   raw_ptr<Profile> profile_ = nullptr;
 
+  // Represents sync backend. After migration, it will be a pointer to
+  // TabGroupSyncService.
+  std::unique_ptr<TabGroupServiceWrapper> wrapper_service_;
+
   // The current representation of this profiles saved tab groups.
   SavedTabGroupModel model_;
 
@@ -187,7 +197,7 @@ class SavedTabGroupKeyedService : public KeyedService,
   SavedTabGroupModelListener listener_;
 
   // Stores SavedTabGroup data to the disk and to sync if enabled.
-  SavedTabGroupSyncBridge bridge_;
+  TabGroupSyncBridgeMediator sync_bridge_mediator_;
 
   // Timer used to record periodic metrics about the state of the TabGroups
   // (saved and unsaved).

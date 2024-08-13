@@ -27,11 +27,6 @@ BASE_DECLARE_FEATURE(kAllowWindowDragUsingSystemDragDrop);
 
 BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
 
-#if !defined(ANDROID)
-BASE_DECLARE_FEATURE(kCastAppMenuExperiment);
-extern const base::FeatureParam<bool> kCastListedFirst;
-#endif
-
 BASE_DECLARE_FEATURE(kWebAppIconInTitlebar);
 
 BASE_DECLARE_FEATURE(kChromeLabs);
@@ -145,20 +140,8 @@ BASE_DECLARE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen);
 
 BASE_DECLARE_FEATURE(kResponsiveToolbar);
 
-BASE_DECLARE_FEATURE(kScrollableTabStrip);
-extern const char kMinimumTabWidthFeatureParameterName[];
-
-BASE_DECLARE_FEATURE(kScrollableTabStripWithDragging);
-extern const char kTabScrollingWithDraggingModeName[];
-
-BASE_DECLARE_FEATURE(kSplitTabStrip);
-BASE_DECLARE_FEATURE(kTabStripCollectionStorage);
-
 BASE_DECLARE_FEATURE(kTabScrollingButtonPosition);
 extern const char kTabScrollingButtonPositionParameterName[];
-
-BASE_DECLARE_FEATURE(kScrollableTabStripOverflow);
-extern const char kScrollableTabStripOverflowModeName[];
 
 BASE_DECLARE_FEATURE(kSidePanelWebView);
 
@@ -264,6 +247,8 @@ extern const base::FeatureParam<int> kUpdateTextOptionNumber;
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadging);
 BASE_DECLARE_FEATURE(kEnterpriseUpdatedProfileCreationScreen);
 
+BASE_DECLARE_FEATURE(kManagementToolbarButton);
+
 BASE_DECLARE_FEATURE(kWebUIBubblePerProfilePersistence);
 
 BASE_DECLARE_FEATURE(kWebUITabStrip);
@@ -274,17 +259,16 @@ BASE_DECLARE_FEATURE(kWebUITabStripContextMenuAfterTap);
 
 // Cocoa to views migration.
 #if BUILDFLAG(IS_MAC)
-BASE_DECLARE_FEATURE(kLocationPermissionsExperiment);
-
 BASE_DECLARE_FEATURE(kViewsFirstRunDialog);
 BASE_DECLARE_FEATURE(kViewsTaskManager);
 BASE_DECLARE_FEATURE(kViewsJSAppModalDialog);
-
-int GetLocationPermissionsExperimentBubblePromptLimit();
-int GetLocationPermissionsExperimentLabelPromptLimit();
 #endif
 
 BASE_DECLARE_FEATURE(kStopLoadingAnimationForHiddenWindow);
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+BASE_DECLARE_FEATURE(kUsePortalAccentColor);
+#endif
 
 }  // namespace features
 

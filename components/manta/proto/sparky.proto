@@ -5,6 +5,8 @@
 syntax = "proto3";
 option optimize_for = LITE_RUNTIME;
 
+import "components/manta/proto/common.proto";
+
 package manta.proto;
 
 enum Task {
@@ -31,6 +33,12 @@ enum SettingType {
   SETTING_TYPE_STRING = 2;
   SETTING_TYPE_DOUBLE = 3;
   SETTING_TYPE_INTEGER = 4;
+}
+
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_USER = 1;
+  ROLE_ASSISTANT = 2;
 }
 
 message BatteryData {
@@ -63,6 +71,10 @@ message DiagnosticsData {
   optional MemoryData memory = 4;
 }
 
+message ServerConfig {
+  optional string server_url = 1;
+}
+
 message SettingsValue {
   oneof settings_value {
     bool bool_val = 1;
@@ -82,13 +94,22 @@ message SettingsData {
   repeated Setting setting = 1;
 }
 
-message Action {
-  optional SettingsData settings = 1;
+message App {
+  string id = 1;
+  string name = 2;
+  repeated string searchable_term = 3;
 }
 
-message FinalResponse {
-  string answer = 1;
-  optional Action action = 2;
+message AppsData {
+  repeated App app = 1;
+}
+
+message Action {
+  reserved 3, 4;
+
+  optional Setting update_setting = 1;
+  optional string launch_app_id = 2;
+  optional bool all_done = 5;
 }
 
 message DiagnosticsRequest {
@@ -102,26 +123,28 @@ message ContextRequest {
 
   optional DiagnosticsRequest diagnostics = 1;
   optional SettingsDataRequest settings = 3;
+  optional Action action = 4;
+}
+
+message Turn {
+  optional string message = 1;
+  optional Role role = 2;
+  repeated Action action = 3;
 }
 
 message SparkyResponse {
-  oneof sparky_response {
-    ContextRequest context_request = 1;
-    FinalResponse final_response = 2;
-  }
-}
-
-message InputText {
-  optional string text = 1;
-  optional string tag = 2;
+  optional ContextRequest context_request = 1;
+  optional Turn latest_reply = 2;
 }
 
 message SparkyContextData {
-  reserved 5, 6, 7;
-
   optional Task task = 1;
-  optional string page_contents = 2;
-  optional DiagnosticsData diagnostics_data = 3;
-  optional SettingsData settings_data = 4;
-  repeated InputText q_and_a = 8;
+  optional DiagnosticsData diagnostics_data = 2;
+  optional SettingsData settings_data = 3;
+  repeated Turn conversation = 4;
+  optional Image screenshot = 5;
+  optional AppsData apps_data = 6;
+  optional ServerConfig server_config = 7;
+  optional string page_contents = 8;
+  optional string page_url = 9;
 }

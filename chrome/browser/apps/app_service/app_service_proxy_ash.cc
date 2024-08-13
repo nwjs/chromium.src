@@ -12,6 +12,7 @@
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/not_fatal_until.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
@@ -25,7 +26,6 @@
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_registry_cache.h"
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_service.h"
 #include "chrome/browser/apps/app_service/publishers/app_publisher.h"
-#include "chrome/browser/apps/app_service/publishers/browser_shortcuts_crosapi_publisher.h"
 #include "chrome/browser/apps/app_service/publishers/shortcut_publisher.h"
 #include "chrome/browser/apps/app_service/publishers/standalone_browser_apps.h"
 #include "chrome/browser/apps/app_service/shortcut_removal_dialog.h"
@@ -219,12 +219,6 @@ AppServiceProxyAsh::BrowserAppInstanceTracker() {
 apps::BrowserAppInstanceRegistry*
 AppServiceProxyAsh::BrowserAppInstanceRegistry() {
   return browser_app_instance_registry_.get();
-}
-
-apps::BrowserShortcutsCrosapiPublisher*
-AppServiceProxyAsh::BrowserShortcutsCrosapiPublisher() {
-  return publisher_host_ ? publisher_host_->BrowserShortcutsCrosapiPublisher()
-                         : nullptr;
 }
 
 apps::StandaloneBrowserApps* AppServiceProxyAsh::StandaloneBrowserApps() {
@@ -837,7 +831,7 @@ void AppServiceProxyAsh::OnUninstallDialogClosed(
 
   DCHECK(uninstall_dialog);
   auto it = uninstall_dialogs_.find(app_id);
-  DCHECK(it != uninstall_dialogs_.end());
+  CHECK(it != uninstall_dialogs_.end(), base::NotFatalUntil::M130);
   uninstall_dialogs_.erase(it);
 }
 
@@ -1079,8 +1073,8 @@ void AppServiceProxyAsh::RecordAppPlatformMetrics(
 
 void AppServiceProxyAsh::InitAppPlatformMetrics() {
   if (app_platform_metrics_service_) {
-    app_platform_metrics_service_->Start(app_registry_cache_,
-                                         instance_registry_);
+    app_platform_metrics_service_->Start(
+        app_registry_cache_, instance_registry_, app_capability_access_cache_);
   }
 }
 

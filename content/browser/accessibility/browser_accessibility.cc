@@ -4,7 +4,8 @@
 
 #include "content/browser/accessibility/browser_accessibility.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <iterator>
 
 #include "base/check.h"
@@ -19,7 +20,6 @@
 #include "content/browser/accessibility/browser_accessibility_manager.h"
 #include "content/browser/accessibility/browser_accessibility_state_impl.h"
 #include "content/public/common/content_client.h"
-#include "third_party/blink/public/strings/grit/blink_accessibility_strings.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_role_properties.h"
@@ -27,10 +27,10 @@
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/accessibility/platform/ax_platform_tree_manager_delegate.h"
-#include "ui/accessibility/platform/ax_unique_id.h"
 #include "ui/base/buildflags.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "ui/strings/grit/auto_image_annotation_strings.h"
 #include "ui/strings/grit/ax_strings.h"
 
 namespace content {
@@ -862,7 +862,7 @@ BrowserAccessibility::GetSourceNodesForReverseRelations(
       manager_->ax_tree()->GetReverseRelations(attr, GetData().id));
 }
 
-const ui::AXUniqueId& BrowserAccessibility::GetUniqueId() const {
+ui::AXPlatformNodeId BrowserAccessibility::GetUniqueId() const {
   // This is not the same as GetData().id which comes from Blink, because
   // those ids are only unique within the Blink process. We need one that is
   // unique per OS window.
@@ -1698,8 +1698,6 @@ std::u16string BrowserAccessibility::GetLocalizedStringForRoleDescription()
       return content_client->GetLocalizedString(IDS_AX_ROLE_EMBEDDED_OBJECT);
     case ax::mojom::Role::kPopUpButton:
       return content_client->GetLocalizedString(IDS_AX_ROLE_POP_UP_BUTTON);
-    case ax::mojom::Role::kPortal:
-      return {};
     case ax::mojom::Role::kProgressIndicator:
       return content_client->GetLocalizedString(IDS_AX_ROLE_PROGRESS_INDICATOR);
     case ax::mojom::Role::kRadioButton:
@@ -1790,6 +1788,7 @@ std::u16string BrowserAccessibility::GetLocalizedStringForRoleDescription()
       return {};
     case ax::mojom::Role::kDescriptionListTermDeprecated:
     case ax::mojom::Role::kPreDeprecated:
+    case ax::mojom::Role::kPortalDeprecated:
     case ax::mojom::Role::kDescriptionListDetailDeprecated:
     case ax::mojom::Role::kDirectoryDeprecated:
       NOTREACHED_NORETURN();

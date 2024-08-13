@@ -13,6 +13,7 @@
 <translation id="1361748954329991663">Chromium is verouderd. Als er geen update beschikbaar is in de <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, ondersteunt je apparaat nieuwe versies van Chromium mogelijk niet.</translation>
 <translation id="1423007117030725713">Start een zoekopdracht op een nieuw Chromium-tabblad.</translation>
 <translation id="1431818719585918472">Laat Chromium je incognitotabbladen vergrendelen.</translation>
+<translation id="146407871188825689">Chromium standaard gebruiken op de iPad</translation>
 <translation id="1472013873724362412">Je account werkt niet in Chromium. Neem contact op met je domeinbeheerder of gebruik een gewoon Google-account om je aan te melden.</translation>
 <translation id="1503199973012840174">Je Chromium is verouderd. Update je tracker om beveiligd te blijven.</translation>
 <translation id="1507010443238049608">Help de functies en prestaties van Chromium te verbeteren</translation>
@@ -122,6 +123,7 @@ Je gegevens zijn versleuteld met je wachtwoordzin. Voer deze in om Chromium-gege
 
 Als je deze instelling wilt wijzigen, <ph name="BEGIN_LINK" />verwijder je de Chromium-gegevens in je account<ph name="END_LINK" />.</translation>
 <translation id="4576283463017113841">Opent de pagina met instellingen voor betaalmethoden in Chromium.</translation>
+<translation id="458786853569524949">Je kunt Chromium nu gebruiken als je op links in e-mails, documenten en andere apps tikt.</translation>
 <translation id="459080529287102949">Visuele elementen zoeken in Chromium</translation>
 <translation id="4633738821577273991">Gebruik ook de uitgebreide versie van Safe Browsing voor dit Chromium-profiel</translation>
 <translation id="4638625642619341392">Download Chromium hier.</translation>
@@ -129,7 +131,6 @@ Als je deze instelling wilt wijzigen, <ph name="BEGIN_LINK" />verwijder je de Ch
 <translation id="4675485352217495362">Browsegegevens in Chromium verwijderen</translation>
 <translation id="4681781466797808448">Chromium-scanner aanzetten</translation>
 <translation id="4736424910885271643">Je account wordt beheerd door <ph name="HOSTED_DOMAIN" />, dus je Chromium-gegevens worden verwijderd van dit apparaat</translation>
-<translation id="4773487571745795781">Je hebt inloggen bij Chromium uitgezet.</translation>
 <translation id="4790638144988730920">Blijf de Chromium-gegevens in je Google-account gebruiken.</translation>
 <translation id="4828317641996116749">Chromium kan niet alle wachtwoorden checken. Probeer het later opnieuw.</translation>
 <translation id="4962295957157529683">Maak af wat je aan het doen was in het andere geopende Chrome-venster.</translation>
@@ -157,6 +158,7 @@ Als je deze instelling wilt wijzigen, <ph name="BEGIN_LINK" />verwijder je de Ch
 <translation id="5522297504975449419">Sommige Chromium-functies zijn niet meer beschikbaar.</translation>
 <translation id="5534584691915394889">Hiermee worden vanuit Chromium en Google Lens afspraken gemaakt in je Apple-agenda.</translation>
 <translation id="5571094606370987472">Opent de recente Chromium-tabbladen.</translation>
+<translation id="5603085937604338780">chromium</translation>
 <translation id="5623083843656850677">Vergrendel de incognitotabbladen als je Chromium verlaat of overschakelt naar een andere app.</translation>
 <translation id="5671188105328420281">Chromium-tips</translation>
 <translation id="5688047395118852662">Op deze kaart zie je suggesties voor hoe je het maximale uit Chromium kunt halen.</translation>
@@ -232,6 +234,7 @@ Alleen iemand met je wachtwoordzin kan je versleutelde gegevens lezen. De wachtw
 <translation id="7395825497086981028">Je wachtwoord wordt opgeslagen in Wachtwoordmanager voor <ph name="EMAIL" />.</translation>
 <translation id="7400689562045506105">Chromium overal gebruiken</translation>
 <translation id="7523464085759699266">Zet Incognitotabbladen vergrendelen als je Chromium sluit aan.</translation>
+<translation id="7531461704633548377">Van Chromium</translation>
 <translation id="7674213385180944843">Open Instellingen &gt; Privacy &gt; Camera &gt; Chromium en zet de camera aan.</translation>
 <translation id="7710137812207066069">Opent een nieuw tabblad in Chromium.</translation>
 <translation id="7747820849741499258">Zoeken in Chromium</translation>
@@ -247,7 +250,6 @@ Alleen iemand met je wachtwoordzin kan je versleutelde gegevens lezen. De wachtw
 <translation id="7971753607796745700">Item toevoegen aan leeslijst in Chromium</translation>
 <translation id="7980860476903281594">Chromium deelt je locatie met sites die je toestaat.</translation>
 <translation id="7994322153108931467">Zet meldingen aan via de iOS-instellingen om nuttige Chromium-tips te krijgen.</translation>
-<translation id="7995166854192397899">Suggesties zijn gebaseerd op je browse-activiteit op je andere apparaten. Log op al je apparaten in bij Chromium om suggesties te krijgen.</translation>
 <translation id="800195749539500647">Het maximale uit Chromium halen</translation>
 <translation id="8013573822802650211">Log in op al je apparaten om je tabbladen te bekijken vanaf elk apparaat waarop je Chromium gebruikt</translation>
 <translation id="8071041515667087705">Ga naar de Chromium-instellingen.</translation>
@@ -288,6 +290,7 @@ Alleen iemand met je wachtwoordzin kan je versleutelde gegevens lezen. De wachtw
 Je gegevens zijn op <ph name="TIME" /> versleuteld met je wachtwoordzin. Voer deze in om Chromium-gegevens te gebruiken en op te slaan in je Google-account.</translation>
 <translation id="9022552996538154597">Inloggen bij Chromium</translation>
 <translation id="9050790730841755540">Gebruik Chromium als je op links in andere apps tikt.</translation>
+<translation id="9057082013386654559">Chromium standaard gebruiken op de iPad</translation>
 <translation id="9059693977935746710">Je hoeft dit wachtwoord niet te onthouden. Het wordt opgeslagen in Wachtwoordmanager voor <ph name="EMAIL" />.</translation>
 <translation id="9089354809943900324">Chromium is verouderd</translation>
 <translation id="9110075932708282655">Chromium standaard gebruiken</translation>

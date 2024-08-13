@@ -2,12 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if defined(UNSAFE_BUFFERS_BUILD)
-// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
-// then remove this pragma.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/views/view.h"
 
 #include <stddef.h>
@@ -78,7 +72,6 @@
 #include "ui/views/views_features.h"
 #include "ui/views/widget/native_widget.h"
 #include "ui/views/widget/root_view.h"
-#include "ui/views/widget/unique_widget_ptr.h"
 #include "ui/views/window/dialog_delegate.h"
 
 using ::testing::_;
@@ -1067,10 +1060,9 @@ TEST_F(ViewTest, MouseEvent) {
   auto view2 = std::make_unique<TestView>();
   view2->SetBoundsRect(gfx::Rect(100, 100, 100, 100));
 
-  UniqueWidgetPtr widget(std::make_unique<Widget>());
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   auto* root = AsViewClass<internal::RootView>(widget->GetRootView());
@@ -1082,10 +1074,11 @@ TEST_F(ViewTest, MouseEvent) {
   v2->Reset();
 
   gfx::Point p1(110, 120);
-  ui::MouseEvent pressed(ui::ET_MOUSE_PRESSED, p1, p1, ui::EventTimeForNow(),
-                         ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  ui::MouseEvent pressed(ui::EventType::kMousePressed, p1, p1,
+                         ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                         ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(pressed);
-  EXPECT_EQ(v2->last_mouse_event_type_, ui::ET_MOUSE_PRESSED);
+  EXPECT_EQ(v2->last_mouse_event_type_, ui::EventType::kMousePressed);
   EXPECT_EQ(v2->location_.x(), 10);
   EXPECT_EQ(v2->location_.y(), 20);
   // Make sure v1 did not receive the event
@@ -1095,10 +1088,10 @@ TEST_F(ViewTest, MouseEvent) {
   v1->Reset();
   v2->Reset();
   gfx::Point p2(50, 40);
-  ui::MouseEvent dragged(ui::ET_MOUSE_DRAGGED, p2, p2, ui::EventTimeForNow(),
-                         ui::EF_LEFT_MOUSE_BUTTON, 0);
+  ui::MouseEvent dragged(ui::EventType::kMouseDragged, p2, p2,
+                         ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, 0);
   root->OnMouseDragged(dragged);
-  EXPECT_EQ(v2->last_mouse_event_type_, ui::ET_MOUSE_DRAGGED);
+  EXPECT_EQ(v2->last_mouse_event_type_, ui::EventType::kMouseDragged);
   EXPECT_EQ(v2->location_.x(), -50);
   EXPECT_EQ(v2->location_.y(), -60);
   // Make sure v1 did not receive the event
@@ -1107,10 +1100,10 @@ TEST_F(ViewTest, MouseEvent) {
   // Releasted event out of bounds. Should still go to v2
   v1->Reset();
   v2->Reset();
-  ui::MouseEvent released(ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(),
-                          ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent released(ui::EventType::kMouseReleased, gfx::Point(),
+                          gfx::Point(), ui::EventTimeForNow(), 0, 0);
   root->OnMouseDragged(released);
-  EXPECT_EQ(v2->last_mouse_event_type_, ui::ET_MOUSE_RELEASED);
+  EXPECT_EQ(v2->last_mouse_event_type_, ui::EventType::kMouseReleased);
   EXPECT_EQ(v2->location_.x(), -100);
   EXPECT_EQ(v2->location_.y(), -100);
   // Make sure v1 did not receive the event
@@ -1128,10 +1121,9 @@ TEST_F(ViewTest, DeleteOnPressed) {
   view1->Reset();
   view2->Reset();
 
-  UniqueWidgetPtr widget(std::make_unique<Widget>());
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -1141,7 +1133,7 @@ TEST_F(ViewTest, DeleteOnPressed) {
 
   v2->delete_on_pressed_ = true;
   gfx::Point point(110, 120);
-  ui::MouseEvent pressed(ui::ET_MOUSE_PRESSED, point, point,
+  ui::MouseEvent pressed(ui::EventType::kMousePressed, point, point,
                          ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
                          ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(pressed);
@@ -1156,10 +1148,9 @@ TEST_F(ViewTest, DetectReturnFormDrag) {
   auto view2 = std::make_unique<TestView>();
   view2->SetBoundsRect(gfx::Rect(100, 100, 100, 100));
 
-  UniqueWidgetPtr widget(std::make_unique<Widget>());
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   auto* root = AsViewClass<internal::RootView>(widget->GetRootView());
@@ -1170,21 +1161,22 @@ TEST_F(ViewTest, DetectReturnFormDrag) {
   v1->Reset();
   v2->Reset();
   gfx::Point p1(110, 120);
-  ui::MouseEvent pressed(ui::ET_MOUSE_PRESSED, p1, p1, ui::EventTimeForNow(),
-                         ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  ui::MouseEvent pressed(ui::EventType::kMousePressed, p1, p1,
+                         ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                         ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(pressed);
 
   v1->Reset();
   v2->Reset();
   gfx::Point p2(50, 40);
-  ui::MouseEvent dragged(ui::ET_MOUSE_DRAGGED, p2, p2, ui::EventTimeForNow(),
-                         ui::EF_LEFT_MOUSE_BUTTON, 0);
+  ui::MouseEvent dragged(ui::EventType::kMouseDragged, p2, p2,
+                         ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, 0);
   EXPECT_TRUE(root->OnMouseDragged(dragged));
 
   v1->Reset();
   v2->Reset();
-  ui::MouseEvent released(ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(),
-                          ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent released(ui::EventType::kMouseReleased, gfx::Point(),
+                          gfx::Point(), ui::EventTimeForNow(), 0, 0);
   EXPECT_TRUE(root->OnMouseDragged(released));
 }
 
@@ -1199,7 +1191,7 @@ namespace {
 class ScopedTestPaintWidget {
  public:
   explicit ScopedTestPaintWidget(Widget::InitParams params)
-      : widget_(new Widget) {
+      : widget_(std::make_unique<Widget>()) {
     widget_->Init(std::move(params));
     widget_->GetRootView()->SetBounds(0, 0, 25, 26);
   }
@@ -1207,25 +1199,19 @@ class ScopedTestPaintWidget {
   ScopedTestPaintWidget(const ScopedTestPaintWidget&) = delete;
   ScopedTestPaintWidget& operator=(const ScopedTestPaintWidget&) = delete;
 
-  ~ScopedTestPaintWidget() {
-    // Widget is self-owning, and CloseNow() destroys the Widget, so this method
-    // has to pull the raw Widget* out of the raw_ptr to avoid the raw_ptr
-    // dangling after the Widget is destroyed.
-    widget_.ExtractAsDangling()->CloseNow();
-  }
+  ~ScopedTestPaintWidget() = default;
 
-  Widget* operator->() { return widget_; }
+  Widget* operator->() { return widget_.get(); }
 
  private:
-  raw_ptr<Widget> widget_;
+  std::unique_ptr<Widget> widget_;
 };
 
 }  // namespace
 
 TEST_F(ViewTest, PaintEmptyView) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   // |v1| is empty.
@@ -1258,9 +1244,8 @@ TEST_F(ViewTest, PaintEmptyView) {
 }
 
 TEST_F(ViewTest, PaintWithMovedViewUsesCache) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
   TestView* v1 = new TestView;
   v1->SetBounds(10, 11, 12, 13);
@@ -1337,9 +1322,8 @@ TEST_F(ViewTest, PaintWithMovedViewUsesCache) {
 
 TEST_F(ViewTest, PaintWithMovedViewUsesCacheInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
   TestView* v1 = new TestView;
   v1->SetBounds(10, 11, 12, 13);
@@ -1418,9 +1402,8 @@ TEST_F(ViewTest, PaintWithMovedViewUsesCacheInRTL) {
 }
 
 TEST_F(ViewTest, PaintWithUnknownInvalidation) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1461,9 +1444,8 @@ TEST_F(ViewTest, PaintWithUnknownInvalidation) {
 }
 
 TEST_F(ViewTest, PaintContainsChildren) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1498,9 +1480,8 @@ TEST_F(ViewTest, PaintContainsChildren) {
 
 TEST_F(ViewTest, PaintContainsChildrenInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1545,9 +1526,8 @@ TEST_F(ViewTest, PaintContainsChildrenInRTL) {
 }
 
 TEST_F(ViewTest, PaintIntersectsChildren) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1582,9 +1562,8 @@ TEST_F(ViewTest, PaintIntersectsChildren) {
 
 TEST_F(ViewTest, PaintIntersectsChildrenInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1629,9 +1608,8 @@ TEST_F(ViewTest, PaintIntersectsChildrenInRTL) {
 }
 
 TEST_F(ViewTest, PaintIntersectsChildButNotGrandChild) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1666,9 +1644,8 @@ TEST_F(ViewTest, PaintIntersectsChildButNotGrandChild) {
 
 TEST_F(ViewTest, PaintIntersectsChildButNotGrandChildInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1713,9 +1690,8 @@ TEST_F(ViewTest, PaintIntersectsChildButNotGrandChildInRTL) {
 }
 
 TEST_F(ViewTest, PaintIntersectsNoChildren) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1750,9 +1726,8 @@ TEST_F(ViewTest, PaintIntersectsNoChildren) {
 
 TEST_F(ViewTest, PaintIntersectsNoChildrenInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1797,9 +1772,8 @@ TEST_F(ViewTest, PaintIntersectsNoChildrenInRTL) {
 }
 
 TEST_F(ViewTest, PaintIntersectsOneChild) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1847,9 +1821,8 @@ TEST_F(ViewTest, PaintIntersectsOneChild) {
 
 TEST_F(ViewTest, PaintIntersectsOneChildInRTL) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale_("he");
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1907,9 +1880,8 @@ TEST_F(ViewTest, PaintIntersectsOneChildInRTL) {
 }
 
 TEST_F(ViewTest, PaintInPromotedToLayer) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = new TestView;
@@ -1998,9 +1970,8 @@ BEGIN_METADATA(TestPaintView)
 END_METADATA
 
 TEST_F(ViewTest, PaintLocalBounds) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
   // Make |root_view|'s bounds larger so |v1|'s visible bounds is not clipped by
   // |root_view|.
@@ -2044,10 +2015,9 @@ gfx::Transform RotationClockwise() {
 // View::GetEventHandlerForRect(). See http://goo.gl/3Jp2BD for a description
 // of rect-based targeting.
 TEST_F(ViewTest, GetEventHandlerForRect) {
-  Widget* widget = new Widget;
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
   root_view->SetBoundsRect(gfx::Rect(0, 0, 500, 500));
@@ -2357,10 +2327,9 @@ TEST_F(ViewTest, GetEventHandlerForRect) {
 // as expected when different views in the view hierarchy return false
 // when GetCanProcessEventsWithinSubtree() is called.
 TEST_F(ViewTest, GetCanProcessEventsWithinSubtree) {
-  Widget* widget = new Widget;
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
   root_view->SetBoundsRect(gfx::Rect(0, 0, 500, 500));
@@ -2515,10 +2484,9 @@ TEST_F(ViewTest, GetCanProcessEventsWithinSubtree) {
 }
 
 TEST_F(ViewTest, NotifyEnterExitOnChild) {
-  Widget* widget = new Widget;
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
   root_view->SetBoundsRect(gfx::Rect(0, 0, 500, 500));
@@ -2571,7 +2539,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
 
   // Move the mouse in v111.
   gfx::Point p1(6, 6);
-  ui::MouseEvent move1(ui::ET_MOUSE_MOVED, p1, p1, ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent move1(ui::EventType::kMouseMoved, p1, p1,
+                       ui::EventTimeForNow(), 0, 0);
   root_view->OnMouseMoved(move1);
   EXPECT_TRUE(v111->received_mouse_enter_);
   EXPECT_FALSE(v11->last_mouse_event_type_);
@@ -2582,7 +2551,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
 
   // Now, move into v121.
   gfx::Point p2(65, 21);
-  ui::MouseEvent move2(ui::ET_MOUSE_MOVED, p2, p2, ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent move2(ui::EventType::kMouseMoved, p2, p2,
+                       ui::EventTimeForNow(), 0, 0);
   root_view->OnMouseMoved(move2);
   EXPECT_TRUE(v111->received_mouse_exit_);
   EXPECT_TRUE(v121->received_mouse_enter_);
@@ -2593,7 +2563,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
 
   // Now, move into v11.
   gfx::Point p3(1, 1);
-  ui::MouseEvent move3(ui::ET_MOUSE_MOVED, p3, p3, ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent move3(ui::EventType::kMouseMoved, p3, p3,
+                       ui::EventTimeForNow(), 0, 0);
   root_view->OnMouseMoved(move3);
   EXPECT_TRUE(v121->received_mouse_exit_);
   EXPECT_TRUE(v11->received_mouse_enter_);
@@ -2604,7 +2575,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
 
   // Move to v21.
   gfx::Point p4(121, 15);
-  ui::MouseEvent move4(ui::ET_MOUSE_MOVED, p4, p4, ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent move4(ui::EventType::kMouseMoved, p4, p4,
+                       ui::EventTimeForNow(), 0, 0);
   root_view->OnMouseMoved(move4);
   EXPECT_TRUE(v21->received_mouse_enter_);
   EXPECT_FALSE(v2->last_mouse_event_type_);
@@ -2617,7 +2589,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
 
   // Move to v1.
   gfx::Point p5(21, 0);
-  ui::MouseEvent move5(ui::ET_MOUSE_MOVED, p5, p5, ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent move5(ui::EventType::kMouseMoved, p5, p5,
+                       ui::EventTimeForNow(), 0, 0);
   root_view->OnMouseMoved(move5);
   EXPECT_TRUE(v21->received_mouse_exit_);
   EXPECT_TRUE(v1->received_mouse_enter_);
@@ -2627,8 +2600,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
 
   // Now, move into v11.
   gfx::Point p6(15, 15);
-  ui::MouseEvent mouse6(ui::ET_MOUSE_MOVED, p6, p6, ui::EventTimeForNow(), 0,
-                        0);
+  ui::MouseEvent mouse6(ui::EventType::kMouseMoved, p6, p6,
+                        ui::EventTimeForNow(), 0, 0);
   root_view->OnMouseMoved(mouse6);
   EXPECT_TRUE(v11->received_mouse_enter_);
   EXPECT_FALSE(v1->last_mouse_event_type_);
@@ -2640,8 +2613,8 @@ TEST_F(ViewTest, NotifyEnterExitOnChild) {
   // and the mouse remains inside |v1| the whole time, it receives another ENTER
   // when the mouse leaves v11.
   gfx::Point p7(21, 0);
-  ui::MouseEvent mouse7(ui::ET_MOUSE_MOVED, p7, p7, ui::EventTimeForNow(), 0,
-                        0);
+  ui::MouseEvent mouse7(ui::EventType::kMouseMoved, p7, p7,
+                        ui::EventTimeForNow(), 0, 0);
   root_view->OnMouseMoved(mouse7);
   EXPECT_TRUE(v11->received_mouse_exit_);
   EXPECT_FALSE(v1->received_mouse_enter_);
@@ -2654,10 +2627,9 @@ TEST_F(ViewTest, Textfield) {
       u"Reality is that which, when you stop believing it, doesn't go away.";
   const std::u16string kExtraText = u"Pretty deep, Philip!";
 
-  Widget* widget = new Widget;
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(0, 0, 100, 100);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
@@ -2692,10 +2664,9 @@ TEST_F(ViewTest, TextfieldCutCopyPaste) {
 
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
 
-  Widget* widget = new Widget;
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(0, 0, 100, 100);
   widget->Init(std::move(params));
   View* root_view = widget->GetRootView();
@@ -2813,9 +2784,8 @@ class ViewPaintOptimizationTest : public ViewsTestBase {
 
 // Tests that only Views where SchedulePaint was invoked get repainted.
 TEST_F(ViewPaintOptimizationTest, PaintDirtyViewsOnly) {
-  ScopedTestPaintWidget widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP));
+  ScopedTestPaintWidget widget(CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP));
   View* root_view = widget->GetRootView();
 
   TestView* v1 = root_view->AddChildView(std::make_unique<TestView>());
@@ -2902,8 +2872,8 @@ class TestViewWidget {
   Widget* widget() { return widget_.get(); }
 
  private:
+  std::unique_ptr<Widget> widget_;
   raw_ptr<TestView> view_;
-  UniqueWidgetPtr widget_;
 };
 
 }  // namespace
@@ -2914,7 +2884,7 @@ class TestViewWidget {
 TEST_F(ViewTest, HandleAccelerator) {
   ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
   TestViewWidget test_widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                    Widget::InitParams::TYPE_POPUP),
       &return_accelerator);
   TestView* view = test_widget.view();
@@ -2940,10 +2910,9 @@ TEST_F(ViewTest, HandleAccelerator) {
   EXPECT_EQ(1, view->accelerator_count_map_[return_accelerator]);
 
   // Add a child view associated with a child widget.
-  Widget* child_widget = new Widget;
-  Widget::InitParams child_params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_CONTROL);
+  auto child_widget = std::make_unique<Widget>();
+  Widget::InitParams child_params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_CONTROL);
   child_params.parent = widget->GetNativeView();
   child_widget->Init(std::move(child_params));
   TestView* child_view =
@@ -2986,7 +2955,7 @@ TEST_F(ViewTest, ActivateAcceleratorOnMac) {
   // Cmd+1 translates to "noop:" command by interpretKeyEvents.
   ui::Accelerator command_accelerator(ui::VKEY_1, ui::EF_COMMAND_DOWN);
   TestViewWidget test_widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                    Widget::InitParams::TYPE_POPUP),
       &command_accelerator);
   TestView* view = test_widget.view();
@@ -3032,7 +3001,7 @@ TEST_F(ViewTest, ActivateAcceleratorOnMac) {
 TEST_F(ViewTest, ActivateAccelerator) {
   ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
   TestViewWidget test_widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                    Widget::InitParams::TYPE_POPUP),
       &return_accelerator);
   TestView* view = test_widget.view();
@@ -3082,7 +3051,7 @@ TEST_F(ViewTest, ActivateAccelerator) {
 TEST_F(ViewTest, HiddenViewWithAccelerator) {
   ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
   TestViewWidget test_widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                    Widget::InitParams::TYPE_POPUP),
       &return_accelerator);
   TestView* view = test_widget.view();
@@ -3098,7 +3067,7 @@ TEST_F(ViewTest, HiddenViewWithAccelerator) {
 TEST_F(ViewTest, ViewInHiddenWidgetWithAccelerator) {
   ui::Accelerator return_accelerator(ui::VKEY_RETURN, ui::EF_NONE);
   TestViewWidget test_widget(
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                    Widget::InitParams::TYPE_POPUP),
       &return_accelerator, false);
   TestView* view = test_widget.view();
@@ -3160,20 +3129,18 @@ END_METADATA
 //    View::ViewHierarchyChanged() and View::NativeViewHierarchyChanged().
 // b) a widget has the correct parent after reparenting.
 TEST_F(ViewTest, NativeViewHierarchyChanged) {
-  UniqueWidgetPtr toplevel1 = std::make_unique<Widget>();
-  Widget::InitParams toplevel1_params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto toplevel1 = std::make_unique<Widget>();
+  Widget::InitParams toplevel1_params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   toplevel1->Init(std::move(toplevel1_params));
 
-  UniqueWidgetPtr toplevel2 = std::make_unique<Widget>();
-  Widget::InitParams toplevel2_params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto toplevel2 = std::make_unique<Widget>();
+  Widget::InitParams toplevel2_params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   toplevel2->Init(std::move(toplevel2_params));
 
-  UniqueWidgetPtr child = std::make_unique<Widget>();
-  Widget::InitParams child_params(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+  auto child = std::make_unique<Widget>();
+  Widget::InitParams child_params(Widget::InitParams::CLIENT_OWNS_WIDGET,
                                   Widget::InitParams::TYPE_CONTROL);
   child_params.parent = toplevel1->GetNativeView();
   child->Init(std::move(child_params));
@@ -3239,10 +3206,9 @@ TEST_F(ViewTest, TransformPaint) {
   auto view2 = std::make_unique<TestView>();
   view2->SetBoundsRect(gfx::Rect(100, 100, 200, 100));
 
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   widget->Show();
@@ -3277,10 +3243,9 @@ TEST_F(ViewTest, TransformEvent) {
   auto view2 = std::make_unique<TestView>();
   view2->SetBoundsRect(gfx::Rect(100, 100, 200, 100));
 
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -3300,16 +3265,17 @@ TEST_F(ViewTest, TransformEvent) {
   v2->Reset();
 
   gfx::Point p1(110, 210);
-  ui::MouseEvent pressed(ui::ET_MOUSE_PRESSED, p1, p1, ui::EventTimeForNow(),
-                         ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  ui::MouseEvent pressed(ui::EventType::kMousePressed, p1, p1,
+                         ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                         ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(pressed);
   EXPECT_EQ(0, v1->last_mouse_event_type_);
-  EXPECT_EQ(ui::ET_MOUSE_PRESSED, v2->last_mouse_event_type_);
+  EXPECT_EQ(ui::EventType::kMousePressed, v2->last_mouse_event_type_);
   EXPECT_EQ(190, v2->location_.x());
   EXPECT_EQ(10, v2->location_.y());
 
-  ui::MouseEvent released(ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(),
-                          ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent released(ui::EventType::kMouseReleased, gfx::Point(),
+                          gfx::Point(), ui::EventTimeForNow(), 0, 0);
   root->OnMouseReleased(released);
 
   // Now rotate |v2| inside |v1| clockwise.
@@ -3324,11 +3290,12 @@ TEST_F(ViewTest, TransformEvent) {
   v2->Reset();
 
   gfx::Point point2(110, 320);
-  ui::MouseEvent p2(ui::ET_MOUSE_PRESSED, point2, point2, ui::EventTimeForNow(),
-                    ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  ui::MouseEvent p2(ui::EventType::kMousePressed, point2, point2,
+                    ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                    ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(p2);
   EXPECT_EQ(0, v1->last_mouse_event_type_);
-  EXPECT_EQ(ui::ET_MOUSE_PRESSED, v2->last_mouse_event_type_);
+  EXPECT_EQ(ui::EventType::kMousePressed, v2->last_mouse_event_type_);
   EXPECT_EQ(10, v2->location_.x());
   EXPECT_EQ(20, v2->location_.y());
 
@@ -3359,11 +3326,12 @@ TEST_F(ViewTest, TransformEvent) {
   v3->Reset();
 
   gfx::Point point(112, 110);
-  ui::MouseEvent p3(ui::ET_MOUSE_PRESSED, point, point, ui::EventTimeForNow(),
-                    ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  ui::MouseEvent p3(ui::EventType::kMousePressed, point, point,
+                    ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                    ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(p3);
 
-  EXPECT_EQ(ui::ET_MOUSE_PRESSED, v3->last_mouse_event_type_);
+  EXPECT_EQ(ui::EventType::kMousePressed, v3->last_mouse_event_type_);
   EXPECT_EQ(10, v3->location_.x());
   EXPECT_EQ(25, v3->location_.y());
 
@@ -3397,11 +3365,12 @@ TEST_F(ViewTest, TransformEvent) {
   // |v3| now occupies (120, 120) to (144, 130) in |root|.
 
   gfx::Point point3(124, 125);
-  ui::MouseEvent p4(ui::ET_MOUSE_PRESSED, point3, point3, ui::EventTimeForNow(),
-                    ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  ui::MouseEvent p4(ui::EventType::kMousePressed, point3, point3,
+                    ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                    ui::EF_LEFT_MOUSE_BUTTON);
   root->OnMousePressed(p4);
 
-  EXPECT_EQ(ui::ET_MOUSE_PRESSED, v3->last_mouse_event_type_);
+  EXPECT_EQ(ui::EventType::kMousePressed, v3->last_mouse_event_type_);
   EXPECT_EQ(10, v3->location_.x());
   EXPECT_EQ(25, v3->location_.y());
 
@@ -3411,10 +3380,9 @@ TEST_F(ViewTest, TransformEvent) {
 TEST_F(ViewTest, TransformVisibleBound) {
   gfx::Rect viewport_bounds(0, 0, 100, 100);
 
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = viewport_bounds;
   widget->Init(std::move(params));
   widget->GetRootView()->SetBoundsRect(viewport_bounds);
@@ -3436,7 +3404,7 @@ TEST_F(ViewTest, TransformVisibleBound) {
 }
 
 TEST_F(ViewTest, WidgetObserverViewWidgetClosedViewReparented) {
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
+  auto widget = std::make_unique<Widget>();
   Widget::InitParams params = CreateParams(
       Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
   widget->Init(std::move(params));
@@ -3461,14 +3429,14 @@ TEST_F(ViewTest, WidgetObserverViewWidgetClosedViewReparented) {
   EXPECT_TRUE(view_1->GetViewAccessibility().is_widget_closed_);
   EXPECT_TRUE(child_view_1->GetViewAccessibility().is_widget_closed_);
 
-  widget = std::make_unique<Widget>();
-  params = CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+  auto widget_2 = std::make_unique<Widget>();
+  params = CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                         Widget::InitParams::TYPE_WINDOW);
-  widget->Init(std::move(params));
-  EXPECT_TRUE(widget->GetRootView());
+  widget_2->Init(std::move(params));
+  EXPECT_TRUE(widget_2->GetRootView());
 
   // Reparent the views tree with the closed widget to a new widget.
-  widget->GetRootView()->AddChildView(contents_view);
+  widget_2->GetRootView()->AddChildView(contents_view);
   EXPECT_TRUE(!contents_view->GetViewAccessibility().is_widget_closed_);
   EXPECT_TRUE(!view_1->GetViewAccessibility().is_widget_closed_);
   EXPECT_TRUE(!child_view_1->GetViewAccessibility().is_widget_closed_);
@@ -3510,10 +3478,9 @@ END_METADATA
 TEST_F(ViewTest, OnVisibleBoundsChanged) {
   gfx::Rect viewport_bounds(0, 0, 100, 100);
 
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = viewport_bounds;
   widget->Init(std::move(params));
   widget->GetRootView()->SetBoundsRect(viewport_bounds);
@@ -3609,10 +3576,9 @@ TEST_F(ViewTest, AddAndRemoveSchedulePaints) {
 
   // We have to put the View hierarchy into a Widget or no paints will be
   // scheduled.
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = viewport_bounds;
   widget->Init(std::move(params));
   widget->GetRootView()->SetBoundsRect(viewport_bounds);
@@ -3915,10 +3881,9 @@ TEST_F(ViewTest, ConversionsWithTransform) {
 
 // Tests conversion methods to and from screen coordinates.
 TEST_F(ViewTest, ConversionsToFromScreen) {
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
 
@@ -3947,10 +3912,9 @@ TEST_F(ViewTest, ConversionsToFromScreen) {
 
 // Tests conversion methods for rectangles.
 TEST_F(ViewTest, ConvertRectWithTransform) {
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -4225,10 +4189,9 @@ END_METADATA
 //
 // finally v1 is removed from root.
 TEST_F(ViewTest, AddedToRemovedFromWidget) {
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 650, 650);
   widget->Init(std::move(params));
 
@@ -4293,8 +4256,8 @@ TEST_F(ViewTest, AddedToRemovedFromWidget) {
   EXPECT_EQ(0, v3_ptr->removed_from_widget_count());
 
   // Test move between widgets.
-  UniqueWidgetPtr second_widget = std::make_unique<Widget>();
-  params = CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+  auto second_widget = std::make_unique<Widget>();
+  params = CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                         Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(150, 150, 650, 650);
   second_widget->Init(std::move(params));
@@ -4615,10 +4578,9 @@ class ActiveWidget : public Widget {
 
 TEST_F(ViewTest, AdvanceFocusIfNecessaryForUnfocusableView) {
   // Create a widget with two views and give the first one focus.
-  UniqueWidgetPtr widget = std::make_unique<ActiveWidget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<ActiveWidget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   widget->Init(std::move(params));
 
   View* view1 = widget->GetRootView()->AddChildView(std::make_unique<View>());
@@ -4742,10 +4704,9 @@ class ViewLayerTest : public ViewsTestBase {
   void SetUp() override {
     SetUpPixelCanvas();
     ViewTest::SetUp();
-    widget_ = new Widget;
-    Widget::InitParams params =
-        CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                     Widget::InitParams::TYPE_POPUP);
+    widget_ = std::make_unique<Widget>();
+    Widget::InitParams params = CreateParams(
+        Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
     params.bounds = gfx::Rect(50, 50, 200, 200);
     widget_->Init(std::move(params));
     widget_->Show();
@@ -4753,11 +4714,11 @@ class ViewLayerTest : public ViewsTestBase {
   }
 
   void TearDown() override {
-    widget_.ExtractAsDangling()->CloseNow();
+    widget_.reset();
     ViewsTestBase::TearDown();
   }
 
-  Widget* widget() { return widget_; }
+  Widget* widget() { return widget_.get(); }
 
   virtual void SetUpPixelCanvas() {
     scoped_feature_list_.InitAndDisableFeature(
@@ -4769,7 +4730,7 @@ class ViewLayerTest : public ViewsTestBase {
   void SchedulePaintOnParent(View* view) { view->SchedulePaintOnParent(); }
 
  private:
-  raw_ptr<Widget> widget_ = nullptr;
+  std::unique_ptr<Widget> widget_ = nullptr;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -5979,10 +5940,9 @@ TEST_F(ViewTest, OnThemeChanged) {
       test_view->AddChildView(std::make_unique<TestView>());
   EXPECT_FALSE(test_view_child->native_theme_);
 
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_WINDOW);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
   widget->Init(std::move(params));
 
   TestView* test_view_ptr =
@@ -6007,7 +5967,7 @@ class TestEventHandler : public ui::EventHandler {
 
   void OnMouseEvent(ui::MouseEvent* event) override {
     // The |view_| should have received the event first.
-    EXPECT_EQ(ui::ET_MOUSE_PRESSED, view_->last_mouse_event_type_);
+    EXPECT_EQ(ui::EventType::kMousePressed, view_->last_mouse_event_type_);
     had_mouse_event_ = true;
   }
 
@@ -6016,10 +5976,9 @@ class TestEventHandler : public ui::EventHandler {
 };
 
 TEST_F(ViewTest, ScopedTargetHandlerReceivesEvents) {
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 350, 350);
   widget->Init(std::move(params));
   View* root = widget->GetRootView();
@@ -6033,23 +5992,24 @@ TEST_F(ViewTest, ScopedTargetHandlerReceivesEvents) {
     EXPECT_EQ(&scoped_target_handler,
               v->SetTargetHandler(&scoped_target_handler));
 
-    EXPECT_EQ(ui::ET_UNKNOWN, v->last_mouse_event_type_);
+    EXPECT_EQ(ui::kUnknown, v->last_mouse_event_type_);
     gfx::Point p(10, 120);
-    ui::MouseEvent pressed(ui::ET_MOUSE_PRESSED, p, p, ui::EventTimeForNow(),
-                           ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+    ui::MouseEvent pressed(ui::EventType::kMousePressed, p, p,
+                           ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                           ui::EF_LEFT_MOUSE_BUTTON);
     root->OnMousePressed(pressed);
 
     // Both the View |v| and the |handler| should have received the event.
-    EXPECT_EQ(ui::ET_MOUSE_PRESSED, v->last_mouse_event_type_);
+    EXPECT_EQ(ui::EventType::kMousePressed, v->last_mouse_event_type_);
     EXPECT_TRUE(handler.had_mouse_event_);
   }
 
   // The View should continue receiving events after the |handler| is deleted.
   v->Reset();
-  ui::MouseEvent released(ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(),
-                          ui::EventTimeForNow(), 0, 0);
+  ui::MouseEvent released(ui::EventType::kMouseReleased, gfx::Point(),
+                          gfx::Point(), ui::EventTimeForNow(), 0, 0);
   root->OnMouseReleased(released);
-  EXPECT_EQ(ui::ET_MOUSE_RELEASED, v->last_mouse_event_type_);
+  EXPECT_EQ(ui::EventType::kMouseReleased, v->last_mouse_event_type_);
 }
 
 // See comment above test for details.
@@ -6116,11 +6076,10 @@ void AddViewWithChildLayer(View* parent) {
 // called after the layer hierarchy matches the view hierarchy.
 TEST_F(ViewTest, CrashOnAddFromFromOnThemeChanged) {
   ui::TestNativeTheme theme;
-  UniqueWidgetPtr widget = std::make_unique<WidgetWithCustomTheme>(&theme);
+  auto widget = std::make_unique<WidgetWithCustomTheme>(&theme);
   test::WidgetDestroyedWaiter waiter(widget.get());
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   params.bounds = gfx::Rect(50, 50, 350, 350);
   widget->Init(std::move(params));
 
@@ -6175,10 +6134,9 @@ END_METADATA
 // Test that Views can safely manipulate Layers during Widget closure.
 TEST_F(ViewTest, DestroyLayerInClose) {
   bool removed_from_widget = false;
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_WINDOW);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
   widget->Init(std::move(params));
   widget->SetBounds(gfx::Rect(0, 0, 100, 100));
   auto* view = widget->GetContentsView()->AddChildView(
@@ -6191,8 +6149,8 @@ TEST_F(ViewTest, DestroyLayerInClose) {
   EXPECT_TRUE(view->GetWidget());
   EXPECT_FALSE(view->was_hidden());
 
-  // Release and close the widget. It will be destroyed once it closes.
-  widget.reset();
+  // Close the widget. It will be destroyed once it goes out of scope.
+  widget->Close();
   EXPECT_FALSE(view->layer());
   // Ensure the layer went away via VisibilityChanged().
   EXPECT_TRUE(view->was_hidden());
@@ -6200,6 +6158,8 @@ TEST_F(ViewTest, DestroyLayerInClose) {
   // Not removed from Widget until Close() completes.
   EXPECT_FALSE(removed_from_widget);
   base::RunLoop().RunUntilIdle();  // Let the Close() complete.
+  // Once Close() is completed, destroy the Widget.
+  widget.reset();
   EXPECT_TRUE(removed_from_widget);
 }
 
@@ -6253,7 +6213,7 @@ TEST_F(ViewTest, ChildViewZOrderChanged) {
   // 2nd child should be now on top, i.e. the last element in the array returned
   // by GetChildrenInZOrder(). Its layer should also be above the others.
   // The rest of the children and layers order should be unchanged.
-  const size_t expected_order[] = {0, 1, 3, 4, 2};
+  constexpr auto expected_order = std::to_array<size_t>({0, 1, 3, 4, 2});
   children = view->GetChildrenInZOrder();
   EXPECT_EQ(kNumChildren + 1, children.size());
   EXPECT_EQ(kNumChildren + 1, layers.size());
@@ -6350,10 +6310,9 @@ TEST_F(ViewTest, TestVisibleChangedCallback) {
 }
 
 TEST_F(ViewTest, TooltipShowsForDisabledView) {
-  UniqueWidgetPtr widget = std::make_unique<Widget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
-                   Widget::InitParams::TYPE_WINDOW);
+  auto widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
   widget->Init(std::move(params));
   widget->SetBounds(gfx::Rect(0, 0, 100, 100));
 

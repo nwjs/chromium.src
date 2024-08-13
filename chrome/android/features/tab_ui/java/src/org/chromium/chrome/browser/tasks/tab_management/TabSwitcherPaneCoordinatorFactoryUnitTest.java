@@ -36,8 +36,10 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.hub.PaneHubController;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.LifecycleObserver;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
@@ -85,6 +87,8 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
             new ObservableSupplierImpl<>(true);
     private final ObservableSupplierImpl<Boolean> mIsAnimatingSupplier =
             new ObservableSupplierImpl<>(false);
+    private final ObservableSupplierImpl<PaneHubController> mPaneHubControllerSupplier =
+            new ObservableSupplierImpl<>();
 
     @Mock private ActivityLifecycleDispatcher mLifecycleDispatcher;
     @Mock private TabModelSelector mTabModelSelector;
@@ -100,10 +104,12 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     @Mock private ModalDialogManager mModalDialogManager;
     @Mock private TabSwitcherResetHandler mResetHandler;
     @Mock private Callback<Integer> mOnTabClickedCallback;
+    @Mock private Callback<Boolean> mHairlineVisibilityCallback;
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private ProfileProvider mProfileProvider;
     @Mock private Profile mProfile;
     @Mock private Tracker mTracker;
+    @Mock private BackPressManager mBackpressManager;
 
     @Captor private ArgumentCaptor<TabModelSelectorObserver> mTabModelSelectorObserverCaptor;
     @Captor private ArgumentCaptor<LifecycleObserver> mLifecycleObserverCaptor;
@@ -160,7 +166,8 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mScrimCoordinator,
                         mSnackbarManager,
                         mModalDialogManager,
-                        mBottomSheetController);
+                        mBottomSheetController,
+                        mBackpressManager);
     }
 
     @Test
@@ -174,6 +181,7 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
+                        mHairlineVisibilityCallback,
                         /* isIncognito= */ false,
                         /* onTabGroupCreation= */ null);
         assertNotNull(coordinator);
@@ -198,6 +206,7 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
+                        mHairlineVisibilityCallback,
                         /* isIncognito= */ false,
                         /* onTabGroupCreation= */ null);
         assertNotNull(coordinator1);
@@ -213,6 +222,7 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
+                        mHairlineVisibilityCallback,
                         /* isIncognito= */ false,
                         /* onTabGroupCreation= */ null);
         assertNotNull(coordinator2);
@@ -236,6 +246,7 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         mOnTabClickedCallback,
+                        mHairlineVisibilityCallback,
                         /* isIncognito= */ false,
                         /* onTabGroupCreation= */ null);
         assertNotNull(coordinator);

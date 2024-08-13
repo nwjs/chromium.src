@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_VIZ_SERVICE_DISPLAY_DIRECT_RENDERER_H_
 #define COMPONENTS_VIZ_SERVICE_DISPLAY_DIRECT_RENDERER_H_
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -276,10 +277,10 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
 
   virtual void SetRenderPassBackingDrawnRect(
       const AggregatedRenderPassId& render_pass_id,
-      const gfx::Rect& drawn_rect) {}
+      const gfx::Rect& drawn_rect) = 0;
 
   virtual gfx::Rect GetRenderPassBackingDrawnRect(
-      const AggregatedRenderPassId& render_pass_id) const;
+      const AggregatedRenderPassId& render_pass_id) const = 0;
 
   // Private interface implemented by subclasses for use by DirectRenderer.
   virtual bool CanPartialSwap() = 0;
@@ -402,7 +403,7 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
     DCHECK(current_frame_valid_);
     return &current_frame_;
   }
-  gfx::BufferFormat reshape_buffer_format() const {
+  SharedImageFormat reshape_si_format() const {
     DCHECK(reshape_params_);
     return reshape_params_->format;
   }
@@ -451,6 +452,7 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
   gfx::Size device_viewport_size_;
   gfx::OverlayTransform reshape_display_transform_ =
       gfx::OVERLAY_TRANSFORM_INVALID;
+  uint64_t total_pixels_rendered_this_frame_ = 0;
 };
 
 }  // namespace viz

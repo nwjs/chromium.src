@@ -34,7 +34,6 @@
 #include "base/trace_event/tracing_agent.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "components/tracing/common/trace_startup_config.h"
 #include "content/browser/devtools/devtools_agent_host_impl.h"
 #include "content/browser/devtools/devtools_io_context.h"
 #include "content/browser/devtools/devtools_stream_file.h"
@@ -56,6 +55,7 @@
 #include "services/tracing/public/cpp/perfetto/perfetto_config.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_session.h"
 #include "services/tracing/public/cpp/perfetto/trace_packet_tokenizer.h"
+#include "services/tracing/public/cpp/trace_startup_config.h"
 #include "services/tracing/public/cpp/tracing_features.h"
 #include "services/tracing/public/mojom/constants.mojom-forward.h"
 #include "third_party/abseil-cpp/absl/strings/ascii.h"
@@ -891,10 +891,8 @@ void TracingHandler::AttemptAdoptStartupSession(
   gzip_compression_ = gzip_compression;
   proto_format_ = proto_format;
 
-  base::trace_event::TraceConfig browser_config =
-      tracing::TraceStartupConfig::GetInstance().GetTraceConfig();
-  perfetto::TraceConfig perfetto_config = CreatePerfettoConfiguration(
-      browser_config, return_as_stream_, proto_format_);
+  perfetto::TraceConfig perfetto_config =
+      tracing::TraceStartupConfig::GetInstance().GetPerfettoConfig();
 
   session_ =
       std::make_unique<PerfettoTracingSession>(proto_format_, tracing_backend);

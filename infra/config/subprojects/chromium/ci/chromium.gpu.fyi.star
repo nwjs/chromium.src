@@ -15,9 +15,9 @@ ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
     builder_group = "chromium.gpu.fyi",
     pool = ci.gpu.POOL,
+    gardener_rotations = gardener_rotations.CHROMIUM_GPU,
     contact_team_email = "chrome-gpu-infra@google.com",
     execution_timeout = 6 * time.hour,
-    gardener_rotations = gardener_rotations.CHROMIUM_GPU,
     health_spec = health_spec.DEFAULT,
     properties = {
         "perf_dashboard_machine_group": "ChromiumGPUFYI",
@@ -59,7 +59,7 @@ consoles.console_view(
         "Linux|Intel": "*type*",
         "Linux|Nvidia": "*type*",
         "Android": ["Builder", "L32", "M64", "P32", "R32", "S64"],
-        "Lacros": "*builder*",
+        "Wayland": "*builder*",
     },
 )
 
@@ -376,6 +376,8 @@ ci.gpu.linux_builder(
             "remoteexec",
             "dcheck_off",
             "no_symbols",
+            "chromeos",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -429,6 +431,8 @@ ci.gpu.linux_builder(
             "dcheck_off",
             "no_symbols",
             "is_skylab",
+            "chromeos",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -495,6 +499,7 @@ ci.gpu.linux_builder(
             "try_builder",
             "remoteexec",
             "static_angle",
+            "arm",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -544,7 +549,8 @@ ci.gpu.linux_builder(
 )
 
 ci.gpu.linux_builder(
-    name = "GPU FYI Lacros x64 Builder",
+    name = "GPU FYI Linux Wayland Builder",
+    description_html = "Parent GPU builder for Linux Wayland builds",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
@@ -567,10 +573,12 @@ ci.gpu.linux_builder(
             "release_builder",
             "try_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
-        category = "Lacros|Builder",
+        category = "Wayland|Builder",
         short_name = "rel",
     ),
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
@@ -600,6 +608,8 @@ ci.gpu.linux_builder(
             "release_builder",
             "try_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -630,6 +640,8 @@ ci.gpu.linux_builder(
             "gpu_fyi_tests",
             "debug_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -663,6 +675,8 @@ ci.gpu.linux_builder(
             "try_builder",
             "remoteexec",
             "tsan",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -694,6 +708,7 @@ ci.gpu.mac_builder(
             "try_builder",
             "remoteexec",
             "x64",
+            "mac",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -726,6 +741,7 @@ ci.gpu.mac_builder(
             "remoteexec",
             "asan",
             "x64",
+            "mac",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -756,6 +772,7 @@ ci.gpu.mac_builder(
             "debug_builder",
             "remoteexec",
             "x64",
+            "mac",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -788,6 +805,7 @@ ci.gpu.mac_builder(
             "try_builder",
             "remoteexec",
             "arm64",
+            "mac",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -797,8 +815,9 @@ ci.gpu.mac_builder(
 )
 
 ci.thin_tester(
-    name = "Lacros FYI x64 Release (AMD)",
-    triggered_by = ["GPU FYI Lacros x64 Builder"],
+    name = "Linux Wayland FYI Release (AMD)",
+    description_html = "Runs GPU tests on weston with Intel UHD 630",
+    triggered_by = ["GPU FYI Linux Wayland Builder"],
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
         gclient_config = builder_config.gclient_config(
@@ -816,14 +835,15 @@ ci.thin_tester(
         run_tests_serially = True,
     ),
     console_view_entry = consoles.console_view_entry(
-        category = "Lacros|AMD",
+        category = "Wayland|AMD",
         short_name = "amd",
     ),
 )
 
 ci.thin_tester(
-    name = "Lacros FYI x64 Release (Intel)",
-    triggered_by = ["GPU FYI Lacros x64 Builder"],
+    name = "Linux Wayland FYI Release (Intel)",
+    description_html = "Runs GPU tests on weston with AMD RX 5500 XT",
+    triggered_by = ["GPU FYI Linux Wayland Builder"],
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
         gclient_config = builder_config.gclient_config(
@@ -841,7 +861,7 @@ ci.thin_tester(
         run_tests_serially = True,
     ),
     console_view_entry = consoles.console_view_entry(
-        category = "Lacros|Intel",
+        category = "Wayland|Intel",
         short_name = "int",
     ),
 )
@@ -1153,10 +1173,10 @@ ci.thin_tester(
         run_tests_serially = True,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|Apple",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "Mac|Apple",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -1748,6 +1768,7 @@ gpu_fyi_windows_builder(
             "release_builder",
             "try_builder",
             "remoteexec",
+            "win",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1780,6 +1801,7 @@ gpu_fyi_windows_builder(
             "try_builder",
             "remoteexec",
             "x86",
+            "win",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1814,6 +1836,7 @@ gpu_fyi_windows_builder(
             # Remove this once the decision to use cross-compilation or not in
             # crbug.com/1510985 is made.
             "win_cross",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1844,6 +1867,8 @@ gpu_fyi_windows_builder(
             "gpu_fyi_tests",
             "debug_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1876,6 +1901,8 @@ gpu_fyi_windows_builder(
             "release_builder",
             "try_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1907,6 +1934,8 @@ gpu_fyi_windows_builder(
             "dx12vk",
             "debug_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1945,6 +1974,8 @@ gpu_fyi_windows_builder(
             "release_builder",
             "try_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(

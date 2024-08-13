@@ -506,12 +506,6 @@ extern const base::FeatureParam<double> kDomainSuggestionsScoreFactor;
 // traditional and the alternate scoring algorithms.
 extern const base::FeatureParam<bool> kDomainSuggestionsAlternativeScoring;
 
-extern const base::FeatureParam<omnibox::CompanyEntityIconAdjustmentGroup>
-    kCompanyEntityIconAdjustmentGroup;
-
-extern const base::FeatureParam<bool>
-    kCompanyEntityIconAdjustmentCounterfactual;
-
 // ---------------------------------------------------------
 // ML Relevance Scoring ->
 
@@ -729,6 +723,10 @@ constexpr base::FeatureParam<omnibox::ActionInfo::ActionType>
         {},
         &kActionsInSuggestRemoveActionTypesVariants);
 
+constexpr base::FeatureParam<bool> kAnswerActionsCounterfactual(
+    &omnibox::kOmniboxAnswerActions,
+    "AnswerActionsCounterfactual",
+    false);
 constexpr base::FeatureParam<bool> kAnswerActionsShowAboveKeyboard(
     &omnibox::kOmniboxAnswerActions,
     "ShowAboveKeyboard",
@@ -778,6 +776,10 @@ bool IsStarterPackIPHEnabled();
 // When true, enables an informational IPH message at the bottom of the Omnibox
 // directing users to featured Enterprise search created by policy.
 bool IsFeaturedEnterpriseSearchIPHEnabled();
+
+// Returns true if the IPH for either Starter Pack or Featured Enterprise Site
+// Search is enabled.
+bool IsFeaturedSearchIPHEnabled();
 
 // <- Site Search Starter Pack
 // ---------------------------------------------------------

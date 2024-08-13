@@ -37,6 +37,7 @@
 #include "base/message_loop/message_pump_type.h"
 #include "base/path_service.h"
 #include "base/task/current_thread.h"
+#include "base/trace_event/named_trigger.h"
 #include "components/crash/content/browser/child_exit_observer_android.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/embedder_support/android/metrics/memory_metrics_logger.h"
@@ -70,6 +71,7 @@
 #include "ui/gl/gl_surface.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
+#include "android_webview/browser_jni_headers/AwBrowserMainParts_jni.h"
 #include "android_webview/browser_jni_headers/AwInterfaceRegistrar_jni.h"
 
 namespace android_webview {
@@ -304,6 +306,12 @@ void AwBrowserMainParts::RegisterSyntheticTrials() {
         std::string(PRODUCT_VERSION) + "_" + trial_group,
         variations::SyntheticTrialAnnotationMode::kCurrentLog);
   }
+  JNIEnv* env = base::android::AttachCurrentThread();
+  bool use_webview_context = Java_AwBrowserMainParts_getUseWebViewContext(env);
+  AwMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+      metrics, "WebViewSeparateResourceContextMetrics",
+      use_webview_context ? "Enabled" : "Control",
+      variations::SyntheticTrialAnnotationMode::kCurrentLog);
 }
 
 int AwBrowserMainParts::PreMainMessageLoopRun() {
@@ -341,6 +349,8 @@ void AwBrowserMainParts::PostCreateThreads() {
   MaybeSetupSystemTracingFromFieldTrial();
   tracing::SetupBackgroundTracingFromCommandLine();
   tracing::SetupPresetTracingFromFieldTrial();
+  base::trace_event::EmitNamedTrigger(
+      base::trace_event::kStartupTracingTriggerName);
 }
 
 }  // namespace android_webview

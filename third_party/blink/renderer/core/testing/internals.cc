@@ -24,6 +24,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/testing/internals.h"
 
 #include <atomic>
@@ -2753,14 +2758,14 @@ void Internals::setPageScaleFactorLimits(float min_scale_factor,
   page->SetDefaultPageScaleLimits(min_scale_factor, max_scale_factor);
 }
 
-float Internals::pageZoomFactor(ExceptionState& exception_state) {
+float Internals::layoutZoomFactor(ExceptionState& exception_state) {
   if (!document_->GetPage()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         "The document's page cannot be retrieved.");
     return 0;
   }
-  // Page zoom without Device Scale Factor.
+  // Layout zoom without Device Scale Factor.
   return document_->GetPage()->GetChromeClient().UserZoomFactor(
       document_->GetFrame());
 }
@@ -3254,40 +3259,36 @@ StaticSelection* Internals::getSelectionInFlatTree(
 Node* Internals::visibleSelectionAnchorNode() {
   if (!GetFrame())
     return nullptr;
-  Position position = GetFrame()
-                          ->Selection()
-                          .ComputeVisibleSelectionInDOMTreeDeprecated()
-                          .Anchor();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  Position position =
+      GetFrame()->Selection().ComputeVisibleSelectionInDOMTree().Anchor();
   return position.IsNull() ? nullptr : position.ComputeContainerNode();
 }
 
 unsigned Internals::visibleSelectionAnchorOffset() {
   if (!GetFrame())
     return 0;
-  Position position = GetFrame()
-                          ->Selection()
-                          .ComputeVisibleSelectionInDOMTreeDeprecated()
-                          .Anchor();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  Position position =
+      GetFrame()->Selection().ComputeVisibleSelectionInDOMTree().Anchor();
   return position.IsNull() ? 0 : position.ComputeOffsetInContainerNode();
 }
 
 Node* Internals::visibleSelectionFocusNode() {
   if (!GetFrame())
     return nullptr;
-  Position position = GetFrame()
-                          ->Selection()
-                          .ComputeVisibleSelectionInDOMTreeDeprecated()
-                          .Focus();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  Position position =
+      GetFrame()->Selection().ComputeVisibleSelectionInDOMTree().Focus();
   return position.IsNull() ? nullptr : position.ComputeContainerNode();
 }
 
 unsigned Internals::visibleSelectionFocusOffset() {
   if (!GetFrame())
     return 0;
-  Position position = GetFrame()
-                          ->Selection()
-                          .ComputeVisibleSelectionInDOMTreeDeprecated()
-                          .Focus();
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  Position position =
+      GetFrame()->Selection().ComputeVisibleSelectionInDOMTree().Focus();
   return position.IsNull() ? 0 : position.ComputeOffsetInContainerNode();
 }
 
@@ -3401,7 +3402,7 @@ void Internals::setForcedColorsAndDarkPreferredColorScheme(Document* document) {
   color_scheme_helper_.emplace(*document);
   color_scheme_helper_->SetPreferredColorScheme(
       mojom::blink::PreferredColorScheme::kDark);
-  color_scheme_helper_->SetInForcedColors(/*in_forced_colors=*/true);
+  color_scheme_helper_->SetInForcedColors(*document, /*in_forced_colors=*/true);
   color_scheme_helper_->SetEmulatedForcedColors(*document,
                                                 /*is_dark_theme=*/false);
 }
@@ -3610,7 +3611,7 @@ String Internals::selectedTextForClipboard() {
 void Internals::setVisualViewportOffset(int css_x, int css_y) {
   if (!GetFrame())
     return;
-  float zoom = GetFrame()->PageZoomFactor();
+  float zoom = GetFrame()->LayoutZoomFactor();
   gfx::PointF offset(css_x * zoom, css_y * zoom);
   GetFrame()->GetPage()->GetVisualViewport().SetLocation(offset);
 }

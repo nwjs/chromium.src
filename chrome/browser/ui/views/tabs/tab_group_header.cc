@@ -139,7 +139,7 @@ TabGroupHeader::TabGroupHeader(TabSlotController& tab_slot_controller,
 
   SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
 
-  is_collapsed_ = tab_slot_controller_->IsGroupCollapsed(group);
+  UpdateIsCollapsed();
 }
 
 TabGroupHeader::~TabGroupHeader() = default;
@@ -150,11 +150,7 @@ bool TabGroupHeader::OnKeyPressed(const ui::KeyEvent& event) {
       !editor_bubble_tracker_.is_open()) {
     tab_slot_controller_->ToggleTabGroupCollapsedState(
         group().value(), ToggleTabGroupCollapsedStateOrigin::kKeyboard);
-#if BUILDFLAG(IS_WIN)
     NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
-#else
-    NotifyAccessibilityEvent(ax::mojom::Event::kAlert, true);
-#endif
     return true;
   }
 
@@ -165,7 +161,8 @@ bool TabGroupHeader::OnKeyPressed(const ui::KeyEvent& event) {
       ui::EF_CONTROL_DOWN;
 #endif
 
-  if (event.type() == ui::ET_KEY_PRESSED && (event.flags() & kModifiedFlag)) {
+  if (event.type() == ui::EventType::kKeyPressed &&
+      (event.flags() & kModifiedFlag)) {
     if (event.key_code() == ui::VKEY_RIGHT) {
       tab_slot_controller_->ShiftGroupRight(group().value());
       return true;
@@ -240,16 +237,16 @@ void TabGroupHeader::OnGestureEvent(ui::GestureEvent* event) {
   tab_slot_controller_->UpdateHoverCard(
       nullptr, TabSlotController::HoverCardUpdateType::kEvent);
   switch (event->type()) {
-    case ui::ET_GESTURE_TAP:
+    case ui::EventType::kGestureTap:
       tab_slot_controller_->ToggleTabGroupCollapsedState(
           group().value(), ToggleTabGroupCollapsedStateOrigin::kGesture);
       break;
-    case ui::ET_GESTURE_LONG_TAP: {
+    case ui::EventType::kGestureLongTap: {
       editor_bubble_tracker_.Opened(TabGroupEditorBubbleView::Show(
           tab_slot_controller_->GetBrowser(), group().value(), this));
       break;
     }
-    case ui::ET_GESTURE_SCROLL_BEGIN: {
+    case ui::EventType::kGestureScrollBegin: {
       tab_slot_controller_->MaybeStartDrag(
           this, *event, tab_slot_controller_->GetSelectionModel());
       break;
@@ -269,14 +266,6 @@ void TabGroupHeader::OnFocus() {
 void TabGroupHeader::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kTabList;
   node_data->AddState(ax::mojom::State::kEditable);
-  bool is_collapsed = tab_slot_controller_->IsGroupCollapsed(group().value());
-  if (is_collapsed) {
-    node_data->AddState(ax::mojom::State::kCollapsed);
-    node_data->RemoveState(ax::mojom::State::kExpanded);
-  } else {
-    node_data->AddState(ax::mojom::State::kExpanded);
-    node_data->RemoveState(ax::mojom::State::kCollapsed);
-  }
 
   std::u16string title = tab_slot_controller_->GetGroupTitle(group().value());
   std::u16string contents =
@@ -289,6 +278,7 @@ void TabGroupHeader::GetAccessibleNodeData(ui::AXNodeData* node_data) {
 // will be reread with the updated state when the header's collapsed state is
 // toggled.
 #if !BUILDFLAG(IS_WIN)
+  bool is_collapsed = tab_slot_controller_->IsGroupCollapsed(group().value());
   collapsed_state =
       is_collapsed ? l10n_util::GetStringUTF16(IDS_GROUP_AX_LABEL_COLLAPSED)
                    : l10n_util::GetStringUTF16(IDS_GROUP_AX_LABEL_EXPANDED);
@@ -523,7 +513,7 @@ void TabGroupHeader::VisualsChanged() {
     if (element_id) {
       views::ElementTrackerViews::GetInstance()->NotifyViewActivated(element_id,
                                                                      this);
-      is_collapsed_ = collapsed_state;
+      UpdateIsCollapsed();
     }
   }
 }
@@ -539,6 +529,16 @@ bool TabGroupHeader::ShouldShowSyncIcon() const {
 
   return saved_tab_group_service_ && saved_tab_group_service_->model() &&
          saved_tab_group_service_->model()->Contains(group().value());
+}
+
+void TabGroupHeader::UpdateIsCollapsed() {
+  is_collapsed_ = tab_slot_controller_->IsGroupCollapsed(group().value());
+
+  if (is_collapsed_) {
+    GetViewAccessibility().SetIsCollapsed();
+  } else {
+    GetViewAccessibility().SetIsExpanded();
+  }
 }
 
 void TabGroupHeader::RemoveObserverFromWidget(views::Widget* widget) {

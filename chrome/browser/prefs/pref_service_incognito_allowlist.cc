@@ -83,6 +83,7 @@ const char* const kPersistentPrefNames[] = {
     ash::prefs::kAccessibilityHighContrastEnabled,
     ash::prefs::kAccessibilityScreenMagnifierEnabled,
     ash::prefs::kAccessibilityScreenMagnifierFocusFollowingEnabled,
+    ash::prefs::kAccessibilityMagnifierFollowsChromeVox,
     ash::prefs::kAccessibilityMagnifierFollowsSts,
     ash::prefs::kAccessibilityScreenMagnifierMouseFollowingMode,
     ash::prefs::kAccessibilityScreenMagnifierScale,
@@ -123,6 +124,7 @@ const char* const kPersistentPrefNames[] = {
     ash::prefs::kHighContrastAcceleratorDialogHasBeenAccepted,
     ash::prefs::kScreenMagnifierAcceleratorDialogHasBeenAccepted,
     ash::prefs::kShouldAlwaysShowAccessibilityMenu,
+    ash::prefs::kAccessibilityDisableTrackpadEnabled,
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 #if !BUILDFLAG(IS_ANDROID)
     kAnimationPolicyAllowed,

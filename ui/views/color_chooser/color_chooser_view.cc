@@ -2,12 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if defined(UNSAFE_BUFFERS_BUILD)
-// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
-// then remove this pragma.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/views/color_chooser/color_chooser_view.h"
 
 #include <stdint.h>
@@ -18,6 +12,7 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/compiler_specific.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "cc/paint/paint_flags.h"
@@ -39,6 +34,7 @@
 #include "ui/gfx/geometry/insets.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/strings/grit/ui_strings.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/color_chooser/color_chooser_listener.h"
@@ -104,8 +100,8 @@ class LocatedEventHandlerView : public views::View {
   }
 
   void OnGestureEvent(ui::GestureEvent* event) override {
-    if (event->type() == ui::ET_GESTURE_TAP ||
-        event->type() == ui::ET_GESTURE_TAP_DOWN ||
+    if (event->type() == ui::EventType::kGestureTap ||
+        event->type() == ui::EventType::kGestureTapDown ||
         event->IsScrollGestureEvent()) {
       ProcessEventAtLocation(event->location());
       event->SetHandled();
@@ -459,7 +455,7 @@ std::unique_ptr<View> ColorChooser::BuildView() {
   auto textfield = std::make_unique<Textfield>();
   textfield->set_controller(this);
   textfield->SetDefaultWidthInChars(kTextfieldLengthInChars);
-  textfield->SetAccessibleName(
+  textfield->GetViewAccessibility().SetName(
       l10n_util::GetStringUTF16(IDS_APP_ACCNAME_COLOR_CHOOSER_HEX_INPUT));
   textfield_ = container2->AddChildView(std::move(textfield));
   selected_color_patch_ =
@@ -537,10 +533,11 @@ bool ColorChooser::HandleKeyEvent(Textfield* sender,
                                   const ui::KeyEvent& key_event) {
   DCHECK(IsViewAttached());
 
-  if (key_event.type() != ui::ET_KEY_PRESSED ||
+  if (key_event.type() != ui::EventType::kKeyPressed ||
       (key_event.key_code() != ui::VKEY_RETURN &&
-       key_event.key_code() != ui::VKEY_ESCAPE))
+       key_event.key_code() != ui::VKEY_ESCAPE)) {
     return false;
+  }
 
   tracker_.view()->GetWidget()->Close();
   return true;
@@ -563,10 +560,12 @@ std::unique_ptr<WidgetDelegate> ColorChooser::MakeWidgetDelegate() {
 ColorChooser::ColorChooser(ColorChooserListener* listener, SkColor initial)
     : listener_(listener), initial_color_(initial) {}
 
-ColorChooser::~ColorChooser() = default;
+ColorChooser::~ColorChooser() {
+  textfield_->set_controller(nullptr);
+}
 
 void ColorChooser::SetColor(SkColor color) {
-  SkColorToHSV(color, hsv_);
+  UNSAFE_BUFFERS(SkColorToHSV(color, hsv_.data()));
   listener_->OnColorChosen(GetColor());
 }
 
@@ -582,7 +581,7 @@ void ColorChooser::SetSaturationValue(SkScalar saturation, SkScalar value) {
 }
 
 SkColor ColorChooser::GetColor() const {
-  return SkHSVToColor(255, hsv_);
+  UNSAFE_BUFFERS(return SkHSVToColor(255, hsv_.data()));
 }
 
 void ColorChooser::OnViewClosing() {

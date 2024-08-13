@@ -106,7 +106,7 @@ void StyledLabel::SetText(std::u16string text) {
   }
 
   text_ = text;
-  SetAccessibleName(text_);
+  GetViewAccessibility().SetName(text_);
   style_ranges_.clear();
   RemoveOrDeleteAllChildViews();
   OnPropertyChanged(&text_, kPropertyEffectsPreferredSizeChanged);
@@ -293,10 +293,6 @@ void StyledLabel::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   need_recreate_child_ = true;
 }
 
-int StyledLabel::GetHeightForWidth(int w) const {
-  return GetLayoutSizeInfoForWidth(w).total_size.height();
-}
-
 void StyledLabel::Layout(PassKey) {
   if (!need_recreate_child_) {
     return;
@@ -332,7 +328,7 @@ void StyledLabel::ClearStyleRanges() {
 
 void StyledLabel::ClickFirstLinkForTesting() {
   GetFirstLinkForTesting()->OnKeyPressed(  // IN-TEST
-      ui::KeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_SPACE, ui::EF_NONE));
+      ui::KeyEvent(ui::EventType::kKeyPressed, ui::VKEY_SPACE, ui::EF_NONE));
 }
 
 views::Link* StyledLabel::GetFirstLinkForTesting() {
@@ -572,7 +568,7 @@ std::unique_ptr<Label> StyledLabel::CreateLabel(
     *previous_link_fragment = link.get();
     link->SetCallback(style_info.callback);
     if (!style_info.accessible_name.empty())
-      link->SetAccessibleName(style_info.accessible_name);
+      link->GetViewAccessibility().SetName(style_info.accessible_name);
 
     result = std::move(link);
   } else if (style_info.custom_font) {
@@ -595,7 +591,7 @@ std::unique_ptr<Label> StyledLabel::CreateLabel(
     result->SetTooltipText(style_info.tooltip);
   }
   if (!style_info.accessible_name.empty())
-    result->SetAccessibleName(style_info.accessible_name);
+    result->GetViewAccessibility().SetName(style_info.accessible_name);
   if (absl::holds_alternative<SkColor>(displayed_on_background_color_)) {
     result->SetBackgroundColor(
         absl::get<SkColor>(displayed_on_background_color_));

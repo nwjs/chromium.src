@@ -48,6 +48,7 @@
 #include "chrome/browser/ui/views/controls/hover_button.h"
 #include "chrome/browser/ui/views/tabs/color_picker_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
+#include "chrome/browser/user_education/tutorial_identifiers.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/grit/generated_resources.h"
@@ -253,15 +254,18 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
   SetCloseCallback(base::BindOnce(&TabGroupEditorBubbleView::OnBubbleClose,
                                   base::Unretained(this)));
 
-  std::unique_ptr<views::LabelButton> move_menu_item = CreateMenuItem(
-      TAB_GROUP_HEADER_CXMENU_MOVE_GROUP_TO_NEW_WINDOW,
-      l10n_util::GetStringUTF16(
-          IDS_TAB_GROUP_HEADER_CXMENU_MOVE_GROUP_TO_NEW_WINDOW),
-      base::BindRepeating(
-          &TabGroupEditorBubbleView::MoveGroupToNewWindowPressed,
-          base::Unretained(this)),
-      ui::ImageModel::FromVectorIcon(kMoveGroupToNewWindowRefreshIcon,
-                                     ui::kColorMenuIcon, kDefaultIconSize));
+  std::unique_ptr<views::LabelButton> move_menu_item;
+  if (CanMoveGroupToNewWindow()) {
+    move_menu_item = CreateMenuItem(
+        TAB_GROUP_HEADER_CXMENU_MOVE_GROUP_TO_NEW_WINDOW,
+        l10n_util::GetStringUTF16(
+            IDS_TAB_GROUP_HEADER_CXMENU_MOVE_GROUP_TO_NEW_WINDOW),
+        base::BindRepeating(
+            &TabGroupEditorBubbleView::MoveGroupToNewWindowPressed,
+            base::Unretained(this)),
+        ui::ImageModel::FromVectorIcon(kMoveGroupToNewWindowRefreshIcon,
+                                       ui::kColorMenuIcon, kDefaultIconSize));
+  }
 
   // Create view hierarchy.
   title_field_ =
@@ -299,9 +303,8 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
                                      ui::kColorMenuIcon, kDefaultIconSize)));
   menu_items_.push_back(new_tab_menu_item);
 
-  views::LabelButton* move_menu_item_ptr;
-  if (tab_groups::IsTabGroupsSaveV2Enabled()) {
-    move_menu_item_ptr = AddChildView(std::move(move_menu_item));
+  if (move_menu_item && tab_groups::IsTabGroupsSaveV2Enabled()) {
+    menu_items_.push_back(AddChildView(std::move(move_menu_item)));
   }
 
   menu_items_.push_back(AddChildView(CreateMenuItem(
@@ -321,12 +324,11 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
                                      kTabGroupEditorBubbleCloseGroupButtonId);
   menu_items_.push_back(close_group_menu_item);
 
-  if (!tab_groups::IsTabGroupsSaveV2Enabled()) {
+  if (move_menu_item && !tab_groups::IsTabGroupsSaveV2Enabled()) {
     // The move menu item must not be added to the menu by this point.
     CHECK(move_menu_item);
-    move_menu_item_ptr = AddChildView(std::move(move_menu_item));
+    menu_items_.push_back(AddChildView(std::move(move_menu_item)));
   }
-
   // Add a separator for the delete menu item and footer v2 enabled.
   if (tab_groups::IsTabGroupsSaveV2Enabled()) {
     // The amount of vertical padding in dips the separator should have to
@@ -361,13 +363,6 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
           pref_service);
     }
   }
-
-  // The move menu item must be added to the menu by this point.
-  CHECK(!move_menu_item);
-  move_menu_item_ptr->SetEnabled(
-      tab_strip_model->count() !=
-      tab_strip_model->group_model()->GetTabGroup(group_)->tab_count());
-  menu_items_.push_back(move_menu_item_ptr);
 
   // Setting up the layout.
   const gfx::Insets control_insets = new_tab_menu_item->GetInsets();
@@ -632,6 +627,13 @@ void TabGroupEditorBubbleView::MoveGroupToNewWindowPressed() {
   GetWidget()->Close();
 }
 
+bool TabGroupEditorBubbleView::CanMoveGroupToNewWindow() {
+  return browser_->tab_strip_model()->count() != browser_->tab_strip_model()
+                                                     ->group_model()
+                                                     ->GetTabGroup(group_)
+                                                     ->tab_count();
+}
+
 views::View* TabGroupEditorBubbleView::CreateSavedTabGroupItem() {
   views::View* save_group_line_container =
       AddChildView(std::make_unique<views::View>());
@@ -705,7 +707,7 @@ bool TabGroupEditorBubbleView::TitleFieldController::HandleKeyEvent(
 
   // For special actions, only respond to key pressed events, to be consistent
   // with other views like buttons and dialogs.
-  if (key_event.type() == ui::EventType::ET_KEY_PRESSED) {
+  if (key_event.type() == ui::EventType::kKeyPressed) {
     const ui::KeyboardCode key_code = key_event.key_code();
     if (key_code == ui::VKEY_ESCAPE) {
       parent_->GetWidget()->CloseWithReason(

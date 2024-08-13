@@ -30,8 +30,6 @@
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/sharing/features.h"
-#include "chrome/browser/sharing/sms/sms_flags.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/themes/theme_properties.h"
@@ -44,14 +42,16 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/content_settings/content_setting_bubble_model.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/side_search/side_search_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/autofill/payments/local_card_migration_icon_view.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
@@ -71,6 +71,8 @@
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
+#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/branded_strings.h"
@@ -97,6 +99,7 @@
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/security_state/core/security_state.h"
+#include "components/sharing_message/features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/variations/variations_associated_data.h"
@@ -108,7 +111,7 @@
 #include "content/public/common/url_constants.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/feature_switch.h"
-#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
+#include "services/device/public/cpp/device_features.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -151,7 +154,7 @@
 #include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_MAC)
-#include "chrome/browser/web_applications/app_shim_registry_mac.h"
+#include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #endif
 
@@ -208,10 +211,12 @@ LocationBarView::LocationBarView(Browser* browser,
     views::FocusRing::Get(this)->SetOutsetFocusRingDisabled(true);
     views::InstallPillHighlightPathGenerator(this);
 
-#if BUILDFLAG(IS_MAC)
-    geolocation_permission_observation_.Observe(
-        device::GeolocationSystemPermissionManager::GetInstance());
-#endif
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
+    if (features::IsOsLevelGeolocationPermissionSupportEnabled()) {
+      geolocation_permission_observation_.Observe(
+          device::GeolocationSystemPermissionManager::GetInstance());
+    }
+#endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
   }
 #if BUILDFLAG(IS_MAC)
   app_shim_observation_ =
@@ -344,7 +349,7 @@ void LocationBarView::Init() {
       params.types_enabled.push_back(
           PageActionIconType::kProductSpecifications);
     }
-
+    params.types_enabled.push_back(PageActionIconType::kDiscounts);
     params.types_enabled.push_back(PageActionIconType::kPriceInsights);
     params.types_enabled.push_back(PageActionIconType::kPriceTracking);
 
@@ -353,8 +358,7 @@ void LocationBarView::Init() {
     }
 
     params.types_enabled.push_back(PageActionIconType::kClickToCall);
-    if (base::FeatureList::IsEnabled(kWebOTPCrossDevice))
-      params.types_enabled.push_back(PageActionIconType::kSmsRemoteFetcher);
+    params.types_enabled.push_back(PageActionIconType::kSmsRemoteFetcher);
     params.types_enabled.push_back(PageActionIconType::kManagePasswords);
     if (!apps::features::ShouldShowLinkCapturingUX()) {
       params.types_enabled.push_back(PageActionIconType::kIntentPicker);
@@ -382,8 +386,7 @@ void LocationBarView::Init() {
   // mocks.
   params.types_enabled.push_back(PageActionIconType::kAutofillAddress);
 
-  if (browser_ && LensOverlayController::IsEnabled(browser_) &&
-      lens::features::IsOmniboxEntryPointEnabled()) {
+  if (browser_ && lens::features::IsOmniboxEntryPointEnabled()) {
     // The persistent compact entrypoint should be positioned directly before
     // the star icon and the prominent expanding entrypoint should be
     // positioned in the leading position.
@@ -535,8 +538,8 @@ OmniboxView* LocationBarView::GetOmniboxView() {
 }
 
 void LocationBarView::AddedToWidget() {
-  if (lens::features::IsOmniboxEntryPointEnabled() &&
-      LensOverlayController::IsEnabled(browser_) && GetFocusManager()) {
+  if (lens::features::IsOmniboxEntryPointEnabled() && browser_ &&
+      GetFocusManager()) {
     CHECK(!focus_manager_);
     focus_manager_ = GetFocusManager();
     focus_manager_->AddFocusChangeListener(this);
@@ -1031,12 +1034,12 @@ LocationBarView::GetContentSettingBubbleModelDelegate() {
   return delegate_->GetContentSettingBubbleModelDelegate();
 }
 
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 void LocationBarView::OnSystemPermissionUpdated(
     device::LocationSystemPermissionStatus new_status) {
   UpdateContentSettingsIcons();
 }
-#endif
+#endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
 WebContents* LocationBarView::GetWebContentsForPageActionIconView() {
   return GetWebContents();
@@ -1054,6 +1057,24 @@ bool LocationBarView::ShouldHidePageActionIcons() const {
   // Also hide them if the popup is open for any other reason, e.g. ZeroSuggest.
   // The page action icons are not relevant to the displayed suggestions.
   return omnibox_view_->model()->PopupIsOpen();
+}
+
+bool LocationBarView::ShouldHidePageActionIcon(
+    PageActionIconView* icon_view) const {
+  if (ShouldHidePageActionIcons()) {
+    return true;
+  }
+  if (features::IsToolbarPinningEnabled() && browser_) {
+    BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser_);
+    if (browser_view) {
+      auto* pinned_toolbar_actions_container =
+          browser_view->toolbar()->pinned_toolbar_actions_container();
+      return pinned_toolbar_actions_container &&
+             pinned_toolbar_actions_container->IsActionPinnedOrPoppedOut(
+                 icon_view->action_id().value());
+    }
+  }
+  return false;
 }
 
 // static
@@ -1297,9 +1318,9 @@ bool LocationBarView::TestContentSettingImagePressed(size_t index) {
     return false;
 
   image_view->OnKeyPressed(
-      ui::KeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_SPACE, ui::EF_NONE));
+      ui::KeyEvent(ui::EventType::kKeyPressed, ui::VKEY_SPACE, ui::EF_NONE));
   image_view->OnKeyReleased(
-      ui::KeyEvent(ui::ET_KEY_RELEASED, ui::VKEY_SPACE, ui::EF_NONE));
+      ui::KeyEvent(ui::EventType::kKeyReleased, ui::VKEY_SPACE, ui::EF_NONE));
   return true;
 }
 
@@ -1602,10 +1623,10 @@ void LocationBarView::RecordPageInfoMetrics() {
 ui::ImageModel LocationBarView::GetLocationIcon(
     LocationIconView::Delegate::IconFetchedCallback on_icon_fetched) const {
   bool dark_mode = false;
-    if (location_icon_view_ && location_icon_view_->GetBackground()) {
-      dark_mode = color_utils::IsDark(
-          location_icon_view_->GetBackground()->get_color());
-    }
+  if (location_icon_view_ && location_icon_view_->GetBackground()) {
+    dark_mode =
+        color_utils::IsDark(location_icon_view_->GetBackground()->get_color());
+  }
 
   return omnibox_view_
              ? omnibox_view_->GetIcon(

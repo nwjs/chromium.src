@@ -68,28 +68,25 @@ class FedCmAccountSelectionView : public AccountSelectionView,
 
   // AccountSelectionView:
   bool Show(
-      const std::string& top_frame_etld_plus_one,
-      const std::optional<std::string>& iframe_etld_plus_one,
+      const std::string& rp_for_display,
       const std::vector<content::IdentityProviderData>& identity_provider_data,
       Account::SignInMode sign_in_mode,
       blink::mojom::RpMode rp_mode,
-      const std::optional<content::IdentityProviderData>& new_account_idp)
+      const std::optional<content::IdentityProviderData>& new_accounts_idp)
       override;
   bool ShowFailureDialog(
-      const std::string& top_frame_etld_plus_one,
-      const std::optional<std::string>& iframe_etld_plus_one,
+      const std::string& rp_for_display,
       const std::string& idp_etld_plus_one,
       blink::mojom::RpContext rp_context,
       blink::mojom::RpMode rp_mode,
       const content::IdentityProviderMetadata& idp_metadata) override;
-  bool ShowErrorDialog(const std::string& top_frame_etld_plus_one,
-                       const std::optional<std::string>& iframe_etld_plus_one,
+  bool ShowErrorDialog(const std::string& rp_for_display,
                        const std::string& idp_etld_plus_one,
                        blink::mojom::RpContext rp_context,
                        blink::mojom::RpMode rp_mode,
                        const content::IdentityProviderMetadata& idp_metadata,
                        const std::optional<TokenError>& error) override;
-  bool ShowLoadingDialog(const std::string& top_frame_etld_plus_one,
+  bool ShowLoadingDialog(const std::string& rp_for_display,
                          const std::string& idp_etld_plus_one,
                          blink::mojom::RpContext rp_context,
                          blink::mojom::RpMode rp_mode) override;
@@ -98,6 +95,7 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   void ShowUrl(LinkType link_type, const GURL& url) override;
   std::string GetTitle() const override;
   std::optional<std::string> GetSubtitle() const override;
+  content::WebContents* GetRpWebContents() override;
 
   // FedCmModalDialogView::Observer
   void OnPopupWindowDestroyed() override;
@@ -117,10 +115,10 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   void SetIdpSigninPopupWindowForTesting(std::unique_ptr<FedCmModalDialogView>);
 
   // AccountSelectionBubbleView::Observer:
-  content::WebContents* ShowModalDialog(const GURL& url) override;
+  content::WebContents* ShowModalDialog(const GURL& url,
+                                        blink::mojom::RpMode rp_mode) override;
   void CloseModalDialog() override;
-  void FrameSizeChanged(content::RenderFrameHost* render_frame_host,
-                        const gfx::Size& frame_size) override;
+  void PrimaryMainFrameWasResized(bool width_changed) override;
 
   // LensOverlayController::Observer:
   void OnLensOverlayDidShow() override;
@@ -139,8 +137,7 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   // return nullptr if there is no browser or tab strip model. Virtual for
   // testing purposes.
   virtual AccountSelectionViewBase* CreateAccountSelectionView(
-      const std::u16string& top_frame_etld_plus_one,
-      const std::optional<std::u16string>& iframe_etld_plus_one,
+      const std::u16string& rp_for_display,
       const std::optional<std::u16string>& idp_title,
       blink::mojom::RpContext rp_context,
       blink::mojom::RpMode rp_mode,
@@ -177,6 +174,8 @@ class FedCmAccountSelectionView : public AccountSelectionView,
                            UserClosingPopupAfterVerifyingSheetShouldNotify);
   FRIEND_TEST_ALL_PREFIXES(FedCmAccountSelectionViewDesktopTest,
                            AccountChooserResultMetric);
+  FRIEND_TEST_ALL_PREFIXES(FedCmAccountSelectionViewDesktopTest,
+                           RequestPermissionFalseAndNewIdpDataDisclosureText);
 
   enum class State {
     // User is shown message that they are not currently signed-in to IdP.
@@ -184,15 +183,21 @@ class FedCmAccountSelectionView : public AccountSelectionView,
     IDP_SIGNIN_STATUS_MISMATCH,
 
     // User is shown a single account they have with IDP and is prompted to
-    // continue with the account.
+    // select or continue with the account. On a widget flow bubble, this may
+    // contain disclosure text which prompts the user to grant permission for
+    // this account they have with IDP to communicate with RP.
     SINGLE_ACCOUNT_PICKER,
 
     // User is shown list of accounts they have with IDP and is prompted to
     // select an account.
     MULTI_ACCOUNT_PICKER,
 
-    // User is prompted to grant permission for specific account they have with
-    // IDP to communicate with RP.
+    // User is shown the list of newly logged in accounts. Used when the user
+    // logs in to an IDP.
+    NEWLY_LOGGED_IN_ACCOUNT_PICKER,
+
+    // User is prompted to grant permission for a specific account they have
+    // with IDP to communicate with RP on the button flow modal.
     REQUEST_PERMISSION,
 
     // Shown after the user has granted permission while the id token is being
@@ -211,7 +216,8 @@ class FedCmAccountSelectionView : public AccountSelectionView,
     // are being fetched.
     LOADING,
 
-    // Shown when we wish to display only a single returning account.
+    // Shown when we wish to display only a single returning account. Used when
+    // there are multiple IDPs and exactly one returning account.
     SINGLE_RETURNING_ACCOUNT_PICKER
   };
 
@@ -244,14 +250,22 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   // This enum describes the outcome an account chooser and is used for
   // histograms. Do not remove or modify existing values, but you may add new
   // values at the end. This enum should be kept in sync with
+  // AccountChooserResult in
+  // chrome/browser/ui/android/webid/AccountSelectionMediator.java as well as
   // FedCmAccountChooserResult in tools/metrics/histograms/enums.xml.
   enum class AccountChooserResult {
     kAccountRow,
     kCancelButton,
     kUseOtherAccountButton,
     kTabClosed,
+    // Android-specific
+    kSwipe,
+    // Android-specific
+    kBackPress,
+    // Android-specific
+    kTapScrim,
 
-    kMaxValue = kTabClosed
+    kMaxValue = kTapScrim
   };
 
   // views::WidgetObserver:
@@ -271,7 +285,7 @@ class FedCmAccountSelectionView : public AccountSelectionView,
                     const ui::Event& event) override;
   void OnGotIt(const ui::Event& event) override;
   void OnMoreDetails(const ui::Event& event) override;
-  void OnChooseAnAccount() override;
+  void OnChooseAnAccountClicked() override;
 
   // Returns false if `this` got deleted. In that case, the caller should not
   // access any further member variables.
@@ -315,15 +329,22 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   // Hides the dialog widget and notifies the input protector.
   void HideDialogWidget();
 
+  // Shows the multi account picker and updates the internal state.
+  void ShowMultiAccountPicker(
+      const std::vector<IdentityProviderDisplayData>& idp_data_list,
+      bool show_back_button,
+      bool is_choose_an_account);
+
   std::vector<IdentityProviderDisplayData> idp_display_data_list_;
 
   // This class needs to own the IDP display data for a newly logged in account
-  // since the AccountSelectionBubbleView does not take ownership.
-  std::optional<IdentityProviderDisplayData> new_account_idp_display_data_;
+  // since the AccountSelectionBubbleView does not take ownership. This is a
+  // vector so it is easy to pass to CreateMultipleAccountChooser in case there
+  // are multiple accounts, but it is size 0 when there are no new accounts and
+  // size 1 when there are new accounts.
+  std::vector<IdentityProviderDisplayData> new_accounts_idp_display_data_;
 
-  std::u16string top_frame_for_display_;
-
-  std::optional<std::u16string> iframe_for_display_;
+  std::u16string rp_for_display_;
 
   State state_{State::MULTI_ACCOUNT_PICKER};
 
@@ -377,6 +398,11 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   // Whether the Lens overlay is showing. Updated by LensOverlayController and
   // observer events.
   bool is_lens_overlay_showing_{false};
+
+  // Whether the last ShowMultiAccountPicker() is from a "Choose an account"
+  // button. This is used to determine whether to show this title when coming
+  // back from the single account confirmation dialog.
+  bool last_multi_account_is_choose_an_account_{false};
 
   // Time when IdentityProvider.close() was called for metrics purposes.
   base::TimeTicks idp_close_popup_time_;

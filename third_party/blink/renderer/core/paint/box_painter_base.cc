@@ -971,7 +971,7 @@ FloatRoundedRect BackgroundRoundedRectAdjustedForBleedAvoidance(
   // TODO(fmalita): we should be able to fold these parameters into
   // BoxBorderInfo or BoxDecorationData and avoid calling getBorderEdgeInfo
   // redundantly here.
-  BorderEdge edges[4];
+  BorderEdgeArray edges;
   style.GetBorderEdgeInfo(edges, sides_to_include);
 
   // Use the most conservative inset to avoid mixed-style corner issues.

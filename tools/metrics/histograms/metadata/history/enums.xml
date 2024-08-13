@@ -26,16 +26,24 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
+<!-- NOTE: Please also keep in line with components/visitedlink/browser/visitedlink_writer.cc:AddFingerprint. -->
+
+<!-- LINT.IfChange(AddFingerprint) -->
+
 <enum name="AddFingerprint">
   <int value="0" label="NewVisit"/>
   <int value="1" label="AlreadyVisited"/>
   <int value="2" label="TableError"/>
 </enum>
 
+<!-- LINT.ThenChange(//components/visitedlink/browser/partitioned_visitedlink_writer.cc:AddFingerprint) -->
+
 <enum name="BooleanQueried">
   <int value="0" label="Not Queried"/>
   <int value="1" label="Queried"/>
 </enum>
+
+<!-- LINT.IfChange(BrowsingDataRemoverTasks) -->
 
 <enum name="BrowsingDataRemoverTasks">
   <int value="1" label="kSynchronous"/>
@@ -56,6 +64,10 @@ chromium-metrics-reviews@google.com.
   <int value="16" label="kPreflightCache"/>
   <int value="17" label="kSharedDictionary"/>
 </enum>
+
+<!-- LINT.ThenChange(//tools/metrics/histograms/metadata/history/histograms.xml:History.ClearBrowsingData.Duration.Task.Task) -->
+
+<!-- LINT.IfChange(ChromeBrowsingDataRemoverTasks) -->
 
 <enum name="ChromeBrowsingDataRemoverTasks">
   <int value="1" label="kSynchronous"/>
@@ -108,6 +120,8 @@ chromium-metrics-reviews@google.com.
   <int value="46" label="kDisableAutoSigninForAccountPasswords"/>
 </enum>
 
+<!-- LINT.ThenChange(//tools/metrics/histograms/metadata/history/histograms.xml:History.ClearBrowsingData.Duration.ChromeTask.Task) -->
+
 <enum name="ClearBrowsingDataTab">
   <int value="0" label="Basic"/>
   <int value="1" label="Advanced"/>
@@ -131,6 +145,18 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Only cookies"/>
   <int value="2" label="Only cache"/>
   <int value="3" label="Both"/>
+</enum>
+
+<enum name="EmbeddingsExtractionCancelled">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="TabHelper.DidFinishLoad"/>
+  <int value="2" label="TabHelper.ExtractPassages.Url"/>
+  <int value="3" label="TabHelper.ExtractPassages.Reschedule"/>
+  <int value="4" label="TabHelper.ExtractPassagesWithHistoryData.Results"/>
+  <int value="5" label="TabHelper.ExtractPassagesWithHistoryData.Time"/>
+  <int value="6" label="TabHelper.ExtractPassagesWithHistoryData.Guid"/>
+  <int value="7" label="Service.RetrievePassages"/>
+  <int value="8" label="Service.RetrievePassagesWithUrlData"/>
 </enum>
 
 <enum name="EmbeddingsModelInfoStatus">
@@ -228,6 +254,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="ManualSubframe"/>
 </enum>
 
+<!-- LINT.IfChange(StoragePartitionRemoverTasks) -->
+
 <enum name="StoragePartitionRemoverTasks">
   <int value="1" label="kSynchronous"/>
   <int value="2" label="kCookies"/>
@@ -244,6 +272,8 @@ chromium-metrics-reviews@google.com.
   <int value="13" label="kInterestGroups"/>
   <int value="14" label="kCdmStorage"/>
 </enum>
+
+<!-- LINT.ThenChange(//content/browser/storage_partition_impl.cc:TracingDataType) -->
 
 </enums>
 

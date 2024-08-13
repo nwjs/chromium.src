@@ -6,6 +6,7 @@
 
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/color/chrome_color_provider_utils.h"
+#include "chrome/browser/ui/color/color_features.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/compose/buildflags.h"
 #include "ui/color/color_id.h"
@@ -13,6 +14,7 @@
 #include "ui/color/color_provider.h"
 #include "ui/color/color_recipe.h"
 #include "ui/color/color_transform.h"
+#include "ui/gfx/color_palette.h"
 
 namespace {
 
@@ -80,6 +82,7 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   // Lens overlay colors.
   mixer[kColorLensOverlayToastBackground] = {
       ui::kColorSysInverseSurfacePrimary};
+  mixer[kColorLensOverlayToastButtonText] = {ui::kColorSysTonalOutline};
 
   // PageInfo colors.
   mixer[kColorPageInfoPermissionBlockedOnSystemLevelDisabled] = {
@@ -89,6 +92,13 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
 
   // Permission Prompt colors.
   mixer[kColorPermissionPromptRequestText] = {ui::kColorSysOnSurfaceSubtle};
+
+  // Performance Intervention colors.
+  mixer[kColorPerformanceInterventionButtonIconActive] =
+      ui::PickGoogleColor(ui::kColorSysPrimary, ui::kColorSysNeutralOutline,
+                          color_utils::kMinimumVisibleContrastRatio);
+  mixer[kColorPerformanceInterventionButtonIconInactive] = {
+      kColorToolbarButtonIcon};
 
   // Profile Menu colors.
   mixer[kColorProfileMenuBackground] = {ui::kColorSysSurface};
@@ -153,6 +163,22 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorFeaturePromoBubbleDefaultButtonForeground] = {
       kColorFeaturePromoBubbleBackground};
   mixer[kColorFeaturePromoBubbleForeground] = {ui::kColorSysOnPrimary};
+
+  // WebAuthn modal dialog colors.
+  mixer[kColorWebAuthnBackArrowButtonIcon] = {ui::kColorSysPrimary};
+  mixer[kColorWebAuthnBackArrowButtonIconDisabled] = {
+      ui::kColorSysStateDisabled};
+  mixer[kColorWebAuthnHoverButtonForeground] = {ui::kColorSysOnSurface};
+  mixer[kColorWebAuthnHoverButtonForegroundDisabled] = {
+      ui::kColorSysStateDisabled};
+  mixer[kColorWebAuthnIconColor] = {ui::kColorSysPrimary};
+  mixer[kColorWebAuthnIconColorDisabled] = {ui::kColorSysStateDisabled};
+  mixer[kColorWebAuthnPinTextfieldBottomBorder] =
+      PickGoogleColor(ui::kColorSysPrimary, ui::kColorSysSurface,
+                      color_utils::kMinimumVisibleContrastRatio);
+  mixer[kColorWebAuthnProgressRingBackground] = ui::SetAlpha(
+      kColorWebAuthnProgressRingForeground, gfx::kGoogleGreyAlpha400);
+  mixer[kColorWebAuthnProgressRingForeground] = {ui::kColorSysPrimary};
 
 #if BUILDFLAG(ENABLE_COMPOSE)
   // Compose colors.
@@ -253,12 +279,17 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorFrameCaptionInactive] = {ui::kColorSysOnHeaderPrimaryInactive};
   mixer[kColorTabHoverCardSecondaryText] = {ui::kColorSysOnSurfaceSubtle};
   mixer[kColorInfoBarBackground] = {ui::kColorSysBase};
-  mixer[kColorInfoBarButtonIcon] = {kColorInfoBarForeground};
+  mixer[kColorInfoBarButtonIcon] = {ui::kColorSysOnSurfaceSubtle};
   mixer[kColorInfoBarButtonIconDisabled] = {ui::kColorSysStateDisabled};
-  mixer[kColorInfoBarForeground] = {ui::kColorSysOnSurfaceSubtle};
-  mixer[ui::kColorInfoBarIcon] =
-      ui::PickGoogleColor(ui::kColorSysPrimary, kColorInfoBarBackground,
-                          color_utils::kMinimumVisibleContrastRatio);
+  if (base::FeatureList::IsEnabled(features::kInfoBarIconMonochrome)) {
+    mixer[kColorInfoBarForeground] = {ui::kColorSysOnSurface};
+    mixer[ui::kColorInfoBarIcon] = {ui::kColorSysOnSurfaceSubtle};
+  } else {
+    mixer[kColorInfoBarForeground] = {ui::kColorSysOnSurfaceSubtle};
+    mixer[ui::kColorInfoBarIcon] =
+        ui::PickGoogleColor(ui::kColorSysPrimary, kColorInfoBarBackground,
+                            color_utils::kMinimumVisibleContrastRatio);
+  }
   mixer[kColorMediaRouterIconActive] =
       ui::PickGoogleColor(ui::kColorSysPrimary, kColorToolbar,
                           color_utils::kMinimumVisibleContrastRatio);
@@ -346,6 +377,4 @@ void AddMaterialChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorToolbarTextDefault] = {ui::kColorSysOnSurfaceSecondary};
   mixer[kColorToolbarTextDisabled] = {kColorToolbarTextDisabledDefault};
   mixer[kColorToolbarTextDisabledDefault] = {ui::kColorSysStateDisabled};
-
-  mixer[kColorWebAuthnIconColor] = {ui::kColorSysPrimary};
 }

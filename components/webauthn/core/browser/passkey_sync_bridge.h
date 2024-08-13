@@ -43,9 +43,9 @@ class PasskeySyncBridge : public syncer::ModelTypeSyncBridge,
   std::optional<syncer::ModelError> ApplyIncrementalSyncChanges(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_changes) override;
-  void GetDataForCommit(StorageKeyList storage_keys,
-                        DataCallback callback) override;
-  void GetAllDataForDebugging(DataCallback callback) override;
+  std::unique_ptr<syncer::DataBatch> GetDataForCommit(
+      StorageKeyList storage_keys) override;
+  std::unique_ptr<syncer::DataBatch> GetAllDataForDebugging() override;
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
   std::string GetClientTag(const syncer::EntityData& entity_data) override;
   std::string GetStorageKey(const syncer::EntityData& entity_data) override;
@@ -58,6 +58,7 @@ class PasskeySyncBridge : public syncer::ModelTypeSyncBridge,
   base::WeakPtr<syncer::ModelTypeControllerDelegate>
   GetModelTypeControllerDelegate() override;
   bool IsReady() const override;
+  bool IsEmpty() const override;
   base::flat_set<std::string> GetAllSyncIds() const override;
   std::vector<sync_pb::WebauthnCredentialSpecifics> GetAllPasskeys()
       const override;
@@ -68,6 +69,7 @@ class PasskeySyncBridge : public syncer::ModelTypeSyncBridge,
   GetPasskeysForRelyingPartyId(const std::string& rp_id) const override;
   bool DeletePasskey(const std::string& credential_id,
                      const base::Location& location) override;
+  void DeleteAllPasskeys() override;
   bool UpdatePasskey(const std::string& credential_id,
                      PasskeyUpdate change) override;
   sync_pb::WebauthnCredentialSpecifics CreatePasskey(

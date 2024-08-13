@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <memory>
 #include <numeric>
 #include <utility>
 
@@ -29,11 +30,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/common/pref_names.h"
-#include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/message.h"
+#include "services/screen_ai/public/cpp/metrics.h"
 #include "services/screen_ai/public/mojom/screen_ai_service.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/accessibility/ax_action_data.h"
@@ -45,9 +45,9 @@
 #include "ui/accessibility/ax_tree.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/display/screen.h"
-#include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/transform.h"
+#include "ui/strings/grit/auto_image_annotation_strings.h"
 
 #if defined(USE_AURA)
 #include "extensions/browser/api/automation_internal/automation_event_router.h"
@@ -122,14 +122,20 @@ AXMediaAppUntrustedHandler::~AXMediaAppUntrustedHandler() {
     base::UmaHistogramLongTimes100("Accessibility.PdfOcr.MediaApp.ActiveTime",
                                    active_time);
   }
+
+  if (page_metadata_.size()) {
+    const float reading_progression_in_ratio =
+        static_cast<float>(greatest_visited_page_number_) /
+        page_metadata_.size();
+    DCHECK_LE(reading_progression_in_ratio, 1.0f);
+    base::UmaHistogramPercentage(
+        "Accessibility.PdfOcr.MediaApp.PercentageReadingProgression",
+        reading_progression_in_ratio * 100);
+  }
 }
 
 void AXMediaAppUntrustedHandler::SetPdfOcrEnabledState() {
-  if (IsAccessibilityEnabled() == pdf_ocr_enabled_) {
-    return;
-  }
-  pdf_ocr_enabled_ = !pdf_ocr_enabled_;
-  media_app_page_->SetPdfOcrEnabled(pdf_ocr_enabled_);
+  media_app_page_->SetPdfOcrEnabled(IsAccessibilityEnabled());
 }
 
 bool AXMediaAppUntrustedHandler::IsOcrServiceEnabled() const {
@@ -138,6 +144,8 @@ bool AXMediaAppUntrustedHandler::IsOcrServiceEnabled() const {
 
 void AXMediaAppUntrustedHandler::OnOCRServiceInitialized(bool successful) {
   if (!successful) {
+    ocr_status_ = OcrStatus::kInitializationFailed;
+    ShowOcrServiceFailedToInitializeMessage();
     return;
   }
   if (!dirty_page_ids_.empty()) {
@@ -298,6 +306,14 @@ void AXMediaAppUntrustedHandler::PerformAction(
           break;
         }
         DCHECK(page_manager->ax_tree());
+
+        if (page_metadata_.contains(page.first) &&
+            page_metadata_.at(page.first).page_num >
+                greatest_visited_page_number_) {
+          greatest_visited_page_number_ =
+              page_metadata_.at(page.first).page_num;
+        }
+
         auto child_iter = target_node->UnignoredChildrenBegin();
         for (; child_iter != target_node->UnignoredChildrenEnd();
              ++child_iter) {
@@ -410,11 +426,11 @@ void AXMediaAppUntrustedHandler::PageMetadataUpdated(
     }
     // Only one page goes through OCR at a time, so start the process here.
     OcrNextDirtyPageIfAny();
-    UpdateDocumentTree();
+    GenerateDocumentTree();
   }
 
   // Update all page numbers and rects.
-  std::set<const std::string> page_id_updated;
+  std::set<std::string> page_id_updated;
   for (size_t i = 0; i < page_metadata.size(); ++i) {
     const std::string& page_id = page_metadata.at(i)->id;
     if (HasRendererTerminatedDueToBadPageId("PageMetadataUpdated", page_id)) {
@@ -439,16 +455,17 @@ void AXMediaAppUntrustedHandler::PageMetadataUpdated(
 
   // If a page was missing from `page_metadata` (its location was not updated),
   // then that means it got deleted. Set its page number to 0.
-  for (const auto& [page_id, _] : page_metadata_) {
+  for (auto& [page_id, page_info] : page_metadata_) {
     if (!page_id_updated.contains(page_id)) {
       // Since `pages_` and `page_metadata_` are both populated from untrusted
       // code, mitigate potential security issues by never mutating the size of
-      // these twocontainers. So when a page is 'deleted' by the user, keep it
-      // in memory.
-      page_metadata_[page_id].page_num = 0;
+      // these two containers. So when a page is 'deleted' by the user, keep it
+      // in memory. Also, no need to update `greatest_visited_page_number_` as
+      // `page_metadata_` still keeps the deleted page.
+      page_info.page_num = 0;
     }
   }
-  UpdateDocumentTree();
+  GenerateDocumentTree();
 }
 
 void AXMediaAppUntrustedHandler::PageContentsUpdated(
@@ -552,7 +569,6 @@ AXMediaAppUntrustedHandler::CreateStatusNodesWithLandmark() const {
                                  "additions text");
   static_text.AddStringAttribute(ax::mojom::StringAttribute::kLiveStatus,
                                  "polite");
-  static_text.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag, "div");
   static_text.AddBoolAttribute(ax::mojom::BoolAttribute::kContainerLiveAtomic,
                                true);
   static_text.AddBoolAttribute(ax::mojom::BoolAttribute::kContainerLiveBusy,
@@ -569,29 +585,29 @@ AXMediaAppUntrustedHandler::CreateStatusNodesWithLandmark() const {
   inline_text_box.relative_bounds.bounds = gfx::RectF(0, 0, 1, 1);
   inline_text_box.relative_bounds.offset_container_id = static_text.id;
   inline_text_box.SetTextAlign(ax::mojom::TextAlign::kLeft);
-  inline_text_box.AddIntAttribute(
-      ax::mojom::IntAttribute::kNameFrom,
-      static_cast<int32_t>(ax::mojom::NameFrom::kContents));
   static_text.child_ids = {inline_text_box.id};
 
-  if (pages_.size() == page_metadata_.size()) {
-    if (text_extracted_) {
-      static_text.SetNameChecked(
-          l10n_util::GetStringUTF8(IDS_PDF_OCR_COMPLETED));
-      inline_text_box.SetNameChecked(
-          l10n_util::GetStringUTF8(IDS_PDF_OCR_COMPLETED));
-    } else {
-      static_text.SetNameChecked(
-          l10n_util::GetStringUTF8(IDS_PDF_OCR_NO_RESULT));
-      inline_text_box.SetNameChecked(
-          l10n_util::GetStringUTF8(IDS_PDF_OCR_NO_RESULT));
-    }
-  } else {
-    static_text.SetNameChecked(
-        l10n_util::GetStringUTF8(IDS_PDF_OCR_IN_PROGRESS));
-    inline_text_box.SetNameChecked(
-        l10n_util::GetStringUTF8(IDS_PDF_OCR_IN_PROGRESS));
+  std::string message;
+  switch (ocr_status_) {
+    case OcrStatus::kUninitialized:
+      return {};
+    case OcrStatus::kInitializationFailed:
+      message = l10n_util::GetStringUTF8(IDS_PDF_OCR_FEATURE_ALERT);
+      break;
+    case OcrStatus::kInProgressWithNoTextExtractedYet:
+    case OcrStatus::kInProgressWithTextExtracted:
+      message = l10n_util::GetStringUTF8(IDS_PDF_OCR_IN_PROGRESS);
+      break;
+    case OcrStatus::kCompletedWithNoTextExtracted:
+      message = l10n_util::GetStringUTF8(IDS_PDF_OCR_NO_RESULT);
+      break;
+    case OcrStatus::kCompletedWithTextExtracted:
+      message = l10n_util::GetStringUTF8(IDS_PDF_OCR_COMPLETED);
+      break;
   }
+
+  static_text.SetNameChecked(message);
+  inline_text_box.SetNameChecked(message);
 
   return {banner, status, static_text, inline_text_box};
 }
@@ -709,13 +725,31 @@ void AXMediaAppUntrustedHandler::UpdatePageLocation(
   ui::AXTreeUpdate location_update;
   location_update.root_id = tree->root()->id();
   location_update.nodes = {root_data};
+  ui::AXNode* image = tree->root()->GetFirstUnignoredChild();
+  if (image && image->GetRole() == ax::mojom::Role::kImage) {
+    // We auto-generate an unlabeled image if the OCR Service has returned no
+    // results for a particular page.
+    ui::AXNodeData image_data = image->data();
+    image_data.relative_bounds.bounds = page_location;
+    image_data.relative_bounds.bounds.set_origin({0, 0});
+    location_update.nodes.push_back(image_data);
+  }
   if (!tree->Unserialize(location_update)) {
     mojo::ReportBadMessage(tree->error());
     return;
   }
 }
 
-void AXMediaAppUntrustedHandler::UpdateDocumentTree() {
+void AXMediaAppUntrustedHandler::ShowOcrServiceFailedToInitializeMessage() {
+  DCHECK_EQ(ocr_status_, OcrStatus::kInitializationFailed);
+  ui::AXTreeUpdate document_update;
+  document_update.nodes = CreateStatusNodesWithLandmark();
+  DCHECK_GT(document_update.nodes.size(), 0u);
+  document_update.root_id = document_update.nodes[0].id;
+  UpdateDocumentTree(document_update);
+}
+
+void AXMediaAppUntrustedHandler::GenerateDocumentTree() {
   ui::AXNodeData document_root_data;
   document_root_data.id = kDocumentRootNodeId;
   document_root_data.role = ax::mojom::Role::kPdfRoot;
@@ -827,7 +861,11 @@ void AXMediaAppUntrustedHandler::UpdateDocumentTree() {
                                  std::begin(postamble_page_nodes),
                                  std::end(postamble_page_nodes));
   }
+  UpdateDocumentTree(document_update);
+}
 
+void AXMediaAppUntrustedHandler::UpdateDocumentTree(
+    ui::AXTreeUpdate& document_update) {
   // It wouldn't make sense to send an update with only a root node in it.
   if (document_update.nodes.size() <= 1u) {
     return;
@@ -899,15 +937,24 @@ void AXMediaAppUntrustedHandler::OcrNextDirtyPageIfAny() {
   if (!IsOcrServiceEnabled()) {
     return;
   }
+  CHECK_NE(ocr_status_, OcrStatus::kInitializationFailed);
+  if (ocr_status_ == OcrStatus::kUninitialized) {
+    ocr_status_ = OcrStatus::kInProgressWithNoTextExtractedYet;
+  }
   if (pages_ocred_on_initial_load_ == page_metadata_.size()) {
     has_postamble_page_ = false;
+    if (ocr_status_ == OcrStatus::kInProgressWithNoTextExtractedYet) {
+      ocr_status_ = OcrStatus::kCompletedWithNoTextExtracted;
+    } else if (ocr_status_ == OcrStatus::kInProgressWithTextExtracted) {
+      ocr_status_ = OcrStatus::kCompletedWithTextExtracted;
+    }
   }
   // If there are no more dirty pages, we can assume all pages have up-to-date
   // page locations. Update the document tree information to reflect that.
   if (dirty_page_ids_.empty() ||
       (pages_ocred_on_initial_load_ &&
        pages_ocred_on_initial_load_ % ComputePagesPerBatch() == 0u)) {
-    UpdateDocumentTree();
+    GenerateDocumentTree();
     if (dirty_page_ids_.empty()) {
       return;
     }
@@ -962,21 +1009,43 @@ void AXMediaAppUntrustedHandler::OnPageOcred(
   }
   ui::AXTreeUpdate complete_tree_update = tree_update;
   if (!tree_update.nodes.empty()) {
-    text_extracted_ = true;
+    ocr_status_ = OcrStatus::kInProgressWithTextExtracted;
+    screen_ai::RecordMostDetectedLanguageInOcrData(
+        "Accessibility.PdfOcr.MediaApp.MostDetectedLanguageInOcrData",
+        tree_update);
   } else {
-    // We can't pass an empty update to `AXTree`s constructor, so we add an
-    // empty root node instead.
-    complete_tree_update.root_id = 1;
-    ui::AXNodeData dummy_root;
-    dummy_root.id = 1;
-    complete_tree_update.nodes.push_back(dummy_root);
+    // The most meaningful result to present to the user is that there is an
+    // unlabeled image.
+    ui::AXNodeData paragraph;
+    paragraph.id = 1;
+    paragraph.role = ax::mojom::Role::kParagraph;
+    // The paragraph's bounds are set by `GenerateDocumentTree`, so no need to
+    // set them here.
+    paragraph.AddBoolAttribute(ax::mojom::BoolAttribute::kIsLineBreakingObject,
+                               true);
+
+    ui::AXNodeData unlabeled_image;
+    unlabeled_image.id = 2;
+    unlabeled_image.role = ax::mojom::Role::kImage;
+    unlabeled_image.relative_bounds.bounds =
+        page_metadata_.at(dirty_page_id).rect;
+    unlabeled_image.relative_bounds.bounds.set_origin({0, 0});
+    unlabeled_image.relative_bounds.offset_container_id = paragraph.id;
+    unlabeled_image.SetRestriction(ax::mojom::Restriction::kReadOnly);
+    unlabeled_image.SetNameChecked(
+        l10n_util::GetStringUTF8(IDS_AX_UNLABELED_IMAGE_ROLE_DESCRIPTION));
+    paragraph.child_ids = {unlabeled_image.id};
+
+    complete_tree_update.root_id = paragraph.id;
+    complete_tree_update.nodes = {paragraph, unlabeled_image};
   }
   complete_tree_update.has_tree_data = true;
   complete_tree_update.tree_data.parent_tree_id = document_tree_id_;
   if (HasRendererTerminatedDueToBadPageId("OnPageOcred", dirty_page_id)) {
     return;
   }
-  if (!pages_.contains(dirty_page_id)) {
+  auto pages_it = pages_.find(dirty_page_id);
+  if (pages_it == pages_.end()) {
     // Add a newly generated tree id to the tree update so that the new
     // `AXSerializableTree` that's generated has a non-empty tree id.
     complete_tree_update.tree_data.tree_id = ui::AXTreeID::CreateNewAXTreeID();
@@ -986,29 +1055,31 @@ void AXMediaAppUntrustedHandler::OnPageOcred(
         base::WrapUnique<TreeSource>(page_tree->CreateTreeSource());
     page_serializers_[dirty_page_id] = std::make_unique<TreeSerializer>(
         page_sources_[dirty_page_id].get(), /* crash_on_error */ true);
-    pages_[dirty_page_id] =
-        std::make_unique<ui::AXTreeManager>(std::move(page_tree));
+    pages_it =
+        pages_
+            .insert({dirty_page_id,
+                     std::make_unique<ui::AXTreeManager>(std::move(page_tree))})
+            .first;
     ui::AXActionHandlerRegistry::GetInstance()->SetAXTreeID(
         complete_tree_update.tree_data.tree_id, this);
   } else {
-    complete_tree_update.tree_data.tree_id =
-        pages_.at(dirty_page_id)->GetTreeID();
-    if (!pages_.at(dirty_page_id)->ax_tree() ||
-        !pages_.at(dirty_page_id)
-             ->ax_tree()
-             ->Unserialize(complete_tree_update)) {
-      mojo::ReportBadMessage(pages_.at(dirty_page_id)->ax_tree()->error());
+    std::unique_ptr<ui::AXTreeManager>& page = pages_it->second;
+    complete_tree_update.tree_data.tree_id = page->GetTreeID();
+    if (!page->ax_tree() ||
+        !page->ax_tree()->Unserialize(complete_tree_update)) {
+      mojo::ReportBadMessage(page->ax_tree() ? page->ax_tree()->error()
+                                             : "Missing page ax_tree");
       return;
     }
   }
-  DCHECK_NE(pages_.at(dirty_page_id)->GetTreeID().type(),
+  DCHECK_NE(pages_it->second->GetTreeID().type(),
             ax::mojom::AXTreeIDType::kUnknown);
 
   // Update the page location again - running the page through OCR overwrites
   // the previous `AXTree` it was given and thus the page location it was
   // already given in `PageMetadataUpdated()`. Restore it here.
   UpdatePageLocation(dirty_page_id, page_metadata_[dirty_page_id].rect);
-  SendAXTreeToAccessibilityService(*pages_.at(dirty_page_id),
+  SendAXTreeToAccessibilityService(*pages_it->second,
                                    *page_serializers_.at(dirty_page_id));
   if (pages_ocred_on_initial_load_ < page_metadata_.size()) {
     ++pages_ocred_on_initial_load_;
@@ -1020,8 +1091,9 @@ bool AXMediaAppUntrustedHandler::HasRendererTerminatedDueToBadPageId(
     const std::string& method_name,
     const std::string& page_id) {
   if (!page_metadata_.contains(page_id)) {
-    const std::string error_str = std::format(
-        "`{}` called with previously non-existent page ID", method_name);
+    const std::string error_str =
+        base::StringPrintf("`%s` called with previously non-existent page ID",
+                           method_name.c_str());
     if (bad_message_callback_ && !(*bad_message_callback_).is_null()) {
       std::move(*bad_message_callback_).Run(error_str);
     } else {

@@ -20,6 +20,7 @@
 #import "ios/chrome/common/ui/elements/gradient_view.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/pointer_interaction_util.h"
+#import "ui/base/device_form_factor.h"
 
 namespace {
 
@@ -43,9 +44,6 @@ const CGFloat kLeadingSpacePopout = 23.0;
 const CGFloat kTextIconSpace = 14.0f;
 /// Top color opacity of the `_selectedBackgroundView`.
 const CGFloat kTopGradientColorOpacity = 0.85;
-/// Name of the histogram recording the number of lines in search suggestions.
-const char kOmniboxSearchSuggestionNumberOfLines[] =
-    "IOS.Omnibox.SearchSuggestionNumberOfLines";
 /// The rich entity height
 const CGFloat kRichEntityViewHeight = 52;
 /// The minimum height of the row.
@@ -170,15 +168,11 @@ const CGFloat kActionScrollViewSeparatorSpace = 8;
     _separator = [[UIView alloc] initWithFrame:CGRectZero];
     _separator.translatesAutoresizingMaskIntoConstraints = NO;
     _separator.hidden = YES;
-    _separator.backgroundColor =
-        [UIColor colorNamed:IsIpadPopoutOmniboxEnabled()
-                                ? kOmniboxPopoutSuggestionRowSeparatorColor
-                                : kOmniboxSuggestionRowSeparatorColor];
+    _separator.backgroundColor = [UIColor
+        colorNamed:ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET
+                       ? kOmniboxPopoutSuggestionRowSeparatorColor
+                       : kOmniboxSuggestionRowSeparatorColor];
     [self addSubview:_separator];
-
-    NSLayoutAnchor* leadingAnchor = CanUseOmniboxLayoutGuide()
-                                        ? self.layoutMarginsGuide.leadingAnchor
-                                        : self.leadingAnchor;
 
     // Top space should be at least the given top margin, but can be more if
     // the row is short enough to use the minimum height constraint above.
@@ -203,9 +197,9 @@ const CGFloat kActionScrollViewSeparatorSpace = 8;
     _trailingButtonTrailingConstraint = [_richEntityView.trailingAnchor
         constraintEqualToAnchor:_trailingButton.trailingAnchor
                        constant:kTrailingButtonTrailingMargin];
-    _leadingConstraint =
-        [_leadingIconView.leadingAnchor constraintEqualToAnchor:leadingAnchor
-                                                       constant:kLeadingSpace];
+    _leadingConstraint = [_leadingIconView.leadingAnchor
+        constraintEqualToAnchor:self.leadingAnchor
+                       constant:kLeadingSpace];
 
     [NSLayoutConstraint activateConstraints:@[
       [_richEntityView.heightAnchor
@@ -320,8 +314,7 @@ const CGFloat kActionScrollViewSeparatorSpace = 8;
   [self setupWithConfiguration:_configuration];
 }
 
-- (BOOL)supportsConfiguration:(id<UIContentConfiguration>)configuration
-    API_AVAILABLE(ios(16.0)) {
+- (BOOL)supportsConfiguration:(id<UIContentConfiguration>)configuration {
   return [configuration
       isMemberOfClass:OmniboxPopupActionsRowContentConfiguration.class];
 }
@@ -336,7 +329,7 @@ const CGFloat kActionScrollViewSeparatorSpace = 8;
   [_actionsView updateConfiguration:configuration];
 
   // Background.
-  _selectedBackgroundView.hidden = !configuration.showSelectedBackgroundView;
+  _selectedBackgroundView.hidden = !configuration.isBackgroundHighlighted;
 
   // Leading Icon.
   [_leadingIconView prepareForReuse];
@@ -346,11 +339,6 @@ const CGFloat kActionScrollViewSeparatorSpace = 8;
   // Primary Label.
   _primaryLabel.attributedText = configuration.primaryText;
   _primaryLabel.numberOfLines = configuration.primaryTextNumberOfLines;
-  if (configuration.primaryTextNumberOfLines > 1) {
-    // Currently only search suggestions are allowed to be multiline.
-    CHECK(!configuration.secondaryTextDisplayAsURL);
-    [self logNumberOfLinesInSearchSuggestion:configuration.primaryText];
-  }
 
   // Secondary Label.
   _secondaryLabelFading.hidden = YES;
@@ -419,16 +407,6 @@ const CGFloat kActionScrollViewSeparatorSpace = 8;
   [self.configuration.delegate
       omniboxPopupRowWithConfiguration:self.configuration
        didTapTrailingButtonAtIndexPath:self.configuration.indexPath];
-}
-
-/// Log the number of lines of a seach suggestion.
-- (void)logNumberOfLinesInSearchSuggestion:
-    (NSAttributedString*)attributedString {
-  CGFloat width = CGRectGetWidth(_textStackView.frame);
-  NSInteger numberOfLines =
-      NumberOfLinesOfAttributedString(attributedString, width);
-  base::UmaHistogramExactLinear(kOmniboxSearchSuggestionNumberOfLines,
-                                static_cast<int>(numberOfLines), 10);
 }
 
 @end

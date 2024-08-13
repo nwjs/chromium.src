@@ -41,7 +41,8 @@ TEST_F(PickerPerformanceMetricsTest,
   PickerPerformanceMetrics metrics(base::TimeTicks::Now());
   metrics.MarkInputFocus();
   metrics.MarkContentsChanged();
-  metrics.MarkSearchResultsUpdated();
+  metrics.MarkSearchResultsUpdated(
+      PickerPerformanceMetrics::SearchResultsUpdate::kReplace);
 
   EXPECT_THAT(histogram.GetTotalCountsForPrefix("Ash.Picker.Session"),
               IsEmpty());
@@ -50,7 +51,7 @@ TEST_F(PickerPerformanceMetricsTest,
 TEST_F(PickerPerformanceMetricsTest, RecordsFirstFocusLatency) {
   base::HistogramTester histogram;
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
 
   const auto trigger_event_timestamp = base::TimeTicks::Now();
   task_environment()->FastForwardBy(base::Seconds(1));
@@ -66,7 +67,7 @@ TEST_F(PickerPerformanceMetricsTest, RecordsFirstFocusLatency) {
 TEST_F(PickerPerformanceMetricsTest, RecordsOnlyFirstFocusLatency) {
   base::HistogramTester histogram;
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
 
   const auto trigger_event_timestamp = base::TimeTicks::Now();
   task_environment()->FastForwardBy(base::Seconds(1));
@@ -85,7 +86,7 @@ TEST_F(PickerPerformanceMetricsTest, RecordsOnlyFirstFocusLatency) {
 TEST_F(PickerPerformanceMetricsTest, RecordsPresentationLatencyForSearchField) {
   base::HistogramTester histogram;
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
 
   PickerPerformanceMetrics metrics(base::TimeTicks::Now());
   metrics.StartRecording(*widget);
@@ -99,11 +100,28 @@ TEST_F(PickerPerformanceMetricsTest, RecordsPresentationLatencyForSearchField) {
 TEST_F(PickerPerformanceMetricsTest, RecordsPresentationLatencyForResults) {
   base::HistogramTester histogram;
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
 
   PickerPerformanceMetrics metrics(base::TimeTicks::Now());
   metrics.StartRecording(*widget);
-  metrics.MarkSearchResultsUpdated();
+  metrics.MarkSearchResultsUpdated(
+      PickerPerformanceMetrics::SearchResultsUpdate::kReplace);
+  WaitUntilNextFramePresented(widget->GetCompositor());
+
+  histogram.ExpectTotalCount(
+      "Ash.Picker.Session.PresentationLatency.SearchResults", 1);
+}
+
+TEST_F(PickerPerformanceMetricsTest,
+       RecordsPresentationLatencyForResultsShowingNoResultsFound) {
+  base::HistogramTester histogram;
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+
+  PickerPerformanceMetrics metrics(base::TimeTicks::Now());
+  metrics.StartRecording(*widget);
+  metrics.MarkSearchResultsUpdated(
+      PickerPerformanceMetrics::SearchResultsUpdate::kNoResultsFound);
   WaitUntilNextFramePresented(widget->GetCompositor());
 
   histogram.ExpectTotalCount(
@@ -113,23 +131,41 @@ TEST_F(PickerPerformanceMetricsTest, RecordsPresentationLatencyForResults) {
 TEST_F(PickerPerformanceMetricsTest, RecordsSearchLatencyOnSearchFinished) {
   base::HistogramTester histogram;
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
 
   PickerPerformanceMetrics metrics;
   metrics.StartRecording(*widget);
   metrics.MarkContentsChanged();
   task_environment()->FastForwardBy(base::Seconds(1));
-  metrics.MarkSearchResultsUpdated();
+  metrics.MarkSearchResultsUpdated(
+      PickerPerformanceMetrics::SearchResultsUpdate::kReplace);
 
   histogram.ExpectUniqueTimeSample("Ash.Picker.Session.SearchLatency",
                                    base::Seconds(1), 1);
+}
+
+// TODO: b/349913604 - Replace this metric with a new one which records search
+// latency on showing "no results found".
+TEST_F(PickerPerformanceMetricsTest,
+       DoesNotRecordSearchLatencyOnShowingNoResultsFound) {
+  base::HistogramTester histogram;
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+
+  PickerPerformanceMetrics metrics;
+  metrics.StartRecording(*widget);
+  metrics.MarkContentsChanged();
+  metrics.MarkSearchResultsUpdated(
+      PickerPerformanceMetrics::SearchResultsUpdate::kNoResultsFound);
+
+  histogram.ExpectTotalCount("Ash.Picker.Session.SearchLatency", 0);
 }
 
 TEST_F(PickerPerformanceMetricsTest,
     DoesNotRecordSearchLatencyOnCanceledSearch) {
   base::HistogramTester histogram;
   std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET);
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
 
   PickerPerformanceMetrics metrics;
   metrics.StartRecording(*widget);
@@ -137,7 +173,8 @@ TEST_F(PickerPerformanceMetricsTest,
   task_environment()->FastForwardBy(base::Seconds(1));
   metrics.MarkContentsChanged();
   task_environment()->FastForwardBy(base::Seconds(2));
-  metrics.MarkSearchResultsUpdated();
+  metrics.MarkSearchResultsUpdated(
+      PickerPerformanceMetrics::SearchResultsUpdate::kReplace);
 
   histogram.ExpectUniqueTimeSample("Ash.Picker.Session.SearchLatency",
                                    base::Seconds(2), 1);

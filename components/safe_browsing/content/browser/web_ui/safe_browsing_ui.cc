@@ -1452,6 +1452,10 @@ base::Value::Dict SerializeSafeBrowsingClientProperties(
   client_properties_dict.Set("url_api_type", url_api_type);
   client_properties_dict.Set("is_async_check",
                              client_properties.is_async_check());
+  if (client_properties.has_app_verification_enabled()) {
+    client_properties_dict.Set("app_verification_enabled",
+                               client_properties.app_verification_enabled());
+  }
   return client_properties_dict;
 }
 
@@ -2554,6 +2558,9 @@ std::string SerializeURTLookupPing(const URTLookupRequest& ping) {
                    SerializeChromeUserPopulation(request.population()));
   request_dict.Set("scoped_oauth_token", ping.token);
   request_dict.Set("dm_token", request.dm_token());
+  request_dict.Set("profile_dm_token", request.profile_dm_token());
+  request_dict.Set("browser_dm_token", request.browser_dm_token());
+  request_dict.Set("email", request.email());
 
   std::string lookupType;
   switch (request.lookup_type()) {
@@ -2594,9 +2601,6 @@ std::string SerializeURTLookupPing(const URTLookupRequest& ping) {
       break;
     case RTLookupRequest::OS_TYPE_CHROME_OS:
       os = "CHROME_OS";
-      break;
-    case RTLookupRequest::OS_TYPE_FUCHSIA:
-      os = "FUCHSIA";
       break;
   }
   request_dict.Set("os", os);
@@ -2860,6 +2864,7 @@ std::string SerializeContentAnalysisRequest(
     request_data.Set("tab_url", request.request_data().tab_url());
     request_data.Set("source", request.request_data().source());
     request_data.Set("destination", request.request_data().destination());
+    request_data.Set("email", request.request_data().email());
 
     request_dict.Set("request_data", std::move(request_data));
   }

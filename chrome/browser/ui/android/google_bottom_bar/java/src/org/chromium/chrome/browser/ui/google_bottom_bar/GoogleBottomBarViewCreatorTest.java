@@ -47,7 +47,6 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.google_bottom_bar.BottomBarConfig.ButtonId;
@@ -57,6 +56,7 @@ import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarLogger.Go
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams;
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams.VariantLayoutType;
 import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.base.ViewUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,9 +78,6 @@ public class GoogleBottomBarViewCreatorTest {
 
     @Mock private ShareDelegate mShareDelegate;
     @Mock private Supplier<ShareDelegate> mShareDelegateSupplier;
-
-    @Mock private PageInsightsCoordinator mPageInsightsCoordinator;
-    @Mock private Supplier<PageInsightsCoordinator> mPageInsightsCoordinatorSupplier;
 
     private Activity mActivity;
 
@@ -112,11 +109,7 @@ public class GoogleBottomBarViewCreatorTest {
     private GoogleBottomBarViewCreator getGoogleBottomBarViewCreator(
             BottomBarConfig bottomBarConfig) {
         return new GoogleBottomBarViewCreator(
-                mActivity,
-                mTabSupplier,
-                mShareDelegateSupplier,
-                mPageInsightsCoordinatorSupplier,
-                bottomBarConfig);
+                mActivity, mTabSupplier, mShareDelegateSupplier, bottomBarConfig);
     }
 
     private BottomBarConfig getEvenLayoutConfig() {
@@ -126,17 +119,11 @@ public class GoogleBottomBarViewCreatorTest {
                 new ArrayList<>());
     }
 
-    private void setUpPageInsightsCoordinatorSupplier() {
-        when(mPageInsightsCoordinatorSupplier.get()).thenReturn(mPageInsightsCoordinator);
-        when(mPageInsightsCoordinatorSupplier.hasValue()).thenReturn(true);
-    }
-
     private BottomBarConfig getAllChromeButtonsConfig() {
-        return getAllChromeButtonsConfig(List.of(0, PIH_BASIC, SHARE, SAVE));
+        return getAllChromeButtonsConfig(List.of(0, SHARE, SAVE));
     }
 
     private BottomBarConfig getAllChromeButtonsConfig(List<Integer> buttonIdList) {
-        setUpPageInsightsCoordinatorSupplier();
         return mConfigCreator.create(
                 GoogleBottomBarIntentParams.newBuilder().addAllEncodedButton(buttonIdList).build(),
                 new ArrayList<>());
@@ -289,6 +276,80 @@ public class GoogleBottomBarViewCreatorTest {
     @Test
     @EnableFeatures(ChromeFeatureList.CCT_GOOGLE_BOTTOM_BAR_VARIANT_LAYOUTS)
     public void
+            testCreateGoogleBottomBarView_singleDeckerLayout_heightAtLeast60_setsPaddingWithLargeTop() {
+        BottomBarConfig bottomBarConfig =
+                mConfigCreator.create(
+                        GoogleBottomBarIntentParams.newBuilder()
+                                .addAllEncodedButton(List.of())
+                                .setVariantLayoutType(VariantLayoutType.SINGLE_DECKER)
+                                .setSingleDeckerHeightDp(60)
+                                .build(),
+                        new ArrayList<>());
+        mGoogleBottomBarViewCreator = getGoogleBottomBarViewCreator(bottomBarConfig);
+
+        View view = mGoogleBottomBarViewCreator.createGoogleBottomBarView();
+
+        assertEquals(
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.google_bottom_bar_searchbox_horizontal_padding),
+                view.getPaddingStart());
+        assertEquals(
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.google_bottom_bar_searchbox_horizontal_padding),
+                view.getPaddingEnd());
+        assertEquals(0, view.getPaddingBottom());
+        assertEquals(
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.google_bottom_bar_single_decker_top_padding_large),
+                view.getPaddingTop());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.CCT_GOOGLE_BOTTOM_BAR_VARIANT_LAYOUTS)
+    public void
+            testCreateGoogleBottomBarView_singleDeckerLayout_heightLessThan60_setsPaddingWithSmallTop() {
+        BottomBarConfig bottomBarConfig =
+                mConfigCreator.create(
+                        GoogleBottomBarIntentParams.newBuilder()
+                                .addAllEncodedButton(List.of())
+                                .setVariantLayoutType(VariantLayoutType.SINGLE_DECKER)
+                                .setSingleDeckerHeightDp(59)
+                                .build(),
+                        new ArrayList<>());
+        mGoogleBottomBarViewCreator = getGoogleBottomBarViewCreator(bottomBarConfig);
+
+        View view = mGoogleBottomBarViewCreator.createGoogleBottomBarView();
+
+        assertEquals(
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.google_bottom_bar_searchbox_horizontal_padding),
+                view.getPaddingStart());
+        assertEquals(
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.google_bottom_bar_searchbox_horizontal_padding),
+                view.getPaddingEnd());
+        assertEquals(0, view.getPaddingBottom());
+        assertEquals(
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.google_bottom_bar_single_decker_top_padding_small),
+                view.getPaddingTop());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.CCT_GOOGLE_BOTTOM_BAR_VARIANT_LAYOUTS)
+    public void
             testCreateGoogleBottomBarView_singleDeckerWithRightButtonsLayout_returnsLayoutWithBottomBarButtonsOnRightAndSearchboxContainers() {
         mHistogramWatcher =
                 HistogramWatcher.newBuilder()
@@ -327,7 +388,6 @@ public class GoogleBottomBarViewCreatorTest {
                 HistogramWatcher.newBuilder()
                         .expectIntRecords(
                                 BUTTON_SHOWN_HISTOGRAM,
-                                GoogleBottomBarButtonEvent.PIH_CHROME,
                                 GoogleBottomBarButtonEvent.SHARE_CHROME,
                                 GoogleBottomBarButtonEvent.SAVE_DISABLED)
                         .build();
@@ -552,68 +612,15 @@ public class GoogleBottomBarViewCreatorTest {
     }
 
     @Test
-    public void testGetBottomBarHeightInPx_noVariantLayout_returnsRegularBottomBarHeight() {
-        mGoogleBottomBarViewCreator = getGoogleBottomBarViewCreator(getEvenLayoutConfig());
-
-        assertEquals(
-                mActivity.getResources().getDimensionPixelSize(R.dimen.google_bottom_bar_height),
-                mGoogleBottomBarViewCreator.getBottomBarHeightInPx());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.CCT_GOOGLE_BOTTOM_BAR_VARIANT_LAYOUTS)
-    public void testGetBottomBarHeightInPx_doubleDeckerLayout_returnsDoubleDeckerHeight() {
+    public void testGetBottomBarHeightInPx_returnsHeightFromConfig() {
         BottomBarConfig bottomBarConfig =
                 mConfigCreator.create(
-                        GoogleBottomBarIntentParams.newBuilder()
-                                .addAllEncodedButton(List.of(0, SHARE, SAVE))
-                                .setVariantLayoutType(VariantLayoutType.DOUBLE_DECKER)
-                                .build(),
+                        GoogleBottomBarIntentParams.newBuilder().setNoVariantHeightDp(123).build(),
                         new ArrayList<>());
         mGoogleBottomBarViewCreator = getGoogleBottomBarViewCreator(bottomBarConfig);
 
         assertEquals(
-                mActivity
-                        .getResources()
-                        .getDimensionPixelSize(R.dimen.google_bottom_bar_double_decker_height),
-                mGoogleBottomBarViewCreator.getBottomBarHeightInPx());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.CCT_GOOGLE_BOTTOM_BAR_VARIANT_LAYOUTS)
-    public void testGetBottomBarHeightInPx_singleDeckerLayout_returnsRegularBottomBarHeight() {
-        BottomBarConfig bottomBarConfig =
-                mConfigCreator.create(
-                        GoogleBottomBarIntentParams.newBuilder()
-                                .addAllEncodedButton(List.of())
-                                .setVariantLayoutType(VariantLayoutType.SINGLE_DECKER)
-                                .build(),
-                        new ArrayList<>());
-        mGoogleBottomBarViewCreator = getGoogleBottomBarViewCreator(bottomBarConfig);
-
-        assertEquals(
-                mActivity
-                        .getResources()
-                        .getDimensionPixelSize(R.dimen.google_bottom_bar_single_decker_height),
-                mGoogleBottomBarViewCreator.getBottomBarHeightInPx());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.CCT_GOOGLE_BOTTOM_BAR_VARIANT_LAYOUTS)
-    public void
-            testGetBottomBarHeightInPx_singleDeckerWithRightButtonsLayout_returnsRegularBottomBarHeight() {
-        BottomBarConfig bottomBarConfig =
-                mConfigCreator.create(
-                        GoogleBottomBarIntentParams.newBuilder()
-                                .addAllEncodedButton(List.of(0, SHARE))
-                                .setVariantLayoutType(
-                                        VariantLayoutType.SINGLE_DECKER_WITH_RIGHT_BUTTONS)
-                                .build(),
-                        new ArrayList<>());
-        mGoogleBottomBarViewCreator = getGoogleBottomBarViewCreator(bottomBarConfig);
-
-        assertEquals(
-                mActivity.getResources().getDimensionPixelSize(R.dimen.google_bottom_bar_height),
+                ViewUtils.dpToPx(mActivity, (float) 123),
                 mGoogleBottomBarViewCreator.getBottomBarHeightInPx());
     }
 

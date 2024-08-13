@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observation.h"
 
-#include "base/metrics/histogram_macros.h"
 #include "third_party/blink/renderer/core/dom/element_rare_data_vector.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/intersection_observer/element_intersection_observer_data.h"
@@ -16,6 +15,8 @@
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
+
+#define CHECK_SKIPPED_UPDATE_ON_SCROLL() DCHECK_IS_ON()
 
 namespace blink {
 
@@ -73,33 +74,16 @@ int64_t IntersectionObservation::ComputeIntersection(
 #if CHECK_SKIPPED_UPDATE_ON_SCROLL()
   std::optional<IntersectionGeometry::CachedRects> cached_rects_backup;
 #endif
-  if (RuntimeEnabledFeatures::IntersectionOptimizationEnabled()) {
-    // These values are persisted to logs. Entries should not be renumbered and
-    // numeric values should never be reused.
-    enum UpdateType {
-      kNoUpdate = 0,
-      kScrollOnly = 1,
-      kCachedRectInvalid_Unused = 2,
-      kFullUpdate = 3,
-      kMaxValue = 3,
-    };
-    UpdateType update_type = kNoUpdate;
-    if (has_pending_update || !(compute_flags & kScrollAndVisibilityOnly)) {
-      update_type = kFullUpdate;
-    } else if (cached_rects_.min_scroll_delta_to_update.x() <= 0 ||
-               cached_rects_.min_scroll_delta_to_update.y() <= 0) {
-      update_type = kScrollOnly;
-    }
-    UMA_HISTOGRAM_ENUMERATION("Blink.IntersectionObservation.UpdateType",
-                              update_type);
-    if (update_type == kNoUpdate) {
+  if (RuntimeEnabledFeatures::IntersectionOptimizationEnabled() &&
+      !has_pending_update && (compute_flags & kScrollAndVisibilityOnly) &&
+      cached_rects_.min_scroll_delta_to_update.x() > 0 &&
+      cached_rects_.min_scroll_delta_to_update.y() > 0) {
 #if CHECK_SKIPPED_UPDATE_ON_SCROLL()
-      cached_rects_backup.emplace(cached_rects_);
+    cached_rects_backup.emplace(cached_rects_);
 #else
-      // This is equivalent to a full update.
-      return 1;
+    // This is equivalent to a full update.
+    return 1;
 #endif
-    }
   }
 
   unsigned geometry_flags = GetIntersectionGeometryFlags(compute_flags);
@@ -119,30 +103,7 @@ int64_t IntersectionObservation::ComputeIntersection(
 #if CHECK_SKIPPED_UPDATE_ON_SCROLL()
   if (cached_rects_backup) {
     // A skipped update on scroll should generate the same result.
-    if (last_threshold_index_ != geometry.ThresholdIndex()) {
-      SCOPED_CRASH_KEY_STRING1024("IO", "Old",
-                                  cached_rects_backup->ToString().Utf8());
-      SCOPED_CRASH_KEY_STRING1024("IO", "New", cached_rects_.ToString().Utf8());
-      SCOPED_CRASH_KEY_STRING1024("IO", "Old-clip",
-                                  cached_rects_backup->clip_tree.Utf8());
-      SCOPED_CRASH_KEY_STRING1024("IO", "New-clip",
-                                  cached_rects_.clip_tree.Utf8());
-      SCOPED_CRASH_KEY_STRING1024("IO", "Old-transform",
-                                  cached_rects_backup->transform_tree.Utf8());
-      SCOPED_CRASH_KEY_STRING1024("IO", "New-transform",
-                                  cached_rects_.transform_tree.Utf8());
-      SCOPED_CRASH_KEY_STRING1024("IO", "Old-scroll",
-                                  cached_rects_backup->scroll_tree.Utf8());
-      SCOPED_CRASH_KEY_STRING1024("IO", "New-scroll",
-                                  cached_rects_.scroll_tree.Utf8());
-      auto* controller =
-          Target()->GetDocument().GetIntersectionObserverController();
-      SCOPED_CRASH_KEY_STRING256(
-          "IO", "debug",
-          controller ? controller->DebugInfo().Utf8() : "no controller");
-      CHECK_EQ(last_threshold_index_, geometry.ThresholdIndex())
-          << observer_->root();
-    }
+    CHECK_EQ(last_threshold_index_, geometry.ThresholdIndex());
     CHECK_EQ(last_is_visible_, geometry.IsVisible());
     cached_rects_ = cached_rects_backup.value();
     return 1;

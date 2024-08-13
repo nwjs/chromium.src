@@ -118,12 +118,13 @@ struct TestNodeWrapper<FrameNodeImpl>::Factory {
       const blink::LocalFrameToken& frame_token = blink::LocalFrameToken(),
       content::BrowsingInstanceId browsing_instance_id =
           content::BrowsingInstanceId(0),
-      content::SiteInstanceId site_instance_id = content::SiteInstanceId(0),
+      content::SiteInstanceGroupId site_instance_group_id =
+          content::SiteInstanceGroupId(0),
       bool is_current = true) {
     return std::make_unique<FrameNodeImpl>(
         process_node, page_node, parent_frame_node,
         outer_document_for_fenced_frame, render_frame_id, frame_token,
-        browsing_instance_id, site_instance_id, is_current);
+        browsing_instance_id, site_instance_group_id, is_current);
   }
 };
 
@@ -182,11 +183,10 @@ struct TestNodeWrapper<PageNodeImpl>::Factory {
       const std::string& browser_context_id = std::string(),
       const GURL& url = GURL(),
       PagePropertyFlags initial_property_flags = {},
-      base::TimeTicks visibility_change_time = base::TimeTicks::Now(),
-      PageNode::PageState page_state = PageNode::PageState::kActive) {
+      base::TimeTicks visibility_change_time = base::TimeTicks::Now()) {
     return std::make_unique<PageNodeImpl>(
         std::move(web_contents), browser_context_id, url,
-        initial_property_flags, visibility_change_time, page_state);
+        initial_property_flags, visibility_change_time);
   }
 };
 

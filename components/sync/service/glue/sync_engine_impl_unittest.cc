@@ -14,7 +14,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/task/sequenced_task_runner.h"
@@ -87,8 +86,8 @@ class MockSyncEngineHost : public SyncEngineHost {
 
 class FakeSyncManagerFactory : public SyncManagerFactory {
  public:
-  explicit FakeSyncManagerFactory(
-      FakeSyncManager** fake_manager,
+  FakeSyncManagerFactory(
+      raw_ptr<FakeSyncManager>* fake_manager,
       network::NetworkConnectionTracker* network_connection_tracker)
       : SyncManagerFactory(network_connection_tracker),
         fake_manager_(fake_manager) {
@@ -121,7 +120,7 @@ class FakeSyncManagerFactory : public SyncManagerFactory {
   ModelTypeSet initial_sync_ended_types_;
   ModelTypeSet progress_marker_types_;
   ModelTypeSet configure_fail_types_;
-  const raw_ptr<FakeSyncManager*> fake_manager_;
+  const raw_ptr<raw_ptr<FakeSyncManager>> fake_manager_;
 };
 
 class MockActiveDevicesProvider : public ActiveDevicesProvider {
@@ -226,6 +225,8 @@ class SyncEngineImplTest : public testing::Test {
   void ShutdownBackend(ShutdownReason reason) {
     DCHECK(backend_);
     backend_->StopSyncingForShutdown();
+    // Reset `fake_manager_` to avoid dangling pointer.
+    fake_manager_ = nullptr;
     backend_->Shutdown(reason);
     backend_.reset();
   }
@@ -281,9 +282,7 @@ class SyncEngineImplTest : public testing::Test {
   NiceMock<MockSyncEngineHost> mock_host_;
   std::unique_ptr<SyncEngineImpl> backend_;
   std::unique_ptr<FakeSyncManagerFactory> fake_manager_factory_;
-  // This field is not a raw_ptr<> because it was filtered by the rewriter for:
-  // #addr-of
-  RAW_PTR_EXCLUSION FakeSyncManager* fake_manager_ = nullptr;
+  raw_ptr<FakeSyncManager> fake_manager_ = nullptr;
   ModelTypeSet engine_types_;
   ModelTypeSet enabled_types_;
   base::OnceClosure quit_loop_;
@@ -525,6 +524,8 @@ TEST_F(SyncEngineImplTest, ModelTypeConnectorValidDuringShutdown) {
   backend_->StopSyncingForShutdown();
   // Verify that call to DisconnectDataType doesn't assert.
   backend_->DisconnectDataType(AUTOFILL);
+  // Reset `fake_manager_` to avoid dangling pointer.
+  fake_manager_ = nullptr;
   backend_->Shutdown(ShutdownReason::STOP_SYNC_AND_KEEP_DATA);
   backend_.reset();
 }

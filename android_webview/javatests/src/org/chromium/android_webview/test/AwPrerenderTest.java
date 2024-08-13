@@ -19,7 +19,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.UseParametersRunnerFactory;
@@ -31,6 +30,7 @@ import org.chromium.android_webview.ScriptHandler;
 import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.settings.SpeculativeLoadingAllowedFlags;
 import org.chromium.base.FakeTimeTestRule;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
@@ -39,7 +39,6 @@ import org.chromium.base.test.util.UrlUtils;
 import org.chromium.blink_public.common.BlinkFeatures;
 import org.chromium.components.embedder_support.util.WebResourceResponseInfo;
 import org.chromium.content_public.browser.test.util.TestCallbackHelperContainer.OnPageStartedHelper;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.io.FileInputStream;
 import java.io.UnsupportedEncodingException;
@@ -60,7 +59,6 @@ public class AwPrerenderTest extends AwParameterizedTest {
     private static final String TAG = "AwPrerenderTest";
 
     @Rule public FakeTimeTestRule mFakeTimeTestRule = new FakeTimeTestRule();
-    @Rule public TestRule mProcessor = new Features.InstrumentationProcessor();
 
     @Rule public AwActivityTestRule mActivityTestRule;
 
@@ -149,7 +147,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
     }
 
     public void setSpeculativeLoadingAllowed(@SpeculativeLoadingAllowedFlags int allowed) {
-        mActivityTestRule.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> mAwContents.getSettings().setSpeculativeLoadingAllowed(allowed));
     }
 
@@ -178,7 +176,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
                       });
                     }
                 """;
-        mActivityTestRule.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mAwContents.evaluateJavaScript(channelScript, null);
                 });
@@ -203,7 +201,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
         final String speculationRules = String.format(speculationRulesTemplate, url);
 
         // Start prerendering from the initial page.
-        mActivityTestRule.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mAwContents.evaluateJavaScript(speculationRules, null);
                 });
@@ -225,7 +223,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
     private void navigatePage(String url) throws Exception {
         OnPageStartedHelper onPageStartedHelper = mContentsClient.getOnPageStartedHelper();
         int currentOnPageStartedCallCount = onPageStartedHelper.getCallCount();
-        mActivityTestRule.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     final String navigationScript = String.format("location.href = `%s`;", url);
                     mAwContents.evaluateJavaScript(navigationScript, null);
@@ -250,7 +248,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
                 mActivityTestRule.loadUrlAsync(mAwContents, activateUrl);
                 break;
             case JAVASCRIPT:
-                mActivityTestRule.runOnUiThread(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             final String activationScript =
                                     String.format("location.href = `%s`;", activateUrl);
@@ -538,7 +536,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
         helper.clearUrls();
         callCount = helper.getCallCount();
         // RenderFrameHostChanged without FrameTree swap occurs here.
-        mActivityTestRule.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mAwContents.evaluateJavaScript("history.back();", null);
                 });
@@ -919,7 +917,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
         injectSpeculationRulesAndWait(mPrerenderingUrl);
 
         // Remove the JavaScript object. This should cancel prerendering.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> mAwContents.removeJavascriptInterface("testInjectedObject"));
 
         // Wait until prerendering is canceled for the interface removal.
@@ -974,7 +972,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
         injectSpeculationRulesAndWait(mPrerenderingUrl);
 
         // Add a document start javascript. This should cancel prerendering.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         mAwContents.addDocumentStartJavaScript(
                                 "console.log(\"hello world\");", new String[] {"*"}));
@@ -994,7 +992,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
 
         // Add a document start javascript. This should cancel prerendering.
         ScriptHandler handler =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () ->
                                 mAwContents.addDocumentStartJavaScript(
                                         "console.log(\"hello world\");", new String[] {"*"}));
@@ -1010,7 +1008,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
         injectSpeculationRulesAndWait(mPrerenderingUrl);
 
         // Remove the document start javascript. This should cancel prerendering.
-        TestThreadUtils.runOnUiThreadBlocking(() -> handler.remove());
+        ThreadUtils.runOnUiThreadBlocking(() -> handler.remove());
 
         // Wait until prerendering is canceled for the start script addition.
         histogramWatcher.pollInstrumentationThreadUntilSatisfied();
@@ -1035,7 +1033,7 @@ public class AwPrerenderTest extends AwParameterizedTest {
         // Start prerendering.
         injectSpeculationRulesAndWait(mPrerenderingUrl);
         // Manually cancel the prerendered pages.
-        TestThreadUtils.runOnUiThreadBlocking(() -> mAwContents.cancelAllPrerendering());
+        ThreadUtils.runOnUiThreadBlocking(() -> mAwContents.cancelAllPrerendering());
 
         // Wait until prerendering is canceled.
         histogramWatcher.pollInstrumentationThreadUntilSatisfied();

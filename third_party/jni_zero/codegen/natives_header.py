@@ -44,7 +44,7 @@ def _impl_forward_declaration(sb, native, params):
 def proxy_declaration(sb, jni_obj, native):
   stub_name = jni_obj.GetStubName(native)
   return_type_cpp = native.proxy_return_type.to_cpp()
-  sb(f'JNI_BOUNDARY_EXPORT {return_type_cpp} {stub_name}')
+  sb(f'JNI_POSSIBLE_BOUNDARY_EXPORT {return_type_cpp} {stub_name}')
   with sb.param_list() as plist:
     plist.append('JNIEnv* env')
     jtype = 'jclass' if native.static else 'jobject'
@@ -115,10 +115,12 @@ def _single_method(sb, jni_obj, native):
       return
 
     if not return_type.converted_type:
-      with sb.statement():
-        sb('return _ret')
-        if not return_type.is_primitive():
-          sb('.Release()')
+      if return_type.is_primitive():
+        sb('return _ret;\n')
+      else:
+        # Use ReleaseLocal() to ensure we are not calling .Release() on a
+        # global ref. https://crbug.com/40944912
+        sb('return _ret.ReleaseLocal();\n')
       return
 
     with sb.statement():

@@ -360,6 +360,7 @@ class _Variant():
             'variant_name': '',
             'images': [],
             'svgimages': [],
+            'fonts': [],
         }
         params.update(test)
         return _Variant(params)
@@ -389,10 +390,12 @@ class _Variant():
         return self
 
     def _render_param(self, jinja_env: jinja2.Environment,
-                      param_name: str) -> str:
-        """Get the specified variant parameter and render it with Jinja."""
-        value = self.params[param_name]
-        return jinja_env.from_string(value).render(self.params)
+                      param_name: str) -> None:
+        """Render the specified parameter in-place in the `params` dict."""
+        value = self.params.get(param_name)
+        if value and isinstance(value, str):
+            self._params[param_name] = (
+                jinja_env.from_string(value).render(self.params))
 
 
     def _get_file_name(self) -> str:
@@ -431,8 +434,8 @@ class _Variant():
                         variant_id: int) -> None:
         """Finalize this variant by adding computed param fields."""
         self._params['id'] = variant_id
-        self._params['name'] = self._render_param(jinja_env, 'name')
-        self._params['desc'] = self._render_param(jinja_env, 'desc')
+        for param_name in ('name', 'desc', 'attributes'):
+            self._render_param(jinja_env, param_name)
         self._params['file_name'] = self._get_file_name()
         self._params['canvas_types'] = self._get_canvas_types()
         self._params['template_type'] = self._get_template_type()
@@ -637,6 +640,7 @@ class _VariantGrid:
             'notes': self._unique_param('notes'),
             'images': self._param_set('images'),
             'svgimages': self._param_set('svgimages'),
+            'fonts': self._param_set('fonts'),
         }
         if self.template_type in (_TemplateType.REFERENCE,
                                   _TemplateType.HTML_REFERENCE):

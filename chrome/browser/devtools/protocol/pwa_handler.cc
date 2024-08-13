@@ -17,6 +17,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/to_string.h"
 #include "base/types/expected.h"
+#include "build/build_config.h"
 #include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/badging/badge_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -238,7 +239,7 @@ void PWAHandler::InstallFromManifestId(
             // returning kUserInstallDeclined. And maybe change it to a more
             // neutral name other than "Dialog" to avoid implying the use of UI.
             const bool manifest_match =
-                (web_app_info->manifest_id.spec() == in_manifest_id);
+                (web_app_info->manifest_id().spec() == in_manifest_id);
             std::move(acceptance_callback)
                 .Run(manifest_match, std::move(web_app_info));
           },
@@ -308,7 +309,7 @@ void PWAHandler::InstallFromInstallInfo(
                       " from ", in_install_url_or_bundle_url})));
     return;
   }
-  if (web_app_info->manifest_id.spec() != in_manifest_id) {
+  if (web_app_info->manifest_id().spec() != in_manifest_id) {
     std::move(callback)->sendFailure(errors::InconsistentManifestId(
         in_manifest_id, in_install_url_or_bundle_url));
     return;
@@ -564,4 +565,105 @@ protocol::Response PWAHandler::OpenCurrentPageInApp(
          " cannot be opened in the web app ", in_manifest_id}));
   }
   return protocol::Response::Success();
+}
+
+void PWAHandler::ChangeAppUserSettings(
+    const std::string& in_manifest_id,
+    protocol::Maybe<bool> in_link_capturing,
+    protocol::Maybe<protocol::PWA::DisplayMode> in_display_mode,
+    std::unique_ptr<ChangeAppUserSettingsCallback> callback) {
+  const webapps::AppId app_id =
+      web_app::GenerateAppIdFromManifestId(GURL{in_manifest_id});
+
+  // Always checks the availability of web app system to ensure the consistency
+  // of the API behavior.
+  auto* scheduler = GetScheduler();
+  if (!scheduler) {
+    std::move(callback)->sendFailure(errors::WebAppUnavailable());
+    return;
+  }
+
+  std::optional<web_app::mojom::UserDisplayMode> user_display_mode{};
+  if (in_display_mode) {
+    if (in_display_mode.value() == protocol::PWA::DisplayModeEnum::Standalone) {
+      user_display_mode = web_app::mojom::UserDisplayMode::kStandalone;
+    } else if (in_display_mode.value() ==
+               protocol::PWA::DisplayModeEnum::Browser) {
+      user_display_mode = web_app::mojom::UserDisplayMode::kBrowser;
+    } else {
+      std::move(callback)->sendFailure(
+          protocol::Response::InvalidParams(base::StrCat(
+              {"Unrecognized displayMode ", in_display_mode.value(),
+               " when changing user settings of web app ", in_manifest_id})));
+      return;
+    }
+  }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // TODO(crbug.com/339453269): Implement changeUserAppSettings/LinkCapturing on
+  // ChromeOS.
+  // TL:DR; the ChromeOS uses apps::AppServiceProxyFactory instead, and the
+  // SetSupportedLinksPreference would associate all the supported links to the
+  // app.
+  if (in_link_capturing) {
+    std::move(callback)->sendFailure(protocol::Response::InvalidRequest(
+        "Changing AppUserSettings/LinkCapturing on ChromeOS is not supported "
+        "yet."));
+    return;
+  }
+#endif
+
+  base::ConcurrentCallbacks<std::optional<std::string>> concurrent;
+  scheduler->ScheduleCallbackWithResult(
+      // TODO(crbug.com/339453269): Find a way to forward the error of the set
+      // operation back here.
+      "PWAHandler::ChangeAppUserSettings", web_app::AppLockDescription(app_id),
+      base::BindOnce(
+          [](const webapps::AppId& app_id, web_app::AppLock& app_lock,
+             base::Value::Dict& debug_value) -> std::optional<std::string> {
+            if (app_lock.registrar().IsLocallyInstalled(app_id)) {
+              return std::nullopt;
+            }
+            return "WebApp is not installed";
+          },
+          app_id),
+      concurrent.CreateCallback(),
+      /* result_on_shutdown= */
+      std::optional<std::string>{std::in_place,
+                                 "WebApp system is shuting down."});
+  if (in_link_capturing) {
+    scheduler->SetAppCapturesSupportedLinksDisableOverlapping(
+        app_id, in_link_capturing.value(),
+        base::BindOnce(concurrent.CreateCallback(),
+                       std::optional<std::string>{}));
+  }
+  if (user_display_mode) {
+    // TODO(crbug.com/331214986): Create command-line flag to fake all os
+    // integration for Chrome.
+    scheduler->SetUserDisplayMode(app_id, user_display_mode.value(),
+                                  base::BindOnce(concurrent.CreateCallback(),
+                                                 std::optional<std::string>{}));
+  }
+
+  std::move(concurrent)
+      .Done(base::BindOnce(
+          [](const std::string& in_manifest_id,
+             std::unique_ptr<ChangeAppUserSettingsCallback> callback,
+             std::vector<std::optional<std::string>> results) {
+            std::string errors;
+            for (const auto& result : results) {
+              if (result) {
+                errors.append(result.value()).append(";");
+              }
+            }
+            if (errors.empty()) {
+              std::move(callback)->sendSuccess();
+            } else {
+              std::move(callback)->sendFailure(
+                  protocol::Response::InvalidRequest(base::StrCat(
+                      {"Failed to change the user settings of web app ",
+                       in_manifest_id, ". ", errors})));
+            }
+          },
+          in_manifest_id, std::move(callback)));
 }

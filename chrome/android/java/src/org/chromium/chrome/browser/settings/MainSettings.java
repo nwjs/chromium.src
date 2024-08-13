@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.settings;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -39,8 +40,9 @@ import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
 import org.chromium.chrome.browser.password_manager.PasswordManagerLauncher;
 import org.chromium.chrome.browser.password_manager.settings.PasswordsPreference;
 import org.chromium.chrome.browser.preferences.Pref;
+import org.chromium.chrome.browser.safety_hub.SafetyHubMetricUtils;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.signin.SigninAndHistoryOptInActivityLauncherImpl;
+import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.SyncConsentActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
@@ -71,6 +73,7 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.ui.UiUtils;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.HashMap;
@@ -212,20 +215,13 @@ public class MainSettings extends ChromeBaseSettingsFragment
                         bottomSheetStrings,
                         SigninAccessPoint.SETTINGS,
                         SyncConsentActivityLauncherImpl.get(),
-                        SigninAndHistoryOptInActivityLauncherImpl.get()));
+                        SigninAndHistorySyncActivityLauncherImpl.get()));
 
         SignInPreference signInPreference = findPreference(PREF_SIGN_IN);
         signInPreference.initialize(getProfile(), profileDataCache, accountManagerFacade);
 
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
-            ChromeBasePreference googleServicePreference = findPreference(PREF_GOOGLE_SERVICES);
-            googleServicePreference.setIcon(R.drawable.ic_google_services_48dp_with_bg);
-            googleServicePreference.setViewId(R.id.account_management_google_services_row);
-        }
-
+        updateGoogleServicePreference();
         cachePreferences();
-
         updateAutofillPreferences();
         updatePlusAddressesPreference();
 
@@ -284,6 +280,14 @@ public class MainSettings extends ChromeBaseSettingsFragment
             getPreferenceScreen().removePreference(findPreference(PREF_SAFETY_HUB));
         } else {
             getPreferenceScreen().removePreference(findPreference(PREF_SAFETY_CHECK));
+            findPreference(PREF_SAFETY_HUB)
+                    .setOnPreferenceClickListener(
+                            preference -> {
+                                SafetyHubMetricUtils.recordExternalInteractions(
+                                        SafetyHubMetricUtils.ExternalInteractions
+                                                .OPEN_FROM_SETTINGS_PAGE);
+                                return false;
+                            });
         }
     }
 
@@ -323,7 +327,8 @@ public class MainSettings extends ChromeBaseSettingsFragment
                 ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_GROUP_SYNC_ANDROID)
                         && ChromeFeatureList.isEnabled(
                                 ChromeFeatureList.TAB_GROUP_SYNC_AUTO_OPEN_KILL_SWITCH);
-        if (isTabGroupSyncAutoOpenConfigurable) {
+        if (isTabGroupSyncAutoOpenConfigurable
+                || ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_TAB_DECLUTTER)) {
             addPreferenceIfAbsent(PREF_TABS);
         } else {
             removePreferenceIfPresent(PREF_TABS);
@@ -364,6 +369,22 @@ public class MainSettings extends ChromeBaseSettingsFragment
     private void removePreferenceIfPresent(String key) {
         Preference preference = getPreferenceScreen().findPreference(key);
         if (preference != null) getPreferenceScreen().removePreference(preference);
+    }
+
+    private void updateGoogleServicePreference() {
+        ChromeBasePreference googleServicePreference = findPreference(PREF_GOOGLE_SERVICES);
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            googleServicePreference.setIcon(R.drawable.ic_google_services_48dp_with_bg);
+            googleServicePreference.setViewId(R.id.account_management_google_services_row);
+        } else {
+            Drawable googleServicesIcon =
+                    UiUtils.getTintedDrawable(
+                            getContext(),
+                            R.drawable.ic_google_services_48dp,
+                            R.color.default_icon_color_tint_list);
+            googleServicePreference.setIcon(googleServicesIcon);
+        }
     }
 
     private void updateManageSyncPreference() {
@@ -526,12 +547,15 @@ public class MainSettings extends ChromeBaseSettingsFragment
         // SignOutCoordinator.startSignOutFlow(), in other words SignOutCoordinator.showSnackbar()
         // should be private method.
 
-        // Show the signout snackbar, or wait until `onStart()` if the fragment is not in the
-        // `STARTED` state.
-        if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
-            showSignoutSnackbar();
-        } else {
-            mShouldShowSnackbar = true;
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            // Show the signout snackbar, or wait until `onStart()` if the fragment is not in the
+            // `STARTED` state.
+            if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+                showSignoutSnackbar();
+            } else {
+                mShouldShowSnackbar = true;
+            }
         }
 
         updatePreferences();

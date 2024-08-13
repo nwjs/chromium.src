@@ -71,16 +71,13 @@ public interface PasswordSettingsAccessor {
 
     /**
      * Asynchronously retrieves the value of the "Use biometric re-auth before credential filling"
-     * setting.
+     * setting. The settings per-device, not per-account (meaning that it will be applied to all
+     * accounts on the device).
      *
-     * @param account the account where to store the value the value or no account if it should be
-     *     stored in the local storage.
      * @param successCallback called if the retrieval succeeds with the value of the setting or no
      *     value if none was set.
      * @param failureCallback called with an error if the retrieval did not succeed.
      */
-    void getUseBiometricsForCredentials(
-            Optional<Account> account,
-            Callback<Optional<Boolean>> successCallback,
-            Callback<Exception> failureCallback);
+    void getUseBiometricReauthBeforeFilling(
+            Callback<Optional<Boolean>> successCallback, Callback<Exception> failureCallback);
 }

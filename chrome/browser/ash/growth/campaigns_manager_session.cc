@@ -110,8 +110,9 @@ void MaybeTriggerSlot(growth::Slot slot) {
     return;
   }
 
-  campaigns_manager->PerformAction(campaign_id.value(), action_type.value(),
-                                   payload);
+  campaigns_manager->PerformAction(campaign_id.value(),
+                                   growth::GetCampaignGroupId(campaign),
+                                   action_type.value(), payload);
 }
 
 void MaybeTriggerCampaignsOnEvent(const std::string& event) {
@@ -279,6 +280,17 @@ bool HasValidPwaBrowserForAppId(const std::string& app_id) {
   return true;
 }
 
+void SetCampaignManagerPrefService(Profile* profile) {
+  auto* campaigns_manager = growth::CampaignsManager::Get();
+  CHECK(campaigns_manager);
+
+  if (!profile) {
+    campaigns_manager->SetPrefs(nullptr);
+    return;
+  }
+  campaigns_manager->SetPrefs(profile->GetPrefs());
+}
+
 }  // namespace
 
 // static
@@ -301,6 +313,7 @@ CampaignsManagerSession::CampaignsManagerSession() {
 CampaignsManagerSession::~CampaignsManagerSession() {
   CHECK_EQ(g_instance, this);
   g_instance = nullptr;
+  SetCampaignManagerPrefService(nullptr);
 }
 
 void CampaignsManagerSession::OnSessionStateChanged() {
@@ -321,6 +334,8 @@ void CampaignsManagerSession::OnSessionStateChanged() {
   if (!IsEligible()) {
     return;
   }
+
+  SetCampaignManagerPrefService(GetProfile());
 
   ash::OwnerSettingsServiceAsh* service =
       ash::OwnerSettingsServiceAshFactory::GetForBrowserContext(GetProfile());

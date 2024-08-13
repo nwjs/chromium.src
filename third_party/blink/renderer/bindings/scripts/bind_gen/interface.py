@@ -1505,6 +1505,8 @@ def _make_measure_web_feature_constant(cg_context):
 
     name = ext_attrs.value_of("MeasureAs") or ext_attrs.value_of("Measure")
     if name:
+        assert not name.startswith("WebDXFeature::")
+
         name = "k{}".format(name)
     elif cg_context.constructor:
         name = "kV8{}{}".format(cg_context.class_like.identifier, suffix)
@@ -1552,6 +1554,12 @@ def make_report_high_entropy_direct(cg_context):
         "[HighEntropy=Direct] must be specified with either [Measure] or "
         "[MeasureAs].")
 
+    assert "MeasureAs" not in ext_attrs or not ext_attrs.value_of(
+        "MeasureAs").startswith("WebDXFeature::"), "{}: {}".format(
+            cg_context.idl_location_and_name,
+            "[HighEntropy=Direct] is not yet supported for a WebDXFeature "
+            "use counter.")
+
     node = SequenceNode([
         TextNode("// [HighEntropy=Direct]"),
         FormatNode(
@@ -1573,10 +1581,19 @@ def make_report_measure_as(cg_context):
     if not ("Measure" in ext_attrs or "MeasureAs" in ext_attrs):
         return None
 
-    text = _format(
-        "// [Measure], [MeasureAs]\n"
-        "UseCounter::Count(${current_execution_context}, {measure_constant});",
-        measure_constant=_make_measure_web_feature_constant(cg_context))
+    measure_as = ext_attrs.value_of("MeasureAs")
+
+    if measure_as and measure_as.startswith("WebDXFeature::"):
+        text = _format(
+            "// [Measure], [MeasureAs]\n"
+            "UseCounter::CountWebDXFeature(${current_execution_context}, {measure_constant});",
+            measure_constant=measure_as)
+    else:
+        text = _format(
+            "// [Measure], [MeasureAs]\n"
+            "UseCounter::Count(${current_execution_context}, {measure_constant});",
+            measure_constant=_make_measure_web_feature_constant(cg_context))
+
     node = TextNode(text)
     node.accumulate(
         CodeGenAccumulator.require_include_headers([
@@ -2527,6 +2544,15 @@ def make_no_alloc_direct_call_callback_def(cg_context, function_name,
 
     def v8_type_and_symbol_node(argument, v8_arg_name, blink_arg_name):
         unwrapped_idl_type = argument.idl_type.unwrap()
+        if "PassAsSpan" in argument.idl_type.effective_annotations:
+            return ("v8::Local<v8::Value>",
+                    make_v8_to_blink_value(
+                        blink_arg_name,
+                        "${{{}}}".format(v8_arg_name),
+                        argument.idl_type,
+                        argument=argument,
+                        error_exit_return_statement="return;",
+                        cg_context=cg_context))
         if unwrapped_idl_type.is_interface or unwrapped_idl_type.is_sequence:
             return ("v8::Local<v8::Value>" if unwrapped_idl_type.is_interface
                     else "v8::Local<v8::Array>",
@@ -2537,44 +2563,6 @@ def make_no_alloc_direct_call_callback_def(cg_context, function_name,
                         argument=argument,
                         error_exit_return_statement="return;",
                         cg_context=cg_context))
-
-        elif argument.idl_type.unwrap().is_typed_array_type:
-            assert "AllowShared" in argument.idl_type.effective_annotations
-            unwrapped_idl_type = argument.idl_type.unwrap()
-            element_type_map = {
-                'Int8Array': 'int8_t',
-                'Int16Array': 'int16_t',
-                'Int32Array': 'int32_t',
-                'BigInt64Array': 'int64_t',
-                'Uint8Array': 'uint8_t',
-                'Uint16Array': 'uint16_t',
-                'Uint32Array': 'uint32_t',
-                'BigUint64Array': 'uint64_t',
-                'Uint8ClampedArray': 'uint8_t',
-                'Float32Array': 'float',
-                'Float64Array': 'double',
-            }
-            element_type = element_type_map.get(
-                unwrapped_idl_type.keyword_typename)
-
-            def create_definition(symbol_node):
-                binds = {
-                    "v8_arg_name": v8_arg_name,
-                    "blink_arg_name": blink_arg_name,
-                }
-
-                symbol_def_node = SymbolDefinitionNode(
-                    symbol_node,
-                    [F("auto& {blink_arg_name} = {v8_arg_name};", **binds)])
-                symbol_def_node.accumulate(
-                    CodeGenAccumulator.require_include_headers([
-                        "third_party/blink/renderer/core/typed_arrays/nadc_typed_array_view.h",
-                    ]))
-                return symbol_def_node
-
-            return ("const v8::FastApiTypedArray<{}>&".format(element_type),
-                    S(blink_arg_name,
-                      definition_constructor=create_definition))
         else:
             return (blink_type_info(argument.idl_type).value_t,
                     S(blink_arg_name,
@@ -4031,7 +4019,7 @@ def make_cross_origin_named_getter_callback(cg_context, function_name):
                 TextNode("v8::Local<v8::Function> function;"),
                 CxxLikelyIfNode(
                     cond="bindings::GetCrossOriginFunction("
-                    "${isolate}, operation.callback, "
+                    "${isolate}, operation.name, operation.callback, "
                     "operation.func_length,"
                     "${class_name}::GetWrapperTypeInfo())"
                     ".ToLocal(&function)",
@@ -4126,12 +4114,12 @@ for (const auto& attribute : kCrossOriginAttributeTable) {
     continue;
   v8::Local<v8::Value> get;
   v8::Local<v8::Value> set;
-  if (!bindings::GetCrossOriginFunctionOrUndefined(
-           ${info}.GetIsolate(), attribute.get_callback, 0,
+  if (!bindings::GetCrossOriginGetterSetter(
+           ${info}.GetIsolate(), attribute.name, attribute.get_callback, 0,
            ${class_name}::GetWrapperTypeInfo())
            .ToLocal(&get) ||
-      !bindings::GetCrossOriginFunctionOrUndefined(
-           ${info}.GetIsolate(), attribute.set_callback, 1,
+      !bindings::GetCrossOriginGetterSetter(
+           ${info}.GetIsolate(), attribute.name, attribute.set_callback, 1,
            ${class_name}::GetWrapperTypeInfo())
            .ToLocal(&set)) {
     // Exception was thrown which means that the request was intercepted.
@@ -4148,8 +4136,8 @@ for (const auto& operation : kCrossOriginOperationTable) {
     continue;
   v8::Local<v8::Function> function;
   if (!bindings::GetCrossOriginFunction(
-           ${info}.GetIsolate(), operation.callback, operation.func_length,
-           ${class_name}::GetWrapperTypeInfo())
+           ${info}.GetIsolate(), operation.name, operation.callback,
+           operation.func_length, ${class_name}::GetWrapperTypeInfo())
            .ToLocal(&function)) {
     // Exception was thrown which means that the request was intercepted.
     return v8::Intercepted::kYes;
@@ -4709,9 +4697,6 @@ def _make_operation_registration_table(table_name, operation_entries):
                     if arg.index >= nadc_entry.argument_count:
                         break
                     nadc_v8_type_info_flags = []
-                    if "AllowShared" in arg.idl_type.effective_annotations:
-                        nadc_v8_type_info_flags.append(
-                            "v8::CTypeInfo::Flags::kAllowSharedBit")
                     if "Clamp" in arg.idl_type.effective_annotations:
                         nadc_v8_type_info_flags.append(
                             "v8::CTypeInfo::Flags::kClampBit")
@@ -4933,6 +4918,9 @@ def make_property_entries_and_callback_defs(cg_context, attribute_entries,
                     may_use_feature_selector=True)
 
             if "PerWorldBindings" in member.extended_attributes:
+                assert not isinstance(
+                    member, web_idl.ConstructorGroup
+                ), "[PerWorldBindings] is not supported for constructors"
                 worlds = (CodeGenContext.MAIN_WORLD,
                           CodeGenContext.NON_MAIN_WORLDS)
             else:
@@ -5463,16 +5451,8 @@ def make_install_interface_template(cg_context, function_name, class_name,
             nodes = [
                 CxxUnlikelyIfNode(cond=entry.exposure_conditional, body=nodes),
             ]
-        if entry.world == CodeGenContext.MAIN_WORLD:
-            body.append(
-                CxxLikelyIfNode(cond="${world}.IsMainWorld()", body=nodes))
-        elif entry.world == CodeGenContext.NON_MAIN_WORLDS:
-            body.append(
-                CxxUnlikelyIfNode(cond="!${world}.IsMainWorld()", body=nodes))
-        elif entry.world == CodeGenContext.ALL_WORLDS:
-            body.extend(nodes)
-        else:
-            assert False
+        assert entry.world == CodeGenContext.ALL_WORLDS
+        body.extend(nodes)
         body.append(EmptyNode())
 
     body.extend([

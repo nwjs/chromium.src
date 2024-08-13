@@ -25,9 +25,11 @@ namespace compose {
 // show for Compose. It has the following states:
 //   - kInitial,
 //   - kWaitingForTimer,
+//   - kTimerCanceled,
 //   - kWaitingForSegmentation,
 //   - kWaitingForProactiveNudgeRequest,
-//   - kShouldNotBeShown,
+//   - kBlockedBySegmentation,
+//   - kWaitingForSelectionNudge,
 //   - kShown
 //
 // Generally, states transition forward through the list (skipping states if
@@ -71,9 +73,11 @@ class ProactiveNudgeTracker : public autofill::AutofillManager::Observer {
   enum class ShowState {
     kInitial,
     kWaitingForTimer,
+    kTimerCanceled,
     kWaitingForSegmentation,
     kWaitingForProactiveNudgeRequest,
-    kShouldNotBeShown,
+    kBlockedBySegmentation,
+    kWaitingForSelectionNudge,
     kShown
   };
 
@@ -103,7 +107,8 @@ class ProactiveNudgeTracker : public autofill::AutofillManager::Observer {
         segmentation_result = std::nullopt;
     bool segmentation_result_ignored_for_training = false;
     base::OneShotTimer timer;
-    bool timer_complete = false;
+    bool selection_nudge_requested = false;
+    bool timer_canceled = false;
 
     ShowState show_state = ShowState::kInitial;
 
@@ -123,15 +128,18 @@ class ProactiveNudgeTracker : public autofill::AutofillManager::Observer {
   // `web_contents`.
   void StartObserving(content::WebContents* web_contents);
 
-  // If the current state is UNINITIALIZED, begins tracking the state of a form
-  // field, and updates the state to WAITING.
+  // If not already tracking the current field, starts in kShouldNotBeShown
+  // waiting for the selection nudge to trigger the popup. Will not show the
+  // proactive nudge.
   //
-  // If the current state is REQUESTED, updates the state to SHOWN.
+  // Returns true if the nudge should be shown.
+  bool OnlySelectionNudgeRequestedForFormField(Signals signal);
+
+  // If not already tracking the current field, starts in kWaitingForTimer. Used
+  // for both the proactive nudge and selection nudge as long as the proactive
+  // nudge is enabled.
   //
-  // If the state is not UNINITIALIZED or REQUESTED,
-  // ProactiveNudgeRequestedForFormField is a no-op.
-  //
-  // Returns true if the nudge can be shown immediately.
+  // Returns true if the nudge should be shown.
   bool ProactiveNudgeRequestedForFormField(Signals signals);
 
   // Returns whether or not the tracker is currently waiting.
@@ -163,13 +171,14 @@ class ProactiveNudgeTracker : public autofill::AutofillManager::Observer {
   void ResetState();
 
   void UpdateStateForCurrentFormField();
-  std::optional<ShowState> CheckForStateTransition(ShowState current_state);
+  std::optional<ShowState> CheckForStateTransition();
   void TransitionToState(ShowState new_show_state);
 
   void BeginWaitingForTimer();
+  void BeginTimerCanceled();
   void BeginSegmentation();
   void BeginWaitingForProactiveNudgeRequest();
-  void BeginShouldNotBeShown();
+  void BeginBlockedBySegmentation();
   void BeginShown();
 
   void ShowTimerElapsed();
@@ -182,10 +191,27 @@ class ProactiveNudgeTracker : public autofill::AutofillManager::Observer {
       const segmentation_platform::TrainingRequestId training_request_id,
       ProactiveNudgeDerivedEngagement engagement);
 
+  // If the current state is UNINITIALIZED, begins tracking the state of a form
+  // field, and updates the state to kWaitingForTimer.
+  //
+  // If `only_enable_selection_nudge` is true the state is set to
+  // kShouldNotBeShown and we wait for a valid selection before showing the
+  // nudge.
+  //
+  // If the current state is kWaitingForProactiveNudgeRequest, updates the state
+  // to kShown.
+  //
+  // Returns true if the nudge has not been shown but can be.
+  bool NudgeRequestedForFormField(Signals signals,
+                                  bool only_enable_selection_nudge);
+
   std::unique_ptr<State> state_;
 
-  // Fields on which the nudge has been shown.
-  std::set<autofill::FieldGlobalId> seen_fields_;
+  bool nudge_currently_requested_ = false;
+
+  // Map indicating if the classification result from the segmentation platform
+  // allows the nudge to be shown for previously queried fields.
+  std::map<autofill::FieldGlobalId, bool> seen_fields_;
 
   std::map<autofill::FieldGlobalId, std::unique_ptr<EngagementTracker>>
       engagement_trackers_;

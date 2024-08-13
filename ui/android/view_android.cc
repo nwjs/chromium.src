@@ -12,6 +12,7 @@
 #include "base/containers/adapters.h"
 #include "base/containers/contains.h"
 #include "base/memory/raw_ptr.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "cc/slim/layer.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
@@ -43,7 +44,7 @@ ViewAndroid::ScopedAnchorView::ScopedAnchorView(
     JNIEnv* env,
     const JavaRef<jobject>& jview,
     const JavaRef<jobject>& jdelegate)
-    : view_(env, jview.obj()), delegate_(env, jdelegate.obj()) {
+    : view_(env, jview), delegate_(env, jdelegate) {
   // If there's a view, then we need a delegate to remove it.
   DCHECK(!jdelegate.is_null() || jview.is_null());
 }
@@ -186,7 +187,7 @@ bool ViewAndroid::SubtreeHasEventForwarder(ViewAndroid* view) {
 void ViewAndroid::MoveToFront(ViewAndroid* child) {
   DCHECK(child);
   auto it = base::ranges::find(children_, child);
-  DCHECK(it != children_.end());
+  CHECK(it != children_.end(), base::NotFatalUntil::M130);
 
   // Top element is placed at the end of the list.
   if (*it != children_.back())
@@ -196,7 +197,7 @@ void ViewAndroid::MoveToFront(ViewAndroid* child) {
 void ViewAndroid::MoveToBack(ViewAndroid* child) {
   DCHECK(child);
   auto it = base::ranges::find(children_, child);
-  DCHECK(it != children_.end());
+  CHECK(it != children_.end(), base::NotFatalUntil::M130);
 
   // Bottom element is placed at the beginning of the list.
   if (*it != children_.front())
@@ -292,7 +293,7 @@ void ViewAndroid::RemoveChild(ViewAndroid* child) {
     child->OnDetachedFromWindow();
   std::list<raw_ptr<ViewAndroid, CtnExperimental>>::iterator it =
       base::ranges::find(children_, child);
-  DCHECK(it != children_.end());
+  CHECK(it != children_.end(), base::NotFatalUntil::M130);
   children_.erase(it);
   child->parent_ = nullptr;
 }
@@ -398,10 +399,13 @@ bool ViewAndroid::StartDragAndDrop(const JavaRef<jobject>& jshadow_image,
   ScopedJavaLocalRef<jobject> delegate(GetViewAndroidDelegate());
   if (delegate.is_null())
     return false;
+  WindowAndroid* window_android = GetWindowAndroid();
   JNIEnv* env = base::android::AttachCurrentThread();
   return Java_ViewAndroidDelegate_startDragAndDrop(
-      env, delegate, jshadow_image, jdrop_data, cursor_offset_x,
-      cursor_offset_y, drag_obj_rect_width, drag_obj_rect_height);
+      env, delegate, jshadow_image, jdrop_data,
+      window_android ? window_android->GetJavaObject() : nullptr,
+      cursor_offset_x, cursor_offset_y, drag_obj_rect_width,
+      drag_obj_rect_height);
 }
 
 void ViewAndroid::OnCursorChanged(const Cursor& cursor) {

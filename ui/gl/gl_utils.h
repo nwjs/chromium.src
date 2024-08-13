@@ -23,9 +23,7 @@
 
 namespace gl {
 class GLApi;
-#if defined(USE_EGL)
 class GLDisplayEGL;
-#endif  // USE_EGL
 class GLDisplay;
 
 GL_EXPORT void Crash();
@@ -33,6 +31,9 @@ GL_EXPORT void Hang();
 
 #if BUILDFLAG(IS_ANDROID)
 GL_EXPORT base::ScopedFD MergeFDs(base::ScopedFD a, base::ScopedFD b);
+
+// Disable ANGLE and force to use native or other GL implementation.
+GL_EXPORT void DisableANGLE();
 #endif
 
 GL_EXPORT bool UsePassthroughCommandDecoder(
@@ -82,7 +83,6 @@ GL_EXPORT void LabelSwapChainBuffers(IDXGISwapChain* swap_chain,
 // the two GLDisplayManager classes are singletons and in component build,
 // calling GetInstance() directly returns different instances in different
 // components.
-#if defined(USE_EGL)
 // Add an entry <preference, system_device_id> to GLDisplayManagerEGL.
 GL_EXPORT void SetGpuPreferenceEGL(GpuPreference preference,
                                    uint64_t system_device_id);
@@ -108,7 +108,6 @@ GL_EXPORT GLDisplayEGL* GetDefaultDisplayEGL();
 
 // Query the GLDisplayEGL by |gpu_preference|.
 GL_EXPORT GLDisplayEGL* GetDisplayEGL(GpuPreference gpu_preference);
-#endif  // USE_EGL
 
 // Temporarily allows compilation of shaders that use the
 // ARB_texture_rectangle/ANGLE_texture_rectangle extension. We don't want to

@@ -33,6 +33,7 @@ load("./gn_args.star", "register_gn_args")
 load("./bootstrap.star", "register_bootstrap")
 load("./builder_config.star", "register_builder_config")
 load("./builder_health_indicators.star", "register_health_spec")
+load("./nodes.star", "nodes")
 load("./recipe_experiments.star", "register_recipe_experiments_ref")
 load("./sheriff_rotations.star", "register_gardener_builder")
 load("./description_exceptions.star", "exempted_from_description_builders")
@@ -78,6 +79,7 @@ os = struct(
     # A migration off of bionic is in progress, builders identified in
     # linux-default.json will have a different os dimension
     LINUX_DEFAULT = os_enum(os_category.LINUX, "Ubuntu-22.04", json.decode(io.read_file("./linux-default.json"))),
+    LINUX_NOBLE = os_enum(os_category.LINUX, "Ubuntu-24.04"),
     LINUX_UBUNTU_ANY = os_enum(os_category.LINUX, "Ubuntu"),
     LINUX_ANY = os_enum(os_category.LINUX, "Linux"),
     MAC_10_15 = os_enum(os_category.MAC, "Mac-10.15"),
@@ -86,7 +88,7 @@ os = struct(
     MAC_14 = os_enum(os_category.MAC, "Mac-14"),
     MAC_DEFAULT = os_enum(os_category.MAC, "Mac-14"),
     MAC_ANY = os_enum(os_category.MAC, "Mac"),
-    MAC_BETA = os_enum(os_category.MAC, "Mac-14"),
+    MAC_BETA = os_enum(os_category.MAC, "Mac-15"),
     WINDOWS_10 = os_enum(os_category.WINDOWS, "Windows-10"),
     # TODO(crbug.com/41492657): remove after slow compile issue resolved.
     WINDOWS_10_1909 = os_enum(os_category.WINDOWS, "Windows-10-18363"),
@@ -323,7 +325,7 @@ defaults = args.defaults(
     free_space = None,
     cores = None,
     cpu = None,
-    disallow_gce = False,
+    gce = None,
     fully_qualified_builder_dimension = False,
     console_view = args.COMPUTE,
     list_view = args.COMPUTE,
@@ -362,6 +364,7 @@ defaults = args.defaults(
     siso_enable_cloud_trace = True,
     siso_experiments = [],
     siso_remote_jobs = None,
+    siso_fail_if_reapi_used = None,
     health_spec = None,
     builder_config_settings = None,
 
@@ -382,6 +385,12 @@ defaults = args.defaults(
     contact_team_email = None,
 )
 
+# This node won't actually be accessed, but creating it for builders that have
+# builder_group set will enforce that there can't be builders with the same name
+# in different buckets that use the same builder group since lucicfg will check
+# that there aren't two graphs with the same ID
+_BUILDER_GROUP_ID_NODE = nodes.create_unscoped_node_type("builder-group-id")
+
 def builder(
         *,
         name,
@@ -397,7 +406,7 @@ def builder(
         override_builder_dimension = None,
         auto_builder_dimension = args.DEFAULT,
         fully_qualified_builder_dimension = args.DEFAULT,
-        disallow_gce = args.DEFAULT,
+        gce = args.DEFAULT,
         cores = args.DEFAULT,
         cpu = args.DEFAULT,
         bootstrap = args.DEFAULT,
@@ -440,6 +449,7 @@ def builder(
         siso_enable_cloud_trace = args.DEFAULT,
         siso_experiments = args.DEFAULT,
         siso_remote_jobs = args.DEFAULT,
+        siso_fail_if_reapi_used = None,
         skip_profile_upload = args.DEFAULT,
         health_spec = args.DEFAULT,
         shadow_builderless = args.DEFAULT,
@@ -567,9 +577,10 @@ def builder(
         list_view: A string or a list of strings identifying the ID(s) of the
             list view(s) to add an entry to. Supports a module-level default
             that defaults to no list views.
-        disallow_gce: A boolean indicating whether the builder can run on GCE
-            machines. If True, emits a 'gce:0' dimension. By default, gce is
-            allowed.
+        gce: A boolean indicating whether the builder runs on GCE machines.
+            If True, emits a 'gce:1' dimension. If False, emits a 'gce:0'
+            dimension. If None, 'gce' dimension is not emitted, meaning don't
+            care if running on GCE machines or not. By default, considered None.
         coverage_gs_bucket: a string specifying the GS bucket to upload
             coverage data to. Will be copied to '$build/code_coverage' property.
             By default, considered None.
@@ -645,6 +656,8 @@ def builder(
         siso_experiments: a list of experiment flags for siso.
         siso_remote_jobs: an integer indicating the number of concurrent remote jobs
             to run when building with Siso.
+        siso_fail_if_reapi_used: If True, check siso_metrics.json to see if the build
+            used remote execution and fail the build if any step used it.
         health_spec: a health spec instance describing the threshold for when
             the builder should be considered unhealthy.
         shadow_builderless: If set to True, then led builds created for this
@@ -755,7 +768,7 @@ def builder(
             else:
                 dimensions["builder"] = name
 
-    if not kwargs.get("description_html", "").strip() and name not in exempted_from_description_builders.get(bucket, []):
+    if not kwargs.get("description_html", "").strip() and name not in exempted_from_description_builders.get(bucket, []) and not mirrors:
         fail("Builder " + name + " must have a description_html. All new builders must specify a description.")
 
     cores = defaults.get_value("cores", cores)
@@ -787,11 +800,11 @@ def builder(
             os.category not in _EXCLUDE_BUILDERLESS_SSD_OS_CATEGORIES):
             ssd = False
     if ssd != None:
-        dimensions["ssd"] = str(int(ssd))
+        dimensions["ssd"] = "1" if ssd else "0"
 
-    disallow_gce = defaults.get_value("disallow_gce", disallow_gce)
-    if disallow_gce:
-        dimensions["gce"] = "0"
+    gce = defaults.get_value("gce", gce)
+    if gce != None:
+        dimensions["gce"] = "1" if gce else "0"
 
     code_coverage = _code_coverage_property(
         coverage_gs_bucket = coverage_gs_bucket,
@@ -861,6 +874,8 @@ def builder(
         remote_jobs = defaults.get_value("siso_remote_jobs", siso_remote_jobs)
         if remote_jobs:
             siso["remote_jobs"] = remote_jobs
+        if siso_fail_if_reapi_used:
+            siso["fail_if_reapi_used"] = siso_fail_if_reapi_used
         properties["$build/siso"] = siso
         if shadow_rbe_project:
             shadow_siso = dict(siso)
@@ -944,6 +959,11 @@ def builder(
     if builder == None:
         return None
 
+    # Define a node to ensure there's only one builder using the
+    # (builder_group, builder)
+    if builder_group != None:
+        _BUILDER_GROUP_ID_NODE.add("{}:{}".format(builder_group, name))
+
     register_gardener_builder(bucket, name, gardener_rotations)
 
     register_recipe_experiments_ref(bucket, name, executable)
@@ -964,6 +984,7 @@ def builder(
         targets,
         targets_settings,
         additional_exclusions,
+        kwargs.get("description_html", "").strip(),
     )
 
     bootstrap = defaults.get_value("bootstrap", bootstrap)

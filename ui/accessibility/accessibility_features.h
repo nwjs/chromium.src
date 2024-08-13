@@ -154,6 +154,10 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(
 AX_BASE_EXPORT bool
 IsExperimentalAccessibilityGoogleTtsHighQualityVoicesEnabled();
 
+// Whether the screen magnifier can follow the ChromeVox focus.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMagnifierFollowsChromeVox);
+AX_BASE_EXPORT bool IsAccessibilityMagnifierFollowsChromeVoxEnabled();
+
 // Whether the screen magnifier can follow the Select to Speak focus.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMagnifierFollowsSts);
 AX_BASE_EXPORT bool IsAccessibilityMagnifierFollowsStsEnabled();
@@ -182,6 +186,10 @@ AX_BASE_EXPORT bool IsAccessibilityShakeToLocateEnabled();
 // available.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMagnifyAcceleratorDialog);
 AX_BASE_EXPORT bool IsAccessibilityMagnifyAcceleratorDialogEnabled();
+
+// Controls whether the Select to Speak keyboard shortcut is enabled.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityDisableTrackpad);
+AX_BASE_EXPORT bool IsAccessibilityDisableTrackpadEnabled();
 
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -216,11 +224,6 @@ AX_BASE_EXPORT bool IsAccessibilityServiceEnabled();
 // and --no-sandbox.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kDataCollectionModeForScreen2x);
 AX_BASE_EXPORT bool IsDataCollectionModeForScreen2xEnabled();
-
-// Use local MI service to make inaccessibile surfaces (e.g.
-// canvases) accessible.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kLayoutExtraction);
-AX_BASE_EXPORT bool IsLayoutExtractionEnabled();
 
 // Identify and annotate the main node of the AXTree where one was not already
 // provided.
@@ -258,10 +261,6 @@ AX_BASE_EXPORT bool IsReadAnythingReadAloudAutomaticWordHighlightingEnabled();
 // Enable phrase highlighting in Read Anything Read Aloud.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloudPhraseHighlighting);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudPhraseHighlightingEnabled();
-
-// Use the WebUI toolbar in Read Anything.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingWebUIToolbar);
-AX_BASE_EXPORT bool IsReadAnythingWebUIToolbarEnabled();
 
 // Use screen2x integration for Read Anything to distill web pages
 // using an ML model.

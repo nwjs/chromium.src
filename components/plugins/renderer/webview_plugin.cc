@@ -123,7 +123,7 @@ bool WebViewPlugin::Initialize(WebPluginContainer* container) {
   old_title_ = container_->GetElement().GetAttribute("title");
 
   web_view()->MainFrameWidget()->SetZoomLevel(
-      blink::PageZoomFactorToZoomLevel(container_->PageZoomFactor()));
+      blink::ZoomFactorToZoomLevel(container_->LayoutZoomFactor()));
 
   return true;
 }
@@ -272,7 +272,6 @@ WebViewPlugin::WebViewHelper::WebViewHelper(
       /*client=*/this,
       /*is_hidden=*/false,
       /*prerender_param=*/nullptr,
-      /*is_inside_portal=*/false,
       /*fenced_frame_mode=*/std::nullopt,
       /*compositing_enabled=*/false,
       /*widgets_never_composited=*/false,
@@ -292,7 +291,7 @@ WebViewPlugin::WebViewHelper::WebViewHelper(
   web_view_->SetRendererPreferences(renderer_preferences);
 
   WebLocalFrame* web_frame = WebLocalFrame::CreateMainFrame(
-      web_view_, this, nullptr, blink::LocalFrameToken(),
+      web_view_, this, nullptr, mojo::NullRemote(), blink::LocalFrameToken(),
       blink::DocumentToken(), nullptr);
   blink::WebFrameWidget* frame_widget = web_frame->InitializeFrameWidget(
       blink::CrossVariantMojoAssociatedRemote<
@@ -412,7 +411,7 @@ void WebViewPlugin::WebViewHelper::FrameDetached() {
 void WebViewPlugin::OnZoomLevelChanged() {
   if (container_) {
     web_view()->MainFrameWidget()->SetZoomLevel(
-        blink::PageZoomFactorToZoomLevel(container_->PageZoomFactor()));
+        blink::ZoomFactorToZoomLevel(container_->LayoutZoomFactor()));
   }
 }
 

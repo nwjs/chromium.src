@@ -130,7 +130,11 @@ void DelegatedFrameHostAndroid::RegisterOffsetTags(
   const viz::OffsetTag top_controls_offset_tag =
       tags_info.top_controls_offset_tag;
   if (!top_controls_offset_tag.IsEmpty()) {
-    // TODO(peilinwang) register tag in content_layer_
+    int top_controls_height = tags_info.top_controls_height;
+    viz::OffsetTagConstraints top_controls_constraints(0, 0,
+                                                       -top_controls_height, 0);
+    content_layer_->RegisterOffsetTag(top_controls_offset_tag,
+                                      top_controls_constraints);
   }
 }
 
@@ -139,7 +143,7 @@ void DelegatedFrameHostAndroid::UnregisterOffsetTags(
   const viz::OffsetTag top_controls_offset_tag =
       tags_info.top_controls_offset_tag;
   if (!top_controls_offset_tag.IsEmpty()) {
-    // TODO(peilinwang) unregister tag in content_layer_
+    content_layer_->UnregisterOffsetTag(top_controls_offset_tag);
   }
 }
 
@@ -281,7 +285,16 @@ void DelegatedFrameHostAndroid::ResetFallbackToFirstNavigationSurface() {
       !first_local_surface_id_after_navigation_.is_valid()) {
     // If we have a valid `pre_navigation_local_surface_id_`, we must not be in
     // BFCache.
-    CHECK(!bfcache_fallback_.is_valid());
+    {
+      // TODO(https://crbug.com/349073060): Remove the scope when the bug is
+      // fixed.
+      SCOPED_CRASH_KEY_STRING64("crbug/349073060", "bfc_fallback_crashed",
+                                bfcache_fallback_.ToString().c_str());
+      SCOPED_CRASH_KEY_STRING64(
+          "crbug/349073060", "pre_nav_lsid_crashed",
+          pre_navigation_local_surface_id_.ToString().c_str());
+      CHECK(!bfcache_fallback_.is_valid());
+    }
     EvictDelegatedFrame(frame_evictor_->CollectSurfaceIdsForEviction());
     content_layer_->SetBackgroundColor(SkColors::kTransparent);
   }

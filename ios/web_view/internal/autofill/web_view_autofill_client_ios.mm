@@ -140,13 +140,7 @@ FormDataImporter* WebViewAutofillClientIOS::GetFormDataImporter() {
 
 payments::PaymentsAutofillClient*
 WebViewAutofillClientIOS::GetPaymentsAutofillClient() {
-  if (!payments_autofill_client_) {
-    payments_autofill_client_ =
-        std::make_unique<payments::IOSWebViewPaymentsAutofillClient>(
-            this, bridge_, web_state_->GetBrowserState());
-  }
-
-  return payments_autofill_client_.get();
+  return &payments_autofill_client_;
 }
 
 StrikeDatabase* WebViewAutofillClientIOS::GetStrikeDatabase() {
@@ -195,18 +189,6 @@ void WebViewAutofillClientIOS::ShowAutofillSettings(
   NOTREACHED_IN_MIGRATION();
 }
 
-void WebViewAutofillClientIOS::ConfirmSaveCreditCardToCloud(
-    const CreditCard& card,
-    const LegalMessageLines& legal_message_lines,
-    SaveCreditCardOptions options,
-    UploadSaveCardPromptCallback callback) {
-  DCHECK(options.show_prompt);
-  [bridge_ confirmSaveCreditCardToCloud:card
-                      legalMessageLines:legal_message_lines
-                  saveCreditCardOptions:options
-                               callback:std::move(callback)];
-}
-
 void WebViewAutofillClientIOS::ConfirmSaveAddressProfile(
     const AutofillProfile& profile,
     const AutofillProfile* original_profile,
@@ -231,14 +213,6 @@ void WebViewAutofillClientIOS::ShowDeleteAddressProfileDialog(
     AddressProfileDeleteDialogCallback delete_dialog_callback) {
   // Please note: This method is only implemented on desktop and is therefore
   // unreachable here.
-  NOTREACHED_IN_MIGRATION();
-}
-
-bool WebViewAutofillClientIOS::HasCreditCardScanFeature() const {
-  return false;
-}
-
-void WebViewAutofillClientIOS::ScanCreditCard(CreditCardScanCallback callback) {
   NOTREACHED_IN_MIGRATION();
 }
 
@@ -295,19 +269,8 @@ void WebViewAutofillClientIOS::DidFillOrPreviewForm(
     AutofillTriggerSource trigger_source,
     bool is_refill) {}
 
-void WebViewAutofillClientIOS::DidFillOrPreviewField(
-    const std::u16string& autofilled_value,
-    const std::u16string& profile_full_name) {}
-
 bool WebViewAutofillClientIOS::IsContextSecure() const {
   return IsContextSecureForWebState(web_state_);
-}
-
-void WebViewAutofillClientIOS::OpenPromoCodeOfferDetailsURL(const GURL& url) {
-  web_state_->OpenURL(web::WebState::OpenURLParams(
-      url, web::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
-      /*is_renderer_initiated=*/false));
 }
 
 autofill::FormInteractionsFlowId
@@ -328,9 +291,7 @@ LogManager* WebViewAutofillClientIOS::GetLogManager() const {
 void WebViewAutofillClientIOS::set_bridge(
     id<CWVAutofillClientIOSBridge> bridge) {
   bridge_ = bridge;
-  if (payments_autofill_client_) {
-    payments_autofill_client_->set_bridge(bridge);
-  }
+  payments_autofill_client_.set_bridge(bridge);
 }
 
 }  // namespace autofill

@@ -346,12 +346,26 @@ void InternalPopupMenu::WriteDocument(SegmentedBuffer& data) {
                                               "}\n"
                                               "option {"
                                               "padding-bottom: %dpx;"
-                                              "min-height: %dpx;"
+                                              "min-block-size: %dpx;"
                                               "display: flex;"
                                               "align-items: center;"
-                                              "}",
+                                              "}\n",
                                               padding, padding, min_height),
                                data);
+    // Sets the min target size of <option> to 24x24 CSS pixels to meet
+    // Accessibility standards.
+    if (RuntimeEnabledFeatures::SelectOptionAccessibilityTargetSizeEnabled()) {
+      PagePopupClient::AddString(
+          String::Format("option {"
+                         "display: block;"
+                         "align-content: center;"
+                         "min-inline-size: %dpx;"
+                         "min-block-size: %dpx;"
+                         "box-sizing: border-box;"
+                         "}\n",
+                         min_height, std::max(24, min_height)),
+          data);
+    }
   }
 
   PagePopupClient::AddString(
@@ -631,8 +645,10 @@ void InternalPopupMenu::Dispose() {
 
 void InternalPopupMenu::Show(PopupMenu::ShowEventType type) {
   DCHECK(!popup_);
-  taller_options_ = type == PopupMenu::kTouch ||
-                    RuntimeEnabledFeatures::ForceTallerSelectPopupEnabled();
+  taller_options_ =
+      type == PopupMenu::kTouch ||
+      RuntimeEnabledFeatures::ForceTallerSelectPopupEnabled() ||
+      RuntimeEnabledFeatures::SelectOptionAccessibilityTargetSizeEnabled();
   popup_ = chrome_client_->OpenPagePopup(this);
 }
 
@@ -717,7 +733,7 @@ void InternalPopupMenu::SetMenuListOptionsBoundsInAXTree(
   // Factor in the scroll offset of the select's window.
   LocalDOMWindow* window = owner_element_->GetDocument().domWindow();
   const float page_zoom_factor =
-      owner_element_->GetDocument().GetFrame()->PageZoomFactor();
+      owner_element_->GetDocument().GetFrame()->LayoutZoomFactor();
   popup_origin.Offset(window->scrollX() * page_zoom_factor,
                       window->scrollY() * page_zoom_factor);
 

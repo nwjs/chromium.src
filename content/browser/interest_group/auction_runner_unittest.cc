@@ -1312,16 +1312,26 @@ BuildPrivateAggregationRequest(
       std::move(debug_mode_details));
 }
 
+auction_worklet::mojom::EventTypePtr Reserved(
+    auction_worklet::mojom::ReservedEventType reserved_event_type) {
+  return auction_worklet::mojom::EventType::NewReserved(reserved_event_type);
+}
+
+auction_worklet::mojom::EventTypePtr NonReserved(
+    const std::string& event_type) {
+  return auction_worklet::mojom::EventType::NewNonReserved(event_type);
+}
+
 const auction_worklet::mojom::PrivateAggregationRequestPtr
 BuildPrivateAggregationForEventRequest(
     absl::uint128 bucket,
     int value,
-    std::string event_type,
+    auction_worklet::mojom::EventTypePtr event_type,
     std::optional<uint64_t> filtering_id = std::nullopt) {
   auction_worklet::mojom::AggregatableReportForEventContribution contribution(
       auction_worklet::mojom::ForEventSignalBucket::NewIdBucket(bucket),
       auction_worklet::mojom::ForEventSignalValue::NewIntValue(value),
-      filtering_id, event_type);
+      filtering_id, std::move(event_type));
 
   return auction_worklet::mojom::PrivateAggregationRequest::New(
       auction_worklet::mojom::AggregatableReportContribution::
@@ -1334,14 +1344,14 @@ auction_worklet::mojom::PrivateAggregationRequestPtr
 BuildPrivateAggregationForBaseValue(
     absl::uint128 bucket,
     auction_worklet::mojom::BaseValue base_value,
-    std::string event_type,
+    auction_worklet::mojom::EventTypePtr event_type,
     std::optional<uint64_t> filtering_id = std::nullopt) {
   auction_worklet::mojom::AggregatableReportForEventContribution contribution(
       auction_worklet::mojom::ForEventSignalBucket::NewIdBucket(bucket),
       auction_worklet::mojom::ForEventSignalValue::NewSignalValue(
           auction_worklet::mojom::SignalValue::New(base_value, /*scale=*/1.0,
                                                    /*offset=*/0)),
-      filtering_id, event_type);
+      filtering_id, std::move(event_type));
 
   return auction_worklet::mojom::PrivateAggregationRequest::New(
       auction_worklet::mojom::AggregatableReportContribution::
@@ -2497,6 +2507,7 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
                 Entry::kResultName,
                 Entry::kEndToEndLatencyInMillisName,
                 Entry::kLoadInterestGroupPhaseLatencyInMillisName,
+                Entry::kLoadInterestGroupPhaseEndTimeInMillisName,
                 Entry::kNumInterestGroupsName,
                 Entry::kNumNegativeInterestGroupsName,
                 Entry::kNumOwnersWithInterestGroupsName,
@@ -2933,6 +2944,9 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
     EXPECT_THAT(
         ukm_metrics,
         HasMetric(UkmEntry::kLoadInterestGroupPhaseLatencyInMillisName));
+    EXPECT_THAT(
+        ukm_metrics,
+        HasMetric(UkmEntry::kLoadInterestGroupPhaseEndTimeInMillisName));
     EXPECT_THAT(ukm_metrics, HasMetric(UkmEntry::kEndToEndLatencyInMillisName));
 
     EXPECT_THAT(ukm_metrics,
@@ -3809,25 +3823,30 @@ TEST_F(AuctionRunnerTest, Basic) {
 
   EXPECT_THAT(
       private_aggregation_manager_.TakeLoggedPrivateAggregationRequests(),
-      ElementsAreRequests(
-          kExpectedGenerateBidPrivateAggregationRequest,
-          kExpectedGenerateBidPrivateAggregationRequest,
-          kExpectedReportWinPrivateAggregationRequest,
-          kExpectedScoreAdPrivateAggregationRequest,
-          kExpectedScoreAdPrivateAggregationRequest,
-          kExpectedReportResultPrivateAggregationRequest,
-          BuildPrivateAggregationForEventRequest(/*bucket=*/10, /*value=*/21,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/10, /*value=*/22,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/30, /*value=*/42,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/50, /*value=*/60,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/50, /*value=*/60,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/70, /*value=*/80,
-                                                 /*event_type=*/"click")));
+      ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                          kExpectedGenerateBidPrivateAggregationRequest,
+                          kExpectedReportWinPrivateAggregationRequest,
+                          kExpectedScoreAdPrivateAggregationRequest,
+                          kExpectedScoreAdPrivateAggregationRequest,
+                          kExpectedReportResultPrivateAggregationRequest,
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/10, /*value=*/21,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/10, /*value=*/22,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/30, /*value=*/42,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/50, /*value=*/60,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/50, /*value=*/60,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/70, /*value=*/80,
+                              /*event_type=*/NonReserved("click"))));
 
   EXPECT_THAT(result_.private_aggregation_event_map,
               testing::UnorderedElementsAre(testing::Pair(
@@ -4212,6 +4231,213 @@ TEST_F(AuctionRunnerTest, WorkletServiceGetNextSellerWorkletThreadIndex) {
   EXPECT_EQ(auction_worklet_service2->GetNextSellerWorkletThreadIndex(), 1u);
   EXPECT_EQ(auction_worklet_service1->GetNextSellerWorkletThreadIndex(), 2u);
   EXPECT_EQ(auction_worklet_service1->GetNextSellerWorkletThreadIndex(), 3u);
+}
+
+TEST_F(AuctionRunnerTest, BidderThreadPoolExpanded) {
+  mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService>
+      auction_worklet_service_remote;
+  mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
+      auction_worklet_service_receiver =
+          auction_worklet_service_remote.InitWithNewPipeAndPassReceiver();
+
+  auto auction_worklet_service =
+      auction_worklet::AuctionWorkletServiceImpl::CreateForService(
+          std::move(auction_worklet_service_receiver));
+
+  network::TestURLLoaderFactory test_url_loader_factory;
+
+  auction_worklet::TestAuctionNetworkEventsHandler
+      auction_network_events_handler;
+
+  mojo::Remote<auction_worklet::mojom::BidderWorklet> bidder_worklet1;
+  mojo::PendingReceiver<auction_worklet::mojom::BidderWorklet>
+      worklet_receiver1 = bidder_worklet1.BindNewPipeAndPassReceiver();
+
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory1;
+  test_url_loader_factory.Clone(
+      url_loader_factory1.InitWithNewPipeAndPassReceiver());
+
+  std::vector<
+      mojo::PendingRemote<auction_worklet::mojom::AuctionSharedStorageHost>>
+      shared_storage_hosts1(10);
+
+  auction_worklet_service->LoadBidderWorklet(
+      std::move(worklet_receiver1), std::move(shared_storage_hosts1),
+      /*should_pause_on_start=*/false, std::move(url_loader_factory1),
+      auction_network_events_handler.CreateRemote(),
+      /*script_source_url=*/GURL("https://ad1.com"),
+      /*bidding_wasm_helper_url=*/{}, /*trusted_bidding_signals_url=*/{},
+      /*trusted_bidding_signals_slot_size_param=*/{},
+      /*top_window_origin=*/url::Origin::Create(GURL("https://ad1.com")),
+      auction_worklet::mojom::AuctionWorkletPermissionsPolicyState::New(
+          /*private_aggregation_allowed=*/false,
+          /*shared_storage_allowed=*/false),
+      /*experiment_group_id=*/{});
+
+  // There are 10 bidder threads and 1 seller thread.
+  EXPECT_EQ(auction_worklet_service->AuctionV8HelpersForTesting().size(), 11u);
+
+  mojo::Remote<auction_worklet::mojom::BidderWorklet> bidder_worklet2;
+  mojo::PendingReceiver<auction_worklet::mojom::BidderWorklet>
+      worklet_receiver2 = bidder_worklet2.BindNewPipeAndPassReceiver();
+
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory2;
+  test_url_loader_factory.Clone(
+      url_loader_factory2.InitWithNewPipeAndPassReceiver());
+
+  std::vector<
+      mojo::PendingRemote<auction_worklet::mojom::AuctionSharedStorageHost>>
+      shared_storage_hosts2(20);
+
+  auction_worklet_service->LoadBidderWorklet(
+      std::move(worklet_receiver2), std::move(shared_storage_hosts2),
+      /*should_pause_on_start=*/false, std::move(url_loader_factory2),
+      auction_network_events_handler.CreateRemote(),
+      /*script_source_url=*/GURL("https://ad1.com"),
+      /*bidding_wasm_helper_url=*/{}, /*trusted_bidding_signals_url=*/{},
+      /*trusted_bidding_signals_slot_size_param=*/{},
+      /*top_window_origin=*/url::Origin::Create(GURL("https://ad1.com")),
+      auction_worklet::mojom::AuctionWorkletPermissionsPolicyState::New(
+          /*private_aggregation_allowed=*/false,
+          /*shared_storage_allowed=*/false),
+      /*experiment_group_id=*/{});
+
+  // There are 20 bidder threads and 1 seller thread.
+  EXPECT_EQ(auction_worklet_service->AuctionV8HelpersForTesting().size(), 21u);
+}
+
+// Regression test for crbug.com/349067504: partial reset of the per-process
+// bidder thread pool, with subsequent reuse of the reset entry. Expect
+// successful execution.
+//
+// Steps:
+// 1. Start Worklet Service 1, load a Bidder Worklet (requesting 2 threads).
+// 2. Start Worklet Service 2, load a Bidder Worklet (requesting 1 thread).
+// 3. Destroy Worklet Service 1.
+// 4. Start Worklet Service 3, load a Bidder Worklet (requesting 2 threads).
+TEST_F(AuctionRunnerTest, BidderThreadPoolPartiallyResetAndSubsequentlyReused) {
+  mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService>
+      auction_worklet_service_remote1;
+  mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
+      auction_worklet_service_receiver1 =
+          auction_worklet_service_remote1.InitWithNewPipeAndPassReceiver();
+
+  auto auction_worklet_service1 =
+      auction_worklet::AuctionWorkletServiceImpl::CreateForService(
+          std::move(auction_worklet_service_receiver1));
+
+  network::TestURLLoaderFactory test_url_loader_factory;
+
+  auction_worklet::TestAuctionNetworkEventsHandler
+      auction_network_events_handler;
+
+  mojo::Remote<auction_worklet::mojom::BidderWorklet> bidder_worklet1;
+  mojo::PendingReceiver<auction_worklet::mojom::BidderWorklet>
+      worklet_receiver1 = bidder_worklet1.BindNewPipeAndPassReceiver();
+
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory1;
+  test_url_loader_factory.Clone(
+      url_loader_factory1.InitWithNewPipeAndPassReceiver());
+
+  std::vector<
+      mojo::PendingRemote<auction_worklet::mojom::AuctionSharedStorageHost>>
+      shared_storage_hosts1(2);
+
+  auction_worklet_service1->LoadBidderWorklet(
+      std::move(worklet_receiver1), std::move(shared_storage_hosts1),
+      /*should_pause_on_start=*/false, std::move(url_loader_factory1),
+      auction_network_events_handler.CreateRemote(),
+      /*script_source_url=*/GURL("https://ad1.com"),
+      /*bidding_wasm_helper_url=*/{}, /*trusted_bidding_signals_url=*/{},
+      /*trusted_bidding_signals_slot_size_param=*/{},
+      /*top_window_origin=*/url::Origin::Create(GURL("https://ad1.com")),
+      auction_worklet::mojom::AuctionWorkletPermissionsPolicyState::New(
+          /*private_aggregation_allowed=*/false,
+          /*shared_storage_allowed=*/false),
+      /*experiment_group_id=*/{});
+
+  // There are 2 bidder threads and 1 seller thread.
+  EXPECT_EQ(auction_worklet_service1->AuctionV8HelpersForTesting().size(), 3u);
+
+  mojo::Remote<auction_worklet::mojom::BidderWorklet> bidder_worklet2;
+  mojo::PendingReceiver<auction_worklet::mojom::BidderWorklet>
+      worklet_receiver2 = bidder_worklet2.BindNewPipeAndPassReceiver();
+
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory2;
+  test_url_loader_factory.Clone(
+      url_loader_factory2.InitWithNewPipeAndPassReceiver());
+
+  std::vector<
+      mojo::PendingRemote<auction_worklet::mojom::AuctionSharedStorageHost>>
+      shared_storage_hosts2(1);
+
+  mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService>
+      auction_worklet_service_remote2;
+  mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
+      auction_worklet_service_receiver2 =
+          auction_worklet_service_remote2.InitWithNewPipeAndPassReceiver();
+
+  auto auction_worklet_service2 =
+      auction_worklet::AuctionWorkletServiceImpl::CreateForService(
+          std::move(auction_worklet_service_receiver2));
+
+  auction_worklet_service2->LoadBidderWorklet(
+      std::move(worklet_receiver2), std::move(shared_storage_hosts2),
+      /*should_pause_on_start=*/false, std::move(url_loader_factory2),
+      auction_network_events_handler.CreateRemote(),
+      /*script_source_url=*/GURL("https://ad1.com"),
+      /*bidding_wasm_helper_url=*/{}, /*trusted_bidding_signals_url=*/{},
+      /*trusted_bidding_signals_slot_size_param=*/{},
+      /*top_window_origin=*/url::Origin::Create(GURL("https://ad1.com")),
+      auction_worklet::mojom::AuctionWorkletPermissionsPolicyState::New(
+          /*private_aggregation_allowed=*/false,
+          /*shared_storage_allowed=*/false),
+      /*experiment_group_id=*/{});
+
+  // There are 1 bidder thread and 1 seller thread.
+  EXPECT_EQ(auction_worklet_service2->AuctionV8HelpersForTesting().size(), 2u);
+
+  // Reset Worklet Service 1, resetting the second entry in the thread pool
+  // while preserving the first entry.
+  auction_worklet_service1.reset();
+
+  mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService>
+      auction_worklet_service_remote3;
+  mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
+      auction_worklet_service_receiver3 =
+          auction_worklet_service_remote3.InitWithNewPipeAndPassReceiver();
+
+  auto auction_worklet_service3 =
+      auction_worklet::AuctionWorkletServiceImpl::CreateForService(
+          std::move(auction_worklet_service_receiver3));
+
+  mojo::Remote<auction_worklet::mojom::BidderWorklet> bidder_worklet3;
+  mojo::PendingReceiver<auction_worklet::mojom::BidderWorklet>
+      worklet_receiver3 = bidder_worklet3.BindNewPipeAndPassReceiver();
+
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory3;
+  test_url_loader_factory.Clone(
+      url_loader_factory3.InitWithNewPipeAndPassReceiver());
+
+  std::vector<
+      mojo::PendingRemote<auction_worklet::mojom::AuctionSharedStorageHost>>
+      shared_storage_hosts3(2);
+
+  auction_worklet_service3->LoadBidderWorklet(
+      std::move(worklet_receiver3), std::move(shared_storage_hosts3),
+      /*should_pause_on_start=*/false, std::move(url_loader_factory3),
+      auction_network_events_handler.CreateRemote(),
+      /*script_source_url=*/GURL("https://ad1.com"),
+      /*bidding_wasm_helper_url=*/{}, /*trusted_bidding_signals_url=*/{},
+      /*trusted_bidding_signals_slot_size_param=*/{},
+      /*top_window_origin=*/url::Origin::Create(GURL("https://ad1.com")),
+      auction_worklet::mojom::AuctionWorkletPermissionsPolicyState::New(
+          /*private_aggregation_allowed=*/false,
+          /*shared_storage_allowed=*/false),
+      /*experiment_group_id=*/{});
+
+  // There are 2 bidder threads and 1 seller thread.
+  EXPECT_EQ(auction_worklet_service3->AuctionV8HelpersForTesting().size(), 3u);
 }
 
 TEST_F(AuctionRunnerTest, PauseBidder) {
@@ -8579,28 +8805,34 @@ TEST_F(AuctionRunnerTest, AdditionalBidAliasesInterestGroup) {
 
   EXPECT_THAT(
       private_aggregation_manager_.TakeLoggedPrivateAggregationRequests(),
-      ElementsAreRequests(
-          kExpectedGenerateBidPrivateAggregationRequest,
-          kExpectedGenerateBidPrivateAggregationRequest,
-          kExpectedReportWinPrivateAggregationRequest,
-          kExpectedScoreAdPrivateAggregationRequest,
-          kExpectedScoreAdPrivateAggregationRequest,
-          kExpectedScoreAdPrivateAggregationRequest,
-          kExpectedReportResultPrivateAggregationRequest,
-          BuildPrivateAggregationForEventRequest(/*bucket=*/10, /*value=*/21,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/10, /*value=*/22,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/30, /*value=*/80,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/50, /*value=*/60,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/50, /*value=*/60,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/50, /*value=*/60,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/70, /*value=*/80,
-                                                 /*event_type=*/"click")));
+      ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                          kExpectedGenerateBidPrivateAggregationRequest,
+                          kExpectedReportWinPrivateAggregationRequest,
+                          kExpectedScoreAdPrivateAggregationRequest,
+                          kExpectedScoreAdPrivateAggregationRequest,
+                          kExpectedScoreAdPrivateAggregationRequest,
+                          kExpectedReportResultPrivateAggregationRequest,
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/10, /*value=*/21,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/10, /*value=*/22,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/30, /*value=*/80,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/50, /*value=*/60,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/50, /*value=*/60,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/50, /*value=*/60,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/70, /*value=*/80,
+                              /*event_type=*/NonReserved("click"))));
 
   EXPECT_THAT(result_.private_aggregation_event_map,
               testing::UnorderedElementsAre(testing::Pair(
@@ -8832,28 +9064,34 @@ TEST_F(AuctionRunnerTest, AdditionalBidDistinctFromInterestGroup) {
 
   EXPECT_THAT(
       private_aggregation_manager_.TakeLoggedPrivateAggregationRequests(),
-      ElementsAreRequests(
-          kExpectedGenerateBidPrivateAggregationRequest,
-          kExpectedGenerateBidPrivateAggregationRequest,
-          kExpectedReportWinPrivateAggregationRequest,
-          kExpectedScoreAdPrivateAggregationRequest,
-          kExpectedScoreAdPrivateAggregationRequest,
-          kExpectedScoreAdPrivateAggregationRequest,
-          kExpectedReportResultPrivateAggregationRequest,
-          BuildPrivateAggregationForEventRequest(/*bucket=*/10, /*value=*/21,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/10, /*value=*/22,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/30, /*value=*/80,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/50, /*value=*/60,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/50, /*value=*/60,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/50, /*value=*/60,
-                                                 /*event_type=*/"click"),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/70, /*value=*/80,
-                                                 /*event_type=*/"click")));
+      ElementsAreRequests(kExpectedGenerateBidPrivateAggregationRequest,
+                          kExpectedGenerateBidPrivateAggregationRequest,
+                          kExpectedReportWinPrivateAggregationRequest,
+                          kExpectedScoreAdPrivateAggregationRequest,
+                          kExpectedScoreAdPrivateAggregationRequest,
+                          kExpectedScoreAdPrivateAggregationRequest,
+                          kExpectedReportResultPrivateAggregationRequest,
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/10, /*value=*/21,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/10, /*value=*/22,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/30, /*value=*/80,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/50, /*value=*/60,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/50, /*value=*/60,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/50, /*value=*/60,
+                              /*event_type=*/NonReserved("click")),
+                          BuildPrivateAggregationForEventRequest(
+                              /*bucket=*/70, /*value=*/80,
+                              /*event_type=*/NonReserved("click"))));
 
   EXPECT_THAT(result_.private_aggregation_event_map,
               testing::UnorderedElementsAre(testing::Pair(
@@ -12661,6 +12899,130 @@ TEST_F(AuctionRunnerTest, ExecutionModeGroupByOrigin) {
               testing::ElementsAre(GURL("https://adplatform.com/metrics/6")));
 }
 
+// With a scaling factor of 1.0, and with 9 interest groups, one thread will be
+// requested for the bidder worklet.
+TEST_F(AuctionRunnerTest, SmallInterestGroupsCount_OneBidderThreadRequested) {
+  base::test::ScopedFeatureList feature_list;
+  base::FieldTrialParams params;
+  params["bidder_worklet_thread_pool_size_logarithmic_scaling_factor"] = "1.0";
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kFledgeBidderWorkletThreadPool, params);
+
+  UseMockWorkletService();
+
+  // The `MockBidderWorklet` does not support testing multiple calls to
+  // `BeginGenerateBid()`. Thus, disable that code path, but still allow testing
+  // other auction functions.
+  mock_auction_process_manager_->SetSkipGenerateBid();
+
+  const char kScript[] = R"(
+    if (!('count' in globalThis))
+      globalThis.count = 1;
+    function generateBid() {
+      ++count;
+      return {ad: ["ad"], bid:count, render:"https://response.test/"};
+    }
+    function reportWin(auctionSignals, perBuyerSignals, sellerSignals,
+                       browserSignals) {}
+  )";
+
+  const char kSellerScript[] = R"(
+    function scoreAd(adMetadata, bid, auctionConfig, trustedScoringSignals,
+                     browserSignals) {
+      return {desirability: bid,
+              ad: adMetadata};
+    }
+    function reportResult() {}
+  )";
+
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kBidder1Url,
+                                         kScript);
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kSellerUrl,
+                                         kSellerScript);
+
+  std::vector<StorageInterestGroup> bidders;
+  for (int i = 0; i < 9; ++i) {
+    StorageInterestGroup ig = MakeInterestGroup(
+        kBidder1, kBidder1Name + base::NumberToString(i), kBidder1Url,
+        /* trusted_bidding_signals_url=*/std::nullopt,
+        /* trusted_bidding_signals_keys=*/{}, GURL("https://response.test/"));
+    ig.joining_origin = url::Origin::Create(GURL("https://sports.example.org"));
+    ig.interest_group.execution_mode =
+        blink::InterestGroup::ExecutionMode::kFrozenContext;
+    bidders.push_back(std::move(ig));
+  }
+
+  StartAuction(kSellerUrl, std::move(bidders));
+  auction_run_loop_->Run();
+
+  EXPECT_EQ(mock_auction_process_manager_->load_bidder_worklet_count(), 1u);
+  EXPECT_EQ(
+      mock_auction_process_manager_->last_load_bidder_worklet_threads_count(),
+      1u);
+}
+
+// with a scaling factor of 1.0, and with 10 interest groups, two threads will
+// be requested for the bidder worklet.
+TEST_F(AuctionRunnerTest, LargeInterestGroupsCount_TwoBidderThreadsRequested) {
+  base::test::ScopedFeatureList feature_list;
+  base::FieldTrialParams params;
+  params["bidder_worklet_thread_pool_size_logarithmic_scaling_factor"] = "1.0";
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kFledgeBidderWorkletThreadPool, params);
+
+  UseMockWorkletService();
+
+  // The `MockBidderWorklet` does not support testing multiple calls to
+  // `BeginGenerateBid()`. Thus, disable that code path, but still allow testing
+  // other auction functions.
+  mock_auction_process_manager_->SetSkipGenerateBid();
+
+  const char kScript[] = R"(
+    if (!('count' in globalThis))
+      globalThis.count = 1;
+    function generateBid() {
+      ++count;
+      return {ad: ["ad"], bid:count, render:"https://response.test/"};
+    }
+    function reportWin(auctionSignals, perBuyerSignals, sellerSignals,
+                       browserSignals) {}
+  )";
+
+  const char kSellerScript[] = R"(
+    function scoreAd(adMetadata, bid, auctionConfig, trustedScoringSignals,
+                     browserSignals) {
+      return {desirability: bid,
+              ad: adMetadata};
+    }
+    function reportResult() {}
+  )";
+
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kBidder1Url,
+                                         kScript);
+  auction_worklet::AddJavascriptResponse(&url_loader_factory_, kSellerUrl,
+                                         kSellerScript);
+
+  std::vector<StorageInterestGroup> bidders;
+  for (int i = 0; i < 10; ++i) {
+    StorageInterestGroup ig = MakeInterestGroup(
+        kBidder1, kBidder1Name + base::NumberToString(i), kBidder1Url,
+        /* trusted_bidding_signals_url=*/std::nullopt,
+        /* trusted_bidding_signals_keys=*/{}, GURL("https://response.test/"));
+    ig.joining_origin = url::Origin::Create(GURL("https://sports.example.org"));
+    ig.interest_group.execution_mode =
+        blink::InterestGroup::ExecutionMode::kFrozenContext;
+    bidders.push_back(std::move(ig));
+  }
+
+  StartAuction(kSellerUrl, std::move(bidders));
+  auction_run_loop_->Run();
+
+  EXPECT_EQ(mock_auction_process_manager_->load_bidder_worklet_count(), 1u);
+  EXPECT_EQ(
+      mock_auction_process_manager_->last_load_bidder_worklet_threads_count(),
+      2u);
+}
+
 // Test the case where the only bidder times out due to the
 // perBuyerCumulativeTimeouts.
 TEST_F(AuctionRunnerTest, PerBuyerCumulativeTimeouts) {
@@ -15296,23 +15658,32 @@ TEST_F(AuctionRunnerTest, PrivateAggregationRequestForEventFilteringId) {
       ElementsAreRequests(
           BuildPrivateAggregationForEventRequest(
               /*bucket=*/123, /*value=*/4,
-              /*event_type=*/"reserved.always",
+              /*event_type=*/
+              Reserved(
+                  auction_worklet::mojom::ReservedEventType::kReservedAlways),
               /*filtering_id=*/1),
           BuildPrivateAggregationForEventRequest(
               /*bucket=*/123, /*value=*/4,
-              /*event_type=*/"reserved.always",
+              /*event_type=*/
+              Reserved(
+                  auction_worklet::mojom::ReservedEventType::kReservedAlways),
               /*filtering_id=*/std::nullopt),
           BuildPrivateAggregationForEventRequest(
               /*bucket=*/234, /*value=*/5,
-              /*event_type=*/"reserved.always",
+              /*event_type=*/
+              Reserved(
+                  auction_worklet::mojom::ReservedEventType::kReservedAlways),
               /*filtering_id=*/0),
           BuildPrivateAggregationForEventRequest(
               /*bucket=*/234, /*value=*/5,
-              /*event_type=*/"reserved.always",
+              /*event_type=*/
+              Reserved(
+                  auction_worklet::mojom::ReservedEventType::kReservedAlways),
               /*filtering_id=*/255),
-          BuildPrivateAggregationForEventRequest(/*bucket=*/456, /*value=*/7,
-                                                 /*event_type=*/"click",
-                                                 /*filtering_id=*/2)));
+          BuildPrivateAggregationForEventRequest(
+              /*bucket=*/456, /*value=*/7,
+              /*event_type=*/NonReserved("click"),
+              /*filtering_id=*/2)));
 }
 
 TEST_F(AuctionRunnerTest,
@@ -15332,11 +15703,8 @@ TEST_F(AuctionRunnerTest,
   PrivateAggregationRequests bidder_1_pa_requests;
   bidder_1_pa_requests.push_back(
       BuildPrivateAggregationForEventRequest(
-          /*bucket=*/10, /*value=*/20, /*event_type=*/"reserved.always")
-          .Clone());
-  bidder_1_pa_requests.push_back(
-      BuildPrivateAggregationForEventRequest(
-          /*bucket=*/11, /*value=*/21, /*event_type=*/"reserved.not-supported")
+          /*bucket=*/10, /*value=*/20, /*event_type=*/
+          Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways))
           .Clone());
 
   // Bidder1 returns a bid with a private aggregation request whose reserved
@@ -15450,18 +15818,19 @@ TEST_F(AuctionRunnerTest, PrivateAggregationTimeMetrics) {
         bidder_pa_requests, seller_pa_requests;
     bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
         /*bucket=*/100 * i, auction_worklet::mojom::BaseValue::kScriptRunTime,
-        "reserved.always"));
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
     seller_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
         /*bucket=*/100 * i + 10,
-        auction_worklet::mojom::BaseValue::kScriptRunTime, "reserved.always"));
+        auction_worklet::mojom::BaseValue::kScriptRunTime,
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
     bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
         /*bucket=*/100 * i + 1,
         auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-        "reserved.always"));
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
     seller_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
         /*bucket=*/100 * i + 11,
         auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-        "reserved.always"));
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
     bidder_worklets[i]->InvokeGenerateBidCallback(
         i + 1, /*bid_currency=*/std::nullopt,
         blink::AdDescriptor(
@@ -15508,16 +15877,16 @@ TEST_F(AuctionRunnerTest, PrivateAggregationTimeMetrics) {
       bidder_report_pa_requests, seller_report_pa_requests;
   bidder_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/50, auction_worklet::mojom::BaseValue::kScriptRunTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   seller_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/60, auction_worklet::mojom::BaseValue::kScriptRunTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   bidder_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/51, auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   seller_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/61, auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
 
   // Need to flush the service pipe to make sure the AuctionRunner has
   // received the score.
@@ -15614,18 +15983,19 @@ TEST_F(AuctionRunnerTest, ComponentAuctionPrivateAggregationTimeMetrics) {
         bidder_pa_requests, component_seller_pa_requests;
     bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
         /*bucket=*/100 * i, auction_worklet::mojom::BaseValue::kScriptRunTime,
-        "reserved.always"));
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
     component_seller_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
         /*bucket=*/100 * i + 10,
-        auction_worklet::mojom::BaseValue::kScriptRunTime, "reserved.always"));
+        auction_worklet::mojom::BaseValue::kScriptRunTime,
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
     bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
         /*bucket=*/100 * i + 1,
         auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-        "reserved.always"));
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
     component_seller_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
         /*bucket=*/100 * i + 11,
         auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-        "reserved.always"));
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
     bidder_worklets[i]->InvokeGenerateBidCallback(
         i + 1, /*bid_currency=*/std::nullopt,
         blink::AdDescriptor(
@@ -15666,10 +16036,10 @@ TEST_F(AuctionRunnerTest, ComponentAuctionPrivateAggregationTimeMetrics) {
       top_seller_pa_requests;
   top_seller_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/20, auction_worklet::mojom::BaseValue::kScriptRunTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   top_seller_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/21, auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
 
   auto top_score_ad_params = top_seller_worklet->WaitForScoreAd();
   mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
@@ -15698,24 +16068,26 @@ TEST_F(AuctionRunnerTest, ComponentAuctionPrivateAggregationTimeMetrics) {
       top_seller_report_pa_requests;
   bidder_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/50, auction_worklet::mojom::BaseValue::kScriptRunTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   component_seller_report_pa_requests.push_back(
       BuildPrivateAggregationForBaseValue(
           /*bucket=*/60, auction_worklet::mojom::BaseValue::kScriptRunTime,
-          "reserved.always"));
+          Reserved(
+              auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   top_seller_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/70, auction_worklet::mojom::BaseValue::kScriptRunTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   bidder_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/51, auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   component_seller_report_pa_requests.push_back(
       BuildPrivateAggregationForBaseValue(
           /*bucket=*/61, auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-          "reserved.always"));
+          Reserved(
+              auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   top_seller_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/71, auction_worklet::mojom::BaseValue::kSignalsFetchTime,
-      "reserved.always"));
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
 
   top_seller_worklet->WaitForReportResult();
   top_seller_worklet->SetReportingLatency(base::Milliseconds(200));

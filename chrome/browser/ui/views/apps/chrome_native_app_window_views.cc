@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/no_destructor.h"
+#include "base/not_fatal_until.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -345,7 +346,7 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
   const std::map<ui::Accelerator, int>& accelerator_table =
       GetAcceleratorTable();
   auto iter = accelerator_table.find(accelerator);
-  DCHECK(iter != accelerator_table.end());
+  CHECK(iter != accelerator_table.end(), base::NotFatalUntil::M130);
   int command_id = iter->second;
 #if defined(NWJS_SDK)
   content::WebContents* web_contents;

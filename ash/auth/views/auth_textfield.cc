@@ -19,6 +19,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/gfx/font_list.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/focus_ring.h"
@@ -36,22 +37,26 @@ constexpr int kPasswordGlyphSpacing = 6;
 constexpr int kIconSizeDp = 20;
 
 // The max width of the AuthTextfield.
-constexpr int kAuthTextfieldMaxWidthDp = 293;
+constexpr int kAuthTextfieldMaxWidthDp = 216;
 
+// Font type for text.
+constexpr TypographyToken kTextFont = TypographyToken::kCrosBody2;
+
+// Font type for hidden text.
+constexpr TypographyToken kHiddenTextFont = TypographyToken::kCrosDisplay5;
 }
 
 AuthTextfield::AuthTextfield(AuthType auth_type)
     : SystemTextfield(Type::kMedium),
       SystemTextfieldController(this),
       auth_type_(auth_type) {
-  const gfx::FontList font_list =
-      ash::TypographyProvider::Get()->ResolveTypographyToken(
-          TypographyToken::kCrosBody2);
 
   SetTextInputType(ui::TEXT_INPUT_TYPE_PASSWORD);
   SetFocusBehavior(FocusBehavior::ALWAYS);
-  set_placeholder_font_list(font_list);
-  SetFontList(font_list);
+  set_placeholder_font_list(
+      ash::TypographyProvider::Get()->ResolveTypographyToken(kTextFont));
+  SetFontList(
+      ash::TypographyProvider::Get()->ResolveTypographyToken(kHiddenTextFont));
   SetObscuredGlyphSpacing(kPasswordGlyphSpacing);
   // Remove focus ring to remain consistent with other implementations of
   // login input fields.
@@ -71,12 +76,16 @@ AuthTextfield::AuthTextfield(AuthType auth_type)
 
   // Set Accessible name
   if (auth_type_ == AuthType::kPassword) {
-    SetAccessibleName(l10n_util::GetStringUTF16(
+    GetViewAccessibility().SetName(l10n_util::GetStringUTF16(
         IDS_ASH_AUTH_TEXTFIELD_PASSWORD_ACCESSIBLE_NAME));
+    SetPlaceholderText(l10n_util::GetStringUTF16(
+        IDS_ASH_IN_SESSION_AUTH_PASSWORD_PLACEHOLDER));
   } else {
     CHECK_EQ(auth_type_, AuthType::kPin);
-    SetAccessibleName(
+    GetViewAccessibility().SetName(
         l10n_util::GetStringUTF16(IDS_ASH_AUTH_TEXTFIELD_PIN_ACCESSIBLE_NAME));
+    SetPlaceholderText(
+        l10n_util::GetStringUTF16(IDS_ASH_IN_SESSION_AUTH_PIN_PLACEHOLDER));
   }
 }
 
@@ -121,7 +130,7 @@ bool AuthTextfield::HandleKeyEvent(views::Textfield* sender,
     return false;
   }
 
-  if (key_event.type() != ui::ET_KEY_PRESSED) {
+  if (key_event.type() != ui::EventType::kKeyPressed) {
     return false;
   }
 
@@ -198,9 +207,11 @@ gfx::Size AuthTextfield::CalculatePreferredSize(
 }
 
 void AuthTextfield::Reset() {
-  SetText(std::u16string());
-  for (auto& observer : observers_) {
-    observer.OnContentsChanged(GetText());
+  if (!GetText().empty()) {
+    SetText(std::u16string());
+    for (auto& observer : observers_) {
+      observer.OnContentsChanged(GetText());
+    }
   }
   HideText();
   ClearEditHistory();
@@ -235,9 +246,9 @@ void AuthTextfield::Backspace() {
   }
 
   auto* view = static_cast<views::View*>(this);
-  view->OnKeyPressed(ui::KeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_BACK,
+  view->OnKeyPressed(ui::KeyEvent(ui::EventType::kKeyPressed, ui::VKEY_BACK,
                                   ui::DomCode::BACKSPACE, ui::EF_NONE));
-  view->OnKeyPressed(ui::KeyEvent(ui::ET_KEY_RELEASED, ui::VKEY_BACK,
+  view->OnKeyPressed(ui::KeyEvent(ui::EventType::kKeyReleased, ui::VKEY_BACK,
                                   ui::DomCode::BACKSPACE, ui::EF_NONE));
 }
 
@@ -253,6 +264,8 @@ void AuthTextfield::ShowText() {
   if (IsTextVisible()) {
     return;
   }
+  SetFontList(
+      ash::TypographyProvider::Get()->ResolveTypographyToken(kTextFont));
   switch (auth_type_) {
     case AuthType::kPassword:
       SetTextInputType(ui::TEXT_INPUT_TYPE_NULL);
@@ -270,6 +283,8 @@ void AuthTextfield::HideText() {
   if (!IsTextVisible()) {
     return;
   }
+  SetFontList(
+      ash::TypographyProvider::Get()->ResolveTypographyToken(kHiddenTextFont));
   SetTextInputType(ui::TEXT_INPUT_TYPE_PASSWORD);
   for (auto& observer : observers_) {
     observer.OnTextVisibleChanged(false);

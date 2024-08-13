@@ -88,7 +88,8 @@ NotificationDisplayServiceImpl::NotificationDisplayServiceImpl(Profile* profile)
             profile_));
 #endif
 
-#if 0
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_WIN)
     AddNotificationHandler(
         NotificationHandler::Type::TAILORED_SECURITY,
         std::make_unique<safe_browsing::TailoredSecurityNotificationHandler>());

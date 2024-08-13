@@ -13,16 +13,16 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
-#include "build/branding_buildflags.h"
 #include "chrome/browser/chromeos/mahi/mahi_browser_util.h"
 #include "chrome/browser/chromeos/mahi/mahi_web_contents_manager.h"
+#include "chrome/browser/ui/chromeos/magic_boost/magic_boost_constants.h"
 #include "chrome/browser/ui/views/editor_menu/utils/pre_target_handler.h"
 #include "chrome/browser/ui/views/editor_menu/utils/pre_target_handler_view.h"
 #include "chrome/browser/ui/views/editor_menu/utils/utils.h"
 #include "chrome/browser/ui/views/mahi/mahi_menu_constants.h"
+#include "chromeos/components/magic_boost/public/cpp/views/experiment_badge.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
 #include "chromeos/components/mahi/public/cpp/mahi_media_app_content_manager.h"
-#include "chromeos/components/mahi/public/cpp/views/experiment_badge.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
 #include "components/vector_icons/vector_icons.h"
@@ -47,6 +47,7 @@
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
 #include "ui/views/layout/flex_layout.h"
@@ -59,10 +60,6 @@
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/unique_widget_ptr.h"
 #include "ui/views/widget/widget.h"
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "chrome/app/theme/google_chrome/chromeos/strings/grit/chromeos_chrome_internal_strings.h"
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 namespace chromeos::mahi {
 
@@ -99,14 +96,30 @@ void StyleMenuButton(views::LabelButton* button, const gfx::VectorIcon& icon) {
       kButtonPadding));
 }
 
-// TODO(b/331127382): Finalize the Mahi menu title.
-std::u16string GetMahiMenuTitle() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return l10n_util::GetStringUTF16(IDS_MAHI_MENU_TITLE);
-#else
-  return l10n_util::GetStringUTF16(IDS_MAHI_MENU_TITLE_SHORT);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-}
+// Custom widget to ensure the MahiMenuView follows the same theme as the
+// browser context menu.
+class MahiMenuWidget : public views::Widget {
+ public:
+  explicit MahiMenuWidget(views::Widget::InitParams init_params)
+      : views::Widget(std::move(init_params)) {}
+  MahiMenuWidget(const Widget&) = delete;
+  MahiMenuWidget& operator=(const Widget&) = delete;
+  ~MahiMenuWidget() override = default;
+
+ protected:
+  const ui::ColorProvider* GetColorProvider() const override {
+    // Get the color provider for the active menu controller's owner if possible
+    // to match the color theme for the browser.
+    auto* active_menu_controller = views::MenuController::GetActiveInstance();
+
+    // The menu might already be closed.
+    if (active_menu_controller && active_menu_controller->owner()) {
+      return active_menu_controller->owner()->GetColorProvider();
+    }
+
+    return views::Widget::GetColorProvider();
+  }
+};
 
 }  // namespace
 
@@ -132,7 +145,7 @@ class MahiMenuView::MenuTextfieldController
       return false;
     }
 
-    if (event.type() == ui::ET_KEY_PRESSED &&
+    if (event.type() == ui::EventType::kKeyPressed &&
         event.key_code() == ui::VKEY_RETURN) {
       menu_view_->OnQuestionSubmitted();
       return true;
@@ -181,16 +194,15 @@ MahiMenuView::MahiMenuView(Surface surface)
           views::FlexSpecification(views::MinimumFlexSizeRule::kPreferred,
                                    views::MaximumFlexSizeRule::kUnbounded)));
 
-  // TODO(b/318733118): Finish building the menu UI.
   auto* header_label =
       header_left_container->AddChildView(std::make_unique<views::Label>(
-          GetMahiMenuTitle(), views::style::CONTEXT_DIALOG_TITLE,
-          views::style::STYLE_HEADLINE_5));
+          l10n_util::GetStringUTF16(IDS_ASH_MAHI_MENU_TITLE),
+          views::style::CONTEXT_DIALOG_TITLE, views::style::STYLE_HEADLINE_5));
   header_label->SetEnabledColorId(ui::kColorSysOnSurface);
   header_label->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
 
   header_left_container->AddChildView(
-      std::make_unique<chromeos::mahi::ExperimentBadge>());
+      std::make_unique<chromeos::ExperimentBadge>());
 
   header_row->AddChildView(std::move(header_left_container));
 
@@ -262,11 +274,13 @@ views::UniqueWidgetPtr MahiMenuView::CreateWidget(
   params.activatable = views::Widget::InitParams::Activatable::kYes;
   params.shadow_elevation = 2;
   params.shadow_type = views::Widget::InitParams::ShadowType::kDrop;
-  params.z_order = ui::ZOrderLevel::kFloatingUIElement;
   params.name = GetWidgetName();
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  params.init_properties_container.SetProperty(kIsMahiMenuKey, true);
+#endif
 
   views::UniqueWidgetPtr widget =
-      std::make_unique<views::Widget>(std::move(params));
+      std::make_unique<MahiMenuWidget>(std::move(params));
   MahiMenuView* mahi_menu_view =
       widget->SetContentsView(std::make_unique<MahiMenuView>(surface));
   mahi_menu_view->UpdateBounds(anchor_view_bounds);
@@ -289,8 +303,8 @@ void MahiMenuView::RequestFocus() {
 void MahiMenuView::UpdateBounds(const gfx::Rect& anchor_view_bounds) {
   // TODO(b/318733414): Move `editor_menu::GetEditorMenuBounds` to a common
   // place for use
-  GetWidget()->SetBounds(
-      editor_menu::GetEditorMenuBounds(anchor_view_bounds, this));
+  GetWidget()->SetBounds(editor_menu::GetEditorMenuBounds(
+      anchor_view_bounds, this, editor_menu::CardType::kMahiDefaultMenu));
 }
 
 void MahiMenuView::OnButtonPressed(::chromeos::mahi::ButtonType button_type) {

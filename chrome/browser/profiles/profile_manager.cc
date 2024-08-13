@@ -28,6 +28,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/observer_list.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
@@ -67,6 +68,7 @@
 #include "chrome/browser/signin/primary_account_policy_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/supervised_user/child_accounts/child_account_service_factory.h"
+#include "chrome/browser/supervised_user/child_accounts/list_family_members_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -1526,6 +1528,7 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
   // initializing the supervised flag if necessary).
   ChildAccountServiceFactory::GetForProfile(profile)->Init();
   SupervisedUserServiceFactory::GetForProfile(profile)->Init();
+  ListFamilyMembersServiceFactory::GetForProfile(profile)->Init();
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // After the ManagementPolicy has been set, update it for the Supervised User
   // Extension Delegate, which has been created before the profile
@@ -1818,7 +1821,7 @@ void ProfileManager::OnProfileCreationFinished(Profile* profile,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   auto iter = profiles_info_.find(profile->GetPath());
-  DCHECK(iter != profiles_info_.end());
+  CHECK(iter != profiles_info_.end(), base::NotFatalUntil::M130);
   ProfileInfo* info = iter->second.get();
 
   if (create_mode == Profile::CREATE_MODE_SYNCHRONOUS) {

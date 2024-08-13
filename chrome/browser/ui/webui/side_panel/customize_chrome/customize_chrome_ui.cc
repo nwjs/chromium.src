@@ -10,7 +10,6 @@
 
 #include "base/rand_util.h"
 #include "chrome/browser/bad_message.h"
-#include "chrome/browser/cart/cart_handler.h"
 #include "chrome/browser/image_fetcher/image_decoder_impl.h"
 #include "chrome/browser/new_tab_page/modules/new_tab_page_modules.h"
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
@@ -19,8 +18,8 @@
 #include "chrome/browser/search/background/wallpaper_search/wallpaper_search_background_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/cr_components/customize_color_scheme_mode/customize_color_scheme_mode_handler.h"
 #include "chrome/browser/ui/webui/cr_components/theme_color_picker/theme_color_picker_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
@@ -29,6 +28,7 @@
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_section.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_toolbar/customize_toolbar_handler.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search_handler.h"
+#include "chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search_string_map.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
@@ -80,6 +80,7 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
   if (wallpaper_search_enabled) {
     wallpaper_search_background_manager_ =
         std::make_unique<WallpaperSearchBackgroundManager>(profile_);
+    wallpaper_search_string_map_ = WallpaperSearchStringMap::Create();
   }
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile_, chrome::kChromeUICustomizeChromeSidePanelHost);
@@ -104,6 +105,7 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       {"defaultColorName", IDS_NTP_CUSTOMIZE_DEFAULT_LABEL},
       {"greyDefaultColorName", IDS_NTP_CUSTOMIZE_GREY_DEFAULT_LABEL},
       {"hueSliderTitle", IDS_NTP_CUSTOMIZE_COLOR_HUE_SLIDER_TITLE},
+      {"hueSliderAriaLabel", IDS_NTP_CUSTOMIZE_COLOR_HUE_SLIDER_ARIA_LABEL},
       {"hueSliderDeleteTitle", IDS_NTP_CUSTOMIZE_COLOR_HUE_SLIDER_DELETE_TITLE},
       {"hueSliderDeleteA11yLabel",
        IDS_NTP_CUSTOMIZE_COLOR_HUE_SLIDER_DELETE_A11Y_LABEL},
@@ -115,8 +117,13 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       {"yourSearchedImage", IDS_NTP_CUSTOMIZE_YOUR_SEARCHED_IMAGE_LABEL},
       {"resetToClassicChrome",
        IDS_NTP_CUSTOMIZE_CHROME_RESET_TO_CLASSIC_CHROME_LABEL},
+      {"updatedToClassicChrome",
+       IDS_NTP_CUSTOMIZE_CHROME_RESET_TO_CLASSIC_CHROME_COMPLETE},
+      {"updatedToUploadedImage",
+       IDS_NTP_CUSTOMIZE_CHROME_RESET_TO_UPLOADED_IMAGE_COMPLETE},
       {"followThemeToggle", IDS_NTP_CUSTOMIZE_CHROME_FOLLOW_THEME_LABEL},
       {"refreshDaily", IDS_NTP_CUSTOM_BG_DAILY_REFRESH},
+      {"newTabPageManagedBy", IDS_NTP_CUSTOMIZE_CHROME_MANAGED_NEW_TAB_PAGE},
       // Shortcut strings.
       {"mostVisited", IDS_NTP_CUSTOMIZE_MOST_VISITED_LABEL},
       {"myShortcuts", IDS_NTP_CUSTOMIZE_MY_SHORTCUTS_LABEL},
@@ -125,9 +132,6 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       {"showShortcutsToggle", IDS_NTP_CUSTOMIZE_SHOW_SHORTCUTS_LABEL},
       // Card strings.
       {"showCardsToggleTitle", IDS_NTP_CUSTOMIZE_SHOW_CARDS_LABEL},
-      {"modulesCartDiscountConsentAccept",
-       IDS_NTP_MODULES_CART_DISCOUNT_CONSENT_ACCEPT},
-      {"modulesCartSentence", IDS_NTP_MODULES_CART_SENTENCE},
       // Required by <managed-dialog>.
       {"controlledSettingPolicy", IDS_CONTROLLED_SETTING_POLICY},
       {"close", IDS_NEW_TAB_VOICE_CLOSE_TOOLTIP},
@@ -221,8 +225,10 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       {"webstoreProductivityCategoryLabel",
        IDS_NTP_WEBSTORE_PRODUCTIVITY_CATEOGRY_LABEL},
       // Customize Toolbar strings.
-      {"chooseToolbarIconsHeader",
-       IDS_NTP_CUSTOMIZE_TOOLBAR_CHOOSE_ICONS_HEADER},
+      {"chooseToolbarIconsLabel", IDS_NTP_CUSTOMIZE_TOOLBAR_CHOOSE_ICONS_LABEL},
+      {"resetToDefaultButtonLabel",
+       IDS_NTP_CUSTOMIZE_TOOLBAR_RESET_TO_DEFAULT_BUTTON_LABEL},
+      {"reorderTipLabel", IDS_NTP_CUSTOMIZE_TOOLBAR_REORDER_TIP_LABEL},
   };
   source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -230,11 +236,6 @@ CustomizeChromeUI::CustomizeChromeUI(content::WebUI* web_ui)
       "modulesEnabled",
       ntp::HasModulesEnabled(module_id_names_,
                              IdentityManagerFactory::GetForProfile(profile_)));
-  source->AddBoolean(
-      "showCartInQuestModuleSetting",
-      IsCartModuleEnabled() &&
-          base::FeatureList::IsEnabled(
-              ntp_features::kNtpChromeCartInHistoryClusterModule));
 
   source->AddBoolean("showDeviceThemeToggle",
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
@@ -284,6 +285,16 @@ void CustomizeChromeUI::ScrollToSection(CustomizeChromeSection section) {
   }
 }
 
+void CustomizeChromeUI::AttachedTabStateUpdated(
+    bool is_source_tab_first_party_ntp) {
+  if (customize_chrome_page_handler_) {
+    customize_chrome_page_handler_->AttachedTabStateUpdated(
+        is_source_tab_first_party_ntp);
+  } else {
+    is_source_tab_first_party_ntp_ = is_source_tab_first_party_ntp;
+  }
+}
+
 base::WeakPtr<CustomizeChromeUI> CustomizeChromeUI::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
@@ -307,13 +318,6 @@ void CustomizeChromeUI::BindInterface(
     customize_toolbar_handler_factory_receiver_.reset();
   }
   customize_toolbar_handler_factory_receiver_.Bind(std::move(receiver));
-}
-
-void CustomizeChromeUI::BindInterface(
-    mojo::PendingReceiver<chrome_cart::mojom::CartHandler>
-        pending_page_handler) {
-  cart_handler_ = std::make_unique<CartHandler>(std::move(pending_page_handler),
-                                                profile_, web_contents_);
 }
 
 void CustomizeChromeUI::BindInterface(
@@ -377,6 +381,11 @@ void CustomizeChromeUI::CreatePageHandler(
     customize_chrome_page_handler_->ScrollToSection(*section_);
     section_.reset();
   }
+  if (is_source_tab_first_party_ntp_.has_value()) {
+    customize_chrome_page_handler_->AttachedTabStateUpdated(
+        is_source_tab_first_party_ntp_.value());
+    is_source_tab_first_party_ntp_.reset();
+  }
 }
 
 void CustomizeChromeUI::CreateHelpBubbleHandler(
@@ -425,9 +434,11 @@ void CustomizeChromeUI::CreateWallpaperSearchHandler(
     return;
   }
   CHECK(wallpaper_search_background_manager_);
+  CHECK(wallpaper_search_string_map_);
   wallpaper_search_handler_ = std::make_unique<WallpaperSearchHandler>(
       std::move(handler), std::move(client), profile_, image_decoder_.get(),
-      wallpaper_search_background_manager_.get(), id_);
+      wallpaper_search_background_manager_.get(), id_,
+      wallpaper_search_string_map_.get());
 }
 
 void CustomizeChromeUI::CreateCustomizeToolbarHandler(

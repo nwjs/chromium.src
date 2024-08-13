@@ -30,6 +30,7 @@ class CreditCardRiskBasedAuthenticator;
 class Iban;
 class IbanAccessManager;
 class IbanManager;
+class MerchantPromoCodeManager;
 class MigratableCreditCard;
 struct OfferNotificationOptions;
 class OtpUnmaskDelegate;
@@ -52,6 +53,42 @@ class PaymentsAutofillClient : public RiskDataLoader {
  public:
   ~PaymentsAutofillClient() override;
 
+  // The type of the credit card the Payments RPC fetches.
+  enum class PaymentsRpcCardType {
+    // Unknown type.
+    kUnknown = 0,
+    // Server card.
+    kServerCard = 1,
+    // Virtual card.
+    kVirtualCard = 2,
+  };
+
+  enum class PaymentsRpcResult {
+    // Empty result. Used for initializing variables and should generally
+    // not be returned nor passed as arguments unless explicitly allowed by
+    // the API.
+    kNone,
+
+    // Request succeeded.
+    kSuccess,
+
+    // Request failed; try again.
+    kTryAgainFailure,
+
+    // Request failed; don't try again.
+    kPermanentFailure,
+
+    // Unable to connect to Payments servers. Prompt user to check internet
+    // connection.
+    kNetworkError,
+
+    // Request failed in retrieving virtual card information; try again.
+    kVcnRetrievalTryAgainFailure,
+
+    // Request failed in retrieving virtual card information; don't try again.
+    kVcnRetrievalPermanentFailure,
+  };
+
   enum class SaveIbanOfferUserDecision {
     // The user accepted IBAN save.
     kAccepted,
@@ -61,6 +98,23 @@ class PaymentsAutofillClient : public RiskDataLoader {
 
     // The user ignored the IBAN save prompt.
     kIgnored,
+  };
+
+  enum class UnmaskCardReason {
+    // The card is being unmasked for PaymentRequest.
+    kPaymentRequest,
+
+    // The card is being unmasked for Autofill.
+    kAutofill,
+  };
+
+  // Authentication methods for card unmasking.
+  enum class UnmaskAuthMethod {
+    kUnknown = 0,
+    // Require user to unmask via CVC.
+    kCvc = 1,
+    // Suggest use of FIDO authenticator for card unmasking.
+    kFido = 2,
   };
 
   // Callback to run if user presses the Save button in the migration dialog.
@@ -90,6 +144,24 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // Webauthn dialog is clicked.
   using WebauthnDialogCallback =
       base::RepeatingCallback<void(WebauthnDialogCallbackType)>;
+
+  // Callback to run when the credit card has been scanned.
+  using CreditCardScanCallback = base::OnceCallback<void(const CreditCard&)>;
+
+  // Callback to run after local credit card save or local CVC save is offered.
+  // Sends whether the prompt was accepted, declined, or ignored in
+  // `user_decision`.
+  using LocalSaveCardPromptCallback = base::OnceCallback<void(
+      AutofillClient::SaveCardOfferUserDecision user_decision)>;
+
+  // Callback to run after upload credit card save or upload CVC save for
+  // existing server card is offered. Sends whether the prompt was accepted,
+  // declined, or ignored in `user_decision`, and additional
+  // `user_provided_card_details` if applicable.
+  using UploadSaveCardPromptCallback = base::OnceCallback<void(
+      AutofillClient::SaveCardOfferUserDecision user_decision,
+      const AutofillClient::UserProvidedCardDetails&
+          user_provided_card_details)>;
 
 #if BUILDFLAG(IS_ANDROID)
   // Gets the AutofillSaveCardBottomSheetBridge or creates one if it doesn't
@@ -154,11 +226,58 @@ class PaymentsAutofillClient : public RiskDataLoader {
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  // Display the cardholder name fix flow prompt and run the |callback| if
+  // Display the cardholder name fix flow prompt and run the `callback` if
   // the card should be uploaded to payments with updated name from the user.
   virtual void ConfirmAccountNameFixFlow(
       base::OnceCallback<void(const std::u16string&)> callback);
+
+  // Display the expiration date fix flow prompt with the `card` details
+  // and run the `callback` if the card should be uploaded to payments with
+  // updated expiration date from the user.
+  virtual void ConfirmExpirationDateFixFlow(
+      const CreditCard& card,
+      base::OnceCallback<void(const std::u16string&, const std::u16string&)>
+          callback);
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+
+  // Returns true if both the platform and the device support scanning credit
+  // cards. Should be called before ScanCreditCard().
+  virtual bool HasCreditCardScanFeature() const;
+
+  // Shows the user interface for scanning a credit card. Invokes the `callback`
+  // when a credit card is scanned successfully. Should be called only if
+  // HasCreditCardScanFeature() returns true.
+  virtual void ScanCreditCard(CreditCardScanCallback callback);
+
+  // Runs `callback` once the user makes a decision with respect to the
+  // offer-to-save prompt. This includes both the save local card prompt and the
+  // save CVC for a local card prompt. On desktop, shows the offer-to-save
+  // bubble if `options.show_prompt` is true; otherwise only shows the omnibox
+  // icon. On mobile, shows the offer-to-save infobar if `options.show_prompt`
+  // is true; otherwise does not offer to save at all.
+  virtual void ConfirmSaveCreditCardLocally(
+      const CreditCard& card,
+      AutofillClient::SaveCreditCardOptions options,
+      LocalSaveCardPromptCallback callback);
+
+  // Runs `callback` once the user makes a decision with respect to the
+  // offer-to-save prompt. This includes both the save server card prompt and
+  // the save CVC for a server card prompt. Displays the contents of
+  // `legal_message_lines` to the user. Displays a cardholder name textfield in
+  // the bubble if `options.should_request_name_from_user` is true. Displays a
+  // pair of expiration date dropdowns in the bubble if
+  // `should_request_expiration_date_from_user` is true. On desktop, shows the
+  // offer-to-save bubble if `options.show_prompt` is true;
+  // otherwise only shows the omnibox icon. On mobile, shows the offer-to-save
+  // infobar if `options.show_prompt` is true; otherwise does
+  // not offer to save at all.
+  // TODO (crbug.com/1462821): Make `legal_message_lines` optional, as CVC
+  // upload has no legal message.
+  virtual void ConfirmSaveCreditCardToCloud(
+      const CreditCard& card,
+      const LegalMessageLines& legal_message_lines,
+      AutofillClient::SaveCreditCardOptions options,
+      UploadSaveCardPromptCallback callback);
 
   // Shows upload result to users. Called after credit card upload is finished.
   // `card_saved` indicates if the card is successfully saved.
@@ -260,8 +379,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
       const CreditCard& card,
       const CardUnmaskPromptOptions& card_unmask_prompt_options,
       base::WeakPtr<CardUnmaskDelegate> delegate);
-  virtual void OnUnmaskVerificationResult(
-      AutofillClient::PaymentsRpcResult result);
+  virtual void OnUnmaskVerificationResult(PaymentsRpcResult result);
 
   // Returns a pointer to a VirtualCardEnrollmentManager that is owned by
   // PaymentsAutofillClient. VirtualCardEnrollmentManager is used for virtual
@@ -294,6 +412,10 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // Gets the IbanAccessManager instance associated with the client.
   virtual IbanAccessManager* GetIbanAccessManager();
 
+  // Gets the MerchantPromoCodeManager instance associated with the
+  // client (can be null for unsupported platforms).
+  virtual MerchantPromoCodeManager* GetMerchantPromoCodeManager();
+
   // Should only be called when we are sure re-showing the bubble will display a
   // confirmation bubble. If the most recent bubble was an opt-in bubble and it
   // was accepted, this will display the re-auth opt-in confirmation bubble.
@@ -310,6 +432,11 @@ class PaymentsAutofillClient : public RiskDataLoader {
 
   // Dismiss any visible offer notification on the current tab.
   virtual void DismissOfferNotification();
+
+  // Navigates to `url` in a new tab. `url` links to the promo code offer
+  // details page for the offers in a promo code suggestions popup. Every offer
+  // in a promo code suggestions popup links to the same offer details page.
+  virtual void OpenPromoCodeOfferDetailsURL(const GURL& url);
 };
 
 }  // namespace payments

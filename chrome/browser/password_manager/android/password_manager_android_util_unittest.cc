@@ -279,7 +279,7 @@ TEST_F(PasswordManagerAndroidUtilTest,
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringFalseWhenSyncingAndUnenrolled) {
   syncer::TestSyncService sync_service;
-  sync_service.SetSignedInWithSyncFeatureOn();
+  sync_service.SetSignedIn(signin::ConsentLevel::kSync);
   pref_service()->SetBoolean(
       password_manager::prefs::kUnenrolledFromGoogleMobileServicesDueToErrors,
       true);
@@ -290,7 +290,7 @@ TEST_F(PasswordManagerAndroidUtilTest,
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringTrueWhenSyncingAndSplitStoresDisabled) {
   syncer::TestSyncService sync_service;
-  sync_service.SetSignedInWithSyncFeatureOn();
+  sync_service.SetSignedIn(signin::ConsentLevel::kSync);
 
   EXPECT_TRUE(ShouldUseUpmWiring(&sync_service, pref_service()));
 }
@@ -298,7 +298,7 @@ TEST_F(PasswordManagerAndroidUtilTest,
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringTrueWhenSyncingAndSplitStoresEnabled) {
   syncer::TestSyncService sync_service;
-  sync_service.SetSignedInWithSyncFeatureOn();
+  sync_service.SetSignedIn(signin::ConsentLevel::kSync);
   pref_service()->SetInteger(
       password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
       static_cast<int>(kOn));
@@ -309,7 +309,7 @@ TEST_F(PasswordManagerAndroidUtilTest,
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringTrueWhenSignedInWithoutSyncAndSplitStoresDisabled) {
   syncer::TestSyncService sync_service;
-  sync_service.SetSignedInWithoutSyncFeature();
+  sync_service.SetSignedIn(signin::ConsentLevel::kSignin);
   pref_service()->SetInteger(
       password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
       static_cast<int>(kOff));
@@ -320,7 +320,7 @@ TEST_F(PasswordManagerAndroidUtilTest,
 TEST_F(PasswordManagerAndroidUtilTest,
        ShouldUseUpmWiringTrueWhenSignedInWithoutSyncAndSplitStoresEnabled) {
   syncer::TestSyncService sync_service;
-  sync_service.SetSignedInWithoutSyncFeature();
+  sync_service.SetSignedIn(signin::ConsentLevel::kSignin);
   pref_service()->SetInteger(
       password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores,
       static_cast<int>(kOn));
@@ -1259,6 +1259,106 @@ TEST_F(
             static_cast<int>(kOff));
 }
 
+TEST_F(PasswordManagerAndroidUtilTest,
+       SetUsesSplitStoresAndUPMForLocal_DeletesLoginDataFilesForMigratedUsers) {
+  base::test::ScopedFeatureList feature_list(
+      password_manager::features::kClearLoginDatabaseForAllMigratedUPMUsers);
+
+  base::HistogramTester histogram_tester;
+  const char kRemovalStatusProfileMetric[] =
+      "PasswordManager.ProfileLoginData.RemovalStatus";
+  const char kRemovalStatusAccountMetric[] =
+      "PasswordManager.AccountLoginData.RemovalStatus";
+
+  // This is a state of a local user that has just been migrated.
+  pref_service()->SetInteger(kPasswordsUseUPMLocalAndSeparateStores,
+                             static_cast<int>(kOn));
+  pref_service()->SetBoolean(
+      password_manager::prefs::kUserAcknowledgedLocalPasswordsMigrationWarning,
+      true);
+  pref_service()->SetBoolean(
+      password_manager::prefs::kEmptyProfileStoreLoginDatabase, false);
+
+  // Creating the login data files for testing.
+  base::FilePath profile_db_path = login_db_directory().Append(
+      password_manager::kLoginDataForProfileFileName);
+  base::FilePath account_db_path = login_db_directory().Append(
+      password_manager::kLoginDataForAccountFileName);
+  base::FilePath profile_db_journal_path = login_db_directory().Append(
+      password_manager::kLoginDataJournalForProfileFileName);
+  base::FilePath account_db_journal_path = login_db_directory().Append(
+      password_manager::kLoginDataJournalForAccountFileName);
+
+  base::WriteFile(profile_db_path, "Test content");
+  base::WriteFile(account_db_path, "Test content");
+  base::WriteFile(profile_db_journal_path, "Test content");
+  base::WriteFile(account_db_journal_path, "Test content");
+
+  EXPECT_TRUE(PathExists(profile_db_path));
+  EXPECT_TRUE(PathExists(account_db_path));
+  EXPECT_TRUE(PathExists(profile_db_journal_path));
+  EXPECT_TRUE(PathExists(account_db_journal_path));
+
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // The user wasn't deactivated, so the login data file should have been
+  // cleared because the user was already migrated to UPM with split stores.
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOn));
+  EXPECT_FALSE(PathExists(profile_db_path));
+  EXPECT_FALSE(PathExists(account_db_path));
+  EXPECT_FALSE(PathExists(profile_db_journal_path));
+  EXPECT_FALSE(PathExists(account_db_journal_path));
+  EXPECT_TRUE(pref_service()->GetBoolean(
+      password_manager::prefs::kEmptyProfileStoreLoginDatabase));
+
+  histogram_tester.ExpectUniqueSample(kRemovalStatusProfileMetric, true, 1);
+  histogram_tester.ExpectUniqueSample(kRemovalStatusAccountMetric, true, 1);
+}
+
+TEST_F(
+    PasswordManagerAndroidUtilTest,
+    SetUsesSplitStoresAndUPMForLocal_NoLoginDataFilesCreatedForDeactivatedAccountUsers) {
+  // This test simulated a case when the GMS Core version was manually
+  // downgraded after UPM activation.
+  base::test::ScopedFeatureList enable_local_upm_with_high_min_version;
+  enable_local_upm_with_high_min_version.InitWithFeaturesAndParameters(
+      {{password_manager::features::
+            kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration,
+        {{min_gms_version_param_name(),
+          base::ToString(std::numeric_limits<int>::max())}}},
+       {password_manager::features::kClearLoginDatabaseForAllMigratedUPMUsers,
+        {}}},
+      {});
+  // In this test UPM should get deactivated because of the low GMS Core version
+  // so the check for the UPM version has to be active.
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kSkipLocalUpmGmsCoreVersionCheckForTesting);
+
+  // The initial state of the test is that the user is activated for UPM with
+  // split stores and the login data files were deleted.
+  pref_service()->SetInteger(kPasswordsUseUPMLocalAndSeparateStores,
+                             static_cast<int>(kOn));
+  pref_service()->SetBoolean(
+      password_manager::prefs::kEmptyProfileStoreLoginDatabase, false);
+
+  base::FilePath profile_db_path = login_db_directory().Append(
+      password_manager::kLoginDataForProfileFileName);
+  base::FilePath account_db_path = login_db_directory().Append(
+      password_manager::kLoginDataForAccountFileName);
+
+  base::DeleteFile(profile_db_path);
+  base::DeleteFile(account_db_path);
+
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // The user was deactivated and there are still no login data files.
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOff));
+  EXPECT_FALSE(PathExists(profile_db_path));
+  EXPECT_FALSE(PathExists(account_db_path));
+}
+
 // Integration test for UsesSplitStoresAndUPMForLocal(), which emulates restarts
 // by creating and destroying TestingProfiles. This doesn't exercise any of the
 // Java layers.
@@ -1303,13 +1403,15 @@ class UsesSplitStoresAndUPMForLocalTest : public ::testing::Test {
     builder.AddTestingFactories(IdentityTestEnvironmentProfileAdaptor::
                                     GetIdentityTestEnvironmentFactories());
     builder.AddTestingFactories(
-        {{TrustedVaultServiceFactory::GetInstance(),
-          TrustedVaultServiceFactory::GetDefaultFactory()},
+        {TestingProfile::TestingFactory{
+             TrustedVaultServiceFactory::GetInstance(),
+             TrustedVaultServiceFactory::GetDefaultFactory()},
          // Unretained() is safe because `this` outlives `profile_`.
-         {SyncServiceFactory::GetInstance(),
-          base::BindRepeating(
-              &UsesSplitStoresAndUPMForLocalTest::BuildSyncService,
-              base::Unretained(this))}});
+         TestingProfile::TestingFactory{
+             SyncServiceFactory::GetInstance(),
+             base::BindRepeating(
+                 &UsesSplitStoresAndUPMForLocalTest::BuildSyncService,
+                 base::Unretained(this))}});
     profile_ = builder.Build();
 
     SetUpPasswordStores(profile_.get());

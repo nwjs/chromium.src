@@ -60,6 +60,7 @@ ci.builder(
             "fuchsia",
             "blink_symbol",
             "minimal_symbols",
+            "x64",
         ],
     ),
     targets = targets.bundle(
@@ -109,6 +110,8 @@ ci.builder(
             "release_builder_blink",
             "remoteexec",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     targets = targets.bundle(
@@ -138,9 +141,9 @@ ci.builder(
             ),
         },
     ),
+    gardener_rotations = gardener_rotations.CHROMIUM,
     console_view_entry = consoles.console_view_entry(
         category = "rel",
         short_name = "x64",
     ),
-    gardener_rotations = gardener_rotations.CHROMIUM,
 )

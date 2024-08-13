@@ -169,8 +169,10 @@ void AddStrings(content::WebUIDataSource* source) {
        IDS_PERSONALIZATION_APP_THEME_GEOLOCATION_DIALOG_CANCEL_BUTTON},
       {"systemGeolocationDialogTitle",
        IDS_PERSONALIZATION_APP_GEOLOCATION_DIALOG_TITLE},
-      {"systemGeolocationDialogBody",
-       IDS_PERSONALIZATION_APP_GEOLOCATION_DIALOG_BODY},
+      {"systemGeolocationDialogBodyParagraph1",
+       IDS_PERSONALIZATION_APP_GEOLOCATION_DIALOG_BODY_PARAGRAPH1},
+      {"systemGeolocationDialogBodyParagraph2",
+       IDS_PERSONALIZATION_APP_GEOLOCATION_DIALOG_BODY_PARAGRAPH2},
       {"systemGeolocationDialogConfirmButton",
        IDS_PERSONALIZATION_APP_GEOLOCATION_DIALOG_CONFIRM_BUTTON},
       {"systemGeolocationDialogCancelButton",
@@ -553,9 +555,6 @@ void PersonalizationAppUI::AddBooleans(content::WebUIDataSource* source) {
                      common_sea_pen_requirements &&
                          ::ash::features::IsSeaPenTextInputEnabled() &&
                          sea_pen_provider_->IsEligibleForSeaPenTextInput());
-  source->AddBoolean(
-      "isSeaPenUINextEnabled",
-      common_sea_pen_requirements && ::ash::features::IsSeaPenUINextEnabled());
   source->AddBoolean("isSeaPenUseExptTemplateEnabled",
                      common_sea_pen_requirements &&
                          ::ash::features::IsSeaPenUseExptTemplateEnabled());

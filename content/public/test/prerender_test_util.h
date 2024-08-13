@@ -12,6 +12,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/preloading_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -39,9 +40,16 @@ class PrerenderHostRegistryObserver {
   // on a RunLoop until a prerender of |gurl| is triggered.
   void WaitForTrigger(const GURL& gurl);
 
+  // Blocks on a RunLoop until a next prerender is triggered. Returns a URL of
+  // the prerender.
+  GURL WaitForNextTrigger();
+
   // Invokes |callback| immediately if |gurl| was ever triggered before.
   // Otherwise invokes |callback| when a prerender for |gurl| is triggered.
   void NotifyOnTrigger(const GURL& gurl, base::OnceClosure callback);
+
+  // Returns a set of URLs that have been triggered so far.
+  base::flat_set<GURL> GetTriggeredUrls() const;
 
  private:
   std::unique_ptr<PrerenderHostRegistryObserverImpl> impl_;
@@ -242,6 +250,14 @@ class PrerenderTestHelper {
                                     content::PreloadingTriggerType trigger_type,
                                     const std::string& embedder_suffix);
 
+  // Updates the settings in PreloadingConfigOverride.
+  void SetHoldback(PreloadingType preloading_type,
+                   PreloadingPredictor predictor,
+                   bool holdback);
+  void SetHoldback(std::string_view preloading_type,
+                   std::string_view predictor,
+                   bool holdback);
+
  private:
   void MonitorResourceRequest(const net::test_server::HttpRequest& request);
 
@@ -257,6 +273,7 @@ class PrerenderTestHelper {
   ScopedPrerenderFeatureList feature_list_;
   base::OnceClosure monitor_callback_ GUARDED_BY(lock_);
   base::Lock lock_;
+  PreloadingConfigOverride preloading_config_override_;
   WebContents::Getter get_web_contents_fn_;
 };
 

@@ -34,6 +34,10 @@ enum class WebFilterType {
   kMaxValue = kMixed,
 };
 
+// Returns the string equivalent of a Web Filter type. This is a user-visible
+// string included in the user feedback log.
+std::string WebFilterTypeToDisplayString(WebFilterType web_filter_type);
+
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 //
@@ -140,6 +144,9 @@ extern const char kSupervisedUserTopLevelURLFilteringResultHistogramName[];
 
 // The URL which the "Managed by your parent" UI links to.
 extern const char kManagedByParentUiMoreInfoUrl[];
+
+// The string used to denote an account that does not have a family member role.
+extern const char kDefaultEmptyFamilyMemberRole[];
 
 // Feedback source name for family member role in Family Link.
 extern const char kFamilyMemberRoleFeedbackTag[];

@@ -14,7 +14,9 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom-mojolpm.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom.h"
+#include "services/webnn/tflite/context_impl_tflite.h"
 #include "services/webnn/tflite/graph_builder_tflite.h"
+#include "services/webnn/webnn_context_impl.h"
 #include "services/webnn/webnn_graph_impl.h"
 #include "services/webnn/webnn_graph_mojolpm_fuzzer.pb.h"
 #include "third_party/libprotobuf-mutator/src/src/libfuzzer/libfuzzer_macro.h"
@@ -65,22 +67,25 @@ class WebnnGraphLPMFuzzer {
 
 #if BUILDFLAG(IS_POSIX)
     auto coreml_properties =
-        webnn::coreml::GraphBuilderCoreml::GetContextProperties();
-    if (webnn::WebNNGraphImpl::ValidateGraph(*coreml_properties,
-                                             graph_info_ptr)) {
+        webnn::WebNNContextImpl::IntersectWithBaseProperties(
+            webnn::coreml::GraphBuilderCoreml::GetContextProperties());
+    if (webnn::WebNNGraphImpl::ValidateGraph(coreml_properties, *graph_info_ptr)
+            .has_value()) {
       // Test the Core ML graph builder.
       base::ScopedTempDir temp_dir;
       CHECK(temp_dir.CreateUniqueTempDir());
       auto coreml_graph_builder =
-          webnn::coreml::GraphBuilderCoreml::CreateAndBuild(*graph_info_ptr,
-                                                            temp_dir.GetPath());
+          webnn::coreml::GraphBuilderCoreml::CreateAndBuild(
+              *graph_info_ptr, std::move(coreml_properties),
+              temp_dir.GetPath());
     }
 #endif
 
     auto tflite_properties =
-        webnn::tflite::GraphBuilderTflite::GetContextProperties();
-    if (webnn::WebNNGraphImpl::ValidateGraph(*tflite_properties,
-                                             graph_info_ptr)) {
+        webnn::WebNNContextImpl::IntersectWithBaseProperties(
+            webnn::tflite::GraphBuilderTflite::GetContextProperties());
+    if (webnn::WebNNGraphImpl::ValidateGraph(tflite_properties, *graph_info_ptr)
+            .has_value()) {
       // Test the TFLite graph builder.
       auto flatbuffer =
           webnn::tflite::GraphBuilderTflite::CreateAndBuild(*graph_info_ptr);

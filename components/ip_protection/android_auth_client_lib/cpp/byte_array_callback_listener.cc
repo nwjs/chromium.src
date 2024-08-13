@@ -6,13 +6,15 @@
 
 #include <utility>
 
+#include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
+#include "components/ip_protection/android_auth_client_lib/cpp/ip_protection_auth_client_interface.h"
 #include "components/ip_protection/android_auth_client_lib/cpp/jni_headers/ByteArrayCallbackListener_jni.h"
 
 namespace ip_protection::android {
 
 base::android::ScopedJavaLocalRef<jobject> ByteArrayCallbackListener::Create(
-    base::OnceCallback<void(base::expected<std::string, std::string>)>
+    base::OnceCallback<void(base::expected<std::string, AuthRequestError>)>
         callback) {
   return Java_ByteArrayCallbackListener_Constructor(
       base::android::AttachCurrentThread(),
@@ -30,19 +32,23 @@ void ByteArrayCallbackListener::OnResult(
   delete this;
 }
 
-void ByteArrayCallbackListener::OnError(
-    JNIEnv* env,
-    jni_zero::JavaParamRef<jbyteArray> error) {
-  // Convert error to string.
-  std::string error_str;
-  base::android::JavaByteArrayToString(base::android::AttachCurrentThread(),
-                                       error, &error_str);
-  std::move(callback_).Run(base::unexpected(std::move(error_str)));
+void ByteArrayCallbackListener::OnError(JNIEnv* env, jint authRequestError) {
+  switch (authRequestError) {
+    case static_cast<jint>(AuthRequestError::kTransient):
+    case static_cast<jint>(AuthRequestError::kPersistent):
+    case static_cast<jint>(AuthRequestError::kOther):
+      break;
+    default:
+      NOTREACHED_NORETURN();
+  }
+  std::move(callback_).Run(base::unexpected(
+      std::move(static_cast<AuthRequestError>(authRequestError))));
   delete this;
 }
 
 ByteArrayCallbackListener::ByteArrayCallbackListener(
-    base::OnceCallback<void(base::expected<std::string, std::string>)> callback)
+    base::OnceCallback<void(base::expected<std::string, AuthRequestError>)>
+        callback)
     : callback_(std::move(callback)) {}
 
 ByteArrayCallbackListener::~ByteArrayCallbackListener() = default;

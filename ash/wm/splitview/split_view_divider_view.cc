@@ -87,7 +87,7 @@ SplitViewDividerView::SplitViewDividerView(SplitViewDivider* divider)
 
   SetFocusBehavior(views::View::FocusBehavior::ACCESSIBLE_ONLY);
   set_allow_deactivate_on_esc(true);
-  SetAccessibleName(
+  GetViewAccessibility().SetName(
       l10n_util::GetStringUTF16(IDS_ASH_SNAP_GROUP_DIVIDER_A11Y_NAME));
   GetViewAccessibility().SetDescription(l10n_util::GetStringUTF16(
       horizontal ? IDS_ASH_SNAP_GROUP_DIVIDER_A11Y_DESCRIPTION_HORIZONTAL
@@ -119,7 +119,7 @@ void SplitViewDividerView::Layout(PassKey) {
   }
 
   SetBoundsRect(GetLocalBounds());
-  RefreshDividerHandler(/*should_enlarge=*/false);
+  RefreshDividerHandler();
 }
 
 void SplitViewDividerView::OnMouseEntered(const ui::MouseEvent& event) {
@@ -186,27 +186,27 @@ void SplitViewDividerView::OnGestureEvent(ui::GestureEvent* event) {
   gfx::Point location(event->location());
   views::View::ConvertPointToScreen(this, &location);
   switch (event->type()) {
-    case ui::ET_GESTURE_TAP:
+    case ui::EventType::kGestureTap:
       if (event->details().tap_count() == 2) {
         SwapWindows();
       }
       break;
-    case ui::ET_GESTURE_TAP_DOWN:
+    case ui::EventType::kGestureTapDown:
       divider_->EnlargeOrShrinkDivider(/*should_enlarge=*/true);
       break;
-    case ui::ET_GESTURE_TAP_CANCEL:
+    case ui::EventType::kGestureTapCancel:
       divider_->EnlargeOrShrinkDivider(/*should_enlarge=*/false);
       break;
-    case ui::ET_GESTURE_SCROLL_BEGIN:
+    case ui::EventType::kGestureScrollBegin:
       StartResizing(location);
       break;
-    case ui::ET_GESTURE_SCROLL_UPDATE:
+    case ui::EventType::kGestureScrollUpdate:
       divider_->ResizeWithDivider(location);
       break;
-    case ui::ET_GESTURE_SCROLL_END:
+    case ui::EventType::kGestureScrollEnd:
       divider_->EnlargeOrShrinkDivider(/*should_enlarge=*/false);
       break;
-    case ui::ET_GESTURE_END: {
+    case ui::EventType::kGestureEnd: {
       EndResizing(location, /*swap_windows=*/false);
 
       // `EndResizing()` may set `divider_` to nullptr and causing crash.
@@ -229,7 +229,7 @@ ui::Cursor SplitViewDividerView::GetCursor(const ui::MouseEvent& event) {
 }
 
 void SplitViewDividerView::OnKeyEvent(ui::KeyEvent* event) {
-  if (event->type() != ui::ET_KEY_PRESSED) {
+  if (event->type() != ui::EventType::kKeyPressed) {
     return;
   }
   const bool horizontal = IsLayoutHorizontal(divider_->GetRootWindow());
@@ -322,18 +322,23 @@ void SplitViewDividerView::ResizeOnKeyEvent(bool left_or_top, bool horizontal) {
   Shell::Get()->accessibility_controller()->TriggerAccessibilityAlert(alert);
 }
 
-void SplitViewDividerView::RefreshDividerHandler(bool should_enlarge) {
+void SplitViewDividerView::RefreshDividerHandler() {
   CHECK(divider_);
 
-  const gfx::Point divider_center = bounds().CenterPoint();
+  const gfx::Rect divider_bounds = bounds();
+  const bool is_horizontal = IsLayoutHorizontal(divider_->GetRootWindow());
+  handler_view_->set_is_horizontal(is_horizontal);
+  const int divider_short_length =
+      is_horizontal ? divider_bounds.width() : divider_bounds.height();
+  const bool should_enlarge =
+      divider_short_length == kSplitviewDividerEnlargedShortSideLength;
+  const gfx::Point divider_center = divider_bounds.CenterPoint();
   const int handler_short_side = should_enlarge
                                      ? kDividerHandlerEnlargedShortSideLength
                                      : kDividerHandlerShortSideLength;
   const int handler_long_side = should_enlarge
                                     ? kDividerHandlerEnlargedLongSideLength
                                     : kDividerHandlerLongSideLength;
-  const bool is_horizontal = IsLayoutHorizontal(divider_->GetRootWindow());
-  handler_view_->set_is_horizontal(is_horizontal);
   if (is_horizontal) {
     handler_view_->SetBounds(divider_center.x() - handler_short_side / 2,
                              divider_center.y() - handler_long_side / 2,

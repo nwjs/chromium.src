@@ -71,7 +71,7 @@ using ::base::android::ToJavaIntArray;
 
 PersonalDataManagerAndroid::PersonalDataManagerAndroid(
     JNIEnv* env,
-    jobject obj,
+    const jni_zero::JavaRef<jobject>& obj,
     PersonalDataManager* personal_data_manager,
     PrefService* prefs)
     : weak_java_obj_(env, obj),
@@ -308,16 +308,14 @@ PersonalDataManagerAndroid::GetShippingAddressLabelForPaymentRequest(
     bool include_country_in_label) {
   // The full name is not included in the label for shipping address. It is
   // added separately instead.
-  static constexpr FieldType kLabelFields[] = {
-      COMPANY_NAME,         ADDRESS_HOME_LINE1,
-      ADDRESS_HOME_LINE2,   ADDRESS_HOME_DEPENDENT_LOCALITY,
-      ADDRESS_HOME_CITY,    ADDRESS_HOME_STATE,
-      ADDRESS_HOME_ZIP,     ADDRESS_HOME_SORTING_CODE,
-      ADDRESS_HOME_COUNTRY,
-  };
-  size_t kLabelFields_size = std::size(kLabelFields);
-  if (!include_country_in_label)
-    --kLabelFields_size;
+  static constexpr auto kLabelFields = std::to_array<FieldType>(
+      {COMPANY_NAME, ADDRESS_HOME_LINE1, ADDRESS_HOME_LINE2,
+       ADDRESS_HOME_DEPENDENT_LOCALITY, ADDRESS_HOME_CITY, ADDRESS_HOME_STATE,
+       ADDRESS_HOME_ZIP, ADDRESS_HOME_SORTING_CODE, ADDRESS_HOME_COUNTRY});
+  base::span<const FieldType> label_fields = base::span(kLabelFields);
+  if (!include_country_in_label) {
+    label_fields = label_fields.first<kLabelFields.size() - 1>();
+  }
 
   AutofillProfile profile = AutofillProfile::CreateFromJavaObject(
       jprofile,
@@ -327,8 +325,8 @@ PersonalDataManagerAndroid::GetShippingAddressLabelForPaymentRequest(
 
   return ConvertUTF16ToJavaString(
       env, profile.ConstructInferredLabel(
-               base::span<const FieldType>(kLabelFields, kLabelFields_size),
-               kLabelFields_size, g_browser_process->GetApplicationLocale()));
+               label_fields, /*num_fields_to_use=*/label_fields.size(),
+               g_browser_process->GetApplicationLocale()));
 }
 
 base::android::ScopedJavaLocalRef<jobjectArray>
@@ -878,7 +876,7 @@ JNI_PersonalDataManager_GetBasicCardIssuerNetwork(
 
   if (static_cast<bool>(jempty_if_invalid) &&
       !IsValidCreditCardNumber(card_number)) {
-    return ConvertUTF8ToJavaString(env, "");
+    return jni_zero::g_empty_string.AsLocalRef(env);
   }
   return ConvertUTF8ToJavaString(
       env, data_util::GetPaymentRequestData(GetCardNetwork(card_number))
@@ -901,7 +899,7 @@ static jlong JNI_PersonalDataManager_Init(JNIEnv* env,
   CHECK(profile);
   PersonalDataManagerAndroid* personal_data_manager_android =
       new PersonalDataManagerAndroid(
-          env, obj, PersonalDataManagerFactory::GetForProfile(profile),
+          env, obj, PersonalDataManagerFactory::GetForBrowserContext(profile),
           profile->GetPrefs());
   return reinterpret_cast<intptr_t>(personal_data_manager_android);
 }

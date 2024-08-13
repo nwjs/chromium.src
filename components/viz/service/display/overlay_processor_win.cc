@@ -12,6 +12,7 @@
 
 #include "base/check.h"
 #include "base/feature_list.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/ranges/algorithm.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
@@ -196,6 +197,7 @@ void OverlayProcessorWin::ProcessForOverlays(
 
   DebugLogAfterDelegation(status, *candidates, *root_damage_rect);
 
+  frame_has_delegated_ink_ = false;
   delegation_succeeded_last_frame_ =
       status == DelegationStatus::kFullDelegation;
 }
@@ -346,7 +348,6 @@ void OverlayProcessorWin::ProcessOverlaysFromOutputSurfacePlane(
       root_render_pass_overlay_data, root_render_pass,
       frames_since_using_dc_layers_map_, frame_has_delegated_ink_);
   *candidates = std::move(root_render_pass_overlay_data.promoted_overlays);
-  frame_has_delegated_ink_ = false;
   if (!root_render_pass->copy_requests.empty()) {
     // A DComp surface is not readable by viz.
     // |DCLayerOverlayProcessor::Process| should avoid overlay candidates if
@@ -442,21 +443,6 @@ bool OverlayProcessorWin::NeedsSurfaceDamageRectList() const {
 
 void OverlayProcessorWin::SetIsPageFullscreen(bool enabled) {
   is_page_fullscreen_mode_ = enabled;
-}
-
-void OverlayProcessorWin::ProcessOnDCLayerOverlayProcessorForTesting(
-    const DisplayResourceProvider* resource_provider,
-    const FilterOperationsMap& render_pass_filters,
-    const FilterOperationsMap& render_pass_backdrop_filters,
-    SurfaceDamageRectList surface_damage_rect_list,
-    bool is_page_fullscreen_mode,
-    DCLayerOverlayProcessor::RenderPassOverlayDataMap&
-        render_pass_overlay_data_map) {
-  CHECK_IS_TEST();
-  dc_layer_overlay_processor_->Process(
-      resource_provider, render_pass_filters, render_pass_backdrop_filters,
-      surface_damage_rect_list, is_page_fullscreen_mode,
-      render_pass_overlay_data_map);
 }
 
 OverlayProcessorWin::PromotedRenderPassesInfo::PromotedRenderPassesInfo() =
@@ -563,7 +549,7 @@ OverlayProcessorWin::TryDelegatedCompositing(
           raw_ref<AggregatedRenderPass>::from_ptr(render_pass_it->get()));
       result.promoted_render_passes_info.promoted_rpdqs.push_back(
           raw_ref<const AggregatedRenderPassDrawQuad>::from_ptr(
-              dc_layer->rpdq));
+              dc_layer->rpdq.get()));
     }
 
     result.candidates.push_back(std::move(dc_layer).value());
@@ -579,7 +565,8 @@ DCLayerOverlayProcessor::RenderPassOverlayDataMap OverlayProcessorWin::
         const AggregatedRenderPassList& render_passes,
         const PromotedRenderPassesInfo& promoted_render_passes_info) {
   struct Embedder {
-    raw_ptr<const AggregatedRenderPassDrawQuad> rpdq = nullptr;
+    // RAW_PTR_EXCLUSION: Stack-scoped.
+    RAW_PTR_EXCLUSION const AggregatedRenderPassDrawQuad* rpdq = nullptr;
     bool is_overlay = false;
   };
 

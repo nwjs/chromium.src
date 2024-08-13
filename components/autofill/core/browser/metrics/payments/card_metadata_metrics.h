@@ -57,7 +57,9 @@ using HasBeenLogged = base::StrongAlias<class HasBeenLoggedTag, bool>;
 struct CardMetadataLoggingContext {
   CardMetadataLoggingContext();
   CardMetadataLoggingContext(const CardMetadataLoggingContext&);
+  CardMetadataLoggingContext(CardMetadataLoggingContext&&);
   CardMetadataLoggingContext& operator=(const CardMetadataLoggingContext&);
+  CardMetadataLoggingContext& operator=(CardMetadataLoggingContext&&);
   ~CardMetadataLoggingContext();
 
   // Returns if any shown suggestion's card has a benefit available.

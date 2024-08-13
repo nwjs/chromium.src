@@ -47,9 +47,6 @@ BASE_DECLARE_FEATURE(kBackgroundTabLoadingFromPerformanceManager);
 // toggling it.
 BASE_DECLARE_FEATURE(kBatterySaverModeAvailable);
 
-// If enabled, makes battery saver request render process tuning.
-BASE_DECLARE_FEATURE(kBatterySaverModeRenderTuning);
-
 // Flag to control a baseline HaTS survey for Chrome performance.
 BASE_DECLARE_FEATURE(kPerformanceControlsPerformanceSurvey);
 BASE_DECLARE_FEATURE(kPerformanceControlsBatteryPerformanceSurvey);
@@ -60,14 +57,6 @@ BASE_DECLARE_FEATURE(kPerformanceControlsBatterySaverOptOutSurvey);
 // battery.
 extern const base::FeatureParam<base::TimeDelta>
     kPerformanceControlsBatterySurveyLookback;
-
-// Round 2 Performance Controls features
-
-// This enables the UI for the multi-state version of memory saver mode.
-BASE_DECLARE_FEATURE(kMemorySaverMultistateMode);
-// When true, a recommended badge will be shown next to the heuristic memory
-// saver option.
-extern const base::FeatureParam<bool> kMemorySaverShowRecommendedBadge;
 
 // Round 2.5 Performance Controls features
 
@@ -81,15 +70,27 @@ BASE_DECLARE_FEATURE(kDiscardRingImprovements);
 
 // Round 3 Performance Controls features
 
-// This enables the performance controls side panel for learning about and
-// configuring performance settings.
-BASE_DECLARE_FEATURE(kPerformanceControlsSidePanel);
-
 // This enables the performance detection backend.
 BASE_DECLARE_FEATURE(kPerformanceIntervention);
 
 // This enables the performance intervention UI
 BASE_DECLARE_FEATURE(kPerformanceInterventionUI);
+
+// This enables performance intervention to run in demo mode. While in demo
+// mode, performance intervention will ignore rate throttling and CPU thresholds
+// to make it easier to trigger performance intervention for testing purposes.
+BASE_DECLARE_FEATURE(kPerformanceInterventionDemoMode);
+
+bool ShouldUsePerformanceInterventionBackend();
+
+// This represents the version number for the string displayed on the
+// Performance Intervention Dialog.
+extern const base::FeatureParam<int> kInterventionDialogStringVersion;
+
+// This represents whether we should show the performance intervention
+// UI when the suggested tabs to take action on include tabs from a
+// profile that is different from the last active browser.
+extern const base::FeatureParam<bool> kInterventionShowMixedProfileSuggestions;
 
 #if BUILDFLAG(IS_WIN)
 // Prefetch the main browser DLL when a new node is added to the PM graph

@@ -12,6 +12,7 @@
 #include "base/functional/callback_forward.h"
 #include "chromeos/ash/components/auth_panel/public/shared_types.h"
 #include "chromeos/ash/components/osauth/public/auth_factor_status_consumer.h"
+#include "chromeos/ash/components/osauth/public/auth_hub.h"
 #include "chromeos/ash/components/osauth/public/common_types.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/view.h"
@@ -47,6 +48,8 @@ class AuthPanel : public NonAccessibleView, public AuthFactorStatusConsumer {
     TestApi& operator=(const TestApi&) = delete;
 
     PasswordAuthView* GetPasswordAuthView();
+
+    AuthHubConnector* GetAuthHubConnector();
 
     void SetSubmitPasswordCallback(auth_panel::SubmitPasswordCallback);
 

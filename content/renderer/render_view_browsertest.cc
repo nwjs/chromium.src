@@ -412,7 +412,7 @@ class RenderViewImplTest : public RenderViewTest {
                         std::u16string* output) {
     int flags = ConvertMockKeyboardModifier(modifiers);
 
-    ui::KeyEvent keydown_event(ui::ET_KEY_PRESSED,
+    ui::KeyEvent keydown_event(ui::EventType::kKeyPressed,
                                static_cast<ui::KeyboardCode>(key_code), flags);
     input::NativeWebKeyboardEvent keydown_web_event(keydown_event);
     SendNativeKeyEvent(keydown_web_event);
@@ -423,7 +423,7 @@ class RenderViewImplTest : public RenderViewTest {
     input::NativeWebKeyboardEvent char_web_event(char_event);
     SendNativeKeyEvent(char_web_event);
 
-    ui::KeyEvent keyup_event(ui::ET_KEY_RELEASED,
+    ui::KeyEvent keyup_event(ui::EventType::kKeyReleased,
                              static_cast<ui::KeyboardCode>(key_code), flags);
     input::NativeWebKeyboardEvent keyup_web_event(keyup_event);
     SendNativeKeyEvent(keyup_web_event);
@@ -1692,7 +1692,7 @@ TEST_F(RenderViewImplTextInputStateChanged,
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, run_loop.QuitClosure());
   run_loop.Run();
-  double zoom_level = blink::PageZoomFactorToZoomLevel(1.25);
+  double zoom_level = blink::ZoomFactorToZoomLevel(1.25);
   // Change the zoom level to 125% and check if the view gets the change.
   main_frame_widget()->SetZoomLevelForTesting(zoom_level);
   // Update the IME status and verify if our IME backend sends an IPC message
@@ -2806,7 +2806,7 @@ TEST_F(RenderViewImplTest, PreferredSizeZoomed) {
   EXPECT_EQ(gfx::Size(400 + scrollbar_width, 400), size);
 
   main_frame_widget()->SetZoomLevelForTesting(
-      blink::PageZoomFactorToZoomLevel(2.0));
+      blink::ZoomFactorToZoomLevel(2.0));
   web_view_->MainFrameWidget()->UpdateAllLifecyclePhases(
       blink::DocumentUpdateReason::kTest);
   size = GetPreferredSize();
@@ -3207,7 +3207,7 @@ TEST_F(RenderViewImplTest, ZoomLevelUpdate) {
   // change.
   EXPECT_FLOAT_EQ(0u, web_view_->MainFrameWidget()->GetZoomLevel());
 
-  double zoom_level = blink::PageZoomFactorToZoomLevel(0.25);
+  double zoom_level = blink::ZoomFactorToZoomLevel(0.25);
   // Change the zoom level to 25% and check if the view gets the change.
   main_frame_widget()->SetZoomLevelForTesting(zoom_level);
   // Use EXPECT_FLOAT_EQ here because view()->GetZoomLevel returns a float.

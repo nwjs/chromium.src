@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/platform/image-decoders/avif/avif_image_decoder.h"
 
 #include <cmath>
@@ -1055,7 +1060,9 @@ TEST(StaticAVIFTests, GetAdobeGainmapInfoAndData) {
   EXPECT_TRUE(gainmap_frame);
 }
 
-TEST(StaticAVIFTests, GetIsoGainmapInfoAndData) {
+// TODO(b/338342146): Re-enable this test once libavif and the test images are
+// updated to the ISO specification.
+TEST(StaticAVIFTests, DISABLED_GetIsoGainmapInfoAndData) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kGainmapHdrImages,
@@ -1111,7 +1118,9 @@ TEST(StaticAVIFTests, GetIsoGainmapInfoAndData) {
   EXPECT_TRUE(gainmap_frame);
 }
 
-TEST(StaticAVIFTests, GetIsoGainmapInfoAndDataHdrToSdr) {
+// TODO(b/338342146): Re-enable this test once libavif and the test images are
+// updated to the ISO specification.
+TEST(StaticAVIFTests, DISABLED_GetIsoGainmapInfoAndDataHdrToSdr) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kGainmapHdrImages,
@@ -1130,14 +1139,14 @@ TEST(StaticAVIFTests, GetIsoGainmapInfoAndDataHdrToSdr) {
 
   // Check gainmap metadata.
   constexpr double kEpsilon = 0.00001;
-  EXPECT_NEAR(gainmap_info.fGainmapRatioMin[0], std::exp2(1.536), kEpsilon);
-  EXPECT_NEAR(gainmap_info.fGainmapRatioMin[1], std::exp2(1.488), kEpsilon);
-  EXPECT_NEAR(gainmap_info.fGainmapRatioMin[2], std::exp2(1.548), kEpsilon);
+  EXPECT_NEAR(gainmap_info.fGainmapRatioMin[0], std::exp2(-1.536), kEpsilon);
+  EXPECT_NEAR(gainmap_info.fGainmapRatioMin[1], std::exp2(-1.488), kEpsilon);
+  EXPECT_NEAR(gainmap_info.fGainmapRatioMin[2], std::exp2(-1.548), kEpsilon);
   EXPECT_NEAR(gainmap_info.fGainmapRatioMin[3], 1.0, kEpsilon);
 
-  EXPECT_NEAR(gainmap_info.fGainmapRatioMax[0], std::exp2(-0.372), kEpsilon);
-  EXPECT_NEAR(gainmap_info.fGainmapRatioMax[1], std::exp2(-0.396), kEpsilon);
-  EXPECT_NEAR(gainmap_info.fGainmapRatioMax[2], std::exp2(-0.444), kEpsilon);
+  EXPECT_NEAR(gainmap_info.fGainmapRatioMax[0], std::exp2(0.372), kEpsilon);
+  EXPECT_NEAR(gainmap_info.fGainmapRatioMax[1], std::exp2(0.396), kEpsilon);
+  EXPECT_NEAR(gainmap_info.fGainmapRatioMax[2], std::exp2(0.444), kEpsilon);
   EXPECT_NEAR(gainmap_info.fGainmapRatioMax[3], 1.0, kEpsilon);
 
   EXPECT_NEAR(gainmap_info.fGainmapGamma[0], 1.0, kEpsilon);
@@ -1165,7 +1174,9 @@ TEST(StaticAVIFTests, GetIsoGainmapInfoAndDataHdrToSdr) {
   EXPECT_TRUE(gainmap_frame);
 }
 
-TEST(StaticAVIFTests, GetIsoGainmapColorSpaceSameICC) {
+// TODO(b/338342146): Re-enable this test once libavif and the test images are
+// updated to the ISO specification.
+TEST(StaticAVIFTests, DISABLED_GetIsoGainmapColorSpaceSameICC) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kGainmapHdrImages,
@@ -1198,7 +1209,9 @@ void ExpectMatrixNear(const skcms_Matrix3x3& lhs,
   }
 }
 
-TEST(StaticAVIFTests, GetIsoGainmapColorSpaceDifferentICC) {
+// TODO(b/338342146): Re-enable this test once libavif and the test images are
+// updated to the ISO specification.
+TEST(StaticAVIFTests, DISABLED_GetIsoGainmapColorSpaceDifferentICC) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kGainmapHdrImages,
@@ -1229,7 +1242,9 @@ TEST(StaticAVIFTests, GetIsoGainmapColorSpaceDifferentICC) {
   ExpectMatrixNear(matrix, SkNamedGamut::kDisplayP3, 0.001);
 }
 
-TEST(StaticAVIFTests, GetIsoGainmapColorSpaceDifferentCICP) {
+// TODO(b/338342146): Re-enable this test once libavif and the test images are
+// updated to the ISO specification.
+TEST(StaticAVIFTests, DISABLED_GetIsoGainmapColorSpaceDifferentCICP) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kGainmapHdrImages,

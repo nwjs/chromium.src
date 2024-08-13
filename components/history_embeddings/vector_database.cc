@@ -6,6 +6,7 @@
 
 #include <queue>
 
+#include "base/ranges/algorithm.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/history_embeddings/history_embeddings_features.h"
 
@@ -87,25 +88,21 @@ UrlEmbeddings::~UrlEmbeddings() = default;
 UrlEmbeddings::UrlEmbeddings(UrlEmbeddings&&) = default;
 UrlEmbeddings& UrlEmbeddings::operator=(UrlEmbeddings&&) = default;
 UrlEmbeddings::UrlEmbeddings(const UrlEmbeddings&) = default;
-UrlEmbeddings& UrlEmbeddings::operator=(UrlEmbeddings&) = default;
+UrlEmbeddings& UrlEmbeddings::operator=(const UrlEmbeddings&) = default;
 bool UrlEmbeddings::operator==(const UrlEmbeddings&) const = default;
 
-std::pair<float, size_t> UrlEmbeddings::BestScoreWith(
-    const Embedding& query,
-    size_t search_minimum_word_count) const {
-  size_t index = 0;
+float UrlEmbeddings::BestScoreWith(const Embedding& query,
+                                   size_t search_minimum_word_count) const {
   float best = std::numeric_limits<float>::min();
-  for (size_t i = 0; i < embeddings.size(); i++) {
-    float score =
-        embeddings[i].GetPassageWordCount() < search_minimum_word_count
-            ? 0.0f
-            : query.ScoreWith(embeddings[i]);
+  for (const Embedding& embedding : embeddings) {
+    float score = embedding.GetPassageWordCount() < search_minimum_word_count
+                      ? 0.0f
+                      : query.ScoreWith(embedding);
     if (score > best) {
       best = score;
-      index = i;
     }
   }
-  return {best, index};
+  return best;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -113,15 +110,11 @@ std::pair<float, size_t> UrlEmbeddings::BestScoreWith(
 ScoredUrl::ScoredUrl(history::URLID url_id,
                      history::VisitID visit_id,
                      base::Time visit_time,
-                     float score,
-                     size_t index,
-                     Embedding passage_embedding)
+                     float score)
     : url_id(url_id),
       visit_id(visit_id),
       visit_time(visit_time),
-      score(score),
-      index(index),
-      passage_embedding(std::move(passage_embedding)) {}
+      score(score) {}
 ScoredUrl::~ScoredUrl() = default;
 ScoredUrl::ScoredUrl(ScoredUrl&&) = default;
 ScoredUrl& ScoredUrl::operator=(ScoredUrl&&) = default;
@@ -133,6 +126,18 @@ ScoredUrl& ScoredUrl::operator=(const ScoredUrl&) = default;
 SearchInfo::SearchInfo() = default;
 SearchInfo::SearchInfo(SearchInfo&&) = default;
 SearchInfo::~SearchInfo() = default;
+
+////////////////////////////////////////////////////////////////////////////////
+
+UrlPassagesEmbeddings::UrlPassagesEmbeddings(history::URLID url_id,
+                                             history::VisitID visit_id,
+                                             base::Time visit_time)
+    : url_passages(url_id, visit_id, visit_time),
+      url_embeddings(url_id, visit_id, visit_time) {}
+UrlPassagesEmbeddings::UrlPassagesEmbeddings(const UrlPassagesEmbeddings&) =
+    default;
+UrlPassagesEmbeddings& UrlPassagesEmbeddings::operator=(
+    const UrlPassagesEmbeddings&) = default;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -164,14 +169,13 @@ SearchInfo VectorDatabase::FindNearest(
 
   struct Compare {
     bool operator()(const ScoredUrl& a, const ScoredUrl& b) {
-      return a.score < b.score;
+      return a.score > b.score;
     }
   };
   std::priority_queue<ScoredUrl, std::vector<ScoredUrl>, Compare> q;
 
   SearchInfo search_info;
   search_info.completed = true;
-
   base::ElapsedTimer total_timer;
   base::TimeDelta scoring_elapsed;
   while (const UrlEmbeddings* item = iterator->Next()) {
@@ -183,13 +187,12 @@ SearchInfo VectorDatabase::FindNearest(
     search_info.searched_embedding_count += item->embeddings.size();
 
     base::ElapsedTimer scoring_timer;
+    const float score = item->BestScoreWith(query, search_minimum_word_count);
+    q.emplace(item->url_id, item->visit_id, item->visit_time, score);
     while (q.size() > count) {
       q.pop();
     }
-    const auto [score, score_index] =
-        item->BestScoreWith(query, search_minimum_word_count);
-    q.emplace(item->url_id, item->visit_id, item->visit_time, score,
-              score_index, std::move(item->embeddings[score_index]));
+
     scoring_elapsed += scoring_timer.Elapsed();
   }
 
@@ -204,11 +207,12 @@ SearchInfo VectorDatabase::FindNearest(
           << " ; scoring (ns): " << scoring_elapsed.InNanoseconds()
           << " ; scoring %: " << scoring_elapsed * 100 / total_elapsed;
 
-  // Empty queue into vector and return result.
+  // Empty queue into vector and return result sorted with descending scores.
   while (!q.empty()) {
     search_info.scored_urls.push_back(q.top());
     q.pop();
   }
+  base::ranges::reverse(search_info.scored_urls);
   return search_info;
 }
 

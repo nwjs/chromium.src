@@ -265,7 +265,9 @@ bool PaintOpBufferSerializer::WillSerializeNextOp<float>(
   if (op.GetType() == PaintOpType::kDrawScrollingContents) {
     auto& scrolling_contents_op =
         static_cast<const DrawScrollingContentsOp&>(op);
-    gfx::PointF scroll_offset = scrolling_contents_op.GetScrollOffset(params);
+    CHECK(params.raster_inducing_scroll_offsets);
+    gfx::PointF scroll_offset = params.raster_inducing_scroll_offsets->at(
+        scrolling_contents_op.scroll_element_id);
     int save_count = canvas->getSaveCount();
     if (!scroll_offset.IsOrigin()) {
       Save(canvas, params);
@@ -275,7 +277,7 @@ bool PaintOpBufferSerializer::WillSerializeNextOp<float>(
     std::vector<size_t> offsets =
         scrolling_contents_op.display_item_list->OffsetsOfOpsToRaster(canvas);
     SerializeBuffer(canvas,
-                    scrolling_contents_op.display_item_list->paint_op_buffer_,
+                    scrolling_contents_op.display_item_list->paint_op_buffer(),
                     &offsets);
     RestoreToCount(canvas, save_count, params);
     return true;

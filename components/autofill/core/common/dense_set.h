@@ -141,7 +141,7 @@ class Bitset<Word, 1u> {
   friend constexpr bool operator==(Bitset lhs, Bitset rhs) = default;
 
   constexpr base::span<const Word, 1> data() const {
-    return base::span<const Word, 1>(&word_, 1u);
+    return base::span_from_ref(word_);
   }
 
  private:
@@ -465,11 +465,6 @@ class DenseSet {
   // Returns true if every elements of |xs| is an element, else |false|.
   bool contains_all(const DenseSet& xs) const {
     return (bitset_ & xs.bitset_) == xs.bitset_;
-  }
-
-  // Returns true if |needle| is in |haystack|
-  static constexpr bool is_one_of(T needle, const DenseSet& haystack) {
-    return haystack.contains(needle);
   }
 
   // Returns an iterator to the first element not less than the |x|, or end().

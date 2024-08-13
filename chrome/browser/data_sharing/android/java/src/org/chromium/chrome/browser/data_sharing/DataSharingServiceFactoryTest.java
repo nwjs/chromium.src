@@ -13,11 +13,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -36,7 +36,6 @@ import java.util.concurrent.TimeoutException;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(value = PER_CLASS)
 public class DataSharingServiceFactoryTest {
-    @Rule public Features.JUnitProcessor mFeaturesProcessor = new Features.JUnitProcessor();
 
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
@@ -50,7 +49,7 @@ public class DataSharingServiceFactoryTest {
         LibraryLoader.getInstance().ensureInitialized();
         mActivityTestRule.startMainActivityOnBlankPage();
 
-        mActivityTestRule.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 new Runnable() {
                     @Override
                     public void run() {
@@ -73,7 +72,7 @@ public class DataSharingServiceFactoryTest {
 
         CountDownLatch countDownLatch = new CountDownLatch(6); // 6 method calls to wait for.
 
-        mActivityTestRule.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 new Runnable() {
                     void callbackReceived() {
                         countDownLatch.countDown();
@@ -156,7 +155,7 @@ public class DataSharingServiceFactoryTest {
         LibraryLoader.getInstance().ensureInitialized();
         mActivityTestRule.startMainActivityOnBlankPage();
 
-        mActivityTestRule.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 new Runnable() {
                     @Override
                     public void run() {

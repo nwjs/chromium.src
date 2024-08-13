@@ -5,21 +5,23 @@
 #ifndef COMPONENTS_WEB_PACKAGE_SIGNED_WEB_BUNDLES_ATTRIBUTE_MAP_PARSER_H_
 #define COMPONENTS_WEB_PACKAGE_SIGNED_WEB_BUNDLES_ATTRIBUTE_MAP_PARSER_H_
 
+#include "base/functional/callback.h"
+#include "base/types/expected.h"
 #include "components/web_package/input_reader.h"
-#include "components/web_package/signed_web_bundles/signature_entry_parser.h"
-#include "components/web_package/web_bundle_parser.h"
+#include "components/web_package/mojom/web_bundle_parser.mojom.h"
+#include "components/web_package/signed_web_bundles/types.h"
 
 namespace web_package {
 
 // This class is responsible for parsing the attributes map of a signature entry
-// contained in the integrity block of a signed web bundle.
+// or of the integrity block itself.
 class AttributeMapParser {
  public:
   // In case of success the callback returns the attributes map and the offset
   // in the stream corresponding to the end of the attributes map.
-  using AttributeMapParsedCallback = base::OnceCallback<void(
-      base::expected<std::pair<AttributesMap, uint64_t>,
-                     SignatureStackEntryParser::ParserError>)>;
+  using ParsingResult =
+      base::expected<std::pair<AttributesMap, uint64_t>, std::string>;
+  using AttributeMapParsedCallback = base::OnceCallback<void(ParsingResult)>;
 
   explicit AttributeMapParser(mojom::BundleDataSource& data_source,
                               AttributeMapParsedCallback callback);
@@ -28,6 +30,8 @@ class AttributeMapParser {
   void Parse(uint64_t offset_in_stream);
 
  private:
+  using StringType = CBORHeader::StringInfo::StringType;
+
   void ReadAttributesMapHeader(const std::optional<BinaryData>& data);
   void ReadNextAttributeEntry();
 
@@ -36,13 +40,18 @@ class AttributeMapParser {
                          const std::optional<BinaryData>& data);
   void ReadAttributeValueCborHeader(std::string attribute_key,
                                     const std::optional<BinaryData>& data);
-  void ReadAttributeValue(std::string attribute_key,
-                          const std::optional<BinaryData>& data);
+  void ReadStringAttributeValue(std::string attribute_key,
+                                StringType string_type,
+                                const std::optional<BinaryData>& data);
 
-  void RunSuccessCallback();
-  void RunErrorCallback(const std::string& message,
-                        mojom::BundleParseErrorType error_type =
-                            mojom::BundleParseErrorType::kFormatError);
+  void RunSuccessCallback() {
+    std::move(callback_).Run(
+        std::make_pair(std::move(attributes_map_), offset_in_stream_));
+  }
+
+  void RunErrorCallback(const std::string& message) {
+    std::move(callback_).Run(base::unexpected{message});
+  }
 
   uint64_t offset_in_stream_;
   const raw_ref<mojom::BundleDataSource> data_source_;

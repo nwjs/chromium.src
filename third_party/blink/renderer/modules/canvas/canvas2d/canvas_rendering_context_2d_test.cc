@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d.h"
 
 #include <stddef.h>
@@ -241,9 +246,6 @@ class CanvasRenderingContext2DTest : public ::testing::Test,
   }
 
   HTMLCanvasElement& CanvasElement() const { return *canvas_element_; }
-  bool IsCanvasResourceHostSet(Canvas2DLayerBridge* bridge) {
-    return bridge->resource_host_ != nullptr;
-  }
   CanvasRenderingContext2D* Context2D() const {
     return static_cast<CanvasRenderingContext2D*>(
         CanvasElement().RenderingContext());
@@ -1824,9 +1826,9 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   blink::test::RunPendingTasks();
   // If enabled, hibernation should cause repaint of the painting layer.
   EXPECT_FALSE(box->NeedsPaintPropertyUpdate());
-  EXPECT_EQ(Canvas2DLayerBridge::IsHibernationEnabled(),
+  EXPECT_EQ(features::IsCanvas2DHibernationEnabled(),
             painting_layer->SelfNeedsRepaint());
-  EXPECT_EQ(Canvas2DLayerBridge::IsHibernationEnabled(),
+  EXPECT_EQ(features::IsCanvas2DHibernationEnabled(),
             !CanvasElement().ResourceProvider());
 
   // The page is hidden so it doesn't make sense to paint, and doing so will
@@ -1839,7 +1841,7 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
       mojom::blink::PageVisibilityState::kVisible,
       /*is_initial_state=*/false);
   EXPECT_FALSE(box->NeedsPaintPropertyUpdate());
-  EXPECT_EQ(Canvas2DLayerBridge::IsHibernationEnabled(),
+  EXPECT_EQ(features::IsCanvas2DHibernationEnabled(),
             painting_layer->SelfNeedsRepaint());
 }
 

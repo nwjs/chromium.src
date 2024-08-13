@@ -29,6 +29,11 @@ configurations.compile {
 dependencies {
     // Note about the configuration names: they are defined in buildSrc/ChromiumPlugin
 
+    compile 'androidx.compose.runtime:runtime-android:{{androidx_dependency_version}}'
+    compile 'androidx.compose.material3:material3:{{androidx_dependency_version}}'
+    compile 'androidx.compose.ui:ui:{{androidx_dependency_version}}'
+    compile 'androidx.activity:activity-compose:{{androidx_dependency_version}}'
+
     compile 'androidx.lifecycle:lifecycle-runtime:{{androidx_dependency_version}}'
     compile 'androidx.lifecycle:lifecycle-runtime-ktx:{{androidx_dependency_version}}'
     compile 'androidx.lifecycle:lifecycle-common:{{androidx_dependency_version}}'
@@ -158,10 +163,11 @@ ext {
 
 task setUpRepository(type: BuildConfigGenerator) {
     // Paths are relative to the chromium source root.
-    repositoryPath 'third_party/androidx'
-    chromiumSourceRoot '../..'
+    repositoryPath 'third_party/androidx/cipd'
+    chromiumSourceRoot '../../..'
     cipdBucket 'chromium'
     internalTargetVisibility = [ '//third_party/android_deps:*', ':*' ]
+    allFilesInCipd true
     skipLicenses false
     ignoreDEPS true
 }

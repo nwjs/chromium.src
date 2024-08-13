@@ -6,27 +6,22 @@
 #define PARTITION_ALLOC_IN_SLOT_METADATA_H_
 
 #include <atomic>
-#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/dangling_raw_ptr_checks.h"
+#include "partition_alloc/partition_alloc_base/bits.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
-#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
 #include "partition_alloc/partition_alloc_base/immediate_crash.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_constants.h"
 #include "partition_alloc/partition_alloc_forward.h"
 #include "partition_alloc/tagging.h"
-
-#if PA_BUILDFLAG(IS_APPLE)
-#include "partition_alloc/partition_alloc_base/bits.h"
-#endif  // PA_BUILDFLAG(IS_APPLE)
 
 namespace partition_alloc::internal {
 
@@ -40,10 +35,10 @@ namespace partition_alloc::internal {
 // Placed outside `PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)`
 // intentionally to accommodate usage in contexts also outside
 // this gating.
-PA_ALWAYS_INLINE size_t
-AlignUpInSlotMetadataSizeForApple(size_t in_slot_metadata_size) {
+PA_ALWAYS_INLINE constexpr size_t AlignUpInSlotMetadataSizeForApple(
+    size_t in_slot_metadata_size) {
 #if PA_BUILDFLAG(IS_APPLE)
-  return internal::base::bits::AlignUp<size_t>(in_slot_metadata_size, 8);
+  return base::bits::AlignUp<size_t>(in_slot_metadata_size, 8);
 #else
   return in_slot_metadata_size;
 #endif  // PA_BUILDFLAG(IS_APPLE)
@@ -171,9 +166,9 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) InSlotMetadata {
                 std::numeric_limits<CountType>::max());
 
   static constexpr auto kPtrInc =
-      SafeShift<CountType>(1, std::countr_zero(kPtrCountMask));
+      SafeShift<CountType>(1, base::bits::CountrZero(kPtrCountMask));
   static constexpr auto kUnprotectedPtrInc =
-      SafeShift<CountType>(1, std::countr_zero(kUnprotectedPtrCountMask));
+      SafeShift<CountType>(1, base::bits::CountrZero(kUnprotectedPtrCountMask));
 
   PA_ALWAYS_INLINE explicit InSlotMetadata(bool needs_mac11_malloc_size_hack);
 
@@ -550,7 +545,7 @@ PA_ALWAYS_INLINE InSlotMetadata* InSlotMetadataPointer(uintptr_t slot_start,
   if (PA_LIKELY(slot_start & SystemPageOffsetMask())) {
     uintptr_t refcount_address =
         slot_start + slot_size - sizeof(InSlotMetadata);
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON) || \
+#if PA_BUILDFLAG(DCHECKS_ARE_ON) || \
     PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SLOW_CHECKS)
     PA_CHECK(refcount_address % alignof(InSlotMetadata) == 0);
 #endif
@@ -563,7 +558,7 @@ PA_ALWAYS_INLINE InSlotMetadata* InSlotMetadataPointer(uintptr_t slot_start,
         (slot_start & kSuperPageBaseMask) + SystemPageSize() * 2);
     size_t index = ((slot_start & kSuperPageOffsetMask) >> SystemPageShift())
                    << GetInSlotMetadataIndexMultiplierShift();
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON) || \
+#if PA_BUILDFLAG(DCHECKS_ARE_ON) || \
     PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SLOW_CHECKS)
     PA_CHECK(sizeof(InSlotMetadata) * index <= SystemPageSize());
 #endif
@@ -575,7 +570,7 @@ PA_ALWAYS_INLINE InSlotMetadata* InSlotMetadataPointer(uintptr_t slot_start,
 
 static inline constexpr size_t kInSlotMetadataSizeAdjustment =
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
-    sizeof(InSlotMetadata);
+    AlignUpInSlotMetadataSizeForApple(sizeof(InSlotMetadata));
 #else
     0ul;
 #endif

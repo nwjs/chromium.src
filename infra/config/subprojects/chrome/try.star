@@ -93,6 +93,14 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
+    builder = "chromeos-betty-chrome-dchecks",
+)
+
+chrome_internal_verifier(
+    builder = "chromeos-betty-cfi-thin-lto-chrome",
+)
+
+chrome_internal_verifier(
     builder = "chromeos-betty-pi-arc-cfi-thin-lto-chrome",
 )
 
@@ -141,6 +149,10 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
+    builder = "fuchsia-ava-nelson",
+)
+
+chrome_internal_verifier(
     builder = "fuchsia-cast-astro",
 )
 
@@ -185,6 +197,10 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
+    builder = "fuchsia-smoke-sherlock-roller",
+)
+
+chrome_internal_verifier(
     builder = "ipad-device",
 )
 
@@ -217,6 +233,10 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
+    builder = "linux-cft",
+)
+
+chrome_internal_verifier(
     builder = "linux-chromeos-chrome",
 )
 
@@ -244,6 +264,10 @@ chrome_internal_verifier(
 chrome_internal_verifier(
     branch_selector = branches.selector.MAC_BRANCHES,
     builder = "mac-chrome",
+)
+
+chrome_internal_verifier(
+    builder = "mac-cft",
 )
 
 chrome_internal_verifier(
@@ -288,6 +312,10 @@ chrome_internal_verifier(
 chrome_internal_verifier(
     branch_selector = branches.selector.WINDOWS_BRANCHES,
     builder = "win-chrome",
+)
+
+chrome_internal_verifier(
+    builder = "win-cft",
 )
 
 chrome_internal_verifier(

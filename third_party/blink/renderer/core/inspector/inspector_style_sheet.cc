@@ -23,6 +23,11 @@
  * DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/inspector/inspector_style_sheet.h"
 
 #include <algorithm>
@@ -2148,7 +2153,7 @@ void InspectorStyleSheet::ParseText(const String& text) {
           CSSTokenizer tokenizer(property_source_data.value);
           Vector<CSSParserToken, 32> tokens = tokenizer.TokenizeToEOF();
           CSSTokenizedValue tokenized_value{CSSParserTokenRange(tokens),
-                                            property_source_data.name};
+                                            property_source_data.value};
           if (!registration->Syntax().Parse(
                   tokenized_value, *style_sheet->ParserContext(), false)) {
             property_source_data.parsed_ok = false;
@@ -2449,7 +2454,8 @@ InspectorStyleSheet::BuildObjectForRuleUsage(CSSRule* rule, bool was_used) {
 
 std::unique_ptr<protocol::CSS::CSSPositionTryRule>
 InspectorStyleSheet::BuildObjectForPositionTryRule(
-    CSSPositionTryRule* position_try_rule) {
+    CSSPositionTryRule* position_try_rule,
+    bool active) {
   std::unique_ptr<protocol::CSS::Value> name =
       protocol::CSS::Value::create().setText(position_try_rule->name()).build();
   if (CSSRuleSourceData* source_data = SourceDataForRule(position_try_rule)) {
@@ -2460,6 +2466,7 @@ InspectorStyleSheet::BuildObjectForPositionTryRule(
           .setName(std::move(name))
           .setOrigin(origin_)
           .setStyle(BuildObjectForStyle(position_try_rule->style(), nullptr))
+          .setActive(active)
           .build();
   if (CanBind(origin_) && !Id().empty()) {
     result->setStyleSheetId(Id());

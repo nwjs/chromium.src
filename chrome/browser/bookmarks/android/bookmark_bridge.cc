@@ -232,7 +232,7 @@ void BookmarkBridge::Destroy(JNIEnv* env) {
 
 jboolean BookmarkBridge::AreAccountBookmarkFoldersActive(JNIEnv* env) {
   if (!base::FeatureList::IsEnabled(
-          syncer::kEnableBookmarkFoldersForAccountStorage)) {
+          syncer::kSyncEnableBookmarksInTransportMode)) {
     return false;
   }
 
@@ -1477,7 +1477,7 @@ bool BookmarkBridge::IsFolderAvailable(const BookmarkNode* folder) const {
   return (folder->type() != BookmarkNode::BOOKMARK_BAR &&
           folder->type() != BookmarkNode::OTHER_NODE) ||
          (identity_manager &&
-          identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
+          identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
 }
 
 void BookmarkBridge::NotifyIfDoneLoading() {
@@ -1737,7 +1737,7 @@ void BookmarkBridge::ReadingListModelCompletedBatchUpdates(
 void BookmarkBridge::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
   if (!base::FeatureList::IsEnabled(
-          syncer::kEnableBookmarkFoldersForAccountStorage)) {
+          syncer::kSyncEnableBookmarksInTransportMode)) {
     return;
   }
 

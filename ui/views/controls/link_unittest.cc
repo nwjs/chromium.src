@@ -76,7 +76,7 @@ TEST_F(LinkTest, TestLinkClick) {
       [](bool* link_clicked) { *link_clicked = true; }, &link_clicked));
   link()->SizeToPreferredSize();
   gfx::Point point = link()->bounds().CenterPoint();
-  ui::MouseEvent release(ui::ET_MOUSE_RELEASED, point, point,
+  ui::MouseEvent release(ui::EventType::kMouseReleased, point, point,
                          ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
                          ui::EF_LEFT_MOUSE_BUTTON);
   link()->OnMouseReleased(release);
@@ -89,8 +89,9 @@ TEST_F(LinkTest, TestLinkTap) {
       [](bool* link_clicked) { *link_clicked = true; }, &link_clicked));
   link()->SizeToPreferredSize();
   gfx::Point point = link()->bounds().CenterPoint();
-  ui::GestureEvent tap_event(point.x(), point.y(), 0, ui::EventTimeForNow(),
-                             ui::GestureEventDetails(ui::ET_GESTURE_TAP));
+  ui::GestureEvent tap_event(
+      point.x(), point.y(), 0, ui::EventTimeForNow(),
+      ui::GestureEventDetails(ui::EventType::kGestureTap));
   link()->OnGestureEvent(&tap_event);
   EXPECT_TRUE(link_clicked);
 }
@@ -154,7 +155,7 @@ TEST_F(LinkTest, AccessibleProperties) {
   // from the link text.
   data = ui::AXNodeData();
   std::u16string accessible_name = u"Accessible Name";
-  link()->SetAccessibleName(accessible_name);
+  link()->GetViewAccessibility().SetName(accessible_name);
   link()->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             accessible_name);
@@ -165,7 +166,7 @@ TEST_F(LinkTest, AccessibleProperties) {
   // Setting the accessible name to an empty string should cause the link text
   // to be used as the name.
   data = ui::AXNodeData();
-  link()->SetAccessibleName(std::u16string());
+  link()->GetViewAccessibility().SetName(std::u16string());
   link()->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"TestLink");

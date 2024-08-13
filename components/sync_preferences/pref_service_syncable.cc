@@ -280,9 +280,8 @@ void PrefServiceSyncable::RemoveSyncedPrefObserver(
 #endif
 }
 
-void PrefServiceSyncable::AddRegisteredSyncablePreference(
-    const std::string& path,
-    uint32_t flags) {
+void PrefServiceSyncable::AddRegisteredSyncablePreference(std::string_view path,
+                                                          uint32_t flags) {
   DCHECK(FindPreference(path));
   if (flags & user_prefs::PrefRegistrySyncable::SYNCABLE_PREF) {
     pref_sync_associator_.RegisterPref(path);
@@ -305,7 +304,7 @@ void PrefServiceSyncable::AddRegisteredSyncablePreference(
 }
 
 base::Value::Type PrefServiceSyncable::GetRegisteredPrefType(
-    const std::string& pref_name) const {
+    std::string_view pref_name) const {
   const Preference* pref = FindPreference(pref_name);
   DCHECK(pref);
   return pref->GetType();
@@ -317,8 +316,7 @@ void PrefServiceSyncable::OnIsSyncingChanged() {
   }
 }
 
-uint32_t PrefServiceSyncable::GetWriteFlags(
-    const std::string& pref_name) const {
+uint32_t PrefServiceSyncable::GetWriteFlags(std::string_view pref_name) const {
   const Preference* pref = FindPreference(pref_name);
   return PrefService::GetWriteFlags(pref);
 }

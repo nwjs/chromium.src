@@ -64,6 +64,8 @@ try_.builder(
             "remoteexec",
             "chrome_with_codecs",
             "minimal_symbols",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -90,10 +92,6 @@ Chrome.\
 
 try_.builder(
     name = "win10-wpt-chromium-rel",
-    description_html = """\
-Runs <a href="https://web-platform-tests.org">web platform tests</a> against
-Chrome.\
-""",
     mirrors = ["ci/win10-wpt-chromium-rel"],
     builder_config_settings = builder_config.try_settings(
         retry_failed_shards = False,
@@ -131,6 +129,7 @@ try_.builder(
             "release_builder",
             "remoteexec",
             "chrome_with_codecs",
+            "win",
             "x64",
             "minimal_symbols",
         ],
@@ -164,6 +163,7 @@ try_.builder(
             "release_builder",
             "remoteexec",
             "chrome_with_codecs",
+            "win",
             "arm64",
             "minimal_symbols",
         ],
@@ -197,6 +197,7 @@ try_.builder(
             "release_builder",
             "remoteexec",
             "chrome_with_codecs",
+            "win",
             "x64",
             "minimal_symbols",
         ],
@@ -230,6 +231,7 @@ blink_mac_builder(
             "remoteexec",
             "chrome_with_codecs",
             "minimal_symbols",
+            "mac",
             "x64",
         ],
     ),
@@ -262,6 +264,8 @@ blink_mac_builder(
             "remoteexec",
             "chrome_with_codecs",
             "minimal_symbols",
+            "mac",
+            "x64",
         ],
     ),
     builderless = False,
@@ -294,6 +298,7 @@ blink_mac_builder(
             "chrome_with_codecs",
             "arm64",
             "minimal_symbols",
+            "mac",
         ],
     ),
     cores = None,
@@ -325,6 +330,7 @@ blink_mac_builder(
             "remoteexec",
             "chrome_with_codecs",
             "minimal_symbols",
+            "mac",
             "x64",
         ],
     ),
@@ -355,6 +361,7 @@ blink_mac_builder(
             "release_builder",
             "remoteexec",
             "chrome_with_codecs",
+            "mac",
             "arm64",
             "minimal_symbols",
         ],
@@ -388,6 +395,7 @@ blink_mac_builder(
             "remoteexec",
             "chrome_with_codecs",
             "minimal_symbols",
+            "mac",
             "x64",
         ],
     ),
@@ -397,10 +405,6 @@ blink_mac_builder(
 
 try_.builder(
     name = "mac13-wpt-chromium-rel",
-    description_html = """\
-Runs <a href="https://web-platform-tests.org">web platform tests</a> against
-Chrome.\
-""",
     mirrors = ["ci/mac13-wpt-chromium-rel"],
     builder_config_settings = builder_config.try_settings(
         retry_failed_shards = False,
@@ -438,6 +442,7 @@ blink_mac_builder(
             "release_builder",
             "remoteexec",
             "chrome_with_codecs",
+            "mac",
             "arm64",
             "minimal_symbols",
         ],
@@ -470,6 +475,7 @@ blink_mac_builder(
             "release_builder",
             "remoteexec",
             "chrome_with_codecs",
+            "mac",
             "arm64",
             "minimal_symbols",
         ],
@@ -506,6 +512,7 @@ blink_mac_builder(
             "remoteexec",
             "chrome_with_codecs",
             "minimal_symbols",
+            "mac",
             "x64",
         ],
     ),
@@ -540,6 +547,7 @@ blink_mac_builder(
             "release_builder",
             "remoteexec",
             "chrome_with_codecs",
+            "mac",
             "arm64",
             "minimal_symbols",
         ],

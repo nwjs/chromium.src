@@ -9,8 +9,6 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
-import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
@@ -32,15 +30,12 @@ import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.widget.ProgressBar;
 
-import androidx.annotation.IdRes;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.Espresso;
-import androidx.test.espresso.matcher.ViewMatchers;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.lifecycle.Stage;
 
-import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -51,10 +46,10 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -75,7 +70,6 @@ import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.DeviceRestriction;
@@ -87,12 +81,11 @@ import org.chromium.ui.test.util.ViewUtils;
 @DoNotBatch(reason = "This test relies on native initialization")
 @Features.EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-// The upgrade promo does not get displayed when Google Play Services are not available.
-// TODO(crbug.com/41496906): Tests temporarily disabled for automotive. They should be
-// re-enabled once the new sign-in flow is implemented for automotive.
+// The upgrade promo does not get displayed when Google Play Services are not available or on
+// Android Automotive.
 @Restriction({
     DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
-    GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_2020W02
+    GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_20W02
 })
 public class UpgradePromoIntegrationTest {
     @Rule
@@ -106,12 +99,12 @@ public class UpgradePromoIntegrationTest {
             new BaseActivityTestRule(BlankUiTestActivity.class);
 
     @Rule(order = 2)
-    public final BaseActivityTestRule<SigninAndHistoryOptInActivity> mActivityTestRule =
-            new BaseActivityTestRule(SigninAndHistoryOptInActivity.class);
+    public final BaseActivityTestRule<SigninAndHistorySyncActivity> mActivityTestRule =
+            new BaseActivityTestRule(SigninAndHistorySyncActivity.class);
 
     @Mock private HistorySyncHelper mHistorySyncHelperMock;
 
-    private SigninAndHistoryOptInActivity mActivity;
+    private SigninAndHistorySyncActivity mActivity;
 
     @Before
     public void setUp() {
@@ -143,7 +136,7 @@ public class UpgradePromoIntegrationTest {
         // Check that the privacy disclaimer is not displayed.
         onView(withId(R.id.signin_fre_footer)).check(matches(not(isDisplayed())));
         // Refuse sign-in.
-        clickButton(R.id.signin_fre_dismiss_button);
+        onViewWaiting(withId(R.id.signin_fre_dismiss_button)).perform(click());
 
         accountConsistencyHistogram.assertExpected();
         accountStartedHistogram.assertExpected();
@@ -204,7 +197,7 @@ public class UpgradePromoIntegrationTest {
 
         // Verify that the fullscreen sign-in promo is shown and accept.
         onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
-        onView(withId(R.id.signin_fre_continue_button)).perform(click());
+        onViewWaiting(withId(R.id.signin_fre_continue_button)).perform(click());
 
         ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
         mSigninTestRule.waitForSignin(AccountManagerTestRule.AADC_ADULT_ACCOUNT);
@@ -221,7 +214,7 @@ public class UpgradePromoIntegrationTest {
 
         // Verify that the fullscreen sign-in promo is shown and accept.
         onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
-        onView(withId(R.id.signin_fre_continue_button)).perform(click());
+        onViewWaiting(withId(R.id.signin_fre_continue_button)).perform(click());
 
         ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
         mSigninTestRule.waitForSignin(AccountManagerTestRule.AADC_ADULT_ACCOUNT);
@@ -296,25 +289,25 @@ public class UpgradePromoIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "b/333908211")
     public void testAddAccount() {
-        String secondAccountEmail = "jane.doe@gmail.com";
-        mSigninTestRule.setResultForNextAddAccountFlow(Activity.RESULT_OK, secondAccountEmail);
+        mSigninTestRule.setResultForNextAddAccountFlow(
+                Activity.RESULT_OK, AccountManagerTestRule.TEST_ACCOUNT_2.getEmail());
 
         launchActivity();
 
         // Verify that the fullscreen sign-in promo is shown with the default account.
         onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
-        onView(withText(AccountManagerTestRule.TEST_ACCOUNT_1.getEmail()))
+        onViewWaiting(withText(AccountManagerTestRule.AADC_ADULT_ACCOUNT.getEmail()))
                 .check(matches(isDisplayed()));
 
         // Add the second account.
-        onView(withText(AccountManagerTestRule.TEST_ACCOUNT_1.getEmail())).perform(click());
+        onView(withText(AccountManagerTestRule.AADC_ADULT_ACCOUNT.getEmail())).perform(click());
         onView(withText(R.string.signin_add_account_to_device)).perform(click());
 
         // Verify that the fullscreen sign-in promo is shown with the newly added account.
-        onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
-        onView(withText(secondAccountEmail)).check(matches(isDisplayed()));
+        onViewWaiting(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
+        onViewWaiting(withText(AccountManagerTestRule.TEST_ACCOUNT_2.getEmail()))
+                .check(matches(isDisplayed()));
     }
 
     @Test
@@ -377,36 +370,20 @@ public class UpgradePromoIntegrationTest {
         onView(withId(R.id.fre_browser_managed_by)).check(matches(not(isDisplayed())));
     }
 
-    // TODO(b/346306121): Use `onViewWaiting` here instead
-    private void clickButton(@IdRes int buttonId) {
-        // Ensure that the button isn't hidden, and is enabled.
-        onView(
-                        Matchers.allOf(
-                                withId(buttonId),
-                                withEffectiveVisibility(ViewMatchers.Visibility.VISIBLE)))
-                .check(matches(isEnabled()));
-        // This helps to reduce flakiness on some marshmallow bots in comparison with
-        // espresso click.
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mActivity.findViewById(buttonId).performClick();
-                });
-    }
-
     private void launchActivity() {
         launchActivity(true);
     }
 
     private void launchActivity(boolean shouldReplaceProgressBars) {
         Intent intent =
-                SigninAndHistoryOptInActivity.createIntentForUpgradePromo(
+                SigninAndHistorySyncActivity.createIntentForUpgradePromo(
                         ApplicationProvider.getApplicationContext());
         mActivityTestRule.launchActivity(intent);
         mActivity = mActivityTestRule.getActivity();
         ApplicationTestUtils.waitForActivityState(mActivity, Stage.RESUMED);
 
         if (shouldReplaceProgressBars) {
-            TestThreadUtils.runOnUiThreadBlocking(
+            ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         // Replace all the progress bars with placeholders. Currently the progress
                         // bar cannot be stopped otherwise due to some espresso issues (see

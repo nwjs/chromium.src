@@ -18,6 +18,7 @@ import static org.chromium.chrome.browser.password_manager.account_storage_notic
 import androidx.test.espresso.Espresso;
 import androidx.test.filters.MediumTest;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -27,6 +28,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -47,7 +49,6 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.io.IOException;
 
@@ -89,15 +90,6 @@ public class AccountStorageNoticeCoordinatorIntegrationTest {
     public void setUp() {
         mJniMocker.mock(AccountStorageNoticeCoordinatorJni.TEST_HOOKS, mJniMock);
         mActivityRule.startMainActivityOnBlankPage();
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    // Tests are batched, so reset the pref, otherwise the notice only shows once.
-                    // Additionally, if ReplaceSyncPromosWithSigninPromos is enabled,
-                    // addTestAccountThenSignin() sets the pref to true (to avoid showing the notice
-                    // to new signed-in users in production). So this call undoes that.
-                    UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
-                            .clearPref(Pref.ACCOUNT_STORAGE_NOTICE_SHOWN);
-                });
     }
 
     @Test
@@ -109,6 +101,27 @@ public class AccountStorageNoticeCoordinatorIntegrationTest {
 
         mRenderTestRule.render(
                 coordinator.getBottomSheetViewForTesting(), "account_storage_notice_view");
+    }
+
+    @Test
+    @MediumTest
+    public void testMarksShown() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    // Tests are batched, so the pref might have been set by a previous one.
+                    UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
+                            .clearPref(Pref.ACCOUNT_STORAGE_NOTICE_SHOWN);
+                });
+
+        createCoordinator();
+        waitSheetVisible(true);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    Assert.assertTrue(
+                            UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
+                                    .getBoolean(Pref.ACCOUNT_STORAGE_NOTICE_SHOWN));
+                });
     }
 
     @Test
@@ -140,7 +153,7 @@ public class AccountStorageNoticeCoordinatorIntegrationTest {
         verify(mJniMock).onClosed(NATIVE_OBSERVER_PTR);
     }
 
-    // TODO(crbug.com/338576301): Add test clicking on settings link. There seems to be some
+    // TODO(crbug.com/346747486): Add test clicking on settings link. There seems to be some
     // limitation on ViewUtils.clickOnClickableSpan(). Test the metric too.
 
     @Test
@@ -169,7 +182,7 @@ public class AccountStorageNoticeCoordinatorIntegrationTest {
                 .expectIntRecord(CLOSE_REASON_METRIC, CloseReason.EMBEDDER_REQUESTED)
                 .build();
 
-        TestThreadUtils.runOnUiThreadBlocking(() -> coordinator.hideImmediatelyIfShowing());
+        ThreadUtils.runOnUiThreadBlocking(() -> coordinator.hideImmediatelyIfShowing());
 
         waitSheetVisible(false);
         verify(mJniMock).onClosed(NATIVE_OBSERVER_PTR);
@@ -185,27 +198,23 @@ public class AccountStorageNoticeCoordinatorIntegrationTest {
                 .expectIntRecord(CLOSE_REASON_METRIC, CloseReason.EMBEDDER_REQUESTED)
                 .build();
 
-        TestThreadUtils.runOnUiThreadBlocking(() -> coordinator.setObserver(0));
-        TestThreadUtils.runOnUiThreadBlocking(() -> coordinator.hideImmediatelyIfShowing());
+        ThreadUtils.runOnUiThreadBlocking(() -> coordinator.setObserver(0));
+        ThreadUtils.runOnUiThreadBlocking(() -> coordinator.hideImmediatelyIfShowing());
 
         waitSheetVisible(false);
         verify(mJniMock, never()).onClosed(NATIVE_OBSERVER_PTR);
     }
 
     private AccountStorageNoticeCoordinator createCoordinator() {
-        return TestThreadUtils.runOnUiThreadBlockingNoException(
+        return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Profile profile = ProfileManager.getLastUsedRegularProfile();
                     // The logic for when to show the coordinator is tested in the UnitTest.java.
-                    // Tests here only care about the UI interaction, so it's fine to hardcode the
-                    // booleans below.
+                    // Tests here only care about the UI interaction.
                     AccountStorageNoticeCoordinator coordinator =
-                            AccountStorageNoticeCoordinator.create(
-                                    /* hasSyncConsent= */ false,
-                                    /* hasChosenToSyncPasswords= */ true,
-                                    /* isGmsCoreUpdateRequired= */ false,
-                                    UserPrefs.get(profile),
+                            AccountStorageNoticeCoordinator.createAndShow(
                                     mActivityRule.getActivity().getWindowAndroid(),
+                                    UserPrefs.get(profile),
                                     new SettingsLauncherImpl());
                     coordinator.setObserver(NATIVE_OBSERVER_PTR);
                     return coordinator;

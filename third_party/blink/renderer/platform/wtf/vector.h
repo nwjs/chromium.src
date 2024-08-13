@@ -18,6 +18,11 @@
  *
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_VECTOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_VECTOR_H_
 
@@ -28,11 +33,13 @@
 #include <functional>
 #include <initializer_list>
 #include <iterator>
+#include <ranges>
 #include <type_traits>
 #include <utility>
 
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/dcheck_is_on.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
@@ -1074,20 +1081,6 @@ inline constexpr bool kVectorNeedsDestructor<T, 0, true> = false;
 template <typename T, wtf_size_t InlineCapacity>
 inline constexpr bool kVectorNeedsDestructor<T, InlineCapacity, true> = true;
 
-namespace internal {
-
-template <typename Collection>
-concept VectorCanConstructFromCollection = requires(Collection c) {
-  // TODO(crbug.com/1502036): In theory we should be able to require that these
-  // conform to std::input_iterator, but HashTableConstIteratorAdapter actually
-  // doesn't.
-  c.begin();
-  c.end();
-  { c.size() } -> std::unsigned_integral;
-};
-
-}  // namespace internal
-
 template <typename T, wtf_size_t InlineCapacity, typename Allocator>
 class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
   USE_ALLOCATOR(Vector, Allocator);
@@ -1149,15 +1142,15 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
 
   // Creates a vector with items copied from a collection. |Collection| must
   // have size(), begin() and end() methods.
-  template <typename Collection>
-    requires internal::VectorCanConstructFromCollection<Collection>
-  explicit Vector(const Collection& collection) : Vector() {
-    assign(collection);
+  template <typename Range>
+    requires std::ranges::input_range<Range> && std::ranges::sized_range<Range>
+  explicit Vector(const Range& range) : Vector() {
+    assign(range);
   }
   // Replaces the vector with items copied from a collection.
-  template <typename Collection>
-    requires internal::VectorCanConstructFromCollection<Collection>
-  void assign(const Collection&);
+  template <typename Range>
+    requires std::ranges::input_range<Range> && std::ranges::sized_range<Range>
+  void assign(const Range&);
 
   // Moving.
   Vector(Vector&&);
@@ -1197,6 +1190,11 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
 
   T& operator[](wtf_size_t i) { return at(i); }
   const T& operator[](wtf_size_t i) const { return at(i); }
+
+  // Returns a base::span representing the whole data.
+  // The base::span is valid until this Vector is modified.
+  explicit operator base::span<T>() { return {data(), size()}; }
+  explicit operator base::span<const T>() { return {data(), size()}; }
 
   // Return a pointer to the front of the backing buffer. Those pointers get
   // invalidated on a reallocation.
@@ -1658,20 +1656,20 @@ Vector<T, InlineCapacity, Allocator>::operator=(
 }
 
 template <typename T, wtf_size_t InlineCapacity, typename Allocator>
-template <typename Collection>
-  requires internal::VectorCanConstructFromCollection<Collection>
-void Vector<T, InlineCapacity, Allocator>::assign(const Collection& other) {
+template <typename Range>
+  requires std::ranges::input_range<Range> && std::ranges::sized_range<Range>
+void Vector<T, InlineCapacity, Allocator>::assign(const Range& range) {
   static_assert(
-      !std::is_same_v<Vector<T, InlineCapacity, Allocator>, Collection>,
+      !std::is_same_v<Vector<T, InlineCapacity, Allocator>, Range>,
       "This method is for copying from a collection of a different type.");
 
   {
     // Disallow GC across resize allocation, see crbug.com/568173.
     GCForbiddenScope scope;
-    resize(base::checked_cast<wtf_size_t>(other.size()));
+    resize(base::checked_cast<wtf_size_t>(std::ranges::size(range)));
   }
 
-  base::ranges::copy(other, begin());
+  base::ranges::copy(range, begin());
 }
 
 template <typename T, wtf_size_t InlineCapacity, typename Allocator>

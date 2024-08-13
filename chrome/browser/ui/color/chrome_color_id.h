@@ -172,6 +172,7 @@
   E_CPONLY(kColorIntentPickerItemBackgroundSelected) \
   /* Lens overlay colors. */ \
   E_CPONLY(kColorLensOverlayToastBackground) \
+  E_CPONLY(kColorLensOverlayToastButtonText) \
   /* Location bar colors. */ \
   E_CPONLY(kColorLocationBarBackground) \
   E_CPONLY(kColorLocationBarBackgroundHovered) \
@@ -246,8 +247,6 @@
   E_CPONLY(kColorNewTabPageModuleControlBorder) \
   E_CPONLY(kColorNewTabPageModuleContextMenuDivider) \
   E_CPONLY(kColorNewTabPageModuleBackground) \
-  E_CPONLY(kColorNewTabPageModuleCalendarEventCollapsedBackground) \
-  E_CPONLY(kColorNewTabPageModuleCalendarEventExpandedBackground) \
   E_CPONLY(kColorNewTabPageModuleCalendarEventTimeStatusBackground) \
   E_CPONLY(kColorNewTabPageModuleIconBackground) \
   E_CPONLY(kColorNewTabPageModuleElementDivider) \
@@ -318,6 +317,7 @@
   E_CPONLY(kColorOmniboxResultsButtonInkDropSelected) \
   E_CPONLY(kColorOmniboxResultsButtonInkDropSelectedRowHovered) \
   E_CPONLY(kColorOmniboxResultsButtonInkDropSelectedRowSelected) \
+  E_CPONLY(kColorOmniboxResultsChipBackground) \
   E_CPONLY(kColorOmniboxResultsFocusIndicator) \
   E_CPONLY(kColorOmniboxResultsIcon) \
   E_CPONLY(kColorOmniboxResultsIconGM3Background) \
@@ -375,6 +375,9 @@
   E_CPONLY(kColorPaymentsRequestRowBackgroundHighlighted) \
   /* Permission Prompt colors. */ \
   E_CPONLY(kColorPermissionPromptRequestText) \
+   /* Performance Intervention colors. */ \
+  E_CPONLY(kColorPerformanceInterventionButtonIconActive) \
+  E_CPONLY(kColorPerformanceInterventionButtonIconInactive) \
   /* Picture-in-Picture window colors. */ \
   E_CPONLY(kColorPipWindowBackToTabButtonBackground) \
   E_CPONLY(kColorPipWindowBackground) \
@@ -387,14 +390,19 @@
   E_CPONLY(kColorPipWindowSkipAdButtonBorder) \
   /* Product Specifications colors */ \
   E_CPONLY(kColorProductSpecificationsButtonBackground) \
-  E_CPONLY(kColorProductSpecificationsTonalButtonBackground) \
-  E_CPONLY(kColorProductSpecificationsContentBackground) \
+  E_CPONLY(kColorProductSpecificationsDisclosureBackground) \
+  E_CPONLY(kColorProductSpecificationsDisclosureForeground) \
+  E_CPONLY(kColorProductSpecificationsDisclosureGradientEnd) \
+  E_CPONLY(kColorProductSpecificationsDisclosureGradientStart) \
+  E_CPONLY(kColorProductSpecificationsDisclosureSummaryBackground) \
   E_CPONLY(kColorProductSpecificationsDivider) \
+  E_CPONLY(kColorProductSpecificationsIcon) \
   E_CPONLY(kColorProductSpecificationsPageBackground) \
   E_CPONLY(kColorProductSpecificationsPrimaryTitle) \
-  E_CPONLY(kColorProductSpecificationsIcon) \
   E_CPONLY(kColorProductSpecificationsSecondaryTitle) \
   E_CPONLY(kColorProductSpecificationsSummaryBackground) \
+  E_CPONLY(kColorProductSpecificationsSummaryBackgroundDragging) \
+  E_CPONLY(kColorProductSpecificationsTonalButtonBackground) \
   /* Profile Menu colors. */ \
   E_CPONLY(kColorProfileMenuBackground) \
   E_CPONLY(kColorProfileMenuHeaderBackground) \
@@ -771,6 +779,7 @@
   E_CPONLY(kColorToolbarInkDropHover) \
   E_CPONLY(kColorToolbarInkDropRipple) \
   E_CPONLY(kColorToolbarSeparator) \
+  E_CPONLY(kColorToolbarActionItemEngaged) \
   E_CPONLY(kColorToolbarSeparatorDefault) \
   E_CPONLY(kColorToolbarText) \
   E_CPONLY(kColorToolbarTextDefault) \
@@ -779,9 +788,12 @@
   E_CPONLY(kColorToolbarTopSeparatorFrameActive) \
   E_CPONLY(kColorToolbarTopSeparatorFrameInactive) \
   /* WebAuthn colors. */ \
+  E_CPONLY(kColorWebAuthnHoverButtonForeground) \
+  E_CPONLY(kColorWebAuthnHoverButtonForegroundDisabled) \
   E_CPONLY(kColorWebAuthnBackArrowButtonIcon) \
   E_CPONLY(kColorWebAuthnBackArrowButtonIconDisabled) \
   E_CPONLY(kColorWebAuthnIconColor) \
+  E_CPONLY(kColorWebAuthnIconColorDisabled) \
   E_CPONLY(kColorWebAuthnPinTextfieldBottomBorder) \
   E_CPONLY(kColorWebAuthnProgressRingBackground) \
   E_CPONLY(kColorWebAuthnProgressRingForeground) \

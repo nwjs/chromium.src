@@ -15,7 +15,7 @@
 #include "content/public/renderer/render_thread.h"
 #include "services/metrics/public/cpp/mojo_ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_computed_node_data.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
@@ -259,7 +259,7 @@ void AXTreeDistiller::ScreenAIServiceReady(content::RenderFrame* render_frame) {
   if (main_content_extractor_.is_bound() || !render_frame) {
     return;
   }
-  render_frame->GetBrowserInterfaceBroker()->GetInterface(
+  render_frame->GetBrowserInterfaceBroker().GetInterface(
       main_content_extractor_.BindNewPipeAndPassReceiver());
   main_content_extractor_.set_disconnect_handler(
       base::BindOnce(&AXTreeDistiller::OnMainContentExtractorDisconnected,

@@ -14,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "chrome/browser/ash/app_list/search/test/test_ranker_manager.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/drive/drivefs_test_support.h"
 #include "chrome/browser/ash/fileapi/recent_model.h"
@@ -201,22 +202,28 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
 
   TestingProfile::TestingFactories GetTestingFactories() override {
     return {
-        {HistoryServiceFactory::GetInstance(),
-         base::BindRepeating(&BuildTestHistoryService, temp_dir_.GetPath())},
-        {BookmarkModelFactory::GetInstance(),
-         BookmarkModelFactory::GetDefaultFactory()},
-        {TemplateURLServiceFactory::GetInstance(),
-         base::BindRepeating(&TemplateURLServiceFactory::BuildInstanceFor)},
-        {ash::RecentModelFactory::GetInstance(),
-         base::BindRepeating(&BuildTestRecentModelFactory,
-                             std::vector<Volume>{})},
-        {drive::DriveIntegrationServiceFactory::GetInstance(),
-         base::BindRepeating(&BuildTestDriveIntegrationService,
-                             temp_dir_.GetPath(),
-                             std::ref(fake_drivefs_helper_))},
-        {ash::input_method::EditorMediatorFactory::GetInstance(),
-         base::BindRepeating(
-             &ash::input_method::EditorMediatorFactory::BuildInstanceFor)}};
+        TestingProfile::TestingFactory{
+            HistoryServiceFactory::GetInstance(),
+            base::BindRepeating(&BuildTestHistoryService, temp_dir_.GetPath())},
+        TestingProfile::TestingFactory{
+            BookmarkModelFactory::GetInstance(),
+            BookmarkModelFactory::GetDefaultFactory()},
+        TestingProfile::TestingFactory{
+            TemplateURLServiceFactory::GetInstance(),
+            base::BindRepeating(&TemplateURLServiceFactory::BuildInstanceFor)},
+        TestingProfile::TestingFactory{
+            ash::RecentModelFactory::GetInstance(),
+            base::BindRepeating(&BuildTestRecentModelFactory,
+                                std::vector<Volume>{})},
+        TestingProfile::TestingFactory{
+            drive::DriveIntegrationServiceFactory::GetInstance(),
+            base::BindRepeating(&BuildTestDriveIntegrationService,
+                                temp_dir_.GetPath(),
+                                std::ref(fake_drivefs_helper_))},
+        TestingProfile::TestingFactory{
+            ash::input_method::EditorMediatorFactory::GetInstance(),
+            base::BindRepeating(
+                &ash::input_method::EditorMediatorFactory::BuildInstanceFor)}};
   }
 
   void LogIn(const std::string& email) override {
@@ -239,13 +246,6 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
   std::unique_ptr<drive::FakeDriveFsHelper> fake_drivefs_helper_;
 };
 
-TEST_F(PickerClientImplTest, GetsSharedURLLoaderFactory) {
-  ash::PickerController controller;
-  PickerClientImpl client(&controller, user_manager());
-
-  EXPECT_EQ(client.GetSharedURLLoaderFactory(), GetSharedURLLoaderFactory());
-}
-
 TEST_F(PickerClientImplTest, StartCrosSearch) {
   ash::PickerController controller;
   PickerClientImpl client(&controller, user_manager());
@@ -253,6 +253,11 @@ TEST_F(PickerClientImplTest, StartCrosSearch) {
   AddBookmarks(profile(), u"Foobaz", GURL("http://foo.com/bookmarks"));
   AddTab(browser(), GURL("http://foo.com/tab"));
   base::test::TestFuture<void> test_done;
+
+  auto ranker_manager =
+      std::make_unique<app_list::TestRankerManager>(profile());
+  ranker_manager->SetBestMatchString(u"tab");
+  client.set_ranker_manager_for_test(std::move(ranker_manager));
 
   NiceMock<MockSearchResultsCallback> mock_search_callback;
   EXPECT_CALL(mock_search_callback, Call(_, _)).Times(AnyNumber());
@@ -262,16 +267,26 @@ TEST_F(PickerClientImplTest, StartCrosSearch) {
            IsSupersetOf({
                Property(
                    "data", &ash::PickerSearchResult::data,
-                   VariantWith<ash::PickerSearchResult::BrowsingHistoryData>(
+                   VariantWith<
+                       ash::PickerSearchResult::BrowsingHistoryData>(AllOf(
                        Field("url",
                              &ash::PickerSearchResult::BrowsingHistoryData::url,
-                             GURL("http://foo.com/history")))),
+                             GURL("http://foo.com/history")),
+                       Field("best_match",
+                             &ash::PickerSearchResult::BrowsingHistoryData::
+                                 best_match,
+                             false)))),
                Property(
                    "data", &ash::PickerSearchResult::data,
-                   VariantWith<ash::PickerSearchResult::BrowsingHistoryData>(
+                   VariantWith<
+                       ash::PickerSearchResult::BrowsingHistoryData>(AllOf(
                        Field("url",
                              &ash::PickerSearchResult::BrowsingHistoryData::url,
-                             GURL("http://foo.com/tab")))),
+                             GURL("http://foo.com/tab")),
+                       Field("best_match",
+                             &ash::PickerSearchResult::BrowsingHistoryData::
+                                 best_match,
+                             true)))),
                Property(
                    "data", &ash::PickerSearchResult::data,
                    VariantWith<
@@ -282,7 +297,11 @@ TEST_F(PickerClientImplTest, StartCrosSearch) {
                            u"Foobaz"),
                        Field("url",
                              &ash::PickerSearchResult::BrowsingHistoryData::url,
-                             GURL("http://foo.com/bookmarks"))))),
+                             GURL("http://foo.com/bookmarks")),
+                       Field("best_match",
+                             &ash::PickerSearchResult::BrowsingHistoryData::
+                                 best_match,
+                             false)))),
            })))
       .WillOnce([&]() { test_done.SetValue(); });
 
@@ -553,7 +572,7 @@ TEST_F(PickerClientImplEditorTest,
   ash::PickerController controller;
   PickerClientImpl client(&controller, user_manager());
   GetEditorMediator(profile()).OverrideEditorModeForTesting(
-      ash::input_method::EditorMode::kBlocked);
+      ash::input_method::EditorMode::kHardBlocked);
 
   EXPECT_TRUE(client.CacheEditorContext().is_null());
 }
@@ -564,7 +583,7 @@ TEST_F(PickerClientImplEditorTest,
   ash::PickerController controller;
   PickerClientImpl client(&controller, user_manager());
   GetEditorMediator(profile()).OverrideEditorModeForTesting(
-      ash::input_method::EditorMode::kBlocked);
+      ash::input_method::EditorMode::kSoftBlocked);
 
   EXPECT_TRUE(client.CacheEditorContext().is_null());
 }
@@ -625,7 +644,7 @@ TEST_F(PickerClientImplEditorTest,
   ash::PickerController controller;
   PickerClientImpl client(&controller, user_manager());
   GetEditorMediator(profile()).OverrideEditorModeForTesting(
-      ash::input_method::EditorMode::kBlocked);
+      ash::input_method::EditorMode::kSoftBlocked);
   ui::FakeTextInputClient text_input_client(&ime(),
                                             {.type = ui::TEXT_INPUT_TYPE_TEXT});
   text_input_client.Focus();

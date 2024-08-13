@@ -15,7 +15,6 @@
 #import "third_party/metrics_proto/user_demographics.pb.h"
 
 @class ElementSelector;
-@class FakeSystemIdentity;
 
 @interface JavaScriptExecutionResult : NSObject
 @property(readonly, nonatomic) BOOL success;
@@ -350,9 +349,6 @@
 
 #pragma mark - Sync Utilities (EG2)
 
-// Signs in with `identity` without sync consent.
-+ (void)signInWithoutSyncWithIdentity:(FakeSystemIdentity*)identity;
-
 // Waits for sync engine to be initialized or not. It doesn't necessarily mean
 // that data types are configured and ready to use. See
 // SyncService::IsEngineInitialized() for details. If not succeeded a GREYAssert
@@ -603,6 +599,10 @@
 // Sets the time value for the local state pref with `prefName`. Local State
 // contains the preferences that are shared between all browser states.
 + (void)setTimeValue:(base::Time)value forLocalStatePref:(NSString*)prefName;
+
+// Sets the time value for the user pref with `prefName` in the original
+// browser state.
++ (void)setTimeValue:(base::Time)value forUserPref:(NSString*)prefName;
 
 // Sets the string value for the local state pref with `prefName`. Local State
 // contains the preferences that are shared between all browser states.

@@ -31,6 +31,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/reload_type.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
+#include "net/storage_access_api/status.h"
 #include "services/network/public/mojom/source_location.mojom-forward.h"
 #include "third_party/blink/public/common/scheduler/task_attribution_id.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
@@ -148,8 +149,6 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
   void Reload(ReloadType reload_type, bool check_for_repost) override;
   void NotifyEntryChanged(NavigationEntry* entry) override;
   void CopyStateFrom(NavigationController* source, bool needs_reload) override;
-  void CopyStateFromAndPrune(NavigationController* source,
-                             bool replace_entry) override;
   bool CanPruneAllButLastCommitted() override;
   void PruneAllButLastCommitted() override;
   void DeleteNavigationEntries(
@@ -247,6 +246,9 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       bool is_unfenced_top_navigation = false,
       bool force_new_browsing_instance = false,
       bool is_container_initiated = false,
+      bool has_rel_opener = false,
+      net::StorageAccessApiStatus storage_access_api_status =
+          net::StorageAccessApiStatus::kNone,
       std::optional<std::u16string> embedder_shared_storage_context =
           std::nullopt);
 
@@ -484,8 +486,6 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
   // prerendering or for a fenced frame.
   // Explainer:
   // https://github.com/jeremyroman/alternate-loading-modes/blob/main/browsing-context.md#session-history)
-  //
-  // TODO(crbug.com/40606075): Consider portals here as well.
   bool ShouldMaintainTrivialSessionHistory(
       const FrameTreeNode* frame_tree_node) const;
 
@@ -700,6 +700,8 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       bool is_embedder_initiated_fenced_frame_navigation = false,
       bool is_unfenced_top_navigation = false,
       bool is_container_initiated = false,
+      net::StorageAccessApiStatus storage_access_api_status =
+          net::StorageAccessApiStatus::kNone,
       std::optional<std::u16string> embedder_shared_storage_context =
           std::nullopt);
 

@@ -26,7 +26,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/generated_safe_browsing_pref.h"
 #include "chrome/browser/ssl/generated_https_first_mode_pref.h"
+#include "chrome/browser/ui/safety_hub/safety_hub_prefs.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
+#include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -34,6 +36,7 @@
 #include "components/browsing_data/core/pref_names.h"
 #include "components/commerce/core/pref_names.h"
 #include "components/component_updater/pref_names.h"
+#include "components/compose/buildflags.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/dom_distiller/core/pref_names.h"
 #include "components/drive/drive_pref_names.h"
@@ -212,6 +215,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
 
   // Appearance settings.
   (*s_allowlist)[::prefs::kCurrentThemeID] = settings_api::PrefType::kString;
+  (*s_allowlist)[::prefs::kPinnedActions] = settings_api::PrefType::kList;
   (*s_allowlist)[::prefs::kPolicyThemeColor] = settings_api::PrefType::kNumber;
 #if BUILDFLAG(IS_LINUX)
   (*s_allowlist)[::prefs::kSystemTheme] = settings_api::PrefType::kNumber;
@@ -475,13 +479,15 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kNumber;
   (*s_allowlist)[::prefs::kEnableQuietNotificationPermissionUi] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)
-      [::permissions::prefs::kUnusedSitePermissionsRevocationEnabled] =
-          settings_api::PrefType::kBoolean;
+  (*s_allowlist)[safety_hub_prefs::kUnusedSitePermissionsRevocationEnabled] =
+      settings_api::PrefType::kBoolean;
+
+#if BUILDFLAG(ENABLE_COMPOSE)
   (*s_allowlist)[prefs::kEnableProactiveNudge] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[prefs::kProactiveNudgeDisabledSitesWithTime] =
       settings_api::PrefType::kDictionary;
+#endif  // BUILDFLAG(ENABLE_COMPOSE)
 
   // Clear browsing data settings.
   (*s_allowlist)[browsing_data::prefs::kDeleteBrowsingHistory] =
@@ -604,11 +610,13 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kString;
   (*s_allowlist)[ash::prefs::kAccessibilityLargeCursorDipSize] =
       settings_api::PrefType::kNumber;
-  (*s_allowlist)[ash::prefs::kAccessibilityMagnifierFollowsSts] =
-      settings_api::PrefType::kBoolean;
   (*s_allowlist)
       [ash::prefs::kAccessibilityScreenMagnifierFocusFollowingEnabled] =
           settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kAccessibilityMagnifierFollowsChromeVox] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kAccessibilityMagnifierFollowsSts] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityScreenMagnifierMouseFollowingMode] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kAccessibilityScreenMagnifierScale] =
@@ -755,6 +763,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityCaretBlinkInterval] =
       settings_api::PrefType::kNumber;
+  (*s_allowlist)[ash::prefs::kAccessibilityDisableTrackpadEnabled] =
+      settings_api::PrefType::kBoolean;
 
   // Text to Speech.
   (*s_allowlist)[::prefs::kTextToSpeechLangToVoiceName] =
@@ -767,6 +777,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   // Guest OS
   (*s_allowlist)[bruschetta::prefs::kBruschettaInstalled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[bruschetta::prefs::kBruschettaMicAllowed] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[crostini::prefs::kCrostiniEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[crostini::prefs::kCrostiniMicAllowed] =
@@ -775,6 +787,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kList;
   (*s_allowlist)[guest_os::prefs::kGuestOsContainers] =
       settings_api::PrefType::kList;
+  (*s_allowlist)[guest_os::prefs::kGuestOsUSBNotificationEnabled] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[crostini::prefs::kCrostiniPortForwarding] =
       settings_api::PrefType::kList;
   (*s_allowlist)[guest_os::prefs::kGuestOSPathsSharedToVms] =
@@ -790,6 +804,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[arc::prefs::kArcEnabled] = settings_api::PrefType::kBoolean;
   (*s_allowlist)[arc::prefs::kArcLastSetAppLocale] =
       settings_api::PrefType::kString;
+  (*s_allowlist)[arc::prefs::kArcPackagesIsUpToDate] =
+      settings_api::PrefType::kBoolean;
 
   // App Notifications
   (*s_allowlist)[::ash::prefs::kAppNotificationBadgingEnabled] =
@@ -876,7 +892,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::kRevenEnableDeviceHWDataUsage] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)[ash::prefs::kMahiEnabled] = settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kHmrEnabled] = settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kMagicBoostEnabled] =
+      settings_api::PrefType::kBoolean;
 
   // Bluetooth & Internet settings.
   (*s_allowlist)[ash::kAllowBluetooth] = settings_api::PrefType::kBoolean;
@@ -1058,6 +1076,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kHardwareAccelerationModeEnabled] =
       settings_api::PrefType::kBoolean;
+#if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  (*s_allowlist)[::prefs::kFeatureNotificationsEnabled] =
+      settings_api::PrefType::kBoolean;
+#endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   // Import data
   (*s_allowlist)[::prefs::kImportDialogAutofillFormData] =
@@ -1164,6 +1186,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)
       [performance_manager::user_tuning::prefs::kDiscardRingTreatmentEnabled] =
           settings_api::PrefType::kBoolean;
+  (*s_allowlist)[performance_manager::user_tuning::prefs::
+                     kPerformanceInterventionNotificationEnabled] =
+      settings_api::PrefType::kBoolean;
 
   // AI settings.
   (*s_allowlist)
@@ -1177,6 +1202,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kNumber;
   (*s_allowlist)[optimization_guide::prefs::GetSettingEnabledPrefName(
       optimization_guide::UserVisibleFeatureKey::kWallpaperSearch)] =
+      settings_api::PrefType::kNumber;
+  (*s_allowlist)[optimization_guide::prefs::GetSettingEnabledPrefName(
+      optimization_guide::UserVisibleFeatureKey::kHistorySearch)] =
       settings_api::PrefType::kNumber;
 
   return *s_allowlist;

@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -55,7 +56,7 @@ class TextAutosizerTest : public RenderingTest,
 
     // This fake ChromeClient cannot update device scale factor (DSF). We apply
     // DSF to the zoom factor manually.
-    GetDocument().GetFrame()->SetPageZoomFactor(device_scale_factor);
+    GetDocument().GetFrame()->SetLayoutZoomFactor(device_scale_factor);
   }
 
  private:

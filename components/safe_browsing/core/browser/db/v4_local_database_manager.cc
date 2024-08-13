@@ -22,6 +22,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_tokenizer.h"
@@ -274,6 +275,10 @@ V4LocalDatabaseManager::PendingCheck::~PendingCheck() {
   DCHECK(!is_in_pending_checks);
 }
 
+void V4LocalDatabaseManager::PendingCheck::Abandon() {
+  client = nullptr;
+}
+
 // static
 const V4LocalDatabaseManager*
     V4LocalDatabaseManager::current_local_database_manager_;
@@ -356,6 +361,7 @@ void V4LocalDatabaseManager::CancelCheck(Client* client) {
   auto pending_it =
       base::ranges::find(pending_checks_, client, &PendingCheck::client);
   if (pending_it != pending_checks_.end()) {
+    (*pending_it)->Abandon();
     RemovePendingCheck(pending_it);
   }
 
@@ -578,10 +584,6 @@ ThreatSource V4LocalDatabaseManager::GetNonBrowseUrlThreatSource() const {
   return ThreatSource::LOCAL_PVER4;
 }
 
-bool V4LocalDatabaseManager::IsDownloadProtectionEnabled() const {
-  return true;
-}
-
 void V4LocalDatabaseManager::StartOnSBThread(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     const V4ProtocolConfig& config) {
@@ -752,7 +754,7 @@ void V4LocalDatabaseManager::GetSeverestThreatTypeAndMetadata(
     SBThreatType threat_type = GetSBThreatTypeForList(fhi.list_id);
 
     const auto& it = base::ranges::find(full_hashes, fhi.full_hash);
-    DCHECK(it != full_hashes.end());
+    CHECK(it != full_hashes.end(), base::NotFatalUntil::M130);
     (*full_hash_threat_types)[it - full_hashes.begin()] = threat_type;
 
     if (severity < most_severe_yet) {
@@ -780,7 +782,7 @@ std::unique_ptr<StoreStateMap> V4LocalDatabaseManager::GetStoreStateMap() {
 SBThreatType V4LocalDatabaseManager::GetSBThreatTypeForList(
     const ListIdentifier& list_id) {
   auto it = base::ranges::find(list_infos_, list_id, &ListInfo::list_id);
-  DCHECK(list_infos_.end() != it);
+  CHECK(list_infos_.end() != it, base::NotFatalUntil::M130);
   DCHECK_NE(SBThreatType::SB_THREAT_TYPE_SAFE, it->sb_threat_type());
   DCHECK_NE(SBThreatType::SB_THREAT_TYPE_UNUSED, it->sb_threat_type());
   return it->sb_threat_type();
@@ -1160,28 +1162,36 @@ void V4LocalDatabaseManager::RespondToClient(
     std::unique_ptr<PendingCheck> check) {
   RespondToClientWithoutPendingCheckCleanup(check.get());
 }
+
 void V4LocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
     PendingCheck* check) {
-  DCHECK(check);
+  CHECK(check);
+  CHECK(check->client ||
+        check->client_callback_type == ClientCallbackType::CHECK_OTHER);
+
+  // Responding to the client may cause deletion of the client. Reset the member
+  // so it's not dangling.
+  Client* client = check->client;
+  check->client = nullptr;
 
   switch (check->client_callback_type) {
     case ClientCallbackType::CHECK_BROWSE_URL:
     case ClientCallbackType::CHECK_URL_FOR_SUBRESOURCE_FILTER:
       DCHECK_EQ(1u, check->urls.size());
-      check->client->OnCheckBrowseUrlResult(
+      client->OnCheckBrowseUrlResult(
           check->urls[0], check->most_severe_threat_type, check->url_metadata);
       break;
 
     case ClientCallbackType::CHECK_DOWNLOAD_URLS:
-      check->client->OnCheckDownloadUrlResult(check->urls,
-                                              check->most_severe_threat_type);
+      client->OnCheckDownloadUrlResult(check->urls,
+                                       check->most_severe_threat_type);
       break;
 
     case ClientCallbackType::CHECK_RESOURCE_URL:
       DCHECK_EQ(1u, check->urls.size());
-      check->client->OnCheckResourceUrlResult(check->urls[0],
-                                              check->most_severe_threat_type,
-                                              check->matching_full_hash);
+      client->OnCheckResourceUrlResult(check->urls[0],
+                                       check->most_severe_threat_type,
+                                       check->matching_full_hash);
       break;
 
     case ClientCallbackType::CHECK_CSD_ALLOWLIST: {
@@ -1190,7 +1200,7 @@ void V4LocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
                                  SBThreatType::SB_THREAT_TYPE_CSD_ALLOWLIST;
       DCHECK(did_match_allowlist || check->most_severe_threat_type ==
                                         SBThreatType::SB_THREAT_TYPE_SAFE);
-      check->client->OnCheckAllowlistUrlResult(did_match_allowlist);
+      client->OnCheckAllowlistUrlResult(did_match_allowlist);
       break;
     }
 
@@ -1204,7 +1214,7 @@ void V4LocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
           unsafe_extension_ids.insert(check->full_hashes[i]);
         }
       }
-      check->client->OnCheckExtensionsResult(unsafe_extension_ids);
+      client->OnCheckExtensionsResult(unsafe_extension_ids);
       break;
     }
 

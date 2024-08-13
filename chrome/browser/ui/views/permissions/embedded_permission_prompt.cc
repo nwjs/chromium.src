@@ -8,8 +8,7 @@
 #include "chrome/browser/content_settings/chrome_content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/media/webrtc/media_stream_device_permissions.h"
-#include "chrome/browser/permissions/system_permission_delegate.h"
-#include "chrome/browser/permissions/system_permission_delegate_factory.h"
+#include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_ask_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_base_view.h"
@@ -180,13 +179,12 @@ EmbeddedPermissionPrompt::DeterminePromptVariant(
   // whereas the "OS Prompt" view is only higher priority then the views that
   // are associated with a site-level allowed state.
   // TODO(crbug.com/40275129): Handle going to Windows settings.
-  auto* system_permission_delegate = GetSystemPermissionDelegate(type);
-  if (system_permission_delegate->IsSystemPermissionDenied()) {
+  if (SystemPermissionSettings::GetInstance()->IsDenied(type)) {
     return Variant::kOsSystemSettings;
   }
 
   if (setting == CONTENT_SETTING_ALLOW &&
-      system_permission_delegate->CanShowSystemPermissionPrompt()) {
+      SystemPermissionSettings::GetInstance()->CanPrompt(type)) {
     return Variant::kOsPrompt;
   }
 
@@ -378,9 +376,8 @@ void EmbeddedPermissionPrompt::PrecalculateVariantsForMetrics() {
 
   if (os_prompt_variant_ == Variant::kUninitialized) {
     for (const auto& request : delegate()->Requests()) {
-      auto* system_permission_delegate =
-          GetSystemPermissionDelegate(request->GetContentSettingsType());
-      if (system_permission_delegate->CanShowSystemPermissionPrompt()) {
+      if (SystemPermissionSettings::GetInstance()->CanPrompt(
+              request->GetContentSettingsType())) {
         os_prompt_variant_ = Variant::kOsPrompt;
         break;
       }
@@ -389,9 +386,8 @@ void EmbeddedPermissionPrompt::PrecalculateVariantsForMetrics() {
 
   if (os_system_settings_variant_ == Variant::kUninitialized) {
     for (const auto& request : delegate()->Requests()) {
-      auto* system_permission_delegate =
-          GetSystemPermissionDelegate(request->GetContentSettingsType());
-      if (system_permission_delegate->IsSystemPermissionDenied()) {
+      if (SystemPermissionSettings::GetInstance()->IsDenied(
+              request->GetContentSettingsType())) {
         os_system_settings_variant_ = Variant::kOsSystemSettings;
         break;
       }
@@ -423,6 +419,15 @@ EmbeddedPermissionPrompt::GetPromptVariants() const {
 
 bool EmbeddedPermissionPrompt::IsAskPrompt() const {
   return (embedded_prompt_variant_ == Variant::kAsk);
+}
+
+std::optional<permissions::feature_params::PermissionElementPromptPosition>
+EmbeddedPermissionPrompt::GetPromptPosition() const {
+  if (auto* prompt_view = static_cast<const EmbeddedPermissionPromptBaseView*>(
+          prompt_view_tracker_.view())) {
+    return prompt_view->GetPromptPosition();
+  }
+  return std::nullopt;
 }
 
 void EmbeddedPermissionPrompt::Allow() {
@@ -476,9 +481,9 @@ void EmbeddedPermissionPrompt::ShowSystemSettings() {
   RecordOsMetrics(permissions::OsScreenAction::SYSTEM_SETTINGS);
   RecordPermissionActionUKM(
       permissions::ElementAnchoredBubbleAction::kSystemSettings);
-  auto* system_permission_delegate =
-      GetSystemPermissionDelegate(requests_[0]->GetContentSettingsType());
-  system_permission_delegate->ShowSystemPermissionSettingsView();
+  SystemPermissionSettings::GetInstance()->OpenSystemSettings(
+      delegate()->GetAssociatedWebContents(),
+      requests_[0]->GetContentSettingsType());
 }
 
 base::WeakPtr<permissions::PermissionPrompt::Delegate>
@@ -511,30 +516,29 @@ void EmbeddedPermissionPrompt::PromptForOsPermission() {
                                          prompt_types_.end());
 
   for (unsigned int idx = 0; idx < types.size(); idx++) {
-    auto* system_permission_delegate = GetSystemPermissionDelegate(types[idx]);
-    system_permission_delegate->RequestSystemPermission(base::BindOnce(
-        &EmbeddedPermissionPrompt::OnRequestSystemPermissionResponse,
-        weak_factory_.GetWeakPtr(), types[idx],
-        // Pass the other type for grouped permission case.
-        (types.size() == 2U ? types[1U - idx] : ContentSettingsType::DEFAULT)));
+    SystemPermissionSettings::GetInstance()->Request(
+        types[idx],
+        base::BindOnce(
+            &EmbeddedPermissionPrompt::OnRequestSystemPermissionResponse,
+            weak_factory_.GetWeakPtr(), types[idx],
+            // Pass the other type for grouped permission case.
+            (types.size() == 2U ? types[1U - idx]
+                                : ContentSettingsType::DEFAULT)));
   }
 }
 
 void EmbeddedPermissionPrompt::OnRequestSystemPermissionResponse(
     const ContentSettingsType request_type,
     const ContentSettingsType other_request_type) {
-  auto* system_permission_delegate = GetSystemPermissionDelegate(request_type);
   bool permission_determined =
-      !system_permission_delegate->CanShowSystemPermissionPrompt();
+      !SystemPermissionSettings::GetInstance()->CanPrompt(request_type);
 
   // `other_permission_determined` is left with true in non-grouped scenario,
   // which would make the final logic fully rely on `permission_determined`.
   auto other_permission_determined = true;
   if (other_request_type != ContentSettingsType::DEFAULT) {
-    auto* other_system_permission_delegate =
-        GetSystemPermissionDelegate(other_request_type);
     other_permission_determined =
-        !other_system_permission_delegate->CanShowSystemPermissionPrompt();
+        !SystemPermissionSettings::GetInstance()->CanPrompt(other_request_type);
   }
 
   if (permission_determined) {
@@ -622,18 +626,6 @@ void EmbeddedPermissionPrompt::CloseView() {
     content_scrim_widget_->Close();
     content_scrim_widget_.reset();
   }
-}
-
-EmbeddedPermissionPrompt::SystemPermissionDelegate*
-EmbeddedPermissionPrompt::GetSystemPermissionDelegate(
-    ContentSettingsType type) {
-  if (system_permission_delegates_.find(type) ==
-      system_permission_delegates_.end()) {
-    system_permission_delegates_.insert(
-        {type, SystemPermissionDelegateFactory::CreateSystemPermissionDelegate(
-                   type)});
-  }
-  return system_permission_delegates_.at(type).get();
 }
 
 void EmbeddedPermissionPrompt::FinalizePrompt() {

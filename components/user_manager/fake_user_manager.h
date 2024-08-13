@@ -10,7 +10,6 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
-#include "base/strings/string_piece.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager_base.h"
@@ -114,8 +113,6 @@ class USER_MANAGER_EXPORT FakeUserManager : public UserManagerBase {
       const AccountId& account_id) const override;
 
   // UserManagerBase overrides:
-  void LoadDeviceLocalAccounts(
-      std::set<AccountId>* device_local_accounts_set) override {}
   bool IsDeviceLocalAccountMarkedForRemoval(
       const AccountId& account_id) const override;
   void SetUserAffiliated(const AccountId& account_id,

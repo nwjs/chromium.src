@@ -41,7 +41,7 @@ namespace autofill {
 class AutofillField;
 class AutofillProfile;
 class CreditCard;
-struct FormData;
+class FormData;
 class FormFieldData;
 class FormStructure;
 class LogManager;
@@ -192,7 +192,7 @@ class AutofillManager
   // TODO(crbug.com/40733066): Move to anonymous namespace once
   // BrowserAutofillManager::OnLoadedServerPredictions() moves to
   // AutofillManager.
-  static void LogAutofillTypePredictionsAvailable(
+  static void LogTypePredictionsAvailable(
       LogManager* log_manager,
       const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms);
 
@@ -267,10 +267,11 @@ class AutofillManager
   // corresponding to |form| and |field|.  This might have the side-effect of
   // updating the cache.  Returns false if the |form| is not autofillable, or if
   // it is not already present in the cache and the cache is full.
-  bool GetCachedFormAndField(const FormData& form,
-                             const FormFieldData& field,
-                             FormStructure** form_structure,
-                             AutofillField** autofill_field) const;
+  [[nodiscard]] bool GetCachedFormAndField(
+      const FormData& form,
+      const FormFieldData& field,
+      FormStructure** form_structure,
+      AutofillField** autofill_field) const;
 
   // Returns nullptr if no cached form structure is found with a matching
   // |form_id|. Runs in logarithmic time.

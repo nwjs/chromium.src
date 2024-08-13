@@ -40,6 +40,22 @@ BASE_FEATURE(kEnforceNoExecutableFileHandles,
              "EnforceNoExecutableFileHandles",
              FEATURE_ENABLED_BY_DEFAULT);
 
+// Use non default low memory device threshold.
+// Value should be given via |LowMemoryDeviceThresholdMB|.
+#if BUILDFLAG(IS_IOS)
+// For M99, 45% of devices have 2GB of RAM, and 55% have more.
+#define LOW_MEMORY_DEVICE_THRESHOLD_MB 1024
+#else
+// Updated Desktop default threshold to match the Android 2021 definition.
+#define LOW_MEMORY_DEVICE_THRESHOLD_MB 2048
+#endif
+BASE_FEATURE(kLowEndMemoryExperiment,
+             "LowEndMemoryExperiment",
+             FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kLowMemoryDeviceThresholdMB{
+    &kLowEndMemoryExperiment, "LowMemoryDeviceThresholdMB",
+    LOW_MEMORY_DEVICE_THRESHOLD_MB};
+
 // TODO(crbug.com/40580068): Roll out this to 100% before replacing existing
 // NOTREACHED_IN_MIGRATION()s with NOTREACHED() as part of [[noreturn]]
 // migration. Note that a prerequisite for rolling out this experiment is that
@@ -49,9 +65,6 @@ BASE_FEATURE(kEnforceNoExecutableFileHandles,
 BASE_FEATURE(kNotReachedIsFatal,
              "NotReachedIsFatal",
              FEATURE_ENABLED_BY_DEFAULT);
-
-// Optimizes parsing and loading of data: URLs.
-BASE_FEATURE(kOptimizeDataUrls, "OptimizeDataUrls", FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseRustJsonParser,
              "UseRustJsonParser",
@@ -87,6 +100,12 @@ BASE_FEATURE(kPartialLowEndModeOnMidRangeDevices,
 // Whether to report frame metrics to the Android.FrameTimeline.* histograms.
 BASE_FEATURE(kCollectAndroidFrameTimelineMetrics,
              "CollectAndroidFrameTimelineMetrics",
+             FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, post registering PowerMonitor broadcast receiver to a background
+// thread,
+BASE_FEATURE(kPostPowerMonitorBroadcastReceiverInitToBackground,
+             "PostPowerMonitorBroadcastReceiverInitToBackground",
              FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 

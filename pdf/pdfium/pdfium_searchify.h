@@ -15,13 +15,33 @@
 #include "third_party/pdfium/public/cpp/fpdf_scopers.h"
 #include "third_party/pdfium/public/fpdfview.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/gfx/geometry/point_f.h"
+
+namespace gfx {
+class Rect;
+}  // namespace gfx
 
 namespace chrome_pdf {
+
+struct SearchifyBoundingBoxOrigin {
+  gfx::PointF point;
+  float theta;
+};
 
 std::vector<uint8_t> PDFiumSearchify(
     base::span<const uint8_t> pdf_buffer,
     base::RepeatingCallback<screen_ai::mojom::VisualAnnotationPtr(
         const SkBitmap& bitmap)> perform_ocr_callback);
+
+// Internal functions exposed for testing.
+SearchifyBoundingBoxOrigin ConvertToPdfOriginForTesting(
+    const gfx::Rect& rect,
+    float angle,
+    float coordinate_system_height);
+FS_MATRIX CalculateWordMoveMatrixForTesting(
+    const SearchifyBoundingBoxOrigin& origin,
+    int word_bounding_box_width,
+    bool word_is_rtl);
 
 class PdfiumProgressiveSearchifier : public PdfProgressiveSearchifier {
  public:

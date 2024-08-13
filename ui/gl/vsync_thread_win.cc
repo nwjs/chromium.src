@@ -10,6 +10,7 @@
 #include "base/memory/stack_allocated.h"
 #include "base/notreached.h"
 #include "base/power_monitor/power_monitor.h"
+#include "base/synchronization/lock_subtle.h"
 #include "base/time/time.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/win/windows_version.h"
@@ -151,7 +152,11 @@ class VSyncThreadWin::AutoVSyncThreadLock {
     if (g_current_thread_holds_lock) {
       vsync_thread->lock_.AssertAcquired();
     } else {
-      auto_lock_.emplace(vsync_thread->lock_);
+      auto_lock_.emplace(
+          vsync_thread->lock_,
+          // This lock is used to satisfy a mutual exclusion guarantee verified
+          // by a SEQUENCE_CHECKER in `observers_`.
+          base::subtle::LockTracking::kEnabled);
       g_current_thread_holds_lock = true;
     }
   }
@@ -218,7 +223,7 @@ void VSyncThreadWin::OnResume() {
   PostTaskIfNeeded();
 }
 
-void VSyncThreadWin::WaitForVSync() {
+base::TimeDelta VSyncThreadWin::GetVsyncInterval() {
   base::TimeTicks vsync_timebase;
   base::TimeDelta vsync_interval;
 
@@ -242,6 +247,11 @@ void VSyncThreadWin::WaitForVSync() {
           : vsync_provider_.GetVSyncParametersIfAvailable(&vsync_timebase,
                                                           &vsync_interval);
   DCHECK(get_vsync_params_succeeded);
+  return vsync_interval;
+}
+
+void VSyncThreadWin::WaitForVSync() {
+  base::TimeDelta vsync_interval = GetVsyncInterval();
 
   if (!dxgi_adapter_ || !DXGIFactoryIsCurrent(dxgi_adapter_.Get())) {
     TRACE_EVENT("gpu", "DXGIFactoryIsCurrent non-current factory");

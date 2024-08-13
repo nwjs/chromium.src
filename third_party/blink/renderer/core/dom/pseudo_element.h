@@ -74,9 +74,18 @@ class CORE_EXPORT PseudoElement : public Element {
   static AtomicString PseudoElementNameForEvents(Element*);
   static bool IsWebExposed(PseudoId, const Node*);
 
-  // Pseudo element are not allowed to be the inner node for hit testing. Find
-  // the closest ancestor which is a real dom node.
-  virtual Node* InnerNodeForHitTesting() const;
+  int DefaultTabIndex() const override;
+  bool HasActivationBehavior() const final {
+    return IsScrollMarkerPseudoElement();
+  }
+  void DefaultEventHandler(Event&) override;
+  bool WillRespondToMouseClickEvents() override {
+    return IsScrollMarkerPseudoElement();
+  }
+
+  // Pseudo element (apart from ::scroll-marker) are not allowed to be the inner
+  // node for hit testing. Find the closest ancestor which is a real dom node.
+  virtual Node* InnerNodeForHitTesting();
 
   void AccessKeyAction(SimulatedClickCreationScope creation_scope) override;
 
@@ -110,6 +119,9 @@ CORE_EXPORT const QualifiedName& PseudoElementTagName(PseudoId);
 
 bool PseudoElementLayoutObjectIsNeeded(PseudoId pseudo_id,
                                        const ComputedStyle* pseudo_style,
+                                       const Element* originating_element);
+bool PseudoElementLayoutObjectIsNeeded(PseudoId pseudo_id,
+                                       const DisplayStyle& pseudo_style,
                                        const Element* originating_element);
 
 template <>

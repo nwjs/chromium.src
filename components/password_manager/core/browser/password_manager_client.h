@@ -95,6 +95,7 @@ class FieldInfoManager;
 class PasswordFeatureManager;
 class PasswordFormManagerForUI;
 class PasswordManagerDriver;
+class PasswordManagerInterface;
 class PasswordManagerMetricsRecorder;
 class HttpAuthManager;
 class PasswordRequirementsService;
@@ -222,7 +223,9 @@ class PasswordManagerClient {
       base::OnceCallback<void(bool)> shown_cb);
 #endif
 
-  virtual bool CanUseBiometricAuthForFilling(
+  // Checks whether user re-authentication should be triggered before password
+  // filling.
+  virtual bool IsReauthBeforeFillingRequired(
       device_reauth::DeviceAuthenticator* authenticator);
 
   // Returns a pointer to a DeviceAuthenticator. Might be null if
@@ -370,8 +373,8 @@ class PasswordManagerClient {
 
   // Returns the PasswordManager associated with this client. The non-const
   // version calls the const one.
-  PasswordManager* GetPasswordManager();
-  virtual const PasswordManager* GetPasswordManager() const;
+  PasswordManagerInterface* GetPasswordManager();
+  virtual const PasswordManagerInterface* GetPasswordManager() const;
 
   // Returns the PasswordFeatureManager associated with this client. The
   // non-const version calls the const one.
@@ -435,7 +438,7 @@ class PasswordManagerClient {
   virtual void MaybeReportEnterpriseLoginEvent(
       const GURL& url,
       bool is_federated,
-      const url::Origin& federated_origin,
+      const url::SchemeHostPort& federated_origin,
       const std::u16string& login_user_name) const {}
 
   // If the feature is enabled send an event to the enterprise reporting

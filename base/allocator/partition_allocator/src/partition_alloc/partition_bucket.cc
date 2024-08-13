@@ -6,12 +6,12 @@
 #include "partition_alloc/partition_bucket.h"
 
 #include <algorithm>
-#include <bit>
 #include <cstdint>
 #include <tuple>
 
 #include "partition_alloc/address_pool_manager.h"
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/freeslot_bitmap.h"
 #include "partition_alloc/freeslot_bitmap_constants.h"
 #include "partition_alloc/oom.h"
@@ -23,10 +23,8 @@
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
 #include "partition_alloc/partition_alloc_base/debug/alias.h"
-#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
 #include "partition_alloc/partition_alloc_base/immediate_crash.h"
 #include "partition_alloc/partition_alloc_base/thread_annotations.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_constants.h"
@@ -38,10 +36,6 @@
 #include "partition_alloc/partition_root.h"
 #include "partition_alloc/reservation_offset_table.h"
 #include "partition_alloc/tagging.h"
-
-#if PA_BUILDFLAG(USE_STARSCAN)
-#include "partition_alloc/starscan/pcscan.h"
-#endif
 
 namespace partition_alloc::internal {
 
@@ -187,7 +181,7 @@ SlotSpanMetadata* PartitionDirectMap(PartitionRoot* root,
                                      size_t raw_size,
                                      size_t slot_span_alignment) {
   PA_DCHECK((slot_span_alignment >= PartitionPageSize()) &&
-            std::has_single_bit(slot_span_alignment));
+            base::bits::HasSingleBit(slot_span_alignment));
 
   // No static EXCLUSIVE_LOCKS_REQUIRED(), as the checker doesn't understand
   // scoped unlocking.
@@ -256,7 +250,7 @@ SlotSpanMetadata* PartitionDirectMap(PartitionRoot* root,
     const size_t reservation_size = PartitionRoot::GetDirectMapReservationSize(
         raw_size + padding_for_alignment);
     PA_DCHECK(reservation_size >= raw_size);
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
     const size_t available_reservation_size =
         reservation_size - padding_for_alignment -
         PartitionRoot::GetDirectMapMetadataAndGuardPagesSize();
@@ -792,19 +786,7 @@ PartitionBucket::InitializeSuperPage(PartitionRoot* root,
   uintptr_t state_bitmap =
       super_page + PartitionPageSize() +
       (is_direct_mapped() ? 0 : ReservedFreeSlotBitmapSize());
-#if PA_BUILDFLAG(USE_STARSCAN)
-  PA_DCHECK(SuperPageStateBitmapAddr(super_page) == state_bitmap);
-  const size_t state_bitmap_reservation_size =
-      root->IsQuarantineAllowed() ? ReservedStateBitmapSize() : 0;
-  const size_t state_bitmap_size_to_commit =
-      root->IsQuarantineAllowed() ? CommittedStateBitmapSize() : 0;
-  PA_DCHECK(state_bitmap_reservation_size % PartitionPageSize() == 0);
-  PA_DCHECK(state_bitmap_size_to_commit % SystemPageSize() == 0);
-  PA_DCHECK(state_bitmap_size_to_commit <= state_bitmap_reservation_size);
-  uintptr_t payload = state_bitmap + state_bitmap_reservation_size;
-#else
   uintptr_t payload = state_bitmap;
-#endif  // PA_BUILDFLAG(USE_STARSCAN)
 
   root->next_partition_page = payload;
   root->next_partition_page_end = root->next_super_page - PartitionPageSize();
@@ -886,24 +868,6 @@ PartitionBucket::InitializeSuperPage(PartitionRoot* root,
     PA_DCHECK(payload > SuperPagesBeginFromExtent(current_extent) &&
               payload < SuperPagesEndFromExtent(current_extent));
   }
-
-  // If PCScan is used, commit the state bitmap. Otherwise, leave it uncommitted
-  // and let PartitionRoot::RegisterScannableRoot() commit it when needed. Make
-  // sure to register the super-page after it has been fully initialized.
-  // Otherwise, the concurrent scanner may try to access |extent->root| which
-  // could be not initialized yet.
-#if PA_BUILDFLAG(USE_STARSCAN)
-  if (root->IsQuarantineEnabled()) {
-    {
-      ScopedSyscallTimer timer{root};
-      RecommitSystemPages(state_bitmap, state_bitmap_size_to_commit,
-                          root->PageAccessibilityWithThreadIsolationIfEnabled(
-                              PageAccessibilityConfiguration::kReadWrite),
-                          PageAccessibilityDisposition::kRequireUpdate);
-    }
-    PCScan::RegisterNewSuperPage(root, super_page);
-  }
-#endif  // PA_BUILDFLAG(USE_STARSCAN)
 
 #if PA_BUILDFLAG(USE_FREESLOT_BITMAP)
   // Commit the pages for freeslot bitmap.
@@ -1043,7 +1007,7 @@ PartitionBucket::ProvisionMoreSlotsAndAllocOne(PartitionRoot* root,
     next_slot = next_slot_end;
     next_slot_end = next_slot + slot_size;
     prev_entry = entry;
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
     free_list_entries_added++;
 #endif
   }
@@ -1052,7 +1016,7 @@ PartitionBucket::ProvisionMoreSlotsAndAllocOne(PartitionRoot* root,
   FreeSlotBitmapMarkSlotAsFree(return_slot);
 #endif
 
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
   // The only provisioned slot not added to the free list is the one being
   // returned.
   PA_DCHECK(slots_to_provision == free_list_entries_added + 1);
@@ -1340,7 +1304,7 @@ uintptr_t PartitionBucket::SlowPathAlloc(PartitionRoot* root,
                                          SlotSpanMetadata** slot_span,
                                          bool* is_already_zeroed) {
   PA_DCHECK((slot_span_alignment >= PartitionPageSize()) &&
-            std::has_single_bit(slot_span_alignment));
+            base::bits::HasSingleBit(slot_span_alignment));
 
   // The slow path is called when the freelist is empty. The only exception is
   // when a higher-order alignment is requested, in which case the freelist

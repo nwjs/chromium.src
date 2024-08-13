@@ -21,44 +21,11 @@
 
 namespace performance_manager {
 
-namespace {
-
-using PageState = PageNode::PageState;
-
-bool IsValidInitialPageState(PageState page_state) {
-  switch (page_state) {
-    case PageState::kActive:
-    case PageState::kPrerendering:
-      return true;
-
-    case PageState::kBackForwardCache:
-      return false;
-  }
-  NOTREACHED_IN_MIGRATION();
-  return false;
-}
-
-bool IsValidPageStateTransition(PageState old_state, PageState new_state) {
-  switch (old_state) {
-    case PageState::kActive:
-      return new_state == PageState::kBackForwardCache;
-
-    case PageState::kPrerendering:
-    case PageState::kBackForwardCache:
-      return new_state == PageState::kActive;
-  }
-  NOTREACHED_IN_MIGRATION();
-  return false;
-}
-
-}  // namespace
-
 PageNodeImpl::PageNodeImpl(base::WeakPtr<content::WebContents> web_contents,
                            const std::string& browser_context_id,
                            const GURL& visible_url,
                            PagePropertyFlags initial_properties,
-                           base::TimeTicks visibility_change_time,
-                           PageState page_state)
+                           base::TimeTicks visibility_change_time)
     : web_contents_(std::move(web_contents)),
       visibility_change_time_(visibility_change_time),
       main_frame_url_(visible_url),
@@ -67,15 +34,14 @@ PageNodeImpl::PageNodeImpl(base::WeakPtr<content::WebContents> web_contents,
       is_audible_(initial_properties.Has(PagePropertyFlag::kIsAudible)),
       has_picture_in_picture_(
           initial_properties.Has(PagePropertyFlag::kHasPictureInPicture)),
-      page_state_(page_state) {
+      is_off_the_record_(
+          initial_properties.Has(PagePropertyFlag::kIsOffTheRecord)) {
   // Nodes are created on the UI thread, then accessed on the PM sequence.
   // `weak_this_` can be returned from GetWeakPtrOnUIThread() and dereferenced
   // on the PM sequence.
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DETACH_FROM_SEQUENCE(sequence_checker_);
   weak_this_ = weak_factory_.GetWeakPtr();
-
-  DCHECK(IsValidInitialPageState(page_state));
 
   if (is_audible_.value()) {
     audible_change_time_ = base::TimeTicks::Now();
@@ -87,11 +53,6 @@ PageNodeImpl::~PageNodeImpl() {
   DCHECK_EQ(nullptr, opener_frame_node_);
   DCHECK_EQ(nullptr, embedder_frame_node_);
   DCHECK_EQ(EmbeddingType::kInvalid, embedding_type_);
-  DCHECK(!page_load_tracker_data_);
-  DCHECK(!site_data_);
-  DCHECK(!tab_connectedness_data_);
-  DCHECK(!frozen_frame_data_);
-  DCHECK(!page_aggregator_data_);
 }
 
 const std::string& PageNodeImpl::GetBrowserContextID() const {
@@ -147,6 +108,10 @@ std::optional<base::TimeDelta> PageNodeImpl::GetTimeSinceLastAudibleChange()
 bool PageNodeImpl::HasPictureInPicture() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return has_picture_in_picture_.value();
+}
+
+bool PageNodeImpl::IsOffTheRecord() const {
+  return is_off_the_record_;
 }
 
 PageNode::LoadingState PageNodeImpl::GetLoadingState() const {
@@ -229,11 +194,6 @@ bool PageNodeImpl::HadUserEdits() const {
 
 base::WeakPtr<content::WebContents> PageNodeImpl::GetWebContents() const {
   return web_contents_;
-}
-
-PageState PageNodeImpl::GetPageState() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return page_state_.value();
 }
 
 uint64_t PageNodeImpl::EstimateResidentSetSize() const {
@@ -515,12 +475,6 @@ void PageNodeImpl::set_has_nonempty_beforeunload(
   has_nonempty_beforeunload_ = has_nonempty_beforeunload;
 }
 
-void PageNodeImpl::set_page_state(PageState page_state) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(IsValidPageStateTransition(page_state_.value(), page_state));
-  page_state_.SetAndMaybeNotify(this, page_state);
-}
-
 void PageNodeImpl::OnJoiningGraph() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
@@ -528,6 +482,8 @@ void PageNodeImpl::OnJoiningGraph() {
   // thread in the constructor, can only be dereferenced on the graph sequence.
   weak_factory_.BindToCurrentSequence(
       base::subtle::BindWeakPtrFactoryPassKey());
+
+  NodeAttachedDataStorage::Create(this);
 }
 
 void PageNodeImpl::OnBeforeLeavingGraph() {
@@ -548,11 +504,7 @@ void PageNodeImpl::OnBeforeLeavingGraph() {
 
 void PageNodeImpl::RemoveNodeAttachedData() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  page_load_tracker_data_.reset();
-  site_data_.reset();
-  tab_connectedness_data_.reset();
-  frozen_frame_data_.Reset();
-  page_aggregator_data_.Reset();
+  DestroyNodeInlineDataStorage();
 }
 
 const FrameNode* PageNodeImpl::GetOpenerFrameNode() const {

@@ -58,7 +58,9 @@ function addPrivacyChildRoutes(r: Partial<SettingsRoutes>) {
         r.PRIVACY_SANDBOX.createChild('/adPrivacy/measurement');
   }
 
+  // <if expr="use_nss_certs">
   r.CERTIFICATES = r.SECURITY.createChild('/certificates');
+  // </if>
 
   if (loadTimeData.getBoolean('enableSecurityKeysSubpage')) {
     r.SECURITY_KEYS = r.SECURITY.createChild('/securityKeys');
@@ -188,8 +190,8 @@ function createRoutes(): SettingsRoutes {
     if (loadTimeData.getBoolean('enablePageContentSetting')) {
       r.PAGE_CONTENT = r.SYNC.createChild('/syncSetup/pageContent');
     }
-    if (loadTimeData.getBoolean('enableHistorySearchSetting')) {
-      r.HISTORY_SEARCH = r.SYNC.createChild('/syncSetup/historySearch');
+    if (loadTimeData.getBoolean('showHistorySearchControl')) {
+      r.HISTORY_SEARCH = r.SYNC.createChild('/historySearch');
     }
   }
 

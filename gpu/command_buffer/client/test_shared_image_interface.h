@@ -13,9 +13,12 @@
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/client/test_gpu_memory_buffer_manager.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/ipc/client/shared_image_interface_proxy.h"
 
 namespace gpu {
+
+class TestBufferCollection;
 
 class TestSharedImageInterface : public SharedImageInterface {
  public:
@@ -47,12 +50,6 @@ class TestSharedImageInterface : public SharedImageInterface {
   SharedImageInterface::SharedImageMapping CreateSharedImage(
       const SharedImageInfo& si_info) override;
 
-  scoped_refptr<ClientSharedImage> CreateSharedImage(
-      gfx::GpuMemoryBuffer* gpu_memory_buffer,
-      GpuMemoryBufferManager* gpu_memory_buffer_manager,
-      gfx::BufferPlane plane,
-      const SharedImageInfo& si_info) override;
-
   void UpdateSharedImage(const SyncToken& sync_token,
                          const Mailbox& mailbox) override;
   void UpdateSharedImage(const SyncToken& sync_token,
@@ -73,7 +70,7 @@ class TestSharedImageInterface : public SharedImageInterface {
                                         const gfx::ColorSpace& color_space,
                                         GrSurfaceOrigin surface_origin,
                                         SkAlphaType alpha_type,
-                                        uint32_t usage) override;
+                                        SharedImageUsageSet usage) override;
   void PresentSwapChain(const SyncToken& sync_token,
                         const Mailbox& mailbox) override;
 
@@ -112,7 +109,10 @@ class TestSharedImageInterface : public SharedImageInterface {
   }
 
   void UseTestGMBInSharedImageCreationWithBufferUsage() {
-    test_gmb_manager_ = std::make_unique<TestGpuMemoryBufferManager>();
+    // Create |test_gmb_manager_| only if it doesn't already exist.
+    if (!test_gmb_manager_) {
+      test_gmb_manager_ = std::make_unique<TestGpuMemoryBufferManager>();
+    }
   }
 
   void emulate_client_provided_native_buffer() {
@@ -120,8 +120,8 @@ class TestSharedImageInterface : public SharedImageInterface {
   }
 
 #if BUILDFLAG(IS_MAC)
-  void set_macos_specific_texture_target(uint32_t target) {
-    shared_image_capabilities_.macos_specific_texture_target = target;
+  void set_texture_target_for_io_surfaces(uint32_t target) {
+    shared_image_capabilities_.texture_target_for_io_surfaces = target;
   }
 #endif
 
@@ -129,6 +129,8 @@ class TestSharedImageInterface : public SharedImageInterface {
   ~TestSharedImageInterface() override;
 
  private:
+  void InitializeSharedImageCapabilities();
+
   mutable base::Lock lock_;
 
   uint64_t release_id_ = 0;
@@ -138,6 +140,10 @@ class TestSharedImageInterface : public SharedImageInterface {
   base::flat_set<Mailbox> shared_images_;
   bool emulate_client_provided_native_buffer_ = false;
 
+#if BUILDFLAG(IS_FUCHSIA)
+  base::flat_map<zx_koid_t, std::unique_ptr<TestBufferCollection>>
+      sysmem_buffer_collections_;
+#endif
   SharedImageCapabilities shared_image_capabilities_;
   bool fail_shared_image_creation_with_buffer_usage_ = false;
 

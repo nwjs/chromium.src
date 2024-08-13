@@ -12,6 +12,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -26,6 +27,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
+#include "components/input/render_widget_host_input_event_router.h"
 #include "content/browser/devtools/devtools_agent_host_impl.h"
 #include "content/browser/devtools/protocol/native_input_event_builder.h"
 #include "content/browser/devtools/protocol/protocol.h"
@@ -35,7 +37,6 @@
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/web_contents/web_contents_impl.h"
-#include "content/common/input/render_widget_host_input_event_router.h"
 #include "content/common/input/synthetic_pinch_gesture.h"
 #include "content/common/input/synthetic_pinch_gesture_params.h"
 #include "content/common/input/synthetic_pointer_action.h"
@@ -136,19 +137,22 @@ base::TimeTicks GetEventTimeTicks(const Maybe<double>& timestamp) {
 }
 
 bool SetKeyboardEventText(
-    char16_t (&to)[blink::WebKeyboardEvent::kTextLengthCap],
+    base::span<char16_t, blink::WebKeyboardEvent::kTextLengthCap> to,
     Maybe<std::string> from) {
   if (!from.has_value()) {
     return true;
   }
 
   std::u16string text16 = base::UTF8ToUTF16(from.value());
-  if (text16.size() >= blink::WebKeyboardEvent::kTextLengthCap)
+  if (text16.size() >= to.size()) {
     return false;
+  }
 
-  for (size_t i = 0; i < text16.size(); ++i)
-    to[i] = text16[i];
-  to[text16.size()] = 0;
+  base::span<char16_t> to_text;
+  base::span<char16_t> to_nul;
+  std::tie(to_text, to_nul) = to.split_at(text16.size());
+  to_text.copy_from(text16);
+  to_nul.front() = 0;
   return true;
 }
 
@@ -738,7 +742,7 @@ class InputHandler::InputInjector
 
     widget_host_->Focus();
     widget_host_->GetTouchEmulator(/*create_if_necessary=*/true)
-        ->Enable(TouchEmulator::Mode::kInjectingTouchEvents,
+        ->Enable(input::TouchEmulator::Mode::kInjectingTouchEvents,
                  ui::GestureProviderConfigType::CURRENT_PLATFORM);
     base::OnceClosure closure = base::BindOnce(
         &DispatchTouchEventCallback::sendSuccess, std::move(callback));
@@ -1243,12 +1247,6 @@ void InputHandler::ImeSetComposition(
       RenderFrameHost::LifecycleState::kPrerendering) {
     NOTREACHED_IN_MIGRATION();
   }
-  // Portal cannot be focused.
-  if (web_contents_->IsPortal()) {
-    callback->sendFailure(
-        Response::InvalidRequest("A Portal cannot be focused."));
-    return;
-  }
 
   // |RenderFrameHostImpl::GetRenderWidgetHost| returns the RWHImpl of the
   // nearest local root of |host_|.
@@ -1480,8 +1478,14 @@ void InputHandler::OnWidgetForDispatchDragEvent(
 
 float InputHandler::ScaleFactor() {
   DCHECK(web_contents_);
-  return blink::PageZoomLevelToZoomFactor(
-             web_contents_->GetPendingPageZoomLevel()) *
+  RenderWidgetHostImpl* widget_host =
+      host_ ? host_->GetRenderWidgetHost() : nullptr;
+  float page_zoom_level = 0.;
+  if (widget_host && widget_host->GetView()) {
+    page_zoom_level = widget_host->GetView()->GetZoomLevel();
+  }
+
+  return blink::ZoomLevelToZoomFactor(page_zoom_level) *
          web_contents_->GetPrimaryPage().GetPageScaleFactor();
 }
 

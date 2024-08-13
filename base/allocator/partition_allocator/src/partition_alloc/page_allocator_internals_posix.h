@@ -14,10 +14,10 @@
 #include <cstring>
 
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/oom.h"
 #include "partition_alloc/page_allocator.h"
 #include "partition_alloc/page_allocator_constants.h"
-#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
 #include "partition_alloc/partition_alloc_base/notreached.h"
 #include "partition_alloc/partition_alloc_base/posix/eintr_wrapper.h"
 #include "partition_alloc/partition_alloc_check.h"
@@ -299,14 +299,14 @@ void DecommitSystemPagesInternal(
 
   bool change_permissions =
       accessibility_disposition == PageAccessibilityDisposition::kRequireUpdate;
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
   // This is not guaranteed, show that we're serious.
   //
   // More specifically, several callers have had issues with assuming that
   // memory is zeroed, this would hopefully make these bugs more visible.  We
   // don't memset() everything, because ranges can be very large, and doing it
   // over the entire range could make Chrome unusable with
-  // PA_BUILDFLAG(PA_DCHECK_IS_ON).
+  // PA_BUILDFLAG(DCHECKS_ARE_ON).
   //
   // Only do it when we are about to change the permissions, since we don't know
   // the previous permissions, and cannot restore them.

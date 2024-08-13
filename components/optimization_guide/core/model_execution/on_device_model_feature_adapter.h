@@ -17,21 +17,15 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/types/expected.h"
 #include "components/optimization_guide/core/model_execution/redactor.h"
+#include "components/optimization_guide/core/model_execution/response_parser.h"
 #include "components/optimization_guide/core/model_execution/substitution.h"
+#include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/proto/features/text_safety.pb.h"
 #include "components/optimization_guide/proto/on_device_model_execution_config.pb.h"
 
 namespace optimization_guide {
 
 class Redactor;
-
-// A reason why parsing a model response failed.
-enum class ResponseParsingError {
-  // Response did not have the expected structure, or similar parsing errors.
-  kFailed = 1,
-  // Response potentially contained disallowed PII.
-  kRejectedPii = 2,
-};
 
 // Adapts the on-device model to be used for a particular feature, based on
 // a configuration proto.
@@ -47,14 +41,11 @@ class OnDeviceModelFeatureAdapter final
       const google::protobuf::MessageLite& request,
       bool want_input_context) const;
 
-  using ParseResponseCallback = base::OnceCallback<void(
-      base::expected<proto::Any, ResponseParsingError>)>;
-
   // Converts model response into this feature's expected response type.
   // Replies with std::nullopt on error.
   void ParseResponse(const google::protobuf::MessageLite& request,
                      const std::string& model_response,
-                     ParseResponseCallback callback) const;
+                     ResponseParser::ResultCallback callback) const;
 
   // Constructs the request for text safety server fallback.
   // Will return std::nullopt on error or if the config does not allow for it.
@@ -63,6 +54,8 @@ class OnDeviceModelFeatureAdapter final
       const std::string& text) const;
 
   bool CanSkipTextSafety() const { return config_.can_skip_text_safety(); }
+
+  std::optional<SamplingParams> MaybeSamplingParams() const;
 
  private:
   friend class base::RefCounted<OnDeviceModelFeatureAdapter>;
@@ -78,6 +71,7 @@ class OnDeviceModelFeatureAdapter final
 
   proto::OnDeviceModelExecutionFeatureConfig config_;
   Redactor redactor_;
+  std::unique_ptr<ResponseParser> parser_;
 };
 
 }  // namespace optimization_guide

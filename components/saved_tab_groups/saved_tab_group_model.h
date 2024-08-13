@@ -7,6 +7,9 @@
 
 #include <memory>
 #include <optional>
+#include <set>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "base/functional/callback_helpers.h"
@@ -14,6 +17,7 @@
 #include "base/observer_list.h"
 #include "components/saved_tab_groups/saved_tab_group.h"
 #include "components/saved_tab_groups/saved_tab_group_tab.h"
+#include "components/saved_tab_groups/types.h"
 #include "components/sync/protocol/saved_tab_group_specifics.pb.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
@@ -55,13 +59,6 @@ class SavedTabGroupModel {
   const SavedTabGroup* Get(const LocalTabGroupID local_group_id) const;
   const SavedTabGroup* Get(const base::Uuid& id) const;
 
-  // Non-const getters to get a SavedTabGroup. This is safe since
-  // SavedTabGroupModel is internal only to //components/saved_tab_group. The
-  // external callers will go through TabGroupSyncService which will never
-  // expose a non-const SavedTabGroup.
-  SavedTabGroup* Get(const LocalTabGroupID local_group_id);
-  SavedTabGroup* Get(const base::Uuid& id);
-
   // Methods for checking if a group is in the SavedTabGroupModel.
   bool Contains(const LocalTabGroupID& local_group_id) const {
     return GetIndexOf(local_group_id).has_value();
@@ -82,8 +79,6 @@ class SavedTabGroupModel {
   void Remove(const base::Uuid& id);
   void UpdateVisualData(const LocalTabGroupID local_group_id,
                         const tab_groups::TabGroupVisualData* visual_data);
-  void UpdateVisualData(const base::Uuid& id,
-                        const tab_groups::TabGroupVisualData* visual_data);
 
   // Pin SavedTabGroup if it's unpinned. Unpin SavedTabGroup if it's pinned.
   void TogglePinState(base::Uuid id);
@@ -101,8 +96,10 @@ class SavedTabGroupModel {
       const base::Uuid& id,
       const tab_groups::TabGroupVisualData* visual_data);
 
-  SavedTabGroup* GetGroupContainingTab(const base::Uuid& saved_tab_guid);
-  SavedTabGroup* GetGroupContainingTab(const LocalTabID& local_tab_id);
+  const SavedTabGroup* GetGroupContainingTab(
+      const base::Uuid& saved_tab_guid) const;
+  const SavedTabGroup* GetGroupContainingTab(
+      const LocalTabID& local_tab_id) const;
 
   // Adds a saved tab to `index` in the specified group denoted by `group_id` if
   // it exists. Notify local observers if the tab was added locally, and sync
@@ -172,10 +169,8 @@ class SavedTabGroupModel {
 
   // Loads the model from the storage. `tabs` must have a corresponding group in
   // `groups`.
-  void LoadStoredEntries(
-      std::vector<SavedTabGroup> groups,
-      std::vector<SavedTabGroupTab> tabs,
-      base::OnceCallback<void()> on_loaded_callback = base::DoNothing());
+  void LoadStoredEntries(std::vector<SavedTabGroup> groups,
+                         std::vector<SavedTabGroupTab> tabs);
 
   // Functions that should be called when a SavedTabGroup's corresponding
   // TabGroup is closed or opened.
@@ -191,6 +186,12 @@ class SavedTabGroupModel {
   void MigrateTabGroupSavesUIUpdate();
 
  private:
+  // Returns mutable group containing tab with ID `saved_tab_guid`, otherwise
+  // returns null.
+  SavedTabGroup* MutableGroupContainingTab(const base::Uuid& saved_tab_guid);
+  SavedTabGroup* GetMutableGroup(const LocalTabGroupID& local_group_id);
+  SavedTabGroup* GetMutableGroup(const base::Uuid& id);
+
   // Moves the group denoted by `id` to the position `new_index`.
   void ReorderGroupImpl(const base::Uuid& id, int new_index);
 

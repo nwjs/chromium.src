@@ -22,11 +22,11 @@ ci.defaults.set(
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
+    gardener_rotations = gardener_rotations.CHROMIUM,
     tree_closing = True,
     main_console_view = "main",
     contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
-    gardener_rotations = gardener_rotations.CHROMIUM,
     health_spec = health_spec.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
@@ -81,6 +81,8 @@ linux_memory_builder(
             "release_try_builder",
             "minimal_symbols",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     ssd = True,
@@ -147,6 +149,8 @@ linux_memory_builder(
             "fail_on_san_warnings",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -183,6 +187,8 @@ linux_memory_builder(
             "static",
             "dcheck_always_on",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     cores = 32,
@@ -223,6 +229,7 @@ linux_memory_builder(
             "release_try_builder",
             "minimal_symbols",
             "remoteexec",
+            "x64",
         ],
     ),
     cores = 16,
@@ -292,6 +299,7 @@ linux_memory_builder(
             "msan",
             "release_builder",
             "remoteexec",
+            "x64",
         ],
     ),
     cores = 16,
@@ -355,8 +363,11 @@ linux_memory_builder(
     gn_args = gn_args.config(
         configs = [
             "msan",
+            "fail_on_san_warnings",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     ssd = True,
@@ -394,47 +405,6 @@ linux_memory_builder(
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CI,
 )
 
-linux_memory_builder(
-    name = "linux-lacros-asan-lsan-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium_no_telemetry_dependencies",
-            apply_configs = [
-                "chromeos",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.CHROMEOS,
-        ),
-        build_gs_bucket = "chromium-memory-archive",
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "asan",
-            "lsan",
-            "release_try_builder",
-            "minimal_symbols",
-            "remoteexec",
-            "lacros_on_linux",
-            "also_build_ash_chrome",
-        ],
-    ),
-    cores = 16,
-    ssd = True,
-    console_view_entry = consoles.console_view_entry(
-        category = "lacros|asan",
-        short_name = "asan",
-    ),
-    execution_timeout = 4 * time.hour,
-)
-
 ci.builder(
     name = "Mac ASan 64 Builder",
     triggering_policy = scheduler.greedy_batching(
@@ -462,6 +432,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "dcheck_always_on",
+            "mac",
+            "x64",
         ],
     ),
     builderless = False,
@@ -558,6 +530,8 @@ ci.builder(
             "lsan",
             "release_builder_blink",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -589,6 +563,8 @@ ci.builder(
         configs = [
             "release_builder_blink",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -622,6 +598,8 @@ ci.builder(
             "msan",
             "release_builder_blink",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -656,15 +634,16 @@ ci.builder(
             "remoteexec",
             "strip_debug_info",
             "minimal_symbols",
+            "arm",
         ],
     ),
     os = os.LINUX_DEFAULT,
+    gardener_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "android",
         short_name = "asn",
     ),
-    gardener_rotations = args.ignore_default(None),
 )
 
 ci.builder(
@@ -692,6 +671,8 @@ ci.builder(
             "ubsan_vptr_no_recover_hack",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     builderless = 1,
@@ -730,6 +711,8 @@ ci.builder(
             "minimal_symbols",
             "release_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
     ),
     builderless = True,
@@ -780,11 +763,11 @@ ci.builder(
     ),
     cores = None,
     os = os.MAC_DEFAULT,
+    gardener_rotations = args.ignore_default(gardener_rotations.IOS),
     console_view_entry = consoles.console_view_entry(
         category = "iOS",
         short_name = "asn",
     ),
-    gardener_rotations = args.ignore_default(gardener_rotations.IOS),
     xcode = xcode.xcode_default,
 )
 
@@ -796,6 +779,7 @@ ci.builder(
     schedule = "0 13 * * *",
     cores = 32,
     ssd = True,
+    gardener_rotations = args.ignore_default(None),
     console_view_entry = [
         consoles.console_view_entry(
             category = "codeql-linux",
@@ -803,7 +787,6 @@ ci.builder(
         ),
     ],
     contact_team_email = "chrome-memory-safety-team@google.com",
-    execution_timeout = 15 * time.hour,
-    gardener_rotations = args.ignore_default(None),
+    execution_timeout = 18 * time.hour,
     notifies = ["codeql-infra"],
 )

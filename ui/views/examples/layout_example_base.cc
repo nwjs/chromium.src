@@ -15,6 +15,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/button/md_text_button.h"
@@ -81,17 +82,25 @@ std::unique_ptr<Textfield> CreateCommonTextfieldWithAXName(
     TextfieldController* container,
     std::u16string name) {
   auto text_field = CreateCommonTextfield(container);
-  text_field->SetAccessibleName(name);
+  text_field->GetViewAccessibility().SetName(name);
   return text_field;
 }
 
 }  // namespace
 
 void LayoutExampleBase::InsetTextfields::ResetControllers() {
-  left->set_controller(nullptr);
-  top->set_controller(nullptr);
-  right->set_controller(nullptr);
-  bottom->set_controller(nullptr);
+  if (left) {
+    left->set_controller(nullptr);
+  }
+  if (top) {
+    top->set_controller(nullptr);
+  }
+  if (right) {
+    right->set_controller(nullptr);
+  }
+  if (bottom) {
+    bottom->set_controller(nullptr);
+  }
 }
 
 LayoutExampleBase::ChildPanel::ChildPanel(LayoutExampleBase* example)
@@ -216,8 +225,15 @@ END_METADATA
 LayoutExampleBase::LayoutExampleBase(const char* title) : ExampleBase(title) {}
 
 LayoutExampleBase::~LayoutExampleBase() {
-  preferred_width_view_->set_controller(nullptr);
-  preferred_height_view_->set_controller(nullptr);
+  if (layout_panel_) {
+    layout_panel_->RemoveAllChildViews();
+  }
+  if (preferred_width_view_) {
+    preferred_width_view_->set_controller(nullptr);
+  }
+  if (preferred_height_view_) {
+    preferred_height_view_->set_controller(nullptr);
+  }
 }
 
 void LayoutExampleBase::RefreshLayoutPanel(bool update_layout) {
@@ -245,8 +261,7 @@ gfx::Insets LayoutExampleBase::TextfieldsToInsets(
 
 Combobox* LayoutExampleBase::CreateAndAddCombobox(
     const std::u16string& label_text,
-    const char* const* items,
-    int count,
+    base::span<const char* const> items,
     base::RepeatingClosure combobox_callback) {
   auto* const row = control_panel_->AddChildView(std::make_unique<View>());
   row->SetLayoutManager(std::make_unique<BoxLayout>(
@@ -254,9 +269,9 @@ Combobox* LayoutExampleBase::CreateAndAddCombobox(
       kLayoutExampleVerticalSpacing));
   row->AddChildView(std::make_unique<Label>(label_text));
   auto* const combobox = row->AddChildView(std::make_unique<Combobox>(
-      std::make_unique<ExampleComboboxModel>(items, count)));
+      std::make_unique<ExampleComboboxModel>(items)));
   combobox->SetCallback(std::move(combobox_callback));
-  combobox->SetAccessibleName(label_text);
+  combobox->GetViewAccessibility().SetName(label_text);
   return combobox;
 }
 
@@ -268,7 +283,7 @@ Textfield* LayoutExampleBase::CreateAndAddTextfield(
       kLayoutExampleVerticalSpacing));
   auto* label = row->AddChildView(std::make_unique<Label>(label_text));
   auto* text_field = row->AddChildView(CreateCommonTextfield(this));
-  text_field->SetAccessibleName(label);
+  text_field->GetViewAccessibility().SetName(*label);
   return text_field;
 }
 

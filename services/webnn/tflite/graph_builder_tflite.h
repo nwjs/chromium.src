@@ -17,6 +17,7 @@
 #include "base/memory/stack_allocated.h"
 #include "base/types/expected.h"
 #include "mojo/public/cpp/base/big_buffer.h"
+#include "services/webnn/public/cpp/context_properties.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom-forward.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom-forward.h"
 #include "third_party/flatbuffers/src/include/flatbuffers/flatbuffers.h"
@@ -56,7 +57,7 @@ class GraphBuilderTflite final {
   [[nodiscard]] static base::expected<flatbuffers::DetachedBuffer, std::string>
   CreateAndBuild(const mojom::GraphInfo& graph_info);
 
-  static mojom::ContextPropertiesPtr GetContextProperties();
+  static ContextProperties GetContextProperties();
 
  private:
   using IdToOperandMap = base::flat_map<uint64_t, mojom::OperandPtr>;
@@ -106,7 +107,8 @@ class GraphBuilderTflite final {
   int32_t SerializeTemporaryTensor(base::span<const int32_t> dimensions,
                                    ::tflite::TensorType tensor_type);
 
-  uint32_t GetOperatorCodeIndex(::tflite::BuiltinOperator code);
+  uint32_t GetOperatorCodeIndex(::tflite::BuiltinOperator code,
+                                int32_t version = 1);
 
   // Returns the Operand corresponding to an `operand_id` from `graph_info_`.
   // Will crash if `graph_info_` does not contain `operand_id`.
@@ -151,6 +153,18 @@ class GraphBuilderTflite final {
       std::optional<int32_t> scale_tensor_index,
       std::optional<int32_t> bias_tensor_index);
 
+  // Compute the means and variance values for the instance and layer
+  // normalization.
+  std::tuple<int32_t, int32_t> ComputeMeanAndVarianceForNormalization(
+      base::span<const int32_t> input_dimensions,
+      ::tflite::TensorType input_tensor_type,
+      int32_t input_tensor_index,
+      base::span<const int32_t> axes);
+  int32_t TransposeAndReshapeLayerNormalizationScaleBias(
+      base::span<const int32_t> input_dimensions,
+      uint64_t scale_or_bias_operand_id,
+      base::span<const uint32_t> axes);
+
   // This function is called by `SerializeReduce` to serialize WebNN
   // reduce operators or used to emulate WebNN operations.
   OperatorOffset SerializeReduceOperation(
@@ -193,7 +207,8 @@ class GraphBuilderTflite final {
 
   // Insert a tempary transpose operation for input operand with calling
   // `SerializeTransposeOperation`.
-  int32_t InsertTransposeOperation(const mojom::Operand& input_operand,
+  int32_t InsertTransposeOperation(base::span<const int32_t> input_dimensions,
+                                   ::tflite::TensorType input_tensor_type,
                                    int32_t input_tensor_index,
                                    base::span<const uint32_t> permutation);
 
@@ -213,14 +228,19 @@ class GraphBuilderTflite final {
       const mojom::ElementWiseUnary& op);
   base::expected<OperatorOffset, std::string> SerializeElu(
       const mojom::Elu& elu);
+  OperatorOffset SerializeExpand(const mojom::Expand& expand);
   base::expected<OperatorOffset, std::string> SerializeGather(
       const mojom::Gather& gather);
+  base::expected<OperatorOffset, std::string> SerializeGelu(
+      const mojom::Gelu& gelu);
   base::expected<OperatorOffset, std::string> SerializeGemm(
       const mojom::Gemm& gemm);
   OperatorOffset SerializeHardSigmoid(const mojom::HardSigmoid& hard_sigmoid);
   OperatorOffset SerializeHardSwish(const mojom::HardSwish& hard_swish);
   base::expected<OperatorOffset, std::string> SerializeInstanceNormalization(
       const mojom::InstanceNormalization& instance_normalization);
+  base::expected<OperatorOffset, std::string> SerializeLayerNormalization(
+      const mojom::LayerNormalization& layer_normalization);
   OperatorOffset SerializeLeakyRelu(const mojom::LeakyRelu& leaky_relu);
   OperatorOffset SerializeLinear(const mojom::Linear& linear);
   OperatorOffset SerializeLogicalNot(
@@ -236,6 +256,9 @@ class GraphBuilderTflite final {
       const mojom::ElementWiseUnary& reciprocal);
   base::expected<OperatorOffset, std::string> SerializeReduce(
       const mojom::Reduce& reduce);
+  base::expected<OperatorOffset, std::string> SerializeReduceSumSquare(
+      const mojom::Reduce& reduce,
+      int32_t output_tensor_index);
   OperatorOffset SerializeRelu(const mojom::Relu& relu);
   base::expected<OperatorOffset, std::string> SerializeResample2d(
       const mojom::Resample2d& resample2d);

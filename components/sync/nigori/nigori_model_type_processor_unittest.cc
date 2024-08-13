@@ -105,7 +105,8 @@ class MockNigoriSyncBridge : public NigoriSyncBridge {
               ApplyIncrementalSyncChanges,
               (std::optional<EntityData> data),
               (override));
-  MOCK_METHOD(std::unique_ptr<EntityData>, GetData, (), (override));
+  MOCK_METHOD(std::unique_ptr<EntityData>, GetDataForCommit, (), (override));
+  MOCK_METHOD(std::unique_ptr<EntityData>, GetDataForDebugging, (), (override));
   MOCK_METHOD(void, ApplyDisableSyncChanges, (), (override));
 };
 
@@ -236,6 +237,11 @@ TEST_F(NigoriModelTypeProcessorTest, ShouldIncrementSequenceNumberWhenPut) {
 
 TEST_F(NigoriModelTypeProcessorTest, ShouldGetEmptyLocalChanges) {
   SimulateModelReadyToSync(/*initial_sync_done=*/true);
+  {
+    base::MockOnceCallback<void(bool)> has_unsynced_data_cb;
+    EXPECT_CALL(has_unsynced_data_cb, Run(false));
+    processor()->HasUnsyncedData(has_unsynced_data_cb.Get());
+  }
   CommitRequestDataList commit_request;
   processor()->GetLocalChanges(
       /*max_entries=*/10,
@@ -246,11 +252,24 @@ TEST_F(NigoriModelTypeProcessorTest, ShouldGetEmptyLocalChanges) {
 TEST_F(NigoriModelTypeProcessorTest, ShouldGetLocalChangesWhenPut) {
   SimulateModelReadyToSync(/*initial_sync_done=*/true);
 
+  {
+    base::MockOnceCallback<void(bool)> has_unsynced_data_cb;
+    EXPECT_CALL(has_unsynced_data_cb, Run(false));
+    processor()->HasUnsyncedData(has_unsynced_data_cb.Get());
+  }
+
   auto entity_data = std::make_unique<syncer::EntityData>();
   entity_data->specifics.mutable_nigori();
   entity_data->name = kNigoriNonUniqueName;
 
   processor()->Put(std::move(entity_data));
+
+  {
+    base::MockOnceCallback<void(bool)> has_unsynced_data_cb;
+    EXPECT_CALL(has_unsynced_data_cb, Run(true));
+    processor()->HasUnsyncedData(has_unsynced_data_cb.Get());
+  }
+
   CommitRequestDataList commit_request;
   processor()->GetLocalChanges(
       /*max_entries=*/10,
@@ -263,11 +282,24 @@ TEST_F(NigoriModelTypeProcessorTest,
        ShouldSquashCommitRequestUponCommitCompleted) {
   SimulateModelReadyToSync(/*initial_sync_done=*/true);
 
+  {
+    base::MockOnceCallback<void(bool)> has_unsynced_data_cb;
+    EXPECT_CALL(has_unsynced_data_cb, Run(false));
+    processor()->HasUnsyncedData(has_unsynced_data_cb.Get());
+  }
+
   auto entity_data = std::make_unique<syncer::EntityData>();
   entity_data->specifics.mutable_nigori();
   entity_data->name = kNigoriNonUniqueName;
 
   processor()->Put(std::move(entity_data));
+
+  {
+    base::MockOnceCallback<void(bool)> has_unsynced_data_cb;
+    EXPECT_CALL(has_unsynced_data_cb, Run(true));
+    processor()->HasUnsyncedData(has_unsynced_data_cb.Get());
+  }
+
   CommitRequestDataList commit_request_list;
   processor()->GetLocalChanges(
       /*max_entries=*/10,
@@ -290,6 +322,11 @@ TEST_F(NigoriModelTypeProcessorTest,
       /*error_response_list=*/FailedCommitResponseDataList());
 
   // There should be no more local changes.
+  {
+    base::MockOnceCallback<void(bool)> has_unsynced_data_cb;
+    EXPECT_CALL(has_unsynced_data_cb, Run(false));
+    processor()->HasUnsyncedData(has_unsynced_data_cb.Get());
+  }
   commit_response_list.clear();
   processor()->GetLocalChanges(
       /*max_entries=*/10,
@@ -323,7 +360,7 @@ TEST_F(NigoriModelTypeProcessorTest,
 
   // Data has been moved into the previous request, so the processor will ask
   // for the commit data once more.
-  ON_CALL(*mock_nigori_sync_bridge(), GetData()).WillByDefault([&]() {
+  ON_CALL(*mock_nigori_sync_bridge(), GetDataForCommit()).WillByDefault([&]() {
     auto entity_data = std::make_unique<syncer::EntityData>();
     entity_data->specifics.mutable_nigori();
     entity_data->name = kNigoriNonUniqueName;

@@ -83,8 +83,7 @@
 //
 // If it was up to us we'd just always write to the destination but the OpenGL
 // spec defines the behavior of OpenGL functions, not us. :-(
-#if defined(__native_client__) || defined(GLES2_CONFORMANCE_TESTS) || \
-    BUILDFLAG(IS_MINIMAL_TOOLCHAIN)
+#if defined(__native_client__) || BUILDFLAG(IS_MINIMAL_TOOLCHAIN)
 #define GPU_CLIENT_VALIDATE_DESTINATION_INITALIZATION_ASSERT(v)
 #define GPU_CLIENT_DCHECK(v)
 #elif defined(GPU_DCHECK)
@@ -4844,7 +4843,7 @@ GLboolean GLES2Implementation::ReadbackARGBImagePixelsINTERNAL(
          sizeof(gpu::Mailbox));
 
   helper_->ReadbackARGBImagePixelsINTERNAL(
-      plane_index, src_x, src_y, dst_width, dst_height, dst_row_bytes,
+      src_x, src_y, plane_index, dst_width, dst_height, dst_row_bytes,
       dst_sk_color_type, dst_sk_alpha_type, shm_id, shm_offset,
       color_space_offset, pixels_offset, mailbox_offset);
 
@@ -4855,7 +4854,7 @@ GLboolean GLES2Implementation::ReadbackARGBImagePixelsINTERNAL(
     return GL_FALSE;
   }
   memcpy(pixels, static_cast<uint8_t*>(shm_address) + pixels_offset, dst_size);
-  return GL_FALSE;
+  return GL_TRUE;
 }
 
 void GLES2Implementation::ReadPixels(GLint xoffset,
@@ -6496,12 +6495,9 @@ void GLES2Implementation::BeginQueryEXT(GLenum target, GLuint id) {
       }
       break;
     case GL_SAMPLES_PASSED_ARB:
-      if (!gl_capabilities_.occlusion_query) {
-        SetGLError(GL_INVALID_OPERATION, "glBeginQueryEXT",
-                   "not enabled for occlusion queries");
-        return;
-      }
-      break;
+      SetGLError(GL_INVALID_OPERATION, "glBeginQueryEXT",
+                 "not enabled for occlusion queries");
+      return;
     case GL_ANY_SAMPLES_PASSED:
     case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
       if (!gl_capabilities_.occlusion_query_boolean) {

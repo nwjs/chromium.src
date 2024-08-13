@@ -14,7 +14,7 @@
 #include "ipc/ipc_message_protobuf_utils.h"
 
 #if !BUILDFLAG(FULL_SAFE_BROWSING)
-//#error BUILDFLAG(FULL_SAFE_BROWSING) should be set.
+#error BUILDFLAG(FULL_SAFE_BROWSING) should be set.
 #endif
 
 IPC_ENUM_TRAITS_VALIDATE(

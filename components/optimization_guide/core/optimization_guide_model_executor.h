@@ -59,11 +59,21 @@ using OptimizationGuideModelExecutionResultCallback =
     base::OnceCallback<void(OptimizationGuideModelExecutionResult,
                             std::unique_ptr<ModelQualityLogEntry>)>;
 
+
+// A callback for receiving a score from the model, or nullopt if the model
+// is not running.
+using OptimizationGuideModelScoreCallback =
+    base::OnceCallback<void(std::optional<float>)>;
+
 // The callback for receiving streamed output from the model. The log entry will
 // be null until `StreamingResponse.is_complete` is true.
 using OptimizationGuideModelExecutionResultStreamingCallback =
     base::RepeatingCallback<void(
         OptimizationGuideModelStreamingExecutionResult)>;
+
+// The callback for receiving the token size of the given input.
+using OptimizationGuideModelSizeInTokenCallback =
+    base::OnceCallback<void(uint32_t)>;
 
 // Params used to control sampling output tokens for the on-device model.
 struct SamplingParams {
@@ -118,12 +128,15 @@ enum class OnDeviceModelEligibilityReason {
   kValidationPending = 13,
   // Validation failed for the model.
   kValidationFailed = 14,
+  // There was no on-device model available, but it may be downloaded and
+  // installed later.
+  kModelToBeInstalled = 15,
 
   // This must be kept in sync with
   // OptimizationGuideOnDeviceModelEligibilityReason in optimization/enums.xml.
 
   // Insert new values before this line.
-  kMaxValue = kValidationFailed,
+  kMaxValue = kModelToBeInstalled,
 };
 
 // Observer that is notified when the on-device model availability changes for
@@ -159,6 +172,13 @@ class OptimizationGuideModelExecutor {
     virtual void AddContext(
         const google::protobuf::MessageLite& request_metadata) = 0;
 
+    // Gets the probability score of the first token in `text` on top of the
+    // current context. Returns nullopt if there is no on-device session (such
+    // as due to a disconnect).
+    virtual void Score(
+        const std::string& text,
+        OptimizationGuideModelScoreCallback callback) = 0;
+
     // Execute the model with `request_metadata` and streams the result to
     // `callback`. The execute call will include context from the last
     // AddContext() call. Data provided to the last AddContext() call does not
@@ -168,6 +188,12 @@ class OptimizationGuideModelExecutor {
     virtual void ExecuteModel(
         const google::protobuf::MessageLite& request_metadata,
         OptimizationGuideModelExecutionResultStreamingCallback callback) = 0;
+
+    // Call `GetSizeInTokens()` from the model to get the size of the given text
+    // in tokens. The result will be passed back through the callback.
+    virtual void GetSizeInTokens(
+        const std::string& text,
+        OptimizationGuideModelSizeInTokenCallback callback) = 0;
   };
 
   // Whether an on-device session can be created for `feature`. An optional

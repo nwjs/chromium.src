@@ -36,11 +36,18 @@ const base::FeatureParam<int> kPassageExtractionMaxWordsPerAggregatePassage(
 const base::FeatureParam<int> kSearchQueryMinimumWordCount(
     &kHistoryEmbeddings,
     "SearchQueryMinimumWordCount",
-    3);
+    1);
 const base::FeatureParam<int> kSearchPassageMinimumWordCount(
     &kHistoryEmbeddings,
     "SearchPassageMinimumWordCount",
-    5);
+    2);
+
+// TODO(b/352384806): Take model metadata from Answerer when available,
+//  and eliminate this parameter as it will then be unnecessary.
+const base::FeatureParam<int> kContextPassagesMinimumWordCount(
+    &kHistoryEmbeddings,
+    "ContextPassagesMinimumWordCount",
+    1000);
 
 const base::FeatureParam<int> kSearchResultItemCount(&kHistoryEmbeddings,
                                                      "SearchResultItemCount",
@@ -53,11 +60,12 @@ const base::FeatureParam<bool> kAtKeywordAcceleration(&kHistoryEmbeddings,
 const base::FeatureParam<double> kContentVisibilityThreshold(
     &kHistoryEmbeddings,
     "ContentVisibilityThreshold",
-    0.5);
+    0);
 
+// See comment at `history_embeddings::GetScoreThreshold()`.
 const base::FeatureParam<double> kSearchScoreThreshold(&kHistoryEmbeddings,
                                                        "SearchScoreThreshold",
-                                                       0.9);
+                                                       -1);
 
 const base::FeatureParam<bool> kUseMlAnswerer(&kHistoryEmbeddings,
                                               "UseMlAnswerer",
@@ -66,6 +74,10 @@ const base::FeatureParam<bool> kUseMlAnswerer(&kHistoryEmbeddings,
 const base::FeatureParam<bool> kUseMlEmbedder(&kHistoryEmbeddings,
                                               "UseMlEmbedder",
                                               true);
+
+const base::FeatureParam<bool> kOmniboxScoped(&kHistoryEmbeddings,
+                                              "OmniboxScoped",
+                                              false);
 
 const base::FeatureParam<bool> kOmniboxUnscoped(&kHistoryEmbeddings,
                                                 "OmniboxUnscoped",
@@ -98,7 +110,21 @@ const base::FeatureParam<bool> kRebuildEmbeddings(&kHistoryEmbeddings,
                                                   "RebuildEmbeddings",
                                                   true);
 
-bool IsHistoryEmbeddingEnabled() {
+const base::FeatureParam<bool> kUseDatabaseBeforeEmbedder(
+    &kHistoryEmbeddings,
+    "UseDatabaseBeforeEmbedder",
+    true);
+
+const base::FeatureParam<bool> kUseUrlFilter(&kHistoryEmbeddings,
+                                             "UseUrlFilter",
+                                             false);
+
+const base::FeatureParam<base::TimeDelta> kEmbeddingsServiceTimeout(
+    &kHistoryEmbeddings,
+    "EmbeddingsServiceTimeout",
+    base::Seconds(60));
+
+bool IsHistoryEmbeddingsEnabled() {
 #if BUILDFLAG(IS_CHROMEOS)
   return chromeos::features::IsFeatureManagementHistoryEmbeddingEnabled() &&
          base::FeatureList::IsEnabled(kHistoryEmbeddings);

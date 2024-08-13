@@ -14,6 +14,7 @@
 #import "components/autofill/core/browser/test_browser_autofill_manager.h"
 #import "components/autofill/core/browser/ui/suggestion_type.h"
 #import "components/autofill/core/common/form_data.h"
+#import "components/autofill/core/common/form_data_test_api.h"
 #import "components/autofill/core/common/password_form_generation_data.h"
 #import "components/autofill/core/common/password_generation_util.h"
 #import "components/autofill/ios/browser/autofill_driver_ios_factory.h"
@@ -28,6 +29,7 @@
 #import "components/password_manager/core/browser/stub_password_manager_client.h"
 #import "components/password_manager/core/browser/stub_password_manager_driver.h"
 #import "components/password_manager/core/common/password_manager_features.h"
+#import "components/password_manager/ios/constants.h"
 #import "components/password_manager/ios/ios_password_manager_driver.h"
 #import "components/password_manager/ios/ios_password_manager_driver_factory.h"
 #import "components/password_manager/ios/password_controller_driver_helper.h"
@@ -443,7 +445,7 @@ TEST_F(SharedPasswordControllerTest, ReturnsSuggestionsIfAvailable) {
              suggestionWithValue:@"value"
               displayDescription:@"display-description"
                             icon:nil
-                     popupItemId:autofill::SuggestionType::kAutocompleteEntry
+                            type:autofill::SuggestionType::kAutocompleteEntry
                backendIdentifier:nil
                   requiresReauth:NO
       acceptanceA11yAnnouncement:nil
@@ -526,7 +528,7 @@ TEST_F(SharedPasswordControllerTest,
                  ASSERT_EQ(1UL, suggestions.count);
                  FormSuggestion* suggestion = suggestions.firstObject;
                  EXPECT_EQ(autofill::SuggestionType::kGeneratePasswordEntry,
-                           suggestion.popupItemId);
+                           suggestion.type);
                  EXPECT_EQ(delegate, controller_);
                  completion_was_called = YES;
                }];
@@ -552,7 +554,7 @@ TEST_F(SharedPasswordControllerTest, SuggestsGeneratedPassword) {
   field.set_value(u"googleuser");
   field.set_form_control_type(autofill::FormControlType::kInputText);
   field.set_renderer_id(autofill::test::MakeFieldRendererId());
-  form_data.fields.push_back(field);
+  test_api(form_data).Append(field);
 
   field.set_name(u"Passwd");
   field.set_id_attribute(field.name());
@@ -561,9 +563,9 @@ TEST_F(SharedPasswordControllerTest, SuggestsGeneratedPassword) {
   field.set_form_control_type(autofill::FormControlType::kInputPassword);
   field.set_renderer_id(autofill::test::MakeFieldRendererId());
   field.set_max_length(max_length);
-  form_data.fields.push_back(field);
+  test_api(form_data).Append(field);
 
-  autofill::FormFieldData password_field_data = form_data.fields.back();
+  autofill::FormFieldData password_field_data = form_data.fields().back();
   autofill::FormRendererId form_id = form_data.renderer_id();
   autofill::FieldRendererId field_id = password_field_data.renderer_id();
   autofill::PasswordFormGenerationData form_generation_data = {
@@ -575,12 +577,13 @@ TEST_F(SharedPasswordControllerTest, SuggestsGeneratedPassword) {
       suggestionWithValue:@"test-value"
        displayDescription:@"test-description"
                      icon:nil
-              popupItemId:autofill::SuggestionType::kGeneratePasswordEntry
+                     type:autofill::SuggestionType::kGeneratePasswordEntry
         backendIdentifier:nil
            requiresReauth:NO];
 
   [[delegate_ expect] sharedPasswordController:controller_
                 showGeneratedPotentialPassword:[OCMArg isNotNil]
+                                     proactive:NO
                                decisionHandler:[OCMArg any]];
   EXPECT_CALL(password_manager_, SetGenerationElementAndTypeForForm);
 
@@ -645,7 +648,7 @@ TEST_F(SharedPasswordControllerTest, PresavesGeneratedPassword) {
       suggestionWithValue:@"test-value"
        displayDescription:@"test-description"
                      icon:nil
-              popupItemId:autofill::SuggestionType::kGeneratePasswordEntry
+                     type:autofill::SuggestionType::kGeneratePasswordEntry
         backendIdentifier:nil
            requiresReauth:NO];
 
@@ -656,6 +659,7 @@ TEST_F(SharedPasswordControllerTest, PresavesGeneratedPassword) {
       }];
   [[delegate_ expect] sharedPasswordController:controller_
                 showGeneratedPotentialPassword:[OCMArg isNotNil]
+                                     proactive:NO
                                decisionHandler:decision_handler_arg];
 
   id fill_completion_handler_arg =
@@ -698,6 +702,9 @@ TEST_F(SharedPasswordControllerTest, PresavesGeneratedPassword) {
   histogram_tester.ExpectUniqueSample(
       "PasswordGeneration.Event",
       autofill::password_generation::PASSWORD_ACCEPTED, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordGeneration.iOS.AcceptedGeneratedPasswordSource",
+      AcceptedGeneratedPasswordSourceType::kSuggestion, 1);
 }
 
 // Tests that triggering password generation on the last focused field triggers
@@ -722,6 +729,7 @@ TEST_F(SharedPasswordControllerTest, TriggerPasswordGeneration) {
 
   [[delegate_ expect] sharedPasswordController:controller_
                 showGeneratedPotentialPassword:[OCMArg isNotNil]
+                                     proactive:NO
                                decisionHandler:[OCMArg any]];
   EXPECT_CALL(password_manager_, SetGenerationElementAndTypeForForm);
 
@@ -767,6 +775,7 @@ TEST_F(SharedPasswordControllerTest, LastFocusedFieldData) {
 
   [[delegate_ reject] sharedPasswordController:controller_
                 showGeneratedPotentialPassword:[OCMArg isNotNil]
+                                     proactive:NO
                                decisionHandler:[OCMArg any]];
 
   [controller_ triggerPasswordGeneration];
@@ -906,8 +915,8 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
   FormSuggestionProviderQuery* form_query = [[FormSuggestionProviderQuery alloc]
       initWithFormName:SysUTF16ToNSString(form.name())
         formRendererID:form.renderer_id()
-       fieldIdentifier:SysUTF16ToNSString(form.fields[0].name())
-       fieldRendererID:form.fields[0].renderer_id()
+       fieldIdentifier:SysUTF16ToNSString(form.fields()[0].name())
+       fieldRendererID:form.fields()[0].renderer_id()
              fieldType:@"text"
                   type:@"focus"
             typedValue:@""
@@ -932,8 +941,8 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
   PasswordFormFillData form_fill_data;
   test_helpers::SetPasswordFormFillData(
       form.url().spec(), "", form.renderer_id().value(), "",
-      form.fields[0].renderer_id().value(), "john.doe@gmail.com", "",
-      form.fields[1].renderer_id().value(), "super!secret", nullptr, nullptr,
+      form.fields()[0].renderer_id().value(), "john.doe@gmail.com", "",
+      form.fields()[1].renderer_id().value(), "super!secret", nullptr, nullptr,
       &form_fill_data);
 
   [controller_ processPasswordFormFillData:form_fill_data
@@ -976,8 +985,8 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
       [[FormSuggestionProviderQuery alloc]
           initWithFormName:SysUTF16ToNSString(form.name())
             formRendererID:form.renderer_id()
-           fieldIdentifier:SysUTF16ToNSString(form.fields[0].name())
-           fieldRendererID:form.fields[0].renderer_id()
+           fieldIdentifier:SysUTF16ToNSString(form.fields()[0].name())
+           fieldRendererID:form.fields()[0].renderer_id()
                  fieldType:@"text"
                       type:@"focus"
                 typedValue:@""
@@ -1003,8 +1012,8 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
       [[FormSuggestionProviderQuery alloc]
           initWithFormName:SysUTF16ToNSString(form.name())
             formRendererID:form.renderer_id()
-           fieldIdentifier:SysUTF16ToNSString(form.fields[1].name())
-           fieldRendererID:form.fields[1].renderer_id()
+           fieldIdentifier:SysUTF16ToNSString(form.fields()[1].name())
+           fieldRendererID:form.fields()[1].renderer_id()
                  fieldType:kObfuscatedFieldType
                       type:@"focus"
                 typedValue:@""
@@ -1030,8 +1039,8 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
   PasswordFormFillData form_fill_data;
   test_helpers::SetPasswordFormFillData(
       form.url().spec(), "", form.renderer_id().value(), "",
-      form.fields[0].renderer_id().value(), "john.doe@gmail.com", "",
-      form.fields[1].renderer_id().value(), "super!secret", nullptr, nullptr,
+      form.fields()[0].renderer_id().value(), "john.doe@gmail.com", "",
+      form.fields()[1].renderer_id().value(), "super!secret", nullptr, nullptr,
       &form_fill_data);
 
   [controller_ processPasswordFormFillData:form_fill_data
@@ -1069,8 +1078,8 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
   PasswordFormFillData form_fill_data;
   test_helpers::SetPasswordFormFillData(
       kTestURL, "", form.renderer_id().value(), "",
-      form.fields[0].renderer_id().value(), "john.doe@gmail.com", "",
-      form.fields[1].renderer_id().value(), "super!secret", nullptr, nullptr,
+      form.fields()[0].renderer_id().value(), "john.doe@gmail.com", "",
+      form.fields()[1].renderer_id().value(), "super!secret", nullptr, nullptr,
       &form_fill_data);
 
   [controller_ processPasswordFormFillData:form_fill_data
@@ -1129,8 +1138,8 @@ TEST_F(SharedPasswordControllerTestWithRealSuggestionHelper,
   PasswordFormFillData form_fill_data;
   test_helpers::SetPasswordFormFillData(
       form.url().spec(), "", form.renderer_id().value(), "",
-      form.fields[0].renderer_id().value(), "john.doe@gmail.com", "",
-      form.fields[1].renderer_id().value(), "super!secret", nullptr, nullptr,
+      form.fields()[0].renderer_id().value(), "john.doe@gmail.com", "",
+      form.fields()[1].renderer_id().value(), "super!secret", nullptr, nullptr,
       &form_fill_data);
 
   std::vector<autofill::FieldRendererId> rendererIds;
@@ -1381,7 +1390,7 @@ TEST_F(SharedPasswordControllerTest, DeclinePasswordGenerationDialog) {
       suggestionWithValue:@"test-value"
        displayDescription:@"test-description"
                      icon:nil
-              popupItemId:autofill::SuggestionType::kGeneratePasswordEntry
+                     type:autofill::SuggestionType::kGeneratePasswordEntry
         backendIdentifier:nil
            requiresReauth:NO];
 
@@ -1406,6 +1415,7 @@ TEST_F(SharedPasswordControllerTest, DeclinePasswordGenerationDialog) {
       }];
   [[delegate_ expect] sharedPasswordController:controller_
                 showGeneratedPotentialPassword:[OCMArg isNotNil]
+                                     proactive:NO
                                decisionHandler:decision_handler_arg];
 
   OCMStub([driver_helper_ PasswordManagerDriver:frame]);

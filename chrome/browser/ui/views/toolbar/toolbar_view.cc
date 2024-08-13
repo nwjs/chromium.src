@@ -43,7 +43,6 @@
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/intent_picker_tab_helper.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/views/side_panel/companion/companion_utils.h"
 #include "chrome/browser/ui/side_search/side_search_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_model.h"
@@ -69,6 +68,7 @@
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/performance_controls/battery_saver_button.h"
 #include "chrome/browser/ui/views/performance_controls/performance_intervention_button.h"
+#include "chrome/browser/ui/views/profiles/management_toolbar_button.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_icon_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
@@ -146,6 +146,8 @@
 using base::UserMetricsAction;
 using content::WebContents;
 
+DEFINE_UI_CLASS_PROPERTY_KEY(bool, kActionItemUnderlineIndicatorKey, false)
+
 namespace {
 
 // Gets the display mode for a given browser.
@@ -200,6 +202,7 @@ class TabstripLikeBackground : public views::Background {
 
   const raw_ptr<BrowserView> browser_view_;
 };
+
 }  // namespace
 
 class ToolbarView::ContainerView : public views::View {
@@ -244,8 +247,13 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
 }
 
 ToolbarView::~ToolbarView() {
-  if (display_mode_ != DisplayMode::NORMAL)
+  if (display_mode_ != DisplayMode::NORMAL) {
     return;
+  }
+
+  if (base::FeatureList::IsEnabled(features::kResponsiveToolbar)) {
+    overflow_button_->set_toolbar_controller(nullptr);
+  }
 
   for (const auto& view_and_command : GetViewCommandMap())
     chrome::RemoveCommandObserver(browser_, view_and_command.second, this);
@@ -423,18 +431,15 @@ void ToolbarView::Init() {
     }
   }
 
-  // Only show the Battery Saver button when it is not controlled by the OS and
-  // the performance side panel is not enabled. On ChromeOS the battery icon in
-  // the shelf shows the same information.
-  if (!performance_manager::user_tuning::IsBatterySaverModeManagedByOS() &&
-      !base::FeatureList::IsEnabled(
-          performance_manager::features::kPerformanceControlsSidePanel)) {
+  // Only show the Battery Saver button when it is not controlled by the OS. On
+  // ChromeOS the battery icon in the shelf shows the same information.
+  if (!performance_manager::user_tuning::IsBatterySaverModeManagedByOS()) {
     battery_saver_button_ = container_view_->AddChildView(
         std::make_unique<BatterySaverButton>(browser_view_));
   }
 
-  if (base::FeatureList::IsEnabled(
-          performance_manager::features::kPerformanceIntervention)) {
+  if (performance_manager::features::
+          ShouldUsePerformanceInterventionBackend()) {
     performance_intervention_button_ = container_view_->AddChildView(
         std::make_unique<PerformanceInterventionButton>(browser_view_));
   }
@@ -453,6 +458,12 @@ void ToolbarView::Init() {
     send_tab_to_self_button_ =
         container_view_->AddChildView(std::move(send_tab_to_self_button));
 
+#if !BUILDFLAG(IS_CHROMEOS)
+  management_toolbar_button_ =
+      container_view_->AddChildView(std::make_unique<ManagementToolbarButton>(
+          browser_view_, browser_->profile()));
+#endif
+
   avatar_ = container_view_->AddChildView(
       std::make_unique<AvatarToolbarButton>(browser_view_));
   bool show_avatar_toolbar_button = true;
@@ -466,6 +477,11 @@ void ToolbarView::Init() {
        browser_->profile()->GetOTRProfileID().IsCaptivePortal());
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
   show_avatar_toolbar_button = !chromeos::IsManagedGuestSession();
+#else
+  // DevTools profiles are OffTheRecord, so hide it there.
+  show_avatar_toolbar_button = browser_->profile()->IsIncognitoProfile() ||
+                               browser_->profile()->IsGuestSession() ||
+                               browser_->profile()->IsRegularProfile();
 #endif
   avatar_->SetVisible(show_avatar_toolbar_button);
 
@@ -971,9 +987,8 @@ void ToolbarView::InitLayout() {
     pinned_toolbar_actions_container_->SetProperty(
         views::kFlexBehaviorKey,
         views::FlexSpecification(
-            base::BindRepeating(
-                &PinnedToolbarActionsContainer::CustomFlexRule,
-                base::Unretained(pinned_toolbar_actions_container_)))
+            pinned_toolbar_actions_container_->GetAnimatingLayoutManager()
+                ->GetDefaultFlexRule())
             .WithOrder(kToolbarActionsFlexOrder));
   }
 
@@ -991,10 +1006,7 @@ void ToolbarView::InitLayout() {
         ToolbarController::GetDefaultResponsiveElements(browser_),
         ToolbarController::GetDefaultOverflowOrder(), kToolbarFlexOrderStart,
         container_view_, overflow_button_, pinned_toolbar_actions_container_);
-
-    overflow_button_->set_create_menu_model_callback(
-        base::BindRepeating(&ToolbarController::CreateOverflowMenuModel,
-                            base::Unretained(toolbar_controller_.get())));
+    overflow_button_->set_toolbar_controller(toolbar_controller_.get());
   }
 
   LayoutCommon();
@@ -1156,10 +1168,11 @@ void ToolbarView::ZoomChangedForActiveTab(bool can_show_bubble) {
 }
 
 AvatarToolbarButton* ToolbarView::GetAvatarToolbarButton() {
-  if (avatar_)
-    return avatar_;
+  return avatar_;
+}
 
-  return nullptr;
+ManagementToolbarButton* ToolbarView::GetManagementToolbarButton() {
+  return management_toolbar_button_;
 }
 
 ToolbarButton* ToolbarView::GetBackButton() {

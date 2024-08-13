@@ -27,6 +27,7 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/content_settings/core/test/content_settings_mock_provider.h"
 #include "components/content_settings/core/test/content_settings_test_utils.h"
+#include "components/prefs/testing_pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/privacy_sandbox/tracking_protection_prefs.h"
@@ -95,6 +96,18 @@ enum TestVariables {
   // Whether `content_settings_features::kHostIndexedMetadataGrants` is enabled
   kIndexedContentSettings,
 };
+
+class TestTpcdManagerDelegate : public tpcd::metadata::Manager::Delegate {
+ public:
+  void SetTpcdMetadataGrants(const ContentSettingsForOneType& grants) override {
+  }
+
+  TestingPrefServiceSimple& GetLocalState() override { return local_state_; }
+
+ private:
+  TestingPrefServiceSimple local_state_;
+};
+
 }  // namespace
 
 namespace content_settings {
@@ -179,12 +192,13 @@ class CookieSettingsTestBase : public testing::Test {
     auto has_fedcm_sharing_permission =
         CookieSettings::NoFedCmSharingPermissionsCallback();
 
-    tpcd_metadata_manager_ = tpcd::metadata::Manager::GetInstance(
-        tpcd::metadata::Parser::GetInstance(), base::NullCallback());
+    tpcd_metadata_manager_ = std::make_unique<tpcd::metadata::Manager>(
+        tpcd::metadata::Parser::GetInstance(),
+        test_tpcd_metadata_manager_delegate_);
 
     cookie_settings_ = new CookieSettings(
         settings_map_.get(), &prefs_, tracking_protection_settings_.get(),
-        false, has_fedcm_sharing_permission, tpcd_metadata_manager_,
+        false, has_fedcm_sharing_permission, tpcd_metadata_manager_.get(),
         "chrome-extension");
     cookie_settings_incognito_ = new CookieSettings(
         settings_map_.get(), &prefs_, tracking_protection_settings_.get(), true,
@@ -210,12 +224,13 @@ class CookieSettingsTestBase : public testing::Test {
   base::test::ScopedFeatureList feature_list_;
 
   sync_preferences::TestingPrefServiceSyncable prefs_;
+  TestTpcdManagerDelegate test_tpcd_metadata_manager_delegate_;
+  std::unique_ptr<tpcd::metadata::Manager> tpcd_metadata_manager_;
   scoped_refptr<HostContentSettingsMap> settings_map_;
   scoped_refptr<CookieSettings> cookie_settings_;
   scoped_refptr<CookieSettings> cookie_settings_incognito_;
   std::unique_ptr<privacy_sandbox::TrackingProtectionSettings>
       tracking_protection_settings_;
-  raw_ptr<tpcd::metadata::Manager> tpcd_metadata_manager_;
 
   const GURL kBlockedSite;
   const GURL kAllowedSite;
@@ -2050,6 +2065,75 @@ TEST_P(CookieSettingsTest, LegacyCookieAccessAllowDomainWildcardPattern) {
     EXPECT_EQ(test.status, cookie_settings_->GetCookieAccessSemanticsForDomain(
                                test.cookie_domain));
   }
+}
+
+TEST_P(CookieSettingsTest, GetStorageAccessStatus) {
+  GURL url = kFirstPartySite;
+  url::Origin top_frame_origin = url::Origin::Create(kAllowedSite);
+  prefs_.SetInteger(prefs::kCookieControlsMode,
+                    static_cast<int>(CookieControlsMode::kBlockThirdParty));
+
+  EXPECT_EQ(cookie_settings_->GetStorageAccessStatus(
+                url, net::SiteForCookies::FromUrl(url),
+                url::Origin::Create(url), net::CookieSettingOverrides()),
+            std::nullopt);
+
+  EXPECT_EQ(
+      cookie_settings_->GetStorageAccessStatus(
+          url, net::SiteForCookies::FromUrl(url), url::Origin::Create(url),
+          net::CookieSettingOverrides(
+              {net::CookieSettingOverride::kStorageAccessGrantEligible})),
+      std::nullopt);
+
+  EXPECT_EQ(cookie_settings_->GetStorageAccessStatus(
+                url, net::SiteForCookies(), top_frame_origin,
+                net::CookieSettingOverrides()),
+// We expect kActive when running the following in IOS due to the behavior of
+// `CookieSettings::ShouldBlockThirdPartyCookiesInternal()`.
+#if BUILDFLAG(IS_IOS)
+            net::cookie_util::StorageAccessStatus::kActive
+#else
+            net::cookie_util::StorageAccessStatus::kNone
+#endif
+  );
+
+  EXPECT_EQ(cookie_settings_->GetStorageAccessStatus(
+                url, net::SiteForCookies(), top_frame_origin,
+                net::CookieSettingOverrides(
+                    {net::CookieSettingOverride::kStorageAccessGrantEligible})),
+#if BUILDFLAG(IS_IOS)
+            net::cookie_util::StorageAccessStatus::kActive
+#else
+            net::cookie_util::StorageAccessStatus::kNone
+#endif
+  );
+
+  settings_map_->SetContentSettingDefaultScope(
+      url, kAllowedSite, ContentSettingsType::STORAGE_ACCESS,
+      CONTENT_SETTING_ALLOW);
+
+  EXPECT_EQ(cookie_settings_->GetStorageAccessStatus(
+                url, net::SiteForCookies(), top_frame_origin,
+                net::CookieSettingOverrides()),
+#if BUILDFLAG(IS_IOS)
+            net::cookie_util::StorageAccessStatus::kActive
+#else
+            net::cookie_util::StorageAccessStatus::kInactive
+#endif
+  );
+
+  EXPECT_EQ(cookie_settings_->GetStorageAccessStatus(
+                url, net::SiteForCookies(), top_frame_origin,
+                net::CookieSettingOverrides(
+                    {net::CookieSettingOverride::kStorageAccessGrantEligible})),
+            net::cookie_util::StorageAccessStatus::kActive);
+
+  EXPECT_EQ(cookie_settings_->GetStorageAccessStatus(
+                url, net::SiteForCookies(), top_frame_origin,
+                net::CookieSettingOverrides(
+                    {net::CookieSettingOverride::
+                         kStorageAccessGrantEligibleViaHeader})),
+            net::cookie_util::StorageAccessStatus::kActive);
 }
 
 INSTANTIATE_TEST_SUITE_P(

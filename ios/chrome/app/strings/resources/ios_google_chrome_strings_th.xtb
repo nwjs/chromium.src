@@ -9,11 +9,12 @@
 <translation id="1180362651362502943">ใช้ข้อมูล Chrome ในบัญชี Google ต่อไป</translation>
 <translation id="1200396280085622191">ใช้ Chrome ทุกครั้งที่คุณแตะลิงก์ในข้อความและแอปอื่นๆ</translation>
 <translation id="1229222343402087523">ค้นหา ${searchPhrase} ใน Chrome</translation>
+<translation id="1237769345474105984">จาก Chrome</translation>
 <translation id="124228879633599436">Chrome ของคุณเป็นเวอร์ชันเก่า โปรดอัปเดตเพื่อความปลอดภัย</translation>
 <translation id="1282031177488366470">ช่วยปรับปรุงฟีเจอร์และประสิทธิภาพของ Chrome</translation>
-<translation id="1320619893013575407">คุณปิดการลงชื่อเข้าใช้ Chrome ไว้</translation>
 <translation id="1333745675627230582">เล่นเกมไดโนเสาร์ Chrome</translation>
 <translation id="1352919863522755794">เครื่องมือจัดการรหัสผ่านบน Google ตรวจสอบรหัสผ่านของคุณไม่ได้ โปรดลองตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</translation>
+<translation id="139623527619433858">ใช้ Chrome สำหรับ iPad โดยค่าเริ่มต้น</translation>
 <translation id="1407843355326180937">ลงชื่อเข้าใช้เว็บไซต์นี้และ Chrome เพื่อรับบุ๊กมาร์กและอื่นๆ ในอุปกรณ์ทุกเครื่อง</translation>
 <translation id="1436059927646026729">เปิดแท็บล่าสุดของฉันใน Chrome</translation>
 <translation id="1449241544691504574">เพิ่มบุ๊กมาร์กใน Chrome</translation>
@@ -134,6 +135,7 @@
 <translation id="4903674399067644695">การ์ดนี้แสดงคำแนะนำเกี่ยวกับวิธีใช้ Chrome ให้เกิดประโยชน์สูงสุด</translation>
 <translation id="4919069428879420545">ลบข้อมูลการท่องเว็บใน Chrome</translation>
 <translation id="49200511069271369">องค์กร <ph name="DOMAIN" /> ของคุณจะเป็นผู้จัดการบัญชีที่คุณลงชื่อเข้าใช้และวิธีใช้ Chrome ผู้ดูแลระบบจะตั้งค่าหรือจำกัดฟีเจอร์บางอย่างได้</translation>
+<translation id="4925322001044117929">ใช้ Chrome ใน iPad โดยค่าเริ่มต้น</translation>
 <translation id="498985224078955265">หากต้องการส่งแท็บนี้ไปยังอุปกรณ์อื่น ให้ลงชื่อเข้าใช้ Chrome ในอุปกรณ์ทั้ง 2 เครื่อง</translation>
 <translation id="5030102366287574140">Chrome ช่วยให้คุณปลอดภัยจากการละเมิดข้อมูล เว็บไซต์ที่ไม่ปลอดภัย และอื่นๆ ได้</translation>
 <translation id="5108659628347594808">ปรับปรุง Chrome ให้ดีขึ้น</translation>
@@ -172,6 +174,7 @@
 <translation id="6063091872902370735">อนุญาตให้ลงชื่อเข้าใช้ Chrome</translation>
 <translation id="6110625574506755980">ฟีเจอร์บางอย่างของ Chrome จะใช้งานไม่ได้อีกต่อไป</translation>
 <translation id="6132149203299792222">ลงชื่อเข้าใช้ด้วยบัญชี Google เพื่อซิงค์รหัสผ่าน บุ๊กมาร์ก และอื่นๆ</translation>
+<translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">ค้นหาใน Chrome</translation>
 <translation id="6238746320622508509">ให้ Chrome ล็อกแท็บที่ไม่ระบุตัวตน</translation>
 <translation id="6247557882553405851">เครื่องมือจัดการรหัสผ่านบน Google</translation>
@@ -220,6 +223,7 @@
 <translation id="7272930098487145294">หากต้องการบันทึกรูปภาพ ให้แตะ "การตั้งค่า" เพื่ออนุญาตให้ Chrome เพิ่มไปยังรูปภาพ</translation>
 <translation id="7275945473750112644">บัญชีของคุณจัดการโดย <ph name="HOSTED_DOMAIN" /> ระบบจึงจะล้างข้อมูล Chrome จากอุปกรณ์นี้</translation>
 <translation id="7284245284340063465">หากลืมรหัสผ่านหรือต้องการเปลี่ยนการตั้งค่านี้ ให้<ph name="BEGIN_LINK" />ลบข้อมูล Chrome ในบัญชี<ph name="END_LINK" /></translation>
+<translation id="7299681342915173313">ตอนนี้คุณสามารถใช้ Chrome ทุกครั้งที่แตะลิงก์ในอีเมล เอกสาร และแอปอื่นๆ</translation>
 <translation id="7304491752269485262">ขยายมุมมองการป้อนข้อความอัตโนมัติของ Chrome อยู่</translation>
 <translation id="7344094882820374540">รับการรักษาความปลอดภัยที่เข้มงวดที่สุดของ Chrome ที่จะปกป้องคุณจากเว็บไซต์ที่เป็นอันตราย</translation>
 <translation id="7349129508108954623">อนุญาตให้ Chrome ใช้ Google Maps เพื่อแสดงเส้นทางและข้อมูลในพื้นที่ของที่อยู่ที่ตรวจพบ</translation>
@@ -272,7 +276,6 @@
   3. เลือก Chrome</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8558480467877843976">ตอนนี้คุณจะใช้ Chrome ทุกครั้งที่เรียกดูหรือแตะลิงก์ในข้อความ เอกสาร และแอปอื่นๆ ได้</translation>
-<translation id="8577978202917232774">คำแนะนำต่างๆ จะอิงตามกิจกรรมการท่องเว็บในอุปกรณ์อื่นๆ ของคุณ หากต้องการรับคำแนะนำ ให้ลงชื่อเข้าใช้ Chrome ในอุปกรณ์ทั้งหมดของคุณ</translation>
 <translation id="8603022514504485810">เครื่องมือจัดการรหัสผ่านบน Google ตรวจสอบรหัสผ่านได้ไม่ครบทั้งหมด โปรดลองอีกครั้งในวันพรุ่งนี้หรือ<ph name="BEGIN_LINK" />ตรวจสอบรหัสผ่านในบัญชี Google<ph name="END_LINK" /></translation>
 <translation id="8727043961453758442">ใช้ประโยชน์สูงสุดจาก Chrome</translation>
 <translation id="8736550665979974340">ปลอดภัยเสมอด้วย Google Chrome</translation>

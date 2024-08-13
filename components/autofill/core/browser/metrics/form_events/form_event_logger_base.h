@@ -53,7 +53,7 @@ class FormEventLoggerBase {
   virtual void OnDidShowSuggestions(
       const FormStructure& form,
       const AutofillField& field,
-      const base::TimeTicks& form_parsed_timestamp,
+      base::TimeTicks form_parsed_timestamp,
       AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
       bool off_the_record);
 
@@ -62,8 +62,8 @@ class FormEventLoggerBase {
   // by field filling.
   void RecordFillingOperation(
       FormGlobalId form_id,
-      base::span<const FormFieldData*> filled_fields,
-      base::span<const AutofillField*> filled_autofill_fields);
+      base::span<const FormFieldData* const> filled_fields,
+      base::span<const AutofillField* const> filled_autofill_fields);
 
   void OnDidRefill(
       AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
@@ -160,7 +160,7 @@ class FormEventLoggerBase {
 
   // Whether for a submitted form, Chrome had data stored that could be
   // filled.
-  void RecordFillingReadiness(LogBuffer& logs) const;
+  virtual void RecordFillingReadiness(LogBuffer& logs) const;
 
   // Whether a user accepted a filling suggestion they saw for a form that
   // was later submitted.
@@ -258,7 +258,7 @@ class FormEventLoggerBase {
   DenseSet<FormTypeNameForLogging> parsed_form_types_;
 
   // Form types of the submitted form.
-  DenseSet<FormType> submitted_form_types_;
+  DenseSet<FormTypeNameForLogging> submitted_form_types_;
 
   // Form types of field-by-field filling operations.
   DenseSet<FormTypeNameForLogging> field_by_field_filled_form_types_;

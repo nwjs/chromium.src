@@ -39,14 +39,12 @@ void JavaScriptTabModalDialogManagerDelegateDesktop::WillRunDialog() {
   // warnings until user interaction. If the current page has a delayed warning,
   // it'll have a user interaction observer attached. Show the warning
   // immediately in that case.
-#if 0
   safe_browsing::SafeBrowsingUserInteractionObserver* observer =
       safe_browsing::SafeBrowsingUserInteractionObserver::FromWebContents(
           web_contents_);
   if (observer) {
     observer->OnJavaScriptDialog();
   }
-#endif
 }
 
 void JavaScriptTabModalDialogManagerDelegateDesktop::DidCloseDialog() {

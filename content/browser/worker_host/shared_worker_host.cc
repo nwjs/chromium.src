@@ -22,6 +22,7 @@
 #include "content/browser/renderer_host/code_cache_host_impl.h"
 #include "content/browser/renderer_host/private_network_access_util.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/service_worker/service_worker_client.h"
 #include "content/browser/service_worker/service_worker_main_resource_handle.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/browser/url_loader_factory_params_helper.h"
@@ -341,24 +342,16 @@ void SharedWorkerHost::Start(
   result.subresource_loader_factories->set_bypass_redirect_checks(
       bypass_redirect_checks);
 
-  SubresourceLoaderParams::CheckWithMainResourceHandle(
-      service_worker_handle_.get(), result.service_worker_client.get());
   blink::mojom::ServiceWorkerContainerInfoForClientPtr container_info;
   blink::mojom::ControllerServiceWorkerInfoPtr controller;
   if (service_worker_handle_->service_worker_client()) {
     // TODO(crbug.com/41478971): Plumb the COEP reporter.
-    container_info = service_worker_handle_->scoped_service_worker_client()
-                         ->CommitResponseAndRelease(
-                             /*rfh_id=*/std::nullopt,
-                             std::move(result.policy_container_policies),
-                             /*coep_reporter=*/{}, ukm_source_id());
-
-    // Prepare the controller service worker info to pass to the renderer.
-    if (service_worker_handle_->service_worker_client()->controller()) {
-      controller = service_worker_handle_->service_worker_client()
-                       ->container_host()
-                       .CreateControllerServiceWorkerInfo();
-    }
+    std::tie(container_info, controller) =
+        service_worker_handle_->scoped_service_worker_client()
+            ->CommitResponseAndRelease(
+                /*rfh_id=*/std::nullopt,
+                std::move(result.policy_container_policies),
+                /*coep_reporter=*/{}, ukm_source_id());
   }
 
   // Send the CreateSharedWorker message.
@@ -468,9 +461,10 @@ void SharedWorkerHost::BindCacheStorageInternal(
     coep_reporter_->Clone(coep_reporter.InitWithNewPipeAndPassReceiver());
   }
 
-  GetProcessHost()->BindCacheStorage(cross_origin_embedder_policy(),
-                                     std::move(coep_reporter), bucket_locator,
-                                     std::move(receiver));
+  GetProcessHost()->BindCacheStorage(
+      cross_origin_embedder_policy(), std::move(coep_reporter),
+      worker_client_security_state_->document_isolation_policy, bucket_locator,
+      std::move(receiver));
 }
 
 void SharedWorkerHost::GetSandboxedFileSystemForBucket(
@@ -570,7 +564,7 @@ void SharedWorkerHost::CreateBucketManagerHost(
 }
 
 void SharedWorkerHost::BindPressureService(
-    mojo::PendingReceiver<device::mojom::PressureManager> receiver) {
+    mojo::PendingReceiver<blink::mojom::WebPressureManager> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   if (!network::IsOriginPotentiallyTrustworthy(GetStorageKey().origin())) {
@@ -856,7 +850,7 @@ bool SharedWorkerHost::HasClients() const {
   return !clients_.empty();
 }
 
-const base::UnguessableToken& SharedWorkerHost::GetDevToolsToken() const {
+base::UnguessableToken SharedWorkerHost::GetDevToolsToken() const {
   return devtools_handle_->dev_tools_token();
 }
 

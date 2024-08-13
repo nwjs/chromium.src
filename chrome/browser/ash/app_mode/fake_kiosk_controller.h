@@ -5,8 +5,16 @@
 #ifndef CHROME_BROWSER_ASH_APP_MODE_FAKE_KIOSK_CONTROLLER_H_
 #define CHROME_BROWSER_ASH_APP_MODE_FAKE_KIOSK_CONTROLLER_H_
 
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "ash/public/cpp/login_accelerators.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/ash/app_mode/kiosk_app.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_types.h"
 #include "chrome/browser/ash/app_mode/kiosk_controller.h"
+#include "chromeos/ash/components/kiosk/vision/internals_page_processor.h"
 
 namespace ash {
 
@@ -24,6 +32,7 @@ class FakeKioskController : public KioskController {
   void StartSession(const KioskAppId& app,
                     bool is_auto_launch,
                     LoginDisplayHost* host) override;
+  void StartSessionAfterCrash(const KioskAppId& app, Profile* profile) override;
   bool IsSessionStarting() const override;
   void CancelSessionStart() override;
   void AddProfileLoadFailedObserver(
@@ -31,12 +40,10 @@ class FakeKioskController : public KioskController {
   void RemoveProfileLoadFailedObserver(
       KioskProfileLoadFailedObserver* observer) override;
   bool HandleAccelerator(LoginAcceleratorAction action) override;
-  void InitializeKioskSystemSession(
-      Profile* profile,
-      const KioskAppId& kiosk_app_id,
-      const std::optional<std::string>& app_name) override;
   KioskSystemSession* GetKioskSystemSession() override;
   kiosk_vision::TelemetryProcessor* GetKioskVisionTelemetryProcessor() override;
+  kiosk_vision::InternalsPageProcessor* GetKioskVisionInternalsPageProcessor()
+      override;
 
   void SetKioskVisionTelemetryProcessor(
       kiosk_vision::TelemetryProcessor* telemetry_processor);

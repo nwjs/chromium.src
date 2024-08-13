@@ -7,6 +7,8 @@
 
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new.mojom.h"
+#include "components/prefs/pref_registry_simple.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -24,15 +26,19 @@ class WebUI;
 
 class WhatsNewHandler;
 class BrowserCommandHandler;
+class PrefRegistrySimple;
 class Profile;
 
 // The Web UI controller for the chrome://whats-new page.
 class WhatsNewUI : public ui::MojoWebUIController,
                    public whats_new::mojom::PageHandlerFactory,
-                   public browser_command::mojom::CommandHandlerFactory {
+                   public browser_command::mojom::CommandHandlerFactory,
+                   content::WebContentsObserver {
  public:
   explicit WhatsNewUI(content::WebUI* web_ui);
   ~WhatsNewUI() override;
+
+  static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 
   static base::RefCountedMemory* GetFaviconResourceBytes(
       ui::ResourceScaleFactor scale_factor);
@@ -47,6 +53,10 @@ class WhatsNewUI : public ui::MojoWebUIController,
   void BindInterface(
       mojo::PendingReceiver<browser_command::mojom::CommandHandlerFactory>
           pending_receiver);
+
+  // content::WebContentsObserver:
+  void DidStartNavigation(
+      content::NavigationHandle* navigation_handle) override;
 
   WhatsNewUI(const WhatsNewUI&) = delete;
   WhatsNewUI& operator=(const WhatsNewUI&) = delete;

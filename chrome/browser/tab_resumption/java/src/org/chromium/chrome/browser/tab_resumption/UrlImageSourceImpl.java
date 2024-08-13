@@ -23,9 +23,8 @@ public class UrlImageSourceImpl implements UrlImageProvider.UrlImageSource {
 
     @Override
     public ThumbnailProvider createThumbnailProvider() {
-        return (tabId, thumbnailSize, callback, forceUpdate, writeBack, isSelected) -> {
-            mTabContentManager.getTabThumbnailWithCallback(
-                    tabId, thumbnailSize, callback, forceUpdate, writeBack);
+        return (tabId, thumbnailSize, callback, isSelected) -> {
+            mTabContentManager.getTabThumbnailWithCallback(tabId, thumbnailSize, callback);
         };
     }
 

@@ -40,6 +40,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/base/ime/ash/input_method_manager.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
@@ -382,7 +383,7 @@ std::optional<AcceleratorConfigResult> ValidateAccelerator(
       key_code_entry = FindKeyCodeEntry(accelerator.key_code());
   if (key_code_entry.has_value()) {
     const ui::KeyEvent key_event(
-        ui::ET_KEY_PRESSED, key_code_entry->resulting_key_code,
+        ui::EventType::kKeyPressed, key_code_entry->resulting_key_code,
         key_code_entry->dom_code, accelerator.modifiers());
     const AcceleratorKeyInputType input_type =
         GetKeyInputTypeFromKeyEvent(key_event);
@@ -453,6 +454,8 @@ bool ShouldExcludeItem(const AcceleratorLayoutDetails& details) {
     case kTilingWindowResizeUp:
     case kTilingWindowResizeDown:
       return !features::IsTilingWindowResizeEnabled();
+    case kToggleMouseKeys:
+      return !::features::IsAccessibilityMouseKeysEnabled();
     case kToggleSnapGroupWindowsMinimizeAndRestore:
       return true;
   }
@@ -657,10 +660,10 @@ void AcceleratorConfigurationProvider::IsCustomizationAllowedByPolicy(
       Shell::Get()->accelerator_prefs()->IsCustomizationAllowedByPolicy());
 }
 
-void AcceleratorConfigurationProvider::HasLauncherButton(
-    HasLauncherButtonCallback callback) {
+void AcceleratorConfigurationProvider::GetMetaKeyToDisplay(
+    GetMetaKeyToDisplayCallback callback) {
   std::move(callback).Run(
-      Shell::Get()->keyboard_capability()->HasLauncherButtonOnAnyKeyboard());
+      Shell::Get()->keyboard_capability()->GetMetaKeyToDisplay());
 }
 
 void AcceleratorConfigurationProvider::GetConflictAccelerator(

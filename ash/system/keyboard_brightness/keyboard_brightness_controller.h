@@ -63,7 +63,10 @@ class ASH_EXPORT KeyboardBrightnessController
   void HandleKeyboardBrightnessDown() override;
   void HandleKeyboardBrightnessUp() override;
   void HandleToggleKeyboardBacklight() override;
-  void HandleSetKeyboardBrightness(double percent, bool gradual) override;
+  void HandleSetKeyboardBrightness(
+      double percent,
+      bool gradual,
+      KeyboardBrightnessChangeSource source) override;
   void HandleGetKeyboardBrightness(
       base::OnceCallback<void(std::optional<double>)> callback) override;
   void HandleSetKeyboardAmbientLightSensorEnabled(bool enabled) override;
@@ -77,6 +80,7 @@ class ASH_EXPORT KeyboardBrightnessController
   void RestoreKeyboardAmbientLightSensorSettingOnFirstLogin();
 
   void OnReceiveHasKeyboardBacklight(std::optional<bool> has_backlight);
+  void OnReceiveHasAmbientLightSensor(std::optional<bool> has_sensor);
   void OnReceiveKeyboardBrightnessAfterLogin(
       std::optional<double> keyboard_brightness);
 
@@ -91,6 +95,13 @@ class ASH_EXPORT KeyboardBrightnessController
   // True if the keyboard ambient light sensor value has already been restored
   // for a user's first login.
   bool has_keyboard_ambient_light_sensor_been_restored_for_new_user_ = false;
+
+  // True if the keyboard ambient light sensor status has already been recorded
+  // at login screen.
+  bool has_keyboard_ambient_light_sensor_status_been_recorded_ = false;
+
+  // True if the keyboard has an ambient light sensor.
+  bool has_sensor_ = false;
 
   // This PrefChangeRegistrar is used to check when the synced profile pref for
   // the keyboard ambient light sensor value has finished syncing.

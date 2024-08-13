@@ -6,10 +6,20 @@
 
 #include "ash/system/input_device_settings/input_device_settings_metadata.h"
 #include "ash/system/input_device_settings/input_device_settings_pref_names.h"
+#include "base/containers/contains.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/scoped_user_pref_update.h"
 
 namespace ash {
+
+namespace {
+
+std::string GenerateImageRequestKey(const std::string& key,
+                                    DeviceImageDestination destination) {
+  return key + "_" + base::NumberToString(static_cast<int>(destination));
+}
+
+}  // namespace
 
 InputDeviceSettingsMetadataManager::InputDeviceSettingsMetadataManager(
     std::unique_ptr<DeviceImageDownloader> image_downloader,
@@ -53,11 +63,17 @@ void InputDeviceSettingsMetadataManager::OnDeviceImageFetched(
     device_image_storage_->PersistDeviceImage(device_key,
                                               device_image.data_url());
   }
-  auto it = device_callback_map_.find(device_key);
-  if (it != device_callback_map_.end()) {
-    std::move(it->second).Run(device_image);
-    device_callback_map_.erase(it);
+  auto it = device_callback_map_.find(
+      GenerateImageRequestKey(device_key, destination));
+
+  if (it == device_callback_map_.end()) {
+    return;
   }
+
+  for (auto& callback : it->second) {
+    std::move(callback).Run(device_image);
+  }
+  device_callback_map_.erase(it);
 }
 
 std::optional<std::string>
@@ -76,9 +92,10 @@ void InputDeviceSettingsMetadataManager::GetDeviceImagePreferringCache(
     std::move(callback).Run(DeviceImage(device_key, device_image.value()));
     return;
   }
-  device_callback_map_[device_key] = std::move(callback);
+  device_callback_map_[GenerateImageRequestKey(device_key, destination)]
+      .push_back(std::move(callback));
   image_downloader_->DownloadImage(
-      device_key, account_id,
+      device_key, account_id, destination,
       base::BindOnce(&InputDeviceSettingsMetadataManager::OnDeviceImageFetched,
                      weak_ptr_factory_.GetWeakPtr(), destination));
 }

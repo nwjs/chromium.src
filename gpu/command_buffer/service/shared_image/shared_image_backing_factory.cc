@@ -9,8 +9,9 @@
 
 namespace gpu {
 
-SharedImageBackingFactory::SharedImageBackingFactory(uint32_t valid_usages)
-    : invalid_usages_(~valid_usages) {}
+SharedImageBackingFactory::SharedImageBackingFactory(
+    SharedImageUsageSet valid_usages)
+    : valid_usages_(valid_usages) {}
 
 SharedImageBackingFactory::~SharedImageBackingFactory() = default;
 
@@ -31,19 +32,18 @@ SharedImageBackingFactory::CreateSharedImage(const Mailbox& mailbox,
                                              std::string debug_label,
                                              bool is_thread_safe,
                                              gfx::BufferUsage buffer_usage) {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 bool SharedImageBackingFactory::CanCreateSharedImage(
-    uint32_t usage,
+    SharedImageUsageSet usage,
     viz::SharedImageFormat format,
     const gfx::Size& size,
     bool thread_safe,
     gfx::GpuMemoryBufferType gmb_type,
     GrContextType gr_context_type,
     base::span<const uint8_t> pixel_data) {
-  if (invalid_usages_ & usage) {
+  if (!valid_usages_.HasAll(usage)) {
     // This factory doesn't support all the usages.
     return false;
   }

@@ -22,6 +22,7 @@
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/variations/scoped_variations_ids_provider.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/tflite/buildflags.h"
 
 namespace optimization_guide {
 
@@ -164,6 +165,28 @@ TEST_F(ModelExecutionFeaturesControllerTest,
       controller()->IsSettingVisible(UserVisibleFeatureKey::kTabOrganization));
 
   EnableSignIn();
+  EXPECT_TRUE(controller()->IsSettingVisible(UserVisibleFeatureKey::kCompose));
+  EXPECT_TRUE(
+      controller()->IsSettingVisible(UserVisibleFeatureKey::kTabOrganization));
+  EXPECT_FALSE(
+      controller()->IsSettingVisible(UserVisibleFeatureKey::kWallpaperSearch));
+}
+
+TEST_F(ModelExecutionFeaturesControllerTest,
+       FeatureAllowedForSignedUserWithoutCapabilityWhenUnsignedUserAllowed) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{features::internal::kComposeSettingsVisibility,
+        {{"allow_unsigned_user", "true"}}},
+       {features::internal::kTabOrganizationSettingsVisibility,
+        {{"allow_unsigned_user", "true"}}}},
+      {features::internal::kComposeGraduated});
+  CreateController();
+  EXPECT_TRUE(controller()->IsSettingVisible(UserVisibleFeatureKey::kCompose));
+  EXPECT_TRUE(
+      controller()->IsSettingVisible(UserVisibleFeatureKey::kTabOrganization));
+
+  EnableSignInWithoutCapability();
   EXPECT_TRUE(controller()->IsSettingVisible(UserVisibleFeatureKey::kCompose));
   EXPECT_TRUE(
       controller()->IsSettingVisible(UserVisibleFeatureKey::kTabOrganization));
@@ -364,6 +387,34 @@ TEST_F(ModelExecutionFeaturesControllerTest,
 
   EXPECT_FALSE(
       controller()->ShouldFeatureBeCurrentlyAllowedForLogging(feature));
+}
+
+TEST_F(ModelExecutionFeaturesControllerTest,
+       HistorySearchVisibilityWithXNNPACK) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::internal::kHistorySearchSettingsVisibility}, {});
+  CreateController();
+
+  EnableSignIn();
+
+#if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+  EXPECT_TRUE(
+      controller()->IsSettingVisible(UserVisibleFeatureKey::kHistorySearch));
+  histogram_tester()->ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.SettingsVisibilityResult.HistorySearch",
+      ModelExecutionFeaturesController::SettingsVisibilityResult::
+          kVisibleFieldTrialEnabled,
+      1);
+#else
+  EXPECT_FALSE(
+      controller()->IsSettingVisible(UserVisibleFeatureKey::kHistorySearch));
+  histogram_tester()->ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.SettingsVisibilityResult.HistorySearch",
+      ModelExecutionFeaturesController::SettingsVisibilityResult::
+          kNotVisibleHardwareUnsupported,
+      1);
+#endif
 }
 
 }  // namespace optimization_guide

@@ -22,11 +22,13 @@
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_user_provider_impl.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_wallpaper_provider_impl.h"
 #include "chrome/browser/ash/wallpaper_handlers/wallpaper_fetcher_delegate.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/manta/manta_service_factory.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "components/account_id/account_id.h"
+#include "components/language/core/common/locale_util.h"
 #include "components/manta/manta_service.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
@@ -121,6 +123,12 @@ bool IsManagedUserEligibleForSeaPen(Profile* profile) {
   return CanAccessMantaFeaturesWithoutMinorRestrictions(profile);
 }
 
+bool IsSystemInEnglishLanguage() {
+  return g_browser_process != nullptr &&
+         language::ExtractBaseLanguage(
+             g_browser_process->GetApplicationLocale()) == "en";
+}
+
 bool IsEligibleForSeaPen(Profile* profile) {
   if (!profile) {
     LOG(ERROR) << __func__ << " no profile";
@@ -169,49 +177,11 @@ bool IsEligibleForSeaPen(Profile* profile) {
 }
 
 bool IsManagedSeaPenWallpaperEnabled(Profile* profile) {
-  // Skip policy check for Googlers.
-  // TODO(b/343219964): remove this bypass codes for Googlers till the policy is
-  // rolled out and Google corp admins have enabled for Googlers.
-  if (gaia::IsGoogleInternalAccountEmail(profile->GetProfileUserName())) {
-    DVLOG(1) << __func__ << " Google internal account";
-    return true;
-  }
-
-  // Skip policy check for Demo Mode guest session.
-  // TODO(b/343518695): remove this bypass codes once the policy is added into
-  // MGS and Demo Mode admins enable it.
-  if (features::IsSeaPenDemoModeEnabled() &&
-      DemoSession::IsDeviceInDemoMode()) {
-    DVLOG(1) << __func__ << " demo mode";
-    const auto* user = GetUser(profile);
-    return DemoSession::Get() && user &&
-           user->GetType() == user_manager::UserType::kPublicAccount;
-  }
-
   return profile->GetPrefs()->GetInteger(ash::prefs::kGenAIWallpaperSettings) ==
          1;
 }
 
 bool IsManagedSeaPenVcBackgroundEnabled(Profile* profile) {
-  // Skip policy check for Googlers.
-  // TODO(b/343219964): remove this bypass codes for Googlers till the policy is
-  // rolled out and Google corp admins have enabled for Googlers.
-  if (gaia::IsGoogleInternalAccountEmail(profile->GetProfileUserName())) {
-    DVLOG(1) << __func__ << " Google internal account";
-    return true;
-  }
-
-  // Skip policy check for Demo Mode guest session.
-  // TODO(b/343518695): remove this bypass codes once the policy is added into
-  // MGS and Demo Mode admins enable it.
-  if (features::IsSeaPenDemoModeEnabled() &&
-      DemoSession::IsDeviceInDemoMode()) {
-    DVLOG(1) << __func__ << " demo mode";
-    const auto* user = GetUser(profile);
-    return DemoSession::Get() && user &&
-           user->GetType() == user_manager::UserType::kPublicAccount;
-  }
-
   return profile->GetPrefs()->GetInteger(
              ash::prefs::kGenAIVcBackgroundSettings) == 1;
 }
@@ -224,6 +194,11 @@ bool IsEligibleForSeaPenTextInput(Profile* profile) {
   if (!features::IsSeaPenTextInputEnabled()) {
     // Without the experiment, users are not allowed to use SeaPenTextInput.
     DVLOG(1) << __func__ << " SeaPenTextInput disabled";
+    return false;
+  }
+  if (!IsSystemInEnglishLanguage()) {
+    // The feature only supports English users.
+    DVLOG(1) << __func__ << " system not in English language";
     return false;
   }
   return IsEligibleForSeaPen(profile) &&

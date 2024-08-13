@@ -16,19 +16,23 @@
 #include "base/time/time.h"
 #include "base/types/pass_key.h"
 #include "base/types/token_type.h"
-#include "components/performance_manager/graph/node_attached_data.h"
+#include "build/build_config.h"
+#include "components/performance_manager/decorators/page_aggregator_data.h"
+#include "components/performance_manager/decorators/page_load_tracker_decorator_data.h"
+#include "components/performance_manager/freezing/frozen_data.h"
+#include "components/performance_manager/graph/node_attached_data_storage.h"
 #include "components/performance_manager/graph/node_base.h"
 #include "components/performance_manager/public/graph/page_node.h"
 #include "url/gurl.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "components/performance_manager/decorators/site_data_node_data.h"
+#endif
+
 namespace performance_manager {
 
 class FrameNodeImpl;
-class FrozenFrameAggregatorAccess;
-class PageAggregatorAccess;
-class PageLoadTrackerAccess;
-class SiteDataAccess;
-class TabConnectednessAccess;
+class FrozenFrameAggregator;
 
 // The starting state of various boolean properties of the PageNode.
 enum class PagePropertyFlag {
@@ -36,20 +40,25 @@ enum class PagePropertyFlag {
   kMin = kIsVisible,
   kIsAudible,            // initializes PageNode::IsAudible()
   kHasPictureInPicture,  // initializes PageNode::HasPictureInPicture()
-  kMax = kHasPictureInPicture,
+  kIsOffTheRecord,       // initializes PageNode::IsOffTheRecord()
+  kMax = kIsOffTheRecord,
 };
 using PagePropertyFlags = base::
     EnumSet<PagePropertyFlag, PagePropertyFlag::kMin, PagePropertyFlag::kMax>;
 
 class PageNodeImpl
     : public PublicNodeImpl<PageNodeImpl, PageNode>,
-      public TypedNodeBase<PageNodeImpl, PageNode, PageNodeObserver> {
+      public TypedNodeBase<PageNodeImpl, PageNode, PageNodeObserver>,
+      public SupportsNodeInlineData<PageLoadTrackerDecoratorData,
+                                    PageAggregatorData,
+#if !BUILDFLAG(IS_ANDROID)
+                                    SiteDataNodeData,
+#endif
+                                    FrozenData,
+                                    // Keep this last to avoid merge conflicts.
+                                    NodeAttachedDataStorage> {
  public:
   using PassKey = base::PassKey<PageNodeImpl>;
-  using FrozenFrameDataStorage =
-      InternalNodeAttachedDataStorage<sizeof(uintptr_t) + 8>;
-  using PageAggregatorDataStorage =
-      InternalNodeAttachedDataStorage<sizeof(uintptr_t) + 16>;
 
   // A unique token to identify the PageNode and its associated WebContents for
   // the lifetime of the browser. Most node types use an existing unique
@@ -63,8 +72,7 @@ class PageNodeImpl
                const std::string& browser_context_id,
                const GURL& visible_url,
                PagePropertyFlags initial_properties,
-               base::TimeTicks visibility_change_time,
-               PageState page_state);
+               base::TimeTicks visibility_change_time);
 
   PageNodeImpl(const PageNodeImpl&) = delete;
   PageNodeImpl& operator=(const PageNodeImpl&) = delete;
@@ -82,6 +90,7 @@ class PageNodeImpl
   bool IsAudible() const override;
   std::optional<base::TimeDelta> GetTimeSinceLastAudibleChange() const override;
   bool HasPictureInPicture() const override;
+  bool IsOffTheRecord() const override;
   LoadingState GetLoadingState() const override;
   ukm::SourceId GetUkmSourceID() const override;
   LifecycleState GetLifecycleState() const override;
@@ -97,7 +106,6 @@ class PageNodeImpl
   bool HadFormInteraction() const override;
   bool HadUserEdits() const override;
   base::WeakPtr<content::WebContents> GetWebContents() const override;
-  PageState GetPageState() const override;
   uint64_t EstimateResidentSetSize() const override;
   uint64_t EstimatePrivateFootprintSize() const override;
 
@@ -145,7 +153,6 @@ class PageNodeImpl
   void ClearEmbedderFrameNodeAndEmbeddingType();
 
   void set_has_nonempty_beforeunload(bool has_nonempty_beforeunload);
-  void set_page_state(PageState page_state);
 
   void SetLifecycleStateForTesting(LifecycleState lifecycle_state) {
     SetLifecycleState(lifecycle_state);
@@ -170,54 +177,31 @@ class PageNodeImpl
   base::WeakPtr<PageNodeImpl> GetWeakPtrOnUIThread();
   base::WeakPtr<PageNodeImpl> GetWeakPtr();
 
-  // Accessors to some of the NodeAttachedData:
-  std::unique_ptr<NodeAttachedData>& GetSiteData(
-      base::PassKey<SiteDataAccess>) {
-    return site_data_;
-  }
-  std::unique_ptr<NodeAttachedData>& GetPageLoadTrackerData(
-      base::PassKey<PageLoadTrackerAccess>) {
-    return page_load_tracker_data_;
-  }
-  std::unique_ptr<NodeAttachedData>& GetTabConnectednessData(
-      base::PassKey<TabConnectednessAccess>) {
-    return tab_connectedness_data_;
-  }
-  FrozenFrameDataStorage& GetFrozenFrameData(
-      base::PassKey<FrozenFrameAggregatorAccess>) {
-    return frozen_frame_data_;
-  }
-  PageAggregatorDataStorage& GetPageAggregatorData(
-      base::PassKey<PageAggregatorAccess>) {
-    return page_aggregator_data_;
-  }
-
   // Functions meant to be called by a FrameNodeImpl:
   void AddFrame(base::PassKey<FrameNodeImpl>, FrameNodeImpl* frame_node);
   void RemoveFrame(base::PassKey<FrameNodeImpl>, FrameNodeImpl* frame_node);
 
-  // Function meant to be called by FrozenFrameAggregatorAccess.
-  void SetLifecycleState(base::PassKey<FrozenFrameAggregatorAccess>,
+  // Function meant to be called by FrozenFrameAggregator.
+  void SetLifecycleState(base::PassKey<FrozenFrameAggregator>,
                          LifecycleState lifecycle_state) {
     SetLifecycleState(lifecycle_state);
   }
 
-  // Functions meant to be called by PageAggregatorAccess:
-  void SetIsHoldingWebLock(base::PassKey<PageAggregatorAccess>,
+  // Functions meant to be called by PageAggregatorData:
+  void SetIsHoldingWebLock(base::PassKey<PageAggregatorData>,
                            bool is_holding_weblock) {
     SetIsHoldingWebLock(is_holding_weblock);
   }
-  void SetIsHoldingIndexedDBLock(base::PassKey<PageAggregatorAccess>,
+  void SetIsHoldingIndexedDBLock(base::PassKey<PageAggregatorData>,
                                  bool is_holding_indexeddb_lock) {
     SetIsHoldingIndexedDBLock(is_holding_indexeddb_lock);
   }
-  void SetHadFormInteraction(base::PassKey<PageAggregatorAccess>,
+  void SetHadFormInteraction(base::PassKey<PageAggregatorData>,
                              bool had_form_interaction) {
     SetHadFormInteraction(had_form_interaction);
   }
 
-  void SetHadUserEdits(base::PassKey<PageAggregatorAccess>,
-                       bool had_user_edits) {
+  void SetHadUserEdits(base::PassKey<PageAggregatorData>, bool had_user_edits) {
     SetHadUserEdits(had_user_edits);
   }
 
@@ -336,6 +320,9 @@ class PageNodeImpl
       bool,
       &PageNodeObserver::OnHasPictureInPictureChanged>
       has_picture_in_picture_ GUARDED_BY_CONTEXT(sequence_checker_){false};
+
+  const bool is_off_the_record_;
+
   // The loading state. This is driven by instrumentation in the browser
   // process.
   ObservedProperty::NotifiesOnlyOnChangesWithPreviousValue<
@@ -379,32 +366,6 @@ class PageNodeImpl
   ObservedProperty::
       NotifiesOnlyOnChanges<bool, &PageNodeObserver::OnHadUserEditsChanged>
           had_user_edits_ GUARDED_BY_CONTEXT(sequence_checker_){false};
-  // The state of this page.
-  ObservedProperty::NotifiesOnlyOnChangesWithPreviousValue<
-      PageState,
-      PageState,
-      &PageNodeObserver::OnPageStateChanged>
-      page_state_ GUARDED_BY_CONTEXT(sequence_checker_){PageState::kActive};
-
-  // Storage for PageLoadTracker user data.
-  std::unique_ptr<NodeAttachedData> page_load_tracker_data_
-      GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // Storage for SiteDataNodeData user data.
-  std::unique_ptr<NodeAttachedData> site_data_
-      GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // Storage for TabConnectednessDecorator user data.
-  std::unique_ptr<NodeAttachedData> tab_connectedness_data_
-      GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // Inline storage for FrozenFrameAggregator user data.
-  FrozenFrameDataStorage frozen_frame_data_
-      GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // Inline storage for PageAggregatorAccess user data.
-  PageAggregatorDataStorage page_aggregator_data_
-      GUARDED_BY_CONTEXT(sequence_checker_);
 
   base::WeakPtr<PageNodeImpl> weak_this_;
   base::WeakPtrFactory<PageNodeImpl> weak_factory_

@@ -97,7 +97,8 @@ declare_args() {
 
   # Puts the regular and BRP pools right next to each other, so that we can
   # check "belongs to one of the two pools" with a single bitmask operation.
-  glue_core_pools = false
+  # TODO(crbug.com/350104111): Fix ios-simulator failures to remove `!is_ios`.
+  glue_core_pools = use_partition_alloc_as_malloc && !is_ios
 
   # Introduces pointer compression support in PA. These are 4-byte
   # pointers that can point within the core pools (regular and BRP).
@@ -241,9 +242,6 @@ declare_args() {
   use_full_mte = false
 }
 
-# *Scan is currently only used by Chromium, and supports only 64-bit.
-use_starscan = build_with_chromium && has_64_bit_pointers
-
 stack_scan_supported =
     current_cpu == "x64" || current_cpu == "x86" || current_cpu == "arm" ||
     current_cpu == "arm64" || current_cpu == "riscv64"
@@ -256,8 +254,11 @@ stack_scan_supported =
 # Do not clear the following, as they can function outside of PartitionAlloc
 # - has_64_bit_pointers
 # - has_memory_tagging
-if (!use_partition_alloc) {
+if (!use_partition_alloc ||
+    (defined(toolchain_allows_use_partition_alloc_as_malloc) &&
+     !toolchain_allows_use_partition_alloc_as_malloc)) {
   use_partition_alloc_as_malloc = false
+  glue_core_pools = false
   enable_backup_ref_ptr_support = false
   use_raw_ptr_backup_ref_impl = false
   use_asan_backup_ref_ptr = false
@@ -268,8 +269,8 @@ if (!use_partition_alloc) {
   enable_dangling_raw_ptr_feature_flag = false
   enable_pointer_subtraction_check = false
   backup_ref_ptr_poison_oob_ptr = false
+  backup_ref_ptr_extra_oob_checks = false
   enable_backup_ref_ptr_instance_tracer = false
-  use_starscan = false
   use_full_mte = false
 }
 
@@ -405,17 +406,3 @@ declare_args() {
   # Embedders may opt-out of using C++ 20 build.
   assert_cpp20 = assert_cpp20_default
 }
-
-declare_args() {
-  # Enables compilation of the freelist dispatcher, which we'll use to
-  # carry out runtime evaluation of PartitionAlloc's two freelist
-  # implementations: the existing encoded-next freelist and the new
-  # pool offset freelist. When false, the latter is not built.
-  #
-  # This is being exposed as a GN arg because of an undiagnosed crashy
-  # interaction with Mac PGO builders: crbug.com/338094768#comment20
-  use_freelist_dispatcher = has_64_bit_pointers && false
-}
-
-assert(has_64_bit_pointers || !use_freelist_dispatcher,
-       "freelist dispatcher can't be used without 64-bit pointers")

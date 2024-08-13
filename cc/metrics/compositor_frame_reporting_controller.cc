@@ -18,6 +18,7 @@
 #include "cc/metrics/scroll_jank_dropped_frame_tracker.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "components/viz/common/quads/compositor_frame_metadata.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/tracing/public/cpp/perfetto/macros.h"
 
 namespace cc {
@@ -363,7 +364,10 @@ void CompositorFrameReportingController::DidSubmitCompositorFrame(
         submit_info.time);
     main_reporter->AddEventsMetrics(
         std::move(submit_info.events_metrics.main_event_metrics));
-    main_reporter->set_has_missing_content(submit_info.has_missing_content);
+    main_reporter->set_checkerboarded_needs_raster(
+        submit_info.checkerboarded_needs_raster);
+    main_reporter->set_checkerboarded_needs_record(
+        submit_info.checkerboarded_needs_record);
     main_reporter->set_reporter_type_to_main();
     main_reporter->set_top_controls_moved(submit_info.top_controls_moved);
     submitted_compositor_frames_.emplace_back(submit_info.frame_token,
@@ -377,7 +381,10 @@ void CompositorFrameReportingController::DidSubmitCompositorFrame(
         submit_info.time);
     impl_reporter->AddEventsMetrics(
         std::move(submit_info.events_metrics.impl_event_metrics));
-    impl_reporter->set_has_missing_content(submit_info.has_missing_content);
+    impl_reporter->set_checkerboarded_needs_raster(
+        submit_info.checkerboarded_needs_raster);
+    impl_reporter->set_checkerboarded_needs_record(
+        submit_info.checkerboarded_needs_record);
     impl_reporter->set_is_accompanied_by_main_thread_update(
         is_activated_frame_new);
     impl_reporter->set_reporter_type_to_impl();
@@ -761,7 +768,7 @@ void CompositorFrameReportingController::SetThreadAffectsSmoothness(
   // keep the history for the last 3 seconds.
   if (!smooth_thread_history_.empty()) {
     auto expired_smooth_thread =
-        smooth_thread_history_.lower_bound(Now() - base::Seconds(3))--;
+        smooth_thread_history_.lower_bound(Now() - base::Seconds(3));
     smooth_thread_history_.erase(smooth_thread_history_.begin(),
                                  expired_smooth_thread);
   }
@@ -835,9 +842,20 @@ CompositorFrameReportingController::RestoreReporterAtBeginImpl(
   return nullptr;
 }
 
-void CompositorFrameReportingController::SetUkmManager(UkmManager* manager) {
-  latency_ukm_reporter_->set_ukm_manager(manager);
-  scroll_jank_ukm_reporter_->set_ukm_manager(manager);
+void CompositorFrameReportingController::InitializeUkmManager(
+    std::unique_ptr<ukm::UkmRecorder> recorder) {
+  latency_ukm_reporter_->InitializeUkmManager(std::move(recorder));
+  // TODO(crbug/334977830): the mix of `GlobalMetricsTrackers` and `raw_ptr` is
+  // making ownership harder to follow. We should clean this all up.
+  //
+  // The order of reporters is strictly managed to guarantee their lifetimes.
+  // `latency_ukm_reporter_` outlives `scroll_jank_ukm_reporter_`.
+  scroll_jank_ukm_reporter_->set_ukm_manager(
+      latency_ukm_reporter_->ukm_manager());
+}
+
+void CompositorFrameReportingController::SetSourceId(ukm::SourceId source_id) {
+  latency_ukm_reporter_->SetSourceId(source_id);
 }
 
 CompositorFrameReporter::SmoothThread

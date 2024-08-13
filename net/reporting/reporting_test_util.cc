@@ -245,6 +245,12 @@ void ReportingTestBase::SetV1EndpointInCache(
                                    url);
 }
 
+void ReportingTestBase::SetEnterpriseEndpointInCache(
+    const ReportingEndpointGroupKey& group_key,
+    const GURL& url) {
+  cache()->SetEnterpriseEndpointForTesting(group_key, url);
+}
+
 bool ReportingTestBase::EndpointExistsInCache(
     const ReportingEndpointGroupKey& group_key,
     const GURL& url) {
@@ -346,7 +352,8 @@ void TestReportingService::QueueReport(
     const std::string& group,
     const std::string& type,
     base::Value::Dict body,
-    int depth) {
+    int depth,
+    ReportingTargetType target_type) {
   reports_.emplace_back(
       Report(url, network_anonymization_key, user_agent, group, type,
              std::make_unique<base::Value>(std::move(body)), depth));

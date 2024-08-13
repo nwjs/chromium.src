@@ -9,6 +9,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -45,7 +46,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -54,6 +54,7 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.BuildInfo;
 import org.chromium.base.CallbackController;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterSet;
@@ -89,7 +90,6 @@ import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.EmbeddedTestServerRule;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 
@@ -126,8 +126,6 @@ public class CustomTabActivityIncognitoTest {
     @Rule
     public IncognitoCustomTabActivityTestRule mCustomTabActivityTestRule =
             new IncognitoCustomTabActivityTestRule();
-
-    @Rule public TestRule mProcessor = new Features.InstrumentationProcessor();
 
     @Rule public EmbeddedTestServerRule mEmbeddedTestServerRule = new EmbeddedTestServerRule();
 
@@ -177,17 +175,17 @@ public class CustomTabActivityIncognitoTest {
     }
 
     private static int getIncognitoThemeColor(CustomTabActivity activity) throws Exception {
-        return TestThreadUtils.runOnUiThreadBlocking(
+        return ThreadUtils.runOnUiThreadBlocking(
                 () -> ChromeColors.getDefaultThemeColor(activity, true));
     }
 
     private static int getThemeColor(CustomTabActivity activity) throws Exception {
-        return TestThreadUtils.runOnUiThreadBlocking(
+        return ThreadUtils.runOnUiThreadBlocking(
                 () -> ChromeColors.getDefaultThemeColor(activity, false));
     }
 
     private static int getToolbarColor(CustomTabActivity activity) throws ExecutionException {
-        return TestThreadUtils.runOnUiThreadBlocking(
+        return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     CustomTabToolbar toolbar = activity.findViewById(R.id.toolbar);
                     return toolbar.getBackground().getColor();
@@ -254,7 +252,7 @@ public class CustomTabActivityIncognitoTest {
     }
 
     private void assertProfileUsedIsNonPrimary() throws TimeoutException {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Profile profile =
                             Profile.fromWebContents(
@@ -263,6 +261,11 @@ public class CustomTabActivityIncognitoTest {
                                             .getCurrentWebContents());
                     assertTrue(profile.isOffTheRecord());
                     assertFalse(profile.isPrimaryOTRProfile());
+                    if (mEphemeralTab) {
+                        assertFalse(profile.isIncognitoBranded());
+                    } else {
+                        assertTrue(profile.isIncognitoBranded());
+                    }
                 });
     }
 
@@ -285,10 +288,11 @@ public class CustomTabActivityIncognitoTest {
         if (mEphemeralTab) {
             CustomTabToolbar customTabToolbar =
                     mCustomTabActivityTestRule.getActivity().findViewById(R.id.toolbar);
-            TestThreadUtils.runOnUiThreadBlocking(
+            ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         Profile profile = customTabToolbar.getToolbarDataProvider().getProfile();
                         assertFalse(profile.isOffTheRecord());
+                        assertFalse(profile.isIncognitoBranded());
                     });
         } else {
             assertTrue(activity.getActivityTab().isIncognito());
@@ -314,7 +318,12 @@ public class CustomTabActivityIncognitoTest {
     public void toolbarHasIncognitoLogo_ForIncognitoCCT() throws Exception {
         Intent intent = createTestCustomTabIntent();
         launchIncognitoCustomTab(intent);
-        onView(withId(R.id.incognito_cct_logo_image_view)).check(matches(isDisplayed()));
+
+        if (mEphemeralTab) {
+            onView(withId(R.id.incognito_cct_logo_image_view)).check(matches(not(isDisplayed())));
+        } else {
+            onView(withId(R.id.incognito_cct_logo_image_view)).check(matches(isDisplayed()));
+        }
     }
 
     @Test
@@ -325,11 +334,16 @@ public class CustomTabActivityIncognitoTest {
 
         CustomTabToolbar customTabToolbar =
                 mCustomTabActivityTestRule.getActivity().findViewById(R.id.toolbar);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Profile profile = customTabToolbar.getToolbarDataProvider().getProfile();
                     assertTrue(profile.isOffTheRecord());
                     assertFalse(profile.isPrimaryOTRProfile());
+                    if (mEphemeralTab) {
+                        assertFalse(profile.isIncognitoBranded());
+                    } else {
+                        assertTrue(profile.isIncognitoBranded());
+                    }
                 });
     }
 
@@ -342,10 +356,11 @@ public class CustomTabActivityIncognitoTest {
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
         CustomTabToolbar customTabToolbar =
                 mCustomTabActivityTestRule.getActivity().findViewById(R.id.toolbar);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Profile profile = customTabToolbar.getToolbarDataProvider().getProfile();
                     assertFalse(profile.isOffTheRecord());
+                    assertFalse(profile.isIncognitoBranded());
                 });
     }
 
@@ -649,7 +664,7 @@ public class CustomTabActivityIncognitoTest {
         CustomTabActivity customTabActivity = launchIncognitoCustomTab(intent);
         CallbackHelper callbackHelper = new CallbackHelper();
         // Ensure that we did indeed create the re-auth controller.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     OneshotSupplier<IncognitoReauthController>
                             incognitoReauthControllerOneshotSupplier =
@@ -677,7 +692,7 @@ public class CustomTabActivityIncognitoTest {
         Intent intent = createTestCustomTabIntent();
         CustomTabActivity customTabActivity = launchIncognitoCustomTab(intent);
         CallbackHelper callbackHelper = new CallbackHelper();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     OneshotSupplier<IncognitoReauthController>
                             incognitoReauthControllerOneshotSupplier =
@@ -694,7 +709,7 @@ public class CustomTabActivityIncognitoTest {
                 });
         callbackHelper.waitForCallback(0);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
                             .setBoolean(Pref.INCOGNITO_REAUTHENTICATION_FOR_ANDROID, true);
@@ -714,9 +729,16 @@ public class CustomTabActivityIncognitoTest {
                             (StartStopWithNativeObserver) incognitoReauthController;
                     observer.onStartWithNative();
 
-                    assertTrue(
-                            "Re-auth screen should be shown.",
-                            incognitoReauthController.isReauthPageShowing());
+                    if (mEphemeralTab) {
+                        assertFalse(
+                                "Re-auth screen should not be shown.",
+                                incognitoReauthController.isReauthPageShowing());
+                    } else {
+                        assertTrue(
+                                "Re-auth screen should be shown.",
+                                incognitoReauthController.isReauthPageShowing());
+                    }
+
                     UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
                             .setBoolean(Pref.INCOGNITO_REAUTHENTICATION_FOR_ANDROID, false);
                 });

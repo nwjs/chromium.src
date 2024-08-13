@@ -20,6 +20,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -114,10 +115,12 @@
 #include "chrome/browser/download/android/duplicate_download_dialog_bridge_delegate.h"
 #include "chrome/browser/download/android/insecure_download_dialog_bridge.h"
 #include "chrome/browser/download/android/insecure_download_infobar_delegate.h"
+#include "chrome/browser/download/android/new_navigation_observer.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/ui/android/pdf/pdf_jni_headers/PdfUtils_jni.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#include "components/download/public/common/download_task_runner.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "content/public/common/content_features.h"
 #include "net/http/http_content_disposition.h"
@@ -148,6 +151,10 @@
 #include "chrome/browser/safe_browsing/download_protection/deep_scanning_request.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/ash/policy/skyvault/skyvault_rename_handler.h"
 #endif
 
 using content::BrowserThread;
@@ -330,6 +337,12 @@ void OnDownloadDialogClosed(
           ui::SelectedFileInfo(result.file_path));
       break;
   }
+}
+
+base::FilePath GetTempPdfDir() {
+  base::FilePath cache_dir;
+  base::android::GetCacheDirectory(&cache_dir);
+  return cache_dir.Append(kPdfDirName);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -514,14 +527,12 @@ void ChromeDownloadManagerDelegate::SetDownloadManager(DownloadManager* dm) {
 
   download_manager_ = dm;
 
-#if 0
   safe_browsing::SafeBrowsingService* sb_service =
       g_browser_process->safe_browsing_service();
   if (sb_service && !profile_->IsOffTheRecord()) {
     // Include this download manager in the set monitored by safe browsing.
     sb_service->AddDownloadManager(dm);
   }
-#endif
 
   if (download_manager_) {
     download_manager_->AddObserver(this);
@@ -641,20 +652,19 @@ bool ChromeDownloadManagerDelegate::DetermineDownloadTarget(
   if (download->IsTransient()) {
     if (download_path.empty() && download->GetMimeType() == pdf::kPDFMimeType &&
         !download->IsMustDownload()) {
-      base::FilePath generated_filename = net::GenerateFileName(
-          download->GetURL(), download->GetContentDisposition(),
-          profile_->GetPrefs()->GetString(prefs::kDefaultCharset),
-          download->GetSuggestedFilename(), download->GetMimeType(),
-          l10n_util::GetStringUTF8(IDS_DEFAULT_DOWNLOAD_FILENAME));
-      if (profile_->IsOffTheRecord()) {
+      if (profile_->IsOffTheRecord() && download->GetDownloadFile() &&
+          download->GetDownloadFile()->IsMemoryFile()) {
         download_path = download->GetDownloadFile()->FullPath();
+        action = DownloadPathReservationTracker::OVERWRITE;
       } else {
-        base::FilePath cache_dir;
-        base::android::GetCacheDirectory(&cache_dir);
-        download_path =
-            cache_dir.Append(kPdfDirName).Append(generated_filename);
+        base::FilePath generated_filename = net::GenerateFileName(
+            download->GetURL(), download->GetContentDisposition(),
+            profile_->GetPrefs()->GetString(prefs::kDefaultCharset),
+            download->GetSuggestedFilename(), download->GetMimeType(),
+            l10n_util::GetStringUTF8(IDS_DEFAULT_DOWNLOAD_FILENAME));
+        download_path = GetTempPdfDir().Append(generated_filename);
+        action = DownloadPathReservationTracker::UNIQUIFY;
       }
-      action = DownloadPathReservationTracker::UNIQUIFY;
     } else {
       action = DownloadPathReservationTracker::OVERWRITE;
     }
@@ -683,7 +693,6 @@ bool ChromeDownloadManagerDelegate::ShouldAutomaticallyOpenFile(
 #endif
 
   bool should_open = download_prefs_->IsAutoOpenEnabled(url, path);
-#if 0
   int64_t file_type_uma_value =
       safe_browsing::FileTypePolicies::GetInstance()->UmaValueForFile(path);
   if (should_open) {
@@ -693,7 +702,7 @@ bool ChromeDownloadManagerDelegate::ShouldAutomaticallyOpenFile(
     base::UmaHistogramSparse("SBClientDownload.AutoOpenDisabledFileType",
                              file_type_uma_value);
   }
-#endif
+
   return should_open;
 }
 
@@ -958,7 +967,6 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
 void ChromeDownloadManagerDelegate::SanitizeSavePackageResourceName(
     base::FilePath* filename,
     const GURL& source_url) {
-#if 0
   safe_browsing::FileTypePolicies* file_type_policies =
       safe_browsing::FileTypePolicies::GetInstance();
 
@@ -970,7 +978,6 @@ void ChromeDownloadManagerDelegate::SanitizeSavePackageResourceName(
   base::FilePath default_filename = base::FilePath::FromUTF8Unsafe(
       l10n_util::GetStringUTF8(IDS_DEFAULT_DOWNLOAD_FILENAME));
   *filename = filename->AddExtension(default_filename.BaseName().value());
-#endif
 }
 
 void ChromeDownloadManagerDelegate::SanitizeDownloadParameters(
@@ -1009,8 +1016,8 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
 #else
 
   if (!DownloadItemModel(download).ShouldPreferOpeningInBrowser()) {
-    //RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_DEFAULT_PLATFORM,
-    //                   download->GetMimeType());
+    RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_DEFAULT_PLATFORM,
+                       download->GetMimeType());
     OpenDownloadUsingPlatformHandler(download);
     return;
   }
@@ -1037,8 +1044,8 @@ void ChromeDownloadManagerDelegate::OpenDownload(DownloadItem* download) {
     browser->OpenURL(params, /*navigation_handle_callback=*/{});
   }
 
-  //RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_DEFAULT_BROWSER,
-  //                   download->GetMimeType());
+  RecordDownloadOpen(DOWNLOAD_OPEN_METHOD_DEFAULT_BROWSER,
+                     download->GetMimeType());
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
@@ -1107,8 +1114,20 @@ void ChromeDownloadManagerDelegate::GetInsecureDownloadStatus(
     const base::FilePath& virtual_path,
     GetInsecureDownloadStatusCallback callback) {
   DCHECK(download);
-  std::move(callback).Run(
-      GetInsecureDownloadStatusForDownload(profile_, virtual_path, download));
+  DownloadItem::InsecureDownloadStatus status =
+      GetInsecureDownloadStatusForDownload(profile_, virtual_path, download);
+#if BUILDFLAG(IS_ANDROID)
+  // Allow insecure PDF download to go through if it is displayed inline.
+  if (download->IsTransient() && download->GetMimeType() == pdf::kPDFMimeType &&
+      !download->IsMustDownload()) {
+    if (ShouldOpenPdfInline() &&
+        base::FeatureList::IsEnabled(
+            download::features::kAllowedMixedContentInlinePdf)) {
+      status = DownloadItem::InsecureDownloadStatus::SAFE;
+    }
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+  std::move(callback).Run(status);
 }
 
 void ChromeDownloadManagerDelegate::NotifyExtensions(
@@ -1665,7 +1684,7 @@ void ChromeDownloadManagerDelegate::OnInstallerDone(
 
   {
     auto iter = running_crx_installs_.find(token);
-    DCHECK(iter != running_crx_installs_.end());
+    CHECK(iter != running_crx_installs_.end(), base::NotFatalUntil::M130);
     installer = iter->second;
     running_crx_installs_.erase(iter);
   }
@@ -1820,7 +1839,6 @@ bool ChromeDownloadManagerDelegate::ShouldBlockFile(
 void ChromeDownloadManagerDelegate::MaybeSendDangerousDownloadOpenedReport(
     DownloadItem* download,
     bool show_download_in_folder) {
-#if 0
 #if BUILDFLAG(FULL_SAFE_BROWSING)
   safe_browsing::DownloadProtectionService* service =
       GetDownloadProtectionService();
@@ -1836,7 +1854,6 @@ void ChromeDownloadManagerDelegate::MaybeSendDangerousDownloadOpenedReport(
         download->GetDangerType(), download_content, base::Time::Now(),
         download->GetEndTime(), show_download_in_folder);
   }
-#endif
 }
 
 void ChromeDownloadManagerDelegate::MaybeSendDangerousDownloadCanceledReport(
@@ -1879,6 +1896,8 @@ void ChromeDownloadManagerDelegate::CheckDownloadAllowed(
     std::optional<url::Origin> request_initiator,
     bool from_download_cross_origin_redirect,
     bool content_initiated,
+    const std::string& mime_type,
+    std::optional<ui::PageTransition> page_transition,
     content::CheckDownloadAllowedCallback check_download_allowed_cb) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
@@ -1913,6 +1932,17 @@ void ChromeDownloadManagerDelegate::CheckDownloadAllowed(
       &ChromeDownloadManagerDelegate::OnCheckDownloadAllowedComplete,
       weak_ptr_factory_.GetWeakPtr(), std::move(check_download_allowed_cb));
 #if BUILDFLAG(IS_ANDROID)
+  if (ShouldOpenPdfInline() && mime_type == pdf::kPDFMimeType) {
+    // If this is a forward/back navigation, the native page should trigger a
+    // download with default page transition type. Otherwise, we should cancel
+    // the download.
+    if (page_transition.has_value() &&
+        (page_transition.value() & ui::PAGE_TRANSITION_FORWARD_BACK)) {
+      OnCheckDownloadAllowedFailed(std::move(check_download_allowed_cb));
+      return;
+    }
+    NewNavigationObserver::GetInstance()->StartObserving(web_contents);
+  }
   DownloadControllerBase::Get()->AcquireFileAccessPermission(
       web_contents_getter,
       base::BindOnce(&OnDownloadAcquireFileAccessPermissionDone,
@@ -1934,8 +1964,11 @@ ChromeDownloadManagerDelegate::GetQuarantineConnectionCallback() {
 std::unique_ptr<download::DownloadItemRenameHandler>
 ChromeDownloadManagerDelegate::GetRenameHandlerForDownload(
     download::DownloadItem* download_item) {
-  // TODO(b/341259898): Add implementation for SkyVault on CrOS.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  return policy::SkyvaultRenameHandler::CreateIfNeeded(download_item);
+#else
   return nullptr;
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
 void ChromeDownloadManagerDelegate::CheckSavePackageAllowed(
@@ -1947,7 +1980,6 @@ void ChromeDownloadManagerDelegate::CheckSavePackageAllowed(
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
     BUILDFLAG(IS_MAC)
-#if 0
   std::optional<enterprise_connectors::AnalysisSettings> settings =
       safe_browsing::DeepScanningRequest::ShouldUploadBinary(download_item);
 
@@ -1971,7 +2003,6 @@ void ChromeDownloadManagerDelegate::CheckSavePackageAllowed(
       return;
     }
   }
-#endif
 #endif
   std::move(callback).Run(true);
 }
@@ -2059,7 +2090,12 @@ void ChromeDownloadManagerDelegate::ConnectToQuarantineService(
 }
 
 void ChromeDownloadManagerDelegate::OnManagerInitialized() {
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+  if (ShouldOpenPdfInline()) {
+    download::GetDownloadTaskRunner()->PostTask(
+        FROM_HERE, base::BindOnce([]() { base::DeleteFile(GetTempPdfDir()); }));
+  }
+#else
   CancelAllEphemeralWarnings();
 #endif
 }

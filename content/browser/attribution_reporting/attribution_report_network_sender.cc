@@ -39,6 +39,8 @@ namespace {
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
+//
+// LINT.IfChange(Status)
 enum class Status {
   kOk = 0,
   // Corresponds to a non-zero NET_ERROR.
@@ -47,6 +49,7 @@ enum class Status {
   kExternalError = 2,
   kMaxValue = kExternalError
 };
+// LINT.ThenChange(//tools/metrics/histograms/enums.xml:ConversionReportStatus)
 
 #define NETWORK_HISTOGRAM(suffix, hist_func, is_debug_report, \
                           has_trigger_context_id, value)      \
@@ -82,11 +85,9 @@ void AttributionReportNetworkSender::SendReport(
     ReportSentCallback sent_callback) {
   GURL url = report.ReportURL(is_debug_report);
   std::string body = SerializeAttributionJson(report.ReportBody());
-  net::HttpRequestHeaders headers;
-  report.PopulateAdditionalHeaders(headers);
 
-  url::Origin origin(report.GetReportingOrigin());
-  SendReport(std::move(url), std::move(origin), body, std::move(headers),
+  url::Origin origin(report.reporting_origin());
+  SendReport(std::move(url), std::move(origin), body,
              base::BindOnce(&AttributionReportNetworkSender::OnReportSent,
                             base::Unretained(this), std::move(report),
                             is_debug_report, std::move(sent_callback)));
@@ -99,7 +100,7 @@ void AttributionReportNetworkSender::SendReport(
   url::Origin origin(report.reporting_origin());
   std::string body = SerializeAttributionJson(report.ReportBody());
   SendReport(
-      std::move(url), std::move(origin), body, net::HttpRequestHeaders(),
+      std::move(url), std::move(origin), body,
       base::BindOnce(&AttributionReportNetworkSender::OnVerboseDebugReportSent,
                      base::Unretained(this),
                      base::BindOnce(std::move(callback), std::move(report))));
@@ -112,7 +113,7 @@ void AttributionReportNetworkSender::SendReport(
   GURL url(report.ReportUrl());
   url::Origin origin(report.reporting_origin());
   std::string body = SerializeAttributionJson(report_body);
-  SendReport(std::move(url), std::move(origin), body, net::HttpRequestHeaders(),
+  SendReport(std::move(url), std::move(origin), body,
              base::BindOnce(
                  &AttributionReportNetworkSender::OnAggregatableDebugReportSent,
                  base::Unretained(this),
@@ -123,11 +124,9 @@ void AttributionReportNetworkSender::SendReport(
 void AttributionReportNetworkSender::SendReport(GURL url,
                                                 url::Origin origin,
                                                 const std::string& body,
-                                                net::HttpRequestHeaders headers,
                                                 UrlLoaderCallback callback) {
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = std::move(url);
-  resource_request->headers = std::move(headers);
   resource_request->method = net::HttpRequestHeaders::kPostMethod;
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
   resource_request->mode = network::mojom::RequestMode::kSameOrigin;
@@ -260,27 +259,29 @@ void AttributionReportNetworkSender::OnReportSent(
 
   loaders_in_progress_.erase(it);
 
-  // Retry reports that have not received headers and failed with one of the
-  // specified error codes. These codes are chosen from the
-  // "Conversions.Report.HttpResponseOrNetErrorCode" histogram. HTTP errors
-  // should not be retried to prevent over requesting servers.
-  bool should_retry =
-      !headers && (net_error == net::ERR_INTERNET_DISCONNECTED ||
-                   net_error == net::ERR_NAME_NOT_RESOLVED ||
-                   net_error == net::ERR_TIMED_OUT ||
-                   net_error == net::ERR_CONNECTION_TIMED_OUT ||
-                   net_error == net::ERR_CONNECTION_ABORTED ||
-                   net_error == net::ERR_CONNECTION_RESET);
-
-  SendResult::Status report_status =
-      (status == Status::kOk)
-          ? SendResult::Status::kSent
-          : (should_retry ? SendResult::Status::kTransientFailure
-                          : SendResult::Status::kFailure);
-
-  std::move(sent_callback)
-      .Run(report, SendResult(report_status, net_error,
-                              headers ? headers->response_code() : 0));
+  if (status == Status::kOk) {
+    std::move(sent_callback)
+        .Run(report,
+             SendResult::Sent(SendResult::Sent::Result::kSent, response_code));
+  } else {
+    // Retry reports that have not received headers and failed with one of the
+    // specified error codes. These codes are chosen from the
+    // "Conversions.Report.HttpResponseOrNetErrorCode" histogram. HTTP errors
+    // should not be retried to prevent over requesting servers.
+    bool should_retry =
+        !headers && (net_error == net::ERR_INTERNET_DISCONNECTED ||
+                     net_error == net::ERR_NAME_NOT_RESOLVED ||
+                     net_error == net::ERR_TIMED_OUT ||
+                     net_error == net::ERR_CONNECTION_TIMED_OUT ||
+                     net_error == net::ERR_CONNECTION_ABORTED ||
+                     net_error == net::ERR_CONNECTION_RESET);
+    std::move(sent_callback)
+        .Run(report,
+             SendResult::Sent(should_retry
+                                  ? SendResult::Sent::Result::kTransientFailure
+                                  : SendResult::Sent::Result::kFailure,
+                              net_error));
+  }
 }
 
 void AttributionReportNetworkSender::OnVerboseDebugReportSent(

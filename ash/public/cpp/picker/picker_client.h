@@ -16,7 +16,6 @@
 #include "ash/public/cpp/picker/picker_search_result.h"
 #include "base/files/file.h"
 #include "base/functional/callback_forward.h"
-#include "base/memory/scoped_refptr.h"
 #include "url/gurl.h"
 
 class SkBitmap;
@@ -26,17 +25,11 @@ namespace gfx {
 class Size;
 }
 
-namespace network {
-class SharedURLLoaderFactory;
-}  // namespace network
-
 namespace ash {
 
 // Lets PickerController in Ash to communicate with the browser.
 class ASH_PUBLIC_EXPORT PickerClient {
  public:
-  using FetchGifsCallback =
-      base::OnceCallback<void(std::vector<PickerSearchResult> results)>;
   using CrosSearchResultsCallback =
       base::RepeatingCallback<void(ash::AppListSearchResultType result_type,
                                    std::vector<PickerSearchResult> results)>;
@@ -51,19 +44,6 @@ class ASH_PUBLIC_EXPORT PickerClient {
       base::RepeatingCallback<void(std::vector<PickerSearchResult>)>;
   using FetchFileThumbnailCallback =
       base::OnceCallback<void(const SkBitmap* bitmap, base::File::Error error)>;
-
-  // Gets the SharedURLLoaderFactory to use for Picker network requests, e.g. to
-  // fetch assets.
-  virtual scoped_refptr<network::SharedURLLoaderFactory>
-  GetSharedURLLoaderFactory() = 0;
-
-  // Fetches a list of gifs from the Tenor API.
-  virtual void FetchGifSearch(const std::string& query,
-                              FetchGifsCallback callback) = 0;
-
-  // Stops the current `FetchGifSearch` network request. Any callbacks will not
-  // be called.
-  virtual void StopGifSearch() = 0;
 
   // Starts a search using the CrOS Search API
   // (`app_list::SearchEngine::StartSearch`).

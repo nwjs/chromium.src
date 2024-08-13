@@ -174,7 +174,6 @@ bool SecurityStateTabHelper::UsedPolicyInstalledCertificate() const {
 
 security_state::MaliciousContentStatus
 SecurityStateTabHelper::GetMaliciousContentStatus() const {
-#if 0
   using enum safe_browsing::SBThreatType;
 
   content::NavigationEntry* entry =
@@ -188,7 +187,7 @@ SecurityStateTabHelper::GetMaliciousContentStatus() const {
   scoped_refptr<SafeBrowsingUIManager> sb_ui_manager = sb_service->ui_manager();
   safe_browsing::SBThreatType threat_type;
   if (sb_ui_manager->IsUrlAllowlistedOrPendingForWebContents(
-          entry->GetURL(), false, entry, web_contents(), false, &threat_type)) {
+          entry->GetURL(), entry, web_contents(), false, &threat_type)) {
     switch (threat_type) {
       case SB_THREAT_TYPE_UNUSED:
       case SB_THREAT_TYPE_SAFE:
@@ -262,7 +261,6 @@ SecurityStateTabHelper::GetMaliciousContentStatus() const {
         break;
     }
   }
-#endif
   return security_state::MALICIOUS_CONTENT_STATUS_NONE;
 }
 

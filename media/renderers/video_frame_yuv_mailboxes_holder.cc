@@ -52,11 +52,11 @@ viz::SharedImageFormat VideoPixelFormatToSharedImageFormat(
       return viz::MultiPlaneFormat::kNV24;
     case PIXEL_FORMAT_NV12A:
       return viz::MultiPlaneFormat::kNV12A;
-    case PIXEL_FORMAT_P016LE:
+    case PIXEL_FORMAT_P010LE:
       return viz::MultiPlaneFormat::kP010;
-    case PIXEL_FORMAT_P216LE:
+    case PIXEL_FORMAT_P210LE:
       return viz::MultiPlaneFormat::kP210;
-    case PIXEL_FORMAT_P416LE:
+    case PIXEL_FORMAT_P410LE:
       return viz::MultiPlaneFormat::kP410;
     case PIXEL_FORMAT_I420:
       return viz::MultiPlaneFormat::kI420;
@@ -147,8 +147,8 @@ void VideoFrameYUVMailboxesHolder::VideoFrameToMailboxes(
   // These SharedImages will be written to (and later read from) via the raster
   // interface. The full usage depends on whether raster is OOP or is going
   // over the GLES2 interface.
-  uint32_t mailbox_usage = gpu::SHARED_IMAGE_USAGE_RASTER_READ |
-                           gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;
+  gpu::SharedImageUsageSet mailbox_usage = gpu::SHARED_IMAGE_USAGE_RASTER_READ |
+                                           gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;
   auto& caps = provider_->ContextCapabilities();
   if (caps.gpu_rasterization) {
     mailbox_usage |= gpu::SHARED_IMAGE_USAGE_OOP_RASTERIZATION;

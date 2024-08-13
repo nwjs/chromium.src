@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/scoped_observation.h"
+#include "chrome/browser/page_load_metrics/page_load_metrics_initialize.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/browser.h"
@@ -25,15 +26,18 @@
 #include "chrome/browser/ui/webui/top_chrome/preload_context.h"
 #include "chrome/browser/ui/webui/top_chrome/profile_preload_candidate_selector.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_config.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "ui/base/models/menu_model.h"
 
 namespace {
 
 // Enum class representing the results of attempting to use a preloaded WebUI
-// when WebUIContentsPreloadedManager::MakeContents() is called.
+// when WebUIContentsPreloadedManager::Request() is called.
 // The description of each value is also in tools/metrics/histograms/enums.xml.
 enum class WebUIPreloadResult {
   // No preloaded WebUI is available when a WebUI is requested.
@@ -179,13 +183,12 @@ class WebUIContentsPreloadManager::WebUIControllerEmbedderStub final
   base::WeakPtrFactory<WebUIControllerEmbedderStub> weak_ptr_factory_{this};
 };
 
-using MakeContentsResult = WebUIContentsPreloadManager::MakeContentsResult;
+using RequestResult = WebUIContentsPreloadManager::RequestResult;
 
-MakeContentsResult::MakeContentsResult() = default;
-MakeContentsResult::~MakeContentsResult() = default;
-MakeContentsResult::MakeContentsResult(MakeContentsResult&&) = default;
-MakeContentsResult& MakeContentsResult::operator=(MakeContentsResult&&) =
-    default;
+RequestResult::RequestResult() = default;
+RequestResult::~RequestResult() = default;
+RequestResult::RequestResult(RequestResult&&) = default;
+RequestResult& RequestResult::operator=(RequestResult&&) = default;
 
 WebUIContentsPreloadManager::WebUIContentsPreloadManager() {
   preload_mode_ =
@@ -313,9 +316,10 @@ void WebUIContentsPreloadManager::SetPreloadedContents(
   }
 }
 
-MakeContentsResult WebUIContentsPreloadManager::MakeContents(
+RequestResult WebUIContentsPreloadManager::Request(
     const GURL& webui_url,
     content::BrowserContext* browser_context) {
+  const base::TimeTicks request_time = base::TimeTicks::Now();
   std::unique_ptr<content::WebContents> web_contents_ret;
   bool is_ready_to_show = false;
   WebUIPreloadResult preload_result = preloaded_web_contents_
@@ -358,11 +362,19 @@ MakeContentsResult WebUIContentsPreloadManager::MakeContents(
   MaybePreloadForBrowserContext(browser_context);
 
   task_manager::WebContentsTags::ClearTag(web_contents_ret.get());
+  request_time_map_[web_contents_ret.get()] = request_time;
 
-  MakeContentsResult result;
+  RequestResult result;
   result.web_contents = std::move(web_contents_ret);
   result.is_ready_to_show = is_ready_to_show;
   return result;
+}
+
+std::optional<base::TimeTicks> WebUIContentsPreloadManager::GetRequestTime(
+    content::WebContents* web_contents) {
+  return base::Contains(request_time_map_, web_contents)
+             ? std::make_optional(request_time_map_[web_contents])
+             : std::nullopt;
 }
 
 std::optional<GURL> WebUIContentsPreloadManager::GetPreloadedURLForTesting()
@@ -391,10 +403,10 @@ WebUIContentsPreloadManager::CreateNewContents(
 
   task_manager::WebContentsTags::CreateForToolContents(
       web_contents.get(), IDS_TASK_MANAGER_PRELOADED_RENDERER_FOR_UI);
+  chrome::InitializePageLoadMetricsForWebContents(web_contents.get());
+  webui_tracker_->AddWebContents(web_contents.get());
 
   LoadURLForContents(web_contents.get(), url);
-
-  webui_tracker_->AddWebContents(web_contents.get());
 
   return web_contents;
 }
@@ -450,4 +462,21 @@ void WebUIContentsPreloadManager::OnWebContentsDestroyed(
   // preloaded content would only be the second highest engaged WebUI for
   // the most time.
   MaybePreloadForBrowserContext(web_contents->GetBrowserContext());
+  request_time_map_.erase(web_contents);
+}
+
+void WebUIContentsPreloadManager::OnWebContentsPrimaryPageChanged(
+    content::WebContents* web_contents) {
+  if (web_contents == preloaded_web_contents_.get()) {
+    content::RenderWidgetHostView* render_widget_host_view =
+        web_contents->GetRenderWidgetHostView();
+    const bool should_auto_reisze_host =
+        TopChromeWebUIConfig::From(web_contents->GetBrowserContext(),
+                                   web_contents->GetVisibleURL())
+            ->ShouldAutoResizeHost();
+    if (render_widget_host_view && should_auto_reisze_host) {
+      render_widget_host_view->EnableAutoResize(gfx::Size(1, 1),
+                                                gfx::Size(INT_MAX, INT_MAX));
+    }
+  }
 }

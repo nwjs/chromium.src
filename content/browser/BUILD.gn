@@ -30,6 +30,22 @@ if (is_mac) {
 }
 if (is_android) {
   import("//third_party/jni_zero/jni_zero.gni")
+
+  rust_static_library("fontations_name_table_ffi") {
+    allow_unsafe = true  # Needed for FFI that underpins the `cxx` crate.
+    crate_root = "font_unique_name_lookup/name_table_ffi.rs"
+    sources = [ "font_unique_name_lookup/name_table_ffi.rs" ]
+    cxx_bindings = [ "font_unique_name_lookup/name_table_ffi.rs" ]
+    visibility = [
+      ":browser",
+      "//content/test:*",
+    ]
+    deps = [
+      "//third_party/rust/font_types/v0_5:lib",
+      "//third_party/rust/read_fonts/v0_19:lib",
+      "//third_party/rust/skrifa/v0_19:lib",
+    ]
+  }
 }
 
 source_set("browser") {
@@ -72,6 +88,7 @@ source_set("browser") {
     "//cc/animation",
     "//cc/mojo_embedder",
     "//cc/paint",
+    "//components/attribution_reporting:data_host_mojom",
     "//components/attribution_reporting:mojom",
     "//components/back_forward_cache:enum",
     "//components/browsing_topics/common:common",
@@ -87,8 +104,6 @@ source_set("browser") {
     "//components/metrics",
     "//components/metrics:single_sample_metrics",
     "//components/miracle_parameter/common",
-    "//components/ml/mojom",
-    "//components/ml/webnn:features",
     "//components/network_session_configurator/browser",
     "//components/offline_pages/buildflags",
     "//components/offline_pages/core/request_header",
@@ -231,6 +246,7 @@ source_set("browser") {
     "//services/viz/public/mojom",
     "//services/webnn:webnn_service",
     "//services/webnn:webnn_switches",
+    "//services/webnn/public/mojom",
     "//skia",
     "//skia/public/mojom",
     "//storage/browser",
@@ -245,7 +261,6 @@ source_set("browser") {
     "//third_party/blink/public/common:common",
     "//third_party/blink/public/common:font_enumeration_table_proto",
     "//third_party/blink/public/strings",
-    "//third_party/blink/public/strings:accessibility_strings",
     "//third_party/boringssl",
     "//third_party/brotli:dec",
     "//third_party/distributed_point_functions",
@@ -294,6 +309,7 @@ source_set("browser") {
     "//ui/resources",
     "//ui/shell_dialogs",
     "//ui/snapshot",
+    "//ui/strings:auto_image_annotation_strings",
     "//ui/strings:ax_strings",
     "//ui/touch_selection",
     "//v8:v8_version",
@@ -388,6 +404,8 @@ source_set("browser") {
     "accessibility/web_contents_accessibility.h",
     "after_startup_task_utils.cc",
     "after_startup_task_utils.h",
+    "agent_cluster_key.cc",
+    "agent_cluster_key.h",
     "aggregation_service/aggregatable_report.cc",
     "aggregation_service/aggregatable_report.h",
     "aggregation_service/aggregatable_report_assembler.cc",
@@ -418,10 +436,10 @@ source_set("browser") {
     "aggregation_service/public_key_parsing_utils.h",
     "aggregation_service/report_scheduler_timer.cc",
     "aggregation_service/report_scheduler_timer.h",
-    "ai/mock_ai_manager_impl.cc",
-    "ai/mock_ai_manager_impl.h",
-    "ai/mock_ai_text_session.cc",
-    "ai/mock_ai_text_session.h",
+    "ai/echo_ai_manager_impl.cc",
+    "ai/echo_ai_manager_impl.h",
+    "ai/echo_ai_text_session.cc",
+    "ai/echo_ai_text_session.h",
     "attribution_reporting/aggregatable_attribution_utils.cc",
     "attribution_reporting/aggregatable_attribution_utils.h",
     "attribution_reporting/aggregatable_debug_rate_limit_table.cc",
@@ -491,6 +509,7 @@ source_set("browser") {
     "attribution_reporting/rate_limit_result.h",
     "attribution_reporting/rate_limit_table.cc",
     "attribution_reporting/rate_limit_table.h",
+    "attribution_reporting/send_result.cc",
     "attribution_reporting/send_result.h",
     "attribution_reporting/sql_queries.h",
     "attribution_reporting/sql_utils.cc",
@@ -757,6 +776,8 @@ source_set("browser") {
     "compute_pressure/pressure_service_for_frame.h",
     "compute_pressure/pressure_service_for_worker.cc",
     "compute_pressure/pressure_service_for_worker.h",
+    "compute_pressure/web_contents_pressure_manager_proxy.cc",
+    "compute_pressure/web_contents_pressure_manager_proxy.h",
     "contacts/contacts_manager_impl.cc",
     "contacts/contacts_manager_impl.h",
     "contacts/contacts_provider.h",
@@ -949,8 +970,6 @@ source_set("browser") {
     "download/mhtml_extra_parts_impl.h",
     "download/mhtml_generation_manager.cc",
     "download/mhtml_generation_manager.h",
-    "download/network_download_pending_url_loader_factory.cc",
-    "download/network_download_pending_url_loader_factory.h",
     "download/save_file.cc",
     "download/save_file.h",
     "download/save_file_manager.cc",
@@ -993,6 +1012,8 @@ source_set("browser") {
     "file_system_access/features.h",
     "file_system_access/file_path_watcher/file_path_watcher.cc",
     "file_system_access/file_path_watcher/file_path_watcher.h",
+    "file_system_access/file_path_watcher/file_path_watcher_histogram.cc",
+    "file_system_access/file_path_watcher/file_path_watcher_histogram.h",
     "file_system_access/file_system_access_access_handle_host_impl.cc",
     "file_system_access/file_system_access_access_handle_host_impl.h",
     "file_system_access/file_system_access_bucket_path_watcher.cc",
@@ -1191,6 +1212,10 @@ source_set("browser") {
     "interest_group/subresource_url_authorizations.h",
     "interest_group/subresource_url_builder.cc",
     "interest_group/subresource_url_builder.h",
+    "interest_group/trusted_signals_cache_impl.cc",
+    "interest_group/trusted_signals_cache_impl.h",
+    "interest_group/trusted_signals_fetcher.cc",
+    "interest_group/trusted_signals_fetcher.h",
     "isolated_origin_util.cc",
     "isolated_origin_util.h",
     "isolation_context.cc",
@@ -1363,10 +1388,6 @@ source_set("browser") {
     "metrics/histograms_monitor.h",
     "mime_registry_impl.cc",
     "mime_registry_impl.h",
-    "ml/ml_service_factory.cc",
-    "ml/ml_service_factory.h",
-    "ml/ml_service_impl.cc",
-    "ml/ml_service_impl.h",
     "mojo_binder_policy_applier.cc",
     "mojo_binder_policy_applier.h",
     "mojo_binder_policy_map_impl.cc",
@@ -1787,7 +1808,6 @@ source_set("browser") {
     "renderer_host/navigation_controller_delegate.h",
     "renderer_host/navigation_controller_impl.cc",
     "renderer_host/navigation_controller_impl.h",
-    "renderer_host/navigation_discard_reason.h",
     "renderer_host/navigation_entry_impl.cc",
     "renderer_host/navigation_entry_impl.h",
     "renderer_host/navigation_entry_restore_context_impl.cc",
@@ -1810,6 +1830,8 @@ source_set("browser") {
     "renderer_host/navigation_transitions/navigation_entry_screenshot_cache.h",
     "renderer_host/navigation_transitions/navigation_entry_screenshot_manager.cc",
     "renderer_host/navigation_transitions/navigation_entry_screenshot_manager.h",
+    "renderer_host/navigation_transitions/navigation_transition_data.cc",
+    "renderer_host/navigation_transitions/navigation_transition_data.h",
     "renderer_host/navigation_transitions/navigation_transition_utils.cc",
     "renderer_host/navigation_transitions/navigation_transition_utils.h",
     "renderer_host/navigation_type.h",
@@ -1859,6 +1881,7 @@ source_set("browser") {
     "renderer_host/render_process_host_creation_observer.cc",
     "renderer_host/render_process_host_impl.cc",
     "renderer_host/render_process_host_impl.h",
+    "renderer_host/render_process_host_impl_receiver_bindings.cc",
     "renderer_host/render_process_host_internal_observer.cc",
     "renderer_host/render_process_host_internal_observer.h",
     "renderer_host/render_view_host_delegate.cc",
@@ -1953,6 +1976,7 @@ source_set("browser") {
     "security/coop/coop_related_group.cc",
     "security/coop/coop_related_group.h",
     "security/coop/coop_swap_result.h",
+    "security/coop/cross_origin_isolation_mode.h",
     "security/coop/cross_origin_opener_policy_access_report_manager.cc",
     "security/coop/cross_origin_opener_policy_access_report_manager.h",
     "security/coop/cross_origin_opener_policy_reporter.cc",
@@ -1969,6 +1993,8 @@ source_set("browser") {
     "service_worker/service_worker_cache_storage_matcher.h",
     "service_worker/service_worker_cache_writer.cc",
     "service_worker/service_worker_cache_writer.h",
+    "service_worker/service_worker_client.cc",
+    "service_worker/service_worker_client.h",
     "service_worker/service_worker_client_utils.cc",
     "service_worker/service_worker_client_utils.h",
     "service_worker/service_worker_consts.h",
@@ -2137,8 +2163,6 @@ source_set("browser") {
     "synthetic_trial_syncer.cc",
     "theme_helper.cc",
     "theme_helper.h",
-    "tracing/background_startup_tracing_observer.cc",
-    "tracing/background_startup_tracing_observer.h",
     "tracing/background_tracing_active_scenario.cc",
     "tracing/background_tracing_active_scenario.h",
     "tracing/background_tracing_agent_client_impl.cc",
@@ -2230,6 +2254,8 @@ source_set("browser") {
     "web_package/signed_exchange_error.h",
     "web_package/signed_exchange_handler.cc",
     "web_package/signed_exchange_handler.h",
+    "web_package/signed_exchange_inner_response_url_loader.cc",
+    "web_package/signed_exchange_inner_response_url_loader.h",
     "web_package/signed_exchange_loader.cc",
     "web_package/signed_exchange_loader.h",
     "web_package/signed_exchange_prefetch_handler.cc",
@@ -2246,6 +2272,8 @@ source_set("browser") {
     "web_package/signed_exchange_signature_verifier.h",
     "web_package/signed_exchange_utils.cc",
     "web_package/signed_exchange_utils.h",
+    "web_package/subresource_signed_exchange_url_loader_factory.cc",
+    "web_package/subresource_signed_exchange_url_loader_factory.h",
     "web_ui_browser_interface_broker_registry.cc",
     "webauth/client_data_json.cc",
     "webauth/client_data_json.h",
@@ -2340,13 +2368,6 @@ source_set("browser") {
     "worker_host/worker_script_loader_factory.h",
   ]
 
-  if (use_starscan) {
-    sources += [
-      "starscan_load_observer.cc",
-      "starscan_load_observer.h",
-    ]
-  }
-
   # TODO(crbug.com/40226169): Remove `permissions_common`.
   # DO NOT add unrelated entries to this block.
   deps += [ "//components/permissions:permissions_common" ]
@@ -2410,6 +2431,10 @@ source_set("browser") {
     ]
   }
 
+  if (is_win) {
+    deps += [ "//components/services/font_data:lib" ]
+  }
+
   if (allow_oop_video_decoder) {
     sources += [ "media/stable_video_decoder_factory.cc" ]
     deps += [ "//media/mojo/mojom/stable:stable_video_decoder" ]
@@ -2425,8 +2450,6 @@ source_set("browser") {
       "lock_screen/lock_screen_service_impl.h",
       "lock_screen/lock_screen_storage_impl.cc",
       "lock_screen/lock_screen_storage_impl.h",
-      "ml/ml_service_impl_cros.cc",
-      "ml/ml_service_impl_cros.h",
       "smart_card/smart_card_service.cc",
       "smart_card/smart_card_service.h",
     ]
@@ -2843,6 +2866,8 @@ source_set("browser") {
       "renderer_host/virtual_keyboard_controller_win.h",
       "screenlock_monitor/screenlock_monitor_device_source_win.cc",
       "speech/tts_win.cc",
+      "speech/tts_win_utils.cc",
+      "speech/tts_win_utils.h",
       "utility_sandbox_delegate_win.cc",
     ]
     deps += [
@@ -3093,10 +3118,6 @@ source_set("browser") {
       "android/java/gin_java_bound_object_delegate.h",
       "android/java/gin_java_bridge_dispatcher_host.cc",
       "android/java/gin_java_bridge_dispatcher_host.h",
-      "android/java/gin_java_bridge_message_filter.cc",
-      "android/java/gin_java_bridge_message_filter.h",
-      "android/java/gin_java_bridge_object_deletion_message_filter.cc",
-      "android/java/gin_java_bridge_object_deletion_message_filter.h",
       "android/java/gin_java_method_invocation_helper.cc",
       "android/java/gin_java_method_invocation_helper.h",
       "android/java/gin_java_script_to_java_types_coercion.cc",
@@ -3186,6 +3207,8 @@ source_set("browser") {
       "navigation_transitions/back_forward_transition_animator.h",
       "navigation_transitions/physics_model.cc",
       "navigation_transitions/physics_model.h",
+      "navigation_transitions/progress_bar.cc",
+      "navigation_transitions/progress_bar.h",
       "renderer_host/compositor_dependencies_android.cc",
       "renderer_host/compositor_dependencies_android.h",
       "renderer_host/compositor_impl_android.cc",
@@ -3225,11 +3248,12 @@ source_set("browser") {
     ]
 
     deps += [
+      ":fontations_name_table_ffi",
       ":reflection_jni_headers",
       "//build/config/freetype",
       "//cc/slim",
       "//components/tracing:graphics_provider",
-      "//content/public/android:jni",
+      "//content/public/android:browser_jni",
       "//device/gamepad/public/mojom",
       "//gpu/command_buffer/service:gles2",
       "//media",

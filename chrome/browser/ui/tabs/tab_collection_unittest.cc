@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/pinned_tab_collection.h"
 #include "chrome/browser/ui/tabs/tab_collection_storage.h"
 #include "chrome/browser/ui/tabs/tab_group_tab_collection.h"
@@ -25,8 +26,8 @@
 class TabCollectionBaseTest : public ::testing::Test {
  public:
   TabCollectionBaseTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kTabStripCollectionStorage}, {});
+    scoped_feature_list_.InitWithFeatures({tabs::kTabStripCollectionStorage},
+                                          {});
     testing_profile_ = std::make_unique<TestingProfile>();
     tab_strip_model_delegate_ = std::make_unique<TestTabStripModelDelegate>();
     tab_strip_model_ = std::make_unique<TabStripModel>(
@@ -183,6 +184,36 @@ TEST_F(PinnedTabCollectionTest, RemoveOperation) {
 
   EXPECT_EQ(pinned_collection_instance->ChildCount(), 4ul);
   EXPECT_EQ(removed_tab_model.get(), tab_model_one_ptr);
+}
+
+TEST_F(PinnedTabCollectionTest, CloseTabOperation) {
+  // Setup phase of keeping track of a tab.
+  auto tab_model_one =
+      std::make_unique<tabs::TabModel>(MakeWebContents(), GetTabStripModel());
+  tabs::TabModel* tab_model_one_ptr = tab_model_one.get();
+
+  tabs::PinnedTabCollection* pinned_collection_instance = pinned_collection();
+  pinned_collection_instance->AppendTab(std::move(tab_model_one));
+  EXPECT_EQ(pinned_collection_instance->ChildCount(), 1ul);
+
+  // Remove `tab_model_one` from the collection.
+  pinned_collection_instance->CloseTab(tab_model_one_ptr);
+  EXPECT_EQ(pinned_collection_instance->ChildCount(), 0ul);
+}
+
+TEST_F(PinnedTabCollectionTest, CollectionOperationsIsNoop) {
+  // Setup phase of keeping track of a tab.
+  tabs::PinnedTabCollection* pinned_collection_instance = pinned_collection();
+
+  // Add four tabs to the collection.
+  AddTabsToPinnedContainer(pinned_collection_instance, GetTabStripModel(), 4);
+
+  std::unique_ptr<tabs::TabCollection> collection =
+      std::make_unique<tabs::UnpinnedTabCollection>();
+  EXPECT_EQ(pinned_collection_instance->MaybeRemoveCollection(collection.get()),
+            nullptr);
+  EXPECT_EQ(pinned_collection_instance->GetIndexOfCollection(collection.get()),
+            std::nullopt);
 }
 
 TEST_F(PinnedTabCollectionTest, MoveOperation) {

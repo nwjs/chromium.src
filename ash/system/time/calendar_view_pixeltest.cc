@@ -41,13 +41,14 @@ std::unique_ptr<google_apis::calendar::CalendarEvent> CreateEvent(
 
 class CalendarViewPixelTest
     : public AshTestBase,
-      public testing::WithParamInterface</*glanceables_v2_enabled=*/bool> {
+      public testing::WithParamInterface</*glanceables_enabled=*/bool> {
  public:
   CalendarViewPixelTest() {
     scoped_feature_list_.InitWithFeatureStates(
-        {{features::kGlanceablesV2, AreGlanceablesV2Enabled()},
+        {{features::kGlanceablesTimeManagementClassroomStudentView,
+          AreGlanceablesEnabled()},
          {features::kGlanceablesTimeManagementTasksView,
-          AreGlanceablesV2Enabled()}});
+          AreGlanceablesEnabled()}});
   }
 
   void SetUp() override {
@@ -66,7 +67,7 @@ class CalendarViewPixelTest
     AshTestBase::TearDown();
   }
 
-  bool AreGlanceablesV2Enabled() { return GetParam(); }
+  bool AreGlanceablesEnabled() { return GetParam(); }
 
   // AshTestBase:
   std::optional<pixel_test::InitParams> CreatePixelTestInitParams()
@@ -77,7 +78,7 @@ class CalendarViewPixelTest
   void OpenCalendarView() {
     // Presses the `DateTray` to open the `CalendarView`.
     GetPrimaryShelf()->GetStatusAreaWidget()->date_tray()->OnButtonPressed(
-        ui::KeyEvent(ui::EventType::ET_MOUSE_PRESSED, ui::VKEY_UNKNOWN,
+        ui::KeyEvent(ui::EventType::kMousePressed, ui::VKEY_UNKNOWN,
                      ui::EF_NONE));
     calendar_view_ = GetPrimaryUnifiedSystemTray()
                          ->bubble()
@@ -115,7 +116,9 @@ class CalendarViewPixelTest
   static base::Time fake_time_;
 };
 
-INSTANTIATE_TEST_SUITE_P(GlanceablesV2, CalendarViewPixelTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(GlanceablesEnabled,
+                         CalendarViewPixelTest,
+                         testing::Bool());
 
 base::Time CalendarViewPixelTest::fake_time_;
 

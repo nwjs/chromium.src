@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/webtransport/web_transport.h"
 
 #include <stdint.h>
@@ -12,8 +17,8 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/time/time.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -1096,17 +1101,17 @@ void WebTransport::OnClosed(
 
   latest_stats_ = ConvertStatsFromMojom(std::move(final_stats));
 
-  WebTransportCloseInfo idl_close_info;
+  auto* idl_close_info = MakeGarbageCollected<WebTransportCloseInfo>();
   if (close_info) {
-    idl_close_info.setCloseCode(close_info->code);
-    idl_close_info.setReason(close_info->reason);
+    idl_close_info->setCloseCode(close_info->code);
+    idl_close_info->setReason(close_info->reason);
   }
 
   v8::Local<v8::Value> error = WebTransportError::Create(
       isolate, /*stream_error_code=*/std::nullopt, "The session is closed.",
       WebTransportError::Source::kSession);
 
-  Cleanup(&idl_close_info, error, /*abruptly=*/false);
+  Cleanup(idl_close_info, error, /*abruptly=*/false);
 }
 
 void WebTransport::OnOutgoingStreamClosed(uint32_t stream_id) {

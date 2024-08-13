@@ -63,11 +63,21 @@ inline constexpr char kTrackingProtectionSilentEligibleSince[] =
 inline constexpr char kTrackingProtectionSilentOnboardedSince[] =
     "tracking_protection.tracking_protection_silent_onboarded_since";
 
+// Unsynced pref that indicates when the profile was onboarded onto full 3PCD.
+inline constexpr char kTrackingProtectionFull3PCDOnboarded[] =
+    "tracking_protection.tracking_protection_full_3pcd_onboarded";
+
 // Tracking Protection Reminder Prefs.
 
 // Unsynced pref that indicates the reminder status for a profile.
 inline constexpr char kTrackingProtectionReminderStatus[] =
     "tracking_protection.reminder_status";
+
+// Tracking Protection Survey Prefs.
+
+// Unsynced pref that indicates the start time of the survey window.
+inline constexpr char kTrackingProtectionSurveyWindowStartTime[] =
+    "tracking_protection.survey_window_start_time";
 
 // Tracking Protection Settings Prefs.
 
@@ -109,6 +119,11 @@ inline constexpr char kFingerprintingProtectionEnabled[] =
 
 // Whether to send the DNT header.
 inline constexpr char kEnableDoNotTrack[] = "enable_do_not_track";
+
+// Whether User Bypass 3PC exceptions have been migrated to Tracking Protection
+// exceptions.
+inline constexpr char kUserBypass3pcExceptionsMigrated[] =
+    "tracking_protection.user_bypass_3pc_exceptions_migrated";
 
 }  // namespace prefs
 

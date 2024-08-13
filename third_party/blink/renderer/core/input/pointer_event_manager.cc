@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/input/pointer_event_manager.h"
 
 #include "base/auto_reset.h"
@@ -717,7 +722,7 @@ WebInputEventResult PointerEventManager::HandlePointerEvent(
           pointer_event_target.target_element,
           pointer_event_factory_.CreatePointerCancelEvent(
               core_pointer_event->pointerId(), event.TimeStamp(),
-              core_pointer_event->deviceProperties()->uniqueId()),
+              core_pointer_event->persistentDeviceId()),
           event.hovering);
     }
 

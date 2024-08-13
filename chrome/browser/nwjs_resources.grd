@@ -31,6 +31,8 @@
         <structure type="lottie" name="IDR_WEBAUTHN_LAPTOP_LIGHT" file="resources/webauthn/laptop_light.json" compress="brotli" />
         <structure type="lottie" name="IDR_WEBAUTHN_LAPTOP_DARK" file="resources/webauthn/laptop_dark.json" compress="brotli" />
         <structure type="lottie" name="IDR_WEBAUTHN_GPM_INCOGNITO" file="resources/webauthn/gpm_incognito.json" compress="brotli" />
+        <structure type="lottie" name="IDR_WEBAUTHN_GPM_PIN_LOCKED_LIGHT" file="resources/webauthn/gpm_pin_locked_light.json" compress="brotli" />
+        <structure type="lottie" name="IDR_WEBAUTHN_GPM_PIN_LOCKED_DARK" file="resources/webauthn/gpm_pin_locked_dark.json" compress="brotli" />
       </if>
       <if expr="chromeos_ash">
         <structure name="IDR_LOGIN_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" variables="OOBE=login" expand_variables="true"/>
@@ -135,6 +137,11 @@
             <include name="IDR_DOWNLOADS_TOOLBAR_JS" file="resources\downloads\toolbar.js" type="BINDATA" />
           </else>
         </if>
+      </if>
+      <if expr="safe_browsing_mode == 1">
+        <include name="IDR_RESET_PASSWORD_HTML" file="resources\reset_password\reset_password.html" type="BINDATA" />
+        <include name="IDR_RESET_PASSWORD_JS" file="${root_gen_dir}\chrome\browser\resources\reset_password\tsc\reset_password.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_RESET_PASSWORD_MOJOM_WEBUI_JS" file="${root_gen_dir}\chrome\browser\resources\reset_password\tsc\reset_password.mojom-webui.js" use_base_dir="false" type="BINDATA" />
       </if>
       <include name="IDR_FEEDBACK_MANIFEST" file="resources\empty.json" type="BINDATA" />
       <include name="IDR_SUPERVISED_USER_INTERNALS_HTML" file="resources\empty.html" allowexternalscript="true" type="BINDATA" />
@@ -351,6 +358,10 @@
         <part file="cart/resources/cart_resources.grdp" />
         <!-- FedCM -->
         <part file="ui/views/webid/resources/webid_resources.grdp" />
+      </if>
+      <if expr="chrome_root_store_cert_management_ui">
+        <include name="IDR_CERT_MANAGER_DIALOG_HTML" file="resources\certificate_manager\certificate_manager_dialog.html" type="BINDATA" />
+        <include name="IDR_CERT_MANAGER_DIALOG_V2_HTML" file="resources\certificate_manager\certificate_manager_dialog_v2.html" type="BINDATA" />
       </if>
     </includes>
   </release>

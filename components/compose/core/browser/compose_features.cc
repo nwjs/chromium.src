@@ -20,6 +20,10 @@ BASE_FEATURE(kComposeInnerText,
              "ComposeInnerText",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kComposeAXSnapshot,
+             "ComposeAXSnapshot",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kComposeAutoSubmit,
              "ComposeAutoSubmit",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -42,6 +46,10 @@ BASE_FEATURE(kEnableComposeSavedStateNotification,
 
 BASE_FEATURE(kEnableComposeNudgeAtCursor,
              "EnableComposeNudgeAtCursor",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableComposeSelectionNudge,
+             "EnableComposeSelectionNudge",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableComposeLanguageBypassForContextMenu,
@@ -78,7 +86,7 @@ BASE_FEATURE(kComposeUiRefinement,
 
 BASE_FEATURE(kEnableNudgeForUnspecifiedHint,
              "ComposeEnableNudgeForUnspecifiedHint",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableAdditionalTextMetrics,
              "EnableAdditionalTextMetrics",

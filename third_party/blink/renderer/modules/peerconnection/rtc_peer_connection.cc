@@ -28,6 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection.h"
 
 #include <algorithm>
@@ -583,9 +588,23 @@ RTCPeerConnection::RTCPeerConnection(
       suppress_events_(true),
       encoded_insertable_streams_(encoded_insertable_streams),
       rtp_transport_(RuntimeEnabledFeatures::RTCRtpTransportEnabled(context)
-                         ? MakeGarbageCollected<RTCRtpTransport>()
+                         ? MakeGarbageCollected<RTCRtpTransport>(context)
                          : nullptr) {
   LocalDOMWindow* window = To<LocalDOMWindow>(context);
+
+  // WebRTC peer connections are not allowed in fenced frames.
+  // Given the complex scaffolding for setting up fenced frames testing, this
+  // is tested in the following locations:
+  // * third_party/blink/web_tests/external/wpt/fenced-frame/webrtc-peer-connection.https.html
+  // * content/browser/fenced_frame/fenced_frame_browsertest.cc
+  if (RuntimeEnabledFeatures::
+          FencedFramesLocalUnpartitionedDataAccessEnabled() &&
+      window->GetFrame()->IsInFencedFrameTree()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kNotAllowedError,
+        "RTCPeerConnection is not allowed in fenced frames.");
+    return;
+  }
 
   InstanceCounters::IncrementCounter(
       InstanceCounters::kRTCPeerConnectionCounter);

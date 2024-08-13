@@ -39,6 +39,8 @@
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
+#import "ios/chrome/browser/bubble/ui_bundled/bubble_constants.h"
+#import "ios/chrome/browser/bubble/ui_bundled/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/content_notification/model/content_notification_util.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
@@ -95,12 +97,9 @@
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/tabs/model/inactive_tabs/features.h"
-#import "ios/chrome/browser/tabs/model/tab_pickup/features.h"
 #import "ios/chrome/browser/ui/authentication/cells/table_view_account_item.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_utils.h"
 #import "ios/chrome/browser/ui/authentication/signin_presenter.h"
-#import "ios/chrome/browser/ui/bubble/bubble_constants.h"
-#import "ios/chrome/browser/ui/bubble/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/settings/about_chrome_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/address_bar_preference/address_bar_preference_coordinator.h"
@@ -155,11 +154,6 @@ const NSInteger kMaxShowCountNewIPHBadge = 3;
 // The amount of time an install is considered as fresh. Don't show the "new"
 // IPH badge on fresh installs.
 const base::TimeDelta kFreshInstallTimeDelta = base::Days(1);
-
-// Key used for storing NSUserDefault entry to keep track of the last timestamp
-// we've shown the default browser blue dot promo.
-NSString* const kMostRecentTimestampBlueDotPromoShownInSettingsMenu =
-    @"MostRecentTimestampBlueDotPromoShownInSettingsMenu";
 
 #if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
 NSString* kDevViewSourceKey = @"DevViewSource";
@@ -336,7 +330,8 @@ struct EnhancedSafeBrowsingActivePromoData
 
 #pragma mark Initialization
 
-- (instancetype)initWithBrowser:(Browser*)browser {
+- (instancetype)initWithBrowser:(Browser*)browser
+       hasDefaultBrowserBlueDot:(BOOL)hasDefaultBrowserBlueDot {
   DCHECK(browser);
   DCHECK(!browser->GetBrowserState()->IsOffTheRecord());
 
@@ -344,6 +339,7 @@ struct EnhancedSafeBrowsingActivePromoData
   if (self) {
     _browser = browser;
     _browserState = _browser->GetBrowserState();
+    self.showingDefaultBrowserNotificationDot = hasDefaultBrowserBlueDot;
     self.title = l10n_util::GetNSStringWithFixup(IDS_IOS_SETTINGS_TITLE);
     _searchEngineObserverBridge.reset(new SearchEngineObserverBridge(
         self,
@@ -515,9 +511,7 @@ struct EnhancedSafeBrowsingActivePromoData
   [model addItem:[self autoFillProfileDetailItem]
       toSectionWithIdentifier:SettingsSectionIdentifierBasics];
   if (base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressesEnabled) &&
-      base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressUIRedesign)) {
+          plus_addresses::features::kPlusAddressesEnabled)) {
     _plusAddressesItem = [self plusAddressesItem];
     [model addItem:_plusAddressesItem
         toSectionWithIdentifier:SettingsSectionIdentifierBasics];
@@ -537,15 +531,6 @@ struct EnhancedSafeBrowsingActivePromoData
       toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
   [model addItem:[self privacyDetailItem]
       toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-
-  if (base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressesEnabled) &&
-      !base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressUIRedesign)) {
-    _plusAddressesItem = [self plusAddressesItem];
-    [model addItem:_plusAddressesItem
-        toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-  }
 
   // Feed is disabled in safe mode.
   SceneState* sceneState = _browser->GetSceneState();
@@ -570,7 +555,7 @@ struct EnhancedSafeBrowsingActivePromoData
       PhotosServiceFactory::GetForBrowserState(_browserState);
   bool shouldShowDownloadsSettings =
       photosService && photosService->IsSupported();
-  if (IsInactiveTabsAvailable() || IsTabPickupEnabled()) {
+  if (IsInactiveTabsAvailable()) {
     [model addItem:[self tabsSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
 
@@ -1005,25 +990,18 @@ struct EnhancedSafeBrowsingActivePromoData
 
 - (TableViewDetailIconItem*)plusAddressesItem {
   NSString* title = l10n_util::GetNSString(IDS_PLUS_ADDRESS_SETTINGS_LABEL);
-  BOOL isPlusAddressUIRedesignEnabled = base::FeatureList::IsEnabled(
-      plus_addresses::features::kPlusAddressUIRedesign);
 
-  return [self detailItemWithType:SettingsItemTypePlusAddresses
-                             text:title
-                       detailText:nil
+  return [self
+           detailItemWithType:SettingsItemTypePlusAddresses
+                         text:title
+                   detailText:nil
 #if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
-                           symbol:isPlusAddressUIRedesignEnabled
-                                      ? CustomSettingsRootSymbol(
-                                            kGooglePlusAddressSymbol)
-                                      : nil
+                       symbol:CustomSettingsRootSymbol(kGooglePlusAddressSymbol)
 #else
-                           symbol:nil
+                       symbol:nil
 #endif
-            symbolBackgroundColor:[UIColor
-                                      colorNamed:(isPlusAddressUIRedesignEnabled
-                                                      ? kYellow500Color
-                                                      : kPink500Color)]
-          accessibilityIdentifier:kSettingsPlusAddressesId];
+        symbolBackgroundColor:[UIColor colorNamed:kYellow500Color]
+      accessibilityIdentifier:kSettingsPlusAddressesId];
 }
 
 - (TableViewItem*)privacyDetailItem {
@@ -1463,6 +1441,7 @@ struct EnhancedSafeBrowsingActivePromoData
       break;
     case SettingsItemTypeNotifications:
       CHECK([self shouldShowNotificationsSettings]);
+      base::RecordAction(base::UserMetricsAction("Settings.Notifications"));
       [self showNotifications];
       break;
     case SettingsItemTypeVoiceSearch:
@@ -1471,6 +1450,7 @@ struct EnhancedSafeBrowsingActivePromoData
           initWithPrefs:_browserState->GetPrefs()];
       break;
     case SettingsItemTypeSafetyCheck:
+      base::RecordAction(base::UserMetricsAction("Settings.SafetyCheck"));
       [self showSafetyCheck];
       break;
     case SettingsItemTypePrivacy:
@@ -1528,6 +1508,7 @@ struct EnhancedSafeBrowsingActivePromoData
                     animated:YES];
       break;
     case SettingsItemTypePlusAddresses: {
+      base::RecordAction(base::UserMetricsAction("Settings.PlusAddresses"));
       OpenNewTabCommand* command = [OpenNewTabCommand
           commandWithURLFromChrome:
               GURL(plus_addresses::features::kPlusAddressManagementUrl.Get())];
@@ -1624,6 +1605,8 @@ struct EnhancedSafeBrowsingActivePromoData
 }
 
 - (void)articlesForYouSwitchToggled:(UISwitch*)sender {
+  base::RecordAction(base::UserMetricsAction("Settings.ArticlesForYouToggled"));
+
   NSIndexPath* switchPath = [self.tableViewModel
       indexPathForItemType:SettingsItemTypeArticlesForYou
          sectionIdentifier:SettingsSectionIdentifierAdvanced];
@@ -1921,7 +1904,6 @@ struct EnhancedSafeBrowsingActivePromoData
           feature_engagement::kIPHiOSReplaceSyncPromosWithSignInPromos);
   if (canShowSigninIPH) {
     [_bubblePresenter presentInViewController:self
-                                         view:self.view
                                   anchorPoint:anchorPointInWindow];
   } else {
     _bubblePresenter = nil;
@@ -2030,41 +2012,9 @@ struct EnhancedSafeBrowsingActivePromoData
 // the blue dot badge to the right settings row if it is.
 - (void)maybeActivateDefaultBrowserBlueDotPromo:
     (TableViewDetailIconItem*)defaultBrowserCellItem {
-  self.showingDefaultBrowserNotificationDot = NO;
-
-  if (!_browserState) {
-    return;
-  }
-
-  feature_engagement::Tracker* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserState(_browserState);
-  if (!tracker) {
-    return;
-  }
-
-  syncer::SyncService* syncService =
-      SyncServiceFactory::GetForBrowserState(_browserState);
-  if (!syncService) {
-    return;
-  }
-
-  if (ShouldTriggerDefaultBrowserHighlightFeature(
-          feature_engagement::kIPHiOSDefaultBrowserSettingsBadgeFeature,
-          tracker, syncService)) {
+  if (self.showingDefaultBrowserNotificationDot) {
     // Add the blue dot promo badge to the default browser row.
     defaultBrowserCellItem.badgeType = BadgeType::kNotificationDot;
-    self.showingDefaultBrowserNotificationDot = YES;
-
-    // If we've only started showing the blue dot recently (<6 hours), don't
-    // notify the FET again that the promo is being shown, since we're not in a
-    // new user session. We record the badge being shown per user session,
-    // instead of per time it is shown since the badge needs to be shown accross
-    // 3 user sessions.
-    if (!HasRecentTimestampForKey(
-            kMostRecentTimestampBlueDotPromoShownInSettingsMenu)) {
-      tracker->NotifyEvent(
-          feature_engagement::events::kBlueDotPromoSettingsShownNewSession);
-    }
   }
 }
 
@@ -2517,6 +2467,10 @@ struct EnhancedSafeBrowsingActivePromoData
 
 - (void)insecureCredentialsDidChange {
   [self updateSafetyCheckItemTrailingIcon];
+}
+
+- (void)passwordCheckManagerWillShutdown {
+  _passwordCheckObserver.reset();
 }
 
 #pragma mark - PrefObserverDelegate

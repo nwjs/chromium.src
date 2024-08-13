@@ -8,8 +8,10 @@
 #include <optional>
 
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
 #include "base/sequence_checker.h"
+#include "components/sync/base/features.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/model/client_tag_based_model_type_processor.h"
 #include "components/sync/model/in_memory_metadata_change_list.h"
@@ -21,6 +23,7 @@
 namespace plus_addresses {
 
 // Macro to simplify reporting errors raised by ModelTypeStore operations.
+#undef RETURN_IF_ERROR
 #define RETURN_IF_ERROR(error)               \
   if (error) {                               \
     change_processor()->ReportError(*error); \
@@ -51,6 +54,20 @@ PlusAddressSettingSyncBridge::PlusAddressSettingSyncBridge(
 
 PlusAddressSettingSyncBridge::~PlusAddressSettingSyncBridge() = default;
 
+// static
+std::unique_ptr<PlusAddressSettingSyncBridge>
+PlusAddressSettingSyncBridge::CreateBridge(
+    syncer::OnceModelTypeStoreFactory store_factory) {
+  if (!base::FeatureList::IsEnabled(syncer::kSyncPlusAddressSetting)) {
+    return nullptr;
+  }
+  return std::make_unique<plus_addresses::PlusAddressSettingSyncBridge>(
+      std::make_unique<syncer::ClientTagBasedModelTypeProcessor>(
+          syncer::PLUS_ADDRESS_SETTING,
+          /*dump_stack=*/base::DoNothing()),
+      std::move(store_factory));
+}
+
 std::optional<sync_pb::PlusAddressSettingSpecifics>
 PlusAddressSettingSyncBridge::GetSetting(std::string_view name) const {
   auto it = settings_.find(name);
@@ -58,6 +75,35 @@ PlusAddressSettingSyncBridge::GetSetting(std::string_view name) const {
     return std::nullopt;
   }
   return it->second;
+}
+
+void PlusAddressSettingSyncBridge::WriteSetting(
+    const sync_pb::PlusAddressSettingSpecifics& specifics) {
+  if (!store_ || !change_processor()->IsTrackingMetadata()) {
+    // If initialized hasn't finished yet, no changes can be uploaded. In this
+    // case, writes will fail silently. In practice, this shouldn't happen,
+    // since the feature can only be considered enabled after the enabled
+    // setting was loaded from the `store_`.
+    return;
+  }
+  std::unique_ptr<syncer::EntityData> entity_data = CreateEntityData(specifics);
+  const std::string storage_key = GetStorageKey(*entity_data);
+  // Update the cache.
+  settings_.insert_or_assign(storage_key, specifics);
+  // Commit the write.
+  std::unique_ptr<syncer::MetadataChangeList> metadata_change_list =
+      CreateMetadataChangeList();
+  change_processor()->Put(storage_key, std::move(entity_data),
+                          metadata_change_list.get());
+  // Update the `store_`'s data and metadata.
+  std::unique_ptr<syncer::ModelTypeStore::WriteBatch> batch =
+      store_->CreateWriteBatch();
+  batch->WriteData(storage_key, specifics.SerializeAsString());
+  batch->TakeMetadataChangesFrom(std::move(metadata_change_list));
+  store_->CommitWriteBatch(
+      std::move(batch),
+      base::BindOnce(&PlusAddressSettingSyncBridge::ReportErrorIfSet,
+                     weak_factory_.GetWeakPtr()));
 }
 
 std::unique_ptr<syncer::MetadataChangeList>
@@ -69,8 +115,9 @@ std::optional<syncer::ModelError>
 PlusAddressSettingSyncBridge::MergeFullSyncData(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
     syncer::EntityChangeList entity_data) {
-  // Since PLUS_ADDRESS_SETTING is read-only, merging local and sync data is the
-  // same as applying changes from sync locally.
+  // Since the local storage is cleared when the data type is disabled in
+  // `ApplyDisableSyncChanges()`, no local data exists during
+  // `MergeFullSyncData()`.
   return ApplyIncrementalSyncChanges(std::move(metadata_change_list),
                                      std::move(entity_data));
 }
@@ -116,20 +163,26 @@ void PlusAddressSettingSyncBridge::ApplyDisableSyncChanges(
   settings_.clear();
 }
 
-void PlusAddressSettingSyncBridge::GetData(StorageKeyList storage_keys,
-                                           DataCallback callback) {
-  // PLUS_ADDRESS_SETTING is read-only, so `GetData()` is not needed.
-  NOTREACHED();
+std::unique_ptr<syncer::DataBatch>
+PlusAddressSettingSyncBridge::GetDataForCommit(StorageKeyList storage_keys) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  auto batch = std::make_unique<syncer::MutableDataBatch>();
+  for (const std::string& key : storage_keys) {
+    if (auto setting = GetSetting(key)) {
+      batch->Put(key, CreateEntityData(*setting));
+    }
+  }
+  return batch;
 }
 
-void PlusAddressSettingSyncBridge::GetAllDataForDebugging(
-    DataCallback callback) {
+std::unique_ptr<syncer::DataBatch>
+PlusAddressSettingSyncBridge::GetAllDataForDebugging() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto batch = std::make_unique<syncer::MutableDataBatch>();
   for (const auto& [name, specifics] : settings_) {
     batch->Put(name, CreateEntityData(specifics));
   }
-  std::move(callback).Run(std::move(batch));
+  return batch;
 }
 
 bool PlusAddressSettingSyncBridge::IsEntityDataValid(

@@ -48,7 +48,6 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.JUnitProcessor;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -75,7 +74,6 @@ import org.chromium.url.JUnitTestGURLs;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class SingleTabSwitcherOnNtpMediatorUnitTest {
-    @Rule public JUnitProcessor mFeaturesProcessor = new JUnitProcessor();
     @Rule public JniMocker mocker = new JniMocker();
     @Mock UrlUtilities.Natives mUrlUtilitiesJniMock;
 
@@ -149,9 +147,7 @@ public class SingleTabSwitcherOnNtpMediatorUnitTest {
                         /* uiConfig= */ null,
                         isTablet,
                         moduleDelegate);
-        doNothing()
-                .when(mTabContentManager)
-                .getTabThumbnailWithCallback(anyInt(), any(), any(), anyBoolean(), anyBoolean());
+        doNothing().when(mTabContentManager).getTabThumbnailWithCallback(anyInt(), any(), any());
         assertNull(mPropertyModel.get(FAVICON));
         assertNull(mPropertyModel.get(TAB_THUMBNAIL));
         assertNull(mPropertyModel.get(TITLE));
@@ -163,9 +159,7 @@ public class SingleTabSwitcherOnNtpMediatorUnitTest {
         int width =
                 ContextUtils.getApplicationContext()
                         .getResources()
-                        .getDimensionPixelSize(
-                                org.chromium.chrome.R.dimen
-                                        .single_tab_module_tab_thumbnail_size_big);
+                        .getDimensionPixelSize(R.dimen.single_tab_module_tab_thumbnail_size_big);
         int height = width;
         Size thumbnailSize = new Size(width, height);
 
@@ -173,8 +167,7 @@ public class SingleTabSwitcherOnNtpMediatorUnitTest {
                 .getFaviconDrawableForUrlAsync(
                         eq(mUrl), eq(false), mFaviconCallbackCaptor.capture());
         verify(mTabContentManager)
-                .getTabThumbnailWithCallback(
-                        eq(mTabId), eq(thumbnailSize), any(), anyBoolean(), anyBoolean());
+                .getTabThumbnailWithCallback(eq(mTabId), eq(thumbnailSize), any());
         assertEquals(mPropertyModel.get(TITLE), mTitle);
         assertEquals(mUrlHost, mPropertyModel.get(URL));
         assertTrue(mPropertyModel.get(IS_VISIBLE));
@@ -340,7 +333,9 @@ public class SingleTabSwitcherOnNtpMediatorUnitTest {
                         /* isTablet= */ false,
                         /* moduleDelegate= */ null);
         Resources resources = ContextUtils.getApplicationContext().getResources();
-        int marginExpected = resources.getDimensionPixelSize(R.dimen.search_box_lateral_margin);
+        int marginExpected =
+                resources.getDimensionPixelSize(
+                        R.dimen.ntp_search_box_lateral_margin_narrow_window_tablet);
 
         // Verifies the start margins are initialized.
         assertEquals(marginExpected, mediator.getDefaultLateralMargin());
@@ -400,7 +395,8 @@ public class SingleTabSwitcherOnNtpMediatorUnitTest {
                 ContextUtils.getApplicationContext()
                         .getResources()
                         .getDimensionPixelSize(
-                                org.chromium.chrome.R.dimen.search_box_lateral_margin);
+                                org.chromium.chrome.R.dimen
+                                        .ntp_search_box_lateral_margin_narrow_window_tablet);
         UiConfig.DisplayStyle displayStyleRegular =
                 new DisplayStyle(HorizontalDisplayStyle.REGULAR, VerticalDisplayStyle.REGULAR);
         when(mUiConfig.getCurrentDisplayStyle()).thenReturn(displayStyleRegular);

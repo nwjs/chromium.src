@@ -292,6 +292,7 @@ bool PrerendererImpl::MaybePrerender(
       rfhi.GetProcess()->GetID(), web_contents->GetWeakPtr(),
       rfhi.GetFrameToken(), rfhi.GetFrameTreeNodeId(),
       rfhi.GetPageUkmSourceId(), ui::PAGE_TRANSITION_LINK,
+      /*should_warm_up_compositor=*/false,
       /*url_match_predicate=*/{},
       /*prerender_navigation_handle_callback=*/{},
       rfhi.GetDevToolsNavigationToken());
@@ -341,6 +342,7 @@ bool PrerendererImpl::MaybePrerender(
             preloading_data->AddPreloadingAttempt(
                 creating_predictor, enacting_predictor,
                 PreloadingType::kPrerender, std::move(same_url_matcher),
+                /*planned_max_preloading_type=*/PreloadingType::kPrerender,
                 web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId()));
         preloading_attempt->SetSpeculationEagerness(candidate->eagerness);
         return registry_->CreateAndStartHost(attributes, preloading_attempt);
@@ -388,6 +390,7 @@ void PrerendererImpl::OnCancel(int host_frame_tree_node_id,
 
   switch (reason.final_status()) {
     // TODO(crbug.com/40275452): Support other final status cases.
+    case PrerenderFinalStatus::kTimeoutBackgrounded:
     case PrerenderFinalStatus::kMaxNumOfRunningNonEagerPrerendersExceeded:
     case PrerenderFinalStatus::kSpeculationRuleRemoved: {
       auto erasing_prerender_it = std::find_if(

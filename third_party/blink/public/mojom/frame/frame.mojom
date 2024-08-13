@@ -196,6 +196,26 @@ enum StorageTypeAccessed {
     kSessionStorage
 };
 
+// This is directly cast to a UKM enum of the same name and logged,
+// be sure not to change ordering or delete lines.
+enum WindowProxyAccessType {
+    kLocation,
+    kClosed,
+    kLength,
+    kSelf,
+    kWindow,
+    kFrames,
+    kOpener,
+    kParent,
+    kTop,
+    kPostMessage,
+    kAnonymousIndexedGetter,
+    kClose,
+    kFocus,
+    kBlur,
+    kAnonymousNamedGetter
+};
+
 // The maximum number of characters of the document's title that we're willing
 // to accept in the browser process.
 const uint16 kMaxTitleChars = 4096; // 4 * 1024;
@@ -731,12 +751,6 @@ interface LocalFrameHost {
   // browser to send private aggregation requests associated with `event_type`.
   SendPrivateAggregationRequestsForFencedFrameEvent(string event_type);
 
-  // Indicates whether the Attribution Reporting API's runtime features are
-  // enabled or not for this document, and are required for integration of
-  // fenced frames (and URN iframes) with the Attribution Reporting API.
-  SetAttributionReportingRuntimeFeatures(
-      network.mojom.AttributionReportingRuntimeFeatures features);
-
   // Sent by the frame in a renderer process that hosts/owns a <fencedframe>
   // element, to the browser process requesting the creation of a new fenced
   // frame tree that will host the contents of the <fencedframe> element.
@@ -782,6 +796,10 @@ interface LocalFrameHost {
 
   // Used to tell the browser that storage access was requested and whether it was allowed.
   NotifyStorageAccessed(StorageTypeAccessed storageType, bool blocked);
+
+  // Used to tell the browser to record metrics. This method should not be trusted except for metrics purposes.
+  RecordWindowProxyUsageMetrics(blink.mojom.FrameToken target_frame_token,
+                                WindowProxyAccessType access_type);
 };
 
 // Implemented in Browser, this interface defines frame-specific methods
@@ -935,9 +953,9 @@ interface LocalFrame {
   // their correlation with the bounds of the video frame as displayed in the
   // presentation layer. The returned bounds are also not guaranteed to
   // correspond to the result of returned video frame.
-  RequestVideoFrameAtWithBoundsDiagnostics(gfx.mojom.Point location,
-                                           gfx.mojom.Size max_size,
-                                           int32 max_area)
+  RequestVideoFrameAtWithBoundsHint(gfx.mojom.Point location,
+                                    gfx.mojom.Size max_size,
+                                    int32 max_area)
       => (skia.mojom.BitmapN32? bitmap, gfx.mojom.Rect bounds);
 
   // Tells the renderer to perform the given action on the plugin location at
@@ -1175,10 +1193,6 @@ interface LocalFrame {
     string normalized_server_timing,
     network.mojom.URLLoaderCompletionStatus completion_status
   );
-
-  // The browser requests the renderer to fullscreen the document element.
-  // See: https://chromestatus.com/feature/6002307972464640
-  RequestFullscreenDocumentElement();
 };
 
 // Implemented in Blink, this interface defines main-frame-specific methods that

@@ -23,6 +23,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/bindings/modules/v8/v8_binding_for_modules.h"
 
 #include "third_party/blink/public/common/indexeddb/indexeddb_key.h"
@@ -454,8 +459,9 @@ std::unique_ptr<IDBKey> CreateIDBKeyFromValueAndKeyPaths(
 v8::Local<v8::Value> DeserializeIDBValueData(v8::Isolate* isolate,
                                              const IDBValue* value) {
   DCHECK(isolate->InContext());
-  if (!value || value->IsNull())
+  if (!value) {
     return v8::Null(isolate);
+  }
 
   scoped_refptr<SerializedScriptValue> serialized_value =
       value->CreateSerializedValue();
@@ -486,8 +492,9 @@ v8::Local<v8::Value> DeserializeIDBValue(ScriptState* script_state,
                                          const IDBValue* value) {
   v8::Isolate* isolate = script_state->GetIsolate();
   DCHECK(isolate->InContext());
-  if (!value || value->IsNull())
+  if (!value) {
     return v8::Null(isolate);
+  }
 
   v8::Local<v8::Value> v8_value = DeserializeIDBValueData(isolate, value);
   if (value->PrimaryKey()) {

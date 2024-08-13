@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "partition_alloc/partition_alloc_buildflags.h"
+#include "partition_alloc/buildflags.h"
 
 #if PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
 #include "partition_alloc/build_config.h"
@@ -16,10 +16,6 @@
 #include "partition_alloc/partition_alloc_base/types/strong_alias.h"
 #include "partition_alloc/shim/allocator_dispatch.h"
 #include "partition_alloc/tagging.h"
-
-#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_BUILDFLAG(USE_STARSCAN)
-#include "partition_alloc/starscan/pcscan.h"
-#endif
 
 namespace allocator_shim {
 
@@ -64,8 +60,36 @@ void SetCallNewHandlerOnMallocFailure(bool value);
 // regardless of SetCallNewHandlerOnMallocFailure().
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) void* UncheckedAlloc(size_t size);
 
+// Reallocates |ptr| to point at |size| bytes with the same alignment as |ptr|,
+// or returns nullptr while leaving the |ptr| unchanged. It does NOT call the
+// new_handler, regardless of SetCallNewHandlerOnMallocFailure().
+PA_COMPONENT_EXPORT(ALLOCATOR_SHIM)
+void* UncheckedRealloc(void* ptr, size_t size);
+
 // Frees memory allocated with UncheckedAlloc().
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) void UncheckedFree(void* ptr);
+
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+
+// The aligned allocation functions are only available when PartitionAlloc is
+// acting as malloc. Otherwise there may be nothing to forward them to for the
+// platform allocator.
+
+// Allocates |size| bytes aligned to |align| or returns nullptr. It does NOT
+// call the new_handler, regardless of SetCallNewHandlerOnMallocFailure().
+PA_COMPONENT_EXPORT(ALLOCATOR_SHIM)
+void* UncheckedAlignedAlloc(size_t align, size_t size);
+
+// Reallocates |ptr| to point at |size| bytes with an alignment of |align|,
+// or returns nullptr while leaving the |ptr| unchanged. It does NOT call the
+// new_handler, regardless of SetCallNewHandlerOnMallocFailure().
+PA_COMPONENT_EXPORT(ALLOCATOR_SHIM)
+void* UncheckedAlignedRealloc(void* ptr, size_t size, size_t align);
+
+// Frees memory allocated with UncheckedAlignedAlloc().
+PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) void UncheckedAlignedFree(void* ptr);
+
+#endif
 
 // Inserts |dispatch| in front of the allocator chain. This method is
 // thread-safe w.r.t concurrent invocations of InsertAllocatorDispatch().
@@ -141,10 +165,6 @@ PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) uint32_t GetMainPartitionRootExtrasSize();
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) void AdjustDefaultAllocatorForForeground();
 PA_COMPONENT_EXPORT(ALLOCATOR_SHIM) void AdjustDefaultAllocatorForBackground();
 
-#if PA_BUILDFLAG(USE_STARSCAN)
-PA_COMPONENT_EXPORT(ALLOCATOR_SHIM)
-void EnablePCScan(partition_alloc::internal::PCScan::InitConfig);
-#endif
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
 }  // namespace allocator_shim

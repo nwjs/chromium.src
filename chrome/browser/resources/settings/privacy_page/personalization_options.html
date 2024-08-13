@@ -25,7 +25,7 @@
     </style>
 
 <if expr="not is_chromeos">
-    <div id="chromeSigninUserChoiceSetting" class="hr cr-row"
+    <div id="chromeSigninUserChoiceSetting" class="hr cr-row" role="group"
         hidden="[[!chromeSigninUserChoiceInfo_.shouldShowSettings]]"
         aria-label="$i18n{chromeSigninChoiceTitle}">
       <div id="label-wrapper" class="flex">
@@ -107,7 +107,7 @@
           on-click="onPageContentRowClick_">
       </cr-link-row>
     </template>
-    <template is="dom-if" if="[[enableHistorySearchSetting_]]" restamp>
+    <template is="dom-if" if="[[showHistorySearchControl_]]" restamp>
       <cr-link-row id="historySearchRow"
           class="hr"
           label="$i18n{historySearchSettingLabel}"

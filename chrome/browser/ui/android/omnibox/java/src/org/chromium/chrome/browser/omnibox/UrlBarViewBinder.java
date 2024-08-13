@@ -24,8 +24,6 @@ import java.util.Optional;
 
 /** Handles translating the UrlBar model data to the view state. */
 class UrlBarViewBinder {
-    private static final String TAG = "UrlBarViewBinder";
-
     /**
      * @see PropertyModelChangeProcessor.ViewBinder#bind(Object, Object, Object)
      */
@@ -78,8 +76,6 @@ class UrlBarViewBinder {
             view.setTextColor(model.get(UrlBarProperties.TEXT_COLOR));
         } else if (UrlBarProperties.HINT_TEXT_COLOR.equals(propertyKey)) {
             view.setHintTextColor(model.get(UrlBarProperties.HINT_TEXT_COLOR));
-        } else if (UrlBarProperties.TYPEFACE.equals(propertyKey)) {
-            view.setTypeface(model.get(UrlBarProperties.TYPEFACE));
         } else if (UrlBarProperties.INCOGNITO_COLORS_ENABLED.equals(propertyKey)) {
             final boolean incognitoColorsEnabled =
                     model.get(UrlBarProperties.INCOGNITO_COLORS_ENABLED);
@@ -89,8 +85,12 @@ class UrlBarViewBinder {
             }
         } else if (UrlBarProperties.URL_DIRECTION_LISTENER.equals(propertyKey)) {
             view.setUrlDirectionListener(model.get(UrlBarProperties.URL_DIRECTION_LISTENER));
-        } else if (UrlBarProperties.URL_TEXT_CHANGE_LISTENER.equals(propertyKey)) {
-            view.setUrlTextChangeListener(model.get(UrlBarProperties.URL_TEXT_CHANGE_LISTENER));
+        } else if (UrlBarProperties.TEXT_CHANGE_LISTENER.equals(propertyKey)) {
+            view.setTextChangeListener(model.get(UrlBarProperties.TEXT_CHANGE_LISTENER));
+        } else if (UrlBarProperties.TYPING_STARTED_LISTENER.equals(propertyKey)) {
+            view.setTypingStartedListener(model.get(UrlBarProperties.TYPING_STARTED_LISTENER));
+        } else if (UrlBarProperties.KEY_DOWN_LISTENER.equals(propertyKey)) {
+            view.setKeyDownListener(model.get(UrlBarProperties.KEY_DOWN_LISTENER));
         } else if (UrlBarProperties.WINDOW_DELEGATE.equals(propertyKey)) {
             view.setWindowDelegate(model.get(UrlBarProperties.WINDOW_DELEGATE));
         } else if (UrlBarProperties.HAS_URL_SUGGESTIONS.equals(propertyKey)) {

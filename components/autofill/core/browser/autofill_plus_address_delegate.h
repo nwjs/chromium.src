@@ -67,8 +67,12 @@ class AutofillPlusAddressDelegate {
 
   // Returns the "Manage plus addresses..." suggestion which redirects the user
   // to the plus address management page.
-  // TODO(b/342330801): Remove `std::optional` when the UI redesign is launched.
-  virtual std::optional<Suggestion> GetManagePlusAddressSuggestion() const = 0;
+  virtual Suggestion GetManagePlusAddressSuggestion() const = 0;
+
+  // Returns whether plus address suggestions should be mixed with single field
+  // form fill suggestions instead of override them.
+  // TODO(crbug.com/324557560): Remove once feature flag is not needed.
+  virtual bool ShouldMixWithSingleFieldFormFillSuggestions() const = 0;
 
   // Logs Autofill suggestion events related to plus addresses.
   virtual void RecordAutofillSuggestionEvent(

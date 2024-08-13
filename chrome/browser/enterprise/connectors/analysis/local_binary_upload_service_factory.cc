@@ -39,8 +39,8 @@ LocalBinaryUploadServiceFactory::LocalBinaryUploadServiceFactory()
 
 KeyedService* LocalBinaryUploadServiceFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
-  //Profile* profile = Profile::FromBrowserContext(context);
-  return nullptr; //new LocalBinaryUploadService(profile);
+  Profile* profile = Profile::FromBrowserContext(context);
+  return new LocalBinaryUploadService(profile);
 }
 
 }  // namespace enterprise_connectors

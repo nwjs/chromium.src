@@ -15,6 +15,7 @@ namespace ime {
 AnnouncementLabel::AnnouncementLabel(const std::u16string& name) {
   GetViewAccessibility().SetRole(ax::mojom::Role::kStatus);
   GetViewAccessibility().SetName(name);
+  GetViewAccessibility().SetContainerLiveStatus("polite");
 }
 
 AnnouncementLabel::~AnnouncementLabel() = default;
@@ -27,8 +28,6 @@ void AnnouncementLabel::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   }
 
   node_data->SetDescription(announcement_text_);
-  node_data->AddStringAttribute(
-      ax::mojom::StringAttribute::kContainerLiveStatus, "polite");
 }
 
 void AnnouncementLabel::AnnounceAfterDelay(const std::u16string& text,

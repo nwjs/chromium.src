@@ -127,11 +127,11 @@ bool PropertyTreeManager::DirectlyUpdateScrollOffsetTransform(
     return false;
 
   auto* property_trees = host.property_trees();
-  auto* cc_scroll_node = property_trees->scroll_tree_mutable().Node(
+  auto& scroll_tree = property_trees->scroll_tree_mutable();
+  auto* cc_scroll_node = scroll_tree.Node(
       scroll_node->CcNodeId(property_trees->sequence_number()));
   if (!cc_scroll_node ||
-      property_trees->scroll_tree().ShouldRealizeScrollsOnMain(
-          *cc_scroll_node)) {
+      scroll_tree.ShouldRealizeScrollsOnMain(*cc_scroll_node)) {
     return false;
   }
 
@@ -223,15 +223,27 @@ void PropertyTreeManager::DropCompositorScrollDeltaNextCommit(
   host.DropActiveScrollDeltaNextCommit(element_id);
 }
 
-static uint32_t NonCompositedMainThreadScrollingReasons(
-    const ScrollPaintPropertyNode& scroll) {
-  // TODO(crbug.com/1414885): We can't distinguish kNotOpaqueForTextAndLCDText
-  // and kCantPaintScrollingBackgroundAndLCDText here. We should probably
-  // merge the two reasons.
-  return scroll.GetCompositedScrollingPreference() ==
-                 CompositedScrollingPreference::kNotPreferred
-             ? cc::MainThreadScrollingReason::kPreferNonCompositedScrolling
-             : cc::MainThreadScrollingReason::kNotOpaqueForTextAndLCDText;
+uint32_t PropertyTreeManager::NonCompositedMainThreadScrollingReasons(
+    const TransformPaintPropertyNode& scroll_translation) const {
+  if (scroll_translation.ScrollNode()->GetCompositedScrollingPreference() ==
+      CompositedScrollingPreference::kNotPreferred) {
+    return cc::MainThreadScrollingReason::kPreferNonCompositedScrolling;
+  }
+  if (RuntimeEnabledFeatures::RasterInducingScrollEnabled()) {
+    // Opt out of raster-inducing scroll if the scroller is not user scrollable
+    // because the cull rect is not expanded (see CanExpandForScroll in
+    // cull_rect.cc). TODO(crbug.com/349864862): Even if we expand cull rect,
+    // virtual/threaded-prefer-compositing/fast/scroll-behavior/overflow-hidden-*.html
+    // will still time out, which will need investigating if we want to improve
+    // scroll performance of non-user-scrollable scrollers.
+    if (!scroll_translation.ScrollNode()->UserScrollable()) {
+      return cc::MainThreadScrollingReason::kPreferNonCompositedScrolling;
+    }
+    if (!client_.ShouldForceMainThreadRepaint(scroll_translation)) {
+      return cc::MainThreadScrollingReason::kNotScrollingOnMain;
+    }
+  }
+  return cc::MainThreadScrollingReason::kNotOpaqueForTextAndLCDText;
 }
 
 uint32_t PropertyTreeManager::GetMainThreadScrollingReasons(
@@ -248,8 +260,7 @@ uint32_t PropertyTreeManager::GetMainThreadScrollingReasons(
 bool PropertyTreeManager::UsesCompositedScrolling(
     const cc::LayerTreeHost& host,
     const ScrollPaintPropertyNode& scroll) {
-  CHECK(!RuntimeEnabledFeatures::RasterInducingScrollEnabled() ||
-        !RuntimeEnabledFeatures::ScrollTimelineAlwaysOnCompositorEnabled());
+  CHECK(!RuntimeEnabledFeatures::RasterInducingScrollEnabled());
   const auto* property_trees = host.property_trees();
   const auto* cc_scroll = property_trees->scroll_tree().Node(
       scroll.CcNodeId(property_trees->sequence_number()));
@@ -506,7 +517,7 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
         client_.NeedsCompositedScrolling(transform_node);
     if (!scroll_node->is_composited) {
       scroll_node->main_thread_scrolling_reasons |=
-          NonCompositedMainThreadScrollingReasons(*transform_node.ScrollNode());
+          NonCompositedMainThreadScrollingReasons(transform_node);
     }
   }
 

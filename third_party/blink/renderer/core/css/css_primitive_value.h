@@ -319,6 +319,9 @@ class CORE_EXPORT CSSPrimitiveValue : public CSSValue {
   bool IsLength() const;
   bool IsNumber() const;
   bool IsInteger() const;
+  static bool IsPercentage(UnitType unit) {
+    return unit == UnitType::kPercentage;
+  }
   bool IsPercentage() const;
   // Is this a percentage *or* a calc() with a percentage?
   bool HasPercentage() const;
@@ -368,7 +371,15 @@ class CORE_EXPORT CSSPrimitiveValue : public CSSValue {
   // Converts to a Length (Fixed, Percent or Calculated)
   Length ConvertToLength(const CSSLengthResolver&) const;
 
-  bool IsZero() const;
+  enum class BoolStatus {
+    kTrue,
+    kFalse,
+    kUnresolvable,
+  };
+
+  BoolStatus IsZero() const;
+  BoolStatus IsOne() const;
+  BoolStatus IsNegative() const;
 
   // this + value
   CSSPrimitiveValue* Add(double value, UnitType unit_type) const;
@@ -428,6 +439,7 @@ class CORE_EXPORT CSSPrimitiveValue : public CSSValue {
   int ComputeInteger(const CSSLengthResolver&) const;
   double ComputeNumber(const CSSLengthResolver&) const;
   double ComputePercentage(const CSSLengthResolver&) const;
+  double ComputeValueInCanonicalUnit(const CSSLengthResolver&) const;
 
   static const char* UnitTypeToString(UnitType);
   static UnitType StringToUnitType(StringView string) {

@@ -763,14 +763,17 @@ void DesktopWindowTreeHostPlatform::SetFullscreen(bool fullscreen,
   if (!weak_ptr)
     return;
 
-  // The state must change synchronously to let media react on fullscreen
-  // changes.
-  DCHECK_EQ(fullscreen, IsFullscreen());
+  if (!base::FeatureList::IsEnabled(features::kAsyncFullscreenWindowState)) {
+    // The state must change synchronously to let media react on fullscreen
+    // changes.
+    DCHECK_EQ(fullscreen, IsFullscreen());
 
-  if (IsFullscreen() == fullscreen)
-    ScheduleRelayout();
-  // Else: the widget will be relaid out either when the window bounds change
-  // or when |platform_window|'s fullscreen state changes.
+    if (IsFullscreen() == fullscreen) {
+      ScheduleRelayout();
+    }
+    // Else: the widget will be relaid out either when the window bounds change
+    // or when |platform_window|'s fullscreen state changes.
+  }
 }
 
 bool DesktopWindowTreeHostPlatform::IsFullscreen() const {
@@ -858,16 +861,25 @@ gfx::Transform DesktopWindowTreeHostPlatform::GetRootTransform() const {
   // TODO(crbug.com/40218466): This can use wrong scale during initialization.
   // Revisit this as a part of 'use dip' work.
 
-  display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
   // This might be called before the |platform_window| is created. Thus,
   // explicitly check if that exists before trying to access its visibility and
   // the display where it is shown.
-  if (platform_window())
-    display = GetDisplayNearestRootWindow();
-  else if (window_parent_)
-    display = window_parent_->GetDisplayNearestRootWindow();
+  const aura::Window* root_window = nullptr;
+  if (platform_window()) {
+    root_window = window();
+  } else if (window_parent_) {
+    root_window = window_parent_->window();
+  }
+
+  auto* const screen = display::Screen::GetScreen();
+  const float scale = root_window
+                          ? screen
+                                ->GetPreferredScaleFactorForWindow(
+                                    const_cast<aura::Window*>(root_window))
+                                .value_or(1.0f)
+                          : screen->GetPrimaryDisplay().device_scale_factor();
+
   gfx::Transform transform;
-  float scale = display.device_scale_factor();
   transform.Scale(scale, scale);
   return transform;
 }

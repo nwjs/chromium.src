@@ -276,8 +276,6 @@ public class TabResumptionModuleSuggestionsUnitTest extends TestSupport {
                         /* tabId= */ anyInt(),
                         /* thumbnailSize= */ any(Size.class),
                         /* finalCallback= */ any(Callback.class),
-                        /* forceUpdate= */ anyBoolean(),
-                        /* writeToCache= */ anyBoolean(),
                         /* isSelected= */ anyBoolean());
         RoundedIconGenerator roundedIconGenerator = Mockito.mock(RoundedIconGenerator.class);
         when(roundedIconGenerator.generateIconForUrl(urlWithoutFavicon))

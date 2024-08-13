@@ -1525,7 +1525,7 @@ message DownloadMetadata {
 // A Detailed Safebrowsing Report from clients. Chrome safebrowsing reports are
 // only sent by Chrome users who have opted into extended Safe Browsing.
 // This proto is replacing ClientMalwareReportRequest.
-// Next tag: 35
+// Next tag: 36
 message ClientSafeBrowsingReportRequest {
   // Note: A lot of the "optional" fields would make sense to be
   // "required" instead.  However, having them as optional allows the
@@ -1688,6 +1688,8 @@ message ClientSafeBrowsingReportRequest {
     // the user may see the page before they see a warning. See
     // go/async-sb-check-telemetry for details.
     optional bool is_async_check = 7;
+    // Whether Google Play Protect is verifying apps.
+    optional bool app_verification_enabled = 8;
   }
   optional SafeBrowsingClientProperties client_properties = 17;
 
@@ -1744,9 +1746,7 @@ message ClientSafeBrowsingReportRequest {
       BUBBLE_SUBPAGE = 2;
       // Applicable actions: DISCARD, KEEP, PROCEED
       DOWNLOADS_PAGE = 3;
-      // Applicable actions: PROCEED, CANCEL, CLOSE
-      // TODO(chlily): Remove CLOSE option once ImprovedDownloadPageWarnings
-      // launches.
+      // Applicable actions: PROCEED, CANCEL
       DOWNLOAD_PROMPT = 4;
       // Applicable actions: OPEN_SUBPAGE
       // Note: This only covers ChromeOS Lacros v2 notifications. CLOSE should
@@ -2012,6 +2012,9 @@ message ClientSafeBrowsingReportRequest {
   }
 
   optional PermissionPromptInfo permission_prompt_info = 34;
+
+  // Locale of the device, e.g. en, en_US.
+  optional string locale = 35;
 }
 
 // An HTML Element on the page (eg: iframe, div, script, etc).

@@ -21,8 +21,6 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.mojom.VirtualKeyboardMode;
 import org.chromium.url.GURL;
 
-import java.util.List;
-
 /**
  * The WebContents Java wrapper to allow communicating with the native WebContents object.
  *
@@ -179,15 +177,10 @@ public interface WebContents extends Parcelable {
 
     /**
      * @return The root level view from the renderer, or {@code null} in some cases where there is
-     *         none.
+     *     none.
      */
     @Nullable
     RenderWidgetHostView getRenderWidgetHostView();
-
-    /**
-     * @return The WebContents that are nested within this one.
-     */
-    List<? extends WebContents> getInnerWebContents();
 
     /**
      * @return The WebContents Visibility. See native WebContents::GetVisibility.
@@ -619,6 +612,14 @@ public interface WebContents extends Parcelable {
      */
     @AnimationStage
     int getCurrentBackForwardTransitionStage();
+
+    /**
+     * Let long press on links select the link text instead of triggering context menu. Disabled by
+     * default i.e. the context menu gets triggered.
+     *
+     * @param enabled {@code true} to enabled the behavior.
+     */
+    void setLongPressLinkSelectText(boolean enabled);
 
     /**
      * Notify that the constraints of the browser controls have changed. This means that the the

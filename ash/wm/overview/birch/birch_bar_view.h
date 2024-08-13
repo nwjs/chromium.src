@@ -49,8 +49,9 @@ class ASH_EXPORT BirchBarView : public views::BoxLayoutView {
   static constexpr int kMaxChipsNum = 4;
 
   enum class State {
-    kLoading,        // The bar is waiting for data on creation.
-    kLoadingInPine,  // The bar is waiting for data on creation in pine.
+    kLoading,                    // The bar is waiting for data on creation.
+    kLoadingForInformedRestore,  // The bar is waiting for data on creation for
+                                 // informed restore.
     kLoadingByUser,  // The bar is waiting for data when enabled by user.
     kReloading,      // The bar is waiting for data when suggestion types are
                      // modified.
@@ -108,10 +109,15 @@ class ASH_EXPORT BirchBarView : public views::BoxLayoutView {
   // Adds a new chip with given item.
   void AddChip(BirchItem* birch_item);
 
-  void RemoveChip(BirchItem* birch_item);
+  // Removes the chip of `removed_item` and attaches a new chip with
+  // `attached_item` if it's not null.
+  void RemoveChip(BirchItem* removed_item, BirchItem* attached_item = nullptr);
 
   // Gets the maximum height of the bar with full chips.
   int GetMaximumHeight() const;
+
+  // Returns if there are on-going animations.
+  bool IsAnimating();
 
  private:
   friend class OverviewGridTestApi;
@@ -124,12 +130,14 @@ class ASH_EXPORT BirchBarView : public views::BoxLayoutView {
     kTwoByTwo,
   };
 
+  void AttachChip(std::unique_ptr<BirchChipButtonBase> chip);
+
   // Remove all current chips.
   void Clear();
 
   // Calculates the chip size according to current shelf position and display
   // size.
-  gfx::Size GetChipSize() const;
+  gfx::Size GetChipSize(aura::Window* root_window) const;
 
   // Gets expected layout types according to the given number of chips and
   // current available space.
@@ -162,8 +170,12 @@ class ASH_EXPORT BirchBarView : public views::BoxLayoutView {
   // Called after chips fading-out animations are done during shutting down.
   void OnShutdownEnded();
 
-  // The root window hosting the birch bar.
-  const raw_ptr<aura::Window> root_window_;
+  // Called after the removing chip fade-out animation is done.
+  void OnRemovingChipFadeOutEnded(BirchChipButtonBase* removing_chip);
+
+  // Possibly show the privacy nudge about context menu options for
+  // controlling suggestion types.
+  void MaybeShowPrivacyNudge();
 
   // Cached chip size.
   const gfx::Size chip_size_;
@@ -181,6 +193,9 @@ class ASH_EXPORT BirchBarView : public views::BoxLayoutView {
 
   // The chips are owned by either primary or secondary row.
   std::vector<raw_ptr<BirchChipButtonBase>> chips_;
+
+  // The chip which is waiting to be attached.
+  std::unique_ptr<BirchChipButtonBase> chip_to_attach_;
 
   // Called after relayout.
   RelayoutCallback relayout_callback_;

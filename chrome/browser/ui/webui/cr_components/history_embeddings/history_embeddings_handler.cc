@@ -7,25 +7,54 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/history_embeddings/history_embeddings_service_factory.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/chrome_pages.h"
 #include "components/history_embeddings/history_embeddings_features.h"
 #include "components/history_embeddings/history_embeddings_service.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/url_formatter.h"
+#include "history_embeddings_handler.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/time_format.h"
+
+namespace {
+
+optimization_guide::proto::UserFeedback
+OptimizationFeedbackFromMojoUserFeedback(
+    history_embeddings::mojom::UserFeedback feedback) {
+  switch (feedback) {
+    case history_embeddings::mojom::UserFeedback::kUserFeedbackPositive:
+      return optimization_guide::proto::UserFeedback::USER_FEEDBACK_THUMBS_UP;
+    case history_embeddings::mojom::UserFeedback::kUserFeedbackNegative:
+      return optimization_guide::proto::UserFeedback::USER_FEEDBACK_THUMBS_DOWN;
+    case history_embeddings::mojom::UserFeedback::kUserFeedbackUnspecified:
+      return optimization_guide::proto::UserFeedback::USER_FEEDBACK_UNSPECIFIED;
+  }
+}
+
+}  // namespace
 
 HistoryEmbeddingsHandler::HistoryEmbeddingsHandler(
     mojo::PendingReceiver<history_embeddings::mojom::PageHandler>
         pending_page_handler,
-    base::WeakPtr<Profile> profile)
+    base::WeakPtr<Profile> profile,
+    content::WebUI* web_ui)
     : page_handler_(this, std::move(pending_page_handler)),
-      profile_(std::move(profile)) {}
+      profile_(std::move(profile)),
+      web_ui_(web_ui) {}
 
 HistoryEmbeddingsHandler::~HistoryEmbeddingsHandler() = default;
 
+void HistoryEmbeddingsHandler::SetPage(
+    mojo::PendingRemote<history_embeddings::mojom::Page> pending_page) {
+  page_.Bind(std::move(pending_page));
+}
+
 void HistoryEmbeddingsHandler::Search(
-    history_embeddings::mojom::SearchQueryPtr query,
-    SearchCallback callback) {
+    history_embeddings::mojom::SearchQueryPtr query) {
   if (!profile_) {
-    std::move(callback).Run(history_embeddings::mojom::SearchResult::New());
+    OnReceivedSearchResult({});
     return;
   }
 
@@ -36,14 +65,19 @@ void HistoryEmbeddingsHandler::Search(
   service->Search(
       query->query, query->time_range_start,
       history_embeddings::kSearchResultItemCount.Get(),
-      base::BindOnce(&HistoryEmbeddingsHandler::OnReceivedSearchResult,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+      base::BindRepeating(&HistoryEmbeddingsHandler::OnReceivedSearchResult,
+                          weak_ptr_factory_.GetWeakPtr()));
 }
 
 void HistoryEmbeddingsHandler::OnReceivedSearchResult(
-    SearchCallback callback,
     history_embeddings::SearchResult native_search_result) {
+  last_result_ = native_search_result;
+  user_feedback_ =
+      optimization_guide::proto::UserFeedback::USER_FEEDBACK_UNSPECIFIED;
+
   auto mojom_search_result = history_embeddings::mojom::SearchResult::New();
+  mojom_search_result->query = native_search_result.query;
+  mojom_search_result->answer = native_search_result.answer;
   for (history_embeddings::ScoredUrlRow& scored_url_row :
        native_search_result.scored_url_rows) {
     auto item = history_embeddings::mojom::SearchResultItem::New();
@@ -64,12 +98,23 @@ void HistoryEmbeddingsHandler::OnReceivedSearchResult(
         nullptr, nullptr, nullptr));
 
     if (history_embeddings::kShowSourcePassages.Get()) {
-      item->source_passage = scored_url_row.scored_url.passage;
+      item->source_passage = scored_url_row.GetBestPassage();
     }
 
     mojom_search_result->items.push_back(std::move(item));
   }
-  std::move(callback).Run(std::move(mojom_search_result));
+  page_->SearchResultChanged(std::move(mojom_search_result));
+}
+
+void HistoryEmbeddingsHandler::SendQualityLog(
+    const std::vector<uint32_t>& selected_indices,
+    uint32_t num_chars_for_query) {
+  history_embeddings::HistoryEmbeddingsService* service =
+      HistoryEmbeddingsServiceFactory::GetForProfile(profile_.get());
+  std::set<size_t> indices_set(selected_indices.begin(),
+                               selected_indices.end());
+  service->SendQualityLog(last_result_, user_feedback_, indices_set,
+                          num_chars_for_query, false);
 }
 
 void HistoryEmbeddingsHandler::RecordSearchResultsMetrics(
@@ -88,4 +133,34 @@ void HistoryEmbeddingsHandler::RecordSearchResultsMetrics(
         "History.Embeddings.UserActions",
         HistoryEmbeddingsUserActions::kEmbeddingsResultClicked);
   }
+}
+
+void HistoryEmbeddingsHandler::SetUserFeedback(
+    history_embeddings::mojom::UserFeedback user_feedback) {
+  user_feedback_ = OptimizationFeedbackFromMojoUserFeedback(user_feedback);
+  if (user_feedback ==
+      history_embeddings::mojom::UserFeedback::kUserFeedbackNegative) {
+    Browser* browser = chrome::FindLastActive();
+    if (!browser) {
+      return;
+    }
+
+    chrome::ShowFeedbackPage(
+        browser, feedback::kFeedbackSourceAI,
+        /*description_template=*/std::string(),
+        /*description_placeholder_text=*/
+        l10n_util::GetStringUTF8(IDS_HISTORY_EMBEDDINGS_FEEDBACK_PLACEHOLDER),
+        /*category_tag=*/"genai_history",
+        /*extra_diagnostics=*/std::string(),
+        /*autofill_metadata=*/base::Value::Dict(), base::Value::Dict());
+  }
+}
+
+void HistoryEmbeddingsHandler::MaybeShowFeaturePromo() {
+  Browser* browser = chrome::FindBrowserWithTab(web_ui_->GetWebContents());
+  if (!browser) {
+    return;
+  }
+  browser->window()->MaybeShowFeaturePromo(
+      feature_engagement::kIPHHistorySearchFeature);
 }

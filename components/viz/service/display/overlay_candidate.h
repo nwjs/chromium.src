@@ -9,12 +9,13 @@
 #include <vector>
 
 #include "base/containers/flat_map.h"
-#include "base/memory/raw_ptr_exclusion.h"
+#include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "components/viz/common/quads/aggregated_render_pass.h"
 #include "components/viz/common/quads/texture_draw_quad.h"
 #include "components/viz/common/quads/tile_draw_quad.h"
 #include "components/viz/common/resources/resource_id.h"
+#include "components/viz/common/resources/shared_image_format.h"
 #include "components/viz/service/viz_service_export.h"
 #include "gpu/command_buffer/common/mailbox.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
@@ -27,6 +28,7 @@
 #include "ui/gfx/hdr_metadata.h"
 #include "ui/gfx/overlay_priority_hint.h"
 #include "ui/gfx/overlay_transform.h"
+#include "ui/gfx/overlay_type.h"
 #include "ui/gfx/video_types.h"
 
 namespace gfx {
@@ -137,7 +139,7 @@ class VIZ_SERVICE_EXPORT OverlayCandidate {
   gfx::RectF display_rect;
 
   // Format of the buffer to scanout.
-  gfx::BufferFormat format = gfx::BufferFormat::RGBA_8888;
+  SharedImageFormat format = SinglePlaneFormat::kRGBA_8888;
 
   gfx::ProtectedVideoType protected_video_type =
       gfx::ProtectedVideoType::kClear;
@@ -223,8 +225,7 @@ class VIZ_SERVICE_EXPORT OverlayCandidate {
 
   // If |rpdq| is present, then the renderer must draw the filter effects and
   // copy the result into the buffer backing of a render pass.
-  // RAW_PTR_EXCLUSION: #addr-of
-  RAW_PTR_EXCLUSION const AggregatedRenderPassDrawQuad* rpdq = nullptr;
+  raw_ptr<const AggregatedRenderPassDrawQuad, DanglingUntriaged> rpdq = nullptr;
 
   // Quad |shared_quad_state| opacity is ubiquitous for quad types
   // AggregateRenderPassDrawQuad, TileDrawQuad, SolidColorDrawQuad. A delegate
@@ -255,6 +256,9 @@ class VIZ_SERVICE_EXPORT OverlayCandidate {
   // does not affect |display_rect|.
   absl::variant<gfx::OverlayTransform, gfx::Transform> transform =
       gfx::OVERLAY_TRANSFORM_NONE;
+
+  // Default overlay type.
+  gfx::OverlayType overlay_type = gfx::OverlayType::kSimple;
 };
 
 using OverlayCandidateList = std::vector<OverlayCandidate>;

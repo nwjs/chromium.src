@@ -118,6 +118,7 @@
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/input/input_device_capabilities.h"
+#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
@@ -389,7 +390,8 @@ Node* Node::PseudoAwarePreviousSibling() const {
 
   // Note the [[fallthrough]] attributes, the order of the cases matters and
   // corresponds to the ordering of pseudo elements in a traversal:
-  // ::scroll-marker-group(before), ::marker, ::before, non-pseudo Elements,
+  // ::scroll-marker-group(before), ::marker, ::scroll-marker, ::before,
+  // non-pseudo Elements,
   // ::after, ::scroll-marker-group(after), ::view-transition. The fallthroughs
   // ensure this ordering by checking for each kind of node in-turn.
   switch (GetPseudoId()) {
@@ -413,6 +415,11 @@ Node* Node::PseudoAwarePreviousSibling() const {
         return previous;
       [[fallthrough]];
     case kPseudoIdBefore:
+      if (Node* previous = parent->GetPseudoElement(kPseudoIdScrollMarker)) {
+        return previous;
+      }
+      [[fallthrough]];
+    case kPseudoIdScrollMarker:
       if (Node* previous = parent->GetPseudoElement(kPseudoIdMarker)) {
         return previous;
       }
@@ -471,6 +478,11 @@ Node* Node::PseudoAwareNextSibling() const {
       }
       [[fallthrough]];
     case kPseudoIdMarker:
+      if (Node* next = parent->GetPseudoElement(kPseudoIdScrollMarker)) {
+        return next;
+      }
+      [[fallthrough]];
+    case kPseudoIdScrollMarker:
       if (Node* next = parent->GetPseudoElement(kPseudoIdBefore))
         return next;
       [[fallthrough]];
@@ -558,6 +570,10 @@ Node* Node::PseudoAwareFirstChild() const {
     }
     if (Node* first = current_element->GetPseudoElement(kPseudoIdMarker))
       return first;
+    if (Node* first =
+            current_element->GetPseudoElement(kPseudoIdScrollMarker)) {
+      return first;
+    }
     if (Node* first = current_element->GetPseudoElement(kPseudoIdBefore))
       return first;
     if (Node* first = current_element->firstChild())
@@ -618,6 +634,9 @@ Node* Node::PseudoAwareLastChild() const {
       return last;
     if (Node* last = current_element->GetPseudoElement(kPseudoIdBefore))
       return last;
+    if (Node* last = current_element->GetPseudoElement(kPseudoIdScrollMarker)) {
+      return last;
+    }
     if (Node* last = current_element->GetPseudoElement(kPseudoIdMarker)) {
       return last;
     }
@@ -1567,7 +1586,8 @@ void Node::ReattachLayoutTree(AttachContext& context) {
 }
 
 void Node::AttachLayoutTree(AttachContext& context) {
-  DCHECK(GetDocument().InStyleRecalc() || IsDocumentNode());
+  DCHECK(GetDocument().InStyleRecalc() || IsDocumentNode() ||
+         GetDocument().GetStyleEngine().InScrollMarkersAttachment());
   DCHECK(!GetDocument().Lifecycle().InDetach());
   DCHECK(!context.performing_reattach ||
          GetDocument().GetStyleEngine().InRebuildLayoutTree());
@@ -1594,10 +1614,12 @@ void Node::DetachLayoutTree(bool performing_reattach) {
   // DetachLayoutTree().
   DCHECK(GetDocument().Lifecycle().StateAllowsDetach() ||
          GetDocument().GetStyleEngine().InContainerQueryStyleRecalc() ||
+         GetDocument().GetStyleEngine().InScrollMarkersAttachment() ||
          (GetDocument().GetStyleEngine().InPositionTryStyleRecalc() &&
           IsPseudoElement() && !GetLayoutObject()));
   DCHECK(!performing_reattach ||
-         GetDocument().GetStyleEngine().InRebuildLayoutTree());
+         GetDocument().GetStyleEngine().InRebuildLayoutTree() ||
+         GetDocument().GetStyleEngine().InScrollMarkersAttachment());
   DocumentLifecycle::DetachScope will_detach(GetDocument().Lifecycle());
 
   if (auto* cache = GetDocument().ExistingAXObjectCache()) {
@@ -2264,7 +2286,8 @@ Node::InsertionNotificationRequest Node::InsertedInto(
     cache->NodeIsConnected(this);
   }
 
-  if (GetDocument().StatePreservingAtomicMoveInProgress()) {
+  if (GetDocument().StatePreservingAtomicMoveInProgress() &&
+      (IsElementNode() || IsTextNode())) {
     FlatTreeParentChanged();
   }
   return kInsertionDone;
@@ -2471,7 +2494,16 @@ static void AppendMarkedTree(const String& base_indent,
     String indent_string = indent.ReleaseString();
 
     if (const auto* element = DynamicTo<Element>(node)) {
+      if (Element* pseudo =
+              element->GetPseudoElement(kPseudoIdScrollMarkerGroupBefore)) {
+        AppendMarkedTree(indent_string, pseudo, marked_node1, marked_label1,
+                         marked_node2, marked_label2, builder);
+      }
       if (Element* pseudo = element->GetPseudoElement(kPseudoIdMarker)) {
+        AppendMarkedTree(indent_string, pseudo, marked_node1, marked_label1,
+                         marked_node2, marked_label2, builder);
+      }
+      if (Element* pseudo = element->GetPseudoElement(kPseudoIdScrollMarker)) {
         AppendMarkedTree(indent_string, pseudo, marked_node1, marked_label1,
                          marked_node2, marked_label2, builder);
       }
@@ -2481,6 +2513,11 @@ static void AppendMarkedTree(const String& base_indent,
       if (Element* pseudo = element->GetPseudoElement(kPseudoIdAfter))
         AppendMarkedTree(indent_string, pseudo, marked_node1, marked_label1,
                          marked_node2, marked_label2, builder);
+      if (Element* pseudo =
+              element->GetPseudoElement(kPseudoIdScrollMarkerGroupAfter)) {
+        AppendMarkedTree(indent_string, pseudo, marked_node1, marked_label1,
+                         marked_node2, marked_label2, builder);
+      }
       if (Element* pseudo = element->GetPseudoElement(kPseudoIdFirstLetter))
         AppendMarkedTree(indent_string, pseudo, marked_node1, marked_label1,
                          marked_node2, marked_label2, builder);
@@ -3416,6 +3453,15 @@ void Node::SetCachedDirectionality(TextDirection direction) {
       ClearFlag(kCachedDirectionalityIsRtl);
       break;
   }
+}
+
+void Node::AddConsoleMessage(mojom::blink::ConsoleMessageSource source,
+                             mojom::blink::ConsoleMessageLevel level,
+                             const String& message) {
+  auto* console_message =
+      MakeGarbageCollected<ConsoleMessage>(source, level, message);
+  console_message->SetNodes(GetDocument().GetFrame(), {GetDomNodeId()});
+  GetDocument().AddConsoleMessage(console_message);
 }
 
 void Node::Trace(Visitor* visitor) const {

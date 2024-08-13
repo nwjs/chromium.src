@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/weak_ptr.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/authenticator_common.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
@@ -89,6 +90,62 @@ class CONTENT_EXPORT AuthenticatorCommonImpl : public AuthenticatorCommon {
     kMaxValue = kOtherError,
   };
 
+  // GetAssertionOutcome corresponds to metrics enum
+  // WebAuthenticationGetAssertionOutcome, and must be kept in sync with the
+  // definition in tools/metrics/histograms/metadata/webauthn/enums.xml. These
+  // must not be reordered and numeric values must not be reused.
+  enum class GetAssertionOutcome {
+    kSuccess = 0,
+    kSecurityError = 1,
+    kUserCancellation = 2,
+    kCredentialNotRecognized = 3,
+    kUnknownResponseFromAuthenticator = 4,
+    kRkNotSupported = 5,
+    kUvNotSupported = 6,
+    kSoftPinBlock = 7,
+    kHardPinBlock = 8,
+    kPlatformNotAllowed = 9,
+    kHybridTransportError = 10,
+    kFilterBlock = 11,
+    kEnclaveError = 12,
+    kUiTimeout = 13,
+    kOtherFailure = 14,
+  };
+
+  // MakeCredentialOutcome corresponds to metrics enum
+  // WebAuthenticationMakeCredentialOutcome, and must be kept in sync with the
+  // definition in tools/metrics/histograms/metadata/webauthn/enums.xml. These
+  // must not be reordered and numeric values must not be reused.
+  enum class MakeCredentialOutcome {
+    kSuccess = 0,
+    kSecurityError = 1,
+    kUserCancellation = 2,
+    kCredentialExcluded = 3,
+    kUnknownResponseFromAuthenticator = 4,
+    kRkNotSupported = 5,
+    kUvNotSupported = 6,
+    kLargeBlobNotSupported = 7,
+    kAlgorithmNotSupported = 8,
+    kSoftPinBlock = 9,
+    kHardPinBlock = 10,
+    kStorageFull = 11,
+    kPlatformNotAllowed = 12,
+    kHybridTransportError = 13,
+    kFilterBlock = 14,
+    kEnclaveError = 15,
+    kUiTimeout = 16,
+    kOtherFailure = 17,
+  };
+
+  // This must match the `WebAuthenticationRequestMode` in
+  // tools/metrics/histograms/metadata/webauthn/enums.xml. These must not be
+  // reordered and numeric values must not be reused.
+  enum class RequestMode {
+    kModalWebAuthn = 0,
+    kConditional = 1,
+    kPayment = 2,
+  };
+
   // Creates a new AuthenticatorCommonImpl. Callers must ensure that this
   // instance outlives the RenderFrameHost.
   explicit AuthenticatorCommonImpl(RenderFrameHost* render_frame_host,
@@ -124,6 +181,13 @@ class CONTENT_EXPORT AuthenticatorCommonImpl : public AuthenticatorCommon {
   void DisableTLSCheck() override;
   RenderFrameHost* GetRenderFrameHost() const override;
   void EnableRequestProxyExtensionsAPISupport() override;
+
+  // Report attempts to report a WebAuthn credential on behalf of
+  // `caller_origin` using the supplied `options` and invokes `callback` with
+  // the result.
+  void Report(url::Origin caller_origin,
+              blink::mojom::PublicKeyCredentialReportOptionsPtr options,
+              blink::mojom::Authenticator::ReportCallback callback);
 
  protected:
   // MaybeCreateRequestDelegate returns the embedder-provided implementation of
@@ -176,6 +240,10 @@ class CONTENT_EXPORT AuthenticatorCommonImpl : public AuthenticatorCommon {
       blink::mojom::Authenticator::IsConditionalMediationAvailableCallback
           callback,
       std::optional<bool> is_uvpaa_override);
+
+  void ContinueReportAfterRpIdCheck(
+      blink::mojom::PublicKeyCredentialReportOptionsPtr options,
+      blink::mojom::AuthenticatorStatus rp_id_validation_result);
 
   // Replaces the current |request_handler_| with a
   // |MakeCredentialRequestHandler|, effectively restarting the request.
@@ -262,6 +330,11 @@ class CONTENT_EXPORT AuthenticatorCommonImpl : public AuthenticatorCommon {
 
   AuthenticatorRequestClientDelegate::RequestSource RequestSource() const;
   BrowserContext* GetBrowserContext() const;
+
+  // Runs |report_response_callback_| and then Cleanup().
+  void CompleteReportRequest(blink::mojom::AuthenticatorStatus status,
+                             blink::mojom::WebAuthnDOMExceptionDetailsPtr
+                                 dom_exception_details = nullptr);
 
   // Returns the FidoDiscoveryFactory for the current request. This may be a
   // real instance, or one injected by the Virtual Authenticator environment, or

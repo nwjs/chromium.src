@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_SIGNIN_CORE_BROWSER_SIGNIN_METRICS_SERVICE_H_
 #define COMPONENTS_SIGNIN_CORE_BROWSER_SIGNIN_METRICS_SERVICE_H_
 
+#include <string>
+
 #include "base/memory/raw_ref.h"
 #include "base/scoped_observation.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -14,6 +16,10 @@
 class PrefService;
 class PrefRegistrySimple;
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+extern const char kExplicitSigninMigrationHistogramName[];
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
 // This class should be used to records metrics related to sign in events.
 // Some metrics might not be session bound, needing some information to be
 // stored through prefs.
@@ -21,6 +27,23 @@ class PrefRegistrySimple;
 class SigninMetricsService : public KeyedService,
                              public signin::IdentityManager::Observer {
  public:
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  // LINT.IfChange(ExplicitSigninMigration)
+  enum class ExplicitSigninMigration {
+    kMigratedSignedOut = 0,
+    kMigratedSignedIn = 1,
+    kMigratedSyncing = 2,
+
+    kNotMigratedSignedIn = 3,
+    kNotMigratedSyncing = 4,
+
+    kMaxValue = kNotMigratedSyncing,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:ExplicitSigninMigration)
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
   explicit SigninMetricsService(signin::IdentityManager& identity_manager,
                                 PrefService& pref_service);
   ~SigninMetricsService() override;
@@ -40,6 +63,16 @@ class SigninMetricsService : public KeyedService,
       const CoreAccountId& account_id) override;
 
  private:
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  void RecordExplicitSigninMigrationStatus();
+  void MaybeRecordWebSigninToChromeSigninMetrics(
+      const CoreAccountId& account_id,
+      signin_metrics::AccessPoint access_point);
+  void RecordSigninInterceptionMetrics(
+      const std::string& gaia_id,
+      signin_metrics::AccessPoint access_point);
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
   raw_ref<signin::IdentityManager> identity_manager_;
   const raw_ref<PrefService> pref_service_;
 

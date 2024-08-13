@@ -11,8 +11,11 @@
 
 #include "base/functional/callback.h"
 #include "base/run_loop.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/test_timeouts.h"
 #include "base/time/time.h"
 #include "components/attribution_reporting/os_registration.h"
 #include "components/attribution_reporting/registrar.h"
@@ -35,12 +38,7 @@ using ::attribution_reporting::Registrar;
 class AttributionOsLevelManagerAndroidTest : public ::testing::Test {
  public:
   void SetUp() override {
-    base::RunLoop run_loop;
-    // `base::RunLoop::Quit()` is thread-safe and may be invoked directly from
-    // another thread.
-    manager_ = std::make_unique<AttributionOsLevelManagerAndroid>(
-        run_loop.QuitClosure());
-    run_loop.Run();
+    manager_ = std::make_unique<AttributionOsLevelManagerAndroid>();
   }
 
  protected:
@@ -50,7 +48,21 @@ class AttributionOsLevelManagerAndroidTest : public ::testing::Test {
 };
 
 TEST_F(AttributionOsLevelManagerAndroidTest, GetMeasurementStatusTimeMetric) {
-  histogram_tester_.ExpectTotalCount("Conversions.GetMeasurementStatusTime", 1);
+  static constexpr char kGetMeasurementStatusTimeMetric[] =
+      "Conversions.GetMeasurementStatusTime";
+
+  task_environment_.RunUntilIdle();
+
+  // The task is run from a background thread, wait for it.
+  while (histogram_tester_.GetAllSamples(kGetMeasurementStatusTimeMetric)
+             .empty()) {
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
+    run_loop.Run();
+  }
+
+  histogram_tester_.ExpectTotalCount(kGetMeasurementStatusTimeMetric, 1);
 }
 
 // Simple test to ensure that JNI calls work properly.

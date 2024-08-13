@@ -13,6 +13,7 @@
 
 #include "base/auto_reset.h"
 #include "base/containers/circular_deque.h"
+#include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -85,7 +86,9 @@ DirectRenderer::DirectRenderer(const RendererSettings* settings,
       resource_provider_(resource_provider),
       overlay_processor_(overlay_processor),
       allow_undamaged_nonroot_render_pass_to_skip_(base::FeatureList::IsEnabled(
-          features::kAllowUndamagedNonrootRenderPassToSkip)) {
+          features::kAllowUndamagedNonrootRenderPassToSkip)),
+      use_render_pass_drawn_rect_(
+          base::FeatureList::IsEnabled(features::kRenderPassDrawnRect)) {
   DCHECK(output_surface_);
 }
 
@@ -276,10 +279,10 @@ void DirectRenderer::DrawFrame(
       current_frame()->root_render_pass->has_transparent_background;
   gfx::ColorSpace frame_color_space =
       RenderPassColorSpace(current_frame()->root_render_pass);
-  gfx::BufferFormat frame_buffer_format =
+  SharedImageFormat frame_si_format = GetSharedImageFormat(
       current_frame()->display_color_spaces.GetOutputBufferFormat(
           current_frame()->root_render_pass->content_color_usage,
-          frame_has_alpha);
+          frame_has_alpha));
   gfx::Size surface_resource_size =
       CalculateSizeForOutputSurface(device_viewport_size);
   if (overlay_processor_) {
@@ -297,7 +300,7 @@ void DirectRenderer::DrawFrame(
     if (output_surface_->IsDisplayedAsOverlayPlane()) {
       current_frame()->output_surface_plane =
           overlay_processor_->ProcessOutputSurfaceAsOverlay(
-              device_viewport_size, surface_resource_size, frame_buffer_format,
+              device_viewport_size, surface_resource_size, frame_si_format,
               frame_color_space, frame_has_alpha, 1.0f /*opacity*/,
               GetPrimaryPlaneOverlayTestingMailbox());
       primary_plane = &(current_frame()->output_surface_plane.value());
@@ -325,7 +328,7 @@ void DirectRenderer::DrawFrame(
     // If we promote any quad to an underlay then the main plane must support
     // alpha.
     // TODO(ccameron): We should update |frame_color_space|, and
-    // |frame_buffer_format| based on the change in |frame_has_alpha|.
+    // |frame_si_format| based on the change in |frame_has_alpha|.
     if (current_frame()->output_surface_plane) {
       frame_has_alpha |= current_frame()->output_surface_plane->enable_blending;
       root_render_pass->has_transparent_background = frame_has_alpha;
@@ -345,7 +348,7 @@ void DirectRenderer::DrawFrame(
   reshape_params.size = surface_resource_size;
   reshape_params.device_scale_factor = device_scale_factor;
   reshape_params.color_space = frame_color_space;
-  reshape_params.format = frame_buffer_format;
+  reshape_params.format = frame_si_format;
   reshape_params.alpha_type = frame_has_alpha ? RenderPassAlphaType::kPremul
                                               : RenderPassAlphaType::kOpaque;
   if (next_frame_needs_full_frame_redraw_ ||
@@ -383,6 +386,7 @@ void DirectRenderer::DrawFrame(
   DecideRenderPassAllocationsForFrame(*render_passes_in_draw_order);
 
   // Draw all non-root render passes except for the root render pass.
+  total_pixels_rendered_this_frame_ = 0;
   for (const auto& pass : *render_passes_in_draw_order) {
     if (pass.get() == root_render_pass)
       break;
@@ -403,8 +407,28 @@ void DirectRenderer::DrawFrame(
   if (needs_full_frame_redraw)
     current_frame()->root_damage_rect = gfx::Rect(device_viewport_size);
 
-  if (!skip_drawing_root_render_pass)
+  if (!skip_drawing_root_render_pass) {
     DrawRenderPassAndExecuteCopyRequests(root_render_pass);
+  }
+
+  // Displays 4k in size or greater are relatively common.
+  constexpr uint64_t kMaxPixelCount = 30'000'000;
+  constexpr uint64_t kMinPixelCount = 1;
+  constexpr uint64_t kNumBucketsPixelCount = 50;
+  UMA_HISTOGRAM_CUSTOM_COUNTS("Compositing.DirectRenderer.TotalPixelsRendered",
+                              total_pixels_rendered_this_frame_, kMinPixelCount,
+                              kMaxPixelCount, kNumBucketsPixelCount);
+
+  // Data focused on pixel counts closer to screen resolution sizes.
+  constexpr base::Histogram::Sample kHistogramScale = 100 * 1024;
+  constexpr uint64_t kNumberOfBucketsLinear = 100;
+  UMA_HISTOGRAM_SCALED_EXACT_LINEAR(
+      "Compositing.DirectRenderer.TotalPixelsRenderedNarrow",
+      total_pixels_rendered_this_frame_, 1, kNumberOfBucketsLinear + 1,
+      kHistogramScale);
+
+  DBG_LOG("direct.renderer.total_pixels", "Total Pixels: %" PRIu64,
+          total_pixels_rendered_this_frame_);
 
   if (overlay_processor_)
     overlay_processor_->TakeOverlayCandidates(&current_frame()->overlay_list);
@@ -643,7 +667,8 @@ void DirectRenderer::DrawRenderPassAndExecuteCopyRequests(
 }
 
 void DirectRenderer::DrawRenderPass(const AggregatedRenderPass* render_pass) {
-  TRACE_EVENT0("viz", "DirectRenderer::DrawRenderPass");
+  TRACE_EVENT1("viz", "DirectRenderer::DrawRenderPass", "NumberOfQuads",
+               render_pass->quad_list.size());
 
   bool can_skip_rp = CanSkipRenderPass(render_pass);
   if (render_pass != current_frame()->root_render_pass) {
@@ -671,8 +696,6 @@ void DirectRenderer::DrawRenderPass(const AggregatedRenderPass* render_pass) {
     render_pass_scissor_in_draw_space.Intersect(*output_surface_clip_rect_);
   }
 
-  EnsureRenderPassAllocated(render_pass);
-
   if (!is_root_render_pass && render_pass_scissor_in_draw_space.IsEmpty() &&
       base::FeatureList::IsEnabled(kAllowSkipEmptyNonrootRenderPassDraws)) {
     // If the scissor rect is empty, we will end up skipping all the draw quads,
@@ -680,11 +703,16 @@ void DirectRenderer::DrawRenderPass(const AggregatedRenderPass* render_pass) {
     return;
   }
 
+  EnsureRenderPassAllocated(render_pass);
+
   // TODO(crbug.com/40454563): This change applies only when Vulkan is enabled
   // and it will be removed once SkiaRenderer has complete support for Vulkan.
   if (!is_root_render_pass && !IsRenderPassResourceAllocated(render_pass->id)) {
     return;
   }
+
+  total_pixels_rendered_this_frame_ +=
+      render_pass_scissor_in_draw_space.size().Area64();
 
   const bool render_pass_is_clipped =
       !render_pass_scissor_in_draw_space.Contains(surface_rect_in_draw_space);
@@ -819,7 +847,7 @@ DirectRenderer::CalculateRenderPassRequirements(
     CHECK(!render_pass->generate_mipmap);
     requirements.generate_mipmap = false;
     requirements.color_space = reshape_color_space();
-    requirements.format = GetSharedImageFormat(reshape_buffer_format());
+    requirements.format = reshape_si_format();
     if (is_root) {
       requirements.alpha_type = reshape_alpha_type();
     } else {
@@ -979,6 +1007,8 @@ gfx::Rect DirectRenderer::ComputeScissorRectForRenderPass(
   if (use_render_pass_drawn_rect_) {
     if (GetRenderPassBackingDrawnRect(render_pass->id) ==
         render_pass->output_rect) {
+      UMA_HISTOGRAM_BOOLEAN(
+          "Compositing.DirectRenderer.RenderPassDrawnRectMatch", true);
       return render_pass->damage_rect;
     } else {
       // This is the first time we are drawing to this backing but it might not
@@ -989,6 +1019,8 @@ gfx::Rect DirectRenderer::ComputeScissorRectForRenderPass(
       // the drawn area by only fully drawing the visible portion of this render
       // pass and not the entire output rect. This information is available in
       // surface aggregator as root parent clip for render passes.
+      UMA_HISTOGRAM_BOOLEAN(
+          "Compositing.DirectRenderer.RenderPassDrawnRectMatch", false);
       return render_pass->output_rect;
     }
   }
@@ -1189,11 +1221,6 @@ gfx::Rect DirectRenderer::GetDelegatedInkTrailDamageRect() {
 gpu::Mailbox DirectRenderer::GetPrimaryPlaneOverlayTestingMailbox() {
   NOTREACHED_IN_MIGRATION();
   return gpu::Mailbox();
-}
-
-gfx::Rect DirectRenderer::GetRenderPassBackingDrawnRect(
-    const AggregatedRenderPassId& render_pass_id) const {
-  return gfx::Rect();
 }
 
 }  // namespace viz

@@ -215,7 +215,7 @@ const char kParentBlockedExtensionInstallError[] =
     "Parent has blocked extension/app installation";
 
 // The number of user gestures to trace back for the referrer chain.
-// const int kExtensionReferrerUserGestureLimit = 2;
+const int kExtensionReferrerUserGestureLimit = 2;
 
 WebstorePrivateApi::Delegate* test_delegate = nullptr;
 
@@ -265,6 +265,9 @@ ConvertExtensionInstallStatusForAPI(ExtensionInstallStatus status) {
           kCustodianApprovalRequiredForInstallation;
     case kForceInstalled:
       return api::webstore_private::ExtensionInstallStatus::kForceInstalled;
+    case kDeprecatedManifestVersion:
+      return api::webstore_private::ExtensionInstallStatus::
+          kDeprecatedManifestVersion;
   }
   return api::webstore_private::ExtensionInstallStatus::kNone;
 }
@@ -701,7 +704,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnFrictionPromptDone(
 
 void WebstorePrivateBeginInstallWithManifest3Function::
     ReportFrictionAcceptedEvent() {
-#if 0
   if (!profile_) {
     return;
   }
@@ -714,7 +716,6 @@ void WebstorePrivateBeginInstallWithManifest3Function::
         safe_browsing::SafeBrowsingMetricsCollector::EventType::
             EXTENSION_ALLOWLIST_INSTALL_BYPASS);
   }
-#endif
 }
 
 void WebstorePrivateBeginInstallWithManifest3Function::OnInstallPromptDone(
@@ -1219,9 +1220,6 @@ WebstorePrivateGetReferrerChainFunction::
 
 ExtensionFunction::ResponseAction
 WebstorePrivateGetReferrerChainFunction::Run() {
-#if 1
-  return RespondNow(ArgumentList(api::webstore_private::GetReferrerChain::Results::Create("")));
-#else
   Profile* profile = Profile::FromBrowserContext(browser_context());
   if (!SafeBrowsingNavigationObserverManager::IsEnabledAndReady(
           profile->GetPrefs(), g_browser_process->safe_browsing_service()))
@@ -1270,7 +1268,6 @@ WebstorePrivateGetReferrerChainFunction::Run() {
   return RespondNow(
       ArgumentList(api::webstore_private::GetReferrerChain::Results::Create(
           base::Base64Encode(request.SerializeAsString()))));
-#endif
 }
 
 WebstorePrivateGetExtensionStatusFunction::
@@ -1375,6 +1372,9 @@ WebstorePrivateGetMV2DeprecationStatusFunction::Run() {
       break;
     case MV2ExperimentStage::kWarning:
       api_status = api::webstore_private::MV2DeprecationStatus::kWarning;
+      break;
+    case MV2ExperimentStage::kDisableWithReEnable:
+      api_status = api::webstore_private::MV2DeprecationStatus::kSoftDisable;
       break;
   }
 

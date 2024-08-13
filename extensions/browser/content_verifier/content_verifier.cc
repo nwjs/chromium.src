@@ -17,6 +17,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -359,7 +360,7 @@ class ContentVerifier::HashHelper {
     }
 
     auto iter = callback_infos_.find(key);
-    DCHECK(iter != callback_infos_.end());
+    CHECK(iter != callback_infos_.end(), base::NotFatalUntil::M130);
     auto& callback_info = iter->second;
 
     // Force creation of computed_hashes.json if all of the following are true:
@@ -398,7 +399,7 @@ class ContentVerifier::HashHelper {
     }
 
     auto iter = callback_infos_.find(key);
-    DCHECK(iter != callback_infos_.end());
+    CHECK(iter != callback_infos_.end(), base::NotFatalUntil::M130);
     auto& callback_info = iter->second;
 
     for (auto& callback : callback_info.callbacks)
@@ -668,7 +669,7 @@ void ContentVerifier::OnFileReady(const base::FilePath& extension_root,
                                   const base::FilePath& relative_path,
                                   scoped_refptr<ContentVerifyJob> job, bool result) {
   if (!job->file_.IsValid())
-    job->Done();
+    job->DoneReading();
 
   base::ThreadPool::PostTaskAndReplyWithResult(
                                    FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
@@ -688,9 +689,9 @@ void ContentVerifier::BytesRead(const base::FilePath& extension_root,
                                 const base::FilePath& relative_path,
                                 scoped_refptr<ContentVerifyJob> job, bool result) {
   if (job->len_ <= 0) {
-    job->Done();
+    job->DoneReading();
   } else {
-    job->Read(job->buf_, job->len_, base::File::FILE_OK);
+    job->BytesRead(job->buf_, job->len_, base::File::FILE_OK);
     base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),

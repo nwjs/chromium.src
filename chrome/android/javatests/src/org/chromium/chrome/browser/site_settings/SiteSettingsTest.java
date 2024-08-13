@@ -13,7 +13,9 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.PreferenceMatchers.withKey;
 import static androidx.test.espresso.matcher.RootMatchers.withDecorView;
 import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
+import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.hasSibling;
+import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
 import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withChild;
@@ -51,6 +53,7 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.ViewInteraction;
+import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.espresso.matcher.ViewMatchers;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
@@ -70,6 +73,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -92,6 +96,7 @@ import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitio
 import org.chromium.chrome.browser.notifications.channels.SiteChannelsManager;
 import org.chromium.chrome.browser.permissions.PermissionTestRule;
 import org.chromium.chrome.browser.permissions.PermissionTestRule.PermissionUpdateWaiter;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.privacy_sandbox.FakeTrackingProtectionBridge;
 import org.chromium.chrome.browser.privacy_sandbox.TrackingProtectionBridgeJni;
 import org.chromium.chrome.browser.profiles.ProfileManager;
@@ -137,7 +142,6 @@ import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.BrowserContextHandle;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.device.geolocation.LocationProviderOverrider;
 import org.chromium.device.geolocation.MockLocationProvider;
@@ -227,7 +231,7 @@ public class SiteSettingsTest {
     @After
     public void tearDown() throws TimeoutException {
         if (mPermissionUpdateWaiter != null) {
-            TestThreadUtils.runOnUiThreadBlocking(
+            ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         mPermissionRule
                                 .getActivity()
@@ -237,7 +241,7 @@ public class SiteSettingsTest {
         }
 
         // Clean up default content setting and system settings.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     for (int t = 0; t < SiteSettingsCategory.Type.NUM_ENTRIES; t++) {
                         if (SiteSettingsCategory.contentSettingsType(t) >= 0) {
@@ -269,7 +273,7 @@ public class SiteSettingsTest {
 
     private void initializeUpdateWaiter(final boolean expectGranted) {
         if (mPermissionUpdateWaiter != null) {
-            TestThreadUtils.runOnUiThreadBlocking(
+            ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         mPermissionRule
                                 .getActivity()
@@ -282,7 +286,7 @@ public class SiteSettingsTest {
         mPermissionUpdateWaiter =
                 new PermissionUpdateWaiter(
                         expectGranted ? "Granted" : "Denied", mPermissionRule.getActivity());
-        TestThreadUtils.runOnUiThreadBlocking(() -> tab.addObserver(mPermissionUpdateWaiter));
+        ThreadUtils.runOnUiThreadBlocking(() -> tab.addObserver(mPermissionUpdateWaiter));
     }
 
     private void triggerEmbargoForOrigin(String url) throws TimeoutException {
@@ -295,13 +299,13 @@ public class SiteSettingsTest {
     }
 
     private int getTabCount() {
-        return TestThreadUtils.runOnUiThreadBlockingNoException(
+        return ThreadUtils.runOnUiThreadBlocking(
                 () -> mPermissionRule.getActivity().getTabModelSelector().getTotalTabCount());
     }
 
     private static void cleanUpCookiesAndPermissions() throws TimeoutException {
         CallbackHelper helper = new CallbackHelper();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     BrowsingDataBridge.getForProfile(ProfileManager.getLastUsedRegularProfile())
                             .clearBrowsingData(
@@ -329,7 +333,7 @@ public class SiteSettingsTest {
     }
 
     private void createCookieExceptions() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     WebsitePreferenceBridge.setContentSettingCustomScope(
                             getBrowserContextHandle(),
@@ -347,7 +351,7 @@ public class SiteSettingsTest {
     }
 
     private void createStorageAccessExceptions() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     WebsitePreferenceBridge.setContentSettingCustomScope(
                             getBrowserContextHandle(),
@@ -410,7 +414,7 @@ public class SiteSettingsTest {
                         ContentSettingsType.GEOLOCATION,
                         true)
                 .run();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         Assert.assertTrue(
                                 "Location should be allowed.",
@@ -442,7 +446,7 @@ public class SiteSettingsTest {
                         ContentSettingsType.GEOLOCATION,
                         false)
                 .run();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         Assert.assertFalse(
                                 "Location should be blocked.",
@@ -461,7 +465,7 @@ public class SiteSettingsTest {
     }
 
     private void setCookiesEnabled(final SettingsActivity settingsActivity, final boolean enabled) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 new Runnable() {
                     @Override
                     public void run() {
@@ -501,7 +505,7 @@ public class SiteSettingsTest {
             final SettingsActivity settingsActivity,
             final @CookieControlsMode int state,
             final ToggleButtonState toggleState) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     SingleCategorySettings preferences =
                             (SingleCategorySettings) settingsActivity.getMainFragment();
@@ -522,7 +526,7 @@ public class SiteSettingsTest {
     }
 
     private void checkDefaultCookiesSettingManaged(boolean expected) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Assert.assertEquals(
                             "Default Cookie Setting should be "
@@ -534,7 +538,7 @@ public class SiteSettingsTest {
     }
 
     private void checkThirdPartyCookieBlockingManaged(boolean expected) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Assert.assertEquals(
                             "Third Party Cookie Blocking should be "
@@ -550,7 +554,7 @@ public class SiteSettingsTest {
         final SettingsActivity settingsActivity =
                 SiteSettingsTestUtils.startSiteSettingsCategory(type);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     SingleCategorySettings preferences =
                             (SingleCategorySettings) settingsActivity.getMainFragment();
@@ -586,7 +590,7 @@ public class SiteSettingsTest {
         final SettingsActivity settingsActivity =
                 SiteSettingsTestUtils.startSiteSettingsCategory(type);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     SingleCategorySettings preferences =
                             (SingleCategorySettings) settingsActivity.getMainFragment();
@@ -602,7 +606,7 @@ public class SiteSettingsTest {
                 SiteSettingsTestUtils.startSiteSettingsCategory(
                         SiteSettingsCategory.Type.THIRD_PARTY_COOKIES);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     SingleCategorySettings preferences =
                             (SingleCategorySettings) settingsActivity.getMainFragment();
@@ -630,7 +634,7 @@ public class SiteSettingsTest {
             settingsActivity = SiteSettingsTestUtils.startSiteSettingsCategory(type);
         }
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     PreferenceFragmentCompat preferenceFragment =
                             (PreferenceFragmentCompat) settingsActivity.getMainFragment();
@@ -712,7 +716,7 @@ public class SiteSettingsTest {
     private void verifyFPSCookieSubpageIsLaunchedWithParams(
             final SettingsActivity settingsActivity,
             @CookieControlsMode int expectedCookieControlMode) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     final SingleCategorySettings websitePreferences =
                             (SingleCategorySettings) settingsActivity.getMainFragment();
@@ -1096,7 +1100,7 @@ public class SiteSettingsTest {
         Website website = new Website(address, address);
         final SettingsActivity settingsActivity =
                 SiteSettingsTestUtils.startSingleWebsitePreferences(website);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     SingleWebsiteSettings websitePreferences =
                             (SingleWebsiteSettings) settingsActivity.getMainFragment();
@@ -1114,7 +1118,7 @@ public class SiteSettingsTest {
         WebsiteGroup group = new WebsiteGroup(addresses.get(0).getDomainAndRegistry(), sites);
         final SettingsActivity settingsActivity =
                 SiteSettingsTestUtils.startGroupedWebsitesPreferences(group);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     GroupedWebsitesSettings websitePreferences =
                             (GroupedWebsitesSettings) settingsActivity.getMainFragment();
@@ -1347,34 +1351,6 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"Preferences"})
-    @EnableFeatures({ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_PAGE_ROLLBACK_NOTICE})
-    public void testOnlyExpectedPreferencesThirdPartyCookiesWhenUserOffboarded() {
-        mFakeTrackingProtectionBridge.setIsOffboarded(true);
-
-        testExpectedPreferences(
-                SiteSettingsCategory.Type.THIRD_PARTY_COOKIES,
-                new String[] {
-                    "card_preference", "info_text", "tri_state_cookie_toggle", "add_exception"
-                },
-                new String[] {"card_preference", "info_text", "tri_state_cookie_toggle"});
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Preferences"})
-    @EnableFeatures({ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_PAGE_ROLLBACK_NOTICE})
-    public void testOnlyExpectedPreferencesThirdPartyCookiesWhenUserNotOffboarded() {
-        mFakeTrackingProtectionBridge.setIsOffboarded(false);
-
-        testExpectedPreferences(
-                SiteSettingsCategory.Type.THIRD_PARTY_COOKIES,
-                new String[] {"info_text", "tri_state_cookie_toggle", "add_exception"},
-                new String[] {"info_text", "tri_state_cookie_toggle"});
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Preferences"})
     public void testOnlyExpectedPreferencesSiteData() {
         testExpectedPreferences(
                 SiteSettingsCategory.Type.SITE_DATA,
@@ -1450,7 +1426,7 @@ public class SiteSettingsTest {
         onView(withText("primary.com")).perform(click());
         onView(withText("Remove")).perform(click());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
                             ContentSettingValues.ASK,
@@ -1493,7 +1469,7 @@ public class SiteSettingsTest {
         onView(withText("primary.com")).perform(click());
         onView(withText("Block")).perform(click());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
                             ContentSettingValues.BLOCK,
@@ -1533,7 +1509,7 @@ public class SiteSettingsTest {
         // Reset first permission.
         getImageViewWidget("secondary1.com").check(matches(isDisplayed())).perform(click());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
                             ContentSettingValues.ASK,
@@ -1559,7 +1535,7 @@ public class SiteSettingsTest {
         // Reset second permission.
         getImageViewWidget("secondary3.com").check(matches(isDisplayed())).perform(click());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
                             ContentSettingValues.ASK,
@@ -1590,7 +1566,7 @@ public class SiteSettingsTest {
                 SiteSettingsTestUtils.startSiteSettingsCategory(
                         SiteSettingsCategory.Type.THIRD_PARTY_COOKIES);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     SingleCategorySettings preferences =
                             (SingleCategorySettings) settingsActivity.getMainFragment();
@@ -1616,7 +1592,7 @@ public class SiteSettingsTest {
                 SiteSettingsTestUtils.startSiteSettingsCategory(
                         SiteSettingsCategory.Type.THIRD_PARTY_COOKIES);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     SingleCategorySettings preferences =
                             (SingleCategorySettings) settingsActivity.getMainFragment();
@@ -2304,7 +2280,7 @@ public class SiteSettingsTest {
                 (SettingsActivity)
                         InstrumentationRegistry.getInstrumentation().startActivitySync(intent);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     final SingleWebsiteSettings websitePreferences =
                             (SingleWebsiteSettings) settingsActivity.getMainFragment();
@@ -2348,7 +2324,7 @@ public class SiteSettingsTest {
                         "exampleToBlock.com",
                         "/chrome/test/data/notifications/notification_tester.html");
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     WebsitePreferenceBridgeJni.get()
                             .setPermissionSettingForOrigin(
@@ -2363,7 +2339,7 @@ public class SiteSettingsTest {
                 SiteSettingsTestUtils.startSiteSettingsCategory(
                         SiteSettingsCategory.Type.NOTIFICATIONS);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     boolean blockedByEmbargo =
                             WebsitePreferenceBridgeJni.get()
@@ -2415,7 +2391,7 @@ public class SiteSettingsTest {
                 mPermissionRule.getURLWithHostName(
                         "example.com", "/chrome/test/data/android/simple.html");
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     FederatedIdentityTestUtils.embargoFedCmForRelyingParty(new GURL(rpUrl));
                 });
@@ -2431,7 +2407,7 @@ public class SiteSettingsTest {
                 (SettingsActivity)
                         InstrumentationRegistry.getInstrumentation().startActivitySync(intent);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     final SingleWebsiteSettings websitePreferences =
                             (SingleWebsiteSettings) settingsActivity.getMainFragment();
@@ -2564,7 +2540,7 @@ public class SiteSettingsTest {
                 SiteSettingsTestUtils.startSiteSettingsCategory(
                         SiteSettingsCategory.Type.REQUEST_DESKTOP_SITE);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     HistogramWatcher histogramExpectation =
                             HistogramWatcher.newSingleRecordWatcher(
@@ -2591,6 +2567,60 @@ public class SiteSettingsTest {
                             "Window setting should be OFF.",
                             prefService.getBoolean(DESKTOP_SITE_WINDOW_SETTING_ENABLED));
                 });
+        settingsActivity.finish();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.SAFETY_HUB)
+    public void testAutorevokePermissionsSwitch() {
+        HistogramWatcher histogramExpectation =
+                HistogramWatcher.newSingleRecordWatcher(
+                        SiteSettings.PERMISSION_AUTOREVOCATION_HISTOGRAM_NAME, true);
+        // Set the initial toggle state.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    UserPrefs.get(getBrowserContextHandle())
+                            .setBoolean(Pref.UNUSED_SITE_PERMISSIONS_REVOCATION_ENABLED, false);
+                });
+
+        final SettingsActivity settingsActivity = SiteSettingsTestUtils.startSiteSettingsMenu("");
+
+        // Scroll to permission autorevocation preference and click it.
+        onView(withId(R.id.recycler_view))
+                .perform(
+                        RecyclerViewActions.scrollTo(
+                                hasDescendant(
+                                        withText(
+                                                R.string.safety_hub_autorevocation_toggle_title))));
+        onView(withText(R.string.safety_hub_autorevocation_toggle_title))
+                .check(matches(not(isChecked())))
+                .perform(click());
+
+        // Verify that the pref has been correctly set.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    Assert.assertTrue(
+                            "Unused site permission revocation should be enabled.",
+                            UserPrefs.get(getBrowserContextHandle())
+                                    .getBoolean(Pref.UNUSED_SITE_PERMISSIONS_REVOCATION_ENABLED));
+                });
+        histogramExpectation.assertExpected();
+
+        settingsActivity.finish();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @DisableFeatures(ChromeFeatureList.SAFETY_HUB)
+    public void testAutorevokePermissionsSwitchNotDisplayed() {
+        final SettingsActivity settingsActivity = SiteSettingsTestUtils.startSiteSettingsMenu("");
+        final SiteSettings siteSettingsFragment = (SiteSettings) settingsActivity.getMainFragment();
+        // Verify that the preference does not exist.
+        assertNull(
+                siteSettingsFragment.findPreference(SiteSettings.PERMISSION_AUTOREVOCATION_PREF));
         settingsActivity.finish();
     }
 
@@ -2676,18 +2706,6 @@ public class SiteSettingsTest {
         createCookieExceptions();
         renderCategoryPage(
                 SiteSettingsCategory.Type.THIRD_PARTY_COOKIES, "site_settings_cookies_page_fps");
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"RenderTest"})
-    @EnableFeatures({ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_PAGE_ROLLBACK_NOTICE})
-    public void testRenderThirdPartyCookiesPageWithOffboarderdUser() throws Exception {
-        mFakeTrackingProtectionBridge.setIsOffboarded(true);
-
-        renderCategoryPage(
-                SiteSettingsCategory.Type.THIRD_PARTY_COOKIES,
-                "site_settings_third_party_cookies_page_offboarded_user");
     }
 
     @Test
@@ -2797,7 +2815,7 @@ public class SiteSettingsTest {
                                 withText(R.string.managed_by_your_organization),
                                 isDisplayed()));
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     websitePreference.performClick();
                 });
@@ -2841,7 +2859,7 @@ public class SiteSettingsTest {
 
         public void run() {
             mSettingsActivity = SiteSettingsTestUtils.startSiteSettingsCategory(mSiteSettingsType);
-            TestThreadUtils.runOnUiThreadBlocking(
+            ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         SingleCategorySettings singleCategorySettings =
                                 (SingleCategorySettings) mSettingsActivity.getMainFragment();

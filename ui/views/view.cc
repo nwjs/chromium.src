@@ -2,12 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if defined(UNSAFE_BUFFERS_BUILD)
-// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
-// then remove this pragma.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "ui/views/view.h"
 
 #include <algorithm>
@@ -37,6 +31,7 @@
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
@@ -459,7 +454,7 @@ void View::SetBoundsRect(const gfx::Rect& bounds) {
   }
 
   OnBoundsChanged(prev);
-  NotifyAccessibilityEvent(ax::mojom::Event::kLocationChanged, false);
+  GetViewAccessibility().SetBounds(gfx::RectF(bounds_));
 
   if (needs_layout_ || is_size_changed) {
     needs_layout_ = false;
@@ -487,16 +482,24 @@ void View::SetBoundsRect(const gfx::Rect& bounds) {
   // The property effects have already been taken into account above. No need to
   // redo them here.
   if (prev.x() != bounds_.x()) {
-    OnPropertyChanged(&bounds_ + kXChangedKey, kPropertyEffectsNone);
+    OnPropertyChanged(
+        ui::metadata::MakeUniquePropertyKey(&bounds_, kXChangedKey),
+        kPropertyEffectsNone);
   }
   if (prev.y() != bounds_.y()) {
-    OnPropertyChanged(&bounds_ + kYChangedKey, kPropertyEffectsNone);
+    OnPropertyChanged(
+        ui::metadata::MakeUniquePropertyKey(&bounds_, kYChangedKey),
+        kPropertyEffectsNone);
   }
   if (prev.width() != bounds_.width()) {
-    OnPropertyChanged(&bounds_ + kWidthChangedKey, kPropertyEffectsNone);
+    OnPropertyChanged(
+        ui::metadata::MakeUniquePropertyKey(&bounds_, kWidthChangedKey),
+        kPropertyEffectsNone);
   }
   if (prev.height() != bounds_.height()) {
-    OnPropertyChanged(&bounds_ + kHeightChangedKey, kPropertyEffectsNone);
+    OnPropertyChanged(
+        ui::metadata::MakeUniquePropertyKey(&bounds_, kHeightChangedKey),
+        kPropertyEffectsNone);
   }
 }
 
@@ -1639,8 +1642,9 @@ bool View::OnMouseWheel(const ui::MouseWheelEvent& event) {
 }
 
 void View::OnKeyEvent(ui::KeyEvent* event) {
-  bool consumed = (event->type() == ui::ET_KEY_PRESSED) ? OnKeyPressed(*event)
-                                                        : OnKeyReleased(*event);
+  bool consumed = (event->type() == ui::EventType::kKeyPressed)
+                      ? OnKeyPressed(*event)
+                      : OnKeyReleased(*event);
   if (consumed) {
     event->StopPropagation();
   }
@@ -1648,13 +1652,13 @@ void View::OnKeyEvent(ui::KeyEvent* event) {
 
 void View::OnMouseEvent(ui::MouseEvent* event) {
   switch (event->type()) {
-    case ui::ET_MOUSE_PRESSED:
+    case ui::EventType::kMousePressed:
       if (ProcessMousePressed(*event)) {
         event->SetHandled();
       }
       return;
 
-    case ui::ET_MOUSE_MOVED:
+    case ui::EventType::kMouseMoved:
       if ((event->flags() &
            (ui::EF_LEFT_MOUSE_BUTTON | ui::EF_RIGHT_MOUSE_BUTTON |
             ui::EF_MIDDLE_MOUSE_BUTTON)) == 0) {
@@ -1662,28 +1666,28 @@ void View::OnMouseEvent(ui::MouseEvent* event) {
         return;
       }
       [[fallthrough]];
-    case ui::ET_MOUSE_DRAGGED:
+    case ui::EventType::kMouseDragged:
       ProcessMouseDragged(event);
       return;
 
-    case ui::ET_MOUSE_RELEASED:
+    case ui::EventType::kMouseReleased:
       ProcessMouseReleased(*event);
       return;
 
-    case ui::ET_MOUSEWHEEL:
+    case ui::EventType::kMousewheel:
       if (OnMouseWheel(*event->AsMouseWheelEvent())) {
         event->SetHandled();
       }
       break;
 
-    case ui::ET_MOUSE_ENTERED:
+    case ui::EventType::kMouseEntered:
       if (event->flags() & ui::EF_TOUCH_ACCESSIBILITY) {
         NotifyAccessibilityEvent(ax::mojom::Event::kHover, true);
       }
       OnMouseEntered(*event);
       break;
 
-    case ui::ET_MOUSE_EXITED:
+    case ui::EventType::kMouseExited:
       OnMouseExited(*event);
       break;
 
@@ -2152,11 +2156,11 @@ bool View::HandleAccessibleAction(const ui::AXActionData& action_data) {
       break;
     case ax::mojom::Action::kDoDefault: {
       const gfx::Point center = GetLocalBounds().CenterPoint();
-      ui::MouseEvent press(ui::ET_MOUSE_PRESSED, center, center,
+      ui::MouseEvent press(ui::EventType::kMousePressed, center, center,
                            ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
                            ui::EF_LEFT_MOUSE_BUTTON);
       OnEvent(&press);
-      ui::MouseEvent release(ui::ET_MOUSE_RELEASED, center, center,
+      ui::MouseEvent release(ui::EventType::kMouseReleased, center, center,
                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
                              ui::EF_LEFT_MOUSE_BUTTON);
       OnEvent(&release);
@@ -2489,6 +2493,8 @@ void View::OnDeviceScaleFactorChanged(float old_device_scale_factor,
   } else {
     SnapLayerToPixelBoundary(LayerOffsetData());
   }
+
+  GetViewAccessibility().SetChildTreeScaleFactor(new_device_scale_factor);
 }
 
 void View::CreateOrDestroyLayer() {
@@ -3270,7 +3276,7 @@ void View::AddDescendantToNotify(View* view) {
 void View::RemoveDescendantToNotify(View* view) {
   DCHECK(view && descendants_to_notify_);
   auto i = base::ranges::find(*descendants_to_notify_, view);
-  DCHECK(i != descendants_to_notify_->end());
+  CHECK(i != descendants_to_notify_->end(), base::NotFatalUntil::M130);
   descendants_to_notify_->erase(i);
   if (descendants_to_notify_->empty()) {
     descendants_to_notify_.reset();
@@ -3740,7 +3746,12 @@ void View::PropagateDeviceScaleFactorChanged(float old_device_scale_factor,
   if (!layer()) {
     OnDeviceScaleFactorChanged(old_device_scale_factor,
                                new_device_scale_factor);
+    return;
   }
+
+  // `OnDeviceScaleFactor` calls `SetChildTreeScaleFactor`, so we only need to
+  // call it if we don't go into the block above.
+  GetViewAccessibility().SetChildTreeScaleFactor(new_device_scale_factor);
 }
 
 // Tooltips --------------------------------------------------------------------

@@ -107,6 +107,23 @@ void AddCreditCardOptimizationTypes(
   }
 }
 
+void AddAblationOptimizationTypes(
+    base::flat_set<optimization_guide::proto::OptimizationType>&
+        optimization_types) {
+  optimization_types.insert(
+      optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST1);
+  optimization_types.insert(
+      optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST2);
+  optimization_types.insert(
+      optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST3);
+  optimization_types.insert(
+      optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST4);
+  optimization_types.insert(
+      optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST5);
+  optimization_types.insert(
+      optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST6);
+}
+
 // Maps the credit card category optimizations type to the
 // CreditCardCategoryBenefit::BenefitCategory enum.
 CreditCardCategoryBenefit::BenefitCategory
@@ -169,6 +186,11 @@ void AutofillOptimizationGuide::OnDidParseForm(
     }
   }
 
+  if (base::FeatureList::IsEnabled(
+          ::autofill::features::kAutofillEnableAblationStudy)) {
+    AddAblationOptimizationTypes(optimization_types);
+  }
+
   // If we do not have any optimization types to register, do not do anything.
   if (!optimization_types.empty()) {
     // Register all optimization types that we need based on `form_structure`.
@@ -220,7 +242,7 @@ AutofillOptimizationGuide::AttemptToGetEligibleCreditCardBenefitCategory(
 
 bool AutofillOptimizationGuide::ShouldBlockSingleFieldSuggestions(
     const GURL& url,
-    AutofillField* field) const {
+    const AutofillField* field) const {
   // If the field's storable type is `IBAN_VALUE`, check whether IBAN
   // suggestions should be blocked based on `url`.
   if (field->Type().GetStorableType() == IBAN_VALUE) {
@@ -267,6 +289,22 @@ bool AutofillOptimizationGuide::ShouldBlockFormFieldSuggestion(
   // No conditions to block displaying this virtual card suggestion were met,
   // so return that we should not block displaying this suggestion.
   return false;
+}
+
+bool AutofillOptimizationGuide::IsEligibleForAblation(
+    const GURL& url,
+    optimization_guide::proto::OptimizationType type) const {
+  CHECK(type == optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST1 ||
+        type == optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST2 ||
+        type == optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST3 ||
+        type == optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST4 ||
+        type == optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST5 ||
+        type == optimization_guide::proto::AUTOFILL_ABLATION_SITES_LIST6)
+      << type;
+  optimization_guide::OptimizationGuideDecision decision =
+      decider_->CanApplyOptimization(url, type,
+                                     /*optimization_metadata=*/nullptr);
+  return decision == optimization_guide::OptimizationGuideDecision::kTrue;
 }
 
 bool AutofillOptimizationGuide::ShouldBlockBenefitSuggestionLabelsForCardAndUrl(

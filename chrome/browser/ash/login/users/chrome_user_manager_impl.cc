@@ -84,7 +84,7 @@
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/timezone/timezone_resolver.h"
 #include "chromeos/components/onc/certificate_scope.h"
-#include "chromeos/dbus/common/dbus_method_call_status.h"
+#include "chromeos/dbus/common/dbus_callback.h"
 #include "components/account_id/account_id.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/policy/core/common/cloud/affiliation.h"
@@ -233,33 +233,50 @@ ChromeUserManagerImpl::ChromeUserManagerImpl()
       kDeviceOwner, base::BindRepeating(&ChromeUserManagerImpl::UpdateOwnerId,
                                         weak_factory_.GetWeakPtr()));
 
-  policy::DeviceLocalAccountPolicyService* device_local_account_policy_service =
-      g_browser_process->platform_part()
-          ->browser_policy_connector_ash()
-          ->GetDeviceLocalAccountPolicyService();
-
   if (GetMinimumVersionPolicyHandler()) {
     GetMinimumVersionPolicyHandler()->AddObserver(this);
   }
 
-  cloud_external_data_policy_handlers_.push_back(
-      std::make_unique<policy::UserAvatarImageExternalDataHandler>(
-          cros_settings(), device_local_account_policy_service));
-  cloud_external_data_policy_handlers_.push_back(
-      std::make_unique<policy::WallpaperImageExternalDataHandler>(
-          cros_settings(), device_local_account_policy_service));
-  cloud_external_data_policy_handlers_.push_back(
-      std::make_unique<policy::PrintersExternalDataHandler>(
-          cros_settings(), device_local_account_policy_service));
-  cloud_external_data_policy_handlers_.push_back(
-      std::make_unique<policy::PrintServersExternalDataHandler>(
-          cros_settings(), device_local_account_policy_service));
-  cloud_external_data_policy_handlers_.push_back(
-      std::make_unique<policy::CrostiniAnsiblePlaybookExternalDataHandler>(
-          cros_settings(), device_local_account_policy_service));
-  cloud_external_data_policy_handlers_.push_back(
-      std::make_unique<policy::PreconfiguredDeskTemplatesExternalDataHandler>(
-          cros_settings(), device_local_account_policy_service));
+  // TODO(b/278643115): Move this out from ChromeUserManagerImpl.
+  policy::DeviceLocalAccountPolicyService* device_local_account_policy_service =
+      g_browser_process->platform_part()
+          ->browser_policy_connector_ash()
+          ->GetDeviceLocalAccountPolicyService();
+  cloud_external_data_policy_observers_.push_back(
+      std::make_unique<policy::CloudExternalDataPolicyObserver>(
+          cros_settings(), device_local_account_policy_service,
+          policy::key::kUserAvatarImage, this,
+          std::make_unique<policy::UserAvatarImageExternalDataHandler>()));
+  cloud_external_data_policy_observers_.push_back(
+      std::make_unique<policy::CloudExternalDataPolicyObserver>(
+          cros_settings(), device_local_account_policy_service,
+          policy::key::kWallpaperImage, this,
+          std::make_unique<policy::WallpaperImageExternalDataHandler>()));
+  cloud_external_data_policy_observers_.push_back(
+      std::make_unique<policy::CloudExternalDataPolicyObserver>(
+          cros_settings(), device_local_account_policy_service,
+          policy::key::kPrintersBulkConfiguration, this,
+          std::make_unique<policy::PrintersExternalDataHandler>()));
+  cloud_external_data_policy_observers_.push_back(
+      std::make_unique<policy::CloudExternalDataPolicyObserver>(
+          cros_settings(), device_local_account_policy_service,
+          policy::key::kExternalPrintServers, this,
+          std::make_unique<policy::PrintServersExternalDataHandler>()));
+  cloud_external_data_policy_observers_.push_back(
+      std::make_unique<policy::CloudExternalDataPolicyObserver>(
+          cros_settings(), device_local_account_policy_service,
+          policy::key::kCrostiniAnsiblePlaybook, this,
+          std::make_unique<
+              policy::CrostiniAnsiblePlaybookExternalDataHandler>()));
+  cloud_external_data_policy_observers_.push_back(
+      std::make_unique<policy::CloudExternalDataPolicyObserver>(
+          cros_settings(), device_local_account_policy_service,
+          policy::key::kPreconfiguredDeskTemplates, this,
+          std::make_unique<
+              policy::PreconfiguredDeskTemplatesExternalDataHandler>()));
+  for (auto& observer : cloud_external_data_policy_observers_) {
+    observer->Init();
+  }
 }
 
 void ChromeUserManagerImpl::UpdateOwnerId() {
@@ -294,17 +311,11 @@ void ChromeUserManagerImpl::Shutdown() {
     device_local_account_policy_service_->RemoveObserver(this);
   }
 
-  cloud_external_data_policy_handlers_.clear();
+  cloud_external_data_policy_observers_.clear();
 }
 
 void ChromeUserManagerImpl::StopPolicyObserverForTesting() {
-  cloud_external_data_policy_handlers_.clear();
-}
-
-void ChromeUserManagerImpl::SetUsingSamlForTesting(const AccountId& account_id,
-                                                   bool using_saml) {
-  user_manager::User& user = CHECK_DEREF(FindUserAndModify(account_id));
-  user.set_using_saml(using_saml);
+  cloud_external_data_policy_observers_.clear();
 }
 
 void ChromeUserManagerImpl::OwnershipStatusChanged() {
@@ -336,26 +347,6 @@ void ChromeUserManagerImpl::OnDeviceLocalAccountsChanged() {
   // handled via the kAccountsPrefDeviceLocalAccounts device setting observer.
 }
 
-void ChromeUserManagerImpl::LoadDeviceLocalAccounts(
-    std::set<AccountId>* device_local_accounts_set) {
-  const base::Value::List& prefs_device_local_accounts =
-      GetLocalState()->GetList(prefs::kDeviceLocalAccountsWithSavedData);
-  std::vector<AccountId> device_local_accounts;
-  ParseUserList(prefs_device_local_accounts, std::set<AccountId>(),
-                &device_local_accounts, device_local_accounts_set);
-  for (const AccountId& account_id : device_local_accounts) {
-    auto type = policy::GetDeviceLocalAccountType(account_id.GetUserEmail());
-    if (!type.has_value()) {
-      NOTREACHED_IN_MIGRATION();
-      continue;
-    }
-
-    user_storage_.push_back(
-        CreateUserFromDeviceLocalAccount(account_id, *type));
-    users_.push_back(user_storage_.back().get());
-  }
-}
-
 void ChromeUserManagerImpl::RetrieveTrustedDevicePolicies() {
   // Local state may not be initialized in unit_tests.
   if (!GetLocalState()) {
@@ -380,8 +371,6 @@ void ChromeUserManagerImpl::RetrieveTrustedDevicePolicies() {
   const AccountId owner_account_id = known_user.GetAccountId(
       owner_email, std::string() /* id */, AccountType::UNKNOWN);
   SetOwnerId(owner_account_id);
-
-  EnsureUsersLoaded();
 
   bool changed = UpdateAndCleanUpDeviceLocalAccounts(
       policy::GetDeviceLocalAccounts(cros_settings()));
@@ -415,27 +404,6 @@ void ChromeUserManagerImpl::RetrieveTrustedDevicePolicies() {
 }
 
 void ChromeUserManagerImpl::RemoveNonCryptohomeData(
-    const AccountId& account_id) {
-  // Wallpaper removal can be async if system salt is not yet received (see
-  // `WallpaperControllerClientImpl::GetFilesId`), and depends on user
-  // preference, so it must happen before `known_user::RemovePrefs`.
-  // See https://crbug.com/778077. Here we use a latch to ensure that
-  // `known_user::RemovePrefs` does indeed get invoked after wallpaper and other
-  // external data that might be associated with `account_id` are removed (in
-  // case those removal operations are async).
-  remove_non_cryptohome_data_barrier_ = base::BarrierClosure(
-      cloud_external_data_policy_handlers_.size(),
-      base::BindOnce(&ChromeUserManagerImpl::
-                         RemoveNonCryptohomeDataPostExternalDataRemoval,
-                     weak_factory_.GetWeakPtr(), account_id));
-
-  for (auto& handler : cloud_external_data_policy_handlers_) {
-    handler->RemoveForAccountId(account_id,
-                                remove_non_cryptohome_data_barrier_);
-  }
-}
-
-void ChromeUserManagerImpl::RemoveNonCryptohomeDataPostExternalDataRemoval(
     const AccountId& account_id) {
   // TODO(tbarzic): Forward data removal request to HammerDeviceHandler,
   // instead of removing the prefs value here.
@@ -511,6 +479,17 @@ bool ChromeUserManagerImpl::UpdateAndCleanUpDeviceLocalAccounts(
     }
   }
 
+  // Persist the new list of device local accounts in a pref. These accounts
+  // will be loaded in LoadDeviceLocalAccounts() on the next reboot regardless
+  // of whether they still exist in kAccountsPrefDeviceLocalAccounts, allowing
+  // us to clean up associated data if they disappear from policy.
+  ScopedListPrefUpdate prefs_device_local_accounts_update(
+      GetLocalState(), prefs::kDeviceLocalAccountsWithSavedData);
+  prefs_device_local_accounts_update->clear();
+  for (const auto& account : device_local_accounts) {
+    prefs_device_local_accounts_update->Append(account.user_id);
+  }
+
   // If the list of device local accounts has not changed, return.
   if (device_local_accounts.size() == old_accounts.size()) {
     bool changed = false;
@@ -523,17 +502,6 @@ bool ChromeUserManagerImpl::UpdateAndCleanUpDeviceLocalAccounts(
     if (!changed) {
       return false;
     }
-  }
-
-  // Persist the new list of device local accounts in a pref. These accounts
-  // will be loaded in LoadDeviceLocalAccounts() on the next reboot regardless
-  // of whether they still exist in kAccountsPrefDeviceLocalAccounts, allowing
-  // us to clean up associated data if they disappear from policy.
-  ScopedListPrefUpdate prefs_device_local_accounts_update(
-      GetLocalState(), prefs::kDeviceLocalAccountsWithSavedData);
-  prefs_device_local_accounts_update->clear();
-  for (const auto& account : device_local_accounts) {
-    prefs_device_local_accounts_update->Append(account.user_id);
   }
 
   // Remove the old device local accounts from the user list.
@@ -560,8 +528,13 @@ bool ChromeUserManagerImpl::UpdateAndCleanUpDeviceLocalAccounts(
             active_user->GetAccountId()) {
       users_.insert(users_.begin(), active_user);
     } else {
-      user_storage_.push_back(CreateUserFromDeviceLocalAccount(
-          AccountId::FromUserEmail(account.user_id), account.type));
+      auto user_type =
+          chrome_user_manager_util::DeviceLocalAccountTypeToUserType(
+              account.type);
+      CHECK(user_type.has_value());
+      // Using `new` to access a non-public constructor.
+      user_storage_.push_back(base::WrapUnique(new user_manager::User(
+          AccountId::FromUserEmail(account.user_id), *user_type)));
       users_.insert(users_.begin(), user_storage_.back().get());
     }
     if (account.type == policy::DeviceLocalAccountType::kPublicSession ||
@@ -658,30 +631,6 @@ void ChromeUserManagerImpl::OnProfileWillBeDestroyed(Profile* profile) {
 
 void ChromeUserManagerImpl::OnProfileManagerDestroying() {
   profile_manager_observation_.Reset();
-}
-
-std::unique_ptr<user_manager::User>
-ChromeUserManagerImpl::CreateUserFromDeviceLocalAccount(
-    const AccountId& account_id,
-    const policy::DeviceLocalAccountType type) const {
-  std::unique_ptr<user_manager::User> user;
-  switch (type) {
-    case policy::DeviceLocalAccountType::kPublicSession:
-      user.reset(user_manager::User::CreatePublicAccountUser(account_id));
-      break;
-    case policy::DeviceLocalAccountType::kSamlPublicSession:
-      user.reset(user_manager::User::CreatePublicAccountUser(
-          account_id, /*is_using_saml=*/true));
-      break;
-    case policy::DeviceLocalAccountType::kKioskApp:
-      user.reset(user_manager::User::CreateKioskAppUser(account_id));
-      break;
-    case policy::DeviceLocalAccountType::kWebKioskApp:
-      user.reset(user_manager::User::CreateWebKioskAppUser(account_id));
-      break;
-  }
-
-  return user;
 }
 
 }  // namespace ash

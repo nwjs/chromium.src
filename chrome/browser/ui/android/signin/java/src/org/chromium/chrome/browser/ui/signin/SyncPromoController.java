@@ -37,7 +37,6 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.signin.SyncConsentActivityLauncher.AccessPoint;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
-import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.components.browser_ui.widget.impression.ImpressionTracker;
 import org.chromium.components.browser_ui.widget.impression.OneShotImpressionListener;
 import org.chromium.components.prefs.PrefService;
@@ -116,6 +115,16 @@ public class SyncPromoController {
     private static final int NTP_SYNC_PROMO_INCREASE_SHOW_COUNT_AFTER_MINUTE = 30;
     private static final String SYNC_ANDROID_NTP_PROMO_MAX_IMPRESSIONS =
             "SyncAndroidNTPPromoMaxImpressions";
+
+    @VisibleForTesting static final int NTP_SYNC_PROMO_NTP_COUNT_LIMIT = 5;
+
+    @VisibleForTesting
+    static final int NTP_SYNC_PROMO_NTP_SINCE_FIRST_TIME_SHOWN_LIMIT_HOURS =
+            336; // 14 days in hours.
+
+    @VisibleForTesting
+    static final int NTP_SYNC_PROMO_NTP_RESET_AFTER_HOURS = 672; // 28 days in hours.
+
     @VisibleForTesting static final String GMAIL_DOMAIN = "gmail.com";
 
     /** Strings used for promo shown count histograms. */
@@ -138,8 +147,8 @@ public class SyncPromoController {
     private final @StringRes int mDescriptionStringId;
     private final boolean mShouldSuppressSecodaryButton;
     private final SyncConsentActivityLauncher mSyncConsentActivityLauncher;
-    private final SigninAndHistoryOptInActivityLauncher mSigninAndHistoryOptInActivityLauncher;
-    private final @SigninAndHistoryOptInCoordinator.HistoryOptInMode int mHistoryOptInMode;
+    private final SigninAndHistorySyncActivityLauncher mSigninAndHistorySyncActivityLauncher;
+    private final @SigninAndHistorySyncCoordinator.HistoryOptInMode int mHistoryOptInMode;
     private final Delegate mDelegate;
 
     private @Nullable DisplayableProfileData mProfileData;
@@ -150,14 +159,13 @@ public class SyncPromoController {
                 ChromeFeatureList.SYNC_ANDROID_LIMIT_NTP_PROMO_IMPRESSIONS)) {
             return NTP_SYNC_PROMO_RESET_AFTER_DAY * DateUtils.DAY_IN_MILLIS;
         }
-        return StartSurfaceConfiguration.SIGNIN_PROMO_NTP_RESET_AFTER_HOURS.getValue()
-                * DateUtils.HOUR_IN_MILLIS;
+        return NTP_SYNC_PROMO_NTP_RESET_AFTER_HOURS * DateUtils.HOUR_IN_MILLIS;
     }
 
     /**
      * If the signin promo card has been hidden for longer than the {@link
-     * StartSurfaceConfiguration#SIGNIN_PROMO_NTP_RESET_AFTER_HOURS}, resets the impression counts,
-     * {@link ChromePreferenceKeys#SIGNIN_PROMO_NTP_FIRST_SHOWN_TIME} and {@link
+     * NTP_SYNC_PROMO_NTP_RESET_AFTER_HOURS}, resets the impression counts, {@link
+     * ChromePreferenceKeys#SIGNIN_PROMO_NTP_FIRST_SHOWN_TIME} and {@link
      * ChromePreferenceKeys#SIGNIN_PROMO_NTP_LAST_SHOWN_TIME} to allow the promo card to show again.
      */
     public static void resetNtpSyncPromoLimitsIfHiddenForTooLong() {
@@ -182,9 +190,7 @@ public class SyncPromoController {
 
     private static boolean timeElapsedSinceFirstShownExceedsLimit() {
         final long timeSinceFirstShownLimitMs =
-                StartSurfaceConfiguration.SIGNIN_PROMO_NTP_SINCE_FIRST_TIME_SHOWN_LIMIT_HOURS
-                                .getValue()
-                        * DateUtils.HOUR_IN_MILLIS;
+                NTP_SYNC_PROMO_NTP_SINCE_FIRST_TIME_SHOWN_LIMIT_HOURS * DateUtils.HOUR_IN_MILLIS;
         if (timeSinceFirstShownLimitMs <= 0) return false;
 
         final long currentTime = System.currentTimeMillis();
@@ -202,7 +208,7 @@ public class SyncPromoController {
                     SYNC_ANDROID_NTP_PROMO_MAX_IMPRESSIONS,
                     5);
         }
-        return StartSurfaceConfiguration.SIGNIN_PROMO_NTP_COUNT_LIMIT.getValue();
+        return NTP_SYNC_PROMO_NTP_COUNT_LIMIT;
     }
 
     private static boolean canShowSettingsPromo() {
@@ -247,20 +253,19 @@ public class SyncPromoController {
      * @param bottomSheetStrings Contains the string resource IDs for the sign-in bottom sheet.
      * @param accessPoint Specifies the AccessPoint from which the promo is to be shown.
      * @param syncConsentActivityLauncher Launcher of {@link SyncConsentActivity}.
-     * @param signinAndHistoryOptInActivityLauncher Launcher of {@link
-     *     SigninAndHistoryOptInActivity}.
+     * @param signinAndHistorySyncActivityLauncher Launcher of {@link SigninAndHistorySyncActivity}.
      */
     public SyncPromoController(
             Profile profile,
             @NonNull AccountPickerBottomSheetStrings bottomSheetStrings,
             @AccessPoint int accessPoint,
             SyncConsentActivityLauncher syncConsentActivityLauncher,
-            SigninAndHistoryOptInActivityLauncher signinAndHistoryOptInActivityLauncher) {
+            SigninAndHistorySyncActivityLauncher signinAndHistorySyncActivityLauncher) {
         mProfile = profile;
         mBottomSheetStrings = bottomSheetStrings;
         mAccessPoint = accessPoint;
         mSyncConsentActivityLauncher = syncConsentActivityLauncher;
-        mSigninAndHistoryOptInActivityLauncher = signinAndHistoryOptInActivityLauncher;
+        mSigninAndHistorySyncActivityLauncher = signinAndHistorySyncActivityLauncher;
         switch (mAccessPoint) {
             case SigninAccessPoint.BOOKMARK_MANAGER:
                 mImpressionUserActionName = "Signin_Impression_FromBookmarkManager";
@@ -275,7 +280,7 @@ public class SyncPromoController {
                     mDescriptionStringId = R.string.sync_promo_description_bookmarks;
                 }
                 mShouldSuppressSecodaryButton = false;
-                mHistoryOptInMode = SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE;
+                mHistoryOptInMode = SigninAndHistorySyncCoordinator.HistoryOptInMode.NONE;
                 // TODO(b/332704829): Move delegate creation outside of this constructor.
                 mDelegate = this::getPromoPrimaryButtonText;
                 break;
@@ -292,7 +297,7 @@ public class SyncPromoController {
                     mDescriptionStringId = R.string.sync_promo_description_ntp_content_suggestions;
                 }
                 mShouldSuppressSecodaryButton = false;
-                mHistoryOptInMode = SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE;
+                mHistoryOptInMode = SigninAndHistorySyncCoordinator.HistoryOptInMode.NONE;
                 // TODO(b/332704829): Move delegate creation outside of this constructor.
                 mDelegate = this::getPromoPrimaryButtonText;
                 break;
@@ -309,7 +314,7 @@ public class SyncPromoController {
                     mDescriptionStringId = R.string.sync_promo_description_recent_tabs;
                     mShouldSuppressSecodaryButton = false;
                 }
-                mHistoryOptInMode = SigninAndHistoryOptInCoordinator.HistoryOptInMode.REQUIRED;
+                mHistoryOptInMode = SigninAndHistorySyncCoordinator.HistoryOptInMode.REQUIRED;
                 // TODO(b/332704829): Move delegate creation outside of this constructor.
                 mDelegate =
                         (context, profileData) -> {
@@ -336,7 +341,7 @@ public class SyncPromoController {
                                 ? R.string.sync_promo_description_settings_without_passwords
                                 : R.string.sync_promo_description_settings;
                 mShouldSuppressSecodaryButton = false;
-                mHistoryOptInMode = SigninAndHistoryOptInCoordinator.HistoryOptInMode.NONE;
+                mHistoryOptInMode = SigninAndHistorySyncCoordinator.HistoryOptInMode.NONE;
                 // TODO(b/332704829): Move delegate creation outside of this constructor.
                 mDelegate =
                         (context, profileData) -> {
@@ -429,8 +434,7 @@ public class SyncPromoController {
     private boolean canShowBookmarkPromo() {
         if (ChromeFeatureList.isEnabled(
                 ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
-            assert SyncFeatureMap.isEnabled(
-                    SyncFeatureMap.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE);
+            assert SyncFeatureMap.isEnabled(SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE);
             if (IdentityServicesProvider.get()
                     .getIdentityManager(mProfile)
                     .hasPrimaryAccount(ConsentLevel.SIGNIN)) {
@@ -439,7 +443,7 @@ public class SyncPromoController {
         }
 
         SyncService syncService = SyncServiceFactory.getForProfile(mProfile);
-        if (SyncFeatureMap.isEnabled(SyncFeatureMap.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE)
+        if (SyncFeatureMap.isEnabled(SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE)
                 && syncService
                         .getSelectedTypes()
                         .containsAll(
@@ -689,21 +693,21 @@ public class SyncPromoController {
         recordShowCountHistogram(UserAction.CONTINUED);
         if (launchSigninFlow) {
             if (mAccessPoint == SigninAccessPoint.RECENT_TABS) {
-                mSigninAndHistoryOptInActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
+                mSigninAndHistorySyncActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
                         context,
                         mProfile,
                         mBottomSheetStrings,
-                        SigninAndHistoryOptInCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
-                        SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                        SigninAndHistorySyncCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
+                        SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                 .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                         mAccessPoint);
             } else {
-                mSigninAndHistoryOptInActivityLauncher.launchActivityIfAllowed(
+                mSigninAndHistorySyncActivityLauncher.launchActivityIfAllowed(
                         context,
                         mProfile,
                         mBottomSheetStrings,
-                        SigninAndHistoryOptInCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
-                        SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                        SigninAndHistorySyncCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
+                        SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                 .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                         mHistoryOptInMode,
                         mAccessPoint);
@@ -718,21 +722,21 @@ public class SyncPromoController {
         recordShowCountHistogram(UserAction.CONTINUED);
         if (launchSigninFlow) {
             if (mAccessPoint == SigninAccessPoint.RECENT_TABS) {
-                mSigninAndHistoryOptInActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
+                mSigninAndHistorySyncActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
                         context,
                         mProfile,
                         mBottomSheetStrings,
-                        SigninAndHistoryOptInCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
-                        SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                        SigninAndHistorySyncCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
+                        SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                 .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                         mAccessPoint);
             } else {
-                mSigninAndHistoryOptInActivityLauncher.launchActivityIfAllowed(
+                mSigninAndHistorySyncActivityLauncher.launchActivityIfAllowed(
                         context,
                         mProfile,
                         mBottomSheetStrings,
-                        SigninAndHistoryOptInCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
-                        SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                        SigninAndHistorySyncCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
+                        SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                 .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                         mHistoryOptInMode,
                         mAccessPoint);
@@ -747,21 +751,21 @@ public class SyncPromoController {
         recordShowCountHistogram(UserAction.CONTINUED);
         if (launchSigninFlow) {
             if (mAccessPoint == SigninAccessPoint.RECENT_TABS) {
-                mSigninAndHistoryOptInActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
+                mSigninAndHistorySyncActivityLauncher.launchActivityForHistorySyncDedicatedFlow(
                         context,
                         mProfile,
                         mBottomSheetStrings,
-                        SigninAndHistoryOptInCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
-                        SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                        SigninAndHistorySyncCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
+                        SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                 .CHOOSE_ACCOUNT_BOTTOM_SHEET,
                         mAccessPoint);
             } else {
-                mSigninAndHistoryOptInActivityLauncher.launchActivityIfAllowed(
+                mSigninAndHistorySyncActivityLauncher.launchActivityIfAllowed(
                         context,
                         mProfile,
                         mBottomSheetStrings,
-                        SigninAndHistoryOptInCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
-                        SigninAndHistoryOptInCoordinator.WithAccountSigninMode
+                        SigninAndHistorySyncCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
+                        SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                 .CHOOSE_ACCOUNT_BOTTOM_SHEET,
                         mHistoryOptInMode,
                         mAccessPoint);
@@ -848,12 +852,11 @@ public class SyncPromoController {
             PrefService prefService) {
         if (ChromeFeatureList.isEnabled(
                 ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
-            assert SyncFeatureMap.isEnabled(
-                    SyncFeatureMap.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE);
+            assert SyncFeatureMap.isEnabled(SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE);
             return true;
         }
 
-        if (!SyncFeatureMap.isEnabled(SyncFeatureMap.ENABLE_BOOKMARK_FOLDERS_FOR_ACCOUNT_STORAGE)) {
+        if (!SyncFeatureMap.isEnabled(SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE)) {
             return false;
         }
         if (accessPoint != SigninAccessPoint.BOOKMARK_MANAGER) {

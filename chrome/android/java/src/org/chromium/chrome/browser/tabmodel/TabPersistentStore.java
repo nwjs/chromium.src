@@ -45,7 +45,6 @@ import org.chromium.chrome.browser.tab.state.PersistedTabData;
 import org.chromium.chrome.browser.tabmodel.TabPersistenceFileInfo.TabStateFileInfo;
 import org.chromium.chrome.browser.tabpersistence.TabStateDirectory;
 import org.chromium.chrome.browser.tabpersistence.TabStateFileManager;
-import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.browser.LoadUrlParams;
 
@@ -97,7 +96,6 @@ public class TabPersistentStore {
 
     private TabModelObserver mTabModelObserver;
     private TabModelSelectorTabRegistrationObserver mTabRegistrationObserver;
-    private boolean mSkipSavingNonActiveNtps;
 
     @IntDef({ActiveTabState.OTHER, ActiveTabState.NTP, ActiveTabState.EMPTY})
     @Retention(RetentionPolicy.SOURCE)
@@ -292,6 +290,7 @@ public class TabPersistentStore {
     private final TabPersistencePolicy mPersistencePolicy;
     private final TabModelSelector mTabModelSelector;
     private final TabCreatorManager mTabCreatorManager;
+    private final TabWindowManager mTabWindowManager;
     private final ObserverList<TabPersistentStoreObserver> mObservers;
 
     private final Deque<Tab> mTabsToSave;
@@ -327,16 +326,19 @@ public class TabPersistentStore {
 
     /**
      * Creates an instance of a TabPersistentStore.
+     *
      * @param modelSelector The {@link TabModelSelector} to restore to and save from.
      * @param tabCreatorManager The {@link TabCreatorManager} to use.
      */
     public TabPersistentStore(
             TabPersistencePolicy policy,
             TabModelSelector modelSelector,
-            TabCreatorManager tabCreatorManager) {
+            TabCreatorManager tabCreatorManager,
+            TabWindowManager tabWindowManager) {
         mPersistencePolicy = policy;
         mTabModelSelector = modelSelector;
         mTabCreatorManager = tabCreatorManager;
+        mTabWindowManager = tabWindowManager;
         mTabsToSave = new ArrayDeque<>();
         mTabsToMigrate = new ArrayDeque<>();
         mTabsToRestore = new ArrayDeque<>();
@@ -808,18 +810,6 @@ public class TabPersistentStore {
             }
 
         } else {
-            if (!mSkipSavingNonActiveNtps
-                    && UrlUtilities.isNtpUrl(tabToRestore.url)
-                    && !setAsActive
-                    && !tabToRestore.fromMerge) {
-                Log.i(TAG, "Skipping restore of non-selected NTP.");
-                RecordHistogram.recordEnumeratedHistogram(
-                        "Tabs.TabRestoreMethod",
-                        TabRestoreMethod.SKIPPED_NTP,
-                        TabRestoreMethod.NUM_ENTRIES);
-                return;
-            }
-
             Log.w(TAG, "Failed to restore TabState; creating Tab with last known URL.");
             Tab fallbackTab =
                     mTabCreatorManager
@@ -856,13 +846,7 @@ public class TabPersistentStore {
             boolean wasIncognitoTabModelSelected = mTabModelSelector.isIncognitoSelected();
             int selectedModelTabCount = mTabModelSelector.getCurrentModel().getCount();
 
-            // TODO(crbug.com/40262267): Don't use static function
-            // StartSurfaceUserData#getUnusedTabRestoredAtStartup().
-            TabModelUtils.setIndex(
-                    model,
-                    TabModelUtils.getTabIndexById(model, tabId),
-                    mPersistencePolicy.allowSkipLoadingTab()
-                            && StartSurfaceUserData.getInstance().getUnusedTabRestoredAtStartup());
+            TabModelUtils.setIndex(model, TabModelUtils.getTabIndexById(model, tabId));
             boolean isIncognitoTabModelSelected = mTabModelSelector.isIncognitoSelected();
 
             // Setting the index will cause the tab's model to be selected. Set it back to the model
@@ -995,7 +979,11 @@ public class TabPersistentStore {
             mMigrateTabTask = null;
             migrateNextTabIfApplicable(nextNumMigration);
         }
-        cleanupPersistentData(tab.getId(), tab.isIncognito());
+
+        // If the tab can't be found in any selector, then cleanup it's data.
+        if (mTabWindowManager.canTabStateBeDeleted(tab.getId())) {
+            cleanupPersistentData(tab.getId(), tab.isIncognito());
+        }
     }
 
     private TabRestoreDetails getTabToRestoreByUrl(String url) {
@@ -1050,8 +1038,7 @@ public class TabPersistentStore {
             tabsToRestore.add(details);
         }
 
-        return saveTabModelSelectorMetadata(
-                mTabModelSelector, tabsToRestore, mSkipSavingNonActiveNtps);
+        return saveTabModelSelectorMetadata(mTabModelSelector, tabsToRestore);
     }
 
     /**
@@ -1059,22 +1046,19 @@ public class TabPersistentStore {
      *
      * @param selector The {@link TabModelSelector} to process.
      * @param tabsBeingRestored Tabs that are in the process of being restored.
-     * @param skipNonActiveNtps Whether to skip saving non active Ntps.
      * @return {@link TabModelSelectorMetadata} containing the meta data of {@code selector}.
      */
     @VisibleForTesting
     public static TabModelSelectorMetadata saveTabModelSelectorMetadata(
-            TabModelSelector selector,
-            List<TabRestoreDetails> tabsBeingRestored,
-            boolean skipNonActiveNtps)
+            TabModelSelector selector, List<TabRestoreDetails> tabsBeingRestored)
             throws IOException {
         ThreadUtils.assertOnUiThread();
 
         // TODO(crbug.com/40549331): Convert TabModelMetadata to use GURL.
-        TabModelMetadata incognitoInfo = metadataFromModel(selector, true, skipNonActiveNtps);
+        TabModelMetadata incognitoInfo = metadataFromModel(selector, true);
 
         TabModel normalModel = selector.getModel(false);
-        TabModelMetadata normalInfo = metadataFromModel(selector, false, skipNonActiveNtps);
+        TabModelMetadata normalInfo = metadataFromModel(selector, false);
 
         // Cache the active tab id to be pre-loaded next launch.
         int activeTabId = Tab.INVALID_TAB_ID;
@@ -1131,8 +1115,6 @@ public class TabPersistentStore {
         SharedPreferences.Editor editor = ChromeSharedPreferences.getInstance().getEditor();
         editor.putInt(ChromePreferenceKeys.TABMODEL_ACTIVE_TAB_ID, activeTabId);
         editor.putInt(ChromePreferenceKeys.APP_LAUNCH_LAST_KNOWN_ACTIVE_TAB_STATE, activeTabState);
-        editor.putInt(ChromePreferenceKeys.REGULAR_TAB_COUNT, normalInfo.ids.size());
-        editor.putInt(ChromePreferenceKeys.INCOGNITO_TAB_COUNT, incognitoInfo.ids.size());
         editor.apply();
     }
 
@@ -1141,10 +1123,9 @@ public class TabPersistentStore {
      *
      * @param selector The object of {@link TabModelSelector}
      * @param isIncognito Whether the TabModel is incognito.
-     * @param skipNonActiveNtps Whether to skip non active NTPs.
      */
     private static TabModelMetadata metadataFromModel(
-            TabModelSelector selector, boolean isIncognito, boolean skipNonActiveNtps) {
+            TabModelSelector selector, boolean isIncognito) {
         TabModel tabModel = selector.getModel(isIncognito);
         TabModelMetadata modelInfo = new TabModelMetadata(tabModel.index());
 
@@ -1162,14 +1143,12 @@ public class TabPersistentStore {
                 continue;
             }
 
-            if (skipNonActiveNtps) {
-                if (i == activeIndex) {
-                    // If any non-active NTPs have been skipped, the serialized tab model index
-                    // needs to be adjusted.
-                    modelInfo.index = modelInfo.ids.size();
-                } else if (shouldSkipTab(tab)) {
-                    continue;
-                }
+            if (i == activeIndex) {
+                // If any non-active NTPs have been skipped, the serialized tab model index
+                // needs to be adjusted.
+                modelInfo.index = modelInfo.ids.size();
+            } else if (shouldSkipTab(tab)) {
+                continue;
             }
             modelInfo.ids.add(tab.getId());
             modelInfo.urls.add(tab.getUrl().getSpec());
@@ -2092,13 +2071,5 @@ public class TabPersistentStore {
 
     public AsyncTask<TabState> getPrefetchTabStateActiveTabTaskForTesting() {
         return mPrefetchTabStateActiveTabTask;
-    }
-
-    /**
-     * Sets whether to skip saving all of the non-active Ntps when serializing the Tab model meta
-     * data.
-     */
-    public void setSkipSavingNonActiveNtps(boolean skipSavingNonActiveNtps) {
-        mSkipSavingNonActiveNtps = skipSavingNonActiveNtps;
     }
 }

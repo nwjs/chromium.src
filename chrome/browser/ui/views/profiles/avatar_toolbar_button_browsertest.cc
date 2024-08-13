@@ -26,6 +26,7 @@
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -37,6 +38,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/profile_destruction_waiter.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
@@ -263,6 +265,8 @@ class AvatarToolbarButtonBrowserTest : public InProcessBrowserTest {
 
     signin::UpdateAccountInfoForAccount(GetIdentityManager(), account_info);
 
+    GetTestSyncService()->SetSignedIn(consent_level, account_info);
+
     return account_info;
   }
 
@@ -300,8 +304,9 @@ class AvatarToolbarButtonBrowserTest : public InProcessBrowserTest {
   }
 
   // Sign in and wait for the name to stop showing.
-  AccountInfo SigninAndWait(const std::u16string& email) {
-    AccountInfo account_info = Signin(email, u"account_name");
+  AccountInfo SigninAndWait(const std::u16string& email,
+                            const std::u16string& name = u"account_name") {
+    AccountInfo account_info = Signin(email, name);
 
     AvatarToolbarButtonTestObserver observer(GetAvatarToolbarButton(browser()));
     AddSignedInImage(account_info.account_id);
@@ -397,7 +402,6 @@ class AvatarToolbarButtonBrowserTest : public InProcessBrowserTest {
 
     // Triggers Sync Error.
     GetTestSyncService()->SetTrustedVaultKeyRequired(true);
-    GetTestSyncService()->SetHasSyncConsent(false);
     GetTestSyncService()->FireStateChanged();
   }
 
@@ -407,7 +411,6 @@ class AvatarToolbarButtonBrowserTest : public InProcessBrowserTest {
 
     // Clear Sync Error introduces in `SimulateSyncError()`.
     GetTestSyncService()->SetTrustedVaultKeyRequired(false);
-    GetTestSyncService()->SetHasSyncConsent(true);
     GetTestSyncService()->FireStateChanged();
   }
 
@@ -417,6 +420,13 @@ class AvatarToolbarButtonBrowserTest : public InProcessBrowserTest {
     base::OneShotTimer timer;
     timer.Start(FROM_HERE, time, waiting_run_loop.QuitClosure());
     waiting_run_loop.Run();
+  }
+
+  void SimulateDisableSyncByPolicyWithError() {
+    GetTestSyncService()->SetAllowedByEnterprisePolicy(false);
+    // Disabling sync by policy resets the sync setup.
+    GetTestSyncService()->SetInitialSyncFeatureSetupComplete(false);
+    GetTestSyncService()->FireStateChanged();
   }
 
  private:
@@ -919,6 +929,24 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonBrowserTest, TooltipText) {
 
   EXPECT_EQ(avatar->GetTooltipText(gfx::Point()), account_name);
 }
+
+IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonBrowserTest,
+                       EnableSyncWithSyncDisabled) {
+  AvatarToolbarButton* avatar = GetAvatarToolbarButton(browser());
+  ASSERT_EQ(avatar->GetText(), std::u16string());
+
+  EnableSyncAndWait(u"test@gmail.com");
+  EXPECT_EQ(avatar->GetText(), std::u16string());
+
+  SimulateDisableSyncByPolicyWithError();
+
+  EXPECT_EQ(avatar->GetText(), std::u16string());
+
+  Browser* new_browser = CreateBrowser(browser()->profile());
+  AvatarToolbarButton* new_avatar = GetAvatarToolbarButton(new_browser);
+  EXPECT_EQ(new_avatar->GetText(), std::u16string());
+}
+
 #endif
 
 // Test suite for testing `AvatarToolbarButton`'s responsibility of updating
@@ -970,7 +998,8 @@ class AvatarToolbarButtonProfileColorBrowserTest
       Browser* target_browser = nullptr) {
     target_browser = target_browser ? target_browser : browser();
     return GetCurrentProfileThemeColors(
-        *target_browser->window()->GetColorProvider());
+        *target_browser->window()->GetColorProvider(),
+        *ThemeServiceFactory::GetForProfile(target_browser->profile()));
   }
 };
 
@@ -1234,7 +1263,6 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonEnterpriseBadgingBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonEnterpriseBadgingBrowserTest,
                        WorkBrowserShowsBadgeWithLabelPresets) {
-  auto* prefs = browser()->profile()->GetPrefs();
   chrome::enterprise_util::SetUserAcceptedAccountManagement(
       browser()->profile(), true);
   AvatarToolbarButton* avatar_button = GetAvatarToolbarButton(browser());
@@ -1243,33 +1271,11 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonEnterpriseBadgingBrowserTest,
   SetPolicyLabelType(AvatarToolbarButton::ProfileLabelType::kWork);
   EXPECT_EQ(avatar_button->GetText(),
             l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_WORK));
-  prefs->SetString(prefs::kCustomProfileLabel, "Custom Label");
-  EXPECT_EQ(avatar_button->GetText(), u"Custom Label");
 
   // School label
-  prefs->ClearPref(prefs::kCustomProfileLabel);
   SetPolicyLabelType(AvatarToolbarButton::ProfileLabelType::kSchool);
   EXPECT_EQ(avatar_button->GetText(),
             l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SCHOOL));
-  prefs->SetString(prefs::kCustomProfileLabel, "Custom Label");
-  EXPECT_EQ(avatar_button->GetText(), u"Custom Label");
-}
-
-IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonEnterpriseBadgingBrowserTest,
-                       WorkNewBrowserShowsBadgeWithCustomLabel) {
-  browser()->profile()->GetPrefs()->SetString(prefs::kCustomProfileLabel,
-                                              "Custom Label");
-  chrome::enterprise_util::SetUserAcceptedAccountManagement(
-      browser()->profile(), true);
-
-  Browser* second_browser = CreateBrowser(browser()->profile());
-  AvatarToolbarButton* second_browser_avatar_button =
-      GetAvatarToolbarButton(second_browser);
-  EXPECT_EQ(second_browser_avatar_button->GetText(), u"Custom Label");
-
-  browser()->profile()->GetPrefs()->SetString(prefs::kCustomProfileLabel,
-                                              "Updated Label");
-  EXPECT_EQ(second_browser_avatar_button->GetText(), u"Updated Label");
 }
 
 IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonEnterpriseBadgingBrowserTest,
@@ -1595,6 +1601,90 @@ IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonWithExplicitBrowserSigninBrowserTest,
   Signout();
 
   EXPECT_EQ(avatar->GetText(), std::u16string());
+}
+
+IN_PROC_BROWSER_TEST_F(AvatarToolbarButtonWithExplicitBrowserSigninBrowserTest,
+                       AccessibilityLabels) {
+  AvatarToolbarButton* avatar = GetAvatarToolbarButton(browser());
+
+  const std::u16string profile_name(u"new_profile_name");
+  profiles::UpdateProfileName(browser()->profile(), profile_name);
+
+  const views::ViewAccessibility& accessibility =
+      avatar->GetViewAccessibility();
+
+  EXPECT_EQ(accessibility.GetCachedName(), profile_name);
+  EXPECT_EQ(accessibility.GetCachedDescription(), std::u16string());
+
+  const std::u16string account_name(u"Test Name");
+  SigninAndWait(u"test@gmail.com", account_name);
+
+  const std::u16string expected_profile_name_with_account =
+      account_name + u" (" + profile_name + u")";
+  EXPECT_EQ(accessibility.GetCachedName(), expected_profile_name_with_account);
+  EXPECT_EQ(accessibility.GetCachedDescription(), std::u16string());
+
+  // Explicit text with accessibility text
+  const std::u16string explicit_text(u"explicit_text");
+  const std::u16string explicit_accessibility_text(u"explicit_text_acc");
+  base::ScopedClosureRunner clear_explicit_text_callback =
+      avatar->ShowExplicitText(explicit_text, explicit_accessibility_text);
+
+  EXPECT_EQ(accessibility.GetCachedName(), explicit_text);
+  EXPECT_EQ(accessibility.GetCachedDescription(), explicit_accessibility_text);
+
+  clear_explicit_text_callback.RunAndReset();
+
+  EXPECT_EQ(accessibility.GetCachedName(), expected_profile_name_with_account);
+  EXPECT_EQ(accessibility.GetCachedDescription(), std::u16string());
+
+  // Explicit text without accessibility text
+  base::ScopedClosureRunner clear_explicit_text_without_accessibility_callback =
+      avatar->ShowExplicitText(explicit_text, std::nullopt);
+
+  EXPECT_EQ(accessibility.GetCachedName(), explicit_text);
+  EXPECT_EQ(accessibility.GetCachedDescription(),
+            expected_profile_name_with_account);
+
+  clear_explicit_text_without_accessibility_callback.RunAndReset();
+
+  EXPECT_EQ(accessibility.GetCachedName(), expected_profile_name_with_account);
+  EXPECT_EQ(accessibility.GetCachedDescription(), std::u16string());
+
+  // This will trigger the immediate button content text change. Accessibility
+  // text should adapt as well.
+  SimulateSigninError(/*web_sign_out=*/false);
+
+  EXPECT_EQ(accessibility.GetCachedName(),
+            l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PAUSED));
+  EXPECT_EQ(accessibility.GetCachedDescription(),
+            l10n_util::GetStringUTF16(
+                IDS_AVATAR_BUTTON_SIGNIN_PENDING_ACCESSIBILITY_LABEL));
+
+  ClearSigninError();
+
+  EXPECT_EQ(accessibility.GetCachedName(), expected_profile_name_with_account);
+  EXPECT_EQ(accessibility.GetCachedDescription(), std::u16string());
+
+  // This will not trigger the immediate button content text change.
+  // Accessibility text should adapt as well.
+  SimulateSigninError(/*web_sign_out=*/true);
+
+  EXPECT_EQ(accessibility.GetCachedName(),
+            l10n_util::GetStringUTF16(
+                IDS_AVATAR_BUTTON_SIGNIN_PENDING_ACCESSIBILITY_LABEL));
+  EXPECT_EQ(accessibility.GetCachedDescription(),
+            expected_profile_name_with_account);
+
+  ClearSigninError();
+
+  EXPECT_EQ(accessibility.GetCachedName(), expected_profile_name_with_account);
+  EXPECT_EQ(accessibility.GetCachedDescription(), std::u16string());
+
+  Signout();
+
+  EXPECT_EQ(accessibility.GetCachedName(), profile_name);
+  EXPECT_EQ(accessibility.GetCachedDescription(), std::u16string());
 }
 
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)

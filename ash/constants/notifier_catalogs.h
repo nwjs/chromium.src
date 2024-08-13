@@ -199,7 +199,8 @@ enum class NotificationCatalogName {
   kGrowthFramework = 180,
   kAudioSelection = 181,
   kExtendedUpdatesAvailable = 182,
-  kMaxValue = kExtendedUpdatesAvailable
+  kOnDeviceAppControls = 183,
+  kMaxValue = kOnDeviceAppControls
 };
 
 // A living catalog that registers system nudges.
@@ -244,7 +245,9 @@ enum class NudgeCatalogName {
   kSearchTopRowKeyPressed = 31,
   kSixPackRemappingPressed = 32,
   kCapsLockShortcutPressed = 33,
-  kMaxValue = kCapsLockShortcutPressed
+  kMahi = 34,
+  kBirchPrivacy = 35,
+  kMaxValue = kBirchPrivacy
 };
 
 // A living catalog that registers toasts.

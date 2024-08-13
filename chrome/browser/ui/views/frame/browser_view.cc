@@ -186,6 +186,7 @@
 #include "chrome/browser/ui/views/theme_copying_widget.h"
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_button.h"
+#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/translate/translate_bubble_controller.h"
@@ -313,6 +314,8 @@
 #include "chrome/browser/ui/views/frame/top_controls_slide_controller_chromeos.h"
 #include "chromeos/ui/frame/caption_buttons/frame_size_button.h"
 #include "chromeos/ui/wm/desks/desks_helper.h"
+#else
+#include "chrome/browser/ui/views/enterprise/managed_menu_coordinator.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -455,7 +458,7 @@ bool GetGestureCommand(ui::GestureEvent* event, int* command) {
   DCHECK(command);
   *command = 0;
 #if BUILDFLAG(IS_MAC)
-  if (event->details().type() == ui::ET_GESTURE_SWIPE) {
+  if (event->details().type() == ui::EventType::kGestureSwipe) {
     if (event->details().swipe_left()) {
       *command = IDC_BACK;
       return true;
@@ -810,7 +813,7 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
   }
 
   void UpdateWindowControlsOverlay(
-      const gfx::Rect& available_titlebar_area) const override {
+      const gfx::Rect& available_titlebar_area) override {
     content::WebContents* web_contents = browser_view_->GetActiveWebContents();
     if (!web_contents) {
       return;
@@ -1176,16 +1179,6 @@ BrowserView::~BrowserView() {
     global_registry->set_registry_for_active_window(nullptr);
   }
 
-  // The TabStrip attaches a listener to the model. Make sure we shut down the
-  // TabStrip first so that it can cleanly remove the listener.
-  //
-  // TODO(crbug.com/40280409): Is this actually necessary? It should be
-  // perfectly safe to destroy the TabStrip before the TabStripModel?
-  if (tabstrip_) {
-    auto tabstrip = tabstrip_.ExtractAsDangling();
-    tabstrip->parent()->RemoveChildViewT(tabstrip);
-  }
-
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
   // `watermark_view_` is a raw pointer to a child view, so it needs to be set
   // to null before `RemoveAllChildViews()` is called to avoid dangling.
@@ -1383,7 +1376,7 @@ bool BrowserView::IsAcceleratorRegistered(const ui::Accelerator& accelerator) {
   return accelerator_table_.find(accelerator) != accelerator_table_.end();
 }
 
-WebContents* BrowserView::GetActiveWebContents() const {
+WebContents* BrowserView::GetActiveWebContents() {
   return browser_->tab_strip_model()->GetActiveWebContents();
 }
 
@@ -1403,21 +1396,9 @@ bool BrowserView::GetIsPictureInPictureType() const {
   return browser_->is_type_picture_in_picture();
 }
 
-float BrowserView::GetInitialAspectRatio() const {
-  const std::optional<blink::mojom::PictureInPictureWindowOptions> pip_options =
-      browser_->create_params().pip_options;
-  return pip_options.has_value() ? pip_options->initial_aspect_ratio : 1.0;
-}
-
 std::optional<blink::mojom::PictureInPictureWindowOptions>
 BrowserView::GetDocumentPictureInPictureOptions() const {
   return browser_->create_params().pip_options;
-}
-
-bool BrowserView::GetLockAspectRatio() const {
-  const std::optional<blink::mojom::PictureInPictureWindowOptions> pip_options =
-      browser_->create_params().pip_options;
-  return pip_options.has_value() ? pip_options->lock_aspect_ratio : false;
 }
 
 bool BrowserView::GetTopControlsSlideBehaviorEnabled() const {
@@ -1522,7 +1503,14 @@ void BrowserView::SetBounds(const gfx::Rect& bounds) {
   }
 
   ExitFullscreen();
-  frame_->SetBounds(bounds);
+
+  // If the BrowserNonClientFrameView has been created, give it a chance to
+  // handle the BrowserFrame's bounds change.
+  if (frame_->GetFrameView()) {
+    frame_->GetFrameView()->SetFrameBounds(bounds);
+  } else {
+    frame_->SetBounds(bounds);
+  }
 }
 
 #if defined(OS_WIN)
@@ -2071,25 +2059,34 @@ void BrowserView::Restore() {
 void BrowserView::EnterFullscreen(const GURL& url,
                                   ExclusiveAccessBubbleType bubble_type,
                                   const int64_t display_id) {
-  auto* screen = display::Screen::GetScreen();
-  auto display = screen->GetDisplayNearestWindow(GetNativeWindow());
-  const bool requesting_another_screen =
-      display_id != display.id() && display_id != display::kInvalidDisplayId;
-  if (IsFullscreen() && !requesting_another_screen) {
-    // Nothing to do.
-    return;
+  if (base::FeatureList::IsEnabled(features::kAsyncFullscreenWindowState)) {
+    RequestFullscreen(true, display_id);
+  } else {
+    auto* screen = display::Screen::GetScreen();
+    auto display = screen->GetDisplayNearestWindow(GetNativeWindow());
+    const bool requesting_another_screen =
+        display_id != display.id() && display_id != display::kInvalidDisplayId;
+    if (IsFullscreen() && !requesting_another_screen) {
+      // Nothing to do.
+      return;
+    }
+    ProcessFullscreen(true, display_id);
   }
-  ProcessFullscreen(true, display_id);
 }
 
 void BrowserView::ExitFullscreen() {
-  if (!IsFullscreen())
-    return;  // Nothing to do.
-
-  if (IsForceFullscreen())
+  if (IsForceFullscreen()) {
     return;
+  }
 
-  ProcessFullscreen(false, display::kInvalidDisplayId);
+  if (base::FeatureList::IsEnabled(features::kAsyncFullscreenWindowState)) {
+    RequestFullscreen(false, display::kInvalidDisplayId);
+  } else {
+    if (!IsFullscreen()) {
+      return;  // Nothing to do.
+    }
+    ProcessFullscreen(false, display::kInvalidDisplayId);
+  }
 }
 
 void BrowserView::UpdateExclusiveAccessBubble(
@@ -2127,7 +2124,10 @@ void BrowserView::UpdateExclusiveAccessBubble(
     if (!exclusive_access_bubble_) {
       return;
     }
-
+    // Exit if we've already queued up a task to close the bubble.
+    if (exclusive_access_bubble_destruction_task_id_) {
+      return;
+    }
     // `HideImmediately()` will trigger a callback for the current bubble with
     // `ExclusiveAccessBubbleHideReason::kInterrupted` if available.
     exclusive_access_bubble_->HideImmediately();
@@ -2135,13 +2135,22 @@ void BrowserView::UpdateExclusiveAccessBubble(
     // Perform the destroy async. State updates in the exclusive access bubble
     // view may call back into this method. This otherwise results in premature
     // deletion of the bubble view and UAFs. See crbug.com/1426521.
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&BrowserView::DestroyAnyExclusiveAccessBubble,
-                                  GetAsWeakPtr()));
+    exclusive_access_bubble_destruction_task_id_ =
+        exclusive_access_bubble_cancelable_task_tracker_.PostTask(
+            base::SingleThreadTaskRunner::GetCurrentDefault().get(), FROM_HERE,
+            base::BindOnce(&BrowserView::DestroyAnyExclusiveAccessBubble,
+                           GetAsWeakPtr()));
     return;
   }
 
   if (exclusive_access_bubble_) {
+    if (exclusive_access_bubble_destruction_task_id_) {
+      // We previously posted a destruction task, but now we want to reuse the
+      // bubble. Cancel the destruction task.
+      exclusive_access_bubble_cancelable_task_tracker_.TryCancel(
+          exclusive_access_bubble_destruction_task_id_.value());
+      exclusive_access_bubble_destruction_task_id_.reset();
+    }
     exclusive_access_bubble_->Update(params, std::move(first_hide_callback));
     return;
   }
@@ -2195,7 +2204,11 @@ void BrowserView::FullscreenStateChanging() {
     return;
   }
 
-  ProcessFullscreen(IsFullscreen(), display::kInvalidDisplayId);
+  if (base::FeatureList::IsEnabled(features::kAsyncFullscreenWindowState)) {
+    PrepareFullscreen(IsFullscreen());
+  } else {
+    ProcessFullscreen(IsFullscreen(), display::kInvalidDisplayId);
+  }
 }
 
 void BrowserView::FullscreenStateChanged() {
@@ -2241,6 +2254,11 @@ void BrowserView::FullscreenStateChanged() {
   GetExclusiveAccessManager()
       ->fullscreen_controller()
       ->FullscreenTransitionCompleted();
+  }
+
+  if (base::FeatureList::IsEnabled(features::kAsyncFullscreenWindowState)) {
+    ToolbarSizeChanged(false);
+    frame_->GetFrameView()->OnFullscreenStateChanged();
   }
 }
 
@@ -2779,7 +2797,8 @@ std::optional<bool> BrowserView::GetCanResizeFromWebAPI() const {
   // The value can only be set in web apps, where there currently can only be 1
   // WebContents, the return value can be determined only by looking at the
   // value set by the active WebContents' primary page.
-  content::WebContents* web_contents = GetActiveWebContents();
+  content::WebContents* web_contents =
+      const_cast<BrowserView*>(this)->GetActiveWebContents();
   if (!web_contents || !web_contents->GetPrimaryMainFrame()) {
     return std::nullopt;
   }
@@ -3139,9 +3158,17 @@ BrowserView::ShowQRCodeGeneratorBubble(content::WebContents* contents,
     on_back_button_pressed = controller->GetOnBackButtonPressedCallback();
   }
 
+  views::View* anchor_view =
+      toolbar_button_provider()->GetAnchorView(std::nullopt);
+  if (features::IsToolbarPinningEnabled() &&
+      toolbar()->pinned_toolbar_actions_container()->IsActionPinnedOrPoppedOut(
+          kActionQrCodeGenerator)) {
+    anchor_view = toolbar()->pinned_toolbar_actions_container()->GetButtonFor(
+        kActionQrCodeGenerator);
+  }
+
   auto* bubble = new qrcode_generator::QRCodeGeneratorBubble(
-      toolbar_button_provider()->GetAnchorView(std::nullopt),
-      contents->GetWeakPtr(), std::move(on_closing),
+      anchor_view, contents->GetWeakPtr(), std::move(on_closing),
       std::move(on_back_button_pressed), url);
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
@@ -3180,8 +3207,16 @@ SharingDialog* BrowserView::ShowSharingDialog(
 send_tab_to_self::SendTabToSelfBubbleView*
 BrowserView::ShowSendTabToSelfDevicePickerBubble(
     content::WebContents* web_contents) {
+  views::View* anchor_view =
+      toolbar_button_provider()->GetAnchorView(std::nullopt);
+  if (features::IsToolbarPinningEnabled() &&
+      toolbar()->pinned_toolbar_actions_container()->IsActionPinnedOrPoppedOut(
+          kActionSendTabToSelf)) {
+    anchor_view = toolbar()->pinned_toolbar_actions_container()->GetButtonFor(
+        kActionSendTabToSelf);
+  }
   auto* bubble = new send_tab_to_self::SendTabToSelfDevicePickerBubbleView(
-      toolbar_button_provider()->GetAnchorView(std::nullopt), web_contents);
+      anchor_view, web_contents);
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
   // This is always triggered due to a user gesture, c.f. this method's
@@ -3193,9 +3228,16 @@ BrowserView::ShowSendTabToSelfDevicePickerBubble(
 send_tab_to_self::SendTabToSelfBubbleView*
 BrowserView::ShowSendTabToSelfPromoBubble(content::WebContents* web_contents,
                                           bool show_signin_button) {
+  views::View* anchor_view =
+      toolbar_button_provider()->GetAnchorView(std::nullopt);
+  if (features::IsToolbarPinningEnabled() &&
+      toolbar()->pinned_toolbar_actions_container()->IsActionPinnedOrPoppedOut(
+          kActionSendTabToSelf)) {
+    anchor_view = toolbar()->pinned_toolbar_actions_container()->GetButtonFor(
+        kActionSendTabToSelf);
+  }
   auto* bubble = new send_tab_to_self::SendTabToSelfPromoBubbleView(
-      toolbar_button_provider()->GetAnchorView(std::nullopt), web_contents,
-      show_signin_button);
+      anchor_view, web_contents, show_signin_button);
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
   // This is always triggered due to a user gesture, c.f. method documentation.
@@ -3265,13 +3307,17 @@ ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
   if (IsMinimized())
     return ShowTranslateBubbleResult::BROWSER_WINDOW_MINIMIZED;
 
-  PageActionIconView* translate_icon =
+  views::Button* translate_icon =
       toolbar_button_provider()->GetPageActionIconView(
           PageActionIconType::kTranslate);
+  views::View* anchor_view =
+      toolbar_button_provider()->GetAnchorView(PageActionIconType::kTranslate);
+  if (features::IsToolbarPinningEnabled() &&
+      views::Button::AsButton(anchor_view)) {
+    translate_icon = views::Button::AsButton(anchor_view);
+  }
   TranslateBubbleController::GetOrCreate(web_contents)
-      ->ShowTranslateBubble(toolbar_button_provider()->GetAnchorView(
-                                PageActionIconType::kTranslate),
-                            translate_icon, step, source_language,
+      ->ShowTranslateBubble(anchor_view, translate_icon, step, source_language,
                             target_language, error_type,
                             is_user_gesture ? TranslateBubbleView::USER_GESTURE
                                             : TranslateBubbleView::AUTOMATIC);
@@ -3975,9 +4021,12 @@ bool BrowserView::ShouldShowWindowTitle() const {
 }
 
 bool BrowserView::ShouldShowWindowIcon() const {
-  return GetIsWebAppType()
-             ? base::FeatureList::IsEnabled(features::kWebAppIconInTitlebar)
-             : WidgetDelegate::ShouldShowWindowIcon();
+#if !BUILDFLAG(IS_CHROMEOS)
+  if (GetIsWebAppType() && !GetSupportsTabStrip()) {
+    return base::FeatureList::IsEnabled(features::kWebAppIconInTitlebar);
+  }
+#endif
+  return WidgetDelegate::ShouldShowWindowIcon();
 }
 
 ui::ImageModel BrowserView::GetWindowAppIcon() {
@@ -4209,6 +4258,7 @@ views::View* BrowserView::CreateMacOverlayView() {
     params.parent = parent->GetNativeView();
     params.shadow_type = views::Widget::InitParams::ShadowType::kNone;
     params.activatable = views::Widget::InitParams::Activatable::kNo;
+    params.is_overlay = true;
     OverlayWidget* overlay_widget = new OverlayWidget(GetWidget());
 
     // When the overlay is used some Views are moved to the overlay_widget. When
@@ -5043,15 +5093,11 @@ void BrowserView::UpdateUIForContents(WebContents* contents) {
     DeprecatedLayoutImmediately();
 }
 
-void BrowserView::ProcessFullscreen(bool fullscreen,
-                                    const int64_t display_id) {
-  if (in_process_fullscreen_)
-    return;
-  in_process_fullscreen_ = true;
-
-  if (top_controls_slide_controller_)
+void BrowserView::PrepareFullscreen(bool fullscreen) {
+  if (top_controls_slide_controller_) {
     top_controls_slide_controller_->OnBrowserFullscreenStateWillChange(
         fullscreen);
+  }
 
   // Reduce jankiness during the following position changes by:
   //   * Hiding the window until it's in the final position
@@ -5063,8 +5109,9 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
     views::FocusManager* focus_manager = GetFocusManager();
     DCHECK(focus_manager);
     // Look for focus in the location bar itself or any child view.
-    if (GetLocationBarView()->Contains(focus_manager->GetFocusedView()))
+    if (GetLocationBarView()->Contains(focus_manager->GetFocusedView())) {
       focus_manager->ClearFocus();
+    }
 
     fullscreen_control_host_ = std::make_unique<FullscreenControlHost>(this);
   } else {
@@ -5077,6 +5124,17 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
       fullscreen_control_host_.reset();
     }
   }
+}
+
+void BrowserView::ProcessFullscreen(bool fullscreen, const int64_t display_id) {
+  CHECK(!base::FeatureList::IsEnabled(features::kAsyncFullscreenWindowState));
+
+  if (in_process_fullscreen_) {
+    return;
+  }
+  in_process_fullscreen_ = true;
+
+  PrepareFullscreen(fullscreen);
 
   // TODO(b/40276379): Move this out from ProcessFullscreen.
   RequestFullscreen(fullscreen, display_id);
@@ -5188,6 +5246,11 @@ void BrowserView::LoadAccelerators() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   const bool is_lacros_only = !crosapi::browser_util::IsAshWebBrowserEnabled();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
+  const bool is_captive_portal_signin_window =
+      browser_->profile()->IsOffTheRecord() &&
+      browser_->profile()->GetOTRProfileID().IsCaptivePortal();
+#endif
   const std::vector<AcceleratorMapping> accelerator_list(GetAcceleratorList());
   for (const auto& entry : accelerator_list) {
     // In app mode, only allow accelerators of white listed commands to pass
@@ -5202,6 +5265,23 @@ void BrowserView::LoadAccelerators() {
     if (is_lacros_only && ShouldBeHandledByLacrosInstead(entry.command_id))
       continue;
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_CHROMEOS)
+    if (is_captive_portal_signin_window) {
+      int command = entry.command_id;
+      // Captive portal signin uses an OTR profile without history.
+      if (command == IDC_SHOW_HISTORY) {
+        continue;
+      }
+      // The NewTab command expects navigation to occur in the same browser
+      // window. For captive portal signin this is not the case, so hide these
+      // to reduce confusion.
+      if (command == IDC_NEW_TAB || command == IDC_NEW_TAB_TO_RIGHT ||
+          command == IDC_CREATE_NEW_TAB_GROUP) {
+        continue;
+      }
+    }
+#endif
 
     ui::Accelerator accelerator(entry.keycode, entry.modifiers);
     accelerator_table_[accelerator] = entry.command_id;
@@ -5350,6 +5430,12 @@ void BrowserView::ShowAvatarBubbleFromAvatarButton(bool is_source_accelerator) {
   // Default behavior -- show the profile menu.
   ProfileMenuCoordinator::GetOrCreateForBrowser(browser())->Show(
       is_source_accelerator);
+}
+
+void BrowserView::ShowBubbleFromManagementToolbarButton() {
+#if !BUILDFLAG(IS_CHROMEOS)
+  ManagedMenuCoordinator::GetOrCreateForBrowser(browser())->Show();
+#endif
 }
 
 void BrowserView::MaybeShowProfileSwitchIPH() {
@@ -5573,8 +5659,8 @@ void BrowserView::UpdateUIForTabFullscreen() {
   frame()->GetFrameView()->UpdateFullscreenTopUI();
 }
 
-WebContents* BrowserView::GetActiveWebContents() {
-  return browser_->tab_strip_model()->GetActiveWebContents();
+WebContents* BrowserView::GetWebContentsForExclusiveAccess() {
+  return GetActiveWebContents();
 }
 
 void BrowserView::UnhideDownloadShelf() {
@@ -5623,6 +5709,7 @@ gfx::Rect BrowserView::GetTopContainerBoundsInScreen() {
 
 void BrowserView::DestroyAnyExclusiveAccessBubble() {
   exclusive_access_bubble_.reset();
+  exclusive_access_bubble_destruction_task_id_.reset();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

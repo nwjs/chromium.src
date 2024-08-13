@@ -44,6 +44,7 @@
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
 #include "third_party/blink/public/common/context_menu_data/context_menu_data.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/back_forward_cache_not_restored_reasons.mojom.h"
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom-blink-forward.h"
@@ -130,6 +131,7 @@ class CORE_EXPORT WebLocalFrameImpl final
   WebAutofillClient* AutofillClient() override;
   void SetContentCaptureClient(WebContentCaptureClient*) override;
   WebContentCaptureClient* ContentCaptureClient() const override;
+  BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() override;
   WebDocument GetDocument() const override;
   WebString AssignedName() const override;
   ui::AXTreeID GetAXTreeID() const override;
@@ -415,6 +417,8 @@ class CORE_EXPORT WebLocalFrameImpl final
       WindowAgentFactory*,
       WebFrame* opener,
       const DocumentToken& document_token,
+      mojo::PendingRemote<mojom::blink::BrowserInterfaceBroker>
+          interface_broker,
       std::unique_ptr<blink::WebPolicyContainer> policy_container,
       const StorageKey& storage_key,
       const KURL& creator_base_url,
@@ -430,6 +434,7 @@ class CORE_EXPORT WebLocalFrameImpl final
       WebView*,
       WebLocalFrameClient*,
       InterfaceRegistry*,
+      mojo::PendingRemote<mojom::blink::BrowserInterfaceBroker>,
       const LocalFrameToken& frame_token,
       WebFrame* opener,
       const WebString& name,
@@ -440,6 +445,7 @@ class CORE_EXPORT WebLocalFrameImpl final
   static WebLocalFrameImpl* CreateProvisional(
       WebLocalFrameClient*,
       InterfaceRegistry*,
+      mojo::PendingRemote<mojom::blink::BrowserInterfaceBroker>,
       const LocalFrameToken& frame_token,
       WebFrame* previous_frame,
       const FramePolicy&,
@@ -507,6 +513,7 @@ class CORE_EXPORT WebLocalFrameImpl final
   void SetFindEndstateFocusAndSelection();
 
   void DidCommitLoad();
+  void DidDispatchDOMContentLoadedEvent();
   void DidFailLoad(const ResourceError&, WebHistoryCommitType);
   void DidFinish();
   void DidFinishLoadForPrinting();
@@ -633,6 +640,8 @@ class CORE_EXPORT WebLocalFrameImpl final
       WindowAgentFactory*,
       WebFrame* opener,
       const DocumentToken& document_token,
+      mojo::PendingRemote<mojom::blink::BrowserInterfaceBroker>
+          interface_broker,
       std::unique_ptr<PolicyContainer> policy_container,
       const StorageKey& storage_key,
       ukm::SourceId document_ukm_source_id,
@@ -644,6 +653,11 @@ class CORE_EXPORT WebLocalFrameImpl final
   // mojom::blink::BackForwardCacheNotRestoredReasonsPtr.
   mojom::blink::BackForwardCacheNotRestoredReasonsPtr ConvertNotRestoredReasons(
       const mojom::BackForwardCacheNotRestoredReasonsPtr& reasons_struct);
+
+  // If true, requests compositor warm-up when the page is under prerendering.
+  // Please see crbug.com/41496019 for more details.
+  bool ShouldWarmUpCompositorOnPrerenderFromThisPoint(
+      features::Prerender2WarmUpCompositorTriggerPoint trigger_point);
 
   WebLocalFrameClient* client_;
 

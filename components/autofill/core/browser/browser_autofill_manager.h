@@ -47,6 +47,7 @@
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/single_field_form_fill_router.h"
+#include "components/autofill/core/browser/suggestions_context.h"
 #include "components/autofill/core/browser/ui/fast_checkout_delegate.h"
 #include "components/autofill/core/browser/ui/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/ui/suggestion_type.h"
@@ -61,15 +62,13 @@
 
 namespace autofill {
 
-class AddressSuggestionGenerator;
 class AutofillField;
 class AutofillClient;
 class AutofillProfile;
 class CreditCard;
 class CreditCardAccessManager;
-class PaymentsSuggestionGenerator;
 
-struct FormData;
+class FormData;
 class FormFieldData;
 struct SuggestionsContext;
 
@@ -79,25 +78,6 @@ class CreditCardFormEventLogger;
 
 }  // namespace autofill_metrics
 
-// Use <Phone><WebOTP><OTC> as the bit pattern to identify the metrics state.
-enum class PhoneCollectionMetricState {
-  kNone = 0,    // Site did not collect phone, not use OTC, not use WebOTP
-  kOTC = 1,     // Site used OTC only
-  kWebOTP = 2,  // Site used WebOTP only
-  kWebOTPPlusOTC = 3,  // Site used WebOTP and OTC
-  kPhone = 4,          // Site collected phone, not used neither WebOTP nor OTC
-  kPhonePlusOTC = 5,   // Site collected phone number and used OTC
-  kPhonePlusWebOTP = 6,         // Site collected phone number and used WebOTP
-  kPhonePlusWebOTPPlusOTC = 7,  // Site collected phone number and used both
-  kMaxValue = kPhonePlusWebOTPPlusOTC,
-};
-
-namespace phone_collection_metric {
-constexpr uint32_t kOTCUsed = 1 << 0;
-constexpr uint32_t kWebOTPUsed = 1 << 1;
-constexpr uint32_t kPhoneCollected = 1 << 2;
-}  // namespace phone_collection_metric
-
 // Enum for the value patterns metric. Don't renumerate existing value. They are
 // used for metrics.
 enum class ValuePatternsMetric {
@@ -106,26 +86,6 @@ enum class ValuePatternsMetric {
   kIban = 2,    // International Bank Account Number.
   kMaxValue = kIban,
 };
-
-// Describes whether Autocomplete suggestions would have been suppressed by a
-// plus address suggestion.
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-// TODO(b/327328460): Clean up once the metric is has been evaluated.
-enum class AutocompleteSuppressionByPlusAddress {
-  // The Autocomplete suggestions would not have been suppressed.
-  kNotSuppressed = 0,
-  // The Autocomplete suggestions would have been suppressed and would have
-  // contained email addresses.
-  kSuppressedWithEmailResults = 1,
-  // The Autocomplete suggestions would have been suppressed and would not have
-  // contained email addresses.
-  kSuppressedWithoutEmailResults = 2,
-  kMaxValue = kSuppressedWithoutEmailResults,
-};
-
-inline constexpr char kAutocompleteSuppressionByPlusAddressUma[] =
-    "Autofill.Autocomplete.SuppressionByPlusAddress";
 
 // Manages saving and restoring the user's personal information entered into web
 // forms. One per frame; owned by the AutofillDriver.
@@ -148,7 +108,7 @@ class BrowserAutofillManager : public AutofillManager {
 
   // Whether the |field| should show an entry to scan a credit card.
   virtual bool ShouldShowScanCreditCard(const FormData& form,
-                                        const FormFieldData& field) const;
+                                        const FormFieldData& field);
 
   // Handlers for the "Show Cards From Account" row. This row should be shown to
   // users who have cards in their account and can use Sync Transport. Clicking
@@ -184,7 +144,8 @@ class BrowserAutofillManager : public AutofillManager {
   // Logs metrics when the user accepts address form filling suggestion. This
   // happens only for already parsed forms (`FormStructure` and `AutofillField`
   // are defined).
-  // TODO(b/40227071): Remove when field-filling and form-filling are merged
+  // TODO(crbug.com/40227071): Remove when field-filling and form-filling are
+  // merged
   virtual void OnDidFillAddressFormFillingSuggestion(
       const AutofillProfile& profile,
       const FormData& form,
@@ -324,15 +285,6 @@ class BrowserAutofillManager : public AutofillManager {
   // Returns the last form the autofill manager considered in this frame.
   virtual const FormData& last_query_form() const;
 
-  // Exposed to ContentAutofillDriver to help with recording WebOTP metrics.
-  bool has_parsed_forms() const { return has_parsed_forms_; }
-  bool has_observed_phone_number_field() const {
-    return has_observed_phone_number_field_;
-  }
-  bool has_observed_one_time_code_field() const {
-    return has_observed_one_time_code_field_;
-  }
-
   // Reports whether a document collects phone numbers, uses one time code, uses
   // WebOTP. There are cases that the reporting is not expected:
   //   1. some unit tests do not set necessary members,
@@ -381,22 +333,6 @@ class BrowserAutofillManager : public AutofillManager {
   autofill_metrics::ManualFallbackEventLogger& GetManualFallbackEventLogger() {
     return *manual_fallback_logger_;
   }
-
-  // Attempts to show touch-to-fill with `suggestions` and falls back to showing
-  // the keyboard accessory/popup if that is not available. Called only for
-  // single field form filler suggestions.
-  // This callback will be triggered by running
-  // SingleFieldFormFiller::OnSuggestionsReturnedCallback.
-  // When `form_element_was_clicked` is true, it indicates that the form field
-  // has been clicked. `request_start_time` is the time when the user clicks on
-  // the form field, and `focused_field_type_group` specifies the type of field
-  // being focused.
-  void OnGetSingleFieldSuggestionsCallback(
-      bool form_element_was_clicked,
-      const FormData& form,
-      FieldTypeGroup focused_field_type_group,
-      FieldGlobalId field_id,
-      const std::vector<Suggestion>& suggestions);
 
  protected:
   // Stores a `callback` for `form_signature`, possibly overriding an older
@@ -460,8 +396,8 @@ class BrowserAutofillManager : public AutofillManager {
   void OnCreditCardFetched(CreditCardFetchResult result,
                            const CreditCard* credit_card);
 
-  // Returns false if Autofill is disabled or if no Autofill data is available.
-  bool RefreshDataModels();
+  // Updates event loggers with information about data stored for Autofill.
+  void UpdateLoggersReadinessData();
 
   // Creates a FormStructure using the FormData received from the renderer. Will
   // return an empty scoped_ptr if the data should not be processed for upload
@@ -502,7 +438,7 @@ class BrowserAutofillManager : public AutofillManager {
       const FormData& form,
       const FormFieldData& trigger_field,
       FieldType trigger_field_type,
-      AutofillSuggestionTriggerSource trigger_source) const;
+      AutofillSuggestionTriggerSource trigger_source);
 
   // Returns a mapping of credit card guid values to virtual card last fours for
   // standalone CVC field. Cards will only be added to the returned map if they
@@ -514,8 +450,7 @@ class BrowserAutofillManager : public AutofillManager {
   // If |initial_interaction_timestamp_| is unset or is set to a later time than
   // |interaction_timestamp|, updates the cached timestamp.  The latter check is
   // needed because IPC messages can arrive out of order.
-  void UpdateInitialInteractionTimestamp(
-      const base::TimeTicks& interaction_timestamp);
+  void UpdateInitialInteractionTimestamp(base::TimeTicks interaction_timestamp);
 
   // Examines |form| and returns true if it is in a non-secure context or
   // its action attribute targets a HTTP url.
@@ -528,8 +463,8 @@ class BrowserAutofillManager : public AutofillManager {
   // modification. `cleared_value` is true if JS wiped the previous value, and
   // `formatting_only` is true if JS only modified whitespaces, symbols and
   // capitalization.
-  // TODO(b/40227496): Remove `cleared_value` when `field` starts containing
-  // the actual current value of the field.
+  // TODO(crbug.com/40227496): Remove `cleared_value` when `field` starts
+  // containing the actual current value of the field.
   void AnalyzeJavaScriptChangedAutofilledValue(const FormStructure& form,
                                                AutofillField& field,
                                                bool cleared_value,
@@ -539,18 +474,22 @@ class BrowserAutofillManager : public AutofillManager {
   // `SuggestionsContext` based on the given params.
   SuggestionsContext BuildSuggestionsContext(
       const FormData& form,
+      const FormStructure* form_structure,
       const FormFieldData& field,
+      const AutofillField* autofill_field,
       AutofillSuggestionTriggerSource trigger_source);
 
   // Returns a list with the suggestions available for `field`. Which fields of
   // the `form` are filled depends on the `trigger_source`. `context` could
   // contain additional information about the suggestions, such as ablation
   // study related fields.
-  // TODO(b/340494671): Move ablation study fields out of the function and make
-  // the context a const ref.
+  // TODO(crbug.com/340494671): Move ablation study fields out of the function
+  // and make the context a const ref.
   std::vector<Suggestion> GetAvailableAddressAndCreditCardSuggestions(
       const FormData& form,
+      const FormStructure* form_structure,
       const FormFieldData& field,
+      const AutofillField* autofill_field,
       AutofillSuggestionTriggerSource trigger_source,
       SuggestionsContext& context);
 
@@ -567,16 +506,37 @@ class BrowserAutofillManager : public AutofillManager {
   // `ShouldSuppressSuggestions`).
   void GenerateSuggestionsAndMaybeShowUI(
       const FormData& form,
+      const FormStructure* form_structure,
       const FormFieldData& field,
+      const AutofillField* autofill_field,
       AutofillSuggestionTriggerSource trigger_source,
-      SuggestionsContext context,
+      SuggestionsContext& context,
       OnGenerateSuggestionsCallback callback);
+
+  // Receives the lists of plus address and single field form fill suggestions
+  // and combines them. It gives priority to the plus address suggestions,
+  // ensuring they appear first in the final combined list that's sent to
+  // `OnGenerateSuggestionsCallback`.
+  void OnGeneratedPlusAddressAndSingleFieldFormFillSuggestions(
+      AutofillPlusAddressDelegate::SuggestionContext suggestions_context,
+      AutofillClient::PasswordFormType password_form_type,
+      const FormData& form,
+      const FormFieldData& field,
+      OnGenerateSuggestionsCallback callback,
+      std::vector<std::vector<Suggestion>> suggestion_lists);
+
+  // Displays IPH for manual fallbacks if the form can be autofilled and the
+  // user has profiles which can fill the current field.
+  void MaybeShowIphForManualFallback(
+      const FormFieldData& field,
+      const AutofillField* autofill_field,
+      AutofillSuggestionTriggerSource trigger_source,
+      SuppressReason suppress_reason);
 
   // The function receives a the list of `suggestions` from
   // `GenerateSuggestionsAndMaybeShowUI` and displays them if `show_suggestions`
   // is true (via the `external_delegate_`). It also logs whether there is a
   // suggestion for the user and whether the suggestion is shown.
-  // TODO(b/340494671): Move to the unnamed namespace.
   void OnGenerateSuggestionsComplete(
       const FormData& form,
       const FormFieldData& field,
@@ -620,7 +580,8 @@ class BrowserAutofillManager : public AutofillManager {
   // other requirements which makes uploading UKM data worthwhile. E.g. the
   // form should not be a search form, the forms should have at least one
   // focusable input field with a type from heuristics or the server.
-  bool ShouldUploadUkm(const FormStructure& form_structure);
+  bool ShouldUploadUkm(const FormStructure& form_structure,
+                       bool require_classified_field);
 
   // Returns a compose suggestion if the compose service is available for
   // `field` and `trigger_source`.
@@ -642,7 +603,7 @@ class BrowserAutofillManager : public AutofillManager {
       std::make_unique<SingleFieldFormFillRouter>(
           client().GetAutocompleteHistoryManager(),
           client().GetPaymentsAutofillClient()->GetIbanManager(),
-          client().GetMerchantPromoCodeManager());
+          client().GetPaymentsAutofillClient()->GetMerchantPromoCodeManager());
 
   // Utilities for logging form events. The loggers emit metrics during their
   // destruction, effectively when the BrowserAutofillManager is reset or
@@ -673,6 +634,7 @@ class BrowserAutofillManager : public AutofillManager {
   // ones?
   bool user_did_type_ = false;
 
+  // TODO(crbug.com/354043809): Move out of BAM.
   // Does |this| have any parsed forms?
   bool has_parsed_forms_ = false;
   // Is there a field with autocomplete="one-time-code" observed?
@@ -694,10 +656,6 @@ class BrowserAutofillManager : public AutofillManager {
   // Lazily initialized: access only through GetCreditCardAccessManager().
   std::unique_ptr<CreditCardAccessManager> credit_card_access_manager_;
 
-  // TODO(b/41484171): Remove.
-  std::unique_ptr<AddressSuggestionGenerator> address_suggestion_generator_;
-  std::unique_ptr<PaymentsSuggestionGenerator> payments_suggestion_generator_;
-
   // Helper class to autofill forms and fields. Do not use directly, use
   // form_filler() instead.
   std::unique_ptr<FormFiller> form_filler_;
@@ -713,18 +671,6 @@ class BrowserAutofillManager : public AutofillManager {
   // interaction and re-used throughout the context of this manager.
   AutofillMetrics::PaymentsSigninState signin_state_for_metrics_ =
       AutofillMetrics::PaymentsSigninState::kUnknown;
-
-  // Helps with measuring whether phone number is collected and whether it is in
-  // conjunction with WebOTP or OneTimeCode (OTC).
-  // value="0" label="Phone Not Collected, WebOTP Not Used, OTC Not Used"
-  // value="1" label="Phone Not Collected, WebOTP Not Used, OTC Used"
-  // value="2" label="Phone Not Collected, WebOTP Used, OTC Not Used"
-  // value="3" label="Phone Not Collected, WebOTP Used, OTC Used"
-  // value="4" label="Phone Collected, WebOTP Not Used, OTC Not Used"
-  // value="5" label="Phone Collected, WebOTP Not Used, OTC Used"
-  // value="6" label="Phone Collected, WebOTP Used, OTC Not Used"
-  // value="7" label="Phone Collected, WebOTP Used, OTC Used"
-  uint32_t phone_collection_metric_state_ = 0;
 
   // List of callbacks to be called for sending blur votes. Only one callback is
   // stored per FormSignature. We rely on FormSignatures rather than

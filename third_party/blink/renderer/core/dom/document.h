@@ -48,6 +48,7 @@
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/facilitated_payments/payment_link_handler.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/page/page.mojom-blink-forward.h"
@@ -87,6 +88,7 @@
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap_observer_set.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/timer.h"
@@ -511,6 +513,7 @@ class CORE_EXPORT Document : public ContainerNode,
   Element* ScrollingElementNoLayout();
 
   bool KeyboardFocusableScrollersEnabled();
+  bool StandardizedBrowserZoomEnabled() const;
 
   String readyState() const;
 
@@ -1795,6 +1798,9 @@ class CORE_EXPORT Document : public ContainerNode,
   FontMatchingMetrics* GetFontMatchingMetrics();
 
   void MaybeRecordShapeTextElapsedTime(base::TimeDelta elapsed_time);
+  void MaybeRecordSvgImageProcessingTime(
+      int data_change_count,
+      base::TimeDelta data_change_elapsed_time) const;
 
   scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner(TaskType);
 
@@ -2100,6 +2106,20 @@ class CORE_EXPORT Document : public ContainerNode,
   // creation on the next layout.
   void ScheduleShadowTreeCreation(HTMLInputElement& element);
   void UnscheduleShadowTreeCreation(HTMLInputElement& element);
+
+  void ScheduleSelectionchangeEvent();
+
+  // Reset to false after the event gets callbacked
+  void ResetEventQueueStatus(const AtomicString& event_type) override {
+    if (event_type == event_type_names::kSelectionchange)
+      has_scheduled_selectionchange_event_on_document_ = false;
+  }
+
+#if BUILDFLAG(IS_ANDROID)
+  // This method is invoked when a payment link element is encountered. It
+  // passes the payment link back to browser process through the mojo pipe.
+  void HandlePaymentLink(const KURL& href);
+#endif
 
  protected:
   void ClearXMLVersion() { xml_version_ = String(); }
@@ -2543,7 +2563,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool should_update_selection_after_layout_ = false;
 
-  Member<Element> css_target_;
+  WeakMember<Element> css_target_;
   bool css_target_is_selector_fragment_ = false;
 
   bool was_discarded_;
@@ -2815,6 +2835,9 @@ class CORE_EXPORT Document : public ContainerNode,
   // the site has support for reduced motion.
   bool supports_reduced_motion_ = false;
 
+  // Indicate whether there is one scheduled selectionchange event.
+  bool has_scheduled_selectionchange_event_on_document_ = false;
+
   Member<RenderBlockingResourceManager> render_blocking_resource_manager_;
 
   // Record if the previous UpdateStyleAndLayoutTreeForThisDocument() happened
@@ -2874,6 +2897,14 @@ class CORE_EXPORT Document : public ContainerNode,
   // certain state, when the insertion is triggered via the state-preserving
   // atomic move API (so far, `Node#moveBefore()`).
   bool state_preserving_atomic_move_in_progress_ = false;
+
+#if BUILDFLAG(IS_ANDROID)
+  HeapMojoRemote<payments::facilitated::mojom::blink::PaymentLinkHandler>
+      payment_link_handler_{nullptr};
+
+  // If a payment link is handled before.
+  bool payment_link_handled_ = false;
+#endif
 
   // If you want to add new data members to blink::Document, please reconsider
   // if the members really should be in blink::Document.  document.h is a very

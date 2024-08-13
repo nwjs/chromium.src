@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "base/metrics/user_metrics.h"
+#include "base/not_fatal_until.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/uuid.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -171,7 +172,7 @@ void SavedTabGroupUtils::DeleteSavedGroup(const Browser* browser,
 }
 
 // See comment for TabStripModelDelegate::ConfirmGroupDeletion
-bool SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
+void SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
     Browser* browser,
     DeletionDialogController::DialogType type,
     const std::vector<TabGroupId>& group_ids,
@@ -179,17 +180,21 @@ bool SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
   SavedTabGroupKeyedService* saved_tab_group_service =
       SavedTabGroupServiceFactory::GetForProfile(browser->profile());
 
+  CHECK(group_ids.size() > 0, base::NotFatalUntil::M130);
+
   // Confirmation is only needed if SavedTabGroups are being deleted. If the
   // service doesnt exist there are no saved tab groups.
   if (!saved_tab_group_service || !IsTabGroupsSaveV2Enabled()) {
-    return true;
+    std::move(callback).Run();
+    return;
   }
 
   // If there's no way to show the group deletion dialog, then fallback to
   // running the callback.
   auto* dialog_controller = browser->tab_group_deletion_dialog_controller();
   if (!dialog_controller || !dialog_controller->CanShowDialog()) {
-    return true;
+    std::move(callback).Run();
+    return;
   }
 
   // Check to see if any of the groups are saved. If so then show the dialog,
@@ -208,10 +213,10 @@ bool SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
   }
 
   if (num_saved_groups > 0) {
-    return !dialog_controller->MaybeShowDialog(
-        type, std::move(callback), num_saved_tabs, num_saved_groups);
+    dialog_controller->MaybeShowDialog(type, std::move(callback),
+                                       num_saved_tabs, num_saved_groups);
+    return;
   }
-  return true;
 }
 
 void SavedTabGroupUtils::OpenUrlToBrowser(Browser* browser, const GURL& url) {
@@ -227,8 +232,8 @@ void SavedTabGroupUtils::OpenOrMoveSavedGroupToNewWindow(
   auto* const service =
       SavedTabGroupServiceFactory::GetForProfile(browser->profile());
   const auto* const save_group = service->model()->Get(saved_group_guid);
-  // In case the group has been deleted.
-  if (!save_group) {
+  // In case the group has been deleted or has no tabs.
+  if (!save_group || save_group->saved_tabs().empty()) {
     return;
   }
 
@@ -247,6 +252,9 @@ void SavedTabGroupUtils::OpenOrMoveSavedGroupToNewWindow(
         browser_with_local_group_id, saved_group_guid,
         tab_groups::OpeningSource::kOpenedFromRevisitUi);
   }
+
+  // Ensure that the saved group did open in the browser.
+  CHECK(save_group->local_group_id().has_value());
 
   // Move the open group to a new browser window.
   browser_with_local_group_id->tab_strip_model()

@@ -9,7 +9,7 @@ import ios_chrome_browser_ui_tab_switcher_tab_strip_ui_swift_constants
 /// View Controller displaying the TabStrip.
 @objcMembers
 class TabStripViewController: UIViewController,
-  TabStripConsumer, TabStripNewTabButtonDelegate, TabStripTabCellDelegate
+  TabStripConsumer, TabStripNewTabButtonDelegate, TabStripGroupCellDelegate, TabStripTabCellDelegate
 {
 
   // The enum used by the data source to manage the sections.
@@ -111,7 +111,7 @@ class TabStripViewController: UIViewController,
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    view.backgroundColor = UIColor(named: kGroupedPrimaryBackgroundColor)
+    view.backgroundColor = TabStripHelper.backgroundColor
 
     // Don't clip to bound the collection view to allow the shadow of the long press to be displayed fully.
     // The trailing placeholder will ensure that the cells aren't displayed out of the bounds.
@@ -135,7 +135,7 @@ class TabStripViewController: UIViewController,
     newTabButton.isIncognito = isIncognito
     view.addSubview(newTabButton)
 
-    if TabStripFeaturesUtils.isModernTabStripNewTabButtonDynamic() {
+    if TabStripFeaturesUtils.isModernTabStripNewTabButtonDynamic {
       NSLayoutConstraint.activate([
         collectionView.trailingAnchor.constraint(
           equalTo: view.trailingAnchor, constant: -TabStripConstants.NewTabButton.width),
@@ -248,6 +248,7 @@ class TabStripViewController: UIViewController,
     // To make the animation smoother, try to select the item if it's already
     // present in the collection view.
     selectItem(selectedItem)
+    reconfigureItems(itemIdentifiers)
     applySnapshot(
       dataSource: dataSource, snapshot: snapshot,
       animatingDifferences: !UIAccessibility.isReduceMotionEnabled,
@@ -431,6 +432,15 @@ class TabStripViewController: UIViewController,
     newTabButton.IPHHighlighted = iphHighlighted
   }
 
+  // MARK: - TabStripGroupCellDelegate
+
+  func collapseOrExpandTapped(for cell: TabStripGroupCell?) {
+    guard let cell = cell,
+      let indexPath = collectionView.indexPath(for: cell)
+    else { return }
+    collapseOrExpandGroup(at: indexPath)
+  }
+
   // MARK: - TabStripTabCellDelegate
 
   func closeButtonTapped(for cell: TabStripTabCell?) {
@@ -454,6 +464,18 @@ class TabStripViewController: UIViewController,
   }
 
   // MARK: - Private
+
+  /// Collapses or expands the group at `indexPath`.
+  func collapseOrExpandGroup(at indexPath: IndexPath) {
+    guard let tabGroupItem = dataSource.itemIdentifier(for: indexPath)?.tabGroupItem else {
+      return
+    }
+    if tabGroupItem.collapsed {
+      mutator?.expandGroup(tabGroupItem)
+    } else {
+      mutator?.collapseGroup(tabGroupItem)
+    }
+  }
 
   /// Applies `snapshot` to `dataSource` and updates the collection view layout.
   private func applySnapshot(
@@ -570,7 +592,9 @@ class TabStripViewController: UIViewController,
       let itemData = self.itemData[itemIdentifier] as? TabStripItemData
       cell.title = item.title
       cell.titleContainerBackgroundColor = item.groupColor
+      cell.titleTextColor = item.foregroundColor
       cell.collapsed = item.collapsed
+      cell.delegate = self
       cell.groupStrokeColor = itemData?.groupStrokeColor
       cell.accessibilityIdentifier = self.tabTripGroupCellAccessibilityIdentifier(
         index: indexPath.item)
@@ -788,12 +812,8 @@ extension TabStripViewController: UICollectionViewDelegateFlowLayout {
     switch itemIdentifier.item {
     case .tab(let tabSwitcherItem):
       mutator?.activate(tabSwitcherItem)
-    case .group(let tabGroupItem):
-      if tabGroupItem.collapsed {
-        mutator?.expandGroup(tabGroupItem)
-      } else {
-        mutator?.collapseGroup(tabGroupItem)
-      }
+    case .group(_):
+      collapseOrExpandGroup(at: indexPath)
     }
   }
 

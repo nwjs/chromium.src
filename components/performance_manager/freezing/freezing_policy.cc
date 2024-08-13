@@ -11,9 +11,9 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "components/performance_manager/graph/node_attached_data_impl.h"
 #include "components/performance_manager/graph/page_node_impl.h"
 #include "components/performance_manager/public/features.h"
+#include "components/performance_manager/public/graph/node_attached_data.h"
 #include "components/performance_manager/public/graph/node_data_describer_registry.h"
 #include "components/performance_manager/public/resource_attribution/origin_in_browsing_instance_context.h"
 #include "components/performance_manager/public/resource_attribution/resource_contexts.h"
@@ -27,9 +27,8 @@ using resource_attribution::OriginInBrowsingInstanceContext;
 
 constexpr base::TimeDelta kCPUMeasurementInterval = base::Minutes(1);
 
-struct PageFreezingState : public NodeAttachedDataImpl<PageFreezingState> {
-  struct Traits : public NodeAttachedDataInMap<PageNodeImpl> {};
-
+struct PageFreezingState
+    : public ExternalNodeAttachedDataImpl<PageFreezingState> {
   explicit PageFreezingState(const PageNodeImpl*) {}
   ~PageFreezingState() override = default;
 
@@ -276,7 +275,6 @@ bool FreezingPolicy::HasCannotFreezeReason(
 }
 
 void FreezingPolicy::OnPassedToGraph(Graph* graph) {
-  graph->RegisterObject(this);
   graph->AddPageNodeObserver(this);
   graph->AddFrameNodeObserver(this);
   graph->GetNodeDataDescriberRegistry()->RegisterDescriber(this, "Freezing");
@@ -286,7 +284,6 @@ void FreezingPolicy::OnTakenFromGraph(Graph* graph) {
   graph->GetNodeDataDescriberRegistry()->UnregisterDescriber(this);
   graph->RemoveFrameNodeObserver(this);
   graph->RemovePageNodeObserver(this);
-  graph->UnregisterObject(this);
 }
 
 void FreezingPolicy::OnPageNodeAdded(const PageNode* page_node) {

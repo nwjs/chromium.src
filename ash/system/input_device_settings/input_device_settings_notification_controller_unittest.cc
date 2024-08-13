@@ -39,14 +39,15 @@ constexpr char kCapsLockNoMatchNudgeId[] = "caps-lock-no-match-nudge-id";
 
 const mojom::Mouse kMouse1 = mojom::Mouse(
     /*name=*/"Razer Basilisk V3",
-    /*is_external=*/false,
+    /*is_external=*/true,
     /*id=*/1,
     /*device_key=*/"fake-device-key1",
     /*customization_restriction=*/
     mojom::CustomizationRestriction::kAllowCustomizations,
     /*mouse_button_config=*/mojom::MouseButtonConfig::kNoConfig,
     mojom::MouseSettings::New(),
-    mojom::BatteryInfo::New());
+    mojom::BatteryInfo::New(),
+    mojom::CompanionAppInfo::New());
 
 const mojom::GraphicsTablet kGraphicsTablet2 = mojom::GraphicsTablet(
     /*name=*/"Wacom Intuos S",
@@ -57,7 +58,8 @@ const mojom::GraphicsTablet kGraphicsTablet2 = mojom::GraphicsTablet(
     /*graphics_tablet_button_config=*/
     mojom::GraphicsTabletButtonConfig::kNoConfig,
     mojom::GraphicsTabletSettings::New(),
-    mojom::BatteryInfo::New());
+    mojom::BatteryInfo::New(),
+    mojom::CompanionAppInfo::New());
 
 int GetPrefNotificationCount(const char* pref_name) {
   PrefService* prefs =
@@ -472,6 +474,7 @@ TEST_F(InputDeviceSettingsNotificationControllerTest,
   mojom::MousePtr mojom_mouse = mojom::Mouse::New();
   mojom_mouse->device_key = "0001:0001";
   mojom_mouse->id = 1;
+  mojom_mouse->is_external = true;
   mojom_mouse->settings = mojom::MouseSettings::New();
 
   PrefService* prefs =
@@ -798,6 +801,7 @@ TEST_F(InputDeviceSettingsNotificationControllerTest,
   mojom::KeyboardPtr mojom_keyboard = mojom::Keyboard::New();
   mojom_keyboard->device_key = "0001:0001";
   mojom_keyboard->id = 1;
+  mojom_keyboard->is_external = true;
   mojom_keyboard->settings = mojom::KeyboardSettings::New();
 
   PrefService* prefs =
@@ -860,6 +864,7 @@ TEST_F(InputDeviceSettingsNotificationControllerTest,
   mojom::TouchpadPtr mojom_touchpad = mojom::Touchpad::New();
   mojom_touchpad->device_key = "0001:0001";
   mojom_touchpad->id = 1;
+  mojom_touchpad->is_external = true;
   mojom_touchpad->settings = mojom::TouchpadSettings::New();
 
   PrefService* prefs =
@@ -900,6 +905,7 @@ TEST_F(InputDeviceSettingsNotificationControllerTest,
   mojom::PointingStickPtr mojom_pointing_stick = mojom::PointingStick::New();
   mojom_pointing_stick->device_key = "0001:0001";
   mojom_pointing_stick->id = 1;
+  mojom_pointing_stick->is_external = true;
   mojom_pointing_stick->settings = mojom::PointingStickSettings::New();
 
   PrefService* prefs =
@@ -941,6 +947,7 @@ TEST_F(InputDeviceSettingsNotificationControllerTest,
   mojom::MousePtr mojom_mouse = mojom::Mouse::New();
   mojom_mouse->device_key = "0001:0001";
   mojom_mouse->id = 1;
+  mojom_mouse->is_external = true;
   mojom_mouse->settings = mojom::MouseSettings::New();
   mojom_mouse->battery_info =
       mojom::BatteryInfo::New(78, mojom::ChargeState::kDischarging);
@@ -965,6 +972,7 @@ TEST_F(InputDeviceSettingsNotificationControllerTest,
   mojom::MousePtr mojom_mouse = mojom::Mouse::New();
   mojom_mouse->device_key = "0001:0001";
   mojom_mouse->id = 1;
+  mojom_mouse->is_external = true;
   mojom_mouse->settings = mojom::MouseSettings::New();
 
   NotifyMouseFirstTimeConnected(
@@ -975,6 +983,23 @@ TEST_F(InputDeviceSettingsNotificationControllerTest,
   const auto* notification = message_center()->FindVisibleNotificationById(
       "peripheral_customization_mouse_1");
   EXPECT_FALSE(notification->image().IsEmpty());
+}
+
+TEST_F(InputDeviceSettingsNotificationControllerTest,
+       NotificationOnlyShownForExternalDevices) {
+  mojom::MousePtr mojom_mouse = mojom::Mouse::New();
+  mojom_mouse->device_key = "0001:0001";
+  mojom_mouse->id = 1;
+  mojom_mouse->is_external = false;
+  mojom_mouse->settings = mojom::MouseSettings::New();
+
+  NotifyMouseFirstTimeConnected(*mojom_mouse);
+  EXPECT_EQ(0u, message_center()->NotificationCount());
+  mojom_mouse->device_key = "0001:0002";
+  mojom_mouse->id = 2;
+  mojom_mouse->is_external = true;
+  NotifyMouseFirstTimeConnected(*mojom_mouse);
+  EXPECT_EQ(1u, message_center()->NotificationCount());
 }
 
 }  // namespace ash

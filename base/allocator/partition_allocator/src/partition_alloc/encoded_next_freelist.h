@@ -9,11 +9,10 @@
 #include <cstdint>
 
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/freeslot_bitmap.h"
 #include "partition_alloc/partition_alloc-inl.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
-#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_constants.h"
 
@@ -177,7 +176,7 @@ class EncodedNextFreelistEntry {
     // SetNext() is either called on the freelist head, when provisioning new
     // slots, or when GetNext() has been called before, no need to pass the
     // size.
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
     // Regular freelists always point to an entry within the same super page.
     //
     // This is most likely a PartitionAlloc bug if this triggers.
@@ -186,7 +185,7 @@ class EncodedNextFreelistEntry {
                         (SlotStartPtr2Addr(entry) & kSuperPageBaseMask))) {
       FreelistCorruptionDetected(0);
     }
-#endif  // PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#endif  // PA_BUILDFLAG(DCHECKS_ARE_ON)
 
     encoded_next_ = EncodedFreelistPtr(entry);
 #if PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)

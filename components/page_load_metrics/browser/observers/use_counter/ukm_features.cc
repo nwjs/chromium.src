@@ -305,7 +305,6 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kURLPatternReliantOnLaterComponentFromBaseURL,
           WebFeature::kV8Window_GetScreenDetails_Method,
           WebFeature::kV8Window_ShowSaveFilePicker_Method,
-          WebFeature::kFullscreenAllowedByWindowOpen,
           WebFeature::kChromeCSIUnknown,
           WebFeature::kChromeCSIOnloadT,
           WebFeature::kChromeCSIPageT,
@@ -399,6 +398,11 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kSchedulingIsInputPending,
           WebFeature::kV8DocumentPictureInPicture_RequestWindow_Method,
           WebFeature::kV8GPUAdapter_RequestAdapterInfo_Method,
+          WebFeature::
+              kSharedStorageAPI_CreateWorklet_CrossOriginScriptDefaultDataOrigin,
+          WebFeature::kSharedStorageAPI_AddModule_CrossOriginScript,
+          WebFeature::kIdentityDigitalCredentials,
+          WebFeature::kIdentityDigitalCredentialsDeepLink,
       }));
   return *opt_in_features;
 }

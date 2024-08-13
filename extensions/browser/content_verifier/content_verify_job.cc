@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "extensions/browser/content_verifier/content_verify_job.h"
 
 #include <algorithm>
@@ -132,15 +137,15 @@ void ContentVerifyJob::DidGetContentHashOnIO(
       base::BindOnce(&ContentVerifyJob::OnHashesReady, this));
 }
 
-void ContentVerifyJob::Read(const char* data,
-                            int count,
-                            MojoResult read_result) {
+void ContentVerifyJob::BytesRead(const char* data,
+                                 int count,
+                                 MojoResult read_result) {
   base::AutoLock auto_lock(lock_);
   DCHECK(!done_reading_);
-  ReadImpl(data, count, read_result);
+  BytesReadImpl(data, count, read_result);
 }
 
-void ContentVerifyJob::Done() {
+void ContentVerifyJob::DoneReading() {
   base::AutoLock auto_lock(lock_);
   ScopedElapsedTimer timer(&time_spent_);
   if (failed_)
@@ -160,9 +165,9 @@ void ContentVerifyJob::Done() {
   }
 }
 
-void ContentVerifyJob::ReadImpl(const char* data,
-                                int count,
-                                MojoResult read_result) {
+void ContentVerifyJob::BytesReadImpl(const char* data,
+                                     int count,
+                                     MojoResult read_result) {
   ScopedElapsedTimer timer(&time_spent_);
   if (failed_)
     return;
@@ -279,7 +284,7 @@ void ContentVerifyJob::OnHashesReady(
   if (!queue_.empty()) {
     std::string tmp;
     queue_.swap(tmp);
-    ReadImpl(std::data(tmp), tmp.size(), MOJO_RESULT_OK);
+    BytesReadImpl(std::data(tmp), tmp.size(), MOJO_RESULT_OK);
     if (failed_)
       return;
   }

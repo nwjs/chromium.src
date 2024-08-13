@@ -48,6 +48,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterProvider;
 import org.chromium.base.test.params.ParameterSet;
@@ -94,7 +95,6 @@ import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.net.GURLUtils;
 import org.chromium.net.test.EmbeddedTestServerRule;
@@ -227,7 +227,7 @@ public class PageInfoViewTest {
     private void openPageInfo(@ContentSettingsType.EnumType int highlightedPermission) {
         ChromeActivity activity = sActivityTestRule.getActivity();
         Tab tab = activity.getActivityTab();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     new ChromePageInfo(
                                     activity.getModalDialogManagerSupplier(),
@@ -264,7 +264,7 @@ public class PageInfoViewTest {
     }
 
     private void setThirdPartyCookieBlocking(@CookieControlsMode int value) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
                             .setInteger(COOKIE_CONTROLS_MODE, value);
@@ -272,7 +272,7 @@ public class PageInfoViewTest {
     }
 
     private void enableTrackingProtection() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
                             .setBoolean(Pref.TRACKING_PROTECTION3PCD_ENABLED, true);
@@ -280,7 +280,7 @@ public class PageInfoViewTest {
     }
 
     private void setBlockAll3PC(boolean value) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
                             .setBoolean(Pref.BLOCK_ALL3PC_TOGGLE_ENABLED, value);
@@ -306,7 +306,7 @@ public class PageInfoViewTest {
 
     private void addSomePermissions(String urlString) {
         GURL url = new GURL(urlString);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     WebsitePreferenceBridge.setContentSettingDefaultScope(
                             ProfileManager.getLastUsedRegularProfile(),
@@ -329,7 +329,7 @@ public class PageInfoViewTest {
         int expectAllow = hasPermissions ? ContentSettingValues.ALLOW : ContentSettingValues.ASK;
         @ContentSettingValues
         int expectBlock = hasPermissions ? ContentSettingValues.BLOCK : ContentSettingValues.ASK;
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
                             expectBlock,
@@ -352,7 +352,7 @@ public class PageInfoViewTest {
 
     private void addDefaultSettingPermissions(String urlString) {
         GURL url = new GURL(urlString);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     WebsitePreferenceBridge.setContentSettingDefaultScope(
                             ProfileManager.getLastUsedRegularProfile(),
@@ -371,7 +371,7 @@ public class PageInfoViewTest {
 
     private void clearPermissions() throws TimeoutException {
         CallbackHelper helper = new CallbackHelper();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     BrowsingDataBridge.getForProfile(ProfileManager.getLastUsedRegularProfile())
                             .clearBrowsingData(
@@ -384,7 +384,7 @@ public class PageInfoViewTest {
 
     private List<ContentSettingException> getNonWildcardContentSettingExceptions(
             @ContentSettingsType.EnumType int type) {
-        return TestThreadUtils.runOnUiThreadBlockingNoException(
+        return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     List<ContentSettingException> exceptions =
                             new ArrayList<ContentSettingException>();
@@ -433,7 +433,7 @@ public class PageInfoViewTest {
         // TODO(crbug.com/41452182): Find a general solution to avoid leaking channels between
         // tests.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            TestThreadUtils.runOnUiThreadBlocking(
+            ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         SiteChannelsManager manager = SiteChannelsManager.getInstance();
                         manager.deleteAllSiteChannels();
@@ -629,7 +629,7 @@ public class PageInfoViewTest {
     @MediumTest
     public void testShowPermissionsSubpageWithSound() throws IOException {
         GURL url = new GURL(mTestServerRule.getServer().getURL("/"));
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     WebsitePreferenceBridge.setContentSettingDefaultScope(
                             ProfileManager.getLastUsedRegularProfile(),
@@ -650,7 +650,7 @@ public class PageInfoViewTest {
     public void testShowPermissionsSubpageWithEphemeralGrantAndPersistentGrant()
             throws IOException {
         GURL url = new GURL(mTestServerRule.getServer().getURL("/"));
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     WebsitePreferenceBridgeJni.get()
                             .setEphemeralGrantForTesting(
@@ -686,7 +686,7 @@ public class PageInfoViewTest {
                         withText(containsString("Cookies and other site data are used")),
                         isDisplayed()));
         // Verify that the pref was recorded successfully.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertTrue(
                             UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
@@ -715,7 +715,7 @@ public class PageInfoViewTest {
                         withText(containsString("Chrome limits most sites from using")),
                         isDisplayed()));
         // Verify that the pref was recorded successfully.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertTrue(
                             UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
@@ -728,13 +728,7 @@ public class PageInfoViewTest {
         mRenderTestRule.render(getPageInfoView(), "PageInfo_TrackingProtectionSubpage_Toggle_On");
     }
 
-    /** Tests the cookies page of the PageInfo UI with the 100% Tracking Protection UI enabled. */
-    @Test
-    @MediumTest
-    @Features.EnableFeatures(ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH)
-    @Feature({"RenderTest"})
-    public void testShowCookiesSubpageTrackingProtectionLaunch() throws IOException {
-        setBlockAll3PC(false);
+    private void launchAndCheckTrackingProtectionLaunchUI() {
         setThirdPartyCookieBlocking(CookieControlsMode.BLOCK_THIRD_PARTY);
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
         enableTrackingProtectionFixedExpiration();
@@ -744,17 +738,114 @@ public class PageInfoViewTest {
                         withText(containsString("Chrome limits most sites from using")),
                         isDisplayed()));
         // Verify that the pref was recorded successfully.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertTrue(
                             UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
                                     .getBoolean(IN_CONTEXT_COOKIE_CONTROLS_OPENED));
                 });
+    }
+
+    /** Tests the cookies page of the PageInfo UI with the 100% Tracking Protection UI enabled. */
+    @Test
+    @MediumTest
+    @Features.EnableFeatures(ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH)
+    @Features.DisableFeatures({
+        ChromeFeatureList.IP_PROTECTION_V1,
+        ChromeFeatureList.FINGERPRINTING_PROTECTION_SETTING
+    })
+    @Feature({"RenderTest"})
+    public void testShowCookiesSubpageTrackingProtectionLaunch() throws IOException {
+        setBlockAll3PC(false);
+        // TODO(crbug.com/330745124: Remove when the backend logic is updated for the Launch flag)
+        enableTrackingProtection();
+        launchAndCheckTrackingProtectionLaunchUI();
         mRenderTestRule.render(getPageInfoView(), "PageInfo_TrackingProtectionLaunch_Toggle_Off");
         // Check that the cookie toggle is displayed and try clicking it.
         onViewWaiting(allOf(withText(containsString("You have extra protections")), isDisplayed()));
         onView(withText(containsString("You have extra protections"))).perform(click());
         mRenderTestRule.render(getPageInfoView(), "PageInfo_TrackingProtectionLaunch_Toggle_On");
+    }
+
+    /** Same as the previous one but with IP Protection feature enabled. */
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH,
+        ChromeFeatureList.IP_PROTECTION_V1
+    })
+    @Features.DisableFeatures(ChromeFeatureList.FINGERPRINTING_PROTECTION_SETTING)
+    @Feature({"RenderTest"})
+    @DisabledTest(message = "crbug.com/330745124: only 3PC status is implemented in the TPF UI")
+    public void testShowCookiesSubpageTrackingProtectionLaunchIPP() throws IOException {
+        setBlockAll3PC(false);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
+                            .setBoolean(Pref.IP_PROTECTION_ENABLED, true);
+                });
+        launchAndCheckTrackingProtectionLaunchUI();
+        mRenderTestRule.render(
+                getPageInfoView(), "PageInfo_TrackingProtectionLaunchIPP_Toggle_Off");
+        // Check that the cookie toggle is displayed and try clicking it.
+        onViewWaiting(allOf(withText(containsString("You have extra protections")), isDisplayed()));
+        onView(withText(containsString("You have extra protections"))).perform(click());
+        mRenderTestRule.render(getPageInfoView(), "PageInfo_TrackingProtectionLaunchIPP_Toggle_On");
+    }
+
+    /** Same as the previous one but with Fingerprinting Protection feature enabled. */
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH,
+        ChromeFeatureList.FINGERPRINTING_PROTECTION_SETTING
+    })
+    @Features.DisableFeatures(ChromeFeatureList.IP_PROTECTION_V1)
+    @Feature({"RenderTest"})
+    @DisabledTest(message = "crbug.com/330745124: only 3PC status is implemented in the TPF UI")
+    public void testShowCookiesSubpageTrackingProtectionLaunchFPP() throws IOException {
+        setBlockAll3PC(false);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
+                            .setBoolean(Pref.FINGERPRINTING_PROTECTION_ENABLED, true);
+                });
+        launchAndCheckTrackingProtectionLaunchUI();
+        mRenderTestRule.render(
+                getPageInfoView(), "PageInfo_TrackingProtectionLaunchFPP_Toggle_Off");
+        // Check that the cookie toggle is displayed and try clicking it.
+        onViewWaiting(allOf(withText(containsString("You have extra protections")), isDisplayed()));
+        onView(withText(containsString("You have extra protections"))).perform(click());
+        mRenderTestRule.render(getPageInfoView(), "PageInfo_TrackingProtectionLaunchFPP_Toggle_On");
+    }
+
+    /** Same as the previous one but with both IP and Fingerprinting Protection features enabled. */
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH,
+        ChromeFeatureList.IP_PROTECTION_V1,
+        ChromeFeatureList.FINGERPRINTING_PROTECTION_SETTING
+    })
+    @Feature({"RenderTest"})
+    @DisabledTest(message = "crbug.com/330745124: only 3PC status is implemented in the TPF UI")
+    public void testShowCookiesSubpageTrackingProtectionLaunchFPPIPP() throws IOException {
+        setBlockAll3PC(false);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
+                            .setBoolean(Pref.IP_PROTECTION_ENABLED, true);
+                    UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
+                            .setBoolean(Pref.FINGERPRINTING_PROTECTION_ENABLED, true);
+                });
+        launchAndCheckTrackingProtectionLaunchUI();
+        mRenderTestRule.render(
+                getPageInfoView(), "PageInfo_TrackingProtectionLaunchFPPIPP_Toggle_Off");
+        // Check that the cookie toggle is displayed and try clicking it.
+        onViewWaiting(allOf(withText(containsString("You have extra protections")), isDisplayed()));
+        onView(withText(containsString("You have extra protections"))).perform(click());
+        mRenderTestRule.render(
+                getPageInfoView(), "PageInfo_TrackingProtectionLaunchFPPIPP_Toggle_On");
     }
 
     /** Tests the cookies page of the PageInfo UI with the Tracking Protection UI enabled. */
@@ -771,7 +862,7 @@ public class PageInfoViewTest {
         onViewWaiting(
                 allOf(withText(containsString("You blocked sites from using")), isDisplayed()));
         // Verify that the pref was recorded successfully.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertTrue(
                             UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
@@ -800,7 +891,7 @@ public class PageInfoViewTest {
         onViewWaiting(
                 allOf(withText(containsString("You blocked sites from using")), isDisplayed()));
         // Verify that the pref was recorded successfully.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertTrue(
                             UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
@@ -953,7 +1044,7 @@ public class PageInfoViewTest {
         assertTrue(
                 getNonWildcardContentSettingExceptions(ContentSettingsType.FEDERATED_IDENTITY_API)
                         .isEmpty());
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     FederatedIdentityTestUtils.embargoFedCmForRelyingParty(new GURL(rpUrl));
                 });
@@ -987,7 +1078,7 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     public void testPaintPreview() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     final ChromeActivity activity = sActivityTestRule.getActivity();
                     final Tab tab = activity.getActivityTab();
@@ -1021,7 +1112,7 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     public void testTransientPdfPage() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     final ChromeActivity activity = sActivityTestRule.getActivity();
                     final Tab tab = activity.getActivityTab();
@@ -1056,7 +1147,7 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     public void testLocalPdfPage() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     final ChromeActivity activity = sActivityTestRule.getActivity();
                     final Tab tab = activity.getActivityTab();
@@ -1145,7 +1236,7 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     public void testCloseButton() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(true);
                 });
@@ -1154,7 +1245,7 @@ public class PageInfoViewTest {
         assertTrue(controller.isDialogShowingForTesting());
         onView(withId(R.id.page_info_close)).perform(click());
         assertFalse(controller.isDialogShowingForTesting());
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(null);
                 });
@@ -1190,7 +1281,7 @@ public class PageInfoViewTest {
                 mTestServerRule.getServer().getURLWithHostName("www.example.com", "/"));
 
         final CallbackHelper onDidStartNavigationHelper = new CallbackHelper();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     return new WebContentsObserver(sActivityTestRule.getWebContents()) {
                         @Override

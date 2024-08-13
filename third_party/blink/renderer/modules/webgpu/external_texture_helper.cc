@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/webgpu/external_texture_helper.h"
 
 #include "media/base/video_frame.h"
@@ -385,9 +390,8 @@ ExternalTexture CreateExternalTexture(
     // We don't need to specify a sync token since both CanvasResourceProvider
     // and PaintCanvasVideoRenderer use the SharedGpuContext.
     gpu::MailboxHolder dst_mailbox(
-        resource_provider->GetBackingMailboxForOverwrite(
-            MailboxSyncMode::kUnverifiedSyncToken),
-        gpu::SyncToken(), resource_provider->GetBackingTextureTarget());
+        resource_provider->GetBackingMailboxForOverwrite(), gpu::SyncToken(),
+        resource_provider->GetBackingTextureTarget());
 
     // The returned sync token is from the SharedGpuContext - it's ok to drop it
     // here since WebGPUMailboxTexture::FromCanvasResource will generate a new

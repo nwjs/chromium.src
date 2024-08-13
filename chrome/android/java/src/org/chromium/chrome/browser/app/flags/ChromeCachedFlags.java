@@ -18,6 +18,7 @@ import org.chromium.base.cached_flags.CachedFlagUtils;
 import org.chromium.base.cached_flags.CachedFlagsSafeMode;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.build.BuildConfig;
+import org.chromium.chrome.browser.ChromeBaseAppCompatActivity;
 import org.chromium.chrome.browser.JankTrackerExperiment;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
@@ -26,6 +27,7 @@ import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.Minimi
 import org.chromium.chrome.browser.firstrun.FirstRunUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.HubFieldTrial;
+import org.chromium.chrome.browser.logo.LogoUtils;
 import org.chromium.chrome.browser.magic_stack.HomeModulesMetricsUtils;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.new_tab_url.DseNewTabUrlManager;
@@ -37,12 +39,13 @@ import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.searchwidget.SearchActivity;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabDataService;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils;
+import org.chromium.chrome.browser.tabbed_mode.TabbedSystemUiCoordinator;
 import org.chromium.chrome.browser.tabpersistence.TabStateFileManager;
+import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementFieldTrial;
-import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.ui.google_bottom_bar.BottomBarConfigCreator;
-import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
+import org.chromium.chrome.browser.webapps.WebappLauncherActivity;
 import org.chromium.components.omnibox.OmniboxFeatures;
 
 import java.util.ArrayList;
@@ -88,6 +91,8 @@ public class ChromeCachedFlags {
                 List.of(
                         BackPressManager.TAB_HISTORY_RECOVER,
                         ChimeFeatures.ALWAYS_REGISTER,
+                        ChromeBaseAppCompatActivity.DEFAULT_FONT_FAMILY_TESTING,
+                        TabbedSystemUiCoordinator.NAV_BAR_COLOR_ANIMATION_DISABLED_CACHED_PARAM,
                         CustomTabIntentDataProvider.AUTO_TRANSLATE_ALLOW_ALL_FIRST_PARTIES,
                         CustomTabIntentDataProvider.AUTO_TRANSLATE_PACKAGE_NAME_ALLOWLIST,
                         CustomTabIntentDataProvider.THIRD_PARTIES_DEFAULT_POLICY,
@@ -97,7 +102,11 @@ public class ChromeCachedFlags {
                         DseNewTabUrlManager.SWAP_OUT_NTP,
                         BottomBarConfigCreator.GOOGLE_BOTTOM_BAR_PARAM_BUTTON_LIST,
                         BottomBarConfigCreator.GOOGLE_BOTTOM_BAR_VARIANT_LAYOUT_VALUE,
+                        BottomBarConfigCreator.GOOGLE_BOTTOM_BAR_NO_VARIANT_HEIGHT_DP_PARAM_VALUE,
+                        BottomBarConfigCreator
+                                .GOOGLE_BOTTOM_BAR_SINGLE_DECKER_HEIGHT_DP_PARAM_VALUE,
                         BottomBarConfigCreator.IS_GOOGLE_DEFAULT_SEARCH_ENGINE_CHECK_ENABLED,
+                        HubFieldTrial.ALTERNATIVE_FAB_COLOR,
                         HubFieldTrial.PANE_SWITCHER_USES_TEXT,
                         HubFieldTrial.SUPPORTS_OTHER_TABS,
                         HubFieldTrial.SUPPORTS_SEARCH,
@@ -110,19 +119,9 @@ public class ChromeCachedFlags {
                         SearchActivity.SEARCH_IN_CCT_APPLY_REFERRER_ID,
                         ShoppingPersistedTabDataService
                                 .SKIP_SHOPPING_PERSISTED_TAB_DATA_DELAYED_INITIALIZATION,
-                        StartSurfaceConfiguration.IS_DOODLE_SUPPORTED,
-                        StartSurfaceConfiguration.START_SURFACE_RETURN_TIME_SECONDS,
-                        StartSurfaceConfiguration.START_SURFACE_RETURN_TIME_ON_TABLET_SECONDS,
-                        StartSurfaceConfiguration.START_SURFACE_RETURN_TIME_USE_MODEL,
-                        StartSurfaceConfiguration.SIGNIN_PROMO_NTP_COUNT_LIMIT,
-                        StartSurfaceConfiguration
-                                .SIGNIN_PROMO_NTP_SINCE_FIRST_TIME_SHOWN_LIMIT_HOURS,
-                        StartSurfaceConfiguration.SIGNIN_PROMO_NTP_RESET_AFTER_HOURS,
-                        StartSurfaceConfiguration.START_SURFACE_HIDE_INCOGNITO_SWITCH_NO_TAB,
-                        StartSurfaceConfiguration.START_SURFACE_OPEN_NTP_INSTEAD_OF_START,
-                        StartSurfaceConfiguration.START_SURFACE_OPEN_START_AS_HOMEPAGE,
-                        StartSurfaceConfiguration.LOGO_POLISH_LARGE_SIZE,
-                        StartSurfaceConfiguration.LOGO_POLISH_MEDIUM_SIZE,
+                        ReturnToChromeUtil.HOME_SURFACE_RETURN_TIME_SECONDS,
+                        LogoUtils.LOGO_POLISH_LARGE_SIZE,
+                        LogoUtils.LOGO_POLISH_MEDIUM_SIZE,
                         TabManagementFieldTrial.DELAY_TEMP_STRIP_TIMEOUT_MS,
                         HomeModulesMetricsUtils.HOME_MODULES_SHOW_ALL_MODULES,
                         HomeModulesMetricsUtils.TAB_RESUMPTION_COMBINE_TABS,
@@ -136,10 +135,8 @@ public class ChromeCachedFlags {
                         TabResumptionModuleUtils.TAB_RESUMPTION_USE_SALIENT_IMAGE,
                         TabResumptionModuleUtils.TAB_RESUMPTION_V2,
                         TabStateFileManager.MIGRATE_STALE_TABS_CACHED_PARAM,
-                        TabUiFeatureUtilities.ANIMATION_START_TIMEOUT_MS,
-                        TabUiFeatureUtilities.ZOOMING_MIN_MEMORY,
-                        TabUiFeatureUtilities.SKIP_SLOW_ZOOMING,
-                        VersionNumberGetter.MIN_SDK_VERSION);
+                        VersionNumberGetter.MIN_SDK_VERSION,
+                        WebappLauncherActivity.MIN_SHELL_APK_VERSION);
 
         tryToCatchMissingParameters(
                 fieldTrialsToCache, OmniboxFeatures.getFieldTrialParamsToCache());

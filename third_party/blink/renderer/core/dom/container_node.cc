@@ -702,8 +702,8 @@ LayoutBox* ContainerNode::GetLayoutBoxForScrolling() const {
   return GetLayoutBox();
 }
 
-bool ContainerNode::IsReadingOrderContainer() const {
-  return GetLayoutBox() ? GetLayoutBox()->IsReadingOrderContainer() : false;
+bool ContainerNode::IsReadingFlowContainer() const {
+  return GetLayoutBox() ? GetLayoutBox()->IsReadingFlowContainer() : false;
 }
 
 void ContainerNode::Trace(Visitor* visitor) const {
@@ -1620,8 +1620,8 @@ String ContainerNode::FindTextInElementWith(
     String text;
     if (element.HasTagName(html_names::kInputTag) &&
         element.FastHasAttribute(html_names::kReadonlyAttr) &&
-        element.FastGetAttribute(html_names::kTypeAttr).LowerASCII() ==
-            "text" &&
+        EqualIgnoringASCIICase(element.FastGetAttribute(html_names::kTypeAttr),
+                               "text") &&
         RuntimeEnabledFeatures::FindTextInReadonlyTextInputEnabled()) {
       text = To<HTMLInputElement>(element).Value();
     } else if (element.HasOnlyText()) {

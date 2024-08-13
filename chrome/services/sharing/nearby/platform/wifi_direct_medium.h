@@ -18,6 +18,19 @@
 
 namespace nearby::chrome {
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class WifiDirectServiceError {
+  kNoConnection = 0,
+  kFailedToCreatePlatformSocket = 1,
+  kFailedToAssociateSocket = 2,
+  kCancelled = 3,
+  kFailedToConnectSocket = 4,
+  kFailedToOpenFirewallHole = 5,
+  kFailedToListenToSocket = 6,
+  kMaxValue = kFailedToListenToSocket,
+};
+
 class WifiDirectMedium : public api::WifiDirectMedium {
  public:
   explicit WifiDirectMedium(
@@ -34,12 +47,12 @@ class WifiDirectMedium : public api::WifiDirectMedium {
   bool ConnectWifiDirect(WifiDirectCredentials* credentials) override;
   bool DisconnectWifiDirect() override;
   std::unique_ptr<api::WifiDirectSocket> ConnectToService(
-      absl::string_view ip_address,
+      std::string_view ip_address,
       int port,
       CancellationFlag* cancellation_flag) override;
   std::unique_ptr<api::WifiDirectServerSocket> ListenForService(
       int port) override;
-  absl::optional<std::pair<std::int32_t, std::int32_t>> GetDynamicPortRange()
+  std::optional<std::pair<std::int32_t, std::int32_t>> GetDynamicPortRange()
       override;
 
  private:

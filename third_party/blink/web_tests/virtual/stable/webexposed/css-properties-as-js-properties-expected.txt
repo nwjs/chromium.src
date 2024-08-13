@@ -352,7 +352,7 @@ pointerEvents
 position
 positionAnchor
 positionTry
-positionTryOptions
+positionTryFallbacks
 positionTryOrder
 positionVisibility
 prefix
@@ -364,6 +364,7 @@ resize
 right
 rotate
 rowGap
+rubyAlign
 rubyPosition
 rx
 ry

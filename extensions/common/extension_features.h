@@ -100,6 +100,10 @@ BASE_DECLARE_FEATURE(kExtensionIconVariants);
 // supported.
 BASE_DECLARE_FEATURE(kExtensionManifestV2DeprecationWarning);
 
+// Controls disabling affected MV2 extensions that are no longer supported.
+// Users can re-enable these extensions.
+BASE_DECLARE_FEATURE(kExtensionManifestV2Disabled);
+
 // Allows server-side configuration of a temporary exception list.
 BASE_DECLARE_FEATURE(kExtensionManifestV2ExceptionList);
 extern const base::FeatureParam<std::string>
@@ -130,6 +134,12 @@ BASE_DECLARE_FEATURE(kExtensionsMenuAccessControl);
 // where user could set permitted sites.
 BASE_DECLARE_FEATURE(kExtensionsMenuAccessControlWithPermittedSites);
 
+// If enabled, guide users with zero extensions installed to explore the
+// benefits of extensions.
+// Displays an IPH anchored to the Extensions Toolbar Button, and replaces the
+// extensions submenu with an alternative submenu to recommend extensions.
+BASE_DECLARE_FEATURE(kExtensionsToolbarZeroState);
+
 // Forces requests to go through WebRequestProxyingURLLoaderFactory.
 BASE_DECLARE_FEATURE(kForceWebRequestProxyForTest);
 
@@ -139,10 +149,6 @@ BASE_DECLARE_FEATURE(kLaunchWindowsNativeHostsDirectly);
 
 // Controls whether extensions can use the new favicon fetching in Manifest V3.
 BASE_DECLARE_FEATURE(kNewExtensionFaviconHandling);
-
-// If enabled, allows APIs used by the webstore to be exposed on the URL for the
-// new webstore.
-BASE_DECLARE_FEATURE(kNewWebstoreDomain);
 
 // To investigate signal beacon loss in crrev.com/c/2262402.
 BASE_DECLARE_FEATURE(kReportKeepaliveUkm);

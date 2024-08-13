@@ -13,7 +13,7 @@
 #include "base/types/optional_ref.h"
 #include "chrome/services/file_util/public/cpp/temporary_file_getter.h"
 #include "chrome/services/file_util/public/mojom/file_util_service.mojom.h"
-//#include "chrome/services/file_util/public/mojom/safe_archive_analyzer.mojom.h"
+#include "chrome/services/file_util/public/mojom/safe_archive_analyzer.mojom.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
@@ -81,7 +81,7 @@ class SandboxedRarAnalyzer {
 
   // Remote interfaces to the file util service. Only used from the UI thread.
   mojo::Remote<chrome::mojom::FileUtilService> service_;
-  //mojo::Remote<chrome::mojom::SafeArchiveAnalyzer> remote_analyzer_;
+  mojo::Remote<chrome::mojom::SafeArchiveAnalyzer> remote_analyzer_;
   TemporaryFileGetter temp_file_getter_;
 
   // Task runner for blocking file operations

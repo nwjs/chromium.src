@@ -614,11 +614,11 @@ class WebAppNonClientFrameViewChromeOSTest
 
   void SimulateClickOnView(views::View* view) {
     const gfx::Point point;
-    ui::MouseEvent event(ui::ET_MOUSE_PRESSED, point, point,
+    ui::MouseEvent event(ui::EventType::kMousePressed, point, point,
                          ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
                          ui::EF_LEFT_MOUSE_BUTTON);
     view->OnMouseEvent(&event);
-    ui::MouseEvent event_rel(ui::ET_MOUSE_RELEASED, point, point,
+    ui::MouseEvent event_rel(ui::EventType::kMouseReleased, point, point,
                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
                              ui::EF_LEFT_MOUSE_BUTTON);
     view->OnMouseEvent(&event_rel);
@@ -747,7 +747,7 @@ IN_PROC_BROWSER_TEST_P(WebAppNonClientFrameViewChromeOSTest, ShowZoomIcon) {
   EXPECT_FALSE(zoom_icon->GetVisible());
   EXPECT_FALSE(ZoomBubbleView::GetZoomBubble());
 
-  zoom_controller->SetZoomLevel(blink::PageZoomFactorToZoomLevel(1.5));
+  zoom_controller->SetZoomLevel(blink::ZoomFactorToZoomLevel(1.5));
   ASSERT_TRUE(WaitForVisible(true, zoom_icon));
   EXPECT_TRUE(ZoomBubbleView::GetZoomBubble());
 }
@@ -838,7 +838,7 @@ IN_PROC_BROWSER_TEST_P(WebAppNonClientFrameViewChromeOSTest,
 
 // Tests the app icon and title are not shown.
 IN_PROC_BROWSER_TEST_P(WebAppNonClientFrameViewChromeOSTest,
-                       IconAndTitleNotShown) {
+                       IconShownAndTitleNotShown) {
   SetUpWebApp();
   auto* browser_view = BrowserView::GetBrowserViewForBrowser(app_browser_);
   EXPECT_FALSE(browser_view->ShouldShowWindowIcon());
@@ -896,9 +896,9 @@ IN_PROC_BROWSER_TEST_P(WebAppNonClientFrameViewChromeOSTest,
 
   // Press the geolocation button.
   geolocation_icon->OnKeyPressed(
-      ui::KeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_SPACE, ui::EF_NONE));
+      ui::KeyEvent(ui::EventType::kKeyPressed, ui::VKEY_SPACE, ui::EF_NONE));
   geolocation_icon->OnKeyReleased(
-      ui::KeyEvent(ui::ET_KEY_RELEASED, ui::VKEY_SPACE, ui::EF_NONE));
+      ui::KeyEvent(ui::EventType::kKeyReleased, ui::VKEY_SPACE, ui::EF_NONE));
   EXPECT_TRUE(geolocation_icon->IsBubbleShowing());
 }
 

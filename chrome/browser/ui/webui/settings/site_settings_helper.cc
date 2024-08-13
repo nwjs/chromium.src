@@ -105,6 +105,7 @@ const ContentSettingsTypeNameEntry kContentSettingsTypeGroupNames[] = {
     {ContentSettingsType::IMAGES, "images"},
     {ContentSettingsType::JAVASCRIPT, "javascript"},
     {ContentSettingsType::JAVASCRIPT_JIT, "javascript-jit"},
+    {ContentSettingsType::JAVASCRIPT_OPTIMIZER, "javascript-optimizer"},
     {ContentSettingsType::POPUPS, "popups"},
     {ContentSettingsType::GEOLOCATION, "location"},
     {ContentSettingsType::NOTIFICATIONS, "notifications"},
@@ -229,6 +230,8 @@ const ContentSettingsTypeNameEntry kContentSettingsTypeGroupNames[] = {
     {ContentSettingsType::DIRECT_SOCKETS, nullptr},
     {ContentSettingsType::REVOKED_ABUSIVE_NOTIFICATION_PERMISSIONS, nullptr},
     {ContentSettingsType::TOP_LEVEL_TPCD_ORIGIN_TRIAL, nullptr},
+    {ContentSettingsType::DISPLAY_MEDIA_SYSTEM_AUDIO, nullptr},
+    {ContentSettingsType::STORAGE_ACCESS_HEADER_ORIGIN_TRIAL, nullptr},
 };
 
 static_assert(
@@ -1199,7 +1202,7 @@ ContentSetting GetContentSettingForOrigin(Profile* profile,
   if (info.metadata.session_model() ==
       content_settings::mojom::SessionModel::ONE_TIME) {
     DCHECK(
-        permissions::PermissionUtil::CanPermissionBeAllowedOnce(content_type));
+        permissions::PermissionUtil::DoesSupportTemporaryGrants(content_type));
     DCHECK_EQ(result.status, PermissionStatus::GRANTED);
     return CONTENT_SETTING_DEFAULT;
   }

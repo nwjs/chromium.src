@@ -1725,7 +1725,8 @@ class StorageQueue::WriteContext : public TaskRunnerContext<Status> {
     }
 
     // Make sure the record is valid.
-    if (!record_.has_destination()) {
+    if (!record_.has_destination() ||
+        record_.destination() == Destination::UNDEFINED_DESTINATION) {
       Response(Status(error::FAILED_PRECONDITION,
                       "Malformed record: missing destination"));
       return;
@@ -2136,15 +2137,6 @@ class StorageQueue::WriteContext : public TaskRunnerContext<Status> {
       return;
     }
     // Candidates found, start shedding from the lowest priority.
-    StartRecordsShedding(space_to_recover, std::move(degradation_candidates));
-  }
-
-  void StartRecordsShedding(
-      size_t space_to_recover,
-      std::queue<scoped_refptr<StorageQueue>> degradation_candidates) {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(
-        storage_queue_->storage_queue_sequence_checker_);
-
     // Prepare callbacks for shedding success and failure.
     // Both will run on the current queue.
     auto resume_writing_cb = base::BindPostTaskToCurrentDefault(base::BindOnce(

@@ -58,7 +58,6 @@ group("resources") {
       "side_panel/companion:resources",
       "side_panel/customize_chrome:resources",
       "side_panel/history_clusters:resources",
-      "side_panel/performance_controls:resources",
       "side_panel/read_anything:resources",
       "side_panel/reading_list:resources",
       "side_panel/shared:resources",
@@ -95,6 +94,13 @@ group("resources") {
 
   if (!is_chromeos_lacros && enable_extensions) {
     public_deps += [ "accessibility:reading_mode_gdocs_extension_resources" ]
+  }
+
+  if (is_mac) {
+    public_deps += [
+      "//chrome/browser/resources/media/mei_preload:component",
+      "//components/privacy_sandbox/privacy_sandbox_attestations/preload:component",
+    ]
   }
 
   if (is_win || is_mac || is_linux || is_chromeos_ash) {

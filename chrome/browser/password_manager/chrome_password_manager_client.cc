@@ -111,16 +111,11 @@
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
-#include "ui/base/clipboard/clipboard.h"
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
 #endif
-
-#include "third_party/blink/public/mojom/clipboard/clipboard.mojom.h"
-#include "ui/base/clipboard/clipboard.h"
-#include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
@@ -527,7 +522,7 @@ void ChromePasswordManagerClient::
             weak_driver,
         const password_manager::PasswordFillingParams& password_filling_params,
         base::OnceCallback<void(bool)> shown_cb) {
-  // TODO(crbug.com/338576301): Maybe don't show TTF if there was a navigation.
+  // TODO(crbug.com/346748438): Maybe don't show TTF if there was a navigation.
   if (!weak_driver) {
     return std::move(shown_cb).Run(false);
   }
@@ -563,7 +558,7 @@ void ChromePasswordManagerClient::
 }
 #endif
 
-bool ChromePasswordManagerClient::CanUseBiometricAuthForFilling(
+bool ChromePasswordManagerClient::IsReauthBeforeFillingRequired(
     device_reauth::DeviceAuthenticator* authenticator) {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
   if (!GetLocalStatePrefs() || !GetPrefs() || !authenticator) {
@@ -576,9 +571,20 @@ bool ChromePasswordManagerClient::CanUseBiometricAuthForFilling(
     CHECK(authenticator);
     return true;
   }
-  return authenticator && authenticator->CanAuthenticateWithBiometrics() &&
+  if (!authenticator || !GetPrefs()) {
+    return false;
+  }
+  bool can_authenticate =
+      authenticator->CanAuthenticateWithBiometricOrScreenLock();
+  base::UmaHistogramBoolean(
+      "PasswordManager.BiometricAuthPwdFillAndroid."
+      "CanAuthenticateWithBiometricOrScreenLock",
+      can_authenticate);
+  return can_authenticate &&
          base::FeatureList::IsEnabled(
-             password_manager::features::kBiometricTouchToFill);
+             password_manager::features::kBiometricTouchToFill) &&
+         GetPrefs()->GetBoolean(
+             password_manager::prefs::kBiometricAuthenticationBeforeFilling);
 #else
   return false;
 #endif
@@ -613,7 +619,8 @@ void ChromePasswordManagerClient::GeneratePassword(
           driver.get());
 #else
   password_manager::ContentPasswordManagerDriver* content_driver =
-      GetDriverFactory()->GetDriverForFrame(web_contents()->GetFocusedFrame());
+      password_manager::ContentPasswordManagerDriver::GetForRenderFrameHost(
+          web_contents()->GetFocusedFrame());
   if (!content_driver) {
     return;
   }
@@ -1005,11 +1012,8 @@ autofill::LanguageCode ChromePasswordManagerClient::GetPageLanguage() const {
 
 safe_browsing::PasswordProtectionService*
 ChromePasswordManagerClient::GetPasswordProtectionService() const {
-  return nullptr;
-#if 0
   return safe_browsing::ChromePasswordProtectionService::
       GetPasswordProtectionService(profile_);
-#endif
 }
 
 #if defined(ON_FOCUS_PING_ENABLED)
@@ -1030,9 +1034,8 @@ void ChromePasswordManagerClient::CheckSafeBrowsingReputation(
 void ChromePasswordManagerClient::MaybeReportEnterpriseLoginEvent(
     const GURL& url,
     bool is_federated,
-    const url::Origin& federated_origin,
+    const url::SchemeHostPort& federated_origin,
     const std::u16string& login_user_name) const {
-#if 0
   extensions::SafeBrowsingPrivateEventRouter* router =
       extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(
           profile_);
@@ -1043,12 +1046,10 @@ void ChromePasswordManagerClient::MaybeReportEnterpriseLoginEvent(
   // The router is responsible for checking if the reporting of this event type
   // is enabled by the admin.
   router->OnLoginEvent(url, is_federated, federated_origin, login_user_name);
-#endif
 }
 
 void ChromePasswordManagerClient::MaybeReportEnterprisePasswordBreachEvent(
     const std::vector<std::pair<GURL, std::u16string>>& identities) const {
-#if 0
   extensions::SafeBrowsingPrivateEventRouter* router =
       extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(
           profile_);
@@ -1059,7 +1060,6 @@ void ChromePasswordManagerClient::MaybeReportEnterprisePasswordBreachEvent(
   // The router is responsible for checking if the reporting of this event type
   // is enabled by the admin.
   router->OnPasswordBreach(kPasswordBreachEntryTrigger, identities);
-#endif
 }
 #endif
 
@@ -1237,7 +1237,8 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
     return;
   }
   password_manager::ContentPasswordManagerDriver* driver =
-      GetDriverFactory()->GetDriverForFrame(rfh);
+      password_manager::ContentPasswordManagerDriver::GetForRenderFrameHost(
+          rfh);
   // This method is called over Mojo via a RenderFrameHostReceiverSet; the
   // current target frame must be live.
   CHECK(driver);
@@ -1327,7 +1328,9 @@ void ChromePasswordManagerClient::ShowPasswordEditingPopup(
 #else
   content::RenderFrameHost* rfh =
       password_generation_driver_receivers_.GetCurrentTargetFrame();
-  auto* driver = GetDriverFactory()->GetDriverForFrame(rfh);
+  auto* driver =
+      password_manager::ContentPasswordManagerDriver::GetForRenderFrameHost(
+          rfh);
   // This method is called over Mojo via a RenderFrameHostReceiverSet; the
   // current target frame must be live.
   CHECK(driver);
@@ -1371,7 +1374,9 @@ void ChromePasswordManagerClient::PresaveGeneratedPassword(
 
   content::RenderFrameHost* rfh =
       password_generation_driver_receivers_.GetCurrentTargetFrame();
-  PasswordManagerDriver* driver = GetDriverFactory()->GetDriverForFrame(rfh);
+  PasswordManagerDriver* driver =
+      password_manager::ContentPasswordManagerDriver::GetForRenderFrameHost(
+          rfh);
   // This method is called over Mojo via a RenderFrameHostReceiverSet; the
   // current target frame must be live.
   CHECK(driver);
@@ -1387,7 +1392,9 @@ void ChromePasswordManagerClient::PasswordNoLongerGenerated(
     const autofill::FormData& form_data) {
   content::RenderFrameHost* rfh =
       password_generation_driver_receivers_.GetCurrentTargetFrame();
-  PasswordManagerDriver* driver = GetDriverFactory()->GetDriverForFrame(rfh);
+  PasswordManagerDriver* driver =
+      password_manager::ContentPasswordManagerDriver::GetForRenderFrameHost(
+          rfh);
   // This method is called over Mojo via a RenderFrameHostReceiverSet; the
   // current target frame must be live.
   CHECK(driver);
@@ -1535,7 +1542,7 @@ ChromePasswordManagerClient::GetOrCreateCredManController() {
   if (!cred_man_controller_) {
     cred_man_controller_ =
         std::make_unique<password_manager::CredManController>(
-            GetOrCreateKeyboardReplacingSurfaceVisibilityController());
+            GetOrCreateKeyboardReplacingSurfaceVisibilityController(), this);
   }
   return cred_man_controller_.get();
 }
@@ -1738,7 +1745,7 @@ bool ChromePasswordManagerClient::IsPasswordManagementEnabledForCurrentPage(
       GURL(password_manager::kPasswordManagerAccountDashboardURL)) {
     is_enabled = false;
   }
-#if 0
+
   // SafeBrowsing Delayed Warnings experiment can delay some SafeBrowsing
   // warnings until user interaction. If the current page has a delayed warning,
   // it'll have a user interaction observer attached. Disable password
@@ -1749,7 +1756,6 @@ bool ChromePasswordManagerClient::IsPasswordManagementEnabledForCurrentPage(
     observer->OnPasswordSaveOrAutofillDenied();
     is_enabled = false;
   }
-#endif
 
   if (log_manager_->IsLoggingActive()) {
     password_manager::BrowserSavePasswordProgressLogger logger(

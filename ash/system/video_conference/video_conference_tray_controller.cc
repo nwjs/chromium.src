@@ -401,6 +401,30 @@ bool VideoConferenceTrayController::GetHasMicrophonePermissions() const {
   return state_.has_microphone_permission;
 }
 
+void VideoConferenceTrayController::UpdateSidetoneSupportedState() {
+  CrasAudioHandler::Get()->UpdateSidetoneSupportedState();
+}
+
+bool VideoConferenceTrayController::IsSidetoneSupported() const {
+  return CrasAudioHandler::Get()->IsSidetoneSupported();
+}
+
+bool VideoConferenceTrayController::GetSidetoneEnabled() const {
+  return CrasAudioHandler::Get()->GetSidetoneEnabled();
+}
+
+void VideoConferenceTrayController::SetSidetoneEnabled(bool enabled) {
+  CrasAudioHandler::Get()->SetSidetoneEnabled(enabled);
+}
+
+void VideoConferenceTrayController::SetEwmaPowerReportEnabled(bool enabled) {
+  CrasAudioHandler::Get()->SetEwmaPowerReportEnabled(enabled);
+}
+
+double VideoConferenceTrayController::GetEwmaPower() {
+  return CrasAudioHandler::Get()->GetEwmaPower();
+}
+
 bool VideoConferenceTrayController::IsCapturingScreen() const {
   return state_.is_capturing_screen;
 }

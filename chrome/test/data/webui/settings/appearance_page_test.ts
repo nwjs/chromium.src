@@ -22,7 +22,10 @@ class TestAppearanceBrowserProxy extends TestBrowserProxy implements
       'getDefaultZoom',
       'getThemeInfo',
       'isChildAccount',
+      'openCustomizeChrome',
+      'openCustomizeChromeToolbarSection',
       'recordHoverCardImagesEnabledChanged',
+      'resetPinnedToolbarActions',
       'useDefaultTheme',
       // <if expr="is_linux">
       'useGtkTheme',
@@ -60,8 +63,20 @@ class TestAppearanceBrowserProxy extends TestBrowserProxy implements
     return this.isChildAccount_;
   }
 
+  openCustomizeChrome() {
+    this.methodCalled('openCustomizeChrome');
+  }
+
+  openCustomizeChromeToolbarSection() {
+    this.methodCalled('openCustomizeChromeToolbarSection');
+  }
+
   recordHoverCardImagesEnabledChanged(enabled: boolean) {
     this.methodCalled('recordHoverCardImagesEnabledChanged', enabled);
+  }
+
+  resetPinnedToolbarActions() {
+    this.methodCalled('resetPinnedToolbarActions');
   }
 
   useDefaultTheme() {
@@ -102,7 +117,7 @@ let colorSchemeHandler: TestMock<CustomizeColorSchemeModeHandlerRemote>&
     CustomizeColorSchemeModeHandlerRemote;
 let colorSchemeCallbackRouter: CustomizeColorSchemeModeClientRemote;
 
-function createAppearancePage() {
+function createAppearancePage(hasPinnedActions: boolean = true) {
   appearanceBrowserProxy.reset();
   document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
@@ -125,6 +140,16 @@ function createAppearancePage() {
         },
       },
     },
+    browser: {
+      show_forward_button: {
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      show_home_button: {
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: false,
+      },
+    },
     extensions: {
       theme: {
         id: {
@@ -141,6 +166,12 @@ function createAppearancePage() {
       is_right_aligned: {
         type: chrome.settingsPrivate.PrefType.BOOLEAN,
         value: false,
+      },
+    },
+    toolbar: {
+      pinned_actions: {
+        type: chrome.settingsPrivate.PrefType.LIST,
+        value: hasPinnedActions ? ['kActionSidePanelShowBookmarks'] : [],
       },
     },
   });
@@ -170,16 +201,22 @@ suite('AppearanceHandler', function() {
   // <if expr="is_linux">
   const SYSTEM_THEME_PREF = 'prefs.extensions.theme.system_theme.value';
 
-  test('useDefaultThemeLinux', function() {
+  test('useDefaultThemeLinux', async () => {
+    await colorSchemeHandler.whenCalled('initializeColorSchemeMode');
+
     assertFalse(!!appearancePage.get(THEME_ID_PREF));
     assertEquals(appearancePage.get(SYSTEM_THEME_PREF), SystemTheme.DEFAULT);
     // No custom nor system theme in use; "USE CLASSIC" should be hidden.
     assertFalse(!!appearancePage.shadowRoot!.querySelector('#useDefault'));
+    // The color scheme toggle should be visible when the classic theme is used.
+    assertTrue(isVisible(appearancePage.$.colorSchemeModeRow));
 
     appearancePage.set(SYSTEM_THEME_PREF, SystemTheme.GTK);
     flush();
     // If the system theme is in use, "USE CLASSIC" should show.
     assertTrue(!!appearancePage.shadowRoot!.querySelector('#useDefault'));
+    // The color scheme toggle should be hidden when the GTK theme is used.
+    assertFalse(isVisible(appearancePage.$.colorSchemeModeRow));
 
     appearancePage.set(SYSTEM_THEME_PREF, SystemTheme.DEFAULT);
     appearancePage.set(THEME_ID_PREF, 'fake theme id');
@@ -190,16 +227,20 @@ suite('AppearanceHandler', function() {
         appearancePage.shadowRoot!.querySelector<HTMLElement>('#useDefault');
     assertTrue(!!button);
 
-    button!.click();
+    button.click();
     return appearanceBrowserProxy.whenCalled('useDefaultTheme');
   });
 
-  test('useGtkThemeLinux', function() {
+  test('useGtkThemeLinux', async () => {
+    await colorSchemeHandler.whenCalled('initializeColorSchemeMode');
+
     assertFalse(!!appearancePage.get(THEME_ID_PREF));
     appearancePage.set(SYSTEM_THEME_PREF, SystemTheme.GTK);
     flush();
     // The "USE GTK+" button shouldn't be showing if it's already in use.
     assertFalse(!!appearancePage.shadowRoot!.querySelector('#useGtk'));
+    // The color scheme toggle should be hidden when the GTK theme is used.
+    assertFalse(isVisible(appearancePage.$.colorSchemeModeRow));
 
     appearanceBrowserProxy.setIsChildAccount(true);
     appearancePage.set(SYSTEM_THEME_PREF, SystemTheme.DEFAULT);
@@ -211,6 +252,9 @@ suite('AppearanceHandler', function() {
     assertTrue(
         appearancePage.shadowRoot!
             .querySelector<HTMLElement>('#themesSecondaryActions')!.hidden);
+    // The color scheme toggle should be visible when the classic theme is used,
+    // for child accounts.
+    assertTrue(isVisible(appearancePage.$.colorSchemeModeRow));
 
     appearanceBrowserProxy.setIsChildAccount(false);
     appearancePage.set(THEME_ID_PREF, 'fake theme id');
@@ -220,12 +264,14 @@ suite('AppearanceHandler', function() {
     assertFalse(
         appearancePage.shadowRoot!
             .querySelector<HTMLElement>('#themesSecondaryActions')!.hidden);
+    // The color scheme toggle should be visible when a custom theme is used.
+    assertTrue(isVisible(appearancePage.$.colorSchemeModeRow));
 
     const button =
         appearancePage.shadowRoot!.querySelector<HTMLElement>('#useGtk');
     assertTrue(!!button);
 
-    button!.click();
+    button.click();
     return appearanceBrowserProxy.whenCalled('useGtkTheme');
   });
   // </if>
@@ -243,7 +289,7 @@ suite('AppearanceHandler', function() {
         appearancePage.shadowRoot!.querySelector<HTMLElement>('#useDefault');
     assertTrue(!!button);
 
-    button!.click();
+    button.click();
     return appearanceBrowserProxy.whenCalled('useDefaultTheme');
   });
 
@@ -277,13 +323,63 @@ suite('AppearanceHandler', function() {
     assertEquals(
         null, appearancePage.shadowRoot!.querySelector('managed-dialog'));
 
-    button!.click();
+    button.click();
     flush();
 
     assertFalse(
         appearancePage.shadowRoot!.querySelector('managed-dialog')!.hidden);
   });
   // </if>
+
+  test('openCustomizeChrome', function() {
+    loadTimeData.overrideValues({
+      toolbarPinningEnabled: true,
+    });
+    createAppearancePage();
+    const button =
+        appearancePage.shadowRoot!.querySelector<HTMLElement>('#openTheme');
+    assertTrue(!!button);
+
+    button.click();
+    return appearanceBrowserProxy.whenCalled('openCustomizeChrome');
+  });
+
+  test('openCustomizeChromeToolbarSection', function() {
+    loadTimeData.overrideValues({
+      toolbarPinningEnabled: true,
+    });
+    createAppearancePage();
+    const button = appearancePage.shadowRoot!.querySelector<HTMLElement>(
+        '#customizeToolbar');
+    assertTrue(!!button);
+
+    button.click();
+    return appearanceBrowserProxy.whenCalled(
+        'openCustomizeChromeToolbarSection');
+  });
+
+  test('resetPinnedToolbarActions', function() {
+    loadTimeData.overrideValues({
+      toolbarPinningEnabled: true,
+    });
+    createAppearancePage();
+    const button = appearancePage.shadowRoot!.querySelector<HTMLElement>(
+        '#resetPinnedToolbarActions');
+    assertTrue(!!button);
+
+    button.click();
+    return appearanceBrowserProxy.whenCalled('resetPinnedToolbarActions');
+  });
+
+  test('resetHiddenWhenNoPinnedActions', function() {
+    loadTimeData.overrideValues({
+      toolbarPinningEnabled: true,
+    });
+    createAppearancePage(false);
+    const button = appearancePage.shadowRoot!.querySelector<HTMLElement>(
+        '#resetPinnedToolbarActions');
+    assertFalse(!!button);
+  });
 
   test('ColorSchemeMode', async () => {
     assertFalse(isVisible(appearancePage.$.colorSchemeModeRow));
@@ -346,6 +442,7 @@ suite('AppearanceHandler', function() {
       autogenerated: {theme: {policy: {color: {value: 0}}}},
       browser: {show_home_button: {value: true}},
       extensions: {theme: {id: {value: ''}}},
+      toolbar: {pinned_actions: {value: []}},
     });
     flush();
 
@@ -504,6 +601,15 @@ suite('TabSearchPositionSettings', () => {
     // on user click of false, the dropdown should now show falsey
     await userClicksDropdownForOption(/*userChoice=*/ false);
     assertEquals(FALSEY_STRING, dropdown?.getSelectedValue());
+  });
+
+  test('restart button A11y', async () => {
+    await buildPage(/*startupPref=*/ false, /*currentPref=*/ true);
+    const button = getTabSearchRestartButton();
+    assertTrue(!!button);
+
+    // The restart button needs to have the "alert" aria attribute.
+    assertEquals('alert', button.role);
   });
 
   test('restart button steady state', async () => {

@@ -113,6 +113,7 @@
 <translation id="2891975107962658722">Zuia tovuti isihifadhi data kwenye kifaa chako</translation>
 <translation id="2903493209154104877">Anwani</translation>
 <translation id="2910701580606108292">Iulize kabla ya kuruhusu tovuti kucheza maudhui yanayolindwa</translation>
+<translation id="2918484639460781603">Nenda kwenye mipangilio</translation>
 <translation id="2932883381142163287">Ripoti matumizi mabaya</translation>
 <translation id="2939338015096024043">Kikiwashwa, tovuti zinaweza kuomba ruhusa ya kufuatilia mkao wa kamera yako na kutambua mazingira yako. Kikizimwa, tovuti haziwezi kufuatilia mkao wa kamera yako au kutambua mazingira yako.</translation>
 <translation id="2968755619301702150">Kitazamaji vyeti</translation>
@@ -171,6 +172,7 @@
 <translation id="385051799172605136">Rudi nyuma</translation>
 <translation id="3859306556332390985">Peleka mbele</translation>
 <translation id="3895926599014793903">Lazimisha kuwasha ukuzaji</translation>
+<translation id="3905475044299942653">Komesha arifa nyingi</translation>
 <translation id="3908288065506437185">Zuia vidakuzi vya washirika wengine katika Hali fiche</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Huenda baadhi ya vipengele visifanye kazi. Tovuti zinazohusiana bado zinaweza kutumia vidakuzi vya washirika wengine</translation>
@@ -218,6 +220,7 @@
 <translation id="4751476147751820511">Vitambuzi vya mwendo au mwangaza</translation>
 <translation id="4755971844837804407">Kikiwashwa, tovuti zinaweza kukuonyesha tangazo lolote. Kikizimwa, tovuti haziwezi kuonyesha matangazo ya kupotosha au yanayokatiza matumizi.</translation>
 <translation id="4779083564647765204">Kuza</translation>
+<translation id="4807122856660838973">Washa kipengele cha Kuvinjari kwa Usalama</translation>
 <translation id="4811450222531576619">Fahamu kuhusu mada na chanzo chake</translation>
 <translation id="4836046166855586901">Tovuti ikuombe ruhusa inapotaka kujua wakati unatumia kifaa hiki</translation>
 <translation id="483914009762354899">Inajumuisha tovuti zote zenye kikoa hiki</translation>
@@ -231,6 +234,7 @@
 <translation id="4994033804516042629">Hakuna anwani zilizopatikana</translation>
 <translation id="4996978546172906250">Shiriki kupitia</translation>
 <translation id="5001526427543320409">Vidakuzi vya washirika wengine</translation>
+<translation id="5007392906805964215">Maoni</translation>
 <translation id="5039804452771397117">Ruhusu</translation>
 <translation id="5048398596102334565">Ruhusu tovuti zifikie vitambuzi vyako vya mwendo (inapendekezwa)</translation>
 <translation id="5050380848339752099">Tovuti hii inaelekea kushiriki maelezo na programu nyingine nje ya Hali fiche.</translation>
@@ -281,6 +285,7 @@
 <translation id="5706552988683188916">Hatua hii hufuta vidakuzi na data nyingine ya tovuti katika <ph name="WEBSITE" /></translation>
 <translation id="5723967018671998714">Vidakuzi vya washirika wengine vimezuiwa katika Hali Fiche</translation>
 <translation id="5740126560802162366">Tovuti zinaweza kuhifadhi data kwenye kifaa chako</translation>
+<translation id="5749085587985334212">Ficha Ukaguzi wa Usalama</translation>
 <translation id="5771720122942595109">Umezuia <ph name="PERMISSION_1" /></translation>
 <translation id="5804241973901381774">Idhini</translation>
 <translation id="5844448279347999754">Kikiwashwa, tovuti zinaweza kuomba ruhusa ya kuona maandishi na picha zilizohifadhiwa kwenye ubao wako wa kunakili. Kikizimwa, tovuti haziwezi kuona maandishi au picha zilizohifadhiwa kwenye ubao wako wa kunakili.</translation>
@@ -361,6 +366,7 @@
 <translation id="6945221475159498467">Chagua</translation>
 <translation id="6950072572526089586">Tovuti unayoitembelea inaweza kuhifadhi taarifa kuhusu shughuli unazofanya ili itekeleze kama unavyotarajia, kwa mfano, ili kukufanya usalie ukiwa umeingia katika akaunti kwenye tovuti au kuhifadhi bidhaa katika kikapu chako cha ununuzi. Mara nyingi tovuti huhifadhi taarifa hizi kwa muda mfupi katika kifaa chako.</translation>
 <translation id="6965382102122355670">Sawa</translation>
+<translation id="6980861169612950611">Je, ungependa kufuta data ya tovuti? <ph name="SITE_NAME" /></translation>
 <translation id="6981982820502123353">Ufikivu</translation>
 <translation id="6992289844737586249">Uliza kwanza kabla ya kuruhusu tovuti zitumie maikrofoni yako (inapendekezwa)</translation>
 <translation id="7000754031042624318">Imezimwa katika mipangilio ya Android</translation>
@@ -388,6 +394,7 @@
 <translation id="7366415735885268578">Ongeza tovuti</translation>
 <translation id="7368695150573390554">Data yoyote ya nje ya mtandao itafutwa</translation>
 <translation id="7383715096023715447">Mipangilio ya <ph name="DOMAIN" /></translation>
+<translation id="7399802613464275309">Angalizo la Usalama</translation>
 <translation id="7406113532070524618">Mipangilio hii hufanya kazi bila kukutambulisha au kuruhusu tovuti zione historia yako ya kuvinjari, ingawa tovuti zinaweza kushiriki kiasi kidogo cha maelezo kama sehemu ya uthibitishaji</translation>
 <translation id="7423098979219808738">Uliza kwanza</translation>
 <translation id="7423538860840206698">Imezuiwa kusoma ubao wa kunakili</translation>
@@ -456,6 +463,7 @@
 <translation id="8441146129660941386">Peleka nyuma</translation>
 <translation id="8444433999583714703">Ili uruhusu <ph name="APP_NAME" /> ifikie data ya mahali ulipo, washa pia huduma ya mahali katika <ph name="BEGIN_LINK" />Mipangilio ya Android<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Batilisha ruhusa ya kifaa</translation>
+<translation id="8473055640493819707">'<ph name="APP_NAME" />' imepitwa na wakati. Tafadhali weka upya programu hiyo kwenye kifaa.</translation>
 <translation id="8487700953926739672">Kinapatikana nje ya mtandao</translation>
 <translation id="848952951823693243">Omba tovuti katika mwonekano wa kifaa cha mkononi kila wakati</translation>
 <translation id="8499083585497694743">Washa maikrofoni</translation>
@@ -472,6 +480,7 @@
 <translation id="8681886425883659911">Matangazo yamezuiwa kwenye tovuti ambazo huonyesha matangazo yanayopotosha au yanayokatiza matumizi</translation>
 <translation id="868929229000858085">Tafuta kwenye anwani zako</translation>
 <translation id="8712637175834984815">Nimeelewa</translation>
+<translation id="8715862698998036666">Buruta kutoka juu kisha utelezeshe kutoka ukingo wa kushoto au kulia ili ufunge hali ya skrini nzima.</translation>
 <translation id="8719283222052720129">Washa ruhusa ya <ph name="APP_NAME" /> katika <ph name="BEGIN_LINK" />Mipangilio ya Android<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Kikiwashwa, tovuti zinaweza kuomba ruhusa ya kutafuta vifaa vya Bluetooth. Kikizimwa, tovuti haziwezi kutafuta vifaa vya Bluetooth.</translation>
 <translation id="8725066075913043281">Jaribu tena</translation>

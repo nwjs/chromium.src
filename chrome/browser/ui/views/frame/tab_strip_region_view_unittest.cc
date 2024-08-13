@@ -25,7 +25,6 @@
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "tab_strip_region_view.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/test/views_test_utils.h"
@@ -41,12 +40,10 @@ class TabStripRegionViewTestBase : public ChromeViewsTestBase {
             gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED)) {
     if (has_scrolling) {
       scoped_feature_list_.InitWithFeatures(
-          {features::kScrollableTabStrip,
-           features::kTabScrollingButtonPosition},
+          {tabs::kScrollableTabStrip, features::kTabScrollingButtonPosition},
           {});
     } else {
-      scoped_feature_list_.InitWithFeatures({},
-                                            {features::kScrollableTabStrip});
+      scoped_feature_list_.InitWithFeatures({}, {tabs::kScrollableTabStrip});
     }
   }
   TabStripRegionViewTestBase(const TabStripRegionViewTestBase&) = delete;
@@ -156,10 +153,7 @@ TEST_P(TabStripRegionViewTest, DISABLED_NewTabButtonRightOfTabs) {
 }
 
 // TODO (crbug/1523257): Skip for now due to test failing when CR2023 enabled.
-TEST_P(TabStripRegionViewTest, NewTabButtonInkDrop) {
-  if (features::IsChromeRefresh2023()) {
-    GTEST_SKIP();
-  }
+TEST_P(TabStripRegionViewTest, DISABLED_NewTabButtonInkDrop) {
   constexpr int kTabStripRegionViewWidth = 500;
   tab_strip_region_view_->SetBounds(0, 0, kTabStripRegionViewWidth,
                                     GetLayoutConstant(TAB_STRIP_HEIGHT));

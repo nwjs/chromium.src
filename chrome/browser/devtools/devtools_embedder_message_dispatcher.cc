@@ -153,6 +153,10 @@ bool GetValue(const base::Value& value, ClickEvent* event) {
   if (mouse_button) {
     event->mouse_button = *mouse_button;
   }
+  std::optional<int> double_click = value.GetDict().FindInt("doubleClick");
+  if (double_click) {
+    event->double_click = *double_click;
+  }
   std::optional<int> context = value.GetDict().FindInt("context");
   if (context) {
     event->context = *context;
@@ -453,13 +457,12 @@ DevToolsEmbedderMessageDispatcher::CreateForDevToolsFrontend(
   d->RegisterHandlerWithCallback("showSurvey", &Delegate::ShowSurvey, delegate);
   d->RegisterHandlerWithCallback("canShowSurvey", &Delegate::CanShowSurvey,
                                  delegate);
-  if (base::FeatureList::IsEnabled(::features::kDevToolsConsoleInsights) ||
-      base::FeatureList::IsEnabled(
-          ::features::kDevToolsConsoleInsightsDogfood)) {
+  if (base::FeatureList::IsEnabled(::features::kDevToolsConsoleInsights)) {
     d->RegisterHandlerWithCallback("doAidaConversation",
                                    &Delegate::DoAidaConversation, delegate);
-    d->RegisterHandler("registerAidaClientEvent",
-                       &Delegate::RegisterAidaClientEvent, delegate);
+    d->RegisterHandlerWithCallback("registerAidaClientEvent",
+                                   &Delegate::RegisterAidaClientEvent,
+                                   delegate);
   }
   return d;
 }

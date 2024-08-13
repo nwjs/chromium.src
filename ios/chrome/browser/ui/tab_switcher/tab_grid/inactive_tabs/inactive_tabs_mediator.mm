@@ -421,11 +421,15 @@ void PopulateConsumerItems(id<TabCollectionConsumer> consumer,
   NOTREACHED_NORETURN();
 }
 
+- (void)deleteTabGroup:(const TabGroup*)group sourceView:(UIView*)sourceView {
+  NOTREACHED_NORETURN();
+}
+
 - (void)closeTabGroup:(const TabGroup*)group {
   NOTREACHED_NORETURN();
 }
 
-- (void)ungroupTabGroup:(const TabGroup*)group {
+- (void)ungroupTabGroup:(const TabGroup*)group sourceView:(UIView*)sourceView {
   NOTREACHED_NORETURN();
 }
 
@@ -471,7 +475,7 @@ void PopulateConsumerItems(id<TabCollectionConsumer> consumer,
 }
 
 - (void)closeItemWithIdentifier:(GridItemIdentifier*)identifier {
-  CHECK(identifier.type == GridItemType::Tab);
+  CHECK(identifier.type == GridItemType::kTab);
   [self closeItemWithID:identifier.tabSwitcherItem.identifier];
 }
 

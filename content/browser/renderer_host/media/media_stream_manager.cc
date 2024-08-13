@@ -18,6 +18,7 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/not_fatal_until.h"
 #include "base/rand_util.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
@@ -97,6 +98,7 @@
 #include "media/capture/video/chromeos/camera_hal_dispatcher_impl.h"
 #include "media/capture/video/chromeos/jpeg_accelerator_provider.h"
 #include "media/capture/video/chromeos/public/cros_features.h"
+#include "media/capture/video/chromeos/system_event_monitor_impl.h"
 #include "media/capture/video/chromeos/video_capture_device_factory_chromeos.h"
 #endif
 
@@ -1616,15 +1618,16 @@ MediaStreamManager::MediaStreamManager(
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     if (media::ShouldUseCrosCameraService()) {
+      jpeg_accelerator_provider_ =
+          std::make_unique<media::JpegAcceleratorProviderImpl>(
+              base::BindRepeating(
+                  &VideoCaptureDependencies::CreateJpegDecodeAccelerator),
+              base::BindRepeating(
+                  &VideoCaptureDependencies::CreateJpegEncodeAccelerator));
       system_event_monitor_ = std::make_unique<media::SystemEventMonitorImpl>();
       media::VideoCaptureDeviceFactoryChromeOS::SetGpuBufferManager(
           GpuMemoryBufferManagerSingleton::GetInstance());
       media::CameraHalDispatcherImpl::GetInstance()->Start();
-      media::JpegAcceleratorProviderImpl::GetInstance()->Start(
-          base::BindRepeating(
-              &VideoCaptureDependencies::CreateJpegDecodeAccelerator),
-          base::BindRepeating(
-              &VideoCaptureDependencies::CreateJpegEncodeAccelerator));
     }
 #endif
     video_capture_provider = std::make_unique<VideoCaptureProviderSwitcher>(
@@ -2505,7 +2508,7 @@ void MediaStreamManager::CancelRequest(
 void MediaStreamManager::DeleteRequest(
     DeviceRequests::const_iterator request_it) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  DCHECK(request_it != requests_.end());
+  CHECK(request_it != requests_.end(), base::NotFatalUntil::M130);
 
   SendLogMessage(base::StringPrintf("DeleteRequest([label=%s])",
                                     request_it->first.c_str()));
@@ -2618,7 +2621,8 @@ void MediaStreamManager::SetUpRequest(const std::string& label) {
       request->video_type() == MediaStreamType::DISPLAY_VIDEO_CAPTURE ||
       request->video_type() ==
           MediaStreamType::DISPLAY_VIDEO_CAPTURE_THIS_TAB ||
-      request->video_type() == MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET;
+      request->video_type() == MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET ||
+      request->audio_type() == MediaStreamType::DISPLAY_AUDIO_CAPTURE;
   if (is_display_capture && !SetUpDisplayCaptureRequest(request)) {
     FinalizeRequestFailed(request_it,
                           MediaStreamRequestResult::SCREEN_CAPTURE_FAILURE);
@@ -2687,13 +2691,13 @@ bool MediaStreamManager::SetUpDisplayCaptureRequest(DeviceRequest* request) {
   DCHECK(request->video_type() == MediaStreamType::DISPLAY_VIDEO_CAPTURE ||
          request->video_type() ==
              MediaStreamType::DISPLAY_VIDEO_CAPTURE_THIS_TAB ||
-         request->video_type() == MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET);
+         request->video_type() == MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET ||
+         request->audio_type() == MediaStreamType::DISPLAY_AUDIO_CAPTURE);
 
   // getDisplayMedia function does not permit the use of constraints for
   // selection of a source, see
   // https://w3c.github.io/mediacapture-screen-share/#constraints.
-  if (!request->stream_controls().video.requested() ||
-      !request->stream_controls().video.device_ids.empty() ||
+  if (!request->stream_controls().video.device_ids.empty() ||
       !request->stream_controls().audio.device_ids.empty()) {
     LOG(ERROR) << "Invalid display media request.";
     return false;
@@ -3160,7 +3164,7 @@ void MediaStreamManager::FinalizeRequestFailed(
     DeviceRequests::const_iterator request_it,
     MediaStreamRequestResult result) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  DCHECK(request_it != requests_.end());
+  CHECK(request_it != requests_.end(), base::NotFatalUntil::M130);
 
   DeviceRequest* const request = request_it->second.get();
 
@@ -3223,7 +3227,7 @@ void MediaStreamManager::FinalizeMediaAccessRequest(
     DeviceRequests::const_iterator request_it,
     const blink::mojom::StreamDevicesSet& stream_devices_set) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  DCHECK(request_it != requests_.end());
+  CHECK(request_it != requests_.end(), base::NotFatalUntil::M130);
   DeviceRequest* const request = request_it->second.get();
 
   request->FinalizeMediaAccessRequest(request_it->first, stream_devices_set);

@@ -51,8 +51,8 @@
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
 #include "chrome/browser/media/webrtc/system_media_capture_permissions_mac.h"
-#include "chrome/browser/web_applications/app_shim_registry_mac.h"
-#include "chrome/browser/web_applications/os_integration/web_app_shortcut_mac.h"
+#include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
+#include "chrome/browser/web_applications/os_integration/mac/web_app_shortcut_mac.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #endif
 
@@ -262,7 +262,8 @@ bool ChromePageInfoUiDelegate::ShouldShowSettingsLinkForPermission(
     case ContentSettingsType::MEDIASTREAM_CAMERA:
       if (base::FeatureList::IsEnabled(
               content_settings::features::kLeftHandSideActivityIndicators) &&
-          SystemPermissionSettings::Create()->IsPermissionDenied(type)) {
+          SystemPermissionSettings::GetInstance() &&
+          SystemPermissionSettings::GetInstance()->IsDenied(type)) {
         *text_id = IDS_PAGE_INFO_CAMERA_SYSTEM_SETTINGS_DESCRIPTION;
         *link_id = IDS_PAGE_INFO_SETTINGS_OF_A_SYSTEM_LINK;
         return true;
@@ -271,7 +272,8 @@ bool ChromePageInfoUiDelegate::ShouldShowSettingsLinkForPermission(
     case ContentSettingsType::MEDIASTREAM_MIC:
       if (base::FeatureList::IsEnabled(
               content_settings::features::kLeftHandSideActivityIndicators) &&
-          SystemPermissionSettings::Create()->IsPermissionDenied(type)) {
+          SystemPermissionSettings::GetInstance() &&
+          SystemPermissionSettings::GetInstance()->IsDenied(type)) {
         *text_id = IDS_PAGE_INFO_MICROPHONE_SYSTEM_SETTINGS_DESCRIPTION;
         *link_id = IDS_PAGE_INFO_SETTINGS_OF_A_SYSTEM_LINK;
         return true;
@@ -283,7 +285,8 @@ bool ChromePageInfoUiDelegate::ShouldShowSettingsLinkForPermission(
 }
 
 void ChromePageInfoUiDelegate::SettingsLinkClicked(ContentSettingsType type) {
-  SystemPermissionSettings::Create()->OpenSystemSettings(web_contents_, type);
+  SystemPermissionSettings::GetInstance()->OpenSystemSettings(web_contents_,
+                                                              type);
 }
 
 bool ChromePageInfoUiDelegate::IsBlockAutoPlayEnabled() {

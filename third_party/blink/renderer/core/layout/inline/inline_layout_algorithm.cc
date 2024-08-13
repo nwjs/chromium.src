@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/layout/inline/inline_layout_algorithm.h"
 
 #include <memory>
@@ -181,9 +186,6 @@ class LineBreakStrategy {
         return;
       }
     }
-
-    UMA_HISTOGRAM_TIMES("Renderer.Layout.TextWrapBalance.Fail",
-                        timer.Elapsed());
   }
 
   void Optimize(const InlineNode& node,
@@ -202,8 +204,6 @@ class LineBreakStrategy {
     if (UNLIKELY(!line_widths.Set(node, opportunities, break_token))) {
       // The next line may have less opportunities that keep running, without
       // suspending the context.
-      UMA_HISTOGRAM_TIMES("Renderer.Layout.TextWrapPretty.Fail",
-                          timer.Elapsed());
       return;
     }
     ScoreLineBreaker optimizer(node, space, line_widths, break_token,
@@ -215,9 +215,6 @@ class LineBreakStrategy {
     }
     if (!score_line_break_context_->GetLineBreakPoints().empty()) {
       UMA_HISTOGRAM_TIMES("Renderer.Layout.TextWrapPretty", timer.Elapsed());
-    } else {
-      UMA_HISTOGRAM_TIMES("Renderer.Layout.TextWrapPretty.Fail",
-                          timer.Elapsed());
     }
   }
 
@@ -1457,7 +1454,8 @@ PositionedFloat InlineLayoutAlgorithm::PositionFloat(
       /* break_token */ nullptr, space.AvailableSize(),
       space.PercentageResolutionSize(),
       space.ReplacedPercentageResolutionSize(), origin_bfc_offset, space,
-      Style(), is_hidden_for_paint);
+      Style(), space.FragmentainerBlockSize(), space.FragmentainerOffset(),
+      is_hidden_for_paint);
 
   PositionedFloat positioned_float =
       ::blink::PositionFloat(&unpositioned_float, exclusion_space);

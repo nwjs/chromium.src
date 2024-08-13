@@ -27,11 +27,16 @@ TEST(PrintBackendWinTest, GetPrintableAreaSamePaper) {
 
   std::string printer_name;
   mojom::ResultCode result = backend->GetDefaultPrinterName(printer_name);
-  ASSERT_EQ(mojom::ResultCode::kSuccess, result);
+  if (result != mojom::ResultCode::kSuccess || printer_name.empty()) {
+    GTEST_SKIP() << "Printing with real drivers not available";
+  }
 
   PrinterSemanticCapsAndDefaults caps;
-  EXPECT_EQ(mojom::ResultCode::kSuccess,
-            backend->GetPrinterSemanticCapsAndDefaults(printer_name, &caps));
+  result = backend->GetPrinterSemanticCapsAndDefaults(printer_name, &caps);
+  if (result != mojom::ResultCode::kSuccess) {
+    GTEST_SKIP()
+        << "Invalid real print driver configuration, printer is not available";
+  }
   EXPECT_EQ(1u, load_printable_area_call_count);
 
   // Request printable area for the same default paper size.  This should use
@@ -53,7 +58,9 @@ TEST(PrintBackendWinTest, GetPrintableAreaDifferentPaper) {
 
   std::string printer_name;
   mojom::ResultCode result = backend->GetDefaultPrinterName(printer_name);
-  ASSERT_EQ(mojom::ResultCode::kSuccess, result);
+  if (result != mojom::ResultCode::kSuccess || printer_name.empty()) {
+    GTEST_SKIP() << "Printing with real drivers not available";
+  }
 
   PrinterSemanticCapsAndDefaults caps;
   EXPECT_EQ(mojom::ResultCode::kSuccess,

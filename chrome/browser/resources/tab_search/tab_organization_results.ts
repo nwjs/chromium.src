@@ -13,7 +13,6 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {mojoString16ToString} from 'chrome://resources/js/mojo_type_util.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
-import type {IronSelectorElement} from 'chrome://resources/polymer/v3_0/iron-selector/iron-selector.js';
 
 import type {TabOrganizationGroupElement} from './tab_organization_group.js';
 import {getCss} from './tab_organization_results.css.js';
@@ -21,7 +20,7 @@ import {getHtml} from './tab_organization_results.html.js';
 import type {TabOrganization, TabOrganizationSession} from './tab_search.mojom-webui.js';
 
 const MINIMUM_SCROLLABLE_MAX_HEIGHT: number = 204;
-const NON_SCROLLABLE_VERTICAL_SPACING: number = 120;
+const NON_SCROLLABLE_VERTICAL_SPACING: number = 212;
 
 export interface TabOrganizationResultsElement {
   $: {
@@ -29,7 +28,6 @@ export interface TabOrganizationResultsElement {
     header: HTMLElement,
     learnMore: HTMLElement,
     scrollable: HTMLElement,
-    selector: IronSelectorElement,
   };
 }
 
@@ -71,7 +69,12 @@ export class TabOrganizationResultsElement extends CrLitElement {
     super.willUpdate(changedProperties);
 
     if (changedProperties.has('session')) {
-      this.feedbackSelectedOption_ = CrFeedbackOption.UNSPECIFIED;
+      const changedSession = changedProperties.get('session');
+      if (changedSession &&
+          (!this.session ||
+           changedSession.sessionId !== this.session.sessionId)) {
+        this.feedbackSelectedOption_ = CrFeedbackOption.UNSPECIFIED;
+      }
     }
   }
 
@@ -91,6 +94,20 @@ export class TabOrganizationResultsElement extends CrLitElement {
     this.$.scrollable.addEventListener('scroll', this.updateScroll_.bind(this));
   }
 
+  getTitle(): string {
+    if (this.missingActiveTab_()) {
+      return loadTimeData.getString('successMissingActiveTabTitle');
+    }
+    if (this.multiTabOrganization) {
+      if (this.hasMultipleOrganizations_()) {
+        return loadTimeData.getStringF(
+            'successTitleMulti', this.getOrganizations_().length);
+      }
+      return loadTimeData.getString('successTitleSingle');
+    }
+    return loadTimeData.getString('successTitle');
+  }
+
   focusInput() {
     const group = this.shadowRoot!.querySelector('tab-organization-group');
     if (!group) {
@@ -106,18 +123,19 @@ export class TabOrganizationResultsElement extends CrLitElement {
     scrollable.classList.toggle('is-scrolled', scrollable.scrollTop > 0);
     scrollable.classList.toggle(
         'scrolled-to-bottom',
-        scrollable.scrollTop + scrollable.clientHeight >=
-            scrollable.scrollHeight);
+        scrollable.clientHeight === 0 ||
+            scrollable.scrollTop + scrollable.clientHeight >=
+                scrollable.scrollHeight);
   }
 
-  protected getErrorTitle_(): string {
+  protected missingActiveTab_(): boolean {
     if (!this.session) {
-      return '';
+      return false;
     }
 
     const id = this.session.activeTabId;
     if (id === -1) {
-      return '';
+      return false;
     }
     let foundTab = false;
     this.getOrganizations_().forEach(organization => {
@@ -128,20 +146,9 @@ export class TabOrganizationResultsElement extends CrLitElement {
       });
     });
     if (foundTab) {
-      return '';
+      return false;
     }
-    return loadTimeData.getString('successMissingActiveTabTitle');
-  }
-
-  protected getTitle_(): string {
-    if (this.multiTabOrganization) {
-      if (this.hasMultipleOrganizations_()) {
-        return loadTimeData.getStringF(
-            'successTitleMulti', this.getOrganizations_().length);
-      }
-      return loadTimeData.getString('successTitleSingle');
-    }
-    return loadTimeData.getString('successTitle');
+    return true;
   }
 
   protected getOrganizations_(): TabOrganization[] {

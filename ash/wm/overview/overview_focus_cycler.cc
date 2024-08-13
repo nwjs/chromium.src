@@ -6,12 +6,15 @@
 
 #include "ash/shell.h"
 #include "ash/style/rounded_label_widget.h"
+#include "ash/wm/desks/desk_preview_view.h"
 #include "ash/wm/overview/overview_grid.h"
+#include "ash/wm/overview/overview_item_view.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/window_properties.h"
 #include "ash/wm/window_util.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/widget/widget_observer.h"
@@ -92,6 +95,31 @@ class ScopedActivatable : public views::WidgetObserver {
     observation_.Reset();
   }
 
+  void OnWidgetActivationChanged(views::Widget* widget, bool active) override {
+    if (!active) {
+      return;
+    }
+
+    // If an overview item received focus, we need to restack the original
+    // window above the overview item widget, otherwise the overview backdrop
+    // would end up covering the original window.
+    auto* item_view =
+        views::AsViewClass<OverviewItemView>(widget->GetContentsView());
+    if (!item_view) {
+      return;
+    }
+
+    OverviewItemBase* item = item_view->GetOverviewItem();
+    if (!item) {
+      return;
+    }
+
+    aura::Window* parent = widget->GetNativeWindow()->parent();
+    if (parent == item->GetWindow()->parent()) {
+      parent->StackChildAbove(item->GetWindow(), widget->GetNativeWindow());
+    }
+  }
+
  private:
   base::ScopedObservation<views::Widget, views::WidgetObserver> observation_{
       this};
@@ -141,9 +169,9 @@ void OverviewFocusCycler::MoveFocus(bool reverse) {
   // here since it's not an overview UI.
   if ((reverse && previous_index == 0) ||
       (!reverse && previous_index == size - 1)) {
-    bool ignore_activations = overview_session_->ignore_activations();
+    const bool ignore_activations = overview_session_->ignore_activations();
     overview_session_->set_ignore_activations(true);
-    bool focused_toast =
+    const bool focused_toast =
         DesksController::Get()->RequestFocusOnUndoDeskRemovalToast();
     overview_session_->set_ignore_activations(ignore_activations);
     if (focused_toast) {
@@ -156,6 +184,24 @@ void OverviewFocusCycler::MoveFocus(bool reverse) {
   const int next_index = AdvanceIndex(previous_index, size, reverse);
   ScopedActivatable scoped_activatable(widgets[next_index]);
   GetFirstOrLastFocusableView(widgets[next_index], reverse)->RequestFocus();
+}
+
+bool OverviewFocusCycler::AcceptSelection() {
+  views::View* focused_view = GetOverviewFocusedView();
+  if (!focused_view) {
+    return false;
+  }
+
+  if (auto* preview_view = views::AsViewClass<DeskPreviewView>(focused_view)) {
+    return preview_view->MaybeActivateFocusedViewOnOverviewExit(
+        overview_session_);
+  }
+
+  if (auto* item_view = views::AsViewClass<OverviewItemView>(focused_view)) {
+    return item_view->MaybeActivateFocusedViewOnOverviewExit(overview_session_);
+  }
+
+  return false;
 }
 
 views::View* OverviewFocusCycler::GetOverviewFocusedView() {
@@ -216,7 +262,8 @@ std::vector<views::Widget*> OverviewFocusCycler::GetTraversableWidgets(
 
   auto maybe_add_widget = [for_accessibility,
                            &traversable_widgets](views::Widget* widget) {
-    if (!widget) {
+    if (!widget ||
+        widget->GetNativeWindow()->layer()->GetTargetOpacity() == 0.f) {
       return;
     }
 
@@ -240,15 +287,18 @@ std::vector<views::Widget*> OverviewFocusCycler::GetTraversableWidgets(
   maybe_add_widget(overview_session_->overview_focus_widget());
 
   for (const auto& grid : overview_session_->grid_list()) {
-    for (const auto& item : grid->window_list()) {
-      maybe_add_widget(item->item_widget());
+    for (const auto& item : grid->item_list()) {
+      // There may be two widgets if the item is a snap group item.
+      for (views::Widget* item_widget : item->GetFocusableWidgets()) {
+        maybe_add_widget(item_widget);
+      }
     }
+    maybe_add_widget(grid->saved_desk_library_widget());
     maybe_add_widget(grid->desks_widget());
     maybe_add_widget(grid->save_desk_button_container_widget());
-    maybe_add_widget(grid->pine_widget());
+    maybe_add_widget(grid->informed_restore_widget());
     maybe_add_widget(grid->birch_bar_widget());
-    maybe_add_widget(grid->saved_desk_library_widget());
-    maybe_add_widget(grid->faster_splitview_widget());
+    maybe_add_widget(grid->split_view_setup_widget());
     maybe_add_widget(grid->no_windows_widget());
   }
   return traversable_widgets;

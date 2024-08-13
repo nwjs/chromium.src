@@ -28,6 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/inspector/inspector_network_agent.h"
 
 #include <memory>
@@ -220,11 +225,10 @@ class InspectorFileReaderLoaderClient final
     return FileErrorCode::kOK;
   }
 
-  FileErrorCode DidReceiveData(const char* data,
-                               unsigned data_length) override {
-    if (!data_length)
-      return FileErrorCode::kOK;
-    raw_data_.Append(data, data_length);
+  FileErrorCode DidReceiveData(base::span<const uint8_t> data) override {
+    if (!data.empty()) {
+      raw_data_.Append(data);
+    }
     return FileErrorCode::kOK;
   }
 
@@ -1403,7 +1407,7 @@ void InspectorNetworkAgent::PrepareRequest(DocumentLoader* loader,
       // for this request to assure the request will be allowed.
       // TODO: Should we store the referrer header somewhere other than
       // |extra_request_headers_|?
-      if (header_name.LowerASCII() == http_names::kReferer.LowerASCII()) {
+      if (EqualIgnoringASCIICase(header_name, http_names::kReferer)) {
         request.SetReferrerString(value);
         request.SetReferrerPolicy(network::mojom::ReferrerPolicy::kAlways);
       } else {

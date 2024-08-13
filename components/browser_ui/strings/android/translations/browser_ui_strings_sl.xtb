@@ -113,6 +113,7 @@
 <translation id="2891975107962658722">Blokiranje spletnim mestom shranjevanje podatkov v napravi.</translation>
 <translation id="2903493209154104877">Naslovi</translation>
 <translation id="2910701580606108292">Prikaži poziv, preden se spletnim mestom dovoli predvajanje zaščitene vsebine</translation>
+<translation id="2918484639460781603">Pojdi v nastavitve</translation>
 <translation id="2932883381142163287">Prijavite zlorabo</translation>
 <translation id="2939338015096024043">Če je ta možnost vklopljena, spletna mesta lahko zahtevajo spremljanje položaja kamere in pridobivanje informacij o vaši okolici. Če je ta možnost izklopljena, spletna mesta ne smejo spremljati položaja kamere ali pridobivati informacij o vaši okolici.</translation>
 <translation id="2968755619301702150">Pregledovalnik potrdil</translation>
@@ -171,6 +172,7 @@
 <translation id="385051799172605136">Nazaj</translation>
 <translation id="3859306556332390985">Išči naprej</translation>
 <translation id="3895926599014793903">Vsili povečavo</translation>
+<translation id="3905475044299942653">Ustavitev veliko obvestil</translation>
 <translation id="3908288065506437185">Blokiranje piškotkov tretjih oseb v anonimnem načinu.</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" />, <ph name="SEPARATOR1" />, <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Nekatere funkcije morda ne bodo delovale. Povezana spletna mesta lahko še vedno uporabljajo piškotke tretjih oseb.</translation>
@@ -218,6 +220,7 @@
 <translation id="4751476147751820511">Tipala za gibanje in svetlobo</translation>
 <translation id="4755971844837804407">Če je ta možnost vklopljena, vam spletna mesta lahko prikazujejo kateri koli oglas. Če je ta možnost izklopljena, spletna mesta ne smejo prikazovati vsiljivih ali zavajajočih oglasov.</translation>
 <translation id="4779083564647765204">Povečaj</translation>
+<translation id="4807122856660838973">Vklop Varnega brskanja</translation>
 <translation id="4811450222531576619">Preberite več o njenem viru in temi</translation>
 <translation id="4836046166855586901">Vprašaj, ko želi spletno mesto vedeti, kdaj aktivno uporabljate to napravo.</translation>
 <translation id="483914009762354899">Vključi vsa spletna mesta v tej domeni</translation>
@@ -231,6 +234,7 @@
 <translation id="4994033804516042629">Ni najdenih stikov</translation>
 <translation id="4996978546172906250">Skupna raba prek</translation>
 <translation id="5001526427543320409">Piškotki tretjih oseb</translation>
+<translation id="5007392906805964215">Pregled</translation>
 <translation id="5039804452771397117">Dovoli</translation>
 <translation id="5048398596102334565">Spletnim mestom dovoli dostop do tipal gibanja (priporočeno)</translation>
 <translation id="5050380848339752099">To spletno mesto bo delilo podatke z aplikacijo zunaj anonimnega načina.</translation>
@@ -281,6 +285,7 @@
 <translation id="5706552988683188916">S tem izbrišete piškotke in druge podatke spletnega mesta za <ph name="WEBSITE" />.</translation>
 <translation id="5723967018671998714">Piškotki drugih spletnih mest so blokirani v anonimnem načinu</translation>
 <translation id="5740126560802162366">Spletna mesta lahko shranjujejo podatke v napravi.</translation>
+<translation id="5749085587985334212">Skrij varnostno preverjanje</translation>
 <translation id="5771720122942595109">Blokirano: <ph name="PERMISSION_1" /></translation>
 <translation id="5804241973901381774">Dovoljenja</translation>
 <translation id="5844448279347999754">Če je ta možnost vklopljena, spletna mesta lahko zahtevajo ogled besedila in slik, shranjenih v odložišču. Če je ta možnost izklopljena, si spletna mesta ne smejo ogledati besedila ali slik, shranjenih v odložišču.</translation>
@@ -361,6 +366,7 @@
 <translation id="6945221475159498467">Izberi</translation>
 <translation id="6950072572526089586">Spletno mesto, ki ga obiščete, lahko shranjuje podatke o tem, kaj počnete, da lahko deluje po pričakovanjih – poskrbi na primer, da ostanete prijavljeni na spletnem mestu, ali shranjuje izdelke v nakupovalni košarici. Spletna mesta te podatke pogosto začasno shranijo v vaši napravi.</translation>
 <translation id="6965382102122355670">V redu</translation>
+<translation id="6980861169612950611">Želite izbrisati podatke spletnega mesta? <ph name="SITE_NAME" /></translation>
 <translation id="6981982820502123353">Dostopnost</translation>
 <translation id="6992289844737586249">Prikaži poziv, preden se spletnim mestom dovoli uporaba mikrofona (priporočeno)</translation>
 <translation id="7000754031042624318">Izklopljeno v nastavitvah za Android</translation>
@@ -388,6 +394,7 @@
 <translation id="7366415735885268578">Dodajanje spletnega mesta</translation>
 <translation id="7368695150573390554">Vsi podatki brez povezave bodo izbrisani</translation>
 <translation id="7383715096023715447">Nastavitve za domeno <ph name="DOMAIN" /></translation>
+<translation id="7399802613464275309">Varnostno preverjanje</translation>
 <translation id="7406113532070524618">Ta nastavitev deluje, ne da bi prišlo do vaše osebne prepoznave ali da bi bil spletnim mestom omogočen ogled vaše zgodovine brskanja. vendar lahko spletna mesta v okviru preverjanja delijo majhno količino podatkov.</translation>
 <translation id="7423098979219808738">Najprej vprašaj</translation>
 <translation id="7423538860840206698">Blokirano branje vsebine odložišča</translation>
@@ -456,6 +463,7 @@
 <translation id="8441146129660941386">Išči nazaj</translation>
 <translation id="8444433999583714703">Če želite aplikaciji <ph name="APP_NAME" /> omogočiti dostop do lokacije, lokacijo vklopite tudi v <ph name="BEGIN_LINK" />nastavitvah za Android<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Umik dovoljenja za dostop do naprave</translation>
+<translation id="8473055640493819707">Aplikacija »<ph name="APP_NAME" />« je zastarela. Znova jo namestite.</translation>
 <translation id="8487700953926739672">Na voljo brez povezave</translation>
 <translation id="848952951823693243">Vedno zahtevaj spletno mesto za mobilne naprave</translation>
 <translation id="8499083585497694743">Vklopi mikrofon</translation>
@@ -472,6 +480,7 @@
 <translation id="8681886425883659911">Oglasi so blokirani na spletnih mestih, za katera je znano, da prikazujejo vsiljive ali zavajajoče oglase.</translation>
 <translation id="868929229000858085">Iskanje po stikih</translation>
 <translation id="8712637175834984815">Razumem</translation>
+<translation id="8715862698998036666">Za izhod iz celozaslonskega načina povlecite z vrha in levega ali desnega roba.</translation>
 <translation id="8719283222052720129">V <ph name="BEGIN_LINK" />nastavitvah za Android<ph name="END_LINK" /> vklopite dovoljenje za aplikacijo <ph name="APP_NAME" />.</translation>
 <translation id="8721719390026067591">Če je ta možnost vklopljena, spletna mesta lahko zahtevajo iskanje naprav Bluetooth. Če je ta možnost izklopljena, spletna mesta ne smejo iskati naprav Bluetooth.</translation>
 <translation id="8725066075913043281">Poskusite znova</translation>

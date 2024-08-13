@@ -130,25 +130,15 @@ BASE_DECLARE_FEATURE(kEnforcePrivacySandboxAttestations);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kDefaultAllowPrivacySandboxAttestations);
 
-// Enables the sentinel file guard for Privacy Sandbox Attestations.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxAttestationSentinel);
-
 // Gives a list of sites permission to use Privacy Sandbox features without
 // being officially enrolled.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const char kPrivacySandboxEnrollmentOverrides[];
 
-// Allow the Privacy Sandbox Attestations component registration to use
-// `USER_VISIBLE` task priority.
+// Allow the Privacy Sandbox Attestations component to load the pre-installed
+// attestation list.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(
-    kPrivacySandboxAttestationsHigherComponentRegistrationPriority);
-
-// Allow the Privacy Sandbox Attestations component registration to use
-// `USER_BLOCKING` task priority.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxAttestationsUserBlockingPriority);
+BASE_DECLARE_FEATURE(kPrivacySandboxAttestationsLoadPreInstalledComponent);
 
 // Enables Privacy Sandbox Proactive Topics Blocking.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -160,10 +150,6 @@ extern const char kPrivacySandboxProactiveTopicsBlockingIncludeModeBName[];
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<bool>
     kPrivacySandboxProactiveTopicsBlockingIncludeModeB;
-
-// Enables showing the rollback notice for Tracking Protection in settings.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kTrackingProtectionSettingsPageRollbackNotice);
 
 #if BUILDFLAG(IS_ANDROID)
 // Triggers Tracking Protection Onboarding notice for 100% launch.
@@ -196,6 +182,11 @@ BASE_DECLARE_FEATURE(kRelatedWebsiteSetsDevUI);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kFingerprintingProtectionSetting);
 
+// Enables displaying fingerprinting protection status in User Bypass and Page
+// Info.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<bool> kUserBypassFingerprintingProtection;
+
 // Enables fingerprinting protection setting UX.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kFingerprintingProtectionUx);
@@ -203,6 +194,10 @@ BASE_DECLARE_FEATURE(kFingerprintingProtectionUx);
 // Enables IP Protection setting behavior.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kIpProtectionV1);
+
+// Enables displaying IP protection status in User Bypass and Page Info.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<bool> kUserBypassIpProtection;
 
 // Enables showing IP Protection toggle on the settings page.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -246,6 +241,14 @@ BASE_DECLARE_FEATURE(kTrackingProtectionUserBypassPwaTrigger);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPsRedesignAdPrivacyPage);
 
+// Enabled Tracking Protection Onboarding for the full 3PCD rollout.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kTrackingProtectionOnboarding);
+
+// Enables Blocking Third Party Cookies as part of the full 3PCD rollout.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<bool> kTrackingProtectionBlock3PC;
+
 // Enables setting the toggles on the top-level Ad Privacy page.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<bool> kPsRedesignAdPrivacyPageEnableToggles;
@@ -257,6 +260,25 @@ BASE_DECLARE_FEATURE(kTrackingProtectionReminder);
 // Defines if the reminder should be silent.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<bool> kTrackingProtectionIsSilentReminder;
+
+// Defines the required delay after onboarding to see a reminder.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kTrackingProtectionReminderDelay;
+
+// Enables tracking protection HaTS surveys.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kTrackingProtectionSentimentSurvey);
+
+// Defines the time delta from the survey anchor to the start of the surveying
+// window.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kTrackingProtectionTimeToSurvey;
+
+// Defines the anchor event for the start of the surveying window.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<int> kTrackingProtectionSurveyAnchor;
 
 // Enables Activity Type Storage
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -281,6 +303,10 @@ COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<int>
     kPrivacySandboxActivityTypeStorageWithinXDays;
 
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<bool>
+    kPrivacySandboxActivityTypeStorageSkipPreFirstTab;
+
 // Disables the Privacy Sandbox Ads Dialog when all 3pc are blocked.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxAdsDialogDisabledOnAll3PCBlock);
@@ -297,6 +323,17 @@ BASE_DECLARE_FEATURE(kPrivacySandboxLocalNoticeConfirmation);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<bool>
     kPrivacySandboxLocalNoticeConfirmationDefaultToOSCountry;
+
+// Details the event that the survey window start time should be anchored on.
+enum class TrackingProtectionSurveyAnchor {
+  kUnset = 0,
+  kOnboarding = 1,
+  kFullExperience = 2,
+  kMaxValue = kFullExperience,
+};
+
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kPrivacySandboxMigratePrefsToNoticeConsentDataModel);
 
 }  // namespace privacy_sandbox
 

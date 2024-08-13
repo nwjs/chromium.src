@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/webauthn/pin_textfield.h"
 
+#include "base/i18n/rtl.h"
 #include "base/strings/strcat.h"
 #include "ui/base/ime/text_input_type.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -12,6 +13,7 @@
 #include "ui/gfx/font_list.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/render_text.h"
 #include "ui/views/border.h"
 #include "ui/views/style/typography.h"
@@ -21,9 +23,10 @@
 namespace {
 
 // Size specs of a pin cell.
-constexpr int kCellWidth = 28;
+constexpr int kCellWidth = 30;
 constexpr int kCellHeight = 36;
 constexpr int kCellSpacing = 8;
+constexpr float kCellRadius = 8.0;
 
 // Creates obscured render text for displaying a glyph in a specific pin cell.
 std::unique_ptr<gfx::RenderText> CreatePinDigitRenderText(
@@ -139,17 +142,29 @@ void PinTextfield::OnPaint(gfx::Canvas* canvas) {
     float stroke_width = HasCellFocus(i) ? 2.f : 1.f;
     paint_flags.setStrokeWidth(stroke_width);
 
-    gfx::Rect cell_rect(i * (kCellWidth + kCellSpacing), 0, kCellWidth,
-                        kCellHeight);
+    // Drawing is adjusted in RTL so that the first cell is drawn rightmost.
+    int index_rtl_adjusted =
+        base::i18n::IsRTL() ? pin_digits_count_ - i - 1 : i;
+    gfx::Rect cell_rect(index_rtl_adjusted * (kCellWidth + kCellSpacing), 0,
+                        kCellWidth, kCellHeight);
+
+    // Make sure background is not drawn outside of the rounded cell.
+    SkPath path;
+    path.addRoundRect(gfx::RectToSkRect(cell_rect), kCellRadius, kCellRadius);
+    canvas->Save();
+    canvas->ClipPath(path, /*do_anti_alias=*/true);
+
     // Draw cell background.
     canvas->FillRect(cell_rect, background_color);
     // Draw cell border.
     gfx::RectF cell_rect_f(cell_rect);
     cell_rect_f.Inset(stroke_width / 2.f);
-    canvas->DrawRoundRect(cell_rect_f, 2.f, paint_flags);
+    canvas->DrawRoundRect(cell_rect_f, kCellRadius, paint_flags);
     // Draw cell text.
     render_texts_[i]->SetDisplayRect(cell_rect);
     render_texts_[i]->Draw(canvas);
+
+    canvas->Restore();
   }
 }
 

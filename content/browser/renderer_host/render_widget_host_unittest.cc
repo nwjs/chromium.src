@@ -23,6 +23,7 @@
 #include "build/build_config.h"
 #include "cc/mojom/render_frame_metadata.mojom.h"
 #include "cc/trees/render_frame_metadata.h"
+#include "components/input/switches.h"
 #include "components/viz/common/surfaces/local_surface_id.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
 #include "components/viz/test/begin_frame_args_test.h"
@@ -31,7 +32,6 @@
 #include "content/browser/renderer_host/data_transfer_util.h"
 #include "content/browser/renderer_host/display_feature.h"
 #include "content/browser/renderer_host/frame_token_message_queue.h"
-#include "content/browser/renderer_host/input/mock_input_router.h"
 #include "content/browser/renderer_host/input/touch_emulator_impl.h"
 #include "content/browser/renderer_host/mock_render_widget_host.h"
 #include "content/browser/renderer_host/render_view_host_delegate_view.h"
@@ -235,6 +235,7 @@ class TestView : public TestRenderWidgetHostView {
   }
   void GestureEventAck(
       const WebGestureEvent& event,
+      blink::mojom::InputEventResultSource ack_source,
       blink::mojom::InputEventResultState ack_result) override {
     gesture_event_type_ = event.GetType();
     ack_result_ = ack_result;
@@ -563,7 +564,7 @@ class RenderWidgetHostTest : public testing::Test {
   // testing::Test
   void SetUp() override {
     base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-    command_line->AppendSwitch(switches::kValidateInputEventStream);
+    command_line->AppendSwitch(input::switches::kValidateInputEventStream);
     browser_context_ = std::make_unique<TestBrowserContext>();
     delegate_ = std::make_unique<MockRenderWidgetHostDelegate>();
     process_ =
@@ -776,7 +777,7 @@ class RenderWidgetHostTest : public testing::Test {
   void SimulateGestureEventWithLatencyInfo(WebInputEvent::Type type,
                                            WebGestureDevice sourceDevice,
                                            const ui::LatencyInfo& ui_latency) {
-    host_->ForwardGestureEventWithLatencyInfo(
+    host_->GetRenderInputRouter()->ForwardGestureEventWithLatencyInfo(
         blink::SyntheticWebGestureEventBuilder::Build(type, sourceDevice),
         ui_latency);
   }
@@ -926,7 +927,7 @@ TEST_F(RenderWidgetHostTest, SynchronizeVisualProperties) {
   ClearVisualProperties();
 
   // The zoom has changed so host should send out a sync message.
-  double new_zoom_level = blink::PageZoomFactorToZoomLevel(0.25);
+  double new_zoom_level = blink::ZoomFactorToZoomLevel(0.25);
   delegate_->SetZoomLevel(new_zoom_level);
   EXPECT_TRUE(host_->SynchronizeVisualProperties());
   EXPECT_FALSE(host_->visual_properties_ack_pending_);
@@ -1964,7 +1965,7 @@ TEST_F(RenderWidgetHostTest, InputEventRWHLatencyComponent) {
   CheckLatencyInfoComponentInMessage(dispatched_events,
                                      WebInputEvent::Type::kGestureScrollBegin);
 
-  // Tests RWHI::ForwardGestureEventWithLatencyInfo().
+  // Tests RIR::ForwardGestureEventWithLatencyInfo().
   SimulateGestureEventWithLatencyInfo(WebInputEvent::Type::kGestureScrollUpdate,
                                       blink::WebGestureDevice::kTouchscreen,
                                       ui::LatencyInfo());
@@ -2234,7 +2235,7 @@ TEST_F(RenderWidgetHostTest, EventDispatchPostDetach) {
 
   host_->DetachDelegate();
 
-  // Tests RWHI::ForwardGestureEventWithLatencyInfo().
+  // Tests RIR::ForwardGestureEventWithLatencyInfo().
   SimulateGestureEventWithLatencyInfo(WebInputEvent::Type::kGestureScrollUpdate,
                                       blink::WebGestureDevice::kTouchscreen,
                                       ui::LatencyInfo());

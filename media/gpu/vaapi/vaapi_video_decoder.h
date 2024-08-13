@@ -80,7 +80,7 @@ class VaapiVideoDecoder : public VideoDecoderMixin,
   bool NeedsTranscryption() override;
 
   // VaapiDecodeSurfaceHandler implementation.
-  scoped_refptr<VASurface> CreateSurface() override;
+  std::unique_ptr<VASurfaceHandle> CreateSurface() override;
   void SurfaceReady(VASurfaceID va_surface_id,
                     int32_t buffer_id,
                     const gfx::Rect& visible_rect,
@@ -88,8 +88,11 @@ class VaapiVideoDecoder : public VideoDecoderMixin,
 
   // Must be called before Initialize().
   void set_ignore_resolution_changes_to_smaller_vp9_for_testing(bool value);
+  ~VaapiVideoDecoder() override;
 
  private:
+  friend class VaapiVideoDecoderTest;
+
   // Decode task holding single decode request.
   struct DecodeTask {
     DecodeTask(scoped_refptr<DecoderBuffer> buffer,
@@ -128,7 +131,6 @@ class VaapiVideoDecoder : public VideoDecoderMixin,
       std::unique_ptr<MediaLog> media_log,
       scoped_refptr<base::SequencedTaskRunner> decoder_task_runner,
       base::WeakPtr<VideoDecoderMixin::Client> client);
-  ~VaapiVideoDecoder() override;
 
   // Schedule the next decode task in the queue to be executed.
   void ScheduleNextDecodeTask();
@@ -199,6 +201,13 @@ class VaapiVideoDecoder : public VideoDecoderMixin,
       bool use_linear_buffers,
       bool needs_detiling,
       base::TimeDelta timestamp);
+
+  bool IsConfiguredForTesting() const {
+    // Mock instances of |vaapi_wrapper_| and |decoder_| are created and
+    // injected to VaapiVideoDecoder for testing purposes.
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    return !!vaapi_wrapper_ && !!decoder_;
+  }
 
   // The video decoder's state.
   State state_ GUARDED_BY_CONTEXT(sequence_checker_) = State::kUninitialized;

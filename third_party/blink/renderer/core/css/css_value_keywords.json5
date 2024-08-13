@@ -1065,6 +1065,8 @@
     "horizontal-tb",
     "vertical-rl",
     "vertical-lr",
+    "sideways-rl",
+    "sideways-lr",
 
     // -webkit-ruby-position
     "after",
@@ -1862,7 +1864,7 @@
     "most-block-size",
     "most-inline-size",
 
-    // position-try-options
+    // position-try-fallbacks
     // none
     "flip-block",
     "flip-inline",
@@ -1875,7 +1877,7 @@
     "anchors-visible",
     "no-overflow",
 
-    // reading-order-items
+    // reading-flow
     // normal
     "flex-visual",
     "flex-flow",
@@ -1896,5 +1898,9 @@
 
     // @supports blink-feature(RuntimeEnabledFeatureName)
     "blink-feature",
+
+    // interpolate-size
+    "numeric-only",
+    "allow-keywords",
   ],
 }

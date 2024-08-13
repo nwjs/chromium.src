@@ -14,7 +14,6 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
-import org.chromium.chrome.browser.util.BrowserUiUtils.HostSurface;
 import org.chromium.components.segmentation_platform.ClassificationResult;
 import org.chromium.components.segmentation_platform.InputContext;
 import org.chromium.components.segmentation_platform.PredictionOptions;
@@ -35,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 
 /** The mediator which implements the logic to add, update and remove modules. */
 public class HomeModulesMediator {
-    static final String USE_FRESHNESS_SCORE_PARAM = "use_freshness_score";
     private static final int INVALID_INDEX = -1;
     @VisibleForTesting static final int INVALID_FRESHNESS_SCORE = -1;
 
@@ -82,7 +80,6 @@ public class HomeModulesMediator {
     private Callback<Boolean> mSetVisibilityCallback;
     private long[] mShowModuleStartTimeMs;
     private List<Integer> mModuleListToShow;
-    private @HostSurface int mHostSurface;
     private SegmentationPlatformService mSegmentationPlatformService;
     private Set<Integer> mEnabledModuleSet;
 
@@ -129,8 +126,7 @@ public class HomeModulesMediator {
             long durationMs) {
         // Record only if ranking is fetched from segmentation service.
         if (durationMs > 0) {
-            HomeModulesMetricsUtils.recordSegmentationFetchRankingDuration(
-                    mModuleDelegateHost.getHostSurfaceType(), durationMs);
+            HomeModulesMetricsUtils.recordSegmentationFetchRankingDuration(durationMs);
         }
         if (moduleList == null) {
             onHomeModulesShownCallback.onResult(false);
@@ -167,7 +163,6 @@ public class HomeModulesMediator {
         assert mModel.size() == 0;
         mIsFetchingModules = true;
         mIsShown = true;
-        mHostSurface = moduleDelegate.getHostSurfaceType();
         mModuleListToShow = moduleList;
         cacheRanking(mModuleListToShow);
 
@@ -206,8 +201,8 @@ public class HomeModulesMediator {
             mHandler.postDelayed(this::onModuleFetchTimeOut, MODULE_FETCHING_TIMEOUT_MS);
         } else {
             mIsFetchingModules = false;
-            // If there isn't any module to build, hide the magic stack now to clean up data.
-            hide();
+            // If there isn't any module to build, clean up data now.
+            cleanup();
         }
     }
 
@@ -256,8 +251,7 @@ public class HomeModulesMediator {
         int index = mModuleTypeToRankingIndexMap.get(moduleType);
         long duration = SystemClock.elapsedRealtime() - mShowModuleStartTimeMs[index];
         if (!mIsFetchingModules) {
-            HomeModulesMetricsUtils.recordFetchDataTimeOutDuration(
-                    mHostSurface, moduleType, duration);
+            HomeModulesMetricsUtils.recordFetchDataTimeOutDuration(moduleType, duration);
             return;
         }
 
@@ -301,10 +295,9 @@ public class HomeModulesMediator {
                 // module to clean up.
                 hideModuleOnDataFetchFailed(moduleType);
             }
-            HomeModulesMetricsUtils.recordFetchDataFailedDuration(
-                    mHostSurface, moduleType, duration);
+            HomeModulesMetricsUtils.recordFetchDataFailedDuration(moduleType, duration);
         } else {
-            HomeModulesMetricsUtils.recordFetchDataDuration(mHostSurface, moduleType, duration);
+            HomeModulesMetricsUtils.recordFetchDataDuration(moduleType, duration);
         }
     }
 
@@ -354,8 +347,11 @@ public class HomeModulesMediator {
     /** Adds all of the cached responses to the RecyclerView after time out. */
     @VisibleForTesting
     void onModuleFetchTimeOut() {
-        // It is possible that onModuleFetchTimeOut() is called after home modules hide, early exits
-        // here.
+        finalizeModules(/* forceHide= */ false);
+    }
+
+    private void maybeFinalizeModuleFetch() {
+        // It is possible that maybeFinalizeModuleFetch() has been called before, early exits here.
         if (!mIsFetchingModules) {
             return;
         }
@@ -368,7 +364,7 @@ public class HomeModulesMediator {
             if (hasResult == null) {
                 // Case 1: no response received.
                 @ModuleType int moduleType = mModuleListToShow.get(mModuleResultsWaitingIndex);
-                HomeModulesMetricsUtils.recordFetchDataTimeOutType(mHostSurface, moduleType);
+                HomeModulesMetricsUtils.recordFetchDataTimeOutType(moduleType);
                 hideModuleOnDataFetchFailed(moduleType);
             } else if (hasResult) {
                 // Case 2: received a response with data to show.
@@ -379,12 +375,6 @@ public class HomeModulesMediator {
                 append(cachedResponse);
             }
             mModuleResultsWaitingIndex++;
-        }
-
-        if (mModel.size() == 0) {
-            // It is possible that there isn't any module has data to show, hide the magic stack
-            // now to clean up data.
-            hide();
         }
     }
 
@@ -399,14 +389,14 @@ public class HomeModulesMediator {
         mModel.add(item);
 
         HomeModulesMetricsUtils.recordModuleBuiltPosition(
-                mHostSurface, item.type, mModel.size() - 1, mModuleDelegateHost.isHomeSurface());
+                item.type, mModel.size() - 1, mModuleDelegateHost.isHomeSurface());
 
         if (mModel.size() == 1) {
             mSetVisibilityCallback.onResult(true);
 
             // We use the build time of the first module as the starting time.
             long duration = SystemClock.elapsedRealtime() - mShowModuleStartTimeMs[0];
-            HomeModulesMetricsUtils.recordFirstModuleShownDuration(mHostSurface, duration);
+            HomeModulesMetricsUtils.recordFirstModuleShownDuration(duration);
         }
     }
 
@@ -452,7 +442,7 @@ public class HomeModulesMediator {
         mModuleFetchResultsCache[index] = null;
 
         if (mModel.size() == 0) {
-            hide();
+            cleanup();
         }
         return true;
     }
@@ -462,17 +452,41 @@ public class HomeModulesMediator {
      * stack.
      */
     void hide() {
+        finalizeModules(/* forceHide= */ true);
+    }
+
+    /**
+     * Finalizes module fetching if hasn't completed yet and: 1) hides all showing modules and
+     * cleans up if forceHide is true; 2) cleans up when there isn't any module if forceHide is
+     * false.
+     *
+     * @param forceHide Whether to force hiding all modules if shown.
+     */
+    private void finalizeModules(boolean forceHide) {
         if (!mIsShown) {
             return;
         }
 
+        maybeFinalizeModuleFetch();
+
+        if (forceHide) {
+            for (int i = 0; i < mModel.size(); i++) {
+                int moduleType = mModel.get(i).type;
+                ModuleProvider moduleProvider = mModuleTypeToModuleProviderMap.get(moduleType);
+                moduleProvider.hideModule();
+            }
+            mModel.clear();
+            assert mModel.size() == 0;
+        }
+
+        if (mModel.size() == 0) {
+            cleanup();
+        }
+    }
+
+    private void cleanup() {
         mIsFetchingModules = false;
         mIsShown = false;
-        for (int i = 0; i < mModel.size(); i++) {
-            int moduleType = mModel.get(i).type;
-            ModuleProvider moduleProvider = mModuleTypeToModuleProviderMap.get(moduleType);
-            moduleProvider.hideModule();
-        }
 
         mModuleResultsWaitingIndex = 0;
         mModuleFetchResultsIndicator = null;
@@ -508,7 +522,7 @@ public class HomeModulesMediator {
         }
 
         HomeModulesMetricsUtils.recordHomeModulesScrollState(
-                mHostSurface, mModel.size() > 1, hasHomeModulesBeenScrolled);
+                mModel.size() > 1, hasHomeModulesBeenScrolled);
     }
 
     /** Asks all of the modules being shown to reload their data if necessary. */
@@ -609,21 +623,18 @@ public class HomeModulesMediator {
             ModuleDelegate moduleDelegate,
             Callback<Boolean> onHomeModulesShownCallback,
             Set<Integer> filteredEnabledModuleSet) {
-        // TODO(b/319530611): Convert the API to use on-demand option.
-        PredictionOptions options = new PredictionOptions(false);
         long segmentationServiceCallTimeMs = SystemClock.elapsedRealtime();
 
         mSegmentationPlatformService.getClassificationResult(
                 "android_home_module_ranker",
-                options,
+                /* prediction_options= */ createPredictionOptions(),
                 /* inputContext= */ createInputContext(),
                 result -> {
                     // It is possible that the result is received after the magic stack has been
                     // hidden, exit now.
                     long durationMs = SystemClock.elapsedRealtime() - segmentationServiceCallTimeMs;
                     if (mHomeModulesConfigManager == null) {
-                        HomeModulesMetricsUtils.recordSegmentationFetchRankingDuration(
-                                mModuleDelegateHost.getHostSurfaceType(), durationMs);
+                        HomeModulesMetricsUtils.recordSegmentationFetchRankingDuration(durationMs);
                         return;
                     }
                     buildModulesAndShow(
@@ -641,19 +652,31 @@ public class HomeModulesMediator {
     @VisibleForTesting
     InputContext createInputContext() {
         InputContext inputContext = new InputContext();
-        boolean useFreshnessScore =
-                ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                        ChromeFeatureList.SEGMENTATION_PLATFORM_ANDROID_HOME_MODULE_RANKER,
-                        USE_FRESHNESS_SCORE_PARAM,
-                        false);
-
         for (@ModuleType int moduleType = 0; moduleType < ModuleType.NUM_ENTRIES; moduleType++) {
             inputContext.addEntry(
                     HomeModulesMetricsUtils.getFreshnessInputContextString(moduleType),
-                    ProcessedValue.fromInt(getFreshnessScore(useFreshnessScore, moduleType)));
+                    ProcessedValue.fromFloat(
+                            getFreshnessScore(isHomeModuleRankerV2Enabled(), moduleType)));
         }
 
         return inputContext;
+    }
+
+    /**
+     * Creates an instance of PredictionOptions. If feature flag is enabled generate ondemand
+     * prediction options else will generate cache prediction options.
+     */
+    @VisibleForTesting
+    PredictionOptions createPredictionOptions() {
+        boolean usePredictionOptions = isHomeModuleRankerV2Enabled();
+        if (usePredictionOptions) {
+            return new PredictionOptions(
+                    /* onDemandExecution= */ true,
+                    /* canUpdateCacheForFutureRequests= */ true,
+                    /* fallbackAllowed= */ true);
+        } else {
+            return new PredictionOptions(/* on_demand= */ false);
+        }
     }
 
     /** Returns the freshness score of a module if valid. */
@@ -744,5 +767,10 @@ public class HomeModulesMediator {
 
     boolean getIsShownForTesting() {
         return mIsShown;
+    }
+
+    private boolean isHomeModuleRankerV2Enabled() {
+        return ChromeFeatureList.isEnabled(
+                ChromeFeatureList.SEGMENTATION_PLATFORM_ANDROID_HOME_MODULE_RANKER_V2);
     }
 }

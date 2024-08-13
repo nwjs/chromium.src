@@ -317,7 +317,10 @@ ContentAutofillDriver* ContentAutofillDriver::GetForRenderFrameHost(
   ContentAutofillDriverFactory* factory =
       ContentAutofillDriverFactory::FromWebContents(
           content::WebContents::FromRenderFrameHost(render_frame_host));
-  return factory ? factory->DriverForFrame(render_frame_host) : nullptr;
+  return factory
+             ? factory->DriverForFrame(render_frame_host,
+                                       base::PassKey<ContentAutofillDriver>())
+             : nullptr;
 }
 
 void ContentAutofillDriver::BindPendingReceiver(
@@ -334,7 +337,7 @@ ContentAutofillDriver* ContentAutofillDriver::GetParent() {
   if (!parent_rfh) {
     return nullptr;
   }
-  return owner_->DriverForFrame(parent_rfh);
+  return GetForRenderFrameHost(parent_rfh);
 }
 
 ContentAutofillClient& ContentAutofillDriver::GetAutofillClient() {
@@ -437,15 +440,15 @@ void ContentAutofillDriver::ExtractForm(FormGlobalId form_id,
       form_id, WithNewVersion(std::move(final_handler)));
 }
 
-void ContentAutofillDriver::SendAutofillTypePredictionsToRenderer(
+void ContentAutofillDriver::SendTypePredictionsToRenderer(
     const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms) {
   std::vector<FormDataPredictions> type_predictions =
       FormStructure::GetFieldTypePredictions(forms);
   // TODO(crbug.com/40753022) Send the FormDataPredictions object only if the
   // debugging flag is enabled.
-  RouteToAgent(
-      router(), &AutofillDriverRouter::SendAutofillTypePredictionsToRenderer,
-      &mojom::AutofillAgent::FieldTypePredictionsAvailable, type_predictions);
+  RouteToAgent(router(), &AutofillDriverRouter::SendTypePredictionsToRenderer,
+               &mojom::AutofillAgent::FieldTypePredictionsAvailable,
+               type_predictions);
 }
 
 void ContentAutofillDriver::RendererShouldAcceptDataListSuggestion(

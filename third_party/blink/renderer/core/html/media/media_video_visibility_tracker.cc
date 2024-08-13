@@ -19,6 +19,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/display_item_list.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_artifact.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 
@@ -256,6 +257,61 @@ bool IsContentType(DisplayItem::Type type) {
            type == DisplayItem::kForeignLayerViewportScrollbar);
 }
 
+void RecordVideoOcclusionState(
+    const HTMLVideoElement& video_element,
+    const MediaVideoVisibilityTracker::OcclusionState& occlusion_state,
+    bool has_sufficiently_visible_video,
+    float visibility_threshold) {
+  std::ostringstream occluding_rects_stream;
+  const auto& occluding_rects = occlusion_state.occluding_rects;
+
+  for (wtf_size_t i = 0; i < occluding_rects.size(); ++i) {
+    const auto& rect = gfx::SkIRectToRect(occluding_rects[i]);
+    occluding_rects_stream << String::Format(
+        "[x: %d, y: %d, width: %d, height: %d]", rect.x(), rect.y(),
+        rect.width(), rect.height());
+    if (i >= 0 && i < occluding_rects.size() - 1) {
+      occluding_rects_stream << ", ";
+    }
+  }
+
+  if (occluding_rects_stream.tellp() == 0) {
+    occluding_rects_stream << "None";
+  }
+
+  const auto& intersection_rect = occlusion_state.intersection_rect;
+  const String intersection_rect_string =
+      intersection_rect.IsEmpty()
+          ? "None"
+          : String::Format("x: %d, y: %d, width: %d, height: %d",
+                           intersection_rect.X().ToInt(),
+                           intersection_rect.Y().ToInt(),
+                           intersection_rect.Width().ToInt(),
+                           intersection_rect.Height().ToInt());
+
+  const auto& video_element_rect = occlusion_state.video_element_rect;
+  const String video_element_rect_string =
+      video_element_rect.IsEmpty()
+          ? "None"
+          : String::Format("x: %d, y: %d, width: %d, height: %d",
+                           video_element_rect.X().ToInt(),
+                           video_element_rect.Y().ToInt(),
+                           video_element_rect.Width().ToInt(),
+                           video_element_rect.Height().ToInt());
+
+  const String occlusion_state_string = String::Format(
+      "has sufficiently visible video: {%s}, occluded area: {%.2f}, occluding "
+      "rects: {%s}, intersection rect: {%s}, video element rect: {%s}, "
+      "visibility threshold: {%.2f}",
+      has_sufficiently_visible_video ? "True" : "False",
+      occlusion_state.occluded_area, occluding_rects_stream.str().c_str(),
+      intersection_rect_string.Ascii().c_str(),
+      video_element_rect_string.Ascii().c_str(), visibility_threshold);
+
+  video_element.RecordVideoOcclusionState(
+      occlusion_state_string.Ascii().c_str());
+}
+
 }  // anonymous namespace
 
 MediaVideoVisibilityTracker::MediaVideoVisibilityTracker(
@@ -309,16 +365,6 @@ void MediaVideoVisibilityTracker::Detach() {
   MaybeRemoveFullscreenEventListeners();
 
   tracker_attached_to_document_ = nullptr;
-}
-
-bool MediaVideoVisibilityTracker::ComputeVisibilityOnDemand() {
-  if (!tracker_attached_to_document_) {
-    return false;
-  }
-
-  // TODO(crbug.com/40275580): Implement logic for computing visibility
-  // on-demand.
-  return false;
 }
 
 void MediaVideoVisibilityTracker::UpdateVisibilityTrackerState() {
@@ -397,6 +443,19 @@ void MediaVideoVisibilityTracker::MaybeRemoveFullscreenEventListeners() {
                                                          true);
     }
   }
+}
+
+void MediaVideoVisibilityTracker::RequestVisibility(
+    RequestVisibilityCallback request_visibility_callback) {
+  // Latest requests take precedence over old ones. Therefore, if we had a
+  // pending request, we simply run the current callback with `false` and store
+  // the new one.
+  if (request_visibility_callback_) {
+    std::move(request_visibility_callback_).Run(false);
+  }
+
+  request_visibility_callback_ = std::move(request_visibility_callback);
+  MaybeComputeVisibility(ShouldReportVisibility::kNo);
 }
 
 const MediaVideoVisibilityTracker::ClientIdsSet
@@ -520,22 +579,25 @@ ListBasedHitTestBehavior MediaVideoVisibilityTracker::ComputeOcclusion(
   }
 
   // Only account for the intersection of |node_rect| BoundingBox with
-  // |intersection_rect_|. Note that BoundingBox represents an approximation of
-  // the total area that is painted. The actual painted area can be larger
-  // (e.g., if the object paints drop shadows), or smaller (e.g., if the object
-  // is clipped).
+  // |occlusion_state_.intersection_rect|. Note that BoundingBox represents an
+  // approximation of the total area that is painted. The actual painted area
+  // can be larger (e.g., if the object paints drop shadows), or smaller (e.g.,
+  // if the object is clipped).
   PhysicalRect node_rect = node.BoundingBox();
-  node_rect.Intersect(intersection_rect_);
+  node_rect.Intersect(occlusion_state_.intersection_rect);
 
-  // Add the current occluding node rect to `occluding_rects_` and compute the
-  // total occluded area.
-  occluding_rects_.push_back(gfx::RectToSkIRect(ToPixelSnappedRect(node_rect)));
-  occluded_area_ =
-      ComputeOccludingArea(occluding_rects_, ComputeArea(video_element_rect_));
+  // Add the current occluding node rect to `occlusion_state_.occluding_rects`
+  // and compute the total occluded area.
+  occlusion_state_.occluding_rects.push_back(
+      gfx::RectToSkIRect(ToPixelSnappedRect(node_rect)));
+  occlusion_state_.occluded_area =
+      ComputeOccludingArea(occlusion_state_.occluding_rects,
+                           ComputeArea(occlusion_state_.video_element_rect));
 
   counts.total_hit_tested_nodes_contributing_to_occlusion++;
 
-  if (HasEnoughVisibleAreaRemaining(occluded_area_, video_element_rect_,
+  if (HasEnoughVisibleAreaRemaining(occlusion_state_.occluded_area,
+                                    occlusion_state_.video_element_rect,
                                     visibility_threshold_)) {
     return kContinueHitTesting;
   }
@@ -561,62 +623,49 @@ bool MediaVideoVisibilityTracker::MeetsVisibilityThreshold(
                            std::ref(counts))));
   }
 
-  return HasEnoughVisibleAreaRemaining(occluded_area_, video_element_rect_,
+  return HasEnoughVisibleAreaRemaining(occlusion_state_.occluded_area,
+                                       occlusion_state_.video_element_rect,
                                        visibility_threshold_)
              ? true
              : false;
 }
 
-void MediaVideoVisibilityTracker::OnIntersectionChanged() {
+bool MediaVideoVisibilityTracker::ComputeVisibility() {
+  DCHECK(VideoElement().GetLayoutObject());
+  occlusion_state_.occluded_area =
+      ComputeOccludingArea(occlusion_state_.occluding_rects,
+                           ComputeArea(occlusion_state_.video_element_rect));
+
   LayoutBox* box = To<LayoutBox>(VideoElement().GetLayoutObject());
   PhysicalRect bounds(box->PhysicalBorderBoxRect());
   auto intersection_ratio =
-      ComputeArea(intersection_rect_) / ComputeArea(bounds);
+      ComputeArea(occlusion_state_.intersection_rect) / ComputeArea(bounds);
 
   auto* layout = VideoElement().GetLayoutObject();
   // Return early if the area of the video that intersects with the view is
   // below |visibility_threshold_|.
   if (!layout || intersection_ratio < visibility_threshold_) {
-    report_visibility_cb_.Run(false);
-    return;
+    return false;
   }
 
   Metrics counts;
   bool meets_visibility_threshold =
-      MeetsVisibilityThreshold(counts, intersection_rect_);
+      MeetsVisibilityThreshold(counts, occlusion_state_.intersection_rect);
 
   counts.total_occluding_rects =
-      base::saturated_cast<int>(occluding_rects_.size());
+      base::saturated_cast<int>(occlusion_state_.occluding_rects.size());
   RecordTotalCounts(counts);
 
   if (meets_visibility_threshold) {
-    report_visibility_cb_.Run(true);
-    return;
+    return true;
   }
 
-  report_visibility_cb_.Run(false);
+  return false;
 }
 
-void MediaVideoVisibilityTracker::DidFinishLifecycleUpdate(
+void MediaVideoVisibilityTracker::ComputeAreaOccludedByViewport(
     const LocalFrameView& local_frame_view) {
-  if ((base::TimeTicks::Now() - last_hit_test_timestamp_ <
-       hit_test_interval_)) {
-    return;
-  }
-
-  SCOPED_UMA_HISTOGRAM_TIMER(
-      "Media.MediaVideoVisibilityTracker.UpdateTime.TotalDuration");
-  last_hit_test_timestamp_ = base::TimeTicks::Now();
-
-  // Reset the various member variables used by `ComputeOcclusion()`.
-  occluded_area_ = 0.0;
-  occluding_rects_.clear();
-  intersection_rect_ = PhysicalRect();
-  video_element_rect_ = PhysicalRect();
-
-  if (!VideoElement().GetLayoutObject()) {
-    return;
-  }
+  DCHECK(VideoElement().GetLayoutObject());
 
   LayoutBox* box = To<LayoutBox>(VideoElement().GetLayoutObject());
   gfx::RectF bounds(box->AbsoluteBoundingBoxRectF());
@@ -625,10 +674,11 @@ void MediaVideoVisibilityTracker::DidFinishLifecycleUpdate(
       local_frame_view.GetFrame().GetPage()->GetVisualViewport().VisibleRect());
   gfx::RectF absolute_viewport(
       local_frame_view.ConvertFromRootFrame(viewport_in_root_frame));
-  intersection_rect_ = PhysicalRect::FastAndLossyFromRectF(
+  occlusion_state_.intersection_rect = PhysicalRect::FastAndLossyFromRectF(
       IntersectRects(absolute_viewport, bounds));
 
-  video_element_rect_ = PhysicalRect::FastAndLossyFromRectF(bounds);
+  occlusion_state_.video_element_rect =
+      PhysicalRect::FastAndLossyFromRectF(bounds);
 
   // Compute the VideoElement area that is occluded by the viewport, if any.
   SkRegion region;
@@ -637,12 +687,65 @@ void MediaVideoVisibilityTracker::DidFinishLifecycleUpdate(
                 SkRegion::kDifference_Op)) {
     for (SkRegion::Iterator it(region); !it.done(); it.next()) {
       auto occluding_rect = it.rect();
-      occluding_rects_.push_back(occluding_rect);
+      occlusion_state_.occluding_rects.push_back(occluding_rect);
       it.next();
     }
   }
+}
 
-  OnIntersectionChanged();
+void MediaVideoVisibilityTracker::MaybeComputeVisibility(
+    ShouldReportVisibility should_report_visibility) {
+  occlusion_state_ = {};
+
+  if (!tracker_attached_to_document_ ||
+      !tracker_attached_to_document_->GetFrame()->View() ||
+      !VideoElement().GetLayoutObject()) {
+    if (request_visibility_callback_) {
+      RecordVideoOcclusionState(VideoElement(), occlusion_state_, false,
+                                visibility_threshold_);
+      std::move(request_visibility_callback_).Run(false);
+    }
+    return;
+  }
+
+  if (VideoElement().GetDocument().Lifecycle().GetState() !=
+      DocumentLifecycle::kPaintClean) {
+    return;
+  }
+
+  SCOPED_UMA_HISTOGRAM_TIMER(
+      "Media.MediaVideoVisibilityTracker.UpdateTime.TotalDuration");
+
+  ComputeAreaOccludedByViewport(
+      *tracker_attached_to_document_->GetFrame()->View());
+
+  bool meets_visibility_threshold = ComputeVisibility();
+  if (should_report_visibility == ShouldReportVisibility::kYes) {
+    report_visibility_cb_.Run(meets_visibility_threshold);
+  }
+  if (request_visibility_callback_) {
+    RecordVideoOcclusionState(VideoElement(), occlusion_state_,
+                              meets_visibility_threshold,
+                              visibility_threshold_);
+    std::move(request_visibility_callback_).Run(meets_visibility_threshold);
+  }
+}
+
+void MediaVideoVisibilityTracker::DidFinishLifecycleUpdate(
+    const LocalFrameView& local_frame_view) {
+  if ((base::TimeTicks::Now() - last_hit_test_timestamp_ <
+       hit_test_interval_) &&
+      !request_visibility_callback_) {
+    return;
+  }
+
+  if (!VideoElement().GetLayoutObject()) {
+    return;
+  }
+
+  last_hit_test_timestamp_ = base::TimeTicks::Now();
+
+  MaybeComputeVisibility(ShouldReportVisibility::kYes);
 }
 
 void MediaVideoVisibilityTracker::Trace(Visitor* visitor) const {

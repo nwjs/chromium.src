@@ -10,8 +10,10 @@
 #include <string_view>
 #include <utility>
 
+#include "android_webview/browser/aw_app_defined_websites.h"
 #include "android_webview/browser/aw_browser_context.h"
 #include "android_webview/browser/aw_browser_main_parts.h"
+#include "android_webview/browser/aw_browser_permission_request_delegate.h"
 #include "android_webview/browser/aw_contents_client_bridge.h"
 #include "android_webview/browser/aw_contents_io_thread_client.h"
 #include "android_webview/browser/aw_pdf_exporter.h"
@@ -112,6 +114,7 @@
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "android_webview/browser_jni_headers/AwContents_jni.h"
+#include "android_webview/browser_jni_headers/AwSiteVisitLogger_jni.h"
 #include "android_webview/browser_jni_headers/StartupJavascriptInfo_jni.h"
 
 struct AwDrawSWFunctionTable;
@@ -711,7 +714,7 @@ void AwContents::RequestGeolocationPermission(const GURL& origin,
   if (!obj)
     return;
 
-  if (Java_AwContents_useLegacyGeolocationPermissionAPI(env, obj)) {
+  if (UseLegacyGeolocationPermissionAPI()) {
     ShowGeolocationPrompt(origin, std::move(callback));
     return;
   }
@@ -726,12 +729,23 @@ void AwContents::CancelGeolocationPermissionRequests(const GURL& origin) {
   if (!obj)
     return;
 
-  if (Java_AwContents_useLegacyGeolocationPermissionAPI(env, obj)) {
+  if (UseLegacyGeolocationPermissionAPI()) {
     HideGeolocationPrompt(origin);
     return;
   }
   permission_request_handler_->CancelRequest(origin,
                                              AwPermissionRequest::Geolocation);
+}
+
+bool AwContents::UseLegacyGeolocationPermissionAPI() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (!obj) {
+    return false;
+  }
+
+  return Java_AwContents_useLegacyGeolocationPermissionAPI(env, obj);
 }
 
 void AwContents::RequestMIDISysexPermission(const GURL& origin,
@@ -1468,6 +1482,13 @@ void JNI_AwContents_SetShouldDownloadFavicons(JNIEnv* env) {
   g_should_download_favicons = true;
 }
 
+void LogSiteVisit(std::string etld_plus1, jlong site_hash) {
+  bool site_related = IsAppDefined(std::move(etld_plus1));
+
+  JNIEnv* env = AttachCurrentThread();
+  Java_AwSiteVisitLogger_logVisit(env, site_hash, site_related);
+}
+
 void AwContents::PrimaryPageChanged(content::Page& page) {
   std::string scheme = page.GetMainDocument().GetLastCommittedURL().scheme();
   const url::Origin& origin = page.GetMainDocument().GetLastCommittedOrigin();
@@ -1492,7 +1513,14 @@ void AwContents::PrimaryPageChanged(content::Page& page) {
       jlong j_etld_plus1_hash = static_cast<jlong>(etld_plus1_hash);
 
       Java_AwContents_logOriginVisit(env, j_ref, j_origin_hash);
-      Java_AwContents_logSiteVisit(env, j_ref, j_etld_plus1_hash);
+
+      // When recording the site visit, we want to reference this against
+      // g_app_defined_domains which may take a moment to retrieve since
+      // we are getting that from a system service so we need post this
+      // to the background thread to avoid blocking things here.
+      base::ThreadPool::PostTask(
+          FROM_HERE, base::BindOnce(&LogSiteVisit, std::move(etld_plus1),
+                                    j_etld_plus1_hash));
     }
   }
 

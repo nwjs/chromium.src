@@ -136,6 +136,15 @@ class SplitViewDivider::SplitViewDividerWidget : public views::Widget {
     divider_view->SetPaneFocusAndFocusDefault();
     return true;
   }
+
+  // ui::ColorProviderSource:
+  ui::ColorProviderKey GetColorProviderKey() const override {
+    //  As the transient child of the topmost window, divider uses that window's
+    //  theme color. Override `GetColorProviderKey()` to let it use the system's
+    //  theme instead.
+    return ui::NativeTheme::GetInstanceForNativeUi()->GetColorProviderKey(
+        nullptr);
+  }
 };
 
 SplitViewDivider::SplitViewDivider(LayoutDividerController* controller)
@@ -177,6 +186,10 @@ aura::Window* SplitViewDivider::GetDividerWindow() {
 
 bool SplitViewDivider::HasDividerWidget() const {
   return !!divider_widget_;
+}
+
+bool SplitViewDivider::IsDividerWidgetVisible() const {
+  return divider_widget_ && divider_widget_->IsVisible();
 }
 
 void SplitViewDivider::SetVisible(bool visible) {
@@ -365,12 +378,12 @@ gfx::Rect SplitViewDivider::GetDividerBoundsInScreen(bool is_dragging) {
 }
 
 void SplitViewDivider::EnlargeOrShrinkDivider(bool should_enlarge) {
-  if (!divider_widget_ || !divider_widget_->GetNativeWindow()->IsVisible()) {
+  if (!divider_widget_ || !divider_widget_->IsVisible()) {
     return;
   }
 
   divider_widget_->SetBounds(GetDividerBoundsInScreen(should_enlarge));
-  divider_view_->RefreshDividerHandler(should_enlarge);
+  divider_view_->RefreshDividerHandler();
 }
 
 void SplitViewDivider::SetAdjustable(bool adjustable) {
@@ -769,6 +782,13 @@ void SplitViewDivider::RefreshStackingOrder() {
 }
 
 void SplitViewDivider::StartObservingTransientChild(aura::Window* transient) {
+  // Confine the bounds of a transient window if the given `transient` is a
+  // bubble dialog or dialog window.
+  if (!window_util::AsBubbleDialogDelegate(transient) &&
+      !window_util::AsDialogDelegate(transient)) {
+    return;
+  }
+
   // Explicitly check and early return if the `transient` is the divider native
   // window.
   if (divider_widget_ && transient == divider_widget_->GetNativeWindow()) {

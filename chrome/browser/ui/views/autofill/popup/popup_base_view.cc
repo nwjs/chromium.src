@@ -185,7 +185,7 @@ class PopupBaseView::Widget : public views::Widget {
     // another window, which is not a problem because the popup closes on focus
     // loss anyway. The exit event will be synthesized by the sub-popup later
     // (find the trick that does this below).
-    if (event->type() == ui::EventType::ET_MOUSE_EXITED &&
+    if (event->type() == ui::EventType::kMouseExited &&
         GetContentsView()->IsMouseHovered()) {
       return;
     }
@@ -194,7 +194,7 @@ class PopupBaseView::Widget : public views::Widget {
     // properly and thus provide more intuitive UX when the child's transparent
     // parts (e.g. shadow) overlap the parent (assuming that the child contents
     // view is not overlapped).
-    if (event->type() == ui::EventType::ET_MOUSE_MOVED &&
+    if (event->type() == ui::EventType::kMouseMoved &&
         !GetContentsView()->IsMouseHovered() &&
         parent_content_view->IsMouseHovered()) {
       parent()->SynthesizeMouseMoveEvent();
@@ -211,8 +211,9 @@ class PopupBaseView::Widget : public views::Widget {
       const gfx::Point location = View::ConvertPointFromScreen(
           parent()->GetRootView(),
           last_synthesized_parent_mouse_move_position_.value());
-      ui::MouseEvent mouse_event(ui::ET_MOUSE_EXITED, location, location,
-                                 ui::EventTimeForNow(), ui::EF_IS_SYNTHESIZED,
+      ui::MouseEvent mouse_event(ui::EventType::kMouseExited, location,
+                                 location, ui::EventTimeForNow(),
+                                 ui::EF_IS_SYNTHESIZED,
                                  /*changed_button_flags=*/0);
       parent()->OnMouseEvent(&mouse_event);
       last_synthesized_parent_mouse_move_position_.reset();
@@ -292,9 +293,9 @@ bool PopupBaseView::DoShow() {
 
   // Showing the widget can change native focus (which would result in an
   // immediate hiding of the popup). Only start observing after shown.
-  // TODO(b/325246516): Hiding by widget focus change seems redundant as it is
-  // already done by the field focus loss. After successful password manual
-  // fallback testing confirms safety, remove the focus observation.
+  // TODO(crbug.com/325246516): Hiding by widget focus change seems redundant as
+  // it is already done by the field focus loss. After successful password
+  // manual fallback testing confirms safety, remove the focus observation.
   if (initialize_widget &&
       !base::FeatureList::IsEnabled(
           password_manager::features::kPasswordManualFallbackAvailable)) {
@@ -362,7 +363,7 @@ void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
       {"PopupSuggestionView", "PopupPasswordSuggestionView", "PopupFooterView",
        "PopupSeparatorView", "PopupWarningView", "PopupBaseView",
        "PasswordGenerationPopupViewViews::GeneratedPasswordBox", "PopupRowView",
-       "PopupRowContentView", "EditPasswordRow", "MdTextButton"});
+       "PopupRowContentView", "MdTextButton"});
   DCHECK(kDerivedClasses.contains(selected_view.GetClassName()))
       << "If you add a new derived class from AutofillPopupRowView, add it "
          "here and to onSelection(evt) in "

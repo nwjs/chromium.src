@@ -739,9 +739,14 @@ void SafeBrowsingApiHandlerBridge::StartUrlCheckBySafeBrowsing(
   base::UmaHistogramBoolean("SafeBrowsing.GmsSafeBrowsingApi.IsAvailable" +
                                 GetSafeBrowsingJavaProtocolUmaSuffix(protocol),
                             is_safe_browsing_api_available_);
+
   if (!is_safe_browsing_api_available_) {
-    // Fall back to SafetyNet if SafeBrowsing API is not available.
-    StartUrlCheckBySafetyNet(std::move(callback), url, threat_types);
+    // Mark all requests as safe. Only users who have an old, broken GMSCore or
+    // have sideloaded Chrome w/o PlayStore should land here.
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(*callback), SBThreatType::SB_THREAT_TYPE_SAFE,
+                       ThreatMetadata()));
     return;
   }
 
@@ -773,9 +778,16 @@ bool SafeBrowsingApiHandlerBridge::StartCSDAllowlistCheck(const GURL& url) {
 void SafeBrowsingApiHandlerBridge::StartIsVerifyAppsEnabled(
     VerifyAppsResponseCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  if (verify_apps_enabled_for_testing_.has_value()) {
+    std::move(callback).Run(verify_apps_enabled_for_testing_.value());
+    return;
+  }
+
   JNIEnv* env = AttachCurrentThread();
   if (!Java_SafeBrowsingApiBridge_ensureSafetyNetApiInitialized(env)) {
     std::move(callback).Run(VerifyAppsEnabledResult::FAILED);
+    return;
   }
 
   jlong callback_id = next_verify_apps_callback_id_++;
@@ -788,6 +800,7 @@ void SafeBrowsingApiHandlerBridge::StartEnableVerifyApps(
   JNIEnv* env = AttachCurrentThread();
   if (!Java_SafeBrowsingApiBridge_ensureSafetyNetApiInitialized(env)) {
     std::move(callback).Run(VerifyAppsEnabledResult::FAILED);
+    return;
   }
 
   jlong callback_id = next_verify_apps_callback_id_++;

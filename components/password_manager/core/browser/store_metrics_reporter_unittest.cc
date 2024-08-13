@@ -1305,11 +1305,7 @@ TEST_F(StoreMetricsReporterTest, MultiStoreMetrics) {
   account_store->Init(&prefs_, /*affiliated_match_helper=*/nullptr);
 
   // Simulate account store active.
-  AccountInfo account_info;
-  account_info.email = "account@gmail.com";
-  account_info.gaia = "account";
-  test_sync_service()->SetAccountInfo(account_info);
-  test_sync_service()->SetHasSyncConsent(false);
+  test_sync_service()->SetSignedIn(signin::ConsentLevel::kSignin);
 
   const std::string kRealm1 = "https://example.com";
   const std::string kRealm2 = "https://example2.com";
@@ -1358,7 +1354,8 @@ TEST_F(StoreMetricsReporterTest, MultiStoreMetrics) {
 
   for (bool syncing : {false, true}) {
     for (bool opted_in : {false, true}) {
-      test_sync_service()->SetHasSyncConsent(syncing);
+      test_sync_service()->SetSignedIn(syncing ? signin::ConsentLevel::kSync
+                                               : signin::ConsentLevel::kSignin);
       ASSERT_EQ(test_sync_service()->IsSyncFeatureEnabled(), syncing);
       if (opted_in) {
         test_sync_service()->GetUserSettings()->SetSelectedTypes(

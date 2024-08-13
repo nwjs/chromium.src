@@ -110,6 +110,8 @@ _EXTRA_TEST_IS_UNIT = 'BaseChromiumAndroidJUnitRunner.IsUnitTest'
 _EXTRA_PACKAGE_UNDER_TEST = ('org.chromium.chrome.test.pagecontroller.rules.'
                              'ChromeUiApplicationTestRule.PackageUnderTest')
 
+_EXTRA_WEBVIEW_PROCESS_MODE = 'AwJUnit4ClassRunner.ProcessMode'
+
 FEATURE_ANNOTATION = 'Feature'
 RENDER_TEST_FEATURE_ANNOTATION = 'RenderTest'
 WPR_ARCHIVE_FILE_PATH_ANNOTATION = 'WPRArchiveDirectory'
@@ -540,6 +542,14 @@ class LocalDeviceInstrumentationTestRun(
         self._ToggleAppLinks(dev, 'STATE_APPROVED')
 
       @trace_event.traced
+      def disable_system_modals(dev):
+        # Disable "Swipe down to exit fullscreen" modal.
+        # Disable notification permission dialog in Android T+.
+        cmd = ('settings put secure immersive_mode_confirmations confirmed && '
+               'settings put secure notification_permission_enabled 0')
+        dev.RunShellCommand(cmd, shell=True, check_return=True)
+
+      @trace_event.traced
       def set_vega_permissions(dev):
         # Normally, installation of VrCore automatically grants storage
         # permissions. However, since VrCore is part of the system image on
@@ -615,8 +625,8 @@ class LocalDeviceInstrumentationTestRun(
 
       install_steps += [push_test_data, create_flag_changer]
       post_install_steps += [
-          set_debug_app, approve_app_links, set_vega_permissions,
-          DismissCrashDialogs
+          set_debug_app, approve_app_links, disable_system_modals,
+          set_vega_permissions, DismissCrashDialogs
       ]
 
       def bind_crash_handler(step, dev):
@@ -1393,6 +1403,9 @@ class LocalDeviceInstrumentationTestRun(
             # Workaround for https://github.com/mockito/mockito/issues/922
             'notPackage': 'net.bytebuddy',
         }
+        if self._test_instance.webview_process_mode:
+          extras[_EXTRA_WEBVIEW_PROCESS_MODE] = (
+              self._test_instance.webview_process_mode)
         if self._test_instance.timeout_scale != 1:
           extras[EXTRA_TIMEOUT_SCALE] = str(self._test_instance.timeout_scale)
 

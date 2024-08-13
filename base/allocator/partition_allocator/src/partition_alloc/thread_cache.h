@@ -12,14 +12,13 @@
 #include <optional>
 
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/lightweight_quarantine.h"
 #include "partition_alloc/partition_alloc-inl.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
-#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
 #include "partition_alloc/partition_alloc_base/thread_annotations.h"
 #include "partition_alloc/partition_alloc_base/time/time.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_constants.h"
 #include "partition_alloc/partition_alloc_forward.h"
@@ -190,7 +189,7 @@ constexpr ThreadCacheRegistry::ThreadCacheRegistry() = default;
   } while (0)
 #endif  // PA_CONFIG(THREAD_CACHE_ENABLE_STATISTICS)
 
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
 
 namespace internal {
 
@@ -214,13 +213,13 @@ class ReentrancyGuard {
     x                               \
   }
 
-#else  // PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#else  // PA_BUILDFLAG(DCHECKS_ARE_ON)
 
 #define PA_REENTRANCY_GUARD(x) \
   do {                         \
   } while (0)
 
-#endif  // PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#endif  // PA_BUILDFLAG(DCHECKS_ARE_ON)
 
 // Per-thread cache. *Not* threadsafe, must only be accessed from a single
 // thread.
@@ -367,8 +366,7 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCache {
       kThreadCacheDefaultSizeThreshold;
   static constexpr size_t kLargeSizeThreshold = kThreadCacheLargeSizeThreshold;
   static constexpr uint16_t kBucketCount =
-      internal::BucketIndexLookup::GetIndex(ThreadCache::kLargeSizeThreshold) +
-      1;
+      internal::BucketIndexLookup::GetIndex(kThreadCacheLargeSizeThreshold) + 1;
   static_assert(
       kBucketCount < internal::kNumBuckets,
       "Cannot have more cached buckets than what the allocator supports");
@@ -457,7 +455,7 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCache {
   PartitionRoot* const root_;
 
   const internal::base::PlatformThreadId thread_id_;
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
   bool is_in_thread_cache_ = false;
 #endif
 
@@ -616,11 +614,12 @@ PA_ALWAYS_INLINE void ThreadCache::PutInBucket(Bucket& bucket,
   static const uint32_t poison_16_bytes[4] = {0xbadbad00, 0xbadbad00,
                                               0xbadbad00, 0xbadbad00};
 
-#if !(PA_BUILDFLAG(IS_WIN) && defined(COMPONENT_BUILD))
-  void* slot_start_tagged = std::assume_aligned<internal::kAlignment>(
-      internal::SlotStartAddr2Ptr(slot_start));
+#if !(PA_BUILDFLAG(IS_WIN) && defined(COMPONENT_BUILD)) && \
+    PA_HAS_BUILTIN(__builtin_assume_aligned)
+  void* slot_start_tagged = __builtin_assume_aligned(
+      internal::SlotStartAddr2Ptr(slot_start), internal::kAlignment);
 #else
-  // TODO(crbug.com/40262684): std::assume_aligned introuces an additional
+  // TODO(crbug.com/40262684): std::assume_aligned introduce an additional
   // dependency: _libcpp_verbose_abort(const char*, ...).  It will cause
   // "undefined symbol" error when linking allocator_shim.dll.
   void* slot_start_tagged = internal::SlotStartAddr2Ptr(slot_start);

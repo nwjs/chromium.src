@@ -21,6 +21,8 @@ message HistoryAnswerLoggingData {
   HistoryAnswerRequest request = 1;
 
   HistoryAnswerResponse response = 2;
+
+  HistoryAnswerQuality quality = 3;
 }
 
 // The History AQA request contains a query and top candidate passages.
@@ -45,7 +47,9 @@ message Passage {
   string text = 1;
 
   // Id of the passage.
-  int32 passage_id = 2;
+  string passage_id = 3;
+
+  reserved 2;
 }
 
 // History AQA answer response.
@@ -68,8 +72,21 @@ message Answer {
 }
 
 // AQA citation.
-// Next ID: 2
+// Next ID: 3
 message Citation {
   // Passage id from the request.
-  int32 passage_id = 1;
+  string passage_id = 2;
+
+  reserved 1;
+}
+
+// Next ID: 3
+message HistoryAnswerQuality {
+  // The session id of the user query. Use this to join with HistoryAnswer
+  // and HistoryQueryQuality protos from the same session.
+  string session_id = 1;
+
+  // The URL of the document that the passages belong to. A single
+  // HistoryAnswerRequest should contain passages from a single documents.
+  string url = 2;
 }

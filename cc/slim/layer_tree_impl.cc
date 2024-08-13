@@ -496,8 +496,14 @@ void LayerTreeImpl::GenerateCompositorFrame(
     out_frame.metadata.referenced_surfaces.emplace_back(range);
   }
   for (auto& [tag, layer] : registered_offset_tags_) {
-    out_frame.metadata.offset_tag_definitions.push_back(
-        layer->GetOffsetTagDefinition(tag));
+    // Only add OffsetTagDefinitions if the SurfaceLayer they are registered to
+    // embed something. There is no way to provide an offset value without an
+    // embedded viz::Surface to look the value up from.
+    // TODO(b/334144355): Don't tag quads if no definition is added.
+    if (layer->surface_id().is_valid()) {
+      out_frame.metadata.offset_tag_definitions.push_back(
+          layer->GetOffsetTagDefinition(tag));
+    }
   }
   out_frame.metadata.display_transform_hint = display_transform_hint_;
 
@@ -614,9 +620,13 @@ void LayerTreeImpl::Draw(Layer& layer,
 
   // Compute new clip in layer space.
   gfx::RectF clip_in_layer;
-  if (layer.offset_tag()) {
+  std::optional<base::AutoReset<viz::OffsetTag>> offset_tag_reset;
+  if (layer.offset_tag() &&
+      registered_offset_tags_.contains(layer.offset_tag())) {
     // A layer can't have a different offset tag than it's ancestor.
     CHECK(!data.offset_tag);
+
+    offset_tag_reset.emplace(&data.offset_tag, layer.offset_tag());
 
     // If `layer` has an offset tag then the position `layer` will be drawn at
     // isn't fixed and `transform_to_target` and `transform_to_parent` might be
@@ -872,14 +882,6 @@ void LayerTreeImpl::DrawChildrenAndAppendQuads(
                              layer.gradient_mask());
     info.ApplyTransform(transform_to_target);
     auto_reset_mask_filter_info.emplace(&data.mask_filter_info_in_target, info);
-  }
-
-  std::optional<base::AutoReset<viz::OffsetTag>> offset_tag_reset;
-  if (layer.offset_tag()) {
-    // The OffsetTag must be registered with a SurfaceLayer before tagging
-    // layers.
-    CHECK(registered_offset_tags_.contains(layer.offset_tag()));
-    offset_tag_reset.emplace(&data.offset_tag, layer.offset_tag());
   }
 
   {

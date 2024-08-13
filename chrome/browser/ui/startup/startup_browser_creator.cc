@@ -115,6 +115,7 @@
 #include "ash/constants/ash_switches.h"
 #include "chrome/browser/ash/app_mode/app_launch_utils.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_types.h"
+#include "chrome/browser/ash/app_mode/kiosk_controller.h"
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_service.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_util.h"
@@ -137,7 +138,7 @@
 #endif
 
 #if BUILDFLAG(IS_MAC)
-#include "chrome/browser/web_applications/app_shim_registry_mac.h"
+#include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -601,8 +602,8 @@ void OpenNewWindowForFirstRun(
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // Returns the app id of the kiosk app associated with the current user session.
-// Returns nullopt for non-kiosk user sessions and for ARC kiosk sessions, since
-// crash recovery is not supported there.
+// Returns nullopt for non-kiosk user sessions, since crash recovery is not
+// supported there.
 std::optional<ash::KioskAppId> GetAppId(const base::CommandLine& command_line,
                                         Profile* profile) {
   const user_manager::User* user =
@@ -925,7 +926,7 @@ void StartupBrowserCreator::ClearLaunchedProfilesForTesting() {
 // static
 void StartupBrowserCreator::RegisterLocalStatePrefs(
     PrefRegistrySimple* registry) {
-  registry->RegisterBooleanPref(prefs::kPromotionalTabsEnabled, true);
+  registry->RegisterBooleanPref(prefs::kPromotionsEnabled, true);
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
   registry->RegisterBooleanPref(prefs::kCommandLineFlagSecurityWarningsEnabled,
                                 true);
@@ -1045,6 +1046,9 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     silent_launch = true;
 
   if (chrome::IsRunningInForcedAppMode()) {
+    // If we are here, it means the Chrome browser crashed/restarted while in
+    // Kiosk mode, since the 'force app mode' switch is only added to the
+    // commandline while in a kiosk session.
     Profile* profile = profile_info.profile;
 
     // Skip browser launch since app mode launches its app window.
@@ -1066,11 +1070,12 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
         chrome::AttemptUserExit();
         return false;
       } else {
-        ash::LaunchAppOrDie(profile, app_id.value());
+        ash::KioskController::Get().StartSessionAfterCrash(app_id.value(),
+                                                           profile);
       }
     } else {
-      // If we are here, we are either in ARC kiosk session or the user is
-      // invalid. We should terminate the session in such cases.
+      // If we are here, the user is invalid.
+      // We should terminate the session in such cases.
       chrome::AttemptUserExit();
       return false;
     }

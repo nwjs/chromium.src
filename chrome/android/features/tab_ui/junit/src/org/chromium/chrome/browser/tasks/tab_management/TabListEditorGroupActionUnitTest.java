@@ -16,9 +16,7 @@ import androidx.test.filters.SmallTest;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -27,7 +25,6 @@ import org.robolectric.RuntimeEnvironment;
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CallbackHelper;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -54,7 +51,6 @@ import java.util.Set;
 @RunWith(BaseRobolectricTestRunner.class)
 @EnableFeatures(ChromeFeatureList.ANDROID_TAB_GROUP_STABLE_IDS)
 public class TabListEditorGroupActionUnitTest {
-    @Rule public TestRule mProcessor = new Features.JUnitProcessor();
 
     @Mock private SelectionDelegate<Integer> mSelectionDelegate;
     @Mock private TabGroupModelFilter mGroupFilter;
@@ -150,7 +146,10 @@ public class TabListEditorGroupActionUnitTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)
+    @EnableFeatures({
+        ChromeFeatureList.TAB_GROUP_PARITY_ANDROID,
+        ChromeFeatureList.TAB_GROUP_CREATION_DIALOG_ANDROID
+    })
     public void testSingleTabToGroup() {
         configure(false);
         List<Integer> tabIds = new ArrayList<>();
@@ -183,7 +182,10 @@ public class TabListEditorGroupActionUnitTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)
+    @EnableFeatures({
+        ChromeFeatureList.TAB_GROUP_PARITY_ANDROID,
+        ChromeFeatureList.TAB_GROUP_CREATION_DIALOG_ANDROID
+    })
     public void testGroupActionWithTabs_WillMergingCreateNewGroup() throws Exception {
         configure(false);
         List<Integer> tabIds = new ArrayList<>();
@@ -249,7 +251,7 @@ public class TabListEditorGroupActionUnitTest {
         verify(mGroupFilter).mergeListOfTabsToGroup(tabs, tabs.get(2), true);
         verify(mDelegate).hideByAction();
 
-        helper.waitForFirst();
+        helper.waitForOnly();
         mAction.removeActionObserver(observer);
 
         Assert.assertTrue(mAction.perform());

@@ -18,8 +18,8 @@ namespace {
 
 ui::KeyEvent CreateKeyEvent(ui::KeyboardCode key_code,
                             int flags = ui::EF_NONE) {
-  return ui::KeyEvent(ui::ET_KEY_PRESSED, key_code, ui::DomCode::NONE, flags,
-                      ui::EventTimeForNow());
+  return ui::KeyEvent(ui::EventType::kKeyPressed, key_code, ui::DomCode::NONE,
+                      flags, ui::EventTimeForNow());
 }
 
 class MockPseudoFocusHandler : public PickerPseudoFocusHandler {
@@ -35,11 +35,9 @@ class MockPseudoFocusHandler : public PickerPseudoFocusHandler {
   bool MovePseudoFocusDown() override { return true; }
   bool MovePseudoFocusLeft() override { return true; }
   bool MovePseudoFocusRight() override { return true; }
-  bool AdvancePseudoFocus(PseudoFocusDirection direction) override {
+  bool AdvancePseudoFocus(PickerPseudoFocusDirection direction) override {
     return true;
   }
-  bool GainPseudoFocus(PseudoFocusDirection direction) override { return true; }
-  void LosePseudoFocus() override { return; }
 };
 
 TEST(PickerKeyEventHandlerTest,

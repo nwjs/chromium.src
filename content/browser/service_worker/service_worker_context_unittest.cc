@@ -16,7 +16,7 @@
 #include "base/time/time.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
 #include "content/browser/service_worker/fake_embedded_worker_instance_client.h"
-#include "content/browser/service_worker/service_worker_container_host.h"
+#include "content/browser/service_worker/service_worker_client.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_core_observer.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
@@ -1160,9 +1160,10 @@ TEST_F(ServiceWorkerContextTest, ContainerHostIterator) {
 
   // Iterate over the client container hosts that belong to kOrigin1.
   std::set<ServiceWorkerClient*> results;
-  for (auto it = context()->GetServiceWorkerClients(
-           kKey1, true /* include_reserved_clients */,
-           false /* include_back_forward_cached_clients */);
+  for (auto it =
+           context()->service_worker_client_owner().GetServiceWorkerClients(
+               kKey1, true /* include_reserved_clients */,
+               false /* include_back_forward_cached_clients */);
        !it.IsAtEnd(); ++it) {
     results.insert(&*it);
   }
@@ -1173,9 +1174,10 @@ TEST_F(ServiceWorkerContextTest, ContainerHostIterator) {
   // Iterate over the container hosts that belong to kOrigin2. This should not
   // include worker_host4->service_worker_client() as it's not for controllee.
   results.clear();
-  for (auto it = context()->GetServiceWorkerClients(
-           kKey2, true /* include_reserved_clients */,
-           false /* include_back_forward_cached_clients */);
+  for (auto it =
+           context()->service_worker_client_owner().GetServiceWorkerClients(
+               kKey2, true /* include_reserved_clients */,
+               false /* include_back_forward_cached_clients */);
        !it.IsAtEnd(); ++it) {
     results.insert(&*it);
   }
@@ -1229,6 +1231,13 @@ TEST_P(ServiceWorkerContextRecoveryTest, DeleteAndStartOver) {
                      false /* expect_waiting */, true /* expect_active */));
   content::RunAllTasksUntilIdle();
 
+  // Emulate a service worker client is created before
+  // `ScheduleDeleteAndStartOver()` and redirected, committed and destroyed
+  // after `ScheduleDeleteAndStartOver()`.
+  ScopedServiceWorkerClient service_worker_client =
+      CreateServiceWorkerClient(context(), scope);
+  EXPECT_EQ(service_worker_client->context().get(), context());
+
   context()->ScheduleDeleteAndStartOver();
 
   // The storage is disabled while the recovery process is running, so the
@@ -1247,6 +1256,29 @@ TEST_P(ServiceWorkerContextRecoveryTest, DeleteAndStartOver) {
       base::BindOnce(&ExpectRegisteredWorkers,
                      blink::ServiceWorkerStatusCode::kErrorNotFound,
                      false /* expect_waiting */, true /* expect_active */));
+  content::RunAllTasksUntilIdle();
+
+  {
+    // Perform a cross-origin redirect for `service_worker_client`. This updates
+    // the client UUID of `service_worker_client`, and should update the UUID
+    // maintained by `ServiceWorkerClientOwner`, not to cause the client UUID
+    // inconsistency.
+    GURL cross_site_url("https://www.example.org/");
+    EXPECT_FALSE(service_worker_client->context());
+    service_worker_client->UpdateUrls(cross_site_url,
+                                      url::Origin::Create(cross_site_url),
+                                      blink::StorageKey::CreateFirstParty(
+                                          url::Origin::Create(cross_site_url)));
+
+    auto committed_service_worker_client = CommittedServiceWorkerClient(
+        std::move(service_worker_client),
+        GlobalRenderFrameHostId(/*child_id=*/1,
+                                /*frame_routing_id=*/1));
+  }
+  // Destruct the service worker client via
+  // `OnContainerHostReceiverDisconnected()` by destructing
+  // `committed_service_worker_client`.
+  // This doesn't crash if the client UUID was updated consistently above.
   content::RunAllTasksUntilIdle();
 
   called = false;

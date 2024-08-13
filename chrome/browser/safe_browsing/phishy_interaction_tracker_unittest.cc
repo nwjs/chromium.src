@@ -59,7 +59,6 @@ class MockSafeBrowsingUIManager : public safe_browsing::SafeBrowsingUIManager {
 
   bool IsUrlAllowlistedOrPendingForWebContents(
       const GURL& url,
-      bool is_subresource,
       content::NavigationEntry* entry,
       WebContents* web_contents,
       bool allowlist_only,
@@ -125,12 +124,9 @@ class PhishyInteractionTrackerTest : public ChromeRenderViewHostTestHarness {
     return Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   }
 
-  security_interstitials::UnsafeResource MakeUnsafeResource(
-      const char* url,
-      bool is_subresource) {
+  security_interstitials::UnsafeResource MakeUnsafeResource(const char* url) {
     security_interstitials::UnsafeResource resource;
     resource.url = GURL(url);
-    resource.is_subresource = is_subresource;
     resource.threat_type =
         safe_browsing::SBThreatType::SB_THREAT_TYPE_URL_CLIENT_SIDE_PHISHING;
     return resource;
@@ -224,11 +220,10 @@ class PhishyInteractionTrackerTest : public ChromeRenderViewHostTestHarness {
 TEST_F(PhishyInteractionTrackerTest, CheckHistogramCountsOnPhishyUserEvents) {
   base::HistogramTester histogram_tester_;
 
-  security_interstitials::UnsafeResource resource =
-      MakeUnsafeResource(kBadURL, false /* is_subresource */);
+  security_interstitials::UnsafeResource resource = MakeUnsafeResource(kBadURL);
   safe_browsing::SBThreatType threat_type;
   EXPECT_TRUE(ui_manager_->IsUrlAllowlistedOrPendingForWebContents(
-      resource.url, resource.is_subresource, /*entry=*/nullptr,
+      resource.url, /*entry=*/nullptr,
       safe_browsing::unsafe_resource_util::GetWebContentsForResource(resource),
       true, &threat_type));
 

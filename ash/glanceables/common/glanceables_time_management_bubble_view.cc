@@ -7,6 +7,7 @@
 #include "ash/public/cpp/metrics_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/scoped_animation_duration_scale_mode.h"
@@ -29,6 +30,36 @@ constexpr gfx::Tween::Type kExpandStateChangeAnimationTweenType =
     gfx::Tween::ACCEL_5_70_DECEL_90;
 
 }  // namespace
+
+GlanceablesTimeManagementBubbleView::GlanceablesExpandButton::
+    GlanceablesExpandButton(int expand_tooltip_string_id,
+                            int collapse_tooltip_string_id)
+    : expand_tooltip_string_id_(expand_tooltip_string_id),
+      collapse_tooltip_string_id_(collapse_tooltip_string_id) {
+  // Base class ctor doesn't have the tooltip string information yet. Explicitly
+  // call `UpdateTooltip` to set it.
+  UpdateTooltip();
+}
+
+GlanceablesTimeManagementBubbleView::GlanceablesExpandButton::
+    ~GlanceablesExpandButton() = default;
+
+std::u16string GlanceablesTimeManagementBubbleView::GlanceablesExpandButton::
+    GetExpandedStateTooltipText() const {
+  // The tooltip tells users that clicking on the button will collapse the
+  // glanceables bubble.
+  return l10n_util::GetStringUTF16(collapse_tooltip_string_id_);
+}
+
+std::u16string GlanceablesTimeManagementBubbleView::GlanceablesExpandButton::
+    GetCollapsedStateTooltipText() const {
+  // The tooltip tells users that clicking on the button will expand the
+  // glanceables bubble.
+  return l10n_util::GetStringUTF16(expand_tooltip_string_id_);
+}
+
+BEGIN_METADATA(GlanceablesTimeManagementBubbleView, GlanceablesExpandButton)
+END_METADATA
 
 GlanceablesTimeManagementBubbleView::ResizeAnimation::ResizeAnimation(
     int start_height,
@@ -120,10 +151,18 @@ void GlanceablesTimeManagementBubbleView::ShowErrorMessage(
   error_message_->SetProperty(views::kViewIgnoredByLayoutKey, true);
 }
 
+gfx::Size GlanceablesTimeManagementBubbleView::GetMinimumSize() const {
+  gfx::Size minimum_size = views::FlexLayoutView::GetMinimumSize();
+  minimum_size.set_height(GetCollapsedStatePreferredHeight());
+  return minimum_size;
+}
+
 gfx::Size GlanceablesTimeManagementBubbleView::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
+  // The animation was implemented to ignore `available_size`. See b/351880846
+  // for more detail.
   const gfx::Size base_preferred_size =
-      views::FlexLayoutView::CalculatePreferredSize(available_size);
+      views::FlexLayoutView::CalculatePreferredSize({});
 
   if (resize_animation_) {
     return gfx::Size(base_preferred_size.width(),

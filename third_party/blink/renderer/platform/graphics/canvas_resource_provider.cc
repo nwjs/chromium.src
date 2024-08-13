@@ -283,19 +283,18 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     return shared_image_usage_flags_ &
            gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
   }
-  gpu::Mailbox GetBackingMailboxForOverwrite(
-      MailboxSyncMode sync_mode) override {
+  gpu::Mailbox GetBackingMailboxForOverwrite() override {
     DCHECK(is_accelerated_);
 
     if (IsGpuContextLost())
       return gpu::Mailbox();
 
     WillDrawInternal(false);
-    return resource_->GetOrCreateGpuMailbox(sync_mode);
+    return resource_->GetClientSharedImage()->mailbox();
   }
 
   GLenum GetBackingTextureTarget() const override {
-    return resource()->TextureTarget();
+    return resource()->GetClientSharedImage()->GetTextureTarget();
   }
 
   uint32_t GetSharedImageUsageFlags() const override {
@@ -317,9 +316,9 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
       return false;
 
     WillDrawInternal(true);
-    RasterInterface()->WritePixels(
-        GetBackingMailboxForOverwrite(kOrderingBarrier), x, y,
-        GetBackingTextureTarget(), SkPixmap(orig_info, pixels, row_bytes));
+    RasterInterface()->WritePixels(GetBackingMailboxForOverwrite(), x, y,
+                                   GetBackingTextureTarget(),
+                                   SkPixmap(orig_info, pixels, row_bytes));
 
     // If the overdraw optimization kicked in, we need to indicate that the
     // pixels do not need to be cleared, otherwise the subsequent
@@ -336,7 +335,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     if (IsGpuContextLost())
       return nullptr;
 
-    return CanvasResourceRasterSharedImage::Create(
+    return CanvasResourceSharedImage::Create(
         GetSkImageInfo(), ContextProviderWrapper(), CreateWeakPtr(),
         FilterQuality(), IsOriginTopLeft(), is_accelerated_,
         shared_image_usage_flags_);
@@ -470,9 +469,9 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
           TearDownSkSurface();
 
         if (mode_ == SkSurface::kRetain_ContentChangeMode) {
-          auto old_mailbox = old_resource_shared_image->GetOrCreateGpuMailbox(
-              kOrderingBarrier);
-          auto mailbox = resource()->GetOrCreateGpuMailbox(kOrderingBarrier);
+          auto old_mailbox =
+              old_resource_shared_image->GetClientSharedImage()->mailbox();
+          auto mailbox = resource()->GetClientSharedImage()->mailbox();
 
           raster_interface->CopySharedImage(
               old_mailbox, mailbox, GetBackingTextureTarget(), 0, 0, 0, 0,
@@ -531,7 +530,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     const bool needs_clear = !is_cleared_;
     is_cleared_ = true;
     RasterRecordOOP(std::move(last_recording), needs_clear,
-                    resource()->GetOrCreateGpuMailbox(kUnverifiedSyncToken));
+                    resource()->GetClientSharedImage()->mailbox());
   }
 
   bool ShouldReplaceTargetBuffer(
@@ -870,7 +869,8 @@ class CanvasResourceProviderSwapChain final : public CanvasResourceProvider {
 
     GrGLTextureInfo texture_info = {};
     texture_info.fID = resource_->GetBackBufferTextureId();
-    texture_info.fTarget = resource_->TextureTarget();
+    texture_info.fTarget =
+        resource_->GetBackBufferClientSharedImage()->GetTextureTarget();
     texture_info.fFormat =
         ContextProviderWrapper()->ContextProvider()->GetGrGLTextureFormat(
             viz::SkColorTypeToSinglePlaneSharedImageFormat(
@@ -894,7 +894,7 @@ class CanvasResourceProviderSwapChain final : public CanvasResourceProvider {
     }
     WillDraw();
     RasterRecordOOP(last_recording, initial_needs_clear_,
-                    resource_->GetBackBufferMailbox());
+                    resource_->GetBackBufferClientSharedImage()->mailbox());
     initial_needs_clear_ = false;
   }
 
@@ -915,9 +915,9 @@ class CanvasResourceProviderSwapChain final : public CanvasResourceProvider {
       return false;
 
     WillDraw();
-    RasterInterface()->WritePixels(resource_->GetBackBufferMailbox(), x, y,
-                                   GetBackingTextureTarget(),
-                                   SkPixmap(orig_info, pixels, row_bytes));
+    RasterInterface()->WritePixels(
+        resource_->GetBackBufferClientSharedImage()->mailbox(), x, y,
+        GetBackingTextureTarget(), SkPixmap(orig_info, pixels, row_bytes));
     return true;
   }
 
@@ -1313,10 +1313,11 @@ const base::FeatureParam<int> kMaxPinnedImageKB(&kCanvas2DAutoFlushParams,
                                                 "max_pinned_image_kb",
                                                 32 * 1024);
 
-// Feature only consulted if graphite is enabled.
-BASE_FEATURE(kUseLargerRecordedPaintOpBuffer,
-             "UseLargerRecordedPaintOpBuffer",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Graphite can generally handle more ops, increase the size accordingly.
+const base::FeatureParam<int> kMaxRecordedOpGraphiteKB(
+    &kCanvas2DAutoFlushParams,
+    "max_recorded_op_graphite_kb",
+    6 * 1024);
 
 CanvasResourceProvider::CanvasResourceProvider(
     const ResourceProviderType& type,
@@ -1343,12 +1344,13 @@ CanvasResourceProvider::CanvasResourceProvider(
         context_provider_wrapper_->ContextProvider()->GetCapabilities();
     oopr_uses_dmsaa_ = !caps.msaa_is_slow && !caps.avoid_stencil_buffers;
     // Graphite can handle a large buffer size.
-    if (base::FeatureList::IsEnabled(kUseLargerRecordedPaintOpBuffer) &&
-        context_provider_wrapper_->ContextProvider()
-                ->GetGpuFeatureInfo()
-                .status_values[gpu::GPU_FEATURE_TYPE_SKIA_GRAPHITE] ==
-            gpu::kGpuFeatureStatusEnabled) {
-      max_recorded_op_bytes_ = 4 * 1024 * 1024;
+    if (context_provider_wrapper_->ContextProvider()
+            ->GetGpuFeatureInfo()
+            .status_values[gpu::GPU_FEATURE_TYPE_SKIA_GRAPHITE] ==
+        gpu::kGpuFeatureStatusEnabled) {
+      max_recorded_op_bytes_ =
+          static_cast<size_t>(kMaxRecordedOpGraphiteKB.Get()) * 1024;
+      recorder_->DisableLineDrawingAsPaths();
     }
   }
 
@@ -1375,6 +1377,7 @@ CanvasResourceProvider::ReleaseRecorder() {
   auto recorder = std::make_unique<MemoryManagedPaintRecorder>(Size(), this);
   recorder_->SetClient(nullptr);
   recorder_.swap(recorder);
+  DisableLineDrawingAsPathsIfNecessary();
   return recorder;
 }
 
@@ -1382,6 +1385,7 @@ void CanvasResourceProvider::SetRecorder(
     std::unique_ptr<MemoryManagedPaintRecorder> recorder) {
   recorder->SetClient(this);
   recorder_ = std::move(recorder);
+  DisableLineDrawingAsPathsIfNecessary();
 }
 
 void CanvasResourceProvider::FlushIfRecordingLimitExceeded() {
@@ -1422,8 +1426,7 @@ bool CanvasResourceProvider::OverwriteImage(
   if (!raster) {
     return false;
   }
-  gpu::Mailbox dst_mailbox =
-      GetBackingMailboxForOverwrite(MailboxSyncMode::kOrderingBarrier);
+  gpu::Mailbox dst_mailbox = GetBackingMailboxForOverwrite();
   if (dst_mailbox.IsZero()) {
     return false;
   }
@@ -1619,6 +1622,9 @@ std::optional<cc::PaintRecord> CanvasResourceProvider::FlushCanvas(
   }
   cc::PaintRecord recording = recorder_->ReleaseMainRecording();
   RasterRecord(recording);
+  // Images are locked for the duration of the rasterization, in case they get
+  // used multiple times. We can unlock them once the rasterization is complete.
+  ReleaseLockedImages();
   last_recording_ =
       preserve_recording ? std::optional(recording) : std::nullopt;
   return recording;
@@ -1922,6 +1928,16 @@ void CanvasResourceProvider::OnMemoryDump(
 
 size_t CanvasResourceProvider::GetSize() const {
   return ComputeSurfaceSize();
+}
+
+void CanvasResourceProvider::DisableLineDrawingAsPathsIfNecessary() {
+  if (context_provider_wrapper_ &&
+      context_provider_wrapper_->ContextProvider()
+              ->GetGpuFeatureInfo()
+              .status_values[gpu::GPU_FEATURE_TYPE_SKIA_GRAPHITE] ==
+          gpu::kGpuFeatureStatusEnabled) {
+    recorder_->DisableLineDrawingAsPaths();
+  }
 }
 
 }  // namespace blink

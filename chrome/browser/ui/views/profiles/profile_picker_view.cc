@@ -21,6 +21,7 @@
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -37,10 +38,12 @@
 #include "chrome/browser/ui/views/accelerator_table.h"
 #include "chrome/browser/ui/views/profiles/profile_management_flow_controller.h"
 #include "chrome/browser/ui/views/profiles/profile_management_flow_controller_impl.h"
+#include "chrome/browser/ui/views/profiles/profile_picker_feature_promo_controller.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_flow_controller.h"
 #include "chrome/browser/ui/webui/signin/profile_picker_handler.h"
 #include "chrome/browser/ui/webui/signin/profile_picker_ui.h"
 #include "chrome/browser/ui/webui/signin/signin_url_utils.h"
+#include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
@@ -84,6 +87,10 @@
 #include "chrome/browser/ui/views/profiles/first_run_flow_controller_lacros.h"
 #endif
 
+#if BUILDFLAG(IS_LINUX)
+#include "chrome/browser/shell_integration_linux.h"
+#endif
+
 namespace {
 
 ProfilePickerView* g_profile_picker_view = nullptr;
@@ -110,6 +117,11 @@ class ProfilePickerWidget : public views::Widget {
     views::Widget::InitParams params(
         views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
     params.delegate = profile_picker_view_;
+#if BUILDFLAG(IS_LINUX)
+    params.wm_class_name = shell_integration_linux::GetProgramClassName();
+    params.wm_class_class = shell_integration_linux::GetProgramClassClass();
+    params.wayland_app_id = params.wm_class_class;
+#endif
     Init(std::move(params));
   }
   ~ProfilePickerWidget() override = default;
@@ -741,6 +753,8 @@ void ProfilePickerView::OnPickerProfileCreated(Profile* picker_profile) {
       (picker_profile ? picker_profile->GetPath().AsUTF8Unsafe() : ""));
   DCHECK(picker_profile);
   Init(picker_profile);
+
+  InitializeFeaturePromo(picker_profile);
 }
 
 void ProfilePickerView::Init(Profile* picker_profile) {
@@ -965,7 +979,7 @@ gfx::Size ProfilePickerView::GetMinimumSize() const {
 
 bool ProfilePickerView::AcceleratorPressed(const ui::Accelerator& accelerator) {
   const auto& iter = accelerator_table_.find(accelerator);
-  DCHECK(iter != accelerator_table_.end());
+  CHECK(iter != accelerator_table_.end(), base::NotFatalUntil::M130);
   int command_id = iter->second;
   switch (command_id) {
     case IDC_CLOSE_TAB:
@@ -1005,6 +1019,18 @@ bool ProfilePickerView::AcceleratorPressed(const ui::Accelerator& accelerator) {
   }
 
   return true;
+}
+
+bool ProfilePickerView::GetAcceleratorForCommandId(
+    int command_id,
+    ui::Accelerator* accelerator) const {
+  for (const auto& [accelerator_entry, command_id_entry] : accelerator_table_) {
+    if (command_id == command_id_entry) {
+      *accelerator = accelerator_entry;
+      return true;
+    }
+  }
+  return false;
 }
 
 void ProfilePickerView::BuildLayout() {
@@ -1074,6 +1100,16 @@ void ProfilePickerView::ConfigureAccelerators() {
     }
   }
 #endif  // BUILDFLAG(IS_MAC)
+}
+
+void ProfilePickerView::InitializeFeaturePromo(Profile* system_profile) {
+  feature_engagement::Tracker* const tracker_service =
+      feature_engagement::TrackerFactory::GetForBrowserContext(system_profile);
+  UserEducationService* const user_education_service =
+      UserEducationServiceFactory::GetForBrowserContext(system_profile);
+
+  feature_promo_ = std::make_unique<ProfilePickerFeaturePromoController>(
+      tracker_service, user_education_service, g_profile_picker_view);
 }
 
 void ProfilePickerView::ShowDialog(Profile* profile, const GURL& url) {

@@ -75,10 +75,14 @@ BASE_FEATURE(kExtensionIconVariants,
 
 BASE_FEATURE(kExtensionManifestV2DeprecationWarning,
              "ExtensionManifestV2DeprecationWarning",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionManifestV2ExceptionList,
              "ExtensionManifestV2ExceptionList",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kExtensionManifestV2Disabled,
+             "ExtensionManifestV2Disabled",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<std::string> kExtensionManifestV2ExceptionListParam(
@@ -110,6 +114,10 @@ BASE_FEATURE(kExtensionsMenuAccessControlWithPermittedSites,
              "ExtensionsMenuAccessControlWithPermittedSitesName",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kExtensionsToolbarZeroState,
+             "ExtensionsToolbarZeroState",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kForceWebRequestProxyForTest,
              "ForceWebRequestProxyForTest",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -120,10 +128,6 @@ BASE_FEATURE(kLaunchWindowsNativeHostsDirectly,
 
 BASE_FEATURE(kNewExtensionFaviconHandling,
              "ExtensionsNewFaviconHandling",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kNewWebstoreDomain,
-             "NewWebstoreDomain",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // To investigate signal beacon loss in crrev.com/c/2262402.
@@ -165,7 +169,7 @@ BASE_FEATURE(kDeclarativeNetRequestSafeRuleLimits,
 
 BASE_FEATURE(kDeclarativeNetRequestResponseHeaderMatching,
              "DeclarativeNetRequestResponseHeaderMatching",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIncludeJSCallStackInExtensionApiRequest,
              "IncludeJSCallStackInExtensionApiRequest",

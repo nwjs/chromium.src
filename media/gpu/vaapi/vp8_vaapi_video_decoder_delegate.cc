@@ -6,7 +6,6 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/trace_event/trace_event.h"
-#include "media/gpu/vaapi/va_surface.h"
 #include "media/gpu/vaapi/vaapi_common.h"
 #include "media/gpu/vaapi/vaapi_decode_surface_handler.h"
 #include "media/gpu/vaapi/vaapi_utils.h"
@@ -31,11 +30,12 @@ VP8VaapiVideoDecoderDelegate::~VP8VaapiVideoDecoderDelegate() {
 
 scoped_refptr<VP8Picture> VP8VaapiVideoDecoderDelegate::CreateVP8Picture() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  const auto va_surface = vaapi_dec_->CreateSurface();
-  if (!va_surface)
+  auto va_surface_handle = vaapi_dec_->CreateSurface();
+  if (!va_surface_handle) {
     return nullptr;
+  }
 
-  return new VaapiVP8Picture(std::move(va_surface));
+  return new VaapiVP8Picture(std::move(va_surface_handle));
 }
 
 bool VP8VaapiVideoDecoderDelegate::SubmitDecode(
@@ -44,7 +44,7 @@ bool VP8VaapiVideoDecoderDelegate::SubmitDecode(
   TRACE_EVENT0("media,gpu", "VP8VaapiVideoDecoderDelegate::SubmitDecode");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  const auto va_surface_id = pic->AsVaapiVP8Picture()->va_surface()->id();
+  const auto va_surface_id = pic->AsVaapiVP8Picture()->va_surface_id();
   DCHECK_NE(va_surface_id, VA_INVALID_SURFACE);
 
   VAIQMatrixBufferVP8 iq_matrix_buf{};
@@ -109,7 +109,7 @@ bool VP8VaapiVideoDecoderDelegate::OutputPicture(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   const VaapiVP8Picture* vaapi_pic = pic->AsVaapiVP8Picture();
-  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface()->id(),
+  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface_id(),
                            vaapi_pic->bitstream_id(), vaapi_pic->visible_rect(),
                            vaapi_pic->get_colorspace());
   return true;

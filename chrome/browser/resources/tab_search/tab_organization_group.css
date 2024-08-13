@@ -6,11 +6,11 @@
  * #type=style-lit
  * #import=chrome://resources/cr_elements/cr_icons_lit.css.js
  * #import=chrome://resources/cr_elements/cr_shared_vars.css.js
- * #import=chrome://resources/cr_elements/mwb_shared_icons.html.js
  * #import=chrome://resources/cr_elements/mwb_shared_style_lit.css.js
- * #import=./tab_organization_shared_style_lit.css.js
+ * #import=./icons.html.js
+ * #import=./tab_organization_shared_style.css.js
  * #scheme=relative
- * #include=mwb-shared-style-lit tab-organization-shared-style-lit cr-icons-lit
+ * #include=mwb-shared-style-lit tab-organization-shared-style cr-icons-lit
  * #css_wrapper_metadata_end */
 
 cr-icon-button {
@@ -57,6 +57,7 @@ tab-search-item {
 .group-header-row {
   align-items: center;
   display: flex;
+  gap: 8px;
   justify-content: space-between;
   margin: 0 var(--mwb-list-item-horizontal-margin);
 }
@@ -76,6 +77,10 @@ tab-search-item {
   justify-content: space-between;
 }
 
+.icon-edit {
+  margin-inline-end: -4px;
+}
+
 :host(:not([show-reject])) .icon-edit,
 #rejectButton {
   margin-inline-end: var(--cr-icon-ripple-margin);
@@ -85,7 +90,7 @@ tab-search-item {
   width: 100%;
 }
 
-iron-selector > .mwb-list-item:focus {
+cr-page-selector > .mwb-list-item:focus {
   background-color: var(--mwb-list-item-selected-background-color);
 }
 

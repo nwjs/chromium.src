@@ -4,8 +4,10 @@
 
 #include "components/password_manager/core/browser/sync/password_model_type_controller.h"
 
+#include <string>
 #include <utility>
 
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -15,6 +17,7 @@
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
+#include "components/signin/public/identity_manager/identity_utils.h"
 #include "components/signin/public/identity_manager/primary_account_change_event.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/model_type.h"
@@ -32,12 +35,14 @@ PasswordModelTypeController::PasswordModelTypeController(
         delegate_for_full_sync_mode,
     std::unique_ptr<syncer::ModelTypeControllerDelegate>
         delegate_for_transport_mode,
+    std::unique_ptr<syncer::ModelTypeLocalDataBatchUploader> batch_uploader,
     PrefService* pref_service,
     signin::IdentityManager* identity_manager,
     syncer::SyncService* sync_service)
     : ModelTypeController(syncer::PASSWORDS,
                           std::move(delegate_for_full_sync_mode),
-                          std::move(delegate_for_transport_mode)),
+                          std::move(delegate_for_transport_mode),
+                          std::move(batch_uploader)),
       pref_service_(pref_service),
       identity_manager_(identity_manager),
       sync_service_(sync_service) {
@@ -105,25 +110,22 @@ void PasswordModelTypeController::OnAccountsInCookieUpdated(
   if (!accounts_in_cookie_jar_info.accounts_are_fresh) {
     return;
   }
-  // Collect all the known accounts (signed-in or signed-out).
-  std::vector<std::string> gaia_ids;
-  for (const gaia::ListedAccount& account :
-       accounts_in_cookie_jar_info.signed_in_accounts) {
-    gaia_ids.push_back(account.gaia_id);
-  }
-  for (const gaia::ListedAccount& account :
-       accounts_in_cookie_jar_info.signed_out_accounts) {
-    gaia_ids.push_back(account.gaia_id);
-  }
   // Keep any account-storage settings only for known accounts.
-  features_util::KeepAccountStorageSettingsOnlyForUsers(pref_service_,
-                                                        gaia_ids);
+  features_util::KeepAccountStorageSettingsOnlyForUsers(
+      pref_service_, signin::GetAllGaiaIdsForKeyedPreferences(
+                         identity_manager_, accounts_in_cookie_jar_info)
+                         .extract());
 #endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 }
 
 void PasswordModelTypeController::OnAccountsCookieDeletedByUserAction() {
 #if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-  features_util::KeepAccountStorageSettingsOnlyForUsers(pref_service_, {});
+  // Pass an empty `signin::AccountsInCookieJarInfo` to simulate empty cookies.
+  base::flat_set<std::string> gaia_ids =
+      signin::GetAllGaiaIdsForKeyedPreferences(
+          identity_manager_, signin::AccountsInCookieJarInfo());
+  features_util::KeepAccountStorageSettingsOnlyForUsers(
+      pref_service_, std::move(gaia_ids).extract());
 #endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 }
 

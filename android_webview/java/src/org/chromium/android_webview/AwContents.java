@@ -28,6 +28,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Pair;
 import android.util.SparseArray;
+import android.view.DragAndDropPermissions;
 import android.view.DragEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -66,7 +67,6 @@ import org.chromium.android_webview.gfx.AwGLFunctor;
 import org.chromium.android_webview.gfx.AwPicture;
 import org.chromium.android_webview.gfx.RectUtils;
 import org.chromium.android_webview.metrics.AwOriginVisitLogger;
-import org.chromium.android_webview.metrics.AwSiteVisitLogger;
 import org.chromium.android_webview.metrics.BackForwardCacheNotRestoredReason;
 import org.chromium.android_webview.permission.AwGeolocationCallback;
 import org.chromium.android_webview.permission.AwPermissionRequest;
@@ -558,6 +558,10 @@ public class AwContents implements SmartClipProvider {
     private AwWebContentsMetricsRecorder mAwWebContentsMetricsRecorder;
 
     private StylusWritingController mStylusWritingController;
+
+    // Permissions are requested on a drop event, and are released when another drag starts
+    // (drag-started event) or when the current page navigates to a new URL.
+    private DragAndDropPermissions mDragAndDropPermissions;
 
     private static class WebContentsInternalsHolder implements WebContents.InternalsHolder {
         private final WeakReference<AwContents> mAwContentsRef;
@@ -2305,6 +2309,14 @@ public class AwContents implements SmartClipProvider {
             mOnscreenContentProvider.destroy();
         }
         mOnscreenContentProvider = onscreenContentProvider;
+    }
+
+    /** Release any DragAndDropPermissions currently held. */
+    protected void releaseDragAndDropPermissions() {
+        if (mDragAndDropPermissions != null) {
+            mDragAndDropPermissions.release();
+            mDragAndDropPermissions = null;
+        }
     }
 
     // --------------------------------------------------------------------------------------------
@@ -4132,13 +4144,6 @@ public class AwContents implements SmartClipProvider {
     }
 
     @CalledByNative
-    private void logSiteVisit(long siteHash) {
-        if (isDestroyed(NO_WARN)) return;
-        PostTask.postTask(
-                TaskTraits.BEST_EFFORT_MAY_BLOCK, () -> AwSiteVisitLogger.logVisit(siteHash));
-    }
-
-    @CalledByNative
     public void onFindResultReceived(
             int activeMatchOrdinal, int numberOfMatches, boolean isDoneCounting) {
         mContentsClient.onFindResultReceived(activeMatchOrdinal, numberOfMatches, isDoneCounting);
@@ -4679,9 +4684,21 @@ public class AwContents implements SmartClipProvider {
 
         @Override
         public boolean onDragEvent(DragEvent event) {
-            return isDestroyed(NO_WARN)
-                    ? false
-                    : mWebContents.getEventForwarder().onDragEvent(event, mContainerView);
+            if (isDestroyed(NO_WARN)) {
+                return false;
+            }
+
+            if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_DRAG_DROP_FILES)) {
+                if (event.getAction() == DragEvent.ACTION_DRAG_STARTED) {
+                    releaseDragAndDropPermissions();
+                } else if (event.getAction() == DragEvent.ACTION_DROP) {
+                    Activity activity = ContextUtils.activityFromContext(mContext);
+                    if (activity != null) {
+                        mDragAndDropPermissions = activity.requestDragAndDropPermissions(event);
+                    }
+                }
+            }
+            return mWebContents.getEventForwarder().onDragEvent(event, mContainerView);
         }
 
         @Override

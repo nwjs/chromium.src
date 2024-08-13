@@ -318,8 +318,8 @@ void HeadsUpDisplayLayerImpl::UpdateHudTexture(
       backing->shared_image_interface = sii;
       backing->overlay_candidate = raster_caps.tile_overlay_candidate;
 
-      uint32_t flags = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
-                       gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;
+      gpu::SharedImageUsageSet flags = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
+                                       gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;
       if (raster_caps.use_gpu_rasterization) {
         flags |= gpu::SHARED_IMAGE_USAGE_OOP_RASTERIZATION;
       }
@@ -440,8 +440,7 @@ void HeadsUpDisplayLayerImpl::UpdateHudTexture(
       SkPixmap pixmap;
       staging_surface_->peekPixels(&pixmap);
 
-      uint32_t texture_target =
-          backing->shared_image->GetTextureTarget(gfx::BufferUsage::SCANOUT);
+      uint32_t texture_target = backing->shared_image->GetTextureTarget();
       ri->WritePixels(backing->shared_image->mailbox(), /*dst_x_offset=*/0,
                       /*dst_y_offset=*/0, texture_target, pixmap);
     }

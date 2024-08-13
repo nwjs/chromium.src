@@ -208,7 +208,7 @@ class AccountPickerBottomSheetView implements BottomSheetContent {
             ((TextView) view.findViewById(R.id.account_picker_header_title)).setText(title);
 
             TextViewWithLeading subtitleView =
-                    ((TextViewWithLeading) view.findViewById(R.id.account_picker_header_subtitle));
+                    view.findViewById(R.id.account_picker_header_subtitle);
             if (subtitle == 0) {
                 subtitleView.setVisibility(View.GONE);
             } else {
@@ -297,6 +297,11 @@ class AccountPickerBottomSheetView implements BottomSheetContent {
     @Override
     public int getSheetClosedAccessibilityStringId() {
         return R.string.account_picker_bottom_sheet_accessibility_closed;
+    }
+
+    @Override
+    public boolean shouldLongPressMoveSheet() {
+        return true;
     }
 
     private static void setUpContinueButton(View view, @StringRes int buttonId) {

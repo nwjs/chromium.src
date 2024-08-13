@@ -35,7 +35,7 @@
 #include "cc/animation/animation_timeline.h"
 #include "cc/base/features.h"
 #include "cc/layers/picture_layer.h"
-#include "cc/trees/ukm_manager.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-blink.h"
@@ -123,7 +123,8 @@ Page* CreatePage(ChromeClient& chrome_client, WebViewImpl& opener_web_view) {
   Settings& main_settings = opener_web_view.GetPage()->GetSettings();
   Page* page = Page::CreateNonOrdinary(
       chrome_client,
-      opener_web_view.GetPage()->GetPageScheduler()->GetAgentGroupScheduler());
+      opener_web_view.GetPage()->GetPageScheduler()->GetAgentGroupScheduler(),
+      &opener_web_view.GetPage()->GetColorProviderColorMaps());
   page->GetSettings().SetAcceleratedCompositingEnabled(true);
   page->GetSettings().SetScriptEnabled(true);
   page->GetSettings().SetAllowScriptsToCloseWindows(true);
@@ -373,7 +374,8 @@ WebPagePopupImpl::WebPagePopupImpl(
       /* Frame* previous_sibling */ nullptr,
       FrameInsertType::kInsertInConstructor, LocalFrameToken(),
       window_agent_factory,
-      /* InterfaceRegistry* */ nullptr);
+      /* InterfaceRegistry* */ nullptr,
+      /* BrowserInterfaceBroker */ mojo::NullRemote());
   frame->SetPagePopupOwner(popup_client_->OwnerElement());
   frame->SetView(MakeGarbageCollected<LocalFrameView>(*frame));
 
@@ -406,7 +408,7 @@ WebPagePopupImpl::WebPagePopupImpl(
 
   SegmentedBuffer data;
   popup_client_->WriteDocument(data);
-  frame->SetPageZoomFactor(popup_client_->ZoomFactor());
+  frame->SetLayoutZoomFactor(popup_client_->ZoomFactor());
   frame->ForceSynchronousDocumentInstall(AtomicString("text/html"),
                                          std::move(data));
 

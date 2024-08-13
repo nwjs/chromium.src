@@ -22,7 +22,10 @@ class CategoryResolvedKeyMetricsTest
  public:
   CategoryResolvedKeyMetricsTest() = default;
 
-  void SetUp() override { SetUpHelper(); }
+  void SetUp() override {
+    SetUpHelper();
+    personal_data().test_address_data_manager().ClearProfiles();
+  }
   void TearDown() override { TearDownHelper(); }
 
   // Creates a full profile of the given `category` and adds it to the PDM.
@@ -39,11 +42,12 @@ class CategoryResolvedKeyMetricsTest
   // TODO(crbug.com/40100455): Replace this with a modern form creation
   // function.
   FormData CreateAndSeeForm() {
-    FormData form = CreateEmptyForm();
-    form.fields.resize(3);
-    for (FormFieldData& field : form.fields) {
+    std::vector<FormFieldData> fields(3);
+    for (FormFieldData& field : fields) {
       field.set_renderer_id(autofill_test_environment_.NextFieldRendererId());
     }
+    FormData form = CreateEmptyForm();
+    form.set_fields(std::move(fields));
     autofill_manager().AddSeenForm(
         form, {NAME_FULL, ADDRESS_HOME_STREET_ADDRESS, EMAIL_ADDRESS});
     SeeForm(form);
@@ -57,9 +61,9 @@ class CategoryResolvedKeyMetricsTest
     ASSERT_TRUE(personal_data().address_data_manager().GetProfileByGUID(
         profile.guid()));
     autofill_manager().OnAskForValuesToFillTest(
-        form, form.fields.front().global_id());
+        form, form.fields().front().global_id());
     autofill_manager().FillOrPreviewProfileForm(
-        mojom::ActionPersistence::kFill, form, form.fields.front(), profile,
+        mojom::ActionPersistence::kFill, form, form.fields().front(), profile,
         {.trigger_source = AutofillTriggerSource::kPopup});
   }
 
@@ -71,14 +75,14 @@ class CategoryResolvedKeyMetricsTest
 // kNone, but not the correctness metric is not.
 TEST_F(CategoryResolvedKeyMetricsTest, NoAutofill) {
   FormData form = CreateAndSeeForm();
-  autofill_manager().OnAskForValuesToFillTest(form,
-                                              form.fields.front().global_id());
+  autofill_manager().OnAskForValuesToFillTest(
+      form, form.fields().front().global_id());
   SubmitForm(form);
 
   ResetDriverToCommitMetrics();
   histogram_tester_.ExpectUniqueSample(
       "Autofill.Leipzig.FillingAssistanceCategory",
-      CategoryResolvedFillingAssistanceBucket::kNone, 1);
+      CategoryResolvedKeyMetricBucket::kNone, 1);
   // FillingCorrectness is only emitted when Autofill was used.
   histogram_tester_.ExpectTotalCount(
       "Autofill.Leipzig.FillingCorrectness.Legacy", 0);
@@ -93,8 +97,8 @@ TEST_F(CategoryResolvedKeyMetricsTest, NoAutofill) {
 // Parameterized CategoryResolvedKeyMetricsTest that edits a field depending on
 // the parameter. This is used to test the correctness metric, which depends on
 // whether autofilled fields have been edited.
-// Additionally, these tests verify that the category-resolved assistance metric
-// is correctly emitted.
+// Additionally, these tests verify that the category-resolved assistance and
+// readiness metrics are correctly emitted.
 class CategoryResolvedKeyMetricsEditTest
     : public CategoryResolvedKeyMetricsTest,
       public testing::WithParamInterface<bool> {
@@ -111,14 +115,17 @@ TEST_P(CategoryResolvedKeyMetricsEditTest, kLocalOrSyncable) {
       form,
       CreateProfileOfCategory(AutofillProfileSourceCategory::kLocalOrSyncable));
   if (ShouldEditField()) {
-    SimulateUserChangedTextField(form, form.fields.front());
+    SimulateUserChangedTextField(form, form.fields().front());
   }
   SubmitForm(form);
 
   ResetDriverToCommitMetrics();
   histogram_tester_.ExpectUniqueSample(
+      "Autofill.Leipzig.FillingReadinessCategory",
+      CategoryResolvedKeyMetricBucket::kLocalOrSyncable, 1);
+  histogram_tester_.ExpectUniqueSample(
       "Autofill.Leipzig.FillingAssistanceCategory",
-      CategoryResolvedFillingAssistanceBucket::kLocalOrSyncable, 1);
+      CategoryResolvedKeyMetricBucket::kLocalOrSyncable, 1);
   histogram_tester_.ExpectUniqueSample(
       "Autofill.Leipzig.FillingCorrectness.Legacy", !ShouldEditField(), 1);
   histogram_tester_.ExpectTotalCount(
@@ -134,14 +141,17 @@ TEST_P(CategoryResolvedKeyMetricsEditTest, kAccountChrome) {
   FillFormWithProfile(form, CreateProfileOfCategory(
                                 AutofillProfileSourceCategory::kAccountChrome));
   if (ShouldEditField()) {
-    SimulateUserChangedTextField(form, form.fields.front());
+    SimulateUserChangedTextField(form, form.fields().front());
   }
   SubmitForm(form);
 
   ResetDriverToCommitMetrics();
   histogram_tester_.ExpectUniqueSample(
+      "Autofill.Leipzig.FillingReadinessCategory",
+      CategoryResolvedKeyMetricBucket::kAccountChrome, 1);
+  histogram_tester_.ExpectUniqueSample(
       "Autofill.Leipzig.FillingAssistanceCategory",
-      CategoryResolvedFillingAssistanceBucket::kAccountChrome, 1);
+      CategoryResolvedKeyMetricBucket::kAccountChrome, 1);
   histogram_tester_.ExpectTotalCount(
       "Autofill.Leipzig.FillingCorrectness.Legacy", 0);
   histogram_tester_.ExpectUniqueSample(
@@ -159,14 +169,17 @@ TEST_P(CategoryResolvedKeyMetricsEditTest, kAccountNonChrome) {
                       CreateProfileOfCategory(
                           AutofillProfileSourceCategory::kAccountNonChrome));
   if (ShouldEditField()) {
-    SimulateUserChangedTextField(form, form.fields.front());
+    SimulateUserChangedTextField(form, form.fields().front());
   }
   SubmitForm(form);
 
   ResetDriverToCommitMetrics();
   histogram_tester_.ExpectUniqueSample(
+      "Autofill.Leipzig.FillingReadinessCategory",
+      CategoryResolvedKeyMetricBucket::kAccountNonChrome, 1);
+  histogram_tester_.ExpectUniqueSample(
       "Autofill.Leipzig.FillingAssistanceCategory",
-      CategoryResolvedFillingAssistanceBucket::kAccountNonChrome, 1);
+      CategoryResolvedKeyMetricBucket::kAccountNonChrome, 1);
   histogram_tester_.ExpectTotalCount(
       "Autofill.Leipzig.FillingCorrectness.Legacy", 0);
   histogram_tester_.ExpectTotalCount(
@@ -199,13 +212,16 @@ TEST_P(CategoryResolvedKeyMetricsEditTest, Mixed) {
       CreateProfileOfCategory(AutofillProfileSourceCategory::kAccountChrome));
   SubmitForm(form2);
   if (ShouldEditField()) {
-    SimulateUserChangedTextField(form2, form2.fields.front());
+    SimulateUserChangedTextField(form2, form2.fields().front());
   }
 
   ResetDriverToCommitMetrics();
   histogram_tester_.ExpectUniqueSample(
+      "Autofill.Leipzig.FillingReadinessCategory",
+      CategoryResolvedKeyMetricBucket::kMixed, 1);
+  histogram_tester_.ExpectUniqueSample(
       "Autofill.Leipzig.FillingAssistanceCategory",
-      CategoryResolvedFillingAssistanceBucket::kMixed, 1);
+      CategoryResolvedKeyMetricBucket::kMixed, 1);
   histogram_tester_.ExpectTotalCount(
       "Autofill.Leipzig.FillingCorrectness.Legacy", 0);
   histogram_tester_.ExpectTotalCount(

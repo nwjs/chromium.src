@@ -132,7 +132,7 @@ void InstallComplete(scoped_refptr<base::SequencedTaskRunner> main_task_runner,
              const CrxInstaller::Result& installer_result) {
             base::DeletePathRecursively(unpack_path);
             const ErrorCategory error_category = installer_result.error
-                                                     ? ErrorCategory::kInstall
+                                                     ? ErrorCategory::kInstaller
                                                      : ErrorCategory::kNone;
             main_task_runner->PostTask(
                 FROM_HERE,
@@ -634,7 +634,6 @@ bool Component::CanDoBackgroundDownload(int64_t size) const {
   // Foreground component updates are always downloaded in foreground.
   bool enabled =
       !is_foreground() &&
-      (crx_component() && crx_component()->allows_background_download) &&
       update_context_->config->EnabledBackgroundDownloader();
 #if BUILDFLAG(IS_MAC)
   enabled &=

@@ -39,7 +39,6 @@ bool IsValidRoleForViews(ax::mojom::Role role) {
     case ax::mojom::Role::kIframe:
     case ax::mojom::Role::kIframePresentational:
     case ax::mojom::Role::kPdfRoot:
-    case ax::mojom::Role::kPortal:
     case ax::mojom::Role::kRootWebArea:
     case ax::mojom::Role::kSvgRoot:
     case ax::mojom::Role::kUnknown:
@@ -152,7 +151,7 @@ std::optional<size_t> ViewAccessibility::GetIndexOf(
 }
 
 void ViewAccessibility::GetAccessibleNodeData(ui::AXNodeData* data) const {
-  data->id = GetUniqueId().Get();
+  data->id = GetUniqueId();
   data->AddStringAttribute(ax::mojom::StringAttribute::kClassName,
                            view_->GetClassName());
 
@@ -170,6 +169,9 @@ void ViewAccessibility::GetAccessibleNodeData(ui::AXNodeData* data) const {
   }
 
   view_->GetAccessibleNodeData(data);
+
+  DCHECK(!data->HasChildTreeID()) << "Please annotate child tree ids using "
+                                     "ViewAccessibility::SetChildTreeID.";
 
   // Copy the attributes that are in the cache (`data_`) into the computed
   // `data` object. This is done after the `data` object was initialized with
@@ -189,23 +191,6 @@ void ViewAccessibility::GetAccessibleNodeData(ui::AXNodeData* data) const {
   }
 
   data->relative_bounds.bounds = gfx::RectF(view_->bounds());
-
-  DCHECK(!data->HasStringAttribute(ax::mojom::StringAttribute::kChildTreeId))
-      << "Please annotate child tree ids using "
-         "ViewAccessibility::OverrideChildTreeID.";
-  if (child_tree_id_) {
-    data->AddChildTreeId(child_tree_id_.value());
-
-    const views::Widget* widget = view_->GetWidget();
-    if (widget && widget->GetNativeView() && display::Screen::GetScreen()) {
-      const float scale_factor =
-          display::Screen::GetScreen()
-              ->GetDisplayNearestView(view_->GetWidget()->GetNativeView())
-              .device_scale_factor();
-      data->AddFloatAttribute(ax::mojom::FloatAttribute::kChildTreeScale,
-                              scale_factor);
-    }
-  }
 
   // This was previously found earlier in the function. It has been moved here,
   // after the call to `ViewAccessibility::Merge`, so that we only check the
@@ -351,6 +336,21 @@ bool ViewAccessibility::IsLeaf() const {
 
 bool ViewAccessibility::IsChildOfLeaf() const {
   return pruned_;
+}
+
+void ViewAccessibility::SetReadOnly(bool read_only) {
+  if ((read_only &&
+       data_.GetRestriction() == ax::mojom::Restriction::kReadOnly) ||
+      (!read_only &&
+       data_.GetRestriction() != ax::mojom::Restriction::kReadOnly)) {
+    return;
+  }
+
+  if (read_only) {
+    data_.SetRestriction(ax::mojom::Restriction::kReadOnly);
+  } else {
+    data_.RemoveIntAttribute(ax::mojom::IntAttribute::kRestriction);
+  }
 }
 
 bool ViewAccessibility::GetIsPruned() const {
@@ -508,9 +508,8 @@ void ViewAccessibility::SetName(View& naming_view) {
     SetName(name, ax::mojom::NameFrom::kRelatedElement);
   }
 
-  data_.AddIntListAttribute(
-      ax::mojom::IntListAttribute::kLabelledbyIds,
-      {naming_view.GetViewAccessibility().GetUniqueId().Get()});
+  data_.AddIntListAttribute(ax::mojom::IntListAttribute::kLabelledbyIds,
+                            {naming_view.GetViewAccessibility().GetUniqueId()});
 }
 
 std::u16string ViewAccessibility::GetCachedName() const {
@@ -526,8 +525,13 @@ ax::mojom::Role ViewAccessibility::GetCachedRole() const {
   return data_.role;
 }
 
+void ViewAccessibility::SetIsEditable(bool editable) {
+  SetState(ax::mojom::State::kEditable, editable);
+}
+
 void ViewAccessibility::SetBounds(const gfx::RectF& bounds) {
   data_.relative_bounds.bounds = bounds;
+  NotifyEvent(ax::mojom::Event::kLocationChanged, false);
 }
 
 void ViewAccessibility::SetPosInSet(int pos_in_set) {
@@ -546,13 +550,52 @@ void ViewAccessibility::ClearSetSize() {
   data_.RemoveIntAttribute(ax::mojom::IntAttribute::kSetSize);
 }
 
+void ViewAccessibility::SetScrollX(int scroll_x) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kScrollX, scroll_x);
+}
+
+void ViewAccessibility::SetScrollXMin(int scroll_x_min) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kScrollXMin, scroll_x_min);
+}
+
+void ViewAccessibility::SetScrollXMax(int scroll_x_max) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kScrollXMax, scroll_x_max);
+}
+
+void ViewAccessibility::SetScrollY(int scroll_y) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kScrollY, scroll_y);
+}
+
+void ViewAccessibility::SetScrollYMin(int scroll_y_min) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kScrollYMin, scroll_y_min);
+}
+
+void ViewAccessibility::SetScrollYMax(int scroll_y_max) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kScrollYMax, scroll_y_max);
+}
+
+void ViewAccessibility::SetIsScrollable(bool is_scrollable) {
+  data_.AddBoolAttribute(ax::mojom::BoolAttribute::kScrollable, is_scrollable);
+}
+
 void ViewAccessibility::SetActiveDescendant(views::View& view) {
   data_.AddIntAttribute(ax::mojom::IntAttribute::kActivedescendantId,
-                        view.GetViewAccessibility().GetUniqueId().Get());
+                        view.GetViewAccessibility().GetUniqueId());
 }
 
 void ViewAccessibility::ClearActiveDescendant() {
   data_.RemoveIntAttribute(ax::mojom::IntAttribute::kActivedescendantId);
+}
+
+void ViewAccessibility::SetIsInvisible(bool is_invisible) {
+  SetState(ax::mojom::State::kInvisible, is_invisible);
+}
+
+void ViewAccessibility::SetIsDefault(bool is_default) {
+  if (data_.HasState(ax::mojom::State::kDefault) == is_default) {
+    return;
+  }
+  SetState(ax::mojom::State::kDefault, is_default);
 }
 
 void ViewAccessibility::SetIsEnabled(bool is_enabled) {
@@ -582,6 +625,15 @@ void ViewAccessibility::SetIsEnabled(bool is_enabled) {
 
 bool ViewAccessibility::GetIsEnabled() const {
   return data_.GetRestriction() != ax::mojom::Restriction::kDisabled;
+}
+
+void ViewAccessibility::SetTableRowCount(int row_count) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kTableRowCount, row_count);
+}
+
+void ViewAccessibility::SetTableColumnCount(int column_count) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kTableColumnCount,
+                        column_count);
 }
 
 void ViewAccessibility::SetDescription(
@@ -620,7 +672,7 @@ void ViewAccessibility::SetDescription(View& describing_view) {
   SetDescription(name, ax::mojom::DescriptionFrom::kRelatedElement);
   data_.AddIntListAttribute(
       ax::mojom::IntListAttribute::kDescribedbyIds,
-      {describing_view.GetViewAccessibility().GetUniqueId().Get()});
+      {describing_view.GetViewAccessibility().GetUniqueId()});
 }
 
 std::u16string ViewAccessibility::GetCachedDescription() const {
@@ -629,6 +681,11 @@ std::u16string ViewAccessibility::GetCachedDescription() const {
         data_.GetStringAttribute(ax::mojom::StringAttribute::kDescription));
   }
   return std::u16string();
+}
+
+void ViewAccessibility::SetPlaceholder(const std::string& placeholder) {
+  data_.AddStringAttribute(ax::mojom::StringAttribute::kPlaceholder,
+                           placeholder);
 }
 
 void ViewAccessibility::SetCheckedState(ax::mojom::CheckedState checked_state) {
@@ -641,8 +698,38 @@ void ViewAccessibility::RemoveCheckedState() {
   }
 }
 
+void ViewAccessibility::SetKeyShortcuts(const std::string& key_shortcuts) {
+  data_.AddStringAttribute(ax::mojom::StringAttribute::kKeyShortcuts,
+                           key_shortcuts);
+}
+
+void ViewAccessibility::RemoveKeyShortcuts() {
+  data_.RemoveStringAttribute(ax::mojom::StringAttribute::kKeyShortcuts);
+}
+
+void ViewAccessibility::SetAccessKey(const std::string& access_key) {
+  data_.AddStringAttribute(ax::mojom::StringAttribute::kAccessKey, access_key);
+}
+
+void ViewAccessibility::RemoveAccessKey() {
+  data_.RemoveStringAttribute(ax::mojom::StringAttribute::kAccessKey);
+}
+
+void ViewAccessibility::SetChildTreeNodeAppId(const std::string& app_id) {
+  data_.AddStringAttribute(ax::mojom::StringAttribute::kChildTreeNodeAppId,
+                           app_id);
+}
+
+void ViewAccessibility::RemoveChildTreeNodeAppId() {
+  data_.RemoveStringAttribute(ax::mojom::StringAttribute::kChildTreeNodeAppId);
+}
+
 void ViewAccessibility::SetIsSelected(bool selected) {
   data_.AddBoolAttribute(ax::mojom::BoolAttribute::kSelected, selected);
+}
+
+void ViewAccessibility::SetIsMultiselectable(bool multiselectable) {
+  SetState(ax::mojom::State::kMultiselectable, multiselectable);
 }
 
 void ViewAccessibility::SetIsIgnored(bool is_ignored) {
@@ -698,12 +785,35 @@ void ViewAccessibility::SetShowContextMenu(bool show_context_menu) {
   }
 }
 
-void ViewAccessibility::SetState(ax::mojom::State state, bool is_enabled) {
-  if (is_enabled) {
-    data_.AddState(state);
-  } else {
-    data_.RemoveState(state);
+void ViewAccessibility::SetContainerLiveStatus(const std::string& status) {
+  data_.AddStringAttribute(ax::mojom::StringAttribute::kContainerLiveStatus,
+                           status);
+}
+
+void ViewAccessibility::SetValue(const std::string& value) {
+  data_.AddStringAttribute(ax::mojom::StringAttribute::kValue, value);
+  NotifyEvent(ax::mojom::Event::kValueChanged, true);
+}
+
+void ViewAccessibility::SetValue(const std::u16string& value) {
+  SetValue(base::UTF16ToUTF8(value));
+}
+
+void ViewAccessibility::RemoveValue() {
+  if (!data_.HasStringAttribute(ax::mojom::StringAttribute::kValue)) {
+    return;
   }
+  data_.RemoveStringAttribute(ax::mojom::StringAttribute::kValue);
+  NotifyEvent(ax::mojom::Event::kValueChanged, true);
+}
+
+void ViewAccessibility::SetDefaultActionVerb(
+    const ax::mojom::DefaultActionVerb default_action_verb) {
+  data_.SetDefaultActionVerb(default_action_verb);
+}
+
+void ViewAccessibility::RemoveDefaultActionVerb() {
+  data_.RemoveIntAttribute(ax::mojom::IntAttribute::kDefaultActionVerb);
 }
 
 void ViewAccessibility::UpdateFocusableState() {
@@ -727,15 +837,38 @@ void ViewAccessibility::UpdateInvisibleState() {
   SetState(ax::mojom::State::kInvisible, is_invisible);
 }
 
-void ViewAccessibility::OverrideChildTreeID(ui::AXTreeID tree_id) {
-  if (tree_id == ui::AXTreeIDUnknown())
-    child_tree_id_ = std::nullopt;
-  else
-    child_tree_id_ = tree_id;
+void ViewAccessibility::SetChildTreeID(ui::AXTreeID tree_id) {
+  if (tree_id != ui::AXTreeIDUnknown()) {
+    data_.AddChildTreeId(tree_id);
+
+    const views::Widget* widget = view_->GetWidget();
+    if (widget && widget->GetNativeView() && display::Screen::GetScreen()) {
+      // TODO(accessibility): There potentially could be an issue where the
+      // device scale factor changes from the time the tree ID is set to the
+      // time `GetAccessibleNodeData` is queried. If this ever pops up, a
+      // potential solution could be to make ViewAccessibility a DisplayObserver
+      // and add `this` as an observer when the tree ID is set. Then, when the
+      // display changes, we can update the scale factor in the cache, probably
+      // by implementing `OnDisplayMetricsChanged`.
+      const float scale_factor =
+          display::Screen::GetScreen()
+              ->GetDisplayNearestView(widget->GetNativeView())
+              .device_scale_factor();
+      SetChildTreeScaleFactor(scale_factor);
+    }
+  }
 }
 
 ui::AXTreeID ViewAccessibility::GetChildTreeID() const {
-  return child_tree_id_ ? *child_tree_id_ : ui::AXTreeIDUnknown();
+  std::optional<ui::AXTreeID> child_tree_id = data_.GetChildTreeID();
+  return child_tree_id ? child_tree_id.value() : ui::AXTreeIDUnknown();
+}
+
+void ViewAccessibility::SetChildTreeScaleFactor(float scale_factor) {
+  if (data_.HasChildTreeID()) {
+    data_.AddFloatAttribute(ax::mojom::FloatAttribute::kChildTreeScale,
+                            scale_factor);
+  }
 }
 
 gfx::NativeViewAccessible ViewAccessibility::GetNativeObject() const {
@@ -766,7 +899,7 @@ void ViewAccessibility::AnnounceText(const std::u16string& text) {
   AnnounceAlert(text);
 }
 
-const ui::AXUniqueId& ViewAccessibility::GetUniqueId() const {
+ui::AXPlatformNodeId ViewAccessibility::GetUniqueId() const {
   return unique_id_;
 }
 
@@ -918,6 +1051,116 @@ void ViewAccessibility::SetDataForClosedWidget(ui::AXNodeData* data) const {
     // name of a focusable.
     data->SetNameExplicitlyEmpty();
   }
+
+  // Some of the views like popup_view_views have state collapsed when the
+  // widget has already closed and hence explicitly setting the state.
+  if (data_.HasState(ax::mojom::State::kCollapsed)) {
+    data->AddState(ax::mojom::State::kCollapsed);
+  }
+}
+
+void ViewAccessibility::SetHierarchicalLevel(int hierarchical_level) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel,
+                        hierarchical_level);
+}
+
+void ViewAccessibility::SetState(ax::mojom::State state, bool is_enabled) {
+  if (is_enabled) {
+    data_.AddState(state);
+  } else {
+    data_.RemoveState(state);
+  }
+}
+void ViewAccessibility::SetIsHovered(bool is_hovered) {
+  if (is_hovered == GetIsHovered()) {
+    return;
+  }
+
+  SetState(ax::mojom::State::kHovered, is_hovered);
+}
+
+bool ViewAccessibility::GetIsHovered() const {
+  return data_.HasState(ax::mojom::State::kHovered);
+}
+
+void ViewAccessibility::SetPopupForId(ui::AXPlatformNodeId popup_for_id) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kPopupForId, popup_for_id);
+}
+
+void ViewAccessibility::SetTextDirection(int text_direction) {
+  CHECK_GE(text_direction,
+           static_cast<int32_t>(ax::mojom::WritingDirection::kMinValue));
+  CHECK_LE(text_direction,
+           static_cast<int32_t>(ax::mojom::WritingDirection::kMaxValue));
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kTextDirection,
+                        text_direction);
+}
+
+void ViewAccessibility::SetIsProtected(bool is_protected) {
+  if (data_.HasState(ax::mojom::State::kProtected) == is_protected) {
+    return;
+  }
+
+  SetState(ax::mojom::State::kProtected, is_protected);
+}
+
+void ViewAccessibility::SetIsExpanded() {
+  // Check to see if the expanded state is already set, if already set no need
+  // to add the state again.
+  if (data_.HasState(ax::mojom::State::kExpanded)) {
+    // The expanded and collapsed state must be mutually exclusive.
+    CHECK(!data_.HasState(ax::mojom::State::kCollapsed));
+    return;
+  }
+
+  bool should_notify = data_.HasState(ax::mojom::State::kCollapsed);
+  SetState(ax::mojom::State::kExpanded, true);
+  SetState(ax::mojom::State::kCollapsed, false);
+
+  // We should not notify when initial state (expanded = false, collapsed =
+  // false) changes. As changes to initial state generally stands for when the
+  // accessibility properties are being set by a view constructor or when the
+  // view author explicitly resets the value of expanded and collapsed state. In
+  // both these cases we dont wont to fire the accessibility event.
+  if (should_notify) {
+    NotifyEvent(ax::mojom::Event::kExpandedChanged, true);
+  }
+}
+
+void ViewAccessibility::SetIsCollapsed() {
+  // Check to see if the collapsed state is already set, if already set no need
+  // to add the state again.
+  if (data_.HasState(ax::mojom::State::kCollapsed)) {
+    // The expanded and collapsed state must be mutually exclusive.
+    CHECK(!data_.HasState(ax::mojom::State::kExpanded));
+    return;
+  }
+
+  bool should_notify = data_.HasState(ax::mojom::State::kExpanded);
+  SetState(ax::mojom::State::kCollapsed, true);
+  SetState(ax::mojom::State::kExpanded, false);
+
+  // We should not notify when initial state (expanded = false, collapsed =
+  // false) changes. As changes to initial state generally stands for when the
+  // accessibility properties are being set by a view constructor or when the
+  // view author explicitly resets the value of expanded and collapsed state. In
+  // both these cases we dont wont to fire the accessibility event.
+  if (should_notify) {
+    NotifyEvent(ax::mojom::Event::kExpandedChanged, true);
+  }
+}
+
+void ViewAccessibility::RemoveExpandCollapseState() {
+  SetState(ax::mojom::State::kExpanded, false);
+  SetState(ax::mojom::State::kCollapsed, false);
+}
+
+void ViewAccessibility::SetTextSelStart(int32_t text_sel_start) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kTextSelStart, text_sel_start);
+}
+
+void ViewAccessibility::SetTextSelEnd(int32_t text_sel_end) {
+  data_.AddIntAttribute(ax::mojom::IntAttribute::kTextSelEnd, text_sel_end);
 }
 
 }  // namespace views

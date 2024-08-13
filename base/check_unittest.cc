@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <string>
 #include <string_view>
 #include <tuple>
 
@@ -16,6 +17,7 @@
 #include "base/macros/concat.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
+#include "base/strings/cstring_view.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/gtest_util.h"
@@ -235,6 +237,20 @@ TEST(CheckDeathTest, CheckOp) {
                             DUMP_WILL_BE_CHECK_GE(a, b));
   EXPECT_DUMP_WILL_BE_CHECK("Check failed: a > b (1 vs. 2)",
                             DUMP_WILL_BE_CHECK_GT(a, b));
+}
+
+TEST(CheckDeathTest, CheckOpStrings) {
+  std::string_view sv = "1";
+  base::cstring_view csv = "2";
+  std::string s = "3";
+
+  EXPECT_CHECK("Check failed: sv == csv (1 vs. 2)", CHECK_EQ(sv, csv));
+  EXPECT_CHECK("Check failed: csv == s (2 vs. 3)", CHECK_EQ(csv, s));
+  EXPECT_CHECK("Check failed: sv == s (1 vs. 3)", CHECK_EQ(sv, s));
+
+  EXPECT_DCHECK("Check failed: sv == csv (1 vs. 2)", DCHECK_EQ(sv, csv));
+  EXPECT_DCHECK("Check failed: csv == s (2 vs. 3)", DCHECK_EQ(csv, s));
+  EXPECT_DCHECK("Check failed: sv == s (1 vs. 3)", DCHECK_EQ(sv, s));
 }
 
 TEST(CheckTest, CheckStreamsAreLazy) {
@@ -622,7 +638,7 @@ TEST(CheckTest, CheckDerefOfPointer) {
 TEST(CheckDeathTest, CheckDerefOfNullPointer) {
   std::string* null_pointer = nullptr;
   EXPECT_CHECK("Check failed: null_pointer != nullptr. ",
-               CHECK_DEREF(null_pointer));
+               std::ignore = CHECK_DEREF(null_pointer));
 }
 
 // Test CHECK_DEREF of `const T*`
@@ -640,7 +656,7 @@ TEST(CheckTest, CheckDerefOfConstPointer) {
 TEST(CheckDeathTest, CheckDerefOfConstNullPointer) {
   std::string* const_null_pointer = nullptr;
   EXPECT_CHECK("Check failed: const_null_pointer != nullptr. ",
-               CHECK_DEREF(const_null_pointer));
+               std::ignore = CHECK_DEREF(const_null_pointer));
 }
 
 TEST(CheckDeathTest, CheckNotFatalUntil) {
@@ -716,6 +732,12 @@ TEST(CheckDeathTest, NotReachedNotFatalUntil) {
 }
 
 TEST(CheckDeathTest, CorrectSystemErrorUsed) {
+#if BUILDFLAG(DCHECK_IS_CONFIGURABLE)
+  // DCHECKs are enabled, and LOGGING_DCHECK is mutable, but defaults to
+  // non-fatal. Set it to LOGGING_FATAL to get the expected behavior from the
+  // rest of this test.
+  ScopedDcheckSeverity dcheck_severity(logging::LOGGING_FATAL);
+#endif  // BUILDFLAG(DCHECK_IS_CONFIGURABLE)
   const logging::SystemErrorCode kTestError = 28;
   const std::string kExpectedCheckMessageRegex = base::StrCat(
       {" Check failed: false. ", base::NumberToString(kTestError)});

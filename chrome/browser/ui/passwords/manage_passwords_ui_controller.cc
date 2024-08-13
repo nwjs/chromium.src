@@ -374,9 +374,7 @@ void ManagePasswordsUIController::OnPasswordAutofilled(
                    password_manager::PasswordForm::Type::kReceivedViaSharing &&
                !form->sharing_notification_displayed;
       });
-  if (has_unnotified_shared_credentials &&
-      base::FeatureList::IsEnabled(
-          password_manager::features::kSharedPasswordNotificationUI)) {
+  if (has_unnotified_shared_credentials) {
     passwords_data_.TransitionToState(
         password_manager::ui::NOTIFY_RECEIVED_SHARED_CREDENTIALS);
     bubble_status_ = BubbleStatus::SHOULD_POP_UP;
@@ -519,6 +517,13 @@ void ManagePasswordsUIController::OnKeychainError() {
     UpdateBubbleAndIconVisibility();
   }
 #endif
+}
+
+void ManagePasswordsUIController::OnPasskeySaved(const std::u16string& username,
+                                                 bool gpm_pin_created) {
+  passwords_data_.OnPasskeySaved(username, gpm_pin_created);
+  bubble_status_ = BubbleStatus::SHOULD_POP_UP;
+  UpdateBubbleAndIconVisibility();
 }
 
 void ManagePasswordsUIController::OnAddUsernameSaveClicked(
@@ -687,6 +692,18 @@ bool ManagePasswordsUIController::DidAuthForAccountStoreOptInFail() const {
 
 bool ManagePasswordsUIController::BubbleIsManualFallbackForSaving() const {
   return save_fallback_timer_.IsRunning();
+}
+
+bool ManagePasswordsUIController::GpmPinCreatedDuringRecentPasskeyCreation()
+    const {
+  CHECK_EQ(GetState(), password_manager::ui::PASSKEY_SAVED_CONFIRMATION_STATE);
+  return passwords_data_.gpm_pin_created_during_recent_passkey_creation();
+}
+
+std::u16string ManagePasswordsUIController::GetRecentlySavedPasskeyUsername()
+    const {
+  CHECK_EQ(GetState(), password_manager::ui::PASSKEY_SAVED_CONFIRMATION_STATE);
+  return passwords_data_.recently_saved_passkey_username();
 }
 
 void ManagePasswordsUIController::OnBubbleShown() {
@@ -864,20 +881,13 @@ void ManagePasswordsUIController::MovePasswordToAccountStore() {
         GetState() ==
             password_manager::ui::MOVE_CREDENTIAL_FROM_MANAGE_BUBBLE_STATE);
 
-  // TODO(crbug.com/40943570): After this feature lands, clean this up and use
-  // only MovePendingPasswordToAccountStoreUsingHelper() to move passwords.
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kButterOnDesktopFollowup)) {
-    MovePendingPasswordToAccountStoreUsingHelper(
-        GetPendingPassword(),
-        GetState() == password_manager::ui::MOVE_CREDENTIAL_AFTER_LOG_IN_STATE
-            ? password_manager::metrics_util::MoveToAccountStoreTrigger::
-                  kSuccessfulLoginWithProfileStorePassword
-            : password_manager::metrics_util::MoveToAccountStoreTrigger::
-                  kExplicitlyTriggeredInPasswordsManagementBubble);
-  } else {
-    passwords_data_.form_manager()->MoveCredentialsToAccountStore();
-  }
+  MovePendingPasswordToAccountStoreUsingHelper(
+      GetPendingPassword(),
+      GetState() == password_manager::ui::MOVE_CREDENTIAL_AFTER_LOG_IN_STATE
+          ? password_manager::metrics_util::MoveToAccountStoreTrigger::
+                kSuccessfulLoginWithProfileStorePassword
+          : password_manager::metrics_util::MoveToAccountStoreTrigger::
+                kExplicitlyTriggeredInPasswordsManagementBubble);
 
   ClearPopUpFlagForBubble();
   passwords_data_.TransitionToState(password_manager::ui::MANAGE_STATE);

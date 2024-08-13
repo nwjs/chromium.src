@@ -39,8 +39,6 @@
 #include "chrome/browser/pdf/pdf_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/screen_ai/public/optical_character_recognizer.h"
-#include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service.h"
-#include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service_factory.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
@@ -386,6 +384,16 @@ ChromeCameraAppUIDelegate::PdfServiceManager::ProgressivePdf::
 void ChromeCameraAppUIDelegate::PdfServiceManager::ProgressivePdf::AddPage(
     mojo_base::BigBuffer jpg,
     uint32_t index) {
+  AddPageInternal(jpg, index);
+}
+
+void ChromeCameraAppUIDelegate::PdfServiceManager::ProgressivePdf::
+    AddPageInline(const std::vector<uint8_t>& jpg, uint32_t index) {
+  AddPageInternal(jpg, index);
+}
+
+void ChromeCameraAppUIDelegate::PdfServiceManager::ProgressivePdf::
+    AddPageInternal(base::span<const uint8_t> jpg, uint32_t index) {
   if (!pdf_searchifier_) {
     LOG(ERROR) << "Failed to add new page to PDF";
     return;
@@ -406,6 +414,15 @@ void ChromeCameraAppUIDelegate::PdfServiceManager::ProgressivePdf::DeletePage(
 
 void ChromeCameraAppUIDelegate::PdfServiceManager::ProgressivePdf::Save(
     SaveCallback callback) {
+  SaveInline(base::BindOnce(
+      [](SaveCallback callback, const std::vector<uint8_t>& pdf) {
+        std::move(callback).Run(pdf);
+      },
+      std::move(callback)));
+}
+
+void ChromeCameraAppUIDelegate::PdfServiceManager::ProgressivePdf::SaveInline(
+    SaveInlineCallback callback) {
   if (!pdf_searchifier_) {
     LOG(ERROR) << "Failed to save PDF";
     std::move(callback).Run({});
@@ -466,14 +483,6 @@ ChromeCameraAppUIDelegate::~ChromeCameraAppUIDelegate() {
 
   // Try triggering the HaTS survey when leaving the app.
   MaybeTriggerSurvey();
-}
-
-ash::HoldingSpaceClient* ChromeCameraAppUIDelegate::GetHoldingSpaceClient() {
-  ash::HoldingSpaceKeyedService* holding_space_keyed_service =
-      ash::HoldingSpaceKeyedServiceFactory::GetInstance()->GetService(
-          Profile::FromWebUI(web_ui_));
-  CHECK(holding_space_keyed_service);
-  return holding_space_keyed_service->client();
 }
 
 void ChromeCameraAppUIDelegate::SetLaunchDirectory() {
@@ -797,6 +806,7 @@ void ChromeCameraAppUIDelegate::PerformOcr(
               line->bounding_box = std::move(line_box->bounding_box);
               line->bounding_box_angle = line_box->bounding_box_angle;
               line->language = line_box->language;
+              line->confidence = line_box->confidence;
               for (const auto& word_box : line_box->words) {
                 auto word = ash::camera_app::mojom::Word::New();
                 word->bounding_box = std::move(word_box->bounding_box);

@@ -19,7 +19,6 @@ void RecordDownloadSource(ChromeDownloadSource source) {
 }
 
 void MaybeRecordDangerousDownloadWarningShown(DownloadUIModel& model) {
-#if 0
   if (!model.IsDangerous() ||
       model.GetState() == download::DownloadItem::DownloadState::CANCELLED) {
     return;
@@ -39,7 +38,6 @@ void MaybeRecordDangerousDownloadWarningShown(DownloadUIModel& model) {
       model.GetURL().SchemeIs(url::kHttpsScheme), model.HasUserGesture());
 
   model.SetWasUIWarningShown(true);
-#endif
 }
 
 void RecordDownloadOpen(ChromeDownloadOpenMethod open_method,

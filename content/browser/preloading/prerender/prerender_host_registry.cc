@@ -320,6 +320,7 @@ PreloadingEligibility ToEligibility(PrerenderFinalStatus status) {
     case PrerenderFinalStatus::kJavaScriptInterfaceAdded:
     case PrerenderFinalStatus::kJavaScriptInterfaceRemoved:
     case PrerenderFinalStatus::kAllPrerenderingCanceled:
+    case PrerenderFinalStatus::kWindowClosed:
       NOTREACHED_NORETURN();
   }
 
@@ -1140,7 +1141,15 @@ int PrerenderHostRegistry::ReserveHostToActivate(
       std::move(prerender_host_by_frame_tree_node_id_[host_id]);
   prerender_host_by_frame_tree_node_id_.erase(host_id);
   CHECK_EQ(host_id, host->frame_tree_node_id());
+  CHECK(host->IsUrlMatch(navigation_request.GetURL()));
 
+  if (host->IsUrlMatch(navigation_request.GetURL()).value() ==
+      PrerenderHost::UrlMatchType::kNoVarySearch) {
+    // Count use of No-Vary-Search header in prerender.
+    GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+        web_contents()->GetPrimaryMainFrame(),
+        blink::mojom::WebFeature::kNoVarySearchPrerender);
+  }
   // Reserve the host for activation.
   CHECK(!reserved_prerender_host_);
   reserved_prerender_host_ = std::move(host);
@@ -1319,6 +1328,7 @@ void PrerenderHostRegistry::BackNavigationLikely(
                                            triggered_primary_page_source_id);
   PreloadingAttempt* attempt = preloading_data->AddPreloadingAttempt(
       predictor, PreloadingType::kPrerender, same_url_matcher,
+      /*planned_max_preloading_type=*/std::nullopt,
       triggered_primary_page_source_id);
 
   if (back_entry->GetMainFrameDocumentSequenceNumber() ==

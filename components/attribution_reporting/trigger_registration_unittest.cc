@@ -20,9 +20,11 @@
 #include "components/aggregation_service/aggregation_coordinator_utils.h"
 #include "components/attribution_reporting/aggregatable_debug_reporting_config.h"
 #include "components/attribution_reporting/aggregatable_dedup_key.h"
+#include "components/attribution_reporting/aggregatable_filtering_id_max_bytes.h"
 #include "components/attribution_reporting/aggregatable_trigger_config.h"
 #include "components/attribution_reporting/aggregatable_trigger_data.h"
 #include "components/attribution_reporting/aggregatable_values.h"
+#include "components/attribution_reporting/attribution_scopes_set.h"
 #include "components/attribution_reporting/debug_types.mojom.h"
 #include "components/attribution_reporting/event_trigger_data.h"
 #include "components/attribution_reporting/features.h"
@@ -58,6 +60,9 @@ TriggerRegistration TriggerRegistrationWith(
 }
 
 TEST(TriggerRegistrationTest, Parse) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAttributionReportingAggregatableFilteringIds);
   const struct {
     const char* description;
     const char* json;
@@ -213,10 +218,33 @@ TEST(TriggerRegistrationTest, Parse) {
       },
       {
           "aggregatable_values_valid",
-          R"json({"aggregatable_values":{"a":1}})json",
+          R"json({"aggregatable_values":{
+           "a":1, "b": {"value": 2, "filtering_id": "3"}}})json",
           ValueIs(Field(&TriggerRegistration::aggregatable_values,
                         ElementsAre(*AggregatableValues::Create(
-                            {{"a", 1}}, FilterPair())))),
+                            {{"a", *AggregatableValuesValue::Create(
+                                       1, /*filtering_id=*/0u)},
+                             {"b", *AggregatableValuesValue::Create(2, 3)}},
+                            FilterPair())))),
+      },
+      {
+          "aggregatable_values_invalid_filtering_id",
+          R"json({"aggregatable_values":{
+            "a":1,
+            "b": {"value": 2, "filtering_id": "256"}
+          }})json",
+          ErrorIs(TriggerRegistrationError::kAggregatableValuesValueInvalid),
+      },
+      {
+          "aggregatable_values_list_invalid_filtering_id",
+          R"json({"aggregatable_values":[{
+            "values": {
+              "a":1,
+              "b": {"value": 2, "filtering_id": "256" }
+            }
+          }]})json",
+          ErrorIs(
+              TriggerRegistrationError::kAggregatableValuesListValueInvalid),
       },
       {
           "aggregatable_values_wrong_type",
@@ -283,7 +311,14 @@ TEST(TriggerRegistrationTest, Parse) {
           ErrorIs(TriggerRegistrationError::
                       kAggregatableSourceRegistrationTimeValueInvalid),
       },
-  };
+      {
+          // Tested more thoroughly in
+          // `aggregatable_filtering_id_max_bytes_unittest.cc`
+          "aggregatable_filtering_id_max_bytes_invalid",
+          R"json({"aggregatable_filtering_id_max_bytes": null})json",
+          ErrorIs(TriggerRegistrationError::
+                      kAggregatableFilteringIdMaxBytesInvalidValue),
+      }};
 
   static constexpr char kTriggerRegistrationErrorMetric[] =
       "Conversions.TriggerRegistrationError11";
@@ -305,6 +340,9 @@ TEST(TriggerRegistrationTest, Parse) {
 }
 
 TEST(TriggerRegistrationTest, ToJson) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAttributionReportingAggregatableFilteringIds);
   const struct {
     TriggerRegistration input;
     const char* expected_json;
@@ -313,6 +351,7 @@ TEST(TriggerRegistrationTest, ToJson) {
           TriggerRegistration(),
           R"json({
             "aggregatable_source_registration_time": "exclude",
+            "aggregatable_filtering_id_max_bytes": 1,
             "debug_reporting": false,
             "aggregatable_debug_reporting": {
               "key_piece": "0x0"
@@ -325,8 +364,14 @@ TEST(TriggerRegistrationTest, ToJson) {
                 AggregatableDedupKey(/*dedup_key=*/1, FilterPair())};
             r.aggregatable_trigger_data = {AggregatableTriggerData()};
             r.aggregatable_values = {
-                *AggregatableValues::Create({{"a", 2}}, FilterPair()),
-                *AggregatableValues::Create({{"b", 3}}, FilterPair())};
+                *AggregatableValues::Create(
+                    {{"a", *AggregatableValuesValue::Create(
+                               2, /*filtering_id=*/0u)}},
+                    FilterPair()),
+                *AggregatableValues::Create(
+                    {{"b", *AggregatableValuesValue::Create(
+                               3, /*filtering_id=*/0u)}},
+                    FilterPair())};
             r.debug_key = 3;
             r.debug_reporting = true;
             r.event_triggers = {EventTriggerData()};
@@ -335,7 +380,8 @@ TEST(TriggerRegistrationTest, ToJson) {
                 {{{"c", {}}}}, /*lookback_window=*/base::Seconds(2))};
             r.aggregatable_trigger_config = *AggregatableTriggerConfig::Create(
                 SourceRegistrationTimeConfig::kExclude,
-                /*trigger_context_id=*/"123");
+                /*trigger_context_id=*/"123",
+                *AggregatableFilteringIdsMaxBytes::Create(2));
             r.aggregatable_debug_reporting_config =
                 AggregatableDebugReportingConfig(
                     /*key_piece=*/1,
@@ -348,8 +394,11 @@ TEST(TriggerRegistrationTest, ToJson) {
           R"json({
             "aggregatable_source_registration_time": "exclude",
             "aggregatable_deduplication_keys": [{"deduplication_key":"1"}],
+            "aggregatable_filtering_id_max_bytes": 2,
             "aggregatable_trigger_data": [{"key_piece":"0x0"}],
-            "aggregatable_values": [{"values":{"a":2}},{"values":{"b":3}}],
+            "aggregatable_values": [
+              {"values":{"a": {"value": 2, "filtering_id": "0"}}},
+              {"values":{"b": {"value": 3, "filtering_id": "0"}}}],
             "debug_key": "3",
             "debug_reporting": true,
             "event_trigger_data": [{"priority":"0","trigger_data":"0"}],
@@ -428,6 +477,9 @@ TEST(TriggerRegistrationTest, ParseAggregationCoordinator) {
 }
 
 TEST(TriggerRegistrationTest, SerializeAggregationCoordinator) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAttributionReportingAggregatableFilteringIds);
   const struct {
     TriggerRegistration input;
     const char* expected_json;
@@ -496,6 +548,41 @@ TEST(TriggerRegistrationTest, ParseAggregatableDebugReportingConfig) {
 
   base::test::ScopedFeatureList scoped_feature_list(
       features::kAttributionAggregatableDebugReporting);
+
+  for (const auto& test_case : kTestCases) {
+    SCOPED_TRACE(test_case.desc);
+
+    EXPECT_THAT(TriggerRegistration::Parse(test_case.json), test_case.matches);
+  }
+}
+
+TEST(TriggerRegistrationTest, ParseAttributionScopesConfig) {
+  const struct {
+    const char* desc;
+    const char* json;
+    ::testing::Matcher<
+        base::expected<TriggerRegistration, TriggerRegistrationError>>
+        matches;
+  } kTestCases[] = {
+      {
+          "attribution_scopes_set_valid",
+          R"json({
+            "attribution_scopes": ["123"]
+          })json",
+          ValueIs(Field(&TriggerRegistration::attribution_scopes,
+                        AttributionScopesSet({"123"}))),
+      },
+      {
+          "attribution_scopes_set_invalid",
+          R"json({
+            "attribution_scopes": [123]
+          })json",
+          ErrorIs(TriggerRegistrationError::kAttributionScopesValueInvalid),
+      },
+  };
+
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAttributionScopes);
 
   for (const auto& test_case : kTestCases) {
     SCOPED_TRACE(test_case.desc);

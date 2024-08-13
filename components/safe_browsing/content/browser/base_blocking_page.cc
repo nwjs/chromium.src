@@ -63,7 +63,6 @@ BaseBlockingPage::BaseBlockingPage(
       threat_details_proceed_delay_ms_(kThreatDetailsProceedDelayMilliSeconds),
       sb_error_ui_(std::make_unique<SafeBrowsingLoudErrorUI>(
           unsafe_resources_[0].url,
-          main_frame_url_,
           GetInterstitialReason(unsafe_resources_),
           display_options,
           ui_manager->app_locale(),
@@ -150,16 +149,15 @@ BaseBlockingPage::UnsafeResourceMap* BaseBlockingPage::GetUnsafeResourcesMap() {
 std::string BaseBlockingPage::GetMetricPrefix(
     const UnsafeResourceList& unsafe_resources,
     BaseSafeBrowsingErrorUI::SBInterstitialReason interstitial_reason) {
-  bool primary_subresource = unsafe_resources[0].is_subresource;
   switch (interstitial_reason) {
     case BaseSafeBrowsingErrorUI::SB_REASON_MALWARE:
-      return primary_subresource ? "malware_subresource" : "malware";
+      return "malware";
     case BaseSafeBrowsingErrorUI::SB_REASON_HARMFUL:
-      return primary_subresource ? "harmful_subresource" : "harmful";
+      return "harmful";
     case BaseSafeBrowsingErrorUI::SB_REASON_BILLING:
-      return primary_subresource ? "billing_subresource" : "billing";
+      return "billing";
     case BaseSafeBrowsingErrorUI::SB_REASON_PHISHING:
-      return primary_subresource ? "phishing_subresource" : "phishing";
+      return "phishing";
   }
   NOTREACHED_IN_MIGRATION();
   return "unkown_metric_prefix";

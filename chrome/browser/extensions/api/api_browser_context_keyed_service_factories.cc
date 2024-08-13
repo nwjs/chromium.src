@@ -118,7 +118,7 @@ void EnsureApiBrowserContextKeyedServiceFactoriesBuilt() {
 #endif
   extensions::ProcessesAPI::GetFactoryInstance();
   extensions::ReadingListEventRouter::GetFactoryInstance();
-  //extensions::SafeBrowsingPrivateEventRouterFactory::GetInstance();
+  extensions::SafeBrowsingPrivateEventRouterFactory::GetInstance();
   extensions::SessionsAPI::GetFactoryInstance();
   extensions::SettingsPrivateEventRouterFactory::GetInstance();
   extensions::SettingsOverridesAPI::GetFactoryInstance();

@@ -57,9 +57,6 @@ inline constexpr int kDefaultNewBadgeFeatureUsedCount = 2;
 inline constexpr char kNewBadgeDisplayWindow[] = "new_badge_display_window";
 inline constexpr base::TimeDelta kDefaultNewBadgeDisplayWindow = base::Days(60);
 
-inline constexpr char kDisableRateLimitingCommandLine[] =
-    "disable-user-education-rate-limiting";
-
 }  // namespace
 
 BASE_FEATURE(kUserEducationExperienceVersion2,
@@ -70,8 +67,16 @@ BASE_FEATURE(kNewBadgeTestFeature,
              "NewBadgeTestFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kWhatsNewVersion2,
+             "WhatsNewVersion2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsUserEducationV2() {
   return base::FeatureList::IsEnabled(kUserEducationExperienceVersion2);
+}
+
+bool IsWhatsNewV2() {
+  return base::FeatureList::IsEnabled(kWhatsNewVersion2);
 }
 
 bool IsRateLimitingDisabled() {

@@ -23,7 +23,6 @@
 #include "base/process/process.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
-#include "cc/input/browser_controls_offset_tags_info.h"
 #include "cc/mojom/render_frame_metadata.mojom-shared.h"
 #include "cc/trees/render_frame_metadata.h"
 #include "components/viz/common/quads/selection.h"
@@ -51,6 +50,10 @@
 #include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/selection_bound.h"
 #include "ui/touch_selection/touch_selection_controller.h"
+
+namespace cc {
+struct BrowserControlsOffsetTagsInfo;
+}  // namespace cc
 
 namespace cc::slim {
 class SurfaceLayer;
@@ -181,12 +184,14 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void ClearKeyboardTriggeredTooltip() override;
   void TransformPointToRootSurface(gfx::PointF* point) override;
   gfx::Rect GetBoundsInRootWindow() override;
+  const viz::LocalSurfaceId& IncrementSurfaceIdForNavigation() override;
   void ProcessAckedTouchEvent(
       const input::TouchEventWithLatencyInfo& touch,
       blink::mojom::InputEventResultState ack_result) override;
   blink::mojom::InputEventResultState FilterInputEvent(
       const blink::WebInputEvent& input_event) override;
   void GestureEventAck(const blink::WebGestureEvent& event,
+                       blink::mojom::InputEventResultSource ack_source,
                        blink::mojom::InputEventResultState ack_result) override;
   void ChildDidAckGestureEvent(
       const blink::WebGestureEvent& event,
@@ -213,7 +218,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   viz::SurfaceId GetCurrentSurfaceId() const override;
   bool TransformPointToCoordSpaceForView(
       const gfx::PointF& point,
-      RenderWidgetHostViewInput* target_view,
+      input::RenderWidgetHostViewInput* target_view,
       gfx::PointF* transformed_point) override;
   TouchSelectionControllerClientManager*
   GetTouchSelectionControllerClientManager() override;
@@ -227,10 +232,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   viz::ScopedSurfaceIdAllocator DidUpdateVisualProperties(
       const cc::RenderFrameMetadata& metadata) override;
   display::ScreenInfo GetScreenInfo() const override;
-  std::vector<std::unique_ptr<ui::TouchEvent>> ExtractAndCancelActiveTouches()
-      override;
-  void TransferTouches(
-      const std::vector<std::unique_ptr<ui::TouchEvent>>& touches) override;
   ui::mojom::VirtualKeyboardMode GetVirtualKeyboardMode() override;
   viz::SurfaceId GetFallbackSurfaceIdForTesting() const override;
   void ResetGestureDetection() override;
@@ -434,9 +435,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   const cc::slim::SurfaceLayer* GetSurfaceLayer() const;
 
-  void OnControlsConstraintsChanged(
-      const cc::BrowserControlsOffsetTagsInfo& old_tags_info,
-      const cc::BrowserControlsOffsetTagsInfo& tags_info);
+  void RegisterOffsetTags(const cc::BrowserControlsOffsetTagsInfo& tags_info);
+  void UnregisterOffsetTags(const cc::BrowserControlsOffsetTagsInfo& tags_info);
 
  protected:
   ~RenderWidgetHostViewAndroid() override;

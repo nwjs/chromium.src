@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"
 
 #include <algorithm>
@@ -227,6 +232,10 @@ using ::cc::UsePaintCache;
 BASE_FEATURE(kDisableCanvasOverdrawOptimization,
              "DisableCanvasOverdrawOptimization",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Maximum number of colors in the color cache
+// (`BaseRenderingContext2D::color_cache_`).
+constexpr size_t kColorCacheMaxSize = 8;
 
 const char BaseRenderingContext2D::kDefaultFont[] = "10px sans-serif";
 const char BaseRenderingContext2D::kInheritDirectionString[] = "inherit";
@@ -467,6 +476,11 @@ BaseRenderingContext2D::SaveLayerForState(
     const CanvasRenderingContext2DState& state,
     sk_sp<PaintFilter> filter,
     cc::PaintCanvas& canvas) const {
+  if (!IsTransformInvertible()) {
+    canvas.saveLayerAlphaf(1.0f);
+    return CanvasRenderingContext2DState::SaveType::kBeginEndLayerOneSave;
+  }
+
   const int initial_save_count = canvas.getSaveCount();
   bool needs_compositing = state.GlobalComposite() != SkBlendMode::kSrcOver;
 
@@ -780,32 +794,93 @@ void BaseRenderingContext2D::
   }
 }
 
-bool BaseRenderingContext2D::ExtractColorFromStringAndUpdateCache(
-    const AtomicString& string,
-    Color& color) {
-  // This should only be called for string styles.
-  auto iter = color_cache_.Get(string);
-  if (iter != color_cache_.end()) {
-    const CachedColor& cached_color = iter->second;
-    if (cached_color.parse_result == ColorParseResult::kColor) {
-      color = cached_color.color;
-      return true;
-    }
-    if (cached_color.parse_result == ColorParseResult::kCurrentColor) {
-      color = GetCurrentColor();
-      return true;
-    }
-    DCHECK_EQ(cached_color.parse_result, ColorParseResult::kParseFailed);
-    return false;
+void BaseRenderingContext2D::
+    UpdateIdentifiabilityStudyBeforeSettingStrokeOrFill(
+        v8::Local<v8::String> v8_string,
+        CanvasOps op) {
+  if (UNLIKELY(identifiability_study_helper_.ShouldUpdateBuilder())) {
+    identifiability_study_helper_.UpdateBuilder(op);
+    identifiability_study_helper_.UpdateBuilder(v8_string->GetIdentityHash());
   }
-  const ColorParseResult parse_result = ParseColorOrCurrentColor(string, color);
-  color_cache_.Put(string, CachedColor(color, parse_result));
+}
+
+bool BaseRenderingContext2D::ExtractColorFromV8StringAndUpdateCache(
+    v8::Isolate* isolate,
+    v8::Local<v8::String> v8_string,
+    ExceptionState& exception_state,
+    Color& color) {
+  // Internalize the string so that we can use pointer comparison for equality
+  // rather than string comparison.
+  v8_string = v8_string->InternalizeString(isolate);
+  if (v8_string->Length()) {
+    const auto it = color_cache_.Find<ColorCacheHashTranslator>(v8_string);
+    if (it != color_cache_.end()) {
+      color_cache_.MoveTo(it, color_cache_.begin());
+      const CachedColor* cached_color = it->Get();
+      switch (cached_color->parse_result) {
+        case ColorParseResult::kColor:
+          color = cached_color->color;
+          return true;
+        case ColorParseResult::kCurrentColor:
+          color = GetCurrentColor();
+          return true;
+        case ColorParseResult::kColorMix:
+          // ParseColorOrCurrentColor() never returns kColorMix.
+          NOTREACHED_NORETURN();
+        case ColorParseResult::kParseFailed:
+          return false;
+      }
+    }
+  }
+  // It's a bit unfortunate to create a string here, we should instead plumb
+  // through a StringView.
+  String color_string = NativeValueTraits<IDLString>::NativeValue(
+      isolate, v8_string, exception_state);
+  const ColorParseResult parse_result =
+      ParseColorOrCurrentColor(color_string, color);
+  if (v8_string->Length()) {
+    // Limit the size of the cache.
+    if (color_cache_.size() == kColorCacheMaxSize) {
+      color_cache_.pop_back();
+    }
+    auto* cached_color = MakeGarbageCollected<CachedColor>(isolate, v8_string,
+                                                           color, parse_result);
+    color_cache_.InsertBefore(color_cache_.begin(), cached_color);
+  }
   return parse_result != ColorParseResult::kParseFailed;
 }
 
 void BaseRenderingContext2D::setStrokeStyle(v8::Isolate* isolate,
                                             v8::Local<v8::Value> value,
                                             ExceptionState& exception_state) {
+  CanvasRenderingContext2DState& state = GetState();
+  // Use of a string for the stroke is very common (and parsing the color
+  // from the string is expensive) so we keep a map of string to color.
+  if (value->IsString()) {
+    v8::Local<v8::String> v8_string = value.As<v8::String>();
+    UpdateIdentifiabilityStudyBeforeSettingStrokeOrFill(
+        v8_string, CanvasOps::kSetStrokeStyle);
+    if (state.IsUnparsedStrokeColor(v8_string)) {
+      return;
+    }
+    Color parsed_color = Color::kTransparent;
+    if (!ExtractColorFromV8StringAndUpdateCache(
+            isolate, v8_string, exception_state, parsed_color)) {
+      return;
+    }
+    if (state.StrokeStyle().IsEquivalentColor(parsed_color)) {
+      state.SetUnparsedStrokeColor(isolate, v8_string);
+      return;
+    }
+    state.SetStrokeColor(parsed_color);
+    state.ClearUnparsedStrokeColor();
+    state.ClearResolvedFilter();
+    return;
+  }
+
+  // Use ExtractV8CanvasStyle to extract the other possible types. Note that
+  // a string may still be returned. This is a fallback in cases where the
+  // value can be converted to a string (such as an integer).
   V8CanvasStyle v8_style;
   if (!ExtractV8CanvasStyle(isolate, value, v8_style, exception_state))
     return;
@@ -813,7 +888,6 @@ void BaseRenderingContext2D::setStrokeStyle(v8::Isolate* isolate,
   UpdateIdentifiabilityStudyBeforeSettingStrokeOrFill(
       v8_style, CanvasOps::kSetStrokeStyle);
 
-  CanvasRenderingContext2DState& state = GetState();
   switch (v8_style.type) {
     case V8CanvasStyleType::kCSSColorValue:
       state.SetStrokeColor(v8_style.css_color_value);
@@ -827,24 +901,19 @@ void BaseRenderingContext2D::setStrokeStyle(v8::Isolate* isolate,
       state.SetStrokePattern(v8_style.pattern);
       break;
     case V8CanvasStyleType::kString: {
-      if (v8_style.string == state.UnparsedStrokeColor()) {
-        return;
-      }
       Color parsed_color = Color::kTransparent;
-      if (!ExtractColorFromStringAndUpdateCache(v8_style.string,
-                                                parsed_color)) {
+      if (ParseColorOrCurrentColor(v8_style.string, parsed_color) ==
+          ColorParseResult::kParseFailed) {
         return;
       }
-      if (state.StrokeStyle().IsEquivalentColor(parsed_color)) {
-        state.SetUnparsedStrokeColor(v8_style.string);
-        return;
+      if (!state.StrokeStyle().IsEquivalentColor(parsed_color)) {
+        state.SetStrokeColor(parsed_color);
       }
-      state.SetStrokeColor(parsed_color);
       break;
     }
   }
 
-  state.SetUnparsedStrokeColor(v8_style.string);
+  state.ClearUnparsedStrokeColor();
   state.ClearResolvedFilter();
 }
 
@@ -891,16 +960,39 @@ v8::Local<v8::Value> BaseRenderingContext2D::fillStyle(
 void BaseRenderingContext2D::setFillStyle(v8::Isolate* isolate,
                                           v8::Local<v8::Value> value,
                                           ExceptionState& exception_state) {
+  ValidateStateStack();
+
+  CanvasRenderingContext2DState& state = GetState();
+  // This block is similar to that in setStrokeStyle(), see comments there for
+  // details on this.
+  if (value->IsString()) {
+    v8::Local<v8::String> v8_string = value.As<v8::String>();
+    UpdateIdentifiabilityStudyBeforeSettingStrokeOrFill(
+        v8_string, CanvasOps::kSetFillStyle);
+    if (state.IsUnparsedFillColor(v8_string)) {
+      return;
+    }
+    Color parsed_color = Color::kTransparent;
+    if (!ExtractColorFromV8StringAndUpdateCache(
+            isolate, v8_string, exception_state, parsed_color)) {
+      return;
+    }
+    if (state.FillStyle().IsEquivalentColor(parsed_color)) {
+      state.SetUnparsedFillColor(isolate, v8_string);
+      return;
+    }
+    state.SetFillColor(parsed_color);
+    state.ClearUnparsedFillColor();
+    state.ClearResolvedFilter();
+    return;
+  }
   V8CanvasStyle v8_style;
   if (!ExtractV8CanvasStyle(isolate, value, v8_style, exception_state))
     return;
 
-  ValidateStateStack();
-
   UpdateIdentifiabilityStudyBeforeSettingStrokeOrFill(v8_style,
                                                       CanvasOps::kSetFillStyle);
 
-  CanvasRenderingContext2DState& state = GetState();
   switch (v8_style.type) {
     case V8CanvasStyleType::kCSSColorValue:
       state.SetFillColor(v8_style.css_color_value);
@@ -914,24 +1006,19 @@ void BaseRenderingContext2D::setFillStyle(v8::Isolate* isolate,
       state.SetFillPattern(v8_style.pattern);
       break;
     case V8CanvasStyleType::kString: {
-      if (v8_style.string == state.UnparsedFillColor()) {
-        return;
-      }
       Color parsed_color = Color::kTransparent;
-      if (!ExtractColorFromStringAndUpdateCache(v8_style.string,
-                                                parsed_color)) {
+      if (ParseColorOrCurrentColor(v8_style.string, parsed_color) ==
+          ColorParseResult::kParseFailed) {
         return;
       }
-      if (state.FillStyle().IsEquivalentColor(parsed_color)) {
-        state.SetUnparsedFillColor(v8_style.string);
-        return;
+      if (!state.FillStyle().IsEquivalentColor(parsed_color)) {
+        state.SetFillColor(parsed_color);
       }
-      state.SetFillColor(parsed_color);
       break;
     }
   }
 
-  state.SetUnparsedFillColor(v8_style.string);
+  state.ClearUnparsedFillColor();
   state.ClearResolvedFilter();
 }
 
@@ -1235,13 +1322,12 @@ void BaseRenderingContext2D::scale(double sx, double sy) {
   }
 
   SetTransform(new_transform);
-  if (UNLIKELY(!IsTransformInvertible())) {
-    return;
-  }
-
   c->scale(fsx, fsy);
-  GetModifiablePath().Transform(
-      AffineTransform().ScaleNonUniform(1.0 / fsx, 1.0 / fsy));
+
+  if (LIKELY(IsTransformInvertible())) {
+    GetModifiablePath().Transform(
+        AffineTransform().ScaleNonUniform(1.0 / fsx, 1.0 / fsy));
+  }
 }
 
 void BaseRenderingContext2D::rotate(double angle_in_radians) {
@@ -1264,12 +1350,12 @@ void BaseRenderingContext2D::rotate(double angle_in_radians) {
   }
 
   SetTransform(new_transform);
-  if (UNLIKELY(!IsTransformInvertible())) {
-    return;
-  }
   c->rotate(ClampTo<float>(angle_in_radians * (180.0 / kPiFloat)));
-  GetModifiablePath().Transform(
-      AffineTransform().RotateRadians(-angle_in_radians));
+
+  if (LIKELY(IsTransformInvertible())) {
+    GetModifiablePath().Transform(
+        AffineTransform().RotateRadians(-angle_in_radians));
+  }
 }
 
 void BaseRenderingContext2D::translate(double tx, double ty) {
@@ -1300,12 +1386,11 @@ void BaseRenderingContext2D::translate(double tx, double ty) {
   }
 
   SetTransform(new_transform);
-  if (UNLIKELY(!IsTransformInvertible())) {
-    return;
-  }
-
   c->translate(ftx, fty);
-  GetModifiablePath().Transform(AffineTransform().Translate(-ftx, -fty));
+
+  if (LIKELY(IsTransformInvertible())) {
+    GetModifiablePath().Transform(AffineTransform().Translate(-ftx, -fty));
+  }
 }
 
 void BaseRenderingContext2D::transform(double m11,
@@ -1342,12 +1427,11 @@ void BaseRenderingContext2D::transform(double m11,
   }
 
   SetTransform(new_transform);
-  if (UNLIKELY(!IsTransformInvertible())) {
-    return;
-  }
-
   c->concat(AffineTransformToSkM44(transform));
-  GetModifiablePath().Transform(transform.Inverse());
+
+  if (LIKELY(IsTransformInvertible())) {
+    GetModifiablePath().Transform(transform.Inverse());
+  }
 }
 
 void BaseRenderingContext2D::resetTransform() {
@@ -2730,6 +2814,14 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
 
   // Read pixels into |image_data|.
   if (snapshot) {
+    gfx::Rect snapshot_rect{snapshot->Size()};
+    if (!snapshot_rect.Intersects(image_data_rect)) {
+      // If the readback area is completely out of bounds just return a zero
+      // initialized buffer. No point in trying to perform out of bounds read.
+      CHECK(validate_and_create_params.zero_initialize);
+      return image_data;
+    }
+
     SkPixmap image_data_pixmap = image_data->GetSkPixmap();
     const bool read_pixels_successful =
         snapshot->PaintImageForCurrentFrame().readPixels(
@@ -3011,6 +3103,7 @@ void BaseRenderingContext2D::Trace(Visitor* visitor) const {
   visitor->Trace(dispatch_context_lost_event_timer_);
   visitor->Trace(dispatch_context_restored_event_timer_);
   visitor->Trace(try_restore_context_event_timer_);
+  visitor->Trace(color_cache_);
   visitor->Trace(webgpu_access_texture_);
   CanvasPath::Trace(visitor);
 }
@@ -3321,7 +3414,7 @@ void BaseRenderingContext2D::DrawTextInternal(
   gfx::PointF location(ClampTo<float>(x),
                        ClampTo<float>(y + GetFontBaseline(*font_data)));
   gfx::RectF bounds;
-  double font_width = font.BidiWidth(text_run, &bounds);
+  double font_width = font.Width(text_run, &bounds);
 
   bool use_max_width = (max_width && *max_width < font_width);
   double width = use_max_width ? *max_width : font_width;
@@ -3621,6 +3714,13 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
     return nullptr;
   }
 
+  // Verify that we are not inside a canvas layer.
+  if (layer_count_ > 0) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "A layer is currently active.");
+    return nullptr;
+  }
+
   // Verify that the usage flags are supported.
   constexpr wgpu::TextureUsage kSupportedUsageFlags =
       wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::CopyDst |
@@ -3699,8 +3799,16 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
       blink_device, AsDawnType(image_info.colorType()), tex_usage,
       std::move(texture), access_options->getLabelOr(String()));
 
-  // TODO(crbug.com/343211830): we should take away the canvas' resource
-  // provider here.
+  // We take away the canvas' resource provider here, which will cause the
+  // canvas to be treated as a brand new surface if additional draws occur.
+  // It also gives us a mechanism to detect post-transfer-out draws, which is
+  // used in `transferBackFromWebGPU` to raise an exception.
+  resource_provider_from_webgpu_access_ =
+      host->ReplaceResourceProvider(nullptr);
+
+  // The user isn't obligated to ever transfer back, which means this resource
+  // provider might stick around for while. Jettison any unnecessary resources.
+  resource_provider_from_webgpu_access_->ClearRecycledResources();
 
   return webgpu_access_texture_;
 }
@@ -3757,29 +3865,44 @@ void BaseRenderingContext2D::transferBackFromGPUTexture(
 
   // Prevent unbalanced calls to transferBackFromGPUTexture without an earlier
   // call to transferToGPUTexture.
-  if (!webgpu_access_texture_) {
+  if (!webgpu_access_texture_ || !resource_provider_from_webgpu_access_) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         "This canvas is not currently in use by WebGPU.");
+    webgpu_access_texture_ = nullptr;
+    resource_provider_from_webgpu_access_ = nullptr;
     return;
   }
 
+  // If this canvas already has a resource provider, this means that drawing has
+  // occurred after `transferToWebGPU`. We disallow transferring back in this
+  // case, and raise an exception instead.
+  if (host->ResourceProvider()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "The canvas was touched after transferToGPUTexture.");
+    webgpu_access_texture_ = nullptr;
+    resource_provider_from_webgpu_access_ = nullptr;
+    return;
+  }
+
+  // If the caller explicitly destroyed the WebGPU access texture, there is
+  // nothing to transfer.
   if (webgpu_access_texture_->Destroyed()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "The texture has been destroyed.");
+    webgpu_access_texture_ = nullptr;
+    resource_provider_from_webgpu_access_ = nullptr;
     return;
   }
 
-  // TODO(crbug.com/343211830): if this canvas already has a resource provider,
-  // we should raise an exception and prevent transferring back.
-
-  // Get the CanvasResourceProvider of this canvas. As above, if the canvas
-  // resource provider doesn't exist, this call becomes a no-op.
+  // Restore the canvas' resource provider back onto the canvas host,
+  // surrendering our temporary ownership of the provider.
   CanvasResourceProvider* resource_provider =
-      host->GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferGPU);
-  if (UNLIKELY(!resource_provider)) {
-    return;
-  }
+      resource_provider_from_webgpu_access_.get();
+  host->ReplaceResourceProvider(
+      std::move(resource_provider_from_webgpu_access_));
+  resource_provider->SetCanvasResourceHost(host);
 
   // Copy the contents of the GPUTexture into this ResourceProvider.
   if (!CopyGPUTextureToResourceProvider(*webgpu_access_texture_,

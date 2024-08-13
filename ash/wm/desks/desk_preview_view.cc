@@ -294,8 +294,11 @@ void MirrorLayerTree(
 }
 
 // Gathers the needed data about the layers in the subtree rooted at the layer
-// of the given |window|, and fills |out_layers_data|.
+// of the given |window|, and fills |out_layers_data|. If
+// `window_occlusion_calculator` is null, the window's occlusion state will not
+// be considered when deciding whether the layer should be skipped.
 void GetLayersData(aura::Window* window,
+                   const WindowOcclusionCalculator* window_occlusion_calculator,
                    base::flat_map<ui::Layer*, LayerData>* out_layers_data) {
   auto& layer_data = (*out_layers_data)[window->layer()];
 
@@ -318,6 +321,24 @@ void GetLayersData(aura::Window* window,
   if (!CanShowWindowForMultiProfile(window)) {
     layer_data.should_skip_layer = true;
     return;
+  }
+
+  if (window_occlusion_calculator) {
+    switch (window_occlusion_calculator->GetOcclusionState(window)) {
+      case aura::Window::OcclusionState::VISIBLE:
+        break;
+      case aura::Window::OcclusionState::OCCLUDED:
+      case aura::Window::OcclusionState::HIDDEN:
+      case aura::Window::OcclusionState::UNKNOWN:
+        // Performance optimization. Don't mirror layers of desk windows which
+        // aren't visible. Note the occlusion state can be `UNKNOWN` in corner
+        // cases for windows just added. The occlusion will become available
+        // imminently, at which point
+        // `DeskPreviewView::RecreateDeskContentsMirrorLayers()` will be called
+        // again.
+        layer_data.should_skip_layer = true;
+        return;
+    }
   }
 
   // Windows transformed into position in the overview mode grid should be
@@ -348,7 +369,7 @@ void GetLayersData(aura::Window* window,
   }
 
   for (aura::Window* child : window->children()) {
-    GetLayersData(child, out_layers_data);
+    GetLayersData(child, window_occlusion_calculator, out_layers_data);
   }
 }
 
@@ -357,10 +378,13 @@ void GetLayersData(aura::Window* window,
 // -----------------------------------------------------------------------------
 // DeskPreviewView
 
-DeskPreviewView::DeskPreviewView(PressedCallback callback,
-                                 DeskMiniView* mini_view)
+DeskPreviewView::DeskPreviewView(
+    PressedCallback callback,
+    DeskMiniView* mini_view,
+    base::WeakPtr<WindowOcclusionCalculator> window_occlusion_calculator)
     : views::Button(std::move(callback)),
       mini_view_(mini_view),
+      window_occlusion_calculator_(window_occlusion_calculator),
       wallpaper_preview_(new WallpaperRoundedCornerView),
       desk_mirrored_contents_view_(new views::View),
       force_desk_occlusion_tracker_visible_(
@@ -406,7 +430,11 @@ DeskPreviewView::DeskPreviewView(PressedCallback callback,
       ui::Accelerator(ui::VKEY_W, ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN));
 }
 
-DeskPreviewView::~DeskPreviewView() = default;
+DeskPreviewView::~DeskPreviewView() {
+  if (window_occlusion_calculator_) {
+    window_occlusion_calculator_->RemoveObserver(this);
+  }
+}
 
 // static
 int DeskPreviewView::GetHeight(aura::Window* root) {
@@ -428,28 +456,43 @@ void DeskPreviewView::SetHighlightOverlayVisibility(bool visible) {
 
 void DeskPreviewView::RecreateDeskContentsMirrorLayers() {
   TRACE_EVENT0("ui", "DeskPreviewView::RecreateDeskContentsMirrorLayers");
-
+  if (!mini_view_->desk()) {
+    DVLOG(4) << "Desk has already been deleted. Skipping " << __func__
+             << " since this view will be deleted soon anyways.";
+    return;
+  }
   auto* desk_container = mini_view_->GetDeskContainer();
   DCHECK(desk_container);
   DCHECK(desk_container->layer());
 
-  // Mirror the layer tree of the desk container.
-  auto mirrored_content_root_layer =
-      std::make_unique<ui::Layer>(ui::LAYER_NOT_DRAWN);
-  mirrored_content_root_layer->SetName("mirrored contents root layer");
-  base::flat_map<ui::Layer*, LayerData> layers_data;
-  GetLayersData(desk_container, &layers_data);
-
+  // For simplicity, clear occlusion observation state and set it up again.
+  if (window_occlusion_calculator_) {
+    window_occlusion_calculator_->RemoveObserver(this);
+  }
+  aura::Window::Windows parent_windows_to_mirror = {desk_container};
   // If there is a floated window that belongs to this desk, since it doesn't
   // belong to `desk_container`, we need to add it separately.
   aura::Window* floated_window =
       Shell::Get()->float_controller()->FindFloatedWindowOfDesk(
           mini_view_->desk());
   if (floated_window) {
-    GetLayersData(floated_window, &layers_data);
+    parent_windows_to_mirror.push_back(floated_window);
     force_float_occlusion_tracker_visible_.emplace(floated_window);
   } else {
     force_float_occlusion_tracker_visible_.reset();
+  }
+  if (window_occlusion_calculator_) {
+    window_occlusion_calculator_->AddObserver(parent_windows_to_mirror, this);
+  }
+
+  // Mirror the layer tree of the desk container.
+  auto mirrored_content_root_layer =
+      std::make_unique<ui::Layer>(ui::LAYER_NOT_DRAWN);
+  mirrored_content_root_layer->SetName("mirrored contents root layer");
+  base::flat_map<ui::Layer*, LayerData> layers_data;
+  for (const auto& window : parent_windows_to_mirror) {
+    GetLayersData(window.get(), window_occlusion_calculator_.get(),
+                  &layers_data);
   }
 
   base::flat_set<aura::Window*> visible_on_all_desks_windows_to_mirror;
@@ -460,8 +503,15 @@ void DeskPreviewView::RecreateDeskContentsMirrorLayers() {
     visible_on_all_desks_windows_to_mirror =
         Shell::Get()->desks_controller()->GetVisibleOnAllDesksWindowsOnRoot(
             mini_view_->root_window());
-    for (auto* window : visible_on_all_desks_windows_to_mirror)
-      GetLayersData(window, &layers_data);
+    for (auto* window : visible_on_all_desks_windows_to_mirror) {
+      // An all-desk-window's occlusion state on the active desk does not
+      // necessarily apply when mirroring it in a different inactive desk.
+      // The all-desk-window's z-order gets recomputed for the inactive desk
+      // (see `MirrorLayerTree()`), so don't use occlusion state to optimize
+      // when building the layer data here.
+      GetLayersData(window, /*window_occlusion_calsculator=*/nullptr,
+                    &layers_data);
+    }
   }
 
   auto* desk_container_layer = desk_container->layer();
@@ -590,18 +640,18 @@ void DeskPreviewView::OnGestureEvent(ui::GestureEvent* event) {
 
   switch (event->type()) {
     // Only long press can trigger drag & drop.
-    case ui::ET_GESTURE_LONG_PRESS:
+    case ui::EventType::kGestureLongPress:
       owner_bar->HandleLongPressEvent(mini_view_, *event);
       event->SetHandled();
       break;
-    case ui::ET_GESTURE_SCROLL_BEGIN:
+    case ui::EventType::kGestureScrollBegin:
       [[fallthrough]];
-    case ui::ET_GESTURE_SCROLL_UPDATE:
+    case ui::EventType::kGestureScrollUpdate:
       owner_bar->HandleDragEvent(mini_view_, *event);
       if (owner_bar->IsDraggingDesk())
         event->SetHandled();
       break;
-    case ui::ET_GESTURE_END:
+    case ui::EventType::kGestureEnd:
       if (owner_bar->HandleReleaseEvent(mini_view_, *event))
         event->SetHandled();
       break;
@@ -700,6 +750,32 @@ void DeskPreviewView::OnFocusableViewFocused() {
 void DeskPreviewView::OnFocusableViewBlurred() {
   mini_view_->UpdateDeskButtonVisibility();
   mini_view_->UpdateFocusColor();
+}
+
+void DeskPreviewView::OnWindowOcclusionChanged(aura::Window* window) {
+  // If `window_occlusion_calculator_` finds multiple windows with occlusion
+  // changes in one calculation, they can be condensed into one
+  // `RecreateDeskContentsMirrorLayers()` call by canceling any pending task
+  // already scheduled.
+  recreate_mirror_layers_weak_factory_.InvalidateWeakPtrs();
+
+  // `RecreateDeskContentsMirrorLayers()` cannot be called directly. If it is,
+  // it creates an infinite loop`:
+  // * DeskPreviewView::OnWindowOcclusionChanged()
+  //   * DeskPreviewView::RecreateDeskContentsMirrorLayers()
+  //     * WindowOcclusionCalculator::RemoveObserver(this)
+  //     * WindowOcclusionCalculator::AddObserver(..., this)
+  // * Iterate to the next observer in the list (which is `this` again). Go back
+  //   to previous step.
+  //
+  // Posting a task fixes this because it finishes the
+  // `WindowOcclusionCalculator::Observer::OnWindowOcclusionChanged()`
+  // notification loop before `DeskPreviewView` resets its observation state.
+  // It's also just simpler to reason about.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&DeskPreviewView::RecreateDeskContentsMirrorLayers,
+                     recreate_mirror_layers_weak_factory_.GetWeakPtr()));
 }
 
 BEGIN_METADATA(DeskPreviewView)

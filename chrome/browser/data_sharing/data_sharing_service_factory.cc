@@ -24,7 +24,9 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/data_sharing/data_sharing_service_factory_bridge.h"
 #include "chrome/browser/data_sharing/data_sharing_ui_delegate_android.h"
-#endif  // BUILDFLAG(IS_ANDROID)
+#else  // BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/data_sharing/desktop/data_sharing_ui_delegate_desktop.h"
+#endif
 
 namespace data_sharing {
 // static
@@ -44,6 +46,9 @@ DataSharingServiceFactory::DataSharingServiceFactory()
           "DataSharingService",
           ProfileSelections::Builder()
               .WithRegular(ProfileSelection::kOwnInstance)
+              // TODO(crbug.com/41488885): Check if this service is needed for
+              // Ash Internals.
+              .WithAshInternals(ProfileSelection::kOwnInstance)
               .Build()) {
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(ModelTypeStoreServiceFactory::GetInstance());
@@ -65,7 +70,9 @@ KeyedService* DataSharingServiceFactory::BuildServiceInstanceFor(
 #if BUILDFLAG(IS_ANDROID)
   ui_delegate = std::make_unique<DataSharingUIDelegateAndroid>(profile);
   sdk_delegate = DataSharingSDKDelegate::CreateDelegate(
-      DataSharingServiceFactoryBridge::CreateJavaSDKDelegate());
+      DataSharingServiceFactoryBridge::CreateJavaSDKDelegate(profile));
+#else
+  ui_delegate = std::make_unique<DataSharingUIDelegateDesktop>(profile);
 #endif  // BUILDFLAG(IS_ANDROID)
 
   return new DataSharingServiceImpl(

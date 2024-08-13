@@ -19,6 +19,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
+#include "content/browser/service_worker/service_worker_client.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_core_observer.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
@@ -255,10 +256,11 @@ class ServiceWorkerContainerHostTest : public testing::Test {
 
   bool CanFindServiceWorkerClient(ServiceWorkerClient* service_worker_client) {
     if (context_) {
-      for (auto it = context_->GetServiceWorkerClients(
-               service_worker_client->key(),
-               false /* include_reserved_clients */,
-               false /* include_back_forward_cached_clients */);
+      for (auto it =
+               context_->service_worker_client_owner().GetServiceWorkerClients(
+                   service_worker_client->key(),
+                   false /* include_reserved_clients */,
+                   false /* include_back_forward_cached_clients */);
            !it.IsAtEnd(); ++it) {
         if (service_worker_client == &*it) {
           return true;
@@ -415,9 +417,10 @@ TEST_F(ServiceWorkerContainerHostTest, UpdateUrls_SameOriginRedirect) {
   EXPECT_EQ(uuid1, service_worker_client->client_uuid());
 
   ASSERT_TRUE(context_);
-  EXPECT_EQ(service_worker_client.get(),
-            context_->GetServiceWorkerClientByClientID(
-                service_worker_client->client_uuid()));
+  EXPECT_EQ(
+      service_worker_client.get(),
+      context_->service_worker_client_owner().GetServiceWorkerClientByClientID(
+          service_worker_client->client_uuid()));
 }
 
 TEST_F(ServiceWorkerContainerHostTest, UpdateUrls_CrossOriginRedirect) {
@@ -442,10 +445,13 @@ TEST_F(ServiceWorkerContainerHostTest, UpdateUrls_CrossOriginRedirect) {
   EXPECT_NE(uuid1, service_worker_client->client_uuid());
 
   ASSERT_TRUE(context_);
-  EXPECT_FALSE(context_->GetServiceWorkerClientByClientID(uuid1));
-  EXPECT_EQ(service_worker_client.get(),
-            context_->GetServiceWorkerClientByClientID(
-                service_worker_client->client_uuid()));
+  EXPECT_FALSE(
+      context_->service_worker_client_owner().GetServiceWorkerClientByClientID(
+          uuid1));
+  EXPECT_EQ(
+      service_worker_client.get(),
+      context_->service_worker_client_owner().GetServiceWorkerClientByClientID(
+          service_worker_client->client_uuid()));
 }
 
 TEST_F(ServiceWorkerContainerHostTest, UpdateUrls_CorrectStorageKey) {
@@ -1106,14 +1112,18 @@ class ServiceWorkerContainerHostTestByClientType
         CHECK(
             base::FeatureList::IsEnabled(blink::features::kPlzDedicatedWorker));
         return ScopedServiceWorkerClient(
-            helper_->context()->CreateServiceWorkerClientForWorker(
-                helper_->mock_render_process_id(),
-                ServiceWorkerClientInfo(blink::DedicatedWorkerToken())));
+            helper_->context()
+                ->service_worker_client_owner()
+                .CreateServiceWorkerClientForWorker(
+                    helper_->mock_render_process_id(),
+                    ServiceWorkerClientInfo(blink::DedicatedWorkerToken())));
       case ClientType::kSharedWorker:
         return ScopedServiceWorkerClient(
-            helper_->context()->CreateServiceWorkerClientForWorker(
-                helper_->mock_render_process_id(),
-                ServiceWorkerClientInfo(blink::SharedWorkerToken())));
+            helper_->context()
+                ->service_worker_client_owner()
+                .CreateServiceWorkerClientForWorker(
+                    helper_->mock_render_process_id(),
+                    ServiceWorkerClientInfo(blink::SharedWorkerToken())));
     }
   }
 
@@ -1134,17 +1144,17 @@ class ServiceWorkerContainerHostTestByClientType
       case ClientType::kWindow: {
         mojo::PendingReceiver<network::mojom::CrossOriginEmbedderPolicyReporter>
             reporter;
-        return service_worker_client.CommitResponseAndRelease(
+        return std::get<0>(service_worker_client.CommitResponseAndRelease(
             GlobalRenderFrameHostId(helper_->mock_render_process_id(),
                                     /*route_id=*/1),
             PolicyContainerPolicies(), reporter.InitWithNewPipeAndPassRemote(),
-            ukm::kInvalidSourceId);
+            ukm::kInvalidSourceId));
       }
       case ClientType::kDedicatedWorker:
       case ClientType::kSharedWorker:
-        return service_worker_client.CommitResponseAndRelease(
+        return std::get<0>(service_worker_client.CommitResponseAndRelease(
             /*rfh_id=*/std::nullopt, PolicyContainerPolicies(),
-            /*coep_reporter=*/{}, ukm::kInvalidSourceId);
+            /*coep_reporter=*/{}, ukm::kInvalidSourceId));
     }
   }
 
@@ -1261,12 +1271,7 @@ TEST_P(ServiceWorkerContainerHostTestByClientType,
   }
 
   // `ScopedServiceWorkerClient` is destroyed.
-  // The `ServiceWorkerClient` is still alive because it will be destroyed
-  // asynchronously.
-  EXPECT_TRUE(weak_service_worker_client.get());
-
-  base::RunLoop().RunUntilIdle();
-  // Destroyed asynchronously.
+  // The `ServiceWorkerClient` is destroyed synchronously.
   EXPECT_FALSE(weak_service_worker_client.get());
 }
 

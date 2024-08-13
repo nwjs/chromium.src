@@ -1208,7 +1208,8 @@
   },
   "linux-builder-perf": {
     "additional_compile_targets": [
-      "chromedriver"
+      "chromedriver_group",
+      "chrome/installer/linux"
     ],
     "isolated_scripts": [
       {
@@ -1381,6 +1382,49 @@
       ],
       "script": "//tools/perf/process_perf_results.py"
     }
+  },
+  "linux-r350-perf": {
+    "isolated_scripts": [
+      {
+        "args": [
+          "-v",
+          "--browser=release",
+          "--upload-results",
+          "--test-shard-map-filename=linux-r350-perf_map.json",
+          "--ignore-benchmark-exit-code",
+          "--assert-gpu-compositing"
+        ],
+        "merge": {
+          "script": "//tools/perf/process_perf_results.py"
+        },
+        "name": "performance_test_suite",
+        "resultdb": {
+          "enable": true
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimensions": {
+            "os": "Ubuntu-22",
+            "pool": "chrome.tests.perf",
+            "synthetic_product_name": "PowerEdge R350 (Dell Inc.)"
+          },
+          "expiration": 7200,
+          "hard_timeout": 21600,
+          "io_timeout": 21600,
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 30
+        },
+        "test": "performance_test_suite",
+        "trigger_script": {
+          "args": [
+            "--multiple-dimension-script-verbose",
+            "True"
+          ],
+          "requires_simultaneous_shard_dispatch": true,
+          "script": "//testing/trigger_scripts/perf_device_trigger.py"
+        }
+      }
+    ]
   },
   "mac-14-m1-pro-perf": {
     "isolated_scripts": [
@@ -1937,8 +1981,7 @@
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
-            "gpu": "8086:5912-27.20.100.8681",
-            "os": "Windows-10-18363.476",
+            "os": "Windows-10",
             "pool": "chrome.tests.perf",
             "synthetic_product_name": "OptiPlex 7050 (Dell Inc.)"
           },
@@ -1946,7 +1989,7 @@
           "hard_timeout": 21600,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 14
+          "shards": 18
         },
         "test": "performance_test_suite",
         "trigger_script": {
@@ -1981,8 +2024,7 @@
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
-            "gpu": "8086:5912-27.20.100.8681",
-            "os": "Windows-10-18363.476",
+            "os": "Windows-10",
             "pool": "chrome.tests.perf",
             "synthetic_product_name": "OptiPlex 7050 (Dell Inc.)"
           },
@@ -1990,7 +2032,7 @@
           "hard_timeout": 21600,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 26
+          "shards": 18
         },
         "test": "performance_test_suite",
         "trigger_script": {
@@ -2033,8 +2075,8 @@
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
-            "gpu": "1002:1638-30.0.13033.1000",
-            "os": "Windows-10-19043",
+            "gpu": "1002:1638",
+            "os": "Windows-10",
             "pool": "chrome.tests.perf",
             "synthetic_product_name": "OMEN by HP Laptop 16-c0xxx [ ] (HP)"
           },
@@ -2077,8 +2119,8 @@
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
-            "gpu": "1002:1638-30.0.13033.1000",
-            "os": "Windows-10-19043",
+            "gpu": "1002:1638",
+            "os": "Windows-10",
             "pool": "chrome.tests.perf",
             "synthetic_product_name": "OMEN by HP Laptop 16-c0xxx [ ] (HP)"
           },
@@ -2125,8 +2167,8 @@
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
-            "gpu": "8086:1616-20.19.15.5070|8086:1616-10.0.18362.1",
-            "os": "Windows-10-18363.476|Windows-10-18363.1621",
+            "gpu": "8086:1616",
+            "os": "Windows-10",
             "pool": "chrome.tests.perf",
             "synthetic_product_name": "HP Laptop 15-bs1xx [Type1ProductConfigId] (HP)"
           },
@@ -2134,7 +2176,7 @@
           "hard_timeout": 21600,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 48
+          "shards": 24
         },
         "test": "performance_test_suite",
         "trigger_script": {
@@ -2169,8 +2211,8 @@
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
-            "gpu": "8086:1616-20.19.15.5070|8086:1616-10.0.18362.1",
-            "os": "Windows-10-18363.476|Windows-10-18363.1621",
+            "gpu": "8086:1616",
+            "os": "Windows-10",
             "pool": "chrome.tests.perf"
           },
           "expiration": 7200,

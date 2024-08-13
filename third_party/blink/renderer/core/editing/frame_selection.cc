@@ -365,13 +365,9 @@ void FrameSelection::DidSetSelectionDeprecated(
     TextControlElement* text_control =
         EnclosingTextControl(GetSelectionInDOMTree().Anchor());
     if (text_control && !text_control->IsInShadowTree()) {
-      text_control->EnqueueEvent(
-          *Event::CreateBubble(event_type_names::kSelectionchange),
-          TaskType::kMiscPlatformAPI);
+      text_control->ScheduleSelectionchangeEvent();
     } else {
-      frame_->DomWindow()->EnqueueDocumentEvent(
-          *Event::Create(event_type_names::kSelectionchange),
-          TaskType::kMiscPlatformAPI);
+      GetDocument().ScheduleSelectionchangeEvent();
     }
   }
   // When DispatchSelectionchangeEventPerElement is disabled, fall back to old
@@ -537,8 +533,9 @@ bool FrameSelection::SelectionHasFocus() const {
   Element* const focused_element = GetDocument().FocusedElement()
                                        ? GetDocument().FocusedElement()
                                        : GetDocument().documentElement();
-  if (!focused_element)
+  if (!focused_element || focused_element->IsScrollMarkerPseudoElement()) {
     return false;
+  }
 
   if (focused_element->IsTextControl())
     return focused_element->ContainsIncludingHostElements(*current);

@@ -3,19 +3,21 @@
 // found in the LICENSE file.
 
 import type {PageHandlerInterface} from './data_sharing.mojom-webui.js';
-import {PageHandlerFactory, PageHandlerRemote} from './data_sharing.mojom-webui.js';
+import {PageCallbackRouter, PageHandlerFactory, PageHandlerRemote} from './data_sharing.mojom-webui.js';
 
 export class BrowserProxy {
+  callbackRouter: PageCallbackRouter;
   handler: PageHandlerInterface;
 
   constructor() {
+    this.callbackRouter = new PageCallbackRouter();
+
     this.handler = new PageHandlerRemote();
 
     const factory = PageHandlerFactory.getRemote();
     factory.createPageHandler(
+        this.callbackRouter.$.bindNewPipeAndPassRemote(),
         (this.handler as PageHandlerRemote).$.bindNewPipeAndPassReceiver());
-
-    this.handler.showUI();
   }
 
   static getInstance(): BrowserProxy {

@@ -23,6 +23,7 @@ class ComputedStyle;
 class ContainerQuery;
 class Element;
 class MatchResult;
+class SnappedQueryScrollSnapshot;
 class StuckQueryScrollSnapshot;
 class StyleRecalcContext;
 
@@ -31,8 +32,8 @@ class CORE_EXPORT ContainerQueryEvaluator final
  public:
   explicit ContainerQueryEvaluator(Element& container);
 
-  // Look for a container query container in the shadow-including inclusive
-  // ancestor chain of 'starting_element'.
+  // Look for a container query container in the flat tree inclusive ancestor
+  // chain of 'starting_element'.
   static Element* FindContainer(Element* starting_element,
                                 const ContainerSelector&,
                                 const TreeScope* selector_tree_scope);
@@ -41,6 +42,12 @@ class CORE_EXPORT ContainerQueryEvaluator final
                          const ContainerQuery&,
                          ContainerSelectorCache&,
                          MatchResult&);
+
+  // Get the parent container candidate for container queries. Either the flat
+  // tree parent or the shadow-including parent based on a runtime flag due to a
+  // spec change.
+  // To be removed when the CSSFlatTreeContainer flag is removed.
+  static Element* ParentContainerCandidateElement(Element& element);
 
   // Width/Height are used by container relative units (qi, qb, etc).
   //
@@ -78,17 +85,14 @@ class CORE_EXPORT ContainerQueryEvaluator final
   Change StyleContainerChanged();
 
   // Update the ContainerValues for the evaluator if necessary based on the
-  // latest snapshot.
-  Change ApplyScrollSnapshot();
+  // latest snapshots for stuck and snapped states.
+  Change ApplyScrollState();
 
-  // Re-evaluate the cached results and clear any results which are affected by
-  // the ContainerStuckPhysical changes.
-  Change StickyContainerChanged(ContainerStuckPhysical stuck_horizontal,
-                                ContainerStuckPhysical stuck_vertical);
-
-  // Re-evaluate the cached results and clear any results which are affected by
-  // the snapped target changes.
-  Change SnapContainerChanged(ContainerSnappedFlags snapped);
+  // Set the pending snapped state when updating scroll snapshots.
+  // ApplyScrollState() will set the snapped state from the pending snapped
+  // state during style recalc.
+  void SetPendingSnappedStateFromScrollSnapshot(
+      const SnappedQueryScrollSnapshot&);
 
   // We may need to update the internal CSSContainerValues of this evaluator
   // when e.g. the rem unit changes.
@@ -120,6 +124,15 @@ class CORE_EXPORT ContainerQueryEvaluator final
 
   // Update the CSSContainerValues with the new stuck state.
   void UpdateContainerSnapped(ContainerSnappedFlags snapped);
+
+  // Re-evaluate the cached results and clear any results which are affected by
+  // the ContainerStuckPhysical changes.
+  Change StickyContainerChanged(ContainerStuckPhysical stuck_horizontal,
+                                ContainerStuckPhysical stuck_vertical);
+
+  // Re-evaluate the cached results and clear any results which are affected by
+  // the snapped target changes.
+  Change SnapContainerChanged(ContainerSnappedFlags snapped);
 
   enum ContainerType {
     kSizeContainer,
@@ -165,6 +178,8 @@ class CORE_EXPORT ContainerQueryEvaluator final
   ContainerStuckPhysical stuck_horizontal_ = ContainerStuckPhysical::kNo;
   ContainerStuckPhysical stuck_vertical_ = ContainerStuckPhysical::kNo;
   ContainerSnappedFlags snapped_ =
+      static_cast<ContainerSnappedFlags>(ContainerSnapped::kNone);
+  ContainerSnappedFlags pending_snapped_ =
       static_cast<ContainerSnappedFlags>(ContainerSnapped::kNone);
   HeapHashMap<Member<const ContainerQuery>, Result> results_;
   Member<StuckQueryScrollSnapshot> stuck_snapshot_;

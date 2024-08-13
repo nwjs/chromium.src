@@ -209,7 +209,7 @@ UserOptInIntention CreditCardFidoAuthenticator::GetUserOptInIntention(
   // from payments. And if local pref says user is opted out, it denotes that
   // user intended to opt out.
   if (unmask_details.unmask_auth_method ==
-          AutofillClient::UnmaskAuthMethod::kFido &&
+          payments::PaymentsAutofillClient::UnmaskAuthMethod::kFido &&
       !user_local_opt_in_status) {
     return UserOptInIntention::kIntentToOptOut;
   }
@@ -461,7 +461,7 @@ void CreditCardFidoAuthenticator::OnDidMakeCredential(
 }
 
 void CreditCardFidoAuthenticator::OnDidGetOptChangeResult(
-    AutofillClient::PaymentsRpcResult result,
+    payments::PaymentsAutofillClient::PaymentsRpcResult result,
     payments::PaymentsNetworkInterface::OptChangeResponseDetails& response) {
   DCHECK(current_flow_ == OPT_IN_FETCH_CHALLENGE_FLOW ||
          current_flow_ == OPT_OUT_FLOW ||
@@ -479,7 +479,7 @@ void CreditCardFidoAuthenticator::OnDidGetOptChangeResult(
     UpdateUserPref();
 
   // End the flow if the server responded with an error.
-  if (result != AutofillClient::PaymentsRpcResult::kSuccess) {
+  if (result != payments::PaymentsAutofillClient::PaymentsRpcResult::kSuccess) {
 #if !BUILDFLAG(IS_ANDROID)
     if (current_flow_ == OPT_IN_FETCH_CHALLENGE_FLOW) {
       autofill_client_->GetPaymentsAutofillClient()
@@ -778,7 +778,7 @@ void CreditCardFidoAuthenticator::HandleGetAssertionSuccess(
       }
 #endif
       full_card_request_->GetFullCardViaFIDO(
-          *card_, AutofillClient::UnmaskCardReason::kAutofill,
+          *card_, payments::PaymentsAutofillClient::UnmaskCardReason::kAutofill,
           weak_ptr_factory_.GetWeakPtr(), std::move(response),
           autofill_client_->GetLastCommittedPrimaryMainFrameOrigin(),
           last_committed_primary_main_frame_origin, context_token_);

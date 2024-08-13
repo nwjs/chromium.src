@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/css/properties/css_color_function_parser.h"
 
 #include <cmath>
@@ -221,12 +226,10 @@ std::optional<Color> TryResolveAtParseTime(const CSSValue& value) {
   if (auto* color_mix_value = DynamicTo<cssvalue::CSSColorMixValue>(value)) {
     auto color1 = TryResolveAtParseTime(color_mix_value->Color1());
     auto color2 = TryResolveAtParseTime(color_mix_value->Color2());
-    if (color1 && color2) {
-      return StyleColor::UnresolvedColorMix(
-                 color_mix_value, StyleColor(*color1), StyleColor(*color2))
-          .Resolve(Color());
+    if (!color1 || !color2) {
+      return std::nullopt;
     }
-    return std::nullopt;
+    return color_mix_value->Mix(*color1, *color2);
   }
   return std::nullopt;
 }
@@ -258,7 +261,7 @@ bool ConsumeRelativeOriginColor(CSSParserTokenRange& args,
 std::optional<double> ConsumeRelativeColorChannel(
     CSSParserTokenRange& input_range,
     const CSSParserContext& context,
-    const HashMap<CSSValueID, double>& color_channel_keyword_values,
+    const CSSColorChannelMap& color_channel_map,
     CalculationResultCategorySet expected_categories,
     const double percentage_base = 0) {
   const CSSParserToken& token = input_range.Peek();
@@ -275,7 +278,7 @@ std::optional<double> ConsumeRelativeColorChannel(
         CSSMathExpressionNode::ParseMathFunction(
             token.FunctionId(), css_parsing_utils::ConsumeFunction(calc_range),
             context, Flags({AllowPercent}), kCSSAnchorQueryTypesNone,
-            color_channel_keyword_values),
+            color_channel_map),
         CSSPrimitiveValue::ValueRange::kAll);
     if (calc_value) {
       const CalculationResultCategory category = calc_value->Category();
@@ -306,9 +309,9 @@ std::optional<double> ConsumeRelativeColorChannel(
 
   // This is for just single variable swaps without calc(). e.g. The "l" in
   // "lab(from cyan l 0.5 0.5)".
-  if (color_channel_keyword_values.Contains(token.Id())) {
+  if (color_channel_map.Contains(token.Id())) {
     input_range.ConsumeIncludingWhitespace();
-    return color_channel_keyword_values.at(token.Id());
+    return color_channel_map.at(token.Id());
   }
 
   return std::nullopt;
@@ -380,7 +383,7 @@ bool ColorFunctionParser::ConsumeColorSpaceAndOriginColor(
       channel_values[2] *= 100;
     }
 
-    channel_keyword_values_ = {
+    color_channel_map_ = {
         {function_metadata_->channel_name[0], channel_values[0]},
         {function_metadata_->channel_name[1], channel_values[1]},
         {function_metadata_->channel_name[2], channel_values[2]},
@@ -424,8 +427,7 @@ bool ColorFunctionParser::ConsumeChannel(CSSParserTokenRange& args,
       channel_types_[i] = ChannelType::kNumber;
     } else if (is_relative_color_) {
       if ((channels_[i] = ConsumeRelativeColorChannel(
-               args, context, channel_keyword_values_,
-               {kCalcNumber, kCalcAngle}))) {
+               args, context, color_channel_map_, {kCalcNumber, kCalcAngle}))) {
         channel_types_[i] = ChannelType::kRelative;
       }
     }
@@ -465,8 +467,7 @@ bool ColorFunctionParser::ConsumeChannel(CSSParserTokenRange& args,
   if (is_relative_color_) {
     channel_types_[i] = ChannelType::kRelative;
     if ((channels_[i] = ConsumeRelativeColorChannel(
-             args, context, channel_keyword_values_,
-             {kCalcNumber, kCalcPercent},
+             args, context, color_channel_map_, {kCalcNumber, kCalcPercent},
              function_metadata_->channel_percentage[i]))) {
       return true;
     }
@@ -498,7 +499,7 @@ bool ColorFunctionParser::ConsumeAlpha(CSSParserTokenRange& args,
   }
 
   if (is_relative_color_ && (alpha_ = ConsumeRelativeColorChannel(
-                                 args, context, channel_keyword_values_,
+                                 args, context, color_channel_map_,
                                  {kCalcNumber, kCalcPercent}, 1.0))) {
     return true;
   }
@@ -575,43 +576,40 @@ bool ColorFunctionParser::MakePerColorSpaceAdjustments() {
   return true;
 }
 
-bool ColorFunctionParser::ConsumeFunctionalSyntaxColor(
+CSSValue* ColorFunctionParser::ConsumeFunctionalSyntaxColor(
     CSSParserTokenRange& input_range,
-    const CSSParserContext& context,
-    Color& result) {
-  return ConsumeFunctionalSyntaxColorInternal(input_range, context, result);
+    const CSSParserContext& context) {
+  return ConsumeFunctionalSyntaxColorInternal(input_range, context);
 }
 
-bool ColorFunctionParser::ConsumeFunctionalSyntaxColor(
+CSSValue* ColorFunctionParser::ConsumeFunctionalSyntaxColor(
     CSSParserTokenStream& input_stream,
-    const CSSParserContext& context,
-    Color& result) {
-  return ConsumeFunctionalSyntaxColorInternal(input_stream, context, result);
+    const CSSParserContext& context) {
+  return ConsumeFunctionalSyntaxColorInternal(input_stream, context);
 }
 
 template <class T>
   requires std::is_same_v<T, CSSParserTokenStream> ||
            std::is_same_v<T, CSSParserTokenRange>
-bool ColorFunctionParser::ConsumeFunctionalSyntaxColorInternal(
+CSSValue* ColorFunctionParser::ConsumeFunctionalSyntaxColorInternal(
     T& range,
-    const CSSParserContext& context,
-    Color& result) {
+    const CSSParserContext& context) {
   CSSParserSavePoint savepoint(range);
 
   CSSValueID function_id = range.Peek().FunctionId();
   if (!IsValidColorFunction(function_id)) {
-    return false;
+    return nullptr;
   }
 
   CSSParserTokenRange args = css_parsing_utils::ConsumeFunction(range);
   if (!ConsumeColorSpaceAndOriginColor(args, function_id, context)) {
-    return false;
+    return nullptr;
   }
 
   // Parse the three color channel params.
   for (int i = 0; i < 3; i++) {
     if (!ConsumeChannel(args, context, i)) {
-      return false;
+      return nullptr;
     }
     // Potentially expect a separator after the first and second channel. The
     // separator for a potential alpha channel is handled below.
@@ -622,11 +620,11 @@ bool ColorFunctionParser::ConsumeFunctionalSyntaxColorInternal(
         // We've parsed one separating comma token, so we expect the second
         // separator to match.
         if (!matched_comma) {
-          return false;
+          return nullptr;
         }
       } else if (matched_comma) {
         if (is_relative_color_) {
-          return false;
+          return nullptr;
         }
         is_legacy_syntax_ = true;
       }
@@ -637,7 +635,7 @@ bool ColorFunctionParser::ConsumeFunctionalSyntaxColorInternal(
   bool expect_alpha = false;
   if (is_legacy_syntax_) {
     if (!Color::IsLegacyColorSpace(color_space_)) {
-      return false;
+      return nullptr;
     }
     // , <alpha-value>?
     if (css_parsing_utils::ConsumeCommaIncludingWhitespace(args)) {
@@ -651,23 +649,23 @@ bool ColorFunctionParser::ConsumeFunctionalSyntaxColorInternal(
   }
   if (expect_alpha) {
     if (!ConsumeAlpha(args, context)) {
-      return false;
+      return nullptr;
     }
   } else if (is_relative_color_) {
-    alpha_ = channel_keyword_values_.at(CSSValueID::kAlpha);
+    alpha_ = color_channel_map_.at(CSSValueID::kAlpha);
   }
 
   // "None" is not a part of the legacy syntax.
   if (!args.AtEnd() || (is_legacy_syntax_ && has_none_)) {
-    return false;
+    return nullptr;
   }
 
   if (!MakePerColorSpaceAdjustments()) {
-    return false;
+    return nullptr;
   }
 
-  result = Color::FromColorSpace(color_space_, channels_[0], channels_[1],
-                                 channels_[2], alpha_);
+  Color result = Color::FromColorSpace(color_space_, channels_[0], channels_[1],
+                                       channels_[2], alpha_);
   if (is_relative_color_ && Color::IsLegacyColorSpace(color_space_)) {
     result.ConvertToColorSpace(Color::ColorSpace::kSRGB);
   }
@@ -715,7 +713,7 @@ bool ColorFunctionParser::ConsumeFunctionalSyntaxColorInternal(
     }
   }
 
-  return true;
+  return cssvalue::CSSColor::Create(result);
 }
 
 }  // namespace blink

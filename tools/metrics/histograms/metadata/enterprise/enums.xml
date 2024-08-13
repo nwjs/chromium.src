@@ -488,6 +488,7 @@ chromium-metrics-reviews@google.com.
   <int value="28" label="HOST_SESSION_DISCONNECTED"/>
   <int value="29" label="FAILURE_UNKNOWN_ERROR"/>
   <int value="30" label="FAILURE_REAUTHZ_POLICY_CHECK_FAILED"/>
+  <int value="31" label="FAILURE_NO_COMMON_AUTH_METHOD"/>
 </enum>
 
 <enum name="EnterpriseDeviceManagementStatus">
@@ -1828,7 +1829,6 @@ chromium-metrics-reviews@google.com.
   <int value="955" label="WebHidAllowDevicesWithHidUsagesForUrls"/>
   <int value="956" label="SecondaryGoogleAccountUsage"/>
   <int value="957" label="DeviceEncryptedReportingPipelineEnabled"/>
-  <int value="958" label="IsolatedAppsDeveloperModeAllowed"/>
   <int value="959" label="FloatingWorkspaceEnabled"/>
   <int value="960" label="WindowPlacementAllowedForUrls"/>
   <int value="961" label="WindowPlacementBlockedForUrls"/>
@@ -2105,7 +2105,7 @@ chromium-metrics-reviews@google.com.
   <int value="1235" label="PrivacySandboxIpProtectionEnabled"/>
   <int value="1236" label="OrcaEnabled"/>
   <int value="1237" label="EnterpriseLogoUrl"/>
-  <int value="1238" label="CustomProfileLabel"/>
+  <int value="1238" label="EnterpriseCustomLabel"/>
   <int value="1239" label="ProfileLabel"/>
   <int value="1240" label="PrivacySandboxFingerprintingProtectionEnabled"/>
   <int value="1241" label="MultiScreenCaptureAllowedForUrls"/>
@@ -2114,7 +2114,6 @@ chromium-metrics-reviews@google.com.
   <int value="1246" label="ApplicationBoundEncryptionEnabled"/>
   <int value="1247" label="DeviceAuthenticationFlowAutoReloadInterval"/>
   <int value="1248" label="ShowAiIntroScreenEnabled"/>
-  <int value="1249" label="ShowTunaScreenEnabled"/>
   <int value="1250" label="EnterpriseBadgingTemporarySetting"/>
   <int value="1251" label="GenAILocalFoundationalModelSettings"/>
   <int value="1252" label="DeviceExtensionsSystemLogEnabled"/>
@@ -2134,8 +2133,27 @@ chromium-metrics-reviews@google.com.
   <int value="1266" label="LensOverlaySettings"/>
   <int value="1267" label="ThirdPartyPasswordManagersAllowed"/>
   <int value="1268" label="DeviceAllowEnterpriseRemoteAccessConnections"/>
-  <int value="1269" label="LocalUserFilesMigrationEnabled"/>
   <int value="1270" label="FocusModeSoundsEnabled"/>
+  <int value="1271" label="ExtensionDeveloperModeSettings"/>
+  <int value="1272" label="LocalUserFilesMigrationDestination"/>
+  <int value="1273" label="KioskBrowserPermissionsAllowedForOrigins"/>
+  <int value="1274" label="LensOnGalleryEnabled"/>
+  <int value="1275" label="HistorySearchSettings"/>
+  <int value="1276" label="DevicePostQuantumKeyAgreementEnabled"/>
+  <int value="1277" label="DefaultJavaScriptOptimizerSetting"/>
+  <int value="1278" label="JavaScriptOptimizerAllowedForSites"/>
+  <int value="1279" label="JavaScriptOptimizerBlockedForSites"/>
+  <int value="1280" label="PromotionsEnabled"/>
+  <int value="1281" label="QRCodeGeneratorEnabled"/>
+  <int value="1282" label="DnsOverHttpsExcludedDomains"/>
+  <int value="1283" label="DnsOverHttpsIncludedDomains"/>
+  <int value="1284" label="SystemShortcutBehavior"/>
+  <int value="1285" label="DeletingUndecryptablePasswordsEnabled"/>
+  <int value="1286" label="StandardizedBrowserZoomEnabled"/>
+  <int value="1287" label="ReportingEndpoints"/>
+  <int value="1288" label="PrintingLPACSandboxEnabled"/>
+  <int value="1289" label="ShowGeminiIntroScreenEnabled"/>
+  <int value="1290" label="DeviceRestrictionSchedule"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2488,6 +2506,16 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="UnsupportedAccountTypeError"/>
   <int value="6" label="GetTokenError"/>
   <int value="7" label="GetUserInfoError"/>
+</enum>
+
+<enum name="StateDeterminationStatus">
+  <int value="0" label="Disabled via never switch"/>
+  <int value="1" label="Disabled via kill switch"/>
+  <int value="2" label="Disabled on unbranded build"/>
+  <int value="3" label="Disabled on non-Chrome device"/>
+  <int value="4" label="Enabled on official Google Chrome"/>
+  <int value="5" label="Enabled on official Google Flex"/>
+  <int value="6" label="Enabled via always switch"/>
 </enum>
 
 <enum name="StateKeysRetrievalErrorType">

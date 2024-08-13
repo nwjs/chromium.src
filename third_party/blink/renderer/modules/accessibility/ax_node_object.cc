@@ -26,6 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/accessibility/ax_node_object.h"
 
 #include <math.h>
@@ -1840,7 +1845,7 @@ ax::mojom::blink::Role AXNodeObject::RoleFromLayoutObjectOrNode() const {
     return ax::mojom::blink::Role::kListMarker;
   }
 
-  if (GetLayoutObject()->IsListItemIncludingNG()) {
+  if (GetLayoutObject()->IsListItem()) {
     return ax::mojom::blink::Role::kListItem;
   }
   if (GetLayoutObject()->IsBR()) {
@@ -1919,9 +1924,11 @@ ax::mojom::blink::Role AXNodeObject::RoleFromLayoutObjectOrNode() const {
   }
 
   // Minimum role:
-  // TODO(aleventhal) Implement all of https://github.com/w3c/html-aam/pull/454.
   if (GetElement() && !GetElement()->FastHasAttribute(html_names::kRoleAttr)) {
-    if (IsPopup() != ax::mojom::blink::IsPopup::kNone) {
+    if (IsPopup() != ax::mojom::blink::IsPopup::kNone ||
+        GetElement()->FastHasAttribute(html_names::kAutofocusAttr) ||
+        GetElement()->FastHasAttribute(html_names::kDraggableAttr)) {
+      // TODO(accessibility) Consider for tabindex="0".
       return ax::mojom::blink::Role::kGroup;
     }
   }
@@ -3496,20 +3503,15 @@ ax::mojom::blink::WritingDirection AXNodeObject::GetTextDirection() const {
   if (!style)
     return AXObject::GetTextDirection();
 
-  if (style->IsHorizontalWritingMode()) {
-    switch (style->Direction()) {
-      case TextDirection::kLtr:
-        return ax::mojom::blink::WritingDirection::kLtr;
-      case TextDirection::kRtl:
-        return ax::mojom::blink::WritingDirection::kRtl;
-    }
-  } else {
-    switch (style->Direction()) {
-      case TextDirection::kLtr:
-        return ax::mojom::blink::WritingDirection::kTtb;
-      case TextDirection::kRtl:
-        return ax::mojom::blink::WritingDirection::kBtt;
-    }
+  switch (style->GetWritingDirection().InlineEnd()) {
+    case PhysicalDirection::kRight:
+      return ax::mojom::blink::WritingDirection::kLtr;
+    case PhysicalDirection::kLeft:
+      return ax::mojom::blink::WritingDirection::kRtl;
+    case PhysicalDirection::kDown:
+      return ax::mojom::blink::WritingDirection::kTtb;
+    case PhysicalDirection::kUp:
+      return ax::mojom::blink::WritingDirection::kBtt;
   }
 
   NOTREACHED_IN_MIGRATION();
@@ -4259,6 +4261,13 @@ String AXNodeObject::GetValueForControl(AXObjectSet& visited) const {
     // and "selectionEnd" indices will not match with the text in the sanitized
     // value.
     String inner_text = ToTextControl(*node).InnerEditorValue();
+    unsigned int unmasked_text_length = inner_text.length();
+    // If the inner text is empty, we return a null string to let the text
+    // alternative algorithm continue searching for an accessible name.
+    if (!unmasked_text_length) {
+      return String();
+    }
+
     if (!IsPasswordFieldAndShouldHideValue())
       return inner_text;
 
@@ -4268,10 +4277,6 @@ String AXNodeObject::GetValueForControl(AXObjectSet& visited) const {
     const ComputedStyle* style = GetLayoutObject()->Style();
     if (!style)
       return inner_text;
-
-    unsigned int unmasked_text_length = inner_text.length();
-    if (!unmasked_text_length)
-      return String();
 
     UChar mask_character = 0;
     switch (style->TextSecurity()) {
@@ -4683,6 +4688,7 @@ String AXNodeObject::TextAlternative(
   // node has already been visited.
   if (recursive && !visited.Contains(this)) {
     String value_for_name = GetValueContributionToName(visited);
+    // TODO(accessibility): Consider using `empty` check instead of `IsNull`.
     if (!value_for_name.IsNull())
       return value_for_name;
   }
@@ -4740,14 +4746,29 @@ String AXNodeObject::TextAlternative(
   }
 
   // Step 2I from: http://www.w3.org/TR/accname-aam-1.1
-  String resulting_text = TextAlternativeFromTooltip(
-      name_from, name_sources, &found_text_alternative, &text_alternative,
-      related_objects);
-  if (!resulting_text.empty()) {
-    if (name_sources) {
-      text_alternative = resulting_text;
-    } else {
-      return resulting_text;
+  // Use the tooltip text for the name if there was no other accessible name.
+  // However, it does not make sense to do this if the object has a role
+  // that prohibits name as specified in
+  // https://w3c.github.io/aria/#namefromprohibited.
+  // Preventing the tooltip for being used in the name causes it to be used for
+  // the description instead.
+  // This complies with https://w3c.github.io/html-aam/#att-title, which says
+  // how to expose a title: "Either the accessible name, or the accessible
+  // description, or Not mapped". There's nothing in HTML-AAM that explicitly
+  // forbids this, and it seems reasonable for authors to use a tooltip on any
+  // visible element without causing an accessibility error or user problem.
+  // Note: if this is part of another label or description, it needs to be
+  // computed as a name, in order to contribute to that.
+  if (aria_label_or_description_root || !IsNameProhibited()) {
+    String resulting_text = TextAlternativeFromTooltip(
+        name_from, name_sources, &found_text_alternative, &text_alternative,
+        related_objects);
+    if (!resulting_text.empty()) {
+      if (name_sources) {
+        text_alternative = resulting_text;
+      } else {
+        return resulting_text;
+      }
     }
   }
 
@@ -4814,6 +4835,7 @@ static bool ShouldInsertSpaceBetweenObjectsIfNeeded(
     case ax::mojom::blink::NameFrom::kNone:
     case ax::mojom::blink::NameFrom::kAttributeExplicitlyEmpty:
     case ax::mojom::blink::NameFrom::kContents:
+    case ax::mojom::blink::NameFrom::kProhibited:
       break;
     case ax::mojom::blink::NameFrom::kAttribute:
     case ax::mojom::blink::NameFrom::kCaption:
@@ -4828,6 +4850,7 @@ static bool ShouldInsertSpaceBetweenObjectsIfNeeded(
     case ax::mojom::blink::NameFrom::kNone:
     case ax::mojom::blink::NameFrom::kAttributeExplicitlyEmpty:
     case ax::mojom::blink::NameFrom::kContents:
+    case ax::mojom::blink::NameFrom::kProhibited:
       break;
     case ax::mojom::blink::NameFrom::kAttribute:
     case ax::mojom::blink::NameFrom::kCaption:
@@ -5492,9 +5515,57 @@ void AXNodeObject::AddNodeChildren() {
   if (IsA<HTMLFrameElementBase>(GetNode()))
     return;
 
-  for (Node* child = LayoutTreeBuilderTraversal::FirstChild(*node_); child;
-       child = LayoutTreeBuilderTraversal::NextSibling(*child)) {
-    AddNodeChild(child);
+  // If node is ReadingFlowContainer or if it is display contents and its layout
+  // parent is ReadingFlowContainer, then we should follow reading-flow order.
+  // In this case, the same list of children will be added as in the simple
+  // case using only LayoutTreeBuilderTraversal children, with no additions or
+  // removals, but in the order defined in CSS.
+  // TODO(crbug.com/346979043): If display: contents is a reading flow item,
+  // this order will be different from the reading flow in focus navigation.
+  Element* element = GetElement();
+  Element* closest_layout_parent =
+      element && element->HasDisplayContentsStyle()
+          ? LayoutTreeBuilderTraversal::LayoutParentElement(*element)
+          : element;
+  if (closest_layout_parent &&
+      closest_layout_parent->IsReadingFlowContainer()) {
+    HeapHashSet<Member<Node>> ax_children_added;
+    // Add all reading order items first, in the correct order.
+    for (Element* reading_item :
+         closest_layout_parent->GetLayoutBox()->ReadingFlowElements()) {
+      // Filter to only add node child if it is a direct child of current
+      // element.
+      if (LayoutTreeBuilderTraversal::Parent(*reading_item) == element) {
+        AddNodeChild(reading_item);
+        ax_children_added.insert(reading_item);
+      }
+    }
+    // Add all non-reading order items at the end of the reading flow.
+    for (Node* child = LayoutTreeBuilderTraversal::FirstChild(*node_); child;
+         child = LayoutTreeBuilderTraversal::NextSibling(*child)) {
+      if (!ax_children_added.Contains(child)) {
+        AddNodeChild(child);
+#if DCHECK_IS_ON()
+        ax_children_added.insert(child);
+#endif
+      }
+    }
+#if DCHECK_IS_ON()
+    // At this point, the number of AXObject children added should equal the
+    // number of LayoutTreeBuilderTraversal children.
+    size_t num_layout_tree_children = 0;
+    for (Node* child = LayoutTreeBuilderTraversal::FirstChild(*node_); child;
+         child = LayoutTreeBuilderTraversal::NextSibling(*child)) {
+      DCHECK(ax_children_added.Contains(child));
+      ++num_layout_tree_children;
+    }
+    DCHECK_EQ(ax_children_added.size(), num_layout_tree_children);
+#endif
+  } else {
+    for (Node* child = LayoutTreeBuilderTraversal::FirstChild(*node_); child;
+         child = LayoutTreeBuilderTraversal::NextSibling(*child)) {
+      AddNodeChild(child);
+    }
   }
 }
 
@@ -5620,11 +5691,8 @@ void AXNodeObject::AddNodeChild(Node* node) {
   if (AXObjectCache().IsAriaOwned(ax_child))
     return;  // Do not add owned children to their natural parent.
 
-#if DCHECK_IS_ON()
   AXObject* ax_cached_parent =
       ax_child ? ax_child->ParentObjectIfPresent() : nullptr;
-  size_t num_children_before_add = children_.size();
-#endif
 
   if (!ax_child) {
     ax_child =
@@ -5637,16 +5705,18 @@ void AXNodeObject::AddNodeChild(Node* node) {
 
   AddChild(ax_child);
 
-#if DCHECK_IS_ON()
-  bool did_add_child = children_.size() == num_children_before_add + 1 &&
-                       children_[0] == ax_child;
-  if (did_add_child) {
-    DCHECK(!ax_cached_parent || ax_cached_parent->AXObjectID() == AXObjectID())
+  // If we are adding an included child, check to see that it didn't have a
+  // different previous parent, because that indicates something strange is
+  // happening -- we shouldn't be stealing AXObjects from other parents here.
+  bool did_add_child_as_included =
+      children_.size() && children_[children_.size() - 1] == ax_child;
+  if (did_add_child_as_included && ax_cached_parent) {
+    CHECK(ax_child->IsIncludedInTree());
+    DUMP_WILL_BE_CHECK(ax_cached_parent->AXObjectID() == AXObjectID())
         << "Newly added child shouldn't have a different preexisting parent:"
         << "\nChild = " << ax_child << "\nNew parent = " << this
         << "\nPreexisting parent = " << ax_cached_parent;
   }
-#endif
 }
 
 #if DCHECK_IS_ON()
@@ -5900,34 +5970,6 @@ Node* AXNodeObject::GetNode() const {
 
 LayoutObject* AXNodeObject::GetLayoutObject() const {
   return layout_object_;
-}
-
-// TODO(chrishall): consider merging this with AXObject::Language in followup.
-AtomicString AXNodeObject::Language() const {
-  if (!GetNode())
-    return AXObject::Language();
-
-  // If it's the root, get the computed language for the document element,
-  // because the root LayoutObject doesn't have the right value.
-  if (IsWebArea()) {
-    Element* document_element = GetDocument()->documentElement();
-    if (!document_element)
-      return g_empty_atom;
-
-    // Ensure we return only the first language tag. ComputeInheritedLanguage
-    // consults ContentLanguage which can be set from 2 different sources.
-    // DocumentLoader::DidInstallNewDocument from HTTP headers which truncates
-    // until the first comma.
-    // HttpEquiv::Process from <meta> tag which does not truncate.
-    // TODO(chrishall): Consider moving this comma handling to setter side.
-    AtomicString lang = document_element->ComputeInheritedLanguage();
-    Vector<String> languages;
-    String(lang).Split(',', languages);
-    if (!languages.empty())
-      return AtomicString(languages[0].StripWhiteSpace());
-  }
-
-  return AXObject::Language();
 }
 
 bool AXNodeObject::HasAttribute(const QualifiedName& attribute) const {
@@ -6248,11 +6290,16 @@ String AXNodeObject::TextAlternativeFromTooltip(
     bool* found_text_alternative,
     String* text_alternative,
     AXRelatedObjectVector* related_objects) const {
+  if (!GetElement()) {
+    return String();
+  }
   name_from = ax::mojom::blink::NameFrom::kTitle;
   const AtomicString& title = GetAttribute(kTitleAttr);
-  String title_text = *text_alternative = TextAlternativeFromTitleAttribute(
+  String title_text = TextAlternativeFromTitleAttribute(
       title, name_from, name_sources, found_text_alternative);
+  // Do not use if empty or if redundant with inner text.
   if (!title_text.empty()) {
+    *text_alternative = title_text;
     return title_text;
   }
 
@@ -6292,6 +6339,11 @@ String AXNodeObject::TextAlternativeFromTooltip(
   AXObjectSet visited;
   String popover_text =
       RecursiveTextAlternative(*popover_ax_object, popover_ax_object, visited);
+  // Do not use if redundant with inner text.
+  if (popover_text.StripWhiteSpace() ==
+      GetElement()->GetInnerTextWithoutUpdate().StripWhiteSpace()) {
+    return String();
+  }
   *text_alternative = popover_text;
   if (related_objects) {
     related_objects->push_back(MakeGarbageCollected<NameSourceRelatedObject>(
@@ -6313,13 +6365,16 @@ String AXNodeObject::TextAlternativeFromTitleAttribute(
     ax::mojom::blink::NameFrom& name_from,
     NameSources* name_sources,
     bool* found_text_alternative) const {
+  DCHECK(GetElement());
   String text_alternative;
   if (name_sources) {
     name_sources->push_back(NameSource(*found_text_alternative, kTitleAttr));
     name_sources->back().type = name_from;
   }
   name_from = ax::mojom::blink::NameFrom::kTitle;
-  if (!title.IsNull()) {
+  if (!title.IsNull() &&
+      String(title).StripWhiteSpace() !=
+          GetElement()->GetInnerTextWithoutUpdate().StripWhiteSpace()) {
     text_alternative = title;
     if (name_sources) {
       NameSource& source = name_sources->back();
@@ -7035,8 +7090,11 @@ String AXNodeObject::Description(
   // SVG-AAM specifies additional description sources when ARIA sources have not
   // been found. https://w3c.github.io/svg-aam/#mapping_additional_nd
   if (IsA<SVGElement>(GetNode())) {
-    return SVGDescription(name_from, description_from, description_sources,
-                          related_objects);
+    String svg_description = SVGDescription(
+        name_from, description_from, description_sources, related_objects);
+    if (!svg_description.empty()) {
+      return svg_description;
+    }
   }
 
   const auto* input_element = DynamicTo<HTMLInputElement>(GetNode());
@@ -7166,7 +7224,9 @@ String AXNodeObject::Description(
       description_sources->back().type = description_from;
     }
     const AtomicString& title = GetAttribute(kTitleAttr);
-    if (!title.empty()) {
+    if (!title.empty() &&
+        String(title).StripWhiteSpace() !=
+            GetElement()->GetInnerTextWithoutUpdate().StripWhiteSpace()) {
       description = title;
       if (description_sources) {
         found_description = true;
@@ -7212,6 +7272,27 @@ String AXNodeObject::Description(
           }
         }
       }
+    }
+  }
+
+  // There was a name, but it is prohibited for this role. Move to description.
+  if (name_from == ax::mojom::blink::NameFrom::kProhibited) {
+    description_from = ax::mojom::blink::DescriptionFrom::kProhibitedNameRepair;
+    ax::mojom::blink::NameFrom orig_name_from_without_prohibited;
+    HeapHashSet<Member<const AXObject>> visited;
+    description = TextAlternative(false, nullptr, visited,
+                                  orig_name_from_without_prohibited,
+                                  related_objects, nullptr);
+    DCHECK(!description.empty());
+    if (description_sources) {
+      description_sources->push_back(DescriptionSource(found_description));
+      DescriptionSource& source = description_sources->back();
+      source.type = description_from;
+      source.related_objects = *related_objects;
+      source.text = description;
+      found_description = true;
+    } else {
+      return description;
     }
   }
 
@@ -7623,7 +7704,7 @@ AXObject* AXNodeObject::NextOnLine() const {
     return nullptr;
   }
 
-  if (layout_object->IsBoxListMarkerIncludingNG()) {
+  if (layout_object->IsLayoutOutsideListMarker()) {
     // A list marker should be followed by a list item on the same line.
     // Note that pseudo content is always included in the tree, so
     // NextSiblingIncludingIgnored() will succeed.
@@ -7746,7 +7827,7 @@ AXObject* AXNodeObject::PreviousOnLine() const {
         previous_sibling, false);
   }
 
-  if (layout_object->IsBoxListMarkerIncludingNG() ||
+  if (layout_object->IsLayoutOutsideListMarker() ||
       !layout_object->IsInLayoutNGInlineFormattingContext()) {
     return nullptr;
   }

@@ -8,6 +8,7 @@
 
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/app_list/app_list_controller_impl.h"
+#include "ash/constants/ash_features.h"
 #include "ash/frame_throttler/frame_throttling_controller.h"
 #include "ash/metrics/user_metrics_recorder.h"
 #include "ash/public/cpp/window_properties.h"
@@ -16,7 +17,6 @@
 #include "ash/screen_util.h"
 #include "ash/shell.h"
 #include "ash/style/rounded_label_widget.h"
-#include "ash/utility/forest_util.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desk_textfield.h"
 #include "ash/wm/desks/desks_util.h"
@@ -43,10 +43,11 @@
 #include "ash/wm/snap_group/snap_group.h"
 #include "ash/wm/snap_group/snap_group_controller.h"
 #include "ash/wm/snap_group/snap_group_metrics.h"
+#include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_overview_session.h"
 #include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/window_properties.h"
-#include "ash/wm/window_restore/pine_controller.h"
+#include "ash/wm/window_restore/informed_restore_controller.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "base/auto_reset.h"
@@ -183,13 +184,15 @@ OverviewSession::~OverviewSession() {
 // NOTE: The work done in Init() is not done in the constructor because it may
 // cause other, unrelated classes, to make indirect method calls on a partially
 // constructed object.
-void OverviewSession::Init(const aura::Window::Windows& windows,
-                           const aura::Window::Windows& hide_windows) {
+void OverviewSession::Init(
+    const aura::Window::Windows& windows,
+    const aura::Window::Windows& hide_windows,
+    base::WeakPtr<WindowOcclusionCalculator> window_occlusion_calculator) {
   TRACE_EVENT0("ui", "OverviewSession::Init");
 
   Shell::Get()->AddShellObserver(this);
 
-  if (saved_desk_util::ShouldShowSavedDesksButtons()) {
+  if (saved_desk_util::ShouldShowSavedDesksOptions()) {
     hide_windows_for_saved_desks_grid_ = std::make_unique<
         ScopedOverviewHideWindows>(
         /*windows=*/std::vector<raw_ptr<aura::Window, VectorExperimental>>{},
@@ -206,7 +209,7 @@ void OverviewSession::Init(const aura::Window::Windows& windows,
   }
 
   // Create this before the desks bar widget.
-  if (saved_desk_util::ShouldShowSavedDesksButtons() &&
+  if (saved_desk_util::ShouldShowSavedDesksOptions() &&
       !saved_desk_presenter_) {
     saved_desk_presenter_ = std::make_unique<SavedDeskPresenter>(this);
     saved_desk_dialog_controller_ =
@@ -214,10 +217,10 @@ void OverviewSession::Init(const aura::Window::Windows& windows,
   }
 
   // Create this before the birch bar widget.
-  if (IsForestFeatureEnabled()) {
+  if (features::IsForestFeatureEnabled()) {
     birch_bar_controller_ = std::make_unique<BirchBarController>(
-        /*from_pine_service=*/enter_exit_overview_type_ ==
-        OverviewEnterExitType::kPine);
+        /*is_informed_restore=*/enter_exit_overview_type_ ==
+        OverviewEnterExitType::kInformedRestore);
   }
 
   aura::Window::Windows root_windows = Shell::GetAllRootWindows();
@@ -232,7 +235,8 @@ void OverviewSession::Init(const aura::Window::Windows& windows,
             });
 
   for (aura::Window* root : root_windows) {
-    auto grid = std::make_unique<OverviewGrid>(root, windows, this);
+    auto grid = std::make_unique<OverviewGrid>(root, windows, this,
+                                               window_occlusion_calculator);
     grid_list_.push_back(std::move(grid));
   }
 
@@ -390,7 +394,7 @@ void OverviewSession::Shutdown() {
               : nullptr,
           OverviewTransition::kExit, /*target_bounds=*/{});
     }
-    for (const auto& overview_item : overview_grid->window_list()) {
+    for (const auto& overview_item : overview_grid->item_list()) {
       overview_item->RestoreWindow(/*reset_transform=*/true,
                                    /*animate=*/!was_saved_desk_library_showing);
     }
@@ -447,9 +451,10 @@ void OverviewSession::IncrementSelection(bool forward) {
 
 bool OverviewSession::AcceptSelection() {
   // Activate selected window or desk.
-  return focus_cycler_old_
-             ? focus_cycler_old_->MaybeActivateFocusedViewOnOverviewExit()
-             : false;
+  if (focus_cycler_old_) {
+    return focus_cycler_old_->MaybeActivateFocusedViewOnOverviewExit();
+  }
+  return focus_cycler_->AcceptSelection();
 }
 
 void OverviewSession::SelectWindow(OverviewItemBase* item) {
@@ -500,6 +505,8 @@ void OverviewSession::SelectWindow(OverviewItemBase* item) {
   // need to wait until the window is fully unminimized before activation as
   // opposed to having two consecutive calls.
   auto* window_state = WindowState::Get(window);
+  SplitViewController* split_view_controller = SplitViewController::Get(window);
+  const bool in_split_view = split_view_controller->InSplitViewMode();
   if (window_state->IsMinimized()) {
     wm::ScopedAnimationDisabler disabler(window);
     // The following instance self-destructs when the window state changed.
@@ -514,12 +521,29 @@ void OverviewSession::SelectWindow(OverviewItemBase* item) {
 
     // If we are in split mode, use Show() here to delegate un-minimizing to
     // SplitViewController as it handles auto snapping cases.
-    if (SplitViewController::Get(window)->InSplitViewMode()) {
+    if (in_split_view) {
       window->Show();
     } else {
       window_state->Unminimize();
     }
     return;
+  }
+
+  // If any window within a snap group is selected for snapping in partial
+  // Overview, break the Snap Group it belongs to in order to form a new Snap
+  // Group between the already snapped window and the newly selected window.
+  if (in_split_view) {
+    if (SnapGroupController* snap_group_controller =
+            SnapGroupController::Get()) {
+      if (SnapGroup* snap_group =
+              snap_group_controller->GetSnapGroupForGivenWindow(window);
+          snap_group &&
+          window != split_view_controller->GetDefaultSnappedWindow()) {
+        snap_group_controller->RemoveSnapGroup(
+            snap_group,
+            SnapGroupExitPoint::kSelectWindowInSnapGroupInPartialOverview);
+      }
+    }
   }
 
   wm::ActivateWindow(window);
@@ -851,8 +875,8 @@ void OverviewSession::SetWindowListNotAnimatedWhenExiting(
 
 void OverviewSession::UpdateRoundedCornersAndShadow() {
   for (auto& grid : grid_list_)
-    for (auto& window : grid->window_list()) {
-      window->UpdateRoundedCornersAndShadow();
+    for (auto& item : grid->item_list()) {
+      item->UpdateRoundedCornersAndShadow();
     }
 }
 
@@ -996,7 +1020,7 @@ void OverviewSession::OnWindowActivating(
 }
 
 bool OverviewSession::IsSavedDeskUiLosingActivation(aura::Window* lost_active) {
-  if (!saved_desk_util::ShouldShowSavedDesksButtons() || !lost_active) {
+  if (!lost_active || !saved_desk_util::ShouldShowSavedDesksOptions()) {
     return false;
   }
 
@@ -1020,8 +1044,19 @@ aura::Window* OverviewSession::GetOverviewFocusWindow() const {
 }
 
 aura::Window* OverviewSession::GetFocusedWindow() const {
-  OverviewItemBase* item =
-      focus_cycler_old_ ? focus_cycler_old_->GetFocusedItem() : nullptr;
+  if (focus_cycler_old_) {
+    auto* item = focus_cycler_old_->GetFocusedItem();
+    return item ? item->GetWindow() : nullptr;
+  }
+
+  CHECK(focus_cycler_);
+  views::View* focused_view = focus_cycler_->GetOverviewFocusedView();
+  auto* item_view = views::AsViewClass<OverviewItemView>(focused_view);
+  if (!item_view) {
+    return nullptr;
+  }
+
+  OverviewItemBase* item = item_view->GetOverviewItem();
   return item ? item->GetWindow() : nullptr;
 }
 
@@ -1146,7 +1181,7 @@ bool OverviewSession::HandleContinuousScrollIntoOverview(float y_offset) {
   // If a scroll has ended, reset the opacity of minimized windows before
   // animating all windows into their final positions.
   for (std::unique_ptr<OverviewGrid>& overview_grid : grid_list_) {
-    for (const auto& window_item : overview_grid->window_list()) {
+    for (const auto& window_item : overview_grid->item_list()) {
       window_item->item_widget()->GetLayer()->SetOpacity(1.f);
       window_item->UpdateRoundedCornersAndShadow();
     }
@@ -1287,14 +1322,15 @@ void OverviewSession::UpdateAccessibilityFocus() {
     if (grid->IsShowingSavedDeskLibrary()) {
       a11y_widgets.push_back(grid->saved_desk_library_widget());
     } else {
-      for (const auto& item : grid->window_list())
+      for (const auto& item : grid->item_list()) {
         a11y_widgets.push_back(item->item_widget());
+      }
     }
 
-    // UI elements in faster split screen partial overview will be traversed
-    // right after the overview items.
-    if (auto* faster_splitview_widget = grid->faster_splitview_widget()) {
-      a11y_widgets.push_back(faster_splitview_widget);
+    // UI elements in split view overview will be traversed right after the
+    // overview items.
+    if (auto* split_view_setup_widget = grid->split_view_setup_widget()) {
+      a11y_widgets.push_back(split_view_setup_widget);
     }
 
     if (grid->desks_widget()) {
@@ -1347,7 +1383,7 @@ void OverviewSession::UpdateFrameThrottling() {
         windows_to_throttle.push_back(grid->dragged_window());
       }
 
-      for (auto& item : grid->window_list()) {
+      for (auto& item : grid->item_list()) {
         for (aura::Window* window : item->GetWindows()) {
           windows_to_throttle.push_back(window);
         }
@@ -1413,6 +1449,18 @@ void OverviewSession::OnWindowAdded(aura::Window* new_window) {
     return;
   base::AutoReset<bool> adding_new_item_resetter(&is_adding_new_item_, true);
 
+  // If `new_window` belongs to Snap Group, wait until both windows are in the
+  // desk container (handled by `SnapGroup::OnWindowParentChanged()`) before
+  // adding the corresponding `OverviewGroupItem`.
+  if (SnapGroupController* snap_group_controller = SnapGroupController::Get()) {
+    if (SnapGroup* snap_group =
+            snap_group_controller->GetSnapGroupForGivenWindow(new_window)) {
+      if (snap_group->window1()->parent() != snap_group->window2()->parent()) {
+        return;
+      }
+    }
+  }
+
   // Avoid adding overview items for certain windows.
   if (!WindowState::Get(new_window) ||
       window_util::ShouldExcludeForOverview(new_window)) {
@@ -1460,7 +1508,7 @@ void OverviewSession::OnKeyEvent(ui::KeyEvent* event) {
   // focus enabled, a Tab will blur the textfield which will commit the name
   // changes.
   const ui::KeyboardCode key_code = event->key_code();
-  const bool is_key_press = event->type() == ui::ET_KEY_PRESSED;
+  const bool is_key_press = event->type() == ui::EventType::kKeyPressed;
   if (!features::IsOverviewNewFocusEnabled()) {
     const bool should_commit_name_changes =
         is_key_press && key_code == ui::VKEY_TAB;
@@ -1518,6 +1566,14 @@ void OverviewSession::OnKeyEvent(ui::KeyEvent* event) {
         // Control + left/right falls through to be handed by the desk preview
         // to swap desks.
         if (is_control_down) {
+          return;
+        }
+
+        // Let the textfield handle left/right to move the caret, unless using
+        // ChromeVox traversal.
+        views::View* focused_view = focus_cycler_->GetOverviewFocusedView();
+        if (!is_command_down && focused_view &&
+            views::IsViewClass<DeskTextfield>(focused_view)) {
           return;
         }
 
@@ -1671,8 +1727,8 @@ void OverviewSession::OnSplitViewStateChanged(
 
   // Entering or exiting splitview is unexpected behavior in an informed restore
   // overview session.
-  if (IsForestFeatureEnabled()) {
-    CHECK(!Shell::Get()->pine_controller()->contents_data());
+  if (features::IsForestFeatureEnabled()) {
+    CHECK(!Shell::Get()->informed_restore_controller()->contents_data());
   }
 
   UpdateNoWindowsWidgetOnEachGrid(/*animate=*/false,
@@ -1762,7 +1818,7 @@ bool OverviewSession::ProcessForScrolling(const ui::KeyEvent& event) {
   // The scrollable overview grid only works for tablet mode, so using the
   // primary display works.
   auto* grid = GetGridWithRootWindow(Shell::GetPrimaryRootWindow());
-  const bool press = (event.type() == ui::ET_KEY_PRESSED);
+  const bool press = (event.type() == ui::EventType::kKeyPressed);
 
   if (!press) {
     if (is_keyboard_scrolling_grid_) {

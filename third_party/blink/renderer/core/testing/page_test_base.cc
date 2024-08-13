@@ -11,7 +11,7 @@
 #include "base/test/bind.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_font_face_descriptors.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_arraybuffer_arraybufferview_string.h"
 #include "third_party/blink/renderer/core/css/css_default_style_sheets.h"
@@ -74,7 +74,7 @@ void ToSimpleLayoutTree(std::ostream& ostream,
 }  // namespace
 
 PageTestBase::MockClipboardHostProvider::MockClipboardHostProvider(
-    blink::BrowserInterfaceBrokerProxy& interface_broker) {
+    const blink::BrowserInterfaceBrokerProxy& interface_broker) {
   Install(interface_broker);
 }
 
@@ -88,7 +88,7 @@ PageTestBase::MockClipboardHostProvider::~MockClipboardHostProvider() {
 }
 
 void PageTestBase::MockClipboardHostProvider::Install(
-    blink::BrowserInterfaceBrokerProxy& interface_broker) {
+    const blink::BrowserInterfaceBrokerProxy& interface_broker) {
   interface_broker_ = &interface_broker;
   interface_broker_->SetBinderForTesting(
       blink::mojom::blink::ClipboardHost::Name_,

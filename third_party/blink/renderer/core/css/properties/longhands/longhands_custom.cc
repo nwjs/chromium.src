@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/numerics/clamped_math.h"
 #include "third_party/blink/renderer/core/css/basic_shape_functions.h"
 #include "third_party/blink/renderer/core/css/css_anchor_query_enums.h"
@@ -19,6 +24,7 @@
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
 #include "third_party/blink/renderer/core/css/css_initial_color_value.h"
 #include "third_party/blink/renderer/core/css/css_layout_function_value.h"
+#include "third_party/blink/renderer/core/css/css_light_dark_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value_mappings.h"
@@ -1674,6 +1680,17 @@ const CSSValue* Bottom::CSSValueFromComputedStyleInternal(
                                                     layout_object);
 }
 
+const CSSValue* BoxDecorationBreak::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  if (style.BoxDecorationBreak() == EBoxDecorationBreak::kSlice) {
+    return CSSIdentifierValue::Create(CSSValueID::kSlice);
+  }
+  return CSSIdentifierValue::Create(CSSValueID::kClone);
+}
+
 const CSSValue* BoxShadow::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
@@ -2513,6 +2530,7 @@ namespace {
 
 CSSValue* ConsumeAttr(CSSParserTokenRange args,
                       const CSSParserContext& context) {
+  DCHECK(!RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled());
   if (args.Peek().GetType() != kIdentToken) {
     return nullptr;
   }
@@ -2606,7 +2624,8 @@ const CSSValue* Content::ParseSingleValue(CSSParserTokenStream& stream,
       parsed_value = css_parsing_utils::ConsumeString(stream);
     }
     if (!parsed_value) {
-      if (stream.Peek().FunctionId() == CSSValueID::kAttr) {
+      if (stream.Peek().FunctionId() == CSSValueID::kAttr &&
+          !RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled()) {
         parsed_value =
             ConsumeAttr(css_parsing_utils::ConsumeFunction(stream), context);
       } else if (stream.Peek().FunctionId() == CSSValueID::kCounter) {
@@ -2643,7 +2662,8 @@ const CSSValue* Content::ParseSingleValue(CSSParserTokenStream& stream,
     if (RuntimeEnabledFeatures::CSSContentMultiArgAltTextEnabled()) {
       do {
         CSSParserSavePoint savepoint(stream);
-        if (stream.Peek().FunctionId() == CSSValueID::kAttr) {
+        if (stream.Peek().FunctionId() == CSSValueID::kAttr &&
+            !RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled()) {
           alt_text =
               ConsumeAttr(css_parsing_utils::ConsumeFunction(stream), context);
         } else {
@@ -2695,17 +2715,32 @@ namespace {
 String GetStringFromAttributeOrStringValue(const CSSValue& value,
                                            StyleResolverState& state,
                                            ComputedStyleBuilder& builder) {
-  String string;
+  String string = g_empty_string;
   if (const auto* function_value = DynamicTo<CSSFunctionValue>(value)) {
+    DCHECK(!RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled());
     DCHECK_EQ(function_value->FunctionType(), CSSValueID::kAttr);
-    builder.SetHasAttrContent();
+    builder.SetHasAttrFunction();
     // TODO: Can a namespace be specified for an attr(foo)?
     QualifiedName attr(
         To<CSSCustomIdentValue>(function_value->Item(0)).Value());
     const AtomicString& attr_value = state.GetElement().getAttribute(attr);
     string = attr_value.IsNull() ? g_empty_string : attr_value.GetString();
   } else {
-    string = To<CSSStringValue>(value).Value();
+    // We should be able to assume at this point that `value` is a
+    // CSSStringValue, since all other types of CSSValues produced in
+    // Content::ParseSingleValue should have been handled by Content::ApplyValue
+    // before reaching this point. However, as observed in crbug.com/348304397
+    // there is some unexpected type that is not getting handled. The following
+    // two DCHECKs are intended to help investigate this. The first DCHECK tests
+    // the theory that the unexpected type is coming from ConsumeImage, where a
+    // light-dark() function in a UA shadow DOM could cause a
+    // CSSLightDarkValuePair to be created. The second DCHECK will hit if this
+    // first theory is wrong and `value` has some other unexpected type.
+    DCHECK(!IsA<CSSLightDarkValuePair>(value));
+    DCHECK(IsA<CSSStringValue>(value));
+    if (const auto* string_value = DynamicTo<CSSStringValue>(value)) {
+      string = string_value->Value();
+    }
   }
   return string;
 }
@@ -5339,6 +5374,14 @@ const CSSValue* InternalForcedVisitedColor::ParseSingleValue(
   return css_parsing_utils::ConsumeColorMaybeQuirky(stream, context);
 }
 
+const CSSValue* InterpolateSize::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject*,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return CSSIdentifierValue::Create(style.InterpolateSize());
+}
+
 const CSSValue* Isolation::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
@@ -6521,7 +6564,8 @@ const CSSValue* OverflowClipMargin::ParseSingleValue(
     if (!length) {
       length = CSSPrimitiveValue::CreateFromLength(Length::Fixed(0), 1.f);
     }
-  } else if (reference_box && length && length->IsZero()) {
+  } else if (reference_box && length &&
+             length->IsZero() == CSSPrimitiveValue::BoolStatus::kTrue) {
     length = nullptr;
   }
 
@@ -7057,72 +7101,57 @@ const CSSValue* Position::CSSValueFromComputedStyleInternal(
   return CSSIdentifierValue::Create(style.PositionInternal());
 }
 
-const CSSValue* PositionTryOptions::ParseSingleValue(
+const CSSValue* PositionTryFallbacks::ParseSingleValue(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     const CSSParserLocalContext&) const {
-  return css_parsing_utils::ConsumePositionTryOptions(stream, context);
+  return css_parsing_utils::ConsumePositionTryFallbacks(stream, context);
 }
 
-const CSSValue* PositionTryOptions::CSSValueFromComputedStyleInternal(
+const CSSValue* PositionTryFallbacks::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  if (const blink::PositionTryOptions* options =
-          style.GetPositionTryOptions()) {
-    CSSValueList* option_list = CSSValueList::CreateCommaSeparated();
-    for (const PositionTryOption& option : options->GetOptions()) {
-      // inset-area( <inset-area> )
-      if (!option.GetInsetArea().IsNone()) {
-        auto* function =
-            MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kInsetArea);
-        function->Append(
-            *ComputedStyleUtils::ValueForInsetArea(option.GetInsetArea()));
-        option_list->Append(*function);
-        continue;
-      }
-      // [<dashed-ident> || <try-tactic>]
-      CSSValueList* option_value = CSSValueList::CreateSpaceSeparated();
-      if (const ScopedCSSName* name = option.GetPositionTryName()) {
-        option_value->Append(*MakeGarbageCollected<CSSCustomIdentValue>(*name));
-      }
-      const TryTacticList& tactic_list = option.GetTryTactic();
-      for (TryTactic tactic : tactic_list) {
-        if (tactic != TryTactic::kNone) {
-          option_value->Append(*CSSIdentifierValue::Create(tactic));
-        }
-      }
-      option_list->Append(*option_value);
-    }
-    return option_list;
+  if (const blink::PositionTryFallbacks* fallbacks =
+          style.GetPositionTryFallbacks()) {
+    return ComputedStyleUtils::ValueForPositionTryFallbacks(*fallbacks);
   }
   return CSSIdentifierValue::Create(CSSValueID::kNone);
 }
 
-void PositionTryOptions::ApplyValue(StyleResolverState& state,
-                                    const CSSValue& value,
-                                    ValueMode) const {
+void PositionTryFallbacks::ApplyValue(StyleResolverState& state,
+                                      const CSSValue& value,
+                                      ValueMode) const {
   if (value.IsIdentifierValue()) {
     DCHECK(To<CSSIdentifierValue>(value).GetValueID() == CSSValueID::kNone);
     // Just represent as nullptr.
     return;
   }
-  HeapVector<PositionTryOption> options;
-  for (const auto& option : To<CSSValueList>(value)) {
+  HeapVector<PositionTryFallback> fallbacks;
+  for (const auto& fallback : To<CSSValueList>(value)) {
     // inset-area( <inset-area> )
-    if (const auto* function = DynamicTo<CSSFunctionValue>(option.Get())) {
+    if (const auto* function = DynamicTo<CSSFunctionValue>(fallback.Get())) {
+      CHECK(!RuntimeEnabledFeatures::CSSInsetAreaValueEnabled());
       CHECK_EQ(1u, function->length());
       blink::InsetArea inset_area =
           StyleBuilderConverter::ConvertInsetArea(state, function->First());
-      options.push_back(PositionTryOption(inset_area));
+      fallbacks.push_back(PositionTryFallback(inset_area));
+      continue;
+    }
+    // <'inset-area'>
+    if (IsA<CSSValuePair>(fallback.Get()) ||
+        IsA<CSSIdentifierValue>(fallback.Get())) {
+      blink::InsetArea inset_area =
+          StyleBuilderConverter::ConvertInsetArea(state, *fallback.Get());
+      fallbacks.push_back(PositionTryFallback(inset_area));
       continue;
     }
     // [<dashed-ident> || <try-tactic>]
     const ScopedCSSName* scoped_name = nullptr;
     TryTacticList tactic_list = {TryTactic::kNone};
     wtf_size_t tactic_index = 0;
-    for (const auto& name_or_tactic : To<CSSValueList>(*option)) {
+    for (const auto& name_or_tactic : To<CSSValueList>(*fallback)) {
       if (const auto* name = DynamicTo<CSSCustomIdentValue>(*name_or_tactic)) {
         scoped_name = StyleBuilderConverter::ConvertCustomIdent(state, *name);
         continue;
@@ -7131,11 +7160,27 @@ void PositionTryOptions::ApplyValue(StyleResolverState& state,
       tactic_list[tactic_index++] =
           To<CSSIdentifierValue>(*name_or_tactic).ConvertTo<TryTactic>();
     }
-    options.push_back(PositionTryOption(scoped_name, tactic_list));
+    fallbacks.push_back(PositionTryFallback(scoped_name, tactic_list));
   }
-  DCHECK(!options.empty());
-  state.StyleBuilder().SetPositionTryOptions(
-      MakeGarbageCollected<blink::PositionTryOptions>(options));
+  DCHECK(!fallbacks.empty());
+  state.StyleBuilder().SetPositionTryFallbacks(
+      MakeGarbageCollected<blink::PositionTryFallbacks>(fallbacks));
+}
+
+const CSSValue* PositionTryOptions::ParseSingleValue(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const CSSParserLocalContext&) const {
+  return css_parsing_utils::ConsumePositionTryFallbacks(stream, context);
+}
+
+const CSSValue* PositionTryOptions::CSSValueFromComputedStyleInternal(
+    const ComputedStyle& style,
+    const LayoutObject* layout_object,
+    bool allow_visited_style,
+    CSSValuePhase value_phase) const {
+  return GetCSSPropertyPositionTryFallbacks().CSSValueFromComputedStyleInternal(
+      style, layout_object, allow_visited_style, value_phase);
 }
 
 const CSSValue* PositionTryOrder::InitialValue() const {
@@ -7214,12 +7259,12 @@ const CSSValue* R::CSSValueFromComputedStyleInternal(
   return ComputedStyleUtils::ZoomAdjustedPixelValueForLength(style.R(), style);
 }
 
-const CSSValue* ReadingOrderItems::CSSValueFromComputedStyleInternal(
+const CSSValue* ReadingFlow::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
     bool,
     CSSValuePhase) const {
-  return CSSIdentifierValue::Create(style.ReadingOrderItems());
+  return CSSIdentifierValue::Create(style.ReadingFlow());
 }
 
 const CSSValue* Resize::CSSValueFromComputedStyleInternal(
@@ -7324,7 +7369,12 @@ const CSSValue* Rotate::CSSValueFromComputedStyleInternal(
       style.Rotate()->Z() != 1) {
     const cssvalue::CSSAxisValue* axis =
         MakeGarbageCollected<cssvalue::CSSAxisValue>(
-            style.Rotate()->X(), style.Rotate()->Y(), style.Rotate()->Z());
+            MakeGarbageCollected<CSSNumericLiteralValue>(
+                style.Rotate()->X(), CSSPrimitiveValue::UnitType::kNumber),
+            MakeGarbageCollected<CSSNumericLiteralValue>(
+                style.Rotate()->Y(), CSSPrimitiveValue::UnitType::kNumber),
+            MakeGarbageCollected<CSSNumericLiteralValue>(
+                style.Rotate()->Z(), CSSPrimitiveValue::UnitType::kNumber));
     list->Append(*axis);
   }
   list->Append(*CSSNumericLiteralValue::Create(
@@ -7448,12 +7498,12 @@ const CSSValue* Scale::CSSValueFromComputedStyleInternal(
   return list;
 }
 
-const CSSValue* ScrollMarkers::CSSValueFromComputedStyleInternal(
+const CSSValue* ScrollMarkerGroup::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return CSSIdentifierValue::Create(style.ScrollMarkers());
+  return CSSIdentifierValue::Create(style.ScrollMarkerGroup());
 }
 
 // https://www.w3.org/TR/css-scrollbars/
@@ -9295,11 +9345,12 @@ const CSSValue* Translate::ParseSingleValue(
     CSSPrimitiveValue* translate_z = css_parsing_utils::ConsumeLength(
         stream, context, CSSPrimitiveValue::ValueRange::kAll);
 
-    if (translate_z && translate_z->IsZero()) {
+    if (translate_z &&
+        translate_z->IsZero() == CSSPrimitiveValue::BoolStatus::kTrue) {
       translate_z = nullptr;
     }
-    if (translate_y->IsZero() && !translate_y->HasPercentage() &&
-        !translate_z) {
+    if (translate_y->IsZero() == CSSPrimitiveValue::BoolStatus::kTrue &&
+        !translate_y->HasPercentage() && !translate_z) {
       return list;
     }
 
@@ -9662,13 +9713,11 @@ const CSSValue* WebkitBoxAlign::CSSValueFromComputedStyleInternal(
 
 const CSSValue* WebkitBoxDecorationBreak::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
-    const LayoutObject*,
+    const LayoutObject* layout_object,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  if (style.BoxDecorationBreak() == EBoxDecorationBreak::kSlice) {
-    return CSSIdentifierValue::Create(CSSValueID::kSlice);
-  }
-  return CSSIdentifierValue::Create(CSSValueID::kClone);
+  return GetCSSPropertyBoxDecorationBreak().CSSValueFromComputedStyleInternal(
+      style, layout_object, allow_visited_style, value_phase);
 }
 
 const CSSValue* WebkitBoxDirection::CSSValueFromComputedStyleInternal(

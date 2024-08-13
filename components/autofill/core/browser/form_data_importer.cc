@@ -219,7 +219,6 @@ void FormDataImporter::ImportAndProcessFormData(
 
   bool cc_prompt_potentially_shown = ProcessExtractedCreditCard(
       submitted_form, extracted_data.extracted_credit_card,
-      payment_methods_autofill_enabled,
       credit_card_save_manager_->IsCreditCardUploadEnabled());
   fetched_card_instrument_id_.reset();
 
@@ -250,8 +249,8 @@ bool FormDataImporter::ComplementCountry(AutofillProfile& profile,
         << CTag{};
   }
   return profile.SetInfoWithVerificationStatus(
-      AutofillType(ADDRESS_HOME_COUNTRY), base::ASCIIToUTF16(fallback),
-      app_locale_, VerificationStatus::kObserved);
+      ADDRESS_HOME_COUNTRY, base::ASCIIToUTF16(fallback), app_locale_,
+      VerificationStatus::kObserved);
 }
 
 bool FormDataImporter::SetPhoneNumber(
@@ -485,45 +484,48 @@ FormDataImporter::GetAddressObservedFieldValues(
 
   // Go through each |form| field and attempt to constitute a valid profile.
   for (const AutofillField* const field : section_fields) {
-    std::u16string value;
-    base::TrimWhitespace(field->value(), base::TRIM_ALL, &value);
+    // If `field` has a selected option, we give precedence to the option's text
+    // over its value because the user-visible text is likely more meaningful.
+    // Currently, only <select> elements may have a selected option.
+    base::optional_ref<const SelectOption> selected_option =
+        field->selected_option();
+    std::u16string value =
+        selected_option.has_value() ? selected_option->text : field->value();
+    base::TrimWhitespace(value, base::TRIM_ALL, &value);
 
     // If we don't know the type of the field, or the user hasn't entered any
     // information into the field, then skip it.
     if (!field->IsFieldFillable() || value.empty()) {
       continue;
     }
-
     // If the field was filled with a fallback type, skip it in order to not
     // introduce noise to the map's data, as this would add an entry for
     // field type X with a value retrieved from another field type Y.
     if (field->WasAutofilledWithFallback()) {
       continue;
     }
-
     // When the experimental plus addresses feature is enabled, and the value is
     // a plus address, exclude it from the resulting address profile.
     if (plus_address_delegate &&
         plus_address_delegate->IsPlusAddress(base::UTF16ToUTF8(value))) {
       continue;
     }
-
     // Don't import from ac=unrecognized fields.
     if (field->ShouldSuppressSuggestionsAndFillingByDefault()) {
       continue;
     }
 
-    AutofillType autofill_type = field->Type();
-
-    // Credit card fields are handled by ExtractCreditCard().
-    if (autofill_type.group() == FieldTypeGroup::kCreditCard) {
+    FieldType field_type = field->Type().GetStorableType();
+    // Only address types are relevant in this function, other types are treated
+    // in different flows.
+    if (!IsAddressType(field_type)) {
       continue;
     }
+    has_address_related_fields = true;
 
     // There can be multiple email fields (e.g. in the case of 'confirm email'
     // fields) but they must all contain the same value, else the profile is
     // invalid.
-    FieldType field_type = autofill_type.GetStorableType();
     if (field_type == EMAIL_ADDRESS) {
       auto email_it = observed_field_values.find(EMAIL_ADDRESS);
       if (email_it != observed_field_values.end() &&
@@ -534,17 +536,15 @@ FormDataImporter::GetAddressObservedFieldValues(
         has_multiple_distinct_email_addresses = true;
       }
     }
-
     // If the field type and |value| don't pass basic validity checks then
     // abandon the import.
     if (!IsValidFieldTypeAndValue(observed_field_values, field_type, value,
                                   import_log_buffer)) {
       has_invalid_field_types = true;
     }
-
     // Found phone number component field.
     // TODO(crbug.com/40735892) Remove feature check when launched.
-    if (autofill_type.group() == FieldTypeGroup::kPhone &&
+    if (GroupTypeOfFieldType(field_type) == FieldTypeGroup::kPhone &&
         base::FeatureList::IsEnabled(
             features::kAutofillEnableImportWhenMultiplePhoneNumbers)) {
       if (ignore_phone_number_fields) {
@@ -559,26 +559,19 @@ FormDataImporter::GetAddressObservedFieldValues(
         continue;
       }
     }
-
-    observed_field_values.insert_or_assign(autofill_type.GetStorableType(),
-                                           value);
+    observed_field_values.insert_or_assign(field_type, value);
     // The `autofill_source_profile_guid()` is not reset when a field is
     // manually edited or filled with non-address information later.
     import_metadata.filled_types_to_autofill_guid.insert_or_assign(
-        autofill_type.GetStorableType(),
-        field->is_autofilled() &&
-                field->filling_product() == FillingProduct::kAddress
-            ? field->autofill_source_profile_guid()
-            : std::nullopt);
+        field_type, field->is_autofilled() &&
+                            field->filling_product() == FillingProduct::kAddress
+                        ? field->autofill_source_profile_guid()
+                        : std::nullopt);
 
-    if (FieldTypeGroupToFormType(autofill_type.group()) ==
-        FormType::kAddressForm) {
-      has_address_related_fields = true;
-      if (field->parsed_autocomplete()) {
-        import_metadata.did_import_from_unrecognized_autocomplete_field |=
-            field->parsed_autocomplete()->field_type ==
-            HtmlFieldType::kUnrecognized;
-      }
+    if (field->parsed_autocomplete()) {
+      import_metadata.did_import_from_unrecognized_autocomplete_field |=
+          field->parsed_autocomplete()->field_type ==
+          HtmlFieldType::kUnrecognized;
     }
   }
   return observed_field_values;
@@ -740,7 +733,6 @@ bool FormDataImporter::ProcessAddressProfileImportCandidates(
 bool FormDataImporter::ProcessExtractedCreditCard(
     const FormStructure& submitted_form,
     const std::optional<CreditCard>& extracted_credit_card,
-    bool payment_methods_autofill_enabled,
     bool is_credit_card_upstream_enabled) {
   // If no card was successfully extracted from the form, return.
   if (credit_card_import_type_ == CreditCardImportType::kNoCard) {
@@ -904,18 +896,6 @@ std::optional<CreditCard> FormDataImporter::TryMatchingExistingServerCard(
       return std::nullopt;
     }
 
-    if (server_card->record_type() == CreditCard::RecordType::kFullServerCard) {
-      AutofillMetrics::LogSubmittedServerCardExpirationStatusMetric(
-          server_card->HasSameExpirationDateAs(candidate)
-              ? AutofillMetrics::FULL_SERVER_CARD_EXPIRATION_DATE_MATCHED
-              : AutofillMetrics::
-                    FULL_SERVER_CARD_EXPIRATION_DATE_DID_NOT_MATCH);
-      // Return that we found a full server card with a matching card number
-      // to `candidate`.
-      credit_card_import_type_ = CreditCardImportType::kServerCard;
-      return *server_card;
-    }
-
     // Only return the masked server card if both the last four digits and
     // expiration date match.
     if (server_card->HasSameExpirationDateAs(candidate)) {
@@ -986,16 +966,25 @@ FormDataImporter::ExtractCreditCardFromForm(const FormStructure& form) {
   // of `result.card` to the `field`'s value.
   auto extract_if_credit_card_field = [&result, &app_locale = app_locale_](
                                           const AutofillField& field) {
-    // The value of interest is `field->value` or `field->user_input`.
-    std::u16string_view value_view =
-        base::TrimWhitespace(field.value(), base::TRIM_ALL);
-    std::u16string_view user_input_view =
-        base::TrimWhitespace(field.user_input(), base::TRIM_ALL);
-    if (!user_input_view.empty() &&
-        field.Type().GetStorableType() == FieldType::CREDIT_CARD_NUMBER) {
-      value_view = user_input_view;
-    }
-    std::u16string value(value_view);
+    std::u16string value = [&field] {
+      if (field.Type().GetStorableType() == FieldType::CREDIT_CARD_NUMBER) {
+        // Credit card numbers are sometimes obfuscated on form submission.
+        // Therefore, we give preference to the user input over the field value.
+        std::u16string user_input = field.user_input();
+        base::TrimWhitespace(user_input, base::TRIM_ALL);
+        if (!user_input.empty()) {
+          return user_input;
+        }
+      }
+      // If `field` has a selected option, we give precedence to the option's
+      // text over its value because the user-visible text is likely more
+      // meaningful. Currently,
+      // only <select> elements may have a selected option.
+      base::optional_ref<const SelectOption> selected_option =
+          field.selected_option();
+      return selected_option ? selected_option->text : field.value();
+    }();
+    base::TrimWhitespace(value, base::TRIM_ALL);
 
     // If we don't know the type of the field, or the user hasn't entered any
     // information into the field, then skip it.
@@ -1016,8 +1005,8 @@ FormDataImporter::ExtractCreditCardFromForm(const FormStructure& form) {
         // expiration month. Attempt to save with the option value. First find
         // the index of the option text in the select options and try the
         // corresponding value.
-        if (auto it = base::ranges::find(field.options(), value,
-                                         &SelectOption::content);
+        if (auto it =
+                base::ranges::find(field.options(), value, &SelectOption::text);
             it != field.options().end()) {
           result.card.SetInfo(field.Type(), it->value, app_locale);
         }
@@ -1070,20 +1059,16 @@ Iban FormDataImporter::ExtractIbanFromForm(const FormStructure& form) {
   // Creates an IBAN candidate with `kUnknown` record type as it is currently
   // unknown if this IBAN already exists locally or on the server.
   Iban candidate_iban;
-
   for (const auto& field : form) {
     if (!field->IsFieldFillable() || field->value().empty()) {
       continue;
     }
-
-    AutofillType autofill_type = field->Type();
-    if (autofill_type.GetStorableType() == IBAN_VALUE &&
-        Iban::IsValid(field->value())) {
-      candidate_iban.SetInfo(autofill_type, field->value(), app_locale_);
+    FieldType field_type = field->Type().GetStorableType();
+    if (field_type == IBAN_VALUE && Iban::IsValid(field->value())) {
+      candidate_iban.SetInfo(IBAN_VALUE, field->value(), app_locale_);
       break;
     }
   }
-
   return candidate_iban;
 }
 

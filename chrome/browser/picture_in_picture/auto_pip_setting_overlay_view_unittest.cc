@@ -120,19 +120,20 @@ class AutoPipSettingOverlayViewTest : public views::ViewsTestBase {
 
 TEST_F(AutoPipSettingOverlayViewTest, TestViewInitialization) {
   EXPECT_TRUE(widget()->IsVisible());
-  EXPECT_EQ(background()->GetColorProvider()->GetColor(ui::kColorSysStateScrim),
-            background()->GetBackground()->get_color());
+  EXPECT_EQ(
+      background()->GetColorProvider()->GetColor(kColorPipWindowBackground),
+      background()->GetBackground()->get_color());
 }
 
 TEST_F(AutoPipSettingOverlayViewTest, TestBackgroundLayerAnimation) {
-  // Background layer opacity should start at 0.0f and end at 0.99f.
+  // Background layer opacity should start at 0.0f and end at 0.60f.
   EXPECT_EQ(0.0f, background()->layer()->opacity());
-  EXPECT_EQ(0.99f, background()->layer()->GetTargetOpacity());
+  EXPECT_EQ(0.60f, background()->layer()->GetTargetOpacity());
 
   // Progress animation to its end position. Background layer should fade in to
-  // a 0.99f opacity.
+  // a 0.60f opacity.
   background()->layer()->GetAnimator()->StopAnimating();
-  EXPECT_EQ(0.99f, background()->layer()->opacity());
+  EXPECT_EQ(0.60f, background()->layer()->opacity());
 }
 
 TEST_F(AutoPipSettingOverlayViewTest, TestWantsEvent) {
@@ -222,19 +223,22 @@ TEST_F(AutoPipSettingOverlayViewTest, TestDeletingOverlayClosesBubble) {
 
 namespace {
 
-class TestAutoPipSettingOverlayViewObserver
-    : public AutoPipSettingOverlayView::AutoPipSettingOverlayViewObserver {
+class TestAutoPipSettingOverlayViewDelegate
+    : public AutoPipSettingOverlayView::Delegate {
  public:
-  explicit TestAutoPipSettingOverlayViewObserver(
-      AutoPipSettingOverlayView* overlay_view) {
-    auto_pip_setting_overlay_view_observation_.Observe(overlay_view);
+  explicit TestAutoPipSettingOverlayViewDelegate(
+      AutoPipSettingOverlayView* overlay_view)
+      : overlay_view_(overlay_view) {
+    overlay_view->set_delegate(this);
   }
-  TestAutoPipSettingOverlayViewObserver(
-      const TestAutoPipSettingOverlayViewObserver&) = delete;
-  TestAutoPipSettingOverlayViewObserver& operator=(
-      const TestAutoPipSettingOverlayViewObserver&) = delete;
+  TestAutoPipSettingOverlayViewDelegate(
+      const TestAutoPipSettingOverlayViewDelegate&) = delete;
+  TestAutoPipSettingOverlayViewDelegate& operator=(
+      const TestAutoPipSettingOverlayViewDelegate&) = delete;
 
-  ~TestAutoPipSettingOverlayViewObserver() override = default;
+  ~TestAutoPipSettingOverlayViewDelegate() override {
+    overlay_view_->set_delegate(nullptr);
+  }
 
   bool observer_notified() const { return observer_notified_; }
 
@@ -243,23 +247,20 @@ class TestAutoPipSettingOverlayViewObserver
   }
 
  private:
+  const raw_ptr<AutoPipSettingOverlayView> overlay_view_ = nullptr;
   bool observer_notified_ = false;
-  base::ScopedObservation<
-      AutoPipSettingOverlayView,
-      AutoPipSettingOverlayView::AutoPipSettingOverlayViewObserver>
-      auto_pip_setting_overlay_view_observation_{this};
 };
 
 }  // namespace
 
-TEST_F(AutoPipSettingOverlayViewTest, TestAutoPipSettingOverlayViewObserver) {
+TEST_F(AutoPipSettingOverlayViewTest, TestAutoPipSettingOverlayViewDelegate) {
   // Set up observer and show bubble.
-  TestAutoPipSettingOverlayViewObserver auto_pip_setting_overlay_view_observer(
+  TestAutoPipSettingOverlayViewDelegate auto_pip_setting_overlay_view_observer(
       setting_overlay());
   setting_overlay()->ShowBubble(anchor_view_widget()->GetNativeView());
   WaitForBubbleToBeShown();
 
-  // Observer should not have been notified at this point, since overlay view
+  // Delegate should not have been notified at this point, since overlay view
   // has not been hidden.
   EXPECT_FALSE(auto_pip_setting_overlay_view_observer.observer_notified());
 

@@ -105,6 +105,21 @@ BASE_FEATURE(kNetworkQualityEstimator,
              "NetworkQualityEstimator",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<int> kRecentHTTPThresholdInSeconds{
+    &kNetworkQualityEstimator, "RecentHTTPThresholdInSeconds", -1};
+const base::FeatureParam<int> kRecentTransportThresholdInSeconds{
+    &kNetworkQualityEstimator, "RecentTransportThresholdInSeconds", -1};
+const base::FeatureParam<int> kRecentEndToEndThresholdInSeconds{
+    &kNetworkQualityEstimator, "RecentEndToEndThresholdInSeconds", -1};
+const base::FeatureParam<int> kCountNewObservationsReceivedComputeEct{
+    &kNetworkQualityEstimator, "CountNewObservationsReceivedComputeEct", 50};
+const base::FeatureParam<int> kObservationBufferSize{
+    &kNetworkQualityEstimator, "ObservationBufferSize", 300};
+const base::FeatureParam<base::TimeDelta>
+    kEffectiveConnectionTypeRecomputationInterval{
+        &kNetworkQualityEstimator,
+        "EffectiveConnectionTypeRecomputationInterval", base::Seconds(10)};
+
 BASE_FEATURE(kSplitCacheByIncludeCredentials,
              "SplitCacheByIncludeCredentials",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -119,16 +134,6 @@ BASE_FEATURE(kSplitCodeCacheByNetworkIsolationKey,
 
 BASE_FEATURE(kPartitionConnectionsByNetworkIsolationKey,
              "PartitionConnectionsByNetworkIsolationKey",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kEnableCrossSiteFlagNetworkIsolationKey,
-             "EnableCrossSiteFlagNetworkIsolationKey",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kEnableFrameSiteSharedOpaqueNetworkIsolationKey,
-             "EnableFrameSiteSharedOpaqueNetworkIsolationKey",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kHttpCacheKeyingExperimentControlGroup,
-             "HttpCacheKeyingExperimentControlGroup",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTLS13KeyUpdate,
@@ -219,7 +224,7 @@ extern const base::FeatureParam<base::TimeDelta>
 
 BASE_FEATURE(kAncestorChainBitEnabledInPartitionedCookies,
              "AncestorChainBitEnabledInPartitionedCookies",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kStaticKeyPinningEnforcement,
              "StaticKeyPinningEnforcement",
@@ -238,13 +243,9 @@ BASE_FEATURE(kThirdPartyStoragePartitioning,
 // Whether to use the new code paths needed to support partitioning Blob URLs.
 // This exists as a kill-switch in case an issue is identified with the Blob
 // URL implementation that causes breakage.
-BASE_FEATURE(kSupportPartitionedBlobUrl,
-             "SupportPartitionedBlobUrl",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kTopLevelTpcdOriginTrial,
              "TopLevelTpcdOriginTrial",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTpcdTrialSettings,
              "TpcdSupportSettings",
@@ -548,5 +549,25 @@ BASE_FEATURE(kStorageAccessHeaders,
 BASE_FEATURE(kSpdySessionForProxyAdditionalChecks,
              "SpdySessionForProxyAdditionalChecks",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCompressionDictionaryTransportOverHttp1,
+             "CompressionDictionaryTransportOverHttp1",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCompressionDictionaryTransportOverHttp2,
+             "CompressionDictionaryTransportOverHttp2",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCompressionDictionaryTransportRequireKnownRootCert,
+             "CompressionDictionaryTransportRequireKnownRootCert",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kReportingApiEnableEnterpriseCookieIssues,
+             "ReportingApiEnableEnterpriseCookieIssues",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOptimizeParsingDataUrls,
+             "OptimizeParsingDataUrls",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace net::features

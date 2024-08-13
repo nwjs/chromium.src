@@ -44,6 +44,7 @@ import org.chromium.android_webview.AwContentsClient.AwWebResourceRequest;
 import org.chromium.android_webview.test.AwActivityTestRule.TestDependencyFactory;
 import org.chromium.autofill.mojom.SubmissionSource;
 import org.chromium.base.Log;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
@@ -66,7 +67,6 @@ import org.chromium.components.autofill.TestViewStructure;
 import org.chromium.components.autofill_public.ViewType;
 import org.chromium.components.embedder_support.util.WebResourceResponseInfo;
 import org.chromium.content_public.browser.test.util.DOMUtils;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.net.test.util.TestWebServer;
@@ -286,7 +286,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         }
 
         public void simulateServerPrediction(int serverType) throws Throwable {
-            TestThreadUtils.runOnUiThreadBlocking(
+            ThreadUtils.runOnUiThreadBlocking(
                     () ->
                             AutofillProviderTestHelper
                                     .simulateMainFrameAutofillServerResponseForTesting(
@@ -338,10 +338,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                     mTest.waitForCallbackAndVerifyTypes(
                             mCnt,
                             new Integer[] {
-                                AUTOFILL_VIEW_EXITED,
-                                AUTOFILL_VALUE_CHANGED,
-                                AUTOFILL_COMMIT,
-                                AUTOFILL_CANCEL
+                                AUTOFILL_VALUE_CHANGED, AUTOFILL_COMMIT, AUTOFILL_CANCEL
                             });
         }
 
@@ -413,14 +410,14 @@ public class AwAutofillTest extends AwParameterizedTest {
                 });
         mUMATestHelper = new AwAutofillSessionUMATestHelper(this, mWebServer);
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newSingleRecordWatcher(
                                     AutofillProviderUMA.UMA_AUTOFILL_CREATED_BY_ACTIVITY_CONTEXT,
                                     true);
                         });
         mContentsClient = new AwAutofillTestClient();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> AutofillProviderTestHelper.disableCrowdsourcingForTesting());
         mTestContainerView =
                 mRule.createAwTestContainerViewOnMainSync(
@@ -429,7 +426,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         AwActivityTestRule.enableJavaScriptOnUiThread(mAwContents);
         mAutofillProvider = mAwContents.getAutofillProviderForTesting();
 
-        TestThreadUtils.runOnUiThreadBlocking(() -> histograms.assertExpected());
+        ThreadUtils.runOnUiThreadBlocking(() -> histograms.assertExpected());
     }
 
     private void setUpAwGNotCurrent() throws Exception {
@@ -1297,7 +1294,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     // TODO: Run the test with BFCache after relanding crrev.com/c/5434056
     @CommandLineFlags.Add({
-        "enable-features=AndroidAutofillCancelSessionOnNavigation",
+        "enable-features=AndroidAutofillCancelSessionOnNavigation,AndroidAutofillDirectFormSubmission",
         "disable-features=WebViewBackForwardCache"
     })
     public void testNavigationAfterProbableSubmitResultsInSessionCommit() throws Throwable {
@@ -1329,11 +1326,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         waitForCallbackAndVerifyTypes(
                 cnt,
                 new Integer[] {
-                    AUTOFILL_VIEW_EXITED,
-                    AUTOFILL_VALUE_CHANGED,
-                    AUTOFILL_VALUE_CHANGED,
-                    AUTOFILL_COMMIT,
-                    AUTOFILL_CANCEL
+                    AUTOFILL_VALUE_CHANGED, AUTOFILL_VALUE_CHANGED, AUTOFILL_COMMIT, AUTOFILL_CANCEL
                 });
         assertEquals(SubmissionSource.PROBABLY_FORM_SUBMITTED, mSubmissionSource);
     }
@@ -1610,7 +1603,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAUserSelectSuggestionUserChangeFormFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1632,7 +1625,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         mUMATestHelper.simulateUserSelectSuggestion();
         mUMATestHelper.simulateUserChangeField();
         mUMATestHelper.submitForm();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1644,7 +1637,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAUserSelectSuggestionUserChangeFormNoFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1664,7 +1657,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         mUMATestHelper.simulateUserSelectSuggestion();
         mUMATestHelper.simulateUserChangeField();
         mUMATestHelper.startNewSession();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1677,7 +1670,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMASessionMetricsRecordedOnAwContentsDestruction() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1696,11 +1689,11 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnInputUIShown();
         mUMATestHelper.simulateUserSelectSuggestion();
         mUMATestHelper.simulateUserChangeField();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mAwContents.destroy();
                 });
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1712,7 +1705,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAUserSelectNotSuggestionUserChangeFormNoFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectAnyRecord(
@@ -1733,7 +1726,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnInputUIShown();
         mUMATestHelper.simulateUserChangeField();
         mUMATestHelper.startNewSession();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1745,7 +1738,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAUserNotSelectSuggestionUserChangeFormFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1766,7 +1759,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnInputUIShown();
         mUMATestHelper.simulateUserChangeField();
         mUMATestHelper.submitForm();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1778,7 +1771,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMANoSuggestionUserChangeFormNoFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1796,7 +1789,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnProvideAutoFillVirtualStructure();
         mUMATestHelper.simulateUserChangeField();
         mUMATestHelper.startNewSession();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1808,7 +1801,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMANoSuggestionUserChangeFormFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1828,7 +1821,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnProvideAutoFillVirtualStructure();
         mUMATestHelper.simulateUserChangeField();
         mUMATestHelper.submitForm();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1840,7 +1833,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAUserSelectSuggestionUserNotChangeFormFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1861,7 +1854,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnInputUIShown();
         mUMATestHelper.simulateUserSelectSuggestion();
         mUMATestHelper.submitForm();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1873,7 +1866,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAUserSelectSuggestionUserNotChangeFormNoFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1892,7 +1885,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnInputUIShown();
         mUMATestHelper.simulateUserSelectSuggestion();
         mUMATestHelper.startNewSession();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1904,7 +1897,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAUserNotSelectSuggestionUserNotChangeFormNoFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1922,7 +1915,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnProvideAutoFillVirtualStructure();
         invokeOnInputUIShown();
         mUMATestHelper.startNewSession();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1934,7 +1927,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAUserNotSelectSuggestionUserNotChangeFormFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1954,7 +1947,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         invokeOnProvideAutoFillVirtualStructure();
         invokeOnInputUIShown();
         mUMATestHelper.submitForm();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1966,7 +1959,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMANoSuggestionUserNotChangeFormNoFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -1983,7 +1976,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         mUMATestHelper.triggerAutofill();
         invokeOnProvideAutoFillVirtualStructure();
         mUMATestHelper.startNewSession();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -1995,7 +1988,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMANoSuggestionUserNotChangeFormFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -2014,7 +2007,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         mUMATestHelper.triggerAutofill();
         invokeOnProvideAutoFillVirtualStructure();
         mUMATestHelper.submitForm();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2029,7 +2022,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testUMANoCallbackFromFramework() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -2041,7 +2034,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                         });
         mUMATestHelper.triggerAutofill();
         mUMATestHelper.startNewSession();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2052,7 +2045,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testUMANoServerPrediction() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newSingleRecordWatcher(
                                     AutofillProviderUMA.UMA_AUTOFILL_SERVER_PREDICTION_AVAILABILITY,
@@ -2060,7 +2053,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                         });
         mUMATestHelper.triggerAutofill();
         mUMATestHelper.startNewSession();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2071,7 +2064,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testUMAServerPredictionArriveBeforeSessionStart() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -2086,7 +2079,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                                     .build();
                         });
         mUMATestHelper.simulateServerPredictionBeforeTriggeringAutofill(/*USERNAME*/ 86);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2097,7 +2090,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testUMAServerPredictionArriveAfterSessionStart() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -2113,7 +2106,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                         });
         mUMATestHelper.triggerAutofill();
         mUMATestHelper.simulateServerPrediction(/*NO_SERVER_DATA*/ 0);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2124,7 +2117,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testUMAAutofillDisabled() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectNoRecords(
@@ -2135,7 +2128,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                         });
         mTestAutofillManagerWrapper.setDisabled();
         mUMATestHelper.triggerAutofill();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2146,7 +2139,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testUMAAutofillEnabled() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectNoRecords(
@@ -2156,7 +2149,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                                     .build();
                         });
         mUMATestHelper.triggerAutofill();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2170,10 +2163,12 @@ public class AwAutofillTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
-    @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
+    @CommandLineFlags.Add({
+        "enable-features=AndroidAutofillCancelSessionOnNavigation,AndroidAutofillDirectFormSubmission"
+    })
     public void testUMAFormSubmissionProbablyFormSubmitted() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -2184,7 +2179,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         mUMATestHelper.triggerAutofill();
         invokeOnProvideAutoFillVirtualStructure();
         mUMATestHelper.reload();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2200,7 +2195,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAFormSubmissionFrameDetached() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -2243,7 +2238,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                             AUTOFILL_CANCEL
                         });
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2260,7 +2255,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAFormSubmissionSameDocumentNavigation() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -2302,7 +2297,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                             AUTOFILL_CANCEL
                         });
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2319,7 +2314,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @CommandLineFlags.Add({"enable-features=AndroidAutofillCancelSessionOnNavigation"})
     public void testUMAFormSubmissionXHRSucceeded() throws Throwable {
         var histograms =
-                TestThreadUtils.runOnUiThreadBlocking(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return HistogramWatcher.newBuilder()
                                     .expectIntRecord(
@@ -2363,7 +2358,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                             AUTOFILL_CANCEL
                         });
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     histograms.assertExpected();
                 });
@@ -2432,6 +2427,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     @SmallTest
     @Feature({"AndroidWebView"})
     @RequiresRestart("crbug.com/344662605")
+    @DisabledTest(message = "crbug.com/353502929")
     public void testPageScrollTriggerViewExitAndEnter() throws Throwable {
         loadHTML(
                 """
@@ -2602,7 +2598,7 @@ public class AwAutofillTest extends AwParameterizedTest {
         executeJavaScriptAndWaitForResult("document.getElementById('text2').select();");
         dispatchDownAndUpKeyEvents(KeyEvent.KEYCODE_A);
         pollDatalistPopupShown(2);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mAwContents.hideAutofillPopup();
                 });
@@ -2651,7 +2647,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                         <input type='text' id='text1' name='username'>
                         <input type='text' name='email' id='text2' autocomplete='email' />
                     </form>""");
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         AutofillProviderTestHelper
                                 .simulateMainFramePredictionsAutofillServerResponseForTesting(
@@ -2730,7 +2726,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                         <iframe srcdoc='<input id=exp>'></iframe>
                         <iframe srcdoc='<input id=csc>'></iframe>
                     </form>""");
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         AutofillProviderTestHelper
                                 .simulateMainFramePredictionsAutofillServerResponseForTesting(
@@ -2843,7 +2839,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                         <input type='text' id='text1' name='username'>
                         <input type='text' name='email' id='text2' autocomplete='email' />
                     </form>""");
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         AutofillProviderTestHelper
                                 .simulateMainFrameAutofillServerResponseForTesting(
@@ -2967,7 +2963,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                 new AutofillHintsServiceTestHelper();
         autofillHintsServiceTestHelper.registerViewTypeService(binder);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         AutofillProviderTestHelper
                                 .simulateMainFramePredictionsAutofillServerResponseForTesting(
@@ -3058,7 +3054,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                 new AutofillHintsServiceTestHelper();
         autofillHintsServiceTestHelper.registerViewTypeService(binder);
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         AutofillProviderTestHelper
                                 .simulateMainFrameAutofillServerResponseForTesting(
@@ -3138,7 +3134,7 @@ public class AwAutofillTest extends AwParameterizedTest {
                         .getHtmlInfo()
                         .getAttribute("crowdsourcing-predictions-autofill-hints"));
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         AutofillProviderTestHelper
                                 .simulateMainFramePredictionsAutofillServerResponseForTesting(
@@ -3506,7 +3502,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     }
 
     private void scrollToBottom() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTestContainerView.scrollTo(0, mTestContainerView.getHeight());
                 });
@@ -3542,7 +3538,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     }
 
     private void invokeOnProvideAutoFillVirtualStructure() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTestValues.testViewStructure = new TestViewStructure();
                     mAwContents.onProvideAutoFillVirtualStructure(mTestValues.testViewStructure, 1);
@@ -3550,12 +3546,11 @@ public class AwAutofillTest extends AwParameterizedTest {
     }
 
     private void invokeAutofill(SparseArray<AutofillValue> values) {
-        TestThreadUtils.runOnUiThreadBlocking(() -> mAwContents.autofill(values));
+        ThreadUtils.runOnUiThreadBlocking(() -> mAwContents.autofill(values));
     }
 
     private void invokeOnInputUIShown() {
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> mTestAutofillManagerWrapper.notifyInputUIChange());
+        ThreadUtils.runOnUiThreadBlocking(() -> mTestAutofillManagerWrapper.notifyInputUIChange());
     }
 
     private int getCallbackCount() {
@@ -3673,7 +3668,7 @@ public class AwAutofillTest extends AwParameterizedTest {
     }
 
     private boolean dispatchKeyEvent(final KeyEvent event) throws Throwable {
-        return TestThreadUtils.runOnUiThreadBlocking(
+        return ThreadUtils.runOnUiThreadBlocking(
                 new Callable<Boolean>() {
                     @Override
                     public Boolean call() {

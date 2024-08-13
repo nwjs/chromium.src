@@ -119,7 +119,7 @@ UsernamePasswordsState CalculateUsernamePasswordsState(
         saved_passwords) {
   UsernamePasswordsState result;
 
-  for (const FormFieldData& field : submitted_form.fields) {
+  for (const FormFieldData& field : submitted_form.fields()) {
     const std::u16string& value =
         field.user_input().empty() ? field.value() : field.user_input();
 
@@ -195,7 +195,7 @@ bool BlocklistedBySmartBubble(
     const std::vector<InteractionsStats>& interactions_stats) {
   const int show_threshold =
       password_bubble_experiment::GetSmartBubbleDismissalThreshold();
-  for (const FormFieldData& field : submitted_form.fields) {
+  for (const FormFieldData& field : submitted_form.fields()) {
     const std::u16string& value =
         field.user_input().empty() ? field.value() : field.user_input();
     for (const InteractionsStats& stat : interactions_stats) {
@@ -425,6 +425,13 @@ PasswordFormMetricsRecorder::~PasswordFormMetricsRecorder() {
   }
 
   ukm_entry_builder_.Record(ukm::UkmRecorder::Get());
+
+#if BUILDFLAG(IS_ANDROID)
+  if (form_submission_reached_) {
+    LogFormSubmissionsVsSavePromptsHistogram(
+        metrics_util::SaveFlowStep::kFormSubmitted);
+  }
+#endif
 }
 
 void PasswordFormMetricsRecorder::MarkGenerationAvailable() {
@@ -811,7 +818,7 @@ void PasswordFormMetricsRecorder::CalculateJsOnlyInput(
     const FormData& submitted_form) {
   bool had_focus = false;
   bool had_user_input_or_autofill_on_password = false;
-  for (const auto& field : submitted_form.fields) {
+  for (const auto& field : submitted_form.fields()) {
     if (field.HadFocus()) {
       had_focus = true;
     }
@@ -831,7 +838,7 @@ void PasswordFormMetricsRecorder::CalculateAutomationRate(
     const FormData& submitted_form) {
   float total_length_autofilled_fields = 0.0;
   float total_length = 0.0;
-  for (const auto& field : submitted_form.fields) {
+  for (const auto& field : submitted_form.fields()) {
     if (!field.IsTextInputElement()) {
       continue;
     }
@@ -945,6 +952,7 @@ void PasswordFormMetricsRecorder::RecordPasswordBubbleShown(
     case metrics_util::MANUAL_ADD_USERNAME_BUBBLE:
     case metrics_util::AUTOMATIC_RELAUNCH_CHROME_BUBBLE:
     case metrics_util::AUTOMATIC_DEFAULT_STORE_CHANGED_BUBBLE:
+    case metrics_util::AUTOMATIC_PASSKEY_SAVED_CONFIRMATION:
       // Do nothing.
       return;
 

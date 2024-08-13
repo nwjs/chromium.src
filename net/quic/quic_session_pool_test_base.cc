@@ -74,7 +74,9 @@
 #include "net/test/gtest_util.h"
 #include "net/test/test_data_directory.h"
 #include "net/test/test_with_task_environment.h"
+#include "net/third_party/quiche/src/quiche/common/http/http_header_block.h"
 #include "net/third_party/quiche/src/quiche/common/quiche_data_writer.h"
+#include "net/third_party/quiche/src/quiche/http2/test_tools/spdy_test_utils.h"
 #include "net/third_party/quiche/src/quiche/quic/core/crypto/crypto_handshake.h"
 #include "net/third_party/quiche/src/quiche/quic/core/crypto/quic_crypto_client_config.h"
 #include "net/third_party/quiche/src/quiche/quic/core/crypto/quic_decrypter.h"
@@ -90,7 +92,6 @@
 #include "net/third_party/quiche/src/quiche/quic/test_tools/quic_session_peer.h"
 #include "net/third_party/quiche/src/quiche/quic/test_tools/quic_spdy_session_peer.h"
 #include "net/third_party/quiche/src/quiche/quic/test_tools/quic_test_utils.h"
-#include "net/third_party/quiche/src/quiche/spdy/test_tools/spdy_test_utils.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "net/url_request/static_http_user_agent_settings.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -159,7 +160,6 @@ QuicSessionPoolTestBase::QuicSessionPoolTestBase(
           &QuicSessionPoolTestBase::OnFailedOnDefaultNetwork,
           base::Unretained(this))),
       quic_params_(context_.params()) {
-  SetQuicRestartFlag(quic_opport_bundle_qpack_decoder_data5, true);
   enabled_features.push_back(features::kAsyncQuicSession);
   scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   FLAGS_quic_enable_http3_grease_randomness = false;
@@ -322,8 +322,10 @@ void QuicSessionPoolTestBase::NotifyIPAddressChanged() {
 
 std::unique_ptr<quic::QuicEncryptedPacket>
 QuicSessionPoolTestBase::ConstructServerConnectionClosePacket(uint64_t num) {
-  return server_maker_.MakeConnectionClosePacket(
-      num, quic::QUIC_CRYPTO_VERSION_NOT_SUPPORTED, "Time to panic!");
+  return server_maker_.Packet(num)
+      .AddConnectionCloseFrame(quic::QUIC_CRYPTO_VERSION_NOT_SUPPORTED,
+                               "Time to panic!")
+      .Build();
 }
 
 std::unique_ptr<quic::QuicEncryptedPacket>
@@ -331,14 +333,17 @@ QuicSessionPoolTestBase::ConstructClientRstPacket(
     uint64_t packet_number,
     quic::QuicRstStreamErrorCode error_code) {
   quic::QuicStreamId stream_id = GetNthClientInitiatedBidirectionalStreamId(0);
-  return client_maker_.MakeRstPacket(packet_number, stream_id, error_code);
+  return client_maker_.Packet(packet_number)
+      .AddStopSendingFrame(stream_id, error_code)
+      .AddRstStreamFrame(stream_id, error_code)
+      .Build();
 }
 
 std::unique_ptr<quic::QuicEncryptedPacket>
 QuicSessionPoolTestBase::ConstructGetRequestPacket(uint64_t packet_number,
                                                    quic::QuicStreamId stream_id,
                                                    bool fin) {
-  spdy::Http2HeaderBlock headers =
+  quiche::HttpHeaderBlock headers =
       client_maker_.GetRequestHeaders("GET", "https", "/");
   spdy::SpdyPriority priority =
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
@@ -367,7 +372,7 @@ QuicSessionPoolTestBase::ConstructConnectUdpRequestPacket(
     std::string authority,
     std::string path,
     bool fin) {
-  spdy::Http2HeaderBlock headers;
+  quiche::HttpHeaderBlock headers;
   headers[":scheme"] = "https";
   headers[":path"] = path;
   headers[":protocol"] = "connect-udp";
@@ -407,7 +412,7 @@ QuicSessionPoolTestBase::ConstructClientH3DatagramPacket(
     std::unique_ptr<quic::QuicEncryptedPacket> inner) {
   std::string data = ConstructClientH3DatagramFrame(
       quarter_stream_id, context_id, std::move(inner));
-  return client_maker_.MakeDatagramPacket(packet_number, data);
+  return client_maker_.Packet(packet_number).AddMessageFrame(data).Build();
 }
 
 std::unique_ptr<quic::QuicEncryptedPacket>
@@ -424,7 +429,7 @@ QuicSessionPoolTestBase::ConstructOkResponsePacket(
     uint64_t packet_number,
     quic::QuicStreamId stream_id,
     bool fin) {
-  spdy::Http2HeaderBlock headers = packet_maker.GetResponseHeaders("200");
+  quiche::HttpHeaderBlock headers = packet_maker.GetResponseHeaders("200");
   size_t spdy_headers_frame_len;
   return packet_maker.MakeResponseHeadersPacket(packet_number, stream_id, fin,
                                                 std::move(headers),
@@ -461,8 +466,9 @@ QuicSessionPoolTestBase::ConstructAckPacket(
     uint64_t packet_num_received,
     uint64_t smallest_received,
     uint64_t largest_received) {
-  return packet_maker.MakeAckPacket(packet_number, packet_num_received,
-                                    smallest_received, largest_received);
+  return packet_maker.Packet(packet_number)
+      .AddAckFrame(packet_num_received, smallest_received, largest_received)
+      .Build();
 }
 
 std::string QuicSessionPoolTestBase::ConstructDataHeader(size_t body_len) {
@@ -476,7 +482,9 @@ QuicSessionPoolTestBase::ConstructServerDataPacket(uint64_t packet_number,
                                                    quic::QuicStreamId stream_id,
                                                    bool fin,
                                                    std::string_view data) {
-  return server_maker_.MakeDataPacket(packet_number, stream_id, fin, data);
+  return server_maker_.Packet(packet_number)
+      .AddStreamFrame(stream_id, fin, data)
+      .Build();
 }
 
 std::string QuicSessionPoolTestBase::ConstructH3Datagram(

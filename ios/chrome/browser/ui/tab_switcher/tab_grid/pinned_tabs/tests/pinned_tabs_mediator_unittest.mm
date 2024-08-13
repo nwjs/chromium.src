@@ -60,7 +60,7 @@ class PinnedTabsMediatorTest : public PlatformTest {
     browser_list_ =
         BrowserListFactory::GetForBrowserState(browser_state_.get());
     browser_list_->AddBrowser(regular_browser_.get());
-    browser_list_->AddIncognitoBrowser(incognito_browser_.get());
+    browser_list_->AddBrowser(incognito_browser_.get());
 
     // The Pinned Tabs feature is not available on iPad.
     if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
@@ -225,9 +225,9 @@ TEST_F(PinnedTabsMediatorTest, DropPinnedTabs) {
   // Drop "A" after "C".
   web::WebStateID web_state_id =
       web_state_list->GetWebStateAt(0)->GetUniqueIdentifier();
-  id local_object = [[TabInfo alloc]
-      initWithTabID:web_state_id
-          incognito:regular_browser_->GetBrowserState()->IsOffTheRecord()];
+  id local_object =
+      [[TabInfo alloc] initWithTabID:web_state_id
+                        browserState:regular_browser_->GetBrowserState()];
   NSItemProvider* item_provider = [[NSItemProvider alloc] init];
   UIDragItem* drag_item =
       [[UIDragItem alloc] initWithItemProvider:item_provider];
@@ -238,9 +238,9 @@ TEST_F(PinnedTabsMediatorTest, DropPinnedTabs) {
 
   // Drop "C" before "B".
   web_state_id = web_state_list->GetWebStateAt(1)->GetUniqueIdentifier();
-  local_object = [[TabInfo alloc]
-      initWithTabID:web_state_id
-          incognito:regular_browser_->GetBrowserState()->IsOffTheRecord()];
+  local_object =
+      [[TabInfo alloc] initWithTabID:web_state_id
+                        browserState:regular_browser_->GetBrowserState()];
   item_provider = [[NSItemProvider alloc] init];
   drag_item = [[UIDragItem alloc] initWithItemProvider:item_provider];
   drag_item.localObject = local_object;
@@ -265,9 +265,9 @@ TEST_F(PinnedTabsMediatorTest, DropRegularTabs) {
   // Drop "E" after "C".
   web::WebStateID web_state_id =
       web_state_list->GetWebStateAt(4)->GetUniqueIdentifier();
-  id local_object = [[TabInfo alloc]
-      initWithTabID:web_state_id
-          incognito:regular_browser_->GetBrowserState()->IsOffTheRecord()];
+  id local_object =
+      [[TabInfo alloc] initWithTabID:web_state_id
+                        browserState:regular_browser_->GetBrowserState()];
   NSItemProvider* item_provider = [[NSItemProvider alloc] init];
   UIDragItem* drag_item =
       [[UIDragItem alloc] initWithItemProvider:item_provider];
@@ -278,9 +278,9 @@ TEST_F(PinnedTabsMediatorTest, DropRegularTabs) {
 
   // Drop "D" after "E".
   web_state_id = web_state_list->GetWebStateAt(4)->GetUniqueIdentifier();
-  local_object = [[TabInfo alloc]
-      initWithTabID:web_state_id
-          incognito:regular_browser_->GetBrowserState()->IsOffTheRecord()];
+  local_object =
+      [[TabInfo alloc] initWithTabID:web_state_id
+                        browserState:regular_browser_->GetBrowserState()];
   item_provider = [[NSItemProvider alloc] init];
   drag_item = [[UIDragItem alloc] initWithItemProvider:item_provider];
   drag_item.localObject = local_object;
@@ -307,9 +307,9 @@ TEST_F(PinnedTabsMediatorTest, DropTabGroupTabs) {
   // Drop "E" after "C".
   web::WebStateID web_state_id =
       web_state_list->GetWebStateAt(4)->GetUniqueIdentifier();
-  id local_object = [[TabInfo alloc]
-      initWithTabID:web_state_id
-          incognito:regular_browser_->GetBrowserState()->IsOffTheRecord()];
+  id local_object =
+      [[TabInfo alloc] initWithTabID:web_state_id
+                        browserState:regular_browser_->GetBrowserState()];
   NSItemProvider* item_provider = [[NSItemProvider alloc] init];
   UIDragItem* drag_item =
       [[UIDragItem alloc] initWithItemProvider:item_provider];
@@ -320,9 +320,9 @@ TEST_F(PinnedTabsMediatorTest, DropTabGroupTabs) {
 
   // Drop "D" after "E".
   web_state_id = web_state_list->GetWebStateAt(4)->GetUniqueIdentifier();
-  local_object = [[TabInfo alloc]
-      initWithTabID:web_state_id
-          incognito:regular_browser_->GetBrowserState()->IsOffTheRecord()];
+  local_object =
+      [[TabInfo alloc] initWithTabID:web_state_id
+                        browserState:regular_browser_->GetBrowserState()];
   item_provider = [[NSItemProvider alloc] init];
   drag_item = [[UIDragItem alloc] initWithItemProvider:item_provider];
   drag_item.localObject = local_object;
@@ -332,9 +332,9 @@ TEST_F(PinnedTabsMediatorTest, DropTabGroupTabs) {
 
   // Drop "F" after "D".
   web_state_id = web_state_list->GetWebStateAt(5)->GetUniqueIdentifier();
-  local_object = [[TabInfo alloc]
-      initWithTabID:web_state_id
-          incognito:regular_browser_->GetBrowserState()->IsOffTheRecord()];
+  local_object =
+      [[TabInfo alloc] initWithTabID:web_state_id
+                        browserState:regular_browser_->GetBrowserState()];
   item_provider = [[NSItemProvider alloc] init];
   drag_item = [[UIDragItem alloc] initWithItemProvider:item_provider];
   drag_item.localObject = local_object;

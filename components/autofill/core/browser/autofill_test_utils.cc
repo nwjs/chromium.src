@@ -41,6 +41,7 @@
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_predictions.h"
+#include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/form_field_data_predictions.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -158,28 +159,27 @@ std::unique_ptr<PrefService> PrefServiceForTesting(
   form.set_submission_event(
       mojom::SubmissionIndicatorEvent::SAME_DOCUMENT_NAVIGATION);
 
-  form.fields.push_back(CreateTestFormField("First Name", "firstname", "",
-                                            FormControlType::kInputText));
-  form.fields.push_back(CreateTestFormField("Middle Name", "middlename", "",
-                                            FormControlType::kInputText));
-  form.fields.push_back(CreateTestFormField("Last Name", "lastname", "",
-                                            FormControlType::kInputText));
-  form.fields.push_back(CreateTestFormField("Address Line 1", "addr1", "",
-                                            FormControlType::kInputText));
-  form.fields.push_back(CreateTestFormField("Address Line 2", "addr2", "",
-                                            FormControlType::kInputText));
-  form.fields.push_back(
-      CreateTestFormField("City", "city", "", FormControlType::kInputText));
-  form.fields.push_back(
-      CreateTestFormField("State", "state", "", FormControlType::kInputText));
-  form.fields.push_back(CreateTestFormField("Postal Code", "zipcode", "",
-                                            FormControlType::kInputText));
-  form.fields.push_back(CreateTestFormField("Country", "country", "",
-                                            FormControlType::kInputText));
-  form.fields.push_back(CreateTestFormField("Phone Number", "phonenumber", "",
-                                            FormControlType::kInputTelephone));
-  form.fields.push_back(
-      CreateTestFormField("Email", "email", "", FormControlType::kInputEmail));
+  form.set_fields(
+      {CreateTestFormField("First Name", "firstname", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Middle Name", "middlename", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Last Name", "lastname", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Address Line 1", "addr1", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Address Line 2", "addr2", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("City", "city", "", FormControlType::kInputText),
+       CreateTestFormField("State", "state", "", FormControlType::kInputText),
+       CreateTestFormField("Postal Code", "zipcode", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Country", "country", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Phone Number", "phonenumber", "",
+                           FormControlType::kInputTelephone),
+       CreateTestFormField("Email", "email", "",
+                           FormControlType::kInputEmail)});
   return form;
 }
 
@@ -445,7 +445,7 @@ CreditCard GetVirtualCard() {
 }
 
 CreditCard GetRandomCreditCard(CreditCard::RecordType record_type) {
-  static const char* const kNetworks[] = {
+  constexpr static std::array<std::string_view, 10> kNetworks = {
       kAmericanExpressCard,
       kDinersCard,
       kDiscoverCard,
@@ -457,7 +457,6 @@ CreditCard GetRandomCreditCard(CreditCard::RecordType record_type) {
       kUnionPay,
       kVisaCard,
   };
-  constexpr size_t kNumNetworks = sizeof(kNetworks) / sizeof(kNetworks[0]);
   base::Time::Exploded now;
   AutofillClock::Now().LocalExplode(&now);
 
@@ -474,7 +473,7 @@ CreditCard GetRandomCreditCard(CreditCard::RecordType record_type) {
       base::StringPrintf("%d", now.year + base::RandInt(1, 4)).c_str(), "1");
   if (record_type == CreditCard::RecordType::kMaskedServerCard) {
     credit_card.SetNetworkForMaskedCard(
-        kNetworks[base::RandInt(0, kNumNetworks - 1)]);
+        kNetworks[base::RandInt(0, kNetworks.size() - 1)]);
   }
 
   return credit_card;
@@ -1008,6 +1007,32 @@ BankAccount CreatePixBankAccount(int64_t instrument_id) {
       instrument_id, u"nickname", GURL("http://www.example.com"), u"bank_name",
       u"account_number", BankAccount::AccountType::kChecking);
   return bank_account;
+}
+
+sync_pb::PaymentInstrument CreatePaymentInstrumentWithBankAccount(
+    int64_t instrument_id) {
+  sync_pb::PaymentInstrument payment_instrument;
+  payment_instrument.set_instrument_id(instrument_id);
+  sync_pb::BankAccountDetails* bank_account =
+      payment_instrument.mutable_bank_account();
+  bank_account->set_bank_name("bank_name");
+  bank_account->set_account_number_suffix("1234");
+  bank_account->set_account_type(
+      sync_pb::BankAccountDetails_AccountType_CHECKING);
+  return payment_instrument;
+}
+
+sync_pb::PaymentInstrument CreatePaymentInstrumentWithIban(
+    int64_t instrument_id) {
+  sync_pb::PaymentInstrument payment_instrument;
+  payment_instrument.set_instrument_id(instrument_id);
+  sync_pb::WalletMaskedIban* iban = payment_instrument.mutable_iban();
+  iban->set_instrument_id("instrument_id");
+  iban->set_prefix("FR76");
+  iban->set_suffix("0189");
+  iban->set_length(27);
+  iban->set_nickname("nickname");
+  return payment_instrument;
 }
 
 }  // namespace test

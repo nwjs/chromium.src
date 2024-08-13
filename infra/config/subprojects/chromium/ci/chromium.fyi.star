@@ -5,12 +5,12 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
+load("//lib/builder_health_indicators.star", "health_spec")
 load("//lib/builders.star", "builders", "cpu", "os", "siso")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
 load("//lib/structs.star", "structs")
-load("//lib/builder_health_indicators.star", "health_spec")
 load("//lib/xcode.star", "xcode")
 
 ci.defaults.set(
@@ -111,6 +111,8 @@ ci.builder(
             "release_builder",
             "try_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -169,6 +171,8 @@ ci.builder(
         configs = [
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -208,6 +212,7 @@ ci.builder(
             "debug_builder",
             "remoteexec",
             "use_cups",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -243,6 +248,7 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "use_cups",
+            "x64",
         ],
     ),
     builderless = True,
@@ -276,6 +282,8 @@ ci.builder(
             "release_builder_blink",
             "remoteexec",
             "minimal_symbols",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -304,6 +312,8 @@ ci.builder(
             "remoteexec",
             "enable_blink_heap_verification",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -333,6 +343,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "minimal_symbols",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -385,6 +397,44 @@ ci.thin_tester(
 )
 
 ci.builder(
+    name = "linux-multiscreen-fyi-rel",
+    description_html = (
+        "This builder is intended to run tests related to multiscreen " +
+        "functionality on Linux. For more info, see crbug.com/346565331."
+    ),
+    schedule = "with 5h interval",
+    triggered_by = [],
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+        build_gs_bucket = "chromium-fyi-archive",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder_blink",
+            "remoteexec",
+            "minimal_symbols",
+            "linux",
+            "x64",
+        ],
+    ),
+    builderless = True,
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "mulitscreen",
+    ),
+    contact_team_email = "web-windowing-team@google.com",
+)
+
+ci.builder(
     name = "linux-network-sandbox-rel",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
@@ -404,6 +454,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "minimal_symbols",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -512,6 +564,7 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "also_build_ash_chrome",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -563,6 +616,7 @@ ci.builder(
             "debug_builder",
             "remoteexec",
             "also_build_ash_chrome",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -644,12 +698,49 @@ ci.builder(
         configs = [
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
     console_view_entry = consoles.console_view_entry(
         category = "linux",
     ),
+)
+
+ci.builder(
+    name = "linux-rr-orchestrator-fyi",
+    description_html = (
+        "The orchestrator to schedules child builds of rr test launcher, and" +
+        " these child builds run top flaky tests using the rr tool and" +
+        " upload recorded traces."
+    ),
+    executable = "recipe:chromium_rr/orchestrator",
+    schedule = "with 3h interval",
+    triggered_by = [],
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux",
+        short_name = "rr",
+    ),
+    contact_team_email = "chrome-browser-infra-team@google.com",
+)
+
+ci.builder(
+    name = "linux-rr-test-launcher-fyi",
+    description_html = (
+        "The rr test launcher compiles input test suites, run" +
+        " input tests using the rr tool and upload recorded traces."
+    ),
+    executable = "recipe:chromium_rr/test_launcher",
+    schedule = "triggered",
+    triggered_by = [],
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux",
+        short_name = "rr",
+    ),
+    contact_team_email = "chrome-browser-infra-team@google.com",
 )
 
 fyi_mac_builder(
@@ -672,6 +763,7 @@ fyi_mac_builder(
         configs = [
             "release_builder",
             "remoteexec",
+            "mac",
             "x64",
         ],
     ),
@@ -681,38 +773,6 @@ fyi_mac_builder(
     console_view_entry = consoles.console_view_entry(
         category = "mac",
     ),
-)
-
-ci.builder(
-    name = "linux-rr-fyi",
-    description_html = "Runs top flaky tests using the rr tool and upload recorded traces.",
-    executable = "recipe:chromium/rr_test_launcher",
-    schedule = "with 3h interval",
-    triggered_by = [],
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.LINUX,
-        ),
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "remoteexec",
-            "release_builder",
-        ],
-    ),
-    os = os.LINUX_DEFAULT,
-    console_view_entry = consoles.console_view_entry(
-        category = "linux",
-        short_name = "linux-rr",
-    ),
-    contact_team_email = "chrome-browser-infra-team@google.com",
 )
 
 fyi_mac_builder(
@@ -737,6 +797,7 @@ Chrome.\
             "release_builder_blink",
             "remoteexec",
             "minimal_symbols",
+            "mac",
             "x64",
             "dcheck_always_on",
         ],
@@ -775,6 +836,8 @@ Chrome.\
             "remoteexec",
             "minimal_symbols",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -852,6 +915,7 @@ ci.builder(
             "dcheck_always_on",
             "static",
             "remoteexec",
+            "mac",
             "x64",
         ],
     ),
@@ -884,6 +948,8 @@ ci.builder(
             "headless_shell",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -906,6 +972,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "devtools_do_typecheck",
+            "linux",
+            "x64",
         ],
     ),
     builderless = False,
@@ -937,6 +1005,8 @@ ci.builder(
         configs = [
             "release_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
     ),
     builderless = True,
@@ -961,6 +1031,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "minimal_symbols",
+            "win",
+            "x64",
         ],
     ),
     builderless = False,
@@ -990,6 +1062,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "perfetto_zlib",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -1020,6 +1094,8 @@ fyi_mac_builder(
             "release_builder",
             "remoteexec",
             "perfetto_zlib",
+            "mac",
+            "arm64",
         ],
     ),
     builderless = True,
@@ -1052,6 +1128,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "perfetto_zlib",
+            "win",
+            "x64",
         ],
     ),
     builderless = True,
@@ -1134,6 +1212,8 @@ fyi_mac_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "mac",
+                "x64",
             ],
         ),
         "build2": gn_args.config(
@@ -1142,6 +1222,8 @@ fyi_mac_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "mac",
+                "x64",
             ],
         ),
     },
@@ -1152,7 +1234,7 @@ fyi_mac_reclient_comparison_builder(
         category = "mac",
         short_name = "cmp",
     ),
-    execution_timeout = 10 * time.hour,
+    execution_timeout = 14 * time.hour,
     reclient_bootstrap_env = {
         "GLOG_vmodule": "bridge*=2",
     },
@@ -1172,6 +1254,7 @@ fyi_mac_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "mac",
             ],
         ),
         "build2": gn_args.config(
@@ -1181,6 +1264,7 @@ fyi_mac_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "mac",
             ],
         ),
     },
@@ -1211,6 +1295,7 @@ fyi_mac_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "mac",
             ],
         ),
         "build2": gn_args.config(
@@ -1220,6 +1305,7 @@ fyi_mac_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "mac",
             ],
         ),
     },
@@ -1248,6 +1334,8 @@ fyi_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "win",
+                "x64",
             ],
         ),
         "build2": gn_args.config(
@@ -1256,6 +1344,8 @@ fyi_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "win",
+                "x64",
             ],
         ),
     },
@@ -1267,6 +1357,7 @@ fyi_reclient_comparison_builder(
         category = "win",
         short_name = "re",
     ),
+    execution_timeout = 14 * time.hour,
     reclient_cache_silo = "Comparison Windows 8 cores - cache siloed",
     shadow_siso_project = siso.project.TEST_UNTRUSTED,
     siso_project = siso.project.TEST_TRUSTED,
@@ -1282,6 +1373,8 @@ fyi_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "win",
+                "x64",
             ],
         ),
         "build2": gn_args.config(
@@ -1290,6 +1383,8 @@ fyi_reclient_comparison_builder(
                 "release_builder",
                 "remoteexec",
                 "minimal_symbols",
+                "win",
+                "x64",
             ],
         ),
     },
@@ -1301,7 +1396,7 @@ fyi_reclient_comparison_builder(
         category = "win",
         short_name = "re",
     ),
-    execution_timeout = 6 * time.hour,
+    execution_timeout = 14 * time.hour,
     reclient_cache_silo = "Comparison Windows - cache siloed",
     shadow_siso_project = siso.project.TEST_UNTRUSTED,
     siso_project = siso.project.TEST_TRUSTED,
@@ -1319,6 +1414,7 @@ fyi_reclient_comparison_builder(
                 "ozone_headless",
                 "use_fake_dbus_clients",
                 "also_build_lacros_chrome_for_architecture_amd64",
+                "x64",
             ],
         ),
         "build2": gn_args.config(
@@ -1330,6 +1426,7 @@ fyi_reclient_comparison_builder(
                 "ozone_headless",
                 "use_fake_dbus_clients",
                 "also_build_lacros_chrome_for_architecture_amd64",
+                "x64",
             ],
         ),
     },
@@ -1339,7 +1436,7 @@ fyi_reclient_comparison_builder(
         category = "cros x64",
         short_name = "cmp",
     ),
-    execution_timeout = 10 * time.hour,
+    execution_timeout = 14 * time.hour,
     reclient_cache_silo = "Comparison Simple Chrome - cache siloed",
     shadow_siso_project = siso.project.TEST_UNTRUSTED,
     siso_project = siso.project.TEST_TRUSTED,
@@ -1418,7 +1515,7 @@ The bot specs should be in sync with <a href="https://ci.chromium.org/p/chromium
         category = "mac|cq",
         short_name = "cmp",
     ),
-    execution_timeout = 10 * time.hour,
+    execution_timeout = 14 * time.hour,
     reclient_bootstrap_env = {
         "GLOG_vmodule": "bridge*=2",
     },
@@ -1442,7 +1539,7 @@ The bot specs should be in sync with <a href="https://ci.chromium.org/p/chromium
         category = "win|cq",
         short_name = "re",
     ),
-    execution_timeout = 6 * time.hour,
+    execution_timeout = 14 * time.hour,
     reclient_cache_silo = "Comparison Windows CQ - cache siloed",
     shadow_siso_project = siso.project.TEST_UNTRUSTED,
     siso_enabled = True,
@@ -1464,7 +1561,7 @@ The bot specs should be in sync with <a href="https://ci.chromium.org/p/chromium
         category = "cros x64|cq",
         short_name = "cmp",
     ),
-    execution_timeout = 10 * time.hour,
+    execution_timeout = 14 * time.hour,
     reclient_cache_silo = "Comparison Simple Chrome CQ - cache siloed",
     shadow_siso_project = siso.project.TEST_UNTRUSTED,
     siso_enabled = True,
@@ -1513,6 +1610,8 @@ ci.builder(
             "gpu_tests",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     cores = 32,
@@ -1561,6 +1660,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "minimal_symbols",
+            "win",
+            "x64",
         ],
     ),
     builderless = True,
@@ -1597,6 +1698,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "minimal_symbols",
+            "win",
+            "x64",
         ],
     ),
     builderless = True,
@@ -1646,6 +1749,7 @@ fyi_mac_builder(
             "remoteexec",
             "minimal_symbols",
             "x64",
+            "mac",
         ],
     ),
     builderless = True,
@@ -1690,6 +1794,7 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "also_build_ash_chrome",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -1725,7 +1830,6 @@ fyi_ios_builder(
             "xctest",
         ],
     ),
-    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "iOS|iOSM1",
@@ -1907,7 +2011,6 @@ fyi_ios_builder(
             "xctest",
         ],
     ),
-    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = [
         consoles.console_view_entry(
@@ -1943,7 +2046,6 @@ fyi_ios_builder(
             "xctest",
         ],
     ),
-    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = [
         consoles.console_view_entry(
@@ -2018,15 +2120,16 @@ fyi_ios_builder(
             "ios_simulator",
             "arm64",
             "xctest",
+            "no_lld",
+            "no_fatal_linker_warnings",
         ],
     ),
-    os = os.MAC_BETA,
     cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "iOS|iOS18",
         short_name = "sdk18",
     ),
-    xcode = xcode.x15betabots,
+    xcode = xcode.x16betabots,
 )
 
 fyi_mac_builder(
@@ -2058,6 +2161,7 @@ fyi_mac_builder(
             "remoteexec",
             "dcheck_off",
             "shared",
+            "mac",
         ],
     ),
     cores = None,
@@ -2078,6 +2182,8 @@ fyi_mac_builder(
             "remoteexec",
             "mac_strip",
             "minimal_symbols",
+            "mac",
+            "x64",
         ],
     ),
     cores = None,
@@ -2095,6 +2201,8 @@ fyi_mac_builder(
         configs = [
             "debug_builder",
             "remoteexec",
+            "mac",
+            "x64",
         ],
     ),
     cores = None,
@@ -2131,6 +2239,8 @@ ci.builder(
             "release_builder",
             "try_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
     ),
     builderless = False,
@@ -2167,6 +2277,8 @@ Chrome.\
             "remoteexec",
             "minimal_symbols",
             "dcheck_always_on",
+            "win",
+            "x64",
         ],
     ),
     builderless = True,
@@ -2198,6 +2310,7 @@ ci.builder(
             "minimal_symbols",
             "release_builder",
             "remoteexec",
+            "win",
         ],
     ),
     builderless = False,
@@ -2232,6 +2345,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "minimal_symbols",
+            "win",
+            "x64",
         ],
     ),
     builderless = False,
@@ -2259,6 +2374,8 @@ ci.builder(
         configs = [
             "release_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
     ),
     builderless = True,
@@ -2278,7 +2395,7 @@ ci.builder(
     description_html = "Dangling ptr check for lacros.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
-            config = "chromium_no_telemetry_dependencies",
+            config = "chromium",
             apply_configs = [
                 "chromeos",
             ],
@@ -2305,6 +2422,7 @@ ci.builder(
             "enable_dangling_raw_ptr_checks",
             "enable_dangling_raw_ptr_feature_flag",
             "enable_backup_ref_ptr_feature_flag",
+            "x64",
         ],
     ),
     os = os.LINUX_DEFAULT,

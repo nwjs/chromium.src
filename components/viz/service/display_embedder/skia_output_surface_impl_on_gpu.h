@@ -33,6 +33,7 @@
 #include "components/viz/service/display_embedder/skia_output_surface_dependency.h"
 #include "components/viz/service/display_embedder/skia_render_copy_results.h"
 #include "gpu/command_buffer/common/mailbox.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
@@ -46,7 +47,7 @@
 
 #if BUILDFLAG(ENABLE_VULKAN) && BUILDFLAG(IS_CHROMEOS) && \
     BUILDFLAG(USE_V4L2_CODEC)
-#include "media/gpu/chromeos/vulkan_image_processor.h"
+#include "media/gpu/chromeos/vulkan_overlay_adaptor.h"
 #endif
 
 namespace gfx {
@@ -270,7 +271,7 @@ class SkiaOutputSurfaceImplOnGpu
                          const gfx::Size& size,
                          const gfx::ColorSpace& color_space,
                          SkAlphaType alpha_type,
-                         uint32_t usage,
+                         gpu::SharedImageUsageSet usage,
                          std::string debug_label,
                          gpu::SurfaceHandle surface_handle);
   void CreateSolidColorSharedImage(gpu::Mailbox mailbox,
@@ -279,8 +280,10 @@ class SkiaOutputSurfaceImplOnGpu
   void DestroySharedImage(gpu::Mailbox mailbox);
   void SetSharedImagePurgeable(const gpu::Mailbox& mailbox, bool purgeable);
 
+#if BUILDFLAG(IS_ANDROID)
   // Called on the viz thread!
   base::ScopedClosureRunner GetCacheBackBufferCb();
+#endif
 
   // Checks the relevant context for completed tasks and, indirectly, causes
   // associated completion callbacks to run.
@@ -533,11 +536,11 @@ class SkiaOutputSurfaceImplOnGpu
   std::unique_ptr<ui::PlatformWindowSurface> window_surface_;
 #endif
 
-  gpu::GpuPreferences gpu_preferences_;
+  const gpu::GpuPreferences gpu_preferences_;
   gfx::Size size_;
   // Only one of GLSurface of Presenter exists at the time.
   scoped_refptr<gl::GLSurface> gl_surface_;
-  scoped_refptr<gl::Presenter> presenter_;
+  raw_ptr<gl::Presenter> presenter_ = nullptr;
   scoped_refptr<gpu::SharedContextState> context_state_;
   size_t max_resource_cache_bytes_ = 0u;
 
@@ -627,7 +630,7 @@ class SkiaOutputSurfaceImplOnGpu
 
 #if BUILDFLAG(ENABLE_VULKAN) && BUILDFLAG(IS_CHROMEOS) && \
     BUILDFLAG(USE_V4L2_CODEC)
-  std::unique_ptr<media::VulkanImageProcessor> vulkan_image_processor_ =
+  std::unique_ptr<media::VulkanOverlayAdaptor> vulkan_overlay_adaptor_ =
       nullptr;
 #endif
 

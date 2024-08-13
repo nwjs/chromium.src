@@ -7,15 +7,9 @@ package org.chromium.chrome.browser.omnibox;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.Selection;
-import android.text.SpannableString;
-import android.text.Spanned;
 import android.text.TextUtils;
-import android.text.style.BackgroundColorSpan;
-import android.text.style.ForegroundColorSpan;
 import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
-import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.ExtractedText;
@@ -29,11 +23,8 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
-import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
-import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.accessibility.AccessibilityState;
 
-import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -74,7 +65,6 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
     private AutocompleteInputConnection mInputConnection;
     private boolean mLastEditWasTyping = true;
     private boolean mIgnoreTextChangeFromAutocomplete = true;
-    private boolean mLayoutDirectionIsLtr = true;
     private int mBatchEditNestCount;
     private int mDeletePostfixOnNextBeginImeCommand;
 
@@ -123,21 +113,6 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
 
     public void setInputConnectionForTesting(AutocompleteInputConnection connection) {
         mInputConnection = connection;
-    }
-
-    /**
-     * @param editable The editable.
-     * @return Debug string for the given {@Editable}.
-     */
-    private static String getEditableDebugString(Editable editable) {
-        return String.format(
-                Locale.US,
-                "Editable {[%s] SEL[%d %d] COM[%d %d]}",
-                editable.toString(),
-                Selection.getSelectionStart(editable),
-                Selection.getSelectionEnd(editable),
-                BaseInputConnection.getComposingSpanStart(editable),
-                BaseInputConnection.getComposingSpanEnd(editable));
     }
 
     private void sendAccessibilityEventForUserTextChange(
@@ -259,7 +234,7 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
             mInputConnection.onBeginImeCommand();
             mInputConnection.onEndImeCommand();
         } else {
-            mSpanCursorController.removeSpan();
+            mSpanCursorController.removeAutocompleteSpan();
             notifyAutocompleteTextStateChanged();
         }
     }
@@ -301,12 +276,14 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
                 mInputConnection.commitAutocomplete();
                 mDelegate.setSelection(currentPos, totalLength);
                 retVal = mDelegate.super_dispatchKeyEvent(event);
-            } else if (((event.getKeyCode() == KeyEvent.KEYCODE_TAB)
-                            || (event.getKeyCode() == KeyEvent.KEYCODE_ENTER))
-                    && event.getAction() == KeyEvent.ACTION_DOWN) {
+            } else if (event.getKeyCode() == KeyEvent.KEYCODE_TAB) {
                 mInputConnection.commitAutocomplete();
                 retVal = true;
             } else {
+                // It might make sense to commit the autocomplete text here but the
+                // AutocompleteMediator queries us via getTextWithAutocomplete() so it's included
+                // either way. Avoiding the extra commit eliminates a brief cursor flash at the end
+                // of the autocomplete suggestion.
                 retVal = mDelegate.super_dispatchKeyEvent(event);
             }
         } else {
@@ -341,7 +318,7 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
         if (DEBUG) Log.i(TAG, "onSelectionChanged [%d,%d]", selStart, selEnd);
         if (mCurrentState.getSelStart() == selStart && mCurrentState.getSelEnd() == selEnd) return;
 
-        // Do not users to select the space between additional texts.
+        // Do not allow users to select the space between additional texts.
         int maxLength =
                 mCurrentState.getUserText().length()
                         + mCurrentState.getAutocompleteText().map(t -> t.length()).orElse(0);
@@ -535,120 +512,9 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
         return mDelegateShouldIgnoreAccessibilityEvents;
     }
 
-    @Override
-    public void setLayoutDirectionIsLtr(boolean isLtr) {
-        mLayoutDirectionIsLtr = isLtr;
-    }
-
     @VisibleForTesting
     public AutocompleteState getCurrentAutocompleteState() {
         return mCurrentState;
-    }
-
-    /**
-     * A class to set and remove, or do other operations on Span and SpannableString of autocomplete
-     * text that will be appended to the user text. In addition, cursor will be hidden whenever we
-     * are showing span to the user.
-     */
-    private static class SpanCursorController {
-        private final @NonNull Delegate mDelegate;
-        private final @NonNull BackgroundColorSpan mAutocompleteBgColorSpan;
-        private final @NonNull ForegroundColorSpan mAdditionalTextFgColorSpan;
-
-        public SpanCursorController(Delegate delegate, Context context) {
-            mDelegate = delegate;
-            mAutocompleteBgColorSpan = new BackgroundColorSpan(mDelegate.getHighlightColor());
-            mAdditionalTextFgColorSpan =
-                    new ForegroundColorSpan(
-                            OmniboxResourceProvider.getAdditionalTextColor(context));
-        }
-
-        public void setSpan(AutocompleteState state) {
-            int sel = state.getSelStart();
-
-            Editable editable = mDelegate.getEditableText();
-
-            if (state.getAutocompleteText().isPresent()) {
-                SpannableString spanString = new SpannableString(state.getAutocompleteText().get());
-                // The flag here helps make sure that span does not get spill to other part of the
-                // text.
-                spanString.setSpan(
-                        mAutocompleteBgColorSpan,
-                        0,
-                        state.getAutocompleteText().map(t -> t.length()).orElse(0),
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                editable.append(spanString);
-            }
-
-            if (state.getAdditionalText().isPresent()
-                    && OmniboxFeatures.shouldShowRichInlineAutocompleteUrl(
-                            state.getUserText().length())) {
-                String additionalText = " - " + state.getAdditionalText().get();
-                SpannableString additionalTextSpanString = new SpannableString(additionalText);
-                additionalTextSpanString.setSpan(
-                        mAdditionalTextFgColorSpan,
-                        0,
-                        additionalText.length(),
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                editable.append(additionalTextSpanString);
-            }
-
-            // Keep the original selection before adding spannable string.
-            Selection.setSelection(editable, sel, sel);
-            setCursorVisible(false);
-            if (DEBUG) Log.i(TAG, "setSpan: " + getEditableDebugString(editable));
-        }
-
-        private void setCursorVisible(boolean visible) {
-            if (mDelegate.isFocused()) mDelegate.setCursorVisible(visible);
-        }
-
-        private int getSpanIndex(Editable editable) {
-            if (editable == null) return -1;
-            // returns -1 if mAutocompleteBgColorSpan is not attached
-            return editable.getSpanStart(mAutocompleteBgColorSpan);
-        }
-
-        public void reset() {
-            setCursorVisible(true);
-            Editable editable = mDelegate.getEditableText();
-            int idx = getSpanIndex(editable);
-            if (idx != -1) {
-                editable.removeSpan(mAutocompleteBgColorSpan);
-            }
-        }
-
-        public boolean removeSpan() {
-            setCursorVisible(true);
-            Editable editable = mDelegate.getEditableText();
-            int idx = getSpanIndex(editable);
-            if (idx == -1) return false;
-            if (DEBUG) Log.i(TAG, "removeSpan IDX[%d]", idx);
-            editable.removeSpan(mAutocompleteBgColorSpan);
-            editable.delete(idx, editable.length());
-            if (DEBUG) {
-                Log.i(TAG, "removeSpan - after removal: " + getEditableDebugString(editable));
-            }
-            return true;
-        }
-
-        public void commitSpan() {
-            mDelegate.getEditableText().removeSpan(mAutocompleteBgColorSpan);
-            setCursorVisible(true);
-        }
-
-        public void reflectTextUpdateInState(AutocompleteState state, CharSequence text) {
-            if (text instanceof Editable) {
-                Editable editable = (Editable) text;
-                int idx = getSpanIndex(editable);
-                if (idx != -1) {
-                    // We do not set autocomplete text here as model should solely control it.
-                    state.setUserText(editable.subSequence(0, idx).toString());
-                    return;
-                }
-            }
-            state.setUserText(text.toString());
-        }
     }
 
     @VisibleForTesting
@@ -731,7 +597,7 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
                 mDelegate.getText().delete(len - mDeletePostfixOnNextBeginImeCommand, len);
             }
             mDeletePostfixOnNextBeginImeCommand = 0;
-            mSpanCursorController.removeSpan();
+            mSpanCursorController.removeAutocompleteSpan();
             return retVal;
         }
 
@@ -754,7 +620,7 @@ public class SpannableAutocompleteEditTextModel implements AutocompleteEditTextM
         }
 
         private boolean setAutocompleteSpan() {
-            mSpanCursorController.removeSpan();
+            mSpanCursorController.removeAutocompleteSpan();
             if (DEBUG) {
                 Log.i(TAG, "setAutocompleteSpan. %s->%s", mPreviouslySetState, mCurrentState);
             }

@@ -6,6 +6,7 @@
 #define COMPONENTS_OMNIBOX_COMMON_OMNIBOX_FEATURES_H_
 
 #include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 
 namespace omnibox {
 
@@ -74,18 +75,11 @@ BASE_DECLARE_FEATURE(kPrefBasedDataCollectionConsentHelper);
 // Suggestions UI - these affect the UI or function of the suggestions popup.
 BASE_DECLARE_FEATURE(kClipboardSuggestionContentHidden);
 BASE_DECLARE_FEATURE(kSuppressClipboardSuggestionAfterFirstUsed);
-BASE_DECLARE_FEATURE(kCompanyEntityIconAdjustment);
-enum class CompanyEntityIconAdjustmentGroup {
-  kLeastAggressive,
-  kModerate,
-  kMostAggressive,
-};
 BASE_DECLARE_FEATURE(kCr2023ActionChips);
 BASE_DECLARE_FEATURE(kCr2023ActionChipsIcons);
 BASE_DECLARE_FEATURE(kMostVisitedTilesHorizontalRenderGroup);
 BASE_DECLARE_FEATURE(kRichAutocompletion);
 BASE_DECLARE_FEATURE(kNtpRealboxPedals);
-BASE_DECLARE_FEATURE(kOmniboxMatchToolbarAndStatusBarColor);
 BASE_DECLARE_FEATURE(kSquareSuggestIcons);
 BASE_DECLARE_FEATURE(kUniformRowHeight);
 BASE_DECLARE_FEATURE(kWebUIOmniboxPopup);
@@ -117,6 +111,12 @@ BASE_DECLARE_FEATURE(kUpdatedConnectionSecurityIndicators);
 // Navigation experiments.
 BASE_DECLARE_FEATURE(kDefaultTypedNavigationsToHttps);
 extern const char kDefaultTypedNavigationsToHttpsTimeoutParam[];
+
+BASE_DECLARE_FEATURE(kOverrideAndroidOmniboxSpareRendererDelay);
+// The delay value in milliseconds.
+inline constexpr base::FeatureParam<int> kOmniboxSpareRendererDelayMs{
+    &kOverrideAndroidOmniboxSpareRendererDelay,
+    "omnibox_spare_renderer_delay_ms", 1000};
 
 // Omnibox ML scoring.
 BASE_DECLARE_FEATURE(kLogUrlScoringSignals);
@@ -156,6 +156,7 @@ BASE_DECLARE_FEATURE(kStarterPackIPH);
 
 // Search and Suggest requests and params.
 BASE_DECLARE_FEATURE(kAblateSearchProviderWarmup);
+BASE_DECLARE_FEATURE(kDropUnrecognizedTemplateUrlParameters);
 BASE_DECLARE_FEATURE(kReportApplicationLanguageInSearchRequest);
 
 BASE_DECLARE_FEATURE(kOmniboxShortcutsAndroid);

@@ -21,7 +21,8 @@ interface InputDeviceSettingsType {
   fakeGraphicsTablets: GraphicsTablet[];
   fakeMouseButtonActions: {options: ActionChoice[]};
   fakeGraphicsTabletButtonActions: {options: ActionChoice[]};
-  fakeHasLauncherButton: {hasLauncherButton: boolean};
+  fakeMetaKeyToDisplay: {metaKey: MetaKey};
+  fakeDeviceIconImage: {dataUrl: string|null};
   fakeHasKeyboardBacklight: {hasKeyboardBacklight: boolean};
   fakeHasAmbientLightSensor: {hasAmbientLightSensor: boolean};
   fakeIsRgbKeyboardSupported: {isRgbKeyboardSupported: boolean};
@@ -114,7 +115,8 @@ export class FakeInputDeviceSettingsProvider implements
     this.methods.register('fakeGraphicsTablets');
     this.methods.register('fakeMouseButtonActions');
     this.methods.register('fakeGraphicsTabletButtonActions');
-    this.methods.register('fakeHasLauncherButton');
+    this.methods.register('fakeMetaKeyToDisplay');
+    this.methods.register('fakeDeviceIconImage');
     this.methods.register('fakeHasKeyboardBacklight');
     this.methods.register('fakeHasAmbientLightSensor');
     this.methods.register('fakeIsRgbKeyboardSupported');
@@ -382,6 +384,16 @@ export class FakeInputDeviceSettingsProvider implements
     return this.methods.resolveMethod('fakeGraphicsTabletButtonActions');
   }
 
+  setDeviceIconImage(dataUrl: string): void {
+    return this.methods.setResult('fakeDeviceIconImage', {dataUrl});
+  }
+
+  getDeviceIconImage(): Promise<{dataUrl: string | null}> {
+    return this.methods.resolveMethod('fakeDeviceIconImage');
+  }
+
+  launchCompanionApp(): void {}
+
   setFakeActionsForGraphicsTabletButtonCustomization(actionChoices:
                                                          ActionChoice[]): void {
     this.methods.setResult(
@@ -422,13 +434,12 @@ export class FakeInputDeviceSettingsProvider implements
     }
   }
 
-  hasLauncherButton(): Promise<{hasLauncherButton: boolean}> {
-    return this.methods.resolveMethod('fakeHasLauncherButton');
+  getMetaKeyToDisplay(): Promise<{metaKey: MetaKey}> {
+    return this.methods.resolveMethod('fakeMetaKeyToDisplay');
   }
 
-  setFakeHasLauncherButton(hasLauncherButton: boolean): void {
-    this.methods.setResult(
-        'fakeHasLauncherButton', {hasLauncherButton: hasLauncherButton});
+  setFakeMetaKeyToDisplay(metaKey: MetaKey): void {
+    this.methods.setResult('fakeMetaKeyToDisplay', {metaKey: metaKey});
   }
 
   hasKeyboardBacklight(): Promise<{hasKeyboardBacklight: boolean}> {

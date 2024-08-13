@@ -2373,11 +2373,11 @@ IN_PROC_BROWSER_TEST_P(TrustSafetySentimentSurveyV2BrowserTest,
   observer.WaitForNavigationFinished();
 }
 
-using RedInterstitialFaceliftBrowserTest = SafeBrowsingBlockingPageBrowserTest;
+using RedInterstitialUIBrowserTest = SafeBrowsingBlockingPageBrowserTest;
 
 INSTANTIATE_TEST_SUITE_P(
-    RedInterstitialFaceliftBrowserTestWithThreatTypeAndIsolationSetting,
-    RedInterstitialFaceliftBrowserTest,
+    RedInterstitialUIBrowserTestWithThreatTypeAndIsolationSetting,
+    RedInterstitialUIBrowserTest,
     testing::Combine(
         testing::Values(
             SBThreatType::SB_THREAT_TYPE_URL_PHISHING,  // Threat types
@@ -2386,7 +2386,7 @@ INSTANTIATE_TEST_SUITE_P(
             SBThreatType::SB_THREAT_TYPE_URL_UNWANTED),
         testing::Bool()));  // If isolate all sites for testing.
 
-IN_PROC_BROWSER_TEST_P(RedInterstitialFaceliftBrowserTest,
+IN_PROC_BROWSER_TEST_P(RedInterstitialUIBrowserTest,
                        TestInterstitialPageStringsEnhancedEnabled) {
   safe_browsing::SetSafeBrowsingState(
       browser()->profile()->GetPrefs(),
@@ -2407,7 +2407,7 @@ IN_PROC_BROWSER_TEST_P(RedInterstitialFaceliftBrowserTest,
   base::Value::Dict load_time_data;
   temp_var->PopulateStringsForHtml(load_time_data);
 
-  // Safe browsing blocking page should use new heading and primary,
+  // Safe browsing blocking page should use correct heading and primary,
   // explanation, and proceed paragraph strings.
   ASSERT_EQ(
       load_time_data.Find("heading")->GetString(),
@@ -2447,7 +2447,7 @@ IN_PROC_BROWSER_TEST_P(RedInterstitialFaceliftBrowserTest,
   }
 }
 
-IN_PROC_BROWSER_TEST_P(RedInterstitialFaceliftBrowserTest,
+IN_PROC_BROWSER_TEST_P(RedInterstitialUIBrowserTest,
                        TestInterstitialPageStringsStandardEnabled) {
   safe_browsing::SetSafeBrowsingState(
       browser()->profile()->GetPrefs(),
@@ -2468,8 +2468,8 @@ IN_PROC_BROWSER_TEST_P(RedInterstitialFaceliftBrowserTest,
   base::Value::Dict load_time_data;
   temp_var->PopulateStringsForHtml(load_time_data);
 
-  // Safe browsing blocking page should use new header and enhanced protection
-  // promo message strings.
+  // Safe browsing blocking page should use correct header and enhanced
+  // protection promo message strings.
   ASSERT_EQ(
       load_time_data.Find("heading")->GetString(),
       base::UTF16ToUTF8(l10n_util::GetStringUTF16(IDS_SAFEBROWSING_HEADING)));
@@ -3052,8 +3052,8 @@ IN_PROC_BROWSER_TEST_P(SafeBrowsingBlockingPageDelayedWarningBrowserTest,
   base::HistogramTester histograms;
 
   // This is needed for tests using BubbleObserver
-  content::WebContents* contents = nullptr;
-  PasswordManagerBrowserTestBase::GetNewTab(browser(), &contents);
+  content::WebContents* contents =
+      PasswordManagerBrowserTestBase::GetNewTab(browser());
 
   // Navigate to the page.
   content::TestNavigationObserver observer1(contents);
@@ -3106,7 +3106,6 @@ class SafeBrowsingBlockingPageIDNTest
     SafeBrowsingBlockingPage::UnsafeResource resource;
 
     resource.url = request_url;
-    resource.is_subresource = false;
     resource.threat_type = GetParam();
     resource.render_process_id = primary_main_frame_id.child_id;
     resource.render_frame_token = primary_main_frame->GetFrameToken().value();
@@ -3535,11 +3534,15 @@ class SafeBrowsingBlockingPageAsyncChecksTimingTestBase
             factory_.test_safe_browsing_service()->ui_manager().get());
     EXPECT_EQ(tracker->PendingCheckersSizeForTesting(), 1u);
 
+    GURL interstitial_url;
     for (const auto& url_and_server_redirect : url_and_server_redirects) {
       GURL url =
           embedded_test_server()->GetURL(url_and_server_redirect.relative_url);
       ReturnUrlRealTimeVerdictInUrlLoader(url,
                                           url_and_server_redirect.is_unsafe);
+      if (url_and_server_redirect.is_unsafe) {
+        interstitial_url = url;
+      }
     }
     SafeBrowsingBlockingPageTestHelper::MaybeWaitForAsyncChecksToComplete(
         browser()->tab_strip_model()->GetActiveWebContents(),
@@ -3554,7 +3557,7 @@ class SafeBrowsingBlockingPageAsyncChecksTimingTestBase
     // After the navigation is finished, we need to wait for the navigation of
     // the interstitial to complete.
     content::TestNavigationManager interstitial_navigation_manager(
-        browser()->tab_strip_model()->GetActiveWebContents(), final_url);
+        browser()->tab_strip_model()->GetActiveWebContents(), interstitial_url);
     EXPECT_TRUE(interstitial_navigation_manager.WaitForNavigationFinished());
     content::WaitForLoadStop(
         browser()->tab_strip_model()->GetActiveWebContents());
@@ -3923,6 +3926,12 @@ IN_PROC_BROWSER_TEST_P(SafeBrowsingBlockingPageAsyncChecksTimingTest,
        {kMaliciousPage, /* is_unsafe */ false}},
       threat_report_sent_runner->QuitClosure());
 
+  // The original URL is unsafe, so it should be displayed in the URL bar.
+  GURL original_url = embedded_test_server()->GetURL(kRedirectToMalware);
+  EXPECT_EQ(
+      original_url,
+      browser()->tab_strip_model()->GetActiveWebContents()->GetVisibleURL());
+
   EXPECT_TRUE(ClickAndWaitForDetach(browser(), "proceed-link"));
   AssertNoInterstitial(browser());  // Assert the interstitial is gone
 
@@ -3940,6 +3949,12 @@ IN_PROC_BROWSER_TEST_P(SafeBrowsingBlockingPageAsyncChecksTimingTest,
       {{kRedirectToMalware, /* is_unsafe */ false},
        {kMaliciousPage, /* is_unsafe */ true}},
       threat_report_sent_runner->QuitClosure());
+
+  // The final URL is unsafe, so it should be displayed in the URL bar.
+  GURL final_url = embedded_test_server()->GetURL(kMaliciousPage);
+  EXPECT_EQ(
+      final_url,
+      browser()->tab_strip_model()->GetActiveWebContents()->GetVisibleURL());
 
   EXPECT_TRUE(ClickAndWaitForDetach(browser(), "proceed-link"));
   AssertNoInterstitial(browser());  // Assert the interstitial is gone

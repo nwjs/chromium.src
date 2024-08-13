@@ -13,19 +13,6 @@
 
 namespace chromeos::features {
 
-namespace {
-
-bool g_app_install_service_uri_enabled_for_testing = false;
-
-}  // namespace
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-// Enables triggering app installs from a specific URI.
-BASE_FEATURE(kAppInstallServiceUri,
-             "AppInstallServiceUri",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
 // Adds Managed APN Policies support.
 BASE_FEATURE(kApnPolicies, "ApnPolicies", base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -102,11 +89,6 @@ BASE_FEATURE(kCrosShortstand,
              "CrosShortstand",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the more detailed, OS-level dialog for web app installs.
-BASE_FEATURE(kCrosWebAppInstallDialog,
-             "CrosWebAppInstallDialog",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 // With this feature enabled, the shortcut app badge is painted in the UI
 // instead of being part of the shortcut app icon.
@@ -157,7 +139,7 @@ BASE_FEATURE(kDisableQuickAnswersV2Translation,
 // When the feature is disabled, PKCS12 files are imported to NSS DB only.
 BASE_FEATURE(kEnablePkcs12ToChapsDualWrite,
              "EnablePkcs12ToChapsDualWrite",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Essential Search in Omnibox for both launcher and browser.
 BASE_FEATURE(kEssentialSearch,
@@ -181,9 +163,6 @@ BASE_FEATURE(kJellyroll, "Jellyroll", base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kKioskHeartbeatsViaERP,
              "KioskHeartbeatsViaERP",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls enabling / disabling the Magic Boost feature.
-BASE_FEATURE(kMagicBoost, "MagicBoost", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls enabling / disabling the mahi feature.
 BASE_FEATURE(kMahi, "Mahi", base::FEATURE_DISABLED_BY_DEFAULT);
@@ -217,7 +196,7 @@ BASE_FEATURE(kOrcaInternationalize,
 // Controls enabling / disabling orca l10n strings.
 BASE_FEATURE(kOrcaUseL10nStrings,
              "OrcaUseL10nStrings",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
 // Feature management flag used to gate preinstallation of the container app.
@@ -267,7 +246,7 @@ BASE_FEATURE(kQuickAnswersMaterialNextUI,
 // Enables the Office files upload workflow to improve Office files support.
 BASE_FEATURE(kUploadOfficeToCloud,
              "UploadOfficeToCloud",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the Office files upload workflow for enterprise users to improve
 // Office files support.
@@ -299,17 +278,6 @@ const char kRoundedWindowsRadius[] = "window_radius";
 
 bool IsApnPoliciesEnabled() {
   return base::FeatureList::IsEnabled(kApnPolicies);
-}
-
-bool IsAppInstallServiceUriEnabled() {
-  if (g_app_install_service_uri_enabled_for_testing) {
-    return true;
-  }
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsAppInstallServiceUriEnabled();
-#else
-  return base::FeatureList::IsEnabled(kAppInstallServiceUri);
-#endif
 }
 
 bool IsCaptivePortalPopupWindowEnabled() {
@@ -365,33 +333,25 @@ bool IsCrosComponentsEnabled() {
   return base::FeatureList::IsEnabled(kCrosComponents) && IsJellyEnabled();
 }
 
-bool IsCrosMallEnabled() {
+bool IsCrosMallWebAppEnabled() {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsCrosMallEnabled();
+  return chromeos::BrowserParamsProxy::Get()->IsCrosMallWebAppEnabled();
 #else
-  return base::FeatureList::IsEnabled(kCrosMall);
+  return base::FeatureList::IsEnabled(kCrosMall) &&
+         !base::FeatureList::IsEnabled(kCrosMallSwa);
 #endif
 }
 
 bool IsCrosMallSwaEnabled() {
-  return chromeos::features::IsCrosMallEnabled() &&
-         base::FeatureList::IsEnabled(chromeos::features::kCrosMallSwa);
+  return base::FeatureList::IsEnabled(kCrosMall) &&
+         base::FeatureList::IsEnabled(kCrosMallSwa);
 }
 
 bool IsCrosShortstandEnabled() {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsCrosShortstandEnabled();
+  return false;
 #else
   return base::FeatureList::IsEnabled(kCrosShortstand);
-#endif
-}
-
-bool IsCrosWebAppInstallDialogEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()
-      ->IsCrosWebAppInstallDialogEnabled();
-#else
-  return base::FeatureList::IsEnabled(kCrosWebAppInstallDialog);
 #endif
 }
 
@@ -400,8 +360,7 @@ bool IsCrosWebAppShortcutUiUpdateEnabled() {
     return true;
   }
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()
-      ->IsCrosWebAppShortcutUiUpdateEnabled();
+  return false;
 #else
   return base::FeatureList::IsEnabled(kCrosWebAppShortcutUiUpdate);
 #endif
@@ -462,17 +421,21 @@ bool IsJellyrollEnabled() {
 
 bool IsMagicBoostEnabled() {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsMagicBoostEnabled();
+  // Magic Boost does not work in Lacros.
+  return false;
 #else
-  return base::FeatureList::IsEnabled(kMagicBoost);
+  return IsMahiEnabled();
 #endif
 }
 
+// Sparkly depends on Mahi, so we turn on Mahi if the sparky flag is enabled.
+// Sparky doesn't work on LACROS so that case is ignored.
 bool IsMahiEnabled() {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   return chromeos::BrowserParamsProxy::Get()->IsMahiEnabled();
 #else
-  return base::FeatureList::IsEnabled(kMahi);
+  return base::FeatureList::IsEnabled(kMahi) ||
+         base::FeatureList::IsEnabled(kSparky);
 #endif
 }
 
@@ -582,10 +545,6 @@ int RoundedWindowsRadius() {
 
   return base::GetFieldTrialParamByFeatureAsInt(
       kRoundedWindows, kRoundedWindowsRadius, /*default_value=*/12);
-}
-
-base::AutoReset<bool> SetAppInstallServiceUriEnabledForTesting() {
-  return {&g_app_install_service_uri_enabled_for_testing, true};
 }
 
 }  // namespace chromeos::features

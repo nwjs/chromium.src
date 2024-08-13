@@ -19,9 +19,11 @@ BASE_FEATURE(kIPHDummyFeature, "IPH_Dummy", base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 BASE_FEATURE(kEsbDownloadRowPromoFeature,
              "EsbDownloadRowPromo",
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 BASE_FEATURE(kIPHBatterySaverModeFeature,
              "IPH_BatterySaverMode",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -64,6 +66,9 @@ BASE_FEATURE(kIPHExperimentalAIPromoFeature,
 BASE_FEATURE(kIPHExplicitBrowserSigninPreferenceRememberedFeature,
              "IPH_ExplicitBrowserSigninPreferenceRemembered",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHHistorySearchFeature,
+             "IPH_HistorySearch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 BASE_FEATURE(kIPHExtensionsMenuFeature,
              "IPH_ExtensionsMenu",
@@ -90,9 +95,6 @@ BASE_FEATURE(kIPHLiveCaptionFeature,
 BASE_FEATURE(kIPHTabAudioMutingFeature,
              "IPH_TabAudioMuting",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHPasswordsAccountStorageFeature,
-             "IPH_PasswordsAccountStorage",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPasswordsManagementBubbleAfterSaveFeature,
              "IPH_PasswordsManagementBubbleAfterSave",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -110,7 +112,7 @@ BASE_FEATURE(kIPHPasswordSharingFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPerformanceInterventionDialogFeature,
              "IPH_PerformanceInterventionDialogFeature",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPowerBookmarksSidePanelFeature,
              "IPH_PowerBookmarksSidePanel",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -171,15 +173,15 @@ BASE_FEATURE(kIPHTabOrganizationSuccessFeature,
 BASE_FEATURE(kIPHTabSearchFeature,
              "IPH_TabSearch",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHTrackingProtectionOffboardingFeature,
-             "IPH_TrackingProtectionOffboarding",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTrackingProtectionOnboardingFeature,
              "IPH_TrackingProtectionOnboarding",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTrackingProtectionFullOnboardingFeature,
+             "IPH_TrackingProtectionFullOnboarding",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTrackingProtectionReminderFeature,
              "IPH_TrackingProtectionReminder",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHWebUITabStripFeature,
              "IPH_WebUITabStrip",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -292,6 +294,9 @@ BASE_FEATURE(kIPHQuietNotificationPromptsFeature,
 BASE_FEATURE(kIPHReadAloudAppMenuFeature,
              "IPH_ReadAloudAppMenuFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHReadAloudExpandedPlayerFeature,
+             "IPH_ReadAloudExpandedPlayerFeature",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHReadLaterContextMenuFeature,
              "IPH_ReadLaterContextMenu",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -304,9 +309,6 @@ BASE_FEATURE(kIPHReadLaterAppMenuBookmarksFeature,
 BASE_FEATURE(kIPHReadLaterBottomSheetFeature,
              "IPH_ReadLaterBottomSheet",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHRequestDesktopSiteAppMenuFeature,
-             "IPH_RequestDesktopSiteAppMenu",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHRequestDesktopSiteDefaultOnFeature,
              "IPH_RequestDesktopSiteDefaultOn",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -316,6 +318,9 @@ BASE_FEATURE(kIPHRequestDesktopSiteExceptionsGenericFeature,
 BASE_FEATURE(kIPHRequestDesktopSiteWindowSettingFeature,
              "IPH_RequestDesktopSiteWindowSetting",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHRtlGestureNavigationFeature,
+             "IPH_RtlGestureNavigation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingListSaveFlowFeature,
              "IPH_ShoppingListSaveFlow",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -387,6 +392,9 @@ BASE_FEATURE(kIPHTabGroupsYourTabsAreTogetherFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupsDragAndDropFeature,
              "IPH_TabGroupsDragAndDrop",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTabGroupsRemoteGroupFeature,
+             "IPH_TabGroupsRemoteGroup",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupsSurfaceFeature,
              "IPH_TabGroupsSurface",
@@ -511,9 +519,6 @@ BASE_FEATURE(kIPHiOSDefaultBrowserBadgeEligibilityFeature,
 BASE_FEATURE(kIPHiOSDefaultBrowserOverflowMenuBadgeFeature,
              "IPH_iOSDefaultBrowserOverflowMenuBadge",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHiOSDefaultBrowserSettingsBadgeFeature,
-             "IPH_iOSDefaultBrowserSettingsBadge",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSLensKeyboardFeature,
              "IPH_iOSLensKeyboard",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -558,7 +563,7 @@ BASE_FEATURE(kIPHiOSParcelTrackingFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSPullToRefreshFeature,
              "IPH_iOSPullToRefreshFeature",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSReplaceSyncPromosWithSignInPromos,
              "IPH_iOSReplaceSyncPromosWithSignInPromos",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -604,6 +609,12 @@ BASE_FEATURE(kIPHiOSInlineEnhancedSafeBrowsingPromoFeature,
 BASE_FEATURE(kIPHiOSSavedTabGroupClosed,
              "IPH_iOSSavedTabGroupClosed",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSContextualPanelSampleModelFeature,
+             "IPH_iOSContextualPanelSampleModel",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSContextualPanelPriceInsightsFeature,
+             "IPH_iOSContextualPanelPriceInsights",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Non-FET feature.
 BASE_FEATURE(kDefaultBrowserEligibilitySlidingWindow,
@@ -645,6 +656,9 @@ BASE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature,
 BASE_FEATURE(kIPHCookieControlsFeature,
              "IPH_CookieControls",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHPlusAddressCreateSuggestionFeature,
+             "IPH_PlusAddressCreateSuggestion",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) ||
         // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
         // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)

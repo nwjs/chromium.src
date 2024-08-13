@@ -2,10 +2,19 @@
   .bullet-one {
     margin-bottom: 1lh;
   }
+
+  cr-icon {
+    flex-shrink: 0;
+  }
 </style>
 <settings-toggle-button
     label="$i18n{historySearchSettingLabel}"
-    sub-label="$i18n{historySearchSettingSublabel}">
+    sub-label="$i18n{historySearchSettingSublabel}"
+    learn-more-url="$i18n{historySearchLearnMoreUrl}"
+    learn-more-aria-label="$i18n{historySearchLearnMoreA11yLabel}"
+    pref="{{prefs.optimization_guide.history_search_setting_state}}"
+    numeric-unchecked-values="[[numericUncheckedValues_]]"
+    numeric-checked-value="[[featureOptInStateEnum_.ENABLED]]">
 </settings-toggle-button>
 
 <div class="settings-columned-section">
@@ -31,7 +40,4 @@
       </li>
     </ul>
   </div>
-</div>
-<div class="settings-box block continuation">
-  $i18nRaw{historySearchLearnMore}
 </div>

@@ -21,7 +21,13 @@
 #include "base/notreached.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/favicon/large_icon_service_factory.h"
+#include "chrome/browser/image_fetcher/image_fetcher_service_factory.h"
+#include "chrome/browser/media/webrtc/desktop_capture_access_handler.h"
 #include "chrome/browser/platform_util.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_key.h"
+#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller_utils.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -48,10 +54,15 @@
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/favicon/core/large_icon_service.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/image_fetcher/core/image_fetcher_service.h"
 #include "components/input/native_web_keyboard_event.h"
+#include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/service/sync_service.h"
 #include "components/user_education/common/feature_promo_controller.h"
+#include "content/public/browser/web_contents.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -85,15 +96,12 @@ namespace autofill {
 
 namespace {
 
-// By spec, dropdowns should always have a width which is a multiple of 12.
-constexpr int kAutofillPopupWidthMultiple = 12;
-
 // The minimum width should exceed the maximum size of a cursor, which is 128
 // (see crbug.com/1434330).
-constexpr int kAutofillPopupMinWidth = kAutofillPopupWidthMultiple * 13;
+constexpr int kAutofillPopupMinWidth = 156;
 static_assert(kAutofillPopupMinWidth > 128);
 // TODO(crbug.com/41382463): move handling the max width to the base class.
-constexpr int kAutofillPopupMaxWidth = kAutofillPopupWidthMultiple * 38;
+constexpr int kAutofillPopupMaxWidth = 456;
 
 // Preferred position relative to the control sides of the sub-popup.
 constexpr std::array<views::BubbleArrowSide, 2> kDefaultSubPopupSides = {
@@ -178,11 +186,8 @@ PopupViewViews::~PopupViewViews() = default;
 
 void PopupViewViews::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kListBox;
-  // If controller_ is valid, then the view is expanded.
-  if (controller_) {
-    node_data->AddState(ax::mojom::State::kExpanded);
-  } else {
-    node_data->AddState(ax::mojom::State::kCollapsed);
+
+  if (!controller_) {
     node_data->AddState(ax::mojom::State::kInvisible);
   }
   node_data->SetNameChecked(
@@ -197,11 +202,19 @@ void PopupViewViews::OnMouseExited(const ui::MouseEvent& event) {
   OnMouseExitedInChildren();
 }
 
+void PopupViewViews::OnPaint(gfx::Canvas* canvas) {
+  views::View::OnPaint(canvas);
+  if (controller_ && base::FeatureList::IsEnabled(
+                         features::kAutofillPopupMeasureTimeAfterPaint)) {
+    controller_->OnPopupPainted();
+  }
+}
+
 bool PopupViewViews::Show(
     AutoselectFirstSuggestion autoselect_first_suggestion) {
   base::AutoReset show_in_progress_reset(&show_in_progress_, !!search_bar_);
 
-  NotifyAccessibilityEvent(ax::mojom::Event::kExpandedChanged, true);
+  UpdateExpandedCollapsedAccessibleState();
   if (!DoShow()) {
     return false;
   }
@@ -232,7 +245,7 @@ bool PopupViewViews::Show(
   }
 
   // Compose has separate on show announcements.
-  // TODO(b/340359989): Replace with AutofillComposeDelegate::OnShow
+  // TODO(crbug.com/340359989): Replace with AutofillComposeDelegate::OnShow
   if (controller_->GetMainFillingProduct() == FillingProduct::kCompose) {
     const bool announce_politely =
         base::FeatureList::IsEnabled(features::kComposePopupAnnouncePolitely);
@@ -273,13 +286,12 @@ bool PopupViewViews::Show(
 }
 
 void PopupViewViews::Hide() {
-  NotifyAccessibilityEvent(ax::mojom::Event::kExpandedChanged, true);
-
   open_sub_popup_timer_.Stop();
   no_selection_sub_popup_close_timer_.Stop();
 
   // The controller is no longer valid after it hides us.
   controller_ = nullptr;
+  UpdateExpandedCollapsedAccessibleState();
   DoHide();
 }
 
@@ -749,6 +761,8 @@ void PopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
       feature_engagement::kIPHAutofillExternalAccountProfileSuggestionFeature);
   browser->window()->MaybeShowFeaturePromo(
       feature_engagement::kIPHAutofillCreditCardBenefitFeature);
+  browser->window()->MaybeShowFeaturePromo(
+      feature_engagement::kIPHPlusAddressCreateSuggestionFeature);
 }
 
 void PopupViewViews::SearchBarOnInputChanged(const std::u16string& query) {
@@ -771,7 +785,7 @@ bool PopupViewViews::SearchBarHandleKeyPressed(const ui::KeyEvent& event) {
     return false;
   }
 
-// TODO(b/339187209): On MaOS, conversion of a character key event to
+// TODO(crbug.com/339187209): On MaOS, conversion of a character key event to
 // `NativeWebKeyboardEvent` hits `NOTREACHED` in `ui::DomKeyFromNSEvent`. This
 // doesn't affect our use case as we handle only non-character events
 // (Arrows/Esc/etc) for navigation. But it needs to be investigated and ideally
@@ -850,6 +864,14 @@ void PopupViewViews::SetSelectedCell(
   }
 }
 
+void PopupViewViews::UpdateExpandedCollapsedAccessibleState() const {
+  if (controller_) {
+    GetViewAccessibility().SetIsExpanded();
+  } else {
+    GetViewAccessibility().SetIsCollapsed();
+  }
+}
+
 bool PopupViewViews::HasPopupRowViewAt(size_t index) const {
   return index < rows_.size() &&
          absl::holds_alternative<PopupRowView*>(rows_[index]);
@@ -873,7 +895,20 @@ void PopupViewViews::InitViews() {
                        .SetOrientation(views::BoxLayout::Orientation::kVertical)
                        .Build());
 
+  Browser* browser = GetBrowser();
+  if (Profile* profile = browser ? browser->profile() : nullptr) {
+    auto* favicon_service =
+        LargeIconServiceFactory::GetForBrowserContext(profile);
+    auto* image_fetcher =
+        ImageFetcherServiceFactory::GetForKey(profile->GetProfileKey())
+            ->GetImageFetcher(
+                image_fetcher::ImageFetcherConfig::kInMemoryWithDiskCache);
+    password_favicon_loader_ = std::make_unique<PasswordFaviconLoaderImpl>(
+        favicon_service, image_fetcher);
+  }
+
   CreateSuggestionViews();
+  UpdateExpandedCollapsedAccessibleState();
 }
 
 void PopupViewViews::CreateSuggestionViews() {
@@ -950,7 +985,7 @@ void PopupViewViews::CreateSuggestionViews() {
               body_container->AddChildView(CreatePopupRowView(
                   controller(), /*a11y_selection_delegate=*/*this,
                   /*selection_delegate=*/*this, current_line_number,
-                  std::move(filter_match)));
+                  std::move(filter_match), password_favicon_loader_.get()));
           rows_.push_back(row_view);
 
           const base::Feature* const feature_for_iph =
@@ -978,6 +1013,11 @@ void PopupViewViews::CreateSuggestionViews() {
                          kIPHAutofillCreditCardBenefitFeature) {
             row_view->SetProperty(views::kElementIdentifierKey,
                                   kAutofillCreditCardBenefitElementId);
+          } else if (feature_for_iph ==
+                     &feature_engagement::
+                         kIPHPlusAddressCreateSuggestionFeature) {
+            row_view->SetProperty(views::kElementIdentifierKey,
+                                  kPlusAddressCreateSuggestionElementId);
           }
       }
     }
@@ -1057,37 +1097,15 @@ void PopupViewViews::CreateSuggestionViews() {
   }
 }
 
-int PopupViewViews::AdjustWidth(int width) const {
-  if (width >= kAutofillPopupMaxWidth) {
-    return kAutofillPopupMaxWidth;
-  }
-
-  if (width <= kAutofillPopupMinWidth) {
-    return kAutofillPopupMinWidth;
-  }
-
-  // The popup size is being determined by the contents, rather than the min/max
-  // or the element bounds. Round up to a multiple of
-  // |kAutofillPopupWidthMultiple|.
-  if (width % kAutofillPopupWidthMultiple) {
-    width +=
-        (kAutofillPopupWidthMultiple - (width % kAutofillPopupWidthMultiple));
-  }
-
-  return width;
-}
-
 gfx::Size PopupViewViews::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
   gfx::Size size = views::View::CalculatePreferredSize(available_size);
-  // Applies certain rounding rules to the given width, such as matching the
-  // element width when possible.
-  const int width = AdjustWidth(size.width());
   if (size.width() > kAutofillPopupMaxWidth) {
     // TODO(crbug.com/40232718): When we set the vertical axis to stretch,
     // BoxLayout will occupy the entire vertical axis size. Two calculations are
     // needed to correct this.
-    return views::View::CalculatePreferredSize(views::SizeBounds(width, {}));
+    return views::View::CalculatePreferredSize(
+        views::SizeBounds(kAutofillPopupMaxWidth, {}));
   }
 
   return size;
@@ -1155,7 +1173,9 @@ bool PopupViewViews::DoUpdateBoundsAndRedrawPopup() {
     // compensate.
     scroll_width = scroll_view_->GetScrollBarLayoutWidth();
   }
-  preferred_size.set_width(AdjustWidth(preferred_size.width() + scroll_width));
+  preferred_size.set_width(std::clamp(preferred_size.width() + scroll_width,
+                                      kAutofillPopupMinWidth,
+                                      kAutofillPopupMaxWidth));
 
   popup_bounds = GetOptionalPositionAndPlaceArrowOnPopup(
       element_bounds, content_area_bounds, preferred_size);

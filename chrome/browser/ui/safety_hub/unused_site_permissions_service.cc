@@ -28,6 +28,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
+#include "chrome/browser/ui/safety_hub/safety_hub_prefs.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_service.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_util.h"
 #include "chrome/common/chrome_features.h"
@@ -62,6 +63,9 @@ constexpr base::TimeDelta kRevocationThresholdWithDelayForTesting =
     base::Minutes(5);
 
 namespace {
+
+constexpr char kUnknownContentSettingsType[] = "unknown";
+
 // Reflects the maximum number of days between a permissions being revoked and
 // the time when the user regrants the permission through the unused site
 // permission module of Safete Check. The maximum number of days is determined
@@ -104,17 +108,93 @@ bool IsChooserPermissionSupported() {
           kSafetyCheckUnusedSitePermissionsForSupportedChooserPermissions);
 }
 
-std::string ConvertContentSettingsTypeToKey(ContentSettingsType type) {
-  return base::NumberToString(static_cast<int32_t>(type));
+base::Value::List ConvertContentSettingsIntValuesToString(
+    const base::Value::List& content_settings_values_list,
+    bool* successful_migration) {
+  base::Value::List string_value_list;
+  for (const base::Value& setting_value : content_settings_values_list) {
+    if (setting_value.is_int()) {
+      int setting_int = setting_value.GetInt();
+      auto setting_name =
+          UnusedSitePermissionsService::ConvertContentSettingsTypeToKey(
+              static_cast<ContentSettingsType>(setting_int));
+      if (setting_name == kUnknownContentSettingsType) {
+        *successful_migration = false;
+        string_value_list.Append(setting_value.GetInt());
+      } else {
+        string_value_list.Append(setting_name);
+      }
+    } else {
+      DCHECK(setting_value.is_string());
+      // Store string group name values.
+      string_value_list.Append(setting_value.GetString());
+    }
+  }
+  return string_value_list;
 }
 
-ContentSettingsType ConvertKeyToContentSettingsType(std::string key) {
-  int number = -1;
-  DCHECK(base::StringToInt(key, &number));
-  return static_cast<ContentSettingsType>(number);
+base::Value::Dict ConvertChooserContentSettingsIntValuesToString(
+    const base::Value::Dict& chooser_content_settings_values_dict) {
+  base::Value::Dict string_keyed_dict;
+  for (const auto [key, value] : chooser_content_settings_values_dict) {
+    int number = -1;
+    base::StringToInt(key, &number);
+    // If number conversion fails it returns 0 which is not a chooser permission
+    // enum value so it will not clash with the conversion.
+    if (number == 0) {
+      // Store string keyed values as is.
+      string_keyed_dict.Set(key, value.GetDict().Clone());
+    } else {
+      string_keyed_dict.Set(
+          UnusedSitePermissionsService::ConvertContentSettingsTypeToKey(
+              static_cast<ContentSettingsType>(number)),
+          value.GetDict().Clone());
+    }
+  }
+  return string_keyed_dict;
 }
 
 }  // namespace
+
+// static
+std::string UnusedSitePermissionsService::ConvertContentSettingsTypeToKey(
+    ContentSettingsType type) {
+  auto* website_setting_registry =
+      content_settings::WebsiteSettingsRegistry::GetInstance();
+  DCHECK(website_setting_registry);
+
+  auto* website_settings_info = website_setting_registry->Get(type);
+  if (!website_settings_info) {
+    auto integer_type = static_cast<int32_t>(type);
+    DVLOG(1) << "Couldn't retrieve website settings info entry from the "
+                "registry for type: "
+             << integer_type;
+    base::UmaHistogramSparse(
+        "Settings.SafetyCheck.UnusedSitePermissionsMigrationFail",
+        integer_type);
+    return kUnknownContentSettingsType;
+  }
+
+  return website_settings_info->name();
+}
+
+// static
+ContentSettingsType
+UnusedSitePermissionsService::ConvertKeyToContentSettingsType(
+    const std::string& key) {
+  auto* website_setting_registry =
+      content_settings::WebsiteSettingsRegistry::GetInstance();
+  return website_setting_registry->GetByName(key)->type();
+}
+
+// static
+url::Origin UnusedSitePermissionsService::ConvertPrimaryPatternToOrigin(
+    const ContentSettingsPattern& primary_pattern) {
+  GURL origin_url = GURL(primary_pattern.ToString());
+  CHECK(origin_url.is_valid());
+
+  return url::Origin::Create(origin_url);
+}
 
 base::TimeDelta UnusedSitePermissionsService::GetRepeatedUpdateInterval() {
   return content_settings::features::
@@ -136,7 +216,7 @@ PermissionsData::PermissionsData() = default;
 PermissionsData::~PermissionsData() = default;
 
 PermissionsData::PermissionsData(const PermissionsData& other)
-    : origin(other.origin),
+    : primary_pattern(other.primary_pattern),
       permission_types(other.permission_types),
       constraints(other.constraints),
       abusive_revocation_constraints(other.abusive_revocation_constraints) {
@@ -172,7 +252,7 @@ UnusedSitePermissionsService::UnusedSitePermissionsResult::GetRevokedOrigins()
     const {
   std::set<ContentSettingsPattern> origins;
   for (auto permission : revoked_permissions_) {
-    origins.insert(permission.origin);
+    origins.insert(permission.primary_pattern);
   }
   return origins;
 }
@@ -182,7 +262,7 @@ UnusedSitePermissionsService::UnusedSitePermissionsResult::ToDictValue() const {
   base::Value::Dict result = BaseToDictValue();
   base::Value::List revoked_origins;
   for (auto permission : revoked_permissions_) {
-    revoked_origins.Append(permission.origin.ToString());
+    revoked_origins.Append(permission.primary_pattern.ToString());
   }
   result.Set(kUnusedSitePermissionsResultKey, std::move(revoked_origins));
   return result;
@@ -231,7 +311,6 @@ bool UnusedSitePermissionsService::UnusedSitePermissionsResult::
 
 std::u16string UnusedSitePermissionsService::UnusedSitePermissionsResult::
     GetNotificationString() const {
-#if !BUILDFLAG(IS_ANDROID)
   if (revoked_permissions_.empty()) {
     return std::u16string();
   }
@@ -241,10 +320,6 @@ std::u16string UnusedSitePermissionsService::UnusedSitePermissionsResult::
           ? IDS_SETTINGS_SAFETY_HUB_REVOKED_PERMISSIONS_MENU_NOTIFICATION
           : IDS_SETTINGS_SAFETY_HUB_UNUSED_SITE_PERMISSIONS_MENU_NOTIFICATION,
       revoked_permissions_.size());
-#else
-  // Menu notifications are not present on Android.
-  return std::u16string();
-#endif
 }
 
 int UnusedSitePermissionsService::UnusedSitePermissionsResult::
@@ -271,34 +346,41 @@ UnusedSitePermissionsService::UnusedSitePermissionsService(
   DCHECK(browser_context_);
 
   content_settings_observation_.Observe(hcsm());
+  pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+  pref_change_registrar_->Init(prefs);
 
-    pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
-    pref_change_registrar_->Init(prefs);
+  if (base::FeatureList::IsEnabled(features::kSafetyHub)) {
+    pref_change_registrar_->Add(
+        safety_hub_prefs::kUnusedSitePermissionsRevocationEnabled,
+        base::BindRepeating(&UnusedSitePermissionsService::
+                                OnPermissionsAutorevocationControlChanged,
+                            base::Unretained(this)));
+  }
 
-    if (base::FeatureList::IsEnabled(features::kSafetyHub)) {
-      pref_change_registrar_->Add(
-          permissions::prefs::kUnusedSitePermissionsRevocationEnabled,
-          base::BindRepeating(&UnusedSitePermissionsService::
-                                  OnPermissionsAutorevocationControlChanged,
-                              base::Unretained(this)));
-    }
+  if (base::FeatureList::IsEnabled(
+          safe_browsing::kSafetyHubAbusiveNotificationRevocation)) {
+    abusive_notification_manager_ =
+        std::make_unique<AbusiveNotificationPermissionsManager>(
+            g_browser_process->safe_browsing_service()
+                ? g_browser_process->safe_browsing_service()->database_manager()
+                : nullptr,
+            hcsm());
 
-    if (base::FeatureList::IsEnabled(
-            safe_browsing::kSafetyHubAbusiveNotificationRevocation)) {
-      abusive_notification_manager_ =
-          std::make_unique<AbusiveNotificationPermissionsManager>(
-              g_browser_process->safe_browsing_service()
-                  ? g_browser_process->safe_browsing_service()
-                        ->database_manager()
-                  : nullptr,
-              hcsm());
+    pref_change_registrar_->Add(
+        prefs::kSafeBrowsingEnabled,
+        base::BindRepeating(&UnusedSitePermissionsService::
+                                OnPermissionsAutorevocationControlChanged,
+                            base::Unretained(this)));
+  }
 
-      pref_change_registrar_->Add(
-          prefs::kSafeBrowsingEnabled,
-          base::BindRepeating(&UnusedSitePermissionsService::
-                                  OnPermissionsAutorevocationControlChanged,
-                              base::Unretained(this)));
-    }
+  bool migration_completed = pref_change_registrar_->prefs()->GetBoolean(
+      safety_hub_prefs::kUnusedSitePermissionsRevocationMigrationCompleted);
+  if (!migration_completed) {
+    // Convert all integer permission values to string, if there is any
+    // permission represented by integer stored in disk.
+    // TODO(crbug.com/41495119): Clean up this migration after some milestones.
+    UpdateIntegerValuesToGroupName();
+  }
 
   InitializeLatestResult();
 
@@ -392,14 +474,10 @@ void UnusedSitePermissionsService::RegrantPermissionsForOrigin(
   // revoked setting values, since this is set with specific values below.
   is_unused_site_revocation_running = true;
   for (auto& permission_type : *permission_type_list) {
-    // Check if stored permission type is valid.
-    auto type_int = permission_type.GetIfInt();
-    if (!type_int.has_value()) {
-      continue;
-    }
     // Look up ContentSettingsRegistry to see if type is content setting
     // or website setting.
-    auto type = static_cast<ContentSettingsType>(type_int.value());
+    ContentSettingsType type =
+        ConvertKeyToContentSettingsType(permission_type.GetString());
     if (IsContentSetting(type)) {
       // ContentSettingsRegistry-based permissions with ALLOW value were
       // revoked; re-grant them by setting ALLOW again.
@@ -452,7 +530,7 @@ void UnusedSitePermissionsService::UndoRegrantPermissionsForOrigin(
     const PermissionsData& permissions_data) {
   if (IsAbusiveNotificationAutoRevocationEnabled()) {
     abusive_notification_manager_->UndoRegrantPermissionForOriginIfNecessary(
-        GURL(permissions_data.origin.ToString()),
+        GURL(permissions_data.primary_pattern.ToString()),
         permissions_data.permission_types,
         permissions_data.abusive_revocation_constraints);
   }
@@ -473,12 +551,12 @@ void UnusedSitePermissionsService::UndoRegrantPermissionsForOrigin(
   for (const auto& permission : unused_site_permission_types) {
     if (IsContentSetting(permission)) {
       hcsm()->SetContentSettingCustomScope(
-          permissions_data.origin, ContentSettingsPattern::Wildcard(),
+          permissions_data.primary_pattern, ContentSettingsPattern::Wildcard(),
           permission, ContentSetting::CONTENT_SETTING_DEFAULT);
     } else if (IsChooserPermissionSupported() && IsWebsiteSetting(permission)) {
       hcsm()->SetWebsiteSettingDefaultScope(
-          permissions_data.origin.ToRepresentativeUrl(), GURL(), permission,
-          base::Value());
+          permissions_data.primary_pattern.ToRepresentativeUrl(), GURL(),
+          permission, base::Value());
     } else {
       NOTREACHED_IN_MIGRATION()
           << "Unable to find ContentSettingsType in neither "
@@ -492,7 +570,7 @@ void UnusedSitePermissionsService::UndoRegrantPermissionsForOrigin(
 
   StorePermissionInRevokedPermissionSetting(
       unused_site_permission_types, permissions_data.chooser_permissions_data,
-      permissions_data.constraints, permissions_data.origin,
+      permissions_data.constraints, permissions_data.primary_pattern,
       ContentSettingsPattern::Wildcard());
 }
 
@@ -596,12 +674,12 @@ UnusedSitePermissionsService::UpdateOnBackgroundThread(
       }
       if (setting.metadata.last_visited() != base::Time() &&
           setting.metadata.last_visited() < threshold) {
-        GURL url = GURL(setting.primary_pattern.ToString());
-        // Converting URL to a origin is normally an anti-pattern but here it is
-        // ok since the URL belongs to a single origin. Therefore, it has a
-        // fully defined URL+scheme+port which makes converting URL to origin
-        // successful.
-        url::Origin origin = url::Origin::Create(url);
+        // Converting a primary pattern to an origin is normally an anti-pattern
+        // but here it is ok since the primary pattern belongs to a single
+        // origin. Therefore, it has a fully defined URL+scheme+port which makes
+        // converting primary pattern to origin successful.
+        url::Origin origin =
+            ConvertPrimaryPatternToOrigin(setting.primary_pattern);
         recently_unused[origin.Serialize()].push_back(
             {type, std::move(setting)});
       }
@@ -638,21 +716,22 @@ UnusedSitePermissionsService::GetRevokedPermissions() {
 
   for (const auto& revoked_permissions : settings) {
     PermissionsData permissions_data;
-    permissions_data.origin = revoked_permissions.primary_pattern;
+    permissions_data.primary_pattern = revoked_permissions.primary_pattern;
     const base::Value& stored_value = revoked_permissions.setting_value;
     DCHECK(stored_value.is_dict());
 
     const base::Value::List* type_list =
         stored_value.GetDict().FindList(permissions::kRevokedKey);
     CHECK(type_list);
-    for (base::Value& type : type_list->Clone()) {
-      if (!type.is_int()) {
-        // If the type is not integer, then HSCM does not store the revoked
-        // permissions in correct format. Ignore those permissions.
+    for (base::Value& type_value : type_list->Clone()) {
+      // To avoid crashes for unknown types skip integer values.
+      if (type_value.is_int()) {
         continue;
       }
-      permissions_data.permission_types.insert(
-          static_cast<ContentSettingsType>(type.GetInt()));
+
+      ContentSettingsType type =
+          ConvertKeyToContentSettingsType(type_value.GetString());
+      permissions_data.permission_types.insert(type);
     }
 
     permissions_data.constraints = content_settings::ContentSettingConstraints(
@@ -684,9 +763,8 @@ UnusedSitePermissionsService::GetRevokedPermissions() {
       permissions_data.abusive_revocation_constraints.set_lifetime(
           revoked_permissions.metadata.lifetime());
     }
-    if (!permissions_data.permission_types.empty()) {
-      result->AddRevokedPermission(permissions_data);
-    }
+
+    result->AddRevokedPermission(permissions_data);
   }
 
   ContentSettingsForOneType revoked_abusive_notification_settings =
@@ -701,7 +779,7 @@ UnusedSitePermissionsService::GetRevokedPermissions() {
       continue;
     }
     PermissionsData permissions_data;
-    permissions_data.origin =
+    permissions_data.primary_pattern =
         revoked_abusive_notification_permission.primary_pattern;
     permissions_data.permission_types.insert(
         static_cast<ContentSettingsType>(ContentSettingsType::NOTIFICATIONS));
@@ -835,7 +913,7 @@ void UnusedSitePermissionsService::StorePermissionInRevokedPermissionSetting(
   StorePermissionInRevokedPermissionSetting(
       permissions_data.permission_types,
       permissions_data.chooser_permissions_data, permissions_data.constraints,
-      permissions_data.origin, ContentSettingsPattern::Wildcard());
+      permissions_data.primary_pattern, ContentSettingsPattern::Wildcard());
 }
 
 void UnusedSitePermissionsService::StorePermissionInRevokedPermissionSetting(
@@ -870,7 +948,7 @@ void UnusedSitePermissionsService::StorePermissionInRevokedPermissionSetting(
     DCHECK(IsContentSetting(permission) || !IsChooserPermissionSupported() ||
            chooser_permissions_data.contains(
                ConvertContentSettingsTypeToKey(permission)));
-    permission_type_list.Append(static_cast<int32_t>(permission));
+    permission_type_list.Append(ConvertContentSettingsTypeToKey(permission));
   }
 
   dict.Set(permissions::kRevokedKey,
@@ -944,7 +1022,7 @@ bool UnusedSitePermissionsService::IsUnusedSiteAutoRevocationEnabled() {
         content_settings::features::kSafetyCheckUnusedSitePermissions);
   }
   return pref_change_registrar_->prefs()->GetBoolean(
-      permissions::prefs::kUnusedSitePermissionsRevocationEnabled);
+      safety_hub_prefs::kUnusedSitePermissionsRevocationEnabled);
 }
 
 bool UnusedSitePermissionsService::
@@ -965,4 +1043,57 @@ UnusedSitePermissionsService::GetRevokedUnusedSitePermissionTypes(
         ContentSettingsType::NOTIFICATIONS);
   }
   return permissions_without_revoked_abusive_notification_manager;
+}
+
+void UnusedSitePermissionsService::UpdateIntegerValuesToGroupName() {
+  ContentSettingsForOneType settings = hcsm()->GetSettingsForOneType(
+      ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS);
+
+  bool successful_migration = true;
+  for (const auto& revoked_permissions : settings) {
+    const base::Value& stored_value = revoked_permissions.setting_value;
+    DCHECK(stored_value.is_dict());
+    base::Value updated_dict(stored_value.Clone());
+
+    const base::Value::List* permission_value_list =
+        stored_value.GetDict().FindList(permissions::kRevokedKey);
+    if (permission_value_list) {
+      base::Value::List updated_permission_value_list =
+          ConvertContentSettingsIntValuesToString(
+              permission_value_list->Clone(), &successful_migration);
+      updated_dict.GetDict().Set(permissions::kRevokedKey,
+                                 std::move(updated_permission_value_list));
+    }
+
+    const base::Value::Dict* chooser_permission_value_dict =
+        stored_value.GetDict().FindDict(
+            permissions::kRevokedChooserPermissionsKey);
+    if (chooser_permission_value_dict) {
+      base::Value::Dict updated_chooser_permission_value_dict =
+          ConvertChooserContentSettingsIntValuesToString(
+              chooser_permission_value_dict->Clone());
+      updated_dict.GetDict().Set(
+          permissions::kRevokedChooserPermissionsKey,
+          std::move(updated_chooser_permission_value_dict));
+    }
+
+    // Create a new constraint with the old creation time of the original
+    // exception.
+    base::Time creation_time = revoked_permissions.metadata.expiration() -
+                               revoked_permissions.metadata.lifetime();
+    content_settings::ContentSettingConstraints constraints(creation_time);
+    constraints.set_lifetime(revoked_permissions.metadata.lifetime());
+
+    hcsm()->SetWebsiteSettingCustomScope(
+        revoked_permissions.primary_pattern,
+        revoked_permissions.secondary_pattern,
+        ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS,
+        std::move(updated_dict), constraints);
+  }
+
+  if (successful_migration) {
+    pref_change_registrar_->prefs()->SetBoolean(
+        safety_hub_prefs::kUnusedSitePermissionsRevocationMigrationCompleted,
+        true);
+  }
 }

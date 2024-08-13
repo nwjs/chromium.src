@@ -35,7 +35,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -54,7 +53,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.JniMocker;
@@ -117,7 +115,6 @@ public class AutocompleteMediatorUnitTest {
     private static final GURL PAGE_URL = new GURL("https://www.site.com/page.html");
     private static final String PAGE_TITLE = "Page Title";
 
-    public @Rule TestRule mProcessor = new Features.JUnitProcessor();
     public @Rule JniMocker mJniMocker = new JniMocker();
     public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -1514,20 +1511,13 @@ public class AutocompleteMediatorUnitTest {
         OmniboxAnswerAction answerAction =
                 (OmniboxAnswerAction)
                         OmniboxActionFactoryImpl.get()
-                                .buildOmniboxAnswerAction(
-                                        123L,
-                                        "7 day forecast",
-                                        "7 day forecast",
-                                        new GURL(
-                                                "https://www.google.com/search?q=Redmond%20WA%207%20Day%20Weather"));
+                                .buildOmniboxAnswerAction(123L, "7 day forecast", "7 day forecast");
 
         mMediator.onSuggestionsReceived(
                 AutocompleteResult.fromCache(mSuggestionsList, null), /* isFinal= */ true);
         mMediator.onOmniboxActionClicked(answerAction, 0);
 
         verify(mAutocompleteDelegate).loadUrl(mOmniboxLoadUrlParamsCaptor.capture());
-        assertEquals(
-                mOmniboxLoadUrlParamsCaptor.getValue().url, answerAction.destinationUrl.getSpec());
     }
 
     @SmallTest

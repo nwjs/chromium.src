@@ -42,13 +42,13 @@ class WatermarkBrowserTestBase : public UiBrowserTest {
   }
 
   void ShowUi(const std::string& name) override {
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(
+        browser(), embedded_test_server()->GetURL(
+                       "/enterprise/watermark/watermark_test_page.html")));
     if (auto* watermark_view = BrowserView::GetBrowserViewForBrowser(browser())
                                    ->get_watermark_view_for_testing()) {
       watermark_view->SetString(watermark_message_);
     }
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(
-        browser(), embedded_test_server()->GetURL(
-                       "/enterprise/watermark/watermark_test_page.html")));
     base::RunLoop().RunUntilIdle();
   }
 
@@ -85,27 +85,12 @@ class WatermarkDisabledBrowserTest : public WatermarkBrowserTestBase {
 
 }  // namespace
 
-// TODO(crbug.com/343845142): Enable this test again.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_NoWatermarkShownAfterNavigation \
-  DISABLED_NoWatermarkShownAfterNavigation
-#else
-#define MAYBE_NoWatermarkShownAfterNavigation NoWatermarkShownAfterNavigation
-#endif
 IN_PROC_BROWSER_TEST_F(WatermarkDisabledBrowserTest,
-                       MAYBE_NoWatermarkShownAfterNavigation) {
+                       NoWatermarkShownAfterNavigation) {
   ShowAndVerifyUi();
 }
 
-// TODO(crbug.com/343845142): Enable this test again.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_WatermarkShownAfterNavigation \
-  DISABLED_WatermarkShownAfterNavigation
-#else
-#define MAYBE_WatermarkShownAfterNavigation WatermarkShownAfterNavigation
-#endif
-IN_PROC_BROWSER_TEST_P(WatermarkBrowserTest,
-                       MAYBE_WatermarkShownAfterNavigation) {
+IN_PROC_BROWSER_TEST_P(WatermarkBrowserTest, WatermarkShownAfterNavigation) {
   watermark_message_ = GetParam();
   ShowAndVerifyUi();
 }

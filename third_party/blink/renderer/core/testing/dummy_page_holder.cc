@@ -100,7 +100,8 @@ DummyPageHolder::DummyPageHolder(
                                  ->CreateAgentGroupScheduler()) {
   if (!chrome_client)
     chrome_client = &GetStaticEmptyChromeClientInstance();
-  page_ = Page::CreateNonOrdinary(*chrome_client, *agent_group_scheduler_);
+  page_ = Page::CreateNonOrdinary(*chrome_client, *agent_group_scheduler_,
+                                  /*color_provider_colors=*/nullptr);
   Settings& settings = page_->GetSettings();
   if (setting_overrider)
     std::move(setting_overrider).Run(settings);
@@ -123,7 +124,8 @@ DummyPageHolder::DummyPageHolder(
       /* Frame* previous_sibling */ nullptr,
       FrameInsertType::kInsertInConstructor, LocalFrameToken(),
       /* WindowAgentFactory* */ nullptr,
-      /* InterfaceRegistry* */ nullptr, clock);
+      /* InterfaceRegistry* */ nullptr,
+      /* BrowserInterfaceBroker */ mojo::NullRemote(), clock);
   frame_->SetView(
       MakeGarbageCollected<LocalFrameView>(*frame_, initial_view_size));
   frame_->View()->GetPage()->GetVisualViewport().SetSize(initial_view_size);

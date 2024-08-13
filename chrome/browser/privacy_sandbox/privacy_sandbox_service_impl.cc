@@ -8,6 +8,7 @@
 #include <iterator>
 #include <numeric>
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram.h"
@@ -21,6 +22,7 @@
 #include "build/branding_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_notice_confirmation.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chromeos/components/mgs/managed_guest_session_utils.h"
 #include "components/browsing_topics/browsing_topics_service.h"
@@ -69,6 +71,10 @@ namespace {
 constexpr char kBlockedTopicsTopicKey[] = "topic";
 
 bool g_prompt_disabled_for_tests = false;
+
+bool IsFirstRunSuppressed(const base::CommandLine& command_line) {
+  return command_line.HasSwitch(switches::kNoFirstRun);
+}
 
 // Returns whether 3P cookies are blocked by |cookie_settings|. This can be
 // either through blocking 3P cookies directly, or blocking all cookies.
@@ -1062,6 +1068,12 @@ PrivacySandboxServiceImpl::GetRequiredPromptTypeInternal(
     return PromptType::kM1NoticeRestricted;
   }
 
+  // Suppress the prompt if we force --no-first-run for testing
+  // and benchmarking.
+  if (IsFirstRunSuppressed(*base::CommandLine::ForCurrentProcess())) {
+    return PromptType::kNone;
+  }
+
   // If this a non-Chrome build, do not show a prompt.
   if (!is_chrome_build) {
     return PromptType::kNone;
@@ -1484,12 +1496,15 @@ bool PrivacySandboxServiceImpl::IsM1PrivacySandboxEffectivelyManaged(
 void RecordPercentageMetrics(const base::Value::List& activity_type_record) {
   using ActivityType = PrivacySandboxService::PrivacySandboxStorageActivityType;
   std::unordered_map<ActivityType, int> activity_type_counts{
+      {ActivityType::kOther, 0},
       {ActivityType::kTabbed, 0},
       {ActivityType::kAGSACustomTab, 0},
       {ActivityType::kNonAGSACustomTab, 0},
       {ActivityType::kTrustedWebActivity, 0},
       {ActivityType::kWebapp, 0},
-      {ActivityType::kWebApk, 0}};
+      {ActivityType::kWebApk, 0},
+      {ActivityType::kPreFirstTab, 0}};
+
   for (const base::Value& record : activity_type_record) {
     std::optional<int> activity_type_int =
         record.GetDict().FindInt("activity_type");
@@ -1508,12 +1523,14 @@ void RecordPercentageMetrics(const base::Value::List& activity_type_record) {
 
   constexpr auto kTypesToHistogramSuffix =
       base::MakeFixedFlatMap<ActivityType, std::string_view>(
-          {{ActivityType::kTabbed, "BrApp"},
+          {{ActivityType::kOther, "Other"},
+           {ActivityType::kTabbed, "BrApp"},
            {ActivityType::kAGSACustomTab, "AGSACCT"},
            {ActivityType::kNonAGSACustomTab, "NonAGSACCT"},
            {ActivityType::kTrustedWebActivity, "TWA"},
            {ActivityType::kWebapp, "WebApp"},
-           {ActivityType::kWebApk, "WebApk"}});
+           {ActivityType::kWebApk, "WebApk"},
+           {ActivityType::kPreFirstTab, "PreFirstTab"}});
 
   // Emit all the histograms with each percentage value.
   for (const auto& [type, suffix] : kTypesToHistogramSuffix) {
@@ -1522,7 +1539,7 @@ void RecordPercentageMetrics(const base::Value::List& activity_type_record) {
     }
     base::UmaHistogramPercentage(
         base::StrCat(
-            {"PrivacySandbox.ActivityTypeStorage.Percentage.", suffix}),
+            {"PrivacySandbox.ActivityTypeStorage.Percentage.", suffix, "2"}),
         activity_type_percentages[type]);
   }
 }
@@ -1556,7 +1573,7 @@ void RecordUserSegmentMetrics(const base::Value::List& activity_type_record,
     encountered_activities.insert(GetActivityType(activity_type_record[i]));
   }
 
-  SegmentType segment_type = SegmentType::kOther;
+  SegmentType segment_type = SegmentType::kHasOther;
   if (encountered_activities.contains(ActivityType::kTabbed)) {
     segment_type = SegmentType::kHasBrowserApp;
   } else if (encountered_activities.contains(ActivityType::kAGSACustomTab)) {
@@ -1570,11 +1587,13 @@ void RecordUserSegmentMetrics(const base::Value::List& activity_type_record,
     segment_type = SegmentType::kHasTWA;
   } else if (encountered_activities.contains(ActivityType::kWebapp)) {
     segment_type = SegmentType::kHasWebapp;
+  } else if (encountered_activities.contains(ActivityType::kPreFirstTab)) {
+    segment_type = SegmentType::kHasPreFirstTab;
   }
   base::UmaHistogramEnumeration(
       base::StrCat({"PrivacySandbox.ActivityTypeStorage.",
                     base::NumberToString(records_in_a_row),
-                    "MostRecentRecordsUserSegment"}),
+                    "MostRecentRecordsUserSegment2"}),
       segment_type);
 }
 
@@ -1622,6 +1641,18 @@ void RecordActivityTypeMetrics(const base::Value::List& activity_type_record,
 
 void PrivacySandboxServiceImpl::RecordActivityType(
     PrivacySandboxStorageActivityType type) const {
+  base::UmaHistogramEnumeration(
+      "PrivacySandbox.ActivityTypeStorage.TypeReceived", type);
+
+  // If skip-pre-first-tab is turned on, the list is not updated when the type
+  // passed in is kPreFirstTab.
+  if (type == PrivacySandboxService::PrivacySandboxStorageActivityType::
+                  kPreFirstTab &&
+      privacy_sandbox::kPrivacySandboxActivityTypeStorageSkipPreFirstTab
+          .Get()) {
+    return;
+  }
+
   // Activity type launches can only be recorded if they fall within a specific
   // timeframe. This timeframe is determined by the within-x-days parameter,
   // where oldest_timestamp_allowed marks the end of the timeframe and
@@ -1637,7 +1668,7 @@ void PrivacySandboxServiceImpl::RecordActivityType(
   new_dict.Set("activity_type", static_cast<int>(type));
 
   const base::Value::List& old_activity_type_record =
-      pref_service_->GetList(prefs::kPrivacySandboxActivityTypeRecord);
+      pref_service_->GetList(prefs::kPrivacySandboxActivityTypeRecord2);
 
   base::Value::List new_activity_type_record;
   new_activity_type_record.Append(std::move(new_dict));
@@ -1664,7 +1695,7 @@ void PrivacySandboxServiceImpl::RecordActivityType(
     }
   }
   RecordActivityTypeMetrics(new_activity_type_record, current_time);
-  pref_service_->SetList(prefs::kPrivacySandboxActivityTypeRecord,
+  pref_service_->SetList(prefs::kPrivacySandboxActivityTypeRecord2,
                          std::move(new_activity_type_record));
 }
 #endif  // BUILDFLAG(IS_ANDROID)

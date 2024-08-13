@@ -79,7 +79,6 @@ src/webgpu/util/unions.ts
 src/webgpu/util/texture/base.ts
 src/webgpu/util/texture/layout.ts
 src/webgpu/format_info.ts
-src/webgpu/util/buffer.ts
 src/webgpu/util/pretty_diff_tables.ts
 src/webgpu/util/check_contents.ts
 src/webgpu/util/command_buffer_maker.ts
@@ -147,7 +146,9 @@ src/unittests/serialization.spec.ts
 src/unittests/test_group.spec.ts
 src/unittests/test_query.spec.ts
 src/unittests/texture_ok.spec.ts
+src/webgpu/error_test.ts
 src/webgpu/examples.spec.ts
+src/webgpu/inter_stage.ts
 src/webgpu/listing.ts
 src/webgpu/multisample_info.ts
 src/webgpu/print_environment.spec.ts
@@ -611,11 +612,11 @@ src/webgpu/shader/execution/expression/call/builtin/textureDimensions.spec.ts
 src/webgpu/shader/execution/expression/call/builtin/utils.ts
 src/webgpu/shader/execution/expression/call/builtin/textureGather.spec.ts
 src/webgpu/shader/execution/expression/call/builtin/textureGatherCompare.spec.ts
+src/webgpu/shader/execution/expression/call/builtin/texture_utils.ts
 src/webgpu/shader/execution/expression/call/builtin/textureLoad.spec.ts
 src/webgpu/shader/execution/expression/call/builtin/textureNumLayers.spec.ts
 src/webgpu/shader/execution/expression/call/builtin/textureNumLevels.spec.ts
 src/webgpu/shader/execution/expression/call/builtin/textureNumSamples.spec.ts
-src/webgpu/shader/execution/expression/call/builtin/texture_utils.ts
 src/webgpu/shader/execution/expression/call/builtin/textureSample.spec.ts
 src/webgpu/shader/execution/expression/call/builtin/textureSampleBias.spec.ts
 src/webgpu/shader/execution/expression/call/builtin/textureSampleCompare.spec.ts
@@ -721,6 +722,7 @@ src/webgpu/shader/validation/decl/let.spec.ts
 src/webgpu/shader/validation/decl/override.spec.ts
 src/webgpu/shader/validation/decl/util.ts
 src/webgpu/shader/validation/decl/var.spec.ts
+src/webgpu/shader/validation/expression/early_evaluation.spec.ts
 src/webgpu/shader/validation/expression/overload_resolution.spec.ts
 src/webgpu/shader/validation/expression/precedence.spec.ts
 src/webgpu/shader/validation/expression/access/array.spec.ts
@@ -848,6 +850,7 @@ src/webgpu/shader/validation/expression/unary/address_of_and_indirection.spec.ts
 src/webgpu/shader/validation/expression/unary/arithmetic_negation.spec.ts
 src/webgpu/shader/validation/expression/unary/bitwise_complement.spec.ts
 src/webgpu/shader/validation/expression/unary/logical_negation.spec.ts
+src/webgpu/shader/validation/extension/dual_source_blending.spec.ts
 src/webgpu/shader/validation/extension/pointer_composite_access.spec.ts
 src/webgpu/shader/validation/extension/readonly_and_readwrite_storage_textures.spec.ts
 src/webgpu/shader/validation/functions/alias_analysis.spec.ts

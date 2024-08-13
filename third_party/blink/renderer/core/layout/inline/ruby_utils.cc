@@ -1194,11 +1194,14 @@ RubyBlockPositionCalculator& RubyBlockPositionCalculator::PlaceLines(
       em_height = line_box_metrics;
     }
     LayoutUnit offset = em_height.descent;
-    for (auto it = base_iterator; it != ruby_lines_.begin(); --it) {
-      RubyLine& ruby_line = **std::prev(it);
-      FontHeight metrics = ruby_line.UpdateMetrics();
+    auto lines_before_base =
+        base::span(ruby_lines_)
+            .first(base::checked_cast<size_t>(
+                std::distance(ruby_lines_.begin(), base_iterator)));
+    for (auto& ruby_line : base::Reversed(lines_before_base)) {
+      FontHeight metrics = ruby_line->UpdateMetrics();
       offset += metrics.ascent;
-      ruby_line.MoveInBlockDirection(offset);
+      ruby_line->MoveInBlockDirection(offset);
       offset += metrics.descent;
     }
     annotation_metrics_.descent = offset;
@@ -1215,11 +1218,13 @@ RubyBlockPositionCalculator& RubyBlockPositionCalculator::PlaceLines(
       em_height = line_box_metrics;
     }
     LayoutUnit offset = -em_height.ascent;
-    for (auto it = std::next(base_iterator); it != ruby_lines_.end(); ++it) {
-      RubyLine& ruby_line = **it;
-      FontHeight metrics = ruby_line.UpdateMetrics();
+    for (auto& ruby_line :
+         base::span(ruby_lines_)
+             .last(base::checked_cast<size_t>(
+                 std::distance(base_iterator, ruby_lines_.end()) - 1))) {
+      FontHeight metrics = ruby_line->UpdateMetrics();
       offset -= metrics.descent;
-      ruby_line.MoveInBlockDirection(offset);
+      ruby_line->MoveInBlockDirection(offset);
       offset -= metrics.ascent;
     }
     annotation_metrics_.ascent = -offset;
@@ -1273,6 +1278,7 @@ void RubyBlockPositionCalculator::RubyLine::Append(
 void RubyBlockPositionCalculator::RubyLine::MaybeRecordBaseIndexes(
     const LogicalRubyColumn& logical_column) {
   if (IsFirstOverLevel() || IsFirstUnderLevel()) {
+    base_index_list_.reserve(base_index_list_.size() + logical_column.size);
     for (wtf_size_t item_index = logical_column.start_index;
          item_index < logical_column.EndIndex(); ++item_index) {
       base_index_list_.push_back(item_index);
@@ -1284,7 +1290,16 @@ FontHeight RubyBlockPositionCalculator::RubyLine::UpdateMetrics() {
   DCHECK(metrics_.IsEmpty());
   metrics_ = FontHeight();
   for (auto& column : column_list_) {
-    metrics_.Unite(ComputeLogicalLineEmHeight(*column->annotation_items));
+    const auto margins = column->state_stack.AnnotationBoxBlockAxisMargins();
+    if (!margins.has_value()) {
+      metrics_.Unite(ComputeLogicalLineEmHeight(*column->annotation_items));
+    } else {
+      DCHECK_GT(column->annotation_items->size(), 0u);
+      const LogicalLineItem& item = (*column->annotation_items)[0];
+      DCHECK(item.IsPlaceholder());
+      metrics_.Unite({-item.BlockOffset() + margins->first,
+                      item.BlockEndOffset() + margins->second});
+    }
   }
   return metrics_;
 }

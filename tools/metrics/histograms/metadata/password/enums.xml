@@ -26,6 +26,11 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
+<enum name="AcceptedGeneratedPasswordSourceType">
+  <int value="0" label="Proactive bottom sheet"/>
+  <int value="1" label="Keyboard accessory"/>
+</enum>
+
 <enum name="AccessoryAction">
   <int value="0" label="Automatic password generation"/>
   <int value="1" label="'Manage all passwords' link"/>
@@ -104,7 +109,16 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Failed to create UserConsentVerifier factory."/>
   <int value="8" label="Failed to call UserConsentVerifier API."/>
   <int value="9" label="Failed to post authentication task."/>
-  <int value="10" label="Uknown return status"/>
+  <int value="10" label="Uknown return status."/>
+  <int value="11" label="Authentication async operation failed."/>
+  <int value="12" label="Failed to find last active browser."/>
+  <int value="13" label="Failed to find hwnd for native window."/>
+</enum>
+
+<enum name="AuthenticationStateWin">
+  <summary>State of authenticating using Windows Hello.</summary>
+  <int value="0" label="Authentication was started."/>
+  <int value="1" label="Authentication was finished."/>
 </enum>
 
 <enum name="AutofillSuggestionTriggerSource">
@@ -148,17 +162,6 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="There is no biometric verifier device available."/>
   <int value="5"
       label="A biometric verifier device is not configured for this user."/>
-</enum>
-
-<enum name="BiometricsAvailability">
-  <int value="0" label="Other error"/>
-  <int value="1" label="Available"/>
-  <int value="2" label="Available, but no fallback"/>
-  <int value="3" label="No hardware"/>
-  <int value="4" label="Hardware unavailable"/>
-  <int value="5" label="Not enrolled"/>
-  <int value="6" label="Security update required"/>
-  <int value="7" label="Android version not supported"/>
 </enum>
 
 <enum name="BooleanCalled">
@@ -420,6 +423,12 @@ chromium-metrics-reviews@google.com.
   <int value="4"
       label="Should not delete, encryption selection is specified via switch"/>
   <int value="5" label="Should not delete, encryption is not availiable"/>
+  <int value="6"
+      label="Should not delete, user data directory is specified using the
+             enterprise policy"/>
+  <int value="7"
+      label="Should not delete, deleting undecryptable logins was disabled by
+             policy"/>
 </enum>
 
 <enum name="LoginsChangedTrigger">
@@ -481,6 +490,7 @@ chromium-metrics-reviews@google.com.
   <int value="20" label="Omnibox Pedal Suggestion"/>
   <int value="21" label="Default store changed bubble"/>
   <int value="22" label="Manage Password Details Bubble"/>
+  <int value="23" label="Passkey Saved Confirmation Bubble"/>
 </enum>
 
 <enum name="OutdatedGMSDialogDismissalReason">
@@ -669,6 +679,12 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Username match"/>
 </enum>
 
+<enum name="PasswordFormPredictionWaitResult">
+  <int value="0" label="Predictions received before timeout"/>
+  <int value="1" label="Timed out with one closure outstanding"/>
+  <int value="2" label="Timed out with two or more closures outstanding"/>
+</enum>
+
 <enum name="PasswordFormType2">
   <int value="0" label="Undefined"/>
   <int value="1" label="Login form"/>
@@ -815,6 +831,7 @@ chromium-metrics-reviews@google.com.
       label="(DEPRECATED in M122) Confirmation dialog: 'Learn more' clicked"/>
   <int value="13" label="Confirmation dialog: 'Change password' clicked"/>
   <int value="14" label="Dialog header: 'Help icon button' clicked"/>
+  <int value="15" label="Family picker: opened"/>
 </enum>
 
 <enum name="PasswordManager.PasswordSharingIOSUserAction">
@@ -835,6 +852,7 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="Confirmation dialog: 'Learn more' link clicked"/>
   <int value="12" label="Confirmation dialog: 'Change password' link clicked"/>
   <int value="13" label="Confirmation dialog: 'Done' button clicked"/>
+  <int value="14" label="Family picker: opened"/>
 </enum>
 
 <enum name="PasswordManager.ProcessIncomingPasswordSharingInvitationResult">
@@ -1095,6 +1113,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Access on any device promo"/>
   <int value="4" label="Relaunch Chrome"/>
   <int value="5" label="Move passwords"/>
+  <int value="6" label="Enable screenlock reauth before filling"/>
 </enum>
 
 <enum name="PasswordManagerShortcutMetric">
@@ -1176,19 +1195,6 @@ chromium-metrics-reviews@google.com.
       label="Note changed from non-empty to empty from the password edit
              dialog in settings"/>
   <int value="4" label="Note did not change"/>
-</enum>
-
-<enum name="PasswordNotesMigrationToOSCryptEnum">
-  <summary>
-    Display migration status of LoginDatabase to OSCrypt on IOS for notes.
-  </summary>
-  <int value="0" label="Migration started"/>
-  <int value="1" label="Migration failed: can't read note from keychain"/>
-  <int value="2" label="Migration failed: can't encrypt note with OSCrypt"/>
-  <int value="3" label="Migration failed: can't update note value"/>
-  <int value="4" label="Migration succeeded"/>
-  <int value="5"
-      label="Migration failed: can't delete missing note from the database"/>
 </enum>
 
 <enum name="PasswordProtectionReferringAppSource">
@@ -1475,6 +1481,11 @@ chromium-metrics-reviews@google.com.
   </int>
 </enum>
 
+<enum name="ProactivePasswordGenerationBottomSheetTransitionType">
+  <int value="0" label="Silenced"/>
+  <int value="1" label="Unsilenced"/>
+</enum>
+
 <enum name="ProvisionalSaveFailure">
   <summary>Reason why a provisional save failed.</summary>
   <int value="0" label="SAVING_DISABLED"/>
@@ -1494,14 +1505,9 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Unknown password"/>
 </enum>
 
-<enum name="SaveUpdatePasswordMessageDismissReason">
-  <int value="0" label="Clicked 'Save' or 'Update' in the message"/>
-  <int value="1" label="Clicked 'Save' or 'Update' in the edit dialog"/>
-  <int value="2" label="Clicked Accept in username confirmation dialog"/>
-  <int value="3" label="Message dismissed"/>
-  <int value="4"
-      label="Clicked 'Cancel' in the edit dialog or dismissed the dialog"/>
-  <int value="5" label="Clicked 'Never for this site' in the cog menu"/>
+<enum name="SaveFlowStep">
+  <int value="0" label="Form submitted"/>
+  <int value="1" label="Save prompt shown"/>
 </enum>
 
 <enum name="SavingOnUsernameFirstFlow">
@@ -1598,6 +1604,7 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="More than two fields in the form"/>
   <int value="7" label="2-field form (username+password)"/>
   <int value="8" label="Password field not found"/>
+  <int value="9" label="Form has child frames (maybe CAPTCHA)"/>
 </enum>
 
 <enum name="TouchToFillPasswordGenerationTriggerOutcome">

@@ -44,6 +44,7 @@
 #include "chrome/browser/ash/login/screens/fingerprint_setup_screen.h"
 #include "chrome/browser/ash/login/screens/gaia_info_screen.h"
 #include "chrome/browser/ash/login/screens/gaia_screen.h"
+#include "chrome/browser/ash/login/screens/gemini_intro_screen.h"
 #include "chrome/browser/ash/login/screens/gesture_navigation_screen.h"
 #include "chrome/browser/ash/login/screens/guest_tos_screen.h"
 #include "chrome/browser/ash/login/screens/hardware_data_collection_screen.h"
@@ -81,12 +82,10 @@
 #include "chrome/browser/ash/login/screens/terms_of_service_screen.h"
 #include "chrome/browser/ash/login/screens/theme_selection_screen.h"
 #include "chrome/browser/ash/login/screens/touchpad_scroll_screen.h"
-#include "chrome/browser/ash/login/screens/tuna_screen.h"
 #include "chrome/browser/ash/login/screens/update_screen.h"
 #include "chrome/browser/ash/login/screens/user_allowlist_check_screen.h"
 #include "chrome/browser/ash/login/screens/user_creation_screen.h"
 #include "chrome/browser/ash/login/screens/welcome_screen.h"
-#include "chrome/browser/ash/policy/enrollment/auto_enrollment_controller.h"
 #include "chrome/browser/ash/policy/enrollment/enrollment_config.h"
 #include "chrome/browser/ui/webui/ash/login/online_authentication_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/oobe_ui.h"
@@ -94,6 +93,10 @@
 #include "components/account_id/account_id.h"
 
 class PrefService;
+
+namespace policy {
+class AutoEnrollmentController;
+}  // namespace policy
 
 namespace ash {
 
@@ -310,7 +313,7 @@ class WizardController : public OobeUI::Observer {
   void ShowRemoteActivityNotificationScreen();
   void ShowAppDownloadingScreen();
   void ShowAiIntroScreen();
-  void ShowTunaScreen();
+  void ShowGeminiIntroScreen();
   void ShowWrongHWIDScreen();
   void ShowAutoEnrollmentCheckScreen();
   void ShowHIDDetectionScreen();
@@ -425,7 +428,7 @@ class WizardController : public OobeUI::Observer {
   void OnRemoteActivityNotificationScreenExit();
   void OnAppDownloadingScreenExit();
   void OnAiIntroScreenExit(AiIntroScreen::Result result);
-  void OnTunaScreenExit(TunaScreen::Result result);
+  void OnGeminiIntroScreenExit(GeminiIntroScreen::Result result);
   void OnAssistantOptInFlowScreenExit(AssistantOptInFlowScreen::Result result);
   void OnMultiDeviceSetupScreenExit(MultiDeviceSetupScreen::Result result);
   void OnGestureNavigationScreenExit(GestureNavigationScreen::Result result);

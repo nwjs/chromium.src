@@ -15,8 +15,8 @@ ci.defaults.set(
     executable = "recipe:angle_chromium",
     builder_group = "chromium.angle",
     pool = ci.gpu.POOL,
-    execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     gardener_rotations = gardener_rotations.ANGLE,
+    execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     health_spec = health_spec.DEFAULT,
     properties = {
         "perf_dashboard_machine_group": "ChromiumANGLE",
@@ -145,6 +145,7 @@ ci.gpu.linux_builder(
             "minimal_symbols",
             "dcheck_always_on",
             "fuchsia",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -181,6 +182,8 @@ ci.gpu.linux_builder(
             "remoteexec",
             "minimal_symbols",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -278,6 +281,7 @@ ci.gpu.mac_builder(
             "remoteexec",
             "minimal_symbols",
             "dcheck_always_on",
+            "mac",
             "x64",
         ],
     ),
@@ -452,6 +456,8 @@ ci.gpu.windows_builder(
             "remoteexec",
             "minimal_symbols",
             "dcheck_always_on",
+            "win",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -549,6 +555,7 @@ ci.gpu.windows_builder(
             "remoteexec",
             "minimal_symbols",
             "dcheck_always_on",
+            "win",
             "x86",
         ],
     ),

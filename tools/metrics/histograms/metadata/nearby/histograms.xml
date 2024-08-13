@@ -539,6 +539,165 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Nearby.Connections.WifiDirect.AssociateSocket.Result"
+    enum="BooleanSuccess" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records if the socket was able to be associated with the WiFi Direct
+    interface. Emitted when both connecting and listening for Nearby
+    Connections.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.ConnectToService.Error"
+    enum="NearbyConnectionsWifiDirectServiceError" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the error that occured attempting to connect to the Nearby
+    Connections endpoint via the connected WiFi Direct interface. Emitted when
+    Nearby Connections encounters an error initiating the TCP connection.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.ConnectToService.Result"
+    enum="BooleanSuccess" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the result of attempting to connect to the Nearby onnections
+    endpoint via the connected WiFi Direct interface. Emitted when Nearby
+    Connections returns the result from connect to service call.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.ConnectToWifiDirectGroup.Error"
+    enum="NearbyConnectionsWifiDirectResult" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the error that occured when a connection to an external WiFi Direct
+    group was attempted. Emitted when Nearby Connections returns the result from
+    the mojo call to connect the GC.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.ConnectToWifiDirectGroup.Result"
+    enum="BooleanSuccess" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records if the WiFi Direct group was able to be connected to. Emitted when
+    Nearby Connections returns the result from the mojo call to connect the GC.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.CreateWifiDirectGroup.Error"
+    enum="NearbyConnectionsWifiDirectResult" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the error that occured when the WiFi Direct group creation was
+    attempted. Emitted when Nearby Connections returns the result from the mojo
+    call to create the GO.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.CreateWifiDirectGroup.Result"
+    enum="BooleanSuccess" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records if the WiFi Direct group was able to be created. Emitted when Nearby
+    Connections returns the result from the mojo call to create the GO.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.IsP2pSupported" enum="Boolean"
+    expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records if the WiFi Direct interface currently supports P2P. If P2P support
+    is true, it indicates that the interface is valid and ready to use. Emitted
+    when Nearby Connections initiates a bandwidth upgrade and checks for
+    available transfer mediums.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.ListenForService.Error"
+    enum="NearbyConnectionsWifiDirectServiceError" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the error that occured attempting to listen for new Nearby
+    Connections via the connected WiFi Direct interface. Emitted when Nearby
+    Connections encounters an error setting up the the TCP server socket.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.ListenForService.Result"
+    enum="BooleanSuccess" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the result of attempting to listen for new Nearby Connections via
+    the connected WiFi Direct interface. Emitted when Nearby Connections returns
+    the result from listen for service call.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.ServerSocket.Accept.Error"
+    enum="NearbyConnectionsWifiDirectSocketError" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the error that occured attempting to accept a new Nearby Connection
+    via TCP socket on the connected WiFi Direct interface. Emitted when Nearby
+    Connections encounters an error accepting a connection on the TCP server
+    socket. Cancellations and socket closures do not emit errors because they
+    are expected final states.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.ServerSocket.Accept.Result"
+    enum="BooleanSuccess" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the result of attempting to accept a new Nearby Connection via TCP
+    socket on the connected WiFi Direct interface. Accept is called once during
+    the initial upgrade process, and again after each incoming connection has
+    been handled. Additionally, a negative value is logged for cancellations and
+    socket closure. This means that each successful WiFi Direct transfer will
+    have both a successful accept result and a failure due to the closing down
+    of the socket when the medium is destructed.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.Socket.Read.Result"
+    enum="BooleanSuccess" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the result of attempting to read bytes from a connected TCP socket
+    on a connected WiFi Direct medium. Read is called repeatedly during the
+    duration of a connection.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Connections.WifiDirect.Socket.Write.Result"
+    enum="BooleanSuccess" expires_after="2025-04-30">
+  <owner>jackshira@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records the result of attempting to write bytes to a connected TCP socket on
+    a connected WiFi Direct medium. Write is called repeatedly during the
+    duration of a connection.
+  </summary>
+</histogram>
+
 <histogram name="Nearby.Connections.WifiLan.ConnectResult"
     enum="NearbyConnectionsWifiLanConnectResult" expires_after="2025-04-30">
   <owner>hansenmichael@google.com</owner>
@@ -1300,6 +1459,20 @@ chromium-metrics-reviews@google.com.
     to send a payload to but before the payload begins its transfer. Because the
     sending device initiates the connection--via the Nearby Connections
     library--this metric is only emitted for outgoing transfers.
+  </summary>
+</histogram>
+
+<histogram name="Nearby.Share.Connection.InitialMedium"
+    enum="NearbyShareUpgradedMedium" expires_after="2025-04-30">
+  <owner>dclasson@google.com</owner>
+  <owner>nearby-share-chromeos-eng@google.com</owner>
+  <summary>
+    Records what the initial medium is when connection is established, which
+    will either be Bluetooth (true in most cases) or Wifi LAN (true only when
+    ChromeOS is sending and discovery happens using mDNS). Note that this metric
+    is not emitted for receiving Nearby Shares, and Wifi LAN is only supported
+    as an initial medium for sending Nearby Shares (as mDNS discovery is
+    supported, but advertising isn't).
   </summary>
 </histogram>
 

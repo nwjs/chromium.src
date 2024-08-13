@@ -47,16 +47,19 @@ class MockOptimizationGuideDecider
 
 class MockFacilitatedPaymentsController : public FacilitatedPaymentsController {
  public:
-  MockFacilitatedPaymentsController() = default;
+  explicit MockFacilitatedPaymentsController(content::WebContents* web_contents)
+      : FacilitatedPaymentsController(web_contents) {}
+  ~MockFacilitatedPaymentsController() override = default;
 
   MOCK_METHOD(
       bool,
       Show,
-      (std::unique_ptr<
-           payments::facilitated::FacilitatedPaymentsBottomSheetBridge> view,
-       base::span<const autofill::BankAccount> bank_account_suggestions,
-       content::WebContents* web_contents),
+      (base::span<const autofill::BankAccount> bank_account_suggestions,
+       base::OnceCallback<void(bool, int64_t)> on_user_decision_callback),
       (override));
+  MOCK_METHOD(void, ShowProgressScreen, (), (override));
+  MOCK_METHOD(void, ShowErrorScreen, (), (override));
+  MOCK_METHOD(void, Dismiss, (), (override));
 };
 
 class ChromeFacilitatedPaymentsClientTest
@@ -66,7 +69,8 @@ class ChromeFacilitatedPaymentsClientTest
     ChromeRenderViewHostTestHarness::SetUp();
     client_ = std::make_unique<ChromeFacilitatedPaymentsClient>(
         web_contents(), &optimization_guide_decider_);
-    auto controller = std::make_unique<MockFacilitatedPaymentsController>();
+    auto controller =
+        std::make_unique<MockFacilitatedPaymentsController>(web_contents());
     controller_ = controller.get();
     client().SetFacilitatedPaymentsControllerForTesting(std::move(controller));
   }
@@ -120,4 +124,38 @@ TEST_F(ChromeFacilitatedPaymentsClientTest,
        ShowPixPaymentPrompt_NoBankAccounts) {
   EXPECT_CALL(controller(), Show);
   EXPECT_FALSE(base_client().ShowPixPaymentPrompt({}, base::DoNothing()));
+}
+
+// Test the client forwards call for showing the progress screen to the
+// controller.
+TEST_F(ChromeFacilitatedPaymentsClientTest, ShowProgressScreen) {
+  EXPECT_CALL(controller(), ShowProgressScreen);
+
+  base_client().ShowProgressScreen();
+}
+
+// Test the client forwards call for showing the error screen to the controller.
+TEST_F(ChromeFacilitatedPaymentsClientTest, ShowErrorScreen) {
+  EXPECT_CALL(controller(), ShowErrorScreen);
+
+  base_client().ShowErrorScreen();
+}
+
+// Test that the controller is able to process requests to show different
+// screens back to back.
+TEST_F(ChromeFacilitatedPaymentsClientTest,
+       ControllerIsAbleToProcessBackToBackShowRequests) {
+  EXPECT_CALL(controller(), Show);
+  EXPECT_CALL(controller(), ShowProgressScreen);
+
+  base_client().ShowPixPaymentPrompt({}, base::DoNothing());
+  base_client().ShowProgressScreen();
+}
+
+// Test the client forwards call for closing the bottom sheet to the
+// controller.
+TEST_F(ChromeFacilitatedPaymentsClientTest, DismissPrompt) {
+  EXPECT_CALL(controller(), Dismiss);
+
+  base_client().DismissPrompt();
 }

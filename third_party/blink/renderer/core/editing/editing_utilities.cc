@@ -23,6 +23,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 
 #include "base/trace_event/trace_event.h"
@@ -536,11 +541,8 @@ PositionTemplate<Strategy> FirstEditablePositionAfterPositionInRootAlgorithm(
   // - If `non_editable_node` is not the last child, we will bypass the next
   //   editable sibling position. See http://crbug.com/1334557 for more details.
   bool need_obtain_next =
-      RuntimeEnabledFeatures::GetNextSiblingPositionWhenLastChildEnabled()
-          ? non_editable_node && editable_position.AnchorNode() &&
-                non_editable_node == editable_position.AnchorNode()->lastChild()
-          : non_editable_node && non_editable_node->IsDescendantOf(
-                                     editable_position.AnchorNode());
+      non_editable_node && editable_position.AnchorNode() &&
+      non_editable_node == editable_position.AnchorNode()->lastChild();
   if (need_obtain_next) {
     // Make sure not to move out of |highest_root|
     const PositionTemplate<Strategy> boundary =
@@ -551,9 +553,7 @@ PositionTemplate<Strategy> FirstEditablePositionAfterPositionInRootAlgorithm(
     // `position`, so use `NextCandidate` here.
     // See http://crbug.com/1406207 for more details.
     const PositionTemplate<Strategy> next_candidate =
-        RuntimeEnabledFeatures::NextSiblingPositionUseNextCandidateEnabled()
-            ? NextCandidate(editable_position)
-            : NextVisuallyDistinctCandidate(editable_position);
+        NextCandidate(editable_position);
     editable_position = next_candidate.IsNotNull()
                             ? std::min(boundary, next_candidate)
                             : boundary;
@@ -992,8 +992,7 @@ bool IsHTMLListElement(const Node* n) {
 }
 
 bool IsListItem(const Node* n) {
-  return n && n->GetLayoutObject() &&
-         n->GetLayoutObject()->IsListItemIncludingNG();
+  return n && n->GetLayoutObject() && n->GetLayoutObject()->IsListItem();
 }
 
 bool IsListItemTag(const Node* n) {

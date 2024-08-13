@@ -8,6 +8,7 @@
 
 #include "ash/constants/ash_features.h"
 #include "base/no_destructor.h"
+#include "chrome/browser/ash/child_accounts/on_device_controls/app_controls_notifier.h"
 #include "chrome/browser/ash/child_accounts/on_device_controls/app_controls_service.h"
 #include "chrome/browser/ash/child_accounts/on_device_controls/blocked_app_store.h"
 #include "chrome/browser/ash/child_accounts/on_device_controls/on_device_utils.h"
@@ -52,7 +53,14 @@ AppControlsService* AppControlsServiceFactory::GetForBrowserContext(
 }
 
 AppControlsServiceFactory::AppControlsServiceFactory()
-    : ProfileKeyedServiceFactory(kServiceName) {}
+    : ProfileKeyedServiceFactory(
+          kServiceName,
+          ProfileSelections::Builder()
+              .WithRegular(ProfileSelection::kOriginalOnly)
+              // TODO(crbug.com/41488885): Check if this service is needed for
+              // Ash Internals.
+              .WithAshInternals(ProfileSelection::kOriginalOnly)
+              .Build()) {}
 
 AppControlsServiceFactory::~AppControlsServiceFactory() = default;
 
@@ -65,6 +73,7 @@ AppControlsServiceFactory::BuildServiceInstanceForBrowserContext(
 void AppControlsServiceFactory::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   AppControlsService::RegisterProfilePrefs(registry);
+  AppControlsNotifier::RegisterProfilePrefs(registry);
   BlockedAppStore::RegisterProfilePrefs(registry);
 }
 

@@ -640,12 +640,13 @@ Browser::Browser(const CreateParams& params)
       overscroll_pref_manager_(std::make_unique<OverscrollPrefManager>(this))
 #endif
 {
-  browser_actions_->InitializeBrowserActions();
-
   content::g_support_transparency = !base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableTransparency);
   if (content::g_support_transparency) {
     content::g_force_cpu_draw = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kForceCpuDraw);
   }
+
+  browser_actions_->InitializeBrowserActions();
+
   if (!profile_->IsOffTheRecord()) {
     profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
         params.profile->GetOriginalProfile(),
@@ -735,6 +736,7 @@ Browser::~Browser() {
   // all BrowserUserData should be converted to features. Until then,
   // destroy `features_` because that's what breaks things the least :)
   features_.reset();
+  ClearAllUserData();
 
   saved_tab_group_observation_.Reset();
 
@@ -1221,7 +1223,7 @@ views::WebView* Browser::GetWebView() {
   return window_->GetContentsWebView();
 }
 
-void Browser::OpenURL(const GURL& gurl, WindowOpenDisposition disposition) {
+void Browser::OpenGURL(const GURL& gurl, WindowOpenDisposition disposition) {
   OpenURL(content::OpenURLParams(gurl, content::Referrer(), disposition,
                                  ui::PAGE_TRANSITION_LINK,
                                  /*is_renderer_initiated=*/false),
@@ -1233,7 +1235,7 @@ const SessionID& Browser::GetSessionID() {
 }
 
 bool Browser::IsTabStripVisible() {
-  return window_->IsToolbarShowing();
+  return window_ && window_->IsToolbarShowing();
 }
 
 views::View* Browser::TopContainer() {
@@ -1411,9 +1413,9 @@ void Browser::OpenFile() {
   ui::SelectFileDialog::FileTypeInfo file_types;
   file_types.allowed_paths =
       ui::SelectFileDialog::FileTypeInfo::ANY_PATH_OR_URL;
-  select_file_dialog_->SelectFile(
-      ui::SelectFileDialog::SELECT_OPEN_FILE, std::u16string(), directory,
-      &file_types, 0, base::FilePath::StringType(), parent_window, nullptr);
+  select_file_dialog_->SelectFile(ui::SelectFileDialog::SELECT_OPEN_FILE,
+                                  std::u16string(), directory, &file_types, 0,
+                                  base::FilePath::StringType(), parent_window);
 }
 
 void Browser::UpdateDownloadShelfVisibility(bool visible) {
@@ -1652,18 +1654,18 @@ void Browser::SavedTabGroupAddedLocally(const base::Uuid& guid) {
 }
 
 void Browser::SavedTabGroupRemovedLocally(
-    const tab_groups::SavedTabGroup* removed_group) {
+    const tab_groups::SavedTabGroup& removed_group) {
   // See comment in Browser::OnTabGroupChanged
   DCHECK(!IsRelevantToAppSessionService(type_));
   DCHECK(tab_strip_model_->group_model());
 
-  if (!removed_group->local_group_id().has_value()) {
+  if (!removed_group.local_group_id().has_value()) {
     return;
   }
 
   if (tab_strip_model()->group_model()->ContainsTabGroup(
-          removed_group->local_group_id().value())) {
-    UpdateTabGroupSessionMetadata(this, removed_group->local_group_id().value(),
+          removed_group.local_group_id().value())) {
+    UpdateTabGroupSessionMetadata(this, removed_group.local_group_id().value(),
                                   std::nullopt);
   }
 }
@@ -1837,20 +1839,6 @@ content::PreloadingEligibility Browser::IsPrerender2Supported(
   Profile* profile =
       Profile::FromBrowserContext(web_contents.GetBrowserContext());
   return prefetch::IsSomePreloadingEnabled(*profile->GetPrefs());
-}
-
-void Browser::UpdateInspectedWebContentsIfNecessary(
-    content::WebContents* old_contents,
-    content::WebContents* new_contents,
-    base::OnceCallback<void()> callback) {
-  DevToolsWindow* dev_tools_window =
-      DevToolsWindow::GetInstanceForInspectedWebContents(old_contents);
-  if (dev_tools_window) {
-    dev_tools_window->UpdateInspectedWebContents(new_contents,
-                                                 std::move(callback));
-  } else {
-    std::move(callback).Run();
-  }
 }
 
 bool Browser::ShouldShowStaleContentOnEviction(content::WebContents* source) {
@@ -2134,16 +2122,17 @@ void Browser::UpdateTargetURL(WebContents* source, const GURL& url) {
 
 void Browser::ContentsMouseEvent(WebContents* source, const ui::Event& event) {
   const ui::EventType type = event.type();
-  const bool exited = type == ui::ET_MOUSE_EXITED;
+  const bool exited = type == ui::EventType::kMouseExited;
   // Disregard synthesized events, and mouse enter and exit, which may occur
   // without explicit user input events during window state changes.
-  if (type != ui::ET_MOUSE_ENTERED && !exited && !event.IsSynthesized()) {
+  if (type != ui::EventType::kMouseEntered && !exited &&
+      !event.IsSynthesized()) {
     exclusive_access_manager_->OnUserInput();
   }
 
   // Mouse motion events update the status bubble, if it exists.
   if (GetStatusBubble() && source == tab_strip_model_->GetActiveWebContents() &&
-      (type == ui::ET_MOUSE_MOVED || exited)) {
+      (type == ui::EventType::kMouseMoved || exited)) {
     GetStatusBubble()->MouseMoved(exited);
     if (exited) {
       GetStatusBubble()->SetURL(GURL());
@@ -2546,7 +2535,8 @@ void Browser::RegisterProtocolHandler(
     // At this point, there will be UI presented, and running a dialog causes an
     // exit to webpage-initiated fullscreen. http://crbug.com/728276
     base::ScopedClosureRunner fullscreen_block =
-        web_contents->ForSecurityDropFullscreen();
+        web_contents->ForSecurityDropFullscreen(
+            /*display_id=*/display::kInvalidDisplayId);
 
     permission_request_manager->AddRequest(
         requesting_frame,
@@ -2746,9 +2736,7 @@ void Browser::OnZoomChanged(
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, ui::SelectFileDialog::Listener implementation:
 
-void Browser::FileSelected(const ui::SelectedFileInfo& file_info,
-                           int index,
-                           void* params) {
+void Browser::FileSelected(const ui::SelectedFileInfo& file_info, int index) {
   // Transfer the ownership of select file dialog so that the ref count is
   // released after the function returns. This is needed because the passed-in
   // data such as |file_info| and |params| could be owned by the dialog.
@@ -2767,7 +2755,7 @@ void Browser::FileSelected(const ui::SelectedFileInfo& file_info,
           /*navigation_handle_callback=*/{});
 }
 
-void Browser::FileSelectionCanceled(void* params) {
+void Browser::FileSelectionCanceled() {
   select_file_dialog_.reset();
 }
 
@@ -2878,7 +2866,6 @@ void Browser::OnTabDetached(WebContents* contents, bool was_active) {
 
 void Browser::OnTabDeactivated(WebContents* contents) {
   exclusive_access_manager_->OnTabDeactivated(contents);
-  if (SearchTabHelper::FromWebContents(contents))
   SearchTabHelper::FromWebContents(contents)->OnTabDeactivated();
 
   // Save what the user's currently typing, so it can be restored when we
@@ -2971,7 +2958,7 @@ void Browser::OnActiveTabChanged(WebContents* old_contents,
                                base::TimeTicks::Now());
   }
 
-  //SearchTabHelper::FromWebContents(new_contents)->OnTabActivated();
+  SearchTabHelper::FromWebContents(new_contents)->OnTabActivated();
 }
 
 void Browser::OnTabMoved(int from_index, int to_index) {

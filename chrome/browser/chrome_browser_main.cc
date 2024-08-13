@@ -81,6 +81,7 @@
 #include "chrome/browser/metrics/shutdown_watcher_helper.h"
 #include "chrome/browser/nacl_host/nacl_browser_delegate_impl.h"
 #include "chrome/browser/net/system_network_context_manager.h"
+#include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/messaging_layer/public/report_client.h"
 #include "chrome/browser/prefs/chrome_command_line_pref_store.h"
@@ -208,6 +209,10 @@
 #include "chrome/browser/component_updater/registration.h"
 #endif  // BUILDFLAG(ENABLE_COMPONENT_UPDATER)
 
+#if BUILDFLAG(ENABLE_UPDATER)
+#include "chrome/browser/updater/scheduler.h"
+#endif
+
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/share/share_history.h"
@@ -232,7 +237,6 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "base/process/process.h"
 #include "base/task/task_traits.h"
-#include "components/crash/core/app/breakpad_linux.h"
 #else
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -885,6 +889,10 @@ void ChromeBrowserMainParts::PreCreateMainMessageLoop() {
 
   for (auto& chrome_extra_part : chrome_extra_parts_)
     chrome_extra_part->PreCreateMainMessageLoop();
+
+#if BUILDFLAG(ENABLE_UPDATER)
+  updater::SchedulePeriodicTasks();
+#endif  // BUILDFLAG(ENABLE_UPDATER)
 }
 
 void ChromeBrowserMainParts::PostCreateMainMessageLoop() {
@@ -1402,6 +1410,8 @@ void ChromeBrowserMainParts::PostProfileInit(Profile* profile,
     headless::ReportHeadlessActionMetrics();
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
+  SystemPermissionSettings::Create(profile);
 }
 
 void ChromeBrowserMainParts::PreBrowserStart() {

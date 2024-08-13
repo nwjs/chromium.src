@@ -159,13 +159,14 @@ class CookieControlsController final
 
   std::vector<TrackingProtectionFeature> CreateTrackingProtectionFeatureList(
       CookieControlsEnforcement enforcement,
-      bool are_3pcs_allowed);
+      bool cookies_allowed,
+      bool protections_on);
 
   CookieControlsEnforcement GetEnforcementForThirdPartyCookieBlocking(
       CookieBlocking3pcdStatus status,
       const GURL url,
       SettingInfo info,
-      bool is_allowed);
+      bool cookies_allowed);
 
   bool HasOriginSandboxedTopLevelDocument() const;
 
@@ -199,8 +200,10 @@ class CookieControlsController final
                         int third_party_blocked_sites);
 
   bool ShouldHighlightUserBypass();
-  bool ShouldUserBypassIconBeVisible(bool protections_on,
-                                     bool controls_visible);
+  bool ShouldUserBypassIconBeVisible(
+      std::vector<TrackingProtectionFeature> features,
+      bool protections_on,
+      bool controls_visible);
   content::WebContents* GetWebContents() const;
 
   std::unique_ptr<TabObserver> tab_observer_;

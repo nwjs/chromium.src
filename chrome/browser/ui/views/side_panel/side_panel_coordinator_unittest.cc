@@ -22,6 +22,7 @@
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_observer.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model_factory.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
@@ -32,7 +33,6 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_content_proxy.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_view_state_observer.h"
@@ -204,8 +204,8 @@ class SidePanelCoordinatorTest : public TestWithBrowserView {
 
   void ClickButton(views::Button* button) {
     views::test::ButtonTestApi(button).NotifyClick(ui::MouseEvent(
-        ui::ET_MOUSE_PRESSED, gfx::Point(), gfx::Point(), base::TimeTicks(),
-        ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
+        ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
+        base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
   }
 
   SidePanelEntry::Key GetKeyForExtension(const extensions::ExtensionId& id) {
@@ -247,7 +247,7 @@ class SidePanelCoordinatorTest : public TestWithBrowserView {
         extensions::ExtensionBuilder(name)
             .SetLocation(extensions::mojom::ManifestLocation::kInternal)
             .SetManifestVersion(3)
-            .AddPermission("sidePanel")
+            .AddAPIPermission("sidePanel")
             .Build();
 
     extension_service()->GrantPermissions(extension.get());
@@ -1123,6 +1123,12 @@ class TestSidePanelObserver : public SidePanelEntryObserver {
     registry_->Deregister(entry->key());
   }
 
+  void OnEntryWillHide(SidePanelEntry* entry) override {
+    last_on_before_entry_hidden_entry_id_ = entry->key().id();
+  }
+
+  std::optional<SidePanelEntry::Id> last_on_before_entry_hidden_entry_id_;
+
  private:
   raw_ptr<SidePanelRegistry> registry_;
 };
@@ -1144,7 +1150,9 @@ TEST_F(SidePanelCoordinatorTest,
   // Switch to another entry.
   coordinator_->Show(SidePanelEntry::Id::kReadingList);
 
-  // Verify that the previous entry has deregistered.
+  // Verify that the previous entry has deregistered and is hidden.
+  EXPECT_THAT(observer->last_on_before_entry_hidden_entry_id_,
+              testing::Optional(SidePanelEntry::Id::kAboutThisSite));
   EXPECT_FALSE(contextual_registries_[0]->GetEntryForKey(
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite)));
 }
@@ -1166,7 +1174,9 @@ TEST_F(SidePanelCoordinatorTest,
   // Close the side panel.
   coordinator_->Close();
 
-  // Verify that the previous entry has deregistered.
+  // Verify that the previous entry has deregistered and is hidden.
+  EXPECT_THAT(observer->last_on_before_entry_hidden_entry_id_,
+              testing::Optional(SidePanelEntry::Id::kAboutThisSite));
   EXPECT_FALSE(contextual_registries_[0]->GetEntryForKey(
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite)));
 }

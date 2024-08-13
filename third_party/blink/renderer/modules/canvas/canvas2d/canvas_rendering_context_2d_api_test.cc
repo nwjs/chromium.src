@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -787,7 +792,7 @@ TEST_F(CanvasRenderingContext2DAPITest,
   CreateContext(kNonOpaque);
 
   SetStrokeStyleString(Context2D(), GetScriptState(), "blue");
-  EXPECT_EQ(INT64_C(-1964835352532316734),
+  EXPECT_EQ(INT64_C(3577524355478740727),
             Context2D()->IdentifiableTextToken().ToUkmMetricValue());
 
   EXPECT_FALSE(Context2D()->IdentifiabilityEncounteredSkippedOps());
@@ -812,7 +817,7 @@ TEST_F(CanvasRenderingContext2DAPITest,
   CreateContext(kNonOpaque);
 
   SetFillStyleString(Context2D(), GetScriptState(), "blue");
-  EXPECT_EQ(INT64_C(-4860826471555317536),
+  EXPECT_EQ(INT64_C(7953663110297373742),
             Context2D()->IdentifiableTextToken().ToUkmMetricValue());
 
   EXPECT_FALSE(Context2D()->IdentifiabilityEncounteredSkippedOps());
@@ -843,7 +848,7 @@ TEST_F(CanvasRenderingContext2DAPITest,
   Context2D()->setTextAlign("right");
   SetFillStyleString(Context2D(), GetScriptState(), "red");
   Context2D()->fillText("Bye", 4.0, 3.0);
-  EXPECT_EQ(INT64_C(5574475585707445774),
+  EXPECT_EQ(INT64_C(-3400753946520799765),
             Context2D()->IdentifiableTextToken().ToUkmMetricValue());
 
   EXPECT_FALSE(Context2D()->IdentifiabilityEncounteredSkippedOps());

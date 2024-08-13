@@ -1284,7 +1284,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method clearRect
 [Worker]     method clip
 [Worker]     method closePath
-[Worker]     method commit
 [Worker]     method constructor
 [Worker]     method createConicGradient
 [Worker]     method createImageData
@@ -1517,6 +1516,28 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     getter applicationServerKey
 [Worker]     getter userVisibleOnly
+[Worker]     method constructor
+[Worker] interface RTCRtpAcks
+[Worker]     attribute @@toStringTag
+[Worker]     getter explicitCongestionNotification
+[Worker]     getter receivedTime
+[Worker]     getter remoteSendTimestamp
+[Worker]     method acks
+[Worker]     method constructor
+[Worker] interface RTCRtpSendResult
+[Worker]     attribute @@toStringTag
+[Worker]     getter sent
+[Worker]     getter unsent
+[Worker]     method constructor
+[Worker] interface RTCRtpSendStream
+[Worker]     attribute @@toStringTag
+[Worker]     method constructor
+[Worker]     method sendRtp
+[Worker] interface RTCRtpSent
+[Worker]     attribute @@toStringTag
+[Worker]     getter ackId
+[Worker]     getter size
+[Worker]     getter time
 [Worker]     method constructor
 [Worker] interface ReadableByteStreamController
 [Worker]     attribute @@toStringTag
@@ -1780,7 +1801,9 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter hangingBaseline
 [Worker]     getter ideographicBaseline
 [Worker]     getter width
+[Worker]     method caretPositionFromPoint
 [Worker]     method constructor
+[Worker]     method getActualBoundingBox
 [Worker]     method getSelectionRects
 [Worker] interface TimestampTrigger
 [Worker]     attribute @@toStringTag
@@ -3295,6 +3318,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method constructor
 [Worker] interface WorkerGlobalScope : EventTarget
 [Worker]     attribute @@toStringTag
+[Worker]     getter ai
 [Worker]     getter caches
 [Worker]     getter crossOriginEmbedderPolicy
 [Worker]     getter crossOriginIsolated
@@ -3328,6 +3352,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method setInterval
 [Worker]     method setTimeout
 [Worker]     method structuredClone
+[Worker]     setter ai
 [Worker]     setter onerror
 [Worker]     setter onlanguagechange
 [Worker]     setter onrejectionhandled

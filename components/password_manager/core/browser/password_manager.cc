@@ -81,8 +81,6 @@ using autofill::UNKNOWN_TYPE;
 using autofill::USERNAME;
 using autofill::mojom::SubmissionIndicatorEvent;
 using base::NumberToString;
-using BlocklistedStatus =
-    password_manager::OriginCredentialStore::BlocklistedStatus;
 
 namespace password_manager {
 
@@ -98,7 +96,7 @@ bool AreChangePasswordFieldsEmpty(const FormData& form_data,
   const std::u16string& new_password = parsed_form.new_password_element;
   const std::u16string& confirmation_password =
       parsed_form.confirmation_password_element;
-  for (const auto& field : form_data.fields) {
+  for (const auto& field : form_data.fields()) {
     if (!field.value().empty() &&
         (field.name() == new_password ||
          (!old_password.empty() && field.name() == old_password) ||
@@ -221,7 +219,7 @@ bool IsSingleUsernameSubmission(const PasswordForm& submitted_form) {
     return true;
   }
 
-  for (auto const& field : submitted_form.form_data.fields) {
+  for (auto const& field : submitted_form.form_data.fields()) {
     if (submitted_form.password_element_renderer_id == field.renderer_id() ||
         submitted_form.new_password_element_renderer_id ==
             field.renderer_id()) {
@@ -247,6 +245,17 @@ base::CallbackListSubscription AddSyncEnabledOrDisabledCallback(
   return {};
 }
 
+// Checks whether the filter allows saving this credential. In practice, this
+// prevents saving the password of the syncing account. However, if the
+// password is already saved, then *updating* it is still allowed - better
+// than keeping an outdated password around.
+bool StoreResultFilterAllowsSaving(PasswordFormManager* form_manager,
+                                   PasswordManagerClient* client) {
+  return form_manager->IsPasswordUpdate() ||
+         client->GetStoreResultFilter()->ShouldSave(
+             *form_manager->GetSubmittedForm());
+}
+
 #if BUILDFLAG(IS_ANDROID)
 // Shows an error message that nudges the user to update GMSCore if necessary.
 void MaybeNudgeToUpdateGMSCoreWhenSavingDisabled(
@@ -259,12 +268,40 @@ void MaybeNudgeToUpdateGMSCoreWhenSavingDisabled(
             kGMSCoreOutdatedSavingDisabled);
   }
 }
+
+// Records the form submission if the user has saving enabled and
+// the password is eligible for saving.
+void LogFormSubmissionIfEligibleForSaving(PasswordFormManager* manager,
+                                          PasswordManagerClient* client) {
+  if (!password_manager_util::IsAbleToSavePasswords(client)) {
+    return;
+  }
+
+  if (!manager->IsSavingAllowed()) {
+    return;
+  }
+
+  if (!ShouldPromptUserToSavePassword(*manager)) {
+    return;
+  }
+
+  if (!StoreResultFilterAllowsSaving(manager, client)) {
+    return;
+  }
+
+  if (manager->IsBlocklisted()) {
+    return;
+  }
+
+  manager->GetMetricsRecorder()->set_form_submission_reached(true);
+}
+
 #endif
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 bool HasManuallyFilledFields(const PasswordForm& form) {
   return base::ranges::any_of(
-      form.form_data.fields, [&](const autofill::FormFieldData& field) {
+      form.form_data.fields(), [&](const autofill::FormFieldData& field) {
         return field.properties_mask() &
                autofill::FieldPropertiesFlags::kAutofilledOnUserTrigger;
       });
@@ -373,9 +410,11 @@ void PasswordManager::RegisterProfilePrefs(
       prefs::kBiometricAuthBeforeFillingPromoShownCounter, 0);
   registry->RegisterBooleanPref(prefs::kHasUserInteractedWithBiometricAuthPromo,
                                 false);
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
   registry->RegisterBooleanPref(prefs::kBiometricAuthenticationBeforeFilling,
                                 false);
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
   registry->RegisterIntegerPref(
       prefs::kPasswordGenerationNudgePasswordDismissCount, 0);
@@ -394,6 +433,15 @@ void PasswordManager::RegisterProfilePrefs(
   registry->RegisterIntegerPref(prefs::kTotalPasswordsAvailableForProfile, 0);
   registry->RegisterIntegerPref(prefs::kPasswordRemovalReasonForAccount, 0);
   registry->RegisterIntegerPref(prefs::kPasswordRemovalReasonForProfile, 0);
+#if !BUILDFLAG(IS_ANDROID)
+  registry->RegisterBooleanPref(prefs::kClearingUndecryptablePasswords, false);
+#endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_IOS)
+  registry->RegisterBooleanPref(prefs::kDeletingUndecryptablePasswordsEnabled,
+                                true);
+#endif
 }
 
 // static
@@ -594,7 +642,15 @@ bool PasswordManager::IsPasswordFieldDetectedOnPage() const {
 
 void PasswordManager::OnPasswordFormSubmitted(PasswordManagerDriver* driver,
                                               const FormData& form_data) {
+#if BUILDFLAG(IS_ANDROID)
+  PasswordFormManager* form_manager =
+      ProvisionallySaveForm(form_data, driver, false);
+  if (form_manager) {
+    LogFormSubmissionIfEligibleForSaving(form_manager, client_);
+  }
+#else
   ProvisionallySaveForm(form_data, driver, false);
+#endif
 }
 
 void PasswordManager::OnDynamicFormSubmission(
@@ -638,6 +694,10 @@ void PasswordManager::OnDynamicFormSubmission(
     return;
   }
 
+#if BUILDFLAG(IS_ANDROID)
+  LogFormSubmissionIfEligibleForSaving(submitted_manager, client_);
+#endif
+
   submitted_manager->UpdateSubmissionIndicatorEvent(event);
 
   if (IsAutomaticSavePromptAvailable()) {
@@ -662,6 +722,10 @@ void PasswordManager::OnPasswordFormCleared(
   if (!form_data.renderer_id().is_null()) {
     manager->UpdateSubmissionIndicatorEvent(
         SubmissionIndicatorEvent::CHANGE_PASSWORD_FORM_CLEARED);
+
+#if BUILDFLAG(IS_ANDROID)
+    LogFormSubmissionIfEligibleForSaving(manager, client_);
+#endif
     OnLoginSuccessful();
     return;
   }
@@ -669,11 +733,14 @@ void PasswordManager::OnPasswordFormCleared(
   // verified that fields are relevant.
   FieldRendererId new_password_field_id =
       manager->GetSubmittedForm()->new_password_element_renderer_id;
-  auto it = base::ranges::find(form_data.fields, new_password_field_id,
+  auto it = base::ranges::find(form_data.fields(), new_password_field_id,
                                &autofill::FormFieldData::renderer_id);
-  if (it != form_data.fields.end() && it->value().empty()) {
+  if (it != form_data.fields().end() && it->value().empty()) {
     manager->UpdateSubmissionIndicatorEvent(
         SubmissionIndicatorEvent::CHANGE_PASSWORD_FORM_CLEARED);
+#if BUILDFLAG(IS_ANDROID)
+    LogFormSubmissionIfEligibleForSaving(manager, client_);
+#endif
     OnLoginSuccessful();
   }
 }
@@ -976,9 +1043,9 @@ void PasswordManager::UpdateStateOnUserInput(
   }
 
   // Get the field that corresponds to `field_id`.
-  auto it = base::ranges::find(observed_form->fields, field_id,
+  auto it = base::ranges::find(observed_form->fields(), field_id,
                                &autofill::FormFieldData::renderer_id);
-  if (it == observed_form->fields.end()) {
+  if (it == observed_form->fields().end()) {
     return;
   }
   const autofill::FormFieldData& field = *it;
@@ -1306,13 +1373,7 @@ void PasswordManager::OnLoginSuccessful() {
 
   // TODO(crbug.com/40570965): Implement checking whether to save with
   // PasswordFormManager.
-  // Check whether the filter allows saving this credential. In practice, this
-  // prevents saving the password of the syncing account. However, if the
-  // password is already saved, then *updating* it is still allowed - better
-  // than keeping an outdated password around.
-  if (!submitted_manager->IsPasswordUpdate() &&
-      !client_->GetStoreResultFilter()->ShouldSave(
-          *submitted_manager->GetSubmittedForm())) {
+  if (!StoreResultFilterAllowsSaving(submitted_manager, client_)) {
     RecordProvisionalSaveFailure(
         PasswordManagerMetricsRecorder::SYNC_CREDENTIAL,
         submitted_manager->GetURL());
@@ -1454,7 +1515,7 @@ void PasswordManager::ProcessAutofillPredictions(
   manager->ProcessServerPredictions(predictions_);
 }
 
-PasswordFormManager* PasswordManager::GetSubmittedManager() {
+PasswordFormManager* PasswordManager::GetSubmittedManager() const {
   if (owned_submitted_form_manager_) {
     return owned_submitted_form_manager_.get();
   }
@@ -1462,7 +1523,7 @@ PasswordFormManager* PasswordManager::GetSubmittedManager() {
   return password_form_cache_.GetSubmittedManager();
 }
 
-std::optional<PasswordForm> PasswordManager::GetSubmittedCredentials() {
+std::optional<PasswordForm> PasswordManager::GetSubmittedCredentials() const {
   PasswordFormManager* submitted_manager = GetSubmittedManager();
   if (submitted_manager) {
     return submitted_manager->GetPendingCredentials();

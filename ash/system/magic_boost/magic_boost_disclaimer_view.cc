@@ -10,10 +10,10 @@
 
 #include "ash/public/cpp/resources/grit/ash_public_unscaled_resources.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/style/typography.h"
 #include "ash/system/magic_boost/magic_boost_constants.h"
 #include "base/functional/bind.h"
-#include "build/branding_buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
@@ -27,6 +27,7 @@
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/highlight_border.h"
 #include "ui/views/layout/box_layout_view.h"
@@ -34,10 +35,6 @@
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/unique_widget_ptr.h"
 #include "ui/views/widget/widget.h"
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "chromeos/ash/resources/internal/strings/grit/ash_internal_strings.h"
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 namespace ash {
 
@@ -47,11 +44,12 @@ constexpr char kWidgetName[] = "MagicBoostDisclaimerViewWidget";
 
 // Paddings, sizes and insets.
 constexpr int kImageWidth = 512;
+constexpr int kImageHeight = 236;
 constexpr int kContainerPadding = 32;
 constexpr int kTextContainerBetweenChildSpacing = 16;
 constexpr int kContainerBottomPadding = 28;
 constexpr int kWidgetWidth = kImageWidth;
-constexpr int kWidgetHeight = 650;
+constexpr int kWidgetMiniumHeight = 650;
 constexpr int kBetweenButtonsSpacing = 8;
 constexpr int kButtonHeight = 32;
 constexpr int kRadius = 20;
@@ -62,7 +60,8 @@ constexpr gfx::Insets kButtonContainerInsets =
                       kContainerBottomPadding,
                       kContainerPadding);
 constexpr gfx::Insets kTextContainerInsets = gfx::Insets(kContainerPadding);
-constexpr gfx::Size kImagePreferredSize(/*width=*/kImageWidth, /*height=*/236);
+constexpr gfx::Size kImagePreferredSize(/*width=*/kImageWidth,
+                                        /*height=*/kImageHeight);
 
 views::StyledLabel::RangeStyleInfo GetBodyTextStyle() {
   views::StyledLabel::RangeStyleInfo style;
@@ -72,33 +71,15 @@ views::StyledLabel::RangeStyleInfo GetBodyTextStyle() {
   return style;
 }
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-// Placeholder url.
-constexpr char kTestURL[] = "https://www.google.com";
-
-// Opens the passed in `url` in a new tab.
-void OnLinkClick(const std::string& url) {
-  // TODO(b/339044721): open the url in a new tab.
-}
-
-views::StyledLabel::RangeStyleInfo GetLinkTextStyle() {
+views::StyledLabel::RangeStyleInfo GetLinkTextStyle(
+    base::RepeatingClosure press_link_callback) {
   views::StyledLabel::RangeStyleInfo link_style =
       views::StyledLabel::RangeStyleInfo::CreateForLink(
-          base::BindRepeating(&OnLinkClick, kTestURL));
+          std::move(press_link_callback));
   link_style.override_color_id =
       static_cast<ui::ColorId>(cros_tokens::kCrosSysOnSurfaceVariant);
   return link_style;
 }
-#else
-// Placeholder texts
-// TODO(b/339528642): Replace with real strings.
-const std::u16string kTestTitleText = u"Disclaimer title";
-const std::u16string kTestSecondaryButtonText = u"No thanks";
-const std::u16string kTestPrimaryButtonText = u"Try it";
-const std::u16string kTestBodyText =
-    u"Body text that is multi-line which means it can span from one line to up "
-    u"to three lines for this case.";
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 views::Builder<views::StyledLabel> GetTextBodyBuilder(
     const std::u16string& text) {
@@ -109,100 +90,71 @@ views::Builder<views::StyledLabel> GetTextBodyBuilder(
       .SetAutoColorReadabilityEnabled(false);
 }
 
-std::u16string GetTitle() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return l10n_util::GetStringUTF16(IDS_MAGIC_BOOST_DISCLAIMER_TITLE);
-#else
-  return kTestTitleText;
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-}
-
-std::u16string GetAcceptButtonText() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return l10n_util::GetStringUTF16(IDS_MAGIC_BOOST_DISCLAIMER_ACCEPT_BUTTON);
-#else
-  return kTestPrimaryButtonText;
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-}
-
-std::u16string GetDeclineButtonText() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return l10n_util::GetStringUTF16(IDS_MAGIC_BOOST_DISCLAIMER_DECLINE_BUTTON);
-#else
-  return kTestSecondaryButtonText;
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-}
-
 views::Builder<views::StyledLabel> GetParagraphOneBuilder() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return GetTextBodyBuilder(
-      l10n_util::GetStringUTF16(IDS_MAGIC_BOOST_DISCLAMIER_PARAGRAPH_ONE));
-#else
-  return GetTextBodyBuilder(kTestBodyText);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  return GetTextBodyBuilder(l10n_util::GetStringUTF16(
+                                IDS_ASH_MAGIC_BOOST_DISCLAMIER_PARAGRAPH_ONE))
+      .SetID(magic_boost::ViewId::DisclaimerViewParagraphOne);
 }
 
-views::Builder<views::StyledLabel> GetParagraphTwoBuilder() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+views::Builder<views::StyledLabel> GetParagraphTwoBuilder(
+    base::RepeatingClosure press_link_callback) {
   std::vector<size_t> offsets;
   const std::u16string link_text =
-      l10n_util::GetStringUTF16(IDS_MAGIC_BOOST_DISCLAIMER_TERMS_LINK_TEXT);
+      l10n_util::GetStringUTF16(IDS_ASH_MAGIC_BOOST_DISCLAIMER_TERMS_LINK_TEXT);
   const std::u16string text = l10n_util::GetStringFUTF16(
-      IDS_MAGIC_BOOST_DISCLAIMER_PARAGRAPH_TWO, {link_text}, &offsets);
+      IDS_ASH_MAGIC_BOOST_DISCLAIMER_PARAGRAPH_TWO, {link_text}, &offsets);
 
   return views::Builder<views::StyledLabel>()
       .SetText(text)
+      .SetID(magic_boost::ViewId::DisclaimerViewParagraphTwo)
       .AddStyleRange(gfx::Range(0, offsets.at(0)), GetBodyTextStyle())
       .AddStyleRange(
           gfx::Range(offsets.at(0), offsets.at(0) + link_text.length()),
-          GetLinkTextStyle())
+          GetLinkTextStyle(std::move(press_link_callback)))
       .AddStyleRange(
           gfx::Range(offsets.at(0) + link_text.length(), text.length()),
           GetBodyTextStyle())
       .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
       .SetAutoColorReadabilityEnabled(false);
-
-#else
-  return GetTextBodyBuilder(kTestBodyText);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
 
 views::Builder<views::StyledLabel> GetParagraphThreeBuilder() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return GetTextBodyBuilder(
-      l10n_util::GetStringUTF16(IDS_MAGIC_BOOST_DISCLAIMER_PARAGRAPH_THREE));
-#else
-  return GetTextBodyBuilder(kTestBodyText);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  return GetTextBodyBuilder(l10n_util::GetStringUTF16(
+                                IDS_ASH_MAGIC_BOOST_DISCLAIMER_PARAGRAPH_THREE))
+      .SetID(magic_boost::ViewId::DisclaimerViewParagraphThree);
 }
 
-views::Builder<views::StyledLabel> GetParagraphFourBuilder() {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+views::Builder<views::StyledLabel> GetParagraphFourBuilder(
+    base::RepeatingClosure press_link_callback) {
   std::vector<size_t> offsets;
   const std::u16string link_text = l10n_util::GetStringUTF16(
-      IDS_MAGIC_BOOST_DISCLAIMER_LEARN_MORE_LINK_TEXT);
+      IDS_ASH_MAGIC_BOOST_DISCLAIMER_LEARN_MORE_LINK_TEXT);
   const std::u16string text = l10n_util::GetStringFUTF16(
-      IDS_MAGIC_BOOST_DISCLAIMER_PARAGRAPH_FOUR, {link_text}, &offsets);
+      IDS_ASH_MAGIC_BOOST_DISCLAIMER_PARAGRAPH_FOUR, {link_text}, &offsets);
 
   return views::Builder<views::StyledLabel>()
       .SetText(text)
+      .SetID(magic_boost::ViewId::DisclaimerViewParagraphFour)
       .AddStyleRange(gfx::Range(0, offsets.at(0)), GetBodyTextStyle())
       .AddStyleRange(
           gfx::Range(offsets.at(0), offsets.at(0) + link_text.length()),
-          GetLinkTextStyle())
+          GetLinkTextStyle(std::move(press_link_callback)))
       .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
       .SetAutoColorReadabilityEnabled(false);
-#else
-  return GetTextBodyBuilder(kTestBodyText);
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
 
 }  // namespace
 
 MagicBoostDisclaimerView::MagicBoostDisclaimerView(
     base::RepeatingClosure press_accept_button_callback,
-    base::RepeatingClosure press_decline_button_callback) {
+    base::RepeatingClosure press_decline_button_callback,
+    base::RepeatingClosure press_terms_of_service_callback,
+    base::RepeatingClosure press_learn_more_link_callback) {
   views::View* disclaimer_view;
+  std::u16string decline_button_text =
+      l10n_util::GetStringUTF16(IDS_ASH_MAGIC_BOOST_DISCLAIMER_DECLINE_BUTTON);
+  std::u16string accept_button_text =
+      l10n_util::GetStringUTF16(IDS_ASH_MAGIC_BOOST_DISCLAIMER_ACCEPT_BUTTON);
   views::Builder<views::View>(this)
       .CopyAddressTo(&disclaimer_view)
       .SetLayoutManager(std::make_unique<views::BoxLayout>(
@@ -216,32 +168,52 @@ MagicBoostDisclaimerView::MagicBoostDisclaimerView(
                   ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
                       IDR_MAGIC_BOOST_DISCLAIMER_ILLUSTRATION))
               .SetPreferredSize(kImagePreferredSize),
-          views::Builder<views::BoxLayoutView>()
-              .SetOrientation(views::LayoutOrientation::kVertical)
+          views::Builder<views::ScrollView>()
+              .SetBackgroundColor(std::nullopt)
+              .SetDrawOverflowIndicator(false)
+              .SetVerticalScrollBarMode(
+                  views::ScrollView::ScrollBarMode::kHiddenButEnabled)
+              // The content will take all the available space of the widget.
               .SetProperty(views::kBoxLayoutFlexKey,
                            views::BoxLayoutFlexSpecification())
-              .SetBetweenChildSpacing(kTextContainerBetweenChildSpacing)
-              .SetBorder(views::CreateEmptyBorder(kTextContainerInsets))
-              .AddChildren(
-                  views::Builder<views::Label>()
-                      .SetFontList(
-                          TypographyProvider::Get()->ResolveTypographyToken(
-                              TypographyToken::kCrosDisplay7))
-                      .SetEnabledColorId(cros_tokens::kCrosSysOnSurface)
-                      .SetHorizontalAlignment(
-                          gfx::HorizontalAlignment::ALIGN_LEFT)
-                      .SetText(GetTitle()),
-                  GetParagraphOneBuilder(), GetParagraphTwoBuilder(),
-                  GetParagraphThreeBuilder(), GetParagraphFourBuilder()),
+              .ClipHeightTo(0, std::numeric_limits<int>::max())
+              .SetContents(
+                  views::Builder<views::BoxLayoutView>()
+                      .SetOrientation(views::LayoutOrientation::kVertical)
+                      .SetBetweenChildSpacing(kTextContainerBetweenChildSpacing)
+                      .SetBorder(views::CreateEmptyBorder(kTextContainerInsets))
+                      .AddChildren(
+                          views::Builder<views::Label>()
+                              .SetFontList(
+                                  TypographyProvider::Get()
+                                      ->ResolveTypographyToken(
+                                          TypographyToken::kCrosDisplay7))
+                              .SetEnabledColorId(cros_tokens::kCrosSysOnSurface)
+                              .SetHorizontalAlignment(
+                                  gfx::HorizontalAlignment::ALIGN_LEFT)
+                              .SetID(magic_boost::ViewId::DisclaimerViewTitle)
+                              .CopyAddressTo(&title_)
+                              .SetText(l10n_util::GetStringUTF16(
+                                  IDS_ASH_MAGIC_BOOST_DISCLAIMER_TITLE)),
+                          GetParagraphOneBuilder().CopyAddressTo(
+                              &paragraph_one_),
+                          GetParagraphTwoBuilder(
+                              std::move(press_terms_of_service_callback))
+                              .CopyAddressTo(&paragraph_two_),
+                          GetParagraphThreeBuilder().CopyAddressTo(
+                              &paragraph_three_),
+                          GetParagraphFourBuilder(
+                              std::move(press_learn_more_link_callback))
+                              .CopyAddressTo(&paragraph_four_))),
           views::Builder<views::BoxLayoutView>()
               .SetMainAxisAlignment(views::LayoutAlignment::kEnd)
               .SetBetweenChildSpacing(kBetweenButtonsSpacing)
               .SetBorder(views::CreateEmptyBorder(kButtonContainerInsets))
               .AddChildren(
                   views::Builder<views::MdTextButton>()
-                      .SetText(GetDeclineButtonText())
                       .SetID(magic_boost::ViewId::DisclaimerViewDeclineButton)
-                      .SetAccessibleName(GetDeclineButtonText())
+                      .SetText(decline_button_text)
+                      .SetAccessibleName(decline_button_text)
                       // Sets the button's height to a customized
                       // `kButtonHeight` instead of using the default
                       // height.
@@ -251,8 +223,8 @@ MagicBoostDisclaimerView::MagicBoostDisclaimerView(
                   views::Builder<views::MdTextButton>()
                       .CopyAddressTo(&accept_button_)
                       .SetID(magic_boost::ViewId::DisclaimerViewAcceptButton)
-                      .SetText(GetAcceptButtonText())
-                      .SetAccessibleName(GetAcceptButtonText())
+                      .SetText(accept_button_text)
+                      .SetAccessibleName(accept_button_text)
                       .SetMaxSize(gfx::Size(kImageWidth, kButtonHeight))
                       .SetStyle(ui::ButtonStyle::kProminent)
                       .SetCallback(std::move(press_accept_button_callback))))
@@ -268,7 +240,9 @@ MagicBoostDisclaimerView::~MagicBoostDisclaimerView() = default;
 views::UniqueWidgetPtr MagicBoostDisclaimerView::CreateWidget(
     int64_t display_id,
     base::RepeatingClosure press_accept_button_callback,
-    base::RepeatingClosure press_decline_button_callback) {
+    base::RepeatingClosure press_decline_button_callback,
+    base::RepeatingClosure press_disclaimer_link_callback,
+    base::RepeatingClosure press_learn_more_link_callback) {
   views::Widget::InitParams params(
       views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_POPUP);
@@ -282,9 +256,13 @@ views::UniqueWidgetPtr MagicBoostDisclaimerView::CreateWidget(
 
   views::UniqueWidgetPtr widget =
       std::make_unique<views::Widget>(std::move(params));
-  widget->SetContentsView(std::make_unique<MagicBoostDisclaimerView>(
+  auto disclaimer_view = std::make_unique<MagicBoostDisclaimerView>(
       std::move(press_accept_button_callback),
-      std::move(press_decline_button_callback)));
+      std::move(press_decline_button_callback),
+      std::move(press_disclaimer_link_callback),
+      std::move(press_learn_more_link_callback));
+  const int widget_height = disclaimer_view->GetPreferredSize().height();
+  widget->SetContentsView(std::move(disclaimer_view));
 
   // Shows the widget in the middle of the screen.
   aura::Window* window = Shell::GetRootWindowForDisplayId(display_id);
@@ -292,10 +270,11 @@ views::UniqueWidgetPtr MagicBoostDisclaimerView::CreateWidget(
   if (!window) {
     window = Shell::GetPrimaryRootWindow();
   }
-  auto center = window->bounds().CenterPoint();
+
+  auto center = window->GetBoundsInScreen().CenterPoint();
   widget->SetBounds(gfx::Rect(center.x() - kWidgetWidth / 2,
-                              center.y() - kWidgetHeight / 2, kWidgetWidth,
-                              kWidgetHeight));
+                              center.y() - widget_height / 2, kWidgetWidth,
+                              widget_height));
 
   return widget;
 }
@@ -309,6 +288,22 @@ void MagicBoostDisclaimerView::RequestFocus() {
   views::View::RequestFocus();
 
   accept_button_->RequestFocus();
+}
+
+gfx::Size MagicBoostDisclaimerView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  const int body_width = kWidgetWidth - 2 * kContainerPadding;
+  int height = kImageHeight + paragraph_one_->GetHeightForWidth(body_width) +
+               paragraph_two_->GetHeightForWidth(body_width) +
+               paragraph_three_->GetHeightForWidth(body_width) +
+               paragraph_four_->GetHeightForWidth(body_width) +
+               title_->GetHeightForWidth(body_width) +
+               accept_button_->GetHeightForWidth(body_width) +
+               kContainerPadding * 2 + kContainerBottomPadding +
+               kTextContainerBetweenChildSpacing * 4;
+  height = std::max(height, kWidgetMiniumHeight);
+
+  return gfx::Size(kWidgetWidth, height);
 }
 
 BEGIN_METADATA(MagicBoostDisclaimerView)

@@ -24,7 +24,7 @@ ChromeFacilitatedPaymentsClient::ChromeFacilitatedPaymentsClient(
                       /*client=*/this,
                       optimization_guide_decider),
       facilitated_payments_controller_(
-          std::make_unique<FacilitatedPaymentsController>()) {}
+          std::make_unique<FacilitatedPaymentsController>(web_contents)) {}
 
 ChromeFacilitatedPaymentsClient::~ChromeFacilitatedPaymentsClient() = default;
 
@@ -36,13 +36,12 @@ void ChromeFacilitatedPaymentsClient::LoadRiskData(
 
 autofill::PaymentsDataManager*
 ChromeFacilitatedPaymentsClient::GetPaymentsDataManager() {
-  Profile* profile =
-      Profile::FromBrowserContext(GetWebContents().GetBrowserContext());
-  if (!profile) {
+  content::BrowserContext* context = GetWebContents().GetBrowserContext();
+  if (!context) {
     return nullptr;
   }
   autofill::PersonalDataManager* pdm =
-      autofill::PersonalDataManagerFactory::GetForProfile(profile);
+      autofill::PersonalDataManagerFactory::GetForBrowserContext(context);
   return pdm ? &pdm->payments_data_manager() : nullptr;
 }
 
@@ -78,15 +77,21 @@ ChromeFacilitatedPaymentsClient::GetCoreAccountInfo() {
 bool ChromeFacilitatedPaymentsClient::ShowPixPaymentPrompt(
     base::span<autofill::BankAccount> bank_account_suggestions,
     base::OnceCallback<void(bool, int64_t)> on_user_decision_callback) {
-#if BUILDFLAG(IS_ANDROID)
   return facilitated_payments_controller_->Show(
-      std::make_unique<
-          payments::facilitated::FacilitatedPaymentsBottomSheetBridge>(),
-      std::move(bank_account_suggestions), &GetWebContents());
-#else
-  // Facilitated Payments is not supported on Desktop.
-  NOTREACHED_NORETURN();
-#endif
+      std::move(bank_account_suggestions),
+      std::move(on_user_decision_callback));
+}
+
+void ChromeFacilitatedPaymentsClient::ShowProgressScreen() {
+  facilitated_payments_controller_->ShowProgressScreen();
+}
+
+void ChromeFacilitatedPaymentsClient::ShowErrorScreen() {
+  facilitated_payments_controller_->ShowErrorScreen();
+}
+
+void ChromeFacilitatedPaymentsClient::DismissPrompt() {
+  facilitated_payments_controller_->Dismiss();
 }
 
 void ChromeFacilitatedPaymentsClient::

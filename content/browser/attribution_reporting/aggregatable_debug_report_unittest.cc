@@ -4,10 +4,11 @@
 
 #include "content/browser/attribution_reporting/aggregatable_debug_report.h"
 
+#include <stddef.h>
+
 #include <optional>
 #include <vector>
 
-#include "base/containers/enum_set.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
@@ -18,6 +19,7 @@
 #include "components/attribution_reporting/features.h"
 #include "components/attribution_reporting/suitable_origin.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
+#include "content/browser/aggregation_service/aggregation_service_features.h"
 #include "content/browser/aggregation_service/aggregation_service_test_utils.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
 #include "content/browser/attribution_reporting/attribution_test_utils.h"
@@ -29,6 +31,7 @@
 #include "net/base/schemeful_site.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -44,9 +47,6 @@ using ::attribution_reporting::SourceAggregatableDebugReportingConfig;
 using ::attribution_reporting::SuitableOrigin;
 using ::attribution_reporting::mojom::DebugDataType;
 using ::blink::mojom::AggregatableReportHistogramContribution;
-
-using AggregatableResult = ::content::AttributionTrigger::AggregatableResult;
-using EventLevelResult = ::content::AttributionTrigger::EventLevelResult;
 
 using ::testing::Eq;
 using ::testing::Field;
@@ -89,13 +89,40 @@ AggregatableDebugData DebugDataAll(
   return debug_data;
 }
 
-class AggregatableDebugReportTest : public testing::Test {
+class AggregatableDebugReportTest : public testing::Test,
+                                    public testing::WithParamInterface<bool> {
+ public:
+  AggregatableDebugReportTest() {
+    std::vector<base::test::FeatureRef> enabled_features = {
+        attribution_reporting::features::
+            kAttributionAggregatableDebugReporting};
+    std::vector<base::test::FeatureRef> disabled_features;
+
+    const bool filtering_ids_enabled = GetParam();
+    if (filtering_ids_enabled) {
+      enabled_features.emplace_back(
+          attribution_reporting::features::
+              kAttributionReportingAggregatableFilteringIds);
+      enabled_features.emplace_back(
+          kPrivacySandboxAggregationServiceFilteringIds);
+    } else {
+      disabled_features.emplace_back(
+          attribution_reporting::features::
+              kAttributionReportingAggregatableFilteringIds);
+    }
+
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
+  }
+
+  bool filtering_ids_enabled() const { return GetParam(); }
+
  private:
-  base::test::ScopedFeatureList scoped_feature_list{
-      attribution_reporting::features::kAttributionAggregatableDebugReporting};
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-TEST_F(AggregatableDebugReportTest, SourceDebugReport_Enablement) {
+INSTANTIATE_TEST_SUITE_P(All, AggregatableDebugReportTest, ::testing::Bool());
+
+TEST_P(AggregatableDebugReportTest, SourceDebugReport_Enablement) {
   const struct {
     const char* desc;
     bool is_within_fenced_frame = false;
@@ -169,16 +196,18 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport_Enablement) {
                     .SetAggregatableDebugReportingConfig(test_case.config)
                     .Build(),
                 /*is_noised=*/false, kSourceTime,
+                /*destination_limit=*/std::nullopt,
                 StoreSourceResult::InternalError())),
         test_case.matches);
   }
 }
 
-TEST_F(AggregatableDebugReportTest, SourceDebugReport) {
+TEST_P(AggregatableDebugReportTest, SourceDebugReport) {
   const struct {
     DebugDataType type;
     StoreSourceResult::Result result;
     bool is_noised = false;
+    std::optional<int> destination_limit;
   } kTestCases[] = {
       {
           DebugDataType::kSourceChannelCapacityLimit,
@@ -189,8 +218,18 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport) {
           StoreSourceResult::DestinationGlobalLimitReached(),
       },
       {
+          DebugDataType::kSourceDestinationGlobalRateLimit,
+          StoreSourceResult::DestinationGlobalLimitReached(),
+          false,
+          10,
+      },
+      {
           DebugDataType::kSourceDestinationLimit,
           StoreSourceResult::InsufficientUniqueDestinationCapacity(10),
+      },
+      {
+          DebugDataType::kSourceDestinationPerDayRateLimit,
+          StoreSourceResult::DestinationPerDayReportingLimitReached(20),
       },
       {
           DebugDataType::kSourceDestinationRateLimit,
@@ -207,8 +246,21 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport) {
           true,
       },
       {
+          DebugDataType::kSourceNoised,
+          StoreSourceResult::Success(/*min_fake_report_time=*/std::nullopt,
+                                     kSourceId),
+          true,
+          10,
+      },
+      {
           DebugDataType::kSourceReportingOriginLimit,
           StoreSourceResult::ExcessiveReportingOrigins(),
+      },
+      {
+          DebugDataType::kSourceReportingOriginLimit,
+          StoreSourceResult::ExcessiveReportingOrigins(),
+          false,
+          10,
       },
       {
           DebugDataType::kSourceReportingOriginPerSiteLimit,
@@ -224,6 +276,13 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport) {
                                      kSourceId),
       },
       {
+          DebugDataType::kSourceSuccess,
+          StoreSourceResult::Success(/*min_fake_report_time=*/std::nullopt,
+                                     kSourceId),
+          false,
+          10,
+      },
+      {
           DebugDataType::kSourceTriggerStateCardinalityLimit,
           StoreSourceResult::ExceedsMaxTriggerStateCardinality(3),
       },
@@ -235,6 +294,15 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport) {
 
   for (const auto& test_case : kTestCases) {
     SCOPED_TRACE(test_case.type);
+
+    std::vector<AggregatableReportHistogramContribution> expected_contributions(
+        {AggregatableReportHistogramContribution(
+            /*bucket=*/3, /*value=*/5,
+            /*filtering_id=*/std::nullopt)});
+    if (test_case.destination_limit.has_value()) {
+      expected_contributions.emplace_back(/*bucket=*/5, /*value=*/6,
+                                          /*filtering_id=*/std::nullopt);
+    }
 
     EXPECT_THAT(
         AggregatableDebugReport::Create(
@@ -252,21 +320,23 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport) {
                                      *AggregatableDebugReportingContribution::
                                          Create(
                                              /*key_piece=*/2, /*value=*/5)},
+                                    {DebugDataType::
+                                         kSourceDestinationLimitReplaced,
+                                     *AggregatableDebugReportingContribution::
+                                         Create(
+                                             /*key+piece=*/4, /*value=*/6)},
                                 },
                                 /*aggregation_coordinator_origin=*/
                                 std::nullopt)))
                     .Build(),
                 /*is_noised=*/test_case.is_noised, kSourceTime,
-                test_case.result)),
-        Optional(Property(
-            &AggregatableDebugReport::contributions,
-            UnorderedElementsAre(AggregatableReportHistogramContribution(
-                /*bucket=*/3, /*value=*/5,
-                /*filtering_id=*/std::nullopt)))));
+                test_case.destination_limit, test_case.result)),
+        Optional(Property(&AggregatableDebugReport::contributions,
+                          UnorderedElementsAreArray(expected_contributions))));
   }
 }
 
-TEST_F(AggregatableDebugReportTest, SourceDebugReport_Unsupported) {
+TEST_P(AggregatableDebugReportTest, SourceDebugReport_Unsupported) {
   const struct {
     StoreSourceResult::Result result;
   } kTestCases[] = {
@@ -292,12 +362,13 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport_Unsupported) {
         AggregatableDebugReport::Create(
             &OperationAllowed,
             StoreSourceResult(source, /*is_noised=*/false, kSourceTime,
+                              /*destination_limit=*/std::nullopt,
                               test_case.result)),
         Optional(Property(&AggregatableDebugReport::contributions, IsEmpty())));
   }
 }
 
-TEST_F(AggregatableDebugReportTest, TriggerDebugReport_Enablement) {
+TEST_P(AggregatableDebugReportTest, TriggerDebugReport_Enablement) {
   const struct {
     const char* desc;
     bool is_within_fenced_frame = false;
@@ -366,162 +437,135 @@ TEST_F(AggregatableDebugReportTest, TriggerDebugReport_Enablement) {
                     .SetAggregatableDebugReportingConfig(test_case.config)
                     .SetIsWithinFencedFrame(test_case.is_within_fenced_frame)
                     .Build(),
-                /*event_level_status=*/EventLevelResult::kInternalError,
-                /*aggregatable_status=*/AggregatableResult::kInternalError,
-                /*replaced_event_level_report=*/std::nullopt,
-                /*new_event_level_report=*/std::nullopt,
-                /*new_aggregatable_report=*/std::nullopt,
-                /*source=*/std::nullopt)),
+                /*event_level_result=*/CreateReportResult::InternalError(),
+                /*aggregatable_result=*/CreateReportResult::InternalError(),
+                /*source=*/std::nullopt,
+                /*min_null_aggregatble_report_time=*/std::nullopt)),
         test_case.matches);
   }
 }
 
-TEST_F(AggregatableDebugReportTest, TriggerDebugReport_EventLevel) {
+TEST_P(AggregatableDebugReportTest, TriggerDebugReport_EventLevel) {
   const struct {
-    EventLevelResult result;
+    CreateReportResult::EventLevel result;
     DebugDataType type;
-    bool has_new_report = false;
-    bool has_replaced_report = false;
-    bool has_dropped_report = false;
     bool has_matching_source = false;
-    CreateReportResult::Limits limits;
   } kTestCases[] = {
       {
-          .result = EventLevelResult::kInternalError,
+          .result = CreateReportResult::InternalError(),
           .type = DebugDataType::kTriggerUnknownError,
       },
       {
-          .result = EventLevelResult::kNoCapacityForConversionDestination,
+          .result = CreateReportResult::NoCapacityForConversionDestination(
+              /*max=*/10),
           .type = DebugDataType::kTriggerEventStorageLimit,
           .has_matching_source = true,
-          .limits =
-              CreateReportResult::Limits{
-                  .max_event_level_reports_per_destination = 10},
       },
       {
-          .result = EventLevelResult::kNoMatchingImpressions,
+          .result = CreateReportResult::NoMatchingImpressions(),
           .type = DebugDataType::kTriggerNoMatchingSource,
       },
       {
-          .result = EventLevelResult::kDeduplicated,
+          .result = CreateReportResult::Deduplicated(),
           .type = DebugDataType::kTriggerEventDeduplicated,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kExcessiveAttributions,
+          .result = CreateReportResult::ExcessiveAttributions(/*max=*/10),
           .type =
               DebugDataType::kTriggerEventAttributionsPerSourceDestinationLimit,
           .has_matching_source = true,
-          .limits =
-              CreateReportResult::Limits{.rate_limits_max_attributions = 10},
       },
       {
-          .result = EventLevelResult::kPriorityTooLow,
+          .result =
+              CreateReportResult::PriorityTooLow(DefaultEventLevelReport()),
           .type = DebugDataType::kTriggerEventLowPriority,
-          .has_dropped_report = true,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kNeverAttributedSource,
+          .result = CreateReportResult::NeverAttributedSource(),
           .type = DebugDataType::kTriggerEventNoise,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kExcessiveReportingOrigins,
+          .result = CreateReportResult::ExcessiveReportingOrigins(/*max=*/5),
           .type = DebugDataType::kTriggerReportingOriginLimit,
           .has_matching_source = true,
-          .limits =
-              CreateReportResult::Limits{
-                  .rate_limits_max_attribution_reporting_origins = 5},
       },
       {
-          .result = EventLevelResult::kNoMatchingSourceFilterData,
+          .result = CreateReportResult::NoMatchingSourceFilterData(),
           .type = DebugDataType::kTriggerNoMatchingFilterData,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kNoMatchingConfigurations,
+          .result = CreateReportResult::NoMatchingConfigurations(),
           .type = DebugDataType::kTriggerEventNoMatchingConfigurations,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kExcessiveReports,
+          .result = CreateReportResult::ExcessiveEventLevelReports(
+              DefaultEventLevelReport()),
           .type = DebugDataType::kTriggerEventExcessiveReports,
-          .has_dropped_report = true,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kFalselyAttributedSource,
+          .result = CreateReportResult::FalselyAttributedSource(),
           .type = DebugDataType::kTriggerEventNoise,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kReportWindowPassed,
+          .result = CreateReportResult::ReportWindowPassed(),
           .type = DebugDataType::kTriggerEventReportWindowPassed,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kReportWindowNotStarted,
+          .result = CreateReportResult::ReportWindowNotStarted(),
           .type = DebugDataType::kTriggerEventReportWindowNotStarted,
           .has_matching_source = true,
       },
       {
-          .result = EventLevelResult::kNoMatchingTriggerData,
+          .result = CreateReportResult::NoMatchingTriggerData(),
           .type = DebugDataType::kTriggerEventNoMatchingTriggerData,
           .has_matching_source = true,
       },
   };
 
-  const AttributionReport event_level_report = DefaultEventLevelReport();
-
   for (const auto& test_case : kTestCases) {
-    SCOPED_TRACE(test_case.result);
+    const CreateReportResult result(
+        kTriggerTime,
+        TriggerBuilder()
+            .SetAggregatableDebugReportingConfig(
+                AggregatableDebugReportingConfig(
+                    /*key_piece=*/5, /*debug_data=*/
+                    {
+                        {test_case.type,
+                         *AggregatableDebugReportingContribution::Create(
+                             /*key_piece=*/3,
+                             /*value=*/6)},
+                    },
+                    /*aggregation_coordinator_origin=*/std::nullopt))
+            .Build(),
+        /*event_level_result=*/test_case.result,
+        /*aggregatable_result=*/CreateReportResult::NotRegistered(),
+        test_case.has_matching_source
+            ? std::make_optional(
+                  SourceBuilder()
+                      .SetAggregatableDebugReportingConfig(
+                          *SourceAggregatableDebugReportingConfig::Create(
+                              /*budget=*/100,
+                              AggregatableDebugReportingConfig(
+                                  /*key_piece=*/9,
+                                  /*debug_data=*/{},
+                                  /*aggregation_coordinator_origin=*/
+                                  std::nullopt)))
+                      .BuildStored())
+            : std::nullopt,
+        /*min_null_aggregatable_report_time=*/std::nullopt);
+
+    SCOPED_TRACE(result.event_level_status());
 
     EXPECT_THAT(
-        AggregatableDebugReport::Create(
-            OperationAllowed,
-            CreateReportResult(
-                kTriggerTime,
-                TriggerBuilder()
-                    .SetAggregatableDebugReportingConfig(
-                        AggregatableDebugReportingConfig(
-                            /*key_piece=*/5, /*debug_data=*/
-                            {
-                                {test_case.type,
-                                 *AggregatableDebugReportingContribution::
-                                     Create(
-                                         /*key_piece=*/3,
-                                         /*value=*/6)},
-                            },
-                            /*aggregation_coordinator_origin=*/std::nullopt))
-                    .Build(),
-                /*event_level_status=*/test_case.result,
-                /*aggregatable_status=*/AggregatableResult::kNotRegistered,
-                test_case.has_replaced_report
-                    ? std::make_optional(event_level_report)
-                    : std::nullopt,
-                test_case.has_new_report
-                    ? std::make_optional(event_level_report)
-                    : std::nullopt,
-                /*new_aggregatable_report=*/std::nullopt,
-                test_case.has_matching_source
-                    ? std::make_optional(
-                          SourceBuilder()
-                              .SetAggregatableDebugReportingConfig(
-                                  *SourceAggregatableDebugReportingConfig::
-                                      Create(
-                                          /*budget=*/100,
-                                          AggregatableDebugReportingConfig(
-                                              /*key_piece=*/9,
-                                              /*debug_data=*/{},
-                                              /*aggregation_coordinator_origin=*/
-                                              std::nullopt)))
-                              .BuildStored())
-                    : std::nullopt,
-                test_case.limits,
-                test_case.has_dropped_report
-                    ? std::make_optional(event_level_report)
-                    : std::nullopt)),
+        AggregatableDebugReport::Create(OperationAllowed, result),
         Optional(Property(
             &AggregatableDebugReport::contributions,
             UnorderedElementsAre(AggregatableReportHistogramContribution(
@@ -531,29 +575,32 @@ TEST_F(AggregatableDebugReportTest, TriggerDebugReport_EventLevel) {
   }
 }
 
-TEST_F(AggregatableDebugReportTest, TriggerDebugReport_EventLevelUnsupported) {
+TEST_P(AggregatableDebugReportTest, TriggerDebugReport_EventLevelUnsupported) {
   const struct {
-    EventLevelResult result;
-    bool has_new_report = false;
-    bool has_replaced_report = false;
+    CreateReportResult::EventLevel result;
     bool has_matching_source = false;
+    bool expected;
   } kTestCases[] = {
       {
-          .result = EventLevelResult::kSuccess,
-          .has_new_report = true,
+          .result = CreateReportResult::EventLevelSuccess(
+              DefaultEventLevelReport(), /*replaced_report=*/std::nullopt),
           .has_matching_source = true,
+          .expected = true,
       },
       {
-          .result = EventLevelResult::kSuccessDroppedLowerPriority,
-          .has_new_report = true,
-          .has_replaced_report = true,
+          .result = CreateReportResult::EventLevelSuccess(
+              DefaultEventLevelReport(),
+              /*replaced_report=*/DefaultEventLevelReport()),
           .has_matching_source = true,
+          .expected = true,
       },
       {
-          .result = EventLevelResult::kProhibitedByBrowserPolicy,
+          .result = CreateReportResult::ProhibitedByBrowserPolicy(),
+          .expected = true,
       },
       {
-          .result = EventLevelResult::kNotRegistered,
+          .result = CreateReportResult::NotRegistered(),
+          .expected = false,
       },
   };
 
@@ -565,148 +612,131 @@ TEST_F(AggregatableDebugReportTest, TriggerDebugReport_EventLevelUnsupported) {
               /*aggregation_coordinator_origin=*/std::nullopt))
           .Build();
 
-  const AttributionReport event_level_report = DefaultEventLevelReport();
-
   for (const auto& test_case : kTestCases) {
-    SCOPED_TRACE(test_case.result);
+    const CreateReportResult result(
+        kTriggerTime, trigger,
+        /*event_level_result=*/test_case.result,
+        /*aggregatable_result=*/CreateReportResult::NotRegistered(),
+        /*source=*/
+        test_case.has_matching_source
+            ? std::make_optional(SourceBuilder().BuildStored())
+            : std::nullopt,
+        /*min_null_aggregatable_report_time=*/std::nullopt);
 
-    EXPECT_THAT(
-        AggregatableDebugReport::Create(
-            OperationAllowed,
-            CreateReportResult(
-                kTriggerTime, trigger,
-                /*event_level_status=*/test_case.result,
-                /*aggregatable_status=*/AggregatableResult::kNotRegistered,
-                test_case.has_replaced_report
-                    ? std::make_optional(event_level_report)
-                    : std::nullopt,
-                test_case.has_new_report
-                    ? std::make_optional(event_level_report)
-                    : std::nullopt,
-                /*new_aggregatable_report=*/std::nullopt,
-                /*source=*/
-                test_case.has_matching_source
-                    ? std::make_optional(SourceBuilder().BuildStored())
-                    : std::nullopt)),
-        Optional(Property(&AggregatableDebugReport::contributions, IsEmpty())));
+    SCOPED_TRACE(result.event_level_status());
+
+    auto report = AggregatableDebugReport::Create(OperationAllowed, result);
+
+    if (test_case.expected) {
+      EXPECT_THAT(report,
+                  Optional(Property(&AggregatableDebugReport::contributions,
+                                    IsEmpty())));
+    } else {
+      EXPECT_FALSE(report.has_value());
+    }
   }
 }
 
-TEST_F(AggregatableDebugReportTest, TriggerDebugReport_Aggregatable) {
+TEST_P(AggregatableDebugReportTest, TriggerDebugReport_Aggregatable) {
   const struct {
-    AggregatableResult result;
+    CreateReportResult::Aggregatable result;
     DebugDataType type;
     bool has_matching_source = false;
-    CreateReportResult::Limits limits;
   } kTestCases[] = {
       {
-          .result = AggregatableResult::kInternalError,
+          .result = CreateReportResult::InternalError(),
           .type = DebugDataType::kTriggerUnknownError,
       },
       {
-          .result = AggregatableResult::kNoCapacityForConversionDestination,
+          .result = CreateReportResult::NoCapacityForConversionDestination(
+              /*max=*/20),
           .type = DebugDataType::kTriggerAggregateStorageLimit,
           .has_matching_source = true,
-          .limits =
-              CreateReportResult::Limits{
-                  .max_aggregatable_reports_per_destination = 20},
       },
       {
-          .result = AggregatableResult::kNoMatchingImpressions,
+          .result = CreateReportResult::NoMatchingImpressions(),
           .type = DebugDataType::kTriggerNoMatchingSource,
       },
       {
-          .result = AggregatableResult::kExcessiveAttributions,
+          .result = CreateReportResult::ExcessiveAttributions(/*max=*/10),
           .type = DebugDataType::
               kTriggerAggregateAttributionsPerSourceDestinationLimit,
           .has_matching_source = true,
-          .limits =
-              CreateReportResult::Limits{.rate_limits_max_attributions = 10},
       },
       {
-          .result = AggregatableResult::kExcessiveReportingOrigins,
+          .result = CreateReportResult::ExcessiveReportingOrigins(/*max=*/5),
           .type = DebugDataType::kTriggerReportingOriginLimit,
           .has_matching_source = true,
-          .limits =
-              CreateReportResult::Limits{
-                  .rate_limits_max_attribution_reporting_origins = 5},
       },
       {
-          .result = AggregatableResult::kNoHistograms,
+          .result = CreateReportResult::NoHistograms(),
           .type = DebugDataType::kTriggerAggregateNoContributions,
           .has_matching_source = true,
       },
       {
-          .result = AggregatableResult::kInsufficientBudget,
+          .result = CreateReportResult::InsufficientBudget(),
           .type = DebugDataType::kTriggerAggregateInsufficientBudget,
           .has_matching_source = true,
       },
       {
-          .result = AggregatableResult::kNoMatchingSourceFilterData,
+          .result = CreateReportResult::NoMatchingSourceFilterData(),
           .type = DebugDataType::kTriggerNoMatchingFilterData,
           .has_matching_source = true,
       },
       {
-          .result = AggregatableResult::kDeduplicated,
+          .result = CreateReportResult::Deduplicated(),
           .type = DebugDataType::kTriggerAggregateDeduplicated,
           .has_matching_source = true,
       },
       {
-          .result = AggregatableResult::kReportWindowPassed,
+          .result = CreateReportResult::ReportWindowPassed(),
           .type = DebugDataType::kTriggerAggregateReportWindowPassed,
           .has_matching_source = true,
       },
       {
-          .result = AggregatableResult::kExcessiveReports,
+          .result =
+              CreateReportResult::ExcessiveAggregatableReports(/*max=*/10),
           .type = DebugDataType::kTriggerAggregateExcessiveReports,
           .has_matching_source = true,
-          .limits =
-              CreateReportResult::Limits{.max_aggregatable_reports_per_source =
-                                             10},
       },
   };
 
   for (const auto& test_case : kTestCases) {
-    SCOPED_TRACE(test_case.result);
+    const CreateReportResult result(
+        kTriggerTime,
+        TriggerBuilder()
+            .SetAggregatableDebugReportingConfig(
+                AggregatableDebugReportingConfig(
+                    /*key_piece=*/5, /*debug_data=*/
+                    {
+                        {test_case.type,
+                         *AggregatableDebugReportingContribution::Create(
+                             /*key_piece=*/3,
+                             /*value=*/6)},
+                    },
+                    /*aggregation_coordinator_origin=*/std::nullopt))
+            .Build(),
+        /*event_level_result=*/CreateReportResult::NotRegistered(),
+        /*aggregatable_result=*/test_case.result,
+        test_case.has_matching_source
+            ? std::make_optional(
+                  SourceBuilder()
+                      .SetAggregatableDebugReportingConfig(
+                          *SourceAggregatableDebugReportingConfig::Create(
+                              /*budget=*/100,
+                              AggregatableDebugReportingConfig(
+                                  /*key_piece=*/9,
+                                  /*debug_data=*/{},
+                                  /*aggregation_coordinator_origin=*/
+                                  std::nullopt)))
+                      .BuildStored())
+            : std::nullopt,
+        /*min_null_aggregatable_report_time=*/std::nullopt);
+
+    SCOPED_TRACE(result.aggregatable_status());
 
     EXPECT_THAT(
-        AggregatableDebugReport::Create(
-            OperationAllowed,
-            CreateReportResult(
-                kTriggerTime,
-                TriggerBuilder()
-                    .SetAggregatableDebugReportingConfig(
-                        AggregatableDebugReportingConfig(
-                            /*key_piece=*/5, /*debug_data=*/
-                            {
-                                {test_case.type,
-                                 *AggregatableDebugReportingContribution::
-                                     Create(
-                                         /*key_piece=*/3,
-                                         /*value=*/6)},
-                            },
-                            /*aggregation_coordinator_origin=*/std::nullopt))
-                    .Build(),
-                EventLevelResult::kNotRegistered,
-                /*aggregatable_status=*/test_case.result,
-                /*replaced_event_level_report=*/std::nullopt,
-                /*new_event_level_report=*/std::nullopt,
-                /*new_aggregatable_report=*/std::nullopt,
-                test_case.has_matching_source
-                    ? std::make_optional(
-                          SourceBuilder()
-                              .SetAggregatableDebugReportingConfig(
-                                  *SourceAggregatableDebugReportingConfig::
-                                      Create(
-                                          /*budget=*/100,
-                                          AggregatableDebugReportingConfig(
-                                              /*key_piece=*/9,
-                                              /*debug_data=*/{},
-                                              /*aggregation_coordinator_origin=*/
-                                              std::nullopt)))
-                              .BuildStored())
-                    : std::nullopt,
-                test_case.limits)),
+        AggregatableDebugReport::Create(OperationAllowed, result),
         Optional(Property(
             &AggregatableDebugReport::contributions,
             UnorderedElementsAre(AggregatableReportHistogramContribution(
@@ -716,23 +746,26 @@ TEST_F(AggregatableDebugReportTest, TriggerDebugReport_Aggregatable) {
   }
 }
 
-TEST_F(AggregatableDebugReportTest,
+TEST_P(AggregatableDebugReportTest,
        TriggerDebugReport_AggregatableUnsupported) {
   const struct {
-    AggregatableResult result;
-    bool has_new_report = false;
+    CreateReportResult::Aggregatable result;
     bool has_matching_source = false;
+    bool expected;
   } kTestCases[] = {
       {
-          .result = AggregatableResult::kSuccess,
-          .has_new_report = true,
+          .result = CreateReportResult::AggregatableSuccess(
+              DefaultAggregatableReport()),
           .has_matching_source = true,
+          .expected = true,
       },
       {
-          .result = AggregatableResult::kProhibitedByBrowserPolicy,
+          .result = CreateReportResult::ProhibitedByBrowserPolicy(),
+          .expected = true,
       },
       {
-          .result = AggregatableResult::kNotRegistered,
+          .result = CreateReportResult::NotRegistered(),
+          .expected = false,
       },
   };
 
@@ -745,41 +778,44 @@ TEST_F(AggregatableDebugReportTest,
           .Build();
 
   for (const auto& test_case : kTestCases) {
-    SCOPED_TRACE(test_case.result);
+    const CreateReportResult result(
+        kTriggerTime, trigger,
+        /*event_level_result=*/CreateReportResult::NotRegistered(),
+        /*aggregatable_result=*/test_case.result,
+        /*source=*/
+        test_case.has_matching_source
+            ? std::make_optional(SourceBuilder().BuildStored())
+            : std::nullopt,
+        /*min_null_aggregatable_report_time=*/std::nullopt);
 
-    EXPECT_THAT(
-        AggregatableDebugReport::Create(
-            OperationAllowed,
-            CreateReportResult(
-                kTriggerTime, trigger, EventLevelResult::kNotRegistered,
-                /*aggregatable_status=*/test_case.result,
-                /*replaced_event_level_report=*/std::nullopt,
-                /*new_event_level_report=*/std::nullopt,
-                test_case.has_new_report
-                    ? std::make_optional(DefaultAggregatableReport())
-                    : std::nullopt,
-                /*source=*/
-                test_case.has_matching_source
-                    ? std::make_optional(SourceBuilder().BuildStored())
-                    : std::nullopt)),
-        Optional(Property(&AggregatableDebugReport::contributions, IsEmpty())));
+    SCOPED_TRACE(result.aggregatable_status());
+
+    auto report = AggregatableDebugReport::Create(OperationAllowed, result);
+
+    if (test_case.expected) {
+      EXPECT_THAT(report,
+                  Optional(Property(&AggregatableDebugReport::contributions,
+                                    IsEmpty())));
+    } else {
+      EXPECT_FALSE(report.has_value());
+    }
   }
 }
 
-TEST_F(AggregatableDebugReportTest,
+TEST_P(AggregatableDebugReportTest,
        TriggerDebugReport_EventLevelAndAggregatable) {
   const struct {
     const char* desc;
-    EventLevelResult event_level_result;
-    AggregatableResult aggregatable_result;
+    CreateReportResult::EventLevel event_level_result;
+    CreateReportResult::Aggregatable aggregatable_result;
     bool has_matching_source = false;
     AggregatableDebugReportingConfig config;
     std::vector<AggregatableReportHistogramContribution> expected_contributions;
   } kTestCases[] = {
       {
           .desc = "duplicate",
-          .event_level_result = EventLevelResult::kNoMatchingImpressions,
-          .aggregatable_result = AggregatableResult::kNoMatchingImpressions,
+          .event_level_result = CreateReportResult::NoMatchingImpressions(),
+          .aggregatable_result = CreateReportResult::NoMatchingImpressions(),
           .config = AggregatableDebugReportingConfig(
               /*key_piece=*/1,
               /*debug_data=*/
@@ -796,8 +832,8 @@ TEST_F(AggregatableDebugReportTest,
       },
       {
           .desc = "different",
-          .event_level_result = EventLevelResult::kDeduplicated,
-          .aggregatable_result = AggregatableResult::kDeduplicated,
+          .event_level_result = CreateReportResult::Deduplicated(),
+          .aggregatable_result = CreateReportResult::Deduplicated(),
           .has_matching_source = true,
           .config = AggregatableDebugReportingConfig(
               /*key_piece=*/1,
@@ -841,12 +877,10 @@ TEST_F(AggregatableDebugReportTest,
                     .SetAggregatableDebugReportingConfig(test_case.config)
                     .Build(),
                 test_case.event_level_result, test_case.aggregatable_result,
-                /*replaced_event_level_report=*/std::nullopt,
-                /*new_event_level_report=*/std::nullopt,
-                /*new_aggregatable_report=*/std::nullopt,
                 test_case.has_matching_source
                     ? std::make_optional(SourceBuilder().BuildStored())
-                    : std::nullopt)),
+                    : std::nullopt,
+                /*min_null_aggregatable_report_time=*/std::nullopt)),
         Optional(AllOf(Property(&AggregatableDebugReport::contributions,
                                 UnorderedElementsAreArray(
                                     test_case.expected_contributions)),
@@ -857,7 +891,7 @@ TEST_F(AggregatableDebugReportTest,
 
 }  // namespace
 
-TEST_F(AggregatableDebugReportTest, SourceDebugReport_Data) {
+TEST_P(AggregatableDebugReportTest, SourceDebugReport_Data) {
   const base::Time source_time = base::Time::Now();
   const SuitableOrigin source_origin =
       *SuitableOrigin::Deserialize("https://a.test");
@@ -891,6 +925,7 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport_Data) {
                               aggregation_coordinator_origin)))
                   .Build(),
               /*is_noised=*/false, source_time,
+              /*destination_limit=*/std::nullopt,
               StoreSourceResult::InternalError())),
       Optional(AllOf(
           Property(&AggregatableDebugReport::context_site,
@@ -912,7 +947,7 @@ TEST_F(AggregatableDebugReportTest, SourceDebugReport_Data) {
           Property(&AggregatableDebugReport::BudgetRequired, 5))));
 }
 
-TEST_F(AggregatableDebugReportTest, TriggerDebugReport_Data) {
+TEST_P(AggregatableDebugReportTest, TriggerDebugReport_Data) {
   const base::Time trigger_time = base::Time::Now();
   const SuitableOrigin destination_origin =
       *SuitableOrigin::Deserialize("https://d.test");
@@ -941,8 +976,10 @@ TEST_F(AggregatableDebugReportTest, TriggerDebugReport_Data) {
                           },
                           aggregation_coordinator_origin))
                   .Build(),
-              EventLevelResult::kInternalError,
-              AggregatableResult::kInternalError)),
+              CreateReportResult::InternalError(),
+              CreateReportResult::InternalError(),
+              /*source=*/std::nullopt,
+              /*min_null_aggregatable_report_time=*/std::nullopt)),
       Optional(AllOf(
           Property(&AggregatableDebugReport::context_site,
                    net::SchemefulSite(destination_origin)),
@@ -963,8 +1000,7 @@ TEST_F(AggregatableDebugReportTest, TriggerDebugReport_Data) {
           Property(&AggregatableDebugReport::BudgetRequired, 5))));
 }
 
-TEST_F(AggregatableDebugReportTest, CreateAggregatableReportRequest) {
-  base::test::ScopedFeatureList scoped_feature_list_;
+TEST_P(AggregatableDebugReportTest, CreateAggregatableReportRequest) {
   ::aggregation_service::ScopedAggregationCoordinatorAllowlistForTesting
       scoped_coordinator_allowlist_{
           {url::Origin::Create(GURL("https://a.test"))}};
@@ -988,6 +1024,10 @@ TEST_F(AggregatableDebugReportTest, CreateAggregatableReportRequest) {
   auto request = report.CreateAggregatableReportRequest();
   ASSERT_TRUE(request.has_value());
 
+  std::optional<size_t> expected_filtering_id_max_bytes;
+  if (filtering_ids_enabled()) {
+    expected_filtering_id_max_bytes = 1u;
+  }
   auto expected_request = AggregatableReportRequest::Create(
       AggregationServicePayloadContents(
           AggregationServicePayloadContents::Operation::kHistogram,
@@ -997,8 +1037,7 @@ TEST_F(AggregatableDebugReportTest, CreateAggregatableReportRequest) {
           blink::mojom::AggregationServiceMode::kDefault,
           /*aggregation_coordinator_origin=*/
           url::Origin::Create(GURL("https://a.test")),
-          /*max_contributions_allowed=*/2,
-          /*filtering_id_max_bytes=*/std::nullopt),
+          /*max_contributions_allowed=*/2, expected_filtering_id_max_bytes),
       AggregatableReportSharedInfo(
           scheduled_report_time, report_id,
           /*reporting_origin=*/
@@ -1006,7 +1045,7 @@ TEST_F(AggregatableDebugReportTest, CreateAggregatableReportRequest) {
           AggregatableReportSharedInfo::DebugMode::kDisabled,
           /*additional_fields=*/
           base::Value::Dict().Set("attribution_destination", "https://d.test"),
-          /*api_version=*/"0.1",
+          /*api_version=*/filtering_ids_enabled() ? "1.0" : "0.1",
           /*api_identifier=*/"attribution-reporting-debug"));
   ASSERT_TRUE(expected_request.has_value());
 

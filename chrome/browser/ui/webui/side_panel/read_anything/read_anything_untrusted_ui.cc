@@ -30,16 +30,11 @@
 #include "ui/views/style/platform_style.h"
 
 ReadAnythingUIUntrustedConfig::ReadAnythingUIUntrustedConfig()
-    : WebUIConfig(content::kChromeUIUntrustedScheme,
-                  chrome::kChromeUIUntrustedReadAnythingSidePanelHost) {}
+    : DefaultTopChromeWebUIConfig(
+          content::kChromeUIUntrustedScheme,
+          chrome::kChromeUIUntrustedReadAnythingSidePanelHost) {}
 
 ReadAnythingUIUntrustedConfig::~ReadAnythingUIUntrustedConfig() = default;
-
-std::unique_ptr<content::WebUIController>
-ReadAnythingUIUntrustedConfig::CreateWebUIController(content::WebUI* web_ui,
-                                                     const GURL& url) {
-  return std::make_unique<ReadAnythingUntrustedUI>(web_ui);
-}
 
 ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
     : UntrustedTopChromeWebUIController(web_ui) {
@@ -184,10 +179,8 @@ WEB_UI_CONTROLLER_TYPE_IMPL(ReadAnythingUntrustedUI)
 void ReadAnythingUntrustedUI::BindInterface(
     mojo::PendingReceiver<color_change_listener::mojom::PageHandler>
         pending_receiver) {
-  if (features::IsReadAnythingWebUIToolbarEnabled()) {
-    color_provider_handler_ = std::make_unique<ui::ColorChangeHandler>(
-        web_ui()->GetWebContents(), std::move(pending_receiver));
-  }
+  color_provider_handler_ = std::make_unique<ui::ColorChangeHandler>(
+      web_ui()->GetWebContents(), std::move(pending_receiver));
 }
 
 void ReadAnythingUntrustedUI::BindInterface(
@@ -205,6 +198,16 @@ void ReadAnythingUntrustedUI::CreateUntrustedPageHandler(
   read_anything_untrusted_page_handler_ =
       std::make_unique<ReadAnythingUntrustedPageHandler>(
           std::move(page), std::move(receiver), web_ui());
+
+  // This code is called as part of a screen2x data generation workflow, where
+  // the browser is opened by a CLI and the read-anything side panel is
+  // automatically opened. Therefore we force the UI to show right away rather
+  // than waiting for all UI artifacts to load, as in the general case.
+  if (features::IsDataCollectionModeForScreen2xEnabled()) {
+    if (embedder()) {
+      embedder()->ShowUI();
+    }
+  }
 }
 
 void ReadAnythingUntrustedUI::ShouldShowUI() {

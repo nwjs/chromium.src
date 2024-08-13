@@ -22,6 +22,7 @@
 #include "components/plus_addresses/metrics/plus_address_metrics.h"
 #include "components/plus_addresses/plus_address_service.h"
 #include "components/plus_addresses/plus_address_types.h"
+#include "components/plus_addresses/settings/fake_plus_address_setting_service.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/test/browser_task_environment.h"
@@ -52,10 +53,7 @@ std::string FormatModalDurationMetrics(
 class PlusAddressCreationControllerDesktopEnabledTest
     : public ChromeRenderViewHostTestHarness {
  public:
-  PlusAddressCreationControllerDesktopEnabledTest()
-      : override_profile_selections_(
-            PlusAddressServiceFactory::GetInstance(),
-            PlusAddressServiceFactory::CreateProfileSelections()) {}
+  PlusAddressCreationControllerDesktopEnabledTest() {}
 
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
@@ -74,18 +72,17 @@ class PlusAddressCreationControllerDesktopEnabledTest
   std::unique_ptr<KeyedService> PlusAddressServiceTestFactory(
       content::BrowserContext* context) {
     auto unique_service = std::make_unique<FakePlusAddressService>(
-        identity_test_env_.identity_manager());
+        identity_test_env_.identity_manager(), &setting_service_);
     fake_plus_address_service_ = unique_service.get();
     return unique_service;
   }
 
  protected:
-  base::test::ScopedFeatureList features_{features::kPlusAddressesEnabled};
   // Ensures that the feature is known to be enabled, such that
   // `PlusAddressServiceFactory` doesn't bail early with a null return.
-  profiles::testing::ScopedProfileSelectionsForFactoryTesting
-      override_profile_selections_;
+  base::test::ScopedFeatureList features_{features::kPlusAddressesEnabled};
   signin::IdentityTestEnvironment identity_test_env_;
+  FakePlusAddressSettingService setting_service_;
   base::HistogramTester histogram_tester_;
   raw_ptr<FakePlusAddressService> fake_plus_address_service_ = nullptr;
   base::SimpleTestClock test_clock_;

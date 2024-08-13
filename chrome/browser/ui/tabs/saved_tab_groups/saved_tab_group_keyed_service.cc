@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "base/check_op.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
@@ -32,16 +33,19 @@
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/common/channel_info.h"
+#include "components/data_sharing/public/features.h"
 #include "components/saved_tab_groups/features.h"
 #include "components/saved_tab_groups/saved_tab_group_model.h"
 #include "components/saved_tab_groups/saved_tab_group_sync_bridge.h"
 #include "components/saved_tab_groups/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/stats.h"
+#include "components/saved_tab_groups/sync_data_type_configuration.h"
 #include "components/saved_tab_groups/tab_group_sync_metrics_logger.h"
 #include "components/saved_tab_groups/types.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/report_unrecoverable_error.h"
 #include "components/sync/model/client_tag_based_model_type_processor.h"
+#include "components/sync/model/model_type_change_processor.h"
 #include "components/sync/model/model_type_store_service.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -56,12 +60,32 @@ namespace {
 
 constexpr base::TimeDelta kDelayBeforeMetricsLogged = base::Hours(1);
 
-std::unique_ptr<syncer::ClientTagBasedModelTypeProcessor>
-CreateChangeProcessor() {
+std::unique_ptr<syncer::ModelTypeChangeProcessor>
+CreateSavedTabGroupChangeProcessor() {
   return std::make_unique<syncer::ClientTagBasedModelTypeProcessor>(
       syncer::SAVED_TAB_GROUP,
       base::BindRepeating(&syncer::ReportUnrecoverableError,
                           chrome::GetChannel()));
+}
+
+std::unique_ptr<syncer::ModelTypeChangeProcessor>
+CreateSharedTabGroupDataChangeProcessor() {
+  return std::make_unique<syncer::ClientTagBasedModelTypeProcessor>(
+      syncer::SHARED_TAB_GROUP_DATA,
+      base::BindRepeating(&syncer::ReportUnrecoverableError,
+                          chrome::GetChannel()));
+}
+
+std::unique_ptr<SyncDataTypeConfiguration>
+MaybeCreateSyncConfigurationForSharedTabGroupData(
+    syncer::OnceModelTypeStoreFactory store_factory) {
+  if (!base::FeatureList::IsEnabled(
+          data_sharing::features::kDataSharingFeature)) {
+    return nullptr;
+  }
+
+  return std::make_unique<SyncDataTypeConfiguration>(
+      CreateSharedTabGroupDataChangeProcessor(), std::move(store_factory));
 }
 
 }  // anonymous namespace
@@ -70,14 +94,19 @@ SavedTabGroupKeyedService::SavedTabGroupKeyedService(
     Profile* profile,
     syncer::DeviceInfoTracker* device_info_tracker)
     : profile_(profile),
-      listener_(this, profile),
-      bridge_(model(),
-              GetStoreFactory(),
-              CreateChangeProcessor(),
-              profile->GetPrefs(),
-              std::map<base::Uuid, LocalTabGroupID>()),
+      wrapper_service_(std::make_unique<TabGroupServiceWrapper>(nullptr, this)),
+      listener_(wrapper_service_.get(), profile),
+      sync_bridge_mediator_(
+          model(),
+          profile->GetPrefs(),
+          std::make_unique<SyncDataTypeConfiguration>(
+              CreateSavedTabGroupChangeProcessor(),
+              GetStoreFactory()),
+          MaybeCreateSyncConfigurationForSharedTabGroupData(GetStoreFactory())),
       metrics_logger_(
           std::make_unique<TabGroupSyncMetricsLogger>(device_info_tracker)) {
+  // TODO: Don't observe depending on which service we are using in
+  // `wrapper_service_`.
   model()->AddObserver(this);
 
   metrics_timer_.Start(
@@ -111,7 +140,12 @@ syncer::OnceModelTypeStoreFactory SavedTabGroupKeyedService::GetStoreFactory() {
 
 base::WeakPtr<syncer::ModelTypeControllerDelegate>
 SavedTabGroupKeyedService::GetSavedTabGroupControllerDelegate() {
-  return bridge_.change_processor()->GetControllerDelegate();
+  return sync_bridge_mediator_.GetSavedTabGroupControllerDelegate();
+}
+
+base::WeakPtr<syncer::ModelTypeControllerDelegate>
+SavedTabGroupKeyedService::GetSharedTabGroupControllerDelegate() {
+  return sync_bridge_mediator_.GetSharedTabGroupControllerDelegate();
 }
 
 void SavedTabGroupKeyedService::ConnectRestoredGroupToSaveId(
@@ -151,13 +185,14 @@ void SavedTabGroupKeyedService::SaveRestoredGroup(
 void SavedTabGroupKeyedService::UpdateAttributions(
     const LocalTabGroupID& group_id,
     const std::optional<LocalTabID>& tab_id) {
-  model_.UpdateLastUpdaterCacheGuidForGroup(bridge_.GetLocalCacheGuid(),
-                                            group_id, tab_id);
+  model_.UpdateLastUpdaterCacheGuidForGroup(
+      sync_bridge_mediator_.GetLocalCacheGuidForSavedBridge(), group_id,
+      tab_id);
 }
 
 std::optional<std::string> SavedTabGroupKeyedService::GetLocalCacheGuid()
     const {
-  return bridge_.GetLocalCacheGuid();
+  return sync_bridge_mediator_.GetLocalCacheGuidForSavedBridge();
 }
 
 void SavedTabGroupKeyedService::OnTabAddedToGroupLocally(
@@ -290,9 +325,11 @@ base::Uuid SavedTabGroupKeyedService::SaveGroup(const TabGroupId& group_id,
 
   SavedTabGroup saved_tab_group(
       tab_group->visual_data()->title(), tab_group->visual_data()->color(), {},
-      std::nullopt, std::nullopt, tab_group->id(), bridge_.GetLocalCacheGuid(),
+      std::nullopt, std::nullopt, tab_group->id(),
+      sync_bridge_mediator_.GetLocalCacheGuidForSavedBridge(),
       /*last_updater_cache_guid=*/std::nullopt,
-      /*created_before_syncing_tab_groups=*/!bridge_.IsSyncing());
+      /*created_before_syncing_tab_groups=*/
+      !sync_bridge_mediator_.IsSavedBridgeSyncing());
   if (is_pinned) {
     saved_tab_group.SetPinned(true);
   }
@@ -436,14 +473,14 @@ void SavedTabGroupKeyedService::SavedTabGroupModelLoaded() {
 }
 
 void SavedTabGroupKeyedService::SavedTabGroupRemovedFromSync(
-    const SavedTabGroup* removed_group) {
+    const SavedTabGroup& removed_group) {
   // Do nothing if `removed_group` is not open in the tabstrip.
-  if (!removed_group->local_group_id().has_value()) {
+  if (!removed_group.local_group_id().has_value()) {
     return;
   }
 
   // Update the local group's contents to match the saved group's.
-  listener_.RemoveLocalGroupFromSync(removed_group->local_group_id().value());
+  listener_.RemoveLocalGroupFromSync(removed_group.local_group_id().value());
 }
 
 void SavedTabGroupKeyedService::SavedTabGroupUpdatedFromSync(

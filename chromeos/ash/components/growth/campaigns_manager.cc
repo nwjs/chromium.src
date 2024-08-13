@@ -215,7 +215,9 @@ void CampaignsManager::SetIsUserOwner(bool is_user_owner) {
   matcher_.SetIsUserOwner(is_user_owner);
 }
 
-void CampaignsManager::PerformAction(int campaign_id, const Action* action) {
+void CampaignsManager::PerformAction(int campaign_id,
+                                     std::optional<int> group_id,
+                                     const Action* action) {
   CHECK(action);
 
   auto* params = action->GetParams();
@@ -226,10 +228,11 @@ void CampaignsManager::PerformAction(int campaign_id, const Action* action) {
     return;
   }
 
-  PerformAction(campaign_id, action_type.value(), params);
+  PerformAction(campaign_id, group_id, action_type.value(), params);
 }
 
 void CampaignsManager::PerformAction(int campaign_id,
+                                     std::optional<int> group_id,
                                      const ActionType action_type,
                                      const base::Value::Dict* params) {
   auto& action_performer = actions_map_.at(action_type);
@@ -239,7 +242,7 @@ void CampaignsManager::PerformAction(int campaign_id,
   }
 
   action_performer->Run(
-      campaign_id, params,
+      campaign_id, group_id, params,
       base::BindOnce(
           [](growth::ActionType action_type, growth::ActionResult result,
              std::optional<growth::ActionResultReason> reason) {
@@ -329,6 +332,28 @@ void CampaignsManager::OnOobeTimestampLoaded(
     base::Time oobe_time) {
   matcher_.SetOobeCompleteTime(oobe_time);
 
+  if (tracker_initialized_for_test_) {
+    OnTrackerInitialized(std::move(load_callback), path,
+                         /*init_success=*/true);
+    return;
+  }
+
+  client_->AddOnTrackerInitializedCallback(base::BindOnce(
+      &CampaignsManager::OnTrackerInitialized, weak_factory_.GetWeakPtr(),
+      std::move(load_callback), path));
+}
+
+void CampaignsManager::OnTrackerInitialized(
+    base::OnceClosure load_callback,
+    const std::optional<const base::FilePath>& path,
+    bool init_success) {
+  if (!init_success) {
+    // Only log error, but will continue loading compaigns.
+    LOG(ERROR) << "Failed to initialize feature_engagement::Tracker.";
+    RecordCampaignsManagerError(
+        CampaignsManagerError::kTrackerInitializationFail);
+  }
+
   // Read the campaigns file from component mounted path.
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock()}, base::BindOnce(&ReadCampaignsFile, *path),
@@ -344,6 +369,10 @@ void CampaignsManager::NotifyCampaignsLoaded() {
 
 void CampaignsManager::SetOobeCompleteTimeForTesting(base::Time time) {
   oobe_complete_time_for_test_ = time;
+}
+
+void CampaignsManager::SetTrackerInitializedForTesting() {
+  tracker_initialized_for_test_ = true;
 }
 
 const Campaigns* CampaignsManager::GetCampaignsBySlotForTesting(

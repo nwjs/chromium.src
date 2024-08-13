@@ -10,6 +10,9 @@
 #include <vector>
 
 #include "base/barrier_callback.h"
+#include "base/containers/contains.h"
+#include "components/commerce/core/commerce_feature_list.h"
+#include "components/commerce/core/commerce_utils.h"
 #include "components/commerce/core/compare/candidate_product.h"
 #include "components/commerce/core/compare/cluster_server_proxy.h"
 #include "components/commerce/core/compare/product_group.h"
@@ -30,6 +33,13 @@ bool IsUrlOpen(
   return false;
 }
 
+std::optional<std::string> GetShortLabelForCategory(
+    const CategoryLabel& category_label) {
+  return category_label.category_short_label().empty()
+             ? category_label.category_default_label()
+             : category_label.category_short_label();
+}
+
 // Gets product label from the bottom of a product category. If
 // `level_from_bottom` is 0, this returns the last level of the category. If
 // `level_from_bottom` is 1, this returns the second to last level of the
@@ -40,24 +50,84 @@ std::optional<std::string> GetLabelFromBottom(const ProductCategory& category,
   if (label_size <= level_from_bottom) {
     return std::nullopt;
   }
-  return category.category_labels(label_size - 1 - level_from_bottom)
-      .category_default_label();
+  return GetShortLabelForCategory(
+      category.category_labels(label_size - 1 - level_from_bottom));
 }
 
-std::optional<std::string> GetShortestLabelAtBottom(
-    const CategoryData& category_data) {
-  std::optional<std::string> title;
-  for (const auto& product_category : category_data.product_categories()) {
-    std::optional<std::string> bottom_label =
-        GetLabelFromBottom(product_category, 0);
-    if (!bottom_label) {
-      continue;
-    }
-    if (!title || title->length() > bottom_label->length()) {
-      title = std::move(bottom_label);
+std::string FindTitleForSimilarProducts(
+    const std::vector<std::pair<GURL, const ProductInfo>>& product_infos) {
+  // Calculate for each label (both bottom and second-to-bottom level), how
+  // many products contain this label.
+  //
+  // Please note that a product can have multiple categories
+  // and contain one label for multiple times (e.g. a product can belong to
+  // category Car > Blue Car and Car > Race Car, second-to-bottom level label
+  // `Car` appearing twice). In this case, we'll only count one product once for
+  // one label.
+  base::flat_set<std::string> bottom_labels;
+  std::map<std::string, int> label_count;
+
+  for (auto pair : product_infos) {
+    base::flat_set<std::string> counted_labels;
+    for (const auto& product_category :
+         pair.second.category_data.product_categories()) {
+      std::optional<std::string> bottom_label =
+          GetLabelFromBottom(product_category, 0);
+      if (bottom_label) {
+        std::string bottom_label_string = bottom_label.value();
+        bottom_labels.insert(bottom_label_string);
+        if (!base::Contains(counted_labels, bottom_label_string)) {
+          counted_labels.insert(bottom_label_string);
+          label_count[bottom_label_string]++;
+        }
+      }
+      std::optional<std::string> second_to_bottom_label =
+          GetLabelFromBottom(product_category, 1);
+      if (second_to_bottom_label) {
+        std::string second_to_bottom_label_string =
+            second_to_bottom_label.value();
+        if (!base::Contains(counted_labels, second_to_bottom_label)) {
+          counted_labels.insert(second_to_bottom_label_string);
+          label_count[second_to_bottom_label_string]++;
+        }
+      }
     }
   }
-  return title;
+
+  // Get the most common bottom label. When tie, picking the shorter label.
+  int max_bottom_count = 0;
+  std::string common_bottom_label;
+  for (const std::string& bottom_label : bottom_labels) {
+    if (label_count[bottom_label] < max_bottom_count) {
+      continue;
+    }
+    if (common_bottom_label.size() == 0 ||
+        bottom_label.size() < common_bottom_label.size()) {
+      common_bottom_label = bottom_label;
+      max_bottom_count = label_count[bottom_label];
+    }
+  }
+
+  // Early return if we can find a bottom label shared by all products.
+  if ((size_t)max_bottom_count == product_infos.size()) {
+    return common_bottom_label;
+  }
+
+  // If we cannot find a bottom label shared by all products, see if we can find
+  // a good second-to-bottom label. For a second-to-bottom label to be good
+  // enough to become title, it has to be shared by all products.
+  std::string alternate_title;
+  for (auto pair : label_count) {
+    if ((size_t)pair.second != product_infos.size()) {
+      continue;
+    }
+    if (alternate_title.size() == 0 ||
+        alternate_title.size() > pair.first.size()) {
+      alternate_title = pair.first;
+    }
+  }
+
+  return alternate_title.size() == 0 ? common_bottom_label : alternate_title;
 }
 
 // Determines if two CategoryData are similar. If the bottom label from one of
@@ -155,31 +225,40 @@ ClusterManager::ClusterManager(
     : cluster_server_proxy_(std::move(cluster_server_proxy)),
       get_product_info_cb_(get_product_info_cb),
       get_open_url_infos_cb_(get_open_url_infos_cb) {
-  const std::vector<ProductSpecificationsSet> product_specifications_sets =
-      product_specification_service->GetAllProductSpecifications();
-  for (const auto& product : product_specifications_sets) {
-    OnProductSpecificationsSetAdded(product);
-  }
-
+  product_specification_service->GetAllProductSpecifications(
+      base::BindOnce(&ClusterManager::OnGetAllProductSpecificationsSets,
+                     weak_ptr_factory_.GetWeakPtr()));
   obs_.Observe(product_specification_service);
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&ClusterManager::RemoveIneligibleGroupsForClustering,
+                     weak_ptr_factory_.GetWeakPtr()),
+      base::Days(1));
 }
 
 ClusterManager::~ClusterManager() {
   observers_.Clear();
 }
 
+void ClusterManager::OnGetAllProductSpecificationsSets(
+    const std::vector<ProductSpecificationsSet> sets) {
+  for (const auto& set : sets) {
+    OnProductSpecificationsSetAdded(set);
+  }
+}
+
 void ClusterManager::OnProductSpecificationsSetAdded(
     const ProductSpecificationsSet& product_specifications_set) {
+  if (!IsSetEligibleForClustering(product_specifications_set.uuid(),
+                                  product_specifications_set.update_time())) {
+    return;
+  }
   base::Uuid uuid = product_specifications_set.uuid();
   product_group_map_[uuid] =
       std::make_unique<ProductGroup>(uuid, product_specifications_set.name(),
                                      product_specifications_set.urls(),
                                      product_specifications_set.update_time());
   const std::set<GURL>& urls = product_group_map_[uuid]->member_products;
-  if (urls.size() == 0) {
-    CHECK(false) << "Production specification set shouldn't be empty.";
-    return;
-  }
 
   auto barrier_callback = base::BarrierCallback<const CategoryData&>(
       urls.size(), base::BindOnce(&ClusterManager::OnAllCategoryDataRetrieved,
@@ -342,12 +421,18 @@ void ClusterManager::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
-void ClusterManager::GetComparableUrls(const std::set<GURL>& product_urls,
-                                       GetComparableUrlsCallback callback) {
-  cluster_server_proxy_->GetComparableUrls(
-      product_urls,
-      base::BindOnce(&ClusterManager::OnGetComparableUrls,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+void ClusterManager::GetComparableProducts(
+    const EntryPointInfo& entry_point_info,
+    GetEntryPointInfoCallback callback) {
+  std::vector<uint64_t> product_cluster_ids;
+  for (const auto& kv : entry_point_info.similar_candidate_products) {
+    product_cluster_ids.push_back(kv.second);
+  }
+  cluster_server_proxy_->GetComparableProducts(
+      std::move(product_cluster_ids),
+      base::BindOnce(&ClusterManager::OnGetComparableProducts,
+                     weak_ptr_factory_.GetWeakPtr(), entry_point_info,
+                     std::move(callback)));
 }
 
 std::set<GURL> ClusterManager::FindSimilarCandidateProducts(
@@ -384,15 +469,11 @@ void ClusterManager::GetEntryPointInfoForNavigation(
 
   similar_urls.insert(url);
 
-  std::optional<std::string> title =
-      GetShortestLabelAtBottom(candidate_product_map_[url]->category_data);
-
   auto barrier_callback =
       base::BarrierCallback<std::pair<GURL, const ProductInfo>>(
           similar_urls.size(),
           base::BindOnce(&ClusterManager::OnProductInfoFetchedForSimilarUrls,
-                         weak_ptr_factory_.GetWeakPtr(), title,
-                         std::move(callback)));
+                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   for (const auto& similar_url : similar_urls) {
     GetProductInfo(similar_url, get_product_info_cb_, barrier_callback);
   }
@@ -414,33 +495,17 @@ void ClusterManager::GetEntryPointInfoForSelection(
   }
   similar_urls.merge(similar_urls_new);
 
-  std::optional<std::string> title_old =
-      GetShortestLabelAtBottom(candidate_product_map_[old_url]->category_data);
-  std::optional<std::string> title_new =
-      GetShortestLabelAtBottom(candidate_product_map_[new_url]->category_data);
-  std::optional<std::string> title;
-  if (!title_old) {
-    title = std::move(title_new);
-  } else if (title_new) {
-    title = title_old->size() < title_new->size() ? std::move(title_old)
-                                                  : std::move(title_new);
-  } else {
-    title = std::move(title_old);
-  }
-
   auto barrier_callback =
       base::BarrierCallback<std::pair<GURL, const ProductInfo>>(
           similar_urls.size(),
           base::BindOnce(&ClusterManager::OnProductInfoFetchedForSimilarUrls,
-                         weak_ptr_factory_.GetWeakPtr(), title,
-                         std::move(callback)));
+                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   for (const auto& similar_url : similar_urls) {
     GetProductInfo(similar_url, get_product_info_cb_, barrier_callback);
   }
 }
 
 void ClusterManager::OnProductInfoFetchedForSimilarUrls(
-    std::optional<std::string> title,
     GetEntryPointInfoCallback callback,
     const std::vector<std::pair<GURL, const ProductInfo>>& product_infos) {
   std::map<GURL, uint64_t> map;
@@ -450,30 +515,80 @@ void ClusterManager::OnProductInfoFetchedForSimilarUrls(
     }
   }
   std::move(callback).Run(std::make_optional<EntryPointInfo>(
-      title ? title.value() : "", std::move(map)));
+      FindTitleForSimilarProducts(product_infos), std::move(map)));
 }
 
-void ClusterManager::OnGetComparableUrls(
-    GetComparableUrlsCallback callback,
-    bool success,
-    const std::set<GURL>& comparable_urls) {
-  if (!success) {
-    std::move(callback).Run(std::set<GURL>());
-    return;
-  }
-
-  std::set<GURL> open_urls;
+void ClusterManager::OnGetComparableProducts(
+    const EntryPointInfo& entry_point_info,
+    GetEntryPointInfoCallback callback,
+    const std::vector<uint64_t>& cluster_product_ids) {
+  std::map<GURL, uint64_t> product_cluster_id_map;
   const std::vector<UrlInfo> url_infos = get_open_url_infos_cb_.Run();
-  for (const auto& url : comparable_urls) {
-    for (const UrlInfo& url_info : url_infos) {
-      if (url == url_info.url) {
-        open_urls.emplace(url);
-        break;
+  for (const auto& kv : entry_point_info.similar_candidate_products) {
+    // If the product Id cannot be clustered, skip it.
+    if (!base::Contains(cluster_product_ids, kv.second)) {
+      continue;
+    }
+
+    // Only add URLs that are still open.
+    for (const auto& url_info : url_infos) {
+      if (kv.first == url_info.url) {
+        product_cluster_id_map.emplace(kv.first, kv.second);
       }
     }
   }
 
-  std::move(callback).Run(std::move(open_urls));
+  if (product_cluster_id_map.empty()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  std::move(callback).Run(EntryPointInfo(entry_point_info.title,
+                                         std::move(product_cluster_id_map)));
+}
+
+bool ClusterManager::IsSetEligibleForClustering(const base::Uuid& uuid,
+                                                const base::Time& update_time) {
+  // TODO(b/335724950): A set could become eligible again if it's opened,
+  // despite that it's last update time has passed the limit. We need to handle
+  // this case by checking if the product specifications page for a set is
+  // opened.
+  if (IsUrlOpen(GetProductSpecsTabUrlForID(uuid), get_open_url_infos_cb_)) {
+    return true;
+  }
+  return base::Time::Now() - update_time <
+         kProductSpecificationsSetValidForClusteringTime.Get();
+}
+
+void ClusterManager::RemoveIneligibleGroupsForClustering() {
+  for (auto it = product_group_map_.begin(); it != product_group_map_.end();) {
+    const auto& product_group = it->second;
+    if (!IsSetEligibleForClustering(product_group->uuid,
+                                    product_group->update_time)) {
+      // If the product URLs in the removing set are open, add them back to
+      // candidate products.
+      for (const GURL& product_url : product_group->member_products) {
+        if (IsUrlOpen(product_url, get_open_url_infos_cb_) &&
+            candidate_product_map_.find(product_url) ==
+                candidate_product_map_.end()) {
+          get_product_info_cb_.Run(
+              product_url,
+              base::BindOnce(&ClusterManager::OnProductInfoRetrieved,
+                             weak_ptr_factory_.GetWeakPtr()));
+        }
+      }
+      it = product_group_map_.erase(it);
+    } else {
+      it++;
+    }
+  }
+
+  // Re-schedule another remove in one day.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&ClusterManager::RemoveIneligibleGroupsForClustering,
+                     weak_ptr_factory_.GetWeakPtr()),
+      base::Days(1));
 }
 
 }  // namespace commerce

@@ -27,6 +27,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/css/style_engine.h"
 
 #include "base/auto_reset.h"
@@ -118,6 +123,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
@@ -228,7 +234,7 @@ StyleEngine::StyleEngine(Document& document)
 
     // Viewport styles are only processed in the main frame of a page with an
     // active viewport. That is, a pages that their own independently zoomable
-    // viewport: the outermost main frame and portals.
+    // viewport: the outermost main frame.
     DCHECK(document.GetPage());
     VisualViewport& viewport = document.GetPage()->GetVisualViewport();
     if (document.IsInMainFrame() && viewport.IsActiveViewport()) {
@@ -795,7 +801,7 @@ void StyleEngine::UpdateLayoutCounters(const Element& element,
        child; child = child->NextInPreOrder(&layout_object)) {
     if (auto* layout_counter = DynamicTo<LayoutCounter>(child)) {
       Vector<int> counter_values =
-          context.GetCounterValues(layout_counter->Identifier(), element,
+          context.GetCounterValues(element, layout_counter->Identifier(),
                                    layout_counter->Separator().IsNull());
       layout_counter->UpdateCounter(std::move(counter_values));
     }
@@ -1675,18 +1681,36 @@ void StyleEngine::ClassChangedForElement(const SpaceSplitString& old_classes,
 namespace {
 
 bool HasAttributeDependentGeneratedContent(const Element& element) {
+  DCHECK(!RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled());
   if (PseudoElement* before = element.GetPseudoElement(kPseudoIdBefore)) {
     const ComputedStyle* style = before->GetComputedStyle();
-    if (style && style->HasAttrContent()) {
+    if (style && style->HasAttrFunction()) {
       return true;
     }
   }
   if (PseudoElement* after = element.GetPseudoElement(kPseudoIdAfter)) {
     const ComputedStyle* style = after->GetComputedStyle();
-    if (style && style->HasAttrContent()) {
+    if (style && style->HasAttrFunction()) {
       return true;
     }
   }
+  if (PseudoElement* scroll_marker =
+          element.GetPseudoElement(kPseudoIdScrollMarker)) {
+    const ComputedStyle* style = scroll_marker->GetComputedStyle();
+    if (style && style->HasAttrFunction()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool HasAttributeDependentStyle(const Element& element) {
+  DCHECK(RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled());
+  const ComputedStyle* style = element.GetComputedStyle();
+  if (style && style->HasAttrFunction()) {
+    return true;
+  }
+  // TODO(crbug.com/40320391): Handle pseudo elements invalidation.
   return false;
 }
 
@@ -1722,11 +1746,16 @@ void StyleEngine::AttributeChangedForElement(
   pending_invalidations_.ScheduleInvalidationSetsForNode(invalidation_lists,
                                                          element);
 
-  if (!element.NeedsStyleRecalc() &&
-      HasAttributeDependentGeneratedContent(element)) {
-    element.SetNeedsStyleRecalc(
-        kLocalStyleChange,
-        StyleChangeReasonForTracing::FromAttribute(attribute_name));
+  if (!element.NeedsStyleRecalc()) {
+    bool attr_dependent =
+        RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled()
+            ? HasAttributeDependentStyle(element)
+            : HasAttributeDependentGeneratedContent(element);
+    if (attr_dependent) {
+      element.SetNeedsStyleRecalc(
+          kLocalStyleChange,
+          StyleChangeReasonForTracing::FromAttribute(attribute_name));
+    }
   }
 }
 
@@ -3413,7 +3442,8 @@ void StyleEngine::UpdateStyleForNonEligibleContainer(Element& container) {
       DCHECK(cq_data->SkippedStyleRecalc());
       break;
     case ContainerQueryEvaluator::Change::kNearestContainer:
-      if (!IsShadowHost(container)) {
+      if (RuntimeEnabledFeatures::CSSFlatTreeContainerEnabled() ||
+          !IsShadowHost(container)) {
         change = change.ForceRecalcSizeContainer();
         break;
       }
@@ -3434,7 +3464,6 @@ void StyleEngine::UpdateStyleForNonEligibleContainer(Element& container) {
     container.ComputedStyleRef().ClearCachedPseudoElementStyles();
   }
 
-  DecrementSkippedContainerRecalc();
   AllowMarkForReattachFromRebuildLayoutTreeScope allow_reattach(*this);
   base::AutoReset<bool> cq_recalc(&in_container_query_style_recalc_, true);
   RecalcStyleForContainer(container, change);
@@ -3474,7 +3503,8 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
       }
       break;
     case ContainerQueryEvaluator::Change::kNearestContainer:
-      if (!IsShadowHost(container)) {
+      if (RuntimeEnabledFeatures::CSSFlatTreeContainerEnabled() ||
+          !IsShadowHost(container)) {
         change = change.ForceRecalcSizeContainer();
         break;
       }
@@ -3511,9 +3541,6 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
 
   NthIndexCache nth_index_cache(GetDocument());
 
-  if (cq_data->SkippedStyleRecalc()) {
-    DecrementSkippedContainerRecalc();
-  }
   UpdateViewportSize();
   RecalcStyleForContainer(container, change);
 
@@ -4385,10 +4412,11 @@ void StyleEngine::UpdateViewportSize() {
 
 namespace {
 
-bool UpdateLastSuccessfulPositionOption(Element& element) {
+bool UpdateLastSuccessfulPositionFallback(Element& element) {
   if (OutOfFlowData* out_of_flow_data = element.GetOutOfFlowData()) {
     LayoutObject* layout_object = element.GetLayoutObject();
-    if (out_of_flow_data->ApplyPendingSuccessfulPositionOption(layout_object) &&
+    if (out_of_flow_data->ApplyPendingSuccessfulPositionFallback(
+            layout_object) &&
         layout_object) {
       layout_object->SetNeedsLayoutAndFullPaintInvalidation(
           layout_invalidation_reason::kAnchorPositioning);
@@ -4427,7 +4455,7 @@ bool InvalidatePositionTryNames(Element* root,
 
 }  // namespace
 
-bool StyleEngine::UpdateLastSuccessfulPositionOptions() {
+bool StyleEngine::UpdateLastSuccessfulPositionFallbacks() {
   if (!RuntimeEnabledFeatures::LastSuccessfulPositionOptionEnabled()) {
     CHECK(dirty_position_try_names_.empty());
     CHECK(last_successful_option_dirty_set_.empty());
@@ -4437,7 +4465,7 @@ bool StyleEngine::UpdateLastSuccessfulPositionOptions() {
   if (!dirty_position_try_names_.empty()) {
     // Added, removed, or modified @position-try rules.
     // Walk the whole tree and invalidate last successful position for elements
-    // with position-try-options referring those names.
+    // with position-try-fallbacks referring those names.
     if (InvalidatePositionTryNames(GetDocument().documentElement(),
                                    dirty_position_try_names_)) {
       invalidated = true;
@@ -4447,7 +4475,7 @@ bool StyleEngine::UpdateLastSuccessfulPositionOptions() {
 
   if (!last_successful_option_dirty_set_.empty()) {
     for (Element* element : last_successful_option_dirty_set_) {
-      if (UpdateLastSuccessfulPositionOption(*element)) {
+      if (UpdateLastSuccessfulPositionFallback(*element)) {
         invalidated = true;
       }
     }

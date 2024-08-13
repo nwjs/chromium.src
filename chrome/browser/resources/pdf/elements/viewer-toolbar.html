@@ -242,10 +242,29 @@
         aria-label="$i18n{tooltipRotateCCW}" title="$i18n{tooltipRotateCCW}"
         on-click="onRotateClick_">
     </cr-icon-button>
+<if expr="enable_pdf_ink2">
+    <template is="dom-if" if="[[showInk2Buttons_]]">
+      <span class="vertical-separator"></span>
+      <cr-icon-button id="annotate" iron-icon="cr:create"
+          on-click="onAnnotationClick_"
+          aria-label="$i18n{tooltipAnnotate}"
+          disabled="[[!annotationsAvailable]]"
+          title="$i18n{tooltipAnnotate}"></cr-icon-button>
+      <span class="vertical-separator"></span>
+      <cr-icon-button id="undo" disabled="[[!canUndoAnnotation_]]"
+          iron-icon="pdf:undo" on-click="onUndoClick_"
+          aria-label="$i18n{annotationUndo}"
+          title="$i18n{annotationUndo}"></cr-icon-button>
+      <cr-icon-button id="redo" disabled="[[!canRedoAnnotation_]]"
+          iron-icon="pdf:redo" on-click="onRedoClick_"
+          aria-label="$i18n{annotationRedo}"
+          title="$i18n{annotationRedo}"></cr-icon-button>
+    </template>
+</if>
   </div>
   <div id="end">
-  <if expr="enable_ink or enable_pdf_ink2">
-    <template is="dom-if" if="[[pdfAnnotationsEnabled]]">
+  <if expr="enable_ink">
+    <template is="dom-if" if="[[showInkAnnotationButton_]]">
       <cr-icon-button id="annotate" iron-icon="cr:create"
           on-click="onAnnotationClick_"
           aria-label="$i18n{tooltipAnnotate}"
@@ -256,6 +275,9 @@
     <viewer-download-controls id="downloads"
         has-edits="[[hasEdits]]"
         has-entered-annotation-mode="[[hasEnteredAnnotationMode]]"
+<if expr="enable_pdf_ink2">
+        has-ink2-edits="[[hasInk2Edits]]"
+</if>
         is-form-field-focused="[[isFormFieldFocused]]">
     </viewer-download-controls>
     <cr-icon-button id="print" iron-icon="cr:print"

@@ -14,7 +14,7 @@
 #include <cstdint>
 
 #include "partition_alloc/build_config.h"
-#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/partition_alloc_base/logging.h"
 #include "partition_alloc/partition_alloc_base/threading/platform_thread_internal_posix.h"
 
@@ -95,7 +95,7 @@ PlatformThreadId PlatformThread::CurrentId() {
       g_is_main_thread = false;
     }
   } else {
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
     if (g_thread_id != syscall(__NR_gettid)) {
       PA_RAW_LOG(
           FATAL,

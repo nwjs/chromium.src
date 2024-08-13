@@ -16,6 +16,7 @@
 #include "build/chromeos_buildflags.h"
 #include "ui/accessibility/ax_enums.mojom-forward.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/platform/ax_platform_node_id.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/accessibility/ax_virtual_view.h"
@@ -143,6 +144,8 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   // platform's accessibility layer.
   virtual bool IsChildOfLeaf() const;
 
+  void SetReadOnly(bool read_only);
+
   // Returns true if we heuristically pruned (ignored) this view from the
   // accessibility tree.
   bool GetIsPruned() const;
@@ -228,9 +231,25 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   // will work.
   void SetName(View& naming_view);
 
+  void SetIsEditable(bool editable);
+
   void SetBounds(const gfx::RectF& bounds);
 
   void SetIsSelected(bool selected);
+
+  void SetIsMultiselectable(bool multiselectable);
+
+  void SetIsHovered(bool is_hovered);
+  bool GetIsHovered() const;
+
+  void SetPopupForId(ui::AXPlatformNodeId popup_for_id);
+
+  void SetTextDirection(int text_direction);
+
+  void SetIsProtected(bool is_protected);
+
+  void SetTextSelStart(int32_t text_sel_start);
+  void SetTextSelEnd(int32_t text_sel_end);
 
   // Hides this view from the accessibility APIs. Keep in mind that this is not
   // the sole determinant of whether the ignored state is set. See
@@ -244,8 +263,32 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   void ClearPosInSet();
   void ClearSetSize();
 
+  void SetScrollX(int scroll_x);
+  void SetScrollXMin(int scroll_x_min);
+  void SetScrollXMax(int scroll_x_max);
+  void SetScrollY(int scroll_y);
+  void SetScrollYMin(int scroll_y_min);
+  void SetScrollYMax(int scroll_y_max);
+  void SetIsScrollable(bool scrollable);
+
   void SetActiveDescendant(views::View& view);
   void ClearActiveDescendant();
+
+  void SetIsInvisible(bool is_invisible);
+  void SetIsExpanded();
+  void SetIsCollapsed();
+
+  // Sets the view's expanded and collapsed states back to false. Expanded and
+  // collapsed states are typically mutually exclusive; however, certain views,
+  // such as the notification header view, offer an extra feature wherein the
+  // view itself cannot be either expanded or collapsed. This occurs in
+  // situations where the view is considered invisible, and therefore not
+  // interactable. Therefore, in such situations, it was necessary to explicitly
+  // remove both expanded and collapsed states from the view accessibility
+  // cache.
+  void RemoveExpandCollapseState();
+
+  void SetIsDefault(bool is_default);
 
   // Sets/gets whether or not this view should be marked as "enabled" for the
   // purpose exposing this state in the accessibility tree. As a general rule,
@@ -254,6 +297,9 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   // respond to user actions.
   void SetIsEnabled(bool is_enabled);
   bool GetIsEnabled() const;
+
+  void SetTableRowCount(int row_count);
+  void SetTableColumnCount(int column_count);
 
   void SetDescription(const std::string& description,
                       const ax::mojom::DescriptionFrom description_from =
@@ -271,8 +317,19 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   // project is completed and we don't have ViewAXPlatformNodeDelegate anymore.
   std::u16string GetCachedDescription() const;
 
+  void SetPlaceholder(const std::string& placeholder);
+
   void SetCheckedState(ax::mojom::CheckedState checked_state);
   void RemoveCheckedState();
+
+  void SetKeyShortcuts(const std::string& key_shortcuts);
+  void RemoveKeyShortcuts();
+
+  void SetAccessKey(const std::string& access_key);
+  void RemoveAccessKey();
+
+  void SetChildTreeNodeAppId(const std::string& app_id);
+  void RemoveChildTreeNodeAppId();
 
   // Sets the platform-specific accessible name/title property of the
   // NativeViewAccessible window. This is needed on platforms where the name
@@ -296,7 +353,20 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
 
   void SetShowContextMenu(bool show_context_menu);
 
-  void SetState(ax::mojom::State state, bool is_enabled);
+  void SetContainerLiveStatus(const std::string& status);
+
+  // Sets the kValue attribute of the accessible object.
+  // In case of ProgressBar, if progressBarIndicator value is negative,
+  // then kValue attribute should not be set.
+  void SetValue(const std::string& value);
+  void SetValue(const std::u16string& value);
+  void RemoveValue();
+
+  void SetDefaultActionVerb(
+      const ax::mojom::DefaultActionVerb default_action_verb);
+  void RemoveDefaultActionVerb();
+
+  void SetHierarchicalLevel(int hierarchical_level);
 
   // Updates the focusable state of the `data_` object.
   // The view is considered focusable if it is not set to never receive focus
@@ -314,8 +384,10 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   void UpdateInvisibleState();
 
   // Override the child tree id.
-  void OverrideChildTreeID(ui::AXTreeID tree_id);
+  void SetChildTreeID(ui::AXTreeID tree_id);
   ui::AXTreeID GetChildTreeID() const;
+
+  void SetChildTreeScaleFactor(float scale_factor);
 
   // Returns the accessibility object that represents the View whose
   // accessibility is managed by this instance. This may be an AXPlatformNode or
@@ -335,7 +407,7 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   virtual void AnnouncePolitely(const std::u16string& text);
   virtual void AnnounceText(const std::u16string& text);
 
-  virtual const ui::AXUniqueId& GetUniqueId() const;
+  virtual ui::AXPlatformNodeId GetUniqueId() const;
 
   View* view() const { return view_; }
   AXVirtualView* FocusedVirtualChild() const { return focused_virtual_child_; }
@@ -410,6 +482,8 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   // Used for testing. Called every time an accessibility event is fired.
   AccessibilityEventsCallback accessibility_events_callback_;
 
+  bool ignore_missing_widget_for_testing_ = false;
+
  private:
   FRIEND_TEST_ALL_PREFIXES(ViewTest, PauseAccessibilityEvents);
   FRIEND_TEST_ALL_PREFIXES(ViewTest,
@@ -440,6 +514,8 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   void SetWidgetClosedRecursive(Widget* widget, bool value);
 
   void SetDataForClosedWidget(ui::AXNodeData* data) const;
+
+  void SetState(ax::mojom::State state, bool is_enabled);
 
   // Weak. Owns this.
   const raw_ptr<View> view_;
@@ -483,9 +559,6 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   base::WeakPtr<Widget> next_focus_ = nullptr;
   base::WeakPtr<Widget> previous_focus_ = nullptr;
 
-  // This view's child tree id.
-  std::optional<ui::AXTreeID> child_tree_id_;
-
   // Whether to move accessibility focus to an ancestor.
   bool propagate_focus_to_ancestor_ = false;
 
@@ -496,8 +569,6 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   // Prevents accessibility events from being fired during initialization of
   // the owning View.
   bool pause_accessibility_events_ = false;
-
-  bool ignore_missing_widget_for_testing_ = false;
 
   bool is_widget_closed_ = false;
 

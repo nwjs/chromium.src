@@ -23,8 +23,9 @@
 #include "services/screen_ai/proto/main_content_extractor_proto_convertor.h"
 #include "services/screen_ai/proto/visual_annotator_proto_convertor.h"
 #include "services/screen_ai/public/cpp/utilities.h"
-#include "services/screen_ai/screen_ai_ax_tree_serializer.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/accessibility/ax_node.h"
+#include "ui/accessibility/ax_tree.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/gfx/geometry/rect_f.h"
 
@@ -69,7 +70,7 @@ OcrClientTypeForMetrics GetClientType(mojom::OcrClientType client_type) {
 }
 
 ui::AXTreeUpdate ConvertVisualAnnotationToTreeUpdate(
-    const std::optional<chrome_screen_ai::VisualAnnotation>& annotation_proto,
+    std::optional<chrome_screen_ai::VisualAnnotation>& annotation_proto,
     const gfx::Rect& image_rect) {
   if (!annotation_proto) {
     VLOG(0) << "Screen AI library could not process snapshot or no OCR data.";
@@ -301,14 +302,6 @@ void ScreenAIService::InitializeOCRInternal(
   base::UmaHistogramBoolean("Accessibility.ScreenAI.OCR.Initialized",
                             init_successful);
 
-  // TODO(crbug.com/40911117): Add a separate initialization interface for
-  // layout extraction.
-  if (features::IsLayoutExtractionEnabled()) {
-    if (!library_->InitLayoutExtraction()) {
-      VLOG(0) << "Could not initialize layout extraction.";
-    }
-  }
-
   if (!init_successful) {
     std::move(callback).Run(false);
     return;
@@ -327,53 +320,11 @@ void ScreenAIService::BindAnnotator(
   screen_ai_annotators_.Add(this, std::move(annotator));
 }
 
-void ScreenAIService::BindAnnotatorClient(
-    mojo::PendingRemote<mojom::ScreenAIAnnotatorClient> annotator_client) {
-  DCHECK(!screen_ai_annotator_client_.is_bound());
-  screen_ai_annotator_client_.Bind(std::move(annotator_client));
-}
-
 void ScreenAIService::BindMainContentExtractor(
     mojo::PendingReceiver<mojom::Screen2xMainContentExtractor>
         main_content_extractor) {
   screen_2x_main_content_extractors_.Add(this,
                                          std::move(main_content_extractor));
-}
-
-void ScreenAIService::ExtractSemanticLayout(
-    const SkBitmap& image,
-    const ui::AXTreeID& parent_tree_id,
-    ExtractSemanticLayoutCallback callback) {
-  DCHECK(screen_ai_annotator_client_.is_bound());
-
-  std::optional<chrome_screen_ai::VisualAnnotation> annotation_proto =
-      library_->ExtractLayout(image);
-
-  // The original caller is always replied to, and an AXTreeIDUnknown is sent to
-  // tell it that the annotation function was not successful. However the client
-  // is only contacted for successful runs and when we have an update.
-  if (!annotation_proto) {
-    VLOG(0) << "Layout Extraction failed. ";
-    std::move(callback).Run(ui::AXTreeIDUnknown());
-    return;
-  }
-
-  ui::AXTreeUpdate update = ConvertVisualAnnotationToTreeUpdate(
-      annotation_proto, gfx::Rect(image.width(), image.height()));
-  VLOG(1) << "Layout Extraction returned " << update.nodes.size() << " nodes.";
-
-  // Convert `update` to a properly serialized `AXTreeUpdate`.
-  ScreenAIAXTreeSerializer serializer(parent_tree_id, std::move(update.nodes));
-  update = serializer.Serialize();
-
-  // `ScreenAIAXTreeSerializer` should have assigned a new tree ID to `update`.
-  // Thereby, it should never be an unknown tree ID, otherwise there has been an
-  // unexpected serialization bug.
-  DCHECK_NE(update.tree_data.tree_id, ui::AXTreeIDUnknown())
-      << "Invalid serialization.\n"
-      << update.ToString();
-  std::move(callback).Run(update.tree_data.tree_id);
-  screen_ai_annotator_client_->HandleAXTreeUpdate(update);
 }
 
 std::optional<chrome_screen_ai::VisualAnnotation>
@@ -391,7 +342,6 @@ ScreenAIService::PerformOcrAndRecordMetrics(const SkBitmap& image,
   unsigned image_size = image.width() * image.height();
   VLOG(1) << "OCR returned " << lines_count << " lines in " << elapsed_time;
 
-  // TODO(crbug.com/342796806): Add browser test.
   base::UmaHistogramBoolean("Accessibility.ScreenAI.OCR.Successful",
                             result.has_value());
   base::UmaHistogramCounts100("Accessibility.ScreenAI.OCR.LinesCount",
@@ -501,7 +451,6 @@ bool ScreenAIService::ExtractMainContentInternal(
   CHECK(tree.Unserialize(snapshot));
   std::string serialized_snapshot = SnapshotToViewHierarchy(&tree);
   content_node_ids = library_->ExtractMainContent(serialized_snapshot);
-  // TODO(crbug.com/342796806): Add browser test.
   base::UmaHistogramBoolean(
       "Accessibility.ScreenAI.MainContentExtraction.Successful",
       content_node_ids.has_value());

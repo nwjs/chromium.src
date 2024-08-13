@@ -46,8 +46,10 @@ namespace {
 // max/min values to allow for rounding without overflowing.
 // Subtract two (rather than one) to allow for values to be converted to float
 // and back without exceeding the LayoutUnit::Max.
-const int kMaxValueForCssLength = INT_MAX / kFixedPointDenominator - 2;
-const int kMinValueForCssLength = INT_MIN / kFixedPointDenominator + 2;
+const int kMaxValueForCssLength =
+    INT_MAX / LayoutUnit::kFixedPointDenominator - 2;
+const int kMinValueForCssLength =
+    INT_MIN / LayoutUnit::kFixedPointDenominator + 2;
 
 }  // namespace
 
@@ -395,6 +397,18 @@ double CSSPrimitiveValue::ComputePercentage(
                         : To<CSSNumericLiteralValue>(this)->ComputePercentage();
 }
 
+double CSSPrimitiveValue::ComputeValueInCanonicalUnit(
+    const CSSLengthResolver& length_resolver) const {
+  // Don't use it for mix of length and percentage, as it would compute 10px +
+  // 10% to 20.
+  DCHECK(!IsCalculatedPercentageWithLength());
+  return IsCalculated()
+             ? To<CSSMathFunctionValue>(this)->ComputeValueInCanonicalUnit(
+                   length_resolver)
+             : To<CSSNumericLiteralValue>(this)->ComputeInCanonicalUnit(
+                   length_resolver);
+}
+
 double CSSPrimitiveValue::ComputeLengthDouble(
     const CSSLengthResolver& length_resolver) const {
   if (IsCalculated()) {
@@ -552,9 +566,19 @@ double CSSPrimitiveValue::GetDoubleValueWithoutClamping() const {
                         : To<CSSNumericLiteralValue>(this)->DoubleValue();
 }
 
-bool CSSPrimitiveValue::IsZero() const {
+CSSPrimitiveValue::BoolStatus CSSPrimitiveValue::IsZero() const {
   return IsCalculated() ? To<CSSMathFunctionValue>(this)->IsZero()
                         : To<CSSNumericLiteralValue>(this)->IsZero();
+}
+
+CSSPrimitiveValue::BoolStatus CSSPrimitiveValue::IsOne() const {
+  return IsCalculated() ? To<CSSMathFunctionValue>(this)->IsOne()
+                        : To<CSSNumericLiteralValue>(this)->IsOne();
+}
+
+CSSPrimitiveValue::BoolStatus CSSPrimitiveValue::IsNegative() const {
+  return IsCalculated() ? To<CSSMathFunctionValue>(this)->IsNegative()
+                        : To<CSSNumericLiteralValue>(this)->IsNegative();
 }
 
 CSSPrimitiveValue::UnitType CSSPrimitiveValue::CanonicalUnitTypeForCategory(

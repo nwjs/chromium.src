@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "base/check_op.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/lazy_instance.h"
@@ -46,6 +47,7 @@
 #include "ui/base/clipboard/clipboard_util_win.h"
 #include "ui/base/clipboard/custom_data_helper.h"
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/geometry/size.h"
@@ -354,17 +356,17 @@ void ClipboardWin::ReadAvailableTypes(
 
   // Read the custom type only if it's present on the clipboard.
   // See crbug.com/1477344 for details.
-  if (!IsFormatAvailable(ClipboardFormatType::WebCustomDataType(), buffer,
+  if (!IsFormatAvailable(ClipboardFormatType::DataTransferCustomType(), buffer,
                          data_dst)) {
     return;
   }
-  // Acquire the clipboard to read WebCustomDataType types.
+  // Acquire the clipboard to read DataTransferCustomType types.
   ScopedClipboard clipboard;
   if (!clipboard.Acquire(GetClipboardWindow()))
     return;
 
   HANDLE hdata = ::GetClipboardData(
-      ClipboardFormatType::WebCustomDataType().ToFormatEtc().cfFormat);
+      ClipboardFormatType::DataTransferCustomType().ToFormatEtc().cfFormat);
   if (!hdata)
     return;
 
@@ -500,9 +502,12 @@ void ClipboardWin::ReadSvg(ClipboardBuffer buffer,
 
   std::string data;
   ReadData(ClipboardFormatType::SvgType(), data_dst, &data);
-  result->assign(reinterpret_cast<const char16_t*>(data.data()),
-                 data.size() / sizeof(char16_t));
-
+  if (base::FeatureList::IsEnabled(features::kUseUtf8EncodingForSvgImage)) {
+    *result = base::UTF8ToUTF16(data);
+  } else {
+    result->assign(reinterpret_cast<const char16_t*>(data.data()),
+                   data.size() / sizeof(char16_t));
+  }
   TrimAfterNull(result);
 }
 
@@ -541,10 +546,11 @@ void ClipboardWin::ReadPng(ClipboardBuffer buffer,
 
 // |data_dst| is not used. It's only passed to be consistent with other
 // platforms.
-void ClipboardWin::ReadCustomData(ClipboardBuffer buffer,
-                                  const std::u16string& type,
-                                  const DataTransferEndpoint* data_dst,
-                                  std::u16string* result) const {
+void ClipboardWin::ReadDataTransferCustomData(
+    ClipboardBuffer buffer,
+    const std::u16string& type,
+    const DataTransferEndpoint* data_dst,
+    std::u16string* result) const {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   RecordRead(ClipboardFormatMetric::kCustomData);
 
@@ -554,7 +560,7 @@ void ClipboardWin::ReadCustomData(ClipboardBuffer buffer,
     return;
 
   HANDLE hdata = ::GetClipboardData(
-      ClipboardFormatType::WebCustomDataType().ToFormatEtc().cfFormat);
+      ClipboardFormatType::DataTransferCustomType().ToFormatEtc().cfFormat);
   if (!hdata)
     return;
 
@@ -750,7 +756,12 @@ void ClipboardWin::WriteHTML(std::string_view markup,
 }
 
 void ClipboardWin::WriteSvg(std::string_view markup) {
-  HGLOBAL glob = CreateGlobalData(base::UTF8ToUTF16(markup));
+  HGLOBAL glob;
+  if (base::FeatureList::IsEnabled(features::kUseUtf8EncodingForSvgImage)) {
+    glob = CreateGlobalData(std::string(markup));
+  } else {
+    glob = CreateGlobalData(base::UTF8ToUTF16(markup));
+  }
 
   WriteToClipboard(ClipboardFormatType::SvgType(), glob);
 }

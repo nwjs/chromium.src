@@ -4,11 +4,14 @@
 
 #include "chrome/browser/ui/chromeos/magic_boost/magic_boost_card_controller.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
-#include "chrome/browser/chromeos/mahi/mahi_prefs_controller.h"
-#include "chrome/browser/ui/chromeos/magic_boost/magic_boost_disclaimer_view.h"
+#include "chrome/browser/ui/chromeos/magic_boost/magic_boost_constants.h"
+#include "chrome/browser/ui/chromeos/magic_boost/magic_boost_metrics.h"
 #include "chrome/browser/ui/chromeos/magic_boost/magic_boost_opt_in_card.h"
+#include "chromeos/components/magic_boost/public/cpp/magic_boost_state.h"
 #include "chromeos/crosapi/mojom/magic_boost.mojom.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/unique_widget_ptr.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -16,11 +19,9 @@
 #include "chrome/browser/ash/crosapi/crosapi_ash.h"
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
 #include "chrome/browser/ash/magic_boost/magic_boost_controller_ash.h"
-#include "chrome/browser/chromeos/mahi/mahi_prefs_controller_ash.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/chromeos/mahi/mahi_prefs_controller_lacros.h"
 #include "chromeos/lacros/lacros_service.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -29,8 +30,6 @@
 namespace chromeos {
 
 namespace {
-
-MagicBoostCardController* g_magic_boost_opt_in_handler_for_testing = nullptr;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -48,21 +47,8 @@ crosapi::mojom::MagicBoostController& GetMagicBoostControllerAsh() {
 
 }  // namespace
 
-// static
-MagicBoostCardController* MagicBoostCardController::Get() {
-  if (g_magic_boost_opt_in_handler_for_testing) {
-    return g_magic_boost_opt_in_handler_for_testing;
-  }
-  static base::NoDestructor<MagicBoostCardController> instance;
-  return instance.get();
-}
-
 MagicBoostCardController::MagicBoostCardController() {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  mahi_prefs_controller_ = std::make_unique<mahi::MahiPrefsControllerAsh>();
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-  mahi_prefs_controller_ = std::make_unique<mahi::MahiPrefsControllerLacros>();
-
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
   // Bind remote and pass receiver to `MagicBoostController`.
   chromeos::LacrosService::Get()->BindMagicBoostController(
       remote_.BindNewPipeAndPassReceiver());
@@ -71,62 +57,77 @@ MagicBoostCardController::MagicBoostCardController() {
 
 MagicBoostCardController::~MagicBoostCardController() = default;
 
+void MagicBoostCardController::OnContextMenuShown(Profile* profile) {}
+
+void MagicBoostCardController::OnTextAvailable(
+    const gfx::Rect& anchor_bounds,
+    const std::string& selected_text,
+    const std::string& surrounding_text) {
+  ShowOptInUi(/*anchor_view_bounds=*/anchor_bounds);
+}
+
+void MagicBoostCardController::OnAnchorBoundsChanged(
+    const gfx::Rect& anchor_bounds) {
+  if (!opt_in_widget_ || !opt_in_widget_->GetContentsView()) {
+    return;
+  }
+
+  views::AsViewClass<MagicBoostOptInCard>(opt_in_widget_->GetContentsView())
+      ->UpdateWidgetBounds(/*anchor_view_bounds=*/anchor_bounds);
+}
+
+void MagicBoostCardController::OnDismiss(bool is_other_command_executed) {
+  // If context menu is dismissed and the opt-in widget is active (i.e. keyboard
+  // focus is on a button), we should not close the widget.
+  if (opt_in_widget_ && !opt_in_widget_->IsActive()) {
+    opt_in_widget_.reset();
+  }
+}
+
 void MagicBoostCardController::ShowOptInUi(
     const gfx::Rect& anchor_view_bounds) {
   CHECK(!opt_in_widget_);
-  CHECK(!disclaimer_widget_);
-  opt_in_widget_ =
-      MagicBoostOptInCard::CreateWidget(anchor_view_bounds, is_orca_included_);
+
+  // If the disclaimer view is showing, close it.
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  remote_->CloseDisclaimerUi();
+#else   // BUILDFLAG(IS_CHROMEOS_ASH)
+  GetMagicBoostControllerAsh().CloseDisclaimerUi();
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+
+  opt_in_widget_ = MagicBoostOptInCard::CreateWidget(
+      /*controller=*/this, anchor_view_bounds);
   opt_in_widget_->ShowInactive();
+
+  magic_boost::RecordOptInCardActionMetrics(
+      opt_in_features_, magic_boost::OptInCardAction::kShowCard);
 }
 
 void MagicBoostCardController::CloseOptInUi() {
   opt_in_widget_.reset();
 }
 
-void MagicBoostCardController::ShowDisclaimerUi(
-    int64_t display_id,
-    crosapi::mojom::MagicBoostController::TransitionAction action) {
+void MagicBoostCardController::ShowDisclaimerUi(int64_t display_id) {
   // TODO(b/319735347): Add integration tests to make sure that this function
   // always goes through the crosapi.
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-  remote_->ShowDisclaimerUi(display_id, action);
+  remote_->ShowDisclaimerUi(display_id, transition_action_, opt_in_features_);
 #else   // BUILDFLAG(IS_CHROMEOS_ASH)
-  GetMagicBoostControllerAsh().ShowDisclaimerUi(display_id, action);
+  GetMagicBoostControllerAsh().ShowDisclaimerUi(display_id, transition_action_,
+                                                opt_in_features_);
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-
-  // TODO(b/341832244): Move these logic to
-  // `MagicBoostControllerAsh::ShowDisclaimerUi`.
-  if (disclaimer_widget_) {
-    return;
-  }
-  disclaimer_widget_ = MagicBoostDisclaimerView::CreateWidget();
-  disclaimer_widget_->Show();
 }
 
-void MagicBoostCardController::CloseDisclaimerUi() {
-  disclaimer_widget_.reset();
+void MagicBoostCardController::SetOptInFeature(const OptInFeatures& features) {
+  opt_in_features_ = features;
 }
 
-bool MagicBoostCardController::ShouldQuickAnswersAndMahiShowOptIn() {
-  // TODO(b/341485303): Check for Magic Boost consent status.
-  return false;
+const OptInFeatures& MagicBoostCardController::GetOptInFeatures() const {
+  return opt_in_features_;
 }
 
-void MagicBoostCardController::SetAllFeaturesState(bool enabled) {
-  SetQuickAnswersAndMahiFeaturesState(enabled);
-  SetOrcaFeatureState(enabled);
-}
-
-void MagicBoostCardController::SetQuickAnswersAndMahiFeaturesState(
-    bool enabled) {
-  mahi_prefs_controller_->SetMahiEnabled(enabled);
-
-  // TODO(b/339043693): Enable/disable Quick Answers.
-}
-
-void MagicBoostCardController::SetIsOrcaIncludedForTest(bool include) {
-  is_orca_included_ = include;
+base::WeakPtr<MagicBoostCardController> MagicBoostCardController::GetWeakPtr() {
+  return weak_factory_.GetWeakPtr();
 }
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -143,16 +144,5 @@ void MagicBoostCardController::SetMagicBoostControllerCrosapiForTesting(
   g_crosapi_instance_for_testing = delegate;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-ScopedMagicBoostCardControllerForTesting::
-    ScopedMagicBoostCardControllerForTesting(
-        MagicBoostCardController* controller_for_testing) {
-  g_magic_boost_opt_in_handler_for_testing = controller_for_testing;
-}
-
-ScopedMagicBoostCardControllerForTesting::
-    ~ScopedMagicBoostCardControllerForTesting() {
-  g_magic_boost_opt_in_handler_for_testing = nullptr;
-}
 
 }  // namespace chromeos

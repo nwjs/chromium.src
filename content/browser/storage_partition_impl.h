@@ -264,6 +264,10 @@ class CONTENT_EXPORT StoragePartitionImpl
   void OverrideDeleteStaleSessionOnlyCookiesDelayForTesting(
       const base::TimeDelta& delay) override;
 
+  // TODO(crbug.com/352651664): Consider merging to
+  // `FlushNetworkInterfaceForTesting()` if possible.
+  void FlushNetworkInterfaceOnIOThreadForTesting();
+
   base::WeakPtr<StoragePartitionImpl> GetWeakPtr();
   BackgroundFetchContext* GetBackgroundFetchContext();
   PaymentAppContextImpl* GetPaymentAppContext();
@@ -353,7 +357,7 @@ class CONTENT_EXPORT StoragePartitionImpl
       network::mojom::IPAddressSpace ip_address_space) override;
   void OnAuthRequired(
       const std::optional<base::UnguessableToken>& window_id,
-      uint32_t request_id,
+      int32_t request_id,
       const GURL& url,
       bool first_auth_attempt,
       const net::AuthChallengeInfo& auth_info,
@@ -387,7 +391,8 @@ class CONTENT_EXPORT StoragePartitionImpl
     return shared_storage_header_observer_.get();
   }
 
-  scoped_refptr<URLLoaderFactoryGetter> url_loader_factory_getter() {
+  scoped_refptr<ReconnectableURLLoaderFactoryForIOThread>
+  url_loader_factory_getter() {
     return url_loader_factory_getter_;
   }
 
@@ -519,7 +524,6 @@ class CONTENT_EXPORT StoragePartitionImpl
  private:
   class DataDeletionHelper;
   class QuotaManagedDataDeletionHelper;
-  class URLLoaderFactoryForBrowserProcess;
   class ServiceWorkerCookieAccessObserver;
   class ServiceWorkerTrustTokenAccessObserver;
   class ServiceWorkerSharedDictionaryAccessObserver;
@@ -532,7 +536,6 @@ class CONTENT_EXPORT StoragePartitionImpl
   friend class ServiceWorkerRegistrationTest;
   friend class ServiceWorkerUpdateJobTest;
   friend class StoragePartitionImplMap;
-  friend class URLLoaderFactoryForBrowserProcess;
   FRIEND_TEST_ALL_PREFIXES(StoragePartitionShaderClearTest, ClearShaderCache);
   FRIEND_TEST_ALL_PREFIXES(StoragePartitionImplTest,
                            RemoveQuotaManagedDataForeverBoth);
@@ -689,8 +692,8 @@ class CONTENT_EXPORT StoragePartitionImpl
 
   bool is_in_memory() { return config_.in_memory(); }
 
-  network::mojom::URLLoaderFactory*
-  GetURLLoaderFactoryForBrowserProcessInternal();
+  void CreateURLLoaderFactoryForBrowserProcessInternal(
+      mojo::PendingRemote<network::mojom::URLLoaderFactory>* out_factory);
 
   std::optional<blink::StorageKey> CalculateStorageKey(
       const url::Origin& origin,
@@ -717,7 +720,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   bool initialized_ = false;
 
   mojo::Remote<storage::mojom::Partition> remote_partition_;
-  scoped_refptr<URLLoaderFactoryGetter> url_loader_factory_getter_;
+  scoped_refptr<ReconnectableURLLoaderFactoryForIOThread>
+      url_loader_factory_getter_;
   scoped_refptr<QuotaContext> quota_context_;
   scoped_refptr<storage::QuotaManager> quota_manager_;
   scoped_refptr<storage::FileSystemContext> filesystem_context_;
@@ -805,7 +809,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   mojo::Receiver<network::mojom::NetworkContextClient>
       network_context_client_receiver_{this};
 
-  scoped_refptr<URLLoaderFactoryForBrowserProcess>
+  // Always valid/non-null after `Initialize()`.
+  scoped_refptr<ReconnectableURLLoaderFactory>
       shared_url_loader_factory_for_browser_process_;
 
   mojo::Remote<cert_verifier::mojom::CertVerifierServiceUpdater>
@@ -815,9 +820,6 @@ class CONTENT_EXPORT StoragePartitionImpl
   // See the method comment for
   // StoragePartition::GetURLLoaderFactoryForBrowserProcess() for
   // more details
-  mojo::Remote<network::mojom::URLLoaderFactory>
-      url_loader_factory_for_browser_process_;
-  bool is_test_url_loader_factory_for_browser_process_ = false;
   mojo::Remote<network::mojom::CookieManager>
       cookie_manager_for_browser_process_;
 

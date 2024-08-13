@@ -66,12 +66,16 @@
 namespace ash {
 namespace {
 
-constexpr auto kProgressBarPreferredSize = gfx::Size(0, 8);
 constexpr auto kHeaderIconButtonMargins = gfx::Insets::TLBR(0, 0, 0, 2);
-// The interior margin should be 12, but keep one pixel in the child views to
-// set as the border so that it can accommodate the focus ring.
-constexpr int kInteriorGlanceableBubbleMargin = 11;
 constexpr int kScrollViewBottomMargin = 12;
+
+// The interior margin should be 12, but space needs to be left for the focus in
+// the child views.
+constexpr int kTotalInteriorMargin = 12;
+constexpr int kSpaceForFocusRing = 4;
+constexpr int kInteriorGlanceableBubbleMargin =
+    kTotalInteriorMargin - kSpaceForFocusRing;
+
 constexpr int kListViewBetweenChildSpacing = 4;
 constexpr int kMaximumTasks = 100;
 constexpr gfx::Insets kFooterBorderInsets = gfx::Insets::TLBR(4, 6, 8, 2);
@@ -122,31 +126,6 @@ std::u16string GetLastUpdateTimeMessage(base::Time time) {
   }
 }
 
-class TasksExpandButton : public CounterExpandButton {
-  METADATA_HEADER(TasksExpandButton, CounterExpandButton)
- public:
-  TasksExpandButton() = default;
-  TasksExpandButton(const TasksExpandButton&) = delete;
-  TasksExpandButton& operator=(const TasksExpandButton&) = delete;
-  ~TasksExpandButton() override = default;
-
-  std::u16string GetExpandedStateTooltipText() override {
-    // The tooltip tells users that clicking on the button will collapse the
-    // Tasks view.
-    return l10n_util::GetStringUTF16(
-        IDS_GLANCEABLES_TASKS_EXPAND_BUTTON_COLLAPSE_TOOLTIP);
-  }
-  std::u16string GetCollapsedStateTooltipText() override {
-    // The tooltip tells users that clicking on the button will expand the
-    // Tasks view.
-    return l10n_util::GetStringUTF16(
-        IDS_GLANCEABLES_TASKS_EXPAND_BUTTON_EXPAND_TOOLTIP);
-  }
-};
-
-BEGIN_METADATA(TasksExpandButton)
-END_METADATA
-
 class AddNewTaskButton : public views::LabelButton {
   METADATA_HEADER(AddNewTaskButton, views::LabelButton)
  public:
@@ -161,7 +140,8 @@ class AddNewTaskButton : public views::LabelButton {
         ui::ImageModel::FromVectorIcon(kGlanceablesTasksAddNewTaskIcon,
                                        cros_tokens::kCrosSysPrimary));
     SetImageLabelSpacing(12);
-    SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(8, 0)));
+    SetBorder(views::CreateEmptyBorder(gfx::Insets()));
+    SetProperty(views::kMarginsKey, gfx::Insets::TLBR(0, 0, 8, 0));
     SetEnabledTextColorIds(cros_tokens::kCrosSysPrimary);
     label()->SetFontList(TypographyProvider::Get()->ResolveTypographyToken(
         TypographyToken::kCrosButton2));
@@ -178,17 +158,12 @@ END_METADATA
 
 }  // namespace
 
-// It is the parent container of GlanceablesTasksView that matches the style
-// of GlanceableTrayChildBubble, so `use_glanceables_container_style` is set to
-// false here.
 GlanceablesTasksView::GlanceablesTasksView(
     const ui::ListModel<api::TaskList>* task_lists)
     : shown_time_(base::Time::Now()) {
   GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
 
-  SetInteriorMargin(gfx::Insets::TLBR(kInteriorGlanceableBubbleMargin,
-                                      kInteriorGlanceableBubbleMargin, 0,
-                                      kInteriorGlanceableBubbleMargin));
+  UpdateInteriorMargin();
   SetOrientation(views::LayoutOrientation::kVertical);
 
   auto* tasks_header_container =
@@ -197,15 +172,16 @@ GlanceablesTasksView::GlanceablesTasksView(
   tasks_header_container->SetCrossAxisAlignment(
       views::LayoutAlignment::kCenter);
   tasks_header_container->SetOrientation(views::LayoutOrientation::kHorizontal);
+  tasks_header_container->SetInteriorMargin(gfx::Insets::TLBR(
+      kSpaceForFocusRing, kSpaceForFocusRing, 0, kSpaceForFocusRing));
 
   tasks_header_view_ = tasks_header_container->AddChildView(
       std::make_unique<views::FlexLayoutView>());
-  tasks_header_view_->SetInteriorMargin(gfx::Insets::TLBR(1, 1, 0, 1));
   tasks_header_view_->SetCrossAxisAlignment(views::LayoutAlignment::kCenter);
   tasks_header_view_->SetMainAxisAlignment(views::LayoutAlignment::kStart);
   tasks_header_view_->SetOrientation(views::LayoutOrientation::kHorizontal);
   tasks_header_view_->SetID(
-      base::to_underlying(GlanceablesViewId::kTasksBubbleHeaderView));
+      base::to_underlying(GlanceablesViewId::kTimeManagementBubbleHeaderView));
   tasks_header_view_->SetProperty(
       views::kFlexBehaviorKey,
       views::FlexSpecification(views::LayoutOrientation::kHorizontal,
@@ -214,9 +190,11 @@ GlanceablesTasksView::GlanceablesTasksView(
           .WithWeight(1));
 
   expand_button_ = tasks_header_container->AddChildView(
-      std::make_unique<TasksExpandButton>());
-  expand_button_->SetID(
-      base::to_underlying(GlanceablesViewId::kTasksBubbleExpandButton));
+      std::make_unique<GlanceablesExpandButton>(
+          IDS_GLANCEABLES_TASKS_EXPAND_BUTTON_EXPAND_TOOLTIP,
+          IDS_GLANCEABLES_TASKS_EXPAND_BUTTON_COLLAPSE_TOOLTIP));
+  expand_button_->SetID(base::to_underlying(
+      GlanceablesViewId::kTimeManagementBubbleExpandButton));
   // This is only set visible when both Tasks and Classroom exist, where the
   // elevated background is created in that case.
   expand_button_->SetVisible(false);
@@ -224,7 +202,6 @@ GlanceablesTasksView::GlanceablesTasksView(
       &GlanceablesTasksView::ToggleExpandState, base::Unretained(this)));
 
   progress_bar_ = AddChildView(std::make_unique<GlanceablesProgressBarView>());
-  progress_bar_->SetPreferredSize(kProgressBarPreferredSize);
   progress_bar_->UpdateProgressBarVisibility(/*visible=*/false);
 
   content_scroll_view_ = AddChildView(
@@ -235,7 +212,8 @@ GlanceablesTasksView::GlanceablesTasksView(
   list_view->SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical,
       /*inside_border_insets=*/
-      gfx::Insets::TLBR(1, 1, kScrollViewBottomMargin, 1),
+      gfx::Insets::TLBR(kSpaceForFocusRing, kSpaceForFocusRing,
+                        kScrollViewBottomMargin, kSpaceForFocusRing),
       kListViewBetweenChildSpacing));
 
   add_new_task_button_ =
@@ -249,8 +227,8 @@ GlanceablesTasksView::GlanceablesTasksView(
       list_view->AddChildView(std::make_unique<views::View>());
   task_items_container_view_->GetViewAccessibility().SetRole(
       ax::mojom::Role::kList);
-  task_items_container_view_->SetID(
-      base::to_underlying(GlanceablesViewId::kTasksBubbleListContainer));
+  task_items_container_view_->SetID(base::to_underlying(
+      GlanceablesViewId::kTimeManagementBubbleListContainer));
   task_items_container_view_->SetLayoutManager(
       std::make_unique<views::BoxLayout>(
           views::BoxLayout::Orientation::kVertical,
@@ -268,7 +246,7 @@ GlanceablesTasksView::GlanceablesTasksView(
   header_icon->SetBackgroundColor(SK_ColorTRANSPARENT);
   header_icon->SetProperty(views::kMarginsKey, kHeaderIconButtonMargins);
   header_icon->SetID(
-      base::to_underlying(GlanceablesViewId::kTasksBubbleHeaderIcon));
+      base::to_underlying(GlanceablesViewId::kTimeManagementBubbleHeaderIcon));
 
   tasks_combobox_model_ =
       std::make_unique<GlanceablesTasksComboboxModel>(task_lists);
@@ -282,7 +260,8 @@ GlanceablesTasksView::GlanceablesTasksView(
                                            kComboboxBorderInsets);
   combobox_replacement_label_->SetProperty(
       views::kFlexBehaviorKey,
-      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+      views::FlexSpecification(views::LayoutOrientation::kHorizontal,
+                               views::MinimumFlexSizeRule::kScaleToZero,
                                views::MaximumFlexSizeRule::kPreferred));
   combobox_replacement_label_->SetHorizontalAlignment(
       gfx::HorizontalAlignment::ALIGN_LEFT);
@@ -304,7 +283,7 @@ GlanceablesTasksView::GlanceablesTasksView(
                               TasksLaunchSource::kFooterButton,
                               GURL(kTasksManagementPage))));
   list_footer_view_->SetID(
-      base::to_underlying(GlanceablesViewId::kTasksBubbleListFooter));
+      base::to_underlying(GlanceablesViewId::kTimeManagementBubbleListFooter));
   list_footer_view_->SetBorder(views::CreateEmptyBorder(kFooterBorderInsets));
   list_footer_view_->SetVisible(false);
 
@@ -327,12 +306,6 @@ GlanceablesTasksView::~GlanceablesTasksView() {
     RecordNumberOfAddedTasks(added_tasks_, task_list_initially_empty_,
                              user_with_no_tasks_);
   }
-}
-
-void GlanceablesTasksView::OnViewFocused(views::View* view) {
-  CHECK_EQ(view, task_list_combo_box_view_);
-
-  AnnounceListStateOnComboBoxAccessibility();
 }
 
 void GlanceablesTasksView::Layout(PassKey) {
@@ -359,8 +332,10 @@ gfx::Size GlanceablesTasksView::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
   if (running_resize_animation_.has_value() &&
       *running_resize_animation_ == ResizeAnimation::Type::kChildResize) {
+    // The animation was implemented to ignore `available_size`. See b/351880846
+    // for more detail.
     const gfx::Size base_preferred_size =
-        views::FlexLayoutView::CalculatePreferredSize(available_size);
+        views::FlexLayoutView::CalculatePreferredSize({});
 
     // If bottom of the task list is animating, offset the tasks view
     // preferred size so the tasks matches the animating bottom of the task
@@ -385,8 +360,9 @@ bool GlanceablesTasksView::IsExpanded() const {
 }
 
 int GlanceablesTasksView::GetCollapsedStatePreferredHeight() const {
-  return kInteriorGlanceableBubbleMargin + kScrollViewBottomMargin +
-         tasks_header_view_->height();
+  return kTotalInteriorMargin * 2 +
+         combobox_replacement_label_->GetLineHeight() +
+         kComboboxBorderInsets.height();
 }
 
 void GlanceablesTasksView::AnimationEnded(const gfx::Animation* animation) {
@@ -422,14 +398,17 @@ void GlanceablesTasksView::UpdateTaskLists(
 void GlanceablesTasksView::CreateElevatedBackground() {
   SetBackground(views::CreateThemedRoundedRectBackground(
       cros_tokens::kCrosSysSystemOnBaseOpaque, 16.f));
+  UpdateInteriorMargin();
+
   expand_button_->SetVisible(true);
   expand_button_->SetExpanded(is_expanded_);
-  content_scroll_view_->SetOnOverscrollCallback(
-      base::BindRepeating(&GlanceablesTasksView::SetExpandState,
-                          base::Unretained(this), /*is_expanded=*/false));
+  content_scroll_view_->SetOnOverscrollCallback(base::BindRepeating(
+      &GlanceablesTasksView::SetExpandState, base::Unretained(this),
+      /*is_expanded=*/false, /*expand_by_overscroll=*/true));
 }
 
-void GlanceablesTasksView::SetExpandState(bool is_expanded) {
+void GlanceablesTasksView::SetExpandState(bool is_expanded,
+                                          bool expand_by_overscroll) {
   if (is_expanded_ == is_expanded) {
     return;
   }
@@ -442,20 +421,19 @@ void GlanceablesTasksView::SetExpandState(bool is_expanded) {
   task_list_combo_box_view_->SetVisible(is_expanded_);
   combobox_replacement_label_->SetVisible(!is_expanded_);
 
-  // Move the `kScrollViewBottomMargin` to the interior margin when the tasks is
-  // collapsed to keep the bottom margin that was used in the scroll view.
-  auto target_interior_margin =
-      is_expanded_ ? gfx::Insets::TLBR(kInteriorGlanceableBubbleMargin,
-                                       kInteriorGlanceableBubbleMargin, 0,
-                                       kInteriorGlanceableBubbleMargin)
-                   : gfx::Insets::TLBR(kInteriorGlanceableBubbleMargin,
-                                       kInteriorGlanceableBubbleMargin,
-                                       kInteriorGlanceableBubbleMargin,
-                                       kScrollViewBottomMargin);
-  SetInteriorMargin(target_interior_margin);
+  if (is_expanded) {
+    if (expand_by_overscroll) {
+      content_scroll_view_->LockScroll();
+    } else {
+      content_scroll_view_->UnlockScroll();
+    }
+  }
+
+  UpdateInteriorMargin();
 
   for (auto& observer : observers_) {
-    observer.OnExpandStateChanged(Context::kTasks, is_expanded_);
+    observer.OnExpandStateChanged(Context::kTasks, is_expanded_,
+                                  expand_by_overscroll);
   }
 
   AnimateResize(ResizeAnimation::Type::kContainerExpandStateChanged);
@@ -672,8 +650,6 @@ void GlanceablesTasksView::UpdateTasksInTaskList(
       ax::mojom::Event::kChildrenChanged,
       /*send_native_event=*/true);
 
-  AnnounceListStateOnComboBoxAccessibility();
-
   if (old_preferred_size != GetPreferredSize()) {
     if (context == ListShownContext::kUserSelectedList) {
       AnimateResize(ResizeAnimation::Type::kChildResize);
@@ -698,15 +674,6 @@ void GlanceablesTasksView::UpdateTasksInTaskList(
       RecordTasksChangeLoadTime(base::TimeTicks::Now() - tasks_requested_time_);
       first_task_list_shown_ = true;
       break;
-  }
-}
-
-// TODO(b/338917100): Remove this along with the view observer as the
-// announcement is not needed anymore.
-void GlanceablesTasksView::AnnounceListStateOnComboBoxAccessibility() {
-  if (list_footer_view_->title_label()->GetVisible()) {
-    task_list_combo_box_view_->GetViewAccessibility().AnnounceText(
-        list_footer_view_->title_label()->GetText());
   }
 }
 
@@ -910,6 +877,18 @@ void GlanceablesTasksView::OnTaskViewAnimationCompleted() {
   animating_task_view_layer_.reset();
 }
 
+void GlanceablesTasksView::UpdateInteriorMargin() {
+  const bool no_bottom_margin = !GetBackground() || is_expanded_;
+  SetInteriorMargin(no_bottom_margin
+                        ? gfx::Insets::TLBR(kInteriorGlanceableBubbleMargin,
+                                            kInteriorGlanceableBubbleMargin, 0,
+                                            kInteriorGlanceableBubbleMargin)
+                        : gfx::Insets::TLBR(kInteriorGlanceableBubbleMargin,
+                                            kInteriorGlanceableBubbleMargin,
+                                            kTotalInteriorMargin,
+                                            kInteriorGlanceableBubbleMargin));
+}
+
 void GlanceablesTasksView::AnimateResize(ResizeAnimation::Type resize_type) {
   const int current_height = size().height();
   if (current_height == 0) {
@@ -1034,7 +1013,6 @@ void GlanceablesTasksView::RemoveTaskView(
 
 void GlanceablesTasksView::CreateComboBoxView() {
   if (task_list_combo_box_view_) {
-    combobox_view_observation_.Reset();
     tasks_header_view_->RemoveChildViewT(
         std::exchange(task_list_combo_box_view_, nullptr));
   }
@@ -1042,12 +1020,11 @@ void GlanceablesTasksView::CreateComboBoxView() {
   task_list_combo_box_view_ = tasks_header_view_->AddChildView(
       std::make_unique<Combobox>(tasks_combobox_model_.get()));
   task_list_combo_box_view_->SetID(
-      base::to_underlying(GlanceablesViewId::kTasksBubbleComboBox));
+      base::to_underlying(GlanceablesViewId::kTimeManagementBubbleComboBox));
   task_list_combo_box_view_->SetProperty(
       views::kFlexBehaviorKey,
       views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
                                views::MaximumFlexSizeRule::kPreferred));
-  combobox_view_observation_.Observe(task_list_combo_box_view_);
   task_list_combo_box_view_->SetVisible(is_expanded_);
 
   // Assign a default value for tooltip and accessible text.

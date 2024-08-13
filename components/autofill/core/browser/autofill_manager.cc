@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include "components/autofill/core/browser/autofill_manager.h"
-#include <functional>
 
 #include "base/check_deref.h"
 #include "base/command_line.h"
@@ -107,13 +106,19 @@ std::vector<FormGlobalId> GetFormGlobalIds(base::span<const FormData> forms) {
 // if not found.
 AutofillField* FindAutofillFillField(const FormStructure& form,
                                      const FormFieldData& field) {
-  for (const auto& f : form) {
-    if (field.global_id() == f->global_id())
-      return f.get();
+  auto it = base::ranges::find_if(
+      form, [&field](const std::unique_ptr<AutofillField>& candidate_field) {
+        return field.global_id() == candidate_field->global_id();
+      });
+  if (it != form.end()) {
+    return it->get();
   }
-  for (const auto& cur_field : form) {
-    if (cur_field->SameFieldAs(field)) {
-      return cur_field.get();
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillFindCachedFieldsByIdOnly)) {
+    for (const std::unique_ptr<AutofillField>& candidate_field : form) {
+      if (candidate_field->SameFieldAs(field)) {
+        return candidate_field.get();
+      }
     }
   }
   return nullptr;
@@ -127,12 +132,14 @@ bool CachedFormNeedsUpdate(const FormData& live_form,
     return false;
   }
 
-  if (live_form.fields.size() != cached_form.field_count())
+  if (live_form.fields().size() != cached_form.field_count()) {
     return true;
+  }
 
   for (size_t i = 0; i < cached_form.field_count(); ++i) {
-    if (!cached_form.field(i)->SameFieldAs(live_form.fields[i]))
+    if (!cached_form.field(i)->SameFieldAs(live_form.fields()[i])) {
       return true;
+    }
   }
 
   return false;
@@ -141,7 +148,7 @@ bool CachedFormNeedsUpdate(const FormData& live_form,
 }  // namespace
 
 // static
-void AutofillManager::LogAutofillTypePredictionsAvailable(
+void AutofillManager::LogTypePredictionsAvailable(
     LogManager* log_manager,
     const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms) {
   LogBuffer buffer(IsLoggingActive(log_manager));
@@ -343,10 +350,10 @@ void AutofillManager::OnFormsParsed(const std::vector<FormData>& forms) {
   // Send the current type predictions to the renderer. For non-queryable forms
   // this is all the information about them that will ever be available. The
   // queryable forms will be updated once the field type query is complete.
-  driver().SendAutofillTypePredictionsToRenderer(non_queryable_forms);
-  driver().SendAutofillTypePredictionsToRenderer(queryable_forms);
-  LogAutofillTypePredictionsAvailable(log_manager_, non_queryable_forms);
-  LogAutofillTypePredictionsAvailable(log_manager_, queryable_forms);
+  driver().SendTypePredictionsToRenderer(non_queryable_forms);
+  driver().SendTypePredictionsToRenderer(queryable_forms);
+  LogTypePredictionsAvailable(log_manager_, non_queryable_forms);
+  LogTypePredictionsAvailable(log_manager_, queryable_forms);
 
   // Query the server if at least one of the forms was parsed.
   if (!queryable_forms.empty() && client().GetCrowdsourcingManager()) {
@@ -366,18 +373,15 @@ void AutofillManager::OnCaretMovedInFormField(const FormData& form,
   if (!IsValidFormData(form)) {
     return;
   }
-  const FormFieldData* field = form.FindFieldByGlobalId(field_id);
-  if (!field) {
-    return;
-  }
+  const FormFieldData& field = CHECK_DEREF(form.FindFieldByGlobalId(field_id));
   NotifyObservers(&Observer::OnBeforeCaretMovedInFormField, form.global_id(),
-                  field_id, field->selected_text(), caret_bounds);
+                  field_id, field.selected_text(), caret_bounds);
   ParseFormAsync(
       form, ParsingCallback(&AutofillManager::OnCaretMovedInFormFieldImpl,
                             field_id, caret_bounds)
                 .Then(NotifyObserversCallback(
                     &Observer::OnAfterCaretMovedInFormField, form.global_id(),
-                    field_id, field->selected_text(), caret_bounds)));
+                    field_id, field.selected_text(), caret_bounds)));
 }
 
 void AutofillManager::OnTextFieldDidChange(const FormData& form,
@@ -386,10 +390,7 @@ void AutofillManager::OnTextFieldDidChange(const FormData& form,
   if (!IsValidFormData(form)) {
     return;
   }
-  const FormFieldData* field = form.FindFieldByGlobalId(field_id);
-  if (!field) {
-    return;
-  }
+  const FormFieldData& field = CHECK_DEREF(form.FindFieldByGlobalId(field_id));
   NotifyObservers(&Observer::OnBeforeTextFieldDidChange, form.global_id(),
                   field_id);
   ParseFormAsync(form,
@@ -397,7 +398,7 @@ void AutofillManager::OnTextFieldDidChange(const FormData& form,
                                  field_id, timestamp)
                      .Then(NotifyObserversCallback(
                          &Observer::OnAfterTextFieldDidChange, form.global_id(),
-                         field_id, field->value())));
+                         field_id, field.value())));
 }
 
 void AutofillManager::OnTextFieldDidScroll(const FormData& form,
@@ -516,6 +517,12 @@ bool AutofillManager::GetCachedFormAndField(
     FormStructure** form_structure,
     AutofillField** autofill_field) const {
   FormStructure* cached_form = FindCachedFormById(form.global_id());
+  // TODO: crbug.com/40232021 - Look into removing the `autofill_count() == 0`
+  // disjunct. Because it is inconvenient that some code needs to tolerate null
+  // FormStructures and/or AutofillFields because for Autocomplete still needs
+  // to work if `autofill_count() == 0`. See
+  // BrowserAutofillManager::AskForValuesToFillImpl() and
+  // BrowserAutofillManager::FillOrPreviewField().
   if (!cached_form || cached_form->autofill_count() == 0) {
     return false;
   }
@@ -881,8 +888,8 @@ void AutofillManager::OnLoadedServerPredictions(
 
   // Send field type predictions to the renderer so that it can possibly
   // annotate forms with the predicted types or add console warnings.
-  driver().SendAutofillTypePredictionsToRenderer(queried_forms);
-  LogAutofillTypePredictionsAvailable(log_manager_, queried_forms);
+  driver().SendTypePredictionsToRenderer(queried_forms);
+  LogTypePredictionsAvailable(log_manager_, queried_forms);
 
   for (const FormStructure* form : queried_forms) {
     NotifyObservers(&Observer::OnFieldTypesDetermined, form->global_id(),

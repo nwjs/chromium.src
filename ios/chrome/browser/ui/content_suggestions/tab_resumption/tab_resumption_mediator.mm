@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_mediator.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/command_line.h"
 #import "base/memory/raw_ptr.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/page_image_service/features.h"
@@ -25,7 +26,7 @@
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp_tiles/model/tab_resumption/tab_resumption_prefs.h"
 #import "ios/chrome/browser/page_image/model/page_image_service_factory.h"
-#import "ios/chrome/browser/sessions/session_util.h"
+#import "ios/chrome/browser/sessions/model/session_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
@@ -37,6 +38,10 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
+#import "ios/chrome/browser/start_surface/ui_bundled/start_surface_features.h"
+#import "ios/chrome/browser/start_surface/ui_bundled/start_surface_recent_tab_browser_agent.h"
+#import "ios/chrome/browser/start_surface/ui_bundled/start_surface_recent_tab_removal_observer_bridge.h"
+#import "ios/chrome/browser/start_surface/ui_bundled/start_surface_util.h"
 #import "ios/chrome/browser/sync/model/session_sync_service_factory.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
@@ -48,13 +53,10 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_metrics_recorder.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_commands.h"
+#import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_helper_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_item.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_metrics_delegate.h"
-#import "ios/chrome/browser/ui/start_surface/start_surface_features.h"
-#import "ios/chrome/browser/ui/start_surface/start_surface_recent_tab_browser_agent.h"
-#import "ios/chrome/browser/ui/start_surface/start_surface_recent_tab_removal_observer_bridge.h"
-#import "ios/chrome/browser/ui/start_surface/start_surface_util.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/visited_url_ranking/model/visited_url_ranking_service_factory.h"
@@ -100,6 +102,12 @@ const visited_url_ranking::URLVisitAggregate::TabData* ExtractTabData(
   return nullptr;
 }
 
+// Whether the item should be displayed immediately (before fetching an image).
+bool ShouldShowItemImmediately() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      kTabResumptionShowItemImmediately);
+}
+
 // Salient images should come from gstatic.com.
 const char kGStatic[] = ".gstatic.com";
 
@@ -125,6 +133,11 @@ const char kGStatic[] = ".gstatic.com";
   // Session tag of the last distant tab resumption item.
   std::string _sessionTag;
   BOOL _isOffTheRecord;
+
+  // The last item that is returned by the model.
+  // The URL/title will be used to not fetch again images if the same item is
+  // returned twice, or to ignore update on obsolete items.
+  TabResumptionItem* _pendingItem;
 
   // The owning Browser.
   raw_ptr<Browser> _browser;
@@ -258,7 +271,7 @@ const char kGStatic[] = ".gstatic.com";
   switch (item.itemType) {
     case TabResumptionItemType::kLastSyncedTab:
       [self.NTPMetricsDelegate distantTabResumptionOpenedAtIndex:index];
-      [self openDistantTab];
+      [self openDistantTab:item];
       break;
     case TabResumptionItemType::kMostRecentTab: {
       [self.NTPMetricsDelegate recentTabTileOpenedAtIndex:index];
@@ -274,7 +287,7 @@ const char kGStatic[] = ".gstatic.com";
   [self.delegate removeTabResumptionModule];
 }
 
-- (void)openDistantTab {
+- (void)openDistantTab:(TabResumptionItem*)item {
   ChromeBrowserState* browserState = _browser->GetBrowserState();
   sync_sessions::OpenTabsUIDelegate* openTabsDelegate =
       SessionSyncServiceFactory::GetForBrowserState(browserState)
@@ -294,6 +307,12 @@ const char kGStatic[] = ".gstatic.com";
             sessionTab->navigations);
     _webStateList->ReplaceWebStateAt(_webStateList->active_index(),
                                      std::move(webState));
+  } else {
+    web::NavigationManager::WebLoadParams webLoadParams =
+        web::NavigationManager::WebLoadParams(item.tabURL);
+    UrlLoadParams params = UrlLoadParams::InCurrentTab(webLoadParams);
+    params.web_params.transition_type = ui::PAGE_TRANSITION_AUTO_BOOKMARK;
+    _URLLoadingBrowserAgent->Load(params);
   }
 }
 
@@ -355,6 +374,7 @@ const char kGStatic[] = ".gstatic.com";
     case signin::PrimaryAccountChangeEvent::Type::kCleared: {
       // If the user is signed out, remove the tab resumption tile.
       [self.delegate removeTabResumptionModule];
+      self.itemConfig = nil;
       break;
     }
     default:
@@ -387,6 +407,8 @@ const char kGStatic[] = ".gstatic.com";
 }
 
 #pragma mark - Private
+
+// Fetches the item to display from the model.
 - (void)fetchLastTabResumptionItem {
   if (tab_resumption_prefs::IsTabResumptionDisabled(_localState)) {
     return;
@@ -466,6 +488,14 @@ const char kGStatic[] = ".gstatic.com";
 
 // Fetches a relevant image for the `item` to display.
 - (void)fetchImageForItem:(TabResumptionItem*)item {
+  if ([self isPendingItem:item]) {
+    // The item was already fetched or is being fetched, ignore it.
+    return;
+  }
+  _pendingItem = item;
+  if (ShouldShowItemImmediately()) {
+    [self showItem:item];
+  }
   if (item.itemType == kMostRecentTab) {
     [self fetchSnapshotForItem:item];
   } else {
@@ -481,7 +511,8 @@ const char kGStatic[] = ".gstatic.com";
   }
   BrowserList* browserList =
       BrowserListFactory::GetForBrowserState(_browser->GetBrowserState());
-  for (Browser* browser : browserList->AllRegularBrowsers()) {
+  for (Browser* browser : browserList->BrowsersOfType(
+           BrowserList::BrowserType::kRegularAndInactive)) {
     WebStateList* const webStateList = browser->GetWebStateList();
     const int index = webStateList->GetIndexOfWebStateWithURL(item.tabURL);
     if (index == WebStateList::kInvalidIndex) {
@@ -585,7 +616,11 @@ const char kGStatic[] = ".gstatic.com";
 
 // Sends `item` to  TabResumption to be displayed.
 - (void)showItem:(TabResumptionItem*)item {
-  if (!self.itemConfig || !IsIOSMagicStackCollectionViewEnabled()) {
+  if (![self isPendingItem:item]) {
+    // A new item has been fetched, ignore.
+    return;
+  }
+  if (!self.itemConfig) {
     self.itemConfig = item;
     [self.delegate tabResumptionHelperDidReceiveItem];
     return;
@@ -641,6 +676,15 @@ const char kGStatic[] = ".gstatic.com";
   item.shouldShowSeeMore = IsTabResumption1_5SeeMoreEnabled();
   // Fetch the image.
   [self fetchImageForItem:item];
+}
+
+// Compares `item` and `_pendingItem` on tabURL and tabTitle field.
+- (BOOL)isPendingItem:(TabResumptionItem*)item {
+  if (_pendingItem == nil) {
+    return NO;
+  }
+  return item.tabURL == _pendingItem.tabURL &&
+         [item.tabTitle isEqualToString:_pendingItem.tabTitle];
 }
 
 #pragma mark - Private method for Tab resumption 2.0 tab fetch.

@@ -71,7 +71,6 @@
 #include "services/service_manager/public/mojom/interface_provider.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/loader/loading_behavior_flag.h"
 #include "third_party/blink/public/common/permissions_policy/document_policy.h"
@@ -100,8 +99,10 @@
 #include "third_party/blink/public/mojom/render_accessibility.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/child_url_loader_factory_bundle.h"
 #include "third_party/blink/public/platform/web_media_player.h"
+#include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/websocket_handshake_throttle_provider.h"
 #include "third_party/blink/public/web/web_ax_object.h"
 #include "third_party/blink/public/web/web_document_loader.h"
@@ -267,8 +268,6 @@ class CONTENT_EXPORT RenderFrameImpl
         const blink::LocalFrameToken& frame_token,
         int32_t routing_id,
         mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver,
-        mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
-            browser_interface_broker,
         mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
             associated_interface_provider,
         const base::UnguessableToken& devtools_frame_token,
@@ -282,8 +281,6 @@ class CONTENT_EXPORT RenderFrameImpl
     blink::LocalFrameToken frame_token;
     int32_t routing_id;
     mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver;
-    mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
-        browser_interface_broker;
     mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
         associated_interface_provider;
     base::UnguessableToken devtools_frame_token;
@@ -622,7 +619,8 @@ class CONTENT_EXPORT RenderFrameImpl
       int element_id,
       const gfx::Rect& image_ad_rect) override;
   void WillSendRequest(blink::WebURLRequest& request,
-                       ForRedirect for_redirect) override;
+                       ForRedirect for_redirect,
+                       const blink::WebURL& upstream_url) override;
   void OnOverlayPopupAdDetected() override;
   void OnLargeStickyAdDetected() override;
   void DidLoadResourceFromMemoryCache(
@@ -650,8 +648,6 @@ class CONTENT_EXPORT RenderFrameImpl
   void WillReleaseScriptContext(v8::Local<v8::Context> context,
                                 int world_id) override;
   void DidChangeScrollOffset() override;
-  void PreloadSubresourceOptimizationsForOrigins(
-      const std::vector<blink::WebSecurityOrigin>& origins) override;
   blink::WebMediaStreamDeviceObserver* MediaStreamDeviceObserver() override;
   blink::WebEncryptedMediaClient* EncryptedMediaClient() override;
   blink::WebString UserAgentOverride() override;
@@ -671,7 +667,8 @@ class CONTENT_EXPORT RenderFrameImpl
   scoped_refptr<blink::WebBackgroundResourceFetchAssets>
   MaybeGetBackgroundResourceFetchAssets() override;
   void OnStopLoading() override;
-  blink::BrowserInterfaceBrokerProxy* GetBrowserInterfaceBroker() override;
+  const blink::BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker()
+      override;
   blink::WebView* CreateNewWindow(
       const blink::WebURLRequest& request,
       const blink::WebWindowFeatures& features,
@@ -894,16 +891,12 @@ class CONTENT_EXPORT RenderFrameImpl
     T original_value_;
   };
 
-  // Creates a new RenderFrame. |browser_interface_broker| is the
-  // RenderFrameHost's BrowserInterfaceBroker through which services are exposed
-  // to the RenderFrame.
+  // Creates a new RenderFrame.
   static RenderFrameImpl* Create(
       AgentSchedulingGroup& agent_scheduling_group,
       const blink::LocalFrameToken& frame_token,
       int32_t routing_id,
       mojo::PendingAssociatedReceiver<mojom::Frame> frame_receiver,
-      mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker>
-          browser_interface_broker,
       mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
           associated_interface_provider,
       const base::UnguessableToken& devtools_frame_token,
@@ -1081,7 +1074,8 @@ class CONTENT_EXPORT RenderFrameImpl
   void WillSendRequestInternal(blink::WebURLRequest& request,
                                bool for_outermost_main_frame,
                                ui::PageTransition transition_type,
-                               ForRedirect for_redirect);
+                               ForRedirect for_redirect,
+                               const GURL& upstream_url);
 
   // Returns the URL being loaded by the |frame_|'s request.
   GURL GetLoadingUrl() const;
@@ -1329,8 +1323,6 @@ class CONTENT_EXPORT RenderFrameImpl
 
   service_manager::BinderRegistry registry_;
   std::unique_ptr<BlinkInterfaceRegistryImpl> blink_interface_registry_;
-
-  blink::BrowserInterfaceBrokerProxy browser_interface_broker_proxy_;
 
   // If valid, the next ExecutionContext created will enable MojoJS bindings and
   // use this broker to handle Mojo.bindInterface calls.

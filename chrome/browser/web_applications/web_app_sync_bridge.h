@@ -207,9 +207,9 @@ class WebAppSyncBridge : public syncer::ModelTypeSyncBridge {
   std::optional<syncer::ModelError> ApplyIncrementalSyncChanges(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_changes) override;
-  void GetDataForCommit(StorageKeyList storage_keys,
-                        DataCallback callback) override;
-  void GetAllDataForDebugging(DataCallback callback) override;
+  std::unique_ptr<syncer::DataBatch> GetDataForCommit(
+      StorageKeyList storage_keys) override;
+  std::unique_ptr<syncer::DataBatch> GetAllDataForDebugging() override;
   std::string GetClientTag(const syncer::EntityData& entity_data) override;
   std::string GetStorageKey(const syncer::EntityData& entity_data) override;
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
@@ -266,6 +266,7 @@ class WebAppSyncBridge : public syncer::ModelTypeSyncBridge {
                         std::unique_ptr<syncer::MetadataBatch> metadata_batch);
   // Update apps that don't have a UserDisplayMode set for the current platform.
   void EnsureAppsHaveUserDisplayModeForCurrentPlatform();
+  void EnsurePartiallyInstalledAppsHaveCorrectStatus();
   void OnDataWritten(CommitCallback callback, bool success);
   void OnWebAppUninstallComplete(const webapps::AppId& app,
                                  webapps::UninstallResultCode code);

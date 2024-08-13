@@ -19,6 +19,10 @@
 
 class GURL;
 
+namespace gfx {
+class Rect;
+}  // namespace gfx
+
 namespace chromeos {
 
 struct COMPONENT_EXPORT(MAHI_PUBLIC_CPP) MahiOutline {
@@ -54,8 +58,6 @@ class COMPONENT_EXPORT(MAHI_PUBLIC_CPP) MahiManager {
   virtual ~MahiManager();
 
   static MahiManager* Get();
-
-  static bool IsSupportedWithCorrectFeatureKey();
 
   // Gets information about the content on the corresponding surface.
   virtual std::u16string GetContentTitle() = 0;
@@ -102,6 +104,11 @@ class COMPONENT_EXPORT(MAHI_PUBLIC_CPP) MahiManager {
 
   // Opens the feedback dialog.
   virtual void OpenFeedbackDialog() = 0;
+
+  // Opens the Mahi panel on the display specified by `display_id`. The panel
+  // is positied on top of the provided `mahi_menu_bounds`.
+  virtual void OpenMahiPanel(int64_t display_id,
+                             const gfx::Rect& mahi_menu_bounds) = 0;
 
   // Check if the feature is enabled.
   virtual bool IsEnabled() = 0;

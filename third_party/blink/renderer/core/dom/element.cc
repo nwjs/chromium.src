@@ -417,7 +417,7 @@ bool IsElementReflectionAttribute(const QualifiedName& name) {
   if (name == html_names::kAnchorAttr) {
     return true;
   }
-  if (name == html_names::kInvoketargetAttr) {
+  if (name == html_names::kCommandforAttr) {
     return true;
   }
   if (name == html_names::kInteresttargetAttr) {
@@ -662,12 +662,6 @@ bool Element::IsFocusableStyle(UpdateBehavior update_behavior) const {
 
   if (HasDisplayContentsStyle() &&
       RuntimeEnabledFeatures::DisplayContentsFocusableEnabled()) {
-    // TODO(crbug.com/338162121): Currently, it is not possible for display
-    // contents elements to be focusable in reading order.
-    if (ContainerNode* parent = LayoutTreeBuilderTraversal::LayoutParent(*this);
-        parent && parent->IsReadingOrderContainer()) {
-      return false;
-    }
     if (const ComputedStyle* style =
             ComputedStyle::NullifyEnsured(GetComputedStyle())) {
       return style->IsFocusable();
@@ -762,7 +756,12 @@ Element& Element::CloneWithChildren(
 
   clone.CloneAttributesFrom(*this);
   clone.CloneNonAttributePropertiesFrom(*this, data);
-  PartRoot::CloneParts(*this, clone, data);
+  if (data.Has(CloneOption::kPreserveDOMPartsMinimalAPI) && HasNodePart()) {
+    DCHECK(RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
+    clone.SetHasNodePart();
+  } else if (data.Has(CloneOption::kPreserveDOMParts)) {
+    PartRoot::CloneParts(*this, clone, data);
+  }
 
   // Append the clone to its parent first, before cloning children. If this is
   // done in the reverse order, each new child will receive treeDepth calls to
@@ -789,7 +788,12 @@ Element& Element::CloneWithoutChildren(NodeCloningData& data,
 
   clone.CloneAttributesFrom(*this);
   clone.CloneNonAttributePropertiesFrom(*this, data);
-  PartRoot::CloneParts(*this, clone, data);
+  if (data.Has(CloneOption::kPreserveDOMPartsMinimalAPI) && HasNodePart()) {
+    DCHECK(RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
+    clone.SetHasNodePart();
+  } else if (data.Has(CloneOption::kPreserveDOMParts)) {
+    PartRoot::CloneParts(*this, clone, data);
+  }
   return clone;
 }
 
@@ -1779,6 +1783,16 @@ int Element::clientHeight() {
   return result;
 }
 
+double Element::currentCSSZoom() {
+  GetDocument().UpdateStyleAndLayoutTreeForElement(
+      this, DocumentUpdateReason::kComputedStyle);
+  if (const auto* layout_object = GetLayoutObject()) {
+    return layout_object->StyleRef().EffectiveZoom() /
+           GetDocument().GetStyleEngine().GetStyleResolver().InitialZoom();
+  }
+  return 1.0;
+}
+
 LayoutBox* Element::GetLayoutBoxForScrolling() const {
   LayoutBox* box = GetLayoutBox();
   if (!box || !box->IsScrollContainer()) {
@@ -2001,7 +2015,7 @@ int Element::scrollWidth() {
     if (GetDocument().View()) {
       return AdjustForAbsoluteZoom::AdjustInt(
           GetDocument().View()->LayoutViewport()->ContentsSize().width(),
-          GetDocument().GetFrame()->PageZoomFactor());
+          GetDocument().GetFrame()->LayoutZoomFactor());
     }
     return 0;
   }
@@ -2025,7 +2039,7 @@ int Element::scrollHeight() {
     if (GetDocument().View()) {
       return AdjustForAbsoluteZoom::AdjustInt(
           GetDocument().View()->LayoutViewport()->ContentsSize().height(),
-          GetDocument().GetFrame()->PageZoomFactor());
+          GetDocument().GetFrame()->LayoutZoomFactor());
     }
     return 0;
   }
@@ -2218,7 +2232,7 @@ void Element::ScrollFrameBy(const ScrollToOptions* scroll_to_options) {
     return;
   }
 
-  displacement.Scale(frame->PageZoomFactor());
+  displacement.Scale(frame->LayoutZoomFactor());
   gfx::PointF new_position = viewport->ScrollPosition() + displacement;
   gfx::PointF current_position = viewport->ScrollPosition();
   std::unique_ptr<cc::SnapSelectionStrategy> strategy =
@@ -2251,12 +2265,12 @@ void Element::ScrollFrameTo(const ScrollToOptions* scroll_to_options) {
   if (scroll_to_options->hasLeft()) {
     new_offset.set_x(
         ScrollableArea::NormalizeNonFiniteScroll(scroll_to_options->left()) *
-        frame->PageZoomFactor());
+        frame->LayoutZoomFactor());
   }
   if (scroll_to_options->hasTop()) {
     new_offset.set_y(
         ScrollableArea::NormalizeNonFiniteScroll(scroll_to_options->top()) *
-        frame->PageZoomFactor());
+        frame->LayoutZoomFactor());
   }
 
   gfx::PointF new_position = viewport->ScrollOffsetToPosition(new_offset);
@@ -2573,18 +2587,23 @@ bool Element::toggleAttribute(const AtomicString& qualified_name,
   WTF::AtomicStringTable::WeakResult hint(lowercase_name.Impl());
   // 3. Let attribute be the first attribute in the context object’s attribute
   // list whose qualified name is qualifiedName, and null otherwise.
+  SynchronizeAttributeHinted(lowercase_name, hint);
+  auto [index, q_name] =
+      LookupAttributeQNameHinted(std::move(lowercase_name), hint);
   // 4. If attribute is null, then
-  if (!GetAttributeHinted(lowercase_name, hint)) {
+  if (index == kNotFound) {
     // 4. 1. If force is not given or is true, create an attribute whose local
     // name is qualified_name, value is the empty string, and node document is
     // the context object’s node document, then append this attribute to the
     // context object, and then return true.
-    SetAttributeHinted(lowercase_name, hint, g_empty_atom);
+    SetAttributeInternal(index, q_name, g_empty_atom,
+                         AttributeModificationReason::kDirectly);
     return true;
   }
   // 5. Otherwise, if force is not given or is false, remove an attribute given
   // qualifiedName and the context object, and then return false.
-  RemoveAttributeHinted(lowercase_name, hint);
+  SetAttributeInternal(index, q_name, g_null_atom,
+                       AttributeModificationReason::kDirectly);
   return false;
 }
 
@@ -2607,14 +2626,18 @@ bool Element::toggleAttribute(const AtomicString& qualified_name,
   WTF::AtomicStringTable::WeakResult hint(lowercase_name.Impl());
   // 3. Let attribute be the first attribute in the context object’s attribute
   // list whose qualified name is qualifiedName, and null otherwise.
+  SynchronizeAttributeHinted(lowercase_name, hint);
+  auto [index, q_name] =
+      LookupAttributeQNameHinted(std::move(lowercase_name), hint);
   // 4. If attribute is null, then
-  if (!GetAttributeHinted(lowercase_name, hint)) {
+  if (index == kNotFound) {
     // 4. 1. If force is not given or is true, create an attribute whose local
     // name is qualified_name, value is the empty string, and node document is
     // the context object’s node document, then append this attribute to the
     // context object, and then return true.
     if (force) {
-      SetAttributeHinted(lowercase_name, hint, g_empty_atom);
+      SetAttributeInternal(index, q_name, g_empty_atom,
+                           AttributeModificationReason::kDirectly);
       return true;
     }
     // 4. 2. Return false.
@@ -2623,7 +2646,8 @@ bool Element::toggleAttribute(const AtomicString& qualified_name,
   // 5. Otherwise, if force is not given or is false, remove an attribute given
   // qualifiedName and the context object, and then return false.
   if (!force) {
-    RemoveAttributeHinted(lowercase_name, hint);
+    SetAttributeInternal(index, q_name, g_null_atom,
+                         AttributeModificationReason::kDirectly);
     return false;
   }
   // 6. Return true.
@@ -3101,7 +3125,8 @@ void Element::RemovedFrom(ContainerNode& insertion_point) {
   ContainerNode::RemovedFrom(insertion_point);
 
   if (was_in_document) {
-    if (this == document.CssTarget()) {
+    if (!RuntimeEnabledFeatures::KeepCSSTargetAfterReattachEnabled() &&
+        this == document.CssTarget()) {
       document.SetCSSTarget(nullptr);
     }
 
@@ -3170,7 +3195,8 @@ void Element::RemovedFrom(ContainerNode& insertion_point) {
 }
 
 void Element::AttachLayoutTree(AttachContext& context) {
-  DCHECK(GetDocument().InStyleRecalc());
+  DCHECK(GetDocument().InStyleRecalc() ||
+         GetDocument().GetStyleEngine().InScrollMarkersAttachment());
 
   StyleEngine& style_engine = GetDocument().GetStyleEngine();
 
@@ -3195,6 +3221,8 @@ void Element::AttachLayoutTree(AttachContext& context) {
       return;
     }
   }
+
+  AttachPseudoElement(kPseudoIdScrollMarkerGroupBefore, context);
 
   AttachContext children_context(context);
   LayoutObject* layout_object = nullptr;
@@ -3223,6 +3251,8 @@ void Element::AttachLayoutTree(AttachContext& context) {
     children_context.parent = nullptr;
   }
   children_context.use_previous_in_flow = true;
+
+  AttachPseudoElement(kPseudoIdScrollMarkerGroupAfter, context);
 
   if (skipped_container_descendants &&
       (!layout_object || !layout_object->IsEligibleForSizeContainment())) {
@@ -3296,7 +3326,7 @@ void Element::DetachLayoutTree(bool performing_reattach) {
     } else if (data->GetOutOfFlowData()) {
       GetDocument()
           .GetStyleEngine()
-          .MarkLastSuccessfulPositionOptionDirtyForElement(*this);
+          .MarkLastSuccessfulPositionFallbackDirtyForElement(*this);
     }
 
     if (ElementAnimations* element_animations = data->GetElementAnimations()) {
@@ -3465,7 +3495,7 @@ const ComputedStyle* Element::StyleForLayoutObject(
   }
 
   if (style->DependsOnSizeContainerQueries() ||
-      style->GetPositionTryOptions() || style->HasAnchorFunctions()) {
+      style->GetPositionTryFallbacks() || style->HasAnchorFunctions()) {
     GetDocument().GetStyleEngine().SetStyleAffectedByLayout();
   }
 
@@ -3665,26 +3695,28 @@ void Element::RecalcStyle(const StyleRecalcChange change,
   child_recalc_context.try_set = nullptr;
   child_recalc_context.try_tactics_set = nullptr;
 
+  if (ContainerQueryData* cq_data = GetContainerQueryData()) {
+    // If we skipped the subtree during style recalc, retrieve the
+    // StyleRecalcChange which was the current change for the skipped subtree
+    // and combine it with the current child_change.
+    if (cq_data->SkippedStyleRecalc()) {
+      GetDocument().GetStyleEngine().DecrementSkippedContainerRecalc();
+      child_change = cq_data->ClearAndReturnRecalcChangeForChildren().Combine(
+          child_change);
+    }
+  }
+
   if (const ComputedStyle* style = GetComputedStyle()) {
     if (style->CanMatchSizeContainerQueries(*this)) {
-      if (change.IsSuppressed()) {
-        // IsSuppressed() means we are at the root of a container subtree
-        // called from UpdateStyleAndLayoutTreeForContainer(). If we skipped
-        // the subtree during style recalc, retrieve the StyleRecalcChange
-        // which was the current change for the skipped subtree and combine
-        // it with any current container flags.
-        ContainerQueryData* cq_data = GetContainerQueryData();
-        // Should be guaranteed to have ContainerQueryData here since we at
-        // least have a ContainerQueryEvaluator at this point.
-        CHECK(cq_data);
-        if (cq_data->SkippedStyleRecalc()) {
-          child_change =
-              cq_data->ClearAndReturnRecalcChangeForChildren().Combine(
-                  child_change);
+      // IsSuppressed() means we are at the root of a container subtree called
+      // from UpdateStyleAndLayoutTreeForContainer(). If so, we can not skip
+      // recalc again. Otherwise, we may skip recalc of the subtree if we can
+      // guarantee that we will be able to resume during layout later.
+      if (!change.IsSuppressed()) {
+        if (SkipStyleRecalcForContainer(*style, child_change,
+                                        style_recalc_context)) {
+          return;
         }
-      } else if (SkipStyleRecalcForContainer(*style, child_change,
-                                             style_recalc_context)) {
-        return;
       }
     }
     if (style->IsContainerForSizeContainerQueries()) {
@@ -3721,6 +3753,8 @@ void Element::RecalcStyle(const StyleRecalcChange change,
     UpdatePseudoElement(kPseudoIdScrollMarkerGroupBefore, child_change,
                         child_recalc_context);
     UpdatePseudoElement(kPseudoIdMarker, child_change, child_recalc_context);
+    UpdatePseudoElement(kPseudoIdScrollMarker, child_change,
+                        child_recalc_context);
     UpdatePseudoElement(kPseudoIdBefore, child_change, child_recalc_context);
   }
 
@@ -4081,8 +4115,9 @@ StyleRecalcChange Element::RecalcOwnStyle(
             .SetContainerQueryEvaluator(nullptr);
       } else if (old_style) {
         evaluator->MarkFontDirtyIfNeeded(*old_style, *new_style);
-        if (RuntimeEnabledFeatures::CSSStickyContainerQueriesEnabled()) {
-          switch (evaluator->ApplyScrollSnapshot()) {
+        if (RuntimeEnabledFeatures::CSSStickyContainerQueriesEnabled() ||
+            RuntimeEnabledFeatures::CSSSnapContainerQueriesEnabled()) {
+          switch (evaluator->ApplyScrollState()) {
             case ContainerQueryEvaluator::Change::kNone:
               break;
             case ContainerQueryEvaluator::Change::kNearestContainer:
@@ -4149,13 +4184,13 @@ StyleRecalcChange Element::RecalcOwnStyle(
 
     if (diff != ComputedStyle::Difference::kEqual && GetOutOfFlowData() &&
         (!new_style->HasOutOfFlowPosition() ||
-         !base::ValuesEquivalent(old_style->GetPositionTryOptions().Get(),
-                                 new_style->GetPositionTryOptions().Get()))) {
-      // position-try-options or positioning changed, which both invalidate last
-      // successful try option.
+         !base::ValuesEquivalent(old_style->GetPositionTryFallbacks().Get(),
+                                 new_style->GetPositionTryFallbacks().Get()))) {
+      // position-try-fallbacks or positioning changed, which both invalidate
+      // last successful try option.
       GetDocument()
           .GetStyleEngine()
-          .MarkLastSuccessfulPositionOptionDirtyForElement(*this);
+          .MarkLastSuccessfulPositionFallbackDirtyForElement(*this);
     }
 
     const ComputedStyle* layout_style = new_style;
@@ -4260,6 +4295,8 @@ void Element::RebuildLayoutTree(WhitespaceAttacher& whitespace_attacher) {
     // layout tree siblings.
     WhitespaceAttacher local_attacher;
     WhitespaceAttacher* child_attacher;
+    RebuildPseudoElementLayoutTree(kPseudoIdScrollMarkerGroupAfter,
+                                   local_attacher);
     LayoutObject* layout_object = GetLayoutObject();
     if (layout_object || !HasDisplayContentsStyle()) {
       whitespace_attacher.DidVisitElement(this);
@@ -4271,8 +4308,6 @@ void Element::RebuildLayoutTree(WhitespaceAttacher& whitespace_attacher) {
     } else {
       child_attacher = &whitespace_attacher;
     }
-    RebuildPseudoElementLayoutTree(kPseudoIdScrollMarkerGroupAfter,
-                                   *child_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdAfter, *child_attacher);
     if (GetShadowRoot()) {
       RebuildShadowRootLayoutTree(*child_attacher);
@@ -4282,7 +4317,7 @@ void Element::RebuildLayoutTree(WhitespaceAttacher& whitespace_attacher) {
     RebuildPseudoElementLayoutTree(kPseudoIdBefore, *child_attacher);
     RebuildMarkerLayoutTree(*child_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdScrollMarkerGroupBefore,
-                                   *child_attacher);
+                                   local_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdBackdrop, *child_attacher);
     RebuildFirstLetterLayoutTree();
     ClearChildNeedsReattachLayoutTree();
@@ -6535,6 +6570,7 @@ bool Element::SupportsFocus(UpdateBehavior update_behavior) const {
 
   return HasElementFlag(ElementFlags::kTabIndexWasSetExplicitly) ||
          IsRootEditableElementWithCounting(*this) ||
+         IsScrollMarkerPseudoElement() ||
          CanBeKeyboardFocusableScroller(update_behavior) ||
          SupportsSpatialNavigationFocus();
 }
@@ -6945,7 +6981,8 @@ void Element::SetInnerHTMLInternal(
             template_element->hasAttribute(html_names::kParsepartsAttr);
       }
       ReplaceChildrenWithFragment(container, fragment, exception_state);
-      if (swap_dom_parts) {
+      if (swap_dom_parts &&
+          !RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled()) {
         // Move the parts list over to the template's content document's
         // DocumentPartRoot.
         To<DocumentFragment>(*container)
@@ -10169,6 +10206,7 @@ Element* Element::ImplicitAnchorElement() const {
       case kPseudoIdBackdrop:
       case kPseudoIdScrollMarkerGroupBefore:
       case kPseudoIdScrollMarkerGroupAfter:
+      case kPseudoIdScrollMarker:
         return pseudo_element->OriginatingElement()->ImplicitAnchorElement();
       default:
         return nullptr;
@@ -10182,15 +10220,6 @@ void Element::setHTMLUnsafe(const String& html,
   CHECK(RuntimeEnabledFeatures::HTMLUnsafeMethodsEnabled());
   SetInnerHTMLInternal(html, ParseDeclarativeShadowRoots::kParse,
                        ForceHtml::kForce, exception_state);
-}
-
-void Element::AddConsoleMessage(mojom::blink::ConsoleMessageSource source,
-                                mojom::blink::ConsoleMessageLevel level,
-                                const String& message) {
-  auto* console_message =
-      MakeGarbageCollected<ConsoleMessage>(source, level, message);
-  console_message->SetNodes(GetDocument().GetFrame(), {GetDomNodeId()});
-  GetDocument().AddConsoleMessage(console_message);
 }
 
 }  // namespace blink

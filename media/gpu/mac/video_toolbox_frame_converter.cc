@@ -38,7 +38,7 @@ namespace {
 // The SharedImages created by this class to back VideoFrames can be read by the
 // raster interface for canvas and by the GLES2 interface for WebGL in addition
 // to being sent to the display compositor and/or used as overlays.
-constexpr uint32_t kSharedImageUsage =
+constexpr gpu::SharedImageUsageSet kSharedImageUsage =
     gpu::SHARED_IMAGE_USAGE_DISPLAY_READ | gpu::SHARED_IMAGE_USAGE_SCANOUT |
     gpu::SHARED_IMAGE_USAGE_MACOS_VIDEO_TOOLBOX |
     gpu::SHARED_IMAGE_USAGE_RASTER_READ | gpu::SHARED_IMAGE_USAGE_GLES2_READ;
@@ -76,11 +76,11 @@ VideoPixelFormat PixelFormatToVideoPixelFormat(OSType pixel_format) {
     case kCVPixelFormatType_444YpCbCr8BiPlanarVideoRange:
       return PIXEL_FORMAT_NV24;
     case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange:
-      return PIXEL_FORMAT_P016LE;
+      return PIXEL_FORMAT_P010LE;
     case kCVPixelFormatType_422YpCbCr10BiPlanarVideoRange:
-      return PIXEL_FORMAT_P216LE;
+      return PIXEL_FORMAT_P210LE;
     case kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange:
-      return PIXEL_FORMAT_P416LE;
+      return PIXEL_FORMAT_P410LE;
     case kCVPixelFormatType_420YpCbCr8VideoRange_8A_TriPlanar:
       return PIXEL_FORMAT_NV12A;
     default:
@@ -250,11 +250,6 @@ void VideoToolboxFrameConverter::Convert(
 
   if (!frame) {
     MEDIA_LOG(ERROR, media_log_.get()) << "Failed to create VideoFrame";
-
-    // |image| was dropped along with |release_cb|, but the SharedImage is still
-    // alive.
-    shared_image->MarkForDestruction();
-
     std::move(output_cb).Run(nullptr, std::move(metadata));
     return;
   }
@@ -292,7 +287,6 @@ void VideoToolboxFrameConverter::OnVideoFrameReleased(
 
   if (client_shared_image) {
     client_shared_image->UpdateDestructionSyncToken(sync_token);
-    client_shared_image->MarkForDestruction();
   }
 
   // Release |image|.

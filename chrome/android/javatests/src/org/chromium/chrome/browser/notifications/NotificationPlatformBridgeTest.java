@@ -31,6 +31,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
@@ -57,15 +58,12 @@ import org.chromium.components.site_engagement.SiteEngagementService;
 import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.url.GURL;
 
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -115,21 +113,12 @@ public class NotificationPlatformBridgeTest {
     }
 
     private double getEngagementScoreBlocking() {
-        try {
-            return TestThreadUtils.runOnUiThreadBlocking(
-                    new Callable<Double>() {
-                        @Override
-                        public Double call() {
-                            // TODO (https://crbug.com/1063807):  Add incognito mode tests.
-                            return SiteEngagementService.getForBrowserContext(
-                                            ProfileManager.getLastUsedRegularProfile())
-                                    .getScore(mPermissionTestRule.getOrigin());
-                        }
-                    });
-        } catch (ExecutionException ex) {
-            assert false : "Unexpected ExecutionException";
-        }
-        return 0.0;
+        // TODO (https://crbug.com/1063807):  Add incognito mode tests.
+        return ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        SiteEngagementService.getForBrowserContext(
+                                        ProfileManager.getLastUsedRegularProfile())
+                                .getScore(mPermissionTestRule.getOrigin()));
     }
 
     /**
@@ -149,7 +138,7 @@ public class NotificationPlatformBridgeTest {
                 new PermissionTestRule.PermissionUpdateWaiter(
                         "denied: ", mNotificationTestRule.getActivity());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mNotificationTestRule.getActivity().getActivityTab().addObserver(updateWaiter);
                 });
@@ -194,7 +183,7 @@ public class NotificationPlatformBridgeTest {
                 new PermissionTestRule.PermissionUpdateWaiter(
                         "granted: ", mNotificationTestRule.getActivity());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mNotificationTestRule.getActivity().getActivityTab().addObserver(updateWaiter);
                 });
@@ -496,7 +485,7 @@ public class NotificationPlatformBridgeTest {
                 ContentSettingValues.ALLOW, mPermissionTestRule.getOrigin());
 
         // Disable notification vibration in preferences.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         UserPrefs.get(ProfileManager.getLastUsedRegularProfile())
                                 .setBoolean(NOTIFICATIONS_VIBRATE_ENABLED, false));
@@ -553,7 +542,7 @@ public class NotificationPlatformBridgeTest {
                 ContentSettingValues.ALLOW, mPermissionTestRule.getOrigin());
 
         // By default, vibration is enabled in notifications.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         Assert.assertTrue(
                                 UserPrefs.get(ProfileManager.getLastUsedRegularProfile())

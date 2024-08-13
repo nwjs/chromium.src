@@ -2179,7 +2179,7 @@ void TestRunnerBindings::CopyImageThen(int x,
     return;
   }
   mojo::Remote<blink::mojom::ClipboardHost> remote_clipboard;
-  frame_->GetBrowserInterfaceBroker()->GetInterface(
+  frame_->GetBrowserInterfaceBroker().GetInterface(
       remote_clipboard.BindNewPipeAndPassReceiver());
 
   blink::ClipboardSequenceNumberToken sequence_number_before;
@@ -2404,7 +2404,7 @@ void TestRunnerBindings::SetPageZoomFactor(double zoom_factor) {
   // for the operation to complete, if it can tell which number to use in
   // min-resolution.
   frame_->GetLocalRootWebFrameWidget()->SetZoomLevelForTesting(
-      blink::PageZoomFactorToZoomLevel(zoom_factor));
+      blink::ZoomFactorToZoomLevel(zoom_factor));
 }
 
 std::string TestRunnerBindings::TooltipText() {

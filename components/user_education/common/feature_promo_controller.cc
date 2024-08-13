@@ -700,6 +700,9 @@ FeaturePromoResult FeaturePromoControllerCommon::CanShowPromoCommon(
   auto lifecycle = std::make_unique<FeaturePromoLifecycle>(
       storage_service_, params.key, &*params.feature, spec->promo_type(),
       spec->promo_subtype(), spec->rotating_promos().size());
+  if (spec->reshow_delay()) {
+    lifecycle->SetReshowPolicy(*spec->reshow_delay(), spec->max_show_count());
+  }
   if (!for_demo && !in_iph_demo_mode_) {
     if (const auto result = lifecycle->CanShow(); !result) {
       return result;
@@ -1213,6 +1216,9 @@ void FeaturePromoControllerCommon::RecordPromoNotShown(
       break;
     case FeaturePromoResult::kBlockedByNewProfile:
       failure_action_name.append("BlockedByNewProfile");
+      break;
+    case FeaturePromoResult::kBlockedByReshowDelay:
+      failure_action_name.append("BlockedByReshowDelay");
       break;
     default:
       NOTREACHED_IN_MIGRATION();

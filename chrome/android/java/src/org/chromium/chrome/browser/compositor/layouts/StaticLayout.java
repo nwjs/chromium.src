@@ -14,6 +14,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.supplier.Supplier;
 import org.chromium.cc.input.BrowserControlsOffsetTagsInfo;
+import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.scene_layer.StaticTabSceneLayer;
@@ -208,10 +209,27 @@ public class StaticLayout extends Layout {
                     @Override
                     public void onControlsConstraintsChanged(
                             BrowserControlsOffsetTagsInfo oldOffsetTagsInfo,
-                            BrowserControlsOffsetTagsInfo offsetTagsInfo) {
-                        mModel.set(
-                                LayoutTab.CONTENT_OFFSET_TAG,
-                                offsetTagsInfo.getTopControlsOffsetTag());
+                            BrowserControlsOffsetTagsInfo offsetTagsInfo,
+                            @BrowserControlsState int constraints) {
+                        if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()) {
+                            mModel.set(
+                                    LayoutTab.CONTENT_OFFSET_TAG,
+                                    offsetTagsInfo.getTopControlsOffsetTag());
+
+                            // With BCIV enabled, scrolling will not update the content offset of
+                            // the browser's compositor frame. If we transition to a HIDDEN state
+                            // while the controls are already scrolled offscreen, then there is no
+                            // need to move the top controls, which means the renderer will not
+                            // notify the browser to move them. We set the content offset here so
+                            // the browser will submit a compositor frame with the correct offset.
+                            int contentOffset = mBrowserControlsStateProvider.getContentOffset();
+                            if (constraints == BrowserControlsState.HIDDEN
+                                    && contentOffset
+                                            == mBrowserControlsStateProvider
+                                                    .getTopControlsMinHeight()) {
+                                mModel.set(LayoutTab.CONTENT_OFFSET, contentOffset);
+                            }
+                        }
                     }
 
                     @Override
@@ -220,10 +238,15 @@ public class StaticLayout extends Layout {
                             int topControlsMinHeightOffset,
                             int bottomOffset,
                             int bottomControlsMinHeightOffset,
-                            boolean needsAnimate) {
-                        mModel.set(
-                                LayoutTab.CONTENT_OFFSET,
-                                mBrowserControlsStateProvider.getContentOffset());
+                            boolean needsAnimate,
+                            boolean isVisibilityForced) {
+                        if (!ChromeFeatureList.sBrowserControlsInViz.isEnabled()
+                                || needsAnimate
+                                || isVisibilityForced) {
+                            mModel.set(
+                                    LayoutTab.CONTENT_OFFSET,
+                                    mBrowserControlsStateProvider.getContentOffset());
+                        }
                     }
                 };
         mBrowserControlsStateProvider.addObserver(mBrowserControlsStateProviderObserver);

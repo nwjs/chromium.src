@@ -59,8 +59,7 @@ class CameraAppHelperImpl : public ScreenBacklightObserver,
   CameraAppHelperImpl(CameraAppUI* camera_app_ui,
                       CameraResultCallback camera_result_callback,
                       SendBroadcastCallback send_broadcast_callback,
-                      aura::Window* window,
-                      HoldingSpaceClient* holding_space_client);
+                      aura::Window* window);
 
   CameraAppHelperImpl(const CameraAppHelperImpl&) = delete;
   CameraAppHelperImpl& operator=(const CameraAppHelperImpl&) = delete;
@@ -91,8 +90,6 @@ class CameraAppHelperImpl : public ScreenBacklightObserver,
   void GetWindowStateController(
       GetWindowStateControllerCallback callback) override;
   void SendNewCaptureBroadcast(bool is_video, const std::string& name) override;
-  void NotifyTote(const camera_app::mojom::ToteMetricFormat format,
-                  const std::string& name) override;
   void MonitorFileDeletion(const std::string& name,
                            MonitorFileDeletionCallback callback) override;
   void IsDocumentScannerSupported(
@@ -120,6 +117,8 @@ class CameraAppHelperImpl : public ScreenBacklightObserver,
                        RenderPdfAsJpegCallback callback) override;
   void PerformOcr(mojo_base::BigBuffer jpeg_data,
                   PerformOcrCallback callback) override;
+  void PerformOcrInline(const std::vector<uint8_t>& jpeg_data,
+                        PerformOcrCallback callback) override;
   void CreatePdfBuilder(
       mojo::PendingReceiver<camera_app::mojom::PdfBuilder> receiver) override;
 
@@ -182,8 +181,6 @@ class CameraAppHelperImpl : public ScreenBacklightObserver,
 
   // Client to connect to document detection service.
   std::unique_ptr<DocumentScannerServiceClient> document_scanner_service_;
-
-  raw_ptr<HoldingSpaceClient> const holding_space_client_;
 
   mojo::Remote<cros::mojom::CrosSystemEventMonitor> monitor_;
 

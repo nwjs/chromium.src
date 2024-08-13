@@ -259,7 +259,7 @@ static_library("utility") {
   if (safe_browsing_mode == 1) {
     deps += [
       "//chrome/services/file_util",
-      #"//chrome/utility/safe_browsing",
+      "//chrome/utility/safe_browsing",
     ]
   }
 

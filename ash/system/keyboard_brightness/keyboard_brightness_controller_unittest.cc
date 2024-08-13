@@ -40,7 +40,10 @@ class FakeKeyboardBrightnessControlDelegate
       base::OnceCallback<void(std::optional<double>)> callback) override {
     std::move(callback).Run(keyboard_brightness_);
   }
-  void HandleSetKeyboardBrightness(double percent, bool gradual) override {
+  void HandleSetKeyboardBrightness(
+      double percent,
+      bool gradual,
+      KeyboardBrightnessChangeSource source) override {
     keyboard_brightness_ = percent;
   }
   void HandleSetKeyboardAmbientLightSensorEnabled(bool enabled) override {}
@@ -55,6 +58,13 @@ class FakeKeyboardBrightnessControlDelegate
     if (has_keyboard_backlight.has_value()) {
       base::UmaHistogramBoolean("ChromeOS.Keyboard.HasBacklight",
                                 has_keyboard_backlight.value());
+    }
+  }
+
+  void OnReceiveHasAmbientLightSensor(std::optional<bool> has_sensor) {
+    if (has_sensor.has_value()) {
+      base::UmaHistogramBoolean(
+          "ChromeOS.Settings.Device.HasAmbientLightSensor", has_sensor.value());
     }
   }
 
@@ -170,7 +180,8 @@ class KeyboardBrightnessControllerTest : public AshTestBase {
       double keyboard_brightness,
       power_manager::BacklightBrightnessChange_Cause cause) {
     keyboard_brightness_control_delegate()->HandleSetKeyboardBrightness(
-        keyboard_brightness, /*gradual=*/false);
+        keyboard_brightness, /*gradual=*/false,
+        KeyboardBrightnessChangeSource::kSettingsApp);
     power_manager::BacklightBrightnessChange brightness_change;
     brightness_change.set_percent(keyboard_brightness);
     brightness_change.set_cause(cause);
@@ -214,6 +225,14 @@ TEST_F(KeyboardBrightnessControllerTest, RecordHasKeyboardBrightness) {
   histogram_tester_->ExpectTotalCount("ChromeOS.Keyboard.HasBacklight", 0);
   delegate_->OnReceiveHasKeyboardBacklight(std::optional<bool>(true));
   histogram_tester_->ExpectTotalCount("ChromeOS.Keyboard.HasBacklight", 1);
+}
+
+TEST_F(KeyboardBrightnessControllerTest, RecordHasAmbientLightSensor) {
+  histogram_tester_->ExpectTotalCount(
+      "ChromeOS.Settings.Device.HasAmbientLightSensor", 0);
+  delegate_->OnReceiveHasAmbientLightSensor(std::optional<bool>(true));
+  histogram_tester_->ExpectTotalCount(
+      "ChromeOS.Settings.Device.HasAmbientLightSensor", 1);
 }
 
 TEST_F(KeyboardBrightnessControllerTest, SetKeyboardAmbientLightSensorEnabled) {
@@ -457,7 +476,8 @@ TEST_F(KeyboardBrightnessControllerTest,
   LoginScreenFocusAccount(first_account);
   const double first_brightness_change_percent = 20.0;
   keyboard_brightness_control_delegate()->HandleSetKeyboardBrightness(
-      first_brightness_change_percent, /*gradual=*/false);
+      first_brightness_change_percent, /*gradual=*/false,
+      KeyboardBrightnessChangeSource::kSettingsApp);
 
   // ALS should be disabled for the first user.
   run_loop_.RunUntilIdle();
@@ -533,7 +553,8 @@ TEST_F(KeyboardBrightnessControllerTest,
   LoginScreenFocusAccount(first_account);
   const double first_brightness_change_percent = 20.0;
   keyboard_brightness_control_delegate()->HandleSetKeyboardBrightness(
-      first_brightness_change_percent, /*gradual=*/false);
+      first_brightness_change_percent, /*gradual=*/false,
+      KeyboardBrightnessChangeSource::kSettingsApp);
 
   // ALS should be disabled for the first user.
   run_loop_.RunUntilIdle();
@@ -797,6 +818,49 @@ TEST_F(KeyboardBrightnessControllerTest,
   // preference will not be restored, and thus the keyboard ambient light sensor
   // should be disabled.
   ExpectKeyboardAmbientLightSensorEnabled(true);
+}
+
+TEST_F(KeyboardBrightnessControllerTest, SetKeyboardBrightness_Cause) {
+  // Keyboard brightness changes from Quick Settings should have cause
+  // "USER_REQUEST".
+  keyboard_brightness_control_delegate()->HandleSetKeyboardBrightness(
+      50, /*gradual=*/true, KeyboardBrightnessChangeSource::kQuickSettings);
+  EXPECT_EQ(power_manager_client()->requested_keyboard_brightness_cause(),
+            power_manager::SetBacklightBrightnessRequest_Cause_USER_REQUEST);
+
+  // Keyboard brightness changes from the Settings app should have cause
+  // "USER_REQUEST_FROM_SETTINGS_APP".
+  keyboard_brightness_control_delegate()->HandleSetKeyboardBrightness(
+      50, /*gradual=*/true, /*source=*/
+      KeyboardBrightnessChangeSource::kSettingsApp);
+  EXPECT_EQ(
+      power_manager_client()->requested_keyboard_brightness_cause(),
+      power_manager::
+          SetBacklightBrightnessRequest_Cause_USER_REQUEST_FROM_SETTINGS_APP);
+}
+
+TEST_F(KeyboardBrightnessControllerTest,
+       RecordStartupKeyboardAmbientLightSensorStatus) {
+  scoped_feature_list_.InitAndEnableFeature(
+      features::kEnableKeyboardBacklightControlInSettings);
+  power_manager_client()->SetKeyboardAmbientLightSensorEnabled(true);
+  power_manager_client()->set_has_ambient_light_sensor(true);
+  base::RunLoop().RunUntilIdle();
+
+  histogram_tester_->ExpectTotalCount(
+      "ChromeOS.Keyboard.Startup.AmbientLightSensorEnabled", 0);
+  // Log in.
+  ClearLogin();
+  AccountId account_id = AccountId::FromUserEmail(kUserEmail);
+  LoginScreenFocusAccount(account_id);
+  histogram_tester_->ExpectBucketCount(
+      "ChromeOS.Keyboard.Startup.AmbientLightSensorEnabled", true, 1);
+
+  // Log in again, expect no extra metric is emitted.
+  ClearLogin();
+  LoginScreenFocusAccount(account_id);
+  histogram_tester_->ExpectTotalCount(
+      "ChromeOS.Keyboard.Startup.AmbientLightSensorEnabled", 1);
 }
 
 }  // namespace ash

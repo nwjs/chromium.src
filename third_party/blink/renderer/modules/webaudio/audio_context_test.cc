@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/webaudio/audio_context.h"
 
 #include <memory>
@@ -273,7 +278,7 @@ TEST_F(AudioContextTest, OnRenderErrorFromPlatformDestination) {
             AudioContext::AudioContextState::kRunning);
 
   audio_context->invoke_onrendererror_from_platform_for_testing();
-  EXPECT_TRUE(audio_context->render_error_occoured_);
+  EXPECT_TRUE(audio_context->render_error_occurred_);
 }
 
 class ContextRenderer : public GarbageCollected<ContextRenderer> {

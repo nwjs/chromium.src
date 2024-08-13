@@ -36,6 +36,7 @@ clipboard-write
 compute-pressure
 cross-origin-isolated
 deferred-fetch
+digital-credentials-get
 display-capture
 encrypted-media
 execution-while-not-rendered
@@ -74,7 +75,6 @@ storage-access
 sync-xhr
 unload
 usb
-usb-unrestricted
 vertical-scroll
 window-management
 xr-spatial-tracking

@@ -30,7 +30,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -50,7 +49,6 @@ import org.chromium.base.jank_tracker.PlaceholderJankTracker;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.JniMocker;
@@ -113,7 +111,6 @@ import java.util.Map;
 @DisableFeatures({
     ChromeFeatureList.WEB_FEED_SORT,
     ChromeFeatureList.WEB_FEED_ONBOARDING,
-    ChromeFeatureList.FEED_USER_INTERACTION_RELIABILITY_REPORT,
     // TODO(crbug.com/40858677): Disabling the feature explicitly, because native is not
     // available to provide a default value. This should be enabled if the feature is enabled by
     // default or removed if the flag is removed.
@@ -142,7 +139,7 @@ public class FeedSurfaceCoordinatorTest {
     private class TestSurfaceDelegate implements FeedSurfaceDelegate {
         @Override
         public FeedSurfaceLifecycleManager createStreamLifecycleManager(
-                Activity activity, SurfaceCoordinator coordinator) {
+                Activity activity, SurfaceCoordinator coordinator, Profile profile) {
             mLifecycleManager =
                     new TestLifecycleManager(activity, (FeedSurfaceCoordinator) coordinator);
             return mLifecycleManager;
@@ -207,7 +204,6 @@ public class FeedSurfaceCoordinatorTest {
     @Captor private ArgumentCaptor<FeedListContentManager> mContentManagerCaptor;
 
     // Mocked indirect dependencies.
-    @Rule public TestRule mFeaturesProcessorRule = new Features.JUnitProcessor();
     @Mock private Profile mProfileMock;
     @Mock private IdentityServicesProvider mIdentityService;
     @Mock private SigninManager mSigninManager;
@@ -578,7 +574,6 @@ public class FeedSurfaceCoordinatorTest {
                 () -> {
                     return null;
                 },
-                SURFACE_TYPE,
                 SURFACE_CREATION_TIME_NS,
                 null,
                 false,

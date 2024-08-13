@@ -20,9 +20,11 @@ import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js
 import {PinKeyboardElement} from 'chrome://resources/ash/common/quick_unlock/pin_keyboard.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {PIN_LENGTH} from './app_setup_pin_keyboard.js';
+import {AppParentalControlsHandlerInterface, PinValidationResult} from '../../mojom-webui/app_parental_controls_handler.mojom-webui.js';
+
 import {getTemplate} from './app_verify_pin_dialog.html.js';
 import {ParentalControlsPinDialogError, recordPinDialogError} from './metrics_utils.js';
+import {getAppParentalControlsProvider} from './mojo_interface_provider.js';
 
 const AppVerifyPinDialogElementBase = PrefsMixin(I18nMixin(PolymerElement));
 
@@ -71,9 +73,16 @@ export class AppVerifyPinDialogElement extends AppVerifyPinDialogElementBase {
     };
   }
 
+  private enableSubmit_: boolean;
   private isVerificationPending_: boolean;
+  private mojoInterfaceProvider_: AppParentalControlsHandlerInterface;
   private pinValue_: string;
   private showError_: boolean;
+
+  constructor() {
+    super();
+    this.mojoInterfaceProvider_ = getAppParentalControlsProvider();
+  }
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -102,31 +111,35 @@ export class AppVerifyPinDialogElement extends AppVerifyPinDialogElementBase {
     this.close();
   }
 
-  private isConfirmDisabled_(): boolean {
-    return this.isVerificationPending_ || this.pinValue_.length !== PIN_LENGTH;
+  private async isConfirmEnabled_(): Promise<boolean> {
+    const pinValidationResult =
+        await this.mojoInterfaceProvider_.validatePin(this.pinValue_);
+    return !this.isVerificationPending_ &&
+        pinValidationResult.result !== PinValidationResult.kPinLengthError;
   }
 
   /**
    * Save the most recently typed PIN when the user types or deletes a digit,
    * and hide a pre-existing error message if present.
    */
-  private onPinChange_(event: CustomEvent<{pin: string}>): void {
+  private async onPinChange_(event: CustomEvent<{pin: string}>): Promise<void> {
     if (event && event.detail && event.detail.pin) {
       this.pinValue_ = event.detail.pin;
     }
 
     this.showError_ = false;
+    this.enableSubmit_ = await this.isConfirmEnabled_();
   }
 
   /**
    * Checks whether the PIN entered matches the saved PIN when the user presses
    * enter.
    */
-  private onPinSubmit_(): void {
+  private async onPinSubmit_(): Promise<void> {
     this.isVerificationPending_ = true;
 
-    if (this.pinValue_ &&
-        this.pinValue_ === this.getPref('on_device_app_controls.pin').value) {
+    const result = await this.mojoInterfaceProvider_.verifyPin(this.pinValue_);
+    if (result.isSuccess) {
       // Trigger the method set in `on-pin-verified` by the containing dialog.
       this.dispatchEvent(new CustomEvent('pin-verified'));
       this.close();

@@ -49,7 +49,7 @@
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "skia/ext/image_operations.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_console_message.h"
 #include "third_party/blink/public/web/web_document.h"
@@ -265,7 +265,7 @@ void ChromeRenderFrameObserver::DidFinishLoad() {
   if (!osdd_url.is_empty()) {
     mojo::Remote<chrome::mojom::OpenSearchDescriptionDocumentHandler>
         osdd_handler;
-    render_frame()->GetBrowserInterfaceBroker()->GetInterface(
+    render_frame()->GetBrowserInterfaceBroker().GetInterface(
         osdd_handler.BindNewPipeAndPassReceiver());
     osdd_handler->PageHasOpenSearchDescriptionDocument(
         frame->GetDocument().Url(), osdd_url);
@@ -513,8 +513,8 @@ void ChromeRenderFrameObserver::RequestBitmapForContextNode(
   std::move(callback).Run(image);
 }
 
-void ChromeRenderFrameObserver::RequestBitmapForContextNodeWithBoundsDiagnostic(
-    RequestBitmapForContextNodeWithBoundsDiagnosticCallback callback) {
+void ChromeRenderFrameObserver::RequestBitmapForContextNodeWithBoundsHint(
+    RequestBitmapForContextNodeWithBoundsHintCallback callback) {
   WebNode context_node = render_frame()->GetWebFrame()->ContextMenuImageNode();
   SkBitmap image;
   gfx::Rect bounds;
@@ -529,8 +529,8 @@ void ChromeRenderFrameObserver::RequestBitmapForContextNodeWithBoundsDiagnostic(
   std::move(callback).Run(image, bounds);
 }
 
-void ChromeRenderFrameObserver::RequestBoundsForAllImagesDiagnostic(
-    RequestBoundsForAllImagesDiagnosticCallback callback) {
+void ChromeRenderFrameObserver::RequestBoundsHintForAllImages(
+    RequestBoundsHintForAllImagesCallback callback) {
   std::vector<blink::WebElement> image_elements;
   std::vector<gfx::Rect> all_bounds;
   const blink::WebDocument doc = render_frame()->GetWebFrame()->GetDocument();
@@ -642,6 +642,7 @@ void ChromeRenderFrameObserver::OnRenderFrameObserverRequest(
 
 bool ChromeRenderFrameObserver::ShouldCapturePageTextForTranslateOrPhishing(
     blink::WebMeaningfulLayout layout_type) const {
+  return false;
   WebLocalFrame* frame = render_frame()->GetWebFrame();
   if (!frame) {
     return false;

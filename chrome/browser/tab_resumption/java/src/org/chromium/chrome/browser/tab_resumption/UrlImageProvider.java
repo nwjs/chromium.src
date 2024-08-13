@@ -127,8 +127,6 @@ public class UrlImageProvider {
                 tabId,
                 thumbnailSize,
                 /* finalCallback= */ tabThumbnailCallback,
-                /* forceUpdate= */ true,
-                /* writeToCache= */ true,
                 /* isSelected= */ false);
     }
 

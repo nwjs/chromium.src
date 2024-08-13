@@ -8,35 +8,78 @@
 
 namespace extensions::diagnostics::icon_variants {
 
-// Add new diagnostics here.
-Diagnostic diagnostics[] = {
+// List of diagnostics.
+// TODO(crbug.com/344639840): Add a cross-browser code in each item for the UI.
+constexpr Diagnostic diagnostics[] = {
     {
         Feature::kIconVariants,
-        Code::kFailedToParse,
-        Category::kManifest,
+        Id::kFailedToParse,
+        Surface::kManifest,
         Severity::kWarning,
         "Failed to parse.",
     },
     {
         Feature::kIconVariants,
-        Code::kIconVariantsEmpty,
-        Category::kManifest,
+        Id::kIconVariantsEmpty,
+        Surface::kManifest,
         Severity::kWarning,
-        "There are no usable icon_variants.",
+        "There are no usable 'icon_variants'.",
     },
     {
         Feature::kIconVariants,
-        Code::kEmptyIconVariant,
-        Category::kManifest,
+        Id::kEmptyIconVariant,
+        Surface::kManifest,
         Severity::kWarning,
         "Icon variant is empty.",
+    },
+    {
+        Feature::kIconVariants,
+        Id::kIconVariantSizeInvalid,
+        Surface::kManifest,
+        Severity::kWarning,
+        "Icon variant 'size' is not valid.",
+    },
+    {
+        Feature::kIconVariants,
+        Id::kIconVariantSizeInvalid,
+        Surface::kManifest,
+        Severity::kWarning,
+        "Icon variant `color_scheme` is not valid.",
+    },
+    {
+        Feature::kIconVariants,
+        Id::kIconVariantsInvalid,
+        Surface::kManifest,
+        Severity::kError,
+        "Error: 'icon_variants' is not valid.",
+    },
+    {
+        Feature::kIconVariants,
+        Id::kIconVariantsKeyMustBeAList,
+        Surface::kManifest,
+        Severity::kError,
+        "'icon_variants' must be a list.",
+    },
+    {
+        Feature::kIconVariants,
+        Id::kIconVariantColorSchemesType,
+        Surface::kManifest,
+        Severity::kWarning,
+        "Unexpected 'color_schemes' type.",
+    },
+    {
+        Feature::kIconVariants,
+        Id::kIconVariantColorSchemeInvalid,
+        Surface::kManifest,
+        Severity::kWarning,
+        "Unexpected 'color_scheme'.",
     },
 };
 
 // TODO(crbug.com/343748805): Use e.g. flat_map when there are many diagnostics.
-Diagnostic GetDiagnosticForID(Feature feature, Code code) {
+Diagnostic GetDiagnostic(Feature feature, Id id) {
   for (const auto& diagnostic : diagnostics) {
-    if (diagnostic.feature == feature && diagnostic.code == code) {
+    if (diagnostic.feature == feature && diagnostic.id == id) {
       return diagnostic;
     }
   }

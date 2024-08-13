@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "base/types/expected.h"
-#include "components/ml/webnn/graph_validation_utils.h"
+#include "services/webnn/public/cpp/graph_validation_utils.h"
+#include "services/webnn/public/cpp/operand_descriptor.h"
+#include "services/webnn/public/mojom/webnn_graph.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_conv_2d_filter_operand_layout.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_conv_transpose_2d_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_input_operand_layout.h"
@@ -63,6 +65,9 @@ MODULES_EXPORT DOMArrayBufferView* CreateArrayBufferView(
 MODULES_EXPORT MLNamedArrayBufferViews* CreateNamedArrayBufferViews(
     std::unique_ptr<Vector<std::pair<String, ArrayBufferViewInfo>>> views_info);
 
+MODULES_EXPORT DOMArrayBufferView::ViewType GetArrayBufferViewType(
+    webnn::OperandDataType data_type);
+
 // Create a default permutation vector [rank - 1, ..., 0].
 Vector<uint32_t> CreateDefaultPermutation(const wtf_size_t rank);
 
@@ -93,6 +98,12 @@ webnn::Size2d<uint32_t> CalculateConvTransposeOutputSize2D(
     uint32_t dilation_width,
     uint32_t output_padding_height,
     uint32_t output_padding_width);
+
+V8MLOperandDataType ToBlinkDataType(webnn::OperandDataType data_type);
+webnn::OperandDataType FromBlinkDataType(V8MLOperandDataType::Enum data_type);
+
+MODULES_EXPORT bool IsLogicalBinaryOperator(
+    webnn::mojom::blink::ElementWiseBinary::Kind kind);
 
 }  // namespace blink
 

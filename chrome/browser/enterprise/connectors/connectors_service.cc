@@ -16,9 +16,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_manager.h"
-#include "chrome/browser/enterprise/connectors/reporting/browser_crash_event_router.h"
-#include "chrome/browser/enterprise/connectors/reporting/extension_install_event_router.h"
-#include "chrome/browser/enterprise/connectors/reporting/extension_telemetry_event_router.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/util/affiliation.h"
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
@@ -485,12 +482,17 @@ std::string ConnectorsService::GetRealTimeUrlCheckIdentifier() const {
   if (!identity_manager) {
     return std::string();
   }
-  return std::string();
-  //return safe_browsing::GetProfileEmail(identity_manager);
+
+  return safe_browsing::GetProfileEmail(identity_manager);
 }
 
 ConnectorsManager* ConnectorsService::ConnectorsManagerForTesting() {
   return connectors_manager_.get();
+}
+
+void ConnectorsService::ObserveTelemetryReporting(
+    base::RepeatingCallback<void()> callback) {
+  connectors_manager_->SetTelemetryObserverCallback(callback);
 }
 
 ConnectorsService::DmToken::DmToken(const std::string& value,
@@ -658,10 +660,8 @@ KeyedService* ConnectorsServiceFactory::BuildServiceInstanceFor(
 
   return new ConnectorsService(
       context, std::make_unique<ConnectorsManager>(
-                   std::make_unique<BrowserCrashEventRouter>(context),
-                   std::make_unique<ExtensionTelemetryEventRouter>(context),
                    user_prefs::UserPrefs::Get(context),
-                   nullptr /*GetServiceProviderConfig()*/, observe_prefs));
+                   GetServiceProviderConfig(), observe_prefs));
 }
 
 content::BrowserContext* ConnectorsServiceFactory::GetBrowserContextToUse(

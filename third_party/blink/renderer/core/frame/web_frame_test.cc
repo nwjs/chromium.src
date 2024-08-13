@@ -28,6 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/public/web/web_frame.h"
 
 #include <initializer_list>
@@ -58,7 +63,6 @@
 #include "skia/public/mojom/skcolor.mojom-blink.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/context_menu_data/context_menu_data.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/blink/public/common/input/web_coalesced_input_event.h"
@@ -81,6 +85,7 @@
 #include "third_party/blink/public/mojom/scroll/scrollbar_mode.mojom-blink.h"
 #include "third_party/blink/public/mojom/webpreferences/web_preferences.mojom-blink.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom-blink.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/web_cache.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_url.h"
@@ -235,6 +240,7 @@ using testing::_;
 using testing::ElementsAre;
 using testing::Mock;
 using testing::Return;
+using testing::UnorderedElementsAre;
 
 namespace blink {
 
@@ -1418,7 +1424,7 @@ TEST_F(WebFrameCSSCallbackTest, AuthorStyleSheet) {
   RunPendingTasks();
   EXPECT_EQ(2, UpdateCount());
   EXPECT_THAT(MatchedSelectors(),
-              ElementsAre("div.initial_off", "div.initial_on"));
+              UnorderedElementsAre("div.initial_off", "div.initial_on"));
 
   // Check that we can turn off callbacks for certain selectors.
   Doc().WatchCSSSelectors(WebVector<WebString>());
@@ -1606,7 +1612,7 @@ TEST_F(WebFrameCSSCallbackTest, MultiSelector) {
   RunPendingTasks();
 
   EXPECT_EQ(1, UpdateCount());
-  EXPECT_THAT(MatchedSelectors(), ElementsAre("span", "span, p"));
+  EXPECT_THAT(MatchedSelectors(), UnorderedElementsAre("span", "span, p"));
 }
 
 TEST_F(WebFrameCSSCallbackTest, InvalidSelector) {
@@ -7932,7 +7938,8 @@ class TestSameDocumentWithImageWebFrameClient
 
   // frame_test_helpers::TestWebFrameClient:
   void WillSendRequest(WebURLRequest& request,
-                       ForRedirect for_redirect) override {
+                       ForRedirect for_redirect,
+                       const blink::WebURL& /*upstream_url*/) override {
     if (request.GetRequestContext() ==
         mojom::blink::RequestContextType::IMAGE) {
       num_of_image_requests_++;
@@ -9314,11 +9321,14 @@ class WebFrameSwapTest : public WebFrameTest {
   WebLocalFrame* MainFrame() const { return web_view_helper_.LocalMainFrame(); }
   WebViewImpl* WebView() const { return web_view_helper_.GetWebView(); }
 
- protected:
-  frame_test_helpers::WebViewHelper web_view_helper_;
-
  private:
   WebFrameSwapTestClient main_frame_client_;
+
+ protected:
+  // This must be destroyed before `main_frame_client_`; when the WebViewHelper
+  // is deleted, it destroys child views that were created, but the list of
+  // child views is maintained on `main_frame_client_`.
+  frame_test_helpers::WebViewHelper web_view_helper_;
 };
 
 TEST_F(WebFrameSwapTest, SwapMainFrame) {
@@ -11730,12 +11740,6 @@ class BlobRegistryForSaveImageFromDataURL : public mojom::blink::BlobRegistry {
                        GetBlobFromUUIDCallback) override {
     NOTREACHED_IN_MIGRATION();
   }
-
-  void URLStoreForOrigin(
-      const scoped_refptr<const SecurityOrigin>&,
-      mojo::PendingAssociatedReceiver<mojom::blink::BlobURLStore>) override {
-    NOTREACHED_IN_MIGRATION();
-  }
 };
 
 // blink::mojom::LocalFrameHost instance that intecepts DownloadURL() mojo
@@ -11781,8 +11785,9 @@ class TestLocalFrameHostForSaveImageFromDataURL : public FakeLocalFrameHost {
           output_(output) {}
     void Run() { run_loop_.Run(); }
 
-    void OnDataAvailable(const void* data, size_t num_bytes) override {
-      *output_ = String(reinterpret_cast<const char*>(data), num_bytes);
+    void OnDataAvailable(base::span<const uint8_t> data) override {
+      std::string_view chars = base::as_string_view(data);
+      *output_ = String(chars.data(), chars.size());
     }
     void OnDataComplete() override { run_loop_.Quit(); }
 
@@ -11986,7 +11991,8 @@ class TestResourcePriorityWebFrameClient
 
   // frame_test_helpers::TestWebFrameClient:
   void WillSendRequest(WebURLRequest& request,
-                       ForRedirect for_redirect) override {
+                       ForRedirect for_redirect,
+                       const blink::WebURL& upstream_url) override {
     ExpectedRequest* expected_request = expected_requests_.at(request.Url());
     DCHECK(expected_request);
     EXPECT_EQ(expected_request->priority, request.GetPriority());

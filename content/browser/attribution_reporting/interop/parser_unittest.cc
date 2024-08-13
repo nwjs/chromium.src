@@ -497,6 +497,10 @@ TEST(AttributionInteropParserTest, ValidConfig) {
        [](AttributionConfig& c) {
          c.destination_rate_limit = {.rate_limit_window = base::Minutes(5)};
        }},
+      {R"json({"max_destinations_per_reporting_site_per_day":"20"})json", false,
+       [](AttributionConfig& c) {
+         c.destination_rate_limit = {.max_per_reporting_site_per_day = 20};
+       }},
       {R"json({"rate_limit_time_window_in_days":"30"})json", false,
        [](AttributionConfig& c) { c.rate_limit.time_window = base::Days(30); }},
       {R"json({"rate_limit_max_source_registration_reporting_origins":"10"})json",
@@ -528,17 +532,18 @@ TEST(AttributionInteropParserTest, ValidConfig) {
        [](AttributionConfig& c) {
          c.event_level_limit.max_reports_per_destination = 10;
        }},
-      {R"json({"max_navigation_info_gain":"0.2"})json", false,
+      {R"json({"max_event_level_channel_capacity_navigation":"0.2"})json",
+       false,
        [](AttributionConfig& c) {
          c.event_level_limit.max_navigation_info_gain = 0.2;
        }},
-      {R"json({"max_event_info_gain":"0.2"})json", false,
+      {R"json({"max_event_level_channel_capacity_event":"0.2"})json", false,
        [](AttributionConfig& c) {
          c.event_level_limit.max_event_info_gain = 0.2;
        }},
-      {R"json({"max_trigger_state_cardinality":"10"})json", false,
-       [](AttributionConfig& c) {
-         c.event_level_limit.max_trigger_state_cardinality = 10;
+      {R"json({"max_trigger_state_cardinality":"4294967295"})json", false,
+       [](AttributionInteropConfig& c) {
+         c.max_trigger_state_cardinality = 4294967295;
        }},
       {R"json({"max_aggregatable_reports_per_destination":"10"})json", false,
        [](AttributionConfig& c) {
@@ -567,6 +572,7 @@ TEST(AttributionInteropParserTest, ValidConfig) {
         "max_destinations_per_rate_limit_window_reporting_site": "1",
         "max_destinations_per_rate_limit_window": "2",
         "destination_rate_limit_window_in_minutes": "10",
+        "max_destinations_per_reporting_site_per_day": "15",
         "rate_limit_time_window_in_days":"10",
         "rate_limit_max_source_registration_reporting_origins":"20",
         "rate_limit_max_attribution_reporting_origins":"15",
@@ -575,8 +581,8 @@ TEST(AttributionInteropParserTest, ValidConfig) {
         "rate_limit_origins_per_site_window_in_days":"5",
         "max_settable_event_level_epsilon":"0.2",
         "max_event_level_reports_per_destination":"10",
-        "max_navigation_info_gain":"5.5",
-        "max_event_info_gain":"0.5",
+        "max_event_level_channel_capacity_navigation":"5.5",
+        "max_event_level_channel_capacity_event":"0.5",
         "max_trigger_state_cardinality":"10",
         "max_aggregatable_reports_per_destination":"10",
         "aggregatable_report_min_delay":"10",
@@ -602,15 +608,18 @@ TEST(AttributionInteropParserTest, ValidConfig) {
          c.event_level_limit.max_reports_per_destination = 10;
          c.event_level_limit.max_navigation_info_gain = 5.5;
          c.event_level_limit.max_event_info_gain = 0.5;
-         c.event_level_limit.max_trigger_state_cardinality = 10;
+         config.max_trigger_state_cardinality = 10;
 
          c.aggregate_limit.max_reports_per_destination = 10;
          c.aggregate_limit.min_delay = base::Minutes(10);
          c.aggregate_limit.delay_span = base::Minutes(20);
 
-         c.destination_rate_limit = {.max_total = 2,
-                                     .max_per_reporting_site = 1,
-                                     .rate_limit_window = base::Minutes(10)};
+         c.destination_rate_limit = {
+             .max_total = 2,
+             .max_per_reporting_site = 1,
+             .rate_limit_window = base::Minutes(10),
+             .max_per_reporting_site_per_day = 15,
+         };
 
          config.aggregation_coordinator_origins.emplace_back(
              url::Origin::Create(GURL("https://c.test")));
@@ -749,24 +758,47 @@ TEST(AttributionInteropParserTest, InvalidConfigMaxSettableEpsilon) {
   }
 }
 
-TEST(AttributionInteropParserTest, InvalidConfigMaxInfGain) {
+TEST(AttributionInteropParserTest, InvalidConfigMaxInfoGain) {
   {
     AttributionInteropConfig config;
     base::Value::Dict dict;
-    dict.Set("max_navigation_info_gain", "-1.5");
-    EXPECT_THAT(MergeAttributionInteropConfig(std::move(dict), config),
-                ErrorIs(HasSubstr(
-                    "[\"max_navigation_info_gain\"]: must be \"inf\" or a "
-                    "non-negative double formated as a base-10 string")));
+    dict.Set("max_event_level_channel_capacity_navigation", "-1.5");
+    EXPECT_THAT(
+        MergeAttributionInteropConfig(std::move(dict), config),
+        ErrorIs(HasSubstr("[\"max_event_level_channel_capacity_navigation\"]: "
+                          "must be \"inf\" or a "
+                          "non-negative double formated as a base-10 string")));
   }
   {
     AttributionInteropConfig config;
     base::Value::Dict dict;
-    dict.Set("max_event_info_gain", "-1.5");
+    dict.Set("max_event_level_channel_capacity_event", "-1.5");
     EXPECT_THAT(
         MergeAttributionInteropConfig(std::move(dict), config),
-        ErrorIs(HasSubstr("[\"max_event_info_gain\"]: must be \"inf\" or a "
+        ErrorIs(HasSubstr("[\"max_event_level_channel_capacity_event\"]: must "
+                          "be \"inf\" or a "
                           "non-negative double formated as a base-10 string")));
+  }
+}
+
+TEST(AttributionInteropParserTest, InvalidConfigMaxTriggerStateCardinality) {
+  {
+    AttributionInteropConfig config;
+    base::Value::Dict dict;
+    dict.Set("max_trigger_state_cardinality", "0");
+    EXPECT_THAT(MergeAttributionInteropConfig(std::move(dict), config),
+                ErrorIs(HasSubstr(
+                    "[\"max_trigger_state_cardinality\"]: must be a positive "
+                    "integer formatted as base-10 string")));
+  }
+  {
+    AttributionInteropConfig config;
+    base::Value::Dict dict;
+    dict.Set("max_trigger_state_cardinality", "4294967296");
+    EXPECT_THAT(
+        MergeAttributionInteropConfig(std::move(dict), config),
+        ErrorIs(HasSubstr("[\"max_trigger_state_cardinality\"]: must be "
+                          "representable by an unsigned 32-bit integer")));
   }
 }
 

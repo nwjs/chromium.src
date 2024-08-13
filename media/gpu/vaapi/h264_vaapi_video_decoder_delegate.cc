@@ -84,11 +84,12 @@ H264VaapiVideoDecoderDelegate::~H264VaapiVideoDecoderDelegate() = default;
 
 scoped_refptr<H264Picture> H264VaapiVideoDecoderDelegate::CreateH264Picture() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  const auto va_surface = vaapi_dec_->CreateSurface();
-  if (!va_surface)
+  auto va_surface_handle = vaapi_dec_->CreateSurface();
+  if (!va_surface_handle) {
     return nullptr;
+  }
 
-  return new VaapiH264Picture(std::move(va_surface));
+  return new VaapiH264Picture(std::move(va_surface_handle));
 }
 
 // Fill |va_pic| with default/neutral values.
@@ -587,11 +588,8 @@ DecodeStatus H264VaapiVideoDecoderDelegate::SubmitDecode(
   }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   const VaapiH264Picture* vaapi_pic = pic->AsVaapiH264Picture();
-  CHECK(
-      gfx::Rect(vaapi_pic->va_surface()->size()).Contains(pic->visible_rect()));
-
   const bool success = vaapi_wrapper_->ExecuteAndDestroyPendingBuffers(
-      vaapi_pic->va_surface()->id());
+      vaapi_pic->va_surface_id());
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   encryption_segment_info_.clear();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -608,7 +606,7 @@ bool H264VaapiVideoDecoderDelegate::OutputPicture(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   const VaapiH264Picture* vaapi_pic = pic->AsVaapiH264Picture();
-  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface()->id(),
+  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface_id(),
                            vaapi_pic->bitstream_id(), vaapi_pic->visible_rect(),
                            vaapi_pic->get_colorspace());
   return true;
@@ -643,7 +641,7 @@ void H264VaapiVideoDecoderDelegate::FillVAPicture(
   VASurfaceID va_surface_id = VA_INVALID_SURFACE;
 
   if (!pic->nonexisting)
-    va_surface_id = pic->AsVaapiH264Picture()->va_surface()->id();
+    va_surface_id = pic->AsVaapiH264Picture()->va_surface_id();
 
   va_pic->picture_id = va_surface_id;
   va_pic->frame_idx = pic->frame_num;

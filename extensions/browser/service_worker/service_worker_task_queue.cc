@@ -645,6 +645,13 @@ void ServiceWorkerTaskQueue::DidRegisterServiceWorker(
     RegistrationReason reason,
     base::Time start_time,
     blink::ServiceWorkerStatusCode status_code) {
+  const bool success = status_code == blink::ServiceWorkerStatusCode::kOk;
+  base::UmaHistogramBoolean(
+      "Extensions.ServiceWorkerBackground.WorkerRegistrationState", success);
+  if (g_test_observer) {
+    g_test_observer->OnWorkerRegistered(context_id.extension_id);
+  }
+
   ExtensionRegistry* registry = ExtensionRegistry::Get(browser_context_);
   const ExtensionId& extension_id = context_id.extension_id;
   DCHECK(registry);
@@ -659,9 +666,6 @@ void ServiceWorkerTaskQueue::DidRegisterServiceWorker(
 
   WorkerState* worker_state = GetWorkerState(context_id);
   DCHECK(worker_state);
-  const bool success = status_code == blink::ServiceWorkerStatusCode::kOk;
-  base::UmaHistogramBoolean(
-      "Extensions.ServiceWorkerBackground.WorkerRegistrationState", success);
 
   if (reason == RegistrationReason::RE_REGISTER_ON_STATE_MISMATCH) {
     UMA_HISTOGRAM_BOOLEAN(
@@ -707,14 +711,27 @@ void ServiceWorkerTaskQueue::DidRegisterServiceWorker(
 void ServiceWorkerTaskQueue::DidUnregisterServiceWorker(
     const ExtensionId& extension_id,
     const base::UnguessableToken& activation_token,
-    bool success) {
+    blink::ServiceWorkerStatusCode status) {
+  bool success = status == blink::ServiceWorkerStatusCode::kOk;
+  base::UmaHistogramBoolean(
+      "Extensions.ServiceWorkerBackground.WorkerUnregistrationState", success);
+  base::UmaHistogramBoolean(
+      "Extensions.ServiceWorkerBackground.WorkerUnregistrationState_"
+      "DeactivateExtension",
+      success);
+  // TODO(crbug.com/346732739): Emit `status` as a metric.
+
+  if (g_test_observer) {
+    g_test_observer->WorkerUnregistered(extension_id);
+  }
+
   // Extension run with |activation_token| was already deactivated.
   if (!IsCurrentActivation(extension_id, activation_token)) {
     return;
   }
 
-  // TODO(lazyboy): Handle success = false case.
   if (!success) {
+    // TODO(crbug.com/346732739): Handle this case.
     LOG(ERROR) << "Failed to unregister service worker!";
   }
 }

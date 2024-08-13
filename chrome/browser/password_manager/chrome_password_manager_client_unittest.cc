@@ -158,7 +158,7 @@ FormData MakePasswordFormData() {
   field.set_name_attribute(field.name());
   field.set_form_control_type(autofill::FormControlType::kInputPassword);
   field.set_renderer_id(FieldRendererId(123));
-  form_data.fields.push_back(field);
+  form_data.set_fields({field});
 
   return form_data;
 }
@@ -551,9 +551,7 @@ TEST_F(ChromePasswordManagerClientTest, ReceivesAutofillPredictions) {
 
   NavigateAndCommit(GURL(kUrl));
   ContentAutofillDriver* autofill_driver =
-      ContentAutofillClient::FromWebContents(web_contents())
-          ->GetAutofillDriverFactory()
-          ->DriverForFrame(main_rfh());
+      ContentAutofillDriver::GetForRenderFrameHost(main_rfh());
   ASSERT_TRUE(autofill_driver);
 
   FormData form = CreateFormDataForRenderFrameHost(
@@ -598,9 +596,9 @@ TEST_F(ChromePasswordManagerClientTest,
       ContentAutofillClient::FromWebContents(web_contents());
   ASSERT_TRUE(autofill_client);
   ContentAutofillDriver* main_driver =
-      autofill_client->GetAutofillDriverFactory()->DriverForFrame(main_rfh());
+      ContentAutofillDriver::GetForRenderFrameHost(main_rfh());
   ContentAutofillDriver* child_driver =
-      autofill_client->GetAutofillDriverFactory()->DriverForFrame(child_rfh);
+      ContentAutofillDriver::GetForRenderFrameHost(child_rfh);
   ASSERT_TRUE(main_driver);
   ASSERT_TRUE(child_driver);
 
@@ -641,7 +639,9 @@ TEST_F(ChromePasswordManagerClientTest,
   // Even though `OnFieldTypesDetermined` was only called for a single form (the
   // browser form that is the result of merging both forms), password manager
   // receives predictions for both the main and the child form.
-  EXPECT_THAT(GetClient()->GetPasswordManager()->GetFormPredictionsForTesting(),
+  EXPECT_THAT(static_cast<const password_manager::PasswordManager*>(
+                  GetClient()->GetPasswordManager())
+                  ->GetFormPredictionsForTesting(),
               UnorderedElementsAre(Key(CalculateFormSignature(main_form)),
                                    Key(CalculateFormSignature(child_form))));
 }
@@ -738,8 +738,8 @@ TEST_F(ChromePasswordManagerClientTest,
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 // Test that authentication is not possible if the `authenticator` is `nullptr`.
 TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthNoAuthenticator) {
-  EXPECT_FALSE(
-      GetClient()->CanUseBiometricAuthForFilling(/*authenticator=*/nullptr));
+  EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(
+      /*authenticator=*/nullptr));
 }
 
 // Test that authentication is not possible if the device doesn't have
@@ -751,7 +751,7 @@ TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthNoBiometrics) {
       password_manager::prefs::kHadBiometricsAvailable, false);
   profile()->GetTestingPrefService()->SetBoolean(
       password_manager::prefs::kBiometricAuthenticationBeforeFilling, true);
-  EXPECT_FALSE(GetClient()->CanUseBiometricAuthForFilling(&authenticator));
+  EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
 }
 
 // Test that authentication is not possible if the user didn't configure the
@@ -763,7 +763,7 @@ TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthSettingDisabled) {
       password_manager::prefs::kHadBiometricsAvailable, true);
   profile()->GetTestingPrefService()->SetBoolean(
       password_manager::prefs::kBiometricAuthenticationBeforeFilling, false);
-  EXPECT_FALSE(GetClient()->CanUseBiometricAuthForFilling(&authenticator));
+  EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
 }
 
 // Test that authentication is possible if both the biometric authentication
@@ -775,7 +775,7 @@ TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthSettingEnabled) {
       password_manager::prefs::kHadBiometricsAvailable, true);
   profile()->GetTestingPrefService()->SetBoolean(
       password_manager::prefs::kBiometricAuthenticationBeforeFilling, true);
-  EXPECT_TRUE(GetClient()->CanUseBiometricAuthForFilling(&authenticator));
+  EXPECT_TRUE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
 }
 
 #elif BUILDFLAG(IS_ANDROID)
@@ -785,10 +785,10 @@ TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthAndroid) {
     // Authentication is always available for automotive and the `authenticator`
     // is always available.
     device_reauth::MockDeviceAuthenticator authenticator;
-    EXPECT_TRUE(GetClient()->CanUseBiometricAuthForFilling(&authenticator));
+    EXPECT_TRUE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
   } else {
-    EXPECT_FALSE(
-        GetClient()->CanUseBiometricAuthForFilling(/*authenticator=*/nullptr));
+    EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(
+        /*authenticator=*/nullptr));
   }
 }
 
@@ -801,9 +801,9 @@ TEST_F(ChromePasswordManagerClientTest,
     GTEST_SKIP();
   }
   device_reauth::MockDeviceAuthenticator authenticator;
-  ON_CALL(authenticator, CanAuthenticateWithBiometrics)
+  ON_CALL(authenticator, CanAuthenticateWithBiometricOrScreenLock)
       .WillByDefault(Return(true));
-  EXPECT_FALSE(GetClient()->CanUseBiometricAuthForFilling(&authenticator));
+  EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
 }
 
 // Test that authentication is not possible if the
@@ -815,17 +815,25 @@ TEST_F(ChromePasswordManagerClientTest,
   if (base::android::BuildInfo::GetInstance()->is_automotive()) {
     GTEST_SKIP();
   }
+  base::HistogramTester histogram_tester;
   base::test::ScopedFeatureList enabled_features(
       password_manager::features::kBiometricTouchToFill);
   device_reauth::MockDeviceAuthenticator authenticator;
-  ON_CALL(authenticator, CanAuthenticateWithBiometrics)
+  ON_CALL(authenticator, CanAuthenticateWithBiometricOrScreenLock)
       .WillByDefault(Return(false));
-  EXPECT_FALSE(GetClient()->CanUseBiometricAuthForFilling(&authenticator));
+  EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.BiometricAuthPwdFillAndroid."
+      "CanAuthenticateWithBiometricOrScreenLock",
+      false, 1);
 }
 
-// Test that authentication is possible if the `CanAuthenticateWithBiometrics`
-// returns `true` when `kBiometricTouchToFill` is enabled.
-TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthAndroidAuthEnabled) {
+// Test that authentication is not possible if the
+// `CanAuthenticateWithBiometrics` returns `true`, but the
+// `kBiometricReauthBeforePwdFilling` pref is set to false when
+// `kBiometricTouchToFill` is enabled.
+TEST_F(ChromePasswordManagerClientTest,
+       CanUseBiometricAuthAndroidPrefDisabled) {
   // Authentication is always available for automotive.
   if (base::android::BuildInfo::GetInstance()->is_automotive()) {
     GTEST_SKIP();
@@ -833,16 +841,54 @@ TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthAndroidAuthEnabled) {
   base::test::ScopedFeatureList enabled_features(
       password_manager::features::kBiometricTouchToFill);
   device_reauth::MockDeviceAuthenticator authenticator;
-  ON_CALL(authenticator, CanAuthenticateWithBiometrics)
+  ON_CALL(authenticator, CanAuthenticateWithBiometricOrScreenLock)
       .WillByDefault(Return(true));
-  EXPECT_TRUE(GetClient()->CanUseBiometricAuthForFilling(&authenticator));
+  EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
+}
+
+// Test that authentication is possible if the `CanAuthenticateWithBiometrics`
+// returns `true` and the `kBiometricReauthBeforePwdFilling` pref is set to true
+// when `kBiometricTouchToFill` is enabled.
+TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthAndroidAuthEnabled) {
+  // Authentication is always available for automotive.
+  if (base::android::BuildInfo::GetInstance()->is_automotive()) {
+    GTEST_SKIP();
+  }
+
+  base::HistogramTester histogram_tester;
+  base::test::ScopedFeatureList enabled_features(
+      password_manager::features::kBiometricTouchToFill);
+  device_reauth::MockDeviceAuthenticator authenticator;
+  profile()->GetTestingPrefService()->SetBoolean(
+      password_manager::prefs::kBiometricAuthenticationBeforeFilling, true);
+  ON_CALL(authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
+  EXPECT_TRUE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.BiometricAuthPwdFillAndroid."
+      "CanAuthenticateWithBiometricOrScreenLock",
+      true, 1);
+}
+
+// Test that authentication is possible if the `CanAuthenticateWithBiometrics`
+// returns `true` on auto regardless of the pref and flag value.
+TEST_F(ChromePasswordManagerClientTest,
+       CanUseBiometricAuthAndroidAlwaysTrueOnAutomotive) {
+  // Authentication is always available for automotive.
+  if (!base::android::BuildInfo::GetInstance()->is_automotive()) {
+    GTEST_SKIP();
+  }
+  device_reauth::MockDeviceAuthenticator authenticator;
+  ON_CALL(authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
+  EXPECT_TRUE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
 }
 
 #else
 // Test that authentication is not possible on other platforms.
 TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuth) {
   device_reauth::MockDeviceAuthenticator authenticator;
-  EXPECT_FALSE(GetClient()->CanUseBiometricAuthForFilling(&authenticator));
+  EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(&authenticator));
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -1103,7 +1149,7 @@ TEST_F(ChromePasswordManagerClientTest,
       base::MakeRefCounted<safe_browsing::TestSafeBrowsingUIManager>();
   security_interstitials::UnsafeResource resource;
   safe_browsing::SafeBrowsingUserInteractionObserver::CreateForWebContents(
-      test_web_contents.get(), resource, /* is_main_frame= */ true, ui_manager);
+      test_web_contents.get(), resource, ui_manager);
   autofill::ChromeAutofillClient::CreateForWebContents(test_web_contents.get());
   MockChromePasswordManagerClient* client =
       MockChromePasswordManagerClient::CreateForWebContentsAndGet(
@@ -1343,7 +1389,7 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
       RefreshSuggestionsForField(FocusedFieldType::kFillablePasswordField,
                                  /*is_manual_generation_available=*/false));
   GetClient()->FocusedInputChanged(driver.get(),
-                                   observed_form_data.fields[0].renderer_id(),
+                                   observed_form_data.fields()[0].renderer_id(),
                                    FocusedFieldType::kFillablePasswordField);
 }
 
@@ -1394,7 +1440,7 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
       RefreshSuggestionsForField(FocusedFieldType::kFillablePasswordField,
                                  /*is_manual_generation_available=*/true));
   GetClient()->FocusedInputChanged(driver.get(),
-                                   observed_form_data.fields[0].renderer_id(),
+                                   observed_form_data.fields()[0].renderer_id(),
                                    FocusedFieldType::kFillablePasswordField);
 }
 
@@ -1435,7 +1481,7 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
       RefreshSuggestionsForField(FocusedFieldType::kFillablePasswordField,
                                  /*is_manual_generation_available=*/true));
   GetClient()->FocusedInputChanged(driver.get(),
-                                   observed_form_data.fields[0].renderer_id(),
+                                   observed_form_data.fields()[0].renderer_id(),
                                    FocusedFieldType::kFillablePasswordField);
 }
 
@@ -1578,11 +1624,9 @@ class ChromePasswordManagerClientWithAccountStoreAndroidTest
     // Using the account store on Android requires enabling the flag for UPM
     // support of local passwords. Skip the Gms version check, otherwise the
     // flag won't do anything in bots that have outdated GmsCore.
-    feature_list_.InitWithFeatures(
-        {password_manager::features::
-             kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration,
-         password_manager::features::kSharedPasswordNotificationUI},
-        {});
+    feature_list_.InitAndEnableFeature(
+        password_manager::features::
+            kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration);
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
         switches::kSkipLocalUpmGmsCoreVersionCheckForTesting);
 

@@ -12,6 +12,7 @@
 #include "components/autofill/core/browser/payments/credit_card_access_manager_test_api.h"
 #include "components/autofill/core/browser/payments/credit_card_cvc_authenticator.h"
 #include "components/autofill/core/browser/payments/iban_save_manager.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
 #include "components/autofill/core/browser/payments_data_manager.h"
@@ -156,7 +157,7 @@ void AutofillMetricsBaseTest::SetFidoEligibility(bool is_verifiable) {
 }
 
 void AutofillMetricsBaseTest::OnDidGetRealPan(
-    AutofillClient::PaymentsRpcResult result,
+    payments::PaymentsAutofillClient::PaymentsRpcResult result,
     const std::string& real_pan,
     bool is_virtual_card) {
   payments::FullCardRequest* full_card_request =
@@ -173,9 +174,10 @@ void AutofillMetricsBaseTest::OnDidGetRealPan(
   full_card_request->OnUnmaskPromptAccepted(details);
 
   payments::PaymentsNetworkInterface::UnmaskResponseDetails response;
-  response.card_type = is_virtual_card
-                           ? AutofillClient::PaymentsRpcCardType::kVirtualCard
-                           : AutofillClient::PaymentsRpcCardType::kServerCard;
+  response.card_type =
+      is_virtual_card
+          ? payments::PaymentsAutofillClient::PaymentsRpcCardType::kVirtualCard
+          : payments::PaymentsAutofillClient::PaymentsRpcCardType::kServerCard;
   full_card_request->OnDidGetRealPan(result, response.with_real_pan(real_pan));
 }
 
@@ -196,7 +198,8 @@ void AutofillMetricsBaseTest::OnDidGetRealPanWithNonHttpOkResponse() {
   payments::PaymentsNetworkInterface::UnmaskResponseDetails response;
   // Don't set |response.card_type|, so that it stays as kUnknown.
   full_card_request->OnDidGetRealPan(
-      AutofillClient::PaymentsRpcResult::kPermanentFailure, response);
+      payments::PaymentsAutofillClient::PaymentsRpcResult::kPermanentFailure,
+      response);
 }
 
 void AutofillMetricsBaseTest::OnCreditCardFetchingSuccessful(
@@ -218,19 +221,16 @@ void AutofillMetricsBaseTest::OnCreditCardFetchingFailed() {
 void AutofillMetricsBaseTest::RecreateCreditCards(
     bool include_local_credit_card,
     bool include_masked_server_credit_card,
-    bool include_full_server_credit_card,
     bool masked_card_is_enrolled_for_virtual_card) {
   personal_data().test_payments_data_manager().ClearCreditCards();
   CreateCreditCards(include_local_credit_card,
                     include_masked_server_credit_card,
-                    include_full_server_credit_card,
                     masked_card_is_enrolled_for_virtual_card);
 }
 
 void AutofillMetricsBaseTest::CreateCreditCards(
     bool include_local_credit_card,
     bool include_masked_server_credit_card,
-    bool include_full_server_credit_card,
     bool masked_card_is_enrolled_for_virtual_card) {
   if (include_local_credit_card) {
     CreditCard local_credit_card = test::GetCreditCard();
@@ -250,14 +250,6 @@ void AutofillMetricsBaseTest::CreateCreditCards(
     }
     personal_data().test_payments_data_manager().AddServerCreditCard(
         masked_server_credit_card);
-  }
-  if (include_full_server_credit_card) {
-    CreditCard full_server_credit_card(CreditCard::RecordType::kFullServerCard,
-                                       "server_id_2");
-    full_server_credit_card.set_guid("10000000-0000-0000-0000-000000000003");
-    full_server_credit_card.set_instrument_id(2);
-    personal_data().test_payments_data_manager().AddServerCreditCard(
-        full_server_credit_card);
   }
 }
 

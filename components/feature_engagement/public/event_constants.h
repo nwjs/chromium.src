@@ -143,29 +143,13 @@ extern const char kPasswordManagerWidgetPromoUsed[];
 // The Password Manager widget promo was closed.
 extern const char kPasswordManagerWidgetPromoClosed[];
 
-// The user has taken an action that is a criterion towards becoming eligible to
-// be shown the blue dot default browser promo.
-extern const char kBlueDotPromoCriterionMet[];
-
-// The user has met all criteria and has become eligible to be shown the blue
-// dot default browser promo.
-extern const char kBlueDotPromoEligibilityMet[];
-
 // The user has been shown the blue dot default browser promo on the overflow
 // carousel.
 extern const char kBlueDotPromoOverflowMenuShown[];
 
-// The user has been shown the blue dot default browser promo on the overflow
-// carousel, for a new user session. (i.e. after 6 hours from last shown).
-extern const char kBlueDotPromoOverflowMenuShownNewSession[];
-
 // The user has been shown the blue dot default browser promo on the settings
 // row.
 extern const char kBlueDotPromoSettingsShown[];
-
-// The user has been shown the blue dot default browser promo on the settings
-// row, after a new user session (i.e. after 6 hours from last shown).
-extern const char kBlueDotPromoSettingsShownNewSession[];
 
 // The user has dismissed the blue dot default browser promo on the overflow
 // carousel.
@@ -174,6 +158,10 @@ extern const char kBlueDotPromoOverflowMenuDismissed[];
 // The user has dismissed the blue dot default browser promo on the settings
 // row.
 extern const char kBlueDotPromoSettingsDismissed[];
+
+// The user has customized the overflow menu while default browser blue dot was
+// showing.
+extern const char kBlueDotOverflowMenuCustomized[];
 
 // The user snoozed the Credential Provider Extension Promo.
 extern const char kCredentialProviderExtensionPromoSnoozed[];
@@ -299,6 +287,14 @@ extern const char kTailoredDefaultBrowserPromosGroupTrigger[];
 // The user has met the conditions for default browser trigger criteria
 // experiment.
 extern const char kDefaultBrowserPromoTriggerCriteriaConditionsMet[];
+
+// The user has tapped the contextual panel entrypoint when it was showing the
+// sample model info.
+extern const char kIOSContextualPanelSampleModelEntrypointUsed[];
+
+// The user has tapped the contextual panel entrypoint when it was branded with
+// price insights infoblock.
+extern const char kIOSContextualPanelPriceInsightsEntrypointUsed[];
 
 #endif  // BUILDFLAG(IS_IOS)
 

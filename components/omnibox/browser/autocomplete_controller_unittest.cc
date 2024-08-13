@@ -15,6 +15,7 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/omnibox/browser/actions/omnibox_answer_action.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
@@ -29,6 +30,8 @@
 #include "components/search_engines/template_url_starter_pack_data.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/omnibox_proto/answer_type.pb.h"
+#include "third_party/omnibox_proto/rich_answer_template.pb.h"
 
 class AutocompleteControllerTest : public testing::Test {
  public:
@@ -198,74 +201,10 @@ class AutocompleteControllerTest : public testing::Test {
   FakeAutocompleteController controller_;
 };
 
-TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage_LeastAggressive) {
-  // Set feature flag and param.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox::kCompanyEntityIconAdjustment,
-      {{OmniboxFieldTrial::kCompanyEntityIconAdjustmentGroup.name,
-        "least-aggressive"}});
+TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage) {
   std::vector<AutocompleteMatch> matches;
-  // In the least aggressive experiment group the historical match must be the
-  // first match and the company entity must be the second match to replace the
-  // entity's image.
-  matches.push_back(
-      CreateHistoryURLMatch(/*destination_url=*/"https://www.wellsfargo.com/"));
-  matches.push_back(
-      CreateCompanyEntityMatch(/*website_uri=*/"https://www.wellsfargo.com/"));
-  matches.push_back(CreateSearchMatch());
-
-  SetAutocompleteMatches(matches);
-  ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/1));
-
-  MaybeRemoveCompanyEntityImages();
-  ASSERT_TRUE(ImageURLAndImageDominantColorIsEmpty(/*index=*/1));
-  EXPECT_TRUE(
-      provider_client()
-          ->GetOmniboxTriggeredFeatureService()
-          ->GetFeatureTriggeredInSession(
-              metrics::OmniboxEventProto_Feature_COMPANY_ENTITY_ADJUSTMENT));
-}
-
-TEST_F(AutocompleteControllerTest,
-       CompanyEntityImageNotRemoved_LeastAggressive) {
-  // Set feature flag and param.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox::kCompanyEntityIconAdjustment,
-      {{OmniboxFieldTrial::kCompanyEntityIconAdjustmentGroup.name,
-        "least-aggressive"}});
-  std::vector<AutocompleteMatch> matches;
-  // Entity is not the second suggestion. Entity's image should not be removed.
-  matches.push_back(
-      CreateHistoryURLMatch(/*destination_url=*/"https://www.wellsfargo.com/"));
-  matches.push_back(CreateSearchMatch());
-  matches.push_back(
-      CreateCompanyEntityMatch(/*website_uri=*/"https://www.wellsfargo.com/"));
-
-  SetAutocompleteMatches(matches);
-  ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/2));
-
-  MaybeRemoveCompanyEntityImages();
-  // The entity's image_url should remain as is.
-  ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/2));
-  EXPECT_FALSE(
-      provider_client()
-          ->GetOmniboxTriggeredFeatureService()
-          ->GetFeatureTriggeredInSession(
-              metrics::OmniboxEventProto_Feature_COMPANY_ENTITY_ADJUSTMENT));
-}
-
-TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage_Moderate) {
-  // Set feature flag and param.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox::kCompanyEntityIconAdjustment,
-      {{OmniboxFieldTrial::kCompanyEntityIconAdjustmentGroup.name,
-        "moderate"}});
-  std::vector<AutocompleteMatch> matches;
-  // In the moderate experiment group the historical match must be the first
-  // match and the company entity can be in any slot.
+  // To ablate entity image the historical match must be the first and the
+  // company entity can be in any other slot.
   matches.push_back(
       CreateHistoryURLMatch(/*destination_url=*/"https://www.wellsfargo.com/"));
   matches.push_back(CreateSearchMatch());
@@ -277,20 +216,9 @@ TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage_Moderate) {
 
   MaybeRemoveCompanyEntityImages();
   ASSERT_TRUE(ImageURLAndImageDominantColorIsEmpty(/*index=*/2));
-  EXPECT_TRUE(
-      provider_client()
-          ->GetOmniboxTriggeredFeatureService()
-          ->GetFeatureTriggeredInSession(
-              metrics::OmniboxEventProto_Feature_COMPANY_ENTITY_ADJUSTMENT));
 }
 
-TEST_F(AutocompleteControllerTest, CompanyEntityImageNotRemoved_Moderate) {
-  // Set feature flag and param.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox::kCompanyEntityIconAdjustment,
-      {{OmniboxFieldTrial::kCompanyEntityIconAdjustmentGroup.name,
-        "moderate"}});
+TEST_F(AutocompleteControllerTest, CompanyEntityImageNotRemoved) {
   std::vector<AutocompleteMatch> matches;
   // History match is not the first suggestion. Entity's image should not be
   // removed.
@@ -306,39 +234,6 @@ TEST_F(AutocompleteControllerTest, CompanyEntityImageNotRemoved_Moderate) {
   MaybeRemoveCompanyEntityImages();
   // The entity's image_url should remain as is.
   ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/0));
-  EXPECT_FALSE(
-      provider_client()
-          ->GetOmniboxTriggeredFeatureService()
-          ->GetFeatureTriggeredInSession(
-              metrics::OmniboxEventProto_Feature_COMPANY_ENTITY_ADJUSTMENT));
-}
-
-TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage_MostAggressive) {
-  // Set feature flag and param.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox::kCompanyEntityIconAdjustment,
-      {{OmniboxFieldTrial::kCompanyEntityIconAdjustmentGroup.name,
-        "most-aggressive"}});
-  std::vector<AutocompleteMatch> matches;
-  // In the most aggressive experiment group both the historical match and
-  // company entity can be in any slot.
-  matches.push_back(
-      CreateCompanyEntityMatch(/*website_uri=*/"https://www.wellsfargo.com/"));
-  matches.push_back(CreateSearchMatch());
-  matches.push_back(
-      CreateHistoryURLMatch(/*destination_url=*/"https://www.wellsfargo.com/"));
-
-  SetAutocompleteMatches(matches);
-  ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/0));
-
-  MaybeRemoveCompanyEntityImages();
-  ASSERT_TRUE(ImageURLAndImageDominantColorIsEmpty(/*index=*/0));
-  EXPECT_TRUE(
-      provider_client()
-          ->GetOmniboxTriggeredFeatureService()
-          ->GetFeatureTriggeredInSession(
-              metrics::OmniboxEventProto_Feature_COMPANY_ENTITY_ADJUSTMENT));
 }
 
 // Desktop has some special handling for bare '@' inputs.
@@ -1065,41 +960,42 @@ TEST_F(AutocompleteControllerTest, MlRanking) {
 }
 
 TEST_F(AutocompleteControllerTest, MlRanking_ApplyPiecewiseScoringTransform) {
-  OmniboxFieldTrial::ScopedMLConfigForTesting scoped_ml_config;
-  scoped_ml_config.GetMLConfig().ml_url_scoring = true;
-  scoped_ml_config.GetMLConfig().url_scoring_model = true;
-  scoped_ml_config.GetMLConfig().piecewise_mapped_search_blending = true;
-
-  float ml_score = 0;
   const std::vector<std::pair<double, int>> break_points = {
       {0, 500}, {0.25, 1000}, {0.75, 1300}, {1, 1500}};
 
-  ml_score = 0;
-  EXPECT_EQ(controller_.ApplyPiecewiseScoringTransform(ml_score, break_points),
+  float ml_score = 0;
+  EXPECT_EQ(AutocompleteController::ApplyPiecewiseScoringTransform(
+                ml_score, break_points),
             500);
 
   ml_score = 0.186;
-  EXPECT_EQ(controller_.ApplyPiecewiseScoringTransform(ml_score, break_points),
+  EXPECT_EQ(AutocompleteController::ApplyPiecewiseScoringTransform(
+                ml_score, break_points),
             872);
 
   ml_score = 0.25;
-  EXPECT_EQ(controller_.ApplyPiecewiseScoringTransform(ml_score, break_points),
+  EXPECT_EQ(AutocompleteController::ApplyPiecewiseScoringTransform(
+                ml_score, break_points),
             1000);
 
   ml_score = 0.473;
-  EXPECT_EQ(controller_.ApplyPiecewiseScoringTransform(ml_score, break_points),
+  EXPECT_EQ(AutocompleteController::ApplyPiecewiseScoringTransform(
+                ml_score, break_points),
             1133);
 
   ml_score = 0.75;
-  EXPECT_EQ(controller_.ApplyPiecewiseScoringTransform(ml_score, break_points),
+  EXPECT_EQ(AutocompleteController::ApplyPiecewiseScoringTransform(
+                ml_score, break_points),
             1300);
 
   ml_score = 0.914;
-  EXPECT_EQ(controller_.ApplyPiecewiseScoringTransform(ml_score, break_points),
+  EXPECT_EQ(AutocompleteController::ApplyPiecewiseScoringTransform(
+                ml_score, break_points),
             1431);
 
   ml_score = 1;
-  EXPECT_EQ(controller_.ApplyPiecewiseScoringTransform(ml_score, break_points),
+  EXPECT_EQ(AutocompleteController::ApplyPiecewiseScoringTransform(
+                ml_score, break_points),
             1500);
 }
 
@@ -2252,3 +2148,88 @@ TEST_F(AutocompleteControllerTest, ShouldRunProvider_LensSearchbox) {
         << AutocompleteProvider::TypeToString(provider->type());
   }
 }
+
+TEST_F(AutocompleteControllerTest, UpdateSearchboxStatsForAnswerAction) {
+  // Populate TemplateURLService with a keyword.
+  TemplateURLData turl_data;
+  turl_data.SetShortName(u"Keyword");
+  turl_data.SetKeyword(u"keyword");
+  turl_data.SetURL("https://google.com/search?q={searchTerms}");
+  controller_.template_url_service_->Add(
+      std::make_unique<TemplateURL>(turl_data));
+
+  omnibox::SuggestionEnhancement enhancement;
+  enhancement.set_display_text("Similar and opposite words");
+  auto answer_action = base::MakeRefCounted<OmniboxAnswerAction>(
+      std::move(enhancement), TemplateURLRef::SearchTermsArgs(),
+      omnibox::ANSWER_TYPE_DICTIONARY);
+  AutocompleteMatch match1 = CreateSearchMatch("match1", true, 1300);
+  match1.actions.push_back(answer_action);
+
+  controller_.Stop(true);
+  EXPECT_THAT(controller_.SimulateAutocompletePass(
+                  /*sync=*/true, /*done=*/true,
+                  {match1, CreateSearchMatch("match2", true, 1200),
+                   CreateSearchMatch("match3", true, 1100)}),
+              testing::ElementsAreArray({
+                  "match1",
+                  "match2",
+                  "match3",
+              }));
+
+  EXPECT_EQ(
+      answer_action->search_terms_args.searchbox_stats.SerializeAsString(),
+      controller_.published_result_.match_at(0)
+          ->search_terms_args->searchbox_stats.SerializeAsString());
+}
+
+// Anroid and iOS have different handling for pedals.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+TEST_F(AutocompleteControllerTest, NoPedalsAttachedToLensSearchboxMatches) {
+  std::unordered_map<OmniboxPedalId, scoped_refptr<OmniboxPedal>> pedals;
+  const auto add = [&](OmniboxPedal* pedal) {
+    pedals.insert(
+        std::make_pair(pedal->PedalId(), base::WrapRefCounted(pedal)));
+  };
+  add(new TestOmniboxPedalClearBrowsingData());
+  provider_client()->set_pedal_provider(std::make_unique<OmniboxPedalProvider>(
+      *provider_client(), std::move(pedals)));
+  EXPECT_NE(nullptr, provider_client()->GetPedalProvider());
+
+  // Create input with lens searchbox page classification.
+  controller_.input_ = AutocompleteInput(
+      u"Clear History", metrics::OmniboxEventProto::LENS_SIDE_PANEL_SEARCHBOX,
+      TestSchemeClassifier());
+
+  SetAutocompleteMatches({
+      CreateSearchMatch(u"Clear History"),
+      CreateSearchMatch(u"search 1"),
+      CreateSearchMatch(u"search 2"),
+  });
+
+  controller_.AttachActions();
+
+  // For a Lens Searchbox, AttachActions should not attach a pedal to the
+  // first match, and therefore it won't get split out into a separate pedal
+  // match.
+  EXPECT_EQ(nullptr, controller_.internal_result_.match_at(1)->takeover_action);
+
+  controller_.input_ =
+      AutocompleteInput(u"Clear History", metrics::OmniboxEventProto::OTHER,
+                        TestSchemeClassifier());
+
+  SetAutocompleteMatches({
+      CreateSearchMatch(u"Clear History"),
+      CreateSearchMatch(u"search 1"),
+      CreateSearchMatch(u"search 2"),
+  });
+
+  controller_.AttachActions();
+
+  // For any other page classification, AttachActions should attach a pedal to
+  // the first match and split it out into a separate action.
+  EXPECT_EQ(
+      OmniboxActionId::PEDAL,
+      controller_.internal_result_.match_at(1)->takeover_action->ActionId());
+}
+#endif

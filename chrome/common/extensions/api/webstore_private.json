@@ -111,12 +111,15 @@
         }, {
           "name": "force_installed",
           "description": "The extension is force installed or recommended by policy."
+        }, {
+          "name": "deprecated_manifest_version",
+          "description": "The extension uses a deprecated manifest version that is no longer supported by Chrome."
         }]
       },
       {
         "id": "MV2DeprecationStatus",
         "type": "string",
-        "enum": ["inactive", "warning"]
+        "enum": ["inactive", "warning", "soft_disable"]
       }
     ],
     "functions": [

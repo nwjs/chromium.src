@@ -96,7 +96,7 @@ const base::FeatureParam<AlignFontDisplayAutoTimeoutWithLCPGoalMode>
 
 BASE_FEATURE(kAllowDatapipeDrainedAsBytesConsumerInBFCache,
              "AllowDatapipeDrainedAsBytesConsumerInBFCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAllowDevToolsMainThreadDebuggerForMultipleMainFrames,
              "AllowDevToolsMainThreadDebuggerForMultipleMainFrames",
@@ -166,7 +166,7 @@ BASE_FEATURE(kAudioWorkletThreadPool,
 // inside Shadow DOM.
 BASE_FEATURE(kAutofillIncludeShadowDomInUnassociatedListedElements,
              "AutofillIncludeShadowDomInUnassociatedListedElements",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, Autofill extracts all top level shadow DOM form elements of a
 // document. Additionally, the shadow-tree-including form control elements of a
@@ -175,7 +175,7 @@ BASE_FEATURE(kAutofillIncludeShadowDomInUnassociatedListedElements,
 // itself is a descendant of `f`).
 BASE_FEATURE(kAutofillIncludeFormElementsInShadowDom,
              "AutofillIncludeFormElementsInShadowDom",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If disabled (default for many years), autofilling triggers KeyDown and
 // KeyUp events that do not send any key codes. If enabled, these events
@@ -283,16 +283,11 @@ BASE_FEATURE(kBackgroundResourceFetch,
              "BackgroundResourceFetch",
              base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<bool> kBackgroundFontResponseProcessor{
-    &kBackgroundResourceFetch, "background-font-response-processor",
-// Disabled on Windows. See https://crbug.com/344108551.
-#if BUILDFLAG(IS_WIN)
-    false
-#else
-    true
-#endif
-};
+    &kBackgroundResourceFetch, "background-font-response-processor", true};
 const base::FeatureParam<bool> kBackgroundScriptResponseProcessor{
     &kBackgroundResourceFetch, "background-script-response-processor", true};
+const base::FeatureParam<bool> kBackgroundCodeCacheDecoderStart{
+    &kBackgroundResourceFetch, "background-code-cache-decoder-start", true};
 
 // Redefine the oklab and oklch spaces to have gamut mapping baked into them.
 // https://crbug.com/1508329
@@ -497,11 +492,6 @@ BASE_FEATURE(kGetUserMediaDeferredDeviceSettingsSelection,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// Whether to losslessly compress the resulting image after canvas hibernation.
-BASE_FEATURE(kCanvasCompressHibernatedImage,
-             "CanvasCompressHibernatedImage",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When hibernating, make sure that the just-used transfer memory (to transfer
 // the snapshot) is freed.
 BASE_FEATURE(kCanvas2DHibernationReleaseTransferMemory,
@@ -618,10 +608,6 @@ BASE_FEATURE(kCrabbyAvif, "CrabbyAvif", base::FEATURE_DISABLED_BY_DEFAULT);
 // and renders the image as encoded.
 BASE_FEATURE(kCreateImageBitmapOrientationNone,
              "CreateImageBitmapOrientationNone",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kDOMContentLoadedWaitForAsyncScript,
-             "DOMContentLoadedWaitForAsyncScript",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, pages that don't specify a layout width will default to the
@@ -885,7 +871,7 @@ BASE_FEATURE(kFencedFramesCrossOriginAutomaticBeacons,
 // `content/public/common/content_features.cc` for more information.
 BASE_FEATURE(kFencedFramesCrossOriginEventReportingUnlabeledTraffic,
              "FencedFramesCrossOriginEventReportingUnlabeledTraffic",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // The "AllTraffic" flag allows the feature for all traffic regardless of label.
 BASE_FEATURE(kFencedFramesCrossOriginEventReportingAllTraffic,
              "FencedFramesCrossOriginEventReportingAllTraffic",
@@ -948,7 +934,7 @@ const base::FeatureParam<std::string> kFilteringScrollPredictionFilterParam{
 
 // See https://github.com/WICG/turtledove/blob/main/FLEDGE.md
 // Enables FLEDGE implementation. See https://crbug.com/1186444.
-BASE_FEATURE(kFledge, "Fledge", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFledge, "Fledge", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // See
 // https://github.com/WICG/turtledove/blob/main/FLEDGE_browser_bidding_and_auction_API.md
@@ -1006,8 +992,7 @@ BASE_FEATURE(kFledgeSplitTrustedSignalsFetchingURL,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kFledgeCustomMaxAuctionAdComponentsValue{
-    &kFledgeCustomMaxAuctionAdComponents, "FledgeAdComponentLimit",
-    kMaxAdAuctionAdComponentsDefault};
+    &kFledgeCustomMaxAuctionAdComponents, "FledgeAdComponentLimit", 40};
 
 BASE_FEATURE(kFledgeNumberBidderWorkletGroupByOriginContextsToKeep,
              "FledgeBidderWorkletGroupByOriginContextsToKeep",
@@ -1042,6 +1027,12 @@ const base::FeatureParam<base::TimeDelta> kFledgeRealTimeReportingWindow{
     base::Seconds(20)};
 const base::FeatureParam<int> kFledgeRealTimeReportingMaxReports{
     &kFledgeRealTimeReporting, "FledgeRealTimeReportingMaxReports", 10};
+
+// Enable enforcement of permission policy for
+// privateAggregation.contributeToHistogramOnEvent.
+BASE_FEATURE(kFledgeEnforcePermissionPolicyContributeOnEvent,
+             "FledgeEnforcePermissionPolicyContributeOnEvent",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kForceHighPerformanceGPUForWebGL,
              "ForceHighPerformanceGPUForWebGL",
@@ -1393,6 +1384,17 @@ const base::FeatureParam<double> kLCPPFontURLPredictorThresholdInMbps{
 const base::FeatureParam<std::string> kLCPPFontURLPredictorExcludedHosts{
     &kLCPPFontURLPredictor, "lcpp_font_prefetch_excluded_hosts", ""};
 
+BASE_FEATURE(kLCPPInitiatorOrigin,
+             "LCPPInitiatorOrigin",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kLcppInitiatorOriginHistogramSlidingWindowSize{
+    &kLCPPInitiatorOrigin,
+    "lcpp_initiator_origin_histogram_sliding_window_size", 10000};
+
+const base::FeatureParam<int> kLcppInitiatorOriginMaxHistogramBuckets{
+    &kLCPPInitiatorOrigin, "lcpp_initiator_origin_max_histogram_buckets", 100};
+
 BASE_FEATURE(kLCPPLazyLoadImagePreload,
              "LCPPLazyLoadImagePreload",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1412,6 +1414,19 @@ const base::FeatureParam<LcppPreloadLazyLoadImageType>
     kLCPCriticalPathPredictorPreloadLazyLoadImageType{
         &kLCPPLazyLoadImagePreload, "lcpp_preload_lazy_load_image_type",
         LcppPreloadLazyLoadImageType::kNone, &lcpp_preload_lazy_load_image};
+
+BASE_FEATURE(kPreloadSystemFonts,
+             "PreloadSystemFonts",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<std::string> kPreloadSystemFontsTargets{
+    &kPreloadSystemFonts, "preload_system_fonts_targets", "[]"};
+
+const base::FeatureParam<bool> kPreloadSystemFontsFromPage{
+    &kPreloadSystemFonts, "preload_system_fonts_from_page", false};
+
+const base::FeatureParam<int> kPreloadSystemFontsRequiredMemoryGB{
+    &kPreloadSystemFonts, "preload_system_fonts_required_memory_gb", 4};
 
 BASE_FEATURE(kLCPPMultipleKey,
              "LCPPMultipleKey",
@@ -1516,11 +1531,11 @@ BASE_FEATURE(kLogUnexpectedIPCPostedToBackForwardCachedDocuments,
 // (Canvas2DImageChromium is disabled).
 BASE_FEATURE(kLowLatencyCanvas2dImageChromium,
              "LowLatencyCanvas2dImageChromium",
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
-#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 );
 
 // Allow low latency WebGL to be in overlay (generally meaning scanned out
@@ -1528,7 +1543,12 @@ BASE_FEATURE(kLowLatencyCanvas2dImageChromium,
 // (WebGLImageChromium is disabled).
 BASE_FEATURE(kLowLatencyWebGLImageChromium,
              "LowLatencyWebGLImageChromium",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kLowPriorityAsyncScriptExecution,
              "LowPriorityAsyncScriptExecution",
@@ -1759,9 +1779,13 @@ BASE_FEATURE(kPath2DPaintCache,
 
 // Enable browser-initiated dedicated worker script loading
 // (PlzDedicatedWorker). https://crbug.com/906991
-BASE_FEATURE(kPlzDedicatedWorker,
-             "PlzDedicatedWorker",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+// TODO(350785857): remove the non-plzdedicatedworker path.
+#if BUILDFLAG(IS_FUCHSIA)
+#define DISABLED_ON_FUCHSIA base::FEATURE_DISABLED_BY_DEFAULT
+#else
+#define DISABLED_ON_FUCHSIA base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+BASE_FEATURE(kPlzDedicatedWorker, "PlzDedicatedWorker", DISABLED_ON_FUCHSIA);
 
 BASE_FEATURE(kDedicatedWorkerAblationStudyEnabled,
              "DedicatedWorkerAblationStudyEnabled",
@@ -1769,39 +1793,6 @@ BASE_FEATURE(kDedicatedWorkerAblationStudyEnabled,
 
 const base::FeatureParam<int> kDedicatedWorkerStartDelayInMs = {
     &kDedicatedWorkerAblationStudyEnabled, "DedicatedWorkerStartDelayInMs", 0};
-
-BASE_FEATURE(
-    kPostMessageFirstPartyToThirdPartyDifferentBucketSameOriginBlocked,
-    "PostMessageFirstPartyToThirdPartyDifferentBucketSameOriginBlocked",
-    base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(
-    kPostMessageFirstPartyToThirdPartyDifferentBucketSameOriginBlockedIfStorageIsPartitioned,
-    "PostMessageFirstPartyToThirdPartyDifferentBucketSameOriginBlockedIfStorage"
-    "IsPartitioned",
-    base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(
-    kPostMessageThirdPartyToFirstPartyDifferentBucketSameOriginBlocked,
-    "PostMessageThirdPartyToFirstPartyDifferentBucketSameOriginBlocked",
-    base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(
-    kPostMessageThirdPartyToFirstPartyDifferentBucketSameOriginBlockedIfStorageIsPartitioned,
-    "PostMessageThirdPartyToFirstPartyDifferentBucketSameOriginBlockedIfStorage"
-    "IsPartitioned",
-    base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(
-    kPostMessageThirdPartyToThirdPartyDifferentBucketSameOriginBlocked,
-    "PostMessageThirdPartyToThirdPartyDifferentBucketSameOriginBlocked",
-    base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(
-    kPostMessageThirdPartyToThirdPartyDifferentBucketSameOriginBlockedIfStorageIsPartitioned,
-    "PostMessageThirdPartyToThirdPartyDifferentBucketSameOriginBlockedIfStorage"
-    "IsPartitioned",
-    base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPreInitializePageAndFrameForSVGImage,
              "PreInitializePageAndFrameForSVGImage",
@@ -1854,6 +1845,10 @@ const base::FeatureParam<int> kPreloadingModelTimerInterval{
     &kPreloadingHeuristicsMLModel, "timer_interval", 100};
 const base::FeatureParam<bool> kPreloadingModelOneExecutionPerHover{
     &kPreloadingHeuristicsMLModel, "one_execution_per_hover", true};
+// The default max hover time of 10s covers the 98th percentile of hovering
+// cases that are relevant to the model.
+const base::FeatureParam<base::TimeDelta> kPreloadingModelMaxHoverTime{
+    &kPreloadingHeuristicsMLModel, "max_hover_time", base::Seconds(10)};
 const base::FeatureParam<bool> kPreloadingModelEnactCandidates{
     &kPreloadingHeuristicsMLModel, "enact_candidates", false};
 const base::FeatureParam<int> kPreloadingModelPrefetchModerateThreshold{
@@ -1894,6 +1889,9 @@ const base::FeatureParam<Prerender2WarmUpCompositorTriggerPoint>::Option
     prerender2_warm_up_compositor_trigger_point[] = {
         {Prerender2WarmUpCompositorTriggerPoint::kDidCommitLoad,
          "did_commit_load"},
+        {Prerender2WarmUpCompositorTriggerPoint::
+             kDidDispatchDOMContentLoadedEvent,
+         "did_dispatch_dom_content_loaded_event"},
         {Prerender2WarmUpCompositorTriggerPoint::kDidFinishLoad,
          "did_finish_load"},
 };
@@ -1925,10 +1923,6 @@ const base::FeatureParam<bool> kPrewarmCursive = {&kPrewarmDefaultFontFamilies,
 const base::FeatureParam<bool> kPrewarmFantasy = {&kPrewarmDefaultFontFamilies,
                                                   "prewarm_fantasy", false};
 #endif
-
-BASE_FEATURE(kPrivacySandboxAdsAPIs,
-             "PrivacySandboxAdsAPIs",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the Private Aggregation API. Note that this API also requires the
 // `kPrivacySandboxAggregationService` to be enabled to successfully send
@@ -1997,7 +1991,7 @@ BASE_FEATURE(kConsumeCompileHints,
 
 BASE_FEATURE(kLocalCompileHints,
              "LocalCompileHints",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kQuoteEmptySecChUaStringHeadersConsistently,
              "QuoteEmptySecChUaStringHeadersConsistently",
@@ -2124,12 +2118,12 @@ BASE_FEATURE(kServiceWorkerUpdateDelay,
              "ServiceWorkerUpdateDelay",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, client_id and resultingClientId behavior keeps the old
+// If disabled, client_id and resultingClientId behavior keeps the old
 // Chromium behavior even after the PlzDedicatedWorker is enabled.
 // This is workaround for crbug.com/1520512 until the fix gets ready.
 BASE_FEATURE(kServiceWorkerClientIdAlignedWithSpec,
              "ServiceWorkerClientIdAlignedWithSpec",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, the "not" condition become usable in the ServiceWorker
 // static routing API.
@@ -2217,6 +2211,10 @@ BASE_FEATURE(kSharedStorageAPIM118,
 BASE_FEATURE(kSharedStorageAPIM125,
              "SharedStorageAPIM125",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSharedStorageCrossOriginScript,
+             "SharedStorageCrossOriginScript",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSharedStorageAPIEnableWALForDatabase,
              "SharedStorageAPIEnableWALForDatabase",
@@ -2328,6 +2326,25 @@ const base::FeatureParam<bool>
 // Warms up service worker after service worker is stopped on idle timeout.
 const base::FeatureParam<bool> kSpeculativeServiceWorkerWarmUpOnIdleTimeout{
     &kSpeculativeServiceWorkerWarmUp, "sw_warm_up_on_idle_timeout", true};
+
+// If enabled, force renderer process foregrounded from CommitNavigation to
+// DOMContentLoad (crbug/351953350).
+BASE_FEATURE(kBoostRenderProcessForLoading,
+             "BoostRenderProcessForLoading",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// An empty json array means that this feature is applied unconditionally. If
+// specified, it means that the specified URLs will be the target of the new
+// behavior.
+const base::FeatureParam<std::string> kBoostRenderProcessForLoadingTargetUrls{
+    &kBoostRenderProcessForLoading, "target_urls", "[]"};
+
+// If true is specified, kBoostRenderProcessForLoading feature also prioritizes
+// the renderer process that is used for prerendering. This is a part of an
+// ablation study. See https://crbug.com/351953350.
+const base::FeatureParam<bool>
+    kBoostRenderProcessForLoadingPrioritizePrerendering{
+        &kBoostRenderProcessForLoading, "prioritize_prerendering", false};
 
 // Freeze scheduler task queues in background after allowed grace time.
 // "stop" is a legacy name.
@@ -2490,12 +2507,7 @@ BASE_FEATURE(kWebRtcAudioSinkUseTimestampAligner,
 // Enable borderless mode for desktop PWAs. go/borderless-mode
 BASE_FEATURE(kWebAppBorderless,
              "WebAppBorderless",
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif  // BUILDFLAG(IS_CHROMEOS)
-);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls scope extensions feature in web apps. Controls parsing of
 // "scope_extensions" field in web app manifests. See explainer for more
@@ -2583,6 +2595,11 @@ BASE_FEATURE(kWebRtcUseMinMaxVEADimensions,
 // Allow access to WebSQL APIs.
 BASE_FEATURE(kWebSQLAccess, "kWebSQLAccess", base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Kill switch for https://crbug.com/338955051.
+BASE_FEATURE(kWebUSBTransferSizeLimit,
+             "WebUSBTransferSizeLimit",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables small accelerated canvases for webview (crbug.com/1004304)
 BASE_FEATURE(kWebviewAccelerateSmallCanvases,
              "WebviewAccelerateSmallCanvases",
@@ -2602,6 +2619,10 @@ BASE_FEATURE(kWebviewAccelerateSmallCanvases,
 
 bool IsAllowURNsInIframeEnabled() {
   return base::FeatureList::IsEnabled(blink::features::kAllowURNsInIframes);
+}
+
+bool IsCanvas2DHibernationEnabled() {
+  return base::FeatureList::IsEnabled(features::kCanvas2DHibernation);
 }
 
 bool DisplayWarningDeprecateURNIframesUseFencedFrames() {
@@ -2657,13 +2678,6 @@ BASE_FEATURE(kTreatHTTPExpiresHeaderValueZeroAsExpiredInBlink,
 BASE_FEATURE(kSimplifyLoadingTransparentPlaceholderImage,
              "SimplifyLoadingTransparentPlaceholderImage",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsSimplifyLoadingTransparentPlaceholderImageEnabled() {
-  static const bool transparent_image_optimization_enabled =
-      base::FeatureList::IsEnabled(
-          features::kSimplifyLoadingTransparentPlaceholderImage);
-  return transparent_image_optimization_enabled;
-}
 
 BASE_FEATURE(kNoThrottlingVisibleAgent,
              "NoThrottlingVisibleAgent",

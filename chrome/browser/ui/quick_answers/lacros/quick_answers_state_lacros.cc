@@ -81,7 +81,7 @@ QuickAnswersStateLacros::QuickAnswersStateLacros() {
     observer.OnPrefsInitialized();
   }
 
-  UpdateEligibility();
+  MaybeNotifyEligibilityChanged();
 }
 
 QuickAnswersStateLacros::~QuickAnswersStateLacros() = default;
@@ -105,38 +105,28 @@ void QuickAnswersStateLacros::OnSettingsEnabledChanged(base::Value value) {
   DCHECK(value.is_bool());
   bool settings_enabled = value.GetBool();
 
-  if (chromeos::IsKioskSession() && settings_enabled) {
+  // `QuickAnswersStateAsh` co-exists with `QuickAnswersStateLacros`. As
+  // `QuickAnswersStateAsh` should also get notified for those pref changes,
+  // `QuickAnswersStateLacros` doesn't need to modify prefs. For now, leave
+  // KioskSession logic as its logic works in a fail-safe way. Toggled from the
+  // settings logic is removed.
+  //
+  // TODO(b/340628526): Remove this as we update consent status logic.
+  if (chromeos::IsKioskSession()) {
     settings_enabled = false;
     SetPref(crosapi::mojom::PrefPath::kQuickAnswersEnabled, base::Value(false));
     SetPref(crosapi::mojom::PrefPath::kQuickAnswersConsentStatus,
             base::Value(quick_answers::prefs::ConsentStatus::kRejected));
   }
 
-  if (settings_enabled_ == settings_enabled) {
-    return;
-  }
-  settings_enabled_ = settings_enabled;
-
-  // If the user turn on the Quick Answers in settings, set the consented status
-  // to true.
-  if (settings_enabled_) {
-    SetPref(crosapi::mojom::PrefPath::kQuickAnswersConsentStatus,
-            base::Value(quick_answers::prefs::ConsentStatus::kAccepted));
-  }
-
-  for (auto& observer : observers_) {
-    observer.OnSettingsEnabled(settings_enabled_);
-  }
+  quick_answers_enabled_ = settings_enabled;
+  MaybeNotifyIsEnabledChanged();
 }
 
 void QuickAnswersStateLacros::OnConsentStatusChanged(base::Value value) {
   DCHECK(value.is_int());
-  consent_status_ =
-      static_cast<quick_answers::prefs::ConsentStatus>(value.GetInt());
-
-  for (auto& observer : observers_) {
-    observer.OnConsentStatusUpdated(consent_status_);
-  }
+  SetQuickAnswersFeatureConsentStatus(
+      static_cast<quick_answers::prefs::ConsentStatus>(value.GetInt()));
 }
 
 void QuickAnswersStateLacros::OnDefinitionEnabledChanged(base::Value value) {
@@ -180,7 +170,7 @@ void QuickAnswersStateLacros::OnApplicationLocaleChanged(base::Value value) {
     observer.OnApplicationLocaleReady(resolved_locale);
   }
 
-  UpdateEligibility();
+  MaybeNotifyEligibilityChanged();
 }
 
 void QuickAnswersStateLacros::OnPreferredLanguagesChanged(base::Value value) {

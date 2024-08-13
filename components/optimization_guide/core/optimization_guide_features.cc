@@ -13,6 +13,7 @@
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/rand_util.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/to_string.h"
@@ -174,6 +175,11 @@ BASE_FEATURE(kOnDeviceModelValidation,
              "OnDeviceModelValidation",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Whether the on-device model enables support_multiple_sessions
+BASE_FEATURE(kOnDeviceModelSupportMultipleSessions,
+             "OnDeviceModelSupportMultipleSessions",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // The default value here is a bit of a guess.
 // TODO(crbug.com/40163041): This should be tuned once metrics are available.
 base::TimeDelta PageTextExtractionOutstandingRequestsGracePeriod() {
@@ -294,6 +300,7 @@ bool IsModelQualityLoggingEnabledForFeature(UserVisibleFeatureKey key) {
     case UserVisibleFeatureKey::kCompose:
     case UserVisibleFeatureKey::kTabOrganization:
     case UserVisibleFeatureKey::kWallpaperSearch:
+    case UserVisibleFeatureKey::kHistorySearch:
       // Enable logging when you have approvals. For new features please
       // consult with components/optimization_guide/core/model_quality/OWNERS to
       // discuss if you need logging or not for your feature.
@@ -493,9 +500,14 @@ base::TimeDelta PredictionModelFetchInterval() {
       kOptimizationTargetPrediction, "fetch_interval_hours", 24));
 }
 
-base::TimeDelta PredictionModelNewRegistrationFetchDelay() {
-  return base::Seconds(GetFieldTrialParamByFeatureAsInt(
-      kOptimizationTargetPrediction, "new_registration_fetch_delay_secs", 30));
+base::TimeDelta PredictionModelNewRegistrationFetchRandomDelay() {
+  static const base::FeatureParam<base::TimeDelta> kMinDelay{
+      &kOptimizationTargetPrediction, "new_registration_fetch_min_delay",
+      base::Seconds(5)};
+  static const base::FeatureParam<base::TimeDelta> kMaxDelay{
+      &kOptimizationTargetPrediction, "new_registration_fetch_max_delay",
+      base::Seconds(10)};
+  return base::RandTimeDelta(kMinDelay.Get(), kMaxDelay.Get());
 }
 
 bool IsModelExecutionWatchdogEnabled() {
@@ -619,6 +631,10 @@ base::TimeDelta GetOnDeviceModelIdleTimeout() {
                                        "on_device_model_service_idle_timeout",
                                        base::Minutes(1)};
   return kOnDeviceModelServiceIdleTimeout.Get();
+}
+
+bool GetOnDeviceModelSupportMultipleSessions() {
+  return base::FeatureList::IsEnabled(kOnDeviceModelSupportMultipleSessions);
 }
 
 base::TimeDelta GetOnDeviceModelExecutionValidationStartupDelay() {

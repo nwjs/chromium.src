@@ -50,7 +50,6 @@
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/swap_promise.h"
-#include "cc/trees/ukm_manager.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom-blink.h"
@@ -360,10 +359,6 @@ void WebFrameWidgetImpl::BindLocalRoot(WebLocalFrame& local_root) {
 
 bool WebFrameWidgetImpl::ForTopMostMainFrame() const {
   return ForMainFrame() && !main_data().is_for_nested_main_frame;
-}
-
-void WebFrameWidgetImpl::SetIsNestedMainFrameWidget(bool is_nested) {
-  main_data().is_for_nested_main_frame = is_nested;
 }
 
 void WebFrameWidgetImpl::Close() {
@@ -2177,32 +2172,62 @@ double WebFrameWidgetImpl::GetZoomLevel() {
   return zoom_level_;
 }
 
+// There are four main values that go into zoom arithmetic:
+//
+// - "zoom level", a log-based value which represents browser zoom level and
+//   also the effects of the CSS "zoom" property.
+// - kTextSizeMultiplierRatio, a hard-coded constant used as the log base for
+//   zoom level.
+// - Hardware device pixel ratio, which is stored on WebView as
+//   zoom_factor_for_device_scale_factor_.
+// - "zoom factor" (AKA "layout zoom factor"), which is calculated from the
+//   first three values, with override mechanisms for testing and device
+//   emulation.
+//
+// Here and elsewhere, the code tries to be consistent in its naming conventions
+// with respect to "zoom level" vs. "zoom factor".
 void WebFrameWidgetImpl::SetZoomLevel(double zoom_level) {
+  if (ForMainFrame()) {
+    zoom_level = View()->ClampZoomLevel(zoom_level);
+  }
   // Override the zoom level with the testing one if necessary.
   if (zoom_level_for_testing_ != -INFINITY)
     zoom_level = zoom_level_for_testing_;
-
-  zoom_level = View()->ClampZoomLevel(zoom_level);
-  // Set the layout shift exclusion window for the zoom level change.
-  if (zoom_level_ != zoom_level) {
-    NotifyZoomLevelChanged(LocalRootImpl()->GetFrame());
-  }
+  bool zoom_level_changed = (zoom_level != zoom_level_);
   zoom_level_ = zoom_level;
-  double zoom_factor = View()->SetMainFrameZoomLevel(zoom_level_);
+
   if (auto* local_frame = LocalRootImpl()->GetFrame()) {
     if (Document* document = local_frame->GetDocument()) {
+      double zoom_factor =
+          View()->ZoomLevelToZoomFactor(zoom_level, ForMainFrame());
+      if (zoom_level_changed) {
+        // Set the layout shift exclusion window for the zoom level change.
+        if (LocalFrameView* view = document->View()) {
+          view->GetLayoutShiftTracker().NotifyZoomLevelChanged();
+#if BUILDFLAG(IS_ANDROID)
+          if (ForTopMostMainFrame()) {
+            // Zoom levels are the exponent in the calculation of zoom. The zoom
+            // factor is the value shown to the user (e.g. 50% to 300%).
+            // Note: On Android, when the AccessibilityPageZoom feature is
+            // disabled, this histogrm should only include samples at 100% zoom
+            // factor.
+            UMA_HISTOGRAM_CUSTOM_EXACT_LINEAR(
+                "Accessibility.Android.PageZoom.MainFrameZoomFactor",
+                zoom_factor * 100, 50, 300, 52);
+          }
+#endif
+        }
+      }
+
+      // zoom_factor may have changed even if zoom_level did not, so we
+      // unconditionally propagate to the local root frame.
       auto* plugin_document = DynamicTo<PluginDocument>(document);
       if (!plugin_document || !plugin_document->GetPluginView()) {
-        local_frame->SetPageZoomFactor(zoom_factor);
+        // The local root is responsible for propagating to its connected tree
+        // of LocalFrame descendants.
+        local_frame->SetLayoutZoomFactor(zoom_factor);
       }
     }
-
-    // Part of the UpdateVisualProperties dance we send the zoom level to
-    // RemoteFrames that are below the local root for this widget.
-    ForEachRemoteFrameControlledByWidget(
-        [zoom_level](RemoteFrame* remote_frame) {
-          remote_frame->ZoomLevelChanged(zoom_level);
-        });
   }
 }
 
@@ -2439,13 +2464,9 @@ void WebFrameWidgetImpl::BeginMainFrame(base::TimeTicks last_frame_time) {
   DCHECK(!last_frame_time.is_null());
   CHECK(LocalRootImpl());
 
-  // The last_frame_time is created in the compositor thread, it's the time when
-  // the compositor is ready for a new frame and starts preparing it. For the
-  // purpose of animation frame timing, this is the desired time to start
-  // rendering, equivalent to the time when a work task is posted.
   if (animation_frame_timing_monitor_) {
     animation_frame_timing_monitor_->BeginMainFrame(
-        last_frame_time, *LocalRootImpl()->GetFrame()->DomWindow());
+        *LocalRootImpl()->GetFrame()->DomWindow());
   }
 
   // Dirty bit on MouseEventManager is not cleared in OOPIFs after scroll
@@ -2955,6 +2976,10 @@ WebInputEventResult WebFrameWidgetImpl::HandleInputEvent(
       content_capture_manager->NotifyInputEvent(input_event.GetType(),
                                                 *local_frame);
     }
+
+    if (animation_frame_timing_monitor_) {
+      animation_frame_timing_monitor_->WillHandleInput(local_frame);
+    }
   }
 
   // Skip the pointerrawupdate for mouse capture case.
@@ -3419,8 +3444,6 @@ class ReportTimeSwapPromise : public cc::SwapPromise {
         frame_timing_details.presentation_feedback.timestamp;
     bool presentation_time_is_valid =
         !presentation_time.is_null() && (presentation_time > swap_time);
-    UMA_HISTOGRAM_BOOLEAN("PageLoad.Internal.Renderer.PresentationTime.Valid",
-                          presentation_time_is_valid);
     if (presentation_time_is_valid) {
       ReportPresentationTime(std::move(presentation_callback),
                              frame_timing_details);
@@ -4947,6 +4970,14 @@ void WebFrameWidgetImpl::PrepareForFinalLifecyclUpdateForTesting() {
       });
 }
 
+void WebFrameWidgetImpl::ApplyLocalSurfaceIdUpdate(
+    const viz::LocalSurfaceId& id) {
+  if (!View()->does_composite()) {
+    return;
+  }
+  widget_base_->LayerTreeHost()->SetLocalSurfaceIdFromParent(id);
+}
+
 void WebFrameWidgetImpl::SetMayThrottleIfUndrawnFrames(
     bool may_throttle_if_undrawn_frames) {
   if (!View()->does_composite())
@@ -5092,30 +5123,6 @@ void WebFrameWidgetImpl::DidCreateLocalRootView() {
 
 bool WebFrameWidgetImpl::ShouldAutoDetermineCompositingToLCDTextSetting() {
   return true;
-}
-
-void WebFrameWidgetImpl::NotifyZoomLevelChanged(LocalFrame* root) {
-  if (root) {
-    Document* document = root->GetDocument();
-    DCHECK(document);
-    if (LocalFrameView* view = document->View()) {
-      view->GetLayoutShiftTracker().NotifyZoomLevelChanged();
-#if BUILDFLAG(IS_ANDROID)
-      if (ForTopMostMainFrame()) {
-        // Zoom levels are the exponent in the calculation of zoom. The zoom
-        // factor is the value shown to the user (e.g. 50% to 300%).
-        // Note: On Android, when the AccessibilityPageZoom feature is disabled,
-        // this histogrm should only include samples at 100% zoom factor.
-        UMA_HISTOGRAM_CUSTOM_EXACT_LINEAR(
-            "Accessibility.Android.PageZoom.MainFrameZoomFactor",
-            PageZoomLevelToZoomFactor(
-                View()->MainFrameWidget()->GetZoomLevel()) *
-                100,
-            50, 300, 52);
-      }
-#endif
-    }
-  }
 }
 
 bool WebFrameWidgetImpl::WillBeDestroyed() const {

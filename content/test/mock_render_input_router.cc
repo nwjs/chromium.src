@@ -4,17 +4,19 @@
 
 #include "content/test/mock_render_input_router.h"
 
+#include "components/input/mock_input_router.h"
+
 namespace content {
 
 MockRenderInputRouter::MockRenderInputRouter(
-    InputRouterImplClient* host,
+    input::RenderInputRouterClient* host,
     std::unique_ptr<input::FlingSchedulerBase> fling_scheduler,
-    RenderInputRouterDelegate* delegate,
+    input::RenderInputRouterDelegate* delegate,
     scoped_refptr<base::SingleThreadTaskRunner> task_runner)
-    : RenderInputRouter(host,
-                        std::move(fling_scheduler),
-                        delegate,
-                        std::move(task_runner)) {
+    : input::RenderInputRouter(host,
+                               std::move(fling_scheduler),
+                               delegate,
+                               std::move(task_runner)) {
   acked_touch_event_type_ = blink::WebInputEvent::Type::kUndefined;
   mock_widget_input_handler_ = std::make_unique<MockWidgetInputHandler>();
 }
@@ -31,7 +33,7 @@ void MockRenderInputRouter::OnTouchEventAck(
 }
 
 void MockRenderInputRouter::SetupForInputRouterTest() {
-  input_router_ = std::make_unique<MockInputRouter>(this);
+  input_router_ = std::make_unique<input::MockInputRouter>(this);
 }
 
 void MockRenderInputRouter::ForwardTouchEventWithLatencyInfo(
@@ -39,6 +41,21 @@ void MockRenderInputRouter::ForwardTouchEventWithLatencyInfo(
     const ui::LatencyInfo& ui_latency) {
   RenderInputRouter::ForwardTouchEventWithLatencyInfo(touch_event, ui_latency);
   SetLastWheelOrTouchEventLatencyInfo(ui::LatencyInfo(ui_latency));
+}
+
+void MockRenderInputRouter::ForwardGestureEventWithLatencyInfo(
+    const blink::WebGestureEvent& gesture_event,
+    const ui::LatencyInfo& ui_latency) {
+  RenderInputRouter::ForwardGestureEventWithLatencyInfo(gesture_event,
+                                                        ui_latency);
+  last_forwarded_gesture_event_ = gesture_event;
+}
+
+std::optional<WebGestureEvent>
+MockRenderInputRouter::GetAndResetLastForwardedGestureEvent() {
+  std::optional<WebGestureEvent> ret;
+  last_forwarded_gesture_event_.swap(ret);
+  return ret;
 }
 
 MockWidgetInputHandler::MessageVector

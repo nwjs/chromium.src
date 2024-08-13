@@ -41,6 +41,8 @@ extern const char kComposeContextMenuCtr[];
 extern const char kComposeProactiveNudgeCtr[];
 extern const char kComposeProactiveNudgeShowStatus[];
 extern const char kOpenComposeDialogResult[];
+extern const char kComposeStartSessionEntryPoint[];
+extern const char kComposeResumeSessionEntryPoint[];
 
 // Enum for calculating the CTR of the Compose context menu item.
 // These values are persisted to logs. Entries should not be renumbered and
@@ -66,34 +68,25 @@ enum class ComposeRequestReason {
   kMaxValue = kToneFormalRequest,
 };
 
-// Keep in sync with ComposeMSBBSessionCloseReasonType in
+// Close reasons for sessions that start with FRE or MSBB dialogs.
+// Keep in sync with ComposeFreOrMsbbSessionCloseReasonType in
 // src/tools/metrics/histograms/metadata/compose/enums.xml.
-enum class ComposeMSBBSessionCloseReason {
-  kMSBBEndedImplicitly = 0,
-  kMSBBCloseButtonPressed = 1,
-  kMSBBAcceptedWithoutInsert = 2,
-  kMSBBAcceptedWithInsert = 3,
-  kMaxValue = kMSBBAcceptedWithInsert,
-};
-
-// Keep in sync with ComposeFirstRunSessionCloseReasonType in
-// src/tools/metrics/histograms/metadata/compose/enums.xml.
-enum class ComposeFirstRunSessionCloseReason {
-  kEndedImplicitly = 0,
+enum class ComposeFreOrMsbbSessionCloseReason {
+  kAbandoned = 0,
   kCloseButtonPressed = 1,
-  kFirstRunDisclaimerAcknowledgedWithoutInsert = 2,
-  kFirstRunDisclaimerAcknowledgedWithInsert = 3,
-  kNewSessionWithSelectedText = 4,
-  kMaxValue = kNewSessionWithSelectedText,
+  kAckedOrAcceptedWithoutInsert = 2,
+  kAckedOrAcceptedWithInsert = 3,
+  kReplacedWithNewSession = 4,
+  kMaxValue = kReplacedWithNewSession,
 };
 
 // Keep in sync with ComposeSessionCloseReasonType in
 // src/tools/metrics/histograms/metadata/compose/enums.xml.
 enum class ComposeSessionCloseReason {
-  kAcceptedSuggestion = 0,
+  kInsertedResponse = 0,
   kCloseButtonPressed = 1,
-  kEndedImplicitly = 2,
-  kNewSessionWithSelectedText = 3,
+  kAbandoned = 2,
+  kReplacedWithNewSession = 3,
   kCanceledBeforeResponseReceived = 4,
   kMaxValue = kCanceledBeforeResponseReceived,
 };
@@ -141,8 +134,8 @@ enum class ComposeShowStatus {
   kShouldShow = 0,
   kGenericBlocked = 1,
   kIncompatibleFieldType = 2,
-  // kDisabledMsbb is no longer used now that we have a MSBB dialog.
-  kDisabledMsbb = 3,  // obsolete
+  // DEPRECATED: there is a MSBB dialog now.
+  // kDisabledMsbb = 3,
   kSignedOut = 4,
   kUnsupportedLanguage = 5,
   kFormFieldInCrossOriginFrame = 6,
@@ -158,9 +151,10 @@ enum class ComposeShowStatus {
   kProactiveNudgeFeatureDisabled = 16,
   kProactiveNudgeDisabledGloballyByUserPreference = 17,
   kProactiveNudgeDisabledForSiteByUserPreference = 18,
-  kPractiveNudgeDisabledByServerConfig = 19,
-  kPractiveNudgeUnknownServerConfig = 20,
-  kRandomlyBlocked = 21,
+  kProactiveNudgeDisabledByServerConfig = 19,
+  kProactiveNudgeUnknownServerConfig = 20,
+  // DEPRECATED: now using the segmentation platform.
+  // kRandomlyBlocked = 21,
   kProactiveNudgeDisabledByMSBB = 22,
   kProactiveNudgeBlockedBySegmentationPlatform = 23,
   kComposeNotEnabledInCountry = 24,
@@ -178,6 +172,18 @@ enum class ComposeProactiveNudgeCtrEvent {
   kUserDisabledSite = 3,
   kOpenSettings = 4,
   kMaxValue = kOpenSettings,
+};
+
+// Enum for recording the entry point for starting or resuming a Compose
+// session. Keep in sync with ComposeEntryPoint in
+// src/tools/metrics/histograms/metadata/compose/enums.xml.
+enum class ComposeEntryPoint {
+  kContextMenu = 0,
+  kProactiveNudge = 1,
+  kSelectionNudge = 2,
+  kSavedStateNudge = 3,
+  kSavedStateNotification = 4,
+  kMaxValue = kSavedStateNotification,
 };
 
 enum class EvalLocation : int {
@@ -414,6 +420,9 @@ void LogComposeProactiveNudgeShowStatus(ComposeShowStatus status);
 
 void LogOpenComposeDialogResult(OpenComposeDialogResult result);
 
+void LogStartSessionEntryPoint(ComposeEntryPoint entry_point);
+void LogResumeSessionEntryPoint(ComposeEntryPoint entry_point);
+
 void LogComposeRequestReason(ComposeRequestReason reason);
 void LogComposeRequestReason(EvalLocation eval_location,
                              ComposeRequestReason reason);
@@ -431,18 +440,20 @@ void LogComposeRequestDuration(base::TimeDelta duration,
                                bool is_ok);
 
 void LogComposeFirstRunSessionCloseReason(
-    ComposeFirstRunSessionCloseReason reason);
+    ComposeFreOrMsbbSessionCloseReason reason);
 
 // Log session based metrics when a FRE session ends.
 void LogComposeFirstRunSessionDialogShownCount(
-    ComposeFirstRunSessionCloseReason reason,
+    ComposeFreOrMsbbSessionCloseReason reason,
     int dialog_shown_count);
 
-void LogComposeMSBBSessionCloseReason(ComposeMSBBSessionCloseReason reason);
+void LogComposeMSBBSessionCloseReason(
+    ComposeFreOrMsbbSessionCloseReason reason);
 
 // Log session based metrics when a consent session ends.
-void LogComposeMSBBSessionDialogShownCount(ComposeMSBBSessionCloseReason reason,
-                                           int dialog_shown_count);
+void LogComposeMSBBSessionDialogShownCount(
+    ComposeFreOrMsbbSessionCloseReason reason,
+    int dialog_shown_count);
 
 SessionEvalLocation GetSessionEvalLocationFromEvents(
     const ComposeSessionEvents& session_events);

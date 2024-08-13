@@ -68,7 +68,6 @@ class Runner():
     """
     self.args = argparse.Namespace()
     self.test_args = []
-    self.should_move_xcode_runtime_to_cache = True
     # Xcode might be corruped, so this the flag to decide
     # whether we should clear it from cache
     self.should_delete_xcode_cache = False
@@ -133,7 +132,7 @@ class Runner():
             test_args=self.test_args,
             use_clang_coverage=self.args.use_clang_coverage,
             env_vars=env_vars,
-            video_plugin_option=self.args.record_video,
+            record_video_option=self.args.record_video,
             output_disabled_tests=self.args.output_disabled_tests,
         )
       elif self.args.variations_seed_path != 'NO_PATH':
@@ -226,14 +225,6 @@ class Runner():
       # issue using this return code.
       ExceptionResults.add_result(e)
       return 3
-    except test_runner.SimulatorNotFoundError as e:
-      # This means there's probably some issue in simulator runtime so we don't
-      # want to cache it anymore (when it's in new Xcode format).
-      self.should_move_xcode_runtime_to_cache = False
-      sys.stderr.write(traceback.format_exc())
-      summary['step_text'] = format_exception_step_text(e)
-      ExceptionResults.add_result(e)
-      return 2
     except Exception as e:
       sys.stderr.write(traceback.format_exc())
       summary['step_text'] = format_exception_step_text(e)
@@ -270,17 +261,6 @@ class Runner():
           os.path.join(self.args.out_dir, 'output.json'))
       with open(output_json_path, 'w') as f:
         json.dump(test_results, f)
-
-      # Move the iOS runtime back to cache dir if the Xcode package is not
-      # legacy (i.e. Xcode program & runtimes are in different CIPD packages.)
-      # and it's a simulator task.
-      if not is_legacy_xcode and self.args.version:
-        if self.should_move_xcode_runtime_to_cache:
-          runtime_cache_folder = xcode.construct_runtime_cache_folder(
-              self.args.runtime_cache_prefix, self.args.version)
-          xcode.move_runtime(runtime_cache_folder, self.args.xcode_path, False)
-        else:
-          xcode.remove_runtimes(self.args.xcode_path)
 
       if self.should_delete_xcode_cache:
         shutil.rmtree(self.args.xcode_path)

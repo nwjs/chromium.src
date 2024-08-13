@@ -3,47 +3,151 @@
 // found in the LICENSE file.
 import './calendar_event.js';
 
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {CalendarEvent} from '../../../google_calendar.mojom-webui.js';
+import {WindowProxy} from '../../../window_proxy.js';
 
-import {getTemplate} from './calendar.html.js';
+import {getCss} from './calendar.css.js';
+import {getHtml} from './calendar.html.js';
+import {toJsTimestamp} from './common.js';
 
 export interface CalendarElement {
   $: {
-    seeMore: HTMLDivElement,
+    seeMore: HTMLElement,
   };
 }
 
 /**
  * The calendar element for displaying the user's list of events. .
  */
-export class CalendarElement extends PolymerElement {
+export class CalendarElement extends CrLitElement {
   static get is() {
     return 'ntp-calendar';
   }
 
-  static get template() {
-    return getTemplate();
+  static override get styles() {
+    return getCss();
   }
 
-  static get properties() {
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
     return {
-      calendarLink: String,
-      events: Object,
-      expandedEventIndex_: {
-        type: Number,
-        value: 0,
-      },
+      calendarLink: {type: String},
+      events: {type: Object},
+      doubleBookedIndices_: {type: Object},
+      expandedEventIndex_: {type: Number},
     };
   }
 
   calendarLink: string;
-  events: CalendarEvent[];
+  events: CalendarEvent[] = [];
 
+  private doubleBookedIndices_: number[];
   private expandedEventIndex_: number;
 
-  private isExpanded_(index: number) {
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    if (changedProperties.has('events')) {
+      this.expandedEventIndex_ = this.computeExpandedEventIndex_();
+      this.doubleBookedIndices_ = this.computeDoubleBookedIndices_();
+    }
+  }
+
+  private computeDoubleBookedIndices_(): number[] {
+    const result: number[] = [];
+    if (this.expandedEventIndex_ >= 0) {
+      const expandedEventStartTime =
+          toJsTimestamp(this.events[this.expandedEventIndex_].startTime);
+      const expandedEventEndTime =
+          toJsTimestamp(this.events[this.expandedEventIndex_].endTime);
+      this.events.forEach((event, index) => {
+        const startTime = toJsTimestamp(event.startTime);
+        const endTime = toJsTimestamp(event.endTime);
+        if (startTime < expandedEventEndTime &&
+            endTime > expandedEventStartTime) {
+          result.push(index);
+        }
+      });
+    }
+    return result;
+  }
+
+  private compareEventPriority_(
+      eventAIndex: number, eventBIndex: number, soon: number): number {
+    const eventA = this.events[eventAIndex];
+    const eventB = this.events[eventBIndex];
+    const eventAStartTime = toJsTimestamp(eventA.startTime);
+    const eventBStartTime = toJsTimestamp(eventB.startTime);
+    const eventAInProgress = eventAStartTime <= soon;
+    const eventBInProgress = eventBStartTime <= soon;
+
+    // Check if either is in progress or starting soon and the other isn't.
+    if (eventAInProgress !== eventBInProgress) {
+      return +eventBInProgress - +eventAInProgress;
+    }
+
+    const eventAEndsSoon = toJsTimestamp(eventA.endTime) <= soon;
+    const eventBEndsSoon = toJsTimestamp(eventB.endTime) <= soon;
+    // Check if either is ending soon and the other isn't.
+    if (eventAEndsSoon !== eventBEndsSoon) {
+      return +eventAEndsSoon - +eventBEndsSoon;
+    }
+
+    // Check for startTime. But only prioritize by this if both are not in
+    // progress or soon.
+    if (!eventAInProgress && !eventBInProgress &&
+        eventAStartTime !== eventBStartTime) {
+      return eventAStartTime - eventBStartTime;
+    }
+
+    // Check if event is accepted.
+    if (eventA.isAccepted !== eventB.isAccepted) {
+      return +eventB.isAccepted - +eventA.isAccepted;
+    }
+
+    // Check if there are other attendees.
+    if (eventA.hasOtherAttendee !== eventB.hasOtherAttendee) {
+      return +eventB.hasOtherAttendee - +eventA.hasOtherAttendee;
+    }
+
+    // If there is still a tie, return in the order they will show in the
+    // list, which is what is returned by the API (startTime with
+    // unspecified tie breaker).
+    return eventAIndex - eventBIndex;
+  }
+
+  private computeExpandedEventIndex_(): number {
+    const now = WindowProxy.getInstance().now();
+
+    // Find the indices of all meetings that are not over.
+    let expandableEventIndices: number[] = this.events.map((_, i) => i);
+    expandableEventIndices = expandableEventIndices.filter((eventIndex) => {
+      const endTimeMs = toJsTimestamp(this.events[eventIndex].endTime);
+      return endTimeMs > now;
+    });
+
+    if (expandableEventIndices.length === 0) {
+      return -1;
+    }
+
+    const in5Minutes = now + (5 * 60 * 1000);
+    expandableEventIndices.sort(
+        (a, b) => this.compareEventPriority_(a, b, in5Minutes));
+
+    return expandableEventIndices[0];
+  }
+
+  protected isDoubleBooked_(index: number) {
+    return this.doubleBookedIndices_.includes(index);
+  }
+
+  protected isExpanded_(index: number) {
     return index === this.expandedEventIndex_;
   }
 }

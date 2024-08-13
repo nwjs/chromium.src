@@ -161,17 +161,17 @@ EnterExitHandler::EnterExitHandler(base::RepeatingClosure enter_callback,
 EnterExitHandler::~EnterExitHandler() = default;
 void EnterExitHandler::OnEvent(ui::Event* event) {
   switch (event->type()) {
-    case ui::ET_MOUSE_ENTERED:
+    case ui::EventType::kMouseEntered:
       enter_callback_.Run();
       break;
-    case ui::ET_MOUSE_EXITED:
+    case ui::EventType::kMouseExited:
       exit_callback_.Run();
       break;
-    case ui::ET_GESTURE_TAP_DOWN:
+    case ui::EventType::kGestureTapDown:
       enter_callback_.Run();
       break;
-    case ui::ET_GESTURE_TAP_CANCEL:
-    case ui::ET_GESTURE_END:
+    case ui::EventType::kGestureTapCancel:
+    case ui::EventType::kGestureEnd:
       exit_callback_.Run();
       break;
     default:
@@ -251,7 +251,7 @@ PopupRowView::PopupRowView(
 
   content_view_ = AddChildView(std::move(content_view));
   content_view_->SetFocusBehavior(FocusBehavior::ALWAYS);
-  content_view_->AddObserver(this);
+  content_view_observer_.Observe(content_view_);
   content_view_->GetViewAccessibility().SetRole(
       ax::mojom::Role::kListBoxOption);
   content_view_->GetViewAccessibility().SetName(
@@ -281,7 +281,8 @@ PopupRowView::PopupRowView(
                 popup_cell_utils::ImageModelFromVectorIcon(
                     popup_cell_utils::GetExpandableMenuIcon(suggestion.type),
                     kExpandChildSuggestionsIconWidth)));
-    expand_child_suggestions_view_->AddObserver(this);
+    expand_child_suggestions_view_observer_.Observe(
+        expand_child_suggestions_view_);
     control_event_handler_ = set_exit_enter_callbacks(
         CellType::kControl, *expand_child_suggestions_view_);
     layout->SetFlexForView(expand_child_suggestions_view_.get(), 0);
@@ -328,7 +329,7 @@ void PopupRowView::OnMouseReleased(const ui::MouseEvent& event) {
 
 void PopupRowView::OnGestureEvent(ui::GestureEvent* event) {
   switch (event->type()) {
-    case ui::ET_GESTURE_TAP:
+    case ui::EventType::kGestureTap:
       if (content_view_->HitTestPoint(event->location()) && controller_) {
         controller_->AcceptSuggestion(line_number_);
       }

@@ -7,6 +7,8 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/extensions/api/developer_private/developer_private_api.h"
 #include "chrome/browser/extensions/cws_info_service.h"
+#include "chrome/browser/extensions/extension_management_test_util.h"
+#include "chrome/browser/extensions/updater/extension_updater.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
@@ -16,6 +18,7 @@
 #include "components/crx_file/id_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/supervised_user/core/common/features.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/test/browser_task_environment.h"
 #include "extensions/browser/blocklist_extension_prefs.h"
 #include "extensions/browser/extension_prefs.h"
@@ -262,6 +265,79 @@ TEST_F(SafetyCheckExtensionUtilsTest, SafetyCheck_Malware) {
     // warning was malware.
     EXPECT_EQ(no_warning,
               api::developer_private::SafetyCheckWarningReason::kNone);
+  }
+}
+
+TEST_F(SafetyCheckExtensionUtilsTest, SafetyCheck_PrefMigration) {
+  // Test that the `PrefAcknowledgeSafetyCheckWarningReason` migration
+  // works as intended
+  const scoped_refptr<const Extension> extension = CreateExtension(
+      "test", base::Value::List(), mojom::ManifestLocation::kInternal);
+  {
+    // Verify that the boolean `kPrefAcknowledgeSafetyCheckWarning` is
+    // deleted if the `kPrefAcknowledgeSafetyCheckWarningReason` warning
+    // reason pref is already present, and that the
+    // `kPrefAcknowledgeSafetyCheckWarningReason` is unchanged.
+    EXPECT_CALL(mock_cws_info_service_, GetCWSInfo(testing::_))
+        .Times(1)
+        .WillOnce(testing::Return(MockCWSInfoService::GetCWSInfoNone()));
+    ExtensionPrefs::Get(profile_.get())
+        ->SetIntegerPref(extension->id(),
+                         kPrefAcknowledgeSafetyCheckWarningReason,
+                         /*Policy Warning Reason*/ 2);
+    ExtensionPrefs::Get(profile_.get())
+        ->SetBooleanPref(extension->id(), kPrefAcknowledgeSafetyCheckWarning,
+                         true);
+    ExtensionSafetyCheckUtils::GetSafetyCheckWarningReasonHelper(
+        &mock_cws_info_service_, BitMapBlocklistState::BLOCKLISTED_MALWARE,
+        profile_.get(), *extension);
+    bool warning = false;
+    int warning_reason = 0;
+    EXPECT_FALSE(
+        ExtensionPrefs::Get(profile_.get())
+            ->ReadPrefAsBoolean(extension->id(),
+                                extensions::kPrefAcknowledgeSafetyCheckWarning,
+                                &warning));
+    EXPECT_TRUE(ExtensionPrefs::Get(profile_.get())
+                    ->ReadPrefAsInteger(
+                        extension->id(),
+                        extensions::kPrefAcknowledgeSafetyCheckWarningReason,
+                        &warning_reason));
+    EXPECT_EQ(warning_reason, /*Policy Warning Reason*/ 2);
+  }
+  {
+    // Verify that if only the bool `kPrefAcknowledgeSafetyCheckWarning`
+    // is present, then:
+    //   - The boolean pref is deleted
+    //   - The `kPrefAcknowledgeSafetyCheckWarningReason` pref is added with
+    //     the current warning reason
+    EXPECT_CALL(mock_cws_info_service_, GetCWSInfo(testing::_))
+        .Times(1)
+        .WillOnce(testing::Return(MockCWSInfoService::GetCWSInfoNone()));
+    ExtensionPrefs::Get(profile_.get())
+        ->SetBooleanPref(extension->id(), kPrefAcknowledgeSafetyCheckWarning,
+                         true);
+    ExtensionPrefs::Get(profile_.get())
+        ->UpdateExtensionPref(
+            extension->id(),
+            extensions::kPrefAcknowledgeSafetyCheckWarningReason.name,
+            std::nullopt);
+    ExtensionSafetyCheckUtils::GetSafetyCheckWarningReasonHelper(
+        &mock_cws_info_service_, BitMapBlocklistState::BLOCKLISTED_MALWARE,
+        profile_.get(), *extension);
+    bool warning = false;
+    EXPECT_FALSE(
+        ExtensionPrefs::Get(profile_.get())
+            ->ReadPrefAsBoolean(extension->id(),
+                                extensions::kPrefAcknowledgeSafetyCheckWarning,
+                                &warning));
+    int warning_reason = 0;
+    EXPECT_TRUE(ExtensionPrefs::Get(profile_.get())
+                    ->ReadPrefAsInteger(
+                        extension->id(),
+                        extensions::kPrefAcknowledgeSafetyCheckWarningReason,
+                        &warning_reason));
+    EXPECT_EQ(warning_reason, /*Malware Warning Reason*/ 3);
   }
 }
 
@@ -515,9 +591,9 @@ TEST_F(SafetyCheckExtensionUtilsTest, SafetyCheck_Unpublished) {
 }
 
 TEST_F(SafetyCheckExtensionUtilsTest, SafetyCheck_No_Warning) {
-  // Test no warning is shown in the Extension Review Panel when there
-  // is not a violation present in the extension.
   {
+    // Test that no warning is shown for an extension without any store
+    // violations.
     const scoped_refptr<const Extension> extension = CreateExtension(
         "test", base::Value::List(), mojom::ManifestLocation::kInternal);
     EXPECT_CALL(mock_cws_info_service_, GetCWSInfo(testing::_))
@@ -531,6 +607,7 @@ TEST_F(SafetyCheckExtensionUtilsTest, SafetyCheck_No_Warning) {
               api::developer_private::SafetyCheckWarningReason::kNone);
   }
   {
+    // Test that no warning is shown for a component extension.
     const scoped_refptr<const Extension> extension_component_location =
         CreateExtension("test", base::Value::List(),
                         mojom::ManifestLocation::kComponent);
@@ -539,6 +616,47 @@ TEST_F(SafetyCheckExtensionUtilsTest, SafetyCheck_No_Warning) {
             &mock_cws_info_service_,
             BitMapBlocklistState::BLOCKLISTED_CWS_POLICY_VIOLATION,
             profile_.get(), *extension_component_location);
+    EXPECT_EQ(no_warning,
+              api::developer_private::SafetyCheckWarningReason::kNone);
+  }
+  {
+    // Test that an extension explicitly allowed by policy does not
+    // trigger a review panel warning.
+    using PolicyUpdater = extensions::ExtensionManagementPrefUpdater<
+        sync_preferences::TestingPrefServiceSyncable>;
+    const scoped_refptr<const Extension> extension_policy_location =
+        CreateExtension("test", base::Value::List(),
+                        mojom::ManifestLocation::kInternal);
+    sync_preferences::TestingPrefServiceSyncable* prefs =
+        profile_->GetTestingPrefService();
+    PolicyUpdater(prefs).SetIndividualExtensionInstallationAllowed(
+        extension_policy_location->id(), true);
+    api::developer_private::SafetyCheckWarningReason no_warning =
+        ExtensionSafetyCheckUtils::GetSafetyCheckWarningReasonHelper(
+            &mock_cws_info_service_,
+            BitMapBlocklistState::BLOCKLISTED_CWS_POLICY_VIOLATION,
+            profile_.get(), *extension_policy_location);
+    EXPECT_EQ(no_warning,
+              api::developer_private::SafetyCheckWarningReason::kNone);
+  }
+  {
+    // Test than an extension force-installed by policy does not trigger a
+    // review panel warning.
+    using PolicyUpdater = extensions::ExtensionManagementPrefUpdater<
+        sync_preferences::TestingPrefServiceSyncable>;
+    const scoped_refptr<const Extension> extension_policy_location =
+        CreateExtension("test", base::Value::List(),
+                        mojom::ManifestLocation::kInternal);
+    sync_preferences::TestingPrefServiceSyncable* prefs =
+        profile_->GetTestingPrefService();
+    PolicyUpdater(prefs).SetIndividualExtensionAutoInstalled(
+        extension_policy_location->id(),
+        extension_urls::kChromeWebstoreUpdateURL, true);
+    api::developer_private::SafetyCheckWarningReason no_warning =
+        ExtensionSafetyCheckUtils::GetSafetyCheckWarningReasonHelper(
+            &mock_cws_info_service_,
+            BitMapBlocklistState::BLOCKLISTED_CWS_POLICY_VIOLATION,
+            profile_.get(), *extension_policy_location);
     EXPECT_EQ(no_warning,
               api::developer_private::SafetyCheckWarningReason::kNone);
   }

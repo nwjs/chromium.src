@@ -17,6 +17,7 @@
 #include "build/build_config.h"
 #include "components/url_formatter/url_formatter.h"
 #include "content/browser/media/session/audio_focus_delegate.h"
+#include "content/browser/media/session/media_players_callback_aggregator.h"
 #include "content/browser/media/session/media_session_controller.h"
 #include "content/browser/media/session/media_session_player_observer.h"
 #include "content/browser/media/session/media_session_service_impl.h"
@@ -1944,6 +1945,25 @@ bool MediaSessionImpl::HasSufficientlyVisibleVideo() const {
   }
 
   return false;
+}
+
+void MediaSessionImpl::GetVisibility(
+    GetVisibilityCallback get_visibility_callback) {
+  if (normal_players_.empty()) {
+    std::move(get_visibility_callback).Run(false);
+    return;
+  }
+
+  scoped_refptr<MediaPlayersCallbackAggregator> aggregator =
+      MakeRefCounted<MediaPlayersCallbackAggregator>(
+          std::move(get_visibility_callback));
+  for (const auto& player : normal_players_) {
+    if (player.first.observer->IsPaused(player.first.player_id)) {
+      continue;
+    }
+    player.first.observer->OnRequestVisibility(
+        player.first.player_id, aggregator->CreateVisibilityCallback());
+  }
 }
 
 std::string MediaSessionImpl::GetSharedAudioOutputDeviceId() const {

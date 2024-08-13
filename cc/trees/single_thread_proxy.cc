@@ -95,7 +95,6 @@ void SingleThreadProxy::Start() {
 
     std::unique_ptr<CompositorTimingHistory> compositor_timing_history(
         new CompositorTimingHistory(
-            scheduler_settings.using_synchronous_renderer_compositor,
             CompositorTimingHistory::BROWSER_UMA,
             layer_tree_host_->rendering_stats_instrumentation()));
     scheduler_on_impl_thread_ = std::make_unique<Scheduler>(
@@ -580,13 +579,6 @@ void SingleThreadProxy::DidActivateSyncTree() {
   CommitComplete();
 }
 
-void SingleThreadProxy::WillPrepareTiles() {
-  DCHECK(!task_runner_provider_->HasImplThread() ||
-         task_runner_provider_->IsImplThread());
-  if (scheduler_on_impl_thread_)
-    scheduler_on_impl_thread_->WillPrepareTiles();
-}
-
 void SingleThreadProxy::DidPrepareTiles() {
   DCHECK(!task_runner_provider_->HasImplThread() ||
          task_runner_provider_->IsImplThread());
@@ -649,7 +641,7 @@ void SingleThreadProxy::OnDrawForLayerTreeFrameSink(
       << "Implemented by ThreadProxy for synchronous compositor.";
 }
 
-void SingleThreadProxy::NeedsImplSideInvalidation(
+void SingleThreadProxy::SetNeedsImplSideInvalidation(
     bool needs_first_draw_on_activation) {
   DCHECK(!task_runner_provider_->HasImplThread() ||
          task_runner_provider_->IsImplThread());

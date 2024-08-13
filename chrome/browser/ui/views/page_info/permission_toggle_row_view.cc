@@ -210,8 +210,8 @@ void PermissionToggleRowView::InitForUserSource(
             },
             base::Unretained(this)),
         vector_icons::kLaunchIcon);
-    subpage_button->SetTooltipText(l10n_util::GetStringUTF16(
-        IDS_PAGE_INFO_PERMISSIONS_SUBPAGE_BUTTON_TOOLTIP));
+    subpage_button->SetTooltipText(
+        PageInfoUI::PermissionSubpageButtonTooltipString(permission_.type));
     views::InstallCircleHighlightPathGenerator(subpage_button.get());
     subpage_button->SetMinimumImageSize({icon_size, icon_size});
     subpage_button->SetFlipCanvasOnPaintForRTLUI(false);
@@ -223,7 +223,7 @@ void PermissionToggleRowView::InitForUserSource(
           features::kFileSystemAccessPersistentPermissions) &&
       base::FeatureList::IsEnabled(
           features::kFileSystemAccessPersistentPermissionsUpdatedPageInfo);
-  if (permissions::PermissionUtil::CanPermissionBeAllowedOnce(
+  if (permissions::PermissionUtil::DoesSupportTemporaryGrants(
           permission_.type) ||
       permission_.is_one_time || show_updated_page_info_file_system) {
     auto subpage_button = views::CreateVectorImageButtonWithNativeTheme(
@@ -234,8 +234,8 @@ void PermissionToggleRowView::InitForUserSource(
             },
             base::Unretained(this)),
         vector_icons::kSubmenuArrowIcon);
-    subpage_button->SetTooltipText(l10n_util::GetStringUTF16(
-        IDS_PAGE_INFO_PERMISSIONS_SUBPAGE_BUTTON_TOOLTIP));
+    subpage_button->SetTooltipText(
+        PageInfoUI::PermissionSubpageButtonTooltipString(permission_.type));
     views::InstallCircleHighlightPathGenerator(subpage_button.get());
     subpage_button->SetMinimumImageSize({icon_size, icon_size});
     subpage_button->SetFlipCanvasOnPaintForRTLUI(false);

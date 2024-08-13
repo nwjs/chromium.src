@@ -33,8 +33,8 @@
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
-#import "ios/chrome/browser/sessions/live_tab_context_browser_agent.h"
-#import "ios/chrome/browser/sessions/session_util.h"
+#import "ios/chrome/browser/sessions/model/live_tab_context_browser_agent.h"
+#import "ios/chrome/browser/sessions/model/session_util.h"
 #import "ios/chrome/browser/settings/model/sync/utils/sync_presenter.h"
 #import "ios/chrome/browser/settings/model/sync/utils/sync_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -371,7 +371,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
       [[TableViewDisclosureHeaderFooterItem alloc]
           initWithType:ItemTypeRecentlyClosedHeader];
   header.text = l10n_util::GetNSString(IDS_IOS_RECENT_TABS_RECENTLY_CLOSED);
-  if (self.tabRestoreService->entries().empty()) {
+  if (!self.tabRestoreService || self.tabRestoreService->entries().empty()) {
     header.subtitleText =
         l10n_util::GetNSString(IDS_IOS_RECENT_TABS_RECENTLY_CLOSED_EMPTY);
   }
@@ -719,7 +719,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 }
 
 - (void)addSigninPromoViewItem {
-  // Init|_signinPromoViewMediator` if nil.
+  // Init `_signinPromoViewMediator` if nil.
   if (!self.signinPromoViewMediator && self.browserState) {
     self.signinPromoViewMediator = [[SigninPromoViewMediator alloc]
         initWithAccountManagerService:ChromeAccountManagerServiceFactory::

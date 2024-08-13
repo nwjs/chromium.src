@@ -73,7 +73,7 @@ public class TabListEditorGroupAction extends TabListEditorAction {
         boolean isEnabled = tabIds.size() > 1;
         if (ChromeFeatureList.sAndroidTabGroupStableIds.isEnabled() && tabIds.size() == 1) {
             TabGroupModelFilter filter = getTabGroupModelFilter();
-            Tab tab = TabModelUtils.getTabById(filter.getTabModel(), tabIds.get(0));
+            Tab tab = filter.getTabModel().getTabById(tabIds.get(0));
             isEnabled = tab != null && !filter.isTabInTabGroup(tab);
         }
         setEnabledAndItemCount(isEnabled, size);
@@ -88,7 +88,9 @@ public class TabListEditorGroupAction extends TabListEditorAction {
             if (tabGroupModelFilter.isTabInTabGroup(tab)) return true;
 
             tabGroupModelFilter.createSingleTabGroup(tab, /* notify= */ true);
-            if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
+            if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()
+                    && !TabGroupCreationDialogManager.shouldSkipGroupCreationDialog(
+                            /* shouldShow= */ true)) {
                 mTabGroupCreationDialogManager.showDialog(tab.getRootId(), tabGroupModelFilter);
             }
             return true;
@@ -120,7 +122,10 @@ public class TabListEditorGroupAction extends TabListEditorAction {
                 tabGroupModelFilter.willMergingCreateNewGroup(tabsToMerge);
         tabGroupModelFilter.mergeListOfTabsToGroup(sortedTabs, destinationTab, /* notify= */ true);
 
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled() && willMergingCreateNewGroup) {
+        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()
+                && willMergingCreateNewGroup
+                && !TabGroupCreationDialogManager.shouldSkipGroupCreationDialog(
+                        /* shouldShow= */ true)) {
             mTabGroupCreationDialogManager.showDialog(
                     destinationTab.getRootId(), tabGroupModelFilter);
         }

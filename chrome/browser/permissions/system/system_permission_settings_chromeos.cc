@@ -11,13 +11,19 @@
 #include "components/content_settings/core/common/features.h"
 
 class SystemPermissionSettingsImpl : public SystemPermissionSettings {
-  bool IsPermissionDeniedImpl(ContentSettingsType type) const override {
+  bool CanPrompt(ContentSettingsType type) const override { return false; }
+
+  bool IsDeniedImpl(ContentSettingsType type) const override {
     if (base::FeatureList::IsEnabled(
             content_settings::features::
                 kCrosSystemLevelPermissionBlockedWarnings)) {
       return ash::privacy_hub_util::ContentBlocked(type);
     }
     return false;
+  }
+
+  bool IsAllowedImpl(ContentSettingsType type) const override {
+    return !IsDeniedImpl(type);
   }
 
   void OpenSystemSettings(content::WebContents*,
@@ -29,8 +35,15 @@ class SystemPermissionSettingsImpl : public SystemPermissionSettings {
           ProfileManager::GetActiveUserProfile(), type);
     }
   }
+
+  void Request(ContentSettingsType type,
+               SystemPermissionResponseCallback callback) override {
+    std::move(callback).Run();
+    NOTREACHED();
+  }
 };
 
-std::unique_ptr<SystemPermissionSettings> SystemPermissionSettings::Create() {
+std::unique_ptr<SystemPermissionSettings>
+SystemPermissionSettings::CreateImpl() {
   return std::make_unique<SystemPermissionSettingsImpl>();
 }

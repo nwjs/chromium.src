@@ -29,6 +29,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/timing/performance.h"
 
 #include <algorithm>
@@ -1156,8 +1161,7 @@ PerformanceMeasure* Performance::MeasureInternal(
     end = MakeGarbageCollected<V8UnionDoubleOrString>(*end_mark);
   }
   return MeasureWithDetail(script_state, measure_name, start,
-                           /* duration = */ std::nullopt, end,
-                           ScriptValue::CreateNull(script_state->GetIsolate()),
+                           /* duration = */ std::nullopt, end, ScriptValue(),
                            exception_state);
 }
 

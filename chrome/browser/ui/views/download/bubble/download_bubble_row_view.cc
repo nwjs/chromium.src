@@ -10,6 +10,7 @@
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/not_fatal_until.h"
 #include "base/time/time.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -266,9 +267,10 @@ void DownloadBubbleRowView::UpdateRow(bool initial_setup) {
 }
 
 void DownloadBubbleRowView::AddedToWidget() {
-  const display::Screen* const screen = display::Screen::GetScreen();
-  current_scale_ = screen->GetDisplayNearestView(GetWidget()->GetNativeView())
-                       .device_scale_factor();
+  current_scale_ =
+      display::Screen::GetScreen()
+          ->GetPreferredScaleFactorForView(GetWidget()->GetNativeView())
+          .value_or(1.0);
   SetIcon();
   auto* focus_manager = GetFocusManager();
   if (focus_manager) {
@@ -676,7 +678,7 @@ views::View::Views DownloadBubbleRowView::GetChildrenInZOrder() {
   auto children = views::View::GetChildrenInZOrder();
   const auto move_child_to_top = [&](View* child) {
     auto it = base::ranges::find(children, child);
-    DCHECK(it != children.end());
+    CHECK(it != children.end(), base::NotFatalUntil::M130);
     std::rotate(it, it + 1, children.end());
   };
   move_child_to_top(transparent_button_);

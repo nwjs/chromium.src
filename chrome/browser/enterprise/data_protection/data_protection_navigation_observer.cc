@@ -15,7 +15,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service.h"
 #include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service_factory.h"
-#include "components/enterprise/data_controls/features.h"
+#include "components/enterprise/data_controls/core/features.h"
 #include "components/safe_browsing/core/browser/realtime/policy_engine.h"
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service_base.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -159,8 +159,7 @@ bool IsScreenshotProtectionEnabled() {
 }
 
 bool IsDataProtectionEnabled(Profile* profile) {
-  //return IsEnterpriseLookupEnabled(profile) || IsScreenshotProtectionEnabled();
-  return false;
+  return IsEnterpriseLookupEnabled(profile) || IsScreenshotProtectionEnabled();
 }
 
 std::string GetIdentifier(content::BrowserContext* browser_context) {
@@ -178,12 +177,9 @@ void LogVerdictSource(
 
 bool IsScreenshotAllowedByDataControls(content::BrowserContext* context,
                                        const GURL& url) {
-  return true;
-#if 0
-  auto* rules =
-      data_controls::ChromeRulesServiceFactory::GetForBrowserContext(context);
+  auto* rules = data_controls::ChromeRulesServiceFactory::GetInstance()
+                    ->GetForBrowserContext(context);
   return rules ? !rules->BlockScreenshots(url) : true;
-#endif
 }
 
 }  // namespace
@@ -207,7 +203,6 @@ void DataProtectionNavigationObserver::CreateForNavigationIfNeeded(
     return;
   }
 
-#if 0
   // ChromeEnterpriseRealTimeUrlLookupServiceFactory::GetForProfile() return
   // nullptr if enterprise policies are not set.  In this case data protections
   // will be based on data controls alone,
@@ -217,7 +212,6 @@ void DataProtectionNavigationObserver::CreateForNavigationIfNeeded(
           safe_browsing::ChromeEnterpriseRealTimeUrlLookupServiceFactory::
               GetForProfile(profile),
           navigation_handle->GetWebContents(), std::move(callback));
-#endif
 }
 
 // static
@@ -243,11 +237,10 @@ void DataProtectionNavigationObserver::GetDataProtectionSettings(
     return;
   }
 
-#if 0
   std::string identifier = GetIdentifier(profile);
 
   if (IsScreenshotProtectionEnabled()) {
-    DataProtectionPageUserData::UpdateScreenshotState(
+    DataProtectionPageUserData::UpdateDataControlsScreenshotState(
         GetPageFromWebContents(web_contents), identifier,
         IsScreenshotAllowedByDataControls(profile,
                                           web_contents->GetLastCommittedURL()));
@@ -278,11 +271,10 @@ void DataProtectionNavigationObserver::GetDataProtectionSettings(
     DoLookup(lookup_service, web_contents->GetLastCommittedURL(),
              GetIdentifier(profile), std::move(lookup_callback), web_contents);
   } else {
-#endif
     ud = GetUserData(web_contents);
     DCHECK(ud);
     std::move(callback).Run(ud->settings());
-    //  }
+  }
 }
 
 // static
@@ -390,7 +382,7 @@ void DataProtectionNavigationObserver::DidFinishNavigation(
     return;
   }
 
-  DataProtectionPageUserData::UpdateScreenshotState(
+  DataProtectionPageUserData::UpdateDataControlsScreenshotState(
       GetPageFromWebContents(navigation_handle->GetWebContents()), identifier_,
       allow_screenshot_);
 

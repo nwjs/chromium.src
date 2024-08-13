@@ -14,6 +14,8 @@
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_features.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_remove_mask.h"
+#import "ios/chrome/browser/browsing_data/model/browsing_data_remover.h"
+#import "ios/chrome/browser/browsing_data/model/browsing_data_remover_factory.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 #import "ios/chrome/browser/intents/intents_donation_helper.h"
@@ -24,8 +26,8 @@
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
-#import "ios/chrome/browser/shared/public/commands/browsing_data_commands.h"
 #import "ios/chrome/browser/shared/ui/elements/chrome_activity_overlay_coordinator.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_button_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_link_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/legacy_chrome_table_view_styler.h"
@@ -216,12 +218,18 @@
     [self.actionSheetCoordinator stop];
     self.actionSheetCoordinator = nil;
   }
+
   [self dismissAlertCoordinator];
+
   if (self.overlayCoordinator.started) {
     [self.overlayCoordinator stop];
     self.navigationController.interactivePopGestureRecognizer.delegate = nil;
     self.overlayCoordinator = nil;
   }
+
+  [_signoutCoordinator stop];
+  _signoutCoordinator = nil;
+
   _identityManagerObserverBridge.reset();
   [self.dataManager disconnect];
 }
@@ -407,6 +415,8 @@
 - (void)removeBrowsingDataForTimePeriod:(browsing_data::TimePeriod)timePeriod
                              removeMask:(BrowsingDataRemoveMask)removeMask
                         completionBlock:(ProceduralBlock)completionBlock {
+  CHECK(timePeriod != browsing_data::TimePeriod::LAST_15_MINUTES,
+        base::NotFatalUntil::M130);
   Browser* browser = self.browser;
   ChromeBrowserState* browserState = self.browserState;
   PrefService* prefService = self.prefService;
@@ -473,11 +483,9 @@
         ->BrowsingHistoryCleared();
   }
 
-  [self.dispatcher
-      removeBrowsingDataForBrowserState:browserState
-                             timePeriod:timePeriod
-                             removeMask:removeMask
-                        completionBlock:removeBrowsingDidFinishCompletionBlock];
+  BrowsingDataRemoverFactory::GetForBrowserState(browserState)
+      ->Remove(timePeriod, removeMask,
+               base::BindOnce(removeBrowsingDidFinishCompletionBlock));
 }
 
 - (void)showBrowsingHistoryRemovedDialog {
@@ -607,10 +615,26 @@
 }
 
 - (void)updateToolbarButtons {
-  self.clearBrowsingDataBarButton.enabled = [self hasDataTypeItemsSelected];
+  self.clearBrowsingDataBarButton.enabled = [self enableDeletionButton];
 }
 
-- (BOOL)hasDataTypeItemsSelected {
+- (BOOL)enableDeletionButton {
+  // 15 minutes shouldn't be available in this UI. If 15 minutes is selected,
+  // because the user at some point saw the new UI and selected it, make them
+  // select another time range.
+  if (![self.tableViewModel
+          hasSectionForSectionIdentifier:SectionIdentifierTimeRange]) {
+    return NO;
+  }
+  NSArray* timeRangeItems = [self.tableViewModel
+      itemsInSectionWithIdentifier:SectionIdentifierTimeRange];
+  CHECK_EQ(timeRangeItems.count, 1u, base::NotFatalUntil::M130);
+  TableViewDetailIconItem* timeRangeItem = timeRangeItems[0];
+  CHECK([timeRangeItem isKindOfClass:[TableViewDetailIconItem class]]);
+  if (!timeRangeItem.detailText) {
+    return NO;
+  }
+
   // Returns YES iff at least 1 data type cell is selected.
   // Check if table model has the data types section, because sometimes this
   // is called before it does.

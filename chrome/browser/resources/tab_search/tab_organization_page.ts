@@ -9,8 +9,9 @@ import './tab_organization_in_progress.js';
 import './tab_organization_not_started.js';
 import './tab_organization_results.js';
 
+import {getInstance as getAnnouncerInstance} from '//resources/cr_elements/cr_a11y_announcer/cr_a11y_announcer.js';
 import {CrFeedbackOption} from 'chrome://resources/cr_elements/cr_feedback_buttons/cr_feedback_buttons.js';
-import {assert} from 'chrome://resources/js/assert.js';
+import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
@@ -55,13 +56,13 @@ export class TabOrganizationPageElement extends CrLitElement {
   private listenerIds_: number[] = [];
   private state_: TabOrganizationState = TabOrganizationState.kInitializing;
   protected availableHeight_: number = 0;
-  protected session_: TabOrganizationSession|null;
+  protected session_: TabOrganizationSession|null = null;
   protected showFRE_: boolean =
       loadTimeData.getBoolean('showTabOrganizationFRE');
   protected multiTabOrganization_: boolean =
       loadTimeData.getBoolean('multiTabOrganizationEnabled');
   private documentVisibilityChangedListener_: () => void;
-  private futureState_: TabOrganizationState|null;
+  private futureState_: TabOrganizationState|null = null;
 
   static override get styles() {
     return getCss();
@@ -115,7 +116,7 @@ export class TabOrganizationPageElement extends CrLitElement {
     } else {
       this.apiProxy_.rejectTabOrganization(
           this.session_.sessionId,
-          this.session_.organizations[0].organizationId);
+          this.session_.organizations[0]!.organizationId);
     }
   }
 
@@ -180,17 +181,33 @@ export class TabOrganizationPageElement extends CrLitElement {
     if (!changedState) {
       return;
     }
-    if (state === TabOrganizationState.kInProgress) {
-      // Ensure the loading state appears for a sufficient amount of time, so as
-      // to not appear jumpy if the request completes quickly.
-      this.futureState_ = TabOrganizationState.kInProgress;
-      setTimeout(() => this.applyFutureState_(), MIN_LOADING_ANIMATION_MS);
-    } else if (state === TabOrganizationState.kSuccess) {
-      // Wait until the new state is visible after the transition to focus on
-      // the new UI.
-      this.$.results.addEventListener('animationend', () => {
-        this.$.results.focusInput();
-      }, {once: true});
+    const announcer = getAnnouncerInstance();
+    switch (state) {
+      case TabOrganizationState.kInitializing:
+        break;
+      case TabOrganizationState.kNotStarted:
+        announcer.announce(this.$.notStarted.getTitle());
+        break;
+      case TabOrganizationState.kInProgress:
+        announcer.announce(this.$.inProgress.getTitle());
+        // Ensure the loading state appears for a sufficient amount of time, so
+        // as to not appear jumpy if the request completes quickly.
+        this.futureState_ = TabOrganizationState.kInProgress;
+        setTimeout(() => this.applyFutureState_(), MIN_LOADING_ANIMATION_MS);
+        break;
+      case TabOrganizationState.kSuccess:
+        announcer.announce(this.$.results.getTitle());
+        // Wait until the new state is visible after the transition to focus on
+        // the new UI.
+        this.$.results.addEventListener('animationend', () => {
+          this.$.results.focusInput();
+        }, {once: true});
+        break;
+      case TabOrganizationState.kFailure:
+        announcer.announce(this.$.failure.getTitle(this.getSessionError_()));
+        break;
+      default:
+        assertNotReached('Invalid tab organization state');
     }
     if (wasInitializing) {
       this.apiProxy_.notifyOrganizationUiReadyToShow();
@@ -207,16 +224,8 @@ export class TabOrganizationPageElement extends CrLitElement {
     return this.state_ === state;
   }
 
-  protected onSyncClick_() {
-    this.apiProxy_.triggerSync();
-  }
-
   protected onSignInClick_() {
     this.apiProxy_.triggerSignIn();
-  }
-
-  protected onSettingsClick_() {
-    this.apiProxy_.openSyncSettings();
   }
 
   protected onOrganizeTabsClick_() {

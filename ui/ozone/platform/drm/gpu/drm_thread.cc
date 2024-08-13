@@ -325,8 +325,6 @@ void DrmThread::CheckOverlayCapabilitiesSync(
     const OverlaySurfaceCandidateList& overlays,
     std::vector<OverlayStatus>* result) {
   TRACE_EVENT0("drm,hwoverlays", "DrmThread::CheckOverlayCapabilitiesSync");
-  base::ElapsedTimer timer;
-
   DrmWindow* window = screen_manager_->GetWindow(widget);
   if (!window) {
     result->clear();
@@ -334,14 +332,6 @@ void DrmThread::CheckOverlayCapabilitiesSync(
     return;
   }
   *result = window->TestPageFlip(overlays);
-
-  base::TimeDelta time = timer.Elapsed();
-  static constexpr base::TimeDelta kMinTime = base::Microseconds(1);
-  static constexpr base::TimeDelta kMaxTime = base::Milliseconds(10);
-  static constexpr int kTimeBuckets = 50;
-  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-      "Compositing.Display.DrmThread.CheckOverlayCapabilitiesSyncUs", time,
-      kMinTime, kMaxTime, kTimeBuckets);
 }
 
 void DrmThread::GetHardwareCapabilities(
@@ -356,7 +346,8 @@ void DrmThread::GetHardwareCapabilities(
       device_manager_->GetDrmDevice(widget)->plane_manager();
 
   if (!hdc || !plane_manager) {
-    HardwareCapabilities hardware_capabilities{.is_valid = false};
+    HardwareCapabilities hardware_capabilities;
+    hardware_capabilities.is_valid = false;
     std::move(receive_callback).Run(hardware_capabilities);
     return;
   }
@@ -371,7 +362,8 @@ void DrmThread::GetHardwareCapabilities(
   } else {
     // If there are multiple CRTCs for this widget we shouldn't rely on overlays
     // working.
-    HardwareCapabilities hardware_capabilities{.is_valid = false};
+    HardwareCapabilities hardware_capabilities;
+    hardware_capabilities.is_valid = false;
     std::move(receive_callback).Run(hardware_capabilities);
   }
 }

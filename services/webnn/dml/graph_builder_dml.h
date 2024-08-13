@@ -12,6 +12,7 @@
 #include "base/component_export.h"
 #include "base/containers/span.h"
 #include "base/memory/raw_ref.h"
+#include "base/types/expected.h"
 #include "services/webnn/dml/tensor_desc.h"
 #include "third_party/microsoft_dxheaders/include/directml.h"
 
@@ -160,9 +161,13 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) GraphBuilderDml final {
   // When creation of IDMLOperator succeeds, it creates an operator node
   // stored in `GraphBuilderDml::operator_nodes_` and returns its pointer. When
   // it fails to create IDMLOperator, a nullptr is returned.
+  //
+  // TODO(crbug.com/350540987): Remove the default value of `label` after all
+  // operators have labels.
   const OperatorNode* CreateOperatorNode(DML_OPERATOR_TYPE type,
                                          const void* operator_desc,
-                                         base::span<const NodeOutput*> inputs);
+                                         base::span<const NodeOutput*> inputs,
+                                         std::string_view label = "");
 
   // Create a node output stored in `GraphBuilderDml::node_outputs_` and return
   // its pointer.
@@ -174,9 +179,9 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) GraphBuilderDml final {
   uint32_t CreateOutputEdge(const NodeOutput* node_output);
 
   // Notice that IDMLDevice1::CompileGraph may take a long time to compile
-  // shaders (if not cached before), so this method may block the current
-  // thread. Consider posting this method to the thread pool to avoid blocking.
-  Microsoft::WRL::ComPtr<IDMLCompiledOperator> Compile(
+  // shaders (if not cached before), so this method should be called on a
+  // background thread to avoid blocking the current thread.
+  base::expected<Microsoft::WRL::ComPtr<IDMLCompiledOperator>, HRESULT> Compile(
       DML_EXECUTION_FLAGS flags) const;
 
  private:

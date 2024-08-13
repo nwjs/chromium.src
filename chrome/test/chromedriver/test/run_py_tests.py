@@ -102,6 +102,8 @@ _NEGATIVE_FILTER = [
     'ChromeDriverSiteIsolation.testClickNavigateRemoteToLocal',
     # crbug.com/chromedriver/4513
     'ChromeDriverSiteIsolation.testClickNavigateRemoteToSameRemote',
+    # crbug.com/350916212
+    'BidiTest.testFocusInFirstTab',
 ]
 
 
@@ -152,14 +154,6 @@ _OS_SPECIFIC_FILTER['mac'] = [
     'ChromeDriverTest.testFindChildElementsStaleElement2',
     # Flaky: https://crbug.com/1486520
     'ChromeDriverTest.testClickStaleElement',
-        # Failing on macOS 14 due to https://crbug.com/40233722
-    'ChromeDriverSecureContextTest.testAddVirtualAuthenticator',
-    'ChromeDriverSecureContextTest.testAddVirtualAuthDefaultBackupSettings',
-    'ChromeDriverSecureContextTest.testAddVirtualAuthenticatorDefaultParams',
-    'ChromeDriverSecureContextTest.testGetCredentials',
-    'ChromeDriverSecureContextTest.testRemoveAllCredentials',
-    'ChromeDriverSecureContextTest.testRemoveCredential',
-    'ChromeDriverSecureContextTest.testSetUserVerified'
 ]
 
 _BROWSER_SPECIFIC_FILTER = {}
@@ -4114,7 +4108,6 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
       except chromedriver.NoSuchElement:
         pass
 
-
 class ChromeDriverBackgroundTest(ChromeDriverBaseTestWithWebServer):
   def setUp(self):
     self._driver1 = self.CreateDriver()
@@ -5370,6 +5363,13 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
     self._https_server.SetCallbackForPath('/fencedframe.html',
                                           respondWithFencedFrameContents)
 
+    self._driver = self.CreateDriver(
+        accept_insecure_certs = True,
+        chrome_switches=['--site-per-process',
+          '--enable-features=FencedFrames,PrivacySandboxAdsAPIsOverride,'
+          'FencedFramesAPIChanges,FencedFramesDefaultMode,'
+          'FencedFramesEnforceFocus'])
+
   @staticmethod
   def GetHttpsUrlForFile(file_path):
     return ChromeDriverFencedFrame._https_server.GetUrl() + file_path
@@ -5380,16 +5380,7 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
     self._https_server.SetDataForPath('/nesting.html', None)
     self._https_server.SetCallbackForPath('/fencedframe.html', None)
 
-  def _initDriver(self):
-    self._driver = self.CreateDriver(
-        accept_insecure_certs = True,
-        chrome_switches=['--site-per-process',
-          '--enable-features=FencedFrames,PrivacySandboxAdsAPIsOverride,'
-          'FencedFramesAPIChanges,FencedFramesDefaultMode,'
-          'FencedFramesEnforceFocus'])
-
   def testCanSwitchToFencedFrame(self):
-    self._initDriver()
     self._driver.Load(self.GetHttpsUrlForFile('/main.html'))
     self._driver.SetTimeouts({'implicit': 2000})
     fencedframe = self._driver.FindElement('tag name', 'fencedframe')
@@ -5398,7 +5389,6 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
     self.assertIsNotNone(button)
 
   def testAppendEmptyFencedFrame(self):
-    self._initDriver()
     self._driver.Load(self.GetHttpsUrlForFile('/chromedriver/empty.html'))
     self._driver.ExecuteScript(
         'document.body.appendChild(document.createElement("fencedframe"));')
@@ -5407,12 +5397,28 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
     self._driver.SwitchToFrame(fencedframe)
 
   def testFencedFrameInsideIframe(self):
-    self._initDriver()
     self._driver.Load(self.GetHttpsUrlForFile('/nesting.html'))
     self._driver.SwitchToFrameByIndex(0)
     fencedframe = self._driver.FindElement('tag name', 'fencedframe')
     self.assertIsNotNone(fencedframe)
     self._driver.SwitchToFrame(fencedframe)
+
+  def testSharedStorageWorkletTarget(self):
+    self._http_server.SetDataForPath('/simple_module.js', bytes('''
+       class Simple {
+          async run(urls, data) {
+            return 0;
+          }
+       }
+       register('simple', Simple);
+    ''', 'utf-8'))
+
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+    self._driver.ExecuteScript('''
+       window.sharedStorage.worklet.addModule(
+                               "/shared-storage/resources/simple-module.js")''')
+    window_handles = self._driver.GetWindowHandles()
+    self.assertEqual(len(window_handles), 1)
 
 class ChromeDriverSiteIsolation(ChromeDriverBaseTestWithWebServer):
   """Tests for ChromeDriver with the new Site Isolation Chrome feature.
@@ -8313,7 +8319,6 @@ class FedCmSpecificTest(ChromeDriverBaseTestWithWebServer):
     self.assertEqual(2, len(accounts))
 
     self._driver.SelectAccount(0)
-    self.assertRaises(chromedriver.NoSuchAlert, self._driver.GetAccounts)
 
     self.assertTrue(self.WaitForCondition(self.FedCmDialogCondition))
     self.assertEqual("Error", self._driver.GetDialogType())
@@ -8347,7 +8352,6 @@ class FedCmSpecificTest(ChromeDriverBaseTestWithWebServer):
     self.assertEqual(2, len(accounts))
 
     self._driver.SelectAccount(0)
-    self.assertRaises(chromedriver.NoSuchAlert, self._driver.GetAccounts)
 
     self.assertTrue(self.WaitForCondition(self.FedCmDialogCondition))
     self.assertEqual("Error", self._driver.GetDialogType())

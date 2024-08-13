@@ -92,9 +92,7 @@ bool RenameTable(sql::Database* db,
 bool DoesColumnExist(sql::Database* db,
                      std::string_view table_name,
                      std::string_view column_name) {
-  return db->DoesColumnExist(
-      base::cstring_view(table_name.data(), table_name.size()),
-      base::cstring_view(column_name.data(), column_name.size()));
+  return db->DoesColumnExist(std::string(table_name), std::string(column_name));
 }
 
 bool AddColumn(sql::Database* db,

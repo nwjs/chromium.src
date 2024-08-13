@@ -28,6 +28,18 @@ class ContextualPanelTabHelper
 
   ~ContextualPanelTabHelper() override;
 
+  // Helper class to hold all entrypoint metric data.
+  struct EntrypointMetricsData {
+    ContextualPanelItemType entrypoint_item_type;
+    std::optional<base::Time> appearance_time = base::Time::Now();
+    base::TimeDelta time_visible;
+    bool largeEntrypointWasShown = false;
+    bool iphWasShown = false;
+    bool entrypoint_tap_metrics_fired = false;
+    bool entrypoint_regular_display_metrics_fired = false;
+    bool entrypoint_loud_display_metrics_fired = false;
+  };
+
   // Adds and removes observers for contextual panel actions. The order in
   // which notifications are sent to observers is undefined. Clients must be
   // sure to remove the observer before they go away.
@@ -46,7 +58,8 @@ class ContextualPanelTabHelper
 
   // Gets the first config in the cached list of sorted Contextual Panel model
   // configs.
-  base::WeakPtr<ContextualPanelItemConfiguration> GetFirstCachedConfig();
+  virtual base::WeakPtr<ContextualPanelItemConfiguration>
+  GetFirstCachedConfig();
 
   // Set the contextual sheet handler, used to display the contextual sheet UI.
   void SetContextualSheetHandler(id<ContextualSheetCommands> handler);
@@ -57,9 +70,19 @@ class ContextualPanelTabHelper
   void OpenContextualPanel();
   void CloseContextualPanel();
 
-  // Getter and setter for large_entrypoint_shown_for_curent_page_navigation_.
-  bool WasLargeEntrypointShown();
-  void SetLargeEntrypointShown(bool shown);
+  // Getter and setter for
+  // loud_moment_entrypoint_shown_for_curent_page_navigation_.
+  bool WasLoudMomentEntrypointShown();
+  void SetLoudMomentEntrypointShown(bool shown);
+
+  // Getter and setter for metrics_data_;
+  std::optional<EntrypointMetricsData>& GetMetricsData();
+  void SetMetricsData(EntrypointMetricsData data);
+
+  // Returns whether the given navigation should cause the panel's data to be
+  // updated.
+  bool ShouldRefreshData(web::WebState* web_state,
+                         web::NavigationContext* navigation_context);
 
   // WebStateObserver:
   void DidStartNavigation(web::WebState* web_state,
@@ -70,6 +93,8 @@ class ContextualPanelTabHelper
   void PageLoaded(
       web::WebState* web_state,
       web::PageLoadCompletionStatus load_completion_status) override;
+  void WasShown(web::WebState* web_state) override;
+  void WasHidden(web::WebState* web_state) override;
 
  protected:
   // Protected to allow test overriding.
@@ -109,18 +134,26 @@ class ContextualPanelTabHelper
   // Do any necessary work after all requests are completed or time out.
   void AllRequestsFinished();
 
+  // Fire any metrics that should fire when all requests are finished.
+  void FireRequestsFinishedMetrics();
+
   WEB_STATE_USER_DATA_KEY_DECL();
 
   // Whether the Contextual Panel is currently opened for the current tab.
   bool is_contextual_panel_currently_opened_ = false;
 
-  // Whether the large Contextual Panel entrypoint has been shown for the
-  // current navigation.
-  bool large_entrypoint_shown_for_curent_page_navigation_ = false;
+  // Whether a loud moment (large entrypoint or IPH) for the Contextual Panel
+  // entrypoint has been shown for the current navigation.
+  bool loud_moment_entrypoint_shown_for_curent_page_navigation_ = false;
 
   // The WebState this instance is observing. Will be null after
   // WebStateDestroyed has been called.
   raw_ptr<web::WebState> web_state_ = nullptr;
+
+  // Stores metric data for the entrypoint. The data is stored here because
+  // there is one tab helper per tab, while the entrypoint classes are one per
+  // browser. The data stored here is specific to a given tab.
+  std::optional<EntrypointMetricsData> metrics_data_ = std::nullopt;
 
   // Map of the models this tab helper should query for possible panels.
   std::map<ContextualPanelItemType, raw_ptr<ContextualPanelModel>> models_;

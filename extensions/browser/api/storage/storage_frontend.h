@@ -44,6 +44,16 @@ class StorageFrontend : public BrowserContextKeyedAPI {
     std::optional<std::string> error;
   };
 
+  struct GetResult {
+    GetResult();
+    GetResult(const GetResult&) = delete;
+    GetResult(GetResult&& other);
+    ~GetResult();
+
+    ResultStatus status;
+    std::optional<base::Value::Dict> data;
+  };
+
   // Returns the current instance for |context|.
   static StorageFrontend* Get(content::BrowserContext* context);
 
@@ -76,6 +86,15 @@ class StorageFrontend : public BrowserContextKeyedAPI {
   void DeleteStorageSoon(const ExtensionId& extension_id,
                          base::OnceClosure done_callback);
 
+  // For a given `extension` and `storage_area`, retrieves a map of key value
+  // pairs from storage and fires `callback` with the result. If `keys` is
+  // specified, only the specified keys are retrieved. Otherwise, all data is
+  // returned.
+  void GetValues(scoped_refptr<const Extension> extension,
+                 StorageAreaNamespace storage_area,
+                 std::optional<std::vector<std::string>> keys,
+                 base::OnceCallback<void(GetResult)> callback);
+
   // For a given `extension` and `storage_area`, determines the number of bytes
   // in use and fires `callback` with the result. If `keys` is specified, the
   // result is based only on keys contained within the vector. Otherwise, all
@@ -84,6 +103,20 @@ class StorageFrontend : public BrowserContextKeyedAPI {
                      StorageAreaNamespace storage_area,
                      std::optional<std::vector<std::string>> keys,
                      base::OnceCallback<void(size_t)> callback);
+
+  // For a given `extension` and `storage_area`, sets the values specified by
+  // `values` in storage and fires `callback`.
+  void Set(scoped_refptr<const Extension> extension,
+           StorageAreaNamespace storage_area,
+           base::Value::Dict values,
+           base::OnceCallback<void(ResultStatus)> callback);
+
+  // For a given `extension` and `storage_area`, removes the items specified by
+  // `keys` from storage and fires `callback`.
+  void Remove(scoped_refptr<const Extension> extension,
+              StorageAreaNamespace storage_area,
+              const std::vector<std::string>& keys,
+              base::OnceCallback<void(ResultStatus)> callback);
 
   // For a given `extension` and `storage_area`, clears the storage and fires
   // `callback`.
@@ -119,6 +152,14 @@ class StorageFrontend : public BrowserContextKeyedAPI {
                   content::BrowserContext* context);
 
   void Init(scoped_refptr<value_store::ValueStoreFactory> storage_factory);
+
+  // Should be called on the UI thread after a read has been performed in
+  // `storage_area`. Fires `callback` with the `result` from the read
+  // operation.
+  void OnReadFinished(const ExtensionId& extension_id,
+                      StorageAreaNamespace storage_area,
+                      base::OnceCallback<void(GetResult)> callback,
+                      value_store::ValueStore::ReadResult result);
 
   // Should be called on the UI thread after a write has been performed in
   // `storage_area`. Fires events if any values were changed and then runs

@@ -110,6 +110,14 @@ void ResolvedFrameData::SetFullDamageForNextAggregation() {
   previous_frame_index_ = kInvalidFrameIndex;
 }
 
+gfx::Size ResolvedFrameData::size_in_pixels() const {
+  return surface_->size_in_pixels();
+}
+
+float ResolvedFrameData::device_scale_factor() const {
+  return surface_->device_scale_factor();
+}
+
 uint32_t ResolvedFrameData::GetClientNamespaceId() const {
   return static_cast<uint32_t>(child_resource_id_);
 }
@@ -124,10 +132,17 @@ void ResolvedFrameData::UpdateForActiveFrame(
     AggregatedRenderPassId::Generator& render_pass_id_generator) {
   // If there are modified render passes they need to be rebuilt based on
   // current active CompositorFrame.
-  offset_tag_render_passes.clear();
+  offset_tag_render_passes_.clear();
 
   auto& compositor_frame = surface_->GetActiveFrame();
   auto& resource_list = compositor_frame.resource_list;
+
+  // Ref the resources in the surface, and let the provider know we've received
+  // new resources from the compositor frame.
+  if (surface_->client()) {
+    surface_->client()->RefResources(resource_list);
+  }
+
   auto& render_passes = compositor_frame.render_pass_list;
   size_t num_render_pass = render_passes.size();
   DCHECK(!render_passes.empty());
@@ -267,16 +282,16 @@ void ResolvedFrameData::UpdateOffsetTags(OffsetTagLookupFn lookup_value_fn) {
 
   if (offset_tag_values_changed_from_last_frame_) {
     tag_values_ = std::move(new_tag_values);
-    offset_tag_render_passes.clear();
+    offset_tag_render_passes_.clear();
     has_non_zero_offset_tag_value_ = std::ranges::any_of(
         tag_values_, [](auto& entry) { return !entry.second.IsZero(); });
-  } else if (!offset_tag_render_passes.empty()) {
+  } else if (!offset_tag_render_passes_.empty()) {
     // If offset tag values haven't changed and the copied render passes weren't
     // cleared elsewhere they can be reused.
-    CHECK_EQ(offset_tag_render_passes.size(), resolved_passes_.size());
-    for (size_t i = 0; i < offset_tag_render_passes.size(); ++i) {
+    CHECK_EQ(offset_tag_render_passes_.size(), resolved_passes_.size());
+    for (size_t i = 0; i < offset_tag_render_passes_.size(); ++i) {
       resolved_passes_[i].SetCompositorRenderPass(
-          offset_tag_render_passes[i].get());
+          offset_tag_render_passes_[i].get());
     }
     return;
   }
@@ -285,7 +300,7 @@ void ResolvedFrameData::UpdateOffsetTags(OffsetTagLookupFn lookup_value_fn) {
 }
 
 void ResolvedFrameData::RebuildRenderPassesForOffsetTags() {
-  CHECK(offset_tag_render_passes.empty());
+  CHECK(offset_tag_render_passes_.empty());
 
   if (!has_non_zero_offset_tag_value_) {
     // No modifications are required so don't make a copy of render passes.
@@ -294,13 +309,20 @@ void ResolvedFrameData::RebuildRenderPassesForOffsetTags() {
 
   // Create copies of the render passes and modify tagged quad positions by
   // adjusting `quad_to_target_transform` transform.
-  offset_tag_render_passes.reserve(resolved_passes_.size());
+  // TODO(kylechar): This only needs to make a copy of render passes that have
+  // tagged quads.
+  offset_tag_render_passes_.reserve(resolved_passes_.size());
   for (auto& resolved_pass : resolved_passes_) {
     CHECK(resolved_pass.fixed_.render_pass);
 
-    // TODO(kylechar): This only needs to make a copy of render passes that have
-    // tagged quads.
-    auto modified_pass = resolved_pass.fixed_.render_pass->DeepCopy();
+    // DeepCopy() can't copy CopyOutputRequests. Remove them from `source_pass`
+    // before copying and then add them back afterwards. The requests are
+    // copied to the AggregatedRenderPass by Surface::TakeCopyOutputRequests()
+    // which will look in the original render pass.
+    auto source_pass = resolved_pass.fixed_.render_pass;
+    auto copy_requests = std::move(source_pass->copy_requests);
+    auto modified_pass = source_pass->DeepCopy();
+    source_pass->copy_requests = std::move(copy_requests);
 
     for (auto* sqs : modified_pass->shared_quad_state_list) {
       if (sqs->offset_tag) {
@@ -313,7 +335,7 @@ void ResolvedFrameData::RebuildRenderPassesForOffsetTags() {
     // Replace the CompositorRenderPass pointer so that modified frame is used
     // during aggregation.
     resolved_pass.fixed_.render_pass = modified_pass.get();
-    offset_tag_render_passes.push_back(std::move(modified_pass));
+    offset_tag_render_passes_.push_back(std::move(modified_pass));
   }
 }
 
@@ -342,6 +364,11 @@ void ResolvedFrameData::ResetAfterAggregation() {
 
   previous_frame_index_ = frame_index_;
   used_in_aggregation_ = false;
+}
+
+const CompositorFrameMetadata& ResolvedFrameData::GetMetadata() const {
+  CHECK(valid_);
+  return surface_->GetActiveFrameMetadata();
 }
 
 bool ResolvedFrameData::WillDraw() const {

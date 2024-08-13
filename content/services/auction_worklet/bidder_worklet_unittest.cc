@@ -1111,10 +1111,10 @@ class BidderWorkletCustomAdComponentLimitTest : public BidderWorkletTest {
   base::test::ScopedFeatureList feature_list_;
 };
 
-class BidderWorkletMultiBidTest : public BidderWorkletTest {
+class BidderWorkletMultiBidDisabledTest : public BidderWorkletTest {
  public:
-  BidderWorkletMultiBidTest() {
-    feature_list_.InitAndEnableFeature(blink::features::kFledgeMultiBid);
+  BidderWorkletMultiBidDisabledTest() {
+    feature_list_.InitAndDisableFeature(blink::features::kFledgeMultiBid);
   }
 
  protected:
@@ -1861,67 +1861,12 @@ TEST_F(BidderWorkletTest, GenerateBidReturnValueAdComponents) {
       {"https://url.test/ generateBid() adComponents entry: Required field "
        "'url' is undefined."});
 
-  // By default up to 20 values in the output adComponents output array are
+  // By default up to 40 values in the output adComponents output array are
   // allowed (And they can all be the same URL).
-  ASSERT_EQ(blink::MaxAdAuctionAdComponents(), 20u)
+  ASSERT_EQ(blink::MaxAdAuctionAdComponents(), 40u)
       << "Unexpected value of MaxAdAuctionAdComponents()";
-  RunGenerateBidWithReturnValueExpectingResult(
-      R"({ad: "ad",
-        bid:1,
-        render:"https://response.test/",
-        adComponents:[
-          "https://ad_component.test/" /* 1 */,
-          "https://ad_component.test/" /* 2 */,
-          "https://ad_component.test/" /* 3 */,
-          "https://ad_component.test/" /* 4 */,
-          "https://ad_component.test/" /* 5 */,
-          "https://ad_component.test/" /* 6 */,
-          "https://ad_component.test/" /* 7 */,
-          "https://ad_component.test/" /* 8 */,
-          "https://ad_component.test/" /* 9 */,
-          "https://ad_component.test/" /* 10 */,
-          "https://ad_component.test/" /* 11 */,
-          "https://ad_component.test/" /* 12 */,
-          "https://ad_component.test/" /* 13 */,
-          "https://ad_component.test/" /* 14 */,
-          "https://ad_component.test/" /* 15 */,
-          "https://ad_component.test/" /* 16 */,
-          "https://ad_component.test/" /* 17 */,
-          "https://ad_component.test/" /* 18 */,
-          "https://ad_component.test/" /* 19 */,
-          "https://ad_component.test/" /* 20 */,
-        ]})",
-      mojom::BidderWorkletBid::New(
-          auction_worklet::mojom::BidRole::kUnenforcedKAnon, "\"ad\"", 1,
-          /*bid_currency=*/std::nullopt,
-          /*ad_cost=*/std::nullopt,
-          blink::AdDescriptor(GURL("https://response.test/")),
-          /*ad_component_descriptors=*/
-          std::vector<blink::AdDescriptor>{
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 1 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 2 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 3 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 4 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 5 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 6 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 7 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 8 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 9 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 10 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 11 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 12 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 13 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 14 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 15 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 16 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 17 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 18 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 19 */,
-              blink::AdDescriptor(GURL("https://ad_component.test/")) /* 20 */,
-          },
-          /*modeling_signals=*/std::nullopt, base::TimeDelta()));
-
-  // Results with 21 or more values are rejected.
+  std::vector<blink::AdDescriptor> expected_descriptors(
+      40u, blink::AdDescriptor(GURL("https://ad_component.test/")));
   RunGenerateBidWithReturnValueExpectingResult(
       R"({ad: "ad",
         bid:1,
@@ -1948,10 +1893,85 @@ TEST_F(BidderWorkletTest, GenerateBidReturnValueAdComponents) {
           "https://ad_component.test/" /* 19 */,
           "https://ad_component.test/" /* 20 */,
           "https://ad_component.test/" /* 21 */,
+          "https://ad_component.test/" /* 22 */,
+          "https://ad_component.test/" /* 23 */,
+          "https://ad_component.test/" /* 24 */,
+          "https://ad_component.test/" /* 25 */,
+          "https://ad_component.test/" /* 26 */,
+          "https://ad_component.test/" /* 27 */,
+          "https://ad_component.test/" /* 28 */,
+          "https://ad_component.test/" /* 29 */,
+          "https://ad_component.test/" /* 30 */,
+          "https://ad_component.test/" /* 31 */,
+          "https://ad_component.test/" /* 32 */,
+          "https://ad_component.test/" /* 33 */,
+          "https://ad_component.test/" /* 34 */,
+          "https://ad_component.test/" /* 35 */,
+          "https://ad_component.test/" /* 36 */,
+          "https://ad_component.test/" /* 37 */,
+          "https://ad_component.test/" /* 38 */,
+          "https://ad_component.test/" /* 39 */,
+          "https://ad_component.test/" /* 40 */,
+        ]})",
+      mojom::BidderWorkletBid::New(
+          auction_worklet::mojom::BidRole::kUnenforcedKAnon, "\"ad\"", 1,
+          /*bid_currency=*/std::nullopt,
+          /*ad_cost=*/std::nullopt,
+          blink::AdDescriptor(GURL("https://response.test/")),
+          std::move(expected_descriptors),
+          /*modeling_signals=*/std::nullopt, base::TimeDelta()));
+
+  // Results with 41 or more values are rejected.
+  RunGenerateBidWithReturnValueExpectingResult(
+      R"({ad: "ad",
+        bid:1,
+        render:"https://response.test/",
+        adComponents:[
+          "https://ad_component.test/" /* 1 */,
+          "https://ad_component.test/" /* 2 */,
+          "https://ad_component.test/" /* 3 */,
+          "https://ad_component.test/" /* 4 */,
+          "https://ad_component.test/" /* 5 */,
+          "https://ad_component.test/" /* 6 */,
+          "https://ad_component.test/" /* 7 */,
+          "https://ad_component.test/" /* 8 */,
+          "https://ad_component.test/" /* 9 */,
+          "https://ad_component.test/" /* 10 */,
+          "https://ad_component.test/" /* 11 */,
+          "https://ad_component.test/" /* 12 */,
+          "https://ad_component.test/" /* 13 */,
+          "https://ad_component.test/" /* 14 */,
+          "https://ad_component.test/" /* 15 */,
+          "https://ad_component.test/" /* 16 */,
+          "https://ad_component.test/" /* 17 */,
+          "https://ad_component.test/" /* 18 */,
+          "https://ad_component.test/" /* 19 */,
+          "https://ad_component.test/" /* 20 */,
+          "https://ad_component.test/" /* 21 */,
+          "https://ad_component.test/" /* 22 */,
+          "https://ad_component.test/" /* 23 */,
+          "https://ad_component.test/" /* 24 */,
+          "https://ad_component.test/" /* 25 */,
+          "https://ad_component.test/" /* 26 */,
+          "https://ad_component.test/" /* 27 */,
+          "https://ad_component.test/" /* 28 */,
+          "https://ad_component.test/" /* 29 */,
+          "https://ad_component.test/" /* 30 */,
+          "https://ad_component.test/" /* 31 */,
+          "https://ad_component.test/" /* 32 */,
+          "https://ad_component.test/" /* 33 */,
+          "https://ad_component.test/" /* 34 */,
+          "https://ad_component.test/" /* 35 */,
+          "https://ad_component.test/" /* 36 */,
+          "https://ad_component.test/" /* 37 */,
+          "https://ad_component.test/" /* 38 */,
+          "https://ad_component.test/" /* 39 */,
+          "https://ad_component.test/" /* 40 */,
+          "https://ad_component.test/" /* 41 */,
         ]})",
       /*expected_bids=*/mojom::BidderWorkletBidPtr(),
       /*expected_data_version=*/std::nullopt,
-      {"https://url.test/ generateBid() bid adComponents with over 20 "
+      {"https://url.test/ generateBid() bid adComponents with over 40 "
        "items."});
 }
 
@@ -2568,10 +2588,10 @@ TEST_F(BidderWorkletTest, GenerateBidSetBidThrows) {
 
   // Up to 20 values in the output adComponents output array are allowed (And
   // they can all be the same URL).
-  ASSERT_EQ(blink::MaxAdAuctionAdComponents(), 20u)
+  ASSERT_EQ(blink::MaxAdAuctionAdComponents(), 40u)
       << "Unexpected value of MaxAdAuctionAdComponents";
 
-  // Results with 21 or more values are rejected.
+  // Results with 41 or more values are rejected.
   RunGenerateBidWithJavascriptExpectingResult(
       R"(function generateBid() {
          setBid({ad: "ad",
@@ -2599,12 +2619,32 @@ TEST_F(BidderWorkletTest, GenerateBidSetBidThrows) {
                    "https://ad_component.test/" /* 19 */,
                    "https://ad_component.test/" /* 20 */,
                    "https://ad_component.test/" /* 21 */,
+                   "https://ad_component.test/" /* 22 */,
+                   "https://ad_component.test/" /* 23 */,
+                   "https://ad_component.test/" /* 24 */,
+                   "https://ad_component.test/" /* 25 */,
+                   "https://ad_component.test/" /* 26 */,
+                   "https://ad_component.test/" /* 27 */,
+                   "https://ad_component.test/" /* 28 */,
+                   "https://ad_component.test/" /* 29 */,
+                   "https://ad_component.test/" /* 30 */,
+                   "https://ad_component.test/" /* 31 */,
+                   "https://ad_component.test/" /* 32 */,
+                   "https://ad_component.test/" /* 33 */,
+                   "https://ad_component.test/" /* 34 */,
+                   "https://ad_component.test/" /* 35 */,
+                   "https://ad_component.test/" /* 36 */,
+                   "https://ad_component.test/" /* 37 */,
+                   "https://ad_component.test/" /* 38 */,
+                   "https://ad_component.test/" /* 39 */,
+                   "https://ad_component.test/" /* 40 */,
+                   "https://ad_component.test/" /* 41 */,
         ]});
          return {ad: "not_reached", bid: 4, render:"https://response.test/2"};
        })",
       /*expected_bids=*/mojom::BidderWorkletBidPtr(),
       /*expected_data_version=*/std::nullopt,
-      {"https://url.test/:2 Uncaught TypeError: bid adComponents with over 20 "
+      {"https://url.test/:2 Uncaught TypeError: bid adComponents with over 40 "
        "items."});
 
   // ------------
@@ -2737,8 +2777,7 @@ TEST_F(BidderWorkletTest, GenerateBidSetBidNonTermConversion) {
       {"https://url.test/ execution of `generateBid` timed out."});
 }
 
-TEST_F(BidderWorkletTest, GenerateBidMultiBid) {
-  // For now, returning multiple bids isn't available by default.
+TEST_F(BidderWorkletMultiBidDisabledTest, GenerateBidMultiBid) {
   RunGenerateBidWithReturnValueExpectingResult(
       R"([{ad: "ad", bid: 1,
           render: "https://response.test/"}])",
@@ -2755,7 +2794,7 @@ TEST_F(BidderWorkletMultiBidAndCookieDeprecationTest, GenerateBidMultiBid) {
 
 // Make sure that fields that are only available with multibid on aren't
 // read when its off.
-TEST_F(BidderWorkletTest, ComponentTargetFieldsOnlyMultiBid) {
+TEST_F(BidderWorkletMultiBidDisabledTest, ComponentTargetFieldsOnlyMultiBid) {
   auto expected_bid = mojom::BidderWorkletBid::New(
       auction_worklet::mojom::BidRole::kUnenforcedKAnon, "\"ad\"", 5,
       /*bid_currency=*/std::nullopt,
@@ -2818,7 +2857,7 @@ TEST_F(BidderWorkletMultiBidAndCookieDeprecationTest,
 // when it's on. This is mostly meant to validate the multibid=off
 // version of the testcase; the actual functionality of the fields is tested
 // separately.
-TEST_F(BidderWorkletMultiBidTest, ComponentTargetFieldsOnlyMultiBid) {
+TEST_F(BidderWorkletTest, ComponentTargetFieldsOnlyMultiBid) {
   RunGenerateBidWithReturnValueExpectingResult(
       R"({ad: "ad", bid: 5,
           render: {url: "https://response.test/"},
@@ -2844,7 +2883,7 @@ TEST_F(BidderWorkletMultiBidTest, ComponentTargetFieldsOnlyMultiBid) {
       {"https://url.test/:9 Uncaught used targetNumAdComponents."});
 }
 
-TEST_F(BidderWorkletMultiBidTest, TargetNumAdComponents) {
+TEST_F(BidderWorkletTest, TargetNumAdComponents) {
   interest_group_ad_components_->emplace_back(
       GURL("https://ad_component2.test/"), /*metadata=*/std::nullopt);
   interest_group_ad_components_->emplace_back(
@@ -2900,7 +2939,7 @@ TEST_F(BidderWorkletMultiBidTest, TargetNumAdComponents) {
       /*expected_data_version=*/std::nullopt,
       /*expected_errors=*/
       {"https://url.test/ generateBid() bid targetNumAdComponents larger than "
-       "component ad limit of 20."});
+       "component ad limit of 40."});
 
   // Must provide at least as much as target.
   RunGenerateBidWithReturnValueExpectingResult(
@@ -3047,7 +3086,7 @@ TEST_F(BidderWorkletMultiBidTest, TargetNumAdComponents) {
           /*modeling_signals=*/std::nullopt, base::TimeDelta()));
 }
 
-TEST_F(BidderWorkletMultiBidTest, TargetNumAdComponentsKAnon) {
+TEST_F(BidderWorkletTest, TargetNumAdComponentsKAnon) {
   const char kBid[] = R"({
     ad: "ad",
     bid: 5,
@@ -3149,7 +3188,7 @@ TEST_F(BidderWorkletMultiBidTest, TargetNumAdComponentsKAnon) {
                 /*modeling_signals=*/std::nullopt, base::TimeDelta()));
 }
 
-TEST_F(BidderWorkletMultiBidTest, TargetAndMandatoryAdComponentsKAnon) {
+TEST_F(BidderWorkletTest, TargetAndMandatoryAdComponentsKAnon) {
   const char kBid[] = R"({
     ad: "ad",
     bid: 5,
@@ -3263,7 +3302,7 @@ TEST_F(BidderWorkletMultiBidTest, TargetAndMandatoryAdComponentsKAnon) {
                 /*modeling_signals=*/std::nullopt, base::TimeDelta()));
 }
 
-TEST_F(BidderWorkletMultiBidTest, GenerateBidMultiBid) {
+TEST_F(BidderWorkletTest, GenerateBidMultiBid) {
   multi_bid_limit_ = 2;
 
   auto expected_bid = mojom::BidderWorkletBid::New(
@@ -3426,9 +3465,9 @@ TEST_F(BidderWorkletMultiBidTest, GenerateBidMultiBid) {
   EXPECT_EQ(reject_reason_, mojom::RejectReason::kNotAvailable);
 }
 
-// For now multi-bid support, even in degenerate form of passing a single bid in
-// an array to SetBid(), isn't available by default.
-TEST_F(BidderWorkletTest, SetBidMultiBid) {
+// If multibid is off, even passing an array with 1 element to SetBid() isn't
+// available.
+TEST_F(BidderWorkletMultiBidDisabledTest, SetBidMultiBid) {
   RunGenerateBidWithJavascriptExpectingResult(
       R"(function generateBid() {
         setBid([{ad: "ad", bid:2, render: "https://response.test"}]);
@@ -3439,7 +3478,7 @@ TEST_F(BidderWorkletTest, SetBidMultiBid) {
       /*expected_errors=*/{"https://url.test/:3 Uncaught oh no."});
 }
 
-TEST_F(BidderWorkletMultiBidTest, SetBidMultiBid) {
+TEST_F(BidderWorkletTest, SetBidMultiBid) {
   multi_bid_limit_ = 2;
   interest_group_ads_.emplace_back(GURL("https://response2.test/"),
                                    /*metadata=*/std::nullopt);
@@ -5289,10 +5328,9 @@ TEST_F(BidderWorkletTest, GenerateBidBrowserSignalSellerOrigin) {
 }
 
 TEST_F(BidderWorkletTest, GenerateBidBrowserSignalsAdComponentsLimit) {
-  // Without limit changed, the feature detection signal is not set, for best
-  // backwards compatibility.
+  // Default is now limit of 40.
   RunGenerateBidExpectingExpressionIsTrue(
-      "!('adComponentsLimit' in browserSignals)");
+      "browserSignals.adComponentsLimit === 40");
 }
 
 TEST_F(BidderWorkletCustomAdComponentLimitTest,
@@ -5301,13 +5339,13 @@ TEST_F(BidderWorkletCustomAdComponentLimitTest,
       "browserSignals.adComponentsLimit === 25");
 }
 
-TEST_F(BidderWorkletTest, GenerateBidMultiBidLimit) {
+TEST_F(BidderWorkletMultiBidDisabledTest, GenerateBidMultiBidLimit) {
   // If feature not enabled.
   RunGenerateBidExpectingExpressionIsTrue(
       "!('multiBidLimit' in browserSignals)");
 }
 
-TEST_F(BidderWorkletMultiBidTest, GenerateBidMultiBidLimit) {
+TEST_F(BidderWorkletTest, GenerateBidMultiBidLimit) {
   multi_bid_limit_ = 143;
   RunGenerateBidExpectingExpressionIsTrue(
       "browserSignals.multiBidLimit === 143");
@@ -7264,6 +7302,134 @@ TEST_F(BidderWorkletTest, SendReportToLongUrl) {
       interest_group_bidding_url_, /*line_number=*/10);
 
   channel->ExpectNoMoreConsoleEvents();
+}
+
+// Trying to "enforce" permission policy on contributeToHistogramOnEvent.
+// Currently this produces no report and a warning (plus a metric).
+TEST_F(BidderWorkletTest, ContributeToHistogramOnEventPermissionEnforced) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      blink::features::kFledgeEnforcePermissionPolicyContributeOnEvent);
+
+  base::HistogramTester histogram_tester;
+  permissions_policy_state_ = mojom::AuctionWorkletPermissionsPolicyState::New(
+      /*private_aggregation_allowed=*/false,
+      /*shared_storage_allowed=*/false);
+
+  const char kScriptBody[] = R"(
+      privateAggregation.contributeToHistogramOnEvent(
+          "reserved.win", {bucket: 234n, value: 56});
+  )";
+
+  AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                        CreateReportWinScript(kScriptBody));
+
+  ScopedInspectorSupport inspector_support(v8_helper().get());
+  BidderWorklet* worklet_impl;
+  auto worklet =
+      CreateWorklet(interest_group_bidding_url_,
+                    /*pause_for_debugger_on_start=*/false, &worklet_impl);
+
+  int id = worklet_impl->context_group_ids_for_testing()[0];
+  TestChannel* channel =
+      inspector_support.ConnectDebuggerSessionAndRuntimeEnable(id);
+
+  base::RunLoop run_loop;
+  RunReportWinExpectingResultAsync(
+      worklet_impl, /*expected_report_url=*/std::nullopt,
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_reporting_latency_timeout=*/false,
+      /*expected_errors=*/{}, run_loop.QuitClosure());
+  run_loop.Run();
+
+  const char kWarning[] =
+      "The \\\"private-aggregation\\\" Permissions Policy denied "
+      "contributeToHistogramOnEvent. Ignoring for backwards compatibility but "
+      "this will eventually throw an exception.";
+
+  channel->WaitForAndValidateConsoleMessage(
+      "warning", /*json_args=*/
+      base::StrCat({"[{\"type\":\"string\", \"value\":\"", kWarning, "\"}]"}),
+      /*stack_trace_size=*/1, /*function=*/"reportWin",
+      interest_group_bidding_url_, /*line_number=*/11);
+
+  channel->ExpectNoMoreConsoleEvents();
+  histogram_tester.ExpectUniqueSample(
+      "Ads.InterestGroup.Auction.ContributeToHistogramOnEventPermissionPolicy",
+      false, 1);
+}
+
+// Not enforcing permission policy on contributeToHistogramOnEvent.
+// Legacy compatibility mode.
+TEST_F(BidderWorkletTest, ContributeToHistogramOnEventPermissionNotEnforced) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      blink::features::kFledgeEnforcePermissionPolicyContributeOnEvent);
+
+  base::HistogramTester histogram_tester;
+  permissions_policy_state_ = mojom::AuctionWorkletPermissionsPolicyState::New(
+      /*private_aggregation_allowed=*/false,
+      /*shared_storage_allowed=*/false);
+
+  const char kScriptBody[] = R"(
+      privateAggregation.contributeToHistogramOnEvent(
+          "reserved.win", {bucket: 234n, value: 56});
+  )";
+
+  AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                        CreateReportWinScript(kScriptBody));
+
+  ScopedInspectorSupport inspector_support(v8_helper().get());
+  BidderWorklet* worklet_impl;
+  auto worklet =
+      CreateWorklet(interest_group_bidding_url_,
+                    /*pause_for_debugger_on_start=*/false, &worklet_impl);
+
+  int id = worklet_impl->context_group_ids_for_testing()[0];
+  TestChannel* channel =
+      inspector_support.ConnectDebuggerSessionAndRuntimeEnable(id);
+
+  base::RunLoop run_loop;
+  PrivateAggregationRequests incorrectly_expected_pa_requests;
+  incorrectly_expected_pa_requests.push_back(
+      mojom::PrivateAggregationRequest::New(
+          mojom::AggregatableReportContribution::NewForEventContribution(
+              mojom::AggregatableReportForEventContribution::New(
+                  /*bucket=*/mojom::ForEventSignalBucket::NewIdBucket(234),
+                  /*value=*/mojom::ForEventSignalValue::NewIntValue(56),
+                  /*filtering_id=*/std::nullopt,
+                  /*event_type=*/
+                  mojom::EventType::NewReserved(
+                      mojom::ReservedEventType::kReservedWin))),
+          blink::mojom::AggregationServiceMode::kDefault,
+          blink::mojom::DebugModeDetails::New()));
+  RunReportWinExpectingResultAsync(
+      worklet_impl, /*expected_report_url=*/std::nullopt,
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/std::move(incorrectly_expected_pa_requests),
+      /*expected_reporting_latency_timeout=*/false,
+      /*expected_errors=*/{}, run_loop.QuitClosure());
+  run_loop.Run();
+
+  const char kWarning[] =
+      "privateAggregation.contributeToHistogramOnEvent called without "
+      "appropriate \\\"private-aggregation\\\" Permissions Policy approval; "
+      "accepting for backwards compatibility but this will be shortly "
+      "ignored and eventually will throw an exception";
+
+  channel->WaitForAndValidateConsoleMessage(
+      "warning", /*json_args=*/
+      base::StrCat({"[{\"type\":\"string\", \"value\":\"", kWarning, "\"}]"}),
+      /*stack_trace_size=*/1, /*function=*/"reportWin",
+      interest_group_bidding_url_, /*line_number=*/11);
+
+  channel->ExpectNoMoreConsoleEvents();
+  histogram_tester.ExpectUniqueSample(
+      "Ads.InterestGroup.Auction.ContributeToHistogramOnEventPermissionPolicy",
+      false, 1);
 }
 
 // Debug win/loss reporting APIs should do nothing when feature
@@ -10217,7 +10383,9 @@ TEST_F(BidderWorkletPrivateAggregationEnabledTest, GenerateBid) {
               /*bucket=*/mojom::ForEventSignalBucket::NewIdBucket(234),
               /*value=*/mojom::ForEventSignalValue::NewIntValue(56),
               /*filtering_id=*/std::nullopt,
-              /*event_type=*/"reserved.win")),
+              /*event_type=*/
+              mojom::EventType::NewReserved(
+                  mojom::ReservedEventType::kReservedWin))),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
   mojom::PrivateAggregationRequest kExpectedForEventRequest2(
@@ -10228,7 +10396,9 @@ TEST_F(BidderWorkletPrivateAggregationEnabledTest, GenerateBid) {
                                    /*low=*/0)),
               /*value=*/mojom::ForEventSignalValue::NewIntValue(2),
               /*filtering_id=*/std::nullopt,
-              /*event_type=*/"reserved.win")),
+              /*event_type=*/
+              mojom::EventType::NewReserved(
+                  mojom::ReservedEventType::kReservedWin))),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
 
@@ -10343,6 +10513,35 @@ TEST_F(BidderWorkletPrivateAggregationEnabledTest, GenerateBid) {
         /*expected_set_priority=*/std::nullopt,
         /*expected_update_priority_signals_overrides=*/{},
         /*expected_pa_requests=*/{});
+
+    // Currently this goes through with default flags, while it should throw.
+    // See the ContributeToHistogramOnEventPermission* tests for the story on
+    // getting it fixed.
+    PrivateAggregationRequests incorrectly_expected_pa_requests;
+    incorrectly_expected_pa_requests.push_back(
+        kExpectedForEventRequest1.Clone());
+    RunGenerateBidWithJavascriptExpectingResult(
+        CreateGenerateBidScript(
+            R"({ad: "ad", bid:1, render:"https://response.test/" })",
+            /*extra_code=*/R"(
+            privateAggregation.contributeToHistogramOnEvent(
+                "reserved.win", {bucket: 234n, value: 56});
+          )"),
+        /*expected_bids=*/
+        mojom::BidderWorkletBid::New(
+            auction_worklet::mojom::BidRole::kUnenforcedKAnon, "\"ad\"", 1,
+            /*bid_currency=*/std::nullopt,
+            /*ad_cost=*/std::nullopt,
+            blink::AdDescriptor(GURL("https://response.test/")),
+            /*ad_component_descriptors=*/std::nullopt,
+            /*modeling_signals=*/std::nullopt, base::TimeDelta()),
+        /*expected_data_version=*/std::nullopt,
+        /*expected_errors=*/{},
+        /*expected_debug_loss_report_url=*/std::nullopt,
+        /*expected_debug_win_report_url=*/std::nullopt,
+        /*expected_set_priority=*/std::nullopt,
+        /*expected_update_priority_signals_overrides=*/{},
+        /*expected_pa_requests=*/std::move(incorrectly_expected_pa_requests));
 
     permissions_policy_state_ =
         mojom::AuctionWorkletPermissionsPolicyState::New(
@@ -10572,7 +10771,9 @@ TEST_F(BidderWorkletPrivateAggregationEnabledTest, GenerateBid) {
                 /*bucket=*/mojom::ForEventSignalBucket::NewIdBucket(234),
                 /*value=*/mojom::ForEventSignalValue::NewIntValue(56),
                 /*filtering_id=*/255,
-                /*event_type=*/"reserved.win")),
+                /*event_type=*/
+                mojom::EventType::NewReserved(
+                    mojom::ReservedEventType::kReservedWin))),
         blink::mojom::AggregationServiceMode::kDefault,
         blink::mojom::DebugModeDetails::New()));
 
@@ -10623,7 +10824,9 @@ TEST_F(BidderWorkletPrivateAggregationEnabledTest, GenerateBid) {
                             /*scale=*/1.0,
                             /*offset=*/0)),
                     /*filtering_id=*/std::nullopt,
-                    /*event_type=*/"reserved.loss")),
+                    /*event_type=*/
+                    mojom::EventType::NewReserved(
+                        mojom::ReservedEventType::kReservedLoss))),
             blink::mojom::AggregationServiceMode::kDefault,
             blink::mojom::DebugModeDetails::New()));
 
@@ -10689,7 +10892,9 @@ TEST_F(BidderWorkletPrivateAggregationEnabledTest, ReportWin) {
               /*bucket=*/mojom::ForEventSignalBucket::NewIdBucket(234),
               /*value=*/mojom::ForEventSignalValue::NewIntValue(56),
               /*filtering_id=*/std::nullopt,
-              /*event_type=*/"reserved.win")),
+              /*event_type=*/
+              mojom::EventType::NewReserved(
+                  mojom::ReservedEventType::kReservedWin))),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
   mojom::PrivateAggregationRequest kExpectedForEventRequest2(
@@ -10700,7 +10905,9 @@ TEST_F(BidderWorkletPrivateAggregationEnabledTest, ReportWin) {
                                    /*low=*/0)),
               /*value=*/mojom::ForEventSignalValue::NewIntValue(2),
               /*filtering_id=*/std::nullopt,
-              /*event_type=*/"reserved.win")),
+              /*event_type=*/
+              mojom::EventType::NewReserved(
+                  mojom::ReservedEventType::kReservedWin))),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
 
@@ -10897,7 +11104,9 @@ TEST_F(BidderWorkletPrivateAggregationEnabledTest, ReportWin) {
                 /*bucket=*/mojom::ForEventSignalBucket::NewIdBucket(234),
                 /*value=*/mojom::ForEventSignalValue::NewIntValue(56),
                 /*filtering_id=*/255,
-                /*event_type=*/"reserved.win")),
+                /*event_type=*/
+                mojom::EventType::NewReserved(
+                    mojom::ReservedEventType::kReservedWin))),
         blink::mojom::AggregationServiceMode::kDefault,
         blink::mojom::DebugModeDetails::New()));
 
@@ -11185,7 +11394,7 @@ TEST_F(BidderWorkletTest, KAnonEnforce) {
 
 // Test of multi-bid and k-anon: the bids are annotated with their roles
 // properly.
-TEST_F(BidderWorkletMultiBidTest, KAnonClassify) {
+TEST_F(BidderWorkletTest, KAnonClassify) {
   kanon_mode_ = auction_worklet::mojom::KAnonymityBidMode::kEnforce;
   multi_bid_limit_ = 3;
   interest_group_ads_.emplace_back(GURL("https://response2.test/"),
@@ -11256,7 +11465,7 @@ TEST_F(BidderWorkletMultiBidTest, KAnonClassify) {
 
 // Test for doing a re-run in multi-bid mode: returning only non-k-anon
 // bids forces a re-run.
-TEST_F(BidderWorkletMultiBidTest, KAnonRerun) {
+TEST_F(BidderWorkletTest, KAnonRerunMultiBid) {
   kanon_mode_ = auction_worklet::mojom::KAnonymityBidMode::kEnforce;
   multi_bid_limit_ = 3;
   interest_group_ads_.emplace_back(GURL("https://response2.test/"),

@@ -47,6 +47,7 @@ enum class IwaInstallerResultType {
   kErrorWebBundleUrlCantBeDetermined,
   kErrorCantDownloadWebBundle,
   kErrorCantInstallFromWebBundle,
+  kErrorManagedGuestSessionInstallDisabled,
 };
 
 class IwaInstallerResult {
@@ -188,6 +189,8 @@ std::ostream& operator<<(std::ostream& os,
 // of the policy installed IWAs.
 class IsolatedWebAppPolicyManager {
  public:
+  static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
+
   explicit IsolatedWebAppPolicyManager(Profile* profile);
 
   IsolatedWebAppPolicyManager(const IsolatedWebAppPolicyManager&) = delete;
@@ -221,6 +224,8 @@ class IsolatedWebAppPolicyManager {
       std::vector<internal::IwaInstaller::Result> install_results);
 
   void MaybeStartNextInstallTask();
+
+  void CleanupOrphanedBundles();
 
   // Keeps track of the last few processing logs for debugging purposes.
   // Automatically discards older logs to keep at most `kMaxEntries`.

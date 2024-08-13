@@ -21,7 +21,9 @@ BASE_DECLARE_FEATURE(kIPHDummyFeature);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 BASE_DECLARE_FEATURE(kEsbDownloadRowPromoFeature);
+#endif
 BASE_DECLARE_FEATURE(kIPHBatterySaverModeFeature);
 BASE_DECLARE_FEATURE(kIPHCompanionSidePanelFeature);
 BASE_DECLARE_FEATURE(kIPHCompanionSidePanelRegionSearchFeature);
@@ -36,6 +38,7 @@ BASE_DECLARE_FEATURE(kIPHDiscardRingFeature);
 BASE_DECLARE_FEATURE(kIPHDownloadEsbPromoFeature);
 BASE_DECLARE_FEATURE(kIPHExperimentalAIPromoFeature);
 BASE_DECLARE_FEATURE(kIPHExplicitBrowserSigninPreferenceRememberedFeature);
+BASE_DECLARE_FEATURE(kIPHHistorySearchFeature);
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 BASE_DECLARE_FEATURE(kIPHExtensionsMenuFeature);
 BASE_DECLARE_FEATURE(kIPHExtensionsRequestAccessButtonFeature);
@@ -46,7 +49,6 @@ BASE_DECLARE_FEATURE(kIPHGMCLocalMediaCastingFeature);
 BASE_DECLARE_FEATURE(kIPHMemorySaverModeFeature);
 BASE_DECLARE_FEATURE(kIPHLiveCaptionFeature);
 BASE_DECLARE_FEATURE(kIPHTabAudioMutingFeature);
-BASE_DECLARE_FEATURE(kIPHPasswordsAccountStorageFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordsManagementBubbleAfterSaveFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordsManagementBubbleDuringSigninFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordsWebAppProfileSwitchFeature);
@@ -73,8 +75,8 @@ BASE_DECLARE_FEATURE(kIPHTabGroupsSaveV2IntroFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsSaveV2CloseGroupFeature);
 BASE_DECLARE_FEATURE(kIPHTabOrganizationSuccessFeature);
 BASE_DECLARE_FEATURE(kIPHTabSearchFeature);
-BASE_DECLARE_FEATURE(kIPHTrackingProtectionOffboardingFeature);
 BASE_DECLARE_FEATURE(kIPHTrackingProtectionOnboardingFeature);
+BASE_DECLARE_FEATURE(kIPHTrackingProtectionFullOnboardingFeature);
 BASE_DECLARE_FEATURE(kIPHTrackingProtectionReminderFeature);
 BASE_DECLARE_FEATURE(kIPHWebUITabStripFeature);
 BASE_DECLARE_FEATURE(kIPHDesktopSnoozeFeature);
@@ -142,11 +144,11 @@ BASE_DECLARE_FEATURE(kIPHPreviewsOmniboxUIFeature);
 BASE_DECLARE_FEATURE(kIPHPriceDropNTPFeature);
 BASE_DECLARE_FEATURE(kIPHQuietNotificationPromptsFeature);
 BASE_DECLARE_FEATURE(kIPHReadAloudAppMenuFeature);
+BASE_DECLARE_FEATURE(kIPHReadAloudExpandedPlayerFeature);
 BASE_DECLARE_FEATURE(kIPHReadLaterContextMenuFeature);
 BASE_DECLARE_FEATURE(kIPHReadLaterAppMenuBookmarkThisPageFeature);
 BASE_DECLARE_FEATURE(kIPHReadLaterAppMenuBookmarksFeature);
 BASE_DECLARE_FEATURE(kIPHReadLaterBottomSheetFeature);
-BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteAppMenuFeature);
 BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteDefaultOnFeature);
 BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteExceptionsGenericFeature);
 BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteWindowSettingFeature);
@@ -157,6 +159,7 @@ BASE_DECLARE_FEATURE(kIPHTabGroupsTapToSeeAnotherTabFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupSyncOnStripFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsYourTabsAreTogetherFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsDragAndDropFeature);
+BASE_DECLARE_FEATURE(kIPHTabGroupsRemoteGroupFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsSurfaceFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsSurfaceOnHideFeature);
 BASE_DECLARE_FEATURE(kIPHTabSwitcherButtonFeature);
@@ -183,6 +186,7 @@ BASE_DECLARE_FEATURE(kIPHSharedHighlightingBuilder);
 BASE_DECLARE_FEATURE(kIPHSharedHighlightingReceiverFeature);
 BASE_DECLARE_FEATURE(kIPHSharingHubWebnotesStylizeFeature);
 BASE_DECLARE_FEATURE(kIPHRestoreTabsOnFREFeature);
+BASE_DECLARE_FEATURE(kIPHRtlGestureNavigationFeature);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
@@ -200,7 +204,6 @@ BASE_DECLARE_FEATURE(kIPHFollowWhileBrowsingFeature);
 BASE_DECLARE_FEATURE(kIPHPriceNotificationsWhileBrowsingFeature);
 BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserBadgeEligibilityFeature);
 BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserOverflowMenuBadgeFeature);
-BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserSettingsBadgeFeature);
 BASE_DECLARE_FEATURE(kIPHiOSLensKeyboardFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoAppStoreFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoWhatsNewFeature);
@@ -231,6 +234,8 @@ BASE_DECLARE_FEATURE(kIPHiOSOverflowMenuCustomizationFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPageInfoRevampFeature);
 BASE_DECLARE_FEATURE(kIPHiOSInlineEnhancedSafeBrowsingPromoFeature);
 BASE_DECLARE_FEATURE(kIPHiOSSavedTabGroupClosed);
+BASE_DECLARE_FEATURE(kIPHiOSContextualPanelSampleModelFeature);
+BASE_DECLARE_FEATURE(kIPHiOSContextualPanelPriceInsightsFeature);
 
 // A feature flag to enable and parametrize the sliding window of time for a
 // user's eligibility to be shown a default browser promo. This is not an FET
@@ -266,6 +271,7 @@ BASE_DECLARE_FEATURE(kIPHAutofillManualFallbackFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHCookieControlsFeature);
+BASE_DECLARE_FEATURE(kIPHPlusAddressCreateSuggestionFeature);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)

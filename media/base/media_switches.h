@@ -238,12 +238,14 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioFlexibleLoopbackForSystemLoopback);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kD3D11VideoDecoderUseSharedHandle);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDedicatedMediaServiceThread);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDeferAudioFocusUntilAudible);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kDocumentPictureInPictureAnimateResize);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDocumentPictureInPictureCapture);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kEnableTabMuting);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kExposeSwDecodersToWebRTC);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kExternalClearKeyForTesting);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kFailUrlProvisionFetcherForTesting);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kFallbackAfterDecodeError);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kFeatureManagementLiveTranslateCrOS);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kGlobalMediaControls);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kGlobalMediaControlsAutoDismiss);
 #if BUILDFLAG(IS_CHROMEOS)
@@ -307,8 +309,6 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaOptimizer);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaPowerExperiment);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMemoryPressureBasedSourceBufferGC);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseWritePixelsYUV);
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseMultiPlaneFormatForHardwareVideo);
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseMultiPlaneFormatForSoftwareVideo);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kOverlayFullscreenVideo);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kPauseBackgroundMutedAudio);
 #if !BUILDFLAG(IS_ANDROID)
@@ -366,10 +366,10 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kVaapiVp8TemporalLayerHWEncoding);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVaapiVp9SModeHWEncoding);
 #endif  // defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-MEDIA_EXPORT BASE_DECLARE_FEATURE(kV4L2FlatVideoDecoder);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kV4L2FlatStatefulVideoDecoder);
 #endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVideoBlitColorAccuracy);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kVideoFrameUseClientSITextureTarget);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kVideoPictureInPictureMinimizeButton);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kCastVideoEncoderFrameDrop);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kWebCodecsVideoEncoderFrameDrop);
@@ -411,6 +411,11 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kBuiltInHlsPlayer);
 // media containers, including Fragmented and unfragmented MP4, as well as
 // raw AAC bytestreams. It does nothing if kBuiltInHlsPlayer is disabled.
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kBuiltInHlsMP4);
+
+// This feature enables statistics to be collected from MediaPlayer-based HLS
+// playbacks using the builtin HLS manifest parser. It is enabled by default
+// to act as a kill switch in the event of crashes.
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaPlayerHlsStatistics);
 #endif  // BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 #if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
@@ -426,6 +431,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kUseGLForScaling);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kPreferGLImageProcessor);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kPreferSoftwareMT21);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kEnableProtectedVulkanDetiling);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kEnableArmHwdrm10bitOverlays);
 #if BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kEnableArmHwdrm);
 #endif  // BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
@@ -554,6 +560,7 @@ MEDIA_EXPORT bool IsDedicatedMediaServiceThreadEnabled(
     gl::ANGLEImplementation impl);
 MEDIA_EXPORT int GetProcessingAudioFifoSize();
 MEDIA_EXPORT bool IsHardwareSecureDecryptionEnabled();
+MEDIA_EXPORT bool IsLiveTranslateEnabled();
 MEDIA_EXPORT bool IsVideoCaptureAcceleratedJpegDecodingEnabled();
 MEDIA_EXPORT bool IsMultiPlaneFormatForHardwareVideoEnabled();
 MEDIA_EXPORT bool IsMultiPlaneFormatForSoftwareVideoEnabled();

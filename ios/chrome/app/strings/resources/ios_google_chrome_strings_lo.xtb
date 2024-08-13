@@ -9,11 +9,12 @@
 <translation id="1180362651362502943">ໃຊ້ຂໍ້ມູນ Chrome ໃນບັນຊີ Google ຂອງທ່ານຕໍ່ໄປ.</translation>
 <translation id="1200396280085622191">ໃຊ້ Chrome ໄດ້ທຸກເວລາທີ່ທ່ານແຕະລິ້ງໃນຂໍ້ຄວາມ ແລະ ແອັບອື່ນໆ.</translation>
 <translation id="1229222343402087523">ຊອກຫາ ${searchPhrase} ໃນ Chrome</translation>
+<translation id="1237769345474105984">ຈາກ Chrome</translation>
 <translation id="124228879633599436">Chrome ຂອງທ່ານເປັນເວີຊັນເກົ່າ. ກະລຸນາອັບເດດເພື່ອຄວາມປອດໄພ.</translation>
 <translation id="1282031177488366470">ຊ່ວຍປັບປຸງຄຸນສົມບັດ ແລະ ປະສິດທິພາບຂອງ Chrome</translation>
-<translation id="1320619893013575407">ທ່ານປິດການເຂົ້າສູ່ລະບົບ Chrome ໄວ້.</translation>
 <translation id="1333745675627230582">ຫຼິ້ນເກມ Chrome Dino</translation>
 <translation id="1352919863522755794">ຕົວຈັດການລະຫັດຜ່ານ Google ບໍ່ສາມາດກວດສອບລະຫັດຜ່ານຂອງທ່ານໄດ້. ກະລຸນາລອງກວດເບິ່ງການເຊື່ອມຕໍ່ອິນເຕີເນັດຂອງທ່ານ.</translation>
+<translation id="139623527619433858">ໃຊ້ Chrome ສຳລັບ iPad ໂດຍຄ່າເລີ່ມຕົ້ນ</translation>
 <translation id="1407843355326180937">ເຂົ້າສູ່ລະບົບເວັບໄຊນີ້ ແລະ Chrome ເພື່ອຮັບບຸກມາກຂອງທ່ານ ແລະ ອື່ນໆຢູ່ອຸປະກອນທັງໝົດຂອງທ່ານ.</translation>
 <translation id="1436059927646026729">ເປີດແຖບຫຼ້າສຸດຂອງຂ້ອຍໃນ Chrome</translation>
 <translation id="1449241544691504574">ເພີ່ມບຸກມາກໃສ່ໃນ Chrome</translation>
@@ -134,6 +135,7 @@
 <translation id="4903674399067644695">ບັດນີ້ຈະສະແດງການແນະນຳໃຫ້ທ່ານກ່ຽວກັບວິທີໃຊ້ປະໂຫຍດສູງສຸດຈາກ Chrome.</translation>
 <translation id="4919069428879420545">ລຶບຂໍ້ມູນການທ່ອງເວັບໃນ Chrome.</translation>
 <translation id="49200511069271369">ອົງກອນ <ph name="DOMAIN" /> ຂອງທ່ານຈະເປັນຜູ້ຈັດການບັນຊີທີ່ທ່ານກຳລັງເຂົ້າສູ່ລະບົບ ແລະ ວິທີໃຊ້ Chrome. ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານສາມາດຕັ້ງຄ່າ ຫຼື ຈຳກັດຄຸນສົມບັດບາງຢ່າງໄດ້.</translation>
+<translation id="4925322001044117929">ໃຊ້ Chrome ຢູ່ iPad ແບບເລີ່ມຕົ້ນ</translation>
 <translation id="498985224078955265">ເພື່ອສົ່ງແຖບນີ້ໄປຫາອຸປະກອນອື່ນ, ໃຫ້ເຂົ້າສູ່ລະບົບຫາ Chrome ຢູ່ທັງສອງອຸປະກອນ.</translation>
 <translation id="5030102366287574140">Chrome ສາມາດຊ່ວຍຮັກສາທ່ານໃຫ້ປອດໄພຈາກການລະເມີດຂໍ້ມູນ, ເວັບໄຊທີ່ບໍ່ປອດໄພ ແລະ ອື່ນໆອີກ.</translation>
 <translation id="5108659628347594808">ເຮັດໃຫ້ Chrome ດີຂຶ້ນ</translation>
@@ -172,6 +174,7 @@
 <translation id="6063091872902370735">ອະນຸຍາດການເຂົ້າສູ່ລະບົບ Chrome</translation>
 <translation id="6110625574506755980">ຄຸນສົມບັດບາງຢ່າງຂອງ Chrome ຈະບໍ່ສາມາດໃຊ້ໄດ້ອີກຕໍ່ໄປ.</translation>
 <translation id="6132149203299792222">ເຂົ້າສູ່ລະບົບດ້ວຍບັນຊີ Google ຂອງທ່ານເພື່ອຊິ້ງລະຫັດຜ່ານ, ບຸກມາກ ແລະ ຂໍ້ມູນອື່ນໆຂອງທ່ານ.</translation>
+<translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">ຊອກຫາໃນ Chrome</translation>
 <translation id="6238746320622508509">ອະນຸຍາດໃຫ້ Chrome ລັອກແຖບບໍ່ເປີດເຜີຍຕົວຕົນຂອງທ່ານ.</translation>
 <translation id="6247557882553405851">ຕົວຈັດການລະຫັດຜ່ານ Google</translation>
@@ -220,6 +223,7 @@
 <translation id="7272930098487145294">ເພື່ອບັນທຶກຮູບພາບ, ກະລຸນາແຕະໃສ່ການຕັ້ງຄ່າເພື່ອອະນຸຍາດໃຫ້ Chrome ເພີ່ມໃສ່ຮູບພາບຂອງທ່ານ</translation>
 <translation id="7275945473750112644">ບັນຊີຂອງທ່ານຖືກຈັດການໂດຍ <ph name="HOSTED_DOMAIN" />, ດັ່ງນັ້ນຂໍ້ມູນ Chrome ຂອງທ່ານຈະຖືກລຶບລ້າງຈາກອຸປະກອນນີ້</translation>
 <translation id="7284245284340063465">ຫາກທ່ານລືມລະຫັດຜ່ານຂອງທ່ານ ຫຼື ຕ້ອງການປ່ຽນການຕັ້ງຄ່ານີ້, ໃຫ້ <ph name="BEGIN_LINK" />ລຶບຂໍ້ມູນ Chrome ໃນບັນຊີຂອງທ່ານ<ph name="END_LINK" />.</translation>
+<translation id="7299681342915173313">ຕອນນີ້ທ່ານສາມາດໃຊ້ Chrome ທຸກເທື່ອທີ່ທ່ານແຕະລິ້ງໃນອີເມວ, ເອກະສານ ແລະ ແອັບອື່ນໆໄດ້ແລ້ວ.</translation>
 <translation id="7304491752269485262">ມຸມມອງແບບຂະຫຍາຍການຕື່ມຂໍ້ມູນອັດຕະໂນມັດຂອງ Chrome</translation>
 <translation id="7344094882820374540">ຮັບການຮັກສາຄວາມປອດໄພທີ່ເຂັ້ມງວດທີ່ສຸດຂອງ Chrome ຈາກເວັບໄຊທີ່ເປັນອັນຕະລາຍ</translation>
 <translation id="7349129508108954623">ອະນຸຍາດໃຫ້ Chrome ໃຊ້ Google ແຜນທີ່ເພື່ອບອກເສັ້ນທາງ ແລະ ຂໍ້ມູນໃນທ້ອງຖິ່ນໃຫ້ທ່ານຢູ່ທີ່ຢູ່ທີ່ກວດພົບ.</translation>
@@ -272,7 +276,6 @@
   3. ເລືອກ Chrome.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8558480467877843976">ຕອນນີ້ທ່ານສາມາດໃຊ້ Chrome ຕອນໃດກໍໄດ້ທີ່ທ່ານເລືອກເບິ່ງ ຫຼື ແຕະລິ້ງໃນຂໍ້ຄວາມ, ເອກະສານ ແລະ ແອັບອື່ນໆ.</translation>
-<translation id="8577978202917232774">ຄຳແນະນຳຕ່າງໆຈະອີງຕາມການເຄື່ອນໄຫວການທ່ອງເວັບຂອງທ່ານໃນອຸປະກອນອື່ນໆຂອງທ່ານ. ເພື່ອຮັບຄຳແນະນຳ, ໃຫ້ເຂົ້າສູ່ລະບົບ Chrome ໃນອຸປະກອນທັງໝົດຂອງທ່ານ.</translation>
 <translation id="8603022514504485810">ຕົວຈັດການລະຫັດຜ່ານ Google ບໍ່ສາມາດກວດສອບລະຫັດຜ່ານທັງໝົດໄດ້. ລອງໃໝ່ໃນມື້ອື່ນ ຫຼື <ph name="BEGIN_LINK" />ກວດລະຫັດຜ່ານໃນບັນຊີ Google ຂອງທ່ານ.<ph name="END_LINK" /></translation>
 <translation id="8727043961453758442">ຮັບປະໂຫຍດສູງສຸດຈາກ Chrome</translation>
 <translation id="8736550665979974340">ທ່ອງເວັບຢ່າງປອດໄພດ້ວຍ Google Chrome</translation>

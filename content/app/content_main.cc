@@ -7,7 +7,7 @@
 #include "content/nw/src/nw_base.h"
 
 #include "base/allocator/partition_alloc_support.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_buildflags.h"
+#include "base/allocator/partition_allocator/src/partition_alloc/buildflags.h"
 #include "base/at_exit.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
@@ -207,6 +207,7 @@ RunContentProcess(ContentMainParams params,
     allocator_shim::InitializeAllocatorShim();
 #endif
     base::EnableTerminationOnOutOfMemory();
+    logging::RegisterAbslAbortHook();
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     // The various desktop environments set this environment variable that
@@ -294,7 +295,7 @@ RunContentProcess(ContentMainParams params,
     command_line->AppendSwitch(switches::kUseMobileUserAgent);
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
+#if (BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)) && !defined(COMPONENT_BUILD)
     base::subtle::EnableFDOwnershipEnforcement(true);
 #endif
 

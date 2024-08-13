@@ -4,6 +4,8 @@
 
 #include "components/search_engines/search_engines_switches.h"
 
+#include "base/feature_list.h"
+
 namespace switches {
 
 // Additional query params to insert in the search and instant URLs.  Useful for
@@ -37,20 +39,23 @@ BASE_FEATURE(kSearchEngineChoiceTrigger,
              "SearchEngineChoiceTrigger",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_FEATURE(kSearchEngineChoiceAttribution,
              "SearchEngineChoiceAttribution",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+BASE_FEATURE(kSearchEnginesSortingCleanup,
+             "kSearchEnginesSortingCleanup",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kPersistentSearchEngineChoiceImport,
              "PersistentSearchEngineChoiceImport",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
-
-COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
-const base::FeatureParam<bool> kSearchEngineChoiceTriggerForTaggedProfilesOnly{
-    &kSearchEngineChoiceTrigger, /*name=*/"for_tagged_profiles_only", false};
 
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 const base::FeatureParam<bool> kSearchEngineChoiceTriggerWithForceEeaCountry{
@@ -91,6 +96,11 @@ BASE_FEATURE(kSearchEnginePromoDialogRewrite,
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_FEATURE(kPrefetchParameterFix,
              "PrefetchParameterFix",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+BASE_FEATURE(kRemoveSearchboxStatsParamFromPrefetchRequests,
+             "RemoveSearchboxStatsParamFromPrefetchRequests",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace switches

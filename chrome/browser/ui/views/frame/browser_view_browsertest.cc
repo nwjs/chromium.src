@@ -62,8 +62,8 @@
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/chrome_features.h"
-#include "components/enterprise/data_controls/features.h"
-#include "components/enterprise/data_controls/test_utils.h"
+#include "components/enterprise/data_controls/core/features.h"
+#include "components/enterprise/data_controls/core/test_utils.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/policy/core/common/policy_types.h"
 #include "components/safe_browsing/core/browser/realtime/fake_url_lookup_service.h"
@@ -412,6 +412,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, GetAccessibleTabModalDialogTree) {
   EXPECT_NE(ui::AXPlatformNodeTestHelper::FindChildByName(ax_node, "OK"),
             nullptr);
 }
+#endif  // !BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
 
@@ -586,8 +587,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewDataProtectionTest,
                   ->has_text_for_testing());
 }
 
-// TODO(crbug.com/322519161): Add test for Mac platform once implemented.
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
 IN_PROC_BROWSER_TEST_F(BrowserViewDataProtectionTest, DC_Screenshot) {
   data_controls::SetDataControls(browser()->profile()->GetPrefs(), {R"(
@@ -609,8 +609,6 @@ IN_PROC_BROWSER_TEST_F(BrowserViewDataProtectionTest, DC_Screenshot) {
   EXPECT_TRUE(widget->AreScreenshotsAllowed());
 }
 
-#endif  // BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
 #endif  // BUILDFLAG(ENTERPRISE_WATERMARK)
-
-#endif  // !BUILDFLAG(IS_MAC)

@@ -39,6 +39,7 @@
 #include "base/metrics/histogram_macros_local.h"
 #include "base/observer_list.h"
 #include "base/path_service.h"
+#include "base/process/process.h"
 #include "base/process/process_metrics.h"
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
@@ -69,7 +70,6 @@
 #include "cc/trees/layer_tree_frame_sink.h"
 #include "cc/trees/layer_tree_settings.h"
 #include "cc/trees/raster_context_provider_wrapper.h"
-#include "cc/trees/ukm_manager.h"
 #include "components/discardable_memory/client/client_discardable_shared_memory_manager.h"
 #include "components/metrics/public/mojom/single_sample_metrics.mojom.h"
 #include "components/metrics/single_sample_metrics.h"
@@ -169,6 +169,7 @@
 #include "third_party/blink/public/web/web_render_theme.h"
 #include "third_party/blink/public/web/web_security_policy.h"
 #include "third_party/blink/public/web/web_user_level_memory_pressure_signal_generator.h"
+#include "third_party/blink/public/web/web_v8_features.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/skia/include/core/SkFontMgr.h"
 #include "third_party/skia/include/core/SkGraphics.h"
@@ -331,6 +332,21 @@ void CreateSingleSampleMetricsProvider(
 static bool IsSingleProcess() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kSingleProcess);
+}
+
+// Returns true if `process_priority` should be considered as backgrounded.
+bool IsBackgrounded(std::optional<base::Process::Priority> process_priority) {
+  // Not backgrounded until we've received a state from the browser.
+  if (!process_priority.has_value()) {
+    return false;
+  }
+  switch (*process_priority) {
+    case base::Process::Priority::kBestEffort:
+      return true;
+    case base::Process::Priority::kUserVisible:
+    case base::Process::Priority::kUserBlocking:
+      return false;
+  }
 }
 
 }  // namespace
@@ -648,6 +664,8 @@ void RenderThreadImpl::Init() {
   if (use_cached_routing_table_) {
     RequestNewItemsForFrameRoutingCache();
   }
+
+  blink::WebV8Features::InitializeMojoJSAllowedProtectedMemory();
 }
 
 RenderThreadImpl::~RenderThreadImpl() {
@@ -958,7 +976,7 @@ int RenderThreadImpl::PostTaskToAllWebWorkers(base::RepeatingClosure closure) {
 }
 
 bool RenderThreadImpl::ResolveProxy(const GURL& url, std::string* proxy_list) {
-  absl::optional<std::string> result;
+  std::optional<std::string> result;
   GetRendererHost()->ResolveProxy(url, &result);
   *proxy_list = result.value_or(std::string());
   return result.has_value();
@@ -1327,16 +1345,31 @@ bool RenderThreadImpl::OnControlMessageReceived(const IPC::Message& msg) {
 #endif
 
 void RenderThreadImpl::SetProcessState(
-    mojom::RenderProcessBackgroundState background_state,
+    base::Process::Priority process_priority,
     mojom::RenderProcessVisibleState visible_state) {
-  DCHECK(background_state_ != background_state ||
+  DCHECK(process_priority_ != process_priority ||
          visible_state_ != visible_state);
 
-  if (background_state != background_state_) {
-    if (background_state == mojom::RenderProcessBackgroundState::kForegrounded)
-      OnRendererForegrounded();
-    else
+  bool was_backgrounded = IsBackgrounded(process_priority_);
+  bool is_backgrounded = IsBackgrounded(process_priority);
+
+  if (base::FeatureList::IsEnabled(features::kRestrictThreadPoolInBackground)) {
+    if (process_priority == base::Process::Priority::kUserBlocking) {
+      restrict_thread_pool_.reset();
+    } else if (!restrict_thread_pool_) {
+      restrict_thread_pool_.emplace();
+    }
+  }
+  if (base::FeatureList::IsEnabled(features::kSetIsolatesPriority)) {
+    blink::WebV8Features::SetIsolatePriority(process_priority);
+  }
+
+  if (!process_priority_.has_value() || is_backgrounded != was_backgrounded) {
+    if (is_backgrounded) {
       OnRendererBackgrounded();
+    } else {
+      OnRendererForegrounded();
+    }
   }
 
   if (visible_state != visible_state_) {
@@ -1354,12 +1387,14 @@ void RenderThreadImpl::SetProcessState(
       OnRendererHidden();
   }
 
-  background_state_ = background_state;
+  process_priority_ = process_priority;
   visible_state_ = visible_state;
 }
 
 void RenderThreadImpl::SetBatterySaverMode(bool battery_saver_mode_enabled) {
-  blink::SetBatterySaverModeForAllIsolates(battery_saver_mode_enabled);
+  if (base::FeatureList::IsEnabled(features::kBatterySaverModeRenderTuning)) {
+    blink::SetBatterySaverModeForAllIsolates(battery_saver_mode_enabled);
+  }
 }
 
 void RenderThreadImpl::SetIsLockedToSite() {
@@ -1394,6 +1429,9 @@ void RenderThreadImpl::CompositingModeFallbackToSoftware() {
   is_gpu_compositing_disabled_ = true;
 }
 
+bool RenderThreadImpl::IsGpuRemoteDisconnected() {
+  return gpu_->gpu_remote_disconnected();
+}
 scoped_refptr<gpu::GpuChannelHost> RenderThreadImpl::EstablishGpuChannelSync() {
   TRACE_EVENT0("gpu", "RenderThreadImpl::EstablishGpuChannelSync");
 
@@ -1441,18 +1479,16 @@ gpu::GpuChannelHost* RenderThreadImpl::GetGpuChannel() {
 }
 
 void RenderThreadImpl::CreateAgentSchedulingGroup(
-    mojo::PendingReceiver<IPC::mojom::ChannelBootstrap> bootstrap,
-    mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker> broker_remote) {
-  agent_scheduling_groups_.emplace(std::make_unique<AgentSchedulingGroup>(
-      *this, std::move(bootstrap), std::move(broker_remote)));
+    mojo::PendingReceiver<IPC::mojom::ChannelBootstrap> bootstrap) {
+  agent_scheduling_groups_.emplace(
+      std::make_unique<AgentSchedulingGroup>(*this, std::move(bootstrap)));
 }
 
 void RenderThreadImpl::CreateAssociatedAgentSchedulingGroup(
     mojo::PendingAssociatedReceiver<mojom::AgentSchedulingGroup>
-        agent_scheduling_group,
-    mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker> broker_remote) {
+        agent_scheduling_group) {
   agent_scheduling_groups_.emplace(std::make_unique<AgentSchedulingGroup>(
-      *this, std::move(agent_scheduling_group), std::move(broker_remote)));
+      *this, std::move(agent_scheduling_group)));
 }
 
 void RenderThreadImpl::TransferSharedLastForegroundTime(
@@ -1669,7 +1705,10 @@ bool RenderThreadImpl::RendererIsHidden() const {
 }
 
 void RenderThreadImpl::OnRendererHidden() {
-  blink::IsolateInBackgroundNotification();
+  if (!base::FeatureList::IsEnabled(features::kSetIsolatesPriority)) {
+    blink::WebV8Features::SetIsolatePriority(
+        base::Process::Priority::kBestEffort);
+  }
 
   // TODO(rmcilroy): Remove IdleHandler and replace it with an IdleTask
   // scheduled by the RendererScheduler - http://crbug.com/469210.
@@ -1679,7 +1718,10 @@ void RenderThreadImpl::OnRendererHidden() {
 }
 
 void RenderThreadImpl::OnRendererVisible() {
-  blink::IsolateInForegroundNotification();
+  if (!base::FeatureList::IsEnabled(features::kSetIsolatesPriority)) {
+    blink::WebV8Features::SetIsolatePriority(
+        base::Process::Priority::kUserBlocking);
+  }
 
   if (!GetContentClient()->renderer()->RunIdleHandlerWhenWidgetsHidden())
     return;
@@ -1687,8 +1729,7 @@ void RenderThreadImpl::OnRendererVisible() {
 }
 
 bool RenderThreadImpl::RendererIsBackgrounded() const {
-  return background_state_ ==
-         mojom::RenderProcessBackgroundState::kBackgrounded;
+  return IsBackgrounded(process_priority_);
 }
 
 void RenderThreadImpl::OnRendererBackgrounded() {

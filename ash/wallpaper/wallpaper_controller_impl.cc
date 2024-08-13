@@ -10,7 +10,6 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
-#include "ash/display/window_tree_host_manager.h"
 #include "ash/login/login_screen_controller.h"
 #include "ash/public/cpp/image_downloader.h"
 #include "ash/public/cpp/image_util.h"
@@ -39,6 +38,7 @@
 #include "ash/wallpaper/wallpaper_constants.h"
 #include "ash/wallpaper/wallpaper_daily_refresh_scheduler.h"
 #include "ash/wallpaper/wallpaper_image_downloader.h"
+#include "ash/wallpaper/wallpaper_info_migrator.h"
 #include "ash/wallpaper/wallpaper_metrics_manager.h"
 #include "ash/wallpaper/wallpaper_pref_manager.h"
 #include "ash/wallpaper/wallpaper_utils/sea_pen_metadata_utils.h"
@@ -357,7 +357,7 @@ WallpaperControllerImpl::WallpaperControllerImpl(
       sequenced_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})) {
-  Shell::Get()->window_tree_host_manager()->AddObserver(this);
+  Shell::Get()->display_manager()->AddDisplayManagerObserver(this);
   Shell::Get()->AddShellObserver(this);
   Shell::Get()->login_screen_controller()->data_dispatcher()->AddObserver(this);
   theme_observation_.Observe(ui::NativeTheme::GetInstanceForNativeUi());
@@ -365,7 +365,7 @@ WallpaperControllerImpl::WallpaperControllerImpl(
 }
 
 WallpaperControllerImpl::~WallpaperControllerImpl() {
-  Shell::Get()->window_tree_host_manager()->RemoveObserver(this);
+  Shell::Get()->display_manager()->RemoveDisplayManagerObserver(this);
   Shell::Get()->RemoveShellObserver(this);
   // Per ash/shell.cc, wallpaper_controller_impl outlives
   // login_screen_controller. Therefore don't remove the observer from
@@ -1456,7 +1456,7 @@ WallpaperControllerImpl::GetWallpaperInfoForAccountId(
   return info;
 }
 
-void WallpaperControllerImpl::OnDisplayConfigurationChanged() {
+void WallpaperControllerImpl::OnDidApplyDisplayChanges() {
   gfx::Size max_display_size = GetMaxDisplaySizeInNative();
   if (current_max_display_size_ == max_display_size)
     return;
@@ -1509,6 +1509,120 @@ void WallpaperControllerImpl::OnShellDestroying() {
   shell->dark_light_mode_controller()->RemoveCheckpointObserver(this);
   daily_refresh_observation_.Reset();
   time_of_day_scheduler_observation_.Reset();
+}
+
+void WallpaperControllerImpl::SaveMigratedWallpaperInfo(
+    const std::optional<WallpaperInfo>& migrated_info) {
+  AccountId account_id = GetActiveAccountId();
+
+  if (migrated_info) {
+    // Migration succeeded, save the migrated info.
+    pref_manager_->SetLocalWallpaperInfo(account_id, *migrated_info);
+  } else {
+    LOG(ERROR) << "Wallpaper info migration failed for account " << account_id;
+  }
+  HandleWallpaperInfoAfterMigration(account_id);
+}
+
+void WallpaperControllerImpl::HandleWallpaperInfoAfterMigration(
+    const AccountId& account_id) {
+  WallpaperInfo local_info;
+  bool has_local_info =
+      pref_manager_->GetLocalWallpaperInfo(account_id, &local_info);
+  bool should_set_time_of_day_wallpaper =
+      IsOobeState() && has_local_info &&
+      local_info.type == WallpaperType::kDefault &&
+      features::IsTimeOfDayWallpaperEnabled();
+  if (should_set_time_of_day_wallpaper) {
+    DVLOG(0) << __func__ << " Setting default time of day wallpaper.";
+    // Sets the time of day wallpaper as the default wallpaper on active user
+    // pref changed during OOBE flow.
+    SetTimeOfDayWallpaper(
+        account_id,
+        base::BindOnce(
+            &WallpaperControllerImpl::OnTimeOfDayWallpaperSetAfterOobe,
+            weak_factory_.GetWeakPtr()));
+  }
+
+  if (wallpaper_controller_client_->IsWallpaperSyncEnabled(account_id)) {
+    WallpaperInfo synced_info;
+    bool has_synced_info =
+        pref_manager_->GetSyncedWallpaperInfo(account_id, &synced_info);
+    DVLOG(1) << __func__ << " has_synced_info=" << has_synced_info;
+    if (!has_synced_info && has_local_info &&
+        WallpaperPrefManager::ShouldSyncOut(local_info)) {
+      if (local_info.type == WallpaperType::kCustomized) {
+        base::FilePath source = GetCustomWallpaperDir(kOriginalWallpaperSubDir)
+                                    .Append(local_info.location);
+        SaveWallpaperToDriveFsAndSyncInfo(account_id, source);
+      } else {
+        pref_manager_->SetSyncedWallpaperInfo(account_id, local_info);
+      }
+    }
+
+    // Starts watching for sync pref changes.
+    pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+    pref_change_registrar_->Init(
+        Shell::Get()->session_controller()->GetActivePrefService());
+    pref_change_registrar_->Add(
+        WallpaperPrefManager::GetSyncPrefName(),
+        base::BindRepeating(&WallpaperControllerImpl::SyncLocalAndRemotePrefs,
+                            weak_factory_.GetWeakPtr(), account_id));
+    SyncLocalAndRemotePrefs(account_id);
+  }
+
+  // Sends signal for daily refresh check.
+  OnCheckpointChanged(daily_refresh_scheduler_.get(),
+                      daily_refresh_scheduler_->current_checkpoint());
+}
+
+void WallpaperControllerImpl::HandleSyncedWallpaperInfoAfterMigration(
+    const AccountId& account_id,
+    const std::optional<WallpaperInfo>& synced_info) {
+  if (!synced_info) {
+    LOG(WARNING) << __func__
+                 << " Unable to migrate synced info to the latest version";
+    return;
+  }
+
+  WallpaperInfo local_info;
+  if (!pref_manager_->GetLocalWallpaperInfo(account_id, &local_info)) {
+    HandleWallpaperInfoSyncedIn(account_id, *synced_info);
+    return;
+  }
+  // TODO(b/278096886): Move this sync-out logic for `kCustomized` type
+  // somewhere else.
+  if (!synced_info->MatchesSelection(local_info) &&
+      synced_info->date < local_info.date &&
+      local_info.type == WallpaperType::kCustomized) {
+    // Generally, we handle setting synced_info when local_info is updated.
+    // But for custom images, we wait until the image is uploaded to Drive,
+    // which may not be available at the time of setting the local_info.
+    base::FilePath source = GetCustomWallpaperDir(kOriginalWallpaperSubDir)
+                                .Append(local_info.location);
+    SaveWallpaperToDriveFsAndSyncInfo(account_id, source);
+    return;
+  }
+
+  if (!WallpaperPrefManager::ShouldSyncIn(*synced_info, local_info,
+                                          IsOobeState())) {
+    return;
+  }
+  HandleWallpaperInfoSyncedIn(account_id, *synced_info);
+}
+
+void WallpaperControllerImpl::HandleDeprecatedSyncedWallpaperInfoAfterMigration(
+    const AccountId& account_id,
+    const std::optional<WallpaperInfo>& synced_info) {
+  if (!synced_info) {
+    LOG(WARNING) << __func__
+                 << " Unable to migrate synced info to the latest version";
+    return;
+  }
+
+  // Clears the deprecated pref to prevent further sync in the future.
+  pref_manager_->ClearDeprecatedPref(account_id);
+  HandleSyncedWallpaperInfoAfterMigration(account_id, *synced_info);
 }
 
 void WallpaperControllerImpl::OnWallpaperResized() {
@@ -1685,53 +1799,16 @@ void WallpaperControllerImpl::OnActiveUserPrefServiceChanged(
   }
 
   WallpaperInfo local_info;
-  bool has_local_info =
-      pref_manager_->GetLocalWallpaperInfo(account_id, &local_info);
-  if (IsOobeState() && has_local_info &&
-      local_info.type == WallpaperType::kDefault &&
-      features::IsTimeOfDayWallpaperEnabled()) {
-    // Sets the time of day wallpaper as the default wallpaper on active user
-    // pref changed during OOBE flow.
-    SetTimeOfDayWallpaper(
-        account_id,
-        base::BindOnce(
-            &WallpaperControllerImpl::OnTimeOfDayWallpaperSetAfterOobe,
-            weak_factory_.GetWeakPtr()));
+  if (pref_manager_->GetLocalWallpaperInfo(account_id, &local_info) &&
+      wallpaper_info_migrator_.ShouldMigrate(local_info)) {
+    wallpaper_info_migrator_.Migrate(
+        account_id, local_info,
+        base::BindOnce(&WallpaperControllerImpl::SaveMigratedWallpaperInfo,
+                       weak_factory_.GetWeakPtr()));
+  } else {
+    // If no migration is needed, proceed as before
+    HandleWallpaperInfoAfterMigration(account_id);
   }
-
-  if (wallpaper_controller_client_->IsWallpaperSyncEnabled(account_id)) {
-    pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
-    pref_change_registrar_->Init(pref_service);
-    pref_change_registrar_->Add(
-        WallpaperPrefManager::GetSyncPrefName(),
-        base::BindRepeating(&WallpaperControllerImpl::SyncLocalAndRemotePrefs,
-                            weak_factory_.GetWeakPtr(), account_id));
-
-    WallpaperInfo synced_info;
-    bool has_synced_info =
-        pref_manager_->GetSyncedWallpaperInfo(account_id, &synced_info);
-    DVLOG(1) << " has_synced_info=" << has_synced_info
-             << " has_local_info=" << has_local_info
-             << " is_oobe_state=" << IsOobeState();
-
-    // Migrate wallpaper info to syncable prefs.
-    if (!has_synced_info && has_local_info &&
-        WallpaperPrefManager::ShouldSyncOut(local_info)) {
-      if (local_info.type == WallpaperType::kCustomized) {
-        base::FilePath source = GetCustomWallpaperDir(kOriginalWallpaperSubDir)
-                                    .Append(local_info.location);
-        SaveWallpaperToDriveFsAndSyncInfo(account_id, source);
-      } else {
-        pref_manager_->SetSyncedWallpaperInfo(account_id, local_info);
-      }
-    }
-
-    SyncLocalAndRemotePrefs(account_id);
-  }
-
-  // Sends signal for daily refresh check.
-  OnCheckpointChanged(daily_refresh_scheduler_.get(),
-                      daily_refresh_scheduler_->current_checkpoint());
 }
 
 void WallpaperControllerImpl::ShowDefaultWallpaperForTesting() {
@@ -2862,33 +2939,30 @@ void WallpaperControllerImpl::SyncLocalAndRemotePrefs(
   // Check if the synced info was set by another device, and if we have already
   // handled it locally.
   WallpaperInfo synced_info;
-  WallpaperInfo local_info;
+  auto on_synced_info_migrated = base::BindOnce(
+      &WallpaperControllerImpl::HandleSyncedWallpaperInfoAfterMigration,
+      weak_factory_.GetWeakPtr(), account_id);
   if (!pref_manager_->GetSyncedWallpaperInfo(account_id, &synced_info)) {
-    return;
+    if (!features::IsVersionWallpaperInfoEnabled()) {
+      return;
+    }
+    // Attempts to show the user's wallpaper from the previous pref.
+    if (!pref_manager_->GetSyncedWallpaperInfoFromDeprecatedPref(
+            account_id, &synced_info)) {
+      return;
+    }
+    on_synced_info_migrated =
+        base::BindOnce(&WallpaperControllerImpl::
+                           HandleDeprecatedSyncedWallpaperInfoAfterMigration,
+                       weak_factory_.GetWeakPtr(), account_id);
   }
-  if (!pref_manager_->GetLocalWallpaperInfo(account_id, &local_info)) {
-    HandleWallpaperInfoSyncedIn(account_id, synced_info);
-    return;
+  if (wallpaper_info_migrator_.ShouldMigrate(synced_info)) {
+    wallpaper_info_migrator_.Migrate(account_id, synced_info,
+                                     std::move(on_synced_info_migrated));
+  } else {
+    // If no migration is needed, proceed as before
+    HandleSyncedWallpaperInfoAfterMigration(account_id, synced_info);
   }
-  // TODO(b/278096886): Move this sync-out logic for `kCustomized` type
-  // somewhere else.
-  if (!synced_info.MatchesSelection(local_info) &&
-      synced_info.date < local_info.date &&
-      local_info.type == WallpaperType::kCustomized) {
-    // Generally, we handle setting synced_info when local_info is updated.
-    // But for custom images, we wait until the image is uploaded to Drive,
-    // which may not be available at the time of setting the local_info.
-    base::FilePath source = GetCustomWallpaperDir(kOriginalWallpaperSubDir)
-                                .Append(local_info.location);
-    SaveWallpaperToDriveFsAndSyncInfo(account_id, source);
-    return;
-  }
-
-  if (!WallpaperPrefManager::ShouldSyncIn(synced_info, local_info,
-                                          IsOobeState())) {
-    return;
-  }
-  HandleWallpaperInfoSyncedIn(account_id, synced_info);
 }
 
 const AccountId& WallpaperControllerImpl::CurrentAccountId() const {

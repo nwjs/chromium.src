@@ -39,6 +39,7 @@
 #include "chrome/browser/ui/views/tabs/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_close_button.h"
+#include "chrome/browser/ui/views/tabs/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_hover_card_bubble_view.h"
 #include "chrome/browser/ui/views/tabs/tab_icon.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
@@ -456,7 +457,8 @@ bool Tab::OnKeyPressed(const ui::KeyEvent& event) {
       ui::EF_CONTROL_DOWN;
 #endif
 
-  if (event.type() == ui::ET_KEY_PRESSED && (event.flags() & kModifiedFlag)) {
+  if (event.type() == ui::EventType::kKeyPressed &&
+      (event.flags() & kModifiedFlag)) {
     const bool is_right = event.key_code() == ui::VKEY_RIGHT;
     const bool is_left = event.key_code() == ui::VKEY_LEFT;
     if (is_right || is_left) {
@@ -607,7 +609,10 @@ void Tab::OnMouseEntered(const ui::MouseEvent& event) {
 }
 
 void Tab::MaybeUpdateHoverStatus(const ui::MouseEvent& event) {
-  if (mouse_hovered_ || !GetWidget()->IsMouseEventsEnabled()) {
+  // During system-DnD-based tab dragging we sometimes receive mouse events, but
+  // we shouldn't update the hover status during a drag.
+  if (mouse_hovered_ || !GetWidget()->IsMouseEventsEnabled() ||
+      TabDragController::IsActive()) {
     return;
   }
 
@@ -646,7 +651,7 @@ void Tab::OnGestureEvent(ui::GestureEvent* event) {
   controller_->UpdateHoverCard(nullptr,
                                TabSlotController::HoverCardUpdateType::kEvent);
   switch (event->type()) {
-    case ui::ET_GESTURE_TAP_DOWN: {
+    case ui::EventType::kGestureTapDown: {
       // TAP_DOWN is only dispatched for the first touch point.
       DCHECK_EQ(1, event->details().touch_points());
 
@@ -1160,7 +1165,7 @@ void Tab::CloseButtonPressed(const ui::Event& event) {
     base::RecordAction(UserMetricsAction("CloseTab_RecordingIndicator"));
   }
 
-  const bool from_mouse = event.type() == ui::ET_MOUSE_RELEASED &&
+  const bool from_mouse = event.type() == ui::EventType::kMouseReleased &&
                           !(event.flags() & ui::EF_FROM_TOUCH);
   controller_->CloseTab(
       this, from_mouse ? CLOSE_TAB_FROM_MOUSE : CLOSE_TAB_FROM_TOUCH);

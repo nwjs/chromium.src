@@ -88,6 +88,15 @@ class AXMediaAppUntrustedHandler
                                               ui::AXTreeData*,
                                               ui::AXNodeData>;
 
+  enum class OcrStatus {
+    kUninitialized,
+    kInitializationFailed,
+    kInProgressWithNoTextExtractedYet,
+    kInProgressWithTextExtracted,
+    kCompletedWithNoTextExtracted,
+    kCompletedWithTextExtracted,
+  };
+
   AXMediaAppUntrustedHandler(
       content::BrowserContext& context,
       gfx::NativeWindow native_window,
@@ -98,8 +107,7 @@ class AXMediaAppUntrustedHandler
   ~AXMediaAppUntrustedHandler() override;
 
   // Informs the MediaApp whether the PDF OCR feature is enabled, i.e. the user
-  // has enabled PDF OCR in the Settings app and an accessibility service such
-  // as ChromeVox is running.
+  // has an accessibility service such as ChromeVox activated.
   void SetPdfOcrEnabledState();
 
   virtual bool IsOcrServiceEnabled() const;
@@ -145,7 +153,7 @@ class AXMediaAppUntrustedHandler
   std::map<const std::string, std::unique_ptr<TreeSource>> page_sources_;
   std::map<const std::string, std::unique_ptr<TreeSerializer>>
       page_serializers_;
-  std::unique_ptr<std::vector<const ui::AXTreeUpdate>>
+  std::unique_ptr<std::vector<ui::AXTreeUpdate>>
       pending_serialized_updates_for_testing_;
   scoped_refptr<screen_ai::OpticalCharacterRecognizer> ocr_;
 
@@ -155,7 +163,9 @@ class AXMediaAppUntrustedHandler
   std::vector<ui::AXNodeData> CreatePostamblePage() const;
   void SendAXTreeToAccessibilityService(const ui::AXTreeManager& manager,
                                         TreeSerializer& serializer);
-  void UpdateDocumentTree();
+  void ShowOcrServiceFailedToInitializeMessage();
+  void GenerateDocumentTree();
+  void UpdateDocumentTree(ui::AXTreeUpdate& document_update);
   void UpdatePageLocation(const std::string& page_id,
                           const gfx::RectF& page_location);
   // A callback which is run after the Media App sends the bitmap of the page
@@ -186,8 +196,7 @@ class AXMediaAppUntrustedHandler
   gfx::RectF viewport_box_;
   float scale_factor_ = 0.0f;
   base::circular_deque<std::string> dirty_page_ids_;
-  bool text_extracted_ = false;
-  bool pdf_ocr_enabled_ = false;
+  OcrStatus ocr_status_ = OcrStatus::kUninitialized;
   ui::AXTreeID document_tree_id_ = ui::AXTreeID::CreateNewAXTreeID();
   SEQUENCE_CHECKER(sequence_checker_);
   std::optional<mojo::ReportBadMessageCallback> bad_message_callback_ =
@@ -196,6 +205,8 @@ class AXMediaAppUntrustedHandler
   base::TimeTicks start_reading_time_;
   // Records of most recent time when the user reads content in MediaApp.
   base::TimeTicks latest_reading_time_;
+  // Records the greatest page number to which the user has navigated.
+  size_t greatest_visited_page_number_ = 0;
 
   base::WeakPtrFactory<AXMediaAppUntrustedHandler> weak_ptr_factory_{this};
 };

@@ -478,6 +478,9 @@ inline constexpr uint32_t kAcceleratorLayouts[] = {
     // notification that hardcodes ctrl + alt + z into the notification message.
     AcceleratorAction::kToggleSpokenFeedback,
 
+    // Accessibility > Mouse Keys
+    AcceleratorAction::kToggleMouseKeys,
+
     // Accessibility > Visibility
     AcceleratorAction::kEnableSelectToSpeak,
     AcceleratorAction::kToggleHighContrast,

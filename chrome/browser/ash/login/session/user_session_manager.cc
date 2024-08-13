@@ -1683,22 +1683,14 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
   TRACE_EVENT0("login", "UserSessionManager::FinalizePrepareProfile");
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   user_manager::User* user = ProfileHelper::Get()->GetUserByProfile(profile);
-  user_manager::KnownUser known_user(g_browser_process->local_state());
   if (user_manager->IsLoggedInAsUserWithGaiaAccount()) {
     const UserContext::AuthFlow auth_flow = user_context_.GetAuthFlow();
     if (auth_flow == UserContext::AUTH_FLOW_GAIA_WITH_SAML ||
         auth_flow == UserContext::AUTH_FLOW_GAIA_WITHOUT_SAML) {
-      const bool using_saml =
-          auth_flow == UserContext::AUTH_FLOW_GAIA_WITH_SAML;
-      const AccountId& account_id = user_context_.GetAccountId();
-      known_user.UpdateUsingSAML(account_id, using_saml);
-      known_user.UpdateIsUsingSAMLPrincipalsAPI(
-          account_id,
-          using_saml ? user_context_.IsUsingSamlPrincipalsApi() : false);
-      user->set_using_saml(using_saml);
-      if (!using_saml) {
-        known_user.ClearPasswordSyncToken(account_id);
-      }
+      user_manager->SetUserUsingSaml(
+          user_context_.GetAccountId(),
+          /*using_saml=*/auth_flow == UserContext::AUTH_FLOW_GAIA_WITH_SAML,
+          user_context_.IsUsingSamlPrincipalsApi());
     }
     PasswordSyncTokenVerifier* password_sync_token_verifier =
         PasswordSyncTokenVerifierFactory::GetForProfile(profile);
@@ -2504,6 +2496,7 @@ void UserSessionManager::Shutdown() {
   token_handle_util_.reset();
   token_observers_.clear();
   always_on_vpn_manager_.reset();
+  child_policy_observer_.reset();
   u2f_notification_.reset();
   help_app_notification_controller_.reset();
   password_service_voted_.reset();

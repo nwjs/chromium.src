@@ -92,6 +92,7 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAshUiMode[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAshUiModeClamshell[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAshUiModeTablet[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAuraLegacyPowerButton[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kBirchIsEvening[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kBirchIsMorning[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kCampbellKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kCellularFirst[];
@@ -121,11 +122,15 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDemoModeHighlightsApp[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDemoModeScreensaverApp[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDemoModeSwaContentDirectory[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kDemoModeResourceDirectory[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDerelictDetectionTimeout[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDerelictIdleTimeout[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableArcCpuRestriction[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableArcOptInVerification[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kDisableBirchWeatherApiForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableDemoMode[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableDeviceDisabling[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableDriveFsForTesting[];
@@ -153,8 +158,9 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArc[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVm[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVmRtVcpu[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableAshDebugBrowser[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kEnableBirchWeatherApiForTestingOverride[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableCastReceiver[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableConsumerKiosk[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableDimShelf[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kEnableExtensionAssetsSharing[];
@@ -205,7 +211,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kFakeDriveFsLauncherChrootPath[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kFakeDriveFsLauncherSocketPath[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kRestoreKeyOnLockScreen[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kFingerprintSensorLocation[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kFirstExecAfterBoot[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kForceBirchFetch[];
@@ -264,12 +269,15 @@ extern const char kExtensionAppsRunInAshOnly[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kExtensionAppsBlockForAppServiceInAsh[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLaunchRma[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLobsterFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginManager[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginProfile[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginUser[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisallowLacros[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableDisallowLacros[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kMahiFeatureKey[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSparkyFeatureKey[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSparkyServerUrl[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kBrowserDataMigrationForUser[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -386,10 +394,6 @@ extern const char kForceRefreshRateThrottle[];
 // Returns true if flag if AuthSession should be used to communicate with
 // cryptohomed instead of explicitly authorizing each operation.
 COMPONENT_EXPORT(ASH_CONSTANTS) bool IsAuthSessionCryptohomeEnabled();
-
-// Returns true if the cryptohome filesystem keyset is evicted and needs to be
-// restored on lock screen.
-COMPONENT_EXPORT(ASH_CONSTANTS) bool ShouldRestoreKeyOnLockScreen();
 
 // Returns true if this is a Cellular First device.
 COMPONENT_EXPORT(ASH_CONSTANTS) bool IsCellularFirstDevice();
@@ -511,16 +515,19 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsConchSecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
-bool IsForestSecretKeyMatched();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-void SetIgnoreForestSecretKeyForTest(bool ignore);
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsMahiSecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
 base::AutoReset<bool> SetIgnoreMahiSecretKeyForTest();
+
+COMPONENT_EXPORT(ASH_CONSTANTS)
+bool IsSparkySecretKeyMatched();
+
+COMPONENT_EXPORT(ASH_CONSTANTS)
+base::AutoReset<bool> SetIgnoreSparkySecretKeyForTest();
+
+COMPONENT_EXPORT(ASH_CONSTANTS)
+std::optional<std::string> ObtainSparkyServerUrl();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsModifierSplitSecretKeyMatched();

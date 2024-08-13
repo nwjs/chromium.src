@@ -99,7 +99,9 @@ FrameSinkManagerImpl::~FrameSinkManagerImpl() {
   // this point.
   DCHECK(sink_map_.empty());
   DCHECK(root_sink_map_.empty());
+#if BUILDFLAG(IS_ANDROID)
   DCHECK(cached_back_buffers_.empty());
+#endif
   DCHECK(registered_sources_.empty());
 
   surface_manager_.RemoveObserver(this);
@@ -339,7 +341,7 @@ void FrameSinkManagerImpl::AddVideoDetectorObserver(
 void FrameSinkManagerImpl::CreateVideoCapturer(
     mojo::PendingReceiver<mojom::FrameSinkVideoCapturer> receiver) {
   video_capturers_.emplace(std::make_unique<FrameSinkVideoCapturerImpl>(
-      this, gmb_context_provider_, std::move(receiver),
+      *this, gmb_context_provider_, std::move(receiver),
       std::make_unique<media::VideoCaptureOracle>(
           true /* enable_auto_throttling */),
       log_capture_pipeline_in_webrtc_));
@@ -777,6 +779,7 @@ void FrameSinkManagerImpl::VerifySandboxedThreadIds(
 #endif
 }
 
+#if BUILDFLAG(IS_ANDROID)
 void FrameSinkManagerImpl::CacheBackBuffer(
     uint32_t cache_id,
     const FrameSinkId& root_frame_sink_id) {
@@ -796,6 +799,7 @@ void FrameSinkManagerImpl::EvictBackBuffer(uint32_t cache_id,
   cached_back_buffers_.erase(cache_id);
   std::move(callback).Run();
 }
+#endif
 
 void FrameSinkManagerImpl::UpdateDebugRendererSettings(
     const DebugRendererSettings& debug_settings) {

@@ -6,20 +6,24 @@
  * #type=style-lit
  * #import=chrome://resources/cr_elements/cr_shared_vars.css.js
  * #import=chrome://resources/cr_elements/mwb_shared_style_lit.css.js
- * #import=./tab_organization_shared_style_lit.css.js
+ * #import=./tab_organization_shared_style.css.js
  * #scheme=relative
- * #include=mwb-shared-style-lit tab-organization-shared-style-lit
+ * #include=mwb-shared-style-lit tab-organization-shared-style
  * #css_wrapper_metadata_end */
 
 cr-feedback-buttons {
   color: var(--color-icon);
 }
 
-.feedback {
-  align-items: center;
+.button-row {
   display: flex;
   gap: 8px;
-  justify-content: space-between;
+}
+
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 :host([multi-tab-organization]) .feedback {
@@ -62,6 +66,7 @@ cr-feedback-buttons {
 
 .tab-organization-body,
 .tab-organization-link {
+  display: inline;
   font-size: 11px;
   line-height: 16px;
 }

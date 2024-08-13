@@ -76,6 +76,7 @@ extern const char kDisableComponentExtensionsWithBackgroundPages[];
 #if BUILDFLAG(ENABLE_COMPONENT_UPDATER)
 extern const char kDisableComponentUpdate[];
 #endif
+extern const char kDisableCrashpadForTesting[];
 extern const char kDisableDefaultApps[];
 extern const char kDisableDomainReliability[];
 extern const char kDisableExtensions[];
@@ -108,6 +109,9 @@ extern const char kExtensionContentVerificationEnforce[];
 extern const char kExtensionContentVerificationEnforceStrict[];
 extern const char kExtensionsInstallVerification[];
 extern const char kExtensionsNotWebstore[];
+extern const char kExtensionsToolbarZeroStateVariation[];
+extern const char kExtensionsToolbarZeroStateSingleWebStoreLink[];
+extern const char kExtensionsToolbarZeroStateExploreExtensionsByCategory[];
 extern const char kForceAppMode[];
 #if BUILDFLAG(IS_CHROMEOS)
 extern const char kForceDevToolsAvailable[];
@@ -177,6 +181,7 @@ extern const char kSSLVersionMax[];
 extern const char kSSLVersionMin[];
 extern const char kSSLVersionTLSv12[];
 extern const char kSSLVersionTLSv13[];
+extern const char kStackProfilerUseThreadPool[];
 extern const char kStartMaximized[];
 extern const char kStartStackProfiler[];
 extern const char kStartStackProfilerBrowserTest[];

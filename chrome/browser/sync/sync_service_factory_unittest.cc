@@ -69,7 +69,10 @@ class SyncServiceFactoryTest : public testing::Test {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     app_list::AppListSyncableServiceFactory::SetUseInTesting(false);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-    base::ThreadPoolInstance::Get()->FlushForTesting();
+    // There may tasks in flight referencing fields owned by the test fixture.
+    // Make sure they are flushed now to prevent memory safety errors, e.g.
+    // use-after-destruction errors.
+    task_environment_.RunUntilIdle();
   }
 
  protected:
@@ -125,6 +128,9 @@ class SyncServiceFactoryTest : public testing::Test {
     datatypes.Put(syncer::APP_LIST);
     if (arc::IsArcAllowedForProfile(profile())) {
       datatypes.Put(syncer::ARC_PACKAGE);
+    }
+    if (ash::features::IsFloatingSsoAllowed()) {
+      datatypes.Put(syncer::COOKIES);
     }
     datatypes.Put(syncer::OS_PREFERENCES);
     datatypes.Put(syncer::OS_PRIORITY_PREFERENCES);
@@ -187,8 +193,6 @@ class SyncServiceFactoryTest : public testing::Test {
       datatypes.Put(syncer::PLUS_ADDRESS_SETTING);
     }
 
-    // TODO(b/318391357) add `syncer::COOKIES` (under IS_CHROMEOS) after adding
-    // a corresponding controller.
     return datatypes;
   }
 

@@ -12,10 +12,10 @@
 
 #include "partition_alloc/address_pool_manager_types.h"
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/flags.h"
 #include "partition_alloc/page_allocator_constants.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_forward.h"
 
@@ -100,7 +100,13 @@ constexpr size_t kPartitionCachelineSize = 64;
 // other constant values, we pack _all_ `PartitionRoot::Alloc` sizes perfectly
 // up against the end of a system page.
 
-#if defined(_MIPS_ARCH_LOONGSON) || PA_BUILDFLAG(PA_ARCH_CPU_LOONGARCH64)
+#if (PA_BUILDFLAG(IS_APPLE) && PA_BUILDFLAG(PA_ARCH_CPU_64_BITS)) || \
+    defined(PARTITION_ALLOCATOR_CONSTANTS_POSIX_NONCONST_PAGE_SIZE)
+PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
+PartitionPageShift() {
+  return PageAllocationGranularityShift() + 2;
+}
+#elif defined(_MIPS_ARCH_LOONGSON) || PA_BUILDFLAG(PA_ARCH_CPU_LOONGARCH64)
 PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
 PartitionPageShift() {
   return 16;  // 64 KiB
@@ -109,12 +115,6 @@ PartitionPageShift() {
 PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
 PartitionPageShift() {
   return 18;  // 256 KiB
-}
-#elif (PA_BUILDFLAG(IS_APPLE) && PA_BUILDFLAG(PA_ARCH_CPU_64_BITS)) || \
-    defined(PARTITION_ALLOCATOR_CONSTANTS_POSIX_NONCONST_PAGE_SIZE)
-PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
-PartitionPageShift() {
-  return PageAllocationGranularityShift() + 2;
 }
 #else
 PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
@@ -455,7 +455,14 @@ PA_ALWAYS_INLINE constexpr size_t MaxDirectMapped() {
 // Max alignment supported by AlignedAlloc().
 // kSuperPageSize alignment can't be easily supported, because each super page
 // starts with guard pages & metadata.
+// TODO(casey.smalley@arm.com): under 64k pages we can end up in a situation
+// where a normal slot span will be large enough to contain multiple items,
+// but the address will go over the final partition page after being aligned.
+#if PA_BUILDFLAG(IS_LINUX) && PA_BUILDFLAG(PA_ARCH_CPU_ARM64)
+constexpr size_t kMaxSupportedAlignment = kSuperPageSize / 4;
+#else
 constexpr size_t kMaxSupportedAlignment = kSuperPageSize / 2;
+#endif
 
 constexpr size_t kBitsPerSizeT = sizeof(void*) * CHAR_BIT;
 

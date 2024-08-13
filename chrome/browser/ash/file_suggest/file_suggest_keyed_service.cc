@@ -7,7 +7,6 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
-#include "ash/utility/forest_util.h"
 #include "base/functional/bind.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/file_suggest/drive_file_suggestion_provider.h"
@@ -37,7 +36,7 @@ FileSuggestKeyedService::FileSuggestKeyedService(
   proto_.Init();
 
   if (features::IsLauncherContinueSectionWithRecentsEnabled() ||
-      IsForestFeatureEnabled()) {
+      features::IsForestFeatureEnabled()) {
     drive_file_suggestion_provider_ =
         std::make_unique<DriveRecentFileSuggestionProvider>(
             profile, base::BindRepeating(
@@ -102,6 +101,8 @@ void FileSuggestKeyedService::GetSuggestFileData(
   }
 }
 
+// NOTE: An absolute file path for a Google Doc looks like:
+// /media/fuse/drivefs-48de6bc248c2f6d8e809521347ef6190/root/Test doc.gdoc
 void FileSuggestKeyedService::RemoveSuggestionsAndNotify(
     const std::vector<base::FilePath>& absolute_file_paths) {
   if (!IsProtoInitialized()) {

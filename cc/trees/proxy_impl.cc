@@ -122,7 +122,6 @@ ProxyImpl::ProxyImpl(
 
   std::unique_ptr<CompositorTimingHistory> compositor_timing_history(
       new CompositorTimingHistory(
-          scheduler_settings.using_synchronous_renderer_compositor,
           CompositorTimingHistory::RENDERER_UMA,
           rendering_stats_instrumentation));
   scheduler_ = std::make_unique<Scheduler>(
@@ -582,11 +581,6 @@ void ProxyImpl::DidActivateSyncTree() {
   }
 }
 
-void ProxyImpl::WillPrepareTiles() {
-  DCHECK(IsImplThread());
-  scheduler_->WillPrepareTiles();
-}
-
 void ProxyImpl::DidPrepareTiles() {
   DCHECK(IsImplThread());
   scheduler_->DidPrepareTiles();
@@ -606,7 +600,8 @@ void ProxyImpl::OnDrawForLayerTreeFrameSink(bool resourceless_software_draw,
                                           skip_draw);
 }
 
-void ProxyImpl::NeedsImplSideInvalidation(bool needs_first_draw_on_activation) {
+void ProxyImpl::SetNeedsImplSideInvalidation(
+    bool needs_first_draw_on_activation) {
   DCHECK(IsImplThread());
   scheduler_->SetNeedsImplSideInvalidation(needs_first_draw_on_activation);
 }

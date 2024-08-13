@@ -573,25 +573,24 @@ def DownloadDebianSysroot(platform_name, skip_download=False):
   #   work (clang can require 2.18; chromium currently doesn't)
   # - libcrypt.so.1 reversioned so that crypt() is picked up from glibc
   # The sysroot was built at
-  # https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1
+  # https://chromium-review.googlesource.com/c/chromium/src/+/5506275/1
   # and the hashes here are from sysroots.json in that CL.
-  toolchain_bucket = 'https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/'
+  toolchain_bucket = 'https://commondatastorage.googleapis.com/chrome-linux-sysroot/'
 
   hashes = {
-      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#3
-      'amd64': '2028cdaf24259d23adcff95393b8cc4f0eef714b',
-      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#23
-      'i386': 'a033618b5e092c86e96d62d3c43f7363df6cebe7',
-      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#8
-      'arm': '0b9a3c54d2d5f6b1a428369aaa8d7ba7b227f701',
-      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#12
-      'arm64': '0e28d9832614729bb5b731161ff96cb4d516f345',
+      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/5506275/1/build/linux/sysroot_scripts/sysroots.json#3
+      'amd64': 'dec7a3a0fc5b83b909cba1b6d119077e0429a138eadef6bf5a0f2e03b1904631',
+      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/5506275/1/build/linux/sysroot_scripts/sysroots.json#21
+      'i386': 'b53933120bb08ffc38140a817e3f0f99782254a6bf9622271574fa004e8783a4',
+      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/5506275/1/build/linux/sysroot_scripts/sysroots.json#15
+      'arm': 'fe81e7114b97440262bce004caf02c1514732e2fa7f99693b2836932ad1c4626',
+      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/5506275/1/build/linux/sysroot_scripts/sysroots.json#21
+      'arm64': '308e23faba3174bd01accfe358467b8a40fad4db4c49ef629da30219f65a275f',
   }
 
   toolchain_name = f'debian_bullseye_{platform_name}_sysroot'
   output = os.path.join(LLVM_BUILD_TOOLS_DIR, toolchain_name)
-  U = toolchain_bucket + hashes[platform_name] + '/' + toolchain_name + \
-      '.tar.xz'
+  U = toolchain_bucket + hashes[platform_name]
   if not skip_download:
     DownloadAndUnpack(U, output)
 
@@ -934,11 +933,6 @@ def main():
         '^.*Sanitizer-.*sunrpc.*cpp$',
         # sysroot/host glibc version mismatch, crbug.com/1506551
         '^.*Sanitizer.*mallinfo2.cpp$',
-        # Allocator tests fail after kernel upgrade on the builders. Suppress
-        # until the test fix has landed (crbug.com/342324064).
-        '^SanitizerCommon-Unit :: ./Sanitizer-x86_64-Test/.*$',
-        # This also seems to fail due to crbug.com/342324064.
-        '^DataFlowSanitizer-x86_64.*release_shadow_space.c$',
     ]
   elif sys.platform == 'darwin':
     lit_excludes += [
@@ -947,6 +941,8 @@ def main():
         # Fails with a recent ld, crbug.com/332589870
         '^.*ContinuousSyncMode/darwin-proof-of-concept.c$',
         '^.*instrprof-darwin-exports.c$',
+        # Fails on our mac builds, crbug.com/346289767
+        '^.*Interpreter/pretty-print.c$',
     ]
   test_env = None
   if lit_excludes:

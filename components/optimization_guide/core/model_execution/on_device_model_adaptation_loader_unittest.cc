@@ -13,7 +13,7 @@
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_feature_adapter.h"
-#include "components/optimization_guide/core/model_execution/test_on_device_model_component.h"
+#include "components/optimization_guide/core/model_execution/test/test_on_device_model_component_state_manager.h"
 #include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/test_model_info_builder.h"
 #include "components/optimization_guide/core/test_optimization_guide_model_provider.h"
@@ -299,7 +299,37 @@ TEST_F(OnDeviceModelAdaptationLoaderTest, AdaptationModelValid) {
       OnDeviceModelAdaptationAvailability::kAvailable, 1);
   EXPECT_TRUE(adaptation_metadata_);
   EXPECT_EQ(base::FilePath(kOnDeviceModelAdaptationWeightsFile),
-            adaptation_metadata_->asset_paths().weights.BaseName());
+            adaptation_metadata_->asset_paths()->weights.BaseName());
+}
+
+TEST_F(OnDeviceModelAdaptationLoaderTest, AdaptationModelValidWithoutWeights) {
+  SetBaseModelStateChanged(
+      OnDeviceBaseModelSpec{kBaseModelName, kBaseModelVersion});
+  EXPECT_EQ(proto::OptimizationTarget::OPTIMIZATION_TARGET_MODEL_VALIDATION,
+            model_provider_.optimization_target_);
+
+  TestModelInfoBuilder model_info_builder;
+  model_info_builder
+      .SetModelMetadata(
+          CreateOnDeviceBaseModelMetadata({kBaseModelName, kBaseModelVersion}))
+      .SetAdditionalFiles({
+          temp_dir().Append(kOnDeviceModelExecutionConfigFile),
+      });
+
+  proto::OnDeviceModelExecutionConfig config;
+  config.add_feature_configs()->set_feature(
+      proto::MODEL_EXECUTION_FEATURE_TEST);
+  WriteConfigToFile(temp_dir().Append(kOnDeviceModelExecutionConfigFile),
+                    config);
+
+  SendAdaptationModelUpdated(model_info_builder.Build().get());
+  task_environment_.RunUntilIdle();
+  histogram_tester_.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability."
+      "Test",
+      OnDeviceModelAdaptationAvailability::kAvailable, 1);
+  EXPECT_TRUE(adaptation_metadata_);
+  EXPECT_FALSE(adaptation_metadata_->asset_paths());
 }
 
 }  // namespace optimization_guide

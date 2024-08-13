@@ -7,8 +7,13 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/run_loop.h"
+#include "base/test/bind.h"
+#include "base/test/task_environment.h"
+#include "base/test/test_future.h"
 #include "components/history_embeddings/proto/history_embeddings.pb.h"
-#include "components/os_crypt/sync/os_crypt_mocker.h"
+#include "components/os_crypt/async/browser/test_utils.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace history_embeddings {
@@ -28,14 +33,15 @@ Embedding FakeEmbedding() {
 
 class HistoryEmbeddingsSqlDatabaseTest : public testing::Test {
  public:
+  HistoryEmbeddingsSqlDatabaseTest()
+      : os_crypt_(os_crypt_async::GetTestOSCryptAsyncForTesting()) {}
+
   void SetUp() override {
-    OSCryptMocker::SetUp();
     CHECK(history_dir_.CreateUniqueTempDir());
   }
 
   void TearDown() override {
     CHECK(history_dir_.Delete());
-    OSCryptMocker::TearDown();
   }
 
   // Adds mock data for url_id = 1 tied to visit_id = 10, and url_id = 2 tied to
@@ -81,12 +87,23 @@ class HistoryEmbeddingsSqlDatabaseTest : public testing::Test {
   }
 
  protected:
+  os_crypt_async::Encryptor GetEncryptorInstance() {
+    base::test::TestFuture<os_crypt_async::Encryptor, bool> future;
+    std::ignore = os_crypt_->GetInstance(future.GetCallback());
+    auto [encryptor, result] = future.Take();
+    EXPECT_TRUE(result);
+    return std::move(encryptor);
+  }
+
+  base::test::TaskEnvironment env_;
+  std::unique_ptr<os_crypt_async::OSCryptAsync> os_crypt_;
   base::ScopedTempDir history_dir_;
 };
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadPassages) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
 
   // Write passages
   UrlPassages url_passages(1, 1, base::Time::Now());
@@ -98,7 +115,8 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadPassages) {
   // Reset and reload.
   sql_database.reset();
   sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
 
   // Read passages
   auto read_proto = sql_database->GetPassages(1);
@@ -115,7 +133,8 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadPassages) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadEmbeddings) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
 
   // Write embeddings.
   constexpr size_t kCount = 2;
@@ -132,7 +151,8 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadEmbeddings) {
   // Reset and reload.
   sql_database.reset();
   sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
 
   // Read embeddings.
   {
@@ -161,7 +181,8 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadEmbeddings) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, TimeRangeNarrowsSearchResult) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
 
   // Write embeddings.
   const base::Time now = base::Time::Now();
@@ -229,7 +250,8 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, TimeRangeNarrowsSearchResult) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, InsertOrReplacePassages) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
 
   UrlPassages url_passages(1, 1, base::Time::Now());
   url_passages.passages.add_passages("fake passage 1");
@@ -252,7 +274,8 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, InsertOrReplacePassages) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, IteratorMaySafelyOutliveDatabase) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
   AddBasicMockData(sql_database.get());
 
   // Without database reset, iteration reads data.
@@ -279,7 +302,8 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, IteratorMaySafelyOutliveDatabase) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteDataForUrlId) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
   AddBasicMockData(sql_database.get());
 
   EXPECT_TRUE(sql_database->DeleteDataForUrlId(3))
@@ -298,7 +322,8 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteDataForUrlId) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteDataForVisitId) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
   AddBasicMockData(sql_database.get());
 
   EXPECT_TRUE(sql_database->DeleteDataForVisitId(40))
@@ -317,13 +342,57 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteDataForVisitId) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteAllData) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
-  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
   AddBasicMockData(sql_database.get());
 
-  EXPECT_TRUE(sql_database->DeleteAllData());
+  EXPECT_TRUE(sql_database->DeleteAllData(true, true));
   EXPECT_FALSE(sql_database->GetPassages(1));
   EXPECT_FALSE(sql_database->GetPassages(2));
   EXPECT_EQ(GetEmbeddingCount(sql_database.get()), 0U);
+}
+
+TEST_F(HistoryEmbeddingsSqlDatabaseTest, GetUrlData) {
+  auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize},
+                                    GetEncryptorInstance());
+
+  // Store passages.
+  UrlPassages url_passages(1, 1, base::Time::Now());
+  url_passages.passages.add_passages("fake passage 1");
+  url_passages.passages.add_passages("fake passage 2");
+  url_passages.passages.add_passages("fake passage 3");
+  EXPECT_TRUE(sql_database->InsertOrReplacePassages(url_passages));
+
+  UrlPassagesEmbeddings data = sql_database->GetUrlData(1).value();
+
+  // There are passages, but no embeddings stored yet.
+  CHECK_EQ(data.url_passages.url_id, 1);
+  CHECK_EQ(data.url_passages.visit_id, 1);
+  CHECK_EQ(data.url_passages.passages.passages_size(), 3);
+  CHECK_EQ(data.url_embeddings.embeddings.size(), 0u);
+
+  // Store embeddings.
+  UrlEmbeddings url_embeddings(url_passages);
+  url_embeddings.embeddings.push_back(FakeEmbedding());
+  url_embeddings.embeddings.push_back(FakeEmbedding());
+  url_embeddings.embeddings.push_back(FakeEmbedding());
+  sql_database->AddUrlEmbeddings(url_embeddings);
+
+  // There are passages and embeddings now.
+  data = sql_database->GetUrlData(1).value();
+  CHECK_EQ(data.url_passages.url_id, 1);
+  CHECK_EQ(data.url_passages.visit_id, 1);
+  CHECK_EQ(data.url_passages.passages.passages_size(), 3);
+  EXPECT_EQ(data.url_passages.passages.passages(0), "fake passage 1");
+  EXPECT_EQ(data.url_passages.passages.passages(1), "fake passage 2");
+  EXPECT_EQ(data.url_passages.passages.passages(2), "fake passage 3");
+  CHECK_EQ(data.url_embeddings.url_id, 1);
+  CHECK_EQ(data.url_embeddings.visit_id, 1);
+  CHECK_EQ(data.url_embeddings.embeddings.size(), 3u);
+
+  // Absent `url_id` returns std::nullopt.
+  EXPECT_FALSE(sql_database->GetUrlData(2).has_value());
 }
 
 }  // namespace history_embeddings

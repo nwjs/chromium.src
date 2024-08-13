@@ -36,12 +36,48 @@ chromium-metrics-reviews@google.com.
   </int>
 </enum>
 
+<enum name="CoreLocationErrorCode">
+  <int value="0" label="kCLErrorLocationUnknown"/>
+  <int value="1" label="kCLErrorDenied"/>
+  <int value="2" label="kCLErrorNetwork"/>
+  <int value="3" label="kCLErrorHeadingFailure"/>
+  <int value="4" label="kCLErrorRegionMonitoringDenied"/>
+  <int value="5" label="kCLErrorRegionMonitoringFailure"/>
+  <int value="6" label="kCLErrorRegionMonitoringSetupDelayed"/>
+  <int value="7" label="kCLErrorRegionMonitoringResponseDelayed"/>
+  <int value="8" label="kCLErrorGeocodeFoundNoResult"/>
+  <int value="9" label="kCLErrorGeocodeFoundPartialResult"/>
+  <int value="10" label="kCLErrorGeocodeCanceled"/>
+  <int value="11" label="kCLErrorDeferredFailed"/>
+  <int value="12" label="kCLErrorDeferredNotUpdatingLocation"/>
+  <int value="13" label="kCLErrorDeferredAccuracyTooLow"/>
+  <int value="14" label="kCLErrorDeferredDistanceFiltered"/>
+  <int value="15" label="kCLErrorDeferredCanceled"/>
+  <int value="16" label="kCLErrorRangingUnavailable"/>
+  <int value="17" label="kCLErrorRangingFailure"/>
+  <int value="18" label="kCLErrorPromptDeclined"/>
+  <int value="19" label="kCLErrorHistoricalLocationError"/>
+</enum>
+
+<enum name="GeolocationClientId">
+  <int value="0" label="kForTesting"/>
+  <int value="1" label="kGeolocationServiceImpl"/>
+  <int value="2" label="kGeoLanguageProvider"/>
+  <int value="3" label="kFingerprintDataLoader"/>
+</enum>
+
 <enum name="GeolocationIOSAuthorizationStatus">
   <int value="0" label="Not determined"/>
   <int value="1" label="Restricted (user cannot grant permission)"/>
   <int value="2" label="Denied"/>
   <int value="3" label="Authorized always"/>
   <int value="4" label="Authorized when in-use"/>
+</enum>
+
+<enum name="LocationSystemPermissionStatus">
+  <int value="0" label="kNotDetermined"/>
+  <int value="1" label="kDenied"/>
+  <int value="2" label="kAllowed"/>
 </enum>
 
 <enum name="NetworkLocationRequestEvent">
@@ -52,6 +88,12 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="RESPONSE_EMPTY"/>
   <int value="5" label="RESPONSE_MALFORMED"/>
   <int value="6" label="RESPONSE_INVALID_FIX"/>
+</enum>
+
+<enum name="NetworkLocationRequestSource">
+  <int value="0" label="kNetworkLocationProvider"/>
+  <int value="1" label="kPublicIpAddressGeolocator"/>
+  <int value="2" label="kSimpleGeolocationProvider"/>
 </enum>
 
 </enums>

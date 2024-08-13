@@ -48,9 +48,7 @@ import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.robolectric.Shadows;
@@ -61,7 +59,6 @@ import org.chromium.base.IntentUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
@@ -84,7 +81,6 @@ import java.util.List;
 @Batch(Batch.UNIT_TESTS)
 @Config(manifest = Config.NONE)
 public class CustomTabIntentDataProviderTest {
-    @Rule public TestRule mProcessor = new Features.JUnitProcessor();
 
     private static final String BUTTON_DESCRIPTION = "buttonDescription";
 
@@ -1192,46 +1188,6 @@ public class CustomTabIntentDataProviderTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB)
-    public void chromePihEnabled_pihOverflowMenuItemExtraAdded_pihOverflowMenuItemNotFound() {
-        String pihOverflowMenuItem = "View Page Insights";
-        List<String> overflowMenuItemList =
-                createIntentWithPihTitleAndReturnOverflowMenuList(pihOverflowMenuItem);
-        assertFalse(overflowMenuItemList.contains(pihOverflowMenuItem));
-    }
-
-    @Test
-    @DisableFeatures(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB)
-    public void chromePihDisabled_pihOverflowMenuItemExtraAdded_pihOverflowMenuItemFound() {
-        String pihOverflowMenuItem = "View Page Insights";
-        List<String> overflowMenuItemList =
-                createIntentWithPihTitleAndReturnOverflowMenuList(pihOverflowMenuItem);
-        assertTrue(overflowMenuItemList.contains(pihOverflowMenuItem));
-    }
-
-    private List<String> createIntentWithPihTitleAndReturnOverflowMenuList(
-            String pihOverflowMenuItem) {
-        CustomTabsConnection connection = Mockito.mock(CustomTabsConnection.class);
-        when(connection.shouldEnablePageInsightsForIntent(any())).thenReturn(true);
-        CustomTabsConnection.setInstanceForTesting(connection);
-
-        Intent intent = new Intent();
-        intent.putExtra(
-                CustomTabIntentDataProvider.EXTRA_PAGE_INSIGHTS_OVERFLOW_ITEM_TITLE,
-                pihOverflowMenuItem);
-        intent.putExtra(
-                CustomTabsIntent.EXTRA_MENU_ITEMS,
-                new ArrayList<>(
-                        Arrays.asList(
-                                createMenuItemBundle(),
-                                createPageInsightsHubMenuItemBundle(pihOverflowMenuItem))));
-        CustomTabIntentDataProvider provider =
-                new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
-
-        return provider.getMenuTitles();
-    }
-
-    @Test
     @EnableFeatures({ChromeFeatureList.SEARCH_IN_CCT})
     public void searchInCCT_originValidation() {
         CustomTabIntentDataProvider.OMNIBOX_ALLOWED_PACKAGE_NAMES.setForTesting(
@@ -1383,19 +1339,6 @@ public class CustomTabIntentDataProviderTest {
     private Bundle createMenuItemBundle() {
         Bundle bundle = new Bundle();
         bundle.putString(CustomTabsIntent.KEY_MENU_ITEM_TITLE, "title");
-        bundle.putParcelable(
-                CustomTabsIntent.KEY_PENDING_INTENT,
-                PendingIntent.getBroadcast(
-                        mContext,
-                        0,
-                        new Intent(),
-                        IntentUtils.getPendingIntentMutabilityFlag(true)));
-        return bundle;
-    }
-
-    private Bundle createPageInsightsHubMenuItemBundle(String pihTitle) {
-        Bundle bundle = new Bundle();
-        bundle.putString(CustomTabsIntent.KEY_MENU_ITEM_TITLE, pihTitle);
         bundle.putParcelable(
                 CustomTabsIntent.KEY_PENDING_INTENT,
                 PendingIntent.getBroadcast(

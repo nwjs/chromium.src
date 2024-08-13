@@ -68,14 +68,12 @@ bool CanUserTurnOnSafeBrowsing(Profile* profile) {
 void RecordDownloadDangerPromptHistogram(
     const std::string& proceed_or_shown_suffix,
     const download::DownloadItem& item) {
-#if 0
   int64_t file_type_uma_value =
       safe_browsing::FileTypePolicies::GetInstance()->UmaValueForFile(
           item.GetTargetFilePath());
   base::UmaHistogramSparse(
       GetDangerPromptHistogramName(proceed_or_shown_suffix, item),
       file_type_uma_value);
-#endif
 }
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)

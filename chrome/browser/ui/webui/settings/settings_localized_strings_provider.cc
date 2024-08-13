@@ -107,7 +107,6 @@
 #include "net/base/url_util.h"
 #include "net/net_buildflags.h"
 #include "services/device/public/cpp/device_features.h"
-#include "services/screen_ai/buildflags/buildflags.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/accessibility_switches.h"
@@ -231,6 +230,7 @@ void AddCommonStrings(content::WebUIDataSource* html_source, Profile* profile) {
       {"notValidWebAddress", IDS_SETTINGS_NOT_VALID_WEB_ADDRESS},
       {"notValidWebAddressForContentType",
        IDS_SETTINGS_NOT_VALID_WEB_ADDRESS_FOR_CONTENT_TYPE},
+      {"inputMaxLengthDescription", IDS_SETTINGS_INPUT_MAX_LENGTH_DESCRIPTION},
 
       // Common font related strings shown in a11y and appearance sections.
       {"quickBrownFox", IDS_SETTINGS_QUICK_BROWN_FOX},
@@ -285,30 +285,11 @@ void AddA11yStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_OVERSCROLL_HISTORY_NAVIGATION_TITLE},
       {"overscrollHistoryNavigationSubtitle",
        IDS_SETTINGS_OVERSCROLL_HISTORY_NAVIGATION_SUBTITLE},
-#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-      {"mainNodeAnnotationsDownloadCompleteLabel",
-       IDS_SETTINGS_MAIN_NODE_ANNOTATIONS_DOWNLOAD_COMPLETE},
-      {"mainNodeAnnotationsDownloadErrorLabel",
-       IDS_SETTINGS_MAIN_NODE_ANNOTATIONS_DOWNLOAD_ERROR},
-      {"mainNodeAnnotationsDownloadProgressLabel",
-       IDS_SETTINGS_MAIN_NODE_ANNOTATIONS_DOWNLOAD_PROGRESS},
-      {"mainNodeAnnotationsDownloadingLabel",
-       IDS_SETTINGS_MAIN_NODE_ANNOTATIONS_DOWNLOADING},
-      {"mainNodeAnnotationsTitle", IDS_SETTINGS_MAIN_NODE_ANNOTATIONS_TITLE},
-      {"mainNodeAnnotationsSubtitle",
-       IDS_SETTINGS_MAIN_NODE_ANNOTATIONS_SUBTITLE},
-#endif  // BULDFLAG(ENABLE_SCREEN_AI_SERVICE)
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
-#if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)) && \
-    BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  html_source->AddBoolean(
-      "mainNodeAnnotationsEnabled",
-      base::FeatureList::IsEnabled(features::kMainNodeAnnotations));
-#endif
-
+  AddAxAnnotationsSectionStrings(html_source);
   AddCaptionSubpageStrings(html_source);
 }
 
@@ -359,7 +340,7 @@ void AddAboutStrings(content::WebUIDataSource* html_source, Profile* profile) {
 
   std::u16string license = l10n_util::GetStringFUTF16(
       IDS_VERSION_UI_LICENSE, chrome::kChromiumProjectURL,
-      base::ASCIIToUTF16(chrome::kChromeUICreditsURL));
+      chrome::kChromeUICreditsURL16);
   html_source->AddString("aboutProductLicense", license);
 
   html_source->AddBoolean("aboutObsoleteNowOrSoon",
@@ -388,6 +369,7 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
       {"enterCustomWebAddress", IDS_SETTINGS_ENTER_CUSTOM_WEB_ADDRESS},
       {"homeButtonDisabled", IDS_SETTINGS_HOME_BUTTON_DISABLED},
       {"themes", IDS_SETTINGS_THEMES},
+      {"customizeToolbar", IDS_SETTINGS_CUSTOMIZE_TOOLBAR},
       {"chromeColors", IDS_SETTINGS_CHROME_COLORS},
       {"colorSchemeMode", IDS_SETTINGS_COLOR_SCHEME_MODE},
       {"lightMode", IDS_NTP_CUSTOMIZE_CHROME_COLOR_SCHEME_MODE_LIGHT_LABEL},
@@ -422,6 +404,7 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
       {"huge", IDS_SETTINGS_HUGE_FONT_SIZE},
       {"uiFeatureAlignLeft", IDS_SETTINGS_UI_FEATURE_ALIGN_LEFT},
       {"uiFeatureAlignRight", IDS_SETTINGS_UI_FEATURE_ALIGN_RIGHT},
+      {"resetToDefault", IDS_SETTINGS_RESET_TO_DEFAULT},
 #if BUILDFLAG(IS_LINUX)
       {"gtkTheme", IDS_SETTINGS_GTK_THEME},
       {"useGtkTheme", IDS_SETTINGS_USE_GTK_THEME},
@@ -429,8 +412,6 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
       {"useQtTheme", IDS_SETTINGS_USE_QT_THEME},
       {"classicTheme", IDS_SETTINGS_CLASSIC_THEME},
       {"useClassicTheme", IDS_SETTINGS_USE_CLASSIC_THEME},
-#else
-      {"resetToDefaultTheme", IDS_SETTINGS_RESET_TO_DEFAULT_THEME},
 #endif
 #if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS_LACROS)
       {"showWindowDecorations", IDS_SHOW_WINDOW_DECORATIONS},
@@ -455,6 +436,8 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
                           tabs::CanShowTabSearchPositionSetting());
   html_source->AddBoolean("tabSearchIsRightAlignedAtStartup",
                           tabs::GetTabSearchTrailingTabstrip(profile));
+  html_source->AddBoolean("toolbarPinningEnabled",
+                          features::IsToolbarPinningEnabled());
 
 // TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
@@ -660,7 +643,7 @@ void AddGetTheMostOutOfChromeStrings(content::WebUIDataSource* html_source) {
       "getTheMostOutOfChromeYourDataVisitChromeHistory",
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_GET_THE_MOST_OUT_OF_CHROME_YOUR_DATA_VISIT_CHROME_HISTORY,
-          base::ASCIIToUTF16(chrome::kChromeUIHistoryURL),
+          chrome::kChromeUIHistoryURL16,
           chrome::kClearBrowsingDataHelpCenterURL));
   html_source->AddString(
       "getTheMostOutOfChromeYourDataVisitSearchHistory",
@@ -671,7 +654,7 @@ void AddGetTheMostOutOfChromeStrings(content::WebUIDataSource* html_source) {
       "getTheMostOutOfChromeBeyondCookiesReviewPermissions",
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_GET_THE_MOST_OUT_OF_CHROME_BEYOND_COOKIES_REVIEW_PERMISSIONS,
-          base::ASCIIToUTF16(chrome::kChromeUIContentSettingsURL)));
+          chrome::kChromeUIContentSettingsURL16));
   html_source->AddString(
       "getTheMostOutOfChromeBeyondCookiesPlanningToPhaseOut",
       l10n_util::GetStringFUTF16(
@@ -787,8 +770,9 @@ void AddPerformanceStrings(content::WebUIDataSource* html_source) {
   // UI no longer exists.
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"performancePageTitle", IDS_SETTINGS_PERFORMANCE_PAGE_TITLE},
-      {"memoryPageTitle", IDS_SETTINGS_MEMORY_PAGE_TITLE},
-      {"speedPageTitle", IDS_SETTINGS_SPEED_PAGE_TITLE},
+      {"generalPageTitle", IDS_SETTINGS_PERFORMANCE_GENERAL_PAGE_TITLE},
+      {"memoryPageTitle", IDS_SETTINGS_PERFORMANCE_MEMORY_PAGE_TITLE},
+      {"speedPageTitle", IDS_SETTINGS_PERFORMANCE_SPEED_PAGE_TITLE},
       {"memorySaverModeLabel",
        IDS_SETTINGS_PERFORMANCE_MEMORY_SAVER_MODE_SETTING},
       {"memorySaverModeDescription",
@@ -815,7 +799,7 @@ void AddPerformanceStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_PERFORMANCE_MEMORY_SAVER_MODE_MEDIUM_DESCRIPTION},
       {"memorySaverModeAggressiveDescription",
        IDS_SETTINGS_PERFORMANCE_MEMORY_SAVER_MODE_AGGRESSIVE_DESCRIPTION},
-      {"batteryPageTitle", IDS_SETTINGS_BATTERY_PAGE_TITLE},
+      {"batteryPageTitle", IDS_SETTINGS_PERFORMANCE_BATTERY_PAGE_TITLE},
       {"batterySaverModeLabel",
        IDS_SETTINGS_PERFORMANCE_BATTERY_SAVER_MODE_SETTING},
       {"batterySaverModeDescription",
@@ -848,14 +832,28 @@ void AddPerformanceStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_PERFORMANCE_PRELOAD_TOGGLE_SUMMARY},
       {"discardRingTreatmentEnabledLabel",
        IDS_SETTINGS_PERFORMANCE_DISCARD_RING_TREATMENT_ENABLED_LABEL},
-      {"discardRingTreatmentEnabledDescription",
-       IDS_SETTINGS_PERFORMANCE_DISCARD_RING_TREATMENT_ENABLED_DESCRIPTION},
+      {"tabHoverPreviewCardLinkTitle",
+       IDS_SETTINGS_PERFORMANCE_TAB_HOVER_PREVIEW_CARD_LINK_TITLE},
+      {"tabHoverPreviewCardLinkSubtitle",
+       IDS_SETTINGS_PERFORMANCE_TAB_HOVER_PREVIEW_CARD_LINK_SUBTITLE},
+      {"performanceInterventionEnabledLabel",
+       IDS_SETTINGS_PERFORMANCE_INTERVENTION_NOTIFICATION_ENABLED_LABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
-  html_source->AddBoolean(
-      "memorySaverShowRecommendedBadge",
-      performance_manager::features::kMemorySaverShowRecommendedBadge.Get());
+  html_source->AddString(
+      "discardRingTreatmentEnabledDescriptionWithLearnLink",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_PERFORMANCE_DISCARD_RING_TREATMENT_ENABLED_DESCRIPTION_WITH_LEARN_LINK,
+          chrome::kDiscardRingTreatmentLearnMoreUrl,
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
+
+  html_source->AddString(
+      "performanceInterventionEnabledDescription",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_PERFORMANCE_INTERVENTION_NOTIFICATION_ENABLED_DESCRIPTION,
+          chrome::kPerformanceInterventionLearnMoreUrl,
+          l10n_util::GetStringUTF16(IDS_SETTINGS_OPENS_IN_NEW_TAB)));
 
   html_source->AddString(
       "tabDiscardTimerFiveMinutes",
@@ -907,12 +905,16 @@ void AddPerformanceStrings(content::WebUIDataSource* html_source) {
           IDS_SETTINGS_PERFORMANCE_TAB_DISCARDING_EXCEPTIONS_ADD_DIALOG_HELP,
           chrome::kMemorySaverModeTabDiscardingHelpUrl));
 
+  html_source->AddString("discardRingTreatmentLearnMoreUrl",
+                         chrome::kDiscardRingTreatmentLearnMoreUrl);
   html_source->AddString("memorySaverLearnMoreUrl",
                          chrome::kMemorySaverModeLearnMoreUrl);
   html_source->AddString("batterySaverLearnMoreUrl",
                          chrome::kBatterySaverModeLearnMoreUrl);
   html_source->AddString("preloadingLearnMoreUrl",
                          chrome::kPreloadingLearnMoreUrl);
+  html_source->AddString("performanceInterventionLearnMoreUrl",
+                         chrome::kPerformanceInterventionLearnMoreUrl);
 
 #if BUILDFLAG(IS_CHROMEOS)
   html_source->AddString(
@@ -1136,6 +1138,8 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"creditCardName", IDS_SETTINGS_NAME_ON_CREDIT_CARD},
       {"creditCardNickname", IDS_SETTINGS_CREDIT_CARD_NICKNAME},
       {"creditCardNicknameInvalid", IDS_SETTINGS_CREDIT_CARD_NICKNAME_INVALID},
+      {"creditCardNumberInvalid",
+       IDS_PAYMENTS_CARD_NUMBER_INVALID_VALIDATION_MESSAGE},
       {"creditCardCvcInputTitle", IDS_SETTINGS_CREDIT_CARD_CVC_TITLE},
       {"creditCardCvcImageTitle", IDS_SETTINGS_CREDIT_CARD_CVC_IMAGE_TITLE},
       {"creditCardCvcAmexImageTitle",
@@ -1233,6 +1237,7 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"managePasskeysSubTitle", IDS_AUTOFILL_MANAGE_PASSKEYS_SUB_TITLE_WIN},
 #endif
       {"plusAddressSettings", IDS_PLUS_ADDRESS_SETTINGS_LABEL},
+      {"plusAddressSettingsSublabel", IDS_PLUS_ADDRESS_SETTINGS_SUBLABEL},
       {"cvcTagForCreditCardListEntry",
        IDS_AUTOFILL_SETTINGS_PAGE_CVC_TAG_FOR_CREDIT_CARD_LIST_ENTRY},
       {"benefitsTermsTagForCreditCardListEntry",
@@ -1287,7 +1292,7 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
   is_guest_mode = profile->IsOffTheRecord();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   autofill::PersonalDataManager* personal_data =
-      autofill::PersonalDataManagerFactory::GetForProfile(profile);
+      autofill::PersonalDataManagerFactory::GetForBrowserContext(profile);
   html_source->AddBoolean(
       "migrationEnabled",
       !is_guest_mode &&
@@ -1344,9 +1349,22 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       "plusAddressManagementUrl",
       plus_addresses::features::kPlusAddressManagementUrl.Get());
   html_source->AddBoolean(
-      "plusAddressUiRedesign",
+      "plusAddressSettingInAddressSection",
       base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressUIRedesign));
+          plus_addresses::features::kPlusAddressSettingsRefreshDesktop));
+  // TODO: crbug.com/354633335 - Move to localized strings once the feature is
+  // no longer needed and the string is translated.
+  html_source->AddString(
+      "addressesSublabel",
+      base::FeatureList::IsEnabled(
+          plus_addresses::features::kPlusAddressSettingsRefreshDesktop)
+          ? l10n_util::GetStringUTF16(IDS_AUTOFILL_ADDRESSES_SETTINGS_SUBLABEL)
+          : u"");
+
+  html_source->AddBoolean(
+      "requireValidLocalCards",
+      base::FeatureList::IsEnabled(
+          autofill::features::kAutofillRequireValidLocalCardsInSettings));
 }
 
 void AddSignOutDialogStrings(content::WebUIDataSource* html_source,
@@ -1528,6 +1546,9 @@ void AddBrowserSyncPageStrings(content::WebUIDataSource* html_source) {
 #if BUILDFLAG(IS_CHROMEOS)
       {"browserSyncFeatureLabel", IDS_BROWSER_SETTINGS_SYNC_FEATURE_LABEL},
 #endif
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+      {"cookiesCheckboxLabel", IDS_SETTINGS_COOKIES_CHECKBOX_LABEL},
+#endif
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -1576,6 +1597,8 @@ void AddSyncControlsStrings(content::WebUIDataSource* html_source) {
       {"openTabsCheckboxLabel", IDS_SETTINGS_OPEN_TABS_CHECKBOX_LABEL},
       {"savedTabGroupsCheckboxLabel",
        IDS_SETTINGS_SAVED_TAB_GROUPS_CHECKBOX_LABEL},
+      {"productComparisonsCheckboxLabel",
+       IDS_SETTINGS_PRODUCT_COMPARISONS_CHECKBOX_LABEL},
       {"wifiConfigurationsCheckboxLabel",
        IDS_SETTINGS_WIFI_CONFIGURATIONS_CHECKBOX_LABEL},
       {"syncEverythingCheckboxLabel",
@@ -1628,14 +1651,11 @@ void AddPeopleStrings(content::WebUIDataSource* html_source, Profile* profile) {
       {"colorsContainerLabel", IDS_NTP_THEMES_CONTAINER_LABEL},
       {"colorPickerLabel", IDS_NTP_CUSTOMIZE_COLOR_PICKER_LABEL},
       {"defaultColorName", IDS_NTP_CUSTOMIZE_DEFAULT_LABEL},
-      {"defaultThemeLabel", IDS_NTP_CUSTOMIZE_DEFAULT_LABEL},
       {"greyDefaultColorName", IDS_NTP_CUSTOMIZE_GREY_DEFAULT_LABEL},
       {"hueSliderTitle", IDS_NTP_CUSTOMIZE_COLOR_HUE_SLIDER_TITLE},
+      {"hueSliderAriaLabel", IDS_NTP_CUSTOMIZE_COLOR_HUE_SLIDER_ARIA_LABEL},
       {"managedColorsBody", IDS_NTP_THEME_MANAGED_DIALOG_BODY},
       {"managedColorsTitle", IDS_NTP_THEME_MANAGED_DIALOG_TITLE},
-      {"themesContainerLabel", IDS_SETTINGS_PICK_A_THEME_COLOR},
-      {"thirdPartyThemeDescription", IDS_NTP_CUSTOMIZE_3PT_THEME_DESC},
-      {"uninstallThirdPartyThemeButton", IDS_NTP_CUSTOMIZE_3PT_THEME_UNINSTALL},
 
       // Managed theme dialog strings:
       {"themeManagedDialogTitle", IDS_NTP_THEME_MANAGED_DIALOG_TITLE},
@@ -1660,6 +1680,8 @@ void AddPeopleStrings(content::WebUIDataSource* html_source, Profile* profile) {
        IDS_SETTINGS_HISTORY_SEARCH_CONSIDER_BULLET_ONE},
       {"historySearchConsiderBulletTwo",
        IDS_SETTINGS_HISTORY_SEARCH_CONSIDER_BULLET_TWO},
+      {"historySearchLearnMoreA11yLabel",
+       IDS_SETTINGS_HISTORY_SEARCH_LEARN_MORE_A11Y_LABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -1672,13 +1694,8 @@ void AddPeopleStrings(content::WebUIDataSource* html_source, Profile* profile) {
           .spec());
   html_source->AddBoolean("profileShortcutsEnabled",
                           ProfileShortcutManager::IsFeatureEnabled());
-  // TODO(b/328300718): Update help article link.
-  html_source->AddString(
-      "historySearchLearnMore",
-      l10n_util::GetStringFUTF16(
-          IDS_SETTINGS_HISTORY_SEARCH_LEARN_MORE, u"https://google.com",
-          l10n_util::GetStringUTF16(
-              IDS_SETTINGS_HISTORY_SEARCH_LEARN_MORE_A11Y_LABEL)));
+  html_source->AddString("historySearchLearnMoreUrl",
+                         chrome::kHistorySearchLearnMorePageURL);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   auto* profile_entry =
@@ -1971,6 +1988,11 @@ void AddPrivacyStrings(content::WebUIDataSource* html_source,
                          chrome::kChromeRootStoreSettingsHelpCenterURL);
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
 
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+  html_source->AddString("certManagementV2URL",
+                         chrome::kChromeUICertificateManagerDialogURL);
+#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+
   // The link to the Advanced Protection Program landing page, with a referrer
   // from Chrome settings.
   GURL advanced_protection_url(
@@ -2047,6 +2069,8 @@ void AddPrivacyGuideStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_PRIVACY_GUIDE_COMPLETION_CARD_PRIVACY_SANDBOX_LABEL},
       {"privacyGuideCompletionCardPrivacySandboxSubLabel",
        IDS_SETTINGS_PRIVACY_GUIDE_COMPLETION_CARD_PRIVACY_SANDBOX_SUB_LABEL},
+      {"privacyGuideCompletionCardPrivacySandboxSubLabelAdTopics",
+       IDS_SETTINGS_PRIVACY_GUIDE_COMPLETION_CARD_PRIVACY_SANDBOX_SUB_LABEL_AD_TOPICS},
       {"privacyGuideCompletionCardTrackingProtectionLabel",
        IDS_SETTINGS_PRIVACY_GUIDE_COMPLETION_CARD_TRACKING_PROTECTION_LABEL},
       {"privacyGuideCompletionCardTrackingProtectionSubLabel",
@@ -2235,7 +2259,8 @@ void AddSafetyHubStrings(content::WebUIDataSource* html_source) {
       {"safetyHubEntryPointHeader", IDS_SETTINGS_SAFETY_HUB_ENTRY_POINT_HEADER},
       {"safetyHubEntryPointNothingToDo",
        IDS_SETTINGS_SAFETY_HUB_ENTRY_POINT_NOTHING_TO_DO},
-      {"safetyHubEntryPointButton", IDS_SETTINGS_SAFETY_HUB_ENTRY_POINT_BUTTON},
+      {"safetyHubEntryPointButtonLabel",
+       IDS_SETTINGS_SAFETY_HUB_ENTRY_POINT_BUTTON_LABEL},
       {"safetyHubPageCardSectionHeader",
        IDS_SETTINGS_SAFETY_HUB_PAGE_CARD_SECTION_HEADER},
       {"safetyHubPageModuleSectionHeader",
@@ -2411,6 +2436,14 @@ void AddSearchEnginesStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_SEARCH_ENGINES_ADDITIONAL_SITES},
       {"searchEnginesAdditionalInactiveSites",
        IDS_SETTINGS_SEARCH_ENGINES_ADDITIONAL_INACTIVE_SITES},
+      {"searchEnginesMoreActionsAriaLabel",
+       IDS_SETTINGS_SEARCH_ENGINES_MORE_ACTIONS_ARIA_LABEL},
+      {"searchEnginesActivateButtonAriaLabel",
+       IDS_SETTINGS_SEARCH_ENGINES_ACTIVATE_BUTTON_ARIA_LABEL},
+      {"searchEnginesAddButtonAriaLabel",
+       IDS_SETTINGS_SEARCH_ENGINES_ADD_SITE_SEARCH_BUTTON_ARIA_LABEL},
+      {"searchEnginesEditButtonAriaLabel",
+       IDS_SETTINGS_SEARCH_ENGINES_EDIT_SEARCH_ENGINE_BUTTON_ARIA_LABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 }
@@ -2817,6 +2850,8 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
       {"siteSettingsSiteResetAll", IDS_SETTINGS_SITE_SETTINGS_SITE_RESET_ALL},
       {"siteSettingsSiteResetConfirmation",
        IDS_SETTINGS_SITE_SETTINGS_SITE_RESET_CONFIRMATION},
+      {"siteSettingsSiteResetDialogTitle",
+       IDS_SETTINGS_SITE_SETTINGS_SITE_RESET_DIALOG_TITLE},
       {"siteSettingsRemoveSiteOriginDialogTitle",
        IDS_SETTINGS_SITE_SETTINGS_REMOVE_SITE_ORIGIN_DIALOG_TITLE},
       {"siteSettingsRemoveSiteOriginAppDialogTitle",
@@ -3377,26 +3412,6 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
   html_source->AddString("addSiteExceptionPlaceholder", "[*.]example.com");
 }
 
-#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
-void AddCertificateManagerV2Strings(content::WebUIDataSource* html_source) {
-  static constexpr webui::LocalizedString kLocalizedStrings[] = {
-      {"certificateManagerV2ClientCerts",
-       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_CLIENT_CERTIFICATES},
-      {"certificateManagerV2LocalCerts",
-       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_LOCAL_CERTIFICATES},
-      {"certificateManagerV2CRSCerts",
-       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_CRS_CERTIFICATES},
-      {"certificateManagerV2HashCopiedToast",
-       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_HASH_COPIED_TOAST},
-      {"certificateManagerV2PolicyCertsSingular",
-       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_ADMIN_CERTS_SINGULAR},
-      {"certificateManagerV2PolicyCertsPlural",
-       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_ADMIN_CERTS_PLURAL},
-  };
-  html_source->AddLocalizedStrings(kLocalizedStrings);
-}
-#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
-
 void AddStorageAccessStrings(content::WebUIDataSource* html_source) {
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"siteSettingsStorageAccess", IDS_SITE_SETTINGS_TYPE_STORAGE_ACCESS},
@@ -3454,6 +3469,12 @@ void AddSiteDataPageStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_SITE_DATA_PAGE_BLOCK_CONFIRM_DIALOG_CONFIRM_BUTTON},
       {"siteDataPageBlockConfirmDialogCancelButton",
        IDS_SETTINGS_SITE_DATA_PAGE_BLOCK_CONFIRM_DIALOG_CANCEL_BUTTON},
+      {"siteDataPageAddSiteToAllowListLabel",
+       IDS_SETTINGS_ADD_SITE_TO_ALLOW_LIST_LABEL},
+      {"siteDataPageAddSiteToBlockListLabel",
+       IDS_SETTINGS_ADD_SITE_TO_BLOCK_LIST_LABEL},
+      {"siteDataPageAddSiteContextMenuLabel",
+       IDS_SETTINGS_ADD_SITE_CONTEXT_MENU_LABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
   html_source->AddLocalizedString(
@@ -3479,6 +3500,10 @@ void AddSystemStrings(content::WebUIDataSource* html_source) {
       {"useAshProxyLabel", IDS_SETTINGS_SYSTEM_USE_ASH_PROXY_LABEL},
       {"usesAshProxyLabel", IDS_SETTINGS_SYSTEM_USES_ASH_PROXY_LABEL},
 #endif
+#if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      {"featureNotificationsLabel",
+       IDS_SETTINGS_SYSTEM_FEATURE_NOTIFICATIONS_LABEL},
+#endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -3700,9 +3725,6 @@ void AddLocalizedStrings(content::WebUIDataSource* html_source,
 #if BUILDFLAG(USE_NSS_CERTS)
   certificate_manager::AddLocalizedStrings(html_source);
 #endif
-#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
-  AddCertificateManagerV2Strings(html_source);
-#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
   policy_indicator::AddLocalizedStrings(html_source);
   AddSecurityKeysStrings(html_source);

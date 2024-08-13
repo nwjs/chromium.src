@@ -15,8 +15,8 @@ namespace test {
 
 testing::Message DescribeFormData(const FormData& form_data) {
   testing::Message result;
-  result << "Form contains " << form_data.fields.size() << " fields:\n";
-  for (const FormFieldData& field : form_data.fields) {
+  result << "Form contains " << form_data.fields().size() << " fields:\n";
+  for (const FormFieldData& field : form_data.fields()) {
     result << "type=" << FormControlTypeToString(field.form_control_type())
            << ", name=" << field.name() << ", label=" << field.label() << "\n";
   }
@@ -118,6 +118,12 @@ FormFieldData GetFormFieldData(const FieldDescription& fd) {
   if (fd.name) {
     ff.set_name(*fd.name);
   }
+  if (fd.name_attribute) {
+    ff.set_name_attribute(*fd.name_attribute);
+  }
+  if (fd.id_attribute) {
+    ff.set_id_attribute(*fd.id_attribute);
+  }
   if (fd.value) {
     ff.set_value(*fd.value);
   }
@@ -147,14 +153,16 @@ FormData GetFormData(const FormDescription& d) {
   if (d.main_frame_origin) {
     f.set_main_frame_origin(*d.main_frame_origin);
   }
-  f.fields.reserve(d.fields.size());
+  std::vector<FormFieldData> fs;
+  fs.reserve(d.fields.size());
   for (const FieldDescription& dd : d.fields) {
     FormFieldData ff = GetFormFieldData(dd);
     ff.set_host_frame(dd.host_frame.value_or(f.host_frame()));
     ff.set_origin(dd.origin.value_or(f.main_frame_origin()));
     ff.set_host_form_id(f.renderer_id());
-    f.fields.push_back(ff);
+    fs.push_back(ff);
   }
+  f.set_fields(std::move(fs));
   return f;
 }
 

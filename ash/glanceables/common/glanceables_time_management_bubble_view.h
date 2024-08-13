@@ -7,6 +7,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/glanceables/common/glanceables_error_message_view.h"
+#include "ash/style/counter_expand_button.h"
 #include "base/functional/callback_forward.h"
 #include "ui/compositor/throughput_tracker.h"
 #include "ui/views/controls/button/button.h"
@@ -30,7 +31,12 @@ class ASH_EXPORT GlanceablesTimeManagementBubbleView
 
   class Observer : public base::CheckedObserver {
    public:
-    virtual void OnExpandStateChanged(Context context, bool is_expanded) = 0;
+    // Called when the bubble view expand state change to `is_expanded`.
+    // `expand_by_overscroll` is set to true if the bubble view is expanded by
+    // overscroll. Details can be found in `GlanceablesContentsScrollView`.
+    virtual void OnExpandStateChanged(Context context,
+                                      bool is_expanded,
+                                      bool expand_by_overscroll) = 0;
   };
 
   GlanceablesTimeManagementBubbleView();
@@ -43,6 +49,7 @@ class ASH_EXPORT GlanceablesTimeManagementBubbleView
   // views::View:
   void ChildPreferredSizeChanged(View* child) override;
   void Layout(PassKey) override;
+  gfx::Size GetMinimumSize() const override;
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
 
@@ -69,6 +76,23 @@ class ASH_EXPORT GlanceablesTimeManagementBubbleView
   void SetAnimationEndedClosureForTest(base::OnceClosure closure);
 
  protected:
+  class GlanceablesExpandButton : public CounterExpandButton {
+    METADATA_HEADER(GlanceablesExpandButton, CounterExpandButton)
+   public:
+    GlanceablesExpandButton(int expand_tooltip_string_id,
+                            int collapse_tooltip_string_id);
+    ~GlanceablesExpandButton() override;
+
+    std::u16string GetExpandedStateTooltipText() const override;
+    std::u16string GetCollapsedStateTooltipText() const override;
+
+   private:
+    // The tooltip string that tells that the button can expand the bubble.
+    const int expand_tooltip_string_id_;
+    // The tooltip string that tells that the button can collapse the bubble.
+    const int collapse_tooltip_string_id_;
+  };
+
   // Linear animation to track time management bubble resize animation - as the
   // animation progresses, the bubble view preferred size will change causing
   // bubble bounds updates. `ResizeAnimation` will provide the expected

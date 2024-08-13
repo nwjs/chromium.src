@@ -236,13 +236,13 @@ std::unique_ptr<FrameNodeImpl> PerformanceManagerImpl::CreateFrameNode(
     int render_frame_id,
     const blink::LocalFrameToken& frame_token,
     content::BrowsingInstanceId browsing_instance_id,
-    content::SiteInstanceId site_instance_id,
+    content::SiteInstanceGroupId site_instance_group_id,
     bool is_current,
     FrameNodeCreationCallback creation_callback) {
   return CreateNodeImpl<FrameNodeImpl>(
       std::move(creation_callback), process_node, page_node, parent_frame_node,
       outer_document_for_fenced_frame, render_frame_id, frame_token,
-      browsing_instance_id, site_instance_id, is_current);
+      browsing_instance_id, site_instance_group_id, is_current);
 }
 
 // static
@@ -251,12 +251,11 @@ std::unique_ptr<PageNodeImpl> PerformanceManagerImpl::CreatePageNode(
     const std::string& browser_context_id,
     const GURL& visible_url,
     PagePropertyFlags initial_property_flags,
-    base::TimeTicks visibility_change_time,
-    PageNode::PageState page_state) {
+    base::TimeTicks visibility_change_time) {
   return CreateNodeImpl<PageNodeImpl>(
       base::OnceCallback<void(PageNodeImpl*)>(), std::move(web_contents),
       browser_context_id, visible_url, initial_property_flags,
-      visibility_change_time, page_state);
+      visibility_change_time);
 }
 
 // static

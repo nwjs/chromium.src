@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/heap_array.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
@@ -22,6 +23,8 @@
 #include "base/threading/sequence_local_storage_slot.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "base/trace_event/memory_dump_manager.h"
+#include "base/trace_event/memory_dump_provider.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "components/viz/common/frame_sinks/begin_frame_source.h"
@@ -42,6 +45,7 @@
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "gpu/command_buffer/service/graphite_cache_controller.h"
+#include "gpu/command_buffer/service/graphite_image_provider.h"
 #include "gpu/command_buffer/service/scheduler.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_factory.h"
@@ -54,6 +58,7 @@
 #include "gpu/vulkan/buildflags.h"
 #include "skia/buildflags.h"
 #include "skia/ext/legacy_display_globals.h"
+#include "skia/ext/skia_trace_memory_dump_impl.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/gpu/GpuTypes.h"
 #include "third_party/skia/include/gpu/GrYUVABackendTextures.h"
@@ -86,17 +91,105 @@ namespace viz {
 
 namespace {
 
+// Records Viz Graphite memory dumps via a global object that registers and
+// unregisters itself as a memory dump provider as appropriate based on
+// SkiaOutputSurfaceImpl instances beginning and ending their usage of Graphite
+// state.
+class GraphiteVizMemoryDumpProvider
+    : public base::trace_event::MemoryDumpProvider {
+ public:
+  static GraphiteVizMemoryDumpProvider& GetInstance() {
+    static base::NoDestructor<GraphiteVizMemoryDumpProvider> instance;
+    return *instance;
+  }
+
+  void AddClient(skgpu::graphite::Recorder* recorder,
+                 scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+    if (num_clients_ == 0) {
+      CHECK(!recorder_);
+      recorder_ = recorder;
+      base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
+          this, "GraphiteVizMemoryDumpProvider", std::move(task_runner));
+    }
+    num_clients_++;
+  }
+
+  void RemoveClient() {
+    num_clients_--;
+    if (num_clients_ == 0) {
+      recorder_ = nullptr;
+      base::trace_event::MemoryDumpManager::GetInstance()
+          ->UnregisterDumpProvider(this);
+    }
+  }
+
+ private:
+  friend class base::NoDestructor<GraphiteVizMemoryDumpProvider>;
+
+  GraphiteVizMemoryDumpProvider() = default;
+  ~GraphiteVizMemoryDumpProvider() override = default;
+
+  // MemoryDumpProvider:
+  bool OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
+                    base::trace_event::ProcessMemoryDump* pmd) override {
+    CHECK(recorder_);
+    bool background = args.level_of_detail ==
+                      base::trace_event::MemoryDumpLevelOfDetail::kBackground;
+
+    if (background) {
+      std::string recorder_dump_name = base::StringPrintf(
+          "skia/gpu_resources/viz_compositor_graphite_recorder_0x%" PRIXPTR,
+          reinterpret_cast<uintptr_t>(recorder_.get()));
+      base::trace_event::MemoryAllocatorDump* recorder_dump =
+          pmd->CreateAllocatorDump(recorder_dump_name);
+      recorder_dump->AddScalar(
+          base::trace_event::MemoryAllocatorDump::kNameSize,
+          base::trace_event::MemoryAllocatorDump::kUnitsBytes,
+          recorder_->currentBudgetedBytes());
+
+      // The ImageProvider's bytes are not included in the recorder's budgeted
+      // bytes as they are owned by Chrome, so dump them separately.
+      const auto* image_provider =
+          static_cast<const gpu::GraphiteImageProvider*>(
+              recorder_->clientImageProvider());
+      std::string image_provider_dump_name = base::StringPrintf(
+          "skia/gpu_resources/"
+          "viz_compositor_graphite_image_provider_0x%" PRIXPTR,
+          reinterpret_cast<uintptr_t>(image_provider));
+      base::trace_event::MemoryAllocatorDump* image_provider_dump =
+          pmd->CreateAllocatorDump(image_provider_dump_name);
+      image_provider_dump->AddScalar(
+          base::trace_event::MemoryAllocatorDump::kNameSize,
+          base::trace_event::MemoryAllocatorDump::kUnitsBytes,
+          image_provider->CurrentSizeInBytes());
+
+    } else {
+      skia::SkiaTraceMemoryDumpImpl trace_memory_dump(args.level_of_detail,
+                                                      pmd);
+      recorder_->dumpMemoryStatistics(&trace_memory_dump);
+    }
+
+    return true;
+  }
+
+  raw_ptr<skgpu::graphite::Recorder> recorder_ = nullptr;
+  uint32_t num_clients_ = 0;
+};
+
 // FulfillForPlane is a struct that contains the ImageContext `context` used for
 // fulfilling an GrPromiseImageTexture identified by `plane_index`. The
 // plane_index is 0 for single planar formats and can be between [0, 3] for
 // multiplanar formats.
 struct FulfillForPlane {
+  FulfillForPlane() = default;
+  FulfillForPlane(const FulfillForPlane&) = default;
+  FulfillForPlane& operator=(const FulfillForPlane&) = default;
+
   explicit FulfillForPlane(ImageContextImpl* context, int plane_index = 0)
       : context_(context), plane_index_(plane_index) {}
 
-  const raw_ptr<ImageContextImpl, AcrossTasksDanglingUntriaged> context_ =
-      nullptr;
-  const int plane_index_ = 0;
+  raw_ptr<ImageContextImpl, AcrossTasksDanglingUntriaged> context_ = nullptr;
+  int plane_index_ = 0;
 };
 
 sk_sp<GrPromiseImageTexture> FulfillGanesh(void* fulfill) {
@@ -132,7 +225,13 @@ void ReleaseGraphite(void* fulfill) {
 }
 
 void CleanUp(void* fulfill) {
+  CHECK(fulfill);
   delete static_cast<FulfillForPlane*>(fulfill);
+}
+
+void CleanUpArray(void* fulfill_array) {
+  CHECK(fulfill_array);
+  base::HeapArray<FulfillForPlane>::DeleteLeakedData(fulfill_array);
 }
 
 gpu::ContextUrl& GetActiveUrl() {
@@ -322,6 +421,10 @@ SkiaOutputSurfaceImpl::~SkiaOutputSurfaceImpl() {
   current_paint_.reset();
   root_ddl_recorder_.reset();
 
+  if (graphite_recorder_) {
+    GraphiteVizMemoryDumpProvider::GetInstance().RemoveClient();
+  }
+
   if (!render_pass_image_cache_.empty()) {
     std::vector<AggregatedRenderPassId> render_pass_ids;
     render_pass_ids.reserve(render_pass_ids.size());
@@ -394,13 +497,15 @@ void SkiaOutputSurfaceImpl::Reshape(const ReshapeParams& params) {
   DCHECK(!params.size.IsEmpty());
 
   size_ = params.size;
-  format_ = GetSinglePlaneSharedImageFormat(params.format);
+  format_ = params.format;
   alpha_type_ = static_cast<SkAlphaType>(params.alpha_type);
 
-  const auto format_index = static_cast<int>(params.format);
-  color_type_ = capabilities_.sk_color_types[format_index];
-  DCHECK(color_type_ != kUnknown_SkColorType)
-      << "SkColorType is invalid for buffer format_index: " << format_index;
+  auto it = capabilities_.sk_color_type_map.find(params.format);
+  if (it != capabilities_.sk_color_type_map.end()) {
+    color_type_ = it->second;
+  }
+  CHECK_NE(color_type_, kUnknown_SkColorType)
+      << "SkColorType is invalid for format: " << params.format.ToString();
 
   sk_color_space_ = params.color_space.ToSkColorSpace();
 
@@ -504,7 +609,8 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImage(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(current_paint_);
   DCHECK(!image_context->mailbox_holder().mailbox.IsZero());
-  TRACE_EVENT0("viz", "SkiaOutputSurfaceImpl::MakePromiseSkImage");
+  TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("viz.quads"),
+               "SkiaOutputSurfaceImpl::MakePromiseSkImage");
 
   ImageContextImpl* image_context_impl =
       static_cast<ImageContextImpl*>(image_context);
@@ -562,7 +668,9 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromYUV(
   if (graphite_recorder_) {
     std::array<skgpu::graphite::TextureInfo, SkYUVAInfo::kMaxPlanes>
         texture_infos;
-    void* fulfills[SkYUVAInfo::kMaxPlanes] = {};
+    auto fulfill_array =
+        base::HeapArray<FulfillForPlane>::WithSize(SkYUVAInfo::kMaxPlanes);
+    void* fulfill_ptrs[SkYUVAInfo::kMaxPlanes] = {};
     for (size_t i = 0; i < contexts.size(); ++i) {
       auto* context = static_cast<ImageContextImpl*>(contexts[i]);
       auto format = context->format();
@@ -577,14 +685,16 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromYUV(
           gpu::GraphitePromiseTextureInfo(gr_context_type_, format,
                                           /*ycbcr_info=*/std::nullopt,
                                           /*plane_index=*/0);
-      fulfills[i] = new FulfillForPlane(context);
+      fulfill_array[i] = FulfillForPlane(context);
+      fulfill_ptrs[i] = &fulfill_array[i];
     }
     skgpu::graphite::YUVABackendTextureInfo yuva_backend_info(
         graphite_recorder_, yuva_info, texture_infos, skgpu::Mipmapped::kNo);
+    void* fulfill_array_ptr = std::move(fulfill_array).leak().data();
     image = SkImages::PromiseTextureFromYUVA(
         graphite_recorder_, yuva_backend_info, std::move(image_color_space),
-        graphite_use_volatile_promise_images_, FulfillGraphite, CleanUp,
-        ReleaseGraphite, {}, fulfills);
+        graphite_use_volatile_promise_images_, FulfillGraphite, CleanUpArray,
+        ReleaseGraphite, fulfill_array_ptr, fulfill_ptrs);
   } else {
     GrBackendFormat formats[SkYUVAInfo::kMaxPlanes] = {};
     void* fulfills[SkYUVAInfo::kMaxPlanes] = {};
@@ -700,22 +810,26 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageMultiPlane(
     // well as Graphite.
     CHECK(!image_context->ycbcr_info());
 
+    auto fulfill_array =
+        base::HeapArray<FulfillForPlane>::WithSize(SkYUVAInfo::kMaxPlanes);
+    void* fulfill_ptrs[SkYUVAInfo::kMaxPlanes] = {};
     std::vector<skgpu::graphite::TextureInfo> texture_infos;
-    void* fulfills[SkYUVAInfo::kMaxPlanes] = {};
     for (int plane_index = 0; plane_index < format.NumberOfPlanes();
          plane_index++) {
       CHECK_EQ(image_context->origin(), kTopLeft_GrSurfaceOrigin);
-      fulfills[plane_index] = new FulfillForPlane(image_context, plane_index);
+      fulfill_array[plane_index] = FulfillForPlane(image_context, plane_index);
+      fulfill_ptrs[plane_index] = &fulfill_array[plane_index];
       texture_infos.emplace_back(gpu::GraphitePromiseTextureInfo(
           gr_context_type_, format, /*ycbcr_info=*/std::nullopt, plane_index));
     }
 
     skgpu::graphite::YUVABackendTextureInfo yuva_backend_info(
         graphite_recorder_, yuva_info, texture_infos, skgpu::Mipmapped::kNo);
+    void* fulfill_array_ptr = std::move(fulfill_array).leak().data();
     auto image = SkImages::PromiseTextureFromYUVA(
         graphite_recorder_, yuva_backend_info, image_context->color_space(),
-        graphite_use_volatile_promise_images_, FulfillGraphite, CleanUp,
-        ReleaseGraphite, {}, fulfills);
+        graphite_use_volatile_promise_images_, FulfillGraphite, CleanUpArray,
+        ReleaseGraphite, fulfill_array_ptr, fulfill_ptrs);
     LOG_IF(ERROR, !image) << "Failed to create the yuv promise sk image";
     image_context->SetImage(std::move(image), std::move(texture_infos));
   } else {
@@ -1074,10 +1188,9 @@ void SkiaOutputSurfaceImpl::CopyOutput(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (request->has_blit_request()) {
-    for (const auto& mailbox_holder : request->blit_request().mailboxes()) {
-      if (mailbox_holder.sync_token.HasData()) {
-        resource_sync_tokens_.push_back(mailbox_holder.sync_token);
-      }
+    const auto& sync_token = request->blit_request().sync_token();
+    if (sync_token.HasData()) {
+      resource_sync_tokens_.push_back(sync_token);
     }
   }
 
@@ -1154,6 +1267,8 @@ bool SkiaOutputSurfaceImpl::Initialize() {
   if (graphite_recorder_) {
     graphite_cache_controller_ =
         GetOrCreateGraphiteCacheController(graphite_recorder_);
+    GraphiteVizMemoryDumpProvider::GetInstance().AddClient(
+        graphite_recorder_, dependency_->GetClientTaskRunner());
   }
   return result;
 }
@@ -1193,14 +1308,16 @@ void SkiaOutputSurfaceImpl::InitializeOnGpuThread(bool* result) {
     gr_context_thread_safe_ = gr_context->threadSafeProxy();
   }
   graphite_recorder_ = shared_context_state->viz_compositor_graphite_recorder();
-  // On Dawn/Metal, it is possible to use non-volatile promise images as Dawn
-  // as are cached between BeginAccess() calls on a per-usage basis. Other
-  // platforms/backends cannot use non-volatile promise images as Dawn textures
-  // live only for the duration of a scoped access.
-  graphite_use_volatile_promise_images_ =
-      shared_context_state->IsGraphiteDawnMetal()
-          ? skgpu::graphite::Volatile::kNo
-          : skgpu::graphite::Volatile::kYes;
+  // On Dawn/Metal and Dawn/D3D, it is possible to use non-volatile promise
+  // images as Dawn textures are cached between BeginAccess() calls on a
+  // per-usage basis. Other platforms/backends cannot use non-volatile promise
+  // images as Dawn textures live only for the duration of a scoped access.
+  const bool can_use_non_volatile_images =
+      shared_context_state->IsGraphiteDawnMetal() ||
+      shared_context_state->IsGraphiteDawnD3D();
+  graphite_use_volatile_promise_images_ = can_use_non_volatile_images
+                                              ? skgpu::graphite::Volatile::kNo
+                                              : skgpu::graphite::Volatile::kYes;
   *result = true;
 }
 
@@ -1235,7 +1352,7 @@ SkiaOutputSurfaceImpl::CreateGrSurfaceCharacterizationRenderPass(
     backend_format = GrBackendFormats::MakeGL(
         GrBackendFormats::AsGLFormatEnum(backend_format),
 #if BUILDFLAG(IS_MAC)
-        gpu::GetMacOSSpecificTextureTargetForCurrentGLImplementation());
+        gpu::GetTextureTargetForIOSurfaces());
 #else
         GL_TEXTURE_2D);
 #endif
@@ -1284,9 +1401,9 @@ SkiaOutputSurfaceImpl::CreateGrSurfaceCharacterizationCurrentFrame(
   // For root render pass, IOSurface will be used. Hence, we need to ensure that
   // we are using the correct texture target for IOSurfaces, which depends on
   // the GL implementation.
-  backend_format = GrBackendFormats::MakeGL(
-      GrBackendFormats::AsGLFormatEnum(backend_format),
-      gpu::GetMacOSSpecificTextureTargetForCurrentGLImplementation());
+  backend_format =
+      GrBackendFormats::MakeGL(GrBackendFormats::AsGLFormatEnum(backend_format),
+                               gpu::GetTextureTargetForIOSurfaces());
 #endif
   DCHECK(backend_format.isValid())
       << "GrBackendFormat is invalid for color_type: " << color_type;
@@ -1587,10 +1704,12 @@ void SkiaOutputSurfaceImpl::SetNeedsSwapSizeNotifications(
   needs_swap_size_notifications_ = needs_swap_size_notifications;
 }
 
+#if BUILDFLAG(IS_ANDROID)
 base::ScopedClosureRunner SkiaOutputSurfaceImpl::GetCacheBackBufferCb() {
   // Note, that we call it directly on viz thread to get the callback.
   return impl_on_gpu_->GetCacheBackBufferCb();
 }
+#endif
 
 void SkiaOutputSurfaceImpl::AddContextLostObserver(
     ContextLostObserver* observer) {
@@ -1697,7 +1816,7 @@ gpu::Mailbox SkiaOutputSurfaceImpl::CreateSharedImage(
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
     RenderPassAlphaType alpha_type,
-    uint32_t usage,
+    gpu::SharedImageUsageSet usage,
     std::string_view debug_label,
     gpu::SurfaceHandle surface_handle) {
   gpu::Mailbox mailbox = gpu::Mailbox::Generate();

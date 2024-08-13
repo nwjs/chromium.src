@@ -20,6 +20,13 @@ targets.tests.gtest_test(
     name = "accessibility_unittests",
 )
 
+targets.tests.isolated_script_test(
+    name = "android_blink_wpt_tests",
+    args = [
+    ],
+    binary = "chrome_public_wpt",
+)
+
 targets.tests.gtest_test(
     name = "android_browsertests",
 )
@@ -1010,22 +1017,8 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
-    name = "gles2_conform_d3d9_test",
-    binary = "gles2_conform_test",
-)
-
-targets.tests.gtest_test(
     name = "gpu_memory_buffer_impl_tests",
     binary = "gpu_unittests",
-)
-
-targets.tests.gtest_test(
-    name = "gles2_conform_test",
-)
-
-targets.tests.gtest_test(
-    name = "gles2_conform_gl_test",
-    binary = "gles2_conform_test",
 )
 
 targets.tests.isolated_script_test(
@@ -1111,6 +1104,10 @@ targets.tests.gtest_test(
         "--use-wire",
     ],
     binary = "dawn_end2end_tests",
+)
+
+targets.tests.gtest_test(
+    name = "fuzzing_unittests",
 )
 
 targets.tests.gpu_telemetry_test(
@@ -2706,6 +2703,13 @@ targets.tests.script_test(
 targets.tests.gtest_test(
     name = "webkit_unit_tests",
     binary = "blink_unittests",
+)
+
+targets.tests.isolated_script_test(
+    name = "webview_blink_wpt_tests",
+    args = [
+    ],
+    binary = "trichrome_webview_wpt_64",
 )
 
 targets.tests.gtest_test(

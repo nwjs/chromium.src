@@ -40,8 +40,10 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url_service.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/preloading_data.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/load_flags.h"
 #include "net/base/url_util.h"
@@ -68,7 +70,8 @@ void SetIsNavigationInDomainCallback(content::PreloadingData* preloading_data) {
               return (transition_type & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR) &&
                      ui::PageTransitionCoreTypeIs(
                          transition_type,
-                         ui::PageTransition::PAGE_TRANSITION_GENERATED);
+                         ui::PageTransition::PAGE_TRANSITION_GENERATED) &&
+                     ui::PageTransitionIsNewNavigation(transition_type);
             }));
   }
 }
@@ -118,12 +121,20 @@ GURL GetPreloadURLFromMatch(
   GURL prefetch_url = GURL(default_provider->url_ref().ReplaceSearchTerms(
       search_terms_args, template_url_service->search_terms_data(), nullptr));
 #if BUILDFLAG(IS_ANDROID)
-  if (CheckPrefetchParameterExistence(prefetch_url) ||
-      caller_type == CallerType::kSuggestPrerender) {
+  if (caller_type == CallerType::kSuggestPrerender) {
     // It is expected that prerender does not specify a parameter as the request
     // does not reach the network.
     return prefetch_url;
   }
+  const bool prefetch_parameter_existence =
+      CheckPrefetchParameterExistence(prefetch_url);
+  base::UmaHistogramBoolean("Omnibox.SearchPrefetch.PrefetchParameterExistence",
+                            prefetch_parameter_existence);
+
+  if (prefetch_parameter_existence) {
+    return prefetch_url;
+  }
+
   // It is quite common that a test does not specify the parameter.
   if (!is_test) {
     SCOPED_CRASH_KEY_BOOL("Bug_345275145", "temp_url_origin",
@@ -131,7 +142,7 @@ GURL GetPreloadURLFromMatch(
                               template_url_service->search_terms_data()));
     SCOPED_CRASH_KEY_STRING32("Bug_345275145", "prefetch_param",
                               prefetch_param);
-    SCOPED_CRASH_KEY_STRING256("Bug_345275145", "provider_url",
+    SCOPED_CRASH_KEY_STRING1024("Bug_345275145", "provider_url",
                                default_provider->url());
     base::debug::DumpWithoutCrashing();
   }
@@ -319,7 +330,7 @@ bool SearchPrefetchService::MaybePrefetchURL(
   ObserveTemplateURLService(template_url_service);
 
   GURL canonical_search_url;
-  bool search_with_terms = HasCanoncialPreloadingOmniboxSearchURL(
+  bool search_with_terms = HasCanonicalPreloadingOmniboxSearchURL(
       url, profile_, &canonical_search_url);
 
   // It is possible that the current page doesn't exist. Don't create
@@ -338,6 +349,18 @@ bool SearchPrefetchService::MaybePrefetchURL(
   // |navigation_prefetch| is true.
   attempt = preloading_data->AddPreloadingAttempt(
       predictor, content::PreloadingType::kPrefetch, same_url_matcher,
+      // Note that it'd be nice to use kPrerender if
+      // `(!navigation_prefetch &&
+      // prerender_utils::IsSearchSuggestionPrerenderEnabled())`. But currently
+      // this attribute is not used for search preloads as expected behavior
+      // varies depending on how this is triggered as follows:
+      //
+      // - If `navigation_prefetch` is true, we will not upgrade the attempt.
+      // - If the default search engine prerender is not enabled, we will not
+      // upgrade this attempt.
+      // - If the server side does not ask to upgrade the request, we will not
+      // upgrade it.
+      /*planned_max_preloading_type=*/std::nullopt,
       web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId());
 
   if (!search_with_terms) {
@@ -487,7 +510,7 @@ void SearchPrefetchService::OnURLOpenedFromOmnibox(OmniboxLog* log) {
 
   GURL canonical_search_url;
 
-  HasCanoncialPreloadingOmniboxSearchURL(opened_url, profile_,
+  HasCanonicalPreloadingOmniboxSearchURL(opened_url, profile_,
                                          &canonical_search_url);
 
   if (prefetches_.find(canonical_search_url) == prefetches_.end()) {
@@ -495,13 +518,6 @@ void SearchPrefetchService::OnURLOpenedFromOmnibox(OmniboxLog* log) {
   }
   SearchPrefetchRequest& prefetch = *prefetches_[canonical_search_url];
   prefetch.RecordClickTime();
-
-  if (prefetch.current_status() != SearchPrefetchStatus::kCanBeServed &&
-      prefetch.current_status() != SearchPrefetchStatus::kPrerendered) {
-    return;
-  }
-
-  prefetch.MarkPrefetchAsClicked();
 }
 
 void SearchPrefetchService::OnPrerenderedRequestUsed(
@@ -516,50 +532,12 @@ void SearchPrefetchService::OnPrerenderedRequestUsed(
     return;
   }
   AddCacheEntry(navigation_url, request_it->second->prefetch_url());
-  if (!prerender_utils::SearchPreloadShareableCacheIsEnabled()) {
-    // For the shareable cases, it is possible that a response is used for two
-    // real navigations. So do not use the prefetch request to track the final
-    // status.
-    request_it->second->MarkPrefetchAsPrerenderActivated();
-  }
   DeletePrefetch(canonical_search_url);
-}
-
-SearchPrefetchURLLoader::RequestHandler
-SearchPrefetchService::TakePrerenderFromMemoryCache(
-    const network::ResourceRequest& tentative_resource_request) {
-  DCHECK(!prerender_utils::SearchPreloadShareableCacheIsEnabled());
-  SearchPrefetchServingReasonRecorder recorder{/*for_prerender=*/true};
-  auto iter =
-      RetrieveSearchTermsInMemoryCache(tentative_resource_request, recorder);
-  if (iter == prefetches_.end()) {
-    // TODO(crbug.com/40255935): Recorder's state should not be
-    // kPrerendered, but it happened unexpectedly due to
-    // restarting/serviceworker interception within prerender navigation stack
-    // on ChromeOS.
-    return {};
-  }
-
-  // TODO(crbug.com/40214220): Do not use the prefetched response if it
-  // is about to expire.
-  DCHECK_NE(iter->second->current_status(),
-            SearchPrefetchStatus::kRequestFailed);
-  recorder.reason_ = SearchPrefetchServingReason::kServed;
-
-  iter->second->MarkPrefetchAsPrerendered();
-  scoped_refptr<StreamingSearchPrefetchURLLoader> loader =
-      iter->second->TakeSearchPrefetchURLLoader();
-  return StreamingSearchPrefetchURLLoader::GetServingResponseHandler(
-      std::move(loader));
-  // Do not remove the corresponding entry from `prefetches_` for now, to avoid
-  // prefetching the same response over again. The entry will be removed on
-  // prerendering activation or other cases.
 }
 
 SearchPrefetchURLLoader::RequestHandler
 SearchPrefetchService::MaybeCreateResponseReader(
     const network::ResourceRequest& tentative_resource_request) {
-  DCHECK(prerender_utils::SearchPreloadShareableCacheIsEnabled());
   SearchPrefetchServingReasonRecorder recorder{/*for_prerender=*/true};
   auto iter =
       RetrieveSearchTermsInMemoryCache(tentative_resource_request, recorder);
@@ -613,13 +591,7 @@ SearchPrefetchService::TakePrefetchResponseFromMemoryCache(
 
   bool is_servable =
       status == SearchPrefetchStatus::kComplete ||
-      status == SearchPrefetchStatus::kCanBeServedAndUserClicked ||
-      (prerender_utils::IsSearchSuggestionPrerenderEnabled() &&
-       prerender_utils::SearchPreloadShareableCacheIsEnabled() &&
-       (status == SearchPrefetchStatus::kPrerendered ||
-        status == SearchPrefetchStatus::kPrerenderedAndClicked)) ||
-      (SearchPrefetchSkipsCancel() &&
-       status == SearchPrefetchStatus::kCanBeServed);
+      status == SearchPrefetchStatus::kCanBeServed;
 
   if (!is_servable) {
     recorder.reason_ = SearchPrefetchServingReason::kNotServedOtherReason;
@@ -699,49 +671,27 @@ void SearchPrefetchService::OnResultChanged(content::WebContents* web_contents,
   // Lazily observe Template URL Service.
   ObserveTemplateURLService(template_url_service);
 
-  // Cancel Unneeded prefetch requests. Since we limit the number of prefetches
-  // in the map, this should be fast despite the two loops.
+  // Don't cancel unneeded prefetch requests, but reset all pending prerenders.
+  // It will be set soon if service still wants clients to prerender a
+  // SearchTerms.
+  // TODO(crbug.com/40214220): Unlike prefetch, which does not discard completed
+  // response to avoid wasting, prerender would like to cancel itself given the
+  // cost of a prerender. For now prenderer is canceled when the prerender hints
+  // changed, we need to revisit this decision.
   for (const auto& kv_pair : prefetches_) {
-    const auto& canonical_search_url = kv_pair.first;
     auto& prefetch_request = kv_pair.second;
-
-    if (!prefetch_request->ShouldBeCancelledOnResultChanges()) {
-      // Reset all pending prerenders. It will be set soon if service still
-      // wants clients to prerender a SearchTerms.
-      // TODO(crbug.com/40214220): Unlike prefetch, which does not
-      // discard completed response to avoid wasting, prerender would like
-      // to cancel itself given the cost of a prerender. For now prenderer is
-      // canceled when the prerender hints changed, we need to revisit this
-      // decision.
-      prefetch_request->ResetPrerenderUpgrader();
-      continue;
-    }
-    bool should_cancel_request = true;
-    for (const auto& match : result) {
-      GURL match_canonical_search_url;
-      default_search->KeepSearchTermsInURL(
-          match.destination_url, template_url_service->search_terms_data(),
-          true, true, &match_canonical_search_url);
-
-      if (canonical_search_url == match_canonical_search_url) {
-        should_cancel_request = false;
-        break;
-      }
-    }
-
-    // Cancel the inflight request and mark it as canceled.
-    if (should_cancel_request) {
-      prefetch_request->CancelPrefetch();
-    }
-
-    // Reset all pending prerenders. It will be set soon if service still wants
-    // clients to prerender a SearchTerms.
     prefetch_request->ResetPrerenderUpgrader();
   }
 
   // Do not perform preloading if there is no active tab.
   if (!web_contents)
     return;
+
+  // This preloads dictionaries for AutocompleteResult's `destination_url` which
+  // are not specific to search prefetch.
+  // TODO(crbug.com/349030549): Consider moving somewhere more suitable.
+  MaybePreloadDictionary(result);
+
   for (const auto& match : result) {
     // Return early if neither prefetch nor prerender are enabled for the match.
     if (!ShouldPrefetch(match)) {
@@ -758,7 +708,7 @@ void SearchPrefetchService::OnResultChanged(content::WebContents* web_contents,
         content::PreloadingData::GetOrCreateForWebContents(web_contents);
     SetIsNavigationInDomainCallback(preloading_data);
     GURL canonical_search_url;
-    HasCanoncialPreloadingOmniboxSearchURL(match.destination_url, profile_,
+    HasCanonicalPreloadingOmniboxSearchURL(match.destination_url, profile_,
                                            &canonical_search_url);
 
     content::PreloadingURLMatchCallback same_url_matcher =
@@ -854,7 +804,7 @@ bool SearchPrefetchService::OnNavigationLikely(
   }
 
   GURL canonical_search_url;
-  if (!HasCanoncialPreloadingOmniboxSearchURL(match.destination_url, profile_,
+  if (!HasCanonicalPreloadingOmniboxSearchURL(match.destination_url, profile_,
                                               &canonical_search_url)) {
     return false;
   }
@@ -1072,6 +1022,13 @@ bool SearchPrefetchService::LoadFromPrefs() {
 
     prefetch_cache_.emplace(navigation_url,
                             std::make_pair(prefetch_url, last_update.value()));
+
+    // The max size of the cache entries can be changed from the previous
+    // session. Stop loading the entries if the limit is reached.
+    // TODO(crbug.com/353628436): We may want to prioritize newer entries.
+    if (prefetch_cache_.size() == SearchPrefetchMaxCacheEntries()) {
+      break;
+    }
   }
   return dictionary.size() > prefetch_cache_.size();
 }
@@ -1135,6 +1092,7 @@ void SearchPrefetchService::CoordinatePrefetchWithPrerender(
       preloading_data->AddPreloadingAttempt(
           chrome_preloading_predictor::kDefaultSearchEngine,
           content::PreloadingType::kPrerender, same_url_matcher,
+          /*planned_max_preloading_type=*/std::nullopt,
           web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId());
 
   auto prefetch_request_iter = prefetches_.find(canonical_search_url);
@@ -1175,7 +1133,7 @@ SearchPrefetchService::RetrieveSearchTermsInMemoryCache(
   }
 
   GURL canonical_search_url;
-  if (!HasCanoncialPreloadingOmniboxSearchURL(navigation_url, profile_,
+  if (!HasCanonicalPreloadingOmniboxSearchURL(navigation_url, profile_,
                                               &canonical_search_url) ||
       !IsSearchDestinationMatch(canonical_search_url, profile_,
                                 navigation_url)) {
@@ -1230,21 +1188,11 @@ SearchPrefetchService::RetrieveSearchTermsInMemoryCache(
   }
 
   switch (iter->second->current_status()) {
-    case SearchPrefetchStatus::kRequestCancelled:
-      recorder.reason_ = SearchPrefetchServingReason::kRequestWasCancelled;
-      // Set the corresponding failure reason.
-      iter->second->SetPrefetchAttemptFailureReason(ToPreloadingFailureReason(
-          SearchPrefetchServingReason::kRequestWasCancelled));
-      break;
     case SearchPrefetchStatus::kRequestFailed:
       recorder.reason_ = SearchPrefetchServingReason::kRequestFailed;
       // Set the corresponding failure reason.
       iter->second->SetPrefetchAttemptFailureReason(ToPreloadingFailureReason(
           SearchPrefetchServingReason::kRequestFailed));
-      break;
-    case SearchPrefetchStatus::kPrerendered:
-    case SearchPrefetchStatus::kPrerenderedAndClicked:
-      recorder.reason_ = SearchPrefetchServingReason::kPrerendered;
       break;
     default:
       break;
@@ -1311,4 +1259,42 @@ void SearchPrefetchService::SetLoaderDestructionCallbackForTesting(
   return prefetches_[canonical_search_url]
       ->SetLoaderDestructionCallbackForTesting(  // IN-TEST
           std::move(streaming_url_loader_destruction_callback));
+}
+
+void SearchPrefetchService::MaybePreloadDictionary(
+    const AutocompleteResult& result) {
+  if (!base::FeatureList::IsEnabled(kAutocompleteDictionaryPreload)) {
+    return;
+  }
+  std::vector<GURL> match_destination_urls;
+  match_destination_urls.reserve(result.size());
+  for (const AutocompleteMatch& match : result) {
+    if (match.destination_url.SchemeIsHTTPOrHTTPS()) {
+      match_destination_urls.emplace_back(match.destination_url);
+    }
+  }
+
+  if (match_destination_urls.empty()) {
+    return;
+  }
+
+  // Keep the old handle until `PreloadSharedDictionaryInfoForDocument()` call
+  // to avoid reloading dictionaries in the network service.
+  mojo::PendingRemote<network::mojom::PreloadedSharedDictionaryInfoHandle>
+      old_handle = std::move(preloaded_shared_dictionaries_handle_);
+
+  preloaded_shared_dictionaries_handle_.reset();
+  profile_->GetDefaultStoragePartition()
+      ->GetNetworkContext()
+      ->PreloadSharedDictionaryInfoForDocument(
+          match_destination_urls, preloaded_shared_dictionaries_handle_
+                                      .InitWithNewPipeAndPassReceiver());
+  preloaded_shared_dictionaries_expiry_timer_.Start(
+      FROM_HERE, kAutocompletePreloadedDictionaryTimeout.Get(),
+      base::BindOnce(&SearchPrefetchService::DeletePreloadedDictionaries,
+                     base::Unretained(this)));
+}
+
+void SearchPrefetchService::DeletePreloadedDictionaries() {
+  preloaded_shared_dictionaries_handle_.reset();
 }

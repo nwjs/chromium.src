@@ -217,11 +217,11 @@ class BaseTest(unittest.TestCase):
         f'{dir_prefix}org/jni_zero/{file_prefix}GEN_JNI.java':
         f'{golden_name}-Final-GEN_JNI.java.golden',
     }
-    if options.use_proxy_hash:
+    if options.use_proxy_hash or options.enable_jni_multiplexing:
       name_to_goldens[f'{dir_prefix}J/{file_prefix}N.java'] = (
           f'{golden_name}-Final-N.java.golden')
     header_golden = None
-    if options.use_proxy_hash or options.manual_jni_registration:
+    if options.use_proxy_hash or options.manual_jni_registration or options.enable_jni_multiplexing:
       header_golden = f'{golden_name}-Registration.h.golden'
 
     with tempfile.TemporaryDirectory() as tdir:
@@ -387,6 +387,14 @@ class Tests(BaseTest):
     self._TestEndToEndRegistration(
         ['SampleForAnnotationProcessor.java', 'SampleModule.java'],
         use_proxy_hash=True,
+        manual_jni_registration=True,
+        module_name='module')
+
+  def testModulesWithMultiplexing(self):
+    self._TestEndToEndRegistration(
+        ['SampleForAnnotationProcessor.java', 'SampleModule.java'],
+        enable_jni_multiplexing=True,
+        manual_jni_registration=True,
         module_name='module')
 
   def testStubRegistration(self):
@@ -408,8 +416,7 @@ class Tests(BaseTest):
     priority_java_files = ['TinySample2.java']
     self._TestEndToEndRegistration(input_java_files,
                                    priority_java_files=priority_java_files,
-                                   enable_jni_multiplexing=True,
-                                   use_proxy_hash=True)
+                                   enable_jni_multiplexing=True)
 
   def testFullStubs(self):
     self._TestEndToEndRegistration(
@@ -417,17 +424,29 @@ class Tests(BaseTest):
         src_files_for_asserts_and_stubs=['TinySample.java'],
         add_stubs_for_missing_native=True)
 
-  def testForTestingKept(self):
+  def testForTestingKeptHash(self):
     input_java_file = 'SampleProxyEdgeCases.java'
     self._TestEndToEndGeneration([input_java_file], srcjar=True)
     self._TestEndToEndRegistration([input_java_file],
                                    use_proxy_hash=True,
                                    include_test_only=True)
 
-  def testForTestingRemoved(self):
+  def testForTestingRemovedHash(self):
     self._TestEndToEndRegistration(['SampleProxyEdgeCases.java'],
                                    use_proxy_hash=True,
+                                   include_test_only=False)
+
+  def testForTestingKeptMultiplexing(self):
+    input_java_file = 'SampleProxyEdgeCases.java'
+    self._TestEndToEndGeneration([input_java_file], srcjar=True)
+    self._TestEndToEndRegistration([input_java_file],
+                                   enable_jni_multiplexing=True,
                                    include_test_only=True)
+
+  def testForTestingRemovedMultiplexing(self):
+    self._TestEndToEndRegistration(['SampleProxyEdgeCases.java'],
+                                   enable_jni_multiplexing=True,
+                                   include_test_only=False)
 
   def testProxyMocks(self):
     self._TestEndToEndRegistration(['TinySample.java'], enable_proxy_mocks=True)
@@ -447,15 +466,15 @@ class Tests(BaseTest):
                                    package_prefix='this.is.a.package.prefix',
                                    manual_jni_registration=True)
 
-  def testPackagePrefixWithProxyHash(self):
+  def testPackagePrefixWithMultiplexing(self):
     self._TestEndToEndRegistration(['SampleForAnnotationProcessor.java'],
                                    package_prefix='this.is.a.package.prefix',
-                                   use_proxy_hash=True)
+                                   enable_jni_multiplexing=True)
 
-  def testPackagePrefixWithManualRegistrationWithProxyHash(self):
+  def testPackagePrefixWithManualRegistrationWithMultiplexing(self):
     self._TestEndToEndRegistration(['SampleForAnnotationProcessor.java'],
                                    package_prefix='this.is.a.package.prefix',
-                                   use_proxy_hash=True,
+                                   enable_jni_multiplexing=True,
                                    manual_jni_registration=True)
 
   def testPlaceholdersOverlapping(self):
@@ -469,7 +488,7 @@ class Tests(BaseTest):
   def testMultiplexing(self):
     self._TestEndToEndRegistration(['SampleForAnnotationProcessor.java'],
                                    enable_jni_multiplexing=True,
-                                   use_proxy_hash=True)
+                                   manual_jni_registration=True)
 
   def testParseError_noPackage(self):
     data = """

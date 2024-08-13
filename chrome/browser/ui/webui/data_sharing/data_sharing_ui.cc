@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/webui/data_sharing/data_sharing_ui.h"
 
+#include "chrome/browser/companion/core/utils.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/data_sharing/data_sharing_page_handler.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/webui_url_constants.h"
@@ -14,18 +16,13 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "ui/webui/webui_allowlist.h"
 
 DataSharingUIConfig::DataSharingUIConfig()
-    : WebUIConfig(content::kChromeUIUntrustedScheme,
-                  chrome::kChromeUIUntrustedDataSharingHost) {}
+    : DefaultTopChromeWebUIConfig(content::kChromeUIUntrustedScheme,
+                                  chrome::kChromeUIUntrustedDataSharingHost) {}
 
 DataSharingUIConfig::~DataSharingUIConfig() = default;
-
-std::unique_ptr<content::WebUIController>
-DataSharingUIConfig::CreateWebUIController(content::WebUI* web_ui,
-                                           const GURL& url) {
-  return std::make_unique<DataSharingUI>(web_ui);
-}
 
 bool DataSharingUIConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
@@ -33,8 +30,12 @@ bool DataSharingUIConfig::IsWebUIEnabled(
       data_sharing::features::kDataSharingFeature);
 }
 
+bool DataSharingUIConfig::ShouldAutoResizeHost() {
+  return true;
+}
+
 DataSharingUI::DataSharingUI(content::WebUI* web_ui)
-    : TopChromeWebUIController(web_ui) {
+    : UntrustedTopChromeWebUIController(web_ui) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       web_ui->GetWebContents()->GetBrowserContext(),
       chrome::kChromeUIUntrustedDataSharingURL);
@@ -42,6 +43,41 @@ DataSharingUI::DataSharingUI(content::WebUI* web_ui)
   webui::SetupWebUIDataSource(
       source, base::make_span(kDataSharingResources, kDataSharingResourcesSize),
       IDR_DATA_SHARING_DATA_SHARING_HTML);
+
+  // Allow untrusted mojo resources to be loaded.
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::ScriptSrc,
+      "script-src "
+      "chrome-untrusted://resources "
+      "'unsafe-inline' 'self';");
+
+  // Allow images and avatars to be loaded.
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::ImgSrc,
+      "img-src "
+      "https://lh3.googleusercontent.com "
+      "https://www.gstatic.com "
+      "'self';");
+
+  // Allow stylesheets to be loaded.
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::StyleSrc,
+      "style-src "
+      "'self';");
+
+  // Allow external network connections to be made.
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::ConnectSrc,
+      "connect-src "
+      "https://play.google.com "
+      "https://peoplestack-pa.clients6.google.com ");
+
+  // Allow trsuted types to be created.
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::TrustedTypes,
+      "trusted-types "
+      "goog#html "
+      "lit-html;");
 }
 
 DataSharingUI::~DataSharingUI() = default;
@@ -55,7 +91,8 @@ void DataSharingUI::BindInterface(
 }
 
 void DataSharingUI::CreatePageHandler(
+    mojo::PendingRemote<data_sharing::mojom::Page> page,
     mojo::PendingReceiver<data_sharing::mojom::PageHandler> receiver) {
-  page_handler_ =
-      std::make_unique<DataSharingPageHandler>(this, std::move(receiver));
+  page_handler_ = std::make_unique<DataSharingPageHandler>(
+      this, std::move(receiver), std::move(page));
 }

@@ -23,6 +23,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/no_destructor.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
@@ -392,51 +393,7 @@ std::string SanitizeFrontendQueryParam(const std::string& key,
     return value;
   }
 
-  if (base::FeatureList::IsEnabled(::features::kDevToolsConsoleInsights) ||
-      base::FeatureList::IsEnabled(
-          ::features::kDevToolsConsoleInsightsDogfood) ||
-      base::FeatureList::IsEnabled(
-          ::features::kDevToolsConsoleInsightsSettingVisible)) {
-    if (key == "enableAida" && value == "true") {
-      return value;
-    }
-    if (key == "aidaModelId") {
-      return value;
-    }
-    if (key == "aidaTemperature") {
-      return value;
-    }
-  }
-
-  if (key == "ci_blockedByAge" && value == "true") {
-    return value;
-  }
-
-  if (key == "ci_blockedByEnterprisePolicy" && value == "true") {
-    return value;
-  }
-
-  if (key == "ci_disallowLogging" && value == "true") {
-    return value;
-  }
-
-  if (key == "ci_blockedByGeo" && value == "true") {
-    return value;
-  }
-
-  if (key == "ci_blockedByRollout" && value == "true") {
-    return value;
-  }
-
-  if (key == "ci_disabledByDefault" && value == "true") {
-    return value;
-  }
-
   if (key == "disableSelfXssWarnings" && value == "true") {
-    return value;
-  }
-
-  if (key == "freestyler_dogfood" && value == "true") {
     return value;
   }
 
@@ -795,7 +752,7 @@ DevToolsUIBindings::~DevToolsUIBindings() {
   DevToolsUIBindingsList& instances =
       DevToolsUIBindings::GetDevToolsUIBindings();
   auto it = base::ranges::find(instances, this);
-  DCHECK(it != instances.end());
+  CHECK(it != instances.end(), base::NotFatalUntil::M130);
   instances.erase(it);
 }
 
@@ -991,10 +948,16 @@ void DevToolsUIBindings::OnAidaConversationRequest(
 }
 
 void DevToolsUIBindings::OnRegisterAidaClientEventRequest(
+    DevToolsEmbedderMessageDispatcher::Delegate::DispatchCallback callback,
     const std::string& request,
     absl::variant<network::ResourceRequest, std::string>
         resource_request_or_error) {
   if (absl::holds_alternative<std::string>(resource_request_or_error)) {
+    base::Value::Dict response_dict;
+    response_dict.Set("response",
+                      absl::get<std::string>(resource_request_or_error));
+    auto response_value = base::Value(std::move(response_dict));
+    std::move(callback).Run(&response_value);
     return;
   }
   auto url_loader_factory = DevToolsWindow::AsDevToolsWindow(web_contents_)
@@ -1011,9 +974,12 @@ void DevToolsUIBindings::OnRegisterAidaClientEventRequest(
   simple_url_loader->AttachStringForUpload(request);
 
   network::SimpleURLLoader* simple_url_loader_ptr = simple_url_loader.get();
-  simple_url_loader_ptr->DownloadHeadersOnly(
+  simple_url_loader_ptr->DownloadToString(
       url_loader_factory.get(),
-      base::DoNothingWithBoundArgs(std::move(simple_url_loader)));
+      base::BindOnce(&DevToolsUIBindings::OnAidaClientResponse,
+                     base::Unretained(this), std::move(callback),
+                     std::move(simple_url_loader)),
+      network::SimpleURLLoader::kMaxBoundedStringDownloadSize);
 }
 
 void DevToolsUIBindings::OnAidaConversationResponse(
@@ -1040,6 +1006,30 @@ void DevToolsUIBindings::OnAidaConversationResponse(
                             base::TimeTicks::Now() - start_time);
     std::move(callback).Run(response);
   }
+}
+
+void DevToolsUIBindings::OnAidaClientResponse(
+    DevToolsEmbedderMessageDispatcher::Delegate::DispatchCallback callback,
+    std::unique_ptr<network::SimpleURLLoader> simple_url_loader,
+    std::unique_ptr<std::string> response_body) {
+  int response_code = -1;
+  if (simple_url_loader->ResponseInfo() &&
+      simple_url_loader->ResponseInfo()->headers) {
+    response_code = simple_url_loader->ResponseInfo()->headers->response_code();
+  }
+  if (response_code != net::HTTP_OK) {
+    base::Value::Dict error_dict;
+    error_dict.Set("error", "Got error response from AIDA");
+    error_dict.Set("detail", std::move(*response_body));
+    auto error = base::Value(std::move(error_dict));
+    std::move(callback).Run(&error);
+    return;
+  }
+
+  base::Value::Dict response_dict;
+  response_dict.Set("response", std::move(*response_body));
+  auto response = base::Value(std::move(response_dict));
+  std::move(callback).Run(&response);
 }
 
 void DevToolsUIBindings::InspectElementCompleted() {
@@ -1581,19 +1571,22 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
   response_dict.Set("devToolsConsoleInsights",
                     std::move(console_insights_dict));
 
-  base::Value::Dict console_insights_dogfood_dict;
-  console_insights_dogfood_dict.Set(
-      "enabled", base::FeatureList::IsEnabled(
-                     ::features::kDevToolsConsoleInsightsDogfood));
-  console_insights_dogfood_dict.Set(
-      "aidaModelId", features::kDevToolsConsoleInsightsDogfoodModelId.Get());
-  console_insights_dogfood_dict.Set(
-      "aidaTemperature",
-      features::kDevToolsConsoleInsightsDogfoodTemperature.Get());
-  console_insights_dogfood_dict.Set(
-      "optIn", features::kDevToolsConsoleInsightsDogfoodOptIn.Get());
-  response_dict.Set("devToolsConsoleInsightsDogfood",
-                    std::move(console_insights_dogfood_dict));
+  base::Value::Dict freestyler_dogfood_dict;
+  freestyler_dogfood_dict.Set(
+      "enabled",
+      base::FeatureList::IsEnabled(::features::kDevToolsFreestylerDogfood));
+  freestyler_dogfood_dict.Set(
+      "aidaModelId", features::kDevToolsFreestylerDogfoodModelId.Get());
+  freestyler_dogfood_dict.Set(
+      "aidaTemperature", features::kDevToolsFreestylerDogfoodTemperature.Get());
+  response_dict.Set("devToolsFreestylerDogfood",
+                    std::move(freestyler_dogfood_dict));
+
+  base::Value::Dict ve_logging_dict;
+  ve_logging_dict.Set(
+      "enabled", base::FeatureList::IsEnabled(::features::kDevToolsVeLogging));
+  ve_logging_dict.Set("testing", ::features::kDevToolsVeLoggingTesting.Get());
+  response_dict.Set("devToolsVeLogging", std::move(ve_logging_dict));
 
   base::Value response = base::Value(std::move(response_dict));
   std::move(callback).Run(&response);
@@ -1761,6 +1754,7 @@ void DevToolsUIBindings::RecordClick(const ClickEvent& event) {
       metrics::structured::events::v2::dev_tools::Click()
           .SetVeId(event.veid)
           .SetMouseButton(event.mouse_button)
+          .SetDoubleClick(event.double_click)
           .SetContext(event.context)
           .SetTimeSinceSessionStart(GetTimeSinceSessionStart().InMilliseconds())
           .SetSessionId(session_id_for_logging_.GetLowForSerialization())));
@@ -2114,8 +2108,13 @@ void DevToolsUIBindings::DoAidaConversation(DispatchCallback callback,
       std::move(callback), stream_id, request, base::TimeDelta()));
 }
 
-void DevToolsUIBindings::RegisterAidaClientEvent(const std::string& request) {
+void DevToolsUIBindings::RegisterAidaClientEvent(DispatchCallback callback,
+                                                 const std::string& request) {
   if (AidaClient::CanUseAida(profile_).blocked) {
+    base::Value::Dict response_dict;
+    response_dict.Set("error", "AIDA request was blocked");
+    base::Value response = base::Value(std::move(response_dict));
+    std::move(callback).Run(&response);
     return;
   }
   if (!aida_client_) {
@@ -2123,7 +2122,7 @@ void DevToolsUIBindings::RegisterAidaClientEvent(const std::string& request) {
   }
   aida_client_->PrepareRequestOrFail(
       base::BindOnce(&DevToolsUIBindings::OnRegisterAidaClientEventRequest,
-                     base::Unretained(this), request));
+                     base::Unretained(this), std::move(callback), request));
 }
 
 void DevToolsUIBindings::SetDelegate(Delegate* delegate) {

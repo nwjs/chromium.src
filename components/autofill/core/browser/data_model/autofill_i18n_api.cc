@@ -418,13 +418,28 @@ bool IsCustomHierarchyAvailableForCountry(AddressCountryCode country_code) {
     return false;
   }
 
+  if (country_code == AddressCountryCode("CA") &&
+      !base::FeatureList::IsEnabled(features::kAutofillUseCAAddressModel)) {
+    return false;
+  }
+
   if (country_code == AddressCountryCode("DE") &&
       !base::FeatureList::IsEnabled(features::kAutofillUseDEAddressModel)) {
     return false;
   }
 
+  if (country_code == AddressCountryCode("FR") &&
+      !base::FeatureList::IsEnabled(features::kAutofillUseFRAddressModel)) {
+    return false;
+  }
+
   if (country_code == AddressCountryCode("IN") &&
       !base::FeatureList::IsEnabled(features::kAutofillUseINAddressModel)) {
+    return false;
+  }
+
+  if (country_code == AddressCountryCode("IT") &&
+      !base::FeatureList::IsEnabled(features::kAutofillUseITAddressModel)) {
     return false;
   }
 

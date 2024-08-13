@@ -64,14 +64,8 @@ gpu::ContextSupport* GetContextSupport() {
 
 }  // namespace
 
-// static
-bool Canvas2DLayerBridge::IsHibernationEnabled() {
-  return base::FeatureList::IsEnabled(features::kCanvas2DHibernation);
-}
-
 Canvas2DLayerBridge::Canvas2DLayerBridge()
     : logger_(std::make_unique<Logger>()),
-      snapshot_state_(kInitialSnapshotState),
       resource_host_(nullptr) {
   // Used by browser tests to detect the use of a Canvas2DLayerBridge.
   TRACE_EVENT_INSTANT0("test_gpu", "Canvas2DLayerBridgeCreation",
@@ -92,8 +86,10 @@ void Canvas2DLayerBridge::ResetResourceProvider() {
     resource_host_->ReplaceResourceProvider(nullptr);
 }
 
-static void HibernateWrapper(base::WeakPtr<Canvas2DLayerBridge> bridge,
-                             base::TimeTicks /*idleDeadline*/) {
+// static
+void Canvas2DLayerBridge::HibernateOrLogFailure(
+    base::WeakPtr<Canvas2DLayerBridge> bridge,
+    base::TimeTicks /*idleDeadline*/) {
   if (bridge) {
     bridge->Hibernate();
   } else {
@@ -138,15 +134,7 @@ void Canvas2DLayerBridge::Hibernate() {
   // No HibernationEvent reported on success. This is on purppose to avoid
   // non-complementary stats. Each HibernationScheduled event is paired with
   // exactly one failure or exit event.
-  FlushRecording(FlushReason::kHibernating);
-  // The following checks that the flush succeeded, which should always be the
-  // case because flushRecording should only fail it it fails to allocate
-  // a surface, and we have an early exit at the top of this function for when
-  // 'this' does not already have a surface.
-  DCHECK(
-      !resource_host_->ResourceProvider()->Recorder().HasReleasableDrawOps());
-  SkPaint copy_paint;
-  copy_paint.setBlendMode(SkBlendMode::kSrc);
+  resource_host_->FlushRecording(FlushReason::kHibernating);
   scoped_refptr<StaticBitmapImage> snapshot =
       resource_host_->ResourceProvider()->Snapshot(FlushReason::kHibernating);
   if (!snapshot) {
@@ -270,15 +258,15 @@ void Canvas2DLayerBridge::PageVisibilityChanged() {
     }
   }
 
-  if (IsHibernationEnabled() && ResourceProvider() &&
+  if (features::IsCanvas2DHibernationEnabled() && ResourceProvider() &&
       resource_host_->GetRasterMode() == RasterMode::kGPU && !page_is_visible &&
       !hibernation_scheduled_) {
     resource_host_->ClearLayerTexture();
     logger_->ReportHibernationEvent(kHibernationScheduled);
     hibernation_scheduled_ = true;
     ThreadScheduler::Current()->PostIdleTask(
-        FROM_HERE,
-        WTF::BindOnce(&HibernateWrapper, weak_ptr_factory_.GetWeakPtr()));
+        FROM_HERE, WTF::BindOnce(&Canvas2DLayerBridge::HibernateOrLogFailure,
+                                 weak_ptr_factory_.GetWeakPtr()));
   }
 
   // The impl tree may have dropped the transferable resource for this canvas
@@ -338,31 +326,12 @@ bool Canvas2DLayerBridge::WritePixels(const SkImageInfo& orig_info,
       recorder.RestartRecording();
     }
   } else {
-    FlushRecording(FlushReason::kWritePixels);
+    resource_host_->FlushRecording(FlushReason::kWritePixels);
     if (!GetOrCreateResourceProvider())
       return false;
   }
 
   return ResourceProvider()->WritePixels(orig_info, pixels, row_bytes, x, y);
-}
-
-void Canvas2DLayerBridge::FlushRecording(FlushReason reason) {
-  CHECK(resource_host_);
-  CanvasResourceProvider* provider = GetOrCreateResourceProvider();
-  if (!provider || !provider->Recorder().HasReleasableDrawOps()) {
-    return;
-  }
-
-  TRACE_EVENT0("cc", "Canvas2DLayerBridge::flushRecording");
-
-  ResourceProvider()->FlushCanvas(reason);
-
-  // Rastering the recording would have locked images, since we've flushed
-  // all recorded ops, we should release all locked images as well.
-  // A new null check on the resource provider is necessary just in case
-  // the playback crashed the context.
-  if (GetOrCreateResourceProvider())
-    ResourceProvider()->ReleaseLockedImages();
 }
 
 bool Canvas2DLayerBridge::Restore() {
@@ -411,7 +380,7 @@ void Canvas2DLayerBridge::FinalizeFrame(FlushReason reason) {
   if (!GetOrCreateResourceProvider())
     return;
 
-  FlushRecording(reason);
+  resource_host_->FlushRecording(reason);
   if (reason == FlushReason::kCanvasPushFrame) {
     if (resource_host_->IsDisplayed()) {
       // Make sure the GPU is never more than two animation frames behind.
@@ -433,8 +402,6 @@ void Canvas2DLayerBridge::FinalizeFrame(FlushReason reason) {
 scoped_refptr<StaticBitmapImage> Canvas2DLayerBridge::NewImageSnapshot(
     FlushReason reason) {
   CHECK(resource_host_);
-  if (snapshot_state_ == kInitialSnapshotState)
-    snapshot_state_ = kDidAcquireSnapshot;
   if (IsHibernating()) {
     return UnacceleratedStaticBitmapImage::Create(
         hibernation_handler_.GetImage());
@@ -447,7 +414,7 @@ scoped_refptr<StaticBitmapImage> Canvas2DLayerBridge::NewImageSnapshot(
   // FlushRecording, in case the playback crashed the GPU context.
   if (!GetOrCreateResourceProvider())
     return nullptr;
-  FlushRecording(reason);
+  resource_host_->FlushRecording(reason);
   if (!GetOrCreateResourceProvider())
     return nullptr;
   return ResourceProvider()->Snapshot(reason);

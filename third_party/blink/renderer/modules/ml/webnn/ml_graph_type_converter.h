@@ -24,7 +24,7 @@ uint64_t NextOperandId(const webnn::mojom::blink::GraphInfo& graph_info);
 
 std::optional<String> SerializeMojoOperation(
     const HeapHashMap<Member<const MLOperand>, uint64_t>& operand_to_id_map,
-    const webnn::mojom::blink::ContextProperties& context_properties,
+    const webnn::ContextProperties& context_properties,
     const MLOperator* op,
     webnn::mojom::blink::GraphInfo* graph_info);
 
@@ -37,9 +37,6 @@ struct TypeConverter<webnn::mojom::blink::OperandPtr, blink::MLOperand*> {
   static webnn::mojom::blink::OperandPtr Convert(
       const blink::MLOperand* ml_operand);
 };
-
-MODULES_EXPORT webnn::mojom::blink::Operand::DataType BlinkOperandTypeToMojo(
-    blink::V8MLOperandDataType::Enum data_type);
 
 }  // namespace mojo
 

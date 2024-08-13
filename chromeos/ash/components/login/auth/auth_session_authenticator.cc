@@ -342,12 +342,7 @@ void AuthSessionAuthenticator::DoCompleteLogin(
         // If Local passwords are enabled, password setup would
         // happen later in OOBE flow.
       }
-    }       // challenge-response
-    // In addition to factors suitable for authentication, fetch a set of
-    // supported factor types for new users.
-    steps.push_back(
-        base::BindOnce(&AuthFactorEditor::GetAuthFactorsConfiguration,
-                       auth_factor_editor_->AsWeakPtr()));
+    }  // challenge-response
   } else {  // existing user
     if (!challenge_response_auth) {
       // Password-based login
@@ -390,6 +385,10 @@ void AuthSessionAuthenticator::DoCompleteLogin(
                          weak_factory_.GetWeakPtr()));
     }
   }
+  // In addition to factors suitable for authentication, fetch a set of
+  // supported factor for users.
+  steps.push_back(base::BindOnce(&AuthFactorEditor::GetAuthFactorsConfiguration,
+                                 auth_factor_editor_->AsWeakPtr()));
   AuthSuccessCallback success_callback = base::BindOnce(
       &AuthSessionAuthenticator::NotifyAuthSuccess, weak_factory_.GetWeakPtr());
 
@@ -446,15 +445,6 @@ void AuthSessionAuthenticator::AuthenticateToUnlock(
   }
 
   AuthSessionIntent intent = AuthSessionIntent::kVerifyOnly;
-
-  // Full authentication is needed to restore keyset. It is only for
-  // non-ephemeral user sessions.
-  if (switches::ShouldRestoreKeyOnLockScreen() && !ephemeral) {
-    LOGIN_LOG(EVENT)
-        << "AuthenticateToUnlock starts AuthSession for restore_key to "
-           "restore filesystem keyset.";
-    intent = AuthSessionIntent::kRestoreKey;
-  }
 
   StartAuthSessionForLoggedIn(
       ephemeral, std::move(user_context), intent,
@@ -571,10 +561,6 @@ void AuthSessionAuthenticator::DoUnlock(
         base::BindOnce(&AuthPerformer::AuthenticateUsingKnowledgeKey,
                        auth_performer_->AsWeakPtr()));
   }
-  if (switches::ShouldRestoreKeyOnLockScreen() && !ephemeral) {
-    steps.push_back(base::BindOnce(&MountPerformer::RestoreEvictedVaultKey,
-                                   mount_performer_->AsWeakPtr()));
-  }
 
   RunOperationChain(std::move(context), std::move(steps),
                     std::move(success_callback), std::move(error_callback));
@@ -672,13 +658,6 @@ void AuthSessionAuthenticator::LoginAsKioskAccount(
     bool ephemeral) {
   LoginAsKioskImpl(app_account_id, user_manager::UserType::kKioskApp,
                    /*force_dircrypto=*/false, /*ephemeral=*/ephemeral);
-}
-
-void AuthSessionAuthenticator::LoginAsArcKioskAccount(
-    const AccountId& app_account_id,
-    bool ephemeral) {
-  // TODO(b/336756417): Remove this method
-  NOTREACHED_NORETURN();
 }
 
 void AuthSessionAuthenticator::LoginAsWebKioskAccount(
@@ -1033,11 +1012,11 @@ bool AuthSessionAuthenticator::ResolveCryptohomeError(
     return true;
   }
 
-      // We need the default case here so that it is possible to add new
-      // CryptohomeErrorCode, because CryptohomeErrorCode is defined in another
-      // repo.
-      // However, we should seek to handle all CryptohomeErrorCode and not let
-      // any of them hit the default block.
+  // We need the default case here so that it is possible to add new
+  // CryptohomeErrorCode, because CryptohomeErrorCode is defined in another
+  // repo.
+  // However, we should seek to handle all CryptohomeErrorCode and not let
+  // any of them hit the default block.
   NOTREACHED_IN_MIGRATION()
       << "Unhandled CryptohomeError in ProcessCryptohomeError"
          ": "

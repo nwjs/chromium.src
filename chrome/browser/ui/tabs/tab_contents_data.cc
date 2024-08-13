@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "base/containers/adapters.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
@@ -24,6 +25,7 @@ class TabContentsDataImpl : public TabContentsData {
   TabContentsDataImpl& operator=(const TabContentsDataImpl&) = delete;
 
   size_t TabCountRecursive() const override;
+  size_t IndexOfFirstNonPinnedTab() const override;
 
   tabs::TabModel* GetTabAtIndexRecursive(size_t index) const override;
 
@@ -59,7 +61,7 @@ class TabContentsDataImpl : public TabContentsData {
 };
 
 std::unique_ptr<TabContentsData> CreateTabContentsDataImpl() {
-  if (base::FeatureList::IsEnabled(features::kTabStripCollectionStorage)) {
+  if (base::FeatureList::IsEnabled(tabs::kTabStripCollectionStorage)) {
     return std::make_unique<tabs::TabStripCollection>();
   } else {
     return std::make_unique<TabContentsDataImpl>();
@@ -67,6 +69,15 @@ std::unique_ptr<TabContentsData> CreateTabContentsDataImpl() {
 }
 
 size_t TabContentsDataImpl::TabCountRecursive() const {
+  return contents_data_.size();
+}
+
+size_t TabContentsDataImpl::IndexOfFirstNonPinnedTab() const {
+  for (size_t i = 0; i < contents_data_.size(); ++i) {
+    if (!contents_data_[i].get()->pinned()) {
+      return i;
+    }
+  }
   return contents_data_.size();
 }
 

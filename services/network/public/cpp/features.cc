@@ -94,6 +94,13 @@ BASE_FEATURE(kCrossOriginOpenerPolicyByDefault,
              "CrossOriginOpenerPolicyByDefault",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables the "noopener-allow-popups" COOP value, which lets a document to
+// severe its opener relationship with the document that opened it.
+// https://github.com/whatwg/html/pull/10394
+BASE_FEATURE(kCoopNoopenerAllowPopups,
+             "CoopNoopenerAllowPopups",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Introduce a new COOP value: restrict-properties. It restricts window
 // properties that can be accessed by other pages. This also grants
 // crossOriginIsolated if coupled with an appropriate COEP header.
@@ -155,29 +162,11 @@ BASE_FEATURE(kMdnsResponderGeneratedNameListing,
              "MdnsResponderGeneratedNameListing",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables ORB blocked responses being treated as errors (according to the spec)
-// rather than the current, CORB-style handling of injecting an empty response.
-// This exempts fetches initiated by scripts. (Technically, fetches with an
-// empty destination.)
-// This is ORB v0.2.
-// Implementing ORB in Chromium is tracked in https://crbug.com/1178928
-BASE_FEATURE(kOpaqueResponseBlockingV02,
-             "OpaqueResponseBlockingV02",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Treat ORB blocked responses to script-initiated fetches as errors too.
 // Complements ORB v0.2, which exempts script-initiated fetches.
 // Implementing ORB in Chromium is tracked in https://crbug.com/1178928
 BASE_FEATURE(kOpaqueResponseBlockingErrorsForAllFetches,
              "OpaqueResponseBlockingErrorsForAllFetches",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables preprocessing the Attribution API's trigger registration ping
-// requests, potentially adding verification headers, and handling their
-// responses. (See
-// https://github.com/WICG/attribution-reporting-api/blob/main/report_verification.md)
-BASE_FEATURE(kAttributionReportingReportVerification,
-             "AttributionReportingReportVerification",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Gate access to Attribution Reporting cross app and web APIs that allow
@@ -328,10 +317,6 @@ BASE_FEATURE(kCorsNonWildcardRequestHeadersSupport,
              "CorsNonWildcardRequestHeadersSupport",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kNetworkServiceMemoryCache,
-             "NetworkServiceMemoryCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Do not send TLS client certificates in CORS preflight. Omit all client certs
 // and continue the handshake without sending one if requested.
 BASE_FEATURE(kOmitCorsClientCert,
@@ -361,15 +346,6 @@ const base::FeatureParam<base::TimeDelta> kReduceAcceptLanguageCacheDuration{
     &kReduceAcceptLanguage, "reduce-accept-language-cache-duration",
     base::Days(30)};
 
-// Gate access to ReduceAcceptLanguage origin trial major code. Currently, All
-// ReduceAcceptLanguage feature codes are guarded by the feature flag
-// kReduceAcceptLanguage. This feature flag is useful on control major code
-// which required to do origin trial. It allows Chrome developers to mitigate
-// issues when exposed codes cause impacts.
-BASE_FEATURE(kReduceAcceptLanguageOriginTrial,
-             "ReduceAcceptLanguageOriginTrial",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Reduce PNA preflight response waiting time to 200ms.
 // See: https://wicg.github.io/private-network-access/#cors-preflight
 BASE_FEATURE(kPrivateNetworkAccessPreflightShortTimeout,
@@ -391,13 +367,6 @@ BASE_FEATURE(kPrivateNetworkAccessPermissionPrompt,
 BASE_FEATURE(kAccessControlAllowMethodsInCORSPreflightSpecConformant,
              "AccessControlAllowMethodsInCORSPreflightSpecConformant",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPrefetchNoVarySearch,
-             "PrefetchNoVarySearch",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-const base::FeatureParam<bool> kPrefetchNoVarySearchShippedByDefault{
-    &kPrefetchNoVarySearch, "shipped_by_default", true};
 
 // If enabled, then the network service will parse the Cookie-Indices header.
 // This does not currently control changing cache behavior according to the
@@ -433,23 +402,10 @@ BASE_FEATURE(kCompressionDictionaryTransport,
              "CompressionDictionaryTransport",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When this feature is enabled, Chromium can use stored shared dictionaries
-// even when the connection is using HTTP/1 for non-localhost requests.
-BASE_FEATURE(kCompressionDictionaryTransportOverHttp1,
-             "CompressionDictionaryTransportOverHttp1",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When this feature is enabled, Chromium can use stored shared dictionaries
-// even when the connection is using HTTP/2 for non-localhost requests.
-BASE_FEATURE(kCompressionDictionaryTransportOverHttp2,
-             "CompressionDictionaryTransportOverHttp2",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When this feature is enabled, Chromium will use stored shared dictionaries
-// only if the request URL is a localhost URL or the transport layer is using a
-// certificate rooted at a standard CA root.
-BASE_FEATURE(kCompressionDictionaryTransportRequireKnownRootCert,
-             "CompressionDictionaryTransportRequireKnownRootCert",
+// When this feature is enabled, preloaded dictionaries will not be used for
+// network requests if the binary has not yet been preloaded.
+BASE_FEATURE(kPreloadedDictionaryConditionalUse,
+             "PreloadedDictionaryConditionalUse",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kVisibilityAwareResourceScheduler,

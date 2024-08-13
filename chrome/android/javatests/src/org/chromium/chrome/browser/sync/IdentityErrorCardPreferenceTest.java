@@ -24,6 +24,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -34,7 +35,7 @@ import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridgeJni;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
-import org.chromium.chrome.browser.sync.settings.AccountManagementFragment;
+import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -42,15 +43,15 @@ import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.signin.base.GoogleServiceAuthError;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.test.util.ViewUtils;
 
 /** Test suite for IdentityErrorCardPreference */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
 public class IdentityErrorCardPreferenceTest {
-    public final SettingsActivityTestRule<AccountManagementFragment> mSettingsActivityTestRule =
-            new SettingsActivityTestRule<>(AccountManagementFragment.class);
+    public final SettingsActivityTestRule<ManageSyncSettings> mSettingsActivityTestRule =
+            new SettingsActivityTestRule<>(ManageSyncSettings.class);
 
     public final ChromeTabbedActivityTestRule mActivityTestRule =
             new ChromeTabbedActivityTestRule();
@@ -87,7 +88,7 @@ public class IdentityErrorCardPreferenceTest {
 
         mActivityTestRule.startMainActivityOnBlankPage();
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mFakeSyncServiceImpl = new FakeSyncServiceImpl();
                     SyncServiceFactory.setInstanceForTesting(mFakeSyncServiceImpl);
@@ -256,17 +257,17 @@ public class IdentityErrorCardPreferenceTest {
         mSigninTestRule.addTestAccountThenSignin();
 
         mSettingsActivityTestRule.startSettingsActivity();
-        onView(withId(R.id.identity_error_card)).check(doesNotExist());
+        onView(withId(R.id.signin_settings_card)).check(doesNotExist());
     }
 
     private View getIdentityErrorCardView() {
-        ViewUtils.waitForVisibleView(withId(R.id.identity_error_card));
+        ViewUtils.waitForVisibleView(withId(R.id.signin_settings_card));
         View view =
-                TestThreadUtils.runOnUiThreadBlockingNoException(
+                ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             return mSettingsActivityTestRule
                                     .getActivity()
-                                    .findViewById(R.id.identity_error_card);
+                                    .findViewById(R.id.signin_settings_card);
                         });
         Assert.assertNotNull("No identity error card view found.", view);
         return view;

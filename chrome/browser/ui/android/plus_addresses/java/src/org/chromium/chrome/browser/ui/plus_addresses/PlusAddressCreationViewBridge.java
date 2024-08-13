@@ -62,12 +62,13 @@ public class PlusAddressCreationViewBridge {
                 PlusAddressCreationViewBridge bridge,
                 String modalTitle,
                 String plusAddressDescription,
+                @Nullable String plusAddressNotice,
                 String proposedPlusAddressPlaceholder,
                 String plusAddressModalOkText,
-                String plusAddressModalCancelText,
+                @Nullable String plusAddressModalCancelText,
                 String errorReportInstruction,
                 boolean refreshSupported,
-                GURL manageUrl,
+                GURL learnMoreUrl,
                 GURL errorReportUrl);
     }
 
@@ -89,11 +90,12 @@ public class PlusAddressCreationViewBridge {
     void show(
             String modalTitle,
             String plusAddressDescription,
+            @Nullable String plusAddressNotice,
             String proposedPlusAddressPlaceholder,
             String plusAddressModalOkText,
-            String plusAddressModalCancelText,
+            @Nullable String plusAddressModalCancelText,
             String errorReportInstruction,
-            String manageUrl,
+            String learnMoreUrl,
             String errorReportUrl,
             boolean refreshSupported) {
         if (mNativePlusAddressCreationPromptAndroid != 0) {
@@ -107,12 +109,13 @@ public class PlusAddressCreationViewBridge {
                             this,
                             modalTitle,
                             plusAddressDescription,
+                            plusAddressNotice,
                             proposedPlusAddressPlaceholder,
                             plusAddressModalOkText,
                             plusAddressModalCancelText,
                             errorReportInstruction,
                             refreshSupported,
-                            new GURL(manageUrl),
+                            new GURL(learnMoreUrl),
                             new GURL(errorReportUrl));
             mCoordinator.requestShowContent();
         }

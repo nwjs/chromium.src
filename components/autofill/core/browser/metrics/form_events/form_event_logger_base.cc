@@ -25,8 +25,6 @@
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
 #include "components/autofill/core/common/unique_ids.h"
 
-using base::UmaHistogramBoolean;
-
 namespace autofill::autofill_metrics {
 
 namespace {
@@ -132,7 +130,7 @@ void FormEventLoggerBase::OnUserHideSuggestions(const FormStructure& form,
 void FormEventLoggerBase::OnDidShowSuggestions(
     const FormStructure& form,
     const AutofillField& field,
-    const base::TimeTicks& form_parsed_timestamp,
+    base::TimeTicks form_parsed_timestamp,
     AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
     bool off_the_record) {
   signin_state_for_metrics_ = signin_state_for_metrics;
@@ -153,8 +151,8 @@ void FormEventLoggerBase::OnDidShowSuggestions(
 
 void FormEventLoggerBase::RecordFillingOperation(
     FormGlobalId form_id,
-    base::span<const FormFieldData*> filled_fields,
-    base::span<const AutofillField*> filled_autofill_fields) {
+    base::span<const FormFieldData* const> filled_fields,
+    base::span<const AutofillField* const> filled_autofill_fields) {
   ++filling_operation_count_;
   bool is_address =
       parsed_form_types_.contains(FormTypeNameForLogging::kAddressForm);
@@ -215,7 +213,7 @@ void FormEventLoggerBase::OnWillSubmitForm(
   if (has_logged_will_submit_)
     return;
   has_logged_will_submit_ = true;
-  submitted_form_types_ = form.GetFormTypes();
+  submitted_form_types_ = GetFormTypesForLogging(form);
 
   // Determine whether logging of email-heuristic only metrics is required.
   is_heuristic_only_email_form_ = (is_heuristic_only_email_form_ ||
@@ -332,8 +330,8 @@ void FormEventLoggerBase::Log(FormEvent event, const FormStructure& form) {
 
   // Log UKM metrics for only autofillable form events.
   if (form.IsAutofillable()) {
-    form_interactions_ukm_logger_->LogFormEvent(event, form.GetFormTypes(),
-                                                form.form_parsed_timestamp());
+    form_interactions_ukm_logger_->LogFormEvent(
+        event, GetFormTypesForLogging(form), form.form_parsed_timestamp());
   }
 }
 
@@ -360,7 +358,7 @@ void FormEventLoggerBase::LogFormSubmitted(const FormStructure& form) {
 void FormEventLoggerBase::RecordFunnelMetrics() const {
   for (FormTypeNameForLogging form_type :
        GetSupportedFormTypeNamesForLogging()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat({"Autofill.Funnel.ParsedAsType.",
                       FormTypeNameForLoggingToStringView(form_type)}),
         has_parsed_form_ && parsed_form_types_.contains(form_type));
@@ -393,7 +391,7 @@ void FormEventLoggerBase::RecordFunnelMetrics() const {
 void FormEventLoggerBase::RecordInteractionAfterParsedAsType(
     LogBuffer& logs) const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat(
             {"Autofill.Funnel.InteractionAfterParsedAsType.", form_type}),
         has_logged_interacted_);
@@ -405,7 +403,7 @@ void FormEventLoggerBase::RecordInteractionAfterParsedAsType(
 void FormEventLoggerBase::RecordSuggestionAfterInteraction(
     LogBuffer& logs) const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat(
             {"Autofill.Funnel.SuggestionAfterInteraction.", form_type}),
         has_logged_suggestions_shown_);
@@ -416,7 +414,7 @@ void FormEventLoggerBase::RecordSuggestionAfterInteraction(
 
 void FormEventLoggerBase::RecordFillAfterSuggestion(LogBuffer& logs) const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat({"Autofill.Funnel.FillAfterSuggestion.", form_type}),
         has_logged_form_filling_suggestion_filled_);
   }
@@ -426,7 +424,7 @@ void FormEventLoggerBase::RecordFillAfterSuggestion(LogBuffer& logs) const {
 
 void FormEventLoggerBase::RecordSubmissionAfterFill(LogBuffer& logs) const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat({"Autofill.Funnel.SubmissionAfterFill.", form_type}),
         has_logged_will_submit_);
   }
@@ -476,7 +474,7 @@ void FormEventLoggerBase::RecordKeyMetrics() const {
 void FormEventLoggerBase::RecordFillingReadiness(LogBuffer& logs) const {
   bool has_logged_data_to_fill_available = HasLoggedDataToFillAvailable();
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat({"Autofill.KeyMetrics.FillingReadiness.", form_type}),
         has_logged_data_to_fill_available);
   }
@@ -486,10 +484,10 @@ void FormEventLoggerBase::RecordFillingReadiness(LogBuffer& logs) const {
 
 void FormEventLoggerBase::RecordFillingAcceptance(LogBuffer& logs) const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat({"Autofill.KeyMetrics.FillingAcceptance.", form_type}),
         has_logged_form_filling_suggestion_filled_);
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat({"Autofill.Autocomplete.",
                       (has_logged_autocomplete_off_ ? "Off" : "NotOff"),
                       ".FillingAcceptance.", form_type}),
@@ -502,14 +500,14 @@ void FormEventLoggerBase::RecordFillingAcceptance(LogBuffer& logs) const {
   // form meets the requirements expressed in
   // `DetermineHeuristicOnlyEmailFormStatus`.
   if (is_heuristic_only_email_form_) {
-    UmaHistogramBoolean("Autofill.EmailHeuristicOnlyAcceptance",
-                        has_logged_form_filling_suggestion_filled_);
+    base::UmaHistogramBoolean("Autofill.EmailHeuristicOnlyAcceptance",
+                              has_logged_form_filling_suggestion_filled_);
   }
 }
 
 void FormEventLoggerBase::RecordFillingCorrectness(LogBuffer& logs) const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat({"Autofill.KeyMetrics.FillingCorrectness.", form_type}),
         !has_logged_edited_autofilled_field_);
   }
@@ -519,7 +517,7 @@ void FormEventLoggerBase::RecordFillingCorrectness(LogBuffer& logs) const {
 
 void FormEventLoggerBase::RecordFillingAssistance(LogBuffer& logs) const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat({"Autofill.KeyMetrics.FillingAssistance.", form_type}),
         has_logged_form_filling_suggestion_filled_);
   }
@@ -529,7 +527,7 @@ void FormEventLoggerBase::RecordFillingAssistance(LogBuffer& logs) const {
 
 void FormEventLoggerBase::RecordFormSubmission(LogBuffer& logs) const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
-    UmaHistogramBoolean(
+    base::UmaHistogramBoolean(
         base::StrCat(
             {"Autofill.KeyMetrics.FormSubmission.",
              (has_logged_form_filling_suggestion_filled_ ? "Autofilled."
@@ -555,7 +553,7 @@ void FormEventLoggerBase::RecordAblationMetrics() const {
   for (std::string_view form_type : GetParsedFormTypesAsStringViews()) {
     // AblationGroup::kDefault is mapped to nullptr.
     if (conditional_ablation_group_string) {
-      UmaHistogramBoolean(
+      base::UmaHistogramBoolean(
           base::StrCat({"Autofill.Ablation.FormSubmissionAfterInteraction.",
                         form_type, ".Conditional",
                         conditional_ablation_group_string}),
@@ -564,7 +562,7 @@ void FormEventLoggerBase::RecordAblationMetrics() const {
 
     // AblationGroup::kDefault is mapped to nullptr.
     if (ablation_group_string) {
-      UmaHistogramBoolean(
+      base::UmaHistogramBoolean(
           base::StrCat({"Autofill.Ablation.FormSubmissionAfterInteraction.",
                         form_type, ".Unconditional", ablation_group_string}),
           has_logged_will_submit_);

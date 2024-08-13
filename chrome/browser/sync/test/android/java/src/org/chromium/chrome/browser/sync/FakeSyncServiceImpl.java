@@ -14,18 +14,18 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.base.GoogleServiceAuthError;
+import org.chromium.components.sync.LocalDataDescription;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.SyncServiceImpl;
 import org.chromium.components.sync.UserSelectableType;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
-import java.util.Date;
+import java.util.HashMap;
 import java.util.Set;
 
 /**
  * Fake some SyncService methods for testing.
  *
- * Only what has been needed for tests so far has been faked.
+ * <p>Only what has been needed for tests so far has been faked.
  */
 public class FakeSyncServiceImpl implements SyncService {
     private final SyncService mDelegate;
@@ -38,6 +38,7 @@ public class FakeSyncServiceImpl implements SyncService {
     private boolean mEncryptEverythingEnabled;
     private boolean mRequiresClientUpgrade;
     @GoogleServiceAuthError.State private int mAuthError;
+    private Set<Integer> mTypesWithUnsyncedData = Set.of();
 
     public FakeSyncServiceImpl() {
         mDelegate = SyncServiceFactory.getForProfile(ProfileManager.getLastUsedRegularProfile());
@@ -51,7 +52,7 @@ public class FakeSyncServiceImpl implements SyncService {
 
     @AnyThread
     public void setEngineInitialized(boolean engineInitialized) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mEngineInitialized = engineInitialized;
                     notifySyncStateChanged();
@@ -66,7 +67,7 @@ public class FakeSyncServiceImpl implements SyncService {
 
     @AnyThread
     public void setAuthError(@GoogleServiceAuthError.State int authError) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mAuthError = authError;
                     notifySyncStateChanged();
@@ -88,7 +89,7 @@ public class FakeSyncServiceImpl implements SyncService {
     @AnyThread
     public void setPassphraseRequiredForPreferredDataTypes(
             boolean passphraseRequiredForPreferredDataTypes) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mPassphraseRequiredForPreferredDataTypes =
                             passphraseRequiredForPreferredDataTypes;
@@ -104,7 +105,7 @@ public class FakeSyncServiceImpl implements SyncService {
 
     @AnyThread
     public void setTrustedVaultKeyRequired(boolean trustedVaultKeyRequired) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTrustedVaultKeyRequired = trustedVaultKeyRequired;
                     notifySyncStateChanged();
@@ -120,7 +121,7 @@ public class FakeSyncServiceImpl implements SyncService {
     @AnyThread
     public void setTrustedVaultKeyRequiredForPreferredDataTypes(
             boolean trustedVaultKeyRequiredForPreferredDataTypes) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTrustedVaultKeyRequiredForPreferredDataTypes =
                             trustedVaultKeyRequiredForPreferredDataTypes;
@@ -136,7 +137,7 @@ public class FakeSyncServiceImpl implements SyncService {
 
     @AnyThread
     public void setTrustedVaultRecoverabilityDegraded(boolean recoverabilityDegraded) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTrustedVaultRecoverabilityDegraded = recoverabilityDegraded;
                     notifySyncStateChanged();
@@ -157,7 +158,7 @@ public class FakeSyncServiceImpl implements SyncService {
 
     @AnyThread
     public void setRequiresClientUpgrade(boolean requiresClientUpgrade) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mRequiresClientUpgrade = requiresClientUpgrade;
                     notifySyncStateChanged();
@@ -166,9 +167,23 @@ public class FakeSyncServiceImpl implements SyncService {
 
     @AnyThread
     public void setEncryptEverythingEnabled(boolean encryptEverythingEnabled) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mEncryptEverythingEnabled = encryptEverythingEnabled;
+                });
+    }
+
+    @Override
+    public void getTypesWithUnsyncedData(Callback<Set<Integer>> callback) {
+        ThreadUtils.assertOnUiThread();
+        callback.onResult(mTypesWithUnsyncedData);
+    }
+
+    @AnyThread
+    public void setTypesWithUnsyncedData(Set<Integer> typesWithUnsyncedData) {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mTypesWithUnsyncedData = typesWithUnsyncedData;
                 });
     }
 
@@ -223,8 +238,14 @@ public class FakeSyncServiceImpl implements SyncService {
     }
 
     @Override
-    public void getTypesWithUnsyncedData(Callback<Set<Integer>> callback) {
-        mDelegate.getTypesWithUnsyncedData(callback);
+    public void getLocalDataDescriptions(
+            Set<Integer> types, Callback<HashMap<Integer, LocalDataDescription>> callback) {
+        mDelegate.getLocalDataDescriptions(types, callback);
+    }
+
+    @Override
+    public void triggerLocalDataMigration(Set<Integer> types) {
+        mDelegate.triggerLocalDataMigration(types);
     }
 
     @Override
@@ -285,12 +306,6 @@ public class FakeSyncServiceImpl implements SyncService {
     @Override
     public int getPassphraseType() {
         return mDelegate.getPassphraseType();
-    }
-
-    @Nullable
-    @Override
-    public Date getExplicitPassphraseTime() {
-        return mDelegate.getExplicitPassphraseTime();
     }
 
     @Override

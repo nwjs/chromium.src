@@ -23,10 +23,10 @@ ci.defaults.set(
     builder_group = "chromium",
     pool = ci.DEFAULT_POOL,
     os = os.LINUX_DEFAULT,
+    gardener_rotations = gardener_rotations.CHROMIUM,
     tree_closing = True,
     main_console_view = "main",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
-    gardener_rotations = gardener_rotations.CHROMIUM,
     health_spec = health_spec.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
@@ -83,6 +83,7 @@ ci.builder(
             "remoteexec",
             "minimal_symbols",
             "strip_debug_info",
+            "arm",
         ],
     ),
     targets = targets.bundle(
@@ -192,6 +193,7 @@ ci.builder(
             "remoteexec",
             "android_builder_without_codecs",
             "full_symbols",
+            "arm",
         ],
     ),
     targets = targets.bundle(
@@ -236,6 +238,7 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "use_cups",
+            "x64",
         ],
     ),
     targets = targets.bundle(
@@ -315,19 +318,20 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "also_build_ash_chrome",
+            "x64",
         ],
     ),
     targets = targets.bundle(
         additional_compile_targets = "chrome",
     ),
     cores = 8,
+    # TODO(crbug.com/40238185): Turn on when stable.
+    gardener_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "lacros",
         short_name = "lnx",
     ),
-    # TODO(crbug.com/40238185): Turn on when stable.
-    gardener_rotations = args.ignore_default(None),
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -375,6 +379,7 @@ ci.builder(
             "ozone_headless",
             "lacros",
             "release",
+            "x64",
         ],
     ),
     # If tests get added to this builder, it will need to specify os_type chromeos
@@ -434,6 +439,7 @@ ci.builder(
             "ozone_headless",
             "lacros",
             "release",
+            "arm",
         ],
     ),
     # If tests get added to this builder, it will need to specify os_type chromeos
@@ -493,6 +499,7 @@ ci.builder(
             "ozone_headless",
             "lacros",
             "release",
+            "arm64",
         ],
     ),
     # If tests get added to this builder, it will need to specify os_type chromeos
@@ -500,13 +507,13 @@ ci.builder(
         additional_compile_targets = "chrome",
     ),
     cores = 32,
+    gardener_rotations = args.ignore_default(None),
     # TODO(crbug.com/40238619): Enable tree_closing/gardening when stable.
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "lacros",
         short_name = "arm64",
     ),
-    gardener_rotations = args.ignore_default(None),
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -545,6 +552,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "updater",
+            "linux",
+            "x64",
         ],
     ),
     targets = targets.bundle(
@@ -590,19 +599,19 @@ ci.builder(
         ),
     ),
     gn_args = gn_args.config(
-        configs = ["official_optimize", "remoteexec"],
+        configs = ["official_optimize", "remoteexec", "linux", "x64"],
     ),
     targets = targets.bundle(
         additional_compile_targets = "all",
     ),
     builderless = False,
     cores = 32,
+    gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "linux",
         short_name = "off",
     ),
     execution_timeout = 7 * time.hour,
-    gardener_rotations = args.ignore_default(None),
     health_spec = health_spec.modified_default({
         "Unhealthy": health_spec.unhealthy_thresholds(
             build_time = struct(
@@ -635,13 +644,15 @@ ci.builder(
             "remoteexec",
             "mac_strip",
             "minimal_symbols",
+            "mac",
+            "x64",
         ],
     ),
     targets = targets.bundle(
         additional_compile_targets = "all",
     ),
-    cores = 12,
     os = os.MAC_DEFAULT,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "mac",
         short_name = "rel",
@@ -683,6 +694,7 @@ ci.builder(
             "remoteexec",
             "mac_strip",
             "minimal_symbols",
+            "mac",
             "arm64",
         ],
     ),
@@ -734,6 +746,8 @@ ci.builder(
         configs = [
             "official_optimize",
             "remoteexec",
+            "mac",
+            "arm64",
         ],
     ),
     targets = targets.bundle(
@@ -774,6 +788,8 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "minimal_symbols",
+            "win",
+            "x64",
         ],
     ),
     targets = targets.bundle(
@@ -825,6 +841,7 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "minimal_symbols",
+            "win",
             "arm64",
         ],
     ),
@@ -836,14 +853,14 @@ ci.builder(
     cores = 32,
     os = os.WINDOWS_DEFAULT,
     # TODO(crbug.com/335863313): Enable when verified.
+    gardener_rotations = args.ignore_default(None),
+    # TODO(crbug.com/335863313): Enable when verified.
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "win|rel",
         short_name = "arm64",
     ),
     contact_team_email = "chrome-desktop-engprod@google.com",
-    # TODO(crbug.com/335863313): Enable when verified.
-    gardener_rotations = args.ignore_default(None),
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -881,6 +898,8 @@ ci.builder(
             "official_optimize",
             "remoteexec",
             "minimal_symbols",
+            "win",
+            "x64",
         ],
     ),
     targets = targets.bundle(
@@ -925,6 +944,7 @@ ci.builder(
             "remoteexec",
             "x86",
             "minimal_symbols",
+            "win",
         ],
     ),
     targets = targets.bundle(
@@ -975,6 +995,7 @@ ci.builder(
         configs = [
             "official_optimize",
             "remoteexec",
+            "win",
             "x86",
         ],
     ),

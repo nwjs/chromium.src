@@ -7,11 +7,11 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
-#include "components/ml/webnn/features.mojom-features.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/webnn/dml/test_base.h"
 #include "services/webnn/error.h"
+#include "services/webnn/public/mojom/features.mojom-features.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "services/webnn/public/mojom/webnn_error.mojom.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom.h"
@@ -68,10 +68,10 @@ TEST_F(WebNNContextDMLImplTest, CreateGraphImplTest) {
 
   // Build a simple graph with relu operator.
   GraphInfoBuilder builder;
-  uint64_t input_operand_id = builder.BuildInput(
-      "input", {1, 2, 3, 4}, mojom::Operand::DataType::kFloat32);
-  uint64_t output_operand_id = builder.BuildOutput(
-      "output", {1, 2, 3, 4}, mojom::Operand::DataType::kFloat32);
+  uint64_t input_operand_id =
+      builder.BuildInput("input", {1, 2, 3, 4}, OperandDataType::kFloat32);
+  uint64_t output_operand_id =
+      builder.BuildOutput("output", {1, 2, 3, 4}, OperandDataType::kFloat32);
   builder.BuildRelu(input_operand_id, output_operand_id);
 
   // The GraphImplDml should be built successfully.

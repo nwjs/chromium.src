@@ -6,22 +6,16 @@
 
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
+#include "services/webnn/public/cpp/ml_buffer_usage.h"
+#include "services/webnn/public/cpp/operand_descriptor.h"
 #include "services/webnn/public/mojom/webnn_buffer.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_buffer_descriptor.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/ml/ml_context.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_error.h"
+#include "third_party/blink/renderer/modules/ml/webnn/ml_graph_utils.h"
 
 namespace blink {
-
-// static
-base::expected<MLBuffer::ValidatedDescriptor, String>
-MLBuffer::ValidatedDescriptor::Create(uint64_t size) {
-  return ValidatedDescriptor(size);
-}
-
-MLBuffer::ValidatedDescriptor::ValidatedDescriptor(uint64_t size)
-    : size_(size) {}
 
 // static
 MLBuffer* MLBuffer::Create(ScopedMLTrace scoped_trace,
@@ -29,17 +23,24 @@ MLBuffer* MLBuffer::Create(ScopedMLTrace scoped_trace,
                            MLContext* ml_context,
                            const MLBufferDescriptor* descriptor,
                            ExceptionState& exception_state) {
-  CHECK(ml_context);
   CHECK(execution_context);
+  CHECK(ml_context);
+  CHECK(descriptor);
 
-  auto validated_descriptor = ValidatedDescriptor::Create(descriptor->size());
-  if (!validated_descriptor.has_value()) {
-    exception_state.ThrowTypeError(validated_descriptor.error());
-    return nullptr;
-  }
+  // TODO(crbug.com/343638938): Decide whether it is valid to create an empty
+  // MLBuffer.
+
+  ASSIGN_OR_RETURN(webnn::OperandDescriptor validated_descriptor,
+                   webnn::OperandDescriptor::Create(
+                       FromBlinkDataType(descriptor->dataType().AsEnum()),
+                       descriptor->dimensions()),
+                   [&exception_state](std::string error) {
+                     exception_state.ThrowTypeError(String(error));
+                     return nullptr;
+                   });
 
   auto* buffer = MakeGarbageCollected<MLBuffer>(
-      execution_context, ml_context, *std::move(validated_descriptor));
+      execution_context, ml_context, std::move(validated_descriptor));
   scoped_trace.AddStep("MLBuffer::Create");
 
   // Create `WebNNBuffer` message pipe with `WebNNContext` mojo interface.
@@ -53,7 +54,7 @@ MLBuffer* MLBuffer::Create(ScopedMLTrace scoped_trace,
 
 MLBuffer::MLBuffer(ExecutionContext* execution_context,
                    MLContext* context,
-                   ValidatedDescriptor descriptor)
+                   webnn::OperandDescriptor descriptor)
     : ml_context_(context),
       descriptor_(std::move(descriptor)),
       webnn_handle_(base::UnguessableToken::Create()),
@@ -67,6 +68,14 @@ void MLBuffer::Trace(Visitor* visitor) const {
   ScriptWrappable::Trace(visitor);
 }
 
+V8MLOperandDataType MLBuffer::dataType() const {
+  return ToBlinkDataType(descriptor_.data_type());
+}
+
+Vector<uint32_t> MLBuffer::shape() const {
+  return Vector<uint32_t>(descriptor_.shape());
+}
+
 void MLBuffer::destroy() {
   // Calling reset on a bound remote will disconnect or destroy the buffer in
   // the service. The remote buffer must remain unbound after calling destroy()
@@ -74,8 +83,20 @@ void MLBuffer::destroy() {
   remote_buffer_.reset();
 }
 
-uint64_t MLBuffer::size() const {
-  return descriptor_.size();
+const webnn::OperandDescriptor& MLBuffer::Descriptor() const {
+  return descriptor_;
+}
+
+webnn::OperandDataType MLBuffer::DataType() const {
+  return descriptor_.data_type();
+}
+
+const std::vector<uint32_t>& MLBuffer::Shape() const {
+  return descriptor_.shape();
+}
+
+uint64_t MLBuffer::PackedByteLength() const {
+  return descriptor_.PackedByteLength();
 }
 
 void MLBuffer::ReadBufferImpl(ScriptPromiseResolver<DOMArrayBuffer>* resolver) {
@@ -123,7 +144,10 @@ void MLBuffer::WriteBufferImpl(base::span<const uint8_t> src_data,
 }
 
 webnn::mojom::blink::BufferInfoPtr MLBuffer::GetMojoBufferInfo() const {
-  return webnn::mojom::blink::BufferInfo::New(descriptor_.size());
+  return webnn::mojom::blink::BufferInfo::New(
+      descriptor_,
+      // TODO(crbug.com/343638938): Pass real buffer usages.
+      webnn::MLBufferUsage());
 }
 
 }  // namespace blink

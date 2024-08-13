@@ -228,6 +228,16 @@ void WaylandToplevelWindow::SetFullscreen(bool fullscreen,
   // The `target_display_id` must be invalid if not going into fullscreen.
   DCHECK(fullscreen || target_display_id == display::kInvalidDisplayId);
 
+  if (base::FeatureList::IsEnabled(features::kAsyncFullscreenWindowState)) {
+    if (fullscreen) {
+      shell_toplevel_->SetFullscreen(
+          GetWaylandOutputForDisplayId(target_display_id));
+    } else {
+      shell_toplevel_->UnSetFullscreen();
+    }
+    return;
+  }
+
   // We must track the previous state to correctly say our state as long as it
   // can be the maximized instead of normal one.
   PlatformWindowState new_state = PlatformWindowState::kUnknown;
@@ -299,15 +309,15 @@ void WaylandToplevelWindow::Restore() {
   SetWindowState(PlatformWindowState::kNormal, display::kInvalidDisplayId);
 }
 
-std::optional<std::string> WaylandToplevelWindow::TakeActivationToken() const {
-  if (!connection()->xdg_activation() ||
-      // xdg-activation implementation in some compositors is still buggy and
-      // Mutter crashes were observed when windows are activated during window
-      // dragging sessions. See https://crbug.com/1366504.
-      connection()->IsDragInProgress()) {
-    return std::nullopt;
+void WaylandToplevelWindow::ActivateWithToken(std::string token) {
+  DCHECK(connection()->xdg_activation());
+  // xdg-activation implementation in some compositors is still buggy and
+  // Mutter crashes were observed when windows are activated during window
+  // dragging sessions. See https://crbug.com/1366504.
+  if (connection()->IsDragInProgress()) {
+    return;
   }
-  return base::nix::TakeXdgActivationToken();
+  connection()->xdg_activation()->Activate(root_surface()->surface(), token);
 }
 
 void WaylandToplevelWindow::Activate() {
@@ -323,8 +333,14 @@ void WaylandToplevelWindow::Activate() {
     shell_toplevel_->Activate();
   } else if (zaura_surface && zaura_surface->SupportsActivate()) {
     zaura_surface->Activate();
-  } else if (auto token = TakeActivationToken()) {
-    connection()->xdg_activation()->Activate(root_surface()->surface(), *token);
+  } else if (connection()->xdg_activation()) {
+    if (auto token = base::nix::TakeXdgActivationToken()) {
+      ActivateWithToken(token.value());
+    } else {
+      connection()->xdg_activation()->RequestNewToken(
+          base::BindOnce(&WaylandToplevelWindow::ActivateWithToken,
+                         weak_ptr_factory_.GetWeakPtr()));
+    }
   } else if (gtk_surface1_) {
     gtk_surface1_->RequestFocus();
   }
@@ -794,6 +810,10 @@ void WaylandToplevelWindow::PropagateBufferScale(float new_scale) {
     shell_toplevel()->SetScaleFactor(new_scale);
     last_sent_buffer_scale_ = new_scale;
   }
+}
+
+base::WeakPtr<WaylandWindow> WaylandToplevelWindow::AsWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 void WaylandToplevelWindow::ShowTooltip(

@@ -98,6 +98,7 @@
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/preinstalled_web_app_config_utils.h"
 #include "chrome/browser/web_applications/preinstalled_web_app_manager.h"
+#include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
 #include "chrome/browser/web_applications/test/debug_info_printer.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_icon_test_utils.h"
@@ -187,8 +188,8 @@
 #include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
 #include "chrome/browser/apps/app_shim/web_app_shim_manager_delegate_mac.h"
 #include "chrome/browser/chrome_browser_main.h"
-#include "chrome/browser/web_applications/app_shim_registry_mac.h"
-#include "chrome/browser/web_applications/os_integration/web_app_shortcut_mac.h"
+#include "chrome/browser/web_applications/os_integration/mac/app_shim_launch.h"
+#include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "chrome/common/mac/app_mode_common.h"
 #include "chrome/test/base/launchservices_utils_mac.h"
@@ -2189,9 +2190,6 @@ void WebAppIntegrationTestDriver::SyncAndInstallPreinstalledAppConfig(
     std::string_view app_config_string) {
   base::AutoReset<bool> bypass_offline_manifest_requirement =
       PreinstalledWebAppManager::BypassOfflineManifestRequirementForTesting();
-  // TODO: resolve how to handle return value.
-  std::ignore =
-      PreinstalledWebAppManager::BypassOfflineManifestRequirementForTesting();
   base::FilePath test_config_dir = GetResourceFile(
       FILE_PATH_LITERAL("webapps_integration/preinstalled_config_dir/"));
   web_app::SetPreinstalledWebAppConfigDirForTesting(&test_config_dir);
@@ -3130,7 +3128,7 @@ void WebAppIntegrationTestDriver::CheckAppIcon(Site site, Color color) {
   std::map<int, SkColor> shortcut_colors;
 
   base::RunLoop shortcut_run_loop;
-  provider()->os_integration_manager().GetShortcutInfoForApp(
+  provider()->os_integration_manager().GetShortcutInfoForAppFromRegistrar(
       active_app_id_, base::BindLambdaForTesting(
                           [&](std::unique_ptr<ShortcutInfo> shortcut_info) {
                             if (shortcut_info) {
@@ -4111,8 +4109,7 @@ webapps::AppId GetAppIdForIsolatedSite(Site site) {
       GetKeyPairForSite(parent_site ? parent_site.value() : site);
 
   auto url_info = IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(
-      web_package::SignedWebBundleId::CreateForEd25519PublicKey(
-          key_pair.public_key));
+      web_package::SignedWebBundleId::CreateForPublicKey(key_pair.public_key));
 
   if (parent_site) {
     // The scope and manifest ID of an Isolated Web App are always the unique
@@ -4238,11 +4235,15 @@ WebAppIntegrationTestDriver::ConstructStateSnapshot() {
             registrar.GetAppEffectiveDisplayMode(app_id),
             registrar.GetAppUserDisplayMode(app_id),
             manifest_launcher_icon_filename,
-            registrar.IsLocallyInstalled(app_id),
+            registrar.IsInstallState(
+                app_id, {web_app::proto::INSTALLED_WITHOUT_OS_INTEGRATION,
+                         web_app::proto::INSTALLED_WITH_OS_INTEGRATION}),
             IsShortcutAndIconCreated(profile, registrar.GetAppShortName(app_id),
                                      app_id));
 #if !BUILDFLAG(IS_CHROMEOS)
-        if (registrar.IsLocallyInstalled(app_id)) {
+        if (registrar.IsInstallState(
+                app_id, {web_app::proto::INSTALLED_WITHOUT_OS_INTEGRATION,
+                         web_app::proto::INSTALLED_WITH_OS_INTEGRATION})) {
           CheckAppSettingsAppState(profile->GetOriginalProfile(), state);
         }
 #endif

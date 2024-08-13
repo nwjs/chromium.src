@@ -22,6 +22,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/numerics/safe_math.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -45,6 +46,7 @@
 #include "cc/layers/heads_up_display_layer_impl.h"
 #include "cc/layers/layer.h"
 #include "cc/layers/painted_scrollbar_layer.h"
+#include "cc/metrics/ukm_manager.h"
 #include "cc/metrics/ukm_smoothness_data.h"
 #include "cc/paint/paint_worklet_layer_painter.h"
 #include "cc/resources/ui_resource_manager.h"
@@ -68,7 +70,6 @@
 #include "cc/trees/swap_promise_manager.h"
 #include "cc/trees/transform_node.h"
 #include "cc/trees/tree_synchronizer.h"
-#include "cc/trees/ukm_manager.h"
 #include "cc/view_transition/view_transition_request.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
@@ -501,7 +502,7 @@ void LayerTreeHost::NotifyImageDecodeFinished(int request_id,
                                               bool decode_succeeded) {
   DCHECK(IsMainThread());
   auto it = pending_image_decodes_.find(request_id);
-  DCHECK(it != pending_image_decodes_.end());
+  CHECK(it != pending_image_decodes_.end(), base::NotFatalUntil::M130);
   // Issue stored callback and remove them from the pending list.
   std::move(it->second).Run(decode_succeeded);
   pending_image_decodes_.erase(it);

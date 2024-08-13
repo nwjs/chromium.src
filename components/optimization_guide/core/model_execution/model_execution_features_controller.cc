@@ -17,6 +17,7 @@
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/account_info.h"
+#include "third_party/tflite/buildflags.h"
 
 namespace optimization_guide {
 
@@ -155,7 +156,7 @@ ModelExecutionFeaturesController::ModelExecutionFeaturesController(
   is_signed_in_ = identity_manager && identity_manager->HasPrimaryAccount(
                                           signin::ConsentLevel::kSignin);
   if (is_signed_in_) {
-    can_use_model_execution_features_ =
+    account_allows_model_execution_features_ =
         CanUseModelExecutionFeatures(identity_manager);
   }
 
@@ -234,23 +235,22 @@ ModelExecutionFeaturesController::UserValidityResult
 ModelExecutionFeaturesController::GetCurrentUserValidityResult(
     UserVisibleFeatureKey feature) const {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  bool require_account =
+      !base::Contains(features_allowed_for_unsigned_user_, feature);
 
-  // Sign-in check.
-  if (!is_signed_in_ &&
-      !base::Contains(features_allowed_for_unsigned_user_, feature)) {
-    return ModelExecutionFeaturesController::UserValidityResult::
-        kInvalidUnsignedUser;
+  if (require_account) {
+    // Sign-in check.
+    if (!is_signed_in_) {
+      return ModelExecutionFeaturesController::UserValidityResult::
+          kInvalidUnsignedUser;
+    }
+
+    // Check user account is allowed to use model execution, when signed-in.
+    if (!account_allows_model_execution_features_) {
+      return ModelExecutionFeaturesController::UserValidityResult::
+          kInvalidModelExecutionCapability;
+    }
   }
-
-  // Check user account is allowed to use model execution, when signed-in.
-  if (is_signed_in_ && !can_use_model_execution_features_) {
-    return ModelExecutionFeaturesController::UserValidityResult::
-        kInvalidModelExecutionCapability;
-  }
-
-  DCHECK(!is_signed_in_ || can_use_model_execution_features_)
-      << "At this point, the user must be either signed out or allowed to use "
-         "MES";
 
   if (GetEnterprisePolicyValue(feature) ==
       model_execution::prefs::ModelExecutionEnterprisePolicyValue::kDisable) {
@@ -294,6 +294,14 @@ bool ModelExecutionFeaturesController::IsSettingVisible(
         feature, SettingsVisibilityResult::kNotVisibleGraduatedFeature);
     return false;
   }
+
+#if !BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+  if (feature == UserVisibleFeatureKey::kHistorySearch) {
+    metrics_recorder.SetResult(
+        feature, SettingsVisibilityResult::kNotVisibleHardwareUnsupported);
+    return false;
+  }
+#endif
 
   // If the setting is currently enabled by user, then we should show the
   // setting to the user regardless of any other checks.
@@ -415,11 +423,11 @@ void ModelExecutionFeaturesController::OnPrimaryAccountChanged(
   }
 
   if (!is_signed_in_) {
-    can_use_model_execution_features_ = false;
+    account_allows_model_execution_features_ = false;
     ResetInvalidFeaturePrefs();
     return;
   }
-  can_use_model_execution_features_ =
+  account_allows_model_execution_features_ =
       CanUseModelExecutionFeatures(identity_manager_);
   ResetInvalidFeaturePrefs();
 }
@@ -429,11 +437,11 @@ void ModelExecutionFeaturesController::OnExtendedAccountInfoUpdated(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   if (!is_signed_in_) {
-    can_use_model_execution_features_ = false;
+    account_allows_model_execution_features_ = false;
     ResetInvalidFeaturePrefs();
     return;
   }
-  can_use_model_execution_features_ =
+  account_allows_model_execution_features_ =
       CanUseModelExecutionFeaturesFromAccountInfo(info);
   ResetInvalidFeaturePrefs();
 }
@@ -448,8 +456,10 @@ void ModelExecutionFeaturesController::ResetInvalidFeaturePrefs() {
     auto pref_state = GetPrefState(feature);
 
     // When the main toggle is enabled, and the feature pref was never disabled
-    // by the user, it can be enabled, if it is visible in settings.
+    // by the user, it can be enabled, if it is visible in settings, and allowed
+    // for automatic turning on.
     if (main_toggle_enabled && IsSettingVisible(feature) &&
+        features::internal::ShouldEnableFeatureWhenMainToggleOn(feature) &&
         (pref_state == prefs::FeatureOptInState::kNotInitialized)) {
       browser_context_profile_service_->SetInteger(
           prefs::GetSettingEnabledPrefName(feature),
@@ -482,6 +492,10 @@ void ModelExecutionFeaturesController::OnMainToggleSettingStatePrefChanged() {
   for (auto feature : kAllUserVisibleFeatureKeys) {
     // Do not change the pref for invisible features.
     if (!IsSettingVisible(feature)) {
+      continue;
+    }
+    if (!features::internal::ShouldEnableFeatureWhenMainToggleOn(feature)) {
+      // Do not change features that don't want to be changed with main toggle.
       continue;
     }
     // Set the feature pref the same state as the main toggle.

@@ -27,6 +27,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 
 #include "base/memory/values_equivalent.h"
@@ -364,7 +369,6 @@ float NormalizeSign(float number) {
 
 unsigned FontDescription::StyleHashWithoutFamilyList() const {
   unsigned hash = 0;
-  StringHasher string_hasher;
   const FontFeatureSettings* settings = FeatureSettings();
   if (settings) {
     unsigned num_features = settings->size();
@@ -384,10 +388,8 @@ unsigned FontDescription::StyleHashWithoutFamilyList() const {
 
   if (locale_) {
     const AtomicString& locale = locale_->LocaleString();
-    for (unsigned i = 0; i < locale.length(); i++)
-      string_hasher.AddCharacter(locale[i]);
+    WTF::AddIntToHash(hash, locale.Hash());
   }
-  WTF::AddIntToHash(hash, string_hasher.GetHash());
 
   WTF::AddFloatToHash(hash, NormalizeSign(specified_size_));
   WTF::AddFloatToHash(hash, NormalizeSign(computed_size_));

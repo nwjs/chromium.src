@@ -21,9 +21,9 @@ ci.defaults.set(
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
+    gardener_rotations = gardener_rotations.CHROMIUM,
     tree_closing = True,
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
-    gardener_rotations = gardener_rotations.CHROMIUM,
     health_spec = health_spec.modified_default({
         "Unhealthy": struct(
             build_time = struct(
@@ -67,6 +67,7 @@ ci.builder(
         ),
         build_gs_bucket = "chromium-chromiumos-archive",
     ),
+    gardener_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "default",
@@ -75,7 +76,6 @@ ci.builder(
     # This builder gets triggered against multiple branches, so it shouldn't be
     # bootstrapped
     bootstrap = False,
-    gardener_rotations = args.ignore_default(None),
     notifies = ["chrome-lacros-engprod-alerts"],
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -131,6 +131,8 @@ ci.builder(
             "amd64-generic",
             "ozone_headless",
             "asan",
+            "chromeos",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -177,6 +179,8 @@ ci.builder(
             "cfi_full",
             "thin_lto",
             "also_build_lacros_chrome_for_architecture_amd64",
+            "chromeos",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -228,6 +232,7 @@ ci.builder(
             "amd64-generic",
             "ozone_headless",
             "debug",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -276,6 +281,7 @@ ci.builder(
             "lacros",
             "debug",
             "static",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -327,6 +333,7 @@ ci.builder(
             "ozone_headless",
             "use_fake_dbus_clients",
             "also_build_lacros_chrome_for_architecture_amd64",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -403,6 +410,8 @@ ci.thin_tester(
         ),
         build_gs_bucket = "chromium-chromiumos-archive",
     ),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "simple|release|x64",
         short_name = "tast",
@@ -410,8 +419,6 @@ ci.thin_tester(
     main_console_view = "main",
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "chromeos-sw-engprod@google.com",
-    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
-    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -447,6 +454,7 @@ ci.builder(
             "arm-generic",
             "debug",
             "ozone_headless",
+            "arm",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -483,6 +491,7 @@ ci.builder(
             "remoteexec",
             "arm-generic",
             "ozone_headless",
+            "arm",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -520,6 +529,7 @@ ci.builder(
             "arm64-generic-vm",
             "dcheck_always_on",
             "ozone_headless",
+            "arm64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -565,6 +575,11 @@ This builder builds chromium and tests it on the public CrOS image on skylab DUT
             gs_extra = "ash",
         ),
     ),
+    builder_config_settings = builder_config.ci_settings(
+        # Disabling shard-level-retry-on-chromium-recipe for skylab builders,
+        # since a failed shard is retried even on CTP, which is more efficient.
+        retry_failed_shards = False,
+    ),
     gn_args = gn_args.config(
         configs = [
             "also_build_lacros_chrome_for_architecture_arm64",
@@ -575,16 +590,17 @@ This builder builds chromium and tests it on the public CrOS image on skylab DUT
             "jacuzzi",
             "ozone_headless",
             "remoteexec",
+            "arm64",
         ],
     ),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "simple|release",
         short_name = "jcz",
     ),
     main_console_view = "main",
     contact_team_email = "chromeos-velocity@google.com",
-    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
-    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -623,6 +639,11 @@ This builder builds chromium and tests it on the public CrOS image on skylab DUT
             gs_extra = "ash",
         ),
     ),
+    builder_config_settings = builder_config.ci_settings(
+        # Disabling shard-level-retry-on-chromium-recipe for skylab builders,
+        # since a failed shard is retried even on CTP, which is more efficient.
+        retry_failed_shards = False,
+    ),
     gn_args = gn_args.config(
         configs = [
             "also_build_lacros_chrome_for_architecture_amd64",
@@ -633,16 +654,17 @@ This builder builds chromium and tests it on the public CrOS image on skylab DUT
             "octopus",
             "ozone_headless",
             "remoteexec",
+            "x64",
         ],
     ),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "simple|release",
         short_name = "oct",
     ),
     main_console_view = "main",
     contact_team_email = "chromeos-velocity@google.com",
-    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
-    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -652,7 +674,7 @@ ci.builder(
     description_html = "This is a compile only builder for Lacros chrome.",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
-            config = "chromium_no_telemetry_dependencies",
+            config = "chromium",
             apply_configs = [
                 "checkout_lacros_sdk",
                 "chromeos",
@@ -686,6 +708,7 @@ ci.builder(
             "lacros",
             "release",
             "is_skylab",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -707,7 +730,7 @@ ci.thin_tester(
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
         gclient_config = builder_config.gclient_config(
-            config = "chromium_no_telemetry_dependencies",
+            config = "chromium",
             apply_configs = [
                 "checkout_lacros_sdk",
                 "chromeos",
@@ -752,7 +775,7 @@ ci.thin_tester(
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
         gclient_config = builder_config.gclient_config(
-            config = "chromium_no_telemetry_dependencies",
+            config = "chromium",
             apply_configs = [
                 "checkout_lacros_sdk",
                 "chromeos",
@@ -776,6 +799,8 @@ ci.thin_tester(
             gs_bucket = "chromium-ci-skylab",
         ),
     ),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "lacros|x64",
         short_name = "tast",
@@ -783,8 +808,6 @@ ci.thin_tester(
     main_console_view = "main",
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "chromeos-sw-engprod@google.com",
-    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
-    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -826,8 +849,11 @@ ci.builder(
             "ozone_headless",
             "lacros",
             "release",
+            "x64",
         ],
     ),
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "lacros|x64",
         short_name = "rel",
@@ -835,8 +861,6 @@ ci.builder(
     main_console_view = "main",
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "chrome-desktop-engprod@google.com",
-    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
-    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -875,6 +899,7 @@ ci.builder(
             "lacros",
             "release",
             "is_skylab",
+            "arm",
         ],
     ),
     os = os.LINUX_DEFAULT,
@@ -923,9 +948,12 @@ ci.builder(
             "lacros",
             "release",
             "is_skylab",
+            "arm64",
         ],
     ),
     os = os.LINUX_DEFAULT,
+    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
+    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     console_view_entry = consoles.console_view_entry(
         category = "lacros|arm64",
         short_name = "sky",
@@ -933,8 +961,6 @@ ci.builder(
     main_console_view = "main",
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "chrome-desktop-engprod@google.com",
-    # Tast tests should be monitored by CrOS gardeners, not Chromium gardeners.
-    gardener_rotations = args.ignore_default(gardener_rotations.CHROMIUMOS),
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -973,6 +999,7 @@ ci.builder(
             "ozone_headless",
             "lacros",
             "release",
+            "arm",
         ],
     ),
     # TODO(crbug.com/40179221) Enable tree closing when stable.
@@ -1022,8 +1049,12 @@ ci.builder(
             "ozone_headless",
             "lacros",
             "release",
+            "arm64",
         ],
     ),
+    # TODO(crbug.com/40231151): enable gardener rotation and tree_closing
+    # when the builder is stable.
+    gardener_rotations = args.ignore_default(None),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "lacros|arm64",
@@ -1031,9 +1062,6 @@ ci.builder(
     ),
     main_console_view = "main",
     cq_mirrors_console_view = "mirrors",
-    # TODO(crbug.com/40231151): enable gardener rotation and tree_closing
-    # when the builder is stable.
-    gardener_rotations = args.ignore_default(None),
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -1065,6 +1093,7 @@ ci.builder(
             "debug_builder",
             "remoteexec",
             "use_cups",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1074,6 +1103,9 @@ ci.builder(
     main_console_view = "main",
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "chromeos-sw-engprod@google.com",
+    # Inconsistent compile times can cause this builder to flakily hit the
+    # default 3 hour timeout.
+    execution_timeout = 4 * time.hour,
     health_spec = health_spec.modified_default({
         "Unhealthy": health_spec.unhealthy_thresholds(
             build_time = struct(
@@ -1114,6 +1146,7 @@ ci.builder(
             "remoteexec",
             "use_cups",
             "also_build_lacros_chrome",
+            "x64",
         ],
     ),
     # See crbug.com/1345687. This builder need higher memory.
@@ -1133,7 +1166,7 @@ ci.builder(
     branch_selector = branches.selector.CROS_BRANCHES,
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
-            config = "chromium_no_telemetry_dependencies",
+            config = "chromium",
             apply_configs = [
                 "chromeos",
             ],
@@ -1157,6 +1190,7 @@ ci.builder(
             "remoteexec",
             "also_build_ash_chrome",
             "use_cups",
+            "x64",
         ],
     ),
     # See crbug.com/1345687. This builder need higher memory.
@@ -1178,7 +1212,7 @@ ci.thin_tester(
     builder_spec = builder_config.builder_spec(
         execution_mode = builder_config.execution_mode.TEST,
         gclient_config = builder_config.gclient_config(
-            config = "chromium_no_telemetry_dependencies",
+            config = "chromium",
             apply_configs = [
                 "use_clang_coverage",
                 "chromeos",
@@ -1235,6 +1269,7 @@ ci.builder(
             "remoteexec",
             "also_build_ash_chrome",
             "use_cups",
+            "x64",
         ],
     ),
     # See crbug.com/1345687. This builder need higher memory.
@@ -1277,6 +1312,7 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "chromeos",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(

@@ -164,36 +164,15 @@ FYI_BUILDERS = {
     'android-pixel2-perf-fyi': {
         'tests': [{
             'isolate':
-            'performance_test_suite_android_clank_monochrome',
-            'extra_args': [
-                '--output-format=histograms',
-                '--experimental-tbmv3-metrics',
-            ],
+            'performance_test_suite_android_clank_monochrome_64_32_bundle',
         }],
         'platform':
-        'android-chrome',
-        'browser':
-        'bin/monochrome_64_32_bundle',
+        'android-chrome-64-bundle',
         'dimension': {
             'pool': 'chrome.tests.perf-fyi',
             'os': 'Android',
             'device_type': 'walleye',
-            'device_os': 'O',
-            'device_os_flavor': 'google',
-        },
-    },
-    'android-pixel2-perf-aab-fyi': {
-        'tests': [{
-            'isolate':
-            'performance_test_suite_android_clank_monochrome_bundle',
-        }],
-        'platform':
-        'android-chrome-bundle',
-        'dimension': {
-            'pool': 'chrome.tests.perf-fyi',
-            'os': 'Android',
-            'device_type': 'walleye',
-            'device_os': 'O',
+            'device_os': 'OPM1.171019.021',
             'device_os_flavor': 'google',
         },
     },
@@ -444,7 +423,11 @@ BUILDERS = {
         'perf_trigger': False,
     },
     'linux-builder-perf': {
-        'additional_compile_targets': ['chromedriver'],
+        'additional_compile_targets': [
+            'chromedriver_group',
+            'chrome/installer/linux',
+        ],
+        'pinpoint_additional_compile_targets': [],
         'tests': [{
             'name': 'chrome_sizes',
             'isolate': 'chrome_sizes',
@@ -472,6 +455,7 @@ BUILDERS = {
     'linux-builder-perf-rel': {},
     'mac-builder-perf': {
         'additional_compile_targets': ['chromedriver'],
+        'pinpoint_additional_compile_targets': [],
         'tests': [{
             'name': 'chrome_sizes',
             'isolate': 'chrome_sizes',
@@ -498,6 +482,7 @@ BUILDERS = {
     },
     'mac-arm-builder-perf': {
         'additional_compile_targets': ['chromedriver'],
+        'pinpoint_additional_compile_targets': [],
         'tests': [{
             'name': 'chrome_sizes',
             'isolate': 'chrome_sizes',
@@ -524,6 +509,7 @@ BUILDERS = {
     },
     'win64-builder-perf': {
         'additional_compile_targets': ['chromedriver'],
+        'pinpoint_additional_compile_targets': [],
         'tests': [{
             'name': 'chrome_sizes',
             'isolate': 'chrome_sizes',
@@ -819,9 +805,9 @@ BUILDERS = {
             # version ever changes or becomes inconsistent. It is important
             # that bots are homogeneous. See crbug.com/988045 for history.
             'os':
-            'Windows-10-18363.476|Windows-10-18363.1621',
+            'Windows-10',
             'gpu':
-            '8086:1616-20.19.15.5070|8086:1616-10.0.18362.1',
+            '8086:1616',
             'synthetic_product_name':
             'HP Laptop 15-bs1xx [Type1ProductConfigId] (HP)'
         },
@@ -841,8 +827,8 @@ BUILDERS = {
         64,
         'dimension': {
             'pool': 'chrome.tests.perf',
-            'os': 'Windows-10-18363.476|Windows-10-18363.1621',
-            'gpu': '8086:1616-20.19.15.5070|8086:1616-10.0.18362.1',
+            'os': 'Windows-10',
+            'gpu': '8086:1616',
         },
     },
     'win-10-perf': {
@@ -860,12 +846,7 @@ BUILDERS = {
         64,
         'dimension': {
             'pool': 'chrome.tests.perf',
-            # Explicitly set GPU driver version and Windows OS version such
-            # that we can be informed if this
-            # version ever changes or becomes inconsistent. It is important
-            # that bots are homogeneous. See crbug.com/988045 for history.
-            'os': 'Windows-10-18363.476',
-            'gpu': '8086:5912-27.20.100.8681',
+            'os': 'Windows-10',
             'synthetic_product_name': 'OptiPlex 7050 (Dell Inc.)'
         },
     },
@@ -884,12 +865,7 @@ BUILDERS = {
         64,
         'dimension': {
             'pool': 'chrome.tests.perf',
-            # Explicitly set GPU driver version and Windows OS version such
-            # that we can be informed if this
-            # version ever changes or becomes inconsistent. It is important
-            # that bots are homogeneous. See crbug.com/988045 for history.
-            'os': 'Windows-10-18363.476',
-            'gpu': '8086:5912-27.20.100.8681',
+            'os': 'Windows-10',
             'synthetic_product_name': 'OptiPlex 7050 (Dell Inc.)'
         },
     },
@@ -912,8 +888,8 @@ BUILDERS = {
             # that we can be informed if this
             # version ever changes or becomes inconsistent. It is important
             # that bots are homogeneous. See crbug.com/988045 for history.
-            'os': 'Windows-10-19043',
-            'gpu': '1002:1638-30.0.13033.1000',
+            'os': 'Windows-10',
+            'gpu': '1002:1638',
             'synthetic_product_name': 'OMEN by HP Laptop 16-c0xxx [ ] (HP)',
         },
     },
@@ -936,8 +912,8 @@ BUILDERS = {
             # that we can be informed if this
             # version ever changes or becomes inconsistent. It is important
             # that bots are homogeneous. See crbug.com/988045 for history.
-            'os': 'Windows-10-19043',
-            'gpu': '1002:1638-30.0.13033.1000',
+            'os': 'Windows-10',
+            'gpu': '1002:1638',
             'synthetic_product_name': 'OMEN by HP Laptop 16-c0xxx [ ] (HP)',
         },
     },
@@ -1199,6 +1175,23 @@ BUILDERS = {
             'synthetic_product_name': 'PowerEdge R230 (Dell Inc.)'
         },
     },
+    'linux-r350-perf': {
+        'tests': [
+            {
+                'isolate': 'performance_test_suite',
+                'extra_args': [
+                    '--assert-gpu-compositing',
+                ],
+            },
+        ],
+        'platform':
+        'linux',
+        'dimension': {
+            'os': 'Ubuntu-22',
+            'pool': 'chrome.tests.perf',
+            'synthetic_product_name': 'PowerEdge R350 (Dell Inc.)'
+        },
+    },
     'mac-laptop_high_end-perf': {
         'tests': [
             {
@@ -1436,9 +1429,12 @@ def _generate_pinpoint_builders_dict(builder):
   result = {}
   for key in builder:
     content = copy.deepcopy(builder[key])
-    additional_compile_targets = content.get('additional_compile_targets', [])
-    additional_compile_targets = list(
-        filter(lambda x: x not in ['chromedriver'], additional_compile_targets))
+    if 'pinpoint_additional_compile_targets' in content:
+      additional_compile_targets = content.pop(
+          'pinpoint_additional_compile_targets')
+    else:
+      additional_compile_targets = content.pop('additional_compile_targets',
+                                               None)
     if additional_compile_targets:
       content['additional_compile_targets'] = additional_compile_targets
     elif 'additional_compile_targets' in content:

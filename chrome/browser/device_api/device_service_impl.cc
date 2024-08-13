@@ -14,6 +14,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_constants.h"
 #include "chrome/common/pref_names.h"
+#include "components/permissions/features.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
@@ -130,6 +131,13 @@ bool IsTrustedContext(content::RenderFrameHost& host,
   }
 
   if (chrome::IsRunningInAppMode()) {
+    if (base::FeatureList::IsEnabled(
+            permissions::features::
+                kAllowMultipleOriginsForWebKioskPermissions)) {
+      return IsEqualToKioskOrigin(origin) ||
+             chrome::IsWebKioskOriginAllowed(GetPrefs(host), origin.GetURL());
+    }
+
     return IsEqualToKioskOrigin(origin);
   }
 
@@ -157,6 +165,10 @@ DeviceServiceImpl::DeviceServiceImpl(
 #if BUILDFLAG(IS_CHROMEOS)
   pref_change_registrar_.Add(
       prefs::kIsolatedWebAppInstallForceList,
+      base::BindRepeating(&DeviceServiceImpl::OnDisposingIfNeeded,
+                          base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kKioskBrowserPermissionsAllowedForOrigins,
       base::BindRepeating(&DeviceServiceImpl::OnDisposingIfNeeded,
                           base::Unretained(this)));
 #endif  // BUILDFLAG(IS_CHROMEOS)

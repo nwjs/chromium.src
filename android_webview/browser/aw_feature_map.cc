@@ -25,6 +25,7 @@ namespace {
 const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewBackForwardCache,
     &features::kWebViewDisplayCutout,
+    &features::kWebViewDragDropFiles,
     &features::kWebViewExitReasonMetric,
     &features::kWebViewInvokeZoomPickerOnGSU,
     &features::kWebViewMixedContentAutoupgrades,
@@ -49,6 +50,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewEnableCrash,
     &features::kWebViewPreloadClasses,
     &features::kWebViewDoNotSendAccessibilityEventsOnGSU,
+    &features::kWebViewHyperlinkContextMenu,
 };
 
 // static

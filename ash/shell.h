@@ -106,6 +106,7 @@ class AccessibilityFocusRingControllerImpl;
 class AdaptiveChargingController;
 class AmbientController;
 class AnchoredNudgeManagerImpl;
+class AnnotatorController;
 class AppListControllerImpl;
 class AppListFeatureUsageMetrics;
 class AshAcceleratorConfiguration;
@@ -121,6 +122,7 @@ class BackGestureEventHandler;
 class BacklightsForcedOffSetter;
 class BatterySaverController;
 class BirchModel;
+class BirchPrivacyNudgeController;
 class BluetoothDeviceStatusUiHandler;
 class BluetoothNotificationController;
 class BluetoothStateCache;
@@ -170,6 +172,7 @@ class HotspotIconAnimation;
 class HotspotInfoCache;
 class HumanPresenceOrientationController;
 class ImeControllerImpl;
+class InformedRestoreController;
 class InputDeviceKeyAliasManager;
 class InputDeviceSettingsControllerImpl;
 class InputDeviceSettingsDispatcher;
@@ -182,6 +185,7 @@ class KeyboardBrightnessControlDelegate;
 class KeyboardControllerImpl;
 class KeyboardModifierMetricsRecorder;
 class LaserPointerController;
+class LobsterController;
 class LocalAuthenticationRequestController;
 class LocaleUpdateControllerImpl;
 class LockStateController;
@@ -209,7 +213,6 @@ class PeripheralBatteryListener;
 class PeripheralBatteryNotifier;
 class PersistentWindowController;
 class PickerController;
-class PineController;
 class PipController;
 class PolicyRecommendationRestorer;
 class PostLoginGlanceablesMetricsRecorder;
@@ -460,6 +463,9 @@ class ASH_EXPORT Shell : public SessionObserver,
     return battery_saver_controller_.get();
   }
   BirchModel* birch_model() { return birch_model_.get(); }
+  BirchPrivacyNudgeController* birch_privacy_nudge_controller() {
+    return birch_privacy_nudge_controller_.get();
+  }
   BluetoothStateCache* bluetooth_state_cache() {
     return bluetooth_state_cache_.get();
   }
@@ -630,6 +636,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   LaserPointerController* laser_pointer_controller() {
     return laser_pointer_controller_.get();
   }
+  LobsterController* lobster_controller() { return lobster_controller_.get(); }
   LocaleUpdateControllerImpl* locale_update_controller() {
     return locale_update_controller_.get();
   }
@@ -685,7 +692,9 @@ class ASH_EXPORT Shell : public SessionObserver,
     return peripheral_battery_listener_.get();
   }
   PickerController* picker_controller() { return picker_controller_.get(); }
-  PineController* pine_controller() { return pine_controller_.get(); }
+  InformedRestoreController* informed_restore_controller() {
+    return informed_restore_controller_.get();
+  }
   PipController* pip_controller() { return pip_controller_.get(); }
   PolicyRecommendationRestorer* policy_recommendation_restorer() {
     return policy_recommendation_restorer_.get();
@@ -839,6 +848,10 @@ class ASH_EXPORT Shell : public SessionObserver,
     return projector_controller_.get();
   }
 
+  AnnotatorController* annotator_controller() {
+    return annotator_controller_.get();
+  }
+
   PciePeripheralNotificationController*
   pcie_peripheral_notification_controller() {
     return pcie_peripheral_notification_controller_.get();
@@ -978,6 +991,8 @@ class ASH_EXPORT Shell : public SessionObserver,
 
   static Shell* instance_;
 
+  base::ObserverList<ShellObserver>::Unchecked shell_observers_;
+
   // The CompoundEventFilter owned by aura::Env object.
   std::unique_ptr<::wm::CompoundEventFilter> env_filter_;
 
@@ -1020,6 +1035,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<AutozoomControllerImpl> autozoom_controller_;
   std::unique_ptr<BacklightsForcedOffSetter> backlights_forced_off_setter_;
   std::unique_ptr<BirchModel> birch_model_;
+  std::unique_ptr<BirchPrivacyNudgeController> birch_privacy_nudge_controller_;
   std::unique_ptr<BrightnessControlDelegate> brightness_control_delegate_;
   std::unique_ptr<CalendarController> calendar_controller_;
   std::unique_ptr<CameraEffectsController> camera_effects_controller_;
@@ -1067,6 +1083,7 @@ class ASH_EXPORT Shell : public SessionObserver,
       in_session_auth_dialog_controller_;
   std::unique_ptr<KeyboardBrightnessControlDelegate>
       keyboard_brightness_control_delegate_;
+  std::unique_ptr<LobsterController> lobster_controller_;
   std::unique_ptr<LocaleUpdateControllerImpl> locale_update_controller_;
   std::unique_ptr<LoginScreenController> login_screen_controller_;
   std::unique_ptr<LogoutConfirmationController> logout_confirmation_controller_;
@@ -1101,7 +1118,7 @@ class ASH_EXPORT Shell : public SessionObserver,
       feature_discover_reporter_;
   std::unique_ptr<AshColorProvider> ash_color_provider_;
   std::unique_ptr<NightLightControllerImpl> night_light_controller_;
-  std::unique_ptr<PineController> pine_controller_;
+  std::unique_ptr<InformedRestoreController> informed_restore_controller_;
   std::unique_ptr<PipController> pip_controller_;
   std::unique_ptr<PrivacyScreenController> privacy_screen_controller_;
   std::unique_ptr<PolicyRecommendationRestorer> policy_recommendation_restorer_;
@@ -1246,6 +1263,8 @@ class ASH_EXPORT Shell : public SessionObserver,
 
   std::unique_ptr<ProjectorControllerImpl> projector_controller_;
 
+  std::unique_ptr<AnnotatorController> annotator_controller_;
+
   std::unique_ptr<AccessibilityEventHandlerManager>
       accessibility_event_handler_manager_;
 
@@ -1271,8 +1290,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<display::NativeDisplayDelegate> native_display_delegate_;
 
   std::unique_ptr<CoralController> coral_controller_;
-
-  base::ObserverList<ShellObserver>::Unchecked shell_observers_;
 
   base::WeakPtrFactory<Shell> weak_factory_{this};
 };

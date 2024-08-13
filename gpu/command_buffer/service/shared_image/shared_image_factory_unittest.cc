@@ -37,10 +37,6 @@ class SharedImageFactoryTest : public testing::Test {
     bool result = context_->MakeCurrent(surface_.get());
     ASSERT_TRUE(result);
 
-#if BUILDFLAG(IS_MAC)
-    SetMacOSSpecificTextureTargetFromCurrentGLImplementation();
-#endif  // BUILDFLAG(IS_MAC)
-
     context_state_ = base::MakeRefCounted<SharedContextState>(
         base::MakeRefCounted<gl::GLShareGroup>(), surface_, context_,
         /*use_virtualized_gl_contexts=*/false, base::DoNothing(),
@@ -83,7 +79,7 @@ TEST_F(SharedImageFactoryTest, Basic) {
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
-  uint32_t usage = SHARED_IMAGE_USAGE_GLES2_READ;
+  SharedImageUsageSet usage = SHARED_IMAGE_USAGE_GLES2_READ;
   EXPECT_TRUE(factory_->CreateSharedImage(
       mailbox, format, size, color_space, kTopLeft_GrSurfaceOrigin,
       kPremul_SkAlphaType, surface_handle, usage, "TestLabel"));
@@ -96,7 +92,7 @@ TEST_F(SharedImageFactoryTest, DuplicateMailbox) {
   gfx::Size size(256, 256);
   auto color_space = gfx::ColorSpace::CreateSRGB();
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
-  uint32_t usage = SHARED_IMAGE_USAGE_GLES2_READ;
+  SharedImageUsageSet usage = SHARED_IMAGE_USAGE_GLES2_READ;
   EXPECT_TRUE(factory_->CreateSharedImage(
       mailbox, format, size, color_space, kTopLeft_GrSurfaceOrigin,
       kPremul_SkAlphaType, surface_handle, usage, "TestLabel"));

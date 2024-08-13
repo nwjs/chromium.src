@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.omnibox;
 
 import android.content.Context;
 import android.view.ActionMode;
+import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 
 import androidx.annotation.IntDef;
@@ -15,7 +16,6 @@ import androidx.annotation.Nullable;
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
-import org.chromium.chrome.browser.omnibox.UrlBar.UrlTextChangeListener;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.WindowDelegate;
@@ -63,8 +63,8 @@ public class UrlBarCoordinator
      * @param delegate The primary delegate for the UrlBar view.
      * @param keyboardVisibilityDelegate Delegate that allows querying and changing the keyboard's
      *     visibility.
-     * @param isIncognito Whether incognito mode is initially enabled. This can later be changed
-     *     using {@link #setIncognitoColorsEnabled(boolean)}.
+     * @param isIncognitoBranded Whether incognito mode is initially enabled. This can later be
+     *     changed using {@link #setIncognitoColorsEnabled(boolean)}.
      */
     public UrlBarCoordinator(
             @NonNull Context context,
@@ -74,7 +74,7 @@ public class UrlBarCoordinator
             @NonNull Callback<Boolean> focusChangeCallback,
             @NonNull UrlBarDelegate delegate,
             @NonNull KeyboardVisibilityDelegate keyboardVisibilityDelegate,
-            boolean isIncognito) {
+            boolean isIncognitoBranded) {
         mUrlBar = urlBar;
         mKeyboardVisibilityDelegate = keyboardVisibilityDelegate;
         mFocusChangeCallback = focusChangeCallback;
@@ -84,7 +84,7 @@ public class UrlBarCoordinator
                         .with(UrlBarProperties.ACTION_MODE_CALLBACK, actionModeCallback)
                         .with(UrlBarProperties.WINDOW_DELEGATE, windowDelegate)
                         .with(UrlBarProperties.DELEGATE, delegate)
-                        .with(UrlBarProperties.INCOGNITO_COLORS_ENABLED, isIncognito)
+                        .with(UrlBarProperties.INCOGNITO_COLORS_ENABLED, isIncognitoBranded)
                         .build();
         PropertyModelChangeProcessor.create(model, urlBar, UrlBarViewBinder::bind);
 
@@ -100,10 +100,33 @@ public class UrlBarCoordinator
     }
 
     /**
-     * @see UrlBarMediator#addUrlTextChangeListener(UrlTextChangeListener)
+     * Install a listener called when the user begins typing in the Omnibox for the first time.
+     *
+     * <p>This callback is particularly relevant on Tablet devices, where the New Tab Page shows
+     * focused Omnibox, but the suggestions list is delayed until after user starts typing.
+     *
+     * <p>This callback gets invoked both when the user types text, and when content is pasted using
+     * keyboard shortcuts (Ctrl+V, Shift+Insert, Paste key etc).
      */
-    public void addUrlTextChangeListener(UrlTextChangeListener listener) {
-        mMediator.addUrlTextChangeListener(listener);
+    public void setTypingStartedListener(Runnable listener) {
+        mMediator.setTypingStartedListener(listener);
+    }
+
+    /** Set the callback that will be invoked each time the content of the Omnibox changes. */
+    public void setTextChangeListener(Callback<String> listener) {
+        mMediator.setTextChangeListener(listener);
+    }
+
+    /**
+     * Set the callback that will be invoked for:
+     *
+     * <ul>
+     *   <li>All hardware keyboard sourced key events,
+     *   <li>All enter key events, regardless of source.
+     * </ul>
+     */
+    public void setKeyDownListener(View.OnKeyListener listener) {
+        mMediator.setKeyDownListener(listener);
     }
 
     /**
@@ -306,16 +329,9 @@ public class UrlBarCoordinator
     }
 
     /**
-     * @see UrlBarMediator#setUrlBarHintTextColorForSurfacePolish()
+     * @see UrlBarMediator#setUrlBarHintTextColorForNtp()
      */
-    public void setUrlBarHintTextColorForSurfacePolish() {
-        mMediator.setUrlBarHintTextColorForSurfacePolish();
-    }
-
-    /**
-     * @see UrlBarMediator#updateUrlBarTypeface(boolean)
-     */
-    public void updateUrlBarTypeface(boolean useDefaultUrlBarTypeface) {
-        mMediator.updateUrlBarTypeface(useDefaultUrlBarTypeface);
+    public void setUrlBarHintTextColorForNtp() {
+        mMediator.setUrlBarHintTextColorForNtp();
     }
 }

@@ -456,9 +456,9 @@ class WebBundleURLLoaderFactory::BundleDataSource
   }
 
   // Implements mojo::DataPipeDrainer::Client.
-  void OnDataAvailable(const void* data, size_t num_bytes) override {
+  void OnDataAvailable(base::span<const uint8_t> data) override {
     DCHECK(!finished_loading_);
-    if (!web_bundle_memory_quota_consumer_->AllocateMemory(num_bytes)) {
+    if (!web_bundle_memory_quota_consumer_->AllocateMemory(data.size())) {
       AbortPendingReads();
       if (memory_quota_exceeded_closure_) {
         // Defer calling |memory_quota_exceeded_closure_| to avoid the
@@ -468,7 +468,7 @@ class WebBundleURLLoaderFactory::BundleDataSource
       }
       return;
     }
-    buffer_.Append(reinterpret_cast<const uint8_t*>(data), num_bytes);
+    buffer_.Append(data.data(), data.size());
     ProcessPendingReads();
   }
 
@@ -919,7 +919,7 @@ void WebBundleURLLoaderFactory::SendResponseToLoader(
     return;
   }
 
-  auto orb_analyzer = orb::ResponseAnalyzer::Create(orb_state_);
+  auto orb_analyzer = orb::ResponseAnalyzer::Create(&orb_state_);
   auto decision = orb_analyzer->Init(
       loader->url(), loader->request_initiator(), loader->request_mode(),
       loader->request_destination(), *response_head);

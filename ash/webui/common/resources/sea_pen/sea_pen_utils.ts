@@ -198,3 +198,30 @@ export function getTemplateIdFromString(templateId: string): SeaPenTemplateId|
 export function isPersonalizationApp(): boolean {
   return window.location.origin === 'chrome://personalization';
 }
+
+/** Returns true if this event is a user action to select an item. */
+export function isSelectionEvent(event: Event): boolean {
+  return (event instanceof MouseEvent && event.type === 'click') ||
+      (event instanceof KeyboardEvent && event.key === 'Enter');
+}
+
+/**
+ * Fisher-Yates Shuffle
+ */
+export function shuffle<T>(array: T[]): T[] {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/**
+ * Checks whether the two arrays contain the same elements. Uses strict equals
+ * comparison on each member of the arrays.
+ */
+export function isArrayEqual<T>(arr1: T[], arr2: T[]): boolean {
+  return arr1.length === arr2.length &&
+      arr1.every((value, index) => value === arr2[index]);
+}

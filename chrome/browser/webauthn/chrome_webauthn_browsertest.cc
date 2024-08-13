@@ -9,13 +9,13 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/weak_ptr.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/values_test_util.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -201,8 +201,6 @@ IN_PROC_BROWSER_TEST_F(WebAuthnBrowserTest, ChromeExtensions) {
 
   static constexpr char kPageFile[] = "page.html";
 
-  base::Value::List resources;
-  resources.Append(std::string(kPageFile));
   static constexpr char kContents[] = R"(
 <html>
   <head>
@@ -216,12 +214,19 @@ IN_PROC_BROWSER_TEST_F(WebAuthnBrowserTest, ChromeExtensions) {
             sizeof(kContents) - 1);
 
   static constexpr char kExtensionSite[] = "https://extension-site.com/";
+  static constexpr char kWebAccessibleResources[] =
+      R"([{
+            "resources": ["page.html"],
+            "matches": ["*://*/*"]
+         }])";
+
   extensions::ExtensionBuilder builder("test");
   builder.SetPath(temp_dir.GetPath())
       .SetVersion("1.0")
-      .AddPermission(kExtensionSite)
+      .AddHostPermission(kExtensionSite)
       .SetLocation(extensions::mojom::ManifestLocation::kExternalPolicyDownload)
-      .SetManifestKey("web_accessible_resources", std::move(resources));
+      .SetManifestKey("web_accessible_resources",
+                      base::test::ParseJson(kWebAccessibleResources));
 
   extensions::ExtensionService* service =
       extensions::ExtensionSystem::Get(browser()->profile())
@@ -482,6 +487,40 @@ IN_PROC_BROWSER_TEST_F(WebAuthnGpmPasskeyTest, FilterGPMPasskeys) {
           kDisplayName1));
   EXPECT_THAT(observer_->transport_availability_info()->recognized_credentials,
               testing::ElementsAre(expected));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAuthnGpmPasskeyTest, ReportGPMPasskeys) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), https_server_.GetURL("www.example.com", "/title1.html")));
+
+  // Set up GPM Passkey
+  auto* passkey_model = static_cast<webauthn::TestPasskeyModel*>(
+      PasskeyModelFactory::GetInstance()->SetTestingFactoryAndUse(
+          browser()->profile(),
+          base::BindRepeating(
+              [](content::BrowserContext*) -> std::unique_ptr<KeyedService> {
+                return std::make_unique<webauthn::TestPasskeyModel>();
+              })));
+
+  passkey_model->AddNewPasskeyForTesting(CreateWebAuthnCredentialSpecifics(
+      kCredentialID, kUserId1, kUsername1, kDisplayName1));
+
+  // Reports the credential ID matching the passkey created.
+  EXPECT_TRUE(ExecJs(browser()->tab_strip_model()->GetActiveWebContents(),
+                     R"(
+  navigator.credentials.report({
+    publicKey: {
+      rpId: "www.example.com",
+      unknownCredentialId:
+        new Uint8Array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]),
+    }
+  }).then(c => 'webauthn: OK', e => 'error ' + e);
+  )"));
+
+  // After reporting the passkey, it should be deleted from the credentials
+  // list, so the vector of passkeys matching the relying party should be empty.
+  EXPECT_TRUE(
+      passkey_model->GetPasskeysForRelyingPartyId("www.example.com").empty());
 }
 
 class WebAuthnHintsTest : public WebAuthnBrowserTest {
@@ -835,7 +874,10 @@ class WebAuthnCableSecondFactor : public WebAuthnBrowserTest {
 
   std::ostringstream& trace() { return trace_; }
 
-  AuthenticatorRequestDialogController*& controller() { return controller_; }
+  raw_ptr<AuthenticatorRequestDialogController, DanglingUntriaged>&
+  controller() {
+    return controller_;
+  }
 
  protected:
   // DiscoveryFactory vends a single discovery that doesn't discover anything
@@ -1040,7 +1082,7 @@ class WebAuthnCableSecondFactor : public WebAuthnBrowserTest {
         device::FidoRequestHandlerBase::TransportAvailabilityInfo* tai)
         override {
       tai->available_transports.insert(device::FidoTransportProtocol::kHybrid);
-      tai->is_ble_powered = true;
+      tai->ble_status = device::FidoRequestHandlerBase::BleStatus::kOn;
     }
 
     void UIShown(ChromeAuthenticatorRequestDelegate* delegate) override {
@@ -1075,9 +1117,8 @@ class WebAuthnCableSecondFactor : public WebAuthnBrowserTest {
 
  protected:
   std::ostringstream trace_;
-  // This field is not a raw_ptr<> to avoid returning a reference to a temporary
-  // T* (result of implicitly casting raw_ptr<T> to T*).
-  RAW_PTR_EXCLUSION AuthenticatorRequestDialogController* controller_ = nullptr;
+  raw_ptr<AuthenticatorRequestDialogController, DanglingUntriaged> controller_ =
+      nullptr;
 #if BUILDFLAG(IS_WIN)
   device::FakeWinWebAuthnApi fake_win_webauthn_api_;
   device::WinWebAuthnApi::ScopedOverride override_win_webauthn_api_{

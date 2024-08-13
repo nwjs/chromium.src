@@ -1,7 +1,12 @@
 // Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-//
+
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 // Notes about usage of this object by VideoCaptureImplManager.
 //
 // VideoCaptureImplManager access this object by using a Unretained()
@@ -11,12 +16,13 @@
 
 #include "third_party/blink/renderer/platform/video_capture/video_capture_impl.h"
 
+#include <GLES2/gl2extchromium.h>
 #include <stddef.h>
+
 #include <algorithm>
 #include <memory>
 #include <utility>
 
-#include <GLES2/gl2extchromium.h>
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -39,8 +45,8 @@
 #include "media/capture/mojom/video_capture_types.mojom-blink.h"
 #include "media/capture/video_capture_types.h"
 #include "media/video/gpu_video_accelerator_factories.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
@@ -96,9 +102,9 @@ struct VideoCaptureImpl::BufferContext
         InitializeFromReadOnlyShmemRegion(
             std::move(buffer_handle->get_read_only_shmem_region()));
         break;
-      case VideoFrameBufferHandleType::kSharedImageHandles:
+      case VideoFrameBufferHandleType::kSharedImageHandle:
         InitializeFromSharedImage(
-            std::move(buffer_handle->get_shared_image_handles()));
+            std::move(buffer_handle->get_shared_image_handle()));
         break;
       case VideoFrameBufferHandleType::kGpuMemoryBufferHandle:
 #if !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_WIN)
@@ -128,9 +134,6 @@ struct VideoCaptureImpl::BufferContext
   }
   const gpu::SyncToken& shared_image_sync_token() const {
     return shared_image_sync_token_;
-  }
-  uint32_t shared_image_texture_target() const {
-    return shared_image_texture_target_;
   }
   media::GpuVideoAcceleratorFactories* gpu_factories() const {
     return gpu_factories_;
@@ -214,11 +217,10 @@ struct VideoCaptureImpl::BufferContext
   }
 
   void InitializeFromSharedImage(
-      media::mojom::blink::SharedImageBufferHandleSetPtr shared_image_handles) {
+      media::mojom::blink::SharedImageBufferHandleSetPtr shared_image_handle) {
     shared_image_ = gpu::ClientSharedImage::ImportUnowned(
-        shared_image_handles->shared_image);
-    shared_image_sync_token_ = shared_image_handles->sync_token;
-    shared_image_texture_target_ = shared_image_handles->texture_target;
+        shared_image_handle->shared_image);
+    shared_image_sync_token_ = shared_image_handle->sync_token;
   }
 
   void InitializeFromGpuMemoryBufferHandle(
@@ -260,10 +262,9 @@ struct VideoCaptureImpl::BufferContext
   raw_ptr<const uint8_t> data_ = nullptr;
   size_t data_size_ = 0;
 
-  // Only valid for |buffer_type_ == SHARED_IMAGE_HANDLES|.
+  // Only valid for |buffer_type_ == SHARED_IMAGE_HANDLE|.
   scoped_refptr<gpu::ClientSharedImage> shared_image_;
   gpu::SyncToken shared_image_sync_token_;
-  uint32_t shared_image_texture_target_;
 
   // The following is for |buffer_type == GPU_MEMORY_BUFFER_HANDLE|.
 
@@ -371,14 +372,14 @@ VideoCaptureImpl::CreateVideoFrameInitData(
       video_frame_init_data.frame_or_buffer = frame;
       break;
     }
-    case VideoFrameBufferHandleType::kSharedImageHandles: {
+    case VideoFrameBufferHandleType::kSharedImageHandle: {
       CHECK(buffer_context->shared_image());
       video_frame_init_data.frame_or_buffer =
           media::VideoFrame::WrapSharedImage(
               video_frame_init_data.ready_buffer->info->pixel_format,
               buffer_context->shared_image(),
               buffer_context->shared_image_sync_token(),
-              buffer_context->shared_image_texture_target(),
+              buffer_context->shared_image()->GetTextureTarget(),
               media::VideoFrame::ReleaseMailboxCB(),
               gfx::Size(video_frame_init_data.ready_buffer->info->coded_size),
               gfx::Rect(video_frame_init_data.ready_buffer->info->visible_rect),
@@ -593,8 +594,8 @@ bool VideoCaptureImpl::BindVideoFrameOnMediaTaskRunner(
     scoped_refptr<gpu::ClientSharedImage> client_shared_image =
         sii->CreateSharedImage(
             {multiplanar_si_format, gpu_memory_buffer->GetSize(),
-             video_frame_init_data.ready_buffer->info->color_space, usage,
-             "VideoCaptureFrameBuffer"},
+             video_frame_init_data.ready_buffer->info->color_space,
+             gpu::SharedImageUsageSet(usage), "VideoCaptureFrameBuffer"},
             gpu_memory_buffer->CloneHandle());
 
     CHECK(client_shared_image);
@@ -608,26 +609,8 @@ bool VideoCaptureImpl::BindVideoFrameOnMediaTaskRunner(
   }
 
   const unsigned texture_target =
-#if BUILDFLAG(IS_LINUX)
-      // Explicitly set GL_TEXTURE_EXTERNAL_OES if necessary:
-      // `media::VideoFrame::RequiresExternalSampler()` requires it for NV12
-      // format, while `ClientSharedImage::GetTextureTarget(BufferUsage,
-      // BufferFormat)` will return GL_TEXTURE_2D if it is not backed by
-      // ClientSharedImage::GetTextureTarget() (which by design handles this
-      // case correctly).
-      // TODO(crbug.com/41494843): Eliminate this client-side check post-rollout
-      // of ClientSharedImage::GetTextureTarget().
-      (!base::FeatureList::IsEnabled(
-           gpu::kUseUniversalGetTextureTargetFunction) &&
-       (video_frame_init_data.ready_buffer->info->pixel_format ==
-        media::PIXEL_FORMAT_NV12))
-          ? GL_TEXTURE_EXTERNAL_OES
-          :
-#endif
-          video_frame_init_data.buffer_context->gmb_resources()
-              ->shared_image->GetTextureTarget(
-                  gfx::BufferUsage::SCANOUT_CPU_READ_WRITE,
-                  gpu_memory_buffer->GetFormat());
+      video_frame_init_data.buffer_context->gmb_resources()
+          ->shared_image->GetTextureTarget();
   const gpu::SyncToken sync_token = sii->GenVerifiedSyncToken();
 
   auto& shared_image =
@@ -680,7 +663,7 @@ struct VideoCaptureImpl::ClientInfo {
 VideoCaptureImpl::VideoCaptureImpl(
     media::VideoCaptureSessionId session_id,
     scoped_refptr<base::SequencedTaskRunner> main_task_runner,
-    BrowserInterfaceBrokerProxy* browser_interface_broker)
+    const BrowserInterfaceBrokerProxy& browser_interface_broker)
     : device_id_(session_id),
       session_id_(session_id),
       video_capture_host_for_testing_(nullptr),
@@ -692,7 +675,7 @@ VideoCaptureImpl::VideoCaptureImpl(
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
   DETACH_FROM_THREAD(io_thread_checker_);
 
-  browser_interface_broker->GetInterface(
+  browser_interface_broker.GetInterface(
       pending_video_capture_host_.InitWithNewPipeAndPassReceiver());
 
   gpu_factories_ = Platform::Current()->GetGpuFactories();

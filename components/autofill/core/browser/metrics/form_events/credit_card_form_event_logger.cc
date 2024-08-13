@@ -16,11 +16,13 @@
 #include "base/types/cxx23_to_underlying.h"
 #include "components/autofill/core/browser/form_data_importer.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
 #include "components/autofill/core/browser/metrics/payments/card_unmask_flow_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/virtual_card_standalone_cvc_suggestion_metrics.h"
 #include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
@@ -64,7 +66,7 @@ void CreditCardFormEventLogger::OnDidFetchSuggestion(
 void CreditCardFormEventLogger::OnDidShowSuggestions(
     const FormStructure& form,
     const AutofillField& field,
-    const base::TimeTicks& form_parsed_timestamp,
+    base::TimeTicks form_parsed_timestamp,
     AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
     bool off_the_record) {
   if (DoSuggestionsIncludeVirtualCard())
@@ -119,19 +121,18 @@ void CreditCardFormEventLogger::OnDidShowSuggestions(
 
   // Log if any of the suggestions had benefit available.
   if (!has_logged_suggestion_shown_for_benefits_) {
-    Log(metadata_logging_context_.DidShowCardWithBenefitAvailable()
-            ? FORM_EVENT_SUGGESTION_FOR_CARD_WITH_BENEFIT_AVAILABLE_SHOWN_ONCE
-            : FORM_EVENT_SUGGESTION_FOR_CARD_WITHOUT_BENEFIT_AVAILABLE_SHOWN_ONCE,
-        form);
+    if (metadata_logging_context_.DidShowCardWithBenefitAvailable()) {
+      Log(FORM_EVENT_SUGGESTION_FOR_CARD_WITH_BENEFIT_AVAILABLE_SHOWN_ONCE,
+          form);
+    }
     LogCardWithBenefitFormEventMetric(
         autofill_metrics::CardMetadataLoggingEvent::kShown,
         metadata_logging_context_);
     has_logged_suggestion_shown_for_benefits_ = true;
   }
-  Log(metadata_logging_context_.DidShowCardWithBenefitAvailable()
-          ? FORM_EVENT_SUGGESTION_FOR_CARD_WITH_BENEFIT_AVAILABLE_SHOWN
-          : FORM_EVENT_SUGGESTION_FOR_CARD_WITHOUT_BENEFIT_AVAILABLE_SHOWN,
-      form);
+  if (metadata_logging_context_.DidShowCardWithBenefitAvailable()) {
+    Log(FORM_EVENT_SUGGESTION_FOR_CARD_WITH_BENEFIT_AVAILABLE_SHOWN, form);
+  }
 }
 
 void CreditCardFormEventLogger::LogDeprecatedCreditCardSelectedMetric(
@@ -192,10 +193,10 @@ void CreditCardFormEventLogger::OnDidSelectCardSuggestion(
         }
 
         // Log masked server card selected once events for benefits.
-        Log(metadata_logging_context_.SelectedCardHasBenefitAvailable()
-                ? FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_SELECTED_ONCE
-                : FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITHOUT_BENEFIT_AVAILABLE_SELECTED_ONCE,
-            form);
+        if (metadata_logging_context_.SelectedCardHasBenefitAvailable()) {
+          Log(FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_SELECTED_ONCE,
+              form);
+        }
         // Log when a masked server card was selected after benefits were shown.
         if (metadata_logging_context_.DidShowCardWithBenefitAvailable()) {
           Log(FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_SELECTED_AFTER_CARD_WITH_BENEFIT_AVAILABLE_SHOWN_ONCE,
@@ -207,10 +208,10 @@ void CreditCardFormEventLogger::OnDidSelectCardSuggestion(
       }
 
       // Log masked server card selected events for benefits.
-      Log(metadata_logging_context_.SelectedCardHasBenefitAvailable()
-              ? FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_SELECTED
-              : FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITHOUT_BENEFIT_AVAILABLE_SELECTED,
-          form);
+      if (metadata_logging_context_.SelectedCardHasBenefitAvailable()) {
+        Log(FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_SELECTED,
+            form);
+      }
 
       break;
     case CreditCard::RecordType::kVirtualCard:
@@ -377,17 +378,17 @@ void CreditCardFormEventLogger::OnDidFillFormFillingSuggestion(
 
   // Log masked server card filled events for benefits.
   if (latest_filled_card_was_masked_server_card_) {
-    Log(metadata_logging_context_.SelectedCardHasBenefitAvailable()
-            ? FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_FILLED
-            : FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITHOUT_BENEFIT_AVAILABLE_FILLED,
-        form);
+    if (metadata_logging_context_.SelectedCardHasBenefitAvailable()) {
+      Log(FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_FILLED,
+          form);
+    }
 
     if (!has_logged_masked_server_card_suggestion_filled_) {
       has_logged_masked_server_card_suggestion_filled_ = true;
-      Log(metadata_logging_context_.SelectedCardHasBenefitAvailable()
-              ? FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_FILLED_ONCE
-              : FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITHOUT_BENEFIT_AVAILABLE_FILLED_ONCE,
-          form);
+      if (metadata_logging_context_.SelectedCardHasBenefitAvailable()) {
+        Log(FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_FILLED_ONCE,
+            form);
+      }
       // Log when a masked server card was filled after benefits were shown.
       if (metadata_logging_context_.DidShowCardWithBenefitAvailable()) {
         Log(FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_FILLED_AFTER_CARD_WITH_BENEFIT_AVAILABLE_SHOWN_ONCE,
@@ -575,7 +576,7 @@ void CreditCardFormEventLogger::LogFormSubmitted(const FormStructure& form) {
     RecordCardUnmaskFlowEvent(current_authentication_flow_,
                               UnmaskAuthFlowEvent::kFormSubmitted);
     autofill_metrics::LogServerCardUnmaskFormSubmission(
-        AutofillClient::PaymentsRpcCardType::kVirtualCard);
+        payments::PaymentsAutofillClient::PaymentsRpcCardType::kVirtualCard);
   } else if (logged_suggestion_filled_was_server_data_) {
     Log(FORM_EVENT_SERVER_SUGGESTION_SUBMITTED_ONCE, form);
   } else {
@@ -618,10 +619,10 @@ void CreditCardFormEventLogger::LogFormSubmitted(const FormStructure& form) {
 
   // Log masked server card submitted events for benefits.
   if (latest_filled_card_was_masked_server_card_) {
-    Log(metadata_logging_context_.SelectedCardHasBenefitAvailable()
-            ? FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_SUBMITTED_ONCE
-            : FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITHOUT_BENEFIT_AVAILABLE_SUBMITTED_ONCE,
-        form);
+    if (metadata_logging_context_.SelectedCardHasBenefitAvailable()) {
+      Log(FORM_EVENT_SUGGESTION_FOR_SERVER_CARD_WITH_BENEFIT_AVAILABLE_SUBMITTED_ONCE,
+          form);
+    }
     // Log when a form is submitted after a suggestion for a card with benefits
     // was shown. The user may have selected a card other than the card with
     // benefits.
@@ -684,22 +685,7 @@ CreditCardFormEventLogger::GetSupportedFormTypeNamesForLogging() const {
 DenseSet<FormTypeNameForLogging>
 CreditCardFormEventLogger::GetFormTypesForLogging(
     const FormStructure& form) const {
-  DenseSet<FormTypeNameForLogging> form_types;
-  for (FormType form_type : form.GetFormTypes()) {
-    switch (form_type) {
-      case FormType::kCreditCardForm:
-        form_types.insert(FormTypeNameForLogging::kCreditCardForm);
-        break;
-      case FormType::kStandaloneCvcForm:
-        form_types.insert(FormTypeNameForLogging::kStandaloneCvcForm);
-        break;
-      case FormType::kAddressForm:
-      case FormType::kPasswordForm:
-      case FormType::kUnknownFormType:
-        break;
-    }
-  }
-  return form_types;
+  return GetCreditCardFormTypesForLogging(form);
 }
 
 FormEvent CreditCardFormEventLogger::GetCardNumberStatusFormEvent(

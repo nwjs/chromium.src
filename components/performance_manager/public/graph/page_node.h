@@ -40,8 +40,7 @@ enum class PageType {
 };
 
 // A PageNode represents the root of a FrameTree, or equivalently a WebContents.
-// These may correspond to normal tabs, WebViews, Portals, Chrome Apps or
-// Extensions.
+// These may correspond to normal tabs, WebViews, Chrome Apps or Extensions.
 class PageNode : public TypedNode<PageNode> {
  public:
   using NodeSet = base::flat_set<const Node*>;
@@ -58,9 +57,7 @@ class PageNode : public TypedNode<PageNode> {
     kInvalid,
     // This page is a guest view. This can be many things (<webview>, <appview>,
     // etc) but is backed by the same inner/outer WebContents mechanism.
-    kGuestView,
-    // This page is a portal.
-    kPortal,
+    kGuestView
   };
 
   // Returns a string for a PageNode::EmbeddingType enumeration.
@@ -90,25 +87,6 @@ class PageNode : public TypedNode<PageNode> {
   // Returns a string for an enumeration value.
   static const char* ToString(PageType type);
   static const char* ToString(PageNode::LoadingState loading_state);
-
-  // State of a page. Pages can be born in "kActive" or "kPrerendering" state.
-  enum class PageState {
-    // The page is a normal page, that is actively running. Can transition from
-    // here to kBackForwardCache.
-    kActive,
-
-    // The page is a prerender page. It may do some initial loading but will
-    // never fully run unless it is activated. Can transition from here to
-    // kActive, or be destroyed.
-    kPrerendering,
-
-    // The page is in the back-forward cache. The page will be frozen during its
-    // entire stay in the cache. Can transition from here to kActive or be
-    // destroyed.
-    kBackForwardCache,
-  };
-
-  static const char* ToString(PageNode::PageState page_state);
 
   static constexpr NodeTypeEnum Type() { return NodeTypeEnum::kPage; }
 
@@ -166,6 +144,10 @@ class PageNode : public TypedNode<PageNode> {
   // Returns true if this page is displaying content in a picture-in-picture
   // window, false otherwise.
   virtual bool HasPictureInPicture() const = 0;
+
+  // Returns true if this page is off the record, false otherwise.
+  // A tab is off the record when it is open in incognito or guest mode.
+  virtual bool IsOffTheRecord() const = 0;
 
   // Returns the page's loading state.
   virtual LoadingState GetLoadingState() const = 0;
@@ -239,9 +221,6 @@ class PageNode : public TypedNode<PageNode> {
   // dereferenced on the UI thread.
   virtual base::WeakPtr<content::WebContents> GetWebContents() const = 0;
 
-  // Returns the current page state. See "PageNodeObserver::OnPageStateChanged".
-  virtual PageState GetPageState() const = 0;
-
   virtual uint64_t EstimateResidentSetSize() const = 0;
 
   virtual uint64_t EstimatePrivateFootprintSize() const = 0;
@@ -251,7 +230,6 @@ class PageNode : public TypedNode<PageNode> {
 // implement the entire interface.
 class PageNodeObserver : public base::CheckedObserver {
  public:
-  using PageState = PageNode::PageState;
   using EmbeddingType = PageNode::EmbeddingType;
 
   PageNodeObserver();
@@ -284,8 +262,8 @@ class PageNodeObserver : public base::CheckedObserver {
 
   // Invoked when this page has been assigned an embedder, had the embedder
   // change, or had the embedder removed. This can happen if a page is opened
-  // via webviews, guestviews, portals, etc, or when that relationship is
-  // subsequently severed or reparented.
+  // via webviews, guestviews etc, or when that relationship is subsequently
+  // severed or reparented.
   virtual void OnEmbedderFrameNodeChanged(
       const PageNode* page_node,
       const FrameNode* previous_embedder,
@@ -346,11 +324,6 @@ class PageNodeObserver : public base::CheckedObserver {
   // Invoked when the HadUserEdits property changes.
   virtual void OnHadUserEditsChanged(const PageNode* page_node) = 0;
 
-  // Invoked when the page state changes. See `PageState` for the valid
-  // transitions.
-  virtual void OnPageStateChanged(const PageNode* page_node,
-                                  PageState old_state) = 0;
-
   // Events with no property changes.
 
   // Fired when the tab title associated with a page changes. This property is
@@ -383,8 +356,6 @@ class PageNode::ObserverDefaultImpl : public PageNodeObserver {
   // PageNodeObserver implementation:
   void OnPageNodeAdded(const PageNode* page_node) override {}
   void OnBeforePageNodeRemoved(const PageNode* page_node) override {}
-  void OnPageStateChanged(const PageNode* page_node,
-                          PageState old_state) override {}
   void OnOpenerFrameNodeChanged(const PageNode* page_node,
                                 const FrameNode* previous_opener) override {}
   void OnEmbedderFrameNodeChanged(

@@ -26,6 +26,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterProvider;
@@ -45,7 +46,6 @@ import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.sync.SyncService;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.RenderTestRule;
 import org.chromium.ui.test.util.ViewUtils;
@@ -116,7 +116,7 @@ public class HistorySyncRenderTest {
     @ParameterAnnotations.UseMethodParameterBefore(
             HistorySyncRenderTest.NightModeAndOrientationParameterProvider.class)
     public void setupNightModeAndDeviceOrientation(boolean nightModeEnabled, int orientation) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     AppCompatDelegate.setDefaultNightMode(
                             nightModeEnabled
@@ -160,19 +160,14 @@ public class HistorySyncRenderTest {
         mSigninTestRule.addAccountThenSignin(AccountManagerTestRule.AADC_MINOR_ACCOUNT);
         buildHistorySyncCoordinator(orientation);
 
-        if (orientation == Configuration.ORIENTATION_PORTRAIT) {
-            onViewWaiting(withId(R.id.button_primary_minor_mode));
-        } else {
-            onViewWaiting(withId(R.id.button_primary));
-        }
-
+        onViewWaiting(withId(R.id.button_primary));
         mRenderTestRule.render(
                 mHistorySyncCoordinator.getView(), "history_sync_with_minor_mode_enabled");
     }
 
     private void buildHistorySyncCoordinator(int orientation) {
         ActivityTestUtils.rotateActivityToOrientation(mActivityTestRule.getActivity(), orientation);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mHistorySyncCoordinator =
                             new HistorySyncCoordinator(
@@ -185,7 +180,7 @@ public class HistorySyncRenderTest {
                                     null);
                     mActivityTestRule
                             .getActivity()
-                            .setContentView(mHistorySyncCoordinator.getView());
+                            .setContentView(mHistorySyncCoordinator.maybeRecreateView());
                 });
         ViewUtils.waitForVisibleView(allOf(withId(R.id.history_sync_illustration), isDisplayed()));
     }

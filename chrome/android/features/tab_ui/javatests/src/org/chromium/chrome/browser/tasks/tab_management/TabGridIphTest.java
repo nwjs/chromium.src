@@ -27,6 +27,7 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.c
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.createTabs;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.enterTabSwitcher;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.getSwipeToDismissAction;
+import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.prepareTabsWithThumbnail;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabSwitcherCardCount;
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
@@ -48,12 +49,14 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -68,7 +71,6 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.ui.test.util.UiRestriction;
@@ -96,7 +98,6 @@ import java.io.IOException;
 // Remove the ANDROID_HUB_FLOATING_ACTION_BUTTON restriction and regenerate goldens when launching.
 @DisableFeatures({
     ChromeFeatureList.ARCHIVE_TAB_SERVICE,
-    ChromeFeatureList.START_SURFACE_ANDROID,
     ChromeFeatureList.ANDROID_HUB_FLOATING_ACTION_BUTTON
 })
 @DoNotBatch(reason = "Batching can cause message state to leak between tests.")
@@ -116,14 +117,15 @@ public class TabGridIphTest {
 
     @Before
     public void setUp() {
+        IphMessageService.setSkipIphInTestsForTesting(false);
         mActivityTestRule.startMainActivityOnBlankPage();
         TabUiTestHelper.verifyTabSwitcherLayoutType(mActivityTestRule.getActivity());
         CriteriaHelper.pollUiThread(
                 mActivityTestRule.getActivity().getTabModelSelector()::isTabStateInitialized);
         mModalDialogManager =
-                TestThreadUtils.runOnUiThreadBlockingNoException(
+                ThreadUtils.runOnUiThreadBlocking(
                         mActivityTestRule.getActivity()::getModalDialogManager);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTracker =
                             TrackerFactory.getTrackerForProfile(
@@ -140,7 +142,7 @@ public class TabGridIphTest {
     @After
     public void tearDown() {
         ActivityTestUtils.clearActivityOrientation(mActivityTestRule.getActivity());
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 TabSwitcherMessageManager::resetHasAppendedMessagesForTesting);
     }
 
@@ -304,9 +306,9 @@ public class TabGridIphTest {
     @Feature({"RenderTest"})
     public void testRenderIphDialog_Landscape() throws IOException {
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        ActivityTestUtils.rotateActivityToOrientation(cta, Configuration.ORIENTATION_LANDSCAPE);
 
         enterTabSwitcher(cta);
-        ActivityTestUtils.rotateActivityToOrientation(cta, Configuration.ORIENTATION_LANDSCAPE);
         CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
         // Scroll to the position of the IPH entrance so that it is completely showing for Espresso
         // click.
@@ -316,7 +318,10 @@ public class TabGridIphTest {
                                         withId(TabUiTestHelper.getTabSwitcherAncestorId(cta))),
                                 withId(R.id.tab_list_recycler_view)))
                 .perform(RecyclerViewActions.scrollToPosition(1));
-        onView(allOf(withId(R.id.action_button), withParent(withId(R.id.tab_grid_message_item))))
+        onViewWaiting(
+                        allOf(
+                                withId(R.id.action_button),
+                                withParent(withId(R.id.tab_grid_message_item))))
                 .perform(click());
         verifyIphDialogShowing(cta);
 
@@ -332,6 +337,22 @@ public class TabGridIphTest {
 
         ChromeRenderTestRule.sanitize(iphDialogView);
         mRenderTestRule.render(iphDialogView, "iph_dialog_landscape");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    @EnableFeatures(ChromeFeatureList.ANDROID_HUB_FLOATING_ACTION_BUTTON)
+    public void testIphMessageRenderedCorrectly_withFloatingActionButton() throws IOException {
+        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        prepareTabsWithThumbnail(mActivityTestRule, 8, 0, null);
+
+        enterTabSwitcher(cta);
+        CriteriaHelper.pollUiThread(TabSwitcherMessageManager::hasAppendedMessagesForTesting);
+        onViewWaiting(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
+
+        View view = cta.findViewById(R.id.pane_frame);
+        mRenderTestRule.render(view, "iph_message_card");
     }
 
     @Test

@@ -100,6 +100,7 @@
 #include "net/proxy_resolution/proxy_info.h"
 #include "net/proxy_resolution/proxy_resolver.h"
 #include "net/proxy_resolution/proxy_resolver_factory.h"
+#include "net/reporting/reporting_target_type.h"
 #include "net/socket/client_socket_factory.h"
 #include "net/socket/client_socket_pool.h"
 #include "net/socket/client_socket_pool_manager.h"
@@ -125,6 +126,7 @@
 #include "net/test/gtest_util.h"
 #include "net/test/test_data_directory.h"
 #include "net/test/test_with_task_environment.h"
+#include "net/third_party/quiche/src/quiche/common/http/http_header_block.h"
 #include "net/third_party/quiche/src/quiche/spdy/core/spdy_framer.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "net/url_request/static_http_user_agent_settings.h"
@@ -1725,6 +1727,66 @@ TEST_P(HttpNetworkTransactionTest, Ignores1xx) {
   EXPECT_EQ("hello world", response_data);
 }
 
+TEST_P(HttpNetworkTransactionTest, GetReceivedBodyBytes) {
+  HttpRequestInfo request;
+  request.method = "GET";
+  request.url = GURL("http://www.example.com/");
+  request.traffic_annotation =
+      MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  std::vector<MockWrite> data_writes = {
+      MockWrite(ASYNC, 0,
+                "GET / HTTP/1.1\r\n"
+                "Host: www.example.com\r\n"
+                "Connection: keep-alive\r\n\r\n"),
+  };
+  static constexpr char chunk1[] = "hello ";
+  static constexpr char chunk2[] = "world";
+
+  MockRead data_reads[] = {
+      MockRead(ASYNC, 1, "HTTP/1.0 200 OK\r\n\r\n"),
+      MockRead(ASYNC, 2, chunk1),
+      MockRead(ASYNC, 3, chunk2),
+      MockRead(ASYNC, OK, 4),
+  };
+  SequencedSocketData data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
+
+  TestCompletionCallback start_cb;
+  EXPECT_THAT(start_cb.GetResult(trans.Start(&request, start_cb.callback(),
+                                             NetLogWithSource())),
+              IsOk());
+
+  const size_t kBufferSize = 256;
+
+  auto buf = base::MakeRefCounted<IOBufferWithSize>(kBufferSize);
+  EXPECT_THAT(trans.GetReceivedBodyBytes(), 0);
+
+  TestCompletionCallback read_cb1;
+  EXPECT_THAT(read_cb1.GetResult(
+                  trans.Read(buf.get(), kBufferSize, read_cb1.callback())),
+              strlen(chunk1));
+
+  EXPECT_THAT(trans.GetReceivedBodyBytes(), strlen(chunk1));
+
+  TestCompletionCallback read_cb2;
+  EXPECT_THAT(read_cb2.GetResult(
+                  trans.Read(buf.get(), kBufferSize, read_cb2.callback())),
+              strlen(chunk2));
+
+  EXPECT_THAT(trans.GetReceivedBodyBytes(), strlen(chunk1) + strlen(chunk2));
+
+  TestCompletionCallback read_cb3;
+  EXPECT_THAT(read_cb3.GetResult(
+                  trans.Read(buf.get(), kBufferSize, read_cb3.callback())),
+              IsOk());
+  EXPECT_THAT(trans.GetReceivedBodyBytes(), strlen(chunk1) + strlen(chunk2));
+}
+
 TEST_P(HttpNetworkTransactionTest, LoadTimingMeasuresTimeToFirstByteForHttp) {
   static const base::TimeDelta kDelayAfterFirstByte = base::Milliseconds(10);
 
@@ -1813,7 +1875,7 @@ void HttpNetworkTransactionTestBase::Check100ResponseTiming(bool use_spdy) {
   spdy::SpdySerializedFrame spdy_req(
       spdy_util_.ConstructSpdyGet(request.url.spec().c_str(), 1, LOWEST));
 
-  spdy::Http2HeaderBlock spdy_resp1_headers;
+  quiche::HttpHeaderBlock spdy_resp1_headers;
   spdy_resp1_headers[spdy::kHttp2StatusHeader] = "100";
   spdy::SpdySerializedFrame spdy_resp1(
       spdy_util_.ConstructSpdyReply(1, spdy_resp1_headers.Clone()));
@@ -2075,7 +2137,7 @@ void HttpNetworkTransactionTestBase::PreconnectErrorResendRequestTest(
 
   // SPDY versions of the request and response.
 
-  spdy::Http2HeaderBlock spdy_post_header_block;
+  quiche::HttpHeaderBlock spdy_post_header_block;
   spdy_post_header_block[spdy::kHttp2MethodHeader] = "POST";
   spdy_util.AddUrlToHeaderBlock(request.url.spec(), &spdy_post_header_block);
   spdy::SpdySerializedFrame spdy_request(
@@ -3641,7 +3703,8 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp10) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407, using a non-persistent
@@ -3660,6 +3723,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp10) {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
@@ -3790,7 +3854,8 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp11) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407, using a non-persistent
@@ -3808,6 +3873,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp11) {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
@@ -3942,7 +4008,8 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp10) {
         MockWrite(ASYNC, 0,
                   "CONNECT www.example.org:443 HTTP/1.1\r\n"
                   "Host: www.example.org:443\r\n"
-                  "Proxy-Connection: keep-alive\r\n\r\n"),
+                  "Proxy-Connection: keep-alive\r\n"
+                  "User-Agent: test-ua\r\n\r\n"),
 
         // After calling trans.RestartWithAuth(), this is the request we should
         // be issuing -- the final header line contains the credentials.
@@ -3950,6 +4017,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp10) {
                   "CONNECT www.example.org:443 HTTP/1.1\r\n"
                   "Host: www.example.org:443\r\n"
                   "Proxy-Connection: keep-alive\r\n"
+                  "User-Agent: test-ua\r\n"
                   "Proxy-Authorization: Basic Zm9vOmJheg==\r\n\r\n"),
     };
 
@@ -3961,6 +4029,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp10) {
                  "HTTP/1.0 407 Proxy Authentication Required\r\n"
                  "Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n"
                  "Proxy-Connection: keep-alive\r\n"
+                 "User-Agent: test-ua\r\n"
                  "Content-Length: 10\r\n\r\n"),
         MockRead(i == 0 ? ASYNC : SYNCHRONOUS, 2, "0123456789"),
 
@@ -3969,6 +4038,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp10) {
                  "HTTP/1.0 407 Proxy Authentication Required\r\n"
                  "Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n"
                  "Proxy-Connection: keep-alive\r\n"
+                 "User-Agent: test-ua\r\n"
                  "Content-Length: 10\r\n\r\n"),
         // No response body because the test stops reading here.
         MockRead(SYNCHRONOUS, ERR_UNEXPECTED, 5),
@@ -4055,7 +4125,8 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp11) {
         MockWrite(ASYNC, 0,
                   "CONNECT www.example.org:443 HTTP/1.1\r\n"
                   "Host: www.example.org:443\r\n"
-                  "Proxy-Connection: keep-alive\r\n\r\n"),
+                  "Proxy-Connection: keep-alive\r\n"
+                  "User-Agent: test-ua\r\n\r\n"),
 
         // After calling trans.RestartWithAuth(), this is the request we should
         // be issuing -- the final header line contains the credentials.
@@ -4063,6 +4134,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp11) {
                   "CONNECT www.example.org:443 HTTP/1.1\r\n"
                   "Host: www.example.org:443\r\n"
                   "Proxy-Connection: keep-alive\r\n"
+                  "User-Agent: test-ua\r\n"
                   "Proxy-Authorization: Basic Zm9vOmJheg==\r\n\r\n"),
     };
 
@@ -4167,7 +4239,8 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveExtraData) {
       MockWrite(ASYNC, 0,
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407, using a persistent, but sends
@@ -4189,6 +4262,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveExtraData) {
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
 
       MockWrite(ASYNC, 2,
@@ -4293,7 +4367,8 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHangupDuringBody) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407, using a persistent
@@ -4314,6 +4389,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHangupDuringBody) {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
@@ -4384,7 +4460,8 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyCancelTunnel) {
   MockWrite data_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407.
@@ -4442,7 +4519,9 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyMatchesServerAuthNoTunnel) {
   std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
 
   MockWrite data_writes[] = {
-      // Initial request gets a proxy auth challenge.
+      // Initial request gets a proxy auth challenge. The user-agent from
+      // `session_deps_` does not appear because this is a GET request to the
+      // proxy but containing headers for the destination.
       MockWrite("GET http://myproxy:70/ HTTP/1.1\r\n"
                 "Host: myproxy:70\r\n"
                 "Proxy-Connection: keep-alive\r\n\r\n"),
@@ -4872,12 +4951,14 @@ TEST_P(HttpNetworkTransactionTest,
       // Initial tunnel request gets a proxy auth challenge.
       MockWrite("CONNECT myproxy:70 HTTP/1.1\r\n"
                 "Host: myproxy:70\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
       // Retry with proxy auth credentials, which will result in establishing a
       // tunnel.
       MockWrite("CONNECT myproxy:70 HTTP/1.1\r\n"
                 "Host: myproxy:70\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
       // Request over the tunnel, which gets a server auth challenge.
       MockWrite("GET / HTTP/1.1\r\n"
@@ -4902,6 +4983,7 @@ TEST_P(HttpNetworkTransactionTest,
       // Proxy auth challenge.
       MockRead("HTTP/1.0 407 Proxy Authentication Required\r\n"
                "Proxy-Connection: keep-alive\r\n"
+               "User-Agent: test-ua\r\n"
                "Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n"
                "Content-Length: 0\r\n\r\n"),
       // Tunnel success
@@ -4937,6 +5019,7 @@ TEST_P(HttpNetworkTransactionTest,
       MockWrite("CONNECT myproxy:70 HTTP/1.1\r\n"
                 "Host: myproxy:70\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
       // Request over the tunnel, which gets a server auth challenge. Cached
       // credentials cannot be used, since the NAK is different.
@@ -5144,7 +5227,8 @@ TEST_P(HttpNetworkTransactionTest, SanitizeProxyAuthHeaders) {
   MockWrite data_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407.
@@ -5249,7 +5333,8 @@ TEST_P(HttpNetworkTransactionTest, HttpsServerRequestsProxyAuthThroughProxy) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
@@ -5321,7 +5406,8 @@ TEST_P(HttpNetworkTransactionTest,
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407, using a non-persistent
@@ -5341,6 +5427,7 @@ TEST_P(HttpNetworkTransactionTest,
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: auth_token\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
@@ -5437,11 +5524,13 @@ TEST_P(HttpNetworkTransactionTest,
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: auth_token\r\n\r\n"),
   };
 
@@ -5460,6 +5549,7 @@ TEST_P(HttpNetworkTransactionTest,
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: auth_token\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
@@ -5558,11 +5648,13 @@ TEST_P(HttpNetworkTransactionTest,
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: auth_token\r\n\r\n"),
   };
 
@@ -5572,7 +5664,8 @@ TEST_P(HttpNetworkTransactionTest,
       // No credentials.
       MockRead("HTTP/1.1 407 Proxy Authentication Required\r\n"),
       MockRead("Content-Length: 0\r\n"),
-      MockRead("Proxy-Connection: keep-alive\r\n"),
+      MockRead("Proxy-Connection: keep-alive\r\n"
+               "User-Agent: test-ua\r\n"),
       MockRead("Proxy-Authenticate: Mock\r\n\r\n"),
       MockRead(SYNCHRONOUS, ERR_CONNECTION_CLOSED),
   };
@@ -5583,7 +5676,8 @@ TEST_P(HttpNetworkTransactionTest,
   MockWrite data_writes2[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy, having had more than enough of us, just hangs up.
@@ -5676,16 +5770,19 @@ TEST_P(HttpNetworkTransactionTest,
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: auth_token\r\n\r\n"),
 
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: auth_token\r\n\r\n"),
   };
 
@@ -5694,12 +5791,14 @@ TEST_P(HttpNetworkTransactionTest,
   MockRead data_reads1[] = {
       MockRead("HTTP/1.1 407 Proxy Authentication Required\r\n"),
       MockRead("Content-Length: 0\r\n"),
-      MockRead("Proxy-Connection: keep-alive\r\n"),
+      MockRead("Proxy-Connection: keep-alive\r\n"
+               "User-Agent: test-ua\r\n"),
       MockRead("Proxy-Authenticate: Mock\r\n\r\n"),
 
       MockRead("HTTP/1.1 407 Proxy Authentication Required\r\n"),
       MockRead("Content-Length: 0\r\n"),
-      MockRead("Proxy-Connection: keep-alive\r\n"),
+      MockRead("Proxy-Connection: keep-alive\r\n"
+               "User-Agent: test-ua\r\n"),
       MockRead("Proxy-Authenticate: Mock foo\r\n\r\n"),
 
       MockRead(SYNCHRONOUS, ERR_CONNECTION_CLOSED),
@@ -5782,7 +5881,8 @@ TEST_P(HttpNetworkTransactionTest,
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407, using a non-persistent
@@ -5800,6 +5900,7 @@ TEST_P(HttpNetworkTransactionTest,
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: auth_token\r\n\r\n"),
   };
 
@@ -6272,7 +6373,8 @@ TEST_P(HttpNetworkTransactionTest, HttpProxyLoadTimingNoPacTwoRequests) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("GET /1 HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
@@ -6379,7 +6481,8 @@ TEST_P(HttpNetworkTransactionTest, HttpProxyLoadTimingWithPacTwoRequests) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("GET /1 HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
@@ -6458,14 +6561,6 @@ TEST_P(HttpNetworkTransactionTest, HttpProxyLoadTimingWithPacTwoRequests) {
 
 // Make sure that NetworkAnonymizationKeys are passed down to the proxy layer.
 TEST_P(HttpNetworkTransactionTest, ProxyResolvedWithNetworkAnonymizationKey) {
-  const SchemefulSite kSite(GURL("https://foo.test/"));
-  const SchemefulSite kOtherSite(GURL("https://bar.test/"));
-  const NetworkIsolationKey kNetworkIsolationKey =
-      NetworkIsolationKey(kSite, kOtherSite);
-  const NetworkAnonymizationKey kNetworkAnonymizationKey =
-      NetworkAnonymizationKey::CreateFromNetworkIsolationKey(
-          kNetworkIsolationKey);
-
   ProxyConfig proxy_config;
   proxy_config.set_auto_detect(true);
   proxy_config.set_pac_url(GURL("http://fooproxyurl"));
@@ -6544,6 +6639,9 @@ TEST_P(HttpNetworkTransactionTest, HttpsProxyGet) {
   HttpRequestInfo request;
   request.method = "GET";
   request.url = GURL("http://www.example.org/");
+  // GET should use UA header from the request, not from the
+  // `HttpUserAgentSettings` in session_deps_.
+  request.extra_headers.SetHeader(HttpRequestHeaders::kUserAgent, "request-ua");
   request.traffic_annotation =
       MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -6558,7 +6656,8 @@ TEST_P(HttpNetworkTransactionTest, HttpsProxyGet) {
   MockWrite data_writes1[] = {
       MockWrite("GET http://www.example.org/ HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: request-ua\r\n\r\n"),
   };
 
   MockRead data_reads1[] = {
@@ -6652,10 +6751,12 @@ TEST_P(HttpNetworkTransactionTest, HttpsNestedProxyGet) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT proxy2.test:71 HTTP/1.1\r\n"
                 "Host: proxy2.test:71\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
       MockWrite("CONNECT www.example.org:80 HTTP/1.1\r\n"
                 "Host: www.example.org:80\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
                 "Connection: keep-alive\r\n\r\n"),
@@ -8256,7 +8357,8 @@ TEST_P(HttpNetworkTransactionTest, HttpsNestedProxyMixedConnectSpdy) {
   const char kProxy2Connect[] =
       "CONNECT proxy2.test:71 HTTP/1.1\r\n"
       "Host: proxy2.test:71\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n";
+      "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n\r\n";
 
   const char kProxy2ConnectResp[] =
       "HTTP/1.1 200 Connection Established\r\n\r\n";
@@ -8379,7 +8481,8 @@ TEST_P(HttpNetworkTransactionTest, HttpsNestedProxyMixedConnectHttps) {
   const char kEndpointConnect[] =
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n";
+      "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n\r\n";
 
   const char kEndpointConnectResp[] =
       "HTTP/1.1 200 Connection Established\r\n\r\n";
@@ -8741,7 +8844,8 @@ void HttpNetworkTransactionTestBase::HttpsNestedProxyNoSocketReuseHelper(
     connects.push_back(
         base::StringPrintf("CONNECT %s HTTP/1.1\r\n"
                            "Host: %s\r\n"
-                           "Proxy-Connection: keep-alive\r\n\r\n",
+                           "Proxy-Connection: keep-alive\r\n"
+                           "User-Agent: test-ua\r\n\r\n",
                            proxy_host_port_pair_string.c_str(),
                            proxy_host_port_pair_string.c_str()));
     data_writes1.emplace_back(connects.back().c_str());
@@ -8753,7 +8857,8 @@ void HttpNetworkTransactionTestBase::HttpsNestedProxyNoSocketReuseHelper(
     data_writes1.emplace_back(
         "CONNECT www.example.org:80 HTTP/1.1\r\n"
         "Host: www.example.org:80\r\n"
-        "Proxy-Connection: keep-alive\r\n\r\n");
+        "Proxy-Connection: keep-alive\r\n"
+        "User-Agent: test-ua\r\n\r\n");
     data_reads1.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
 
     // Make the request to the endpoint.
@@ -8766,7 +8871,8 @@ void HttpNetworkTransactionTestBase::HttpsNestedProxyNoSocketReuseHelper(
     data_writes1.emplace_back(
         "GET http://www.example.org/ HTTP/1.1\r\n"
         "Host: www.example.org\r\n"
-        "Proxy-Connection: keep-alive\r\n\r\n");
+        "Proxy-Connection: keep-alive\r\n"
+        "User-Agent: test-ua\r\n\r\n");
   }
 
   data_reads1.emplace_back("HTTP/1.1 200 OK\r\n");
@@ -8812,7 +8918,8 @@ void HttpNetworkTransactionTestBase::HttpsNestedProxyNoSocketReuseHelper(
     connects.push_back(
         base::StringPrintf("CONNECT %s HTTP/1.1\r\n"
                            "Host: %s\r\n"
-                           "Proxy-Connection: keep-alive\r\n\r\n",
+                           "Proxy-Connection: keep-alive\r\n"
+                           "User-Agent: test-ua\r\n\r\n",
                            proxy_host_port_pair_string.c_str(),
                            proxy_host_port_pair_string.c_str()));
     data_writes2.emplace_back(connects.back().c_str());
@@ -8824,7 +8931,8 @@ void HttpNetworkTransactionTestBase::HttpsNestedProxyNoSocketReuseHelper(
     data_writes2.emplace_back(
         "CONNECT www.example.org:80 HTTP/1.1\r\n"
         "Host: www.example.org:80\r\n"
-        "Proxy-Connection: keep-alive\r\n\r\n");
+        "Proxy-Connection: keep-alive\r\n"
+        "User-Agent: test-ua\r\n\r\n");
     data_reads2.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
 
     // Make the request to the endpoint.
@@ -9625,11 +9733,13 @@ TEST_P(HttpNetworkTransactionTest, ProxiedH2SessionAppearsDuringAuth) {
       MockWrite(ASYNC, 0,
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
       MockWrite(ASYNC, 2,
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   MockRead auth_challenge_reads[] = {
@@ -9645,6 +9755,7 @@ TEST_P(HttpNetworkTransactionTest, ProxiedH2SessionAppearsDuringAuth) {
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
       CreateMockWrite(get, 2),
       CreateMockWrite(get2, 5),
@@ -9665,6 +9776,7 @@ TEST_P(HttpNetworkTransactionTest, ProxiedH2SessionAppearsDuringAuth) {
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
   };
 
@@ -9804,9 +9916,10 @@ TEST_P(HttpNetworkTransactionTest,
       spdy_util_.ConstructSpdyDataFrame(1, "1", false));
 
   // CONNECT to mail.example.org:443 via SPDY.
-  spdy::Http2HeaderBlock connect2_block;
+  quiche::HttpHeaderBlock connect2_block;
   connect2_block[spdy::kHttp2MethodHeader] = "CONNECT";
   connect2_block[spdy::kHttp2AuthorityHeader] = "mail.example.org:443";
+  connect2_block["user-agent"] = "test-ua";
   spdy::SpdySerializedFrame connect2(spdy_util_.ConstructSpdyHeaders(
       3, std::move(connect2_block), HttpProxyConnectJob::kH2QuicTunnelPriority,
       false));
@@ -10050,7 +10163,7 @@ TEST_P(HttpNetworkTransactionTest, HttpsProxySpdyLoadTimingTwoHttpRequests) {
       MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
   // http://www.example.org/
-  spdy::Http2HeaderBlock headers(
+  quiche::HttpHeaderBlock headers(
       spdy_util_.ConstructGetHeaderBlockForProxy("http://www.example.org/"));
   spdy::SpdySerializedFrame get1(
       spdy_util_.ConstructSpdyHeaders(1, std::move(headers), LOWEST, true));
@@ -10061,7 +10174,7 @@ TEST_P(HttpNetworkTransactionTest, HttpsProxySpdyLoadTimingTwoHttpRequests) {
   spdy_util_.UpdateWithStreamDestruction(1);
 
   // http://mail.example.org/
-  spdy::Http2HeaderBlock headers2(
+  quiche::HttpHeaderBlock headers2(
       spdy_util_.ConstructGetHeaderBlockForProxy("http://mail.example.org/"));
   spdy::SpdySerializedFrame get2(
       spdy_util_.ConstructSpdyHeaders(3, std::move(headers2), LOWEST, true));
@@ -10890,7 +11003,8 @@ void HttpNetworkTransactionTestBase::ConnectStatusHelperWithExpectedStatus(
   MockWrite data_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   MockRead data_reads[] = {
@@ -11610,12 +11724,12 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2) {
       MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
   // First request without credentials.
-  spdy::Http2HeaderBlock request_headers0(
+  quiche::HttpHeaderBlock request_headers0(
       spdy_util_.ConstructGetHeaderBlock(kUrl));
   spdy::SpdySerializedFrame request0(spdy_util_.ConstructSpdyHeaders(
       1, std::move(request_headers0), LOWEST, true));
 
-  spdy::Http2HeaderBlock response_headers0;
+  quiche::HttpHeaderBlock response_headers0;
   response_headers0[spdy::kHttp2StatusHeader] = "401";
   response_headers0["www-authenticate"] = "NTLM";
   spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyResponseHeaders(
@@ -11771,12 +11885,12 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithHostMapping) {
       MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
   // First request without credentials.
-  spdy::Http2HeaderBlock request_headers0(
+  quiche::HttpHeaderBlock request_headers0(
       spdy_util_.ConstructGetHeaderBlock(kUrl));
   spdy::SpdySerializedFrame request0(spdy_util_.ConstructSpdyHeaders(
       1, std::move(request_headers0), LOWEST, true));
 
-  spdy::Http2HeaderBlock response_headers0;
+  quiche::HttpHeaderBlock response_headers0;
   response_headers0[spdy::kHttp2StatusHeader] = "401";
   response_headers0["www-authenticate"] = "NTLM";
   spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyResponseHeaders(
@@ -11928,7 +12042,7 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithWebsockets) {
   // Initial request establishes an H2 connection, which will then be reused for
   // WebSockets. This is needed since WebSockets will reuse H2 connections, but
   // it won't create a new one.
-  spdy::Http2HeaderBlock initial_request_headers(
+  quiche::HttpHeaderBlock initial_request_headers(
       spdy_util_.ConstructGetHeaderBlock(kInitialUrl.spec()));
   spdy::SpdySerializedFrame initial_request(spdy_util_.ConstructSpdyHeaders(
       1, std::move(initial_request_headers), DEFAULT_PRIORITY, true));
@@ -11946,7 +12060,7 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithWebsockets) {
       spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
 
   // First WebSocket request, which has no credentials.
-  spdy::Http2HeaderBlock websocket_request_headers;
+  quiche::HttpHeaderBlock websocket_request_headers;
   websocket_request_headers[spdy::kHttp2MethodHeader] = "CONNECT";
   websocket_request_headers[spdy::kHttp2AuthorityHeader] = "server";
   websocket_request_headers[spdy::kHttp2SchemeHeader] = "https";
@@ -11960,7 +12074,7 @@ TEST_P(HttpNetworkTransactionTest, NTLMOverHttp2WithWebsockets) {
       3, std::move(websocket_request_headers), MEDIUM, false));
 
   // Auth challenge to WebSocket request.
-  spdy::Http2HeaderBlock auth_challenge_headers;
+  quiche::HttpHeaderBlock auth_challenge_headers;
   auth_challenge_headers[spdy::kHttp2StatusHeader] = "401";
   auth_challenge_headers["www-authenticate"] = "NTLM";
   spdy::SpdySerializedFrame websocket_auth_challenge(
@@ -12171,12 +12285,14 @@ TEST_P(HttpNetworkTransactionTest, NTLMProxyTLSHandshakeReset) {
       // The initial CONNECT request.
       MockWrite("CONNECT origin:443 HTTP/1.1\r\n"
                 "Host: origin:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       // After restarting with an identity.
       MockWrite("CONNECT origin:443 HTTP/1.1\r\n"
                 "Host: origin:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: NTLM "),
       MockWrite(negotiate_msg.c_str()),
       // End headers.
@@ -12186,6 +12302,7 @@ TEST_P(HttpNetworkTransactionTest, NTLMProxyTLSHandshakeReset) {
       MockWrite("CONNECT origin:443 HTTP/1.1\r\n"
                 "Host: origin:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: NTLM "),
       MockWrite(authenticate_msg.c_str()),
       // End headers.
@@ -12333,7 +12450,8 @@ TEST_P(HttpNetworkTransactionTest, DontRecycleTransportSocketForSSLTunnel) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 404, using a persistent
@@ -13910,7 +14028,8 @@ TEST_P(HttpNetworkTransactionTest, HTTPSBadCertificateViaProxy) {
   MockWrite proxy_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   MockRead proxy_reads[] = {MockRead("HTTP/1.0 200 Connected\r\n\r\n"),
@@ -13919,7 +14038,8 @@ TEST_P(HttpNetworkTransactionTest, HTTPSBadCertificateViaProxy) {
   MockWrite data_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
                 "Connection: keep-alive\r\n\r\n"),
@@ -13986,7 +14106,8 @@ TEST_P(HttpNetworkTransactionTest, HTTPSViaHttpsProxy) {
   MockWrite data_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
                 "Connection: keep-alive\r\n\r\n"),
@@ -14056,7 +14177,8 @@ TEST_P(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaHttpsProxy) {
       MockWrite(ASYNC, 0,
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   MockRead data_reads[] = {
@@ -14118,7 +14240,8 @@ TEST_P(HttpNetworkTransactionTest,
       MockWrite(ASYNC, 0,
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   MockRead data_reads[] = {
@@ -14165,7 +14288,8 @@ TEST_P(HttpNetworkTransactionTest,
       MockWrite(ASYNC, 0,
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   MockRead data_reads[] = {
@@ -14279,7 +14403,8 @@ TEST_P(HttpNetworkTransactionTest, ErrorResponseToHttpsConnectViaHttpsProxy) {
   MockWrite data_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   MockRead data_reads[] = {
@@ -14395,6 +14520,8 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthSpdyProxy) {
   // After calling trans.RestartWithAuth(), this is the request we should
   // be issuing -- the final header line contains the credentials.
   const char* const kAuthCredentials[] = {
+      "user-agent",
+      "test-ua",
       "proxy-authorization",
       "Basic Zm9vOmJhcg==",
   };
@@ -14529,7 +14656,8 @@ TEST_P(HttpNetworkTransactionTest, HTTPSBadCertificateViaHttpsProxy) {
   MockWrite bad_cert_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   MockRead bad_cert_reads[] = {MockRead("HTTP/1.0 200 Connected\r\n\r\n"),
@@ -14539,7 +14667,8 @@ TEST_P(HttpNetworkTransactionTest, HTTPSBadCertificateViaHttpsProxy) {
   MockWrite good_data_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
                 "Connection: keep-alive\r\n\r\n"),
@@ -17537,7 +17666,8 @@ TEST_P(HttpNetworkTransactionTest, UseAlternativeServiceForTunneledNpnSpdy) {
       MockWrite(ASYNC, 0,
                 "CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
       CreateMockWrite(req, 2),
   };
 
@@ -17769,11 +17899,13 @@ TEST_P(HttpNetworkTransactionTest, GenerateAuthToken) {
   const MockWrite kConnect(
       "CONNECT www.example.com:443 HTTP/1.1\r\n"
       "Host: www.example.com:443\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n");
+      "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n\r\n");
   const MockWrite kConnectProxyAuth(
       "CONNECT www.example.com:443 HTTP/1.1\r\n"
       "Host: www.example.com:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       "Proxy-Authorization: auth_token\r\n\r\n");
 
   const MockRead kSuccess(
@@ -19111,7 +19243,7 @@ TEST_P(HttpNetworkTransactionTest, ProxyGet) {
   EXPECT_TRUE(response->headers->IsKeepAlive());
   EXPECT_EQ(200, response->headers->response_code());
   EXPECT_EQ(100, response->headers->GetContentLength());
-  EXPECT_TRUE(response->was_fetched_via_proxy);
+  EXPECT_TRUE(response->WasFetchedViaProxy());
   EXPECT_FALSE(response->proxy_chain.is_for_ip_protection());
   EXPECT_EQ(ProxyChain(ProxyServer::SCHEME_HTTP,
                        HostPortPair::FromString("myproxy:70")),
@@ -19149,7 +19281,8 @@ TEST_P(HttpNetworkTransactionTest, ProxyTunnelGet) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
@@ -19198,7 +19331,7 @@ TEST_P(HttpNetworkTransactionTest, ProxyTunnelGet) {
   EXPECT_EQ(200, response->headers->response_code());
   EXPECT_EQ(100, response->headers->GetContentLength());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(response->was_fetched_via_proxy);
+  EXPECT_TRUE(response->WasFetchedViaProxy());
   EXPECT_EQ(ProxyChain(ProxyServer::SCHEME_HTTP,
                        HostPortPair::FromString("myproxy:70")),
             response->proxy_chain);
@@ -19235,7 +19368,8 @@ TEST_P(HttpNetworkTransactionTest, ProxyTunnelGetIPv6) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT [::2]:443 HTTP/1.1\r\n"
                 "Host: [::2]:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: [::2]\r\n"
@@ -19282,7 +19416,7 @@ TEST_P(HttpNetworkTransactionTest, ProxyTunnelGetIPv6) {
   EXPECT_EQ(200, response->headers->response_code());
   EXPECT_EQ(100, response->headers->GetContentLength());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(response->was_fetched_via_proxy);
+  EXPECT_TRUE(response->WasFetchedViaProxy());
   EXPECT_EQ(ProxyChain(ProxyServer::SCHEME_HTTP,
                        HostPortPair::FromString("myproxy:70")),
             response->proxy_chain);
@@ -19313,7 +19447,8 @@ TEST_P(HttpNetworkTransactionTest, ProxyTunnelGetHangup) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
@@ -19678,7 +19813,8 @@ TEST_P(HttpNetworkTransactionTest, ClientAuthCertCache_Proxy_Fail) {
   MockWrite https_writes[] = {
       MockWrite("CONNECT www.example.com:443 HTTP/1.1\r\n"
                 "Host: www.example.com:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   requests[1].url = GURL("http://www.example.com/");
@@ -20696,7 +20832,7 @@ TEST_P(HttpNetworkTransactionTest, RetryWithoutConnectionPooling) {
   spdy::SpdySerializedFrame resp1(
       spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body1(spdy_util_.ConstructSpdyDataFrame(1, true));
-  spdy::Http2HeaderBlock response_headers;
+  quiche::HttpHeaderBlock response_headers;
   response_headers[spdy::kHttp2StatusHeader] = "421";
   spdy::SpdySerializedFrame resp2(
       spdy_util_.ConstructSpdyReply(3, std::move(response_headers)));
@@ -20823,7 +20959,7 @@ TEST_P(HttpNetworkTransactionTest, ReturnHTTP421OnRetry) {
   spdy::SpdySerializedFrame resp1(
       spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body1(spdy_util_.ConstructSpdyDataFrame(1, true));
-  spdy::Http2HeaderBlock response_headers;
+  quiche::HttpHeaderBlock response_headers;
   response_headers[spdy::kHttp2StatusHeader] = "421";
   spdy::SpdySerializedFrame resp2(
       spdy_util_.ConstructSpdyReply(3, response_headers.Clone()));
@@ -20937,7 +21073,7 @@ TEST_P(HttpNetworkTransactionTest,
       CreateMockWrite(rst, 4),
   };
 
-  spdy::Http2HeaderBlock response_headers;
+  quiche::HttpHeaderBlock response_headers;
   response_headers[spdy::kHttp2StatusHeader] = "421";
   spdy::SpdySerializedFrame resp1 =
       spdy_util_.ConstructSpdyReply(1, std::move(response_headers));
@@ -20958,7 +21094,7 @@ TEST_P(HttpNetworkTransactionTest,
       CreateMockWrite(req2_body, 1),
   };
 
-  spdy::Http2HeaderBlock resp2_headers;
+  quiche::HttpHeaderBlock resp2_headers;
   resp2_headers[spdy::kHttp2StatusHeader] = "200";
   spdy::SpdySerializedFrame resp2 =
       spdy_util2.ConstructSpdyReply(1, std::move(resp2_headers));
@@ -21026,7 +21162,7 @@ TEST_P(HttpNetworkTransactionTest, Response421WithStreamingBodyWithNullSource) {
       CreateMockWrite(rst, 5),
   };
 
-  spdy::Http2HeaderBlock response_headers;
+  quiche::HttpHeaderBlock response_headers;
   response_headers[spdy::kHttp2StatusHeader] = "421";
   spdy::SpdySerializedFrame resp1 =
       spdy_util_.ConstructSpdyReply(1, std::move(response_headers));
@@ -21527,7 +21663,7 @@ TEST_P(HttpNetworkTransactionTest, DoNotUseSpdySessionForHttpOverTunnel) {
       spdy_util_.ConstructWrappedSpdyFrame(req1, 1));
 
   // SPDY GET for HTTP URL (through the proxy, but not the tunnel).
-  spdy::Http2HeaderBlock req2_block;
+  quiche::HttpHeaderBlock req2_block;
   req2_block[spdy::kHttp2MethodHeader] = "GET";
   req2_block[spdy::kHttp2AuthorityHeader] = "www.example.org:8080";
   req2_block[spdy::kHttp2SchemeHeader] = "http";
@@ -21647,7 +21783,7 @@ TEST_P(HttpNetworkTransactionTest, DoNotUseSpdySessionIfCertDoesNotMatch) {
   SpdyTestUtil spdy_util_secure(/*use_priority_header=*/true);
 
   // SPDY GET for HTTP URL (through SPDY proxy)
-  spdy::Http2HeaderBlock headers(
+  quiche::HttpHeaderBlock headers(
       spdy_util_.ConstructGetHeaderBlockForProxy("http://www.example.org/"));
   spdy::SpdySerializedFrame req1(
       spdy_util_.ConstructSpdyHeaders(1, std::move(headers), LOWEST, true));
@@ -22916,13 +23052,15 @@ TEST_P(HttpNetworkTransactionTest, ProxyHeadersNotSentOverWssTunnel) {
   MockWrite data_writes[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       // After calling trans->RestartWithAuth(), this is the request we should
       // be issuing -- the final header line contains the credentials.
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
@@ -22942,7 +23080,8 @@ TEST_P(HttpNetworkTransactionTest, ProxyHeadersNotSentOverWssTunnel) {
       MockRead("HTTP/1.1 407 Proxy Authentication Required\r\n"
                "Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n"
                "Content-Length: 0\r\n"
-               "Proxy-Connection: keep-alive\r\n\r\n"),
+               "Proxy-Connection: keep-alive\r\n"
+               "User-Agent: test-ua\r\n\r\n"),
 
       MockRead("HTTP/1.1 200 Connection Established\r\n\r\n"),
 
@@ -23027,6 +23166,7 @@ TEST_P(HttpNetworkTransactionTest, ProxyHeadersNotSentOverWsTunnel) {
       MockWrite("CONNECT www.example.org:80 HTTP/1.1\r\n"
                 "Host: www.example.org:80\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
@@ -23537,7 +23677,8 @@ TEST_P(HttpNetworkTransactionReportingTest, ProcessReportToHeaderHttps) {
       reporting_context()->cache()->GetEndpointForTesting(
           ReportingEndpointGroupKey(
               kNetworkAnonymizationKey,
-              url::Origin::Create(GURL("https://www.example.org/")), "nel"),
+              url::Origin::Create(GURL("https://www.example.org/")), "nel",
+              ReportingTargetType::kDeveloper),
           GURL("https://www.example.org/upload/"));
   EXPECT_TRUE(endpoint);
 }
@@ -23715,7 +23856,8 @@ TEST_P(HttpNetworkTransactionNetworkErrorLoggingTest,
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
                 "Host: www.example.org\r\n"
@@ -23754,7 +23896,7 @@ TEST_P(HttpNetworkTransactionNetworkErrorLoggingTest,
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
   EXPECT_EQ(200, response->headers->response_code());
-  EXPECT_TRUE(response->was_fetched_via_proxy);
+  EXPECT_TRUE(response->WasFetchedViaProxy());
 
   // No NEL header was set.
   EXPECT_EQ(0u, network_error_logging_service()->headers().size());
@@ -24374,7 +24516,7 @@ TEST_P(HttpNetworkTransactionNetworkErrorLoggingTest,
   spdy::SpdySerializedFrame resp1(
       spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body1(spdy_util_.ConstructSpdyDataFrame(1, true));
-  spdy::Http2HeaderBlock response_headers;
+  quiche::HttpHeaderBlock response_headers;
   response_headers[spdy::kHttp2StatusHeader] = "421";
   spdy::SpdySerializedFrame resp2(
       spdy_util_.ConstructSpdyReply(3, std::move(response_headers)));
@@ -24658,7 +24800,8 @@ TEST_P(HttpNetworkTransactionNetworkErrorLoggingTest, DontCreateReportProxy) {
   MockWrite data_writes1[] = {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
+                "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n\r\n"),
   };
 
   // The proxy responds to the connect with a 407, using a non-persistent
@@ -24676,6 +24819,7 @@ TEST_P(HttpNetworkTransactionNetworkErrorLoggingTest, DontCreateReportProxy) {
       MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
                 "Host: www.example.org:443\r\n"
                 "Proxy-Connection: keep-alive\r\n"
+                "User-Agent: test-ua\r\n"
                 "Proxy-Authorization: Basic Zm9vOmJhcg==\r\n\r\n"),
 
       MockWrite("GET / HTTP/1.1\r\n"
@@ -25381,7 +25525,8 @@ TEST_P(HttpNetworkTransactionTest, AuthEverything) {
   mock_writes2.emplace_back(
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n");
+      "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n\r\n");
   mock_reads2.emplace_back(
       "HTTP/1.1 407 Proxy Authentication Required\r\n"
       "Content-Length: 0\r\n"
@@ -25391,6 +25536,7 @@ TEST_P(HttpNetworkTransactionTest, AuthEverything) {
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       // Authenticate as proxyuser:proxypass.
       "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
   mock_reads2.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -25413,6 +25559,7 @@ TEST_P(HttpNetworkTransactionTest, AuthEverything) {
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       // Authenticate as proxyuser:proxypass.
       "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
   mock_reads3.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -25568,7 +25715,8 @@ TEST_P(HttpNetworkTransactionTest, AuthEverythingWithConnectClose) {
   mock_writes2.emplace_back(
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n");
+      "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n\r\n");
   mock_reads2.emplace_back(
       "HTTP/1.1 407 Proxy Authentication Required\r\n"
       "Content-Length: 0\r\n"
@@ -25588,6 +25736,7 @@ TEST_P(HttpNetworkTransactionTest, AuthEverythingWithConnectClose) {
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       // Authenticate as proxyuser:proxypass.
       "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
   mock_reads3.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -25610,6 +25759,7 @@ TEST_P(HttpNetworkTransactionTest, AuthEverythingWithConnectClose) {
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       // Authenticate as proxyuser:proxypass.
       "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
   mock_reads4.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -25643,6 +25793,7 @@ TEST_P(HttpNetworkTransactionTest, AuthEverythingWithConnectClose) {
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       // Authenticate as proxyuser:proxypass.
       "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
   mock_reads5.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -25675,6 +25826,7 @@ TEST_P(HttpNetworkTransactionTest, AuthEverythingWithConnectClose) {
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       // Authenticate as proxyuser:proxypass.
       "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
   mock_reads6.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -25788,7 +25940,8 @@ TEST_P(HttpNetworkTransactionTest, ProxyHTTPAndServerTLSAuth) {
   mock_writes1.emplace_back(
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n");
+      "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n\r\n");
   mock_reads1.emplace_back(
       "HTTP/1.1 407 Proxy Authentication Required\r\n"
       "Content-Length: 0\r\n"
@@ -25798,6 +25951,7 @@ TEST_P(HttpNetworkTransactionTest, ProxyHTTPAndServerTLSAuth) {
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       // Authenticate as proxyuser:proxypass.
       "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
   mock_reads1.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -25818,6 +25972,7 @@ TEST_P(HttpNetworkTransactionTest, ProxyHTTPAndServerTLSAuth) {
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       // Authenticate as proxyuser:proxypass.
       "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
   mock_reads2.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
@@ -26639,13 +26794,13 @@ TEST_P(HttpNetworkTransactionTest, NetworkIsolationSSLProxy) {
   request2.network_isolation_key = kNetworkIsolationKey2;
   request2.network_anonymization_key = kNetworkAnonymizationKey2;
 
-  const MockWrite kWrites1[] = {
-      MockWrite("CONNECT foo.test:443 HTTP/1.1\r\n"
-                "Host: foo.test:443\r\n"
-                "Proxy-Connection: keep-alive\r\n\r\n"),
-      MockWrite("GET /1 HTTP/1.1\r\n"
-                "Host: foo.test\r\n"
-                "Connection: keep-alive\r\n\r\n")};
+  const MockWrite kWrites1[] = {MockWrite("CONNECT foo.test:443 HTTP/1.1\r\n"
+                                          "Host: foo.test:443\r\n"
+                                          "Proxy-Connection: keep-alive\r\n"
+                                          "User-Agent: test-ua\r\n\r\n"),
+                                MockWrite("GET /1 HTTP/1.1\r\n"
+                                          "Host: foo.test\r\n"
+                                          "Connection: keep-alive\r\n\r\n")};
 
   const MockRead kReads1[] = {
       MockRead("HTTP/1.1 200 Connection Established\r\n\r\n"),
@@ -27380,7 +27535,7 @@ TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_Direct) {
   proxy_info.UseDirect();
   HttpResponseInfo response_info;
   HttpNetworkTransaction::SetProxyInfoInResponse(proxy_info, &response_info);
-  EXPECT_EQ(response_info.was_fetched_via_proxy, false);
+  EXPECT_EQ(response_info.WasFetchedViaProxy(), false);
   EXPECT_EQ(response_info.proxy_chain.is_for_ip_protection(), false);
   EXPECT_EQ(response_info.proxy_chain, ProxyChain::Direct());
 }
@@ -27393,7 +27548,7 @@ TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_Proxied) {
   proxy_info.UseProxyChain(proxy_chain);
   HttpResponseInfo response_info;
   HttpNetworkTransaction::SetProxyInfoInResponse(proxy_info, &response_info);
-  EXPECT_EQ(response_info.was_fetched_via_proxy, true);
+  EXPECT_EQ(response_info.WasFetchedViaProxy(), true);
   EXPECT_EQ(response_info.proxy_chain.is_for_ip_protection(), false);
   EXPECT_EQ(response_info.proxy_chain, proxy_chain);
 }
@@ -27404,7 +27559,7 @@ TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_Empty) {
   HttpResponseInfo response_info;
   HttpNetworkTransaction::SetProxyInfoInResponse(empty_proxy_info,
                                                  &response_info);
-  EXPECT_EQ(response_info.was_fetched_via_proxy, false);
+  EXPECT_EQ(response_info.WasFetchedViaProxy(), false);
   EXPECT_EQ(response_info.proxy_chain.is_for_ip_protection(), false);
   EXPECT_FALSE(response_info.proxy_chain.IsValid());
 }
@@ -27419,7 +27574,7 @@ TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_IpProtectionProxied) {
   proxy_info.UseProxyChain(ip_protection_proxy_chain);
   HttpResponseInfo response_info;
   HttpNetworkTransaction::SetProxyInfoInResponse(proxy_info, &response_info);
-  EXPECT_EQ(response_info.was_fetched_via_proxy, true);
+  EXPECT_EQ(response_info.WasFetchedViaProxy(), true);
   EXPECT_EQ(response_info.proxy_chain.is_for_ip_protection(), true);
   EXPECT_EQ(response_info.proxy_chain, ip_protection_proxy_chain);
 }
@@ -27432,7 +27587,7 @@ TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_IpProtectionDirect) {
   proxy_info.UseProxyChain(kIpProtectionDirectChain);
   HttpResponseInfo response_info;
   HttpNetworkTransaction::SetProxyInfoInResponse(proxy_info, &response_info);
-  EXPECT_EQ(response_info.was_fetched_via_proxy, false);
+  EXPECT_EQ(response_info.WasFetchedViaProxy(), false);
   EXPECT_EQ(response_info.proxy_chain.is_for_ip_protection(), true);
   EXPECT_EQ(response_info.proxy_chain, kIpProtectionDirectChain);
 }
@@ -27510,12 +27665,14 @@ TEST_P(HttpNetworkTransactionTest,
       "CONNECT proxy2.test:71 HTTP/1.1\r\n"
       "Host: proxy2.test:71\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       "Authorization: %s\r\n\r\n",
       kProxyServer1AuthHeaderValue.c_str());
   const std::string kEndpointConnect = base::StringPrintf(
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       "Authorization: %s\r\n\r\n",
       kProxyServer2AuthHeaderValue.c_str());
 
@@ -27671,12 +27828,14 @@ TEST_P(HttpNetworkTransactionTest,
       "CONNECT proxy2.test:71 HTTP/1.1\r\n"
       "Host: proxy2.test:71\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       "Authorization: %s\r\n\r\n",
       kProxyServer1AuthHeaderValue.c_str());
   const std::string kEndpointConnect = base::StringPrintf(
       "CONNECT www.example.org:443 HTTP/1.1\r\n"
       "Host: www.example.org:443\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       "Authorization: %s\r\n\r\n",
       kProxyServer2AuthHeaderValue.c_str());
 
@@ -27764,6 +27923,7 @@ TEST_P(HttpNetworkTransactionTest,
       "CONNECT proxy2.test:71 HTTP/1.1\r\n"
       "Host: proxy2.test:71\r\n"
       "Proxy-Connection: keep-alive\r\n"
+      "User-Agent: test-ua\r\n"
       "Authorization: %s\r\n\r\n",
       kProxyServer1AuthHeaderValue.c_str());
 

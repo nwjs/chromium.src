@@ -157,7 +157,7 @@
 #include "third_party/blink/renderer/core/scroll/scroll_animator_base.h"
 #include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
-#include "third_party/blink/renderer/core/style/position_try_options.h"
+#include "third_party/blink/renderer/core/style/position_try_fallbacks.h"
 #include "third_party/blink/renderer/core/svg/svg_document_extensions.h"
 #include "third_party/blink/renderer/core/svg/svg_svg_element.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition.h"
@@ -896,7 +896,7 @@ void LocalFrameView::SetNeedsPaintPropertyUpdate() {
 gfx::SizeF LocalFrameView::SmallViewportSizeForViewportUnits() const {
   float zoom = 1;
   if (!frame_->GetDocument() || !frame_->GetDocument()->Printing())
-    zoom = GetFrame().PageZoomFactor();
+    zoom = GetFrame().LayoutZoomFactor();
 
   auto* layout_view = GetLayoutView();
   if (!layout_view)
@@ -950,7 +950,7 @@ gfx::SizeF LocalFrameView::ViewportSizeForMediaQueries() const {
   }
   gfx::SizeF viewport_size(layout_size_);
   if (!frame_->GetDocument()->Printing()) {
-    viewport_size.Scale(1 / GetFrame().PageZoomFactor());
+    viewport_size.Scale(1 / GetFrame().LayoutZoomFactor());
   }
   return viewport_size;
 }
@@ -2426,7 +2426,7 @@ bool LocalFrameView::RunResizeObserverSteps(
   disconnected_elements_with_remembered_size_.clear();
 
   // https://drafts.csswg.org/css-anchor-position-1/#last-successful-position-option
-  bool re_run_lifecycles = UpdateLastSuccessfulPositionOptions();
+  bool re_run_lifecycles = UpdateLastSuccessfulPositionFallbacks();
 
   ForAllNonThrottledLocalFrameViews(
       [&re_run_lifecycles](LocalFrameView& frame_view) {
@@ -2510,6 +2510,13 @@ bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
       frame_view.NotifyFrameRectsChangedIfNeeded();
     });
   }
+
+  ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
+    auto lifecycle_observers = frame_view.lifecycle_observers_;
+    for (auto& observer : lifecycle_observers) {
+      observer->DidFinishLayout();
+    }
+  });
 
   return Lifecycle().GetState() >= DocumentLifecycle::kLayoutClean;
 }
@@ -2721,8 +2728,8 @@ void LocalFrameView::RunAccessibilitySteps() {
 
   ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
     if (AXObjectCache* cache = frame_view.ExistingAXObjectCache()) {
-      cache->ProcessDeferredAccessibilityEvents(
-          *frame_view.GetFrame().GetDocument());
+      cache->CommitAXUpdates(*frame_view.GetFrame().GetDocument(),
+                             /*force=*/false);
     }
   });
 }
@@ -2755,8 +2762,7 @@ void LocalFrameView::PerformScrollAnchoringAdjustments() {
       DCHECK(scroller->GetScrollAnchor());
       // The CSS scroll-start property should take precedence over scroll
       // anchoring.
-      if (RuntimeEnabledFeatures::CSSScrollStartEnabled() &&
-          scroller->IsApplyingScrollStart()) {
+      if (scroller->IsApplyingScrollStart()) {
         scroller->GetScrollAnchor()->CancelAdjustment();
         continue;
       }
@@ -3691,8 +3697,8 @@ void LocalFrameView::PropagateFrameRects() {
   }
 }
 
-void LocalFrameView::ZoomChanged(float zoom_factor) {
-  GetFrame().SetPageZoomFactor(zoom_factor);
+void LocalFrameView::ZoomFactorChanged(float zoom_factor) {
+  GetFrame().SetLayoutZoomFactor(zoom_factor);
 }
 
 void LocalFrameView::SetLayoutSizeInternal(const gfx::Size& size) {
@@ -3809,6 +3815,13 @@ gfx::Rect LocalFrameView::FrameToViewport(
 gfx::Point LocalFrameView::FrameToViewport(
     const gfx::Point& point_in_frame) const {
   gfx::Point point_in_root_frame = ConvertToRootFrame(point_in_frame);
+  return frame_->GetPage()->GetVisualViewport().RootFrameToViewport(
+      point_in_root_frame);
+}
+
+gfx::PointF LocalFrameView::FrameToViewport(
+    const gfx::PointF& point_in_frame) const {
+  gfx::PointF point_in_root_frame = ConvertToRootFrame(point_in_frame);
   return frame_->GetPage()->GetVisualViewport().RootFrameToViewport(
       point_in_root_frame);
 }
@@ -5049,11 +5062,11 @@ void LocalFrameView::NotifyElementWithRememberedSizeDisconnected(
   disconnected_elements_with_remembered_size_.insert(element);
 }
 
-bool LocalFrameView::UpdateLastSuccessfulPositionOptions() {
+bool LocalFrameView::UpdateLastSuccessfulPositionFallbacks() {
   return GetFrame()
       .GetDocument()
       ->GetStyleEngine()
-      .UpdateLastSuccessfulPositionOptions();
+      .UpdateLastSuccessfulPositionFallbacks();
 }
 
 }  // namespace blink

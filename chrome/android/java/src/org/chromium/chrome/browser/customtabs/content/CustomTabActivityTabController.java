@@ -46,7 +46,6 @@ import org.chromium.chrome.browser.customtabs.FirstMeaningfulPaintObserver;
 import org.chromium.chrome.browser.customtabs.PageLoadMetricsObserver;
 import org.chromium.chrome.browser.customtabs.ReparentingTaskProvider;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.InflationObserver;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -390,7 +389,7 @@ public class CustomTabActivityTabController implements InflationObserver {
                 ProfileProvider.getOrCreateProfile(
                         mProfileProviderSupplier.get(), mIntentDataProvider.isOffTheRecord());
         Tab tab = null;
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_PREWARM_TAB)
+        if (WarmupManager.getInstance().isCCTPrewarmTabFeatureEnabled(true)
                 && warmupManager.hasSpareTab(profile)) {
             tab = warmupManager.takeSpareTab(profile, TabLaunchType.FROM_EXTERNAL_APP);
             TabAssociatedApp.from(tab)
@@ -478,7 +477,7 @@ public class CustomTabActivityTabController implements InflationObserver {
             tab.getView().requestFocus();
         }
 
-        if (!tab.isIncognito()) {
+        if (!tab.isOffTheRecord()) {
             TabObserver observer =
                     new EmptyTabObserver() {
                         @Override
@@ -507,6 +506,7 @@ public class CustomTabActivityTabController implements InflationObserver {
         // be generated in the middle of tab initialization.
         mTabObserverRegistrar.addObserversForTab(tab);
         prepareTabBackground(tab);
+        mCustomTabObserver.get().setLongPressLinkSelectText(tab, mIntentDataProvider.isAuthView());
     }
 
     public void registerTabObserver(TabObserver observer) {

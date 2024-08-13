@@ -25,7 +25,7 @@ LocalTabGroupID GenerateRandomTabGroupID() {
 }
 
 LocalTabID GenerateRandomTabID() {
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   return base::RandInt(0, 1000);
 #else
   return base::Token::CreateRandom();
@@ -118,11 +118,16 @@ std::unique_ptr<syncer::DeviceInfo> CreateDeviceInfo(
       "scoped_id", "manufacturer", "model", "full_hardware_class",
       /*last_updated_timestamp=*/base::Time::Now(),
       /*pulse_interval=*/base::Days(1),
-      /*send_tab_to_self_receiving_enabled=*/false,
+      /*send_tab_to_self_receiving_enabled=*/
+      false,
+      /*send_tab_to_self_receiving_type=*/
+      sync_pb::
+          SyncEnums_SendTabReceivingType_SEND_TAB_RECEIVING_TYPE_CHROME_OR_UNSPECIFIED,
       /*sharing_info=*/std::nullopt,
       /*paask_info=*/std::nullopt,
       /*fcm_registration_token=*/std::string(),
-      /*interested_data_types=*/syncer::ModelTypeSet::All());
+      /*interested_data_types=*/syncer::ModelTypeSet::All(),
+      /*floating_workspace_last_signin_timestamp=*/std::nullopt);
 }
 
 }  // namespace tab_groups::test

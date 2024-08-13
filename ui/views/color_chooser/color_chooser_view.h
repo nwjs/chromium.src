@@ -2,12 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#if defined(UNSAFE_BUFFERS_BUILD)
-// TODO(https://crbug.com/344639839): fix the unsafe buffer errors in this file,
-// then remove this pragma.
-#pragma allow_unsafe_buffers
-#endif
-
 #ifndef UI_VIEWS_COLOR_CHOOSER_COLOR_CHOOSER_VIEW_H_
 #define UI_VIEWS_COLOR_CHOOSER_COLOR_CHOOSER_VIEW_H_
 
@@ -86,24 +80,23 @@ class VIEWS_EXPORT ColorChooser final : public TextfieldController {
   void OnSaturationValueChosen(SkScalar saturation, SkScalar value);
 
   // The current color in HSV coordinate.
-  SkScalar hsv_[3];
+  std::array<SkScalar, 3> hsv_;
 
   raw_ptr<ColorChooserListener> listener_;
   ViewTracker tracker_;
 
   // Child views. These are owned as part of the normal views hierarchy.
   // The view of hue chooser.
-  raw_ptr<HueView, DanglingUntriaged> hue_ = nullptr;
+  raw_ptr<HueView> hue_ = nullptr;
 
   // The view of saturation/value choosing area.
-  raw_ptr<SaturationValueView, DanglingUntriaged> saturation_value_ = nullptr;
+  raw_ptr<SaturationValueView> saturation_value_ = nullptr;
 
   // The rectangle to denote the selected color.
-  raw_ptr<SelectedColorPatchView, DanglingUntriaged> selected_color_patch_ =
-      nullptr;
+  raw_ptr<SelectedColorPatchView> selected_color_patch_ = nullptr;
 
   // The textfield to write the color explicitly.
-  raw_ptr<Textfield, DanglingUntriaged> textfield_ = nullptr;
+  raw_ptr<Textfield> textfield_ = nullptr;
 
   SkColor initial_color_;
 

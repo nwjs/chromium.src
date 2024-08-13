@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/clamped_math.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "base/trace_event/common/trace_event_common.h"
 #include "base/trace_event/trace_event.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
@@ -32,8 +33,8 @@
 #include "media/base/video_util.h"
 #include "media/media_buildflags.h"
 #include "media/mojo/clients/mojo_video_encoder_metrics_provider.h"
+#include "media/parsers/h264_level_limits.h"
 #include "media/video/gpu_video_accelerator_factories.h"
-#include "media/video/h264_level_limits.h"
 #include "media/video/offloading_video_encoder.h"
 #include "media/video/video_encode_accelerator_adapter.h"
 #include "media/video/video_encoder_fallback.h"
@@ -73,6 +74,7 @@
 #include "third_party/blink/renderer/modules/webcodecs/encoded_video_chunk.h"
 #include "third_party/blink/renderer/modules/webcodecs/gpu_factories_retriever.h"
 #include "third_party/blink/renderer/modules/webcodecs/video_color_space.h"
+#include "third_party/blink/renderer/modules/webcodecs/video_encoder_buffer.h"
 #include "third_party/blink/renderer/platform/bindings/enumeration_base.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
@@ -117,6 +119,11 @@ using EncoderType = media::VideoEncodeAccelerator::Config::EncoderType;
 namespace {
 
 constexpr const char kCategory[] = "media";
+// Controls if VideoEncoder will use timestamp from blink::VideoFrame
+// instead of media::VideoFrame.
+BASE_FEATURE(kUseBlinkTimestampForEncoding,
+             "UseBlinkTimestampForEncoding",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // TODO(crbug.com/40215121): This is very similar to the method in
 // video_frame.cc. It should probably be a function in video_types.cc.
@@ -165,13 +172,13 @@ media::VideoEncodeAccelerator::SupportedRateControlMode BitrateToSupportedMode(
       return media::VideoEncodeAccelerator::kConstantMode;
     case media::Bitrate::Mode::kVariable:
       return media::VideoEncodeAccelerator::kVariableMode
-#if BUILDFLAG(IS_ANDROID)
-             // On Android we allow CBR-only encoders to be used for VBR because
-             // most devices don't properly advertise support for VBR encoding.
-             // In most cases they will initialize successfully when configured
-             // for VBR.
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+             // On Android and ChromeOS we allow CBR-only encoders to be used
+             // for VBR because most devices don't properly advertise support
+             // for VBR encoding. In most cases they will initialize
+             // successfully when configured for VBR.
              | media::VideoEncodeAccelerator::kConstantMode
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
           ;
 
     case media::Bitrate::Mode::kExternal:
@@ -1032,17 +1039,29 @@ void VideoEncoder::ProcessEncode(Request* request) {
   auto frame = request->input->frame();
   auto encode_options = CreateEncodeOptions(request);
   active_encodes_++;
-  request->StartTracingVideoEncode(encode_options.key_frame,
-                                   frame->timestamp());
-
   auto encode_done_callback = ConvertToBaseOnceCallback(CrossThreadBindOnce(
       &VideoEncoder::OnEncodeDone, MakeUnwrappingCrossThreadWeakHandle(this),
       MakeUnwrappingCrossThreadHandle(request)));
+
+  auto blink_timestamp = base::Microseconds(request->input->timestamp());
+  if (frame->timestamp() != blink_timestamp &&
+      base::FeatureList::IsEnabled(kUseBlinkTimestampForEncoding)) {
+    // If blink::VideFrame has the timestamp different from media::VideoFrame
+    // we need to use blink's timestamp, because this is what JS-devs observe
+    // and it's expected to be the timestamp of the EncodedVideoChunk.
+    // More context about timestamp adjustments: crbug.com/333420614,
+    // crbug.com/350780007
+    frame = media::VideoFrame::WrapVideoFrame(
+        frame, frame->format(), frame->visible_rect(), frame->natural_size());
+    frame->set_timestamp(blink_timestamp);
+  }
 
   if (frame->metadata().frame_duration) {
     frame_metadata_[frame->timestamp()] =
         FrameMetadata{*frame->metadata().frame_duration};
   }
+  request->StartTracingVideoEncode(encode_options.key_frame,
+                                   frame->timestamp());
 
   bool mappable = frame->IsMappable() || frame->HasMappableGpuBuffer();
 
@@ -1353,7 +1372,7 @@ void VideoEncoder::CallOutputCallback(
 
   MarkCodecActive();
 
-  if (output.size == 0) {
+  if (output.data.empty()) {
     // The encoder drops a frame.WebCodecs doesn't specify a way of signaling
     // a frame was dropped. For now, the output callback is not invoked for the
     // dropped frame. TODO(https://www.w3.org/TR/webcodecs/#encodedvideochunk):
@@ -1361,8 +1380,7 @@ void VideoEncoder::CallOutputCallback(
     return;
   }
 
-  auto buffer =
-      media::DecoderBuffer::FromArray(std::move(output.data), output.size);
+  auto buffer = media::DecoderBuffer::FromArray(std::move(output.data));
   buffer->set_timestamp(output.timestamp);
   buffer->set_is_key_frame(output.key_frame);
 
@@ -1601,6 +1619,15 @@ ScriptPromise<VideoEncoderSupport> VideoEncoder::isConfigSupported(
   }
 
   return promise;
+}
+
+HeapVector<Member<VideoEncoderBuffer>> VideoEncoder::getAllFrameBuffers(
+    ScriptState*,
+    ExceptionState& exception_state) {
+  exception_state.ThrowDOMException(
+      DOMExceptionCode::kNotSupportedError,
+      "getAllFrameBuffers() only supported with manual scalability mode.");
+  return {};
 }
 
 }  // namespace blink

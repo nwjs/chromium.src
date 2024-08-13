@@ -18,7 +18,6 @@
 #include "base/test/test_simple_task_runner.h"
 #include "base/time/time.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/predictors/lcp_critical_path_predictor/lcp_critical_path_predictor_test_util.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_test_util.h"
 #include "chrome/browser/predictors/predictors_features.h"
@@ -94,13 +93,8 @@ class MockResourcePrefetchPredictorTables
     return &origin_table_;
   }
 
-  sqlite_proto::KeyValueTable<LcppData>* lcpp_table() override {
-    return &lcpp_table_;
-  }
-
   FakeLoadingPredictorKeyValueTable<RedirectData> host_redirect_table_;
   FakeLoadingPredictorKeyValueTable<OriginData> origin_table_;
-  FakeLoadingPredictorKeyValueTable<LcppData> lcpp_table_;
 
  protected:
   ~MockResourcePrefetchPredictorTables() override = default;
@@ -144,7 +138,7 @@ class ResourcePrefetchPredictorTest : public testing::Test {
     loading_predictor_ =
         std::make_unique<LoadingPredictor>(config, profile_.get());
     predictor_ = loading_predictor_->resource_prefetch_predictor();
-    predictor_->set_mock_tables(mock_tables_);
+    predictor_->set_mock_tables_for_testing(mock_tables_);
   }
 
   void InitializeSampleData();
@@ -203,8 +197,6 @@ void ResourcePrefetchPredictorTest::TearDown() {
             mock_tables_->host_redirect_table_.data_);
   EXPECT_EQ(predictor_->origin_data_->GetAllCached(),
             mock_tables_->origin_table_.data_);
-  EXPECT_EQ(predictor_->lcpp_data_->GetAllCachedForTesting(),
-            mock_tables_->lcpp_table_.data_);
   loading_predictor_->Shutdown();
 }
 
@@ -252,7 +244,6 @@ void ResourcePrefetchPredictorTest::InitializeSampleData() {
 TEST_F(ResourcePrefetchPredictorTest, LazilyInitializeEmpty) {
   EXPECT_TRUE(mock_tables_->host_redirect_table_.data_.empty());
   EXPECT_TRUE(mock_tables_->origin_table_.data_.empty());
-  EXPECT_TRUE(mock_tables_->lcpp_table_.data_.empty());
 }
 
 // Tests that the history and the db tables data are loaded correctly.

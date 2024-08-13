@@ -155,8 +155,15 @@ class SampleForTests {
 
     @CalledByNative
     @JniType("std::vector")
-    Collection<SampleForTests> listTest1(@JniType("std::vector<std::string>") List<String> items) {
+    static Collection<SampleForTests> listTest1(
+            @JniType("std::vector<std::string>") List<String> items) {
         return Collections.emptyList();
+    }
+
+    @CalledByNative
+    static @JniType("std::map<std::string, std::string>") Map<String, String> mapTest1(
+            @JniType("std::map<std::string, std::string>") Map<String, String> arg0) {
+        return arg0;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -339,7 +346,12 @@ class SampleForTests {
         Throwable getThrowable(Throwable arg0);
 
         // Test Map.
-        Map<String, String> getMap(Map<String, String> arg0);
+        @JniType("std::map<std::string, std::string>")
+        Map<String, String> mapTest2(
+                @JniType("std::map<std::string, std::string>") Map<String, String> arg0);
+
+        // Test class under the same package
+        void classUnderSamePackageTest(SampleUnderSamePackage arg);
 
         // Similar to nativeDestroy above, this will cast nativeCPPClass into pointer of CPPClass
         // type and call its Method member function. Replace "CPPClass" with your particular class

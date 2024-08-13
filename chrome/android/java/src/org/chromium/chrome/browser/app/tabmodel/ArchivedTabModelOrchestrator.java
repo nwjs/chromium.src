@@ -12,6 +12,7 @@ import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ApplicationStatus.ApplicationStateListener;
 import org.chromium.base.Callback;
+import org.chromium.base.CallbackController;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
@@ -35,6 +36,7 @@ import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore;
+import org.chromium.chrome.browser.tabmodel.TabWindowManager;
 import org.chromium.chrome.browser.tabmodel.TabbedModeTabPersistencePolicy;
 import org.chromium.ui.base.WindowAndroid;
 
@@ -54,7 +56,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
         /**
          * Called when the archived {@link TabModel} is created.
          *
-         * @param TabModel The {@link TabModel} that was created.
+         * @param archivedTabModel The {@link TabModel} that was created.
          */
         public void onTabModelCreated(TabModel archivedTabModel);
     }
@@ -80,6 +82,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
     private final TabCreatorManager mArchivedTabCreatorManager;
     private final AsyncTabParamsManager mAsyncTabParamsManager;
     private final ObserverList<Observer> mObservers = new ObserverList<>();
+    private final TabWindowManager mTabWindowManager;
 
     private TaskRunner mTaskRunner;
     private WindowAndroid mWindow;
@@ -92,6 +95,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
     private boolean mRestoreTabsCalled;
     private boolean mDeclutterInitializationCalled;
     private boolean mRescueTabsCalled;
+    private CallbackController mCallbackController = new CallbackController();
 
     /**
      * Returns the ArchivedTabModelOrchestrator that corresponds to the given profile. Must be
@@ -108,6 +112,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
                             ProfileKeyedMap.ProfileSelection.REDIRECTED_TO_ORIGINAL);
             ApplicationStatus.registerApplicationStateListener(sApplicationStateListener);
         }
+
         return sProfileMap.getForProfile(
                 profile,
                 (originalProfile) ->
@@ -141,13 +146,24 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
                     }
                 };
         mAsyncTabParamsManager = AsyncTabParamsManagerSingleton.getInstance();
+        mTabWindowManager = TabWindowManagerSingleton.getInstance();
     }
 
     @Override
     public void destroy() {
+        if (mCallbackController != null) {
+            mCallbackController.destroy();
+            mCallbackController = null;
+        }
+
         if (mWindow != null) {
             mWindow.destroy();
             mWindow = null;
+        }
+
+        if (mTabArchiveSettings != null) {
+            mTabArchiveSettings.destroy();
+            mTabArchiveSettings = null;
         }
 
         super.destroy();
@@ -169,7 +185,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
     }
 
     /**
-     * Creates and initiailzes the class and fields, this must be called in the UI thread and can be
+     * Creates and initializes the class and fields, this must be called in the UI thread and can be
      * expensive therefore it should be called from DeferredStartupHandler. Although the lifecycle
      * methods inherited from {@link TabModelOrchestrator} are public, they aren't meant to be
      * called directly. - The {@link TabModelSelector} and the {@link TabPersistentStore} are
@@ -198,6 +214,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
                         new ChromeTabModelFilterFactory(context),
                         () -> NextTabPolicy.LOCATIONAL,
                         mAsyncTabParamsManager);
+        mTabWindowManager.setArchivedTabModelSelector(mTabModelSelector);
 
         mTabPersistencePolicy =
                 new TabbedModeTabPersistencePolicy(
@@ -207,7 +224,10 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
                         /* tabMergingEnabled= */ false);
         mTabPersistentStore =
                 new TabPersistentStore(
-                        mTabPersistencePolicy, mTabModelSelector, mArchivedTabCreatorManager);
+                        mTabPersistencePolicy,
+                        mTabModelSelector,
+                        mArchivedTabCreatorManager,
+                        mTabWindowManager);
 
         wireSelectorAndStore();
         markTabModelsInitialized();
@@ -231,7 +251,15 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
         assert ChromeFeatureList.sAndroidTabDeclutter.isEnabled();
         assert mTabArchiver != null;
         mTabArchiver.initDeclutter();
+
+        int archiveTimeHours = mTabArchiveSettings.getArchiveTimeDeltaHours();
+        if (ChromeFeatureList.sAndroidTabDeclutterArchiveAllButActiveTab.isEnabled()) {
+            mTabArchiveSettings.setArchiveTimeDeltaHours(0);
+        }
         runDeclutterAndScheduleNext();
+        if (ChromeFeatureList.sAndroidTabDeclutterArchiveAllButActiveTab.isEnabled()) {
+            mTabArchiveSettings.setArchiveTimeDeltaHours(archiveTimeHours);
+        }
 
         mDeclutterInitializationCalled = true;
     }
@@ -298,6 +326,10 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
         return mTabArchiveSettings;
     }
 
+    public TabArchiver getTabArchiver() {
+        return mTabArchiver;
+    }
+
     // Private methods
 
     /**
@@ -307,7 +339,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
     private void runDeclutterAndScheduleNext() {
         mTabArchiver.triggerScheduledDeclutter();
         mTaskRunner.postDelayedTask(
-                this::runDeclutterAndScheduleNext,
+                mCallbackController.makeCancelable(this::runDeclutterAndScheduleNext),
                 TimeUnit.HOURS.toMillis(mTabArchiveSettings.getDeclutterIntervalTimeDeltaHours()));
     }
 

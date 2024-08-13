@@ -13,7 +13,7 @@
 
 namespace {
 
-#if 0 //BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS)
 extensions::SafeBrowsingPrivateEventRouter* GetEventRouter(
     content::WebContents* web_contents) {
   // |web_contents| can be null in tests.
@@ -36,7 +36,7 @@ void MaybeTriggerSecurityInterstitialShownEvent(
     const GURL& page_url,
     const std::string& reason,
     int net_error_code) {
-#if 0//BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   extensions::SafeBrowsingPrivateEventRouter* event_router =
       GetEventRouter(web_contents);
   if (!event_router)
@@ -50,7 +50,7 @@ void MaybeTriggerSecurityInterstitialProceededEvent(
     const GURL& page_url,
     const std::string& reason,
     int net_error_code) {
-#if 0 //BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   extensions::SafeBrowsingPrivateEventRouter* event_router =
       GetEventRouter(web_contents);
   if (!event_router)
@@ -66,7 +66,7 @@ void MaybeTriggerUrlFilteringInterstitialEvent(
     const GURL& page_url,
     const std::string& threat_type,
     safe_browsing::RTLookupResponse rt_lookup_response) {
-#if 0 //BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   extensions::SafeBrowsingPrivateEventRouter* event_router =
       GetEventRouter(web_contents);
   if (!event_router) {

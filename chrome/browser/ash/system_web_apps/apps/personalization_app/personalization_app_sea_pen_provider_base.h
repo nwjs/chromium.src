@@ -17,7 +17,9 @@
 #include "base/values.h"
 #include "components/manta/manta_status.h"
 #include "components/manta/proto/manta.pb.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "ui/gfx/image/image_skia.h"
 
 namespace content {
@@ -60,6 +62,9 @@ class PersonalizationAppSeaPenProviderBase
   bool IsEligibleForSeaPenTextInput() override;
 
   // ::ash::personalization_app::mojom::SeaPenProvider:
+  void SetSeaPenObserver(
+      mojo::PendingRemote<mojom::SeaPenObserver> observer) override;
+
   void GetSeaPenThumbnails(mojom::SeaPenQueryPtr query,
                            GetSeaPenThumbnailsCallback callback) override;
 
@@ -87,6 +92,8 @@ class PersonalizationAppSeaPenProviderBase
   wallpaper_handlers::SeaPenFetcher* GetOrCreateSeaPenFetcher();
 
  protected:
+  virtual void SetSeaPenObserverInternal() = 0;
+
   virtual void SelectRecentSeaPenImageInternal(
       uint32_t id,
       SelectRecentSeaPenImageCallback callback) = 0;
@@ -110,6 +117,9 @@ class PersonalizationAppSeaPenProviderBase
 
   manta::proto::FeatureName feature_name_;
 
+  // Provides updates to WebUI about SeaPen changes in browser process.
+  mojo::Remote<mojom::SeaPenObserver> sea_pen_observer_remote_;
+
   // Pointer to profile of user that opened personalization SWA. Not owned.
   const raw_ptr<Profile, DanglingUntriaged> profile_;
 
@@ -123,10 +133,12 @@ class PersonalizationAppSeaPenProviderBase
 
  private:
   void OnFetchThumbnailsDone(GetSeaPenThumbnailsCallback callback,
+                             const mojom::SeaPenQueryPtr& query,
                              std::optional<std::vector<SeaPenImage>> images,
                              manta::MantaStatusCode status_code);
 
   void OnFetchWallpaperDone(SelectSeaPenThumbnailCallback callback,
+                            const mojom::SeaPenQueryPtr& query,
                             std::optional<SeaPenImage> image);
 
   void OnRecentSeaPenImageSelected(bool success);
@@ -140,6 +152,13 @@ class PersonalizationAppSeaPenProviderBase
       const gfx::ImageSkia& image,
       mojom::RecentSeaPenImageInfoPtr image_info);
 
+  void NotifyTextQueryHistoryChanged();
+
+  std::optional<
+      std::pair<mojom::SeaPenQueryPtr,
+                std::map<uint32_t, const SeaPenImage>::const_iterator>>
+  FindImageThumbnail(uint32_t id);
+
   SelectRecentSeaPenImageCallback pending_select_recent_sea_pen_image_callback_;
 
   const std::unique_ptr<wallpaper_handlers::WallpaperFetcherDelegate>
@@ -152,6 +171,11 @@ class PersonalizationAppSeaPenProviderBase
   // The last query made to the sea pen provider. This can be null when
   // GetSeaPenThumbnails() is never called.
   mojom::SeaPenQueryPtr last_query_;
+
+  // Stores the previous text queries. The first element in the pair is the
+  // query string and the second element is a map of image id to image.
+  std::vector<std::pair<std::string, std::map<uint32_t, const SeaPenImage>>>
+      text_query_history_;
 
   // Perform a network request to search/upscale available wallpapers.
   // Constructed lazily at the time of the first request and then persists for

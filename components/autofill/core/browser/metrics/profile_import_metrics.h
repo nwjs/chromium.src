@@ -114,7 +114,10 @@ void LogAddressProfileImportUkm(
     AutofillProfileImportType import_type,
     AutofillClient::AddressPromptUserDecision user_decision,
     const ProfileImportMetadata& profile_import_metadata,
-    size_t num_edited_fields);
+    size_t num_edited_fields,
+    std::optional<AutofillProfile> import_candidate,
+    const std::vector<const AutofillProfile*>& existing_profiles,
+    std::string_view app_locale);
 
 // Logs the status of an address import requirement defined by type.
 void LogAddressFormImportRequirementMetric(
@@ -167,6 +170,9 @@ void LogPhoneNumberImportParsingResult(bool parsed_successfully);
 
 // Logs that a specific type was edited in a save prompt.
 void LogNewProfileEditedType(FieldType edited_type);
+
+// Logs which storage the `import_candidate` will be saved to.
+void LogNewProfileStorage(const AutofillProfile& import_candidate);
 
 // Logs that a specific type changed in a profile update that received the
 // user |decision|. Note that additional manual edits in the update prompt are

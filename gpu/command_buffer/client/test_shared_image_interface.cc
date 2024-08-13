@@ -4,7 +4,15 @@
 
 #include "gpu/command_buffer/client/test_shared_image_interface.h"
 
+#include <GLES2/gl2.h>
+#include <GLES2/gl2extchromium.h>
+
 #include <utility>
+
+#if BUILDFLAG(IS_FUCHSIA)
+#include <fuchsia/sysmem2/cpp/fidl.h>
+#include <lib/sys/cpp/component_context.h>
+#endif
 
 #include "base/check.h"
 #include "base/notreached.h"
@@ -13,9 +21,16 @@
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/gpu_fence.h"
 #include "ui/gfx/gpu_memory_buffer.h"
+
+#if BUILDFLAG(IS_FUCHSIA)
+#include "base/fuchsia/fuchsia_logging.h"
+#include "base/fuchsia/koid.h"
+#include "base/fuchsia/process_context.h"
+#endif
 
 namespace gpu {
 
@@ -60,7 +75,78 @@ gfx::GpuMemoryBufferHandle CreateGMBHandle(
 
 }  // namespace
 
-TestSharedImageInterface::TestSharedImageInterface() = default;
+#if BUILDFLAG(IS_FUCHSIA)
+class TestBufferCollection {
+ public:
+  TestBufferCollection(zx::eventpair handle, zx::channel collection_token)
+      : handle_(std::move(handle)) {
+    sysmem_allocator_ = base::ComponentContextForProcess()
+                            ->svc()
+                            ->Connect<fuchsia::sysmem2::Allocator>();
+    sysmem_allocator_.set_error_handler([](zx_status_t status) {
+      ZX_LOG(FATAL, status)
+          << "The fuchsia.sysmem.Allocator channel was terminated.";
+    });
+    fuchsia::sysmem2::AllocatorSetDebugClientInfoRequest set_debug_request;
+    set_debug_request.set_name("CrTestBufferCollection");
+    set_debug_request.set_id(base::GetCurrentProcId());
+    sysmem_allocator_->SetDebugClientInfo(std::move(set_debug_request));
+
+    fuchsia::sysmem2::AllocatorBindSharedCollectionRequest bind_shared_request;
+    bind_shared_request.set_token(fidl::InterfaceHandle<fuchsia::sysmem2::BufferCollectionToken>(
+            std::move(collection_token)));
+    bind_shared_request.set_buffer_collection_request(buffers_collection_.NewRequest());
+    sysmem_allocator_->BindSharedCollection(std::move(bind_shared_request));
+
+    fuchsia::sysmem2::BufferCollectionSetConstraintsRequest set_constraints_request;
+    auto& buffer_constraints = *set_constraints_request.mutable_constraints();
+    buffer_constraints.mutable_usage()->set_cpu(fuchsia::sysmem2::CPU_USAGE_READ);
+    zx_status_t status = buffers_collection_->SetConstraints(std::move(set_constraints_request));
+    ZX_CHECK(status == ZX_OK, status) << "BufferCollection::SetConstraints()";
+  }
+
+  TestBufferCollection(const TestBufferCollection&) = delete;
+  TestBufferCollection& operator=(const TestBufferCollection&) = delete;
+
+  ~TestBufferCollection() { buffers_collection_->Release(); }
+
+  size_t GetNumBuffers() {
+    if (!buffer_collection_info_) {
+      fuchsia::sysmem2::BufferCollection_WaitForAllBuffersAllocated_Result wait_result;
+      zx_status_t status =
+          buffers_collection_->WaitForAllBuffersAllocated(&wait_result);
+      if (status != ZX_OK) {
+        ZX_LOG(FATAL, status) <<
+            "BufferCollection::WaitForAllBuffersAllocated() (status)";
+      } else if (wait_result.is_framework_err()) {
+        LOG(FATAL) <<
+            "BufferCollection::WaitForAllBuffersAllocated (framework_err): " <<
+            fidl::ToUnderlying(wait_result.framework_err());
+      } else if (!wait_result.is_response()) {
+        LOG(FATAL) << "BufferCollection::WaitForAllBuffersAllocated (err)" <<
+            static_cast<uint32_t>(wait_result.err());
+      }
+      auto info = std::move(*wait_result.response().mutable_buffer_collection_info());
+      buffer_collection_info_ = std::move(info);
+    }
+    return buffer_collection_info_->buffers().size();
+  }
+
+ private:
+  zx::eventpair handle_;
+
+  fuchsia::sysmem2::AllocatorPtr sysmem_allocator_;
+  fuchsia::sysmem2::BufferCollectionSyncPtr buffers_collection_;
+
+  std::optional<fuchsia::sysmem2::BufferCollectionInfo>
+      buffer_collection_info_;
+};
+#endif
+
+TestSharedImageInterface::TestSharedImageInterface() {
+  InitializeSharedImageCapabilities();
+}
+
 TestSharedImageInterface::~TestSharedImageInterface() = default;
 
 scoped_refptr<ClientSharedImage>
@@ -161,6 +247,22 @@ TestSharedImageInterface::CreateSharedImage(
     gfx::GpuMemoryBufferHandle buffer_handle) {
   SyncToken sync_token = GenUnverifiedSyncToken();
   base::AutoLock locked(lock_);
+#if BUILDFLAG(IS_FUCHSIA)
+  if (buffer_handle.type == gfx::GpuMemoryBufferType::NATIVE_PIXMAP) {
+    zx_koid_t id =
+        base::GetRelatedKoid(
+            buffer_handle.native_pixmap_handle.buffer_collection_handle)
+            .value();
+    auto collection_it = sysmem_buffer_collections_.find(id);
+
+    // NOTE: Not all unittests invoke RegisterSysmemBufferCollection(), but
+    // the below CHECK should hold for those that do.
+    if (collection_it != sysmem_buffer_collections_.end()) {
+      CHECK_LT(buffer_handle.native_pixmap_handle.buffer_index,
+               collection_it->second->GetNumBuffers());
+    }
+  }
+#endif
   auto mailbox = Mailbox::Generate();
   shared_images_.insert(mailbox);
   most_recent_size_ = si_info.meta.size;
@@ -179,28 +281,6 @@ TestSharedImageInterface::CreateSharedImage(
   return {base::MakeRefCounted<ClientSharedImage>(
               mailbox, si_info.meta, sync_token, holder_, gfx::EMPTY_BUFFER),
           base::WritableSharedMemoryMapping()};
-}
-
-scoped_refptr<ClientSharedImage>
-TestSharedImageInterface::CreateSharedImage(
-    gfx::GpuMemoryBuffer* gpu_memory_buffer,
-    GpuMemoryBufferManager* gpu_memory_buffer_manager,
-    gfx::BufferPlane plane,
-    const SharedImageInfo& si_info) {
-  SyncToken sync_token = GenUnverifiedSyncToken();
-  base::AutoLock locked(lock_);
-  auto mailbox = Mailbox::Generate();
-  shared_images_.insert(mailbox);
-  most_recent_size_ = gpu_memory_buffer->GetSize();
-  return base::MakeRefCounted<ClientSharedImage>(
-      mailbox,
-      SharedImageMetadata(
-          viz::GetSinglePlaneSharedImageFormat(
-              GetPlaneBufferFormat(plane, gpu_memory_buffer->GetFormat())),
-          most_recent_size_, si_info.meta.color_space,
-          si_info.meta.surface_origin, si_info.meta.alpha_type,
-          si_info.meta.usage),
-      sync_token, holder_, gpu_memory_buffer->GetType());
 }
 
 void TestSharedImageInterface::UpdateSharedImage(
@@ -243,7 +323,6 @@ void TestSharedImageInterface::DestroySharedImage(
     scoped_refptr<ClientSharedImage> client_shared_image) {
   CHECK(client_shared_image->HasOneRef());
   client_shared_image->UpdateDestructionSyncToken(sync_token);
-  client_shared_image->MarkForDestruction();
 }
 
 SharedImageInterface::SwapChainSharedImages
@@ -252,7 +331,7 @@ TestSharedImageInterface::CreateSwapChain(viz::SharedImageFormat format,
                                           const gfx::ColorSpace& color_space,
                                           GrSurfaceOrigin surface_origin,
                                           SkAlphaType alpha_type,
-                                          uint32_t usage) {
+                                          gpu::SharedImageUsageSet usage) {
   auto front_buffer = Mailbox::Generate();
   auto back_buffer = Mailbox::Generate();
   SyncToken sync_token = GenUnverifiedSyncToken();
@@ -281,7 +360,14 @@ void TestSharedImageInterface::RegisterSysmemBufferCollection(
     gfx::BufferFormat format,
     gfx::BufferUsage usage,
     bool register_with_image_pipe) {
-  NOTREACHED_IN_MIGRATION();
+  EXPECT_EQ(format, gfx::BufferFormat::YUV_420_BIPLANAR);
+  EXPECT_EQ(usage, gfx::BufferUsage::GPU_READ);
+  zx_koid_t id = base::GetKoid(service_handle).value();
+  std::unique_ptr<TestBufferCollection>& collection =
+      sysmem_buffer_collections_[id];
+  EXPECT_FALSE(collection);
+  collection = std::make_unique<TestBufferCollection>(std::move(service_handle),
+                                                      std::move(sysmem_token));
 }
 #endif  // BUILDFLAG(IS_FUCHSIA)
 
@@ -333,6 +419,21 @@ TestSharedImageInterface::GetCapabilities() {
 void TestSharedImageInterface::SetCapabilities(
     const SharedImageCapabilities& caps) {
   shared_image_capabilities_ = caps;
+  InitializeSharedImageCapabilities();
+}
+
+void TestSharedImageInterface::InitializeSharedImageCapabilities() {
+#if BUILDFLAG(IS_MAC)
+  // Initialize `texture_target_for_io_surfaces` to a value that is valid for
+  // ClientSharedImage to use, as unittests broadly create and use
+  // SharedImageCapabilities instances without initializing this field. The
+  // specific value is chosen to match the historical default value that was
+  // used when this state was accessed via a global variable.
+  if (!shared_image_capabilities_.texture_target_for_io_surfaces) {
+    shared_image_capabilities_.texture_target_for_io_surfaces =
+        GL_TEXTURE_RECTANGLE_ARB;
+  }
+#endif
 }
 
 }  // namespace gpu

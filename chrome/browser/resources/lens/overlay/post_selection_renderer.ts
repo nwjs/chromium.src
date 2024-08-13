@@ -125,6 +125,16 @@ export class PostSelectionRendererElement extends PolymerElement {
         (e: CustomEvent<PostSelectionBoundingBox>) => {
           this.onRenderPostSelection(e);
         });
+    this.eventTracker_.add(document, 'finished-receiving-text', () => {
+      if (this.hasSelection()) {
+        // Check for selectable text
+        this.dispatchEvent(new CustomEvent('detect-text-in-region', {
+          bubbles: true,
+          composed: true,
+          detail: this.getNormalizedCenterRotatedBox(),
+        }));
+      }
+    });
     this.resizeObserver.observe(this);
     // Set up listener to listen to events from C++.
     this.listenerIds = [
@@ -178,14 +188,6 @@ export class PostSelectionRendererElement extends PolymerElement {
     const normalizedY = (event.clientY - imageBounds.top) / imageBounds.height;
     const normalizedMinBoxWidth = MIN_BOX_SIZE_PX / imageBounds.width;
     const normalizedMinBoxHeight = MIN_BOX_SIZE_PX / imageBounds.height;
-    const normalizedPerimeterPaddingWidth =
-        PERIMETER_SELECTION_PADDING_PX / imageBounds.width;
-    const normalizedPerimeterPaddingHeight =
-        PERIMETER_SELECTION_PADDING_PX / imageBounds.height;
-    const minXValue = normalizedPerimeterPaddingWidth;
-    const minYValue = normalizedPerimeterPaddingHeight;
-    const maxXValue = 1 - normalizedPerimeterPaddingWidth;
-    const maxYValue = 1 - normalizedPerimeterPaddingHeight;
 
     const currentLeft = this.left;
     const currentTop = this.top;
@@ -230,16 +232,18 @@ export class PostSelectionRendererElement extends PolymerElement {
     assert(newBottom !== undefined);
 
     // Ensure the new region is within the image bounds.
-    newLeft = clamp(newLeft, minXValue, maxXValue - normalizedMinBoxWidth);
-    newTop = clamp(newTop, minYValue, maxYValue - normalizedMinBoxHeight);
-    newRight = clamp(newRight, minXValue + normalizedMinBoxWidth, maxXValue);
-    newBottom = clamp(newBottom, minYValue + normalizedMinBoxHeight, maxYValue);
+    const clampedBounds = this.getClampedBounds({
+      left: newLeft,
+      top: newTop,
+      width: newRight - newLeft,
+      height: newBottom - newTop,
+    });
 
     // Set the new dimensions.
-    this.left = newLeft;
-    this.top = newTop;
-    this.width = newRight - newLeft;
-    this.height = newBottom - newTop;
+    this.left = clampedBounds.left;
+    this.top = clampedBounds.top;
+    this.width = clampedBounds.width;
+    this.height = clampedBounds.height;
 
     this.rerender();
   }
@@ -294,6 +298,47 @@ export class PostSelectionRendererElement extends PolymerElement {
     this.triggerNewBoxAnimation();
   }
 
+  // Returns the bounds of the post selection clamped to the edges of the image,
+  // including the post selection corners. If no bounds are given, uses those
+  // currently being rendered.
+  private getClampedBounds(bounds?: PostSelectionBoundingBox):
+      PostSelectionBoundingBox {
+    const imageBounds = this.getBoundingClientRect();
+    const left = bounds ? bounds.left : this.left;
+    const top = bounds ? bounds.top : this.top;
+    const right = bounds ? bounds.left + bounds.width : this.left + this.width;
+    const bottom = bounds ? bounds.top + bounds.height : this.top + this.height;
+
+    // Helper values to clamp to within the bounds.
+    const normalizedMinBoxWidth = MIN_BOX_SIZE_PX / imageBounds.width;
+    const normalizedMinBoxHeight = MIN_BOX_SIZE_PX / imageBounds.height;
+    const normalizedPerimeterPaddingWidth =
+        PERIMETER_SELECTION_PADDING_PX / imageBounds.width;
+    const normalizedPerimeterPaddingHeight =
+        PERIMETER_SELECTION_PADDING_PX / imageBounds.height;
+    const minXValue = normalizedPerimeterPaddingWidth;
+    const minYValue = normalizedPerimeterPaddingHeight;
+    const maxXValue = 1 - normalizedPerimeterPaddingWidth;
+    const maxYValue = 1 - normalizedPerimeterPaddingHeight;
+
+    // Clamp the values to within the selection overlay bounds.
+    const clampedLeft =
+        clamp(left, minXValue, maxXValue - normalizedMinBoxWidth);
+    const clampedTop =
+        clamp(top, minYValue, maxYValue - normalizedMinBoxHeight);
+    const clampedRight =
+        clamp(right, minXValue + normalizedMinBoxWidth, maxXValue);
+    const clampedBottom =
+        clamp(bottom, minYValue + normalizedMinBoxHeight, maxYValue);
+
+    return {
+      left: clampedLeft,
+      top: clampedTop,
+      width: clampedRight - clampedLeft,
+      height: clampedBottom - clampedTop,
+    };
+  }
+
   private handleResize() {
     // Only update properties defined absolutely, i.e. corner dimensions.
     // Properties that are defined relatively do not need to be updated.
@@ -305,21 +350,31 @@ export class PostSelectionRendererElement extends PolymerElement {
       this.animateOnResize = false;
       this.triggerNewBoxAnimation();
     }
+    this.rerender();
   }
 
   private rerender() {
+    // rerender() can be called when there is not a selection present. This
+    // should be a no-op otherwise the shimmer will be set to focus on the post
+    // selection region without a selection.
+    if (!this.hasSelection()) {
+      return;
+    }
+
+    const clampedBounds = this.getClampedBounds();
     // Set the CSS properties to reflect current bounds and force rerender.
-    this.style.setProperty('--selection-width', toPercent(this.width));
-    this.style.setProperty('--selection-height', toPercent(this.height));
-    this.style.setProperty('--selection-top', toPercent(this.top));
-    this.style.setProperty('--selection-left', toPercent(this.left));
+    this.style.setProperty('--selection-width', toPercent(clampedBounds.width));
+    this.style.setProperty(
+        '--selection-height', toPercent(clampedBounds.height));
+    this.style.setProperty('--selection-top', toPercent(clampedBounds.top));
+    this.style.setProperty('--selection-left', toPercent(clampedBounds.left));
 
     this.updateCornerDimensions();
 
     // Focus the shimmer on the new post selection region.
     focusShimmerOnRegion(
-        this, this.top, this.left, this.width, this.height,
-        ShimmerControlRequester.POST_SELECTION);
+        this, clampedBounds.top, clampedBounds.left, clampedBounds.width,
+        clampedBounds.height, ShimmerControlRequester.POST_SELECTION);
 
     this.notifyPostSelectionUpdated();
   }

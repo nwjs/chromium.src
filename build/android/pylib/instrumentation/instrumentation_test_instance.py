@@ -22,9 +22,8 @@ from pylib.utils import dexdump
 from pylib.utils import gold_utils
 from pylib.utils import test_filter
 
-
-with host_paths.SysPath(host_paths.BUILD_COMMON_PATH):
-  import unittest_util # pylint: disable=import-error
+with host_paths.SysPath(host_paths.BUILD_UTIL_PATH):
+  from lib.common import unittest_util
 
 # Ref: http://developer.android.com/reference/android/app/Activity.html
 _ACTIVITY_RESULT_CANCELED = 0
@@ -62,6 +61,16 @@ _BUNDLE_STACK_ID = 'stack'
 
 # The ID of the bundle value Chrome uses to report the test duration.
 _BUNDLE_DURATION_ID = 'duration_ms'
+
+# The following error messages are too general to be useful in failure
+# clustering. The runner doesn't report failure reason when such failure
+# reason is parsed from test logs.
+_BANNED_FAILURE_REASONS = [
+    # Default error message from org.chromium.base.test.util.CallbackHelper
+    # when timeout at expecting call back.
+    'java.util.concurrent.TimeoutException: waitForCallback timed out!',
+]
+
 
 class MissingSizeAnnotationError(test_exception.TestException):
   def __init__(self, class_name):
@@ -195,7 +204,9 @@ def _MaybeSetLog(bundle, current_result, symbolizer, device_abi):
     else:
       current_result.SetLog(stack)
 
-    current_result.SetFailureReason(_ParseExceptionMessage(stack))
+    parsed_failure_reason = _ParseExceptionMessage(stack)
+    if parsed_failure_reason not in _BANNED_FAILURE_REASONS:
+      current_result.SetFailureReason(parsed_failure_reason)
 
 
 def _ParseExceptionMessage(stack):
@@ -603,6 +614,8 @@ class InstrumentationTestInstance(test_instance.TestInstance):
     self._approve_app_links_domain = None
     self._approve_app_links_package = None
     self._initializeApproveAppLinksAttributes(args)
+
+    self._webview_process_mode = args.webview_process_mode
 
     self._wpr_enable_record = args.wpr_enable_record
 
@@ -1028,6 +1041,10 @@ class InstrumentationTestInstance(test_instance.TestInstance):
   @property
   def wpr_record_mode(self):
     return self._wpr_enable_record
+
+  @property
+  def webview_process_mode(self):
+    return self._webview_process_mode
 
   @property
   def wpr_replay_mode(self):

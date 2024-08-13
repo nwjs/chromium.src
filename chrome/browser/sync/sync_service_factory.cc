@@ -20,7 +20,7 @@
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/gcm/gcm_profile_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/metrics/variations/google_groups_updater_service_factory.h"
+#include "chrome/browser/metrics/variations/google_groups_manager_factory.h"
 #include "chrome/browser/password_manager/account_password_store_factory.h"
 #include "chrome/browser/password_manager/password_receiver_service_factory.h"
 #include "chrome/browser/password_manager/password_sender_service_factory.h"
@@ -47,7 +47,6 @@
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/sync/session_sync_service_factory.h"
 #include "chrome/browser/sync/sync_invalidations_service_factory.h"
-#include "chrome/browser/sync/sync_service_util.h"
 #include "chrome/browser/sync/user_event_service_factory.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/trusted_vault/trusted_vault_service_factory.h"
@@ -62,7 +61,7 @@
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_service_impl.h"
 #include "components/sync_preferences/pref_service_syncable.h"
-#include "components/variations/service/google_groups_updater_service.h"
+#include "components/variations/service/google_groups_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/storage_partition.h"
@@ -76,7 +75,9 @@
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "ash/constants/ash_features.h"
 #include "chrome/browser/ash/app_list/app_list_syncable_service_factory.h"
+#include "chrome/browser/ash/floating_sso/floating_sso_service_factory.h"
 #include "chrome/browser/ash/printing/oauth2/authorization_zones_manager_factory.h"
 #include "chrome/browser/ash/printing/synced_printers_manager_factory.h"
 #include "chrome/browser/sync/desk_sync_service_factory.h"
@@ -126,8 +127,6 @@ std::unique_ptr<KeyedService> BuildSyncService(
       content::GetNetworkConnectionTracker();
   init_params.channel = chrome::GetChannel();
   init_params.debug_identifier = profile->GetDebugName();
-  init_params.sync_poll_immediately_on_every_startup =
-      IsDesktopEnUSLocaleOnlySyncPollFeatureEnabled();
 
   bool local_sync_backend_enabled = false;
 // Only check the local sync backend pref on the supported platforms of
@@ -165,12 +164,8 @@ std::unique_ptr<KeyedService> BuildSyncService(
     // TODO(atwilson): Change AboutSigninInternalsFactory to load on startup
     // once http://crbug.com/171406 has been fixed.
     AboutSigninInternalsFactory::GetForProfile(profile);
-
-    init_params.identity_manager =
-        IdentityManagerFactory::GetForProfile(profile);
   }
 
-#if 0
   auto sync_service =
       std::make_unique<syncer::SyncServiceImpl>(std::move(init_params));
   sync_service->Initialize();
@@ -207,15 +202,12 @@ std::unique_ptr<KeyedService> BuildSyncService(
       PrefServiceSyncableFromProfile(profile);
   pref_service->OnSyncServiceInitialized(sync_service.get());
 
-  if (GoogleGroupsUpdaterService* groups_updater_service =
-          GoogleGroupsUpdaterServiceFactory::GetForBrowserContext(profile)) {
+  if (GoogleGroupsManager* groups_updater_service =
+          GoogleGroupsManagerFactory::GetForBrowserContext(profile)) {
     groups_updater_service->OnSyncServiceInitialized(sync_service.get());
   }
 
   return sync_service;
-#endif
-
-  return nullptr;
 }
 
 }  // anonymous namespace
@@ -249,7 +241,7 @@ SyncServiceFactory::SyncServiceFactory()
               .WithRegular(ProfileSelection::kOriginalOnly)
               .WithAshInternals(ProfileSelection::kNone)
               .Build()) {
-  // The SyncServiceImpl depends on various SyncableServices being around
+  // The SyncServiceImpl depends on various KeyedServices being around
   // when it is shut down.  Specify those dependencies here to build the proper
   // destruction order. Note that some of the dependencies are listed here but
   // actually plumbed in ChromeSyncClient, which this factory constructs.
@@ -264,6 +256,7 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(data_sharing::DataSharingServiceFactory::GetInstance());
   DependsOn(FaviconServiceFactory::GetInstance());
   DependsOn(gcm::GCMProfileServiceFactory::GetInstance());
+  DependsOn(GoogleGroupsManagerFactory::GetInstance());
   DependsOn(HistoryServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(LocalOrSyncableBookmarkSyncServiceFactory::GetInstance());
@@ -311,10 +304,13 @@ SyncServiceFactory::SyncServiceFactory()
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   DependsOn(app_list::AppListSyncableServiceFactory::GetInstance());
-  DependsOn(ash::SyncedPrintersManagerFactory::GetInstance());
   DependsOn(
       ash::printing::oauth2::AuthorizationZonesManagerFactory::GetInstance());
   DependsOn(DeskSyncServiceFactory::GetInstance());
+  if (ash::features::IsFloatingSsoAllowed()) {
+    DependsOn(ash::floating_sso::FloatingSsoServiceFactory::GetInstance());
+  }
+  DependsOn(ash::SyncedPrintersManagerFactory::GetInstance());
   DependsOn(WifiConfigurationSyncServiceFactory::GetInstance());
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }

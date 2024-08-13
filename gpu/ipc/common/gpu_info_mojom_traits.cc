@@ -499,13 +499,6 @@ bool StructTraits<gpu::mojom::GpuInfoDataView, gpu::GPUInfo>::Read(
   out->passthrough_cmd_decoder = data.passthrough_cmd_decoder();
   out->can_support_threaded_texture_mailbox =
       data.can_support_threaded_texture_mailbox();
-#if BUILDFLAG(IS_MAC)
-  if (!gpu::ValidateMacOSSpecificTextureTarget(
-          data.macos_specific_texture_target())) {
-    return false;
-  }
-  out->macos_specific_texture_target = data.macos_specific_texture_target();
-#endif  // BUILDFLAG(IS_MAC)
   out->jpeg_decode_accelerator_supported =
       data.jpeg_decode_accelerator_supported();
 
@@ -522,6 +515,7 @@ bool StructTraits<gpu::mojom::GpuInfoDataView, gpu::GPUInfo>::Read(
   return data.ReadInitializationTime(&out->initialization_time) &&
          data.ReadGpu(&out->gpu) &&
          data.ReadSecondaryGpus(&out->secondary_gpus) &&
+         data.ReadNpus(&out->npus) &&
          data.ReadPixelShaderVersion(&out->pixel_shader_version) &&
          data.ReadVertexShaderVersion(&out->vertex_shader_version) &&
          data.ReadMaxMsaaSamples(&out->max_msaa_samples) &&

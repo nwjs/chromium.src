@@ -924,7 +924,7 @@ void SearchBoxView::OnAfterUserAction(views::Textfield* sender) {
 void SearchBoxView::OnKeyEvent(ui::KeyEvent* evt) {
   // Only handle the key event that triggers the focus or result selection
   // traversal here. Propagate the event to `delegate_` otherwise.
-  if (evt->type() != ui::ET_KEY_PRESSED ||
+  if (evt->type() != ui::EventType::kKeyPressed ||
       !(IsUnhandledArrowKeyEvent(*evt) || evt->key_code() == ui::VKEY_TAB)) {
     delegate_->OnSearchBoxKeyEvent(evt);
     return;
@@ -960,13 +960,8 @@ void SearchBoxView::OnKeyEvent(ui::KeyEvent* evt) {
   }
 
   // Check if the `delegate_` can handle the event if the focus is moving to
-  // result selection.
-  if (focus_on_filter_button ||
-      !delegate_->HandleFocusMoveAboveSearchResults(*evt)) {
-    EnterSearchResultSelection(*evt);
-  }
-
-  // All events focusing on the buttons should be handled now.
+  // result selection. All events focusing on the buttons should be handled now.
+  EnterSearchResultSelection(*evt);
   evt->SetHandled();
 }
 
@@ -1224,7 +1219,7 @@ void SearchBoxView::AssistantButtonPressed() {
   }
 
   // Activate the search box based on UX SPEC.
-  SetSearchBoxActive(true, /*event_type=*/ui::ET_UNKNOWN);
+  SetSearchBoxActive(true, /*event_type=*/ui::EventType::kUnknown);
 }
 
 void SearchBoxView::UpdateSearchIcon() {
@@ -1440,7 +1435,7 @@ void SearchBoxView::ClearSearchAndDeactivateSearchBox() {
   // Set search box as inactive first, because ClearSearch() eventually calls
   // into AppListMainView::QueryChanged() which will hide search results based
   // on `is_search_box_active_`.
-  SetSearchBoxActive(false, ui::ET_UNKNOWN);
+  SetSearchBoxActive(false, ui::EventType::kUnknown);
   ClearSearch();
   MaybeSetAutocompleteGhostText(std::u16string(), std::u16string());
 }
@@ -1463,8 +1458,9 @@ void SearchBoxView::UseFixedPlaceholderTextForTest() {
 bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
                                    const ui::KeyEvent& key_event) {
   DCHECK(result_selection_controller_);
-  if (key_event.type() == ui::ET_KEY_RELEASED)
+  if (key_event.type() == ui::EventType::kKeyReleased) {
     return false;
+  }
 
   // Events occurring over an inactive search box are handled elsewhere, with
   // the exception of left/right arrow key events, and return.
@@ -1584,10 +1580,8 @@ bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
 
       // Check if the `delegate_` can handle the event if the focus is moving
       // out from the result selection.
-      if (!delegate_->HandleFocusMoveAboveSearchResults(key_event)) {
-        DCHECK(close_button()->GetVisible());
-        close_button()->RequestFocus();
-      }
+      DCHECK(close_button()->GetVisible());
+      close_button()->RequestFocus();
 
       SetA11yActiveDescendant(std::nullopt);
       break;
@@ -1618,11 +1612,13 @@ bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
 
 bool SearchBoxView::HandleMouseEvent(views::Textfield* sender,
                                      const ui::MouseEvent& mouse_event) {
-  if (mouse_event.type() == ui::ET_MOUSE_PRESSED && HasAutocompleteText())
+  if (mouse_event.type() == ui::EventType::kMousePressed &&
+      HasAutocompleteText()) {
     AcceptAutocompleteText();
+  }
 
   // Don't activate search box for context menu click.
-  if (mouse_event.type() == ui::ET_MOUSE_PRESSED &&
+  if (mouse_event.type() == ui::EventType::kMousePressed &&
       mouse_event.IsOnlyRightMouseButton()) {
     return false;
   }
@@ -1632,8 +1628,10 @@ bool SearchBoxView::HandleMouseEvent(views::Textfield* sender,
 
 bool SearchBoxView::HandleGestureEvent(views::Textfield* sender,
                                        const ui::GestureEvent& gesture_event) {
-  if (gesture_event.type() == ui::ET_GESTURE_TAP && HasAutocompleteText())
+  if (gesture_event.type() == ui::EventType::kGestureTap &&
+      HasAutocompleteText()) {
     AcceptAutocompleteText();
+  }
   return SearchBoxViewBase::HandleGestureEvent(sender, gesture_event);
 }
 

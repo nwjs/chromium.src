@@ -24,10 +24,6 @@ BASE_FEATURE(kBackgroundTabLoadingFromPerformanceManager,
              "BackgroundTabLoadingFromPerformanceManager",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBatterySaverModeRenderTuning,
-             "BatterySaverModeRenderTuning",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPerformanceControlsPerformanceSurvey,
              "PerformanceControlsPerformanceSurvey",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -57,24 +53,12 @@ BASE_FEATURE(kPrefetchVirtualMemoryPolicy,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// The variable was renamed to "MemorySaver" but the experiment name remains as
-// "HighEfficiency" because it is already running (crbug.com/1493843).
-BASE_FEATURE(kMemorySaverMultistateMode,
-             "HighEfficiencyMultistateMode",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<bool> kMemorySaverShowRecommendedBadge{
-    &kMemorySaverMultistateMode, "show_recommended_badge", false};
-
 BASE_FEATURE(kMemorySaverModeAggressiveness,
              "MemorySaverModeAggressiveness",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDiscardRingImprovements,
              "DiscardRingImprovements",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPerformanceControlsSidePanel,
-             "PerformanceControlsSidePanel",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPerformanceIntervention,
@@ -84,6 +68,21 @@ BASE_FEATURE(kPerformanceIntervention,
 BASE_FEATURE(kPerformanceInterventionUI,
              "PerformanceInterventionUI",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPerformanceInterventionDemoMode,
+             "PerformanceInterventionDemoMode",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool ShouldUsePerformanceInterventionBackend() {
+  return base::FeatureList::IsEnabled(kPerformanceIntervention) ||
+         base::FeatureList::IsEnabled(kPerformanceInterventionUI);
+}
+
+const base::FeatureParam<int> kInterventionDialogStringVersion{
+    &kPerformanceInterventionUI, "intervention_dialog_version", 1};
+
+const base::FeatureParam<bool> kInterventionShowMixedProfileSuggestions{
+    &kPerformanceInterventionUI, "intervention_show_mixed_profile", false};
 
 const base::FeatureParam<base::TimeDelta> kInterventionButtonTimeout{
     &kPerformanceInterventionUI, "intervention_button_timeout",
@@ -117,7 +116,7 @@ const base::FeatureParam<int> kMemoryFreeBytesThreshold{
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 BASE_FEATURE(kAshUrgentDiscardingFromPerformanceManager,
              "AshUrgentDiscardingFromPerformanceManager",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_CHROMEOS)

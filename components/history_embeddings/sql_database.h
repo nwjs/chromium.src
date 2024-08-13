@@ -17,6 +17,7 @@
 #include "components/history_embeddings/embedder.h"
 #include "components/history_embeddings/proto/history_embeddings.pb.h"
 #include "components/history_embeddings/vector_database.h"
+#include "components/os_crypt/async/common/encryptor.h"
 #include "sql/database.h"
 #include "sql/init_status.h"
 
@@ -38,7 +39,8 @@ class SqlDatabase : public VectorDatabase {
 
   // Provides embedder metadata to the database. The database cannot be
   // initialized until valid metadata is provided.
-  void SetEmbedderMetadata(EmbedderMetadata embedder_metadata);
+  void SetEmbedderMetadata(EmbedderMetadata embedder_metadata,
+                           os_crypt_async::Encryptor encryptor);
 
   // Inserts or replaces `passages` keyed by `url_id`. `visit_id` and
   // `visit_time` are needed too, to respect History deletions and expirations.
@@ -49,6 +51,9 @@ class SqlDatabase : public VectorDatabase {
   // Gets the passages associated with `url_id`. Returns nullopt if there's
   // nothing available.
   std::optional<proto::PassagesValue> GetPassages(history::URLID url_id);
+
+  // Gets passages and embeddings for given `url_id` if data is found.
+  std::optional<UrlPassagesEmbeddings> GetUrlData(history::URLID url_id);
 
   // Gets all rows from passages where a corresponding row in embeddings
   // does not exist, keyed on url_id.
@@ -64,7 +69,10 @@ class SqlDatabase : public VectorDatabase {
   // History deletions, either from user action or time-based expiration.
   bool DeleteDataForUrlId(history::URLID url_id);
   bool DeleteDataForVisitId(history::VisitID visit_id);
-  bool DeleteAllData();
+
+  // This is used to delete data for all URLs, either all data for history
+  // deletion, or selectively for testing.
+  bool DeleteAllData(bool delete_passages, bool delete_embeddings);
 
  private:
   // Initializes the database, if it's not already initialized. Returns true if
@@ -81,6 +89,8 @@ class SqlDatabase : public VectorDatabase {
 
   // Metadata of the embeddings model.
   std::optional<EmbedderMetadata> embedder_metadata_;
+
+  std::optional<os_crypt_async::Encryptor> encryptor_;
 
   // The underlying SQL database.
   sql::Database db_ GUARDED_BY_CONTEXT(sequence_checker_);

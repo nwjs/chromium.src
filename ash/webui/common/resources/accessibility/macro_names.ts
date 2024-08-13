@@ -161,6 +161,13 @@ export enum MacroName {
   // Generates a synthetic long click event.
   MOUSE_LONG_CLICK_LEFT = 45,
 
+  // Pauses or resumes FaceGaze mouse movement and gesture detection if
+  // FaceGaze is already running.
+  TOGGLE_FACEGAZE = 46,
+
+  // If FaceGaze is enabled, opens the FaceGaze settings subpage.
+  OPEN_FACEGAZE_SETTINGS = 47,
+
   // Any new actions should match with Voice Access's semantic tags where
   // possible.
 }

@@ -597,18 +597,6 @@ BASE_FEATURE(kUseWritePixelsYUV,
              "UseWritePixelsYUV",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables creating single shared image and mailbox for multi-planar formats for
-// hardware video decoders.
-BASE_FEATURE(kUseMultiPlaneFormatForHardwareVideo,
-             "UseMultiPlaneFormatForHardwareVideo",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables creating single shared image and mailbox for multi-planar formats for
-// software video decoders.
-BASE_FEATURE(kUseMultiPlaneFormatForSoftwareVideo,
-             "UseMultiPlaneFormatForSoftwareVideo",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Controls whether the Mirroring Service will fetch, analyze, and store
 // information on the quality of the session using RTCP logs.
 BASE_FEATURE(kEnableRtcpReporting,
@@ -660,6 +648,11 @@ BASE_FEATURE(kDeferAudioFocusUntilAudible,
 #endif
 );
 
+// Adds an animation to document picture-in-picture resizes.
+BASE_FEATURE(kDocumentPictureInPictureAnimateResize,
+             "DocumentPictureInPictureAnimateResize",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Allows document picture-in-picture pages to request capture.
 BASE_FEATURE(kDocumentPictureInPictureCapture,
              "DocumentPictureInPictureCapture",
@@ -673,6 +666,12 @@ BASE_FEATURE(kDocumentPictureInPictureCapture,
 BASE_FEATURE(kFallbackAfterDecodeError,
              "FallbackAfterDecodeError",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// FeatureManagement gate for Live Translate on ChromeOS devices. No impact
+// outside of CrOS.
+BASE_FEATURE(kFeatureManagementLiveTranslateCrOS,
+             "FeatureManagementLiveTranslateCrOS",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Show toolbar button that opens dialog for controlling media sessions.
 BASE_FEATURE(kGlobalMediaControls,
@@ -838,26 +837,27 @@ BASE_FEATURE(kVaapiVp9SModeHWEncoding,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-// Enables the new V4L2 flat video decoder clients instead of V4L2VideoDecoder.
-// Owners: frkoenig@chromium.org, mcasas@chromium.org
-// Expiry: When flat decoders are supported on all platforms and the legacy
-//         decoders have been deprecated.
-BASE_FEATURE(kV4L2FlatVideoDecoder,
-             "V4L2FlatVideoDecoder",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables the new V4L2StatefulVideoDecoder instead of V4L2VideoDecoder.
 // Owners: frkoenig@chromium.org, mcasas@chromium.org
-// Expiry: When the |V4L2FlatVideoDecoder| flag handles both stateful and
-//         stateless decoders.
+// Expiry: When the |V4L2FlatVideoDecoder| flag handles stateful decoding on
+// all platforms.
 BASE_FEATURE(kV4L2FlatStatefulVideoDecoder,
              "V4L2FlatStatefulVideoDecoder",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Inform video blitter of video color space.
 BASE_FEATURE(kVideoBlitColorAccuracy,
              "video-blit-color-accuracy",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Controls whether VideoFrames created by WrapSharedImage(s) get the
+// texture target to use from the ClientSharedImage(s) that they are passed
+// rather than the explicit texture target parameter(s) that they are passed.
+// Serves as a killswitch while we roll out this change.
+// TODO(crbug.com/346197746): Remove post-safe rollout.
+BASE_FEATURE(kVideoFrameUseClientSITextureTarget,
+             "VideoFrameUseClientSITextureTarget",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Displays a minimize button on video picture-in-picture windows.
@@ -1210,6 +1210,10 @@ BASE_FEATURE(kBuiltInHlsPlayer,
 BASE_FEATURE(kBuiltInHlsMP4,
              "BuiltInHlsMP4",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kMediaPlayerHlsStatistics,
+             "MediaPlayerHlsStatistics",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 #if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
@@ -1281,6 +1285,13 @@ BASE_FEATURE(kPreferSoftwareMT21,
 // Expiry: When Vulkan detiling is thoroughly tested and verified to work.
 BASE_FEATURE(kEnableProtectedVulkanDetiling,
              "EnableProtectedVulkanDetiling",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+// Enable AR30 overlays for 10-bit ARM HWDRM content. If disabled, we will use
+// ARGB8888 instead.
+// Owner: greenjustin@google.com
+// Expiry: When AR30 overlays are stable on devices that support them.
+BASE_FEATURE(kEnableArmHwdrm10bitOverlays,
+             "EnableArmHwdrm10bitOverlays",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #if BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
 // Enable use of HW based L1 Widevine DRM via the cdm-oemcrypto daemon on
@@ -1720,7 +1731,12 @@ BASE_FEATURE(kFuchsiaMediacodecVideoEncoder,
 // smaller than maximum supported decodes as advertiszed by decoder.
 BASE_FEATURE(kVideoDecodeBatching,
              "VideoDecodeBatching",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // Safety switch to allow us to revert to the previous behavior of using the
 // restored bounds for PiP windows, rather than the window bounds.  If this
@@ -1758,10 +1774,10 @@ BASE_FEATURE(kMediaLogToConsole,
 
 BASE_FEATURE(kLibvpxUseChromeThreads,
              "LibvpxUseChromeThreads",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kLibaomUseChromeThreads,
              "LibaomUseChromeThreads",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 // Controls whether to use D3D12 video decoder instead of D3D11 when supported.
@@ -1774,7 +1790,7 @@ BASE_FEATURE(kD3D12VideoDecoder,
 // Allow MF-accelerated video encoding.
 BASE_FEATURE(kMediaFoundationAcceleratedEncodeOnArm64,
              "MediaFoundationAcceleratedEncodeOnArm64",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Convert SharedBitmap to SharedImage for media resources.
@@ -1820,6 +1836,15 @@ bool IsHardwareSecureDecryptionEnabled() {
          base::FeatureList::IsEnabled(kHardwareSecureDecryptionExperiment);
 }
 
+bool IsLiveTranslateEnabled() {
+#if BUILDFLAG(IS_CHROMEOS)
+  return base::FeatureList::IsEnabled(kLiveTranslate) &&
+         base::FeatureList::IsEnabled(kFeatureManagementLiveTranslateCrOS);
+#else
+  return base::FeatureList::IsEnabled(kLiveTranslate);
+#endif
+}
+
 bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableAcceleratedMjpegDecode)) {
@@ -1833,18 +1858,6 @@ bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
   return true;
 #else
   return false;
-#endif
-}
-
-bool IsMultiPlaneFormatForHardwareVideoEnabled() {
-  return true;
-}
-
-bool IsMultiPlaneFormatForSoftwareVideoEnabled() {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
-  return true;
-#else
-  return base::FeatureList::IsEnabled(kUseMultiPlaneFormatForSoftwareVideo);
 #endif
 }
 

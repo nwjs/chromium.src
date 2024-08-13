@@ -169,7 +169,7 @@ bool IsAccessibilityFaceGazeEnabled() {
 
 BASE_FEATURE(kAccessibilityReducedAnimationsInKiosk,
              "AccessibilityReducedAnimationsInKiosk",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityReducedAnimationsInKioskEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityReducedAnimationsInKiosk);
@@ -189,6 +189,14 @@ BASE_FEATURE(kExperimentalAccessibilityDictationContextChecking,
 bool IsExperimentalAccessibilityDictationContextCheckingEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kExperimentalAccessibilityDictationContextChecking);
+}
+
+BASE_FEATURE(kAccessibilityMagnifierFollowsChromeVox,
+             "AccessibilityMagnifierFollowsChromeVox",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+bool IsAccessibilityMagnifierFollowsChromeVoxEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityMagnifierFollowsChromeVox);
 }
 
 BASE_FEATURE(kAccessibilityMagnifierFollowsSts,
@@ -230,6 +238,14 @@ bool IsAccessibilitySelectToSpeakShortcutEnabled() {
       ::features::kAccessibilitySelectToSpeakShortcut);
 }
 
+BASE_FEATURE(kAccessibilityDisableTrackpad,
+             "AccessibilityDisableTrackpad",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityDisableTrackpadEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityDisableTrackpad);
+}
+
 BASE_FEATURE(kAccessibilityShakeToLocate,
              "AccessibilityShakeToLocate",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -239,7 +255,7 @@ bool IsAccessibilityShakeToLocateEnabled() {
 
 BASE_FEATURE(kAccessibilityMagnifyAcceleratorDialog,
              "AccessibilityMagnifyAcceleratorDialog",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityMagnifyAcceleratorDialogEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityMagnifyAcceleratorDialog);
@@ -285,13 +301,6 @@ bool IsDataCollectionModeForScreen2xEnabled() {
       ::features::kDataCollectionModeForScreen2x);
 }
 
-BASE_FEATURE(kLayoutExtraction,
-             "LayoutExtraction",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsLayoutExtractionEnabled() {
-  return base::FeatureList::IsEnabled(::features::kLayoutExtraction);
-}
-
 BASE_FEATURE(kMainNodeAnnotations,
              "MainNodeAnnotations",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -316,9 +325,7 @@ BASE_FEATURE(kReadAnythingLocalSidePanel,
              "ReadAnythingLocalSidePanel",
              base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsReadAnythingLocalSidePanelEnabled() {
-  return base::FeatureList::IsEnabled(
-             ::features::kReadAnythingLocalSidePanel) &&
-         base::FeatureList::IsEnabled(::features::kReadAnythingWebUIToolbar);
+  return base::FeatureList::IsEnabled(::features::kReadAnythingLocalSidePanel);
 }
 
 BASE_FEATURE(kReadAnythingReadAloud,
@@ -363,13 +370,6 @@ bool IsReadAnythingReadAloudPhraseHighlightingEnabled() {
              ::features::kReadAnythingReadAloudPhraseHighlighting);
 }
 
-BASE_FEATURE(kReadAnythingWebUIToolbar,
-             "ReadAnythingWebUIToolbar",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsReadAnythingWebUIToolbarEnabled() {
-  return base::FeatureList::IsEnabled(::features::kReadAnythingWebUIToolbar);
-}
-
 BASE_FEATURE(kReadAnythingWithScreen2x,
              "ReadAnythingWithScreen2x",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -390,8 +390,7 @@ BASE_FEATURE(kReadAnythingImagesViaAlgorithm,
 bool IsReadAnythingImagesViaAlgorithmEnabled() {
   return base::FeatureList::IsEnabled(
              ::features::kReadAnythingImagesViaAlgorithm) &&
-         IsReadAnythingWithAlgorithmEnabled() &&
-         IsReadAnythingReadAloudEnabled();
+         IsReadAnythingWithAlgorithmEnabled();
 }
 
 BASE_FEATURE(kReadAnythingDocsIntegration,

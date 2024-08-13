@@ -441,7 +441,8 @@ def register_builder_config(
         settings,
         targets,
         targets_settings,
-        additional_exclusions):
+        additional_exclusions,
+        description_html):
     """Registers the builder config so the properties can be computed.
 
     At most one of builder_spec or mirrors can be set. If neither builder_spec
@@ -461,6 +462,7 @@ def register_builder_config(
         additional_exclusions: A list of paths that are excluded when analyzing
             the change to determine affected targets. The paths should be
             relative to the per-builder output root dir.
+        description_html: A string of html representing the description of the builder.
     """
     if not builder_spec and not mirrors:
         # TODO(gbeaty) Eventually make this a failure for the chromium
@@ -492,6 +494,7 @@ def register_builder_config(
         include_all_triggered_testers = include_all_triggered_testers,
         settings_fields = settings_fields,
         additional_exclusions = additional_exclusions,
+        description_html = description_html,
     ))
 
     if _is_copy_from(builder_spec):
@@ -637,6 +640,11 @@ def _get_builder_mirror_description(bucket_name, builder, bc_state):
         fail("A builder can't both mirror and be mirrored:", builder.name)
 
     description = builder.description_html
+    if not description and len(mirrored_builders) == 1:
+        m_id = _builder_id(mirrored_builders[0])
+        mirror_node = _BUILDER_CONFIG.get(m_id["bucket"], m_id["builder"])
+        if mirror_node.props.description_html:
+            description += "<br>%s<br/>" % mirror_node.props.description_html
     if description:
         description += "<br/>"
     if mirrored_builders:

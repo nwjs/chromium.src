@@ -25,6 +25,7 @@
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
 #include "content/browser/service_worker/fake_embedded_worker_instance_client.h"
+#include "content/browser/service_worker/service_worker_client.h"
 #include "content/browser/service_worker/service_worker_consts.h"
 #include "content/browser/service_worker/service_worker_container_host.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
@@ -1593,12 +1594,14 @@ class UpdateJobTestHelper : public EmbeddedWorkerTestHelper,
         blink::mojom::AncestorFrameType,
         const blink::StorageKey& storage_key) override {
       client_->SimulateFailureOfScriptEvaluation();
+      // Set `client_` to nullptr to prevent it from dangling, since
+      // `SimulateFailureOfScriptEvaluation()` will ensure failure and destroy
+      // Client first then Worker which makes `client_` dangling.
+      client_ = nullptr;
     }
 
    private:
-    raw_ptr<ScriptFailureEmbeddedWorkerInstanceClient,
-            AcrossTasksDanglingUntriaged>
-        client_;
+    raw_ptr<ScriptFailureEmbeddedWorkerInstanceClient> client_;
   };
 
   ServiceWorkerJobCoordinator* job_coordinator() {
@@ -1607,13 +1610,22 @@ class UpdateJobTestHelper : public EmbeddedWorkerTestHelper,
 
   scoped_refptr<ServiceWorkerRegistration> SetupInitialRegistration(
       const GURL& test_origin,
-      const blink::StorageKey& test_storage_key) {
+      const blink::StorageKey& test_storage_key,
+      bool store_worker_instance = false) {
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = test_origin.Resolve(kScope);
     scoped_refptr<ServiceWorkerRegistration> registration;
 
     auto client = std::make_unique<FakeEmbeddedWorkerInstanceClient>(this);
-    initial_embedded_worker_instance_client_ = client.get();
+    // Only store the worker instance for specific test cases, such as
+    // `Update_NewVersion` Otherwise, it will crash other tests such as
+    // `Update_EvictedIncumbent` since
+    // `initial_embedded_worker_instance_client_` becomes dangling for those
+    // cases.
+    if (store_worker_instance) {
+      initial_embedded_worker_instance_client_ = client.get();
+    }
+
     AddPendingInstanceClient(std::move(client));
     base::RunLoop run_loop;
     job_coordinator()->Register(
@@ -1708,7 +1720,7 @@ class UpdateJobTestHelper : public EmbeddedWorkerTestHelper,
     update_found_ = true;
   }
 
-  raw_ptr<FakeEmbeddedWorkerInstanceClient, AcrossTasksDanglingUntriaged>
+  raw_ptr<FakeEmbeddedWorkerInstanceClient>
       initial_embedded_worker_instance_client_ = nullptr;
   scoped_refptr<ServiceWorkerRegistration> observed_registration_;
   std::vector<AttributeChangeLogEntry> attribute_change_log_;
@@ -1953,7 +1965,8 @@ TEST_P(ServiceWorkerUpdateJobTest, Update_NewVersion) {
 
   scoped_refptr<ServiceWorkerRegistration> registration =
       update_helper_->SetupInitialRegistration(
-          kNewVersionOrigin, GetTestStorageKey(kNewVersionOrigin));
+          kNewVersionOrigin, GetTestStorageKey(kNewVersionOrigin),
+          /*store_worker_instance=*/true);
   ASSERT_TRUE(registration.get());
   update_helper_->state_change_log_.clear();
   auto runner = base::MakeRefCounted<base::TestSimpleTaskRunner>();
@@ -1981,6 +1994,9 @@ TEST_P(ServiceWorkerUpdateJobTest, Update_NewVersion) {
   EXPECT_EQ(2u, update_helper_->attribute_change_log_.size());
   RequestTermination(
       &(update_helper_->initial_embedded_worker_instance_client_->host()));
+  // Setting `initial_embedded_worker_instance_client_` to null to prevent it
+  // from dangling.
+  update_helper_->initial_embedded_worker_instance_client_ = nullptr;
 
   TestServiceWorkerObserver observer(helper_->context_wrapper());
   observer.RunUntilActivated(new_version.get(), runner);

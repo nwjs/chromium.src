@@ -75,6 +75,10 @@ const char kWebAuthnGpmPinFeatureParameterName[] = "WebAuthenticationGpmPin";
 COMPONENT_EXPORT(DEVICE_FIDO)
 extern const base::FeatureParam<bool> kWebAuthnGpmPin;
 
+// Enable handling the passkeys reset flow.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnPasskeysReset);
+
 // Filter a priori discovered credentials on google.com to those that have a
 // user id that starts with "GOOGLE_ACCOUNT:".
 COMPONENT_EXPORT(DEVICE_FIDO)
@@ -135,6 +139,15 @@ BASE_DECLARE_FEATURE(kWebAuthnICloudRecoveryKey);
 // security domain service.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnCacheSecurityDomain);
+
+// Whether to enable the Android Open Accessory protocol, a.k.a
+// "caBLE-over-cable".
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnAndroidOpenAccessory);
+
+// Send enclave requests with 5 seconds delay. For development purposes only.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay);
 
 }  // namespace device
 

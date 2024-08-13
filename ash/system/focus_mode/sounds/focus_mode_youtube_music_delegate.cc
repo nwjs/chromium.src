@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "ash/system/focus_mode/focus_mode_controller.h"
-#include "ash/system/focus_mode/youtube_music/youtube_music_types.h"
+#include "ash/system/focus_mode/sounds/youtube_music/youtube_music_types.h"
 #include "base/check.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -278,7 +278,9 @@ void FocusModeYouTubeMusicDelegate::OnNextTrackDone(
         /*source=*/
         base::StringPrintf(kYouTubeMusicSourceFormat, playlist_id.c_str()),
         /*thumbnail_url=*/playback_context->track_image.url,
-        /*source_url=*/playback_context->stream_url);
+        /*source_url=*/playback_context->stream_url,
+        // YouTube Music requires playback reporting.
+        /*enable_playback_reporting=*/true);
   }
 
   std::move(next_track_state_.done_callback).Run(result);

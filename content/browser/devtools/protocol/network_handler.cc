@@ -3247,6 +3247,9 @@ makeCrossOriginOpenerPolicyValue(
         kRestrictPropertiesPlusCoep:
       return protocol::Network::CrossOriginOpenerPolicyValueEnum::
           RestrictPropertiesPlusCoep;
+    case network::mojom::CrossOriginOpenerPolicyValue::kNoopenerAllowPopups:
+      return protocol::Network::CrossOriginOpenerPolicyValueEnum::
+          NoopenerAllowPopups;
   }
 }
 protocol::Network::CrossOriginEmbedderPolicyValue
@@ -3727,6 +3730,13 @@ void NetworkHandler::OnSubresourceWebBundleInnerResponseError(
       bundle_request_devtools_id.has_value()
           ? Maybe<std::string>(*bundle_request_devtools_id)
           : Maybe<std::string>());
+}
+
+void NetworkHandler::OnPolicyContainerHostUpdated() {
+  if (!enabled_) {
+    return;
+  }
+  frontend()->PolicyUpdated();
 }
 
 String NetworkHandler::BuildPrivateNetworkRequestPolicy(

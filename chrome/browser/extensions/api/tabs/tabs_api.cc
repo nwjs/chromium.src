@@ -1,4 +1,3 @@
-
 // Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -447,7 +446,6 @@ void NotifyExtensionTelemetry(Profile* profile,
                               const std::string& current_url,
                               const std::string& new_url,
                               const std::optional<StackTrace>& js_callstack) {
-#if 0
   // Ignore API calls that are not invoked by extensions.
   if (!extension) {
     return;
@@ -472,7 +470,6 @@ void NotifyExtensionTelemetry(Profile* profile,
       extension->id(), api_method, current_url, new_url,
       js_callstack.value_or(StackTrace()));
   extension_telemetry_service->AddSignal(std::move(tabs_api_signal));
-#endif
 }
 
 }  // namespace
@@ -2943,10 +2940,9 @@ ExtensionFunction::ResponseAction TabsSetZoomFunction::Run() {
 
   ZoomController* zoom_controller =
       ZoomController::FromWebContents(web_contents);
-  double zoom_level =
-      params->zoom_factor > 0
-          ? blink::PageZoomFactorToZoomLevel(params->zoom_factor)
-          : zoom_controller->GetDefaultZoomLevel();
+  double zoom_level = params->zoom_factor > 0
+                          ? blink::ZoomFactorToZoomLevel(params->zoom_factor)
+                          : zoom_controller->GetDefaultZoomLevel();
 
   auto client = base::MakeRefCounted<ExtensionZoomRequestClient>(extension());
   if (!zoom_controller->SetZoomLevelByClient(zoom_level, client)) {
@@ -2971,7 +2967,7 @@ ExtensionFunction::ResponseAction TabsGetZoomFunction::Run() {
 
   double zoom_level =
       ZoomController::FromWebContents(web_contents)->GetZoomLevel();
-  double zoom_factor = blink::PageZoomLevelToZoomFactor(zoom_level);
+  double zoom_factor = blink::ZoomLevelToZoomFactor(zoom_level);
 
   return RespondNow(ArgumentList(tabs::GetZoom::Results::Create(zoom_factor)));
 }
@@ -3046,7 +3042,7 @@ ExtensionFunction::ResponseAction TabsGetZoomSettingsFunction::Run() {
   api::tabs::ZoomSettings zoom_settings;
   ZoomModeToZoomSettings(zoom_mode, &zoom_settings);
   zoom_settings.default_zoom_factor =
-      blink::PageZoomLevelToZoomFactor(zoom_controller->GetDefaultZoomLevel());
+      blink::ZoomLevelToZoomFactor(zoom_controller->GetDefaultZoomLevel());
 
   return RespondNow(
       ArgumentList(api::tabs::GetZoomSettings::Results::Create(zoom_settings)));

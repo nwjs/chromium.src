@@ -4,6 +4,7 @@
 
 #include "components/sync/android/sync_service_android_bridge.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,7 @@
 #include "components/signin/public/base/gaia_id_hash.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/sync/base/user_selectable_type.h"
+#include "components/sync/service/local_data_description.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_service_utils.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -39,6 +41,12 @@ using base::android::ScopedJavaLocalRef;
 
 namespace {
 
+syncer::ModelType IntToModelTypeChecked(int type) {
+  CHECK_GE(type, static_cast<int>(syncer::ModelType::FIRST_REAL_MODEL_TYPE));
+  CHECK_LE(type, static_cast<int>(syncer::ModelType::LAST_REAL_MODEL_TYPE));
+  return static_cast<syncer::ModelType>(type);
+}
+
 ScopedJavaLocalRef<jintArray> ModelTypeSetToJavaIntArray(
     JNIEnv* env,
     syncer::ModelTypeSet types) {
@@ -47,6 +55,18 @@ ScopedJavaLocalRef<jintArray> ModelTypeSetToJavaIntArray(
     type_vector.push_back(type);
   }
   return base::android::ToJavaIntArray(env, type_vector);
+}
+
+syncer::ModelTypeSet JavaIntArrayToModelTypeSet(
+    JNIEnv* env,
+    const JavaParamRef<jintArray>& types) {
+  std::vector<int> types_vector;
+  base::android::JavaIntArrayToIntVector(env, types, &types_vector);
+  syncer::ModelTypeSet model_type_set;
+  for (int type : types_vector) {
+    model_type_set.Put(IntToModelTypeChecked(type));
+  }
+  return model_type_set;
 }
 
 ScopedJavaLocalRef<jintArray> UserSelectableTypeSetToJavaIntArray(
@@ -68,6 +88,35 @@ void NativeGetTypesWithUnsyncedDataCallback(
     syncer::ModelTypeSet types) {
   Java_SyncServiceImpl_onGetTypesWithUnsyncedDataResult(
       env, callback, ModelTypeSetToJavaIntArray(env, types));
+}
+
+void NativeGetLocalDataDescriptionsCallback(
+    JNIEnv* env,
+    const base::android::ScopedJavaGlobalRef<jobject>& callback,
+    std::map<syncer::ModelType, syncer::LocalDataDescription>
+        localDataDescription) {
+  std::vector<int> model_types;
+  std::vector<syncer::LocalDataDescription> local_data_descriptions;
+  for (const auto& [model_type, description] : localDataDescription) {
+    model_types.push_back(model_type);
+    local_data_descriptions.push_back(description);
+  }
+  base::android::ScopedJavaLocalRef<jclass> localdatadescription_clazz =
+      base::android::GetClass(
+          env, "org/chromium/components/sync/LocalDataDescription");
+  base::android::ScopedJavaLocalRef<jobjectArray> array(
+      env, env->NewObjectArray(local_data_descriptions.size(),
+                               localdatadescription_clazz.obj(), nullptr));
+  base::android::CheckException(env);
+
+  for (size_t i = 0; i < local_data_descriptions.size(); ++i) {
+    base::android::ScopedJavaLocalRef<jobject> item =
+        ConvertToJavaLocalDataDescription(env, local_data_descriptions[i]);
+    env->SetObjectArrayElement(array.obj(), i, item.obj());
+  }
+
+  Java_SyncServiceImpl_onGetLocalDataDescriptionsResult(
+      env, callback, base::android::ToJavaIntArray(env, model_types), array);
 }
 
 // Native callback for the JNI GetAllNodes method. When
@@ -212,6 +261,26 @@ void SyncServiceAndroidBridge::GetTypesWithUnsyncedData(
       syncer::TypesRequiringUnsyncedDataCheckOnSignout(),
       base::BindOnce(&NativeGetTypesWithUnsyncedDataCallback, env,
                      java_callback));
+}
+
+void SyncServiceAndroidBridge::GetLocalDataDescriptions(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jintArray>& types,
+    const base::android::JavaParamRef<jobject>& callback) {
+  base::android::ScopedJavaGlobalRef<jobject> java_callback;
+  java_callback.Reset(env, callback);
+
+  native_sync_service_->GetLocalDataDescriptions(
+      JavaIntArrayToModelTypeSet(env, types),
+      base::BindOnce(&NativeGetLocalDataDescriptionsCallback, env,
+                     java_callback));
+}
+
+void SyncServiceAndroidBridge::TriggerLocalDataMigration(
+    JNIEnv* env,
+    const JavaParamRef<jintArray>& types) {
+  native_sync_service_->TriggerLocalDataMigration(
+      JavaIntArrayToModelTypeSet(env, types));
 }
 
 jboolean SyncServiceAndroidBridge::IsTypeManagedByPolicy(JNIEnv* env,

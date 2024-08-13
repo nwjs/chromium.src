@@ -81,8 +81,6 @@ void WebNNCommandRecorderTest::Download(CommandRecorder* command_recorder,
   ASSERT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   ASSERT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
 
-  // Release the resources referred by GPU execution.
-  adapter_->command_queue()->ReleaseCompletedResources();
   ASSERT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   ASSERT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -101,9 +99,11 @@ TEST_F(WebNNCommandRecorderTest, Create) {
 }
 
 TEST_F(WebNNCommandRecorderTest, OpenCloseAndExecute) {
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   EXPECT_HRESULT_SUCCEEDED(command_recorder->Open());
   EXPECT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   EXPECT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
@@ -111,9 +111,11 @@ TEST_F(WebNNCommandRecorderTest, OpenCloseAndExecute) {
 
 TEST_F(WebNNCommandRecorderTest, CopyBufferRegionFromUploadToDefault) {
   // Test copying data from upload buffer to default GPU buffer.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   ComPtr<ID3D12Resource> upload_resource;
   ASSERT_HRESULT_SUCCEEDED(CreateUploadBuffer(adapter_->d3d12_device(),
                                               kBufferSize, L"Upload_Buffer",
@@ -137,9 +139,11 @@ TEST_F(WebNNCommandRecorderTest, CopyBufferRegionFromUploadToDefault) {
 
 TEST_F(WebNNCommandRecorderTest, CopyBufferRegionFromDefaultToDefault) {
   // Testing copying data from default GPU buffer to default buffer.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   ComPtr<ID3D12Resource> src_resource;
   ASSERT_HRESULT_SUCCEEDED(
       CreateDefaultBuffer(adapter_->d3d12_device(), kBufferSize,
@@ -165,9 +169,11 @@ TEST_F(WebNNCommandRecorderTest, CopyBufferRegionFromDefaultToDefault) {
 
 TEST_F(WebNNCommandRecorderTest, CopyBufferRegionFromDefaultToReadback) {
   // Testing copying data from default GPU buffer to readback buffer.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   ComPtr<ID3D12Resource> default_resource;
   ASSERT_HRESULT_SUCCEEDED(CreateDefaultBuffer(adapter_->d3d12_device(),
                                                kBufferSize, L"Default_Buffer",
@@ -193,9 +199,11 @@ TEST_F(WebNNCommandRecorderTest, CopyBufferRegionBetweenCustomAndDefault) {
   // Testing copying data from custom upload buffer to default GPU buffer and
   // from default GPU buffer to custom readback buffer. This test is only
   // enabled for GPU supports UMA.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   SKIP_TEST_IF(!adapter_->IsUMA());
 
   ComPtr<ID3D12Resource> src_resource;
@@ -238,9 +246,11 @@ TEST_F(WebNNCommandRecorderTest, MultipleSubmissionsWithOneWait) {
   // Test submitting multiple command lists with one wait for GPU to complete.
   // Submit the command that copies data from upload buffer to default GPU
   // buffer.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   ComPtr<ID3D12Resource> upload_resource;
   ASSERT_HRESULT_SUCCEEDED(CreateUploadBuffer(adapter_->d3d12_device(),
                                               kBufferSize, L"Upload_Buffer",
@@ -305,9 +315,11 @@ TEST_F(WebNNCommandRecorderTest, InitializeAndExecuteReluOperator) {
             0u);
 
   // Initialize the operator.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   ASSERT_HRESULT_SUCCEEDED(command_recorder->Open());
   // Relu operator initializer deson't need to bind any input and persistent
   // resources.
@@ -315,7 +327,6 @@ TEST_F(WebNNCommandRecorderTest, InitializeAndExecuteReluOperator) {
       compiled_operator.Get(), std::nullopt, std::nullopt));
   EXPECT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   EXPECT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
-  adapter_->command_queue()->ReleaseCompletedResources();
   EXPECT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   EXPECT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -375,9 +386,11 @@ TEST_F(WebNNCommandRecorderTest,
   // Test operator execution with custom upload and readback buffers. The input
   // data is copied to the custom upload buffer. The result is copied from the
   // custom readback buffer. This test is for GPUs that support UMA.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   SKIP_TEST_IF(!adapter_->IsUMA());
 
   // Create a Relu operator.
@@ -406,13 +419,13 @@ TEST_F(WebNNCommandRecorderTest,
   // Initialize the operator.
   ASSERT_NE(command_recorder.get(), nullptr);
   ASSERT_HRESULT_SUCCEEDED(command_recorder->Open());
+
   // Relu operator initializer deson't need to bind any input and persistent
   // resources.
   EXPECT_HRESULT_SUCCEEDED(command_recorder->InitializeOperator(
       compiled_operator.Get(), std::nullopt, std::nullopt));
   EXPECT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   EXPECT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
-  adapter_->command_queue()->ReleaseCompletedResources();
   EXPECT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   EXPECT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -461,8 +474,6 @@ TEST_F(WebNNCommandRecorderTest,
   ASSERT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   ASSERT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
 
-  // Release the resources referred by GPU execution.
-  adapter_->command_queue()->ReleaseCompletedResources();
   ASSERT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   ASSERT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -506,9 +517,11 @@ TEST_F(WebNNCommandRecorderTest,
             0u);
 
   // Initialize the operator.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   ASSERT_HRESULT_SUCCEEDED(command_recorder->Open());
   // Relu operator initializer deson't need to bind any input and persistent
   // resources.
@@ -516,7 +529,6 @@ TEST_F(WebNNCommandRecorderTest,
       compiled_operator.Get(), std::nullopt, std::nullopt));
   EXPECT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   EXPECT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
-  adapter_->command_queue()->ReleaseCompletedResources();
   EXPECT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   EXPECT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -587,8 +599,6 @@ TEST_F(WebNNCommandRecorderTest,
   ASSERT_HRESULT_SUCCEEDED(command_recorder->Execute());
   ASSERT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
 
-  // Release the resources referred by GPU execution.
-  adapter_->command_queue()->ReleaseCompletedResources();
   ASSERT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   ASSERT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -611,8 +621,6 @@ TEST_F(WebNNCommandRecorderTest,
   ASSERT_HRESULT_SUCCEEDED(command_recorder->Execute());
   ASSERT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
 
-  // Release the resources referred by GPU execution.
-  adapter_->command_queue()->ReleaseCompletedResources();
   ASSERT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   ASSERT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -653,9 +661,11 @@ TEST_F(WebNNCommandRecorderTest, ExecuteReluOperatorForMultipleBindings) {
             0u);
 
   // Initialize the operator.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   ASSERT_HRESULT_SUCCEEDED(command_recorder->Open());
   // Relu operator initializer deson't need to bind any input and persistent
   // resources.
@@ -663,7 +673,6 @@ TEST_F(WebNNCommandRecorderTest, ExecuteReluOperatorForMultipleBindings) {
       compiled_operator.Get(), std::nullopt, std::nullopt));
   EXPECT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   EXPECT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
-  adapter_->command_queue()->ReleaseCompletedResources();
   EXPECT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   EXPECT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -774,8 +783,6 @@ TEST_F(WebNNCommandRecorderTest, ExecuteReluOperatorForMultipleBindings) {
   ASSERT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   ASSERT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
 
-  // Release the resources referred by GPU execution.
-  adapter_->command_queue()->ReleaseCompletedResources();
   ASSERT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   ASSERT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -847,9 +854,11 @@ TEST_F(WebNNCommandRecorderTest, InitializeAndExecuteConvolutionOperator) {
   const uint64_t filter_buffer_size =
       filter_tensor_desc.GetTotalTensorSizeInBytes();
 
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   ASSERT_HRESULT_SUCCEEDED(
       CreateDefaultBuffer(adapter_->d3d12_device(), filter_buffer_size,
                           L"Filter_Default_Buffer", filter_buffer));
@@ -908,7 +917,6 @@ TEST_F(WebNNCommandRecorderTest, InitializeAndExecuteConvolutionOperator) {
       persistent_buffer_binding_desc));
   EXPECT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   EXPECT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
-  adapter_->command_queue()->ReleaseCompletedResources();
   EXPECT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   EXPECT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -979,9 +987,11 @@ TEST_F(WebNNCommandRecorderTest,
   // readback buffers. The input data is copied to the custom upload buffer. The
   // result is copied from the custom readback buffer. This test is for GPUs
   // that support UMA.
-  auto command_recorder = CommandRecorder::Create(adapter_->command_queue(),
-                                                  adapter_->dml_device());
-  ASSERT_NE(command_recorder.get(), nullptr);
+  auto create_recorder_result = CommandRecorder::Create(
+      adapter_->command_queue(), adapter_->dml_device());
+  ASSERT_TRUE(create_recorder_result.has_value());
+  std::unique_ptr<CommandRecorder> command_recorder =
+      std::move(create_recorder_result.value());
   SKIP_TEST_IF(!adapter_->IsUMA());
 
   // Create a Convolution operator.
@@ -1088,7 +1098,6 @@ TEST_F(WebNNCommandRecorderTest,
       persistent_buffer_binding_desc));
   EXPECT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   EXPECT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
-  adapter_->command_queue()->ReleaseCompletedResources();
   EXPECT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   EXPECT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 
@@ -1150,8 +1159,6 @@ TEST_F(WebNNCommandRecorderTest,
   ASSERT_HRESULT_SUCCEEDED(command_recorder->CloseAndExecute());
   ASSERT_HRESULT_SUCCEEDED(adapter_->command_queue()->WaitSync());
 
-  // Release the resources referred by GPU execution.
-  adapter_->command_queue()->ReleaseCompletedResources();
   ASSERT_HRESULT_SUCCEEDED(adapter_->dml_device()->GetDeviceRemovedReason());
   ASSERT_HRESULT_SUCCEEDED(adapter_->d3d12_device()->GetDeviceRemovedReason());
 

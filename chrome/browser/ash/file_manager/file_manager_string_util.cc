@@ -1158,6 +1158,10 @@ void AddStringsGeneric(base::Value::Dict* dict) {
   SET_STRING("ONEDRIVE_SIGN_IN_SUBTITLE",
              IDS_FILE_BROWSER_ONEDRIVE_SIGN_IN_SUBTITLE);
   SET_STRING("ONEDRIVE_SIGN_IN_LINK", IDS_FILE_BROWSER_ONEDRIVE_SIGN_IN_LINK);
+  SET_STRING("ONEDRIVE_FROZEN_ACCOUNT_TITLE",
+             IDS_FILE_BROWSER_ONEDRIVE_FROZEN_ACCOUNT_TITLE);
+  SET_STRING("ONEDRIVE_FROZEN_ACCOUNT_SUBTITLE",
+             IDS_FILE_BROWSER_ONEDRIVE_FROZEN_ACCOUNT_SUBTITLE);
 }  // NOLINT(readability/fn_size): Structure of AddStringsGeneric function
    // should be easy to manage.
 
@@ -1266,6 +1270,23 @@ void AddStringsForVms(base::Value::Dict* dict) {
                 overall_name));
 }
 
+void AddStringsForSkyVault(base::Value::Dict* dict) {
+  dict->Set(
+      "SKYVAULT_MIGRATION_BANNER_GOOGLE_DRIVE",
+      base::ReplaceStringPlaceholders(
+          l10n_util::GetStringUTF16(IDS_POLICY_SKYVAULT_MIGRATION_BANNER),
+          l10n_util::GetStringUTF16(IDS_OFFICE_CLOUD_PROVIDER_GOOGLE_DRIVE),
+          /*offset=*/nullptr));
+  dict->Set("SKYVAULT_MIGRATION_BANNER_ONEDRIVE",
+            base::ReplaceStringPlaceholders(
+                l10n_util::GetStringUTF16(IDS_POLICY_SKYVAULT_MIGRATION_BANNER),
+                l10n_util::GetStringUTF16(IDS_OFFICE_CLOUD_PROVIDER_ONEDRIVE),
+                /*offset=*/nullptr));
+  dict->Set("SKYVAULT_MISCONFIGURED_POLICY_MESSAGE",
+            l10n_util::GetStringUTF16(
+                IDS_POLICY_SKYVAULT_MISCONFIGURED_POLICY_MESSAGE));
+}
+
 }  // namespace
 
 base::Value::Dict GetFileManagerStrings() {
@@ -1282,6 +1303,7 @@ base::Value::Dict GetFileManagerStrings() {
   AddStringsForPhotos(&dict);
   AddStringsGeneric(&dict);
   AddStringsForVms(&dict);
+  AddStringsForSkyVault(&dict);
 
   dict.Set(
       "DOWNLOADS_LOW_SPACE_WARNING_HELP_URL",

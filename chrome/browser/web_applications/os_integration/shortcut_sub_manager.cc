@@ -16,7 +16,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
+#include "chrome/browser/web_applications/os_integration/os_integration_test_override.h"
 #include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
+#include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
@@ -27,7 +29,7 @@
 #include "components/sync/base/time.h"
 
 #if BUILDFLAG(IS_MAC)
-#include "chrome/browser/web_applications/app_shim_registry_mac.h"
+#include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
 #endif
 
 namespace web_app {
@@ -58,7 +60,8 @@ void ShortcutSubManager::Configure(
 
   desired_state.clear_shortcut();
 
-  if (!provider_->registrar_unsafe().IsLocallyInstalled(app_id)) {
+  if (provider_->registrar_unsafe().GetInstallState(app_id) !=
+      proto::INSTALLED_WITH_OS_INTEGRATION) {
     std::move(configure_done).Run();
     return;
   }
@@ -100,6 +103,8 @@ void ShortcutSubManager::Execute(
     std::move(callback).Run();
     return;
   }
+
+  CHECK_OS_INTEGRATION_ALLOWED();
 
   // Second, handle shortcut creation if either one of the following conditions
   // match:
@@ -262,6 +267,7 @@ void ShortcutSubManager::CreateShortcut(
 
   base::FilePath shortcut_data_dir =
       internals::GetShortcutDataDir(*shortcut_info);
+
   internals::ScheduleCreatePlatformShortcuts(
       shortcut_data_dir, locations, options.reason, std::move(shortcut_info),
       base::BindOnce([](bool success) {

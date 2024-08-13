@@ -72,8 +72,13 @@ TabbedPaneTab::TabbedPaneTab(TabbedPane* tabbed_pane,
   // Use leaf so that name is spoken by screen reader without exposing the
   // children.
   GetViewAccessibility().SetIsLeaf(true);
+  UpdateAccessibleName();
 
   OnStateChanged();
+
+  title_text_changed_callback_ =
+      title_->AddTextChangedCallback(base::BindRepeating(
+          &TabbedPaneTab::UpdateAccessibleName, base::Unretained(this)));
 }
 
 TabbedPaneTab::~TabbedPaneTab() = default;
@@ -116,12 +121,12 @@ void TabbedPaneTab::OnMouseExited(const ui::MouseEvent& event) {
 
 void TabbedPaneTab::OnGestureEvent(ui::GestureEvent* event) {
   switch (event->type()) {
-    case ui::ET_GESTURE_TAP_DOWN:
-    case ui::ET_GESTURE_TAP:
+    case ui::EventType::kGestureTapDown:
+    case ui::EventType::kGestureTap:
       // SelectTab also sets the right tab color.
       tabbed_pane_->SelectTab(this);
       break;
-    case ui::ET_GESTURE_TAP_CANCEL:
+    case ui::EventType::kGestureTapCancel:
       SetState(selected() ? State::kActive : State::kInactive);
       break;
     default:
@@ -142,8 +147,6 @@ gfx::Size TabbedPaneTab::CalculatePreferredSize(
 
 void TabbedPaneTab::GetAccessibleNodeData(ui::AXNodeData* data) {
   data->role = ax::mojom::Role::kTab;
-  data->SetName(title_->GetText());
-  data->SetNameFrom(ax::mojom::NameFrom::kContents);
   data->AddBoolAttribute(ax::mojom::BoolAttribute::kSelected, selected());
 }
 
@@ -288,6 +291,16 @@ void TabbedPaneTab::UpdateTitleColor() {
       state_ == State::kActive ? ui::kColorTabForegroundSelected
                                : ui::kColorTabForeground);
   title_->SetEnabledColor(font_color);
+}
+
+void TabbedPaneTab::UpdateAccessibleName() {
+  if (title_->GetText().empty()) {
+    GetViewAccessibility().SetName(
+        std::string(), ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
+  } else {
+    GetViewAccessibility().SetName(title_->GetText(),
+                                   ax::mojom::NameFrom::kContents);
+  }
 }
 
 BEGIN_METADATA(TabbedPaneTab)

@@ -196,8 +196,10 @@ template <typename T>
 CSSPrimitiveValue* ConsumeTime(T&,
                                const CSSParserContext&,
                                CSSPrimitiveValue::ValueRange);
-CSSPrimitiveValue* ConsumeResolution(CSSParserTokenRange&,
-                                     const CSSParserContext&);
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSPrimitiveValue* ConsumeResolution(T&, const CSSParserContext&);
 CSSValue* ConsumeRatio(CSSParserTokenStream&, const CSSParserContext&);
 CSSIdentifierValue* ConsumeIdent(CSSParserTokenRange&);
 CSSIdentifierValue* ConsumeIdent(CSSParserTokenStream&);
@@ -620,18 +622,15 @@ bool IsSupportedKeywordTech(CSSValueID keyword);
 bool IsSupportedKeywordFormat(CSSValueID keyword);
 
 CSSValue* ConsumeGridLine(CSSParserTokenStream&, const CSSParserContext&);
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-CSSValue* ConsumeGridTrackList(T&, const CSSParserContext&, TrackListType);
+CSSValue* ConsumeGridTrackList(CSSParserTokenStream&,
+                               const CSSParserContext&,
+                               TrackListType);
 bool ParseGridTemplateAreasRow(const WTF::String& grid_row_names,
                                NamedGridAreaMap&,
                                const wtf_size_t row_count,
                                wtf_size_t& column_count);
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-CSSValue* ConsumeGridTemplatesRowsOrColumns(T&, const CSSParserContext&);
+CSSValue* ConsumeGridTemplatesRowsOrColumns(CSSParserTokenStream&,
+                                            const CSSParserContext&);
 bool ConsumeGridItemPositionShorthand(bool important,
                                       CSSParserTokenStream&,
                                       const CSSParserContext&,
@@ -765,7 +764,7 @@ bool ShouldLowerCaseCounterStyleNameOnParse(const AtomicString&,
 template <class T>
   requires std::is_same_v<T, CSSParserTokenStream> ||
            std::is_same_v<T, CSSParserTokenRange>
-const CSSValue* ConsumeInsetArea(T&);
+CSSValue* ConsumeInsetArea(T&);
 
 // inset-area can take one or two keywords. If the second is omitted, either the
 // first is repeated, or the second is span-all. This method returns true if the
@@ -855,7 +854,7 @@ CSSValueList* ConsumeSpaceSeparatedList(Func callback,
   do {
     CSSValue* value = callback(stream, std::forward<Args>(args)...);
     if (!value) {
-      return nullptr;
+      return list->length() > 0 ? list : nullptr;
     }
     list->Append(*value);
   } while (!stream.AtEnd());
@@ -932,10 +931,10 @@ bool ConsumeIfDelimiter(T& range_or_stream, UChar c) {
   return true;
 }
 
-CORE_EXPORT CSSValue* ConsumeSinglePositionTryOption(CSSParserTokenStream&,
-                                                     const CSSParserContext&);
-CSSValue* ConsumePositionTryOptions(CSSParserTokenStream&,
-                                    const CSSParserContext&);
+CORE_EXPORT CSSValue* ConsumeSinglePositionTryFallback(CSSParserTokenStream&,
+                                                       const CSSParserContext&);
+CSSValue* ConsumePositionTryFallbacks(CSSParserTokenStream&,
+                                      const CSSParserContext&);
 
 // If the stream starts with “!important”, consumes it and returns true.
 // If the stream is at EOF, returns false.

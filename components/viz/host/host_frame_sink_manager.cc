@@ -11,6 +11,7 @@
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/not_fatal_until.h"
 #include "base/observer_list.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -357,9 +358,11 @@ void HostFrameSinkManager::OnConnectionLost() {
   frame_sink_manager_ = nullptr;
   frame_sink_manager_remote_.reset();
 
+#if BUILDFLAG(IS_ANDROID)
   // Any cached back buffers are invalid once the connection to the
   // FrameSinkManager is lost.
   min_valid_cache_back_buffer_id_ = next_cache_back_buffer_id_;
+#endif
 
   // CompositorFrameSinks are lost along with the connection to
   // mojom::FrameSinkManager.
@@ -453,10 +456,11 @@ void HostFrameSinkManager::OnScreenshotCaptured(
       copy_output_result->ScopedAccessSkBitmap().GetOutScopedBitmap());
 }
 
+#if BUILDFLAG(IS_ANDROID)
 uint32_t HostFrameSinkManager::CacheBackBufferForRootSink(
     const FrameSinkId& root_sink_id) {
   auto it = frame_sink_data_map_.find(root_sink_id);
-  DCHECK(it != frame_sink_data_map_.end());
+  CHECK(it != frame_sink_data_map_.end(), base::NotFatalUntil::M130);
   DCHECK(it->second.is_root);
   DCHECK(it->second.IsFrameSinkRegistered());
   DCHECK(frame_sink_manager_remote_);
@@ -478,6 +482,7 @@ void HostFrameSinkManager::EvictCachedBackBuffer(uint32_t cache_id) {
   mojo::SyncCallRestrictions::ScopedAllowSyncCall allow_sync_call;
   frame_sink_manager_remote_->EvictBackBuffer(cache_id);
 }
+#endif
 
 void HostFrameSinkManager::CreateHitTestQueryForSynchronousCompositor(
     const FrameSinkId& frame_sink_id) {

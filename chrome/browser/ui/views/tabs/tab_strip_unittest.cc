@@ -15,6 +15,7 @@
 #include "base/test/task_environment.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -70,11 +71,11 @@ constexpr TabStripUnittestParams kTabStripUnittestParams[] = {
 class TestTabStripObserver : public TabStripObserver {
  public:
   explicit TestTabStripObserver(TabStrip* tab_strip) : tab_strip_(tab_strip) {
-    tab_strip_->AddObserver(this);
+    tab_strip_->SetTabStripObserver(this);
   }
   TestTabStripObserver(const TestTabStripObserver&) = delete;
   TestTabStripObserver& operator=(const TestTabStripObserver&) = delete;
-  ~TestTabStripObserver() override { tab_strip_->RemoveObserver(this); }
+  ~TestTabStripObserver() override { tab_strip_->SetTabStripObserver(nullptr); }
 
   int last_tab_added() const { return last_tab_added_; }
   int last_tab_removed() const { return last_tab_removed_; }
@@ -107,11 +108,9 @@ class TabStripTestBase : public ChromeViewsTestBase {
         animation_mode_reset_(gfx::AnimationTestApi::SetRichAnimationRenderMode(
             gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED)) {
     if (scrolling_enabled) {
-      scoped_feature_list_.InitWithFeatures({features::kScrollableTabStrip},
-                                            {});
+      scoped_feature_list_.InitWithFeatures({tabs::kScrollableTabStrip}, {});
     } else {
-      scoped_feature_list_.InitWithFeatures({},
-                                            {features::kScrollableTabStrip});
+      scoped_feature_list_.InitWithFeatures({}, {tabs::kScrollableTabStrip});
     }
   }
   TabStripTestBase(const TabStripTestBase&) = delete;
@@ -216,7 +215,7 @@ class TabStripTestBase : public ChromeViewsTestBase {
   raw_ptr<views::View, DanglingUntriaged> tab_strip_parent_ = nullptr;
   std::unique_ptr<views::Widget> widget_;
 
-  ui::MouseEvent dummy_event_ = ui::MouseEvent(ui::ET_MOUSE_PRESSED,
+  ui::MouseEvent dummy_event_ = ui::MouseEvent(ui::EventType::kMousePressed,
                                                gfx::PointF(),
                                                gfx::PointF(),
                                                base::TimeTicks::Now(),
@@ -657,6 +656,49 @@ TEST_P(TabStripTest, CloseTabInGroupWhilePreviousTabAnimatingClosed) {
   EXPECT_EQ(1, tab_strip_->GetTabCount());
   EXPECT_EQ(std::nullopt, tab_strip_->tab_at(0)->group());
   EXPECT_EQ(1, tab_strip_->GetModelCount());
+}
+
+TEST_P(TabStripTest, HeaderOnCollapseChangeAccessibilityProperties) {
+  controller_->AddTab(0, TabActive::kActive);
+
+  std::optional<tab_groups::TabGroupId> group =
+      tab_groups::TabGroupId::GenerateNew();
+  controller_->MoveTabIntoGroup(0, group);
+  CompleteAnimationAndLayout();
+
+  ASSERT_FALSE(controller_->IsGroupCollapsed(group.value()));
+  EXPECT_TRUE(tab_strip_->group_header(group.value())->GetVisible());
+
+  // Initially the tab group is expanded
+  ui::AXNodeData node_data;
+  tab_strip_->group_header(group.value())
+      ->GetViewAccessibility()
+      .GetAccessibleNodeData(&node_data);
+  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kExpanded));
+  EXPECT_FALSE(node_data.HasState(ax::mojom::State::kCollapsed));
+
+  // Using controller to change the collapsed state of the tab group .
+  controller_->ToggleTabGroupCollapsedState(
+      group.value(), ToggleTabGroupCollapsedStateOrigin::kMenuAction);
+  tab_strip_->group_header(group.value())->VisualsChanged();
+
+  node_data = ui::AXNodeData();
+  tab_strip_->group_header(group.value())
+      ->GetViewAccessibility()
+      .GetAccessibleNodeData(&node_data);
+  EXPECT_FALSE(node_data.HasState(ax::mojom::State::kExpanded));
+  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kCollapsed));
+
+  controller_->ToggleTabGroupCollapsedState(
+      group.value(), ToggleTabGroupCollapsedStateOrigin::kMenuAction);
+  tab_strip_->group_header(group.value())->VisualsChanged();
+
+  node_data = ui::AXNodeData();
+  tab_strip_->group_header(group.value())
+      ->GetViewAccessibility()
+      .GetAccessibleNodeData(&node_data);
+  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kExpanded));
+  EXPECT_FALSE(node_data.HasState(ax::mojom::State::kCollapsed));
 }
 
 namespace {

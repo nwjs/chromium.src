@@ -13,7 +13,6 @@
 #include "base/functional/callback.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/apps/app_service/publishers/browser_shortcuts_crosapi_publisher.h"
 #include "chrome/browser/apps/app_service/publishers/standalone_browser_apps.h"
 #include "chrome/browser/apps/app_service/publishers/standalone_browser_extension_apps.h"
 #include "chrome/browser/apps/app_service/publishers/standalone_browser_extension_apps_factory.h"
@@ -81,6 +80,7 @@
 #include "chrome/browser/ash/crosapi/login_ash.h"
 #include "chrome/browser/ash/crosapi/login_screen_storage_ash.h"
 #include "chrome/browser/ash/crosapi/login_state_ash.h"
+#include "chrome/browser/ash/crosapi/media_app_ash.h"
 #include "chrome/browser/ash/crosapi/media_ui_ash.h"
 #include "chrome/browser/ash/crosapi/message_center_ash.h"
 #include "chrome/browser/ash/crosapi/metrics_ash.h"
@@ -301,6 +301,7 @@ CrosapiAsh::CrosapiAsh(CrosapiDependencyRegistry* registry)
           std::make_unique<ash::MagicBoostControllerAsh>()),
       mahi_browser_delegate_ash_(
           std::make_unique<ash::MahiBrowserDelegateAsh>()),
+      media_app_ash_(std::make_unique<MediaAppAsh>()),
       media_ui_ash_(std::make_unique<MediaUIAsh>()),
       message_center_ash_(std::make_unique<MessageCenterAsh>()),
       metrics_ash_(std::make_unique<MetricsAsh>()),
@@ -446,14 +447,8 @@ void CrosapiAsh::BindBrowserServiceHost(
 
 void CrosapiAsh::BindBrowserShortcutPublisher(
     mojo::PendingReceiver<mojom::AppShortcutPublisher> receiver) {
-  Profile* profile = ProfileManager::GetPrimaryUserProfile();
-  auto* app_service_proxy =
-      apps::AppServiceProxyFactory::GetForProfile(profile);
-  apps::BrowserShortcutsCrosapiPublisher* browser_shortcuts =
-      app_service_proxy->BrowserShortcutsCrosapiPublisher();
-  if (browser_shortcuts) {
-    browser_shortcuts->RegisterCrosapiHost(std::move(receiver));
-  }
+  // TODO(b/352513798): Remove after M131.
+  NOTIMPLEMENTED_LOG_ONCE();
 }
 
 void CrosapiAsh::BindBrowserVersionService(
@@ -829,6 +824,10 @@ void CrosapiAsh::BindMahiBrowserDelegate(
 void CrosapiAsh::BindMagicBoostController(
     mojo::PendingReceiver<mojom::MagicBoostController> receiver) {
   magic_boost_controller_ash_->BindReceiver(std::move(receiver));
+}
+
+void CrosapiAsh::BindMediaApp(mojo::PendingRemote<mojom::MediaApp> remote) {
+  media_app_ash_->BindRemote(std::move(remote));
 }
 
 void CrosapiAsh::BindMediaUI(mojo::PendingReceiver<mojom::MediaUI> receiver) {

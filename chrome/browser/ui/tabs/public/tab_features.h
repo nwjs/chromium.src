@@ -9,8 +9,14 @@
 
 #include "base/functional/callback.h"
 
+class DipsNavigationFlowDetectorWrapper;
 class LensOverlayController;
 class Profile;
+
+namespace customize_chrome {
+class SidePanelController;
+}
+
 namespace permissions {
 class PermissionIndicatorsTabData;
 }
@@ -42,8 +48,17 @@ class TabFeatures {
     return permission_indicators_tab_data_.get();
   }
 
+  customize_chrome::SidePanelController*
+  customize_chrome_side_panel_controller() {
+    return customize_chrome_side_panel_controller_.get();
+  }
+
+  DipsNavigationFlowDetectorWrapper* dips_navigation_flow_detector_wrapper() {
+    return dips_navigation_flow_detector_wrapper_.get();
+  }
+
   // Called exactly once to initialize features.
-  void Init(TabInterface* tab, Profile* profile);
+  void Init(TabInterface& tab, Profile* profile);
 
  protected:
   TabFeatures();
@@ -62,6 +77,13 @@ class TabFeatures {
 
   std::unique_ptr<permissions::PermissionIndicatorsTabData>
       permission_indicators_tab_data_;
+
+  // Responsible for the customize chrome tab-scoped side panel.
+  std::unique_ptr<customize_chrome::SidePanelController>
+      customize_chrome_side_panel_controller_;
+
+  std::unique_ptr<DipsNavigationFlowDetectorWrapper>
+      dips_navigation_flow_detector_wrapper_;
 };
 
 }  // namespace tabs

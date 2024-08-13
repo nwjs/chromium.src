@@ -31,7 +31,6 @@
 #include "ash/style/rounded_label_widget.h"
 #include "ash/style/typography.h"
 #include "ash/system/toast/toast_manager_impl.h"
-#include "ash/utility/forest_util.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wm/desks/default_desk_button.h"
 #include "ash/wm/desks/desk_bar_view_base.h"
@@ -39,6 +38,7 @@
 #include "ash/wm/desks/desk_mini_view.h"
 #include "ash/wm/desks/desk_mini_view_animations.h"
 #include "ash/wm/desks/desk_name_view.h"
+#include "ash/wm/desks/desks_constants.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/desks/overview_desk_bar_view.h"
@@ -70,16 +70,16 @@
 #include "ash/wm/overview/scoped_overview_hide_windows.h"
 #include "ash/wm/overview/scoped_overview_wallpaper_clipper.h"
 #include "ash/wm/snap_group/snap_group_controller.h"
-#include "ash/wm/splitview/faster_split_view.h"
-#include "ash/wm/splitview/faster_split_view_old.h"
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_divider.h"
 #include "ash/wm/splitview/split_view_overview_session.h"
+#include "ash/wm/splitview/split_view_setup_view.h"
+#include "ash/wm/splitview/split_view_setup_view_old.h"
 #include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/window_properties.h"
-#include "ash/wm/window_restore/pine_contents_view.h"
-#include "ash/wm/window_restore/pine_controller.h"
+#include "ash/wm/window_restore/informed_restore_contents_view.h"
+#include "ash/wm/window_restore/informed_restore_controller.h"
 #include "ash/wm/window_state_delegate.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_constants.h"
@@ -96,6 +96,7 @@
 #include "base/trace_event/trace_event.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/window_properties.h"
+#include "chromeos/ui/wm/window_util.h"
 #include "components/app_restore/full_restore_utils.h"
 #include "overview_focus_cycler_old.h"
 #include "overview_session.h"
@@ -133,9 +134,9 @@ constexpr int kNoItemsIndicatorVerticalPaddingDp = 8;
 // the first overview item.
 constexpr int kSaveDeskAsTemplateOverviewItemSpacingDp = 45;
 
-// Distance from the bottom of the last overview item to the top of the faster
-// splitscreen toast widget.
-constexpr int kFasterSplitScreenToastSpacingDp = 40;
+// Distance from the bottom of the last overview item to the top of the split
+// view setup view toast widget.
+constexpr int kSplitViewSetupToastSpacingDp = 40;
 
 // Distance between the bottom of the toast and the bottom of the work area
 // which will be the top edge of the shelf if it is shown.
@@ -168,6 +169,8 @@ constexpr int kFeedbackGridMinHeight = 100;
 // The bottom padding applied to the bottom of the birch bar.
 constexpr int kBirchBarBottomPadding = 16;
 
+constexpr float kInformedRestoreDialogInitScale = 1.2f;
+
 // Wait a while before unpausing the occlusion tracker after a scroll has
 // completed as the user may start another scroll.
 constexpr base::TimeDelta kOcclusionUnpauseDurationForScroll =
@@ -175,12 +178,6 @@ constexpr base::TimeDelta kOcclusionUnpauseDurationForScroll =
 
 constexpr base::TimeDelta kOcclusionUnpauseDurationForRotation =
     base::Milliseconds(300);
-
-// TODO(b/305980930): Replace with UX string when it is approved.
-const std::u16string kFasterSplitScreenToastNoWindows =
-    u"Create a window to use split screen, or click empty area to skip.";
-const std::u16string kFasterSplitScreenToast =
-    u"Choose a window to use split screen, or click empty area to skip.";
 
 // Toast id for the toast that is displayed when a user tries to move a window
 // that is visible on all desks to another desk.
@@ -507,28 +504,27 @@ SplitViewOverviewSessionExitPoint GetSplitViewOverviewSessionExitPoint(
   return SplitViewOverviewSessionExitPoint::kUnspecified;
 }
 
-// Returns true if any of the items in `grid` covers the entire workspace, false
+// Returns false if any of the items in `grid` covers the entire workspace, true
 // otherwise.
-bool ShouldImmediatelyInitDeskBar(OverviewGrid* grid) {
-  // Always immediately initialize the desk bar when doing app dragging or when
-  // immediately exiting.
+bool ShouldAnimateWallpaper(OverviewGrid* grid) {
+  // Do not animate wallpaper if enter exit type is immediate.
   const OverviewEnterExitType enter_exit_type =
       grid->overview_session()->enter_exit_overview_type();
   if (enter_exit_type == OverviewEnterExitType::kImmediateEnter ||
       enter_exit_type == OverviewEnterExitType::kImmediateEnterWithoutFocus ||
       enter_exit_type == OverviewEnterExitType::kImmediateExit) {
-    return true;
+    return false;
   }
 
-  // If one of the windows covers the workspace, we can create the desks bar
-  // immediately.
-  for (const auto& overview_item : grid->window_list()) {
+  // If one of the windows covers the workspace, we can skip animating the
+  // wallpaper.
+  for (const auto& overview_item : grid->item_list()) {
     if (CanCoverAvailableWorkspace(overview_item->GetWindow())) {
-      return true;
+      return false;
     }
   }
 
-  return false;
+  return true;
 }
 
 // Returns true if the birch bar should be shown in current state.
@@ -538,16 +534,16 @@ bool ShouldShowBirchBar(aura::Window* root_window) {
   // disabled by users. We don't need to worry about showing/hiding the bar
   // dynamically on primary/secondary user switch because we exit overview when
   // we switch users.
-  return IsForestFeatureEnabled() &&
+  return features::IsForestFeatureEnabled() &&
          Shell::Get()->session_controller()->IsUserPrimary() &&
          BirchBarController::Get()->GetShowBirchSuggestions() &&
          !SplitViewController::Get(root_window)->InSplitViewMode();
 }
 
-bool ShouldShowPineDialog(aura::Window* root_window) {
+bool ShouldShowInformedRestoreDialog(aura::Window* root_window) {
   return root_window == Shell::GetPrimaryRootWindow() &&
-         IsForestFeatureEnabled() &&
-         !!Shell::Get()->pine_controller()->contents_data();
+         features::IsForestFeatureEnabled() &&
+         !!Shell::Get()->informed_restore_controller()->contents_data();
 }
 
 }  // namespace
@@ -555,14 +551,16 @@ bool ShouldShowPineDialog(aura::Window* root_window) {
 OverviewGrid::OverviewGrid(
     aura::Window* root_window,
     const std::vector<raw_ptr<aura::Window, VectorExperimental>>& windows,
-    OverviewSession* overview_session)
+    OverviewSession* overview_session,
+    base::WeakPtr<WindowOcclusionCalculator> window_occlusion_calculator)
     : root_window_(root_window),
       overview_session_(overview_session),
       split_view_drag_indicators_(
           ShouldAllowSplitView()
               ? std::make_unique<SplitViewDragIndicators>(root_window)
               : nullptr),
-      bounds_(GetGridBoundsInScreen(root_window)) {
+      bounds_(GetGridBoundsInScreen(root_window)),
+      window_occlusion_calculator_(window_occlusion_calculator) {
   TRACE_EVENT0("ui", "OverviewGrid::OverviewGrid");
 
   for (aura::Window* window : windows) {
@@ -658,12 +656,12 @@ void OverviewGrid::Shutdown(OverviewEnterExitType exit_type) {
     }
   }
 
-  if (pine_widget_) {
+  if (informed_restore_widget_) {
     if (exit_type == OverviewEnterExitType::kImmediateExit) {
-      ImmediatelyCloseWidgetOnExit(std::move(pine_widget_));
+      ImmediatelyCloseWidgetOnExit(std::move(informed_restore_widget_));
     } else {
       // This animation continues past the lifetime of `this`.
-      FadeOutWidgetFromOverview(std::move(pine_widget_),
+      FadeOutWidgetFromOverview(std::move(informed_restore_widget_),
                                 OVERVIEW_ANIMATION_EXIT_OVERVIEW_MODE_FADE_OUT);
     }
   }
@@ -686,7 +684,7 @@ void OverviewGrid::Shutdown(OverviewEnterExitType exit_type) {
     // Destroy the birch bar widget to clear the related pointers before
     // fade-out animation to avoid dangling ptrs.
     DestroyBirchBarWidget();
-    if (exit_type != OverviewEnterExitType::kPine &&
+    if (exit_type != OverviewEnterExitType::kInformedRestore &&
         exit_type != OverviewEnterExitType::kImmediateExit) {
       FadeOutWidgetFromOverview(
           std::move(birch_bar_widget),
@@ -696,7 +694,8 @@ void OverviewGrid::Shutdown(OverviewEnterExitType exit_type) {
 }
 
 void OverviewGrid::PrepareForOverview() {
-  if (ShouldImmediatelyInitDeskBar(this)) {
+  const bool should_animate_wallpaper = ShouldAnimateWallpaper(this);
+  if (!should_animate_wallpaper) {
     MaybeInitDesksWidget();
   }
 
@@ -705,26 +704,39 @@ void OverviewGrid::PrepareForOverview() {
   OverviewEnterExitType enter_exit_type =
       overview_session_->enter_exit_overview_type();
 
-  if (features::IsOakFeatureEnabled() || IsForestFeatureEnabled()) {
+  if (features::IsForestFeatureEnabled()) {
+    auto animation_type =
+        ScopedOverviewWallpaperClipper::AnimationType::kEnterOverview;
+    if (!should_animate_wallpaper) {
+      animation_type = ScopedOverviewWallpaperClipper::AnimationType::kNone;
+    } else if (enter_exit_type == OverviewEnterExitType::kInformedRestore) {
+      animation_type =
+          ScopedOverviewWallpaperClipper::AnimationType::kEnterInformedRestore;
+    }
     scoped_overview_wallpaper_clipper_ =
-        std::make_unique<ScopedOverviewWallpaperClipper>(
-            this, enter_exit_type == OverviewEnterExitType::kPine);
+        std::make_unique<ScopedOverviewWallpaperClipper>(this, animation_type);
   }
 
   // TODO(b/326434696): Currently this will return false if there is no restore
   // data in the pine contents data. Show the zero-state dialog.
-  if (ShouldShowPineDialog(root_window_)) {
-    pine_widget_ = PineContentsView::Create(GetGridEffectiveBounds());
-    pine_widget_->ShowInactive();
+  if (ShouldShowInformedRestoreDialog(root_window_)) {
+    informed_restore_widget_ =
+        InformedRestoreContentsView::Create(GetGridEffectiveBounds());
+    informed_restore_widget_->ShowInactive();
 
     // If the enter type is immediate, `ShowInactive()` is sufficient as
-    // `pine_widget_` has no default animation. Otherwise, set the opacity to
-    // 0.f and perform a fade in animation.
+    // `informed_restore_widget_` has no default animation. Otherwise, set the
+    // opacity to 0.f and perform a fade in animation.
     if (enter_exit_type != OverviewEnterExitType::kImmediateEnter) {
-      pine_widget_->SetOpacity(0.f);
-      FadeInWidgetToOverview(pine_widget_.get(),
-                             OVERVIEW_ANIMATION_ENTER_OVERVIEW_MODE_FADE_IN,
-                             /*observe=*/true);
+      auto* widget_layer = informed_restore_widget_->GetLayer();
+      widget_layer->SetOpacity(0.f);
+      widget_layer->SetTransform(gfx::TransformAboutPivot(
+          gfx::RectF(widget_layer->size()).CenterPoint(),
+          gfx::Transform::MakeScale(kInformedRestoreDialogInitScale)));
+      FadeInAndTransformWidgetToOverview(
+          informed_restore_widget_.get(), gfx::Transform(),
+          OVERVIEW_ANIMATION_SHOW_INFORMED_RESTORE_DIALOG_ON_ENTER,
+          /*observe=*/true);
     }
   }
 
@@ -815,7 +827,7 @@ void OverviewGrid::PositionWindows(
 
   // Create a feedback button that shows even when no items are present (e.g.,
   // for Pine).
-  if (IsForestFeatureEnabled()) {
+  if (features::IsForestFeatureEnabled()) {
     UpdateFeedbackButton();
   }
 
@@ -912,7 +924,7 @@ void OverviewGrid::PositionWindows(
 
   UpdateSaveDeskButtons();
   // Needed to include the toast when we init the grid.
-  UpdateFasterSplitViewWidget();
+  UpdateSplitViewSetupViewWidget();
 
   // This is a no-op if the feature ContinuousOverviewScrollAnimation is not
   // enabled. Once windows are placed at their final positions, clear transforms
@@ -1198,6 +1210,13 @@ bool OverviewGrid::MaybeUpdateDesksWidgetBounds() {
     // See crbug.com/1056371 for more details.
     desks_bar_view_->InvalidateLayout();
     desks_widget_->SetBounds(desks_widget_bounds);
+
+    if (scoped_overview_wallpaper_clipper_) {
+      scoped_overview_wallpaper_clipper_->RefreshWallpaperClipBounds(
+          ScopedOverviewWallpaperClipper::AnimationType::kNone,
+          base::DoNothing());
+    }
+
     return true;
   }
   return false;
@@ -1319,12 +1338,14 @@ void OverviewGrid::OnDisplayMetricsChanged(uint32_t changed_metrics) {
 
   UpdateCannotSnapWarningVisibility(/*animate=*/true);
 
-  // The `PineContentsView` may need to be updated to match the primary display
-  // orientation. If the pine widget exists, then this overview grid is on the
-  // primary display, so we can tell the contents view to update on rotation.
-  if (pine_widget_ &&
+  // The `InformedRestoreContentsView` may need to be updated to match the
+  // primary display orientation. If the pine widget exists, then this overview
+  // grid is on the primary display, so we can tell the contents view to update
+  // on rotation.
+  if (informed_restore_widget_ &&
       (changed_metrics & display::DisplayObserver::DISPLAY_METRIC_ROTATION)) {
-    views::AsViewClass<PineContentsView>(pine_widget_->GetContentsView())
+    views::AsViewClass<InformedRestoreContentsView>(
+        informed_restore_widget_->GetContentsView())
         ->UpdateOrientation();
   }
 
@@ -1349,14 +1370,22 @@ void OverviewGrid::OnStartingAnimationComplete(bool canceled) {
   if (canceled)
     return;
 
-  MaybeInitDesksWidget();
+  if (ShouldInitDesksWidget()) {
+    auto presentation_time_recorder = CreatePresentationTimeHistogramRecorder(
+        root_window_->layer()->GetCompositor(),
+        kOverviewDelayedDeskBarPresentationHistogram, "",
+        kDeskBarEnterExitPresentationMaxLatency);
+    presentation_time_recorder->RequestNext();
+    MaybeInitDesksWidget();
+  }
 
   MaybeInitBirchBarWidget();
 
   UpdateSaveDeskButtons();
 
-  for (auto& window : window_list())
-    window->OnStartingAnimationComplete();
+  for (auto& item : item_list()) {
+    item->OnStartingAnimationComplete();
+  }
 }
 
 void OverviewGrid::CalculateWindowListAnimationStates(
@@ -1697,7 +1726,7 @@ gfx::Rect OverviewGrid::GetGridEffectiveBounds() const {
 }
 
 gfx::Insets OverviewGrid::GetGridHorizontalPaddings() const {
-  if (!features::IsOakFeatureEnabled() && !IsForestFeatureEnabled()) {
+  if (!features::IsForestFeatureEnabled()) {
     return gfx::Insets();
   }
 
@@ -1728,11 +1757,10 @@ gfx::Insets OverviewGrid::GetGridHorizontalPaddings() const {
 }
 
 gfx::Insets OverviewGrid::GetGridVerticalPaddings() const {
-  const bool oak_enabled =
-      features::IsOakFeatureEnabled() || IsForestFeatureEnabled();
+  const bool forest_enabled = features::IsForestFeatureEnabled();
 
   // Use compact paddings for partial overview.
-  if (oak_enabled &&
+  if (forest_enabled &&
       SplitViewController::Get(root_window_)->InSplitViewMode()) {
     return gfx::Insets::VH(kCompactPaddingForEffectiveBounds, 0);
   }
@@ -1749,11 +1777,11 @@ gfx::Insets OverviewGrid::GetGridVerticalPaddings() const {
       desks_bar_view_ || desks_util::ShouldDesksBarBeCreated();
 
   const int no_desk_bar_padding =
-      oak_enabled ? kSpaciousPaddingForEffectiveBounds : 0;
+      forest_enabled ? kSpaciousPaddingForEffectiveBounds : 0;
   vertical_paddings.set_top(has_desk_bar ? GetDesksBarHeight()
                                          : no_desk_bar_padding);
 
-  if (!oak_enabled) {
+  if (!forest_enabled) {
     return vertical_paddings;
   }
 
@@ -2167,10 +2195,10 @@ void OverviewGrid::ShowSavedDeskLibrary() {
 
   desks_bar_view_->UpdateButtonsForSavedDeskGrid();
 
-  if (pine_widget_) {
-    pine_widget_->GetNativeWindow()->SetEventTargetingPolicy(
+  if (informed_restore_widget_) {
+    informed_restore_widget_->GetNativeWindow()->SetEventTargetingPolicy(
         aura::EventTargetingPolicy::kNone);
-    PerformFadeOutLayer(pine_widget_->GetLayer(), /*animate=*/true,
+    PerformFadeOutLayer(informed_restore_widget_->GetLayer(), /*animate=*/true,
                         base::DoNothing());
   }
 }
@@ -2252,21 +2280,11 @@ bool OverviewGrid::IsSavedDeskNameBeingModified() const {
 void OverviewGrid::UpdateNoWindowsWidget(bool no_items,
                                          bool animate,
                                          bool is_continuous_enter) {
-  // `no_windows_widget_` will show under two conditions:
-  // 1. In normal full overview, when there are no items and the saved desk
-  // library is not showing;
-  // 2. In faster split screen setup, the `no_windows_widget_` show to indicate
-  // either no windows available to pair or select a window to complete the
-  // window layout.
-  if (window_util::IsInFasterSplitScreenSetupSession(root_window_)) {
-    UpdateFasterSplitViewWidget();
-    return;
-  }
-
+  // `no_windows_widget_` will show in normal full overview, when there are no
+  // items and the saved desk library is not showing.
   if (!no_items || IsShowingSavedDeskLibrary() ||
-      ShouldShowPineDialog(root_window_)) {
+      ShouldShowInformedRestoreDialog(root_window_)) {
     no_windows_widget_.reset();
-    UpdateFasterSplitViewWidget();
     return;
   }
 
@@ -2309,15 +2327,15 @@ void OverviewGrid::UpdateNoWindowsWidget(bool no_items,
 void OverviewGrid::RefreshGridBounds(bool animate) {
   SetBoundsAndUpdatePositions(GetGridBoundsInScreen(root_window_),
                               /*ignored_items=*/{}, animate);
-  UpdateNoWindowsWidget(empty(), animate, /*is_continuous_enter=*/false);
 
-  if (pine_widget_) {
-    PineContentsView* contents_view =
-        views::AsViewClass<PineContentsView>(pine_widget_->GetContentsView());
+  if (informed_restore_widget_) {
+    InformedRestoreContentsView* contents_view =
+        views::AsViewClass<InformedRestoreContentsView>(
+            informed_restore_widget_->GetContentsView());
     CHECK(contents_view);
     gfx::Rect pine_bounds = GetGridEffectiveBounds();
     pine_bounds.ClampToCenteredSize(contents_view->GetPreferredSize());
-    pine_widget_->SetBounds(pine_bounds);
+    informed_restore_widget_->SetBounds(pine_bounds);
   }
 
   if (scoped_overview_wallpaper_clipper_) {
@@ -2326,7 +2344,7 @@ void OverviewGrid::RefreshGridBounds(bool animate) {
         base::DoNothing());
   }
 
-  if (IsForestFeatureEnabled()) {
+  if (features::IsForestFeatureEnabled()) {
     UpdateFeedbackButton();
   }
 }
@@ -2336,12 +2354,15 @@ void OverviewGrid::UpdateSaveDeskButtons() {
   // overview grid changes, i.e. switches between active desks and/or the
   // saved desk grid. This will be needed when we make it so that switching
   // desks keeps us in overview mode.
-  if (!saved_desk_util::ShouldShowSavedDesksButtons()) {
+  if (!saved_desk_util::ShouldShowSavedDesksOptions() ||
+      features::IsForestFeatureEnabled()) {
     return;
   }
 
   // If there is only one item and it is animating to close, hide the widget as
   // the closing window cannot be saved as part of a template.
+  // TODO(http://b/327639285): Also hide save desk context menu items if item is
+  // animating to close.
   const bool no_items =
       item_list_.empty() ||
       (item_list_.size() == 1u && item_list_.front()->animating_to_close());
@@ -2512,9 +2533,9 @@ bool OverviewGrid::IsSaveDeskForLaterButtonVisible() const {
 }
 
 void OverviewGrid::OnTabletModeChanged() {
-  // We may not show virtual desk bar in clamshell mode such as in faster split
-  // screen setup session, and the desk bar will be created in tablet mode
-  // either. In this case, we may need to init the virtual desk bar.
+  // We may not show virtual desk bar in clamshell mode such as in split view
+  // setup session, and the desk bar will be created in tablet mode either. In
+  // this case, we may need to init the virtual desk bar.
   MaybeInitDesksWidget();
 
   MaybeInitBirchBarWidget();
@@ -2553,16 +2574,37 @@ OverviewGrid::GetSaveDeskButtonContainer() const {
              : nullptr;
 }
 
-FasterSplitViewOld* OverviewGrid::GetFasterSplitViewOld() {
-  return faster_splitview_widget_
-             ? views::AsViewClass<FasterSplitViewOld>(
-                   faster_splitview_widget_->GetContentsView())
+SplitViewSetupViewOld* OverviewGrid::GetSplitViewSetupViewOld() {
+  return split_view_setup_widget_
+             ? views::AsViewClass<SplitViewSetupViewOld>(
+                   split_view_setup_widget_->GetContentsView())
+             : nullptr;
+}
+
+const SplitViewSetupView* OverviewGrid::GetSplitViewSetupView() const {
+  return split_view_setup_widget_
+             ? views::AsViewClass<SplitViewSetupView>(
+                   split_view_setup_widget_->GetContentsView())
              : nullptr;
 }
 
 gfx::Rect OverviewGrid::GetWallpaperClipBounds() const {
   // The bottom of the clipping bounds should be above the birch bar.
   gfx::Rect clipping_bounds = GetGridEffectiveBounds();
+
+  // If we are dragging while in portrait mode, the desk bar will shift down to
+  // accommodate the snap region. The clip region should be updated so that the
+  // desks bar is not covering the wallpaper. We update here instead of updating
+  // `bounds_` so we do not relayout the grid.
+  if (split_view_drag_indicators_ &&
+      split_view_drag_indicators_->current_window_dragging_state() ==
+          SplitViewDragIndicators::WindowDraggingState::kFromOverview &&
+      !chromeos::wm::IsLandscapeOrientationForWindow(root_window_)) {
+    clipping_bounds.SetVerticalBounds(
+        clipping_bounds.y() +
+            split_view_drag_indicators_->GetLeftHighlightViewBounds().height(),
+        clipping_bounds.bottom());
+  }
 
   if (!birch_bar_widget_) {
     return clipping_bounds;
@@ -2602,8 +2644,8 @@ void OverviewGrid::MaybeInitBirchBarWidget(bool by_user) {
   if (by_user) {
     loading_state = BirchBarView::State::kLoadingByUser;
   } else if (overview_session_->enter_exit_overview_type() ==
-             OverviewEnterExitType::kPine) {
-    loading_state = BirchBarView::State::kLoadingInPine;
+             OverviewEnterExitType::kInformedRestore) {
+    loading_state = BirchBarView::State::kLoadingForInformedRestore;
   }
 
   // Note that we should set loading state before registering the bar to
@@ -2670,10 +2712,9 @@ void OverviewGrid::OnSplitViewStateChanged(
       (split_view_controller->InClamshellSplitViewMode() &&
        overview_session_->IsEmpty())) {
     overview_session_->RestoreWindowActivation(false);
-    overview_controller->EndOverview(
-        state == SplitViewController::State::kBothSnapped
-            ? OverviewEndAction::kWindowActivating
-            : OverviewEndAction::kSplitView);
+    overview_controller->EndOverview(both_snapped_windows
+                                         ? OverviewEndAction::kWindowActivating
+                                         : OverviewEndAction::kSplitView);
     return;
   }
 
@@ -2687,6 +2728,7 @@ void OverviewGrid::OnSplitViewStateChanged(
   } else {
     DestroyBirchBarWidget();
     RefreshDesksWidgets(/*visible=*/false);
+    UpdateSplitViewSetupViewWidget();
   }
 
   // Update the cannot snap warnings and adjust the grid bounds.
@@ -2703,7 +2745,7 @@ void OverviewGrid::OnSplitViewDividerPositionChanged() {
   if (overview_session_->is_shutting_down() ||
       window_util::IsInFasterSplitScreenSetupSession(root_window_)) {
     // `SplitViewOverviewSession` will manually update the bounds so we don't
-    // need to update here in faster split screen setup session.
+    // need to update here in split view setup session.
     return;
   }
 
@@ -2718,9 +2760,9 @@ void OverviewGrid::OnScreenCopiedBeforeRotation() {
   rotation_pauser_ = OverviewController::Get()->PauseOcclusionTracker(
       kOcclusionUnpauseDurationForRotation);
 
-  for (auto& window : window_list()) {
-    window->UpdateRoundedCornersAndShadow();
-    window->StopWidgetAnimation();
+  for (auto& item : item_list()) {
+    item->UpdateRoundedCornersAndShadow();
+    item->StopWidgetAnimation();
   }
 }
 
@@ -2774,8 +2816,9 @@ const SavedDeskLibraryView* OverviewGrid::GetSavedDeskLibraryView() const {
 
 void OverviewGrid::MaybeInitDesksWidget() {
   TRACE_EVENT0("ui", "OverviewGrid::MaybeInitDesksWidget");
-  if (!desks_util::ShouldDesksBarBeCreated() || desks_widget_)
+  if (!ShouldInitDesksWidget()) {
     return;
+  }
 
   desks_widget_ = DeskBarViewBase::CreateDeskWidget(
       root_window_, GetDesksWidgetBounds(), DeskBarViewBase::Type::kOverview);
@@ -2784,8 +2827,9 @@ void OverviewGrid::MaybeInitDesksWidget() {
   // must be called before OverviewDeskBarView:: Init(). This is needed because
   // the desks mini views need to access the widget to get the root window in
   // order to know how to layout themselves.
-  desks_bar_view_ = desks_widget_->SetContentsView(
-      std::make_unique<OverviewDeskBarView>(weak_ptr_factory_.GetWeakPtr()));
+  desks_bar_view_ =
+      desks_widget_->SetContentsView(std::make_unique<OverviewDeskBarView>(
+          weak_ptr_factory_.GetWeakPtr(), window_occlusion_calculator_));
   desks_bar_view_->Init();
 
   // If the feature ContinuousOverviewScrollAnimation is enabled and a
@@ -3063,7 +3107,7 @@ bool OverviewGrid::FitWindowRectsInBounds(
 void OverviewGrid::MaybeCenterOverviewItems(
     const base::flat_set<OverviewItemBase*>& ignored_items,
     std::vector<gfx::RectF>& out_window_rects) {
-  if (!features::IsOakFeatureEnabled() && !IsForestFeatureEnabled()) {
+  if (!features::IsForestFeatureEnabled()) {
     return;
   }
 
@@ -3247,10 +3291,10 @@ void OverviewGrid::OnSavedDeskGridFadedOut() {
   UpdateSaveDeskButtons();
   UpdateNoWindowsWidget(/*no_items=*/empty(), /*animate=*/true,
                         /*is_continuous_enter=*/false);
-  if (pine_widget_) {
-    pine_widget_->GetNativeWindow()->SetEventTargetingPolicy(
+  if (informed_restore_widget_) {
+    informed_restore_widget_->GetNativeWindow()->SetEventTargetingPolicy(
         aura::EventTargetingPolicy::kTargetAndDescendants);
-    PerformFadeInLayer(pine_widget_->GetLayer(), /*animate=*/true);
+    PerformFadeInLayer(informed_restore_widget_->GetLayer(), /*animate=*/true);
   }
 }
 
@@ -3264,8 +3308,7 @@ void OverviewGrid::OnBirchBarLayoutChanged(
     return;
   }
 
-  MaybeUpdateBirchBarWidgetBounds();
-  if (scoped_overview_wallpaper_clipper_) {
+  if (MaybeUpdateBirchBarWidgetBounds() && scoped_overview_wallpaper_clipper_) {
     // Perform wallpaper clipping animations according to relayout reason.
     using AnimationType = ScopedOverviewWallpaperClipper::AnimationType;
     using RelayoutReason = BirchBarView::RelayoutReason;
@@ -3286,6 +3329,11 @@ void OverviewGrid::OnBirchBarLayoutChanged(
                            weak_ptr_factory_.GetWeakPtr(), /*by_user=*/true);
         break;
       case RelayoutReason::kAddRemoveChip:
+        // If the last chip was removed, perform hiding bar animation.
+        if (!birch_bar_view_->GetChipsNum()) {
+          animation_type = AnimationType::kHideBirchBarByUser;
+        }
+        break;
       case RelayoutReason::kAvailableSpaceChanged:
         break;
     }
@@ -3300,14 +3348,13 @@ void OverviewGrid::OnBirchBarLayoutChanged(
       RefreshGridBounds(/*animate=*/true);
     }
   }
+
+  // A relayout means the bar's accessibility may have changed.
+  overview_session_->UpdateAccessibilityFocus();
   UpdateFeedbackButton();
 }
 
 void OverviewGrid::RefreshDesksWidgets(bool visible) {
-  if (!IsForestFeatureEnabled()) {
-    return;
-  }
-
   if (!visible) {
     views::Widget::Widgets desks_widgets = {
         desks_widget_.get(), saved_desk_library_widget_.get(),
@@ -3333,7 +3380,7 @@ void OverviewGrid::RefreshDesksWidgets(bool visible) {
 void OverviewGrid::UpdateNumSavedDeskUnsupportedWindows(
     const std::vector<raw_ptr<aura::Window, VectorExperimental>>& windows,
     bool increment) {
-  if (!saved_desk_util::ShouldShowSavedDesksButtons()) {
+  if (!saved_desk_util::ShouldShowSavedDesksOptions()) {
     return;
   }
 
@@ -3417,21 +3464,21 @@ void OverviewGrid::OnSettingsButtonPressed() {
   Shell::Get()->shell_delegate()->OpenMultitaskingSettings();
 }
 
-void OverviewGrid::UpdateFasterSplitViewWidget() {
-  if (!window_util::IsInFasterSplitScreenSetupSession(root_window_)) {
-    // If we weren't started by faster splitview, don't show the widget.
-    if (auto* faster_split_view = GetFasterSplitViewOld()) {
+void OverviewGrid::UpdateSplitViewSetupViewWidget() {
+  if (!SplitViewController::Get(root_window_)->InClamshellSplitViewMode()) {
+    // If we aren't in split view, don't show the widget.
+    if (auto* split_view_setup_view = GetSplitViewSetupViewOld()) {
       auto* focus_cycler_old = overview_session_->focus_cycler_old();
       focus_cycler_old->OnViewDestroyingOrDisabling(
-          faster_split_view->GetToast());
+          split_view_setup_view->GetToast());
       focus_cycler_old->OnViewDestroyingOrDisabling(
-          faster_split_view->settings_button());
+          split_view_setup_view->settings_button());
     }
-    faster_splitview_widget_.reset();
+    split_view_setup_widget_.reset();
     return;
   }
 
-  if (!faster_splitview_widget_) {
+  if (!split_view_setup_widget_) {
     views::Widget::InitParams params(
         views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
         views::Widget::InitParams::TYPE_POPUP);
@@ -3439,39 +3486,39 @@ void OverviewGrid::UpdateFasterSplitViewWidget() {
                              ? views::Widget::InitParams::Activatable::kYes
                              : views::Widget::InitParams::Activatable::kNo;
     params.parent = desks_util::GetActiveDeskContainerForRoot(root_window_);
-    params.name = "FasterSplitViewWidget";
+    params.name = "SplitViewSetupViewWidget";
     params.init_properties_container.SetProperty(kHideInDeskMiniViewKey, true);
     params.init_properties_container.SetProperty(kOverviewUiKey, true);
-    faster_splitview_widget_ =
+    split_view_setup_widget_ =
         std::make_unique<views::Widget>(std::move(params));
-    faster_splitview_widget_->GetLayer()->SetFillsBoundsOpaquely(false);
+    split_view_setup_widget_->GetLayer()->SetFillsBoundsOpaquely(false);
     if (features::IsOverviewNewFocusEnabled()) {
-      faster_splitview_widget_->SetContentsView(
-          std::make_unique<FasterSplitView>(
+      split_view_setup_widget_->SetContentsView(
+          std::make_unique<SplitViewSetupView>(
               base::BindRepeating(&OverviewGrid::OnSkipButtonPressed,
                                   weak_ptr_factory_.GetWeakPtr()),
               base::BindRepeating(&OverviewGrid::OnSettingsButtonPressed,
                                   weak_ptr_factory_.GetWeakPtr())));
     } else {
-      faster_splitview_widget_->SetContentsView(
-          std::make_unique<FasterSplitViewOld>(
+      split_view_setup_widget_->SetContentsView(
+          std::make_unique<SplitViewSetupViewOld>(
               base::BindRepeating(&OverviewGrid::OnSkipButtonPressed,
                                   weak_ptr_factory_.GetWeakPtr()),
               base::BindRepeating(&OverviewGrid::OnSettingsButtonPressed,
                                   weak_ptr_factory_.GetWeakPtr())));
     }
-    faster_splitview_widget_->ShowInactive();
+    split_view_setup_widget_->ShowInactive();
   }
 
   const gfx::Rect grid_bounds = GetGridEffectiveBounds();
   gfx::Rect centered_bounds(grid_bounds);
   const gfx::Size preferred_size =
-      faster_splitview_widget_->GetContentsView()->GetPreferredSize();
+      split_view_setup_widget_->GetContentsView()->GetPreferredSize();
   centered_bounds.ClampToCenteredSize(preferred_size);
 
   // If there are no windows, set it in the center of the grid.
   if (item_list_.empty()) {
-    faster_splitview_widget_->SetBounds(centered_bounds);
+    split_view_setup_widget_->SetBounds(centered_bounds);
     return;
   }
 
@@ -3485,22 +3532,22 @@ void OverviewGrid::UpdateFasterSplitViewWidget() {
   // elements such as shelf. Under extreme condition, which should rarely
   // happen, if the bottom are of the partial overview grids is too small to
   // accommodate for both `kMinimumDistanceBetweenToastAndWorkAreaDp` and
-  // `kFasterSplitScreenToastSpacingDp`. We will prioritize the minimum
+  // `kSplitViewSetupToastSpacingDp`. We will prioritize the minimum
   // distance, under which condition the toast and settings button may appear
   // above the overview items.
   const int toast_y = std::min(
-      last_overview_item_bottom + kFasterSplitScreenToastSpacingDp,
+      last_overview_item_bottom + kSplitViewSetupToastSpacingDp,
       grid_bounds.bottom() - kMinimumDistanceBetweenToastAndWorkAreaDp -
           preferred_size.height());
 
   centered_bounds.set_y(toast_y);
-  faster_splitview_widget_->SetBounds(centered_bounds);
+  split_view_setup_widget_->SetBounds(centered_bounds);
 
   overview_session_->UpdateAccessibilityFocus();
 }
 
 void OverviewGrid::UpdateFeedbackButton() {
-  CHECK(IsForestFeatureEnabled());
+  CHECK(features::IsForestFeatureEnabled());
 
   // Only show the feedback button on the primary display.
   if (SplitViewController::Get(root_window_)->InSplitViewMode() ||
@@ -3552,6 +3599,10 @@ void OverviewGrid::ShowFeedbackPage() {
       ShellDelegate::FeedbackSource::kOverview,
       /*description_template=*/std::string(),
       /*category_tag=*/"FromForest");
+}
+
+bool OverviewGrid::ShouldInitDesksWidget() const {
+  return desks_util::ShouldDesksBarBeCreated() && !desks_widget_;
 }
 
 }  // namespace ash

@@ -978,11 +978,11 @@ class DisplaySmoothnessTracker {
     return true;
   }
 
-  void Stop(ReportCallback callback) {
+  bool Stop(ReportCallback callback) {
     stopping_ = true;
     throughtput_timer_.Stop();
     callback_ = std::move(callback);
-    tracker_->Stop();
+    return tracker_->Stop();
   }
 
   void CancelReport() { tracker_->CancelReport(); }
@@ -1209,8 +1209,8 @@ class EventGenerator {
   void ScheduleMouseEvent(ui::EventType type,
                           gfx::PointF location_in_screen,
                           int flags) {
-    if (flags == 0 &&
-        (type == ui::ET_MOUSE_PRESSED || type == ui::ET_MOUSE_RELEASED)) {
+    if (flags == 0 && (type == ui::EventType::kMousePressed ||
+                       type == ui::EventType::kMouseReleased)) {
       LOG(ERROR) << "No flags specified for mouse button changes";
     }
     tasks_.push_back(Task(type, location_in_screen, flags));
@@ -1256,9 +1256,9 @@ class EventGenerator {
     // the operation does not finish and the nested loop does not quit.
     task->status = Task::kScheduled;
     switch (task->type) {
-      case ui::ET_MOUSE_PRESSED:
-      case ui::ET_MOUSE_RELEASED: {
-        bool pressed = (task->type == ui::ET_MOUSE_PRESSED);
+      case ui::EventType::kMousePressed:
+      case ui::EventType::kMouseReleased: {
+        bool pressed = (task->type == ui::EventType::kMousePressed);
         if (task->flags & ui::EF_LEFT_MOUSE_BUTTON) {
           input_injector_->InjectMouseButton(ui::EF_LEFT_MOUSE_BUTTON, pressed);
         }
@@ -1279,7 +1279,7 @@ class EventGenerator {
         }
         break;
       }
-      case ui::ET_MOUSE_MOVED: {
+      case ui::EventType::kMouseMoved: {
         display::Display display =
             display::Screen::GetScreen()->GetDisplayNearestPoint(
                 gfx::ToFlooredPoint((task->location_in_screen)));
@@ -1327,8 +1327,8 @@ class EventGenerator {
     auto closure = base::BindOnce(&EventGenerator::SendEvent,
                                   weak_ptr_factory_.GetWeakPtr());
     // Non moving tasks can be done immediately.
-    if (tasks_.empty() || tasks_.front().type == ui::ET_MOUSE_PRESSED ||
-        tasks_.front().type == ui::ET_MOUSE_RELEASED) {
+    if (tasks_.empty() || tasks_.front().type == ui::EventType::kMousePressed ||
+        tasks_.front().type == ui::EventType::kMouseReleased) {
       runner->PostTask(FROM_HERE, std::move(closure));
       return;
     }
@@ -2587,7 +2587,7 @@ AutotestPrivateGetClipboardTextDataFunction::Run() {
   // shouldn't see a notification if the clipboard is restricted by the rules of
   // data leak prevention policy.
   ui::DataTransferEndpoint data_dst = ui::DataTransferEndpoint(
-      ui::EndpointType::kDefault, /*notify_if_restricted=*/false);
+      ui::EndpointType::kDefault, {.notify_if_restricted = false});
   ui::Clipboard::GetForCurrentThread()->ReadText(
       ui::ClipboardBuffer::kCopyPaste, &data_dst, &data);
   return RespondNow(WithArguments(data));
@@ -5282,10 +5282,10 @@ ExtensionFunction::ResponseAction AutotestPrivateMouseClickFunction::Run() {
       root_window->GetHost(),
       base::BindOnce(&AutotestPrivateMouseClickFunction::Respond, this,
                      NoArguments()));
-  event_generator_->ScheduleMouseEvent(ui::ET_MOUSE_PRESSED, location_in_host,
-                                       flags);
-  event_generator_->ScheduleMouseEvent(ui::ET_MOUSE_RELEASED, location_in_host,
-                                       flags);
+  event_generator_->ScheduleMouseEvent(ui::EventType::kMousePressed,
+                                       location_in_host, flags);
+  event_generator_->ScheduleMouseEvent(ui::EventType::kMouseReleased,
+                                       location_in_host, flags);
   event_generator_->Run();
 
   return RespondLater();
@@ -5326,8 +5326,8 @@ ExtensionFunction::ResponseAction AutotestPrivateMousePressFunction::Run() {
       root_window->GetHost(),
       base::BindOnce(&AutotestPrivateMousePressFunction::Respond, this,
                      NoArguments()));
-  event_generator_->ScheduleMouseEvent(ui::ET_MOUSE_PRESSED, location_in_host,
-                                       input_flags);
+  event_generator_->ScheduleMouseEvent(ui::EventType::kMousePressed,
+                                       location_in_host, input_flags);
   event_generator_->Run();
 
   return RespondLater();
@@ -5370,8 +5370,8 @@ ExtensionFunction::ResponseAction AutotestPrivateMouseReleaseFunction::Run() {
       root_window->GetHost(),
       base::BindOnce(&AutotestPrivateMouseReleaseFunction::Respond, this,
                      NoArguments()));
-  event_generator_->ScheduleMouseEvent(ui::ET_MOUSE_RELEASED, location_in_host,
-                                       input_flags);
+  event_generator_->ScheduleMouseEvent(ui::EventType::kMouseReleased,
+                                       location_in_host, input_flags);
   event_generator_->Run();
 
   return RespondLater();
@@ -5418,7 +5418,8 @@ ExtensionFunction::ResponseAction AutotestPrivateMouseMoveFunction::Run() {
                                       location_in_screen.x()),
         gfx::Tween::FloatValueBetween(progress, last_mouse_location.y(),
                                       location_in_screen.y()));
-    event_generator_->ScheduleMouseEvent(ui::ET_MOUSE_MOVED, point, flags);
+    event_generator_->ScheduleMouseEvent(ui::EventType::kMouseMoved, point,
+                                         flags);
   }
   event_generator_->Run();
   return RespondLater();
@@ -5894,8 +5895,14 @@ AutotestPrivateStopSmoothnessTrackingFunction::Run() {
       base::BindOnce(&AutotestPrivateStopSmoothnessTrackingFunction::OnTimeOut,
                      this, display_id));
 
-  it->second->Stop(base::BindOnce(
-      &AutotestPrivateStopSmoothnessTrackingFunction::OnReportData, this));
+  if (!it->second->Stop(base::BindOnce(
+          &AutotestPrivateStopSmoothnessTrackingFunction::OnReportData,
+          this))) {
+    timeout_timer_.AbandonAndStop();
+    trackers->erase(it);
+    return RespondNow(
+        Error("No smoothness report, GPU process may have crashed"));
+  }
 
   // Trigger a repaint after ThroughputTracker::Stop() to generate a frame to
   // ensure the tracker report will be sent back.
@@ -5920,12 +5927,19 @@ void AutotestPrivateStopSmoothnessTrackingFunction::OnReportData(
 
   timeout_timer_.AbandonAndStop();
 
+  std::vector<double> jank_durations;  // In milliseconds.
+  jank_durations.reserve(frame_data.jank_durations.size());
+  for (base::TimeDelta duration : frame_data.jank_durations) {
+    jank_durations.push_back(duration.InMillisecondsF());
+  }
+
   api::autotest_private::DisplaySmoothnessData result_data;
   result_data.frames_expected = frame_data.frames_expected_v3;
   result_data.frames_produced =
       frame_data.frames_expected_v3 - frame_data.frames_dropped_v3;
   result_data.jank_count = frame_data.jank_count_v3;
   result_data.throughput = std::move(throughput);
+  result_data.jank_durations = std::move(jank_durations);
 
   Respond(ArgumentList(
       api::autotest_private::StopSmoothnessTracking::Results::Create(

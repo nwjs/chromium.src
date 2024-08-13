@@ -24,7 +24,6 @@
 
 namespace {
 
-#if 0
 void CompletionCallback(
     content::DropData drop_data,
     std::unique_ptr<enterprise_connectors::FilesScanData> files_scan_data,
@@ -132,15 +131,13 @@ class HandleDropScanData : public content::WebContentsObserver {
   base::WeakPtrFactory<HandleDropScanData> weakptr_factory_{this};
 };
 
-#endif
 }  // namespace
 
 void HandleOnPerformingDrop(
     content::WebContents* web_contents,
     content::DropData drop_data,
     content::WebContentsViewDelegate::DropCompletionCallback callback) {
-  //enterprise_connectors::ContentAnalysisDelegate::Data data;
-#if 0
+  enterprise_connectors::ContentAnalysisDelegate::Data data;
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   auto connector =
@@ -156,13 +153,12 @@ void HandleOnPerformingDrop(
     return;
   }
 
-#endif
-  if (true) {
+  // If the page will not handle the drop, no need to perform content analysis.
+  if (!drop_data.document_is_handling_drag) {
     std::move(callback).Run(std::move(drop_data));
     return;
   }
 
-#if 0
   data.reason = enterprise_connectors::ContentAnalysisRequest::DRAG_AND_DROP;
 
   // Collect the data that needs to be scanned.
@@ -202,5 +198,4 @@ void HandleOnPerformingDrop(
   if (!callback.is_null()) {
     std::move(callback).Run(std::move(drop_data));
   }
-#endif
 }

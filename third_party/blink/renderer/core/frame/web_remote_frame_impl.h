@@ -42,9 +42,7 @@ class CORE_EXPORT WebRemoteFrameImpl final
       mojo::PendingAssociatedReceiver<mojom::blink::RemoteFrame> receiver,
       mojom::blink::FrameReplicationStatePtr replicated_state);
 
-  // TODO(crbug.com/1498140): Rename this now that the portal case no longer
-  // applies.
-  static WebRemoteFrameImpl* CreateForPortalOrFencedFrame(
+  static WebRemoteFrameImpl* CreateForFencedFrame(
       mojom::blink::TreeScopeType,
       const RemoteFrameToken& frame_token,
       const base::UnguessableToken& devtools_frame_token,
@@ -74,6 +72,7 @@ class CORE_EXPORT WebRemoteFrameImpl final
       const LocalFrameToken& frame_token,
       WebFrame* opener,
       const DocumentToken& document_token,
+      CrossVariantMojoRemote<mojom::BrowserInterfaceBrokerInterfaceBase>,
       std::unique_ptr<blink::WebPolicyContainer> policy_container) override;
   void SetReplicatedOrigin(
       const WebSecurityOrigin&,

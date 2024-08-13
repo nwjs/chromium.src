@@ -38,7 +38,6 @@
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
-#include "components/password_manager/content/browser/content_password_manager_driver_factory.h"
 #include "components/password_manager/core/browser/credential_cache.h"
 #include "components/password_manager/core/browser/origin_credential_store.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
@@ -110,11 +109,11 @@ std::u16string GetTitle(bool has_suggestions, const url::Origin& origin) {
 
 password_manager::PasswordManagerDriver* GetPasswordManagerDriver(
     content::WebContents* web_contents) {
-  password_manager::ContentPasswordManagerDriverFactory* factory =
-      password_manager::ContentPasswordManagerDriverFactory::FromWebContents(
-          web_contents);
-  content::RenderFrameHost* rfh = web_contents->GetFocusedFrame();
-  return factory && rfh ? factory->GetDriverForFrame(rfh) : nullptr;
+  if (content::RenderFrameHost* rfh = web_contents->GetFocusedFrame()) {
+    return password_manager::ContentPasswordManagerDriver::
+        GetForRenderFrameHost(rfh);
+  }
+  return nullptr;  // No driver without focused frame!
 }
 
 ShouldShowAction ShouldShowCredManReentryAction(
@@ -477,7 +476,7 @@ void PasswordAccessoryControllerImpl::RefreshSuggestionsForField(
     sheet_provides_value = true;
   }
 
-  DCHECK(source_observer_);
+  CHECK(source_observer_);
   // The all passwords sheet could cover this but if it's still loading, use
   // this data as the next closest proxy to minimize delayed updates UI.
   sheet_provides_value |=
@@ -666,7 +665,7 @@ bool PasswordAccessoryControllerImpl::ShouldTriggerBiometricReauth(
     return false;
   }
 
-  return password_client_->CanUseBiometricAuthForFilling(authenticator_.get());
+  return password_client_->IsReauthBeforeFillingRequired(authenticator_.get());
 }
 
 void PasswordAccessoryControllerImpl::OnReauthCompleted(

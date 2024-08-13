@@ -244,9 +244,9 @@ class XMLHttpRequest::BlobLoader final
   FileErrorCode DidStartLoading(uint64_t) override {
     return FileErrorCode::kOK;
   }
-  FileErrorCode DidReceiveData(const char* data, unsigned length) override {
-    DCHECK_LE(length, static_cast<unsigned>(INT_MAX));
-    xhr_->DidReceiveData(base::span(data, length));
+  FileErrorCode DidReceiveData(base::span<const uint8_t> data) override {
+    DCHECK_LE(data.size(), static_cast<size_t>(INT_MAX));
+    xhr_->DidReceiveData(base::as_chars(data));
     return FileErrorCode::kOK;
   }
   void DidFinishLoading() override { xhr_->DidFinishLoadingFromBlob(); }
@@ -400,7 +400,7 @@ Blob* XMLHttpRequest::ResponseBlob() {
     size_t size = 0;
     if (binary_response_builder_ && binary_response_builder_->size()) {
       for (const auto& span : *binary_response_builder_)
-        blob_data->AppendBytes(span.data(), span.size());
+        blob_data->AppendBytes(base::as_bytes(span));
       size = binary_response_builder_->size();
       binary_response_builder_ = nullptr;
       ReportMemoryUsageToV8();

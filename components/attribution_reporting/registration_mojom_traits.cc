@@ -16,15 +16,19 @@
 #include "base/uuid.h"
 #include "components/attribution_reporting/aggregatable_debug_reporting_config.h"
 #include "components/attribution_reporting/aggregatable_dedup_key.h"
+#include "components/attribution_reporting/aggregatable_filtering_id_max_bytes.h"
 #include "components/attribution_reporting/aggregatable_trigger_config.h"
 #include "components/attribution_reporting/aggregatable_trigger_data.h"
 #include "components/attribution_reporting/aggregatable_values.h"
 #include "components/attribution_reporting/aggregation_keys.h"
+#include "components/attribution_reporting/attribution_scopes_data.h"
+#include "components/attribution_reporting/attribution_scopes_set.h"
 #include "components/attribution_reporting/destination_set.h"
 #include "components/attribution_reporting/event_level_epsilon.h"
 #include "components/attribution_reporting/event_report_windows.h"
 #include "components/attribution_reporting/event_trigger_data.h"
 #include "components/attribution_reporting/filters.h"
+#include "components/attribution_reporting/max_event_level_reports.h"
 #include "components/attribution_reporting/os_registration.h"
 #include "components/attribution_reporting/registration.mojom-shared.h"
 #include "components/attribution_reporting/source_registration.h"
@@ -200,8 +204,14 @@ bool StructTraits<attribution_reporting::mojom::TriggerSpecsDataView,
     return false;
   }
 
+  attribution_reporting::MaxEventLevelReports max_event_level_reports;
+  if (!max_event_level_reports.SetIfValid(data.max_event_level_reports())) {
+    return false;
+  }
+
   auto result = attribution_reporting::TriggerSpecs::Create(
-      std::move(trigger_data_indices), std::move(specs));
+      std::move(trigger_data_indices), std::move(specs),
+      max_event_level_reports);
   if (!result.has_value()) {
     return false;
   }
@@ -290,6 +300,42 @@ bool StructTraits<
 }
 
 // static
+bool StructTraits<attribution_reporting::mojom::AttributionScopesSetDataView,
+                  attribution_reporting::AttributionScopesSet>::
+    Read(attribution_reporting::mojom::AttributionScopesSetDataView data,
+         attribution_reporting::AttributionScopesSet* out) {
+  std::vector<std::string> scopes;
+  if (!data.ReadScopes(&scopes)) {
+    return false;
+  }
+
+  *out = attribution_reporting::AttributionScopesSet(std::move(scopes));
+  return true;
+}
+
+// static
+bool StructTraits<attribution_reporting::mojom::AttributionScopesDataDataView,
+                  attribution_reporting::AttributionScopesData>::
+    Read(attribution_reporting::mojom::AttributionScopesDataDataView data,
+         attribution_reporting::AttributionScopesData* out) {
+  attribution_reporting::AttributionScopesSet scopes;
+  if (!data.ReadAttributionScopesSet(&scopes)) {
+    return false;
+  }
+
+  auto attribution_scopes_data =
+      attribution_reporting::AttributionScopesData::Create(
+          std::move(scopes), data.attribution_scope_limit(),
+          data.max_event_states());
+  if (!attribution_scopes_data.has_value()) {
+    return false;
+  }
+
+  *out = *std::move(attribution_scopes_data);
+  return true;
+}
+
+// static
 bool StructTraits<attribution_reporting::mojom::SourceRegistrationDataView,
                   attribution_reporting::SourceRegistration>::
     Read(attribution_reporting::mojom::SourceRegistrationDataView data,
@@ -318,8 +364,7 @@ bool StructTraits<attribution_reporting::mojom::SourceRegistrationDataView,
     return false;
   }
 
-  if (!out->max_event_level_reports.SetIfValid(
-          data.max_event_level_reports())) {
+  if (!data.ReadAttributionScopesData(&out->attribution_scopes_data)) {
     return false;
   }
 
@@ -337,6 +382,7 @@ bool StructTraits<attribution_reporting::mojom::SourceRegistrationDataView,
   out->debug_key = data.debug_key();
   out->debug_reporting = data.debug_reporting();
   out->trigger_data_matching = data.trigger_data_matching();
+  out->destination_limit_priority = data.destination_limit_priority();
   return out->IsValid();
 }
 
@@ -373,7 +419,7 @@ bool StructTraits<attribution_reporting::mojom::AggregatableTriggerDataDataView,
     return false;
   }
 
-  attribution_reporting::AggregatableTriggerData::Keys source_keys;
+  std::vector<std::string> source_keys;
   if (!data.ReadSourceKeys(&source_keys)) {
     return false;
   }
@@ -404,6 +450,22 @@ bool StructTraits<attribution_reporting::mojom::AggregatableDedupKeyDataView,
   }
 
   out->dedup_key = data.dedup_key();
+  return true;
+}
+
+// static
+bool StructTraits<attribution_reporting::mojom::AggregatableValuesValueDataView,
+                  attribution_reporting::AggregatableValuesValue>::
+    Read(attribution_reporting::mojom::AggregatableValuesValueDataView data,
+         attribution_reporting::AggregatableValuesValue* out) {
+  auto aggregatable_values_value =
+      attribution_reporting::AggregatableValuesValue::Create(
+          data.value(), data.filtering_id());
+  if (!aggregatable_values_value) {
+    return false;
+  }
+
+  *out = *std::move(aggregatable_values_value);
   return true;
 }
 
@@ -466,11 +528,22 @@ bool StructTraits<attribution_reporting::mojom::TriggerRegistrationDataView,
     return false;
   }
 
+  auto max_bytes =
+      attribution_reporting::AggregatableFilteringIdsMaxBytes::Create(
+          data.aggregatable_filtering_id_max_bytes());
+  if (!max_bytes.has_value()) {
+    return false;
+  }
+
+  if (!data.ReadAttributionScopes(&out->attribution_scopes)) {
+    return false;
+  }
+
   std::optional<attribution_reporting::AggregatableTriggerConfig>
       aggregatable_trigger_config =
           attribution_reporting::AggregatableTriggerConfig::Create(
               data.source_registration_time_config(),
-              std::move(trigger_context_id));
+              std::move(trigger_context_id), max_bytes.value());
   if (!aggregatable_trigger_config.has_value()) {
     return false;
   }
@@ -483,7 +556,8 @@ bool StructTraits<attribution_reporting::mojom::TriggerRegistrationDataView,
 
   out->debug_key = data.debug_key();
   out->debug_reporting = data.debug_reporting();
-  return true;
+
+  return out->IsValid();
 }
 
 // static

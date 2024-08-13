@@ -18,7 +18,6 @@
 #include "android_webview/renderer/aw_render_view_ext.h"
 #include "android_webview/renderer/aw_safe_browsing_error_page_controller_delegate_impl.h"
 #include "android_webview/renderer/aw_url_loader_throttle_provider.h"
-#include "android_webview/renderer/aw_websocket_handshake_throttle_provider.h"
 #include "android_webview/renderer/browser_exposed_renderer_interfaces.h"
 #include "base/command_line.h"
 #include "base/i18n/rtl.h"
@@ -223,6 +222,15 @@ uint64_t AwContentRendererClient::VisitedLinkHash(
   return visited_link_reader_->ComputeURLFingerprint(canonical_url);
 }
 
+uint64_t AwContentRendererClient::PartitionedVisitedLinkFingerprint(
+    std::string_view canonical_link_url,
+    const net::SchemefulSite& top_level_site,
+    const url::Origin& frame_origin) {
+  // Android WebView does not support partitioned :visited links, so we return
+  // the null fingerprint value for all queries.
+  return 0;
+}
+
 bool AwContentRendererClient::IsLinkVisited(uint64_t link_hash) {
   return visited_link_reader_->IsVisited(link_hash);
 }
@@ -248,12 +256,6 @@ AwContentRendererClient::GetSupportedKeySystems(
   // WebView always allows persisting data.
   return cdm::GetSupportedKeySystemsUpdates(
       render_frame, /*can_persist_data=*/true, std::move(cb));
-}
-
-std::unique_ptr<blink::WebSocketHandshakeThrottleProvider>
-AwContentRendererClient::CreateWebSocketHandshakeThrottleProvider() {
-  return std::make_unique<AwWebSocketHandshakeThrottleProvider>(
-      browser_interface_broker_.get());
 }
 
 std::unique_ptr<blink::URLLoaderThrottleProvider>

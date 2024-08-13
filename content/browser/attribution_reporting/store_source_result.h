@@ -12,7 +12,6 @@
 #include "content/browser/attribution_reporting/store_source_result.mojom-forward.h"
 #include "content/browser/attribution_reporting/stored_source.h"
 #include "content/common/content_export.h"
-#include "third_party/abseil-cpp/absl/numeric/int128.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
 namespace content {
@@ -48,6 +47,11 @@ class CONTENT_EXPORT StoreSourceResult {
     explicit DestinationReportingLimitReached(int limit) : limit(limit) {}
   };
 
+  struct DestinationPerDayReportingLimitReached {
+    int limit;
+    explicit DestinationPerDayReportingLimitReached(int limit) : limit(limit) {}
+  };
+
   struct DestinationGlobalLimitReached {};
 
   struct DestinationBothLimitsReached {
@@ -66,9 +70,8 @@ class CONTENT_EXPORT StoreSourceResult {
   };
 
   struct ExceedsMaxTriggerStateCardinality {
-    absl::uint128 limit;
-    explicit ExceedsMaxTriggerStateCardinality(absl::uint128 limit)
-        : limit(limit) {}
+    uint32_t limit;
+    explicit ExceedsMaxTriggerStateCardinality(uint32_t limit) : limit(limit) {}
   };
 
   using Result = absl::variant<Success,
@@ -82,11 +85,13 @@ class CONTENT_EXPORT StoreSourceResult {
                                DestinationBothLimitsReached,
                                ReportingOriginsPerSiteLimitReached,
                                ExceedsMaxChannelCapacity,
-                               ExceedsMaxTriggerStateCardinality>;
+                               ExceedsMaxTriggerStateCardinality,
+                               DestinationPerDayReportingLimitReached>;
 
   StoreSourceResult(StorableSource,
                     bool is_noised,
                     base::Time source_time,
+                    std::optional<int> destination_limit,
                     Result);
 
   ~StoreSourceResult();
@@ -105,12 +110,15 @@ class CONTENT_EXPORT StoreSourceResult {
 
   base::Time source_time() const { return source_time_; }
 
+  std::optional<int> destination_limit() const { return destination_limit_; }
+
   const Result& result() const { return result_; }
 
  private:
   StorableSource source_;
   bool is_noised_;
   base::Time source_time_;
+  std::optional<int> destination_limit_;
   Result result_;
 };
 

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/webauthn/webauthn_hover_button.h"
 
 #include "base/strings/string_util.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -51,8 +52,10 @@ WebAuthnHoverButton::WebAuthnHoverButton(
     const std::u16string& title_text,
     const std::u16string& subtitle_text,
     std::unique_ptr<views::View> secondary_icon,
-    bool force_two_line)
+    bool enabled)
     : HoverButton(std::move(callback), std::u16string()) {
+  SetEnabled(enabled);
+
   ChromeLayoutProvider* layout_provider = ChromeLayoutProvider::Get();
 
   auto* layout = SetLayoutManager(std::make_unique<views::TableLayout>());
@@ -94,7 +97,7 @@ WebAuthnHoverButton::WebAuthnHoverButton(
 
   const int row_height = views::TypographyProvider::Get().GetLineHeight(
       views::style::CONTEXT_LABEL, views::style::STYLE_PRIMARY);
-  const bool is_two_line = !subtitle_text.empty() || force_two_line;
+  const bool is_two_line = !subtitle_text.empty();
   const int icon_row_span = is_two_line ? 2 : 1;
   layout->AddRows(icon_row_span, views::TableLayout::kFixedSize, row_height);
 
@@ -104,13 +107,15 @@ WebAuthnHoverButton::WebAuthnHoverButton(
                             gfx::Size(/*width=*/1, icon_row_span));
   }
 
-  const int title_row_span = force_two_line && subtitle_text.empty() ? 2 : 1;
   title_ = AddChildView(
       std::make_unique<views::Label>(title_text, views::style::CONTEXT_LABEL,
-                                     views::style::STYLE_BODY_3_BOLD));
+                                     views::style::STYLE_BODY_3_EMPHASIS));
   title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   title_->SetProperty(views::kTableColAndRowSpanKey,
-                      gfx::Size(/*width=*/1, title_row_span));
+                      gfx::Size(/*width=*/1, /*height=*/1));
+  title_->SetEnabledColorId(GetEnabled()
+                                ? kColorWebAuthnHoverButtonForeground
+                                : kColorWebAuthnHoverButtonForegroundDisabled);
 
   if (secondary_icon) {
     secondary_icon_view_ =
@@ -122,8 +127,11 @@ WebAuthnHoverButton::WebAuthnHoverButton(
   if (is_two_line && !subtitle_text.empty()) {
     subtitle_ = AddChildView(std::make_unique<views::Label>(
         subtitle_text, views::style::CONTEXT_LABEL,
-        views::style::STYLE_BODY_3_EMPHASIS));
+        views::style::STYLE_BODY_3));
     subtitle_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+    subtitle_->SetEnabledColorId(
+        GetEnabled() ? kColorWebAuthnHoverButtonForeground
+                     : kColorWebAuthnHoverButtonForegroundDisabled);
   }
 
   GetViewAccessibility().SetName(

@@ -16,6 +16,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.LazyOneshotSupplierImpl;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -37,7 +38,6 @@ import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
-import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
 import java.util.List;
 
@@ -50,6 +50,11 @@ public class TabGroupUiCoordinator
                 TabGroupUi,
                 TabGroupUiMediator.TabGroupUiController {
     static final String COMPONENT_NAME = "TabStrip";
+
+    /** Set by {@code mMediator}, but owned by the coordinator so access is safe pre-native. */
+    private final ObservableSupplierImpl<Boolean> mHandleBackPressChangedSupplier =
+            new ObservableSupplierImpl<>();
+
     private final Activity mActivity;
     private final Context mContext;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
@@ -65,7 +70,6 @@ public class TabGroupUiCoordinator
     private final OneshotSupplier<LayoutStateProvider> mLayoutStateProviderSupplier;
     private final SnackbarManager mSnackbarManager;
     private final TabCreatorManager mTabCreatorManager;
-    private final Supplier<DynamicResourceLoader> mDynamicResourceLoaderSupplier;
     private final TabContentManager mTabContentManager;
     private final ModalDialogManager mModalDialogManager;
     private PropertyModelChangeProcessor mModelChangeProcessor;
@@ -87,7 +91,6 @@ public class TabGroupUiCoordinator
             @NonNull TabModelSelector tabModelSelector,
             @NonNull TabContentManager tabContentManager,
             @NonNull ViewGroup rootView,
-            @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
             @NonNull TabCreatorManager tabCreatorManager,
             @NonNull OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
             @NonNull SnackbarManager snackbarManager,
@@ -111,7 +114,6 @@ public class TabGroupUiCoordinator
             mRootView = rootView;
             mSnackbarManager = snackbarManager;
             mTabCreatorManager = tabCreatorManager;
-            mDynamicResourceLoaderSupplier = dynamicResourceLoaderSupplier;
             mTabContentManager = tabContentManager;
             mModalDialogManager = modalDialogManager;
             parentView.addView(mToolbarView);
@@ -144,7 +146,8 @@ public class TabGroupUiCoordinator
                         mScrimCoordinator,
                         mTabStripCoordinator.getTabGroupTitleEditor(),
                         mRootView,
-                        actionConfirmationManager);
+                        actionConfirmationManager,
+                        mModalDialogManager);
         mTabGridDialogControllerSupplier.set(mTabGridDialogCoordinator);
     }
 
@@ -162,22 +165,21 @@ public class TabGroupUiCoordinator
                             TabListCoordinator.TabListMode.STRIP,
                             mContext,
                             mBrowserControlsStateProvider,
+                            mModalDialogManager,
                             currentTabModelFilterSupplier,
-                            null,
-                            false,
-                            null,
-                            null,
+                            /* thumbnailProvider= */ null,
+                            /* actionOnRelatedTabs= */ false,
+                            /* gridCardOnClickListenerProvider= */ null,
+                            /* dialogHandler= */ null,
                             TabProperties.TabActionState.UNSET,
-                            null,
-                            null,
+                            /* selectionDelegateProvider= */ null,
+                            /* priceWelcomeMessageControllerSupplier= */ null,
                             mTabListContainerView,
-                            true,
+                            /* attachToParent= */ true,
                             COMPONENT_NAME,
-                            mRootView,
-                            onModelTokenChange);
-            mTabStripCoordinator.initWithNative(
-                    mTabModelSelector.getModel(false).getProfile(),
-                    mDynamicResourceLoaderSupplier.get());
+                            onModelTokenChange,
+                            /* allowDragAndDrop= */ false);
+            mTabStripCoordinator.initWithNative(mTabModelSelector.getModel(false).getProfile());
 
             mModelChangeProcessor =
                     PropertyModelChangeProcessor.create(
@@ -204,6 +206,7 @@ public class TabGroupUiCoordinator
                     new TabGroupUiMediator(
                             mActivity,
                             visibilityController,
+                            mHandleBackPressChangedSupplier,
                             this,
                             mModel,
                             mTabModelSelector,
@@ -260,17 +263,19 @@ public class TabGroupUiCoordinator
     /** TabGroupUi implementation. */
     @Override
     public boolean onBackPressed() {
+        if (mMediator == null) return false;
         return mMediator.onBackPressed();
     }
 
     @Override
     public @BackPressResult int handleBackPress() {
+        if (mMediator == null) return BackPressResult.FAILURE;
         return mMediator.handleBackPress();
     }
 
     @Override
     public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
-        return mMediator.getHandleBackPressChangedSupplier();
+        return mHandleBackPressChangedSupplier;
     }
 
     /** Destroy any members that needs clean up. */
@@ -285,17 +290,21 @@ public class TabGroupUiCoordinator
             mTabGridDialogCoordinator.destroy();
         }
         mModelChangeProcessor.destroy();
-        mMediator.destroy();
+        if (mMediator != null) {
+            mMediator.destroy();
+        }
     }
 
     // TabGroupUiController implementation.
     @Override
     public void setupLeftButtonDrawable(int drawableId) {
+        assert mMediator != null;
         mMediator.setupLeftButtonDrawable(drawableId);
     }
 
     @Override
     public void setupLeftButtonOnClickListener(View.OnClickListener listener) {
+        assert mMediator != null;
         mMediator.setupLeftButtonOnClickListener(listener);
     }
 }

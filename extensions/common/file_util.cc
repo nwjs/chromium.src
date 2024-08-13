@@ -51,8 +51,7 @@
 
 using extensions::mojom::ManifestLocation;
 
-namespace extensions {
-namespace file_util {
+namespace extensions::file_util {
 namespace {
 
 enum SafeInstallationFlag {
@@ -127,8 +126,9 @@ base::FilePath InstallExtension(const base::FilePath& unpacked_source_dir,
 
   // Create the extension directory if it doesn't exist already.
   if (!base::PathExists(extension_dir)) {
-    if (!base::CreateDirectory(extension_dir))
+    if (!base::CreateDirectory(extension_dir)) {
       return base::FilePath();
+    }
   }
 
   // Get a temp directory on the same file system as the profile.
@@ -257,8 +257,9 @@ scoped_refptr<Extension> LoadExtension(
   } else {
     manifest = LoadManifest(extension_path, manifest_file, error);
   }
-  if (!manifest)
+  if (!manifest) {
     return nullptr;
+  }
 
   if (!extension_l10n_util::LocalizeExtension(
           extension_path, &manifest.value(),
@@ -270,12 +271,14 @@ scoped_refptr<Extension> LoadExtension(
 
   scoped_refptr<Extension> extension(Extension::Create(
       extension_path, location, *manifest, flags, extension_id, error));
-  if (!extension.get())
+  if (!extension.get()) {
     return nullptr;
+  }
 
   std::vector<InstallWarning> warnings;
-  if (!ValidateExtension(extension.get(), error, &warnings))
+  if (!ValidateExtension(extension.get(), error, &warnings)) {
     return nullptr;
+  }
   extension->AddInstallWarnings(std::move(warnings));
 
   return extension;
@@ -338,8 +341,9 @@ bool ValidateExtension(const Extension* extension,
                        std::string* error,
                        std::vector<InstallWarning>* warnings) {
   // Ask registered manifest handlers to validate their paths.
-  if (!ManifestHandler::ValidateExtension(extension, error, warnings))
+  if (!ManifestHandler::ValidateExtension(extension, error, warnings)) {
     return false;
+  }
 
   // Check children of extension root to see if any of them start with _ and is
   // not on the reserved list. We only warn, and do not block the loading of the
@@ -388,8 +392,9 @@ std::vector<base::FilePath> FindPrivateKeyFiles(
       extension_dir, /*recursive=*/true, base::FileEnumerator::FILES);
   for (base::FilePath current = traversal.Next(); !current.empty();
        current = traversal.Next()) {
-    if (!current.MatchesExtension(kExtensionKeyFileExtension))
+    if (!current.MatchesExtension(kExtensionKeyFileExtension)) {
       continue;
+    }
 
     std::string key_contents;
     if (!base::ReadFileToString(current, &key_contents)) {
@@ -422,8 +427,9 @@ bool CheckForIllegalFilenames(const base::FilePath& extension_path,
     base::FilePath::StringType filename = file.BaseName().value();
 
     // Skip all filenames that don't start with "_".
-    if (filename.find_first_of(FILE_PATH_LITERAL("_")) != 0)
+    if (filename.find_first_of(FILE_PATH_LITERAL("_")) != 0) {
       continue;
+    }
 
     // Some filenames are special and allowed to start with "_".
     if (filename == kLocaleFolder || filename == kPlatformSpecificFolder ||
@@ -495,8 +501,9 @@ base::FilePath GetInstallTempDir(const base::FilePath& extensions_dir) {
 
 base::FilePath ExtensionURLToRelativeFilePath(const GURL& url) {
   std::string_view url_path = url.path_piece();
-  if (url_path.empty() || url_path[0] != '/')
+  if (url_path.empty() || url_path[0] != '/') {
     return base::FilePath();
+  }
 
   // Convert %-encoded UTF8 to regular UTF8.
   std::string file_path;
@@ -509,16 +516,18 @@ base::FilePath ExtensionURLToRelativeFilePath(const GURL& url) {
 
   // Drop the leading slashes.
   size_t skip = file_path.find_first_not_of("/\\");
-  if (skip != file_path.npos)
+  if (skip != file_path.npos) {
     file_path = file_path.substr(skip);
+  }
 
   base::FilePath path = base::FilePath::FromUTF8Unsafe(file_path);
 
   // It's still possible for someone to construct an annoying URL whose path
   // would still wind up not being considered relative at this point.
   // For example: chrome-extension://id/c:////foo.html
-  if (path.IsAbsolute())
+  if (path.IsAbsolute()) {
     return base::FilePath();
+  }
 
   return path;
 }
@@ -565,8 +574,9 @@ MessageBundle* LoadMessageBundle(
   error->clear();
   // Load locale information if available.
   base::FilePath locale_path = extension_path.Append(kLocaleFolder);
-  if (!base::PathExists(locale_path))
+  if (!base::PathExists(locale_path)) {
     return nullptr;
+  }
 
   std::set<std::string> chrome_locales;
   extension_l10n_util::GetAllLocales(&chrome_locales);
@@ -610,5 +620,4 @@ std::vector<base::FilePath> GetReservedMetadataFilePaths(
           extension_path.Append(GetIndexedRulesetDirectoryRelativePath())};
 }
 
-}  // namespace file_util
-}  // namespace extensions
+}  // namespace extensions::file_util

@@ -13,8 +13,8 @@
 #include "services/network/public/mojom/no_vary_search.mojom-blink.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-blink.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_urlpatterninit_usvstring.h"
 #include "third_party/blink/renderer/core/css/style_rule.h"
@@ -207,7 +207,6 @@ class SpeculationRuleSetTest : public ::testing::Test {
   }
 
  private:
-  ScopedSpeculationRulesRelativeToDocumentForTest enable_relative_to_{true};
   ScopedPrerender2ForTest enable_prerender2_{true};
   test::TaskEnvironment task_environment_;
   Persistent<ExecutionContext> execution_context_;
@@ -510,9 +509,6 @@ TEST_F(SpeculationRuleSetTest, IgnoresUnknownOrDifferentlyTypedTopLevelKeys) {
 }
 
 TEST_F(SpeculationRuleSetTest, DropUnrecognizedRules) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint_{
-      true};
-  ScopedSpeculationRulesImplicitSourceForTest enable_implicit_source{true};
   auto* rule_set = CreateRuleSet(
       R"({"prefetch": [)"
 
@@ -1042,11 +1038,9 @@ TEST_F(SpeculationRuleSetTest, UseCounter) {
       page_holder.GetDocument().IsUseCounted(WebFeature::kSpeculationRules));
 }
 
-// Test helper method that returns if the No-Vary-Search hint use counter is
-// properly counted during shipping.
-// The use counter also acts as a proxy to check if the No-Vary-Search hint
-// feature is enabled.
-bool NoVarySearchHintUseCounterTestHelper() {
+// Tests that the presence of a speculationrules No-Vary-Search hint is
+// recorded.
+TEST_F(SpeculationRuleSetTest, NoVarySearchHintUseCounter) {
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   page_holder.GetFrame().GetSettings()->SetScriptEnabled(true);
@@ -1061,61 +1055,9 @@ bool NoVarySearchHintUseCounterTestHelper() {
       }]})nvs";
   PropagateRulesToStubSpeculationHost(page_holder, speculation_host,
                                       speculation_script);
-
-  return page_holder.GetDocument().IsUseCounted(
-      WebFeature::kSpeculationRulesNoVarySearchHint);
-}
-
-// Tests that the presence of a speculationrules No-Vary-Search hint is
-// recorded.
-TEST_F(SpeculationRuleSetTest, NoVarySearchHintUseCounter) {
-  {
-    // By default No-Vary-Search hint functionality is enabled without
-    // Origin Trial token.
-    ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-        false};
-    ScopedSpeculationRulesNoVarySearchHintShippedByDefaultForTest
-        ship_no_vary_search_hint{true};
-    EXPECT_TRUE(NoVarySearchHintUseCounterTestHelper())
-        << "No-Vary-Search hint functionality is enabled "
-           "when shipped and without an Origin Trial token.";
-  }
-  {
-    // By default No-Vary-Search hint is enabled with Origin Trial token.
-    ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-        true};
-    ScopedSpeculationRulesNoVarySearchHintShippedByDefaultForTest
-        ship_no_vary_search_hint{true};
-    EXPECT_TRUE(NoVarySearchHintUseCounterTestHelper())
-        << "No-Vary-Search hint functionality is enabled "
-           "when shipped and with an Origin Trial token.";
-  }
-  {
-    // No-Vary-Search hint is disabled when
-    // SpeculationRulesNoVarySearchHintControlShipping is set to false and
-    // there is no Origin Trial token.
-    ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-        false};
-    ScopedSpeculationRulesNoVarySearchHintShippedByDefaultForTest
-        ship_no_vary_search_hint{false};
-    EXPECT_FALSE(NoVarySearchHintUseCounterTestHelper())
-        << "No-Vary-Search hint functionality is "
-           "disabled when unshipped and without "
-           "an Origin Trial token";
-  }
-  {
-    // No-Vary-Search hint is enabled when
-    // SpeculationRulesNoVarySearchHintControlShipping is set to false and
-    // there is an Origin Trial token.
-    ScopedSpeculationRulesNoVarySearchHintShippedByDefaultForTest
-        ship_no_vary_search_hint{false};
-    ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-        true};
-    EXPECT_TRUE(NoVarySearchHintUseCounterTestHelper())
-        << "No-Vary-Search hint functionality is enabled when unshipped and "
-           "with "
-           "an Origin Trial token";
-  }
+  EXPECT_TRUE(page_holder.GetDocument().IsUseCounted(
+      WebFeature::kSpeculationRulesNoVarySearchHint))
+      << "No-Vary-Search hint functionality is counted";
 }
 
 // Tests that the document's URL is excluded from candidates.
@@ -1380,28 +1322,6 @@ TEST_F(SpeculationRuleSetTest, DropNotObjectAtRulePosition) {
   EXPECT_THAT(rule_set->prefetch_with_subresources_rules(), ElementsAre());
 }
 
-TEST_F(SpeculationRuleSetTest, DropWhereClause) {
-  ScopedSpeculationRulesDocumentRulesForTest disable_document_rules{false};
-
-  auto* rule_set = CreateRuleSet(
-      R"({
-        "prefetch": [{
-          "source": "document",
-          "where": {}
-        }]
-      })",
-      KURL("https://example.com/"), execution_context());
-  ASSERT_TRUE(rule_set);
-  EXPECT_EQ(rule_set->error_type(),
-            SpeculationRuleSetErrorType::kInvalidRulesSkipped);
-  EXPECT_TRUE(rule_set->error_message().Contains(
-      "A rule has an unknown source: \"document\"."))
-      << rule_set->error_message();
-  EXPECT_THAT(rule_set->prefetch_rules(), ElementsAre());
-  EXPECT_THAT(rule_set->prerender_rules(), ElementsAre());
-  EXPECT_THAT(rule_set->prefetch_with_subresources_rules(), ElementsAre());
-}
-
 MATCHER_P(MatchesPredicate,
           matcher,
           ::testing::DescribeMatcher<DocumentRulePredicate>(matcher)) {
@@ -1600,8 +1520,6 @@ class DocumentRulesTest : public SpeculationRuleSetTest {
     // clang-format on
     return rule_set;
   }
-
-  ScopedSpeculationRulesDocumentRulesForTest enable_document_rules_{true};
 };
 
 TEST_F(DocumentRulesTest, ParseAnd) {
@@ -1763,11 +1681,6 @@ TEST_F(DocumentRulesTest, HrefMatchesWithBaseURLAndRelativeTo) {
 }
 
 TEST_F(DocumentRulesTest, DropInvalidRules) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
-  ScopedSpeculationRulesImplicitSourceForTest enable_implicit_source{true};
   auto* rule_set = CreateRuleSet(
       R"({"prefetch": [)"
 
@@ -1968,8 +1881,6 @@ TEST_F(DocumentRulesTest, DocumentRuleParseErrors) {
 }
 
 TEST_F(DocumentRulesTest, DocumentRulePredicateParseErrors) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      selector_matches_enabled{true};
   String parse_error;
 
   parse_error = CreateInvalidPredicate(R"("and": [], "not": {})");
@@ -2180,8 +2091,6 @@ TEST_F(DocumentRulesTest, SpeculationCandidatesReportedAfterInitialization) {
 // No-Vary-Search hint.
 TEST_F(DocumentRulesTest,
        SpeculationCandidatesReportedAfterInitializationWithNVS) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -2351,14 +2260,6 @@ TEST_F(DocumentRulesTest, RequiresAnonymousClientIPWhenCrossOrigin) {
 TEST_F(DocumentRulesTest, LinkInShadowTreeIncluded) {
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
-
-  if (!RuntimeEnabledFeatures::
-          SpeculationRulesDocumentRulesSelectorMatchesEnabled(
-              page_holder.GetFrame().DomWindow())) {
-    GTEST_SKIP() << "This test doesn't work correctly with selector_matches "
-                    "disabled, due to a behavior change. Remove this skip "
-                    "when selector_matches support is always on.";
-  }
 
   Document& document = page_holder.GetDocument();
   ShadowRoot& shadow_root =
@@ -2884,22 +2785,7 @@ TEST_F(DocumentRulesTest, TargetHintFromLinkDynamic) {
                               mojom::blink::SpeculationTargetHint::kBlank)));
 }
 
-// Tests that "selector_matches" is not parsed without the RuntimeEnabledFeature
-// enabled.
-TEST_F(DocumentRulesTest, SelectorMatchesIsNotParsed) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      disabled_selector_matches_{false};
-  auto* rule_set =
-      CreateRuleSet(R"({"prefetch": [
-    {"source": "document", "where": {"selector_matches": ".valid"}}
-  ]})",
-                    KURL("https://example.com"), execution_context());
-  EXPECT_TRUE(rule_set->prefetch_rules().empty());
-}
-
 TEST_F(DocumentRulesTest, ParseSelectorMatches) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   auto* simple_selector_matches = CreatePredicate(R"(
     "selector_matches": ".valid"
   )");
@@ -2922,8 +2808,6 @@ TEST_F(DocumentRulesTest, ParseSelectorMatches) {
 }
 
 TEST_F(DocumentRulesTest, GetStyleRules) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   auto* predicate = CreatePredicate(R"(
     "and": [
       {"or": [
@@ -2945,8 +2829,6 @@ TEST_F(DocumentRulesTest, GetStyleRules) {
 }
 
 TEST_F(DocumentRulesTest, SelectorMatchesAddsCandidates) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -2979,8 +2861,6 @@ TEST_F(DocumentRulesTest, SelectorMatchesAddsCandidates) {
 }
 
 TEST_F(DocumentRulesTest, SelectorMatchesIsDynamic) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3029,8 +2909,6 @@ TEST_F(DocumentRulesTest, SelectorMatchesIsDynamic) {
 }
 
 TEST_F(DocumentRulesTest, AddingDocumentRulesInvalidatesStyle) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3090,8 +2968,6 @@ TEST_F(DocumentRulesTest, AddingDocumentRulesInvalidatesStyle) {
 }
 
 TEST_F(DocumentRulesTest, BasicStyleInvalidation) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3125,8 +3001,6 @@ TEST_F(DocumentRulesTest, BasicStyleInvalidation) {
 }
 
 TEST_F(DocumentRulesTest, IrrelevantDOMChangeShouldNotInvalidateCandidateList) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3162,8 +3036,6 @@ TEST_F(DocumentRulesTest, IrrelevantDOMChangeShouldNotInvalidateCandidateList) {
 }
 
 TEST_F(DocumentRulesTest, SelectorMatchesInsideShadowTree) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3195,8 +3067,6 @@ TEST_F(DocumentRulesTest, SelectorMatchesInsideShadowTree) {
 }
 
 TEST_F(DocumentRulesTest, SelectorMatchesWithScopePseudoSelector) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3225,8 +3095,6 @@ TEST_F(DocumentRulesTest, SelectorMatchesWithScopePseudoSelector) {
 // updated candidates to the browser process when "selector_matches" is
 // enabled.
 TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_1) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3307,8 +3175,6 @@ TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_1) {
 // This tests that we don't need to wait for a style update if an operation
 // does not invalidate style.
 TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_2) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3352,8 +3218,6 @@ TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_2) {
 // This tests a scenario where we queue an update microtask, invalidate style,
 // update style, and then run the microtask.
 TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_3) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3385,8 +3249,6 @@ TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_3) {
 // This tests a scenario where we queue a microtask update, invalidate style,
 // and then run the microtask.
 TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_4) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3424,8 +3286,6 @@ TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_4) {
 // Tests update queueing after making a DOM modification that doesn't directly
 // affect a link.
 TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_5) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3460,8 +3320,6 @@ TEST_F(DocumentRulesTest, UpdateQueueingWithSelectorMatches_5) {
 }
 
 TEST_F(DocumentRulesTest, LinksWithoutComputedStyle) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3508,8 +3366,6 @@ TEST_F(DocumentRulesTest, LinksWithoutComputedStyle) {
 }
 
 TEST_F(DocumentRulesTest, LinksWithoutComputedStyle_HrefMatches) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3539,51 +3395,7 @@ TEST_F(DocumentRulesTest, LinksWithoutComputedStyle_HrefMatches) {
   EXPECT_THAT(candidates, HasURLs());
 }
 
-// When "selector_matches" is disabled, we include "display: none" links.
-// TODO(crbug.com/1371522): Remove this test when "selector_matches" is always
-// enabled.
-TEST_F(DocumentRulesTest, LinksWithoutComputedStyle_SelectorMatchesDisabled) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      disabled_selector_matches{false};
-  DummyPageHolder page_holder;
-  StubSpeculationHost speculation_host;
-  Document& document = page_holder.GetDocument();
-
-  document.body()->setInnerHTML(R"HTML(
-    <div id="important-section"></div>
-  )HTML");
-  auto* important_section =
-      document.getElementById(AtomicString("important-section"));
-  auto* anchor = AddAnchor(*important_section, "https://foo.com/bar");
-
-  String speculation_script = R"(
-    {"prefetch": [{
-      "source": "document",
-      "where": {"href_matches": "https://foo.com/*"}
-    }]}
-  )";
-  PropagateRulesToStubSpeculationHost(page_holder, speculation_host, [&]() {
-    InsertSpeculationRules(document, speculation_script);
-  });
-  const auto& candidates = speculation_host.candidates();
-  EXPECT_THAT(candidates, HasURLs(KURL("https://foo.com/bar")));
-
-  ASSERT_TRUE(NoRulesPropagatedToStubSpeculationHost(
-      page_holder, speculation_host, [&]() {
-        anchor->SetInlineStyleProperty(CSSPropertyID::kDisplay,
-                                       CSSValueID::kNone);
-        page_holder.GetFrameView().UpdateAllLifecyclePhasesForTest();
-      }));
-
-  PropagateRulesToStubSpeculationHost(page_holder, speculation_host, [&]() {
-    anchor->setHref("https://foo.com/two");
-  });
-  EXPECT_THAT(candidates, HasURLs(KURL("https://foo.com/two")));
-}
-
 TEST_F(DocumentRulesTest, LinkInsideDisplayLockedElement) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3620,8 +3432,6 @@ TEST_F(DocumentRulesTest, LinkInsideDisplayLockedElement) {
 }
 
 TEST_F(DocumentRulesTest, LinkInsideNestedDisplayLockedElement) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3750,8 +3560,6 @@ TEST_F(DocumentRulesTest, LinkInsideNestedDisplayLockedElement) {
 }
 
 TEST_F(DocumentRulesTest, DisplayLockedLink) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3787,52 +3595,7 @@ TEST_F(DocumentRulesTest, DisplayLockedLink) {
       }));
 }
 
-// Sanity test to make sure things work when display-locked elements are
-// present but "selector_matches" isn't enabled.
-TEST_F(DocumentRulesTest, DisplayLockedElementWithoutSelectorMatchesEnabled) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      disabled_selector_matches_{false};
-  DummyPageHolder page_holder;
-  StubSpeculationHost speculation_host;
-  Document& document = page_holder.GetDocument();
-
-  document.body()->setInnerHTML(R"HTML(
-    <div id="important-section">
-    </div>
-  )HTML");
-  auto* important_section =
-      document.getElementById(AtomicString("important-section"));
-  AddAnchor(*important_section, "https://bar.com/foo");
-
-  String speculation_script = R"(
-    {"prefetch": [{
-      "source": "document",
-      "where": {"href_matches": "https://bar.com/*"}
-    }]}
-  )";
-  PropagateRulesToStubSpeculationHost(page_holder, speculation_host,
-                                      speculation_script);
-  const auto& candidates = speculation_host.candidates();
-  EXPECT_THAT(candidates, HasURLs(KURL("https://bar.com/foo")));
-
-  ASSERT_TRUE(NoRulesPropagatedToStubSpeculationHost(
-      page_holder, speculation_host, [&]() {
-        important_section->SetInlineStyleProperty(
-            CSSPropertyID::kContentVisibility, CSSValueID::kHidden);
-        page_holder.GetFrameView().UpdateAllLifecyclePhasesForTest();
-      }));
-
-  ASSERT_TRUE(NoRulesPropagatedToStubSpeculationHost(
-      page_holder, speculation_host, [&]() {
-        important_section->SetInlineStyleProperty(
-            CSSPropertyID::kContentVisibility, CSSValueID::kVisible);
-        page_holder.GetFrameView().UpdateAllLifecyclePhasesForTest();
-      }));
-}
-
 TEST_F(DocumentRulesTest, AddLinkToDisplayLockedContainer) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3875,8 +3638,6 @@ TEST_F(DocumentRulesTest, AddLinkToDisplayLockedContainer) {
 }
 
 TEST_F(DocumentRulesTest, DisplayLockedContainerTracking) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -3957,9 +3718,6 @@ TEST_F(DocumentRulesTest, DisplayLockedContainerTracking) {
 // Similar to SpeculationRulesTest.RemoveInMicrotask, but with relevant changes
 // to style/layout which necessitate forcing a style update after removal.
 TEST_F(DocumentRulesTest, RemoveForcesStyleUpdate) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      selector_matches_enabled{true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4026,9 +3784,6 @@ TEST_F(DocumentRulesTest, RemoveForcesStyleUpdate) {
 // microtask wins, care is needed to avoid re-entrantly updating speculation
 // candidates once it forces style clean.
 TEST_F(DocumentRulesTest, RemoveWhileWaitingForStyle) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      selector_matches_enabled{true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4080,8 +3835,6 @@ TEST_F(DocumentRulesTest, RemoveWhileWaitingForStyle) {
 // Regression test, since the universal select sets rule set flags indicating
 // that the rule set potentially invalidates all elements.
 TEST_F(DocumentRulesTest, UniversalSelector) {
-  ScopedSpeculationRulesDocumentRulesSelectorMatchesForTest
-      enable_selector_matches{true};
   DummyPageHolder page_holder;
   page_holder.GetFrame().GetSettings()->SetScriptEnabled(true);
   StubSpeculationHost speculation_host;
@@ -4090,31 +3843,7 @@ TEST_F(DocumentRulesTest, UniversalSelector) {
       R"({"prefetch": [{"source":"document", "where":{"selector_matches":"*"}}]})");
 }
 
-TEST_F(SpeculationRuleSetTest, EagernessRuntimeEnabledFlag) {
-  ScopedSpeculationRulesEagernessForTest enable_eagerness{false};
-
-  DummyPageHolder page_holder;
-  StubSpeculationHost speculation_host;
-
-  String speculation_script = R"({
-        "prefetch": [
-          {
-            "source": "list",
-            "urls": ["https://example.com/prefetch/list/page1.html"],
-            "eagerness": "conservative"
-          }
-        ]
-      })";
-  PropagateRulesToStubSpeculationHost(page_holder, speculation_host,
-                                      speculation_script);
-  const auto& candidates = speculation_host.candidates();
-  EXPECT_TRUE(candidates.empty());
-}
-
 TEST_F(SpeculationRuleSetTest, Eagerness) {
-  ScopedSpeculationRulesEagernessForTest enable_eagerness{true};
-  ScopedSpeculationRulesDocumentRulesForTest enable_document_rules_{true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
   Document& document = page_holder.GetDocument();
@@ -4211,8 +3940,6 @@ TEST_F(SpeculationRuleSetTest, Eagerness) {
 }
 
 TEST_F(SpeculationRuleSetTest, InvalidUseOfEagerness1) {
-  ScopedSpeculationRulesEagernessForTest enable_eagerness{true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4235,8 +3962,6 @@ TEST_F(SpeculationRuleSetTest, InvalidUseOfEagerness1) {
 }
 
 TEST_F(SpeculationRuleSetTest, InvalidUseOfEagerness2) {
-  ScopedSpeculationRulesEagernessForTest enable_eagerness{true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4259,8 +3984,6 @@ TEST_F(SpeculationRuleSetTest, InvalidUseOfEagerness2) {
 }
 
 TEST_F(SpeculationRuleSetTest, InvalidEagernessValue) {
-  ScopedSpeculationRulesEagernessForTest enable_eagerness{true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4297,9 +4020,6 @@ TEST_F(SpeculationRuleSetTest, InvalidEagernessValue) {
 // Test that a valid No-Vary-Search hint will generate a speculation
 // candidate.
 TEST_F(SpeculationRuleSetTest, ValidNoVarySearchHintValueGeneratesCandidate) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4323,9 +4043,6 @@ TEST_F(SpeculationRuleSetTest, ValidNoVarySearchHintValueGeneratesCandidate) {
 }
 
 TEST_F(SpeculationRuleSetTest, InvalidNoVarySearchHintValueGeneratesCandidate) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4349,9 +4066,6 @@ TEST_F(SpeculationRuleSetTest, InvalidNoVarySearchHintValueGeneratesCandidate) {
 // Test that an empty but valid No-Vary-Search hint will generate a speculation
 // candidate.
 TEST_F(SpeculationRuleSetTest, EmptyNoVarySearchHintValueGeneratesCandidate) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4375,9 +4089,6 @@ TEST_F(SpeculationRuleSetTest, EmptyNoVarySearchHintValueGeneratesCandidate) {
 // Test that a No-Vary-Search hint equivalent to the default
 // will generate a speculation candidate.
 TEST_F(SpeculationRuleSetTest, DefaultNoVarySearchHintValueGeneratesCandidate) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
-
   DummyPageHolder page_holder;
   StubSpeculationHost speculation_host;
 
@@ -4401,9 +4112,6 @@ TEST_F(SpeculationRuleSetTest, DefaultNoVarySearchHintValueGeneratesCandidate) {
 // Tests that No-Vary-Search errors that cause the speculation rules to be
 // skipped are logged to the console.
 TEST_F(SpeculationRuleSetTest, ConsoleWarningForNoVarySearchHintNotAString) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
-
   auto* chrome_client = MakeGarbageCollected<ConsoleCapturingChromeClient>();
   DummyPageHolder page_holder(/*initial_view_size=*/{}, chrome_client);
   page_holder.GetFrame().GetSettings()->SetScriptEnabled(true);
@@ -4432,8 +4140,6 @@ TEST_F(SpeculationRuleSetTest, ConsoleWarningForNoVarySearchHintNotAString) {
 // Tests that No-Vary-Search errors that cause the speculation rules to be
 // skipped are logged to the console.
 TEST_F(SpeculationRuleSetTest, NoVarySearchHintParseErrorRuleSkipped) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
   auto* rule_set =
       CreateRuleSet(R"({
     "prefetch": [{
@@ -4453,8 +4159,6 @@ TEST_F(SpeculationRuleSetTest, NoVarySearchHintParseErrorRuleSkipped) {
 // Tests that No-Vary-Search parsing errors that cause the speculation rules
 // to still be accepted are logged to the console.
 TEST_F(SpeculationRuleSetTest, NoVarySearchHintParseErrorRuleAccepted) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
   {
     auto* rule_set =
         CreateRuleSet(R"({
@@ -4566,8 +4270,6 @@ TEST_F(SpeculationRuleSetTest, NoVarySearchHintParseErrorRuleAccepted) {
 }
 
 TEST_F(SpeculationRuleSetTest, ValidNoVarySearchHintNoErrorOrWarningMessages) {
-  ScopedSpeculationRulesNoVarySearchHintForTest enable_no_vary_search_hint{
-      true};
   {
     auto* rule_set =
         CreateRuleSet(R"({

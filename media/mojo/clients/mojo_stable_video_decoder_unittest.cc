@@ -319,6 +319,10 @@ class MockStableVideoDecoderService : public stable::mojom::StableVideoDecoder {
   std::unique_ptr<MojoDecoderBufferReader> mojo_decoder_buffer_reader_;
 };
 
+}  // namespace
+
+// NOTE: This needs to be outside of an anonymous namespace to allow it to be
+// friended by SharedImageInterface.
 class MockSharedImageInterface : public gpu::SharedImageInterface {
  public:
   // gpu::SharedImageInterface implementation.
@@ -342,12 +346,6 @@ class MockSharedImageInterface : public gpu::SharedImageInterface {
                    gfx::GpuMemoryBufferHandle buffer_handle));
   MOCK_METHOD1(CreateSharedImage,
                SharedImageMapping(const gpu::SharedImageInfo& si_info));
-  MOCK_METHOD4(CreateSharedImage,
-               scoped_refptr<gpu::ClientSharedImage>(
-                   gfx::GpuMemoryBuffer* gpu_memory_buffer,
-                   gpu::GpuMemoryBufferManager* gpu_memory_buffer_manager,
-                   gfx::BufferPlane plane,
-                   const gpu::SharedImageInfo& si_info));
   MOCK_METHOD2(UpdateSharedImage,
                void(const gpu::SyncToken& sync_token,
                     const gpu::Mailbox& mailbox));
@@ -370,7 +368,7 @@ class MockSharedImageInterface : public gpu::SharedImageInterface {
                                      const gfx::ColorSpace& color_space,
                                      GrSurfaceOrigin surface_origin,
                                      SkAlphaType alpha_type,
-                                     uint32_t usage));
+                                     gpu::SharedImageUsageSet usage));
   MOCK_METHOD2(PresentSwapChain,
                void(const gpu::SyncToken& sync_token,
                     const gpu::Mailbox& mailbox));
@@ -390,6 +388,8 @@ class MockSharedImageInterface : public gpu::SharedImageInterface {
  protected:
   ~MockSharedImageInterface() override = default;
 };
+
+namespace {
 
 // TestEndpoints groups a few members that result from creating and initializing
 // a MojoStableVideoDecoder so that tests can use them to set expectations

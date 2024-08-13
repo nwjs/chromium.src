@@ -8,9 +8,9 @@
 
 #include "partition_alloc/aarch64_support.h"
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/cpu.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
 
@@ -315,5 +315,34 @@ bool PermissiveMte::HandleCrash(int signo,
   return false;
 }
 #endif  // PA_BUILDFLAG(HAS_MEMORY_TAGGING) && PA_BUILDFLAG(IS_ANDROID)
+
+SuspendTagCheckingScope::SuspendTagCheckingScope() noexcept {
+#if PA_BUILDFLAG(HAS_MEMORY_TAGGING)
+  if (PA_UNLIKELY(internal::base::CPU::GetInstanceNoAllocation().has_mte())) {
+    asm volatile(
+        R"(
+        .arch_extension memtag
+        mrs %0, tco
+        msr tco, #1
+        )"
+        : "=r"(previous_tco_));
+  }
+#endif  // PA_BUILDFLAG(HAS_MEMORY_TAGGING)
+}
+
+SuspendTagCheckingScope::~SuspendTagCheckingScope() {
+#if PA_BUILDFLAG(HAS_MEMORY_TAGGING)
+  if (PA_UNLIKELY(internal::base::CPU::GetInstanceNoAllocation().has_mte())) {
+    // Restore previous tco value.
+    __asm__ __volatile__(
+        R"(
+        .arch_extension memtag
+        msr tco, %0
+        )"
+        :
+        : "r"(previous_tco_));
+  }
+#endif  // PA_BUILDFLAG(HAS_MEMORY_TAGGING)
+}
 
 }  // namespace partition_alloc

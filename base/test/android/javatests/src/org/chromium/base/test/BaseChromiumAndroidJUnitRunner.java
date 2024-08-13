@@ -33,12 +33,14 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.FileUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.InMemorySharedPreferencesContext;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.ScalableTimeout;
+import org.chromium.base.test.util.TestAnimations;
 import org.chromium.build.BuildConfig;
 import org.chromium.testing.TestListInstrumentationRunListener;
 
@@ -174,12 +176,14 @@ public class BaseChromiumAndroidJUnitRunner extends AndroidJUnitRunner {
                             arguments.toString()));
             listTests(); // Intentionally not calling super.onStart() to avoid additional work.
         } else {
+            ThreadUtils.recordInstrumentationThreadForTesting();
             // Full name required because the super class has a nested class of the same name.
             org.chromium.base.test.ActivityFinisher.finishAll();
             super.onStart();
         }
     }
 
+    // Called on the UI thread.
     private void initTestRunner(Bundle arguments) {
         String timeoutScale = arguments.getString(EXTRA_TIMEOUT_SCALE);
         if (timeoutScale != null) {
@@ -235,7 +239,7 @@ public class BaseChromiumAndroidJUnitRunner extends AndroidJUnitRunner {
                 });
 
         try {
-            idleCallback.waitForFirst((int) WAIT_FOR_IDLE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            idleCallback.waitForOnly((int) WAIT_FOR_IDLE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (TimeoutException ex) {
             Log.w(TAG, "Timeout while waiting for idle main thread.");
         }
@@ -494,6 +498,9 @@ public class BaseChromiumAndroidJUnitRunner extends AndroidJUnitRunner {
             super.finish(resultCode, results);
             return;
         }
+
+        // Leave animations in the default state.
+        TestAnimations.setEnabled(true);
 
         try {
             writeClangCoverageProfileIfEnabled();

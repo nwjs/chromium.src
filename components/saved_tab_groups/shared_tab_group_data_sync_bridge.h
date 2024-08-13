@@ -7,11 +7,14 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
 
+#include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/uuid.h"
-#include "components/saved_tab_groups/saved_tab_group_model.h"
+#include "components/saved_tab_groups/saved_tab_group.h"
+#include "components/saved_tab_groups/saved_tab_group_tab.h"
 #include "components/sync/model/model_error.h"
 #include "components/sync/model/model_type_store.h"
 #include "components/sync/model/model_type_sync_bridge.h"
@@ -28,16 +31,22 @@ class SharedTabGroupDataSpecifics;
 }  // namespace sync_pb
 
 namespace tab_groups {
+class SavedTabGroup;
 class SavedTabGroupModel;
 
 // Sync bridge implementation for SHARED_TAB_GROUP_DATA model type.
 class SharedTabGroupDataSyncBridge : public syncer::ModelTypeSyncBridge {
  public:
+  using SharedTabGroupLoadCallback =
+      base::OnceCallback<void(std::vector<SavedTabGroup>,
+                              std::vector<SavedTabGroupTab>)>;
+
   SharedTabGroupDataSyncBridge(
       SavedTabGroupModel* model,
       syncer::OnceModelTypeStoreFactory create_store_callback,
       std::unique_ptr<syncer::ModelTypeChangeProcessor> change_processor,
-      PrefService* pref_service);
+      PrefService* pref_service,
+      SharedTabGroupLoadCallback on_load_callback);
 
   SharedTabGroupDataSyncBridge(const SharedTabGroupDataSyncBridge&) = delete;
   SharedTabGroupDataSyncBridge& operator=(const SharedTabGroupDataSyncBridge&) =
@@ -53,9 +62,9 @@ class SharedTabGroupDataSyncBridge : public syncer::ModelTypeSyncBridge {
   std::optional<syncer::ModelError> ApplyIncrementalSyncChanges(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_changes) override;
-  void GetDataForCommit(StorageKeyList storage_keys,
-                        DataCallback callback) override;
-  void GetAllDataForDebugging(DataCallback callback) override;
+  std::unique_ptr<syncer::DataBatch> GetDataForCommit(
+      StorageKeyList storage_keys) override;
+  std::unique_ptr<syncer::DataBatch> GetAllDataForDebugging() override;
   std::string GetClientTag(const syncer::EntityData& entity_data) override;
   std::string GetStorageKey(const syncer::EntityData& entity_data) override;
   bool SupportsGetClientTag() const override;
@@ -67,14 +76,25 @@ class SharedTabGroupDataSyncBridge : public syncer::ModelTypeSyncBridge {
       const sync_pb::EntitySpecifics& entity_specifics) const override;
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
 
+  void SavedTabGroupAddedLocally(const base::Uuid& guid);
+  void SavedTabGroupUpdatedLocally(const base::Uuid& group_guid,
+                                   const std::optional<base::Uuid>& tab_guid);
+  void SavedTabGroupRemovedLocally(const SavedTabGroup& removed_group);
+  // TODO(crbug.com/319521964): implement the following methods.
+  // void SavedTabGroupTabsReorderedLocally(const base::Uuid& group_guid);
+  // void SavedTabGroupReorderedLocally();
+  // void SavedTabGroupLocalIdChanged(const base::Uuid& group_guid);
+
  private:
   // Loads the data already stored in the ModelTypeStore.
-  void OnStoreCreated(const std::optional<syncer::ModelError>& error,
+  void OnStoreCreated(SharedTabGroupLoadCallback on_load_callback,
+                      const std::optional<syncer::ModelError>& error,
                       std::unique_ptr<syncer::ModelTypeStore> store);
 
-  // Calls ModelReadyToSync if there are no errors to report and loads the
-  // stored entries into `model_`.
+  // Calls ModelReadyToSync if there are no errors to report and propagaters the
+  // stored entries to `on_load_callback`.
   void OnReadAllDataAndMetadata(
+      SharedTabGroupLoadCallback on_load_callback,
       const std::optional<syncer::ModelError>& error,
       std::unique_ptr<syncer::ModelTypeStore::RecordList> entries,
       std::unique_ptr<syncer::MetadataBatch> metadata_batch);
@@ -90,6 +110,7 @@ class SharedTabGroupDataSyncBridge : public syncer::ModelTypeSyncBridge {
   // this class).
   void AddGroupToLocalStorage(
       const sync_pb::SharedTabGroupDataSpecifics& specifics,
+      const std::string& collaboration_id,
       syncer::MetadataChangeList* metadata_change_list,
       syncer::ModelTypeStore::WriteBatch* write_batch);
   void AddTabToLocalStorage(
@@ -103,6 +124,28 @@ class SharedTabGroupDataSyncBridge : public syncer::ModelTypeSyncBridge {
   void DeleteDataFromLocalStorage(
       const std::string& storage_key,
       syncer::ModelTypeStore::WriteBatch* write_batch);
+
+  // Inform the processor of a new or updated Shared Tab Group or Tab.
+  void SendToSync(sync_pb::SharedTabGroupDataSpecifics specific,
+                  const std::string& collaboration_id,
+                  syncer::MetadataChangeList* metadata_change_list);
+
+  // Updates or adds the `specifics` into the `store_` and populates it to the
+  // processor.
+  void UpsertEntitySpecifics(
+      const sync_pb::SharedTabGroupDataSpecifics& specifics,
+      const std::string& collaboration_id,
+      syncer::ModelTypeStore::WriteBatch* write_batch);
+
+  // Process local tab changes (add, remove, update), excluding changing tab's
+  // position.
+  void ProcessTabLocalUpdate(const SavedTabGroup& group,
+                             const base::Uuid& tab_id,
+                             syncer::ModelTypeStore::WriteBatch* write_batch);
+
+  // Removes the specifics pointed to by `guid` from the `store_`.
+  void RemoveEntitySpecifics(const base::Uuid& guid,
+                             syncer::ModelTypeStore::WriteBatch* write_batch);
 
   SEQUENCE_CHECKER(sequence_checker_);
 

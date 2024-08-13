@@ -9,11 +9,12 @@
 <translation id="1180362651362502943">‏اپنے Google اکاؤنٹ میں Chrome ڈیٹا استعمال کرتے رہیں۔</translation>
 <translation id="1200396280085622191">‏جب بھی آپ پیغامات اور دیگر ایپس میں لنکس پر تھپتھپائیں تو Chrome استعمال کریں۔</translation>
 <translation id="1229222343402087523">‏Chrome میں {searchPhrase}$ تلاش کریں</translation>
+<translation id="1237769345474105984">‏‫Chrome سے</translation>
 <translation id="124228879633599436">‏آپ کا Chrome پرانا ہے۔ محفوظ رہنے کے لیے اسے اپ ڈیٹ کریں۔</translation>
 <translation id="1282031177488366470">‏Chrome کی خصوصیات اور کارکردگی کو بہتر بنانے میں مدد کریں</translation>
-<translation id="1320619893013575407">‏آپ نے Chrome سائن ان آف کر دیا۔</translation>
 <translation id="1333745675627230582">‏Chrome ڈائنوسار گیم کھیلیں</translation>
 <translation id="1352919863522755794">‏Google پاس ورڈ مینیجر آپ کے پاس ورڈز چیک نہیں کر سکا۔ اپنا انٹرنیٹ کنکشن چیک کرنے کی کوشش کریں۔</translation>
+<translation id="139623527619433858">‏‫iPad پر بطور ڈیفالٹ Chrome کا استعمال کریں</translation>
 <translation id="1407843355326180937">‏اپنے تمام آلات پر اپنے بُک مارکس وغیرہ حاصل کرنے کے لیے اس سائٹ اور Chrome میں سائن ان کریں۔</translation>
 <translation id="1436059927646026729">‏Chrome میں میرا تازہ ترین ٹیب کھولیں</translation>
 <translation id="1449241544691504574">‏Chrome میں بُک مارکس شامل کریں</translation>
@@ -134,6 +135,7 @@
 <translation id="4903674399067644695">‏یہ کارڈ آپ کو Chrome سے زیادہ سے زیادہ فائدہ اٹھانے کے بارے میں تجاویز دکھاتا ہے۔</translation>
 <translation id="4919069428879420545">‏Chrome میں براؤزنگ ڈیٹا کو حذف کریں۔</translation>
 <translation id="49200511069271369">‏آپ کی تنظیم، <ph name="DOMAIN" />، اس اکاؤنٹ کا نظم کرتی ہے جس میں آپ سائن ان کر رہے ہیں اور اس بات کا نظم کرتی ہے کہ Chrome کو کیسے استعمال کیا جا سکتا ہے۔ آپ کا منتظم بعض خصوصیات سیٹ اپ کر سکتا یا ان پر پابندی عائد کر سکتا ہے۔</translation>
+<translation id="4925322001044117929">‏iPad پر بطور ڈیفالٹ Chrome کا استعمال کریں</translation>
 <translation id="498985224078955265">‏اس ٹیب کو دوسرے آلے پر بھیجنے کے لیے دونوں آلات پر Chrome میں سائن ان کریں۔</translation>
 <translation id="5030102366287574140">‏Chrome آپ کو ڈیٹا کی خلاف ورزیوں، غیر محفوظ ویب سائٹوں اور مزید بہت کچھ سے محفوظ رکھنے میں مدد کر سکتا ہے</translation>
 <translation id="5108659628347594808">‏Chrome کو بہتر بنائیں</translation>
@@ -172,6 +174,7 @@
 <translation id="6063091872902370735">‏Chrome میں سائن ان کرنے کی اجازت دیں</translation>
 <translation id="6110625574506755980">‏Chrome کی کچھ خصوصیات اب دستیاب نہیں ہوں گی۔</translation>
 <translation id="6132149203299792222">‏اپنے پاس ورڈز، بُک مارکس وغیرہ کو مطابقت پذیر بنانے کیلئے، اپنے Google اکاؤنٹ کے ساتھ سائن ان کریں۔</translation>
+<translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">‏Chrome میں تلاش کریں</translation>
 <translation id="6238746320622508509">‏Chrome کو اپنے پوشیدگی ٹیبز مقفل کرنے دیں۔</translation>
 <translation id="6247557882553405851">‏Google پاس ورڈ مینیجر</translation>
@@ -220,6 +223,7 @@
 <translation id="7272930098487145294">‏تصاویر محفوظ کرنے کے لیے، Chrome کو اپنی تصاویر شامل کرنے دینے کے لیے ترتیبات پر تھپتھپائیں</translation>
 <translation id="7275945473750112644">‏آپ کا اکاؤنٹ <ph name="HOSTED_DOMAIN" /> کے زیر انتظام ہے، اسلئے آپ کا Chrome ڈیٹا اس آلے سے صاف کر دیا جائے گا</translation>
 <translation id="7284245284340063465">‏اگر آپ اپنا پاس فریز بھول گئے ہیں یا اس ترتیب کو تبدیل کرنا چاہتے ہیں تو <ph name="BEGIN_LINK" />اپنے اکاؤنٹ میں موجود Chrome ڈیٹا کو حذف کریں<ph name="END_LINK" />۔</translation>
+<translation id="7299681342915173313">‏اب جب بھی آپ ای میلز، دستاویزات اور دیگر ایپس میں لنکس کو تھپتھپائیں تو آپ Chrome کا استعمال کر سکتے ہیں۔</translation>
 <translation id="7304491752269485262">‏Chrome آٹو فل کا پھیلا ہوا منظر</translation>
 <translation id="7344094882820374540">‏خطرناک سائٹس سے Chrome کی مضبوط ترین سیکیورٹی حاصل کریں</translation>
 <translation id="7349129508108954623">‏Chrome کو Google Maps کا استعمال کرنے کی اجازت دیں تاکہ شناخت کردہ پتوں کے بارے میں آپ کو ڈائریکشنز اور مقامی معلومات مل سکے۔</translation>
@@ -272,7 +276,6 @@
   3۔ Chrome منتخب کریں۔</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8558480467877843976">‏اب آپ کسی بھی وقت پیغامات، دستاویزات اور دیگر ایپس میں موجود لنکس کو براؤز یا تھپتھپاتے وقت Chrome استعمال کر سکتے ہیں۔</translation>
-<translation id="8577978202917232774">‏تجاویز آپ کے دیگر آلات پر آپ کی براؤزنگ سرگرمی پر مبنی ہیں۔ تجاویز حاصل کرنے کے لیے، اپنے تمام آلات پر Chrome میں سائن ان کریں۔</translation>
 <translation id="8603022514504485810">‏Google پاس ورڈ مینیجر تمام پاس ورڈز کو چیک نہیں کر سکتا۔ آئندہ کل دوبارہ کوشش کریں یا <ph name="BEGIN_LINK" />اپنے Google اکاؤنٹ میں پاس ورڈز چیک کریں۔<ph name="END_LINK" /></translation>
 <translation id="8727043961453758442">‏Chrome سے زیادہ سے زیادہ فائدہ اٹھائیں</translation>
 <translation id="8736550665979974340">‏Google Chrome کے ساتھ محفوظ رہیں</translation>

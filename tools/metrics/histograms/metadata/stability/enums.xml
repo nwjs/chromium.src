@@ -86,6 +86,8 @@ chromium-metrics-reviews@google.com.
              binding oom"/>
   <int value="24"
       label="Invisible renderer in foreground app with waived binding oom"/>
+  <int value="25"
+      label="Invisible renderer in foreground app with waived binding killed"/>
 </enum>
 
 <enum name="AndroidProcessedMinidumps">
@@ -368,7 +370,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="219" label="REGISTER_PROTOCOL_HANDLER_INVALID_URL"/>
   <int value="220" label="NC_SAME_DOCUMENT_POST_COMMIT_ERROR"/>
   <int value="221" label="RFH_INVALID_WEB_UI_CONTROLLER"/>
-  <int value="222" label="RFPH_ADVANCE_FOCUS_INTO_PORTAL"/>
+  <int value="222" label="OBSOLETE_RFPH_ADVANCE_FOCUS_INTO_PORTAL"/>
   <int value="223" label="RFH_UNEXPECTED_EMBEDDING_TOKEN"/>
   <int value="224" label="RFH_MISSING_EMBEDDING_TOKEN"/>
   <int value="225" label="RFH_BAD_DOCUMENT_POLICY_HEADER"/>
@@ -379,7 +381,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="230" label="RFH_SUBFRAME_CAPTURE_ON_MAIN_FRAME"/>
   <int value="231" label="RFH_CSP_ATTRIBUTE"/>
   <int value="232" label="RFH_RECEIVED_ASSOCIATED_MESSAGE_WHILE_BFCACHED"/>
-  <int value="233" label="RWH_CLOSE_PORTAL"/>
+  <int value="233" label="OBSOLETE_RWH_CLOSE_PORTAL"/>
   <int value="234" label="MSDH_INVALID_STREAM_TYPE"/>
   <int value="235" label="RFH_CREATE_CHILD_FRAME_TOKENS_NOT_FOUND"/>
   <int value="236" label="ASGH_ASSOCIATED_INTERFACE_REQUEST"/>
@@ -452,8 +454,10 @@ Called by update_bad_message_reasons.py.-->
       label="BIBI_BIND_PRESSURE_MANAGER_BLOCKED_BY_PERMISSIONS_POLICY"/>
   <int value="298" label="RFSCI_BROWSER_VALIDATION_BAD_ORIGIN_TRIAL_TOKEN"/>
   <int value="299" label="RFH_RECEIVED_INVALID_BROWSING_TOPICS_ATTRIBUTE"/>
-  <int value="300" label="RFHI_FULLSCREEN_NAV_INVALID_INITIAL_DOCUMENT"/>
-  <int value="301" label="RFHI_FULLSCREEN_NAV_NOT_OUTERMOST_MAIN_FRAME"/>
+  <int value="300"
+      label="OBSOLETE_RFHI_FULLSCREEN_NAV_INVALID_INITIAL_DOCUMENT"/>
+  <int value="301"
+      label="OBSOLETE_RFHI_FULLSCREEN_NAV_NOT_OUTERMOST_MAIN_FRAME"/>
   <int value="302" label="MH_MIDI_PERMISSION"/>
   <int value="303" label="RFH_CAN_ACCESS_FILES_OF_PAGE_STATE_AT_COMMIT"/>
   <int value="304" label="PSI_REQUEST_EMBEDDED_PERMISSION_WITHOUT_FEATURE"/>
@@ -469,7 +473,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="311" label="MSDH_SEND_WHEEL_INVALID_ACTION"/>
   <int value="312"
       label="OBSOLETE_MSDH_GET_ZOOM_LEVEL_BUT_CSC_FEATURE_DISABLED"/>
-  <int value="313" label="RFH_FENCED_DOCUMENT_DATA_NOT_FOUND"/>
+  <int value="313" label="OBSOLETE_RFH_FENCED_DOCUMENT_DATA_NOT_FOUND"/>
   <int value="314"
       label="OBSOLETE_MSDH_SET_ZOOM_LEVEL_BUT_CSC_FEATURE_DISABLED"/>
   <int value="315" label="MSDH_SET_ZOOM_LEVEL_INVALID_LEVEL"/>
@@ -482,6 +486,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="319" label="RFPH_POST_MESSAGE_PDF_CONTENT_FRAME"/>
   <int value="320"
       label="PSI_ADD_PAGE_EMBEDDED_PERMISSION_OBSERVER_WITHOUT_FEATURE"/>
+  <int value="321" label="RFH_INITIATOR_BASE_URL_IS_EMPTY"/>
 </enum>
 
 <enum name="BadMessageReasonExtensions">

@@ -15,8 +15,12 @@ NSString* const kChromeNotificationsOptInBannerImage =
     @"chrome_notifications_opt_in_banner";
 NSString* const kChromeNotificationsOptInBannerLandscapeImage =
     @"chrome_notifications_opt_in_banner_landscape";
+NSString* const kChromeSearchEngineChoiceIcon =
+    @"chrome_search_engine_choice_icon";
 NSString* const kChromeSigninBannerImage = @"chrome_signin_banner";
 NSString* const kChromeSigninPromoLogoImage = @"chrome_signin_promo_logo";
+NSString* const kGoogleDriveSymbol = @"google_drive";
+NSString* const kGoogleFullSymbol = @"google_full";
 NSString* const kGoogleIconSymbol = @"google_icon";
 NSString* const kGoogleShieldSymbol = @"google_shield";
 NSString* const kGoogleMapsSymbol = @"google_maps";
@@ -46,6 +50,8 @@ NSString* const kChromiumPasswordManagerWidgetPromoImage =
     @"chromium_password_manager_widget_promo";
 NSString* const kChromiumPasswordManagerWidgetPromoDisabledImage =
     @"chromium_password_manager_widget_promo_disabled";
+NSString* const kChromiumSearchEngineChoiceIcon =
+    @"chromium_search_engine_choice_icon";
 NSString* const kChromiumSettingsPasswordsInOtherAppsBannerImage =
     @"chromium_settings_passwords_in_other_apps_banner";
 NSString* const kChromiumSigninBannerImage = @"chromium_signin_banner";
@@ -62,6 +68,7 @@ NSString* const kSquareNumberSymbol = @"square_number";
 NSString* const kTranslateSymbol = @"translate";
 NSString* const kPasswordManagerSymbol = @"password_manager";
 NSString* const kPopupBadgeMinusSymbol = @"popup_badge_minus";
+NSString* const kPhotoBadgeArrowDownSymbol = @"photo.badge.arrow.down";
 NSString* const kPhotoBadgePlusSymbol = @"photo_badge_plus";
 NSString* const kPhotoBadgeMagnifyingglassSymbol =
     @"photo_badge_magnifyingglass";
@@ -196,6 +203,7 @@ NSString* const kDocSymbol = @"doc";
 NSString* const kOpenInDownloadsSymbol = @"arrow.down.to.line.compact";
 NSString* const kExternalLinkSymbol = @"arrow.up.forward.square";
 NSString* const kChevronDownSymbol = @"chevron.down";
+NSString* const kChevronBackwardSymbol = @"chevron.backward";
 NSString* const kChevronForwardSymbol = @"chevron.forward";
 NSString* const kChevronUpDown = @"chevron.up.chevron.down";
 NSString* const kChevronDownCircleFill = @"chevron.down.circle.fill";
@@ -247,6 +255,9 @@ NSString* const kMultiIdentitySymbol = @"person.2.fill";
 NSString* const kStarBubbleFillSymbol = @"star.bubble.fill";
 NSString* const kTurnUpRightDiamondFillSymbol =
     @"arrow.triangle.turn.up.right.diamond.fill";
+NSString* const kPencilSymbol = @"pencil";
+NSString* const kMagicStackSymbol = @"wand.and.stars.inverse";
+NSString* const kDiscoverFeedSymbol = @"newspaper";
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

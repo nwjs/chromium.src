@@ -30,6 +30,7 @@ import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.browser.customtabs.EngagementSignalsCallback;
 import androidx.browser.customtabs.ExperimentalMinimizationCallback;
 import androidx.browser.customtabs.PostMessageServiceConnection;
+import androidx.browser.customtabs.PrefetchOptions;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
@@ -657,6 +658,50 @@ public class CustomTabsConnection {
                             true);
                 });
         return true;
+    }
+
+    @androidx.browser.customtabs.ExperimentalPrefetch
+    public boolean prefetch(
+            CustomTabsSessionToken session, Uri uri, @Nullable PrefetchOptions options) {
+        try (TraceEvent e = TraceEvent.scoped("CustomTabsConnection.prefetch")) {
+            if (!ChromeFeatureList.sPrefetchBrowserInitiatedTriggers.isEnabled()
+                    || !ChromeFeatureList.sCctNavigationalPrefetch.isEnabled()) {
+                return false;
+            }
+            return prefetchInternal(session, uri, options);
+        }
+    }
+
+    @androidx.browser.customtabs.ExperimentalPrefetch
+    private boolean prefetchInternal(
+            CustomTabsSessionToken session, Uri uri, PrefetchOptions options) {
+        String uriString = isValid(uri) ? uri.toString() : null;
+        if (uriString == null) return false;
+
+        boolean usePrefetchProxy = options.requiresAnonymousIpWhenCrossOrigin;
+        String verifiedSourceOrigin =
+                verifySourceOriginOfPrefetch(session, options.sourceOrigin)
+                        ? options.sourceOrigin.toString()
+                        : null;
+        PostTask.postTask(
+                TaskTraits.UI_DEFAULT,
+                () -> {
+                    WarmupManager.getInstance()
+                            .startPrefetchFromCCT(
+                                    uriString, usePrefetchProxy, verifiedSourceOrigin);
+                });
+        return true;
+    }
+
+    @VisibleForTesting
+    @androidx.browser.customtabs.ExperimentalPrefetch
+    boolean verifySourceOriginOfPrefetch(
+            CustomTabsSessionToken session, @Nullable Uri rawSourceOrigin) {
+        if (rawSourceOrigin == null) return false;
+        String sourceOriginString = rawSourceOrigin.toString();
+        Origin sourceOrigin = Origin.create(sourceOriginString);
+        return sourceOrigin != null
+                && mClientManager.isFirstPartyOriginForSession(session, sourceOrigin);
     }
 
     private void enableExperimentIdsIfNecessary(Bundle extras) {
@@ -1952,7 +1997,7 @@ public class CustomTabsConnection {
     public static void createSpareWebContents(Profile profile) {
         if (sSkipTabPrewarmingForTesting) return;
         if (SysUtils.isLowEndDevice()) return;
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_PREWARM_TAB)) {
+        if (WarmupManager.getInstance().isCCTPrewarmTabFeatureEnabled(true)) {
             WarmupManager.getInstance().createRegularSpareTab(profile);
         } else {
             WarmupManager.getInstance().createSpareWebContents(profile);

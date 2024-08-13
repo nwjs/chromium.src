@@ -177,6 +177,7 @@ enum Setting {
   kQuickAnswersTranslation = 610,
   kQuickAnswersUnitConversion = 611,
   kMahiOnOff = 612,
+  kMagicBoostOnOff = 613,
 
   // Apps section.
   kManageAndroidPreferences = 700,
@@ -200,6 +201,8 @@ enum Setting {
   kCrostiniDiskResize = 805,
   kCrostiniMicAccess = 806,
   kCrostiniContainerUpgrade = 807,
+  kBruschettaMicAccess = 808,
+  kGuestUsbNotification = 809,
 
   // Note: Plugin VM section is omitted (see https://crbug.com/1074101).
 
@@ -325,6 +328,9 @@ enum Setting {
   kAccessibilityMagnifierFollowsSts = 1545,
   // [Deprecated] kPdfOcrOnOff = 1546,
   kOverscrollEnabled = 1547,
+  kCaretBrowsing = 1548,
+  kMagnifierFollowsChromeVox = 1549,
+  kMainNodeAnnotationsEnabled = 1550,
 
   // Reset section.
   kPowerwash = 1600,

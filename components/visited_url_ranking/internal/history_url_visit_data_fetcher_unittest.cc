@@ -14,6 +14,7 @@
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/visited_url_ranking/public/fetch_result.h"
+#include "components/visited_url_ranking/public/fetcher_config.h"
 #include "components/visited_url_ranking/public/url_visit.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -74,6 +75,8 @@ class MockHistoryService : public history::HistoryService {
 namespace visited_url_ranking {
 
 using Source = URLVisit::Source;
+using URLType = visited_url_ranking::FetchOptions::URLType;
+using ResultOption = visited_url_ranking::FetchOptions::ResultOption;
 
 class HistoryURLVisitDataFetcherTest
     : public testing::Test,
@@ -118,14 +121,15 @@ class HistoryURLVisitDataFetcherTest
     FetchResult result = FetchResult(FetchResult::Status::kError, {});
     base::RunLoop wait_loop;
     history_url_visit_fetcher_->FetchURLVisitData(
-        options, base::BindOnce(
-                     [](base::OnceClosure stop_waiting, FetchResult* result,
-                        FetchResult result_arg) {
-                       result->status = result_arg.status;
-                       result->data = std::move(result_arg.data);
-                       std::move(stop_waiting).Run();
-                     },
-                     wait_loop.QuitClosure(), &result));
+        options, FetcherConfig(),
+        base::BindOnce(
+            [](base::OnceClosure stop_waiting, FetchResult* result,
+               FetchResult result_arg) {
+              result->status = result_arg.status;
+              result->data = std::move(result_arg.data);
+              std::move(stop_waiting).Run();
+            },
+            wait_loop.QuitClosure(), &result));
     wait_loop.Run();
     return result;
   }
@@ -138,9 +142,16 @@ class HistoryURLVisitDataFetcherTest
 
 TEST_F(HistoryURLVisitDataFetcherTest, FetchURLVisitDataDefaultSources) {
   SetHistoryServiceExpectations(GetSampleAnnotatedVisits());
-  FetchOptions options =
-      FetchOptions({{Fetcher::kHistory, FetchOptions::kOriginSources}},
-                   base::Time::Now() - base::Days(1));
+
+  FetchOptions options = FetchOptions(
+      {
+          {URLType::kLocalVisit, {.age_limit = base::Days(1)}},
+          {URLType::kRemoteVisit, {.age_limit = base::Days(1)}},
+      },
+      {
+          {Fetcher::kHistory, {FetchOptions::kOriginSources}},
+      },
+      base::Time::Now() - base::Days(1));
   auto result = FetchAndGetResult(options);
   EXPECT_EQ(result.status, FetchResult::Status::kSuccess);
   EXPECT_EQ(result.data.size(), 2u);
@@ -165,9 +176,13 @@ TEST_F(HistoryURLVisitDataFetcherTest,
                            /*originator_cache_guid=*/""));
   SetHistoryServiceExpectations(std::move(annotated_visits));
 
-  FetchOptions options =
-      FetchOptions({{Fetcher::kHistory, FetchOptions::kOriginSources}},
-                   base::Time::Now() - base::Days(1));
+  FetchOptions options = FetchOptions(
+      {
+          {URLType::kLocalVisit, {.age_limit = base::Days(1)}},
+          {URLType::kRemoteVisit, {.age_limit = base::Days(1)}},
+      },
+      {{Fetcher::kHistory, FetchOptions::kOriginSources}},
+      base::Time::Now() - base::Days(1));
   auto result = FetchAndGetResult(options);
   EXPECT_EQ(result.status, FetchResult::Status::kSuccess);
   EXPECT_EQ(result.data.size(), 1u);
@@ -184,9 +199,21 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 TEST_P(HistoryURLVisitDataFetcherTest, FetchURLVisitData) {
   SetHistoryServiceExpectations(GetSampleAnnotatedVisits());
+
   const auto source = GetParam();
-  FetchOptions options = FetchOptions({{Fetcher::kHistory, {source}}},
-                                      base::Time::Now() - base::Days(1));
+  ResultOption result_option{.age_limit = base::Days(1)};
+  std::map<URLType, ResultOption> result_sources = {};
+  if (source == Source::kLocal) {
+    result_sources.emplace(URLType::kLocalVisit, std::move(result_option));
+  } else if (source == Source::kForeign) {
+    result_sources.emplace(URLType::kRemoteVisit, std::move(result_option));
+  }
+  std::map<Fetcher, FetchOptions::FetchSources> fetcher_sources;
+  fetcher_sources.emplace(Fetcher::kHistory,
+                          FetchOptions::FetchSources({source}));
+  FetchOptions options =
+      FetchOptions(std::move(result_sources), std::move(fetcher_sources),
+                   base::Time::Now() - base::Days(1));
   auto result = FetchAndGetResult(options);
   EXPECT_EQ(result.status, FetchResult::Status::kSuccess);
   EXPECT_EQ(result.data.size(), 1u);

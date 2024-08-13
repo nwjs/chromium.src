@@ -60,9 +60,9 @@ constexpr char kSyncEncryptionBootstrapTokenPerAccountMigrationDone[] =
     "sync.encryption_bootstrap_token_per_account_migration_done";
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-// Pref to record if the one-off MaybeMigratePasswordsToPerAccountPref()
+// Pref to record if the one-off MaybeMigrateAutofillToPerAccountPref()
 // migration ran.
-constexpr char kPasswordsPerAccountPrefMigrationDone[] =
+constexpr char kAutofillPerAccountPrefMigrationDone[] =
     "sync.passwords_per_account_pref_migration_done";
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
@@ -129,15 +129,6 @@ SyncPrefs::SyncPrefs(PrefService* pref_service)
       prefs::internal::kSelectedTypesPerAccount,
       base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
                           base::Unretained(this)));
-#if BUILDFLAG(IS_IOS)
-  // On iOS, in some situations, there was a dedicated opt-in for bookmarks and
-  // reading list. It's not used anymore with kReplaceSyncPromosWithSigninPromos
-  // enabled, except for a migration.
-  pref_change_registrar_.Add(
-      prefs::internal::kBookmarksAndReadingListAccountStorageOptIn,
-      base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
-                          base::Unretained(this)));
-#endif
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   // On ChromeOS-Lacros, syncing of apps is determined by a special
   // Ash-controlled pref.
@@ -164,10 +155,6 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   // Actual user-controlled preferences.
   registry->RegisterBooleanPref(prefs::internal::kSyncKeepEverythingSynced,
                                 true);
-#if BUILDFLAG(IS_IOS)
-  registry->RegisterBooleanPref(
-      prefs::internal::kBookmarksAndReadingListAccountStorageOptIn, false);
-#endif  // BUILDFLAG(IS_IOS)
   registry->RegisterDictionaryPref(prefs::internal::kSelectedTypesPerAccount);
   for (UserSelectableType type : UserSelectableTypeSet::All()) {
     RegisterTypeSelectedPref(registry, type);
@@ -221,7 +208,7 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kEnableLocalSyncBackend, false);
   registry->RegisterFilePathPref(prefs::kLocalSyncBackendDir, base::FilePath());
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  registry->RegisterBooleanPref(kPasswordsPerAccountPrefMigrationDone, false);
+  registry->RegisterBooleanPref(kAutofillPerAccountPrefMigrationDone, false);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   SyncFeatureStatusForMigrationsRecorder::RegisterProfilePrefs(registry);
@@ -317,7 +304,6 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForAccount(
       } else if (type == UserSelectableType::kBookmarks ||
                  type == UserSelectableType::kReadingList) {
         type_enabled = true;
-#if !BUILDFLAG(IS_IOS)
         // Consider kBookmarks and kReadingList off by default until
         // `kReplaceSyncPromosWithSignInPromos` is enabled. For existing clients
         // at the time the feature transitions from disabled to enabled, the
@@ -326,7 +312,6 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForAccount(
         if (!base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos)) {
           type_enabled = false;
         }
-#endif
       } else {
         // All other types are always enabled by default.
         type_enabled = true;
@@ -732,12 +717,7 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
   // Features to be enabled.
   switch (type) {
     case UserSelectableType::kBookmarks:
-#if BUILDFLAG(IS_IOS)
-      return true;
-#else
-      return base::FeatureList::IsEnabled(
-          kEnableBookmarkFoldersForAccountStorage);
-#endif
+      return base::FeatureList::IsEnabled(kSyncEnableBookmarksInTransportMode);
     case UserSelectableType::kReadingList:
       return syncer::IsReadingListAccountStorageEnabled();
     case UserSelectableType::kPreferences:
@@ -888,20 +868,10 @@ bool SyncPrefs::MaybeMigratePrefsForSyncToSigninPart1(
           GetPrefNameForType(UserSelectableType::kPreferences), false);
 
       // Bookmarks and reading list remain enabled only if the user previously
-      // explicitly opted in.
-#if BUILDFLAG(IS_IOS)
-      // On iOS, the opt-in state is controlled by a dedicated pref.
-      const bool was_opted_in = pref_service_->GetBoolean(
-          prefs::internal::kBookmarksAndReadingListAccountStorageOptIn);
-      account_settings->Set(GetPrefNameForType(UserSelectableType::kBookmarks),
-                            was_opted_in);
-      account_settings->Set(
-          GetPrefNameForType(UserSelectableType::kReadingList), was_opted_in);
-#else   // BUILDFLAG(IS_IOS)
-      // Outside iOS, the type's opt-in state is represented in the regular
-      // account-keyed prefs. However, the default value for new sign-ins
-      // changes with `kReplaceSyncPromosWithSignInPromos`, so it is important
-      // to grab a snapshot now during migration.
+      // explicitly opted in, which is represented in the regular account-keyed
+      // prefs. However, the default value for new sign-ins changes with
+      // `kReplaceSyncPromosWithSignInPromos`, so it is important to grab a
+      // snapshot now during migration.
       for (UserSelectableType type :
            {UserSelectableType::kBookmarks, UserSelectableType::kReadingList}) {
         const char* pref_name = GetPrefNameForType(type);
@@ -915,7 +885,6 @@ bool SyncPrefs::MaybeMigratePrefsForSyncToSigninPart1(
         // `kReplaceSyncPromosWithSignInPromos`.
         account_settings->Set(pref_name, is_type_on);
       }
-#endif  // BUILDFLAG(IS_IOS)
 
       return true;
     }
@@ -1095,20 +1064,20 @@ void SyncPrefs::MigrateGlobalDataTypePrefsToAccount(
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 // static
-void SyncPrefs::MaybeMigratePasswordsToPerAccountPref(
+void SyncPrefs::MaybeMigrateAutofillToPerAccountPref(
     PrefService* pref_service) {
   if (!base::FeatureList::IsEnabled(
           switches::kExplicitBrowserSigninUIOnDesktop)) {
     // Ensures the migration happens again if the experiment gets rolled back
     // then rolled out a second time.
-    pref_service->ClearPref(kPasswordsPerAccountPrefMigrationDone);
+    pref_service->ClearPref(kAutofillPerAccountPrefMigrationDone);
     return;
   }
 
-  if (pref_service->GetBoolean(kPasswordsPerAccountPrefMigrationDone)) {
+  if (pref_service->GetBoolean(kAutofillPerAccountPrefMigrationDone)) {
     return;
   }
-  pref_service->SetBoolean(kPasswordsPerAccountPrefMigrationDone, true);
+  pref_service->SetBoolean(kAutofillPerAccountPrefMigrationDone, true);
 
   std::string last_syncing_gaia_id =
       pref_service->GetString(::prefs::kGoogleServicesLastSyncingGaiaId);
@@ -1116,18 +1085,23 @@ void SyncPrefs::MaybeMigratePasswordsToPerAccountPref(
     return;
   }
 
-  bool global_password_setting_enabled =
-      pref_service->GetBoolean(prefs::internal::kSyncKeepEverythingSynced) ||
-      pref_service->GetBoolean(
-          GetPrefNameForType(UserSelectableType::kPasswords));
-  if (global_password_setting_enabled) {
+  if (pref_service->GetBoolean(prefs::internal::kSyncKeepEverythingSynced)) {
     return;
   }
 
-  SetAccountKeyedPrefDictEntry(
-      pref_service, prefs::internal::kSelectedTypesPerAccount,
-      signin::GaiaIdHash::FromGaiaId(last_syncing_gaia_id),
-      GetPrefNameForType(UserSelectableType::kPasswords), base::Value(false));
+  for (auto user_selectable_type :
+       {UserSelectableType::kPasswords, UserSelectableType::kAutofill}) {
+    const char* const pref_name_for_type =
+        GetPrefNameForType(user_selectable_type);
+    if (pref_service->GetBoolean(pref_name_for_type)) {
+      continue;
+    }
+
+    SetAccountKeyedPrefDictEntry(
+        pref_service, prefs::internal::kSelectedTypesPerAccount,
+        signin::GaiaIdHash::FromGaiaId(last_syncing_gaia_id),
+        pref_name_for_type, base::Value(false));
+  }
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 

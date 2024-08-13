@@ -73,10 +73,6 @@ BASE_FEATURE(kWebFeedOnboarding,
 
 BASE_FEATURE(kWebFeedSort, "WebFeedSort", base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableOpenInNewTabFromStartSurfaceFeed,
-             "EnableOpenInNewTabFromStartSurfaceFeed",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 bool IsCormorantEnabledForLocale(std::string country) {
   return IsWebFeedEnabledForLocale(country);
 }
@@ -106,10 +102,6 @@ BASE_FEATURE(kFeedNoViewCache,
              "FeedNoViewCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kFeedExperimentIDTagging,
-             "FeedExperimentIDTagging",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kFeedShowSignInCommand,
              "FeedShowSignInCommand",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -122,10 +114,6 @@ BASE_FEATURE(kSyntheticCapabilities,
              "FeedSyntheticCapabilities",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kFeedUserInteractionReliabilityReport,
-             "FeedUserInteractionReliabilityReport",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kFeedSignedOutViewDemotion,
              "FeedSignedOutViewDemotion",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -136,10 +124,6 @@ BASE_FEATURE(kFeedDynamicColors,
 
 BASE_FEATURE(kFeedFollowUiUpdate,
              "FeedFollowUiUpdate",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kFeedSportsCard,
-             "FeedSportsCard",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRefreshFeedOnRestart,

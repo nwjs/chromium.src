@@ -5,7 +5,6 @@
 #include "partition_alloc/partition_address_space.h"
 
 #include <array>
-#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <ostream>
@@ -13,11 +12,12 @@
 
 #include "partition_alloc/address_pool_manager.h"
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/compressed_pointer.h"
 #include "partition_alloc/page_allocator.h"
+#include "partition_alloc/partition_alloc_base/bits.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/debug/alias.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_constants.h"
@@ -183,6 +183,19 @@ void PartitionAddressSpace::Init() {
                  PageAccessibilityConfiguration(
                      PageAccessibilityConfiguration::kInaccessible),
                  PageTag::kPartitionAlloc, pools_fd);
+#if PA_BUILDFLAG(IS_ANDROID)
+  // On Android, Adreno-GSL library fails to mmap if we snatch address
+  // 0x400000000. Find a different address instead.
+  if (setup_.regular_pool_base_address_ == 0x400000000) {
+    uintptr_t new_base_address =
+        AllocPages(glued_pool_sizes, glued_pool_sizes,
+                   PageAccessibilityConfiguration(
+                       PageAccessibilityConfiguration::kInaccessible),
+                   PageTag::kPartitionAlloc, pools_fd);
+    FreePages(setup_.regular_pool_base_address_, glued_pool_sizes);
+    setup_.regular_pool_base_address_ = new_base_address;
+  }
+#endif  // PA_BUILDFLAG(IS_ANDROID)
   if (!setup_.regular_pool_base_address_) {
     HandlePoolAllocFailure();
   }
@@ -263,16 +276,6 @@ void PartitionAddressSpace::Init() {
   PA_DCHECK(!IsInCorePools(setup_.brp_pool_base_address_ + brp_pool_size));
 #endif  // PA_BUILDFLAG(GLUE_CORE_POOLS)
 
-#if PA_CONFIG(STARSCAN_USE_CARD_TABLE)
-  // Reserve memory for PCScan quarantine card table.
-  uintptr_t requested_address = setup_.regular_pool_base_address_;
-  uintptr_t actual_address = AddressPoolManager::GetInstance().Reserve(
-      kRegularPoolHandle, requested_address, kSuperPageSize);
-  PA_CHECK(requested_address == actual_address)
-      << "QuarantineCardTable is required to be allocated at the beginning of "
-         "the regular pool";
-#endif  // PA_CONFIG(STARSCAN_USE_CARD_TABLE)
-
 #if PA_BUILDFLAG(ENABLE_POINTER_COMPRESSION)
   CompressedPointerBaseGlobal::SetBase(setup_.regular_pool_base_address_);
 #endif  // PA_BUILDFLAG(ENABLE_POINTER_COMPRESSION)
@@ -295,7 +298,7 @@ void PartitionAddressSpace::InitConfigurablePool(uintptr_t pool_base,
   PA_CHECK(pool_base);
   PA_CHECK(size <= kConfigurablePoolMaxSize);
   PA_CHECK(size >= kConfigurablePoolMinSize);
-  PA_CHECK(std::has_single_bit(size));
+  PA_CHECK(base::bits::HasSingleBit(size));
   PA_CHECK(pool_base % size == 0);
 
   setup_.configurable_pool_base_address_ = pool_base;
@@ -401,7 +404,7 @@ void PartitionAddressSpace::UninitConfigurablePoolForTesting() {
 void PartitionAddressSpace::UninitThreadIsolatedPoolForTesting() {
   if (IsThreadIsolatedPoolInitialized()) {
     UnprotectThreadIsolatedGlobals();
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
     ThreadIsolationSettings::settings.enabled = false;
 #endif
 

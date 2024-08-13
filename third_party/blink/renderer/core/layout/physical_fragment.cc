@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 
 #include "base/ranges/algorithm.h"
@@ -54,6 +59,9 @@ String StringForBoxType(const PhysicalFragment& fragment) {
       break;
     case PhysicalFragment::BoxType::kPageBorderBox:
       result.Append("page border box");
+      break;
+    case PhysicalFragment::BoxType::kPageMargin:
+      result.Append("page margin");
       break;
     case PhysicalFragment::BoxType::kPageArea:
       result.Append("page area");
@@ -685,7 +693,7 @@ void PhysicalFragment::CheckType() const {
         DCHECK(layout_object_->IsBox());
       }
       if (IsFragmentainerBox() || GetBoxType() == kPageContainer ||
-          GetBoxType() == kPageBorderBox) {
+          GetBoxType() == kPageBorderBox || GetBoxType() == kPageMargin) {
         // Fragmentainers are associated with the same layout object as their
         // multicol container (or the LayoutView, in case of printing). The
         // fragments themselves are regular in-flow block container fragments

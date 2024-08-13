@@ -7,13 +7,11 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/task/thread_pool.h"
 #include "components/history_embeddings/embedder.h"
+#include "components/history_embeddings/history_embeddings_features.h"
 #include "components/history_embeddings/vector_database.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 
 namespace {
-
-// Time it takes before the remote idles.
-constexpr int kRemoteTimeoutSeconds = 60;
 
 passage_embeddings::mojom::PassageEmbeddingsLoadModelsParamsPtr MakeModelParams(
     const base::FilePath& embeddings_path,
@@ -128,6 +126,11 @@ void PassageEmbeddingsServiceController::OnLoadModelsResult(bool success) {
 }
 
 EmbedderMetadata PassageEmbeddingsServiceController::GetEmbedderMetadata() {
+  if (model_metadata_->score_threshold() > 0.0) {
+    return EmbedderMetadata(model_version_, model_metadata_->output_size(),
+                            model_metadata_->score_threshold());
+  }
+
   return EmbedderMetadata(model_version_, model_metadata_->output_size());
 }
 
@@ -155,7 +158,7 @@ void PassageEmbeddingsServiceController::GetEmbeddings(
         base::BindOnce(&PassageEmbeddingsServiceController::OnDisconnected,
                        weak_ptr_factory_.GetWeakPtr()));
     embedder_remote_.set_idle_handler(
-        base::Seconds(kRemoteTimeoutSeconds),
+        history_embeddings::kEmbeddingsServiceTimeout.Get(),
         base::BindRepeating(&PassageEmbeddingsServiceController::ResetRemotes,
                             weak_ptr_factory_.GetWeakPtr()));
   }

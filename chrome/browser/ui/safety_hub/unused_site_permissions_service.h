@@ -53,7 +53,7 @@ struct PermissionsData {
   PermissionsData(const PermissionsData&);
   PermissionsData& operator=(const PermissionsData&) = delete;
 
-  ContentSettingsPattern origin;
+  ContentSettingsPattern primary_pattern;
   std::set<ContentSettingsType> permission_types;
   base::Value::Dict chooser_permissions_data;
   content_settings::ContentSettingConstraints constraints;
@@ -196,6 +196,19 @@ class UnusedSitePermissionsService final : public SafetyHubService,
       base::Clock* clock,
       const scoped_refptr<HostContentSettingsMap> hcsm);
 
+  // Helpers to convert content settings between enum int and string name.
+  static std::string ConvertContentSettingsTypeToKey(ContentSettingsType type);
+  static ContentSettingsType ConvertKeyToContentSettingsType(
+      const std::string& key);
+
+  // Helper to convert single origin primary pattern to an origin.
+  // Converting a primary pattern to an origin is normally an anti-pattern, and
+  // this method should only be used for single origin primary patterns.
+  // They have fully defined URL+scheme+port which makes converting
+  // a primary pattern to an origin successful.
+  static url::Origin ConvertPrimaryPatternToOrigin(
+      const ContentSettingsPattern& primary_pattern);
+
   // SafetyHubService implementation
   // Returns a weak pointer to the service.
   base::WeakPtr<SafetyHubService> GetAsWeakRef() override;
@@ -213,6 +226,18 @@ class UnusedSitePermissionsService final : public SafetyHubService,
       std::map<std::string, std::list<ContentSettingEntry>>;
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(UnusedSitePermissionsServiceTest,
+                           UpdateIntegerValuesToGroupName_AllContentSettings);
+  FRIEND_TEST_ALL_PREFIXES(
+      UnusedSitePermissionsServiceTest,
+      UpdateIntegerValuesToGroupName_SubsetOfContentSettings);
+  FRIEND_TEST_ALL_PREFIXES(
+      UnusedSitePermissionsServiceTest,
+      UpdateIntegerValuesToGroupName_UnknownContentSettings);
+  FRIEND_TEST_ALL_PREFIXES(UnusedSitePermissionsServiceTest,
+                           UpdateIntegerValuesToGroupName_OnStartUp);
+  FRIEND_TEST_ALL_PREFIXES(UnusedSitePermissionsServiceTest,
+                           UpdateIntegerValuesToGroupName_MixedKeys);
   // Called by TabHelper when a URL was visited.
   void OnPageVisited(const url::Origin& origin);
 
@@ -270,6 +295,10 @@ class UnusedSitePermissionsService final : public SafetyHubService,
   // from the set if it is in there.
   const std::set<ContentSettingsType> GetRevokedUnusedSitePermissionTypes(
       const std::set<ContentSettingsType> permissions);
+
+  // Convert all integer permission values to string, if there is any permission
+  // represented by integer.
+  void UpdateIntegerValuesToGroupName();
 
   // Set of permissions that haven't been used for at least a week.
   UnusedPermissionMap recently_unused_permissions_;

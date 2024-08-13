@@ -106,6 +106,9 @@
 #include "sandbox/policy/switches.h"
 #include "sandbox/win/src/sandbox.h"
 #include "sandbox/win/src/sandbox_factory.h"
+#include "services/device/public/cpp/device_features.h"
+#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
+#include "services/device/public/cpp/geolocation/system_geolocation_source_win.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_win.h"
@@ -571,6 +574,12 @@ void ChromeBrowserMainPartsWin::PreProfileInit() {
   if (local_state)
     platform_auth_policy_observer_ =
         std::make_unique<PlatformAuthPolicyObserver>(local_state);
+
+  if (base::FeatureList::IsEnabled(features::kWinSystemLocationPermission)) {
+    device::GeolocationSystemPermissionManager::SetInstance(
+        device::SystemGeolocationSourceWin::
+            CreateGeolocationSystemPermissionManager());
+  }
 }
 
 void ChromeBrowserMainPartsWin::PostProfileInit(Profile* profile,
@@ -650,6 +659,14 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
           RemoveAppCompatEntries(current_exe);
         }
       }));
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  // os_update_handler is a separate process, so mirror the status of the
+  // feature to the local state on its behalf.
+  g_browser_process->local_state()->SetBoolean(
+      prefs::kOsUpdateHandlerEnabled,
+      base::FeatureList::IsEnabled(features::kRegisterOsUpdateHandlerWin));
+#endif  // GOOGLE_CHROME_BRANDING
 
   base::ImportantFileWriterCleaner::GetInstance().Start();
 }

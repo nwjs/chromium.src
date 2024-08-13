@@ -4,14 +4,17 @@
 
 #include "net/device_bound_sessions/registration_fetcher.h"
 
+#include <utility>
+
 #include "components/unexportable_keys/background_task_priority.h"
 #include "components/unexportable_keys/unexportable_key_service.h"
 #include "net/base/io_buffer.h"
 #include "net/device_bound_sessions/session_binding_utils.h"
+#include "net/device_bound_sessions/session_json_utils.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/url_request_context.h"
 
-namespace net {
+namespace net::device_bound_sessions {
 
 namespace {
 
@@ -82,8 +85,8 @@ void OnDataSigned(
     return;
   }
 
-  std::move(callback).Run(
-      RegistrationFetcher::RegistrationTokenResult(registration_token.value()));
+  std::move(callback).Run(RegistrationFetcher::RegistrationTokenResult(
+      registration_token.value(), key_id));
 }
 
 void OnKeyGenerated(
@@ -150,6 +153,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
     if (!redirect_info.new_url.SchemeIsCryptographic()) {
       request->Cancel();
       OnResponseCompleted();
+      // *this is deleted here
     }
   }
 
@@ -166,6 +170,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
   void OnResponseStarted(URLRequest* request, int net_error) override {
     if (net_error != OK) {
       OnResponseCompleted();
+      // *this is deleted here
       return;
     }
 
@@ -173,6 +178,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
     int response_code = headers ? headers->response_code() : 0;
     if (response_code < 200 || response_code >= 300) {
       OnResponseCompleted();
+      // *this is deleted here
       return;
     }
 
@@ -182,6 +188,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
       OnReadCompleted(request, bytes_read);
     } else if (bytes_read != ERR_IO_PENDING) {
       OnResponseCompleted();
+      // *this is deleted here
     }
   }
 
@@ -196,11 +203,12 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
 
     if (bytes_read != ERR_IO_PENDING) {
       OnResponseCompleted();
+      // *this is deleted here
     }
   }
 
   RegistrationFetcherImpl(
-      DeviceBoundSessionRegistrationFetcherParam registration_params,
+      RegistrationFetcherParam registration_params,
       unexportable_keys::UnexportableKeyService& key_service,
       const URLRequestContext* context,
       const IsolationInfo& isolation_info,
@@ -216,12 +224,13 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
 
   void OnRegistrationTokenCreated(
       std::optional<RegistrationFetcher::RegistrationTokenResult> result) {
-    if (!result.has_value()) {
+    if (!result) {
       RunCallbackAndDeleteSelf(std::nullopt);
       return;
     }
 
-    StartFetchingRegistration(result.value().registration_token);
+    key_id_ = result->key_id;
+    StartFetchingRegistration(result->registration_token);
   }
 
  private:
@@ -244,30 +253,41 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
   }
 
   void OnResponseCompleted() {
-    // TODO(kristianm): Parse response in data_received_
-    // For now just mark it as correct if *any* content was received.
     if (!data_received_.empty()) {
-      DeviceBoundSessionParams params;
-      RunCallbackAndDeleteSelf(params);
+      std::optional<SessionParams> params =
+          ParseSessionInstructionJson(data_received_);
+      if (params) {
+        RunCallbackAndDeleteSelf(
+            RegistrationFetcher::RegistrationCompleteParams(std::move(*params),
+                                                            *key_id_));
+      } else {
+        RunCallbackAndDeleteSelf(std::nullopt);
+      }
     } else {
       RunCallbackAndDeleteSelf(std::nullopt);
     }
+    // *this is deleted here
   }
 
   // Running callback when fetching is complete or on error.
   // Deletes `this` afterwards.
   void RunCallbackAndDeleteSelf(
-      std::optional<DeviceBoundSessionParams> params) {
+      std::optional<RegistrationFetcher::RegistrationCompleteParams> params) {
     std::move(callback_).Run(std::move(params));
     delete this;
   }
 
   // State passed in to constructor
-  DeviceBoundSessionRegistrationFetcherParam registration_params_;
+  RegistrationFetcherParam registration_params_;
   const raw_ref<unexportable_keys::UnexportableKeyService> key_service_;
   raw_ptr<const URLRequestContext> context_;
   IsolationInfo isolation_info_;
   RegistrationFetcher::RegistrationCompleteCallback callback_;
+
+  // Set during key creation, before sending request to fetch data.
+  // Should always be nullopt before that, and always a valid key after key
+  // creation.
+  std::optional<unexportable_keys::UnexportableKeyId> key_id_ = std::nullopt;
 
   // Created to fetch data
   std::unique_ptr<URLRequest> request_;
@@ -278,7 +298,7 @@ class RegistrationFetcherImpl : public URLRequest::Delegate {
 }  // namespace
 
 void RegistrationFetcher::StartCreateTokenAndFetch(
-    DeviceBoundSessionRegistrationFetcherParam registration_params,
+    RegistrationFetcherParam registration_params,
     unexportable_keys::UnexportableKeyService& key_service,
     // TODO(kristianm): Check the lifetime of context and make sure this use
     // is safe.
@@ -311,4 +331,4 @@ void RegistrationFetcher::CreateTokenAsyncForTesting(
                    std::move(callback));
 }
 
-}  // namespace net
+}  // namespace net::device_bound_sessions

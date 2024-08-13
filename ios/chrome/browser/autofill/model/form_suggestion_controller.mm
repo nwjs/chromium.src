@@ -98,11 +98,8 @@ UIImage* defaultIconForType(autofill::SuggestionType type) {
           CustomSymbolWithPointSize(kPasswordManagerSymbol, kSymbolPointSize));
     case autofill::SuggestionType::kCreateNewPlusAddress:
     case autofill::SuggestionType::kFillExistingPlusAddress: {
-      BOOL isPlusAddressFeaturesEnabled =
-          base::FeatureList::IsEnabled(
-              plus_addresses::features::kPlusAddressesEnabled) &&
-          base::FeatureList::IsEnabled(
-              plus_addresses::features::kPlusAddressUIRedesign);
+      BOOL isPlusAddressFeaturesEnabled = base::FeatureList::IsEnabled(
+          plus_addresses::features::kPlusAddressesEnabled);
 #if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
       return isPlusAddressFeaturesEnabled
                  ? CustomSymbolWithPointSize(kGooglePlusAddressSymbol,
@@ -390,11 +387,8 @@ UIImage* defaultIconForType(autofill::SuggestionType type) {
 // Copies the incoming suggestions, making adjustments if necessary.
 - (NSArray<FormSuggestion*>*)copyAndAdjustSuggestions:
     (NSArray<FormSuggestion*>*)suggestions {
-  BOOL isPlusAddressFeaturesEnabled =
-      base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressesEnabled) &&
-      base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressUIRedesign);
+  BOOL isPlusAddressFeaturesEnabled = base::FeatureList::IsEnabled(
+      plus_addresses::features::kPlusAddressesEnabled);
 
   if (!IsKeyboardAccessoryUpgradeEnabled() && !isPlusAddressFeaturesEnabled) {
     return [suggestions copy];
@@ -403,12 +397,10 @@ UIImage* defaultIconForType(autofill::SuggestionType type) {
   NSMutableArray<FormSuggestion*>* suggestionsCopy = [NSMutableArray array];
   for (FormSuggestion* suggestion : suggestions) {
     BOOL isPlusAddressSuggestion =
-        (suggestion.popupItemId ==
-         autofill::SuggestionType::kCreateNewPlusAddress) ||
-        (suggestion.popupItemId ==
-         autofill::SuggestionType::kFillExistingPlusAddress);
+        (suggestion.type == autofill::SuggestionType::kCreateNewPlusAddress) ||
+        (suggestion.type == autofill::SuggestionType::kFillExistingPlusAddress);
 
-    UIImage* defaultIcon = defaultIconForType(suggestion.popupItemId);
+    UIImage* defaultIcon = defaultIconForType(suggestion.type);
 
     // If there are no icons, but we have a default icon for this suggestion,
     // copy the suggestion and add the default icon. If
@@ -424,17 +416,19 @@ UIImage* defaultIconForType(autofill::SuggestionType type) {
       // different [FormSuggestion suggestionWithValue:...] to perform the copy.
       CHECK(!suggestion.metadata.is_single_username_form);
 
-      [suggestionsCopy
-          addObject:[FormSuggestion
-                               suggestionWithValue:suggestion.value
-                                        minorValue:suggestion.minorValue
-                                displayDescription:suggestion.displayDescription
-                                              icon:defaultIcon
-                                       popupItemId:suggestion.popupItemId
-                                 backendIdentifier:suggestion.backendIdentifier
-                                    requiresReauth:suggestion.requiresReauth
-                        acceptanceA11yAnnouncement:
-                            suggestion.acceptanceA11yAnnouncement]];
+      FormSuggestion* suggestionCopy = [FormSuggestion
+                 suggestionWithValue:suggestion.value
+                          minorValue:suggestion.minorValue
+                  displayDescription:suggestion.displayDescription
+                                icon:defaultIcon
+                                type:suggestion.type
+                   backendIdentifier:suggestion.backendIdentifier
+                      requiresReauth:suggestion.requiresReauth
+          acceptanceA11yAnnouncement:suggestion.acceptanceA11yAnnouncement];
+      // TODO(crbug.com/353663764): Include `featureForIPH` in the
+      // `FormSuggestion` constructor.
+      suggestionCopy.featureForIPH = suggestion.featureForIPH;
+      [suggestionsCopy addObject:suggestionCopy];
     } else {
       [suggestionsCopy addObject:suggestion];
     }

@@ -8,7 +8,6 @@ import 'chrome://personalization/strings.m.js';
 
 import {emptyState, PersonalizationThemeElement, SetDarkModeEnabledAction, setGeolocationPermissionEnabledAction, SetGeolocationPermissionEnabledActionForTheme, ThemeActionName, ThemeObserver} from 'chrome://personalization/js/personalization_app.js';
 import {CrButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_button/cr_button.js';
-import {LocalizedLinkElement} from 'chrome://resources/ash/common/cr_elements/localized_link/localized_link.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
@@ -147,9 +146,9 @@ suite('PersonalizationThemeTest', function() {
     await waitAfterNextRender(personalizationThemeElement!);
   }
 
-  function isAutoModeTooltipVisible(): boolean {
+  function isAutoModeLocationWarningIconPresent(): boolean {
     return !!personalizationThemeElement!.shadowRoot!.getElementById(
-        'infoIcon');
+        'locationDeniedInfoIcon');
   }
 
   async function setGeolocationPermissionEnabled(enabled: boolean) {
@@ -182,13 +181,16 @@ suite('PersonalizationThemeTest', function() {
         // Check that geolocation content is not displayed on any configuration.
         setThemeColorMode(LIGHT_MODE_BUTTON_ID);
         assertFalse(
-            isAutoModeTooltipVisible(), 'Tooltip shown when PH is disabled');
+            isAutoModeLocationWarningIconPresent(),
+            'Tooltip shown when PH is disabled');
         setThemeColorMode(DARK_MODE_BUTTON_ID);
         assertFalse(
-            isAutoModeTooltipVisible(), 'Tooltip shown when PH is disabled');
+            isAutoModeLocationWarningIconPresent(),
+            'Tooltip shown when PH is disabled');
         setThemeColorMode(AUTO_MODE_BUTTON_ID);
         assertFalse(
-            isAutoModeTooltipVisible(), 'Tooltip shown when PH is disabled');
+            isAutoModeLocationWarningIconPresent(),
+            'Tooltip shown when PH is disabled');
       });
 
 
@@ -207,15 +209,15 @@ suite('PersonalizationThemeTest', function() {
         // Check that tooltip is not shown on any configuration.
         setThemeColorMode(LIGHT_MODE_BUTTON_ID);
         assertFalse(
-            isAutoModeTooltipVisible(),
+            isAutoModeLocationWarningIconPresent(),
             'Tooltip shown when system geolocation is enabled');
         setThemeColorMode(DARK_MODE_BUTTON_ID);
         assertFalse(
-            isAutoModeTooltipVisible(),
+            isAutoModeLocationWarningIconPresent(),
             'Tooltip shown when system geolocation is enabled');
         setThemeColorMode(AUTO_MODE_BUTTON_ID);
         assertFalse(
-            isAutoModeTooltipVisible(),
+            isAutoModeLocationWarningIconPresent(),
             'Tooltip shown when system geolocation is enabled');
 
         // Disable geolocation.
@@ -223,15 +225,15 @@ suite('PersonalizationThemeTest', function() {
         // Check that tooltip is only shown when Auto Schedule is selected.
         setThemeColorMode(LIGHT_MODE_BUTTON_ID);
         assertFalse(
-            isAutoModeTooltipVisible(),
+            isAutoModeLocationWarningIconPresent(),
             'Tooltip shown when AutoMode not selected');
         setThemeColorMode(DARK_MODE_BUTTON_ID);
         assertFalse(
-            isAutoModeTooltipVisible(),
+            isAutoModeLocationWarningIconPresent(),
             'Tooltip shown when AutoMode not selected');
         setThemeColorMode(AUTO_MODE_BUTTON_ID);
         assertTrue(
-            isAutoModeTooltipVisible(),
+            isAutoModeLocationWarningIconPresent(),
             'Tooltip not shown when AutoMode is selected');
       });
 
@@ -255,7 +257,7 @@ suite('PersonalizationThemeTest', function() {
     // warning tooltip.
     setGeolocationPermissionEnabled(false);
     setThemeColorMode(AUTO_MODE_BUTTON_ID);
-    assertTrue(isAutoModeTooltipVisible());
+    assertTrue(isAutoModeLocationWarningIconPresent());
 
     // Check that the dialog has popped up.
     assertTrue(isGeolocationDialogVisible());
@@ -264,9 +266,9 @@ suite('PersonalizationThemeTest', function() {
     const geolocationDialog =
         personalizationThemeElement.shadowRoot!.getElementById(
             'geolocationDialog')!;
-    const dialogBodyText = geolocationDialog.shadowRoot!
-                               .querySelector<LocalizedLinkElement>(
-                                   'localized-link')!.localizedString;
+    const dialogBodyText =
+        geolocationDialog.shadowRoot!
+            .querySelector<HTMLDivElement>('#dialogBody')!.innerText;
     assertTrue(
         dialogBodyText.includes('6:00AM-6:00PM'),
         'dialog body doesn\'t include sunrise/sunset times');
@@ -287,7 +289,31 @@ suite('PersonalizationThemeTest', function() {
     await waitAfterNextRender(personalizationThemeElement);
 
     // Check that both warning tooltip and dialog has diappeared.
-    assertFalse(isAutoModeTooltipVisible());
+    assertFalse(isAutoModeLocationWarningIconPresent());
     assertFalse(isGeolocationDialogVisible());
+  });
+
+  test('iron-selector excludes geolocation warning', async () => {
+    // Enable Privacy Hub feature flag.
+    loadTimeData.overrideValues({isCrosPrivacyHubLocationEnabled: true});
+    personalizationStore.data.theme.geolocationPermissionEnabled = false;
+    personalizationStore.data.theme.colorModeAutoScheduleEnabled = true;
+
+    personalizationThemeElement = initElement(PersonalizationThemeElement);
+    await waitAfterNextRender(personalizationThemeElement!);
+
+    assertEquals(
+        'true',
+        personalizationThemeElement.shadowRoot?.getElementById('autoMode')
+            ?.ariaChecked,
+        'auto mode button is checked');
+    assertTrue(
+        isAutoModeLocationWarningIconPresent(),
+        'location warning icon is present');
+
+    assertDeepEquals(
+        ['lightMode', 'darkMode', 'autoMode'],
+        personalizationThemeElement.$.selector.items?.map(item => item.id),
+        'only theme buttons are selectable by iron-selector');
   });
 });

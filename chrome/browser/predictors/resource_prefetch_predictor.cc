@@ -274,7 +274,10 @@ void ResourcePrefetchPredictor::StartInitialization() {
   auto origin_data = std::make_unique<OriginDataMap>(
       tables_, tables_->origin_table(), config_.max_hosts_to_track,
       base::Seconds(config_.flush_data_to_disk_delay_seconds));
-  auto lcpp_data = std::make_unique<LcppDataMap>(*tables_, config_);
+  auto lcpp_data =
+      use_lcpp_mock_table_for_testing_
+          ? LcppDataMap::CreateWithMockTableForTesting(tables_, config_)
+          : std::make_unique<LcppDataMap>(tables_, config_);
 
   // Get raw pointers to pass to the first task. Ownership of the unique_ptrs
   // will be passed to the reply task.
@@ -407,6 +410,7 @@ void ResourcePrefetchPredictor::CreateCaches(
 
   host_redirect_data_ = std::move(host_redirect_data);
   origin_data_ = std::move(origin_data);
+  lcpp_data->InitializeAfterDBInitialization();
   lcpp_data_ = std::move(lcpp_data);
 
   ConnectToHistoryService();

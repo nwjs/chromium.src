@@ -21,7 +21,7 @@
 #include "chrome/common/media/webrtc_logging.mojom.h"
 #include "chrome/services/speech/buildflags/buildflags.h"
 #include "components/nacl/common/buildflags.h"
-//#include "components/safe_browsing/content/renderer/phishing_classifier/phishing_model_setter_impl.h"
+#include "components/safe_browsing/content/renderer/phishing_classifier/phishing_model_setter_impl.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/public/renderer/render_thread.h"
@@ -73,7 +73,7 @@ class Extension;
 #endif
 
 namespace subresource_filter {
-class SafeBrowsingUnverifiedRulesetDealer;
+class UnverifiedRulesetDealer;
 }
 
 namespace url {
@@ -156,12 +156,17 @@ class ChromeContentRendererClient
       const url::Origin& origin) override;
   void WillSendRequest(blink::WebLocalFrame* frame,
                        ui::PageTransition transition_type,
-                       const blink::WebURL& url,
+                       const blink::WebURL& upstream_url,
+                       const blink::WebURL& target_url,
                        const net::SiteForCookies& site_for_cookies,
                        const url::Origin* initiator_origin,
                        GURL* new_url) override;
   bool IsPrefetchOnly(content::RenderFrame* render_frame) override;
   uint64_t VisitedLinkHash(std::string_view canonical_url) override;
+  uint64_t PartitionedVisitedLinkFingerprint(
+      std::string_view canonical_link_url,
+      const net::SchemefulSite& top_level_site,
+      const url::Origin& frame_origin) override;
   bool IsLinkVisited(uint64_t link_hash) override;
   void AddOrUpdateVisitedLinkSalt(const url::Origin& origin,
                                   uint64_t salt) override;
@@ -292,15 +297,13 @@ class ChromeContentRendererClient
 #if BUILDFLAG(ENABLE_SPELLCHECK)
   std::unique_ptr<SpellCheck> spellcheck_;
 #endif
-  std::unique_ptr<subresource_filter::SafeBrowsingUnverifiedRulesetDealer>
+  std::unique_ptr<subresource_filter::UnverifiedRulesetDealer>
       subresource_filter_ruleset_dealer_;
 #if BUILDFLAG(ENABLE_PLUGINS)
   std::set<std::string> allowed_camera_device_origins_;
 #endif
-#if 0
   std::unique_ptr<safe_browsing::PhishingModelSetterImpl>
       phishing_model_setter_;
-#endif
 
   scoped_refptr<blink::ThreadSafeBrowserInterfaceBrokerProxy>
       browser_interface_broker_;

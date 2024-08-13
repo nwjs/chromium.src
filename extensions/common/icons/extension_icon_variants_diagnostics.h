@@ -5,54 +5,52 @@
 #ifndef EXTENSIONS_COMMON_ICONS_EXTENSION_ICON_VARIANTS_DIAGNOSTICS_H_
 #define EXTENSIONS_COMMON_ICONS_EXTENSION_ICON_VARIANTS_DIAGNOSTICS_H_
 
-#include <optional>
-
-// A diagnostic is a unique error/warning code which can be retrieved keyed on
-// the provided code and feature. An example of a feature is kIconVariants,
-// which is an enum entry.
-// TODO(crbug.com/343748805): Generalize for features other than icon_variants.
-// TODO(crbug.com/343748805): Consider names other than `category` and
-// `feature`.
-// TODO(crbug.com/343748805): Should `code` be `id instead?
 namespace extensions::diagnostics::icon_variants {
 
-// Add a unique name at the bottom of the list and do no sort nor change the
-// order. Each id is unique and should remain unchanged.
-enum class Code {
-  kFailedToParse,
-  kIconVariantsEmpty,
+// Sorted list of internal ids. Unlike codes, these are not to be surfaced.
+enum class Id {
   kEmptyIconVariant,
+  kFailedToParse,
+  kIconVariantColorSchemeInvalid,
+  kIconVariantColorSchemesType,
+  kIconVariantsEmpty,
+  kIconVariantsInvalid,
+  kIconVariantSizeInvalid,
+  kIconVariantsKeyMustBeAList,
 };
 
-// Warning or error?
+// Represents how significant something is.
 enum class Severity {
+  // A condition that prevents an extension from loading.
   kError,
+
+  // A condition that does not prevent extension loading, but can be shown.
   kWarning,
 };
 
-// Manifest or API.
-enum class Category {
+// A surface represents the location where the diagnostic materialized.
+enum class Surface {
   kManifest,
   kApi,
 };
 
-// Support different manifest keys and APIs (aka features) that have
-// diagnostics.
+// A component of extension capabilities, such as APIs.
 enum class Feature {
   kIconVariants,
 };
 
-// Retrieval of diagnostic with relevant information.
+// A collection of metadata accompanied by a message.
+// TODO(crbug.com/343748805): Generalize for features other than icon_variants.
 struct Diagnostic {
   Feature feature;
-  icon_variants::Code code;
-  Category category;
+  icon_variants::Id id;
+  Surface surface;
   Severity severity;
   const char* message;
 };
 
-// Get diagnostic for a given id.
-Diagnostic GetDiagnosticForID(Feature feature, Code code);
+// Get the diagnostic for the given parameters.
+Diagnostic GetDiagnostic(Feature feature, Id id);
 
 }  // namespace extensions::diagnostics::icon_variants
 

@@ -295,7 +295,7 @@ void MediaDialogView::UpdateBubbleSize() {
   live_caption_container_->SetPreferredSize(
       gfx::Size(width, live_caption_height));
 
-  if (base::FeatureList::IsEnabled(media::kLiveTranslate)) {
+  if (media::IsLiveTranslateEnabled()) {
     const int live_translate_height =
         live_translate_container_->GetPreferredSize().height();
     live_translate_container_->SetPreferredSize(
@@ -331,7 +331,7 @@ void MediaDialogView::OnLiveCaptionEnabledChanged() {
 
   live_caption_button_->SetIsOn(enabled);
 
-  if (base::FeatureList::IsEnabled(media::kLiveTranslate)) {
+  if (media::IsLiveTranslateEnabled()) {
     live_translate_container_->SetVisible(enabled);
   }
 
@@ -395,6 +395,12 @@ void MediaDialogView::TargetLanguageChanged() {
 const std::map<const std::string, global_media_controls::MediaItemUIView*>&
 MediaDialogView::GetItemsForTesting() const {
   return active_sessions_view_->items_for_testing();  // IN-TEST
+}
+
+const std::map<const std::string,
+               global_media_controls::MediaItemUIUpdatedView*>&
+MediaDialogView::GetUpdatedItemsForTesting() const {
+  return active_sessions_view_->updated_items_for_testing();  // IN-TEST
 }
 
 const global_media_controls::MediaItemUIListView*
@@ -466,7 +472,7 @@ void MediaDialogView::Init() {
       ->set_cross_axis_alignment(views::BoxLayout::CrossAxisAlignment::kStart);
 
   InitializeLiveCaptionSection();
-  if (base::FeatureList::IsEnabled(media::kLiveTranslate)) {
+  if (media::IsLiveTranslateEnabled()) {
     InitializeLiveTranslateSection();
 
     separator_ = AddChildView(std::make_unique<views::Separator>());

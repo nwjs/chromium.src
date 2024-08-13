@@ -36,7 +36,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.CheckoutFunnel"
-    enum="PaymentRequestCheckoutFunnelSteps" expires_after="2024-11-03">
+    enum="PaymentRequestCheckoutFunnelSteps" expires_after="2025-01-05">
   <owner>rouslan@chromium.org</owner>
   <owner>web-payments-team@google.com</owner>
   <summary>
@@ -61,16 +61,6 @@ chromium-metrics-reviews@google.com.
     &quot;true&quot; in the majority of cases. The value of &quot;false&quot;
     could be either the payment handler refusing to make payments or an internal
     error, which should both be rare.
-  </summary>
-</histogram>
-
-<histogram name="PaymentRequest.Events" units="bitfield value"
-    expires_after="2023-08-27">
-  <owner>rouslan@chromium.org</owner>
-  <owner>web-payments-team@google.com</owner>
-  <summary>
-    A bitfield representing the different events that happened during the
-    Payment Request.
   </summary>
 </histogram>
 
@@ -148,7 +138,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PaymentRequest.IsCanMakePaymentAllowedByPref.Startup.DisabledReason"
-    enum="Boolean" expires_after="2024-11-27">
+    enum="CanMakePaymentPreferenceSetter" expires_after="2024-11-27">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-team@google.com</owner>
   <summary>
@@ -197,7 +187,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.PaymentHandlerInstallSuccess"
-    enum="BooleanSuccess" expires_after="2024-10-20">
+    enum="BooleanSuccess" expires_after="2024-12-22">
   <owner>rouslan@chromium.org</owner>
   <owner>web-payments-team@google.com</owner>
   <summary>

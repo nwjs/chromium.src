@@ -104,7 +104,7 @@ class TestAXEventObserver : public views::AXEventObserver {
       return;
     }
     ui::AXNodeData node_data;
-    view->GetAccessibleNodeData(&node_data);
+    view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
     ax::mojom::Role role = node_data.role;
     if (event_type == ax::mojom::Event::kTextChanged &&
         role == ax::mojom::Role::kListBoxOption) {
@@ -412,11 +412,12 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
 
   // Check that active descendant on textbox matches the selected result view.
   ui::AXNodeData ax_node_data_omnibox;
-  omnibox_view()->GetAccessibleNodeData(&ax_node_data_omnibox);
+  omnibox_view()->GetViewAccessibility().GetAccessibleNodeData(
+      &ax_node_data_omnibox);
   OmniboxResultView* selected_result_view = GetResultViewAt(2);
   EXPECT_EQ(ax_node_data_omnibox.GetIntAttribute(
                 ax::mojom::IntAttribute::kActivedescendantId),
-            selected_result_view->GetViewAccessibility().GetUniqueId().Get());
+            selected_result_view->GetViewAccessibility().GetUniqueId());
   histogram_tester.ExpectUniqueSample("Omnibox.Views.PopupFirstPaint", 1, 0);
 }
 
@@ -545,7 +546,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
 
   // Check accessibility of list box while it's open.
   ui::AXNodeData popup_node_data_while_open;
-  popup_view()->GetAccessibleNodeData(&popup_node_data_while_open);
+  popup_view()->GetViewAccessibility().GetAccessibleNodeData(
+      &popup_node_data_while_open);
   EXPECT_EQ(popup_node_data_while_open.role, ax::mojom::Role::kListBox);
   EXPECT_TRUE(popup_node_data_while_open.HasState(ax::mojom::State::kExpanded));
   EXPECT_FALSE(
@@ -554,6 +556,17 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
       popup_node_data_while_open.HasState(ax::mojom::State::kInvisible));
   EXPECT_TRUE(popup_node_data_while_open.HasIntAttribute(
       ax::mojom::IntAttribute::kPopupForId));
+
+  // Check accessibility of list box while it's closed.
+  controller()->autocomplete_controller()->Stop(true);
+  popup_view()->UpdatePopupAppearance();
+  popup_node_data_while_open = ui::AXNodeData();
+  popup_view()->GetViewAccessibility().GetAccessibleNodeData(
+      &popup_node_data_while_open);
+  EXPECT_FALSE(
+      popup_node_data_while_open.HasState(ax::mojom::State::kExpanded));
+  EXPECT_TRUE(
+      popup_node_data_while_open.HasState(ax::mojom::State::kCollapsed));
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest, DeleteSuggestion) {
@@ -586,7 +599,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest, DeleteSuggestion) {
     match.description_class.emplace_back(0, ACMatchClassification::URL);
     match.allowed_to_be_default_match = true;
     match.provider = provider.get();
-    metrics::OmniboxEventProto::Suggestion::ScoringSignals scoring_signals;
+    metrics::OmniboxScoringSignals scoring_signals;
     scoring_signals.set_first_bookmark_title_match_position(3);
     scoring_signals.set_allowed_to_be_default_match(true);
     scoring_signals.set_length_of_url(20);
@@ -616,12 +629,12 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest, DeleteSuggestion) {
   gfx::Rect button_local_bounds =
       result_view->remove_suggestion_button_->GetLocalBounds();
   ui::MouseEvent mouse_pressed_event(
-      ui::ET_MOUSE_PRESSED, button_local_bounds.CenterPoint(),
+      ui::EventType::kMousePressed, button_local_bounds.CenterPoint(),
       button_local_bounds.CenterPoint(), base::TimeTicks(),
       ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
   result_view->remove_suggestion_button_->OnMousePressed(mouse_pressed_event);
   ui::MouseEvent mouse_released_event(
-      ui::ET_MOUSE_RELEASED, button_local_bounds.CenterPoint(),
+      ui::EventType::kMouseReleased, button_local_bounds.CenterPoint(),
       button_local_bounds.CenterPoint(), base::TimeTicks(),
       ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
   result_view->remove_suggestion_button_->OnMouseReleased(mouse_released_event);
@@ -659,7 +672,23 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   popup_view()->UpdatePopupAppearance();
 
   EXPECT_FALSE(edit_model()->is_keyword_selected());
-  ui::KeyEvent space(ui::ET_KEY_PRESSED, ui::VKEY_SPACE, 0);
+  ui::KeyEvent space(ui::EventType::kKeyPressed, ui::VKEY_SPACE, 0);
   omnibox_view()->OnKeyEvent(&space);
   EXPECT_TRUE(edit_model()->is_keyword_selected());
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
+                       AccesibilityAttributePopupForId) {
+  CreatePopupForTestQuery();
+  popup_view()->UpdatePopupAppearance();
+  edit_model()->SetPopupSelection(OmniboxPopupSelection(0));
+
+  ui::AXNodeData ax_node_data_omnibox;
+  popup_view()->GetViewAccessibility().GetAccessibleNodeData(
+      &ax_node_data_omnibox);
+  EXPECT_TRUE(ax_node_data_omnibox.HasIntAttribute(
+      ax::mojom::IntAttribute::kPopupForId));
+  EXPECT_EQ(ax_node_data_omnibox.GetIntAttribute(
+                ax::mojom::IntAttribute::kPopupForId),
+            omnibox_view()->GetViewAccessibility().GetUniqueId());
 }

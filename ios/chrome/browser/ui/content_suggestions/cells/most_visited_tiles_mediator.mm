@@ -17,6 +17,7 @@
 #import "components/ntp_tiles/ntp_tile.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/favicon/ui_bundled/favicon_attributes_provider.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/ntp_tiles/model/most_visited_sites_observer_bridge.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
@@ -24,6 +25,7 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/snackbar_util.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_tile_view.h"
@@ -37,7 +39,6 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_menu_provider.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_metrics_recorder.h"
-#import "ios/chrome/browser/ui/favicon/favicon_attributes_provider.h"
 #import "ios/chrome/browser/ui/menu/browser_action_factory.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_metrics_delegate.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
@@ -356,8 +357,7 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
     _mostVisitedConfig.commandHandler = self;
     _mostVisitedConfig.mostVisitedItems = _freshMostVisitedItems;
     _mostVisitedConfig.consumerSource = self;
-    if (IsIOSMagicStackCollectionViewEnabled() &&
-        ShouldPutMostVisitedSitesInMagicStack()) {
+    if (ShouldPutMostVisitedSitesInMagicStack()) {
       if ([_freshMostVisitedItems count] == 0) {
         [self.delegate removeMostVisitedTilesModule];
       } else if (!oldMostVisitedSites.empty()) {
@@ -416,9 +416,8 @@ const CGFloat kMagicStackMostVisitedFaviconMinimalSize = 18;
   action.accessibilityIdentifier = @"Undo";
 
   TriggerHapticFeedbackForNotification(UINotificationFeedbackTypeSuccess);
-  MDCSnackbarMessage* message = [MDCSnackbarMessage
-      messageWithText:l10n_util::GetNSString(
-                          IDS_IOS_NEW_TAB_MOST_VISITED_ITEM_REMOVED)];
+  MDCSnackbarMessage* message = CreateSnackbarMessage(
+      l10n_util::GetNSString(IDS_IOS_NEW_TAB_MOST_VISITED_ITEM_REMOVED));
   message.action = action;
   message.category = @"MostVisitedUndo";
   [self.snackbarHandler showSnackbarMessage:message];

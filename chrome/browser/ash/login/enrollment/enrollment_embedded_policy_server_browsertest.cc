@@ -34,6 +34,7 @@
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/ownership/fake_owner_settings_service.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
+#include "chrome/browser/ash/policy/enrollment/auto_enrollment_controller.h"
 #include "chrome/browser/ash/policy/enrollment/auto_enrollment_type_checker.h"
 #include "chrome/browser/ash/policy/enrollment/enrollment_requisition_manager.h"
 #include "chrome/browser/ash/policy/enrollment/psm/rlwe_test_support.h"
@@ -108,9 +109,7 @@ class EnrollmentEmbeddedPolicyServerBase : public OobeBaseTest {
       const EnrollmentEmbeddedPolicyServerBase&) = delete;
 
   void SetUpOnMainThread() override {
-    fake_gaia_.SetupFakeGaiaForLogin(FakeGaiaMixin::kFakeUserEmail,
-                                     FakeGaiaMixin::kFakeUserGaiaId,
-                                     FakeGaiaMixin::kFakeRefreshToken);
+    fake_gaia_.SetupFakeGaiaForLoginWithDefaults();
     policy_server_.SetUpdateDeviceAttributesPermission(false);
     OobeBaseTest::SetUpOnMainThread();
   }
@@ -1367,9 +1366,10 @@ class KioskEnrollmentTest : public EnrollmentEmbeddedPolicyServerBase {
   }
 
   void SetupAutoLaunchApp(FakeOwnerSettingsService* service) {
-    KioskChromeAppManager::Get()->AddApp(KioskAppsMixin::kKioskAppId, service);
-    KioskChromeAppManager::Get()->SetAutoLaunchApp(KioskAppsMixin::kKioskAppId,
-                                                   service);
+    KioskChromeAppManager::Get()->AddApp(KioskAppsMixin::kTestChromeAppId,
+                                         service);
+    KioskChromeAppManager::Get()->SetAutoLaunchApp(
+        KioskAppsMixin::kTestChromeAppId, service);
   }
 
  private:

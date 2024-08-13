@@ -10,6 +10,7 @@
 #include "base/containers/fixed_flat_map.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_base_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_content_scrim_view.h"
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_view_delegate.h"
@@ -79,6 +80,8 @@ class EmbeddedPermissionPrompt
   std::vector<permissions::ElementAnchoredBubbleVariant> GetPromptVariants()
       const override;
   bool IsAskPrompt() const override;
+  std::optional<permissions::feature_params::PermissionElementPromptPosition>
+  GetPromptPosition() const override;
 
   // EmbeddedPermissionPromptViewDelegate:
   void Allow() override;
@@ -125,9 +128,6 @@ class EmbeddedPermissionPrompt
 
   void CloseView();
 
-  EmbeddedPermissionPrompt::SystemPermissionDelegate*
-  GetSystemPermissionDelegate(ContentSettingsType type);
-
   void FinalizePrompt();
   void SendDelegateAction(Action action);
 
@@ -148,9 +148,6 @@ class EmbeddedPermissionPrompt
   std::vector<raw_ptr<permissions::PermissionRequest, VectorExperimental>>
       requests_;
   int prompt_screen_counter_for_metrics_ = 0;
-
-  base::flat_map<ContentSettingsType, std::unique_ptr<SystemPermissionDelegate>>
-      system_permission_delegates_;
 
   std::optional<Action> sent_action_ = std::nullopt;
 

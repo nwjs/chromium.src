@@ -10,13 +10,12 @@
 #include "base/test/task_environment.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/testing_pref_service.h"
-#include "components/saved_tab_groups/empty_tab_group_store_delegate.h"
 #include "components/saved_tab_groups/features.h"
 #include "components/saved_tab_groups/pref_names.h"
 #include "components/saved_tab_groups/saved_tab_group_model.h"
 #include "components/saved_tab_groups/saved_tab_group_test_utils.h"
-#include "components/saved_tab_groups/tab_group_store.h"
-#include "components/saved_tab_groups/tab_group_store_id.h"
+#include "components/saved_tab_groups/sync_data_type_configuration.h"
+#include "components/saved_tab_groups/tab_group_sync_coordinator.h"
 #include "components/saved_tab_groups/tab_group_sync_metrics_logger.h"
 #include "components/saved_tab_groups/tab_group_sync_service_impl.h"
 #include "components/sync/base/model_type.h"
@@ -53,25 +52,22 @@ class MockTabGroupSyncServiceObserver : public TabGroupSyncService::Observer {
   MOCK_METHOD(void, OnTabGroupRemoved, (const base::Uuid&, TriggerSource));
 };
 
-class MockTabGroupStore : public TabGroupStore {
+class MockTabGroupSyncCoordinator : public TabGroupSyncCoordinator {
  public:
-  MockTabGroupStore()
-      : TabGroupStore(std::make_unique<EmptyTabGroupStoreDelegate>()) {}
-  ~MockTabGroupStore() override = default;
+  MockTabGroupSyncCoordinator() = default;
+  ~MockTabGroupSyncCoordinator() override = default;
 
-  MOCK_METHOD(void, Initialize, (TabGroupStore::InitCallback));
-  MOCK_METHOD((std::map<base::Uuid, TabGroupIDMetadata>),
-              GetAllTabGroupIDMetadata,
-              (),
-              (const));
-  MOCK_METHOD(std::optional<TabGroupIDMetadata>,
-              GetTabGroupIDMetadata,
-              (const base::Uuid&),
-              (const));
   MOCK_METHOD(void,
-              StoreTabGroupIDMetadata,
-              (const base::Uuid&, const TabGroupIDMetadata&));
-  MOCK_METHOD(void, DeleteTabGroupIDMetadata, (const base::Uuid&));
+              HandleOpenTabGroupRequest,
+              (const base::Uuid&, std::unique_ptr<TabGroupActionContext>));
+  MOCK_METHOD(std::unique_ptr<ScopedLocalObservationPauser>,
+              CreateScopedLocalObserverPauser,
+              ());
+  MOCK_METHOD(void, OnInitialized, ());
+  MOCK_METHOD(void, OnTabGroupAdded, (const SavedTabGroup&, TriggerSource));
+  MOCK_METHOD(void, OnTabGroupUpdated, (const SavedTabGroup&, TriggerSource));
+  MOCK_METHOD(void, OnTabGroupRemoved, (const LocalTabGroupID&, TriggerSource));
+  MOCK_METHOD(void, OnTabGroupRemoved, (const base::Uuid&, TriggerSource));
 };
 
 MATCHER_P(UuidEq, uuid, "") {
@@ -96,31 +92,32 @@ class TabGroupSyncServiceTest : public testing::Test {
   void SetUp() override {
     auto model = std::make_unique<SavedTabGroupModel>();
     model_ = model.get();
-    auto tab_group_store = std::make_unique<MockTabGroupStore>();
-    tab_group_store_ = tab_group_store.get();
     pref_service_.registry()->RegisterBooleanPref(
         prefs::kSavedTabGroupSpecificsToDataMigration, false);
     pref_service_.registry()->RegisterDictionaryPref(prefs::kDeletedTabGroupIds,
                                                      base::Value::Dict());
 
-    std::map<base::Uuid, LocalTabGroupID> migrated_android_local_ids;
     auto metrics_logger =
         std::make_unique<TabGroupSyncMetricsLogger>(&device_info_tracker_);
 
     tab_group_sync_service_ = std::make_unique<TabGroupSyncServiceImpl>(
         std::move(model),
-        std::make_unique<TabGroupSyncServiceImpl::SyncDataTypeConfiguration>(
+        std::make_unique<SyncDataTypeConfiguration>(
             processor_.CreateForwardingProcessor(),
             syncer::ModelTypeStoreTestUtil::FactoryForForwardingStore(
                 store_.get())),
-        nullptr, std::move(tab_group_store), &pref_service_,
-        migrated_android_local_ids, std::move(metrics_logger));
+        nullptr, &pref_service_, std::move(metrics_logger));
     ON_CALL(processor_, IsTrackingMetadata())
         .WillByDefault(testing::Return(true));
     ON_CALL(processor_, TrackedCacheGuid())
         .WillByDefault(testing::Return(kTestCacheGuid));
     ON_CALL(processor_, GetControllerDelegate())
         .WillByDefault(testing::Return(fake_controller_delegate_.GetWeakPtr()));
+
+    auto coordinator = std::make_unique<MockTabGroupSyncCoordinator>();
+    coordinator_ = coordinator.get();
+    tab_group_sync_service_->SetCoordinator(std::move(coordinator));
+
     observer_ = std::make_unique<MockTabGroupSyncServiceObserver>();
     tab_group_sync_service_->AddObserver(observer_.get());
     task_environment_.RunUntilIdle();
@@ -135,6 +132,7 @@ class TabGroupSyncServiceTest : public testing::Test {
   void TearDown() override {
     tab_group_sync_service_->RemoveObserver(observer_.get());
     model_ = nullptr;
+    coordinator_ = nullptr;
   }
 
   void InitializeTestGroups() {
@@ -185,40 +183,6 @@ class TabGroupSyncServiceTest : public testing::Test {
     model_->Add(group_3_);
   }
 
-  void SetupTabGroupStore(bool finish_init) {
-    // Set up TabGroupStore with 3 IDs: 2 in both sync and store, 1 in sync but
-    // not in store, and 1 in store but not in sync.
-    std::map<base::Uuid, TabGroupIDMetadata> id_metadatas;
-
-    TabGroupIDMetadata id_metadata_1(local_group_id_1_);
-    id_metadatas.insert(std::make_pair(group_1_.saved_guid(), id_metadata_1));
-    ON_CALL(*tab_group_store_, GetTabGroupIDMetadata(group_1_.saved_guid()))
-        .WillByDefault(Return(id_metadata_1));
-
-    TabGroupIDMetadata id_metadata_2(test::GenerateRandomTabGroupID());
-    id_metadatas.insert(std::make_pair(group_2_.saved_guid(), id_metadata_2));
-    ON_CALL(*tab_group_store_, GetTabGroupIDMetadata(group_2_.saved_guid()))
-        .WillByDefault(Return(id_metadata_2));
-
-    base::Uuid uuid_4 = base::Uuid::GenerateRandomV4();
-    TabGroupIDMetadata id_metadata_4(test::GenerateRandomTabGroupID());
-    id_metadatas.insert(std::make_pair(uuid_4, id_metadata_4));
-    ON_CALL(*tab_group_store_, GetTabGroupIDMetadata(uuid_4))
-        .WillByDefault(Return(id_metadata_4));
-
-    ON_CALL(*tab_group_store_, GetAllTabGroupIDMetadata())
-        .WillByDefault(Return(id_metadatas));
-
-    // Finish store init if requested.
-    ON_CALL(*tab_group_store_, Initialize(_))
-        .WillByDefault(
-            Invoke([finish_init](TabGroupStore::InitCallback callback) {
-              if (finish_init) {
-                std::move(callback).Run();
-              }
-            }));
-  }
-
   void VerifyCacheGuids(const SavedTabGroup& group,
                         const SavedTabGroupTab* tab,
                         std::optional<std::string> group_creator_cache_guid,
@@ -244,9 +208,9 @@ class TabGroupSyncServiceTest : public testing::Test {
   std::unique_ptr<syncer::ModelTypeStore> store_;
   std::unique_ptr<MockTabGroupSyncServiceObserver> observer_;
   syncer::FakeDeviceInfoTracker device_info_tracker_;
+  raw_ptr<MockTabGroupSyncCoordinator> coordinator_;
   std::unique_ptr<TabGroupSyncServiceImpl> tab_group_sync_service_;
   syncer::FakeModelTypeControllerDelegate fake_controller_delegate_;
-  raw_ptr<MockTabGroupStore> tab_group_store_;
 
   SavedTabGroup group_1_;
   SavedTabGroup group_2_;
@@ -286,31 +250,6 @@ TEST_F(TabGroupSyncServiceTest, GetGroup) {
   test::CompareSavedTabGroupTabs(group->saved_tabs(), group_1_.saved_tabs());
 }
 
-TEST_F(TabGroupSyncServiceTest, GetDeletedGroupIdsWithMigrationDisabled) {
-  // Disable migration from Java SharedPrefs.
-  feature_list_.InitWithFeatures({},
-                                 {tab_groups::kMigrationFromJavaSharedPrefs});
-
-  // Setup TabGroupStore with 3 IDs: 2 in both sync and store, 1 in sync but not
-  // in store, and 1 in store but not in sync.
-  std::map<base::Uuid, TabGroupIDMetadata> id_metadatas;
-  id_metadatas.insert(std::make_pair(group_1_.saved_guid(),
-                                     TabGroupIDMetadata(local_group_id_1_)));
-  id_metadatas.insert(
-      std::make_pair(group_2_.saved_guid(),
-                     TabGroupIDMetadata(test::GenerateRandomTabGroupID())));
-
-  TabGroupIDMetadata id_metadata_4(test::GenerateRandomTabGroupID());
-  id_metadatas.insert(
-      std::make_pair(base::Uuid::GenerateRandomV4(), id_metadata_4));
-  EXPECT_CALL(*tab_group_store_, GetAllTabGroupIDMetadata())
-      .WillOnce(Return(id_metadatas));
-
-  auto deleted_ids = tab_group_sync_service_->GetDeletedGroupIds();
-  EXPECT_EQ(deleted_ids.size(), 1u);
-  EXPECT_TRUE(base::Contains(deleted_ids, id_metadata_4.local_tab_group_id));
-}
-
 TEST_F(TabGroupSyncServiceTest, GetDeletedGroupIdsUsingPrefs) {
   // Delete a group from sync. It should add the deleted ID to the pref.
   model_->RemovedFromSync(group_1_.saved_guid());
@@ -344,11 +283,6 @@ TEST_F(TabGroupSyncServiceTest, AddGroup) {
   SavedTabGroup group_4(test::CreateTestSavedTabGroup());
   LocalTabGroupID tab_group_id = test::GenerateRandomTabGroupID();
   group_4.SetLocalGroupId(tab_group_id);
-
-  TabGroupIDMetadata id_metadata(tab_group_id);
-  EXPECT_CALL(
-      *tab_group_store_,
-      StoreTabGroupIDMetadata(Eq(group_4.saved_guid()), Eq(id_metadata)));
 
   tab_group_sync_service_->AddGroup(group_4);
 
@@ -400,8 +334,6 @@ TEST_F(TabGroupSyncServiceTest, RemoveGroupByLocalId) {
       tab_group_sync_service_->GetGroup(group_4.saved_guid()).has_value());
 
   // Remove the group and verify.
-  EXPECT_CALL(*tab_group_store_,
-              DeleteTabGroupIDMetadata(Eq(group_4.saved_guid())));
   tab_group_sync_service_->RemoveGroup(tab_group_id);
   EXPECT_EQ(tab_group_sync_service_->GetGroup(group_4.saved_guid()),
             std::nullopt);
@@ -415,8 +347,6 @@ TEST_F(TabGroupSyncServiceTest, RemoveGroupByLocalId) {
 
 TEST_F(TabGroupSyncServiceTest, RemoveGroupBySyncId) {
   // Remove the group and verify.
-  EXPECT_CALL(*tab_group_store_,
-              DeleteTabGroupIDMetadata(Eq(group_1_.saved_guid())));
   tab_group_sync_service_->RemoveGroup(group_1_.saved_guid());
   EXPECT_EQ(tab_group_sync_service_->GetGroup(group_1_.saved_guid()),
             std::nullopt);
@@ -443,12 +373,16 @@ TEST_F(TabGroupSyncServiceTest, UpdateVisualData) {
       "TabGroups.Sync.TabGroup.VisualsChanged.GroupCreateOrigin", 1u);
 }
 
+TEST_F(TabGroupSyncServiceTest, OpenTabGroup) {
+  EXPECT_CALL(*coordinator_,
+              HandleOpenTabGroupRequest(group_2_.saved_guid(), testing::_))
+      .Times(1);
+  tab_group_sync_service_->OpenTabGroup(
+      group_2_.saved_guid(), std::make_unique<TabGroupActionContext>());
+}
+
 TEST_F(TabGroupSyncServiceTest, UpdateLocalTabGroupMapping) {
   LocalTabGroupID local_id_2 = test::GenerateRandomTabGroupID();
-  TabGroupIDMetadata id_metadata(local_id_2);
-  EXPECT_CALL(
-      *tab_group_store_,
-      StoreTabGroupIDMetadata(Eq(group_1_.saved_guid()), Eq(id_metadata)));
   tab_group_sync_service_->UpdateLocalTabGroupMapping(group_1_.saved_guid(),
                                                       local_id_2);
 
@@ -467,12 +401,11 @@ TEST_F(TabGroupSyncServiceTest, UpdateLocalTabGroupMapping) {
 TEST_F(TabGroupSyncServiceTest, RemoveLocalTabGroupMapping) {
   auto retrieved_group = tab_group_sync_service_->GetGroup(local_group_id_1_);
   EXPECT_TRUE(retrieved_group.has_value());
-  EXPECT_CALL(*tab_group_store_,
-              DeleteTabGroupIDMetadata(Eq(group_1_.saved_guid())));
   tab_group_sync_service_->RemoveLocalTabGroupMapping(local_group_id_1_);
 
   retrieved_group = tab_group_sync_service_->GetGroup(local_group_id_1_);
   EXPECT_FALSE(retrieved_group.has_value());
+  // TODO
 }
 
 TEST_F(TabGroupSyncServiceTest, AddTab) {
@@ -546,8 +479,6 @@ TEST_F(TabGroupSyncServiceTest, RemoveTab) {
                    std::nullopt, std::nullopt);
 
   // Remove the last tab. The group should be removed from the model.
-  EXPECT_CALL(*tab_group_store_,
-              DeleteTabGroupIDMetadata(Eq(group_1_.saved_guid())));
   tab_group_sync_service_->RemoveTab(local_group_id_1_, local_tab_id_1_);
   group = tab_group_sync_service_->GetGroup(group_1_.saved_guid());
   EXPECT_FALSE(group.has_value());
@@ -657,48 +588,19 @@ TEST_F(TabGroupSyncServiceTest, UpdateLocalTabId) {
 }
 
 TEST_F(TabGroupSyncServiceTest, AddObserverBeforeInitialize) {
-  SetupTabGroupStore(true);
   EXPECT_CALL(*observer_, OnInitialized()).Times(1);
   model_->LoadStoredEntries(/*groups=*/{}, /*tabs=*/{});
+  task_environment_.RunUntilIdle();
 }
 
 TEST_F(TabGroupSyncServiceTest, AddObserverAfterInitialize) {
-  SetupTabGroupStore(true);
   EXPECT_CALL(*observer_, OnInitialized()).Times(1);
   model_->LoadStoredEntries(/*groups=*/{}, /*tabs=*/{});
+  task_environment_.RunUntilIdle();
 
   auto observer2 = std::make_unique<MockTabGroupSyncServiceObserver>();
   EXPECT_CALL(*observer2, OnInitialized()).Times(1);
   tab_group_sync_service_->AddObserver(observer2.get());
-}
-
-TEST_F(TabGroupSyncServiceTest, InitIsNotCompleteUntilMappingsAreRead) {
-  SetupTabGroupStore(false);
-  EXPECT_CALL(*observer_, OnInitialized()).Times(0);
-  model_->LoadStoredEntries(/*groups=*/{}, /*tabs=*/{});
-}
-
-TEST_F(TabGroupSyncServiceTest, MappingsAreFixedOnStartup) {
-  SetupTabGroupStore(true);
-  EXPECT_CALL(*observer_, OnInitialized()).Times(1);
-  model_->LoadStoredEntries(/*groups=*/{}, /*tabs=*/{});
-
-  // Group 2 is an open group that has mapping persisted.
-  auto group2 = tab_group_sync_service_->GetGroup(group_2_.saved_guid());
-  EXPECT_TRUE(group2->local_group_id());
-
-  // Group 3 is a closed group that doesn't have mapping entry.
-  auto group3 = tab_group_sync_service_->GetGroup(group_3_.saved_guid());
-  EXPECT_FALSE(group3->local_group_id());
-}
-
-TEST_F(TabGroupSyncServiceTest, MappingsAreNotFixedIfSetupNotComplete) {
-  SetupTabGroupStore(false);
-  EXPECT_CALL(*observer_, OnInitialized()).Times(0);
-  model_->LoadStoredEntries(/*groups=*/{}, /*tabs=*/{});
-
-  auto group = tab_group_sync_service_->GetGroup(group_2_.saved_guid());
-  EXPECT_FALSE(group->local_group_id());
 }
 
 TEST_F(TabGroupSyncServiceTest, OnTabGroupAddedFromRemoteSource) {
@@ -732,7 +634,7 @@ TEST_F(TabGroupSyncServiceTest, OnTabGroupUpdatedFromLocalSource) {
   EXPECT_CALL(*observer_, OnTabGroupUpdated(UuidEq(group_1_.saved_guid()),
                                             Eq(TriggerSource::LOCAL)))
       .Times(1);
-  model_->UpdateVisualData(group_1_.saved_guid(), &visual_data);
+  model_->UpdateVisualData(group_1_.local_group_id().value(), &visual_data);
 }
 
 TEST_F(TabGroupSyncServiceTest, OnTabGroupUpdatedOnTabGroupIdMappingChange) {

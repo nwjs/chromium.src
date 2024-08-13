@@ -52,11 +52,12 @@ H265VaapiVideoDecoderDelegate::~H265VaapiVideoDecoderDelegate() = default;
 
 scoped_refptr<H265Picture> H265VaapiVideoDecoderDelegate::CreateH265Picture() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  const auto va_surface = vaapi_dec_->CreateSurface();
-  if (!va_surface)
+  auto va_surface_handle = vaapi_dec_->CreateSurface();
+  if (!va_surface_handle) {
     return nullptr;
+  }
 
-  return new VaapiH265Picture(std::move(va_surface));
+  return new VaapiH265Picture(std::move(va_surface_handle));
 }
 
 bool H265VaapiVideoDecoderDelegate::IsChromaSamplingSupported(
@@ -489,11 +490,8 @@ DecodeStatus H265VaapiVideoDecoderDelegate::SubmitDecode(
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   const VaapiH265Picture* vaapi_pic = pic->AsVaapiH265Picture();
-  CHECK(
-      gfx::Rect(vaapi_pic->va_surface()->size()).Contains(pic->visible_rect()));
-
   const bool success = vaapi_wrapper_->ExecuteAndDestroyPendingBuffers(
-      vaapi_pic->va_surface()->id());
+      vaapi_pic->va_surface_id());
   ref_pic_list_pocs_.clear();
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   encryption_segment_info_.clear();
@@ -512,7 +510,7 @@ bool H265VaapiVideoDecoderDelegate::OutputPicture(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   const VaapiH265Picture* vaapi_pic = pic->AsVaapiH265Picture();
-  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface()->id(),
+  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface_id(),
                            vaapi_pic->bitstream_id(), vaapi_pic->visible_rect(),
                            vaapi_pic->get_colorspace());
   return true;
@@ -544,7 +542,7 @@ void H265VaapiVideoDecoderDelegate::FillVAPicture(
     VAPictureHEVC* va_pic,
     scoped_refptr<H265Picture> pic) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  va_pic->picture_id = pic->AsVaapiH265Picture()->va_surface()->id();
+  va_pic->picture_id = pic->AsVaapiH265Picture()->va_surface_id();
   va_pic->pic_order_cnt = pic->pic_order_cnt_val_;
   va_pic->flags = 0;
 

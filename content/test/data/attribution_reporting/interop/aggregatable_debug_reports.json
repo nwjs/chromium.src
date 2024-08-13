@@ -264,6 +264,34 @@
         ]
       },
       // Changes to a different reporting site. `trigger-no-matching-source` can
+      // consume up to a budget of 65536. However, no aggregatable debug report
+      // was created due to no attribution data.
+      {
+        "timestamp": "8500",
+        "registration_request": {
+          "context_origin": "https://destination.test"
+        },
+        "responses": [
+          {
+            "url": "https://reporter2.test/register-trigger",
+            "response": {
+              "Attribution-Reporting-Register-Trigger": {
+                "aggregatable_debug_reporting": {
+                  "key_piece": "0x1f",
+                  "debug_data": [
+                    {
+                      "types": ["trigger-no-matching-source"],
+                      "key_piece": "0x321",
+                      "value": 65536
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      // Changes to a different reporting site. `trigger-no-matching-source` can
       // consume up to a budget of 65536. Creates an aggregatable debug report.
       {
         "timestamp": "9000",
@@ -411,6 +439,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c1.test",
           "histograms": [ {
+            "id": "0",
             "key": "0xd",
             "value": 123
           } ],
@@ -419,7 +448,7 @@
             "attribution_destination": "https://destination.test",
             "reporting_origin": "https://reporter.test",
             "scheduled_report_time": "3",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "3000",
@@ -429,6 +458,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c1.test",
           "histograms": [ {
+            "id": "0",
             "key": "0x0",
             "value": 0
           } ],
@@ -437,7 +467,7 @@
             "attribution_destination": "https://destination.test",
             "reporting_origin": "https://reporter1.test",
             "scheduled_report_time": "4",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "4000",
@@ -447,6 +477,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c1.test",
           "histograms": [ {
+            "id": "0",
             "key": "0x1f",
             "value": 65536
           } ],
@@ -455,7 +486,7 @@
             "attribution_destination": "https://destination.test",
             "reporting_origin": "https://reporter1.test",
             "scheduled_report_time": "5",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "5000",
@@ -465,6 +496,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c1.test",
           "histograms": [ {
+            "id": "0",
             "key": "0x7",
             "value": 666
           } ],
@@ -473,7 +505,7 @@
             "attribution_destination": "https://destination.test",
             "reporting_origin": "https://reporter.test",
             "scheduled_report_time": "6",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "6000",
@@ -483,6 +515,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c1.test",
           "histograms": [ {
+            "id": "0",
             "key": "0x133",
             "value": 678
           } ],
@@ -491,7 +524,7 @@
             "attribution_destination": "https://destination.test",
             "reporting_origin": "https://reporter.test",
             "scheduled_report_time": "7",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "7000",
@@ -501,6 +534,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c1.test",
           "histograms": [ {
+            "id": "0",
             "key": "0x0",
             "value": 0
           } ],
@@ -509,7 +543,7 @@
             "attribution_destination": "https://destination.test",
             "reporting_origin": "https://a.reporter1.test",
             "scheduled_report_time": "8",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "8000",
@@ -519,6 +553,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c2.test",
           "histograms": [ {
+            "id": "0",
             "key": "0x33f",
             "value": 65536
           } ],
@@ -527,7 +562,7 @@
             "attribution_destination": "https://destination.test",
             "reporting_origin": "https://reporter2.test",
             "scheduled_report_time": "9",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "9000",
@@ -537,6 +572,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c1.test",
           "histograms": [ {
+            "id": "0",
             "key": "0x9",
             "value": 65536
           } ],
@@ -546,7 +582,7 @@
             "reporting_origin": "https://reporter.test",
             "scheduled_report_time": "3611",
             "source_registration_time": "0",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "3611000",
@@ -556,6 +592,7 @@
         "payload": {
           "aggregation_coordinator_origin": "https://c1.test",
           "histograms": [ {
+            "id": "0",
             "key": "0x36",
             "value": 65536
           } ],
@@ -565,7 +602,7 @@
             "reporting_origin": "https://reporter.test",
             "scheduled_report_time": "3613",
             "source_registration_time": "0",
-            "version": "0.1"
+            "version": "1.0"
           }
         },
         "report_time": "3613000",

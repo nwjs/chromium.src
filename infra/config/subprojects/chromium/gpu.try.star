@@ -191,22 +191,24 @@ def gpu_linux_builder(*, name, **kwargs):
     )
 
 gpu_linux_builder(
-    name = "gpu-fyi-try-lacros-amd-rel",
+    name = "gpu-fyi-try-linux-wayland-amd-rel",
+    description_html = "Runs GPU tests on weston with AMD RX 5500 XT",
     mirrors = [
-        "ci/GPU FYI Lacros x64 Builder",
-        "ci/Lacros FYI x64 Release (AMD)",
+        "ci/GPU FYI Linux Wayland Builder",
+        "ci/Linux Wayland FYI Release (AMD)",
     ],
-    gn_args = "ci/GPU FYI Lacros x64 Builder",
+    gn_args = "ci/GPU FYI Linux Wayland Builder",
     pool = "luci.chromium.gpu.linux.amd.try",
 )
 
 gpu_linux_builder(
-    name = "gpu-fyi-try-lacros-intel-rel",
+    name = "gpu-fyi-try-linux-wayland-intel-rel",
+    description_html = "Runs GPU tests on weston with Intel UHD 630",
     mirrors = [
-        "ci/GPU FYI Lacros x64 Builder",
-        "ci/Lacros FYI x64 Release (Intel)",
+        "ci/GPU FYI Linux Wayland Builder",
+        "ci/Linux Wayland FYI Release (Intel)",
     ],
-    gn_args = "ci/GPU FYI Lacros x64 Builder",
+    gn_args = "ci/GPU FYI Linux Wayland Builder",
     pool = "luci.chromium.gpu.linux.intel.try",
 )
 
@@ -316,13 +318,12 @@ gpu_linux_builder(
 )
 
 def gpu_mac_builder(*, name, **kwargs):
+    kwargs.setdefault("cpu", None)
     return try_.builder(
         name = name,
         builder_group = "tryserver.chromium.mac",
         builderless = True,
         cores = None,
-        # Builders can run on either Intel or Apple Silicon hadware.
-        cpu = None,
         os = os.MAC_ANY,
         ssd = None,
         **kwargs
@@ -386,6 +387,7 @@ gpu_mac_builder(
     ],
     gn_args = "ci/GPU FYI Mac arm64 Builder",
     pool = "luci.chromium.gpu.mac.arm64.apple.m1.try",
+    cpu = cpu.ARM64,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -397,6 +399,7 @@ gpu_mac_builder(
     ],
     gn_args = "ci/GPU FYI Mac arm64 Builder",
     pool = "luci.chromium.gpu.mac.arm64.apple.m1.try",
+    cpu = cpu.ARM64,
 )
 
 gpu_mac_builder(

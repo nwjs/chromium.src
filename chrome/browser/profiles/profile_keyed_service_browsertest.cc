@@ -189,6 +189,7 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
           switches::kEnableBoundSessionCredentials,
 #endif  // BUILDFLAG(IS_WIN)
           blink::features::kBrowsingTopics,
+          blink::features::kEnableBuiltInAIAPI,
           net::features::kTopLevelTpcdOriginTrial,
           net::features::kTpcdTrialSettings,
           net::features::kTopLevelTpcdTrialSettings,
@@ -244,6 +245,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "LiveCaptionController",
     "LiveTranslateController",
 #endif // BUILDFLAG(IS_CHROMEOS_LACROS)
+    "AIManagerKeyedService",
     "AlarmManager",
     "BackgroundContentsService",
     "BackgroundSyncService",
@@ -477,6 +479,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "ManagedBookmarkService",
     "ManagedConfigurationAPI",
     "ManagementAPI",
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+    "ManifestV2ExperimentManager",
+#endif
     "MediaGalleriesAPI",
     "MediaRouter",
     "MediaRouterUIService",
@@ -679,6 +684,11 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "PermissionsUpdaterShutdownFactory",
     "PluginInfoHostImpl",
     "TurnSyncOnHelperShutdownNotifier",
+
+    // Those services are needed to be able to display IPHs in the Profile
+    // Picker.
+    "feature_engagement::Tracker",
+    "UserEducationService",
   };
   // clang-format on
 

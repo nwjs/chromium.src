@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.ui.plus_addresses;
 
 import android.app.Activity;
 
+import androidx.annotation.Nullable;
+
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -25,23 +27,25 @@ public class PlusAddressCreationCoordinator {
             PlusAddressCreationViewBridge bridge,
             String modalTitle,
             String plusAddressDescription,
+            @Nullable String plusAddressNotice,
             String proposedPlusAddressPlaceholder,
             String plusAddressModalOkText,
-            String plusAddressModalCancelText,
+            @Nullable String plusAddressModalCancelText,
             String errorReportInstruction,
             boolean refreshSupported,
-            GURL manageUrl,
+            GURL learnMoreUrl,
             GURL errorReportUrl) {
         PlusAddressCreationBottomSheetContent bottomSheetContent =
                 new PlusAddressCreationBottomSheetContent(
                         activity,
                         modalTitle,
                         plusAddressDescription,
+                        plusAddressNotice,
                         proposedPlusAddressPlaceholder,
                         plusAddressModalOkText,
                         plusAddressModalCancelText,
                         errorReportInstruction,
-                        manageUrl,
+                        learnMoreUrl,
                         errorReportUrl,
                         refreshSupported);
         mMediator =

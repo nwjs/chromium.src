@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/functional/callback_forward.h"
@@ -122,13 +123,13 @@ class PrefServiceSyncable : public PrefService,
 
   void ConnectAssociatorsAndRegisterPreferences();
 
-  void AddRegisteredSyncablePreference(const std::string& path, uint32_t flags);
+  void AddRegisteredSyncablePreference(std::string_view path, uint32_t flags);
 
   // PrefServiceForAssociator:
   base::Value::Type GetRegisteredPrefType(
-      const std::string& pref_name) const override;
+      std::string_view pref_name) const override;
   void OnIsSyncingChanged() override;
-  uint32_t GetWriteFlags(const std::string& pref_name) const override;
+  uint32_t GetWriteFlags(std::string_view pref_name) const override;
 
   // Whether CreateIncognitoPrefService() has been called to create a
   // "forked" PrefService.

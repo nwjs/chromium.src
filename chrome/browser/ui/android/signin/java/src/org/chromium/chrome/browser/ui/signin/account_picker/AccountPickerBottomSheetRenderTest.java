@@ -25,13 +25,14 @@ import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -45,7 +46,6 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.NightModeTestUtils;
 import org.chromium.ui.test.util.RenderTestRule;
@@ -58,6 +58,7 @@ import java.io.IOException;
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
+// TODO(crbug.com/354128847): Fix NPE when launching DeviceLockActivity on automotive.
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
 public class AccountPickerBottomSheetRenderTest {
     private static final String TEST_EMAIL1 = "test.account1@gmail.com";
@@ -146,7 +147,7 @@ public class AccountPickerBottomSheetRenderTest {
 
     @ParameterAnnotations.UseMethodParameterBefore(NightModeTestUtils.NightModeParams.class)
     public void setupNightMode(boolean nightModeEnabled) {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ChromeNightModeTestUtils.setUpNightModeForChromeActivity(nightModeEnabled);
                 });
@@ -172,7 +173,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
-    @Features.DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testCollapsedSheetWithAccountViewForWebSigninEntryPoint(boolean nightModeEnabled)
             throws IOException {
@@ -187,7 +188,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
-    @Features.EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+    @EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void
             testCollapsedSheetWithAccountViewForWebSigninEntryPoint_replaceSyncWithSigninPromosEnabled(
@@ -204,7 +205,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
-    @Features.DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testCollapsedSheetWithAccountViewForSendTabToSelfEntryPoint(
             boolean nightModeEnabled) throws IOException {
@@ -221,7 +222,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
-    @Features.EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+    @EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void
             testCollapsedSheetWithAccountViewForSendTabToSelfEntryPoint_replaceSyncWithSigninPromosEnabled(
@@ -239,7 +240,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
-    @Features.DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testCollapsedSheetWithAccountViewForBookmarksEntryPoint(boolean nightModeEnabled)
             throws IOException {
@@ -256,7 +257,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
-    @Features.EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+    @EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void
             testCollapsedSheetWithAccountViewForBookmarksEntryPoint_replaceSyncWithSigninPromosEnabled(
@@ -274,6 +275,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testExpandedSheetViewForWebSigninEntryPoint(boolean nightModeEnabled)
             throws IOException {
@@ -303,6 +305,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testExpandedSheetViewForSendTabToSelfEntryPoint(boolean nightModeEnabled)
             throws IOException {
@@ -335,6 +338,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testExpandedSheetViewForBookmarksEntryPoint(boolean nightModeEnabled)
             throws IOException {
@@ -367,6 +371,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testSignInInProgressView(boolean nightModeEnabled) throws IOException {
         mAccountManagerTestRule.addAccount(TEST_EMAIL1);
@@ -390,6 +395,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testTryAgainButtonOnSignInGeneralErrorSheet(boolean nightModeEnabled)
             throws IOException {
@@ -404,6 +410,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testSigninGeneralErrorView(boolean nightModeEnabled) throws IOException {
         mAccountManagerTestRule.addAccount(TEST_EMAIL1);
@@ -433,6 +440,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testSigninAuthErrorView(boolean nightModeEnabled) throws IOException {
         mAccountManagerTestRule.addAccount(TEST_EMAIL1);
@@ -462,15 +470,16 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
-    @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
+    @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     @EnableFeatures(SigninFeatures.ENTERPRISE_POLICY_ON_SIGNIN)
+    @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testConfirmManagementView(boolean nightModeEnabled) throws IOException {
         mAccountManagerTestRule.addAccount(TEST_EMAIL1);
         mAccountPickerDelegate.setAccountManaged(true);
         buildAndShowCollapsedBottomSheet();
 
         View bottomSheetView = mCoordinator.getBottomSheetViewForTesting();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     bottomSheetView
                             .findViewById(R.id.account_picker_continue_as_button)
@@ -486,11 +495,11 @@ public class AccountPickerBottomSheetRenderTest {
     @Test
     @MediumTest
     @Feature("RenderTest")
-    @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     @EnableFeatures({
         SigninFeatures.ENTERPRISE_POLICY_ON_SIGNIN,
         ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS
     })
+    @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testConfirmManagementView_replaceSyncWithSigninPromosEnabled(
             boolean nightModeEnabled) throws IOException {
         mAccountManagerTestRule.addAccount(TEST_EMAIL1);
@@ -498,7 +507,7 @@ public class AccountPickerBottomSheetRenderTest {
         buildAndShowCollapsedBottomSheet();
 
         View bottomSheetView = mCoordinator.getBottomSheetViewForTesting();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     bottomSheetView
                             .findViewById(R.id.account_picker_continue_as_button)
@@ -514,7 +523,7 @@ public class AccountPickerBottomSheetRenderTest {
 
     private void clickContinueButtonAndWaitForErrorView() {
         View bottomSheetView = mCoordinator.getBottomSheetViewForTesting();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     bottomSheetView
                             .findViewById(R.id.account_picker_continue_as_button)
@@ -530,7 +539,7 @@ public class AccountPickerBottomSheetRenderTest {
 
     private void clickContinueButtonAndCheckSigninInProgressView(String testId) throws IOException {
         View bottomSheetView = mCoordinator.getBottomSheetViewForTesting();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     bottomSheetView
                             .findViewById(R.id.account_picker_continue_as_button)
@@ -538,12 +547,10 @@ public class AccountPickerBottomSheetRenderTest {
                 });
         CriteriaHelper.pollUiThread(
                 bottomSheetView.findViewById(R.id.account_picker_signin_spinner_view)::isShown);
-        // Currently the ProgressBar animation cannot be disabled on android-marshmallow-arm64-rel
-        // bot with DisableAnimationsTestRule, we hide the ProgressBar manually here to enable
-        // checks of other elements on the screen.
-        // TODO(crbug.com/40144184): Delete this line and use DisableAnimationsTestRule
-        //  once DisableAnimationsTestRule is fixed.
-        TestThreadUtils.runOnUiThreadBlocking(
+        // Currently the ProgressBar animation cannot be disabled with animations disabled.
+        // Hide the ProgressBar manually here to enable checks of other elements on the screen.
+        // TODO(crbug.com/40144184): Delete this line.
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     bottomSheetView
                             .findViewById(R.id.account_picker_signin_spinner_view)
@@ -554,7 +561,7 @@ public class AccountPickerBottomSheetRenderTest {
 
     private void expandBottomSheet() {
         View view = mCoordinator.getBottomSheetViewForTesting();
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     view.findViewById(R.id.account_picker_selected_account).performClick();
                 });
@@ -562,7 +569,7 @@ public class AccountPickerBottomSheetRenderTest {
     }
 
     private void buildAndShowCollapsedBottomSheet() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mCoordinator =
                             new AccountPickerBottomSheetCoordinator(

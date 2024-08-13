@@ -8,7 +8,10 @@
 
 #include "base/check_deref.h"
 #include "base/functional/callback.h"
+#include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/autofill_client.h"
+#include "components/autofill/core/browser/autofill_test_utils.h"
+#include "components/autofill/core/browser/merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_cvc_authenticator.h"
 #include "components/autofill/core/browser/payments/credit_card_otp_authenticator.h"
 #include "components/autofill/core/browser/payments/test/mock_payments_window_manager.h"
@@ -78,6 +81,16 @@ void TestPaymentsAutofillClient::ConfirmAccountNameFixFlow(
     base::OnceCallback<void(const std::u16string&)> callback) {
   credit_card_name_fix_flow_bubble_was_shown_ = true;
   std::move(callback).Run(std::u16string(u"Gaia Name"));
+}
+
+void TestPaymentsAutofillClient::ConfirmExpirationDateFixFlow(
+    const CreditCard& card,
+    base::OnceCallback<void(const std::u16string&, const std::u16string&)>
+        callback) {
+  credit_card_name_fix_flow_bubble_was_shown_ = true;
+  std::move(callback).Run(
+      std::u16string(u"03"),
+      std::u16string(base::ASCIIToUTF16(test::NextYear().c_str())));
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
@@ -185,6 +198,11 @@ void TestPaymentsAutofillClient::ShowMandatoryReauthOptInConfirmation() {
   mandatory_reauth_opt_in_prompt_was_reshown_ = true;
 }
 
+MerchantPromoCodeManager*
+TestPaymentsAutofillClient::GetMerchantPromoCodeManager() {
+  return &mock_merchant_promo_code_manager_;
+}
+
 bool TestPaymentsAutofillClient::GetMandatoryReauthOptInPromptWasShown() {
   return mandatory_reauth_opt_in_prompt_was_shown_;
 }
@@ -201,6 +219,11 @@ void TestPaymentsAutofillClient::set_virtual_card_enrollment_manager(
 void TestPaymentsAutofillClient::set_otp_authenticator(
     std::unique_ptr<CreditCardOtpAuthenticator> authenticator) {
   otp_authenticator_ = std::move(authenticator);
+}
+
+MockMerchantPromoCodeManager*
+TestPaymentsAutofillClient::GetMockMerchantPromoCodeManager() {
+  return &mock_merchant_promo_code_manager_;
 }
 
 }  // namespace autofill::payments

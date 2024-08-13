@@ -71,6 +71,7 @@ import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
@@ -98,6 +99,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                 PassphraseTypeDialogFragment.Listener,
                 Preference.OnPreferenceChangeListener,
                 SyncService.SyncStateChangedListener,
+                IdentityManager.Observer,
                 SyncErrorCardPreference.SyncErrorCardPreferenceListener,
                 FragmentSettingsLauncher,
                 IdentityErrorCardPreference.Listener {
@@ -137,6 +139,9 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     @VisibleForTesting
     private static final String PREF_SETTINGS_SYNC_DISABLED_BY_ADMINISTRATOR =
             "settings_sync_disabled_by_administrator";
+
+    @VisibleForTesting
+    public static final String PREF_BATCH_UPLOAD_CARD_PREFERENCE = "batch_upload_card";
 
     @VisibleForTesting
     public static final String PREF_ACCOUNT_SECTION_HISTORY_TOGGLE =
@@ -192,6 +197,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     private static final int REQUEST_CODE_TRUSTED_VAULT_KEY_RETRIEVAL = 1;
     private static final int REQUEST_CODE_TRUSTED_VAULT_RECOVERABILITY_DEGRADED = 2;
 
+    private BatchUploadCardPreference mBatchUploadCardPreference;
     private SyncService mSyncService;
     private SettingsLauncher mSettingsLauncher;
     private SnackbarManager mSnackbarManager;
@@ -262,6 +268,16 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                     (IdentityErrorCardPreference)
                             findPreference(PREF_IDENTITY_ERROR_CARD_PREFERENCE);
             identityErrorCardPreference.initialize(profile, this);
+
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS)) {
+                mBatchUploadCardPreference =
+                        (BatchUploadCardPreference)
+                                findPreference(PREF_BATCH_UPLOAD_CARD_PREFERENCE);
+                mBatchUploadCardPreference.initialize(
+                        getActivity(),
+                        profile,
+                        ((ModalDialogManagerHolder) getActivity()).getModalDialogManager());
+            }
 
             if (mSyncService.isSyncDisabledByEnterprisePolicy()) {
                 ChromeBasePreference settingsSyncDisabledByAdministrator =
@@ -517,17 +533,24 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     public void onStart() {
         super.onStart();
         mSyncService.addSyncStateChangedListener(this);
+        IdentityServicesProvider.get().getIdentityManager(getProfile()).addObserver(this);
     }
 
     @Override
     public void onStop() {
         super.onStop();
         mSyncService.removeSyncStateChangedListener(this);
+        IdentityServicesProvider.get().getIdentityManager(getProfile()).removeObserver(this);
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        // This is necessary to refresh the batch upload card if the user leaves Chrome open on the
+        // settings screen, changes their screen lock settings, and then returns to Chrome.
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS)) {
+            mBatchUploadCardPreference.hideBatchUploadCardAndUpdate();
+        }
         updateSyncPreferences();
     }
 
@@ -575,6 +598,15 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
         // This is invoked synchronously from SyncService.setSelectedTypes, postpone the
         // update to let updateSyncStateFromSelectedTypes finish saving the state.
         PostTask.postTask(TaskTraits.UI_DEFAULT, this::updateSyncPreferences);
+    }
+
+    /** IdentityManager.Observer implementation. */
+    @Override
+    public void onPrimaryAccountChanged(PrimaryAccountChangeEvent eventDetails) {
+        if (eventDetails.getEventTypeFor(ConsentLevel.SIGNIN)
+                == PrimaryAccountChangeEvent.Type.CLEARED) {
+            if (getActivity() != null) getActivity().finish();
+        }
     }
 
     /** Handles when user clicks home button in menu to get back to home screen. */
@@ -777,6 +809,9 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
         mSnackbarManager = snackbarManager;
         if (shouldReplaceSyncSettingsWithAccountSettings()) {
             mSignOutPreference.setSnackbarManager(snackbarManager);
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS)) {
+                mBatchUploadCardPreference.setSnackbarManager(snackbarManager);
+            }
         }
     }
 
@@ -808,6 +843,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                 ((ModalDialogManagerHolder) getActivity()).getModalDialogManager(),
                 mSnackbarManager,
                 SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS,
+                /* showConfirmDialog= */ false,
                 () -> {});
     }
 
@@ -825,6 +861,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                 ((ModalDialogManagerHolder) getActivity()).getModalDialogManager(),
                 mSnackbarManager,
                 SignoutReason.USER_CLICKED_REVOKE_SYNC_CONSENT_SETTINGS,
+                /* showConfirmDialog= */ false,
                 () -> {});
     }
 
@@ -1066,6 +1103,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                         profile.isChild()
                                 ? SignoutReason.USER_CLICKED_REVOKE_SYNC_CONSENT_SETTINGS
                                 : SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS,
+                        /* showConfirmDialog= */ false,
                         () -> {});
                 return;
             case SyncError.PASSPHRASE_REQUIRED:
@@ -1139,7 +1177,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
 
     private boolean isSupervisedUser() {
         if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.MIGRATE_ACCOUNT_MANAGEMENT_SETTINGS_TO_CAPABILITIES)) {
+                ChromeFeatureList.REPLACE_PROFILE_IS_CHILD_WITH_ACCOUNT_CAPABILITIES_ON_ANDROID)) {
             IdentityManager identityManager =
                     IdentityServicesProvider.get().getIdentityManager(getProfile());
 

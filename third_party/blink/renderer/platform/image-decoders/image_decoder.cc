@@ -18,6 +18,11 @@
  *
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/platform/image-decoders/image_decoder.h"
 
 #include <memory>
@@ -348,7 +353,7 @@ bool ImageDecoder::HasSufficientDataToSniffMimeType(const SharedBuffer& data) {
     DCHECK(ok);
     if (base::span(box.type) == base::span({'f', 't', 'y', 'p'})) {
       // Returns whether we have received the File Type Box in its entirety.
-      return base::numerics::U32FromBigEndian(box.size) <= data.size();
+      return base::U32FromBigEndian(box.size) <= data.size();
     }
   }
 #endif

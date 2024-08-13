@@ -7,12 +7,15 @@
 #import "base/strings/sys_string_conversions.h"
 #import "build/branding_buildflags.h"
 #import "components/policy/policy_constants.h"
+#import "components/signin/internal/identity_manager/account_capabilities_constants.h"
 #import "components/signin/ios/browser/features.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/base/signin_switches.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/base/user_selectable_type.h"
+#import "components/unified_consent/pref_names.h"
+#import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/policy/model/policy_earl_grey_utils.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
@@ -25,7 +28,6 @@
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/authentication/signin_matchers.h"
-#import "ios/chrome/browser/ui/bookmarks/bookmark_earl_grey.h"
 #import "ios/chrome/browser/ui/first_run/first_run_app_interface.h"
 #import "ios/chrome/browser/ui/first_run/first_run_constants.h"
 #import "ios/chrome/browser/ui/first_run/first_run_test_case_base.h"
@@ -49,8 +51,6 @@
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/test/ios/ui_image_test_utils.h"
-#import "components/unified_consent/pref_names.h"
-#import "ios/chrome/test/earl_grey/test_switches.h"
 
 namespace {
 
@@ -92,6 +92,10 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   if ([self isRunningTest:@selector(testHistorySyncShownAfterSignIn)]) {
     config.features_disabled.push_back(
         switches::kMinorModeRestrictionsForHistorySyncOptIn);
+  }
+  if ([self isRunningTest:@selector
+            (testHistorySyncShownWithEquallyWeightedButtons)]) {
+    config.features_enabled.push_back(switches::kAlwaysLoadDeviceAccounts);
   }
 
   return config;
@@ -202,8 +206,14 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 
   // This wait is required because, on devices, EG-test may tap on the button
   // while it is sliding up, which cause the tap to misses the button.
-  [ChromeEarlGreyUI waitForAppToIdle];
   // Turn off UMA.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
+                      grey_allOf(chrome_test_util::TableViewSwitchCell(
+                                     kImproveChromeItemAccessibilityIdentifier,
+                                     /*is_toggled_on=*/YES,
+                                     /*enabled=*/YES),
+                                 grey_sufficientlyVisible(), nil)];
+
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::TableViewSwitchCell(
                                    kImproveChromeItemAccessibilityIdentifier,
@@ -219,14 +229,14 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                       scrollViewIdentifier:
                           kPromoStyleScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
-  [ChromeEarlGreyUI waitForAppToIdle];
   // Check UMA off.
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::TableViewSwitchCell(
-                                   kImproveChromeItemAccessibilityIdentifier,
-                                   /*is_toggled_on=*/NO,
-                                   /*enabled=*/YES)]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
+                      grey_allOf(chrome_test_util::TableViewSwitchCell(
+                                     kImproveChromeItemAccessibilityIdentifier,
+                                     /*is_toggled_on=*/NO,
+                                     /*enabled=*/YES),
+                                 grey_sufficientlyVisible(), nil)];
+
   // Close UMA dialog.
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::NavigationBarDoneButton()]
@@ -441,9 +451,10 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 - (void)testForceSigninByPolicy {
   // Configure the policy to force sign-in.
   [self relaunchAppWithBrowserSigninMode:BrowserSigninMode::kForced];
-  // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  GREYAssertTrue([SigninEarlGrey isIdentityAdded:fakeIdentity],
+                 @"Identity not added by kSignInAtStartup flag, in "
+                 @"`relaunchAppWithBrowserSigninMode:`, during the relaunch.");
   // Verify 2 steps FRE with forced sign-in policy.
   [self verifyEnterpriseWelcomeScreenIsDisplayedWithFRESigninIntent:
             FRESigninIntentSigninForcedByPolicy];
@@ -474,9 +485,10 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 - (void)testForceSigninByPolicyWithoutSync {
   // Configure the policy to force sign-in.
   [self relaunchAppWithBrowserSigninMode:BrowserSigninMode::kForced];
-  // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  GREYAssertTrue([SigninEarlGrey isIdentityAdded:fakeIdentity],
+                 @"Identity not added by kSignInAtStartup flag, in "
+                 @"`relaunchAppWithBrowserSigninMode:`, during the relaunch.");
   // Verify 2 steps FRE with forced sign-in policy.
   [self verifyEnterpriseWelcomeScreenIsDisplayedWithFRESigninIntent:
             FRESigninIntentSigninForcedByPolicy];
@@ -511,9 +523,11 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 - (void)testSyncDisabledByPolicy {
   [self relaunchAppWithPolicyKey:policy::key::kSyncDisabled
                   xmlPolicyValue:"<true/>"];
-  // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  GREYAssertTrue(
+      [SigninEarlGrey isIdentityAdded:fakeIdentity],
+      @"Identity not added by kSignInAtStartup flag, in "
+      @"`relaunchAppWithPolicyKey:xmlPolicyValue:`, during the relaunch.");
   // Verify 2 steps FRE with forced sign-in policy.
   [self verifyEnterpriseWelcomeScreenIsDisplayedWithFRESigninIntent:
             FRESigninIntentSigninWithSyncDisabledPolicy];
@@ -540,9 +554,11 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   // Configure the policy to force sign-in.
   [self relaunchAppWithPolicyKey:policy::key::kIncognitoModeAvailability
                   xmlPolicyValue:"<integer>1</integer>"];
-  // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  GREYAssertTrue(
+      [SigninEarlGrey isIdentityAdded:fakeIdentity],
+      @"Identity not added by kSignInAtStartup flag, in "
+      @"`relaunchAppWithPolicyKey:xmlPolicyValue:`, during the relaunch.");
   // Verify 2 steps FRE with forced sign-in policy.
   [self verifyEnterpriseWelcomeScreenIsDisplayedWithFRESigninIntent:
             FRESigninIntentSigninWithPolicy];
@@ -566,9 +582,11 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   // Configure the policy to disable UMA.
   [self relaunchAppWithPolicyKey:policy::key::kMetricsReportingEnabled
                   xmlPolicyValue:"<false/>"];
-  // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  GREYAssertTrue(
+      [SigninEarlGrey isIdentityAdded:fakeIdentity],
+      @"Identity not added by kSignInAtStartup flag, in "
+      @"`relaunchAppWithPolicyKey:xmlPolicyValue:`, during the relaunch.");
   // Verify 2 steps FRE with no UMA footer.
   [self verifyEnterpriseWelcomeScreenIsDisplayedWithFRESigninIntent:
             FRESigninIntentSigninWithUMAReportingDisabledPolicy];
@@ -596,9 +614,10 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   // Add a fake supervised identity to the device.
   FakeSystemIdentity* fakeSupervisedIdentity =
       [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeSupervisedIdentity];
-  [SigninEarlGrey setIsSubjectToParentalControls:YES
-                                     forIdentity:fakeSupervisedIdentity];
+  [SigninEarlGrey addFakeIdentity:fakeSupervisedIdentity
+                 withCapabilities:@{
+                   @(kIsSubjectToParentalControlsCapabilityName) : @YES,
+                 }];
 
   // Verify 2 steps FRE.
   [self verifyEnterpriseWelcomeScreenIsDisplayedWithFRESigninIntent:
@@ -628,11 +647,12 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 - (void)testHistorySyncShownWithEquallyWeightedButtons {
   // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
-  // Enforce minor mode restrictions.
   [SigninEarlGrey
-      setCanShowHistorySyncOptInsWithoutMinorModeRestrictions:NO
-                                                  forIdentity:fakeIdentity];
+       addFakeIdentity:fakeIdentity
+      withCapabilities:@{
+        @(kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName) :
+            @NO,
+      }];
   // Accept sign-in.
   [[self elementInteractionWithGreyMatcher:
              chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()
@@ -673,7 +693,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   // Verify that latency metrics are recorded.
   GREYAssertNil([MetricsAppInterface
                     expectUniqueSampleWithCount:1
-                                      forBucket:false
+                                      forBucket:true
                                    forHistogram:@"Signin.AccountCapabilities."
                                                 @"ImmediatelyAvailable"],
                 @"Incorrect immediate availability histogram");
@@ -684,7 +704,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
       @"Failed to record user visibile latency histogram");
   GREYAssertNil(
       [MetricsAppInterface
-          expectTotalCount:1
+          expectTotalCount:0
               forHistogram:@"Signin.AccountCapabilities.FetchLatency"],
       @"Failed to record fetch latency histogram.");
   // Verify that History Sync buttons metrics are recorded.
@@ -712,11 +732,12 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 - (void)testHistorySyncShownWithoutMinorModeRestrictions {
   // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
-  // Set up capabilities.
   [SigninEarlGrey
-      setCanShowHistorySyncOptInsWithoutMinorModeRestrictions:YES
-                                                  forIdentity:fakeIdentity];
+       addFakeIdentity:fakeIdentity
+      withCapabilities:@{
+        @(kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName) :
+            @YES,
+      }];
   // Accept sign-in.
   [[self elementInteractionWithGreyMatcher:
              chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()
@@ -1075,9 +1096,11 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 - (void)testHistorySyncSkipIfSyncDisabled {
   [self relaunchAppWithPolicyKey:policy::key::kSyncDisabled
                   xmlPolicyValue:"<true/>"];
-  // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  GREYAssertTrue(
+      [SigninEarlGrey isIdentityAdded:fakeIdentity],
+      @"Identity not added by kSignInAtStartup flag, in "
+      @"`relaunchAppWithPolicyKey:xmlPolicyValue:`, during the relaunch.");
   // Verify that the first run screen is present.
   [[EarlGrey selectElementWithMatcher:
                  grey_accessibilityID(
@@ -1115,9 +1138,11 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 - (void)testHistorySyncSkipIfTabsSyncDisabled {
   [self relaunchAppWithPolicyKey:policy::key::kSyncTypesListDisabled
                   xmlPolicyValue:"<array><string>tabs</string></array>"];
-  // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  GREYAssertTrue(
+      [SigninEarlGrey isIdentityAdded:fakeIdentity],
+      @"Identity not added by kSignInAtStartup flag, in "
+      @"`relaunchAppWithPolicyKey:xmlPolicyValue:`, during the relaunch.");
   // Verify that the first run screen is present.
   [[EarlGrey selectElementWithMatcher:
                  grey_accessibilityID(
@@ -1155,9 +1180,11 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 - (void)testHistorySyncShownIfBookmarksSyncDisabled {
   [self relaunchAppWithPolicyKey:policy::key::kSyncTypesListDisabled
                   xmlPolicyValue:"<array><string>bookmarks</string></array>"];
-  // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
+  GREYAssertTrue(
+      [SigninEarlGrey isIdentityAdded:fakeIdentity],
+      @"Identity not added by kSignInAtStartup flag, in "
+      @"`relaunchAppWithPolicyKey:xmlPolicyValue:`, during the relaunch.");
   // Verify that the first run screen is present.
   [[EarlGrey selectElementWithMatcher:
                  grey_accessibilityID(

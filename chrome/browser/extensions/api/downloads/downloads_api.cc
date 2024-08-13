@@ -1418,19 +1418,16 @@ void DownloadsAcceptDangerFunction::PromptOrWait(int download_id, int retries) {
     return;
   }
   RecordApiFunctions(DOWNLOADS_FUNCTION_ACCEPT_DANGER);
-#if 0
   // DownloadDangerPrompt displays a modal dialog using native widgets that the
   // user must either accept or cancel. It cannot be scripted.
   DownloadDangerPrompt* prompt = DownloadDangerPrompt::Create(
-      download_item, web_contents, true,
+      download_item, web_contents,
       base::BindOnce(&DownloadsAcceptDangerFunction::DangerPromptCallback, this,
                      download_id));
   // DownloadDangerPrompt deletes itself
   if (on_prompt_created_ && !on_prompt_created_->is_null())
     std::move(*on_prompt_created_).Run(prompt);
   // Function finishes in DangerPromptCallback().
-#endif
-  DangerPromptCallback(download_id, DownloadDangerPrompt::ACCEPT);
 }
 
 void DownloadsAcceptDangerFunction::DangerPromptCallback(
@@ -1693,9 +1690,6 @@ ExtensionFunction::ResponseAction DownloadsGetFileIconFunction::Run() {
       downloads::GetFileIcon::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   const std::optional<downloads::GetFileIconOptions>& options = params->options;
-  int icon_size = kDefaultIconSize;
-  if (options && options->size)
-    icon_size = *options->size;
   DownloadItem* download_item = GetDownload(
       browser_context(), include_incognito_information(), params->download_id);
   std::string error;
@@ -1703,6 +1697,15 @@ ExtensionFunction::ResponseAction DownloadsGetFileIconFunction::Run() {
       Fault(download_item->GetTargetFilePath().empty(),
             download_extension_errors::kEmptyFile, &error))
     return RespondNow(Error(std::move(error)));
+
+  int icon_size = kDefaultIconSize;
+  if (options && options->size) {
+    icon_size = *options->size;
+    if (icon_size != 16 && icon_size != 32) {
+      return RespondNow(Error("Invalid `size`. Must be either `16` or `32`."));
+    }
+  }
+
   // In-progress downloads return the intermediate filename for GetFullPath()
   // which doesn't have the final extension. Therefore a good file icon can't be
   // found, so use GetTargetFilePath() instead.

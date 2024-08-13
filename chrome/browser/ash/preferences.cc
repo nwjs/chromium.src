@@ -174,8 +174,12 @@ void Preferences::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kDeviceSwitchFunctionKeysBehaviorEnabled,
                                 false);
   registry->RegisterBooleanPref(::prefs::kLocalUserFilesAllowed, true);
-  registry->RegisterBooleanPref(::prefs::kLocalUserFilesMigrationEnabled,
-                                false);
+  registry->RegisterStringPref(::prefs::kLocalUserFilesMigrationDestination,
+                               "read_only");
+  registry->RegisterListPref(prefs::kDnsOverHttpsExcludedDomains,
+                             base::Value::List());
+  registry->RegisterListPref(prefs::kDnsOverHttpsIncludedDomains,
+                             base::Value::List());
 
   RegisterLocalStatePrefs(registry);
 }
@@ -433,6 +437,9 @@ void Preferences::RegisterProfilePrefs(
 
   registry->RegisterInt64Pref(::prefs::kHatsLastInteractionTimestamp, 0);
 
+  registry->RegisterTimePref(::prefs::kHatsPrioritizedLastInteractionTimestamp,
+                             base::Time());
+
   registry->RegisterInt64Pref(::prefs::kHatsSurveyCycleEndTimestamp, 0);
 
   registry->RegisterBooleanPref(::prefs::kHatsDeviceIsSelected, false);
@@ -481,6 +488,16 @@ void Preferences::RegisterProfilePrefs(
 
   registry->RegisterBooleanPref(::prefs::kHatsGeneralCameraIsSelected, false);
 
+  registry->RegisterInt64Pref(
+      ::prefs::kHatsGeneralCameraPrioritizedSurveyCycleEndTs, 0);
+
+  registry->RegisterBooleanPref(
+      ::prefs::kHatsGeneralCameraPrioritizedIsSelected, false);
+
+  registry->RegisterTimePref(
+      ::prefs::kHatsGeneralCameraPrioritizedLastInteractionTimestamp,
+      base::Time());
+
   registry->RegisterInt64Pref(::prefs::kHatsBluetoothRevampCycleEndTs, 0);
 
   registry->RegisterBooleanPref(::prefs::kHatsBluetoothRevampIsSelected, false);
@@ -519,6 +536,10 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterInt64Pref(::prefs::kHatsPhotosExperienceCycleEndTs, 0);
   registry->RegisterBooleanPref(::prefs::kHatsPhotosExperienceIsSelected,
                                 false);
+
+  // Office HaTS prefs.
+  registry->RegisterInt64Pref(::prefs::kHatsOfficeSurveyCycleEndTs, 0);
+  registry->RegisterBooleanPref(::prefs::kHatsOfficeSurveyIsSelected, false);
 
   registry->RegisterBooleanPref(::prefs::kPinUnlockFeatureNotificationShown,
                                 false);
@@ -576,7 +597,9 @@ void Preferences::RegisterProfilePrefs(
       prefs::kSuggestedContentEnabled, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
 
-  registry->RegisterBooleanPref(prefs::kMahiEnabled, true);
+  registry->RegisterBooleanPref(prefs::kMagicBoostEnabled, true);
+
+  registry->RegisterBooleanPref(prefs::kHmrEnabled, true);
 
   registry->RegisterIntegerPref(
       prefs::kHMRConsentStatus,
@@ -606,9 +629,9 @@ void Preferences::RegisterProfilePrefs(
 
   registry->RegisterBooleanPref(prefs::kShowAiIntroScreenEnabled, true);
 
-  registry->RegisterBooleanPref(prefs::kShowTouchpadScrollScreenEnabled, true);
+  registry->RegisterBooleanPref(prefs::kShowGeminiIntroScreenEnabled, true);
 
-  registry->RegisterBooleanPref(prefs::kShowTunaScreenEnabled, true);
+  registry->RegisterBooleanPref(prefs::kShowTouchpadScrollScreenEnabled, true);
 
   // Settings HaTS survey prefs for Settings and Settings Search features.
   registry->RegisterInt64Pref(::prefs::kHatsOsSettingsSearchSurveyCycleEndTs,

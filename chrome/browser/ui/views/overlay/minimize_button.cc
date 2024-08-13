@@ -12,7 +12,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/gfx/paint_vector_icon.h"
-#include "ui/views/vector_icons.h"
+#include "ui/views/accessibility/view_accessibility.h"
 
 namespace {
 
@@ -28,15 +28,15 @@ OverlayWindowMinimizeButton::OverlayWindowMinimizeButton(
     : OverlayWindowImageButton(std::move(callback)) {
   SetSize(gfx::Size(kMinimizeButtonSize, kMinimizeButtonSize));
 
-  SetImageModel(
-      views::Button::STATE_NORMAL,
-      ui::ImageModel::FromVectorIcon(kRemoveIcon, kColorPipWindowForeground,
-                                     kMinimizeButtonIconSize));
+  SetImageModel(views::Button::STATE_NORMAL,
+                ui::ImageModel::FromVectorIcon(kChromiumMinimizeIcon,
+                                               kColorPipWindowForeground,
+                                               kMinimizeButtonIconSize));
 
   // Accessibility.
   const std::u16string button_label(
       l10n_util::GetStringUTF16(IDS_PICTURE_IN_PICTURE_MINIMIZE_CONTROL_TEXT));
-  SetAccessibleName(button_label);
+  GetViewAccessibility().SetName(button_label);
   SetTooltipText(button_label);
 }
 

@@ -614,6 +614,12 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="16" label="Desk switch due to session restore"/>
 </enum>
 
+<enum name="DisclaimerViewAction">
+  <int value="0" label="Show"/>
+  <int value="1" label="AcceptButtonPressed"/>
+  <int value="2" label="DeclineButtonPressed"/>
+</enum>
+
 <enum name="DNDStateOnFocusEndType">
   <int value="0" label="FocusModeOn"/>
   <int value="1" label="AlreadyOn"/>
@@ -1494,6 +1500,8 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="31" label="Search Plus Top Row Key Pressed Nudge"/>
   <int value="32" label="Six Pack Key Pressed Nudge"/>
   <int value="33" label="Switch Caps Lock Key Pressed Nudge"/>
+  <int value="34" label="Help Me Read Nudge"/>
+  <int value="35" label="Birch Privacy Nudge"/>
 </enum>
 
 <enum name="OnDeviceToServerSpeechRecognitionFallbackReason">
@@ -1693,6 +1701,7 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="7" label="Avatar"/>
   <int value="8" label="SeaPen Collection"/>
   <int value="9" label="SeaPen Results"/>
+  <int value="10" label="SeaPen Freeform"/>
 </enum>
 
 <enum name="PersonalizationThemeColorMode">
@@ -1718,6 +1727,13 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="0" label="Backfilled to enabled"/>
   <int value="1" label="Backfilled to disabled due to policy"/>
   <int value="2" label="Backfilled to disabled due to PIN length."/>
+</enum>
+
+<enum name="PlaylistTypesSelectedDuringSessionType">
+  <int value="0" label="None"/>
+  <int value="1" label="YTM"/>
+  <int value="2" label="Soundscapes"/>
+  <int value="3" label="YTM And Soundscapes"/>
 </enum>
 
 <enum name="PrivacyIndicatorsSource">
@@ -1922,9 +1938,7 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
 </enum>
 
 <enum name="SeaPenTemplateId">
-<!-- Defined in ash/webui/common/mojom/sea_pen.mojom for Wallpaper and VC Background templates-->
-
-<!-- Include additional kFreeform (999) for Wallpaper and kVcBackgroundFreeform (1000) for VC Background -->
+<!-- Defined in ash/webui/common/mojom/sea_pen_generated.mojom -->
 
   <int value="0" label="kFlower"/>
   <int value="1" label="kMineral"/>
@@ -1947,8 +1961,8 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="105" label="kVcBackgroundDreamscapesVc"/>
   <int value="106" label="kVcBackgroundCharacters"/>
   <int value="107" label="kVcBackgroundGlowscapes"/>
-  <int value="999" label="kFreeform"/>
-  <int value="1000" label="kVcBackgroundFreeform"/>
+  <int value="999" label="Freeform"/>
+  <int value="1000" label="VcBackgroundFreeform"/>
 </enum>
 
 <enum name="SeaPenWallpaperManagerMigrationStatus">
@@ -2083,6 +2097,7 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="17" label="Snapped bounds no longer fit work area"/>
   <int value="18" label="Snap to replace"/>
   <int value="19" label="Visible on all desks"/>
+  <int value="20" label="Select a window in Snap Group in partial Overview"/>
 </enum>
 
 <enum name="SpeechRecognitionEndState">
@@ -2129,7 +2144,7 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
 <enum name="TimeManagementGlanceablesFeatureStatus">
   <int value="0" label="Disabled"/>
   <int value="1" label="Enabled - trusted tester (deprecated)"/>
-  <int value="2" label="Enabled - GlanceablesV2 flag"/>
+  <int value="2" label="Enabled - GlanceablesV2 flag (deprecated)"/>
   <int value="3" label="Enabled with pref bypass switch (deprecated)"/>
   <int value="4" label="Enabled - full launch"/>
 </enum>
@@ -2680,6 +2695,17 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="3" label="Tile"/>
 </enum>
 
+<enum name="WallpaperMigrationFailureReason">
+  <int value="0" label="Failed to fetch online variants"/>
+  <int value="1" label="Failed to find a valid online variant"/>
+</enum>
+
+<enum name="WallpaperMigrationStatus">
+  <int value="0" label="Succeeded"/>
+  <int value="1" label="Failed"/>
+  <int value="2" label="Not supported due to missing location"/>
+</enum>
+
 <enum name="WallpaperType">
   <int value="0" label="Daily">
     Surprise wallpaper from the user selected collection.
@@ -2756,6 +2782,8 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="17"
       label="Window is snapped by long pressing lacros window caption button
              or window layout menu"/>
+  <int value="18"
+      label="Window is snapped during the windows swapping in a Snap Group"/>
 </enum>
 
 <enum name="WindowSplittingDragType">

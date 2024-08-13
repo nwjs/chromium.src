@@ -89,6 +89,7 @@ ntp::calendar::mojom::CalendarEventPtr GetFakeEvent(int index) {
       ntp::calendar::mojom::CalendarEvent::New();
   event->title = "Calendar Event " + base::NumberToString(index);
   event->start_time = base::Time::Now() + base::Minutes(index * 30);
+  event->end_time = event->start_time + base::Minutes(30);
   event->url = GURL("https://foo.com/" + base::NumberToString(index));
   event->location = "Conference Room " + base::NumberToString(index);
   for (int i = 0; i < 3; ++i) {
@@ -102,6 +103,8 @@ ntp::calendar::mojom::CalendarEventPtr GetFakeEvent(int index) {
   }
   event->conference_url =
       GURL("https://foo.com/conference" + base::NumberToString(index));
+  event->is_accepted = true;
+  event->has_other_attendee = false;
   return event;
 }
 
@@ -146,23 +149,19 @@ GoogleCalendarPageHandler::GoogleCalendarPageHandler(
     mojo::PendingReceiver<ntp::calendar::mojom::GoogleCalendarPageHandler>
         handler,
     Profile* profile,
-    std::unique_ptr<google_apis::RequestSender> sender,
-    google_apis::calendar::CalendarApiUrlGenerator url_generator)
+    std::unique_ptr<google_apis::RequestSender> sender)
     : handler_(this, std::move(handler)),
       profile_(profile),
       pref_service_(profile_->GetPrefs()),
-      sender_(std::move(sender)),
-      url_generator_(std::move(url_generator)) {}
+      sender_(std::move(sender)) {}
 
 GoogleCalendarPageHandler::GoogleCalendarPageHandler(
     mojo::PendingReceiver<ntp::calendar::mojom::GoogleCalendarPageHandler>
         handler,
     Profile* profile)
-    : GoogleCalendarPageHandler(
-          std::move(handler),
-          std::move(profile),
-          MakeSender(profile),
-          google_apis::calendar::CalendarApiUrlGenerator()) {}
+    : GoogleCalendarPageHandler(std::move(handler),
+                                std::move(profile),
+                                MakeSender(profile)) {}
 
 GoogleCalendarPageHandler::~GoogleCalendarPageHandler() = default;
 
@@ -190,10 +189,12 @@ void GoogleCalendarPageHandler::GetEvents(GetEventsCallback callback) {
             sender_.get(), url_generator_,
             base::BindOnce(&GoogleCalendarPageHandler::OnRequestComplete,
                            base::Unretained(this), std::move(callback)),
-            /*start_time=*/base::Time::Now(),
-            /*end_time=*/base::Time::Now() + base::Hours(12),
+            /*start_time=*/base::Time::Now() +
+                ntp_features::kNtpCalendarModuleWindowStartDeltaParam.Get(),
+            /*end_time=*/base::Time::Now() +
+                ntp_features::kNtpCalendarModuleWindowEndDeltaParam.Get(),
             /*event_types=*/event_types,
-            /*experiment=*/"ntp-calendar",
+            ntp_features::kNtpCalendarModuleExperimentParam.Get(),
             /*order_by=*/"startTime"));
   }
 }
@@ -213,12 +214,28 @@ void GoogleCalendarPageHandler::OnRequestComplete(
     google_apis::ApiErrorCode response_code,
     std::unique_ptr<google_apis::calendar::EventList> events) {
   std::vector<ntp::calendar::mojom::CalendarEventPtr> result;
+  size_t max_events =
+      static_cast<size_t>(ntp_features::kNtpCalendarModuleMaxEventsParam.Get());
   if (response_code == google_apis::ApiErrorCode::HTTP_SUCCESS) {
     for (const auto& event : events->items()) {
+      // If the result is already at max length, stop.
+      if (result.size() == max_events) {
+        break;
+      }
+      // Do not include all day events in response.
+      if (event->all_day_event()) {
+        continue;
+      }
+      // Do not include declined events in response.
+      if (event->self_response_status() ==
+          google_apis::calendar::CalendarEvent::ResponseStatus::kDeclined) {
+        continue;
+      }
       ntp::calendar::mojom::CalendarEventPtr formatted_event =
           ntp::calendar::mojom::CalendarEvent::New();
       formatted_event->title = event->summary();
       formatted_event->start_time = event->start_time().date_time();
+      formatted_event->end_time = event->end_time().date_time();
       formatted_event->url = GURL(event->html_link());
       formatted_event->location = event->location();
       for (const auto& attachment : event->attachments()) {
@@ -230,6 +247,10 @@ void GoogleCalendarPageHandler::OnRequestComplete(
         formatted_event->attachments.push_back(std::move(formatted_attachment));
       }
       formatted_event->conference_url = event->conference_data_uri();
+      formatted_event->is_accepted =
+          event->self_response_status() ==
+          google_apis::calendar::CalendarEvent::ResponseStatus::kAccepted;
+      formatted_event->has_other_attendee = event->has_other_attendee();
       result.push_back(std::move(formatted_event));
     }
   }

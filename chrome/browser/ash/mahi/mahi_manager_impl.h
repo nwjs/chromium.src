@@ -8,23 +8,28 @@
 #include <memory>
 #include <string>
 
-#include "ash/public/cpp/session/session_observer.h"
-#include "ash/session/session_controller_impl.h"
 #include "ash/system/mahi/mahi_ui_controller.h"
 #include "base/memory/raw_ptr.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/ash/mahi/mahi_browser_delegate_ash.h"
 #include "chrome/browser/ash/mahi/mahi_cache_manager.h"
+#include "chromeos/components/magic_boost/public/cpp/magic_boost_state.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
+#include "chromeos/crosapi/mojom/mahi.mojom.h"
 #include "components/manta/mahi_provider.h"
-#include "components/prefs/pref_change_registrar.h"
-#include "components/prefs/pref_service.h"
 #include "ui/gfx/image/image_skia.h"
+
+namespace gfx {
+class Rect;
+}  // namespace gfx
 
 namespace ash {
 
+class MahiNudgeController;
+
 // Implementation of `MahiManager`.
-class MahiManagerImpl : public chromeos::MahiManager, public SessionObserver {
+class MahiManagerImpl : public chromeos::MahiManager,
+                        public chromeos::MagicBoostState::Observer {
  public:
   MahiManagerImpl();
 
@@ -48,24 +53,33 @@ class MahiManagerImpl : public chromeos::MahiManager, public SessionObserver {
   void OnContextMenuClicked(
       crosapi::mojom::MahiContextMenuRequestPtr context_menu_request) override;
   void OpenFeedbackDialog() override;
+  void OpenMahiPanel(int64_t display_id,
+                     const gfx::Rect& mahi_menu_bounds) override;
   bool IsEnabled() override;
   void SetMediaAppPDFFocused() override;
   void MediaAppPDFClosed(
       const base::UnguessableToken media_app_client_id) override;
   std::optional<base::UnguessableToken> GetMediaAppPDFClientId() const override;
 
-  // Notifies the panel that refresh is available or not for the corresponding
-  // surface.
+  // Called when availability for a refresh changes based on the shown content.
   void NotifyRefreshAvailability(bool available);
 
-  // SessionObserver:
-  void OnActiveUserPrefServiceChanged(PrefService* pref_service) override;
+  MahiUiController* ui_controller_for_test() { return &ui_controller_; }
 
  private:
   friend class MahiManagerImplTest;
   friend class MahiManagerImplFeatureKeyTest;
 
-  void OnMahiPrefChanged();
+  // chromeos::MagicBoostState::Observer:
+  void OnHMREnabledUpdated(bool enabled) override;
+  void OnIsDeleting() override;
+
+  // Interrupts the flow of `context_menu_request` handling by showing a
+  // disclaimer view. The original flow will be resumed if the consent status
+  // becomes approved. NOTE: This function should be called only if the magic
+  // boost feature is enabled.
+  void InterrputRequestHandlingWithDisclaimerView(
+      crosapi::mojom::MahiContextMenuRequestPtr context_menu_request);
 
   // Initialize required provider if it is not initialized yet, and discard
   // pending requests to avoid racing condition.
@@ -96,9 +110,9 @@ class MahiManagerImpl : public chromeos::MahiManager, public SessionObserver {
       base::Value::Dict dict,
       manta::MantaStatus status);
 
-  std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;
-  base::ScopedObservation<SessionController, SessionObserver>
-      session_observation_{this};
+  base::ScopedObservation<chromeos::MagicBoostState,
+                          chromeos::MagicBoostState::Observer>
+      magic_boost_state_observation_{this};
 
   // These `Ptr`s should never be null. To invalidate them, assign them a
   // `New()` instead of calling `reset()`.
@@ -118,7 +132,7 @@ class MahiManagerImpl : public chromeos::MahiManager, public SessionObserver {
 
   std::unique_ptr<manta::MahiProvider> mahi_provider_;
 
-  raw_ptr<ash::MahiBrowserDelegateAsh> mahi_browser_delegate_ash_ = nullptr;
+  raw_ptr<MahiBrowserDelegateAsh> mahi_browser_delegate_ash_ = nullptr;
 
   // Keeps track of the latest result and code, used for feedback.
   std::u16string latest_summary_;
@@ -128,12 +142,38 @@ class MahiManagerImpl : public chromeos::MahiManager, public SessionObserver {
 
   std::unique_ptr<MahiCacheManager> cache_manager_;
 
+  std::unique_ptr<MahiNudgeController> mahi_nudge_controller_;
+
   // If true, tries to get content from MediaAppContentManager instead.
   bool media_app_pdf_focused_ = false;
   base::UnguessableToken media_app_client_id_;
 
+  // Runs the specified closures when the consent state becomes approved or
+  // declined. Built when handling particular context menu actions without the
+  // Mahi feature approved by user. Destroyed when user responds to the
+  // disclaimer view.
+  // NOTE: It is used only when the magic boost feature is enabled.
+  std::unique_ptr<chromeos::MagicBoostState::Observer>
+      on_consent_state_update_closure_runner_;
+
+  base::WeakPtrFactory<MahiManagerImpl> weak_ptr_factory_for_closure_runner_{
+      this};
+
   base::WeakPtrFactory<MahiManagerImpl> weak_ptr_factory_for_requests_{this};
-  base::WeakPtrFactory<MahiManagerImpl> weak_ptr_factory_for_pref_{this};
+};
+
+// ScopedMahiBrowserDelegateOverrider ------------------------------------------
+
+// A helper class to override the Mahi browser delegate during its life cycle.
+// NOTE: This class should have at most one instance.
+class ScopedMahiBrowserDelegateOverrider {
+ public:
+  explicit ScopedMahiBrowserDelegateOverrider(MahiBrowserDelegateAsh* delegate);
+  ScopedMahiBrowserDelegateOverrider(
+      const ScopedMahiBrowserDelegateOverrider&) = delete;
+  ScopedMahiBrowserDelegateOverrider& operator=(
+      const ScopedMahiBrowserDelegateOverrider&) = delete;
+  ~ScopedMahiBrowserDelegateOverrider();
 };
 
 }  // namespace ash

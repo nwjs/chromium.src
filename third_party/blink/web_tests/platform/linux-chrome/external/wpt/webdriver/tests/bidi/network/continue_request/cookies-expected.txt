@@ -1,8 +1,8 @@
 This is a wdspec test.
 [FAIL] test_modify_cookies[document_cookies0-modified_cookies0]
-  webdriver.bidi.modules.script.ScriptEvaluateResultException: SecurityError: Failed to set the 'cookie' property on 'Document': Access is denied for this document.
+  AssertionError: assert 1 == 0
 [FAIL] test_modify_cookies[document_cookies1-modified_cookies1]
-  AssertionError: assert 0 == 1
+  AssertionError
 [FAIL] test_modify_cookies[document_cookies2-modified_cookies2]
   AssertionError
 [FAIL] test_modify_cookies[document_cookies3-modified_cookies3]

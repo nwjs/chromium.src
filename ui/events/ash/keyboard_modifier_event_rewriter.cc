@@ -76,7 +76,7 @@ EventDispatchDetails KeyboardModifierEventRewriter::RewriteEvent(
     const Continuation continuation) {
   std::unique_ptr<Event> rewritten_event;
   switch (event.type()) {
-    case ET_KEY_PRESSED: {
+    case EventType::kKeyPressed: {
       bool should_record_metrics = !(event.flags() & EF_IS_REPEAT);
       if (should_record_metrics) {
         RecordModifierKeyPressedBeforeRemapping(
@@ -98,7 +98,7 @@ EventDispatchDetails KeyboardModifierEventRewriter::RewriteEvent(
       }
       break;
     }
-    case ET_KEY_RELEASED:
+    case EventType::kKeyReleased:
       rewritten_event = RewriteReleaseKeyEvent(*event.AsKeyEvent());
       break;
     default: {
@@ -107,6 +107,14 @@ EventDispatchDetails KeyboardModifierEventRewriter::RewriteEvent(
       int rewritten_flags = RewriteModifierFlags(event.flags());
       if (flags != rewritten_flags) {
         rewritten_event = event.Clone();
+
+        // SetNativeEvent must be called explicitly as native events are not
+        // copied on ChromeOS by default. This is because `PlatformEvent` is a
+        // pointer by default, so its lifetime can not be guaranteed in general.
+        // In this case, the lifetime of  `rewritten_event` is guaranteed to be
+        // less than the original `event`.
+        SetNativeEvent(*rewritten_event, event.native_event());
+
         // Note: this updates DomKey to reflect the new flags.
         rewritten_event->SetFlags(rewritten_flags);
       }

@@ -251,64 +251,64 @@
   },
   'LACROS_VERSION_SKEW_BETA': {
     'identifier': 'Lacros version skew testing ash beta',
-    'description': 'Run with ash-chrome version 127.0.6533.50',
+    'description': 'Run with ash-chrome version 127.0.6533.94',
     'args': [
-      '--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6533.50/test_ash_chrome',
+      '--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6533.94/test_ash_chrome',
     ],
     'swarming': {
       'cipd_packages': [
         {
           'cipd_package': 'chromium/testing/linux-ash-chromium/x86_64/ash.zip',
-          'location': 'lacros_version_skew_tests_v127.0.6533.50',
-          'revision': 'version:127.0.6533.50',
+          'location': 'lacros_version_skew_tests_v127.0.6533.94',
+          'revision': 'version:127.0.6533.94',
         },
       ],
     },
   },
   'LACROS_VERSION_SKEW_CANARY': {
     'identifier': 'Lacros version skew testing ash canary',
-    'description': 'Run with ash-chrome version 128.0.6610.0',
+    'description': 'Run with ash-chrome version 129.0.6641.0',
     'args': [
-      '--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6610.0/test_ash_chrome',
+      '--ash-chrome-path-override=../../lacros_version_skew_tests_v129.0.6641.0/test_ash_chrome',
     ],
     'swarming': {
       'cipd_packages': [
         {
           'cipd_package': 'chromium/testing/linux-ash-chromium/x86_64/ash.zip',
-          'location': 'lacros_version_skew_tests_v128.0.6610.0',
-          'revision': 'version:128.0.6610.0',
+          'location': 'lacros_version_skew_tests_v129.0.6641.0',
+          'revision': 'version:129.0.6641.0',
         },
       ],
     },
   },
   'LACROS_VERSION_SKEW_DEV': {
     'identifier': 'Lacros version skew testing ash dev',
-    'description': 'Run with ash-chrome version 128.0.6600.0',
+    'description': 'Run with ash-chrome version 128.0.6613.12',
     'args': [
-      '--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6600.0/test_ash_chrome',
+      '--ash-chrome-path-override=../../lacros_version_skew_tests_v128.0.6613.12/test_ash_chrome',
     ],
     'swarming': {
       'cipd_packages': [
         {
           'cipd_package': 'chromium/testing/linux-ash-chromium/x86_64/ash.zip',
-          'location': 'lacros_version_skew_tests_v128.0.6600.0',
-          'revision': 'version:128.0.6600.0',
+          'location': 'lacros_version_skew_tests_v128.0.6613.12',
+          'revision': 'version:128.0.6613.12',
         },
       ],
     },
   },
   'LACROS_VERSION_SKEW_STABLE': {
     'identifier': 'Lacros version skew testing ash stable',
-    'description': 'Run with ash-chrome version 126.0.6478.178',
+    'description': 'Run with ash-chrome version 126.0.6478.222',
     'args': [
-      '--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6478.178/test_ash_chrome',
+      '--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6478.222/test_ash_chrome',
     ],
     'swarming': {
       'cipd_packages': [
         {
           'cipd_package': 'chromium/testing/linux-ash-chromium/x86_64/ash.zip',
-          'location': 'lacros_version_skew_tests_v126.0.6478.178',
-          'revision': 'version:126.0.6478.178',
+          'location': 'lacros_version_skew_tests_v126.0.6478.222',
+          'revision': 'version:126.0.6478.222',
         },
       ],
     },
@@ -373,6 +373,18 @@
       'ios_runtime_cache_17_5',
     ],
   },
+  'SIM_IPAD_10TH_GEN_18_0': {
+    'identifier': 'iPad (10th generation) 18.0',
+    'args': [
+      '--platform',
+      'iPad (10th generation)',
+      '--version',
+      '18.0',
+    ],
+    'mixins': [
+      'ios_runtime_cache_18_0',
+    ],
+  },
   'SIM_IPAD_AIR_5TH_GEN_16_4': {
     'identifier': 'iPad Air (5th generation) 16.4',
     'args': [
@@ -397,6 +409,18 @@
       'ios_runtime_cache_17_5',
     ],
   },
+  'SIM_IPAD_AIR_6TH_GEN_18_0': {
+    'identifier': 'iPad Air (6th generation) 18.0',
+    'args': [
+      '--platform',
+      'iPad Air 11-inch (M2)',
+      '--version',
+      '18.0',
+    ],
+    'mixins': [
+      'ios_runtime_cache_18_0',
+    ],
+  },
   'SIM_IPAD_PRO_6TH_GEN_16_4': {
     'identifier': 'iPad Pro (12.9-inch) (6th generation) 16.4',
     'args': [
@@ -419,6 +443,18 @@
     ],
     'mixins': [
       'ios_runtime_cache_17_5',
+    ],
+  },
+  'SIM_IPAD_PRO_7TH_GEN_18_0': {
+    'identifier': 'iPad Pro 13-inch (M4) 18.0',
+    'args': [
+      '--platform',
+      'iPad Pro 13-inch (M4)',
+      '--version',
+      '18.0',
+    ],
+    'mixins': [
+      'ios_runtime_cache_18_0',
     ],
   },
   'SIM_IPHONE_13_16_4': {
@@ -505,6 +541,30 @@
       'ios_runtime_cache_17_5',
     ],
   },
+  'SIM_IPHONE_15_18_0': {
+    'identifier': 'iPhone 15 18.0',
+    'args': [
+      '--platform',
+      'iPhone 15',
+      '--version',
+      '18.0',
+    ],
+    'mixins': [
+      'ios_runtime_cache_18_0',
+    ],
+  },
+  'SIM_IPHONE_15_PRO_MAX_18_0': {
+    'identifier': 'iPhone 15 Pro Max 18.0',
+    'args': [
+      '--platform',
+      'iPhone 15 Pro Max',
+      '--version',
+      '18.0',
+    ],
+    'mixins': [
+      'ios_runtime_cache_18_0',
+    ],
+  },
   'SIM_IPHONE_SE_3RD_GEN_16_4': {
     'identifier': 'iPhone SE (3rd generation) 16.4',
     'args': [
@@ -527,6 +587,18 @@
     ],
     'mixins': [
       'ios_runtime_cache_17_5',
+    ],
+  },
+  'SIM_IPHONE_SE_3RD_GEN_18_0': {
+    'identifier': 'iPhone SE (3rd generation) 18.0',
+    'args': [
+      '--platform',
+      'iPhone SE (3rd generation)',
+      '--version',
+      '18.0',
+    ],
+    'mixins': [
+      'ios_runtime_cache_18_0',
     ],
   },
   'SIM_IPHONE_X_16_4': {

@@ -13,13 +13,13 @@
 #include "base/threading/thread_restrictions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
-#include "chrome/browser/enterprise/data_controls/data_controls_dialog.h"
-#include "chrome/browser/enterprise/data_controls/data_controls_dialog_test_helper.h"
+#include "chrome/browser/enterprise/data_controls/desktop_data_controls_dialog.h"
+#include "chrome/browser/enterprise/data_controls/desktop_data_controls_dialog_test_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "components/enterprise/data_controls/features.h"
-#include "components/enterprise/data_controls/test_utils.h"
+#include "components/enterprise/data_controls/core/features.h"
+#include "components/enterprise/data_controls/core/test_utils.h"
 #include "content/public/test/browser_test.h"
 #include "ui/views/widget/widget_delegate.h"
 
@@ -87,7 +87,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   auto event_validator = event_report_validator_helper_->CreateValidator();
   event_validator.ExpectNoReport();
 
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteBlock);
   base::test::TestFuture<std::optional<content::ClipboardPasteData>> future;
   PasteIfAllowedByPolicy(
@@ -142,7 +142,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteBlock);
 
   base::test::TestFuture<std::optional<content::ClipboardPasteData>> future;
@@ -165,7 +165,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   EXPECT_FALSE(paste_data);
 
   helper.WaitForDialogToInitialize();
-  helper.CancelDialog();
+  helper.CloseDialogWithoutBypass();
   helper.WaitForDialogToClose();
 }
 
@@ -201,7 +201,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteBlock);
 
   base::test::TestFuture<std::optional<content::ClipboardPasteData>> future;
@@ -224,7 +224,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   EXPECT_FALSE(paste_data);
 
   helper.WaitForDialogToInitialize();
-  helper.CancelDialog();
+  helper.CloseDialogWithoutBypass();
   helper.WaitForDialogToClose();
 }
 
@@ -260,7 +260,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteWarn);
 
   base::test::TestFuture<std::optional<content::ClipboardPasteData>> future;
@@ -307,7 +307,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   // shouldn't be ready yet.
   EXPECT_FALSE(future.IsReady());
 
-  helper.AcceptDialog();
+  helper.BypassWarning();
   helper.WaitForDialogToClose();
 
   auto paste_data = future.Get();
@@ -349,7 +349,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteWarn);
 
   base::test::TestFuture<std::optional<content::ClipboardPasteData>> future;
@@ -374,7 +374,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   // shouldn't be ready yet.
   EXPECT_FALSE(future.IsReady());
 
-  helper.CancelDialog();
+  helper.CloseDialogWithoutBypass();
   helper.WaitForDialogToClose();
 
   auto paste_data = future.Get();
@@ -401,7 +401,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteBlock);
 
   // By making a new profile for this test, we ensure we can prevent pasting to
@@ -438,7 +438,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   EXPECT_FALSE(paste_data);
 
   helper.WaitForDialogToInitialize();
-  helper.CancelDialog();
+  helper.CloseDialogWithoutBypass();
   helper.WaitForDialogToClose();
 }
 
@@ -458,7 +458,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteWarn);
 
   // By making a new profile for this test, we ensure we can prevent pasting to
@@ -494,7 +494,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   // shouldn't be ready yet.
   EXPECT_FALSE(future.IsReady());
 
-  helper.AcceptDialog();
+  helper.BypassWarning();
   helper.WaitForDialogToClose();
 
   auto paste_data = future.Get();
@@ -520,7 +520,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteWarn);
 
   // By making a new profile for this test, we ensure we can prevent pasting to
@@ -556,7 +556,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   // shouldn't be ready yet.
   EXPECT_FALSE(future.IsReady());
 
-  helper.CancelDialog();
+  helper.CloseDialogWithoutBypass();
   helper.WaitForDialogToClose();
 
   auto paste_data = future.Get();
@@ -596,7 +596,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteWarn);
 
   base::test::TestFuture<std::optional<content::ClipboardPasteData>> future;
@@ -643,7 +643,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardPasteBlock);
 
   // By making a new profile for this test, we ensure we can prevent pasting to
@@ -796,7 +796,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest, CopyBlocked) {
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardCopyBlock);
 
   base::test::TestFuture<const ui::ClipboardFormatType&,
@@ -817,7 +817,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest, CopyBlocked) {
       MakeClipboardPasteData("foo", "", {}), future.GetCallback());
 
   helper.WaitForDialogToInitialize();
-  helper.CancelDialog();
+  helper.CloseDialogWithoutBypass();
   helper.WaitForDialogToClose();
 
   EXPECT_FALSE(future.IsReady());
@@ -855,7 +855,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
 
   base::test::TestFuture<const ui::ClipboardFormatType&,
@@ -881,7 +881,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   // shouldn't be ready yet.
   EXPECT_FALSE(future.IsReady());
 
-  helper.CancelDialog();
+  helper.CloseDialogWithoutBypass();
   helper.WaitForDialogToClose();
 
   EXPECT_FALSE(future.IsReady());
@@ -922,7 +922,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
 
   base::test::TestFuture<const ui::ClipboardFormatType&,
@@ -948,7 +948,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
   // shouldn't be ready yet.
   EXPECT_FALSE(future.IsReady());
 
-  helper.CancelDialog();
+  helper.CloseDialogWithoutBypass();
   helper.WaitForDialogToClose();
 
   EXPECT_FALSE(future.IsReady());
@@ -986,7 +986,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
 
   base::test::TestFuture<const ui::ClipboardFormatType&,
@@ -1034,7 +1034,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
       /*profile_identifier=*/browser()->profile()->GetPath().AsUTF8Unsafe(),
       /*content_size=*/1234);
 
-  helper.AcceptDialog();
+  helper.BypassWarning();
   helper.WaitForDialogToClose();
 
   auto data = future.Get<content::ClipboardPasteData>();
@@ -1079,7 +1079,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
                                    ]
                                  })"},
                                  machine_scope());
-  data_controls::DataControlsDialogTestHelper helper(
+  data_controls::DesktopDataControlsDialogTestHelper helper(
       data_controls::DataControlsDialog::Type::kClipboardCopyWarn);
 
   base::test::TestFuture<const ui::ClipboardFormatType&,
@@ -1127,7 +1127,7 @@ IN_PROC_BROWSER_TEST_P(DataControlsClipboardUtilsBrowserTest,
       /*profile_identifier=*/browser()->profile()->GetPath().AsUTF8Unsafe(),
       /*content_size=*/1234);
 
-  helper.AcceptDialog();
+  helper.BypassWarning();
   helper.WaitForDialogToClose();
 
   auto data = future.Get<content::ClipboardPasteData>();

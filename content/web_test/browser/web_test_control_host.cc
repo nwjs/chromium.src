@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/341324165): Fix and remove.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "content/web_test/browser/web_test_control_host.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -1181,9 +1186,7 @@ void WebTestControlHost::DiscardMainWindow() {
   // has been destroyed. Then we dare not call Shell::Close() on the
   // |main_window_|.
   // 2. Some other fatal error has occurred. We can't tell this apart from the
-  // Shell destroying, since that is also something a test can do, and
-  // destroying the WebContents can also happen in order ways (like activating a
-  // portal).
+  // Shell destroying, since that is also something a test can do.
   //
   // Since we can't tell at this point if |main_window_| is okay to use, we
   // don't touch it, and we stop observing its WebContents.
@@ -1578,9 +1581,8 @@ class FakeSelectFileDialog : public ui::SelectFileDialog {
                       int file_type_index,
                       const base::FilePath::StringType& default_extension,
                       gfx::NativeWindow owning_window,
-                      void* params,
                       const GURL* caller) override {
-    listener_->FileSelected(ui::SelectedFileInfo(result_), 0, params);
+    listener_->FileSelected(ui::SelectedFileInfo(result_), 0);
   }
 
   bool IsRunning(gfx::NativeWindow owning_window) const override {

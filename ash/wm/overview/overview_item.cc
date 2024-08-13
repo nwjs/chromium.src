@@ -669,6 +669,10 @@ std::vector<OverviewFocusableView*> OverviewItem::GetFocusableViews() const {
              : std::vector<OverviewFocusableView*>{};
 }
 
+std::vector<views::Widget*> OverviewItem::GetFocusableWidgets() {
+  return {item_widget_.get()};
+}
+
 views::View* OverviewItem::GetBackDropView() const {
   return overview_item_view_->backdrop_view();
 }
@@ -883,7 +887,7 @@ void OverviewItem::AnimateAndCloseItem(bool up) {
   overview_session_->PositionWindows(/*animate=*/true);
   overview_item_view_->OnOverviewItemWindowRestoring();
 
-  int translation_y = kSwipeToCloseCloseTranslationDp * (up ? -1 : 1);
+  const int translation_y = kSwipeToCloseCloseTranslationDp * (up ? -1 : 1);
   gfx::Transform transform;
   transform.Translate(gfx::Vector2d(0, translation_y));
 
@@ -1211,7 +1215,7 @@ aura::Window* OverviewItem::GetStackBelowTarget() const {
   // Find the last window in `overview_grid_` that comes before `window` and has
   // the same parent.
   for (const std::unique_ptr<OverviewItemBase>& overview_item :
-       overview_grid_->window_list()) {
+       overview_grid_->item_list()) {
     // `overview_item` could represent an overview group item, which would never
     // be strictly equal to this. However, the group item would contain `this`.
     // Using `Contains()` ensures `this` check works correctly for both single

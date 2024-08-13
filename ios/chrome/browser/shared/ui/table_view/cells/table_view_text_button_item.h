@@ -55,6 +55,19 @@
 // white color.
 @property(nonatomic, strong) UIColor* activityIndicatorColor;
 
+// Whether the Item's button should display a checkmark image indicating action
+// has been completed. Default is NO.
+@property(nonatomic, assign) BOOL showsCheckmark;
+
+// Checkmark image color. If nil, defaults to kBlue700Color.
+@property(nonatomic, strong) UIColor* checkmarkColor;
+
+// Whether the cell should be marked as an accessibililty element.
+@property(nonatomic, assign) BOOL cellIsAccessibilityElement;
+
+// Accessibility label that will assigned to the cell.
+@property(nonatomic, strong) NSString* cellAccessibilityLabel;
+
 @end
 
 // TableViewTextButtonCell contains a textLabel and a UIbutton

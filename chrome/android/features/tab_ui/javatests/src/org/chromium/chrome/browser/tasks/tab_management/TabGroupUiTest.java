@@ -24,6 +24,9 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
+import static org.chromium.chrome.browser.ntp.HomeSurfaceTestUtils.createTabStatesAndMetadataFile;
+import static org.chromium.chrome.browser.ntp.HomeSurfaceTestUtils.createThumbnailBitmapAndWriteToFile;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstCardFromTabSwitcher;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstTabInDialog;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickNthTabInDialog;
@@ -33,9 +36,6 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.f
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.mergeAllNormalTabsToAGroup;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabStripFaviconCount;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabSwitcherCardCount;
-import static org.chromium.chrome.features.start_surface.StartSurfaceTestUtils.createTabStatesAndMetadataFile;
-import static org.chromium.chrome.features.start_surface.StartSurfaceTestUtils.createThumbnailBitmapAndWriteToFile;
-import static org.chromium.content_public.browser.test.util.TestThreadUtils.runOnUiThreadBlocking;
 
 import android.view.ViewGroup;
 
@@ -51,6 +51,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
@@ -59,6 +60,7 @@ import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -82,7 +84,6 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
 import org.chromium.components.browser_ui.bottomsheet.TestBottomSheetContent;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.test.util.UiRestriction;
 import org.chromium.ui.test.util.ViewUtils;
 
@@ -94,6 +95,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DisableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
+@EnableFeatures({ChromeFeatureList.ANDROID_TAB_GROUP_STABLE_IDS})
 @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
 @Batch(Batch.PER_CLASS)
 public class TabGroupUiTest {
@@ -138,7 +140,11 @@ public class TabGroupUiTest {
         clickFirstCardFromTabSwitcher(cta);
         clickFirstTabInDialog(cta);
         assertFalse(cta.getLayoutManager().isLayoutVisible(LayoutType.TAB_SWITCHER));
-        onView(withId(R.id.bottom_controls)).check(matches(isDisplayed()));
+        ViewUtils.waitForVisibleView(
+                allOf(
+                        withId(R.id.tab_list_recycler_view),
+                        isDescendantOfA(withId(R.id.bottom_controls)),
+                        isCompletelyDisplayed()));
         verifyTabStripFaviconCount(cta, 2);
     }
 
@@ -165,7 +171,7 @@ public class TabGroupUiTest {
                         isDescendantOfA(withId(R.id.bottom_controls)),
                         isCompletelyDisplayed()));
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ViewGroup bottomToolbar = cta.findViewById(R.id.bottom_controls);
                     RecyclerView stripRecyclerView =
@@ -197,7 +203,7 @@ public class TabGroupUiTest {
                         isDescendantOfA(withId(R.id.bottom_controls)),
                         isCompletelyDisplayed()));
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ViewGroup bottomToolbar = cta.findViewById(R.id.bottom_controls);
                     RecyclerView stripRecyclerView =
@@ -222,7 +228,12 @@ public class TabGroupUiTest {
         // Select the first tab in group and add one new tab to group.
         clickFirstCardFromTabSwitcher(cta);
         clickNthTabInDialog(cta, 0);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ViewUtils.waitForVisibleView(
+                allOf(
+                        withId(R.id.tab_list_recycler_view),
+                        isDescendantOfA(withId(R.id.bottom_controls)),
+                        isCompletelyDisplayed()));
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ViewGroup bottomToolbar = cta.findViewById(R.id.bottom_controls);
                     RecyclerView stripRecyclerView =
@@ -255,7 +266,7 @@ public class TabGroupUiTest {
         // Select the first tab in group and add one new tab to group.
         clickFirstCardFromTabSwitcher(cta);
         clickNthTabInDialog(cta, 0);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Tab tab =
                             cta.getCurrentTabCreator()
@@ -273,7 +284,12 @@ public class TabGroupUiTest {
                     filter.mergeListOfTabsToGroup(
                             List.of(tab), filter.getTabAt(0), /* notify= */ false);
                 });
-        TestThreadUtils.runOnUiThreadBlocking(
+        ViewUtils.waitForVisibleView(
+                allOf(
+                        withId(R.id.tab_list_recycler_view),
+                        isDescendantOfA(withId(R.id.bottom_controls)),
+                        isCompletelyDisplayed()));
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ViewGroup bottomToolbar = cta.findViewById(R.id.bottom_controls);
                     RecyclerView stripRecyclerView =
@@ -425,7 +441,7 @@ public class TabGroupUiTest {
         assertTrue(
                 "Scene overlay should be visible",
                 coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     coordinator.simulateEdgeToEdgeChangeForTesting(100);
                 });
@@ -435,7 +451,7 @@ public class TabGroupUiTest {
                 coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
 
         // Force a bitmap capture.
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     coordinator.getResourceAdapterForTesting().triggerBitmapCapture();
                 });

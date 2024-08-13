@@ -29,6 +29,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/platform/fonts/shaping/harfbuzz_shaper.h"
 
 #include <hb.h>
@@ -867,6 +872,16 @@ void HarfBuzzShaper::ShapeSegment(
   }
   FontDataForRangeSet* current_font_data_for_range_set = nullptr;
   FallbackFontStage fallback_stage = kIntermediate;
+  // Variation selector mode should be always set to default at the
+  // beginning of the segment shaping run.
+  DCHECK(HarfBuzzFace::GetVariationSelectorMode() ==
+         kUseSpecifiedVariationSelector);
+  if (RuntimeEnabledFeatures::FontVariantEmojiEnabled() &&
+      font_description.VariantEmoji() != kNormalVariantEmoji) {
+    HarfBuzzFace::SetVariationSelectorMode(
+        GetVariationSelectorModeFromFontVariantEmoji(
+            font_description.VariantEmoji()));
+  }
   while (!range_data->reshape_queue.empty()) {
     ReshapeQueueItem current_queue_item = range_data->reshape_queue.TakeFirst();
 
@@ -875,13 +890,13 @@ void HarfBuzzShaper::ShapeSegment(
         // We reached last font in the list, some of the variation sequences
         // are not shaped yet and there is a fonts in the list that has glyphs
         // for the base codepoint of unshaped variation sequences, so we need to
-        // restart the fallback queue and set the ignore variation selectors
-        // flag to true.
+        // restart the fallback queue and set the variation selector mode to
+        // `kIgnoreVariationSelector`.
         DCHECK(RuntimeEnabledFeatures::FontVariationSequencesEnabled());
         DCHECK_EQ(fallback_stage, kLastWithVS);
         fallback_iterator.Reset();
         fallback_stage = kIntermediateIgnoreVS;
-        HarfBuzzFace::SetIgnoreVariationSelectors(true);
+        HarfBuzzFace::SetVariationSelectorMode(kIgnoreVariationSelector);
       }
 
       if (!CollectFallbackHintChars(range_data->reshape_queue,
@@ -992,14 +1007,15 @@ void HarfBuzzShaper::ShapeSegment(
     hb_buffer_reset(range_data->buffer);
   }
 
-  // Ignore variation selectors flag should be only changed after when the
+  // Ignore variation selectors flag should be only changed when the
   // FontVariationSequences runtime flag is enabled.
-  DCHECK(RuntimeEnabledFeatures::FontVariationSequencesEnabled() ||
-         !HarfBuzzFace::ShouldIgnoreVariationSelectors());
+  DCHECK(
+      RuntimeEnabledFeatures::FontVariationSequencesEnabled() ||
+      !ShouldIgnoreVariationSelector(HarfBuzzFace::GetVariationSelectorMode()));
 
   if (RuntimeEnabledFeatures::FontVariationSequencesEnabled()) {
-    // Set ignore variation selectors flag to the default state.
-    HarfBuzzFace::SetIgnoreVariationSelectors(false);
+    // Set variation selector mode to the default state.
+    HarfBuzzFace::SetVariationSelectorMode(kUseSpecifiedVariationSelector);
   }
 
   if (segment.font_fallback_priority == FontFallbackPriority::kEmojiEmoji) {

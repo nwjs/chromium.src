@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/memory/ptr_util.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/resources/grit/blink_resources.h"
@@ -145,8 +146,8 @@ void ValidationMessageOverlayDelegate::CreatePage(const FrameOverlay& overlay) {
       main_page_->GetChromeClient(), anchor_->GetDocument().View());
   Settings& main_settings = main_page_->GetSettings();
   page_ = Page::CreateNonOrdinary(
-      *chrome_client_,
-      main_page_->GetPageScheduler()->GetAgentGroupScheduler());
+      *chrome_client_, main_page_->GetPageScheduler()->GetAgentGroupScheduler(),
+      &main_page_->GetColorProviderColorMaps());
   page_->GetSettings().SetMinimumFontSize(main_settings.GetMinimumFontSize());
   page_->GetSettings().SetMinimumLogicalFontSize(
       main_settings.GetMinimumLogicalFontSize());
@@ -154,7 +155,7 @@ void ValidationMessageOverlayDelegate::CreatePage(const FrameOverlay& overlay) {
   auto* frame = MakeGarbageCollected<LocalFrame>(
       MakeGarbageCollected<EmptyLocalFrameClient>(), *page_, nullptr, nullptr,
       nullptr, FrameInsertType::kInsertInConstructor, LocalFrameToken(),
-      nullptr, nullptr);
+      nullptr, nullptr, mojo::NullRemote());
   frame->SetView(MakeGarbageCollected<LocalFrameView>(*frame, view_size));
   frame->Init(/*opener=*/nullptr, DocumentToken(), /*policy_container=*/nullptr,
               StorageKey(), /*document_ukm_source_id=*/ukm::kInvalidSourceId,
@@ -178,8 +179,8 @@ void ValidationMessageOverlayDelegate::CreatePage(const FrameOverlay& overlay) {
 
   SegmentedBuffer data;
   WriteDocument(data);
-  float zoom_factor = anchor_->GetDocument().GetFrame()->PageZoomFactor();
-  frame->SetPageZoomFactor(zoom_factor);
+  float zoom_factor = anchor_->GetDocument().GetFrame()->LayoutZoomFactor();
+  frame->SetLayoutZoomFactor(zoom_factor);
 
   // ForceSynchronousDocumentInstall can cause another call to
   // ValidationMessageClientImpl::ShowValidationMessage, which will hide this
@@ -271,7 +272,7 @@ void ValidationMessageOverlayDelegate::AdjustBubblePosition(
     const gfx::Rect& view_rect) {
   if (IsHiding())
     return;
-  float zoom_factor = To<LocalFrame>(page_->MainFrame())->PageZoomFactor();
+  float zoom_factor = To<LocalFrame>(page_->MainFrame())->LayoutZoomFactor();
   gfx::Rect anchor_rect = anchor_->VisibleBoundsInLocalRoot();
 
   Page* anchor_page = anchor_->GetDocument().GetPage();

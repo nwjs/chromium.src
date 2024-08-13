@@ -161,10 +161,10 @@ TouchToFillDelegateAndroidImpl::DryRunForCreditCard(
   // Fetch all complete valid credit cards on file.
   // Complete = contains number, expiration date and name on card.
   // Valid = unexpired with valid number format.
-  // TODO(b/40227496): `*field` must contain the updated field information.
-  std::vector<CreditCard> cards_to_suggest =
-      PaymentsSuggestionGenerator(manager_->client())
-          .GetTouchToFillCardsToSuggest(field, field.Type().GetStorableType());
+  // TODO(crbug.com/40227496): `*field` must contain the updated field
+  // information.
+  std::vector<CreditCard> cards_to_suggest = GetTouchToFillCardsToSuggest(
+      manager_->client(), field, field.Type().GetStorableType());
   return cards_to_suggest.empty()
              ? DryRunResult(TriggerOutcome::kNoValidPaymentMethods, {})
              : DryRunResult(TriggerOutcome::kShown,
@@ -267,7 +267,9 @@ AutofillManager* TouchToFillDelegateAndroidImpl::GetManager() {
 }
 
 bool TouchToFillDelegateAndroidImpl::ShouldShowScanCreditCard() {
-  if (!manager_->client().HasCreditCardScanFeature()) {
+  if (!manager_->client()
+           .GetPaymentsAutofillClient()
+           ->HasCreditCardScanFeature()) {
     return false;
   }
 
@@ -275,7 +277,7 @@ bool TouchToFillDelegateAndroidImpl::ShouldShowScanCreditCard() {
 }
 
 void TouchToFillDelegateAndroidImpl::ScanCreditCard() {
-  manager_->client().ScanCreditCard(base::BindOnce(
+  manager_->client().GetPaymentsAutofillClient()->ScanCreditCard(base::BindOnce(
       &TouchToFillDelegateAndroidImpl::OnCreditCardScanned, GetWeakPtr()));
 }
 
@@ -394,7 +396,7 @@ bool TouchToFillDelegateAndroidImpl::IsFillingCorrect(
 }
 
 bool TouchToFillDelegateAndroidImpl::IsFormPrefilled(const FormData& form) {
-  return base::ranges::any_of(form.fields, [&](const FormFieldData& field) {
+  return base::ranges::any_of(form.fields(), [&](const FormFieldData& field) {
     AutofillField* autofill_field = manager_->GetAutofillField(form, field);
     if (autofill_field && autofill_field->Type().GetStorableType() !=
                               FieldType::CREDIT_CARD_NUMBER) {
@@ -408,16 +410,14 @@ std::vector<bool> TouchToFillDelegateAndroidImpl::GetCardAcceptabilities(
     base::span<const CreditCard> credit_cards) {
   std::vector<bool> card_acceptabilities;
   card_acceptabilities.reserve(credit_cards.size());
-  PaymentsSuggestionGenerator autofill_suggestion_generator(manager_->client());
 
-  std::transform(
-      credit_cards.begin(), credit_cards.end(),
-      std::back_inserter(card_acceptabilities),
-      [&autofill_suggestion_generator](const CreditCard& credit_card) {
-        return autofill_suggestion_generator.IsCardAcceptable(
-            credit_card,
-            /*is_manual_fallback=*/false);
-      });
+  std::transform(credit_cards.begin(), credit_cards.end(),
+                 std::back_inserter(card_acceptabilities),
+                 [this](const CreditCard& credit_card) {
+                   return IsCardSuggestionAcceptable(
+                       credit_card, manager_->client(),
+                       /*is_manual_fallback=*/false);
+                 });
   return card_acceptabilities;
 }
 

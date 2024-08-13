@@ -11,12 +11,10 @@
 #include <vector>
 
 #include "base/functional/callback_forward.h"
-#include "base/scoped_observation.h"
-#include "base/scoped_observation_traits.h"
+#include "base/memory/scoped_refptr.h"
 #include "components/saved_tab_groups/proto/saved_tab_group_data.pb.h"
 #include "components/saved_tab_groups/saved_tab_group.h"
 #include "components/saved_tab_groups/saved_tab_group_model.h"
-#include "components/saved_tab_groups/saved_tab_group_model_observer.h"
 #include "components/saved_tab_groups/saved_tab_group_tab.h"
 #include "components/sync/model/model_type_change_processor.h"
 #include "components/sync/model/model_type_store.h"
@@ -38,15 +36,18 @@ class SavedTabGroupModel;
 // conflicts between the data stored in the sync server and what is currently
 // stored in the SavedTabGroupModel. Once synchronized, this data is stored in
 // the ModelTypeStore for local persistence across sessions.
-class SavedTabGroupSyncBridge : public syncer::ModelTypeSyncBridge,
-                                public SavedTabGroupModelObserver {
+class SavedTabGroupSyncBridge : public syncer::ModelTypeSyncBridge {
  public:
+  using SavedTabGroupLoadCallback =
+      base::OnceCallback<void(std::vector<SavedTabGroup>,
+                              std::vector<SavedTabGroupTab>)>;
+
   explicit SavedTabGroupSyncBridge(
       SavedTabGroupModel* model,
       syncer::OnceModelTypeStoreFactory create_store_callback,
       std::unique_ptr<syncer::ModelTypeChangeProcessor> change_processor,
       PrefService* pref_service,
-      std::map<base::Uuid, LocalTabGroupID> migrated_android_local_ids);
+      SavedTabGroupLoadCallback on_load_callback);
 
   SavedTabGroupSyncBridge(const SavedTabGroupSyncBridge&) = delete;
   SavedTabGroupSyncBridge& operator=(const SavedTabGroupSyncBridge&) = delete;
@@ -71,22 +72,20 @@ class SavedTabGroupSyncBridge : public syncer::ModelTypeSyncBridge,
       const syncer::EntityData& remote_data) const override;
   std::string GetStorageKey(const syncer::EntityData& entity_data) override;
   std::string GetClientTag(const syncer::EntityData& entity_data) override;
-  void GetDataForCommit(StorageKeyList storage_keys,
-                        DataCallback callback) override;
-  void GetAllDataForDebugging(DataCallback callback) override;
+  std::unique_ptr<syncer::DataBatch> GetDataForCommit(
+      StorageKeyList storage_keys) override;
+  std::unique_ptr<syncer::DataBatch> GetAllDataForDebugging() override;
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
 
-  // SavedTabGroupModelObserver
-  void SavedTabGroupAddedLocally(const base::Uuid& guid) override;
-  void SavedTabGroupRemovedLocally(const SavedTabGroup* removed_group) override;
-  void SavedTabGroupUpdatedLocally(
-      const base::Uuid& group_guid,
-      const std::optional<base::Uuid>& tab_guid = std::nullopt) override;
-  void SavedTabGroupTabsReorderedLocally(const base::Uuid& group_guid) override;
-  void SavedTabGroupReorderedLocally() override;
-  void SavedTabGroupLocalIdChanged(const base::Uuid& group_guid) override;
+  void SavedTabGroupAddedLocally(const base::Uuid& guid);
+  void SavedTabGroupRemovedLocally(const SavedTabGroup& removed_group);
+  void SavedTabGroupUpdatedLocally(const base::Uuid& group_guid,
+                                   const std::optional<base::Uuid>& tab_guid);
+  void SavedTabGroupTabsReorderedLocally(const base::Uuid& group_guid);
+  void SavedTabGroupReorderedLocally();
+  void SavedTabGroupLocalIdChanged(const base::Uuid& group_guid);
   void SavedTabGroupLastUserInteractionTimeUpdated(
-      const base::Uuid& group_guid) override;
+      const base::Uuid& group_guid);
 
   const std::vector<proto::SavedTabGroupData>&
   GetTabsMissingGroupsForTesting() {
@@ -164,12 +163,14 @@ class SavedTabGroupSyncBridge : public syncer::ModelTypeSyncBridge,
                   syncer::MetadataChangeList* metadata_change_list);
 
   // Loads the data already stored in the ModelTypeStore.
-  void OnStoreCreated(const std::optional<syncer::ModelError>& error,
+  void OnStoreCreated(SavedTabGroupLoadCallback on_load_callback,
+                      const std::optional<syncer::ModelError>& error,
                       std::unique_ptr<syncer::ModelTypeStore> store);
 
   // Loads all sync_pb::SavedTabGroupSpecifics stored in `entries` passing the
   // specifics into OnReadAllMetadata.
   void OnDatabaseLoad(
+      SavedTabGroupLoadCallback on_load_callback,
       const std::optional<syncer::ModelError>& error,
       std::unique_ptr<syncer::ModelTypeStore::RecordList> entries);
 
@@ -179,25 +180,17 @@ class SavedTabGroupSyncBridge : public syncer::ModelTypeSyncBridge,
   // Calls ModelReadyToSync if there are no errors to report and loads the
   // stored entries into `model_`.
   void OnReadAllMetadata(
+      SavedTabGroupLoadCallback on_load_callback,
       std::unique_ptr<syncer::ModelTypeStore::RecordList> entries,
       const std::optional<syncer::ModelError>& error,
       std::unique_ptr<syncer::MetadataBatch> metadata_batch);
 
-  // Callback passed to `LoadStoredEntries` to start observing model after
-  // loading the stored entries.
-  void StartObservingModel();
-
   // Called to migrate the SavedTabGroupSpecfics to SavedTabGroupData.
   void MigrateSpecificsToSavedTabGroupData(
+      SavedTabGroupLoadCallback on_load_callback,
       std::unique_ptr<syncer::ModelTypeStore::RecordList> entries);
   void OnSpecificsToDataMigrationComplete(
-      const std::optional<syncer::ModelError>& error);
-
-  // Called to migrate the Android local IDs from shared prefs to
-  // SavedTabGroupData.
-  void MigrateAndroidLocalIds(
-      std::unique_ptr<syncer::ModelTypeStore::RecordList> entries);
-  void OnAndroidLocalIdMigrationComplete(
+      SavedTabGroupLoadCallback on_load_callback,
       const std::optional<syncer::ModelError>& error);
 
   // Called to update the cache guid of groups and tabs with latest cache guid
@@ -220,15 +213,6 @@ class SavedTabGroupSyncBridge : public syncer::ModelTypeSyncBridge,
 
   // Used to store tabs whose groups were not added locally yet.
   std::vector<proto::SavedTabGroupData> tabs_missing_groups_;
-
-  // Observes the SavedTabGroupModel.
-  base::ScopedObservation<SavedTabGroupModel, SavedTabGroupModelObserver>
-      observation_{this};
-
-  // Sync to local ID map for Android during shared prefs migration. This will
-  // be non-empty during first time migration and always empty after subsequent
-  // restart.
-  std::map<base::Uuid, LocalTabGroupID> migrated_android_local_ids_;
 
   // Only for metrics. Used to ensure that a certain metrics is recorded at max
   // once per chrome session.

@@ -66,6 +66,7 @@
 #include "ui/views/style/typography.h"
 #include "ui/views/style/typography_provider.h"
 #include "ui/views/view.h"
+#include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 // TODO(crbug.com/40147906): Enable gn check once it learns about conditional
@@ -229,11 +230,10 @@ class ImageCarouselView : public views::View {
   }
 
   void AddedToWidget() override {
-    const display::Screen* const screen = display::Screen::GetScreen();
-
     float current_scale =
-        screen->GetDisplayNearestView(GetWidget()->GetNativeView())
-            .device_scale_factor();
+        display::Screen::GetScreen()
+            ->GetPreferredScaleFactorForView(GetWidget()->GetNativeView())
+            .value_or(1.0f);
     for (size_t i = 0; i < screenshots_.size(); i++) {
       image_views_[i]->SetImage(
           ui::ImageModel::FromImageSkia(gfx::ImageSkia::CreateFromBitmap(
@@ -388,7 +388,7 @@ void ShowWebAppDetailedInstallDialog(
                             gfx::Size(kIconSize, kIconSize));
 
   auto title = install_info->title;
-  GURL start_url = install_info->start_url;
+  GURL start_url = install_info->start_url();
   std::u16string start_url_host_formatted_for_display =
       url_formatter::FormatUrlForDisplayOmitSchemePathAndTrivialSubdomains(
           start_url);
@@ -396,7 +396,7 @@ void ShowWebAppDetailedInstallDialog(
   const std::u16string description = gfx::TruncateString(
       install_info->description, webapps::kMaximumDescriptionLength,
       gfx::CHARACTER_BREAK);
-  auto manifest_id = install_info->manifest_id;
+  auto manifest_id = install_info->manifest_id();
 
   auto delegate = std::make_unique<WebAppInstallDialogDelegate>(
       web_contents, std::move(install_info), std::move(install_tracker),
@@ -463,11 +463,14 @@ void ShowWebAppDetailedInstallDialog(
             .OverrideDefaultButton(ui::DialogButton::DIALOG_BUTTON_CANCEL)
             .Build();
   }
-
   auto dialog = views::BubbleDialogModelHost::CreateModal(
       std::move(dialog_model), ui::MODAL_TYPE_CHILD);
 
-  constrained_window::ShowWebModalDialogViews(dialog.release(), web_contents);
+  views::Widget* detailed_dialog_widget =
+      constrained_window::ShowWebModalDialogViews(dialog.release(),
+                                                  web_contents);
+  delegate_weak_ptr->StartObservingForPictureInPictureOcclusion(
+      detailed_dialog_widget);
   base::RecordAction(base::UserMetricsAction("WebAppDetailedInstallShown"));
 
 #if BUILDFLAG(IS_CHROMEOS)

@@ -14,7 +14,9 @@
 namespace arc {
 
 // Please keep alphabetized.
-BASE_DECLARE_FEATURE(kArcOnDemandFeature);
+BASE_DECLARE_FEATURE(kArcOnDemandV2);
+extern const base::FeatureParam<bool> kArcOnDemandActivateOnAppLaunch;
+extern const base::FeatureParam<base::TimeDelta> kArcOnDemandInactiveInterval;
 BASE_DECLARE_FEATURE(kArcVmGki);
 BASE_DECLARE_FEATURE(kBlockIoScheduler);
 extern const base::FeatureParam<bool> kEnableDataBlockIoScheduler;
@@ -34,6 +36,7 @@ extern const base::FeatureParam<bool>
 BASE_DECLARE_FEATURE(kEnableArcNearbyShareFuseBox);
 BASE_DECLARE_FEATURE(kEnableArcS2Idle);
 BASE_DECLARE_FEATURE(kEnableArcVmDataMigration);
+BASE_DECLARE_FEATURE(kEnableFriendlierErrorDialog);
 BASE_DECLARE_FEATURE(kEnableLazyWebViewInit);
 BASE_DECLARE_FEATURE(kEnablePerVmCoreScheduling);
 BASE_DECLARE_FEATURE(kEnableReadOnlyPermissions);
@@ -42,6 +45,8 @@ BASE_DECLARE_FEATURE(kEnableUnmanagedToManagedTransitionFeature);
 BASE_DECLARE_FEATURE(kEnableVirtioBlkForData);
 BASE_DECLARE_FEATURE(kEnableVirtioBlkMultipleWorkers);
 BASE_DECLARE_FEATURE(kExtendInputAnrTimeout);
+BASE_DECLARE_FEATURE(kExtendIntentAnrTimeout);
+BASE_DECLARE_FEATURE(kExtendServiceAnrTimeout);
 BASE_DECLARE_FEATURE(kExternalStorageAccess);
 BASE_DECLARE_FEATURE(kGhostWindowNewStyle);
 BASE_DECLARE_FEATURE(kVirtioBlkDataConfigOverride);
@@ -56,6 +61,7 @@ extern const base::FeatureParam<bool> kGuestReclaimEnabled;
 extern const base::FeatureParam<bool> kGuestReclaimOnlyAnonymous;
 extern const base::FeatureParam<bool> kVirtualSwapEnabled;
 extern const base::FeatureParam<int> kVirtualSwapIntervalMs;
+BASE_DECLARE_FEATURE(kArcVmPvclock);
 BASE_DECLARE_FEATURE(kIgnoreHoverEventAnr);
 BASE_DECLARE_FEATURE(kInstantResponseWindowOpen);
 BASE_DECLARE_FEATURE(kLockGuestMemory);

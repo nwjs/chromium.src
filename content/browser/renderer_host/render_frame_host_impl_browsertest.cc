@@ -79,6 +79,8 @@
 #include "content/public/test/simple_url_loader_test_helper.h"
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "content/public/test/test_navigation_throttle.h"
+#include "content/public/test/test_navigation_throttle_inserter.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/url_loader_interceptor.h"
 #include "content/shell/browser/shell.h"
@@ -245,11 +247,10 @@ class RenderFrameHostImplBrowserTest : public ContentBrowserTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     // TODO(crbug.com/40554401): Remove this when the new Java Bridge code
     // is integrated into WebView.
-    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-        blink::switches::kJavaScriptFlags, "--expose_gc");
+    command_line->AppendSwitchASCII(blink::switches::kJavaScriptFlags,
+                                    "--expose_gc");
 
-    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-        switches::kEnableBlinkFeatures, "WebOTP");
+    command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures, "WebOTP");
   }
 
   net::EmbeddedTestServer* https_server() { return &https_server_; }
@@ -4494,7 +4495,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // 3) Start navigation to B, but don't commit yet.
   TestNavigationManager manager(web_contents(), url_b);
   shell()->LoadURL(url_b);
-  EXPECT_TRUE(manager.WaitForRequestStart());
+  manager.WaitForSpeculativeRenderFrameHostCreation();
 
   FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
   RenderFrameHostImpl* pending_rfh =
@@ -4608,7 +4609,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // 2) Start navigation to B, but don't commit yet.
   TestNavigationManager manager(web_contents(), url_b);
   shell()->LoadURL(url_b);
-  EXPECT_TRUE(manager.WaitForRequestStart());
+  manager.WaitForSpeculativeRenderFrameHostCreation();
 
   FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
   RenderFrameHostImpl* speculative_rfh =
@@ -5265,8 +5266,9 @@ void SetupRemoteObjectInvocation(Shell* shell, const GURL& url) {
 // integrated into WebView.
 // This test is a temporary way of verifying that the renderer part
 // works as expected.
+// TODO(crbug.com/347691518): This test is flaky.
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
-                       RemoteObjectEnumerateProperties) {
+                       DISABLED_RemoteObjectEnumerateProperties) {
   GURL url(embedded_test_server()->GetURL("/empty.html"));
 
   RemoteObjectInjector injector(web_contents());
@@ -5327,8 +5329,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_EQ(kInnerObject.id, EvalJs(web_contents(), kScript));
 }
 
+// TODO(crbug.com/340869172): This test is flaky.
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
-                       RemoteObjectInvokeMethodException) {
+                       DISABLED_RemoteObjectInvokeMethodException) {
   GURL url(embedded_test_server()->GetURL("/empty.html"));
 
   RemoteObjectInjector injector(web_contents());
@@ -5349,7 +5352,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 }
 
 // Based on testReturnedObjectIsGarbageCollected.
-IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, RemoteObjectRelease) {
+// TODO(crbug.com/340928363): This test is flaky.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       DISABLED_RemoteObjectRelease) {
   GURL url(embedded_test_server()->GetURL("/empty.html"));
 
   RemoteObjectInjector injector(web_contents());
@@ -5889,7 +5894,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   TestNavigationManager nav_manager(web_contents(), url_b);
   shell()->LoadURL(url_b);
-  ASSERT_TRUE(nav_manager.WaitForRequestStart());
+  nav_manager.WaitForSpeculativeRenderFrameHostCreation();
 
   RenderFrameHostImpl* rfh_b =
       rfh_a->frame_tree_node()->render_manager()->speculative_frame_host();
@@ -5972,7 +5977,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   TestNavigationManager nav_manager(web_contents(), url_d);
   ASSERT_TRUE(BeginNavigateToURLFromRenderer(rfh_b, url_d));
-  ASSERT_TRUE(nav_manager.WaitForRequestStart());
+  nav_manager.WaitForSpeculativeRenderFrameHostCreation();
 
   RenderFrameHostImpl* rfh_d =
       rfh_b->frame_tree_node()->render_manager()->speculative_frame_host();
@@ -7461,7 +7466,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // 3) Start navigation to B, but don't commit yet.
   TestNavigationManager manager(web_contents(), url_b);
   shell()->LoadURL(url_b);
-  EXPECT_TRUE(manager.WaitForRequestStart());
+  manager.WaitForSpeculativeRenderFrameHostCreation();
 
   FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
   RenderFrameHostImpl* pending_rfh =
@@ -7797,6 +7802,82 @@ IN_PROC_BROWSER_TEST_F(
       histogram.GetAllSamples(
           "SiteIsolation.NewProcessUsedForNavigationWhenSameSiteProcessExists"),
       testing::ElementsAre(base::Bucket(true, 1)));
+}
+
+// Tests that if a shutdown BeforeUnload ACK is received when a navigation has
+// picked its final RenderFrameHost, both the RenderFrameHost and navigation
+// gets destructed.
+// Regression test for crbug.com/349065727.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       BeforeUnloadACKWithOngoingNavigation) {
+  GURL url = embedded_test_server()->GetURL("a.com", "/title1.html");
+  GURL url2 = embedded_test_server()->GetURL("b.com", "/title2.html");
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  // Navigate to an initial page.
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+
+  // Set up a throttle for the next navigation to simulate a shutdown
+  // BeforeUnload ACK from OnWillProcessResponse, after a final RenderFrameHost
+  // has been picked.
+  TestNavigationThrottleInserter throttle_inserter(
+      shell()->web_contents(),
+      base::BindLambdaForTesting(
+          [&](NavigationHandle* handle) -> std::unique_ptr<NavigationThrottle> {
+            auto throttle = std::make_unique<TestNavigationThrottle>(handle);
+            throttle->SetCallback(
+                TestNavigationThrottle::WILL_PROCESS_RESPONSE,
+                base::BindLambdaForTesting([&]() {
+                  // Simulate a shutdown BeforeUnload ACK that can happen if
+                  // e.g. the tab is being closed. Note that this beforeunload
+                  // is not triggered by the navigation itself (a navigation
+                  // beforeunload will call `Navigator::BeforeUnloadCompleted()`
+                  // instead). The shutdown beforeunload ACK will trigger the
+                  // deletion of the speculative RenderFrameHost &
+                  // NavigationRequest, so do it asynchronously to not crash the
+                  // TestNavigationThrottle.
+                  GetUIThreadTaskRunner({})->PostTask(
+                      FROM_HERE, base::BindLambdaForTesting([&]() {
+                        // Check that the NavigationRequest has picked its final
+                        // RenderFrameHost.
+                        EXPECT_TRUE(root->navigation_request());
+                        EXPECT_TRUE(
+                            root->navigation_request()->HasRenderFrameHost());
+                        // Simulate the BeforeUnload ACK.
+                        root->render_manager()->BeforeUnloadCompleted(
+                            /*proceed=*/true);
+                        // Ensure that the NavigationRequest and speculative
+                        // RenderFrameHost has been cleared.
+                        EXPECT_FALSE(
+                            root->render_manager()->speculative_frame_host());
+                        EXPECT_FALSE(root->navigation_request());
+                      }));
+                }));
+            return throttle;
+          }));
+
+  // Navigate to another page, which will be cancelled by the shutdown
+  // BeforeUnload ACK above.
+  TestNavigationManager navigation_manager(web_contents(), url2);
+  shell()->LoadURL(url2);
+
+  // A speculative RFH will be created if needed.
+  if (AreAllSitesIsolatedForTesting() || IsBackForwardCacheEnabled() ||
+      root->current_frame_host()
+          ->ShouldChangeRenderFrameHostOnSameSiteNavigation()) {
+    navigation_manager.WaitForSpeculativeRenderFrameHostCreation();
+    EXPECT_TRUE(root->render_manager()->speculative_frame_host());
+  } else {
+    EXPECT_TRUE(navigation_manager.WaitForRequestStart());
+    EXPECT_FALSE(root->render_manager()->speculative_frame_host());
+    navigation_manager.ResumeNavigation();
+  }
+
+  // The NavigationRequest got deleted before commit because of the
+  // BeforeUnload ACK, along with the speculative RenderFrameHost (if it was
+  // created).
+  EXPECT_TRUE(navigation_manager.WaitForNavigationFinished());
+  EXPECT_FALSE(navigation_manager.was_committed());
+  EXPECT_FALSE(root->render_manager()->speculative_frame_host());
 }
 
 class RenderFrameHostImplBrowserTestWithBFCache

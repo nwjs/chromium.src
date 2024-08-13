@@ -31,7 +31,6 @@ import android.widget.TextView;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.core.view.ViewCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
@@ -507,7 +506,7 @@ public class PaymentRequestUI
         mIsShowingSpinner = true;
 
         // Indicate that we're preparing the dialog for display.
-        TextView messageView = (TextView) mRequestView.findViewById(R.id.message);
+        TextView messageView = mRequestView.findViewById(R.id.message);
         messageView.setText(R.string.payments_loading_message);
 
         ((PaymentRequestHeader) mRequestView.findViewById(R.id.header))
@@ -516,18 +515,17 @@ public class PaymentRequestUI
         // Set up the buttons.
         mCloseButton = mRequestView.findViewById(R.id.close_button);
         mCloseButton.setOnClickListener(this);
-        mBottomBar = (ViewGroup) mRequestView.findViewById(R.id.bottom_bar);
-        mPayButton = (Button) mBottomBar.findViewById(R.id.button_primary);
+        mBottomBar = mRequestView.findViewById(R.id.bottom_bar);
+        mPayButton = mBottomBar.findViewById(R.id.button_primary);
         mPayButton.setOnClickListener(this);
         mPayButton.setText(R.string.payments_continue_button);
-        mEditButton = (Button) mBottomBar.findViewById(R.id.button_secondary);
+        mEditButton = mBottomBar.findViewById(R.id.button_secondary);
         mEditButton.setOnClickListener(this);
 
         // Create all the possible sections.
         mSectionSeparators = new ArrayList<>();
-        mPaymentContainer = (FadingEdgeScrollView) mRequestView.findViewById(R.id.option_container);
-        mPaymentContainerLayout =
-                (LinearLayout) mRequestView.findViewById(R.id.payment_container_layout);
+        mPaymentContainer = mRequestView.findViewById(R.id.option_container);
+        mPaymentContainerLayout = mRequestView.findViewById(R.id.payment_container_layout);
         mRetryErrorView = mRequestView.findViewById(R.id.retry_error);
         mOrderSummarySection =
                 new LineItemBreakdownSection(
@@ -660,9 +658,9 @@ public class PaymentRequestUI
                 int paddingSize =
                         mContext.getResources()
                                 .getDimensionPixelSize(R.dimen.editor_dialog_section_large_spacing);
-                ViewCompat.setPaddingRelative(mRetryErrorView, 0, paddingSize, 0, paddingSize);
+                mRetryErrorView.setPaddingRelative(0, paddingSize, 0, paddingSize);
             } else {
-                ViewCompat.setPaddingRelative(mRetryErrorView, 0, 0, 0, 0);
+                mRetryErrorView.setPaddingRelative(0, 0, 0, 0);
             }
             mRetryErrorView.setVisibility(View.VISIBLE);
         }
@@ -1181,7 +1179,7 @@ public class PaymentRequestUI
         int paddingSize =
                 mContext.getResources()
                         .getDimensionPixelSize(R.dimen.editor_dialog_section_large_spacing);
-        ViewCompat.setPaddingRelative(view, paddingSize, paddingSize, paddingSize, paddingSize);
+        view.setPaddingRelative(paddingSize, paddingSize, paddingSize, paddingSize);
         parent.addView(view);
     }
 

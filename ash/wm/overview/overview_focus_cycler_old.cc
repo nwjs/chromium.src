@@ -28,7 +28,7 @@
 #include "ash/wm/overview/overview_item_view.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/overview/overview_utils.h"
-#include "ash/wm/splitview/faster_split_view_old.h"
+#include "ash/wm/splitview/split_view_setup_view_old.h"
 #include "base/containers/contains.h"
 #include "base/ranges/algorithm.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -57,7 +57,8 @@ void AddDesksBarTraversableViews(
         out_traversable_views.push_back(profiles_button);
       }
       auto* desk_action_view = mini_view->desk_action_view();
-      if (desk_action_view->combine_desks_button()->CanShow()) {
+      if (desk_action_view->combine_desks_button() &&
+          desk_action_view->combine_desks_button()->CanShow()) {
         out_traversable_views.push_back(
             desk_action_view->combine_desks_button());
       }
@@ -100,11 +101,9 @@ void OverviewFocusCyclerOld::MoveFocus(bool reverse) {
   }
 
   int index = 0;
-  bool item_was_deleted = false;
   if (!focused_view_) {
     // Pick up where we left off if |deleted_index_| has a value.
     if (deleted_index_) {
-      item_was_deleted = true;
       index = *deleted_index_ >= count ? 0 : *deleted_index_;
       deleted_index_.reset();
     } else if (reverse) {
@@ -116,20 +115,6 @@ void OverviewFocusCyclerOld::MoveFocus(bool reverse) {
     const int current_index = std::distance(traversable_views.begin(), it);
     DCHECK_GE(current_index, 0);
     index = (((reverse ? -1 : 1) + current_index) + count) % count;
-  }
-
-  // If we are moving over either end of the list of traversible views and there
-  // is an active toast with an undo button for desk removal  that can be
-  // focused, then we unfocus any traversible views while the dismiss button
-  // is focused.
-  if (((index == 0 && !reverse) || (index == count - 1 && reverse)) &&
-      !item_was_deleted &&
-      DesksController::Get()
-          ->MaybeToggleA11yHighlightOnUndoDeskRemovalToast()) {
-    SetFocusVisibility(false);
-    focused_view_ = nullptr;
-    focused_view_tracker_.SetView(nullptr);
-    return;
   }
 
   UpdateFocus(traversable_views[index]);
@@ -197,11 +182,6 @@ bool OverviewFocusCyclerOld::IsFocusVisible() const {
 }
 
 bool OverviewFocusCyclerOld::MaybeActivateFocusedView() {
-  if (DesksController::Get()
-          ->MaybeActivateDeskRemovalUndoButtonOnHighlightedToast()) {
-    return true;
-  }
-
   if (!focused_view_) {
     return false;
   }
@@ -275,7 +255,7 @@ std::vector<OverviewFocusableView*> OverviewFocusCyclerOld::GetTraversableViews(
         }
       }
     } else {
-      for (const auto& item : grid->window_list()) {
+      for (const auto& item : grid->item_list()) {
         for (auto* focusable_view : item->GetFocusableViews()) {
           traversable_views.push_back(focusable_view);
         }
@@ -284,9 +264,9 @@ std::vector<OverviewFocusableView*> OverviewFocusCyclerOld::GetTraversableViews(
 
     // UI elements in faster split screen partial overview will be traversed
     // right after the overview items.
-    if (auto* faster_split_view = grid->GetFasterSplitViewOld()) {
-      traversable_views.push_back(faster_split_view->GetToast());
-      traversable_views.push_back(faster_split_view->settings_button());
+    if (auto* split_view_setup_view = grid->GetSplitViewSetupViewOld()) {
+      traversable_views.push_back(split_view_setup_view->GetToast());
+      traversable_views.push_back(split_view_setup_view->settings_button());
     }
 
     AddDesksBarTraversableViews(grid.get(), traversable_views);

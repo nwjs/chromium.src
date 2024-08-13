@@ -15,6 +15,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/autofill/autofill_popup_view.h"
+#include "chrome/browser/ui/views/autofill/popup/password_favicon_loader.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_search_bar_view.h"
@@ -105,6 +106,7 @@ class PopupViewViews : public PopupBaseView,
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
   void OnMouseEntered(const ui::MouseEvent& event) override;
   void OnMouseExited(const ui::MouseEvent& event) override;
+  void OnPaint(gfx::Canvas* canvas) override;
 
   // AutofillPopupView:
   bool Show(AutoselectFirstSuggestion autoselect_first_suggestion) override;
@@ -158,6 +160,8 @@ class PopupViewViews : public PopupBaseView,
     return *absl::get<PopupRowView*>(rows_[index]);
   }
 
+  void UpdateExpandedCollapsedAccessibleState() const;
+
   // Returns whether the row at `index` exists and is a `PopupRowView`.
   bool HasPopupRowViewAt(size_t index) const;
 
@@ -168,10 +172,6 @@ class PopupViewViews : public PopupBaseView,
   // This method expects that all non-footer suggestions precede footer
   // suggestions.
   void CreateSuggestionViews();
-
-  // Applies certain rounding rules to the given width, such as matching the
-  // element width when possible.
-  int AdjustWidth(int width) const;
 
   // Selects the first row prior to the currently selected one that is
   // selectable (e.g. not a separator). If no row is selected or no row prior to
@@ -244,6 +244,8 @@ class PopupViewViews : public PopupBaseView,
 
   // Parent's popup view. Present in sub-popups (non-root) only.
   std::optional<base::WeakPtr<ExpandablePopupParentView>> parent_;
+
+  std::unique_ptr<PasswordFaviconLoaderImpl> password_favicon_loader_;
 
   // The index of the row with a selected cell.
   std::optional<size_t> row_with_selected_cell_;

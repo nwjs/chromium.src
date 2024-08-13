@@ -1518,7 +1518,9 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionIsolatedContentTest, PdfAndHtml) {
   EXPECT_EQ(plugin_frames[0]->GetLastCommittedOrigin(),
             iframe->GetLastCommittedOrigin());
   EXPECT_NE(plugin_frames[0]->GetProcess(), iframe->GetProcess());
-  EXPECT_FALSE(content::HasOriginKeyedProcess(plugin_frames[0]));
+  EXPECT_EQ(
+      content::SiteIsolationPolicy::AreOriginKeyedProcessesEnabledByDefault(),
+      content::HasOriginKeyedProcess(plugin_frames[0]));
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionIsolatedContentTest, DataNavigation) {
@@ -1696,13 +1698,13 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionLinkClickTest, ShiftLeft) {
   SimulateMouseClickAt(
       extension_host, GetEmbedderWebContents(), blink::WebInputEvent::kShiftKey,
       blink::WebMouseEvent::Button::kLeft, GetLinkPosition(extension_host));
-  Browser* browser = ui_test_utils::WaitForBrowserToOpen();
-  ui_test_utils::WaitForBrowserSetLastActive(browser);
+  Browser* new_browser = ui_test_utils::WaitForBrowserToOpen();
+  ui_test_utils::WaitUntilBrowserBecomeActive(new_browser);
 
   ASSERT_EQ(2U, chrome::GetTotalBrowserCount());
 
   WebContents* active_web_contents =
-      chrome::FindLastActive()->tab_strip_model()->GetActiveWebContents();
+      new_browser->tab_strip_model()->GetActiveWebContents();
   ASSERT_NE(web_contents, active_web_contents);
 
   const GURL& url = active_web_contents->GetVisibleURL();
@@ -1920,13 +1922,13 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionInternalLinkClickTest, ShiftLeft) {
   SimulateMouseClickAt(
       extension_host, GetEmbedderWebContents(), blink::WebInputEvent::kShiftKey,
       blink::WebMouseEvent::Button::kLeft, GetLinkPosition(extension_host));
-  Browser* browser = ui_test_utils::WaitForBrowserToOpen();
-  ui_test_utils::WaitForBrowserSetLastActive(browser);
+  Browser* new_browser = ui_test_utils::WaitForBrowserToOpen();
+  ui_test_utils::WaitUntilBrowserBecomeActive(new_browser);
 
   ASSERT_EQ(2U, chrome::GetTotalBrowserCount());
 
   WebContents* active_web_contents =
-      chrome::FindLastActive()->tab_strip_model()->GetActiveWebContents();
+      new_browser->tab_strip_model()->GetActiveWebContents();
   ASSERT_NE(web_contents, active_web_contents);
 
   const GURL& url = active_web_contents->GetVisibleURL();
@@ -4048,6 +4050,47 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionOopifTest,
   // The test succeeds if it doesn't crash when the posted PDF task attempts to
   // run (the task should be canceled/ignored), so wait for this to happen.
   base::RunLoop().RunUntilIdle();
+}
+
+// Test that the PDF.LoadStatus metric is incremented only after the PDF fully
+// loads.
+IN_PROC_BROWSER_TEST_F(PDFExtensionOopifTest, MetricsPDFLoadStatusPartialLoad) {
+  const char kPdfLoadStatusMetric[] = "PDF.LoadStatus";
+  base::HistogramTester histograms;
+
+  histograms.ExpectBucketCount(kPdfLoadStatusMetric,
+                               PDFLoadStatus::kLoadedFullPagePdfWithPdfium, 0);
+
+  auto* web_contents = GetActiveWebContents();
+  auto* primary_main_frame = web_contents->GetPrimaryMainFrame();
+  const GURL main_url(embedded_test_server()->GetURL("/pdf/combobox_form.pdf"));
+
+  // Delay the PDF extension navigation.
+  CreateTestPdfViewerStreamManager(web_contents);
+  auto* test_pdf_viewer_stream_manager =
+      GetTestPdfViewerStreamManager(web_contents);
+  test_pdf_viewer_stream_manager->DelayNextPdfExtensionNavigation();
+
+  // Navigate to the PDF URL and wait for the PDF extension navigation to start.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), main_url, WindowOpenDisposition::CURRENT_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  test_pdf_viewer_stream_manager->WaitUntilPdfExtensionNavigationStarted(
+      primary_main_frame);
+
+  // The PDF.LoadStatus metric should not be incremented yet.
+  histograms.ExpectBucketCount(kPdfLoadStatusMetric,
+                               PDFLoadStatus::kLoadedFullPagePdfWithPdfium, 0);
+
+  // Finish loading the PDF.
+  test_pdf_viewer_stream_manager->ResumePdfExtensionNavigation(
+      primary_main_frame);
+  EXPECT_TRUE(
+      test_pdf_viewer_stream_manager->WaitUntilPdfLoaded(primary_main_frame));
+
+  // The PDF.LoadStatus metric should be incremented.
+  histograms.ExpectBucketCount(kPdfLoadStatusMetric,
+                               PDFLoadStatus::kLoadedFullPagePdfWithPdfium, 1);
 }
 
 class PDFExtensionOopifBlockPdfFrameNavigationTest

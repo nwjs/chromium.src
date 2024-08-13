@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
@@ -324,12 +325,12 @@ TEST(CSSParsingUtilsTest, ConsumeColorRangePreservation) {
   }
 }
 
-TEST(CSSParsingUtilsTest, InternalPositionTryOptionsInUAMode) {
-  auto ConsumePositionTryOptionForTest = [](String css_text,
-                                            CSSParserMode mode) {
+TEST(CSSParsingUtilsTest, InternalPositionTryFallbacksInUAMode) {
+  auto ConsumePositionTryFallbackForTest = [](String css_text,
+                                              CSSParserMode mode) {
     CSSTokenizer tokenizer(css_text);
     CSSParserTokenStream stream(tokenizer);
-    return css_parsing_utils::ConsumeSinglePositionTryOption(
+    return css_parsing_utils::ConsumeSinglePositionTryFallback(
         stream, *MakeContext(mode));
   };
 
@@ -346,14 +347,14 @@ TEST(CSSParsingUtilsTest, InternalPositionTryOptionsInUAMode) {
       {.css_text = "-internal-foo", .allow_ua = true, .allow_other = false},
   };
   for (auto& expectation : expectations) {
-    EXPECT_EQ(ConsumePositionTryOptionForTest(expectation.css_text,
-                                              kHTMLStandardMode) != nullptr,
+    EXPECT_EQ(ConsumePositionTryFallbackForTest(expectation.css_text,
+                                                kHTMLStandardMode) != nullptr,
               expectation.allow_other);
-    EXPECT_EQ(ConsumePositionTryOptionForTest(expectation.css_text,
-                                              kHTMLQuirksMode) != nullptr,
+    EXPECT_EQ(ConsumePositionTryFallbackForTest(expectation.css_text,
+                                                kHTMLQuirksMode) != nullptr,
               expectation.allow_other);
-    EXPECT_EQ(ConsumePositionTryOptionForTest(expectation.css_text,
-                                              kUASheetMode) != nullptr,
+    EXPECT_EQ(ConsumePositionTryFallbackForTest(expectation.css_text,
+                                                kUASheetMode) != nullptr,
               expectation.allow_ua);
   }
 }

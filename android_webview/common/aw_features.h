@@ -21,6 +21,7 @@ BASE_DECLARE_FEATURE(kWebViewBrotliSupport);
 BASE_DECLARE_FEATURE(kWebViewCheckPakFileDescriptors);
 BASE_DECLARE_FEATURE(kWebViewClearFunctorInBackground);
 BASE_DECLARE_FEATURE(kWebViewDisplayCutout);
+BASE_DECLARE_FEATURE(kWebViewDragDropFiles);
 BASE_DECLARE_FEATURE(kWebViewEnumerateDevicesCache);
 BASE_DECLARE_FEATURE(kWebViewExitReasonMetric);
 BASE_DECLARE_FEATURE(kWebViewExtraHeadersSameOriginOnly);
@@ -54,8 +55,8 @@ BASE_DECLARE_FEATURE(kWebViewEnableCrash);
 BASE_DECLARE_FEATURE(kWebViewAsyncDns);
 BASE_DECLARE_FEATURE(kWebViewPreloadClasses);
 BASE_DECLARE_FEATURE(kWebViewSeparateResourceContext);
-BASE_DECLARE_FEATURE(kWebViewSeparateResourceContextMetrics);
 BASE_DECLARE_FEATURE(kWebViewDoNotSendAccessibilityEventsOnGSU);
+BASE_DECLARE_FEATURE(kWebViewHyperlinkContextMenu);
 BASE_DECLARE_FEATURE(kCreateSpareRendererOnBrowserContextCreation);
 
 }  // namespace features

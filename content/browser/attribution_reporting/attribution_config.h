@@ -7,12 +7,9 @@
 
 #include <stdint.h>
 
-#include <limits>
-
 #include "base/time/time.h"
 #include "components/attribution_reporting/constants.h"
 #include "content/common/content_export.h"
-#include "third_party/abseil-cpp/absl/numeric/int128.h"
 
 namespace content {
 
@@ -78,11 +75,6 @@ struct CONTENT_EXPORT AttributionConfig {
     double max_navigation_info_gain = 11.5;
     double max_event_info_gain = 6.5;
 
-    // Controls the max number of report states allowed for a given source
-    // registration.
-    absl::uint128 max_trigger_state_cardinality =
-        std::numeric_limits<uint32_t>::max();
-
     friend bool operator==(const EventLevelLimit&,
                            const EventLevelLimit&) = default;
 
@@ -122,9 +114,13 @@ struct CONTENT_EXPORT AttributionConfig {
     // Returns true if this config is valid.
     [[nodiscard]] bool Validate() const;
 
+    static constexpr base::TimeDelta kPerDayRateLimitWindow = base::Days(1);
+
     int max_total = 200;
     int max_per_reporting_site = 50;
     base::TimeDelta rate_limit_window = base::Minutes(1);
+
+    int max_per_reporting_site_per_day = 100;
 
     friend bool operator==(const DestinationRateLimit&,
                            const DestinationRateLimit&) = default;

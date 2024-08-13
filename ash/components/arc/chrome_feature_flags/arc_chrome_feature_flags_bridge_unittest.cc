@@ -216,5 +216,46 @@ TEST_F(ArcChromeFeatureFlagsBridgeTest, NotifyExtendInputAnrTimeout_Disabled) {
   EXPECT_FALSE(instance()->flags_called_value()->extend_input_anr_timeout);
 }
 
+TEST_F(ArcChromeFeatureFlagsBridgeTest, NotifyExtendIntentAnrTimeout_Enabled) {
+  scoped_feature_list()->InitAndEnableFeature(arc::kExtendIntentAnrTimeout);
+  Connect();
+  EXPECT_TRUE(instance()->flags_called_value()->extend_intent_anr_timeout);
+}
+
+TEST_F(ArcChromeFeatureFlagsBridgeTest, NotifyExtendIntentAnrTimeout_Disabled) {
+  scoped_feature_list()->InitAndDisableFeature(arc::kExtendIntentAnrTimeout);
+  Connect();
+  EXPECT_FALSE(instance()->flags_called_value()->extend_intent_anr_timeout);
+}
+
+TEST_F(ArcChromeFeatureFlagsBridgeTest, NotifyExtendServiceAnrTimeout_Enabled) {
+  scoped_feature_list()->InitAndEnableFeature(arc::kExtendServiceAnrTimeout);
+  Connect();
+  EXPECT_TRUE(instance()->flags_called_value()->extend_service_anr_timeout);
+}
+
+TEST_F(ArcChromeFeatureFlagsBridgeTest,
+       NotifyExtendServiceAnrTimeout_Disabled) {
+  scoped_feature_list()->InitAndDisableFeature(arc::kExtendServiceAnrTimeout);
+  Connect();
+  EXPECT_FALSE(instance()->flags_called_value()->extend_service_anr_timeout);
+}
+
+TEST_F(ArcChromeFeatureFlagsBridgeTest,
+       NotifyNotificationWidthIncrease_Enabled) {
+  scoped_feature_list()->InitAndEnableFeature(
+      chromeos::features::kNotificationWidthIncrease);
+  Connect();
+  EXPECT_TRUE(instance()->flags_called_value()->notification_width_increase);
+}
+
+TEST_F(ArcChromeFeatureFlagsBridgeTest,
+       NotifyNotificationWidthIncrease_Disabled) {
+  scoped_feature_list()->InitAndDisableFeature(
+      chromeos::features::kNotificationWidthIncrease);
+  Connect();
+  EXPECT_FALSE(instance()->flags_called_value()->notification_width_increase);
+}
+
 }  // namespace
 }  // namespace arc

@@ -132,7 +132,7 @@ base::LazyInstance<std::map<const Profile*, bool>>::DestructorAtExit
 bool g_disallow_for_testing = false;
 
 // Let IsArcBlockedDueToIncompatibleFileSystem() return the specified value
-// during test runs. Doesn't affect ARC kiosk and public session.
+// during test runs. Doesn't affect public session.
 bool g_arc_blocked_due_to_incompatible_filesystem_for_testing = false;
 
 // TODO(kinaba): Temporary workaround for crbug.com/729034.
@@ -244,10 +244,7 @@ ArcStatus GetArcStatusForProfile(const Profile* profile,
     return ArcStatus::kDisallowedForTesting;
   }
 
-  // ARC Kiosk can be enabled even if ARC is not yet supported on the device.
-  // In that case IsArcKioskMode() should return true as profile is already
-  // created.
-  if (!IsArcAvailable() && !(IsArcKioskMode() && IsArcKioskAvailable())) {
+  if (!IsArcAvailable()) {
     VLOG_IF(1, should_report_reason) << "ARC is not available.";
     return ArcStatus::kNotAvailable;
   }
@@ -697,7 +694,7 @@ void UpdateArcFileSystemCompatibilityPrefIfNeeded(
   // old devices without ARC. We can always safely remove the following 4 lines
   // without changing any functionality when, say, the code clarity becomes
   // more important in the future.
-  if (!IsArcAvailable() && !IsArcKioskAvailable()) {
+  if (!IsArcAvailable()) {
     std::move(callback).Run();
     return;
   }

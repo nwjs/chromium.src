@@ -35,11 +35,13 @@
         <div id="appParentalControls"
             class="settings-box"
             actionable$=
-                "[[prefs.on_device_app_controls.setup_completed.value]]"
+                "[[isParentalControlsSetupCompleted_]]"
             on-click="onClickParentalControls_">
-          <iron-icon id="parentalControlsRowIcon"
-              icon="[[rowIcons_.parentalControls]]">
-          </iron-icon>
+          <template is="dom-if" if="[[isRevampWayfindingEnabled_]]">
+            <iron-icon id="parentalControlsRowIcon"
+                icon="[[rowIcons_.parentalControls]]">
+            </iron-icon>
+          </template>
           <div class="start settings-box-text">
             $i18n{appParentalControlsTitle}
             <div class="secondary">
@@ -50,7 +52,7 @@
             </div>
           </div>
           <template is="dom-if"
-              if="[[!prefs.on_device_app_controls.setup_completed.value]]"
+              if="[[!isParentalControlsSetupCompleted_]]"
               restamp>
             <div class="separator"></div>
             <cr-button
@@ -62,7 +64,7 @@
             </cr-button>
           </template>
           <template is="dom-if"
-              if="[[prefs.on_device_app_controls.setup_completed.value]]"
+              if="[[isParentalControlsSetupCompleted_]]"
               restamp>
             <cr-icon-button class="subpage-arrow"
                 aria-label="$i18n{appParentalControlsTitle}"
@@ -73,7 +75,7 @@
             <div class="separator"></div>
             <cr-toggle id="toggle"
                 aria-label="$i18n{appParentalControlsTitle}"
-                checked="[[prefs.on_device_app_controls.setup_completed.value]]"
+                checked="[[isParentalControlsSetupCompleted_]]"
                 on-change="disableParentalControls_">
             </cr-toggle>
           </template>
@@ -241,7 +243,8 @@
   <template is="dom-if" if="[[isArcVmManageUsbAvailable_]]" restamp>
     <template is="dom-if" route-path="/androidAppsDetails/sharedUsbDevices">
       <os-settings-subpage page-title="$i18n{guestOsSharedUsbDevicesLabel}">
-         <settings-guest-os-shared-usb-devices guest-os-type="arcvm">
+         <settings-guest-os-shared-usb-devices guest-os-type="arcvm"
+           prefs="{{prefs}}">
          </settings-guest-os-shared-usb-devices>
       </os-settings-subpage>
     </template>
@@ -259,7 +262,8 @@
     <template is="dom-if"
         route-path="/app-management/pluginVm/sharedUsbDevices">
       <os-settings-subpage page-title="$i18n{guestOsSharedUsbDevicesLabel}">
-        <settings-guest-os-shared-usb-devices guest-os-type="pluginVm">
+        <settings-guest-os-shared-usb-devices guest-os-type="pluginVm"
+          prefs="{{prefs}}">
         </settings-guest-os-shared-usb-devices>
       </os-settings-subpage>
     </template>

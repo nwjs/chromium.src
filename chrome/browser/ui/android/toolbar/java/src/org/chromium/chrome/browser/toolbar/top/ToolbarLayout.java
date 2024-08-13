@@ -56,11 +56,11 @@ import org.chromium.chrome.browser.toolbar.top.NavigationPopup.HistoryDelegate;
 import org.chromium.chrome.browser.toolbar.top.ToolbarTablet.OfflineDownloader;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator.ToolbarColorObserver;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator.UrlExpansionObserver;
+import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.chrome.browser.util.BrowserUiUtils;
-import org.chromium.chrome.browser.util.BrowserUiUtils.HostSurface;
 import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.ui.UiUtils;
@@ -108,6 +108,14 @@ public abstract class ToolbarLayout extends FrameLayout
     private int mTabStripTransitionToken = TokenHolder.INVALID_TOKEN;
 
     protected final DestroyChecker mDestroyChecker;
+
+    /** Set if the progress bar is being drawn by WebContents for back forward transition. */
+    private boolean mShowingProgressBarForBackForwardTransition;
+
+    /** Caches the color for the toolbar hairline. */
+    private @ColorInt int mToolbarHairlineColor;
+
+    private ImageView mToolbarShadow;
 
     /** Basic constructor for {@link ToolbarLayout}. */
     public ToolbarLayout(Context context, AttributeSet attrs) {
@@ -247,6 +255,42 @@ public abstract class ToolbarLayout extends FrameLayout
         return mThemeColorProvider == null ? mDefaultTint : mThemeColorProvider.getTint();
     }
 
+    protected ImageView getToolbarShadow() {
+        return mToolbarShadow;
+    }
+
+    /**
+     * Notifies whether the progress bar is being drawn by WebContents for back forward transition
+     * UI.
+     */
+    public final void setShowingProgressBarForBackForwardTransition(
+            boolean showingProgressBarForBackForwardTransition) {
+        if (mShowingProgressBarForBackForwardTransition
+                == showingProgressBarForBackForwardTransition) return;
+
+        mShowingProgressBarForBackForwardTransition = showingProgressBarForBackForwardTransition;
+        mProgressBar.setVisibility(
+                mShowingProgressBarForBackForwardTransition ? View.GONE : View.VISIBLE);
+        updateShadowVisibility();
+    }
+
+    /** Update the visibility of the toolbar shadow. */
+    protected void updateShadowVisibility() {
+        boolean shouldDrawShadow = shouldDrawShadow();
+        int shadowVisibility = shouldDrawShadow ? View.VISIBLE : View.INVISIBLE;
+
+        if (mToolbarShadow != null && mToolbarShadow.getVisibility() != shadowVisibility) {
+            mToolbarShadow.setVisibility(shadowVisibility);
+        }
+    }
+
+    /**
+     * @return Whether the toolbar shadow should be drawn.
+     */
+    protected boolean shouldDrawShadow() {
+        return !mShowingProgressBarForBackForwardTransition;
+    }
+
     @Override
     public void onTintChanged(
             ColorStateList tint,
@@ -311,12 +355,12 @@ public abstract class ToolbarLayout extends FrameLayout
                     }
 
                     @Override
-                    public boolean isInOverviewAndShowingOmnibox() {
+                    public boolean isIncognitoBranded() {
                         return false;
                     }
 
                     @Override
-                    public boolean shouldShowLocationBarInOverviewMode() {
+                    public boolean isOffTheRecord() {
                         return false;
                     }
 
@@ -411,6 +455,10 @@ public abstract class ToolbarLayout extends FrameLayout
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+
+        mToolbarShadow = getRootView().findViewById(R.id.toolbar_hairline);
+        updateShadowVisibility();
+
         // TODO(crbug.com/40657306): lazy initialize progress bar.
         // Posting adding progress bar can prevent parent view group from using a stale children
         // count, which can cause a crash in rare cases.
@@ -635,19 +683,6 @@ public abstract class ToolbarLayout extends FrameLayout
     void onTabSwitcherTransitionFinished() {}
 
     /**
-     * Called when start surface state is changed.
-     *
-     * @param shouldBeVisible Whether toolbar layout should be visible.
-     * @param isShowingStartSurfaceHomepage Whether start surface homepage is showing.
-     * @param isShowingStartSurfaceTabSwitcher Whether the StartSurface-controlled TabSwitcher is
-     *     showing.
-     */
-    void onStartSurfaceStateChanged(
-            boolean shouldBeVisible,
-            boolean isShowingStartSurfaceHomepage,
-            boolean isShowingStartSurfaceTabSwitcher) {}
-
-    /**
      * Gives inheriting classes the chance to observe tab count changes.
      *
      * @param tabCountSupplier The observable supplier subclasses can observe.
@@ -726,10 +761,30 @@ public abstract class ToolbarLayout extends FrameLayout
     }
 
     /**
+     * TODO(crbug.com/350654700): clean up usages and remove isIncognito.
+     *
      * @return Whether or not the toolbar is incognito.
+     * @deprecated Use {@link #isIncognitoBranded()} or {@link #isOffTheRecord()}.
      */
+    @Deprecated
     protected boolean isIncognito() {
         return mToolbarDataProvider.isIncognito();
+    }
+
+    /**
+     * @return Whether or not the toolbar is incognito branded.
+     * @see {@link ToolbarDataProvider#isIncognitoBranded()}
+     */
+    protected boolean isIncognitoBranded() {
+        return mToolbarDataProvider.isIncognitoBranded();
+    }
+
+    /**
+     * @return Whether or not the toolbar is off the record.
+     * @see {@link ToolbarDataProvider#isOffTheRecord()}
+     */
+    protected boolean isOffTheRecord() {
+        return mToolbarDataProvider.isOffTheRecord();
     }
 
     /**
@@ -825,16 +880,24 @@ public abstract class ToolbarLayout extends FrameLayout
         final ImageView shadow = getRootView().findViewById(R.id.toolbar_hairline);
         // Tests don't always set this up. TODO(crbug.com/40866629): Refactor this dep.
         if (shadow != null) {
-            shadow.setImageTintList(ColorStateList.valueOf(getToolbarHairlineColor(toolbarColor)));
+            mToolbarHairlineColor = computeToolbarHairlineColor(toolbarColor);
+            shadow.setImageTintList(ColorStateList.valueOf(mToolbarHairlineColor));
         }
+    }
+
+    /** Returns the color of the hairline drawn underneath the toolbar. */
+    public @ColorInt int getToolbarHairlineColor() {
+        return mToolbarHairlineColor;
     }
 
     /**
      * Returns the border color between the toolbar and WebContents area.
+     *
      * @param toolbarColor Toolbar color
      */
-    public @ColorInt int getToolbarHairlineColor(@ColorInt int toolbarColor) {
-        return ThemeUtils.getToolbarHairlineColor(getContext(), toolbarColor, isIncognito());
+    private @ColorInt int computeToolbarHairlineColor(@ColorInt int toolbarColor) {
+        return ThemeUtils.getToolbarHairlineColor(
+                getContext(), toolbarColor, mToolbarDataProvider.isIncognitoBranded());
     }
 
     /**
@@ -922,8 +985,7 @@ public abstract class ToolbarLayout extends FrameLayout
     protected void recordHomeModuleClickedIfNTPVisible() {
         if (getToolbarDataProvider().getNewTabPageDelegate().isCurrentlyVisible()) {
             // Record the clicking action on the home button.
-            BrowserUiUtils.recordModuleClickHistogram(
-                    HostSurface.NEW_TAB_PAGE, ModuleTypeOnStartAndNtp.HOME_BUTTON);
+            BrowserUiUtils.recordModuleClickHistogram(ModuleTypeOnStartAndNtp.HOME_BUTTON);
         }
     }
 }

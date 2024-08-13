@@ -23,14 +23,6 @@
 #include "base/android/build_info.h"
 #endif
 
-namespace {
-
-// FieldTrialParams for `DynamicSchedulerForDraw` and
-// `kDynamicSchedulerForClients`.
-const char kDynamicSchedulerPercentile[] = "percentile";
-
-}  // namespace
-
 namespace features {
 
 #if BUILDFLAG(IS_ANDROID)
@@ -136,12 +128,6 @@ BASE_FEATURE(kUseSetPresentDuration,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
-// Enables platform supported delegated ink trails instead of Skia backed
-// delegated ink trails.
-BASE_FEATURE(kUsePlatformDelegatedInk,
-             "UsePlatformDelegatedInk",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Used to debug Android WebView Vulkan composite. Composite to an intermediate
 // buffer and draw the intermediate buffer to the secondary command buffer.
 BASE_FEATURE(kWebViewVulkanIntermediateBuffer,
@@ -185,15 +171,6 @@ const char kPredictorLinearResampling[] = "linear-resampling";
 const char kPredictorLinear1[] = "linear-1";
 const char kPredictorLinear2[] = "linear-2";
 const char kPredictorLsq[] = "lsq";
-
-// Used by Viz to parameterize adjustments to scheduler deadlines.
-BASE_FEATURE(kDynamicSchedulerForDraw,
-             "DynamicSchedulerForDraw",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-// User to parameterize adjustments to clients' deadlines.
-BASE_FEATURE(kDynamicSchedulerForClients,
-             "DynamicSchedulerForClients",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_APPLE)
 // Increase the max CALayer number allowed for CoreAnimation.
@@ -255,12 +232,6 @@ BASE_FEATURE(kAllowUndamagedNonrootRenderPassToSkip,
 // require overlay (e.g. protected video). See usage in |EmitSurfaceContent|.
 BASE_FEATURE(kAllowForceMergeRenderPassWithRequireOverlayQuads,
              "AllowForceMergeRenderPassWithRequireOverlayQuads",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Used to gate calling SetPurgeable on OutputPresenter::Image from
-// SkiaOutputDeviceBufferQueue.
-BASE_FEATURE(kBufferQueueImageSetPurgeable,
-             "BufferQueueImageSetPurgeable",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -398,7 +369,7 @@ BASE_FEATURE(kSnapshotEvictedRootSurface,
 // UMAs.
 BASE_FEATURE(kShouldLogFrameQuadInfo,
              "ShouldLogFrameQuadInfo",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, ClientResourceProvider will allow for the batching of
 // callbacks. So that the client can perform a series of individual releases,
@@ -421,11 +392,11 @@ BASE_FEATURE(kColorConversionInRenderer,
              "ColorConversionInRenderer",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Changes BeginFrame issue to use LastUsedBeginFrameArgs() instead of the
-// current set of BeginFrameArgs.
+// Stops BeginFrame issue to use |last_vsync_interval_| instead of the current
+// set of BeginFrameArgs.
 // TODO(b/333940735): Should be removed if the issue isn't fixed.
-BASE_FEATURE(kUseLastBeginFrameArgs,
-             "UseLastBeginFrameArgs",
+BASE_FEATURE(kLastVSyncArgsKillswitch,
+             "LastVSyncArgsKillswitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Use BlitRequests for copy requests made by ViewTransition.
@@ -488,10 +459,6 @@ std::string InkPredictor() {
   return GetFieldTrialParamValueByFeature(kDrawPredictedInkPoint, "predictor");
 }
 
-bool ShouldUsePlatformDelegatedInk() {
-  return base::FeatureList::IsEnabled(kUsePlatformDelegatedInk);
-}
-
 #if BUILDFLAG(IS_ANDROID)
 bool UseWebViewNewInvalidateHeuristic() {
   // For Android TVs we bundle this with WebViewSurfaceControlForTV.
@@ -518,32 +485,6 @@ bool UseSurfaceLayerForVideo() {
 #else
   return true;
 #endif
-}
-
-// Used by Viz to determine if viz::DisplayScheduler should dynamically adjust
-// its frame deadline. Returns the percentile of historic draw times to base the
-// deadline on. Or std::nullopt if the feature is disabled.
-std::optional<double> IsDynamicSchedulerEnabledForDraw() {
-  if (!base::FeatureList::IsEnabled(kDynamicSchedulerForDraw))
-    return std::nullopt;
-  double result = base::GetFieldTrialParamByFeatureAsDouble(
-      kDynamicSchedulerForDraw, kDynamicSchedulerPercentile, -1.0);
-  if (result < 0.0)
-    return std::nullopt;
-  return result;
-}
-
-// Used by Viz to determine if the frame deadlines provided to CC should be
-// dynamically adjusted. Returns the percentile of historic draw times to base
-// the deadline on. Or std::nullopt if the feature is disabled.
-std::optional<double> IsDynamicSchedulerEnabledForClients() {
-  if (!base::FeatureList::IsEnabled(kDynamicSchedulerForClients))
-    return std::nullopt;
-  double result = base::GetFieldTrialParamByFeatureAsDouble(
-      kDynamicSchedulerForClients, kDynamicSchedulerPercentile, -1.0);
-  if (result < 0.0)
-    return std::nullopt;
-  return result;
 }
 
 int MaxOverlaysConsidered() {

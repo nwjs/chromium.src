@@ -85,11 +85,14 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_GROWTH) CampaignsManager {
 
   // Select action performer based on the given `action`. Action includes the
   // action type and action params for performing action.
-  void PerformAction(int campaign_id, const Action* action);
+  void PerformAction(int campaign_id,
+                     std::optional<int> group_id,
+                     const Action* action);
 
   // Select action performer based on the action type and perform action with
   // action params.
   void PerformAction(int campaign_id,
+                     std::optional<int> group_id,
                      const ActionType action_type,
                      const base::Value::Dict* params);
 
@@ -105,6 +108,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_GROWTH) CampaignsManager {
                                const std::string& id);
 
   void SetOobeCompleteTimeForTesting(base::Time time);
+  void SetTrackerInitializedForTesting();
   const Campaigns* GetCampaignsBySlotForTesting(Slot slot) const;
 
  private:
@@ -123,6 +127,11 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_GROWTH) CampaignsManager {
   void OnOobeTimestampLoaded(base::OnceClosure load_callback,
                              const std::optional<const base::FilePath>& path,
                              base::Time oobe_time);
+
+  // Triggered when the feature_engagement tracker is initialized.
+  void OnTrackerInitialized(base::OnceClosure load_callback,
+                            const std::optional<const base::FilePath>& path,
+                            bool init_success);
 
   // Notify observers that campaigns are loaded and CampaignsManager is ready
   // to query.
@@ -152,6 +161,8 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_GROWTH) CampaignsManager {
   base::TimeTicks campaigns_download_start_time_;
 
   base::Time oobe_complete_time_for_test_;
+
+  bool tracker_initialized_for_test_ = false;
 
   base::ObserverList<Observer> observers_;
 

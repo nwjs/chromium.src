@@ -41,18 +41,19 @@ import androidx.test.filters.SmallTest;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ThreadUtils;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.ntp.IncognitoCookieControlsManager;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -61,8 +62,8 @@ import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.ui.text.EmptyTextWatcher;
@@ -85,8 +86,6 @@ public class TasksViewBinderUnitTest {
 
     @Rule public JniMocker mJniMocker = new JniMocker();
 
-    @Rule public TestRule mProcessor = new Features.JUnitProcessor();
-
     @Mock private IncognitoCookieControlsManager mCookieControlsManager;
 
     @Mock private Profile mProfile;
@@ -94,6 +93,8 @@ public class TasksViewBinderUnitTest {
     @Mock private PrefService mPrefService;
 
     @Mock private UserPrefs.Natives mUserPrefsJniMock;
+    @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
+    @Mock private WindowAndroid mWindowAndroid;
 
     @Before
     public void setUp() throws Exception {
@@ -126,7 +127,7 @@ public class TasksViewBinderUnitTest {
     @Test
     @SmallTest
     public void testSetFakeboxVisibilityClickListenerAndTextWatcher() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> mTasksViewPropertyModel.set(IS_FAKE_SEARCH_BOX_VISIBLE, true));
         assertTrue(isViewVisible(R.id.search_box));
 
@@ -142,7 +143,7 @@ public class TasksViewBinderUnitTest {
         mViewClicked.set(false);
         mTasksView.findViewById(R.id.search_box_text).performClick();
         assertFalse(mViewClicked.get());
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(
                             FAKE_SEARCH_BOX_CLICK_LISTENER, mViewOnClickListener);
@@ -155,13 +156,13 @@ public class TasksViewBinderUnitTest {
         searchBoxText.setText("test");
         searchBoxText.performClick();
         assertFalse(textChanged.get());
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> mTasksViewPropertyModel.set(FAKE_SEARCH_BOX_TEXT_WATCHER, textWatcher));
         searchBoxText.setText("test2");
         searchBoxText.performClick();
         assertTrue(textChanged.get());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> mTasksViewPropertyModel.set(IS_FAKE_SEARCH_BOX_VISIBLE, false));
         assertFalse(isViewVisible(R.id.search_box));
     }
@@ -169,7 +170,7 @@ public class TasksViewBinderUnitTest {
     @Test
     @SmallTest
     public void testSetVoiceSearchButtonVisibilityAndClickListener() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(IS_FAKE_SEARCH_BOX_VISIBLE, true);
                     mTasksViewPropertyModel.set(IS_VOICE_RECOGNITION_BUTTON_VISIBLE, true);
@@ -179,7 +180,7 @@ public class TasksViewBinderUnitTest {
         mViewClicked.set(false);
         mTasksView.findViewById(R.id.voice_search_button).performClick();
         assertFalse(mViewClicked.get());
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(
                             VOICE_SEARCH_BUTTON_CLICK_LISTENER, mViewOnClickListener);
@@ -187,7 +188,7 @@ public class TasksViewBinderUnitTest {
         mTasksView.findViewById(R.id.voice_search_button).performClick();
         assertTrue(mViewClicked.get());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> mTasksViewPropertyModel.set(IS_VOICE_RECOGNITION_BUTTON_VISIBLE, false));
         assertFalse(isViewVisible(R.id.voice_search_button));
     }
@@ -195,7 +196,7 @@ public class TasksViewBinderUnitTest {
     @Test
     @SmallTest
     public void testSetLensButtonVisibilityAndClickListener() {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(IS_FAKE_SEARCH_BOX_VISIBLE, true);
                     mTasksViewPropertyModel.set(IS_LENS_BUTTON_VISIBLE, true);
@@ -205,14 +206,14 @@ public class TasksViewBinderUnitTest {
         mViewClicked.set(false);
         mTasksView.findViewById(R.id.lens_camera_button).performClick();
         assertFalse(mViewClicked.get());
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(LENS_BUTTON_CLICK_LISTENER, mViewOnClickListener);
                 });
         mTasksView.findViewById(R.id.lens_camera_button).performClick();
         assertTrue(mViewClicked.get());
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> mTasksViewPropertyModel.set(IS_LENS_BUTTON_VISIBLE, false));
         assertFalse(isViewVisible(R.id.lens_camera_button));
     }
@@ -244,14 +245,14 @@ public class TasksViewBinderUnitTest {
         when(mPrefService.getBoolean(Pref.TRACKING_PROTECTION3PCD_ENABLED)).thenReturn(false);
         assertFalse(isViewVisible(R.id.incognito_description_container_layout_stub));
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(
                             INCOGNITO_LEARN_MORE_CLICK_LISTENER, mViewOnClickListener);
                 });
         assertFalse(isViewVisible(R.id.incognito_description_container_layout_stub));
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(
                             INCOGNITO_COOKIE_CONTROLS_MANAGER, mCookieControlsManager);
@@ -269,14 +270,14 @@ public class TasksViewBinderUnitTest {
         when(mPrefService.getBoolean(Pref.TRACKING_PROTECTION3PCD_ENABLED)).thenReturn(true);
         assertFalse(isViewVisible(R.id.incognito_description_container_layout_stub));
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(
                             INCOGNITO_LEARN_MORE_CLICK_LISTENER, mViewOnClickListener);
                 });
         assertFalse(isViewVisible(R.id.incognito_description_container_layout_stub));
 
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mTasksViewPropertyModel.set(
                             INCOGNITO_COOKIE_CONTROLS_MANAGER, mCookieControlsManager);
@@ -326,6 +327,11 @@ public class TasksViewBinderUnitTest {
 
     private void createTasksView(int layoutId) {
         mTasksView = (TasksView) mActivity.getLayoutInflater().inflate(layoutId, null);
+        mTasksView.initialize(
+                mActivityLifecycleDispatcher,
+                false,
+                mWindowAndroid,
+                new ObservableSupplierImpl<>(mProfile));
         mActivity.setContentView(mTasksView);
         mTasksViewPropertyModel = new PropertyModel(TasksSurfaceProperties.ALL_KEYS);
         PropertyModelChangeProcessor.create(

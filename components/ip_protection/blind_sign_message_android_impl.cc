@@ -22,6 +22,8 @@
 #include "net/third_party/quiche/src/quiche/blind_sign_auth/proto/get_initial_data.pb.h"
 #include "third_party/abseil-cpp/absl/status/statusor.h"
 
+namespace ip_protection {
+
 BlindSignMessageAndroidImpl::BlindSignMessageAndroidImpl() = default;
 
 BlindSignMessageAndroidImpl::~BlindSignMessageAndroidImpl() = default;
@@ -46,8 +48,8 @@ void BlindSignMessageAndroidImpl::DoRequest(
   }
 
   pending_requests_.emplace(request_type, body, std::move(callback));
-  // If `ip_protection_auth_client_` is not yet set, try
-  // to create a connected instance.
+  // If `ip_protection_auth_client_` is not yet set, try to create a new
+  // connected instance.
   if (pending_requests_.size() == 1u) {
     CreateIpProtectionAuthClient();
   }
@@ -63,11 +65,8 @@ void BlindSignMessageAndroidImpl::CreateIpProtectionAuthClient() {
           weak_ptr_factory_.GetWeakPtr())));
 }
 
-// TODO(b/328780742): Add support for error handling when service connection
-// fails.
 void BlindSignMessageAndroidImpl::OnCreateIpProtectionAuthClientComplete(
-    base::expected<std::unique_ptr<
-                       ip_protection::android::IpProtectionAuthClientInterface>,
+    base::expected<std::unique_ptr<IpProtectionAuthClientInterface>,
                    std::string> ip_protection_auth_client) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (ip_protection_auth_client.has_value()) {
@@ -80,7 +79,7 @@ void BlindSignMessageAndroidImpl::OnCreateIpProtectionAuthClientComplete(
       SendRequest(request_type, body, std::move(callback));
     } else {
       std::move(callback)(absl::InternalError(
-          "Failed request to bind to the GmsCore IP Protection service."));
+          "Failed request to bind to the Android IP Protection service."));
     }
     pending_requests_.pop();
   }
@@ -97,8 +96,11 @@ void BlindSignMessageAndroidImpl::SendRequest(
       get_initial_data_request_proto.ParseFromString(body);
       ip_protection_auth_client_->GetInitialData(
           get_initial_data_request_proto,
-          base::BindOnce(&BlindSignMessageAndroidImpl::OnGetInitialDataComplete,
-                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+          base::BindPostTaskToCurrentDefault(base::BindOnce(
+              &BlindSignMessageAndroidImpl::OnSendRequestComplete<
+                  privacy::ppn::GetInitialDataResponse>,
+              weak_ptr_factory_.GetWeakPtr(),
+              ip_protection_auth_client_->GetWeakPtr(), std::move(callback))));
       break;
     }
     case quiche::BlindSignMessageRequestType::kAuthAndSign: {
@@ -106,8 +108,11 @@ void BlindSignMessageAndroidImpl::SendRequest(
       auth_and_sign_request_proto.ParseFromString(body);
       ip_protection_auth_client_->AuthAndSign(
           auth_and_sign_request_proto,
-          base::BindOnce(&BlindSignMessageAndroidImpl::OnAuthAndSignComplete,
-                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+          base::BindPostTaskToCurrentDefault(base::BindOnce(
+              &BlindSignMessageAndroidImpl::OnSendRequestComplete<
+                  privacy::ppn::AuthAndSignResponse>,
+              weak_ptr_factory_.GetWeakPtr(),
+              ip_protection_auth_client_->GetWeakPtr(), std::move(callback))));
       break;
     }
     case quiche::BlindSignMessageRequestType::kUnknown:
@@ -115,42 +120,49 @@ void BlindSignMessageAndroidImpl::SendRequest(
   }
 }
 
-// TODO(b/328780742): Add support for persistent and transient error handling.
-void BlindSignMessageAndroidImpl::OnGetInitialDataComplete(
+template <typename ResponseType>
+void BlindSignMessageAndroidImpl::OnSendRequestComplete(
+    base::WeakPtr<IpProtectionAuthClientInterface>
+        requesting_ip_protection_auth_client,
     quiche::BlindSignMessageCallback callback,
-    base::expected<privacy::ppn::GetInitialDataResponse, std::string>
+    base::expected<ResponseType, ip_protection::android::AuthRequestError>
         response) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!response.has_value()) {
-    std::move(callback)(absl::InternalError(
-        "Failed call to Android IP Protection Service for GetInitialData."));
-    return;
+  if (response.has_value()) {
+    quiche::BlindSignMessageResponse bsa_response(
+        absl::StatusCode::kOk, response->SerializeAsString());
+    std::move(callback)(std::move(bsa_response));
+  } else {
+    switch (response.error()) {
+      case ip_protection::android::AuthRequestError::kPersistent: {
+        std::move(callback)(absl::FailedPreconditionError(
+            "Persistent error when making request to the service implementing "
+            "IP Protection."));
+        break;
+      }
+      case ip_protection::android::AuthRequestError::kTransient: {
+        std::move(callback)(
+            absl::UnavailableError("Transient error when making request to the "
+                                   "service implementing IP Protection"));
+        break;
+      }
+      case ip_protection::android::AuthRequestError::kOther:
+        // `kOther` error may indicate that the service became disconnected
+        // during the request. Because binding succeeded previously, reset the
+        // `ip_protection_auth_client_` only if the current client is
+        // responsible for the request.
+        if (requesting_ip_protection_auth_client) {
+          CHECK(requesting_ip_protection_auth_client.get() ==
+                ip_protection_auth_client_.get());
+          CHECK(pending_requests_.empty());
+          ip_protection_auth_client_.reset();
+        }
+        std::move(callback)(absl::InternalError(
+            "An internal error where there is no longer a connection to the "
+            "Android IP Protection service during a request."));
+        break;
+    }
   }
-
-  OnSendRequestComplete(std::move(callback), response->SerializeAsString());
 }
 
-// TODO(b/328780742): Add support for persistent and transient error handling.
-void BlindSignMessageAndroidImpl::OnAuthAndSignComplete(
-    quiche::BlindSignMessageCallback callback,
-    base::expected<privacy::ppn::AuthAndSignResponse, std::string> response) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!response.has_value()) {
-    std::move(callback)(absl::InternalError(
-        "Failed call to Android IP Protection Service for AuthAndSign."));
-    return;
-  }
-
-  OnSendRequestComplete(std::move(callback), response->SerializeAsString());
-}
-
-// TODO(b/328780742): Implement response code mappings for error handling in
-// GMSCore.
-void BlindSignMessageAndroidImpl::OnSendRequestComplete(
-    quiche::BlindSignMessageCallback callback,
-    std::string response_body) {
-  quiche::BlindSignMessageResponse bsa_response(absl::StatusCode::kOk,
-                                                std::move(response_body));
-
-  std::move(callback)(std::move(bsa_response));
-}
+}  // namespace ip_protection

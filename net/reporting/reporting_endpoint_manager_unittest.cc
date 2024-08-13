@@ -19,6 +19,7 @@
 #include "net/reporting/reporting_cache.h"
 #include "net/reporting/reporting_endpoint.h"
 #include "net/reporting/reporting_policy.h"
+#include "net/reporting/reporting_target_type.h"
 #include "net/reporting/reporting_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -65,7 +66,8 @@ class TestReportingCache : public ReportingCache {
                  base::Value::Dict body,
                  int depth,
                  base::TimeTicks queued,
-                 int attempts) override {
+                 int attempts,
+                 ReportingTargetType target_type) override {
     NOTREACHED_IN_MIGRATION();
   }
   void GetReports(
@@ -247,6 +249,11 @@ class TestReportingCache : public ReportingCache {
                                const GURL& url) override {
     NOTREACHED_IN_MIGRATION();
   }
+  void SetEnterpriseEndpointForTesting(
+      const ReportingEndpointGroupKey& group_key,
+      const GURL& url) override {
+    NOTREACHED_NORETURN();
+  }
   IsolationInfo GetIsolationInfoForEndpoint(
       const ReportingEndpoint& endpoint) const override {
     NOTREACHED_IN_MIGRATION();
@@ -293,12 +300,33 @@ class ReportingEndpointManagerTest : public testing::Test {
         ReportingEndpoint::EndpointInfo{endpoint, priority, weight}));
   }
 
+  void SetEnterpriseEndpoint(
+      const GURL& endpoint,
+      int priority = ReportingEndpoint::EndpointInfo::kDefaultPriority,
+      int weight = ReportingEndpoint::EndpointInfo::kDefaultWeight,
+      const NetworkAnonymizationKey& network_anonymization_key =
+          NetworkAnonymizationKey()) {
+    ReportingEndpointGroupKey group_key(kEnterpriseGroupKey);
+    group_key.network_anonymization_key = network_anonymization_key;
+    cache_.SetEndpoint(ReportingEndpoint(
+        group_key,
+        ReportingEndpoint::EndpointInfo{endpoint, priority, weight}));
+  }
+
   const NetworkAnonymizationKey kNak;
   const url::Origin kOrigin = url::Origin::Create(GURL("https://origin/"));
   const SchemefulSite kSite = SchemefulSite(kOrigin);
   const std::string kGroup = "group";
   const ReportingEndpointGroupKey kGroupKey =
-      ReportingEndpointGroupKey(kNak, kOrigin, kGroup);
+      ReportingEndpointGroupKey(kNak,
+                                kOrigin,
+                                kGroup,
+                                ReportingTargetType::kDeveloper);
+  const ReportingEndpointGroupKey kEnterpriseGroupKey =
+      ReportingEndpointGroupKey(kNak,
+                                kOrigin,
+                                kGroup,
+                                ReportingTargetType::kEnterprise);
   const GURL kEndpoint = GURL("https://endpoint/");
 
   ReportingPolicy policy_;
@@ -314,13 +342,24 @@ TEST_F(ReportingEndpointManagerTest, NoEndpoint) {
   EXPECT_FALSE(endpoint);
 }
 
-TEST_F(ReportingEndpointManagerTest, Endpoint) {
+TEST_F(ReportingEndpointManagerTest, DeveloperEndpoint) {
   SetEndpoint(kEndpoint);
 
   ReportingEndpoint endpoint =
       endpoint_manager_->FindEndpointForDelivery(kGroupKey);
   ASSERT_TRUE(endpoint);
   EXPECT_EQ(kEndpoint, endpoint.info.url);
+  EXPECT_EQ(ReportingTargetType::kDeveloper, endpoint.group_key.target_type);
+}
+
+TEST_F(ReportingEndpointManagerTest, EnterpriseEndpoint) {
+  SetEnterpriseEndpoint(kEndpoint);
+
+  ReportingEndpoint endpoint =
+      endpoint_manager_->FindEndpointForDelivery(kEnterpriseGroupKey);
+  ASSERT_TRUE(endpoint);
+  EXPECT_EQ(kEndpoint, endpoint.info.url);
+  EXPECT_EQ(ReportingTargetType::kEnterprise, endpoint.group_key.target_type);
 }
 
 TEST_F(ReportingEndpointManagerTest, BackedOffEndpoint) {
@@ -531,9 +570,11 @@ TEST_F(ReportingEndpointManagerTest, NetworkAnonymizationKey) {
   const auto kNetworkAnonymizationKey2 =
       NetworkAnonymizationKey::CreateSameSite(kSite2);
   const ReportingEndpointGroupKey kGroupKey1(kNetworkAnonymizationKey1, kOrigin,
-                                             kGroup);
+                                             kGroup,
+                                             ReportingTargetType::kDeveloper);
   const ReportingEndpointGroupKey kGroupKey2(kNetworkAnonymizationKey2, kOrigin,
-                                             kGroup);
+                                             kGroup,
+                                             ReportingTargetType::kDeveloper);
 
   // An Endpoint set for kNetworkAnonymizationKey1 should not affect
   // kNetworkAnonymizationKey2.
@@ -579,9 +620,11 @@ TEST_F(ReportingEndpointManagerTest,
   const auto kNetworkAnonymizationKey2 =
       NetworkAnonymizationKey::CreateSameSite(kSite2);
   const ReportingEndpointGroupKey kGroupKey1(kNetworkAnonymizationKey1, kOrigin,
-                                             kGroup);
+                                             kGroup,
+                                             ReportingTargetType::kDeveloper);
   const ReportingEndpointGroupKey kGroupKey2(kNetworkAnonymizationKey2, kOrigin,
-                                             kGroup);
+                                             kGroup,
+                                             ReportingTargetType::kDeveloper);
 
   const GURL kEndpoint1("https://endpoint1/");
   const GURL kEndpoint2("https://endpoint2/");
@@ -657,7 +700,8 @@ TEST_F(ReportingEndpointManagerTest, CacheEviction) {
   const auto kDifferentNetworkAnonymizationKey =
       NetworkAnonymizationKey::CreateSameSite(kSite);
   const ReportingEndpointGroupKey kDifferentGroupKey(
-      kDifferentNetworkAnonymizationKey, kOrigin, kGroup);
+      kDifferentNetworkAnonymizationKey, kOrigin, kGroup,
+      ReportingTargetType::kDeveloper);
   SetEndpoint(kEndpoint, ReportingEndpoint::EndpointInfo::kDefaultPriority,
               ReportingEndpoint::EndpointInfo::kDefaultWeight,
               kDifferentNetworkAnonymizationKey);

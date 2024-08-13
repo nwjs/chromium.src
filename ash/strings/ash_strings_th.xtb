@@ -13,6 +13,7 @@
 <translation id="1036672894875463507">ฉันคือ Google Assistant ที่พร้อมช่วยเหลือคุณตลอดทั้งวัน
 คุณลองทำสิ่งต่อไปนี้ได้เพื่อเริ่มใช้งาน</translation>
 <translation id="1037492556044956303">เพิ่ม <ph name="DEVICE_NAME" /> แล้ว</translation>
+<translation id="1038106730571050514">แสดงคำแนะนำ</translation>
 <translation id="1047017786576569492">บางส่วน</translation>
 <translation id="1052916631016577720">สแกนรายการ</translation>
 <translation id="1056775291175587022">ไม่พบเครือข่าย</translation>
@@ -64,7 +65,6 @@
 <translation id="1201402288615127009">ถัดไป</translation>
 <translation id="1210557957257435379">การบันทึกหน้าจอ</translation>
 <translation id="121097972571826261">ไปข้างหน้าทีละคำ</translation>
-<translation id="1217633719248931900">ไปที่แอป</translation>
 <translation id="1218444235442067213"><ph name="APP_NAME" />, แอป Play Store</translation>
 <translation id="1225748608451425081">Chromebook ของคุณถูกล็อกเนื่องจากปัญหาที่ทราบแล้ว คุณจะลงชื่อเข้าใช้ได้ในอีก <ph name="TIME_LEFT" /></translation>
 <translation id="1229194443904279055">หยุดเลือก</translation>
@@ -81,6 +81,7 @@
 <translation id="1247519845643687288">แอปที่ใช้ล่าสุด</translation>
 <translation id="1252999807265626933">กำลังชาร์จจาก<ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">วันนี้อากาศเป็นยังไงบ้าง</translation>
+<translation id="1256734167083229794">คุณกดแป้นพิมพ์ลัดสำหรับแว่นขยายทั้งหน้าจอ ใช้แป้น <ph name="ZOOM_IN_ACCELERATOR" /> เพื่อซูมเข้า และแป้น <ph name="ZOOM_OUT_ACCELERATOR" /> เพื่อซูมออก ใช้แป้น Ctrl + Alt + ลูกศร เพื่อย้ายไปรอบๆ มุมมองซูมเข้า</translation>
 <translation id="1269405891096105529">ไม่รองรับอุปกรณ์ต่อพ่วงในโหมดผู้มาเยือน</translation>
 <translation id="1270290102613614947">ปิดใช้แป้นพิมพ์บนหน้าจออยู่</translation>
 <translation id="1272079795634619415">หยุด</translation>
@@ -97,10 +98,10 @@
 <translation id="1293556467332435079">ไฟล์</translation>
 <translation id="1293699935367580298">Esc</translation>
 <translation id="1294046132466831888">เปิดสำรวจ</translation>
+<translation id="129469256578833241">กลับไปที่ข้อมูลสรุป</translation>
 <translation id="1301069673413256657">GSM</translation>
 <translation id="1301513122398173424">กด <ph name="LAUNCHER_KEY_NAME" /> + g ได้ทุกเมื่อ</translation>
 <translation id="1306549533752902673">แอปแนะนำ</translation>
-<translation id="1311294419381837540">กำลังแคสต์แท็บ คุณหยุดชั่วคราวหรือหยุดการแคสต์ได้ทุกเมื่อ</translation>
 <translation id="1312604459020188865">ความแรงสัญญาณ <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="1316069254387866896">แสดงชั้นวางเสมอ</translation>
 <translation id="132346741904777634">จัดกล้องพอดีกับมุมซ้ายบนแล้ว เนื่องจากขัดแย้งกับแพลตฟอร์มของระบบ</translation>
@@ -109,9 +110,10 @@
 <translation id="1340378040547539434">ซูมออกในหน้า</translation>
 <translation id="1341651618736211726">รายการเพิ่มเติม</translation>
 <translation id="1341926407152459446">ใช้ "<ph name="DEVICE_NAME" />" สำหรับอินพุตและเอาต์พุตเสียง</translation>
-<translation id="1344141078024003905">กำลังแคสต์หน้าจอ คุณหยุดชั่วคราวหรือหยุดการแคสต์หน้าจอได้ทุกเมื่อ</translation>
 <translation id="1346748346194534595">ขวา</translation>
+<translation id="1350494136075914725">ดำเนินอยู่ · เปลี่ยนเป็นแท็บ</translation>
 <translation id="1351937230027495976">ยุบเมนู</translation>
+<translation id="1352537790882153971">คุณตรวจสอบเสียงไมโครโฟนจากหูฟังแบบมีสายได้ ปิดแผงเพื่อหยุด</translation>
 <translation id="1360220746312242196">เมื่อค้นหาในหน้า ให้ไปยังรายการก่อนหน้าที่ตรงกับการค้นหา</translation>
 <translation id="1360788414852622716">กำลังปิดใช้โปรไฟล์ การดำเนินการนี้อาจใช้เวลาสักครู่</translation>
 <translation id="1364382257761975320">ใช้ลายนิ้วมือเพื่อปลดล็อก Chromebook</translation>
@@ -136,6 +138,7 @@
 <translation id="1447907279406111651">ดำเนินอยู่ ⋅ สิ้นสุด <ph name="END_TIME" /></translation>
 <translation id="1448963928642384376">ฮอตสปอตของอุปกรณ์</translation>
 <translation id="1455242230282523554">แสดงการตั้งค่าภาษา</translation>
+<translation id="1459693405370120464">สภาพอากาศ</translation>
 <translation id="1460620680449458626">ระดับเสียงปิดเสียงอยู่</translation>
 <translation id="14648076227129703">การดำเนินการนี้ช่วยให้ <ph name="APP1_NAME" />, <ph name="APP2_NAME" /> รวมถึงแอปและเว็บไซต์ทั้งหมดที่มีสิทธิ์สามารถเข้าถึงกล้องได้</translation>
 <translation id="1467432559032391204">ซ้าย</translation>
@@ -144,6 +147,7 @@
 <translation id="147310119694673958">แบตเตอรี่โทรศัพท์ <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="1475340220124222168">เปิด/ปิดฮอตสปอต ฮอตสปอตเปิดอยู่ เชื่อมต่ออุปกรณ์อยู่ 1 เครื่อง</translation>
 <translation id="1479909375538722835">เมนูการช่วยเหลือพิเศษแบบลอย</translation>
+<translation id="1483493594462132177">ส่ง</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
 <translation id="1486307154719069822">ฟีเจอร์การพิมพ์ตามคำบอกช่วยให้คุณพิมพ์ด้วยเสียงได้ กดแป้นให้พิมพ์ตามคำบอกหรือเลือกไอคอนไมโครโฟนที่ด้านล่างของหน้าจอเมื่อคุณอยู่ในช่องข้อความ ภาษาสำหรับการพิมพ์ตามคำบอกตั้งค่าเป็น<ph name="LANGUAGE" /> ระบบจะส่งคำพูดไปประมวลผลที่ Google คุณเปลี่ยนภาษาสำหรับการพิมพ์ตามคำบอกได้ทุกเมื่อในการตั้งค่า &gt; การช่วยเหลือพิเศษ</translation>
 <translation id="1487931858675166540">สลับ <ph name="FIRST_ITEM_TITLE" /> กับ <ph name="SECOND_ITEM_TITLE" /> แล้ว</translation>
@@ -196,6 +200,7 @@
 <translation id="1677507110654891115"><ph name="FEATURE_NAME" /> ไม่เชื่อมต่อ</translation>
 <translation id="1677582821739292812">มีคนกำลังดูหน้าจอของคุณอยู่</translation>
 <translation id="1679841710523778799">เพิ่มความสว่าง</translation>
+<translation id="1680659827022803830">การควบคุมวิดีโอคอล</translation>
 <translation id="169515659049020177">Shift</translation>
 <translation id="1698080062160024910">ตัวจับเวลา <ph name="TOTAL_TIME" /> · <ph name="LABEL" /></translation>
 <translation id="1698760176351776263">ที่อยู่ IPv6: <ph name="ADDRESS" /></translation>
@@ -218,6 +223,7 @@
 <translation id="1747827819627189109">เปิดใช้แป้นพิมพ์บนหน้าจออยู่</translation>
 <translation id="1749109475624620922">กำหนดหน้าต่าง <ph name="WINDOW_TITLE" /> ให้ทุกเดสก์แล้ว</translation>
 <translation id="1750088060796401187">เปิดได้ <ph name="MAX_DESK_LIMIT" /> เดสก์เท่านั้น นำออก 1 เดสก์เพื่อเปิดเดสก์ใหม่</translation>
+<translation id="1751335846119670066">ช่วยฉันอ่าน</translation>
 <translation id="1755408179247123630">เปิดฟีเจอร์เลือกเพื่อให้อ่านใช่ไหม</translation>
 <translation id="1755556344721611131">แอปการวินิจฉัย</translation>
 <translation id="1756833229520115364">บันทึกเทมเพลตไม่ได้ มีหน้าต่างหรือแท็บมากเกินไป</translation>
@@ -229,6 +235,7 @@
 <translation id="178347895271755507">ตั้งค่าการดูรูปภาพ สื่อ และการแจ้งเตือนล่าสุดของโทรศัพท์</translation>
 <translation id="1787955149152357925">ปิด</translation>
 <translation id="1796561540704213354">เว็บไซต์จะรวมหน้าเว็บที่คุณเคยเข้าชมและหน้าเว็บที่เคยเปิด</translation>
+<translation id="179842970735685253">ข้อกำหนดในการให้บริการของ Google</translation>
 <translation id="181103072419391116">ความแรงสัญญาณ <ph name="SIGNAL_STRENGTH" />, จัดการโดยผู้ดูแลระบบ</translation>
 <translation id="1816896987747843206">การดำเนินการนี้ช่วยให้แอปและเว็บไซต์ทั้งหมดที่มีสิทธิ์สามารถเข้าถึงกล้องได้</translation>
 <translation id="1823873187264960516">อีเทอร์เน็ต: <ph name="ADDRESS" /></translation>
@@ -241,6 +248,7 @@
 <translation id="1862077610023398675">ซ่อนการควบคุม</translation>
 <translation id="1862380676329487333">อัปเดตและออกจากระบบ</translation>
 <translation id="1864454756846565995">อุปกรณ์ USB-C (พอร์ตด้านหลัง)</translation>
+<translation id="1867566089293859645">การเปลี่ยนแปลงจะมีผลในครั้งถัดไปที่คุณลงชื่อเข้าใช้ อัปเดตได้ทุกเมื่อในการตั้งค่า &gt; ค่ากำหนดของระบบ &gt; การเริ่มต้น</translation>
 <translation id="1869497990620230175">ไฟล์ด่วน</translation>
 <translation id="1871023081802165724">เล่นสื่อ</translation>
 <translation id="1871915835366697861">ไม่พร้อมใช้งานสำหรับเกมนี้</translation>
@@ -249,6 +257,7 @@
 <translation id="1882897271359938046">กำลังแสดงผลไปที่ <ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">ปลดล็อกด้วยลายนิ้วมือ</translation>
 <translation id="1894024878080591367">ตั้งค่าเพื่อเล่นด้วยแป้นพิมพ์</translation>
+<translation id="1896383923047738322">ปรับแต่งแป้นพิมพ์</translation>
 <translation id="1904997243703671177">เมื่อปิดบลูทูธ อุปกรณ์ภายนอก <ph name="DEVICE_COUNT" /> เครื่องจะยกเลิกการเชื่อมต่อกับ <ph name="DEVICE_TYPE" /> ของคุณ ได้แก่</translation>
 <translation id="1908992311423394684">ติดตั้งใหม่</translation>
 <translation id="1915307458270490472">วางซ้อนไว้ด้านบน</translation>
@@ -256,6 +265,7 @@
 <translation id="1923539912171292317">การคลิกอัตโนมัติ</translation>
 <translation id="1925320505152357008">น้อยกว่า 1 นาที</translation>
 <translation id="1928739107511554905">หากต้องการรับอัปเดต ให้ใช้หน้าจอสัมผัสเพื่อรีสตาร์ท Chromebook ในขณะที่ยังเชื่อมต่อกับแป้นพิมพ์</translation>
+<translation id="1929331825127010451">กลับไปที่คำถาม</translation>
 <translation id="1948405482892809935">เปลี่ยนเป็นผู้ใช้ถัดไป</translation>
 <translation id="1951012854035635156">ผู้ช่วย</translation>
 <translation id="1954252331066828794">บันทึกหน้าจอเรียบร้อยแล้ว</translation>
@@ -267,6 +277,7 @@
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
 <translation id="1971815855639997522">นำเดสก์และหน้าต่างออกแล้ว กด Control + Z เพื่อเลิกทำการดำเนินการ</translation>
 <translation id="1972950159383891558">สวัสดี คุณ <ph name="USERNAME" /></translation>
+<translation id="1977686871076551563">เปิดใช้โหมดการกลับสีแล้ว กด <ph name="ACCELERATOR" /> อีกครั้งเพื่อสลับเป็นปิด</translation>
 <translation id="1978498689038657292">การป้อนข้อความ</translation>
 <translation id="1980808257969311265">เข้าร่วม <ph name="EVENT_SUMMARY" /></translation>
 <translation id="1982717156487272186">แสดงสัปดาห์ก่อนหน้า</translation>
@@ -282,8 +293,10 @@
 <translation id="2018630726571919839">เล่าเรื่องตลกให้ฟังหน่อย</translation>
 <translation id="2021864487439853900">คลิกเพื่อปลดล็อก</translation>
 <translation id="2034971124472263449">บันทึกเลย</translation>
+<translation id="2041220428661959602">ระดับแบตเตอรี่: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">แป้นพิมพ์ลัดสำหรับการ<ph name="SIX_PACK_KEY_NAME" />ปิดอยู่</translation>
 <translation id="2049240716062114887">เปลี่ยนชื่อเดสก์ท็อปเป็น <ph name="DESK_NAME" /> แล้ว</translation>
+<translation id="2050339315714019657">แนวตั้ง</translation>
 <translation id="2064048859448024834">การแสดงตัวอย่างจากกล้องถ่ายรูปเปิดอยู่</translation>
 <translation id="2067602449040652523">ความสว่างของแป้นพิมพ์</translation>
 <translation id="2075520525463668108">เปิด/ปิด<ph name="CAPTURE_MEDIUM" /> <ph name="CAPTURE_MEDIUM" /><ph name="CAPTURE_STATE" /></translation>
@@ -331,7 +344,6 @@
 <translation id="2293443480080733021">คุณต้องการโฟกัสสิ่งใด กด Enter เพื่อเพิ่มงาน</translation>
 <translation id="229397294990920565">กำลังปิดอินเทอร์เน็ตมือถือ...</translation>
 <translation id="2295777434187870477">ไมค์เปิดอยู่ การปิดไมค์จะปิดเสียงการป้อนข้อมูล</translation>
-<translation id="2298170939937364391">เปิดใช้แว่นขยายทั้งหน้าจอแล้ว กด Ctrl+Search+M อีกครั้งเพื่อสลับเป็นปิด</translation>
 <translation id="2302092602801625023">บัญชีนี้จัดการโดย Family Link</translation>
 <translation id="2303600792989757991">ภาพรวมการสลับหน้าต่าง</translation>
 <translation id="2305738328104302723">รายการงานของ Google: <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
@@ -357,7 +369,6 @@
 <translation id="2369165858548251131">"สวัสดี" ในภาษาจีน</translation>
 <translation id="2370971919968699910">ซึ่งอาจมีค่าบริการอินเทอร์เน็ต
 มีอุปกรณ์ที่เชื่อมต่ออยู่ <ph name="DEVICECOUNT" /> เครื่อง</translation>
-<translation id="2382875860893882175">การแคสต์หยุดอยู่ชั่วคราวในขณะนี้ คุณแคสต์ต่อหรือหยุดการแคสต์ได้ทุกเมื่อ</translation>
 <translation id="2386292613071805067">เลือกทุกอย่างในหน้า</translation>
 <translation id="2392659840443812875">ไม่มีฮอตสปอตที่ใช้ได้ ตรวจสอบว่าอุปกรณ์อยู่ใกล้ๆ และบลูทูธเปิดอยู่</translation>
 <translation id="2397416548179033562">แสดงเมนู Chrome</translation>
@@ -382,6 +393,7 @@
 <translation id="2453860139492968684">เสร็จสิ้น</translation>
 <translation id="2455994958736234930">เพิ่ม www. และ .com ในแถบที่อยู่ จากนั้นเปิดเว็บไซต์</translation>
 <translation id="2456008742792828469">ปฏิทิน <ph name="CURRENT_MONTH_YEAR" /></translation>
+<translation id="246052086404491029">เจาะลึก</translation>
 <translation id="2465145153332031561">ประสิทธิภาพแบตเตอรี่ <ph name="BATTERY_HEALTH_PERCENTAGE" />%, จำนวนรอบ <ph name="CYCLE_COUNT" /></translation>
 <translation id="2473177541599297363">ยืนยันความละเอียด</translation>
 <translation id="2475982808118771221">มีข้อผิดพลาดเกิดขึ้น</translation>
@@ -414,7 +426,6 @@
 <translation id="2573588302192866788">เชื่อมต่อ <ph name="NAME" /> ไม่ได้</translation>
 <translation id="2575685495496069081">ปิดใช้การลงชื่อเข้าสู่ระบบพร้อมกันหลายบัญชีอยู่</translation>
 <translation id="2579264398927991698">การอัปเดตเฟิร์มแวร์</translation>
-<translation id="2582112259361606227">รีสตาร์ทเพื่ออัปเดต</translation>
 <translation id="2586657967955657006">คลิปบอร์ด</translation>
 <translation id="2595239820337756193">5 กม. เท่ากับกี่ไมล์</translation>
 <translation id="2596078834055697711">ถ่ายภาพหน้าจอของหน้าต่าง</translation>
@@ -517,8 +528,8 @@
 <translation id="2970920913501714344">ติดตั้งแอป ส่วนขยาย และธีม</translation>
 <translation id="2977598380246111477">ตัวเลขถัดไป</translation>
 <translation id="2985148236010982088">ดูแอปทั้งหมด</translation>
+<translation id="2992272421330787632">ซ่อนคำแนะนำทั้งหมดของสื่อ</translation>
 <translation id="2992327365391326550">ปุ่มไมโครโฟนของอุปกรณ์ปิดอยู่</translation>
-<translation id="2996462380875591307">เปิดใช้แว่นขยายหน้าจอบางส่วนแล้ว กด Ctrl+Search+D อีกครั้งเพื่อสลับเป็นปิด</translation>
 <translation id="3000461861112256445">เสียงแบบโมโน</translation>
 <translation id="3001391739687111021">แก้ไขขนาดหน้าจอ</translation>
 <translation id="3009178788565917040">เอาต์พุต</translation>
@@ -557,7 +568,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">ประเภทงานของชั้นเรียน</translation>
 <translation id="3126026824346185272">Ctrl</translation>
-<translation id="3126069444801937830">รีสตาร์ทเพื่ออัปเดต</translation>
+<translation id="3134486240968249588">โปรดคำนึงถึงสิ่งต่อไปนี้</translation>
 <translation id="3139188263101386725">ใช้แป้นพิมพ์ลัดที่อัปเดต</translation>
 <translation id="3139942575505304791">เดสก์ที่ 1</translation>
 <translation id="315116470104423982">เน็ตมือถือ</translation>
@@ -581,12 +592,14 @@
 <translation id="3226991577105957773">และอีก <ph name="COUNT" /> รายการ</translation>
 <translation id="3227137524299004712">ไมโครโฟน</translation>
 <translation id="3233611303007751344">ปิดโหมดประหยัดแบตเตอรี่แล้ว</translation>
+<translation id="3238409143297336341">ตั้งค่าการควบคุมโดยผู้ปกครองสำหรับแอป</translation>
 <translation id="324366796737464147">การลดเสียงรบกวน</translation>
 <translation id="3249513730522716925">ย้ายหน้าต่าง <ph name="WINDOW_TITLE" /> จากเดสก์ <ph name="ACTIVE_DESK" /> ไปยังเดสก์ <ph name="TARGET_DESK" /> แล้ว</translation>
 <translation id="3253743281242075461">ประเภทงานของชั้นเรียน: <ph name="GLANCEABLES_CLASSROOM_LIST_NAME" /></translation>
 <translation id="3255483164551725916">เธอทำอะไรได้บ้าง</translation>
 <translation id="3256109297135787951">นำไฮไลต์ออกจากรายการบนชั้นวาง</translation>
 <translation id="3260969790895726815">คําพูดจะได้รับการประมวลผลในเครื่องและการพิมพ์ตามคําบอกจะทํางานแบบออฟไลน์ แต่คําสั่งเสียงบางอย่างจะไม่ทํางาน</translation>
+<translation id="3264031581203585083">ซ่อนคำแนะนำทั้งหมดของ Google ไดรฟ์</translation>
 <translation id="3265032511221679826">เปิดการเข้าถึงตำแหน่งที่แน่นอนไหม</translation>
 <translation id="3269597722229482060">คลิกขวา</translation>
 <translation id="3274634049061007184">ดูแอปของโทรศัพท์</translation>
@@ -623,8 +636,8 @@
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3389599499324569679">เปิดการพิมพ์ตามคำบอกใช่ไหม</translation>
 <translation id="3394432020929931914">, ขยายแล้ว</translation>
+<translation id="3401474642070997151">หากต้องการปรับแต่งคำแนะนำ ให้คลิกขวาหรือกดคำแนะนำค้างไว้</translation>
 <translation id="3405101454990027959">เปิดการเข้าถึงไมโครโฟน</translation>
-<translation id="3408735331120433841">กำลังแคสต์หน้าจออยู่ในขณะนี้</translation>
 <translation id="3409584356742878290">แสดงหรือซ่อนตัวตรวจสอบเครื่องมือสำหรับนักพัฒนาแอป</translation>
 <translation id="3410336247007142655">แสดงการตั้งค่าธีมมืด</translation>
 <translation id="3413817803639110246">ไม่มีการแจ้งเตือนใหม่</translation>
@@ -735,9 +748,11 @@
 <translation id="3738664582935948253">ตอนนี้คุณแสดงการคลิกและแป้นพิมพ์ลัดในการบันทึกหน้าจอได้แล้ว</translation>
 <translation id="3742055079367172538">ภาพหน้าจอที่บันทึก</translation>
 <translation id="3743775386021959186">โหมดโฟกัสเปิดอยู่ เหลืออีก <ph name="REMAINING_TIME" /></translation>
+<translation id="3750403286520637847">ซ่อนคำแนะนำสภาพอากาศ</translation>
 <translation id="3756485814916578707">กำลังแคสต์หน้าจอ</translation>
 <translation id="3765841382945324995">อัปเดตแป้นพิมพ์ลัดสำหรับการ<ph name="SIX_PACK_KEY_NAME" />จาก <ph name="OLD_SHORTCUT" /> เป็น <ph name="NEW_SHORTCUT" /> แล้ว</translation>
 <translation id="3765841986579723851">แก้ไขวันนี้</translation>
+<translation id="3772109172035555611">ปรับแต่ง TrackPoint</translation>
 <translation id="3773700760453577392">ผู้ดูแลระบบไม่อนุญาตให้ <ph name="USER_EMAIL" /> ลงชื่อเข้าสู่ระบบพร้อมกันหลายบัญชี ผู้ใช้ทุกคนต้องออกจากระบบเพื่อดำเนินการต่อ</translation>
 <translation id="3779139509281456663">กำลังเชื่อมต่อกับ <ph name="NAME" /></translation>
 <translation id="3781910048497807059">ย้ายโฟกัสไปยังแผงก่อนหน้า</translation>
@@ -771,9 +786,9 @@
 <translation id="3900355044994618856">เซสชันจะสิ้นสุดใน <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">กำลังเชื่อมต่อกับ <ph name="NAME" /></translation>
 <translation id="3904768293285573640">ปรับขนาดหน้าต่างแบบเรียงต่อกันไปทางซ้าย</translation>
-<translation id="3906954721959377182">แท็บเล็ต</translation>
 <translation id="3923494859158167397">ไม่ได้ตั้งค่าเครือข่ายมือถือ</translation>
 <translation id="3925540965556789199"><ph name="DATE" />, กำลังโหลดกิจกรรม</translation>
+<translation id="3927049937406914450">คำแนะนำสภาพอากาศไม่พร้อมใช้งานเนื่องจากการเข้าถึงตำแหน่งปิดอยู่ คุณสามารถเปลี่ยนค่านี้ได้ในการตั้งค่า</translation>
 <translation id="3932043219784172185">ไม่มีอุปกรณ์ที่เชื่อมต่ออยู่</translation>
 <translation id="3934456833412894880">การชาร์จแบบปรับอัตโนมัติเปิดอยู่ แบตเตอรี่จะหยุดชาร์จที่ 80% เพื่อยืดอายุการใช้งาน และจะชาร์จจนเต็มเมื่อคุณต้องการ</translation>
 <translation id="3943857333388298514">วาง</translation>
@@ -785,11 +800,13 @@
 <translation id="3953130726459169782">ยังไม่มีงานที่ทำเสร็จ</translation>
 <translation id="3958714870339660776">ตลอดวัน</translation>
 <translation id="3962859241508114581">แทร็กก่อนหน้า</translation>
+<translation id="3963124517343721543">ดำเนินการต่อจากที่ค้างไว้ได้ง่ายๆ ด้วยการเปิดหน้าต่างและแท็บก่อนหน้า นอกจากนี้ คุณยังจะเห็นคำแนะนำที่ปรับเปลี่ยนในแบบของคุณสำหรับสิ่งที่ต้องทำต่อไปด้วย</translation>
 <translation id="3969043077941541451">ปิด</translation>
 <translation id="3970324493235864154">ดูการแจ้งเตือนของโทรศัพท์</translation>
 <translation id="397105322502079400">กำลังคำนวณ...</translation>
 <translation id="397726367135689299">การชาร์จแบตเตอรี่อาจไม่ทำงานอย่างที่ควร</translation>
 <translation id="3977512764614765090">แบตเตอรี่เหลือ <ph name="PERCENTAGE" />% และกำลังชาร์จ</translation>
+<translation id="397808938113646171">หมดเวลา เก่งมาก</translation>
 <translation id="3982013579989864579">เปลี่ยนเอาต์พุตเสียงไหม</translation>
 <translation id="3984536049089846927">หน้าถัดไป</translation>
 <translation id="3986082989454912832">ตอบ</translation>
@@ -799,6 +816,7 @@
 <translation id="4002066346123236978">ชื่อ</translation>
 <translation id="40062176907008878">การเขียนด้วยลายมือ</translation>
 <translation id="4011112806063830608">โหมดห้ามรบกวนเปิดอยู่</translation>
+<translation id="4015144849380506405">หยุดชั่วคราว/ใช้งานแป้นเมาส์ต่อเมื่อเปิดอยู่</translation>
 <translation id="4017989525502048489">ตัวชี้เลเซอร์</translation>
 <translation id="401993194061514265">ตัวทำเครื่องหมายไม่พร้อมใช้งาน เปิด Screencast อีกครั้ง</translation>
 <translation id="4021716437419160885">เลื่อนลง</translation>
@@ -813,6 +831,7 @@
 <translation id="404437169852192935">การอัปเดตสิ้นสุดแล้ว</translation>
 <translation id="4049230407053723315">การตั้งค่าด่วน</translation>
 <translation id="4057003836560082631">แท็บที่ <ph name="INDEX" /> จาก <ph name="TOTAL_COUNT" /> ของเบราว์เซอร์ <ph name="SITE_TITLE" /> <ph name="SITE_URL" /></translation>
+<translation id="4059696795118403455">กดแป้นภาพรวมเพื่อดูคำแนะนำที่ปรับเปลี่ยนในแบบของคุณสำหรับสิ่งที่ต้องทำต่อไป</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{ปิดไว้ 1 แอป}other{ปิดไว้ # แอป}}</translation>
 <translation id="4066027111132117168">เปิดอยู่ <ph name="REMAINING_TIME" /></translation>
 <translation id="4069532248403319695">เปิดหน้าดาวน์โหลด</translation>
@@ -859,7 +878,6 @@
 <translation id="4217571870635786043">การพิมพ์ตามคำบอก</translation>
 <translation id="4221957499226645091"><ph name="APP_NAME" />, ติดตั้งแอปแล้ว, หยุดชั่วคราว</translation>
 <translation id="4228078597006700451">ยังไม่ได้ตั้งค่าการควบคุม</translation>
-<translation id="4231053948789591973">การแคสต์หยุดอยู่ชั่วคราวในขณะนี้ คุณแคสต์ต่อหรือหยุดการแคสต์หน้าจอได้ทุกเมื่อ</translation>
 <translation id="4239069858505860023">GPRS</translation>
 <translation id="4240486403425279990">โหมดภาพรวม</translation>
 <translation id="4242533952199664413">เปิดการตั้งค่า</translation>
@@ -871,6 +889,7 @@
 <translation id="4269883910223712419">ผู้ดูแลระบบของอุปกรณ์เครื่องนี้ทำสิ่งต่อไปนี้ได้</translation>
 <translation id="4274537685965975248">มีการเปลี่ยนแปลงแป้นพิมพ์ลัด Ctrl + Alt + ลูกศรลง หากต้องการใช้แป้น End ให้กดแป้น <ph name="LAUNCHER_KEY_NAME" /> + ลูกศรขวา</translation>
 <translation id="4275283744500212192">เปิดตัวเลือกเลย์เอาต์หน้าต่าง</translation>
+<translation id="4275663329226226506">สื่อ</translation>
 <translation id="4279490309300973883">กำลังแสดงผล</translation>
 <translation id="4280601795273309128">การอัปเดตความปลอดภัยสิ้นสุดแล้ว โปรดอัปเกรดอุปกรณ์</translation>
 <translation id="4283888303416325161">ป้อนรหัสผ่านเพื่อความปลอดภัยมากขึ้น</translation>
@@ -888,6 +907,7 @@
 <translation id="4312840429157639164">จัดกล้องพอดีกับมุมขวาบนแล้ว เนื่องจากขัดแย้งกับแพลตฟอร์มของระบบ</translation>
 <translation id="4316910396681052118">แอปทั้งหมด</translation>
 <translation id="4321179778687042513">ctrl</translation>
+<translation id="4322385711258710213">ซ่อนคำแนะนำทั้งหมดของเบราว์เซอร์ Chrome</translation>
 <translation id="4322742403972824594">มีการเปลี่ยนแปลงแป้นพิมพ์ลัด Ctrl + Alt + ลูกศรขึ้น หากต้องการใช้แป้น Home ให้กดแป้น <ph name="LAUNCHER_KEY_NAME" /> + ลูกศรซ้าย</translation>
 <translation id="4324840740119394760">การดำเนินการนี้ช่วยให้ <ph name="APP_NAME" /> รวมถึงแอปและเว็บไซต์ทั้งหมดที่มีสิทธิ์สามารถเข้าถึงกล้องได้</translation>
 <translation id="4327147325944669226">บันทึกเกม</translation>
@@ -898,13 +918,13 @@
 <translation id="4364101114148522660">กำลังบันทึก <ph name="DURATION" /></translation>
 <translation id="4371348193907997655">การตั้งค่าการแคสต์</translation>
 <translation id="4375482231364171368">ค้นหาในแถบที่อยู่</translation>
-<translation id="4378154925671717803">โทรศัพท์</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" /> ความแรงสัญญาณ <ph name="SIGNAL_STRENGTH" /> เปอร์เซ็นต์</translation>
 <translation id="4378551569595875038">กำลังเชื่อมต่อ</translation>
 <translation id="4379531060876907730">นี่คือเครื่องมือสไตลัส</translation>
 <translation id="4381031910344220229">การตั้งค่านี้ช่วยให้ <ph name="APP_NAME" /> รวมถึงแอปและเว็บไซต์ทั้งหมดที่มีสิทธิ์เข้าถึงไมโครโฟนได้</translation>
 <translation id="4382340674111381977">กลับไปหน้าก่อนหน้า</translation>
 <translation id="4389184120735010762">คุณกดแป้นพิมพ์ลัดสำหรับแว่นขยายหน้าจอบางส่วน จะเปิดแว่นขยายไหม</translation>
+<translation id="4394466652057229831">คลิกขวาเพื่อสรุป</translation>
 <translation id="439598569299422042">หยุดชั่วคราว <ph name="SIZE_INFO" /></translation>
 <translation id="440113666232554208">บันทึก Screencast ไม่ได้</translation>
 <translation id="4405151984121254935">ไม่รองรับอุปกรณ์ต่อพ่วงที่เชื่อมต่ออยู่</translation>
@@ -920,6 +940,7 @@
 <translation id="4450893287417543264">ไม่ต้องแสดงอีก</translation>
 <translation id="4451374464530248585">มีการเปลี่ยนแปลงแป้นพิมพ์ลัด Alt + ลูกศรลง หากต้องการใช้แป้น Page Down ให้กดแป้น <ph name="LAUNCHER_KEY_NAME" /> + ลูกศรลง</translation>
 <translation id="4453876312474547652">คุณจะเห็นคลิปบอร์ดเมื่อกด Ctrl + V ค้างไว้ ทั้งนี้คุณปิดแป้นพิมพ์ลัดนี้ได้ด้วยการปิดใช้ Flag #clipboard-history-longpress ใน chrome://flags (os://flags หากใช้ Lacros)</translation>
+<translation id="445765352722456792">ปรับแต่งคำแนะนำ</translation>
 <translation id="445864333228800152">สวัสดียามเย็น</translation>
 <translation id="4458688154122353284">หยุดการอัดหน้าจอ</translation>
 <translation id="445923051607553918">เข้าร่วมเครือข่าย Wi-Fi</translation>
@@ -948,6 +969,7 @@
 <translation id="4544483149666270818">เลือกหน้าต่างที่จะบันทึก</translation>
 <translation id="4545950850562423083">บันทึกหน้าปัจจุบันเป็นบุ๊กมาร์ก</translation>
 <translation id="4548482551627849548">ย้ายหน้าต่างที่เปิดใช้งานอยู่ไปยังเดสก์ทางด้านซ้าย</translation>
+<translation id="4552748006424994716">คุณสามารถฟังเสียงจากไมค์เท่านั้นด้วยหูฟังแบบมีสายเพื่อหลีกเลี่ยงเสียงก้อง</translation>
 <translation id="4560576029703263363">เปิด</translation>
 <translation id="4561267230861221837">3G</translation>
 <translation id="4565377596337484307">ซ่อนรหัสผ่าน</translation>
@@ -962,6 +984,7 @@
 <translation id="4585337515783392668">หยุดแคสต์ไปยังเครื่องรับที่ไม่รู้จัก</translation>
 <translation id="4596144739579517758">ธีมมืดปิดอยู่</translation>
 <translation id="4596442969149038771"><ph name="USER" /> แชร์เมื่อ</translation>
+<translation id="4610493115106525653">เอาต์พุตดี</translation>
 <translation id="4611292653554630842">ลงชื่อเข้าสู่ระบบ</translation>
 <translation id="462160925400706389">เชื่อมต่อ <ph name="NAME" /> แล้ว</translation>
 <translation id="4623167406982293031">ยืนยันบัญชี</translation>
@@ -974,6 +997,7 @@
 <translation id="4648249871170053485"><ph name="APP_NAME" />, แอปแนะนำ</translation>
 <translation id="4649019912155580914">คุณแก้ไขเมื่อ</translation>
 <translation id="4654916960643280876">เลือกช่องทำเครื่องหมาย <ph name="PROFILE_NAME" /> <ph name="EMAIL" /> แล้ว</translation>
+<translation id="465686131535918331">คุณปรับเปลี่ยนการตั้งค่า <ph name="PERIPHERAL_NAME" /> ในแบบของตัวเองได้</translation>
 <translation id="4657775630156561295">ระบบจะนำคำแนะนำต่อไปนี้ออกอย่างถาวรจากประวัติคำแนะนำของบัญชี
 
 <ph name="QUERY" /></translation>
@@ -1015,6 +1039,7 @@
 <translation id="4778095205580009397">Google Assistant ไม่พร้อมใช้งานในเซสชันสาธิต</translation>
 <translation id="4789348252524569426">ติดตั้งไฟล์คำพูดไม่ได้ คุณต้องอัปเดตอุปกรณ์ รีสตาร์ทอุปกรณ์และลองอีกครั้ง</translation>
 <translation id="478959186716341421">กำลังแคสต์</translation>
+<translation id="4798403412327076414">คุณจะเห็นหน้าต่างและแอปที่เปิดอยู่ก่อนหน้านี้เมื่อลงชื่อเข้าใช้ครั้งถัดไป</translation>
 <translation id="4798622944000246716">เครือข่ายมือถือของคุณไม่รองรับฮอตสปอต</translation>
 <translation id="4798888871844665150">รายการที่คัดลอกอยู่ในคลิปบอร์ดแล้ว ใช้ <ph name="SHORTCUT_KEY_NAME" /> + V เพื่อดู</translation>
 <translation id="479989351350248267">ค้นหา</translation>
@@ -1042,6 +1067,7 @@
 <translation id="4876935764454575645">การเลือกเสียง</translation>
 <translation id="4881323000405981760">แอป Linux ไม่รองรับเอฟเฟกต์</translation>
 <translation id="4881695831933465202">เปิด</translation>
+<translation id="4884542439842987401"><ph name="PLAYLIST_TYPE" /> ᐧ <ph name="PLAYLIST_TITLE" /></translation>
 <translation id="4889868803215848840">แสดงความคิดเห็น (ไม่บังคับ) เพื่อปรับปรุงคำแนะนำ ดังนี้</translation>
 <translation id="4890187583552566966">ผู้ดูแลระบบปิดใช้ Google Assistant</translation>
 <translation id="4890408602550914571">ตรวจสอบว่าโทรศัพท์อยู่ใกล้ๆ และเปิดบลูทูธไว้</translation>
@@ -1119,6 +1145,7 @@
 <translation id="5121628974188116412">ไปที่ด้านล่างสุดของหน้า</translation>
 <translation id="5122517996953421795">ตัวอย่าง <ph name="DESK_NAME" /> เดสก์ที่ไม่ได้ใช้งาน</translation>
 <translation id="5136175204352732067">เชื่อมต่อกับแป้นพิมพ์อื่นแล้ว</translation>
+<translation id="5140105873789567560">คุณต้องมีอายุอย่างน้อย 18 ปีจึงจะใช้ฟีเจอร์ช่วยฉันเขียนและช่วยฉันอ่านได้</translation>
 <translation id="5144005092084035179">เปลี่ยนอินพุตเสียงไหม</translation>
 <translation id="5147567197700016471">ปลดล็อกแล้ว</translation>
 <translation id="5150070631291639005">การตั้งค่าความเป็นส่วนตัว</translation>
@@ -1147,9 +1174,11 @@
 <translation id="5238719049014159442">เปิด/ปิด Launcher</translation>
 <translation id="5240725217819182328">การเข้าถึงด่วนไปยังหน้าเว็บหรือการดำเนินการที่เจาะจงภายในแอปที่ติดตั้งไว้</translation>
 <translation id="5245201184978705914">สร้างข้อความถอดเสียงไม่ได้</translation>
+<translation id="5251174953851719648">รีเฟรชเนื้อหา</translation>
 <translation id="5253783950165989294">เชื่อมต่ออยู่กับอุปกรณ์ชื่อ <ph name="DEVICE_NAME" />, แบตเตอรี่ <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="5258528442992323769">ไม่มีเดสก์ที่บันทึกไว้</translation>
 <translation id="5260676007519551770">เดสก์ที่ 4</translation>
+<translation id="5270547718570958938">Google ปฏิทิน</translation>
 <translation id="5277869901083657836">เปิด/ปิดเครื่องมือสไตลัส</translation>
 <translation id="5278086053818066789">เปิด/ปิด ChromeVox (อธิบายและอ่านออกเสียง)</translation>
 <translation id="5283099933536931082"><ph name="APP_ITEM_TITLE" /> ส่งคำขอให้คุณดำเนินการ</translation>
@@ -1188,6 +1217,7 @@
 <translation id="5377367976106153749">เปิดการเข้าถึงกล้องไหม</translation>
 <translation id="5379115545237091094">ลองหลายครั้งเกินไป</translation>
 <translation id="5391307769715781764">แทนที่เดสก์ที่บันทึกไว้ใช่ไหม</translation>
+<translation id="5392327145184648521">กำลังคำนวณ % แบตเตอรี่...</translation>
 <translation id="5393156353051693207">แตะที่ใดก็ได้ค้างไว้เพื่อเรียงลำดับแอปใหม่</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> อยู่เหนือ <ph name="IN_PLACE_APP" /> ปล่อยเพื่อสร้างโฟลเดอร์</translation>
 <translation id="5397578532367286026">การใช้งานและประวัติของผู้ใช้รายนี้อาจถูกตรวจสอบโดยผู้จัดการ (<ph name="MANAGER_EMAIL" />) บน chrome.com</translation>
@@ -1242,10 +1272,12 @@
 <translation id="5577281275355252094">ตรวจดูว่าเปิดใช้บลูทูธของโทรศัพท์อยู่เพื่อใช้ฮับโทรศัพท์</translation>
 <translation id="5578188167649348993">หน่วยความจำ</translation>
 <translation id="5580000943347215299">ไลบรารี</translation>
+<translation id="5586388332127302891">เปิดใช้แว่นขยายหน้าจอบางส่วนแล้ว กด <ph name="ACCELERATOR" /> อีกครั้งเพื่อสลับเป็นปิด</translation>
 <translation id="5587506661873751671">กำลังดาวน์โหลด <ph name="DOWNLOAD_PERCENT" />%</translation>
 <translation id="558849140439112033">ลากเพื่อเลือกพื้นที่ที่จะจับภาพ</translation>
 <translation id="5590609058453685222">การกระตุ้นเตือนการปิดเสียงเปิดอยู่ คุณจะได้รับการแจ้งเตือนเมื่อพูดขณะที่ปิดเสียงอยู่</translation>
 <translation id="5592745162308462420">fn</translation>
+<translation id="5593564924968945303">เบราว์เซอร์ Chrome</translation>
 <translation id="5596627076506792578">ตัวเลือกเพิ่มเติม</translation>
 <translation id="5599242528220103262">แป้นพิมพ์ลัดปิดอยู่</translation>
 <translation id="5600415762228455511">โหมดโฟกัสเปิดอยู่ เหลืออีก <ph name="REMAINING_TIME" /> โฟกัสที่: <ph name="TASK_NAME" /></translation>
@@ -1314,6 +1346,7 @@
 <translation id="5802516411616338943">เปิดการตั้งค่าด่วน</translation>
 <translation id="5804651031882187592">ปิดการตั้งค่า "ล็อกซิม"</translation>
 <translation id="5805809050170488595">คลิกเพื่อเปิดใช้ <ph name="NETWORK_NAME" /></translation>
+<translation id="5819918159912280082">Chromebook รีสตาร์ทโดยไม่คาดคิด เปิดหน้าต่างและแอปก่อนหน้า</translation>
 <translation id="5823239091726045201">Google Tasks บนเว็บ</translation>
 <translation id="5825969630400862129">การตั้งค่าอุปกรณ์ที่เชื่อมต่อ</translation>
 <translation id="5837036133683224804">หยุด <ph name="ROUTE_TITLE" /> ใน<ph name="RECEIVER_NAME" /></translation>
@@ -1342,6 +1375,7 @@
 <translation id="5916664084637901428">เปิด</translation>
 <translation id="5920710855273935292">ปิดเสียงไมค์อยู่</translation>
 <translation id="5928083197428724029"><ph name="MANAGER" /> กำหนดให้ต้องมีการอัปเดต</translation>
+<translation id="5939518447894949180">รีเซ็ต</translation>
 <translation id="5946788582095584774"><ph name="FEATURE_NAME" /> เปิดอยู่</translation>
 <translation id="5947494881799873997">ย้อนกลับ</translation>
 <translation id="595202126637698455">เปิดใช้งานการติดตามการปฏิบัติงานแล้ว</translation>
@@ -1352,8 +1386,10 @@
 <translation id="5975235751479998104">สลับระหว่างหน้าต่าง (ไปข้างหน้า)</translation>
 <translation id="5978382165065462689">กำลังแชร์การควบคุมหน้าจอผ่านความช่วยเหลือระยะไกล</translation>
 <translation id="5980301590375426705">ออกเซสชันผู้มาเยือน</translation>
+<translation id="5982119059638483922">กด Fn + Search หรือ Shift เพื่อยกเลิก</translation>
 <translation id="5983567367406220847">ปิดฮอตสปอตแล้วเนื่องจากไม่มีการใช้งาน</translation>
 <translation id="598407983968395253">ใช้เทมเพลต</translation>
+<translation id="5986723678596105470">เข้าร่วมด้วย Google Meet</translation>
 <translation id="598882571027504733">หากต้องการรับอัปเดต ให้รีสตาร์ท Chromebook ในขณะที่ยังเชื่อมต่อกับแป้นพิมพ์</translation>
 <translation id="5998374579424866922">ปิดการควบคุมเกม</translation>
 <translation id="6000279412553873020">แป้น ปุ่ม และอื่นๆ</translation>
@@ -1369,6 +1405,7 @@
 <translation id="6025324406281560198"><ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, ความแรงสัญญาณ <ph name="SIGNAL_STRENGTH" />, จัดการโดยผู้ดูแลระบบ</translation>
 <translation id="6027518778343897451">ไม่มีกิจกรรมในวันที่ <ph name="CURRENT_MONTH_DAY" /> กด Enter เพื่อเปิด Google ปฏิทินในเบราว์เซอร์</translation>
 <translation id="6030495522958826102">เมนูได้ย้ายไปอยู่ที่มุมซ้ายล่างของหน้าจอ</translation>
+<translation id="6030608926359652298">ปรับแต่งทัชแพด</translation>
 <translation id="6032620807120418574">คลิกที่ใดก็ได้เพื่อบันทึกแบบเต็มหน้าจอ</translation>
 <translation id="6040071906258664830">การบันทึกเสียงจากไมโครโฟน<ph name="STATE" /></translation>
 <translation id="6040143037577758943">ปิด</translation>
@@ -1405,8 +1442,10 @@
 <translation id="6141205840878048728">คุณต้องการโฟกัสสิ่งใด</translation>
 <translation id="6141988275892716286">ยืนยันการดาวน์โหลด</translation>
 <translation id="6143578372829139382">แชร์ไปยัง YouTube</translation>
+<translation id="6147182561428020853">ตอนนี้คุณบล็อกแอปที่ติดตั้งใน <ph name="DEVICE_TYPE" /> เครื่องนี้ได้แล้ว</translation>
 <translation id="6154006699632741460">ไม่รองรับอุปกรณ์ต่อพ่วง</translation>
 <translation id="6156960295318603523">การตั้งค่าภาษา</translation>
+<translation id="6158923546703693047">ข้อมูลแหล่งที่มาของเนื้อหา</translation>
 <translation id="615957422585914272">แสดงแป้นพิมพ์บนหน้าจอ</translation>
 <translation id="616543563528926612">อัปเดตแป้นพิมพ์ลัดสำหรับการคลิกขวาจากแป้น <ph name="LAUNCHER_KEY_NAME" /> + คลิกเป็น Alt + คลิกแล้ว</translation>
 <translation id="6165508094623778733">ดูข้อมูลเพิ่มเติม</translation>
@@ -1421,6 +1460,7 @@
 <translation id="6185696379715117369">เลื่อนหน้าขึ้น</translation>
 <translation id="619335566042889110">ชาร์จจนเต็มเลย</translation>
 <translation id="6193431488227440296">กำลังพัฒนา</translation>
+<translation id="6196214354688969799">ภาพระดับสตูดิโอ</translation>
 <translation id="6199775032047436064">โหลดหน้าปัจจุบันใหม่</translation>
 <translation id="6200515304866777730">แอปไม่รองรับ</translation>
 <translation id="6210042900243040400">เชื่อมต่อ <ph name="NAME" /> ที่บันทึกไว้ก่อนหน้านี้ใน <ph name="EMAIL" /></translation>
@@ -1452,6 +1492,7 @@
 <translation id="6319503618073410818">ดูรายละเอียดในเบราว์เซอร์</translation>
 <translation id="6324916366299863871">แก้ไขทางลัด</translation>
 <translation id="6330012934079202188">กำลังแสดงหน้าต่างจากเดสก์ทั้งหมด กดปุ่มลูกศรขึ้นเพื่อแสดงหน้าต่างจากเดสก์ปัจจุบัน</translation>
+<translation id="6337159624125741244">แว่นขยายทั้งหน้าจอเปิดอยู่</translation>
 <translation id="6338485349199627913"><ph name="DISPLAY_NAME" /> เป็นเซสชันที่มีการจัดการซึ่งจัดการโดย <ph name="MANAGER" /></translation>
 <translation id="6344138931392227467">เชื่อมต่อ <ph name="DEVICE_NAME" /> แล้ว</translation>
 <translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" /> แล้วกด <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> หรือ <ph name="KEY_THREE" /></translation>
@@ -1489,12 +1530,12 @@
 <translation id="6469104339369989396">เปิด/ปิดฮอตสปอต</translation>
 <translation id="6477681113376365978">ดาวน์โหลดไฟล์ไม่ได้</translation>
 <translation id="6482559668224714696">แว่นขยายทั้งหน้าจอ</translation>
+<translation id="6485086611007560630">สภาพอากาศ (ไม่พร้อมใช้งาน)</translation>
 <translation id="6490471652906364588">อุปกรณ์ USB-C (พอร์ตด้านขวา)</translation>
 <translation id="649452524636452238">PIN สมาร์ทการ์ด</translation>
 <translation id="6495322433318104734">กำลังแสดงโปรแกรมรักษาหน้าจอ กดแป้นใดก็ได้เพื่อออก</translation>
 <translation id="6495400115277918834">เริ่มการแสดงภาพซ้อนภาพแล้ว กด Alt+Shift+V เพื่อโฟกัส</translation>
 <translation id="6497418457565568043">ฟีเจอร์ห้ามรบกวนเปิดอยู่</translation>
-<translation id="6500896621837555595">อัปเดต</translation>
 <translation id="6501401484702599040">กำลังแคสต์หน้าจอไปยัง <ph name="RECEIVER_NAME" /></translation>
 <translation id="6507042703812908515">เปิดแอปแป้นพิมพ์ลัดโดยใช้ "<ph name="NEW_SHORTCUT" />"</translation>
 <translation id="6507618042428827377">เปลี่ยนไปใช้วิธีการป้อนข้อมูลถัดไปที่มีอยู่</translation>
@@ -1519,6 +1560,7 @@
 <translation id="6574587113394758819">การแจ้งเตือนของ <ph name="APP_TITLE" /> ซ่อนอยู่เนื่องจากเปิดโหมดป้องกันการดูไว้</translation>
 <translation id="6574622320167699133">ปลดล็อกแล้วด้วยโทรศัพท์ แตะหรือคลิกเพื่อเข้าใช้งาน</translation>
 <translation id="6578407462441924264">ไม่ได้ตั้งชื่อ</translation>
+<translation id="6582034443359256692">กําลังคํานวณระดับการชาร์จแบตเตอรี่</translation>
 <translation id="6585808820553845416">เซสชันจะสิ้นสุดใน <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="6593850935013518327"><ph name="PRIMARY_TEXT" />, <ph name="SECONDARY_TEXT" /></translation>
 <translation id="6597278316891651699">จัดกล้องพอดีกับมุมซ้ายล่างแล้ว เนื่องจากขัดแย้งกับแพลตฟอร์มของระบบ</translation>
@@ -1555,6 +1597,7 @@
 <translation id="6696025732084565524">แป้มพิมพ์ที่ถอดได้ต้องได้รับอัปเดตที่สำคัญ</translation>
 <translation id="6697913454192220372">เพิ่มเดสก์ใหม่</translation>
 <translation id="6700713906295497288">ปุ่มเมนู IME</translation>
+<translation id="6704375469818246414">คุณภาพอาจแตกต่างกันไปเมื่อใช้ Generative AI</translation>
 <translation id="6706742084323792866">ปักหมุดแป้นพิมพ์</translation>
 <translation id="6710213216561001401">ก่อนหน้า</translation>
 <translation id="6723839937902243910">พลังงาน</translation>
@@ -1580,6 +1623,7 @@
 <translation id="6790428901817661496">เล่น</translation>
 <translation id="679368458793552943">ซูมเข้าเมื่อแว่นขยายเปิดอยู่</translation>
 <translation id="6794287755901682422">รายการนี้มี <ph name="GLANCEABLES_TASK_ITEM_METADATA" /></translation>
+<translation id="6797745268063125932">เปิดใช้งานไว้</translation>
 <translation id="6801878137098616817">แก้ไขเมื่อเร็วๆ นี้</translation>
 <translation id="6802687695197837794">การดำเนินการนี้ช่วยให้ <ph name="APP1_NAME" />, <ph name="APP2_NAME" /> รวมถึงแอปและเว็บไซต์ทั้งหมดที่มีสิทธิ์สามารถเข้าถึงกล้องและไมโครโฟนได้</translation>
 <translation id="6803622936009808957">ไม่สามารถแสดงผลคู่ขนานได้เนื่องจากไม่พบความละเอียดที่สนับสนุน เข้าสู่เดสก์ท็อปแบบขยายแทน</translation>
@@ -1676,6 +1720,7 @@
 <translation id="7167913274352523149"><ph name="HOTSPOT" />,
         <ph name="NETWORK" /></translation>
 <translation id="7168224885072002358">เปลี่ยนกลับไปเป็นความละเอียดเดิมภายใน <ph name="TIMEOUT_SECONDS" /></translation>
+<translation id="7173114856073700355">เปิดการตั้งค่า</translation>
 <translation id="7180611975245234373">รีเฟรช</translation>
 <translation id="7181691792034457084">สวัสดี <ph name="PRODUCT_NAME" /> จะแตกต่างออกไปเล็กน้อย</translation>
 <translation id="7188494361780961876">เมนูได้ย้ายไปอยู่ที่มุมซ้ายบนของหน้าจอ</translation>
@@ -1733,6 +1778,7 @@
 <translation id="742594950370306541">ใช้กล้องถ่ายรูปอยู่</translation>
 <translation id="742608627846767349">สวัสดียามเช้า</translation>
 <translation id="743058460480092004">ใช้กล้องถ่ายรูปและไมโครโฟนอยู่</translation>
+<translation id="7441711280402516925">กำลังเล่น · เปลี่ยนเป็นแท็บ</translation>
 <translation id="7453330308669753048">นำผลลัพธ์ในประวัติการค้นหาออกแล้ว</translation>
 <translation id="7459485586006128091">ปิดฮอตสปอตแล้วเนื่องจากมีข้อผิดพลาดภายใน โปรดลองเชื่อมต่อใหม่ในอีกสักครู่</translation>
 <translation id="7461924472993315131">ปักหมุด</translation>
@@ -1754,6 +1800,7 @@
 <translation id="7514365320538308">ดาวน์โหลด</translation>
 <translation id="7515998400212163428">Android</translation>
 <translation id="7516641972665276706">Page Down</translation>
+<translation id="7518182783647693467">สลับหน่วยอุณหภูมิ (ฟาเรนไฮต์เทียบกับเซลเซียส)</translation>
 <translation id="7519206258459640379">การจัดเฟรมกล้องเปิดอยู่</translation>
 <translation id="7519649142417630956">เมื่อปิดแล้ว ผู้ดูแลระบบจะออกจากระบบและควบคุมอุปกรณ์ไม่ได้
 
@@ -1820,10 +1867,11 @@
 <translation id="7726391492136714301">ดูการแจ้งเตือนและแอปในโทรศัพท์</translation>
 <translation id="7727952505535211425">เปิดเว็บไซต์ในแถบที่อยู่ในแท็บใหม่</translation>
 <translation id="7742327441377685481">ไม่มีการแจ้งเตือน</translation>
+<translation id="774736258792760908">เมื่อเปิดฟีเจอร์ช่วยฉันเขียนและช่วยฉันอ่าน ระบบจะส่งข้อความที่ป้อนและเนื้อหาเอกสารไปยังเซิร์ฟเวอร์ AI ของ Google เพื่อสร้างคำแนะนำในการเขียน สร้างข้อมูลสรุป ตอบคำถาม และปรับปรุงผลิตภัณฑ์โดยเป็นไปตาม<ph name="LINK_TO_SERVICE_TERMS" /> อย่าระบุสิ่งที่เป็นเรื่องส่วนตัว ข้อมูลที่ละเอียดอ่อน หรือข้อมูลที่เป็นความลับ</translation>
 <translation id="7748275671948949022">ไฮไลต์ปุ่ม Launcher บนแถบ</translation>
 <translation id="7749443890790263709">มีพื้นที่ทำงานครบตามจำนวนสูงสุดแล้ว</translation>
 <translation id="7749958366403230681">ExpressKey 4</translation>
-<translation id="776344839111254542">คลิกเพื่อดูรายละเอียดการอัปเดต</translation>
+<translation id="7759183637555564029">คุณปิดฟีเจอร์ช่วยฉันเขียนและช่วยฉันอ่านได้ทุกเมื่อในการตั้งค่า <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="7768784765476638775">เลือกเพื่อให้อ่าน</translation>
 <translation id="7769299611924763557">GIF จะพร้อมใช้งานในไม่ช้า</translation>
 <translation id="7773536009433685931">เปิด Wi-Fi แทน</translation>
@@ -1832,6 +1880,7 @@
 <translation id="7781829728241885113">เมื่อวานนี้</translation>
 <translation id="7787212146956232129">ตั้งค่าอุปกรณ์อินพุตและเอาต์พุตแล้ว โปรดเปลี่ยนที่การตั้งค่า</translation>
 <translation id="7792590255364786396">มองเห็นได้</translation>
+<translation id="7793389284006812057">Generative AI เป็นเวอร์ชันทดลอง อยู่ในช่วงการพัฒนาขั้นต้น และขณะนี้พร้อมให้บริการแบบจํากัด</translation>
 <translation id="7796735576426975947">การแจ้งเตือนใหม่ซ่อนอยู่</translation>
 <translation id="7798302898096527229">กด Search หรือ Shift เพื่อยกเลิก</translation>
 <translation id="780301667611848630">ไม่ ขอบคุณ</translation>
@@ -1891,6 +1940,8 @@
 <translation id="7947798320695032612"><ph name="APP_NAME" /> ต้องการใช้ <ph name="DEVICE_NAME" /></translation>
 <translation id="7951630946012935453">หรี่แสงแป้นพิมพ์</translation>
 <translation id="7953994493035617347">ยืนยันความละเอียดใหม่ไหม</translation>
+<translation id="795958884516058160">เปิดใช้แว่นขยายทั้งหน้าจอแล้ว กด <ph name="ACCELERATOR" /> อีกครั้งเพื่อสลับเป็นปิด</translation>
+<translation id="7962583092928373823">ซ่อนคำแนะนำทั้งหมดของ Google ปฏิทิน</translation>
 <translation id="7963689218131240420">โหมดห้ามรบกวนปิดอยู่</translation>
 <translation id="7963992254934562106">จาก <ph name="PHONE_NAME" /></translation>
 <translation id="7968693143708939792">เลือกโฟลเดอร์...</translation>
@@ -1935,6 +1986,7 @@
 <translation id="8113423164597455979">เปิดไว้ทุกแอป</translation>
 <translation id="8113515504791187892">ปุ่มเลือกเพื่อให้อ่าน</translation>
 <translation id="8120151603115102514">โทรศัพท์ไม่มีหน้าจอล็อก หากต้องการปลดล็อก Chromebook ให้ป้อนรหัสผ่าน</translation>
+<translation id="8120249852906205273">รีสตาร์ท</translation>
 <translation id="8127095419621171197">เปิดแอปเครื่องคิดเลข</translation>
 <translation id="8129620843620772246"><ph name="TEMPERATURE_C" />°C</translation>
 <translation id="8130528849632411619">ไปที่จุดเริ่มต้นเอกสาร</translation>
@@ -1959,10 +2011,10 @@
 <translation id="8200772114523450471">ทำต่อ</translation>
 <translation id="820256110035940528"><ph name="TITLE" /> คุณเพิ่งโฟกัสไป <ph name="FOCUSED_TIME" /> เปิดการตั้งค่าด่วนเพื่อโฟกัสอีกครั้ง</translation>
 <translation id="8203795194971602413">คลิกขวา</translation>
-<translation id="8209010265547628927">รีเซ็ต</translation>
 <translation id="8214996719228530800">เวอร์ชัน Canary</translation>
 <translation id="8219451629189078428">คุณต้องเปิด Chromebook และเสียบปลั๊กไว้ตลอดในระหว่างนี้ ตรวจดูว่าได้เสียบสายที่ชาร์จและอะแดปเตอร์ไว้แน่นดีแล้ว ทั้งกับ Chromebook และเต้ารับ และอย่าปิด Chromebook</translation>
 <translation id="8220076512072059941">เพิ่ม <ph name="FOCUS_DURATION_DELTA" /></translation>
+<translation id="8228175756124063692">ซ่อนคำแนะนำนี้</translation>
 <translation id="8230305195727960608">โหมดการกลับสี</translation>
 <translation id="8236042855478648955">ได้เวลาพักแล้ว</translation>
 <translation id="8237964652943995219">เดสก์ถัดไป: <ph name="DESK_NAME" /> เดสก์ที่ <ph name="DESK_INDEX" /> จาก <ph name="DESK_COUNT" /></translation>
@@ -1970,7 +2022,6 @@
 <translation id="8239034820133090126">เปิดใช้งานเดสก์ทางด้านขวา</translation>
 <translation id="8247060538831475781"><ph name="CONNECTION_STATUS" />, ความแรงสัญญาณ <ph name="SIGNAL_STRENGTH" />, แบตเตอรี่โทรศัพท์ <ph name="BATTERY_STATUS" /></translation>
 <translation id="8247998213073982446"><ph name="APP_NAME" />, แอป</translation>
-<translation id="8255234195843591763">รีเซ็ตเพื่ออัปเดต</translation>
 <translation id="8257510091797044096">ตั้งค่าอุปกรณ์</translation>
 <translation id="8261506727792406068">ลบ</translation>
 <translation id="8262312463845990408">สลับการเล่น</translation>
@@ -1985,7 +2036,9 @@
 <translation id="8315514906653279104">กำลังเปิด...</translation>
 <translation id="8331351032546853669">การดาวน์โหลดรอดำเนินการ</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
+<translation id="8340621004014372743">ถามคำถาม</translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
+<translation id="834414266279889566">เอาต์พุตไม่ดี</translation>
 <translation id="8345019317483336363">เลือกหน้าต่าง <ph name="WINDOW_TITLE" /> ไว้</translation>
 <translation id="8349826889576450703">Launcher</translation>
 <translation id="8349964124165471584">เปิดลิงก์ในหน้าต่างใหม่</translation>
@@ -2016,6 +2069,7 @@
 <translation id="8443879455002739353">"คัดลอก"</translation>
 <translation id="8444246603146515890">เปิดใช้งานเดสก์ <ph name="DESK_TITILE" /> แล้ว</translation>
 <translation id="8446884382197647889">ดูข้อมูลเพิ่มเติม</translation>
+<translation id="8452090802952003258">ฟังเสียงจากไมค์</translation>
 <translation id="8456543082656546101"><ph name="SHORTCUT_KEY_NAME" /> + V</translation>
 <translation id="8462305545768648477">ปิดฟีเจอร์เลือกเพื่อให้อ่าน</translation>
 <translation id="8468806060683421065">ครบกำหนด <ph name="DUE_DATE_AND_TIME" /></translation>
@@ -2031,6 +2085,7 @@
 <translation id="85123341071060231">บลูทูธของ Chromebook ปิดอยู่ หากต้องการปลดล็อก Chromebook ให้ป้อนรหัสผ่าน</translation>
 <translation id="8513108775083588393">หมุนอัตโนมัติ</translation>
 <translation id="851458219935658693">แสดงหน้าต่างจากเดสก์ปัจจุบัน เลือกปุ่มตัวเลือกแล้ว</translation>
+<translation id="851660987304951246">ใช้ฟีเจอร์ช่วยฉันอ่านเพื่อสรุปเนื้อหาหรือถามคำถามอย่างรวดเร็ว</translation>
 <translation id="8517041960877371778"><ph name="DEVICE_TYPE" /> ของคุณอาจไม่ชาร์จเมื่อเครื่องเปิดอยู่</translation>
 <translation id="852060496139946719">{NUM_APPS,plural, =1{อินพุตไมค์ควบคุมโดย <ph name="APP_NAME" />}other{อินพุตไมค์ควบคุมโดย # แอป}}</translation>
 <translation id="8535393432370007982">เลิกทำการจัดเรียงลำดับตามสี</translation>
@@ -2073,8 +2128,10 @@
 <translation id="8683506306463609433">ใช้งานการติดตามประสิทธิภาพอยู่</translation>
 <translation id="8703634754197148428">เริ่มบันทึก เมื่อการบันทึกเริ่มต้น ให้ใช้ Alt + Shift + L เพื่อไปที่แถบและหาปุ่มหยุดบันทึก</translation>
 <translation id="8704155109538237473">โฟกัสหน้าต่างการแสดงภาพซ้อนภาพ</translation>
+<translation id="8708657523363087260">เปิด/ปิดเสียงสะท้อน</translation>
 <translation id="870917907284186124">เปิด/ปิดการพิมพ์ตามคำบอก (พิมพ์ด้วยเสียง)</translation>
 <translation id="8711169534266271368">ตัวเลือกแดชบอร์ดเกม</translation>
+<translation id="8712637175834984815">รับทราบ</translation>
 <translation id="8714138378966541668">ล็อกโดยผู้ให้บริการ</translation>
 <translation id="8717459106217102612">เลือกคำหรืออักษรก่อนหน้า</translation>
 <translation id="8721053961083920564">สลับเปิด/ปิดระดับเสียง <ph name="STATE_TEXT" /></translation>
@@ -2088,7 +2145,6 @@
 <translation id="8742057891287715849"><ph name="NAME" /> · <ph name="SERVICE_PROVIDER" />: กำลังเปิดใช้งาน...</translation>
 <translation id="8747464587821437069"><ph name="CAMERA_AND_MICROPHONE_ACCESS_STATUS" />,
         <ph name="SCREEN_SHARE_STATUS" /></translation>
-<translation id="8749787185286745219">หมดเวลา เก่งมาก 🎉</translation>
 <translation id="8753368202781196133">ปัจจุบันระบบยังไม่รองรับภาษานี้</translation>
 <translation id="8755498163081687682">ยืนยันตัวตนของคุณ: <ph name="ORIGIN_NAME" /> ต้องการยืนยันว่าเป็นคุณ</translation>
 <translation id="875593634123171288">แสดงการตั้งค่า VPN</translation>
@@ -2104,6 +2160,7 @@
 <translation id="8801802992492329306">5G</translation>
 <translation id="8806053966018712535">โฟลเดอร์ <ph name="FOLDER_NAME" /></translation>
 <translation id="880709030178078220">"ช่วยเหลือ"</translation>
+<translation id="8813531681893371930">เชื่อมต่อหูฟังแบบมีสาย</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
 <translation id="8815390544836110344">กดแป้นพิมพ์ลัดสำหรับการจับภาพหน้าจอ ปุ่ม Ctrl + Shift + แป้นโหมดภาพรวม</translation>
 <translation id="881757059229893486">การตั้งค่าวิธีการป้อนข้อมูล</translation>
@@ -2146,13 +2203,14 @@
 <translation id="894774083269346314">ไม่ได้เลือกช่องทำเครื่องหมาย <ph name="PROFILE_NAME" /> <ph name="EMAIL" /></translation>
 <translation id="8949925099261528566">เชื่อมต่อแล้ว ไม่พบอินเทอร์เน็ต</translation>
 <translation id="8951539504029375108">เฉพาะอุปกรณ์ Thunderbolt ที่ได้รับอนุมัติเท่านั้นที่เข้ากันได้กับ Chromebook ของคุณ</translation>
+<translation id="8956420987536947088">เปิดหน้าต่างและแอปก่อนหน้า</translation>
+<translation id="8959380109429710384">คุณกดแป้นพิมพ์ลัดสำหรับแว่นขยายทั้งหน้าจอ ใช้แป้น Ctrl + Alt + ลูกศร เพื่อย้ายไปรอบๆ มุมมองซูมเข้า</translation>
 <translation id="8964525410783593407">1 ชม.</translation>
 <translation id="8973885907461690937">วางโฟกัสบนไอคอนเมนู</translation>
 <translation id="8980862970816311842">ย้ายไอคอนแอปเข้า/ออกจากโฟลเดอร์ในตารางกริดสำหรับแอป</translation>
 <translation id="8982906748181120328">การมองเห็นใกล้เคียง</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">กำลังใช้<ph name="IME_NAME" /></translation>
-<translation id="8991617137207906966">เปิดใช้โหมดการกลับสีแล้ว กด Ctrl+Search+H อีกครั้งเพื่อสลับเป็นปิด</translation>
 <translation id="899350903320462459">ปลดล็อกอุปกรณ์โดยใช้ <ph name="LOGIN_ID" /> เพื่อดำเนินการแจ้งเตือน</translation>
 <translation id="8993733019280019776">คุณพูดอยู่ใช่ไหม ดูเหมือนว่าไมค์จะปิดอยู่ โปรดเลือกไมโครโฟนเพื่อเปิด</translation>
 <translation id="9000771174482730261">จัดการพื้นที่เก็บข้อมูล</translation>
@@ -2200,6 +2258,7 @@
 <translation id="9192133205265227850">ใช้ "<ph name="DEVICE_NAME" />"</translation>
 <translation id="9193626018745640770">กำลังแคสต์ไปยังเครื่องรับที่ไม่รู้จัก</translation>
 <translation id="9194617393863864469">ลงชื่อเข้าใช้ด้วยชื่อผู้ใช้อื่น...</translation>
+<translation id="9195857219954068558">Chromebook ได้รับการอัปเดตแล้ว เปิดหน้าต่างและแอปก่อนหน้า</translation>
 <translation id="9195990613383871904">พรุ่งนี้</translation>
 <translation id="9198992156681343238">ความละเอียดของ <ph name="DISPLAY_NAME" /> เปลี่ยนเป็น <ph name="RESOLUTION" /> คลิก "ยืนยัน" เพื่อเก็บการเปลี่ยนแปลงไว้ ระบบจะคืนการตั้งค่าก่อนหน้าใน <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="9201044636667689546">เชื่อมต่อ <ph name="NAME" /> กับ Chromebook เครื่องนี้</translation>
@@ -2230,6 +2289,7 @@
 <translation id="974545358917229949">กำลังแสดงผลการค้นหา <ph name="RESULT_COUNT" /> รายการสำหรับ "<ph name="QUERY" />"</translation>
 <translation id="981011780479609956">ไม่มีวันที่ครบกำหนด</translation>
 <translation id="98120814841227350">ไปที่ส่วนท้ายของเอกสาร</translation>
+<translation id="98515147261107953">แนวนอน</translation>
 <translation id="987589956647469042">อินเทอร์เน็ตมือถือเปิดอยู่</translation>
 <translation id="989374776391122812">การควบคุมกล้องและเสียง</translation>
 <translation id="990277280839877440">ปิดหน้าต่าง <ph name="WINDOW_TITILE" /> แล้ว</translation>

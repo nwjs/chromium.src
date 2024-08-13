@@ -1050,6 +1050,13 @@
     <variant value="5">VOLUME_KEY</variant>
   </enum>
 
+  <enum name="CameraAppPressure">
+    <variant value="0">NOMINAL</variant>
+    <variant value="1">FAIR</variant>
+    <variant value="2">SERIOUS</variant>
+    <variant value="3">CRITICAL</variant>
+  </enum>
+
   <enum name="CameraAppAndroidIntentResultType">
     <variant value="0">NON_INTENT</variant>
     <variant value="1">CONFIRMED</variant>
@@ -1129,12 +1136,17 @@
     <variant value="3">LAUNCHING_FROM_LAUNCH_APP_WARM</variant>
     <variant value="4">LAUNCHING_FROM_WINDOW_CREATION</variant>
     <variant value="5">MODE_SWITCHING</variant>
-    <variant value="6">PHOTO_CAPTURE_POST_PROCESSING</variant>
+    <variant value="6">PHOTO_CAPTURE_POST_PROCESSING_SAVING</variant>
     <variant value="7">PHOTO_CAPTURE_SHUTTER</variant>
     <variant value="8">PHOTO_TAKING</variant>
-    <variant value="9">PORTRAIT_MODE_CAPTURE_POST_PROCESSING</variant>
-    <variant value="10">TIMELAPSE_CAPTURE_POST_PROCESSING</variant>
-    <variant value="11">VIDEO_CAPTURE_POST_PROCESSING</variant>
+    <variant value="9">PORTRAIT_MODE_CAPTURE_POST_PROCESSING_SAVING</variant>
+    <variant value="10">TIMELAPSE_CAPTURE_POST_PROCESSING_SAVING</variant>
+    <variant value="11">VIDEO_CAPTURE_POST_PROCESSING_SAVING</variant>
+    <variant value="12">SNAPSHOT_TAKING</variant>
+    <variant value="13">DOCUMENT_CAPTURE_POST_PROCESSING</variant>
+    <variant value="14">DOCUMENT_PDF_SAVING</variant>
+    <variant value="15">OCR_SCANNING</variant>
+    <variant value="16">GIF_CAPTURE_SAVING</variant>
   </enum>
 
   <enum name="CameraAppOcrEventType">
@@ -1241,7 +1253,7 @@
     <variant value="6">DATES_TIMES</variant>
     <variant value="7">UNITS_MATHS</variant>
     <variant value="8">CASE_TRANSFORM</variant>
-    <variant value="9">TENOR</variant>
+    <variant value="9">DEPRECATED_TENOR</variant>
   </enum>
 
   <enum name="PickerResultType">
@@ -1254,7 +1266,7 @@
     <variant value="6">CLIPBOARD_TEXT</variant>
     <variant value="7">CLIPBOARD_IMAGE</variant>
     <variant value="8">CLIPBOARD_HTML</variant>
-    <variant value="9">GIF</variant>
+    <variant value="9">DEPRECATED_GIF</variant>
     <variant value="10">LINK</variant>
     <variant value="11">LOCAL_FILE</variant>
     <variant value="12">DRIVE_FILE</variant>
@@ -1357,6 +1369,17 @@
     <metric name="AppState" type="int">
       <summary>
         Denotes a change in an app state. 0 - INACTIVE, 1 - ACTIVE, 2 - CLOSED.
+      </summary>
+    </metric>
+  </event>
+
+  <event name="AppDiscovery.ArcAppCameraAccessed">
+    <summary>
+      Recorded when a camera is accessed from an ARC app.
+    </summary>
+    <metric name="AppId" type="raw-string">
+      <summary>
+        Key that identifies an app.
       </summary>
     </metric>
   </event>
@@ -1686,7 +1709,7 @@
     </metric>
     <metric name="PageCount" type="int">
       <summary>
-        Integer indicating how many pages are there in the document scanning result.
+        Integer indicating how many pages are saved from document scanning.
       </summary>
     </metric>
   </event>
@@ -1762,6 +1785,16 @@
       <summary>
         The resolution height of the camera. Will be 0 if the resolution information
         is not provided.
+      </summary>
+    </metric>
+    <metric name="PageCount" type="int">
+      <summary>
+        Integer indicating how many pages are there in the document scanning result.
+      </summary>
+    </metric>
+    <metric name="Pressure" type="CameraAppPressure">
+      <summary>
+        The CPU pressure level.
       </summary>
     </metric>
   </event>
@@ -2822,6 +2855,11 @@
     <metric name="MouseButton" type="int">
       <summary>
         An index of a mouse button as defined in JavaScript MouseEvent.
+      </summary>
+    </metric>
+    <metric name="DoubleClick" type="int">
+      <summary>
+        A boolean describing if the event is a double click.
       </summary>
     </metric>
     <metric name="Context" type="int">

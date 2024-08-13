@@ -168,16 +168,16 @@ void ExtensionSystemImpl::Shared::RegisterManagementPolicyProviders() {
 void ExtensionSystemImpl::Shared::InitInstallGates() {
   update_install_gate_ = std::make_unique<UpdateInstallGate>(profile_);
   extension_service_->RegisterInstallGate(
-      ExtensionPrefs::DELAY_REASON_WAIT_FOR_IDLE, update_install_gate_.get());
+      ExtensionPrefs::DelayReason::kWaitForIdle, update_install_gate_.get());
   extension_service_->RegisterInstallGate(
-      ExtensionPrefs::DELAY_REASON_WAIT_FOR_IMPORTS,
+      ExtensionPrefs::DelayReason::kWaitForImports,
       extension_service_->shared_module_service());
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   if (chrome::IsRunningInForcedAppMode()) {
     kiosk_app_update_install_gate_ =
         std::make_unique<ash::KioskAppUpdateInstallGate>(profile_);
     extension_service_->RegisterInstallGate(
-        ExtensionPrefs::DELAY_REASON_WAIT_FOR_OS_UPDATE,
+        ExtensionPrefs::DelayReason::kWaitForOsUpdate,
         kiosk_app_update_install_gate_.get());
   }
 #endif
@@ -211,7 +211,7 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
       profile_, base::CommandLine::ForCurrentProcess(),
       profile_->GetPath().AppendASCII(kInstallDirectoryName),
       profile_->GetPath().AppendASCII(kUnpackedInstallDirectoryName),
-      ExtensionPrefs::Get(profile_), nullptr,
+      ExtensionPrefs::Get(profile_), Blocklist::Get(profile_),
       autoupdate_enabled, extensions_enabled, &ready_);
 
   uninstall_ping_sender_ = std::make_unique<UninstallPingSender>(

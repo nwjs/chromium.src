@@ -24,12 +24,6 @@ BASE_FEATURE(kAndroidDownloadableFontsMatching,
              "AndroidDownloadableFontsMatching",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables exposure of the Cross App Web Attribution Reporting in the renderer
-// without an origin trial token.
-BASE_FEATURE(kAttributionReportingCrossAppWebOverride,
-             "AttributionReportingCrossAppWebOverride",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables controlling the time to live for pages in the BackForwardCache.
 // The time to live is defined by the param 'time_to_live_seconds'; if this
 // param is not specified then this feature is ignored and the default is used.
@@ -116,15 +110,6 @@ BASE_FEATURE(kDataUrlsHaveStableNonce,
              "DataUrlsHaveStableNonce",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables deferring the creation of the speculative RFH when the navigation
-// starts. The creation of a speculative RFH consumes about 2ms and is blocking
-// the network request. With this feature the creation will be deferred until
-// the browser initializes the network request. The speculative RFH will be
-// created while the network service is sending the request in parallel.
-BASE_FEATURE(kDeferSpeculativeRFHCreation,
-             "DeferSpeculativeRFHCreation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // When enabled, main frame data: URLs use the serialized nonce from the origin
 // as the site URL. Otherwise, use the entire data: URL as the site URL.
 // Note: This feature is dependent on kDataUrlsHaveStableNonce. If that flag
@@ -191,6 +176,12 @@ BASE_FEATURE(kFedCmIdAssertionCORS,
              "FedCmIdAssertionCORS",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables sending SameSite=Lax cookies in credentialed FedCM requests
+// (accounts endpoint, ID assertion endpoint and disconnect endpoint).
+BASE_FEATURE(kFedCmSameSiteLax,
+             "FedCmSameSiteLax",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables sending only SameSite=None cookies in credentialed FedCM requests
 // (accounts endpoint and ID assertion endpoint). If kFedCmIdAssertionCORS
 // is enabled, this is a no-op for the ID assertion endpoint.
@@ -241,6 +232,19 @@ BASE_FEATURE(kFledgeSellerWorkletThreadPool,
 const base::FeatureParam<int> kFledgeSellerWorkletThreadPoolSize{
     &kFledgeSellerWorkletThreadPool, "seller_worklet_thread_pool_size", 1};
 
+// Enables multi-threaded bidder worklet.
+BASE_FEATURE(kFledgeBidderWorkletThreadPool,
+             "FledgeBidderWorkletThreadPool",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// The scaling factor for calculating the number of bidder worklet threads based
+// on the number of Interest Groups.
+// Formula: #threads = 1 + scaling_factor * log10(#IGs)
+const base::FeatureParam<double>
+    kFledgeBidderWorkletThreadPoolSizeLogarithmicScalingFactor{
+        &kFledgeBidderWorkletThreadPool,
+        "bidder_worklet_thread_pool_size_logarithmic_scaling_factor", 0};
+
 // This is a kill switch for focusing the RenderWidgetHostViewAndroid on
 // ActionDown on every touch sequence if not focused already, please see
 // b/340824076. We are adding this to confirm the hypothesis that root view,
@@ -257,6 +261,16 @@ BASE_FEATURE(kFocusRenderWidgetHostViewAndroidOnActionDown,
 BASE_FEATURE(kFontSrcLocalMatching,
              "FontSrcLocalMatching",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+// Controls whether building a database of unique font names is performed
+// using the Fontations library. If off, FreeType is used instead.
+// Used as a kill switch, expected to be removed after one stable cycle
+// of using Fontations. See https://crbug.com/349952802
+BASE_FEATURE(kFontIndexingFontations,
+             "FontIndexingFontations",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // Feature controlling whether or not memory pressure signals will be forwarded
 // to the GPU process.
@@ -319,7 +333,7 @@ BASE_FEATURE(kInnerFrameCompositorSurfaceEviction,
 // typical 24 hour wait.
 BASE_FEATURE(kInterestGroupUpdateIfOlderThan,
              "InterestGroupUpdateIfOlderThan",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable IOSurface based screen capturer.
 #if BUILDFLAG(IS_MAC)
@@ -367,6 +381,15 @@ BASE_FEATURE(kOptimizeImmHideCalls,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
+// Enables additional ChildProcessSecurityPolicy enforcements for PDF renderer
+// processes, including blocking storage and cookie access for them.
+//
+// TODO(https://crbug.com/40205612): Remove this kill switch once the PDF
+// enforcements are verified not to cause problems.
+BASE_FEATURE(kPdfEnforcements,
+             "PdfEnforcements",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // This feature enables Permissions Policy verification in the Browser process
 // in content/. Additionally only for //chrome Permissions Policy verification
 // is enabled in components/permissions/permission_context_base.cc
@@ -392,6 +415,15 @@ BASE_FEATURE(kPreloadingConfig,
 BASE_FEATURE(kPrivacySandboxAdsAPIsM1Override,
              "PrivacySandboxAdsAPIsM1Override",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+// When disabled("legacy behavior") it resets ongoing gestures when window loses
+// focus. In split screen scenario this means we can't continue scroll on a
+// chrome window, when we start interacting with another window.
+BASE_FEATURE(kContinueGestureOnLosingFocus,
+             "ContinueGestureOnLosingFocus",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // Enables reporting ResourceTiming entries for document, who initiated a
 // cancelled navigation in one of their <iframe>.
@@ -575,6 +607,11 @@ BASE_FEATURE(kWebOTPAssertionFeaturePolicy,
 // Flag guard for fix for crbug.com/1504324.
 BASE_FEATURE(kWindowOpenFileSelectFix,
              "WindowOpenFileSelectFix",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Flag guard for fix for crbug.com/346629231.
+BASE_FEATURE(kScrollBubblingFix,
+             "ScrollBubblingFix",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Please keep features in alphabetical order.

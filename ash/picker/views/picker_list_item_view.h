@@ -5,14 +5,19 @@
 #ifndef ASH_PICKER_VIEWS_PICKER_LIST_ITEM_VIEW_H_
 #define ASH_PICKER_VIEWS_PICKER_LIST_ITEM_VIEW_H_
 
+#include <optional>
 #include <string>
 
 #include "ash/ash_export.h"
 #include "ash/picker/model/picker_action_type.h"
 #include "ash/picker/views/picker_item_view.h"
 #include "ash/public/cpp/holding_space/holding_space_image.h"
-#include "base/files/file_path.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/gfx/geometry/size.h"
+
+namespace base {
+class FilePath;
+}
 
 namespace ui {
 class ImageModel;
@@ -20,6 +25,7 @@ class ImageModel;
 
 namespace views {
 class ImageView;
+class Label;
 class View;
 }  // namespace views
 
@@ -41,12 +47,13 @@ class ASH_EXPORT PickerListItemView : public PickerItemView {
   PickerListItemView& operator=(const PickerListItemView&) = delete;
   ~PickerListItemView() override;
 
-  void SetLeadingIcon(const ui::ImageModel& icon);
+  void SetLeadingIcon(const ui::ImageModel& icon,
+                      std::optional<gfx::Size> icon_size = std::nullopt);
 
   // Sets the primary text or image of the list item. This replaces any existing
   // contents in the primary container.
   void SetPrimaryText(const std::u16string& primary_text);
-  void SetPrimaryImage(std::unique_ptr<views::ImageView> primary_image);
+  void SetPrimaryImage(const ui::ImageModel& primary_image);
 
   void SetSecondaryText(const std::u16string& secondary_text);
 
@@ -57,7 +64,7 @@ class ASH_EXPORT PickerListItemView : public PickerItemView {
   // item is hovered on. If `update_icon` is true, then the leading icon of this
   // item will also be updated to match the thumbnail.
   void SetPreview(PickerPreviewBubbleController* preview_bubble_controller,
-                  base::FilePath file_path,
+                  const base::FilePath& file_path,
                   AsyncBitmapResolver async_bitmap_resolver,
                   bool update_icon = false);
 
@@ -76,26 +83,33 @@ class ASH_EXPORT PickerListItemView : public PickerItemView {
   }
   std::u16string GetPrimaryTextForTesting() const;
   ui::ImageModel GetPrimaryImageForTesting() const;
+  std::u16string_view GetSecondaryTextForTesting() const;
 
  private:
   void UpdateIconWithPreview();
+  std::u16string GetAccessibilityLabel() const;
+  void UpdateAccessibleName();
 
   raw_ptr<views::ImageView> leading_icon_view_ = nullptr;
 
   // Contains the item's primary contents, which can be text or an image.
   raw_ptr<views::View> primary_container_ = nullptr;
+  raw_ptr<views::Label> primary_label_ = nullptr;
 
   // Contains the item's secondary text if it has been set.
   raw_ptr<views::View> secondary_container_ = nullptr;
+  raw_ptr<views::Label> secondary_label_ = nullptr;
 
   // Contains the item's trailing badge if it has been set.
   raw_ptr<PickerBadgeView> trailing_badge_ = nullptr;
+  PickerActionType badge_action_ = PickerActionType::kDo;
 
   // These are only used for file items.
   // TODO: b/344457947 - Combine the two async images by allowing the
   // placeholder image to be dynamically generated based on the size.
   std::unique_ptr<HoldingSpaceImage> async_preview_image_;
   std::unique_ptr<HoldingSpaceImage> async_preview_icon_;
+  base::FilePath file_path_;
   raw_ptr<PickerPreviewBubbleController> preview_bubble_controller_;
   base::CallbackListSubscription async_icon_subscription_;
 };

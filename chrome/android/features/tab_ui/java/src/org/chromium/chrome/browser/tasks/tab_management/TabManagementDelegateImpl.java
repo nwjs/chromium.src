@@ -11,7 +11,6 @@ import android.util.Pair;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 
-import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -23,9 +22,6 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
-import org.chromium.chrome.browser.compositor.layouts.Layout;
-import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
-import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.hub.HubManager;
 import org.chromium.chrome.browser.hub.Pane;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
@@ -41,88 +37,16 @@ import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.tab_management.ColorPickerCoordinator.ColorPickerLayoutType;
-import org.chromium.chrome.browser.ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.ui.modaldialog.ModalDialogManager;
-import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
-import java.util.List;
 import java.util.function.DoubleConsumer;
 
 /** Impl class that will resolve components for tab management. */
 public class TabManagementDelegateImpl implements TabManagementDelegate {
-    @Override
-    public Layout createTabSwitcherLayout(
-            Context context,
-            LayoutUpdateHost updateHost,
-            LayoutStateProvider layoutStateProvider,
-            LayoutRenderHost renderHost,
-            BrowserControlsStateProvider browserControlsStateProvider,
-            TabSwitcher tabSwitcher,
-            ViewGroup tabSwitcherScrimAnchor,
-            ScrimCoordinator scrimCoordinator,
-            DesktopWindowStateProvider desktopWindowStateProvider) {
-        return new TabSwitcherLayout(
-                context,
-                updateHost,
-                layoutStateProvider,
-                renderHost,
-                browserControlsStateProvider,
-                tabSwitcher,
-                tabSwitcherScrimAnchor,
-                scrimCoordinator,
-                desktopWindowStateProvider);
-    }
-
-    @Override
-    public TabSwitcher createGridTabSwitcher(
-            @NonNull Activity activity,
-            @NonNull ActivityLifecycleDispatcher activityLifecycleDispatcher,
-            @NonNull TabModelSelector tabModelSelector,
-            @NonNull TabContentManager tabContentManager,
-            @NonNull BrowserControlsStateProvider browserControlsStateProvider,
-            @NonNull TabCreatorManager tabCreatorManager,
-            @NonNull MenuOrKeyboardActionController menuOrKeyboardActionController,
-            @NonNull ViewGroup containerView,
-            @NonNull MultiWindowModeStateDispatcher multiWindowModeStateDispatcher,
-            @NonNull ScrimCoordinator scrimCoordinator,
-            @NonNull ViewGroup rootView,
-            @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
-            @NonNull SnackbarManager snackbarManager,
-            @NonNull ModalDialogManager modalDialogManager,
-            @NonNull BottomSheetController bottomSheetController,
-            @NonNull OneshotSupplier<IncognitoReauthController> incognitoReauthControllerSupplier,
-            @Nullable BackPressManager backPressManager,
-            @Nullable OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier) {
-        return new TabSwitcherCoordinator(
-                activity,
-                activityLifecycleDispatcher,
-                tabModelSelector,
-                tabContentManager,
-                browserControlsStateProvider,
-                tabCreatorManager,
-                menuOrKeyboardActionController,
-                containerView,
-                multiWindowModeStateDispatcher,
-                scrimCoordinator,
-                TabUiFeatureUtilities.shouldUseListMode()
-                        ? TabListCoordinator.TabListMode.LIST
-                        : TabListCoordinator.TabListMode.GRID,
-                rootView,
-                dynamicResourceLoaderSupplier,
-                snackbarManager,
-                modalDialogManager,
-                bottomSheetController,
-                incognitoReauthControllerSupplier,
-                backPressManager,
-                layoutStateProviderSupplier);
-    }
-
     @Override
     public TabGroupUi createTabGroupUi(
             @NonNull Activity activity,
@@ -135,7 +59,6 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             TabModelSelector tabModelSelector,
             @NonNull TabContentManager tabContentManager,
             ViewGroup rootView,
-            @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
             @NonNull TabCreatorManager tabCreatorManager,
             @NonNull OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
             @NonNull SnackbarManager snackbarManager,
@@ -151,7 +74,6 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                 tabModelSelector,
                 tabContentManager,
                 rootView,
-                dynamicResourceLoaderSupplier,
                 tabCreatorManager,
                 layoutStateProviderSupplier,
                 snackbarManager,
@@ -175,7 +97,8 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @Nullable OneshotSupplier<IncognitoReauthController> incognitoReauthControllerSupplier,
             @NonNull OnClickListener newTabButtonOnClickListener,
             boolean isIncognito,
-            @NonNull DoubleConsumer onToolbarAlphaChange) {
+            @NonNull DoubleConsumer onToolbarAlphaChange,
+            @NonNull BackPressManager backPressManager) {
         // TODO(crbug.com/40946413): Consider making this an activity scoped singleton and possibly
         // hosting it in CTA/HubProvider.
         TabSwitcherPaneCoordinatorFactory factory =
@@ -191,7 +114,8 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                         rootUiScrimCoordinator,
                         snackbarManager,
                         modalDialogManager,
-                        bottomSheetController);
+                        bottomSheetController,
+                        backPressManager);
         TabSwitcherPaneBase pane;
         if (isIncognito) {
             Supplier<TabModelFilter> incongitorTabModelFilterSupplier =
@@ -225,7 +149,7 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                             onToolbarAlphaChange,
                             userEducationHelper);
         }
-        return Pair.create(new TabSwitcherPaneAdapter(pane), pane);
+        return Pair.create(pane, pane);
     }
 
     @Override
@@ -251,24 +175,5 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                 () -> hubManagerSupplier.get().getPaneManager(),
                 tabGroupUiActionHandlerSupplier,
                 modalDialogManagerSupplier);
-    }
-
-    @Override
-    public ColorPicker createColorPickerCoordinator(
-            @NonNull Context context,
-            @NonNull List<Integer> colors,
-            @NonNull @LayoutRes int colorPickerLayout,
-            @NonNull @ColorPickerType int colorPickerType,
-            @NonNull boolean isIncognito,
-            @NonNull @ColorPickerLayoutType int layoutType,
-            @Nullable Runnable onColorItemClicked) {
-        return new ColorPickerCoordinator(
-                context,
-                colors,
-                colorPickerLayout,
-                colorPickerType,
-                isIncognito,
-                layoutType,
-                onColorItemClicked);
     }
 }

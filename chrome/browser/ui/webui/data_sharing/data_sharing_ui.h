@@ -6,24 +6,23 @@
 #define CHROME_BROWSER_UI_WEBUI_DATA_SHARING_DATA_SHARING_UI_H_
 
 #include "chrome/browser/ui/webui/data_sharing/data_sharing.mojom.h"
-#include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
-#include "content/public/browser/webui_config.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_config.h"
+#include "chrome/browser/ui/webui/top_chrome/untrusted_top_chrome_web_ui_controller.h"
 
 class DataSharingPageHandler;
+class DataSharingUI;
 
-class DataSharingUIConfig : public content::WebUIConfig {
+class DataSharingUIConfig : public DefaultTopChromeWebUIConfig<DataSharingUI> {
  public:
   DataSharingUIConfig();
   ~DataSharingUIConfig() override;
 
-  // content::WebUIConfig:
-  std::unique_ptr<content::WebUIController> CreateWebUIController(
-      content::WebUI* web_ui,
-      const GURL& url) override;
+  // DefaultTopChromeWebUIConfig:
   bool IsWebUIEnabled(content::BrowserContext* browser_context) override;
+  bool ShouldAutoResizeHost() override;
 };
 
-class DataSharingUI : public TopChromeWebUIController,
+class DataSharingUI : public UntrustedTopChromeWebUIController,
                       public data_sharing::mojom::PageHandlerFactory {
  public:
   explicit DataSharingUI(content::WebUI* web_ui);
@@ -38,7 +37,8 @@ class DataSharingUI : public TopChromeWebUIController,
 
  private:
   // data_sharing::mojom::PageHandlerFactory:
-  void CreatePageHandler(mojo::PendingReceiver<data_sharing::mojom::PageHandler>
+  void CreatePageHandler(mojo::PendingRemote<data_sharing::mojom::Page> page,
+                         mojo::PendingReceiver<data_sharing::mojom::PageHandler>
                              receiver) override;
 
   std::unique_ptr<DataSharingPageHandler> page_handler_;

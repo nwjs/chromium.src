@@ -164,7 +164,7 @@ void CookieControlsController::Update(content::WebContents* web_contents) {
                              status.enforcement, status.blocking_status,
                              status.expiration, status.features);
     observer.OnCookieControlsIconStatusChanged(
-        ShouldUserBypassIconBeVisible(status.protections_on,
+        ShouldUserBypassIconBeVisible(status.features, status.protections_on,
                                       status.controls_visible),
         status.protections_on, status.blocking_status,
         ShouldHighlightUserBypass());
@@ -185,9 +185,10 @@ CookieControlsController::Status CookieControlsController::GetStatus(
             CookieControlsEnforcement::kNoEnforcement,
             CookieBlocking3pcdStatus::kNotIn3pcd,
             base::Time(),
-            {{FeatureType::kThirdPartyCookies,
-              CookieControlsEnforcement::kNoEnforcement,
-              BlockingStatus::kAllowed}}};
+            CreateTrackingProtectionFeatureList(
+                CookieControlsEnforcement::kNoEnforcement,
+                /*cookies_allowed=*/true,
+                /*protections_on=*/false)};
   }
 
   const GURL& url = web_contents->GetLastCommittedURL();
@@ -198,9 +199,10 @@ CookieControlsController::Status CookieControlsController::GetStatus(
             CookieControlsEnforcement::kNoEnforcement,
             CookieBlocking3pcdStatus::kNotIn3pcd,
             base::Time(),
-            {{FeatureType::kThirdPartyCookies,
-              CookieControlsEnforcement::kNoEnforcement,
-              BlockingStatus::kAllowed}}};
+            CreateTrackingProtectionFeatureList(
+                CookieControlsEnforcement::kNoEnforcement,
+                /*cookies_allowed=*/true,
+                /*protections_on=*/false)};
   }
 
   CookieBlocking3pcdStatus blocking_status =
@@ -215,33 +217,61 @@ CookieControlsController::Status CookieControlsController::GetStatus(
 
   SettingInfo info;
   bool is_allowed = cookie_settings_->IsThirdPartyAccessAllowed(url, &info);
+  bool protections_on =
+      tracking_protection_settings_->GetTrackingProtectionSetting(url) ==
+      CONTENT_SETTING_BLOCK;
 
   CookieControlsEnforcement enforcement =
       GetEnforcementForThirdPartyCookieBlocking(blocking_status, url, info,
                                                 is_allowed);
+
+  std::vector<TrackingProtectionFeature> features =
+      CreateTrackingProtectionFeatureList(enforcement, is_allowed,
+                                          protections_on);
   return {// Hide controls if the exception is from a metadata grant.
-          /*controls_visible=*/enforcement !=
-              CookieControlsEnforcement::kEnforcedByTpcdGrant,
+          enforcement != CookieControlsEnforcement::kEnforcedByTpcdGrant,
           /*protections_on=*/!is_allowed,
           enforcement,
           blocking_status,
           info.metadata.expiration(),
-          CreateTrackingProtectionFeatureList(enforcement, is_allowed)};
+          features};
 }
 
 std::vector<TrackingProtectionFeature>
 CookieControlsController::CreateTrackingProtectionFeatureList(
     CookieControlsEnforcement enforcement,
-    bool are_3pcs_allowed) {
+    bool cookies_allowed,
+    bool protections_on) {
   auto status_label =
-      are_3pcs_allowed ? BlockingStatus::kAllowed : BlockingStatus::kBlocked;
-  if (!are_3pcs_allowed && tracking_protection_settings_ &&
+      cookies_allowed ? BlockingStatus::kAllowed : BlockingStatus::kBlocked;
+  if (!cookies_allowed && tracking_protection_settings_ &&
       tracking_protection_settings_->IsTrackingProtection3pcdEnabled() &&
       !tracking_protection_settings_->AreAllThirdPartyCookiesBlocked()) {
     status_label = BlockingStatus::kLimited;
   }
 
-  return {{FeatureType::kThirdPartyCookies, enforcement, status_label}};
+  std::vector<TrackingProtectionFeature> features = {
+      {FeatureType::kThirdPartyCookies, enforcement, status_label}};
+
+  // TODO(http://b/5605065): Update to a UB tracking protection specific feature
+  // flag.
+  if (privacy_sandbox::kUserBypassIpProtection.Get() &&
+      tracking_protection_settings_->IsIpProtectionEnabled()) {
+    features.push_back(
+        {FeatureType::kIpProtection, CookieControlsEnforcement::kNoEnforcement,
+         protections_on ? TrackingProtectionBlockingStatus::kHidden
+                        : TrackingProtectionBlockingStatus::kVisible});
+  }
+  if (privacy_sandbox::kUserBypassFingerprintingProtection.Get() &&
+      tracking_protection_settings_->IsFingerprintingProtectionEnabled()) {
+    features.push_back({FeatureType::kFingerprintingProtection,
+                        CookieControlsEnforcement::kNoEnforcement,
+                        protections_on
+                            ? TrackingProtectionBlockingStatus::kLimited
+                            : TrackingProtectionBlockingStatus::kAllowed});
+  }
+
+  return features;
 }
 
 CookieControlsEnforcement
@@ -249,7 +279,7 @@ CookieControlsController::GetEnforcementForThirdPartyCookieBlocking(
     CookieBlocking3pcdStatus status,
     const GURL url,
     SettingInfo info,
-    bool is_allowed) {
+    bool cookies_allowed) {
   const bool is_default_setting =
       info.primary_pattern == ContentSettingsPattern::Wildcard() &&
       info.secondary_pattern == ContentSettingsPattern::Wildcard();
@@ -263,7 +293,7 @@ CookieControlsController::GetEnforcementForThirdPartyCookieBlocking(
 
   // Rules from regular mode can't be temporarily overridden in incognito.
   bool exception_exists_in_regular_profile = false;
-  if (is_allowed && original_cookie_settings_) {
+  if (cookies_allowed && original_cookie_settings_) {
     SettingInfo original_info;
     original_cookie_settings_->IsThirdPartyAccessAllowed(url, &original_info);
 
@@ -293,8 +323,8 @@ bool CookieControlsController::HasOriginSandboxedTopLevelDocument() const {
   content::RenderFrameHost* rfh = GetWebContents()->GetPrimaryMainFrame();
   // If the WebContents has not committed any document yet, we can't
   // tell if is sandboxed or not.
-  if (!rfh || rfh->GetLifecycleState() ==
-                  content::RenderFrameHost::LifecycleState::kPendingCommit) {
+  if (!rfh || rfh->GetLifecycleState() !=
+                  content::RenderFrameHost::LifecycleState::kActive) {
     // In that case, we fall back on assuming it is not sandboxed.
     // Since this is only for determining whether to render the User Bypass
     // icon this fallback is acceptable.
@@ -419,7 +449,7 @@ void CookieControlsController::UpdateUserBypass() {
   auto status = GetStatus(GetWebContents());
   for (auto& observer : observers_) {
     observer.OnCookieControlsIconStatusChanged(
-        ShouldUserBypassIconBeVisible(status.protections_on,
+        ShouldUserBypassIconBeVisible(status.features, status.protections_on,
                                       status.controls_visible),
         status.protections_on, status.blocking_status,
         ShouldHighlightUserBypass());
@@ -592,8 +622,23 @@ bool CookieControlsController::ShouldHighlightUserBypass() {
 }
 
 bool CookieControlsController::ShouldUserBypassIconBeVisible(
+    std::vector<TrackingProtectionFeature> features,
     bool protections_on,
     bool controls_visible) {
+  if (base::FeatureList::IsEnabled(
+          privacy_sandbox::kTrackingProtectionSettingsLaunch)) {
+    bool has_controllable_feature = false;
+    std::vector<TrackingProtectionFeature>::iterator it;
+    for (it = features.begin(); it != features.end(); it++) {
+      has_controllable_feature |=
+          it->enforcement == CookieControlsEnforcement::kNoEnforcement;
+    }
+    // Don't show UB if none of the ACT features can be controlled
+    if (!has_controllable_feature) {
+      return false;
+    }
+  }
+
   // If no 3P sites have attempted to access site data, nor were any stateful
   // bounces recorded, the icon should not be displayed. Take into account both
   // allow and blocked counts, since the breakage might be related to storage

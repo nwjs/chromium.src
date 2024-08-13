@@ -783,15 +783,8 @@ void PermissionUmaUtil::RecordDismissalType(
     const std::vector<ContentSettingsType>& content_settings_types,
     PermissionPromptDisposition ui_disposition,
     DismissalType dismissalType) {
-  std::optional<RequestType> request_type =
-      ContentSettingsTypeToRequestTypeIfExists(content_settings_types[0]);
-  if (!request_type.has_value()) {
-    base::UmaHistogramEnumeration(
-        "Permissions.Prompt.Dismissed.InvalidContentSetting",
-        content_settings_types[0]);
-    return;
-  }
-  RequestTypeForUma type = GetUmaValueForRequestType(request_type.value());
+  RequestTypeForUma type = GetUmaValueForRequestType(
+      ContentSettingsTypeToRequestType(content_settings_types[0]));
 
   if (content_settings_types.size() > 1) {
     type = RequestTypeForUma::MULTIPLE_AUDIO_AND_VIDEO_CAPTURE;
@@ -1563,9 +1556,9 @@ void PermissionUmaUtil::RecordPageInfoDialogAccessType(
 std::string PermissionUmaUtil::GetOneTimePermissionEventHistogram(
     ContentSettingsType type) {
   // `FILE_SYSTEM_WRITE_GUARD` is not part of `OneTimePermission`,
-  // (i.e. `CanPermissionBeAllowedOnce()`), but it uses its background expiry
+  // (i.e. `DoesSupportTemporaryGrants()`), but it uses its background expiry
   // flow. As a result, allow logging for this event.
-  DCHECK(permissions::PermissionUtil::CanPermissionBeAllowedOnce(type) ||
+  DCHECK(permissions::PermissionUtil::DoesSupportTemporaryGrants(type) ||
          type == ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
 
   std::string permission_type = GetPermissionRequestString(

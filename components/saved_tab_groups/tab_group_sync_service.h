@@ -27,6 +27,13 @@
 
 namespace tab_groups {
 
+// A RAII class that pauses local tab model observers when required.
+class ScopedLocalObservationPauser {
+ public:
+  ScopedLocalObservationPauser() = default;
+  virtual ~ScopedLocalObservationPauser() = default;
+};
+
 // The core service class for handling tab group sync across devices. Provides
 // mutation methods to propagate local changes to remote and observer interface
 // to propagate remote changes to the local client.
@@ -110,8 +117,13 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   // Accessor methods.
   virtual std::vector<SavedTabGroup> GetAllGroups() = 0;
   virtual std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) = 0;
-  virtual std::optional<SavedTabGroup> GetGroup(LocalTabGroupID& local_id) = 0;
+  virtual std::optional<SavedTabGroup> GetGroup(
+      const LocalTabGroupID& local_id) = 0;
   virtual std::vector<LocalTabGroupID> GetDeletedGroupIds() = 0;
+
+  // Method invoked from UI to open a remote tab group in the local tab model.
+  virtual void OpenTabGroup(const base::Uuid& sync_group_id,
+                            std::unique_ptr<TabGroupActionContext> context) = 0;
 
   // Book-keeping methods to maintain in-memory mapping of sync and local IDs.
   virtual void UpdateLocalTabGroupMapping(const base::Uuid& sync_id,
@@ -141,6 +153,10 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   GetSavedTabGroupControllerDelegate() = 0;
   virtual base::WeakPtr<syncer::ModelTypeControllerDelegate>
   GetSharedTabGroupControllerDelegate() = 0;
+
+  // Helper method to pause / resume local observer.
+  virtual std::unique_ptr<ScopedLocalObservationPauser>
+  CreateScopedLocalObserverPauser() = 0;
 
   // Add / remove observers.
   virtual void AddObserver(Observer* observer) = 0;

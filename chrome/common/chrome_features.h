@@ -39,11 +39,6 @@ BASE_DECLARE_FEATURE(kAdaptiveScreenBrightnessLogging);
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kAppDeduplicationServiceFondue);
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kAppPreloadService);
 #endif
 
@@ -155,8 +150,6 @@ BASE_DECLARE_FEATURE(kDesktopTaskManagerEndProcessDisabledForExtension);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kChromeStructuredMetrics);
 
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kControlledFrame);
-
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kDesktopPWAsElidedExtensionsMenu);
 
@@ -166,12 +159,18 @@ BASE_DECLARE_FEATURE(kDesktopPWAsFlashAppNameInsteadOfOrigin);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kDesktopPWAsIconHealthChecks);
 
-// Enables user link capturing on non-CrOS desktop platforms.
+// Enables user link capturing on all desktop platforms.
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kDesktopPWAsLinkCapturing);
+enum class LinkCapturingState {
+  kDefaultOn = 0,
+  kDefaultOff = 1,
+  kReimplDefaultOn = 2,
+  kReimplDefaultOff = 3
+};
 // If links should be captured by apps by default.
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<bool> kLinksCapturedByDefault;
+extern const base::FeatureParam<LinkCapturingState> kLinkCapturingDefaultState;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kDesktopPWAsLinkCapturingWithScopeExtensions);
@@ -214,11 +213,6 @@ BASE_DECLARE_FEATURE(kEnableAmbientAuthenticationInGuestSession);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kEnableAmbientAuthenticationInIncognito);
-
-#if !BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kEnableWebHidOnExtensionServiceWorker);
-#endif
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kEnableWebUsbOnExtensionServiceWorker);
@@ -307,6 +301,15 @@ BASE_DECLARE_FEATURE(kHappinessTrackingSurveysForDesktopWhatsNew);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta>
     kHappinessTrackingSurveysForDesktopWhatsNewTime;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int>
+    kHappinessTrackingSurveysForDesktopWhatsNewEnActivationPercentage;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int>
+    kHappinessTrackingSurveysForDesktopWhatsNewDeActivationPercentage;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<int>
+    kHappinessTrackingSurveysForDesktopWhatsNewJpActivationPercentage;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kHappinessTrackingSurveysForDesktopM1AdPrivacyPage);
@@ -442,6 +445,9 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kHappinessTrackingGeneralCamera);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kHappinessTrackingGeneralCameraPrioritized);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kHappinessTrackingPrivacyHubPostLaunch);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -455,10 +461,15 @@ BASE_DECLARE_FEATURE(kHappinessTrackingLauncherAppsFinding);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kHappinessTrackingLauncherAppsNeeding);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kHappinessTrackingOffice);
 #endif
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kHideWebAppOriginText);
 
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kHttpsFirstBalancedMode);
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kHttpsFirstDialogUi);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kHttpsFirstModeForAdvancedProtectionUsers);
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -500,6 +511,11 @@ COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kIsolatedWebAppDevMode);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kIsolatedWebAppUnmanagedInstall);
 // LINT.ThenChange(//PRESUBMIT.py)
+
+#if BUILDFLAG(IS_CHROMEOS)
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kIsolatedWebAppManagedGuestSessionInstall);
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -611,6 +627,11 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kParentAccessCodeForOnlineLogin);
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kPeriodicLogUploadMigration);
+#endif
+
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kPermissionAuditing);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -674,6 +695,11 @@ BASE_DECLARE_FEATURE(kSafetyHubExtensionsOffStoreTrigger);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kSafetyHub);
 
+#if BUILDFLAG(IS_ANDROID)
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kSafetyHubMagicStack);
+#endif
+
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kSafetyHubTrustSafetySentimentSurvey);
 
@@ -711,6 +737,31 @@ extern const base::FeatureParam<int>
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int>
     kSafetyCheckNotificationPermissionsLowEnagementLimit;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const char kPasswordCheckNotificationIntervalName[];
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const char kRevokedPermissionsNotificationIntervalName[];
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const char kNotificationPermissionsNotificationIntervalName[];
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const char kSafeBrowsingNotificationIntervalName[];
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kPasswordCheckNotificationInterval;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kRevokedPermissionsNotificationInterval;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kNotificationPermissionsNotificationInterval;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kSafeBrowsingNotificationInterval;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kSchedulerConfiguration);
@@ -1012,6 +1063,9 @@ COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kUmaStorageDimensions);
 #if BUILDFLAG(IS_WIN)
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kWin10AcceleratedDefaultBrowserFlow);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kUtilWinProcessUsesUiPump);
 #endif  // BUILDFLAG(IS_WIN)
 
 COMPONENT_EXPORT(CHROME_FEATURES)

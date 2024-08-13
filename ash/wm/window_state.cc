@@ -551,7 +551,10 @@ void WindowState::OnWMEvent(const WMEvent* event) {
     return;
   }
 
+  std::unique_ptr<base::AutoReset<bool>> snap_event_lock;
   if (const WindowSnapWMEvent* snap_event = event->AsSnapEvent()) {
+    snap_event_lock =
+        std::make_unique<base::AutoReset<bool>>(&is_handling_snap_event_, true);
     // Save `event` requested snap ratio.
     const float target_snap_ratio = GetTargetSnapRatio(window_, snap_event);
     snap_ratio_ = std::make_optional(target_snap_ratio);
@@ -564,19 +567,33 @@ void WindowState::OnWMEvent(const WMEvent* event) {
     }
   }
 
-  std::unique_ptr<base::AutoReset<bool>> auto_reset;
   if (event->type() == WM_EVENT_FLOAT ||
       (current_state_->GetType() == chromeos::WindowStateType::kFloated &&
        event->IsTransitionEvent())) {
-    auto_reset = std::make_unique<base::AutoReset<bool>>(
-        &is_handling_float_event_, true);
+    {
+      // Block nested events caused by float/unfloat events to ensure the float
+      // animation is completed.
+      base::AutoReset<bool> float_lock(&is_handling_float_event_, true);
+      current_state_->OnWMEvent(this, event);
+    }
+    // Certain events need to be processed only after `is_handling_float_event_`
+    // is reset. See `SnapGroupController::OnFloatUnfloatCompleted()`.
+    if (auto* snap_group_controller = SnapGroupController::Get()) {
+      snap_group_controller->OnFloatUnfloatCompleted(window_);
+    }
+  } else {
+    current_state_->OnWMEvent(this, event);
   }
-
-  current_state_->OnWMEvent(this, event);
 
   // The current snap ratio may be different from the requested snap ratio, if
   // the window has a minimum size requirement.
-  if (event->IsBoundsEvent()) {
+  // Update snap ratio except for the following cases:
+  // 1. We are currently handling a top-level snap event, during which we should
+  // respect the snap event ratio;
+  // 2. The workspace window resizer is about to start a drag to unsnap, but the
+  // state type has not been updated yet; see `WorkspaceWindowResizer::Drag()`.
+  if (!is_handling_snap_event_ && can_update_snap_ratio_ &&
+      event->IsBoundsEvent()) {
     UpdateSnapRatio();
   }
 }

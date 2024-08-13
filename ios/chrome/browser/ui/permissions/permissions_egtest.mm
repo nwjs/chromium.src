@@ -9,11 +9,12 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "components/signin/internal/identity_manager/account_capabilities_constants.h"
+#import "ios/chrome/browser/badges/ui_bundled/badge_constants.h"
 #import "ios/chrome/browser/overlays/model/public/web_content_area/alert_constants.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
-#import "ios/chrome/browser/ui/badges/badge_constants.h"
 #import "ios/chrome/browser/ui/infobars/banners/infobar_banner_constants.h"
 #import "ios/chrome/browser/ui/infobars/infobar_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/infobars/modals/infobar_modal_constants.h"
@@ -661,8 +662,10 @@ void TapDoneButtonOnInfobarModal() {
              forContentSettingsType:ContentSettingsType::MEDIASTREAM_MIC];
 
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGrey addFakeIdentity:fakeIdentity];
-  [SigninEarlGrey setIsSubjectToParentalControls:YES forIdentity:fakeIdentity];
+  [SigninEarlGrey addFakeIdentity:fakeIdentity
+                 withCapabilities:@{
+                   @(kIsSubjectToParentalControlsCapabilityName) : @YES,
+                 }];
 
   [SigninEarlGrey signinWithFakeIdentity:fakeIdentity];
 

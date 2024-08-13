@@ -22,6 +22,8 @@
 #include "base/threading/sequence_bound.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/enterprise/connectors/connectors_service.h"
+#include "chrome/browser/enterprise/connectors/reporting/extension_telemetry_event_router.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
@@ -114,9 +116,6 @@ constexpr int kNumChecksPerUploadInterval = 1;
 // Specifies the upload interval for ESB telemetry reports.
 base::TimeDelta kUploadIntervalSeconds = base::Seconds(3600);
 
-// Specifies the reporting interval for enterprise telemetry reports.
-base::TimeDelta kEnterpriseReportingIntervalSeconds = base::Seconds(300);
-
 // Delay before the Telemetry Service checks its last upload time.
 base::TimeDelta kStartupUploadCheckDelaySeconds = base::Seconds(15);
 
@@ -162,7 +161,7 @@ void RecordEnterpriseReportSize(size_t size) {
       "SafeBrowsing.ExtensionTelemetry.Enterprise.ReportSize", size);
 }
 
-static_assert(extensions::Manifest::NUM_LOAD_TYPES == 10,
+static_assert(extensions::Manifest::NUM_LOAD_TYPES == 11,
               "ExtensionTelemetryReportRequest::ExtensionInfo::Type "
               "needs to match extensions::Manifest::Type.");
 ExtensionInfo::Type GetType(extensions::Manifest::Type type) {
@@ -317,6 +316,20 @@ extensions::ExtensionSet CollectCommandLineExtensionInfo() {
   return commandline_extensions;
 }
 
+// Retrieves the ExtensionTelemetryEventRouter associated with the profile.
+enterprise_connectors::ExtensionTelemetryEventRouter*
+GetExtensionTelemetryEventRouter(Profile* profile) {
+  return enterprise_connectors::ExtensionTelemetryEventRouter::Get(profile);
+}
+
+// Returns true if the signal type should be collected for enterprise telemetry.
+bool CollectForEnterprise(ExtensionSignalType type) {
+  return type == ExtensionSignalType::kCookiesGet ||
+         type == ExtensionSignalType::kCookiesGetAll ||
+         type == ExtensionSignalType::kRemoteHostContacted ||
+         type == ExtensionSignalType::kTabsApi;
+}
+
 }  // namespace
 
 ExtensionTelemetryService::~ExtensionTelemetryService() = default;
@@ -343,14 +356,21 @@ ExtensionTelemetryService::ExtensionTelemetryService(
   pref_change_registrar_.Init(pref_service_);
   pref_change_registrar_.Add(
       prefs::kSafeBrowsingEnhanced,
-      base::BindRepeating(&ExtensionTelemetryService::OnPrefChanged,
+      base::BindRepeating(&ExtensionTelemetryService::OnESBPrefChanged,
                           base::Unretained(this)));
 
-  // Set initial enable/disable state.
+  // Register for enterprise policy changes.
+  auto* connector_service =
+      enterprise_connectors::ConnectorsServiceFactory::GetForBrowserContext(
+          profile);
+  connector_service->ObserveTelemetryReporting(
+      base::BindRepeating(&ExtensionTelemetryService::OnEnterprisePolicyChanged,
+                          base::Unretained(this)));
+
+  // Set initial enable/disable states.
   SetEnabledForESB(IsEnhancedProtectionEnabled(*pref_service_));
-  // TODO(crbug.com/339658287): Add logic to detect initial state and changing
-  // states of enterprise.
-  SetEnabledForEnterprise(false);
+  SetEnabledForEnterprise(
+      GetExtensionTelemetryEventRouter(profile_)->IsPolicyEnabled());
 }
 
 void ExtensionTelemetryService::RecordSignalType(
@@ -365,8 +385,17 @@ void ExtensionTelemetryService::RecordSignalDiscarded(
       "SafeBrowsing.ExtensionTelemetry.Signals.Discarded", signal_type);
 }
 
-void ExtensionTelemetryService::OnPrefChanged() {
+void ExtensionTelemetryService::OnESBPrefChanged() {
   SetEnabledForESB(IsEnhancedProtectionEnabled(*pref_service_));
+}
+
+void ExtensionTelemetryService::OnEnterprisePolicyChanged() {
+  if (is_shutdown_) {
+    return;
+  }
+
+  SetEnabledForEnterprise(
+      GetExtensionTelemetryEventRouter(profile_)->IsPolicyEnabled());
 }
 
 // Telemetry features for ESB include:
@@ -455,7 +484,8 @@ void ExtensionTelemetryService::SetEnabledForESB(bool enable) {
 // - Off-store data collection
 void ExtensionTelemetryService::SetEnabledForEnterprise(bool enable) {
   // Make call idempotent.
-  if (enterprise_enabled_ == enable) {
+  if (!base::FeatureList::IsEnabled(kExtensionTelemetryForEnterprise) ||
+      enterprise_enabled_ == enable) {
     return;
   }
 
@@ -465,9 +495,10 @@ void ExtensionTelemetryService::SetEnabledForEnterprise(bool enable) {
     SetUpOffstoreFileDataCollection();
 
     enterprise_timer_.Start(
-        FROM_HERE, kEnterpriseReportingIntervalSeconds, this,
-        &ExtensionTelemetryService::CreateAndSendEnterpriseReport);
-
+        FROM_HERE,
+        base::Seconds(
+            kExtensionTelemetryEnterpriseReportingIntervalSeconds.Get()),
+        this, &ExtensionTelemetryService::CreateAndSendEnterpriseReport);
   } else {
     // Stop enterprise timer for periodic telemetry reports.
     enterprise_timer_.Stop();
@@ -486,6 +517,7 @@ bool ExtensionTelemetryService::enabled() const {
 }
 
 void ExtensionTelemetryService::Shutdown() {
+  is_shutdown_ = true;
   if (esb_enabled_ && SignalDataPresent() && !persister_.is_null()) {
     // Saving data to disk.
     active_report_ = CreateReport();
@@ -522,7 +554,7 @@ void ExtensionTelemetryService::AddSignal(
     AddSignalHelper(*signal, extension_store_, signal_subscribers_);
   }
 
-  if (enterprise_enabled_) {
+  if (enterprise_enabled_ && CollectForEnterprise(signal_type)) {
     RecordSignalTypeForEnterprise(signal_type);
     AddSignalHelper(*signal, enterprise_extension_store_,
                     enterprise_signal_subscribers_);
@@ -587,11 +619,13 @@ void ExtensionTelemetryService::CreateAndSendEnterpriseReport() {
 
   std::unique_ptr<ExtensionTelemetryReportRequest> enterprise_report =
       CreateReportForEnterprise();
-
-  RecordEnterpriseReportSize(enterprise_report->ByteSizeLong());
-
-  // TODO(crbug.com/339658287): Implement send enterprise report and histograms
-  // as well.
+  if (enterprise_report) {
+    RecordEnterpriseReportSize(enterprise_report->ByteSizeLong());
+    GetExtensionTelemetryEventRouter(profile_)->UploadTelemetryReport(
+        std::move(enterprise_report));
+  } else {
+    DLOG(WARNING) << "Upload skipped due to empty enterprise report.";
+  }
 }
 
 void ExtensionTelemetryService::OnUploadComplete(

@@ -11,8 +11,10 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/views/commerce/product_specifications_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/commerce_types.h"
 #include "components/commerce/core/commerce_utils.h"
+#include "components/commerce/core/pref_names.h"
 #include "components/commerce/core/shopping_service.h"
 
 namespace {
@@ -23,6 +25,9 @@ constexpr int kEligibleWindowUrlCountForValidation = 2;
 // Number of URLs of the same cluster that a window needs to contain in order
 // for the entry point to trigger for navigation.
 constexpr int kEligibleWindowUrlCountForNavigationTriggering = 3;
+// The maximum enforced interval (in days) between two triggering of the entry
+// point.
+constexpr int kMaxEntryPointTriggeringInterval = 64;
 
 bool CheckWindowContainsEntryPointURLs(
     TabStripModel* tab_strip_model,
@@ -103,7 +108,7 @@ void ProductSpecificationsEntryPointController::OnTabStripModelChanged(
   cluster_manager_->GetEntryPointInfoForSelection(
       old_url, new_url,
       base::BindOnce(&ProductSpecificationsEntryPointController::
-                         ShowEntryPointWithTitleForSelection,
+                         CheckEntryPointInfoForSelection,
                      weak_ptr_factory_.GetWeakPtr(), old_url, new_url));
 }
 
@@ -132,6 +137,9 @@ void ProductSpecificationsEntryPointController::OnEntryPointExecuted() {
   if (!current_entry_point_info_.has_value()) {
     return;
   }
+  // Reset entry point show gap time.
+  browser_->profile()->GetPrefs()->SetInteger(
+      commerce::kProductSpecificationsEntryPointShowIntervalInDays, 0);
   DCHECK(product_specifications_service_);
   std::set<GURL> urls;
   auto candidate_products =
@@ -153,12 +161,39 @@ void ProductSpecificationsEntryPointController::OnEntryPointExecuted() {
 }
 
 void ProductSpecificationsEntryPointController::OnEntryPointDismissed() {
-  // TODO(b/325661685): Add implementation for back-off mechanism.
+  DCHECK(current_entry_point_info_.has_value());
+  current_entry_point_info_.reset();
+
+  auto* prefs = browser_->profile()->GetPrefs();
+  int current_gap_time = prefs->GetInteger(
+      commerce::kProductSpecificationsEntryPointShowIntervalInDays);
+  // Double the gap time for every dismiss, starting from one day.
+  if (current_gap_time == 0) {
+    current_gap_time = 1;
+  } else {
+    current_gap_time =
+        std::min(2 * current_gap_time, kMaxEntryPointTriggeringInterval);
+  }
+  prefs->SetInteger(
+      commerce::kProductSpecificationsEntryPointShowIntervalInDays,
+      current_gap_time);
+  prefs->SetTime(commerce::kProductSpecificationsEntryPointLastDismissedTime,
+                 base::Time::Now());
 }
 
 void ProductSpecificationsEntryPointController::OnEntryPointHidden() {
   DCHECK(current_entry_point_info_.has_value());
   current_entry_point_info_.reset();
+}
+
+bool ProductSpecificationsEntryPointController::ShouldExecuteEntryPointShow() {
+  DCHECK(current_entry_point_info_.has_value());
+  GURL current_url = browser_->tab_strip_model()
+                         ->GetActiveWebContents()
+                         ->GetLastCommittedURL();
+  std::map<GURL, uint64_t> candidate_products =
+      current_entry_point_info_->similar_candidate_products;
+  return base::Contains(candidate_products, current_url);
 }
 
 void ProductSpecificationsEntryPointController::OnClusterFinishedForNavigation(
@@ -174,8 +209,40 @@ void ProductSpecificationsEntryPointController::OnClusterFinishedForNavigation(
 
   cluster_manager_->GetEntryPointInfoForNavigation(
       url, base::BindOnce(&ProductSpecificationsEntryPointController::
-                              ShowEntryPointWithTitleForNavigation,
+                              CheckEntryPointInfoForNavigation,
                           weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ProductSpecificationsEntryPointController::CheckEntryPointInfoForSelection(
+    const GURL old_url,
+    const GURL new_url,
+    std::optional<EntryPointInfo> entry_point_info) {
+  if (!entry_point_info.has_value()) {
+    return;
+  }
+
+  std::map<GURL, uint64_t> similar_products =
+      entry_point_info->similar_candidate_products;
+  if (similar_products.find(old_url) == similar_products.end() ||
+      similar_products.find(new_url) == similar_products.end()) {
+    return;
+  }
+  if (similar_products[old_url] == similar_products[new_url]) {
+    return;
+  }
+
+  // Skip server-side check unless specified by feature param.
+  if (kProductSpecificationsUseServerClustering.Get()) {
+    // TODO(qinmin): we should check whether tabstrips have changed while
+    // waiting for the callback.
+    cluster_manager_->GetComparableProducts(
+        entry_point_info.value(),
+        base::BindOnce(&ProductSpecificationsEntryPointController::
+                           ShowEntryPointWithTitleForSelection,
+                       weak_ptr_factory_.GetWeakPtr(), old_url, new_url));
+  } else {
+    ShowEntryPointWithTitle(std::move(entry_point_info));
+  }
 }
 
 void ProductSpecificationsEntryPointController::
@@ -193,12 +260,33 @@ void ProductSpecificationsEntryPointController::
       similar_products.find(new_url) == similar_products.end()) {
     return;
   }
-  if (similar_products[old_url] == similar_products[new_url]) {
+  ShowEntryPointWithTitle(std::move(entry_point_info));
+}
+
+void ProductSpecificationsEntryPointController::
+    CheckEntryPointInfoForNavigation(
+        std::optional<EntryPointInfo> entry_point_info) {
+  if (!entry_point_info.has_value()) {
     return;
   }
-  // TODO(qinmin): we should check whether tabstrips have changed while
-  // waiting for the callback.
-  ShowEntryPointWithTitle(std::move(entry_point_info));
+
+  if (!IsNavigationEligibleForEntryPoint(browser_->tab_strip_model(),
+                                         entry_point_info.value())) {
+    return;
+  }
+
+  // Skip server-side check unless specified by feature param.
+  if (kProductSpecificationsUseServerClustering.Get()) {
+    // TODO(qinmin): we should check whether tabstrips have changed while
+    // waiting for the callback.
+    cluster_manager_->GetComparableProducts(
+        entry_point_info.value(),
+        base::BindOnce(&ProductSpecificationsEntryPointController::
+                           ShowEntryPointWithTitleForNavigation,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    ShowEntryPointWithTitle(std::move(entry_point_info));
+  }
 }
 
 void ProductSpecificationsEntryPointController::
@@ -208,8 +296,6 @@ void ProductSpecificationsEntryPointController::
     return;
   }
 
-  // TODO(qinmin): we should check whether tabstrips have changed while
-  // waiting for the callback.
   if (!IsNavigationEligibleForEntryPoint(browser_->tab_strip_model(),
                                          entry_point_info.value())) {
     return;
@@ -219,6 +305,16 @@ void ProductSpecificationsEntryPointController::
 
 void ProductSpecificationsEntryPointController::ShowEntryPointWithTitle(
     std::optional<EntryPointInfo> entry_point_info) {
+  auto* prefs = browser_->profile()->GetPrefs();
+  int current_gap_time = prefs->GetInteger(
+      commerce::kProductSpecificationsEntryPointShowIntervalInDays);
+  // Back off triggering if gap time is not finished yet.
+  if (base::Time::Now() -
+          prefs->GetTime(
+              commerce::kProductSpecificationsEntryPointLastDismissedTime) <=
+      base::Days(current_gap_time)) {
+    return;
+  }
   current_entry_point_info_ = entry_point_info;
   for (auto& observer : observers_) {
     observer.ShowEntryPointWithTitle(entry_point_info->title);

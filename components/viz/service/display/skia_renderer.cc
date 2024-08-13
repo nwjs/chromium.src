@@ -11,6 +11,7 @@
 
 #include "base/auto_reset.h"
 #include "base/command_line.h"
+#include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -18,6 +19,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/numerics/angle_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/task/bind_post_task.h"
@@ -60,6 +62,7 @@
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "gpu/config/gpu_finch_features.h"
+#include "media/base/media_switches.h"
 #include "skia/ext/opacity_filter_canvas.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -105,6 +108,14 @@
 namespace viz {
 
 namespace {
+
+// Feature to temporarily create a dump in the case where we try and sample from
+// a render pass that has never been drawn to.
+// See: crbug.com/344458294, crbug.com/345673794
+// TODO(crbug.com/347909405): Remove this
+BASE_FEATURE(kDumpWithoutCrashingOnMissingRenderPassBacking,
+             "DumpWithoutCrashingOnMissingRenderPassBacking",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Smallest unit that impacts anti-aliasing output. We use this to determine
 // when an exterior edge (with AA) has been clipped (no AA). The specific value
@@ -1050,8 +1061,6 @@ SkiaRenderer::SkiaRenderer(const RendererSettings* settings,
 #endif
       lock_set_for_external_use_(resource_provider, skia_output_surface_),
       is_using_raw_draw_(features::IsUsingRawDraw()) {
-  use_render_pass_drawn_rect_ =
-      base::FeatureList::IsEnabled(features::kRenderPassDrawnRect);
 #if BUILDFLAG(IS_WIN)
   // |OverlayProcessorWin| can cause a render pass to reallocate during partial
   // delegation, so we need to ensure the contents of all render passes are
@@ -1213,8 +1222,10 @@ gpu::Mailbox SkiaRenderer::GetProtectedSharedImage(bool is_10bit) {
   protected_buffer_queue_->Reshape(
       gfx::Size(kMaxProtectedContentWidth, kMaxProtectedContentHeight),
       gfx::ColorSpace::CreateSRGB(),
-      is_10bit ? gfx::BufferFormat::BGRA_1010102
-               : gfx::BufferFormat::BGRA_8888);
+      (is_10bit &&
+       base::FeatureList::IsEnabled(media::kEnableArmHwdrm10bitOverlays))
+          ? SinglePlaneFormat::kBGRA_1010102
+          : SinglePlaneFormat::kBGRA_8888);
 
   return protected_buffer_queue_->GetCurrentBuffer();
 }
@@ -1294,6 +1305,10 @@ void SkiaRenderer::SwapBuffersSkipped() {
   if (use_partial_swap_)
     root_pass_damage_rect.Intersect(swap_buffer_rect_);
 
+  if (overlay_processor_) {
+    overlay_processor_->OnSwapBuffersComplete(gfx::SwapResult::SWAP_SKIPPED);
+  }
+
   pending_overlay_locks_.pop_back();
   skia_output_surface_->SwapBuffersSkipped(root_pass_damage_rect);
   if (buffer_queue_) {
@@ -1310,6 +1325,10 @@ void SkiaRenderer::SwapBuffersComplete(
   auto& read_lock_release_fence_overlay_locks =
       read_lock_release_fence_overlay_locks_.emplace_back();
   auto read_fence_lock_iter = committed_overlay_locks_.end();
+
+  if (overlay_processor_) {
+    overlay_processor_->OnSwapBuffersComplete(params.swap_response.result);
+  }
 
   if (buffer_queue_) {
     if (params.swap_response.result ==
@@ -1367,8 +1386,8 @@ void SkiaRenderer::SwapBuffersComplete(
 
 void SkiaRenderer::BuffersPresented() {
   if (read_lock_release_fence_overlay_locks_.empty()) {
-    // This shouldn't be needed, but could not figure out the cause in
-    // crbug.com/1357789 and crbug.com/1372602
+    // Debug crbug.com/1357789.
+    base::debug::DumpWithoutCrashing();
     return;
   }
   read_lock_release_fence_overlay_locks_.pop_front();
@@ -1970,10 +1989,13 @@ void SkiaRenderer::DrawQuadParams::ApplyScissor(
           quad->DynamicCast<AggregatedRenderPassDrawQuad>()) {
     // If the renderpass has filters, the filters may modify the effective
     // geometry beyond the quad's visible_rect, so it's not safe to pre-clip.
+    // Note: no need to check against the backdrop filters, as they are always
+    // restricted to the visible rect of a quad.
     auto pass_id = quad_pass->render_pass_id;
-    if (renderer->FiltersForPass(pass_id) ||
-        renderer->BackdropFiltersForPass(pass_id))
+    if (const auto* filters = renderer->FiltersForPass(pass_id);
+        filters && filters->HasFilterThatMovesPixels()) {
       return;
+    }
   }
 
   // If the intersection of the scissor and the quad's visible_rect results in
@@ -2115,7 +2137,8 @@ const DrawQuad* SkiaRenderer::CanPassBeDrawnDirectly(
           return render_pass->id == nested_render_pass_id;
         });
 
-    DCHECK(it != current_frame()->render_passes_in_draw_order->end());
+    CHECK(it != current_frame()->render_passes_in_draw_order->end(),
+          base::NotFatalUntil::M130);
     const auto& nested_render_pass = *it;
     if (!nested_render_pass->filters.IsEmpty() ||
         !nested_render_pass->backdrop_filters.IsEmpty()) {
@@ -2610,8 +2633,7 @@ void SkiaRenderer::DrawPictureQuad(const PictureDrawQuad* quad,
   // then blended as a single layer at the end.
   const bool needs_transparency =
       params->opacity < 1.f || params->blend_mode != SkBlendMode::kSrcOver;
-  const bool disable_image_filtering = disable_picture_quad_image_filtering_ ||
-                                       params->sampling == SkSamplingOptions();
+  const bool disable_image_filtering = params->sampling == SkSamplingOptions();
 
   SkAutoCanvasRestore acr(current_canvas_, true /* do_save */);
   PrepareCanvas(params->scissor_rect,
@@ -2658,7 +2680,8 @@ void SkiaRenderer::DrawPictureQuad(const PictureDrawQuad* quad,
   raster_canvas->translate(-quad->content_rect.x(), -quad->content_rect.y());
   raster_canvas->clipRect(gfx::RectToSkRect(quad->content_rect));
   raster_canvas->scale(quad->contents_scale, quad->contents_scale);
-  quad->display_item_list->Raster(raster_canvas);
+  quad->display_item_list->Raster(raster_canvas, /*image_provider=*/nullptr,
+                                  &quad->raster_inducing_scroll_offsets);
 }
 
 void SkiaRenderer::DrawSolidColorQuad(const SolidColorDrawQuad* quad,
@@ -2984,7 +3007,7 @@ void SkiaRenderer::ScheduleOverlays() {
       locks.emplace_back(resource_provider(), overlay.resource_id);
       auto& lock = locks.back();
 
-      bool is_10bit = overlay.format == gfx::BufferFormat::P010;
+      bool is_10bit = overlay.format == MultiPlaneFormat::kP010;
       gpu::Mailbox detiled_image = GetProtectedSharedImage(is_10bit);
       skia_output_surface_->DetileOverlay(
           overlay.mailbox, overlay.resource_size_in_pixels, lock.sync_token(),
@@ -2996,8 +3019,10 @@ void SkiaRenderer::ScheduleOverlays() {
           static_cast<float>(overlay.display_rect.height() /
                              static_cast<float>(kMaxProtectedContentHeight)));
       overlay.mailbox = detiled_image;
-      overlay.format = is_10bit ? gfx::BufferFormat::BGRA_1010102
-                                : gfx::BufferFormat::BGRA_8888;
+      overlay.format = (is_10bit && base::FeatureList::IsEnabled(
+                                        media::kEnableArmHwdrm10bitOverlays))
+                           ? SinglePlaneFormat::kBGRA_1010102
+                           : SinglePlaneFormat::kBGRA_8888;
       overlay.transform = gfx::OVERLAY_TRANSFORM_NONE;
 
       continue;
@@ -3364,9 +3389,36 @@ void SkiaRenderer::DrawRenderPassQuad(
 
   // A real render pass that was turned into an image
   auto iter = render_pass_backings_.find(quad->render_pass_id);
-  DCHECK(render_pass_backings_.end() != iter)
-      << "Could not find render pass id # " << quad->render_pass_id
-      << " in the render pass overlay backings";
+  if (iter == render_pass_backings_.end()) {
+    if (base::FeatureList::IsEnabled(
+            kDumpWithoutCrashingOnMissingRenderPassBacking)) {
+      // This can happen if we previously skipped drawing a render pass (and
+      // allocating its backing) due to an empty update rect.
+      LOG(ERROR) << "Could not find render pass id # " << quad->render_pass_id
+                 << " in the render pass overlay backings";
+
+      SCOPED_CRASH_KEY_STRING32(
+          "DrawRenderPassQuad", "backing not found",
+          "seen before = " +
+              base::NumberToString(
+                  seen_render_pass_ids_.contains(quad->render_pass_id)));
+
+      // Collect a dump so we can investigate the root cause, but fallback to a
+      // solid color to avoid disrupting the user.
+      base::debug::DumpWithoutCrashing();
+    }
+
+    // The fallback is a solid color quad, which do not support batching.
+    if (!batched_quads_.empty()) {
+      FlushBatchedQuads();
+    }
+#if DCHECK_IS_ON()
+    DrawColoredQuad(SkColors::kRed, &rpdq_params, params);
+#else
+    DrawColoredQuad(SkColors::kWhite, &rpdq_params, params);
+#endif
+    return;
+  }
   // This function is called after AllocateRenderPassResourceIfNeeded, so
   // there should be backing ready.
   RenderPassBacking& backing = iter->second;
@@ -3594,8 +3646,8 @@ void SkiaRenderer::AllocateRenderPassResourceIfNeeded(
     return;
   }
 
-  uint32_t usage = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
-                   gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE;
+  gpu::SharedImageUsageSet usage = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
+                                   gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE;
   if (requirements.generate_mipmap) {
     DCHECK(!requirements.is_scanout);
     usage |= gpu::SHARED_IMAGE_USAGE_MIPMAP;
@@ -3618,7 +3670,9 @@ void SkiaRenderer::AllocateRenderPassResourceIfNeeded(
       usage |= gpu::SHARED_IMAGE_USAGE_SCANOUT_DCOMP_SURFACE;
 
       // DComp surfaces are write-only, viz cannot sample them.
-      usage &= ~gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
+      usage.RemoveAll(gpu::SHARED_IMAGE_USAGE_DISPLAY_READ);
+    } else {
+      usage |= gpu::SHARED_IMAGE_USAGE_SCANOUT_DXGI_SWAP_CHAIN;
     }
 #else
     DCHECK(!requirements.scanout_dcomp_surface);
@@ -3641,6 +3695,10 @@ void SkiaRenderer::AllocateRenderPassResourceIfNeeded(
                         requirements.format, mailbox, is_root,
                         requirements.is_scanout,
                         requirements.scanout_dcomp_surface));
+  if (base::FeatureList::IsEnabled(
+          kDumpWithoutCrashingOnMissingRenderPassBacking)) {
+    seen_render_pass_ids_.insert(render_pass_id);
+  }
 }
 
 void SkiaRenderer::FlushOutputSurface() {
@@ -3808,7 +3866,7 @@ SkiaRenderer::GetOrCreateRenderPassOverlayBacking(
         /*is_root=*/false,
         /*is_scanout=*/true,
         /*scanout_dcomp_surface=*/
-        !!(kOverlayUsage & gpu::SHARED_IMAGE_USAGE_SCANOUT_DCOMP_SURFACE),
+        kOverlayUsage.Has(gpu::SHARED_IMAGE_USAGE_SCANOUT_DCOMP_SURFACE),
     };
   } else {
     overlay_params = *it;
@@ -3841,7 +3899,7 @@ void SkiaRenderer::PrepareRenderPassOverlay(
   DCHECK(batched_quads_.empty());
   DCHECK(overlay->rpdq);
 
-  auto* const quad = overlay->rpdq;
+  auto* const quad = overlay->rpdq.get();
 
   // The |current_render_pass| could be used for calculating destination
   // color space or clipping rect for backdrop filters. However
@@ -3972,12 +4030,12 @@ void SkiaRenderer::PrepareRenderPassOverlay(
 
     // For bypassed render pass, we use the same format and color space for the
     // framebuffer.
-    si_format = GetSharedImageFormat(reshape_buffer_format());
+    si_format = reshape_si_format();
     color_space = reshape_color_space();
   } else {
     // A real render pass that was turned into an image
     auto it = render_pass_backings_.find(quad->render_pass_id);
-    DCHECK(render_pass_backings_.end() != it);
+    CHECK(render_pass_backings_.end() != it, base::NotFatalUntil::M130);
     // This function is called after AllocateRenderPassResourceIfNeeded, so
     // there should be backing ready.
     src_quad_backing = &it->second;
@@ -4117,7 +4175,7 @@ void SkiaRenderer::PrepareRenderPassOverlay(
 
   // Fill in |format| and |color_space| information based on selected backing.
   overlay->color_space = color_space;
-  overlay->format = SinglePlaneSharedImageFormatToBufferFormat(si_format);
+  overlay->format = si_format;
 #endif  // BUILDFLAG(IS_APPLE)
 }
 #endif  // BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_WIN)
@@ -4170,7 +4228,7 @@ bool SkiaRenderer::IsRenderPassResourceAllocated(
 gfx::Size SkiaRenderer::GetRenderPassBackingPixelSize(
     const AggregatedRenderPassId& render_pass_id) {
   auto it = render_pass_backings_.find(render_pass_id);
-  DCHECK(it != render_pass_backings_.end());
+  CHECK(it != render_pass_backings_.end(), base::NotFatalUntil::M130);
   return it->second.size;
 }
 

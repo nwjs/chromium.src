@@ -53,6 +53,11 @@ bool PageActionIconView::Delegate::ShouldHidePageActionIcons() const {
   return false;
 }
 
+bool PageActionIconView::Delegate::ShouldHidePageActionIcon(
+    PageActionIconView* icon_view) const {
+  return false;
+}
+
 const OmniboxView* PageActionIconView::Delegate::GetOmniboxView() const {
   // Should not reach here: should call subclass's implementation.
   NOTREACHED_NORETURN();
@@ -65,6 +70,7 @@ PageActionIconView::PageActionIconView(
     PageActionIconView::Delegate* delegate,
     const char* name_for_histograms,
     std::optional<actions::ActionId> action_id,
+    Browser* browser,
     bool ephemeral,
     const gfx::FontList& font_list)
     : IconLabelBubbleView(font_list, parent_delegate),
@@ -73,7 +79,8 @@ PageActionIconView::PageActionIconView(
       command_id_(command_id),
       action_id_(action_id),
       name_for_histograms_(name_for_histograms),
-      ephemeral_(ephemeral) {
+      ephemeral_(ephemeral),
+      browser_(browser) {
   DCHECK(delegate_);
 
   image_container_view()->SetFlipCanvasOnPaintForRTLUI(true);
@@ -320,7 +327,7 @@ void PageActionIconView::InstallLoadingIndicator() {
 }
 
 void PageActionIconView::SetVisible(bool visible) {
-  bool was_visible = GetVisible();
+  const bool was_visible = GetVisible();
   IconLabelBubbleView::SetVisible(visible);
   if (!was_visible && visible) {
     for (PageActionIconViewObserver& observer : observer_list_) {

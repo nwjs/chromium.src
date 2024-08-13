@@ -69,8 +69,7 @@ PlusAddressSubmissionLogger::Record::Record(
     ukm::SourceId source_id,
     bool is_single_field_in_renderer_form,
     bool is_first_time_user)
-    : ukm_builder(
-          std::make_unique<ukm::builders::PlusAddresses_Submission>(source_id)),
+    : ukm_builder(source_id),
       is_single_field_in_renderer_form(is_single_field_in_renderer_form),
       is_first_time_user(is_first_time_user) {}
 
@@ -135,7 +134,7 @@ void PlusAddressSubmissionLogger::OnPlusAddressSuggestionShown(
                 field_count_in_renderer_form == 1,
                 /*is_first_time_user=*/plus_address_count == 0);
   record.ukm_builder
-      ->SetCheckoutOrCartPage(IsCartOrCheckoutUrl(
+      .SetCheckoutOrCartPage(IsCartOrCheckoutUrl(
           manager.client().GetLastCommittedPrimaryMainFrameURL()))
       .SetFieldCountBrowserForm(ukm::GetExponentialBucketMinForCounts1000(
           form_structure->fields().size()))
@@ -174,7 +173,7 @@ void PlusAddressSubmissionLogger::OnFormSubmitted(
 
   bool gaia_email_submitted = false;
   bool plus_address_submitted = false;
-  for (const FormFieldData& field : form.fields) {
+  for (const FormFieldData& field : form.fields()) {
     // TODO: crbug.com/343124027 - Consider removing whitespace.
     const std::string normalized_value = base::UTF16ToUTF8(
         autofill::RemoveDiacriticsAndConvertToLowerCase(field.value()));
@@ -195,7 +194,7 @@ void PlusAddressSubmissionLogger::OnFormSubmitted(
   base::flat_map<FieldGlobalId, Record>& records_for_manager =
       records_[&manager];
   bool has_recorded_submission = false;
-  for (const FormFieldData& field : form.fields) {
+  for (const FormFieldData& field : form.fields()) {
     auto it = records_for_manager.find(field.global_id());
     if (it == records_for_manager.end()) {
       continue;
@@ -206,10 +205,10 @@ void PlusAddressSubmissionLogger::OnFormSubmitted(
     if (!has_recorded_submission) {
       Record& record = it->second;
       if (!plus_address_submitted) {
-        record.ukm_builder->SetNewlyCreatedPlusAddress(false);
+        record.ukm_builder.SetNewlyCreatedPlusAddress(false);
       }
-      record.ukm_builder->SetSubmittedPlusAddress(plus_address_submitted);
-      record.ukm_builder->Record(manager.client().GetUkmRecorder());
+      record.ukm_builder.SetSubmittedPlusAddress(plus_address_submitted);
+      record.ukm_builder.Record(manager.client().GetUkmRecorder());
       has_recorded_submission = true;
 
       // Record a subset of the data also in form of UMAs.

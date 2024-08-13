@@ -82,8 +82,6 @@ void PrintIfAllowedByPolicy(scoped_refptr<base::RefCountedMemory> print_data,
     return;
   }
 
-#if 0
-
   // This needs to be done to avoid having an embedded page compare against
   // policies and report its URL. This is especially important when Chrome's PDF
   // reader is used, as a cryptic extension URL will be sent for
@@ -114,11 +112,8 @@ void PrintIfAllowedByPolicy(scoped_refptr<base::RefCountedMemory> print_data,
 
   PrintIfAllowedByPolicy(print_data, web_contents, std::move(*scanning_data),
                          std::move(on_verdict));
-#endif
-  std::move(on_verdict).Run(/*allowed=*/true);
 }
 
-#if 0
 void PrintIfAllowedByPolicy(
     scoped_refptr<base::RefCountedMemory> print_data,
     content::WebContents* initiator,
@@ -157,14 +152,11 @@ void PrintIfAllowedByPolicy(
   enterprise_connectors::ContentAnalysisDelegate::CreateForWebContents(
       web_contents, std::move(scanning_data), std::move(on_scan_result),
       safe_browsing::DeepScanAccessPoint::PRINT);
-  std::move(on_verdict).Run(/*allowed=*/true);
 }
-#endif
 
 std::optional<enterprise_connectors::ContentAnalysisDelegate::Data>
 GetPrintAnalysisData(content::WebContents* web_contents,
                      PrintScanningContext context) {
-#if 0
   enterprise_connectors::ContentAnalysisDelegate::Data scanning_data;
 
   bool enabled = enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
@@ -199,7 +191,6 @@ GetPrintAnalysisData(content::WebContents* web_contents,
     return scanning_data;
   }
 
-#endif
   return std::nullopt;
 }
 

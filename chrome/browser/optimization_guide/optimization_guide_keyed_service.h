@@ -16,7 +16,6 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
-#include "components/optimization_guide/core/model_quality/model_quality_logs_uploader.h"
 #include "components/optimization_guide/core/optimization_guide_decider.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_model_provider.h"
@@ -43,7 +42,7 @@ class ModelExecutionEnabledBrowserTest;
 class ModelExecutionLiveTest;
 class ModelExecutionManager;
 class ModelInfo;
-class ModelQualityLogEntry;
+class ModelQualityLogsUploaderService;
 class ModelValidatorKeyedService;
 class OnDeviceModelAvailabilityObserver;
 class OnDeviceModelComponentStateManager;
@@ -56,7 +55,6 @@ class PredictionModelStoreBrowserTestBase;
 class PushNotificationManager;
 class TabUrlProvider;
 class TopHostProvider;
-class ChromeModelQualityLogsUploaderService;
 
 #if BUILDFLAG(IS_ANDROID)
 namespace android {
@@ -87,7 +85,6 @@ class OptimizationGuideKeyedService
       public optimization_guide::OptimizationGuideDecider,
       public optimization_guide::OptimizationGuideModelProvider,
       public optimization_guide::OptimizationGuideModelExecutor,
-      public optimization_guide::ModelQualityLogsUploader,
       public ProfileObserver {
  public:
   explicit OptimizationGuideKeyedService(
@@ -146,14 +143,6 @@ class OptimizationGuideKeyedService
       optimization_guide::ModelBasedCapabilityKey feature,
       optimization_guide::OnDeviceModelAvailabilityObserver* observer) override;
 
-  // optimization_guide::ModelQualityLogsUploader implementation.
-  //
-  // It passes ownership of ModelQualityLogEntry, which is reset after upload
-  // has been completed.
-  void UploadModelQualityLogs(
-      std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry)
-      override;
-
   // Returns true if the `feature` should be currently enabled for this user.
   // Note that the return value here may not match the feature enable state on
   // chrome settings page since the latter takes effect on browser restart.
@@ -190,6 +179,10 @@ class OptimizationGuideKeyedService
       optimization_guide::proto::OptimizationTarget optimization_target,
       std::unique_ptr<optimization_guide::ModelInfo> model_info);
 
+  void SetModelQualityLogsUploaderServiceForTesting(
+      std::unique_ptr<optimization_guide::ModelQualityLogsUploaderService>
+          uploader);
+
   // Creates the platform specific push notification manager. May returns
   // nullptr for desktop or when the push notification feature is disabled.
   static std::unique_ptr<optimization_guide::PushNotificationManager>
@@ -199,8 +192,8 @@ class OptimizationGuideKeyedService
     return optimization_guide_logger_.get();
   }
 
-  optimization_guide::ChromeModelQualityLogsUploaderService*
-  GetChromeModelQualityLogsUploaderService() {
+  optimization_guide::ModelQualityLogsUploaderService*
+  GetModelQualityLogsUploaderService() {
     return model_quality_logs_uploader_service_.get();
   }
 
@@ -288,6 +281,12 @@ class OptimizationGuideKeyedService
 
   bool ComponentUpdatesEnabledProvider() const;
 
+  // Records synthetic field trial for `feature` with trial name appended with
+  // `feature_name`.
+  void RecordModelExecutionFeatureSyntheticFieldTrial(
+      optimization_guide::UserVisibleFeatureKey feature,
+      const std::string_view feature_name);
+
   raw_ptr<content::BrowserContext> browser_context_;
 
   // The store of hints.
@@ -326,7 +325,7 @@ class OptimizationGuideKeyedService
 
   // Manages the model quality logs uploader service. Not created for off the
   // record profiles.
-  std::unique_ptr<optimization_guide::ChromeModelQualityLogsUploaderService>
+  std::unique_ptr<optimization_guide::ModelQualityLogsUploaderService>
       model_quality_logs_uploader_service_;
 
 #if BUILDFLAG(IS_ANDROID)

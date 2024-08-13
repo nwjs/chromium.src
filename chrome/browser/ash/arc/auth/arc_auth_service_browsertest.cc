@@ -305,6 +305,8 @@ class ArcAuthServiceTest : public InProcessBrowserTest,
         ash::standalone_browser::GetFeatureRefs();
     lacros.push_back(
         ash::standalone_browser::features::kLacrosForSupervisedUsers);
+    lacros.push_back(
+        ash::features::kSecondaryAccountAllowedInArcPolicy);
     if (IsArcAccountRestrictionsEnabled()) {
       feature_list_.InitWithFeatures(lacros, {});
     } else {
@@ -1273,7 +1275,8 @@ IN_PROC_BROWSER_TEST_P(ArcAuthServiceTest, ChildAccountFetch) {
   EXPECT_FALSE(auth_instance().account_info()->is_managed);
 }
 
-IN_PROC_BROWSER_TEST_P(ArcAuthServiceTest, ChildTransition) {
+// TODO(crbug.com/347393999): Re-enable this test.
+IN_PROC_BROWSER_TEST_P(ArcAuthServiceTest, DISABLED_ChildTransition) {
   SetAccountAndProfile(user_manager::UserType::kChild);
 
   session_manager::SessionManager::Get()

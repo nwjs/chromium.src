@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/modules/mediastream/user_media_processor.h"
 
 #include <stddef.h>
@@ -13,6 +18,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -22,11 +28,11 @@
 #include "media/base/audio_parameters.h"
 #include "media/capture/video_capture_types.h"
 #include "media/webrtc/constants.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/mediastream/media_stream_controls.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-blink.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/modules/mediastream/web_media_stream_source.h"
 #include "third_party/blink/public/platform/modules/mediastream/web_media_stream_track.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
@@ -591,7 +597,7 @@ void UserMediaProcessor::RequestInfo::OnTrackStarted(
     const blink::WebString& result_name) {
   SendLogMessage(GetOnTrackStartedLogString(source, result));
   auto** it = base::ranges::find(sources_waiting_for_callback_, source);
-  DCHECK(it != sources_waiting_for_callback_.end());
+  CHECK(it != sources_waiting_for_callback_.end(), base::NotFatalUntil::M130);
   sources_waiting_for_callback_.erase(it);
   // All tracks must be started successfully. Otherwise the request is a
   // failure.
@@ -1702,10 +1708,11 @@ MediaStreamSource* UserMediaProcessor::InitializeAudioSourceObject(
   auto device_parameters = audio_source->device().input;
   if (device_parameters.IsValid()) {
     capabilities.channel_count = {1, device_parameters.channels()};
-    capabilities.sample_rate = {std::min(media::kAudioProcessingSampleRateHz,
-                                         device_parameters.sample_rate()),
-                                std::max(media::kAudioProcessingSampleRateHz,
-                                         device_parameters.sample_rate())};
+    capabilities.sample_rate = {
+        std::min(media::WebRtcAudioProcessingSampleRateHz(),
+                 device_parameters.sample_rate()),
+        std::max(media::WebRtcAudioProcessingSampleRateHz(),
+                 device_parameters.sample_rate())};
     double fallback_latency =
         static_cast<double>(blink::kFallbackAudioLatencyMs) / 1000;
     double min_latency, max_latency;
@@ -1982,9 +1989,9 @@ void UserMediaProcessor::GetUserMediaRequestFailed(
     const String& constraint_name) {
   DCHECK(current_request_info_);
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  SendLogMessage(
-      base::StringPrintf("GetUserMediaRequestFailed({request_id=%d})",
-                         current_request_info_->request_id()));
+  SendLogMessage(base::StringPrintf(
+      "GetUserMediaRequestFailed({request_id=%d}, constraint_name=%s)",
+      current_request_info_->request_id(), constraint_name.Ascii().c_str()));
 
   // Completing the getUserMedia request can lead to that the RenderFrame and
   // the UserMediaClient/UserMediaProcessor are destroyed if the JavaScript

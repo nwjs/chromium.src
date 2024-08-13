@@ -240,6 +240,14 @@ void ManagePasswordsState::OnKeychainError() {
   SetState(password_manager::ui::KEYCHAIN_ERROR_STATE);
 }
 
+void ManagePasswordsState::OnPasskeySaved(const std::u16string& username,
+                                          bool gpm_pin_created) {
+  ClearData();
+  recently_saved_passkey_username_ = username;
+  gpm_pin_created_during_recent_passkey_creation_ = gpm_pin_created;
+  SetState(password_manager::ui::PASSKEY_SAVED_CONFIRMATION_STATE);
+}
+
 void ManagePasswordsState::TransitionToState(
     password_manager::ui::State state) {
   CHECK_NE(password_manager::ui::INACTIVE_STATE, state_);

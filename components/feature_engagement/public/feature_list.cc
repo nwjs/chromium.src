@@ -65,11 +65,11 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHPriceDropNTPFeature,
     &kIPHQuietNotificationPromptsFeature,
     &kIPHReadAloudAppMenuFeature,
+    &kIPHReadAloudExpandedPlayerFeature,
     &kIPHReadLaterContextMenuFeature,
     &kIPHReadLaterAppMenuBookmarkThisPageFeature,
     &kIPHReadLaterAppMenuBookmarksFeature,
     &kIPHReadLaterBottomSheetFeature,
-    &kIPHRequestDesktopSiteAppMenuFeature,
     &kIPHRequestDesktopSiteDefaultOnFeature,
     &kIPHRequestDesktopSiteExceptionsGenericFeature,
     &kIPHRequestDesktopSiteWindowSettingFeature,
@@ -80,6 +80,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHTabGroupSyncOnStripFeature,
     &kIPHTabGroupsYourTabsAreTogetherFeature,
     &kIPHTabGroupsDragAndDropFeature,
+    &kIPHTabGroupsRemoteGroupFeature,
     &kIPHTabGroupsSurfaceFeature,
     &kIPHTabGroupsSurfaceOnHideFeature,
     &kIPHTabSwitcherButtonFeature,
@@ -103,6 +104,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHSharedHighlightingReceiverFeature,
     &kIPHSharingHubWebnotesStylizeFeature,
     &kIPHRestoreTabsOnFREFeature,
+    &kIPHRtlGestureNavigationFeature,
 #endif  // BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(IS_IOS)
     &kIPHBottomToolbarTipFeature,
@@ -119,7 +121,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHPriceNotificationsWhileBrowsingFeature,
     &kIPHiOSDefaultBrowserBadgeEligibilityFeature,
     &kIPHiOSDefaultBrowserOverflowMenuBadgeFeature,
-    &kIPHiOSDefaultBrowserSettingsBadgeFeature,
     &kIPHiOSLensKeyboardFeature,
     &kIPHiOSPromoAppStoreFeature,
     &kIPHiOSPromoWhatsNewFeature,
@@ -150,10 +151,14 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSPageInfoRevampFeature,
     &kIPHiOSInlineEnhancedSafeBrowsingPromoFeature,
     &kIPHiOSSavedTabGroupClosed,
+    &kIPHiOSContextualPanelSampleModelFeature,
+    &kIPHiOSContextualPanelPriceInsightsFeature,
 #endif  // BUILDFLAG(IS_IOS)
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     &kEsbDownloadRowPromoFeature,
+#endif
     &kIPHBatterySaverModeFeature,
     &kIPHCompanionSidePanelFeature,
     &kIPHCompanionSidePanelRegionSearchFeature,
@@ -167,6 +172,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHDownloadEsbPromoFeature,
     &kIPHExperimentalAIPromoFeature,
     &kIPHExplicitBrowserSigninPreferenceRememberedFeature,
+    &kIPHHistorySearchFeature,
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     &kIPHExtensionsMenuFeature,
     &kIPHExtensionsRequestAccessButtonFeature,
@@ -177,7 +183,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHMemorySaverModeFeature,
     &kIPHLiveCaptionFeature,
     &kIPHTabAudioMutingFeature,
-    &kIPHPasswordsAccountStorageFeature,
     &kIPHPasswordsManagementBubbleAfterSaveFeature,
     &kIPHPasswordsManagementBubbleDuringSigninFeature,
     &kIPHPasswordsWebAppProfileSwitchFeature,
@@ -204,8 +209,8 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHTabGroupsSaveV2CloseGroupFeature,
     &kIPHTabOrganizationSuccessFeature,
     &kIPHTabSearchFeature,
-    &kIPHTrackingProtectionOffboardingFeature,
     &kIPHTrackingProtectionOnboardingFeature,
+    &kIPHTrackingProtectionFullOnboardingFeature,
     &kIPHTrackingProtectionReminderFeature,
     &kIPHWebUITabStripFeature,
     &kIPHDesktopPwaInstallFeature,
@@ -225,6 +230,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHAutofillVirtualCardCVCSuggestionFeature,
     &kIPHAutofillVirtualCardSuggestionFeature,
     &kIPHCookieControlsFeature,
+    &kIPHPlusAddressCreateSuggestionFeature,
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)

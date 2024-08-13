@@ -25,22 +25,23 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.Log;
 import org.chromium.base.supplier.Supplier;
-import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.google_bottom_bar.BottomBarConfig.ButtonConfig;
 import org.chromium.chrome.browser.ui.google_bottom_bar.BottomBarConfig.ButtonId;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarLogger.GoogleBottomBarCreatedEvent;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarLogger.GoogleBottomBarVariantCreatedEvent;
+import org.chromium.ui.base.ViewUtils;
 
 /** Builds the GoogleBottomBar view. */
 public class GoogleBottomBarViewCreator {
     private static final String TAG = "GbbViewCreator";
 
+    private static final int SINGLE_DECKER_MIN_HEIGHT_DP_FOR_LARGE_TOP_PADDING = 60;
+
     private final Context mContext;
     private final BottomBarConfig mConfig;
     private final GoogleBottomBarActionsHandler mActionsHandler;
-    private final Supplier<PageInsightsCoordinator> mPageInsightsCoordinatorSupplier;
     private ViewGroup mRootView;
 
     /**
@@ -49,24 +50,17 @@ public class GoogleBottomBarViewCreator {
      * @param activity An Android activity.
      * @param tabProvider Supplier for the current activity tab.
      * @param shareDelegateSupplier Supplier for the the share delegate.
-     * @param pageInsightsCoordinatorSupplier Supplier for the page insights coordinator.
      * @param config Bottom bar configuration for the buttons that will be displayed.
      */
     public GoogleBottomBarViewCreator(
             Activity activity,
             Supplier<Tab> tabProvider,
             Supplier<ShareDelegate> shareDelegateSupplier,
-            Supplier<PageInsightsCoordinator> pageInsightsCoordinatorSupplier,
             BottomBarConfig config) {
         mContext = activity;
         mConfig = config;
         mActionsHandler =
-                new GoogleBottomBarActionsHandler(
-                        activity,
-                        tabProvider,
-                        shareDelegateSupplier,
-                        pageInsightsCoordinatorSupplier);
-        mPageInsightsCoordinatorSupplier = pageInsightsCoordinatorSupplier;
+                new GoogleBottomBarActionsHandler(activity, tabProvider, shareDelegateSupplier);
     }
 
     /**
@@ -82,6 +76,7 @@ public class GoogleBottomBarViewCreator {
     View createGoogleBottomBarView() {
         mRootView = getLayoutRoot();
 
+        setDimensionsOnRootView();
         maybeAddButtons();
         maybeAddSearchbox();
         maybeAddButtonsOnRight();
@@ -91,15 +86,7 @@ public class GoogleBottomBarViewCreator {
 
     /** Calculates and returns the height of the bottom bar in pixels. */
     int getBottomBarHeightInPx() {
-        if (mConfig.getVariantLayoutType() == DOUBLE_DECKER) {
-            return mContext.getResources()
-                    .getDimensionPixelSize(R.dimen.google_bottom_bar_double_decker_height);
-        }
-        if (mConfig.getVariantLayoutType() == SINGLE_DECKER) {
-            return mContext.getResources()
-                    .getDimensionPixelSize(R.dimen.google_bottom_bar_single_decker_height);
-        }
-        return mContext.getResources().getDimensionPixelSize(R.dimen.google_bottom_bar_height);
+        return ViewUtils.dpToPx(mContext, (float) mConfig.getHeightDp());
     }
 
     private void maybeAddSearchbox() {
@@ -135,7 +122,7 @@ public class GoogleBottomBarViewCreator {
 
         searchboxView
                 .findViewById(R.id.google_bottom_bar_searchbox_lens_button)
-                .setOnClickListener(v -> mActionsHandler.onSearchboxLensTap());
+                .setOnClickListener(v -> mActionsHandler.onSearchboxLensTap(v));
         GoogleBottomBarLogger.logButtonShown(SEARCHBOX_LENS);
 
         return searchboxView;
@@ -203,6 +190,28 @@ public class GoogleBottomBarViewCreator {
         return (ViewGroup) LayoutInflater.from(mContext).inflate(rootLayoutId, /* root= */ null);
     }
 
+    private void setDimensionsOnRootView() {
+        mRootView.setLayoutParams(
+                new ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, getBottomBarHeightInPx()));
+
+        if (mConfig.getVariantLayoutType() == SINGLE_DECKER
+                || mConfig.getVariantLayoutType() == SINGLE_DECKER_WITH_RIGHT_BUTTONS) {
+            // We prefer large (8dp) top padding, but if this will cause searchbox to be below 52dp
+            // we reduce it to small (4dp).
+            int singleDeckerTopPaddingResId =
+                    mConfig.getHeightDp() >= SINGLE_DECKER_MIN_HEIGHT_DP_FOR_LARGE_TOP_PADDING
+                            ? R.dimen.google_bottom_bar_single_decker_top_padding_large
+                            : R.dimen.google_bottom_bar_single_decker_top_padding_small;
+            mRootView.setPaddingRelative(
+                    /* start= */ mRootView.getPaddingStart(),
+                    /* top= */ mContext.getResources()
+                            .getDimensionPixelSize(singleDeckerTopPaddingResId),
+                    /* end= */ mRootView.getPaddingEnd(),
+                    /* bottom= */ mRootView.getPaddingBottom());
+        }
+    }
+
     boolean updateBottomBarButton(@Nullable ButtonConfig buttonConfig) {
         if (buttonConfig == null) {
             return false;
@@ -215,9 +224,7 @@ public class GoogleBottomBarViewCreator {
         for (ButtonConfig buttonConfig : mConfig.getButtonList()) {
             View button = mRootView.findViewById(buttonConfig.getId());
             if (button != null) {
-                int buttonEvent =
-                        GoogleBottomBarLogger.getGoogleBottomBarButtonEvent(
-                                mPageInsightsCoordinatorSupplier, buttonConfig);
+                int buttonEvent = GoogleBottomBarLogger.getGoogleBottomBarButtonEvent(buttonConfig);
                 GoogleBottomBarLogger.logButtonShown(buttonEvent);
             }
         }
@@ -280,9 +287,7 @@ public class GoogleBottomBarViewCreator {
         button.setVisibility(View.VISIBLE);
 
         if (!isFirstTimeShown) {
-            int buttonEvent =
-                    GoogleBottomBarLogger.getGoogleBottomBarButtonEvent(
-                            mPageInsightsCoordinatorSupplier, buttonConfig);
+            int buttonEvent = GoogleBottomBarLogger.getGoogleBottomBarButtonEvent(buttonConfig);
             GoogleBottomBarLogger.logButtonUpdated(buttonEvent);
         }
         return true;

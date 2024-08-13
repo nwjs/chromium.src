@@ -157,7 +157,7 @@ class TaskViewTextField : public SystemTextfield,
   bool HandleKeyEvent(views::Textfield* sender,
                       const ui::KeyEvent& key_event) override {
     CHECK_EQ(this, sender);
-    if (key_event.type() != ui::ET_KEY_PRESSED) {
+    if (key_event.type() != ui::EventType::kKeyPressed) {
       return false;
     }
 
@@ -291,9 +291,9 @@ class GlanceablesTaskView::TaskTitleButton : public views::LabelButton {
 
   void SetText(const std::u16string& text) override {
     views::LabelButton::SetText(text);
-    SetAccessibleName(text, text.empty()
-                                ? ax::mojom::NameFrom::kAttributeExplicitlyEmpty
-                                : ax::mojom::NameFrom::kAttribute);
+    GetViewAccessibility().SetName(
+        text, text.empty() ? ax::mojom::NameFrom::kAttributeExplicitlyEmpty
+                           : ax::mojom::NameFrom::kAttribute);
   }
 };
 

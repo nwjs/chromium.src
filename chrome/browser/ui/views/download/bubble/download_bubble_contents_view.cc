@@ -40,7 +40,6 @@ namespace {
 
 void MaybeSendDownloadReport(content::BrowserContext* browser_context,
                              download::DownloadItem* download) {
-#if 0
   if (download->GetURL().is_empty() || browser_context->IsOffTheRecord()) {
     return;
   }
@@ -56,7 +55,6 @@ void MaybeSendDownloadReport(content::BrowserContext* browser_context,
                                   DANGEROUS_DOWNLOAD_RECOVERY,
                               /*did_proceed=*/true,
                               /*show_download_in_folder=*/std::nullopt);
-#endif
 }
 
 }  // namespace
@@ -191,32 +189,27 @@ void DownloadBubbleContentsView::ProcessDeepScanPress(
     const ContentId& id,
     DownloadItemWarningData::DeepScanTrigger trigger,
     base::optional_ref<const std::string> password) {
-#if 0
   if (DownloadUIModel* model = GetDownloadModel(id); model) {
     LogDeepScanEvent(model->GetDownloadItem(),
                      safe_browsing::DeepScanEvent::kPromptAccepted);
     safe_browsing::DownloadProtectionService::UploadForConsumerDeepScanning(
         model->GetDownloadItem(), trigger, password);
   }
-#endif
 }
 
 void DownloadBubbleContentsView::ProcessLocalDecryptionPress(
     const offline_items_collection::ContentId& id,
     base::optional_ref<const std::string> password) {
-#if 0
   if (DownloadUIModel* model = GetDownloadModel(id); model) {
     LogLocalDecryptionEvent(safe_browsing::DeepScanEvent::kPromptAccepted);
     safe_browsing::DownloadProtectionService::CheckDownloadWithLocalDecryption(
         model->GetDownloadItem(), password);
   }
-#endif
 }
 
 void DownloadBubbleContentsView::ProcessLocalPasswordInProgressClick(
     const offline_items_collection::ContentId& id,
     DownloadCommands::Command command) {
-#if 0
   DownloadUIModel* model = GetDownloadModel(id);
   if (!model) {
     return;
@@ -260,7 +253,6 @@ void DownloadBubbleContentsView::ProcessLocalPasswordInProgressClick(
     NOTREACHED_IN_MIGRATION()
         << "Unexpected command: " << static_cast<int>(command);
   }
-#endif
 }
 
 bool DownloadBubbleContentsView::IsEncryptedArchive(const ContentId& id) {

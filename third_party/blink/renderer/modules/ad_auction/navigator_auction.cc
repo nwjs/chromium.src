@@ -23,7 +23,6 @@
 #include "components/aggregation_service/aggregation_coordinator_utils.h"
 #include "mojo/public/cpp/bindings/map_traits_wtf_hash_map.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/fenced_frame/fenced_frame_utils.h"
 #include "third_party/blink/public/common/frame/fenced_frame_sandbox_flags.h"
@@ -35,6 +34,7 @@
 #include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom-blink.h"
 #include "third_party/blink/public/mojom/parakeet/ad_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy.mojom-blink.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/web/web_console_message.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_function.h"
@@ -2636,12 +2636,7 @@ void RecordCommonFledgeUseCounters(Document* document) {
     return;
   }
   UseCounter::Count(document, mojom::blink::WebFeature::kFledge);
-  // Only record the ads APIs counter if enabled in that manner.
-  if (RuntimeEnabledFeatures::PrivacySandboxAdsAPIsEnabled(
-          document->GetExecutionContext())) {
-    UseCounter::Count(document,
-                      mojom::blink::WebFeature::kPrivacySandboxAdsAPIs);
-  }
+  UseCounter::Count(document, mojom::blink::WebFeature::kPrivacySandboxAdsAPIs);
 }
 
 // Several dictionary members are being renamed -- to maintain compatibility
@@ -3100,6 +3095,8 @@ NavigatorAuction::AuctionHandle::DirectFromSellerSignalsResolved::CallImpl(
   if (!context) {
     return ScriptValue();
   }
+  UseCounter::Count(context,
+                    WebFeature::kProtectedAudienceDirectFromSellerSignals);
 
   ExceptionState exception_state(script_state->GetIsolate(),
                                  ExceptionContextType::kOperationInvoke,

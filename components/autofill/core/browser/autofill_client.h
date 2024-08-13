@@ -21,7 +21,6 @@
 #include "components/autofill/core/browser/autofill_trigger_details.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/filling_product.h"
-#include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/ui/fast_checkout_client.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
@@ -87,7 +86,6 @@ enum class CreditCardFetchResult;
 class FormDataImporter;
 class Iban;
 class LogManager;
-class MerchantPromoCodeManager;
 class PersonalDataManager;
 class StrikeDatabase;
 struct Suggestion;
@@ -111,42 +109,6 @@ using PlusAddressCallback = base::OnceCallback<void(const std::string&)>;
 // with" (e.g. for the tab the BrowserAutofillManager is attached to).
 class AutofillClient {
  public:
-  enum class PaymentsRpcResult {
-    // Empty result. Used for initializing variables and should generally
-    // not be returned nor passed as arguments unless explicitly allowed by
-    // the API.
-    kNone,
-
-    // Request succeeded.
-    kSuccess,
-
-    // Request failed; try again.
-    kTryAgainFailure,
-
-    // Request failed; don't try again.
-    kPermanentFailure,
-
-    // Unable to connect to Payments servers. Prompt user to check internet
-    // connection.
-    kNetworkError,
-
-    // Request failed in retrieving virtual card information; try again.
-    kVcnRetrievalTryAgainFailure,
-
-    // Request failed in retrieving virtual card information; don't try again.
-    kVcnRetrievalPermanentFailure,
-  };
-
-  // The type of the credit card the Payments RPC fetches.
-  enum class PaymentsRpcCardType {
-    // Unknown type.
-    kUnknown = 0,
-    // Server card.
-    kServerCard = 1,
-    // Virtual card.
-    kVirtualCard = 2,
-  };
-
   enum class SaveCardOfferUserDecision {
     // The user accepted credit card save.
     kAccepted,
@@ -156,23 +118,6 @@ class AutofillClient {
 
     // The user ignored the credit card save prompt.
     kIgnored,
-  };
-
-  enum class UnmaskCardReason {
-    // The card is being unmasked for PaymentRequest.
-    kPaymentRequest,
-
-    // The card is being unmasked for Autofill.
-    kAutofill,
-  };
-
-  // Authentication methods for card unmasking.
-  enum class UnmaskAuthMethod {
-    kUnknown = 0,
-    // Require user to unmask via CVC.
-    kCvc = 1,
-    // Suggest use of FIDO authenticator for card unmasking.
-    kFido = 2,
   };
 
   // Represents the user's possible decisions or outcomes in response to a
@@ -269,9 +214,9 @@ class AutofillClient {
     CardSaveType card_save_type = CardSaveType::kCardSaveOnly;
   };
 
-  // TODO(b/325440757): Remove after the save-update controller splitting is
-  // done or remove this TODO if a new option is added.
-  // Used for options of save (and update) address profile prompt.
+  // TODO(crbug.com/325440757): Remove after the save-update controller
+  // splitting is done or remove this TODO if a new option is added. Used for
+  // options of save (and update) address profile prompt.
   struct SaveAddressProfilePromptOptions {
     // Whether the prompt suggests migration into the user's account.
     bool is_migration_to_account = false;
@@ -291,8 +236,9 @@ class AutofillClient {
     PopupOpenArgs& operator=(const PopupOpenArgs&);
     PopupOpenArgs& operator=(PopupOpenArgs&&);
     ~PopupOpenArgs();
-    // TODO(b/340817507): Update this member name since bounds can now refer to
-    // the caret bounds and elements gives the idea of HTML elements only.
+    // TODO(crbug.com/340817507): Update this member name since bounds can now
+    // refer to the caret bounds and elements gives the idea of HTML elements
+    // only.
     gfx::RectF element_bounds;
     base::i18n::TextDirection text_direction =
         base::i18n::TextDirection::UNKNOWN_DIRECTION;
@@ -320,22 +266,6 @@ class AutofillClient {
     };
     ArrowPosition arrow_position;
   };
-
-  // Callback to run after local credit card save or local CVC save is offered.
-  // Sends whether the prompt was accepted, declined, or ignored in
-  // |user_decision|.
-  using LocalSaveCardPromptCallback =
-      base::OnceCallback<void(SaveCardOfferUserDecision user_decision)>;
-
-  // Callback to run after upload credit card save or upload CVC save for
-  // existing server card is offered. Sends whether the prompt was accepted,
-  // declined, or ignored in |user_decision|, and additional
-  // |user_provided_card_details| if applicable.
-  using UploadSaveCardPromptCallback = base::OnceCallback<void(
-      SaveCardOfferUserDecision user_decision,
-      const UserProvidedCardDetails& user_provided_card_details)>;
-
-  using CreditCardScanCallback = base::OnceCallback<void(const CreditCard&)>;
 
   // Callback to run when the user makes a decision on whether to save the
   // profile. If the user edits the Autofill profile and then accepts edits, the
@@ -401,10 +331,6 @@ class AutofillClient {
   virtual void OfferPlusAddressCreation(const url::Origin& main_frame_origin,
                                         PlusAddressCallback callback);
 
-  // Gets the MerchantPromoCodeManager instance associated with the
-  // client (can be null for unsupported platforms).
-  virtual MerchantPromoCodeManager* GetMerchantPromoCodeManager();
-
   // Gets the preferences associated with the client.
   virtual PrefService* GetPrefs() = 0;
   virtual const PrefService* GetPrefs() const = 0;
@@ -439,6 +365,7 @@ class AutofillClient {
   // Gets an AutofillOfferManager instance (can be null for unsupported
   // platforms).
   virtual AutofillOfferManager* GetAutofillOfferManager();
+  const AutofillOfferManager* GetAutofillOfferManager() const;
 
   // Returns the last committed url of the primary main frame.
   virtual const GURL& GetLastCommittedPrimaryMainFrameURL() const = 0;
@@ -483,46 +410,6 @@ class AutofillClient {
   virtual payments::MandatoryReauthManager*
   GetOrCreatePaymentsMandatoryReauthManager();
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  // Display the expiration date fix flow prompt with the |card| details
-  // and run the |callback| if the card should be uploaded to payments with
-  // updated expiration date from the user.
-  virtual void ConfirmExpirationDateFixFlow(
-      const CreditCard& card,
-      base::OnceCallback<void(const std::u16string&, const std::u16string&)>
-          callback);
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-
-  // Runs |callback| once the user makes a decision with respect to the
-  // offer-to-save prompt. This includes both the save local card prompt and the
-  // save CVC for a local card prompt. On desktop, shows the offer-to-save
-  // bubble if |options.show_prompt| is true; otherwise only shows the omnibox
-  // icon. On mobile, shows the offer-to-save infobar if |options.show_prompt|
-  // is true; otherwise does not offer to save at all.
-  virtual void ConfirmSaveCreditCardLocally(
-      const CreditCard& card,
-      AutofillClient::SaveCreditCardOptions options,
-      LocalSaveCardPromptCallback callback);
-
-  // Runs |callback| once the user makes a decision with respect to the
-  // offer-to-save prompt. This includes both the save server card prompt and
-  // the save CVC for a server card prompt. Displays the contents of
-  // |legal_message_lines| to the user. Displays a cardholder name textfield in
-  // the bubble if |options.should_request_name_from_user| is true. Displays a
-  // pair of expiration date dropdowns in the bubble if
-  // |should_request_expiration_date_from_user| is true. On desktop, shows the
-  // offer-to-save bubble if |options.show_prompt| is true;
-  // otherwise only shows the omnibox icon. On mobile, shows the offer-to-save
-  // infobar if |options.show_prompt| is true; otherwise does
-  // not offer to save at all.
-  // TODO (crbug.com/1462821): Make |legal_message_lines| optional, as CVC
-  // upload has no legal message.
-  virtual void ConfirmSaveCreditCardToCloud(
-      const CreditCard& card,
-      const LegalMessageLines& legal_message_lines,
-      SaveCreditCardOptions options,
-      UploadSaveCardPromptCallback callback);
-
   // Show an edit address profile dialog, giving the user an option to alter
   // autofill profile data. `on_user_decision_callback` is used to react to the
   // user decision of either saving changes or not.
@@ -547,15 +434,6 @@ class AutofillClient {
       const AutofillProfile* original_profile,
       AutofillClient::SaveAddressProfilePromptOptions options,
       AddressProfileSavePromptCallback callback) = 0;
-
-  // Returns true if both the platform and the device support scanning credit
-  // cards. Should be called before ScanCreditCard().
-  virtual bool HasCreditCardScanFeature() const = 0;
-
-  // Shows the user interface for scanning a credit card. Invokes the |callback|
-  // when a credit card is scanned successfully. Should be called only if
-  // HasCreditCardScanFeature() returns true.
-  virtual void ScanCreditCard(CreditCardScanCallback callback) = 0;
 
   // Shows the Touch To Fill surface for filling credit card information, if
   // possible, and returns |true| on success. |delegate| will be notified of
@@ -637,11 +515,6 @@ class AutofillClient {
                                     AutofillTriggerSource trigger_source,
                                     bool is_refill) = 0;
 
-  // Inform the client that the field has been filled.
-  virtual void DidFillOrPreviewField(
-      const std::u16string& autofilled_value,
-      const std::u16string& profile_full_name) = 0;
-
   // If the context is secure.
   virtual bool IsContextSecure() const = 0;
 
@@ -660,11 +533,6 @@ class AutofillClient {
   // Whether we can add more information to the contents of suggestions text due
   // to the use of a large keyboard accessory view. See b/40942168.
   virtual bool ShouldFormatForLargeKeyboardAccessory() const;
-
-  // Navigates to |url| in a new tab. |url| links to the promo code offer
-  // details page for the offers in a promo code suggestions popup. Every offer
-  // in a promo code suggestions popup links to the same offer details page.
-  virtual void OpenPromoCodeOfferDetailsURL(const GURL& url);
 
   // Updates and returns the current form interactions flow id. This is used as
   // an approximation for keeping track of the number of user interactions with

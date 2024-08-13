@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
@@ -72,6 +73,10 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/gfx/image/image.h"
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "ash/constants/ash_features.h"
+#endif
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ui/webui/profile_helper.h"
@@ -1129,6 +1134,12 @@ base::Value::Dict PeopleHandler::GetSyncStatusDictionary() const {
                   signin_ui_util::GetAuthenticatedUsername(profile_));
   sync_status.Set("hasUnrecoverableError",
                   service && service->HasUnrecoverableError());
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (ash::features::IsFloatingSsoAllowed()) {
+    sync_status.Set("syncCookiesSupported", profile_->GetPrefs()->GetBoolean(
+                                                prefs::kFloatingSsoEnabled));
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   return sync_status;
 }
 
@@ -1349,8 +1360,9 @@ void PeopleHandler::HandleSetChromeSigninUserChoice(
   // If the user explicitly set the `kDoNotSignin` choice from the settings,
   // suppress any bubble interaction time that could lead to re-prompts.
   if (user_choice == ChromeSigninUserChoice::kDoNotSignin) {
-    signin_prefs.ClearChromeSigninInterceptionFirstDeclinedChoiceTime(
+    signin_prefs.ClearChromeSigninInterceptionLastBubbleDeclineTime(
         account.gaia);
+    signin_prefs.ClearChromeSigninBubbleRepromptCount(account.gaia);
   }
 
   // Set for metrics purposes.
@@ -1365,6 +1377,15 @@ void PeopleHandler::UpdateChromeSigninUserChoiceInfo() {
     FireWebUIListener("chrome-signin-user-choice-info-change",
                       GetChromeSigninUserChoiceInfo());
   }
+}
+
+void PeopleHandler::HandleSetChromeSigninUserChoiceForTesting(
+    const std::string& email,
+    ChromeSigninUserChoice choice) {
+  base::Value::List args;
+  args.Append(static_cast<int>(choice));
+  args.Append(email);
+  HandleSetChromeSigninUserChoice(args);
 }
 #endif
 

@@ -16,7 +16,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/task/thread_pool.h"
 #include "components/autofill/core/browser/address_data_cleaner.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/autofill_profile_comparator.h"
@@ -62,7 +61,7 @@ void LogDeduplicationStartupMetricsForProfile(
       duplication_rank);
   LogTypeOfQuasiDuplicateTokenMetric(kStartupHistogramPrefix, duplication_rank,
                                      min_incompatible_sets);
-  // TODO(b/325452461): Implement more metrics.
+  // TODO(crbug.com/325452461): Implement more metrics.
 }
 
 }  // namespace
@@ -80,26 +79,18 @@ void LogDeduplicationStartupMetrics(
     // Don't pollute metrics with cases where obviously no duplicates exists.
     return;
   }
-  auto log_metrics = [](std::vector<AutofillProfile> profiles,
-                        const std::string& app_locale) {
-    AutofillProfileComparator comparator(app_locale);
-    for (AutofillProfile& profile : profiles) {
-      LogDeduplicationStartupMetricsForProfile(
-          profile, AddressDataCleaner::CalculateMinimalIncompatibleTypeSets(
-                       profile, profiles, comparator));
-    }
-  };
-  // Since computing the metrics is quadratic in `profiles.size()`, it is done
-  // on a background thread. Create a copy of the `profiles`, to avoid passing
-  // pointers between threads.
-  std::vector<AutofillProfile> profiles_copy;
-  profiles_copy.reserve(profiles.size());
-  for (const AutofillProfile* profile : profiles) {
-    profiles_copy.push_back(*profile);
+  if (profiles.size() > 100) {
+    // Computing the metrics is quadratic in the number of profiles. To avoid
+    // startup time regressions, these metrics are restricted to users with at
+    // most 100 profiles (which covers the vast majority of users).
+    return;
   }
-  base::ThreadPool::PostTask(
-      FROM_HERE, base::BindOnce(log_metrics, std::move(profiles_copy),
-                                std::string(app_locale)));
+  AutofillProfileComparator comparator(app_locale);
+  for (const AutofillProfile* profile : profiles) {
+    LogDeduplicationStartupMetricsForProfile(
+        *profile, AddressDataCleaner::CalculateMinimalIncompatibleTypeSets(
+                      *profile, profiles, comparator));
+  }
 }
 
 void LogDeduplicationImportMetrics(
@@ -130,7 +121,7 @@ void LogDeduplicationImportMetrics(
       duplication_rank);
   LogTypeOfQuasiDuplicateTokenMetric(metric_name_prefix, duplication_rank,
                                      min_incompatible_sets);
-  // TODO(b/325452461): Implement more metrics.
+  // TODO(crbug.com/325452461): Implement more metrics.
 }
 
 }  // namespace autofill::autofill_metrics

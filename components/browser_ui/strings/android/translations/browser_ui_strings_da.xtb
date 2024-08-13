@@ -113,6 +113,7 @@
 <translation id="2891975107962658722">Bloker et website på en måde, hvor det ikke kan gemme data på din enhed</translation>
 <translation id="2903493209154104877">Adresser</translation>
 <translation id="2910701580606108292">Spørg, før websites begynder at afspille beskyttet indhold</translation>
+<translation id="2918484639460781603">Gå til indstillinger</translation>
 <translation id="2932883381142163287">Rapportér misbrug</translation>
 <translation id="2939338015096024043">Når dette er slået til, kan websites anmode om tilladelse til at registrere din kameraposition og få oplysninger om dine omgivelser. Når dette er slået fra, kan websites ikke registrere din kameraposition eller få oplysninger om dine omgivelser.</translation>
 <translation id="2968755619301702150">Certifikatfremviser</translation>
@@ -171,6 +172,7 @@
 <translation id="385051799172605136">Tilbage</translation>
 <translation id="3859306556332390985">Spol fremad</translation>
 <translation id="3895926599014793903">Tving aktivering af zoom</translation>
+<translation id="3905475044299942653">Sæt en stopper for mange notifikationer</translation>
 <translation id="3908288065506437185">Bloker tredjepartscookies i inkognitotilstand</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Nogle funktioner virker muligvis ikke. Relaterede websites kan stadig bruge tredjepartscookies.</translation>
@@ -218,6 +220,7 @@
 <translation id="4751476147751820511">Bevægelses- eller lyssensorer</translation>
 <translation id="4755971844837804407">Når dette er slået til, kan websites vise dig en hvilken som helst annonce. Når dette er slået fra, kan websites ikke vise påtrængende eller vildledende annoncer.</translation>
 <translation id="4779083564647765204">Zoom</translation>
+<translation id="4807122856660838973">Aktivér Beskyttet browsing</translation>
 <translation id="4811450222531576619">Få oplysninger om sidens kilde og emne</translation>
 <translation id="4836046166855586901">Spørg, når et website vil vide, hvornår du aktivt bruger denne enhed</translation>
 <translation id="483914009762354899">Medtag alle websites under dette domæne</translation>
@@ -231,6 +234,7 @@
 <translation id="4994033804516042629">Der blev ikke fundet nogen kontakter</translation>
 <translation id="4996978546172906250">Del via</translation>
 <translation id="5001526427543320409">Tredjepartscookies</translation>
+<translation id="5007392906805964215">Gennemgå</translation>
 <translation id="5039804452771397117">Tillad</translation>
 <translation id="5048398596102334565">Tillad, at websites kan få adgang til bevægelsessensorer (anbefales)</translation>
 <translation id="5050380848339752099">Dette website skal til at dele oplysninger med en app uden for inkognitotilstand.</translation>
@@ -281,6 +285,7 @@
 <translation id="5706552988683188916">Denne handling sletter cookies og andre websitedata for <ph name="WEBSITE" /></translation>
 <translation id="5723967018671998714">Tredjepartscookies er blokeret i inkognitotilstand</translation>
 <translation id="5740126560802162366">Websites kan gemme data på din enhed</translation>
+<translation id="5749085587985334212">Skjul Sikkerhedstjek</translation>
 <translation id="5771720122942595109"><ph name="PERMISSION_1" /> blev blokeret</translation>
 <translation id="5804241973901381774">Tilladelser</translation>
 <translation id="5844448279347999754">Når dette er slået til, kan websites anmode om tilladelse at se tekst og billeder, der er gemt i din udklipsholder. Når dette er slået fra, kan websites ikke se tekst eller billeder, der er gemt i din udklipsholder.</translation>
@@ -361,6 +366,7 @@
 <translation id="6945221475159498467">Vælg</translation>
 <translation id="6950072572526089586">Et website, du besøger, kan gemme oplysninger om, hvad du foretager dig, så det kan fungere optimalt – f.eks. så du kan forblive logget ind på et website eller gemme varer i din indkøbskurv. Websites gemmer ofte disse oplysninger midlertidigt på din enhed.</translation>
 <translation id="6965382102122355670">OK</translation>
+<translation id="6980861169612950611">Vil du slette websitedata? <ph name="SITE_NAME" /></translation>
 <translation id="6981982820502123353">Hjælpefunktioner</translation>
 <translation id="6992289844737586249">Spørg, før websites bruger din mikrofon (anbefales)</translation>
 <translation id="7000754031042624318">Deaktiveret i indstillingerne for Android</translation>
@@ -388,6 +394,7 @@
 <translation id="7366415735885268578">Tilføj et website</translation>
 <translation id="7368695150573390554">Alle offlinedata slettes</translation>
 <translation id="7383715096023715447">Indstillinger for <ph name="DOMAIN" /></translation>
+<translation id="7399802613464275309">Sikkerhedstjek</translation>
 <translation id="7406113532070524618">Denne indstilling fungerer uden at identificere dig eller give websites tilladelse til at se din browserhistorik, men websites kan dele en lille mængde oplysninger som en del af verificeringen</translation>
 <translation id="7423098979219808738">Spørg først</translation>
 <translation id="7423538860840206698">Blokeret fra at læse udklipsholderen</translation>
@@ -456,6 +463,7 @@
 <translation id="8441146129660941386">Spol tilbage</translation>
 <translation id="8444433999583714703">Aktivér også lokation i <ph name="BEGIN_LINK" />Android-indstillingerne<ph name="END_LINK" /> for at give <ph name="APP_NAME" /> adgang til din lokation.</translation>
 <translation id="8447861592752582886">Tilbagekald adgangstilladelsen til enheden</translation>
+<translation id="8473055640493819707">"<ph name="APP_NAME" />" er forældet. Geninstaller appen.</translation>
 <translation id="8487700953926739672">Tilgængelig offline</translation>
 <translation id="848952951823693243">Anmod altid om mobilwebsite</translation>
 <translation id="8499083585497694743">Slå mikrofon til</translation>
@@ -472,6 +480,7 @@
 <translation id="8681886425883659911">Annoncer blokeres på websites, som er kendt for at vise påtrængende eller vildledende annoncer</translation>
 <translation id="868929229000858085">Søg blandt dine kontakter</translation>
 <translation id="8712637175834984815">Forstået</translation>
+<translation id="8715862698998036666">Træk fra toppen af skærmen, og stryg fra venstre eller højre kant for at afslutte fuld skærm.</translation>
 <translation id="8719283222052720129">Aktivér tilladelse for <ph name="APP_NAME" /> i <ph name="BEGIN_LINK" />Android-indstillingerne<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Når dette er slået til, kan websites anmode om tilladelse til at søge efter Bluetooth-enheder. Når dette er slået fra, kan websites ikke søge efter Bluetooth-enheder.</translation>
 <translation id="8725066075913043281">Forsøg igen</translation>

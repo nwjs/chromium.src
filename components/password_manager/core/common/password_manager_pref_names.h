@@ -40,6 +40,15 @@ inline constexpr char kCredentialProviderEnabledOnStartup[] =
     "credential_provider_enabled_on_startup";
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_IOS)
+// Boolean pref controlled by the DeletingUndecryptablePasswordsEnabled policy.
+// If set to false it blocks deleting undecryptable passwords, otherwise the
+// deletion can happen.
+inline constexpr char kDeletingUndecryptablePasswordsEnabled[] =
+    "password_manager.deleteting_undecryptable_passwords_enabled";
+#endif
+
 #if BUILDFLAG(IS_ANDROID)
 
 // Boolean pref indicating if the one-time notice for account storage was shown.
@@ -322,15 +331,18 @@ inline constexpr char kBiometricAuthBeforeFillingPromoShownCounter[] =
 // before filling promo.
 inline constexpr char kHasUserInteractedWithBiometricAuthPromo[] =
     "password_manager.has_user_interacted_with_biometric_authentication_promo";
-// Boolean indicating whether user enabled biometric authentication before
-// filling.
-inline constexpr char kBiometricAuthenticationBeforeFilling[] =
-    "password_manager.biometric_authentication_filling";
 // Boolean indicating whether user had ever biometrics available on their
 // device.
 inline constexpr char kHadBiometricsAvailable[] =
     "password_manager.had_biometrics_available";
 #endif
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+// Boolean indicating whether user enabled biometric authentication before
+// filling.
+inline constexpr char kBiometricAuthenticationBeforeFilling[] =
+    "password_manager.biometric_authentication_filling";
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 // How many times in a row the password generation popup in `kNudgePassword`
@@ -362,6 +374,13 @@ inline constexpr char kPasswordSharingEnabled[] =
 // Integer pref indicating how many times relaunch Chrome bubble was dismissed.
 inline constexpr char kRelaunchChromeBubbleDismissedCounter[] =
     "password_manager.relaunch_chrome_bubble_dismissed_counter";
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+// Boolean pref indicating if the user is in one of the groups of the
+// kClearUndecryptablePasswords experiment.
+inline constexpr char kClearingUndecryptablePasswords[] =
+    "password_manager.clearing_undecryptable_passwords";
 #endif
 
 }  // namespace password_manager::prefs

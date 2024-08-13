@@ -18,6 +18,7 @@
 #import "components/signin/ios/browser/features.h"
 #import "components/signin/public/base/gaia_id_hash.h"
 #import "components/signin/public/base/signin_pref_names.h"
+#import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/device_accounts_synchronizer.h"
 #import "components/signin/public/identity_manager/primary_account_mutator.h"
@@ -258,6 +259,18 @@ bool AuthenticationService::HasPrimaryIdentityManaged(
       .IsManaged();
 }
 
+bool AuthenticationService::ShouldClearDataOnSignOut() const {
+  // Data on the device should be cleared on signout when all conditions are
+  // met:
+  // 1. `kClearDeviceDataOnSignOutForManagedUsers` feaature is enabled).
+  // 2. The user is signed in with a managed account.
+  // 3. The app management configuration key is present.
+  return base::FeatureList::IsEnabled(
+             kClearDeviceDataOnSignOutForManagedUsers) &&
+         HasPrimaryIdentityManaged(signin::ConsentLevel::kSignin) &&
+         !IsApplicationManagedByMDM();
+}
+
 id<SystemIdentity> AuthenticationService::GetPrimaryIdentity(
     signin::ConsentLevel consent_level) const {
   // There is no authenticated identity if there is no signed in user or if the
@@ -402,8 +415,7 @@ void AuthenticationService::SignOut(
   // Get first setup complete value before stopping the sync service.
   const bool is_initial_sync_feature_setup_complete =
       sync_service_->GetUserSettings()->IsInitialSyncFeatureSetupComplete();
-  const bool is_clear_data_feature_for_managed_users_enabled =
-      base::FeatureList::IsEnabled(kClearDeviceDataOnSignOutForManagedUsers);
+  const bool should_clear_data = ShouldClearDataOnSignOut();
 
   auto* account_mutator = identity_manager_->GetPrimaryAccountMutator();
   // GetPrimaryAccountMutator() returns nullptr on ChromeOS only.
@@ -416,7 +428,7 @@ void AuthenticationService::SignOut(
   base::OnceClosure callback_closure =
       completion ? base::BindOnce(completion) : base::DoNothing();
 
-  if (is_managed && is_clear_data_feature_for_managed_users_enabled) {
+  if (should_clear_data) {
     delegate_->ClearBrowsingDataForSignedinPeriod(std::move(callback_closure));
   } else if (force_clear_browsing_data ||
              (is_managed && is_initial_sync_feature_setup_complete) ||
@@ -483,7 +495,8 @@ void AuthenticationService::OnPrimaryAccountChanged(
 void AuthenticationService::OnIdentityListChanged(bool notify_user) {
   ClearAccountSettingsPrefsOfRemovedAccounts();
 
-  if (!identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
+  if (!identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin) &&
+      !base::FeatureList::IsEnabled(switches::kAlwaysLoadDeviceAccounts)) {
     // IdentityManager::HasPrimaryAccount() needs to be called instead of
     // AuthenticationService::HasPrimaryIdentity() or
     // AuthenticationService::GetPrimaryIdentity().
@@ -661,8 +674,10 @@ void AuthenticationService::ReloadCredentialsFromIdentities(
   base::AutoReset<bool> auto_reset(&is_reloading_credentials_, true);
 
   HandleForgottenIdentity(nil, should_prompt, /*device_restore=*/false);
-  if (!HasPrimaryIdentity(signin::ConsentLevel::kSignin))
+  if (!HasPrimaryIdentity(signin::ConsentLevel::kSignin) &&
+      !base::FeatureList::IsEnabled(switches::kAlwaysLoadDeviceAccounts)) {
     return;
+  }
 
   identity_manager_->GetDeviceAccountsSynchronizer()
       ->ReloadAllAccountsFromSystemWithPrimaryAccount(

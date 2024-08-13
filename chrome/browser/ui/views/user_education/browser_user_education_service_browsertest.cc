@@ -269,7 +269,6 @@ bool IsComparatorLimited(const feature_engagement::Comparator& comparator,
 
 using BrowserUserEducationServiceBrowserTest = InProcessBrowserTest;
 
-// TODO: crbug.com/336983096 - Consistently failing test.
 IN_PROC_BROWSER_TEST_F(BrowserUserEducationServiceBrowserTest,
                        FeatureConfigurationConsistencyCheck) {
   // Exceptions to the consistency checks. All of those with crbug.com IDs
@@ -316,8 +315,6 @@ IN_PROC_BROWSER_TEST_F(BrowserUserEducationServiceBrowserTest,
       {&feature_engagement::kIPHPowerBookmarksSidePanelFeature,
        IPHFailureReason::kWrongSessionRate,
        "crbug.com/1443067, crbug.com/1443063"},
-      {&feature_engagement::kIPHPasswordsAccountStorageFeature,
-       IPHFailureReason::kWrongSessionRate, "crbug.com/1443075"},
 
       // Deprecated; should probably be removed.
       {&feature_engagement::kIPHReadingListInSidePanelFeature, std::nullopt,
@@ -743,7 +740,8 @@ class BrowserUserEducationServiceCommandLineTest
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     if (GetParam()) {
-      command_line->AppendSwitch("--disable-user-education-rate-limiting");
+      command_line->AppendSwitch(
+          user_education::features::kDisableRateLimitingCommandLine);
     }
   }
 };

@@ -1141,8 +1141,7 @@ void Widget::RunShellDrag(View* view,
     // tasks need to run. Only views:: and ui::EventDispatcher stacks are
     // present, which expect this re-entrancy.
     base::CurrentThread::ScopedAllowApplicationTasksInNativeNestedLoop allow;
-    native_widget_->RunShellDrag(view, std::move(data), location, operation,
-                                 source);
+    native_widget_->RunShellDrag(std::move(data), location, operation, source);
   }
 
   // The widget may be destroyed during the drag operation.
@@ -1419,8 +1418,9 @@ void Widget::SynthesizeMouseMoveEvent() {
   // Convert: screen coordinate -> widget coordinate.
   View::ConvertPointFromScreen(root_view_.get(), &mouse_location);
   last_mouse_event_was_move_ = false;
-  ui::MouseEvent mouse_event(ui::ET_MOUSE_MOVED, mouse_location, mouse_location,
-                             ui::EventTimeForNow(), ui::EF_IS_SYNTHESIZED, 0);
+  ui::MouseEvent mouse_event(ui::EventType::kMouseMoved, mouse_location,
+                             mouse_location, ui::EventTimeForNow(),
+                             ui::EF_IS_SYNTHESIZED, 0);
   root_view_->OnMouseMoved(mouse_event);
 }
 
@@ -1636,11 +1636,20 @@ bool Widget::OnNativeWidgetActivationChanged(bool active) {
   if (active) {
     base::AutoReset<bool> is_traversing_widget_tree(&is_traversing_widget_tree_,
                                                     true);
+    Widget* root = nullptr;
     for (Widget* widget = this; widget; widget = widget->parent()) {
       for (WidgetObserver& observer : widget->observers_) {
         observer.OnWidgetTreeActivated(widget, this);
       }
+      root = widget;
     }
+#if BUILDFLAG(IS_WIN)
+    // Windows shuffles child widgets when the application re-gains
+    // activation, so re-order to ensure z-order sublevels.
+    root->GetSublevelManager()->EnsureOwnerTreeSublevel();
+#else
+    std::ignore = root;
+#endif
   }
 
   const bool was_paint_as_active = ShouldPaintAsActive();
@@ -1831,7 +1840,7 @@ void Widget::OnMouseEvent(ui::MouseEvent* event) {
 
   View* root_view = GetRootView();
   switch (event->type()) {
-    case ui::ET_MOUSE_PRESSED: {
+    case ui::EventType::kMousePressed: {
       last_mouse_event_was_move_ = false;
 
       // We may get deleted by the time we return from OnMousePressed. So we
@@ -1863,7 +1872,7 @@ void Widget::OnMouseEvent(ui::MouseEvent* event) {
       return;
     }
 
-    case ui::ET_MOUSE_RELEASED:
+    case ui::EventType::kMouseReleased:
       last_mouse_event_was_move_ = false;
       is_mouse_button_pressed_ = false;
       // Release capture first, to avoid confusion if OnMouseReleased blocks.
@@ -1885,8 +1894,8 @@ void Widget::OnMouseEvent(ui::MouseEvent* event) {
       }
       return;
 
-    case ui::ET_MOUSE_MOVED:
-    case ui::ET_MOUSE_DRAGGED:
+    case ui::EventType::kMouseMoved:
+    case ui::EventType::kMouseDragged:
       if (native_widget_->HasCapture() && is_mouse_button_pressed_) {
         last_mouse_event_was_move_ = false;
         if (root_view)
@@ -1900,20 +1909,20 @@ void Widget::OnMouseEvent(ui::MouseEvent* event) {
       }
       return;
 
-    case ui::ET_MOUSE_ENTERED:
+    case ui::EventType::kMouseEntered:
       last_mouse_event_was_move_ = false;
       if (root_view) {
         root_view->OnMouseEntered(*event);
       }
       return;
 
-    case ui::ET_MOUSE_EXITED:
+    case ui::EventType::kMouseExited:
       last_mouse_event_was_move_ = false;
       if (root_view)
         root_view->OnMouseExited(*event);
       return;
 
-    case ui::ET_MOUSEWHEEL:
+    case ui::EventType::kMousewheel:
       if (root_view && root_view->OnMouseWheel(
                            static_cast<const ui::MouseWheelEvent&>(*event)))
         event->SetHandled();
@@ -1938,8 +1947,9 @@ void Widget::OnScrollEvent(ui::ScrollEvent* event) {
   ui::ScrollEvent event_copy(*event);
   SendEventToSink(&event_copy);
 
-  // Convert unhandled ui::ET_SCROLL events into ui::ET_MOUSEWHEEL events.
-  if (!event_copy.handled() && event_copy.type() == ui::ET_SCROLL) {
+  // Convert unhandled ui::EventType::kScroll events into
+  // ui::EventType::kMousewheel events.
+  if (!event_copy.handled() && event_copy.type() == ui::EventType::kScroll) {
     ui::MouseWheelEvent wheel(*event);
     OnMouseEvent(&wheel);
   }

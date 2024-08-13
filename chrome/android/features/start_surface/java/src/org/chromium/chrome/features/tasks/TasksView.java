@@ -22,6 +22,7 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout;
 
 import com.google.android.material.appbar.AppBarLayout;
 
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feed.FeedStreamViewResizer;
 import org.chromium.chrome.browser.feed.FeedSurfaceCoordinator;
@@ -31,7 +32,6 @@ import org.chromium.chrome.browser.ntp.IncognitoDescriptionView;
 import org.chromium.chrome.browser.ntp.search.SearchBoxCoordinator;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.components.browser_ui.widget.CoordinatorLayoutForPointer;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.content_settings.CookieControlsEnforcement;
@@ -55,6 +55,7 @@ public class TasksView extends CoordinatorLayoutForPointer {
             CookieControlsEnforcement.NO_ENFORCEMENT;
     private View.OnClickListener mIncognitoCookieControlsIconClickListener;
     private UiConfig mUiConfig;
+    private ObservableSupplier<Profile> mProfileSupplier;
 
     /** Default constructor needed to inflate via XML. */
     public TasksView(Context context, AttributeSet attrs) {
@@ -65,7 +66,9 @@ public class TasksView extends CoordinatorLayoutForPointer {
     public void initialize(
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             boolean isIncognito,
-            WindowAndroid windowAndroid) {
+            WindowAndroid windowAndroid,
+            ObservableSupplier<Profile> profileSupplier) {
+        mProfileSupplier = profileSupplier;
         assert mSearchBoxCoordinator != null
                 : "#onFinishInflate should be completed before the call to initialize.";
 
@@ -76,12 +79,12 @@ public class TasksView extends CoordinatorLayoutForPointer {
     protected void onFinishInflate() {
         super.onFinishInflate();
 
-        mCardTabSwitcherContainer = (FrameLayout) findViewById(R.id.tab_switcher_module_container);
+        mCardTabSwitcherContainer = findViewById(R.id.tab_switcher_module_container);
         mMvTilesContainerLayout = findViewById(R.id.mv_tiles_container);
         mSearchBoxCoordinator = new SearchBoxCoordinator(getContext(), this);
         mHomeModulesLayout = findViewById(R.id.home_modules_recycler_view);
 
-        mHeaderView = (AppBarLayout) findViewById(R.id.task_surface_header);
+        mHeaderView = findViewById(R.id.task_surface_header);
 
         forceHeaderScrollable();
 
@@ -167,16 +170,14 @@ public class TasksView extends CoordinatorLayoutForPointer {
      */
     void initializeIncognitoDescriptionView() {
         assert mIncognitoDescriptionView == null;
-        ViewStub containerStub =
-                (ViewStub) findViewById(R.id.incognito_description_container_layout_stub);
+        ViewStub containerStub = findViewById(R.id.incognito_description_container_layout_stub);
         View containerView = containerStub.inflate();
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
             containerView.setFocusable(true);
             containerView.setFocusableInTouchMode(true);
         }
 
-        ViewStub incognitoDescriptionViewStub =
-                (ViewStub) findViewById(R.id.task_view_incognito_layout_stub);
+        ViewStub incognitoDescriptionViewStub = findViewById(R.id.task_view_incognito_layout_stub);
         incognitoDescriptionViewStub.setLayoutResource(R.layout.incognito_description_layout);
         mIncognitoDescriptionView =
                 (IncognitoDescriptionView) incognitoDescriptionViewStub.inflate();
@@ -371,9 +372,8 @@ public class TasksView extends CoordinatorLayoutForPointer {
     }
 
     boolean shouldShowTrackingProtectionNtp() {
-        Profile profile =
-                ProfileManager.getLastUsedRegularProfile()
-                        .getPrimaryOTRProfile(/* createIfNeeded= */ true);
+        Profile profile = mProfileSupplier.get();
+        assert !profile.isOffTheRecord();
         return (UserPrefs.get(profile).getBoolean(Pref.TRACKING_PROTECTION3PCD_ENABLED)
                 || ChromeFeatureList.isEnabled(ChromeFeatureList.TRACKING_PROTECTION_3PCD));
     }

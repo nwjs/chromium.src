@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/metrics/user_metrics.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
@@ -53,6 +54,9 @@ const char kComposeProactiveNudgeShowStatus[] =
 const char kOpenComposeDialogResult[] =
     "Compose.ContextMenu.OpenComposeDialogResult";
 const char kComposeSelectAll[] = "Compose.ContextMenu.SelectedAll";
+const char kComposeStartSessionEntryPoint[] = "Compose.EntryPoint.SessionStart";
+const char kComposeResumeSessionEntryPoint[] =
+    "Compose.EntryPoint.SessionResume";
 
 namespace {
 
@@ -68,6 +72,18 @@ std::string_view EvalLocationString(EvalLocation location) {
 std::string_view LanguageSupportedString(bool page_language_supported) {
   return page_language_supported ? "PageLanguageSupported"
                                  : "PageLanguageUnsupported";
+}
+
+bool HasAckedFreOrAcceptedMsbb(ComposeFreOrMsbbSessionCloseReason reason) {
+  switch (reason) {
+    case ComposeFreOrMsbbSessionCloseReason::kAckedOrAcceptedWithoutInsert:
+    case ComposeFreOrMsbbSessionCloseReason::kAckedOrAcceptedWithInsert:
+      return true;
+    case ComposeFreOrMsbbSessionCloseReason::kCloseButtonPressed:
+    case ComposeFreOrMsbbSessionCloseReason::kAbandoned:
+    case ComposeFreOrMsbbSessionCloseReason::kReplacedWithNewSession:
+      return false;
+  }
 }
 
 }  // namespace
@@ -178,6 +194,22 @@ void LogOpenComposeDialogResult(OpenComposeDialogResult result) {
   base::UmaHistogramEnumeration(kOpenComposeDialogResult, result);
 }
 
+void LogStartSessionEntryPoint(ComposeEntryPoint entry_point) {
+  base::UmaHistogramEnumeration(kComposeStartSessionEntryPoint, entry_point);
+
+  if (entry_point == ComposeEntryPoint::kProactiveNudge) {
+    base::RecordAction(
+        base::UserMetricsAction("Compose.StartedSession.ProactiveNudge"));
+  } else if (entry_point == ComposeEntryPoint::kContextMenu) {
+    base::RecordAction(
+        base::UserMetricsAction("Compose.StartedSession.ContextMenu"));
+  }
+}
+
+void LogResumeSessionEntryPoint(ComposeEntryPoint entry_point) {
+  base::UmaHistogramEnumeration(kComposeResumeSessionEntryPoint, entry_point);
+}
+
 void LogComposeRequestReason(ComposeRequestReason reason) {
   base::UmaHistogramEnumeration(kComposeRequestReason, reason);
 }
@@ -227,48 +259,31 @@ void LogComposeRequestDuration(base::TimeDelta duration,
 }
 
 void LogComposeFirstRunSessionCloseReason(
-    ComposeFirstRunSessionCloseReason reason) {
+    ComposeFreOrMsbbSessionCloseReason reason) {
   base::UmaHistogramEnumeration(kComposeFirstRunSessionCloseReason, reason);
 }
 
 void LogComposeFirstRunSessionDialogShownCount(
-    ComposeFirstRunSessionCloseReason reason,
+    ComposeFreOrMsbbSessionCloseReason reason,
     int dialog_shown_count) {
-  std::string status;
-  switch (reason) {
-    case ComposeFirstRunSessionCloseReason::
-        kFirstRunDisclaimerAcknowledgedWithoutInsert:
-    case ComposeFirstRunSessionCloseReason::
-        kFirstRunDisclaimerAcknowledgedWithInsert:
-      status = ".Acknowledged";
-      break;
-    case ComposeFirstRunSessionCloseReason::kCloseButtonPressed:
-    case ComposeFirstRunSessionCloseReason::kEndedImplicitly:
-    case ComposeFirstRunSessionCloseReason::kNewSessionWithSelectedText:
-      status = ".Ignored";
-  }
-  base::UmaHistogramCounts1000(kComposeFirstRunSessionDialogShownCount + status,
-                               dialog_shown_count);
+  std::string histogram_name = base::StrCat(
+      {kComposeFirstRunSessionDialogShownCount,
+       HasAckedFreOrAcceptedMsbb(reason) ? ".Acknowledged" : ".Ignored"});
+  base::UmaHistogramCounts1000(histogram_name, dialog_shown_count);
 }
 
-void LogComposeMSBBSessionCloseReason(ComposeMSBBSessionCloseReason reason) {
+void LogComposeMSBBSessionCloseReason(
+    ComposeFreOrMsbbSessionCloseReason reason) {
   base::UmaHistogramEnumeration(kComposeMSBBSessionCloseReason, reason);
 }
 
-void LogComposeMSBBSessionDialogShownCount(ComposeMSBBSessionCloseReason reason,
-                                           int dialog_shown_count) {
-  std::string status;
-  switch (reason) {
-    case ComposeMSBBSessionCloseReason::kMSBBAcceptedWithoutInsert:
-    case ComposeMSBBSessionCloseReason::kMSBBAcceptedWithInsert:
-      status = ".Accepted";
-      break;
-    case ComposeMSBBSessionCloseReason::kMSBBEndedImplicitly:
-    case ComposeMSBBSessionCloseReason::kMSBBCloseButtonPressed:
-      status = ".Ignored";
-  }
-  base::UmaHistogramCounts1000(kComposeMSBBSessionDialogShownCount + status,
-                               dialog_shown_count);
+void LogComposeMSBBSessionDialogShownCount(
+    ComposeFreOrMsbbSessionCloseReason reason,
+    int dialog_shown_count) {
+  std::string histogram_name = base::StrCat(
+      {kComposeMSBBSessionDialogShownCount,
+       HasAckedFreOrAcceptedMsbb(reason) ? ".Accepted" : ".Ignored"});
+  base::UmaHistogramCounts1000(histogram_name, dialog_shown_count);
 }
 
 SessionEvalLocation GetSessionEvalLocationFromEvents(
@@ -303,12 +318,12 @@ void LogComposeSessionCloseMetrics(ComposeSessionCloseReason reason,
                                    const ComposeSessionEvents& session_events) {
   std::string status;
   switch (reason) {
-    case ComposeSessionCloseReason::kAcceptedSuggestion:
+    case ComposeSessionCloseReason::kInsertedResponse:
       status = ".Accepted";
       break;
     case ComposeSessionCloseReason::kCloseButtonPressed:
-    case ComposeSessionCloseReason::kEndedImplicitly:
-    case ComposeSessionCloseReason::kNewSessionWithSelectedText:
+    case ComposeSessionCloseReason::kAbandoned:
+    case ComposeSessionCloseReason::kReplacedWithNewSession:
     case ComposeSessionCloseReason::kCanceledBeforeResponseReceived:
       status = ".Ignored";
   }

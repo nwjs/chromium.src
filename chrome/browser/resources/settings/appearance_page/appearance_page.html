@@ -11,12 +11,18 @@
       /* The theme mixes a link and a cr-button divided by a separator with
        * grit expressions and dom-if templates. That leads to a tricky thing
        * to style correctly, these are a workaround. */
-      #themeRow cr-button {
+      #themeRow cr-button,
+      #toolbarRow cr-button {
         margin-inline-end: 20px;
       }
 
-      #themeRow .separator {
+      #themeRow .separator,
+      #toolbarRow .separator  {
          margin-inline-start: 0;
+      }
+
+      #toolbarRow {
+        border-top: var(--cr-separator-line);
       }
 
       .hover-card-toggles {
@@ -37,14 +43,15 @@
       <div route-path="default">
         <div class="settings-row first" id="themeRow"
             hidden="[[!pageVisibility.setTheme]]">
-          <cr-link-row class="first" hidden="[[!pageVisibility.setTheme]]"
+          <cr-link-row id="openTheme" class="first"
+              hidden="[[!pageVisibility.setTheme]]"
               label="$i18n{themes}" sub-label="[[themeSublabel_]]"
-              on-click="openThemeUrl_" external></cr-link-row>
+              on-click="onThemeClick_" external></cr-link-row>
 <if expr="not is_linux">
           <template is="dom-if" if="[[prefs.extensions.theme.id.value]]">
             <div class="separator"></div>
             <cr-button id="useDefault" on-click="onUseDefaultClick_">
-              $i18n{resetToDefaultTheme}
+              $i18n{resetToDefault}
             </cr-button>
           </template>
 </if>
@@ -75,7 +82,27 @@
           </div>
 </if>
         </div>
-        <div id="colorSchemeModeRow" class="cr-row">
+        <template is="dom-if" if="[[toolbarPinningEnabled_]]">
+          <div id="toolbarRow" class="settings-row">
+            <cr-link-row id="customizeToolbar"
+                label="$i18n{customizeToolbar}"
+                on-click="onCustomizeToolbarClick_" external>
+            </cr-link-row>
+            <template is="dom-if" if="[[showResetPinnedActionsButton_]]">
+              <div class="separator"></div>
+              <cr-button id="resetPinnedToolbarActions"
+                  on-click="onResetPinnedToolbarActionsClick_">
+                $i18n{resetToDefault}
+              </cr-button>
+            </template>
+          </div>
+        </template>
+        <div id="colorSchemeModeRow" class="cr-row"
+<if expr="is_linux">
+            hidden="[[!showColorSchemeMode_(prefs.extensions.theme.id.value,
+              systemTheme_)]]"
+</if>
+        >
           <div id="colorSchemeModeLabel" class="flex cr-padded-text"
               aria-hidden="true">
             $i18n{colorSchemeMode}
@@ -165,8 +192,8 @@
             </div>
             <template is="dom-if" if="[[showTabSearchPositionRestartButton_]]"
                 restamp>
-              <cr-button id="tabSearchPositionRestart"
-                on-click="onTabSearchPositionRestartClick_">
+              <cr-button id="tabSearchPositionRestart" role="alert"
+                  on-click="onTabSearchPositionRestartClick_">
                 $i18n{restart}
               </cr-button>
             </template>

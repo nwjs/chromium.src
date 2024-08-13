@@ -6,7 +6,7 @@
 
 #include "base/observer_list.h"
 #include "base/time/time.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_observer.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kShouldShowTitleInSidePanelHeaderKey, true)
@@ -56,6 +56,12 @@ void SidePanelEntry::OnEntryShown() {
   ResetLoadTimestamp();
   for (SidePanelEntryObserver& observer : observers_)
     observer.OnEntryShown(this);
+}
+
+void SidePanelEntry::OnEntryWillHide() {
+  for (SidePanelEntryObserver& observer : observers_) {
+    observer.OnEntryWillHide(this);
+  }
 }
 
 void SidePanelEntry::OnEntryHidden() {

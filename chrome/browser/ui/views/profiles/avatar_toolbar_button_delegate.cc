@@ -52,6 +52,7 @@
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_prefs.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_change_event.h"
@@ -484,7 +485,10 @@ class SyncErrorStateProvider : public StateProvider,
   }
 
   // StateProvider:
-  bool IsActive() const override { return last_avatar_error_.has_value(); }
+  bool IsActive() const override {
+    return SyncServiceFactory::IsSyncAllowed(&profile_.get()) &&
+           last_avatar_error_.has_value();
+  }
 
   // Returning true for non sync paused error.
   bool IsErrorSyncPaused() const {
@@ -687,10 +691,6 @@ class ManagementStateProvider : public StateProvider,
     profile_pref_change_registrar_.Init(profile_->GetPrefs());
     profile_pref_change_registrar_.Add(
         prefs::kEnterpriseBadgingTemporarySetting,
-        base::BindRepeating(&ManagementStateProvider::RequestUpdate,
-                            weak_ptr_factory_.GetWeakPtr()));
-    profile_pref_change_registrar_.Add(
-        prefs::kCustomProfileLabel,
         base::BindRepeating(&ManagementStateProvider::RequestUpdate,
                             weak_ptr_factory_.GetWeakPtr()));
     profile_pref_change_registrar_.Add(
@@ -1153,7 +1153,9 @@ gfx::Image AvatarToolbarButtonDelegate::GetProfileAvatarImage(
     return gaia_account_image;
   }
 
-  return entry->GetAvatarIcon(preferred_size);
+  return entry->GetAvatarIcon(
+      preferred_size, /*use_high_res_file=*/true,
+      /*icon_params=*/{.has_padding = false, .has_background = false});
 }
 
 int AvatarToolbarButtonDelegate::GetWindowCount() const {
@@ -1183,11 +1185,13 @@ void AvatarToolbarButtonDelegate::OnThemeChanged(
 
   // Use default profile colors only for extension and system themes.
   const bool use_default_profile_colors =
-      service->UsingExtensionTheme() || service->UsingSystemTheme();
+      service->UsingExtensionTheme() ||
+      (service->IsSystemThemeDistinctFromDefaultTheme() &&
+       service->UsingSystemTheme());
   entry->SetProfileThemeColors(
       use_default_profile_colors
           ? GetDefaultProfileThemeColors(color_provider)
-          : GetCurrentProfileThemeColors(*color_provider));
+          : GetCurrentProfileThemeColors(*color_provider, *service));
 }
 
 base::ScopedClosureRunner AvatarToolbarButtonDelegate::ShowExplicitText(
@@ -1290,13 +1294,9 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
       break;
     }
     case ButtonState::kManagement: {
-      const std::string custom_managed_label =
-          profile_->GetPrefs()->GetString(prefs::kCustomProfileLabel);
-      if (!custom_managed_label.empty()) {
-        text = base::UTF8ToUTF16(custom_managed_label);
-      } else if (profile_->GetPrefs()
-                     ->FindPreference(prefs::kProfileLabelPreset)
-                     ->IsManaged()) {
+      if (profile_->GetPrefs()
+              ->FindPreference(prefs::kProfileLabelPreset)
+              ->IsManaged()) {
         const int profile_label_preset =
             profile_->GetPrefs()->GetInteger(prefs::kProfileLabelPreset);
         if (profile_label_preset ==
@@ -1335,20 +1335,15 @@ AvatarToolbarButtonDelegate::GetAccessibilityLabel() const {
     case ButtonState::kNormal:
       break;
     case ButtonState::kSigninPending: {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
       const internal::SigninPendingStateProvider* signin_pending_state =
           internal::StateProviderGetter(
               *state_manager_->GetActiveStateProvider())
               .AsSigninPending();
       CHECK(signin_pending_state);
-      // Only set the accessibility label if the original text is not showing.
-      // We are setting the same string, this is done not to duplicate the
-      // message read by the screen reader.
-      if (!signin_pending_state->ShouldShowText()) {
-        // TODO(b/347011002): Final string to be added, condition will not hold
-        // if the text is different.
-        accessibility_label =
-            l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PAUSED);
-      }
+      accessibility_label = l10n_util::GetStringUTF16(
+          IDS_AVATAR_BUTTON_SIGNIN_PENDING_ACCESSIBILITY_LABEL);
+#endif
       break;
     }
     case ButtonState::kExplicitTextShowing:
@@ -1521,18 +1516,31 @@ bool AvatarToolbarButtonDelegate::ShouldPaintBorder() const {
 
 void AvatarToolbarButtonDelegate::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
-  if (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin) ==
-          signin::PrimaryAccountChangeEvent::Type::kSet &&
-      event_details.GetAccessPoint() ==
+  // Try showing the IPH for signin preference remembered.
+  if (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin) !=
+          signin::PrimaryAccountChangeEvent::Type::kSet ||
+      event_details.GetAccessPoint() !=
           signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED) {
-    AccountInfo account_info = identity_manager_->FindExtendedAccountInfo(
-        event_details.GetCurrentState().primary_account);
-    if (!account_info.given_name.empty()) {
-      avatar_toolbar_button_
-          ->MaybeShowExplicitBrowserSigninPreferenceRememberedIPH(account_info);
-    } else {
-      gaia_id_for_signin_choice_remembered_ = account_info.gaia;
-    }
+    return;
+  }
+
+  std::string gaia_id = event_details.GetCurrentState().primary_account.gaia;
+  const SigninPrefs signin_prefs(*profile_->GetPrefs());
+  std::optional<base::Time> last_signout_time =
+      signin_prefs.GetChromeLastSignoutTime(gaia_id);
+  if (last_signout_time &&
+      base::Time::Now() - last_signout_time.value() < base::Days(14)) {
+    // Less than two weeks since the last sign out event.
+    return;
+  }
+
+  AccountInfo account_info = identity_manager_->FindExtendedAccountInfo(
+      event_details.GetCurrentState().primary_account);
+  if (!account_info.given_name.empty()) {
+    avatar_toolbar_button_
+        ->MaybeShowExplicitBrowserSigninPreferenceRememberedIPH(account_info);
+  } else {
+    gaia_id_for_signin_choice_remembered_ = account_info.gaia;
   }
 }
 

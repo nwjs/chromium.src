@@ -1344,7 +1344,6 @@ interface OffscreenCanvasRenderingContext2D
     method clearRect
     method clip
     method closePath
-    method commit
     method constructor
     method createConicGradient
     method createImageData
@@ -1593,6 +1592,28 @@ interface PushSubscriptionOptions
     attribute @@toStringTag
     getter applicationServerKey
     getter userVisibleOnly
+    method constructor
+interface RTCRtpAcks
+    attribute @@toStringTag
+    getter explicitCongestionNotification
+    getter receivedTime
+    getter remoteSendTimestamp
+    method acks
+    method constructor
+interface RTCRtpSendResult
+    attribute @@toStringTag
+    getter sent
+    getter unsent
+    method constructor
+interface RTCRtpSendStream
+    attribute @@toStringTag
+    method constructor
+    method sendRtp
+interface RTCRtpSent
+    attribute @@toStringTag
+    getter ackId
+    getter size
+    getter time
     method constructor
 interface ReadableByteStreamController
     attribute @@toStringTag
@@ -1870,7 +1891,9 @@ interface TextMetrics
     getter hangingBaseline
     getter ideographicBaseline
     getter width
+    method caretPositionFromPoint
     method constructor
+    method getActualBoundingBox
     method getSelectionRects
 interface TimestampTrigger
     attribute @@toStringTag
@@ -3390,6 +3413,7 @@ interface WindowClient : Client
     method navigate
 interface WorkerGlobalScope : EventTarget
     attribute @@toStringTag
+    getter ai
     getter caches
     getter crossOriginEmbedderPolicy
     getter crossOriginIsolated
@@ -3423,6 +3447,7 @@ interface WorkerGlobalScope : EventTarget
     method setInterval
     method setTimeout
     method structuredClone
+    setter ai
     setter onerror
     setter onlanguagechange
     setter onrejectionhandled

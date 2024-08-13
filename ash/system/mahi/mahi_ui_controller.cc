@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "ash/shell.h"
 #include "ash/system/mahi/mahi_constants.h"
 #include "ash/system/mahi/mahi_panel_drag_controller.h"
 #include "ash/system/mahi/mahi_panel_widget.h"
@@ -53,14 +54,26 @@ MahiUiController::Delegate::~Delegate() = default;
 // MahiUiController ------------------------------------------------------------
 
 MahiUiController::MahiUiController()
-    : drag_controller_(std::make_unique<MahiPanelDragController>(this)) {}
+    : drag_controller_(std::make_unique<MahiPanelDragController>(this)) {
+  // The shell may not be available in tests if using a plain object for the UI
+  // controller, which means the session will not be observed.
+  if (Shell::HasInstance()) {
+    Shell::Get()->session_controller()->AddObserver(this);
+  }
+}
 
 MahiUiController::~MahiUiController() {
+  if (Shell::HasInstance()) {
+    Shell::Get()->session_controller()->RemoveObserver(this);
+  }
+
   if (mahi_panel_widget_) {
     // Immediately close the widget to avoid dangling pointers in tests.
     mahi_panel_widget_->CloseNow();
     mahi_panel_widget_.reset();
   }
+
+  RecordTimesPanelOpenedMetric();
 }
 
 void MahiUiController::AddDelegate(Delegate* delegate) {
@@ -81,6 +94,7 @@ void MahiUiController::OpenMahiPanel(int64_t display_id,
 
   mahi_panel_widget_ = MahiPanelWidget::CreateAndShowPanelWidget(
       display_id, mahi_menu_bounds, /*ui_controller=*/this);
+  times_panel_opened_per_session_++;
 }
 
 void MahiUiController::CloseMahiPanel() {
@@ -137,8 +151,11 @@ void MahiUiController::Retry(VisibilityState origin_state) {
 
 void MahiUiController::SendQuestion(const std::u16string& question,
                                     bool current_panel_content,
-                                    QuestionSource source) {
+                                    QuestionSource source,
+                                    bool update_summary_after_answer_question) {
   InvalidatePendingRequests();
+
+  update_summary_after_answer_question_ = update_summary_after_answer_question;
 
   base::UmaHistogramEnumeration(
       mahi_constants::kMahiQuestionSourceHistogramName, source);
@@ -167,8 +184,21 @@ void MahiUiController::UpdateSummaryAndOutlines() {
       &MahiUiController::OnOutlinesLoaded, weak_ptr_factory_.GetWeakPtr()));
 }
 
-void MahiUiController::SetUpdateSummaryAfterAnswerQuestion() {
-  update_summary_after_answer_question_ = true;
+void MahiUiController::OnSessionStateChanged(
+    session_manager::SessionState state) {
+  if (state != session_manager::SessionState::ACTIVE) {
+    RecordTimesPanelOpenedMetric();
+  }
+}
+
+void MahiUiController::RecordTimesPanelOpenedMetric() {
+  if (times_panel_opened_per_session_ > 0) {
+    base::UmaHistogramCounts1000(
+        mahi_constants::kTimesMahiPanelOpenedPerSessionHistogramName,
+        times_panel_opened_per_session_);
+  }
+
+  times_panel_opened_per_session_ = 0;
 }
 
 void MahiUiController::HandleError(const MahiUiError& error) {

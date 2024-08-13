@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/media/webrtc/media_stream_device_permission_context.h"
@@ -275,11 +276,37 @@ IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest,
     auto* scrim_view = static_cast<EmbeddedPermissionPromptContentScrimView*>(
         waiter.WaitIfNeededAndGet()->GetContentsView());
     scrim_view->OnMousePressed(
-        ui::MouseEvent(ui::ET_MOUSE_PRESSED, gfx::Point(), gfx::Point(),
+        ui::MouseEvent(ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
                        ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, 0));
-    scrim_view->OnMouseReleased(
-        ui::MouseEvent(ui::ET_MOUSE_RELEASED, gfx::Point(), gfx::Point(),
-                       ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, 0));
+    scrim_view->OnMouseReleased(ui::MouseEvent(
+        ui::EventType::kMouseReleased, gfx::Point(), gfx::Point(),
+        ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, 0));
+    WaitForDismissEvent(id);
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest,
+                       TappingScrimViewDispatchDismissEvent) {
+  SkipInvalidElementMessage();
+  permissions::PermissionRequestManager::FromWebContents(web_contents())
+      ->set_auto_response_for_test(
+          permissions::PermissionRequestManager::AutoResponseType::NONE);
+  std::string permission_ids[] = {"microphone", "camera", "camera-microphone"};
+  for (const auto& id : permission_ids) {
+    views::NamedWidgetShownWaiter waiter(
+        views::test::AnyWidgetTestPasskey{},
+        "EmbeddedPermissionPromptContentScrimWidget");
+    ClickElementWithId(web_contents(), id);
+    auto* scrim_view = static_cast<EmbeddedPermissionPromptContentScrimView*>(
+        waiter.WaitIfNeededAndGet()->GetContentsView());
+    ui::GestureEvent tap_down(
+        gfx::Point().x(), gfx::Point().y(), 0, base::TimeTicks::Now(),
+        ui::GestureEventDetails(ui::EventType::kGestureTapDown));
+    scrim_view->OnGestureEvent(&tap_down);
+    ui::GestureEvent tap_up(
+        gfx::Point().x(), gfx::Point().y(), 0, base::TimeTicks::Now(),
+        ui::GestureEventDetails(ui::EventType::kGestureTap));
+    scrim_view->OnGestureEvent(&tap_up);
     WaitForDismissEvent(id);
   }
 }
@@ -302,6 +329,47 @@ IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest, TabSwitchingClosesPrompt) {
   ExpectNoEvents();
   browser()->tab_strip_model()->ActivateTabAt(1);
   WaitForDismissEvent("camera");
+}
+
+IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest,
+                       DoubleClickDoesNotTriggerTwoRequests) {
+  SkipInvalidElementMessage();
+  permissions::PermissionRequestManager::FromWebContents(web_contents())
+      ->set_auto_response_for_test(
+          permissions::PermissionRequestManager::AutoResponseType::DISMISS);
+
+  permissions::PermissionRequestObserver observer1(web_contents());
+  content::WebContentsConsoleObserver console_observer(web_contents());
+
+  // Click the element twice.
+  ClickElementWithId(web_contents(), "microphone");
+  ClickElementWithId(web_contents(), "microphone");
+
+  EXPECT_EQ(console_observer.messages().size(), 1u);
+  ExpectConsoleMessage(
+      "The permission element already has a request in progress.");
+
+  // Multiple clicks on the same permission element should only trigger one
+  // request.
+  observer1.Wait();
+  EXPECT_TRUE(observer1.request_shown());
+  WaitForDismissEvent("microphone");
+
+  // Verify that no duplicate "microphone" requests or dismiss events are
+  // created.
+  permissions::PermissionRequestObserver observer2(web_contents());
+  ClickElementWithId(web_contents(), "camera");
+  observer2.Wait();
+  EXPECT_TRUE(observer2.request_shown());
+  WaitForDismissEvent("camera");
+
+  // Verify that clicking again on the same element after the prompt was
+  // dismissed, results in a permission request being shown.
+  permissions::PermissionRequestObserver observer3(web_contents());
+  ClickElementWithId(web_contents(), "microphone");
+  observer3.Wait();
+  WaitForDismissEvent("microphone");
+  EXPECT_TRUE(observer3.request_shown());
 }
 
 class PermissionElementWithSecurityBrowserTest
@@ -422,3 +490,38 @@ IN_PROC_BROWSER_TEST_P(PermissionElementStandardizedBrowserZoomTest,
 INSTANTIATE_TEST_SUITE_P(All,
                          PermissionElementStandardizedBrowserZoomTest,
                          testing::Bool());
+
+// Test fixture identical with |PermissionElementBrowserTest| but with simulated
+// different DPI devices.
+class PermissionElementHighDPITest : public PermissionElementBrowserTest,
+                                     public testing::WithParamInterface<float> {
+ protected:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    PermissionElementBrowserTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitchASCII(switches::kForceDeviceScaleFactor,
+                                    base::StringPrintf("%f", GetParam()));
+  }
+};
+
+// Ensure that the margin limit of 4px is applied regardless of device DPI.
+IN_PROC_BROWSER_TEST_P(PermissionElementHighDPITest, TestMargins) {
+  SkipInvalidElementMessage();
+  for (const auto& property :
+       {"marginTop", "marginBottom", "marginLeft", "marginRight"}) {
+    for (const auto& id : {"camera", "microphone", "camera-microphone"}) {
+      EXPECT_EQ(
+          "4px",
+          content::EvalJs(
+              web_contents(),
+              base::StrCat({content::JsReplace(
+                                "getComputedStyle(document.getElementById("
+                                "$1)).",
+                                id),
+                            property})));
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         PermissionElementHighDPITest,
+                         testing::Values(1.f, 1.25f, 1.5f, 2.f, 3.f));

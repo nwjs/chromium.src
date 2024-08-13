@@ -35,7 +35,7 @@ from blinkpy.web_tests.models.testharness_results import (
     TestharnessLine,
     parse_testharness_baseline,
 )
-from blinkpy.web_tests.models.typ_types import Expectation, ResultType
+from blinkpy.web_tests.models.typ_types import (ExpectationType, ResultType)
 from blinkpy.web_tests.port.base import Port
 
 path_finder.bootstrap_wpt_imports()
@@ -79,7 +79,7 @@ class TestLoader(testloader.TestLoader):
             self.tests[subsuite_name] = collections.defaultdict(list)
             self.disabled_tests[subsuite_name] = collections.defaultdict(list)
 
-            test_urls = subsuite.include or self._include or set(items_by_url)
+            test_urls = subsuite.include or self._include or []
             for test_url in test_urls:
                 if not test_url.startswith('/'):
                     test_url = f'/{test_url}'
@@ -162,7 +162,7 @@ class TestLoader(testloader.TestLoader):
     def _build_test_ast(
         self,
         test_type: TestType,
-        exp_line: Expectation,
+        exp_line: ExpectationType,
         testharness_lines: List[TestharnessLine],
     ) -> wptnode.DataNode:
         test_statuses = chromium_to_wptrunner_statuses(

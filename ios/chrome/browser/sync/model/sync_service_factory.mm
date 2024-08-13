@@ -26,18 +26,17 @@
 #import "components/sync_device_info/device_info_tracker.h"
 #import "components/sync_device_info/local_device_info_provider.h"
 #import "components/sync_preferences/pref_service_syncable.h"
-#import "components/variations/service/google_groups_updater_service.h"
-#import "ios/chrome/browser/bookmarks/model/account_bookmark_model_factory.h"
+#import "components/variations/service/google_groups_manager.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_sync_service_factory.h"
+#import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_undo_service_factory.h"
-#import "ios/chrome/browser/bookmarks/model/local_or_syncable_bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/model/local_or_syncable_bookmark_sync_service_factory.h"
 #import "ios/chrome/browser/consent_auditor/model/consent_auditor_factory.h"
 #import "ios/chrome/browser/data_sharing/model/data_sharing_service_factory.h"
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #import "ios/chrome/browser/gcm/model/ios_chrome_gcm_profile_service_factory.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
-#import "ios/chrome/browser/metrics/model/google_groups_updater_service_factory.h"
+#import "ios/chrome/browser/metrics/model/google_groups_manager_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_account_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_receiver_service_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_sender_service_factory.h"
@@ -85,15 +84,13 @@ std::unique_ptr<KeyedService> BuildSyncService(web::BrowserState* context) {
   ios::AboutSigninInternalsFactory::GetForBrowserState(browser_state);
 
   syncer::SyncServiceImpl::InitParams init_params;
-  init_params.identity_manager =
-      IdentityManagerFactory::GetForBrowserState(browser_state);
   init_params.sync_client =
       std::make_unique<IOSChromeSyncClient>(browser_state);
   init_params.url_loader_factory = browser_state->GetSharedURLLoaderFactory();
   init_params.network_connection_tracker =
       GetApplicationContext()->GetNetworkConnectionTracker();
   init_params.channel = ::GetChannel();
-  init_params.debug_identifier = browser_state->GetDebugName();
+  init_params.debug_identifier = browser_state->GetBrowserStateName();
 
   auto sync_service =
       std::make_unique<syncer::SyncServiceImpl>(std::move(init_params));
@@ -142,9 +139,8 @@ std::unique_ptr<KeyedService> BuildSyncService(web::BrowserState* context) {
   SendTabToSelfSyncServiceFactory::GetForBrowserState(browser_state)
       ->OnSyncServiceInitialized(sync_service.get());
 
-  if (GoogleGroupsUpdaterService* groups_updater_service =
-          GoogleGroupsUpdaterServiceFactory::GetForBrowserState(
-              browser_state)) {
+  if (GoogleGroupsManager* groups_updater_service =
+          GoogleGroupsManagerFactory::GetForBrowserState(browser_state)) {
     groups_updater_service->OnSyncServiceInitialized(sync_service.get());
   }
 
@@ -198,20 +194,21 @@ SyncServiceFactory::SyncServiceFactory()
     : BrowserStateKeyedServiceFactory(
           "SyncService",
           BrowserStateDependencyManager::GetInstance()) {
-  // The SyncService depends on various SyncableServices being around
+  // The SyncServiceImpl depends on various KeyedServices being around
   // when it is shut down.  Specify those dependencies here to build the proper
-  // destruction order.
+  // destruction order. Note that some of the dependencies are listed here but
+  // actually plumbed in IOSChromeSyncClient, which this factory constructs.
   DependsOn(ChromeAccountManagerServiceFactory::GetInstance());
   DependsOn(ConsentAuditorFactory::GetInstance());
   DependsOn(data_sharing::DataSharingServiceFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
+  DependsOn(GoogleGroupsManagerFactory::GetInstance());
   DependsOn(SendTabToSelfSyncServiceFactory::GetInstance());
   DependsOn(ios::AboutSigninInternalsFactory::GetInstance());
-  DependsOn(ios::AccountBookmarkModelFactory::GetInstance());
   DependsOn(ios::AccountBookmarkSyncServiceFactory::GetInstance());
-  DependsOn(ios::LocalOrSyncableBookmarkModelFactory::GetInstance());
-  DependsOn(ios::LocalOrSyncableBookmarkSyncServiceFactory::GetInstance());
+  DependsOn(ios::BookmarkModelFactory::GetInstance());
   DependsOn(ios::BookmarkUndoServiceFactory::GetInstance());
+  DependsOn(ios::LocalOrSyncableBookmarkSyncServiceFactory::GetInstance());
   DependsOn(ios::FaviconServiceFactory::GetInstance());
   DependsOn(ios::HistoryServiceFactory::GetInstance());
   DependsOn(ios::TemplateURLServiceFactory::GetInstance());

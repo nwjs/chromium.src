@@ -114,8 +114,7 @@ class NET_EXPORT IOBuffer : public base::RefCountedThreadSafe<IOBuffer> {
 
   virtual ~IOBuffer();
 
-  raw_ptr<char, AcrossTasksDanglingUntriaged | AllowPtrArithmetic> data_ =
-      nullptr;
+  raw_ptr<char, AllowPtrArithmetic> data_ = nullptr;
   int size_ = 0;
 };
 
@@ -227,6 +226,10 @@ class NET_EXPORT GrowableIOBuffer : public IOBuffer {
   // after `offset()`.
   base::span<uint8_t> everything();
   base::span<const uint8_t> everything() const;
+
+  // Return a span before the `offset()`.
+  base::span<uint8_t> span_before_offset();
+  base::span<const uint8_t> span_before_offset() const;
 
  private:
   ~GrowableIOBuffer() override;

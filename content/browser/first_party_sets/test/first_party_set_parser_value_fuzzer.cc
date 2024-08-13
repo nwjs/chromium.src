@@ -30,33 +30,48 @@ constexpr char kCctld[] = "ccTLDs";
 constexpr char kReplacements[] = "replacements";
 constexpr char kAdditions[] = "additions";
 
-constexpr char const* kSites[10] = {
-    "https://site-0.test", "https://site-1.test", "https://site-2.test",
-    "https://site-3.test", "https://site-4.test", "https://site-5.test",
-    "https://site-6.test", "https://site-7.test", "https://site-8.test",
-    "https://site-9.test",
+constexpr char const* kSubdomains[3] = {
+    "sub-0",
+    "sub-1",
+    "sub-2",
 };
 
-constexpr char const* kCctlds[10] = {
-    "https://site-0.cctld", "https://site-1.cctld", "https://site-2.cctld",
-    "https://site-3.cctld", "https://site-4.cctld", "https://site-5.cctld",
-    "https://site-6.cctld", "https://site-7.cctld", "https://site-8.cctld",
-    "https://site-9.cctld",
+constexpr char const* kSites[5] = {
+    "site-0", "site-1", "site-2", "site-3", "site-4",
 };
+
+constexpr char const* kTlds[2] = {
+    "test",
+    "cctld",
+};
+
+std::string ConvertSite(const related_website_sets::proto::Site& site) {
+  std::string out = "https://";
+  if (site.has_subdomain_index()) {
+    base::StrAppend(&out, {kSubdomains[site.subdomain_index()], "."});
+  }
+  base::StrAppend(&out, {
+                            kSites[site.site_index()],
+                            ".",
+                            kTlds[site.tld()],
+                        });
+
+  return out;
+}
 
 base::Value::Dict ConvertSet(const related_website_sets::proto::Set& set) {
   base::Value::Dict json_set;
-  json_set.Set(kPrimary, kSites[set.primary()]);
-  for (int site : set.associated()) {
-    json_set.EnsureList(kAssociated)->Append(kSites[site]);
+  json_set.Set(kPrimary, ConvertSite(set.primary()));
+  for (const auto& site : set.associated()) {
+    json_set.EnsureList(kAssociated)->Append(ConvertSite(site));
   }
-  for (int site : set.service()) {
-    json_set.EnsureList(kService)->Append(kSites[site]);
+  for (const auto& site : set.service()) {
+    json_set.EnsureList(kService)->Append(ConvertSite(site));
   }
   for (const related_website_sets::proto::SitePair& site_pair :
        set.cctld_aliases()) {
-    json_set.EnsureDict(kCctld)->Set(kCctlds[site_pair.alias()],
-                                     kSites[site_pair.canonical()]);
+    json_set.EnsureDict(kCctld)->Set(ConvertSite(site_pair.alias()),
+                                     ConvertSite(site_pair.canonical()));
   }
 
   return json_set;

@@ -50,8 +50,11 @@
 #include "net/log/net_log_source.h"
 #include "net/log/net_log_with_source.h"
 #include "net/net_buildflags.h"
+#include "net/shared_dictionary/shared_dictionary.h"
+#include "net/shared_dictionary/shared_dictionary_getter.h"
 #include "net/socket/connection_attempts.h"
 #include "net/socket/socket_tag.h"
+#include "net/storage_access_api/status.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/redirect_info.h"
 #include "net/url_request/referrer_policy.h"
@@ -285,11 +288,17 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // are sent, what NetworkAnonymizationKey is used for cached resources, and
   // how that behavior changes when following redirects. This may only be
   // changed before Start() is called. Setting this value causes the
-  // cookie_partition_key_ to be recalculated.
+  // cookie_partition_key_ to be recalculated. When the isolation information is
+  // set through a redirect, the request_site used to create the partition key
+  // should come from the new_url associated with the redirect_info object
+  // associated with the redirect to ensure the cookie partition key's ancestor
+  // chain bit is set correctly.
   //
-  // TODO(crbug.com/40122112): This isn't actually used yet for SameSite
+  // TODO(crbug.com/40093296): This isn't actually used yet for SameSite
   // cookies. Update consumers and fix that.
-  void set_isolation_info(const IsolationInfo& isolation_info);
+  void set_isolation_info(
+      const IsolationInfo& isolation_info,
+      std::optional<GURL> redirect_info_new_url = std::nullopt);
 
   // This will convert the passed NetworkAnonymizationKey to an IsolationInfo.
   // This IsolationInfo mmay be assigned an inaccurate frame origin because the
@@ -840,12 +849,20 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   void SetIdempotency(Idempotency idempotency) { idempotency_ = idempotency; }
   Idempotency GetIdempotency() const { return idempotency_; }
 
-  void set_has_storage_access(bool has_storage_access) {
+  // Set a SharedDictionaryGetter which will be used to get a shared dictionary
+  // for this request. This must not be called after Start() is called.
+  void SetSharedDictionaryGetter(
+      SharedDictionaryGetter shared_dictionary_getter);
+
+  void set_storage_access_api_status(
+      StorageAccessApiStatus storage_access_api_status) {
     DCHECK(!is_pending_);
     DCHECK(!has_notified_completion_);
-    has_storage_access_ = has_storage_access;
+    storage_access_api_status_ = storage_access_api_status;
   }
-  bool has_storage_access() const { return has_storage_access_; }
+  StorageAccessApiStatus storage_access_api_status() const {
+    return storage_access_api_status_;
+  }
 
   // Returns true if the corresponding `URLResponseHead`'s
   // `load_with_storage_access` field should be set.
@@ -1004,10 +1021,14 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // Whether the request is allowed to send credentials in general. Set by
   // caller.
   bool allow_credentials_ = true;
-  // Whether the request is eligible for using storage access permission grant
-  // if one exists. Only set by caller when constructed and will not change
-  // during redirects.
-  bool has_storage_access_ = false;
+  // Whether the request is eligible for using a <request initiator's site,
+  // top-level site> storage access permission grant if one exists. Only set by
+  // caller when constructed and will not change during redirects.
+  //
+  // Note that this has no effect if the request initiator site and the request
+  // URL are not same-site to each other.
+  StorageAccessApiStatus storage_access_api_status_ =
+      StorageAccessApiStatus::kNone;
   SecureDnsPolicy secure_dns_policy_ = SecureDnsPolicy::kAllow;
 
   CookieAccessResultList maybe_sent_cookies_;
@@ -1125,6 +1146,8 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
 
   // Idempotency of the request.
   Idempotency idempotency_ = DEFAULT_IDEMPOTENCY;
+
+  SharedDictionaryGetter shared_dictionary_getter_;
 
   THREAD_CHECKER(thread_checker_);
 

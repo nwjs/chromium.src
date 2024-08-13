@@ -1113,15 +1113,6 @@ void Texture::UpdateNumMipLevels() {
   UpdateCanRenderCondition();
 }
 
-void Texture::ApplyClampedBaseLevelAndMaxLevelToDriver() {
-  if (base_level_ != unclamped_base_level_) {
-    glTexParameteri(target_, GL_TEXTURE_BASE_LEVEL, base_level_);
-  }
-  if (max_level_ != unclamped_max_level_) {
-    glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, max_level_);
-  }
-}
-
 void Texture::SetLevelInfo(GLenum target,
                            GLint level,
                            GLenum internal_format,
@@ -1932,7 +1923,7 @@ void TextureManager::RemoveFramebufferManager(
 
 void TextureManager::Initialize() {
   // Reset PIXEL_UNPACK_BUFFER to avoid unrelated GL error on some GL drivers.
-  if (feature_info_->gl_version_info().is_es3_capable) {
+  if (feature_info_->gl_version_info().IsAtLeastGLES(3, 0)) {
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
   }
 
@@ -3259,14 +3250,6 @@ GLenum TextureManager::AdjustTexInternalFormat(
 // static
 GLenum TextureManager::AdjustTexFormat(const gles2::FeatureInfo* feature_info,
                                        GLenum format) {
-  // TODO(bajones): GLES 3 allows for internal format and format to differ.
-  // This logic may need to change as a result.
-  if (!feature_info->gl_version_info().is_es) {
-    if (format == GL_SRGB_EXT)
-      return GL_RGB;
-    if (format == GL_SRGB_ALPHA_EXT)
-      return GL_RGBA;
-  }
   if (feature_info->gl_version_info().NeedsLuminanceAlphaEmulation()) {
     const Texture::CompatibilitySwizzle* swizzle =
         GetCompatibilitySwizzleInternal(format);

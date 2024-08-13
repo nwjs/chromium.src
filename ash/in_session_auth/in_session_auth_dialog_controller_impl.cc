@@ -28,6 +28,7 @@
 #include "chromeos/ash/components/cryptohome/constants.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/ash/components/login/auth/auth_performer.h"
+#include "chromeos/ash/components/osauth/impl/auth_surface_registry.h"
 #include "chromeos/ash/components/osauth/public/auth_factor_status_consumer.h"
 #include "chromeos/ash/components/osauth/public/auth_hub.h"
 #include "chromeos/ash/components/osauth/public/common_types.h"
@@ -62,7 +63,7 @@ std::unique_ptr<views::Widget> CreateAuthDialogWidget(
   params.name = "AuthDialogWidget";
 
   params.delegate->SetInitiallyFocusedView(contents_view.get());
-  params.delegate->SetModalType(ui::MODAL_TYPE_NONE);
+  params.delegate->SetModalType(ui::MODAL_TYPE_SYSTEM);
   params.delegate->SetOwnedByWidget(true);
 
   std::unique_ptr<views::Widget> widget = std::make_unique<views::Widget>();
@@ -189,6 +190,8 @@ void InSessionAuthDialogControllerImpl::OnUserAuthAttemptConfirmed(
   dialog_ = CreateAuthDialogWidget(std::move(contents_view));
   dialog_->Show();
   state_ = State::kShown;
+  AuthParts::Get()->GetAuthSurfaceRegistry()->NotifyInSessionAuthDialogShown(
+      connector);
 }
 
 void InSessionAuthDialogControllerImpl::OnAuthPanelPreferredSizeChanged() {

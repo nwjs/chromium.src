@@ -13,6 +13,7 @@ import "components/optimization_guide/proto/descriptors.proto";
 import "components/optimization_guide/proto/redaction.proto";
 import "components/optimization_guide/proto/substitution.proto";
 import "components/optimization_guide/proto/model_execution.proto";
+import "components/optimization_guide/proto/parser_kind.proto";
 
 message OnDeviceModelExecutionConfig {
   // The set of configs for features that leverage the on-device model.
@@ -40,6 +41,10 @@ message OnDeviceModelExecutionFeatureConfig {
 
   // Whether text safety can be skipped for this feature, if not configured.
   optional bool can_skip_text_safety = 5;
+
+  // Sampling parameters to use with the model.
+  // These will override global defaults, but not per session configurations.
+  optional SamplingParams sampling_params = 6;
 }
 
 message OnDeviceModelExecutionInputConfig {
@@ -73,6 +78,9 @@ message OnDeviceModelExecutionOutputConfig {
 
   // Rules that result in redacting the output.
   optional RedactRules redact_rules = 3;
+
+  // Which output parsing implementation to use.
+  optional ParserKind parser_kind = 4;
 }
 
 message TextSafetyFallbackConfig {
@@ -93,4 +101,9 @@ message ValidationPrompt {
   // A string that the output is expected to contain. This is not case
   // sensitive.
   optional string expected_output = 2;
+}
+
+message SamplingParams {
+  optional uint32 top_k = 1;
+  optional float temperature = 2;
 }

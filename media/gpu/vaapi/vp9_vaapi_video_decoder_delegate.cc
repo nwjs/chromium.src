@@ -10,7 +10,6 @@
 #include "base/trace_event/trace_event.h"
 #include "build/chromeos_buildflags.h"
 #include "media/gpu/macros.h"
-#include "media/gpu/vaapi/va_surface.h"
 #include "media/gpu/vaapi/vaapi_common.h"
 #include "media/gpu/vaapi/vaapi_decode_surface_handler.h"
 #include "media/gpu/vaapi/vaapi_wrapper.h"
@@ -40,11 +39,12 @@ VP9VaapiVideoDecoderDelegate::~VP9VaapiVideoDecoderDelegate() {
 
 scoped_refptr<VP9Picture> VP9VaapiVideoDecoderDelegate::CreateVP9Picture() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  const auto va_surface = vaapi_dec_->CreateSurface();
-  if (!va_surface)
+  auto va_surface_handle = vaapi_dec_->CreateSurface();
+  if (!va_surface_handle) {
     return nullptr;
+  }
 
-  return new VaapiVP9Picture(std::move(va_surface));
+  return new VaapiVP9Picture(std::move(va_surface_handle));
 }
 
 DecodeStatus VP9VaapiVideoDecoderDelegate::SubmitDecode(
@@ -114,7 +114,7 @@ DecodeStatus VP9VaapiVideoDecoderDelegate::SubmitDecode(
     auto ref_pic = ref_frames.GetFrame(i);
     if (ref_pic) {
       pic_param.reference_frames[i] =
-          ref_pic->AsVaapiVP9Picture()->va_surface()->id();
+          ref_pic->AsVaapiVP9Picture()->va_surface_id();
     } else {
       pic_param.reference_frames[i] = VA_INVALID_SURFACE;
     }
@@ -273,11 +273,8 @@ DecodeStatus VP9VaapiVideoDecoderDelegate::SubmitDecode(
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   const VaapiVP9Picture* vaapi_pic = pic->AsVaapiVP9Picture();
-  CHECK(
-      gfx::Rect(vaapi_pic->va_surface()->size()).Contains(pic->visible_rect()));
-
-  bool success = vaapi_wrapper_->MapAndCopyAndExecute(
-      vaapi_pic->va_surface()->id(), buffers);
+  const bool success =
+      vaapi_wrapper_->MapAndCopyAndExecute(vaapi_pic->va_surface_id(), buffers);
   if (!success && NeedsProtectedSessionRecovery())
     return DecodeStatus::kTryAgain;
 
@@ -292,7 +289,7 @@ bool VP9VaapiVideoDecoderDelegate::OutputPicture(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   const VaapiVP9Picture* vaapi_pic = pic->AsVaapiVP9Picture();
-  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface()->id(),
+  vaapi_dec_->SurfaceReady(vaapi_pic->va_surface_id(),
                            vaapi_pic->bitstream_id(), vaapi_pic->visible_rect(),
                            vaapi_pic->get_colorspace());
   return true;

@@ -825,11 +825,10 @@ void GpuChannelManager::OnApplicationBackgrounded() {
 
   // Release all skia caching when the application is backgrounded.
   SkGraphics::PurgeAllCaches();
-  if (base::FeatureList::IsEnabled(features::kGpuCleanupInBackground)) {
-    // At that point, no frames are going to be produced. Make sure that
-    // e.g. pending SharedImage deletions happens promptly.
-    PerformImmediateCleanup();
-  }
+  // At that point, no frames are going to be produced. Make sure that
+  // e.g. pending SharedImage deletions happens promptly.
+  PerformImmediateCleanup();
+
   application_backgrounded_ = true;
 }
 
@@ -1081,8 +1080,6 @@ void GpuChannelManager::OnContextLost(
     force_restart |= (interval <= base::Seconds(5));
   }
 
-  force_restart &=
-      base::FeatureList::IsEnabled(features::kForceRestartGpuKillSwitch);
   context_lost_time_ = lost_time;
   bool is_gl = gpu_preferences_.gr_context_type == GrContextType::kGL;
   if (!force_restart && synthetic_loss && is_gl)

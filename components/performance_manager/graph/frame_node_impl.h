@@ -11,13 +11,17 @@
 #include "base/memory/weak_ptr.h"
 #include "base/types/pass_key.h"
 #include "base/unguessable_token.h"
+#include "components/performance_manager/execution_context/execution_context_impl.h"
+#include "components/performance_manager/graph/node_attached_data_storage.h"
 #include "components/performance_manager/graph/node_base.h"
+#include "components/performance_manager/graph/node_inline_data.h"
 #include "components/performance_manager/public/graph/frame_node.h"
 #include "components/performance_manager/public/graph/node_attached_data.h"
 #include "components/performance_manager/public/mojom/coordination_unit.mojom.h"
 #include "components/performance_manager/public/mojom/web_memory.mojom.h"
 #include "components/performance_manager/public/render_frame_host_proxy.h"
 #include "content/public/browser/browsing_instance_id.h"
+#include "content/public/browser/site_instance.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
@@ -28,16 +32,15 @@ namespace performance_manager {
 
 class FrameNodeImplDescriber;
 
-namespace execution_context {
-class ExecutionContextAccess;
-}  // namespace execution_context
-
 // Frame nodes for a tree structure that is described in
 // components/performance_manager/public/graph/frame_node.h.
 class FrameNodeImpl
     : public PublicNodeImpl<FrameNodeImpl, FrameNode>,
       public TypedNodeBase<FrameNodeImpl, FrameNode, FrameNodeObserver>,
-      public mojom::DocumentCoordinationUnit {
+      public mojom::DocumentCoordinationUnit,
+      public SupportsNodeInlineData<execution_context::FrameExecutionContext,
+                                    // Keep this last to avoid merge conflicts.
+                                    NodeAttachedDataStorage> {
  public:
   static const char kDefaultPriorityReason[];
 
@@ -56,7 +59,7 @@ class FrameNodeImpl
                 int render_frame_id,
                 const blink::LocalFrameToken& frame_token,
                 content::BrowsingInstanceId browsing_instance_id,
-                content::SiteInstanceId site_instance_id,
+                content::SiteInstanceGroupId site_instance_group_id,
                 bool is_current);
 
   FrameNodeImpl(const FrameNodeImpl&) = delete;
@@ -83,7 +86,7 @@ class FrameNodeImpl
   // Partial FrameNode implementation:
   const blink::LocalFrameToken& GetFrameToken() const override;
   content::BrowsingInstanceId GetBrowsingInstanceId() const override;
-  content::SiteInstanceId GetSiteInstanceId() const override;
+  content::SiteInstanceGroupId GetSiteInstanceGroupId() const override;
   resource_attribution::FrameContext GetResourceContext() const override;
   bool IsMainFrame() const override;
   LifecycleState GetLifecycleState() const override;
@@ -164,14 +167,7 @@ class FrameNodeImpl
   void RemoveEmbeddedPage(base::PassKey<PageNodeImpl> key,
                           PageNodeImpl* page_node);
 
-  // Used by the ExecutionContextRegistry mechanism.
-  std::unique_ptr<NodeAttachedData>* GetExecutionContextStorage(
-      base::PassKey<execution_context::ExecutionContextAccess> key) {
-    return &execution_context_;
-  }
-
  private:
-  friend class ExecutionContextPriorityAccess;
   friend class FrameNodeImplDescriber;
   friend class ProcessNodeImpl;
 
@@ -270,10 +266,13 @@ class FrameNodeImpl
   // asynchronously (if cross-site), and sometimes synchronously (if same-site,
   // and thus same SiteInstance).
   const content::BrowsingInstanceId browsing_instance_id_;
-  // The unique ID of the SiteInstance this frame belongs to. Frames in the
-  // same SiteInstance may sychronously script each other. Frames with the
-  // same |site_instance_id_| will also have the same |browsing_instance_id_|.
-  const content::SiteInstanceId site_instance_id_;
+
+  // The unique ID of the SiteInstanceGroup this frame belongs to. Frames in the
+  // same SiteInstanceGroup are in the same process and exist as LocalFrames in
+  // the same blink::FrameTree. Frames with the same |site_instance_group_id_|
+  // will also have the same |browsing_instance_id_|.
+  const content::SiteInstanceGroupId site_instance_group_id_;
+
   // A proxy object that lets the underlying RFH be safely dereferenced on the
   // UI thread.
   const RenderFrameHostProxy render_frame_host_proxy_;
@@ -365,9 +364,6 @@ class FrameNodeImpl
       Visibility,
       &FrameNodeObserver::OnFrameVisibilityChanged>
       visibility_{Visibility::kUnknown};
-
-  // Inline storage for ExecutionContext.
-  std::unique_ptr<NodeAttachedData> execution_context_;
 
   base::WeakPtr<FrameNodeImpl> weak_this_;
   base::WeakPtrFactory<FrameNodeImpl> weak_factory_

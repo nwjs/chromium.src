@@ -5,17 +5,17 @@
 #ifndef PARTITION_ALLOC_PARTITION_ADDRESS_SPACE_H_
 #define PARTITION_ALLOC_PARTITION_ADDRESS_SPACE_H_
 
-#include <bit>
 #include <cstddef>
 #include <utility>
 
 #include "partition_alloc/address_pool_manager_types.h"
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/page_allocator_constants.h"
+#include "partition_alloc/partition_alloc_base/bits.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
 #include "partition_alloc/partition_alloc_base/notreached.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_constants.h"
@@ -315,7 +315,7 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionAddressSpace {
       "because the test process cannot use an extended virtual address space. "
       "Temporarily disable ShadowMetadata feature on iOS");
 
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
   // Check whether the given |ptr| points to an address inside the address space
   // reserved for the regular and brp shadow. However the result |true| doesn't
   // mean the given |ptr| is valid. Because we don't use the entire address
@@ -328,7 +328,7 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionAddressSpace {
              ptr_as_uintptr < pool_shadow_address_ + BRPPoolSize() ||
              ptr_as_uintptr < pool_shadow_address_ + kConfigurablePoolMaxSize));
   }
-#endif  // PA_BUILDFLAG(PA_DCHECK_IS_ON)
+#endif  // PA_BUILDFLAG(DCHECKS_ARE_ON)
 
   static void InitShadowMetadata(PoolHandleMask pool);
   static void MapMetadata(uintptr_t super_page, bool copy_metadata);
@@ -382,17 +382,17 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionAddressSpace {
   // ArrayBuffers be located inside of it.
   static constexpr size_t kRegularPoolSize = kPoolMaxSize;
   static constexpr size_t kBRPPoolSize = kPoolMaxSize;
-  static_assert(std::has_single_bit(kRegularPoolSize));
-  static_assert(std::has_single_bit(kBRPPoolSize));
+  static_assert(base::bits::HasSingleBit(kRegularPoolSize));
+  static_assert(base::bits::HasSingleBit(kBRPPoolSize));
 #if PA_BUILDFLAG(ENABLE_THREAD_ISOLATION)
   static constexpr size_t kThreadIsolatedPoolSize = kGiB / 4;
-  static_assert(std::has_single_bit(kThreadIsolatedPoolSize));
+  static_assert(base::bits::HasSingleBit(kThreadIsolatedPoolSize));
 #endif
   static constexpr size_t kConfigurablePoolMaxSize = kPoolMaxSize;
   static constexpr size_t kConfigurablePoolMinSize = 1 * kGiB;
   static_assert(kConfigurablePoolMinSize <= kConfigurablePoolMaxSize);
-  static_assert(std::has_single_bit(kConfigurablePoolMaxSize));
-  static_assert(std::has_single_bit(kConfigurablePoolMinSize));
+  static_assert(base::bits::HasSingleBit(kConfigurablePoolMaxSize));
+  static_assert(base::bits::HasSingleBit(kConfigurablePoolMinSize));
 
 #if PA_BUILDFLAG(IS_IOS)
 
@@ -407,8 +407,8 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionAddressSpace {
   static constexpr size_t kBRPPoolSizeForIOSTestProcess = kGiB / 4;
   static_assert(kRegularPoolSizeForIOSTestProcess < kRegularPoolSize);
   static_assert(kBRPPoolSizeForIOSTestProcess < kBRPPoolSize);
-  static_assert(std::has_single_bit(kRegularPoolSizeForIOSTestProcess));
-  static_assert(std::has_single_bit(kBRPPoolSizeForIOSTestProcess));
+  static_assert(base::bits::HasSingleBit(kRegularPoolSizeForIOSTestProcess));
+  static_assert(base::bits::HasSingleBit(kBRPPoolSizeForIOSTestProcess));
 #endif  // PA_BUILDFLAG(IOS_IOS)
 
 #if !PA_CONFIG(DYNAMICALLY_SELECT_POOL_SIZE)

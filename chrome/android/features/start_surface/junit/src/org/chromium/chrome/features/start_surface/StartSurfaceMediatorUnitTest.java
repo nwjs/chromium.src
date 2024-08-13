@@ -24,7 +24,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.EXPLORE_SURFACE_COORDINATOR;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.IS_EXPLORE_SURFACE_VISIBLE;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.IS_SHOWING_OVERVIEW;
 import static org.chromium.chrome.features.start_surface.StartSurfaceProperties.TOP_MARGIN;
@@ -52,7 +51,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
@@ -65,7 +63,6 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -82,6 +79,7 @@ import org.chromium.chrome.browser.logo.LogoBridge;
 import org.chromium.chrome.browser.logo.LogoBridgeJni;
 import org.chromium.chrome.browser.logo.LogoView;
 import org.chromium.chrome.browser.magic_stack.HomeModulesCoordinator;
+import org.chromium.chrome.browser.magic_stack.HomeModulesMetricsUtils;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
@@ -112,7 +110,6 @@ import java.util.Arrays;
 import java.util.List;
 
 /** Tests for {@link StartSurfaceMediator}. */
-@DisableFeatures({ChromeFeatureList.SHOW_NTP_AT_STARTUP_ANDROID})
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class StartSurfaceMediatorUnitTest {
@@ -120,7 +117,6 @@ public class StartSurfaceMediatorUnitTest {
     private PropertyModel mPropertyModel;
 
     @Rule public JniMocker mJniMocker = new JniMocker();
-    @Rule public TestRule mProcessor = new Features.JUnitProcessor();
     @Mock private TabModelSelector mTabModelSelector;
     @Mock private Tab mTab;
     @Mock private TabModel mNormalTabModel;
@@ -247,28 +243,6 @@ public class StartSurfaceMediatorUnitTest {
         assertThat(mPropertyModel.get(IS_INCOGNITO), equalTo(false));
         assertThat(mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE), equalTo(true));
         assertThat(mPropertyModel.get(MV_TILES_VISIBLE), equalTo(true));
-    }
-
-    @Test
-    public void activityIsFinishingOrDestroyedSinglePaneWithRefactorEnabled() {
-        doReturn(false).when(mTabModelSelector).isIncognitoSelected();
-        doReturn(true).when(mVoiceRecognitionHandler).isVoiceSearchEnabled();
-
-        StartSurfaceMediator mediator = createStartSurfaceMediator();
-        assertFalse(mediator.isHomepageShown());
-
-        doReturn(2).when(mNormalTabModel).getCount();
-        doReturn(true).when(mActivityStateChecker).isFinishingOrDestroyed();
-        doReturn(true).when(mTabModelSelector).isTabStateInitialized();
-        showHomepageAndVerify(mediator);
-        assertThat(mPropertyModel.get(IS_SHOWING_OVERVIEW), equalTo(true));
-        assertThat(mPropertyModel.get(IS_INCOGNITO), equalTo(false));
-        assertThat(mPropertyModel.get(IS_EXPLORE_SURFACE_VISIBLE), equalTo(true));
-        assertThat(mPropertyModel.get(MV_TILES_VISIBLE), equalTo(true));
-        assertThat(mPropertyModel.get(EXPLORE_SURFACE_COORDINATOR), equalTo(null));
-
-        mediator.startedHiding();
-        assertFalse(mediator.isHomepageShown());
     }
 
     @Test
@@ -460,8 +434,6 @@ public class StartSurfaceMediatorUnitTest {
 
         StartSurfaceMediator mediator = createStartSurfaceMediator(/* hadWarmStart= */ false);
         assertEquals(mInitializeMVTilesRunnable, mediator.getInitializeMVTilesRunnableForTesting());
-        assertNull(mediator.getTabSwitcherModuleForTesting());
-        assertNull(mediator.getControllerForTesting());
 
         showHomepageAndVerify(mediator);
         verify(mTabModelSelector).addObserver(mTabModelSelectorObserverCaptor.capture());
@@ -525,8 +497,6 @@ public class StartSurfaceMediatorUnitTest {
 
         StartSurfaceMediator mediator = createStartSurfaceMediator(/* hadWarmStart= */ false);
         assertEquals(mInitializeMVTilesRunnable, mediator.getInitializeMVTilesRunnableForTesting());
-        assertNull(mediator.getTabSwitcherModuleForTesting());
-        assertNull(mediator.getControllerForTesting());
 
         showHomepageAndVerify(mediator);
         verify(mTabModelSelector).addObserver(mTabModelSelectorObserverCaptor.capture());
@@ -581,7 +551,7 @@ public class StartSurfaceMediatorUnitTest {
     @Test
     @EnableFeatures({ChromeFeatureList.MAGIC_STACK_ANDROID})
     public void testSetMagicStackVisibility() {
-        assertTrue(StartSurfaceConfiguration.useMagicStack());
+        assertTrue(HomeModulesMetricsUtils.useMagicStack());
         StartSurfaceMediator mediator = createStartSurfaceMediator(/* hadWarmStart= */ false);
         assertNull(mediator.getHomeModulesCoordinatorForTesting());
 
@@ -606,7 +576,6 @@ public class StartSurfaceMediatorUnitTest {
 
     private StartSurfaceMediator createStartSurfaceMediatorWithoutInit(boolean hadWarmStart) {
         return new StartSurfaceMediator(
-                /* tabSwitcherContainer= */ null,
                 mTabModelSelector,
                 mPropertyModel,
                 /* isStartSurfaceEnabled= */ true,
@@ -631,7 +600,7 @@ public class StartSurfaceMediatorUnitTest {
                 .getTopControlsMinHeightOffset();
         mBrowserControlsStateProviderCaptor
                 .getValue()
-                .onControlsOffsetChanged(topOffset, topControlsMinHeightOffset, 0, 0, false);
+                .onControlsOffsetChanged(topOffset, topControlsMinHeightOffset, 0, 0, false, false);
     }
 
     private void showHomepageAndVerify(StartSurfaceMediator mediator) {

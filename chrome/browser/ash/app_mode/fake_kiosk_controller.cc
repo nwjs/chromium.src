@@ -5,6 +5,14 @@
 #include "chrome/browser/ash/app_mode/fake_kiosk_controller.h"
 
 #include <optional>
+#include <string>
+#include <vector>
+
+#include "ash/public/cpp/login_accelerators.h"
+#include "chrome/browser/ash/app_mode/kiosk_app.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_types.h"
+#include "chrome/browser/ash/app_mode/kiosk_controller.h"
+#include "chromeos/ash/components/kiosk/vision/internals_page_processor.h"
 
 namespace ash {
 
@@ -23,6 +31,9 @@ void FakeKioskController::StartSession(const KioskAppId& app,
                                        bool is_auto_launch,
                                        LoginDisplayHost* host) {}
 
+void FakeKioskController::StartSessionAfterCrash(const KioskAppId& app,
+                                                 Profile* profile) {}
+
 bool FakeKioskController::IsSessionStarting() const {
   return false;
 }
@@ -38,11 +49,6 @@ bool FakeKioskController::HandleAccelerator(LoginAcceleratorAction action) {
   return false;
 }
 
-void FakeKioskController::InitializeKioskSystemSession(
-    Profile* profile,
-    const KioskAppId& kiosk_app_id,
-    const std::optional<std::string>& app_name) {}
-
 KioskSystemSession* FakeKioskController::GetKioskSystemSession() {
   return nullptr;
 }
@@ -50,6 +56,11 @@ KioskSystemSession* FakeKioskController::GetKioskSystemSession() {
 kiosk_vision::TelemetryProcessor*
 FakeKioskController::GetKioskVisionTelemetryProcessor() {
   return telemetry_processor_;
+}
+
+kiosk_vision::InternalsPageProcessor*
+FakeKioskController::GetKioskVisionInternalsPageProcessor() {
+  return nullptr;
 }
 
 void FakeKioskController::SetKioskVisionTelemetryProcessor(

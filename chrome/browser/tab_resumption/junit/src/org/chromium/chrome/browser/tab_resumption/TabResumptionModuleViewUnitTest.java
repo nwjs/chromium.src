@@ -38,13 +38,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.Features.JUnitProcessor;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -62,8 +62,9 @@ import org.chromium.url.JUnitTestGURLs;
 @Config(manifest = Config.NONE)
 @EnableFeatures({ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID})
 public class TabResumptionModuleViewUnitTest extends TestSupport {
-    @Rule public JUnitProcessor mFeaturesProcessor = new JUnitProcessor();
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Rule public JniMocker mocker = new JniMocker();
+
     @Mock UrlUtilities.Natives mUrlUtilitiesJniMock;
 
     private static final String TAB_TITLE = "Tab Title";
@@ -90,7 +91,6 @@ public class TabResumptionModuleViewUnitTest extends TestSupport {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         mocker.mock(UrlUtilitiesJni.TEST_HOOKS, mUrlUtilitiesJniMock);
 
         mContext = ApplicationProvider.getApplicationContext();
@@ -102,9 +102,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupport {
         when(mTab.getId()).thenReturn(TAB_ID);
         int size =
                 mContext.getResources()
-                        .getDimensionPixelSize(
-                                org.chromium.chrome.browser.tab_ui.R.dimen
-                                        .single_tab_module_tab_thumbnail_size_big);
+                        .getDimensionPixelSize(R.dimen.single_tab_module_tab_thumbnail_size_big);
         mThumbnailSize = new Size(size, size);
 
         mClickCallback =
@@ -129,8 +127,7 @@ public class TabResumptionModuleViewUnitTest extends TestSupport {
 
         String testTitle1 = "This is a test title";
         String testTitle2 = "Here is another test title";
-        TextView titleTextView =
-                ((TextView) mModuleView.findViewById(R.id.tab_resumption_title_description));
+        TextView titleTextView = mModuleView.findViewById(R.id.tab_resumption_title_description);
 
         mModuleView.setTitle(testTitle1);
         Assert.assertEquals(testTitle1, titleTextView.getText());

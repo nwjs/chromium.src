@@ -13,6 +13,7 @@
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/ref_counted.h"
+#include "base/not_fatal_until.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "content/browser/fenced_frame/fenced_frame_reporter.h"
@@ -353,7 +354,8 @@ FencedFrameURLMapping::OnSharedStorageURNMappingResultDetermined(
     const GURL& urn_uuid,
     const SharedStorageURNMappingResult& mapping_result) {
   auto pending_it = pending_urn_uuid_to_url_map_.find(urn_uuid);
-  DCHECK(pending_it != pending_urn_uuid_to_url_map_.end());
+  CHECK(pending_it != pending_urn_uuid_to_url_map_.end(),
+        base::NotFatalUntil::M130);
 
   DCHECK(!IsMapped(urn_uuid));
 
@@ -398,7 +400,7 @@ SharedStorageBudgetMetadata*
 FencedFrameURLMapping::GetSharedStorageBudgetMetadataForTesting(
     const GURL& urn_uuid) {
   auto it = urn_uuid_to_url_map_.find(urn_uuid);
-  DCHECK(it != urn_uuid_to_url_map_.end());
+  CHECK(it != urn_uuid_to_url_map_.end(), base::NotFatalUntil::M130);
 
   if (!it->second.shared_storage_budget_metadata_)
     return nullptr;

@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_PROPERTIES_CSS_COLOR_FUNCTION_PARSER_H_
 
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/css/css_color_channel_map.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_range.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
@@ -13,17 +14,17 @@
 
 namespace blink {
 
+class CSSValue;
+
 class CORE_EXPORT ColorFunctionParser {
  public:
   ColorFunctionParser() = default;
   // Parses the color inputs rgb(), rgba(), hsl(), hsla(), hwb(), lab(),
   // oklab(), lch(), oklch() and color(). https://www.w3.org/TR/css-color-4/
-  bool ConsumeFunctionalSyntaxColor(CSSParserTokenRange& input_range,
-                                    const CSSParserContext& context,
-                                    Color& result);
-  bool ConsumeFunctionalSyntaxColor(CSSParserTokenStream& input_stream,
-                                    const CSSParserContext& context,
-                                    Color& result);
+  CSSValue* ConsumeFunctionalSyntaxColor(CSSParserTokenRange& input_range,
+                                         const CSSParserContext& context);
+  CSSValue* ConsumeFunctionalSyntaxColor(CSSParserTokenStream& input_stream,
+                                         const CSSParserContext& context);
 
   struct FunctionMetadata;
 
@@ -31,9 +32,9 @@ class CORE_EXPORT ColorFunctionParser {
   template <class T>
     requires std::is_same_v<T, CSSParserTokenStream> ||
              std::is_same_v<T, CSSParserTokenRange>
-  bool ConsumeFunctionalSyntaxColorInternal(T& input_range,
-                                            const CSSParserContext& context,
-                                            Color& result);
+  CSSValue* ConsumeFunctionalSyntaxColorInternal(
+      T& input_range,
+      const CSSParserContext& context);
 
   enum class ChannelType { kNone, kPercentage, kNumber, kRelative };
   bool ConsumeColorSpaceAndOriginColor(CSSParserTokenRange& args,
@@ -63,7 +64,7 @@ class CORE_EXPORT ColorFunctionParser {
   // For relative colors
   bool is_relative_color_ = false;
   Color origin_color_;
-  HashMap<CSSValueID, double> channel_keyword_values_;
+  CSSColorChannelMap color_channel_map_;
 };
 
 }  // namespace blink

@@ -47,7 +47,6 @@ SafeBrowsingVerdictHandler::~SafeBrowsingVerdictHandler() = default;
 void SafeBrowsingVerdictHandler::Init() {
   TRACE_EVENT0("browser,startup", "SafeBrowsingVerdictHandler::Init");
 
-#if 0
   const ExtensionSet all_extensions =
       registry_->GenerateInstalledExtensionsSet();
 
@@ -68,7 +67,6 @@ void SafeBrowsingVerdictHandler::Init() {
       blocklist_.Insert(extension);
     }
   }
-#endif
 }
 
 void SafeBrowsingVerdictHandler::ManageBlocklist(

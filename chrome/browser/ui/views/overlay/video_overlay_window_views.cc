@@ -332,15 +332,18 @@ std::unique_ptr<VideoOverlayWindowViews> VideoOverlayWindowViews::Create(
     }
   }
 
-  bool is_private = !(overlay_window->GetController()
-                          ->GetWebContents()
-                          ->GetRenderWidgetHostView()
-                          ->GetTextInputClient()
-                          ->ShouldDoLearning());
-  if (is_private) {
-    ui::tsf_inputscope::SetPrivateInputScope(
-        overlay_window->GetNativeWindow()->GetHost()->GetAcceleratedWidget());
-  }
+  InputScope input_scope = overlay_window->GetController()
+                                   ->GetWebContents()
+                                   ->GetRenderWidgetHostView()
+                                   ->GetTextInputClient()
+                                   ->ShouldDoLearning()
+                               ? IS_DEFAULT
+                               : IS_PRIVATE;
+
+  ui::tsf_inputscope::SetInputScope(
+      overlay_window->GetNativeWindow()->GetHost()->GetAcceleratedWidget(),
+      input_scope);
+
 #endif  // BUILDFLAG(IS_WIN)
 
   PictureInPictureOcclusionTracker* tracker =
@@ -380,6 +383,9 @@ VideoOverlayWindowViews::VideoOverlayWindowViews(
 }
 
 VideoOverlayWindowViews::~VideoOverlayWindowViews() {
+  if (overlay_view_) {
+    overlay_view_->RemoveObserver(this);
+  }
   display::Screen::GetScreen()->RemoveObserver(this);
 }
 
@@ -466,7 +472,8 @@ void VideoOverlayWindowViews::OnNativeFocus() {
 void VideoOverlayWindowViews::OnNativeBlur() {
   // Controls should be hidden when there is no more focus on the window. This
   // is used for tabbing and touch interactions. For mouse interactions, the
-  // window cannot be blurred before the ui::ET_MOUSE_EXITED event is handled.
+  // window cannot be blurred before the ui::EventType::kMouseExited event is
+  // handled.
   UpdateControlsVisibility(false);
 
   views::Widget::OnNativeBlur();
@@ -538,7 +545,7 @@ void VideoOverlayWindowViews::OnKeyEvent(ui::KeyEvent* event) {
   // Any keystroke will make the controls visible, if not already. The Tab key
   // needs to be handled separately.
   // If the controls are already visible, this is a no-op.
-  if (event->type() == ui::ET_KEY_PRESSED ||
+  if (event->type() == ui::EventType::kKeyPressed ||
       event->key_code() == ui::VKEY_TAB) {
     UpdateControlsVisibility(true);
   }
@@ -547,12 +554,9 @@ void VideoOverlayWindowViews::OnKeyEvent(ui::KeyEvent* event) {
 // closure on key press so Close() is not called a second time when the key
 // is released.
 #if BUILDFLAG(IS_WIN)
-  if (event->type() == ui::ET_KEY_PRESSED && event->IsAltDown() &&
+  if (event->type() == ui::EventType::kKeyPressed && event->IsAltDown() &&
       event->key_code() == ui::VKEY_F4) {
-    PictureInPictureWindowManager::GetInstance()
-        ->ExitPictureInPictureViaWindowUi(
-            PictureInPictureWindowManager::UiBehavior::
-                kCloseWindowAndPauseVideo);
+    CloseAndPauseIfAvailable();
     event->SetHandled();
   }
 #endif  // BUILDFLAG(IS_WIN)
@@ -560,7 +564,7 @@ void VideoOverlayWindowViews::OnKeyEvent(ui::KeyEvent* event) {
   // If there is no focus affordance on the buttons and play/pause button is
   // visible, only handle space key for TogglePlayPause().
   views::View* focused_view = GetFocusManager()->GetFocusedView();
-  if (!focused_view && event->type() == ui::ET_KEY_PRESSED &&
+  if (!focused_view && event->type() == ui::EventType::kKeyPressed &&
       event->key_code() == ui::VKEY_SPACE && show_play_pause_button_) {
     TogglePlayPause();
     event->SetHandled();
@@ -573,21 +577,21 @@ void VideoOverlayWindowViews::OnMouseEvent(ui::MouseEvent* event) {
   switch (event->type()) {
       // Only show the media controls when the mouse is hovering over the
       // window.
-    case ui::ET_MOUSE_MOVED:
-    case ui::ET_MOUSE_ENTERED:
+    case ui::EventType::kMouseMoved:
+    case ui::EventType::kMouseEntered:
       UpdateControlsVisibility(true);
       break;
 
-    case ui::ET_MOUSE_EXITED: {
+    case ui::EventType::kMouseExited: {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
       // On Lacros, the |event| will always occur within
       // |window_background_view_| despite the mouse exiting the respective
       // surface so always hide the controls.
       const bool should_update_control_visibility = true;
 #else
-      // On Windows, ui::ET_MOUSE_EXITED is triggered when hovering over the
-      // media controls because of the HitTest. This check ensures the controls
-      // are visible if the mouse is still over the window.
+      // On Windows, ui::EventType::kMouseExited is triggered when hovering over
+      // the media controls because of the HitTest. This check ensures the
+      // controls are visible if the mouse is still over the window.
       const bool should_update_control_visibility =
           !GetWindowBackgroundView()->bounds().Contains(event->location());
 #endif
@@ -609,8 +613,9 @@ void VideoOverlayWindowViews::OnMouseEvent(ui::MouseEvent* event) {
 
 bool VideoOverlayWindowViews::OnGestureEventHandledOrIgnored(
     ui::GestureEvent* event) {
-  if (event->type() != ui::ET_GESTURE_TAP)
+  if (event->type() != ui::EventType::kGestureTap) {
     return true;
+  }
 
   // Every time a user taps on the window, restart the timer to automatically
   // hide the controls.
@@ -806,20 +811,9 @@ void VideoOverlayWindowViews::SetUpViews() {
   auto video_view = std::make_unique<views::View>();
   auto controls_scrim_view = std::make_unique<ControlsBackgroundView>();
   auto controls_container_view = std::make_unique<views::View>();
-  auto close_controls_view =
-      std::make_unique<CloseImageButton>(base::BindRepeating(
-          [](VideoOverlayWindowViews* overlay) {
-            // Only pause the video if play/pause is available.
-            const bool should_pause_video = overlay->show_play_pause_button_;
-            PictureInPictureWindowManager::GetInstance()
-                ->ExitPictureInPictureViaWindowUi(
-                    should_pause_video
-                        ? PictureInPictureWindowManager::UiBehavior::
-                              kCloseWindowAndPauseVideo
-                        : PictureInPictureWindowManager::UiBehavior::
-                              kCloseWindowOnly);
-          },
-          base::Unretained(this)));
+  auto close_controls_view = std::make_unique<CloseImageButton>(
+      base::BindRepeating(&VideoOverlayWindowViews::CloseAndPauseIfAvailable,
+                          base::Unretained(this)));
   std::unique_ptr<OverlayWindowMinimizeButton> minimize_button;
   if (base::FeatureList::IsEnabled(
           media::kVideoPictureInPictureMinimizeButton)) {
@@ -1332,7 +1326,7 @@ void VideoOverlayWindowViews::ShowInactive() {
   if (overlay_view) {
     overlay_view_ = GetContentsView()->AddChildView(std::move(overlay_view));
     overlay_view_->views::View::AddObserver(this);
-    auto_pip_setting_overlay_view_observation_.Observe(overlay_view_);
+    overlay_view_->set_delegate(this);
     // Also update the bounds, since that's already happened for everything
     // else, potentially, during widget resize.
     overlay_view_->SetBoundsRect(gfx::Rect(GetBounds().size()));
@@ -1517,10 +1511,7 @@ void VideoOverlayWindowViews::OnGestureEvent(ui::GestureEvent* event) {
     controller_->SkipAd();
     event->SetHandled();
   } else if (GetCloseControlsBounds().Contains(event->location())) {
-    PictureInPictureWindowManager::GetInstance()
-        ->ExitPictureInPictureViaWindowUi(
-            PictureInPictureWindowManager::UiBehavior::
-                kCloseWindowAndPauseVideo);
+    CloseAndPauseIfAvailable();
     event->SetHandled();
   } else if (GetMinimizeControlsBounds().Contains(event->location())) {
     PictureInPictureWindowManager::GetInstance()
@@ -1619,6 +1610,15 @@ void VideoOverlayWindowViews::TogglePlayPause() {
   play_pause_controls_view_->SetPlaybackState(is_active ? kPlaying : kPaused);
 }
 
+void VideoOverlayWindowViews::CloseAndPauseIfAvailable() {
+  // Only pause the video if play/pause is available.
+  const bool should_pause_video = !!show_play_pause_button_;
+  PictureInPictureWindowManager::GetInstance()->ExitPictureInPictureViaWindowUi(
+      should_pause_video
+          ? PictureInPictureWindowManager::UiBehavior::kCloseWindowAndPauseVideo
+          : PictureInPictureWindowManager::UiBehavior::kCloseWindowOnly);
+}
+
 PlaybackImageButton*
 VideoOverlayWindowViews::play_pause_controls_view_for_testing() const {
   return play_pause_controls_view_;
@@ -1712,11 +1712,10 @@ bool VideoOverlayWindowViews::IsOverlayViewShown() const {
 
 void VideoOverlayWindowViews::RemoveOverlayViewIfExists() {
   if (overlay_view_) {
-    auto_pip_setting_overlay_view_observation_.Reset();
     // Remove and delete the outgoing view.  Note the trailing `T` on the method
     // name -- this removes `overlay_view_` and returns a unique_ptr to it which
     // we then discard.  Without the `T`, it returns nothing and frees nothing.
-    overlay_view_->views::View::RemoveObserver(this);
+    overlay_view_->RemoveObserver(this);
     GetContentsView()->RemoveChildViewT(overlay_view_.ExtractAsDangling());
     OnSizeConstraintsChanged();
   }

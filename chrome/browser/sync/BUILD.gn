@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/chromeos/ui_mode.gni")
+import("//extensions/buildflags/buildflags.gni")
 
 assert(is_win || is_mac || is_linux || is_chromeos || is_android)
 
@@ -40,8 +41,6 @@ source_set("sync") {
     "sync_invalidations_service_factory.h",
     "sync_service_factory.cc",
     "sync_service_factory.h",
-    "sync_service_util.cc",
-    "sync_service_util.h",
     "sync_startup_tracker.cc",
     "sync_startup_tracker.h",
     "user_event_service_factory.cc",
@@ -51,12 +50,14 @@ source_set("sync") {
   public_deps = [
     ":factories",
     "//base",
+    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
     "//components/browser_sync",
     "//components/favicon/core",
     "//components/keyed_service/core",
     "//components/prefs",
     "//components/sessions:session_id",
+    "//components/sharing_message",
     "//components/sync/model",
     "//components/sync/service",
     "//components/sync_device_info",
@@ -65,6 +66,9 @@ source_set("sync") {
     "//components/sync_sessions",
     "//components/translate/core/browser",
     "//content/public/browser",
+
+    # TODO: Use //chrome/browser/ui instead after fixing cyclic dependency.
+    "//components/paint_preview/buildflags",
   ]
   deps = [
     "//chrome/app:branded_strings",
@@ -75,6 +79,7 @@ source_set("sync") {
     "//chrome/browser/favicon",
     "//chrome/browser/promos:utils",
     "//chrome/browser/search_engines",
+    "//chrome/browser/ui:ui_features",
     "//chrome/common",
     "//chrome/common:buildflags",
     "//chrome/common:channel_info",
@@ -111,7 +116,16 @@ source_set("sync") {
     "//components/user_manager",
     "//components/variations/service",
     "//components/webauthn/core/browser:passkey_model",
+
+    # TODO(crbug.com/352700220): Extract target for //chrome/browser/android/webapk from
+    # //chrome/browser and use that instead here.
+    "//chrome/browser/android/webapk/proto",
+    "//components/webapps/browser",
   ]
+
+  if (enable_extensions) {
+    deps += [ "//chrome/browser/web_applications" ]
+  }
 
   if (is_android) {
     sources += [
@@ -159,12 +173,31 @@ source_set("sync") {
       "//ash/components/arc:arc_base_utils",
       "//ash/constants",
       "//ash/public/cpp",
+      "//chrome/browser/ash/app_list",
+      "//chrome/browser/ash/app_list/arc",
+      "//chrome/browser/ash/app_restore",
+      "//chrome/browser/ash/arc",
+      "//chrome/browser/ash/arc/tracing",
       "//chrome/browser/ash/crosapi:browser_util",
+      "//chrome/browser/ash/floating_sso",
+      "//chrome/browser/ash/floating_workspace",
+      "//chrome/browser/ash/guest_os",
+      "//chrome/browser/ash/login/session",
+      "//chrome/browser/ash/printing",
+      "//chrome/browser/ash/printing/oauth2",
+      "//chrome/browser/ash/profiles",
+      "//chrome/browser/ui/ash/multi_user",
       "//chromeos/ash/components/network",
       "//chromeos/ash/components/sync_wifi",
       "//chromeos/ash/components/tether",
       "//components/desks_storage",
       "//ui/events/ash",
+    ]
+    allow_circular_includes_from = [
+      "//chrome/browser/ash/app_list",
+      "//chrome/browser/ash/app_list/arc",
+      "//chrome/browser/ash/floating_workspace",
+      "//chrome/browser/ash/login/session",
     ]
   }
 }

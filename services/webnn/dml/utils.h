@@ -21,6 +21,9 @@
 
 namespace webnn::dml {
 
+constexpr DML_FEATURE_LEVEL kMinDMLFeatureLevelForGpu = DML_FEATURE_LEVEL_4_0;
+constexpr DML_FEATURE_LEVEL kMinDMLFeatureLevelForNpu = DML_FEATURE_LEVEL_6_4;
+
 uint64_t CalculateDMLBufferTensorSize(DML_TENSOR_DATA_TYPE data_type,
                                       const std::vector<uint32_t>& dimensions,
                                       const std::vector<uint32_t>& strides);
@@ -70,7 +73,8 @@ void COMPONENT_EXPORT(WEBNN_SERVICE)
                               size_t buffer_size);
 
 mojom::ErrorPtr CreateError(mojom::Error::Code error_code,
-                            const std::string& error_message);
+                            const std::string& error_message,
+                            std::string_view label = "");
 
 // Create a resource with `size` bytes in
 // D3D12_RESOURCE_STATE_UNORDERED_ACCESS state from the default heap of the

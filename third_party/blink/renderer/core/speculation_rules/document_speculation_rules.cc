@@ -6,12 +6,13 @@
 
 #include "base/containers/contains.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/state_transitions.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
@@ -30,7 +31,6 @@
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/speculation_rules/document_rule_predicate.h"
 #include "third_party/blink/renderer/core/speculation_rules/speculation_candidate.h"
-#include "third_party/blink/renderer/core/speculation_rules/speculation_rules_features.h"
 #include "third_party/blink/renderer/core/speculation_rules/speculation_rules_metrics.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
 #include "third_party/blink/renderer/platform/weborigin/referrer.h"
@@ -329,7 +329,8 @@ void DocumentSpeculationRules::AddRuleSet(SpeculationRuleSet* rule_set) {
 
 void DocumentSpeculationRules::RemoveRuleSet(SpeculationRuleSet* rule_set) {
   auto* it = base::ranges::remove(rule_sets_, rule_set);
-  DCHECK(it != rule_sets_.end()) << "rule set was removed without existing";
+  CHECK(it != rule_sets_.end(), base::NotFatalUntil::M130)
+      << "rule set was removed without existing";
   rule_sets_.erase(it, rule_sets_.end());
   if (rule_set->has_document_rule()) {
     InvalidateAllLinks();
@@ -452,18 +453,15 @@ void DocumentSpeculationRules::DocumentBaseTargetChanged() {
 void DocumentSpeculationRules::LinkMatchedSelectorsUpdated(
     HTMLAnchorElement* link) {
   DCHECK(initialized_);
-  DCHECK(SelectorMatchesEnabled());
-
   InvalidateLink(link);
   QueueUpdateSpeculationCandidates();
 }
 
 void DocumentSpeculationRules::LinkGainedOrLostComputedStyle(
     HTMLAnchorElement* link) {
-  if (!SelectorMatchesEnabled() || !initialized_) {
+  if (!initialized_) {
     return;
   }
-
   InvalidateLink(link);
   QueueUpdateSpeculationCandidates();
 }
@@ -475,7 +473,7 @@ void DocumentSpeculationRules::DocumentStyleUpdated() {
 }
 
 void DocumentSpeculationRules::ChildStyleRecalcBlocked(Element* root) {
-  if (!SelectorMatchesEnabled() || !initialized_) {
+  if (!initialized_) {
     return;
   }
 
@@ -516,7 +514,7 @@ void DocumentSpeculationRules::ChildStyleRecalcBlocked(Element* root) {
 }
 
 void DocumentSpeculationRules::DidStyleChildren(Element* root) {
-  if (!SelectorMatchesEnabled() || !initialized_) {
+  if (!initialized_) {
     return;
   }
 
@@ -631,7 +629,7 @@ void DocumentSpeculationRules::UpdateSpeculationCandidatesMicrotask() {
   // Wait for style to be clean before proceeding. Or force it, if this update
   // needs to happen promptly.
   Document& document = *GetSupplementable();
-  if (SelectorMatchesEnabled() && document.NeedsLayoutTreeUpdate()) {
+  if (document.NeedsLayoutTreeUpdate()) {
     if (pending_update_state_ ==
         PendingUpdateState::kMicrotaskQueuedWithForcedStyleUpdate) {
       document.UpdateStyleAndLayoutTree();
@@ -647,9 +645,7 @@ void DocumentSpeculationRules::UpdateSpeculationCandidatesMicrotask() {
 void DocumentSpeculationRules::UpdateSpeculationCandidates() {
   Document& document = *GetSupplementable();
   DCHECK_NE(pending_update_state_, PendingUpdateState::kNoUpdate);
-  if (SelectorMatchesEnabled()) {
-    DCHECK(!document.NeedsLayoutTreeUpdate());
-  }
+  DCHECK(!document.NeedsLayoutTreeUpdate());
 
   // We are actually performing the update below, so mark as no update pending.
   SetPendingUpdateState(PendingUpdateState::kNoUpdate);
@@ -733,12 +729,6 @@ void DocumentSpeculationRules::UpdateSpeculationCandidates() {
   });
   candidates.Shrink(base::checked_cast<wtf_size_t>(last - candidates.begin()));
 
-  if (!sent_is_part_of_no_vary_search_trial_ &&
-      RuntimeEnabledFeatures::NoVarySearchPrefetchEnabled(execution_context)) {
-    sent_is_part_of_no_vary_search_trial_ = true;
-    host->EnableNoVarySearchSupport();
-  }
-
   probe::SpeculationCandidatesUpdated(document, candidates);
 
   using SpeculationEagerness = blink::mojom::SpeculationEagerness;
@@ -796,22 +786,20 @@ void DocumentSpeculationRules::AddLinkBasedSpeculationCandidates(
             return;
           }
 
-          if (SelectorMatchesEnabled()) {
-            // We exclude links that don't have a ComputedStyle stored (or have
-            // a ComputedStyle only because EnsureComputedStyle was called, and
-            // otherwise wouldn't). This corresponds to links that are not in
-            // the flat tree or links with a "display: none" inclusive-ancestor.
-            if (ComputedStyle::IsNullOrEnsured(link->GetComputedStyle())) {
-              return;
-            }
+          // We exclude links that don't have a ComputedStyle stored (or have
+          // a ComputedStyle only because EnsureComputedStyle was called, and
+          // otherwise wouldn't). This corresponds to links that are not in
+          // the flat tree or links with a "display: none" inclusive-ancestor.
+          if (ComputedStyle::IsNullOrEnsured(link->GetComputedStyle())) {
+            return;
+          }
 
-            // Links with display locked ancestors can have a stale
-            // ComputedStyle, i.e. a ComputedStyle that wasn't updated during a
-            // style update because the element isn't currently being rendered,
-            // but is not discarded either. We ignore these links as well.
-            if (stale_links_.Contains(link)) {
-              return;
-            }
+          // Links with display locked ancestors can have a stale
+          // ComputedStyle, i.e. a ComputedStyle that wasn't updated during a
+          // style update because the element isn't currently being rendered,
+          // but is not discarded either. We ignore these links as well.
+          if (stale_links_.Contains(link)) {
+            return;
           }
 
           for (SpeculationRule* rule : speculation_rules) {
@@ -925,8 +913,7 @@ void DocumentSpeculationRules::AddLink(HTMLAnchorElement* link) {
   pending_links_.insert(link);
   // TODO(crbug.com/1371522): A stale link is guaranteed to not match, so we
   // should put it into |unmatched_links_| directly and skip queueing an update.
-  if (SelectorMatchesEnabled() &&
-      DisplayLockUtilities::LockedAncestorPreventingStyle(*link)) {
+  if (DisplayLockUtilities::LockedAncestorPreventingStyle(*link)) {
     stale_links_.insert(link);
   }
 }
@@ -950,7 +937,7 @@ void DocumentSpeculationRules::RemoveLink(HTMLAnchorElement* link) {
     return;
   }
   auto it = pending_links_.find(link);
-  DCHECK(it != pending_links_.end());
+  CHECK(it != pending_links_.end(), base::NotFatalUntil::M130);
   pending_links_.erase(it);
 }
 
@@ -980,10 +967,6 @@ void DocumentSpeculationRules::InvalidateAllLinks() {
 }
 
 void DocumentSpeculationRules::UpdateSelectors() {
-  if (!SelectorMatchesEnabled()) {
-    return;
-  }
-
   HeapVector<Member<StyleRule>> selectors;
   for (SpeculationRuleSet* rule_set : rule_sets_) {
     selectors.AppendVector(rule_set->selectors());
@@ -1023,15 +1006,6 @@ void DocumentSpeculationRules::SetPendingUpdateState(
   }
 #endif
   pending_update_state_ = new_state;
-}
-
-bool DocumentSpeculationRules::SelectorMatchesEnabled() {
-  if (was_selector_matches_enabled_) {
-    return true;
-  }
-  was_selector_matches_enabled_ = speculation_rules::SelectorMatchesEnabled(
-      GetSupplementable()->GetExecutionContext());
-  return was_selector_matches_enabled_;
 }
 
 }  // namespace blink

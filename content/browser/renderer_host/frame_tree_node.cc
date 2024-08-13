@@ -274,6 +274,8 @@ FrameTreeNode::~FrameTreeNode() {
   bool did_stop_loading = false;
 
   if (navigation_request_) {
+    navigation_request_->set_navigation_discard_reason(
+        NavigationDiscardReason::kWillRemoveFrame);
     navigation_request_.reset();
     did_stop_loading = true;
   }
@@ -573,7 +575,11 @@ void FrameTreeNode::TakeNavigationRequest(
       // Mark the old request as aborted.
       navigation_request_->set_net_error(net::ERR_ABORTED);
     }
-    ResetNavigationRequestButKeepState();
+    ResetNavigationRequestButKeepState(
+        navigation_request->GetTypeForNavigationDiscardReason());
+  } else if (navigation_request_) {
+    navigation_request_->set_navigation_discard_reason(
+        navigation_request->GetTypeForNavigationDiscardReason());
   }
 
   // Cancel any task that will restart BackForwardCache navigation that was
@@ -604,7 +610,7 @@ void FrameTreeNode::ResetNavigationRequest(NavigationDiscardReason reason) {
   if (!navigation_request_)
     return;
 
-  ResetNavigationRequestButKeepState();
+  ResetNavigationRequestButKeepState(reason);
 
   // The RenderFrameHostManager should clean up any speculative RenderFrameHost
   // it created for the navigation. Also register that the load stopped.
@@ -621,7 +627,8 @@ void FrameTreeNode::ResetNavigationRequest(NavigationDiscardReason reason) {
       ->CalculateUntrustedNetworkStatus();
 }
 
-void FrameTreeNode::ResetNavigationRequestButKeepState() {
+void FrameTreeNode::ResetNavigationRequestButKeepState(
+    NavigationDiscardReason reason) {
   if (!navigation_request_)
     return;
 
@@ -630,6 +637,8 @@ void FrameTreeNode::ResetNavigationRequestButKeepState() {
   // accidentally complete a navigation that should be reset.
   CancelRestartingBackForwardCacheNavigation();
   devtools_instrumentation::OnResetNavigationRequest(navigation_request_.get());
+
+  navigation_request_->set_navigation_discard_reason(reason);
   navigation_request_.reset();
 }
 
@@ -704,7 +713,7 @@ void FrameTreeNode::DidChangeLoadProgress(double load_progress) {
 bool FrameTreeNode::StopLoading() {
   if (navigation_request_ && navigation_request_->IsNavigationStarted())
     navigation_request_->set_net_error(net::ERR_ABORTED);
-  ResetNavigationRequest(NavigationDiscardReason::kCancelled);
+  ResetNavigationRequest(NavigationDiscardReason::kExplicitCancellation);
 
   if (!IsMainFrame())
     return true;
@@ -741,7 +750,7 @@ void FrameTreeNode::BeforeUnloadCanceled() {
   // responsible for this dialog, as a new navigation request might cancel
   // existing unrelated dialog.
   if (navigation_request_ && navigation_request_->IsWaitingForBeforeUnload()) {
-    ResetNavigationRequest(NavigationDiscardReason::kCancelled);
+    ResetNavigationRequest(NavigationDiscardReason::kExplicitCancellation);
   }
 }
 
@@ -1275,11 +1284,11 @@ FrameTreeNode::CreateNavigationRequestForSynchronousRendererCommit(
       original_url, std::move(coep_reporter), http_response_code);
 }
 
-void FrameTreeNode::CancelNavigation() {
+void FrameTreeNode::CancelNavigation(NavigationDiscardReason reason) {
   if (navigation_request() && navigation_request()->IsNavigationStarted()) {
     navigation_request()->set_net_error(net::ERR_ABORTED);
   }
-  ResetNavigationRequest(NavigationDiscardReason::kCancelled);
+  ResetNavigationRequest(reason);
 }
 
 bool FrameTreeNode::Credentialless() const {
@@ -1307,7 +1316,7 @@ void FrameTreeNode::RestartBackForwardCachedNavigationAsync(int nav_entry_id) {
   CHECK_EQ(navigation_request_->nav_entry_id(), nav_entry_id);
   // Reset the `NavigationRequest` since the BFCache navigation will be
   // restarted.
-  ResetNavigationRequest(NavigationDiscardReason::kNewNavigation);
+  ResetNavigationRequest(NavigationDiscardReason::kInternalCancellation);
 
   // Post a task to restart the navigation asynchronously.
   restart_back_forward_cached_navigation_tracker_.PostTask(

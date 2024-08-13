@@ -14,13 +14,12 @@ import org.chromium.base.Callback;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.base.GoogleServiceAuthError;
 
-import java.util.Date;
+import java.util.HashMap;
 import java.util.Set;
 
 /**
  * Java version of the native SyncService interface. Must only be used on the UI thread.
- * TODO(crbug.com/40270701): Update to no reference UI thread. TODO(crbug.com/40161455): Document
- * the remaining methods.
+ * TODO(crbug.com/40161455): Document the remaining methods.
  */
 public interface SyncService {
     /** Listener for the underlying sync status. */
@@ -119,6 +118,18 @@ public interface SyncService {
      */
     public void getTypesWithUnsyncedData(Callback<Set<Integer>> callback);
 
+    /**
+     * Queries the count and description/preview of existing local data for `types` data types. This
+     * is an asynchronous method which returns the result via the callback `callback` once the
+     * information for all the data types in `types` is available. Note: Only data types that are
+     * enabled and support this functionality are part of the response. Note: Only data types that
+     * are ready for migration are returned.
+     */
+    public void getLocalDataDescriptions(
+            Set<Integer> types, Callback<HashMap<Integer, LocalDataDescription>> callback);
+
+    public void triggerLocalDataMigration(Set<Integer> types);
+
     public boolean hasKeepEverythingSynced();
 
     public boolean isTypeManagedByPolicy(@UserSelectableType int type);
@@ -128,10 +139,9 @@ public interface SyncService {
     /**
      * Enables syncing for the passed types.
      *
-     * @param syncEverything Set to true if the user wants to sync all data types
-     *                       (including new data types we add in the future).
-     * @param enabledTypes   The set of types to enable. Ignored (can be null) if
-     *                       syncEverything is true.
+     * @param syncEverything Set to true if the user wants to sync all data types (including new
+     *     data types we add in the future).
+     * @param enabledTypes The set of types to enable.
      */
     public void setSelectedTypes(boolean syncEverything, Set<Integer> enabledTypes);
 
@@ -175,20 +185,13 @@ public interface SyncService {
     public void removeSyncStateChangedListener(SyncStateChangedListener listener);
 
     /**
-     * Returns the actual passphrase type being used for encryption. The sync engine must be
-     * running (isEngineInitialized() returns true) before calling this function.
-     * <p/>
-     * This method should only be used if you want to know the raw value. For checking whether
-     * we should ask the user for a passphrase, use isPassphraseRequiredForPreferredDataTypes().
+     * Returns the actual passphrase type being used for encryption. The sync engine must be running
+     * (isEngineInitialized() returns true) before calling this function.
+     *
+     * <p>This method should only be used if you want to know the raw value. For checking whether we
+     * should ask the user for a passphrase, use isPassphraseRequiredForPreferredDataTypes().
      */
     public @PassphraseType int getPassphraseType();
-
-    /**
-     * Returns the time the current explicit passphrase was set (if any). Null if no explicit
-     * passphrase is in use, or no time is available.
-     */
-    // TODO(crbug.com/40944114): Remove this method since no usage exists anymore.
-    public @Nullable Date getExplicitPassphraseTime();
 
     /**
      * Checks if sync is currently set to use a custom passphrase (or the similar -and legacy-

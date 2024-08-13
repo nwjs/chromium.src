@@ -54,8 +54,8 @@ SafeBrowsingHandler::SafeBrowsingHandler(
         handler,
     Profile* profile)
     : handler_(this, std::move(handler)),
-      metrics_collector_(nullptr),
-      //          SafeBrowsingMetricsCollectorFactory::GetForProfile(profile)),
+      metrics_collector_(
+          SafeBrowsingMetricsCollectorFactory::GetForProfile(profile)),
       pref_service_(profile->GetPrefs()),
       saved_last_cooldown_start_time_(0),
       saved_module_shown_count_(0) {}

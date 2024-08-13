@@ -16,13 +16,16 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_forward.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/task/sequenced_task_runner.h"
+#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller_utils.h"
+#include "chrome/browser/ui/views/autofill/popup/lazy_loading_image_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_cell_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
@@ -39,11 +42,13 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/compose/core/browser/compose_features.h"
+#include "components/favicon_base/favicon_types.h"
 #include "components/password_manager/core/common/password_manager_constants.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/user_education/common/new_badge_controller.h"
 #include "components/user_education/views/new_badge_label.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/color/color_id.h"
@@ -67,23 +72,25 @@ namespace autofill {
 
 namespace {
 
+constexpr int kCustomIconSize = 16;
+
 // The size of a close or delete icon.
 constexpr int kCloseIconSize = 16;
 
 // Popup items that use a leading icon instead of a trailing one.
 constexpr auto kPopupItemTypesUsingLeadingIcons =
     base::MakeFixedFlatSet<SuggestionType>(
-        {SuggestionType::kClearForm, SuggestionType::kShowAccountCards,
+        {SuggestionType::kAllSavedPasswordsEntry,
+         SuggestionType::kDeleteAddressProfile,
+         SuggestionType::kEditAddressProfile,
+         SuggestionType::kFillEverythingFromAddressProfile,
          SuggestionType::kManageAddress, SuggestionType::kManageCreditCard,
          SuggestionType::kManageIban, SuggestionType::kManagePlusAddress,
-         SuggestionType::kEditAddressProfile,
-         SuggestionType::kDeleteAddressProfile,
-         SuggestionType::kAllSavedPasswordsEntry,
-         SuggestionType::kFillEverythingFromAddressProfile,
          SuggestionType::kPasswordAccountStorageEmpty,
          SuggestionType::kPasswordAccountStorageOptIn,
-         SuggestionType::kPasswordAccountStorageReSignin,
          SuggestionType::kPasswordAccountStorageOptInAndGenerate,
+         SuggestionType::kPasswordAccountStorageReSignin,
+         SuggestionType::kShowAccountCards, SuggestionType::kUndoOrClear,
          SuggestionType::kViewPasswordDetails});
 
 // Max width for the username and masked password.
@@ -114,6 +121,12 @@ base::RepeatingClosure CreateExecuteSoonWrapper(base::RepeatingClosure task) {
             FROM_HERE, std::move(delayed_task));
       },
       std::move(task));
+}
+
+bool IsDeactivatedPasswordOrPasskey(const Suggestion& suggestion) {
+  return suggestion.apply_deactivated_style &&
+         GetFillingProductFromSuggestionType(suggestion.type) ==
+             FillingProduct::kPassword;
 }
 
 void FormatLabel(views::Label& label,
@@ -193,6 +206,7 @@ bool ShouldApplyNewPopupMaxWidth(SuggestionType suggestion_type,
 // Creates a label for the suggestion's main text.
 std::unique_ptr<views::Label> CreateMainTextLabel(
     const Suggestion& suggestion,
+    std::optional<user_education::DisplayNewBadge> show_new_badge,
     views::style::TextStyle primary_text_style = kMainTextStyle) {
   views::style::TextStyle main_text_label_style;
   if (suggestion.apply_deactivated_style) {
@@ -203,9 +217,12 @@ std::unique_ptr<views::Label> CreateMainTextLabel(
                                 : kMainTextStyleLight;
   }
 
-  auto label = std::make_unique<views::Label>(
+  auto label = std::make_unique<user_education::NewBadgeLabel>(
       suggestion.main_text.value, views::style::CONTEXT_DIALOG_BODY_TEXT,
       main_text_label_style);
+  if (show_new_badge.has_value()) {
+    label->SetDisplayNewBadge(show_new_badge.value());
+  }
 
   if (!suggestion.main_text.is_primary) {
     label->SetEnabledColorId(ui::kColorLabelForegroundSecondary);
@@ -258,8 +275,11 @@ std::vector<std::unique_ptr<views::View>> CreateSubtextViews(
           label_row_container_view->AddChildView(std::make_unique<views::Label>(
               label_text.value,
               ChromeTextContext::CONTEXT_DIALOG_BODY_TEXT_SMALL,
-              kMinorTextStyle));
-      label->SetEnabledColorId(ui::kColorLabelForegroundSecondary);
+              IsDeactivatedPasswordOrPasskey(suggestion) ? kDisabledTextStyle
+                                                         : kMinorTextStyle));
+      if (!IsDeactivatedPasswordOrPasskey(suggestion)) {
+        label->SetEnabledColorId(ui::kColorLabelForegroundSecondary);
+      }
       // To make sure the popup width will not exceed its maximum value,
       // divide the maximum label width by the number of labels.
       // TODO(crbug.com/40274514): Keep new behaviour where the max
@@ -311,8 +331,8 @@ std::unique_ptr<PopupRowContentView> CreateFooterPopupRowContentView(
   layout_manager->set_minimum_cross_axis_size(
       views::MenuConfig::instance().touchable_menu_height);
 
-  std::unique_ptr<views::Label> main_text_label =
-      CreateMainTextLabel(suggestion, kMainTextStyleLight);
+  std::unique_ptr<views::Label> main_text_label = CreateMainTextLabel(
+      suggestion, /*show_new_badge=*/std::nullopt, kMainTextStyleLight);
   // TODO(crbug.com/345709988): Move this to CreateMainTextLabel. See
   // https://crrev.com/c/5605735/comment/970405c2_cbb55e85
   if (!suggestion.apply_deactivated_style) {
@@ -369,7 +389,9 @@ std::vector<std::unique_ptr<views::View>> CreateAndTrackPasswordSubtextViews(
   const auto& label = suggestion.labels[0][0].value;
   auto label_view = std::make_unique<views::Label>(
       label, views::style::CONTEXT_DIALOG_BODY_TEXT,
-      views::style::STYLE_SECONDARY);
+      IsDeactivatedPasswordOrPasskey(suggestion)
+          ? kDisabledTextStyle
+          : views::style::STYLE_SECONDARY);
   // Password labels are obfuscated using password replacement character. Manual
   // fallback suggestions display credential username, which is not obfuscated
   // and should not be truncated.
@@ -390,15 +412,43 @@ std::vector<std::unique_ptr<views::View>> CreateAndTrackPasswordSubtextViews(
   return result;
 }
 
+// If the `Suggestion::custom_icon` holds the `FaviconDetails` alternative,
+// the icon should be loaded lazily. For this case, this method creates a
+// `LazyLoadingImageView` to be passed to `CreatePasswordPopupRowContentView()`
+// as the `icon`. Otherwise, it returns an icon created by `GetIconImageView()`.
+std::unique_ptr<views::View> GetPasswordIconView(
+    const Suggestion& suggestion,
+    PasswordFaviconLoader* favicon_loader) {
+  if (!absl::holds_alternative<Suggestion::FaviconDetails>(
+          suggestion.custom_icon)) {
+    return popup_cell_utils::GetIconImageView(suggestion);
+  }
+
+  CHECK(favicon_loader);
+  std::optional<ui::ImageModel> suggestion_icon_model =
+      popup_cell_utils::GetIconImageModelFromIcon(suggestion.icon);
+  ui::ImageModel placeholder_icon =
+      suggestion_icon_model ? std::move(*suggestion_icon_model)
+                            : popup_cell_utils::ImageModelFromVectorIcon(
+                                  kGlobeIcon, kCustomIconSize);
+
+  return std::make_unique<LazyLoadingImageView>(
+      gfx::Size(kCustomIconSize, kCustomIconSize), std::move(placeholder_icon),
+      base::BindOnce(
+          &PasswordFaviconLoader::Load, base::Unretained(favicon_loader),
+          absl::get<Suggestion::FaviconDetails>(suggestion.custom_icon)));
+}
+
 std::unique_ptr<PopupRowContentView> CreatePasswordPopupRowContentView(
     const Suggestion& suggestion,
-    std::optional<AutofillPopupController::SuggestionFilterMatch>
-        filter_match) {
+    std::optional<user_education::DisplayNewBadge> show_new_badge,
+    std::optional<AutofillPopupController::SuggestionFilterMatch> filter_match,
+    PasswordFaviconLoader* favicon_loader) {
   auto view = std::make_unique<PopupRowContentView>();
 
   // Add the actual views.
   std::unique_ptr<views::Label> main_text_label =
-      CreateMainTextLabel(suggestion);
+      CreateMainTextLabel(suggestion, show_new_badge);
   main_text_label->SetMaximumWidthSingleLine(kAutofillPopupUsernameMaxWidth);
   if (filter_match) {
     main_text_label->SetTextStyleRange(kMainTextStyleHighlighted,
@@ -408,24 +458,29 @@ std::unique_ptr<PopupRowContentView> CreatePasswordPopupRowContentView(
   popup_cell_utils::AddSuggestionContentToView(
       suggestion, std::move(main_text_label), CreateMinorTextLabel(suggestion),
       CreatePasswordDescriptionLabel(suggestion),
-      CreateAndTrackPasswordSubtextViews(suggestion, *view), *view);
+      CreateAndTrackPasswordSubtextViews(suggestion, *view),
+      GetPasswordIconView(suggestion, favicon_loader), *view);
 
   return view;
 }
 
 std::unique_ptr<PopupRowContentView> CreateComposePopupRowContentView(
     const Suggestion& suggestion,
-    user_education::DisplayNewBadge show_new_badge) {
+    std::optional<user_education::DisplayNewBadge> show_new_badge) {
   auto view = std::make_unique<PopupRowContentView>();
   auto main_text_label = std::make_unique<user_education::NewBadgeLabel>(
       suggestion.main_text.value, views::style::CONTEXT_DIALOG_BODY_TEXT,
       views::style::STYLE_BODY_3_MEDIUM);
-  main_text_label->SetDisplayNewBadge(show_new_badge);
+  if (show_new_badge.has_value()) {
+    main_text_label->SetDisplayNewBadge(show_new_badge.value());
+    main_text_label->SetPadAfterNewBadge(false);
+  }
   popup_cell_utils::AddSuggestionContentToView(
       suggestion, std::move(main_text_label),
       /*minor_text_label=*/nullptr,
       /*description_label=*/nullptr, /*subtext_views=*/
-      CreateSubtextViews(*view, suggestion, FillingProduct::kCompose), *view);
+      CreateSubtextViews(*view, suggestion, FillingProduct::kCompose),
+      popup_cell_utils::GetIconImageView(suggestion), *view);
 
   return view;
 }
@@ -435,12 +490,13 @@ std::unique_ptr<PopupRowContentView> CreateComposePopupRowContentView(
 // created by corresponding `Create*PopupRowContentView()` methods.
 std::unique_ptr<PopupRowContentView> CreatePopupRowContentView(
     const Suggestion& suggestion,
+    std::optional<user_education::DisplayNewBadge> show_new_badge,
     FillingProduct main_filling_product,
     std::optional<AutofillPopupController::SuggestionFilterMatch>
         filter_match) {
   auto view = std::make_unique<PopupRowContentView>();
   std::unique_ptr<views::Label> main_text_label =
-      CreateMainTextLabel(suggestion);
+      CreateMainTextLabel(suggestion, show_new_badge);
   if (filter_match) {
     main_text_label->SetTextStyleRange(kMainTextStyleHighlighted,
                                        filter_match->main_text_match);
@@ -452,7 +508,8 @@ std::unique_ptr<PopupRowContentView> CreatePopupRowContentView(
   popup_cell_utils::AddSuggestionContentToView(
       suggestion, std::move(main_text_label), CreateMinorTextLabel(suggestion),
       /*description_label=*/nullptr,
-      CreateSubtextViews(*view, suggestion, main_filling_product), *view);
+      CreateSubtextViews(*view, suggestion, main_filling_product),
+      popup_cell_utils::GetIconImageView(suggestion), *view);
   return view;
 }
 
@@ -466,7 +523,7 @@ std::unique_ptr<PopupRowWithButtonView> CreateAutocompleteRowWithDeleteButton(
 
   const Suggestion& kSuggestion = controller->GetSuggestionAt(line_number);
   std::unique_ptr<views::Label> main_text_label =
-      CreateMainTextLabel(kSuggestion);
+      CreateMainTextLabel(kSuggestion, /*show_new_badge=*/std::nullopt);
   FormatLabel(*main_text_label, kSuggestion.main_text,
               controller->GetMainFillingProduct(),
               GetMaxPopupAddressProfileWidth(ShouldApplyNewPopupMaxWidth(
@@ -477,7 +534,7 @@ std::unique_ptr<PopupRowWithButtonView> CreateAutocompleteRowWithDeleteButton(
       /*description_label=*/nullptr,
       CreateSubtextViews(*view, kSuggestion,
                          controller->GetMainFillingProduct()),
-      *view);
+      popup_cell_utils::GetIconImageView(kSuggestion), *view);
 
   // Setup a layout of the delete button for Autocomplete entries.
   views::BoxLayout* layout =
@@ -529,8 +586,8 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
     PopupRowView::AccessibilitySelectionDelegate& a11y_selection_delegate,
     PopupRowView::SelectionDelegate& selection_delegate,
     int line_number,
-    std::optional<AutofillPopupController::SuggestionFilterMatch>
-        filter_match) {
+    std::optional<AutofillPopupController::SuggestionFilterMatch> filter_match,
+    PasswordFaviconLoader* favicon_loader) {
   CHECK(controller);
 
   const Suggestion& suggestion = controller->GetSuggestionAt(line_number);
@@ -548,6 +605,14 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
         CreateFooterPopupRowContentView(suggestion));
   }
 
+  const auto show_new_badge =
+      suggestion.feature_for_new_badge
+          ? std::optional<user_education::DisplayNewBadge>(
+                UserEducationService::MaybeShowNewBadge(
+                    controller->GetWebContents()->GetBrowserContext(),
+                    *suggestion.feature_for_new_badge))
+          : std::nullopt;
+
   switch (type) {
     // These `type` should never be displayed in a `PopupRowView`.
     case SuggestionType::kSeparator:
@@ -558,15 +623,16 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
     case SuggestionType::kAccountStoragePasswordEntry:
       return std::make_unique<PopupRowView>(
           a11y_selection_delegate, selection_delegate, controller, line_number,
-          CreatePasswordPopupRowContentView(suggestion,
-                                            std::move(filter_match)));
+          CreatePasswordPopupRowContentView(suggestion, show_new_badge,
+                                            std::move(filter_match),
+                                            favicon_loader));
     case SuggestionType::kComposeResumeNudge:
+    case SuggestionType::kComposeSavedStateNotification: {
+      return std::make_unique<PopupRowView>(
+          a11y_selection_delegate, selection_delegate, controller, line_number,
+          CreateComposePopupRowContentView(suggestion, show_new_badge));
+    }
     case SuggestionType::kComposeProactiveNudge: {
-      // Todo (http://b/340147177): Confirm that both Compose popups should use
-      // the same feature for a new badge and update feature name.
-      const auto show_new_badge = UserEducationService::MaybeShowNewBadge(
-          controller->GetWebContents()->GetBrowserContext(),
-          compose::features::kEnableComposeSavedStateNudge);
       return std::make_unique<PopupRowView>(
           a11y_selection_delegate, selection_delegate, controller, line_number,
           CreateComposePopupRowContentView(suggestion, show_new_badge));
@@ -574,7 +640,8 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
     default:
       return std::make_unique<PopupRowView>(
           a11y_selection_delegate, selection_delegate, controller, line_number,
-          CreatePopupRowContentView(suggestion, main_filling_product,
+          CreatePopupRowContentView(suggestion, show_new_badge,
+                                    main_filling_product,
                                     std::move(filter_match)));
   }
 }

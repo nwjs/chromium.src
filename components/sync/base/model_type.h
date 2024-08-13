@@ -171,7 +171,6 @@ enum ModelType {
   // Settings for PLUS_ADDRESS forwarded from the user's account. Since the
   // settings originate from the user's account, this is not reusing any of the
   // standard syncable prefs.
-  // Read-only on the client.
   PLUS_ADDRESS_SETTING,
 
   LAST_USER_MODEL_TYPE = PLUS_ADDRESS_SETTING,
@@ -403,8 +402,8 @@ constexpr ModelTypeSet SharedTypes() {
 // unsynced data. The warning offers the user to either save the data locally or
 // abort sign-out, depending on the platform.
 constexpr ModelTypeSet TypesRequiringUnsyncedDataCheckOnSignout() {
-  return {syncer::BOOKMARKS, syncer::READING_LIST, syncer::PASSWORDS,
-          syncer::CONTACT_INFO};
+  return {syncer::BOOKMARKS, syncer::CONTACT_INFO, syncer::PASSWORDS,
+          syncer::READING_LIST, syncer::SAVED_TAB_GROUP};
 }
 
 // User types that can be encrypted, which is a subset of UserTypes() and a

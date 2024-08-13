@@ -21,7 +21,6 @@
 #include "chrome/browser/extensions/cws_info_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/safety_hub/card_data_helper.h"
 #include "chrome/browser/ui/safety_hub/extensions_result.h"
 #include "chrome/browser/ui/safety_hub/menu_notification_service_factory.h"
@@ -30,6 +29,8 @@
 #include "chrome/browser/ui/safety_hub/password_status_check_service.h"
 #include "chrome/browser/ui/safety_hub/password_status_check_service_factory.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_constants.h"
+#include "chrome/browser/ui/safety_hub/safety_hub_hats_service.h"
+#include "chrome/browser/ui/safety_hub/safety_hub_hats_service_factory.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_util.h"
 #include "chrome/browser/ui/safety_hub/unused_site_permissions_service.h"
 #include "chrome/browser/ui/safety_hub/unused_site_permissions_service_factory.h"
@@ -75,7 +76,8 @@ PermissionsData GetUnusedSitePermissionsFromDict(
   const std::string* origin_str =
       unused_site_permissions.FindString(site_settings::kOrigin);
   CHECK(origin_str);
-  permissions_data.origin = ContentSettingsPattern::FromString(*origin_str);
+  permissions_data.primary_pattern =
+      ContentSettingsPattern::FromString(*origin_str);
 
   const base::Value::List* permissions =
       unused_site_permissions.FindList(site_settings::kPermissions);
@@ -258,7 +260,8 @@ void SafetyHubHandler::HandleUndoAcknowledgeRevokedUnusedSitePermissionsList(
       HostContentSettingsMap* map =
           HostContentSettingsMapFactory::GetForProfile(profile_);
       // This pattern is origin-scoped, so this conversion is safe.
-      GURL permission_url = permissions_data.origin.ToRepresentativeUrl();
+      GURL permission_url =
+          permissions_data.primary_pattern.ToRepresentativeUrl();
       DCHECK(permission_url.is_valid());
       // If the permission_types includes `NOTIFICATIONS`, then the revocation
       // is for a site that should have a
@@ -305,7 +308,7 @@ base::Value::List SafetyHubHandler::PopulateUnusedSitePermissionsData() {
   for (const auto& permissions_data : service_result->GetRevokedPermissions()) {
     base::Value::Dict revoked_permission_value;
     revoked_permission_value.Set(site_settings::kOrigin,
-                                 permissions_data.origin.ToString());
+                                 permissions_data.primary_pattern.ToString());
 
     base::Value::List permissions_value_list;
     for (ContentSettingsType type : permissions_data.permission_types) {
@@ -631,17 +634,17 @@ SafetyHubHandler::GetSafetyHubModulesWithRecommendations() {
 
 void SafetyHubHandler::HandleRecordSafetyHubVisit(
     const base::Value::List& args) {
-  if (TrustSafetySentimentService* sentiment_service =
-          TrustSafetySentimentServiceFactory::GetForProfile(profile_)) {
-    sentiment_service->SafetyHubVisited();
+  if (SafetyHubHatsService* hats_service =
+          SafetyHubHatsServiceFactory::GetForProfile(profile_)) {
+    hats_service->SafetyHubVisited();
   }
 }
 
 void SafetyHubHandler::HandleRecordSafetyHubInteraction(
     const base::Value::List& args) {
-  if (TrustSafetySentimentService* sentiment_service =
-          TrustSafetySentimentServiceFactory::GetForProfile(profile_)) {
-    sentiment_service->SafetyHubModuleInteracted();
+  if (SafetyHubHatsService* hats_service =
+          SafetyHubHatsServiceFactory::GetForProfile(profile_)) {
+    hats_service->SafetyHubModuleInteracted();
   }
 }
 
@@ -776,8 +779,7 @@ void SafetyHubHandler::SendNotificationPermissionReviewList() {
 
 void SafetyHubHandler::InitSafetyHubExtensionResults() {
   std::optional<std::unique_ptr<SafetyHubService::Result>> sh_result =
-      SafetyHubExtensionsResult::GetResult(
-          extensions::CWSInfoService::Get(profile_), profile_, false);
+      SafetyHubExtensionsResult::GetResult(profile_, false);
   if (sh_result.has_value()) {
     extension_sh_result_ = std::make_unique<SafetyHubExtensionsResult>(
         *static_cast<SafetyHubExtensionsResult*>(sh_result->get()));
@@ -811,8 +813,7 @@ void SafetyHubHandler::OnExtensionPrefsUpdated(
     return;
   }
   int num_extension_need_review_before = GetNumberOfExtensionsThatNeedReview();
-  extension_sh_result_->OnExtensionPrefsUpdated(
-      extension_id, profile_, extensions::CWSInfoService::Get(profile_));
+  extension_sh_result_->OnExtensionPrefsUpdated(extension_id, profile_);
   int num_extension_need_review_after = GetNumberOfExtensionsThatNeedReview();
   UpdateNumberOfExtensionsThatNeedReview(num_extension_need_review_before,
                                          num_extension_need_review_after);

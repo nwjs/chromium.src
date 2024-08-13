@@ -34,10 +34,7 @@ namespace {
 // lazily.
 class BlinkRootsHandler final : public v8::EmbedderRootsHandler {
  public:
-  explicit BlinkRootsHandler(v8::Isolate* isolate)
-      : v8::EmbedderRootsHandler(v8::EmbedderRootsHandler::RootHandling::
-                                     kDontQueryEmbedderForAnyReference),
-        isolate_(isolate) {}
+  explicit BlinkRootsHandler(v8::Isolate* isolate) : isolate_(isolate) {}
 
   bool IsRoot(const v8::TracedReference<v8::Value>& handle) final {
     NOTREACHED_NORETURN();
@@ -262,6 +259,21 @@ void ThreadState::TakeHeapSnapshotForTesting(const char* filename) const {
   }
 
   const_cast<v8::HeapSnapshot*>(snapshot)->Delete();
+}
+
+bool ThreadState::IsTakingHeapSnapshot() const {
+  if (!isolate_) {
+    return false;
+  }
+  v8::HeapProfiler* profiler = isolate_->GetHeapProfiler();
+  return profiler && profiler->IsTakingSnapshot();
+}
+
+const char* ThreadState::CopyNameForHeapSnapshot(const char* name) const {
+  CHECK(isolate_);
+  v8::HeapProfiler* profiler = isolate_->GetHeapProfiler();
+  CHECK(profiler);
+  return profiler->CopyNameForHeapSnapshot(name);
 }
 
 }  // namespace blink

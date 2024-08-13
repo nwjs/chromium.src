@@ -29,21 +29,8 @@ namespace app_list {
 
 class DriveSearchProvider : public SearchProvider {
  public:
-  struct FileInfo {
-    base::FilePath reparented_path;
-    drivefs::mojom::FileMetadataPtr metadata;
-    std::optional<base::Time> last_accessed;
-
-    FileInfo(const base::FilePath& reparented_path,
-             drivefs::mojom::FileMetadataPtr metadata,
-             const std::optional<base::Time>& last_accessed);
-    ~FileInfo();
-
-    FileInfo(const FileInfo&) = delete;
-    FileInfo& operator=(const FileInfo&) = delete;
-  };
-
-  explicit DriveSearchProvider(Profile* profile);
+  explicit DriveSearchProvider(Profile* profile,
+                               bool should_filter_shared_files = true);
   ~DriveSearchProvider() override;
 
   DriveSearchProvider(const DriveSearchProvider&) = delete;
@@ -60,11 +47,12 @@ class DriveSearchProvider : public SearchProvider {
  private:
   void OnSearchDriveByFileName(drive::FileError error,
                                std::vector<drivefs::mojom::QueryItemPtr> items);
-  void SetSearchResults(std::vector<std::unique_ptr<FileInfo>> items);
   std::unique_ptr<FileResult> MakeResult(const base::FilePath& path,
                                          double relevance,
                                          FileResult::Type type,
                                          const GURL& url);
+
+  bool should_filter_shared_files_;
 
   // When the query began.
   base::TimeTicks query_start_time_;

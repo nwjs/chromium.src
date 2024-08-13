@@ -202,7 +202,7 @@ TEST_F(SavedTabGroupConversionTest, VerifyLocalFieldsOnProtoToGroupConversion) {
   pb_local_group_data->set_last_user_interaction_time_windows_epoch_micros(
       time_in_micros);
 
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   std::string serialized_local_id = base::Token::CreateRandom().ToString();
   pb_local_group_data->set_local_group_id(serialized_local_id);
 #endif

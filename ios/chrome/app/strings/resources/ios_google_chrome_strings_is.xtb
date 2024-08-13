@@ -9,11 +9,12 @@
 <translation id="1180362651362502943">Haltu áfram að nota Chrome-gögnin á Google-reikningnum þínum.</translation>
 <translation id="1200396280085622191">Notaðu Chrome þegar þú ýtir á tengla í skilaboðum og öðrum forritum.</translation>
 <translation id="1229222343402087523">Leita að ${searchPhrase} í Chrome</translation>
+<translation id="1237769345474105984">Úr Chrome</translation>
 <translation id="124228879633599436">Chrome-útgáfan þín er úrelt. Uppfærðu hana til að gæta að öryggi þínu.</translation>
 <translation id="1282031177488366470">Hjálpaðu okkur að bæta eiginleika og afköst Chrome</translation>
-<translation id="1320619893013575407">Þú slökktir á Chrome-innskráningu.</translation>
 <translation id="1333745675627230582">Spila Chrome Dino leikinn</translation>
 <translation id="1352919863522755794">Google-aðgangsorðastjórnun gat ekki athugað aðgangsorðin þín. Athugaðu nettenginguna þína.</translation>
+<translation id="139623527619433858">Nota Chrome fyrir iPad sjálfgefið</translation>
 <translation id="1407843355326180937">Skráðu þig inn á þetta vefsvæði og Chrome til að fá bókamerkin þín og fleira í öll tækin þín.</translation>
 <translation id="1436059927646026729">Opna nýjasta flipann minn í Chrome</translation>
 <translation id="1449241544691504574">Bæta bókamerkjum við Chrome</translation>
@@ -134,6 +135,7 @@ Hafðu í huga:
 <translation id="4903674399067644695">Þetta spjald sýnir þér tillögur um hvernig þú getur nýtt þér Chrome til fulls.</translation>
 <translation id="4919069428879420545">Eyða vefskoðunargögnum í Chrome.</translation>
 <translation id="49200511069271369">Fyrirtækið þitt, <ph name="DOMAIN" />, stjórnar reikningnum sem þú ert að skrá þig inn á og því hvernig hægt er að nota Chrome. Stjórnandinn getur sett upp eða takmarkað tiltekna eiginleika.</translation>
+<translation id="4925322001044117929">Nota Chrome sjálfgefið í iPad</translation>
 <translation id="498985224078955265">Til að senda þennan flipa í annað tæki þarftu að skrá þig inn í Chrome í báðum tækjum.</translation>
 <translation id="5030102366287574140">Chrome getur veitt þér vernd gegn öryggisbrotum, hættulegum vefsvæðum og fleira.</translation>
 <translation id="5108659628347594808">Bættu Chrome</translation>
@@ -172,6 +174,7 @@ Hafðu í huga:
 <translation id="6063091872902370735">Leyfa innskráningu í Chrome</translation>
 <translation id="6110625574506755980">Tilteknir Chrome eiginleikar verða ekki í boði lengur.</translation>
 <translation id="6132149203299792222">Skráðu þig inn á Google-reikninginn þinn til að samstilla aðgangsorð, bókamerki og fleira.</translation>
+<translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Leita í Chrome</translation>
 <translation id="6238746320622508509">Leyfa Chrome að læsa huliðsflipunum þínum.</translation>
 <translation id="6247557882553405851">Aðgangsorðastjórnun Google</translation>
@@ -220,6 +223,7 @@ Til að skoða fleiri stillingar sem nota gögn til að bæta Chrome-upplifunina
 <translation id="7272930098487145294">Til að vista myndir og láta Chrome bæta við myndirnar þínar skaltu ýta á Stillingar</translation>
 <translation id="7275945473750112644">Reikningurinn þinn er í umsjón <ph name="HOSTED_DOMAIN" /> og því verður Chrome gögnunum þínum eytt úr þessu tæki</translation>
 <translation id="7284245284340063465">Ef þú gleymdir aðgangsorðinu eða vilt breyta þessari stillingu skaltu <ph name="BEGIN_LINK" />eyða Chrome-gögnunum á reikningnum þínum<ph name="END_LINK" />.</translation>
+<translation id="7299681342915173313">Núna geturðu notað Chrome hvenær sem þú ýtir á tengil í tölvupóstum, skjölum og öðrum forritum.</translation>
 <translation id="7304491752269485262">Sjálfvirk útfylling stækkaðrar sýnar í Chrome</translation>
 <translation id="7344094882820374540">Njóttu hámarksöryggis Chrome gegn hættulegum vefsvæðum</translation>
 <translation id="7349129508108954623">Veittu Chrome heimild til að nota Google-kort til að sýna þér leiðarlýsingu og staðbundnar upplýsingar um heimilisföng sem greinast.</translation>
@@ -272,7 +276,6 @@ Gögnin þín voru dulkóðuð með aðgangsorði <ph name="TIME" />. Sláðu þ
   3. Veldu Chrome.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8558480467877843976">Núna geturðu notað Chrome hvenær sem þú skoðar eða ýtir á tengil í skilaboðum, skjölum og öðrum forritum.</translation>
-<translation id="8577978202917232774">Tillögur miðast við vafranotkun þína í öðrum tækjum. Skráðu þig inn á Chrome í öllum tækjum til að fá tillögur.</translation>
 <translation id="8603022514504485810">Google-aðgangsorðastjórnun gat ekki athugað öll aðgangsorð. Reyndu aftur á morgun eða <ph name="BEGIN_LINK" />athugaðu aðgangsorð á Google-reikningnum þínum.<ph name="END_LINK" /></translation>
 <translation id="8727043961453758442">Fáðu sem mest út úr Chrome</translation>
 <translation id="8736550665979974340">Öryggi með Google Chrome</translation>

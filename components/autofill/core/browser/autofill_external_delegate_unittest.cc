@@ -43,6 +43,7 @@
 #include "components/autofill/core/browser/mock_single_field_form_fill_router.h"
 #include "components/autofill/core/browser/payments/mock_iban_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
+#include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager_observer.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
@@ -57,6 +58,7 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_switches.h"
 #include "components/autofill/core/common/form_data.h"
+#include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
@@ -174,15 +176,30 @@ class MockAutofillDriver : public TestAutofillDriver {
               (override));
 };
 
-class MockAutofillClient : public TestAutofillClient {
+class MockPaymentsAutofillClient : public payments::TestPaymentsAutofillClient {
  public:
-  MockAutofillClient() = default;
-  MockAutofillClient(const MockAutofillClient&) = delete;
-  MockAutofillClient& operator=(const MockAutofillClient&) = delete;
+  explicit MockPaymentsAutofillClient(AutofillClient* client)
+      : payments::TestPaymentsAutofillClient(client) {}
+  ~MockPaymentsAutofillClient() override = default;
+
   MOCK_METHOD(void,
               ScanCreditCard,
-              (CreditCardScanCallback callbacK),
+              (CreditCardScanCallback callback),
               (override));
+  MOCK_METHOD(void,
+              OpenPromoCodeOfferDetailsURL,
+              (const GURL& url),
+              (override));
+};
+
+class MockAutofillClient : public TestAutofillClient {
+ public:
+  MockAutofillClient() {
+    set_payments_autofill_client(
+        std::make_unique<MockPaymentsAutofillClient>(this));
+  }
+  MockAutofillClient(const MockAutofillClient&) = delete;
+  MockAutofillClient& operator=(const MockAutofillClient&) = delete;
   MOCK_METHOD(void,
               ShowAutofillSuggestions,
               (const autofill::AutofillClient::PopupOpenArgs& open_args,
@@ -195,10 +212,6 @@ class MockAutofillClient : public TestAutofillClient {
   MOCK_METHOD(void,
               HideAutofillSuggestions,
               (SuggestionHidingReason),
-              (override));
-  MOCK_METHOD(void,
-              OpenPromoCodeOfferDetailsURL,
-              (const GURL& url),
               (override));
   MOCK_METHOD(void,
               OfferPlusAddressCreation,
@@ -223,6 +236,7 @@ class MockAutofillClient : public TestAutofillClient {
   void set_last_queried_field(FieldGlobalId field_id) {
     last_queried_field_id_ = field_id;
   }
+
  private:
   FieldGlobalId last_queried_field_id_;
 #endif
@@ -360,7 +374,8 @@ class AutofillExternalDelegateUnitTest : public testing::Test {
   // Returns the triggering `AutofillField`. This is the only field in the form
   // created in `IssueOnQuery()`.
   AutofillField* get_triggering_autofill_field() {
-    return manager().GetAutofillField(queried_form(), queried_form().fields[0]);
+    return manager().GetAutofillField(queried_form(),
+                                      queried_form().fields()[0]);
   }
 
   Matcher<const FormData&> HasQueriedFormId() {
@@ -399,11 +414,18 @@ class AutofillExternalDelegateUnitTest : public testing::Test {
   }
 
   const FormData& queried_form() {
-    CHECK(!queried_form_.fields.empty());
+    CHECK(!queried_form_.fields().empty());
     return queried_form_;
   }
 
-  const FormFieldData& queried_field() { return queried_form().fields.front(); }
+  const FormFieldData& queried_field() {
+    return queried_form().fields().front();
+  }
+
+  MockPaymentsAutofillClient& payments_client() {
+    return static_cast<MockPaymentsAutofillClient&>(
+        *client().GetPaymentsAutofillClient());
+  }
 
  private:
   base::test::TaskEnvironment task_environment_;
@@ -527,8 +549,7 @@ TEST_F(AutofillExternalDelegateUnitTest, GetMainFillingProduct) {
   // Show auxiliary helper suggestion in the popup.
   external_delegate().OnSuggestionsReturned(
       queried_field().global_id(),
-      {test::CreateAutofillSuggestion(SuggestionType::kClearForm,
-                                      u"clear form")});
+      {test::CreateAutofillSuggestion(SuggestionType::kUndoOrClear, u"undo")});
   EXPECT_EQ(external_delegate().GetMainFillingProduct(), FillingProduct::kNone);
 
   // Show auxiliary helper suggestion in the popup.
@@ -959,14 +980,13 @@ TEST_F(AutofillExternalDelegateUnitTest, UpdateDataListWhileShowingPopup) {
 TEST_F(AutofillExternalDelegateUnitTest, DuplicateAutofillDatalistValues) {
   IssueOnQuery();
 
-  std::vector<SelectOption> datalist{
-      {.value = u"Rick", .content = u"Deckard"},
-      {.value = u"Beyonce", .content = u"Knowles"}};
+  std::vector<SelectOption> datalist{{.value = u"Rick", .text = u"Deckard"},
+                                     {.value = u"Beyonce", .text = u"Knowles"}};
   EXPECT_CALL(client(), UpdateAutofillDataListValues(ElementsAre(
                             AllOf(Field(&SelectOption::value, u"Rick"),
-                                  Field(&SelectOption::content, u"Deckard")),
+                                  Field(&SelectOption::text, u"Deckard")),
                             AllOf(Field(&SelectOption::value, u"Beyonce"),
-                                  Field(&SelectOption::content, u"Knowles")))));
+                                  Field(&SelectOption::text, u"Knowles")))));
   external_delegate().SetCurrentDataListValues(datalist);
 
   const auto kExpectedSuggestions = SuggestionVectorIdsAre(
@@ -994,14 +1014,13 @@ TEST_F(AutofillExternalDelegateUnitTest, DuplicateAutofillDatalistValues) {
 TEST_F(AutofillExternalDelegateUnitTest, DuplicateAutocompleteDatalistValues) {
   IssueOnQuery();
 
-  std::vector<SelectOption> datalist{
-      {.value = u"Rick", .content = u"Deckard"},
-      {.value = u"Beyonce", .content = u"Knowles"}};
+  std::vector<SelectOption> datalist{{.value = u"Rick", .text = u"Deckard"},
+                                     {.value = u"Beyonce", .text = u"Knowles"}};
   EXPECT_CALL(client(), UpdateAutofillDataListValues(ElementsAre(
                             AllOf(Field(&SelectOption::value, u"Rick"),
-                                  Field(&SelectOption::content, u"Deckard")),
+                                  Field(&SelectOption::text, u"Deckard")),
                             AllOf(Field(&SelectOption::value, u"Beyonce"),
-                                  Field(&SelectOption::content, u"Knowles")))));
+                                  Field(&SelectOption::text, u"Knowles")))));
   external_delegate().SetCurrentDataListValues(datalist);
 
   const auto kExpectedSuggestions = SuggestionVectorIdsAre(
@@ -1198,7 +1217,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
        ExternalDelegateMerchantPromoCodeSuggestionsFooter) {
   IssueOnQuery();
   const GURL gurl{"https://example.com/"};
-  EXPECT_CALL(client(), OpenPromoCodeOfferDetailsURL(gurl));
+  EXPECT_CALL(payments_client(), OpenPromoCodeOfferDetailsURL(gurl));
 
   external_delegate().DidAcceptSuggestion(
       test::CreateAutofillSuggestion(SuggestionType::kSeePromoCodeDetails,
@@ -1787,7 +1806,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
       CreateTestCreditCardFormData(/*is_https=*/true, /*use_month_type=*/false);
   manager().OnFormsSeen({form}, {});
   external_delegate().OnQuery(
-      form, form.fields[0],
+      form, form.fields()[0],
       /*caret_bounds=*/gfx::Rect(),
       AutofillSuggestionTriggerSource::kManualFallbackPayments);
 
@@ -1796,7 +1815,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
                              mojom::ActionPersistence::kPreview,
                              Property(&FormData::global_id, form.global_id()),
                              Property(&FormFieldData::global_id,
-                                      form.fields[0].global_id()),
+                                      form.fields()[0].global_id()),
                              _, _, _));
   EXPECT_CALL(manager(), FillOrPreviewField).Times(0);
 
@@ -1834,7 +1853,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
       CreateTestCreditCardFormData(/*is_https=*/true, /*use_month_type=*/false);
   manager().OnFormsSeen({form}, {});
   external_delegate().OnQuery(
-      form, form.fields[0],
+      form, form.fields()[0],
       /*caret_bounds=*/gfx::Rect(),
 
       AutofillSuggestionTriggerSource::kManualFallbackPayments);
@@ -1843,7 +1862,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
   EXPECT_CALL(manager(), AuthenticateThenFillCreditCardForm(
                              Property(&FormData::global_id, form.global_id()),
                              Property(&FormFieldData::global_id,
-                                      form.fields[0].global_id()),
+                                      form.fields()[0].global_id()),
                              _, _));
   EXPECT_CALL(manager(), FillOrPreviewField).Times(0);
 
@@ -2116,7 +2135,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
       .renderer_id = form_id.renderer_id,
   });
   // make sure the field bounds contain the caret.
-  form_data.fields.front().set_bounds(gfx::RectF(
+  test_api(form_data).field(0).set_bounds(gfx::RectF(
       /*x=*/0, /*y=*/0, caret_bounds.width() * 2, caret_bounds.height() * 2));
 
   IssueOnQuery(std::move(form_data), caret_bounds);
@@ -2160,7 +2179,7 @@ TEST_F(
   // make sure the field bounds contain the caret.
   const gfx::RectF field_bounds = gfx::RectF(
       /*x=*/0, /*y=*/0, caret_bounds.width() * 2, caret_bounds.height() * 2);
-  form_data.fields.front().set_bounds(field_bounds);
+  test_api(form_data).field(0).set_bounds(field_bounds);
 
   IssueOnQuery(std::move(form_data), caret_bounds);
 
@@ -2200,7 +2219,7 @@ TEST_F(
       /*x=*/caret_bounds.x() + caret_bounds.width() + 1,
       /*y=*/caret_bounds.y() + caret_bounds.height() + 1, caret_bounds.width(),
       caret_bounds.height());
-  form_data.fields.front().set_bounds(field_bounds);
+  test_api(form_data).field(0).set_bounds(field_bounds);
 
   IssueOnQuery(std::move(form_data), caret_bounds);
 
@@ -2337,7 +2356,7 @@ TEST_F(AutofillExternalDelegateUnitTest, ExternalDelegateUndoForm) {
   IssueOnQuery();
   EXPECT_CALL(manager(), UndoAutofill);
   external_delegate().DidAcceptSuggestion(
-      Suggestion(SuggestionType::kClearForm), SuggestionPosition{.row = 0});
+      Suggestion(SuggestionType::kUndoOrClear), SuggestionPosition{.row = 0});
 }
 
 // Test that the driver is directed to undo the form after being notified that
@@ -2346,7 +2365,7 @@ TEST_F(AutofillExternalDelegateUnitTest, ExternalDelegateUndoPreviewForm) {
   IssueOnQuery();
   EXPECT_CALL(manager(), UndoAutofill);
   external_delegate().DidSelectSuggestion(
-      Suggestion(SuggestionType::kClearForm));
+      Suggestion(SuggestionType::kUndoOrClear));
 }
 #endif
 
@@ -2354,7 +2373,7 @@ TEST_F(AutofillExternalDelegateUnitTest, ExternalDelegateUndoPreviewForm) {
 // suggestion to scan a credit card.
 TEST_F(AutofillExternalDelegateUnitTest, ScanCreditCardMenuItem) {
   IssueOnQuery();
-  EXPECT_CALL(client(), ScanCreditCard(_));
+  EXPECT_CALL(payments_client(), ScanCreditCard);
   EXPECT_CALL(client(), HideAutofillSuggestions(
                             SuggestionHidingReason::kAcceptSuggestion));
 
@@ -2520,7 +2539,7 @@ TEST_F(AutofillExternalDelegateUnitTest,
                                  SuggestionType::kMerchantPromoCodeEntry,
                                  std::optional(MERCHANT_PROMO_CODE)));
   EXPECT_CALL(
-      *client().GetMockMerchantPromoCodeManager(),
+      *client().GetPaymentsAutofillClient()->GetMockMerchantPromoCodeManager(),
       OnSingleFieldSuggestionSelected(dummy_promo_code_string,
                                       SuggestionType::kMerchantPromoCodeEntry));
 

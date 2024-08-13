@@ -25,6 +25,11 @@
     sheets and html pages from the web. It has a memory cache for these objects.
 */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 
 #include <algorithm>
@@ -388,6 +393,10 @@ ResourceFetcherInit::ResourceFetcherInit(
   DCHECK(this->unfreezable_task_runner);
   DCHECK(loader_factory || properties.IsDetached());
   DCHECK(context_lifecycle_notifier || properties.IsDetached());
+}
+
+bool ResourceFetcher::IsSimplifyLoadingTransparentPlaceholderImageEnabled() {
+  return transparent_image_optimization_enabled_;
 }
 
 mojom::blink::RequestContextType ResourceFetcher::DetermineRequestContext(
@@ -769,7 +778,9 @@ ResourceFetcher::ResourceFetcher(const ResourceFetcherInit& init)
       context_lifecycle_notifier_(init.context_lifecycle_notifier),
       auto_load_images_(true),
       allow_stale_resources_(false),
-      image_fetched_(false) {
+      image_fetched_(false),
+      transparent_image_optimization_enabled_(base::FeatureList::IsEnabled(
+          features::kSimplifyLoadingTransparentPlaceholderImage)) {
   InstanceCounters::IncrementCounter(InstanceCounters::kResourceFetcherCounter);
 
   // Determine the number of images that should get a boosted priority and the
@@ -894,7 +905,7 @@ void ResourceFetcher::DidLoadResourceFromMemoryCache(
   // performance.
   // TODO(crbug.com/41496436): Explore skipping this in general for
   // `is_static_data`.
-  if (!blink::features::IsSimplifyLoadingTransparentPlaceholderImageEnabled() ||
+  if (!IsSimplifyLoadingTransparentPlaceholderImageEnabled() ||
       (request.GetKnownTransparentPlaceholderImageIndex() == kNotFound)) {
     resource_load_observer_->WillSendRequest(
         request, ResourceResponse() /* redirects */, resource->GetType(),
@@ -905,8 +916,7 @@ void ResourceFetcher::DidLoadResourceFromMemoryCache(
     if (resource->EncodedSize() > 0) {
       resource_load_observer_->DidReceiveData(
           request.InspectorId(),
-          base::make_span(static_cast<const char*>(nullptr),
-                          resource->EncodedSize()));
+          base::SpanOrSize<const char>(resource->EncodedSize()));
     }
     resource_load_observer_->DidFinishLoading(
         request.InspectorId(), base::TimeTicks(), 0,
@@ -979,7 +989,7 @@ Resource* ResourceFetcher::CreateResourceForStaticData(
 
   ResourceResponse response;
   scoped_refptr<SharedBuffer> data;
-  if (blink::features::IsSimplifyLoadingTransparentPlaceholderImageEnabled() &&
+  if (IsSimplifyLoadingTransparentPlaceholderImageEnabled() &&
       (params.GetResourceRequest().GetKnownTransparentPlaceholderImageIndex() !=
        kNotFound)) {
     // Skip the construction of `data`, since we won't use it.
@@ -991,7 +1001,8 @@ Resource* ResourceFetcher::CreateResourceForStaticData(
   } else if (url.ProtocolIsData()) {
     int result;
     std::tie(result, response, data) = network_utils::ParseDataURL(
-        url, params.GetResourceRequest().HttpMethod());
+        url, params.GetResourceRequest().HttpMethod(),
+        params.GetResourceRequest().GetUkmSourceId(), UkmRecorder());
     if (result != net::OK) {
       return nullptr;
     }
@@ -1021,8 +1032,7 @@ Resource* ResourceFetcher::CreateResourceForStaticData(
     case ResourceStatus::kNotStarted:
       // We should not reach here on the transparent placeholder image
       // fast-path.
-      CHECK(!blink::features::
-                IsSimplifyLoadingTransparentPlaceholderImageEnabled() ||
+      CHECK(!IsSimplifyLoadingTransparentPlaceholderImageEnabled() ||
             (params.GetResourceRequest()
                  .GetKnownTransparentPlaceholderImageIndex() == kNotFound));
 
@@ -1045,8 +1055,7 @@ Resource* ResourceFetcher::CreateResourceForStaticData(
 
       // We should only reach here on the transparent placeholder image
       // fast-path.
-      CHECK(blink::features::
-                IsSimplifyLoadingTransparentPlaceholderImageEnabled());
+      CHECK(IsSimplifyLoadingTransparentPlaceholderImageEnabled());
       CHECK_NE(params.GetResourceRequest()
                    .GetKnownTransparentPlaceholderImageIndex(),
                kNotFound);
@@ -1184,7 +1193,8 @@ std::optional<ResourceRequestBlockedReason> ResourceFetcher::PrepareRequest(
     const ResourceFactory& factory,
     WebScopedVirtualTimePauser& virtual_time_pauser) {
   ResourceRequest& resource_request = params.MutableResourceRequest();
-  if (blink::features::IsSimplifyLoadingTransparentPlaceholderImageEnabled() &&
+
+  if (IsSimplifyLoadingTransparentPlaceholderImageEnabled() &&
       (resource_request.GetKnownTransparentPlaceholderImageIndex() !=
        kNotFound)) {
     // Since we are not actually sending the request to the server,
@@ -1192,6 +1202,18 @@ std::optional<ResourceRequestBlockedReason> ResourceFetcher::PrepareRequest(
     // TODO(crbug.com/41496436): This breaks all observers which were notified
     // of the request previously, so we need additional work to expand to
     // generic data urls.
+
+    // We check the report-only and enforced headers here to ensure we report
+    // and block things we ought to block.
+    if (Context().CheckAndEnforceCSPForRequest(
+            resource_request.GetRequestContext(),
+            resource_request.GetRequestDestination(), params.Url(),
+            params.Options(), ReportingDisposition::kReport, params.Url(),
+            ResourceRequestHead::RedirectStatus::kNoRedirect) ==
+        ResourceRequestBlockedReason::kCSP) {
+      return ResourceRequestBlockedReason::kCSP;
+    }
+
     return std::nullopt;
   }
 

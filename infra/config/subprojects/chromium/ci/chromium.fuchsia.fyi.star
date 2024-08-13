@@ -5,11 +5,11 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
+load("//lib/builder_health_indicators.star", "health_spec")
 load("//lib/builders.star", "free_space", "gardener_rotations", "os", "siso")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
-load("//lib/builder_health_indicators.star", "health_spec")
 
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
@@ -17,8 +17,8 @@ ci.defaults.set(
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
-    execution_timeout = 10 * time.hour,
     gardener_rotations = gardener_rotations.FUCHSIA,
+    execution_timeout = 10 * time.hour,
     health_spec = health_spec.DEFAULT,
     notifies = ["cr-fuchsia"],
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
@@ -100,6 +100,7 @@ ci.builder(
             "fuchsia",
             "asan",
             "lsan",
+            "x64",
         ],
     ),
     console_view_entry = [
@@ -138,6 +139,7 @@ ci.builder(
             "debug_builder",
             "remoteexec",
             "fuchsia_smart_display",
+            "x64",
         ],
     ),
     free_space = free_space.high,

@@ -16,6 +16,7 @@
 #include "chrome/browser/ash/input_method/editor_geolocation_provider.h"
 #include "chrome/browser/ash/input_method/editor_metrics_recorder.h"
 #include "chrome/browser/ash/input_method/editor_panel_manager.h"
+#include "chrome/browser/ash/input_method/editor_query_context.h"
 #include "chrome/browser/ash/input_method/editor_service_connector.h"
 #include "chrome/browser/ash/input_method/editor_switch.h"
 #include "chrome/browser/ash/input_method/editor_system_actuator.h"
@@ -62,6 +63,7 @@ class EditorMediator : public EditorContext::Observer,
 
   // EditorContext::Observer
   void OnContextUpdated() override;
+  void OnImeChange(std::string_view engine_id) override;
 
   // EditorContext::System
   std::optional<ukm::SourceId> GetUkmSourceId() override;
@@ -81,13 +83,13 @@ class EditorMediator : public EditorContext::Observer,
       std::optional<std::string_view> preset_query_id = std::nullopt,
       std::optional<std::string_view> freeform_text = std::nullopt) override;
   EditorMode GetEditorMode() const override;
+  ConsentStatus GetConsentStatus() const override;
   // This method is currently used for metric purposes to understand the ratio
   // of requests being blocked vs. the potential requests that can be
   // accommodated.
   EditorOpportunityMode GetEditorOpportunityMode() const override;
   std::vector<EditorBlockedReason> GetBlockedReasons() const override;
   void CacheContext() override;
-  void FetchAndUpdateInputContext() override;
   EditorMetricsRecorder* GetMetricsRecorder() override;
 
   // display::DisplayObserver overrides
@@ -95,6 +97,7 @@ class EditorMediator : public EditorContext::Observer,
 
   // EditorSystemActuator::System overrides
   void Announce(const std::u16string& message) override;
+  // EditorSystemActuator::System / EditorPanelManager::Delegate override
   void ProcessConsentAction(ConsentAction consent_action) override;
   void ShowUI() override;
   void CloseUI() override;
@@ -117,6 +120,7 @@ class EditorMediator : public EditorContext::Observer,
 
   bool SetTextQueryProviderResponseForTesting(
       const std::vector<std::string>& mock_results);
+  void FetchAndUpdateInputContextForTesting();
   void OverrideEditorModeForTesting(EditorMode editor_mode);
 
  private:
@@ -125,11 +129,30 @@ class EditorMediator : public EditorContext::Observer,
     gfx::Range selection_range;
   };
 
-  void OnTextFieldContextualInfoChanged(const TextFieldContextualInfo& info);
+  class ServiceConnection {
+   public:
+    ServiceConnection(Profile* profile,
+                      EditorMediator* mediator,
+                      EditorMetricsRecorder* metrics_recorder,
+                      EditorServiceConnector* service_connector);
+    ~ServiceConnection();
 
-  void SetUpNewEditorService();
-  void BindEditor();
+    EditorEventProxy* editor_event_proxy();
+    EditorClientConnector* editor_client_connector();
+    EditorTextQueryProvider* text_query_provider();
+    EditorSystemActuator* system_actuator();
+
+   private:
+    std::unique_ptr<EditorEventProxy> editor_event_proxy_;
+    std::unique_ptr<EditorClientConnector> editor_client_connector_;
+    std::unique_ptr<EditorTextQueryProvider> text_query_provider_;
+    std::unique_ptr<EditorSystemActuator> system_actuator_;
+  };
+
+  void OnTextFieldContextualInfoChanged(const TextFieldContextualInfo& info);
   void OnEditorServiceConnected(bool is_connection_bound);
+  bool IsServiceConnected();
+  void ResetEditorConnections();
 
   bool GetUserPref();
   void SetUserPref(bool value);
@@ -145,18 +168,14 @@ class EditorMediator : public EditorContext::Observer,
   std::unique_ptr<EditorSwitch> editor_switch_;
   std::unique_ptr<EditorMetricsRecorder> metrics_recorder_;
   std::unique_ptr<EditorConsentStore> consent_store_;
-  EditorServiceConnector editor_service_connector_;
+  std::unique_ptr<EditorServiceConnector> editor_service_connector_;
+  std::unique_ptr<ServiceConnection> service_connection_;
   EditorLiveRegionAnnouncer announcer_;
-
-  // TODO: b:298285960 - add the instantiation of this instance.
-  std::unique_ptr<EditorEventProxy> editor_event_proxy_;
-  std::unique_ptr<EditorClientConnector> editor_client_connector_;
-  std::unique_ptr<EditorTextQueryProvider> text_query_provider_;
-  std::unique_ptr<EditorSystemActuator> system_actuator_;
-
   SurroundingText surrounding_text_;
 
   std::optional<EditorMode> editor_mode_override_for_testing_;
+
+  std::optional<EditorQueryContext> query_context_;
 
   display::ScopedDisplayObserver display_observer_{this};
 

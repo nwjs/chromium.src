@@ -13,16 +13,16 @@
 
 #include "partition_alloc/address_space_randomization.h"
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/page_allocator_constants.h"
 #include "partition_alloc/partition_alloc_base/cpu.h"
 #include "partition_alloc/partition_alloc_base/logging.h"
 #include "partition_alloc/partition_alloc_base/notreached.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/tagging.h"
 
 #if defined(LINUX_NAME_REGION)
-#include "base/debug/proc_maps_linux.h"
+#include "partition_alloc/partition_alloc_base/debug/proc_maps_linux.h"
 #endif
 
 #include "testing/gtest/include/gtest/gtest.h"
@@ -499,9 +499,9 @@ TEST(PartitionAllocPageAllocatorTest, PageTagging) {
 
   auto is_region_named = [](uintptr_t start_address) {
     std::string proc_maps;
-    EXPECT_TRUE(::base::debug::ReadProcMaps(&proc_maps));
-    std::vector<::base::debug::MappedMemoryRegion> regions;
-    EXPECT_TRUE(::base::debug::ParseProcMaps(proc_maps, &regions));
+    EXPECT_TRUE(base::debug::ReadProcMaps(&proc_maps));
+    std::vector<base::debug::MappedMemoryRegion> regions;
+    EXPECT_TRUE(base::debug::ParseProcMaps(proc_maps, &regions));
 
     bool found = false;
     for (const auto& region : regions) {

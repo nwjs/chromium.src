@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "base/check.h"
+#include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -37,6 +38,21 @@
 
 namespace content {
 
+namespace {
+
+storage::FileSystemURL ToFileSystemURL(storage::FileSystemContext& context,
+                                       const storage::FileSystemURL& base_url,
+                                       const base::FilePath& absolute_path) {
+  storage::FileSystemURL result = context.CreateCrackedFileSystemURL(
+      base_url.storage_key(), base_url.mount_type(), absolute_path);
+  if (base_url.bucket()) {
+    result.SetBucket(base_url.bucket().value());
+  }
+  return result;
+}
+
+}  // namespace
+
 FileSystemAccessWatcherManager::Observation::Change::Change(
     storage::FileSystemURL url,
     FileSystemAccessChangeSource::ChangeInfo change_info)
@@ -47,6 +63,13 @@ FileSystemAccessWatcherManager::Observation::Change::Change(
     const FileSystemAccessWatcherManager::Observation::Change& other)
     : url(other.url), change_info(std::move(other.change_info)) {}
 FileSystemAccessWatcherManager::Observation::Change::Change(
+    FileSystemAccessWatcherManager::Observation::Change&&) noexcept = default;
+
+FileSystemAccessWatcherManager::Observation::Change&
+FileSystemAccessWatcherManager::Observation::Change::operator=(
+    const FileSystemAccessWatcherManager::Observation::Change&) = default;
+FileSystemAccessWatcherManager::Observation::Change&
+FileSystemAccessWatcherManager::Observation::Change::operator=(
     FileSystemAccessWatcherManager::Observation::Change&&) noexcept = default;
 
 FileSystemAccessWatcherManager::Observation::Observation(
@@ -67,11 +90,11 @@ void FileSystemAccessWatcherManager::Observation::SetCallback(
 }
 
 void FileSystemAccessWatcherManager::Observation::NotifyOfChanges(
-    const std::list<Change>& changes,
+    const std::optional<std::list<Change>>& changes_or_error,
     base::PassKey<FileSystemAccessWatcherManager> pass_key) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (on_change_callback_) {
-    on_change_callback_.Run(std::move(changes));
+    on_change_callback_.Run(std::move(changes_or_error));
   }
 }
 
@@ -140,25 +163,74 @@ void FileSystemAccessWatcherManager::OnRawChange(
     const FileSystemAccessChangeSource::ChangeInfo& change_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  // TODO(crbug.com/40283778): Ignore changes caused by API
-  // implementation details, such as writes to swap files.
-  //
   // TODO(crbug.com/40268906): Batch changes.
 
-  if (error) {
-    // TODO(crbug.com/40105284): Instead of filtering an errored change,
-    // invoke the change callback with the error type, and set the observation
-    // with errored state so that no more callbacks are fired for any recurring
-    // future errors.
+  // Changes to swap files are implementation details and should be ignored.
+  if (changed_url.virtual_path().FinalExtension() ==
+      FILE_PATH_LITERAL(".crswap")) {
     return;
   }
 
-  const std::list<Observation::Change> changes = {{changed_url, change_info}};
+  if (change_info != FileSystemAccessChangeSource::ChangeInfo()) {
+    // If non-empty ChangeInfo exists, this change should not be an error.
+    CHECK(!error);
+  }
+  // For ChangeType::kMoved, ChangeInfo.moved_from_path is expected.
+  bool is_move_event = change_info.change_type ==
+                       FileSystemAccessChangeSource::ChangeType::kMoved;
+  CHECK(!is_move_event || change_info.moved_from_path.has_value());
+  std::optional<storage::FileSystemURL> moved_from_url =
+      is_move_event ? std::make_optional(
+                          ToFileSystemURL(*manager()->context(), changed_url,
+                                          change_info.moved_from_path.value()))
+                    : std::nullopt;
+
+  const std::optional<std::list<Observation::Change>> changes_or_error =
+      error ? std::nullopt
+            : std::make_optional(
+                  std::list<Observation::Change>({{changed_url, change_info}}));
   for (auto& observation : observations_) {
-    if (observation.scope().Contains(changed_url)) {
-      observation.NotifyOfChanges(
-          changes, base::PassKey<FileSystemAccessWatcherManager>());
+    bool modified_url_in_scope = observation.scope().Contains(changed_url);
+    bool moved_from_url_in_scope =
+        is_move_event && observation.scope().Contains(moved_from_url.value());
+
+    if (!modified_url_in_scope && !moved_from_url_in_scope) {
+      continue;
     }
+
+    if (is_move_event) {
+      if (!moved_from_url_in_scope) {
+        // If a file/dir is moved into the scope, the change should be reported
+        // as ChangeType::kCreated.
+        FileSystemAccessChangeSource::ChangeInfo updated_change_info(
+            change_info.file_path_type,
+            FileSystemAccessChangeSource::ChangeType::kCreated,
+            change_info.modified_path);
+        observation.NotifyOfChanges(
+            std::list<Observation::Change>(
+                {{changed_url, std::move(updated_change_info)}}),
+            base::PassKey<FileSystemAccessWatcherManager>());
+        continue;
+      }
+      if (!modified_url_in_scope) {
+        // If a file/dir is moved out of the scope, the change should be
+        // reported as ChangeType::kDeleted.
+        FileSystemAccessChangeSource::ChangeInfo updated_change_info(
+            change_info.file_path_type,
+            FileSystemAccessChangeSource::ChangeType::kDeleted,
+            change_info.moved_from_path.value());
+        observation.NotifyOfChanges(
+            std::list<Observation::Change>(
+                {{moved_from_url.value(), std::move(updated_change_info)}}),
+            base::PassKey<FileSystemAccessWatcherManager>());
+        continue;
+      }
+    }
+
+    // The default case, including move within scope, should notify the changes
+    // as is.
+    observation.NotifyOfChanges(
+        changes_or_error, base::PassKey<FileSystemAccessWatcherManager>());
   }
 }
 

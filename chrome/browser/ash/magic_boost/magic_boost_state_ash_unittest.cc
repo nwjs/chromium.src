@@ -9,13 +9,19 @@
 #include "ash/test/ash_test_base.h"
 #include "base/types/cxx23_to_underlying.h"
 #include "base/values.h"
+#include "chrome/browser/ash/magic_boost/mock_editor_panel_manager.h"
 #include "chromeos/components/magic_boost/public/cpp/magic_boost_state.h"
+#include "chromeos/crosapi/mojom/editor_panel.mojom-shared.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 
 using chromeos::HMRConsentStatus;
 using chromeos::MagicBoostState;
 
 namespace ash {
+
+namespace {
 
 class TestMagicBoostStateObserver : public MagicBoostState::Observer {
  public:
@@ -28,15 +34,27 @@ class TestMagicBoostStateObserver : public MagicBoostState::Observer {
   ~TestMagicBoostStateObserver() override = default;
 
   // MagicBoostStateObserver:
+  void OnHMREnabledUpdated(bool enabled) override { hmr_enabled_ = enabled; }
+
   void OnHMRConsentStatusUpdated(HMRConsentStatus status) override {
     hmr_consent_status_ = status;
   }
 
+  void OnIsDeleting() override {
+    // Do nothing as a user of `TestMagicBoostStateObserver` is responsible for
+    // managing life cycle, i.e., stop observing before `MagicBoostState`
+    // instance gets destructed.
+  }
+
+  bool hmr_enabled() const { return hmr_enabled_; }
   HMRConsentStatus hmr_consent_status() const { return hmr_consent_status_; }
 
  private:
+  bool hmr_enabled_ = false;
   HMRConsentStatus hmr_consent_status_ = HMRConsentStatus::kUnset;
 };
+
+}  // namespace
 
 class MagicBoostStateAshTest : public AshTestBase {
  protected:
@@ -53,6 +71,8 @@ class MagicBoostStateAshTest : public AshTestBase {
         ash::Shell::Get()->session_controller()->GetPrimaryUserPrefService());
 
     magic_boost_state_ = std::make_unique<MagicBoostStateAsh>();
+    magic_boost_state_->set_editor_panel_manager_for_test(
+        &mock_editor_manager_);
 
     observer_ = std::make_unique<TestMagicBoostStateObserver>();
   }
@@ -68,11 +88,62 @@ class MagicBoostStateAshTest : public AshTestBase {
 
   TestMagicBoostStateObserver* observer() { return observer_.get(); }
 
+  MagicBoostStateAsh* magic_boost_state() { return magic_boost_state_.get(); }
+
+  MockEditorPanelManager& mock_editor_manager() { return mock_editor_manager_; }
+
  private:
   raw_ptr<TestingPrefServiceSimple> prefs_;
   std::unique_ptr<TestMagicBoostStateObserver> observer_;
   std::unique_ptr<MagicBoostStateAsh> magic_boost_state_;
+  testing::NiceMock<MockEditorPanelManager> mock_editor_manager_;
 };
+
+TEST_F(MagicBoostStateAshTest, UpdateMagicBoostEnabledState) {
+  MagicBoostState::Get()->AddObserver(observer());
+
+  prefs()->SetBoolean(ash::prefs::kMagicBoostEnabled, false);
+
+  // Both HMR and Orca should be disabled when `kMagicBoostEnabled` is false.
+  EXPECT_FALSE(MagicBoostState::Get()->hmr_enabled().value());
+  EXPECT_FALSE(prefs()->GetBoolean(ash::prefs::kOrcaEnabled));
+
+  // The observer class should get a notification when the pref value
+  // changes.
+  MagicBoostState::Get()->AsyncWriteHMREnabled(false);
+  EXPECT_FALSE(observer()->hmr_enabled());
+
+  prefs()->SetBoolean(ash::prefs::kMagicBoostEnabled, true);
+
+  // Both HMR and Orca should be enabled when `kMagicBoostEnabled` is true.
+  EXPECT_TRUE(MagicBoostState::Get()->hmr_enabled().value());
+  EXPECT_TRUE(prefs()->GetBoolean(ash::prefs::kOrcaEnabled));
+
+  // The observer class should get a notification when the pref value
+  // changes.
+  EXPECT_TRUE(MagicBoostState::Get()->hmr_enabled().value());
+  EXPECT_TRUE(observer()->hmr_enabled());
+
+  MagicBoostState::Get()->RemoveObserver(observer());
+}
+
+TEST_F(MagicBoostStateAshTest, UpdateHMREnabledState) {
+  MagicBoostState::Get()->AddObserver(observer());
+
+  // The observer class should get an notification when the pref value
+  // changes.
+  MagicBoostState::Get()->AsyncWriteHMREnabled(false);
+  EXPECT_FALSE(MagicBoostState::Get()->hmr_enabled().value());
+  EXPECT_FALSE(observer()->hmr_enabled());
+
+  // The observer class should get an notification when the pref value
+  // changes.
+  MagicBoostState::Get()->AsyncWriteHMREnabled(true);
+  EXPECT_TRUE(MagicBoostState::Get()->hmr_enabled().value());
+  EXPECT_TRUE(observer()->hmr_enabled());
+
+  MagicBoostState::Get()->RemoveObserver(observer());
+}
 
 TEST_F(MagicBoostStateAshTest, UpdateHMRConsentStatus) {
   MagicBoostState::Get()->AddObserver(observer());
@@ -99,6 +170,50 @@ TEST_F(MagicBoostStateAshTest, UpdateHMRConsentStatus) {
   MagicBoostState::Get()->RemoveObserver(observer());
 }
 
+TEST_F(MagicBoostStateAshTest, UpdateHMRConsentStatusWhenEnableStateChanged) {
+  MagicBoostState::Get()->AsyncWriteHMREnabled(false);
+  MagicBoostState::Get()->AsyncWriteConsentStatus(HMRConsentStatus::kDeclined);
+
+  // When consent status is `kDeclined` and enable state flip from false to
+  // true (this can happen when flipping the toggle in Settings app), consent
+  // status should be flip to `kPending` so that disclaimer UI can be shown when
+  // accessing the feature.
+  MagicBoostState::Get()->AsyncWriteHMREnabled(true);
+
+  EXPECT_EQ(MagicBoostState::Get()->hmr_consent_status(),
+            HMRConsentStatus::kPending);
+
+  // Flipping back enable state from true to false should retain the consent
+  // status value.
+  MagicBoostState::Get()->AsyncWriteHMREnabled(false);
+
+  EXPECT_EQ(MagicBoostState::Get()->hmr_consent_status(),
+            HMRConsentStatus::kPending);
+
+  MagicBoostState::Get()->AsyncWriteConsentStatus(HMRConsentStatus::kUnset);
+
+  // When consent status is `kUnset` and enable state flip from false to
+  // true (this can happen when flipping the toggle in Settings app), consent
+  // status should be flip to `kPending` so that disclaimer UI can be shown when
+  // accessing the feature.
+  MagicBoostState::Get()->AsyncWriteHMREnabled(true);
+
+  EXPECT_EQ(MagicBoostState::Get()->hmr_consent_status(),
+            HMRConsentStatus::kPending);
+
+  // When consent status is `kApproved`, flipping enable state should not change
+  // consent status state.
+  MagicBoostState::Get()->AsyncWriteConsentStatus(HMRConsentStatus::kApproved);
+
+  MagicBoostState::Get()->AsyncWriteHMREnabled(false);
+  EXPECT_EQ(MagicBoostState::Get()->hmr_consent_status(),
+            HMRConsentStatus::kApproved);
+
+  MagicBoostState::Get()->AsyncWriteHMREnabled(true);
+  EXPECT_EQ(MagicBoostState::Get()->hmr_consent_status(),
+            HMRConsentStatus::kApproved);
+}
+
 TEST_F(MagicBoostStateAshTest, UpdateHMRConsentWindowDismissCount) {
   EXPECT_EQ(MagicBoostState::Get()->hmr_consent_window_dismiss_count(), 0);
 
@@ -107,6 +222,25 @@ TEST_F(MagicBoostStateAshTest, UpdateHMRConsentWindowDismissCount) {
 
   prefs()->SetInteger(ash::prefs::kHMRConsentWindowDismissCount, 2);
   EXPECT_EQ(MagicBoostState::Get()->hmr_consent_window_dismiss_count(), 2);
+}
+
+TEST_F(MagicBoostStateAshTest, DisableOrcaFeature) {
+  // `DisableOrcaFeature` should trigger the correct functions from
+  // `EditorPanelManager`.
+  EXPECT_CALL(mock_editor_manager(), OnConsentRejected);
+  EXPECT_CALL(mock_editor_manager(), OnPromoCardDeclined);
+
+  magic_boost_state()->DisableOrcaFeature();
+  testing::Mock::VerifyAndClearExpectations(&mock_editor_manager());
+}
+
+TEST_F(MagicBoostStateAshTest, EnableOrcaFeature) {
+  // `EnableOrcaFeature` should trigger the correct functions from
+  // `EditorPanelManager`.
+  EXPECT_CALL(mock_editor_manager(), OnConsentApproved);
+
+  magic_boost_state()->EnableOrcaFeature();
+  testing::Mock::VerifyAndClearExpectations(&mock_editor_manager());
 }
 
 }  // namespace ash

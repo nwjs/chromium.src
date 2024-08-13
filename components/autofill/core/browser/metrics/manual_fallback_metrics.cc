@@ -20,15 +20,10 @@ ManualFallbackEventLogger::~ManualFallbackEventLogger() {
   // Emit the explicit triggering metric for fields that were either
   // unclassified or classified as something differently from the targeted
   // `FillingProduct`.
-  EmitExplicitlyTriggeredMetric(not_classified_as_target_filling_address,
-                                "Address");
-  EmitExplicitlyTriggeredMetric(not_classified_as_target_filling_credit_card,
-                                "CreditCard");
-  EmitExplicitlyTriggeredMetric(not_classified_as_target_filling_password,
-                                "Password");
+  EmitExplicitlyTriggeredMetric(address_context_menu_state_, "Address");
+  EmitExplicitlyTriggeredMetric(credit_card_context_menu_state_, "CreditCard");
   EmitFillAfterSuggestionMetric(address_suggestions_state_, "Address");
   EmitFillAfterSuggestionMetric(credit_card_suggestions_state_, "CreditCard");
-  EmitFillAfterSuggestionMetric(password_suggestions_state_, "Password");
 }
 
 void ManualFallbackEventLogger::OnDidShowSuggestions(
@@ -45,19 +40,14 @@ void ManualFallbackEventLogger::OnDidFillSuggestion(
 
 void ManualFallbackEventLogger::ContextMenuEntryShown(
     bool address_fallback_present,
-    bool payments_fallback_present,
-    bool passwords_fallback_present) {
+    bool payments_fallback_present) {
   if (address_fallback_present) {
     UpdateContextMenuEntryState(ContextMenuEntryState::kShown,
-                                not_classified_as_target_filling_address);
+                                address_context_menu_state_);
   }
   if (payments_fallback_present) {
     UpdateContextMenuEntryState(ContextMenuEntryState::kShown,
-                                not_classified_as_target_filling_credit_card);
-  }
-  if (passwords_fallback_present) {
-    UpdateContextMenuEntryState(ContextMenuEntryState::kShown,
-                                not_classified_as_target_filling_password);
+                                credit_card_context_menu_state_);
   }
 }
 
@@ -66,20 +56,17 @@ void ManualFallbackEventLogger::ContextMenuEntryAccepted(
   switch (target_filling_product) {
     case FillingProduct::kAddress:
       UpdateContextMenuEntryState(ContextMenuEntryState::kAccepted,
-                                  not_classified_as_target_filling_address);
+                                  address_context_menu_state_);
       break;
     case FillingProduct::kCreditCard:
       UpdateContextMenuEntryState(ContextMenuEntryState::kAccepted,
-                                  not_classified_as_target_filling_credit_card);
-      break;
-    case FillingProduct::kPassword:
-      UpdateContextMenuEntryState(ContextMenuEntryState::kAccepted,
-                                  not_classified_as_target_filling_password);
+                                  credit_card_context_menu_state_);
       break;
     case FillingProduct::kNone:
     case FillingProduct::kMerchantPromoCode:
     case FillingProduct::kIban:
     case FillingProduct::kAutocomplete:
+    case FillingProduct::kPassword:
     case FillingProduct::kCompose:
     case FillingProduct::kPlusAddresses:
     case FillingProduct::kStandaloneCvc:
@@ -135,13 +122,11 @@ void ManualFallbackEventLogger::UpdateSuggestionStateForFillingProduct(
     case FillingProduct::kCreditCard:
       update_suggestion_state(new_state, credit_card_suggestions_state_);
       break;
-    case FillingProduct::kPassword:
-      update_suggestion_state(new_state, password_suggestions_state_);
-      break;
     case FillingProduct::kNone:
     case FillingProduct::kMerchantPromoCode:
     case FillingProduct::kIban:
     case FillingProduct::kAutocomplete:
+    case FillingProduct::kPassword:
     case FillingProduct::kCompose:
     case FillingProduct::kPlusAddresses:
     case FillingProduct::kStandaloneCvc:

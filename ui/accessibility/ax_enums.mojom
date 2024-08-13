@@ -304,7 +304,7 @@ enum Role {
   // kPopUpButton is used for a button role that has a popup. It is not a
   // combobox which can contain a value and associated list of values.
   kPopUpButton = 137,
-  kPortal = 138,
+  kPortalDeprecated = 138,
   kPreDeprecated = 139,
   kProgressIndicator = 140,
   kRadioButton = 141,
@@ -573,8 +573,8 @@ enum Mutation {
   kSubtreeUpdateEnd,
 };
 
-// Next version: 6
-// Next value: 39
+// Next version: 7
+// Next value: 41
 [Extensible, Stable, Uuid="e5a4cd0c-3152-4427-93d5-35ff7d0f1ae8"]
 enum StringAttribute {
   [Default]kNone = 0,
@@ -587,6 +587,8 @@ enum StringAttribute {
   kAutoComplete = 4,
   [MinVersion=2] kAriaBrailleLabel = 33,
   [MinVersion=2] kAriaBrailleRoleDescription = 34,
+  [MinVersion=6] kAriaCellColumnIndexText = 39,
+  [MinVersion=6] kAriaCellRowIndexText = 40,
   // Deprecated - Do not use.
   // These attributes are replaced by its `StringListAttribute` equivalents to
   // support multiple contiguous calls to `ariaNotify`.
@@ -904,7 +906,7 @@ enum BoolAttribute {
 
   // Android does not provide nodes that are not on screen.
   // We need to distinguish containers that are like this.
-  [MinVersion=2] kHasHiddenOffscreenNodes,
+  [MinVersion=2] kHasHiddenOffscreenNodes = 22,
 };
 
 // Next version: 7
@@ -1305,6 +1307,9 @@ enum NameFrom {
   // the figcaption element in a figure, or another View present in the UI.
   kRelatedElement,
 
+  // Applies to roles that cannot be named as per the ARIA spec.
+  kProhibited,
+
   // The name comes from the title attribute (HTML), the title element (SVG),
   // or a View's tooltip.
   kTitle,
@@ -1346,6 +1351,11 @@ enum DescriptionFrom {
 
   // The description comes from a Ruby annotation.
   kRubyAnnotation,
+
+  // The description contains a name that was prohibited because of the
+  // object's role. Exposing as a description allows screen reader users to
+  // experience the prohibited name as an annotation.
+  kProhibitedNameRepair,
 
   // The description comes from the contents of a summary element.
   // See HTML-AAM's Accessible Name and Description Computation.

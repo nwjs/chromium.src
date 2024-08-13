@@ -15,7 +15,7 @@
 #include "base/containers/span.h"
 #include "base/hash/sha1.h"
 #include "base/memory/memory_pressure_listener.h"
-#include "base/memory/raw_ptr.h"
+#include "base/memory/stack_allocated.h"
 #include "base/synchronization/lock.h"
 #include "gpu/command_buffer/common/gl2_types.h"
 #include "gpu/gpu_gles2_export.h"
@@ -48,16 +48,22 @@ class GPU_GLES2_EXPORT ProgramCache {
   };
 
   class GPU_GLES2_EXPORT ScopedCacheUse {
+    STACK_ALLOCATED();
+
    public:
     ScopedCacheUse(ProgramCache* cache, CacheProgramCallback callback);
     // Disallow copy/assign as it is subtle and error prone (only one
     // ScopedCacheUse should reset the callback on destruction).
-    ScopedCacheUse(ScopedCacheUse& other) = delete;
-    ScopedCacheUse& operator=(ScopedCacheUse& other) = delete;
+    ScopedCacheUse(const ScopedCacheUse& other) = delete;
+    ScopedCacheUse& operator=(const ScopedCacheUse& other) = delete;
+    // Disallow move as the destructor dereferences `cache_` after it has been
+    // moved out.
+    ScopedCacheUse(ScopedCacheUse&& other) = delete;
+    ScopedCacheUse& operator=(ScopedCacheUse&& other) = delete;
     ~ScopedCacheUse();
 
    private:
-    raw_ptr<ProgramCache> cache_;
+    ProgramCache* cache_;
   };
 
   explicit ProgramCache(size_t max_cache_size_bytes);

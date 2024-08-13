@@ -136,9 +136,14 @@ syncer::DeviceInfo CreateDeviceInfo() {
       /*full_hardware_class=*/"full_hardware_class",
       /*last_updated_timestamp=*/base::Time::Now(),
       /*pulse_interval=*/base::TimeDelta(),
-      /*send_tab_to_self_receiving_enabled=*/false,
+      /*send_tab_to_self_receiving_enabled=*/
+      false,
+      /*send_tab_to_self_receiving_type=*/
+      sync_pb::
+          SyncEnums_SendTabReceivingType_SEND_TAB_RECEIVING_TYPE_CHROME_OR_UNSPECIFIED,
       /*sharing_info=*/std::nullopt, std::move(paask_info),
-      /*fcm_registration_token=*/"fcm_token", syncer::ModelTypeSet());
+      /*fcm_registration_token=*/"fcm_token", syncer::ModelTypeSet(),
+      /*floating_workspace_last_signin_timestamp=*/base::Time::Now());
 }
 
 // Autofill integration tests. This file contains end-to-end tests for
@@ -520,13 +525,7 @@ IN_PROC_BROWSER_TEST_F(WebAuthnDevtoolsAutofillIntegrationTest,
   RunSelectAccountTest(kConditionalUIRequestFiltered);
 }
 
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_GPMPasskeys DISABLED_GPMPasskeys
-#else
-#define MAYBE_GPMPasskeys GPMPasskeys
-#endif
-IN_PROC_BROWSER_TEST_F(WebAuthnDevtoolsAutofillIntegrationTest,
-                       MAYBE_GPMPasskeys) {
+IN_PROC_BROWSER_TEST_F(WebAuthnDevtoolsAutofillIntegrationTest, GPMPasskeys) {
   // Have the virtual device masquerade as a phone.
   virtual_device_factory_->SetTransport(device::FidoTransportProtocol::kHybrid);
 
@@ -601,15 +600,10 @@ IN_PROC_BROWSER_TEST_F(WebAuthnDevtoolsAutofillIntegrationTest,
   tracker->Remove(&device_info);
 }
 
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_GPMPasskeys_UpdatePasskeys DISABLED_GPMPasskeys_UpdatePasskeys
-#else
-#define MAYBE_GPMPasskeys_UpdatePasskeys GPMPasskeys_UpdatePasskeys
-#endif
 // Tests that downloading passkeys from sync during a conditional UI also
 // updates the autofill popup with the newly downloaded credentials.
 IN_PROC_BROWSER_TEST_F(WebAuthnDevtoolsAutofillIntegrationTest,
-                       MAYBE_GPMPasskeys_UpdatePasskeys) {
+                       GPMPasskeys_UpdatePasskeys) {
   // Have the virtual device masquerade as a phone.
   virtual_device_factory_->SetTransport(device::FidoTransportProtocol::kHybrid);
 

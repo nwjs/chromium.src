@@ -32,9 +32,15 @@ KeyboardBrightnessController::KeyboardBrightnessController(
       chromeos::PowerManagerClient::Get();
   DCHECK(power_manager_client);
   power_manager_client->AddObserver(this);
+
   // Record whether the keyboard has a backlight for metric collection.
   power_manager_client->HasKeyboardBacklight(base::BindOnce(
       &KeyboardBrightnessController::OnReceiveHasKeyboardBacklight,
+      weak_ptr_factory_.GetWeakPtr()));
+
+  // Record whether the device has a ambient light sensor for metric collection.
+  power_manager_client->HasAmbientLightSensor(base::BindOnce(
+      &KeyboardBrightnessController::OnReceiveHasAmbientLightSensor,
       weak_ptr_factory_.GetWeakPtr()));
 
   // Add LoginScreenController observer.
@@ -198,16 +204,24 @@ void KeyboardBrightnessController::HandleToggleKeyboardBacklight() {
   chromeos::PowerManagerClient::Get()->ToggleKeyboardBacklight();
 }
 
-void KeyboardBrightnessController::HandleSetKeyboardBrightness(double percent,
-                                                               bool gradual) {
+void KeyboardBrightnessController::HandleSetKeyboardBrightness(
+    double percent,
+    bool gradual,
+    KeyboardBrightnessChangeSource source) {
   power_manager::SetBacklightBrightnessRequest request;
   request.set_percent(percent);
   request.set_transition(
       gradual
           ? power_manager::SetBacklightBrightnessRequest_Transition_FAST
           : power_manager::SetBacklightBrightnessRequest_Transition_INSTANT);
-  request.set_cause(
-      power_manager::SetBacklightBrightnessRequest_Cause_USER_REQUEST);
+
+  power_manager::SetBacklightBrightnessRequest_Cause
+      keyboard_brightness_change_cause =
+          source == KeyboardBrightnessChangeSource::kSettingsApp
+              ? power_manager::
+                    SetBacklightBrightnessRequest_Cause_USER_REQUEST_FROM_SETTINGS_APP
+              : power_manager::SetBacklightBrightnessRequest_Cause_USER_REQUEST;
+  request.set_cause(keyboard_brightness_change_cause);
   chromeos::PowerManagerClient::Get()->SetKeyboardBrightness(request);
 }
 
@@ -229,7 +243,6 @@ void KeyboardBrightnessController::HandleSetKeyboardAmbientLightSensorEnabled(
       enabled);
 }
 
-// TODO(longbowei): Handle restoring the keyboard brightness percent.
 void KeyboardBrightnessController::RestoreKeyboardBrightnessSettings(
     const AccountId& account_id) {
   // Get the user's stored preference for whether the keyboard ambient light
@@ -247,13 +260,23 @@ void KeyboardBrightnessController::RestoreKeyboardBrightnessSettings(
         known_user.FindPath(account_id, prefs::kKeyboardBrightnessPercent)
             ->GetIfDouble();
     if (keyboard_brightness_for_account.has_value()) {
-      HandleSetKeyboardBrightness(keyboard_brightness_for_account.value(),
-                                  /*gradual=*/true);
+      HandleSetKeyboardBrightness(
+          keyboard_brightness_for_account.value(),
+          /*gradual=*/true,
+          KeyboardBrightnessChangeSource::kRestoredFromUserPref);
     }
   }
 
   HandleSetKeyboardAmbientLightSensorEnabled(
       keyboard_ambient_light_sensor_enabled_for_account);
+
+  // Record the keyboard ambient light sensor status at login.
+  if (has_sensor_ && !has_keyboard_ambient_light_sensor_status_been_recorded_) {
+    base::UmaHistogramBoolean(
+        "ChromeOS.Keyboard.Startup.AmbientLightSensorEnabled",
+        keyboard_ambient_light_sensor_enabled_for_account);
+    has_keyboard_ambient_light_sensor_status_been_recorded_ = true;
+  }
 }
 
 void KeyboardBrightnessController::
@@ -282,6 +305,19 @@ void KeyboardBrightnessController::OnReceiveHasKeyboardBacklight(
   }
   LOG(ERROR) << "KeyboardBrightnessController: Failed to get the keyboard "
                 "backlight status";
+}
+
+void KeyboardBrightnessController::OnReceiveHasAmbientLightSensor(
+    std::optional<bool> has_sensor) {
+  if (!has_sensor.has_value()) {
+    LOG(ERROR)
+        << "KeyboardBrightnessController: Failed to get the ambient light "
+           "sensor status";
+    return;
+  }
+  has_sensor_ = has_sensor.value();
+  base::UmaHistogramBoolean("ChromeOS.Keyboard.HasAmbientLightSensor",
+                            has_sensor.value());
 }
 
 void KeyboardBrightnessController::OnReceiveKeyboardBrightnessAfterLogin(

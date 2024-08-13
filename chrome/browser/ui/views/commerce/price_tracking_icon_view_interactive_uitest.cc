@@ -47,7 +47,6 @@
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/interaction/interactive_test.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/controls/styled_label.h"
@@ -159,7 +158,10 @@ class PriceTrackingIconViewInteractiveTest : public InteractiveBrowserTest {
                image_fetcher::ImageFetcherCallback* image_callback,
                image_fetcher::ImageFetcherParams params) {
               SkBitmap bitmap;
-              bitmap.allocN32Pixels(1, 1);
+              // The image size must not be too small (e.g., 1x1), as it becomes
+              // empty when cropped for rounded corners in BubbleFrameView,
+              // triggering a DCHECK in ImageSkiaRep.
+              bitmap.allocN32Pixels(10, 10);
               gfx::Image image =
                   gfx::Image(gfx::ImageSkia::CreateFrom1xBitmap(bitmap));
 
@@ -346,13 +348,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
                 })),
       CheckView(kPriceTrackingChipElementId,
                 base::BindOnce([](PriceTrackingIconView* view) {
-                  if (features::IsChromeRefresh2023()) {
-                    return view->GetVectorIcon().name ==
-                           omnibox::kPriceTrackingDisabledRefreshIcon.name;
-                  } else {
-                    return view->GetVectorIcon().name ==
-                           omnibox::kPriceTrackingDisabledIcon.name;
-                  }
+                  return view->GetVectorIcon().name ==
+                          omnibox::kPriceTrackingDisabledRefreshIcon.name;
                 })),
       PressButton(kPriceTrackingChipElementId), FlushEvents(),
       WaitForShow(kPriceTrackingBubbleDialogId));
@@ -372,13 +369,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
           l10n_util::GetStringUTF16(IDS_OMNIBOX_TRACKING_PRICE)),
       CheckView(kPriceTrackingChipElementId,
                 base::BindOnce([](PriceTrackingIconView* view) {
-                  if (features::IsChromeRefresh2023()) {
-                    return view->GetVectorIcon().name ==
-                           omnibox::kPriceTrackingEnabledRefreshIcon.name;
-                  } else {
-                    return view->GetVectorIcon().name ==
-                           omnibox::kPriceTrackingEnabledFilledIcon.name;
-                  }
+                  return view->GetVectorIcon().name ==
+                          omnibox::kPriceTrackingEnabledRefreshIcon.name;
                 })));
 }
 
@@ -580,13 +572,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewErrorHandelingTest,
                 })),
       CheckView(kPriceTrackingChipElementId,
                 base::BindOnce([](PriceTrackingIconView* view) {
-                  if (features::IsChromeRefresh2023()) {
-                    return view->GetVectorIcon().name ==
-                           omnibox::kPriceTrackingDisabledRefreshIcon.name;
-                  } else {
-                    return view->GetVectorIcon().name ==
-                           omnibox::kPriceTrackingDisabledIcon.name;
-                  }
+                  return view->GetVectorIcon().name ==
+                          omnibox::kPriceTrackingDisabledRefreshIcon.name;
                 })),
       PressButton(kPriceTrackingChipElementId), FlushEvents(),
 
@@ -599,13 +586,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewErrorHandelingTest,
                 })),
       CheckView(kPriceTrackingChipElementId,
                 base::BindOnce([](PriceTrackingIconView* view) {
-                  if (features::IsChromeRefresh2023()) {
-                    return view->GetVectorIcon().name ==
-                           omnibox::kPriceTrackingDisabledRefreshIcon.name;
-                  } else {
-                    return view->GetVectorIcon().name ==
-                           omnibox::kPriceTrackingDisabledIcon.name;
-                  }
+                  return view->GetVectorIcon().name ==
+                          omnibox::kPriceTrackingDisabledRefreshIcon.name;
                 })),
       EnsureNotPresent(kPriceTrackingBubbleDialogId));
 }

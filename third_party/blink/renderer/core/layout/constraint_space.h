@@ -284,7 +284,6 @@ class CORE_EXPORT ConstraintSpace final {
       // @page margin and padding are different from those on regular CSS boxes.
       // Inline percentages are resolved against the inline-size of the margin
       // box, and block percentages are resolved against its block-size.
-      DCHECK(!IsOrthogonalWritingModeRoot());
       return PercentageResolutionSize();
     }
 
@@ -420,9 +419,9 @@ class CORE_EXPORT ConstraintSpace final {
   // fragmentainer, we'll return the block-offset relative to the current
   // fragmentainer.
   LayoutUnit FragmentainerOffset() const {
-    DCHECK(HasBlockFragmentation());
-    if (HasRareData())
+    if (HasRareData() && HasBlockFragmentation()) {
       return rare_data_->fragmentainer_offset;
+    }
     return LayoutUnit();
   }
 
@@ -793,6 +792,11 @@ class CORE_EXPORT ConstraintSpace final {
 
   LineClampData GetLineClampData() const {
     return HasRareData() ? rare_data_->GetLineClampData() : LineClampData();
+  }
+
+  MarginStrut LineClampEndMarginStrut() const {
+    return HasRareData() ? rare_data_->LineClampEndMarginStrut()
+                         : MarginStrut();
   }
 
   // Return true if `text-box-trim` is in effect for the block-start/end.
@@ -1191,6 +1195,16 @@ class CORE_EXPORT ConstraintSpace final {
       EnsureBlockData()->line_clamp_data = value;
     }
 
+    MarginStrut LineClampEndMarginStrut() const {
+      return GetDataUnionType() == DataUnionType::kBlockData
+                 ? block_data_.line_clamp_end_margin_strut
+                 : MarginStrut();
+    }
+
+    void SetLineClampEndMarginStrut(MarginStrut value) {
+      EnsureBlockData()->line_clamp_end_margin_strut = value;
+    }
+
     void SetIsTableCell() { EnsureTableCellData(); }
 
     BoxStrut TableCellBorders() const {
@@ -1382,6 +1396,7 @@ class CORE_EXPORT ConstraintSpace final {
       std::optional<LayoutUnit> forced_bfc_block_offset;
       LayoutUnit clearance_offset = LayoutUnit::Min();
       LineClampData line_clamp_data;
+      MarginStrut line_clamp_end_margin_strut;
     };
 
     struct TableCellData {

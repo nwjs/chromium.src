@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <vector>
 
 #include "base/feature_list_buildflags.h"
@@ -25,8 +26,10 @@
 #include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/tracking_protection_prefs.h"
 #include "components/site_engagement/content/site_engagement_service.h"
+#include "components/strings/grit/privacy_sandbox_strings.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -65,7 +68,7 @@ class CookieControlsInteractiveUiBaseTest : public InteractiveFeaturePromoTest {
   ~CookieControlsInteractiveUiBaseTest() override = default;
 
   void SetUp() override {
-    disabled_features_.InitWithFeatures({}, DisabledFeatures());
+    disabled_features_.InitWithFeatures(EnabledFeatures(), DisabledFeatures());
     https_server()->SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
     https_server()->AddDefaultHandlers(GetChromeTestDataDir());
 
@@ -109,6 +112,8 @@ class CookieControlsInteractiveUiBaseTest : public InteractiveFeaturePromoTest {
     return {content_settings::features::kTrackingProtection3pcd};
   }
 
+  virtual std::vector<base::test::FeatureRef> EnabledFeatures() { return {}; }
+
   auto CheckIcon(ElementSpecifier view, const gfx::VectorIcon& icon) {
     std::string expected_name = icon.name;
     StepBuilder builder;
@@ -127,6 +132,11 @@ class CookieControlsInteractiveUiBaseTest : public InteractiveFeaturePromoTest {
         },
         expected_name));
     return builder;
+  }
+
+  bool HasNewTrackingProtectionUi() {
+    return base::FeatureList::IsEnabled(
+        privacy_sandbox::kTrackingProtectionSettingsLaunch);
   }
 
   auto CheckStateForTemporaryException() {
@@ -164,7 +174,8 @@ class CookieControlsInteractiveUiBaseTest : public InteractiveFeaturePromoTest {
   auto CheckTrackingProtectionAllowedState() {
     return Steps(
         CheckViewProperty(CookieControlsContentView::kToggleButton,
-                          &views::ToggleButton::GetIsOn, true),
+                          &views::ToggleButton::GetIsOn,
+                          !HasNewTrackingProtectionUi()),
         CheckViewProperty(
             CookieControlsContentView::kTitle, &views::Label::GetText,
             l10n_util::GetPluralStringFUTF16(
@@ -178,16 +189,20 @@ class CookieControlsInteractiveUiBaseTest : public InteractiveFeaturePromoTest {
             l10n_util::GetStringUTF16(
                 IDS_TRACKING_PROTECTION_BUBBLE_BLOCKING_RESTART_DESCRIPTION)),
         CheckViewProperty(
-            CookieControlsContentView::kToggleLabel, &views::Label::GetText,
+            HasNewTrackingProtectionUi()
+                ? CookieControlsContentView::kThirdPartyCookiesLabel
+                : CookieControlsContentView::kToggleLabel,
+            &views::Label::GetText,
             l10n_util::GetStringUTF16(
-                IDS_TRACKING_PROTECTION_BUBBLE_COOKIES_ALLOWED_LABEL)),
+                IDS_TRACKING_PROTECTION_BUBBLE_3PC_ALLOWED_SUBTITLE)),
         CheckIcon(RichControlsContainerView::kIcon, views::kEyeRefreshIcon));
   }
 
   auto CheckTrackingProtectionBlockedState() {
     return Steps(
         CheckViewProperty(CookieControlsContentView::kToggleButton,
-                          &views::ToggleButton::GetIsOn, false),
+                          &views::ToggleButton::GetIsOn,
+                          HasNewTrackingProtectionUi()),
         CheckViewProperty(
             CookieControlsContentView::kTitle, &views::Label::GetText,
             l10n_util::GetStringUTF16(
@@ -197,12 +212,15 @@ class CookieControlsInteractiveUiBaseTest : public InteractiveFeaturePromoTest {
             l10n_util::GetStringUTF16(
                 IDS_TRACKING_PROTECTION_BUBBLE_SITE_NOT_WORKING_DESCRIPTION)),
         CheckViewProperty(
-            CookieControlsContentView::kToggleLabel, &views::Label::GetText,
+            HasNewTrackingProtectionUi()
+                ? CookieControlsContentView::kThirdPartyCookiesLabel
+                : CookieControlsContentView::kToggleLabel,
+            &views::Label::GetText,
             l10n_util::GetStringUTF16(
                 browser()->profile()->GetPrefs()->GetBoolean(
                     prefs::kBlockAll3pcToggleEnabled)
-                    ? IDS_TRACKING_PROTECTION_BUBBLE_COOKIES_BLOCKED_LABEL
-                    : IDS_TRACKING_PROTECTION_BUBBLE_COOKIES_LIMITED_LABEL)),
+                    ? IDS_TRACKING_PROTECTION_BUBBLE_3PC_BLOCKED_SUBTITLE
+                    : IDS_TRACKING_PROTECTION_BUBBLE_3PC_LIMITED_SUBTITLE)),
         CheckIcon(RichControlsContainerView::kIcon,
                   views::kEyeCrossedRefreshIcon));
   }
@@ -731,3 +749,58 @@ INSTANTIATE_TEST_SUITE_P(
     CookieControlsInteractiveUi3pcdTest,
     testing::Combine(/*block_all_third_party_cookies*/ testing::Bool(),
                      /*show_feedback_button*/ testing::Bool()));
+
+class CookieControlsInteractiveUiTrackingProtectionTest
+    : public CookieControlsInteractiveUiBaseTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  CookieControlsInteractiveUiTrackingProtectionTest() = default;
+  ~CookieControlsInteractiveUiTrackingProtectionTest() override = default;
+
+ protected:
+  std::vector<base::test::FeatureRef> EnabledFeatures() override {
+    return {privacy_sandbox::kTrackingProtectionSettingsLaunch};
+  }
+
+  std::vector<base::test::FeatureRef> DisabledFeatures() override { return {}; }
+};
+
+IN_PROC_BROWSER_TEST_P(CookieControlsInteractiveUiTrackingProtectionTest,
+                       CreateException) {
+  BlockThirdPartyCookies(/*use_3pcd=*/true);
+  SetBlockAll3pcToggle(GetParam());
+  RunTestSequence(
+      InstrumentTab(kWebContentsElementId),
+      NavigateWebContents(kWebContentsElementId, third_party_cookie_page_url()),
+      PressButton(kCookieControlsIconElementId),
+      InAnyContext(WaitForShow(CookieControlsBubbleView::kContentView)),
+      CheckTrackingProtectionBlockedState(),
+      PressButton(CookieControlsContentView::kToggleButton),
+      EnsureNotPresent(CookieControlsBubbleView::kReloadingView),
+      CheckTrackingProtectionAllowedState());
+}
+
+IN_PROC_BROWSER_TEST_P(CookieControlsInteractiveUiTrackingProtectionTest,
+                       RemoveException) {
+  // Open the bubble while 3PC are blocked, but the page already has an
+  // exception. Disable 3PC for the page, and confirm the exception is removed.
+  BlockThirdPartyCookies(/*use_3pcd=*/true);
+  SetHighSiteEngagement();
+  SetBlockAll3pcToggle(GetParam());
+  cookie_settings()->SetCookieSettingForUserBypass(
+      third_party_cookie_page_url());
+  RunTestSequence(
+      InstrumentTab(kWebContentsElementId),
+      NavigateWebContents(kWebContentsElementId, third_party_cookie_page_url()),
+      PressButton(kCookieControlsIconElementId),
+      InAnyContext(WaitForShow(CookieControlsContentView::kToggleButton)),
+      CheckTrackingProtectionAllowedState(),
+      PressButton(CookieControlsContentView::kToggleButton),
+      CheckViewProperty(kCookieControlsIconElementId,
+                        &CookieControlsIconView::is_animating_label, false),
+      CheckTrackingProtectionBlockedState());
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         CookieControlsInteractiveUiTrackingProtectionTest,
+                         (/*block_all_third_party_cookies*/ testing::Bool()));

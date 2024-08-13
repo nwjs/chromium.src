@@ -58,8 +58,7 @@ void PictureLayer::PushPropertiesTo(
   layer_impl->SetIsBackdropFilterMask(is_backdrop_filter_mask());
 
   layer_impl->UpdateRasterSource(CreateRasterSource(),
-                                 &last_updated_invalidation_.Write(*this),
-                                 nullptr, nullptr);
+                                 &last_updated_invalidation_.Write(*this));
   DCHECK(last_updated_invalidation_.Read(*this).IsEmpty());
 }
 
@@ -88,11 +87,8 @@ void PictureLayer::SetNeedsDisplayRect(const gfx::Rect& layer_rect) {
 }
 
 bool PictureLayer::RequiresSetNeedsDisplayOnHdrHeadroomChange() const {
-  const DisplayItemList* display_list = GetDisplayItemList();
-  if (display_list &&
-      display_list->discardable_image_map().content_color_usage() ==
-          gfx::ContentColorUsage::kHDR) {
-    return true;
+  if (const DisplayItemList* display_list = GetDisplayItemList()) {
+    return display_list->content_color_usage() == gfx::ContentColorUsage::kHDR;
   }
   return false;
 }

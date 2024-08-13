@@ -45,7 +45,7 @@ class ChromeOmniboxClient final : public OmniboxClient {
   bool IsDefaultSearchProviderEnabled() const override;
   SessionID GetSessionID() const override;
   PrefService* GetPrefs() override;
-  bookmarks::CoreBookmarkModel* GetBookmarkModel() override;
+  bookmarks::BookmarkModel* GetBookmarkModel() override;
   AutocompleteControllerEmitter* GetAutocompleteControllerEmitter() override;
   TemplateURLService* GetTemplateURLService() override;
   const AutocompleteSchemeClassifier& GetSchemeClassifier() const override;
@@ -95,7 +95,6 @@ class ChromeOmniboxClient final : public OmniboxClient {
   void OnURLOpenedFromOmnibox(OmniboxLog* log) override;
   void OnBookmarkLaunched() override;
   void DiscardNonCommittedNavigations() override;
-  void OpenUpdateChromeDialog() override;
   void FocusWebContents() override;
   void OnNavigationLikely(
       size_t index,

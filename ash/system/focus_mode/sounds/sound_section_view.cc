@@ -79,13 +79,24 @@ void SoundSectionView::SetAlternateView(
 }
 
 void SoundSectionView::UpdateStateForSelectedPlaylist(
-    const FocusModeSoundsController::SelectedPlaylist& selected_playlist) {
+    const focus_mode_util::SelectedPlaylist& selected_playlist) {
   for (auto* playlist_view : playlist_view_list_) {
     if (!selected_playlist.empty() && selected_playlist.type == type_ &&
         selected_playlist.id == playlist_view->playlist_data().id) {
       playlist_view->SetState(selected_playlist.state);
     } else {
       playlist_view->SetState(focus_mode_util::SoundState::kNone);
+    }
+  }
+}
+
+void SoundSectionView::UpdateSelectedPlaylistForNewState(
+    focus_mode_util::SoundState new_state) {
+  for (auto* playlist_view : playlist_view_list_) {
+    if (playlist_view->playlist_data().state !=
+        focus_mode_util::SoundState::kNone) {
+      playlist_view->SetState(new_state);
+      return;
     }
   }
 }

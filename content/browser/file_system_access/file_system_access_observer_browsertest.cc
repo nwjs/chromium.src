@@ -205,6 +205,23 @@ class FileSystemAccessObserveWithFlagBrowserTest
 };
 
 IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
+                       UnobserveDisabledByDefault) {
+  EXPECT_TRUE(NavigateToURL(shell(), test_url_));
+
+  auto result = EvalJs(shell(),
+                       R"""(
+    (async () => {
+      const observer = new FileSystemObserver(() => {});
+      const root = await navigator.storage.getDirectory();
+      await observer.observe(root);
+      observer.unobserve(root);
+    })()
+    )""");
+  EXPECT_TRUE(result.error.find("is not a function") != std::string::npos)
+      << result.error;
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
                        CreateObserver) {
   EXPECT_TRUE(NavigateToURL(shell(), test_url_));
 
@@ -212,18 +229,6 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
       ExecJs(shell(),
              "(async () => {"
              "const observer = new FileSystemObserver(() => {}); })()"));
-}
-
-IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
-                       NothingToUnobserve) {
-  EXPECT_TRUE(NavigateToURL(shell(), test_url_));
-
-  // Calling unobserve() without a corresponding observe() should be a no-op.
-  EXPECT_TRUE(ExecJs(shell(),
-                     "(async () => {"
-                     "const observer = new FileSystemObserver(() => {});"
-                     "const root = await navigator.storage.getDirectory();"
-                     "observer.unobserve(root); })()"));
 }
 
 IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
@@ -236,20 +241,6 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
                      "const observer = new FileSystemObserver(() => {});"
                      "observer.disconnect();"
                      "observer.disconnect(); })()"));
-}
-
-IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
-                       UnobserveIsIdempotent) {
-  EXPECT_TRUE(NavigateToURL(shell(), test_url_));
-
-  // unobserve() may be called several times without crashing.
-  EXPECT_TRUE(ExecJs(shell(),
-                     "(async () => {"
-                     "const observer = new FileSystemObserver(() => {});"
-                     "const root = await navigator.storage.getDirectory();"
-                     "observer.unobserve(root);"
-                     "observer.unobserve(root);"
-                     "observer.unobserve(root); })()"));
 }
 
 IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
@@ -374,6 +365,44 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithFlagBrowserTest,
   EXPECT_THAT(records.GetList(), testing::IsEmpty());
 }
 
+class FileSystemAccessObserveWithUnobserveFlagBrowserTest
+    : public FileSystemAccessObserveWithFlagBrowserTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    FileSystemAccessObserveWithFlagBrowserTest::SetUpCommandLine(command_line);
+
+    // Enable the flag to use the FileSystemObserver unobserve() function.
+    command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                    "FileSystemObserverUnobserve");
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithUnobserveFlagBrowserTest,
+                       NothingToUnobserve) {
+  EXPECT_TRUE(NavigateToURL(shell(), test_url_));
+
+  // Calling unobserve() without a corresponding observe() should be a no-op.
+  EXPECT_TRUE(ExecJs(shell(),
+                     "(async () => {"
+                     "const observer = new FileSystemObserver(() => {});"
+                     "const root = await navigator.storage.getDirectory();"
+                     "observer.unobserve(root); })()"));
+}
+
+IN_PROC_BROWSER_TEST_F(FileSystemAccessObserveWithUnobserveFlagBrowserTest,
+                       UnobserveIsIdempotent) {
+  EXPECT_TRUE(NavigateToURL(shell(), test_url_));
+
+  // unobserve() may be called several times without crashing.
+  EXPECT_TRUE(ExecJs(shell(),
+                     "(async () => {"
+                     "const observer = new FileSystemObserver(() => {});"
+                     "const root = await navigator.storage.getDirectory();"
+                     "observer.unobserve(root);"
+                     "observer.unobserve(root);"
+                     "observer.unobserve(root); })()"));
+}
+
 class FileSystemAccessObserverBrowserTest
     : public FileSystemAccessObserverBrowserTestBase,
       public testing::WithParamInterface<TestFileSystemType> {
@@ -402,7 +431,7 @@ class FileSystemAccessObserverBrowserTest
 
   bool SupportsChangeInfo() const {
     // TODO(crbug.com/321980270): Reporting change info and the modified path
-    // are both only supported on inotify, for now.
+    // are both only supported on inotify and Windows, for now.
     return SupportsReportingModifiedPath();
   }
 };
@@ -659,18 +688,8 @@ IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
   ASSERT_THAT(records.GetList(), testing::Not(testing::IsEmpty()));
   // TODO(crbug.com/321980270): Support change types for the local file system
   // on more platforms.
-  //
-  // TODO(crbug.com/340584120): Consider reporting a consistent change type when
-  // writing to a file via a WritableFileStream. On the local file system,
-  // changes are naively considered "created" events because the swap file is
-  // moved over the target file. Meanwhile, the BucketFS intentionally reports
-  // the move as a modification if the move overwrote an existing file.
   const std::string expected_change_type =
-      SupportsChangeInfo()
-          ? (GetTestFileSystemType() == TestFileSystemType::kBucket
-                 ? "modified"
-                 : "appeared")
-          : "unknown";
+      SupportsChangeInfo() ? "appeared" : "unknown";
   EXPECT_THAT(*records.GetList().front().GetDict().FindString("type"),
               testing::StrEq(expected_change_type));
 }
@@ -882,11 +901,7 @@ IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
   ASSERT_THAT(records.GetList(), testing::Not(testing::IsEmpty()));
   auto& record_dict = records.GetList().front().GetDict();
   const std::string expected_change_type =
-      SupportsChangeInfo()
-          ? (GetTestFileSystemType() == TestFileSystemType::kBucket
-                 ? "moved"
-                 : "appeared")
-          : "unknown";
+      SupportsChangeInfo() ? "appeared" : "unknown";
   EXPECT_THAT(*record_dict.FindString("type"),
               testing::StrEq(expected_change_type));
   if (SupportsReportingModifiedPath()) {
@@ -923,17 +938,11 @@ IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
   auto records = EvalJs(shell(), script).ExtractList();
   ASSERT_THAT(records.GetList(), testing::Not(testing::IsEmpty()));
   auto& record_dict = records.GetList().front().GetDict();
-  // TODO(crbug.com/40105284): Consider reporting a consistent change
-  // type when moving a file out of the watched scope. On the BucketFS,
-  // changes are considered "disappeared" events while on local file system, it
-  // is reported as "moved".
   const std::string expected_change_type =
       SupportsChangeInfo() ? "disappeared" : "unknown";
   EXPECT_THAT(*record_dict.FindString("type"),
               testing::StrEq(expected_change_type));
   if (SupportsReportingModifiedPath()) {
-    // Moved-to path is out of the watched scope, so moved-from path is reported
-    // as `relativePathComponents`.
     EXPECT_THAT(*record_dict.FindList("relativePathComponents"),
                 testing::ElementsAre("oldFile.txt"));
   } else {
@@ -941,6 +950,133 @@ IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
                 testing::IsEmpty());
   }
   EXPECT_FALSE(record_dict.FindList("relativePathMovedFrom"));
+}
+
+IN_PROC_BROWSER_TEST_P(
+    FileSystemAccessObserverBrowserTest,
+    NonRecursiveWatchReportsDisappearedWhenDirectDescendentMovedToNonDirectDescendent) {
+  base::FilePath dir_path = CreateDirectoryToBePicked();
+
+  const std::string script =
+      // clang-format off
+      "(async () => {"
+         CREATE_PROMISE_AND_RESOLVERS
+         GET_DIRECTORY(GetTestFileSystemType())
+         // Move dir/oldFile.txt to dir/subdir/newFile.txt while watching
+         // dir/ non-recursively.
+         "const subdir = "
+         "    await dir.getDirectoryHandle('subdir', { create: true });"
+         "const oldFile = "
+         "    await dir.getFileHandle('oldFile.txt', { create: true });"
+         "const observer = new FileSystemObserver(onChange);"
+         "await observer.observe(dir, { recursive: false });"
+         "await oldFile.move(subdir, 'newFile.txt');"
+         SET_CHANGE_TIMEOUT
+      "})()";
+  // clang-format on
+  auto records = EvalJs(shell(), script).ExtractList();
+  ASSERT_THAT(records.GetList(), testing::Not(testing::IsEmpty()));
+  auto& record_dict = records.GetList().front().GetDict();
+  const std::string expected_change_type =
+      SupportsChangeInfo() ? "disappeared" : "unknown";
+  EXPECT_THAT(*record_dict.FindString("type"),
+              testing::StrEq(expected_change_type));
+  if (SupportsReportingModifiedPath()) {
+    EXPECT_THAT(*record_dict.FindList("relativePathComponents"),
+                testing::ElementsAre("oldFile.txt"));
+  } else {
+    EXPECT_THAT(*record_dict.FindList("relativePathComponents"),
+                testing::IsEmpty());
+  }
+  EXPECT_FALSE(record_dict.FindList("relativePathMovedFrom"));
+}
+
+IN_PROC_BROWSER_TEST_P(
+    FileSystemAccessObserverBrowserTest,
+    NonRecursiveWatchReportsAppearedWhenDirectDescendentMovedFromNonDirectDescendent) {
+  base::FilePath dir_path = CreateDirectoryToBePicked();
+
+  const std::string script =
+      // clang-format off
+      "(async () => {"
+         CREATE_PROMISE_AND_RESOLVERS
+         GET_DIRECTORY(GetTestFileSystemType())
+         // Move dir/subdir/oldFile.txt to dir/newFile.txt while watching
+         // dir/ non-recursively.
+         "const subdir = "
+         "    await dir.getDirectoryHandle('subdir', { create: true });"
+         "const oldFile = "
+         "    await subdir.getFileHandle('oldFile.txt', { create: true });"
+         "const observer = new FileSystemObserver(onChange);"
+         "await observer.observe(dir, { recursive: false });"
+         "await oldFile.move(dir, 'newFile.txt');"
+         SET_CHANGE_TIMEOUT
+      "})()";
+  // clang-format on
+  auto records = EvalJs(shell(), script).ExtractList();
+  ASSERT_THAT(records.GetList(), testing::Not(testing::IsEmpty()));
+  auto& record_dict = records.GetList().front().GetDict();
+  const std::string expected_change_type =
+      SupportsChangeInfo() ? "appeared" : "unknown";
+  EXPECT_THAT(*record_dict.FindString("type"),
+              testing::StrEq(expected_change_type));
+  if (SupportsReportingModifiedPath()) {
+    // Moved-to path is out of the watched scope, so moved-from path is reported
+    // as `relativePathComponents`.
+    EXPECT_THAT(*record_dict.FindList("relativePathComponents"),
+                testing::ElementsAre("newFile.txt"));
+  } else {
+    EXPECT_THAT(*record_dict.FindList("relativePathComponents"),
+                testing::IsEmpty());
+  }
+  EXPECT_FALSE(record_dict.FindList("relativePathMovedFrom"));
+}
+
+IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
+                       IgnoreSwapFileChanges) {
+  base::FilePath dir_path = CreateDirectoryToBePicked();
+
+  // Set up the directory structure.
+  const std::string pre_script =
+      // clang-format off
+      "(async () => {"
+         GET_DIRECTORY(GetTestFileSystemType())
+         "await dir.getFileHandle('file.txt', { create: true });"
+      "})()";
+  // clang-format on
+  ASSERT_TRUE(ExecJs(shell(), pre_script));
+
+  const std::string script =
+      // clang-format off
+      "(async () => {"
+         CREATE_PROMISE_AND_RESOLVERS
+         START_OBSERVING_DIRECTORY(GetTestFileSystemType(), /*recursive=*/false)
+         "const file = await dir.getFileHandle('file.txt', { create: false });"
+         // Though we're writing to a swap file, the change which should be
+         // reported is to the target path on close().
+         WRITE_TO_FILE
+         SET_CHANGE_TIMEOUT
+      "})()";
+  // clang-format on
+  auto records = EvalJs(shell(), script).ExtractList();
+  ASSERT_THAT(records.GetList(), testing::Not(testing::IsEmpty()));
+  const auto relative_path_component_matcher = testing::Conditional(
+      SupportsReportingModifiedPath(), testing::ElementsAre("file.txt"),
+      testing::IsEmpty());
+  EXPECT_THAT(
+      *records.GetList().front().GetDict().FindList("relativePathComponents"),
+      relative_path_component_matcher);
+
+  // Check that none of the events are for swap files.
+  const auto relative_path_component_matcher_for_swap_file =
+      testing::Conditional(
+          SupportsReportingModifiedPath(),
+          testing::ElementsAre(testing::Not("file.txt.crswap")),
+          testing::IsEmpty());
+  for (const auto& record : records.GetList()) {
+    EXPECT_THAT(*record.GetDict().FindList("relativePathComponents"),
+                relative_path_component_matcher_for_swap_file);
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -997,7 +1133,6 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessObserverWithBFCacheBrowserTest,
          "};"
          START_OBSERVING_FILE(TestFileSystemType::kLocal)
          "self.entry = file;"
-         "self.obs = observer;"
       "})()";
   // clang-format on
   EXPECT_TRUE(ExecJs(shell(), script));
@@ -1080,7 +1215,6 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessObserverWithBFCacheBrowserTest,
          "self.promise = promise;"
          "self.promiseResolve = promiseResolve;"
          START_OBSERVING_FILE(TestFileSystemType::kLocal)
-         "self.obs = observer;"
       "})()";
   // clang-format on
   EXPECT_TRUE(ExecJs(shell(), script));
@@ -1139,7 +1273,6 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessObserverWithBFCacheBrowserTest,
          "self.promise = promise;"
          "self.promiseResolve = promiseResolve;"
          START_OBSERVING_FILE(TestFileSystemType::kLocal)
-         "self.obs = observer;"
       "})()";
   // clang-format on
   EXPECT_TRUE(ExecJs(shell(), script));

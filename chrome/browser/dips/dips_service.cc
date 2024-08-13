@@ -53,11 +53,6 @@
 #include "services/network/public/mojom/clear_data_filter.mojom.h"
 #include "url/origin.h"
 
-// Controls whether DIPS database prepopulation is performed.
-BASE_FEATURE(kDipsPrepopulation,
-             "DipsPrepopulation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 namespace {
 
 // Controls whether UKM metrics are collected for DIPS.
@@ -295,15 +290,6 @@ DIPSService::DIPSService(content::BrowserContext* context)
 
   storage_ = base::SequenceBound<DIPSStorage>(CreateTaskRunner(), path_to_use);
 
-  if (browser_context_->IsOffTheRecord() ||
-      !base::FeatureList::IsEnabled(kDipsPrepopulation)) {
-    wait_for_prepopulating_.Quit();
-  } else {
-    storage_.AsyncCall(&DIPSStorage::IsPrepopulated)
-        .Then(base::BindOnce(&DIPSService::InitializeStorageWithEngagedSites,
-                             weak_factory_.GetWeakPtr()));
-  }
-
   repeating_timer_ = CreateTimer();
   repeating_timer_->Start();
 
@@ -366,25 +352,6 @@ void DIPSService::RemoveEvents(const base::Time& delete_begin,
   // Storage init should be finished by now, so no need to delay until then.
   storage_.AsyncCall(&DIPSStorage::RemoveEvents)
       .WithArgs(delete_begin, delete_end, std::move(filter), type);
-}
-
-void DIPSService::InitializeStorageWithEngagedSites(bool prepopulated) {
-  if (prepopulated) {
-    wait_for_prepopulating_.Quit();
-    return;
-  }
-  base::Time now = base::Time::Now();
-  dips_delegate_->GetEngagedSites(
-      browser_context_, base::BindOnce(&DIPSService::InitializeStorage,
-                                       weak_factory_.GetWeakPtr(), now)
-
-  );
-}
-
-void DIPSService::InitializeStorage(base::Time time,
-                                    std::vector<std::string> sites) {
-  storage_.AsyncCall(&DIPSStorage::Prepopulate)
-      .WithArgs(time, sites, wait_for_prepopulating_.QuitClosure());
 }
 
 void DIPSService::HandleRedirectChain(
@@ -678,11 +645,11 @@ void DIPSService::DeleteDIPSEligibleState(
     RunDeletionTaskOnUIThread(std::move(filtered_sites_to_clear),
                               std::move(finish_callback));
   } else {
-    for (auto it = sites_to_clear.begin(); it != sites_to_clear.end(); it++) {
+    for (const auto& site : sites_to_clear) {
       // TODO(crbug.com/40268849): Investigate and fix the presence of empty
       // site(s) in the `site_to_clear` list. Once this is fixed remove this
       // loop escape.
-      if (it->empty()) {
+      if (site.empty()) {
         UmaHistogramDeletion(GetCookieMode(), DIPSDeletionAction::kIgnored);
         continue;
       }

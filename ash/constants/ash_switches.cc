@@ -5,6 +5,7 @@
 #include "ash/constants/ash_switches.h"
 
 #include <algorithm>
+#include <optional>
 #include <string>
 
 #include "base/auto_reset.h"
@@ -22,14 +23,6 @@ namespace {
 // nudges when override switch is set.
 constexpr base::TimeDelta kAshContextualNudgesMinInterval = base::Seconds(0);
 constexpr base::TimeDelta kAshContextualNudgesMaxInterval = base::Seconds(60);
-
-// The hash value for the secret key of the forest feature.
-constexpr char kForestHashKey[] =
-    "\x1a\x93\x5f\x64\x0d\x7f\x0c\x2f\x88\xe8\x80\x9a\x5f\x16\xbb\xd8\x74\x06"
-    "\x8a\xb1";
-
-// Whether checking the forest secret key is ignored.
-bool g_ignore_forest_secret_key = false;
 
 // The hash value for the secret key of the campbell feature.
 constexpr char kCampbellHashKey[] =
@@ -56,6 +49,11 @@ constexpr char kModifierSplitHashKey[] =
 
 // Whether checking the mahi secret key is ignored.
 bool g_ignore_modifier_split_secret_key = false;
+
+// The hash value for the secret key of the sparky feature.
+constexpr char kSparkyHashKey[] =
+    "\x3b\xcc\x52\x86\xf0\x4d\xfd\xd2\xcf\xd7\x05\xe0\xcc\x97\x95\xfd\x8a\x78"
+    "\x44\x77";
 
 }  // namespace
 
@@ -316,6 +314,10 @@ const char kAshUiModeTablet[] = "touch_view";
 // instead of displaying an interactive animation.
 const char kAuraLegacyPowerButton[] = "aura-legacy-power-button";
 
+// Sets the birch ranker to assume it is evening for birch chip ranking
+// purposes.
+const char kBirchIsEvening[] = "birch-is-evening";
+
 // Sets the birch ranker to assume it is morning for birch chip ranking
 // purposes.
 const char kBirchIsMorning[] = "birch-is-morning";
@@ -414,6 +416,10 @@ const char kDemoModeScreensaverApp[] = "demo-mode-screensaver-extension";
 // downloading from Omaha).
 const char kDemoModeSwaContentDirectory[] = "demo-mode-swa-content-directory";
 
+// Directory from which to fetch the demo mode resource content (instead of
+// downloading from Omaha).
+const char kDemoModeResourceDirectory[] = "demo-mode-resource-directory";
+
 // Time in seconds before a machine at OOBE is considered derelict.
 const char kDerelictDetectionTimeout[] = "derelict-detection-timeout";
 
@@ -426,6 +432,12 @@ const char kDisableArcCpuRestriction[] = "disable-arc-cpu-restriction";
 
 // Disables ARC Opt-in verification process and ARC is enabled by default.
 const char kDisableArcOptInVerification[] = "disable-arc-opt-in-verification";
+
+// Disables the Weather API from being called by Birch. Allows fake users in
+// tast tests to avoid making API calls using an invalid GAIA ID, which causes
+// errors on the weather server side.
+const char kDisableBirchWeatherApiForTesting[] =
+    "disable-birch-weather-api-for-testing";
 
 // Disables the Chrome OS demo.
 const char kDisableDemoMode[] = "disable-demo-mode";
@@ -505,11 +517,12 @@ const char kEnableArcVmRtVcpu[] = "enable-arcvm-rt-vcpu";
 // Adds ash-browser back to launcher, even if in LacrosOnly mode.
 const char kEnableAshDebugBrowser[] = "enable-ash-debug-browser";
 
+// Used to override `kDisableBirchWeatherApiForTesting` for specific tast tests.
+const char kEnableBirchWeatherApiForTestingOverride[] =
+    "enable-birch-weather-api-for-testing-override";
+
 // Enables the Cast Receiver.
 const char kEnableCastReceiver[] = "enable-cast-receiver";
-
-// Enables consumer kiosk mode for Chrome OS.
-const char kEnableConsumerKiosk[] = "enable-consumer-kiosk";
 
 // Enables Shelf Dimming for ChromeOS.
 const char kEnableDimShelf[] = "enable-dim-shelf";
@@ -644,10 +657,6 @@ const char kFakeDriveFsLauncherChrootPath[] =
 const char kFakeDriveFsLauncherSocketPath[] =
     "fake-drivefs-launcher-socket-path";
 
-// Indicates that the cryptohome keys are evicted and lock screen should message
-// cryptohomed to run full authentication and restore filesystem keys.
-const char kRestoreKeyOnLockScreen[] = "restore-key-on-lock-screen";
-
 // Fingerprint sensor location indicates the physical sensor's location. The
 // value is a string with possible values: "power-button-top-left",
 // "keyboard-bottom-left", keyboard-bottom-right", "keyboard-top-right".
@@ -657,7 +666,7 @@ const char kFingerprintSensorLocation[] = "fingerprint-sensor-location";
 // Not passed on restart after sign out.
 const char kFirstExecAfterBoot[] = "first-exec-after-boot";
 
-// Forces a fetch of Birch data whenever a Pine session starts.
+// Forces a fetch of Birch data whenever an informed restore session starts.
 const char kForceBirchFetch[] = "force-birch-fetch";
 
 // If set, skips the logic in birch release notes provider and always sets
@@ -870,6 +879,9 @@ const char kExtensionAppsBlockForAppServiceInAsh[] =
 // kRmaNotAllowed switch takes priority over this one.
 const char kLaunchRma[] = "launch-rma";
 
+// Enables the lobster feature.
+const char kLobsterFeatureKey[] = "lobster-feature-key";
+
 // Enables Chrome-as-a-login-manager behavior.
 const char kLoginManager[] = "login-manager";
 
@@ -894,6 +906,12 @@ const char kDisableDisallowLacros[] = "disable-disallow-lacros";
 
 // Supply secret key for the mahi feature.
 const char kMahiFeatureKey[] = "mahi-feature-key";
+
+// Supply secret key for the sparky feature.
+const char kSparkyFeatureKey[] = "sparky-feature-key";
+
+// Supply server url for the sparky feature.
+const char kSparkyServerUrl[] = "sparky-server-url";
 
 // Specifies the user that the browser data migration should happen for.
 const char kBrowserDataMigrationForUser[] = "browser-data-migration-for-user";
@@ -1193,11 +1211,6 @@ bool IsAuthSessionCryptohomeEnabled() {
       kCryptohomeUseAuthSession);
 }
 
-bool ShouldRestoreKeyOnLockScreen() {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      kRestoreKeyOnLockScreen);
-}
-
 bool IsCellularFirstDevice() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(kCellularFirst);
 }
@@ -1401,30 +1414,6 @@ bool IsConchSecretKeyMatched() {
   return key_matched;
 }
 
-bool IsForestSecretKeyMatched() {
-  if (g_ignore_forest_secret_key) {
-    return true;
-  }
-
-  // Commandline looks like:
-  //  out/Default/chrome --user-data-dir=/tmp/tmp123
-  //  --forest-feature-key="INSERT KEY HERE" --enable-features=ForestFeature
-  const std::string provided_key_hash = base::SHA1HashString(
-      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          kForestFeatureKey));
-
-  bool forest_key_matched = (provided_key_hash == kForestHashKey);
-  if (!forest_key_matched) {
-    LOG(ERROR) << "Provided secret key does not match with the expected one.";
-  }
-
-  return forest_key_matched;
-}
-
-void SetIgnoreForestSecretKeyForTest(bool ignore) {
-  g_ignore_forest_secret_key = ignore;
-}
-
 bool IsMahiSecretKeyMatched() {
   if (g_ignore_mahi_secret_key) {
     return true;
@@ -1447,6 +1436,22 @@ bool IsMahiSecretKeyMatched() {
 
 base::AutoReset<bool> SetIgnoreMahiSecretKeyForTest() {
   return {&g_ignore_mahi_secret_key, true};
+}
+
+bool IsSparkySecretKeyMatched() {
+  // Commandline looks like:
+  //  out/Default/chrome --user-data-dir=/tmp/tmp123
+  //  --sparky-feature-key="INSERT KEY HERE" --enable-features=Sparky
+  const std::string provided_key_hash = base::SHA1HashString(
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          kSparkyFeatureKey));
+
+  bool sparky_key_matched = (provided_key_hash == kSparkyHashKey);
+  if (!sparky_key_matched) {
+    LOG(ERROR) << "Provided secret key does not match with the expected one.";
+  }
+
+  return sparky_key_matched;
 }
 
 bool IsModifierSplitSecretKeyMatched() {
@@ -1473,6 +1478,19 @@ bool IsModifierSplitSecretKeyMatched() {
 
 base::AutoReset<bool> SetIgnoreModifierSplitSecretKeyForTest() {
   return {&g_ignore_modifier_split_secret_key, true};
+}
+
+std::optional<std::string> ObtainSparkyServerUrl() {
+  // Commandline looks like:
+  //  out/Default/chrome --user-data-dir=/tmp/tmp123
+  //  --sparky-server-url="INSERT KEY HERE"
+  //  --enable-features=Sparky
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(kSparkyServerUrl)) {
+    return std::make_optional(
+        base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+            kSparkyServerUrl));
+  }
+  return std::nullopt;
 }
 
 }  // namespace ash::switches

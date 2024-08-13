@@ -87,15 +87,11 @@ class SyncServiceImpl : public SyncService,
     ~InitParams();
 
     std::unique_ptr<SyncClient> sync_client;
-    // TODO(treib): Remove this and instead retrieve it via
-    // SyncClient::GetIdentityManager (but mind LocalSync).
-    raw_ptr<signin::IdentityManager> identity_manager = nullptr;
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory;
     raw_ptr<network::NetworkConnectionTracker> network_connection_tracker =
         nullptr;
     version_info::Channel channel = version_info::Channel::UNKNOWN;
     std::string debug_identifier;
-    bool sync_poll_immediately_on_every_startup = false;
   };
 
   explicit SyncServiceImpl(InitParams init_params);
@@ -157,9 +153,6 @@ class SyncServiceImpl : public SyncService,
   void GetAllNodesForDebugging(
       base::OnceCallback<void(base::Value::List)> callback) override;
   ModelTypeDownloadStatus GetDownloadStatusFor(ModelType type) const override;
-  void RecordReasonIfWaitingForUpdates(
-      ModelType type,
-      const std::string& histogram_name) const override;
   void GetTypesWithUnsyncedData(
       ModelTypeSet requested_types,
       base::OnceCallback<void(ModelTypeSet)> callback) const override;
@@ -204,6 +197,8 @@ class SyncServiceImpl : public SyncService,
   void OnAccountsInCookieUpdated(
       const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
       const GoogleServiceAuthError& error) override;
+  void OnPrimaryAccountChanged(
+      const signin::PrimaryAccountChangeEvent& event_details) override;
 
   // Similar to above but with a callback that will be invoked on completion.
   void OnAccountsInCookieUpdatedWithCallback(
@@ -294,37 +289,6 @@ class SyncServiceImpl : public SyncService,
   static bool ShouldClearTransportDataForAccount(
       ResetEngineReason reset_reason);
 
-  // Records UMA histograms related to download status during browser startup.
-  class DownloadStatusRecorder : public SyncServiceObserver {
-   public:
-    DownloadStatusRecorder(SyncServiceImpl* sync_service,
-                           base::OnceClosure on_finished_callback,
-                           ModelTypeSet data_types_to_track);
-    DownloadStatusRecorder(const DownloadStatusRecorder&) = delete;
-    DownloadStatusRecorder& operator=(const DownloadStatusRecorder&) = delete;
-    ~DownloadStatusRecorder() override;
-
-    // SyncServiceObserver implementation.
-    void OnStateChanged(SyncService* service) override;
-    void OnSyncShutdown(SyncService* service) override;
-
-   private:
-    void OnTimeout();
-
-    raw_ptr<SyncServiceImpl> sync_service_ = nullptr;
-
-    // Set on browser startup to report metrics related to sync configuration.
-    base::OneShotTimer startup_metrics_timer_;
-
-    // Used to notify once all the browser startup related histograms are
-    // recorded.
-    base::OnceClosure on_finished_callback_;
-
-    // Used to track data types they are in kWaitingForUpdates download status
-    // during browser startup. Used for metrics only.
-    ModelTypeSet data_types_to_track_;
-  };
-
   void StopAndClear(ResetEngineReason reset_engine_reason);
 
   // Callbacks for SyncAuthManager.
@@ -406,16 +370,6 @@ class SyncServiceImpl : public SyncService,
   // type.
   void MaybeRecordTrustedVaultHistograms();
 
-  // Clean up download status recorder.
-  void OnDownloadStatusRecorderFinished();
-
-  // Returns current download status for `type`. Records a histogram if the data
-  // type is waiting for updates and `waiting_for_updates_histogram_name` is not
-  // empty.
-  ModelTypeDownloadStatus GetDownloadStatusForImpl(
-      ModelType type,
-      const std::string& waiting_for_updates_histogram_name) const;
-
   void OnPasswordSyncAllowedChanged();
 
   // Updates PrefService (SyncPrefs) to cache the last known value for trusted
@@ -425,6 +379,9 @@ class SyncServiceImpl : public SyncService,
   // Exercises SyncClient to register synthetic field trials for trusted vault
   // passphrase type.
   void RegisterTrustedVaultSyntheticFieldTrialsIfNecessary();
+
+  // Returns the types that have a non-null ModelTypeLocalDataBatchUploader.
+  ModelTypeSet GetModelTypesWithLocalDataBatchUploader() const;
 
   // This profile's SyncClient, which abstracts away non-Sync dependencies and
   // the Sync API component factory.
@@ -536,8 +493,6 @@ class SyncServiceImpl : public SyncService,
   std::optional<TrustedVaultAutoUpgradeSyntheticFieldTrialGroup>
       registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_;
 
-  const bool sync_poll_immediately_on_every_startup_;
-
   // Whether we want to receive invalidations for the SESSIONS data type. This
   // is typically false on Android (to save network traffic), but true on all
   // other platforms.
@@ -547,9 +502,6 @@ class SyncServiceImpl : public SyncService,
   // Cleared on the first start attempt, regardless of success and who triggered
   // that attempt (the posted task or a new TryStart()).
   base::Time deferring_first_start_since_;
-
-  // Used to track download status changes during browser startup.
-  std::unique_ptr<DownloadStatusRecorder> download_status_recorder_;
 
   std::unique_ptr<SyncFeatureStatusForMigrationsRecorder> sync_status_recorder_;
 

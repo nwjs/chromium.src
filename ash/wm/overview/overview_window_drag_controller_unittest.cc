@@ -8,7 +8,6 @@
 #include "ash/display/screen_orientation_controller_test_api.h"
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
-#include "ash/utility/forest_util.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desk_mini_view.h"
 #include "ash/wm/desks/desks_constants.h"
@@ -199,7 +198,7 @@ TEST_F(OverviewWindowDragControllerTest, DropTargetBoundsTest) {
 
   auto* overview_grid = GetOverviewGridForRoot(Shell::GetPrimaryRootWindow());
   ASSERT_TRUE(overview_grid);
-  const auto& window_list = overview_grid->window_list();
+  const auto& window_list = overview_grid->item_list();
   ASSERT_EQ(window_list.size(), 1u);
 
   OverviewSession* overview_session = overview_controller->overview_session();
@@ -379,7 +378,7 @@ TEST_F(OverviewWindowDragControllerTest, DragWindowInPortraitMode) {
   // item in the list to check if there's overlap or not.
   EXPECT_FALSE(
       desks_bar_view->GetBoundsInScreen().Intersects(gfx::ToEnclosedRect(
-          overview_grid()->window_list()[1].get()->target_bounds())));
+          overview_grid()->item_list()[1].get()->target_bounds())));
 }
 
 // Tests that if a user starts dragging an overview item and the desks bar(s)
@@ -586,8 +585,8 @@ TEST_F(OverviewWindowDragControllerDesksPortraitTabletTest,
 
   const gfx::Rect desk_bar_bounds = desks_bar_view->GetBoundsInScreen();
   const gfx::Rect first_item_bounds =
-      gfx::ToEnclosedRect(overview_grid()->window_list()[0]->target_bounds());
-  if (IsForestFeatureEnabled()) {
+      gfx::ToEnclosedRect(overview_grid()->item_list()[0]->target_bounds());
+  if (features::IsForestFeatureEnabled()) {
     // With forest, a little overlap is ok since the desk bar is transparent.
     // TODO(sammiequon|zxdan): Check if this gap is okay.
     EXPECT_NEAR(desk_bar_bounds.bottom(), first_item_bounds.y(), 20);

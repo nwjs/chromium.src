@@ -21,9 +21,12 @@
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/sequence_checker.h"
 #include "base/strings/strcat.h"
@@ -71,7 +74,6 @@
 #include "services/network/attribution/attribution_request_helper.h"
 #include "services/network/chunked_data_pipe_upload_data_stream.h"
 #include "services/network/data_pipe_element_reader.h"
-#include "services/network/network_service_memory_cache_writer.h"
 #include "services/network/orb/orb_impl.h"
 #include "services/network/public/cpp/client_hints.h"
 #include "services/network/public/cpp/constants.h"
@@ -100,6 +102,8 @@
 #include "services/network/resource_scheduler/resource_scheduler_client.h"
 #include "services/network/sec_header_helpers.h"
 #include "services/network/shared_dictionary/shared_dictionary_access_checker.h"
+#include "services/network/shared_dictionary/shared_dictionary_manager.h"
+#include "services/network/shared_dictionary/shared_dictionary_storage.h"
 #include "services/network/shared_storage/shared_storage_request_helper.h"
 #include "services/network/slop_bucket.h"
 #include "services/network/throttling/scoped_throttling_token.h"
@@ -194,7 +198,7 @@ std::unique_ptr<net::UploadDataStream> CreateUploadDataStream(
             body, element.As<DataElementBytes>()));
         break;
       case network::mojom::DataElementDataView::Tag::kFile:
-        DCHECK(opened_file != opened_files.end());
+        CHECK(opened_file != opened_files.end(), base::NotFatalUntil::M130);
         element_readers.push_back(std::make_unique<FileElementReader>(
             body, file_task_runner, element.As<network::DataElementFile>(),
             std::move(*opened_file++)));
@@ -520,10 +524,11 @@ URLLoader::URLLoader(
     mojo::PendingRemote<mojom::URLLoaderClient> url_loader_client,
     base::WeakPtr<mojom::URLLoaderClient> sync_url_loader_client,
     const net::NetworkTrafficAnnotationTag& traffic_annotation,
-    uint32_t request_id,
+    base::StrictNumeric<int32_t> request_id,
     int keepalive_request_size,
     base::WeakPtr<KeepaliveStatisticsRecorder> keepalive_statistics_recorder,
     std::unique_ptr<TrustTokenRequestHelperFactory> trust_token_helper_factory,
+    SharedDictionaryManager* shared_dictionary_manager,
     std::unique_ptr<SharedDictionaryAccessChecker> shared_dictionary_checker,
     mojo::PendingRemote<mojom::CookieAccessObserver> cookie_observer,
     mojo::PendingRemote<mojom::TrustTokenAccessObserver> trust_token_observer,
@@ -765,7 +770,8 @@ URLLoader::URLLoader(
         request.net_log_reference_info.value());
   }
 
-  url_request_->set_has_storage_access(request.has_storage_access);
+  url_request_->set_storage_access_api_status(
+      request.storage_access_api_status);
 
   url_request_->cookie_setting_overrides().PutAll(cookie_setting_overrides);
   if (request.is_outermost_main_frame &&
@@ -783,11 +789,20 @@ URLLoader::URLLoader(
   AddAdsHeuristicCookieSettingOverrides(
       request.is_ad_tagged, url_request_->cookie_setting_overrides());
 
-  // The `kStorageAccessGrantEligible` override will be applied (in-place) by
-  // individual request jobs as appropriate, but should not be present
+  // The `kStorageAccessGrantEligible` and
+  // `kStorageAccessGrantEligibleViaHeader` overrides will be applied (in-place)
+  // by individual request jobs as appropriate, but should not be present
   // initially.
-  DCHECK(!url_request_->cookie_setting_overrides().Has(
+  CHECK(!url_request_->cookie_setting_overrides().Has(
       net::CookieSettingOverride::kStorageAccessGrantEligible));
+  CHECK(!url_request_->cookie_setting_overrides().Has(
+      net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader));
+
+  if (shared_dictionary_manager) {
+    url_request_->SetSharedDictionaryGetter(
+        shared_dictionary_manager->MaybeCreateSharedDictionaryGetter(
+            request_load_flags, request_destination_));
+  }
 
   // Resolve elements from request_body and prepare upload data.
   if (request.request_body.get()) {
@@ -1170,8 +1185,6 @@ void URLLoader::FollowRedirect(
   // also calls the devtools observer.
   seen_raw_request_headers_ = false;
 
-  memory_cache_writer_.reset();
-
   // Removing headers can't make the set of pre-existing headers unsafe, but
   // adding headers can.
   if (!AreRequestHeadersSafe(modified_headers) ||
@@ -1297,7 +1310,6 @@ int URLLoader::OnConnected(net::URLRequest* url_request,
                            const net::TransportInfo& info,
                            net::CompletionOnceCallback callback) {
   DCHECK_EQ(url_request, url_request_.get());
-  transport_info_ = info;
 
   // Now that the request endpoint's address has been resolved, check if
   // this request should be blocked per Private Network Access.
@@ -1453,9 +1465,6 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
   DispatchOnRawResponse();
   ReportFlaggedResponseCookies(false);
 
-  if (memory_cache_)
-    memory_cache_->OnRedirect(url_request_.get(), request_destination_);
-
   // Enforce the Cross-Origin-Resource-Policy (CORP) header.
   const CrossOriginEmbedderPolicy kEmptyCoep;
   const CrossOriginEmbedderPolicy& cross_origin_embedder_policy =
@@ -1549,7 +1558,8 @@ void URLLoader::ContinueOnReceiveRedirect(
     const net::RedirectInfo& redirect_info,
     uint64_t response_index) {
   auto iter = on_receive_redirect_responses_.find(response_index);
-  DCHECK(iter != on_receive_redirect_responses_.end());
+  CHECK(iter != on_receive_redirect_responses_.end(),
+        base::NotFatalUntil::M130);
   mojom::URLResponseHeadPtr response = std::move(iter->second);
   DCHECK(response);
   on_receive_redirect_responses_.erase(iter);
@@ -1685,6 +1695,12 @@ void URLLoader::OnResponseStarted(net::URLRequest* url_request, int net_error) {
   DCHECK(url_request == url_request_.get());
   has_received_response_ = true;
 
+  if (keepalive_) {
+    base::UmaHistogramEnumeration(
+        "FetchKeepAlive.Requests2.Network",
+        internal::FetchKeepAliveRequestNetworkMetricType::kOnResponse);
+  }
+
   // Use `true` to force sending the cookie accessed update now. This is because
   // for navigations the CookieObserver might get torn down by the time the
   // request completes.
@@ -1709,11 +1725,6 @@ void URLLoader::OnResponseStarted(net::URLRequest* url_request, int net_error) {
                        weak_ptr_factory_.GetWeakPtr()));
     // |this| may have been deleted.
     return;
-  }
-
-  if (memory_cache_) {
-    memory_cache_writer_ = memory_cache_->MaybeCreateWriter(
-        url_request_.get(), request_destination_, transport_info_, response_);
   }
 
   ProcessInboundAttributionInterceptorOnResponseStarted();
@@ -1835,7 +1846,7 @@ void URLLoader::ContinueOnResponseStarted() {
     // TODO(ricea): Make ORB and ReadAndDiscardBody work together if necessary.
     CHECK(!(options_ & mojom::kURLLoadOptionReadAndDiscardBody))
         << "ORB is incompatible with the ReadAndDiscardBody option";
-    orb_analyzer_ = orb::ResponseAnalyzer::Create(*per_factory_orb_state_);
+    orb_analyzer_ = orb::ResponseAnalyzer::Create(&*per_factory_orb_state_);
     is_more_orb_sniffing_needed_ = true;
     auto decision =
         orb_analyzer_->Init(url_request_->url(), url_request_->initiator(),
@@ -1896,10 +1907,7 @@ void URLLoader::ReadMore() {
         break;
       case MOJO_RESULT_SHOULD_WAIT:
         CHECK(!pending_write_);
-        // SlopBucket is incompatible with the network service memory cache,
-        // so don't use it if the memory cache is in use.
-        if (base::FeatureList::IsEnabled(kSlopBucket) && !slop_bucket_ &&
-            !memory_cache_) {
+        if (base::FeatureList::IsEnabled(kSlopBucket) && !slop_bucket_) {
           slop_bucket_ = SlopBucket::RequestSlopBucket(url_request_.get());
         }
         if (slop_bucket_ && !slop_bucket_->read_in_progress() &&
@@ -1987,16 +1995,6 @@ void URLLoader::DidRead(int num_bytes,
                         bool into_slop_bucket) {
   DCHECK(read_in_progress_ || into_slop_bucket);
   read_in_progress_ = false;
-
-  if (memory_cache_writer_ && pending_write_ && num_bytes > 0) {
-    CHECK(!into_slop_bucket);
-    CHECK(!discard_buffer_);
-    if (!memory_cache_writer_->OnDataRead(
-            pending_write_->buffer() + pending_write_buffer_offset_,
-            num_bytes)) {
-      memory_cache_writer_.reset();
-    }
-  }
 
   size_t new_data_offset = pending_write_buffer_offset_;
   if (num_bytes > 0) {
@@ -2371,9 +2369,6 @@ void URLLoader::NotifyCompleted(int error_code) {
       status.ssl_info = url_request_->ssl_info();
     }
 
-    if (memory_cache_writer_)
-      memory_cache_writer_->OnCompleted(status);
-
     url_loader_client_.Get()->OnComplete(status);
   }
 
@@ -2512,8 +2507,7 @@ void URLLoader::SetRawRequestHeadersAndNotify(
               url::Origin()),
           url_request_->site_for_cookies(), std::move(reported_cookies),
           devtools_request_id(), /*count=*/1, url_request_->ad_tagged(),
-          url_request_->cookie_setting_overrides(),
-          /*source_location=*/nullptr));
+          url_request_->cookie_setting_overrides()));
     }
   }
 }
@@ -2709,14 +2703,11 @@ void URLLoader::CompleteBlockedResponse(
   status.should_report_orb_blocking = should_report_orb_blocking;
   status.blocked_by_response_reason = reason;
 
-  if (memory_cache_writer_)
-    memory_cache_writer_->OnCompleted(status);
   url_loader_client_.Get()->OnComplete(status);
 
   // Reset the connection to the URLLoaderClient.  This helps ensure that we
   // won't accidentally leak any data to the renderer from this point on.
   url_loader_client_.Reset();
-  memory_cache_writer_.reset();
 }
 
 URLLoader::BlockResponseForOrbResult URLLoader::BlockResponseForOrb() {
@@ -2745,7 +2736,7 @@ URLLoader::BlockResponseForOrbResult URLLoader::BlockResponseForOrb() {
   // Send empty body to the real URLLoaderClient. This preserves "ORB v0.1"
   // behaviour and will also go away once
   // OpaqueResponseBlockingErrorsForAllFetches is perma-enabled.
-  if (blocked_error_code == net::OK || blocked_error_code == net::ERR_ABORTED) {
+  if (blocked_error_code == net::OK) {
     mojo::ScopedDataPipeProducerHandle producer_handle;
     mojo::ScopedDataPipeConsumerHandle consumer_handle;
     MojoResult result = mojo::CreateDataPipe(kBlockedBodyAllocationSize,
@@ -2844,7 +2835,7 @@ void URLLoader::ReportFlaggedResponseCookies(bool call_cookie_observer) {
             url::Origin()),
         url_request_->site_for_cookies(), std::move(reported_cookies),
         devtools_request_id(), /*count=*/1, url_request_->ad_tagged(),
-        url_request_->cookie_setting_overrides(), /*source_location=*/nullptr));
+        url_request_->cookie_setting_overrides()));
     if (call_cookie_observer) {
       cookie_observer_->OnCookiesAccessed(std::move(cookie_access_details_));
     }

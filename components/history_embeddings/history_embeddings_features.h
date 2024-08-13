@@ -33,6 +33,11 @@ extern const base::FeatureParam<int>
 extern const base::FeatureParam<int> kSearchQueryMinimumWordCount;
 extern const base::FeatureParam<int> kSearchPassageMinimumWordCount;
 
+// The minimum number of words to gather from several passages used as
+// context for the Answerer. Top passages will be included until the sum
+// of word counts meets this minimum.
+extern const base::FeatureParam<int> kContextPassagesMinimumWordCount;
+
 // Specifies the number of best matching items to take from the search.
 extern const base::FeatureParam<int> kSearchResultItemCount;
 
@@ -55,8 +60,12 @@ extern const base::FeatureParam<bool> kUseMlAnswerer;
 // Specifies whether to use the ML Embedder to embed passages and queries.
 extern const base::FeatureParam<bool> kUseMlEmbedder;
 
-// Whether history embedding results should be shown in the omnibox outside of
-// the '@history' scope.
+// Whether history embedding results should be shown in the omnibox when in the
+// '@history' scope.
+extern const base::FeatureParam<bool> kOmniboxScoped;
+
+// Whether history embedding results should be shown in the omnibox when not in
+// the '@history' scope. If true, behaves as if `kOmniboxScoped` is also true.
 extern const base::FeatureParam<bool> kOmniboxUnscoped;
 
 // The maximum number of embeddings to submit to the primary (ML) embedder
@@ -87,7 +96,23 @@ extern const base::FeatureParam<int> kMaxPassagesPerPage;
 extern const base::FeatureParam<bool> kDeleteEmbeddings;
 extern const base::FeatureParam<bool> kRebuildEmbeddings;
 
-bool IsHistoryEmbeddingEnabled();
+// When true (the default), passages and embeddings from the database are
+// used as a perfect cache to avoid re-embedding any passages that already
+// exist in a given url_id's stored data. This reduces embedding workload
+// to the minimum necessary for new passages, with no redundant recomputes.
+extern const base::FeatureParam<bool> kUseDatabaseBeforeEmbedder;
+
+// Whether to enable the URL filter to skip blocked URLs to improve performance.
+extern const base::FeatureParam<bool> kUseUrlFilter;
+
+// The amount of time in seconds that the passage embeddings service will idle
+// for before being torn down to reduce memory usage.
+extern const base::FeatureParam<base::TimeDelta> kEmbeddingsServiceTimeout;
+
+// Whether the history embeddings feature is enabled. This only checks if the
+// feature flags are enabled and does not check the user's opt-in preference.
+// See chrome/browser/history_embeddings/history_embeddings_utils.h.
+bool IsHistoryEmbeddingsEnabled();
 
 }  // namespace history_embeddings
 

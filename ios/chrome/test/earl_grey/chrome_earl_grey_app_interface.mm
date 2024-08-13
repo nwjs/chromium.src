@@ -43,8 +43,8 @@
 #import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
-#import "ios/chrome/browser/sessions/session_restoration_service.h"
-#import "ios/chrome/browser/sessions/session_restoration_service_factory.h"
+#import "ios/chrome/browser/sessions/model/session_restoration_service.h"
+#import "ios/chrome/browser/sessions/model/session_restoration_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
@@ -56,7 +56,6 @@
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/omnibox_util.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
-#import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/ui/first_run/first_run_screen_provider.h"
 #import "ios/chrome/browser/ui/first_run/first_run_util.h"
@@ -81,6 +80,7 @@
 #import "ios/testing/verify_custom_webkit.h"
 #import "ios/web/common/features.h"
 #import "ios/web/js_messaging/web_view_js_utils.h"
+#import "ios/web/public/browser_state_utils.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/navigation/navigation_manager.h"
@@ -163,8 +163,9 @@ NSString* SerializedValue(const base::Value* value) {
 + (void)killWebKitNetworkProcess {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wundeclared-selector"
-  [[WKWebsiteDataStore defaultDataStore]
-      performSelector:@selector(_terminateNetworkProcess)];
+  WKWebsiteDataStore* dataStore = web::GetDataStoreForBrowserState(
+      chrome_test_util::GetOriginalBrowserState());
+  [dataStore performSelector:@selector(_terminateNetworkProcess)];
 #pragma clang diagnostic pop
 }
 
@@ -921,10 +922,6 @@ NSString* SerializedValue(const base::Value* value) {
       base::SysNSStringToUTF8(GUID));
 }
 
-+ (void)signInWithoutSyncWithIdentity:(FakeSystemIdentity*)identity {
-  chrome_test_util::SignInWithoutSync(identity);
-}
-
 + (NSError*)waitForSyncEngineInitialized:(BOOL)isInitialized
                              syncTimeout:(base::TimeDelta)timeout {
   bool success = WaitUntilConditionOrTimeout(timeout, ^{
@@ -1294,6 +1291,13 @@ NSString* SerializedValue(const base::Value* value) {
   prefService->SetTime(path, value);
 }
 
++ (void)setTimeValue:(base::Time)value forUserPref:(NSString*)prefName {
+  std::string path = base::SysNSStringToUTF8(prefName);
+  PrefService* prefService =
+      chrome_test_util::GetOriginalBrowserState()->GetPrefs();
+  prefService->SetTime(path, value);
+}
+
 + (void)setStringValue:(NSString*)value forLocalStatePref:(NSString*)prefName {
   std::string UTF8Value = base::SysNSStringToUTF8(value);
   std::string path = base::SysNSStringToUTF8(prefName);
@@ -1355,6 +1359,7 @@ NSString* SerializedValue(const base::Value* value) {
 + (void)resetBrowsingDataPrefs {
   PrefService* prefs = chrome_test_util::GetOriginalBrowserState()->GetPrefs();
   prefs->ClearPref(browsing_data::prefs::kDeleteBrowsingHistory);
+  prefs->ClearPref(browsing_data::prefs::kCloseTabs);
   prefs->ClearPref(browsing_data::prefs::kDeleteCookies);
   prefs->ClearPref(browsing_data::prefs::kDeleteCache);
   prefs->ClearPref(browsing_data::prefs::kDeletePasswords);

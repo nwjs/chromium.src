@@ -125,8 +125,7 @@ RenderFrameProxyHost::RenderFrameProxyHost(
       frame_tree_node_(frame_tree_node),
       render_frame_proxy_created_(false),
       render_view_host_(std::move(render_view_host)),
-      frame_token_(frame_token),
-      post_message_counter_(blink::PostMessagePartition::kCrossProcess) {
+      frame_token_(frame_token) {
   TRACE_EVENT_BEGIN("navigation", "RenderFrameProxyHost",
                     perfetto::Track::FromPointer(this),
                     "render_frame_proxy_host_when_created", *this);
@@ -621,8 +620,6 @@ void RenderFrameProxyHost::RouteMessageEvent(
   // If there is a |source_frame_token|, translate it to the frame token of the
   // equivalent RenderFrameProxyHost in the target process.
   std::optional<blink::RemoteFrameToken> translated_source_token;
-  ukm::SourceId source_page_ukm_source_id = ukm::kInvalidSourceId;
-  blink::StorageKey source_storage_key;
   if (source_frame_token) {
     RenderFrameHostImpl* source_rfh = RenderFrameHostImpl::FromFrameToken(
         GetProcess()->GetID(), source_frame_token.value());
@@ -677,32 +674,8 @@ void RenderFrameProxyHost::RouteMessageEvent(
       if (source_proxy_in_target_group) {
         translated_source_token = source_proxy_in_target_group->GetFrameToken();
       }
-
-      if (!source_rfh->IsInLifecycleState(
-              RenderFrameHost::LifecycleState::kPrerendering)) {
-        // ukm::SourceId is available only when the page is not in the
-        // prerendering state.
-        source_page_ukm_source_id = source_rfh->GetPageUkmSourceId();
-      }
-      source_storage_key = source_rfh->GetStorageKey();
     }
   }
-
-  // Record UKM metrics for the postMessage event and don't send message if
-  // gating indicates it should be dropped.
-  ukm::SourceId target_page_ukm_source_id = ukm::kInvalidSourceId;
-  if (!target_rfh->IsInLifecycleState(
-          RenderFrameHost::LifecycleState::kPrerendering)) {
-    // ukm::SourceId is available only when the page is not in the
-    // prerendering state.
-    target_page_ukm_source_id = target_rfh->GetPageUkmSourceId();
-  }
-  if (!post_message_counter_.RecordMessageAndCheckIfShouldSend(
-          source_page_ukm_source_id, source_storage_key,
-          target_page_ukm_source_id, target_rfh->GetStorageKey(),
-          ukm::UkmRecorder::Get())) {
-    return;
-  };
 
   target_rfh->PostMessageEvent(translated_source_token, source_origin_string,
                                target_origin, std::move(message));
@@ -847,7 +820,8 @@ void RenderFrameProxyHost::OpenURL(blink::mojom::OpenURLParamsPtr params) {
       params->initiator_activation_and_ad_status, navigation_start_time,
       /*is_embedder_initiated_fenced_frame_navigation=*/false,
       /*is_unfenced_top_navigation=*/false,
-      /*force_new_browsing_instance=*/false, params->is_container_initiated);
+      /*force_new_browsing_instance=*/false, params->is_container_initiated,
+      params->has_rel_opener, params->storage_access_api_status);
 }
 
 void RenderFrameProxyHost::UpdateViewportIntersection(

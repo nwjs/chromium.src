@@ -40,15 +40,16 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/time/default_tick_clock.h"
 #include "base/types/optional_util.h"
 #include "base/uuid.h"
 #include "build/chromeos_buildflags.h"
+#include "net/storage_access_api/status.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/cpp/client_hints.h"
 #include "services/network/public/cpp/header_util.h"
-#include "services/network/public/cpp/shared_dictionary_encoding_names.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/url_response_head.mojom-shared.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-blink.h"
@@ -72,6 +73,7 @@
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_content_security_policy_struct.h"
+#include "third_party/blink/public/platform/web_navigation_body_loader.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/blink.h"
 #include "third_party/blink/public/web/web_navigation_type.h"
@@ -179,6 +181,7 @@
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_view.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -339,7 +342,7 @@ struct SameSizeAsDocumentLoader
   std::optional<ViewTransitionState> view_transition_state;
   std::optional<FencedFrame::RedactedFencedFrameProperties>
       fenced_frame_properties;
-  bool has_storage_access;
+  net::StorageAccessApiStatus storage_access_api_status;
   mojom::blink::ParentResourceTimingAccess parent_resource_timing_access;
   const std::optional<BrowsingContextGroupInfo> browsing_context_group_info;
   const base::flat_map<mojom::blink::RuntimeFeature, bool>
@@ -422,7 +425,7 @@ class DocumentLoader::BodyData {
   virtual ~BodyData() = default;
   virtual void AppendToParser(DocumentLoader* loader) = 0;
   virtual void Buffer(DocumentLoader* loader) = 0;
-  virtual base::span<const char> EncodedData() const = 0;
+  virtual base::SpanOrSize<const char> EncodedData() const = 0;
 };
 
 // Wraps encoded data received by the loader.
@@ -441,7 +444,9 @@ class DocumentLoader::EncodedBodyData : public BodyData {
     loader->data_buffer_->Append(data_.data(), data_.size());
   }
 
-  base::span<const char> EncodedData() const override { return data_; }
+  base::SpanOrSize<const char> EncodedData() const override {
+    return base::SpanOrSize(data_);
+  }
 
  private:
   base::span<const char> data_;
@@ -452,7 +457,7 @@ class DocumentLoader::DecodedBodyData : public BodyData {
  public:
   DecodedBodyData(const String& data,
                   const DocumentEncodingData& encoding_data,
-                  base::span<const char> encoded_data)
+                  base::SpanOrSize<const char> encoded_data)
       : data_(data),
         encoding_data_(encoding_data),
         encoded_data_(encoded_data) {}
@@ -465,12 +470,14 @@ class DocumentLoader::DecodedBodyData : public BodyData {
     loader->decoded_data_buffer_.push_back(*this);
   }
 
-  base::span<const char> EncodedData() const override { return encoded_data_; }
+  base::SpanOrSize<const char> EncodedData() const override {
+    return encoded_data_;
+  }
 
  private:
   String data_;
   DocumentEncodingData encoding_data_;
-  base::span<const char> encoded_data_;
+  base::SpanOrSize<const char> encoded_data_;
 };
 
 DocumentLoader::DocumentLoader(
@@ -560,7 +567,7 @@ DocumentLoader::DocumentLoader(
       reduced_accept_language_(params_->reduced_accept_language),
       navigation_delivery_type_(params_->navigation_delivery_type),
       view_transition_state_(std::move(params_->view_transition_state)),
-      load_with_storage_access_(params_->load_with_storage_access),
+      storage_access_api_status_(params_->load_with_storage_access),
       browsing_context_group_info_(params_->browsing_context_group_info),
       modified_runtime_features_(std::move(params_->modified_runtime_features)),
       cookie_deprecation_label_(params_->cookie_deprecation_label),
@@ -717,7 +724,7 @@ DocumentLoader::CreateWebNavigationParamsToCloneDocument() {
   }
   params->reduced_accept_language = reduced_accept_language_;
   params->navigation_delivery_type = navigation_delivery_type_;
-  params->load_with_storage_access = load_with_storage_access_;
+  params->load_with_storage_access = storage_access_api_status_;
   params->modified_runtime_features = modified_runtime_features_;
   params->cookie_deprecation_label = cookie_deprecation_label_;
   params->visited_link_salt = visited_link_salt_;
@@ -915,6 +922,7 @@ void DocumentLoader::RunURLAndHistoryUpdateSteps(
     mojom::blink::SameDocumentNavigationType same_document_navigation_type,
     scoped_refptr<SerializedScriptValue> data,
     WebFrameLoadType type,
+    FirePopstate fire_popstate,
     bool is_browser_initiated,
     bool is_synchronously_committed,
     std::optional<scheduler::TaskAttributionId>
@@ -926,8 +934,9 @@ void DocumentLoader::RunURLAndHistoryUpdateSteps(
   // in this process.
   UpdateForSameDocumentNavigation(
       new_url, history_item, same_document_navigation_type, std::move(data),
-      type, frame_->DomWindow()->GetSecurityOrigin(), is_browser_initiated,
-      is_synchronously_committed, soft_navigation_heuristics_task_id);
+      type, fire_popstate, frame_->DomWindow()->GetSecurityOrigin(),
+      is_browser_initiated, is_synchronously_committed,
+      soft_navigation_heuristics_task_id);
 }
 
 void DocumentLoader::UpdateForSameDocumentNavigation(
@@ -936,6 +945,7 @@ void DocumentLoader::UpdateForSameDocumentNavigation(
     mojom::blink::SameDocumentNavigationType same_document_navigation_type,
     scoped_refptr<SerializedScriptValue> data,
     WebFrameLoadType type,
+    FirePopstate fire_popstate,
     const SecurityOrigin* initiator_origin,
     bool is_browser_initiated,
     bool is_synchronously_committed,
@@ -1090,8 +1100,9 @@ void DocumentLoader::UpdateForSameDocumentNavigation(
 
   // Anything except a history.pushState/replaceState is considered a new
   // navigation that resets whether the user has scrolled and fires popstate.
-  if (same_document_navigation_type !=
-      mojom::blink::SameDocumentNavigationType::kHistoryApi) {
+  // A history.pushState/replaceState intercepted via the navigation API should
+  // also not fire popstate.
+  if (fire_popstate == FirePopstate::kYes) {
     initial_scroll_state_.was_scrolled_by_user = false;
 
     // If the item sequence number didn't change, there's no need to trigger
@@ -1216,7 +1227,7 @@ void DocumentLoader::BodyDataReceived(base::span<const char> data) {
 void DocumentLoader::DecodedBodyDataReceived(
     const WebString& data,
     const WebEncodingData& encoding_data,
-    base::span<const char> encoded_data) {
+    base::SpanOrSize<const char> encoded_data) {
   // Decoding has already happened, we don't need the decoder anymore.
   parser_->SetDecoder(nullptr);
   DecodedBodyData body_data(data, DocumentEncodingData(encoding_data),
@@ -1239,16 +1250,16 @@ void DocumentLoader::BodyDataReceivedImpl(BodyData& data) {
   TRACE_EVENT_WITH_FLOW0("loading", "DocumentLoader::BodyDataReceivedImpl",
                          TRACE_ID_LOCAL(this),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
-  base::span<const char> encoded_data = data.EncodedData();
+  base::SpanOrSize<const char> encoded_data = data.EncodedData();
   if (encoded_data.size()) {
     if (response_.WasFetchedViaServiceWorker()) {
       total_body_size_from_service_worker_ += encoded_data.size();
     }
     GetFrameLoader().Progress().IncrementProgress(main_resource_identifier_,
                                                   encoded_data.size());
-    probe::DidReceiveData(probe::ToCoreProbeSink(GetFrame()),
-                          main_resource_identifier_, this, encoded_data.data(),
-                          encoded_data.size());
+    probe::DidReceiveData(
+        probe::ToCoreProbeSink(GetFrame()), main_resource_identifier_, this,
+        encoded_data.ptr_or_null_if_no_data(), encoded_data.size());
   }
 
   TRACE_EVENT_WITH_FLOW1("loading", "DocumentLoader::HandleData",
@@ -1734,8 +1745,9 @@ void DocumentLoader::CommitSameDocumentNavigationInternal(
 
   UpdateForSameDocumentNavigation(
       url, history_item, same_document_navigation_type, nullptr,
-      frame_load_type, initiator_origin, is_browser_initiated,
-      is_synchronously_committed, soft_navigation_heuristics_task_id);
+      frame_load_type, FirePopstate::kYes, initiator_origin,
+      is_browser_initiated, is_synchronously_committed,
+      soft_navigation_heuristics_task_id);
   if (!frame_)
     return;
 
@@ -2576,10 +2588,16 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
       agent->ForceOriginKeyedBecauseOfInheritance();
     }
 
-    if (load_with_storage_access_) {
-      frame_->DomWindow()->SetHasStorageAccess();
-      inherited_has_storage_access = true;
-    }
+    frame_->DomWindow()->SetStorageAccessApiStatus(storage_access_api_status_);
+    inherited_has_storage_access = [this]() -> bool {
+      switch (storage_access_api_status_) {
+        case net::StorageAccessApiStatus::kNone:
+          return false;
+        case net::StorageAccessApiStatus::kAccessViaAPI:
+          return true;
+      }
+      NOTREACHED_NORETURN();
+    }();
   } else {
     if (frame_->GetSettings()->GetShouldReuseGlobalForUnownedMainFrame() &&
         frame_->IsMainFrame()) {
@@ -2613,7 +2631,15 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
           frame_->DomWindow());
 
   base::UmaHistogramBoolean("API.StorageAccess.DocumentLoadedWithStorageAccess",
-                            frame_->DomWindow()->HasStorageAccess());
+                            [this]() -> bool {
+                              switch (storage_access_api_status_) {
+                                case net::StorageAccessApiStatus::kNone:
+                                  return false;
+                                case net::StorageAccessApiStatus::kAccessViaAPI:
+                                  return true;
+                              }
+                              NOTREACHED_NORETURN();
+                            }());
   base::UmaHistogramBoolean("API.StorageAccess.DocumentInheritedStorageAccess",
                             inherited_has_storage_access);
 
@@ -3269,13 +3295,17 @@ void DocumentLoader::RecordUseCountersForCommit() {
   }
   AtomicString content_encoding =
       response_.HttpHeaderField(http_names::kContentEncoding);
-  if (content_encoding.LowerASCII() == "zstd") {
+  if (EqualIgnoringASCIICase(content_encoding, "zstd")) {
     CountUse(WebFeature::kZstdContentEncoding);
+    CountUse(WebFeature::kZstdContentEncodingForNavigation);
     if (frame_->IsOutermostMainFrame()) {
+      CountUse(WebFeature::kZstdContentEncodingForMainFrameNavigation);
       ukm::builders::MainFrameNavigation_ZstdContentEncoding builder(
           ukm_source_id_);
       builder.SetUsedZstd(true);
       builder.Record(frame_->GetDocument()->UkmRecorder());
+    } else {
+      CountUse(WebFeature::kZstdContentEncodingForSubFrameNavigation);
     }
   }
   if (response_.DidUseSharedDictionary()) {
@@ -3284,11 +3314,9 @@ void DocumentLoader::RecordUseCountersForCommit() {
     CountUse(frame_->IsOutermostMainFrame()
                  ? WebFeature::kSharedDictionaryUsedForMainFrameNavigation
                  : WebFeature::kSharedDictionaryUsedForSubFrameNavigation);
-    if (content_encoding.LowerASCII() ==
-        network::GetSharedBrotliContentEncodingName()) {
+    if (EqualIgnoringASCIICase(content_encoding, "dcb")) {
       CountUse(WebFeature::kSharedDictionaryUsedWithSharedBrotli);
-    } else if (content_encoding.LowerASCII() ==
-               network::GetSharedZstdContentEncodingName()) {
+    } else if (EqualIgnoringASCIICase(content_encoding, "dcz")) {
       CountUse(WebFeature::kSharedDictionaryUsedWithSharedZstd);
     }
   }
@@ -3427,7 +3455,7 @@ DocumentLoader::GetContentSecurityNotifier() {
   CHECK(frame_);
 
   if (!content_security_notifier_.is_bound()) {
-    GetFrame()->Client()->GetBrowserInterfaceBroker().GetInterface(
+    GetFrame()->GetBrowserInterfaceBroker().GetInterface(
         content_security_notifier_.BindNewPipeAndPassReceiver(
             frame_->GetTaskRunner(TaskType::kInternalLoading)));
   }
@@ -3575,7 +3603,7 @@ CodeCacheHost* DocumentLoader::GetCodeCacheHost() {
     // CommitNavigation message and the following code would not be required and
     // we should just return nullptr here.
     mojo::Remote<mojom::blink::CodeCacheHost> remote;
-    GetLocalFrameClient().GetBrowserInterfaceBroker().GetInterface(
+    frame_->GetBrowserInterfaceBroker().GetInterface(
         remote.BindNewPipeAndPassReceiver());
     code_cache_host_ = std::make_unique<CodeCacheHost>(std::move(remote));
   }
@@ -3596,7 +3624,7 @@ DocumentLoader::CreateWorkerCodeCacheHost() {
   if (GetDisableCodeCacheForTesting())
     return mojo::NullRemote();
   mojo::PendingRemote<mojom::blink::CodeCacheHost> pending_code_cache_host;
-  GetLocalFrameClient().GetBrowserInterfaceBroker().GetInterface(
+  frame_->GetBrowserInterfaceBroker().GetInterface(
       pending_code_cache_host.InitWithNewPipeAndPassReceiver());
   return pending_code_cache_host;
 }

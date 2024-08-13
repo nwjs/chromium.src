@@ -16,6 +16,7 @@
 #include "chrome/browser/ip_protection/ip_protection_config_http.h"
 #include "chrome/browser/ip_protection/ip_protection_config_provider_factory.h"
 #include "components/ip_protection/ip_protection_config_provider_helper.h"
+#include "components/ip_protection/ip_protection_proxy_config_fetcher.h"
 #include "components/ip_protection/ip_protection_proxy_config_retriever.h"
 #include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "components/privacy_sandbox/tracking_protection_settings_observer.h"
@@ -37,6 +38,43 @@ class BlindSignAuthInterface;
 class BlindSignAuth;
 struct BlindSignToken;
 }  // namespace quiche
+
+// The result of a fetch of tokens from the IP Protection auth token server.
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused. Keep this in sync with
+// IpProtectionTokenBatchRequestResult in enums.xml.
+enum class IpProtectionTryGetAuthTokensResult {
+  // The request was successful and resulted in new tokens.
+  kSuccess = 0,
+  // No primary account is set.
+  kFailedNoAccount = 1,
+  // Chrome determined the primary account is not eligible.
+  kFailedNotEligible = 2,
+  // There was a failure fetching an OAuth token for the primary account.
+  // Deprecated in favor of `kFailedOAuthToken{Transient,Persistent}`.
+  kFailedOAuthTokenDeprecated = 3,
+  // There was a failure in BSA with the given status code.
+  kFailedBSA400 = 4,
+  kFailedBSA401 = 5,
+  kFailedBSA403 = 6,
+
+  // Any other issue calling BSA.
+  kFailedBSAOther = 7,
+
+  // There was a transient failure fetching an OAuth token for the primary
+  // account.
+  kFailedOAuthTokenTransient = 8,
+  // There was a persistent failure fetching an OAuth token for the primary
+  // account.
+  kFailedOAuthTokenPersistent = 9,
+
+  // The attempt to request tokens failed because IP Protection was disabled by
+  // the user.
+  kFailedDisabledByUser = 10,
+
+  kMaxValue = kFailedDisabledByUser,
+};
 
 // Fetches IP protection tokens on demand for the network service.
 //
@@ -97,15 +135,10 @@ class IpProtectionConfigProvider
 
   // Like `SetUp()`, but providing values for each of the member variables.
   void SetUpForTesting(
-      std::unique_ptr<IpProtectionProxyConfigRetriever>
+      std::unique_ptr<ip_protection::IpProtectionProxyConfigRetriever>
           ip_protection_proxy_config_retriever,
       std::unique_ptr<IpProtectionConfigHttp> ip_protection_config_http,
       quiche::BlindSignAuthInterface* bsa);
-
-  // Timeout for failures from GetProxyConfig. This is doubled for
-  // each subsequent failure.
-  static constexpr base::TimeDelta kGetProxyConfigFailureTimeout =
-      base::Minutes(1);
 
  private:
   friend class IpProtectionConfigProviderTest;
@@ -120,16 +153,6 @@ class IpProtectionConfigProvider
   // This accomplishes lazy loading of these components to break dependency
   // loops in browser startup.
   void SetUp();
-
-  // Wrapping `ip_protection_config_http_->GetProxyConfig()` method
-  // to enable OAuth Token inclusion in the GetProxyConfig API call to Phosphor.
-  void CallGetProxyConfig(GetProxyListCallback callback,
-                          std::optional<std::string> oauth_token);
-
-  void OnGetProxyConfigCompleted(
-      GetProxyListCallback callback,
-      base::expected<ip_protection::GetProxyConfigResponse, std::string>
-          response);
 
   // `FetchBlindSignedToken()` calls into the `quiche::BlindSignAuth` library to
   // request a blind-signed auth token for use at the IP Protection proxies.
@@ -230,8 +253,8 @@ class IpProtectionConfigProvider
   // scoped_refptr here.
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   std::unique_ptr<IpProtectionConfigHttp> ip_protection_config_http_;
-  std::unique_ptr<IpProtectionProxyConfigRetriever>
-      ip_protection_proxy_config_retriever_;
+  std::unique_ptr<ip_protection::IpProtectionProxyConfigFetcher>
+      ip_protection_proxy_config_fetcher_;
   std::unique_ptr<quiche::BlindSignAuth> blind_sign_auth_;
 
   // For testing, BlindSignAuth is accessed via its interface. In production,
@@ -249,12 +272,6 @@ class IpProtectionConfigProvider
   IpProtectionTryGetAuthTokensResult last_try_get_auth_tokens_result_ =
       IpProtectionTryGetAuthTokensResult::kSuccess;
   std::optional<base::TimeDelta> last_try_get_auth_tokens_backoff_;
-
-  // The time before the retriever's GetProxyConfig should not be called, and
-  // the exponential backoff to be applied next time such a call fails.
-  base::Time no_get_proxy_config_until_;
-  base::TimeDelta next_get_proxy_config_backoff_ =
-      kGetProxyConfigFailureTimeout;
 
   // The `mojo::Receiver` objects allowing the network service to call methods
   // on `this`.

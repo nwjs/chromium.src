@@ -117,6 +117,9 @@ bool PaintOpReader::ReadAndValidateOpHeader(uint8_t* type,
 template <typename T>
 void PaintOpReader::ReadSimple(T* val) {
   static_assert(std::is_trivially_copyable_v<T>);
+  // Serialized values other than 0 or 1 can cause different behavior in debug
+  // and release, making debugging harder. Please use Read(bool*).
+  static_assert(!std::is_same_v<T, bool>);
 
   AssertFieldAlignment();
   // Align everything to 4 bytes, as the writer does.
@@ -306,7 +309,7 @@ void PaintOpReader::Read(PaintFlags* flags) {
 
   if (enable_security_constraints_) {
     bool has_looper = false;
-    ReadSimple(&has_looper);
+    Read(&has_looper);
     if (has_looper) {
       SetInvalid(DeserializationError::kDrawLooperForbidden);
       return;
@@ -455,7 +458,7 @@ void PaintOpReader::Read(
     return;
 
   bool needs_mips;
-  ReadSimple(&needs_mips);
+  Read(&needs_mips);
   if (!valid_)
     return;
 
@@ -622,7 +625,7 @@ void PaintOpReader::Read(sk_sp<sktext::gpu::Slug>* slug) {
 
 void PaintOpReader::Read(sk_sp<DrawLooper>* looper) {
   bool has_looper = false;
-  ReadSimple(&has_looper);
+  Read(&has_looper);
   if (!has_looper) {
     *looper = nullptr;
     return;
@@ -657,7 +660,7 @@ void PaintOpReader::Read(sk_sp<DrawLooper>* looper) {
 
 void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
   bool has_shader = false;
-  ReadSimple(&has_shader);
+  Read(&has_shader);
   if (!has_shader) {
     *shader = nullptr;
     return;
@@ -687,7 +690,7 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
   if (!IsValidPaintShaderScalingBehavior(ref.scaling_behavior_))
     SetInvalid(DeserializationError::kInvalidPaintShaderScalingBehavior);
   bool has_local_matrix = false;
-  ReadSimple(&has_local_matrix);
+  Read(&has_local_matrix);
   if (has_local_matrix) {
     ref.local_matrix_.emplace();
     Read(&*ref.local_matrix_);
@@ -698,11 +701,11 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
   ReadSimple(&ref.end_point_);
   ReadSimple(&ref.start_degrees_);
   ReadSimple(&ref.end_degrees_);
-  ReadSimple(&ref.gradient_interpolation_);
+  Read(&ref.gradient_interpolation_);
   Read(&ref.image_, PaintFlags::DynamicRangeLimitMixture(
                         PaintFlags::DynamicRangeLimit::kHigh));
   bool has_record = false;
-  ReadSimple(&has_record);
+  Read(&has_record);
   uint32_t shader_id = PaintShader::kInvalidRecordShaderId;
   size_t shader_size = 0;
   if (has_record) {
@@ -867,7 +870,7 @@ void PaintOpReader::Read(gpu::Mailbox* mailbox) {
 }
 
 void PaintOpReader::Read(SkHighContrastConfig* config) {
-  ReadSimple(&config->fGrayscale);
+  Read(&config->fGrayscale);
   ReadEnum<SkHighContrastConfig::InvertStyle,
            SkHighContrastConfig::InvertStyle::kLast>(&config->fInvertStyle);
   ReadSimple(&config->fContrast);
@@ -887,6 +890,18 @@ void PaintOpReader::Read(gfx::HDRMetadata* hdr_metadata) {
     SetInvalid(DeserializationError::kHdrMetadataDeserializeFailure);
   }
   DidRead(size);
+}
+
+void PaintOpReader::Read(SkGradientShader::Interpolation* interpolation) {
+  ReadEnum<SkGradientShader::Interpolation::InPremul,
+           SkGradientShader::Interpolation::InPremul::kYes>(
+      &interpolation->fInPremul);
+  ReadEnum<SkGradientShader::Interpolation::ColorSpace,
+           SkGradientShader::Interpolation::ColorSpace::kLastColorSpace>(
+      &interpolation->fColorSpace);
+  ReadEnum<SkGradientShader::Interpolation::HueMethod,
+           SkGradientShader::Interpolation::HueMethod::kLastHueMethod>(
+      &interpolation->fHueMethod);
 }
 
 void PaintOpReader::Read(scoped_refptr<SkottieWrapper>* skottie) {
@@ -1325,7 +1340,7 @@ void PaintOpReader::ReadRecordPaintFilter(
     sk_sp<PaintFilter>* filter,
     const std::optional<PaintFilter::CropRect>& crop_rect) {
   bool has_filter = false;
-  ReadSimple(&has_filter);
+  Read(&has_filter);
   if (!has_filter) {
     *filter = nullptr;
     return;

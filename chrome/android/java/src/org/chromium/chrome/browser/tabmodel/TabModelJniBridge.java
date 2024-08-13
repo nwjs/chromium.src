@@ -84,6 +84,16 @@ public abstract class TabModelJniBridge implements TabModel {
     }
 
     @Override
+    public boolean isOffTheRecord() {
+        return mProfile.isOffTheRecord();
+    }
+
+    @Override
+    public boolean isIncognitoBranded() {
+        return mProfile.isIncognitoBranded();
+    }
+
+    @Override
     public Profile getProfile() {
         return mProfile;
     }
@@ -108,11 +118,12 @@ public abstract class TabModelJniBridge implements TabModel {
 
     /**
      * Sets the TabModel's index.
+     *
      * @param index Index of the Tab to select.
      */
     @CalledByNative
     private void setIndex(int index) {
-        TabModelUtils.setIndex(this, index, false);
+        TabModelUtils.setIndex(this, index);
     }
 
     @Override

@@ -22,6 +22,7 @@
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -63,6 +64,7 @@
 #include "components/autofill/core/common/autofill_util.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/form_data.h"
+#include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/prefs/pref_service.h"
@@ -159,7 +161,7 @@ std::pair<std::string, std::string> GetLabelAndNameForType(FieldType type) {
   auto it = name_type_map.find(type);
   if (it == name_type_map.end()) {
     NOTIMPLEMENTED() << " field name and label is missing for "
-                     << AutofillType(type).ToStringView();
+                     << FieldTypeToStringView(type);
     return {std::string(), std::string()};
   }
   return it->second;
@@ -179,7 +181,7 @@ FormData ConstructFormDateFromTypeValuePairs(
 
   for (const auto& [type, value] : type_value_pairs) {
     const auto& [name, label] = GetLabelAndNameForType(type);
-    form.fields.push_back(CreateTestFormField(
+    test_api(form).Append(CreateTestFormField(
         name, label, value,
         type == ADDRESS_HOME_STREET_ADDRESS ? FormControlType::kTextArea
                                             : FormControlType::kInputText));
@@ -246,7 +248,7 @@ void SetValueForType(TypeValuePairs& pairs,
                      const std::string& value) {
   auto it = base::ranges::find(pairs, type,
                                [](const auto& pair) { return pair.first; });
-  DCHECK(it != pairs.end());
+  CHECK(it != pairs.end(), base::NotFatalUntil::M130);
   if (value.empty())
     pairs.erase(it);
   else
@@ -373,8 +375,8 @@ std::unique_ptr<FormStructure> ConstructDefaultEmailFormStructure() {
   FormData form =
       ConstructFormDateFromTypeValuePairs({{EMAIL_ADDRESS, kDefaultMail}});
   const char* autocomplete = "email";
-  form.fields[0].set_autocomplete_attribute(autocomplete);
-  form.fields[0].set_parsed_autocomplete(
+  test_api(form).field(0).set_autocomplete_attribute(autocomplete);
+  test_api(form).field(0).set_parsed_autocomplete(
       ParseAutocompleteAttribute(autocomplete));
   return ConstructFormStructureFromFormData(form);
 }
@@ -523,8 +525,11 @@ class FormDataImporterTest : public testing::Test {
         {features::kAutofillUseI18nAddressModel,
          features::kAutofillUseAUAddressModel,
          features::kAutofillUseBRAddressModel,
+         features::kAutofillUseCAAddressModel,
          features::kAutofillUseDEAddressModel,
+         features::kAutofillUseFRAddressModel,
          features::kAutofillUseINAddressModel,
+         features::kAutofillUseITAddressModel,
          features::kAutofillUseMXAddressModel,
          features::kAutofillEnableDependentLocalityParsing,
          features::kAutofillEnableSupportForApartmentNumbers,
@@ -577,21 +582,22 @@ class FormDataImporterTest : public testing::Test {
                              const char* number,
                              const char* month,
                              const char* year) {
+    std::vector<FormFieldData>& fields = test_api(*form).fields();
     if (name) {
-      form->fields.push_back(CreateTestFormField(
-          "Name on card:", "name_on_card", name, FormControlType::kInputText));
+      fields.push_back(CreateTestFormField("Name on card:", "name_on_card",
+                                           name, FormControlType::kInputText));
     }
     if (number) {
-      form->fields.push_back(CreateTestFormField(
+      fields.push_back(CreateTestFormField(
           "Card Number:", "card_number", number, FormControlType::kInputText));
     }
     if (month) {
-      form->fields.push_back(CreateTestFormField(
-          "Exp Month:", "exp_month", month, FormControlType::kInputText));
+      fields.push_back(CreateTestFormField("Exp Month:", "exp_month", month,
+                                           FormControlType::kInputText));
     }
     if (year) {
-      form->fields.push_back(CreateTestFormField("Exp Year:", "exp_year", year,
-                                                 FormControlType::kInputText));
+      fields.push_back(CreateTestFormField("Exp Year:", "exp_year", year,
+                                           FormControlType::kInputText));
     }
   }
 
@@ -949,20 +955,21 @@ TEST_F(FormDataImporterTest, ImportStructuredNameProfile) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
 
-  form.fields = {
-      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Address:", "address1", "21 Laussat St",
-                          FormControlType::kInputText),
-      CreateTestFormField("City:", "city", "San Francisco",
-                          FormControlType::kInputText),
-      CreateTestFormField("State:", "state", "California",
-                          FormControlType::kInputText),
-      CreateTestFormField("Country:", "country", "ES",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "94102", FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Address:", "address1", "21 Laussat St",
+                           FormControlType::kInputText),
+       CreateTestFormField("City:", "city", "San Francisco",
+                           FormControlType::kInputText),
+       CreateTestFormField("State:", "state", "California",
+                           FormControlType::kInputText),
+       CreateTestFormField("Country:", "country", "ES",
+                           FormControlType::kInputText),
+       CreateTestFormField("Zip:", "zip", "94102",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
                                          nullptr);
@@ -989,24 +996,25 @@ TEST_F(FormDataImporterTest,
        ImportStructuredAddressProfile_StreetNameAndHouseNumber) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Street name:", "street_name", "Laussat St",
-                          FormControlType::kInputText),
-      CreateTestFormField("House number:", "house_number", "21",
-                          FormControlType::kInputText),
-      CreateTestFormField("City:", "city", "San Francisco",
-                          FormControlType::kInputText),
-      CreateTestFormField("State:", "state", "California",
-                          FormControlType::kInputText),
-      CreateTestFormField("Country:", "country", "ES",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "94102", FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Street name:", "street_name", "Laussat St",
+                           FormControlType::kInputText),
+       CreateTestFormField("House number:", "house_number", "21",
+                           FormControlType::kInputText),
+       CreateTestFormField("City:", "city", "San Francisco",
+                           FormControlType::kInputText),
+       CreateTestFormField("State:", "state", "California",
+                           FormControlType::kInputText),
+       CreateTestFormField("Country:", "country", "ES",
+                           FormControlType::kInputText),
+       CreateTestFormField("Zip:", "zip", "94102",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
                                          nullptr);
@@ -1034,26 +1042,27 @@ TEST_F(
     ImportStructuredAddressProfile_StreetNameAndHouseNumberAndApartmentNumber) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Street name:", "street_name", "Laussat St",
-                          FormControlType::kInputText),
-      CreateTestFormField("House number:", "house_number", "21",
-                          FormControlType::kInputText),
-      CreateTestFormField("Apartment", "apartment", "101",
-                          FormControlType::kInputText),
-      CreateTestFormField("City:", "city", "Oaxaca de Juárez",
-                          FormControlType::kInputText),
-      CreateTestFormField("State:", "state", "Oaxaca",
-                          FormControlType::kInputText),
-      CreateTestFormField("Country:", "country", "MX",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "94102", FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Street name:", "street_name", "Laussat St",
+                           FormControlType::kInputText),
+       CreateTestFormField("House number:", "house_number", "21",
+                           FormControlType::kInputText),
+       CreateTestFormField("Apartment", "apartment", "101",
+                           FormControlType::kInputText),
+       CreateTestFormField("City:", "city", "Oaxaca de Juárez",
+                           FormControlType::kInputText),
+       CreateTestFormField("State:", "state", "Oaxaca",
+                           FormControlType::kInputText),
+       CreateTestFormField("Country:", "country", "MX",
+                           FormControlType::kInputText),
+       CreateTestFormField("Zip:", "zip", "94102",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode("MX"), nullptr,
                                          nullptr);
@@ -1080,22 +1089,23 @@ TEST_F(FormDataImporterTest,
        ImportStructuredAddressProfile_GermanStreetNameAndHouseNumber) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Street name:", "street_name", "Hermann Strasse",
-                          FormControlType::kInputText),
-      CreateTestFormField("House number:", "house_number", "23",
-                          FormControlType::kInputText),
-      CreateTestFormField("City:", "city", "Munich",
-                          FormControlType::kInputText),
-      CreateTestFormField("Country:", "country", "Germany",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "80992", FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Street name:", "street_name", "Hermann Strasse",
+                           FormControlType::kInputText),
+       CreateTestFormField("House number:", "house_number", "23",
+                           FormControlType::kInputText),
+       CreateTestFormField("City:", "city", "Munich",
+                           FormControlType::kInputText),
+       CreateTestFormField("Country:", "country", "Germany",
+                           FormControlType::kInputText),
+       CreateTestFormField("Zip:", "zip", "80992",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
                                          nullptr);
@@ -1122,22 +1132,23 @@ TEST_F(FormDataImporterTest,
 TEST_F(FormDataImporterTest, ImportStructuredAddressProfile_I18nAddressFormMX) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Nombre y apellidos:", "name", "Pablo Ruiz",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Ciudad:", "ciudad", "Guadalajara",
-                          FormControlType::kInputText),
-      CreateTestFormField("Country:", "country", "Mexico",
-                          FormControlType::kInputText),
-      CreateTestFormField("Calle y número", "street",
-                          "Avenida Álvaro Obregón 1234",
-                          FormControlType::kInputText),
-      CreateTestFormField("Referencia y entre calles:", "between_streets",
-                          "Entre Calles Tonalá y Monterrey",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "80992", FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Nombre y apellidos:", "name", "Pablo Ruiz",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Ciudad:", "ciudad", "Guadalajara",
+                           FormControlType::kInputText),
+       CreateTestFormField("Country:", "country", "Mexico",
+                           FormControlType::kInputText),
+       CreateTestFormField("Calle y número", "street",
+                           "Avenida Álvaro Obregón 1234",
+                           FormControlType::kInputText),
+       CreateTestFormField("Referencia y entre calles:", "between_streets",
+                           "Entre Calles Tonalá y Monterrey",
+                           FormControlType::kInputText),
+       CreateTestFormField("Zip:", "zip", "80992",
+                           FormControlType::kInputText)});
 
   std::unique_ptr<FormStructure> form_structure =
       ConstructFormStructureFromFormData(form, GeoIpCountryCode("MX"));
@@ -1164,26 +1175,27 @@ TEST_F(FormDataImporterTest, ImportStructuredAddressProfile_I18nAddressFormMX) {
 TEST_F(FormDataImporterTest, ImportStructuredAddressProfile_I18nAddressFormBR) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Nome:", "nome", "Pablo Ruiz",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Cidade:", "City", "Brasília",
-                          FormControlType::kInputText),
-      CreateTestFormField("Provincia:", "provincia", "Goiás",
-                          FormControlType::kInputText),
-      CreateTestFormField("Country:", "country", "Brasil",
-                          FormControlType::kInputText),
-      CreateTestFormField("Logradouro", "logradouro", "Avenida Mem de Sá",
-                          FormControlType::kInputText),
-      CreateTestFormField("Número da residência", "house_number", "1234",
-                          FormControlType::kInputText),
-      CreateTestFormField("Complemento", "complemento", "Andar 1, apto 12",
-                          FormControlType::kInputText),
-      CreateTestFormField("Referencia", "referencia", "Referencia example",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "71725", FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Nome:", "nome", "Pablo Ruiz",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Cidade:", "City", "Brasília",
+                           FormControlType::kInputText),
+       CreateTestFormField("Provincia:", "provincia", "Goiás",
+                           FormControlType::kInputText),
+       CreateTestFormField("Country:", "country", "Brasil",
+                           FormControlType::kInputText),
+       CreateTestFormField("Logradouro", "logradouro", "Avenida Mem de Sá",
+                           FormControlType::kInputText),
+       CreateTestFormField("Número da residência", "house_number", "1234",
+                           FormControlType::kInputText),
+       CreateTestFormField("Complemento", "complemento", "Andar 1, apto 12",
+                           FormControlType::kInputText),
+       CreateTestFormField("Referencia", "referencia", "Referencia example",
+                           FormControlType::kInputText),
+       CreateTestFormField("Zip:", "zip", "71725",
+                           FormControlType::kInputText)});
 
   std::unique_ptr<FormStructure> form_structure =
       ConstructFormStructureFromFormData(form, GeoIpCountryCode("BR"));
@@ -1218,7 +1230,7 @@ TEST_F(FormDataImporterTest, ImportStructuredAddressProfile_I18nAddressFormBR) {
 TEST_F(FormDataImporterTest, ImportStructuredNameAddressProfile) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
+  form.set_fields({
 
       CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
                           FormControlType::kInputText),
@@ -1230,7 +1242,8 @@ TEST_F(FormDataImporterTest, ImportStructuredNameAddressProfile) {
                           FormControlType::kInputText),
       CreateTestFormField("State:", "state", "California",
                           FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "94102", FormControlType::kInputText)};
+      CreateTestFormField("Zip:", "zip", "94102",
+                          FormControlType::kInputText)});
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
                                          nullptr);
@@ -1402,12 +1415,12 @@ TEST_F(FormDataImporterTest,
        {ADDRESS_HOME_ZIP, kDefaultZip},
        {ADDRESS_HOME_COUNTRY, kDefaultCountry}});
 
-  form_data.fields[3].set_max_length(3);
-  form_data.fields[4].set_max_length(3);
-  form_data.fields[5].set_max_length(4);
-  form_data.fields[6].set_max_length(3);
-  form_data.fields[7].set_max_length(3);
-  form_data.fields[8].set_max_length(4);
+  test_api(form_data).field(3).set_max_length(3);
+  test_api(form_data).field(4).set_max_length(3);
+  test_api(form_data).field(5).set_max_length(4);
+  test_api(form_data).field(6).set_max_length(3);
+  test_api(form_data).field(7).set_max_length(3);
+  test_api(form_data).field(8).set_max_length(4);
 
   std::unique_ptr<FormStructure> form_structure =
       ConstructFormStructureFromFormData(form_data);
@@ -1510,9 +1523,9 @@ TEST_F(FormDataImporterTest,
 
   // Define the length of the phone number fields to allow the parser to
   // identify them as area code, prefix and suffix.
-  form_data.fields[3].set_max_length(3);
-  form_data.fields[4].set_max_length(3);
-  form_data.fields[5].set_max_length(4);
+  test_api(form_data).field(3).set_max_length(3);
+  test_api(form_data).field(4).set_max_length(3);
+  test_api(form_data).field(5).set_max_length(4);
 
   std::unique_ptr<FormStructure> form_structure =
       ConstructFormStructureFromFormData(form_data);
@@ -1589,16 +1602,14 @@ TEST_F(FormDataImporterTest,
   FormData form_data = ConstructDefaultFormData();
 
   FormData hidden_second_form = form_data;
-  for (FormFieldData& field : hidden_second_form.fields) {
+  for (FormFieldData& field : test_api(hidden_second_form).fields()) {
     // Reset the values and make the field non focusable.
     field.set_value(u"");
     field.set_is_focusable(false);
   }
 
   // Append the fields of the second form to the first form.
-  form_data.fields.insert(form_data.fields.end(),
-                          hidden_second_form.fields.begin(),
-                          hidden_second_form.fields.end());
+  test_api(form_data).Append(hidden_second_form.fields());
 
   std::unique_ptr<FormStructure> form_structure =
       ConstructFormStructureFromFormData(form_data);
@@ -1787,20 +1798,20 @@ TEST_F(FormDataImporterTest,
        ImportAddressProfiles_CompleteComposedCountryName) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("First name:", "first_name", "George",
-                          FormControlType::kInputText),
-      CreateTestFormField("Last name:", "last_name", "Washington",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Address:", "address1", "No. 43 Bo Aung Gyaw Street",
-                          FormControlType::kInputText),
-      CreateTestFormField("City:", "city", "Yangon",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "11181", FormControlType::kInputText),
-      CreateTestFormField("Country:", "country", "Myanmar [Burma]",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("First name:", "first_name", "George",
+                           FormControlType::kInputText),
+       CreateTestFormField("Last name:", "last_name", "Washington",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Address:", "address1", "No. 43 Bo Aung Gyaw Street",
+                           FormControlType::kInputText),
+       CreateTestFormField("City:", "city", "Yangon",
+                           FormControlType::kInputText),
+       CreateTestFormField("Zip:", "zip", "11181", FormControlType::kInputText),
+       CreateTestFormField("Country:", "country", "Myanmar [Burma]",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
                                          nullptr);
@@ -1890,7 +1901,7 @@ TEST_F(FormDataImporterTest,
   FormFieldData cvc_field =
       CreateTestFormField("CVC", "cvc", "001", FormControlType::kInputText);
   cvc_field.set_user_input(u"002");
-  form.fields.push_back(cvc_field);
+  test_api(form).Append(cvc_field);
 
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
@@ -1951,11 +1962,11 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_MonthSelectInvalidText) {
   FormData form = CreateFullCreditCardForm(
       "Biggie Smalls", "4111-1111-1111-1111", "Feb (2)", "2999");
   // Add option values and contents to the expiration month field.
-  ASSERT_EQ(u"exp_month", form.fields[2].name());
-  form.fields[2].set_options({
-      {.value = u"1", .content = u"Jan (1)"},
-      {.value = u"2", .content = u"Feb (2)"},
-      {.value = u"3", .content = u"Mar (3)"},
+  ASSERT_EQ(u"exp_month", form.fields()[2].name());
+  test_api(form).field(2).set_options({
+      {.value = u"1", .text = u"Jan (1)"},
+      {.value = u"2", .text = u"Feb (2)"},
+      {.value = u"3", .text = u"Mar (3)"},
   });
 
   FormStructure form_structure(form);
@@ -2023,13 +2034,13 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_TwoValidCards) {
 TEST_F(FormDataImporterTest, ExtractCreditCard_Month2DigitYearCombination) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "John MMYY",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Date:", "exp_date", "05/45",
-                          FormControlType::kInputText, "cc-exp", 5)};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "John MMYY",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4111111111111111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Date:", "exp_date", "05/45",
+                           FormControlType::kInputText, "cc-exp", 5)});
 
   SubmitFormAndExpectImportedCardWithData(form, "John MMYY", "4111111111111111",
                                           "05", "2045");
@@ -2039,13 +2050,13 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_Month2DigitYearCombination) {
 TEST_F(FormDataImporterTest, ExtractCreditCard_Month4DigitYearCombination) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "John MMYYYY",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Date:", "exp_date", "05/2045",
-                          FormControlType::kInputText, "cc-exp", 7)};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "John MMYYYY",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4111111111111111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Date:", "exp_date", "05/2045",
+                           FormControlType::kInputText, "cc-exp", 7)});
 
   SubmitFormAndExpectImportedCardWithData(form, "John MMYYYY",
                                           "4111111111111111", "05", "2045");
@@ -2055,13 +2066,13 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_Month4DigitYearCombination) {
 TEST_F(FormDataImporterTest, ExtractCreditCard_1DigitMonth4DigitYear) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "John MYYYY",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Date:", "exp_date", "5/2045",
-                          FormControlType::kInputText, "cc-exp")};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "John MYYYY",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4111111111111111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Date:", "exp_date", "5/2045",
+                           FormControlType::kInputText, "cc-exp")});
 
   SubmitFormAndExpectImportedCardWithData(form, "John MYYYY",
                                           "4111111111111111", "05", "2045");
@@ -2071,16 +2082,16 @@ TEST_F(FormDataImporterTest, ExtractCreditCard_1DigitMonth4DigitYear) {
 TEST_F(FormDataImporterTest, ExtractCreditCard_2DigitYear) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "John Smith",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "05",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "45",
-                          FormControlType::kInputText)};
-  form.fields.back().set_max_length(2);
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "John Smith",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4111111111111111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Month:", "exp_month", "05",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Year:", "exp_year", "45",
+                           FormControlType::kInputText)});
+  test_api(form).field(-1).set_max_length(2);
 
   SubmitFormAndExpectImportedCardWithData(form, "John Smith",
                                           "4111111111111111", "05", "2045");
@@ -2115,37 +2126,6 @@ TEST_F(FormDataImporterTest,
   EXPECT_TRUE(extracted_credit_card);
   ASSERT_TRUE(extracted_credit_card.value().record_type() ==
               CreditCard::RecordType::kMaskedServerCard);
-}
-
-// Tests that a credit card is extracted when it matches a full server
-// card.
-TEST_F(FormDataImporterTest,
-       ExtractCreditCard_DuplicateServerCards_ExtractFullCard) {
-  // Add a full server card.
-  CreditCard server_card(CreditCard::RecordType::kFullServerCard, "c789");
-  test::SetCreditCardInfo(&server_card, "Clyde Barrow",
-                          "378282246310005" /* American Express */, "04",
-                          "2999", "");  // Imported cards have no billing info.
-  personal_data_manager_->test_payments_data_manager().AddServerCreditCard(
-      server_card);
-  EXPECT_EQ(
-      1U,
-      personal_data_manager_->payments_data_manager().GetCreditCards().size());
-
-  // Type the same data as the unmasked card into a form.
-  FormData form =
-      CreateFullCreditCardForm("Clyde Barrow", "378282246310005", "04", "2999");
-
-  // The card should not be offered to be saved locally because it only matches
-  // the full server card.
-  FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
-                                         nullptr);
-  std::optional<CreditCard> extracted_credit_card =
-      ExtractCreditCard(form_structure);
-  EXPECT_TRUE(extracted_credit_card);
-  EXPECT_EQ(extracted_credit_card.value().record_type(),
-            CreditCard::RecordType::kFullServerCard);
 }
 
 TEST_F(FormDataImporterTest, ExtractCreditCard_SameCreditCardWithConflict) {
@@ -2266,7 +2246,7 @@ TEST_F(FormDataImporterTest,
   // Create a form with CVC field present and filled.
   FormData form2 = CreateFullCreditCardForm(
       "Biggie Smalls", "4111 1111 1111 1111", "01", "2998");
-  form2.fields.push_back(
+  test_api(form2).Append(
       CreateTestFormField("CVC:", "cvc", "123", FormControlType::kInputText));
 
   FormStructure form_structure2(form2);
@@ -2559,20 +2539,20 @@ TEST_F(FormDataImporterTest,
   // submission with no card.
   FormData form3;
   form3.set_url(GURL("https://wwww.foo.com"));
-  form3.fields = {
-      CreateTestFormField("First name:", "first_name", "George",
-                          FormControlType::kInputText),
-      CreateTestFormField("Last name:", "last_name", "Washington",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "bogus@example.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Address:", "address1", "21 Laussat St",
-                          FormControlType::kInputText),
-      CreateTestFormField("City:", "city", "San Francisco",
-                          FormControlType::kInputText),
-      CreateTestFormField("State:", "state", "California",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "94102", FormControlType::kInputText)};
+  form3.set_fields({CreateTestFormField("First name:", "first_name", "George",
+                                        FormControlType::kInputText),
+                    CreateTestFormField("Last name:", "last_name", "Washington",
+                                        FormControlType::kInputText),
+                    CreateTestFormField("Email:", "email", "bogus@example.com",
+                                        FormControlType::kInputText),
+                    CreateTestFormField("Address:", "address1", "21 Laussat St",
+                                        FormControlType::kInputText),
+                    CreateTestFormField("City:", "city", "San Francisco",
+                                        FormControlType::kInputText),
+                    CreateTestFormField("State:", "state", "California",
+                                        FormControlType::kInputText),
+                    CreateTestFormField("Zip:", "zip", "94102",
+                                        FormControlType::kInputText)});
   FormStructure form_structure3(form3);
   form_structure3.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
                                           nullptr);
@@ -2709,38 +2689,6 @@ TEST_F(
 // `FormDataImporterTest::credit_card_import_type_` is set
 // correctly.
 TEST_F(FormDataImporterTest,
-       ExtractFormData_ExtractCreditCardRecordType_FullServerCard) {
-  // Add a full server card.
-  CreditCard server_card(CreditCard::RecordType::kFullServerCard, "c789");
-  test::SetCreditCardInfo(&server_card, "Biggie Smalls",
-                          "378282246310005" /* American Express */, "04",
-                          "2999", "1");
-  personal_data_manager_->test_payments_data_manager().AddServerCreditCard(
-      server_card);
-  EXPECT_EQ(
-      1U,
-      personal_data_manager_->payments_data_manager().GetCreditCards().size());
-
-  // Simulate a form submission with the same full server card.
-  FormData form = CreateFullCreditCardForm("Biggie Smalls", "378282246310005",
-                                           "04", "2999");
-
-  FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
-                                         nullptr);
-  auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
-      form_structure, /*profile_autofill_enabled=*/true,
-      /*payment_methods_autofill_enabled=*/true);
-  ASSERT_TRUE(extracted_data.extracted_credit_card);
-  // |credit_card_import_type_| should be SERVER_CARD.
-  ASSERT_TRUE(test_api(form_data_importer()).credit_card_import_type() ==
-              FormDataImporter::CreditCardImportType::kServerCard);
-}
-
-// Ensures that
-// `FormDataImporterTest::credit_card_import_type_` is set
-// correctly.
-TEST_F(FormDataImporterTest,
        ExtractFormData_ExtractCreditCardRecordType_NoCard_InvalidCardNumber) {
   // Simulate a form submission using a credit card with an invalid card number.
   FormData form = CreateFullCreditCardForm("Biggie Smalls",
@@ -2813,20 +2761,20 @@ TEST_F(FormDataImporterTest,
   // Simulate a form submission with no credit card on form.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("First name:", "first_name", "George",
-                          FormControlType::kInputText),
-      CreateTestFormField("Last name:", "last_name", "Washington",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "bogus@example.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Address:", "address1", "21 Laussat St",
-                          FormControlType::kInputText),
-      CreateTestFormField("City:", "city", "San Francisco",
-                          FormControlType::kInputText),
-      CreateTestFormField("State:", "state", "California",
-                          FormControlType::kInputText),
-      CreateTestFormField("Zip:", "zip", "94102", FormControlType::kInputText)};
+  form.set_fields({CreateTestFormField("First name:", "first_name", "George",
+                                       FormControlType::kInputText),
+                   CreateTestFormField("Last name:", "last_name", "Washington",
+                                       FormControlType::kInputText),
+                   CreateTestFormField("Email:", "email", "bogus@example.com",
+                                       FormControlType::kInputText),
+                   CreateTestFormField("Address:", "address1", "21 Laussat St",
+                                       FormControlType::kInputText),
+                   CreateTestFormField("City:", "city", "San Francisco",
+                                       FormControlType::kInputText),
+                   CreateTestFormField("State:", "state", "California",
+                                       FormControlType::kInputText),
+                   CreateTestFormField("Zip:", "zip", "94102",
+                                       FormControlType::kInputText)});
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
                                          nullptr);
@@ -2849,37 +2797,6 @@ TEST_F(FormDataImporterTest,
               FormDataImporter::CreditCardImportType::kNoCard);
 }
 
-// Ensures that `credit_card_import_type_` is set as kServerCard when a full
-// server card is found with the same number.
-TEST_F(FormDataImporterTest,
-       ExtractFormData_ExtractCreditCardRecordType_ServerCardWithSameLastFour) {
-  // Add a valid server card.
-  CreditCard server_card(CreditCard::RecordType::kFullServerCard, "a123");
-  test::SetCreditCardInfo(&server_card, "John Dillinger",
-                          "4111 1111 1111 1111" /* Visa */, "01", "2999", "");
-  personal_data_manager_->test_payments_data_manager().AddServerCreditCard(
-      server_card);
-  ASSERT_EQ(
-      1U,
-      personal_data_manager_->payments_data_manager().GetCreditCards().size());
-
-  // Simulate a form submission with the same card number but different
-  // expiration date.
-  FormData form = CreateFullCreditCardForm("Biggie Smalls",
-                                           "4111 1111 1111 1111", "02", "2999");
-  FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
-                                         nullptr);
-  auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
-      form_structure, /*profile_autofill_enabled=*/true,
-      /*payment_methods_autofill_enabled=*/true);
-  ASSERT_TRUE(extracted_data.extracted_credit_card);
-  // `credit_card_import_type_` should be kServerCard because a server card with
-  // the same card number was found.
-  ASSERT_TRUE(test_api(form_data_importer()).credit_card_import_type() ==
-              FormDataImporter::CreditCardImportType::kServerCard);
-}
-
 // Ensures that `cvc` is set when a server card is found.
 TEST_F(FormDataImporterTest,
        ExtractFormData_ExtractCreditCardRecordType_ServerCardWithCvc) {
@@ -2898,7 +2815,7 @@ TEST_F(FormDataImporterTest,
   // expiration date.
   FormData form = CreateFullCreditCardForm("Biggie Smalls",
                                            "4111 1111 1111 1111", "02", "2999");
-  form.fields.push_back(
+  test_api(form).Append(
       CreateTestFormField("CVC:", "cvc", "123", FormControlType::kInputText));
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
@@ -3303,15 +3220,15 @@ TEST_F(FormDataImporterTest, DuplicateMaskedServerCard) {
   // We should not offer to save locally.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "John Dillinger",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4012888888881881",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "01",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "2999",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "John Dillinger",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4012888888881881",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Month:", "exp_month", "01",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Year:", "exp_year", "2999",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
                                          nullptr);
@@ -3326,18 +3243,18 @@ TEST_F(FormDataImporterTest, DuplicateMaskedServerCard) {
 TEST_F(FormDataImporterTest, ExtractFormData_HiddenCreditCardFormAfterEntered) {
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Biggie Smalls",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Email:", "email", "theprez@gmail.com",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "01",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "2999",
-                          FormControlType::kInputText)};
-  for (FormFieldData& field : form.fields) {
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "Biggie Smalls",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4111111111111111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Email:", "email", "theprez@gmail.com",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Month:", "exp_month", "01",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Year:", "exp_year", "2999",
+                           FormControlType::kInputText)});
+  for (FormFieldData& field : test_api(form).fields()) {
     field.set_is_focusable(false);
   }
 
@@ -3360,115 +3277,6 @@ TEST_F(FormDataImporterTest, ExtractFormData_HiddenCreditCardFormAfterEntered) {
   EXPECT_THAT(*results[0], ComparesEqual(expected_card));
 }
 
-TEST_F(FormDataImporterTest,
-       DuplicateFullServerCardWhileContainingLocalCardCopies) {
-  CreditCard server_card1(CreditCard::RecordType::kMaskedServerCard, "a123");
-  test::SetCreditCardInfo(&server_card1, "John Dillinger", "1881" /* Visa */,
-                          "01", "2999", "1");
-  server_card1.SetNetworkForMaskedCard(kVisaCard);
-  personal_data_manager_->test_payments_data_manager().AddServerCreditCard(
-      server_card1);
-  CreditCard server_card2(CreditCard::RecordType::kFullServerCard, "c789");
-  test::SetCreditCardInfo(&server_card2, "Clyde Barrow",
-                          "378282246310005" /* American Express */, "04",
-                          "2999", "1");
-  personal_data_manager_->test_payments_data_manager().AddServerCreditCard(
-      server_card2);
-
-  // Add two local cards to the credit cards to ensure that in the case where we
-  // have separate copies of a server card and a local card, we still only set
-  // `extracted_credit_card` to the server card details as we want the server
-  // to be the source of truth. Adding two cards also helps us ensure that we
-  // will update both.
-  for (int i = 0; i < 2; i++) {
-    CreditCard local_card = test::GetCreditCard();
-    test::SetCreditCardInfo(&local_card, "Clyde Barrow",
-                            "378282246310005" /* American Express */, "05",
-                            "2999", "1");
-    local_card.set_record_type(CreditCard::RecordType::kLocalCard);
-    personal_data_manager_->payments_data_manager().AddCreditCard(local_card);
-  }
-
-  EXPECT_EQ(
-      4U,
-      personal_data_manager_->payments_data_manager().GetCreditCards().size());
-
-  // A user re-types (or fills with) an unmasked card. Don't offer to save
-  // here, either. Since it's unmasked, we know for certain that it's the same
-  // card.
-  FormData form;
-  form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "378282246310005",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "04",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "2999",
-                          FormControlType::kInputText)};
-  FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
-                                         nullptr);
-  auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
-      form_structure, /*profile_autofill_enabled=*/true,
-      /*payment_methods_autofill_enabled=*/true);
-  ASSERT_TRUE(extracted_data.extracted_credit_card);
-  // Ensure that we imported the server version of the card, not the local
-  // version.
-  ASSERT_TRUE(extracted_data.extracted_credit_card->record_type() ==
-              CreditCard::RecordType::kFullServerCard);
-
-  // Check that both of the local cards we have added were updated.
-  int matched_local_cards = 0;
-  for (const CreditCard* card :
-       personal_data_manager_->payments_data_manager().GetCreditCards()) {
-    if (card->record_type() == CreditCard::RecordType::kLocalCard) {
-      matched_local_cards++;
-      EXPECT_EQ(card->expiration_month(), 4);
-    }
-  }
-  EXPECT_EQ(matched_local_cards, 2);
-}
-
-TEST_F(FormDataImporterTest,
-       Metrics_SubmittedServerCardExpirationStatus_FullServerCardMatch) {
-  CreditCard server_card(CreditCard::RecordType::kFullServerCard, "c789");
-  test::SetCreditCardInfo(&server_card, "Clyde Barrow",
-                          "4444333322221111" /* Visa */, "04", "2111", "1");
-  personal_data_manager_->test_payments_data_manager().AddServerCreditCard(
-      server_card);
-  EXPECT_EQ(
-      1U,
-      personal_data_manager_->payments_data_manager().GetCreditCards().size());
-
-  // A user fills/enters the card's information on a checkout form.  Ensure that
-  // an expiration date match is recorded.
-  FormData form;
-  form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "04",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "2111",
-                          FormControlType::kInputText)};
-  base::HistogramTester histogram_tester;
-  FormStructure form_structure(form);
-
-  form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
-                                         nullptr);
-  auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
-      form_structure, /*profile_autofill_enabled=*/true,
-      /*payment_methods_autofill_enabled=*/true);
-  ASSERT_TRUE(extracted_data.extracted_credit_card);
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.SubmittedServerCardExpirationStatus",
-      AutofillMetrics::FULL_SERVER_CARD_EXPIRATION_DATE_MATCHED, 1);
-}
-
 // Ensure that we don't offer to save if we already have same card stored as a
 // server card and user submitted an invalid expiration date month.
 TEST_F(FormDataImporterTest,
@@ -3486,15 +3294,15 @@ TEST_F(FormDataImporterTest,
   // expiration date.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "2111",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4444333322221111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Month:", "exp_month", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Year:", "exp_year", "2111",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
 
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
@@ -3522,15 +3330,15 @@ TEST_F(FormDataImporterTest,
   // expiration date.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "08",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4444333322221111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Month:", "exp_month", "08",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Year:", "exp_year", "",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
 
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
@@ -3559,15 +3367,15 @@ TEST_F(
   // expiration date.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "08",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4444333322221111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Month:", "exp_month", "08",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Year:", "exp_year", "",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
 
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
@@ -3576,45 +3384,6 @@ TEST_F(
       form_structure, /*profile_autofill_enabled=*/true,
       /*payment_methods_autofill_enabled=*/true);
   ASSERT_TRUE(extracted_data.extracted_credit_card);
-}
-
-TEST_F(FormDataImporterTest,
-       Metrics_SubmittedServerCardExpirationStatus_FullServerCardMismatch) {
-  CreditCard server_card(CreditCard::RecordType::kFullServerCard, "c789");
-  test::SetCreditCardInfo(&server_card, "Clyde Barrow",
-                          "4444333322221111" /* Visa */, "04", "2111", "1");
-  personal_data_manager_->test_payments_data_manager().AddServerCreditCard(
-      server_card);
-  EXPECT_EQ(
-      1U,
-      personal_data_manager_->payments_data_manager().GetCreditCards().size());
-
-  // A user fills/enters the card's information on a checkout form but changes
-  // the expiration date of the card.  Ensure that an expiration date mismatch
-  // is recorded.
-  FormData form;
-  form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "04",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "2345",
-                          FormControlType::kInputText)};
-  FormStructure form_structure(form);
-
-  base::HistogramTester histogram_tester;
-  form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
-                                         nullptr);
-  auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
-      form_structure, /*profile_autofill_enabled=*/true,
-      /*payment_methods_autofill_enabled=*/true);
-  ASSERT_TRUE(extracted_data.extracted_credit_card);
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.SubmittedServerCardExpirationStatus",
-      AutofillMetrics::FULL_SERVER_CARD_EXPIRATION_DATE_DID_NOT_MATCH, 1);
 }
 
 TEST_F(FormDataImporterTest,
@@ -3633,15 +3402,15 @@ TEST_F(FormDataImporterTest,
   // an expiration date match is recorded.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "01",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "2111",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4444333322221111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Month:", "exp_month", "01",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Year:", "exp_year", "2111",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
 
   base::HistogramTester histogram_tester;
@@ -3673,15 +3442,15 @@ TEST_F(FormDataImporterTest,
   // is recorded.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                          FormControlType::kInputText),
-      CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Month:", "exp_month", "04",
-                          FormControlType::kInputText),
-      CreateTestFormField("Exp Year:", "exp_year", "2345",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
+                           FormControlType::kInputText),
+       CreateTestFormField("Card Number:", "card_number", "4444333322221111",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Month:", "exp_month", "04",
+                           FormControlType::kInputText),
+       CreateTestFormField("Exp Year:", "exp_year", "2345",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
 
   base::HistogramTester histogram_tester;
@@ -3719,13 +3488,13 @@ TEST_F(FormDataImporterTest, SilentlyUpdateExistingProfileByIncompleteProfile) {
   // Simulate a form submission with conflicting info.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("First name:", "first_name", "Marion",
-                          FormControlType::kInputText),
-      CreateTestFormField("Middle name:", "middle_name", "",
-                          FormControlType::kInputText),
-      CreateTestFormField("Last name:", "last_name", "Mitchell Morrison",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("First name:", "first_name", "Marion",
+                           FormControlType::kInputText),
+       CreateTestFormField("Middle name:", "middle_name", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Last name:", "last_name", "Mitchell Morrison",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
 
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
@@ -3768,13 +3537,13 @@ TEST_F(
   // Simulate a form submission with conflicting info.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("First name:", "first_name", "Marion",
-                          FormControlType::kInputText),
-      CreateTestFormField("Middle name:", "middle_name", "",
-                          FormControlType::kInputText),
-      CreateTestFormField("Last name:", "last_name", "Mitchell Morrison",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("First name:", "first_name", "Marion",
+                           FormControlType::kInputText),
+       CreateTestFormField("Middle name:", "middle_name", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Last name:", "last_name", "Mitchell Morrison",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
 
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
@@ -3816,13 +3585,13 @@ TEST_F(FormDataImporterTest, UnusableIncompleteProfile) {
   // Simulate a form submission with conflicting info.
   FormData form;
   form.set_url(GURL("https://www.foo.com"));
-  form.fields = {
-      CreateTestFormField("First name:", "first_name", "Marion",
-                          FormControlType::kInputText),
-      CreateTestFormField("Middle name:", "middle_name", "",
-                          FormControlType::kInputText),
-      CreateTestFormField("Last name:", "last_name", "Mitch Morrison",
-                          FormControlType::kInputText)};
+  form.set_fields(
+      {CreateTestFormField("First name:", "first_name", "Marion",
+                           FormControlType::kInputText),
+       CreateTestFormField("Middle name:", "middle_name", "",
+                           FormControlType::kInputText),
+       CreateTestFormField("Last name:", "last_name", "Mitch Morrison",
+                           FormControlType::kInputText)});
   FormStructure form_structure(form);
 
   form_structure.DetermineHeuristicTypes(GeoIpCountryCode(""), nullptr,
@@ -4148,7 +3917,6 @@ TEST_F(FormDataImporterTest, ProcessExtractedCreditCard_EmptyCreditCard) {
   EXPECT_FALSE(test_api(form_data_importer())
                    .ProcessExtractedCreditCard(
                        *form_structure, extracted_credit_card,
-                       /*payment_methods_autofill_enabled=*/true,
                        /*is_credit_card_upstream_enabled=*/true));
   personal_data_manager_->SetSyncServiceForTest(nullptr);
 }
@@ -4182,7 +3950,6 @@ TEST_F(FormDataImporterTest, ProcessExtractedCreditCard_VirtualCardEligible) {
   EXPECT_FALSE(test_api(form_data_importer())
                    .ProcessExtractedCreditCard(
                        *form_structure, extracted_credit_card,
-                       /*payment_methods_autofill_enabled=*/true,
                        /*is_credit_card_upstream_enabled=*/true));
 
   form_data_importer().SetFetchedCardInstrumentId(1111);
@@ -4194,7 +3961,6 @@ TEST_F(FormDataImporterTest, ProcessExtractedCreditCard_VirtualCardEligible) {
   EXPECT_TRUE(test_api(form_data_importer())
                   .ProcessExtractedCreditCard(
                       *form_structure, extracted_credit_card,
-                      /*payment_methods_autofill_enabled=*/true,
                       /*is_credit_card_upstream_enabled=*/true));
 
   personal_data_manager_->SetSyncServiceForTest(nullptr);
@@ -4230,7 +3996,6 @@ TEST_F(FormDataImporterTest,
 
   test_api(form_data_importer())
       .ProcessExtractedCreditCard(*form_structure, extracted_credit_card,
-                                  /*payment_methods_autofill_enabled=*/true,
                                   /*is_credit_card_upstream_enabled=*/true);
 }
 
@@ -4261,7 +4026,6 @@ TEST_F(FormDataImporterTest,
 
   test_api(form_data_importer())
       .ProcessExtractedCreditCard(*form_structure, test::GetCreditCard2(),
-                                  /*payment_methods_autofill_enabled=*/true,
                                   /*is_credit_card_upstream_enabled=*/true);
 }
 
@@ -4295,7 +4059,6 @@ TEST_F(FormDataImporterTest,
   EXPECT_TRUE(test_api(form_data_importer())
                   .ProcessExtractedCreditCard(
                       *form_structure, extracted_credit_card,
-                      /*payment_methods_autofill_enabled=*/true,
                       /*is_credit_card_upstream_enabled=*/true));
 
   // Ensure that we reset the record type at the end of the flow.
@@ -4376,7 +4139,6 @@ TEST_F(FormDataImporterTest,
   EXPECT_CALL(credit_card_save_manager(), ProceedWithSavingIfApplicable);
   test_api(form_data_importer())
       .ProcessExtractedCreditCard(*form_structure, card,
-                                  /*payment_methods_autofill_enabled=*/true,
                                   /*is_credit_card_upstream_enabled=*/false);
 }
 
@@ -4394,7 +4156,6 @@ TEST_F(FormDataImporterTest,
   EXPECT_CALL(credit_card_save_manager(), ProceedWithSavingIfApplicable);
   test_api(form_data_importer())
       .ProcessExtractedCreditCard(*form_structure, card,
-                                  /*payment_methods_autofill_enabled=*/true,
                                   /*is_credit_card_upstream_enabled=*/false);
 }
 
@@ -4405,20 +4166,20 @@ TEST_F(FormDataImporterTest,
   AutofillField field;
   field.SetTypeTo(AutofillType(NAME_FIRST));
   field.set_value(u"First");
-  const AutofillField* field_ptr = &field;
 
   base::flat_map<FieldType, std::u16string> observed_field_types =
       test_api(form_data_importer())
-          .GetObservedFieldValues(base::make_span(&field_ptr, 1u));
+          .GetObservedFieldValues(
+              std::to_array<const AutofillField*>({&field}));
   EXPECT_EQ(observed_field_types.size(), 1u);
 
   // Set the autofilled type of the field as something different from its
   // classified type, representing that the field was filled using this type as
   // fallback.
   field.set_autofilled_type(NAME_FULL);
-  observed_field_types =
-      test_api(form_data_importer())
-          .GetObservedFieldValues(base::make_span(&field_ptr, 1u));
+  observed_field_types = test_api(form_data_importer())
+                             .GetObservedFieldValues(
+                                 std::to_array<const AutofillField*>({&field}));
   EXPECT_TRUE(observed_field_types.empty());
 }
 

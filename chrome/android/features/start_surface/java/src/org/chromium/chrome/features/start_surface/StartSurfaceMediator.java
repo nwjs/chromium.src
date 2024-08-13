@@ -39,7 +39,6 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
-import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
@@ -54,16 +53,15 @@ import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.feed.FeedActionDelegate;
 import org.chromium.chrome.browser.feed.FeedReliabilityLogger;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
 import org.chromium.chrome.browser.lens.LensMetrics;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.logo.LogoCoordinator;
-import org.chromium.chrome.browser.logo.LogoUtils;
 import org.chromium.chrome.browser.logo.LogoView;
 import org.chromium.chrome.browser.magic_stack.HomeModulesConfigManager;
 import org.chromium.chrome.browser.magic_stack.HomeModulesCoordinator;
+import org.chromium.chrome.browser.magic_stack.HomeModulesMetricsUtils;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegateHost;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
@@ -79,9 +77,6 @@ import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
-import org.chromium.chrome.browser.tab_ui.TabSwitcher;
-import org.chromium.chrome.browser.tab_ui.TabSwitcher.Controller;
-import org.chromium.chrome.browser.tab_ui.TabSwitcher.TabSwitcherType;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -90,8 +85,6 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.ActiveTabState;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
-import org.chromium.chrome.browser.util.BrowserUiUtils.HostSurface;
-import org.chromium.chrome.features.start_surface.StartSurface.TabSwitcherViewObserver;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
@@ -107,8 +100,7 @@ import java.util.List;
 
 /** The mediator implements the logic to interact with the surfaces and caller. */
 class StartSurfaceMediator
-        implements TabSwitcher.TabSwitcherViewObserver,
-                StartSurface.OnTabSelectingListener,
+        implements StartSurface.OnTabSelectingListener,
                 BackPressHandler,
                 LogoCoordinator.VisibilityObserver,
                 PauseResumeWithNativeObserver,
@@ -131,8 +123,6 @@ class StartSurfaceMediator
         ModuleDelegate create(ModuleDelegateHost moduleDelegateHost);
     }
 
-    private final ObserverList<TabSwitcherViewObserver> mObservers = new ObserverList<>();
-    private TabSwitcher.Controller mController;
     private final TabModelSelector mTabModelSelector;
     @Nullable private final PropertyModel mPropertyModel;
     private final boolean mIsStartSurfaceEnabled;
@@ -146,7 +136,6 @@ class StartSurfaceMediator
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final TabCreatorManager mTabCreatorManager;
     private final boolean mUseMagicStack;
-    private final boolean mIsSurfacePolishEnabled;
     @Nullable private final ModuleDelegateCreator mModuleDelegateCreator;
     private boolean mShouldIgnoreTabSelecting;
 
@@ -188,7 +177,6 @@ class StartSurfaceMediator
 
     private boolean mHideOverviewOnTabSelecting = true;
     private StartSurface.OnTabSelectingListener mOnTabSelectingListener;
-    private TabSwitcher mTabSwitcherModule;
     private boolean mIsNativeInitialized;
     // The timestamp at which the Start Surface was last shown to the user.
     private long mLastShownTimeMs = LAST_SHOW_TIME_NOT_SET;
@@ -198,7 +186,6 @@ class StartSurfaceMediator
     private Point mContextMenuStartPosotion;
 
     StartSurfaceMediator(
-            @Nullable TabSwitcher tabSwitcherModule,
             TabModelSelector tabModelSelector,
             @Nullable PropertyModel propertyModel,
             boolean isStartSurfaceEnabled,
@@ -214,14 +201,8 @@ class StartSurfaceMediator
             @Nullable BackPressManager backPressManager,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             ObservableSupplier<Profile> profileSupplier) {
-        mTabSwitcherModule = tabSwitcherModule;
-        mController = mTabSwitcherModule != null ? mTabSwitcherModule.getController() : null;
-        mIsSurfacePolishEnabled =
-                isStartSurfaceEnabled && ChromeFeatureList.sSurfacePolish.isEnabled();
-        mUseMagicStack = isStartSurfaceEnabled && StartSurfaceConfiguration.useMagicStack();
-        // When a magic stack is enabled on Start surface, it doesn't need a controller to handle
-        // its showing and hiding.
-        assert mController != null || mUseMagicStack;
+        mUseMagicStack = isStartSurfaceEnabled && HomeModulesMetricsUtils.useMagicStack();
+        assert mUseMagicStack;
 
         mTabModelSelector = tabModelSelector;
         mPropertyModel = propertyModel;
@@ -247,11 +228,7 @@ class StartSurfaceMediator
         if (mPropertyModel != null) {
             assert mIsStartSurfaceEnabled;
 
-            if (mTabSwitcherModule != null) {
-                mPropertyModel.set(IS_TAB_CARD_VISIBLE, false);
-            }
-
-            if (mTabSwitcherModule != null || mUseMagicStack) {
+            if (mUseMagicStack) {
                 // Set the initial state.
                 mPropertyModel.set(IS_SURFACE_BODY_VISIBLE, true);
                 mPropertyModel.set(IS_FAKE_SEARCH_BOX_VISIBLE, true);
@@ -400,7 +377,8 @@ class StartSurfaceMediator
                                 int topControlsMinHeightOffset,
                                 int bottomOffset,
                                 int bottomControlsMinHeightOffset,
-                                boolean needsAnimate) {
+                                boolean needsAnimate,
+                                boolean isVisibilityForced) {
                             if (isHomepageShown()) {
                                 // Set the top margin to the top controls min height (indicator
                                 // height if it's shown) since the toolbar height as extra margin
@@ -458,10 +436,6 @@ class StartSurfaceMediator
                     };
         }
 
-        if (mController != null) {
-            mController.addTabSwitcherViewObserver(this);
-        }
-
         if (backPressManager != null && BackPressManager.isEnabled()) {
             backPressManager.addHandler(this, Type.START_SURFACE);
             if (mPropertyModel != null) {
@@ -469,14 +443,6 @@ class StartSurfaceMediator
                         (source, key) -> {
                             if (key == IS_INCOGNITO) notifyBackPressStateChanged();
                         });
-            }
-            if (mController != null) {
-                mController
-                        .getHandleBackPressChangedSupplier()
-                        .addObserver((v) -> notifyBackPressStateChanged());
-                mController
-                        .isDialogVisibleSupplier()
-                        .addObserver((v) -> notifyBackPressStateChanged());
             }
             notifyBackPressStateChanged();
         }
@@ -510,7 +476,7 @@ class StartSurfaceMediator
                 if (mLogoCoordinator != null) mLogoCoordinator.initWithNative();
             }
 
-            if (mTabSwitcherModule != null || mUseMagicStack) {
+            if (mUseMagicStack) {
                 mPropertyModel.set(
                         FAKE_SEARCH_BOX_CLICK_LISTENER,
                         v -> {
@@ -558,9 +524,6 @@ class StartSurfaceMediator
                             mOmniboxStub.startLens(LensEntryPoint.TASKS_SURFACE);
                         });
             }
-        }
-        if (mTabSwitcherModule != null) {
-            mTabSwitcherModule.initWithNative();
         }
 
         // Trigger the creation of spare tab for StartSurface after the native is initialized to
@@ -636,11 +599,10 @@ class StartSurfaceMediator
 
     /**
      * Show Start Surface home view. Note: this should be called only when refactor flag is enabled.
+     *
      * @param animate Whether to play an entry animation.
      */
     void show(boolean animate) {
-        assert ReturnToChromeUtil.isStartSurfaceEnabled(mContext);
-
         // This null check is for testing.
         if (mPropertyModel == null) return;
 
@@ -697,11 +659,6 @@ class StartSurfaceMediator
             mOmniboxStub.addUrlFocusChangeListener(mUrlFocusChangeListener);
         }
 
-        // This should only be called for single or carousel tab switcher.
-        if (mController != null) {
-            mController.showTabSwitcherView(animate);
-        }
-
         RecordUserAction.record("StartSurface.Shown");
         RecordUserAction.record("StartSurface.SinglePane.Home");
         mayRecordHomepageSessionBegin();
@@ -732,110 +689,6 @@ class StartSurfaceMediator
     }
 
     void hideTabSwitcherView(boolean animate) {
-        if (mController != null) {
-            mController.hideTabSwitcherView(animate);
-        } else {
-            startedHiding();
-        }
-    }
-
-    /**
-     * This function no longer handles the case when Start is disabled. Instead, the back operations
-     * of the grid tab switcher is handled by TabSwitcherMediator.
-     */
-    boolean onBackPressed() {
-        boolean ret = onBackPressedInternal();
-        if (ret) {
-            BackPressManager.record(BackPressHandler.Type.START_SURFACE);
-        }
-        return ret;
-    }
-
-    /**
-     * This function handles the case that Start surface is showing. The back operations of the grid
-     * tab switcher is handled by TabSwitcherMediator.
-     */
-    private boolean onBackPressedInternal() {
-        boolean isOnHomepage = isHomepageShown();
-
-        if (mController != null && mController.isDialogVisible()) {
-            boolean ret = mController.onBackPressed();
-            assert !BackPressManager.isEnabled() || ret
-                    : String.format(
-                            "Wrong back press state: %s, is start surface shown : %s",
-                            mController.getClass().getName(), mIsHomepageShown);
-            return ret;
-        }
-
-        if (isOnHomepage) {
-            FeedReliabilityLogger feedReliabilityLogger = getFeedReliabilityLogger();
-            if (feedReliabilityLogger != null) {
-                feedReliabilityLogger.onNavigateBack();
-            }
-        }
-
-        if (mController != null) {
-            // crbug.com/1420410: secondary task surface might be doing animations when transiting
-            // to/from tab switcher and then intercept back press to wait for animation to be
-            // finished.
-            boolean ret = mController.onBackPressed();
-            assert !BackPressManager.isEnabled() || ret
-                    : String.format(
-                            "Wrong back press state: %s, is start surface shown : %s",
-                            mController.getClass().getName(), mIsHomepageShown);
-            return ret;
-        }
-        return false;
-    }
-
-    void onHide() {
-        if (mTabSwitcherModule != null) {
-            mTabSwitcherModule.getTabListDelegate().postHiding();
-        }
-    }
-
-    @Override
-    public @BackPressResult int handleBackPress() {
-        boolean ret = onBackPressedInternal();
-        notifyBackPressStateChanged();
-        return ret ? BackPressResult.SUCCESS : BackPressResult.FAILURE;
-    }
-
-    @Override
-    public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
-        return mBackPressChangedSupplier;
-    }
-
-    void onOverviewShownAtLaunch(long activityCreationTimeMs) {
-        if (mController != null) {
-            mController.onOverviewShownAtLaunch(activityCreationTimeMs);
-        }
-        if (mPropertyModel != null) {
-            ExploreSurfaceCoordinator exploreSurfaceCoordinator =
-                    mPropertyModel.get(EXPLORE_SURFACE_COORDINATOR);
-            if (exploreSurfaceCoordinator != null) {
-                exploreSurfaceCoordinator.onOverviewShownAtLaunch(activityCreationTimeMs);
-            }
-        }
-    }
-
-    // Implements TabSwitcher.TabSwitcherViewObserver.
-    @Override
-    public void startedShowing() {
-        for (TabSwitcherViewObserver observer : mObservers) {
-            observer.startedShowing();
-        }
-    }
-
-    @Override
-    public void finishedShowing() {
-        for (TabSwitcherViewObserver observer : mObservers) {
-            observer.finishedShowing();
-        }
-    }
-
-    @Override
-    public void startedHiding() {
         if (mPropertyModel != null) {
             if (mOmniboxStub != null) {
                 mOmniboxStub.removeUrlFocusChangeListener(mUrlFocusChangeListener);
@@ -867,19 +720,61 @@ class StartSurfaceMediator
             mIsHomepageShown = false;
         }
 
-        // Since the start surface is hidden, destroy any spare tabs created.
-        PostTask.runOrPostTask(
-                TaskTraits.UI_DEFAULT, () -> WarmupManager.getInstance().destroySpareTab());
-
-        for (TabSwitcherViewObserver observer : mObservers) {
-            observer.startedHiding();
+        if (!WarmupManager.getInstance().isCCTPrewarmTabFeatureEnabled(false)) {
+            // Since the start surface is hidden, destroy any spare tabs created.
+            PostTask.runOrPostTask(
+                    TaskTraits.UI_DEFAULT, () -> WarmupManager.getInstance().destroySpareTab());
         }
     }
 
+    /**
+     * This function no longer handles the case when Start is disabled. Instead, the back operations
+     * of the grid tab switcher is handled by TabSwitcherMediator.
+     */
+    boolean onBackPressed() {
+        boolean ret = onBackPressedInternal();
+        if (ret) {
+            BackPressManager.record(BackPressHandler.Type.START_SURFACE);
+        }
+        return ret;
+    }
+
+    /**
+     * This function handles the case that Start surface is showing. The back operations of the grid
+     * tab switcher is handled by TabSwitcherMediator.
+     */
+    private boolean onBackPressedInternal() {
+        boolean isOnHomepage = isHomepageShown();
+
+        if (isOnHomepage) {
+            FeedReliabilityLogger feedReliabilityLogger = getFeedReliabilityLogger();
+            if (feedReliabilityLogger != null) {
+                feedReliabilityLogger.onNavigateBack();
+            }
+        }
+
+        return false;
+    }
+
     @Override
-    public void finishedHiding() {
-        for (TabSwitcherViewObserver observer : mObservers) {
-            observer.finishedHiding();
+    public @BackPressResult int handleBackPress() {
+        boolean ret = onBackPressedInternal();
+        notifyBackPressStateChanged();
+        return ret ? BackPressResult.SUCCESS : BackPressResult.FAILURE;
+    }
+
+    @Override
+    public ObservableSupplier<Boolean> getHandleBackPressChangedSupplier() {
+        return mBackPressChangedSupplier;
+    }
+
+    void onOverviewShownAtLaunch(long activityCreationTimeMs) {
+        if (mPropertyModel != null) {
+            ExploreSurfaceCoordinator exploreSurfaceCoordinator =
+                    mPropertyModel.get(EXPLORE_SURFACE_COORDINATOR);
+            if (exploreSurfaceCoordinator != null) {
+                exploreSurfaceCoordinator.onOverviewShownAtLaunch(activityCreationTimeMs);
+            }
         }
     }
 
@@ -963,9 +858,6 @@ class StartSurfaceMediator
         // StartSurface is being supplied with OneShotSupplier, notification sends after
         // StartSurface is available to avoid missing events. More detail see:
         // https://crrev.com/c/2427428.
-        if (mController != null) {
-            mController.onHomepageChanged();
-        }
         notifyBackPressStateChanged();
     }
 
@@ -999,14 +891,9 @@ class StartSurfaceMediator
     private void setTabCardVisibility(boolean isVisible) {
         if (mUseMagicStack) return;
 
-        // If the single tab switcher is shown and the current selected tab is a new tab page, we
-        // shouldn't show the tab switcher layout on Start.
-        boolean shouldShowTabCard =
-                isVisible && !(isSingleTabSwitcher() && isCurrentSelectedTabNtp());
+        if (isVisible == mPropertyModel.get(IS_TAB_CARD_VISIBLE)) return;
 
-        if (shouldShowTabCard == mPropertyModel.get(IS_TAB_CARD_VISIBLE)) return;
-
-        mPropertyModel.set(IS_TAB_CARD_VISIBLE, shouldShowTabCard);
+        mPropertyModel.set(IS_TAB_CARD_VISIBLE, isVisible);
     }
 
     private void setMVTilesVisibility(boolean isVisible) {
@@ -1017,7 +904,7 @@ class StartSurfaceMediator
 
     @VisibleForTesting
     void setMagicStackVisibility(boolean isVisible) {
-        if (!StartSurfaceConfiguration.useMagicStack()) return;
+        if (!HomeModulesMetricsUtils.useMagicStack()) return;
 
         assert mModuleDelegateCreator != null;
         if (isVisible) {
@@ -1034,8 +921,6 @@ class StartSurfaceMediator
     }
 
     private void setLogoVisibility(boolean isVisible) {
-        if (!mIsSurfacePolishEnabled) return;
-
         if (isVisible && mLogoCoordinator == null) {
             mLogoCoordinator = initializeLogo();
             if (mIsNativeInitialized) mLogoCoordinator.initWithNative();
@@ -1101,29 +986,12 @@ class StartSurfaceMediator
                         == ActiveTabState.NTP;
     }
 
-    private boolean isSingleTabSwitcher() {
-        return mController != null && mController.getTabSwitcherType() == TabSwitcherType.SINGLE;
-    }
-
     private void notifyBackPressStateChanged() {
         mBackPressChangedSupplier.set(shouldInterceptBackPress());
     }
 
     @VisibleForTesting
     boolean shouldInterceptBackPress() {
-        if (mController != null && mController.isDialogVisible()) {
-            return true;
-        }
-
-        if (ReturnToChromeUtil.isStartSurfaceEnabled(mContext)) {
-            return false;
-        }
-
-        if (mController != null
-                && Boolean.TRUE.equals(mController.getHandleBackPressChangedSupplier().get())) {
-            return true;
-        }
-
         return false;
     }
 
@@ -1174,23 +1042,20 @@ class StartSurfaceMediator
                             // and the logo click events are processed in NewTabPageLayout. This
                             // callback passed into TopToolbarCoordinator will only be used for
                             // StartSurfaceToolbar, so add an assertion here.
-                            assert ReturnToChromeUtil.isStartSurfaceEnabled(mContext);
                             ReturnToChromeUtil.handleLoadUrlFromStartSurface(
                                     urlParams, /* incognito= */ false, mParentTabSupplier.get());
                         });
         mLogoContainerView.setVisibility(View.VISIBLE);
         LogoView logoView = mLogoContainerView.findViewById(R.id.search_provider_logo);
-        if (mIsSurfacePolishEnabled) {
-            LogoUtils.setLogoViewLayoutParams(
-                    logoView,
-                    mContext.getResources(),
-                    /* isTablet= */ false,
-                    StartSurfaceConfiguration.isLogoPolishEnabled(),
-                    StartSurfaceConfiguration.getLogoSizeForLogoPolish());
-        }
-
         mLogoCoordinator =
-                new LogoCoordinator(mContext, logoClickedCallback, logoView, true, null, this);
+                new LogoCoordinator(
+                        mContext,
+                        logoClickedCallback,
+                        logoView,
+                        /* shouldFetchDoodle= */ true,
+                        /* onLogoAvailableCallback= */ null,
+                        /* visibilityObserver= */ this,
+                        /* isLogoPolishFlagEnabled= */ false);
         return mLogoCoordinator;
     }
 
@@ -1252,11 +1117,6 @@ class StartSurfaceMediator
     }
 
     @Override
-    public int getHostSurfaceType() {
-        return HostSurface.START_SURFACE;
-    }
-
-    @Override
     public Point getContextMenuStartPoint() {
         return mContextMenuStartPosotion;
     }
@@ -1297,14 +1157,6 @@ class StartSurfaceMediator
         return mPropertyModel
                 .get(EXPLORE_SURFACE_COORDINATOR)
                 .getFeedActionDelegateForTesting(); // IN-TEST
-    }
-
-    TabSwitcher getTabSwitcherModuleForTesting() {
-        return mTabSwitcherModule;
-    }
-
-    Controller getControllerForTesting() {
-        return mController;
     }
 
     Runnable getInitializeMVTilesRunnableForTesting() {

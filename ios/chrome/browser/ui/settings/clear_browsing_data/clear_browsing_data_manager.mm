@@ -179,8 +179,9 @@ BOOL UIIsBlocking(Browser* browser) {
   return [self initWithBrowserState:browserState
                      browsingDataRemover:BrowsingDataRemoverFactory::
                                              GetForBrowserState(browserState)
-      browsingDataCounterWrapperProducer:[[BrowsingDataCounterWrapperProducer
-                                             alloc] init]];
+      browsingDataCounterWrapperProducer:
+          [[BrowsingDataCounterWrapperProducer alloc]
+              initWithBrowserState:browserState]];
 }
 
 - (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
@@ -372,8 +373,13 @@ BOOL UIIsBlocking(Browser* browser) {
                                         browser:(Browser*)browser
                             sourceBarButtonItem:
                                 (UIBarButtonItem*)sourceBarButtonItem {
-  if (dataTypeMaskToRemove == BrowsingDataRemoveMask::REMOVE_NOTHING) {
-    // Nothing to clear (no data types selected).
+  browsing_data::TimePeriod timePeriod =
+      static_cast<browsing_data::TimePeriod>(_timeRangePref.GetValue());
+
+  if (dataTypeMaskToRemove == BrowsingDataRemoveMask::REMOVE_NOTHING ||
+      timePeriod == browsing_data::TimePeriod::LAST_15_MINUTES) {
+    // Nothing to clear (no data types selected) or 15 minutes selected (which
+    // shouldn't be possible).
     return nil;
   }
   __weak ClearBrowsingDataManager* weakSelf = self;
@@ -473,7 +479,7 @@ BOOL UIIsBlocking(Browser* browser) {
   for (auto flag : browsingDataRemoveFlags) {
     if (IsRemoveDataMaskSet(mask, flag)) {
       const auto it = _countersByMasks.find(flag);
-      if (it != _countersByMasks.end()) {
+      if (it != _countersByMasks.end() && it->second) {
         it->second->RestartCounter();
       }
     }
@@ -528,12 +534,11 @@ BOOL UIIsBlocking(Browser* browser) {
                                          reload:YES];
         });
     std::unique_ptr<BrowsingDataCounterWrapper> counter =
-        [self.counterWrapperProducer
-            createCounterWrapperWithPrefName:prefName
-                                browserState:self.browserState
-                                 prefService:prefService
-                            updateUiCallback:callback];
-    _countersByMasks.emplace(mask, std::move(counter));
+        [self.counterWrapperProducer createCounterWrapperWithPrefName:prefName
+                                                     updateUiCallback:callback];
+    if (counter) {
+      _countersByMasks.emplace(mask, std::move(counter));
+    }
   }
   return clearDataItem;
 }
@@ -655,7 +660,6 @@ BOOL UIIsBlocking(Browser* browser) {
       IDS_IOS_CLEAR_BROWSING_DATA_TIME_RANGE_SELECTOR_TITLE);
   NSString* detailText = [TimeRangeSelectorTableViewController
       timePeriodLabelForPrefs:prefService];
-  DCHECK(detailText);
   timeRangeItem.detailText = detailText;
   timeRangeItem.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
   timeRangeItem.accessibilityTraits |= UIAccessibilityTraitButton;

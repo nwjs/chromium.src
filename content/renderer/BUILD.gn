@@ -217,7 +217,11 @@ target(link_target_type, "renderer") {
   }
 
   if (is_win) {
-    sources += [ "renderer_main_platform_delegate_win.cc" ]
+    sources += [
+      "font_data/font_data_manager.cc",
+      "font_data/font_data_manager.h",
+      "renderer_main_platform_delegate_win.cc",
+    ]
   }
 
   if (enable_cast_renderer) {
@@ -250,6 +254,7 @@ target(link_target_type, "renderer") {
     "//components/input",
     "//components/metrics",
     "//components/metrics:single_sample_metrics",
+    "//components/services/font_data/public/mojom",
     "//components/startup_metric_utils",
     "//components/url_formatter",
     "//components/variations:variations_mojom",
@@ -310,7 +315,6 @@ target(link_target_type, "renderer") {
     "//third_party/blink/public:buildflags",
     "//third_party/blink/public/common",
     "//third_party/blink/public/platform/media",
-    "//third_party/blink/public/strings:accessibility_strings",
     "//third_party/boringssl",
     "//third_party/icu",
     "//third_party/libyuv",
@@ -329,6 +333,7 @@ target(link_target_type, "renderer") {
     "//ui/gl",
     "//ui/latency",
     "//ui/native_theme",
+    "//ui/strings:auto_image_annotation_strings_grit",
     "//ui/surface",
     "//url",
     "//v8",

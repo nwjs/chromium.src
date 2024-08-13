@@ -28,6 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/inspector/inspector_page_agent.h"
 
 #include <memory>
@@ -209,6 +214,9 @@ std::unique_ptr<protocol::Array<String>> GetEnabledWindowFeatures(
     feature_strings->emplace_back("resizable");
   if (window_features.noopener)
     feature_strings->emplace_back("noopener");
+  if (window_features.explicit_opener) {
+    feature_strings->emplace_back("opener");
+  }
   if (window_features.background)
     feature_strings->emplace_back("background");
   if (window_features.persistent)
@@ -1103,6 +1111,7 @@ void InspectorPageAgent::WillCommitLoad(LocalFrame*, DocumentLoader* loader) {
   }
   GetFrontend()->frameNavigated(BuildObjectForFrame(loader->GetFrame()),
                                 protocol::Page::NavigationTypeEnum::Navigation);
+  GetFrontend()->flush();
 }
 
 void InspectorPageAgent::DidRestoreFromBackForwardCache(LocalFrame* frame) {
@@ -1621,12 +1630,12 @@ protocol::Response InspectorPageAgent::getLayoutMetrics(
                              .setClientHeight(visible_contents.height())
                              .build();
 
-  // PageZoomFactor takes CSS pixels to device/physical pixels. It includes
+  // LayoutZoomFactor takes CSS pixels to device/physical pixels. It includes
   // both browser ctrl+/- zoom as well as the device scale factor for screen
   // density. Note: we don't account for pinch-zoom, even though it scales a
   // CSS pixel, since "device pixels" coming from Blink are also unscaled by
   // pinch-zoom.
-  float css_to_physical = main_frame->PageZoomFactor();
+  float css_to_physical = main_frame->LayoutZoomFactor();
   float physical_to_css = 1.f / css_to_physical;
 
   // `visible_contents` is in physical pixels. Normlisation is needed to

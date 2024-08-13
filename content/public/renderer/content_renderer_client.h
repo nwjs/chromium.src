@@ -259,15 +259,17 @@ class CONTENT_EXPORT ContentRendererClient {
 #endif
 
   // Notifies the embedder that the given frame is requesting the resource at
-  // |url|. If the function returns a valid |new_url|, the request must be
-  // updated to use it.
+  // `target_url`. If the function returns a valid `new_url`, the request must
+  // be updated to use it.
   //
-  // The |site_for_cookies| is the site_for_cookies of the request. (This is
-  // approximately the URL of the main frame. It is empty in the case of
-  // cross-site iframes.)
+  // `upstream_url`: URL of the frame that initiated the request.
+  // `target_url`: URL being requested by `upstream_url`.
+  // `site_for_cookies`: Approximately the URL of the request of the main
+  // frame. It is empty in the case of cross-site iframes.
   virtual void WillSendRequest(blink::WebLocalFrame* frame,
                                ui::PageTransition transition_type,
-                               const blink::WebURL& url,
+                               const blink::WebURL& upstream_url,
+                               const blink::WebURL& target_url,
                                const net::SiteForCookies& site_for_cookies,
                                const url::Origin* initiator_origin,
                                GURL* new_url);
@@ -278,6 +280,10 @@ class CONTENT_EXPORT ContentRendererClient {
 
   // See blink::Platform.
   virtual uint64_t VisitedLinkHash(std::string_view canonical_url);
+  virtual uint64_t PartitionedVisitedLinkFingerprint(
+      std::string_view canonical_link_url,
+      const net::SchemefulSite& top_level_site,
+      const url::Origin& frame_origin);
   virtual bool IsLinkVisited(uint64_t link_hash);
   virtual void AddOrUpdateVisitedLinkSalt(const url::Origin& origin,
                                           uint64_t salt);

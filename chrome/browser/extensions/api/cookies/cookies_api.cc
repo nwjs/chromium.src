@@ -349,7 +349,6 @@ void CookiesGetFunction::GetCookieListCallback(
 }
 
 void CookiesGetFunction::NotifyExtensionTelemetry() {
-#if 0
   auto* telemetry_service =
       safe_browsing::ExtensionTelemetryServiceFactory::GetForProfile(
           Profile::FromBrowserContext(browser_context()));
@@ -363,7 +362,6 @@ void CookiesGetFunction::NotifyExtensionTelemetry() {
       parsed_args_->details.store_id.value_or(std::string()),
       parsed_args_->details.url, js_callstack().value_or(StackTrace()));
   telemetry_service->AddSignal(std::move(cookies_get_signal));
-#endif
 }
 
 CookiesGetAllFunction::CookiesGetAllFunction() {
@@ -456,7 +454,6 @@ void CookiesGetAllFunction::GetCookieListCallback(
 }
 
 void CookiesGetAllFunction::NotifyExtensionTelemetry() {
-#if 0
   auto* telemetry_service =
       safe_browsing::ExtensionTelemetryServiceFactory::GetForProfile(
           Profile::FromBrowserContext(browser_context()));
@@ -475,7 +472,6 @@ void CookiesGetAllFunction::NotifyExtensionTelemetry() {
           parsed_args_->details.url.value_or(std::string()),
           parsed_args_->details.session, js_callstack().value_or(StackTrace()));
   telemetry_service->AddSignal(std::move(cookies_get_all_signal));
-#endif
 }
 
 CookiesSetFunction::CookiesSetFunction()

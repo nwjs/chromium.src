@@ -5,7 +5,7 @@
 #import <XCTest/XCTest.h>
 
 #import "ios/chrome/browser/shared/public/features/features.h"
-#import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/tab_groups_constants.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_groups_constants.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_strip/ui/swift_constants_for_objective_c.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -100,8 +100,11 @@ id<GREYMatcher> TabStripGroupCellMatcher() {
 
 // Returns a matcher for a tab strip group cell with `title` as title.
 id<GREYMatcher> TabStripGroupCellMatcher(NSString* title) {
-  return grey_allOf(grey_accessibilityLabel(title), TabStripGroupCellMatcher(),
-                    nil);
+  return grey_allOf(grey_kindOfClassName(@"UIView"),
+                    grey_not(grey_kindOfClassName(@"UILabel")),
+                    grey_accessibilityLabel(title),
+                    grey_ancestor(grey_kindOfClassName(@"TabStripGroupCell")),
+                    grey_sufficientlyVisible(), nil);
 }
 
 // Matcher for an unnamed tab group that has the `number_of_tabs`.

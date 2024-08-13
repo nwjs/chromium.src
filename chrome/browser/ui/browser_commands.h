@@ -18,7 +18,6 @@
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "content/public/common/page_zoom.h"
 #include "printing/buildflags/buildflags.h"
-#include "services/screen_ai/buildflags/buildflags.h"
 #include "ui/base/window_open_disposition.h"
 
 class Browser;
@@ -245,6 +244,9 @@ void ToggleFullscreenMode(Browser* browser);
 void ClearCache(Browser* browser);
 bool IsDebuggerAttachedToCurrentTab(Browser* browser);
 void CopyURL(content::WebContents* web_contents);
+bool CanCopyUrl(const Browser* browser);
+// Returns true if the browser window is for a web app or custom tab.
+bool IsWebAppOrCustomTab(const Browser* browser);
 // Moves the WebContents of a hosted app Browser to a tabbed Browser. Returns
 // the tabbed Browser.
 Browser* OpenInChrome(Browser* hosted_app_browser);
@@ -265,12 +267,6 @@ bool ShouldInterceptChromeURLNavigationInIncognito(Browser* browser,
                                                    const GURL& url);
 void ProcessInterceptedChromeURLNavigationInIncognito(Browser* browser,
                                                       const GURL& url);
-
-#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-// Triggers the Screen AI layout extraction to be run once on the |browser|.
-void RunScreenAILayoutExtraction(Browser* browser);
-#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-
 void ExecLensOverlay(Browser* browser);
 void ExecLensRegionSearch(Browser* browser);
 

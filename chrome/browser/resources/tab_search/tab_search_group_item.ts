@@ -7,9 +7,9 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
-import type {TabGroupData} from './tab_data.js';
-import {ariaLabel} from './tab_data.js';
+import {TabGroupData} from './tab_data.js';
 import {colorName} from './tab_group_color_helper.js';
+import {Color} from './tab_group_types.mojom-webui.js';
 import {getCss} from './tab_search_group_item.css.js';
 import {getHtml} from './tab_search_group_item.html.js';
 import {highlightText} from './tab_search_utils.js';
@@ -37,13 +37,19 @@ export class TabSearchGroupItemElement extends TabSearchGroupItemBase {
 
   static override get properties() {
     return {
-      index: {type: Number},
       data: {type: Object},
     };
   }
 
-  index: number;
-  data: TabGroupData;
+  data: TabGroupData = new TabGroupData({
+    sessionId: -1,
+    id: {high: 0n, low: 0n},
+    color: Color.kGrey,
+    title: '',
+    tabCount: 1,
+    lastActiveTime: {internalValue: 0n},
+    lastActiveElapsedText: '',
+  });
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
@@ -63,10 +69,6 @@ export class TabSearchGroupItemElement extends TabSearchGroupItemBase {
           this.$.primaryText, this.data.tabGroup.title,
           this.data.highlightRanges['tabGroup.title']);
     }
-  }
-
-  protected ariaLabelForText_(): string {
-    return ariaLabel(this.data);
   }
 
   protected tabCountText_(): string {

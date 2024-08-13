@@ -88,21 +88,27 @@ void DumpAccessibilityTreeTest::SetUpCommandLine(
     base::CommandLine* command_line) {
   DumpAccessibilityTestBase::SetUpCommandLine(command_line);
   // Enable KeyboardFocusableScrollers, used by AccessibilityScrollableOverflow.
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kEnableBlinkFeatures, "KeyboardFocusableScrollers");
+  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                  "KeyboardFocusableScrollers");
   // Enable AccessibilityAriaVirtualContent.
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kEnableBlinkFeatures, "AccessibilityAriaVirtualContent");
+  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                  "AccessibilityAriaVirtualContent");
   // Enable ComputedAccessibilityInfo.
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kEnableBlinkFeatures, "ComputedAccessibilityInfo");
+  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                  "ComputedAccessibilityInfo");
   // Enable accessibility object model, used in other tests.
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kEnableBlinkFeatures, "AccessibilityObjectModel");
+  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                  "AccessibilityObjectModel");
   // Enable HTMLSelectListElement, used by AccessibilitySelectList and
   // AccessibilitySelectListOpen.
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kEnableBlinkFeatures, "HTMLSelectListElement");
+  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                  "HTMLSelectListElement");
+  // Enable aria-colindextext and aria-rowindextext.
+  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                  "AriaRowColIndexText");
+  // Enable CSSReadingFlow, used by AccessibilityCSSReadingFlow.
+  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                  "CSSReadingFlow");
 }
 
 std::vector<std::string> DumpAccessibilityTreeTest::Dump(ui::AXMode mode) {
@@ -252,14 +258,7 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityCSSFontFamily) {
   RunCSSTest(FILE_PATH_LITERAL("font-family.html"));
 }
 
-// TODO(crbug.com/345718507): Consistently failing on Android.
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_AccessibilityCSSFontSize DISABLED_AccessibilityCSSFontSize
-#else
-#define MAYBE_AccessibilityCSSFontSize AccessibilityCSSFontSize
-#endif
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
-                       MAYBE_AccessibilityCSSFontSize) {
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityCSSFontSize) {
   RunCSSTest(FILE_PATH_LITERAL("font-size.html"));
 }
 
@@ -433,6 +432,40 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityCSSVisibilityToVisible) {
   RunCSSTest(FILE_PATH_LITERAL("visibility-to-visible.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityCSSReadingFlow) {
+  RunCSSTest(FILE_PATH_LITERAL("reading-flow.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(
+    DumpAccessibilityTreeTest,
+    AccessibilityCSSReadingFlowDisplayContentsMixedSiblings) {
+  RunCSSTest(
+      FILE_PATH_LITERAL("reading-flow-display-contents-mixed-siblings.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(
+    DumpAccessibilityTreeTest,
+    AccessibilityCSSReadingFlowDisplayContentsUniformSiblings) {
+  RunCSSTest(
+      FILE_PATH_LITERAL("reading-flow-display-contents-uniform-siblings.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityCSSReadingFlowDisplayContentsShadowHost) {
+  RunCSSTest(
+      FILE_PATH_LITERAL("reading-flow-display-contents-shadow-host.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityCSSReadingFlowPseudoElements) {
+  RunCSSTest(FILE_PATH_LITERAL("reading-flow-pseudo-elements.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityCSSReadingFlowShadowDomSlot) {
+  RunCSSTest(FILE_PATH_LITERAL("reading-flow-shadow-dom-slot.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityA) {
@@ -665,6 +698,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityAriaColRowIndexUndefined) {
   RunAriaTest(FILE_PATH_LITERAL("aria-col-row-index-undefined.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityAriaColRowIndexText) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-col-row-index-text.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
@@ -2666,7 +2704,14 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("input-time.html"));
 }
 
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInputTypes) {
+#if BUILDFLAG(IS_ANDROID)
+// Blink flakes with datetime pickers on most platforms.
+#define MAYBE_AccessibilityInputTypes AccessibilityInputTypes
+#else
+#define MAYBE_AccessibilityInputTypes DISABLED_AccessibilityInputTypes
+#endif
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       MAYBE_AccessibilityInputTypes) {
   RunHtmlTest(FILE_PATH_LITERAL("input-types.html"));
 }
 
@@ -2820,9 +2865,8 @@ class DumpAccessibilityTreeWithSpeakAsDescriptorTest
     : public DumpAccessibilityTreeTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     DumpAccessibilityTreeTest::SetUpCommandLine(command_line);
-    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-        switches::kEnableBlinkFeatures,
-        "CSSAtRuleCounterStyleSpeakAsDescriptor");
+    command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
+                                    "CSSAtRuleCounterStyleSpeakAsDescriptor");
   }
 };
 
@@ -2892,6 +2936,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("micro-clearfix-hack.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityMinRole) {
+  RunHtmlTest(FILE_PATH_LITERAL("min-role.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityMissingRelationTargetsAddedLater) {
   RunAriaTest(FILE_PATH_LITERAL("missing-relation-targets-added-later.html"));
@@ -2942,6 +2990,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityNavigation) {
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityNameCalcFocusable) {
+  RunHtmlTest(FILE_PATH_LITERAL("name-calc-focusable.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityNextOnLineCheckFailure) {
   RunCSSTest(FILE_PATH_LITERAL("next-on-line-check-failure.html"));
 }
@@ -2983,14 +3036,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("offscreen-scroll.html"));
 }
 
-// TODO(b/345567344): test fail on android-automotive-12l-x64-rel-tests
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_AccessibilityOffscreenSelect DISABLED_AccessibilityOffscreenSelect
-#else
-#define MAYBE_AccessibilityOffscreenSelect AccessibilityOffscreenSelect
-#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
-                       MAYBE_AccessibilityOffscreenSelect) {
+                       AccessibilityOffscreenSelect) {
   RunHtmlTest(FILE_PATH_LITERAL("offscreen-select.html"));
 }
 
@@ -3313,29 +3360,13 @@ IN_PROC_BROWSER_TEST_P(YieldingParserDumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("svg-elements-not-mapped.html"));
 }
 
-// TODO(b/345567344): test fail on android-automotive-12l-x64-rel-tests
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_AccessibilitySvgTextAlternativeComputation \
-  DISABLED_AccessibilitySvgTextAlternativeComputation
-#else
-#define MAYBE_AccessibilitySvgTextAlternativeComputation \
-  AccessibilitySvgTextAlternativeComputation
-#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
-                       MAYBE_AccessibilitySvgTextAlternativeComputation) {
+                       AccessibilitySvgTextAlternativeComputation) {
   RunHtmlTest(FILE_PATH_LITERAL("svg-text-alternative-computation.html"));
 }
 
-// TODO(b/345567344): test fail on android-automotive-12l-x64-rel-tests
-#if BUILDFLAG(IS_ANDROID)
-#define MAYBE_AccessibilitySvgTextAlternativeComputation \
-  DISABLED_AccessibilitySvgTextAlternativeComputation
-#else
-#define MAYBE_AccessibilitySvgTextAlternativeComputation \
-  AccessibilitySvgTextAlternativeComputation
-#endif
 IN_PROC_BROWSER_TEST_P(YieldingParserDumpAccessibilityTreeTest,
-                       MAYBE_AccessibilitySvgTextAlternativeComputation) {
+                       AccessibilitySvgTextAlternativeComputation) {
   RunHtmlTest(FILE_PATH_LITERAL("svg-text-alternative-computation.html"));
 }
 
@@ -3506,6 +3537,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTitle) {
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTitleEmpty) {
   RunHtmlTest(FILE_PATH_LITERAL("title-empty.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTitleAttribute) {
+  RunHtmlTest(FILE_PATH_LITERAL("title-attribute.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityTitleChanged) {
@@ -3825,8 +3860,16 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, MissingParent) {
   RunRegressionTest(FILE_PATH_LITERAL("missing-parent.html"));
 }
 
+// TODO(crbug.com/331567752):  Reenable once Linux failures are fixed.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_NullObjectOnHypertextOffsetComputation \
+  DISABLED_NullObjectOnHypertextOffsetComputation
+#else
+#define MAYBE_NullObjectOnHypertextOffsetComputation \
+  NullObjectOnHypertextOffsetComputation
+#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
-                       NullObjectOnHypertextOffsetComputation) {
+                       MAYBE_NullObjectOnHypertextOffsetComputation) {
   if (!base::FeatureList::IsEnabled(blink::features::kMutationEvents)) {
     // TODO(crbug.com/40268638) Remove this test (and the .html file) when
     // MutationEvents are disabled for good. This is just a crash test related
@@ -3900,9 +3943,9 @@ class DumpAccessibilityTreeWithLanguageDetectionTest
   void SetUpCommandLine(base::CommandLine* command_line) override {
     DumpAccessibilityTreeTest::SetUpCommandLine(command_line);
 
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+    command_line->AppendSwitch(
         ::switches::kEnableExperimentalAccessibilityLanguageDetection);
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+    command_line->AppendSwitch(
         ::switches::kEnableExperimentalAccessibilityLanguageDetectionDynamic);
   }
 

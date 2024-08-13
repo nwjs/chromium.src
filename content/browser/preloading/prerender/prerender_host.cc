@@ -477,6 +477,11 @@ void PrerenderHost::ReadyToCommitNavigation(
   // No-Vary-Search header.
   auto* navigation_request = NavigationRequest::From(navigation_handle);
   CHECK(navigation_request->IsInPrerenderedMainFrame());
+  // Prerender frame tree node is alive, see:
+  // `PrerenderHostRegistry::ReadyToCommitNavigation`.
+  CHECK(frame_tree_);
+  CHECK_EQ(frame_tree_.get(),
+           &navigation_request->frame_tree_node()->frame_tree());
 
   if (!IsInitialNavigation(*navigation_request)) {
     return;
@@ -1178,6 +1183,7 @@ void PrerenderHost::SetFailureReason(
     case PrerenderFinalStatus::kJavaScriptInterfaceAdded:
     case PrerenderFinalStatus::kJavaScriptInterfaceRemoved:
     case PrerenderFinalStatus::kAllPrerenderingCanceled:
+    case PrerenderFinalStatus::kWindowClosed:
       if (attempt_) {
         attempt_->SetFailureReason(
             ToPreloadingFailureReason(reason.final_status()));
@@ -1200,24 +1206,32 @@ void PrerenderHost::SetFailureReason(
   }
 }
 
-bool PrerenderHost::IsUrlMatch(const GURL& url) const {
+std::optional<PrerenderHost::UrlMatchType> PrerenderHost::IsUrlMatch(
+    const GURL& url) const {
   // Triggers are not allowed to treat a cross-origin url as a matched url. It
   // would cause security risks.
   if (!url::IsSameOriginWith(attributes_.prerendering_url, url)) {
-    return false;
+    return std::nullopt;
   }
 
   if (attributes_.url_match_predicate) {
-    return attributes_.url_match_predicate.Run(url);
+    if (attributes_.url_match_predicate.Run(url)) {
+      return PrerenderHost::UrlMatchType::kURLPredicateMatch;
+    }
+    return std::nullopt;
   }
 
   if (GetInitialUrl() == url) {
-    return true;
+    return PrerenderHost::UrlMatchType::kExact;
   }
 
   // Check No-Vary-Search header and try and match.
-  return no_vary_search_.has_value() &&
-         no_vary_search_->AreEquivalent(GetInitialUrl(), url);
+  if (no_vary_search_.has_value() &&
+      no_vary_search_->AreEquivalent(GetInitialUrl(), url)) {
+    return PrerenderHost::UrlMatchType::kNoVarySearch;
+  }
+
+  return std::nullopt;
 }
 
 bool PrerenderHost::IsNoVarySearchHintUrlMatch(const GURL& url) const {
@@ -1331,6 +1345,8 @@ base::TimeDelta PrerenderHost::WaitUntilHeadTimeout() {
 void PrerenderHost::OnWaitingForHeadersStarted(
     NavigationHandle& navigation_handle,
     WaitingForHeadersStartedReason reason) {
+  // Prerender frame tree is alive. This check is also done by the caller.
+  CHECK(frame_tree_);
   for (auto& observer : observers_) {
     observer.OnWaitingForHeadersStarted(navigation_handle, reason);
   }
@@ -1339,6 +1355,8 @@ void PrerenderHost::OnWaitingForHeadersStarted(
 void PrerenderHost::OnWaitingForHeadersFinished(
     NavigationHandle& navigation_handle,
     WaitingForHeadersFinishedReason reason) {
+  // Prerender frame tree is alive. This check is also done by the caller.
+  CHECK(frame_tree_);
   for (auto& observer : observers_) {
     observer.OnWaitingForHeadersFinished(navigation_handle, reason);
   }

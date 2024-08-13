@@ -31,6 +31,7 @@
  * [linux-perf](https://ci.chromium.org/p/chrome/builders/ci/linux-perf): Ubuntu-18.04, 8 core, NVIDIA Quadro P400.
  * [linux-perf-calibration](https://ci.chromium.org/p/chrome/builders/ci/linux-perf-calibration): Ubuntu-18.04, 8 core, NVIDIA Quadro P400.
  * [linux-perf-rel](https://ci.chromium.org/p/chrome/builders/ci/linux-perf-rel): Ubuntu-18.04, 8 core, NVIDIA Quadro P400.
+ * [linux-r350-perf](https://ci.chromium.org/p/chrome/builders/ci/linux-r350-perf): Ubuntu-22.04, 16 core.
 
 ### Mac
 
@@ -83,7 +84,6 @@
 
 ### Android
 
- * [android-pixel2-perf-aab-fyi](https://ci.chromium.org/p/chrome/builders/ci/android-pixel2-perf-aab-fyi): Android OPM1.171019.021.
  * [android-pixel2-perf-fyi](https://ci.chromium.org/p/chrome/builders/ci/android-pixel2-perf-fyi): Android OPM1.171019.021.
 
 ### Chromeos

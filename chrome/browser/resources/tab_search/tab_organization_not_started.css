@@ -4,9 +4,9 @@
 
 /* #css_wrapper_metadata_start
  * #type=style-lit
- * #import=./tab_organization_shared_style_lit.css.js
+ * #import=./tab_organization_shared_style.css.js
  * #scheme=relative
- * #include=tab-organization-shared-style-lit
+ * #include=tab-organization-shared-style
  * #css_wrapper_metadata_end */
 
 :host {
@@ -40,6 +40,14 @@ cr-button {
   gap: 4px;
 }
 
-.tab-organization-link {
-  display: inline;
+.bullet-list {
+  --iron-icon-height: 16px;
+  --iron-icon-width: 16px;
+  border-spacing: 0 4px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+td:first-child {
+  padding-inline-end: 12px;
 }

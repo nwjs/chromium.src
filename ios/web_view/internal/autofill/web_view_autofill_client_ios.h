@@ -14,7 +14,6 @@
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
-#include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/strike_databases/strike_database.h"
 #include "components/prefs/pref_service.h"
@@ -76,11 +75,6 @@ class WebViewAutofillClientIOS : public AutofillClient {
   const translate::LanguageState* GetLanguageState() override;
   translate::TranslateDriver* GetTranslateDriver() override;
   void ShowAutofillSettings(SuggestionType suggestion_type) override;
-  void ConfirmSaveCreditCardToCloud(
-      const CreditCard& card,
-      const LegalMessageLines& legal_message_lines,
-      SaveCreditCardOptions options,
-      UploadSaveCardPromptCallback callback) override;
   void ConfirmSaveAddressProfile(
       const AutofillProfile& profile,
       const AutofillProfile* original_profile,
@@ -92,8 +86,6 @@ class WebViewAutofillClientIOS : public AutofillClient {
   void ShowDeleteAddressProfileDialog(
       const AutofillProfile& profile,
       AddressProfileDeleteDialogCallback delete_dialog_callback) override;
-  bool HasCreditCardScanFeature() const override;
-  void ScanCreditCard(CreditCardScanCallback callback) override;
   bool ShowTouchToFillCreditCard(
       base::WeakPtr<TouchToFillDelegate> delegate,
       base::span<const autofill::CreditCard> cards_to_suggest,
@@ -114,10 +106,7 @@ class WebViewAutofillClientIOS : public AutofillClient {
   void DidFillOrPreviewForm(mojom::ActionPersistence action_persistence,
                             AutofillTriggerSource trigger_source,
                             bool is_refill) override;
-  void DidFillOrPreviewField(const std::u16string& autofilled_value,
-                             const std::u16string& profile_full_name) override;
   bool IsContextSecure() const override;
-  void OpenPromoCodeOfferDetailsURL(const GURL& url) override;
   autofill::FormInteractionsFlowId GetCurrentFormInteractionsFlowId() override;
   bool IsLastQueriedField(FieldGlobalId field_id) override;
 
@@ -133,12 +122,16 @@ class WebViewAutofillClientIOS : public AutofillClient {
   web::WebState* web_state_;
   __weak id<CWVAutofillClientIOSBridge> bridge_;
   signin::IdentityManager* identity_manager_;
-  std::unique_ptr<payments::IOSWebViewPaymentsAutofillClient>
-      payments_autofill_client_;
   std::unique_ptr<FormDataImporter> form_data_importer_;
   StrikeDatabase* strike_database_;
   syncer::SyncService* sync_service_ = nullptr;
   std::unique_ptr<LogManager> log_manager_;
+
+  // Order matters for this initialization. This initialization must happen
+  // after all of the members passed into the constructor of
+  // `payments_autofill_client_` are initialized, other than `this`.
+  payments::IOSWebViewPaymentsAutofillClient payments_autofill_client_{
+      this, bridge_, web_state_};
 };
 
 }  // namespace autofill

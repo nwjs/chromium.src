@@ -237,6 +237,7 @@ constexpr std::ostream& span_stream(std::ostream& l, span<T, N> r);
 // - as_byte_span() function.
 // - as_writable_byte_span() function.
 // - copy_from() method.
+// - copy_from_nonoverlapping() method.
 // - span_from_ref() function.
 // - byte_span_from_ref() function.
 // - span_from_cstring() function.
@@ -313,6 +314,11 @@ class GSL_POINTER span {
         data_(base::to_address(first)) {
     // Guarantees that the N in the type signature is correct.
     CHECK(N == count);
+
+    // `count != 0` implies non-null `data_`.  Consider using
+    // `base::SpanOrSize<T>` to represent a size that may or may not be
+    // accompanied by the actual data.
+    DCHECK(count == 0 || !!data_);
   }
 
   // Constructs a span from a contiguous iterator and a size.
@@ -556,26 +562,89 @@ class GSL_POINTER span {
     return reverse_iterator(begin());
   }
 
-  // Bounds-checked copy from a non-overlapping span. The spans must be the
-  // exact same size or a hard CHECK() occurs. If the two spans overlap,
-  // Undefined Behaviour occurs.
+  // Bounds-checked copy from a span. The spans must be the exact same size for
+  // the method to be callable.
   //
   // This is a non-std extension that is inspired by the Rust
   // slice::copy_from_slice() method.
   //
-  // # Checks
-  // The function CHECKs that the `other` span has the same size as itself and
-  // will terminate otherwise.
+  // If it's known the spans can not overlap, `copy_from_nonoverlapping()`
+  // provides an unsafe alternative that avoids intermediate copies.
   constexpr void copy_from(span<const T, N> other)
     requires(!std::is_const_v<T>)
   {
-    CHECK_EQ(size_bytes(), other.size_bytes());
-    // Verify non-overlapping in developer builds.
-    //
-    // SAFETY: span provides that data() points to at least size() many
-    // elements, so adding size() to the data() pointer is well-defined.
-    DCHECK(UNSAFE_BUFFERS(data() + size()) <= other.data() ||
-           data() >= UNSAFE_BUFFERS(other.data() + other.size()));
+    if constexpr (std::is_trivially_copyable_v<T>) {
+      if constexpr (N > 0) {
+        // Avoid having to look for overlap and pick a direction, memmove allows
+        // arbitrary overlap.
+        memmove(data(), other.data(), size_bytes());
+      }
+    } else {
+      // Use intptrs as pointers from different allocations are not comparable.
+      const auto data_intptr = reinterpret_cast<uintptr_t>(data());
+      const auto other_data_intptr = reinterpret_cast<uintptr_t>(other.data());
+      if (data_intptr < other_data_intptr) {
+        // SAFETY: The std::copy() here does not check bounds, but the compiler
+        // has verified that `this` and `other` have `N` elements (and are
+        // pointers of the same type) through the parameter's type, so `data()`
+        // and `other.data()` both point to at least `N` elements.
+        UNSAFE_BUFFERS(std::copy(other.data(), other.data() + N, data()));
+      } else if (data_intptr != other_data_intptr) {
+        // SAFETY: The std::copy() here does not check bounds, but the compiler
+        // has verified that `this` and `other` have `N` elements (and are
+        // pointers of the same type) through the parameter's type, so `data()`
+        // and `other.data()` both point to at least `N` elements.
+        UNSAFE_BUFFERS(
+            std::copy_backward(other.data(), other.data() + N, data() + N));
+      }
+    }
+  }
+
+  // Bounds-checked copy from a span. The spans must be the exact same size or a
+  // hard CHECK() occurs. The spans are allowed to overlap.
+  //
+  // This is a non-std extension that is inspired by the Rust
+  // slice::copy_from_slice() method.
+  //
+  // If it's known the spans can not overlap, `copy_from_nonoverlapping()`
+  // provides an unsafe alternative that avoids intermediate copies.
+  //
+  // # Checks
+  // The function CHECKs that the `other` span has the same size as itself and
+  // will terminate otherwise.
+  //
+  // # Implementation note
+  // The parameter is taken as a template to avoid implicit conversion where
+  // span<T, N> can also be constructed from it. If the input is a fixed-length
+  // span then we want to use the other overload and reject sizes that don't
+  // match at compile time.
+  template <class R, size_t X = internal::ExtentV<R>>
+    requires(X == dynamic_extent && std::convertible_to<R, span<const T>>)
+  constexpr void copy_from(const R& other)
+    requires(!std::is_const_v<T>)
+  {
+    return copy_from(span<const T, N>(other));
+  }
+
+  // Bounds-checked copy from a non-overlapping span. The spans must be the
+  // exact same size for the method to be callable.
+  //
+  // This is a non-std extension that is inspired by the Rust
+  // slice::copy_from_slice() method.
+  //
+  // # Safety
+  // The `other` span must not overlap with `this` or Undefined Behaviour may
+  // occur.
+  UNSAFE_BUFFER_USAGE constexpr void copy_from_nonoverlapping(
+      span<const T, N> other)
+    requires(!std::is_const_v<T>)
+  {
+    // Verify non-overlapping in developer builds. Use intptrs as pointers from
+    // different allocations are not comparable.
+    const auto data_intptr = reinterpret_cast<uintptr_t>(data());
+    const auto other_data_intptr = reinterpret_cast<uintptr_t>(other.data());
+    DCHECK(data_intptr + size_bytes() <= other_data_intptr ||
+           data_intptr >= other_data_intptr + size_bytes());
     // When compiling with -Oz, std::ranges::copy() does not get inlined, which
     // makes copy_from() very expensive compared to memcpy for small sizes (up
     // to around 4x slower). We observe that this is because ranges::copy() uses
@@ -590,12 +659,70 @@ class GSL_POINTER span {
     // size_bytes(), which while computable at compile time when `other` has a
     // fixed size, the optimizer stumbles on with -Oz.
     //
-    // SAFETY: The copy() here does not check bounds, but we have verified that
-    // `this` and `other` have the same bounds above (and are pointers of the
-    // same type), so `data()` and `other.data()` both have at least
-    // `other.size()` elements.
-    UNSAFE_BUFFERS(
-        std::copy(other.data(), other.data() + other.size(), data()));
+    // SAFETY: The std::copy() here does not check bounds, but we have verified
+    // that `this` and `other` have the same bounds above (and are pointers of
+    // the same type), so `data()` and `other.data()` both have at least
+    // `N` elements.
+    UNSAFE_BUFFERS(std::copy(other.data(), other.data() + N, data()));
+  }
+
+  // Bounds-checked copy from a non-overlapping span. The spans must be the
+  // exact same size or a hard CHECK() occurs. If the two spans overlap,
+  // Undefined Behaviour may occur.
+  //
+  // This is a non-std extension that is inspired by the Rust
+  // slice::copy_from_slice() method.
+  //
+  // # Checks
+  // The function CHECKs that the `other` span has the same size as itself and
+  // will terminate otherwise.
+  //
+  // # Safety
+  // The `other` span must not overlap with `this` or Undefined Behaviour may
+  // occur.
+  //
+  // # Implementation note
+  // The parameter is taken as a template to avoid implicit conversion where
+  // span<T, N> can also be constructed from it. If the input is a fixed-length
+  // span then we want to use the other overload and reject sizes that don't
+  // match at compile time.
+  template <class R, size_t X = internal::ExtentV<R>>
+    requires(X == dynamic_extent && std::convertible_to<R, span<const T>>)
+  UNSAFE_BUFFER_USAGE constexpr void copy_from_nonoverlapping(const R& other)
+    requires(!std::is_const_v<T>)
+  {
+    // SAFETY: The caller must ensure the spans do not overlap.
+    UNSAFE_BUFFERS(copy_from_nonoverlapping(span<const T, N>(other)));
+  }
+
+  // Bounds-checked copy from a span into the front of this span. The `other`
+  // span must not be larger than this span.
+  //
+  // Prefer copy_from() when you expect the entire span to be written to. This
+  // method does not make that guarantee and may leave some bytes uninitialized
+  // in the destination span, while `copy_from()` ensures the entire span is
+  // written which helps prevent bugs.
+  //
+  // This is sugar for `span.first(other.size()).copy_from(other)` to avoid the
+  // need for writing the size twice, while also preserving compile-time size
+  // information.
+  //
+  // # Checks
+  // If `other` is dynamic-sized, then this function CHECKs if `other` is larger
+  // than this span. If `other` is fixed-size, then the same verification is
+  // done at compile time.
+  template <class R, size_t X = internal::ExtentV<R>>
+    requires((X <= N || X == dynamic_extent) &&
+             std::convertible_to<R, span<const T, X>>)
+  constexpr void copy_prefix_from(const R& other)
+    requires(!std::is_const_v<T>)
+  {
+    auto from = span<const T, X>(other);
+    if constexpr (X == dynamic_extent) {
+      return first(from.size()).copy_from(from);
+    } else {
+      return first<X>().copy_from(from);
+    }
   }
 
   // Implicit conversion from std::span<T, N> to base::span<T, N>.
@@ -743,7 +870,12 @@ class GSL_POINTER span<T, dynamic_extent, InternalPtrType> {
       // We can not protect here generally against an invalid iterator/count
       // being passed in, since we have no context to determine if the
       // iterator or count are valid.
-      : data_(base::to_address(first)), size_(count) {}
+      : data_(base::to_address(first)), size_(count) {
+    // `count != 0` implies non-null `data_`.  Consider using
+    // `base::SpanOrSize<T>` to represent a size that may or may not be
+    // accompanied by the actual data.
+    DCHECK(count == 0 || !!data_);
+  }
 
   // Constructs a span from a contiguous iterator and a size.
   //
@@ -999,12 +1131,14 @@ class GSL_POINTER span<T, dynamic_extent, InternalPtrType> {
     return reverse_iterator(begin());
   }
 
-  // Bounds-checked copy from a non-overlapping span. The spans must be the
-  // exact same size or a hard CHECK() occurs. If the two spans overlap,
-  // Undefined Behaviour occurs.
+  // Bounds-checked copy from a span. The spans must be the exact same size or a
+  // hard CHECK() occurs. The spans are allowed to overlap.
   //
   // This is a non-std extension that is inspired by the Rust
   // slice::copy_from_slice() method.
+  //
+  // If it's known the spans can not overlap, `copy_from_nonoverlapping()`
+  // provides an unsafe alternative that avoids intermediate copies.
   //
   // # Checks
   // The function CHECKs that the `other` span has the same size as itself and
@@ -1012,13 +1146,59 @@ class GSL_POINTER span<T, dynamic_extent, InternalPtrType> {
   constexpr void copy_from(span<const T> other)
     requires(!std::is_const_v<T>)
   {
-    CHECK_EQ(size_bytes(), other.size_bytes());
-    // Verify non-overlapping in developer builds.
-    //
-    // SAFETY: span provides that data() points to at least size() many
-    // elements, so adding size() to the data() pointer is well-defined.
-    DCHECK(UNSAFE_BUFFERS(data() + size()) <= other.data() ||
-           data() >= UNSAFE_BUFFERS(other.data() + other.size()));
+    CHECK_EQ(size(), other.size());
+
+    if constexpr (std::is_trivially_copyable_v<T>) {
+      if (!empty()) {
+        // Avoid having to look for overlap and pick a direction, memmove allows
+        // arbitrary overlap.
+        memmove(data(), other.data(), size_bytes());
+      }
+    } else {
+      // Use intptrs as pointers from different allocations are not comparable.
+      const auto data_intptr = reinterpret_cast<uintptr_t>(data());
+      const auto other_data_intptr = reinterpret_cast<uintptr_t>(other.data());
+      if (data_intptr < other_data_intptr) {
+        // SAFETY: The std::copy() here does not check bounds, but we have
+        // verified that `this` and `other` have the same bounds above (and are
+        // pointers of the same type), so `data()` and `other.data()` both have
+        // at least `size()` elements.
+        UNSAFE_BUFFERS(std::copy(other.data(), other.data() + size(), data()));
+      } else if (data_intptr != other_data_intptr) {
+        // SAFETY: The std::copy() here does not check bounds, but we have
+        // verified that `this` and `other` have the same bounds above (and are
+        // pointers of the same type), so `data()` and `other.data()` both have
+        // at least `size()` elements.
+        UNSAFE_BUFFERS(std::copy_backward(other.data(), other.data() + size(),
+                                          data() + size()));
+      }
+    }
+  }
+
+  // Bounds-checked copy from a non-overlapping span. The spans must be the
+  // exact same size or a hard CHECK() occurs.
+  //
+  // This is a non-std extension that is inspired by the Rust
+  // slice::copy_from_slice() method.
+  //
+  // # Checks
+  // The function CHECKs that the `other` span has the same size as itself and
+  // will terminate otherwise.
+  //
+  // # Safety
+  // The `other` span must not overlap with `this` or Undefined Behaviour may
+  // occur.
+  UNSAFE_BUFFER_USAGE constexpr void copy_from_nonoverlapping(
+      span<const T> other)
+    requires(!std::is_const_v<T>)
+  {
+    CHECK_EQ(size(), other.size());
+    // Verify non-overlapping in developer builds. Use intptrs as pointers from
+    // different allocations are not comparable.
+    const auto data_intptr = reinterpret_cast<uintptr_t>(data());
+    const auto other_data_intptr = reinterpret_cast<uintptr_t>(other.data());
+    DCHECK(data_intptr + size_bytes() <= other_data_intptr ||
+           data_intptr >= other_data_intptr + size_bytes());
     // When compiling with -Oz, std::ranges::copy() does not get inlined, which
     // makes copy_from() very expensive compared to memcpy for small sizes (up
     // to around 4x slower). We observe that this is because ranges::copy() uses
@@ -1033,12 +1213,32 @@ class GSL_POINTER span<T, dynamic_extent, InternalPtrType> {
     // size_bytes(), which while computable at compile time when `other` has a
     // fixed size, the optimizer stumbles on with -Oz.
     //
-    // SAFETY: The copy() here does not check bounds, but we have verified that
-    // `this` and `other` have the same bounds above (and are pointers of the
-    // same type), so `data()` and `other.data()` both have at least
-    // `other.size()` elements.
-    UNSAFE_BUFFERS(
-        std::copy(other.data(), other.data() + other.size(), data()));
+    // SAFETY: The std::copy() here does not check bounds, but we have verified
+    // that `this` and `other` have the same bounds above (and are pointers of
+    // the same type), so `data()` and `other.data()` both have at least
+    // `size()` elements.
+    UNSAFE_BUFFERS(std::copy(other.data(), other.data() + size(), data()));
+  }
+
+  // Bounds-checked copy from a span into the front of this span. The `other`
+  // span must not be larger than this span.
+  //
+  // Prefer copy_from() when you expect the entire span to be written to. This
+  // method does not make that guarantee and may leave some bytes uninitialized
+  // in the destination span, while `copy_from()` ensures the entire span is
+  // written which helps prevent bugs.
+  //
+  // This is sugar for `span.first(other.size()).copy_from(other)` to avoid the
+  // need for writing the size twice, while also preserving compile-time size
+  // information.
+  //
+  // # Checks
+  // If `other` is dynamic-sized, then this function CHECKs if `other` is larger
+  // than this span.
+  constexpr void copy_prefix_from(span<const T> other)
+    requires(!std::is_const_v<T>)
+  {
+    return first(other.size()).copy_from(other);
   }
 
   // Compares two spans for equality by comparing the objects pointed to by the
@@ -1145,8 +1345,8 @@ constexpr std::ostream& operator<<(std::ostream& l, span<T, N> r) {
 }
 
 // [span.objectrep], views of object representation
-template <typename T, size_t X>
-constexpr auto as_bytes(span<T, X> s) noexcept {
+template <typename T, size_t X, typename InternalPtrType>
+constexpr auto as_bytes(span<T, X, InternalPtrType> s) noexcept {
   constexpr size_t N = X == dynamic_extent ? dynamic_extent : sizeof(T) * X;
   // SAFETY: span provides that data() points to at least size_bytes() many
   // bytes. So since `uint8_t` has a size of 1 byte, the size_bytes() value is
@@ -1158,9 +1358,9 @@ constexpr auto as_bytes(span<T, X> s) noexcept {
       reinterpret_cast<const uint8_t*>(s.data()), s.size_bytes()));
 }
 
-template <typename T, size_t X>
+template <typename T, size_t X, typename InternalPtrType>
   requires(!std::is_const_v<T>)
-constexpr auto as_writable_bytes(span<T, X> s) noexcept {
+constexpr auto as_writable_bytes(span<T, X, InternalPtrType> s) noexcept {
   constexpr size_t N = X == dynamic_extent ? dynamic_extent : sizeof(T) * X;
   // SAFETY: span provides that data() points to at least size_bytes() many
   // bytes. So since `uint8_t` has a size of 1 byte, the size_bytes() value is a
@@ -1176,8 +1376,8 @@ constexpr auto as_writable_bytes(span<T, X> s) noexcept {
 // span of const char rather than const uint8_t. This non-std function is
 // added since chrome still represents many things as char arrays which
 // rightfully should be uint8_t.
-template <typename T, size_t X>
-constexpr auto as_chars(span<T, X> s) noexcept {
+template <typename T, size_t X, typename InternalPtrType>
+constexpr auto as_chars(span<T, X, InternalPtrType> s) noexcept {
   constexpr size_t N = X == dynamic_extent ? dynamic_extent : sizeof(T) * X;
   // SAFETY: span provides that data() points to at least size_bytes() many
   // bytes. So since `char` has a size of 1 byte, the size_bytes() value is a
@@ -1214,9 +1414,9 @@ constexpr std::string_view as_string_view(
 // it returns a span of char rather than uint8_t. This non-std function is
 // added since chrome still represents many things as char arrays which
 // rightfully should be uint8_t.
-template <typename T, size_t X>
+template <typename T, size_t X, typename InternalPtrType>
   requires(!std::is_const_v<T>)
-auto as_writable_chars(span<T, X> s) noexcept {
+auto as_writable_chars(span<T, X, InternalPtrType> s) noexcept {
   constexpr size_t N = X == dynamic_extent ? dynamic_extent : sizeof(T) * X;
   // SAFETY: span provides that data() points to at least size_bytes() many
   // bytes. So since `char` has a size of 1 byte, the size_bytes() value is
@@ -1378,7 +1578,7 @@ constexpr span<uint8_t, sizeof(T)> byte_span_from_ref(
   return as_writable_bytes(span_from_ref(single_object));
 }
 
-// Converts a string literal (such as `"hello"`) to a span of `char` while
+// Converts a string literal (such as `"hello"`) to a span of `CharT` while
 // omitting the terminating NUL character. These two are equivalent:
 // ```
 // base::span<char, 5u> s1 = base::span_from_cstring("hello");
@@ -1390,14 +1590,15 @@ constexpr span<uint8_t, sizeof(T)> byte_span_from_ref(
 //
 // Internal NUL characters (ie. that are not at the end of the string) are
 // always preserved.
-template <size_t N>
-constexpr span<const char, N - 1> span_from_cstring(
-    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
-    ENABLE_IF_ATTR(lit[N - 1u] == '\0', "requires string literal as input") {
+template <class CharT, size_t N>
+constexpr span<const CharT, N - 1> span_from_cstring(
+    const CharT (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    ENABLE_IF_ATTR(lit[N - 1u] == CharT{0},
+                   "requires string literal as input") {
   return span(lit).template first<N - 1>();
 }
 
-// Converts a string literal (such as `"hello"`) to a span of `char` that
+// Converts a string literal (such as `"hello"`) to a span of `CharT` that
 // includes the terminating NUL character. These two are equivalent:
 // ```
 // base::span<char, 6u> s1 = base::span_with_nul_from_cstring("hello");
@@ -1407,15 +1608,16 @@ constexpr span<const char, N - 1> span_from_cstring(
 // ```
 //
 // If you do not want to include the NUL terminator, then use
-// `span_from_cstring()` or use a view type (`base::cstring_view` or
+// `span_from_cstring()` or use a view type (e.g. `base::cstring_view` or
 // `std::string_view`) in place of a string literal.
 //
 // Internal NUL characters (ie. that are not at the end of the string) are
 // always preserved.
-template <size_t N>
-constexpr span<const char, N> span_with_nul_from_cstring(
-    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
-    ENABLE_IF_ATTR(lit[N - 1u] == '\0', "requires string literal as input") {
+template <class CharT, size_t N>
+constexpr span<const CharT, N> span_with_nul_from_cstring(
+    const CharT (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    ENABLE_IF_ATTR(lit[N - 1u] == CharT{0},
+                   "requires string literal as input") {
   return span(lit);
 }
 

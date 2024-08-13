@@ -17,6 +17,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/branding_buildflags.h"
@@ -109,7 +110,7 @@ enum class Channel;
 namespace views {
 class ExternalFocusTracker;
 class WebView;
-}
+}  // namespace views
 
 namespace webapps {
 enum class InstallableWebAppCheckResult;
@@ -313,13 +314,8 @@ class BrowserView : public BrowserWindow,
   // Returns true if the specificed |accelerator| is registered with this view.
   bool IsAcceleratorRegistered(const ui::Accelerator& accelerator);
 
-  // Returns the active WebContents. Used by our NonClientView's
-  // TabIconView::TabContentsProvider implementations.
-  // TODO(beng): exposing this here is a bit bogus, since it's only used to
-  // determine loading state. It'd be nicer if we could change this to be
-  // bool IsSelectedTabLoading() const; or something like that. We could even
-  // move it to a WindowDelegate subclass.
-  content::WebContents* GetActiveWebContents() const;
+  // Returns the active WebContents.
+  content::WebContents* GetActiveWebContents();
 
   // Returns true if the Browser object associated with this BrowserView
   // supports tabs, such as all normal browsers, and tabbed apps like terminal.
@@ -337,18 +333,10 @@ class BrowserView : public BrowserWindow,
   // a Picture in Picture window.
   bool GetIsPictureInPictureType() const;
 
-  // Returns the initial_aspect_ratio parameter from |browser_|'s CreateParams.
-  // Valid only for PictureInPicture browsers.
-  float GetInitialAspectRatio() const;
-
   // Returns the document picture in picture options from |browser_|'s
   // CreateParams.
   std::optional<blink::mojom::PictureInPictureWindowOptions>
   GetDocumentPictureInPictureOptions() const;
-
-  // Returns the lock_aspect_ratio parameter from |browser_|'s CreateParams.
-  // Valid only for PictureInPicture browsers.
-  bool GetLockAspectRatio() const;
 
   // Returns true if the top browser controls (a.k.a. top-chrome UIs) are
   // allowed to slide up and down with the gesture scrolls on the current tab's
@@ -633,6 +621,7 @@ class BrowserView : public BrowserWindow,
   web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
       override;
   void ShowAvatarBubbleFromAvatarButton(bool is_source_accelerator) override;
+  void ShowBubbleFromManagementToolbarButton() override;
   void MaybeShowProfileSwitchIPH() override;
   void ShowHatsDialog(
       const std::string& site_id,
@@ -781,7 +770,7 @@ class BrowserView : public BrowserWindow,
   // ExclusiveAccessContext:
   Profile* GetProfile() override;
   void UpdateUIForTabFullscreen() override;
-  content::WebContents* GetActiveWebContents() override;
+  content::WebContents* GetWebContentsForExclusiveAccess() override;
   bool CanUserExitFullscreen() const override;
 
   // ExclusiveAccessBubbleViewsContext:
@@ -975,6 +964,14 @@ private:
   // removed.
   void UpdateUIForContents(content::WebContents* contents);
 
+  // Invoked to prepare the transition of fullscreen state.
+  // If features::kAsyncFullscreenWindowState is disabled, this is invoked
+  // synchronously when requesting platform window state changes.
+  // If features::kAsyncFullscreenWindowState is enabled, this is invoked
+  // asynchronously when the platform window state change is observed.
+  // TODO(crbug.com/40276379): Deprecate the synchronous codepath.
+  void PrepareFullscreen(bool fullscreen);
+
   // Invoked to update the necessary things when our fullscreen state changes
   // to |fullscreen|. On Windows this is invoked immediately when we toggle the
   // full screen node_data. On Linux changing the fullscreen node_data is async,
@@ -1008,9 +1005,8 @@ private:
 
   // Calls |method| which is either WebContents::Cut, ::Copy, or ::Paste on
   // the given WebContents, returning true if it consumed the event.
-  bool DoCutCopyPasteForWebContents(
-      content::WebContents* contents,
-      void (content::WebContents::*method)());
+  bool DoCutCopyPasteForWebContents(content::WebContents* contents,
+                                    void (content::WebContents::*method)());
 
   // Shows the next app-modal dialog box, if there is one to be shown, or moves
   // an existing showing one to the front.
@@ -1305,6 +1301,10 @@ private:
   bool in_process_fullscreen_ = false;
 
   std::unique_ptr<ExclusiveAccessBubbleViews> exclusive_access_bubble_;
+  // Tracks the task to asynchronously destroy the exclusive access bubble.
+  base::CancelableTaskTracker exclusive_access_bubble_cancelable_task_tracker_;
+  std::optional<base::CancelableTaskTracker::TaskId>
+      exclusive_access_bubble_destruction_task_id_;
 
   // True when we do not want to allow exiting fullscreen, e.g. in Chrome OS
   // Kiosk session.

@@ -40,7 +40,7 @@ const base::BasePathKey kBasePathKey =
     // a user temp env var to query. Because of these issues, we store the crash
     // dumps, which are usually < 100KB, in the install folder so they will get
     // cleaned up when the user uninstalls or we push an update.
-    base::BasePathKey::FILE_MODULE;
+    base::BasePathKey::DIR_ASSETS;
 #else
     base::BasePathKey::DIR_TEMP;
 #endif
@@ -55,32 +55,15 @@ const base::FilePath::CharType kMinidumpsPath[] =
 const base::FilePath::CharType kTempExtension[] = FILE_PATH_LITERAL("temp");
 const base::FilePath::CharType kJsonExtension[] = FILE_PATH_LITERAL("json");
 
-// Macros used to share values between char and wchar_t metadata keys.
-#define STRING(str) #str
-#define LSTRING(str) L#str
-#define NARROW_STRING(str) STRING(str)
-#define WIDE_STRING(str) LSTRING(str)
-#define PROCESS_ID_KEY process_id
-#define PROCESS_NAME_KEY process_name
-#define PROCESS_START_TIME_KEY process_start_time
-#define PROCESS_UP_TIME_KEY process_uptime
-#define PRODUCT_VERSION_KEY product_version
-
 }  // namespace
 
-const char kBreakpadProductVersionKey[] = NARROW_STRING(PRODUCT_VERSION_KEY);
-const char kBreakpadProcessStartTimeKey[] =
-    NARROW_STRING(PROCESS_START_TIME_KEY);
-const char kBreakpadProcessIdKey[] = NARROW_STRING(PROCESS_ID_KEY);
-const char kBreakpadProcessNameKey[] = NARROW_STRING(PROCESS_NAME_KEY);
-const char kBreakpadProcessUptimeKey[] = NARROW_STRING(PROCESS_UP_TIME_KEY);
+const char kBreakpadProductVersionKey[] = "product_version";
+const char kBreakpadProcessStartTimeKey[] = "process_start_time";
+const char kBreakpadProcessIdKey[] = "process_id";
+const char kBreakpadProcessNameKey[] = "process_name";
+const char kBreakpadProcessUptimeKey[] = "process_uptime";
 
 #if BUILDFLAG(IS_WIN)
-const wchar_t kCustomClientInfoVersionKey[] = WIDE_STRING(PRODUCT_VERSION_KEY);
-const wchar_t kCustomClientInfoProcessStartTimeKey[] =
-    WIDE_STRING(PROCESS_START_TIME_KEY);
-const wchar_t kCustomClientInfoProcessIdKey[] = WIDE_STRING(PROCESS_ID_KEY);
-const wchar_t kCustomClientInfoProcessNameKey[] = WIDE_STRING(PROCESS_NAME_KEY);
 
 const wchar_t kCrashServerPipeName[] =
     L"\\\\.\\pipe\\RemotingCrashService\\S-1-5-18";
@@ -112,9 +95,7 @@ base::win::ScopedHandle GetClientHandleForCrashServerPipe() {
 base::FilePath GetMinidumpDirectoryPath() {
   base::FilePath base_path;
   if (base::PathService::Get(kBasePathKey, &base_path)) {
-    // |base_path| will contain a file for the Windows case so remove it before
-    // appending the fragments.
-    return base_path.DirName().Append(kMinidumpsPath);
+    return base_path.Append(kMinidumpsPath);
   }
 
   LOG(ERROR) << "Failed to retrieve a directory for crash reporting.";

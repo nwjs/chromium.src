@@ -47,12 +47,12 @@
 #include "components/attribution_reporting/eligibility.h"
 #include "components/attribution_reporting/event_level_epsilon.h"
 #include "components/attribution_reporting/features.h"
-#include "components/attribution_reporting/max_event_level_reports.h"
 #include "components/attribution_reporting/privacy_math.h"
 #include "components/attribution_reporting/registration_eligibility.mojom-forward.h"
 #include "components/attribution_reporting/source_type.mojom-forward.h"
 #include "components/attribution_reporting/test_utils.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
+#include "content/browser/aggregation_service/aggregation_service_features.h"
 #include "content/browser/aggregation_service/aggregation_service_impl.h"
 #include "content/browser/aggregation_service/aggregation_service_test_utils.h"
 #include "content/browser/aggregation_service/public_key.h"
@@ -73,9 +73,7 @@
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_browser_context.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
-#include "services/network/public/cpp/attribution_reporting_runtime_features.h"
 #include "services/network/public/cpp/features.h"
-#include "services/network/public/cpp/trigger_verification.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/public/mojom/attribution.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -282,14 +280,12 @@ class ControllableStorageDelegate : public AttributionResolverDelegateImpl {
   GetRandomizedResponseResult GetRandomizedResponse(
       const attribution_reporting::mojom::SourceType source_type,
       const attribution_reporting::TriggerSpecs& trigger_specs,
-      const attribution_reporting::MaxEventLevelReports max_event_level_reports,
       const attribution_reporting::EventLevelEpsilon epsilon) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-    ASSIGN_OR_RETURN(
-        auto response_data,
-        AttributionResolverDelegateImpl::GetRandomizedResponse(
-            source_type, trigger_specs, max_event_level_reports, epsilon));
+    ASSIGN_OR_RETURN(auto response_data,
+                     AttributionResolverDelegateImpl::GetRandomizedResponse(
+                         source_type, trigger_specs, epsilon));
 
     auto it = randomized_responses_.find(base::Time::Now());
     if (it == randomized_responses_.end()) {
@@ -298,11 +294,9 @@ class ControllableStorageDelegate : public AttributionResolverDelegateImpl {
 
     // Avoid crashing in `AttributionStorageSql::StoreSource()` by returning an
     // arbitrary error here, which will manifest as unexpected test output.
-    if (!attribution_reporting::IsValid(it->second, trigger_specs,
-                                        max_event_level_reports)) {
+    if (!attribution_reporting::IsValid(it->second, trigger_specs)) {
       LOG(ERROR) << "invalid randomized response with trigger_specs="
-                 << trigger_specs
-                 << ", max_event_level_reports=" << max_event_level_reports;
+                 << trigger_specs;
       return base::unexpected(attribution_reporting::RandomizedResponseError::
                                   kExceedsChannelCapacityLimit);
     }
@@ -368,8 +362,7 @@ void Handle(const AttributionSimulationEvent::Response& event,
             AttributionDataHostManager& data_host_manager) {
   data_host_manager.NotifyBackgroundRegistrationData(
       BackgroundRegistrationsId(event.request_id), event.response_headers.get(),
-      event.url, {network::AttributionReportingRuntimeFeature::kCrossAppWeb},
-      /*trigger_verification=*/{});
+      event.url);
 }
 
 void Handle(const AttributionSimulationEvent::EndRequest& event,
@@ -433,6 +426,19 @@ RunAttributionInteropSimulation(
                                       kAttributionAggregatableDebugReporting);
   }
 
+  if (run.config.needs_source_destination_limit) {
+    enabled_features.emplace_back(
+        attribution_reporting::features::kAttributionSourceDestinationLimit);
+  }
+
+  if (run.config.needs_aggregatable_filtering_ids) {
+    enabled_features.emplace_back(
+        attribution_reporting::features::
+            kAttributionReportingAggregatableFilteringIds);
+    enabled_features.emplace_back(
+        kPrivacySandboxAggregationServiceFilteringIds);
+  }
+
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       enabled_features,
@@ -446,6 +452,10 @@ RunAttributionInteropSimulation(
 
   attribution_reporting::ScopedMaxEventLevelEpsilonForTesting
       scoped_max_event_level_epsilon(run.config.max_event_level_epsilon);
+
+  attribution_reporting::ScopedMaxTriggerStateCardinalityForTesting
+      scoped_max_trigger_state_cardinality(
+          run.config.max_trigger_state_cardinality);
 
   // Prerequisites for using an environment with mock time.
   BrowserTaskEnvironment task_environment(

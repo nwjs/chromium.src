@@ -47,8 +47,6 @@ using base::UserMetricsAction;
 // edit menu option to do a Lens search.
 @property(nonatomic, assign) BOOL lensImageEnabled;
 
-@property(nonatomic, assign) BOOL incognito;
-
 // YES if we are already forwarding an OnDidChange() message to the edit view.
 // Needed to prevent infinite recursion.
 // TODO(crbug.com/40103694): There must be a better way.
@@ -92,14 +90,6 @@ using base::UserMetricsAction;
 
 @dynamic view;
 
-- (instancetype)initWithIncognito:(BOOL)isIncognito {
-  self = [super init];
-  if (self) {
-    _incognito = isIncognito;
-  }
-  return self;
-}
-
 #pragma mark - UIViewController
 
 - (void)loadView {
@@ -112,7 +102,6 @@ using base::UserMetricsAction;
                                                 textColor:textColor
                                             textFieldTint:textFieldTintColor
                                                  iconTint:iconTintColor];
-  self.view.incognito = self.incognito;
   self.view.layoutGuideCenter = self.layoutGuideCenter;
   _clearButton = self.view.clearButton;
 
@@ -147,8 +136,6 @@ using base::UserMetricsAction;
              action:@selector(searchCopiedText:)]);
 #endif
 
-  self.textField.placeholderTextColor =
-      [UIColor colorNamed:kTextfieldPlaceholderColor];
   self.textField.placeholder = l10n_util::GetNSString(IDS_OMNIBOX_EMPTY_HINT);
 
   [_clearButton addTarget:self
@@ -345,17 +332,6 @@ using base::UserMetricsAction;
   _textChangeDelegate->OnDidBeginEditing();
 }
 
-- (BOOL)textFieldShouldEndEditing:(UITextField*)textField {
-  if (!_textChangeDelegate) {
-    // This can happen when the view controller is still alive but the model is
-    // already deconstructed on shutdown.
-    return YES;
-  }
-  _textChangeDelegate->OnWillEndEditing();
-
-  return YES;
-}
-
 // Record the metrics as needed.
 - (void)textFieldDidEndEditing:(UITextField*)textField
                         reason:(UITextFieldDidEndEditingReason)reason {
@@ -459,8 +435,7 @@ using base::UserMetricsAction;
 
 - (UIMenu*)textField:(UITextField*)textField
     editMenuForCharactersInRange:(NSRange)range
-                suggestedActions:(NSArray<UIMenuElement*>*)suggestedActions
-    API_AVAILABLE(ios(16)) {
+                suggestedActions:(NSArray<UIMenuElement*>*)suggestedActions {
   NSMutableArray* actions = [suggestedActions mutableCopy];
   if ([self canPerformAction:@selector(searchCopiedImage:) withSender:nil]) {
     UIAction* searchCopiedImage = [UIAction

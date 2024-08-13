@@ -328,7 +328,6 @@ void DownloadBubbleRowViewInfo::PopulateForInterrupted(
 
 void DownloadBubbleRowViewInfo::PopulateForTailoredWarning(
     TailoredWarningType tailored_warning_type) {
-#if 0
   CHECK(model_->GetDownloadItem());
   switch (tailored_warning_type) {
     case TailoredWarningType::kSuspiciousArchive:
@@ -341,7 +340,6 @@ void DownloadBubbleRowViewInfo::PopulateForTailoredWarning(
       return;
     }
   }
-#endif
 }
 
 void DownloadBubbleRowViewInfo::PopulateForFileTypeWarningNoSafeBrowsing() {

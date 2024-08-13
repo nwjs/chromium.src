@@ -9,11 +9,12 @@
 <translation id="1180362651362502943">Fortsätt använda Chrome-data i Google-kontot.</translation>
 <translation id="1200396280085622191">Använd Chrome varje gång du trycker på länkar i meddelanden och andra appar.</translation>
 <translation id="1229222343402087523">Sök efter ${searchPhrase} i Chrome</translation>
+<translation id="1237769345474105984">Från Chrome</translation>
 <translation id="124228879633599436">Den här versionen av Chrome är inaktuell. Se till att du är skyddad genom att uppdatera.</translation>
 <translation id="1282031177488366470">Bidra till att förbättra Chromes funktioner och prestanda</translation>
-<translation id="1320619893013575407">Du har inaktiverat inloggning i Chrome.</translation>
 <translation id="1333745675627230582">Spela Chrome Dino-spelet</translation>
 <translation id="1352919863522755794">Google Lösenordshantering kunde inte kontrollera dina lösenord. Testa att kontrollera internetanslutningen.</translation>
+<translation id="139623527619433858">Använda Chrome för iPad som standard</translation>
 <translation id="1407843355326180937">Logga in på den här webbplatsen och i Chrome om du vill få dina bokmärken med mera på alla dina enheter.</translation>
 <translation id="1436059927646026729">Öppna Min senaste flik i Chrome</translation>
 <translation id="1449241544691504574">Lägg till bokmärken i Chrome</translation>
@@ -134,6 +135,7 @@ Tänk på detta:
 <translation id="4903674399067644695">Det här kortet visar förslag på hur du får ut mesta möjliga av Chrome.</translation>
 <translation id="4919069428879420545">Radera webbinformation i Chrome.</translation>
 <translation id="49200511069271369">Din organisation, <ph name="DOMAIN" />, hanterar kontot du loggar in på och hur Chrome kan användas. Administratören kan konfigurera eller begränsa vissa funktioner.</translation>
+<translation id="4925322001044117929">Använd Chrome på iPad som standard</translation>
 <translation id="498985224078955265">Om du vill skicka den här fliken till en annan enhet loggar du in i Chrome på båda enheterna.</translation>
 <translation id="5030102366287574140">Chrome kan skydda dig från dataintrång, osäkra webbplatser med mera.</translation>
 <translation id="5108659628347594808">Gör Chrome bättre</translation>
@@ -172,6 +174,7 @@ Tänk på detta:
 <translation id="6063091872902370735">Tillåt inloggning i Chrome</translation>
 <translation id="6110625574506755980">Vissa funktioner i Chrome kommer inte längre att vara tillgängliga.</translation>
 <translation id="6132149203299792222">Logga in med Google-kontot för att synkronisera lösenord, bokmärken med mera.</translation>
+<translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Sök i Chrome</translation>
 <translation id="6238746320622508509">Låt Chrome låsa inkognitoflikarna.</translation>
 <translation id="6247557882553405851">Google Lösenordshantering</translation>
@@ -220,6 +223,7 @@ Du hittar fler inställningar som använder data för att förbättra Chrome-upp
 <translation id="7272930098487145294">Om du vill spara bilder trycker du på Inställningar och låter Chrome lägga till dina foton</translation>
 <translation id="7275945473750112644">Eftersom ditt konto hanteras av <ph name="HOSTED_DOMAIN" /> raderas din data i Chrome från enheten</translation>
 <translation id="7284245284340063465">Om du har glömt lösenfrasen eller vill ändra den här inställningen <ph name="BEGIN_LINK" />raderar du Chrome-datan i kontot<ph name="END_LINK" />.</translation>
+<translation id="7299681342915173313">Nu kan du använda Chrome varje gång du trycker på länkar i e-postmeddelanden, dokument och andra appar</translation>
 <translation id="7304491752269485262">Utökad vy för Autofyll i Chrome</translation>
 <translation id="7344094882820374540">Få Chromes starkaste skydd mot farliga webbplatser</translation>
 <translation id="7349129508108954623">Tillåt att Google Maps används i Chrome för att ge dig vägbeskrivningar och lokal information om identifierade adresser.</translation>
@@ -272,7 +276,6 @@ Din data krypterades med lösenfrasen den <ph name="TIME" />. Ange den om du vil
   3. Välj Chrome.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8558480467877843976">Nu kan du använda Chrome varje gång du surfar eller trycker på länkar i meddelanden, dokument och andra appar.</translation>
-<translation id="8577978202917232774">Förslagen baseras på din webbaktivitet på dina andra enheter. Logga in i Chrome på alla dina enheter om du vill få förslag.</translation>
 <translation id="8603022514504485810">Google Lösenordshantering kunde inte kontrollera alla lösenord. Försök igen i morgon eller <ph name="BEGIN_LINK" />kontrollera lösenorden i ditt Google-konto<ph name="END_LINK" />.</translation>
 <translation id="8727043961453758442">Få ut mesta möjliga av Chrome</translation>
 <translation id="8736550665979974340">Surfa säkert med Google Chrome</translation>

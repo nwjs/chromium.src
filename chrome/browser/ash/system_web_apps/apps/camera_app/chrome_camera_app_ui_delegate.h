@@ -7,7 +7,6 @@
 
 #include <memory>
 
-#include "ash/public/cpp/holding_space/holding_space_client.h"
 #include "ash/webui/camera_app_ui/camera_app_ui_delegate.h"
 #include "ash/webui/camera_app_ui/pdf_builder.mojom.h"
 #include "base/containers/flat_map.h"
@@ -146,13 +145,17 @@ class ChromeCameraAppUIDelegate : public ash::CameraAppUIDelegate {
 
       // ash::camera_app::mojom::PdfBuilder
       void AddPage(mojo_base::BigBuffer jpg, uint32_t index) override;
+      void AddPageInline(const std::vector<uint8_t>& jpg,
+                         uint32_t index) override;
       void DeletePage(uint32_t index) override;
       void Save(SaveCallback callback) override;
+      void SaveInline(SaveInlineCallback callback) override;
 
      private:
+      void AddPageInternal(base::span<const uint8_t> jpg, uint32_t index);
       void ConsumeSaveCallback(const std::vector<uint8_t>& searchified_pdf);
 
-      SaveCallback save_callback_;
+      SaveInlineCallback save_callback_;
       mojo::Remote<pdf::mojom::PdfService> pdf_service_;
       mojo::Remote<pdf::mojom::PdfProgressiveSearchifier> pdf_searchifier_;
       base::WeakPtrFactory<ProgressivePdf> weak_factory_{this};
@@ -196,7 +199,6 @@ class ChromeCameraAppUIDelegate : public ash::CameraAppUIDelegate {
   ~ChromeCameraAppUIDelegate() override;
 
   // ash::CameraAppUIDelegate
-  ash::HoldingSpaceClient* GetHoldingSpaceClient() override;
   void SetLaunchDirectory() override;
   void PopulateLoadTimeData(content::WebUIDataSource* source) override;
   bool IsMetricsAndCrashReportingEnabled() override;

@@ -8,16 +8,14 @@
 #include <vector>
 
 #include "partition_alloc/build_config.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/page_allocator.h"
-#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/random.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if PA_BUILDFLAG(IS_WIN)
 #include <windows.h>
-
-#include "base/win/windows_version.h"
 #endif
 
 namespace partition_alloc {
@@ -135,8 +133,8 @@ void RandomBitCorrelation(int random_bit) {
     return;  // bit is always 0.
   }
 
-#if PA_BUILDFLAG(PA_DCHECK_IS_ON)
-  // Do fewer checks when PA_BUILDFLAG(PA_DCHECK_IS_ON). Exercized code only
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
+  // Do fewer checks when PA_BUILDFLAG(DCHECKS_ARE_ON). Exercised code only
   // changes when the random number generator does, which should be almost
   // never. However it's expensive to run all the tests. So keep iterations
   // faster for local development builds, while having the stricter version run

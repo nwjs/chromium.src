@@ -294,24 +294,25 @@ SkiaOutputDeviceDComp::SkiaOutputDeviceDComp(
   DCHECK(presenter_);
 
   // SRGB
-  capabilities_.sk_color_types[static_cast<int>(gfx::BufferFormat::RGBA_8888)] =
+  capabilities_.sk_color_type_map[SinglePlaneFormat::kRGBA_8888] =
       kRGBA_8888_SkColorType;
-  capabilities_.sk_color_types[static_cast<int>(gfx::BufferFormat::RGBX_8888)] =
+  capabilities_.sk_color_type_map[SinglePlaneFormat::kRGBX_8888] =
       kRGBA_8888_SkColorType;
-  capabilities_.sk_color_types[static_cast<int>(gfx::BufferFormat::BGRA_8888)] =
+  capabilities_.sk_color_type_map[SinglePlaneFormat::kBGRA_8888] =
       kRGBA_8888_SkColorType;
-  capabilities_.sk_color_types[static_cast<int>(gfx::BufferFormat::BGRX_8888)] =
+  capabilities_.sk_color_type_map[SinglePlaneFormat::kBGRX_8888] =
       kRGBA_8888_SkColorType;
   // HDR10
-  capabilities_
-      .sk_color_types[static_cast<int>(gfx::BufferFormat::RGBA_1010102)] =
+  capabilities_.sk_color_type_map[SinglePlaneFormat::kRGBA_1010102] =
       kRGBA_1010102_SkColorType;
   // scRGB linear
-  capabilities_.sk_color_types[static_cast<int>(gfx::BufferFormat::RGBA_F16)] =
+  capabilities_.sk_color_type_map[SinglePlaneFormat::kRGBA_F16] =
       kRGBA_F16_SkColorType;
 }
 
-SkiaOutputDeviceDComp::~SkiaOutputDeviceDComp() = default;
+SkiaOutputDeviceDComp::~SkiaOutputDeviceDComp() {
+  DCHECK(presenter_->HasOneRef());
+}
 
 void SkiaOutputDeviceDComp::Present(const std::optional<gfx::Rect>& update_rect,
                                     BufferPresentedCallback feedback,
@@ -366,11 +367,11 @@ bool SkiaOutputDeviceDComp::EnsureDCompSurfaceCopiesForNonOverlayResources(
 
     // Lookup the mailbox's usage after checking for existing copies since the
     // mailbox lookup is protected by a lock.
-    const std::optional<uint32_t> candidate_image_usage =
+    const std::optional<gpu::SharedImageUsageSet> candidate_image_usage =
         shared_image_manager_->GetUsageForMailbox(overlay.mailbox);
     const bool needs_dcomp_copy =
         candidate_image_usage.has_value() &&
-        (candidate_image_usage.value() & gpu::SHARED_IMAGE_USAGE_SCANOUT) == 0;
+        !candidate_image_usage.value().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT);
     if (needs_dcomp_copy) {
       ScopedSharedImageMailbox quad_resource_copy = CopyQuadResource(
           context_state_, gr_shader_cache_, shared_image_factory_.get(),

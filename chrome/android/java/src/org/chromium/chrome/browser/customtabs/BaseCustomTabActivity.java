@@ -17,11 +17,11 @@ import android.view.KeyEvent;
 
 import androidx.annotation.AnimRes;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.TrustedWebUtils;
 
 import org.chromium.base.IntentUtils;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.OneshotSupplier;
@@ -36,6 +36,7 @@ import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
+import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.CustomTabProfileType;
 import org.chromium.chrome.browser.browserservices.intents.WebappExtras;
 import org.chromium.chrome.browser.browserservices.ui.controller.Verifier;
 import org.chromium.chrome.browser.browserservices.ui.trustedwebactivity.TrustedWebActivityCoordinator;
@@ -64,7 +65,6 @@ import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.night_mode.PowerSavingModeMonitor;
 import org.chromium.chrome.browser.night_mode.SystemNightModeMonitor;
-import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
 import org.chromium.chrome.browser.profiles.OTRProfileID;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
@@ -84,9 +84,9 @@ import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.embedder_support.delegate.WebContentsDelegateAndroid;
 
 /**
- * Contains functionality which is shared between {@link WebappActivity} and
- * {@link CustomTabActivity}. Purpose of the class is to simplify merging {@link WebappActivity}
- * and {@link CustomTabActivity}.
+ * Contains functionality which is shared between {@link WebappActivity} and {@link
+ * CustomTabActivity}. Purpose of the class is to simplify merging {@link WebappActivity} and {@link
+ * CustomTabActivity}.
  */
 public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTabActivityComponent> {
     protected static Integer sOverrideCoreCountForTesting;
@@ -144,9 +144,9 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
     // change the package name.
     protected boolean mShouldOverridePackage;
 
-    @VisibleForTesting
-    public static void setOverrideCoreCount(int coreCount) {
+    public static void setOverrideCoreCountForTesting(int coreCount) {
         sOverrideCoreCountForTesting = coreCount;
+        ResettersForTesting.register(() -> sOverrideCoreCountForTesting = null);
     }
 
     /** Builds {@link BrowserServicesIntentDataProvider} for this {@link CustomTabActivity}. */
@@ -214,8 +214,8 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
                         mTabModelProfileSupplier,
                         mBookmarkModelSupplier,
                         mTabBookmarkerSupplier,
-                        getContextualSearchManagerSupplier(),
                         getTabModelSelectorSupplier(),
+                        this::getLastUserInteractionTime,
                         getBrowserControlsManager(),
                         getWindowAndroid(),
                         getLifecycleDispatcher(),
@@ -255,13 +255,14 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
             @Nullable
             @Override
             protected OTRProfileID createOffTheRecordProfileID() {
-                if (getIntentDataProvider().isIncognitoBranded()) {
-                    return OTRProfileID.createUnique("CCT:Incognito");
-                } else if (getIntentDataProvider().isOffTheRecord()) {
-                    return OTRProfileID.createUnique("CCT:Ephemeral");
-                } else {
-                    throw new IllegalStateException(
-                            "Attempting to create an OTR profile in a non-OTR session");
+                switch (getIntentDataProvider().getCustomTabMode()) {
+                    case CustomTabProfileType.INCOGNITO:
+                        return OTRProfileID.createUniqueIncognitoCCTId();
+                    case CustomTabProfileType.EPHEMERAL:
+                        return OTRProfileID.createUnique("CCT:Ephemeral");
+                    default:
+                        throw new IllegalStateException(
+                                "Attempting to create an OTR profile in a non-OTR session");
                 }
             }
         };
@@ -336,7 +337,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
 
         BrowserServicesIntentDataProvider intentDataProvider = getIntentDataProvider();
 
-        if (intentDataProvider.isIncognitoBranded()) {
+        if (intentDataProvider.getCustomTabMode() == CustomTabProfileType.INCOGNITO) {
             component.resolveCustomTabIncognitoManager();
         }
 
@@ -412,12 +413,6 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
             getFullscreenManager().addObserver(mFullscreenObserver);
             minimizationManager.addObserver(mMinimizationObserver);
         }
-    }
-
-    @Override
-    protected boolean isContextualSearchEnabled() {
-        if (mIntentDataProvider.isAuthView()) return false;
-        return super.isContextualSearchEnabled();
     }
 
     @Override
@@ -560,9 +555,9 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
                 mIntentDataProvider.shouldShowShareMenuItem(),
                 mIntentDataProvider.shouldShowStarButton(),
                 mIntentDataProvider.shouldShowDownloadButton(),
-                mIntentDataProvider.isIncognitoBranded(),
+                mIntentDataProvider.getCustomTabMode() == CustomTabProfileType.INCOGNITO,
+                mIntentDataProvider.isAuthView(),
                 isMenuIconAtStart,
-                mBaseCustomTabRootUiCoordinator::isPageInsightsHubEnabled,
                 mBaseCustomTabRootUiCoordinator.getReadAloudControllerSupplier(),
                 mIntentDataProvider.getClientPackageNameIdentitySharing() != null);
     }
@@ -575,11 +570,6 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
     @Override
     protected int getToolbarLayoutId() {
         return R.layout.custom_tabs_toolbar;
-    }
-
-    @Override
-    public int getControlContainerHeightResource() {
-        return R.dimen.custom_tabs_control_container_height;
     }
 
     @Override
@@ -685,13 +675,6 @@ public abstract class BaseCustomTabActivity extends ChromeActivity<BaseCustomTab
                 && CustomTabsConnection.getInstance()
                         .shouldEnableGoogleBottomBarForIntent(mIntentDataProvider)) {
             return getWindow().getContext().getColor(R.color.google_bottom_bar_background_color);
-        }
-        // TODO(b/300419189): Pass the CCT Top Bar Color in AGSA intent after the Chrome side LE for
-        // Page Insights Hub
-        if (PageInsightsCoordinator.isFeatureEnabled()
-                && CustomTabsConnection.getInstance()
-                        .shouldEnablePageInsightsForIntent(mIntentDataProvider)) {
-            return getWindow().getContext().getColor(R.color.gm3_baseline_surface_container);
         }
         return mStatusBarColorProvider.getBaseStatusBarColor(tab);
     }

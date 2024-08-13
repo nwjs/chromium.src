@@ -45,6 +45,7 @@ import org.chromium.chrome.browser.hub.ShrinkExpandAnimationData;
 import org.chromium.chrome.browser.hub.ShrinkExpandHubLayoutAnimationFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
+import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.tab_ui.R;
@@ -59,12 +60,14 @@ import java.util.function.DoubleConsumer;
  * An abstract {@link Pane} representing a tab switcher for shared logic between the normal and
  * incognito modes.
  */
-public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandler {
+public abstract class TabSwitcherPaneBase implements Pane, TabSwitcher, TabSwitcherResetHandler {
     private static final String TAG = "TabSwitcherPaneBase";
 
     protected final ObservableSupplierImpl<DisplayButtonData> mReferenceButtonDataSupplier =
             new ObservableSupplierImpl<>();
     protected final ObservableSupplierImpl<FullButtonData> mNewTabButtonDataSupplier =
+            new ObservableSupplierImpl<>();
+    protected final ObservableSupplierImpl<Boolean> mHairlineVisibilitySupplier =
             new ObservableSupplierImpl<>();
     private final ObservableSupplierImpl<Boolean> mIsVisibleSupplier =
             new ObservableSupplierImpl<>();
@@ -171,7 +174,6 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     public void notifyLoadHint(@LoadHint int loadHint) {
         boolean isVisible = loadHint == LoadHint.HOT;
         mIsVisibleSupplier.set(isVisible);
-
         removeDelayedCallbacks();
 
         if (isVisible) {
@@ -179,11 +181,10 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
             showAllTabs();
             setInitialScrollIndexOffset();
             // TODO(crbug.com/40942549): This should only happen when the Pane becomes user visible
-            // which
-            // might only happen after the Hub animation finishes. Figure out how to handle that
-            // since the load hint for hot will come before the animation is started. Panes likely
-            // need to know an animation is going to play and when it is finished (possibly using
-            // the isAnimatingSupplier?).
+            // which might only happen after the Hub animation finishes. Figure out how to handle
+            // that since the load hint for hot will come before the animation is started. Panes
+            // likely need to know an animation is going to play and when it is finished (possibly
+            // using the isAnimatingSupplier?).
             requestAccessibilityFocusOnCurrentTab();
         } else {
             cancelWaitForTabStateInitializedTimer();
@@ -214,6 +215,11 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     @Override
     public @NonNull ObservableSupplier<DisplayButtonData> getReferenceButtonDataSupplier() {
         return mReferenceButtonDataSupplier;
+    }
+
+    @Override
+    public @NonNull ObservableSupplier<Boolean> getHairlineVisibilitySupplier() {
+        return mHairlineVisibilitySupplier;
     }
 
     @Override
@@ -354,6 +360,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
         assert false : "Not reached.";
     }
 
+    @Override
     public void initWithNative() {
         if (mNativeInitialized) return;
 
@@ -366,6 +373,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     }
 
     /** Returns a {@link Supplier} that provides dialog visibility information. */
+    @Override
     public @Nullable Supplier<Boolean> getTabGridDialogVisibilitySupplier() {
         @Nullable
         TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
@@ -374,11 +382,13 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     }
 
     /** Returns a {@link TabSwitcherCustomViewManager} for supplying custom views. */
+    @Override
     public @Nullable TabSwitcherCustomViewManager getTabSwitcherCustomViewManager() {
         return mTabSwitcherCustomViewManager;
     }
 
     /** Returns the number of elements in the tab switcher's tab list model. */
+    @Override
     public int getTabSwitcherTabListModelSize() {
         @Nullable
         TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
@@ -387,6 +397,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     }
 
     /** Set the tab switcher's RecyclerViewPosition. */
+    @Override
     public void setTabSwitcherRecyclerViewPosition(RecyclerViewPosition position) {
         @Nullable
         TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
@@ -395,14 +406,39 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
     }
 
     /** Show the Quick Delete animation on the tab list . */
+    @Override
     public void showQuickDeleteAnimation(Runnable onAnimationEnd, List<Tab> tabs) {
         @Nullable
         TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
-        if (coordinator == null) {
+        if (coordinator == null || getTabListMode() != TabListMode.GRID) {
             onAnimationEnd.run();
             return;
         }
         coordinator.showQuickDeleteAnimation(onAnimationEnd, tabs);
+    }
+
+    @Override
+    public void showCloseAllTabsAnimation(Runnable onAnimationEnd) {
+        @Nullable
+        TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
+        if (coordinator == null || getTabListMode() != TabListMode.GRID) {
+            onAnimationEnd.run();
+        } else {
+            coordinator.showCloseAllTabsAnimation(onAnimationEnd);
+        }
+    }
+
+    /**
+     * Open the invitation modal on top of the tab switcher view when an invitation intent is
+     * intercepted.
+     *
+     * @param invitationId The id of the invitation.
+     */
+    @Override
+    public void openInvitationModal(String invitationId) {
+        TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
+        if (coordinator == null) return;
+        coordinator.openInvitationModal(invitationId);
     }
 
     /**
@@ -483,6 +519,12 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
         return mTabSwitcherPaneCoordinatorSupplier.get();
     }
 
+    /** Returns an observable supplier that hold the current coordinator. */
+    protected @NonNull ObservableSupplier<TabSwitcherPaneCoordinator>
+            getTabSwitcherPaneCoordinatorSupplier() {
+        return mTabSwitcherPaneCoordinatorSupplier;
+    }
+
     /** Creates a {@link TabSwitcherCoordinator}. */
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     void createTabSwitcherPaneCoordinator() {
@@ -496,6 +538,7 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
                         mIsVisibleSupplier,
                         mIsAnimatingSupplier,
                         this::onTabClick,
+                        mHairlineVisibilitySupplier::set,
                         mIsIncognito,
                         getOnTabGroupCreationRunnable());
         mTabSwitcherPaneCoordinatorSupplier.set(coordinator);
@@ -574,15 +617,15 @@ public abstract class TabSwitcherPaneBase implements Pane, TabSwitcherResetHandl
         mHandler.removeCallbacks(mDestroyCoordinatorRunnable);
     }
 
-    /**
-     * Open the invitation modal on top of the tab switcher view when an invitation intent is
-     * intercepted.
-     *
-     * @param invitationId The id of the invitation.
-     */
-    public void openInvitationModal(String invitationId) {
-        TabSwitcherPaneCoordinator coordinator = mTabSwitcherPaneCoordinatorSupplier.get();
-        if (coordinator == null) return;
-        coordinator.openInvitationModal(invitationId);
+    void softCleanupForTesting() {
+        mSoftCleanupRunnable.run();
+    }
+
+    void hardCleanupForTesting() {
+        mHardCleanupRunnable.run();
+    }
+
+    void destroyCoordinatorForTesting() {
+        mDestroyCoordinatorRunnable.run();
     }
 }

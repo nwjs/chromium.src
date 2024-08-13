@@ -14,27 +14,29 @@
 #include "components/site_engagement/content/site_engagement_helper.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
+#include "ui/gfx/geometry/size.h"
 
 namespace {
 
-using MakeContentsResult = WebUIContentsPreloadManager::MakeContentsResult;
+using RequestResult = WebUIContentsPreloadManager::RequestResult;
 
 bool IsEscapeEvent(const input::NativeWebKeyboardEvent& event) {
   return event.GetType() == input::NativeWebKeyboardEvent::Type::kRawKeyDown &&
          event.windows_key_code == ui::VKEY_ESCAPE;
 }
 
-MakeContentsResult MakeContents(const GURL& webui_url,
-                                content::BrowserContext* browser_context) {
+RequestResult Request(const GURL& webui_url,
+                      content::BrowserContext* browser_context) {
   // Currently we will always use the preload manager because it is always
   // available, but we make a fallback just in case this assumption no longer
   // holds.
   if (auto* preload_manager = WebUIContentsPreloadManager::GetInstance()) {
-    return preload_manager->MakeContents(webui_url, browser_context);
+    return preload_manager->Request(webui_url, browser_context);
   }
 
   // Fallback when the preloaded manager is not available.
@@ -43,7 +45,7 @@ MakeContentsResult MakeContents(const GURL& webui_url,
   create_params.site_instance =
       content::SiteInstance::CreateForURL(browser_context, webui_url);
 
-  MakeContentsResult result;
+  RequestResult result;
   result.web_contents = content::WebContents::Create(create_params),
   result.is_ready_to_show = false;
   return result;
@@ -104,8 +106,7 @@ WebUIContentsWrapper::WebUIContentsWrapper(
     : webui_resizes_host_(webui_resizes_host),
       esc_closes_ui_(esc_closes_ui),
       supports_draggable_regions_(supports_draggable_regions) {
-  MakeContentsResult make_contents_result =
-      MakeContents(webui_url, browser_context);
+  RequestResult make_contents_result = Request(webui_url, browser_context);
   web_contents_ = std::move(make_contents_result.web_contents);
   is_ready_to_show_ = make_contents_result.is_ready_to_show;
 
@@ -113,8 +114,7 @@ WebUIContentsWrapper::WebUIContentsWrapper(
   WebContentsObserver::Observe(web_contents_.get());
 
   PrefsTabHelper::CreateForWebContents(web_contents_.get());
-  chrome::InitializePageLoadMetricsForNonTabWebUI(web_contents_.get(),
-                                                  webui_name);
+  chrome::InitializePageLoadMetricsForWebContents(web_contents_.get());
   task_manager::WebContentsTags::CreateForToolContents(web_contents_.get(),
                                                        task_manager_string_id);
   if (site_engagement::SiteEngagementService::IsEnabled()) {
@@ -137,7 +137,6 @@ WebUIContentsWrapper::~WebUIContentsWrapper() {
 void WebUIContentsWrapper::ResizeDueToAutoResize(content::WebContents* source,
                                                   const gfx::Size& new_size) {
   DCHECK_EQ(web_contents(), source);
-  contents_requested_size_ = new_size;
   if (host_)
     host_->ResizeDueToAutoResize(source, new_size);
 }
@@ -242,8 +241,9 @@ void WebUIContentsWrapper::PrimaryMainFrameRenderProcessGone(
 }
 
 void WebUIContentsWrapper::ShowUI() {
-  if (host_)
+  if (host_) {
     host_->ShowUI();
+  }
 
   // The host should never proactively show the contents after the initial
   // show, in which case the contents could have already been preloaded.
@@ -279,8 +279,15 @@ void WebUIContentsWrapper::SetHost(
     return;
   }
 
-  if (webui_resizes_host_ && !contents_requested_size_.IsEmpty()) {
-    host_->ResizeDueToAutoResize(web_contents_.get(), contents_requested_size_);
+  // Resize the host to the frame size. If there are new updates to the frame
+  // size they will be capture by WebUIContentsWrapper::ResizeDueToAutoResize().
+  content::RenderFrameHost* rfh = web_contents_->GetPrimaryMainFrame();
+  if (webui_resizes_host_ && rfh && rfh->GetFrameSize().has_value()) {
+    // RenderFrameHost::GetFrameSize() returns the actual frame size while
+    // the host view expects device-independent size.
+    const gfx::Size frame_dip_size = gfx::ScaleToCeiledSize(
+        *rfh->GetFrameSize(), 1.f / rfh->GetView()->GetDeviceScaleFactor());
+    host_->ResizeDueToAutoResize(web_contents_.get(), frame_dip_size);
   }
 
   if (supports_draggable_regions_ && draggable_regions_.has_value()) {

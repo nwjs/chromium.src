@@ -322,10 +322,8 @@ class EncryptedMediaTestBase : public MediaBrowserTest {
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   void SetUpDefaultCommandLine(base::CommandLine* command_line) override {
-    base::CommandLine default_command_line(base::CommandLine::NO_PROGRAM);
-    InProcessBrowserTest::SetUpDefaultCommandLine(&default_command_line);
-    test_launcher_utils::RemoveCommandLineSwitch(
-        default_command_line, switches::kDisableComponentUpdate, command_line);
+    InProcessBrowserTest::SetUpDefaultCommandLine(command_line);
+    command_line->RemoveSwitch(switches::kDisableComponentUpdate);
   }
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
@@ -1163,10 +1161,11 @@ IN_PROC_BROWSER_TEST_P(ECKEncryptedMediaTest, MAYBE_StorageIdTest) {
 }
 
 // TODO(crbug.com/40601162): Times out in debug builds.
-#ifdef NDEBUG
-#define MAYBE_MultipleCdmTypes MultipeCdmTypes
-#else
+// TODO(crbug.com/40916095, crbug.com/348996697): Test flakiness.
+#if !defined(NDEBUG) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 #define MAYBE_MultipleCdmTypes DISABLED_MultipeCdmTypes
+#else
+#define MAYBE_MultipleCdmTypes MultipeCdmTypes
 #endif
 IN_PROC_BROWSER_TEST_P(ECKEncryptedMediaTest, MAYBE_MultipleCdmTypes) {
   base::StringPairs empty_query_params;

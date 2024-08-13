@@ -19,7 +19,7 @@
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/public/browser/content_browser_client.h"
-#include "content/public/browser/peak_gpu_memory_tracker.h"
+#include "content/public/browser/peak_gpu_memory_tracker_factory.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/common/content_client.h"
 #include "services/viz/public/mojom/compositing/offset_tag.mojom.h"
@@ -71,8 +71,6 @@ void PageImpl::GetManifest(GetManifestCallback callback) {
 }
 
 bool PageImpl::IsPrimary() const {
-  // TODO(crbug.com/40787700): Check for portals as well, once they are migrated
-  // to MPArch.
   if (main_document_->IsFencedFrameRoot())
     return false;
 
@@ -260,15 +258,8 @@ void PageImpl::Activate(
   }
 
   // Prepare each RenderFrameHostImpl in this Page for activation.
-  // TODO(crbug.com/40191159): Currently we check GetPage() below because
-  // RenderFrameHostImpls may be in a different Page, if, e.g., they are in an
-  // inner WebContents. These are in a different FrameTree which might not know
-  // it is being prerendered. We should teach these FrameTrees that they are
-  // being prerendered, or ban inner FrameTrees in a prerendering page.
   main_document_->ForEachRenderFrameHostIncludingSpeculative(
-      [this](RenderFrameHostImpl* rfh) {
-        if (&rfh->GetPage() != this)
-          return;
+      [](RenderFrameHostImpl* rfh) {
         rfh->RendererWillActivateForPrerenderingOrPreview();
       });
 }

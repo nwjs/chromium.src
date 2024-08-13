@@ -98,7 +98,10 @@ class CONTENT_EXPORT IndexedDBContextImpl
                               StartMetadataRecordingCallback callback) override;
   void StopMetadataRecording(storage::BucketId bucket_id,
                              StopMetadataRecordingCallback callback) override;
-
+  void GetDevToolsTokenForClient(
+      storage::BucketId bucket_id,
+      const base::UnguessableToken& client_token,
+      GetDevToolsTokenForClientCallback callback) override;
   void DownloadBucketData(storage::BucketId bucket_id,
                           DownloadBucketDataCallback callback) override;
   void GetAllBucketsDetails(GetAllBucketsDetailsCallback callback) override;
@@ -369,6 +372,9 @@ class CONTENT_EXPORT IndexedDBContextImpl
 
   bool force_single_thread_ = false;
 
+  // If recording begins on a bucket ID that doesn't currently have a context,
+  // add it to a pending set and actually begin once the context is created.
+  std::set<storage::BucketId> pending_bucket_recording_;
   std::vector<storage::mojom::IdbBucketMetadataPtr> metadata_record_buffer_;
   // When `Shutdown()` was called, or null if it's not been called. Used for
   // UMA.

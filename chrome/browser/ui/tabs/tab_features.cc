@@ -7,6 +7,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/browsing_topics/browsing_topics_service_factory.h"
+#include "chrome/browser/dips/dips_navigation_flow_detector_wrapper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
@@ -15,6 +16,7 @@
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/side_panel_controller_views.h"
 #include "components/browsing_topics/browsing_topics_service.h"
 #include "components/permissions/permission_indicators_tab_data.h"
 
@@ -48,14 +50,14 @@ void TabFeatures::ReplaceTabFeaturesForTesting(TabFeaturesFactory factory) {
   f = std::move(factory);
 }
 
-void TabFeatures::Init(TabInterface* tab, Profile* profile) {
+void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   CHECK(!initialized_);
   initialized_ = true;
 
   // Features that are only enabled for normal browser windows. By default most
   // features should be instantiated in this block.
-  if (tab->IsInNormalWindow()) {
-    lens_overlay_controller_ = CreateLensController(tab, profile);
+  if (tab.IsInNormalWindow()) {
+    lens_overlay_controller_ = CreateLensController(&tab, profile);
 
     // Each time a new tab is created, validate the topics calculation schedule
     // to help investigate a scheduling bug (crbug.com/343750866).
@@ -67,8 +69,14 @@ void TabFeatures::Init(TabInterface* tab, Profile* profile) {
 
     permission_indicators_tab_data_ =
         std::make_unique<permissions::PermissionIndicatorsTabData>(
-            tab->GetContents());
+            tab.GetContents());
+
+    dips_navigation_flow_detector_wrapper_ =
+        std::make_unique<DipsNavigationFlowDetectorWrapper>(tab);
   }
+
+  customize_chrome_side_panel_controller_ =
+      std::make_unique<customize_chrome::SidePanelControllerViews>(tab);
 }
 
 TabFeatures::TabFeatures() = default;

@@ -79,12 +79,42 @@ export enum VoiceClientSideStatusCode {
 const NATURAL_STRING_IDENTIFIER = '(Natural)';
 const ESPEAK_STRING_IDENTIFIER = 'eSpeak';
 
+// Helper for filtering the voice list broken into a separate method
+// that doesn't modify instance data to simplify testing.
+export function getFilteredVoiceList(possibleVoices: SpeechSynthesisVoice[]):
+    SpeechSynthesisVoice[] {
+  let availableVoices = possibleVoices;
+  if (availableVoices.some(({localService}) => localService)) {
+    availableVoices = availableVoices.filter(({localService}) => localService);
+  }
+  // Filter out Android voices on ChromeOS. Android Speech Recognition
+  // voices are technically network voices, but for some reason, some
+  // voices are marked as localService voices, so filtering localService
+  // doesn't filter them out. Since they can cause unexpected behavior
+  // in Read Aloud, go ahead and filter them out. To avoid causing any
+  // unexpected behavior outside of ChromeOS, just filter them on ChromeOS.
+  if (chrome.readingMode.isChromeOsAsh) {
+    availableVoices = availableVoices.filter(
+        ({name}) => !name.toLowerCase().includes('android'));
+  }
+  // Filter out espeak voices if there exists a Google voice in the same
+  // locale.
+  if (chrome.readingMode.isChromeOsAsh) {
+    availableVoices = availableVoices.filter(
+        voice => !isEspeak(voice) ||
+            convertLangOrLocaleToExactVoicePackLocale(voice.lang) ===
+                undefined);
+  }
+
+  return availableVoices;
+}
+
 export function isNatural(voice: SpeechSynthesisVoice) {
   return voice.name.includes(NATURAL_STRING_IDENTIFIER);
 }
 
-export function isEspeak(voice: SpeechSynthesisVoice) {
-  return voice.name.includes(ESPEAK_STRING_IDENTIFIER);
+export function isEspeak(voice: SpeechSynthesisVoice|undefined) {
+  return voice && voice.name.includes(ESPEAK_STRING_IDENTIFIER);
 }
 
 export function createInitialListOfEnabledLanguages(
@@ -210,13 +240,16 @@ export function mojoVoicePackStatusToVoicePackStatusEnum(
   }
 }
 
+// TODO: b/40927698: Make this private and use getVoicePackConvertedLangIfExists
+// instead.
 // The ChromeOS VoicePackManager labels some voices by locale, and some by
 // base-language. The request for each needs to be exact, so this function
 // converts a locale or language into the code the VoicePackManager expects.
 // This is based on the VoicePackManager code here:
 // https://source.chromium.org/chromium/chromium/src/+/main:chromeos/ash/components/language_packs/language_pack_manager.cc;l=346;drc=31e516b25930112df83bf09d3d2a868200ecbc6d
-export function convertLangOrLocaleForVoicePackManager(langOrLocale: string):
-    string|undefined {
+export function convertLangOrLocaleForVoicePackManager(
+    langOrLocale: string, enabledLangs?: string[],
+    availableLangs?: string[]): string|undefined {
   langOrLocale = langOrLocale.toLowerCase();
   if (PACK_MANAGER_SUPPORTED_LANGS_AND_LOCALES.has(langOrLocale)) {
     return langOrLocale;
@@ -227,13 +260,15 @@ export function convertLangOrLocaleForVoicePackManager(langOrLocale: string):
     if (PACK_MANAGER_SUPPORTED_LANGS_AND_LOCALES.has(baseLang)) {
       return baseLang;
     }
-    const locale = convertUnsupportedBaseLangToSupportedLocale(baseLang);
+    const locale = convertUnsupportedBaseLangToSupportedLocale(
+        baseLang, enabledLangs, availableLangs);
     if (locale) {
       return locale;
     }
   }
 
-  const locale = convertUnsupportedBaseLangToSupportedLocale(langOrLocale);
+  const locale = convertUnsupportedBaseLangToSupportedLocale(
+      langOrLocale, enabledLangs, availableLangs);
   if (locale) {
     return locale;
   }
@@ -253,24 +288,60 @@ export function convertLangOrLocaleToExactVoicePackLocale(langOrLocale: string):
       locale => locale.startsWith(possibleConvertedLang.toLowerCase()));
 }
 
-function convertUnsupportedBaseLangToSupportedLocale(baseLang: string): string|
-    undefined {
+export function isWaitingForInstallLocally(status: VoiceClientSideStatusCode|
+                                           undefined) {
+  return status === VoiceClientSideStatusCode.SENT_INSTALL_REQUEST ||
+      status === VoiceClientSideStatusCode.SENT_INSTALL_REQUEST_ERROR_RETRY;
+}
+
+function convertUnsupportedBaseLangToSupportedLocale(
+    baseLang: string, enabledLangs?: string[],
+    availableLangs?: string[]): string|undefined {
   // Check if it's a base lang that supports a locale. These are the only
   // languages that have locales in the Pack Manager per the code link above.
-  if (['en', 'es', 'pt'].includes(baseLang)) {
-    // TODO (b/335691447) Convert from base-lang to locale based on browser
-    // prefs. For now, just default to arbitrary locales.
-    if (baseLang === 'en') {
-      return 'en-us';
-    }
-    if (baseLang === 'es') {
-      return 'es-es';
-    }
-    if (baseLang === 'pt') {
-      return 'pt-br';
+  if (!['en', 'es', 'pt'].includes(baseLang)) {
+    return undefined;
+  }
+
+  // If enabledLangs is not null, then choose an enabled locale for this given
+  // language so we don't unnecessarily enable other locales when one is already
+  // enabled.
+  if (enabledLangs) {
+    const enabledLocalesForLang =
+        enabledLangs.filter(lang => lang.startsWith(baseLang));
+    if (enabledLocalesForLang.length > 0) {
+      // TODO(crbug.com/335691447): If there is more than one enabled locale for
+      // this lang, choose one based on browser prefs. For now, just default to
+      // the first enabled locale.
+      return enabledLocalesForLang[0];
     }
   }
-  return undefined;
+
+  // If availableLangs is not null, then choose an available locale for this
+  // given language so we don't unnecessarily download other locales when one is
+  // already downloaded.
+  if (availableLangs) {
+    const availableLocalesForLang =
+        availableLangs.filter(lang => lang.startsWith(baseLang));
+    if (availableLocalesForLang.length > 0) {
+      // TODO(crbug.com/335691447): If there is more than one available locale
+      // for this lang, choose one based on browser prefs. For now, just default
+      // to the first available locale.
+      return availableLocalesForLang[0];
+    }
+  }
+
+  // TODO(crbug.com/335691447): Convert from base-lang to locale based on
+  // browser prefs.
+
+  // Otherwise, just default to arbitrary locales.
+  if (baseLang === 'en') {
+    return 'en-us';
+  } else if (baseLang === 'es') {
+    return 'es-es';
+  } else {
+    return 'pt-br';
+  }
 }
 
 // Returns true if input is base lang, and false if it's a locale
@@ -285,6 +356,25 @@ function extractBaseLang(langOrLocale: string): string {
   return langOrLocale.substring(0, langOrLocale.indexOf('-'));
 }
 
+export function doesLanguageHaveNaturalVoices(language: string): boolean {
+  const voicePackLanguage = getVoicePackConvertedLangIfExists(language);
+
+  return NATURAL_VOICES_SUPPORTED_LANGS_AND_LOCALES.has(voicePackLanguage);
+}
+
+export function getVoicePackConvertedLangIfExists(lang: string): string {
+  const voicePackLanguage = convertLangOrLocaleForVoicePackManager(lang);
+
+  // If the voice pack language wasn't converted, use the original string.
+  // This will enable us to set install statuses on invalid languages and
+  // locales.
+  if (!voicePackLanguage) {
+    return lang;
+  }
+
+  return voicePackLanguage;
+}
+
 // These are from the Pack Manager. Values should be kept in sync with the code
 // link above.
 export const PACK_MANAGER_SUPPORTED_LANGS_AND_LOCALES = new Set([
@@ -292,6 +382,20 @@ export const PACK_MANAGER_SUPPORTED_LANGS_AND_LOCALES = new Set([
   'es-us', 'fi', 'fil', 'fr', 'hi', 'hu',    'id',    'it',    'ja',
   'km',    'ko', 'nb',  'ne', 'nl', 'pl',    'pt-br', 'pt-pt', 'si',
   'sk',    'sv', 'th',  'tr', 'uk', 'vi',    'yue',
+]);
+
+// If there is a natural voice available for this language, based on
+// voices_list.csv. If there is a voice in
+// PACK_MANAGER_SUPPORTED_LANGS_AND_LOCALES but not in this list, it means
+// we still need to call to the pack manager to install the voice pack but
+// there are no natural voices associate with the language.
+// Currently, 'yue' and 'km' are the only two pack supported languages not
+// included in this list.
+const NATURAL_VOICES_SUPPORTED_LANGS_AND_LOCALES = new Set([
+  'bn',    'cs',    'da', 'de',  'el', 'en-au', 'en-gb', 'en-us',
+  'es-es', 'es-us', 'fi', 'fil', 'fr', 'hi',    'hu',    'id',
+  'it',    'ja',    'ko', 'nb',  'ne', 'nl',    'pl',    'pt-br',
+  'pt-pt', 'si',    'sk', 'sv',  'th', 'tr',    'uk',    'vi',
 ]);
 
 // These are the locales based on PACK_MANAGER_SUPPORTED_LANGS_AND_LOCALES, but

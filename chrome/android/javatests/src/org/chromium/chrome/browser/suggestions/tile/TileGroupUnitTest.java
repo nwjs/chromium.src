@@ -36,18 +36,18 @@ import androidx.test.filters.SmallTest;
 
 import org.hamcrest.CoreMatchers;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.FeatureList;
+import org.chromium.base.FeatureList.TestValues;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.base.test.util.Features;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.suggestions.ImageFetcher;
@@ -71,8 +71,6 @@ public class TileGroupUnitTest {
     private static final int MAX_TILES_TO_FETCH = 4;
     private static final int TILE_TITLE_LINES = 1;
     private static final String[] URLS = {"https://www.google.com/", "https://tellmedadjokes.com/"};
-
-    @Rule public TestRule mFeaturesProcessor = new Features.JUnitProcessor();
 
     @Mock private TileGroup.Observer mTileGroupObserver;
     @Mock private TileGroup.Delegate mTileGroupDelegate;
@@ -108,6 +106,14 @@ public class TileGroupUnitTest {
                         })
                 .when(mTileGroupDelegate)
                 .setMostVisitedSitesObserver(any(MostVisitedSites.Observer.class), anyInt());
+
+        FeatureList.TestValues testValues = new TestValues();
+        // testValues is set to avoid the FeatureListJni assertion check in tests.
+        testValues.addFieldTrialParamOverride(
+                ChromeFeatureList.NEW_TAB_PAGE_ANDROID_TRIGGER_FOR_PRERENDER2,
+                "prerender_new_tab_page_on_touch_trigger",
+                "0");
+        FeatureList.setTestValues(testValues);
     }
 
     @Test

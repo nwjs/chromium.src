@@ -20,10 +20,16 @@ constexpr char kStartSessionSourceHistogramName[] =
     "Ash.FocusMode.StartSession.ToggleSource";
 constexpr char kStartedWithTaskStatekHistogramName[] =
     "Ash.FocusMode.StartSession.TaskState";
+constexpr char kStartedWithExistingMediaPlayingHistogramName[] =
+    "Ash.FocusMode.StartSession.ExistingMediaPlaying";
 
 // Histograms recorded during a session.
 constexpr char kToggleEndButtonDuringSessionHistogramName[] =
     "Ash.FocusMode.DuringSession.ToggleEndSessionSource";
+constexpr char kSoundscapeLatencyInMillisecondsHistogramName[] =
+    "Ash.FocusMode.SoundscapeLatency";
+constexpr char kYouTubeMusicLatencyInMillisecondsHistogramName[] =
+    "Ash.FocusMode.YouTubeMusicLatency";
 
 // Histograms recorded when a session ends.
 constexpr char kTasksSelectedHistogramName[] = "Ash.FocusMode.TasksSelected";
@@ -37,6 +43,12 @@ constexpr char kSessionDurationHistogramName[] =
     "Ash.FocusMode.SessionDuration";
 constexpr char kEndingMomentBubbleActionHistogram[] =
     "Ash.FocusMode.EndingMomentBubbleAction";
+constexpr char kPlaylistTypesSelectedDuringSession[] =
+    "Ash.FocusMode.PlaylistTypesSelectedDuringSession";
+constexpr char kCountPlaylistsPlayedDuringSession[] =
+    "Ash.FocusMode.PlaylistsDuringSession";
+constexpr char kMusicPausedEventsCount[] =
+    "Ash.FocusMode.MusicPausedSessionCount";
 
 // This enum is used for metrics, so enum values should not be changed. New enum
 // values can be added, but existing enums must never be renumbered or deleted
@@ -108,6 +120,19 @@ enum class StartedWithTaskState {
   kNewlySelectedTask = 2,  // Start a session with a selected task which isn't
                            // `kPreviouslySelectedTask` type.
   kMaxValue = kNewlySelectedTask,
+};
+
+// This enum is used for metrics, so enum values should not be changed. New enum
+// values can be added, but existing enums must never be renumbered or deleted
+// and reused.
+// This should be kept in sync with `PlaylistTypesSelectedDuringSessionType`
+// enum in tools/metrics/histograms/metadata/ash/enums.xml.
+enum class PlaylistTypesSelectedDuringFocusSessionType {
+  kNone = 0,
+  kYouTubeMusic = 1,
+  kSoundscapes = 2,
+  kYouTubeMusicAndSoundscapes = 3,
+  kMaxValue = kYouTubeMusicAndSoundscapes,
 };
 
 }  // namespace ash::focus_mode_histogram_names

@@ -33,7 +33,6 @@
 #include "extensions/buildflags/buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
-#include "services/screen_ai/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-forward.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/models/simple_menu_model.h"
@@ -302,9 +301,6 @@ class RenderViewContextMenu
   // Returns true if the items were appended. This might not happen in all
   // cases, e.g. these are only appended if a screen reader is enabled.
   bool AppendAccessibilityLabelsItems();
-#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  void AppendLayoutExtractionItem();
-#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
   void AppendSearchProvider();
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   void AppendAllExtensionItems();
@@ -333,6 +329,10 @@ class RenderViewContextMenu
   // Helper function for checking policies.
   bool IsSaveAsItemAllowedByPolicy() const;
 
+  // Helper function for checking fenced frame tree untrusted network access
+  // status.
+  bool IsSaveAsItemAllowedByUntrustedNetworkStatus() const;
+
   // Command enabled query functions.
   bool IsReloadEnabled() const;
   bool IsViewSourceEnabled() const;
@@ -351,6 +351,7 @@ class RenderViewContextMenu
   bool IsOpenLinkAllowedByDlp(const GURL& link_url) const;
   bool IsRegionSearchEnabled() const;
   bool IsAddANoteEnabled() const;
+  bool IsVideoFrameItemEnabled(int id) const;
 
   // Command execution functions.
   void ExecSearchWebInCompanionSidePanel(const GURL& url);
@@ -366,7 +367,7 @@ class RenderViewContextMenu
   void ExecExitFullscreen();
   void ExecCopyLinkText();
   void ExecCopyImageAt();
-  void ExecSearchLensForImage(bool is_image_translate);
+  void ExecSearchLensForImage(int event_flags, bool is_image_translate);
   void ExecAddANote();
   void ExecRegionSearch(int event_flags,
                         bool is_google_default_search_provider);
@@ -376,7 +377,7 @@ class RenderViewContextMenu
   void ExecControls();
   void ExecSaveVideoFrameAs();
   void ExecCopyVideoFrame();
-  void ExecSearchForVideoFrame();
+  void ExecSearchForVideoFrame(int event_flags);
   void ExecLiveCaption();
   void ExecRotateCW();
   void ExecRotateCCW();
@@ -393,12 +394,10 @@ class RenderViewContextMenu
   void ExecOpenCompose();
 #endif
   void ExecOpenInReadAnything();
-#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  void ExecRunLayoutExtraction();
-#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
   void MediaPlayerAction(const blink::mojom::MediaPlayerAction& action);
-  void SearchForVideoFrame(const SkBitmap& bitmap,
+  void SearchForVideoFrame(int event_flags,
+                           const SkBitmap& bitmap,
                            const gfx::Rect& region_bounds);
   void PluginActionAt(const gfx::Point& location,
                       blink::mojom::PluginActionType plugin_action);

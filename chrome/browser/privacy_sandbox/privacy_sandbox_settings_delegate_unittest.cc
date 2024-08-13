@@ -49,6 +49,9 @@ namespace {
 
 using ::privacy_sandbox::tracking_protection::
     TrackingProtectionOnboardingStatus;
+using NoticeType = privacy_sandbox::TrackingProtectionOnboarding::NoticeType;
+using SurfaceType = privacy_sandbox::TrackingProtectionOnboarding::SurfaceType;
+
 constexpr char kTestEmail[] = "test@test.com";
 
 class PrivacySandboxSettingsDelegateTest : public testing::Test {
@@ -675,8 +678,9 @@ TEST_P(CookieDeprecationLabelAllowedTest, IsClientEligibleChecked) {
     auto* onboarding_service =
         TrackingProtectionOnboardingFactory::GetForProfile(profile());
     // Simulate onboarding a profile.
-    onboarding_service->MaybeMarkEligible();
-    onboarding_service->OnboardingNoticeShown();
+    onboarding_service->MaybeMarkModeBEligible();
+    onboarding_service->NoticeShown(SurfaceType::kDesktop,
+                                    NoticeType::kModeBOnboarding);
   }
 
   for (bool is_client_eligible : {false, true}) {
@@ -820,8 +824,9 @@ TEST_P(ThirdPartyCookiesBlockedByCookieDeprecationExperimentTest,
     auto* onboarding_service =
         TrackingProtectionOnboardingFactory::GetForProfile(profile());
     // Simulate onboarding a profile.
-    onboarding_service->MaybeMarkEligible();
-    onboarding_service->OnboardingNoticeShown();
+    onboarding_service->MaybeMarkModeBEligible();
+    onboarding_service->NoticeShown(SurfaceType::kDesktop,
+                                    NoticeType::kModeBOnboarding);
   }
 
   prefs()->SetInteger(prefs::kCookieControlsMode,

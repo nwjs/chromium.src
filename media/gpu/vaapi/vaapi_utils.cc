@@ -12,7 +12,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/synchronization/lock.h"
 #include "build/chromeos_buildflags.h"
-#include "media/gpu/vaapi/va_surface.h"
 #include "media/gpu/vaapi/vaapi_common.h"
 #include "media/gpu/vaapi/vaapi_wrapper.h"
 #include "media/gpu/vp8_picture.h"
@@ -279,7 +278,7 @@ void FillVP8DataStructures(const Vp8FrameHeader& frame_header,
   const auto last_frame = reference_frames.GetFrame(Vp8RefType::VP8_FRAME_LAST);
   if (last_frame) {
     pic_param->last_ref_frame =
-        last_frame->AsVaapiVP8Picture()->va_surface()->id();
+        last_frame->AsVaapiVP8Picture()->va_surface_id();
   } else {
     pic_param->last_ref_frame = VA_INVALID_SURFACE;
   }
@@ -288,7 +287,7 @@ void FillVP8DataStructures(const Vp8FrameHeader& frame_header,
       reference_frames.GetFrame(Vp8RefType::VP8_FRAME_GOLDEN);
   if (golden_frame) {
     pic_param->golden_ref_frame =
-        golden_frame->AsVaapiVP8Picture()->va_surface()->id();
+        golden_frame->AsVaapiVP8Picture()->va_surface_id();
   } else {
     pic_param->golden_ref_frame = VA_INVALID_SURFACE;
   }
@@ -296,8 +295,7 @@ void FillVP8DataStructures(const Vp8FrameHeader& frame_header,
   const auto alt_frame =
       reference_frames.GetFrame(Vp8RefType::VP8_FRAME_ALTREF);
   if (alt_frame)
-    pic_param->alt_ref_frame =
-        alt_frame->AsVaapiVP8Picture()->va_surface()->id();
+    pic_param->alt_ref_frame = alt_frame->AsVaapiVP8Picture()->va_surface_id();
   else
     pic_param->alt_ref_frame = VA_INVALID_SURFACE;
 

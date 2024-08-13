@@ -27,6 +27,7 @@
 #include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/controls/menu/menu_types.h"
+#include "ui/views/layout/delegating_layout_manager.h"
 #include "ui/views/view.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -73,7 +74,7 @@ class TestMenuItemView;
 // To show the menu use MenuRunner. See MenuRunner for details on how to run
 // (show) the menu as well as for details on the life time of the menu.
 
-class VIEWS_EXPORT MenuItemView : public View {
+class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
   METADATA_HEADER(MenuItemView, View)
 
  public:
@@ -301,6 +302,8 @@ class VIEWS_EXPORT MenuItemView : public View {
   // SetIcon(). MenuItemView takes ownership of |icon_view|.
   void SetIconView(std::unique_ptr<ImageView> icon_view);
 
+  ImageView* icon_view() { return icon_view_; }
+
   // Returns the preferred size of the icon view if any, or gfx::Size() if none.
   gfx::Size GetIconPreferredSize() const;
 
@@ -315,6 +318,7 @@ class VIEWS_EXPORT MenuItemView : public View {
 
   void set_may_have_mnemonics(bool may_have_mnemonics) {
     may_have_mnemonics_ = may_have_mnemonics;
+    UpdateAccessibleKeyShortcuts();
   }
   bool may_have_mnemonics() const { return may_have_mnemonics_; }
 
@@ -327,12 +331,7 @@ class VIEWS_EXPORT MenuItemView : public View {
 
   // Returns the preferred size of this item.
   gfx::Size CalculatePreferredSize(
-      const SizeBounds& /*available_size*/) const override;
-
-  // Gets the preferred height for the given |width|. This is only different
-  // from GetPreferredSize().width() if the item has a child view with flexible
-  // dimensions.
-  int GetHeightForWidth(int width) const override;
+      const SizeBounds& available_size) const override;
 
   // Returns the bounds of the submenu part of the ACTIONABLE_SUBMENU.
   gfx::Rect GetSubmenuAreaOfActionableSubmenu() const;
@@ -373,8 +372,9 @@ class VIEWS_EXPORT MenuItemView : public View {
   // recalculates the bounds.
   void ChildrenChanged();
 
-  // Sizes any child views.
-  void Layout(PassKey) override;
+  // Overridden from LayoutDelegate:
+  ProposedLayout CalculateProposedLayout(
+      const SizeBounds& size_bounds) const override;
 
   // Returns true if the menu has mnemonics. This only useful on the root menu
   // item.
@@ -592,6 +592,8 @@ class VIEWS_EXPORT MenuItemView : public View {
   // Returns the corresponding margin from the `MenuConfig` if
   // `vertical_margin_` is not set.
   int GetVerticalMargin() const;
+
+  void UpdateAccessibleKeyShortcuts();
 
   // The delegate. This is only valid for the root menu item. You shouldn't
   // use this directly, instead use GetDelegate() which walks the tree as

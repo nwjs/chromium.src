@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
 #include "base/rand_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
@@ -39,6 +40,7 @@
 #include "net/socket/next_proto.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_private_key.h"
+#include "net/storage_access_api/status.h"
 #include "net/url_request/redirect_info.h"
 #include "net/url_request/redirect_util.h"
 #include "net/url_request/url_request_context.h"
@@ -258,9 +260,16 @@ int64_t URLRequest::GetTotalSentBytes() const {
 }
 
 int64_t URLRequest::GetRawBodyBytes() const {
-  if (!job_.get())
+  if (!job_.get()) {
     return 0;
+  }
 
+  if (int64_t bytes = job_->GetReceivedBodyBytes()) {
+    return bytes;
+  }
+
+  // GetReceivedBodyBytes() is available only when the body was received from
+  // the network. Otherwise, returns prefilter_bytes_read() instead.
   return job_->prefilter_bytes_read();
 }
 
@@ -473,7 +482,8 @@ void URLRequest::set_site_for_cookies(const SiteForCookies& site_for_cookies) {
   site_for_cookies_ = site_for_cookies;
 }
 
-void URLRequest::set_isolation_info(const IsolationInfo& isolation_info) {
+void URLRequest::set_isolation_info(const IsolationInfo& isolation_info,
+                                    std::optional<GURL> redirect_info_new_url) {
   isolation_info_ = isolation_info;
 
   bool is_main_frame_navigation = isolation_info.IsMainFrameRequest() ||
@@ -481,7 +491,10 @@ void URLRequest::set_isolation_info(const IsolationInfo& isolation_info) {
 
   cookie_partition_key_ = CookiePartitionKey::FromNetworkIsolationKey(
       isolation_info.network_isolation_key(), isolation_info.site_for_cookies(),
-      net::SchemefulSite(original_url()), is_main_frame_navigation);
+      net::SchemefulSite(redirect_info_new_url.has_value()
+                             ? redirect_info_new_url.value()
+                             : url_chain_.back()),
+      is_main_frame_navigation);
 }
 
 void URLRequest::set_isolation_info_from_network_anonymization_key(
@@ -664,6 +677,9 @@ void URLRequest::StartJob(std::unique_ptr<URLRequestJob> job) {
         is_shared_dictionary_read_allowed_callback_);
   }
   job_->SetResponseHeadersCallback(response_headers_callback_);
+  if (shared_dictionary_getter_) {
+    job_->SetSharedDictionaryGetter(shared_dictionary_getter_);
+  }
 
   if (upload_data_stream_.get())
     job_->SetUpload(upload_data_stream_.get());
@@ -993,7 +1009,9 @@ void URLRequest::Redirect(
   referrer_policy_ = redirect_info.new_referrer_policy;
   site_for_cookies_ = redirect_info.new_site_for_cookies;
   set_isolation_info(isolation_info_.CreateForRedirect(
-      url::Origin::Create(redirect_info.new_url)));
+                         url::Origin::Create(redirect_info.new_url)),
+                     redirect_info.new_url);
+
   cookie_setting_overrides().Remove(
       CookieSettingOverride::kStorageAccessGrantEligibleViaHeader);
 
@@ -1015,7 +1033,6 @@ void URLRequest::RetryWithStorageAccess() {
       CookieSettingOverride::kStorageAccessGrantEligibleViaHeader));
   CHECK(!cookie_setting_overrides().Has(
       CookieSettingOverride::kStorageAccessGrantEligible));
-  CHECK(!has_storage_access());
 
   net_log_.AddEvent(NetLogEventType::URL_REQUEST_RETRY_WITH_STORAGE_ACCESS);
   if (network_delegate()) {
@@ -1300,12 +1317,28 @@ void URLRequest::set_socket_tag(const SocketTag& socket_tag) {
 }
 
 bool URLRequest::ShouldSetLoadWithStorageAccess() const {
-  // TODO(https://crbug.com/344608182): this should probably only return true if
-  // the Storage-Access state is "inactive" or "active"/allowed. For now, this
-  // is fine because this is only used to set the renderer's bool, which is
-  // untrusted anyway.
+  CHECK(job_);
+  auto storage_access_can_be_activated = [this]() -> bool {
+    switch (job_->StorageAccessStatus()) {
+      case cookie_util::StorageAccessStatus::kNone:
+        return false;
+      case cookie_util::StorageAccessStatus::kInactive:
+        return true;
+      case cookie_util::StorageAccessStatus::kActive:
+        return true;
+    }
+    NOTREACHED_NORETURN();
+  };
   return base::FeatureList::IsEnabled(features::kStorageAccessHeaders) &&
-         response_headers() && response_headers()->HasStorageAccessLoadHeader();
+         storage_access_can_be_activated() && response_headers() &&
+         response_headers()->HasStorageAccessLoadHeader();
+}
+
+void URLRequest::SetSharedDictionaryGetter(
+    SharedDictionaryGetter shared_dictionary_getter) {
+  CHECK(!job_.get());
+  CHECK(shared_dictionary_getter_.is_null());
+  shared_dictionary_getter_ = std::move(shared_dictionary_getter);
 }
 
 base::WeakPtr<URLRequest> URLRequest::GetWeakPtr() {

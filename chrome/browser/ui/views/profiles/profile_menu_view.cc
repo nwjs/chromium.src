@@ -93,7 +93,7 @@
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
-#include "chrome/browser/web_applications/app_shim_registry_mac.h"
+#include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
 #endif
 
 namespace {
@@ -557,19 +557,10 @@ void ProfileMenuView::BuildIdentity() {
 
       if (management_environment !=
           chrome::enterprise_util::ManagementEnvironment::kNone) {
-        policy::BrowserManagementService* management_service =
-            static_cast<policy::BrowserManagementService*>(
-                policy::ManagementServiceFactory::GetForProfile(
-                    browser()->profile()));
-        if (management_service->GetMetadata().GetManagementLogo().IsEmpty()) {
           badge_image_model = ui::ImageModel::FromVectorIcon(
               vector_icons::kBusinessIcon, ui::kColorMenuIcon, 16);
-        } else {
-          badge_image_model = ui::ImageModel::FromImage(
-              management_service->GetMetadata().GetManagementLogo());
         }
       }
-    }
 
     SetProfileIdentityInfo(
         profile_name, background_color, edit_button_params,
@@ -775,6 +766,13 @@ void ProfileMenuView::BuildSyncInfo() {
 
 void ProfileMenuView::BuildFeatureButtons() {
   Profile* profile = browser()->profile();
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+  bool has_sync_consent =
+      identity_manager &&
+      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync);
+  bool has_unconsented_account = HasUnconstentedProfile(profile);
+
   if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled() &&
       !profile->IsGuestSession()) {
     AddFeatureButton(
@@ -782,9 +780,23 @@ void ProfileMenuView::BuildFeatureButtons() {
         base::BindRepeating(&ProfileMenuView::OnEditProfileButtonClicked,
                             base::Unretained(this)),
         vector_icons::kEditChromeRefreshIcon);
+
+    // Show the settings button when signed in to Chrome or to the web. Do not
+    // show if sync is enabled.
+    bool should_show_settings_button =
+        !has_sync_consent && identity_manager &&
+        !identity_manager->GetExtendedAccountInfoForAccountsWithRefreshToken()
+             .empty();
+
+    if (should_show_settings_button) {
+      AddFeatureButton(
+          l10n_util::GetStringUTF16(IDS_PROFILE_MENU_OPEN_ACCOUNT_SETTINGS),
+          base::BindRepeating(&ProfileMenuView::OnSyncSettingsButtonClicked,
+                              base::Unretained(this)),
+          vector_icons::kSettingsChromeRefreshIcon);
+    }
   }
 
-  bool has_unconsented_account = HasUnconstentedProfile(profile);
   if (has_unconsented_account && !IsSyncPaused(profile)) {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     // The Google G icon needs to be shrunk, so it won't look too big compared
@@ -831,11 +843,8 @@ void ProfileMenuView::BuildFeatureButtons() {
   }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
   const bool has_primary_account =
-      !profile->IsGuestSession() &&
-      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync);
+      !profile->IsGuestSession() && has_sync_consent;
 
   bool hide_signout_button_for_managed_profiles =
       chrome::enterprise_util::UserAcceptedAccountManagement(profile) &&
@@ -849,11 +858,23 @@ void ProfileMenuView::BuildFeatureButtons() {
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   // The sign-out button is always at the bottom.
   if (add_sign_out_button) {
+    std::u16string signout_button_text;
+    if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled()) {
+      // Note: Sign out button is only added if there is a signed profile with
+      // no sync consent, so there is no need to check these conditions for the
+      // sign in pending state.
+      bool signin_pending =
+          identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+              identity_manager->GetPrimaryAccountId(
+                  signin::ConsentLevel::kSignin));
+      signout_button_text = l10n_util::GetStringUTF16(
+          signin_pending ? IDS_PROFILE_MENU_SIGN_OUT_WHEN_SIGNIN_PENDING
+                         : IDS_PROFILE_MENU_SIGN_OUT);
+    } else {
+      signout_button_text = l10n_util::GetStringUTF16(IDS_SCREEN_LOCK_SIGN_OUT);
+    }
     AddFeatureButton(
-        l10n_util::GetStringUTF16(
-            switches::IsExplicitBrowserSigninUIOnDesktopEnabled()
-                ? IDS_PROFILE_MENU_SIGN_OUT
-                : IDS_SCREEN_LOCK_SIGN_OUT),
+        signout_button_text,
         base::BindRepeating(&ProfileMenuView::OnSignoutButtonClicked,
                             base::Unretained(this)),
         kSignOutIcon);
@@ -899,8 +920,11 @@ void ProfileMenuView::BuildAvailableProfiles() {
 #endif
 
     AddAvailableProfile(
-        ui::ImageModel::FromImage(
-            profile_entry->GetAvatarIcon(profiles::kMenuAvatarIconSize)),
+        ui::ImageModel::FromImage(profile_entry->GetAvatarIcon(
+            profiles::kMenuAvatarIconSize, /*use_high_res_file=*/true,
+            GetPlaceholderAvatarIconParamsVisibleAgainstColor(
+                browser()->window()->GetColorProvider()->GetColor(
+                    ui::kColorMenuBackground)))),
         profile_entry->GetName(),
         /*is_guest=*/false,
         /*is_enabled=*/profiles_selectable,

@@ -187,6 +187,7 @@ chromium-metrics-reviews@google.com.
   <int value="133" label="TilingWindowResizeRight"/>
   <int value="134" label="TilingWindowResizeUp"/>
   <int value="135" label="TilingWindowResizeDown"/>
+  <int value="136" label="ToggleMouseKeys"/>
   <int value="9000" label="DebugClearUseKMeansPref"/>
   <int value="9001" label="DebugKeyboardBacklightToggle"/>
   <int value="9002" label="DebugMicrophoneMuteToggle"/>
@@ -830,6 +831,32 @@ chromium-metrics-reviews@google.com.
   <int value="16" label="Crash"/>
 </enum>
 
+<enum name="CrosHealthdRoutineCategory">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="PrimeSearch"/>
+  <int value="2" label="FloatingPoint"/>
+  <int value="3" label="Memory"/>
+  <int value="4" label="AudioDriver"/>
+  <int value="5" label="CpuStress"/>
+  <int value="6" label="UfsLifetime"/>
+  <int value="7" label="DiskRead"/>
+  <int value="8" label="CpuCache"/>
+  <int value="9" label="VolumeButton"/>
+  <int value="10" label="LedLitUp"/>
+  <int value="11" label="BluetoothPower"/>
+  <int value="12" label="BluetoothDiscovery"/>
+  <int value="13" label="Fan"/>
+  <int value="14" label="BluetoothScanning"/>
+  <int value="15" label="BluetoothPairing"/>
+  <int value="16" label="CameraAvailability"/>
+  <int value="17" label="Urandom"/>
+  <int value="18" label="NetworkBandwidth"/>
+  <int value="19" label="SensitiveSensor"/>
+  <int value="20" label="CameraFrameAnalysis"/>
+  <int value="21" label="BatteryDischarge"/>
+  <int value="22" label="KeyboardBacklight"/>
+</enum>
+
 <enum name="CrosHealthdTelemetryResult">
   <int value="0" label="Success"/>
   <int value="1" label="Error"/>
@@ -1105,6 +1132,8 @@ chromium-metrics-reviews@google.com.
   <int value="44" label="InvalidPkcs12"/>
   <int value="45" label="Pkcs12WrongPassword"/>
   <int value="46" label="Pkcs12InvalidMac"/>
+  <int value="47" label="FailedToMakeCertNickname"/>
+  <int value="48" label="AlreadyExists"/>
 </enum>
 
 <enum name="KcerPkcs12ImportEvent">
@@ -1257,9 +1286,11 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="-1760656795" label="kk"/>
   <int value="-1728890006" label="kn"/>
   <int value="-1722334576" label="sv"/>
+  <int value="-1688219359" label="pt-br"/>
   <int value="-1667118147" label="bg"/>
   <int value="-1660178764" label="bn"/>
   <int value="-1391374456" label="ur"/>
+  <int value="-1373851596" label="zh-HK"/>
   <int value="-1340196252" label="en-gb"/>
   <int value="-1339452358" label="hu"/>
   <int value="-1319436779" label="lt"/>
@@ -1270,6 +1301,7 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="-795149789" label="en-au"/>
   <int value="-763755563" label="ru"/>
   <int value="-703387832" label="ml"/>
+  <int value="-678198435" label="fil"/>
   <int value="-651240163" label="am"/>
   <int value="-622454823" label="cs"/>
   <int value="-554160101" label="es"/>
@@ -1291,11 +1323,13 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="218790103" label="es-us"/>
   <int value="385084822" label="pt"/>
   <int value="411897228" label="fr"/>
+  <int value="466028662" label="pt-pt"/>
   <int value="579959091" label="iw"/>
   <int value="592207805" label="pl"/>
   <int value="656523220" label="zh"/>
   <int value="771718923" label="yue"/>
   <int value="771844654" label="uk"/>
+  <int value="864680139" label="en"/>
   <int value="916296240" label="id"/>
   <int value="934072607" label="ta"/>
   <int value="942489058" label="gu"/>
@@ -1393,6 +1427,12 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="9" label="Backspace"/>
   <int value="10" label="Escape"/>
   <int value="11" label="Assistant"/>
+</enum>
+
+<enum name="OptInCardAction">
+  <int value="0" label="ShowCard"/>
+  <int value="1" label="AcceptButtonPressed"/>
+  <int value="2" label="DeclineButtonPressed"/>
 </enum>
 
 <enum name="OwnerKeyUmaEvent">
@@ -1585,6 +1625,12 @@ chromeos/ash/components/language/language_packs/language_pack_manager.h -->
   <int value="15" label="PD Sinking Host"/>
   <int value="16" label="Non-PD Sink"/>
   <int value="17" label="Power Brick"/>
+</enum>
+
+<enum name="PeripheralCustomizationMetricsType">
+  <int value="0" label="Mouse"/>
+  <int value="1" label="GraphicsTablet"/>
+  <int value="2" label="GraphicsTabletPen"/>
 </enum>
 
 <enum name="PopularCamPeriphModuleID">
@@ -1820,6 +1866,17 @@ https://chromium.googlesource.com/chromiumos/platform2/+/main/secagentd/proto/se
   <int value="0" label="Triggered"/>
   <int value="1" label="Cancelled"/>
   <int value="2" label="Suspended"/>
+</enum>
+
+<enum name="TelemetryExtensionRoutineCategory">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Memory"/>
+  <int value="2" label="VolumeButton"/>
+  <int value="3" label="Fan"/>
+  <int value="4" label="LedLitUp"/>
+  <int value="5" label="NetworkBandwidth"/>
+  <int value="6" label="CameraFrameAnalysis"/>
+  <int value="7" label="KeyboardBacklight"/>
 </enum>
 
 <enum name="UmaInitParamsResult">

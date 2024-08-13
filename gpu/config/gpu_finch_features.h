@@ -47,8 +47,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kEnableMSAAOnNewIntelGPUs);
 GPU_EXPORT BASE_DECLARE_FEATURE(kDawnSIRepsUseClientProvidedInternalUsages);
 
 #if BUILDFLAG(IS_WIN)
-GPU_EXPORT BASE_DECLARE_FEATURE(kGpuProcessHighPriorityWin);
-
 GPU_EXPORT BASE_DECLARE_FEATURE(kDisableVideoOverlayIfMoving);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kNoUndamagedOverlayPromotion);
@@ -60,6 +58,8 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kAdjustGpuProcessPriority);
 #endif
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kGenGpuDiskCacheKeyPrefixInGpuService);
+
+GPU_EXPORT BASE_DECLARE_FEATURE(kClearGrShaderDiskCacheOnInvalidPrefix);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kVaapiJpegImageDecodeAcceleration);
 
@@ -86,8 +86,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kNoDiscardableMemoryForGpuDecodePath);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kEnableDrDc);
 
-GPU_EXPORT BASE_DECLARE_FEATURE(kForceRestartGpuKillSwitch);
-
 GPU_EXPORT BASE_DECLARE_FEATURE(kPruneOldTransferCacheEntries);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kUseGpuSchedulerDfs);
@@ -107,13 +105,13 @@ GPU_EXPORT extern const base::FeatureParam<std::string> kWGSLUnsafeFeatures;
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kIncreasedCmdBufferParseSlice);
 
-GPU_EXPORT BASE_DECLARE_FEATURE(kGpuCleanupInBackground);
-
 GPU_EXPORT BASE_DECLARE_FEATURE(kDeferredOverlaysRelease);
 
 #if BUILDFLAG(IS_WIN)
 GPU_EXPORT BASE_DECLARE_FEATURE(kD3DBackingUploadWithUpdateSubresource);
 #endif
+
+GPU_EXPORT BASE_DECLARE_FEATURE(kHandleOverlaysSwapFailure);
 
 GPU_EXPORT bool UseGles2ForOopR();
 GPU_EXPORT bool IsUsingVulkan();
@@ -131,6 +129,12 @@ GPU_EXPORT bool LimitAImageReaderMaxSizeToOne();
 GPU_EXPORT bool IncreaseBufferCountForHighFrameRate();
 GPU_EXPORT bool IncreaseBufferCountForWebViewOverlays();
 #endif
+
+// Don't directly check this flag. Instead, please call
+// IsSyncPointGraphValidationEnabled().
+GPU_EXPORT BASE_DECLARE_FEATURE(kSyncPointGraphValidation);
+
+GPU_EXPORT bool IsSyncPointGraphValidationEnabled();
 
 }  // namespace features
 

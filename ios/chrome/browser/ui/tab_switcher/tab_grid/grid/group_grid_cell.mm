@@ -10,11 +10,13 @@
 #import "base/check_op.h"
 #import "base/debug/dump_without_crashing.h"
 #import "base/notreached.h"
+#import "base/strings/string_number_conversions.h"
+#import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_constants.h"
-#import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/tab_group_snapshots_view.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_group_snapshots_view.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -175,17 +177,9 @@ const CGFloat kGroupColorViewSize = 18;
 }
 
 - (void)didMoveToWindow {
-  if (self.window) {
-    if (self.theme == GridThemeLight) {
-      if (@available(iOS 17, *)) {
-        [self.window.windowScene
-            registerForTraitChanges:@[ UITraitUserInterfaceStyle.self ]
-                         withTarget:self
-                             action:@selector(interfaceStyleChangedForWindow:
-                                                             traitCollection:)];
-        self.overrideUserInterfaceStyle =
-            self.window.windowScene.traitCollection.userInterfaceStyle;
-      }
+  if (self.theme == GridThemeLight) {
+    if (@available(iOS 17, *)) {
+      [self updateInterfaceStyleForWindow:self.window];
     }
   }
 }
@@ -229,7 +223,7 @@ const CGFloat kGroupColorViewSize = 18;
   switch (theme) {
     case GridThemeLight:
       if (@available(iOS 17, *)) {
-        // On iOS 17, this is handled when the cell is added to the window.
+        [self updateInterfaceStyleForWindow:self.window];
       } else {
         self.overrideUserInterfaceStyle = UIUserInterfaceStyleLight;
       }
@@ -260,9 +254,15 @@ const CGFloat kGroupColorViewSize = 18;
                                                  size:totalTabsCount];
 }
 
+- (void)setTabsCount:(NSInteger)tabsCount {
+  _tabsCount = tabsCount;
+}
+
 - (void)setTitle:(NSString*)title {
   _titleLabel.text = title;
-  self.accessibilityLabel = title;
+  self.accessibilityLabel = l10n_util::GetNSStringF(
+      IDS_IOS_TAB_GROUP_CELL_ACCESSIBILITY_TITLE,
+      base::SysNSStringToUTF16(title), base::NumberToString16(_tabsCount));
   _title = [title copy];
 }
 
@@ -512,6 +512,23 @@ const CGFloat kGroupColorViewSize = 18;
              self.traitCollection.preferredContentSizeCategory)
              ? kGridCellHeaderAccessibilityHeight
              : kGridCellHeaderHeight;
+}
+
+// If window is not nil, register for updates to its interface style updates and
+// set the user interface style to be the same as the window.
+- (void)updateInterfaceStyleForWindow:(UIWindow*)window {
+  if (!window) {
+    return;
+  }
+  if (@available(iOS 17, *)) {
+    [self.window.windowScene
+        registerForTraitChanges:@[ UITraitUserInterfaceStyle.self ]
+                     withTarget:self
+                         action:@selector(interfaceStyleChangedForWindow:
+                                                         traitCollection:)];
+    self.overrideUserInterfaceStyle =
+        self.window.windowScene.traitCollection.userInterfaceStyle;
+  }
 }
 
 // Callback for the observation of the user interface style trait of the window

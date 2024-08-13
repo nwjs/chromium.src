@@ -57,6 +57,11 @@ source_set("permissions") {
     "system/system_permission_settings.h",
   ]
 
+  public_deps = [
+    "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/resource_coordinator:tab_lifecycle_observer",
+  ]
+
   deps = [
     ":permissions_proto",
     "//chrome/browser:browser_process",
@@ -123,11 +128,18 @@ source_set("permissions") {
       "//ui/android",
     ]
   }
+  allow_circular_includes_from = []
 
   if (is_chromeos_ash) {
-    deps += [ "//chrome/browser/ash" ]
-  } else if (is_chromeos_lacros) {
-    deps += [ "//chromeos/lacros" ]
+    deps += [
+      "//chrome/browser/ash",
+      "//chrome/browser/ash/app_mode/web_app",
+      "//chrome/browser/ash/shimless_rma",
+    ]
+    allow_circular_includes_from += [
+      "//chrome/browser/ash/app_mode/web_app",
+      "//chrome/browser/ash/shimless_rma",
+    ]
   }
 
   if (is_mac) {
@@ -135,31 +147,10 @@ source_set("permissions") {
     deps += [ "//chrome//browser/web_applications" ]
   } else if (is_chromeos_ash) {
     sources += [ "system/system_permission_settings_chromeos.cc" ]
-  } else if (is_chromeos_lacros) {
-    sources += [ "system/system_permission_settings_lacros.cc" ]
+  } else if (is_win) {
+    sources += [ "system/system_permission_settings_win.cc" ]
   } else {
     sources += [ "system/system_permission_settings_default.cc" ]
-  }
-
-  if (toolkit_views) {
-    sources += [
-      "default_system_permission_delegate.cc",
-      "default_system_permission_delegate.h",
-      "system_permission_delegate.h",
-      "system_permission_delegate_factory.cc",
-      "system_permission_delegate_factory.h",
-    ]
-
-    if (is_mac) {
-      sources += [
-        "camera_system_permission_delegate_mac.cc",
-        "camera_system_permission_delegate_mac.h",
-        "geolocation_system_permission_delegate_mac.cc",
-        "geolocation_system_permission_delegate_mac.h",
-        "microphone_system_permission_delegate_mac.cc",
-        "microphone_system_permission_delegate_mac.h",
-      ]
-    }
   }
 
   if (build_with_tflite_lib) {
@@ -222,7 +213,10 @@ source_set("unit_tests") {
   }
 
   if (is_chromeos_ash) {
-    deps += [ "//chrome/browser/ash:test_support" ]
+    deps += [
+      "//chrome/browser/ash:test_support",
+      "//chrome/browser/ash/app_mode/web_app",
+    ]
   }
 }
 

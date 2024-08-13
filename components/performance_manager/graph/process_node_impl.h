@@ -5,7 +5,6 @@
 #ifndef COMPONENTS_PERFORMANCE_MANAGER_GRAPH_PROCESS_NODE_IMPL_H_
 #define COMPONENTS_PERFORMANCE_MANAGER_GRAPH_PROCESS_NODE_IMPL_H_
 
-#include <memory>
 #include <optional>
 #include <string>
 
@@ -15,14 +14,18 @@
 #include "base/process/process_handle.h"
 #include "base/time/time.h"
 #include "base/types/pass_key.h"
-#include "components/performance_manager/graph/node_attached_data.h"
+#include "components/performance_manager/decorators/process_priority_aggregator_data.h"
+#include "components/performance_manager/freezing/frozen_data.h"
+#include "components/performance_manager/graph/node_attached_data_storage.h"
 #include "components/performance_manager/graph/node_base.h"
+#include "components/performance_manager/graph/node_inline_data.h"
 #include "components/performance_manager/graph/properties.h"
 #include "components/performance_manager/public/browser_child_process_host_proxy.h"
 #include "components/performance_manager/public/graph/process_node.h"
 #include "components/performance_manager/public/mojom/coordination_unit.mojom.h"
 #include "components/performance_manager/public/mojom/v8_contexts.mojom.h"
 #include "components/performance_manager/public/render_process_host_proxy.h"
+#include "components/performance_manager/resource_attribution/cpu_measurement_data.h"
 #include "content/public/browser/background_tracing_manager.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -32,6 +35,7 @@
 namespace performance_manager {
 
 class FrameNodeImpl;
+class FrozenFrameAggregator;
 class ProcessNodeImpl;
 class WorkerNodeImpl;
 
@@ -51,7 +55,12 @@ struct BrowserProcessNodeTag {};
 class ProcessNodeImpl
     : public PublicNodeImpl<ProcessNodeImpl, ProcessNode>,
       public TypedNodeBase<ProcessNodeImpl, ProcessNode, ProcessNodeObserver>,
-      public mojom::ProcessCoordinationUnit {
+      public mojom::ProcessCoordinationUnit,
+      public SupportsNodeInlineData<ProcessPriorityAggregatorData,
+                                    FrozenData,
+                                    resource_attribution::CPUMeasurementData,
+                                    // Keep this last to avoid merge conflicts.
+                                    NodeAttachedDataStorage> {
  public:
   using PassKey = base::PassKey<ProcessNodeImpl>;
 
@@ -145,6 +154,10 @@ class ProcessNodeImpl
   // Adds a new type of hosted content to the |hosted_content_types| bit field.
   void add_hosted_content_type(ContentType content_type);
 
+  void OnAllFramesInProcessFrozen(base::PassKey<FrozenFrameAggregator>) {
+    OnAllFramesInProcessFrozen();
+  }
+
   void OnAllFramesInProcessFrozenForTesting() { OnAllFramesInProcessFrozen(); }
   static void FireBackgroundTracingTriggerOnUIForTesting(
       const std::string& trigger_name);
@@ -160,9 +173,7 @@ class ProcessNodeImpl
                       base::TimeTicks launch_time);
 
  private:
-  friend class FrozenFrameAggregatorAccess;
   friend class ProcessMetricsDecoratorAccess;
-  friend class ProcessPriorityAggregatorAccess;
 
   using AnyChildProcessHostProxy =
       absl::variant<RenderProcessHostProxy, BrowserChildProcessHostProxy>;
@@ -232,14 +243,6 @@ class ProcessNodeImpl
   NodeSet frame_nodes_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   NodeSet worker_nodes_ GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // Inline storage for FrozenFrameAggregator user data.
-  InternalNodeAttachedDataStorage<sizeof(uintptr_t) + 8> frozen_frame_data_
-      GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // Inline storage for ProcessPriorityAggregator user data.
-  std::unique_ptr<NodeAttachedData> process_priority_data_
-      GUARDED_BY_CONTEXT(sequence_checker_);
 
   base::WeakPtr<ProcessNodeImpl> weak_this_;
   base::WeakPtrFactory<ProcessNodeImpl> weak_factory_

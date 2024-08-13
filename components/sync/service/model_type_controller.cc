@@ -62,13 +62,17 @@ std::string ModelTypeController::StateToString(State state) {
   return "Invalid";
 }
 
-ModelTypeController::ModelTypeController(ModelType type) : type_(type) {}
+ModelTypeController::ModelTypeController(
+    ModelType type,
+    std::unique_ptr<ModelTypeLocalDataBatchUploader> batch_uploader)
+    : type_(type), batch_uploader_(std::move(batch_uploader)) {}
 
 ModelTypeController::ModelTypeController(
     ModelType type,
     std::unique_ptr<ModelTypeControllerDelegate> delegate_for_full_sync_mode,
-    std::unique_ptr<ModelTypeControllerDelegate> delegate_for_transport_mode)
-    : ModelTypeController(type) {
+    std::unique_ptr<ModelTypeControllerDelegate> delegate_for_transport_mode,
+    std::unique_ptr<ModelTypeLocalDataBatchUploader> batch_uploader)
+    : ModelTypeController(type, std::move(batch_uploader)) {
   InitModelTypeController(std::move(delegate_for_full_sync_mode),
                           std::move(delegate_for_transport_mode));
 }
@@ -114,7 +118,8 @@ void ModelTypeController::InitModelTypeController(
     // full-sync mode, never transport-mode. So for data types that only exist
     // on this platform, it doesn't matter if they support transport mode or not
     // (this includes PRINTERS, WIFI_CONFIGURATIONS, OS_PREFERENCES,
-    // OS_PRIORITY_PREFERENCES, WORKSPACE_DESK, PRINTERS_AUTHORIZATION_SERVERS).
+    // OS_PRIORITY_PREFERENCES, WORKSPACE_DESK, PRINTERS_AUTHORIZATION_SERVERS,
+    // COOKIES).
     //
     // All other data types listed here will likely have to be migrated.
     static constexpr ModelTypeSet kLegacyTypes = {
@@ -146,7 +151,8 @@ void ModelTypeController::InitModelTypeController(
         HISTORY,
         PRINTERS_AUTHORIZATION_SERVERS,
         POWER_BOOKMARK,
-        NIGORI};
+        NIGORI,
+        COOKIES};
     CHECK(kLegacyTypes.Has(type()))
         << ModelTypeToDebugString(type())
         << " must support running in transport mode!";
@@ -173,7 +179,8 @@ void ModelTypeController::LoadModels(
   request.error_handler = base::BindRepeating(
       &ReportErrorOnModelThread, base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindRepeating(&ModelTypeController::ReportModelError,
-                          base::AsWeakPtr(this), SyncError::DATATYPE_ERROR));
+                          weak_ptr_factory_.GetWeakPtr(),
+                          SyncError::DATATYPE_ERROR));
   request.authenticated_account_id = configure_context.authenticated_account_id;
   request.cache_guid = configure_context.cache_guid;
   request.sync_mode = configure_context.sync_mode;
@@ -185,7 +192,7 @@ void ModelTypeController::LoadModels(
   // Ask the delegate to actually start the datatype.
   delegate_->OnSyncStarting(
       request, base::BindOnce(&ModelTypeController::OnDelegateStarted,
-                              base::AsWeakPtr(this)));
+                              weak_ptr_factory_.GetWeakPtr()));
 
   // Ensure that the metadata for any *other* delegate is cleared. Note that
   // this is a no-op for the delegate that was just started. Note^2 that that
@@ -275,6 +282,15 @@ bool ModelTypeController::ShouldRunInTransportOnlyMode() const {
   return delegate_map_.count(SyncMode::kTransportOnly) != 0;
 }
 
+void ModelTypeController::HasUnsyncedData(
+    base::OnceCallback<void(bool)> callback) {
+  if (!delegate_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  delegate_->HasUnsyncedData(std::move(callback));
+}
+
 void ModelTypeController::GetAllNodes(AllNodesCallback callback) {
   CHECK(delegate_);
   delegate_->GetAllNodesForDebugging(std::move(callback));
@@ -294,6 +310,11 @@ void ModelTypeController::RecordMemoryUsageAndCountsHistograms() {
   if (delegate_) {
     delegate_->RecordMemoryUsageAndCountsHistograms();
   }
+}
+
+ModelTypeLocalDataBatchUploader*
+ModelTypeController::GetModelTypeLocalDataBatchUploader() {
+  return batch_uploader_.get();
 }
 
 void ModelTypeController::ReportBridgeErrorForTest() {

@@ -10,9 +10,9 @@
 namespace autofill::autofill_metrics {
 
 void LogCardUnmaskDurationAfterWebauthn(
-    const base::TimeDelta& duration,
-    AutofillClient::PaymentsRpcResult result,
-    AutofillClient::PaymentsRpcCardType card_type) {
+    base::TimeDelta duration,
+    payments::PaymentsAutofillClient::PaymentsRpcResult result,
+    payments::PaymentsAutofillClient::PaymentsRpcCardType card_type) {
   base::UmaHistogramLongTimes("Autofill.BetterAuth.CardUnmaskDuration.Fido",
                               duration);
   base::UmaHistogramLongTimes(
@@ -33,7 +33,7 @@ void LogCardUnmaskPreflightCalled(bool is_user_opted_in) {
       is_user_opted_in);
 }
 
-void LogCardUnmaskPreflightDuration(const base::TimeDelta& duration) {
+void LogCardUnmaskPreflightDuration(base::TimeDelta duration) {
   base::UmaHistogramLongTimes("Autofill.BetterAuth.CardUnmaskPreflightDuration",
                               duration);
 }
@@ -77,7 +77,7 @@ void LogUserPerceivedLatencyOnCardSelectionTimedOut(bool did_time_out) {
       did_time_out);
 }
 
-void LogUserVerifiabilityCheckDuration(const base::TimeDelta& duration) {
+void LogUserVerifiabilityCheckDuration(base::TimeDelta duration) {
   base::UmaHistogramLongTimes(
       "Autofill.BetterAuth.UserVerifiabilityCheckDuration", duration);
 }

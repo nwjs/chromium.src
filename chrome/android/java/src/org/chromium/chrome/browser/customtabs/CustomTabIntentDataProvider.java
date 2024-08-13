@@ -80,17 +80,18 @@ import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams;
 import org.chromium.chrome.browser.customtabs.CustomTabsFeatureUsage.CustomTabsFeature;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
 import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarCoordinator;
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams;
 import org.chromium.components.browser_ui.widget.TintedDrawable;
+import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.device.mojom.ScreenOrientationLockType;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -98,7 +99,7 @@ import java.util.Set;
 /**
  * A model class that parses the incoming intent for Custom Tabs specific customization data.
  *
- * Lifecycle: is activity-scoped, i.e. one instance per CustomTabActivity instance. Must be
+ * <p>Lifecycle: is activity-scoped, i.e. one instance per CustomTabActivity instance. Must be
  * re-created when color scheme changes, which happens automatically since color scheme change leads
  * to activity re-creation.
  */
@@ -295,14 +296,10 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                     ALLOWLIST_ENTRIES_PARAM_NAME,
                     "");
 
-    // TODO(b/306597895): Remove the String when Page Insights Hub (Chrome Side Implementation)
-    // experiment is completed
-    public static final String EXTRA_PAGE_INSIGHTS_OVERFLOW_ITEM_TITLE =
-            "org.chromium.chrome.browser.customtabs.extra.PAGE_INSIGHTS_OVERFLOW_ITEM_TITLE";
-
     /**
      * Extra that specifies the {@link PendingIntent} to be sent when the user swipes up from the
      * secondary (bottom) toolbar.
+     *
      * <p>Use {@link CustomTabsIntent.Builder#setSecondaryToolbarSwipeUpGesture(PendingIntent)} or
      * {@link CustomTabsIntent#EXTRA_SECONDARY_TOOLBAR_SWIPE_UP_GESTURE} as this is deprecated.
      */
@@ -338,6 +335,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     private final boolean mDisableDownload;
     private final @ActivityType int mActivityType;
     @Nullable private final List<String> mTrustedWebActivityAdditionalOrigins;
+    @Nullable private Set<Origin> mAllTrustedWebActivityOrigins;
     @Nullable private final TrustedWebActivityDisplayMode mTrustedWebActivityDisplayMode;
     @Nullable private String mUrlToLoad;
 
@@ -601,6 +599,10 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         mTrustedWebActivityAdditionalOrigins =
                 IntentUtils.safeGetStringArrayListExtra(
                         intent, TrustedWebActivityIntentBuilder.EXTRA_ADDITIONAL_TRUSTED_ORIGINS);
+
+        // Do not fill in `mAllTrustedWebActivityOrigins` yet, because we cannot `getUrlToLoad()`
+        // until native is loaded.
+
         mTrustedWebActivityDisplayMode = resolveTwaDisplayMode();
         mTitleVisibilityState =
                 IntentUtils.safeGetIntExtra(
@@ -720,35 +722,24 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
 
     private void updateExtraMenuItems(List<Bundle> menuItems) {
         if (menuItems == null) return;
-        boolean isPageInsightsHubEnabled = isPageInsightsHubEnabled();
-        String pihOverflowMenuItemTitle =
-                IntentUtils.safeGetStringExtra(mIntent, EXTRA_PAGE_INSIGHTS_OVERFLOW_ITEM_TITLE);
         for (int i = 0; i < Math.min(MAX_CUSTOM_MENU_ITEMS, menuItems.size()); i++) {
             Bundle bundle = menuItems.get(i);
             String title = IntentUtils.safeGetString(bundle, CustomTabsIntent.KEY_MENU_ITEM_TITLE);
             PendingIntent pendingIntent =
                     IntentUtils.safeGetParcelable(bundle, CustomTabsIntent.KEY_PENDING_INTENT);
-            if (TextUtils.isEmpty(title)
-                    || pendingIntent == null
-                    // Discard Page Insights overflow menu item provided by embedder if the Chrome
-                    // implementation is enabled
-                    || (isPageInsightsHubEnabled && title.equals(pihOverflowMenuItemTitle))) {
+            if (TextUtils.isEmpty(title) || pendingIntent == null) {
                 continue;
             }
             mMenuEntries.add(new Pair<String, PendingIntent>(title, pendingIntent));
         }
     }
 
-    private boolean isPageInsightsHubEnabled() {
-        return (PageInsightsCoordinator.isFeatureEnabled()
-                && CustomTabsConnection.getInstance().shouldEnablePageInsightsForIntent(this));
-    }
-
     /**
      * Triggers the client-defined action when the user clicks a custom menu item.
+     *
      * @param activity The {@link Activity} to use for sending the {@link PendingIntent}.
-     * @param menuIndex The index that the menu item is shown in the result of
-     *                  {@link #getMenuTitles()}.
+     * @param menuIndex The index that the menu item is shown in the result of {@link
+     *     #getMenuTitles()}.
      * @param url The URL to attach as additional data to the {@link PendingIntent}.
      * @param title The title to attach as additional data to the {@link PendingIntent}.
      */
@@ -1388,21 +1379,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         return !mDisableDownload;
     }
 
-    @Override
-    public boolean isIncognito() {
-        return false;
-    }
-
-    @Override
-    public boolean isOffTheRecord() {
-        return false;
-    }
-
-    @Override
-    public boolean isIncognitoBranded() {
-        return false;
-    }
-
     @Nullable
     @Override
     public TrustedWebActivityDisplayMode getTwaDisplayMode() {
@@ -1413,6 +1389,29 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     @Nullable
     public List<String> getTrustedWebActivityAdditionalOrigins() {
         return mTrustedWebActivityAdditionalOrigins;
+    }
+
+    @Override
+    @Nullable
+    public Set<Origin> getAllTrustedWebActivityOrigins() {
+        // Lazily compute this, since `getUrlToLoad()` requires native to be loaded.
+        if (mAllTrustedWebActivityOrigins != null) {
+            return mAllTrustedWebActivityOrigins;
+        }
+
+        mAllTrustedWebActivityOrigins = new HashSet<Origin>();
+        Origin initialOrigin = Origin.create(getUrlToLoad());
+        if (initialOrigin != null) mAllTrustedWebActivityOrigins.add(initialOrigin);
+        if (mTrustedWebActivityAdditionalOrigins != null) {
+            for (String originAsString : mTrustedWebActivityAdditionalOrigins) {
+                Origin origin = Origin.create(originAsString);
+                if (origin == null) continue;
+
+                mAllTrustedWebActivityOrigins.add(origin);
+            }
+        }
+
+        return mAllTrustedWebActivityOrigins;
     }
 
     @Override

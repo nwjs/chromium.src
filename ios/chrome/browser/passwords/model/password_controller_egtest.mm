@@ -19,13 +19,13 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/sync_prefs.h"
+#import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/passwords/model/password_manager_app_interface.h"
+#import "ios/chrome/browser/passwords/ui_bundled/bottom_sheet/password_suggestion_bottom_sheet_app_interface.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
-#import "ios/chrome/browser/ui/autofill/autofill_app_interface.h"
 #import "ios/chrome/browser/ui/infobars/banners/infobar_banner_constants.h"
-#import "ios/chrome/browser/ui/passwords/bottom_sheet/password_suggestion_bottom_sheet_app_interface.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
@@ -190,10 +190,7 @@ void LoginOnUff() {
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-  if ([self isRunningTest:@selector(testUpdatePromptAppearsOnFormSubmission)]) {
-    config.features_enabled.push_back(
-        password_manager::features::kIOSPasswordBottomSheet);
-  } else if ([self isRunningTest:@selector(testStickySavePromptJourney)]) {
+  if ([self isRunningTest:@selector(testStickySavePromptJourney)]) {
     config.features_enabled.push_back(kAutofillStickyInfobarIos);
   } else if ([self isRunningTest:@selector
                    (testSaveCredentialWithAutofilledEmailInUFF)] ||
@@ -202,8 +199,6 @@ void LoginOnUff() {
                    (DISABLED_testUpdateTypedCredentialInUff)]) {
     config.features_enabled.push_back(
         password_manager::features::kIosDetectUsernameInUff);
-    config.features_enabled.push_back(
-        password_manager::features::kIOSPasswordBottomSheet);
   }
   return config;
 }

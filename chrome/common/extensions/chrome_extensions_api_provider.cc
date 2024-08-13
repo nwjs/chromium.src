@@ -55,7 +55,7 @@ bool ChromeExtensionsAPIProvider::IsAPISchemaGenerated(
 
 std::string_view ChromeExtensionsAPIProvider::GetAPISchema(
     const std::string& name) {
-  base::StringPiece chrome_schema = api::ChromeGeneratedSchemas::Get(name);
+  std::string_view chrome_schema = api::ChromeGeneratedSchemas::Get(name);
   if (!chrome_schema.empty())
     return chrome_schema;
   return nwapi::nwjsGeneratedSchemas::Get(name);

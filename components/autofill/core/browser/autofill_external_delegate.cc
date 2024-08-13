@@ -187,7 +187,7 @@ bool AutofillExternalDelegate::IsAutofillAndFirstLayerSuggestionId(
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kManageIban:
     case SuggestionType::kManagePlusAddress:
-    case SuggestionType::kClearForm:
+    case SuggestionType::kUndoOrClear:
     case SuggestionType::kComposeResumeNudge:
     case SuggestionType::kComposeDisable:
     case SuggestionType::kComposeGoToSettings:
@@ -258,7 +258,7 @@ void AutofillExternalDelegate::OnSuggestionsReturned(
   // Hide warnings as appropriate.
   PossiblyRemoveAutofillWarnings(&suggestions);
 
-  // TODO(b/320126773): consider moving these metrics to a better place.
+  // TODO(crbug.com/320126773): consider moving these metrics to a better place.
   if (base::ranges::any_of(suggestions, [](const Suggestion& suggestion) {
         return suggestion.type == SuggestionType::kShowAccountCards;
       })) {
@@ -344,11 +344,17 @@ AutofillExternalDelegate::GetLastAcceptedSuggestionToFillForSection(
 }
 
 bool AutofillExternalDelegate::HasActiveScreenReader() const {
+#if BUILDFLAG(IS_IOS)
+  // ui::AXPlatform is not supported on iOS. The rendering engine handles
+  // a11y internally.
+  return false;
+#else
   // Note: This always returns false if ChromeVox is in use because the
   // process-wide AXMode is not updated in that case; except for Lacros, where
   // kScreenReader mirrors the spoken feedback preference.
   return ui::AXPlatform::GetInstance().GetMode().has_mode(
       ui::AXMode::kScreenReader);
+#endif
 }
 
 void AutofillExternalDelegate::OnAutofillAvailabilityEvent(
@@ -402,7 +408,8 @@ void AutofillExternalDelegate::OnSuggestionsShown() {
   } else {
     // We send autocomplete availability event even though there might be no
     // autocomplete suggestions shown.
-    // TODO(b/315748930): Provide AX event only for autocomplete entries.
+    // TODO(crbug.com/315748930): Provide AX event only for autocomplete
+    // entries.
     OnAutofillAvailabilityEvent(
         mojom::AutofillSuggestionAvailability::kAutocompleteAvailable);
     if (base::Contains(shown_suggestion_types_,
@@ -433,7 +440,7 @@ void AutofillExternalDelegate::DidSelectSuggestion(
       suggestion.GetPayload<Suggestion::BackendId>();
 
   switch (suggestion.type) {
-    case SuggestionType::kClearForm:
+    case SuggestionType::kUndoOrClear:
 #if !BUILDFLAG(IS_IOS)
       manager_->UndoAutofill(mojom::ActionPersistence::kPreview, query_form_,
                              query_field_);
@@ -601,7 +608,7 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
       manager_->client().ShowAutofillSettings(suggestion.type);
       break;
     }
-    case SuggestionType::kClearForm:
+    case SuggestionType::kUndoOrClear:
 #if !BUILDFLAG(IS_IOS)
       manager_->UndoAutofill(mojom::ActionPersistence::kFill, query_form_,
                              query_field_);
@@ -785,7 +792,7 @@ bool AutofillExternalDelegate::RemoveSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
     case SuggestionType::kTitle:
     case SuggestionType::kSeparator:
-    case SuggestionType::kClearForm:
+    case SuggestionType::kUndoOrClear:
     case SuggestionType::kMixedFormMessage:
     case SuggestionType::kDevtoolsTestAddresses:
     case SuggestionType::kDevtoolsTestAddressEntry:
@@ -1168,7 +1175,7 @@ void AutofillExternalDelegate::InsertDataListValues(
   for (size_t i = 0; i < datalist_.size(); i++) {
     (*suggestions)[i].main_text =
         Suggestion::Text(datalist_[i].value, Suggestion::Text::IsPrimary(true));
-    (*suggestions)[i].labels = {{Suggestion::Text(datalist_[i].content)}};
+    (*suggestions)[i].labels = {{Suggestion::Text(datalist_[i].text)}};
     (*suggestions)[i].type = SuggestionType::kDatalistEntry;
   }
 }
@@ -1178,7 +1185,9 @@ bool AutofillExternalDelegate::IsPaymentsManualFallbackOnNonPaymentsField()
   if (trigger_source_ ==
       AutofillSuggestionTriggerSource::kManualFallbackPayments) {
     const AutofillField* field = GetQueriedAutofillField();
-    return !field || field->Type().group() != FieldTypeGroup::kCreditCard;
+    return !field || !FieldTypeGroupSet({FieldTypeGroup::kCreditCard,
+                                         FieldTypeGroup::kStandaloneCvcField})
+                          .contains(field->Type().group());
   }
   return false;
 }
@@ -1366,8 +1375,9 @@ void AutofillExternalDelegate::DidAcceptPaymentsSuggestion(
       break;
     case SuggestionType::kSeePromoCodeDetails:
       // Open a new tab and navigate to the offer details page.
-      manager_->client().OpenPromoCodeOfferDetailsURL(
-          suggestion.GetPayload<GURL>());
+      manager_->client()
+          .GetPaymentsAutofillClient()
+          ->OpenPromoCodeOfferDetailsURL(suggestion.GetPayload<GURL>());
       manager_->OnSingleFieldSuggestionSelected(suggestion.main_text.value,
                                                 suggestion.type, query_form_,
                                                 query_field_);
@@ -1379,9 +1389,10 @@ void AutofillExternalDelegate::DidAcceptPaymentsSuggestion(
       manager_->OnUserAcceptedCardsFromAccountOption();
       break;
     case SuggestionType::kScanCreditCard:
-      manager_->client().ScanCreditCard(base::BindOnce(
-          &AutofillExternalDelegate::OnCreditCardScanned, GetWeakPtr(),
-          AutofillTriggerSource::kKeyboardAccessory));
+      manager_->client().GetPaymentsAutofillClient()->ScanCreditCard(
+          base::BindOnce(&AutofillExternalDelegate::OnCreditCardScanned,
+                         GetWeakPtr(),
+                         AutofillTriggerSource::kKeyboardAccessory));
       break;
     default:
       NOTREACHED_NORETURN();  // Should be handled elsewhere

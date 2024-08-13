@@ -52,6 +52,10 @@ BASE_DECLARE_FEATURE(kCreateNotificationsAcceptedClientSafeBrowsingReports);
 // Creates and sends CSBRRs when warnings are first shown to users.
 BASE_DECLARE_FEATURE(kCreateWarningShownClientSafeBrowsingReports);
 
+// Enables the interstitial warning prompt on dangerous downloads. This replaces
+// the current prompt which is a dialog/modal.
+BASE_DECLARE_FEATURE(kDangerousDownloadInterstitial);
+
 // Controls whether we prompt the user on unencrypted deep scans.
 BASE_DECLARE_FEATURE(kDeepScanningPromptRemoval);
 
@@ -116,6 +120,14 @@ BASE_DECLARE_FEATURE(kExtensionTelemetryDeclarativeNetRequestActionSignal);
 // specified in the --load-extension commandline switch in telemetry reports.
 BASE_DECLARE_FEATURE(kExtensionTelemetryFileDataForCommandLineExtensions);
 
+// Enables the telemetry service to collect signals and generate reports to send
+// for enterprise.
+BASE_DECLARE_FEATURE(kExtensionTelemetryForEnterprise);
+
+// Specifies the reporting interval for enterprise telemetry reports.
+extern const base::FeatureParam<int>
+    kExtensionTelemetryEnterpriseReportingIntervalSeconds;
+
 // Enables collection of telemetry signal whenever an extension invokes the
 // chrome.tabs API methods.
 BASE_DECLARE_FEATURE(kExtensionTelemetryTabsApiSignal);
@@ -159,6 +171,9 @@ BASE_DECLARE_FEATURE(kFriendlierSafeBrowsingSettingsStandardProtection);
 // Prompt users to re-enable Android app verification on APK download.
 BASE_DECLARE_FEATURE(kGooglePlayProtectPrompt);
 
+// Whether to provide Google Play Protect status in APK telemetry pings
+BASE_DECLARE_FEATURE(kGooglePlayProtectInApkTelemetry);
+
 // Sends hash-prefix real-time lookup requests on navigations for Standard Safe
 // Browsing users instead of hash-prefix database lookups.
 BASE_DECLARE_FEATURE(kHashPrefixRealTimeLookups);
@@ -169,9 +184,6 @@ extern const base::FeatureParam<std::string> kHashPrefixRealTimeLookupsRelayUrl;
 
 // Enable faster OHTTP key rotation for hash-prefix real-time lookups.
 BASE_DECLARE_FEATURE(kHashPrefixRealTimeLookupsFasterOhttpKeyRotation);
-
-// UX improvements to download warnings on chrome://downloads page.
-BASE_DECLARE_FEATURE(kImprovedDownloadPageWarnings);
 
 // Show referrer URL on download item on chrome://downloads page. This will
 // replace the downloads url.
@@ -232,10 +244,6 @@ BASE_DECLARE_FEATURE(kSafeBrowsingReferrerChainWithCopyPasteNavigation);
 // Controls whether cookies are removed when the access token is present.
 BASE_DECLARE_FEATURE(kSafeBrowsingRemoveCookiesInAuthRequests);
 
-// Controls whether to skip Safe Browsing checks for WebSockets and Web API
-// handshakes.
-BASE_DECLARE_FEATURE(kSafeBrowsingSkipSubresources2);
-
 // Automatically revoke abusive notifications in Safety Hub.
 BASE_DECLARE_FEATURE(kSafetyHubAbusiveNotificationRevocation);
 
@@ -254,9 +262,6 @@ BASE_DECLARE_FEATURE(kStrictDownloadTimeout);
 
 // Specifies the duration of the timeout, in milliseconds.
 extern const base::FeatureParam<int> kStrictDownloadTimeoutMilliseconds;
-
-// Enables suspicious site detection for real time URL lookups.
-BASE_DECLARE_FEATURE(kSuspiciousSiteDetectionRTLookups);
 
 // Controls the daily quota for the suspicious site trigger.
 BASE_DECLARE_FEATURE(kSuspiciousSiteTriggerQuotaFeature);
@@ -302,8 +307,6 @@ BASE_DECLARE_FEATURE(kSafeBrowsingDailyPhishingReportsLimit);
 // Specifies the CSD-Phishing daily reports limit for ESB users
 extern const base::FeatureParam<int> kSafeBrowsingDailyPhishingReportsLimitESB;
 
-BASE_DECLARE_FEATURE(kClientSideDetectionModelImageEmbedder);
-
 // Enables HaTS surveys for users encountering red warnings.
 BASE_DECLARE_FEATURE(kRedWarningSurvey);
 
@@ -323,6 +326,9 @@ BASE_DECLARE_FEATURE(kClientSideDetectionDebuggingMetadataCache);
 
 // Enables Enhanced Safe Browsing promos for iOS.
 BASE_DECLARE_FEATURE(kEnhancedSafeBrowsingPromo);
+
+// Enables saving gaia password hash from the Profile Picker sign-in flow.
+BASE_DECLARE_FEATURE(kSavePasswordHashFromProfilePicker);
 
 }  // namespace safe_browsing
 #endif  // COMPONENTS_SAFE_BROWSING_CORE_COMMON_FEATURES_H_

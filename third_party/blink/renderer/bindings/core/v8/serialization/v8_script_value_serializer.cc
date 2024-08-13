@@ -300,11 +300,10 @@ scoped_refptr<SerializedScriptValue> V8ScriptValueSerializer::Serialize(
   if (!trailer.empty()) {
     buffer.as_span()
         .subspan<kTrailerOffsetPosition, sizeof(uint64_t)>()
-        .copy_from(
-            base::numerics::U64ToBigEndian(buffer.size() - trailer.size()));
+        .copy_from(base::U64ToBigEndian(buffer.size() - trailer.size()));
     buffer.as_span()
         .subspan<kTrailerOffsetPosition + sizeof(uint64_t), sizeof(uint32_t)>()
-        .copy_from(base::numerics::U32ToBigEndian(trailer.size()));
+        .copy_from(base::U32ToBigEndian(trailer.size()));
   }
   serialized_script_value_->SetData(std::move(buffer));
   return std::move(serialized_script_value_);
@@ -401,9 +400,7 @@ void V8ScriptValueSerializer::WriteUnguessableToken(
   WriteUint64(token.GetLowForSerialization());
 }
 
-void V8ScriptValueSerializer::WriteUTF8String(const String& string) {
-  // TODO(jbroman): Ideally this method would take a WTF::StringView, but the
-  // StringUTF8Adaptor trick doesn't yet work with StringView.
+void V8ScriptValueSerializer::WriteUTF8String(const StringView& string) {
   StringUTF8Adaptor utf8(string);
   WriteUint32(utf8.size());
   WriteRawBytes(utf8.data(), utf8.size());
@@ -820,8 +817,8 @@ bool V8ScriptValueSerializer::WriteDOMObject(ScriptWrappable* wrappable,
     WriteAndRequireInterfaceTag(kFencedFrameConfigTag);
 
     WriteUTF8String(
-        config
-            ->GetValueIgnoringVisibility<FencedFrameConfig::Attribute::kURL>());
+        config->GetValueIgnoringVisibility<FencedFrameConfig::Attribute::kURL>()
+            .GetString());
     WriteUint32(config->GetValueIgnoringVisibility<
                 FencedFrameConfig::Attribute::kWidth>());
     WriteUint32(config->GetValueIgnoringVisibility<

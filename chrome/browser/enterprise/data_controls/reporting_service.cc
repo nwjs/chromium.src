@@ -7,8 +7,8 @@
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "components/enterprise/data_controls/prefs.h"
-#include "components/enterprise/data_controls/verdict.h"
+#include "components/enterprise/data_controls/core/prefs.h"
+#include "components/enterprise/data_controls/core/verdict.h"
 #include "components/policy/core/common/policy_types.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_context.h"
@@ -87,7 +87,9 @@ std::string ReportingService::GetClipboardSourceString(
     return "CLIPBOARD";
   }
 
-  if (source.browser_context() && source.browser_context()->IsOffTheRecord()) {
+  if (source.browser_context() &&
+      Profile::FromBrowserContext(source.browser_context())
+          ->IsIncognitoProfile()) {
     return "INCOGNITO";
   }
 
@@ -210,10 +212,9 @@ void ReportingService::ReportCopyOrPaste(
 // ReportingServiceFactory implementation
 // --------------------------------------
 
-// static
-ReportingService* ReportingServiceFactory::GetForBrowserContext(
+ReportingServiceBase* ReportingServiceFactory::GetForBrowserContext(
     content::BrowserContext* context) {
-  return static_cast<ReportingService*>(
+  return static_cast<ReportingServiceBase*>(
       GetInstance()->GetServiceForBrowserContext(context, /*create=*/true));
 }
 

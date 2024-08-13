@@ -16,15 +16,12 @@
 #include "ash/public/cpp/picker/picker_client.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ash/app_list/app_list_controller_delegate.h"
+#include "chrome/browser/ash/app_list/search/ranking/ranker_manager.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
-#include "chrome/browser/ui/webui/ash/emoji/emoji_picker.mojom-forward.h"
-#include "chrome/browser/ui/webui/ash/emoji/emoji_picker.mojom-shared.h"
-#include "chrome/browser/ui/webui/ash/emoji/gif_tenor_api_fetcher.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
-class EndpointFetcher;
 class PrefService;
 class Profile;
 class ChromeSearchResult;
@@ -34,6 +31,7 @@ class PickerThumbnailLoader;
 namespace app_list {
 class SearchEngine;
 class SearchProvider;
+struct CategoryMetadata;
 }
 
 namespace ash {
@@ -63,11 +61,6 @@ class PickerClientImpl
   ~PickerClientImpl() override;
 
   // ash::PickerClient:
-  scoped_refptr<network::SharedURLLoaderFactory> GetSharedURLLoaderFactory()
-      override;
-  void FetchGifSearch(const std::string& query,
-                      FetchGifsCallback callback) override;
-  void StopGifSearch() override;
   void StartCrosSearch(const std::u16string& query,
                        std::optional<ash::PickerCategory> category,
                        CrosSearchResultsCallback callback) override;
@@ -88,6 +81,11 @@ class PickerClientImpl
 
   // user_manager::UserManager::UserSessionStateObserver:
   void ActiveUserChanged(user_manager::User* active_user) override;
+
+  void set_ranker_manager_for_test(
+      std::unique_ptr<app_list::RankerManager> ranker_manager) {
+    ranker_manager_ = std::move(ranker_manager);
+  }
 
  private:
   // Implements `AppListControllerDelegate` with empty methods. Used only for
@@ -114,10 +112,6 @@ class PickerClientImpl
                  WindowOpenDisposition disposition) override;
   };
 
-  void OnGifSearchResponse(PickerClientImpl::FetchGifsCallback callback,
-                           std::string gif_search_query,
-                           emoji_picker::mojom::Status status,
-                           emoji_picker::mojom::TenorGifResponsePtr response);
   void OnCrosSearchResultsUpdated(
       CrosSearchResultsCallback callback,
       ash::AppListSearchResultType result_type,
@@ -147,15 +141,14 @@ class PickerClientImpl
   std::unique_ptr<app_list::SearchEngine> filtered_search_engine_;
   std::optional<ash::PickerCategory> current_filter_category_;
 
+  std::unique_ptr<app_list::RankerManager> ranker_manager_;
+  std::vector<app_list::CategoryMetadata> ranker_categories_;
+
   std::unique_ptr<PickerFileSuggester> file_suggester_;
 
   // A dedicated cros search engine for zero state results for links.
   // TODO: b/330938446 - Replace with proper zero-state logic.
   std::unique_ptr<app_list::SearchEngine> zero_state_links_search_engine_;
-
-  ash::GifTenorApiFetcher gif_tenor_api_fetcher_;
-  std::optional<std::string> current_gif_search_query_;
-  std::unique_ptr<EndpointFetcher> current_gif_fetcher_;
 
   std::unique_ptr<PickerThumbnailLoader> thumbnail_loader_;
 

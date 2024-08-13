@@ -488,14 +488,6 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
     }
 
     @Override
-    public List<WebContentsImpl> getInnerWebContents() {
-        checkNotDestroyed();
-        WebContentsImpl[] innerWebContents =
-                WebContentsImplJni.get().getInnerWebContents(mNativeWebContentsAndroid);
-        return Collections.unmodifiableList(Arrays.asList(innerWebContents));
-    }
-
-    @Override
     public @Visibility int getVisibility() {
         checkNotDestroyed();
         return WebContentsImplJni.get().getVisibility(mNativeWebContentsAndroid);
@@ -1241,6 +1233,12 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
     }
 
     @Override
+    public void setLongPressLinkSelectText(boolean enabled) {
+        checkNotDestroyed();
+        WebContentsImplJni.get().setLongPressLinkSelectText(mNativeWebContentsAndroid, enabled);
+    }
+
+    @Override
     public void notifyControlsConstraintsChanged(
             BrowserControlsOffsetTagsInfo oldOffsetTagsInfo,
             BrowserControlsOffsetTagsInfo offsetTagsInfo) {
@@ -1283,8 +1281,6 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
         RenderFrameHost[] getAllRenderFrameHosts(long nativeWebContentsAndroid);
 
         RenderWidgetHostViewImpl getRenderWidgetHostView(long nativeWebContentsAndroid);
-
-        WebContentsImpl[] getInnerWebContents(long nativeWebContentsAndroid);
 
         @Visibility
         int getVisibility(long nativeWebContentsAndroid);
@@ -1459,6 +1455,8 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
 
         @AnimationStage
         int getCurrentBackForwardTransitionStage(long nativeWebContentsAndroid);
+
+        void setLongPressLinkSelectText(long nativeWebContentsAndroid, boolean enabled);
 
         void notifyControlsConstraintsChanged(
                 long nativeWebContentsAndroid,

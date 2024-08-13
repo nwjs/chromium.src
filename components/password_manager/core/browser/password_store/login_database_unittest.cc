@@ -20,19 +20,23 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/os_crypt/async/browser/test_utils.h"
 #include "components/os_crypt/sync/os_crypt.h"
 #include "components/os_crypt/sync/os_crypt_mocker.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_switches.h"
+#include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/password_store_change.h"
 #include "components/password_manager/core/browser/password_store/psl_matching_helper.h"
 #include "components/password_manager/core/browser/sync/password_store_sync.h"
@@ -142,7 +146,7 @@ PasswordForm GenerateFederatedCredentialForm() {
   form.url = GURL("http://accounts.federated.com/LoginAuth");
   form.action = GURL("http://accounts.federated.com/Login");
   form.federation_origin =
-      url::Origin::Create(GURL("https://accounts.federated.com/"));
+      url::SchemeHostPort(GURL("https://accounts.federated.com/"));
   return form;
 }
 
@@ -234,7 +238,7 @@ bool AddZeroClickableLogin(LoginDatabase* db,
   form.signon_realm = form.url.spec();
   form.display_name = ASCIIToUTF16(unique_string);
   form.icon_url = origin;
-  form.federation_origin = url::Origin::Create(origin);
+  form.federation_origin = url::SchemeHostPort(origin);
   form.date_created = base::Time::Now();
 
   form.skip_zero_click = false;
@@ -260,11 +264,13 @@ MATCHER(IsBasicAuthAccount, "") {
   return arg.scheme == PasswordForm::Scheme::kBasic;
 }
 
-// Matcher that matches all a password form that has the primary_key field set,
-// and that other fields are the same as in |expected_form|.
-auto HasPrimaryKeyAndEquals(PasswordForm expected_form) {
-  return AllOf(Field(&PasswordForm::primary_key, testing::Optional(_)),
-               Eq(expected_form));
+os_crypt_async::Encryptor GetInstanceSync(
+    os_crypt_async::OSCryptAsync* factory) {
+  base::test::TestFuture<os_crypt_async::Encryptor, bool> future;
+
+  auto sub = factory->GetInstance(future.GetCallback(),
+                                  os_crypt_async::Encryptor::Option::kNone);
+  return std::move(std::get<0>(future.Take()));
 }
 
 }  // namespace
@@ -277,7 +283,7 @@ AlternativeElementVector DeserializeAlternativeElementVector(
 base::Pickle SerializeGaiaIdHashVector(const std::vector<GaiaIdHash>& hashes);
 std::vector<GaiaIdHash> DeserializeGaiaIdHashVector(const base::Pickle& p);
 
-class LoginDatabaseTest : public testing::Test {
+class LoginDatabaseTestBase : public testing::Test {
  protected:
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
@@ -286,7 +292,7 @@ class LoginDatabaseTest : public testing::Test {
 
     db_ = std::make_unique<LoginDatabase>(file_, IsAccountStore(false));
     db_->SetIsEmptyCb(is_empty_cb_.Get());
-    ASSERT_TRUE(db_->Init());
+    ASSERT_TRUE(db_->Init(nullptr));
   }
 
   void TearDown() override { OSCryptMocker::TearDown(); }
@@ -304,7 +310,39 @@ class LoginDatabaseTest : public testing::Test {
   base::test::TaskEnvironment task_environment_;
 };
 
-TEST_F(LoginDatabaseTest, GetAllLogins) {
+// `GetParam()` controls whether `os_crypt_async::Encryptor` is used.
+class LoginDatabaseTest : public LoginDatabaseTestBase,
+                          public testing::WithParamInterface<bool> {
+ public:
+  void SetUp() override {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    file_ = temp_dir_.GetPath().AppendASCII("TestMetadataStoreMacDatabase");
+    OSCryptMocker::SetUp();
+
+    db_ = std::make_unique<LoginDatabase>(file_, IsAccountStore(false));
+    db_->SetIsEmptyCb(is_empty_cb_.Get());
+    ASSERT_TRUE(db_->Init(encryptor()));
+  }
+
+  std::unique_ptr<os_crypt_async::Encryptor> encryptor() {
+    if (GetParam()) {
+      return std::make_unique<os_crypt_async::Encryptor>(
+          GetInstanceSync(test_oscrypt_async_.get()));
+    }
+    return nullptr;
+  }
+
+ private:
+  std::unique_ptr<os_crypt_async::OSCryptAsync> test_oscrypt_async_ =
+      os_crypt_async::GetTestOSCryptAsyncForTesting(
+          /*is_sync_for_unittests = */ true);
+};
+
+INSTANTIATE_TEST_SUITE_P(, LoginDatabaseTest, testing::Bool(), [](auto& info) {
+  return info.param ? "OSCryptAsync" : "OsCryptSync";
+});
+
+TEST_P(LoginDatabaseTest, GetAllLogins) {
   // Example password form.
   PasswordForm form = GenerateExamplePasswordForm();
   ASSERT_EQ(AddChangeForForm(form), db().AddLogin(form));
@@ -321,7 +359,7 @@ TEST_F(LoginDatabaseTest, GetAllLogins) {
                                           HasPrimaryKeyAndEquals(blocklisted)));
 }
 
-TEST_F(LoginDatabaseTest, GetLogins_Self) {
+TEST_P(LoginDatabaseTest, GetLogins_Self) {
   PasswordForm form = GenerateExamplePasswordForm();
   ASSERT_EQ(AddChangeForForm(form), db().AddLogin(form));
 
@@ -332,7 +370,7 @@ TEST_F(LoginDatabaseTest, GetLogins_Self) {
   EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form)));
 }
 
-TEST_F(LoginDatabaseTest, GetLogins_InexactCopy) {
+TEST_P(LoginDatabaseTest, GetLogins_InexactCopy) {
   PasswordForm form = GenerateExamplePasswordForm();
   ASSERT_EQ(AddChangeForForm(form), db().AddLogin(form));
 
@@ -347,7 +385,7 @@ TEST_F(LoginDatabaseTest, GetLogins_InexactCopy) {
   EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form)));
 }
 
-TEST_F(LoginDatabaseTest, GetLogins_ProtocolMismatch_HTTP) {
+TEST_P(LoginDatabaseTest, GetLogins_ProtocolMismatch_HTTP) {
   PasswordForm form = GenerateExamplePasswordForm();
   ASSERT_TRUE(base::StartsWith(form.signon_realm, "http://"));
   ASSERT_EQ(AddChangeForForm(form), db().AddLogin(form));
@@ -363,7 +401,7 @@ TEST_F(LoginDatabaseTest, GetLogins_ProtocolMismatch_HTTP) {
   EXPECT_THAT(result, IsEmpty());
 }
 
-TEST_F(LoginDatabaseTest, GetLogins_ProtocolMismatch_HTTPS) {
+TEST_P(LoginDatabaseTest, GetLogins_ProtocolMismatch_HTTPS) {
   PasswordForm form = GenerateExamplePasswordForm();
   form.url = GURL("https://accounts.google.com/LoginAuth");
   form.signon_realm = "https://accounts.google.com/";
@@ -380,7 +418,7 @@ TEST_F(LoginDatabaseTest, GetLogins_ProtocolMismatch_HTTPS) {
   EXPECT_THAT(result, IsEmpty());
 }
 
-TEST_F(LoginDatabaseTest, AddLoginReturnsPrimaryKey) {
+TEST_P(LoginDatabaseTest, AddLoginReturnsPrimaryKey) {
   std::vector<PasswordForm> result;
 
   // Verify the database is empty.
@@ -398,7 +436,7 @@ TEST_F(LoginDatabaseTest, AddLoginReturnsPrimaryKey) {
   EXPECT_EQ(1, change_list[0].form().primary_key.value().value());
 }
 
-TEST_F(LoginDatabaseTest, RemoveLoginsByPrimaryKey) {
+TEST_P(LoginDatabaseTest, RemoveLoginsByPrimaryKey) {
   std::vector<PasswordForm> result;
 
   // Verify the database is empty.
@@ -426,7 +464,7 @@ TEST_F(LoginDatabaseTest, RemoveLoginsByPrimaryKey) {
   EXPECT_THAT(result, IsEmpty());
 }
 
-TEST_F(LoginDatabaseTest, ShouldNotRecyclePrimaryKeys) {
+TEST_P(LoginDatabaseTest, ShouldNotRecyclePrimaryKeys) {
   // Example password form.
   PasswordForm form = GenerateExamplePasswordForm();
 
@@ -444,7 +482,7 @@ TEST_F(LoginDatabaseTest, ShouldNotRecyclePrimaryKeys) {
   EXPECT_NE(primary_key1, change_list[0].form().primary_key.value());
 }
 
-TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatching) {
+TEST_P(LoginDatabaseTest, TestPublicSuffixDomainMatching) {
   // Example password form.
   PasswordForm form;
   form.url = GURL("https://foo.com/");
@@ -478,7 +516,7 @@ TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatching) {
   EXPECT_THAT(result, IsEmpty());
 }
 
-TEST_F(LoginDatabaseTest, TestFederatedMatching) {
+TEST_P(LoginDatabaseTest, TestFederatedMatching) {
   std::vector<PasswordForm> result;
 
   // Example password form.
@@ -499,7 +537,7 @@ TEST_F(LoginDatabaseTest, TestFederatedMatching) {
   form2.password_value = u"";
   form2.type = PasswordForm::Type::kApi;
   form2.federation_origin =
-      url::Origin::Create(GURL("https://accounts.google.com/"));
+      url::SchemeHostPort(GURL("https://accounts.google.com/"));
 
   // Add it and make sure it is there.
   EXPECT_EQ(AddChangeForForm(form), db().AddLogin(form));
@@ -527,12 +565,12 @@ TEST_F(LoginDatabaseTest, TestFederatedMatching) {
                                            HasPrimaryKeyAndEquals(form2)));
 }
 
-TEST_F(LoginDatabaseTest, TestFederatedMatchingLocalhost) {
+TEST_P(LoginDatabaseTest, TestFederatedMatchingLocalhost) {
   PasswordForm form;
   form.url = GURL("http://localhost/");
   form.signon_realm = "federation://localhost/accounts.google.com";
   form.federation_origin =
-      url::Origin::Create(GURL("https://accounts.google.com/"));
+      url::SchemeHostPort(GURL("https://accounts.google.com/"));
   form.username_value = u"test@gmail.com";
   form.type = PasswordForm::Type::kApi;
   form.scheme = PasswordForm::Scheme::kHtml;
@@ -565,7 +603,7 @@ TEST_F(LoginDatabaseTest, TestFederatedMatchingLocalhost) {
 }
 
 class LoginDatabaseSchemesTest
-    : public LoginDatabaseTest,
+    : public LoginDatabaseTestBase,
       public testing::WithParamInterface<PasswordForm::Scheme> {};
 
 TEST_P(LoginDatabaseSchemesTest, TestPublicSuffixDisabled) {
@@ -635,7 +673,7 @@ INSTANTIATE_TEST_SUITE_P(Schemes,
                                          PasswordForm::Scheme::kDigest,
                                          PasswordForm::Scheme::kOther));
 
-TEST_F(LoginDatabaseTest, TestPublicSuffixDomainGoogle) {
+TEST_P(LoginDatabaseTest, TestPublicSuffixDomainGoogle) {
   std::vector<PasswordForm> result;
 
   // Saved password form on Google sign-in page.
@@ -668,7 +706,7 @@ TEST_F(LoginDatabaseTest, TestPublicSuffixDomainGoogle) {
   EXPECT_THAT(result, IsEmpty());
 }
 
-TEST_F(LoginDatabaseTest, TestFederatedMatchingWithoutPSLMatching) {
+TEST_P(LoginDatabaseTest, TestFederatedMatchingWithoutPSLMatching) {
   std::vector<PasswordForm> result;
 
   // Example password form.
@@ -688,7 +726,7 @@ TEST_F(LoginDatabaseTest, TestFederatedMatchingWithoutPSLMatching) {
   form2.username_value = u"test1@gmail.com";
   form2.type = PasswordForm::Type::kApi;
   form2.federation_origin =
-      url::Origin::Create(GURL("https://accounts.google.com/"));
+      url::SchemeHostPort(GURL("https://accounts.google.com/"));
 
   EXPECT_EQ(AddChangeForForm(form), db().AddLogin(form));
   EXPECT_EQ(AddChangeForForm(form2), db().AddLogin(form2));
@@ -712,7 +750,7 @@ TEST_F(LoginDatabaseTest, TestFederatedMatchingWithoutPSLMatching) {
   EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form2)));
 }
 
-TEST_F(LoginDatabaseTest, TestFederatedPSLMatching) {
+TEST_P(LoginDatabaseTest, TestFederatedPSLMatching) {
   // Save a federated credential for the PSL matched site.
   PasswordForm form;
   form.url = GURL("https://psl.example.com/");
@@ -721,7 +759,7 @@ TEST_F(LoginDatabaseTest, TestFederatedPSLMatching) {
   form.username_value = u"test1@gmail.com";
   form.type = PasswordForm::Type::kApi;
   form.federation_origin =
-      url::Origin::Create(GURL("https://accounts.google.com/"));
+      url::SchemeHostPort(GURL("https://accounts.google.com/"));
   form.scheme = PasswordForm::Scheme::kHtml;
   EXPECT_EQ(AddChangeForForm(form), db().AddLogin(form));
 
@@ -741,7 +779,7 @@ TEST_F(LoginDatabaseTest, TestFederatedPSLMatching) {
 // This test fails if the implementation of GetLogins uses GetCachedStatement
 // instead of GetUniqueStatement, since REGEXP is in use. See
 // http://crbug.com/248608.
-TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatchingDifferentSites) {
+TEST_P(LoginDatabaseTest, TestPublicSuffixDomainMatchingDifferentSites) {
   std::vector<PasswordForm> result;
 
   // Example password form.
@@ -804,7 +842,7 @@ PasswordForm GetFormWithNewSignonRealm(PasswordForm form,
   return form2;
 }
 
-TEST_F(LoginDatabaseTest, TestPublicSuffixDomainMatchingRegexp) {
+TEST_P(LoginDatabaseTest, TestPublicSuffixDomainMatchingRegexp) {
   std::vector<PasswordForm> result;
 
   // Example password form.
@@ -923,7 +961,7 @@ static bool AddTimestampedLogin(LoginDatabase* db,
   form.display_name = ASCIIToUTF16(unique_string);
   form.icon_url = GURL("https://accounts.google.com/Icon");
   form.federation_origin =
-      url::Origin::Create(GURL("https://accounts.google.com/"));
+      url::SchemeHostPort(GURL("https://accounts.google.com/"));
   form.skip_zero_click = true;
 
   if (date_is_creation) {
@@ -932,7 +970,7 @@ static bool AddTimestampedLogin(LoginDatabase* db,
   return db->AddLogin(form) == AddChangeForForm(form);
 }
 
-TEST_F(LoginDatabaseTest, ClearPrivateData_SavedPasswords) {
+TEST_P(LoginDatabaseTest, ClearPrivateData_SavedPasswords) {
   std::vector<PasswordForm> result;
 
   // Verify the database is empty.
@@ -1009,7 +1047,7 @@ TEST_F(LoginDatabaseTest, ClearPrivateData_SavedPasswords) {
   EXPECT_EQ(0U, result.size());
 }
 
-TEST_F(LoginDatabaseTest, GetAutoSignInLogins) {
+TEST_P(LoginDatabaseTest, GetAutoSignInLogins) {
   std::vector<PasswordForm> forms;
 
   GURL origin("https://example.com");
@@ -1029,7 +1067,7 @@ TEST_F(LoginDatabaseTest, GetAutoSignInLogins) {
   EXPECT_EQ(0U, forms.size());
 }
 
-TEST_F(LoginDatabaseTest, DisableAutoSignInForOrigin) {
+TEST_P(LoginDatabaseTest, DisableAutoSignInForOrigin) {
   std::vector<PasswordForm> result;
 
   GURL origin1("https://google.com");
@@ -1058,7 +1096,7 @@ TEST_F(LoginDatabaseTest, DisableAutoSignInForOrigin) {
   }
 }
 
-TEST_F(LoginDatabaseTest, BlocklistedLogins) {
+TEST_P(LoginDatabaseTest, BlocklistedLogins) {
   std::vector<PasswordForm> result;
 
   // Verify the database is empty.
@@ -1078,7 +1116,7 @@ TEST_F(LoginDatabaseTest, BlocklistedLogins) {
   form.display_name = u"Mr. Smith";
   form.icon_url = GURL("https://accounts.google.com/Icon");
   form.federation_origin =
-      url::Origin::Create(GURL("https://accounts.google.com/"));
+      url::SchemeHostPort(GURL("https://accounts.google.com/"));
   form.skip_zero_click = true;
 
   EXPECT_EQ(AddChangeForForm(form), db().AddLogin(form));
@@ -1100,7 +1138,7 @@ TEST_F(LoginDatabaseTest, BlocklistedLogins) {
   EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form)));
 }
 
-TEST_F(LoginDatabaseTest, VectorSerialization) {
+TEST_P(LoginDatabaseTest, VectorSerialization) {
   // Empty vector.
   AlternativeElementVector vec;
   base::Pickle temp = SerializeAlternativeElementVector(vec);
@@ -1136,7 +1174,7 @@ TEST_F(LoginDatabaseTest, VectorSerialization) {
   EXPECT_THAT(output, Eq(expected));
 }
 
-TEST_F(LoginDatabaseTest, GaiaIdHashVectorSerialization) {
+TEST_P(LoginDatabaseTest, GaiaIdHashVectorSerialization) {
   // Empty vector.
   std::vector<GaiaIdHash> vec;
   base::Pickle temp = SerializeGaiaIdHashVector(vec);
@@ -1153,7 +1191,7 @@ TEST_F(LoginDatabaseTest, GaiaIdHashVectorSerialization) {
   EXPECT_THAT(output, Eq(vec));
 }
 
-TEST_F(LoginDatabaseTest, UpdateIncompleteCredentials) {
+TEST_P(LoginDatabaseTest, UpdateIncompleteCredentials) {
   std::vector<PasswordForm> result;
   // Verify the database is empty.
   EXPECT_TRUE(db().GetAutofillableLogins(&result));
@@ -1230,7 +1268,7 @@ TEST_F(LoginDatabaseTest, UpdateIncompleteCredentials) {
   EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(expected_form)));
 }
 
-TEST_F(LoginDatabaseTest, UpdateOverlappingCredentials) {
+TEST_P(LoginDatabaseTest, UpdateOverlappingCredentials) {
   // Save an incomplete form. Note that it only has a few fields set, ex. it's
   // missing 'action', 'username_element' and 'password_element'. Such forms
   // are sometimes inserted during import from other browsers (which may not
@@ -1291,7 +1329,7 @@ TEST_F(LoginDatabaseTest, UpdateOverlappingCredentials) {
                                    HasPrimaryKeyAndEquals(incomplete_form)));
 }
 
-TEST_F(LoginDatabaseTest, DoubleAdd) {
+TEST_P(LoginDatabaseTest, DoubleAdd) {
   PasswordForm form;
   form.url = GURL("http://accounts.google.com/LoginAuth");
   form.signon_realm = "http://accounts.google.com/";
@@ -1309,7 +1347,7 @@ TEST_F(LoginDatabaseTest, DoubleAdd) {
   EXPECT_EQ(list, db().AddLogin(form));
 }
 
-TEST_F(LoginDatabaseTest, AddWrongForm) {
+TEST_P(LoginDatabaseTest, AddWrongForm) {
   PasswordForm form;
   // |origin| shouldn't be empty.
   form.url = GURL();
@@ -1330,7 +1368,7 @@ TEST_F(LoginDatabaseTest, AddWrongForm) {
 // Test that when adding a login with no password_value but with
 // keychain_identifier, the keychain_identifier is kept and the password_value
 // is filled in with the decrypted password.
-TEST_F(LoginDatabaseTest, AddLoginWithEncryptedPassword) {
+TEST_P(LoginDatabaseTest, AddLoginWithEncryptedPassword) {
   PasswordForm form;
   form.url = GURL("http://accounts.google.com/LoginAuth");
   form.signon_realm = "http://accounts.google.com/";
@@ -1362,7 +1400,7 @@ TEST_F(LoginDatabaseTest, AddLoginWithEncryptedPassword) {
 
 // Test that when adding a login with password_value but with
 // keychain_identifier, the keychain_identifier is discarded.
-TEST_F(LoginDatabaseTest, AddLoginWithEncryptedPasswordAndValue) {
+TEST_P(LoginDatabaseTest, AddLoginWithEncryptedPasswordAndValue) {
   PasswordForm form;
   form.url = GURL("http://accounts.google.com/LoginAuth");
   form.signon_realm = "http://accounts.google.com/";
@@ -1389,7 +1427,7 @@ TEST_F(LoginDatabaseTest, AddLoginWithEncryptedPasswordAndValue) {
 }
 #endif
 
-TEST_F(LoginDatabaseTest, UpdateLogin) {
+TEST_P(LoginDatabaseTest, UpdateLogin) {
   PasswordForm form;
   form.url = GURL("http://accounts.google.com/LoginAuth");
   form.signon_realm = "http://accounts.google.com/";
@@ -1416,7 +1454,7 @@ TEST_F(LoginDatabaseTest, UpdateLogin) {
   form.display_name = u"Mr. Smith";
   form.icon_url = GURL("https://accounts.google.com/Icon");
   form.federation_origin =
-      url::Origin::Create(GURL("https://accounts.google.com/"));
+      url::SchemeHostPort(GURL("https://accounts.google.com/"));
   form.skip_zero_click = true;
   form.moving_blocked_for_list.push_back(GaiaIdHash::FromGaiaId("gaia_id"));
 
@@ -1434,7 +1472,7 @@ TEST_F(LoginDatabaseTest, UpdateLogin) {
   EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form)));
 }
 
-TEST_F(LoginDatabaseTest, UpdateLoginWithoutPassword) {
+TEST_P(LoginDatabaseTest, UpdateLoginWithoutPassword) {
   PasswordForm form;
   form.url = GURL("http://accounts.google.com/LoginAuth");
   form.signon_realm = "http://accounts.google.com/";
@@ -1472,7 +1510,7 @@ TEST_F(LoginDatabaseTest, UpdateLoginWithoutPassword) {
   EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form)));
 }
 
-TEST_F(LoginDatabaseTest, RemoveWrongForm) {
+TEST_P(LoginDatabaseTest, RemoveWrongForm) {
   PasswordForm form;
   // |origin| shouldn't be empty.
   form.url = GURL("http://accounts.google.com/LoginAuth");
@@ -1591,7 +1629,7 @@ void AddMetricsTestData(LoginDatabase* db) {
 
 }  // namespace
 
-TEST_F(LoginDatabaseTest, ReportMetricsTest) {
+TEST_P(LoginDatabaseTest, ReportMetricsTest) {
   AddMetricsTestData(&db());
 
   // Note: We also create and populate an account DB here and instruct it to
@@ -1601,7 +1639,7 @@ TEST_F(LoginDatabaseTest, ReportMetricsTest) {
   base::FilePath account_db_file =
       temp_dir_.GetPath().AppendASCII("TestAccountStoreDatabase");
   LoginDatabase account_db(account_db_file, IsAccountStore(true));
-  ASSERT_TRUE(account_db.Init());
+  ASSERT_TRUE(account_db.Init(encryptor()));
   AddMetricsTestData(&account_db);
 
   base::HistogramTester histogram_tester;
@@ -1620,7 +1658,7 @@ TEST_F(LoginDatabaseTest, ReportMetricsTest) {
 // store instead of the profile store. Some metrics are not recorded for the
 // account store (e.g. BubbleSuppression ones) so these are missing here; all
 // the metrics that *are* covered have ".AccountStore" in their names.
-TEST_F(LoginDatabaseTest, ReportAccountStoreMetricsTest) {
+TEST_P(LoginDatabaseTest, ReportAccountStoreMetricsTest) {
   // Note: We also populate the profile DB here and instruct it to report
   // metrics, even though all the checks below only test the account DB. This is
   // to make sure that the profile DB doesn't write to any of the same
@@ -1630,7 +1668,7 @@ TEST_F(LoginDatabaseTest, ReportAccountStoreMetricsTest) {
   base::FilePath account_db_file =
       temp_dir_.GetPath().AppendASCII("TestAccountStoreDatabase");
   LoginDatabase account_db(account_db_file, IsAccountStore(true));
-  ASSERT_TRUE(account_db.Init());
+  ASSERT_TRUE(account_db.Init(encryptor()));
   AddMetricsTestData(&account_db);
 
   base::HistogramTester histogram_tester;
@@ -1641,7 +1679,7 @@ TEST_F(LoginDatabaseTest, ReportAccountStoreMetricsTest) {
       "PasswordManager.AccountStore.InaccessiblePasswords3", 0, 1);
 }
 
-class LoginDatabaseSyncMetadataTest : public LoginDatabaseTest {
+class LoginDatabaseSyncMetadataTest : public LoginDatabaseTestBase {
  public:
   syncer::ModelType SyncModelType() { return syncer::PASSWORDS; }
 };
@@ -1852,7 +1890,7 @@ TEST_F(LoginDatabaseSyncMetadataTest, HasUnsyncedPasswordDeletions) {
 // Only POSIX because GetPosixFilePermissions() only exists on POSIX.
 // This tests that sql::Database::set_restrict_to_user() was called,
 // and that function is a noop on non-POSIX platforms in any case.
-TEST_F(LoginDatabaseTest, FilePermissions) {
+TEST_P(LoginDatabaseTest, FilePermissions) {
   int mode = base::FILE_PERMISSION_MASK;
   EXPECT_TRUE(base::GetPosixFilePermissions(file_, &mode));
   EXPECT_EQ((mode & base::FILE_PERMISSION_USER_MASK), mode);
@@ -1861,18 +1899,26 @@ TEST_F(LoginDatabaseTest, FilePermissions) {
 
 #if !BUILDFLAG(IS_IOS)
 // Test that LoginDatabase encrypts the password values that it stores.
-TEST_F(LoginDatabaseTest, EncryptionEnabled) {
+TEST_P(LoginDatabaseTest, EncryptionEnabled) {
   PasswordForm password_form = GenerateExamplePasswordForm();
   base::FilePath file = temp_dir_.GetPath().AppendASCII("TestUnencryptedDB");
+
   {
     LoginDatabase db(file, IsAccountStore(false));
-    ASSERT_TRUE(db.Init());
+    ASSERT_TRUE(db.Init(encryptor()));
     EXPECT_EQ(AddChangeForForm(password_form), db.AddLogin(password_form));
   }
   std::u16string decrypted_pw;
-  ASSERT_TRUE(OSCrypt::DecryptString16(
-      GetColumnValuesFromDatabase<std::string>(file, "password_value").at(0),
-      &decrypted_pw));
+  if (GetParam()) {
+    ASSERT_TRUE(encryptor()->DecryptString16(
+        GetColumnValuesFromDatabase<std::string>(file, "password_value").at(0),
+        &decrypted_pw));
+  } else {
+    ASSERT_TRUE(OSCrypt::DecryptString16(
+        GetColumnValuesFromDatabase<std::string>(file, "password_value").at(0),
+        &decrypted_pw));
+  }
+
   EXPECT_EQ(decrypted_pw, password_form.password_value);
 }
 #endif  // !BUILDFLAG(IS_IOS)
@@ -1882,7 +1928,7 @@ TEST_F(LoginDatabaseTest, EncryptionEnabled) {
 // passwords. Verify that they can both be accessed. Obfuscated passwords start
 // with "v10". Some password values also start with "v10". Test that both are
 // accessible (this doesn't work for any plain-text value).
-TEST_F(LoginDatabaseTest, HandleObfuscationMix) {
+TEST_P(LoginDatabaseTest, HandleObfuscationMix) {
   const char k_obfuscated_pw[] = "v10pass1";
   const char16_t k_obfuscated_pw16[] = u"v10pass1";
   const char k_plain_text_pw1[] = "v10pass2";
@@ -1893,7 +1939,7 @@ TEST_F(LoginDatabaseTest, HandleObfuscationMix) {
   base::FilePath file = temp_dir_.GetPath().AppendASCII("TestUnencryptedDB");
   {
     LoginDatabase db(file, IsAccountStore(false));
-    ASSERT_TRUE(db.Init());
+    ASSERT_TRUE(db.Init(encryptor()));
     // Add obfuscated (new) entries.
     PasswordForm password_form = GenerateExamplePasswordForm();
     password_form.password_value = k_obfuscated_pw16;
@@ -1910,7 +1956,7 @@ TEST_F(LoginDatabaseTest, HandleObfuscationMix) {
   std::vector<PasswordForm> forms;
   {
     LoginDatabase db(file, IsAccountStore(false));
-    ASSERT_TRUE(db.Init());
+    ASSERT_TRUE(db.Init(encryptor()));
     ASSERT_TRUE(db.GetAutofillableLogins(&forms));
   }
 
@@ -1930,7 +1976,7 @@ TEST_F(LoginDatabaseTest, HandleObfuscationMix) {
 
 // If the database initialisation fails, the initialisation transaction should
 // roll back without crashing.
-TEST(LoginDatabaseFailureTest, Init_NoCrashOnFailedRollback) {
+TEST_P(LoginDatabaseTest, Init_NoCrashOnFailedRollback) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath database_path = temp_dir.GetPath().AppendASCII("test.db");
@@ -1949,11 +1995,11 @@ TEST(LoginDatabaseFailureTest, Init_NoCrashOnFailedRollback) {
   // Now try to init the database with the file. The test succeeds if it does
   // not crash.
   LoginDatabase db(database_path, IsAccountStore(false));
-  EXPECT_FALSE(db.Init());
+  EXPECT_FALSE(db.Init(encryptor()));
 }
 
 // If the database version is from the future, it shouldn't be downgraded.
-TEST(LoginDatabaseFutureLoginDatabase, ShouldNotDowngradeDatabaseVersion) {
+TEST_P(LoginDatabaseTest, ShouldNotDowngradeDatabaseVersion) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath database_path = temp_dir.GetPath().AppendASCII("test.db");
@@ -1963,7 +2009,7 @@ TEST(LoginDatabaseFutureLoginDatabase, ShouldNotDowngradeDatabaseVersion) {
   {
     // Open a database with the current version.
     LoginDatabase db(database_path, IsAccountStore(false));
-    EXPECT_TRUE(db.Init());
+    EXPECT_TRUE(db.Init(encryptor()));
   }
   {
     // Overwrite the current version to be |kDBFutureVersion|
@@ -1978,7 +2024,7 @@ TEST(LoginDatabaseFutureLoginDatabase, ShouldNotDowngradeDatabaseVersion) {
   {
     // Open the database again.
     LoginDatabase db(database_path, IsAccountStore(false));
-    EXPECT_TRUE(db.Init());
+    EXPECT_TRUE(db.Init(encryptor()));
   }
   {
     // The DB version should remain the same.
@@ -1991,8 +2037,12 @@ TEST(LoginDatabaseFutureLoginDatabase, ShouldNotDowngradeDatabaseVersion) {
   }
 }
 
-// Test the migration from GetParam() version to kCurrentVersionNumber.
-class LoginDatabaseMigrationTest : public testing::TestWithParam<int> {
+// Test the migration from `std::get<0>(GetParam())` version to
+// `kCurrentVersionNumber`.
+// `std::get<1>(GetParam())` controls whether `os_crypt_async::Encryptor` is
+// used.
+class LoginDatabaseMigrationTest
+    : public testing::TestWithParam<std::tuple<int, bool>> {
  protected:
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
@@ -2002,6 +2052,10 @@ class LoginDatabaseMigrationTest : public testing::TestWithParam<int> {
                                   .AppendASCII("password_manager");
     database_path_ = temp_dir_.GetPath().AppendASCII("test.db");
     OSCryptMocker::SetUp();
+    if (std::get<1>(GetParam())) {
+      test_oscrypt_async_ = os_crypt_async::GetTestOSCryptAsyncForTesting(
+          /*is_sync_for_unittests = */ true);
+    }
   }
 
   void TearDown() override { OSCryptMocker::TearDown(); }
@@ -2024,7 +2078,7 @@ class LoginDatabaseMigrationTest : public testing::TestWithParam<int> {
   }
 
   // Returns the database version for the test.
-  int version() const { return GetParam(); }
+  int version() const { return std::get<0>(GetParam()); }
 
   // Actual test body.
   void MigrationToVCurrent(std::string_view sql_file);
@@ -2035,9 +2089,18 @@ class LoginDatabaseMigrationTest : public testing::TestWithParam<int> {
     task_environment_.FastForwardBy(delta);
   }
 
+  std::unique_ptr<os_crypt_async::Encryptor> encryptor() {
+    if (std::get<1>(GetParam())) {
+      return std::make_unique<os_crypt_async::Encryptor>(
+          GetInstanceSync(test_oscrypt_async_.get()));
+    }
+    return nullptr;
+  }
+
  private:
   base::FilePath database_dump_location_;
   base::ScopedTempDir temp_dir_;
+  std::unique_ptr<os_crypt_async::OSCryptAsync> test_oscrypt_async_;
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 };
@@ -2052,7 +2115,7 @@ void LoginDatabaseMigrationTest::MigrationToVCurrent(
     // Assert that the database was successfully opened and updated
     // to current version.
     LoginDatabase db(database_path_, IsAccountStore(false));
-    ASSERT_TRUE(db.Init());
+    ASSERT_TRUE(db.Init(encryptor()));
 
     // Check that the contents was preserved.
     std::vector<PasswordForm> result;
@@ -2130,15 +2193,18 @@ TEST_P(LoginDatabaseMigrationTestBroken, Broken) {
   MigrationToVCurrent(base::StringPrintf("login_db_v%d_broken.sql", version()));
 }
 
-INSTANTIATE_TEST_SUITE_P(MigrationToVCurrent,
-                         LoginDatabaseMigrationTest,
-                         testing::Range(1, kCurrentVersionNumber + 1));
+INSTANTIATE_TEST_SUITE_P(
+    MigrationToVCurrent,
+    LoginDatabaseMigrationTest,
+    testing::Combine(testing::Range(1, kCurrentVersionNumber + 1),
+                     testing::Bool()));
 INSTANTIATE_TEST_SUITE_P(MigrationToVCurrent,
                          LoginDatabaseMigrationTestV9,
-                         testing::Values(9));
+                         testing::Combine(testing::Values(9), testing::Bool()));
 INSTANTIATE_TEST_SUITE_P(MigrationToVCurrent,
                          LoginDatabaseMigrationTestBroken,
-                         testing::Values(1, 2, 3, 24));
+                         testing::Combine(testing::Values(1, 2, 3, 24),
+                                          testing::Bool()));
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_IOS) || \
     BUILDFLAG(IS_WIN)
@@ -2211,7 +2277,7 @@ PasswordForm LoginDatabaseUndecryptableLoginsTest::AddDummyLogin(
 
   {
     LoginDatabase db(database_path(), IsAccountStore(false));
-    EXPECT_TRUE(db.Init());
+    EXPECT_TRUE(db.Init(nullptr));
     EXPECT_EQ(db.AddLogin(form), AddChangeForForm(form));
   }
 
@@ -2256,7 +2322,7 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest, DeleteUndecryptableLoginsTest) {
   NiceMock<base::MockCallback<LoginDatabase::IsEmptyCallback>> is_empty_cb;
   db.SetIsEmptyCb(is_empty_cb.Get());
   base::HistogramTester histogram_tester;
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
 
 #if BUILDFLAG(IS_CASTOS)
   // Disabling the checks in chromecast because encryption is unavailable.
@@ -2315,8 +2381,14 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest,
       AddDummyLogin("foo3", GURL("https://foo3.com/"),
                     /*should_be_corrupted=*/false, /*blocklisted=*/false);
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
 
+  NiceMock<
+      base::MockCallback<LoginDatabase::ClearingUndecryptablePasswordsCallback>>
+      callback;
+  db.SetClearingUndecryptablePasswordsCb(callback.Get());
+
+  EXPECT_CALL(callback, Run).Times(0);
   EXPECT_FALSE(db.GetAutoSignInLogins(&forms));
   histogram_tester.ExpectTotalCount(
       "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
@@ -2348,8 +2420,14 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest,
       AddDummyLogin("foo3", GURL("https://foo3.com/"),
                     /*should_be_corrupted=*/false, /*blocklisted=*/false);
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
 
+  NiceMock<
+      base::MockCallback<LoginDatabase::ClearingUndecryptablePasswordsCallback>>
+      callback;
+  db.SetClearingUndecryptablePasswordsCb(callback.Get());
+
+  EXPECT_CALL(callback, Run).Times(0);
   EXPECT_FALSE(db.GetAutoSignInLogins(&forms));
   histogram_tester.ExpectTotalCount(
       "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
@@ -2380,8 +2458,14 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest,
       AddDummyLogin("foo3", GURL("https://foo3.com/"),
                     /*should_be_corrupted=*/false, /*blocklisted=*/false);
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
 
+  NiceMock<
+      base::MockCallback<LoginDatabase::ClearingUndecryptablePasswordsCallback>>
+      callback;
+  db.SetClearingUndecryptablePasswordsCb(callback.Get());
+
+  EXPECT_CALL(callback, Run).Times(0);
   EXPECT_FALSE(db.GetAutoSignInLogins(&forms));
   histogram_tester.ExpectTotalCount(
       "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
@@ -2415,8 +2499,14 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest,
       AddDummyLogin("foo3", GURL("https://foo3.com/"),
                     /*should_be_corrupted=*/false, /*blocklisted=*/false);
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
 
+  NiceMock<
+      base::MockCallback<LoginDatabase::ClearingUndecryptablePasswordsCallback>>
+      callback;
+  db.SetClearingUndecryptablePasswordsCb(callback.Get());
+
+  EXPECT_CALL(callback, Run).Times(0);
   EXPECT_FALSE(db.GetAutoSignInLogins(&forms));
   histogram_tester.ExpectTotalCount(
       "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
@@ -2445,11 +2535,17 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest,
       AddDummyLogin("foo3", GURL("https://foo3.com/"),
                     /*should_be_corrupted=*/false, /*blocklisted=*/false);
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
+
+  NiceMock<
+      base::MockCallback<LoginDatabase::ClearingUndecryptablePasswordsCallback>>
+      callback;
+  db.SetClearingUndecryptablePasswordsCb(callback.Get());
 
   // Make authentication not available.
   OSCryptMocker::SetBackendLocked(true);
 
+  EXPECT_CALL(callback, Run).Times(0);
   EXPECT_FALSE(db.GetAutoSignInLogins(&forms));
   histogram_tester.ExpectTotalCount(
       "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
@@ -2457,6 +2553,37 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest,
       "PasswordManager.LoginDatabase.ShouldDeleteUndecryptablePasswords", 5, 1);
 }
 #endif  // BUILDFLAG(IS_MAC)
+
+TEST_F(LoginDatabaseUndecryptableLoginsTest,
+       DontDeleteUndecryptableLoginsIfDisabledByPolicy) {
+  // Init with feature states allowing for password deletion.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureStates(
+      {{features::kSkipUndecryptablePasswords, false},
+       {features::kClearUndecryptablePasswords, true}});
+
+  base::HistogramTester histogram_tester;
+  std::vector<PasswordForm> forms;
+  auto form1 =
+      AddDummyLogin("foo1", GURL("https://foo1.com/"),
+                    /*should_be_corrupted=*/false, /*blocklisted=*/false);
+  auto form2 =
+      AddDummyLogin("foo2", GURL("https://foo2.com/"),
+                    /*should_be_corrupted=*/true, /*blocklisted=*/false);
+  auto form3 =
+      AddDummyLogin("foo3", GURL("https://foo3.com/"),
+                    /*should_be_corrupted=*/false, /*blocklisted=*/false);
+  LoginDatabase db(database_path(), IsAccountStore(false));
+  ASSERT_TRUE(db.Init(nullptr));
+
+  db.SetIsDeletingUndecryptableLoginsDisabledByPolicy(true);
+
+  EXPECT_FALSE(db.GetAutoSignInLogins(&forms));
+  histogram_tester.ExpectTotalCount(
+      "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.LoginDatabase.ShouldDeleteUndecryptablePasswords", 7, 1);
+}
 
 TEST_F(LoginDatabaseUndecryptableLoginsTest,
        PasswordRecoveryDisabledGetLogins) {
@@ -2467,7 +2594,7 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest,
   AddDummyLogin("foo2", GURL("https://foo2.com/"), true, /*blocklisted=*/false);
 
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
 
   std::vector<PasswordForm> result;
   EXPECT_FALSE(db.GetAutofillableLogins(&result));
@@ -2485,7 +2612,7 @@ TEST_F(LoginDatabaseUndecryptableLoginsTest, KeychainLockedTest) {
   OSCryptMocker::SetBackendLocked(true);
   LoginDatabase db(database_path(), IsAccountStore(false));
   base::HistogramTester histogram_tester;
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
   EXPECT_EQ(DatabaseCleanupResult::kEncryptionUnavailable,
             db.DeleteUndecryptableLogins());
 
@@ -2529,9 +2656,15 @@ TEST_P(LoginDatabaseGetUndecryptableLoginsTest, GetAutoSignInLogins) {
       AddDummyLogin("foo3", GURL("https://foo3.com/"),
                     /*should_be_corrupted=*/false, /*blocklisted=*/false);
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
+
+  NiceMock<
+      base::MockCallback<LoginDatabase::ClearingUndecryptablePasswordsCallback>>
+      callback;
+  db.SetClearingUndecryptablePasswordsCb(callback.Get());
 
   if (base::FeatureList::IsEnabled(features::kClearUndecryptablePasswords)) {
+    EXPECT_CALL(callback, Run(true));
     EXPECT_TRUE(db.GetAutoSignInLogins(&forms));
     EXPECT_THAT(forms, UnorderedElementsAre(HasPrimaryKeyAndEquals(form1),
                                             HasPrimaryKeyAndEquals(form3)));
@@ -2544,12 +2677,14 @@ TEST_P(LoginDatabaseGetUndecryptableLoginsTest, GetAutoSignInLogins) {
         1);
   } else {
     if (base::FeatureList::IsEnabled(features::kSkipUndecryptablePasswords)) {
+      EXPECT_CALL(callback, Run(true));
       EXPECT_TRUE(db.GetAutoSignInLogins(&forms));
       EXPECT_THAT(forms, UnorderedElementsAre(HasPrimaryKeyAndEquals(form1),
                                               HasPrimaryKeyAndEquals(form3)));
       histogram_tester.ExpectTotalCount(
           "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
     } else {
+      EXPECT_CALL(callback, Run(true));
       EXPECT_FALSE(db.GetAutoSignInLogins(&forms));
       histogram_tester.ExpectTotalCount(
           "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
@@ -2567,11 +2702,17 @@ TEST_P(LoginDatabaseGetUndecryptableLoginsTest, GetLogins) {
       AddDummyLogin("user2", GURL("http://www.google.com/"),
                     /*should_be_corrupted=*/true, /*blocklisted=*/false);
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
   std::vector<PasswordForm> result;
   PasswordForm form = GenerateExamplePasswordForm();
 
+  NiceMock<
+      base::MockCallback<LoginDatabase::ClearingUndecryptablePasswordsCallback>>
+      callback;
+  db.SetClearingUndecryptablePasswordsCb(callback.Get());
+
   if (base::FeatureList::IsEnabled(features::kClearUndecryptablePasswords)) {
+    EXPECT_CALL(callback, Run(true));
     EXPECT_TRUE(db.GetLogins(PasswordFormDigest(form),
                              /*should_PSL_matching_apply=*/false, &result));
     EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form1)));
@@ -2584,12 +2725,14 @@ TEST_P(LoginDatabaseGetUndecryptableLoginsTest, GetLogins) {
         1);
   } else {
     if (base::FeatureList::IsEnabled(features::kSkipUndecryptablePasswords)) {
+      EXPECT_CALL(callback, Run(true));
       EXPECT_TRUE(db.GetLogins(PasswordFormDigest(form),
                                /*should_PSL_matching_apply=*/false, &result));
       EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form1)));
       histogram_tester.ExpectTotalCount(
           "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
     } else {
+      EXPECT_CALL(callback, Run(true));
       EXPECT_FALSE(db.GetLogins(PasswordFormDigest(form),
                                 /*should_PSL_matching_apply=*/false, &result));
       histogram_tester.ExpectTotalCount(
@@ -2614,9 +2757,15 @@ TEST_P(LoginDatabaseGetUndecryptableLoginsTest, GetAutofillableLogins) {
                     /*should_be_corrupted=*/false, /*blocklisted=*/true);
 
   LoginDatabase db(database_path(), IsAccountStore(false));
-  ASSERT_TRUE(db.Init());
+  ASSERT_TRUE(db.Init(nullptr));
+
+  NiceMock<
+      base::MockCallback<LoginDatabase::ClearingUndecryptablePasswordsCallback>>
+      callback;
+  db.SetClearingUndecryptablePasswordsCb(callback.Get());
 
   if (base::FeatureList::IsEnabled(features::kClearUndecryptablePasswords)) {
+    EXPECT_CALL(callback, Run(true));
     EXPECT_TRUE(db.GetAutofillableLogins(&result));
     EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form1)));
     histogram_tester.ExpectUniqueSample(
@@ -2628,11 +2777,13 @@ TEST_P(LoginDatabaseGetUndecryptableLoginsTest, GetAutofillableLogins) {
         1);
   } else {
     if (base::FeatureList::IsEnabled(features::kSkipUndecryptablePasswords)) {
+      EXPECT_CALL(callback, Run(true));
       EXPECT_TRUE(db.GetAutofillableLogins(&result));
       EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form1)));
       histogram_tester.ExpectTotalCount(
           "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
     } else {
+      EXPECT_CALL(callback, Run(true));
       EXPECT_FALSE(db.GetAutofillableLogins(&result));
       histogram_tester.ExpectTotalCount(
           "PasswordManager.DeleteUndecryptableLoginsReturnValue", 0);
@@ -2648,7 +2799,7 @@ INSTANTIATE_TEST_SUITE_P(All,
         // BUILDFLAG(IS_WIN)
 
 // Test encrypted passwords are present in add change lists.
-TEST_F(LoginDatabaseTest, EncryptedPasswordAdd) {
+TEST_P(LoginDatabaseTest, EncryptedPasswordAdd) {
   PasswordForm form;
   form.url = GURL("http://0.com");
   form.signon_realm = "http://www.example.com/";
@@ -2666,7 +2817,7 @@ TEST_F(LoginDatabaseTest, EncryptedPasswordAdd) {
 
 // Test encrypted passwords are present in add change lists, when the password
 // is already in the DB.
-TEST_F(LoginDatabaseTest, EncryptedPasswordAddWithReplaceSemantics) {
+TEST_P(LoginDatabaseTest, EncryptedPasswordAddWithReplaceSemantics) {
   PasswordForm form;
   form.url = GURL("http://0.com");
   form.signon_realm = "http://www.example.com/";
@@ -2690,7 +2841,7 @@ TEST_F(LoginDatabaseTest, EncryptedPasswordAddWithReplaceSemantics) {
 }
 
 // Test encrypted passwords are present in update change lists.
-TEST_F(LoginDatabaseTest, EncryptedPasswordUpdate) {
+TEST_P(LoginDatabaseTest, EncryptedPasswordUpdate) {
   PasswordForm form;
   form.url = GURL("http://0.com");
   form.signon_realm = "http://www.example.com/";
@@ -2712,7 +2863,7 @@ TEST_F(LoginDatabaseTest, EncryptedPasswordUpdate) {
 }
 
 // Test encrypted passwords are present when retrieving from DB.
-TEST_F(LoginDatabaseTest, GetLoginsEncryptedPassword) {
+TEST_P(LoginDatabaseTest, GetLoginsEncryptedPassword) {
   PasswordForm form;
   form.url = GURL("http://0.com");
   form.signon_realm = "http://www.example.com/";
@@ -2739,7 +2890,7 @@ TEST_F(LoginDatabaseTest, GetLoginsEncryptedPassword) {
 #endif
 }
 
-TEST_F(LoginDatabaseTest, RetrievesInsecureDataWithLogins) {
+TEST_P(LoginDatabaseTest, RetrievesInsecureDataWithLogins) {
   PasswordForm form = GenerateExamplePasswordForm();
   std::ignore = db().AddLogin(form);
 
@@ -2765,7 +2916,7 @@ TEST_F(LoginDatabaseTest, RetrievesInsecureDataWithLogins) {
   EXPECT_THAT(result, ElementsAre(HasPrimaryKeyAndEquals(form)));
 }
 
-TEST_F(LoginDatabaseTest, RetrievesNoteWithLogin) {
+TEST_P(LoginDatabaseTest, RetrievesNoteWithLogin) {
   PasswordForm form = GenerateExamplePasswordForm();
   std::ignore = db().AddLogin(form);
   PasswordNote note(u"example note", base::Time::Now());
@@ -2780,7 +2931,7 @@ TEST_F(LoginDatabaseTest, RetrievesNoteWithLogin) {
   EXPECT_THAT(results, ElementsAre(HasPrimaryKeyAndEquals(expected_form)));
 }
 
-TEST_F(LoginDatabaseTest, AddLoginWithNotePersistsThem) {
+TEST_P(LoginDatabaseTest, AddLoginWithNotePersistsThem) {
   PasswordForm form = GenerateExamplePasswordForm();
   PasswordNote note(u"example note", base::Time::Now());
   form.notes = {note};
@@ -2791,7 +2942,7 @@ TEST_F(LoginDatabaseTest, AddLoginWithNotePersistsThem) {
             note);
 }
 
-TEST_F(LoginDatabaseTest, RemoveLoginRemovesNoteAttachedToTheLogin) {
+TEST_P(LoginDatabaseTest, RemoveLoginRemovesNoteAttachedToTheLogin) {
   PasswordForm form = GenerateExamplePasswordForm();
   PasswordNote note = PasswordNote(u"example note", base::Time::Now());
   form.notes = {note};
@@ -2806,7 +2957,7 @@ TEST_F(LoginDatabaseTest, RemoveLoginRemovesNoteAttachedToTheLogin) {
       db().password_notes_table().GetPasswordNotes(FormPrimaryKey(1)).empty());
 }
 
-TEST_F(LoginDatabaseTest, RemovingLoginRemovesInsecureCredentials) {
+TEST_P(LoginDatabaseTest, RemovingLoginRemovesInsecureCredentials) {
   PasswordForm form = GenerateExamplePasswordForm();
 
   std::ignore = db().AddLogin(form);
@@ -2835,7 +2986,7 @@ TEST_F(LoginDatabaseTest, RemovingLoginRemovesInsecureCredentials) {
 }
 
 // Test retrieving password forms by supplied signon_realm and username.
-TEST_F(LoginDatabaseTest, GetLoginsBySignonRealmAndUsername) {
+TEST_P(LoginDatabaseTest, GetLoginsBySignonRealmAndUsername) {
   std::string signon_realm = "https://test.com";
   std::u16string username1 = u"username1";
   std::u16string username2 = u"username2";
@@ -2873,7 +3024,7 @@ TEST_F(LoginDatabaseTest, GetLoginsBySignonRealmAndUsername) {
                                  HasPrimaryKeyAndEquals(form3)));
 }
 
-TEST_F(LoginDatabaseTest, UpdateLoginWithAddedInsecureCredential) {
+TEST_P(LoginDatabaseTest, UpdateLoginWithAddedInsecureCredential) {
   PasswordForm form = GenerateExamplePasswordForm();
   std::ignore = db().AddLogin(form);
   // Assume the leaked credential was found outside of Chrome and a notification
@@ -2895,7 +3046,7 @@ TEST_F(LoginDatabaseTest, UpdateLoginWithAddedInsecureCredential) {
               ElementsAre(insecure_credential));
 }
 
-TEST_F(LoginDatabaseTest, UpdateLoginWithUpdatedInsecureCredential) {
+TEST_P(LoginDatabaseTest, UpdateLoginWithUpdatedInsecureCredential) {
   PasswordForm form = GenerateExamplePasswordForm();
   std::ignore = db().AddLogin(form);
   InsecureCredential insecure_credential{
@@ -2922,7 +3073,7 @@ TEST_F(LoginDatabaseTest, UpdateLoginWithUpdatedInsecureCredential) {
               ElementsAre(insecure_credential));
 }
 
-TEST_F(LoginDatabaseTest, UpdateLoginWithRemovedInsecureCredentialEntry) {
+TEST_P(LoginDatabaseTest, UpdateLoginWithRemovedInsecureCredentialEntry) {
   PasswordForm form = GenerateExamplePasswordForm();
   std::ignore = db().AddLogin(form);
   InsecureCredential leaked{
@@ -2958,7 +3109,7 @@ TEST_F(LoginDatabaseTest, UpdateLoginWithRemovedInsecureCredentialEntry) {
               IsEmpty());
 }
 
-TEST_F(LoginDatabaseTest,
+TEST_P(LoginDatabaseTest,
        AddLoginWithDifferentPasswordRemovesInsecureCredentials) {
   PasswordForm form = GenerateExamplePasswordForm();
 
@@ -2991,7 +3142,7 @@ TEST_F(LoginDatabaseTest,
               IsEmpty());
 }
 
-TEST_F(LoginDatabaseTest, AddLoginWithInsecureCredentialsPersistsThem) {
+TEST_P(LoginDatabaseTest, AddLoginWithInsecureCredentialsPersistsThem) {
   PasswordForm form = GenerateExamplePasswordForm();
   InsecureCredential leaked{
       form.signon_realm, form.username_value,
@@ -3018,7 +3169,7 @@ TEST_F(LoginDatabaseTest, AddLoginWithInsecureCredentialsPersistsThem) {
               testing::UnorderedElementsAre(leaked, phished));
 }
 
-TEST_F(LoginDatabaseTest, RemoveLoginRemovesInsecureCredentials) {
+TEST_P(LoginDatabaseTest, RemoveLoginRemovesInsecureCredentials) {
   PasswordForm form = GenerateExamplePasswordForm();
   form.password_issues = {
       {InsecureType::kLeaked,
@@ -3039,7 +3190,7 @@ TEST_F(LoginDatabaseTest, RemoveLoginRemovesInsecureCredentials) {
               IsEmpty());
 }
 
-TEST_F(LoginDatabaseTest, AddLoginWithNonEmptyInvalidURL) {
+TEST_P(LoginDatabaseTest, AddLoginWithNonEmptyInvalidURL) {
   PasswordForm form;
   form.signon_realm = "invalid";
   form.url = GURL(form.signon_realm);
@@ -3050,7 +3201,7 @@ TEST_F(LoginDatabaseTest, AddLoginWithNonEmptyInvalidURL) {
   EXPECT_EQ(error, AddCredentialError::kConstraintViolation);
 }
 
-TEST_F(LoginDatabaseTest, IsEmptyCb_InitEmpty) {
+TEST_P(LoginDatabaseTest, IsEmptyCb_InitEmpty) {
   LoginDatabase db(temp_dir_.GetPath().AppendASCII("DbDirectory"),
                    IsAccountStore(false));
   NiceMock<base::MockCallback<LoginDatabase::IsEmptyCallback>> is_empty_cb;
@@ -3058,15 +3209,15 @@ TEST_F(LoginDatabaseTest, IsEmptyCb_InitEmpty) {
   EXPECT_CALL(is_empty_cb, Run(LoginDatabase::LoginDatabaseEmptinessState{
                                .no_login_found = true,
                                .autofillable_credentials_exist = false}));
-  db.Init();
+  db.Init(encryptor());
 }
 
-TEST_F(LoginDatabaseTest, IsEmptyCb_InitNonEmpty) {
+TEST_P(LoginDatabaseTest, IsEmptyCb_InitNonEmpty) {
   base::FilePath directory = temp_dir_.GetPath().AppendASCII("DbDirectory");
   {
     // Simulate the DB being populated in a previous startup.
     auto db = std::make_unique<LoginDatabase>(directory, IsAccountStore(false));
-    db->Init();
+    db->Init(encryptor());
     std::ignore =
         db->AddLogin(GenerateExamplePasswordForm(), /*error=*/nullptr);
     db.reset();
@@ -3078,10 +3229,10 @@ TEST_F(LoginDatabaseTest, IsEmptyCb_InitNonEmpty) {
   EXPECT_CALL(is_empty_cb, Run(LoginDatabase::LoginDatabaseEmptinessState{
                                .no_login_found = false,
                                .autofillable_credentials_exist = true}));
-  db.Init();
+  db.Init(encryptor());
 }
 
-TEST_F(LoginDatabaseTest, IsEmptyCb_AddLogin) {
+TEST_P(LoginDatabaseTest, IsEmptyCb_AddLogin) {
   ASSERT_TRUE(db().IsEmpty().no_login_found &&
               !db().IsEmpty().autofillable_credentials_exist);
   EXPECT_CALL(is_empty_cb_, Run(LoginDatabase::LoginDatabaseEmptinessState{
@@ -3090,7 +3241,7 @@ TEST_F(LoginDatabaseTest, IsEmptyCb_AddLogin) {
   std::ignore = db().AddLogin(GenerateExamplePasswordForm(), /*error=*/nullptr);
 }
 
-TEST_F(LoginDatabaseTest,
+TEST_P(LoginDatabaseTest,
        IsEmptyCb_AddBlocklist_NoAutofillableCredentialsExist) {
   ASSERT_TRUE(db().IsEmpty().no_login_found &&
               !db().IsEmpty().autofillable_credentials_exist);
@@ -3101,7 +3252,7 @@ TEST_F(LoginDatabaseTest,
   std::ignore = db().AddLogin(blocklist, /*error=*/nullptr);
 }
 
-TEST_F(LoginDatabaseTest,
+TEST_P(LoginDatabaseTest,
        IsEmptyCb_AddFederatedCredential_NoAutofillableCredentialsExist) {
   ASSERT_TRUE(db().IsEmpty().no_login_found &&
               !db().IsEmpty().autofillable_credentials_exist);
@@ -3112,7 +3263,7 @@ TEST_F(LoginDatabaseTest,
   std::ignore = db().AddLogin(federated_credential, /*error=*/nullptr);
 }
 
-TEST_F(LoginDatabaseTest,
+TEST_P(LoginDatabaseTest,
        IsEmptyCb_AddUsernameOnlyCredential_NoAutofillableCredentialsExist) {
   ASSERT_TRUE(db().IsEmpty().no_login_found &&
               !db().IsEmpty().autofillable_credentials_exist);
@@ -3123,7 +3274,7 @@ TEST_F(LoginDatabaseTest,
   std::ignore = db().AddLogin(username_only, /*error=*/nullptr);
 }
 
-TEST_F(LoginDatabaseTest, IsEmptyCb_RemoveLogin) {
+TEST_P(LoginDatabaseTest, IsEmptyCb_RemoveLogin) {
   PasswordForm normal_form = GenerateExamplePasswordForm();
   PasswordForm blocklist_form = GenerateBlocklistedForm();
   PasswordForm federated_form = GenerateFederatedCredentialForm();
@@ -3155,7 +3306,7 @@ TEST_F(LoginDatabaseTest, IsEmptyCb_RemoveLogin) {
   std::ignore = db().RemoveLogin(username_only_form, /*changes=*/nullptr);
 }
 
-TEST_F(LoginDatabaseTest, IsEmptyCb_RemoveLoginByPrimaryKey) {
+TEST_P(LoginDatabaseTest, IsEmptyCb_RemoveLoginByPrimaryKey) {
   PasswordForm normal_form = GenerateExamplePasswordForm();
   PasswordForm blocklist_form = GenerateBlocklistedForm();
   PasswordForm federated_form = GenerateFederatedCredentialForm();
@@ -3201,7 +3352,7 @@ TEST_F(LoginDatabaseTest, IsEmptyCb_RemoveLoginByPrimaryKey) {
       &username_only_form_changes);
 }
 
-TEST_F(LoginDatabaseTest, IsEmptyCb_RemoveLoginsCreatedBetween) {
+TEST_P(LoginDatabaseTest, IsEmptyCb_RemoveLoginsCreatedBetween) {
   std::ignore = db().AddLogin(GenerateExamplePasswordForm(), /*error=*/nullptr);
   ASSERT_TRUE(!db().IsEmpty().no_login_found &&
               db().IsEmpty().autofillable_credentials_exist);
@@ -3212,7 +3363,7 @@ TEST_F(LoginDatabaseTest, IsEmptyCb_RemoveLoginsCreatedBetween) {
                                                 /*changes=*/nullptr);
 }
 
-TEST_F(LoginDatabaseTest, IsEmptyCb_DeleteAndRecreateDatabaseFile) {
+TEST_P(LoginDatabaseTest, IsEmptyCb_DeleteAndRecreateDatabaseFile) {
   std::ignore = db().AddLogin(GenerateExamplePasswordForm(), /*error=*/nullptr);
   ASSERT_TRUE(!db().IsEmpty().no_login_found &&
               db().IsEmpty().autofillable_credentials_exist);
@@ -3230,7 +3381,7 @@ class LoginDatabaseForAccountStoreTest : public testing::Test {
     OSCryptMocker::SetUp();
 
     db_ = std::make_unique<LoginDatabase>(file_, IsAccountStore(true));
-    ASSERT_TRUE(db_->Init());
+    ASSERT_TRUE(db_->Init(nullptr));
   }
 
   void TearDown() override { OSCryptMocker::TearDown(); }

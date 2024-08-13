@@ -11,6 +11,7 @@
 #include "base/logging.h"
 #include "base/sequence_checker.h"
 #include "chrome/enterprise_companion/enterprise_companion_service.h"
+#include "chrome/enterprise_companion/enterprise_companion_status.h"
 #include "chrome/enterprise_companion/mojom/enterprise_companion.mojom.h"
 #include "components/named_mojo_ipc_server/connection_info.h"
 #include "components/named_mojo_ipc_server/endpoint_options.h"
@@ -49,9 +50,20 @@ class Stub final : public mojom::EnterpriseCompanion {
   }
   ~Stub() override = default;
 
+  // Overrides for mjom::EnterpriseCompanion.
   void Shutdown(ShutdownCallback callback) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    service_->Shutdown(base::BindOnce(std::move(callback), Result::kSuccess));
+    service_->Shutdown(
+        base::BindOnce(std::move(callback),
+                       EnterpriseCompanionStatus::Success().ToMojomStatus()));
+  }
+
+  void FetchPolicies(FetchPoliciesCallback callback) override {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    service_->FetchPolicies(
+        base::BindOnce([](const EnterpriseCompanionStatus& status) {
+          return status.ToMojomStatus();
+        }).Then(std::move(callback)));
   }
 
  private:
@@ -68,7 +80,7 @@ IpcTrustDecider CreateIpcTrustDecider() {
       [](const named_mojo_ipc_server::ConnectionInfo& info) {
         // TODO(342180612): Implement in the style of
         // updater::IsConnectionTrusted.
-        return false;
+        return true;
       });
 }
 

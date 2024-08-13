@@ -19,6 +19,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
+#include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/escape.h"
@@ -41,6 +42,7 @@
 #include "net/base/session_usage.h"
 #include "net/base/trace_constants.h"
 #include "net/base/tracing.h"
+#include "net/base/url_util.h"
 #include "net/cert/cert_verifier.h"
 #include "net/dns/host_resolver.h"
 #include "net/dns/public/secure_dns_policy.h"
@@ -94,6 +96,13 @@ enum InitialRttEstimateSource {
   INITIAL_RTT_SOURCE_MAX,
 };
 
+enum FindMatchingIpSessionResult {
+  MATCHING_IP_SESSION_FOUND,
+  CAN_POOL_BUT_DIFFERENT_IP,
+  CANNOT_POOL_WITH_EXISTING_SESSIONS,
+  FIND_MATCHING_IP_SESSION_RESULT_MAX
+};
+
 std::string QuicPlatformNotificationToString(
     QuicPlatformNotification notification) {
   switch (notification) {
@@ -131,6 +140,17 @@ const char* AllActiveSessionsGoingAwayReasonToString(
 void HistogramCreateSessionFailure(enum CreateSessionFailure error) {
   UMA_HISTOGRAM_ENUMERATION("Net.QuicSession.CreationError", error,
                             CREATION_ERROR_MAX);
+}
+
+void HistogramFindMatchingIpSessionResult(FindMatchingIpSessionResult result,
+                                          std::string_view host) {
+  UMA_HISTOGRAM_ENUMERATION("Net.QuicSession.FindMatchingIpSessionResult",
+                            result, FIND_MATCHING_IP_SESSION_RESULT_MAX);
+  if (IsGoogleHost(host) && !host.ends_with(".googlevideo.com")) {
+    UMA_HISTOGRAM_ENUMERATION(
+        "Net.QuicSession.FindMatchingIpSessionResultGoogle", result,
+        FIND_MATCHING_IP_SESSION_RESULT_MAX);
+  }
 }
 
 void SetInitialRttEstimate(base::TimeDelta estimate,
@@ -269,9 +289,14 @@ void QuicSessionRequest::ExpectOnHostResolution() {
   expect_on_host_resolution_ = true;
 }
 
-void QuicSessionRequest::OnHostResolutionComplete(int rv) {
+void QuicSessionRequest::OnHostResolutionComplete(
+    int rv,
+    base::TimeTicks dns_resolution_start_time,
+    base::TimeTicks dns_resolution_end_time) {
   DCHECK(expect_on_host_resolution_);
   expect_on_host_resolution_ = false;
+  dns_resolution_start_time_ = dns_resolution_start_time;
+  dns_resolution_end_time_ = dns_resolution_end_time;
   if (!host_resolution_callback_.is_null()) {
     std::move(host_resolution_callback_).Run(rv);
   }
@@ -591,7 +616,7 @@ int QuicSessionPool::RequestSession(
   }
   if (rv == OK) {
     auto it = active_sessions_.find(session_key);
-    DCHECK(it != active_sessions_.end());
+    CHECK(it != active_sessions_.end(), base::NotFatalUntil::M130);
     if (it == active_sessions_.end()) {
       return ERR_QUIC_PROTOCOL_ERROR;
     }
@@ -661,8 +686,9 @@ void QuicSessionPool::SetRequestPriority(QuicSessionRequest* request,
 
 void QuicSessionPool::CloseAllSessions(int error,
                                        quic::QuicErrorCode quic_error) {
-  net_log_.AddEvent(NetLogEventType::QUIC_SESSION_POOL_CLOSE_ALL_SESSIONS);
   base::UmaHistogramSparse("Net.QuicSession.CloseAllSessionsError", -error);
+  size_t before_active_sessions_size = active_sessions_.size();
+  size_t before_all_sessions_size = active_sessions_.size();
   while (!active_sessions_.empty()) {
     size_t initial_size = active_sessions_.size();
     active_sessions_.begin()->second->CloseSessionOnError(
@@ -678,6 +704,21 @@ void QuicSessionPool::CloseAllSessions(int error,
     DCHECK_NE(initial_size, all_sessions_.size());
   }
   DCHECK(all_sessions_.empty());
+  // TODO(crbug.com/347984574): Remove before/after counts once we identified
+  // the cause.
+  net_log_.AddEvent(NetLogEventType::QUIC_SESSION_POOL_CLOSE_ALL_SESSIONS, [&] {
+    base::Value::Dict dict;
+    dict.Set("net_error", error);
+    dict.Set("quic_error", quic::QuicErrorCodeToString(quic_error));
+    dict.Set("before_active_sessions_size",
+             static_cast<int>(before_active_sessions_size));
+    dict.Set("before_all_sessions_size",
+             static_cast<int>(before_all_sessions_size));
+    dict.Set("after_active_sessions_size",
+             static_cast<int>(active_sessions_.size()));
+    dict.Set("after_all_sessions_size", static_cast<int>(all_sessions_.size()));
+    return dict;
+  });
 }
 
 base::Value QuicSessionPool::QuicSessionPoolInfoToValue() const {
@@ -1116,6 +1157,20 @@ const std::set<std::string>& QuicSessionPool::GetDnsAliasesForSessionKey(
   return it->second;
 }
 
+void QuicSessionPool::ActivateSessionForTesting(
+    const url::SchemeHostPort& destination,
+    QuicChromiumClientSession* session) {
+  all_sessions_.emplace(session, QuicSessionPool::QuicSessionAliasKey(
+                                     destination, session->quic_session_key()));
+  ActivateSession(all_sessions_[session], session, std::set<std::string>());
+}
+
+void QuicSessionPool::DeactivateSessionForTesting(
+    QuicChromiumClientSession* session) {
+  OnSessionGoingAway(session);
+  all_sessions_.erase(session);
+}
+
 quic::ParsedQuicVersion QuicSessionPool::SelectQuicVersion(
     const quic::ParsedQuicVersion& known_quic_version,
     const ConnectionEndpointMetadata& metadata,
@@ -1204,16 +1259,38 @@ bool QuicSessionPool::HasMatchingIpSession(
       }
 
       MapSessionToAliasKey(session, key, std::move(dns_aliases));
-
+      HistogramFindMatchingIpSessionResult(MATCHING_IP_SESSION_FOUND,
+                                           server_id.host());
       return true;
     }
+  }
+
+  bool can_pool = false;
+  static constexpr uint32_t kMaxLoopCount = 200;
+  uint32_t loop_count = 0;
+  for (const auto& entry : active_sessions_) {
+    ++loop_count;
+    if (loop_count >= kMaxLoopCount) {
+      break;
+    }
+    if (entry.second->CanPool(server_id.host(), key.session_key())) {
+      can_pool = true;
+      break;
+    }
+  }
+  if (can_pool) {
+    HistogramFindMatchingIpSessionResult(CAN_POOL_BUT_DIFFERENT_IP,
+                                         server_id.host());
+  } else {
+    HistogramFindMatchingIpSessionResult(CANNOT_POOL_WITH_EXISTING_SESSIONS,
+                                         server_id.host());
   }
   return false;
 }
 
 void QuicSessionPool::OnJobComplete(Job* job, int rv) {
   auto iter = active_jobs_.find(job->key().session_key());
-  DCHECK(iter != active_jobs_.end());
+  CHECK(iter != active_jobs_.end(), base::NotFatalUntil::M130);
   if (rv == OK) {
     if (!is_quic_known_to_work_on_current_network_) {
       set_is_quic_known_to_work_on_current_network(true);

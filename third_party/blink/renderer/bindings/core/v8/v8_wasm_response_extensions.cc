@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/bindings/core/v8/v8_wasm_response_extensions.h"
 
 #include "base/debug/dump_without_crashing.h"
@@ -551,7 +556,7 @@ void StreamFromResponseCallback(
   // The spec explicitly disallows any extras on the Content-Type header,
   // so we check against ContentType() rather than MimeType(), which
   // implicitly strips extras.
-  if (response->ContentType().LowerASCII() != "application/wasm") {
+  if (!EqualIgnoringASCIICase(response->ContentType(), "application/wasm")) {
     base::UmaHistogramEnumeration("V8.WasmStreamingInputType",
                                   WasmStreamingInputType::kWrongMimeType);
     exception_state.ThrowTypeError(

@@ -5,6 +5,7 @@
 #include "services/webnn/dml/command_queue.h"
 
 #include "base/check_is_test.h"
+#include "base/containers/span.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/safe_conversions.h"
@@ -119,7 +120,7 @@ scoped_refptr<CommandQueue> CommandQueue::Create(ID3D12Device* d3d12_device) {
 }
 
 HRESULT CommandQueue::ExecuteCommandList(ID3D12CommandList* command_list) {
-  return ExecuteCommandLists(base::make_span(&command_list, 1u));
+  return ExecuteCommandLists(base::span_from_ref(command_list));
 }
 
 HRESULT CommandQueue::ExecuteCommandLists(
@@ -135,17 +136,20 @@ HRESULT CommandQueue::ExecuteCommandLists(
 HRESULT CommandQueue::WaitSync() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (fence_->GetCompletedValue() >= last_fence_value_) {
+    ReleaseCompletedResources();
     return S_OK;
   }
 
   HRESULT hr =
       fence_->SetEventOnCompletion(last_fence_value_, fence_event_.get());
   if (FAILED(hr)) {
-    DLOG(ERROR) << "Failed to set event on completion : "
-                << logging::SystemErrorCodeToString(hr);
+    ReleaseCompletedResources();
+    LOG(ERROR) << "Failed to set event on completion : "
+               << logging::SystemErrorCodeToString(hr);
     return hr;
   }
   CHECK_EQ(WaitForSingleObject(fence_event_.get(), INFINITE), WAIT_OBJECT_0);
+  ReleaseCompletedResources();
   return S_OK;
 }
 
@@ -154,6 +158,7 @@ void CommandQueue::OnObjectSignaled(HANDLE object) {
   TRACE_EVENT_NESTABLE_ASYNC_END0("gpu", "dml::CommandQueue::WaitAsync",
                                   TRACE_ID_LOCAL(this));
   CHECK_EQ(object, fence_event_.get());
+  ReleaseCompletedResources();
 
   // If the owning document has shutdown by the time we get here, the only
   // remaining references to CommandQueue are inside of the queued_callbacks_
@@ -179,6 +184,7 @@ void CommandQueue::WaitAsync(base::OnceCallback<void(HRESULT hr)> callback) {
   HRESULT hr =
       fence_->SetEventOnCompletion(last_fence_value_, fence_event_.get());
   if (FAILED(hr)) {
+    ReleaseCompletedResources();
     LOG(ERROR) << "[WebNN] Failed to set event on completion: "
                << logging::SystemErrorCodeToString(hr);
     std::move(callback).Run(hr);
@@ -218,11 +224,6 @@ CommandQueue::GetQueuedObjectsForTesting() const {
   CHECK_IS_TEST();
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return queued_objects_;
-}
-
-uint64_t CommandQueue::GetPendingFenceValue() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return last_fence_value_ + 1;
 }
 
 CommandQueue::QueuedObject::QueuedObject(uint64_t fence_value,

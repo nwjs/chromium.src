@@ -10,6 +10,7 @@ load("//lib/builders.star", "builders", "cpu", "gardener_rotations", "os", "siso
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
+load("//lib/targets.star", "targets")
 load("//lib/xcode.star", "xcode")
 load("//project.star", "settings")
 
@@ -22,8 +23,8 @@ ci.defaults.set(
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
-    execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     gardener_rotations = gardener_rotations.CHROMIUM,
+    execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     health_spec = health_spec.DEFAULT,
     notifies = ["chromesec-lkgr-failures"],
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
@@ -98,7 +99,13 @@ ci.builder(
             "lsan",
             "debug_builder",
             "remoteexec",
+            "x64",
+            "linux",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux asan",
@@ -139,7 +146,13 @@ ci.builder(
             "debug_builder",
             "remoteexec",
             "v8_hybrid",
+            "x86",
+            "linux",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux asan|x64 v8-ARM",
@@ -179,7 +192,13 @@ ci.builder(
             "v8_heap",
             "release_builder",
             "remoteexec",
+            "x64",
+            "linux",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux asan",
@@ -221,7 +240,13 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "v8_hybrid",
+            "x86",
+            "linux",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux asan|x64 v8-ARM",
@@ -262,7 +287,13 @@ ci.builder(
             "chromeos_codecs",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux asan",
@@ -306,6 +337,8 @@ ci.builder(
             "remoteexec",
             "disable_seed_corpus",
             "mojo_fuzzer",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -356,6 +389,8 @@ Those fuzzers require more resources to run correctly.\
             "remoteexec",
             "disable_seed_corpus",
             "high_end_fuzzer_targets",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -403,7 +438,13 @@ ci.builder(
             "release_builder",
             "remoteexec",
             "v8_hybrid",
+            "linux",
+            "x86",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux asan|x64 v8-ARM",
@@ -448,7 +489,13 @@ ci.builder(
             "v8_heap",
             "release_builder",
             "remoteexec",
+            "chromeos",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "cros asan",
@@ -486,7 +533,13 @@ ci.builder(
             "msan",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     os = os.LINUX_FOCAL,
     console_view_entry = consoles.console_view_entry(
@@ -526,7 +579,13 @@ ci.builder(
             "msan_no_origins",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     os = os.LINUX_FOCAL,
     console_view_entry = consoles.console_view_entry(
@@ -567,7 +626,13 @@ ci.builder(
             "v8_heap",
             "release_builder",
             "remoteexec",
+            "mac",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     builderless = False,
     cores = 12,
@@ -616,7 +681,13 @@ ci.builder(
             "chrome_with_codecs",
             "release_builder",
             "remoteexec",
+            "mac",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     builderless = False,
     cores = 12,
@@ -656,7 +727,13 @@ ci.builder(
             "tsan",
             "debug_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux tsan",
@@ -695,7 +772,13 @@ ci.builder(
             "tsan",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux tsan",
@@ -730,7 +813,13 @@ ci.builder(
             "ubsan",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux UBSan",
@@ -767,7 +856,13 @@ ci.builder(
             "ubsan_vptr_no_recover_hack",
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     console_view_entry = consoles.console_view_entry(
         category = "linux UBSan",
@@ -808,7 +903,13 @@ ci.builder(
             "v8_heap",
             "release_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     builderless = False,
     os = os.WINDOWS_DEFAULT,
@@ -853,7 +954,13 @@ ci.builder(
             "chrome_with_codecs",
             "release_builder",
             "remoteexec",
+            "win",
+            "x64",
         ],
+    ),
+    targets = targets.bundle(
+        additional_compile_targets = ["chromium_builder_asan"],
+        mixins = ["chromium-tester-service-account"],
     ),
     builderless = False,
     os = os.WINDOWS_DEFAULT,
@@ -900,6 +1007,7 @@ ci.builder(
             "pdf_xfa",
             "optimize_for_fuzzing",
             "disable_seed_corpus",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1003,6 +1111,8 @@ ci.builder(
             "shared",
             "release",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1050,6 +1160,8 @@ ci.builder(
             "pdf_xfa",
             "optimize_for_fuzzing",
             "disable_seed_corpus",
+            "linux",
+            "x64",
         ],
     ),
     free_space = builders.free_space.high,
@@ -1099,6 +1211,8 @@ ci.builder(
             "pdf_xfa",
             "optimize_for_fuzzing",
             "disable_seed_corpus",
+            "linux",
+            "x64",
         ],
     ),
     os = os.LINUX_FOCAL,
@@ -1146,6 +1260,8 @@ ci.builder(
             "optimize_for_fuzzing",
             "disable_seed_corpus",
             "shared",
+            "linux",
+            "x64",
         ],
     ),
     # Do not use builderless for this (crbug.com/980080).
@@ -1196,6 +1312,8 @@ ci.builder(
             "optimize_for_fuzzing",
             "v8_simulate_arm64",
             "disable_seed_corpus",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1244,6 +1362,8 @@ ci.builder(
             "optimize_for_fuzzing",
             "v8_simulate_arm64",
             "disable_seed_corpus",
+            "linux",
+            "x64",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1292,6 +1412,7 @@ ci.builder(
             "optimize_for_fuzzing",
             "x86",
             "disable_seed_corpus",
+            "linux",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1339,6 +1460,7 @@ ci.builder(
             "optimize_for_fuzzing",
             "v8_simulate_arm",
             "disable_seed_corpus",
+            "linux",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1388,6 +1510,7 @@ ci.builder(
             "optimize_for_fuzzing",
             "v8_simulate_arm",
             "disable_seed_corpus",
+            "linux",
         ],
     ),
     console_view_entry = consoles.console_view_entry(
@@ -1431,6 +1554,8 @@ ci.builder(
             "chrome_with_codecs",
             "pdf_xfa",
             "optimize_for_fuzzing",
+            "mac",
+            "x64",
         ],
     ),
     cores = 12,
@@ -1483,6 +1608,8 @@ ci.builder(
             "pdf_xfa",
             "minimal_symbols",
             "mojo_fuzzer",
+            "win",
+            "x64",
         ],
     ),
     builderless = False,

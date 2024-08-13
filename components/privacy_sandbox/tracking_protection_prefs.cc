@@ -46,10 +46,18 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterTimePref(prefs::kTrackingProtectionSilentOnboardedSince,
                              base::Time());
 
+  // Full 3PCD prefs.
+  registry->RegisterTimePref(prefs::kTrackingProtectionFull3PCDOnboarded,
+                             base::Time());
+
   // Tracking Protection Reminder Prefs
   registry->RegisterIntegerPref(
       prefs::kTrackingProtectionReminderStatus,
       static_cast<int>(TrackingProtectionReminderStatus::kUnset));
+
+  // Tracking Protection Survey Prefs
+  registry->RegisterTimePref(prefs::kTrackingProtectionSurveyWindowStartTime,
+                             base::Time());
 
   // Tracking Protection Settings Prefs
   registry->RegisterBooleanPref(
@@ -72,6 +80,7 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(
       prefs::kEnableDoNotTrack, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(prefs::kUserBypass3pcExceptionsMigrated, false);
 }
 
 }  // namespace privacy_sandbox::tracking_protection

@@ -27,10 +27,7 @@ source_set("module_info") {
     "//content/public/common",
   ]
 
-  deps = [
-    "//base:i18n",
-    #"//chrome/common/safe_browsing:pe_image_reader",
-  ]
+  deps = [ "//base:i18n" ]
 
   libs = [ "crypt32.lib" ]
 }

@@ -9,6 +9,7 @@
 #include "base/functional/callback.h"
 #include "components/autofill/core/browser/autofill_progress_dialog_type.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
 #include "components/autofill/core/browser/payments/card_unmask_delegate.h"
@@ -59,7 +60,29 @@ void PaymentsAutofillClient::HideVirtualCardEnrollBubbleAndIconIfVisible() {}
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 void PaymentsAutofillClient::ConfirmAccountNameFixFlow(
     base::OnceCallback<void(const std::u16string&)> callback) {}
+
+void PaymentsAutofillClient::ConfirmExpirationDateFixFlow(
+    const CreditCard& card,
+    base::OnceCallback<void(const std::u16string&, const std::u16string&)>
+        callback) {}
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+
+bool PaymentsAutofillClient::HasCreditCardScanFeature() const {
+  return false;
+}
+
+void PaymentsAutofillClient::ScanCreditCard(CreditCardScanCallback callback) {}
+
+void PaymentsAutofillClient::ConfirmSaveCreditCardLocally(
+    const CreditCard& card,
+    AutofillClient::SaveCreditCardOptions options,
+    LocalSaveCardPromptCallback callback) {}
+
+void PaymentsAutofillClient::ConfirmSaveCreditCardToCloud(
+    const CreditCard& card,
+    const LegalMessageLines& legal_message_lines,
+    AutofillClient::SaveCreditCardOptions options,
+    UploadSaveCardPromptCallback callback) {}
 
 void PaymentsAutofillClient::CreditCardUploadCompleted(
     bool card_saved,
@@ -131,7 +154,7 @@ void PaymentsAutofillClient::ShowUnmaskPrompt(
     base::WeakPtr<CardUnmaskDelegate> delegate) {}
 
 void PaymentsAutofillClient::OnUnmaskVerificationResult(
-    AutofillClient::PaymentsRpcResult result) {}
+    PaymentsRpcResult result) {}
 
 VirtualCardEnrollmentManager*
 PaymentsAutofillClient::GetVirtualCardEnrollmentManager() {
@@ -160,6 +183,11 @@ IbanAccessManager* PaymentsAutofillClient::GetIbanAccessManager() {
   return nullptr;
 }
 
+MerchantPromoCodeManager*
+PaymentsAutofillClient::GetMerchantPromoCodeManager() {
+  return nullptr;
+}
+
 void PaymentsAutofillClient::ShowMandatoryReauthOptInConfirmation() {}
 
 void PaymentsAutofillClient::UpdateOfferNotification(
@@ -167,5 +195,7 @@ void PaymentsAutofillClient::UpdateOfferNotification(
     const OfferNotificationOptions& options) {}
 
 void PaymentsAutofillClient::DismissOfferNotification() {}
+
+void PaymentsAutofillClient::OpenPromoCodeOfferDetailsURL(const GURL& url) {}
 
 }  // namespace autofill::payments

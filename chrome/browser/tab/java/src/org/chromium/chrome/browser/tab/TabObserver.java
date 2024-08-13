@@ -10,6 +10,7 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.Token;
 import org.chromium.cc.input.BrowserControlsOffsetTagsInfo;
+import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
 import org.chromium.components.find_in_page.FindMatchRectsDetails;
 import org.chromium.components.find_in_page.FindNotificationDetails;
@@ -350,7 +351,8 @@ public interface TabObserver {
     void onBrowserControlsConstraintsChanged(
             Tab tab,
             BrowserControlsOffsetTagsInfo oldOffsetTagsInfo,
-            BrowserControlsOffsetTagsInfo offsetTagsInfo);
+            BrowserControlsOffsetTagsInfo offsetTagsInfo,
+            @BrowserControlsState int constraints);
 
     /**
      * Called when the tab is about to notify its renderer to show the browser controls.
@@ -366,6 +368,12 @@ public interface TabObserver {
      * @param scrolling {@code true} if scrolling started; {@code false} if stopped.
      */
     void onContentViewScrollingStateChanged(boolean scrolling);
+
+    /** Called when the gesture begin event is received. */
+    void onGestureBegin();
+
+    /** Called when the gesture end event is received. */
+    void onGestureEnd();
 
     /** Back press refactor related. Called when navigation state is invalidated. */
     void onNavigationStateChanged();
@@ -403,4 +411,10 @@ public interface TabObserver {
      * @param tabGroupId The new tab group ID, may be null.
      */
     default void onTabGroupIdChanged(Tab tab, @Nullable Token tabGroupId) {}
+
+    /**
+     * Called when the animation state for the back forward session history navigation has changed.
+     * Retrieve the current animation state using the Tab's WebContents.
+     */
+    default void didBackForwardTransitionAnimationChange() {}
 }

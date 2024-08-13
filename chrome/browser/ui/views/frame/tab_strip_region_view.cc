@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/frame/window_frame_util.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -154,7 +155,7 @@ TabStripRegionView::TabStripRegionView(std::unique_ptr<TabStrip> tab_strip)
     }
   }
 
-  if (base::FeatureList::IsEnabled(features::kScrollableTabStrip)) {
+  if (base::FeatureList::IsEnabled(tabs::kScrollableTabStrip)) {
     std::unique_ptr<TabStripScrollContainer> scroll_container =
         std::make_unique<TabStripScrollContainer>(std::move(tab_strip));
     tab_strip_scroll_container_ = scroll_container.get();
@@ -271,7 +272,7 @@ bool TabStripRegionView::IsRectInWindowCaption(const gfx::Rect& rect) {
   // true.
   if (tab_strip_container_->HitTestRect(
           get_target_rect(tab_strip_container_))) {
-    if (base::FeatureList::IsEnabled(features::kScrollableTabStrip)) {
+    if (base::FeatureList::IsEnabled(tabs::kScrollableTabStrip)) {
       TabStripScrollContainer* scroll_container =
           views::AsViewClass<TabStripScrollContainer>(tab_strip_container_);
 
@@ -397,19 +398,26 @@ bool TabStripRegionView::GetDropFormats(
 }
 
 void TabStripRegionView::OnDragEntered(const ui::DropTargetEvent& event) {
-  DCHECK(TabDragController::IsSystemDragAndDropSessionRunning());
+  CHECK(TabDragController::IsSystemDragAndDropSessionRunning());
   TabDragController::OnSystemDragAndDropUpdated(event);
 }
 
 int TabStripRegionView::OnDragUpdated(const ui::DropTargetEvent& event) {
-  DCHECK(TabDragController::IsSystemDragAndDropSessionRunning());
-  TabDragController::OnSystemDragAndDropUpdated(event);
-  return ui::DragDropTypes::DRAG_MOVE;
+  // This can be false because we can still receive drag events after
+  // TabDragController is destroyed due to the asynchronous nature of the
+  // platform DnD.
+  if (TabDragController::IsSystemDragAndDropSessionRunning()) {
+    TabDragController::OnSystemDragAndDropUpdated(event);
+    return ui::DragDropTypes::DRAG_MOVE;
+  }
+  return ui::DragDropTypes::DRAG_NONE;
 }
 
 void TabStripRegionView::OnDragExited() {
-  DCHECK(TabDragController::IsSystemDragAndDropSessionRunning());
-  TabDragController::OnSystemDragAndDropExited();
+  // See comment in OnDragUpdated().
+  if (TabDragController::IsSystemDragAndDropSessionRunning()) {
+    TabDragController::OnSystemDragAndDropExited();
+  }
 }
 
 void TabStripRegionView::ChildPreferredSizeChanged(views::View* child) {
@@ -448,10 +456,6 @@ void TabStripRegionView::ReportCaptionHitTestInReservedGrabHandleSpace(
   }
   button_down_previously = button_down_now;
 #endif
-}
-
-void TabStripRegionView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  node_data->role = ax::mojom::Role::kTabList;
 }
 
 void TabStripRegionView::UpdateButtonBorders() {
@@ -508,7 +512,7 @@ void TabStripRegionView::UpdateTabStripMargin() {
   std::optional<int> tab_strip_left_margin;
   if (tab_search_container_ && render_tab_search_before_tab_strip_) {
     // The `tab_search_container_` is being laid out manually.
-    tab_search_container_->GetProperty(views::kViewIgnoredByLayoutKey);
+    CHECK(tab_search_container_->GetProperty(views::kViewIgnoredByLayoutKey));
 
     // When tab search container shows before tab strip, add a margin to the
     // tab_strip_container_ to leave the correct amount of space for UI

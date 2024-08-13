@@ -8,11 +8,10 @@
 #include <optional>
 
 #include "base/uuid.h"
-#include "components/saved_tab_groups/saved_tab_group_model.h"
-#include "components/saved_tab_groups/saved_tab_group_tab.h"
-#include "components/tab_groups/tab_group_id.h"
 
 namespace tab_groups {
+
+class SavedTabGroup;
 
 // Serves to notify any SavedTabGroupModel listeners that a change has occurred
 // supply the SavedTabGroup that was changed.
@@ -25,10 +24,8 @@ class SavedTabGroupModelObserver {
   // Called when a saved tab group is added to the backend.
   virtual void SavedTabGroupAddedLocally(const base::Uuid& guid) {}
 
-  // Called when a saved tab group will be removed from the backend. Note that
-  // `removed_group` is a temporary object and can't be stored or handled on
-  // another thread.
-  virtual void SavedTabGroupRemovedLocally(const SavedTabGroup* removed_group) {
+  // Called when a saved tab group will be removed from the backend.
+  virtual void SavedTabGroupRemovedLocally(const SavedTabGroup& removed_group) {
   }
 
   // Called when the saved tab group is opened or closed locally.
@@ -44,7 +41,7 @@ class SavedTabGroupModelObserver {
   // being changed.
   virtual void SavedTabGroupUpdatedLocally(
       const base::Uuid& group_guid,
-      const std::optional<base::Uuid>& tab_guid = std::nullopt) {}
+      const std::optional<base::Uuid>& tab_guid) {}
 
   // Called when the order of tabs in an open saved tab group are changed in the
   // tabstrip.
@@ -62,10 +59,8 @@ class SavedTabGroupModelObserver {
 
   // TODO(crbug.com/40870833): Decide if we want to also remove the tabgroup
   // from the tabstrip if it is open, or just remove it from sync.
-  // Note that `removed_group` is a temporary object and can't be stored or
-  // handled on another thread.
   virtual void SavedTabGroupRemovedFromSync(
-      const SavedTabGroup* removed_group) {}
+      const SavedTabGroup& removed_group) {}
 
   // Called when the title, tabs, or color change. `group_guid` denotes the
   // group that is currently being updated. `tab_guid` denotes if a tab in this
@@ -73,7 +68,7 @@ class SavedTabGroupModelObserver {
   // when addressing merge conflicts for duplicate groups and tabs.
   virtual void SavedTabGroupUpdatedFromSync(
       const base::Uuid& group_guid,
-      const std::optional<base::Uuid>& tab_guid = std::nullopt) {}
+      const std::optional<base::Uuid>& tab_guid) {}
 
   // Called when SavedTabGroupModel::LoadStoredEntries has finished loading.
   // This is currently used to notify the SavedTabGroupKeyedService to link any

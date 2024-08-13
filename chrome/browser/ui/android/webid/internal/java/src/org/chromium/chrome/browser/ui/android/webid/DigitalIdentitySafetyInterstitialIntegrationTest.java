@@ -23,15 +23,13 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 
-import org.chromium.base.FeatureList;
-import org.chromium.base.FeatureList.TestValues;
 import org.chromium.base.Promise;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.CriteriaNotSatisfiedException;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -42,7 +40,6 @@ import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.DigitalCredentialProviderUtils.MockIdentityCredentialsDelegate;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogManagerObserver;
@@ -113,29 +110,6 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
         }
     }
 
-    /**
-     * {@link MockIdentityCredentialsDelegate} implementation which provides the ability to control
-     * when the {@link #get()} promise is resolved.
-     */
-    private static class DelayedReturnIdentityCredentialsDelegate
-            extends MockIdentityCredentialsDelegate {
-        private Promise<byte[]> mPromise;
-
-        @Override
-        public Promise<byte[]> get(Activity activity, String origin, String request) {
-            mPromise = new Promise<byte[]>();
-            return mPromise;
-        }
-
-        public boolean hasPromiseToFulfill() {
-            return mPromise != null;
-        }
-
-        public void fulfillPromise() {
-            mPromise.fulfill("token".getBytes());
-        }
-    }
-
     private static final String TEST_PAGE = "/chrome/test/data/android/fedcm_mdocs.html";
 
     @Rule
@@ -165,7 +139,7 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
     @After
     public void tearDown() {
         if (mModalDialogObserver != null) {
-            TestThreadUtils.runOnUiThreadBlocking(
+            ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         mModalDialogManager.removeObserver(mModalDialogObserver);
                     });
@@ -196,15 +170,6 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
                 });
     }
 
-    public void setFieldTrialParam(String dialogParamValue) {
-        FeatureList.TestValues testValues = new TestValues();
-        testValues.addFieldTrialParamOverride(
-                ContentFeatureList.WEB_IDENTITY_DIGITAL_CREDENTIALS,
-                DigitalIdentitySafetyInterstitialBridge.DIGITAL_IDENTITY_DIALOG_PARAM,
-                dialogParamValue);
-        FeatureList.setTestValues(testValues);
-    }
-
     public void addModalDialogObserver(
             int expectedInterstitialParagraph1ResourceId, boolean pressButtonOnShow) {
         String expectedDialogText = null;
@@ -217,7 +182,7 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
         }
 
         mModalDialogObserver = new ModalDialogButtonPresser(expectedDialogText, pressButtonOnShow);
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModalDialogManager.addObserver(mModalDialogObserver);
                 });
@@ -226,15 +191,12 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
     private String getPageOriginString() {
         String pageUrl = mTestServer.getURL(TEST_PAGE);
         Origin pageOrigin = Origin.create(new GURL(pageUrl));
-        return pageOrigin.getScheme() + "://" + pageOrigin.getHost() + ":" + pageOrigin.getPort();
+        return pageOrigin.getHost() + ":" + pageOrigin.getPort();
     }
 
     public void checkDigitalIdentityRequestWithDialogFieldTrialParam(
-            String dialogParamValue,
-            String nodeIdToClick,
-            int expectedInterstitialParagraph1ResourceId)
+            String nodeIdToClick, int expectedInterstitialParagraph1ResourceId)
             throws TimeoutException {
-        setFieldTrialParam(dialogParamValue);
         addModalDialogObserver(
                 expectedInterstitialParagraph1ResourceId, /* pressButtonOnShow= */ true);
 
@@ -257,11 +219,9 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
      */
     @Test
     @LargeTest
-    @EnableFeatures(ContentFeatureList.WEB_IDENTITY_DIGITAL_CREDENTIALS)
+    @EnableFeatures("WebIdentityDigitalCredentials:dialog/low_risk")
     public void testShowLowRiskDialog() throws TimeoutException {
         checkDigitalIdentityRequestWithDialogFieldTrialParam(
-                DigitalIdentitySafetyInterstitialBridge
-                        .DIGITAL_IDENTITY_LOW_RISK_DIALOG_PARAM_VALUE,
                 "request_age_only_button",
                 R.string.digital_identity_interstitial_low_risk_dialog_text);
     }
@@ -273,28 +233,24 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
      */
     @Test
     @LargeTest
-    @EnableFeatures(ContentFeatureList.WEB_IDENTITY_DIGITAL_CREDENTIALS)
+    @EnableFeatures("WebIdentityDigitalCredentials:dialog/high_risk")
     public void testShowHighRiskDialog() throws TimeoutException {
         checkDigitalIdentityRequestWithDialogFieldTrialParam(
-                DigitalIdentitySafetyInterstitialBridge
-                        .DIGITAL_IDENTITY_HIGH_RISK_DIALOG_PARAM_VALUE,
                 "request_age_only_button",
                 R.string.digital_identity_interstitial_high_risk_dialog_text);
     }
 
     /**
-     * Test that the high risk interstitial is shown when credentials other than age are requested.
+     * Test that the low risk interstitial is shown when credentials other than age are requested.
      */
     @Test
     @LargeTest
-    @EnableFeatures(ContentFeatureList.WEB_IDENTITY_DIGITAL_CREDENTIALS)
-    public void testShowHighRiskInterstitialWhenRequestCredentialsOtherThanAge()
+    @EnableFeatures("WebIdentityDigitalCredentials:dialog/default")
+    public void testShowLowRiskInterstitialWhenRequestCredentialsOtherThanAge()
             throws TimeoutException {
         checkDigitalIdentityRequestWithDialogFieldTrialParam(
-                DigitalIdentitySafetyInterstitialBridge
-                        .DIGITAL_IDENTITY_HIGH_RISK_DIALOG_PARAM_VALUE,
                 "request_age_and_name_button",
-                R.string.digital_identity_interstitial_high_risk_dialog_text);
+                R.string.digital_identity_interstitial_low_risk_dialog_text);
     }
 
     /** Test that no interstitial is shown by default. */
@@ -303,47 +259,19 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
     @EnableFeatures(ContentFeatureList.WEB_IDENTITY_DIGITAL_CREDENTIALS)
     public void testNoDialogByDefault() throws TimeoutException {
         checkDigitalIdentityRequestWithDialogFieldTrialParam(
-                /* dialogParamValue= */ "",
-                "request_age_only_button",
-                /* expectedInterstitialParagraph1ResourceId= */ -1);
+                "request_age_only_button", /* expectedInterstitialParagraph1ResourceId= */ -1);
     }
 
     /**
-     * Test that no interstitial is shown if the BF cache is enabled and the page navigates while
-     * the Android OS system prompt is being shown.
+     * Test that the feature param takes precedence over the digital credential request type (age or
+     * not).
      */
     @Test
     @LargeTest
-    @DisableFeatures({"BackForwardCacheMemoryControls"})
-    @EnableFeatures(ContentFeatureList.WEB_IDENTITY_DIGITAL_CREDENTIALS)
-    public void testNoDialogIfNavigationDuringAndroidOsCall() throws TimeoutException {
-        DelayedReturnIdentityCredentialsDelegate delegate =
-                new DelayedReturnIdentityCredentialsDelegate();
-        DigitalIdentityProvider.setDelegateForTesting(delegate);
-        setFieldTrialParam(
-                DigitalIdentitySafetyInterstitialBridge
-                        .DIGITAL_IDENTITY_HIGH_RISK_DIALOG_PARAM_VALUE);
-        addModalDialogObserver(
-                /* expectedInterstitialParagraph1ResourceId= */ -1, /* pressButtonOnShow= */ false);
-
-        DOMUtils.clickNode(mActivityTestRule.getWebContents(), "request_age_only_button");
-
-        CriteriaHelper.pollInstrumentationThread(
-                () -> {
-                    return delegate.hasPromiseToFulfill();
-                });
-
-        // Do page navigation during the Android OS call.
-        mActivityTestRule.loadUrl(mTestServer.getURL("/chrome/test/data/android/simple.html"));
-
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    delegate.fulfillPromise();
-                });
-
-        // An interstitial should not have been shown.
-        assertFalse(mModalDialogObserver.wasAnyDialogShown());
-        assertFalse(mModalDialogObserver.wasDialogShown());
+    @EnableFeatures("WebIdentityDigitalCredentials:dialog/no_dialog")
+    public void testFeatureParamTakesPrecedence() throws TimeoutException {
+        checkDigitalIdentityRequestWithDialogFieldTrialParam(
+                "request_age_and_name_button", /* expectedInterstitialParagraph1ResourceId= */ -1);
     }
 
     /**
@@ -354,12 +282,9 @@ public class DigitalIdentitySafetyInterstitialIntegrationTest {
     @LargeTest
     @EnableFeatures({
         "BackForwardCacheMemoryControls",
-        ContentFeatureList.WEB_IDENTITY_DIGITAL_CREDENTIALS
+        "WebIdentityDigitalCredentials:dialog/high_risk"
     })
     public void testDialogUpdatedIfPageNavigatesWhileDialogIsUp() throws TimeoutException {
-        setFieldTrialParam(
-                DigitalIdentitySafetyInterstitialBridge
-                        .DIGITAL_IDENTITY_HIGH_RISK_DIALOG_PARAM_VALUE);
         addModalDialogObserver(
                 R.string.digital_identity_interstitial_high_risk_dialog_text,
                 /* pressButtonOnShow= */ false);

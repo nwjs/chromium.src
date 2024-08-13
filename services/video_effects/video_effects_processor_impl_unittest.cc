@@ -37,10 +37,9 @@ namespace {
 // Helper, returns dummy (but valid) VideoBufferHandlePtr.
 media::mojom::VideoBufferHandlePtr GetDummyVideoBufferHandle() {
   auto shared_image = gpu::ClientSharedImage::CreateForTesting();
-  return media::mojom::VideoBufferHandle::NewSharedImageHandles(
-      media::mojom::SharedImageBufferHandleSet::New(
-          shared_image->Export(), gpu::SyncToken(),
-          shared_image->GetTextureTarget()));
+  return media::mojom::VideoBufferHandle::NewSharedImageHandle(
+      media::mojom::SharedImageBufferHandleSet::New(shared_image->Export(),
+                                                    gpu::SyncToken()));
 }
 
 class VideoEffectsProcessorTest : public testing::Test {
@@ -83,6 +82,7 @@ TEST_F(VideoEffectsProcessorTest, InitializeSucceeds) {
                  client,
              gpu::ContextResult* result, gpu::Capabilities* capabilities,
              gpu::GLCapabilities* gl_capabilities) -> bool {
+            capabilities->sync_query = true;
             receiver.EnableUnassociatedUsage();
             *result = gpu::ContextResult::kSuccess;
             return true;

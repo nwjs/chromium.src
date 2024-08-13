@@ -6,19 +6,12 @@
 
 #include <memory>
 #include <utility>
-#include <vector>
 
 #include "base/check_op.h"
-#include "base/memory/weak_ptr.h"
-#include "components/performance_manager/public/features.h"
 #include "components/performance_manager/public/graph/page_node.h"
 #include "components/performance_manager/public/graph/process_node.h"
-#include "content/public/browser/web_contents.h"
 
 namespace performance_manager::user_tuning {
-
-using WebContentsAndPmf =
-    std::pair<base::WeakPtr<content::WebContents>, uint64_t>;
 
 const int UserPerformanceTuningNotifier::kTabCountThresholdForPromo = 10;
 const int UserPerformanceTuningNotifier::kMemoryPercentThresholdForPromo = 70;
@@ -35,7 +28,6 @@ UserPerformanceTuningNotifier::~UserPerformanceTuningNotifier() = default;
 
 void UserPerformanceTuningNotifier::OnPassedToGraph(Graph* graph) {
   CHECK_EQ(graph->GetAllPageNodes().size(), 0u);
-  graph_ = graph;
   graph->AddPageNodeObserver(this);
 
   metrics_interest_token_ = performance_manager::ProcessMetricsDecorator::
@@ -48,7 +40,6 @@ void UserPerformanceTuningNotifier::OnTakenFromGraph(Graph* graph) {
   metrics_interest_token_.reset();
 
   graph->RemovePageNodeObserver(this);
-  graph_ = nullptr;
 }
 
 void UserPerformanceTuningNotifier::OnPageNodeAdded(const PageNode* page_node) {
@@ -77,7 +68,8 @@ void UserPerformanceTuningNotifier::OnTypeChanged(const PageNode* page_node,
 void UserPerformanceTuningNotifier::OnProcessMemoryMetricsAvailable(
     const SystemNode* system_node) {
   uint64_t total_rss = 0;
-  for (const ProcessNode* process_node : graph_->GetAllProcessNodes()) {
+  for (const ProcessNode* process_node :
+       GetOwningGraph()->GetAllProcessNodes()) {
     total_rss += process_node->GetResidentSetKb();
   }
 
@@ -89,15 +81,6 @@ void UserPerformanceTuningNotifier::OnProcessMemoryMetricsAvailable(
   }
 
   previous_total_rss_ = total_rss;
-
-  std::vector<WebContentsAndPmf> web_contents_and_pmf;
-  Graph::NodeSetView<const PageNode*> all_page_nodes =
-      graph_->GetAllPageNodes();
-  web_contents_and_pmf.reserve(all_page_nodes.size());
-  for (const PageNode* page_node : all_page_nodes) {
-    web_contents_and_pmf.emplace_back(
-        page_node->GetWebContents(), page_node->EstimatePrivateFootprintSize());
-  }
 }
 
 void UserPerformanceTuningNotifier::MaybeAddTabAndNotify(

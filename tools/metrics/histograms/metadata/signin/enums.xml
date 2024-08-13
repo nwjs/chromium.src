@@ -169,6 +169,11 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Is Shared"/>
 </enum>
 
+<enum name="BooleanSignoutFromManagedAccount">
+  <int value="0" label="Cancel sign-out"/>
+  <int value="1" label="Continue with sign-out"/>
+</enum>
+
 <enum name="BooleanWasDeferred">
   <int value="0" label="Was not deferred"/>
   <int value="1" label="Was deferred"/>
@@ -212,6 +217,17 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Modified to never sign in"/>
 </enum>
 
+<!-- LINT.IfChange(ChromeSigninUserChoice) -->
+
+<enum name="ChromeSigninUserChoice">
+  <int value="0" label="No choice selected"/>
+  <int value="1" label="Always ask"/>
+  <int value="2" label="Automatically Sign in"/>
+  <int value="3" label="Do not automatically Sign in"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/signin/public/base/signin_prefs.h:ChromeSigninUserChoice) -->
+
 <!-- LINT.IfChange(ChromeSignoutConfirmationChoice) -->
 
 <enum name="ChromeSignoutConfirmationChoice">
@@ -221,6 +237,18 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/signin/chrome_signout_confirmation_prompt.h:ChromeSignoutConfirmationChoice) -->
+
+<!-- LINT.IfChange(ExplicitSigninMigration) -->
+
+<enum name="ExplicitSigninMigration">
+  <int value="0" label="Migrated, signed out"/>
+  <int value="1" label="Migrated, signed in"/>
+  <int value="2" label="Migrated, syncing"/>
+  <int value="3" label="Not Migrated, signed in"/>
+  <int value="4" label="Not Migrated, syncing"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/signin/core/browser/signin_metrics_service.h:ExplicitSigninMigration) -->
 
 <enum name="FRESigninEvents">
   <int value="0" label="Checking managed status"/>
@@ -366,6 +394,9 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Cookie is already fresh"/>
   <int value="7"
       label="Mojo connection with the throttle handler disconnected"/>
+  <int value="8"
+      label="Throttling requests paused due to successive server transient
+             errors"/>
 </enum>
 
 <enum name="SessionTerminationTrigger">
@@ -457,6 +488,7 @@ chromium-metrics-reviews@google.com.
   <int value="64" label="OIDC auth redirect URI interception"/>
   <int value="65" label="WebAuthn modal dialog"/>
   <int value="66" label="Avatar bubble sign in with sync promo"/>
+  <int value="67" label="Account menu"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -780,6 +812,16 @@ chromium-metrics-reviews@google.com.
     The primary account might be signed out when a profile is being deleted, to
     avoid that deletion of data propagates via sync to other devices.
   </int>
+  <int value="35" label="Signed out while switching to another primary profile">
+    In the account menu, the user switched their primary account. As a first
+    step, they get signed-out of their previous primary account.
+  </int>
+  <int value="36" label="Signed out from the account menu">
+    In the account menu, the user selected the sign-out button.
+  </int>
+  <int value="37" label="User disabled allow chrome sign-in toggle">
+    User disabled &quot;Allow Chrome sign-in&quot; toggle.
+  </int>
 </enum>
 
 <enum name="SigninSSOIdentityListRequestCacheState">
@@ -853,26 +895,27 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <enum name="SyncButtonsType">
-  <int value="0" label="Equal weighted buttons on sync screen (Android)"/>
+  <int value="0" label="Equal weighted buttons on sync screen (deprecated)"/>
   <int value="1"
       label="Not-Equal weighted buttons on sync screen (Android, Windows, Mac
              and Linux)"/>
   <int value="2"
       label="Equal weighted buttons on history sync screen (deprecated)"/>
   <int value="3"
-      label="Not-Equal weighted buttons on history sync screen (iOS)"/>
+      label="Not-Equal weighted buttons on history sync screen (iOS and
+             Android)"/>
   <int value="4"
-      label="Equal weighted buttons on sync screen from deadline (Windows,
-             Mac and Linux)"/>
+      label="Equal weighted buttons on sync screen from deadline (Android,
+             Windows, Mac and Linux)"/>
   <int value="5"
-      label="Equal weighted buttons on sync screen from capability (Windows,
-             Mac and Linux)"/>
+      label="Equal weighted buttons on sync screen from capability (Android,
+             Windows, Mac and Linux)"/>
   <int value="6"
-      label="Equal weighted buttons on history sync screen from deadline
-             (iOS)"/>
+      label="Equal weighted buttons on history sync screen from deadline (iOS
+             and Android)"/>
   <int value="7"
       label="Equal weighted buttons on history sync screen from capability
-             (iOS)"/>
+             (iOS and Android)"/>
 </enum>
 
 <enum name="SyncErrorPromptUIAction">

@@ -2141,8 +2141,9 @@ class WorkspaceLayoutManagerKeyboardTest : public AshTestBase {
     work_area_insets->UpdateWorkAreaInsetsForTest(root, gfx::Rect(),
                                                   gfx::Insets(), insets);
 
-    ash::KeyboardStateDescriptor state{true, keyboard_bounds_, keyboard_bounds_,
-                                       keyboard_bounds_};
+    ash::KeyboardStateDescriptor state{/*is_visible=*/true,
+                                       /*is_temporary=*/false, keyboard_bounds_,
+                                       keyboard_bounds_, keyboard_bounds_};
     work_area_insets->OnKeyboardAppearanceChanged(state);
   }
 
@@ -2152,8 +2153,9 @@ class WorkspaceLayoutManagerKeyboardTest : public AshTestBase {
     work_area_insets->UpdateWorkAreaInsetsForTest(
         root, gfx::Rect(), gfx::Insets(), restore_work_area_insets_);
 
-    ash::KeyboardStateDescriptor state{true, gfx::Rect(), gfx::Rect(),
-                                       gfx::Rect()};
+    ash::KeyboardStateDescriptor state{/*is_visible=*/true,
+                                       /*is_temporary=*/false, gfx::Rect(),
+                                       gfx::Rect(), gfx::Rect()};
     work_area_insets->OnKeyboardAppearanceChanged(state);
 
     layout_manager_->OnKeyboardDisplacingBoundsChanged(gfx::Rect());
@@ -2296,7 +2298,7 @@ TEST_F(WorkspaceLayoutManagerKeyboardTest,
 
   // Open keyboard in sticky mode.
   kb_controller->ShowKeyboard(true);
-  ASSERT_TRUE(keyboard::WaitUntilShown());
+  ASSERT_TRUE(keyboard::test::WaitUntilShown());
 
   int shift =
       work_area.height() - kb_controller->GetKeyboardWindow()->bounds().y();

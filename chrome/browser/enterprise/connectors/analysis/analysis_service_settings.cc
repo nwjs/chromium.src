@@ -146,7 +146,7 @@ AnalysisServiceSettings::AnalysisServiceSettings(
     }
   }
 
-#if 0
+#if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
 #if BUILDFLAG(IS_WIN)
   const char* verification_key = kKeyWindowsVerification;
 #elif BUILDFLAG(IS_MAC)
@@ -199,7 +199,6 @@ AnalysisSettings AnalysisServiceSettings::GetAnalysisSettingsWithTags(
   settings.default_action = default_action_;
   settings.block_password_protected_files = block_password_protected_files_;
   settings.block_large_files = block_large_files_;
-#if 0
   if (is_cloud_analysis()) {
     CloudAnalysisSettings cloud_settings;
     cloud_settings.analysis_url =
@@ -211,7 +210,6 @@ AnalysisSettings AnalysisServiceSettings::GetAnalysisSettingsWithTags(
     settings.cloud_or_local_settings =
         CloudOrLocalAnalysisSettings(std::move(cloud_settings));
   } else {
-#endif
     DCHECK(is_local_analysis());
     LocalAnalysisSettings local_settings;
     local_settings.local_path = analysis_config_->local_path;
@@ -224,7 +222,7 @@ AnalysisSettings AnalysisServiceSettings::GetAnalysisSettingsWithTags(
 
     settings.cloud_or_local_settings =
         CloudOrLocalAnalysisSettings(std::move(local_settings));
-    //}
+  }
   settings.minimum_data_size = minimum_data_size_;
   settings.tags = std::move(tags);
   return settings;

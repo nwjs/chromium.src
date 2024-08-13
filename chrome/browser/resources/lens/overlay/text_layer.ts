@@ -319,6 +319,37 @@ export class TextLayerElement extends PolymerElement {
     this.sendSelectedText();
   }
 
+  selectAndTranslateWords(
+      selectionStartIndex: number, selectionEndIndex: number) {
+    this.selectWords(selectionStartIndex, selectionEndIndex);
+    this.isSelectingText = false;
+    // Do not show the selected text context menu, but update the data so that
+    // it is shown correctly if the user right-clicks on the text.
+    const highlightedText = this.getHighlightedText();
+    const lines = this.getHighlightedLines();
+    const containingRect = this.getContainingRect(lines);
+    this.dispatchEvent(new CustomEvent<SelectedTextContextMenuData>(
+        'update-selected-text-context-menu', {
+          bubbles: true,
+          composed: true,
+          detail: {
+            text: highlightedText,
+            contentLanguage: this.contentLanguage,
+            left: containingRect.left,
+            right: containingRect.right,
+            top: containingRect.top,
+            bottom: containingRect.bottom,
+            selectionStartIndex: this.selectionStartIndex,
+            selectionEndIndex: this.selectionEndIndex,
+          },
+        }));
+
+    BrowserProxyImpl.getInstance().handler.issueTranslateSelectionRequest(
+        this.getHighlightedText(), this.contentLanguage,
+        this.selectionStartIndex, this.selectionEndIndex);
+    recordLensOverlayInteraction(INVOCATION_SOURCE, UserAction.kTranslateText);
+  }
+
   cancelGesture() {
     this.unselectWords();
   }
@@ -371,6 +402,11 @@ export class TextLayerElement extends PolymerElement {
     this.renderedWords = receivedWords;
     assert(this.lineNumbers.length === this.renderedWords.length);
     assert(this.paragraphNumbers.length === this.renderedWords.length);
+
+    // Used to notify the post selection renderer so that, if a region has
+    // already been selected, text in the region can be detected.
+    this.dispatchEvent(new CustomEvent(
+        'finished-receiving-text', {bubbles: true, composed: true}));
   }
 
   // Returns the rectangle circumscribing the given lines.

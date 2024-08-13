@@ -38,17 +38,18 @@ extern const char kForceSearchEngineChoiceScreen[];
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kSearchEngineChoiceTrigger);
 
+#if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kSearchEngineChoiceAttribution);
+#endif
+
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+BASE_DECLARE_FEATURE(kSearchEnginesSortingCleanup);
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kPersistentSearchEngineChoiceImport);
 #endif
-
-COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
-extern const base::FeatureParam<bool>
-    kSearchEngineChoiceTriggerForTaggedProfilesOnly;
 
 // Forces the search engine choice country to Belgium. Used for testing
 // purposes.
@@ -65,8 +66,6 @@ inline constexpr char kSearchEngineChoiceNoRepromptString[] = "NO_REPROMPT";
 // This is a JSON dictionary where keys are country codes, and values are Chrome
 // version strings. The wildcard country '*' represents all countries.
 // When a specific country is specified, it takes precedence over the wildcard.
-// Note: this has no effect for users with the parameter
-// `kSearchEngineChoiceTriggerForTaggedProfilesOnly` set to `true`.
 //
 // Example: {"*": "2.0.0.0", "BE": "5.0.0.0"}
 // This reprompts users in Belgium who made the choice strictly before version
@@ -105,6 +104,12 @@ BASE_DECLARE_FEATURE(kSearchEnginePromoDialogRewrite);
 // component. See crbug.com/345275145.
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kPrefetchParameterFix);
+
+// Kill switch to revert the fix of dropping searchbox stats (gs_lcrp) from
+// prefetch requests. See crbug.com/350939001.
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+BASE_DECLARE_FEATURE(kRemoveSearchboxStatsParamFromPrefetchRequests);
+
 }  // namespace switches
 
 #endif  // COMPONENTS_SEARCH_ENGINES_SEARCH_ENGINES_SWITCHES_H_

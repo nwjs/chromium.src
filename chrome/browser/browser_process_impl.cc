@@ -51,7 +51,7 @@
 #include "chrome/browser/devtools/remote_debugging_server.h"
 #include "chrome/browser/download/download_request_limiter.h"
 #include "chrome/browser/download/download_status_updater.h"
-#include "chrome/browser/global_features.h"
+#include "chrome/browser/global_desktop_features.h"
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/gpu/gpu_mode_manager.h"
 #include "chrome/browser/icon_manager.h"
@@ -102,8 +102,8 @@
 #include "components/component_updater/timer_update_scheduler.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
-#include "components/fingerprinting_protection_filter/browser/fingerprinting_protection_filter_constants.h"
-#include "components/fingerprinting_protection_filter/browser/fingerprinting_protection_filter_features.h"
+#include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_constants.h"
+#include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_features.h"
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -119,9 +119,10 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/safe_browsing_service_interface.h"
 #include "components/sessions/core/session_id_generator.h"
+#include "components/subresource_filter/content/browser/safe_browsing_ruleset_publisher.h"
 #include "components/subresource_filter/content/shared/browser/ruleset_service.h"
-#include "components/subresource_filter/core/browser/subresource_filter_constants.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
+#include "components/subresource_filter/core/common/constants.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/ukm/ukm_service.h"
 #include "components/update_client/update_query_params.h"
@@ -132,7 +133,6 @@
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/network_quality_observer_factory.h"
 #include "content/public/browser/network_service_instance.h"
-#include "content/public/browser/network_service_util.h"
 #include "content/public/browser/process_visibility_util.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/service_worker_context.h"
@@ -142,7 +142,6 @@
 #include "extensions/common/constants.h"
 #include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "net/log/net_log.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/network/public/cpp/features.h"
@@ -182,11 +181,11 @@
 #include "chrome/browser/intranet_redirect_detector.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
-#include "chrome/browser/search_engine_choice/search_engine_choice_profile_tagger.h"
 #include "chrome/browser/serial/serial_policy_allowed_ports.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/usb/usb_system_tray_icon.h"
+#include "chrome/browser/web_applications/isolated_web_apps/iwa_identity_validator.h"
 #include "chrome/browser/webapps/webapps_client_desktop.h"
 #include "components/gcm_driver/gcm_client_factory.h"
 #include "components/gcm_driver/gcm_desktop_utils.h"
@@ -283,13 +282,6 @@ BrowserProcessImpl::BrowserProcessImpl(StartupData* startup_data)
 }
 
 void BrowserProcessImpl::Init() {
-  if (content::IsOutOfProcessNetworkService()) {
-    // Initialize NetLog source IDs to use an alternate starting value for
-    // the browser process. This needs to be done early in process startup
-    // before any NetLogSource objects might get created.
-    net::NetLog::Get()->InitializeSourceIdPartition();
-  }
-
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // Forces creation of |metrics_services_manager_client_| if necessary
   // (typically this call is a no-op as MetricsServicesManager has already been
@@ -367,6 +359,10 @@ void BrowserProcessImpl::Init() {
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+  web_app::IwaIdentityValidator::CreateSingleton();
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
   KeepAliveRegistry::GetInstance()->SetIsShuttingDown(false);
   KeepAliveRegistry::GetInstance()->AddObserver(this);
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -408,10 +404,10 @@ void BrowserProcessImpl::Init() {
   hid_system_tray_icon_ = std::make_unique<HidStatusIcon>();
   usb_system_tray_icon_ = std::make_unique<UsbStatusIcon>();
 #endif  // BUILDFLAG(IS_CHROMEOS)
+        //
+  desktop_features_ = GlobalDesktopFeatures::CreateGlobalDesktopFeatures();
+  desktop_features_->Init();
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-  features_ = GlobalFeatures::CreateGlobalFeatures();
-  features_->Init();
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -456,10 +452,8 @@ void BrowserProcessImpl::StartTearDown() {
 #endif
   metrics_services_manager_.reset();
   intranet_redirect_detector_.reset();
-#if 0
   if (safe_browsing_service_.get())
     safe_browsing_service()->ShutDown();
-#endif
   network_time_tracker_.reset();
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
@@ -1055,6 +1049,10 @@ UsbSystemTrayIcon* BrowserProcessImpl::usb_system_tray_icon() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return usb_system_tray_icon_.get();
 }
+
+GlobalDesktopFeatures* BrowserProcessImpl::GetDesktopFeatures() {
+  return desktop_features_.get();
+}
 #endif
 
 os_crypt_async::OSCryptAsync* BrowserProcessImpl::os_crypt_async() {
@@ -1225,11 +1223,6 @@ void BrowserProcessImpl::CreateProfileManager() {
   base::FilePath user_data_dir;
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
   profile_manager_ = std::make_unique<ProfileManager>(user_data_dir);
-
-#if !BUILDFLAG(IS_ANDROID)
-  search_engine_choice_profile_tagger_ =
-      SearchEngineChoiceProfileTagger::Create(*profile_manager_.get());
-#endif
 }
 
 void BrowserProcessImpl::PreCreateThreads() {
@@ -1463,7 +1456,6 @@ void BrowserProcessImpl::CreateSafeBrowsingService() {
   // Set this flag to true so that we don't retry indefinitely to
   // create the service class if there was an error.
   created_safe_browsing_service_ = true;
-#if 0
 
   // The factory can be overridden in tests.
   if (!safe_browsing::SafeBrowsingServiceInterface::HasFactory()) {
@@ -1477,7 +1469,6 @@ void BrowserProcessImpl::CreateSafeBrowsingService() {
       safe_browsing::SafeBrowsingServiceInterface::CreateSafeBrowsingService());
   if (safe_browsing_service_)
     safe_browsing_service_->Initialize();
-#endif
 }
 
 void BrowserProcessImpl::CreateSubresourceFilterRulesetService() {
@@ -1491,10 +1482,12 @@ void BrowserProcessImpl::CreateSubresourceFilterRulesetService() {
 
   base::FilePath user_data_dir;
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+
   subresource_filter_ruleset_service_ =
       subresource_filter::RulesetService::Create(
           subresource_filter::kSafeBrowsingRulesetConfig, local_state(),
-          user_data_dir);
+          user_data_dir,
+          subresource_filter::SafeBrowsingRulesetPublisher::Factory());
 }
 
 void BrowserProcessImpl::CreateFingerprintingProtectionRulesetService() {
@@ -1505,11 +1498,14 @@ void BrowserProcessImpl::CreateFingerprintingProtectionRulesetService() {
 
   base::FilePath user_data_dir;
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+
+  // TODO(https://crbug.com/347304498): Use FP publisher when implemented.
   fingerprinting_protection_ruleset_service_ =
       subresource_filter::RulesetService::Create(
           fingerprinting_protection_filter::
               kFingerprintingProtectionRulesetConfig,
-          local_state(), user_data_dir);
+          local_state(), user_data_dir,
+          subresource_filter::SafeBrowsingRulesetPublisher::Factory());
 }
 
 #if !BUILDFLAG(IS_ANDROID)

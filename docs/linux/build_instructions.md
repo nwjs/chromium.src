@@ -12,7 +12,7 @@ Are you a Google employee? See
 
 ## System requirements
 
-* A 64-bit Intel machine with at least 8GB of RAM. More than 16GB is highly
+* An x86-64 machine with at least 8GB of RAM. More than 16GB is highly
     recommended. If your machine has an SSD, it is recommended to have
     \>=32GB/>=16GB of swap for machines with 8GB/16GB of RAM respectively.
 * At least 100GB of free disk space. It does not have to be on the same drive;
@@ -376,10 +376,12 @@ add this to your .bashrc / .bash_profile.
 
 ```shell
 if [[ -z "${DISPLAY}" ]]; then
-  export DISPLAY=:$(
-    find /tmp/.X11-unix -maxdepth 1 -mindepth 1 -name 'X*' |
-      grep -o '[0-9]\+$' | head -n 1
-  )
+  # In reality, Chrome Remote Desktop starts with 20 and increases until it
+  # finds an available ID [1]. So this isn't guaranteed to always work, but
+  # should work on the vast majoriy of cases.
+  #
+  # [1] https://source.chromium.org/chromium/chromium/src/+/main:remoting/host/linux/linux_me2me_host.py;l=112;drc=464a632e21bcec76c743930d4db8556613e21fd8
+  export DISPLAY=:20
 fi
 ```
 

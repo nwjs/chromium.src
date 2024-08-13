@@ -10,6 +10,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
+#include "base/trace_event/base_tracing.h"
 #include "base/trace_event/named_trigger.h"
 #include "chrome/browser/browser_process.h"
 #include "components/page_load_metrics/browser/observers/core/largest_contentful_paint_handler.h"
@@ -37,6 +38,8 @@ const char kHistogramGWSNavigationStartToFirstResponseStart[] =
     HISTOGRAM_PREFIX "NavigationTiming.NavigationStartToFirstResponseStart";
 const char kHistogramGWSNavigationStartToFirstLoaderCallback[] =
     HISTOGRAM_PREFIX "NavigationTiming.NavigationStartToFirstLoaderCallback";
+const char kHistogramGWSNavigationStartToOnComplete[] =
+    HISTOGRAM_PREFIX "NavigationTiming.NavigationStartToOnComplete";
 const char kHistogramGWSAFTEnd[] = HISTOGRAM_PREFIX "PaintTiming.AFTEnd";
 const char kHistogramGWSAFTStart[] = HISTOGRAM_PREFIX "PaintTiming.AFTStart";
 const char kHistogramGWSFirstContentfulPaint[] =
@@ -119,6 +122,11 @@ void GWSPageLoadMetricsObserver::OnParseStart(
 
 void GWSPageLoadMetricsObserver::OnComplete(
     const page_load_metrics::mojom::PageLoadTiming& timing) {
+  const base::TimeTicks navigation_start = GetDelegate().GetNavigationStart();
+  if (!navigation_start.is_null()) {
+    PAGE_LOAD_HISTOGRAM(internal::kHistogramGWSNavigationStartToOnComplete,
+                        base::TimeTicks::Now() - navigation_start);
+  }
   LogMetricsOnComplete();
 }
 
@@ -193,4 +201,40 @@ void GWSPageLoadMetricsObserver::RecordNavigationTimingHistograms() {
   PAGE_LOAD_HISTOGRAM(
       internal::kHistogramGWSNavigationStartToFinalLoaderCallback,
       timing.final_loader_callback_time - navigation_start_time);
+
+  // Record trace events according to the navigation milestone.
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+      "loading", "GWSNavigationStartToFirstRequestStart", TRACE_ID_LOCAL(this),
+      navigation_start_time);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
+      "loading", "GWSNavigationStartToFirstRequestStart", TRACE_ID_LOCAL(this),
+      timing.first_request_start_time);
+
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+      "loading", "GWSFirstRequestStartToFirstResponseStart",
+      TRACE_ID_LOCAL(this), timing.first_request_start_time);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
+      "loading", "GWSFirstRequestStartToFirstResponseStart",
+      TRACE_ID_LOCAL(this), timing.first_response_start_time);
+
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+      "loading", "GWSFirstResponseStartToFirstLoaderCallback",
+      TRACE_ID_LOCAL(this), timing.first_response_start_time);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
+      "loading", "GWSFirstResponseStartToFirstLoaderCallback",
+      TRACE_ID_LOCAL(this), timing.first_loader_callback_time);
+
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+      "loading", "GWSFirstLoadCallbackToFinalResponseStart",
+      TRACE_ID_LOCAL(this), timing.first_loader_callback_time);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
+      "loading", "GWSFirstLoadCallbackToFinalResponseStart",
+      TRACE_ID_LOCAL(this), timing.final_response_start_time);
+
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+      "loading", "GWSFinalResponseStartToFinalLoaderCallback",
+      TRACE_ID_LOCAL(this), timing.final_response_start_time);
+  TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
+      "loading", "GWSFinalResponseStartToFinalLoaderCallback",
+      TRACE_ID_LOCAL(this), timing.final_loader_callback_time);
 }

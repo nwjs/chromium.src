@@ -84,7 +84,7 @@ bool NetworkInitializeConfig(sandbox::TargetConfig* config) {
       GetContentClient()->browser()->GetLPACCapabilityNameForNetworkService();
   if (lpac_capability.empty())
     return false;
-  auto app_container = config->GetAppContainer();
+  auto* app_container = config->GetAppContainer();
   if (!app_container)
     return false;
   app_container->AddCapability(lpac_capability.c_str());
@@ -242,6 +242,9 @@ std::string UtilitySandboxedProcessLauncherDelegate::GetSandboxTag() {
 
 bool UtilitySandboxedProcessLauncherDelegate::GetAppContainerId(
     std::string* appcontainer_id) {
+  if (app_container_disabled_) {
+    return false;
+  }
   switch (sandbox_type_) {
     case sandbox::mojom::Sandbox::kMediaFoundationCdm:
     case sandbox::mojom::Sandbox::kNetwork:
@@ -436,7 +439,8 @@ bool UtilitySandboxedProcessLauncherDelegate::CetCompatible() {
 
 bool UtilitySandboxedProcessLauncherDelegate::AllowWindowsFontsDir() {
   // New utilities should use a font proxy rather than allowing direct access.
-  if (sandbox_type_ == sandbox::mojom::Sandbox::kPrintCompositor) {
+  if (sandbox_type_ == sandbox::mojom::Sandbox::kPrintCompositor &&
+      !GetContentClient()->browser()->IsPdfFontProxyEnabled()) {
     return true;
   }
   return false;

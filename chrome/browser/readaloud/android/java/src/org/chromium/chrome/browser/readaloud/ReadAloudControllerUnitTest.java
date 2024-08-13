@@ -36,7 +36,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -55,7 +54,6 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.base.task.test.ShadowPostTask;
 import org.chromium.base.task.test.ShadowPostTask.TestImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -136,7 +134,6 @@ public class ReadAloudControllerUnitTest {
     private Activity mActivity;
 
     @Rule public JniMocker mJniMocker = new JniMocker();
-    @Rule public TestRule mProcessor = new Features.JUnitProcessor();
 
     private FakeTranslateBridgeJni mFakeTranslateBridge;
     private ObservableSupplierImpl<Profile> mProfileSupplier;
@@ -318,7 +315,6 @@ public class ReadAloudControllerUnitTest {
     public void tearDown() {
         mUserActionTester.tearDown();
         ReadAloudFeatures.shutdown();
-
         mController.destroy();
         if (mController2 != null) mController2.destroy();
         ReadAloudController.resetReadabilityCacheForTesting();
@@ -473,28 +469,16 @@ public class ReadAloudControllerUnitTest {
         // Load a different tab. Playback shouldn't be restored
         // Load the previously playing tab. Saved playback state should be restored.
         Tab tab = mTabModelSelector.addMockTab();
-        TabModelUtils.selectTabById(
-                mTabModelSelector,
-                tab.getId(),
-                TabSelectionType.FROM_NEW,
-                /* skipLoadingTab= */ true);
+        TabModelUtils.selectTabById(mTabModelSelector, tab.getId(), TabSelectionType.FROM_NEW);
 
         verify(mPlaybackHooks, times(1)).createPlayback(any(), mPlaybackCallbackCaptor.capture());
 
         // Load the previously playing tab. Saved playback state should be restored.
-        TabModelUtils.selectTabById(
-                mTabModelSelector,
-                mTab.getId(),
-                TabSelectionType.FROM_NEW,
-                /* skipLoadingTab= */ true);
+        TabModelUtils.selectTabById(mTabModelSelector, mTab.getId(), TabSelectionType.FROM_NEW);
         verify(mPlaybackHooks, times(2)).createPlayback(any(), mPlaybackCallbackCaptor.capture());
 
         // Loading the same tab should not re-trigger playback
-        TabModelUtils.selectTabById(
-                mTabModelSelector,
-                mTab.getId(),
-                TabSelectionType.FROM_NEW,
-                /* skipLoadingTab= */ true);
+        TabModelUtils.selectTabById(mTabModelSelector, mTab.getId(), TabSelectionType.FROM_NEW);
         verify(mPlaybackHooks, times(2)).createPlayback(any(), mPlaybackCallbackCaptor.capture());
     }
 
@@ -510,11 +494,7 @@ public class ReadAloudControllerUnitTest {
         verify(mPlayerCoordinator).dismissPlayers();
         verify(mPlayback).release();
 
-        TabModelUtils.selectTabById(
-                mTabModelSelector,
-                mTab.getId(),
-                TabSelectionType.FROM_NEW,
-                /* skipLoadingTab= */ true);
+        TabModelUtils.selectTabById(mTabModelSelector, mTab.getId(), TabSelectionType.FROM_NEW);
         verify(mPlaybackHooks, times(2)).createPlayback(any(), mPlaybackCallbackCaptor.capture());
 
         // Player is now being restored
@@ -1117,7 +1097,8 @@ public class ReadAloudControllerUnitTest {
         requestAndStartPlayback();
 
         // Stop playback
-        mController.maybeStopPlayback(mTab);
+        mController.maybeStopPlayback(
+                mTab, ReadAloudMetrics.ReasonForStoppingPlayback.NEW_PLAYBACK_REQUEST);
         verify(mPlayback).release();
 
         resetPlaybackMocks();
@@ -1126,6 +1107,37 @@ public class ReadAloudControllerUnitTest {
         mController.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
         resolvePromises();
         verify(mPlaybackHooks).createPlayback(any(), any());
+        verify(mPlayback, never()).release();
+    }
+
+    @Test
+    public void testStopPlaybackWhenBackPressingToNewTab() {
+        // Play tab
+        requestAndStartPlayback();
+
+        // now simulate back press to a new tab page (doesn't trigger new url load)
+        when(mTab.getUrl()).thenReturn(new GURL("chrome-native://newtab/"));
+        mController.getTabModelTabObserverforTests().onUrlUpdated(mTab);
+
+        verify(mPlayback).release();
+    }
+
+    @Test
+    public void testDontStopPlayback() {
+        // Play tab
+        requestAndStartPlayback();
+
+        // now simulate a situation updateUrl was called with the same url as the one playing -
+        // nothing should happen
+        mController.getTabModelTabObserverforTests().onUrlUpdated(mTab);
+        verify(mPlayback, never()).release();
+
+        // now update url from a different, non playing tab. The active playback should be
+        // unaffected.
+        MockTab tab = mTabModelSelector.addMockTab();
+        tab.setWebContentsOverrideForTesting(mWebContents);
+        tab.setUrl(new GURL(""));
+        mController.getTabModelTabObserverforTests().onUrlUpdated(tab);
         verify(mPlayback, never()).release();
     }
 
@@ -1190,7 +1202,8 @@ public class ReadAloudControllerUnitTest {
         verify(mHighlighter).initializeJs(eq(mTab), eq(mMetadata), any(Highlighter.Config.class));
 
         // stopping playback should clear highlighting.
-        mController.maybeStopPlayback(mTab);
+        mController.maybeStopPlayback(
+                mTab, ReadAloudMetrics.ReasonForStoppingPlayback.NEW_PLAYBACK_REQUEST);
 
         verify(mHighlighter).clearHighlights(eq(mGlobalRenderFrameHostId), eq(mTab));
     }
@@ -1523,7 +1536,8 @@ public class ReadAloudControllerUnitTest {
         assertEquals(2, mFakeTranslateBridge.getObserverCount());
 
         // stopping playback should unregister the listener that stops playback
-        mController.maybeStopPlayback(mTab);
+        mController.maybeStopPlayback(
+                mTab, ReadAloudMetrics.ReasonForStoppingPlayback.NEW_PLAYBACK_REQUEST);
         assertEquals(1, mFakeTranslateBridge.getObserverCount());
     }
 
@@ -1537,7 +1551,8 @@ public class ReadAloudControllerUnitTest {
 
         assertEquals(1, mFakeTranslateBridge.getObserverCount());
 
-        mController.maybeStopPlayback(mTab);
+        mController.maybeStopPlayback(
+                mTab, ReadAloudMetrics.ReasonForStoppingPlayback.NEW_PLAYBACK_REQUEST);
         assertEquals(1, mFakeTranslateBridge.getObserverCount());
     }
 
@@ -1744,7 +1759,8 @@ public class ReadAloudControllerUnitTest {
         verify(mPlayback).play();
 
         // request to stop any playback
-        mController.maybeStopPlayback(null);
+        mController.maybeStopPlayback(
+                null, ReadAloudMetrics.ReasonForStoppingPlayback.NEW_PLAYBACK_REQUEST);
         verify(mPlayback).release();
         verify(mPlayerCoordinator).dismissPlayers();
     }
@@ -2240,8 +2256,7 @@ public class ReadAloudControllerUnitTest {
                 .getModel(false)
                 .setIndex(
                         mTabModelSelector.getModel(false).indexOf(newTab),
-                        TabSelectionType.FROM_USER,
-                        false);
+                        TabSelectionType.FROM_USER);
         // check that we switched to new tab
         assertEquals(mTabModelSelector.getCurrentTab(), newTab);
 
@@ -2352,11 +2367,7 @@ public class ReadAloudControllerUnitTest {
         requestAndStartPlayback();
 
         Tab tab = mTabModelSelector.addMockIncognitoTab();
-        TabModelUtils.selectTabById(
-                mTabModelSelector,
-                tab.getId(),
-                TabSelectionType.FROM_NEW,
-                /* skipLoadingTab= */ true);
+        TabModelUtils.selectTabById(mTabModelSelector, tab.getId(), TabSelectionType.FROM_NEW);
 
         verify(mPlayback).pause();
         verify(mPlayerCoordinator).hidePlayers();
@@ -2368,20 +2379,12 @@ public class ReadAloudControllerUnitTest {
         reset(mPlayback);
 
         Tab tab = mTabModelSelector.addMockIncognitoTab();
-        TabModelUtils.selectTabById(
-                mTabModelSelector,
-                tab.getId(),
-                TabSelectionType.FROM_NEW,
-                /* skipLoadingTab= */ true);
+        TabModelUtils.selectTabById(mTabModelSelector, tab.getId(), TabSelectionType.FROM_NEW);
 
         verify(mPlayback).pause();
         verify(mPlayerCoordinator).hidePlayers();
 
-        TabModelUtils.selectTabById(
-                mTabModelSelector,
-                mTab.getId(),
-                TabSelectionType.FROM_USER,
-                /* skipLoadingTab= */ true);
+        TabModelUtils.selectTabById(mTabModelSelector, mTab.getId(), TabSelectionType.FROM_USER);
         verify(mPlayback, never()).play();
         verify(mPlayerCoordinator).restorePlayers();
     }
@@ -2405,11 +2408,16 @@ public class ReadAloudControllerUnitTest {
         verifyNoInteractions(mPlayback);
 
         // Play in CCT.
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        ReadAloudMetrics.REASON_FOR_STOPPING_PLAYBACK,
+                        ReadAloudMetrics.ReasonForStoppingPlayback.EXTERNAL_PLAYBACK_REQUEST);
         mController2.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
         resolvePromises();
 
-        // Chrome playback should stop.
+        // Chrome playback should stop. Reason should be recorded as EXTERNAL_PLAYBACK_REQUEST.
         verify(mPlayback).release();
+        histogram.assertExpected();
 
         // CCT playback should start.
         verify(mPlaybackHooks, times(1))
@@ -2658,19 +2666,18 @@ public class ReadAloudControllerUnitTest {
                 .getModel(false)
                 .setIndex(
                         mTabModelSelector.getModel(false).indexOf(newTab),
-                        TabSelectionType.FROM_USER,
-                        false);
+                        TabSelectionType.FROM_USER);
         assertFalse(mController.isPlayingCurrentTab());
         // switch back to current tab
         mTabModelSelector
                 .getModel(false)
                 .setIndex(
                         mTabModelSelector.getModel(false).indexOf(mTab),
-                        TabSelectionType.FROM_USER,
-                        false);
+                        TabSelectionType.FROM_USER);
         assertTrue(mController.isPlayingCurrentTab());
         // back to null after stopping playback
-        mController.maybeStopPlayback(mTab);
+        mController.maybeStopPlayback(
+                mTab, ReadAloudMetrics.ReasonForStoppingPlayback.NEW_PLAYBACK_REQUEST);
         assertFalse(mController.isPlayingCurrentTab());
     }
 
@@ -2725,8 +2732,7 @@ public class ReadAloudControllerUnitTest {
                 .getModel(false)
                 .setIndex(
                         mTabModelSelector.getModel(false).indexOf(newTab),
-                        TabSelectionType.FROM_USER,
-                        false);
+                        TabSelectionType.FROM_USER);
         // shouldn't seek
         mController.tapToSeek("the quick brown fox", 4, 9);
         verify(mPlayback, never()).seekToWord(0, 8);
@@ -2843,6 +2849,20 @@ public class ReadAloudControllerUnitTest {
         mCallbackCaptor.getValue().onSuccess(sTestGURL.getSpec(), true, false);
 
         verify(readabilityObserver, never()).run();
+    }
+
+    @Test
+    public void testReasonForStoppingPlaybackLogged() {
+        final String histogramName = ReadAloudMetrics.REASON_FOR_STOPPING_PLAYBACK;
+        var histogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        histogramName, ReadAloudMetrics.ReasonForStoppingPlayback.MANUAL_CLOSE);
+        requestAndStartPlayback();
+
+        mController.maybeStopPlayback(
+                mTab, ReadAloudMetrics.ReasonForStoppingPlayback.MANUAL_CLOSE);
+
+        histogram.assertExpected();
     }
 
     private void requestAndStartPlayback() {

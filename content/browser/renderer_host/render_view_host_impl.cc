@@ -22,6 +22,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -166,7 +167,7 @@ class PerProcessRenderViewHostSet : public base::SupportsUserData::Data {
 
   void Erase(const RenderViewHostImpl* rvh) {
     auto it = render_view_host_instances_.find(rvh);
-    DCHECK(it != render_view_host_instances_.end());
+    CHECK(it != render_view_host_instances_.end(), base::NotFatalUntil::M130);
     render_view_host_instances_.erase(it);
   }
 
@@ -325,6 +326,8 @@ RenderViewHostImpl::RenderViewHostImpl(
               ? std::make_optional(main_browsing_context_state->GetSafeRef())
               : std::nullopt),
       is_speculative_(create_case == CreateRenderViewHostCase::kSpeculative) {
+  base::ScopedUmaHistogramTimer histogram_timer(
+      "Navigation.RenderViewHostConstructor");
   TRACE_EVENT("navigation", "RenderViewHostImpl::RenderViewHostImpl",
               ChromeTrackEvent::kRenderViewHost, *this);
   TRACE_EVENT_BEGIN("navigation", "RenderViewHost",
@@ -371,6 +374,8 @@ RenderViewHostImpl::RenderViewHostImpl(
 RenderViewHostImpl::~RenderViewHostImpl() {
   TRACE_EVENT_INSTANT("navigation", "~RenderViewHostImpl()",
                       ChromeTrackEvent::kRenderViewHost, *this);
+  base::ScopedUmaHistogramTimer histogram_timer(
+      "Navigation.RenderViewHostDestructor");
 
   PerProcessRenderViewHostSet::GetOrCreateForProcess(GetProcess())->Erase(this);
 
@@ -463,17 +468,19 @@ bool RenderViewHostImpl::CreateRenderView(
 
   if (frame_tree_->is_prerendering() ||
       frame_tree_->page_delegate()->IsPageInPreviewMode()) {
-    std::string suffix;
+    auto prerender_param = blink::mojom::PrerenderParam::New();
     if (frame_tree_->is_prerendering()) {
       auto* prerender_host =
           static_cast<PrerenderHost*>(frame_tree_->delegate());
       CHECK(prerender_host);
-      suffix = prerender_host->GetHistogramSuffix();
+      prerender_param->page_metric_suffix =
+          prerender_host->GetHistogramSuffix();
+      prerender_param->should_warm_up_compositor =
+          prerender_host->should_warm_up_compositor();
     } else {
-      suffix = ".Preview";
+      prerender_param->page_metric_suffix = ".Preview";
+      prerender_param->should_warm_up_compositor = false;
     }
-    auto prerender_param = blink::mojom::PrerenderParam::New();
-    prerender_param->page_metric_suffix = std::move(suffix);
     params->prerender_param = std::move(prerender_param);
   }
 

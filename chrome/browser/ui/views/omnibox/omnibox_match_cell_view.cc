@@ -26,6 +26,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "content/public/common/color_parser.h"
 #include "skia/ext/image_operations.h"
+#include "third_party/omnibox_proto/answer_type.pb.h"
 #include "third_party/omnibox_proto/rich_answer_template.pb.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -249,9 +250,10 @@ OmniboxMatchCellView::~OmniboxMatchCellView() = default;
 
 // static
 int OmniboxMatchCellView::GetTextIndent(bool is_iph_type) {
-  // The IPH row left inset is +8 from other suggestions, so the text indent
-  // should be -8 to keep the text aligned.
-  return is_iph_type ? 44 : 52;
+  // The IPH row left inset is +kIPHLeftOffset from other suggestions, so the
+  // text indent should be -kIPHLeftOffset to keep the text aligned.
+  int offset = is_iph_type ? kIPHLeftOffset : 0;
+  return 52 - offset;
 }
 
 // static
@@ -333,23 +335,22 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
     // Determine if we have a local icon (or else it will be downloaded).
     if (omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled &&
         match.answer_template.has_value()) {
-      if (match.answer_template->answer_type() ==
-          omnibox::RichAnswerTemplate::WEATHER) {
+      if (match.answer_type == omnibox::ANSWER_TYPE_WEATHER) {
         // Weather icons are downloaded. We just need to set the correct size.
         answer_image_view_->SetImageSize(
             gfx::Size(GetAnswerImageSize(), GetAnswerImageSize()));
       } else {
-        apply_vector_icon(AutocompleteMatch::AnswerTypeToAnswerIcon(
-            match.answer_template->answer_type()));
+        apply_vector_icon(
+            AutocompleteMatch::AnswerTypeToAnswerIcon(match.answer_type));
       }
     } else if (match.answer) {
-      if (match.answer->type() == SuggestionAnswer::ANSWER_TYPE_WEATHER) {
+      if (match.answer->type() == omnibox::ANSWER_TYPE_WEATHER) {
         // Weather icons are downloaded. We just need to set the correct size.
         answer_image_view_->SetImageSize(
             gfx::Size(GetAnswerImageSize(), GetAnswerImageSize()));
       } else {
-        apply_vector_icon(AutocompleteMatch::AnswerTypeToAnswerIconDeprecated(
-            match.answer->type()));
+        apply_vector_icon(
+            AutocompleteMatch::AnswerTypeToAnswerIcon(match.answer->type()));
       }
     } else {
       SkColor color = GetColorProvider()->GetColor(
@@ -412,10 +413,9 @@ void OmniboxMatchCellView::SetImage(const gfx::ImageSkia& image,
   bool is_weather_answer =
       omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled
           ? (match.answer_template.has_value() &&
-             match.answer_template->answer_type() ==
-                 omnibox::RichAnswerTemplate::WEATHER)
+             match.answer_type == omnibox::ANSWER_TYPE_WEATHER)
           : (match.answer &&
-             match.answer->type() == SuggestionAnswer::ANSWER_TYPE_WEATHER);
+             match.answer->type() == omnibox::ANSWER_TYPE_WEATHER);
 
   int width = image.width();
   int height = image.height();
@@ -490,7 +490,11 @@ void OmniboxMatchCellView::Layout(PassKey) {
   const int image_x = 16 + GetEntityImageSize() / 2 - kImageBoundsWidth / 2;
   views::ImageView* const image_view =
       has_image_ ? answer_image_view_.get() : icon_view_.get();
-  image_view->SetBounds(image_x, y, kImageBoundsWidth, row_height);
+  // The IPH row left inset is +kIPHLeftOffset from other suggestions, so the
+  // image bounds should be -kIPHLeftOffset to keep the icon aligned.
+  int bounds_offset = is_iph_type ? kIPHLeftOffset : 0;
+  image_view->SetBounds(image_x, y, kImageBoundsWidth - bounds_offset,
+                        row_height);
 
   const int text_indent =
       GetTextIndent(is_iph_type) + tail_suggest_common_prefix_width_;
@@ -550,6 +554,9 @@ gfx::Size OmniboxMatchCellView::CalculatePreferredSize(
   if (layout_style_ == LayoutStyle::TWO_LINE_SUGGESTION)
     height += description_view_->GetHeightForWidth(width() -
                                                    GetTextIndent(is_iph_type));
+  if (is_iph_type) {
+    height += 4;
+  }
 
   int width = GetInsets().width() + GetTextIndent(is_iph_type) +
               tail_suggest_common_prefix_width_ +

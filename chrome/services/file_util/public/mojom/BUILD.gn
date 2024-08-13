@@ -12,7 +12,7 @@ mojom("mojom") {
   sources = [ "file_util_service.mojom" ]
   enabled_features = []
 
-  if (true || safe_browsing_mode == 1) {
+  if (safe_browsing_mode == 1) {
     sources += [ "safe_archive_analyzer.mojom" ]
     enabled_features += [ "full_safe_browsing" ]
   }

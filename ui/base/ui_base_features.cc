@@ -150,7 +150,21 @@ BASE_FEATURE(kOzoneBubblesUsePlatformWidgets,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+// Controls whether support for Wayland's per-surface scaling is enabled.
+BASE_FEATURE(kWaylandPerSurfaceScale,
+             "WaylandPerSurfaceScale",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_OZONE)
+
+#if BUILDFLAG(IS_LINUX)
+// If this feature is enabled, users not specify --ozone-platform-hint switch
+// will get --ozone-platform-hint=auto treatment. https://crbug.com/40250220.
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+BASE_FEATURE(kOverrideDefaultOzonePlatformHintToAuto,
+             "OverrideDefaultOzonePlatformHintToAuto",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_LINUX)
 
 // Update of the virtual keyboard settings UI as described in
 // https://crbug.com/876901.
@@ -254,6 +268,16 @@ BASE_FEATURE(kExperimentalFlingAnimation,
 #endif
 );
 
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kClipboardFiles,
+             "ClipboardFiles",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDragDropFiles,
+             "DragDropFiles",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
 // Cached in Java as well, make sure defaults are updated together.
 BASE_FEATURE(kElasticOverscroll,
@@ -346,12 +370,8 @@ BASE_FEATURE(kEyeDropper,
 #endif
 );
 
-const char kEyeDropperNotSupported[] = "eye-dropper-not-supported";
-
 bool IsEyeDropperEnabled() {
-  return base::FeatureList::IsEnabled(features::kEyeDropper) &&
-         !base::CommandLine::ForCurrentProcess()->HasSwitch(
-             kEyeDropperNotSupported);
+  return base::FeatureList::IsEnabled(features::kEyeDropper);
 }
 
 // Used to enable keyboard accessible tooltips in in-page content
@@ -491,10 +511,6 @@ bool IsLacrosColorManagementEnabled() {
   return base::FeatureList::IsEnabled(kLacrosColorManagement);
 }
 
-bool IsChromeRefresh2023() {
-  return true;
-}
-
 BASE_FEATURE(kBubbleMetricsApi,
              "BubbleMetricsApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -519,6 +535,15 @@ BASE_FEATURE(kBubbleFrameViewTitleIsHeading,
 
 BASE_FEATURE(kEnableGestureBeginEndTypes,
              "EnableGestureBeginEndTypes",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseUtf8EncodingForSvgImage,
+             "UseUtf8EncodingForSvgImage",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, fullscreen window state is updated asynchronously.
+BASE_FEATURE(kAsyncFullscreenWindowState,
+             "AsyncFullscreenWindowState",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

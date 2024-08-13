@@ -31,6 +31,7 @@ libEGL.dll: %(ChromeDir)s\
 libGLESv2.dll: %(ChromeDir)s\
 mojo_core.dll: %(ChromeDir)s\
 notification_helper.exe: %(ChromeDir)s\
+optimization_guide_internal.dll: %(ChromeDir)s\
 resources.pak: %(ChromeDir)s\
 node.dll: %(ChromeDir)s\
 vk_swiftshader.dll: %(ChromeDir)s\
@@ -55,6 +56,12 @@ Logo.png: %(ChromeDir)s\VisualElements\
 SmallLogo.png: %(ChromeDir)s\VisualElements\
 
 #
+# Privacy Sandbox Attestation
+#
+PrivacySandboxAttestationsPreloaded\manifest.json: %(VersionDir)s\PrivacySandboxAttestationsPreloaded\
+PrivacySandboxAttestationsPreloaded\privacy-sandbox-attestations.dat: %(VersionDir)s\PrivacySandboxAttestationsPreloaded\
+
+#
 # MEI Preload sub dir
 #
 MEIPreload\manifest.json: %(VersionDir)s\MEIPreload\
@@ -71,6 +78,7 @@ ffmpeg.dll: %(VersionDir)s\
 [GOOGLE_CHROME]
 # The elevation service is only installed for Google Chrome builds.
 elevation_service.exe: %(VersionDir)s\
+os_update_handler.exe: %(VersionDir)s\
 
 #
 # Sub directories living in the version dir

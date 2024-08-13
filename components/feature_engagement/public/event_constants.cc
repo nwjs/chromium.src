@@ -69,7 +69,7 @@ const char kChromeOpened[] = "chrome_opened";
 const char kIncognitoTabOpened[] = "incognito_tab_opened";
 const char kClearedBrowsingData[] = "cleared_browsing_data";
 const char kViewedReadingList[] = "viewed_reading_list";
-const char kViewedWhatsNew[] = "viewed_whats_new_m125";
+const char kViewedWhatsNew[] = "viewed_whats_new_m128";
 const char kTriggeredTranslateInfobar[] = "triggered_translate_infobar";
 const char kBottomToolbarOpened[] = "bottom_toolbar_opened";
 const char kDiscoverFeedLoaded[] = "discover_feed_loaded";
@@ -89,19 +89,15 @@ const char kPasswordManagerWidgetPromoClosed[] =
     "password_manager_widget_promo_closed";
 
 // Default browser blue dot promo.
-const char kBlueDotPromoCriterionMet[] = "blue_dot_promo_criterion_met";
-const char kBlueDotPromoEligibilityMet[] = "blue_dot_promo_eligibility_met";
 const char kBlueDotPromoOverflowMenuShown[] =
     "blue_dot_promo_overflow_menu_shown";
-const char kBlueDotPromoOverflowMenuShownNewSession[] =
-    "blue_dot_promo_overflow_menu_shown_new_session";
 const char kBlueDotPromoSettingsShown[] = "blue_dot_promo_settings_shown";
-const char kBlueDotPromoSettingsShownNewSession[] =
-    "blue_dot_promo_settings_shown_new_session";
 const char kBlueDotPromoOverflowMenuDismissed[] =
     "blue_dot_promo_overflow_menu_dismissed";
 const char kBlueDotPromoSettingsDismissed[] =
     "blue_dot_promo_settings_dismissed";
+const char kBlueDotOverflowMenuCustomized[] =
+    "blue_dot_overflow_menu_customized";
 const char kCredentialProviderExtensionPromoSnoozed[] =
     "credential_provider_extension_promo_snoozed";
 const char kDockingPromoRemindMeLater[] = "docking_promo_remind_me_later";
@@ -155,6 +151,10 @@ const char kTailoredDefaultBrowserPromosGroupTrigger[] =
     "tailored_default_browser_promos_group_trigger";
 const char kDefaultBrowserPromoTriggerCriteriaConditionsMet[] =
     "default_browser_promo_trigger_criteria_conditions_met";
+const char kIOSContextualPanelSampleModelEntrypointUsed[] =
+    "ios_contextual_panel_sample_model_entrypoint_used";
+const char kIOSContextualPanelPriceInsightsEntrypointUsed[] =
+    "ios_contextual_panel_price_insights_entrypoint_used";
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)

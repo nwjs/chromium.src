@@ -227,7 +227,9 @@ enum class ShouldDeleteUndecryptablePasswordsResult {
   kUserPasswordStoreSwitchIsPresent = 3,
   kUserEncryptionSelectionSwitchrIsPresent = 4,
   kEncryptionNotAvailiable = 5,
-  kMaxValue = kEncryptionNotAvailiable,
+  kUserDataDirPolicySet = 6,
+  kDisabledByPolicy = 7,
+  kMaxValue = kDisabledByPolicy,
 };
 
 // Struct to hold table builder for different tables in the LoginDatabase.
@@ -263,10 +265,9 @@ void BindAddStatement(const PasswordForm& form,
   s->BindString(COLUMN_ICON_URL,
                 form.icon_url.is_valid() ? form.icon_url.spec() : "");
   // An empty Origin serializes as "null" which would be strange to store here.
-  s->BindString(COLUMN_FEDERATION_URL,
-                form.federation_origin.opaque()
-                    ? std::string()
-                    : form.federation_origin.Serialize());
+  s->BindString(COLUMN_FEDERATION_URL, form.federation_origin.IsValid()
+                                           ? form.federation_origin.Serialize()
+                                           : std::string());
   s->BindInt(COLUMN_SKIP_ZERO_CLICK, form.skip_zero_click);
   s->BindInt(COLUMN_GENERATION_UPLOAD_STATUS,
              static_cast<int>(form.generation_upload_status));
@@ -744,7 +745,9 @@ bool UpdatePassword(sql::Database* db,
   return password_value_update.Run();
 }
 
-bool MigrateToOSCrypt(IsAccountStore is_account_store, sql::Database* db) {
+bool MigrateToOSCrypt(IsAccountStore is_account_store,
+                      sql::Database* db,
+                      EncryptDecryptInterface* encryptor) {
   sql::Statement get_passwords_statement(
       db->GetUniqueStatement("SELECT id, password_value FROM logins"));
   // Update each password_value with the new BLOB.
@@ -767,9 +770,8 @@ bool MigrateToOSCrypt(IsAccountStore is_account_store, sql::Database* db) {
     } else {
       // Encrypt password using OSCrypt.
       std::string encrypted_password;
-      if (LoginDatabase::EncryptedString(plaintext_password,
-                                         &encrypted_password) !=
-          LoginDatabase::ENCRYPTION_RESULT_SUCCESS) {
+      if (encryptor->EncryptedString(plaintext_password, &encrypted_password) !=
+          EncryptionResult::kSuccess) {
         return false;
       }
       // Updated password_value in the database.
@@ -788,7 +790,8 @@ bool MigrateToOSCrypt(IsAccountStore is_account_store, sql::Database* db) {
 bool MigrateDatabase(unsigned current_version,
                      SQLTableBuilders builders,
                      IsAccountStore is_account_store,
-                     sql::Database* db) {
+                     sql::Database* db,
+                     EncryptDecryptInterface* encryptor) {
   if (!builders.logins->MigrateFrom(
           current_version, db,
           base::BindRepeating(&LoginsTablePostMigrationStepCallback))) {
@@ -901,7 +904,7 @@ bool MigrateDatabase(unsigned current_version,
       return false;
     }
 
-    return MigrateToOSCrypt(is_account_store, db);
+    return MigrateToOSCrypt(is_account_store, db, encryptor);
   }
 #endif
 
@@ -997,17 +1000,18 @@ std::unique_ptr<sync_pb::EntityMetadata> DecryptAndParseSyncEntityMetadata(
   return entity_metadata;
 }
 
-LoginDatabase::EncryptionResult DecryptPasswordFromStatement(
+EncryptionResult DecryptPasswordFromStatement(
     sql::Statement& s,
-    std::u16string* plaintext_password) {
+    std::u16string* plaintext_password,
+    EncryptDecryptInterface* decryptor) {
   CHECK(plaintext_password);
   std::string encrypted_password;
   s.ColumnBlobAsString(COLUMN_PASSWORD_VALUE, &encrypted_password);
-  LoginDatabase::EncryptionResult encryption_result =
-      LoginDatabase::DecryptedString(encrypted_password, plaintext_password);
-  if (encryption_result != LoginDatabase::ENCRYPTION_RESULT_SUCCESS) {
+  EncryptionResult encryption_result =
+      decryptor->DecryptedString(encrypted_password, plaintext_password);
+  if (encryption_result != EncryptionResult::kSuccess) {
     DLOG(WARNING) << "Password decryption failed, encryption_result is "
-                  << encryption_result;
+                  << static_cast<int>(encryption_result);
   }
   return encryption_result;
 }
@@ -1019,7 +1023,11 @@ void RecordShouldDeleteUndecryptablePasswordsMetric(
       should_delete_status);
 }
 
-bool ShouldDeleteUndecryptablePasswords() {
+bool ShouldDeleteUndecryptablePasswords(
+    LoginDatabase::ClearingUndecryptablePasswordsCallback
+        clearing_undecryptable_passwords,
+    bool is_user_data_dir_policy_set,
+    bool is_disabled_by_policy) {
 #if BUILDFLAG(IS_LINUX)
   std::string user_data_dir_string;
   std::unique_ptr<base::Environment> environment(base::Environment::Create());
@@ -1054,14 +1062,34 @@ bool ShouldDeleteUndecryptablePasswords() {
   }
 #endif  // BUILDFLAG(IS_LINUX)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  if (is_user_data_dir_policy_set) {
+    RecordShouldDeleteUndecryptablePasswordsMetric(
+        ShouldDeleteUndecryptablePasswordsResult::kUserDataDirPolicySet);
+    return false;
+  }
+#endif
+
   if (!OSCrypt::IsEncryptionAvailable()) {
     RecordShouldDeleteUndecryptablePasswordsMetric(
         ShouldDeleteUndecryptablePasswordsResult::kEncryptionNotAvailiable);
     return false;
   }
 
+  if (is_disabled_by_policy) {
+    RecordShouldDeleteUndecryptablePasswordsMetric(
+        ShouldDeleteUndecryptablePasswordsResult::kDisabledByPolicy);
+    return false;
+  }
+
   RecordShouldDeleteUndecryptablePasswordsMetric(
       ShouldDeleteUndecryptablePasswordsResult::kShouldDelete);
+
+  // Needed in order to maintain kClearUndecryptablePasswords experiment groups
+  // population.
+  if (clearing_undecryptable_passwords) {
+    clearing_undecryptable_passwords.Run(true);
+  }
   return base::FeatureList::IsEnabled(features::kClearUndecryptablePasswords);
 }
 
@@ -1082,8 +1110,10 @@ LoginDatabase::LoginDatabase(const base::FilePath& db_path,
 
 LoginDatabase::~LoginDatabase() = default;
 
-bool LoginDatabase::Init() {
+bool LoginDatabase::Init(std::unique_ptr<os_crypt_async::Encryptor> encryptor) {
   TRACE_EVENT0("passwords", "LoginDatabase::Init");
+  encryptor_ = std::move(encryptor);
+
   db_.set_histogram_tag("Passwords");
 
   if (!db_.Open(db_path_)) {
@@ -1154,7 +1184,7 @@ bool LoginDatabase::Init() {
 
   stats_table_.Init(&db_);
   insecure_credentials_table_.Init(&db_);
-  password_notes_table_.Init(&db_);
+  password_notes_table_.Init(&db_, this);
 
   int current_version = meta_table_.GetVersionNumber();
   bool migration_success = FixVersionIfNeeded(&db_, &current_version);
@@ -1163,7 +1193,7 @@ bool LoginDatabase::Init() {
   if (migration_success && current_version < kCurrentVersionNumber) {
     migration_success =
         MigrateDatabase(base::checked_cast<unsigned>(current_version), builders,
-                        is_account_store_, &db_);
+                        is_account_store_, &db_, this);
   }
   // Enforce that 'insecure_credentials' is created only after the 'logins'
   // table was created and migrated to the latest version. This guarantees the
@@ -1266,7 +1296,7 @@ void LoginDatabase::ReportInaccessiblePasswordsMetrics() {
   while (get_passwords_statement.Step()) {
     std::u16string decrypted_password;
     if (DecryptedString(get_passwords_statement.ColumnString(0),
-                        &decrypted_password) != ENCRYPTION_RESULT_SUCCESS) {
+                        &decrypted_password) != EncryptionResult::kSuccess) {
       ++failed_encryption;
     }
   }
@@ -1348,7 +1378,7 @@ PasswordStoreChangeList LoginDatabase::AddLogin(const PasswordForm& form,
 #endif  // BUILDFLAG(IS_IOS)
   std::string encrypted_password;
   if (EncryptedString(form_to_add.password_value, &encrypted_password) !=
-      ENCRYPTION_RESULT_SUCCESS) {
+      EncryptionResult::kSuccess) {
     if (error) {
       *error = AddCredentialError::kEncryptionServiceFailure;
     }
@@ -1419,7 +1449,7 @@ PasswordStoreChangeList LoginDatabase::UpdateLogin(
   }
   std::string encrypted_password;
   if (EncryptedString(form.password_value, &encrypted_password) !=
-      ENCRYPTION_RESULT_SUCCESS) {
+      EncryptionResult::kSuccess) {
     if (error) {
       *error = UpdateCredentialError::kEncryptionServiceFailure;
     }
@@ -1459,9 +1489,9 @@ PasswordStoreChangeList LoginDatabase::UpdateLogin(
   s.BindString(next_param++,
                form.icon_url.is_valid() ? form.icon_url.spec() : "");
   // An empty Origin serializes as "null" which would be strange to store here.
-  s.BindString(next_param++, form.federation_origin.opaque()
-                                 ? std::string()
-                                 : form.federation_origin.Serialize());
+  s.BindString(next_param++, form.federation_origin.IsValid()
+                                 ? form.federation_origin.Serialize()
+                                 : std::string());
   s.BindInt(next_param++, form.skip_zero_click);
   s.BindInt(next_param++, static_cast<int>(form.generation_upload_status));
   base::Pickle username_pickle =
@@ -1719,7 +1749,7 @@ PasswordForm LoginDatabase::GetFormWithoutPasswordFromStatement(
   form.display_name = s.ColumnString16(COLUMN_DISPLAY_NAME);
   form.icon_url = GURL(s.ColumnString(COLUMN_ICON_URL));
   form.federation_origin =
-      url::Origin::Create(GURL(s.ColumnString(COLUMN_FEDERATION_URL)));
+      url::SchemeHostPort(GURL(s.ColumnString(COLUMN_FEDERATION_URL)));
   form.skip_zero_click = (s.ColumnInt(COLUMN_SKIP_ZERO_CLICK) > 0);
   form.generation_upload_status =
       static_cast<PasswordForm::GenerationUploadStatus>(
@@ -1912,7 +1942,7 @@ bool LoginDatabase::DeleteAndRecreateDatabaseFile() {
   meta_table_.Reset();
   db_.Close();
   sql::Database::Delete(db_path_);
-  return Init();
+  return Init(std::move(encryptor_));
 }
 
 DatabaseCleanupResult LoginDatabase::DeleteUndecryptableLogins() {
@@ -1937,7 +1967,7 @@ DatabaseCleanupResult LoginDatabase::DeleteUndecryptableLogins() {
     s.ColumnBlobAsString(COLUMN_PASSWORD_VALUE, &encrypted_password);
     std::u16string decrypted_password;
     if (DecryptedString(encrypted_password, &decrypted_password) ==
-        ENCRYPTION_RESULT_SUCCESS) {
+        EncryptionResult::kSuccess) {
       continue;
     }
 
@@ -1982,6 +2012,12 @@ bool LoginDatabase::CommitTransaction() {
 
 void LoginDatabase::SetIsEmptyCb(IsEmptyCallback is_empty_cb) {
   is_empty_cb_ = std::move(is_empty_cb);
+}
+
+void LoginDatabase::SetClearingUndecryptablePasswordsCb(
+    ClearingUndecryptablePasswordsCallback clearing_undecryptable_passwords) {
+  clearing_undecryptable_passwords_ =
+      std::move(clearing_undecryptable_passwords);
 }
 
 LoginDatabase::SyncMetadataStore::SyncMetadataStore(sql::Database* db)
@@ -2291,7 +2327,7 @@ LoginDatabase::PrimaryKeyAndPassword LoginDatabase::GetPrimaryKeyAndPassword(
     s.ColumnBlobAsString(1, &encrypted_password);
     s.ColumnBlobAsString(2, &result.keychain_identifier);
     if (DecryptedString(encrypted_password, &result.decrypted_password) !=
-        ENCRYPTION_RESULT_SUCCESS) {
+        EncryptionResult::kSuccess) {
       result.decrypted_password.clear();
     }
     return result;
@@ -2320,14 +2356,14 @@ FormRetrievalResult LoginDatabase::StatementToForms(
   while (statement->Step()) {
     std::u16string plaintext_password;
     EncryptionResult result =
-        DecryptPasswordFromStatement(*statement, &plaintext_password);
-    if (result == ENCRYPTION_RESULT_SERVICE_FAILURE ||
-        result == ENCRYPTION_RESULT_ITEM_FAILURE) {
+        DecryptPasswordFromStatement(*statement, &plaintext_password, this);
+    if (result == EncryptionResult::kItemFailure ||
+        result == EncryptionResult::kServiceFailure) {
       failed = true;
       continue;
     }
 
-    DCHECK_EQ(ENCRYPTION_RESULT_SUCCESS, result);
+    DCHECK_EQ(EncryptionResult::kSuccess, result);
 
     PasswordForm form = GetFormWithoutPasswordFromStatement(*statement);
     form.password_value = std::move(plaintext_password);
@@ -2345,13 +2381,14 @@ FormRetrievalResult LoginDatabase::StatementToForms(
     return FormRetrievalResult::kDbError;
   }
   if (failed) {
-    if (ShouldDeleteUndecryptablePasswords()) {
+    if (ShouldDeleteUndecryptablePasswords(
+            clearing_undecryptable_passwords_, is_user_data_dir_policy_set_,
+            is_deleting_undecryptable_logins_disabled_by_policy_)) {
       DatabaseCleanupResult result = DeleteUndecryptableLogins();
       if (result == DatabaseCleanupResult::kSuccess) {
         were_undecryptable_logins_deleted_ = true;
         return FormRetrievalResult::kSuccess;
       }
-      return FormRetrievalResult::kEncryptionServiceFailure;
     }
     if (ShouldReturnPartialPasswords()) {
       return FormRetrievalResult::kEncryptionServiceFailureWithPartialData;

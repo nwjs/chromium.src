@@ -3591,7 +3591,7 @@ TEST_F(SearchProviderTest, ParseDeletionUrl) {
       SCOPED_TRACE(" and match index: " + base::NumberToString(j));
       EXPECT_EQ(match.contents, base::UTF16ToUTF8(matches[j].contents));
       EXPECT_EQ(match.deletion_url,
-                matches[j].GetAdditionalInfo("deletion_url"));
+                matches[j].GetAdditionalInfoForDebugging("deletion_url"));
     }
   }
 }
@@ -4046,7 +4046,7 @@ TEST_F(SearchProviderTest, AnswersCache) {
   ACMatches matches;
   AutocompleteMatch match1;
   match1.answer = SuggestionAnswer();
-  match1.answer->set_type(2334);
+  match1.answer_type = omnibox::ANSWER_TYPE_WEATHER;
   match1.fill_into_edit = u"weather los angeles";
 
   AutocompleteMatch non_answer_match1;
@@ -4058,11 +4058,30 @@ TEST_F(SearchProviderTest, AnswersCache) {
   result.AppendMatches(matches);
   provider_->RegisterDisplayedAnswers(result);
   ASSERT_FALSE(provider_->answers_cache_.empty());
+  AnswersQueryData answer =
+      provider_->answers_cache_.GetTopAnswerEntry(u"weather l");
+  EXPECT_EQ(u"weather los angeles", answer.full_query_text);
+
+  AutocompleteMatch match2;
+  match2.answer_template = omnibox::RichAnswerTemplate();
+  match2.answer_type = omnibox::ANSWER_TYPE_WEATHER;
+  match2.fill_into_edit = u"weather san diego";
+
+  AutocompleteResult result2;
+  ACMatches matches2;
+  matches2.push_back(match2);
+  matches2.push_back(non_answer_match1);
+  result2.AppendMatches(matches2);
+  provider_->RegisterDisplayedAnswers(result2);
+  ASSERT_FALSE(provider_->answers_cache_.empty());
+  AnswersQueryData answer2 =
+      provider_->answers_cache_.GetTopAnswerEntry(u"weather s");
+  EXPECT_EQ(u"weather san diego", answer2.full_query_text);
 
   // Without scored results, no answers will be retrieved.
-  AnswersQueryData answer = provider_->FindAnswersPrefetchData();
+  answer = provider_->FindAnswersPrefetchData();
   EXPECT_TRUE(answer.full_query_text.empty());
-  EXPECT_EQ(-1, answer.query_type);
+  EXPECT_EQ(omnibox::ANSWER_TYPE_UNSPECIFIED, answer.query_type);
 
   // Inject a scored result, which will trigger answer retrieval.
   std::u16string query = u"weather los angeles";
@@ -4077,22 +4096,21 @@ TEST_F(SearchProviderTest, AnswersCache) {
   provider_->transformed_default_history_results_.push_back(suggest_result);
   answer = provider_->FindAnswersPrefetchData();
   EXPECT_EQ(u"weather los angeles", answer.full_query_text);
-  EXPECT_EQ(2334, answer.query_type);
+  EXPECT_EQ(omnibox::ANSWER_TYPE_WEATHER, answer.query_type);
 }
 
 TEST_F(SearchProviderTest, RemoveExtraAnswers) {
   SuggestionAnswer answer1;
-  answer1.set_type(42);
   SuggestionAnswer answer2;
-  answer2.set_type(1983);
-  SuggestionAnswer answer3;
-  answer3.set_type(423);
 
   ACMatches matches;
   AutocompleteMatch match1, match2, match3, match4, match5;
   match1.answer = answer1;
+  match1.answer_type = omnibox::ANSWER_TYPE_WEATHER;
   match3.answer = answer2;
-  match5.answer = answer3;
+  match3.answer_type = omnibox::ANSWER_TYPE_TRANSLATION;
+  match5.answer_template = omnibox::RichAnswerTemplate();
+  match5.answer_type = omnibox::ANSWER_TYPE_FINANCE;
 
   matches.push_back(match1);
   matches.push_back(match2);
@@ -4101,12 +4119,16 @@ TEST_F(SearchProviderTest, RemoveExtraAnswers) {
   matches.push_back(match5);
 
   SearchProvider::RemoveExtraAnswers(&matches);
-  EXPECT_EQ(42, matches[0].answer->type());
+  EXPECT_EQ(omnibox::ANSWER_TYPE_WEATHER, matches[0].answer_type);
   EXPECT_TRUE(answer1.Equals(*matches[0].answer));
-  EXPECT_FALSE(matches[1].answer);
-  EXPECT_FALSE(matches[2].answer);
-  EXPECT_FALSE(matches[3].answer);
-  EXPECT_FALSE(matches[4].answer);
+  EXPECT_FALSE(matches[1].answer || matches[1].answer_template);
+  EXPECT_FALSE(matches[2].answer || matches[2].answer_template);
+  EXPECT_FALSE(matches[3].answer || matches[3].answer_template);
+  EXPECT_FALSE(matches[4].answer || matches[4].answer_template);
+  EXPECT_EQ(omnibox::ANSWER_TYPE_UNSPECIFIED, matches[1].answer_type);
+  EXPECT_EQ(omnibox::ANSWER_TYPE_UNSPECIFIED, matches[2].answer_type);
+  EXPECT_EQ(omnibox::ANSWER_TYPE_UNSPECIFIED, matches[3].answer_type);
+  EXPECT_EQ(omnibox::ANSWER_TYPE_UNSPECIFIED, matches[4].answer_type);
 }
 
 TEST_F(SearchProviderTest, DuplicateCardAnswer) {
@@ -4114,7 +4136,9 @@ TEST_F(SearchProviderTest, DuplicateCardAnswer) {
   AutocompleteMatch match1, match2, match3;
   match1.contents = u"match 1";
   match1.type = AutocompleteMatchType::SEARCH_SUGGEST;
+  match1.allowed_to_be_default_match = true;
   match1.answer_template = omnibox::RichAnswerTemplate();
+  match1.destination_url = GURL("http://www.google.com/google.com/search?");
 
   matches.push_back(match1);
   matches.push_back(match2);
@@ -4124,9 +4148,31 @@ TEST_F(SearchProviderTest, DuplicateCardAnswer) {
 
   EXPECT_EQ(4u, matches.size());
   EXPECT_TRUE(matches[0].answer_template);
+  EXPECT_FALSE(matches[0].allowed_to_be_default_match);
   EXPECT_FALSE(matches[3].answer_template);
+  EXPECT_TRUE(matches[3].allowed_to_be_default_match);
+  EXPECT_EQ(matches[3].suggestion_group_id, omnibox::GROUP_SEARCH);
   EXPECT_EQ(matches[0].contents, matches[3].contents);
   EXPECT_EQ(matches[0].type, matches[3].type);
+}
+
+TEST_F(SearchProviderTest, CopyAnswerToVerbatim) {
+  QueryForInput(u"weather los angeles ", false, false);
+
+  AutocompleteMatch match;
+  match.answer_type = omnibox::ANSWER_TYPE_WEATHER;
+  match.answer_template = omnibox::RichAnswerTemplate();
+  match.answer_template->add_answers();
+  match.fill_into_edit = u"weather los angeles";
+  match.type = AutocompleteMatchType::SEARCH_HISTORY;
+  provider_->matches_.push_back(match);
+  provider_->ConvertResultsToAutocompleteMatches();
+
+  EXPECT_EQ(1u, provider_->matches().size());
+  EXPECT_EQ(AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED,
+            provider_->matches()[0].type);
+  EXPECT_EQ(omnibox::ANSWER_TYPE_WEATHER, provider_->matches()[0].answer_type);
+  EXPECT_TRUE(provider_->matches()[0].answer_template);
 }
 
 TEST_F(SearchProviderTest, DoesNotProvideOnFocus) {

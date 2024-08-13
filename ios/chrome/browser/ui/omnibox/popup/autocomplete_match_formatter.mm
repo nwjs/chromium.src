@@ -142,8 +142,7 @@ UIColor* DimColorIncognito() {
         [[NSMutableAttributedString alloc] initWithString:@""];
     NSAttributedString* spacer = [[self class] spacerAttributedString];
 
-    if (_match.answer_template->answer_type() ==
-        omnibox::RichAnswerTemplate::DICTIONARY) {
+    if (_match.answer_type == omnibox::ANSWER_TYPE_DICTIONARY) {
       auto subheadFragments =
           _match.answer_template->answers(0).subhead().fragments();
 
@@ -220,10 +219,8 @@ UIColor* DimColorIncognito() {
 }
 
 - (NSInteger)numberOfLines {
-  // TODO (crbug/342608217) : double-check if we need to implement number of
-  // lines for the new answer proto.
   if (omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled) {
-    return 3;
+    return _match.answer_type == omnibox::ANSWER_TYPE_DICTIONARY ? 3 : 1;
   }
   // Answers specify their own limit on the number of lines to show but are
   // additionally capped here at 3 to guard against unreasonable values.
@@ -308,8 +305,7 @@ UIColor* DimColorIncognito() {
         [[NSMutableAttributedString alloc] initWithString:@""];
     NSAttributedString* spacer = [[self class] spacerAttributedString];
 
-    if (_match.answer_template->answer_type() ==
-        omnibox::RichAnswerTemplate::DICTIONARY) {
+    if (_match.answer_type == omnibox::ANSWER_TYPE_DICTIONARY) {
       auto headlineFragments =
           _match.answer_template->answers(0).headline().fragments();
 
@@ -600,10 +596,14 @@ UIColor* DimColorIncognito() {
       };
     }
     default:
+      BOOL isFinanceDetailText =
+          _match.answer_type == omnibox::ANSWER_TYPE_FINANCE &&
+          useDeemphasizedStyling;
       return @{
         NSFontAttributeName : [UIFont fontWithDescriptor:defaultFontDescriptor
                                                     size:0],
-        NSForegroundColorAttributeName : defaultColor,
+        NSForegroundColorAttributeName : isFinanceDetailText ? UIColor.grayColor
+                                                             : defaultColor,
       };
   }
 }

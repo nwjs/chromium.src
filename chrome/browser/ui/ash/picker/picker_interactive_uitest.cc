@@ -8,6 +8,7 @@
 #include "ash/ash_element_identifiers.h"
 #include "ash/picker/picker_controller.h"
 #include "ash/picker/views/picker_emoji_item_view.h"
+#include "ash/picker/views/picker_feature_tour.h"
 #include "ash/picker/views/picker_list_item_view.h"
 #include "ash/shell.h"
 #include "base/strings/string_util.h"
@@ -122,6 +123,7 @@ class PickerInteractiveUiTest : public InteractiveAshTest {
 
   PickerInteractiveUiTest() {
     ash::PickerController::DisableFeatureKeyCheckForTesting();
+    ash::PickerFeatureTour::DisableFeatureTourForTesting();
   }
 
   void SetUpOnMainThread() override {
@@ -227,8 +229,8 @@ IN_PROC_BROWSER_TEST_F(PickerInteractiveUiTest, SearchAndInsertDate) {
       ObserveState(kSearchFieldFocusedState, std::ref(picker_search_field)),
       WaitForState(kSearchFieldFocusedState, true),
       EnterText(ash::kPickerSearchFieldTextfieldElementId, u"today"),
-      WaitForShow(ash::kPickerSearchResultsListItemElementId),
       WaitForShow(ash::kPickerSearchResultsPageElementId),
+      WaitForShow(ash::kPickerSearchResultsListItemElementId),
       NameDescendantView(
           ash::kPickerSearchResultsPageElementId, kDateResultName,
           base::BindLambdaForTesting([kExpectedDate](const views::View* view) {
@@ -265,8 +267,8 @@ IN_PROC_BROWSER_TEST_F(PickerInteractiveUiTest, SearchAndInsertMath) {
       ObserveState(kSearchFieldFocusedState, std::ref(picker_search_field)),
       WaitForState(kSearchFieldFocusedState, true),
       EnterText(ash::kPickerSearchFieldTextfieldElementId, u"1 + 1"),
-      WaitForShow(ash::kPickerSearchResultsListItemElementId),
       WaitForShow(ash::kPickerSearchResultsPageElementId),
+      WaitForShow(ash::kPickerSearchResultsListItemElementId),
       NameDescendantView(
           ash::kPickerSearchResultsPageElementId, kMathResultName,
           base::BindLambdaForTesting(
@@ -348,8 +350,6 @@ IN_PROC_BROWSER_TEST_F(PickerSpokenFeedbackInteractiveUiTest,
       ObserveState(kSearchFieldFocusedState, std::ref(picker_search_field)),
       WaitForState(kSearchFieldFocusedState, true));
 
-  // TODO(b/309706053): Replace this once the strings are finalized.
-  sm_.ExpectSpeechPattern("placeholder");
   sm_.ExpectSpeechPattern("Edit text");
   sm_.ExpectSpeechPattern("window");
   sm_.Replay();
@@ -414,8 +414,9 @@ IN_PROC_BROWSER_TEST_F(PickerSpokenFeedbackInteractiveUiTest,
       WaitForState(kSearchFieldFocusedState, true),
       // Enter a query that is guaranteed to have some results.
       EnterText(ash::kPickerSearchFieldTextfieldElementId, u"a"),
+      WaitForShow(ash::kPickerSearchResultsPageElementId),
       WaitForShow(ash::kPickerSearchResultsListItemElementId),
-      WaitForShow(ash::kPickerSearchResultsPageElementId), Do([&sm = sm_]() {
+      Do([&sm = sm_]() {
         SendKeyPress(ui::VKEY_DOWN);
         sm.ExpectSpeechPattern("*");
         // TODO: b/338142316 - Use correct role for result items.

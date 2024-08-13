@@ -52,6 +52,10 @@ class AccountCapabilities {
 #endif
   // Keep sorted alphabetically.
 
+  // Chrome can fetch information related to the family group for accounts
+  // with this capability.
+  signin::Tribool can_fetch_family_member_info() const;
+
   // Chrome can display the email address for accounts with this capability.
   signin::Tribool can_have_email_address_displayed() const;
 
@@ -119,6 +123,7 @@ class AccountCapabilities {
       const base::Value::Dict& account_capabilities);
   friend class AccountCapabilitiesFetcherGaia;
 #if BUILDFLAG(IS_IOS)
+  friend const std::vector<std::string>& GetAccountCapabilityNamesForPrefetch();
   friend class ios::AccountCapabilitiesFetcherIOS;
 #endif
   friend class AccountCapabilitiesTestMutator;

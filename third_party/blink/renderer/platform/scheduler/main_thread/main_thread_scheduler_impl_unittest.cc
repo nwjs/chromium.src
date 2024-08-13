@@ -44,7 +44,6 @@
 #include "third_party/blink/renderer/platform/scheduler/main_thread/frame_task_queue_controller.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/test/recording_task_time_observer.h"
-#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "v8/include/v8.h"
 
 using base::sequence_manager::TaskQueue;
@@ -319,8 +318,7 @@ class MainThreadSchedulerImplForTest : public MainThreadSchedulerImpl {
     update_policy_count_++;
     MainThreadSchedulerImpl::UpdatePolicyLocked(update_type);
 
-    String use_case = MainThreadSchedulerImpl::UseCaseToString(
-        main_thread_only().current_use_case);
+    String use_case = UseCaseToString(main_thread_only().current_use_case);
     if (main_thread_only().blocking_input_expected_soon) {
       use_cases_.push_back(use_case + " blocking input expected");
     } else {
@@ -359,7 +357,7 @@ class MainThreadSchedulerImplForTest : public MainThreadSchedulerImpl {
 
 // Lets gtest print human readable Policy values.
 ::std::ostream& operator<<(::std::ostream& os, const UseCase& use_case) {
-  return os << MainThreadSchedulerImpl::UseCaseToString(use_case);
+  return os << UseCaseToString(use_case);
 }
 
 class MainThreadSchedulerImplTest : public testing::Test {
@@ -932,21 +930,6 @@ class MainThreadSchedulerImplTest : public testing::Test {
   static base::TimeDelta end_idle_when_hidden_delay() {
     return base::Milliseconds(
         MainThreadSchedulerImpl::kEndIdleWhenHiddenDelayMillis);
-  }
-
-  template <typename E>
-  static void CallForEachEnumValue(E first,
-                                   E last,
-                                   const char* (*function)(E)) {
-    for (E val = first; val < last;
-         val = static_cast<E>(static_cast<int>(val) + 1)) {
-      (*function)(val);
-    }
-  }
-
-  static void CheckAllUseCaseToString() {
-    CallForEachEnumValue<UseCase>(UseCase::kFirstUseCase, UseCase::kCount,
-                                  &MainThreadSchedulerImpl::UseCaseToString);
   }
 
   static scoped_refptr<MainThreadTaskQueue> ThrottleableTaskQueue(
@@ -2355,7 +2338,9 @@ TEST_F(MainThreadSchedulerImplTest, PauseRenderer) {
 }
 
 TEST_F(MainThreadSchedulerImplTest, UseCaseToString) {
-  CheckAllUseCaseToString();
+  for (unsigned i = 0; i <= static_cast<unsigned>(UseCase::kMaxValue); i++) {
+    UseCaseToString(static_cast<UseCase>(i));
+  }
 }
 
 TEST_F(MainThreadSchedulerImplTest, MismatchedDidHandleInputEventOnMainThread) {
@@ -3335,9 +3320,11 @@ TEST_F(MainThreadSchedulerImplTest,
   EXPECT_THAT(run_order, testing::ElementsAre("P1", "C1", "C2", "D1", "D2"));
   EXPECT_EQ(UseCase::kNone, CurrentUseCase());
 
-  // Next compositor task is the BeginMainFrame. Afterwhich the priority is
+  // The next compositor task is the BeginMainFrame, after which the priority is
   // returned to normal.
-  DoMainFrame();
+  PostTestTasks(&run_order, "CM");
+  base::RunLoop().RunUntilIdle();
+
   run_order.clear();
   PostTestTasks(&run_order, "C1 D1 D2 C2 P1");
 
@@ -3609,6 +3596,24 @@ TEST_F(UrgentMessageSchedulingPolicyTest, PrioritizeIPCTasks) {
   EXPECT_THAT(run_order,
               testing::ElementsAre("T1", "D1", "T2", "D2a", "D2b", "D2c", "D3",
                                    "D4", "D5", "T3", "T4", "T5", "T6", "D6"));
+}
+
+TEST_F(UrgentMessageSchedulingPolicyTest, UrgentMessageAndCompositorPriority) {
+  Vector<String> run_order;
+  PostTestTasks(&run_order, "T1 T2 D1 PD1 C1");
+  // Simulate receiving an urgent message while running a BeginMainFrame to make
+  // sure the policy reflects both.
+  compositor_task_runner_->PostTask(FROM_HERE,
+                                    base::BindLambdaForTesting([&]() {
+                                      scheduler_->OnUrgentMessageReceived();
+                                      DoMainFrame();
+                                      run_order.push_back("CM");
+                                    }));
+  PostTestTasks(&run_order, "C2 C3 D2");
+
+  base::RunLoop().RunUntilIdle();
+  EXPECT_THAT(run_order, testing::ElementsAre("PD1", "C1", "CM", "D1", "D2",
+                                              "T1", "T2", "C2", "C3"));
 }
 
 }  // namespace main_thread_scheduler_impl_unittest

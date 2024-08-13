@@ -6,6 +6,8 @@
 
 #include <stddef.h>
 
+#include <array>
+
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -22,26 +24,23 @@ using PasswordSyncUtilTest = SyncUsernameTestBase;
 
 TEST_F(PasswordSyncUtilTest,
        GetAccountEmailIfSyncFeatureEnabledIncludingPasswords) {
-  const struct TestCase {
+  struct TestCase {
     enum { SYNCING_PASSWORDS, NOT_SYNCING_PASSWORDS } password_sync;
     std::string fake_sync_username;
     std::string expected_result;
     raw_ptr<const syncer::SyncService> sync_service;
-  } kTestCases[] = {
-      {TestCase::NOT_SYNCING_PASSWORDS, "a@example.org", std::string(),
-       sync_service()},
-
-      {TestCase::SYNCING_PASSWORDS, "a@example.org", "a@example.org",
-       sync_service()},
-
-      {TestCase::NOT_SYNCING_PASSWORDS, "a@example.org", std::string(),
-       nullptr},
-
-      {TestCase::NOT_SYNCING_PASSWORDS, "a@example.org", std::string(),
-       nullptr},
   };
+  const auto kTestCases =
+      std::to_array<TestCase>({{TestCase::NOT_SYNCING_PASSWORDS,
+                                "a@example.org", std::string(), sync_service()},
+                               {TestCase::SYNCING_PASSWORDS, "a@example.org",
+                                "a@example.org", sync_service()},
+                               {TestCase::NOT_SYNCING_PASSWORDS,
+                                "a@example.org", std::string(), nullptr},
+                               {TestCase::NOT_SYNCING_PASSWORDS,
+                                "a@example.org", std::string(), nullptr}});
 
-  for (size_t i = 0; i < std::size(kTestCases); ++i) {
+  for (size_t i = 0; i < kTestCases.size(); ++i) {
     SCOPED_TRACE(testing::Message() << "i=" << i);
     SetSyncingPasswords(kTestCases[i].password_sync ==
                         TestCase::SYNCING_PASSWORDS);
@@ -53,18 +52,18 @@ TEST_F(PasswordSyncUtilTest,
 }
 
 TEST_F(PasswordSyncUtilTest, IsSyncAccountEmail) {
-  const struct {
+  struct TestCase {
     std::string fake_sync_email;
     std::string input_username;
     bool expected_result;
-  } kTestCases[] = {
-      {"", "", false},
-      {"", "user@example.org", false},
-      {"sync_user@example.org", "", false},
-      {"sync_user@example.org", "sync_user@example.org", true},
-      {"sync_user@example.org", "sync_user", false},
-      {"sync_user@example.org", "non_sync_user@example.org", false},
   };
+  const auto kTestCases = std::to_array<TestCase>(
+      {{"", "", false},
+       {"", "user@example.org", false},
+       {"sync_user@example.org", "", false},
+       {"sync_user@example.org", "sync_user@example.org", true},
+       {"sync_user@example.org", "sync_user", false},
+       {"sync_user@example.org", "non_sync_user@example.org", false}});
 
   for (size_t i = 0; i < std::size(kTestCases); ++i) {
     SCOPED_TRACE(testing::Message() << "i=" << i);
@@ -94,7 +93,7 @@ TEST_F(PasswordSyncUtilTest, SignedOut) {
 }
 
 TEST_F(PasswordSyncUtilTest, SyncEnabledButNotForPasswords) {
-  test_sync_service()->SetSignedInWithSyncFeatureOn();
+  test_sync_service()->SetSignedIn(signin::ConsentLevel::kSync);
   test_sync_service()->GetUserSettings()->SetSelectedTypes(
       /*sync_everything=*/false, {syncer::UserSelectableType::kHistory});
   EXPECT_FALSE(IsSyncFeatureEnabledIncludingPasswords(test_sync_service()));
@@ -109,7 +108,7 @@ TEST_F(PasswordSyncUtilTest, SyncEnabledButNotForPasswords) {
 TEST_F(PasswordSyncUtilTest, SyncEnabled) {
   AccountInfo active_info;
   active_info.email = "test@email.com";
-  test_sync_service()->SetSignedInWithSyncFeatureOn(active_info);
+  test_sync_service()->SetSignedIn(signin::ConsentLevel::kSync, active_info);
   EXPECT_TRUE(IsSyncFeatureEnabledIncludingPasswords(test_sync_service()));
   EXPECT_TRUE(HasChosenToSyncPasswords(test_sync_service()));
   EXPECT_TRUE(IsSyncFeatureActiveIncludingPasswords(test_sync_service()));
@@ -121,7 +120,7 @@ TEST_F(PasswordSyncUtilTest, SyncEnabled) {
 }
 
 TEST_F(PasswordSyncUtilTest, SyncPaused) {
-  test_sync_service()->SetSignedInWithSyncFeatureOn();
+  test_sync_service()->SetSignedIn(signin::ConsentLevel::kSync);
   test_sync_service()->SetPersistentAuthError();
   ASSERT_EQ(test_sync_service()->GetTransportState(),
             syncer::SyncService::TransportState::PAUSED);
@@ -137,7 +136,7 @@ TEST_F(PasswordSyncUtilTest, SyncPaused) {
 TEST_F(PasswordSyncUtilTest, SyncEnabledWithCustomPassphrase) {
   AccountInfo active_info;
   active_info.email = "test@email.com";
-  test_sync_service()->SetSignedInWithSyncFeatureOn(active_info);
+  test_sync_service()->SetSignedIn(signin::ConsentLevel::kSync, active_info);
   test_sync_service()->SetIsUsingExplicitPassphrase(true);
   EXPECT_TRUE(IsSyncFeatureEnabledIncludingPasswords(test_sync_service()));
   EXPECT_TRUE(HasChosenToSyncPasswords(test_sync_service()));
@@ -152,7 +151,7 @@ TEST_F(PasswordSyncUtilTest, SyncEnabledWithCustomPassphrase) {
 TEST_F(PasswordSyncUtilTest, SignedInWithPasswordsEnabled) {
   AccountInfo active_info;
   active_info.email = "test@email.com";
-  test_sync_service()->SetSignedInWithoutSyncFeature(active_info);
+  test_sync_service()->SetSignedIn(signin::ConsentLevel::kSignin, active_info);
   EXPECT_FALSE(IsSyncFeatureEnabledIncludingPasswords(test_sync_service()));
   EXPECT_TRUE(HasChosenToSyncPasswords(test_sync_service()));
   EXPECT_FALSE(IsSyncFeatureActiveIncludingPasswords(test_sync_service()));
@@ -164,7 +163,7 @@ TEST_F(PasswordSyncUtilTest, SignedInWithPasswordsEnabled) {
 }
 
 TEST_F(PasswordSyncUtilTest, SignedInWithPasswordsDisabled) {
-  test_sync_service()->SetSignedInWithoutSyncFeature();
+  test_sync_service()->SetSignedIn(signin::ConsentLevel::kSignin);
   test_sync_service()->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kPasswords, false);
   EXPECT_FALSE(IsSyncFeatureEnabledIncludingPasswords(test_sync_service()));
@@ -179,7 +178,7 @@ TEST_F(PasswordSyncUtilTest, SignedInWithPasswordsDisabled) {
 TEST_F(PasswordSyncUtilTest, SignedInWithCustomPassphrase) {
   AccountInfo active_info;
   active_info.email = "test@email.com";
-  test_sync_service()->SetSignedInWithoutSyncFeature(active_info);
+  test_sync_service()->SetSignedIn(signin::ConsentLevel::kSignin, active_info);
   test_sync_service()->SetIsUsingExplicitPassphrase(true);
   EXPECT_FALSE(IsSyncFeatureEnabledIncludingPasswords(test_sync_service()));
   EXPECT_TRUE(HasChosenToSyncPasswords(test_sync_service()));

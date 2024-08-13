@@ -22,6 +22,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/attribution_reporting/aggregatable_debug_reporting_config.h"
+#include "components/attribution_reporting/aggregatable_filtering_id_max_bytes.h"
 #include "components/attribution_reporting/aggregatable_utils.h"
 #include "components/attribution_reporting/debug_types.h"
 #include "components/attribution_reporting/debug_types.mojom.h"
@@ -30,6 +31,7 @@
 #include "components/attribution_reporting/suitable_origin.h"
 #include "components/attribution_reporting/trigger_registration.h"
 #include "content/browser/aggregation_service/aggregatable_report.h"
+#include "content/browser/aggregation_service/aggregation_service_features.h"
 #include "content/browser/attribution_reporting/aggregatable_attribution_utils.h"
 #include "content/browser/attribution_reporting/aggregatable_result.mojom.h"
 #include "content/browser/attribution_reporting/attribution_trigger.h"
@@ -41,6 +43,7 @@
 #include "content/browser/attribution_reporting/stored_source.h"
 #include "net/base/schemeful_site.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
+#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/mojom/aggregation_service/aggregatable_report.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -61,6 +64,7 @@ constexpr size_t kMaxContributions = 2;
 
 constexpr char kApiIdentifier[] = "attribution-reporting-debug";
 constexpr char kVersion[] = "0.1";
+constexpr char kVersionWithFlexibleContributionFiltering[] = "1.0";
 
 std::optional<DebugDataType> GetDebugType(const StoreSourceResult& result) {
   switch (result.status()) {
@@ -89,6 +93,8 @@ std::optional<DebugDataType> GetDebugType(const StoreSourceResult& result) {
       return DebugDataType::kSourceChannelCapacityLimit;
     case StoreSourceStatus::kExceedsMaxTriggerStateCardinality:
       return DebugDataType::kSourceTriggerStateCardinalityLimit;
+    case StoreSourceStatus::kDestinationPerDayReportingLimitReached:
+      return DebugDataType::kSourceDestinationPerDayRateLimit;
   }
 }
 
@@ -181,6 +187,14 @@ GetAggregatableContributions(
   return contributions;
 }
 
+bool IsAggregatableFilteringIdsEnabled() {
+  return base::FeatureList::IsEnabled(
+             attribution_reporting::features::
+                 kAttributionReportingAggregatableFilteringIds) &&
+         base::FeatureList::IsEnabled(
+             kPrivacySandboxAggregationServiceFilteringIds);
+}
+
 }  // namespace
 
 // static
@@ -207,6 +221,9 @@ std::optional<AggregatableDebugReport> AggregatableDebugReport::Create(
   if (std::optional<DebugDataType> type = GetDebugType(result)) {
     types.Put(*type);
   }
+  if (result.destination_limit().has_value()) {
+    types.Put(DebugDataType::kSourceDestinationLimitReplaced);
+  }
 
   return AggregatableDebugReport(
       GetAggregatableContributions(config.config().key_piece,
@@ -224,6 +241,13 @@ std::optional<AggregatableDebugReport> AggregatableDebugReport::Create(
   if (!base::FeatureList::IsEnabled(
           attribution_reporting::features::
               kAttributionAggregatableDebugReporting)) {
+    return std::nullopt;
+  }
+
+  if (absl::holds_alternative<CreateReportResult::NotRegistered>(
+          result.event_level_result()) &&
+      absl::holds_alternative<CreateReportResult::NotRegistered>(
+          result.aggregatable_result())) {
     return std::nullopt;
   }
 
@@ -335,6 +359,12 @@ std::optional<AggregatableReportRequest>
 AggregatableDebugReport::CreateAggregatableReportRequest() const {
   CHECK(report_id_.is_valid());
 
+  std::optional<size_t> filtering_id_max_bytes;
+  if (IsAggregatableFilteringIdsEnabled()) {
+    filtering_id_max_bytes =
+        attribution_reporting::AggregatableFilteringIdsMaxBytes().value();
+  }
+
   base::Value::Dict additional_fields;
   SetAttributionDestination(additional_fields, effective_destination_);
   return AggregatableReportRequest::Create(
@@ -344,12 +374,17 @@ AggregatableDebugReport::CreateAggregatableReportRequest() const {
           aggregation_coordinator_origin_
               ? std::make_optional(**aggregation_coordinator_origin_)
               : std::nullopt,
-          kMaxContributions,
-          /*filtering_id_max_bytes=*/std::nullopt),
+          kMaxContributions, filtering_id_max_bytes),
       AggregatableReportSharedInfo(
           scheduled_report_time_, report_id_, reporting_origin_,
           AggregatableReportSharedInfo::DebugMode::kDisabled,
-          std::move(additional_fields), kVersion, kApiIdentifier));
+          std::move(additional_fields),
+          filtering_id_max_bytes.has_value()
+              ? kVersionWithFlexibleContributionFiltering
+              : kVersion,
+          kApiIdentifier),
+      // The returned request cannot be serialized due to the null `delay_type`.
+      /*delay_type=*/std::nullopt);
 }
 
 }  // namespace content

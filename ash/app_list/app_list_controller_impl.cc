@@ -23,7 +23,6 @@
 #include "ash/app_list/views/app_list_view.h"
 #include "ash/app_list/views/contents_view.h"
 #include "ash/app_list/views/search_box_view.h"
-#include "ash/app_list/views/search_notifier_controller.h"
 #include "ash/assistant/assistant_controller_impl.h"
 #include "ash/assistant/model/assistant_ui_model.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
@@ -298,7 +297,7 @@ AppListControllerImpl::AppListControllerImpl()
   display::Screen::GetScreen()->AddObserver(this);
   keyboard::KeyboardUIController::Get()->AddObserver(this);
   AssistantState::Get()->AddObserver(this);
-  shell->window_tree_host_manager()->AddObserver(this);
+  shell->display_manager()->AddDisplayManagerObserver(this);
   AssistantController::Get()->AddObserver(this);
   AssistantUiController::Get()->GetModel()->AddObserver(this);
   FeatureDiscoveryDurationReporter::GetInstance()->AddObserver(this);
@@ -500,7 +499,6 @@ void AppListControllerImpl::OnUserSessionAdded(const AccountId& account_id) {
       Shell::Get()->session_controller()->GetUserPrefServiceForUser(account_id);
   if (features::IsLauncherNudgeSessionResetEnabled()) {
     AppListNudgeController::ResetPrefsForNewUserSession(prefs);
-    SearchNotifierController::ResetPrefsForNewUserSession(prefs);
   }
 }
 
@@ -963,7 +961,7 @@ void AppListControllerImpl::OnAssistantFeatureAllowedChanged(
   UpdateSearchBoxUiVisibilities();
 }
 
-void AppListControllerImpl::OnDisplayConfigurationChanged() {
+void AppListControllerImpl::OnDidApplyDisplayChanges() {
   // Entering tablet mode triggers a display configuration change when we
   // automatically switch to mirror mode. Switching to mirror mode happens
   // asynchronously (see DisplayConfigurationObserver::OnTabletModeStarted()).
@@ -1954,7 +1952,7 @@ void AppListControllerImpl::Shutdown() {
   Shell* shell = Shell::Get();
   AssistantController::Get()->RemoveObserver(this);
   AssistantUiController::Get()->GetModel()->RemoveObserver(this);
-  shell->window_tree_host_manager()->RemoveObserver(this);
+  shell->display_manager()->RemoveDisplayManagerObserver(this);
   AssistantState::Get()->RemoveObserver(this);
   keyboard::KeyboardUIController::Get()->RemoveObserver(this);
   display::Screen::GetScreen()->RemoveObserver(this);

@@ -9,11 +9,12 @@
 <translation id="1180362651362502943">Продолжете да ги користите податоците од Chrome во вашата сметка на Google.</translation>
 <translation id="1200396280085622191">Користете Chrome секогаш кога ќе допрете линкови во пораки и други апликации.</translation>
 <translation id="1229222343402087523">Пребарајте ${searchPhrase} во Chrome</translation>
+<translation id="1237769345474105984">Од Chrome</translation>
 <translation id="124228879633599436">Вашата верзија на Chrome е застарена. Ажурирајте ја за да се заштитите.</translation>
 <translation id="1282031177488366470">Помогнете да се подобрат функциите и изведбата на Chrome</translation>
-<translation id="1320619893013575407">Го исклучивте најавувањето на Chrome.</translation>
 <translation id="1333745675627230582">Пушти ја играта „Диносаурус на Chrome“</translation>
 <translation id="1352919863522755794">Google Password Manager не можеше да ги провери вашите лозинки. Проверете ја интернет-врската.</translation>
+<translation id="139623527619433858">Користете го Chrome за iPad стандардно</translation>
 <translation id="1407843355326180937">Најавете се на сајтов и Chrome ќе ги префрли вашите обележувачи и друго на сите ваши уреди.</translation>
 <translation id="1436059927646026729">Отвори ја мојата последна картичка во Chrome</translation>
 <translation id="1449241544691504574">Додајте обележувачи во Chrome</translation>
@@ -134,6 +135,7 @@
 <translation id="4903674399067644695">Картичкава ви прикажува предлози за тоа како да го извлечете максимумот од Chrome.</translation>
 <translation id="4919069428879420545">Избришете ги податоците од прелистување во Chrome.</translation>
 <translation id="49200511069271369">Вашата организација, <ph name="DOMAIN" />, управува со сметката на којашто се најавувате, а и со тоа како може да се користи Chrome. Вашиот администратор може да постави или да ограничи конкретни функции.</translation>
+<translation id="4925322001044117929">Користете го Chrome на iPad стандардно</translation>
 <translation id="498985224078955265">За да ја испратите картичкава на друг уред, најавете се на Chrome на двата уреда.</translation>
 <translation id="5030102366287574140">Chrome може да ве штити од упад во податоците, небезбедни веб-сајтови и друго.</translation>
 <translation id="5108659628347594808">Подобрете го Chrome</translation>
@@ -172,6 +174,7 @@
 <translation id="6063091872902370735">Дозволете најавување на Chrome</translation>
 <translation id="6110625574506755980">Некои функции на Chrome веќе нема да бидат достапни.</translation>
 <translation id="6132149203299792222">Најавете се со сметката на Google за да ги синхронизирате вашите лозинки, обележувачи и друго.</translation>
+<translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Пребарувајте во Chrome</translation>
 <translation id="6238746320622508509">Дозволете Chrome да ги заклучи вашите картички „Инкогнито“.</translation>
 <translation id="6247557882553405851">Google Password Manager</translation>
@@ -220,6 +223,7 @@
 <translation id="7272930098487145294">За да ги зачувате сликите, допрете на „Поставки“ за да овозможите Chrome да додава фотографии</translation>
 <translation id="7275945473750112644"><ph name="HOSTED_DOMAIN" /> управува со вашата сметка, па податоците од Chrome ќе се избришат од уредов</translation>
 <translation id="7284245284340063465">Ако сте ја заборавиле лозинката или сакате да ја промените поставкава, <ph name="BEGIN_LINK" />избришете ги податоците од Chrome во вашата сметка<ph name="END_LINK" />.</translation>
+<translation id="7299681342915173313">Отсега може да го користите Chrome секогаш кога ќе допрете линкови во е-пораки, документи и други апликации.</translation>
 <translation id="7304491752269485262">Проширен приказ на автоматското пополнување на Chrome</translation>
 <translation id="7344094882820374540">Добијте ја најсилната заштита од опасни сајтови на Chrome</translation>
 <translation id="7349129508108954623">Дозволете Chrome да користи „Карти на Google“ за да ви обезбедува насоки и локални информации за откриените адреси.</translation>
@@ -272,7 +276,6 @@
   3. Изберете Chrome.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8558480467877843976">Отсега може да го користите Chrome секогаш кога ќе прелистувате или допрете линкови во пораки, документи и други апликации.</translation>
-<translation id="8577978202917232774">Предлозите се засноваат на вашата активност од прелистувањето на вашите други уреди. За да добивате предлози, најавете се на Chrome на сите ваши уреди.</translation>
 <translation id="8603022514504485810">Google Password Manager не можеше да ги провери сите лозинки. Обидете се пак утре или <ph name="BEGIN_LINK" />проверете ги лозинките во сметката на Google.<ph name="END_LINK" /></translation>
 <translation id="8727043961453758442">Извлекување на максимумот од Chrome</translation>
 <translation id="8736550665979974340">Останете безбедни со Google Chrome</translation>

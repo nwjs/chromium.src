@@ -20,6 +20,11 @@
  *
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_TEXT_WTF_STRING_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_TEXT_WTF_STRING_H_
 
@@ -277,6 +282,10 @@ class WTF_EXPORT String {
   }
   bool StartsWithIgnoringCase(const StringView& prefix) const {
     return impl_ ? impl_->StartsWithIgnoringCase(prefix) : prefix.empty();
+  }
+  bool StartsWithIgnoringCaseAndAccents(const StringView& prefix) const {
+    return impl_ ? impl_->StartsWithIgnoringCaseAndAccents(prefix)
+                 : prefix.empty();
   }
   bool StartsWithIgnoringASCIICase(const StringView& prefix) const {
     return impl_ ? impl_->StartsWithIgnoringASCIICase(prefix) : prefix.empty();

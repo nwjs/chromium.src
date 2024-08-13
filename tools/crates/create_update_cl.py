@@ -453,9 +453,8 @@ def UpdateCrate(args, crate_id: str, upstream_branch: str):
     Git("commit", "-m", description)
     if args.upload:
         print(f"  Running `git cl upload ...` ...")
-        Git("cl", "upload", "--bypass-hooks", "--force",
-            "--hashtag=cratesio-autoupdate",
-            "--cc=chrome-rust-experiments+autoupdate@google.com")
+        GitClUpload("--hashtag=cratesio-autoupdate",
+                    "--cc=chrome-rust-experiments+autoupdate@google.com")
 
     FinishUpdatingCrate(args, title, diff)
     return new_branch
@@ -494,9 +493,10 @@ def FinishUpdatingCrate(args, title: str, diff: CratesDiff):
     Git("add", INCLUSIVE_LANG_CONFIG)
     GitCommit(args, "gnrt vendor")
     if args.upload:
-        print(f"  Running `git cl description ...` ...")
+        print(f"  Running `git cl upload --commit-description=...` ...")
         description = CreateCommitDescription(title, diff, True)
-        Git("cl", "description", f"--new-description={description}")
+        GitClUpload(f"--commit-description={description}", "-t",
+                    "Edit CL description to include vet policy")
 
     # gnrt gen
     print(f"  Running `gnrt gen`...")
@@ -537,11 +537,27 @@ def CheckoutInitialBranch(branch):
     RunCommandAndCheckForErrors([UPDATE_RUST_SCRIPT], False)
 
 
+def GitClUpload(*args):
+    # `--bypass-hooks` because the uploaded CL will initially fail
+    # `tools/crates/run_cargo_vet.py check`.
+    #
+    # `-o banned-words-skip` is used, because the CL is auto-generated and only
+    # modifies third-party libraries (where any banned words would be purely
+    # accidental; see also https://crbug.com/346174899).
+    #
+    # I am not 100% sure exactly why `--force` is needed, but without it
+    # `git cl upload` hangs sometimes.  I am guessing that `--force` is needed
+    # to suppress a prompt, although I am not sure what prompt + why that prompt
+    # appears.
+    Git("cl", "upload", "--bypass-hooks", "--force", "-o", "banned-words~skip",
+        *args)
+
+
 def GitCommit(args, title):
     Git("commit", "-m", title)
     if args.upload:
         print(f"  Running `git cl upload ...` ...")
-        Git("cl", "upload", "--bypass-hooks", "--force", "-m", title)
+        GitClUpload("-m", title)
 
 
 def ResolveCrateNameToCrateId(crate_name):
@@ -578,6 +594,13 @@ def AutoUpdate(args):
     CheckoutInitialBranch(upstream_branch)
 
     todo_crate_ids = FindUpdateableCrates()
+
+    if args.skip:
+        todo_crate_ids = list([
+            crate_id for crate_id in todo_crate_ids
+            if not crate_id.split("@")[0] in args.skip
+        ])
+
     if not todo_crate_ids:
         print("There were no updates - exiting early...")
         return 0
@@ -699,6 +722,9 @@ def main():
         "--upstream-branch",
         default="origin/main",
         help="The upstream branch on which to base the series of CLs.")
+    parser_auto.add_argument("--skip",
+                             nargs="+",
+                             help="Skip updating this crate name.")
 
     parser_single = subparsers.add_parser(
         "single",

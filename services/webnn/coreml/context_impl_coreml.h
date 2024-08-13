@@ -5,7 +5,9 @@
 #ifndef SERVICES_WEBNN_COREML_CONTEXT_IMPL_COREML_H_
 #define SERVICES_WEBNN_COREML_CONTEXT_IMPL_COREML_H_
 
+#include "base/memory/weak_ptr.h"
 #include "services/webnn/webnn_context_impl.h"
+#include "services/webnn/webnn_graph_impl.h"
 
 namespace webnn::coreml {
 
@@ -20,25 +22,33 @@ namespace webnn::coreml {
 class API_AVAILABLE(macos(14.0)) ContextImplCoreml final
     : public WebNNContextImpl {
  public:
-  ContextImplCoreml(mojo::PendingReceiver<mojom::WebNNContext> receiver,
-                    WebNNContextProviderImpl* context_provider,
-                    mojom::CreateContextOptionsPtr options);
+  ContextImplCoreml(
+      mojo::PendingReceiver<mojom::WebNNContext> receiver,
+      mojo::PendingRemote<mojom::WebNNContextClient> client_remote,
+      WebNNContextProviderImpl* context_provider,
+      mojom::CreateContextOptionsPtr options,
+      base::UnguessableToken context_handle);
 
   ContextImplCoreml(const WebNNContextImpl&) = delete;
   ContextImplCoreml& operator=(const ContextImplCoreml&) = delete;
 
   ~ContextImplCoreml() override;
 
+  // WebNNContextImpl:
+  base::WeakPtr<WebNNContextImpl> AsWeakPtr() override;
+
  private:
-  void CreateGraphImpl(mojom::GraphInfoPtr graph_info,
-                       CreateGraphCallback callback) override;
+  void CreateGraphImpl(
+      mojom::GraphInfoPtr graph_info,
+      WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
+      CreateGraphImplCallback callback) override;
 
   std::unique_ptr<WebNNBufferImpl> CreateBufferImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
       mojom::BufferInfoPtr buffer_info,
       const base::UnguessableToken& buffer_handle) override;
 
-  mojom::CreateContextOptionsPtr options_;
+  base::WeakPtrFactory<ContextImplCoreml> weak_factory_{this};
 };
 
 }  // namespace webnn::coreml

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/layout/inline/inline_node.h"
 
 #include <memory>
@@ -10,6 +15,7 @@
 #include "base/containers/adapters.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/renderer/core/dom/text_diff_range.h"
@@ -374,7 +380,7 @@ void CollectInlinesInternal(ItemsBuilder* builder,
 
       builder->ClearInlineFragment(node);
     } else if (node->IsAtomicInlineLevel()) {
-      if (node->IsBoxListMarkerIncludingNG()) {
+      if (node->IsLayoutOutsideListMarker()) {
         // LayoutListItem produces the 'outside' list marker as an inline
         // block. This is an out-of-flow item whose position is computed
         // automatically.
@@ -702,7 +708,7 @@ class InlineNodeDataEditor final {
     auto const* end = data_->items.end();
     auto* it = data_->items.begin();
     for (; it != end && it->end_offset_ < start_offset; ++it) {
-      DCHECK(it != data_->items.end());
+      CHECK(it != data_->items.end(), base::NotFatalUntil::M130);
       items.push_back(*it);
     }
 
@@ -967,7 +973,7 @@ const InlineNodeData& InlineNode::EnsureData() const {
 const OffsetMapping* InlineNode::ComputeOffsetMappingIfNeeded() const {
 #if DCHECK_IS_ON()
   DCHECK(!GetLayoutBlockFlow()->GetDocument().NeedsLayoutTreeUpdate() ||
-         GetLayoutBlockFlow()->IsDetachedNonDomRoot());
+         GetLayoutBlockFlow()->IsInDetachedNonDomTree());
 #endif
 
   InlineNodeData* data = MutableData();
@@ -984,7 +990,7 @@ void InlineNode::ComputeOffsetMapping(LayoutBlockFlow* layout_block_flow,
 #if DCHECK_IS_ON()
   DCHECK(!data->offset_mapping);
   DCHECK(!layout_block_flow->GetDocument().NeedsLayoutTreeUpdate() ||
-         layout_block_flow->IsDetachedNonDomRoot());
+         layout_block_flow->IsInDetachedNonDomTree());
 #endif
 
   const SvgTextChunkOffsets* chunk_offsets = nullptr;

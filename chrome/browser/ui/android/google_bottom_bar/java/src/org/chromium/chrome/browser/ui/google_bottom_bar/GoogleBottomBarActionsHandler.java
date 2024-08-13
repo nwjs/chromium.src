@@ -31,7 +31,6 @@ import org.chromium.chrome.browser.lens.LensController;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
 import org.chromium.chrome.browser.lens.LensIntentParams;
 import org.chromium.chrome.browser.lens.LensQueryParams;
-import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.google_bottom_bar.BottomBarConfig.ButtonConfig;
@@ -54,17 +53,14 @@ class GoogleBottomBarActionsHandler {
     private final Activity mActivity;
     private final Supplier<Tab> mTabProvider;
     private final Supplier<ShareDelegate> mShareDelegateSupplier;
-    private final Supplier<PageInsightsCoordinator> mPageInsightsCoordinatorSupplier;
 
     GoogleBottomBarActionsHandler(
             Activity activity,
             Supplier<Tab> tabProvider,
-            Supplier<ShareDelegate> shareDelegateSupplier,
-            Supplier<PageInsightsCoordinator> pageInsightsCoordinatorSupplier) {
+            Supplier<ShareDelegate> shareDelegateSupplier) {
         mActivity = activity;
         mTabProvider = tabProvider;
         mShareDelegateSupplier = shareDelegateSupplier;
-        mPageInsightsCoordinatorSupplier = pageInsightsCoordinatorSupplier;
     }
 
     View.OnClickListener getClickListener(ButtonConfig buttonConfig) {
@@ -75,17 +71,17 @@ class GoogleBottomBarActionsHandler {
             case ButtonId.SHARE -> {
                 return v -> onShareButtonClick(buttonConfig);
             }
-            case ButtonId.PIH_BASIC, ButtonId.PIH_EXPANDED, ButtonId.PIH_COLORED -> {
-                return v -> onPageInsightsButtonClick(buttonConfig);
-            }
             case ButtonId.SEARCH -> {
                 return v -> onSearchButtonClick(buttonConfig);
             }
-            case ButtonId.CUSTOM -> {
-                return v -> onCustomButtonClick(buttonConfig);
-            }
             case ButtonId.HOME -> {
                 return v -> onHomeButtonClick(buttonConfig);
+            }
+            case ButtonId.PIH_BASIC,
+                    ButtonId.PIH_EXPANDED,
+                    ButtonId.PIH_COLORED,
+                    ButtonId.CUSTOM -> {
+                return v -> startPendingIntentIfPresentOrThrowError(buttonConfig);
             }
             case ButtonId.ADD_NOTES, ButtonId.REFRESH -> {
                 Log.e(TAG, "Unsupported action: %s", buttonConfig.getId());
@@ -113,7 +109,7 @@ class GoogleBottomBarActionsHandler {
         startGoogleAppActivityForResult(intent, "openGoogleAppVoiceSearch");
     }
 
-    void onSearchboxLensTap() {
+    void onSearchboxLensTap(View buttonView) {
         GoogleBottomBarLogger.logButtonClicked(SEARCHBOX_LENS);
         Tab tab = mTabProvider.get();
         if (tab == null) {
@@ -142,8 +138,9 @@ class GoogleBottomBarActionsHandler {
                             .build();
             lensController.startLens(window, lensIntentParams);
         } else {
-            // TODO(b/351763154) Show toast when Lens is not enabled
-            Log.e(TAG, "Can't open Lens as Lens is not enabled.");
+            showTooltip(
+                    buttonView,
+                    R.string.google_bottom_bar_searchbox_lens_not_enabled_tooltip_message);
         }
     }
 
@@ -189,16 +186,6 @@ class GoogleBottomBarActionsHandler {
         }
     }
 
-    private void onCustomButtonClick(ButtonConfig buttonConfig) {
-        PendingIntent pendingIntent = buttonConfig.getPendingIntent();
-        if (pendingIntent != null) {
-            GoogleBottomBarLogger.logButtonClicked(GoogleBottomBarButtonEvent.CUSTOM_EMBEDDER);
-            sendPendingIntentWithUrl(pendingIntent);
-        } else {
-            Log.e(TAG, "Can't perform custom action as pending intent is null.");
-        }
-    }
-
     private void onHomeButtonClick(ButtonConfig buttonConfig) {
         PendingIntent pendingIntent = buttonConfig.getPendingIntent();
         if (pendingIntent != null) {
@@ -210,18 +197,17 @@ class GoogleBottomBarActionsHandler {
         }
     }
 
-    private void onPageInsightsButtonClick(ButtonConfig buttonConfig) {
-        if (mPageInsightsCoordinatorSupplier.get() != null) {
-            mPageInsightsCoordinatorSupplier.get().launch();
-            GoogleBottomBarLogger.logButtonClicked(GoogleBottomBarButtonEvent.PIH_CHROME);
+    private void startPendingIntentIfPresentOrThrowError(ButtonConfig buttonConfig) {
+        PendingIntent pendingIntent = buttonConfig.getPendingIntent();
+        if (pendingIntent != null) {
+            sendPendingIntentWithUrl(pendingIntent);
+            GoogleBottomBarLogger.logButtonClicked(
+                    GoogleBottomBarLogger.getGoogleBottomBarButtonEvent(buttonConfig));
         } else {
-            PendingIntent pendingIntent = buttonConfig.getPendingIntent();
-            if (pendingIntent != null) {
-                sendPendingIntentWithUrl(pendingIntent);
-                GoogleBottomBarLogger.logButtonClicked(GoogleBottomBarButtonEvent.PIH_EMBEDDER);
-            } else {
-                Log.e(TAG, "Can't perform page insights action as pending intent is null.");
-            }
+            Log.e(
+                    TAG,
+                    "Can't perform action with id: %s as pending intent is null.",
+                    buttonConfig.getId());
         }
     }
 

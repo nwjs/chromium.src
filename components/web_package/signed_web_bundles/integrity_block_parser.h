@@ -6,11 +6,16 @@
 #define COMPONENTS_WEB_PACKAGE_SIGNED_WEB_BUNDLES_INTEGRITY_BLOCK_PARSER_H_
 
 #include "base/containers/flat_map.h"
+#include "components/web_package/signed_web_bundles/attribute_map_parser.h"
+#include "components/web_package/signed_web_bundles/integrity_block_attributes.h"
 #include "components/web_package/signed_web_bundles/signature_entry_parser.h"
+#include "components/web_package/signed_web_bundles/types.h"
 #include "components/web_package/web_bundle_parser.h"
 #include "third_party/abseil-cpp/absl/base/attributes.h"
 
 namespace web_package {
+
+class SignatureStackEntryParser;
 
 class IntegrityBlockParser : public WebBundleParser::WebBundleSectionParser {
  public:
@@ -27,32 +32,16 @@ class IntegrityBlockParser : public WebBundleParser::WebBundleSectionParser {
       WebBundleParser::WebBundleSectionParser::ParsingCompleteCallback callback)
       override;
 
-  // CBOR of the bytes present at the start of the Signed Web Bundle, including
-  // the magic string "🖋📦".
-  //
-  // The first 10 bytes of the integrity block format are:
-  //   83                             -- Array of length 3
-  //      48                          -- Byte string of length 8
-  //         F0 9F 96 8B F0 9F 93 A6  -- "🖋📦" in UTF-8
-  // Note: The length of the top level array is 3 (magic, version, signature
-  // stack).
-  static constexpr uint8_t kIntegrityBlockMagicBytes[] = {
-      0x83, 0x48,
-      // "🖋📦" magic bytes
-      0xF0, 0x9F, 0x96, 0x8B, 0xF0, 0x9F, 0x93, 0xA6};
-
-  // CBOR of the version string "1b\0\0".
-  //   44               -- Byte string of length 4
-  //       31 62 00 00  -- "1b\0\0"
-  static constexpr uint8_t kIntegrityBlockVersionMagicBytes[] = {
-      0x44, '1', 'b', 0x00, 0x00,
-  };
-
  private:
-  void ParseMagicBytesAndVersion(
-      const std::optional<std::vector<uint8_t>>& data);
+  void ParseMagicBytesAndVersion(const std::optional<BinaryData>& data);
 
-  void ParseSignatureStack(const std::optional<std::vector<uint8_t>>& data);
+  void ReadAttributes();
+  void ParseAttributes(AttributeMapParser::ParsingResult result);
+  void ReadAttributesBytes(std::string web_bundle_id,
+                           const std::optional<BinaryData>& data);
+
+  void ReadSignatureStack();
+  void ParseSignatureStack(const std::optional<BinaryData>& data);
 
   void ReadSignatureStackEntry();
 
@@ -60,7 +49,7 @@ class IntegrityBlockParser : public WebBundleParser::WebBundleSectionParser {
       base::expected<
           std::pair<mojom::BundleIntegrityBlockSignatureStackEntryPtr,
                     uint64_t>,
-          SignatureStackEntryParser::ParserError> result);
+          std::string> result);
 
   void RunSuccessCallback();
 
@@ -79,6 +68,9 @@ class IntegrityBlockParser : public WebBundleParser::WebBundleSectionParser {
       signature_stack_;
   uint64_t signature_stack_entries_left_;
   uint64_t offset_in_stream_;
+
+  std::unique_ptr<AttributeMapParser> attributes_parser_;
+  std::optional<IntegrityBlockAttributes> attributes_;
 
   base::WeakPtrFactory<IntegrityBlockParser> weak_factory_{this};
 };

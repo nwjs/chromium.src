@@ -15,6 +15,7 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/quick_pair/keyed_service/quick_pair_mediator.h"
 #include "ash/shell.h"
+#include "ash/system/input_device_settings/input_device_settings_controller_impl.h"
 #include "ash/system/mahi/fake_mahi_manager.h"
 #include "ash/system/video_conference/fake_video_conference_tray_controller.h"
 #include "ash/system/video_conference/video_conference_tray_controller.h"
@@ -31,6 +32,7 @@
 #include "chrome/browser/ash/geolocation/system_geolocation_source.h"
 #include "chrome/browser/ash/growth/campaigns_manager_client_impl.h"
 #include "chrome/browser/ash/growth/campaigns_manager_session.h"
+#include "chrome/browser/ash/input_device_settings/peripherals_app_delegate_impl.h"
 #include "chrome/browser/ash/login/signin/signin_error_notifier_factory.h"
 #include "chrome/browser/ash/login/ui/oobe_dialog_util_impl.h"
 #include "chrome/browser/ash/magic_boost/magic_boost_state_ash.h"
@@ -65,6 +67,7 @@
 #include "chrome/browser/ui/ash/ime_controller_client_impl.h"
 #include "chrome/browser/ui/ash/in_session_auth_dialog_client.h"
 #include "chrome/browser/ui/ash/in_session_auth_token_provider_impl.h"
+#include "chrome/browser/ui/ash/lobster/lobster_client_factory_impl.h"
 #include "chrome/browser/ui/ash/login_screen_client_impl.h"
 #include "chrome/browser/ui/ash/media_client_impl.h"
 #include "chrome/browser/ui/ash/network/mobile_data_notifications.h"
@@ -81,7 +84,7 @@
 #include "chrome/browser/ui/ash/tab_cluster_ui_client.h"
 #include "chrome/browser/ui/ash/vpn_list_forwarder.h"
 #include "chrome/browser/ui/ash/wallpaper_controller_client_impl.h"
-#include "chrome/browser/ui/quick_answers/read_write_cards_manager_impl.h"
+#include "chrome/browser/ui/chromeos/read_write_cards/read_write_cards_manager_impl.h"
 #include "chrome/browser/ui/views/select_file_dialog_extension.h"
 #include "chrome/browser/ui/views/select_file_dialog_extension_factory.h"
 #include "chrome/browser/ui/views/tabs/tab_scrubber_chromeos.h"
@@ -403,6 +406,11 @@ void ChromeBrowserMainExtraPartsAsh::PostProfileInit(Profile* profile,
         picker_controller, user_manager::UserManager::Get());
   }
 
+  if (auto* lobster_controller = ash::Shell::Get()->lobster_controller()) {
+    lobster_client_factory_ =
+        std::make_unique<LobsterClientFactoryImpl>(lobster_controller);
+  }
+
   oobe_dialog_util_ = std::make_unique<ash::OobeDialogUtilImpl>();
 
   game_mode_controller_ = std::make_unique<game_mode::GameModeController>();
@@ -412,6 +420,14 @@ void ChromeBrowserMainExtraPartsAsh::PostProfileInit(Profile* profile,
         ash::Shell::Get()->refresh_rate_controller()->SetGameMode(
             window, game_mode == GameMode::BOREALIS);
       }));
+
+  if (ash::features::IsWelcomeExperienceEnabled()) {
+    peripherals_app_delegate_ =
+        std::make_unique<ash::PeripheralsAppDelegateImpl>();
+    ash::Shell::Get()
+        ->input_device_settings_controller()
+        ->SetPeripheralsAppDelegate(peripherals_app_delegate_.get());
+  }
 
   // Initialize TabScrubberChromeOS after the Ash Shell has been initialized.
   TabScrubberChromeOS::GetInstance();

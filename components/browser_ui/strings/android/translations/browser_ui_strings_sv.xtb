@@ -113,6 +113,7 @@
 <translation id="2891975107962658722">Blockera en webbplats från att spara data på enheten</translation>
 <translation id="2903493209154104877">Adresser</translation>
 <translation id="2910701580606108292">Fråga innan webbplatser tillåts att spela upp skyddat innehåll</translation>
+<translation id="2918484639460781603">Öppna Inställningar</translation>
 <translation id="2932883381142163287">Anmäl otillåten användning</translation>
 <translation id="2939338015096024043">När detta är aktiverat kan webbplatser be om att registrera kamerans position och få mer information om din omgivning. När detta är inaktiverat får webbplatser inte registrera kamerans position eller få mer information om din omgivning.</translation>
 <translation id="2968755619301702150">Certifikatvisare</translation>
@@ -171,6 +172,7 @@
 <translation id="385051799172605136">Föregående</translation>
 <translation id="3859306556332390985">Sök framåt</translation>
 <translation id="3895926599014793903">Tvinga aktivering av zoom</translation>
+<translation id="3905475044299942653">Stoppa många aviseringar</translation>
 <translation id="3908288065506437185">Blockera tredjepartscookies i inkognitoläge</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">En del funktioner fungerar eventuellt inte. Relaterade webbplatser kan fortfarande använda tredjepartscookies.</translation>
@@ -218,6 +220,7 @@
 <translation id="4751476147751820511">Rörelse- eller ljussensorer</translation>
 <translation id="4755971844837804407">När detta är aktiverat kan webbplatser visa alla annonser för dig. När detta är inaktiverat får webbplatser inte visa påträngande eller vilseledande annonser.</translation>
 <translation id="4779083564647765204">Zooma in</translation>
+<translation id="4807122856660838973">Aktivera Säker webbsökning</translation>
 <translation id="4811450222531576619">Läs mer om källan och ämnet</translation>
 <translation id="4836046166855586901">Fråga när en webbplats vill veta om du använder enheten aktivt</translation>
 <translation id="483914009762354899">Inkludera alla webbplatser på den här domänen</translation>
@@ -231,6 +234,7 @@
 <translation id="4994033804516042629">Inga kontakter hittades</translation>
 <translation id="4996978546172906250">Dela via</translation>
 <translation id="5001526427543320409">Tredjepartscookies</translation>
+<translation id="5007392906805964215">Granska</translation>
 <translation id="5039804452771397117">Tillåt</translation>
 <translation id="5048398596102334565">Tillåt webbplatser att använda enhetens rörelsesensorer (rekommenderas)</translation>
 <translation id="5050380848339752099">Data på den här webbplatsen delas med en app utanför inkognitoläget.</translation>
@@ -281,6 +285,7 @@
 <translation id="5706552988683188916">Cookies och annan webbplatsdata för <ph name="WEBSITE" /> raderas</translation>
 <translation id="5723967018671998714">Cookies från tredje part blockeras i inkognitoläge</translation>
 <translation id="5740126560802162366">Webbplatser kan spara data på enheten</translation>
+<translation id="5749085587985334212">Dölj säkerhetskontroll</translation>
 <translation id="5771720122942595109"><ph name="PERMISSION_1" /> blockeras</translation>
 <translation id="5804241973901381774">Behörigheter</translation>
 <translation id="5844448279347999754">När detta är aktiverat kan webbplatser be om att få se text och bilder som har sparats i urklipp. När detta är inaktiverat får webbplatser inte läsa text och bilder som du har sparat i urklipp.</translation>
@@ -361,6 +366,7 @@
 <translation id="6945221475159498467">Välj</translation>
 <translation id="6950072572526089586">En webbplats som du besöker kan spara information om vad du gör så att den fungerar som förväntat. Det kan till exempel vara att hålla dig inloggad på en webbplats eller spara varor i kundvagnen. Webbplatser sparar ofta den här informationen tillfälligt på enheten.</translation>
 <translation id="6965382102122355670">OK</translation>
+<translation id="6980861169612950611">Vill du radera webbplatsdata? <ph name="SITE_NAME" /></translation>
 <translation id="6981982820502123353">Tillgänglighet</translation>
 <translation id="6992289844737586249">Fråga innan webbplatser tillåts att använda mikrofonen (rekommenderas)</translation>
 <translation id="7000754031042624318">Inaktiverad i Android-inställningarna</translation>
@@ -388,6 +394,7 @@
 <translation id="7366415735885268578">Lägg till en webbplats</translation>
 <translation id="7368695150573390554">All offlinedata raderas</translation>
 <translation id="7383715096023715447">Inställningar för <ph name="DOMAIN" /></translation>
+<translation id="7399802613464275309">Säkerhetskontroll</translation>
 <translation id="7406113532070524618">Den här inställningen fungerar utan att du identifieras eller att webbplatser tillåts se din webbhistorik, men webbplatser kan dela en del uppgifter som en del av verifieringen</translation>
 <translation id="7423098979219808738">Fråga först</translation>
 <translation id="7423538860840206698">Läsbehörighet till Urklipp har nekats</translation>
@@ -456,6 +463,7 @@
 <translation id="8441146129660941386">Sök bakåt</translation>
 <translation id="8444433999583714703">Om du vill ge <ph name="APP_NAME" /> åtkomst till din plats måste du även aktivera plats i <ph name="BEGIN_LINK" />Android-inställningarna<ph name="END_LINK" />.</translation>
 <translation id="8447861592752582886">Återkalla enhetsbehörighet</translation>
+<translation id="8473055640493819707"><ph name="APP_NAME" /> är inaktuell. Installera om appen.</translation>
 <translation id="8487700953926739672">Tillgänglig offline</translation>
 <translation id="848952951823693243">Begär alltid mobilversionen</translation>
 <translation id="8499083585497694743">Slå på mikrofonen</translation>
@@ -472,6 +480,7 @@
 <translation id="8681886425883659911">Annonser blockeras på webbplatser som är kända för att visa påträngande eller vilseledande annonser</translation>
 <translation id="868929229000858085">Sök bland kontakterna</translation>
 <translation id="8712637175834984815">Uppfattat</translation>
+<translation id="8715862698998036666">Dra uppifrån och svep från den vänstra eller högra kanten för att avsluta helskärmsläget.</translation>
 <translation id="8719283222052720129">Aktivera behörigheten för <ph name="APP_NAME" /> i <ph name="BEGIN_LINK" />Android-inställningarna<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">När detta är aktiverat kan webbplatser be om att få söka efter Bluetooth-enheter. När detta är inaktiverat får webbplatser inte söka efter Bluetooth-enheter.</translation>
 <translation id="8725066075913043281">Försök igen</translation>

@@ -175,6 +175,25 @@ class ASH_EXPORT VideoConferenceTrayController
   bool HasCameraPermission() const;
   bool HasMicrophonePermission() const;
 
+  // Enable or disable input stream ewma power report.
+  void SetEwmaPowerReportEnabled(bool enabled);
+
+  // Return the last reported ewma power.
+  double GetEwmaPower();
+
+  // Enable or disable sidetone.
+  void SetSidetoneEnabled(bool enabled);
+
+  // Gets the state for sidetone.
+  bool GetSidetoneEnabled() const;
+
+  // Gets whether sidetone is supported.
+  bool IsSidetoneSupported() const;
+
+  // Update the sidetone supported value.
+  // Should be called before calling IsSidetoneSupported.
+  void UpdateSidetoneSupportedState();
+
   // Handles device usage from a VC app while the device is system disabled.
   virtual void HandleDeviceUsedWhileDisabled(
       crosapi::mojom::VideoConferenceMediaDevice device,
@@ -293,11 +312,11 @@ class ASH_EXPORT VideoConferenceTrayController
   // current session.
   int speak_on_mute_nudge_shown_count_ = 0;
 
-  // video_conference_manager_ should be valid after initialized_.
-  // Currently, VideoConferenceTrayController is destroyed inside
-  // ChromeBrowserMainParts::PostMainMessageLoopRun() as a chrome_extra_part;
-  // VideoConferenceManagerAsh is destroyed inside crosapi_manager_.reset()
-  // which is after VideoConferenceTrayController.
+  // `video_conference_manager_` should be valid after `initialized_`.
+  // Currently, `VideoConferenceTrayController` is destroyed inside
+  // `ChromeBrowserMainParts::PostMainMessageLoopRun()` as a chrome_extra_part;
+  // `VideoConferenceManagerAsh` is destroyed inside crosapi_manager_.reset()
+  // which is after `VideoConferenceTrayController`.
   raw_ptr<VideoConferenceManagerBase> video_conference_manager_ = nullptr;
   bool initialized_ = false;
 

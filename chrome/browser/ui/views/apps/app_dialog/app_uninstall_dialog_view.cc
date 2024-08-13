@@ -30,6 +30,7 @@
 #include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/url_constants.h"
@@ -47,6 +48,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/image/image_skia_operations.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/controls/label.h"
@@ -109,7 +111,7 @@ class UninstallCheckboxView : public views::View,
         .AddRows(1, views::TableLayout::kFixedSize);
 
     auto checkbox = std::make_unique<views::Checkbox>();
-    checkbox->SetAccessibleName(label.get());
+    checkbox->GetViewAccessibility().SetName(*label.get());
     checkbox->SetEventTargeter(std::make_unique<views::ViewTargeter>(
         std::make_unique<CheckboxTargeter>()));
     checkbox_ = AddChildView(std::move(checkbox));

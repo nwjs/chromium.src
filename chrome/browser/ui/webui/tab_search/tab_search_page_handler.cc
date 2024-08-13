@@ -51,6 +51,7 @@
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_prefs.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
+#include "chrome/browser/user_education/tutorial_identifiers.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/common/webui_url_constants.h"
@@ -572,7 +573,7 @@ void TabSearchPageHandler::StartTabGroupTutorial() {
   const ui::ElementContext context = browser->window()->GetElementContext();
   CHECK(context);
 
-  user_education::TutorialIdentifier tutorial_id = kSavedTabGroupTutorialId;
+  user_education::TutorialIdentifier tutorial_id = kTabGroupTutorialId;
   tutorial_service->StartTutorial(tutorial_id, context);
 }
 
@@ -607,18 +608,9 @@ void TabSearchPageHandler::TriggerFeedback(int32_t session_id) {
       /*autofill_metadata=*/base::Value::Dict(), std::move(feedback_metadata));
 }
 
-void TabSearchPageHandler::TriggerSync() {
-  Profile* profile = chrome::FindLastActive()->profile();
-  signin_ui_util::EnableSyncFromSingleAccountPromo(
-      profile,
-      IdentityManagerFactory::GetForProfile(profile)->GetPrimaryAccountInfo(
-          signin::ConsentLevel::kSignin),
-      signin_metrics::AccessPoint::ACCESS_POINT_TAB_ORGANIZATION);
-}
-
 void TabSearchPageHandler::TriggerSignIn() {
   Profile* profile = chrome::FindLastActive()->profile();
-  signin_ui_util::ShowReauthForPrimaryAccountWithAuthError(
+  signin_ui_util::ShowSigninPromptFromPromo(
       profile, signin_metrics::AccessPoint::ACCESS_POINT_TAB_ORGANIZATION);
 }
 
@@ -626,15 +618,6 @@ void TabSearchPageHandler::OpenHelpPage() {
   Browser* browser = chrome::FindLastActive();
   GURL help_url("https://support.google.com/chrome?p=auto_tab_group");
   NavigateParams params(browser, help_url,
-                        ui::PageTransition::PAGE_TRANSITION_LINK);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
-  Navigate(&params);
-}
-
-void TabSearchPageHandler::OpenSyncSettings() {
-  Browser* browser = chrome::FindLastActive();
-  GURL settings_url("chrome://settings/syncSetup/advanced");
-  NavigateParams params(browser, settings_url,
                         ui::PageTransition::PAGE_TRANSITION_LINK);
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   Navigate(&params);

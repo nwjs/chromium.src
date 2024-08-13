@@ -47,7 +47,6 @@ import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.content.ContentUtils;
 import org.chromium.chrome.browser.content.WebContentsFactory;
-import org.chromium.chrome.browser.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.native_page.NativePageAssassin;
@@ -67,6 +66,7 @@ import org.chromium.components.autofill.AutofillProvider;
 import org.chromium.components.autofill.AutofillSelectionActionMenuDelegate;
 import org.chromium.components.autofill.AutofillSelectionMenuItemHelper;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
+import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
@@ -550,9 +550,20 @@ class TabImpl implements Tab {
     }
 
     @CalledByNative
+    @Deprecated
     @Override
     public boolean isIncognito() {
         return mProfile.isOffTheRecord();
+    }
+
+    @Override
+    public boolean isOffTheRecord() {
+        return mProfile.isOffTheRecord();
+    }
+
+    @Override
+    public boolean isIncognitoBranded() {
+        return mProfile.isIncognitoBranded();
     }
 
     @Override
@@ -733,7 +744,7 @@ class TabImpl implements Tab {
                         // Policy will be ignored for null referrer url, 0 is just a placeholder.
                         referrer != null ? referrer.getPolicy() : 0,
                         params.getInitiatorOrigin(),
-                        isIncognito());
+                        isOffTheRecord());
 
         // The only reason this should still be null is if we failed to allocate a byte buffer,
         // which probably means we are close to an OOM.
@@ -1288,6 +1299,10 @@ class TabImpl implements Tab {
     }
 
     void handleBackForwardTransitionUiChanged() {
+        for (TabObserver observer : mObservers) {
+            observer.didBackForwardTransitionAnimationChange();
+        }
+
         // Start the cross-fade animation after the invoking animation is done.
         switch (getWebContents().getCurrentBackForwardTransitionStage()) {
             case AnimationStage.NONE:
@@ -1360,8 +1375,20 @@ class TabImpl implements Tab {
     void handleDidFinishNavigation(GURL url, int transitionType, boolean isPdf) {
         mIsNativePageCommitPending = false;
         boolean isReload = (transitionType & PageTransition.CORE_MASK) == PageTransition.RELOAD;
+        // Set isPdf param based on the url. This is because the isPdf param in NavigationHandle is
+        // not set in some cases (e.g. Chrome restart or navigate backward to pdf page). When the
+        // pdf file is downloaded to media store, we should set isPdf param and open pdf page
+        // immediately, because no re-download is expected.
+        isPdf |= PdfUtils.isDownloadedPdf(url.getSpec());
         if (!maybeShowNativePage(url.getSpec(), isReload, isPdf ? new PdfInfo() : null)) {
-            showRenderedPage();
+            String downloadUrl = PdfUtils.decodePdfPageUrl(url.getSpec());
+            if (downloadUrl != null) {
+                // When the download url is not null, we are on a pdf native page which requires
+                // re-download. Load the download url to trigger the re-download.
+                loadUrl(new LoadUrlParams(downloadUrl));
+            } else {
+                showRenderedPage();
+            }
         }
 
         setLastNavigationCommittedTimestampMillis(System.currentTimeMillis());
@@ -1427,7 +1454,7 @@ class TabImpl implements Tab {
      * @param url The url of the current navigation.
      * @param forceReload If true, the current native page (if any) will not be reused, even if it
      *     matches the URL.
-     * @param pdfInfo Information of the pdf, or null if not pdf.
+     * @param pdfInfo Information of the pdf, or null if there is no associated pdf download.
      * @return True, if a native page was displayed for url.
      */
     boolean maybeShowNativePage(String url, boolean forceReload, PdfInfo pdfInfo) {
@@ -1583,7 +1610,7 @@ class TabImpl implements Tab {
         }
     }
 
-    /** This is currently called when committing a pre-rendered page or activating a portal. */
+    /** This is currently used when restoring tabs, and by DOMDistiller */
     @CalledByNative
     void swapWebContents(WebContents webContents, boolean didStartLoad, boolean didFinishLoad) {
         boolean hasWebContents = mContentView != null && mWebContents != null;
@@ -1754,7 +1781,7 @@ class TabImpl implements Tab {
             TabImplJni.get()
                     .initWebContents(
                             mNativeTabAndroid,
-                            isIncognito(),
+                            isOffTheRecord(),
                             isBackgroundTab,
                             webContents,
                             mWebContentsDelegate,
@@ -2259,11 +2286,7 @@ class TabImpl implements Tab {
         }
         boolean usingDesktopUserAgent =
                 getWebContents().getNavigationController().getUseDesktopUserAgent();
-        TabUtils.switchUserAgent(
-                this,
-                /* switchToDesktop= */ !usingDesktopUserAgent,
-                /* forcedByUser= */ false,
-                caller);
+        TabUtils.switchUserAgent(this, /* switchToDesktop= */ !usingDesktopUserAgent, caller);
     }
 
     /** Sets the TabLaunchType for tabs launched with an unset launch type. */
@@ -2293,6 +2316,13 @@ class TabImpl implements Tab {
         }
     }
 
+    @CalledByNative
+    @Override
+    public boolean isTrustedWebActivity() {
+        if (getWebContents() == null) return false;
+        return mWebContentsDelegate.isTrustedWebActivity(getWebContents());
+    }
+
     @NativeMethods
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public interface Natives {
@@ -2304,7 +2334,7 @@ class TabImpl implements Tab {
 
         void initWebContents(
                 long nativeTabAndroid,
-                boolean incognito,
+                boolean isOffTheRecord,
                 boolean isBackgroundTab,
                 WebContents webContents,
                 TabWebContentsDelegateAndroidImpl delegate,

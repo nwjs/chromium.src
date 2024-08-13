@@ -33,17 +33,18 @@ BASE_DECLARE_FEATURE(kAutofillPasswordUserPerceptionSurvey);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN)
+// OS authentication will use IUserConsentVerifierInterop api to trigger Windows
+// Hello authentication. This api allows us to specify explicitly to which
+// window, the OS prompt should attach.
+BASE_DECLARE_FEATURE(kAuthenticateUsingUserConsentVerifierInteropApi);
+
 // OS authentication will use UserConsentVerifier api to trigger Windows Hello
 // authentication.
-BASE_DECLARE_FEATURE(kAuthenticateUsingNewWindowsHelloApi);
+BASE_DECLARE_FEATURE(kAuthenticateUsingUserConsentVerifierApi);
 #endif  // BUILDFLAG(IS_WIN)
 
 // Enables Biometrics for the Touch To Fill feature. This only effects Android.
 BASE_DECLARE_FEATURE(kBiometricTouchToFill);
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-BASE_DECLARE_FEATURE(kButterOnDesktopFollowup);
-#endif
 
 // Delete undecryptable passwords from the login database.
 BASE_DECLARE_FEATURE(kClearUndecryptablePasswords);
@@ -67,6 +68,10 @@ BASE_DECLARE_FEATURE(kIOSPasswordSignInUff);
 // Enable saving username in UFF on iOS.
 BASE_DECLARE_FEATURE(kIosDetectUsernameInUff);
 
+// Enables password generation bottom sheet to be displayed (on iOS) when a user
+// is signed-in and taps on a new password field.
+BASE_DECLARE_FEATURE(kIOSProactivePasswordGenerationBottomSheet);
+
 #endif
 
 // Enables saving enterprise password hashes to a local state preference.
@@ -77,14 +82,6 @@ BASE_DECLARE_FEATURE(kLocalStateEnterprisePasswordHashes);
 // existing generated password suggestion dropdown.
 BASE_DECLARE_FEATURE(kPasswordGenerationExperiment);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-
-// Enables password receiving service including incoming password sharing
-// invitation sync data type.
-BASE_DECLARE_FEATURE(kPasswordManagerEnableReceiverService);
-
-// Enables password sender service including outgoing password sharing
-// invitation sync data type.
-BASE_DECLARE_FEATURE(kPasswordManagerEnableSenderService);
 
 // Enables logging the content of chrome://password-manager-internals to the
 // terminal.
@@ -103,10 +100,6 @@ BASE_DECLARE_FEATURE(kRestartToGainAccessToKeychain);
 // before filling passwords.
 BASE_DECLARE_FEATURE(kScreenlockReauthPromoCard);
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-
-// Enables the notification UI that is displayed to the user when visiting a
-// website for which a stored password has been shared by another user.
-BASE_DECLARE_FEATURE(kSharedPasswordNotificationUI);
 
 // Displays at least the decryptable and never saved logins in the password
 // manager
@@ -142,6 +135,10 @@ int GetLocalPasswordsMigrationToAndroidBackendDelay();
 
 // Enables UPM M4 that no longer needs Password sync engine to sync passwords.
 BASE_DECLARE_FEATURE(kUnifiedPasswordManagerSyncOnlyInGMSCore);
+
+// Enables clearing the login database for the users who already migrated their
+// credentials to GMS Core.
+BASE_DECLARE_FEATURE(kClearLoginDatabaseForAllMigratedUPMUsers);
 
 // This feature clears login database if user is capable of using UPM.
 BASE_DECLARE_FEATURE(kClearLoginDatabaseForUPMUsers);
@@ -203,6 +200,9 @@ BASE_DECLARE_FEATURE(kUsernameFirstFlowWithIntermediateValuesPredictions);
 // Enables voting for more text fields outside of the password form in Username
 // First Flow.
 BASE_DECLARE_FEATURE(kUsernameFirstFlowWithIntermediateValuesVoting);
+
+// Enables async implementation of OSCrypt inside LoginDatabase.
+BASE_DECLARE_FEATURE(kUseAsyncOsCryptInLoginDatabase);
 
 // All features parameters in alphabetical order.
 

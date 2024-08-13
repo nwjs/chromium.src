@@ -6,6 +6,7 @@
 
 #include <optional>
 
+#include "ash/accelerators/accelerator_lookup.h"
 #include "ash/accelerators/accelerator_notifications.h"
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/accessibility/magnifier/docked_magnifier_controller.h"
@@ -29,10 +30,11 @@
 #include "ash/keyboard/keyboard_controller_impl.h"
 #include "ash/media/media_controller_impl.h"
 #include "ash/picker/picker_controller.h"
+#include "ash/public/cpp/accelerator_actions.h"
+#include "ash/public/cpp/annotator/annotator_controller_base.h"
 #include "ash/public/cpp/app_types_util.h"
 #include "ash/public/cpp/assistant/assistant_state.h"
 #include "ash/public/cpp/new_window_delegate.h"
-#include "ash/public/cpp/projector/projector_controller.h"
 #include "ash/public/cpp/system/toast_data.h"
 #include "ash/root_window_controller.h"
 #include "ash/rotator/window_rotation.h"
@@ -80,6 +82,7 @@
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_event.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -540,8 +543,13 @@ void CreateSnapGroup() {
   auto maybe_create_snap_group =
       [&](aura::Window* window1, aura::Window* window2,
           std::optional<base::TimeTicks> carry_over_creation_time) {
-        snap_group_controller->AddSnapGroup(window1, window2, /*replace=*/false,
-                                            carry_over_creation_time);
+        if (auto* snap_group = snap_group_controller->AddSnapGroup(
+                window1, window2, /*replace=*/false,
+                carry_over_creation_time)) {
+          // TODO(b/346624805): See if we can move this to `AddSnapGroup()`.
+          // Currently needed since multiple places can refresh snap bounds.
+          snap_group->RefreshSnapGroup();
+        }
         if (snap_group_controller->AreWindowsInSnapGroup(window1, window2)) {
           Shell::Get()->accessibility_controller()->TriggerAccessibilityAlert(
               AccessibilityAlert::SNAP_GROUP_CREATION);
@@ -712,11 +720,9 @@ bool CanTogglePrivacyScreen() {
 }
 
 bool CanToggleProjectorMarker() {
-  auto* projector_controller = ProjectorController::Get();
-  if (projector_controller) {
-    return projector_controller->GetAnnotatorAvailability();
-  }
-  return false;
+  auto* annotator_controller = AnnotatorControllerBase::Get();
+  return annotator_controller &&
+         annotator_controller->GetAnnotatorAvailability();
 }
 
 bool CanToggleResizeLockMenu() {
@@ -1171,6 +1177,7 @@ void RotateScreen() {
     Shell::Get()->accessibility_controller()->ShowConfirmationDialog(
         l10n_util::GetStringUTF16(IDS_ASH_ROTATE_SCREEN_TITLE),
         l10n_util::GetStringUTF16(IDS_ASH_ROTATE_SCREEN_BODY),
+        l10n_util::GetStringUTF16(IDS_ASH_CONTINUE_BUTTON),
         l10n_util::GetStringUTF16(IDS_APP_CANCEL),
         base::BindOnce(&OnRotationDialogAccepted),
         base::BindOnce(&OnRotationDialogCancelled),
@@ -1241,7 +1248,8 @@ void SwitchToLastUsedIme(bool key_pressed) {
   if (key_pressed) {
     Shell::Get()->ime_controller()->SwitchToLastUsedIme();
   }
-  // Else: consume the Ctrl+Space ET_KEY_RELEASED event but do not do anything.
+  // Else: consume the Ctrl+Space EventType::kKeyReleased event but do not do
+  // anything.
 }
 
 void ToggleAppList(AppListShowSource show_source,
@@ -1451,6 +1459,7 @@ void ToggleDockedMagnifier() {
     accessibility_controller->ShowConfirmationDialog(
         l10n_util::GetStringUTF16(IDS_ASH_DOCKED_MAGNIFIER_TITLE),
         l10n_util::GetStringUTF16(IDS_ASH_DOCKED_MAGNIFIER_BODY),
+        l10n_util::GetStringUTF16(IDS_ASH_CONTINUE_BUTTON),
         l10n_util::GetStringUTF16(IDS_APP_CANCEL), base::BindOnce([]() {
           Shell::Get()
               ->accessibility_controller()
@@ -1516,18 +1525,60 @@ void ToggleFullscreenMagnifier() {
       accessibility_controller->fullscreen_magnifier().WasDialogAccepted();
 
   if (!current_enabled && !dialog_ever_accepted) {
+    // Enable fullscreen magnifier before showing the dialog, so that users
+    // can see the dialog more clearly.
+    bool magnify_dialog =
+        ::features::IsAccessibilityMagnifyAcceleratorDialogEnabled();
+    int title = IDS_ASH_SCREEN_MAGNIFIER_TITLE;
+    std::u16string body =
+        l10n_util::GetStringUTF16(IDS_ASH_SCREEN_MAGNIFIER_BODY);
+    int cancel = IDS_APP_CANCEL;
+    int confirm = IDS_ASH_CONTINUE_BUTTON;
+    if (magnify_dialog) {
+      Shell::Get()->fullscreen_magnifier_controller()->SetEnabled(true);
+      title = IDS_ASH_SCREEN_MAGNIFIER_DIALOG_TITLE;
+      cancel = IDS_ASH_SCREEN_MAGNIFIER_DIALOG_TURN_OFF_BUTTON;
+      confirm = IDS_ASH_SCREEN_MAGNIFIER_DIALOG_KEEP_ON_BUTTON;
+
+      std::vector<AcceleratorLookup::AcceleratorDetails> zoom_in_details =
+          Shell::Get()->accelerator_lookup()->GetAvailableAcceleratorsForAction(
+              AcceleratorAction::kMagnifierZoomIn);
+      std::vector<AcceleratorLookup::AcceleratorDetails> zoom_out_details =
+          Shell::Get()->accelerator_lookup()->GetAvailableAcceleratorsForAction(
+              AcceleratorAction::kMagnifierZoomOut);
+      if (zoom_in_details.empty() || zoom_out_details.empty()) {
+        body = l10n_util::GetStringUTF16(IDS_ASH_SCREEN_MAGNIFIER_DIALOG_BODY);
+      } else {
+        std::u16string zoom_in_text =
+            AcceleratorLookup::GetAcceleratorDetailsText(zoom_in_details[0]);
+        std::u16string zoom_out_text =
+            AcceleratorLookup::GetAcceleratorDetailsText(zoom_out_details[0]);
+        body = l10n_util::GetStringFUTF16(
+            IDS_ASH_SCREEN_MAGNIFIER_DIALOG_BODY_DYNAMIC, zoom_in_text,
+            zoom_out_text);
+      }
+    }
     accessibility_controller->ShowConfirmationDialog(
-        l10n_util::GetStringUTF16(IDS_ASH_SCREEN_MAGNIFIER_TITLE),
-        l10n_util::GetStringUTF16(IDS_ASH_SCREEN_MAGNIFIER_BODY),
-        l10n_util::GetStringUTF16(IDS_APP_CANCEL), base::BindOnce([]() {
+        l10n_util::GetStringUTF16(title), body,
+        l10n_util::GetStringUTF16(confirm), l10n_util::GetStringUTF16(cancel),
+        base::BindOnce([]() {
           Shell::Get()
               ->accessibility_controller()
               ->fullscreen_magnifier()
               .SetDialogAccepted();
           SetFullscreenMagnifierEnabled(true);
         }),
-        /*on_cancel_callback=*/base::DoNothing(),
-        /*on_close_callback=*/base::DoNothing());
+        /*on_cancel_callback=*/base::BindOnce([]() {
+          Shell::Get()->fullscreen_magnifier_controller()->SetEnabled(false);
+        }),
+        /*on_close_callback=*/base::BindOnce([]() {
+          Shell::Get()->fullscreen_magnifier_controller()->SetEnabled(false);
+        }));
+    // Center the magnifier on the new dialog. This is done manually because the
+    // dialog focus may change before the AccessibilityCommon extension has
+    // loaded and begun listening for focus events.
+    magnification_controller->HandleMoveMagnifierToRect(
+        accessibility_controller->GetConfirmationDialogBoundsInScreen());
   } else {
     SetFullscreenMagnifierEnabled(!current_enabled);
   }
@@ -1565,6 +1616,7 @@ void ToggleHighContrast() {
     controller->ShowConfirmationDialog(
         l10n_util::GetStringUTF16(IDS_ASH_HIGH_CONTRAST_TITLE),
         l10n_util::GetStringUTF16(IDS_ASH_HIGH_CONTRAST_BODY),
+        l10n_util::GetStringUTF16(IDS_ASH_CONTINUE_BUTTON),
         l10n_util::GetStringUTF16(IDS_APP_CANCEL), base::BindOnce([]() {
           Shell::Get()
               ->accessibility_controller()
@@ -1643,6 +1695,10 @@ bool ToggleMinimized() {
   }
   window_state->Minimize();
   return true;
+}
+
+void ToggleMouseKeys() {
+  Shell::Get()->accessibility_controller()->ToggleMouseKeys();
 }
 
 void ToggleSnapGroupsMinimize() {
@@ -1727,9 +1783,8 @@ void TogglePrivacyScreen() {
 }
 
 void ToggleProjectorMarker() {
-  auto* projector_controller = ProjectorController::Get();
-  if (projector_controller) {
-    projector_controller->ToggleAnnotationTray();
+  if (auto* annotator_controller = AnnotatorControllerBase::Get()) {
+    annotator_controller->ToggleAnnotationTray();
   }
 }
 

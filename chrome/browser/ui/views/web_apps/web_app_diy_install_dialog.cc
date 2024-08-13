@@ -41,6 +41,7 @@
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
+#include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -89,7 +90,7 @@ void ShowDiyAppInstallDialog(
 
 #if BUILDFLAG(IS_CHROMEOS)
   webapps::AppId app_id =
-      web_app::GenerateAppIdFromManifestId(web_app_info->manifest_id);
+      web_app::GenerateAppIdFromManifestId(web_app_info->manifest_id());
   metrics::structured::StructuredMetricsClient::Record(
       cros_events::AppDiscovery_Browser_AppInstallDialogShown().SetAppId(
           app_id));
@@ -101,7 +102,7 @@ void ShowDiyAppInstallDialog(
   gfx::ImageSkia icon_image(std::make_unique<WebAppInfoImageSource>(
                                 kIconSize, web_app_info->icon_bitmaps.any),
                             gfx::Size(kIconSize, kIconSize));
-  GURL start_url = web_app_info->start_url;
+  GURL start_url = web_app_info->start_url();
 
   // Fallback to using the document title if the web_app_info->title is not
   // populated, as the document title is always guaranteed to exist.
@@ -155,7 +156,11 @@ void ShowDiyAppInstallDialog(
 
   views::BubbleDialogDelegate* dialog_delegate =
       dialog->AsBubbleDialogDelegate();
-  constrained_window::ShowWebModalDialogViews(dialog.release(), web_contents);
+  views::Widget* diy_dialog_widget =
+      constrained_window::ShowWebModalDialogViews(dialog.release(),
+                                                  web_contents);
+  delegate_weak_ptr->StartObservingForPictureInPictureOcclusion(
+      diy_dialog_widget);
 
   base::RecordAction(base::UserMetricsAction("WebAppDiyInstallShown"));
 

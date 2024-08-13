@@ -50,8 +50,8 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
-#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_tab_helper.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/side_panel_controller_views.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_section.h"
 #include "chrome/browser/ui/webui/webui_util_desktop.h"
@@ -87,7 +87,6 @@
 namespace {
 
 const int64_t kMaxDownloadBytes = 1024 * 1024;
-const int64_t kMaxModuleFreImpressions = 8;
 
 constexpr char kDisableInteraction[] = "disable";
 constexpr char kDismissInteraction[] = "dismiss";
@@ -264,8 +263,7 @@ new_tab_page::mojom::ThemePtr MakeTheme(
   // installed a CWS theme with a bundled background image. The first condition
   // is necessary as a custom background image can be set while a CWS theme with
   // a bundled image is concurrently enabled (see crbug.com/1329552).
-  if (base::FeatureList::IsEnabled(ntp_features::kCwsDarkLogo) &&
-      !custom_background.has_value() && theme_has_custom_image &&
+  if (!custom_background.has_value() && theme_has_custom_image &&
       ShouldForceDarkForegroundColorsForLogo(theme_service)) {
     theme->logo_color =
         color_provider.GetColor(kColorNewTabPageLogoUnthemedDark);
@@ -440,7 +438,9 @@ NewTabPageHandler::NewTabPageHandler(
     std::unique_ptr<NewTabPageFeaturePromoHelper>
         customize_chrome_feature_promo_helper,
     const base::Time& ntp_navigation_start_time,
-    const std::vector<std::pair<const std::string, int>>* module_id_names)
+    const std::vector<std::pair<const std::string, int>>* module_id_names,
+    customize_chrome::SidePanelController*
+        customize_chrome_side_panel_controller)
     : SettingsEnabledObserver(
           optimization_guide::UserVisibleFeatureKey::kWallpaperSearch),
       ntp_background_service_(
@@ -460,6 +460,8 @@ NewTabPageHandler::NewTabPageHandler(
       promo_service_(PromoServiceFactory::GetForProfile(profile)),
       interaction_module_id_trigger_dict_(
           MakeModuleInteractionTriggerIdDictionary()),
+      customize_chrome_side_panel_controller_(
+          customize_chrome_side_panel_controller),
       page_{std::move(pending_page)},
       receiver_{this, std::move(pending_page_handler)} {
   CHECK(ntp_background_service_);
@@ -505,15 +507,12 @@ NewTabPageHandler::NewTabPageHandler(
       base::BindRepeating(&NewTabPageHandler::MaybeShowWebstoreToast,
                           base::Unretained(this)));
 
-    auto* customize_chrome_tab_helper =
-        CustomizeChromeTabHelper::FromWebContents(web_contents_);
-    // Lifetime is tied to NewTabPageUI which owns the NewTabPageHandler.
-    DCHECK(customize_chrome_tab_helper);
-    page_->SetCustomizeChromeSidePanelVisibility(
-        customize_chrome_tab_helper->IsCustomizeChromeEntryShowing());
-    customize_chrome_tab_helper->SetCallback(base::BindRepeating(
-        &NewTabPageHandler::NotifyCustomizeChromeSidePanelVisibilityChanged,
-        weak_ptr_factory_.GetWeakPtr()));
+  page_->SetCustomizeChromeSidePanelVisibility(
+      customize_chrome_side_panel_controller_->IsCustomizeChromeEntryShowing());
+  customize_chrome_side_panel_controller_->SetEntryChangedCallback(
+      base::BindRepeating(
+          &NewTabPageHandler::NotifyCustomizeChromeSidePanelVisibilityChanged,
+          weak_ptr_factory_.GetWeakPtr()));
 }
 
 NewTabPageHandler::~NewTabPageHandler() {
@@ -528,17 +527,19 @@ NewTabPageHandler::~NewTabPageHandler() {
   }
 }
 
+void NewTabPageHandler::TabWillDelete() {
+  customize_chrome_side_panel_controller_ = nullptr;
+}
+
 // static
 void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterListPref(prefs::kNtpDisabledModules);
   registry->RegisterListPref(prefs::kNtpModulesOrder);
   registry->RegisterBooleanPref(prefs::kNtpModulesVisible, true);
-  registry->RegisterIntegerPref(prefs::kNtpModulesShownCount, 0);
-  registry->RegisterTimePref(prefs::kNtpModulesFirstShownTime, base::Time());
-  registry->RegisterBooleanPref(prefs::kNtpModulesFreVisible, true);
   registry->RegisterIntegerPref(prefs::kNtpCustomizeChromeButtonOpenCount, 0);
   registry->RegisterDictionaryPref(prefs::kNtpModulesInteractedCountDict);
   registry->RegisterDictionaryPref(prefs::kNtpModulesLoadedCountDict);
+  registry->RegisterIntegerPref(prefs::kNtpWallpaperSearchButtonShownCount, 0);
 }
 
 void NewTabPageHandler::SetMostVisitedSettings(bool custom_links_enabled,
@@ -666,8 +667,7 @@ void NewTabPageHandler::ChooseLocalCustomBackground(
   select_file_dialog_->SelectFile(
       ui::SelectFileDialog::SELECT_OPEN_FILE, std::u16string(),
       profile_->last_selected_directory(), &file_types, 0,
-      base::FilePath::StringType(), web_contents_->GetTopLevelNativeWindow(),
-      nullptr);
+      base::FilePath::StringType(), web_contents_->GetTopLevelNativeWindow());
 }
 
 void NewTabPageHandler::UpdatePromoData() {
@@ -844,76 +844,16 @@ void NewTabPageHandler::GetModulesOrder(GetModulesOrderCallback callback) {
   std::move(callback).Run(std::move(module_ids));
 }
 
-void NewTabPageHandler::IncrementModulesShownCount() {
-  const auto ntp_modules_shown_count =
-      profile_->GetPrefs()->GetInteger(prefs::kNtpModulesShownCount);
-
-  if (ntp_modules_shown_count == 0) {
-    profile_->GetPrefs()->SetTime(prefs::kNtpModulesFirstShownTime,
-                                  base::Time::Now());
-  }
-  profile_->GetPrefs()->SetInteger(prefs::kNtpModulesShownCount,
-                                   ntp_modules_shown_count + 1);
-}
-
-void NewTabPageHandler::SetModulesFreVisible(bool visible) {
-  profile_->GetPrefs()->SetBoolean(prefs::kNtpModulesFreVisible, visible);
-  page_->SetModulesFreVisibility(visible);
-}
-
-void NewTabPageHandler::UpdateModulesFreVisibility() {
-  const auto ntp_modules_shown_count =
-      profile_->GetPrefs()->GetInteger(prefs::kNtpModulesShownCount);
-  const auto ntp_modules_first_shown_time =
-      profile_->GetPrefs()->GetTime(prefs::kNtpModulesFirstShownTime);
-  auto ntp_modules_fre_visible =
-      profile_->GetPrefs()->GetBoolean(prefs::kNtpModulesFreVisible);
-
-  if (ntp_modules_fre_visible &&
-      (ntp_modules_shown_count == kMaxModuleFreImpressions ||
-       (!ntp_modules_first_shown_time.is_null() &&
-        (base::Time::Now() - ntp_modules_first_shown_time) == base::Days(1)))) {
-    LogModulesFreOptInStatus(new_tab_page::mojom::OptInStatus::kImplicitOptIn);
-  }
-
-  // Hide Modular NTP Desktop v1 First Run Experience after
-  // |kMaxModuleFreImpressions| impressions or 1 day, whichever comes first.
-  if (ntp_modules_shown_count >= kMaxModuleFreImpressions ||
-      (!ntp_modules_first_shown_time.is_null() &&
-       (base::Time::Now() - ntp_modules_first_shown_time) > base::Days(1))) {
-    ntp_modules_fre_visible = false;
-    SetModulesFreVisible(ntp_modules_fre_visible);
-  } else {
-    page_->SetModulesFreVisibility(ntp_modules_fre_visible);
-  }
-}
-
-void NewTabPageHandler::LogModulesFreOptInStatus(
-    new_tab_page::mojom::OptInStatus opt_in_status) {
-  const auto ntp_modules_shown_count =
-      profile_->GetPrefs()->GetInteger(prefs::kNtpModulesShownCount);
-  switch (opt_in_status) {
-    case new_tab_page::mojom::OptInStatus::kExplicitOptIn:
-      base::UmaHistogramExactLinear("NewTabPage.Modules.FreExplicitOptIn",
-                                    ntp_modules_shown_count,
-                                    kMaxModuleFreImpressions);
-      break;
-    case new_tab_page::mojom::OptInStatus::kImplicitOptIn:
-      base::UmaHistogramBoolean("NewTabPage.Modules.FreImplicitOptIn", true);
-      break;
-
-    case new_tab_page::mojom::OptInStatus::kOptOut:
-      base::UmaHistogramExactLinear("NewTabPage.Modules.FreOptOut",
-                                    ntp_modules_shown_count,
-                                    kMaxModuleFreImpressions);
-  }
-}
-
 void NewTabPageHandler::SetCustomizeChromeSidePanelVisible(
     bool visible,
-    new_tab_page::mojom::CustomizeChromeSection section) {
+    new_tab_page::mojom::CustomizeChromeSection section_mojo) {
+  if (!visible) {
+    customize_chrome_side_panel_controller_->CloseSidePanel();
+    return;
+  }
+
   CustomizeChromeSection section_enum;
-  switch (section) {
+  switch (section_mojo) {
     case new_tab_page::mojom::CustomizeChromeSection::kUnspecified:
       section_enum = CustomizeChromeSection::kUnspecified;
       break;
@@ -929,20 +869,20 @@ void NewTabPageHandler::SetCustomizeChromeSidePanelVisible(
     case new_tab_page::mojom::CustomizeChromeSection::kWallpaperSearch:
       section_enum = CustomizeChromeSection::kWallpaperSearch;
       break;
+    case new_tab_page::mojom::CustomizeChromeSection::kToolbar:
+      section_enum = CustomizeChromeSection::kToolbar;
+      break;
   }
-  auto* customize_chrome_tab_helper =
-      CustomizeChromeTabHelper::FromWebContents(web_contents_);
-  customize_chrome_tab_helper->SetCustomizeChromeSidePanelVisible(visible,
-                                                                  section_enum);
 
-  if (visible) {
-    // Record usage for customize chrome promo.
-    auto* tab = web_contents_.get();
-    feature_promo_helper_->RecordFeatureUsage(
-        feature_engagement::events::kCustomizeChromeOpened, tab);
-    feature_promo_helper_->CloseFeaturePromo(
-        feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature, tab);
-  }
+  customize_chrome_side_panel_controller_->OpenSidePanel(
+      SidePanelOpenTrigger::kNewTabPage, section_enum);
+
+  // Record usage for customize chrome promo.
+  auto* tab = web_contents_.get();
+  feature_promo_helper_->RecordFeatureUsage(
+      feature_engagement::events::kCustomizeChromeOpened, tab);
+  feature_promo_helper_->CloseFeaturePromo(
+      feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature, tab);
 }
 
 void NewTabPageHandler::IncrementCustomizeChromeButtonOpenCount() {
@@ -985,47 +925,11 @@ void NewTabPageHandler::MaybeShowFeaturePromo(
   }
 }
 
-void NewTabPageHandler::OnPromoDataUpdated() {
-  if (promo_load_start_time_.has_value()) {
-    base::TimeDelta duration = base::TimeTicks::Now() - *promo_load_start_time_;
-    UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2", duration);
-    if (promo_service_->promo_status() == PromoService::Status::OK_WITH_PROMO) {
-      UMA_HISTOGRAM_MEDIUM_TIMES(
-          "NewTabPage.Promos.RequestLatency2.SuccessWithPromo", duration);
-    } else if (promo_service_->promo_status() ==
-               PromoService::Status::OK_BUT_BLOCKED) {
-      UMA_HISTOGRAM_MEDIUM_TIMES(
-          "NewTabPage.Promos.RequestLatency2.SuccessButBlocked", duration);
-    } else if (promo_service_->promo_status() ==
-               PromoService::Status::OK_WITHOUT_PROMO) {
-      UMA_HISTOGRAM_MEDIUM_TIMES(
-          "NewTabPage.Promos.RequestLatency2.SuccessWithoutPromo", duration);
-    } else {
-      DCHECK(promo_service_->promo_status() !=
-             PromoService::Status::NOT_UPDATED);
-      UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2.Failure",
-                                 duration);
-    }
-    promo_load_start_time_ = std::nullopt;
-  }
-
-  const auto& data = promo_service_->promo_data();
-  if (data.has_value() &&
-      promo_service_->promo_status() != PromoService::Status::OK_BUT_BLOCKED) {
-    page_->SetPromo(MakePromo(data.value()));
-  } else {
-    page_->SetPromo(nullptr);
-  }
-}
-
-void NewTabPageHandler::OnPromoServiceShuttingDown() {
-  promo_service_observation_.Reset();
-  promo_service_ = nullptr;
-}
-
-void NewTabPageHandler::OnChangeInFeatureCurrentlyEnabledState(
-    bool is_now_enabled) {
-  page_->SetWallpaperSearchButtonVisibility(is_now_enabled);
+void NewTabPageHandler::IncrementWallpaperSearchButtonShownCount() {
+  const auto shown_count = profile_->GetPrefs()->GetInteger(
+      prefs::kNtpWallpaperSearchButtonShownCount);
+  profile_->GetPrefs()->SetInteger(prefs::kNtpWallpaperSearchButtonShownCount,
+                                   shown_count + 1);
 }
 
 void NewTabPageHandler::OnAppRendered(double time) {
@@ -1280,9 +1184,51 @@ void NewTabPageHandler::OnNtpBackgroundServiceShuttingDown() {
   ntp_background_service_ = nullptr;
 }
 
+void NewTabPageHandler::OnPromoDataUpdated() {
+  if (promo_load_start_time_.has_value()) {
+    base::TimeDelta duration = base::TimeTicks::Now() - *promo_load_start_time_;
+    UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2", duration);
+    if (promo_service_->promo_status() == PromoService::Status::OK_WITH_PROMO) {
+      UMA_HISTOGRAM_MEDIUM_TIMES(
+          "NewTabPage.Promos.RequestLatency2.SuccessWithPromo", duration);
+    } else if (promo_service_->promo_status() ==
+               PromoService::Status::OK_BUT_BLOCKED) {
+      UMA_HISTOGRAM_MEDIUM_TIMES(
+          "NewTabPage.Promos.RequestLatency2.SuccessButBlocked", duration);
+    } else if (promo_service_->promo_status() ==
+               PromoService::Status::OK_WITHOUT_PROMO) {
+      UMA_HISTOGRAM_MEDIUM_TIMES(
+          "NewTabPage.Promos.RequestLatency2.SuccessWithoutPromo", duration);
+    } else {
+      DCHECK(promo_service_->promo_status() !=
+             PromoService::Status::NOT_UPDATED);
+      UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2.Failure",
+                                 duration);
+    }
+    promo_load_start_time_ = std::nullopt;
+  }
+
+  const auto& data = promo_service_->promo_data();
+  if (data.has_value() &&
+      promo_service_->promo_status() != PromoService::Status::OK_BUT_BLOCKED) {
+    page_->SetPromo(MakePromo(data.value()));
+  } else {
+    page_->SetPromo(nullptr);
+  }
+}
+
+void NewTabPageHandler::OnPromoServiceShuttingDown() {
+  promo_service_observation_.Reset();
+  promo_service_ = nullptr;
+}
+
+void NewTabPageHandler::OnChangeInFeatureCurrentlyEnabledState(
+    bool is_now_enabled) {
+  page_->SetWallpaperSearchButtonVisibility(is_now_enabled);
+}
+
 void NewTabPageHandler::FileSelected(const ui::SelectedFileInfo& file,
-                                     int index,
-                                     void* params) {
+                                     int index) {
   DCHECK(choose_local_custom_background_callback_);
   if (ntp_custom_background_service_) {
     profile_->set_last_selected_directory(file.path().DirName());
@@ -1299,7 +1245,7 @@ void NewTabPageHandler::FileSelected(const ui::SelectedFileInfo& file,
     std::move(choose_local_custom_background_callback_).Run(true);
 }
 
-void NewTabPageHandler::FileSelectionCanceled(void* params) {
+void NewTabPageHandler::FileSelectionCanceled() {
   DCHECK(choose_local_custom_background_callback_);
   select_file_dialog_ = nullptr;
   // File selection can happen at any time after NTP load, and is not logged

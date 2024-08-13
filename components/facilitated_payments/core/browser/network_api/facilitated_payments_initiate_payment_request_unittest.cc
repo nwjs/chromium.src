@@ -28,8 +28,7 @@ TEST_F(FacilitatedPaymentsInitiatePaymentRequestTest,
   request_details_full->client_token_ =
       std::vector<uint8_t>{'t', 'o', 'k', 'e', 'n'};
   request_details_full->billing_customer_number_ = 11;
-  request_details_full->merchant_payment_page_url_ =
-      GURL("https://foo.com/bar");
+  request_details_full->merchant_payment_page_hostname_ = "foo.com";
   request_details_full->instrument_id_ = 13;
   request_details_full->pix_code_ = "a valid code";
 
@@ -47,8 +46,8 @@ TEST_F(FacilitatedPaymentsInitiatePaymentRequestTest,
       "\"dG9rZW4=\",\"context\":{\"billable_service\":70154,\"customer_"
       "context\":{"
       "\"external_customer_id\":\"11\"},\"language_code\":\"US\"},\"merchant_"
-      "info\":{\"merchant_checkout_page_url\":\"https://foo.com/"
-      "bar\"},\"payment_details\":{\"payment_rail\":\"PIX\",\"qr_code\":\"a "
+      "info\":{\"merchant_checkout_page_url\":\"foo.com\"},\"payment_details\":"
+      "{\"payment_rail\":\"PIX\",\"qr_code\":\"a "
       "valid "
       "code\"},\"risk_data_encoded\":{\"encoding_type\":\"BASE_64\",\"message_"
       "type\":\"BROWSER_NATIVE_FINGERPRINTING\",\"value\":\"seems pretty "
@@ -59,8 +58,8 @@ TEST_F(FacilitatedPaymentsInitiatePaymentRequestTest,
        RequestContents_WithoutOptionalDetails) {
   auto request_details_without_optional_data =
       std::make_unique<FacilitatedPaymentsInitiatePaymentRequestDetails>();
-  // `billing_customer_number_` and `merchant_payment_page_url_` optional fields
-  // are not set.
+  // `billing_customer_number_` and `merchant_payment_page_hostname_` optional
+  // fields are not set.
   request_details_without_optional_data->risk_data_ = "seems pretty risky";
   // The client token will be base64 encoded as "dG9rZW4=" in the request
   // content.
@@ -79,7 +78,7 @@ TEST_F(FacilitatedPaymentsInitiatePaymentRequestTest,
   EXPECT_EQ(request->GetRequestContentType(), "application/json");
   // Verify that all data except the optional fields are added to the request
   // content. Excluded field `billing_customer_number_` maps to
-  // `external_customer_id`, and `merchant_payment_page_url_` maps to
+  // `external_customer_id`, and `merchant_payment_page_hostname_` maps to
   // `merchant_checkout_page_url` in the request content. Both these data should
   // be absent.
   EXPECT_EQ(request->GetRequestContent(),
@@ -98,8 +97,10 @@ TEST_F(FacilitatedPaymentsInitiatePaymentRequestTest,
       std::make_unique<FacilitatedPaymentsInitiatePaymentRequestDetails>(),
       /*response_callback=*/base::DoNothing(),
       /*app_locale=*/"US", /*full_sync_enabled=*/true);
+  // The action token "token" is base64 encoded as "dG9rZW4=" in the response
+  // content.
   std::optional<base::Value> response = base::JSONReader::Read(
-      "{\"trigger_purchase_manager\":{\"o2_action_token\":\"token\"}}");
+      "{\"trigger_purchase_manager\":{\"o2_action_token\":\"dG9rZW4=\"}}");
   request->ParseResponse(response->GetDict());
 
   std::vector<uint8_t> expected_action_token = {'t', 'o', 'k', 'e', 'n'};
@@ -107,6 +108,23 @@ TEST_F(FacilitatedPaymentsInitiatePaymentRequestTest,
 
   // Verify that the response is considered complete.
   EXPECT_TRUE(request->IsResponseComplete());
+}
+
+TEST_F(FacilitatedPaymentsInitiatePaymentRequestTest,
+       ParseResponse_WithCorruptActionToken) {
+  auto request = std::make_unique<FacilitatedPaymentsInitiatePaymentRequest>(
+      std::make_unique<FacilitatedPaymentsInitiatePaymentRequestDetails>(),
+      /*response_callback=*/base::DoNothing(),
+      /*app_locale=*/"US", /*full_sync_enabled=*/true);
+  // Set a corrupt base64 action token to simulate Base64Decode to return an
+  // empty vector.
+  std::optional<base::Value> response = base::JSONReader::Read(
+      "{\"trigger_purchase_manager\":{\"o2_action_token\":\"dG9r00ZW4=\"}}");
+  request->ParseResponse(response->GetDict());
+
+  EXPECT_TRUE(request->response_details_->action_token_.empty());
+  // Verify that the response is considered incomplete.
+  EXPECT_FALSE(request->IsResponseComplete());
 }
 
 TEST_F(FacilitatedPaymentsInitiatePaymentRequestTest,

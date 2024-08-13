@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/frame/local_frame_mojo_handler.h"
 
 #include "base/metrics/histogram_functions.h"
@@ -12,7 +17,6 @@
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
@@ -23,6 +27,7 @@
 #include "third_party/blink/public/mojom/frame/media_player_action.mojom-blink.h"
 #include "third_party/blink/public/mojom/opengraph/metadata.mojom-blink.h"
 #include "third_party/blink/public/mojom/timing/resource_timing.mojom-blink-forward.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/interface_registry.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -32,7 +37,6 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_evaluation_result.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_function.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_fullscreen_options.h"
-#include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/ignore_opens_during_unload_count_incrementer.h"
@@ -52,7 +56,6 @@
 #include "third_party/blink/renderer/core/frame/savable_resources.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
-#include "third_party/blink/renderer/core/fullscreen/scoped_allow_fullscreen.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_embed_element.h"
 #include "third_party/blink/renderer/core/html/html_link_element.h"
@@ -561,13 +564,13 @@ void LocalFrameMojoHandler::NotifyVirtualKeyboardOverlayRect(
   // The rect passed to us from content is in DIP, relative to the main frame.
   // This doesn't take the page's zoom factor into account so we must scale by
   // the inverse of the page zoom in order to get correct client coordinates.
-  // WindowToViewportScalar is the device scale factor while PageZoomFactor is
+  // WindowToViewportScalar is the device scale factor while LayoutZoomFactor is
   // the combination of the device scale factor and the zoom factor of the
   // page.
   blink::LocalFrame& local_frame_root = frame_->LocalFrameRoot();
   const float window_to_viewport_factor =
       page->GetChromeClient().WindowToViewportScalar(&local_frame_root, 1.0f);
-  const float zoom_factor = local_frame_root.PageZoomFactor();
+  const float zoom_factor = local_frame_root.LayoutZoomFactor();
   const float scale_factor = zoom_factor / window_to_viewport_factor;
   gfx::Rect scaled_rect(keyboard_rect.x() / scale_factor,
                         keyboard_rect.y() / scale_factor,
@@ -700,15 +703,15 @@ void LocalFrameMojoHandler::MediaPlayerActionAt(
                                            action->enable);
 }
 
-void LocalFrameMojoHandler::RequestVideoFrameAtWithBoundsDiagnostics(
+void LocalFrameMojoHandler::RequestVideoFrameAtWithBoundsHint(
     const gfx::Point& window_point,
     const gfx::Size& max_size,
     int max_area,
-    RequestVideoFrameAtWithBoundsDiagnosticsCallback callback) {
+    RequestVideoFrameAtWithBoundsHintCallback callback) {
   gfx::Point viewport_position =
       frame_->GetWidgetForLocalRoot()->DIPsToRoundedBlinkSpace(window_point);
-  frame_->RequestVideoFrameAtWithBoundsDiagnostics(
-      viewport_position, max_size, max_area, std::move(callback));
+  frame_->RequestVideoFrameAtWithBoundsHint(viewport_position, max_size,
+                                            max_area, std::move(callback));
 }
 
 void LocalFrameMojoHandler::AdvanceFocusInFrame(
@@ -1224,12 +1227,12 @@ void LocalFrameMojoHandler::ClosePage(
 
 void LocalFrameMojoHandler::GetFullPageSize(
     mojom::blink::LocalMainFrame::GetFullPageSizeCallback callback) {
-  // PageZoomFactor takes CSS pixels to device/physical pixels. It includes
+  // LayoutZoomFactor takes CSS pixels to device/physical pixels. It includes
   // both browser ctrl+/- zoom as well as the device scale factor for screen
   // density. Note: we don't account for pinch-zoom, even though it scales a
   // CSS pixel, since "device pixels" coming from Blink are also unscaled by
   // pinch-zoom.
-  float css_to_physical = frame_->PageZoomFactor();
+  float css_to_physical = frame_->LayoutZoomFactor();
   float physical_to_css = 1.f / css_to_physical;
   gfx::Size full_page_size =
       frame_->View()->GetScrollableArea()->ContentsSize();
@@ -1405,23 +1408,6 @@ void LocalFrameMojoHandler::AddResourceTimingEntryForFailedSubframeNavigation(
   subframe->Owner()->AddResourceTiming(std::move(info));
 }
 
-void LocalFrameMojoHandler::RequestFullscreenDocumentElement() {
-  // Bail early and report failure if fullscreen is not enabled.
-  if (!Fullscreen::FullscreenEnabled(*frame_->GetDocument(),
-                                     ReportOptions::kReportOnFailure)) {
-    return;
-  }
-  if (auto* document_element = frame_->GetDocument()->documentElement()) {
-    // `kWindowOpen` assumes this function is only invoked for newly created
-    // windows (e.g. fullscreen popups). Update this if additional callers are
-    // added. See: https://chromestatus.com/feature/6002307972464640
-    ScopedAllowFullscreen allow_fullscreen(ScopedAllowFullscreen::kWindowOpen);
-    Fullscreen::RequestFullscreen(*document_element,
-                                  FullscreenOptions::Create(),
-                                  FullscreenRequestType::kForWindowOpen);
-  }
-}
-
 void LocalFrameMojoHandler::RequestFullscreenVideoElement() {
   // Find the first video element of the frame.
   for (auto* child = frame_->GetDocument()->documentElement(); child;
@@ -1463,6 +1449,7 @@ void LocalFrameMojoHandler::UpdatePrerenderURL(
       mojom::blink::SameDocumentNavigationType::
           kPrerenderNoVarySearchActivation,
       /*data=*/nullptr, WebFrameLoadType::kReplaceCurrentItem,
+      FirePopstate::kYes,
       /*is_browser_initiated=*/true);
   std::move(callback).Run();
 }

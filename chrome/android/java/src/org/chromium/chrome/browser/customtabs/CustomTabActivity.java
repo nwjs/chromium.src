@@ -181,7 +181,7 @@ public class CustomTabActivity extends BaseCustomTabActivity {
         // attached to a ChromeActivity, as the main tab might have been initialized prior to
         // inflation.
         if (mTabProvider.getTab() != null) {
-            ViewGroup bottomContainer = (ViewGroup) findViewById(R.id.bottom_container);
+            ViewGroup bottomContainer = findViewById(R.id.bottom_container);
             InfoBarContainer.get(mTabProvider.getTab()).setParentView(bottomContainer);
         }
 
@@ -258,12 +258,6 @@ public class CustomTabActivity extends BaseCustomTabActivity {
     }
 
     @Override
-    public void createContextualSearchTab(String searchUrl) {
-        if (getActivityTab() == null) return;
-        getActivityTab().loadUrl(new LoadUrlParams(searchUrl));
-    }
-
-    @Override
     public String getPackageName() {
         if (mShouldOverridePackage
                 && mIntentDataProvider instanceof CustomTabIntentDataProvider intentDataProvider) {
@@ -317,11 +311,6 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                             mRootUiCoordinator.getEphemeralTabCoordinatorSupplier(),
                             getTabCreator(getCurrentTabModel().isIncognito()))
                     .show(tab, ChromePageInfoHighlight.noHighlight());
-            return true;
-        } else if (id == R.id.page_insights_id) {
-            var pageInsights = mBaseCustomTabRootUiCoordinator.getPageInsightsCoordinator();
-            assert pageInsights != null;
-            pageInsights.launch();
             return true;
         } else if (id == R.id.open_history_menu_id) {
             // The menu is visible only when the app-specific history is enabled. Assert that.

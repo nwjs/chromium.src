@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/bindings/core/v8/script_streamer.h"
 
 #include <memory>
@@ -155,9 +160,7 @@ class NoopLoaderFactory final : public ResourceFetcher::LoaderFactory {
 
 void AppendDataToDataPipe(std::string_view data,
                           mojo::ScopedDataPipeProducerHandle& producer_handle) {
-  size_t data_len = data.size();
-  MojoResult result = producer_handle->WriteData(
-      data.data(), &data_len, MOJO_WRITE_DATA_FLAG_ALL_OR_NONE);
+  MojoResult result = producer_handle->WriteAllData(base::as_byte_span(data));
   EXPECT_EQ(result, MOJO_RESULT_OK);
 
   // In case the mojo datapipe is being read on the main thread, we need to
@@ -945,12 +948,15 @@ network::mojom::URLResponseHeadPtr CreateURLResponseHead(
 
 class BackgroundResourceScriptStreamerTest : public testing::Test {
  public:
-  BackgroundResourceScriptStreamerTest()
+  explicit BackgroundResourceScriptStreamerTest(
+      bool enable_background_code_cache_decode_start = false)
       : url_(String("http://streaming-test.example.com/foo" +
                     base::NumberToString(url_counter_++))) {
     feature_list_.InitWithFeaturesAndParameters(
         {{features::kBackgroundResourceFetch,
-          {{"background-script-response-processor", "true"}}}},
+          {{"background-script-response-processor", "true"},
+           {"background-code-cache-decoder-start",
+            enable_background_code_cache_decode_start ? "true" : "false"}}}},
         {});
   }
   ~BackgroundResourceScriptStreamerTest() override = default;
@@ -1135,6 +1141,53 @@ TEST_F(BackgroundResourceScriptStreamerTest, HasCodeCache) {
     EXPECT_THAT(*cached_metadata,
                 testing::ElementsAreArray(code_cache_data_copy));
   }));
+  Finish();
+  RunUntilResourceLoaded();
+  // When there is a code cache, we should not stream the script.
+  CheckNotStreamingReason(
+      ScriptStreamer::NotStreamingReason::kHasCodeCacheBackground);
+}
+
+class BackgroundResourceScriptStreamerCodeCacheDecodeStartTest
+    : public BackgroundResourceScriptStreamerTest {
+ public:
+  BackgroundResourceScriptStreamerCodeCacheDecodeStartTest()
+      : BackgroundResourceScriptStreamerTest(
+            /*enable_background_code_cache_decode_start=*/true) {}
+  ~BackgroundResourceScriptStreamerCodeCacheDecodeStartTest() override =
+      default;
+};
+
+TEST_F(BackgroundResourceScriptStreamerCodeCacheDecodeStartTest, HasCodeCache) {
+  V8TestingScope scope;
+  Init(scope.GetIsolate());
+  mojo_base::BigBuffer code_cache_data = CreateDummyCodeCacheData();
+  const std::vector<uint8_t> code_cache_data_copy(
+      code_cache_data.data(), code_cache_data.data() + code_cache_data.size());
+  RunInBackgroundThred(base::BindLambdaForTesting([&]() {
+    network::mojom::URLResponseHeadPtr head = CreateURLResponseHead();
+    // Set charset to make the code cache valid.
+    head->charset = "utf-8";
+    // Set a dummy code cache data.
+    std::optional<mojo_base::BigBuffer> cached_metadata =
+        std::move(code_cache_data);
+    EXPECT_TRUE(background_response_processor_->MaybeStartProcessingResponse(
+        head, consumer_handle_, cached_metadata,
+        background_resource_fetch_task_runner_,
+        &background_response_processor_client_));
+    EXPECT_FALSE(head);
+    EXPECT_FALSE(consumer_handle_);
+    ASSERT_TRUE(cached_metadata);
+    EXPECT_EQ(cached_metadata->size(), 0u);
+  }));
+  AppendData(kLargeEnoughScript);
+  producer_handle_.reset();
+  background_response_processor_client_.WaitUntilFinished();
+  // Checking that the code cache data is passed to the finish callback.
+  background_response_processor_client_.CheckResultOfFinishCallback(
+      /*expected_body=*/base::make_span(kLargeEnoughScript,
+                                        sizeof(kLargeEnoughScript) - 1),
+      /*expected_cached_metadata=*/code_cache_data_copy);
   Finish();
   RunUntilResourceLoaded();
   // When there is a code cache, we should not stream the script.
@@ -1768,9 +1821,8 @@ TEST_F(BackgroundResourceScriptStreamerTest,
     const std::string function_line = base::StrCat(
         {kFunctionScript,
          std::string(kDataPipeSize - kFunctionScript.size(), '/')});
-    size_t data_len = function_line.size();
-    MojoResult result = producer_handle_->WriteData(
-        function_line.data(), &data_len, MOJO_WRITE_DATA_FLAG_ALL_OR_NONE);
+    MojoResult result =
+        producer_handle_->WriteAllData(base::as_byte_span(function_line));
     EXPECT_EQ(result, MOJO_RESULT_OK);
     // Busyloop until the parser thread reads the `function_line` form the data
     // pipe.

@@ -28,6 +28,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/histogram_macros_local.h"
+#include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/pickle.h"
 #include "base/ranges/algorithm.h"
@@ -449,29 +450,24 @@ HttpCache::~HttpCache() {
   }
 }
 
-int HttpCache::GetBackend(disk_cache::Backend** backend,
-                          CompletionOnceCallback callback) {
+HttpCache::GetBackendResult HttpCache::GetBackend(GetBackendCallback callback) {
   DCHECK(!callback.is_null());
 
   if (disk_cache_.get()) {
-    *backend = disk_cache_.get();
-    return OK;
+    return {OK, disk_cache_.get()};
   }
 
-  int rv =
-      CreateBackend(base::BindOnce(&HttpCache::ReportGetBackendResult,
-                                   GetWeakPtr(), backend, std::move(callback)));
+  int rv = CreateBackend(base::BindOnce(&HttpCache::ReportGetBackendResult,
+                                        GetWeakPtr(), std::move(callback)));
   if (rv != ERR_IO_PENDING) {
-    *backend = disk_cache_.get();
+    return {rv, disk_cache_.get()};
   }
-  return rv;
+  return {ERR_IO_PENDING, nullptr};
 }
 
-void HttpCache::ReportGetBackendResult(disk_cache::Backend** backend,
-                                       CompletionOnceCallback callback,
+void HttpCache::ReportGetBackendResult(GetBackendCallback callback,
                                        int net_error) {
-  *backend = disk_cache_.get();
-  std::move(callback).Run(net_error);
+  std::move(callback).Run(std::pair(net_error, disk_cache_.get()));
 }
 
 disk_cache::Backend* HttpCache::GetCurrentBackend() const {
@@ -479,12 +475,10 @@ disk_cache::Backend* HttpCache::GetCurrentBackend() const {
 }
 
 // static
-bool HttpCache::ParseResponseInfo(const char* data,
-                                  int len,
+bool HttpCache::ParseResponseInfo(base::span<const uint8_t> data,
                                   HttpResponseInfo* response_info,
                                   bool* response_truncated) {
-  base::Pickle pickle = base::Pickle::WithUnownedBuffer(
-      base::as_bytes(base::span(data, base::checked_cast<size_t>(len))));
+  base::Pickle pickle = base::Pickle::WithUnownedBuffer(data);
   return response_info->InitFromPickle(pickle, response_truncated);
 }
 
@@ -507,7 +501,6 @@ void HttpCache::OnExternalCacheHit(
     const GURL& url,
     const std::string& http_method,
     const NetworkIsolationKey& network_isolation_key,
-    bool is_subframe_document_resource,
     bool used_credentials) {
   if (!disk_cache_.get() || mode_ == DISABLE) {
     return;
@@ -524,8 +517,9 @@ void HttpCache::OnExternalCacheHit(
   request_info.network_anonymization_key =
       NetworkAnonymizationKey::CreateFromNetworkIsolationKey(
           network_isolation_key);
-
-  request_info.is_subframe_document_resource = is_subframe_document_resource;
+  // This method is only called for cache hits on resources, so mark this
+  // request as not being a subframe navigation.
+  request_info.is_subframe_document_resource = false;
   if (base::FeatureList::IsEnabled(features::kSplitCacheByIncludeCredentials)) {
     if (!used_credentials) {
       request_info.load_flags &= LOAD_DO_NOT_SAVE_COOKIES;
@@ -900,7 +894,7 @@ void HttpCache::DeletePendingOp(PendingOp* pending_op) {
 
   if (!key.empty()) {
     auto it = pending_ops_.find(key);
-    DCHECK(it != pending_ops_.end());
+    CHECK(it != pending_ops_.end(), base::NotFatalUntil::M130);
     pending_ops_.erase(it);
   } else {
     for (auto it = pending_ops_.begin(); it != pending_ops_.end(); ++it) {
@@ -1092,7 +1086,7 @@ void HttpCache::DoneWithEntry(scoped_refptr<ActiveEntry>& entry,
   // Transaction is reading from the entry.
   DCHECK(!entry->HasWriters());
   auto readers_it = entry->readers().find(transaction);
-  DCHECK(readers_it != entry->readers().end());
+  CHECK(readers_it != entry->readers().end(), base::NotFatalUntil::M130);
   entry->readers().erase(readers_it);
   ProcessQueuedTransactions(entry);
 }

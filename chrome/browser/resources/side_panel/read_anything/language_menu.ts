@@ -12,12 +12,13 @@ import '//resources/cr_elements/cr_toggle/cr_toggle.js';
 import './icons.html.js';
 
 import type {CrDialogElement} from '//resources/cr_elements/cr_dialog/cr_dialog.js';
-import type {CrInputElement} from '//resources/cr_elements/cr_input/cr_input.js';
 import {I18nMixin} from '//resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from '//resources/cr_elements/web_ui_listener_mixin.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {DomRepeatEvent} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
+import {toastDurationMs, ToolbarEvent} from './common.js';
 import {getTemplate} from './language_menu.html.js';
 import {AVAILABLE_GOOGLE_TTS_LOCALES, convertLangOrLocaleForVoicePackManager, VoiceClientSideStatusCode} from './voice_language_util.js';
 
@@ -42,9 +43,24 @@ interface LanguageDropdownItem {
   callback: () => void;
 }
 
-const LanguageMenuElementBase = WebUiListenerMixin(I18nMixin(PolymerElement));
+function isDownloading(voiceStatus: VoiceClientSideStatusCode) {
+  switch (voiceStatus) {
+    case VoiceClientSideStatusCode.SENT_INSTALL_REQUEST:
+    case VoiceClientSideStatusCode.SENT_INSTALL_REQUEST_ERROR_RETRY:
+    case VoiceClientSideStatusCode.INSTALLED_AND_UNAVAILABLE:
+      return true;
+    case VoiceClientSideStatusCode.AVAILABLE:
+    case VoiceClientSideStatusCode.ERROR_INSTALLING:
+    case VoiceClientSideStatusCode.INSTALL_ERROR_ALLOCATION:
+    case VoiceClientSideStatusCode.NOT_INSTALLED:
+      return false;
+    default:
+      // This ensures the switch statement is exhaustive
+      return voiceStatus satisfies never;
+  }
+}
 
-export const LANGUAGE_TOGGLE_EVENT = 'voice-language-toggle';
+const LanguageMenuElementBase = WebUiListenerMixin(I18nMixin(PolymerElement));
 
 export class LanguageMenuElement extends LanguageMenuElementBase {
   static get is() {
@@ -57,7 +73,7 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
 
   static get properties() {
     return {
-      enabledLanguagesInPref: Array,
+      enabledLangs: Array,
       availableVoices: Array,
       languageSearchValue_: String,
       localeToDisplayName: Object,
@@ -67,24 +83,35 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
       },
       selectedLang: String,
       currentNotifications_: Array,
+      lastDownloadedLang: String,
+      toastTitle_: {
+        type: String,
+        computed: 'getLanguageDownloadedTitle_(localeToDisplayName,' +
+            'lastDownloadedLang)',
+      },
       availableLanguages_: {
         type: Array,
         computed:
             'computeAvailableLanguages_(availableVoices,localeToDisplayName,' +
             'currentNotifications_,selectedLang,languageSearchValue_,' +
-            'enabledLanguagesInPref)',
+            'enabledLangs)',
       },
     };
   }
 
-  private availableVoices: SpeechSynthesisVoice[];
+  selectedLang: string;
+  localeToDisplayName: {[lang: string]: string} = {};
+  enabledLangs: string[];
+  lastDownloadedLang: string;
+
+  availableVoices: SpeechSynthesisVoice[];
   private languageSearchValue_: string;
-  private readonly voicePackInstallStatus:
-      {[language: string]: VoiceClientSideStatusCode};
+  private toastDuration_: number = toastDurationMs;
+  voicePackInstallStatus: {[language: string]: VoiceClientSideStatusCode};
   private readonly availableLanguages_: LanguageDropdownItem[];
   // Use this variable instead of AVAILABLE_GOOGLE_TTS_LOCALES
   // directly to better aid in testing.
-  private baseLanguages = AVAILABLE_GOOGLE_TTS_LOCALES;
+  baseLanguages: Set<string> = AVAILABLE_GOOGLE_TTS_LOCALES;
 
   // A non-Google language is one that's not associated with a Google voice
   // that can be downloaded from the language pack.
@@ -97,64 +124,24 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
   private currentNotifications_:
       {[language: string]: VoiceClientSideStatusCode} = {};
 
-  constructor() {
-    super();
-    this.addEventListener('cr-dialog-open', () => {
-      this.$.languageMenu.querySelector<CrInputElement>('.search-field')
-          ?.focus();
-
-      // Clear the list of current notifications each time we reopen the menu.
-      this.currentNotifications_ = {};
-
-      // Since the downloading messages will be cleared fairly quickly as
-      // we get voice pack updates, we should go ahead and show the message
-      // when we're actively downloading a voice pack, even if it was
-      // previously shown.
-      this.restoreDownloadingMessages();
-    });
-  }
-
-  private restoreDownloadingMessages() {
-    if (!this.voicePackInstallStatus) {
-      return;
-    }
-
-    for (const key of Object.keys(this.voicePackInstallStatus)) {
-      const status = this.voicePackInstallStatus[key];
-      switch (status) {
-        case VoiceClientSideStatusCode.SENT_INSTALL_REQUEST:
-        case VoiceClientSideStatusCode.SENT_INSTALL_REQUEST_ERROR_RETRY:
-        case VoiceClientSideStatusCode.INSTALLED_AND_UNAVAILABLE:
-          this.setNotification(key, status);
-          break;
-        case VoiceClientSideStatusCode.AVAILABLE:
-        case VoiceClientSideStatusCode.ERROR_INSTALLING:
-        case VoiceClientSideStatusCode.INSTALL_ERROR_ALLOCATION:
-        case VoiceClientSideStatusCode.NOT_INSTALLED:
-          continue;
-        default:
-          // This ensures the switch statement is exhaustive
-          return status satisfies never;
-      }
-    }
-  }
-
   // Returns a copy of voicePackInstallStatus to use as a snapshot of the
   // current state. Before copying over the map, check the diff of
   // the new voicePackInstallStatus and our previous snapshot. If there are
   // any differences, add these to the currentNotifications_ map.
   private voicePackInstallStatusChanged_(
       newValue: {[language: string]: VoiceClientSideStatusCode},
-      oldValue: {[language: string]: VoiceClientSideStatusCode}) {
-    this.restoreDownloadingMessages();
-    if (!oldValue) {
-      return;
-    }
-
+      oldValue?: {[language: string]: VoiceClientSideStatusCode}) {
     for (const key of Object.keys(newValue)) {
-      if (oldValue[key] !== newValue[key]) {
+      const newStatus = newValue[key];
+      // Since the downloading messages are cleared quickly, we should still
+      // show "downloading" notifications, even if they were previously shown.
+      if (isDownloading(newStatus)) {
+        this.setNotification(key, newStatus);
+      } else if (oldValue && oldValue[key] !== newStatus) {
         // Update the notification status for recently changed language keys.
-        this.setNotification(key, newValue[key]);
+        // Only show updates that occur while the language menu is open- don't
+        // show notifications if updates occurred before the menu opened.
+        this.setNotification(key, newStatus);
       }
     }
   }
@@ -169,10 +156,6 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
     this.$.languageMenu.close();
   }
 
-  private onCloseDialog_() {
-    this.onClearSearchClick_();
-  }
-
   private onClearSearchClick_() {
     this.languageSearchValue_ = '';
   }
@@ -181,48 +164,49 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
     event.model.item.callback();
   }
 
-  private getDisplayName(
-      localeToDisplayName: {[lang: string]: string}, lang: string) {
-    return (localeToDisplayName && lang in localeToDisplayName) ?
-        localeToDisplayName[lang] :
-        lang;
+  private getDisplayName(lang: string) {
+    const langLower = lang.toLowerCase();
+    return this.localeToDisplayName[langLower] || langLower;
   }
 
-  // TODO(b/40927698): Investigate removing voicePackInstallStatus as a
+  private getLanguageDownloadedTitle_() {
+    if (!this.lastDownloadedLang) {
+      return '';
+    }
+    const langDisplayName = this.getDisplayName(this.lastDownloadedLang);
+    return loadTimeData.getStringF(
+        'readingModeVoiceDownloadedTitle', langDisplayName);
+  }
+
+  // TODO(b/40927698): Investigate removing currentNotifications as a
   // dependency.
-  private computeAvailableLanguages_(
-      availableVoices: SpeechSynthesisVoice[],
-      localeToDisplayName: {[lang: string]: string},
-      voicePackInstallStatus: {[language: string]: VoiceClientSideStatusCode},
-      selectedLang: string|undefined, languageSearchValue: string|undefined,
-      enabledLanguagesInPref: string[]): LanguageDropdownItem[] {
-    if (!availableVoices) {
+  private computeAvailableLanguages_(): LanguageDropdownItem[] {
+    if (!this.availableVoices) {
       return [];
     }
 
     // Ensure this is cleared each time we recompute available languages.
     this.nonGoogleLanguages = [];
 
-    const selectedLangLowerCase = selectedLang?.toLowerCase();
+    const selectedLangLowerCase = this.selectedLang?.toLowerCase();
     // Ensure we've added the available pack manager supported languages to
     // the language menu first, only on ChromeOS.
     const langsAndReadableLangs: Array<[string, string]> =
         chrome.readingMode.isLanguagePackDownloadingEnabled &&
             chrome.readingMode.isChromeOsAsh ?
         Array.from(
-            this.baseLanguages,
-            (key) => [key, this.getDisplayName(localeToDisplayName, key)]) :
+            this.baseLanguages, (key) => [key, this.getDisplayName(key)]) :
         [];
 
     // Next, add any other supported languages to the menu, if they don't
     // already exist.
-    availableVoices.forEach((voice) => {
+    this.availableVoices.forEach((voice) => {
       const lang = voice.lang;
       if (!langsAndReadableLangs.some(
               ([key, _]) => key === lang.toLowerCase())) {
         langsAndReadableLangs.push([
           lang.toLowerCase(),
-          this.getDisplayName(localeToDisplayName, lang),
+          this.getDisplayName(lang),
         ]);
 
         if (chrome.readingMode.isLanguagePackDownloadingEnabled) {
@@ -237,10 +221,15 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
     });
 
     return langsAndReadableLangs
-        .filter(([_, readableLang]) => {
-          if (languageSearchValue) {
+        .filter(([lang, readableLang]) => {
+          if (this.languageSearchValue_) {
+            // In addition to matching the readable language, also allow
+            // the search term to extend to the language code to make
+            // searching for specific languages easier. e.g. 'pt-br' will
+            // match with Portugues (Brasil)
             return readableLang.toLowerCase().includes(
-                languageSearchValue.toLowerCase());
+                       this.languageSearchValue_.toLowerCase()) ||
+                lang.includes(this.languageSearchValue_.toLowerCase());
           } else {
             return true;
           }
@@ -248,18 +237,16 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
         .map(
             ([lang, readableLang]) => ({
               readableLanguage: readableLang,
-              checked: enabledLanguagesInPref &&
-                  enabledLanguagesInPref.includes(lang),
+              checked: this.enabledLangs && this.enabledLangs.includes(lang),
               languageCode: lang,
               notification: {
-                isError: this.isNotificationError(lang, voicePackInstallStatus),
-                text: this.getNotificationText(lang, voicePackInstallStatus),
+                isError: this.isNotificationError(lang),
+                text: this.getNotificationText(lang),
               },
-              disabled: enabledLanguagesInPref &&
-                  enabledLanguagesInPref.includes(lang) &&
+              disabled: this.enabledLangs && this.enabledLangs.includes(lang) &&
                   (lang.toLowerCase() === selectedLangLowerCase),
-              callback: () =>
-                  this.dispatchEvent(new CustomEvent(LANGUAGE_TOGGLE_EVENT, {
+              callback: () => this.dispatchEvent(
+                  new CustomEvent(ToolbarEvent.LANGUAGE_TOGGLE, {
                     bubbles: true,
                     composed: true,
                     detail: {
@@ -269,10 +256,7 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
             }));
   }
 
-  private isNotificationError(
-      lang: string,
-      voicePackInstallStatus: {[language: string]: VoiceClientSideStatusCode},
-      ): boolean {
+  private isNotificationError(lang: string): boolean {
     // Don't show notification text for a non-Google TTS language, as we're
     // not attempting a download.
     if (this.nonGoogleLanguages.includes(lang)) {
@@ -288,7 +272,7 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
     }
 
     const notification: VoiceClientSideStatusCode|undefined =
-        voicePackInstallStatus[voicePackLanguage];
+        this.currentNotifications_[voicePackLanguage];
 
     if (notification === undefined) {
       return false;
@@ -301,10 +285,7 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
         notification === VoiceClientSideStatusCode.INSTALL_ERROR_ALLOCATION;
   }
 
-  private getNotificationText(
-      lang: string,
-      voicePackInstallStatus: {[language: string]: VoiceClientSideStatusCode}):
-      string {
+  private getNotificationText(lang: string): string {
     // Don't show notification text for a non-Google TTS language, as we're
     // not attempting a download.
     if (this.nonGoogleLanguages.includes(lang)) {
@@ -321,7 +302,7 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
       return '';
     }
     const notification: VoiceClientSideStatusCode|undefined =
-        voicePackInstallStatus[voicePackLanguage];
+        this.currentNotifications_[voicePackLanguage];
 
     if (notification === undefined) {
       return '';
@@ -374,17 +355,13 @@ export class LanguageMenuElement extends LanguageMenuElementBase {
     return `${this.i18n(s)}`;
   }
 
-  showDialog() {
-    this.$.languageMenu.showModal();
-  }
 
-  private searchHasLanguages(
-      availableLanguages: LanguageDropdownItem[],
-      languageSearchValue: string): boolean {
+  private searchHasLanguages(): boolean {
     // We should only show the "No results" string when there are no available
     // languages and there is a valid search term.
-    return (availableLanguages.length > 0) || (!languageSearchValue) ||
-        (languageSearchValue.trim().length === 0);
+    return (this.availableLanguages_.length > 0) ||
+        (!this.languageSearchValue_) ||
+        (this.languageSearchValue_.trim().length === 0);
   }
 }
 

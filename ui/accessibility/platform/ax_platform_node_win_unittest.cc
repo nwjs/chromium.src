@@ -5822,8 +5822,13 @@ TEST_F(AXPlatformNodeWinTest, ComputeUIAControlType) {
   child9.AddState(ax::mojom::State::kFocusable);
   root.child_ids.push_back(child9.id);
 
+  AXNodeData child10;
+  child10.id = 11;
+  child10.role = ax::mojom::Role::kLineBreak;
+  root.child_ids.push_back(child10.id);
+
   Init(root, child1, child2, child3, child4, child5, child6, child7, child8,
-       child9);
+       child9, child10);
 
   EXPECT_UIA_INT_EQ(
       QueryInterfaceFromNodeId<IRawElementProviderSimple>(child1.id),
@@ -5852,6 +5857,9 @@ TEST_F(AXPlatformNodeWinTest, ComputeUIAControlType) {
   EXPECT_UIA_INT_EQ(
       QueryInterfaceFromNodeId<IRawElementProviderSimple>(child9.id),
       UIA_ControlTypePropertyId, int{UIA_ThumbControlTypeId});
+  EXPECT_UIA_INT_EQ(
+      QueryInterfaceFromNodeId<IRawElementProviderSimple>(child10.id),
+      UIA_ControlTypePropertyId, int{UIA_TextControlTypeId});
 }
 
 TEST_F(AXPlatformNodeWinTest, IsUIAControlForStatusRole) {
@@ -6246,12 +6254,17 @@ TEST_F(AXPlatformNodeWinTest, GetPatternProviderSupportedPatterns) {
   constexpr AXNodeID cell_id = 31;
   constexpr AXNodeID button_with_expanded_state = 32;
   constexpr AXNodeID button_without_expanded_state = 33;
+  constexpr AXNodeID list_grid_id = 34;
+  constexpr AXNodeID list_grid_row_1_id = 35;
+  constexpr AXNodeID list_grid_column_header_id = 36;
+  constexpr AXNodeID list_grid_row_2_id = 37;
+  constexpr AXNodeID list_grid_cell_id = 38;
 
   AXTreeUpdate update;
   update.tree_data.tree_id = ui::AXTreeID::CreateNewAXTreeID();
   update.has_tree_data = true;
   update.root_id = root_id;
-  update.nodes.resize(33);
+  update.nodes.resize(38);
   update.nodes[0].id = root_id;
   update.nodes[0].role = ax::mojom::Role::kRootWebArea;
   update.nodes[0].child_ids = {text_field_with_combo_box_id,
@@ -6272,7 +6285,8 @@ TEST_F(AXPlatformNodeWinTest, GetPatternProviderSupportedPatterns) {
                                toggle_button_with_popup_id,
                                generic_container_id,
                                button_with_expanded_state,
-                               button_without_expanded_state};
+                               button_without_expanded_state,
+                               list_grid_id};
   update.nodes[1].id = text_field_with_combo_box_id;
   update.nodes[1].role = ax::mojom::Role::kTextFieldWithComboBox;
   update.nodes[1].AddState(ax::mojom::State::kEditable);
@@ -6376,6 +6390,21 @@ TEST_F(AXPlatformNodeWinTest, GetPatternProviderSupportedPatterns) {
   update.nodes[32].AddIntAttribute(
       ax::mojom::IntAttribute::kCheckedState,
       static_cast<int>(ax::mojom::CheckedState::kTrue));
+  update.nodes[33].id = list_grid_id;
+  update.nodes[33].role = ax::mojom::Role::kListGrid;
+  update.nodes[33].child_ids = {list_grid_row_1_id, list_grid_row_2_id};
+  update.nodes[34].id = list_grid_row_1_id;
+  update.nodes[34].role = ax::mojom::Role::kRow;
+  update.nodes[34].child_ids = {list_grid_column_header_id};
+  update.nodes[35].id = list_grid_column_header_id;
+  update.nodes[35].role = ax::mojom::Role::kColumnHeader;
+  update.nodes[35].AddBoolAttribute(ax::mojom::BoolAttribute::kSelected, false);
+  update.nodes[36].id = list_grid_row_2_id;
+  update.nodes[36].role = ax::mojom::Role::kRow;
+  update.nodes[36].child_ids = {list_grid_cell_id};
+  update.nodes[37].id = list_grid_cell_id;
+  update.nodes[37].role = ax::mojom::Role::kGridCell;
+  update.nodes[37].AddBoolAttribute(ax::mojom::BoolAttribute::kSelected, false);
 
   Init(update);
 
@@ -6482,6 +6511,23 @@ TEST_F(AXPlatformNodeWinTest, GetPatternProviderSupportedPatterns) {
   EXPECT_EQ(PatternSet({UIA_ScrollItemPatternId, UIA_TextChildPatternId,
                         UIA_TogglePatternId}),
             GetSupportedPatternsFromNodeId(button_without_expanded_state));
+
+  EXPECT_EQ(PatternSet({UIA_ScrollItemPatternId, UIA_TextChildPatternId,
+                        UIA_SelectionPatternId, UIA_GridPatternId,
+                        UIA_TablePatternId}),
+            GetSupportedPatternsFromNodeId(list_grid_id));
+  EXPECT_EQ(PatternSet({UIA_ScrollItemPatternId, UIA_TextChildPatternId}),
+            GetSupportedPatternsFromNodeId(list_grid_row_1_id));
+  EXPECT_EQ(PatternSet({UIA_ScrollItemPatternId, UIA_TextChildPatternId,
+                        UIA_SelectionItemPatternId, UIA_GridItemPatternId,
+                        UIA_TableItemPatternId}),
+            GetSupportedPatternsFromNodeId(list_grid_column_header_id));
+  EXPECT_EQ(PatternSet({UIA_ScrollItemPatternId, UIA_TextChildPatternId}),
+            GetSupportedPatternsFromNodeId(list_grid_row_2_id));
+  EXPECT_EQ(PatternSet({UIA_ScrollItemPatternId, UIA_TextChildPatternId,
+                        UIA_ValuePatternId, UIA_SelectionItemPatternId,
+                        UIA_GridItemPatternId, UIA_TableItemPatternId}),
+            GetSupportedPatternsFromNodeId(list_grid_cell_id));
 }
 
 TEST_F(AXPlatformNodeWinTest, GetPatternProviderExpandCollapsePattern) {

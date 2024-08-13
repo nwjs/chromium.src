@@ -52,7 +52,7 @@ class RemoteFrameView final : public GarbageCollected<RemoteFrameView>,
   void Dispose() override;
   void SetFrameRect(const gfx::Rect&) override;
   void PropagateFrameRects() override;
-  void ZoomChanged(float zoom_factor) override;
+  void ZoomFactorChanged(float zoom_factor) override;
   void Paint(GraphicsContext&,
              PaintFlags,
              const CullRect&,
@@ -103,8 +103,8 @@ class RemoteFrameView final : public GarbageCollected<RemoteFrameView>,
  private:
   // This function returns the LocalFrameView associated with the parent frame's
   // local root, or nullptr if the parent frame is not a local frame. For
-  // portals, this will return the local root associated with the portal's
-  // owner.
+  // fenced frames, this will return the local root associated with the fenced
+  // frame's owner.
   LocalFrameView* ParentLocalRootFrameView() const;
 
   // This provides the rectangle that the embedded compositor should raster

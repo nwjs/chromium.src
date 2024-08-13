@@ -43,6 +43,7 @@
 #include "net/http/http_response_headers.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "third_party/blink/public/common/loader/resource_type_util.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "ui/base/page_transition_types.h"
 
 namespace page_load_metrics {
@@ -110,6 +111,39 @@ void MetricsWebContentsObserver::RecordFeatureUsage(
     blink::mojom::WebFeature feature) {
   MetricsWebContentsObserver::RecordFeatureUsage(
       render_frame_host, std::vector<blink::mojom::WebFeature>{feature});
+}
+
+// static
+void MetricsWebContentsObserver::RecordFeatureUsage(
+    content::RenderFrameHost* render_frame_host,
+    const std::vector<blink::mojom::WebDXFeature>& webdx_features) {
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(render_frame_host);
+  MetricsWebContentsObserver* observer =
+      MetricsWebContentsObserver::FromWebContents(web_contents);
+
+  if (observer) {
+    std::vector<blink::UseCounterFeature> features;
+    for (auto webdx_feature : webdx_features) {
+      CHECK_NE(webdx_feature, blink::mojom::WebDXFeature::kPageVisits)
+          << "WebFeature::kPageVisits is a reserved feature.";
+      if (webdx_feature == blink::mojom::WebDXFeature::kPageVisits) {
+        continue;
+      }
+
+      features.emplace_back(blink::mojom::UseCounterFeatureType::kWebDXFeature,
+                            static_cast<uint32_t>(webdx_feature));
+    }
+    observer->OnBrowserFeatureUsage(render_frame_host, features);
+  }
+}
+
+// static
+void MetricsWebContentsObserver::RecordFeatureUsage(
+    content::RenderFrameHost* render_frame_host,
+    blink::mojom::WebDXFeature feature) {
+  MetricsWebContentsObserver::RecordFeatureUsage(
+      render_frame_host, std::vector<blink::mojom::WebDXFeature>{feature});
 }
 
 // static
@@ -539,7 +573,10 @@ void MetricsWebContentsObserver::OnCookiesAccessedImpl(
     const content::CookieAccessDetails& details) {
   // TODO(altimin): Propagate `CookieAccessDetails` further.
   bool is_partitioned_access = base::ranges::all_of(
-      details.cookie_list, &net::CanonicalCookie::IsPartitioned);
+      details.cookie_access_result_list,
+      [](const net::CookieWithAccessResult& cookie_with_access_result) {
+        return cookie_with_access_result.cookie.IsPartitioned();
+      });
 
   switch (details.type) {
     case content::CookieAccessDetails::Type::kRead:
@@ -549,8 +586,10 @@ void MetricsWebContentsObserver::OnCookiesAccessedImpl(
                             is_partitioned_access);
       break;
     case content::CookieAccessDetails::Type::kChange:
-      for (const auto& cookie : details.cookie_list) {
-        tracker.OnCookieChange(details.url, details.first_party_url, cookie,
+      for (const auto& cookie_with_access_result :
+           details.cookie_access_result_list) {
+        tracker.OnCookieChange(details.url, details.first_party_url,
+                               cookie_with_access_result.cookie,
                                details.blocked_by_policy, details.is_ad_tagged,
                                details.cookie_setting_overrides,
                                is_partitioned_access);
@@ -983,6 +1022,18 @@ void MetricsWebContentsObserver::DidRedirectNavigation(
     return;
   }
   it->second->Redirect(navigation_handle);
+}
+
+void MetricsWebContentsObserver::DidUpdateNavigationHandleTiming(
+    content::NavigationHandle* navigation_handle) {
+  if (!navigation_handle->IsInMainFrame()) {
+    return;
+  }
+  auto it = provisional_loads_.find(navigation_handle);
+  if (it == provisional_loads_.end()) {
+    return;
+  }
+  it->second->DidUpdateNavigationHandleTiming(navigation_handle);
 }
 
 void MetricsWebContentsObserver::OnVisibilityChanged(

@@ -345,7 +345,7 @@ class TabStripModel : public TabGroupController {
 
   // Returns the WebContents that opened the WebContents at |index|, or NULL if
   // there is no opener on record.
-  content::WebContents* GetOpenerOfWebContentsAt(const int index) const;
+  tabs::TabModel* GetOpenerOfTabAt(const int index) const;
 
   // Changes the |opener| of the WebContents at |index|.
   // Note: |opener| must be in this tab strip. Also a tab must not be its own
@@ -449,6 +449,11 @@ class TabStripModel : public TabGroupController {
       ui::PageTransition transition,
       int add_types,
       std::optional<tab_groups::TabGroupId> group = std::nullopt);
+  void AddTab(std::unique_ptr<tabs::TabModel> tab,
+              int index,
+              ui::PageTransition transition,
+              int add_types,
+              std::optional<tab_groups::TabGroupId> group = std::nullopt);
 
   // Closes the selected tabs.
   void CloseSelectedTabs();
@@ -649,6 +654,14 @@ class TabStripModel : public TabGroupController {
   // Serialise this object into a trace.
   void WriteIntoTrace(perfetto::TracedValue context) const;
 
+  // Returns the tab at `index` in the tabstrip.
+  tabs::TabModel* GetTabAtIndex(int index) const;
+
+  // TODO(349161508) remove this method once tabs dont need to be converted
+  // into webcontents.
+  tabs::TabModel* GetTabForWebContents(
+      const content::WebContents* contents) const;
+
  private:
   FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, GetIndicesClosedByCommand);
 
@@ -747,9 +760,6 @@ class TabStripModel : public TabGroupController {
                       int add_types,
                       std::optional<tab_groups::TabGroupId> group);
 
-  // Returns the tab at  `index` in the tabstrip.
-  tabs::TabModel* GetTabAtIndex(int index) const;
-
   // Closes the WebContentses at the specified indices. This causes the
   // WebContentses to be destroyed, but it may not happen immediately. If
   // the page in question has an unload event the WebContents will not be
@@ -769,9 +779,6 @@ class TabStripModel : public TabGroupController {
   bool CloseWebContentses(base::span<content::WebContents* const> items,
                           uint32_t close_types,
                           DetachNotifications* notifications);
-
-  // Gets the WebContents at an index. Does no bounds checking.
-  content::WebContents* GetWebContentsAtImpl(int index) const;
 
   // Returns the WebContentses at the specified indices. This does no checking
   // of the indices, it is assumed they are valid.

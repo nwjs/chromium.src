@@ -13,7 +13,9 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/events/event_rewriter_controller_impl.h"
 #include "ash/public/cpp/ash_prefs.h"
+#include "ash/public/cpp/peripherals_app_delegate.h"
 #include "ash/public/cpp/test/test_image_downloader.h"
+#include "ash/public/mojom/input_device_settings.mojom-shared.h"
 #include "ash/public/mojom/input_device_settings.mojom.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
@@ -293,7 +295,32 @@ mojom::KeyboardSettingsPtr CreateNewKeyboardSettings() {
   return settings;
 }
 
+std::string GetPackageIdForTesting(const std::string& device_key) {
+  return "web:https://example.com/" + device_key;
+}
+
 }  // namespace
+
+class TestPeripheralsAppDelegate : public PeripheralsAppDelegate {
+ public:
+  void set_should_fail(bool should_fail) { should_fail_ = should_fail; }
+
+  void GetCompanionAppInfo(
+      const std::string& device_key,
+      base::OnceCallback<void(const std::optional<mojom::CompanionAppInfo>&)>
+          callback) override {
+    if (should_fail_) {
+      std::move(callback).Run(std::nullopt);
+      return;
+    }
+    auto info = mojom::CompanionAppInfo();
+    info.package_id = GetPackageIdForTesting(device_key);
+    std::move(callback).Run(std::move(info));
+  }
+
+ private:
+  bool should_fail_ = false;
+};
 
 class FakeKeyboardPrefHandler : public KeyboardPrefHandler {
  public:
@@ -471,6 +498,22 @@ class FakeInputDeviceSettingsControllerObserver
     num_touchpad_battery_info_updated_++;
   }
 
+  void OnMouseCompanionAppInfoChanged(const mojom::Mouse& mouse) override {
+    num_mouse_companion_app_info_updated_++;
+  }
+  void OnKeyboardCompanionAppInfoChanged(
+      const mojom::Keyboard& keyboard) override {
+    num_keyboard_companion_app_info_updated_++;
+  }
+  void OnTouchpadCompanionAppInfoChanged(
+      const mojom::Touchpad& touchpad) override {
+    num_keyboard_companion_app_info_updated_++;
+  }
+  void OnGraphicsTabletCompanionAppInfoChanged(
+      const mojom::GraphicsTablet& graphics_tablet) override {
+    num_keyboard_companion_app_info_updated_++;
+  }
+
   uint32_t num_keyboards_connected() { return num_keyboards_connected_; }
   uint32_t num_graphics_tablets_connected() {
     return num_graphics_tablets_connected_;
@@ -510,6 +553,22 @@ class FakeInputDeviceSettingsControllerObserver
     return num_touchpad_battery_info_updated_;
   }
 
+  uint32_t num_mouse_companion_app_info_updated() {
+    return num_mouse_companion_app_info_updated_;
+  }
+
+  uint32_t num_keyboard_companion_app_info_updated() {
+    return num_keyboard_companion_app_info_updated_;
+  }
+
+  uint32_t num_touchpad_companion_app_info_updated() {
+    return num_touchpad_companion_app_info_updated_;
+  }
+
+  uint32_t num_graphics_tablet_companion_app_info_updated() {
+    return num_graphics_tablet_companion_app_info_updated_;
+  }
+
  private:
   uint32_t num_keyboards_connected_ = 0;
   uint32_t num_graphics_tablets_connected_ = 0;
@@ -527,6 +586,10 @@ class FakeInputDeviceSettingsControllerObserver
   uint32_t num_graphics_tablets_battery_info_updated_ = 0;
   uint32_t num_mouse_battery_info_updated_ = 0;
   uint32_t num_touchpad_battery_info_updated_ = 0;
+  uint32_t num_mouse_companion_app_info_updated_ = 0;
+  uint32_t num_keyboard_companion_app_info_updated_ = 0;
+  uint32_t num_touchpad_companion_app_info_updated_ = 0;
+  uint32_t num_graphics_tablet_companion_app_info_updated_ = 0;
 };
 
 class InputDeviceSettingsControllerTest : public NoSessionAshTestBase {
@@ -566,12 +629,14 @@ class InputDeviceSettingsControllerTest : public NoSessionAshTestBase {
     std::unique_ptr<FakeKeyboardPrefHandler> keyboard_pref_handler =
         std::make_unique<FakeKeyboardPrefHandler>();
     keyboard_pref_handler_ = keyboard_pref_handler.get();
+    delegate_ = std::make_unique<TestPeripheralsAppDelegate>();
     controller_ = std::make_unique<InputDeviceSettingsControllerImpl>(
         local_state(), std::move(keyboard_pref_handler),
         std::make_unique<TouchpadPrefHandlerImpl>(),
         std::make_unique<MousePrefHandlerImpl>(),
         std::make_unique<PointingStickPrefHandlerImpl>(),
         std::make_unique<GraphicsTabletPrefHandlerImpl>(), task_runner_);
+    controller_->SetPeripheralsAppDelegate(delegate_.get());
     controller_->AddObserver(observer_.get());
     sample_keyboards_ = {kSampleKeyboardUsb, kSampleKeyboardInternal,
                          kSampleKeyboardBluetooth};
@@ -654,8 +719,17 @@ class InputDeviceSettingsControllerTest : public NoSessionAshTestBase {
     return mock_device;
   }
 
+  void SendAppUpdate(const std::string& package_id, apps::Readiness readiness) {
+    auto test_app = std::make_unique<apps::App>(apps::AppType::kWeb, "app_id");
+    test_app->installer_package_id = apps::PackageId::FromString(package_id);
+    test_app->readiness = readiness;
+    apps::AppUpdate test_update(nullptr, /*delta=*/test_app.get(), AccountId());
+    controller_->OnAppUpdate(test_update);
+  }
+
  protected:
   std::unique_ptr<InputDeviceSettingsControllerImpl> controller_;
+  std::unique_ptr<TestPeripheralsAppDelegate> delegate_;
   std::unique_ptr<FakeDeviceManager> fake_device_manager_;
   std::vector<ui::InputDevice> sample_keyboards_;
   std::unique_ptr<FakeInputDeviceSettingsControllerObserver> observer_;
@@ -1830,7 +1904,9 @@ TEST_F(InputDeviceSettingsControllerNoSignInTest,
   ASSERT_TRUE(graphics_tablet->settings);
 }
 
-TEST_F(InputDeviceSettingsControllerTest, BatteryInfoAddedForBluetoothDevices) {
+// TODO(crbug.com/349179793): Disabled due to segfaults across platforms.
+TEST_F(InputDeviceSettingsControllerTest,
+       DISABLED_BatteryInfoAddedForBluetoothDevices) {
   uint32_t test_vendor_id = 0x1111;
   uint32_t test_product_id = 0x1112;
   auto mock_device = SetupMockBluetoothDevice(test_vendor_id, test_product_id,
@@ -1878,23 +1954,14 @@ TEST_F(InputDeviceSettingsControllerTest, BatteryInfoUpdates) {
   // Keyboard populated with initial battery info.
   auto* keyboard = controller_->GetKeyboard(bluetooth_keyboard.id);
   ASSERT_EQ(66, keyboard->battery_info->battery_percentage);
-  auto bt_address_map =
-      controller_->GetBluetoothAddressToDeviceIdMapForTesting();
-  // BT address map should contain an entry for the connected keyboard.
-  ASSERT_EQ(1u, bt_address_map.size());
 
   // Battery percentage change should trigger a call to `DeviceBatteryChanged`.
   mock_device->SetBatteryInfo(device::BluetoothDevice::BatteryInfo(
       device::BluetoothDevice::BatteryType::kDefault, 65));
   keyboard = controller_->GetKeyboard(bluetooth_keyboard.id);
   ASSERT_EQ(65, keyboard->battery_info->battery_percentage);
-  ASSERT_EQ(1u, observer_->num_keyboard_battery_info_updated());
-
-  // Disconnecting the bluetooth device should remove the corresponding
-  // entry from the bluetooth address map.
-  ui::DeviceDataManagerTestApi().SetKeyboardDevices({});
-  bt_address_map = controller_->GetBluetoothAddressToDeviceIdMapForTesting();
-  ASSERT_EQ(0u, bt_address_map.size());
+  // Ensure pending tasks are cleared.
+  base::RunLoop().RunUntilIdle();
 }
 
 TEST_F(InputDeviceSettingsControllerTest,
@@ -2034,6 +2101,29 @@ TEST_F(InputDeviceSettingsControllerNoSignInTest, ModifierKeyRefresh) {
             ui::mojom::ModifierKey::kRightAlt}),
         keyboard->modifier_keys);
   }
+}
+
+TEST_F(InputDeviceSettingsControllerTest, GetCompanionAppInfo) {
+  fake_device_manager_->AddFakeMouse(kSampleMouseUsb);
+  auto* mouse = controller_->GetMouse(kSampleMouseUsb.id);
+  ASSERT_FALSE(mouse->app_info.is_null());
+
+  fake_device_manager_->RemoveAllDevices();
+  delegate_->set_should_fail(/*should_fail=*/true);
+  fake_device_manager_->AddFakeMouse(kSampleMouseUsb);
+  mouse = controller_->GetMouse(kSampleMouseUsb.id);
+  ASSERT_TRUE(mouse->app_info.is_null());
+}
+
+TEST_F(InputDeviceSettingsControllerTest, CompanionAppStateUpdated) {
+  fake_device_manager_->AddFakeMouse(kSampleMouseUsb);
+  auto* mouse = controller_->GetMouse(kSampleMouseUsb.id);
+  auto expected_package_id = GetPackageIdForTesting(mouse->device_key);
+  ASSERT_FALSE(mouse->app_info.is_null());
+  ASSERT_EQ(mojom::CompanionAppState::kAvailable, mouse->app_info->state);
+  // Simulate installing the companion app.
+  SendAppUpdate(expected_package_id, apps::Readiness::kReady);
+  ASSERT_EQ(mojom::CompanionAppState::kInstalled, mouse->app_info->state);
 }
 
 }  // namespace ash

@@ -66,31 +66,30 @@ class DataSharingServiceImpl : public DataSharingService,
   void ReadAllGroups(
       base::OnceCallback<void(const GroupsDataSetOrFailureOutcome&)> callback)
       override;
-  void ReadGroup(const std::string& group_id,
+  void ReadGroup(const GroupId& group_id,
                  base::OnceCallback<void(const GroupDataOrFailureOutcome&)>
                      callback) override;
   void CreateGroup(const std::string& group_name,
                    base::OnceCallback<void(const GroupDataOrFailureOutcome&)>
                        callback) override;
   void DeleteGroup(
-      const std::string& group_id,
+      const GroupId& group_id,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback) override;
   void InviteMember(
-      const std::string& group_id,
+      const GroupId& group_id,
       const std::string& invitee_email,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback) override;
   void RemoveMember(
-      const std::string& group_id,
+      const GroupId& group_id,
       const std::string& member_email,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback) override;
   bool ShouldInterceptNavigationForShareURL(const GURL& url) override;
   void HandleShareURLNavigationIntercepted(const GURL& url) override;
 
   // CollaborationGroupSyncBridge::Observer implementation.
-  void OnGroupsUpdated(
-      const std::vector<std::string>& added_group_ids,
-      const std::vector<std::string>& updated_group_ids,
-      const std::vector<std::string>& deleted_group_ids) override;
+  void OnGroupsUpdated(const std::vector<GroupId>& added_group_ids,
+                       const std::vector<GroupId>& updated_group_ids,
+                       const std::vector<GroupId>& deleted_group_ids) override;
   void OnDataLoaded() override;
 
   CollaborationGroupSyncBridge* GetCollaborationGroupSyncBridgeForTesting();
@@ -109,18 +108,18 @@ class DataSharingServiceImpl : public DataSharingService,
       const base::expected<data_sharing_pb::CreateGroupResult, absl::Status>&
           result);
   void OnGaiaIdLookupForAddMemberCompleted(
-      const std::string& group_id,
+      const GroupId& group_id,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback,
       const base::expected<data_sharing_pb::LookupGaiaIdByEmailResult,
                            absl::Status>& result);
   void OnGaiaIdLookupForRemoveMemberCompleted(
-      const std::string& group_id,
+      const GroupId& group_id,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback,
       const base::expected<data_sharing_pb::LookupGaiaIdByEmailResult,
                            absl::Status>& result);
   void OnReadGroupsToNotifyObserversCompleted(
-      const std::set<std::string>& added_group_ids,
-      const std::set<std::string>& updated_group_ids,
+      const std::set<GroupId>& added_group_ids,
+      const std::set<GroupId>& updated_group_ids,
       const base::expected<data_sharing_pb::ReadGroupsResult, absl::Status>&
           read_groups_result);
 
@@ -131,6 +130,8 @@ class DataSharingServiceImpl : public DataSharingService,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback,
       const absl::Status& result);
 
+  // It must be destroyed after the `sdk_delegate_` member because
+  // `sdk_delegate` needs the `data_sharing_network_loader_`.
   std::unique_ptr<DataSharingNetworkLoader> data_sharing_network_loader_;
   std::unique_ptr<CollaborationGroupSyncBridge>
       collaboration_group_sync_bridge_;

@@ -6,17 +6,19 @@
 
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/not_fatal_until.h"
 #include "base/rand_util.h"
-#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_pointer_properties.h"
 #include "third_party/blink/public/mojom/loader/navigation_predictor.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/loader/navigation_predictor.mojom-forward.h"
+#include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/events/pointer_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/frame/browser_controls.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/screen.h"
@@ -27,6 +29,8 @@
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer_entry.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
+#include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
@@ -52,28 +56,30 @@ bool ShouldHaveAnchorElementMetricsSender(Document& document) {
 }
 
 wtf_size_t GetMaxNumberOfObservations() {
-  static const wtf_size_t max_observations = []() {
-    const base::FeatureParam<int> max_number_of_observations{
-        &features::kNavigationPredictor, "max_intersection_observations", -1};
-    int value = max_number_of_observations.Get();
-    return value >= 0 ? value : std::numeric_limits<wtf_size_t>::max();
-  }();
-  return max_observations;
+  const base::FeatureParam<int> max_number_of_observations{
+      &features::kNavigationPredictor, "max_intersection_observations", -1};
+  int value = max_number_of_observations.Get();
+  return value >= 0 ? value : std::numeric_limits<wtf_size_t>::max();
 }
 
 base::TimeDelta GetIntersectionObserverDelay() {
-  static const base::TimeDelta intersection_observer_delay = []() {
-    const base::FeatureParam<base::TimeDelta> param{
-        &features::kNavigationPredictor, "intersection_observer_delay",
-        base::Milliseconds(100)};
-    return param.Get();
-  }();
-  return intersection_observer_delay;
+  const base::FeatureParam<base::TimeDelta> param{
+      &features::kNavigationPredictor, "intersection_observer_delay",
+      base::Milliseconds(100)};
+  return param.Get();
 }
 
 bool ShouldReportViewportPositions() {
   return base::FeatureList::IsEnabled(
       features::kNavigationPredictorNewViewportFeatures);
+}
+
+float GetBrowserControlsHeight(Document& document) {
+  BrowserControls& controls = document.GetPage()->GetBrowserControls();
+  if (controls.ShrinkViewport()) {
+    return controls.ContentOffset();
+  }
+  return 0.f;
 }
 
 }  // namespace
@@ -241,6 +247,8 @@ AnchorElementMetricsSender::AnchorElementMetricsSender(Document& document)
           blink::features::kNavigationPredictor,
           "random_anchor_sampling_period",
           100)),
+      max_number_of_observations_(GetMaxNumberOfObservations()),
+      intersection_observer_delay_(GetIntersectionObserverDelay()),
       clock_(base::DefaultTickClock::GetInstance()),
       position_update_timer_(
           document.GetExecutionContext()->GetTaskRunner(
@@ -257,7 +265,7 @@ AnchorElementMetricsSender::AnchorElementMetricsSender(Document& document)
                          WrapWeakPersistent(this)),
       LocalFrameUkmAggregator::kAnchorElementMetricsIntersectionObserver,
       {.thresholds = {kIntersectionRatioThreshold},
-       .delay = GetIntersectionObserverDelay()});
+       .delay = intersection_observer_delay_});
 }
 
 void AnchorElementMetricsSender::SetNowAsNavigationStartForTesting() {
@@ -321,7 +329,6 @@ void AnchorElementMetricsSender::UpdateVisibleAnchors(
 
   if (position_update_timer_.IsActive()) {
     CHECK(ShouldReportViewportPositions());
-    CHECK(last_pointer_down_.has_value());
     position_update_timer_.Stop();
     should_compute_positions_after_next_lifecycle_update_ = true;
   }
@@ -413,18 +420,16 @@ void AnchorElementMetricsSender::MaybeReportAnchorElementPointerEvent(
   }
 }
 
-void AnchorElementMetricsSender::MaybeReportAnchorElementsPositionOnScrollEnd(
-    double pointer_y) {
+void AnchorElementMetricsSender::
+    MaybeReportAnchorElementsPositionOnScrollEnd() {
   if (!ShouldReportViewportPositions()) {
     return;
   }
 
-  last_pointer_down_ = pointer_y;
-
   // At this point, we're unsure of whether we have the latest
   // IntersectionObserver data or not (|intersection_observer_| is configured
   // with a delay), and the post-scroll intersection computations may or may not
-  // have happened yet. We set a timer for |GetIntersectionObserverDelay()| and
+  // have happened yet. We set a timer for |intersection_observer_delay_| and
   // wait for either:
   // 1) UpdateVisibleAnchors to be called before the timer (we stop the timer)
   // 2) The timer finishes (no intersection changes and UpdateVisibleAnchors
@@ -435,16 +440,34 @@ void AnchorElementMetricsSender::MaybeReportAnchorElementsPositionOnScrollEnd(
   // |position_update_timer_| might already be active in a scenario where a
   // second scroll completes before the timer finishes.
   if (!position_update_timer_.IsActive()) {
-    position_update_timer_.StartOneShot(GetIntersectionObserverDelay(),
+    position_update_timer_.StartOneShot(intersection_observer_delay_,
                                         FROM_HERE);
   }
+}
+
+void AnchorElementMetricsSender::RecordPointerDown(
+    const PointerEvent& pointer_event) {
+  CHECK_EQ(pointer_event.type(), event_type_names::kPointerdown);
+  Document* document = pointer_event.GetDocument();
+  // TODO(crbug.com/347719430): LocalFrameView::FrameToViewport called below
+  // doesn't work for subframes whose local root is not the main frame.
+  if (!document || !document->GetFrame()->LocalFrameRoot().IsMainFrame()) {
+    return;
+  }
+
+  gfx::PointF pointer_down_location = pointer_event.AbsoluteLocation();
+  pointer_down_location =
+      document->GetFrame()->View()->FrameToViewport(pointer_down_location);
+  pointer_down_location.Offset(0,
+                               GetBrowserControlsHeight(*GetSupplementable()));
+  last_pointer_down_ = pointer_down_location.y();
 }
 
 void AnchorElementMetricsSender::EnqueueLeftViewport(
     const HTMLAnchorElement& element) {
   const auto anchor_id = AnchorElementId(element);
   auto it = anchor_elements_timing_stats_.find(anchor_id);
-  DCHECK(it != anchor_elements_timing_stats_.end());
+  CHECK(it != anchor_elements_timing_stats_.end(), base::NotFatalUntil::M130);
   AnchorElementTimingStats& timing_stats = it->value;
   timing_stats.entered_viewport_should_be_enqueued_ = true;
   std::optional<base::TimeTicks>& entered_viewport =
@@ -465,7 +488,7 @@ void AnchorElementMetricsSender::EnqueueEnteredViewport(
     const HTMLAnchorElement& element) {
   const auto anchor_id = AnchorElementId(element);
   auto it = anchor_elements_timing_stats_.find(anchor_id);
-  DCHECK(it != anchor_elements_timing_stats_.end());
+  CHECK(it != anchor_elements_timing_stats_.end(), base::NotFatalUntil::M130);
   AnchorElementTimingStats& timing_stats = it->value;
   timing_stats.viewport_entry_time_ = clock_->NowTicks();
   if (!timing_stats.entered_viewport_should_be_enqueued_) {
@@ -493,7 +516,6 @@ void AnchorElementMetricsSender::RegisterForLifecycleNotifications() {
 
 void AnchorElementMetricsSender::PositionUpdateTimerFired(TimerBase*) {
   CHECK(ShouldReportViewportPositions());
-  CHECK(last_pointer_down_.has_value());
   should_compute_positions_after_next_lifecycle_update_ = true;
   if (LocalFrameView* view = GetSupplementable()->View()) {
     view->ScheduleAnimation();
@@ -503,38 +525,65 @@ void AnchorElementMetricsSender::PositionUpdateTimerFired(TimerBase*) {
 
 void AnchorElementMetricsSender::ComputeAnchorElementsPositionUpdates() {
   CHECK(ShouldReportViewportPositions());
-  CHECK(last_pointer_down_.has_value());
 
   Screen* screen = GetSupplementable()->domWindow()->screen();
   FrameWidget* widget =
       GetSupplementable()->GetFrame()->GetWidgetForLocalRoot();
-  if (!screen || !widget) {
-    return;
-  }
-
-  const float screen_height = widget->DIPsToBlinkSpace(screen->height());
-  if (!screen_height) {
-    return;
-  }
-
   Page* page = GetSupplementable()->GetPage();
-  VisualViewport* visual_viewport = page ? &page->GetVisualViewport() : nullptr;
-  float pointer_y = widget->DIPsToBlinkSpace(last_pointer_down_.value());
-  last_pointer_down_ = std::nullopt;
+  if (!screen || !widget || !page) {
+    return;
+  }
+
+  const int screen_height_dips = screen->height();
+  const int viewport_height = page->GetVisualViewport().Size().height();
+  if (!screen_height_dips || !viewport_height) {
+    return;
+  }
+
+  const float screen_height = widget->DIPsToBlinkSpace(screen_height_dips);
+  const float browser_controls_height =
+      GetBrowserControlsHeight(*GetSupplementable());
 
   for (const HTMLAnchorElement* anchor : anchors_in_viewport_) {
-    gfx::RectF rect(anchor->VisibleBoundsInLocalRoot());
+    LocalFrame* frame = anchor->GetDocument().GetFrame();
+    if (!frame) {
+      continue;
+    }
+    const LocalFrame& local_root = frame->LocalFrameRoot();
+    // TODO(crbug.com/347719430): LocalFrameView::FrameToViewport called below
+    // doesn't work for subframes whose local root is not the main frame.
+    if (!local_root.IsMainFrame()) {
+      continue;
+    }
+
+    gfx::Rect rect = anchor->VisibleBoundsInLocalRoot();
     if (rect.IsEmpty()) {
       continue;
     }
-    if (visual_viewport) {
-      // Adjusts to visual viewport coordinates (to account for pinch zoom).
-      rect = visual_viewport->RootFrameToViewport(rect);
+    rect = local_root.View()->FrameToViewport(rect);
+    rect.Offset(0, browser_controls_height);
+    float center_point_y = gfx::RectF(rect).CenterPoint().y();
+
+    // TODO(crbug.com/347638530): Ideally we would do this entire calculation
+    // in screen coordinates and use screen_height (that would be a more useful
+    // metric for us), but we don't have an accurate way to do so right now.
+    float vertical_position =
+        center_point_y / (viewport_height + browser_controls_height);
+
+    std::optional<float> distance_from_pointer_down_ratio;
+    if (last_pointer_down_.has_value()) {
+      // Note: Distances in viewport space should be the same as distances in
+      // screen space, so dividing by |screen_height| instead of viewport height
+      // is fine (and likely a more useful metric).
+      float distance_from_pointer_down =
+          center_point_y - last_pointer_down_.value();
+      distance_from_pointer_down_ratio =
+          distance_from_pointer_down / screen_height;
     }
-    float distance_from_pointer_down =
-        (rect.CenterPoint().y() - pointer_y) / screen_height;
+
     auto position_update = mojom::blink::AnchorElementPositionUpdate::New(
-        AnchorElementId(*anchor), distance_from_pointer_down);
+        AnchorElementId(*anchor), vertical_position,
+        distance_from_pointer_down_ratio);
     position_update_messages_.push_back(std::move(position_update));
   }
 }
@@ -552,7 +601,6 @@ void AnchorElementMetricsSender::DidFinishLifecycleUpdate(
     return;
   }
 
-  const wtf_size_t max_num_observations = GetMaxNumberOfObservations();
   for (const auto& member_element : anchor_elements_to_report_) {
     HTMLAnchorElement& anchor_element = *member_element;
 
@@ -580,7 +628,7 @@ void AnchorElementMetricsSender::DidFinishLifecycleUpdate(
         // by avoiding intersection computations altogether in such pages. This
         // could be revisited in the future.
         if (intersection_observer_->Observations().size() >
-            max_num_observations) {
+            max_number_of_observations_) {
           intersection_observer_limit_exceeded_ = true;
           intersection_observer_->disconnect();
         }
@@ -688,34 +736,12 @@ void AnchorElementMetricsSender::UpdateMetrics(TimerBase* /*timer*/) {
     WTF::EraseIf(
         metrics_,
         [&present](const mojom::blink::AnchorElementMetricsPtr& metric) {
-          // TODO(https://crbug.com/331043758): Dump to investigate crash.
-          // Once resolved, this can just use `HashMap::at`.
-          const auto present_it = present.find(metric->anchor_id);
-          DUMP_WILL_BE_CHECK(present_it != present.end())
-              << present.size() << " " << metric->anchor_id;
-          if (present_it == present.end()) {
-            return false;
-          }
-          return !present_it->value;
+          return !present.at(metric->anchor_id);
         });
-    WTF::EraseIf(
-        metrics_removed_anchors_, [&present, &newly_removed](AnchorId id) {
-          // TODO(https://crbug.com/331043758): Dump to investigate
-          // crash. Once resolved, these can just use `HashMap::at`.
-          const auto newly_removed_it = newly_removed.find(id);
-          DUMP_WILL_BE_CHECK(newly_removed_it != newly_removed.end())
-              << newly_removed.size() << " " << id;
-          if (newly_removed_it == newly_removed.end()) {
-            return false;
-          }
-          const auto present_it = present.find(id);
-          DUMP_WILL_BE_CHECK(present_it != present.end())
-              << present.size() << " " << id;
-          if (present_it == present.end()) {
-            return false;
-          }
-          return !newly_removed_it->value || present_it->value;
-        });
+    WTF::EraseIf(metrics_removed_anchors_,
+                 [&present, &newly_removed](AnchorId id) {
+                   return !newly_removed.at(id) || present.at(id);
+                 });
 
     metrics_host_->ReportNewAnchorElements(std::move(metrics_),
                                            std::move(metrics_removed_anchors_));

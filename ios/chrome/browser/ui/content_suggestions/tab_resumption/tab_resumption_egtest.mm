@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/ntp_tiles/model/tab_resumption/tab_resumption_prefs.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
+#import "ios/chrome/browser/start_surface/ui_bundled/start_surface_features.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
@@ -17,7 +18,6 @@
 #import "ios/chrome/browser/ui/content_suggestions/new_tab_page_app_interface.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_constants.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_constants.h"
-#import "ios/chrome/browser/ui/start_surface/start_surface_features.h"
 #import "ios/chrome/browser/ui/tabs/tests/distant_tabs_app_interface.h"
 #import "ios/chrome/browser/ui/tabs/tests/fake_distant_tab.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -27,6 +27,7 @@
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
+#import "net/test/embedded_test_server/request_handler_util.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -102,11 +103,7 @@ NSString* HostnameFromGURL(GURL URL) {
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-  config.additional_args.push_back(
-      "--enable-features=" + std::string(kTabResumption.name) + ":" +
-      kTabResumptionParameterName + "/" + kTabResumptionAllTabsParam + "," +
-      syncer::kSyncSessionOnVisibilityChanged.name);
-  config.features_enabled.push_back(kIOSMagicStackCollectionView);
+  config.features_enabled.push_back(syncer::kSyncSessionOnVisibilityChanged);
   if ([self isUsingTabResumption15]) {
     config.features_enabled.push_back(kTabResumption1_5);
   } else {
@@ -114,7 +111,11 @@ NSString* HostnameFromGURL(GURL URL) {
   }
   if ([self isUsingTabResumption2]) {
     config.features_enabled.push_back(kTabResumption2);
+  } else {
+    config.features_disabled.push_back(kTabResumption2);
   }
+  config.additional_args.push_back(std::string("--") +
+                                   kTabResumptionShowItemImmediately);
   config.additional_args.push_back("--test-ios-module-ranker=tab_resumption");
   // kVisitedURLRankingHistoryVisibilityScoreFilter require the network, keep
   // it disabled for tests.
@@ -206,20 +207,18 @@ NSString* HostnameFromGURL(GURL URL) {
 
 // Tests that the tab resumption 2 tile is correctly displayed for a distant
 // tab.
-- (void)testTabResumptionTileDisplayedForDistantTabTR2 {
+// TODO(crbug.com/346713831): This test timed out on some configs.
+- (void)DISABLED_testTabResumptionTileDisplayedForDistantTabTR2 {
   [self testTabResumptionTileDisplayedForDistantTab];
 }
 
 // Tests that the tab resumption tile is correctly displayed for a local tab.
-// TODO(crbug.com/333500324): Test failing on iPad device.
-#if TARGET_IPHONE_SIMULATOR
-#define MAYBE_testTabResumptionTileDisplayedForLocalTab \
-  testTabResumptionTileDisplayedForLocalTab
-#else
-#define MAYBE_testTabResumptionTileDisplayedForLocalTab \
-  FLAKY_testTabResumptionTileDisplayedForLocalTab
-#endif
-- (void)MAYBE_testTabResumptionTileDisplayedForLocalTab {
+- (void)testTabResumptionTileDisplayedForLocalTab {
+  // TODO(crbug.com/333500324): Test failing on iPad device and simulator.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test is flaky on iPad.")
+  }
+
   // Check that the tile is not displayed when there is no local tab.
   WaitUntilTabResumptionTileVisibleOrTimeout(false);
 
@@ -255,7 +254,7 @@ NSString* HostnameFromGURL(GURL URL) {
 
 // Tests that the tab resumption 2 tile is correctly displayed for a local tab.
 - (void)testTabResumptionTileDisplayedForLocalTabTR2 {
-  [self MAYBE_testTabResumptionTileDisplayedForLocalTab];
+  [self testTabResumptionTileDisplayedForLocalTab];
 }
 
 // Tests that interacting with the Magic Stack edit button works when the tab
@@ -322,6 +321,10 @@ NSString* HostnameFromGURL(GURL URL) {
       assertWithMatcher:grey_notNil()];
   [[EarlGrey selectElementWithMatcher:
                  grey_text(l10n_util::GetNSString(
+                     IDS_IOS_MAGIC_STACK_CONTEXT_MENU_CUSTOMIZE_CARDS_TITLE))]
+      assertWithMatcher:grey_notNil()];
+  [[EarlGrey selectElementWithMatcher:
+                 grey_text(l10n_util::GetNSString(
                      IDS_IOS_TAB_RESUMPTION_CONTEXT_MENU_DESCRIPTION))]
       performAction:grey_tap()];
 
@@ -331,8 +334,8 @@ NSString* HostnameFromGURL(GURL URL) {
 
 // Tests that the context menu has the correct action and correctly hides the
 // tile.
-// TODO(crbug.com/345675681): This test timed out on some configs.
-- (void)DISABLED_testTabResumptionTileLongPressTR2 {
+// TODO(crbug.com/333500324): Test is flaky.
+- (void)FLAKY_testTabResumptionTileLongPressTR2 {
   [self testTabResumptionTileLongPress];
 }
 

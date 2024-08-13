@@ -81,9 +81,12 @@ enum class IntelGpuSeriesType {
   kAlchemist = 26,
   kRaptorlake = 27,
   kMeteorlake = 28,
+  kArrowlake = 30,
+  // Intel 13th gen
   kLunarlake = 29,
+  kBattlemage = 31,
   // Please also update |gpu_series_map| in process_json.py.
-  kMaxValue = kLunarlake,
+  kMaxValue = kBattlemage,
 };
 
 // Video profile.  This *must* match media::VideoCodecProfile.
@@ -359,6 +362,9 @@ struct GPU_EXPORT GPUInfo {
   // Secondary GPUs, for example, the integrated GPU in a dual GPU machine.
   std::vector<GPUDevice> secondary_gpus;
 
+  // NPU adapters.
+  std::vector<GPUDevice> npus;
+
   // The version of the pixel/fragment shader used by the gpu.
   std::string pixel_shader_version;
 
@@ -453,12 +459,6 @@ struct GPU_EXPORT GPUInfo {
 #elif defined(ARCH_CPU_31_BITS)
   uint32_t target_cpu_bits = 31;
 #endif
-
-#if BUILDFLAG(IS_MAC)
-  // Enum describing which texture target is used for native GpuMemoryBuffers on
-  // MacOS. Valid values are GL_TEXTURE_2D and GL_TEXTURE_RECTANGLE_ARB.
-  uint32_t macos_specific_texture_target;
-#endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
   // The supported DirectML feature level in the gpu driver;

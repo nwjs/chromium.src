@@ -76,8 +76,9 @@ std::unique_ptr<WebContents> CreateRestoredTab(
   std::unique_ptr<WebContents> web_contents =
       WebContents::CreateWithSessionStorage(create_params,
                                             session_storage_namespace_map);
-  if (from_session_restore)
+  if (from_session_restore) {
     SessionRestore::OnWillRestoreTab(web_contents.get());
+  }
   apps::SetAppIdForWebContents(browser->profile(), web_contents.get(),
                                extension_app_id);
 
@@ -114,8 +115,9 @@ std::unique_ptr<WebContents> CreateRestoredTab(
 // cross-platform expectations about events it observes.
 void LoadRestoredTabIfVisible(Browser* browser,
                               content::WebContents* web_contents) {
-  if (web_contents->GetVisibility() != content::Visibility::VISIBLE)
+  if (web_contents->GetVisibility() != content::Visibility::VISIBLE) {
     return;
+  }
 
   DCHECK_EQ(browser->tab_strip_model()->GetActiveWebContents(), web_contents);
   // A layout should already have been performed to determine the contents size.
@@ -135,7 +137,8 @@ WebContents* AddRestoredTabImpl(std::unique_ptr<WebContents> web_contents,
                                 std::optional<tab_groups::TabGroupId> group,
                                 bool select,
                                 bool pin,
-                                bool from_session_restore) {
+                                bool from_session_restore,
+                                std::optional<bool> is_active_browser) {
   TabStripModel* const tab_strip_model = browser->tab_strip_model();
 
   int add_types = select ? AddTabTypes::ADD_ACTIVE : AddTabTypes::ADD_NONE;
@@ -218,22 +221,34 @@ WebContents* AddRestoredTabImpl(std::unique_ptr<WebContents> web_contents,
 #else
         true;
 #endif
-    if (should_activate)
+    if (should_activate) {
       browser->window()->Activate();
+    }
   }
 
   SessionServiceBase* session_service =
       GetAppropriateSessionServiceIfExisting(browser);
-  if (session_service)
+  if (session_service) {
     session_service->TabRestored(raw_web_contents, pin);
+  }
 
-// On OS_MAC, app restorations take longer than the normal browser window to
-// be restored and that will cause LoadRestoredTabIfVisible() to fail.
-// Skip LoadRestoredTabIfVisible if OS_MAC && the browser is an app browser.
+  // Immediate load if the browser activeness is true or unknown. That is, do
+  // not do immediate load for browsers that are known to be inactive.
+  bool should_load = is_active_browser.value_or(true);
+
+// On OS_MAC, `LoadRestoredTabIfVisible` by default so that its tab loading
+// behaves like other platforms to make FirstWebContentsProfiler wor
+// properly. However, app restorations take longer than the normal browser
+// window to be restored and that will cause `LoadRestoredTabIfVisible()` to
+// fail. Skip LoadRestoredTabIfVisible if OS_MAC && the browser is an app
+// browser.
 #if BUILDFLAG(IS_MAC)
-  if (browser->type() != Browser::Type::TYPE_APP)
+  should_load = (browser->type() != Browser::Type::TYPE_APP);
 #endif  // BUILDFLAG(IS_MAC)
+
+  if (should_load) {
     LoadRestoredTabIfVisible(browser, raw_web_contents);
+  }
 
   return raw_web_contents;
 }
@@ -253,7 +268,8 @@ WebContents* AddRestoredTab(
     content::SessionStorageNamespace* session_storage_namespace,
     const sessions::SerializedUserAgentOverride& user_agent_override,
     const std::map<std::string, std::string>& extra_data,
-    bool from_session_restore) {
+    bool from_session_restore,
+    std::optional<bool> is_active_browser) {
   const bool initially_hidden = !select || browser->window()->IsMinimized();
   std::unique_ptr<WebContents> web_contents = CreateRestoredTab(
       browser, navigations, selected_navigation, extension_app_id,
@@ -261,7 +277,8 @@ WebContents* AddRestoredTab(
       extra_data, initially_hidden, from_session_restore);
 
   return AddRestoredTabImpl(std::move(web_contents), browser, tab_index, group,
-                            select, pin, from_session_restore);
+                            select, pin, from_session_restore,
+                            is_active_browser);
 }
 
 WebContents* ReplaceRestoredTab(

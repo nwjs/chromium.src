@@ -44,6 +44,7 @@
 #include "components/download/public/common/download_danger_type.h"
 #include "components/download/public/common/download_interrupt_reasons.h"
 #include "components/download/public/common/download_item.h"
+#include "components/download/public/common/download_item_rename_handler.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/web_ui/safe_browsing_ui.h"
 #include "components/safe_browsing/content/common/file_type_policies.h"
@@ -63,7 +64,6 @@
 #include "ui/color/color_id.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "ash/constants/ash_features.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #endif
 
@@ -283,7 +283,14 @@ Profile* DownloadItemModel::profile() const {
 
 std::u16string DownloadItemModel::GetTabProgressStatusText() const {
   int64_t total = GetTotalBytes();
-  int64_t size = download_->GetReceivedBytes();
+  int64_t size;
+  auto* renamer = download_->GetRenameHandler();
+  if (renamer && renamer->ShowRenameProgress()) {
+    size = static_cast<int>(
+        (download_->GetReceivedBytes() + download_->GetUploadedBytes()) * 0.5);
+  } else {
+    size = download_->GetReceivedBytes();
+  }
   std::u16string received_size = ui::FormatBytes(size);
   std::u16string amount = received_size;
 
@@ -325,6 +332,11 @@ std::u16string DownloadItemModel::GetTabProgressStatusText() const {
 }
 
 int64_t DownloadItemModel::GetCompletedBytes() const {
+  auto* renamer = download_->GetRenameHandler();
+  if (renamer && renamer->ShowRenameProgress()) {
+    return static_cast<int>(
+        (download_->GetReceivedBytes() + download_->GetUploadedBytes()) * 0.5);
+  }
   return download_->GetReceivedBytes();
 }
 
@@ -337,6 +349,13 @@ int64_t DownloadItemModel::GetTotalBytes() const {
 //     ChromeDownloadManagerDelegate, we should calculate the percentage here
 //     instead of calling into the DownloadItem.
 int DownloadItemModel::PercentComplete() const {
+  auto* renamer = download_->GetRenameHandler();
+  if (renamer && renamer->ShowRenameProgress()) {
+    return static_cast<int>(
+        ((download_->GetReceivedBytes() + download_->GetUploadedBytes()) * 0.5 *
+         100.0) /
+        GetTotalBytes());
+  }
   return download_->PercentComplete();
 }
 
@@ -704,10 +723,6 @@ void DownloadItemModel::OpenUsingPlatformHandler() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 std::optional<DownloadCommands::Command>
 DownloadItemModel::MaybeGetMediaAppAction() const {
-  if (!base::FeatureList::IsEnabled(ash::features::kFileNotificationRevamp)) {
-    return std::nullopt;
-  }
-
   std::string mime_type = GetMimeType();
 
   if (mime_type == "application/pdf") {
@@ -749,11 +764,9 @@ bool DownloadItemModel::IsCommandEnabled(
       // filename. Don't base an "Always open" decision based on it. Also
       // exclude extensions.
       return download_->CanOpenDownload() &&
-#if 0
              safe_browsing::FileTypePolicies::GetInstance()
                  ->IsAllowedToOpenAutomatically(
                      download_->GetTargetFilePath()) &&
-#endif
              !download_crx_util::IsExtensionDownload(*download_);
     case DownloadCommands::PAUSE:
       return !download_->IsSavePackageDownload() &&
@@ -872,7 +885,6 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
 #if BUILDFLAG(FULL_SAFE_BROWSING)
       CompleteSafeBrowsingScan();
 #endif
-#if 0
       if (download_->GetDangerType() ==
               download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING ||
           download_->GetDangerType() ==
@@ -884,7 +896,6 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
         LogDeepScanEvent(download_,
                          safe_browsing::DeepScanEvent::kPromptBypassed);
       }
-#endif
       [[fallthrough]];
     case DownloadCommands::KEEP:
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -953,16 +964,13 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
       DownloadUIModel::ExecuteCommand(download_commands, command);
       break;
     case DownloadCommands::DEEP_SCAN: {
-#if 0
       safe_browsing::DownloadProtectionService::UploadForConsumerDeepScanning(
           download_,
           DownloadItemWarningData::DeepScanTrigger::TRIGGER_CONSUMER_PROMPT,
           /*password=*/std::nullopt);
-#endif
       break;
     }
     case DownloadCommands::CANCEL_DEEP_SCAN: {
-#if 0
       DownloadCoreService* download_core_service =
           DownloadCoreServiceFactory::GetForBrowserContext(
               content::DownloadItemUtils::GetBrowserContext(download_));
@@ -974,15 +982,12 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
       delegate->CheckClientDownloadDone(
           download_->GetId(),
           safe_browsing::DownloadCheckResult::PROMPT_FOR_SCANNING);
-#endif
       break;
     }
   }
 }
 
 TailoredWarningType DownloadItemModel::GetTailoredWarningType() const {
-  return TailoredWarningType::kNoTailoredWarning;
-#if 0
   if (!base::FeatureList::IsEnabled(safe_browsing::kDownloadTailoredWarnings)) {
     return TailoredWarningType::kNoTailoredWarning;
   }
@@ -1008,7 +1013,6 @@ TailoredWarningType DownloadItemModel::GetTailoredWarningType() const {
   }
 
   return TailoredWarningType::kNoTailoredWarning;
-#endif
 }
 
 DangerUiPattern DownloadItemModel::GetDangerUiPattern() const {

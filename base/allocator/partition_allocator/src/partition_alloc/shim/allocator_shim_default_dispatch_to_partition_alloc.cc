@@ -5,7 +5,6 @@
 #include "partition_alloc/shim/allocator_shim_default_dispatch_to_partition_alloc.h"
 
 #include <atomic>
-#include <bit>
 #include <cstddef>
 #include <map>
 #include <string>
@@ -13,21 +12,20 @@
 
 #include "partition_alloc/allocation_guard.h"
 #include "partition_alloc/build_config.h"
-#include "partition_alloc/chromecast_buildflags.h"
+#include "partition_alloc/buildflags.h"
 #include "partition_alloc/memory_reclaimer.h"
 #include "partition_alloc/partition_alloc.h"
+#include "partition_alloc/partition_alloc_base/bits.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/no_destructor.h"
 #include "partition_alloc/partition_alloc_base/numerics/checked_math.h"
 #include "partition_alloc/partition_alloc_base/numerics/safe_conversions.h"
-#include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_constants.h"
 #include "partition_alloc/partition_root.h"
 #include "partition_alloc/partition_stats.h"
 #include "partition_alloc/shim/allocator_dispatch.h"
 #include "partition_alloc/shim/allocator_shim_internals.h"
-#include "partition_alloc/shim/nonscannable_allocator.h"
 
 #if PA_BUILDFLAG(IS_LINUX) || PA_BUILDFLAG(IS_CHROMEOS)
 #include <malloc.h>
@@ -175,6 +173,7 @@ bool AllocatorConfigurationFinalized() {
   return g_roots_finalized.load();
 }
 
+template <partition_alloc::AllocFlags flags>
 void* AllocateAlignedMemory(size_t alignment, size_t size) {
   // Memory returned by the regular allocator *always* respects |kAlignment|,
   // which is a power of two, and any valid alignment is also a power of two. So
@@ -186,15 +185,13 @@ void* AllocateAlignedMemory(size_t alignment, size_t size) {
   // time.
   if (alignment <= partition_alloc::internal::kAlignment) {
     // This is mandated by |posix_memalign()| and friends, so should never fire.
-    PA_CHECK(std::has_single_bit(alignment));
+    PA_CHECK(partition_alloc::internal::base::bits::HasSingleBit(alignment));
     // TODO(bartekn): See if the compiler optimizes branches down the stack on
     // Mac, where PartitionPageSize() isn't constexpr.
-    return Allocator()->AllocInline<partition_alloc::AllocFlags::kNoHooks>(
-        size);
+    return Allocator()->AllocInline<flags>(size);
   }
 
-  return Allocator()->AlignedAllocInline<partition_alloc::AllocFlags::kNoHooks>(
-      alignment, size);
+  return Allocator()->AlignedAllocInline<flags>(alignment, size);
 }
 
 }  // namespace
@@ -232,7 +229,8 @@ void* PartitionMemalign(const AllocatorDispatch*,
                         size_t size,
                         void* context) {
   partition_alloc::ScopedDisallowAllocations guard{};
-  return AllocateAlignedMemory(alignment, size);
+  return AllocateAlignedMemory<partition_alloc::AllocFlags::kNoHooks>(alignment,
+                                                                      size);
 }
 
 void* PartitionAlignedAlloc(const AllocatorDispatch* dispatch,
@@ -240,7 +238,18 @@ void* PartitionAlignedAlloc(const AllocatorDispatch* dispatch,
                             size_t alignment,
                             void* context) {
   partition_alloc::ScopedDisallowAllocations guard{};
-  return AllocateAlignedMemory(alignment, size);
+  return AllocateAlignedMemory<partition_alloc::AllocFlags::kNoHooks>(alignment,
+                                                                      size);
+}
+
+void* PartitionAlignedAllocUnchecked(const AllocatorDispatch* dispatch,
+                                     size_t size,
+                                     size_t alignment,
+                                     void* context) {
+  partition_alloc::ScopedDisallowAllocations guard{};
+  return AllocateAlignedMemory<partition_alloc::AllocFlags::kNoHooks |
+                               partition_alloc::AllocFlags::kReturnNull>(
+      alignment, size);
 }
 
 // aligned_realloc documentation is
@@ -257,7 +266,43 @@ void* PartitionAlignedRealloc(const AllocatorDispatch* dispatch,
   partition_alloc::ScopedDisallowAllocations guard{};
   void* new_ptr = nullptr;
   if (size > 0) {
-    new_ptr = AllocateAlignedMemory(alignment, size);
+    new_ptr = AllocateAlignedMemory<partition_alloc::AllocFlags::kNoHooks>(
+        alignment, size);
+  } else {
+    // size == 0 and address != null means just "free(address)".
+    if (address) {
+      partition_alloc::PartitionRoot::FreeInlineInUnknownRoot<
+          partition_alloc::FreeFlags::kNoHooks>(address);
+    }
+  }
+  // The original memory block (specified by address) is unchanged if ENOMEM.
+  if (!new_ptr) {
+    return nullptr;
+  }
+  // TODO(tasak): Need to compare the new alignment with the address' alignment.
+  // If the two alignments are not the same, need to return nullptr with EINVAL.
+  if (address) {
+    size_t usage = partition_alloc::PartitionRoot::GetUsableSize(address);
+    size_t copy_size = usage > size ? size : usage;
+    memcpy(new_ptr, address, copy_size);
+
+    partition_alloc::PartitionRoot::FreeInlineInUnknownRoot<
+        partition_alloc::FreeFlags::kNoHooks>(address);
+  }
+  return new_ptr;
+}
+
+void* PartitionAlignedReallocUnchecked(const AllocatorDispatch* dispatch,
+                                       void* address,
+                                       size_t size,
+                                       size_t alignment,
+                                       void* context) {
+  partition_alloc::ScopedDisallowAllocations guard{};
+  void* new_ptr = nullptr;
+  if (size > 0) {
+    new_ptr = AllocateAlignedMemory<partition_alloc::AllocFlags::kNoHooks |
+                                    partition_alloc::AllocFlags::kReturnNull>(
+        alignment, size);
   } else {
     // size == 0 and address != null means just "free(address)".
     if (address) {
@@ -302,11 +347,32 @@ void* PartitionRealloc(const AllocatorDispatch*,
                                                                      size, "");
 }
 
-#if PA_BUILDFLAG(PA_IS_CAST_ANDROID)
+void* PartitionReallocUnchecked(const AllocatorDispatch*,
+                                void* address,
+                                size_t size,
+                                void* context) {
+  partition_alloc::ScopedDisallowAllocations guard{};
+#if PA_BUILDFLAG(IS_APPLE)
+  if (PA_UNLIKELY(!partition_alloc::IsManagedByPartitionAlloc(
+                      reinterpret_cast<uintptr_t>(address)) &&
+                  address)) {
+    // A memory region allocated by the system allocator is passed in this
+    // function.  Forward the request to `realloc` which supports zone-
+    // dispatching so that it appropriately selects the right zone.
+    return realloc(address, size);
+  }
+#endif  // PA_BUILDFLAG(IS_APPLE)
+
+  return Allocator()
+      ->Realloc<partition_alloc::AllocFlags::kNoHooks |
+                partition_alloc::AllocFlags::kReturnNull>(address, size, "");
+}
+
+#if PA_BUILDFLAG(IS_CAST_ANDROID)
 extern "C" {
 void __real_free(void*);
 }       // extern "C"
-#endif  // PA_BUILDFLAG(PA_IS_CAST_ANDROID)
+#endif  // PA_BUILDFLAG(IS_CAST_ANDROID)
 
 void PartitionFree(const AllocatorDispatch*, void* object, void* context) {
   partition_alloc::ScopedDisallowAllocations guard{};
@@ -326,7 +392,7 @@ void PartitionFree(const AllocatorDispatch*, void* object, void* context) {
   // malloc() pointer can be passed to PartitionAlloc's free(). If we don't own
   // the pointer, pass it along. This should not have a runtime cost vs regular
   // Android, since on Android we have a PA_CHECK() rather than the branch here.
-#if PA_BUILDFLAG(PA_IS_CAST_ANDROID)
+#if PA_BUILDFLAG(IS_CAST_ANDROID)
   if (PA_UNLIKELY(!partition_alloc::IsManagedByPartitionAlloc(
                       reinterpret_cast<uintptr_t>(object)) &&
                   object)) {
@@ -335,7 +401,7 @@ void PartitionFree(const AllocatorDispatch*, void* object, void* context) {
     // here.
     return __real_free(object);
   }
-#endif  // PA_BUILDFLAG(PA_IS_CAST_ANDROID)
+#endif  // PA_BUILDFLAG(IS_CAST_ANDROID)
 
   partition_alloc::PartitionRoot::FreeInlineInUnknownRoot<
       partition_alloc::FreeFlags::kNoHooks>(object);
@@ -577,22 +643,6 @@ uint32_t GetMainPartitionRootExtrasSize() {
 #endif  // PA_CONFIG(EXTRAS_REQUIRED)
 }
 
-#if PA_BUILDFLAG(USE_STARSCAN)
-void EnablePCScan(partition_alloc::internal::PCScan::InitConfig config) {
-  partition_alloc::internal::PCScan::Initialize(config);
-
-  PA_CHECK(AllocatorConfigurationFinalized());
-  partition_alloc::internal::PCScan::RegisterScannableRoot(Allocator());
-  if (OriginalAllocator() != nullptr) {
-    partition_alloc::internal::PCScan::RegisterScannableRoot(
-        OriginalAllocator());
-  }
-
-  allocator_shim::NonScannableAllocator::Instance().NotifyPCScanEnabled();
-  allocator_shim::NonQuarantinableAllocator::Instance().NotifyPCScanEnabled();
-}
-#endif  // PA_BUILDFLAG(USE_STARSCAN)
-
 void AdjustDefaultAllocatorForForeground() {
   Allocator()->AdjustForForeground();
 }
@@ -611,7 +661,9 @@ const AllocatorDispatch AllocatorDispatch::default_dispatch = {
         PartitionCalloc,  // alloc_zero_initialized_function
     &allocator_shim::internal::PartitionMemalign,  // alloc_aligned_function
     &allocator_shim::internal::PartitionRealloc,   // realloc_function
-    &allocator_shim::internal::PartitionFree,      // free_function
+    &allocator_shim::internal::
+        PartitionReallocUnchecked,             // realloc_unchecked_function
+    &allocator_shim::internal::PartitionFree,  // free_function
     &allocator_shim::internal::
         PartitionGetSizeEstimate,  // get_size_estimate_function
 #if PA_BUILDFLAG(IS_APPLE)
@@ -638,7 +690,11 @@ const AllocatorDispatch AllocatorDispatch::default_dispatch = {
     &allocator_shim::internal::
         PartitionAlignedAlloc,  // aligned_malloc_function
     &allocator_shim::internal::
-        PartitionAlignedRealloc,               // aligned_realloc_function
+        PartitionAlignedAllocUnchecked,  // aligned_malloc_unchecked_function
+    &allocator_shim::internal::
+        PartitionAlignedRealloc,  // aligned_realloc_function
+    &allocator_shim::internal::
+        PartitionAlignedReallocUnchecked,  // aligned_realloc_unchecked_function
     &allocator_shim::internal::PartitionFree,  // aligned_free_function
     nullptr,                                   // next
 };
@@ -664,22 +720,6 @@ SHIM_ALWAYS_EXPORT int mallopt(int cmd, int value) __THROW {
 SHIM_ALWAYS_EXPORT struct mallinfo mallinfo(void) __THROW {
   partition_alloc::SimplePartitionStatsDumper allocator_dumper;
   Allocator()->DumpStats("malloc", true, &allocator_dumper);
-  // TODO(bartekn): Dump OriginalAllocator() into "malloc" as well.
-  // Dump stats for nonscannable and nonquarantinable allocators.
-  auto& nonscannable_allocator =
-      allocator_shim::NonScannableAllocator::Instance();
-  partition_alloc::SimplePartitionStatsDumper nonscannable_allocator_dumper;
-  if (auto* nonscannable_root = nonscannable_allocator.root()) {
-    nonscannable_root->DumpStats("malloc", true,
-                                 &nonscannable_allocator_dumper);
-  }
-  auto& nonquarantinable_allocator =
-      allocator_shim::NonQuarantinableAllocator::Instance();
-  partition_alloc::SimplePartitionStatsDumper nonquarantinable_allocator_dumper;
-  if (auto* nonquarantinable_root = nonquarantinable_allocator.root()) {
-    nonquarantinable_root->DumpStats("malloc", true,
-                                     &nonquarantinable_allocator_dumper);
-  }
 
   struct mallinfo info = {};
   info.arena = 0;  // Memory *not* allocated with mmap().
@@ -687,21 +727,15 @@ SHIM_ALWAYS_EXPORT struct mallinfo mallinfo(void) __THROW {
   // Memory allocated with mmap(), aka virtual size.
   info.hblks =
       partition_alloc::internal::base::checked_cast<decltype(info.hblks)>(
-          allocator_dumper.stats().total_mmapped_bytes +
-          nonscannable_allocator_dumper.stats().total_mmapped_bytes +
-          nonquarantinable_allocator_dumper.stats().total_mmapped_bytes);
+          allocator_dumper.stats().total_mmapped_bytes);
   // Resident bytes.
   info.hblkhd =
       partition_alloc::internal::base::checked_cast<decltype(info.hblkhd)>(
-          allocator_dumper.stats().total_resident_bytes +
-          nonscannable_allocator_dumper.stats().total_resident_bytes +
-          nonquarantinable_allocator_dumper.stats().total_resident_bytes);
+          allocator_dumper.stats().total_resident_bytes);
   // Allocated bytes.
   info.uordblks =
       partition_alloc::internal::base::checked_cast<decltype(info.uordblks)>(
-          allocator_dumper.stats().total_active_bytes +
-          nonscannable_allocator_dumper.stats().total_active_bytes +
-          nonquarantinable_allocator_dumper.stats().total_active_bytes);
+          allocator_dumper.stats().total_active_bytes);
 
   return info;
 }

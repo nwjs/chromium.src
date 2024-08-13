@@ -177,9 +177,10 @@ class ProfileOAuth2TokenServiceDelegate {
   void ExtractCredentials(ProfileOAuth2TokenService* to_service,
                           const CoreAccountId& account_id);
 
-  // Attempts to fix the error if possible.  Returns true if the error was fixed
-  // and false otherwise.
-  virtual bool FixRequestErrorIfPossible();
+  // Attempts to fix account error. This is only possible for some cases where
+  // signin happens with a credential provider. See
+  // `signin_util::SigninWithCredentialProviderIfPossible()`.
+  virtual bool FixAccountErrorIfPossible();
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
   // Triggers platform specific implementation to reload accounts from system.
@@ -294,8 +295,7 @@ class ProfileOAuth2TokenServiceDelegate {
 
   // List of observers to notify when refresh token availability changes.
   // Makes sure list is empty on destruction.
-  base::ObserverList<ProfileOAuth2TokenServiceObserver, true>::Unchecked
-      observer_list_;
+  base::ObserverList<ProfileOAuth2TokenServiceObserver, true> observer_list_;
 
   // The state of the load credentials operation.
   signin::LoadCredentialsState load_credentials_state_ =

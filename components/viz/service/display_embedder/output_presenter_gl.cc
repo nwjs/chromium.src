@@ -157,25 +157,23 @@ void OutputPresenterGL::InitializeCapabilities(
 
   // TODO(crbug.com/40141277): only add supported formats base on
   // platform, driver, etc.
-  capabilities->sk_color_types[static_cast<int>(gfx::BufferFormat::BGR_565)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kBGR_565] =
       kRGB_565_SkColorType;
-  capabilities->sk_color_types[static_cast<int>(gfx::BufferFormat::RGBA_4444)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kRGBA_4444] =
       kARGB_4444_SkColorType;
-  capabilities->sk_color_types[static_cast<int>(gfx::BufferFormat::RGBX_8888)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kRGBX_8888] =
       kRGB_888x_SkColorType;
-  capabilities->sk_color_types[static_cast<int>(gfx::BufferFormat::RGBA_8888)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kRGBA_8888] =
       kRGBA_8888_SkColorType;
-  capabilities->sk_color_types[static_cast<int>(gfx::BufferFormat::BGRX_8888)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kBGRX_8888] =
       kBGRA_8888_SkColorType;
-  capabilities->sk_color_types[static_cast<int>(gfx::BufferFormat::BGRA_8888)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kBGRA_8888] =
       kBGRA_8888_SkColorType;
-  capabilities
-      ->sk_color_types[static_cast<int>(gfx::BufferFormat::BGRA_1010102)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kBGRA_1010102] =
       kBGRA_1010102_SkColorType;
-  capabilities
-      ->sk_color_types[static_cast<int>(gfx::BufferFormat::RGBA_1010102)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kRGBA_1010102] =
       kRGBA_1010102_SkColorType;
-  capabilities->sk_color_types[static_cast<int>(gfx::BufferFormat::RGBA_F16)] =
+  capabilities->sk_color_type_map[SinglePlaneFormat::kRGBA_F16] =
       kRGBA_F16_SkColorType;
 }
 
@@ -192,9 +190,9 @@ std::vector<std::unique_ptr<OutputPresenter::Image>>
 OutputPresenterGL::AllocateImages(gfx::ColorSpace color_space,
                                   gfx::Size image_size,
                                   size_t num_images) {
-  const uint32_t usage = gpu::SHARED_IMAGE_USAGE_SCANOUT |
-                         gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
-                         gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE;
+  const gpu::SharedImageUsageSet usage = gpu::SHARED_IMAGE_USAGE_SCANOUT |
+                                         gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
+                                         gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE;
 
   std::vector<std::unique_ptr<Image>> images;
   for (size_t i = 0; i < num_images; ++i) {
@@ -283,8 +281,8 @@ void OutputPresenterGL::ScheduleOverlayPlane(
       CHECK_EQ(gpu::GrContextType::kGL,
                dependency_->GetSharedContextState()->gr_context_type());
       CHECK(features::IsDelegatedCompositingEnabled());
-      CHECK(access->representation()->usage() &
-            gpu::SHARED_IMAGE_USAGE_RASTER_DELEGATED_COMPOSITING);
+      CHECK(access->representation()->usage().Has(
+          gpu::SHARED_IMAGE_USAGE_RASTER_DELEGATED_COMPOSITING));
     }
 #endif
 
@@ -312,7 +310,8 @@ void OutputPresenterGL::ScheduleOverlayPlane(
             overlay_plane_candidate.hdr_metadata, overlay_plane_candidate.color,
             overlay_plane_candidate.is_solid_color,
             overlay_plane_candidate.is_root_render_pass,
-            overlay_plane_candidate.clip_rect));
+            overlay_plane_candidate.clip_rect,
+            overlay_plane_candidate.overlay_type));
   }
 #elif BUILDFLAG(IS_APPLE)
   presenter_->ScheduleCALayer(ui::CARendererLayerParams(

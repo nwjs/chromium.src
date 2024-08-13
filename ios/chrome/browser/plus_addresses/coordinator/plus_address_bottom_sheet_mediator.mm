@@ -11,6 +11,7 @@
 #import "components/plus_addresses/metrics/plus_address_metrics.h"
 #import "components/plus_addresses/plus_address_service.h"
 #import "components/plus_addresses/plus_address_types.h"
+#import "components/plus_addresses/settings/plus_address_setting_service.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_constants.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_consumer.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
@@ -21,6 +22,8 @@
 @implementation PlusAddressBottomSheetMediator {
   // The service implementation that owns the data.
   raw_ptr<plus_addresses::PlusAddressService> _plusAddressService;
+  // Manages settings for `PlusAddressService`.
+  raw_ptr<plus_addresses::PlusAddressSettingService> _plusAddressSettingService;
   // The origin to which all operations should be scoped.
   url::Origin _mainFrameOrigin;
   // The autofill callback to be run if the process completes via confirmation
@@ -34,6 +37,8 @@
 
 - (instancetype)
     initWithPlusAddressService:(plus_addresses::PlusAddressService*)service
+     plusAddressSettingService:
+         (plus_addresses::PlusAddressSettingService*)plusAddressSettingService
                      activeUrl:(GURL)activeUrl
               autofillCallback:(plus_addresses::PlusAddressCallback)callback
                      urlLoader:(UrlLoadingBrowserAgent*)urlLoader
@@ -44,6 +49,7 @@
   self = [super init];
   if (self) {
     _plusAddressService = service;
+    _plusAddressSettingService = plusAddressSettingService;
     _mainFrameOrigin = url::Origin::Create(activeUrl);
     _autofillCallback = std::move(callback);
     _urlLoader = urlLoader;
@@ -113,9 +119,7 @@
 }
 
 - (BOOL)isRefreshEnabled {
-  return base::FeatureList::IsEnabled(
-             plus_addresses::features::kPlusAddressRefreshUiInIOS) &&
-         _plusAddressService->IsRefreshingSupported(_mainFrameOrigin);
+  return _plusAddressService->IsRefreshingSupported(_mainFrameOrigin);
 }
 
 - (void)didTapRefreshButton {
@@ -137,6 +141,12 @@
                                           std::move(callback));
 }
 
+- (BOOL)shouldShowNotice {
+  return !_plusAddressSettingService->GetHasAcceptedNotice() &&
+         base::FeatureList::IsEnabled(
+             plus_addresses::features::kPlusAddressUserOnboardingEnabled);
+}
+
 #pragma mark - Private
 
 // Runs the autofill callback and notifies the consumer of the successful
@@ -144,6 +154,9 @@
 - (void)runAutofillCallback:(NSString*)confirmedPlusAddress {
   std::move(_autofillCallback)
       .Run(base::SysNSStringToUTF8(confirmedPlusAddress));
+  if ([self shouldShowNotice]) {
+    _plusAddressSettingService->SetHasAcceptedNotice();
+  }
   [_consumer didConfirmPlusAddress];
 }
 
@@ -160,6 +173,8 @@
       return GURL(plus_addresses::features::kPlusAddressErrorReportUrl.Get());
     case PlusAddressURLType::kManagement:
       return GURL(plus_addresses::features::kPlusAddressManagementUrl.Get());
+    case PlusAddressURLType::kLearnMore:
+      return GURL(plus_addresses::features::kPlusAddressLearnMoreUrl.Get());
   }
 }
 @end

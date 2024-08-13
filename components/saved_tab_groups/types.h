@@ -15,13 +15,23 @@
 
 namespace tab_groups {
 
+// Types for tab and tab group IDs.
 #if BUILDFLAG(IS_ANDROID)
 using LocalTabID = int;
 using LocalTabGroupID = base::Token;
+#elif BUILDFLAG(IS_IOS)
+using LocalTabID = int;
+using LocalTabGroupID = tab_groups::TabGroupId;
 #else
 using LocalTabID = base::Token;
 using LocalTabGroupID = tab_groups::TabGroupId;
 #endif
+
+// Base context for tab group actions. Platforms can subclass this to pass
+// additional context such as a browser window.
+struct TabGroupActionContext {
+  virtual ~TabGroupActionContext();
+};
 
 // Whether the update was originated by a change in the local or remote
 // client.

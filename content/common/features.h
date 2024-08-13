@@ -15,7 +15,6 @@ namespace features {
 // Please keep features in alphabetical order.
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAllowContentInitiatedDataUrlNavigations);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDownloadableFontsMatching);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kAttributionReportingCrossAppWebOverride);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackForwardCacheTimeToLiveControl);
 BASE_DECLARE_FEATURE(kBeforeUnloadBrowserResponseQueue);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
@@ -28,7 +27,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kCodeCacheDeletionWithoutFilter);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCriticalClientHint);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDataUrlsHaveStableNonce);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDataUrlsHaveOriginAsUrl);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeferSpeculativeRFHCreation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDesktopCaptureChangeSource);
 #if BUILDFLAG(IS_MAC)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeviceMonitorMac);
@@ -43,6 +41,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableDevToolsJsErrorReporting);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEmbeddingRequiresOptIn);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kExperimentalContentSecurityPolicyFeatures);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmIdAssertionCORS);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmSameSiteLax);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmSameSiteNone);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFilterInstalledAppsWebAppMatching);
 #if BUILDFLAG(IS_WIN)
@@ -56,11 +55,17 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeDelayPostAuctionInterestGroupUpdate);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeSellerWorkletThreadPool);
 CONTENT_EXPORT extern const base::FeatureParam<int>
     kFledgeSellerWorkletThreadPoolSize;
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeBidderWorkletThreadPool);
+CONTENT_EXPORT extern const base::FeatureParam<double>
+    kFledgeBidderWorkletThreadPoolSizeLogarithmicScalingFactor;
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kFocusRenderWidgetHostViewAndroidOnActionDown);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFontSrcLocalMatching);
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFontIndexingFontations);
+#endif
 #if !BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kForwardMemoryPressureEventsToGpuProcess);
 #endif
@@ -95,6 +100,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kMojoDedicatedThread);
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kOptimizeImmHideCalls);
 #endif
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPdfEnforcements);
 #if !BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPermissionsPolicyVerificationInContent);
 #endif
@@ -106,6 +112,9 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessSharingWithStrictSiteInstances);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReloadHiddenTabsWithCrashedSubframes);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kRunStableVideoDecoderFactoryProcessServiceOnIOThread);
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kContinueGestureOnLosingFocus);
+#endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kResourceTimingForCancelledNavigationInFrame);
 BASE_DECLARE_FEATURE(kRestrictCanAccessDataForOriginToUIThread);
@@ -138,6 +147,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyDynamicTiering);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebOTPAssertionFeaturePolicy);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebRtcUseGpuMemoryBufferVideoFrames);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWindowOpenFileSelectFix);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kScrollBubblingFix);
 
 // Please keep features in alphabetical order.
 

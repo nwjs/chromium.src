@@ -11,9 +11,11 @@
 #include "base/check_op.h"
 #include "base/notreached.h"
 #include "base/numerics/checked_math.h"
+#include "base/strings/strcat.h"
 #include "base/trace_event/trace_event.h"
 #include "services/webnn/dml/buffer_impl_dml.h"
 #include "services/webnn/dml/error.h"
+#include "services/webnn/public/cpp/webnn_errors.h"
 
 namespace webnn::dml {
 
@@ -127,16 +129,15 @@ Microsoft::WRL::ComPtr<ID3D12Device> GetD3D12Device(IDMLDevice* dml_device) {
 DML_FEATURE_LEVEL GetMaxSupportedDMLFeatureLevel(IDMLDevice* dml_device) {
   CHECK(dml_device);
 
-  // WebNN targets DirectML version 1.6 or DML_FEATURE_LEVEL_4_0.
-  // So query all levels up to DML_FEATURE_LEVEL_4_0. This allows
-  // downlevel hardware to still run unit-tests that may only require a lower
-  // level.
+  // WebNN targets DML_FEATURE_LEVEL_4_0 for GPU and DML_FEATURE_LEVEL_6_4 for
+  // NPU. Query all levels up to DML_FEATURE_LEVEL_4_0. This allows downlevel
+  // hardware to still run unit-tests that may only require a lower level.
   DML_FEATURE_LEVEL feature_levels_requested[] = {
       DML_FEATURE_LEVEL_1_0, DML_FEATURE_LEVEL_2_0, DML_FEATURE_LEVEL_2_1,
       DML_FEATURE_LEVEL_3_0, DML_FEATURE_LEVEL_3_1, DML_FEATURE_LEVEL_4_0,
       DML_FEATURE_LEVEL_4_1, DML_FEATURE_LEVEL_5_0, DML_FEATURE_LEVEL_5_1,
       DML_FEATURE_LEVEL_5_2, DML_FEATURE_LEVEL_6_0, DML_FEATURE_LEVEL_6_1,
-      DML_FEATURE_LEVEL_6_2};
+      DML_FEATURE_LEVEL_6_2, DML_FEATURE_LEVEL_6_4};
 
   DML_FEATURE_QUERY_FEATURE_LEVELS feature_levels_query = {
       std::size(feature_levels_requested), feature_levels_requested};
@@ -230,8 +231,14 @@ void ReadbackBufferWithBarrier(
 }
 
 mojom::ErrorPtr CreateError(mojom::Error::Code error_code,
-                            const std::string& error_message) {
+                            const std::string& error_message,
+                            std::string_view label) {
   LOG(ERROR) << "[WebNN] CreateError: " << error_message;
+  if (!label.empty()) {
+    return mojom::Error::New(
+        error_code, base::StrCat({kBackendName, GetLabelErrorSuffix(label),
+                                  error_message}));
+  }
   return mojom::Error::New(error_code, kBackendName + error_message);
 }
 

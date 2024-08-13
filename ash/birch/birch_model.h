@@ -101,6 +101,7 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   void SetMostVisitedItems(const std::vector<BirchMostVisitedItem>& items);
   void SetSelfShareItems(
       const std::vector<BirchSelfShareItem>& self_share_items);
+  void SetLostMediaItems(const std::vector<BirchLostMediaItem>& items);
   void SetReleaseNotesItems(
       const std::vector<BirchReleaseNotesItem>& release_notes_items);
   void SetWeatherItems(const std::vector<BirchWeatherItem>& weather_items);
@@ -133,6 +134,9 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   std::vector<BirchSelfShareItem>& GetSelfShareItemsForTest() {
     return self_share_data_.items;
   }
+  std::vector<BirchLostMediaItem>& GetLostMediaItemsForTest() {
+    return lost_media_data_.items;
+  }
   const std::vector<BirchReleaseNotesItem>& GetReleaseNotesItemsForTest()
       const {
     return release_notes_data_.items;
@@ -160,6 +164,7 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   // SimpleGeolocationProvider::Observer:
   void OnGeolocationPermissionChanged(bool enabled) override;
 
+  BirchDataProvider* GetWeatherProviderForTest();
   void OverrideWeatherProviderForTest(
       std::unique_ptr<BirchDataProvider> weather_provider);
   void OverrideClockForTest(base::Clock* clock);
@@ -200,10 +205,8 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   // Called when a data provider pref changes.
   void OnCalendarPrefChanged();
   void OnFileSuggestPrefChanged();
-  void OnRecentTabPrefChanged();
-  void OnLastActivePrefChanged();
-  void OnMostVisitedPrefChanged();
-  void OnSelfSharePrefChanged();
+  void OnChromeTabsPrefChanged();
+  void OnLostMediaPrefChanged();
   void OnWeatherPrefChanged();
   void OnReleaseNotesPrefChanged();
 
@@ -224,10 +227,6 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   // Returns true if most visited items should be included in the results.
   bool ShouldShowMostVisited();
 
-  // Returns the weather provider to use, depending on whether BirchWeatherV2
-  // feature is enabled. Returns nullptr if weather provider is disabled.
-  BirchDataProvider* GetWeatherProvider();
-
   // Whether this is a post-login fetch (occurring right after login).
   bool is_post_login_fetch_ = false;
 
@@ -246,6 +245,7 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   DataTypeInfo<BirchLastActiveItem> last_active_data_;
   DataTypeInfo<BirchMostVisitedItem> most_visited_data_;
   DataTypeInfo<BirchSelfShareItem> self_share_data_;
+  DataTypeInfo<BirchLostMediaItem> lost_media_data_;
   DataTypeInfo<BirchReleaseNotesItem> release_notes_data_;
   DataTypeInfo<BirchWeatherItem> weather_data_;
 
@@ -265,10 +265,8 @@ class ASH_EXPORT BirchModel : public SessionObserver,
 
   PrefChangeRegistrar calendar_pref_registrar_;
   PrefChangeRegistrar file_suggest_pref_registrar_;
-  PrefChangeRegistrar recent_tab_pref_registrar_;
-  PrefChangeRegistrar last_active_pref_registrar_;
-  PrefChangeRegistrar most_visited_pref_registrar_;
-  PrefChangeRegistrar self_share_pref_registrar_;
+  PrefChangeRegistrar chrome_tabs_pref_registrar_;
+  PrefChangeRegistrar lost_media_pref_registrar_;
   PrefChangeRegistrar weather_pref_registrar_;
   PrefChangeRegistrar release_notes_pref_registrar_;
 

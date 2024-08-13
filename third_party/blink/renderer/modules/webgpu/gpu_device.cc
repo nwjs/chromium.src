@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/modules/webgpu/gpu_device.h"
 
 #include "gpu/command_buffer/client/webgpu_interface.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_compute_pipeline_descriptor.h"
@@ -119,6 +120,19 @@ std::optional<V8GPUFeatureName::Enum> RequiredFeatureForTextureFormat(
   }
 }
 
+std::optional<V8GPUFeatureName::Enum> RequiredFeatureForBlendFactor(
+    V8GPUBlendFactor::Enum blend_factor) {
+  switch (blend_factor) {
+    case V8GPUBlendFactor::Enum::kSrc1:
+    case V8GPUBlendFactor::Enum::kOneMinusSrc1:
+    case V8GPUBlendFactor::Enum::kSrc1Alpha:
+    case V8GPUBlendFactor::Enum::kOneMinusSrc1Alpha:
+      return V8GPUFeatureName::Enum::kDualSourceBlending;
+    default:
+      return std::nullopt;
+  }
+}
+
 }  // anonymous namespace
 
 GPUDevice::GPUDevice(ExecutionContext* execution_context,
@@ -152,11 +166,21 @@ GPUDevice::GPUDevice(ExecutionContext* execution_context,
       lost_callback_(BindWGPURepeatingCallback(&GPUDevice::OnDeviceLostError,
                                                WrapWeakPersistent(this))) {
   wgpu::SupportedLimits limits = {};
-  // Chain to get experimental subgroup limits, if device has experimental
-  // subgroups feature.
+  // Chain to get subgroup limits, if device has subgroups feature.
   wgpu::DawnExperimentalSubgroupLimits subgroupLimits = {};
-  if (features_->has(V8GPUFeatureName::Enum::kChromiumExperimentalSubgroups)) {
+  // TODO(crbug.com/349125474): Remove deprecated ChromiumExperimentalSubgroups.
+  if (features_->has(V8GPUFeatureName::Enum::kChromiumExperimentalSubgroups) ||
+      features_->has(V8GPUFeatureName::Enum::kSubgroups)) {
     limits.nextInChain = &subgroupLimits;
+  }
+
+  // Increment subgroups features counter for OT.
+  // TODO(crbug.com/349125474): Clean up after OT finished.
+  if (features_->has(V8GPUFeatureName::Enum::kSubgroups) ||
+      features_->has(V8GPUFeatureName::Enum::kSubgroupsF16)) {
+    DCHECK(RuntimeEnabledFeatures::WebGPUSubgroupsFeaturesEnabled(
+        execution_context));
+    UseCounter::Count(execution_context, WebFeature::kWebGPUSubgroupsFeatures);
   }
 
   GetHandle().GetLimits(&limits);
@@ -286,6 +310,34 @@ std::string GPUDevice::formattedLabel() const {
   return deviceLabel;
 }
 
+// Validates that any features required for the given blend factor are enabled
+// for this device. If not, throw a TypeError to ensure consistency with
+// browsers that haven't yet implemented the feature.
+bool GPUDevice::ValidateBlendFactor(V8GPUBlendFactor blend_factor,
+                                    ExceptionState& exception_state) {
+  auto requiredFeatureOptional =
+      RequiredFeatureForBlendFactor(blend_factor.AsEnum());
+
+  if (!requiredFeatureOptional) {
+    return true;
+  }
+
+  V8GPUFeatureName::Enum requiredFeatureEnum = requiredFeatureOptional.value();
+
+  if (features_->has(requiredFeatureEnum)) {
+    return true;
+  }
+
+  V8GPUFeatureName requiredFeature = V8GPUFeatureName(requiredFeatureEnum);
+
+  exception_state.ThrowTypeError(
+      String::Format("Use of the '%s' blend factor requires the '%s' feature "
+                     "to be enabled on %s.",
+                     blend_factor.AsCStr(), requiredFeature.AsCStr(),
+                     formattedLabel().c_str()));
+  return false;
+}
+
 void GPUDevice::OnUncapturedError(WGPUErrorType cErrorType,
                                   const char* message) {
   wgpu::ErrorType errorType = static_cast<wgpu::ErrorType>(cErrorType);
@@ -297,7 +349,6 @@ void GPUDevice::OnUncapturedError(WGPUErrorType cErrorType,
   DCHECK_NE(errorType, wgpu::ErrorType::NoError);
   DCHECK_NE(errorType, wgpu::ErrorType::DeviceLost);
   LOG(ERROR) << "GPUDevice: " << message;
-  AddConsoleWarning(message);
 
   GPUUncapturedErrorEventInit* init = GPUUncapturedErrorEventInit::Create();
   if (errorType == wgpu::ErrorType::Validation) {
@@ -312,8 +363,13 @@ void GPUDevice::OnUncapturedError(WGPUErrorType cErrorType,
   } else {
     return;
   }
-  DispatchEvent(*GPUUncapturedErrorEvent::Create(
-      event_type_names::kUncapturederror, init));
+
+  GPUUncapturedErrorEvent* event =
+      GPUUncapturedErrorEvent::Create(event_type_names::kUncapturederror, init);
+  DispatchEvent(*event);
+  if (!event->defaultPrevented()) {
+    AddConsoleWarning(message);
+  }
 }
 
 void GPUDevice::OnLogging(WGPULoggingType cLoggingType, const char* message) {
@@ -355,8 +411,9 @@ void GPUDevice::OnDeviceLostError(WGPUDeviceLostReason cReason,
                                   const char* message) {
   wgpu::DeviceLostReason reason = static_cast<wgpu::DeviceLostReason>(cReason);
   // Early-out if the context is being destroyed (see WrapCallbackInScriptScope)
-  if (!GetExecutionContext())
+  if (!GetExecutionContext()) {
     return;
+  }
 
   if (reason != wgpu::DeviceLostReason::Destroyed) {
     AddConsoleWarning(message);
@@ -574,6 +631,7 @@ ScriptPromise<GPUComputePipeline> GPUDevice::createComputePipelineAsync(
   // If ChromiumExperimentalSubgroups feature is enabled, chain the full
   // subgroups options after compute pipeline descriptor.
   wgpu::DawnComputePipelineFullSubgroups fullSubgroupsOptions = {};
+  // TODO(crbug.com/349125474): Remove deprecated ChromiumExperimentalSubgroups.
   if (features_->has(V8GPUFeatureName::Enum::kChromiumExperimentalSubgroups)) {
     fullSubgroupsOptions.requiresFullSubgroups =
         descriptor->getRequiresFullSubgroupsOr(false);

@@ -26,6 +26,7 @@
 #include "net/base/schemeful_site.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cookies/cookie_setting_override.h"
+#include "net/cookies/cookie_util.h"
 #include "net/log/net_log.h"
 #include "net/log/net_log_capture_mode.h"
 #include "net/log/net_log_event_type.h"
@@ -137,6 +138,10 @@ int64_t URLRequestJob::GetTotalReceivedBytes() const {
 }
 
 int64_t URLRequestJob::GetTotalSentBytes() const {
+  return 0;
+}
+
+int64_t URLRequestJob::GetReceivedBodyBytes() const {
   return 0;
 }
 
@@ -392,6 +397,10 @@ GURL URLRequestJob::ComputeReferrerForPolicy(
   return GURL();
 }
 
+cookie_util::StorageAccessStatus URLRequestJob::StorageAccessStatus() const {
+  return cookie_util::StorageAccessStatus::kNone;
+}
+
 int URLRequestJob::NotifyConnected(const TransportInfo& info,
                                    CompletionOnceCallback callback) {
   return request_->NotifyConnected(info, std::move(callback));
@@ -444,9 +453,6 @@ void URLRequestJob::NotifyHeadersComplete() {
       // Wait for SetAuth or CancelAuth to be called.
       return;
     }
-    NotifyFinalHeadersReceived();
-    // |this| may be destroyed at this point.
-    return;
   }
 
   if (NeedsRetryWithStorageAccess()) {

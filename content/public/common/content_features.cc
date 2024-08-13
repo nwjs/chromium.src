@@ -88,7 +88,7 @@ BASE_FEATURE(kBackForwardCacheEntryTimeout,
 // experimental group of the BackForwardCache field trial.
 
 // BackForwardCacheMemoryControls is enabled only on Android to disable
-// BackForwardCache for lower memory devices due to memory limiations.
+// BackForwardCache for lower memory devices due to memory limitations.
 BASE_FEATURE(kBackForwardCacheMemoryControls,
              "BackForwardCacheMemoryControls",
 
@@ -98,6 +98,16 @@ BASE_FEATURE(kBackForwardCacheMemoryControls,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+// If enabled, makes battery saver request render process tuning.
+BASE_FEATURE(kBatterySaverModeRenderTuning,
+             "BatterySaverModeRenderTuning",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, makes battery saver request heavy align wake ups.
+BASE_FEATURE(kBatterySaverModeAlignWakeUps,
+             "BatterySaverModeAlignWakeUps",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When this feature is enabled, private network requests initiated from
 // non-secure contexts in the `public` address space  are blocked.
@@ -230,6 +240,20 @@ BASE_FEATURE(kCrashReporting,
              "CrashReporting",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables deferring the creation of the speculative RFH when the navigation
+// starts. The creation of a speculative RFH consumes about 2ms and is blocking
+// the network request. With this feature the creation will be deferred until
+// the browser initializes the network request. The speculative RFH will be
+// created while the network service is sending the request in parallel.
+BASE_FEATURE(kDeferSpeculativeRFHCreation,
+             "DeferSpeculativeRFHCreation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// When enabled, the browser will create the render process if necessary even
+// if the speculative render frame host creation is deferred by feature
+// DeferSpeculativeRFHCreation.
+const base::FeatureParam<bool> kWarmupSpareProcessCreationWhenDeferRFH{
+    &kDeferSpeculativeRFHCreation, "warmup_spare_process", false};
+
 // Controls whether the Digital Goods API is enabled.
 // https://github.com/WICG/digital-goods/
 BASE_FEATURE(kDigitalGoodsApi,
@@ -324,7 +348,7 @@ BASE_FEATURE(kWebRtcHWEncoding,
 // enters BFCache.
 BASE_FEATURE(kDisconnectExtensionMessagePortWhenPageEntersBFCache,
              "DisconnectExtensionMessagePortWhenPageEntersBFCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable drawing under System Bars within DisplayCutout.
 BASE_FEATURE(kDrawCutoutEdgeToEdge,
@@ -339,12 +363,6 @@ BASE_FEATURE(kEarlyEstablishGpuChannel,
 // Enables canvas 2d methods BeginLayer and EndLayer.
 BASE_FEATURE(kEnableCanvas2DLayers,
              "EnableCanvas2DLayers",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the Machine Learning Model Loader Web Platform API. Explainer:
-// https://github.com/webmachinelearning/model-loader/blob/main/explainer.md
-BASE_FEATURE(kEnableMachineLearningModelLoaderWebPlatformApi,
-             "EnableMachineLearningModelLoaderWebPlatformApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables service workers on chrome-untrusted:// urls.
@@ -462,17 +480,17 @@ BASE_FEATURE(kInstalledAppProvider,
 // isolated web apps via the isolated-app:// scheme, and other advanced isolated
 // app functionality. See https://github.com/reillyeon/isolated-web-apps for a
 // general overview.
-// This also enables support for Controlled Frame, providing the Controlled
-// Frame tag to IWA apps assuming that Controlled Frame isn't otherwise
-// disabled via the kControlledFrame feature. See
-// https://github.com/WICG/controlled-frame/blob/main/README.md for more info.
 // Please don't use this feature flag directly to guard the IWA code.  Use
 // IsolatedWebAppsPolicy::AreIsolatedWebAppsEnabled() in the browser process or
 // check kEnableIsolatedWebAppsInRenderer command line flag in the renderer
 // process.
 BASE_FEATURE(kIsolatedWebApps,
              "IsolatedWebApps",
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Enables a new Automatic Fullscreen content setting that lets allowlisted
 // origins use the HTML Fullscreen API without transient activation.
@@ -646,11 +664,6 @@ BASE_FEATURE(kPrefetchNewLimits,
              "PrefetchNewLimits",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, then redirects will be followed when prefetching.
-BASE_FEATURE(kPrefetchRedirects,
-             "PrefetchRedirects",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables exposure of ads APIs in the renderer: Attribution Reporting,
 // FLEDGE, Topics, along with a number of other features actively in development
 // within these APIs.
@@ -770,6 +783,17 @@ BASE_FEATURE(kRenderDocument,
              "RenderDocument",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Restrict the maximum number of concurrent ThreadPool tasks when a renderer is
+// low priority.
+BASE_FEATURE(kRestrictThreadPoolInBackground,
+             "RestrictThreadPoolInBackground",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Set a tri-state priority on v8 isolates reflecting the renderer priority.
+BASE_FEATURE(kSetIsolatesPriority,
+             "SetIsolatesPriority",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Reuse compositor instances with RenderDocument
 BASE_FEATURE(kRenderDocumentCompositorReuse,
              "RenderDocumentCompositorReuse",
@@ -823,14 +847,13 @@ BASE_FEATURE(kServiceWorkerStaticRouter,
 
 // Run video capture service in the Browser process as opposed to a dedicated
 // utility process.
-// On ChromeOS the service had to run in the browser process, because parts of
-// the code depend on global objects that are only available in the Browser
-// process. See https://crbug.com/891961. However, since the dependencies are
-// removed now(b/315966244), the service run in the browser process by default,
-// but an user is able to run it in an utility process by changing the flag.
+// Camera requests from Lacros are forwarded to Ash via a Mojo connection
+// established through cros-api. Since cros-api isn't available in utility
+// processes, Lacros's video capture service has to run within the browser
+// process.
 BASE_FEATURE(kRunVideoCaptureServiceInBrowserProcess,
              "RunVideoCaptureServiceInBrowserProcess",
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -963,6 +986,12 @@ const base::FeatureParam<SkiaFontServiceTypefaceType>
     kSkiaFontServiceTypefaceType{&kSkiaFontService, "typeface",
                                  SkiaFontServiceTypefaceType::kDwrite,
                                  &skia_font_service_typeface};
+
+// Whether a utility process configured to use a "UI" message pump should also
+// initialize COM.
+BASE_FEATURE(kUtilityWithUiPumpInitializesCom,
+             "UtilityWithUiPumpInitializesCom",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 // When enabled, OOPIFs will not try to reuse compatible processes from
@@ -1137,6 +1166,13 @@ BASE_FEATURE(kWebUsb, "WebUSB", base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether the WebXR Device API is enabled.
 BASE_FEATURE(kWebXr, "WebXR", base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enable the navigator.permissions API.
+// Used for launch in WebView, but exposed in content to map to runtime-enabled
+// feature.
+BASE_FEATURE(kWebPermissionsApi,
+             "WebPermissionsApi",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 // When enabled, includes the ACTION_LONG_CLICK action to all relevant nodes in
 // the web contents accessibility tree.
@@ -1180,11 +1216,6 @@ BASE_FEATURE(kAndroidOpenPdfInline,
 // enables the associated UI.
 BASE_FEATURE(kSmartZoom, "SmartZoom", base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the mojo based gin java bridge implementation.
-BASE_FEATURE(kGinJavaBridgeMojo,
-             "GinJavaBridgeMojo",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Skips clearing objects on main document ready. Only has an impact
 // when gin java bridge is enabled.
 BASE_FEATURE(kGinJavaBridgeMojoSkipClearObjectsOnMainDocumentReady,
@@ -1225,7 +1256,6 @@ BASE_FEATURE(kWebNfc, "WebNFC", base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebViewSuppressTapDuringFling,
              "WebViewSuppressTapDuringFling",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)

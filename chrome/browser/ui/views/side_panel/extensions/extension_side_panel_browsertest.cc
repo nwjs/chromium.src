@@ -14,6 +14,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/extension_action_test_helper.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_observer.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_controller.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
@@ -22,7 +23,6 @@
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_test_utils.h"
@@ -776,13 +776,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
 // Test that calling window.close() from an extension side panel when it is
 // shown closes the side panel even if another entry is loading and will be
 // shown.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-#define MAYBE_WindowCloseCalledWhenLoading DISABLED_WindowCloseCalledWhenLoading
-#else
-#define MAYBE_WindowCloseCalledWhenLoading WindowCloseCalledWhenLoading
-#endif
+// TODO(crbug.com/347643170) Test is flaky.
 IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
-                       MAYBE_WindowCloseCalledWhenLoading) {
+                       DISABLED_WindowCloseCalledWhenLoading) {
   // Install an extension and show its side panel.
   scoped_refptr<const extensions::Extension> extension = LoadExtension(
       test_data_dir_.AppendASCII("api_test/side_panel/simple_default"));

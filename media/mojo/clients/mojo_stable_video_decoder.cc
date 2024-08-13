@@ -13,6 +13,7 @@
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/command_buffer/common/mailbox_holder.h"
+#include "gpu/command_buffer/common/shared_image_capabilities.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "media/base/supported_video_decoder_config.h"
@@ -46,7 +47,7 @@ std::optional<viz::SharedImageFormat> GetSharedImageFormat(
     case PIXEL_FORMAT_NV12:
       si_format = viz::MultiPlaneFormat::kNV12;
       break;
-    case PIXEL_FORMAT_P016LE:
+    case PIXEL_FORMAT_P010LE:
       si_format = viz::MultiPlaneFormat::kP010;
       break;
     case PIXEL_FORMAT_YV12:
@@ -84,7 +85,7 @@ class MojoStableVideoDecoder::SharedImageHolder
       return nullptr;
     }
 
-    uint32_t shared_image_usage =
+    gpu::SharedImageUsageSet shared_image_usage =
         gpu::SHARED_IMAGE_USAGE_DISPLAY_READ | gpu::SHARED_IMAGE_USAGE_SCANOUT;
     if (frame_resource->metadata().is_webgpu_compatible &&
         !sii->GetCapabilities().disable_webgpu_shared_images) {
@@ -139,8 +140,8 @@ class MojoStableVideoDecoder::SharedImageHolder
 
   gfx::GenericSharedMemoryId id() const { return id_; }
 
-  const gpu::Mailbox& mailbox() const {
-    return client_shared_image_->mailbox();
+  const scoped_refptr<gpu::ClientSharedImage> client_shared_image() const {
+    return client_shared_image_;
   }
 
   uint32_t texture_target() const {
@@ -158,7 +159,9 @@ class MojoStableVideoDecoder::SharedImageHolder
     return sii_->GenUnverifiedSyncToken();
   }
 
-  void Update() { sii_->UpdateSharedImage(gpu::SyncToken(), mailbox()); }
+  void Update() {
+    sii_->UpdateSharedImage(gpu::SyncToken(), client_shared_image()->mailbox());
+  }
 
  private:
   friend class base::RefCountedThreadSafe<SharedImageHolder>;
@@ -427,12 +430,13 @@ void MojoStableVideoDecoder::OnFrameResourceDecoded(
   // at least as long as the user of the decoded frame needs it. The latter is
   // to ensure the service gets notified that it may re-use the underlying
   // buffer once the decoded frame is no longer needed.
-  gpu::MailboxHolder mailbox_holders[VideoFrame::kMaxPlanes] = {
-      gpu::MailboxHolder(shared_image->mailbox(),
-                         shared_image->GenUnverifiedSyncToken(),
-                         shared_image->texture_target())};
-  scoped_refptr<VideoFrame> mailbox_frame = VideoFrame::WrapNativeTextures(
-      frame_resource->format(), mailbox_holders,
+  auto client_shared_image = shared_image->client_shared_image();
+  auto sync_token = shared_image->GenUnverifiedSyncToken();
+  auto texture_target = shared_image->texture_target();
+
+  scoped_refptr<VideoFrame> mailbox_frame = VideoFrame::WrapSharedImage(
+      frame_resource->format(), std::move(client_shared_image), sync_token,
+      texture_target,
       /*mailbox_holders_release_cb=*/
       base::DoNothingWithBoundArgs(std::move(shared_image), frame_resource),
       /*coded_size=*/GetRectSizeFromOrigin(frame_resource->visible_rect()),

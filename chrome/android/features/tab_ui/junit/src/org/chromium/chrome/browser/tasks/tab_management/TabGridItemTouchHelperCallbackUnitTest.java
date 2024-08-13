@@ -19,6 +19,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.chrome.browser.tasks.tab_management.MessageCardViewProperties.MESSAGE_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_ALPHA;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.TAB;
@@ -31,18 +32,16 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -51,6 +50,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -68,7 +68,6 @@ import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
             "androidx.recyclerview.widget.RecyclerView" // required to mock final
         })
 public class TabGridItemTouchHelperCallbackUnitTest {
-    @Rule public TestRule mProcessor = new Features.JUnitProcessor();
 
     private static final String TAB1_TITLE = "Tab1";
     private static final String TAB2_TITLE = "Tab2";
@@ -232,7 +231,7 @@ public class TabGridItemTouchHelperCallbackUnitTest {
 
         mItemTouchHelperCallback.onSwiped(mMockViewHolder1, POSITION1);
 
-        verify(mTabClosedListener).run(TAB1_ID);
+        verify(mTabClosedListener).run(null, TAB1_ID);
     }
 
     @Test
@@ -743,6 +742,18 @@ public class TabGridItemTouchHelperCallbackUnitTest {
         setupItemTouchHelperCallback(false);
         assertFalse(
                 mItemTouchHelperCallback.hasDragFlagForTesting(mRecyclerView, mMockViewHolder1));
+
+        when(mMockViewHolder1.getItemViewType()).thenReturn(TabProperties.UiType.LARGE_MESSAGE);
+
+        setupItemTouchHelperCallback(false);
+        assertFalse(
+                mItemTouchHelperCallback.hasDragFlagForTesting(mRecyclerView, mMockViewHolder1));
+
+        when(mMockViewHolder1.getItemViewType()).thenReturn(TabProperties.UiType.CUSTOM_MESSAGE);
+        mMockViewHolder1.model = Mockito.mock(PropertyModel.class);
+        setupItemTouchHelperCallback(false);
+        assertFalse(
+                mItemTouchHelperCallback.hasDragFlagForTesting(mRecyclerView, mMockViewHolder1));
     }
 
     @Test
@@ -750,6 +761,17 @@ public class TabGridItemTouchHelperCallbackUnitTest {
         when(mMockViewHolder1.getItemViewType()).thenReturn(TabProperties.UiType.MESSAGE);
         setupItemTouchHelperCallback(false);
         assertTrue(mItemTouchHelperCallback.hasSwipeFlag(mRecyclerView, mMockViewHolder1));
+    }
+
+    @Test
+    public void messageItemSwipeable_archivedTabsMessageNotSwipable() {
+        PropertyModel model = Mockito.mock(PropertyModel.class);
+        when(model.get(MESSAGE_TYPE)).thenReturn(MessageType.ARCHIVED_TABS_MESSAGE);
+        when(mMockViewHolder1.getItemViewType()).thenReturn(TabProperties.UiType.CUSTOM_MESSAGE);
+        mMockViewHolder1.model = model;
+
+        setupItemTouchHelperCallback(false);
+        assertFalse(mItemTouchHelperCallback.hasSwipeFlag(mRecyclerView, mMockViewHolder1));
     }
 
     @Test
@@ -871,7 +893,10 @@ public class TabGridItemTouchHelperCallbackUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)
+    @EnableFeatures({
+        ChromeFeatureList.TAB_GROUP_PARITY_ANDROID,
+        ChromeFeatureList.TAB_GROUP_CREATION_DIALOG_ANDROID
+    })
     public void onTabMergeToGroup_willMergingCreateNewGroup() {
         initAndAssertAllProperties();
         doReturn(true).when(mTabGroupModelFilter).willMergingCreateNewGroup(any());

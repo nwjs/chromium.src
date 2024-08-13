@@ -10,6 +10,7 @@ import org.jni_zero.NativeMethods;
 import org.chromium.base.ObserverList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileKeyedMap;
+import org.chromium.components.content_settings.ContentSettingsType;
 
 /** Java equivalent of unused_site_permissions_bridge.cc. */
 class UnusedSitePermissionsBridge {
@@ -45,8 +46,8 @@ class UnusedSitePermissionsBridge {
         return UnusedSitePermissionsBridgeJni.get().getRevokedPermissions(mProfile);
     }
 
-    void regrantPermissions(String primaryPattern) {
-        UnusedSitePermissionsBridgeJni.get().regrantPermissions(mProfile, primaryPattern);
+    void regrantPermissions(String origin) {
+        UnusedSitePermissionsBridgeJni.get().regrantPermissions(mProfile, origin);
         notifyRevokedPermissionsChanged();
     }
 
@@ -66,6 +67,12 @@ class UnusedSitePermissionsBridge {
         notifyRevokedPermissionsChanged();
     }
 
+    static String[] contentSettingsTypeToString(
+            @ContentSettingsType.EnumType int[] contentSettingsTypeList) {
+        return UnusedSitePermissionsBridgeJni.get()
+                .contentSettingsTypeToString(contentSettingsTypeList);
+    }
+
     private void notifyRevokedPermissionsChanged() {
         for (Observer observer : mObservers) {
             observer.revokedPermissionsChanged();
@@ -78,8 +85,7 @@ class UnusedSitePermissionsBridge {
         PermissionsData[] getRevokedPermissions(@JniType("Profile*") Profile profile);
 
         void regrantPermissions(
-                @JniType("Profile*") Profile profile,
-                @JniType("std::string") String primaryPattern);
+                @JniType("Profile*") Profile profile, @JniType("std::string") String origin);
 
         void undoRegrantPermissions(
                 @JniType("Profile*") Profile profile,
@@ -90,5 +96,9 @@ class UnusedSitePermissionsBridge {
         void restoreRevokedPermissionsReviewList(
                 @JniType("Profile*") Profile profile,
                 @JniType("std::vector<PermissionsData>") PermissionsData[] permissionsDataList);
+
+        @JniType("std::vector<std::u16string>")
+        String[] contentSettingsTypeToString(
+                @JniType("std::vector<std::int32_t>") int[] contentSettingsTypeList);
     }
 }

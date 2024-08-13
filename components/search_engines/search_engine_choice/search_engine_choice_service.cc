@@ -4,6 +4,8 @@
 
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 
+#include <inttypes.h>
+
 #include <memory>
 #include <optional>
 
@@ -16,11 +18,13 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
+#include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "base/version.h"
 #include "build/chromeos_buildflags.h"
 #include "components/country_codes/country_codes.h"
+#include "components/crash/core/common/crash_key.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
@@ -168,11 +172,7 @@ SearchEngineChoiceService::SearchEngineChoiceService(PrefService& profile_prefs,
                                                      int variations_country_id)
     : profile_prefs_(profile_prefs),
       variations_country_id_(variations_country_id) {
-  if (local_state) {
-    ProcessPendingChoiceScreenDisplayState(*local_state);
-  } else {
-    CHECK_IS_TEST();
-  }
+  ProcessPendingChoiceScreenDisplayState(local_state);
   PreprocessPrefsForReprompt();
 }
 
@@ -216,17 +216,6 @@ SearchEngineChoiceService::GetStaticChoiceScreenConditions(
   if (!IsChoiceScreenFlagEnabled(ChoicePromo::kAny)) {
     return SearchEngineChoiceScreenConditions::kFeatureSuppressed;
   }
-
-#if !BUILDFLAG(IS_IOS)
-  // `prefs::kDefaultSearchProviderChoicePending` does not get set on
-  // iOS. Instead, the iOS-specific wrapper
-  // `ShouldDisplaySearchEngineChoiceScreen()` handles checking whether
-  // the screen should be displayed based on the promo type.
-  if (switches::kSearchEngineChoiceTriggerForTaggedProfilesOnly.Get() &&
-      !profile_prefs_->GetBoolean(prefs::kDefaultSearchProviderChoicePending)) {
-    return SearchEngineChoiceScreenConditions::kProfileOutOfScope;
-  }
-#endif
 
   if (!is_regular_profile) {
     // Naming not exactly accurate, but still reflect the fact that incognito,
@@ -383,30 +372,66 @@ void SearchEngineChoiceService::RecordChoiceMade(
   RecordChoiceScreenDefaultSearchProviderType(
       GetDefaultSearchEngineType(CHECK_DEREF(template_url_service)));
   MarkSearchEngineChoiceCompleted(*profile_prefs_);
-
-  if (profile_prefs_->HasPrefPath(prefs::kDefaultSearchProviderChoicePending)) {
-    DVLOG(1) << "Choice made, removing profile tag.";
-    profile_prefs_->ClearPref(prefs::kDefaultSearchProviderChoicePending);
-  }
 }
 
 void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
     const ChoiceScreenDisplayState& display_state,
-    bool is_from_cached_state) const {
+    bool is_from_cached_state) {
   if (!IsEeaChoiceCountry(display_state.country_id)) {
     // Tests or command line can force this, but we want to avoid polluting the
     // histograms with unwanted country data.
     return;
   }
 
-  // TODO(b/337114717): This could crash if for some reason this is called
-  // multiple times in a row for the same profile. This would clearly be a bug
-  // that needs to be fixed, but this is not the most obvious way to detect
-  // such an issue. The API should be cleanup to handle this case a bit better.
-  CHECK_EQ(is_from_cached_state,
-           profile_prefs_->HasPrefPath(
-               prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState),
-           base::NotFatalUntil::M128);
+  // This block adds some debugging data for b/344899110, where the method
+  // is called from the choice moment while a display state is already cached.
+  // TODO(b/344899110): Clean up the debugging info when the bug is fixed.
+  if (!is_from_cached_state) {
+    if (!display_state_record_caller_) {
+      CHECK(!profile_prefs_->HasPrefPath(
+                prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState),
+            base::NotFatalUntil::M131);
+      display_state_record_caller_ =
+          std::make_unique<base::debug::StackTrace>();
+    } else {
+      // Recording a stack trace to crash keys, based on
+      // https://crsrc.org/c/docs/debugging_with_crash_keys.md
+      static crash_reporter::CrashKeyString<1024> caller_trace_key(
+          "ChoiceService-og_caller_trace");
+      crash_reporter::SetCrashKeyStringToStackTrace(
+          &caller_trace_key, *display_state_record_caller_.get());
+
+      SCOPED_CRASH_KEY_BOOL(
+          "ChoiceService", "ds_pref_has_value",
+          profile_prefs_->HasPrefPath(
+              prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
+
+      std::optional<ChoiceScreenDisplayState> already_cached_display_state =
+          ChoiceScreenDisplayState::FromDict(profile_prefs_->GetDict(
+              prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState));
+      std::optional<base::Time> completion_time =
+          GetChoiceScreenCompletionTimestamp(profile_prefs_.get());
+
+      SCOPED_CRASH_KEY_STRING64(
+          "ChoiceService", "choice_time_delta",
+          completion_time.has_value()
+              ? base::StringPrintf("%" PRId64 "ms",
+                                   (base::Time::Now() - completion_time.value())
+                                       .InMilliseconds())
+              : "<null>");
+      SCOPED_CRASH_KEY_STRING32(
+          "ChoiceService", "screen_items_equal",
+          already_cached_display_state.has_value()
+              ? (already_cached_display_state.value().search_engines ==
+                         display_state.search_engines
+                     ? "yes"
+                     : "no")
+              : "no value");
+
+      NOTREACHED(base::NotFatalUntil::M131);
+      caller_trace_key.Clear();
+    }
+  }
 
   if (!is_from_cached_state &&
       display_state.selected_engine_index.has_value()) {
@@ -539,15 +564,20 @@ void SearchEngineChoiceService::PreprocessPrefsForReprompt() {
 }
 
 void SearchEngineChoiceService::ProcessPendingChoiceScreenDisplayState(
-    PrefService& local_state) {
+    PrefService* local_state) {
   if (!profile_prefs_->HasPrefPath(
           prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState)) {
     return;
   }
 
-  // The display state should not be cached when UMA is disabled.
-  if (!SearchEngineChoiceMetricsServiceAccessor::IsMetricsReportingEnabled(
-          &local_state)) {
+  if (!local_state) {
+    // `g_browser_process->local_state()` is null in unit tests unless properly
+    // set up.
+    CHECK_IS_TEST();
+  } else if (!SearchEngineChoiceMetricsServiceAccessor::
+                 IsMetricsReportingEnabled(local_state)) {
+    // The display state should not be cached when UMA is disabled.
+
     profile_prefs_->ClearPref(
         prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
     return;
@@ -627,6 +657,11 @@ int SearchEngineChoiceService::GetCountryIdInternal() {
   // synchronously inside `country_codes::GetCountryIDFromPrefs()`.
   return country_codes::GetCountryIDFromPrefs(&profile_prefs_.get());
 #endif
+}
+
+void SearchEngineChoiceService::ClearCountryIdCacheForTesting() {
+  CHECK_IS_TEST();
+  country_id_cache_.reset();
 }
 
 #if BUILDFLAG(IS_ANDROID)

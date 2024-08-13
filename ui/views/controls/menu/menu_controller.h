@@ -270,6 +270,9 @@ class VIEWS_EXPORT MenuController final : public gfx::AnimationDelegate,
     return rounded_corners_;
   }
 
+  // Returns the separator color ID according to the menu layout type.
+  ui::ColorId GetSeparatorColorId() const;
+
   // Notifies |this| that |menu_item| is being destroyed.
   void OnMenuItemDestroying(MenuItemView* menu_item);
 
@@ -799,8 +802,8 @@ class VIEWS_EXPORT MenuController final : public gfx::AnimationDelegate,
 
   // Whether the menu |owner_| needs gesture events. When set to true, the menu
   // will preserve the gesture events of the |owner_| and MenuController will
-  // forward the gesture events to |owner_| until no |ET_GESTURE_END| event is
-  // captured.
+  // forward the gesture events to |owner_| until no |EventType::kGestureEnd|
+  // event is captured.
   bool send_gesture_events_to_owner_ = false;
 
   // Set to true if the menu item was selected by touch.

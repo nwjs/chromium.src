@@ -50,18 +50,7 @@ class RawDrawImageBackingFactory : public SharedImageBackingFactory {
       SharedImageUsageSet usage,
       std::string debug_label,
       gfx::GpuMemoryBufferHandle handle) override;
-  std::unique_ptr<SharedImageBacking> CreateSharedImage(
-      const Mailbox& mailbox,
-      gfx::GpuMemoryBufferHandle handle,
-      gfx::BufferFormat format,
-      gfx::BufferPlane plane,
-      const gfx::Size& size,
-      const gfx::ColorSpace& color_space,
-      GrSurfaceOrigin surface_origin,
-      SkAlphaType alpha_type,
-      SharedImageUsageSet usage,
-      std::string debug_label) override;
-  bool IsSupported(uint32_t usage,
+  bool IsSupported(SharedImageUsageSet usage,
                    viz::SharedImageFormat format,
                    const gfx::Size& size,
                    bool thread_safe,
@@ -71,7 +60,7 @@ class RawDrawImageBackingFactory : public SharedImageBackingFactory {
   SharedImageBackingType GetBackingType() override;
 
  private:
-  bool CanUseRawDrawImageBacking(uint32_t usage,
+  bool CanUseRawDrawImageBacking(SharedImageUsageSet usage,
                                  GrContextType gr_context_type) const;
 };
 

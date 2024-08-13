@@ -43,6 +43,7 @@ class MLLeakyReluOptions;
 class MLLinearOptions;
 class MLLstmOptions;
 class MLLstmCellOptions;
+class MLOperatorOptions;
 class MLPadOptions;
 class MLPool2dOptions;
 class MLReduceOptions;
@@ -52,6 +53,7 @@ class MLTransposeOptions;
 class MLTriangularOptions;
 class MLOperand;
 class MLOperandDescriptor;
+class ScriptState;
 
 typedef HeapVector<std::pair<String, Member<MLOperand>>> MLNamedOperands;
 
@@ -102,8 +104,6 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
   MLOperand* clamp(const MLOperand* input,
                    const MLClampOptions* options,
                    ExceptionState& exception_state);
-  MLActivation* clamp(const MLClampOptions* options,
-                      ExceptionState& exception_state);
 
   MLOperand* concat(const HeapVector<Member<MLOperand>>& inputs,
                     const uint32_t axis,
@@ -122,39 +122,51 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
   // Element-wise binary operations
   MLOperand* add(const MLOperand* a,
                  const MLOperand* b,
+                 const MLOperatorOptions* options,
                  ExceptionState& exception_state);
   MLOperand* sub(const MLOperand* a,
                  const MLOperand* b,
+                 const MLOperatorOptions* options,
                  ExceptionState& exception_state);
   MLOperand* mul(const MLOperand* a,
                  const MLOperand* b,
+                 const MLOperatorOptions* options,
                  ExceptionState& exception_state);
   MLOperand* div(const MLOperand* a,
                  const MLOperand* b,
+                 const MLOperatorOptions* options,
                  ExceptionState& exception_state);
   MLOperand* max(const MLOperand* a,
                  const MLOperand* b,
+                 const MLOperatorOptions* options,
                  ExceptionState& exception_state);
   MLOperand* min(const MLOperand* a,
                  const MLOperand* b,
+                 const MLOperatorOptions* options,
                  ExceptionState& exception_state);
   MLOperand* pow(const MLOperand* a,
                  const MLOperand* b,
+                 const MLOperatorOptions* options,
                  ExceptionState& exception_state);
   MLOperand* equal(const MLOperand* a,
                    const MLOperand* b,
+                   const MLOperatorOptions* options,
                    ExceptionState& exception_state);
   MLOperand* greater(const MLOperand* a,
                      const MLOperand* b,
+                     const MLOperatorOptions* options,
                      ExceptionState& exception_state);
   MLOperand* greaterOrEqual(const MLOperand* a,
                             const MLOperand* b,
+                            const MLOperatorOptions* options,
                             ExceptionState& exception_state);
   MLOperand* lesser(const MLOperand* a,
                     const MLOperand* b,
+                    const MLOperatorOptions* options,
                     ExceptionState& exception_state);
   MLOperand* lesserOrEqual(const MLOperand* a,
                            const MLOperand* b,
+                           const MLOperatorOptions* options,
                            ExceptionState& exception_state);
 
   // Element-wise unary operations
@@ -270,7 +282,8 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                     const MLOperand* b,
                     ExceptionState& exception_state);
 
-  MLOperand* pad(const MLOperand* input,
+  MLOperand* pad(ScriptState* script_state,
+                 const MLOperand* input,
                  const Vector<uint32_t>& beginningPadding,
                  const Vector<uint32_t>& endingPadding,
                  const MLPadOptions* options,
@@ -289,6 +302,7 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
 
   MLOperand* prelu(const MLOperand* input,
                    const MLOperand* slope,
+                   const MLOperatorOptions* options,
                    ExceptionState& exception_state);
 
   // Reduction operations
@@ -330,7 +344,8 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                      const Vector<uint32_t>& new_shape,
                      ExceptionState& exception_state);
 
-  MLOperand* resample2d(const MLOperand* input,
+  MLOperand* resample2d(ScriptState* script_state,
+                        const MLOperand* input,
                         const MLResample2dOptions* options,
                         ExceptionState& exception_state);
 
@@ -342,8 +357,10 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                    const Vector<uint32_t>& sizes,
                    ExceptionState& exception_state);
 
+  MLOperand* softmax(const MLOperand* input,
+                     uint32_t axis,
+                     ExceptionState& exception_state);
   MLOperand* softmax(const MLOperand* input, ExceptionState& exception_state);
-  MLActivation* softmax(ExceptionState& exception_state);
 
   MLOperand* softplus(const MLOperand* input,
                       ExceptionState& exception_state);
@@ -382,11 +399,11 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                                ExceptionState& exception_state);
 
  private:
-  void DidCreateWebNNGraph(ScriptPromiseResolver<blink::MLGraph>* resolver,
-                           std::pair<HashMap<String, MLGraph::ResourceInfo>,
-                                     HashMap<String, MLGraph::ResourceInfo>>
-                               input_and_output_resources,
-                           webnn::mojom::blink::CreateGraphResultPtr result);
+  void DidCreateWebNNGraph(
+      ScriptPromiseResolver<blink::MLGraph>* resolver,
+      std::pair<MLGraph::NamedOperandDescriptors,
+                MLGraph::NamedOperandDescriptors> input_and_output_constraints,
+      webnn::mojom::blink::CreateGraphResultPtr result);
 
   // Performs platform-agnostic and operand-agnostic validation checks which
   // must be run for each built operand. Returns an error message which may be

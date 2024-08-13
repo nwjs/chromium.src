@@ -60,12 +60,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kHudDisplayForPerformanceMetrics);
 // render surface's owning effect.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kRenderSurfaceCommonAncestorClip);
 
-// When enabled, CompositorTimingHistory will directly record the timing history
-// that is used to calculate main thread timing estimates, and use the
-// percentile of sum of different stages instead of the sum of percentiles.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(
-    kDurationEstimatesInCompositorTimingHistory);
-
 // When enabled, the main thread does not block while commit is running on the
 // impl thread.
 // WARNING: This feature is not yet safe to enable. Work is needed to ensure
@@ -79,10 +73,12 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kNonBlockingCommit);
 // this should improve performance and reduce technical complexity.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kNoPreserveLastMutation);
 
-// When enabled, SupportsBackgroundThreadPriority is set to kNo for
-// GpuImageDecodeTaskImpl and SoftwareImageDecodeTaskImpl.
-// Introduced to fix https://crbug.com/1116624
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kNormalPriorityImageDecoding);
+// When enabled, the scheduler will allow deferring impl invalidation frames
+// for N frames (default 1) to reduce contention with main frames, allowing
+// main a chance to commit.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kDeferImplInvalidation);
+CC_BASE_EXPORT extern const base::FeatureParam<int>
+    kDeferImplInvalidationFrames;
 
 // Use DMSAA instead of MSAA for rastering tiles.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kUseDMSAAForTiles);
@@ -231,6 +227,12 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kVizLayers);
 // When enabled HTMLImageElement::decode() will initiate the decode task right
 // away rather than piggy-backing on the next BeginMainFrame.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSendExplicitDecodeRequestsImmediately);
+
+// Whether frame rate should be throttled when there were many "did not produce
+// frame" recently.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleFrameRateOnManyDidNotProduceFrame);
+CC_BASE_EXPORT extern const base::FeatureParam<int>
+    kNumDidNotProduceFrameBeforeThrottle;
 
 }  // namespace features
 

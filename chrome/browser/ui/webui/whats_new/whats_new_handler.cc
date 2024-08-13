@@ -8,6 +8,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/rand_util.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
@@ -25,6 +26,8 @@
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
+#include "components/user_education/common/user_education_features.h"
+#include "components/variations/service/variations_service.h"
 #include "url/gurl.h"
 
 WhatsNewHandler::WhatsNewHandler(
@@ -41,28 +44,53 @@ WhatsNewHandler::WhatsNewHandler(
 
 WhatsNewHandler::~WhatsNewHandler() = default;
 
-void WhatsNewHandler::RecordTimeToLoadContent(double time_since_unix_epoch) {
-  base::UmaHistogramTimes(
-      "UserEducation.WhatsNew.TimeToLoadContent",
-      base::Time::FromMillisecondsSinceUnixEpoch(time_since_unix_epoch) -
-          navigation_start_time_);
+void WhatsNewHandler::RecordTimeToLoadContent(base::Time time) {
+  base::UmaHistogramTimes("UserEducation.WhatsNew.TimeToLoadContent",
+                          time - navigation_start_time_);
 }
 
 void WhatsNewHandler::RecordVersionPageLoaded(bool is_auto_open) {
   base::RecordAction(base::UserMetricsAction("UserEducation.WhatsNew.Shown"));
+  base::RecordAction(
+      base::UserMetricsAction("UserEducation.WhatsNew.VersionShown"));
   if (!is_auto_open) {
     base::RecordAction(base::UserMetricsAction(
         "UserEducation.WhatsNew.ShownByManualNavigation"));
   }
 }
 
-void WhatsNewHandler::RecordModuleImpression(const std::string& module_name) {
+void WhatsNewHandler::RecordEditionPageLoaded(const std::string& page_uid,
+                                              bool is_auto_open) {
+  base::RecordAction(base::UserMetricsAction("UserEducation.WhatsNew.Shown"));
+
+  base::RecordAction(
+      base::UserMetricsAction("UserEducation.WhatsNew.EditionShown"));
+
+  if (!page_uid.empty()) {
+    std::string action_name = "UserEducation.WhatsNew.EditionShown.";
+    action_name.append(page_uid);
+    base::RecordComputedAction(action_name);
+  }
+
+  if (!is_auto_open) {
+    base::RecordAction(base::UserMetricsAction(
+        "UserEducation.WhatsNew.ShownByManualNavigation"));
+  }
+}
+
+void WhatsNewHandler::RecordModuleImpression(
+    const std::string& module_name,
+    whats_new::mojom::ModulePosition position) {
   base::RecordAction(
       base::UserMetricsAction("UserEducation.WhatsNew.ModuleShown"));
 
   std::string action_name = "UserEducation.WhatsNew.ModuleShown.";
   action_name.append(module_name);
   base::RecordComputedAction(action_name);
+
+  std::string base_histogram_name = "UserEducation.WhatsNew.ModuleShown.";
+  base_histogram_name.append(module_name);
+  base::UmaHistogramEnumeration(action_name, position);
 }
 
 void WhatsNewHandler::RecordExploreMoreToggled(bool expanded) {
@@ -78,23 +106,82 @@ void WhatsNewHandler::RecordTimeOnPage(base::TimeDelta time) {
   base::UmaHistogramMediumTimes("UserEducation.WhatsNew.TimeOnPage", time);
 }
 
-void WhatsNewHandler::RecordModuleLinkClicked(const std::string& module_name) {
+void WhatsNewHandler::RecordModuleLinkClicked(
+    const std::string& module_name,
+    whats_new::mojom::ModulePosition position) {
   base::RecordAction(
       base::UserMetricsAction("UserEducation.WhatsNew.ModuleLinkClicked"));
 
   std::string action_name = "UserEducation.WhatsNew.ModuleLinkClicked.";
   action_name.append(module_name);
   base::RecordComputedAction(action_name);
+
+  std::string base_histogram_name = "UserEducation.WhatsNew.ModuleLinkClicked.";
+  base_histogram_name.append(module_name);
+  base::UmaHistogramEnumeration(action_name, position);
 }
 
 void WhatsNewHandler::GetServerUrl(GetServerUrlCallback callback) {
   GURL result = GURL("");
   if (!whats_new::IsRemoteContentDisabled()) {
-    result = whats_new::GetServerURL(true);
+    if (user_education::features::IsWhatsNewV2()) {
+      result = whats_new::GetV2ServerURLForRender();
+    } else {
+      result = whats_new::GetServerURL(true);
+    }
   }
   std::move(callback).Run(result);
 
   TryShowHatsSurveyWithTimeout();
+}
+
+std::string WhatsNewHandler::GetLatestCountry() {
+  if (override_latest_country_for_testing_.has_value()) {
+    return override_latest_country_for_testing_.value();
+  }
+  if (const auto* variations_service =
+          g_browser_process->variations_service()) {
+    return variations_service->GetLatestCountry();
+  }
+  return "";
+}
+
+bool WhatsNewHandler::IsHaTSActivated() {
+  // Calculate a threshold value < 100 and persist to local state.
+  PrefService* const prefs = g_browser_process->local_state();
+  int threshold;
+  if (prefs->HasPrefPath(prefs::kWhatsNewHatsActivationThreshold)) {
+    threshold = prefs->GetInteger(prefs::kWhatsNewHatsActivationThreshold);
+  } else {
+    threshold = base::RandInt(0, 99);
+    prefs->SetInteger(prefs::kWhatsNewHatsActivationThreshold, threshold);
+  }
+
+  // What's New content is dependent on the user's current country. Use
+  // the latest country to determine whether to show the survey.
+  // Currently the survey is only deployed in the US (us), Germany (de),
+  // and Japan (jp), which each have their own activation percentages.
+  int activation_percentage = 0;
+  const std::string latest_country = GetLatestCountry();
+  if (latest_country == "us") {
+    activation_percentage =
+        features::
+            kHappinessTrackingSurveysForDesktopWhatsNewEnActivationPercentage
+                .Get();
+  } else if (latest_country == "de") {
+    activation_percentage =
+        features::
+            kHappinessTrackingSurveysForDesktopWhatsNewDeActivationPercentage
+                .Get();
+  } else if (latest_country == "jp") {
+    activation_percentage =
+        features::
+            kHappinessTrackingSurveysForDesktopWhatsNewJpActivationPercentage
+                .Get();
+  }
+  // If the user-specific threshold is less than the activation
+  // percentage for the country, the HaTS will be activated.
+  return threshold < activation_percentage;
 }
 
 void WhatsNewHandler::TryShowHatsSurveyWithTimeout() {
@@ -105,11 +192,13 @@ void WhatsNewHandler::TryShowHatsSurveyWithTimeout() {
     return;
   }
 
-  hats_service->LaunchDelayedSurveyForWebContents(
-      kHatsSurveyTriggerWhatsNew, web_contents_,
-      features::kHappinessTrackingSurveysForDesktopWhatsNewTime.Get()
-          .InMilliseconds(),
-      /*product_specific_bits_data=*/{},
-      /*product_specific_string_data=*/{},
-      /*navigation_behaviour=*/HatsService::REQUIRE_SAME_ORIGIN);
+  if (IsHaTSActivated()) {
+    hats_service->LaunchDelayedSurveyForWebContents(
+        kHatsSurveyTriggerWhatsNew, web_contents_,
+        features::kHappinessTrackingSurveysForDesktopWhatsNewTime.Get()
+            .InMilliseconds(),
+        /*product_specific_bits_data=*/{},
+        /*product_specific_string_data=*/{},
+        /*navigation_behaviour=*/HatsService::REQUIRE_SAME_ORIGIN);
+  }
 }

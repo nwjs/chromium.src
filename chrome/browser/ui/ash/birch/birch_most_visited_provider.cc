@@ -9,10 +9,12 @@
 #include "ash/shell.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
+#include "chrome/grit/chrome_unscaled_resources.h"
 #include "components/favicon/core/favicon_service.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "ui/base/resource/resource_bundle.h"
 
 namespace ash {
 
@@ -28,6 +30,12 @@ BirchMostVisitedProvider::BirchMostVisitedProvider(Profile* profile)
 BirchMostVisitedProvider::~BirchMostVisitedProvider() = default;
 
 void BirchMostVisitedProvider::RequestBirchDataFetch() {
+  // `history_service_` can be null in some tests, so check that here.
+  if (!history_service_) {
+    Shell::Get()->birch_model()->SetMostVisitedItems({});
+    return;
+  }
+
   // Get the most frequently accessed URL.
   history_service_->QueryMostVisitedURLs(
       /*result_count=*/1,
@@ -49,8 +57,7 @@ void BirchMostVisitedProvider::OnGotMostVisitedURLs(
   if (most_visited_url.url == last_url_) {
     std::vector<BirchMostVisitedItem> most_visited_items;
     most_visited_items.emplace_back(most_visited_url.title,
-                                    most_visited_url.url,
-                                    ui::ImageModel::FromImage(last_image_));
+                                    most_visited_url.url, last_image_);
     Shell::Get()->birch_model()->SetMostVisitedItems(
         std::move(most_visited_items));
     return;
@@ -76,14 +83,24 @@ void BirchMostVisitedProvider::OnGotFaviconImage(
   }
   // Populate the BirchModel with this URL.
   std::vector<BirchMostVisitedItem> most_visited_items;
-  most_visited_items.emplace_back(
-      title, url, ui::ImageModel::FromImage(image_result.image));
+
+  ui::ImageModel icon;
+  if (!image_result.image.IsEmpty()) {
+    icon = ui::ImageModel::FromImage(image_result.image);
+  } else {
+    ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+    icon = ui::ImageModel::FromImageSkia(
+        *rb.GetImageSkiaNamed(IDR_CHROME_APP_ICON_192));
+  }
+
+  most_visited_items.emplace_back(title, url, icon);
+
   Shell::Get()->birch_model()->SetMostVisitedItems(
       std::move(most_visited_items));
 
   // Cache the data for next time.
   last_url_ = url;
-  last_image_ = image_result.image;
+  last_image_ = icon;
 }
 
 }  // namespace ash

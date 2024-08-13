@@ -13,6 +13,7 @@
 #include "ash/system/mahi/mahi_panel_view.h"
 #include "ash/system/mahi/mahi_ui_controller.h"
 #include "ash/system/mahi/refresh_banner_view.h"
+#include "ash/wm/work_area_insets.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_type.h"
@@ -112,6 +113,7 @@ MahiPanelWidget::MahiPanelWidget(InitParams params,
 
   // Make sure the `MahiPanelView` is sized to fill up the available space.
   contents_view->SetFlexForView(panel_view, 1.0);
+  shelf_observation_.Observe(Shelf::ForWindow(Shell::GetPrimaryRootWindow()));
 }
 
 MahiPanelWidget::~MahiPanelWidget() = default;
@@ -127,8 +129,10 @@ views::UniqueWidgetPtr MahiPanelWidget::CreateAndShowPanelWidget(
       views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.name = GetName();
-  // TODO(b/319467834): Decide what container this widget should be on.
-  params.parent = Shell::GetContainer(root_window, kShellWindowId_PipContainer);
+  // `SystemModalContainer` can travel across displays, is not automatically
+  // resizable on limited screen size and stays on top on full-screen.
+  params.parent =
+      Shell::GetContainer(root_window, kShellWindowId_SystemModalContainer);
 
   // The widget's view handles round corners and blur via layers.
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
@@ -150,6 +154,23 @@ views::UniqueWidgetPtr MahiPanelWidget::CreateAndShowPanelWidget(
 // static
 const char* MahiPanelWidget::GetName() {
   return kWidgetName;
+}
+
+void MahiPanelWidget::OnShelfWorkAreaInsetsChanged() {
+  gfx::Rect work_area_bounds =
+      WorkAreaInsets::ForWindow(GetNativeWindow())->user_work_area_bounds();
+  gfx::Rect panel_bounds = GetWindowBoundsInScreen();
+
+  // If the panel widget does not fit inside of the work area bounds (e.g. due
+  // to opening the virtual keyboard), its bounds will be updated so it's
+  // partially visible, prioritizing the bottom part of the panel.
+  if (panel_bounds.bottom() + kPanelBoundsPadding >=
+      work_area_bounds.bottom()) {
+    SetY(work_area_bounds.bottom() - mahi_constants::kPanelDefaultHeight -
+         kPanelBoundsPadding);
+  } else if (panel_bounds.y() - kPanelBoundsPadding <= work_area_bounds.y()) {
+    SetY(work_area_bounds.y() + kPanelBoundsPadding);
+  }
 }
 
 void MahiPanelWidget::OnViewVisibilityChanged(views::View* observed_view,

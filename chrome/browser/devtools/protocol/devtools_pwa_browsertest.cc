@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include "base/base_paths.h"
@@ -23,6 +24,7 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
+#include "chrome/browser/web_applications/proto/web_app_proto_package.pb.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app.h"
@@ -64,6 +66,19 @@ class PWAProtocolTestWithoutApp : public DevToolsProtocolTestBase {
     LoadWebContents(std::move(url));
     DetachProtocolClient();
     Attach();
+  }
+
+  bool ErrorMessageContains(std::initializer_list<std::string> pieces) const {
+    if (!error()) {
+      return false;
+    }
+    const std::string& message = *error()->FindString("message");
+    for (const auto& piece : pieces) {
+      if (message.find(piece) == std::string::npos) {
+        return false;
+      }
+    }
+    return true;
   }
 };
 
@@ -220,6 +235,20 @@ class PWAProtocolTest : public PWAProtocolTestWithoutApp {
         base::Value::Dict{}.Set("targetId", ids->front().GetString()));
   }
 
+  using AppUserSettings =
+      std::tuple<web_app::proto::LinkCapturingUserPreference,
+                 web_app::mojom::UserDisplayMode>;
+
+  AppUserSettings GetAppUserSettings(const ManifestId& manifest_id) {
+    auto* provider = WebAppProvider::GetForTest(browser()->profile());
+    CHECK(provider);
+    const auto* web_app = provider->registrar_unsafe().GetAppById(
+        web_app::GenerateAppIdFromManifestId(manifest_id));
+    CHECK(web_app);
+    return {web_app->user_link_capturing_preference(),
+            web_app->user_display_mode()};
+  }
+
  private:
   net::test_server::EmbeddedTestServerHandle test_server_closer_;
   std::unique_ptr<web_app::OsIntegrationTestOverrideImpl::BlockingRegistration>
@@ -231,10 +260,8 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTestWithoutApp, GetOsAppState_CannotFindApp) {
   ASSERT_FALSE(SendCommandSync(
       "PWA.getOsAppState",
       base::Value::Dict{}.Set("manifestId", "ThisIsNotAValidManifestId")));
-  ASSERT_TRUE(error());
   // Expect the input manifestId to be carried over by the error message.
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find("ThisIsNotAValidManifestId"), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({"ThisIsNotAValidManifestId"}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, GetOsAppState) {
@@ -318,11 +345,9 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, GetProcessedManifest_CannotFindApp) {
   ASSERT_FALSE(SendCommandSync(
       "Page.getAppManifest",
       base::Value::Dict{}.Set("manifestId", "ThisIsNotAValidManifestId")));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  // Expect the input manifest id to be carried over by the error message, but
-  // now the API won't work on browser target at all.
-  ASSERT_NE(message.find("Page.getAppManifest"), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({"Page.getAppManifest"}));
+  // The error message should also carry the input manifest id, but now the API
+  // won't work on browser target at all.
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
@@ -385,12 +410,10 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, GetProcessedManifest_MismatchId) {
   ASSERT_FALSE(SendCommandSync(
       "Page.getAppManifest",
       base::Value::Dict{}.Set("manifestId", "ThisIsNotAValidManifestId")));
-  ASSERT_TRUE(error());
   // Expect the input manifest id and original manifest id to be carried over by
   // the error message.
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppUrl().spec()), std::string::npos);
-  ASSERT_NE(message.find("ThisIsNotAValidManifestId"), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains(
+      {InstallableWebAppUrl().spec(), "ThisIsNotAValidManifestId"}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
@@ -399,11 +422,9 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
       SendCommandSync("Page.getAppManifest",
                       base::Value::Dict{}.Set(
                           "manifestId", InstallableWebAppManifestId().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  // Expect the input manifest id to be carried over by the error message, but
-  // now the API won't work on browser target at all.
-  ASSERT_NE(message.find("Page.getAppManifest"), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({"Page.getAppManifest"}));
+  // The error message should also carry the input manifest id, but now the API
+  // won't work on browser target at all.
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, GetProcessedManifest_NotInstallable) {
@@ -470,9 +491,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromManifest_NoWebContents) {
   ASSERT_FALSE(SendCommandSync(
       "PWA.install", base::Value::Dict{}.Set(
                          "manifestId", InstallableWebAppManifestId().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppUrl().spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({InstallableWebAppUrl().spec()}));
   ASSERT_FALSE(AppExists(InstallableWebAppManifestId()));
 }
 
@@ -481,9 +500,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromManifest_InvalidStartUrl) {
   ReattachToWebContents(url);
   ASSERT_FALSE(SendCommandSync(
       "PWA.install", base::Value::Dict{}.Set("manifestId", url.spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(url.spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({url.spec()}));
   ASSERT_FALSE(AppExists(url));
   ASSERT_FALSE(AppExists(ManifestId{"http://different.origin/is-invalid"}));
 }
@@ -494,11 +511,8 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
   ReattachToWebContents(url);
   ASSERT_FALSE(SendCommandSync(
       "PWA.install", base::Value::Dict{}.Set("manifestId", url.spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(url.spec()), std::string::npos);
-  ASSERT_NE(message.find(GetInstallableSiteWithManifest("basic.json").spec()),
-            std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains(
+      {url.spec(), GetInstallableSiteWithManifest("basic.json").spec()}));
   ASSERT_FALSE(AppExists(url));
   ASSERT_FALSE(AppExists(InstallableWebAppManifestId()));
 }
@@ -519,9 +533,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
   ASSERT_FALSE(SendCommandSync(
       "PWA.install",
       base::Value::Dict{}.Set("manifestId", HasManifestIdWebAppUrl().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(HasManifestIdWebAppUrl().spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({HasManifestIdWebAppUrl().spec()}));
   ASSERT_FALSE(AppExists(HasManifestIdWebAppManifestId()));
   ASSERT_FALSE(AppExists(HasManifestIdWebAppUrl()));
 }
@@ -569,11 +581,8 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromUrl_Unreachable) {
       base::Value::Dict{}
           .Set("manifestId", InstallableWebAppManifestId().spec())
           .Set("installUrlOrBundleUrl", "http://hello/this/is/not/existing")));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppUrl().spec()), std::string::npos);
-  ASSERT_NE(message.find("http://hello/this/is/not/existing"),
-            std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains(
+      {InstallableWebAppUrl().spec(), "http://hello/this/is/not/existing"}));
   ASSERT_FALSE(AppExists(InstallableWebAppManifestId()));
 }
 
@@ -583,10 +592,8 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromUrl_UnmatchManifestId) {
       base::Value::Dict{}
           .Set("manifestId", NotInstallableWebAppUrl().spec())
           .Set("installUrlOrBundleUrl", InstallableWebAppUrl().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppUrl().spec()), std::string::npos);
-  ASSERT_NE(message.find(NotInstallableWebAppUrl().spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains(
+      {InstallableWebAppUrl().spec(), NotInstallableWebAppUrl().spec()}));
   ASSERT_FALSE(AppExists(InstallableWebAppManifestId()));
   ASSERT_FALSE(AppExists(NotInstallableWebAppManifestId()));
 }
@@ -613,9 +620,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromUrl_InconsistentAppId) {
       base::Value::Dict{}
           .Set("manifestId", url.spec())
           .Set("installUrlOrBundleUrl", InstallableWebAppUrl().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(url.spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({url.spec()}));
   ASSERT_FALSE(AppExists(url));
   ASSERT_FALSE(AppExists(InstallableWebAppManifestId()));
 }
@@ -626,9 +631,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromUrl_NoScheme) {
       base::Value::Dict{}
           .Set("manifestId", InstallableWebAppManifestId().spec())
           .Set("installUrlOrBundleUrl", "localhost/")));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find("localhost/"), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({"localhost/"}));
   ASSERT_FALSE(AppExists(InstallableWebAppManifestId()));
 }
 
@@ -638,10 +641,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromUrl_UnsupportedScheme) {
       base::Value::Dict{}
           .Set("manifestId", InstallableWebAppManifestId().spec())
           .Set("installUrlOrBundleUrl", "ftp://localhost/")));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find("ftp"), std::string::npos);
-  ASSERT_NE(message.find("ftp://localhost/"), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({"ftp", "ftp://localhost/"}));
   ASSERT_FALSE(AppExists(InstallableWebAppManifestId()));
 }
 
@@ -725,10 +725,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Launch_NoApp) {
   ASSERT_FALSE(SendCommandSync(
       "PWA.launch", base::Value::Dict{}.Set(
                         "manifestId", InstallableWebAppManifestId().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppManifestId().spec()),
-            std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({InstallableWebAppManifestId().spec()}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Launch_InFullScreenMode) {
@@ -768,11 +765,8 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Launch_FromUrl_NoApp) {
       "PWA.launch", base::Value::Dict{}
                         .Set("manifestId", InstallableWebAppManifestId().spec())
                         .Set("url", InstallableWebAppUrl().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppManifestId().spec()),
-            std::string::npos);
-  ASSERT_NE(message.find(InstallableWebAppUrl().spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains(
+      {InstallableWebAppManifestId().spec(), InstallableWebAppUrl().spec()}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Launch_FromUrl_InvalidUrl) {
@@ -781,9 +775,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Launch_FromUrl_InvalidUrl) {
       "PWA.launch", base::Value::Dict{}
                         .Set("manifestId", InstallableWebAppManifestId().spec())
                         .Set("url", "invalid-url@@@invalid/url")));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find("invalid-url@@@invalid/url"), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({"invalid-url@@@invalid/url"}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Launch_FromUrl_OutOfScopeUrl) {
@@ -792,9 +784,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Launch_FromUrl_OutOfScopeUrl) {
       "PWA.launch", base::Value::Dict{}
                         .Set("manifestId", InstallableWebAppManifestId().spec())
                         .Set("url", "https://www.google.com/")));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find("https://www.google.com"), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({"https://www.google.com/"}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, LaunchFilesInApp) {
@@ -944,10 +934,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, LaunchFilesInApp_NoFileHandlers) {
       base::Value::Dict{}
           .Set("manifestId", InstallableWebAppManifestId().spec())
           .Set("files", AbsolutePaths({"cors-ok.txt"}))));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppManifestId().spec()),
-            std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({InstallableWebAppManifestId().spec()}));
 }
 
 // This scenario does not reach the handler itself, but it's worth ensuring that
@@ -970,9 +957,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, LaunchFilesInApp_NoFile) {
                                base::Value::Dict{}
                                    .Set("manifestId", url.spec())
                                    .Set("files", base::Value::List{})));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(url.spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({url.spec()}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, LaunchFilesInApp_UnsupportedFile) {
@@ -982,9 +967,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, LaunchFilesInApp_UnsupportedFile) {
                                base::Value::Dict{}
                                    .Set("manifestId", url.spec())
                                    .Set("files", AbsolutePaths({"file.png"}))));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(url.spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({url.spec()}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, OpenCurrentPageInApp) {
@@ -1005,10 +988,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, OpenCurrentPageInApp_NoWebContents) {
       SendCommandSync("PWA.openCurrentPageInApp",
                       base::Value::Dict{}.Set(
                           "manifestId", InstallableWebAppManifestId().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppManifestId().spec()),
-            std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({InstallableWebAppManifestId().spec()}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest, OpenCurrentPageInApp_NotInstalled) {
@@ -1017,10 +997,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, OpenCurrentPageInApp_NotInstalled) {
       SendCommandSync("PWA.openCurrentPageInApp",
                       base::Value::Dict{}.Set(
                           "manifestId", InstallableWebAppManifestId().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppManifestId().spec()),
-            std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({InstallableWebAppManifestId().spec()}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
@@ -1053,10 +1030,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
   ASSERT_FALSE(SendCommandSync(
       "PWA.openCurrentPageInApp",
       base::Value::Dict{}.Set("manifestId", manifest_id.spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(manifest_id.spec()), std::string::npos);
-  ASSERT_NE(message.find(url.spec()), std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({manifest_id.spec(), url.spec()}));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
@@ -1096,11 +1070,134 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, OpenCurrentPageInApp_NoShortcut) {
       SendCommandSync("PWA.openCurrentPageInApp",
                       base::Value::Dict{}.Set(
                           "manifestId", InstallableWebAppManifestId().spec())));
-  ASSERT_TRUE(error());
-  const std::string& message = *error()->FindString("message");
-  ASSERT_NE(message.find(InstallableWebAppManifestId().spec()),
-            std::string::npos);
+  ASSERT_TRUE(ErrorMessageContains({InstallableWebAppManifestId().spec()}));
 }
 #endif
+
+IN_PROC_BROWSER_TEST_F(PWAProtocolTest, ChangeAppUserSettings_ChangeNothing) {
+  InstallFromUrl();
+  auto user_settings_before_change =
+      GetAppUserSettings(InstallableWebAppManifestId());
+  ASSERT_TRUE(
+      SendCommandSync("PWA.changeAppUserSettings",
+                      base::Value::Dict{}.Set(
+                          "manifestId", InstallableWebAppManifestId().spec())));
+  EXPECT_EQ(user_settings_before_change,
+            GetAppUserSettings(InstallableWebAppManifestId()));
+}
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Setting linkCapturing on ChromeOS is not supported yet.
+// TODO(crbug.com/339453269): Implement setting linkCapturing on ChromeOS.
+#define DISABLE_ON_CHROMEOS(x) DISABLED_##x
+#else
+#define DISABLE_ON_CHROMEOS(x) x
+#endif
+
+IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
+                       DISABLE_ON_CHROMEOS(ChangeAppUserSettings_NoApp)) {
+  ASSERT_FALSE(SendCommandSync(
+      "PWA.changeAppUserSettings",
+      base::Value::Dict{}
+          .Set("manifestId", InstallableWebAppManifestId().spec())
+          .Set("linkCapturing", true)
+          .Set("displayMode", "standalone")));
+  EXPECT_TRUE(ErrorMessageContains({InstallableWebAppManifestId().spec()}));
+}
+
+// Unlike the NoApp test above, even without changes, the API should check the
+// existence of the app and returns an error.
+IN_PROC_BROWSER_TEST_F(PWAProtocolTest, ChangeAppUserSettings_NoAppNoChange) {
+  ASSERT_FALSE(
+      SendCommandSync("PWA.changeAppUserSettings",
+                      base::Value::Dict{}.Set(
+                          "manifestId", InstallableWebAppManifestId().spec())));
+  EXPECT_TRUE(ErrorMessageContains({InstallableWebAppManifestId().spec()}));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    PWAProtocolTest,
+    DISABLE_ON_CHROMEOS(
+        ChangeAppUserSettings_ChangeLinkCapturingAndDisplayMode)) {
+  InstallFromUrl();
+  ASSERT_TRUE(SendCommandSync(
+      "PWA.changeAppUserSettings",
+      base::Value::Dict{}
+          .Set("manifestId", InstallableWebAppManifestId().spec())
+          .Set("linkCapturing", true)
+          .Set("displayMode", "standalone")));
+  EXPECT_EQ(
+      GetAppUserSettings(InstallableWebAppManifestId()),
+      std::make_tuple(
+          web_app::proto::LinkCapturingUserPreference::CAPTURE_SUPPORTED_LINKS,
+          web_app::mojom::UserDisplayMode::kStandalone));
+}
+
+IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
+                       ChangeAppUserSettings_ChangeToStandaloneDisplayMode) {
+  InstallFromUrl();
+  ASSERT_TRUE(SendCommandSync(
+      "PWA.changeAppUserSettings",
+      base::Value::Dict{}
+          .Set("manifestId", InstallableWebAppManifestId().spec())
+          .Set("displayMode", "standalone")));
+  EXPECT_EQ(std::get<web_app::mojom::UserDisplayMode>(
+                GetAppUserSettings(InstallableWebAppManifestId())),
+            web_app::mojom::UserDisplayMode::kStandalone);
+}
+
+// Even though supporting on ChromeOS hasn't been implemented, it should not
+// crash.
+IN_PROC_BROWSER_TEST_F(PWAProtocolTest, ChangeAppUserSettings_NotCrash) {
+  InstallFromUrl();
+  SendCommandSync("PWA.changeAppUserSettings",
+                  base::Value::Dict{}
+                      .Set("manifestId", InstallableWebAppManifestId().spec())
+                      .Set("linkCapturing", true)
+                      .Set("displayMode", "standalone"));
+}
+
+IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
+                       ChangeAppUserSettings_UnknownDisplayMode) {
+  InstallFromUrl();
+  auto user_settings_before_change =
+      GetAppUserSettings(InstallableWebAppManifestId());
+  ASSERT_FALSE(SendCommandSync(
+      "PWA.changeAppUserSettings",
+      base::Value::Dict{}
+          .Set("manifestId", InstallableWebAppManifestId().spec())
+          .Set("linkCapturing", true)
+          .Set("displayMode", "hello")));
+  EXPECT_TRUE(ErrorMessageContains(
+      {InstallableWebAppManifestId().spec(), "displayMode", "hello"}));
+  EXPECT_EQ(user_settings_before_change,
+            GetAppUserSettings(InstallableWebAppManifestId()));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    PWAProtocolTest,
+    DISABLE_ON_CHROMEOS(ChangeAppUserSettings_DoNotCapture)) {
+  InstallFromUrl();
+  ASSERT_TRUE(SendCommandSync(
+      "PWA.changeAppUserSettings",
+      base::Value::Dict{}
+          .Set("manifestId", InstallableWebAppManifestId().spec())
+          .Set("linkCapturing", false)));
+  EXPECT_EQ(std::get<web_app::proto::LinkCapturingUserPreference>(
+                GetAppUserSettings(InstallableWebAppManifestId())),
+            web_app::proto::LinkCapturingUserPreference::
+                DO_NOT_CAPTURE_SUPPORTED_LINKS);
+}
+
+// This scenario does not reach the handler itself, but it's worth ensuring that
+// running PWA.changeAppUserSettings without manifestId would always fail.
+// The same concept applies to other APIs, but since they are using same
+// implementation, the test won't be repeated.
+IN_PROC_BROWSER_TEST_F(PWAProtocolTest, ChangeAppUserSettings_NoManifestId) {
+  InstallFromUrl();
+  ASSERT_FALSE(
+      SendCommandSync("PWA.changeAppUserSettings", base::Value::Dict{}));
+  EXPECT_TRUE(error());
+}
 
 }  // namespace

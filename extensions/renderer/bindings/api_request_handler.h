@@ -39,9 +39,9 @@ class APIRequestHandler {
     ~Request();
 
     bool sync = false;
-    bool* success = nullptr;
-    std::string* error = nullptr;
-    base::Value::List* response = nullptr;
+    raw_ptr<bool> success = nullptr;
+    raw_ptr<std::string> error = nullptr;
+    raw_ptr<base::Value::List> response = nullptr;
 
     int request_id = -1;
     std::string method_name;

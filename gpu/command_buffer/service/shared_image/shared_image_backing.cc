@@ -4,6 +4,7 @@
 
 #include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
 
+#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/trace_event/process_memory_dump.h"
@@ -76,7 +77,7 @@ SharedImageBacking::SharedImageBacking(
     const gfx::ColorSpace& color_space,
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
-    uint32_t usage,
+    SharedImageUsageSet usage,
     std::string debug_label,
     size_t estimated_size,
     bool is_thread_safe,
@@ -341,7 +342,7 @@ void SharedImageBacking::ReleaseRef(SharedImageRepresentation* representation) {
   DCHECK(is_ref_counted_);
 
   auto found = base::ranges::find(refs_, representation);
-  DCHECK(found != refs_.end());
+  CHECK(found != refs_.end(), base::NotFatalUntil::M130);
 
   // If the found representation is the first (owning) ref, free the attributed
   // memory.
@@ -439,7 +440,7 @@ ClearTrackingSharedImageBacking::ClearTrackingSharedImageBacking(
     const gfx::ColorSpace& color_space,
     GrSurfaceOrigin surface_origin,
     SkAlphaType alpha_type,
-    uint32_t usage,
+    gpu::SharedImageUsageSet usage,
     std::string debug_label,
     size_t estimated_size,
     bool is_thread_safe,

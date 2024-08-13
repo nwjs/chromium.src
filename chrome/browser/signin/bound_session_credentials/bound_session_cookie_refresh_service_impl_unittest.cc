@@ -91,8 +91,10 @@ MATCHER(IsCookieCredential, "") {
 MATCHER(IsThrottlerParams, "") {
   const auto& [throttler_params, bound_session_params] = arg;
 
-  return GURL(bound_session_params.site()).DomainIs(throttler_params->domain) &&
-         throttler_params->path == "/";
+  GURL scope_url =
+      bound_session_credentials::GetBoundSessionScope(bound_session_params);
+  return throttler_params->domain == scope_url.host_piece() &&
+         throttler_params->path == scope_url.path_piece();
 }
 
 class FakeBoundSessionCookieController : public BoundSessionCookieController {
@@ -118,7 +120,20 @@ class FakeBoundSessionCookieController : public BoundSessionCookieController {
       chrome::mojom::BoundSessionRequestThrottledHandler::
           HandleRequestBlockedOnCookieCallback resume_blocked_request)
       override {
+    if (ShouldPauseThrottlingRequests()) {
+      std::move(resume_blocked_request)
+          .Run(ResumeBlockedRequestsTrigger::kThrottlingRequestsPaused);
+      return;
+    }
     resume_blocked_requests_.push_back(std::move(resume_blocked_request));
+  }
+
+  bool ShouldPauseThrottlingRequests() const override {
+    return throttling_requests_paused_;
+  }
+
+  void SetThrottlingRequestsPaused(bool paused) {
+    throttling_requests_paused_ = paused;
   }
 
   void SimulateOnCookieExpirationDateChanged(
@@ -155,6 +170,7 @@ class FakeBoundSessionCookieController : public BoundSessionCookieController {
                   HandleRequestBlockedOnCookieCallback>
       resume_blocked_requests_;
   std::vector<uint8_t> wrapped_key_;
+  bool throttling_requests_paused_ = false;
   base::WeakPtrFactory<FakeBoundSessionCookieController> weak_ptr_factory_{
       this};
 };
@@ -202,20 +218,24 @@ class FakeBoundSessionRegistrationFetcher
 // `bound_session_credentials::BoundSessionParams`.
 MATCHER_P(IsBoundSessionCookieController, bound_session_params, "") {
   return testing::ExplainMatchResult(
-      AllOf(NotNull(),
-            Property("session_id()",
-                     &FakeBoundSessionCookieController::session_id,
-                     bound_session_params.session_id()),
-            Property("url()", &FakeBoundSessionCookieController::url,
-                     bound_session_params.site()),
-            Property("wrapped_key()",
-                     &FakeBoundSessionCookieController::wrapped_key,
-                     ElementsAreArray(base::as_bytes(
-                         base::make_span(bound_session_params.wrapped_key())))),
-            Property("bound_cookie_names()",
-                     &FakeBoundSessionCookieController::bound_cookie_names,
-                     UnorderedPointwise(IsCookieCredential(),
-                                        bound_session_params.credentials()))),
+      AllOf(
+          NotNull(),
+          Property("session_id()",
+                   &FakeBoundSessionCookieController::session_id,
+                   bound_session_params.session_id()),
+          Property("scope_url()", &FakeBoundSessionCookieController::scope_url,
+                   bound_session_credentials::GetBoundSessionScope(
+                       bound_session_params)),
+          Property("site()", &FakeBoundSessionCookieController::site,
+                   bound_session_params.site()),
+          Property("wrapped_key()",
+                   &FakeBoundSessionCookieController::wrapped_key,
+                   ElementsAreArray(base::as_bytes(
+                       base::make_span(bound_session_params.wrapped_key())))),
+          Property("bound_cookie_names()",
+                   &FakeBoundSessionCookieController::bound_cookie_names,
+                   UnorderedPointwise(IsCookieCredential(),
+                                      bound_session_params.credentials()))),
       arg, result_listener);
 }
 
@@ -286,6 +306,7 @@ bound_session_credentials::BoundSessionParams CreateBoundSessionParams(
   params.set_site(site.spec());
   params.set_session_id(session_id);
   params.set_wrapped_key(kWrappedKey);
+  params.set_refresh_url(site.Resolve("/rotate").spec());
   *params.mutable_creation_time() =
       bound_session_credentials::TimeToTimestamp(base::Time::Now());
   for (const auto& cookie_name : cookie_names) {
@@ -533,6 +554,20 @@ TEST_F(BoundSessionCookieRefreshServiceImplTest,
 }
 
 TEST_F(BoundSessionCookieRefreshServiceImplTest,
+       VerifyBoundSessionWithSubdomainScope) {
+  bound_session_credentials::BoundSessionParams params =
+      CreateBoundSessionParams(GURL("https://google.com"), kTestSessionId, {});
+  *params.add_credentials() =
+      CreateCookieCredential("cookieA", GURL("https://accounts.google.com"));
+  *params.add_credentials() =
+      CreateCookieCredential("cookieB", GURL("https://accounts.google.com"));
+
+  ASSERT_TRUE(storage()->SaveParams(params));
+  GetCookieRefreshServiceImpl();
+  VerifyBoundSession(params);
+}
+
+TEST_F(BoundSessionCookieRefreshServiceImplTest,
        RefreshBoundSessionCookieBoundSession) {
   SetupPreConditionForBoundSession();
   BoundSessionCookieRefreshServiceImpl* service = GetCookieRefreshServiceImpl();
@@ -544,6 +579,20 @@ TEST_F(BoundSessionCookieRefreshServiceImplTest,
   cookie_controller()->SimulateRefreshBoundSessionCompleted();
   EXPECT_TRUE(future.IsReady());
   EXPECT_EQ(future.Get(), kRefreshCompletedTrigger);
+}
+
+TEST_F(BoundSessionCookieRefreshServiceImplTest,
+       RequestBlockedOnCookieThrottlingPaused) {
+  SetupPreConditionForBoundSession();
+  BoundSessionCookieRefreshServiceImpl* service = GetCookieRefreshServiceImpl();
+  EXPECT_TRUE(cookie_controller());
+  cookie_controller()->SetThrottlingRequestsPaused(true);
+  base::test::TestFuture<ResumeBlockedRequestsTrigger> future;
+  service->HandleRequestBlockedOnCookie(kTestGoogleURL, future.GetCallback());
+
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_EQ(future.Get(),
+            ResumeBlockedRequestsTrigger::kThrottlingRequestsPaused);
 }
 
 TEST_F(BoundSessionCookieRefreshServiceImplTest,
@@ -1215,6 +1264,49 @@ TEST_F(BoundSessionCookieRefreshServiceImplMultiSessionTest,
   ASSERT_TRUE(future.IsReady());
   EXPECT_EQ(future.Get(),
             ResumeBlockedRequestsTrigger::kShutdownOrSessionTermination);
+}
+
+TEST_F(BoundSessionCookieRefreshServiceImplMultiSessionTest,
+       HandleRequestBlockedOnCookieOneThrottlingPaused) {
+  std::vector<bound_session_credentials::BoundSessionParams> all_params = {
+      CreateBoundSessionParams(kGoogleSessionKeyOne, {"cookieA", "cookieB"}),
+      CreateBoundSessionParams(kGoogleSessionKeyTwo, {"cookieC"})};
+  for (const auto& params : all_params) {
+    ASSERT_TRUE(storage()->SaveParams(params));
+  }
+
+  BoundSessionCookieRefreshServiceImpl* service = GetCookieRefreshServiceImpl();
+  GetCookieController(kGoogleSessionKeyOne)->SetThrottlingRequestsPaused(true);
+
+  base::test::TestFuture<ResumeBlockedRequestsTrigger> future;
+  service->HandleRequestBlockedOnCookie(kTestGoogleURL, future.GetCallback());
+  EXPECT_FALSE(future.IsReady());
+
+  GetCookieController(kGoogleSessionKeyTwo)
+      ->SimulateRefreshBoundSessionCompleted();
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_EQ(future.Get(),
+            ResumeBlockedRequestsTrigger::kThrottlingRequestsPaused);
+}
+
+TEST_F(BoundSessionCookieRefreshServiceImplMultiSessionTest,
+       HandleRequestBlockedOnCookieAllThrottlingPaused) {
+  std::vector<bound_session_credentials::BoundSessionParams> all_params = {
+      CreateBoundSessionParams(kGoogleSessionKeyOne, {"cookieA", "cookieB"}),
+      CreateBoundSessionParams(kGoogleSessionKeyTwo, {"cookieC"})};
+  for (const auto& params : all_params) {
+    ASSERT_TRUE(storage()->SaveParams(params));
+  }
+
+  BoundSessionCookieRefreshServiceImpl* service = GetCookieRefreshServiceImpl();
+  GetCookieController(kGoogleSessionKeyOne)->SetThrottlingRequestsPaused(true);
+  GetCookieController(kGoogleSessionKeyTwo)->SetThrottlingRequestsPaused(true);
+
+  base::test::TestFuture<ResumeBlockedRequestsTrigger> future;
+  service->HandleRequestBlockedOnCookie(kTestGoogleURL, future.GetCallback());
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_EQ(future.Get(),
+            ResumeBlockedRequestsTrigger::kThrottlingRequestsPaused);
 }
 
 TEST_F(BoundSessionCookieRefreshServiceImplMultiSessionTest,

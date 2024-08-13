@@ -265,12 +265,10 @@ DownloadPrefs::DownloadPrefs(Profile* profile) : profile_(profile) {
     // automatically can change in the future. When the list is tightened, it is
     // expected that some entries in the users' auto open list will get dropped
     // permanently as a result.
-#if 0
     if (FileTypePolicies::GetInstance()->IsAllowedToOpenAutomatically(
             filename_with_extension)) {
       auto_open_by_user_.insert(extension);
     }
-#endif
   }
 }
 
@@ -446,12 +444,11 @@ bool DownloadPrefs::IsAutoOpenByPolicy(const GURL& url,
 bool DownloadPrefs::EnableAutoOpenByUserBasedOnExtension(
     const base::FilePath& file_name) {
   base::FilePath::StringType extension = file_name.Extension();
-#if 0
   if (!FileTypePolicies::GetInstance()->IsAllowedToOpenAutomatically(
           file_name)) {
     return false;
   }
-#endif
+
   DCHECK(extension[0] == base::FilePath::kExtensionSeparator);
   extension.erase(0, 1);
 
@@ -666,11 +663,11 @@ base::FilePath DownloadPrefs::SanitizeDownloadTargetPath(
     return path;
   }
 
-  // Allow paths under one drive mount point if the feature flag is enabled.
-  auto odfs_path = ash::cloud_upload::GetODFSFuseboxMount(profile_);
+  // Allow paths under /tmp if the feature flag is enabled.
+  base::FilePath temp_path;
   if (base::FeatureList::IsEnabled(features::kSkyVault) &&
-      ash::cloud_upload::IsODFSMounted(profile_) &&
-      ((odfs_path == path) || odfs_path.IsParent(path))) {
+      base::GetTempDir(&temp_path) &&
+      ((temp_path == path) || temp_path.IsParent(path))) {
     return path;
   }
 

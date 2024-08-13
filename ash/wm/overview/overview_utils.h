@@ -39,6 +39,14 @@ ASH_EXPORT OverviewSession* GetOverviewSession();
 // Returns true if `window` can cover available workspace.
 bool CanCoverAvailableWorkspace(aura::Window* window);
 
+// Fades `widget` to opacity one and sets the transform to target with the enter
+// overview settings. Have OverviewController observe this animation as a enter
+// animation if `observe` is true.
+void FadeInAndTransformWidgetToOverview(views::Widget* widget,
+                                        const gfx::Transform& target_transform,
+                                        OverviewAnimationType animation_type,
+                                        bool observe);
+
 // Fades `widget` to opacity one with the enter overview settings.
 // Have OverviewController observe this animation as a enter animation if
 // `observe` is true.
@@ -81,9 +89,8 @@ void MaximizeIfSnapped(aura::Window* window);
 
 // Get the grid bounds if a window is snapped in splitview, or what they will be
 // when snapped based on `target_root` and `indicator_state`. If
-// `divider_changed` is true, maybe clamp the bounds to a minimum size and shift
-// the bounds offscreen. If `account_for_hotseat` is true and we are in tablet
-// mode, inset the bounds by the hotseat size.
+// `account_for_hotseat` is true and we are in tablet mode, inset the bounds by
+// the hotseat size.
 ASH_EXPORT gfx::Rect GetGridBoundsInScreen(aura::Window* target_root);
 gfx::Rect GetGridBoundsInScreen(
     aura::Window* target_root,
@@ -104,6 +111,10 @@ bool ShouldUseTabletModeGridLayout();
 ASH_EXPORT gfx::Rect ToStableSizeRoundedRect(const gfx::RectF& rect);
 
 void MoveFocusToView(OverviewFocusableView* target_view);
+
+// Determines if an `item` is eligible for snapping in Overview. Snapping is
+// disallowed for `OverviewGroupItem`s holding two `OverviewItem`s.
+bool IsEligibleForDraggingToSnapInOverview(OverviewItemBase* item);
 
 // For all `windows`, change their visibility by changing the window opacity,
 // animating where necessary.

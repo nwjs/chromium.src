@@ -23,6 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/bindings/core/v8/v8_initializer.h"
 
 #include <algorithm>
@@ -124,16 +129,14 @@ bool FilterETWSessionByURLCallback(v8::Local<v8::Context> context,
                                    const std::string& json_payload);
 #endif  // BUILDFLAG(IS_WIN)
 
-static String ExtractMessageForConsole(v8::Isolate* isolate,
-                                       v8::Local<v8::Value> data) {
+namespace {
+
+String ExtractMessageForConsole(v8::Isolate* isolate,
+                                v8::Local<v8::Value> data) {
   DOMException* exception = V8DOMException::ToWrappable(isolate, data);
-  if (exception && !exception->MessageForConsole().empty()) {
-    return exception->ToStringForConsole();
-  }
-  return g_empty_string;
+  return exception ? exception->ToStringForConsole() : String();
 }
 
-namespace {
 mojom::ConsoleMessageLevel MessageLevelFromNonFatalErrorLevel(int error_level) {
   mojom::ConsoleMessageLevel level = mojom::ConsoleMessageLevel::kError;
   switch (error_level) {
@@ -180,10 +183,9 @@ void V8Initializer::MessageHandlerInMainThread(v8::Local<v8::Message> message,
 
   UseCounter::Count(context, WebFeature::kUnhandledExceptionCountInMainThread);
   base::UmaHistogramBoolean("V8.UnhandledExceptionCountInMainThread", true);
-  ukm::builders::ThirdPartyCookies_BreakageIndicator_UncaughtJSError(
-      context->UkmSourceID())
-      .SetHasOccurred(1)
-      .Record(context->UkmRecorder());
+  // TODO(b/338241225): Reenable the
+  // ThirdPartyCookies.BreakageIndicator.UncaughtJSError event with logic that
+  // caps the number of times the event can be sent per client.
 
   std::unique_ptr<SourceLocation> location =
       CaptureSourceLocation(isolate, message, context);
@@ -207,7 +209,7 @@ void V8Initializer::MessageHandlerInMainThread(v8::Local<v8::Message> message,
 
   String message_for_console = ExtractMessageForConsole(isolate, data);
   if (!message_for_console.empty())
-    event->SetUnsanitizedMessage("Uncaught " + message_for_console);
+    event->SetUnsanitizedMessage(message_for_console);
 
   context->DispatchErrorEvent(event, sanitize_script_errors);
 }
@@ -278,20 +280,6 @@ static void PromiseRejectHandler(v8::PromiseRejectMessage data,
 #endif
 
   v8::Local<v8::Value> exception = data.GetValue();
-  if (V8PerIsolateData::From(isolate)->HasInstance(
-          DOMException::GetStaticWrapperTypeInfo(), exception)) {
-    // Try to get the stack & location from a wrapped DOMException object.
-    CHECK(exception->IsObject());
-    auto private_error = V8PrivateProperty::GetSymbol(
-        isolate, kPrivatePropertyDOMExceptionError);
-    v8::Local<v8::Value> error;
-    if (private_error.GetOrUndefined(exception.As<v8::Object>())
-            .ToLocal(&error) &&
-        !error->IsUndefined()) {
-      exception = error;
-    }
-  }
-
   String error_message;
   SanitizeScriptErrors sanitize_script_errors = SanitizeScriptErrors::kSanitize;
   std::unique_ptr<SourceLocation> location;
@@ -311,8 +299,9 @@ static void PromiseRejectHandler(v8::PromiseRejectMessage data,
 
   String message_for_console =
       ExtractMessageForConsole(isolate, data.GetValue());
-  if (!message_for_console.empty())
-    error_message = "Uncaught " + message_for_console;
+  if (!message_for_console.empty()) {
+    error_message = std::move(message_for_console);
+  }
 
   rejected_promises.RejectedWithNoHandler(script_state, data, error_message,
                                           std::move(location),
@@ -634,16 +623,6 @@ bool WasmJSPromiseIntegrationEnabledCallback(v8::Local<v8::Context> context) {
       execution_context);
 }
 
-bool JavaScriptCompileHintsMagicEnabledCallback(
-    v8::Local<v8::Context> context) {
-  ExecutionContext* execution_context = ToExecutionContext(context);
-  if (!execution_context) {
-    return false;
-  }
-  return RuntimeEnabledFeatures::JavaScriptCompileHintsMagicRuntimeEnabled(
-      execution_context);
-}
-
 v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
     v8::Local<v8::Context> context,
     v8::Local<v8::Data> v8_host_defined_options,
@@ -787,8 +766,6 @@ void V8Initializer::InitializeV8Common(v8::Isolate* isolate) {
   isolate->SetWasmJSPIEnabledCallback(WasmJSPromiseIntegrationEnabledCallback);
   isolate->SetSharedArrayBufferConstructorEnabledCallback(
       SharedArrayBufferConstructorEnabledCallback);
-  isolate->SetJavaScriptCompileHintsMagicEnabledCallback(
-      JavaScriptCompileHintsMagicEnabledCallback);
   isolate->SetHostImportModuleDynamicallyCallback(HostImportModuleDynamically);
   isolate->SetHostInitializeImportMetaObjectCallback(
       HostGetImportMetaProperties);
@@ -986,7 +963,7 @@ v8::Isolate* V8Initializer::InitializeMainThread() {
   if (Platform::Current()->IsolateStartsInBackground()) {
     // If we do not track widget visibility, then assume conservatively that
     // the isolate is in background. This reduces memory usage.
-    isolate->IsolateInBackgroundNotification();
+    isolate->SetPriority(v8::Isolate::Priority::kBestEffort);
   }
 
   return isolate;

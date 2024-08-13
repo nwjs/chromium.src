@@ -107,8 +107,6 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient {
   void ShowDeleteAddressProfileDialog(
       const autofill::AutofillProfile& profile,
       AddressProfileDeleteDialogCallback delete_dialog_callback) override;
-  bool HasCreditCardScanFeature() const override;
-  void ScanCreditCard(CreditCardScanCallback callback) override;
   bool ShowTouchToFillCreditCard(
       base::WeakPtr<autofill::TouchToFillDelegate> delegate,
       base::span<const autofill::CreditCard> cards_to_suggest,
@@ -132,8 +130,6 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient {
       autofill::mojom::ActionPersistence action_persistence,
       autofill::AutofillTriggerSource trigger_source,
       bool is_refill) override;
-  void DidFillOrPreviewField(const std::u16string& autofilled_value,
-                             const std::u16string& profile_full_name) override;
   bool IsContextSecure() const override;
   autofill::FormInteractionsFlowId GetCurrentFormInteractionsFlowId() override;
 
@@ -142,10 +138,12 @@ class AndroidAutofillClient : public autofill::ContentAutofillClient {
       base::PassKey<autofill::ContentAutofillDriver> pass_key,
       autofill::ContentAutofillDriver& driver) override;
 
+ protected:
+  // Protected for testing.
+  explicit AndroidAutofillClient(content::WebContents* web_contents);
+
  private:
   friend class content::WebContentsUserData<AndroidAutofillClient>;
-
-  explicit AndroidAutofillClient(content::WebContents* web_contents);
 
   content::WebContents& GetWebContents() const;
 

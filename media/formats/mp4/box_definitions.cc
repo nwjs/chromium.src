@@ -29,7 +29,7 @@
 
 #include "media/formats/mp4/avc.h"
 #include "media/formats/mp4/dolby_vision.h"
-#include "media/video/h264_parser.h"  // nogncheck
+#include "media/parsers/h264_parser.h"
 
 #if BUILDFLAG(ENABLE_PLATFORM_HEVC)
 #include "media/formats/mp4/hevc.h"
@@ -1871,10 +1871,10 @@ bool AudioSampleEntry::Parse(BoxReader* reader) {
 #endif  // BUILDFLAG(ENABLE_PLATFORM_AC4_AUDIO)
 
 #if BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO)
-  if (format == FOURCC_IAMF) {
-    RCHECK_MEDIA_LOGGED(iacb.Parse(reader), reader->media_log(),
+  if (format == FOURCC_IAMF ||
+      (format == FOURCC_ENCA && sinf.format.format == FOURCC_IAMF)) {
+    RCHECK_MEDIA_LOGGED(reader->ReadChild(&iacb), reader->media_log(),
                         "Failure parsing IamfSpecificBox (iacb)");
-    return true;
   }
 #endif  // BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO)
 

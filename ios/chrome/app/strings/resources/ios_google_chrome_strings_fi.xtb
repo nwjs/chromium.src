@@ -9,11 +9,12 @@
 <translation id="1180362651362502943">Jatka Chrome-datan käyttöä Google-tilillä.</translation>
 <translation id="1200396280085622191">Käytä Chromea, kun napautat linkkejä viesteissä ja muissa sovelluksissa.</translation>
 <translation id="1229222343402087523">Hae ${searchPhrase} Chromesta</translation>
+<translation id="1237769345474105984">Chromesta</translation>
 <translation id="124228879633599436">Chrome on vanhentunut. Päivitä se, jotta pysyt turvassa.</translation>
 <translation id="1282031177488366470">Auta parantamaan Chromen ominaisuuksia ja suorituskykyä</translation>
-<translation id="1320619893013575407">Laitoit Chrome-kirjautumisen pois päältä.</translation>
 <translation id="1333745675627230582">Pelaa Chromen Dino-peliä</translation>
 <translation id="1352919863522755794">Google Salasanat ei voinut tarkistaa salasanojasi. Tarkista internetyhteytesi.</translation>
+<translation id="139623527619433858">Käytä oletuksena iPadin Chromea</translation>
 <translation id="1407843355326180937">Kirjaudu tälle sivustolle ja Chromeen, niin voit käyttää kirjanmerkkejä ja muita asetuksia kaikilla laitteillasi.</translation>
 <translation id="1436059927646026729">Avaa edellinen välilehti Chromessa</translation>
 <translation id="1449241544691504574">Lisää kirjanmerkkejä Chromeen</translation>
@@ -134,6 +135,7 @@ Huomioitavaa:
 <translation id="4903674399067644695">Tässä kortissa on ehdotuksia Chromen hyödyntämiseen parhaalla mahdollisella tavalla.</translation>
 <translation id="4919069428879420545">Poista selausdata Chromessa.</translation>
 <translation id="49200511069271369">Organisaatiosi (<ph name="DOMAIN" />) hallinnoi tiliä, jolle kirjaudut, ja Chromen käyttöä. Järjestelmänvalvoja voi ottaa tiettyjä ominaisuuksia käyttöön tai rajoittaa niitä.</translation>
+<translation id="4925322001044117929">Käytä Chromea oletuksena iPadilla</translation>
 <translation id="498985224078955265">Jos haluat lähettää välilehden toiselle laitteelle, kirjaudu Chromeen molemmilla laitteilla.</translation>
 <translation id="5030102366287574140">Chrome voi auttaa suojaamaan sinua esim. tietosuojaloukkauksilta ja riskialttiilta verkkosivustoilta.</translation>
 <translation id="5108659628347594808">Entistä parempi Chrome</translation>
@@ -172,6 +174,7 @@ Huomioitavaa:
 <translation id="6063091872902370735">Salli Chrome-kirjautuminen</translation>
 <translation id="6110625574506755980">Jotkin Chromen ominaisuudet eivät ole enää käytettävissä.</translation>
 <translation id="6132149203299792222">Kirjaudu sisään Google-tililläsi, niin voit synkronoida esimerkiksi salasanat ja kirjanmerkit.</translation>
+<translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Hae Chromesta</translation>
 <translation id="6238746320622508509">Anna Chromen lukita incognito-välilehtesi.</translation>
 <translation id="6247557882553405851">Googlen Salasanojen ylläpito</translation>
@@ -220,6 +223,7 @@ Siirry <ph name="BEGIN_LINK" />Googlen palveluihin<ph name="END_LINK" />, jos ha
 <translation id="7272930098487145294">Anna Chromen lisätä uusia kuvia valitsemalla Asetukset, niin voit tallentaa kuvia.</translation>
 <translation id="7275945473750112644"><ph name="HOSTED_DOMAIN" /> ylläpitää tiliäsi, joten Chrome-datasi poistetaan tältä laitteelta</translation>
 <translation id="7284245284340063465">Jos unohdit tunnuslauseen tai haluat muuttaa asetusta, <ph name="BEGIN_LINK" />poista tilin Chrome-data<ph name="END_LINK" />.</translation>
+<translation id="7299681342915173313">Voit nyt käyttää Chromea aina, kun napautat linkkejä sähköpostiviesteissä, dokumenteissa tai muissa sovelluksissa</translation>
 <translation id="7304491752269485262">Chromen automaattisen täytön laajennettu näkymä</translation>
 <translation id="7344094882820374540">Chromen vahvin suojaus vaarallisilta sivustoilta</translation>
 <translation id="7349129508108954623">Salli Chromen käyttää Google Mapsia reittiohjeiden ja paikallisten tietojen tarjoamiseen havaituissa osoitteissa.</translation>
@@ -272,7 +276,6 @@ Datasi salataan tunnuslauseella <ph name="TIME" />. Lisää se, niin voit käytt
   3. Valitse Chrome.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8558480467877843976">Voit nyt käyttää Chromea aina selatessasi ja kun napautat linkkejä viesteissä, dokumenteissa tai muissa sovelluksissa.</translation>
-<translation id="8577978202917232774">Ehdotukset perustuvat selaustoimintaasi muilla laitteillasi. Jos haluat saada ehdotuksia, kirjaudu Chromeen kaikilla laitteillasi.</translation>
 <translation id="8603022514504485810">Google Salasanat ei voinut tarkistaa kaikkia salasanoja. Yritä uudelleen huomenna tai <ph name="BEGIN_LINK" />tarkista salasanat Google-tililtä<ph name="END_LINK" />.</translation>
 <translation id="8727043961453758442">Näin saat kaiken irti Chromesta</translation>
 <translation id="8736550665979974340">Pysy turvassa Google Chromen avulla</translation>

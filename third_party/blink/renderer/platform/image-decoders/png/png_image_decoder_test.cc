@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/platform/image-decoders/png/png_image_decoder.h"
 
 #include <memory>
@@ -1135,7 +1140,7 @@ TEST(StaticPNGTests, ColorType2TrnsBeforePlte) {
   // have alpha.
   EXPECT_FALSE(frame->HasAlpha());
   // The background is opaque green.
-  EXPECT_EQ(*frame->GetAddr(1, 1), SkPackARGB32NoCheck(0xFF, 0, 0xFF, 0));
+  EXPECT_EQ(*frame->GetAddr(1, 1), SkPackARGB32(0xFF, 0, 0xFF, 0));
 #else
   // If PNG_READ_OPT_PLTE_SUPPORTED is not defined, libpng performs only minimum
   // processing of an optional PLTE chunk. In particular, it doesn't check if
@@ -1144,7 +1149,7 @@ TEST(StaticPNGTests, ColorType2TrnsBeforePlte) {
   // and the frame should have alpha.
   EXPECT_TRUE(frame->HasAlpha());
   // The background is transparent green.
-  EXPECT_EQ(*frame->GetAddr(1, 1), SkPackARGB32NoCheck(0, 0, 0xFF, 0));
+  EXPECT_EQ(*frame->GetAddr(1, 1), SkPackARGB32(0, 0, 0xFF, 0));
 #endif
 }
 

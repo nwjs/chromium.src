@@ -251,8 +251,8 @@ void ClipboardMac::ReadAvailableTypes(
   types->clear();
   *types = GetStandardFormats(buffer, data_dst);
 
-  if ([pb.types containsObject:kUTTypeChromiumWebCustomData]) {
-    NSData* data = [pb dataForType:kUTTypeChromiumWebCustomData];
+  if ([pb.types containsObject:kUTTypeChromiumDataTransferCustomData]) {
+    NSData* data = [pb dataForType:kUTTypeChromiumDataTransferCustomData];
     if ([data length]) {
       ReadCustomDataTypes(
           base::span(reinterpret_cast<const uint8_t*>([data bytes]),
@@ -362,17 +362,18 @@ void ClipboardMac::ReadPng(ClipboardBuffer buffer,
 
 // |data_dst| is not used. It's only passed to be consistent with other
 // platforms.
-void ClipboardMac::ReadCustomData(ClipboardBuffer buffer,
-                                  const std::u16string& type,
-                                  const DataTransferEndpoint* data_dst,
-                                  std::u16string* result) const {
+void ClipboardMac::ReadDataTransferCustomData(
+    ClipboardBuffer buffer,
+    const std::u16string& type,
+    const DataTransferEndpoint* data_dst,
+    std::u16string* result) const {
   DCHECK(CalledOnValidThread());
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   RecordRead(ClipboardFormatMetric::kCustomData);
 
   NSPasteboard* pb = GetPasteboard();
-  if ([[pb types] containsObject:kUTTypeChromiumWebCustomData]) {
-    NSData* data = [pb dataForType:kUTTypeChromiumWebCustomData];
+  if ([[pb types] containsObject:kUTTypeChromiumDataTransferCustomData]) {
+    NSData* data = [pb dataForType:kUTTypeChromiumDataTransferCustomData];
     if ([data length]) {
       if (std::optional<std::u16string> maybe_result = ReadCustomDataForType(
               base::span(reinterpret_cast<const uint8_t*>([data bytes]),

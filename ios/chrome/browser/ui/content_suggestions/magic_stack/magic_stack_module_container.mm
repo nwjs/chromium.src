@@ -102,7 +102,7 @@ const CGFloat kSeparatorHeight = 0.5;
     _title.font = [self fontForTitle];
     _title.textColor = [UIColor colorNamed:kTextPrimaryColor];
     _title.numberOfLines = 1;
-    _title.lineBreakMode = NSLineBreakByWordWrapping;
+    _title.lineBreakMode = NSLineBreakByTruncatingTail;
     _title.accessibilityTraits |= UIAccessibilityTraitHeader;
     [_title setContentHuggingPriority:UILayoutPriorityDefaultLow
                               forAxis:UILayoutConstraintAxisHorizontal];
@@ -430,6 +430,7 @@ const CGFloat kSeparatorHeight = 0.5;
     [actions addObject:[self toggleTipsNotificationsAction]];
   }
   [actions addObject:[self hideAction]];
+  [actions addObject:[self customizeCardAction]];
   return actions;
 }
 
@@ -444,6 +445,21 @@ const CGFloat kSeparatorHeight = 0.5;
                 [weakSelf.delegate neverShowModuleType:weakSelf.type];
               }];
   hideAction.attributes = UIMenuElementAttributesDestructive;
+  return hideAction;
+}
+
+// Returns the menu action to hide this module type.
+- (UIAction*)customizeCardAction {
+  __weak __typeof(self) weakSelf = self;
+  UIAction* hideAction = [UIAction
+      actionWithTitle:
+          l10n_util::GetNSString(
+              IDS_IOS_MAGIC_STACK_CONTEXT_MENU_CUSTOMIZE_CARDS_TITLE)
+                image:DefaultSymbolWithPointSize(kSliderHorizontalSymbol, 18)
+           identifier:nil
+              handler:^(UIAction* action) {
+                [weakSelf.delegate customizeCardsWasTapped];
+              }];
   return hideAction;
 }
 

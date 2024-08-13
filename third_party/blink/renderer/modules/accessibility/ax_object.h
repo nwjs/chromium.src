@@ -628,7 +628,9 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 
   // Returns result of Accessible Name Calculation algorithm.
   // This is a simpler high-level interface to |name| used by Inspector.
-  String ComputedName() const;
+  // If name_from_out is non-null, it will contain the source of the name.
+  String ComputedName(
+      ax::mojom::blink::NameFrom* name_from_out = nullptr) const;
 
   // Internal function used to determine whether the element supports deriving
   // its accessible name from its descendants. The result of calling |GetName|
@@ -1352,7 +1354,13 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   LocalFrameView* DocumentFrameView() const;
   virtual Element* AnchorElement() const { return nullptr; }
   virtual Element* ActionElement() const { return nullptr; }
-  virtual AtomicString Language() const;
+
+  // For non-root nodes, this returns the language attribute value. For the
+  // root node (kRootWebArea), this returns the first non-empty value from the
+  // following list: the language attribute in the <html> element, the language
+  // specified in the <meta> tag, the Accept-Language HTTP header, the default
+  // language of the browser's UI.
+  AtomicString Language() const;
   virtual bool HasAttribute(const QualifiedName&) const { return false; }
   virtual const AtomicString& GetAttribute(const QualifiedName&) const {
     return g_null_atom;
@@ -1498,7 +1506,15 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual void AddChildren() = 0;
 
   // Collapses multiple whitespace characters into one. Used by GetName().
-  String SimplifyName(const String&) const;
+  String SimplifyName(const String&,
+                      ax::mojom::blink::NameFrom& name_from) const;
+  // Returns true if the object's role prohibits it from being named, even by
+  // the author. See https://w3c.github.io/aria/#namefromprohibited
+  bool IsNameProhibited() const;
+  std::string GetProhibitedNameError(
+      const String& prohibited_name,
+      ax::mojom::blink::NameFrom& prohibited_name_from) const;
+
   static String RecursiveTextAlternative(
       const AXObject&,
       const AXObject* aria_label_or_description_root,
@@ -1561,8 +1577,9 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   void SerializeLiveRegionAttributes(ui::AXNodeData* node_data) const;
   void SerializeNameAndDescriptionAttributes(ui::AXMode accessibility_mode,
                                              ui::AXNodeData* node_data) const;
-  void SerializeOtherScreenReaderAttributes(ui::AXNodeData* node_data) const;
   void SerializeScreenReaderAttributes(ui::AXNodeData* node_data) const;
+  void SerializeOtherScreenReaderAttributes(ui::AXNodeData* node_data) const;
+  void SerializeMathContent(ui::AXNodeData* node_data) const;
   void SerializeScrollAttributes(ui::AXNodeData* node_data) const;
   void SerializeSparseAttributes(ui::AXNodeData* node_data) const;
   void SerializeStyleAttributes(ui::AXNodeData* node_data) const;

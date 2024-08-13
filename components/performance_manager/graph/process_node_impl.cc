@@ -94,8 +94,6 @@ ProcessNodeImpl::~ProcessNodeImpl() {
   // TODO(crbug.com/40051698): Turn this into a DCHECK once the issue is
   //                                  resolved.
   CHECK(worker_nodes_.empty());
-  DCHECK(!frozen_frame_data_);
-  DCHECK(!process_priority_data_);
 }
 
 void ProcessNodeImpl::Bind(
@@ -421,6 +419,8 @@ void ProcessNodeImpl::OnJoiningGraph() {
   // thread in the constructor, can only be dereferenced on the graph sequence.
   weak_factory_.BindToCurrentSequence(
       base::subtle::BindWeakPtrFactoryPassKey());
+
+  NodeAttachedDataStorage::Create(this);
 }
 
 void ProcessNodeImpl::OnBeforeLeavingGraph() {
@@ -437,8 +437,7 @@ void ProcessNodeImpl::OnBeforeLeavingGraph() {
 
 void ProcessNodeImpl::RemoveNodeAttachedData() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  frozen_frame_data_.Reset();
-  process_priority_data_.reset();
+  DestroyNodeInlineDataStorage();
 }
 
 }  // namespace performance_manager

@@ -13,6 +13,7 @@
 #include "base/test/icu_test_util.h"
 #include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/models/image_model.h"
 
 namespace ash {
 namespace {
@@ -236,6 +237,72 @@ TEST(BirchRankerTest, RankCalendarItems_AllDayEvent) {
   EXPECT_FLOAT_EQ(items[2].ranking(), std::numeric_limits<float>::max());
 }
 
+TEST(BirchRankerTest, RankCalendarItems_SameStartTimes) {
+  base::test::ScopedRestoreDefaultTimezone timezone("Etc/GMT");
+
+  // Simulate 3 PM.
+  base::Time now = TimeFromString("22 Feb 2024 15:00 UTC");
+  BirchRanker ranker(now);
+
+  // Create four events which all start at the same time.
+  BirchCalendarItem item(
+      u"Ongoing",
+      /*start_time=*/TimeFromString("22 Feb 2024 16:00 UTC"),
+      /*end_time=*/TimeFromString("22 Feb 2024 17:00 UTC"),
+      /*calendar_url=*/GURL(),
+      /*conference_url=*/GURL(),
+      /*event_id=*/"",
+      /*all_day_event=*/false,
+      /*response_status=*/BirchCalendarItem::ResponseStatus::kAccepted);
+  BirchCalendarItem item2(
+      u"Ongoing",
+      /*start_time=*/TimeFromString("22 Feb 2024 16:00 UTC"),
+      /*end_time=*/TimeFromString("22 Feb 2024 17:00 UTC"),
+      /*calendar_url=*/GURL(),
+      /*conference_url=*/GURL(),
+      /*event_id=*/"",
+      /*all_day_event=*/false,
+      /*response_status=*/BirchCalendarItem::ResponseStatus::kTentative);
+  BirchCalendarItem item3(
+      u"Ongoing",
+      /*start_time=*/TimeFromString("22 Feb 2024 16:00 UTC"),
+      /*end_time=*/TimeFromString("22 Feb 2024 17:00 UTC"),
+      /*calendar_url=*/GURL(),
+      /*conference_url=*/GURL(),
+      /*event_id=*/"",
+      /*all_day_event=*/false,
+      /*response_status=*/BirchCalendarItem::ResponseStatus::kNeedsAction);
+  BirchCalendarItem item4(
+      u"Ongoing",
+      /*start_time=*/TimeFromString("22 Feb 2024 16:00 UTC"),
+      /*end_time=*/TimeFromString("22 Feb 2024 17:00 UTC"),
+      /*calendar_url=*/GURL(),
+      /*conference_url=*/GURL(),
+      /*event_id=*/"",
+      /*all_day_event=*/false,
+      /*response_status=*/BirchCalendarItem::ResponseStatus::kDeclined);
+
+  // Put the items in the vector in reverse order to validate that they are
+  // still handled in the correct order (by response status) inside the ranker.
+  std::vector<BirchCalendarItem> items = {item4, item3, item2, item};
+
+  ranker.RankCalendarItems(&items);
+
+  ASSERT_EQ(4u, items.size());
+
+  // Items with the same start times should be ordered by the response status.
+  EXPECT_EQ(items[0].response_status(),
+            BirchCalendarItem::ResponseStatus::kAccepted);
+  EXPECT_EQ(items[1].response_status(),
+            BirchCalendarItem::ResponseStatus::kTentative);
+  EXPECT_EQ(items[2].response_status(),
+            BirchCalendarItem::ResponseStatus::kNeedsAction);
+  EXPECT_EQ(items[3].response_status(),
+            BirchCalendarItem::ResponseStatus::kDeclined);
+  // Declined event should remain unranked.
+  EXPECT_FLOAT_EQ(items[3].ranking(), std::numeric_limits<float>::max());
+}
+
 TEST(BirchRankerTest, RankAttachmentItems_Morning) {
   base::test::ScopedRestoreDefaultTimezone timezone("Etc/GMT");
 
@@ -403,27 +470,33 @@ TEST(BirchRankerTest, RankRecentTabItems) {
 
   // Create phone tab with a timestamp in the last 5 minutes.
   BirchTabItem item0(u"item0", GURL(), TimeFromString("22 Feb 2024 08:59 UTC"),
-                     GURL(), "", BirchTabItem::DeviceFormFactor::kPhone);
+                     GURL(), "", BirchTabItem::DeviceFormFactor::kPhone,
+                     ui::ImageModel());
 
   // Create tablet tab with a timestamp in the last 5 minutes.
   BirchTabItem item1(u"item1", GURL(), TimeFromString("22 Feb 2024 08:58 UTC"),
-                     GURL(), "", BirchTabItem::DeviceFormFactor::kTablet);
+                     GURL(), "", BirchTabItem::DeviceFormFactor::kTablet,
+                     ui::ImageModel());
 
   // Create phone tab with a timestamp in the last hour.
   BirchTabItem item2(u"item2", GURL(), TimeFromString("22 Feb 2024 08:31 UTC"),
-                     GURL(), "", BirchTabItem::DeviceFormFactor::kPhone);
+                     GURL(), "", BirchTabItem::DeviceFormFactor::kPhone,
+                     ui::ImageModel());
 
   // Create a desktop tab with timestamp in the last hour.
   BirchTabItem item3(u"item3", GURL(), TimeFromString("22 Feb 2024 08:30 UTC"),
-                     GURL(), "", BirchTabItem::DeviceFormFactor::kDesktop);
+                     GURL(), "", BirchTabItem::DeviceFormFactor::kDesktop,
+                     ui::ImageModel());
 
   // Create a tab with timestamp in the last day.
   BirchTabItem item4(u"item4", GURL(), TimeFromString("21 Feb 2024 09:01 UTC"),
-                     GURL(), "", BirchTabItem::DeviceFormFactor::kDesktop);
+                     GURL(), "", BirchTabItem::DeviceFormFactor::kDesktop,
+                     ui::ImageModel());
 
   // Create a tab with timestamp more than a day ago.
   BirchTabItem item5(u"item5", GURL(), TimeFromString("21 Feb 2024 08:59 UTC"),
-                     GURL(), "", BirchTabItem::DeviceFormFactor::kDesktop);
+                     GURL(), "", BirchTabItem::DeviceFormFactor::kDesktop,
+                     ui::ImageModel());
 
   // Put the items in the vector in reverse order to validate that they are
   // still handled in the correct order (by time) inside the ranker.
@@ -492,8 +565,8 @@ TEST(BirchRankerTest, RankWeatherItems_Afternoon) {
 
   ASSERT_EQ(1u, items.size());
 
-  // The item had a lower priority ranking assigned.
-  EXPECT_FLOAT_EQ(items[0].ranking(), 39.f);
+  // The item was not ranked.
+  EXPECT_FLOAT_EQ(items[0].ranking(), std::numeric_limits<float>::max());
 }
 
 }  // namespace

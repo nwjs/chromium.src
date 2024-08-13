@@ -41,7 +41,6 @@
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
-#include "components/performance_manager/public/features.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -356,17 +355,28 @@ TEST_F(AppMenuModelTest, PerformanceItem) {
   EXPECT_TRUE(toolModel.IsEnabledAt(performance_index));
 }
 
-TEST_F(TestAppMenuModelCR2023, PerformanceItemElevated) {
+TEST_F(TestAppMenuModelCR2023, CustomizeChromeItem) {
   feature_list_.Reset();
-  feature_list_.InitWithFeatures(
-      /*enabled_features=*/{performance_manager::features::
-                                kPerformanceControlsSidePanel},
-      /*disabled_features=*/{});
+  feature_list_.InitAndEnableFeature(features::kToolbarPinning);
   AppMenuModel model(this, browser());
   model.Init();
-  ASSERT_TRUE(model.GetIndexOfCommandId(IDC_PERFORMANCE));
-  size_t performance_index = model.GetIndexOfCommandId(IDC_PERFORMANCE).value();
-  EXPECT_TRUE(model.IsEnabledAt(performance_index));
+  ToolsMenuModel tool_model(&model, browser());
+  ASSERT_TRUE(
+      tool_model.GetIndexOfCommandId(IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL));
+  size_t customize_chrome_index =
+      tool_model.GetIndexOfCommandId(IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL)
+          .value();
+  EXPECT_TRUE(tool_model.IsEnabledAt(customize_chrome_index));
+}
+
+TEST_F(TestAppMenuModelCR2023, CustomizeChromeLogMetrics) {
+  feature_list_.Reset();
+  feature_list_.InitAndEnableFeature(features::kToolbarPinning);
+
+  TestLogMetricsAppMenuModel model(this, browser());
+  model.Init();
+  model.ExecuteCommand(IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL, 0);
+  EXPECT_EQ(1, model.log_metrics_count_);
 }
 
 TEST_F(TestAppMenuModelCR2023, OrganizeTabsItem) {

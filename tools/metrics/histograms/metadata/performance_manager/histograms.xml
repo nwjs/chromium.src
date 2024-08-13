@@ -151,7 +151,7 @@ each histogram.
 
 <histogram
     name="PerformanceManager.CPUMonitorMemoryUse.{ResourceContextType}.{ResourceContextState}"
-    units="KB" expires_after="2024-10-17">
+    units="KB" expires_after="2024-12-24">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -187,7 +187,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.DiskStats.UserDataDirFreeSpacePercent"
-    units="%" expires_after="2024-09-22">
+    units="%" expires_after="2024-12-15">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -198,7 +198,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.Experimental.AccessibilityModeFlag"
-    enum="AccessibilityModeFlagEnum" expires_after="2024-11-03">
+    enum="AccessibilityModeFlagEnum" expires_after="2025-01-05">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -208,7 +208,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.Experimental.HasAccessibilityModeFlag"
-    enum="Boolean" expires_after="2024-11-03">
+    enum="Boolean" expires_after="2025-01-05">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -217,9 +217,28 @@ each histogram.
   </summary>
 </histogram>
 
+<histogram name="PerformanceManager.LoadingNotQuiescentPageCount.{Visibility}"
+    units="pages" expires_after="2024-12-10">
+  <owner>joenotcharles@google.com</owner>
+  <owner>chrome-catan@google.com</owner>
+  <summary>
+    Recorded every 30 seconds with the number of PageNodes that have started
+    loading and not reached quiescence at the end of the interval (ie. in
+    LoadingState kLoading or kLoadedBusy). This variant records pages that are
+    {Visibility} for the entire load. PerformanceManager.QuiescentPageCount is
+    recorded at the same time for comparison.
+  </summary>
+  <token key="Visibility">
+    <variant name="All" summary="in any visibility state"/>
+    <variant name="Hidden" summary="hidden"/>
+    <variant name="MixedVisibility" summary="in a mix of visibility states"/>
+    <variant name="Visible" summary="visible"/>
+  </token>
+</histogram>
+
 <histogram
     name="PerformanceManager.PerformanceInterventions.CPU.AverageBackgroundCPU.{Timing}"
-    units="%" expires_after="2024-11-03">
+    units="%" expires_after="2025-01-05">
   <owner>agale@chromium.org</owner>
   <owner>joenotcharles@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
@@ -258,7 +277,7 @@ each histogram.
 
 <histogram
     name="PerformanceManager.PerformanceInterventions.CPU.DurationOverThreshold"
-    units="ms" expires_after="2024-11-03">
+    units="ms" expires_after="2025-01-05">
   <owner>agale@chromium.org</owner>
   <owner>joenotcharles@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
@@ -285,7 +304,7 @@ each histogram.
 
 <histogram
     name="PerformanceManager.PerformanceInterventions.CPU.System.{Timing}"
-    units="%" expires_after="2024-11-03">
+    units="%" expires_after="2025-01-05">
   <owner>agale@chromium.org</owner>
   <owner>joenotcharles@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
@@ -357,7 +376,7 @@ each histogram.
 
 <histogram
     name="PerformanceManager.PerformanceInterventions.CPU.TotalForegroundCPU.{Timing}"
-    units="%" expires_after="2024-11-03">
+    units="%" expires_after="2025-01-05">
   <owner>agale@chromium.org</owner>
   <owner>joenotcharles@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
@@ -379,6 +398,19 @@ each histogram.
     (active, playing audio, etc) tabs.
   </summary>
   <token key="Timing" variants="PerformanceInterventionsCPUTiming"/>
+</histogram>
+
+<histogram name="PerformanceManager.QuiescentPageCount" units="pages"
+    expires_after="2024-12-10">
+  <owner>joenotcharles@google.com</owner>
+  <owner>chrome-catan@google.com</owner>
+  <summary>
+    Recorded every 30 seconds with the number of PageNodes that have not started
+    loading (ie. in LoadingState kLoadingNotStarted or kLoadingTimedOut) or have
+    reached quiescence (ie. in LoadingState kLoadedIdle) at the end of the
+    interval. PerformanceManager.LoadingNotQuiescentPageCount is recorded at the
+    same time for comparison.
+  </summary>
 </histogram>
 
 <histogram name="PerformanceManager.SiteDB.DatabaseInit"
@@ -466,7 +498,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.SiteDB.WriteCompleted.{SiteDBWriteTrigger}"
-    enum="BooleanCompleted" expires_after="2024-06-30">
+    enum="BooleanCompleted" expires_after="2024-12-24">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -479,7 +511,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.SiteDB.WriteScheduled.{SiteDBWriteTrigger}"
-    enum="BooleanAttempted" expires_after="2024-06-30">
+    enum="BooleanAttempted" expires_after="2024-12-24">
   <owner>joenotcharles@google.com</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -492,7 +524,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.TabRevisitTracker.TimeToClose2"
-    units="seconds" expires_after="2024-10-13">
+    units="seconds" expires_after="2024-12-15">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -502,7 +534,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.TabRevisitTracker.TimeToRevisit2"
-    units="seconds" expires_after="2024-10-13">
+    units="seconds" expires_after="2024-12-15">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -522,7 +554,7 @@ each histogram.
 </histogram>
 
 <histogram name="PerformanceManager.UserTuning.EfficiencyMode"
-    enum="EfficiencyMode" expires_after="2024-09-22">
+    enum="EfficiencyMode" expires_after="2024-12-08">
   <owner>anthonyvd@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>

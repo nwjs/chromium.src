@@ -156,6 +156,8 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
                            StartDragWithWrongMimeType);
   FRIEND_TEST_ALL_PREFIXES(WaylandDataDragControllerTest,
                            OutgoingSessionWithoutDndFinished);
+  FRIEND_TEST_ALL_PREFIXES(WaylandWindowDragControllerTest,
+                           OutgoingSessionWithoutDndFinished);
 
   enum class DragResult {
     kCancelled,
@@ -226,9 +228,9 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
   // before calling this.
   void SetUpWindowDraggingSessionIfNeeded(const ui::OSExchangeData& data);
 
-  // Sends an ET_MOUSE_RELEASED event to the window that currently has capture.
-  // Must only be called if |pointer_grabber_for_window_drag_| is valid. This
-  // resets |pointer_grabber_for_window_drag_|.
+  // Sends an EventType::kMouseReleased event to the window that currently has
+  // capture. Must only be called if |pointer_grabber_for_window_drag_| is
+  // valid. This resets |pointer_grabber_for_window_drag_|.
   void DispatchPointerRelease(base::TimeTicks timestamp);
 
   // PlatformEventDispatcher:

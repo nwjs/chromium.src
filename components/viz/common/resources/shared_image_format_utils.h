@@ -22,6 +22,7 @@ class PerfContextProvider;
 }
 
 namespace media {
+class VideoFrame;
 class VideoResourceUpdater;
 }
 
@@ -70,13 +71,6 @@ COMPONENT_EXPORT(VIZ_SHARED_IMAGE_FORMAT)
 gfx::BufferFormat SinglePlaneSharedImageFormatToBufferFormat(
     SharedImageFormat format);
 
-// Returns the SharedImageFormat corresponding to `format`, which must be a
-// single-planar format.
-// Note: This is deprecated and you should use `GetSharedImageFormat()` in new
-// code.
-COMPONENT_EXPORT(VIZ_SHARED_IMAGE_FORMAT)
-SharedImageFormat GetSinglePlaneSharedImageFormat(gfx::BufferFormat format);
-
 // Returns the SharedImageFormat corresponding to `buffer_format`.
 COMPONENT_EXPORT(VIZ_SHARED_IMAGE_FORMAT)
 SharedImageFormat GetSharedImageFormat(gfx::BufferFormat buffer_format);
@@ -114,6 +108,7 @@ class COMPONENT_EXPORT(VIZ_SHARED_IMAGE_FORMAT)
   friend class gpu::ClientSharedImage;
   friend class gpu::SharedImageFormatToBufferFormatRestrictedUtilsAccessor;
   friend class gpu::TestSharedImageInterface;
+  friend class media::VideoFrame;
 
   // BufferFormat is being transitioned out of SharedImage code (to use
   // SharedImageFormat instead). Refrain from using this function or preferably

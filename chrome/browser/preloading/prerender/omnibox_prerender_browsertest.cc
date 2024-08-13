@@ -47,7 +47,6 @@
 #include "ui/base/page_transition_types.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/toolbar_manager_test_helper_android.h"
 #include "chrome/test/base/android/android_browser_test.h"
 #else
 #include "chrome/browser/ui/browser.h"
@@ -228,12 +227,8 @@ class PrerenderOmniboxSearchSuggestionBrowserTest
     : public OmniboxPrerenderBrowserTest {
  public:
   PrerenderOmniboxSearchSuggestionBrowserTest() {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{features::kSupportSearchSuggestionForPrerender2,
-          {
-              {"implementation_type", "use_prefetch"},
-          }}},
-        {});
+    feature_list_.InitAndEnableFeature(
+        features::kSupportSearchSuggestionForPrerender2);
   }
 
   void SetUp() override {
@@ -261,7 +256,7 @@ class PrerenderOmniboxSearchSuggestionBrowserTest
  protected:
   GURL GetCanonicalSearchURL(const GURL& prefetch_url) {
     GURL canonical_search_url;
-    HasCanoncialPreloadingOmniboxSearchURL(prefetch_url,
+    HasCanonicalPreloadingOmniboxSearchURL(prefetch_url,
                                            chrome_test_utils::GetProfile(this),
                                            &canonical_search_url);
     return canonical_search_url;
@@ -368,19 +363,8 @@ class PrerenderOmniboxSearchSuggestionReloadBrowserTest
     : public PrerenderOmniboxSearchSuggestionBrowserTest {
  public:
   PrerenderOmniboxSearchSuggestionReloadBrowserTest() {
-#if BUILDFLAG(IS_ANDROID)
-    // Skips recreating the Android ChromeTabbedActivity when
-    // homepage settings are changed.
-    // This happens when the feature chrome::android::kStartSurfaceAndroid is
-    // enabled (currently enabled by default).
-    toolbar_manager::setSkipRecreateForTesting(true);
-#endif  // BUILDFLAG(IS_ANDROID)
-
     feature_list_.InitWithFeaturesAndParameters(
-        {{features::kSupportSearchSuggestionForPrerender2,
-          {
-              {"implementation_type", "use_prefetch"},
-          }},
+        {{features::kSupportSearchSuggestionForPrerender2, {{}}},
          {kSearchPrefetchServicePrefetching,
           {{"device_memory_threshold_MB", "0"}}}},
         // Disable BFCache, to test the HTTP Cache path.
@@ -441,19 +425,8 @@ class PrerenderOmniboxSearchSuggestionExpiryBrowserTest
     : public PrerenderOmniboxSearchSuggestionBrowserTest {
  public:
   PrerenderOmniboxSearchSuggestionExpiryBrowserTest() {
-#if BUILDFLAG(IS_ANDROID)
-    // Skips recreating the Android ChromeTabbedActivity when
-    // homepage settings are changed.
-    // This happens when the feature chrome::android::kStartSurfaceAndroid is
-    // enabled (currently enabled by default).
-    toolbar_manager::setSkipRecreateForTesting(true);
-#endif  // BUILDFLAG(IS_ANDROID)
-
     feature_list_.InitWithFeaturesAndParameters(
-        {{features::kSupportSearchSuggestionForPrerender2,
-          {
-              {"implementation_type", "use_prefetch"},
-          }},
+        {{features::kSupportSearchSuggestionForPrerender2, {{}}},
          {kSearchPrefetchServicePrefetching,
           {{"device_memory_threshold_MB", "0"}}}},
         {});

@@ -60,6 +60,8 @@ constexpr char kExtensionCantRequestSiteAccessError[] =
 constexpr char kExtensionHasSiteAccessError[] =
     "Extension cannot add a site access request for a site it already has "
     "access to.";
+constexpr char kExtensionRequestCannotBeRemovedError[] =
+    "Extension cannot remove a site access request that doesn't exist.";
 
 PermissionsRequestFunction::DialogAction g_dialog_action =
     PermissionsRequestFunction::DialogAction::kDefault;
@@ -555,27 +557,42 @@ PermissionsAddSiteAccessRequestFunction::Run() {
   DCHECK_NE(tab_id, -1);
 
   const GURL& url = web_contents->GetLastCommittedURL();
-  PermissionsData::PageAccess page_access =
-      extension()->permissions_data()->GetPageAccess(url, tab_id, &error);
+  auto* permissions_manager = PermissionsManager::Get(browser_context());
+  PermissionsManager::ExtensionSiteAccess site_access =
+      permissions_manager->GetSiteAccess(*extension(), url);
 
-  switch (page_access) {
-    case PermissionsData::PageAccess::kDenied:
-      // Request is invalid if extension cannot access the tab's current web
-      // contents.
-      return RespondNow(Error(kExtensionCantRequestSiteAccessError));
-    case PermissionsData::PageAccess::kAllowed:
-      // Request is invalid if extension has access to the tab's current web
-      // contents.
-      return RespondNow(Error(kExtensionHasSiteAccessError));
-    case PermissionsData::PageAccess::kWithheld:
-      // Request is valid if extension has withheld access to the tab's
-      // current web contents. This doesn't mean the request will be visible, as
-      // the user can block the extension's site access and/or their site access
-      // requests.
-      PermissionsManager::Get(browser_context())
-          ->AddSiteAccessRequest(web_contents, tab_id, *extension());
-      return RespondNow(NoArguments());
+  if (site_access.has_site_access ||
+      extension()->permissions_data()->HasTabPermissionsForSecurityOrigin(
+          tab_id, url)) {
+    // Request is invalid if extension has access to the tab's current web
+    // contents.
+    error = kExtensionHasSiteAccessError;
+    is_valid = false;
+  } else if (!site_access.withheld_site_access &&
+             !PermissionsParser::GetOptionalPermissions(extension())
+                  .HasEffectiveAccessToURL(
+                      web_contents->GetLastCommittedURL())) {
+    // Request is invalid if extension wants access to the tab's current web
+    // contents, and access hasn't been withheld.
+    // Note: Ungranted optional permissions are not included in the site access
+    // computation. Thus, we need to check them separately.
+    is_valid = false;
+    error = kExtensionCantRequestSiteAccessError;
+  } else {
+    // Request is valid if extension wants access to the tab's current web
+    // contents, and access hasn't been withheld. This doesn't mean the request
+    // will be visible, as the user can block the extension's site access and/or
+    // their site access requests.
+    is_valid = true;
   }
+
+  if (!is_valid) {
+    CHECK(!error.empty());
+    return RespondNow(Error(error));
+  }
+
+  permissions_manager->AddSiteAccessRequest(web_contents, tab_id, *extension());
+  return RespondNow(NoArguments());
 }
 
 ExtensionFunction::ResponseAction
@@ -624,11 +641,12 @@ PermissionsRemoveSiteAccessRequestFunction::Run() {
   DCHECK(web_contents);
   DCHECK_NE(tab_id, -1);
 
-  // TODO(crbug.com/330588494): Return an error if the request wasn't removed.
-  // For this we need to change the return value of
-  // PermissionsManager::RemoveSiteAccessRequest.
-  PermissionsManager::Get(browser_context())
-      ->RemoveSiteAccessRequest(tab_id, extension()->id());
+  bool is_removed = PermissionsManager::Get(browser_context())
+                        ->RemoveSiteAccessRequest(tab_id, extension()->id());
+  if (!is_removed) {
+    return RespondNow(Error(kExtensionRequestCannotBeRemovedError));
+  }
+
   return RespondNow(NoArguments());
 }
 

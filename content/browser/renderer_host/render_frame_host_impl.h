@@ -59,7 +59,6 @@
 #include "content/browser/renderer_host/loading_state.h"
 #include "content/browser/renderer_host/media/render_frame_audio_input_stream_factory.h"
 #include "content/browser/renderer_host/media/render_frame_audio_output_stream_factory.h"
-#include "content/browser/renderer_host/navigation_discard_reason.h"
 #include "content/browser/renderer_host/origin_trial_state_host_impl.h"
 #include "content/browser/renderer_host/page_impl.h"
 #include "content/browser/renderer_host/policy_container_host.h"
@@ -85,6 +84,7 @@
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/javascript_dialog_manager.h"
+#include "content/public/browser/navigation_discard_reason.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/storage_partition.h"
@@ -114,7 +114,6 @@
 #include "ppapi/buildflags/buildflags.h"
 #include "services/device/public/mojom/vibration_manager.mojom.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
-#include "services/network/public/cpp/attribution_reporting_runtime_features.h"
 #include "services/network/public/cpp/cross_origin_embedder_policy.h"
 #include "services/network/public/cpp/cross_origin_opener_policy.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
@@ -525,7 +524,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void ExecuteMediaPlayerActionAtLocation(
       const gfx::Point&,
       const blink::mojom::MediaPlayerAction& action) override;
-  void RequestVideoFrameAtWithBoundsDiagnostics(
+  void RequestVideoFrameAtWithBoundsHint(
       const gfx::Point& viewport_position,
       const gfx::Size& max_size,
       int max_area,
@@ -561,7 +560,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void GetOpenGraphMetadata(
       base::OnceCallback<void(blink::mojom::OpenGraphMetadataPtr)> callback)
       override;
-  bool IsErrorDocument() override;
+  bool IsErrorDocument() const override;
   DocumentRef GetDocumentRef() override;
   WeakDocumentPtr GetWeakDocumentPtr() override;
   void EnableMojoJsBindings(
@@ -569,6 +568,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   bool ShouldChangeRenderFrameHostOnSameSiteNavigation() const override;
   bool IsClipboardOwner(ui::ClipboardSequenceNumberToken seqno) const override;
   void MarkClipboardOwner(ui::ClipboardSequenceNumberToken seqno) override;
+  bool IsUntrustedNetworkDisabled() const override;
 
   // Additional non-override const version of GetMainFrame.
   const RenderFrameHostImpl* GetMainFrame() const;
@@ -636,6 +636,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const ClipboardMetadata& metadata,
       ClipboardPasteData clipboard_paste_data,
       IsClipboardPasteAllowedCallback callback);
+
+  // Called when `copied_text` has been copied from this RenderFrameHost to the
+  // clipboard. The implementation delegates to
+  // RenderFrameHostDelegate::OnTextCopiedToClipboard.
+  void OnTextCopiedToClipboard(const std::u16string& copied_text);
 
   // This is called when accessibility events arrive from renderer to browser.
   // This could cause eviction if the page is in back/forward cache. Returns
@@ -1720,9 +1725,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void SetKeepAliveTimeoutForTesting(base::TimeDelta timeout);
 
   network::mojom::WebSandboxFlags active_sandbox_flags() {
+    CHECK(policy_container_host_)
+        << LifecycleStateImplToString(lifecycle_state_);
     return policy_container_host_->sandbox_flags();
   }
-  bool is_mhtml_document() { return is_mhtml_document_; }
+  bool is_mhtml_document() const { return is_mhtml_document_; }
+
+  // Returns whether this document is a subframe of a MHTML document.
+  bool IsMhtmlSubframe() const;
 
   ReloadType reload_type() { return reload_type_; }
 
@@ -1815,7 +1825,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // Called to signify the RenderFrameHostImpl that one of its ongoing
   // NavigationRequest's has been cancelled.
-  void NavigationRequestCancelled(NavigationRequest* navigation_request);
+  void NavigationRequestCancelled(NavigationRequest* navigation_request,
+                                  NavigationDiscardReason reason);
 
   // Return fenced frames owned by |this|. The returned vector is in the order
   // the fenced frames were added (most recent at end).
@@ -1977,8 +1988,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   void BindIdleManager(
       mojo::PendingReceiver<blink::mojom::IdleManager> receiver);
-
-  void BindAIManager(mojo::PendingReceiver<blink::mojom::AIManager> receiver);
 
   void GetPresentationService(
       mojo::PendingReceiver<blink::mojom::PresentationService> receiver);
@@ -2191,6 +2200,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   bool IsCredentialless() const override;
 
   bool IsLastCrossDocumentNavigationStartedByUser() const override;
+
+  std::vector<base::SafeRef<NavigationHandle>>
+  GetPendingCommitCrossDocumentNavigations() const override;
 
   net::CookieSettingOverrides GetCookieSettingOverrides() override;
 
@@ -2460,8 +2472,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
       blink::mojom::LegacyTechEventCodeLocationPtr code_location) override;
   void SendPrivateAggregationRequestsForFencedFrameEvent(
       const std::string& event_type) override;
-  void SetAttributionReportingRuntimeFeatures(
-      network::AttributionReportingRuntimeFeatures features) override;
   void CreateFencedFrame(
       mojo::PendingAssociatedReceiver<blink::mojom::FencedFrameOwnerHost>
           pending_receiver,
@@ -2484,6 +2494,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
           receiver) override;
   void NotifyStorageAccessed(blink::mojom::StorageTypeAccessed storage_type,
                              bool blocked) override;
+  void RecordWindowProxyUsageMetrics(
+      const blink::FrameToken& target_frame_token,
+      blink::mojom::WindowProxyAccessType access_type) override;
 
   // blink::mojom::BackForwardCacheControllerHost:
   void EvictFromBackForwardCache(
@@ -2886,6 +2899,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const std::vector<std::string>& directory_path_components,
       blink::mojom::BucketHost::GetDirectoryCallback callback) override;
   GlobalRenderFrameHostId GetAssociatedRenderFrameHostId() const override;
+  base::UnguessableToken GetDevToolsToken() const override;
 
   // Returns false if this document not the initial empty document, or if the
   // current document's input stream has been opened with document.open(),
@@ -3254,7 +3268,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
                            PagehideHandlersArePowerful);
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessSSLBrowserTest,
                            PagehideHandlersArePowerfulGrandChild);
-  FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplTest, ExpectedMainWorldOrigin);
+  FRIEND_TEST_ALL_PREFIXES(
+      RenderFrameHostImplTest_NoOriginKeyedProcessesByDefault,
+      ExpectedMainWorldOrigin);
   FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplTest,
                            RendererInitiatedCloseIsCancelledIfPageIsntPrimary);
   FRIEND_TEST_ALL_PREFIXES(
@@ -4165,6 +4181,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
       base::UnguessableToken nonce,
       DisableUntrustedNetworkInFencedFrameCallback callback);
 
+  // Notifies the RenderProcessHost instance that this frame started to commit
+  // navigation. This signal is used to increase the priority of the renderer
+  // process (see: crbug/351953350).
+  void BoostRenderProcessForLoading();
+  // Notifies the RenderProcessHost instance that this frame does not require
+  // increasing the priority of the renderer process anymore.
+  void MaybeResetBoostRenderProcessForLoading();
+
   // The RenderViewHost that this RenderFrameHost is associated with.
   //
   // It is kept alive as long as any RenderFrameHosts or RenderFrameProxyHosts
@@ -4902,6 +4926,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // or not it can be frozen.
   std::unique_ptr<FeatureObserver> feature_observer_;
 
+  // Force renderer process foregrounded during initial loading phase
+  // (crbug/351953350).
+  bool boost_render_process_for_loading_ = false;
+
   scoped_refptr<WebAuthRequestSecurityChecker>
       webauth_request_security_checker_;
 
@@ -5167,14 +5195,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // the destruction of the document. See the comments of the
   // `cookie_change_listener_` in `NavigationRequest`.
   std::unique_ptr<CookieChangeListener> cookie_change_listener_;
-
-  // Contains a document token to fullscreen when the document element is ready.
-  // Set when a committed navigation requested fullscreen (e.g. Fullscreen popup
-  // window) and triggers a fullscreen on the document element once it is ready
-  // (`MainDocumentElementAvailable` dispatched).
-  // See: https://chromestatus.com/feature/6002307972464640
-  std::optional<blink::DocumentToken>
-      fullscreen_document_on_document_element_ready_ = std::nullopt;
 
   // If true, the renderer side widget is created after the navigation is
   // committed.

@@ -41,6 +41,8 @@ try_.builder(
         configs = [
             "release_try_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
@@ -72,6 +74,8 @@ try_.builder(
             "optimize_for_fuzzing",
             "mojo_fuzzer",
             "skip_generate_fuzzer_owners",
+            "linux",
+            "x64",
         ],
     ),
 )
@@ -92,7 +96,6 @@ try_.builder(
 try_.builder(
     name = "linux-arm64-cast-rel",
     branch_selector = branches.selector.MAIN,
-    description_html = "Try builder for linux-arm64-cast-rel",
     mirrors = [
         "ci/linux-arm64-cast-rel",
     ],
@@ -156,6 +159,8 @@ try_.builder(
             "remoteexec",
             "no_symbols",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     contact_team_email = "chrome-browser-infra-team@google.com",
@@ -170,19 +175,10 @@ try_.builder(
             "release_try_builder",
             "remoteexec",
             "dcheck_off",
+            "linux",
+            "x64",
         ],
     ),
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-# TODO(crbug.com/40267022): Remove this builder after burning down failures
-# found when we now post-process stdout.
-try_.builder(
-    name = "linux-exp-msan-fyi-rel",
-    mirrors = [
-        "ci/linux-exp-msan-fyi-rel",
-    ],
-    gn_args = "ci/linux-exp-msan-fyi-rel",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -245,9 +241,20 @@ try_.builder(
             "no_symbols",
             "dcheck_always_on",
             "mbi_mode_per_render_process_host",
+            "linux",
+            "x64",
         ],
     ),
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "linux-multiscreen-fyi-rel",
+    mirrors = [
+        "ci/linux-multiscreen-fyi-rel",
+    ],
+    gn_args = "ci/linux-multiscreen-fyi-rel",
+    contact_team_email = "web-windowing-team@google.com",
 )
 
 try_.builder(
@@ -283,6 +290,8 @@ try_.builder(
             "remoteexec",
             "no_symbols",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
@@ -358,6 +367,8 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # b/346598710
+        "chromium.luci_analysis_v2": 100,
     },
     main_list_view = "try",
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
@@ -473,7 +484,6 @@ try_.builder(
 try_.builder(
     name = "linux-x64-cast-dbg",
     branch_selector = branches.selector.MAIN,
-    description_html = "Try builder for linux-x64-cast-dbg",
     mirrors = [
         "ci/linux-x64-cast-dbg",
     ],
@@ -495,6 +505,8 @@ try_.builder(
         configs = [
             "release_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
@@ -515,6 +527,8 @@ try_.orchestrator_builder(
         "chromium.compilator_can_outlive_parent": 100,
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # b/346598710
+        "chromium.luci_analysis_v2": 100,
     },
     main_list_view = "try",
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
@@ -604,6 +618,8 @@ try_.builder(
             "remoteexec",
             "no_symbols",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     execution_timeout = 6 * time.hour,
@@ -622,6 +638,8 @@ try_.builder(
         configs = [
             "debug_try_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     builderless = not settings.is_main,
@@ -655,6 +673,8 @@ try_.builder(
             "remoteexec",
             "no_symbols",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
@@ -672,6 +692,8 @@ try_.builder(
             "gpu_tests",
             "debug_try_builder",
             "remoteexec",
+            "linux",
+            "x64",
         ],
     ),
     caches = [
@@ -725,6 +747,8 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # b/346598710
+        "chromium.luci_analysis_v2": 100,
     },
     main_list_view = "try",
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
@@ -751,22 +775,13 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux-lacros-asan-lsan-rel",
-    mirrors = [
-        "ci/linux-lacros-asan-lsan-rel",
-    ],
-    gn_args = "ci/linux-lacros-asan-lsan-rel",
-    cores = 16,
-    ssd = True,
-    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
-)
-
-try_.builder(
     name = "linux_upload_clang",
     executable = "recipe:chromium_toolchain/package_clang",
     gn_args = gn_args.config(
         configs = [
             "release_builder",
+            "linux",
+            "x64",
         ],
     ),
     builderless = True,
@@ -860,6 +875,8 @@ try_.gpu.optional_tests_builder(
             "remoteexec",
             "minimal_symbols",
             "dcheck_always_on",
+            "linux",
+            "x64",
         ],
     ),
     main_list_view = "try",

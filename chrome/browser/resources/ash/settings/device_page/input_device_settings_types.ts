@@ -66,6 +66,9 @@ export type Keyboard = InputDeviceSettingsTypes.Keyboard;
 export type Touchpad = InputDeviceSettingsTypes.Touchpad;
 export type Mouse = InputDeviceSettingsTypes.Mouse;
 export type PointingStick = InputDeviceSettingsTypes.PointingStick;
+export type GraphicsTablet = InputDeviceSettingsTypes.GraphicsTablet;
+
+export type BatteryInfo = InputDeviceSettingsTypes.BatteryInfo;
 
 export interface Stylus {
   // Unique per device based on this VID/PID pair as follows: "<vid>:<pid>"
@@ -75,15 +78,6 @@ export interface Stylus {
   name: string;
   // TODO(yyhyyh@): Add Stylus settings with buttonRemapping: ButtonRemapping[]
   // setting.
-}
-
-export interface GraphicsTablet {
-  // Unique per device based on this VID/PID pair as follows: "<vid>:<pid>"
-  // where VID/PID are represented in lowercase hex
-  deviceKey: string;
-  id: number;
-  name: string;
-  settings: GraphicsTabletSettings;
 }
 
 export interface GraphicsTabletSettings {
@@ -156,6 +150,14 @@ export const CustomizationRestriction =
 
 export type MouseButtonConfig = InputDeviceSettingsTypes.MouseButtonConfig;
 export const MouseButtonConfig = InputDeviceSettingsTypes.MouseButtonConfig;
+
+export type GraphicsTabletButtonConfig =
+    InputDeviceSettingsTypes.GraphicsTabletButtonConfig;
+export const GraphicsTabletButtonConfig =
+    InputDeviceSettingsTypes.GraphicsTabletButtonConfig;
+
+export type CompanionAppState = InputDeviceSettingsTypes.CompanionAppState;
+export const CompanionAppState = InputDeviceSettingsTypes.CompanionAppState;
 
 export interface KeyboardObserverInterface {
   // Fired when the keyboard list is updated.

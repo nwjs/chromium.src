@@ -121,6 +121,7 @@ try_.builder(
             "debug_builder",
             "remoteexec",
             "fuchsia_smart_display",
+            "x64",
         ],
     ),
     free_space = builders.free_space.high,
@@ -151,7 +152,6 @@ try_.builder(
 try_.builder(
     name = "fuchsia-x64-cast-receiver-dbg",
     branch_selector = branches.selector.FUCHSIA_BRANCHES,
-    description_html = "try replica of " + linkify_builder("ci", "fuchsia-x64-cast-receiver-dbg", "chromium"),
     mirrors = ["ci/fuchsia-x64-cast-receiver-dbg"],
     gn_args = gn_args.config(
         configs = [
@@ -201,6 +201,8 @@ try_.orchestrator_builder(
         "chromium.compilator_can_outlive_parent": 100,
         # crbug.com/940930
         "chromium.enable_cleandead": 100,
+        # b/346598710
+        "chromium.luci_analysis_v2": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),

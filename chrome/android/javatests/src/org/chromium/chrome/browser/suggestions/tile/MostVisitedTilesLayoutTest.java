@@ -60,7 +60,6 @@ import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegate;
 import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegateImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.native_page.TouchEnabledDelegate;
-import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
@@ -71,7 +70,6 @@ import org.chromium.chrome.test.util.browser.offlinepages.FakeOfflinePageBridge;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.chrome.test.util.browser.suggestions.mostvisited.FakeMostVisitedSites;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.net.test.EmbeddedTestServerRule;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.test.util.NightModeTestUtils;
@@ -198,7 +196,7 @@ public class MostVisitedTilesLayoutTest {
                     "This test is flaky not only on the Nougat emulator but also on Ubuntu-22.04"
                             + " when building android-x86-rel., see crbug.com/1450693")
     public void testModernTilesLayoutAppearance_Two() throws IOException, InterruptedException {
-        TestThreadUtils.runOnUiThreadBlocking(
+        ThreadUtils.runOnUiThreadBlocking(
                 () ->
                         ChromeNightModeTestUtils.setUpNightModeForChromeActivity(
                                 /* nightModeEnabled= */ false));
@@ -303,7 +301,7 @@ public class MostVisitedTilesLayoutTest {
 
         ViewGroup contentView = new FrameLayout(activity);
 
-        return TestThreadUtils.runOnUiThreadBlockingNoException(
+        return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     setOfflinePageBridge(offlineUrls);
                     activity.setContentView(contentView);
@@ -353,8 +351,7 @@ public class MostVisitedTilesLayoutTest {
                 new SuggestionsUiDelegateImpl(null, profile, null, activity.getSnackbarManager());
 
         TileGroup.Delegate delegate =
-                new TileGroupDelegateImpl(
-                        activity, profile, null, null, BrowserUiUtils.HostSurface.NOT_SET) {
+                new TileGroupDelegateImpl(activity, profile, null, null) {
                     @Override
                     public void onLoadingComplete(List<Tile> tiles) {
                         super.onLoadingComplete(tiles);

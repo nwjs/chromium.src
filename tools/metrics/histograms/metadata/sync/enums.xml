@@ -617,6 +617,12 @@ chromium-metrics-reviews@google.com.
   <int value="100287" label="kAccessibilityFaceGazeAdjustSpeedSeparately"/>
   <int value="100288" label="KeyboardAmbientLightSensorLastEnabled"/>
   <int value="100289" label="AccessibilityReadAnythingImagesEnabled"/>
+  <int value="100290" label="ShelfMallAppPinRolls"/>
+  <int value="100291" label="iOSAddressPromoLastImpressionTimestamp"/>
+  <int value="100292" label="iOSAddressPromoImpressionsCounter"/>
+  <int value="100293" label="iOSAddressPromoOptOut"/>
+  <int value="100294" label="MahiNudgeShownCount"/>
+  <int value="100295" label="AccessibilityMagnifierFollowsChromeVox"/>
 <!-- LINT.ThenChange(/chrome/browser/sync/prefs/chrome_syncable_prefs_database.cc:ChromeSyncablePref)-->
 
 <!-- LINT.IfChange(IosSyncablePref) -->
@@ -671,6 +677,18 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/protocol/sync.proto:SyncClientToServerMessageContents) -->
+
+<!-- LINT.IfChange(SyncConflictResolution) -->
+
+<enum name="SyncConflictResolution">
+  <int value="0" label="Changes match"/>
+  <int value="1" label="Use local"/>
+  <int value="2" label="Use remote"/>
+  <int value="3" label="Ignore local encryption"/>
+  <int value="4" label="Ignore remote encryption"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/sync/model/conflict_resolution.h:SyncConflictResolution) -->
 
 <enum name="SyncCryptographerPendingKeysState">
   <int value="0" label="Does not have pending keys"/>
@@ -747,7 +765,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Sign in needs update"/>
   <int value="2" label="Service unavailable (deprecated)"/>
   <int value="3" label="Needs passphrase"/>
-  <int value="4" label="Unrecoverable error"/>
+  <int value="4" label="Unrecoverable error (deprecated)"/>
   <int value="5" label="Sync settings not confirmed"/>
   <int value="6" label="Sync needs trusted vault key"/>
   <int value="7" label="Sync trusted vault recoverability degraded"/>
@@ -1035,6 +1053,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="PLACEHOLDER_TAB_FOUND"/>
   <int value="1" label="PLACEHOLDER_TAB_RESYNCED"/>
   <int value="2" label="PLACEHOLDER_TAB_NOT_SYNCED"/>
+  <int value="3" label="PLACEHOLDER_TAB_RESYNC_FAILED"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync_sessions/local_session_event_handler_impl.cc:SyncPlaceholderTabResyncResult) -->

@@ -57,6 +57,7 @@
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace cc {
@@ -149,6 +150,9 @@ class CORE_EXPORT LocalFrameView final
     // These are called when the lifecycle updates start/finish.
     virtual void WillStartLifecycleUpdate(const LocalFrameView&) {}
     virtual void DidFinishLifecycleUpdate(const LocalFrameView&) {}
+
+    // Called after the layout lifecycle phase.
+    virtual void DidFinishLayout() {}
   };
 
   explicit LocalFrameView(LocalFrame&);
@@ -266,7 +270,7 @@ class CORE_EXPORT LocalFrameView final
 
   void Dispose() override;
   void PropagateFrameRects() override;
-  void ZoomChanged(float zoom_factor) override;
+  void ZoomFactorChanged(float zoom_factor) override;
   void InvalidateAllCustomScrollbarsOnActiveChanged();
 
   void UsesOverlayScrollbarsChanged();
@@ -530,6 +534,7 @@ class CORE_EXPORT LocalFrameView final
   gfx::Rect ViewportToFrame(const gfx::Rect&) const;
   gfx::Rect FrameToViewport(const gfx::Rect&) const;
   gfx::Point FrameToViewport(const gfx::Point&) const;
+  gfx::PointF FrameToViewport(const gfx::PointF&) const;
   gfx::Point ViewportToFrame(const gfx::Point&) const;
   gfx::PointF ViewportToFrame(const gfx::PointF&) const;
   PhysicalOffset ViewportToFrame(const PhysicalOffset&) const;
@@ -999,7 +1004,7 @@ class CORE_EXPORT LocalFrameView final
   bool RunScrollSnapshotClientSteps();
   bool ShouldDeferLayoutSnap() const;
 
-  bool UpdateLastSuccessfulPositionOptions();
+  bool UpdateLastSuccessfulPositionFallbacks();
   bool NotifyResizeObservers();
   bool RunResizeObserverSteps(DocumentLifecycle::LifecycleState target_state);
   void ClearResizeObserverLimit();

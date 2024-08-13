@@ -512,7 +512,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsViewAuraTest,
   // events. This would need injecting the mock timer into
   // `cc::CompositorFrameReportingController`.
   ui::TouchEvent press(
-      ui::ET_TOUCH_PRESSED,
+      ui::EventType::kTouchPressed,
       gfx::Point(bounds.x() + bounds.width() / 2, bounds.y() + 5),
       ui::EventTimeForNow(),
       ui::PointerDetails(ui::EventPointerType::kTouch, 0));
@@ -520,7 +520,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsViewAuraTest,
   ASSERT_FALSE(details.dispatcher_destroyed);
   EXPECT_EQ(1, GetCurrentIndex());
 
-  ui::TouchEvent move1(ui::ET_TOUCH_MOVED,
+  ui::TouchEvent move1(ui::EventType::kTouchMoved,
                        gfx::Point(bounds.right() - 10, bounds.y() + 5),
                        ui::EventTimeForNow(),
                        ui::PointerDetails(ui::EventPointerType::kTouch, 0));
@@ -532,8 +532,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsViewAuraTest,
   // edge.
 
   for (int x = bounds.right() - 10; x >= bounds.x() + 10; x -= 10) {
-    ui::TouchEvent inc(ui::ET_TOUCH_MOVED, gfx::Point(x, bounds.y() + 5),
-                       ui::EventTimeForNow(),
+    ui::TouchEvent inc(ui::EventType::kTouchMoved,
+                       gfx::Point(x, bounds.y() + 5), ui::EventTimeForNow(),
                        ui::PointerDetails(ui::EventPointerType::kTouch, 0));
     details = sink->OnEventFromSource(&inc);
     ASSERT_FALSE(details.dispatcher_destroyed);
@@ -541,8 +541,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsViewAuraTest,
   }
 
   for (int x = bounds.x() + 10; x <= bounds.width() - 10; x += 10) {
-    ui::TouchEvent inc(ui::ET_TOUCH_MOVED, gfx::Point(x, bounds.y() + 5),
-                       ui::EventTimeForNow(),
+    ui::TouchEvent inc(ui::EventType::kTouchMoved,
+                       gfx::Point(x, bounds.y() + 5), ui::EventTimeForNow(),
                        ui::PointerDetails(ui::EventPointerType::kTouch, 0));
     details = sink->OnEventFromSource(&inc);
     ASSERT_FALSE(details.dispatcher_destroyed);
@@ -550,8 +550,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsViewAuraTest,
   }
 
   for (int x = bounds.width() - 10; x >= bounds.x() + 10; x -= 10) {
-    ui::TouchEvent inc(ui::ET_TOUCH_MOVED, gfx::Point(x, bounds.y() + 5),
-                       ui::EventTimeForNow(),
+    ui::TouchEvent inc(ui::EventType::kTouchMoved,
+                       gfx::Point(x, bounds.y() + 5), ui::EventTimeForNow(),
                        ui::PointerDetails(ui::EventPointerType::kTouch, 0));
     details = sink->OnEventFromSource(&inc);
     ASSERT_FALSE(details.dispatcher_destroyed);
@@ -956,8 +956,9 @@ IN_PROC_BROWSER_TEST_F(WebContentsViewAuraTest,
     blink::WebGestureEvent scroll_begin =
         blink::SyntheticWebGestureEventBuilder::BuildScrollBegin(
             1, 1, blink::WebGestureDevice::kTouchscreen);
-    GetRenderWidgetHost()->ForwardGestureEventWithLatencyInfo(
-        scroll_begin, ui::LatencyInfo());
+    GetRenderWidgetHost()
+        ->GetRenderInputRouter()
+        ->ForwardGestureEventWithLatencyInfo(scroll_begin, ui::LatencyInfo());
     // Scroll begin ignores ack disposition, so don't wait for the ack.
     WaitAFrame();
 
@@ -974,8 +975,10 @@ IN_PROC_BROWSER_TEST_F(WebContentsViewAuraTest,
           blink::SyntheticWebGestureEventBuilder::BuildScrollUpdate(
               dx, 5, 0, blink::WebGestureDevice::kTouchscreen);
 
-      GetRenderWidgetHost()->ForwardGestureEventWithLatencyInfo(
-          scroll_update, ui::LatencyInfo());
+      GetRenderWidgetHost()
+          ->GetRenderInputRouter()
+          ->ForwardGestureEventWithLatencyInfo(scroll_update,
+                                               ui::LatencyInfo());
 
       WaitAFrame();
     }
@@ -989,8 +992,9 @@ IN_PROC_BROWSER_TEST_F(WebContentsViewAuraTest,
     blink::WebGestureEvent scroll_end(
         blink::WebInputEvent::Type::kGestureScrollEnd,
         blink::WebInputEvent::kNoModifiers, ui::EventTimeForNow());
-    GetRenderWidgetHost()->ForwardGestureEventWithLatencyInfo(
-        scroll_end, ui::LatencyInfo());
+    GetRenderWidgetHost()
+        ->GetRenderInputRouter()
+        ->ForwardGestureEventWithLatencyInfo(scroll_end, ui::LatencyInfo());
     WaitAFrame();
 
     if (!navigated)

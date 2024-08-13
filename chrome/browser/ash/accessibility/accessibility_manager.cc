@@ -52,7 +52,6 @@
 #include "chrome/browser/ash/accessibility/magnification_manager.h"
 #include "chrome/browser/ash/accessibility/select_to_speak_event_handler_delegate_impl.h"
 #include "chrome/browser/ash/accessibility/service/accessibility_service_client.h"
-#include "chrome/browser/ash/crosapi/browser_manager.h"
 #include "chrome/browser/ash/policy/enrollment/enrollment_requisition_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
@@ -2501,22 +2500,22 @@ void AccessibilityManager::SendMouseEventToSelectToSpeak(
   // Compare to ui::blink::MakeWebMouseEventFromUiEvent.
   extensions::api::accessibility_private::SyntheticMouseEventType event_type;
   switch (type) {
-    case ui::EventType::ET_MOUSE_PRESSED:
+    case ui::EventType::kMousePressed:
       event_type = extensions::api::accessibility_private::
           SyntheticMouseEventType::kPress;
       break;
-    case ui::EventType::ET_MOUSE_RELEASED:
+    case ui::EventType::kMouseReleased:
       event_type = extensions::api::accessibility_private::
           SyntheticMouseEventType::kRelease;
       break;
-    case ui::EventType::ET_MOUSE_MOVED:
-    case ui::EventType::ET_MOUSE_ENTERED:
-    case ui::EventType::ET_MOUSE_EXITED:
-    case ui::EventType::ET_MOUSE_DRAGGED:
+    case ui::EventType::kMouseMoved:
+    case ui::EventType::kMouseEntered:
+    case ui::EventType::kMouseExited:
+    case ui::EventType::kMouseDragged:
       event_type = extensions::api::accessibility_private::
           SyntheticMouseEventType::kMove;
       break;
-    case ui::EventType::ET_MOUSEWHEEL:
+    case ui::EventType::kMousewheel:
       // Mouse wheel not handled.
       return;
     default:
@@ -2589,7 +2588,8 @@ void AccessibilityManager::ShowNetworkDictationDialog() {
   const std::u16string text =
       l10n_util::GetStringUTF16(IDS_ACCESSIBILITY_DICTATION_CONFIRMATION_TEXT);
   AccessibilityController::Get()->ShowConfirmationDialog(
-      title, text, l10n_util::GetStringUTF16(IDS_APP_CANCEL),
+      title, text, l10n_util::GetStringUTF16(IDS_APP_CONTINUE),
+      l10n_util::GetStringUTF16(IDS_APP_CANCEL),
       base::BindOnce(&AccessibilityManager::OnNetworkDictationDialogAccepted,
                      base::Unretained(this)),
       base::BindOnce(&AccessibilityManager::OnNetworkDictationDialogDismissed,
@@ -3045,6 +3045,11 @@ void AccessibilityManager::OnInputDeviceConfigurationChanged(
 void AccessibilityManager::OnDeviceListsComplete() {
   Shell::Get()->sticky_keys_controller()->SetFnModifierEnabled(
       Shell::Get()->keyboard_capability()->HasFunctionKeyOnAnyKeyboard());
+}
+
+std::optional<ui::KeyboardCode>
+AccessibilityManager::GetCaretBrowsingActionKey() {
+  return AccessibilityController::Get()->GetCaretBrowsingActionKey();
 }
 
 }  // namespace ash

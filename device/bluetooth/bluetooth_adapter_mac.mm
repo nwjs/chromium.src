@@ -216,19 +216,6 @@ bool BluetoothAdapterMac::IsPresent() const {
   return CFBooleanGetValue(connected.get());
 }
 
-BluetoothAdapter::PermissionStatus BluetoothAdapterMac::GetOsPermissionStatus()
-    const {
-  switch (CBCentralManager.authorization) {
-    case CBManagerAuthorizationNotDetermined:
-      return PermissionStatus::kUndetermined;
-    case CBManagerAuthorizationRestricted:
-    case CBManagerAuthorizationDenied:
-      return PermissionStatus::kDenied;
-    case CBManagerAuthorizationAllowedAlways:
-      return PermissionStatus::kAllowed;
-  }
-}
-
 bool BluetoothAdapterMac::IsPowered() const {
   const_cast<BluetoothAdapterMac*>(this)->LazyInitialize();
   return classic_powered_ || IsLowEnergyPowered();
@@ -317,6 +304,16 @@ bool BluetoothAdapterMac::SetPoweredImpl(bool powered) {
 base::WeakPtr<BluetoothLowEnergyAdapterApple>
 BluetoothAdapterMac::GetLowEnergyWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+void BluetoothAdapterMac::TriggerSystemPermissionPrompt() {
+  // Call the system API `IOBluetoothDevice::pairedDevices` to trigger the
+  // Bluetooth system permission prompt if the permission is undetermined. This
+  // system API might block on user interaction with the prompt if the Bluetooth
+  // system permission is undetermined.
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
+      base::BindOnce([] { [IOBluetoothDevice pairedDevices]; }));
 }
 
 void BluetoothAdapterMac::LazyInitialize() {

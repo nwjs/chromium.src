@@ -165,6 +165,7 @@ class TestBrowserWindow : public BrowserWindow {
                                    SharingDialogData data) override;
   void ShowUpdateChromeDialog() override {}
   void ShowBookmarkBubble(const GURL& url, bool already_bookmarked) override {}
+  void ShowBubbleFromManagementToolbarButton() override {}
   qrcode_generator::QRCodeGeneratorBubbleView* ShowQRCodeGeneratorBubble(
       content::WebContents* contents,
       const GURL& url,
@@ -341,7 +342,7 @@ class TestBrowserWindow : public BrowserWindow {
 // destroyed.
 class TestBrowserWindowOwner : public BrowserListObserver {
  public:
-  explicit TestBrowserWindowOwner(TestBrowserWindow* window);
+  explicit TestBrowserWindowOwner(std::unique_ptr<TestBrowserWindow> window);
   TestBrowserWindowOwner(const TestBrowserWindowOwner&) = delete;
   TestBrowserWindowOwner& operator=(const TestBrowserWindowOwner&) = delete;
   ~TestBrowserWindowOwner() override;

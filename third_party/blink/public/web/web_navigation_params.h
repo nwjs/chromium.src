@@ -14,6 +14,7 @@
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "base/uuid.h"
+#include "net/storage_access_api/status.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/link_header.mojom-shared.h"
 #include "services/network/public/mojom/referrer_policy.mojom-shared.h"
@@ -127,6 +128,10 @@ struct BLINK_EXPORT WebNavigationInfo {
   // by the window.open'd frame.
   bool is_opener_navigation = false;
 
+  // True if the initiator explicitly asked for opener relationships to be
+  // preserved, via rel="opener".
+  bool has_rel_opener = false;
+
   // Whether this is a navigation to _unfencedTop, i.e. to the top-level frame
   // from a renderer process that does not get a handle to the frame.
   // The browser should ignore the specified target frame and pick (and
@@ -192,18 +197,14 @@ struct BLINK_EXPORT WebNavigationInfo {
   CrossVariantMojoRemote<mojom::NavigationStateKeepAliveHandleInterfaceBase>
       initiator_navigation_state_keep_alive_handle;
 
-  // The initiator frame's LocalDOMWindow's has_storage_access state.
-  bool has_storage_access = false;
+  // The initiator frame's LocalDOMWindow's Storage Access API status.
+  net::StorageAccessApiStatus storage_access_api_status =
+      net::StorageAccessApiStatus::kNone;
 
   // Whether this navigation was initiated by the container, e.g. iframe changed
   // src. Only container-initiated navigation report resource timing to the
   // parent.
   bool is_container_initiated = false;
-
-  // True if the initiator requested that the tab become fullscreen
-  // after navigation (e.g. the initial navigation of a fullscreen popup).
-  // See: https://chromestatus.com/feature/6002307972464640
-  bool is_fullscreen_requested = false;
 };
 
 // This structure holds all information provided by the embedder that is
@@ -541,8 +542,9 @@ struct BLINK_EXPORT WebNavigationParams {
   base::flat_map<::blink::mojom::RuntimeFeature, bool>
       modified_runtime_features;
 
-  // Whether the document should be loaded with the has_storage_access bit set.
-  bool load_with_storage_access = false;
+  // The Storage Access API status that the document should be loaded with.
+  net::StorageAccessApiStatus load_with_storage_access =
+      net::StorageAccessApiStatus::kNone;
 
   // Indicates which browsing context group this frame belongs to. This starts
   // as nullopt and is only set when we commit a main frame in another browsing

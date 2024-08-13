@@ -205,11 +205,11 @@ bool SigninManagerAndroid::IsSigninAllowed() const {
   return signin_allowed_.GetValue();
 }
 
-jboolean SigninManagerAndroid::IsSigninAllowedByPolicy(JNIEnv* env) const {
+bool SigninManagerAndroid::IsSigninAllowedByPolicy(JNIEnv* env) const {
   return IsSigninAllowed();
 }
 
-jboolean SigninManagerAndroid::IsForceSigninEnabled(JNIEnv* env) {
+bool SigninManagerAndroid::IsForceSigninEnabled(JNIEnv* env) {
   return force_browser_signin_.GetValue();
 }
 
@@ -258,12 +258,8 @@ void SigninManagerAndroid::RegisterPolicyWithAccount(
 void SigninManagerAndroid::FetchAndApplyCloudPolicy(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& j_account_info,
-    const base::android::JavaParamRef<jobject>& j_callback) {
+    const base::RepeatingClosure& callback) {
   CoreAccountInfo account = ConvertFromJavaCoreAccountInfo(env, j_account_info);
-  auto callback =
-      base::BindOnce(base::android::RunRunnableAndroid,
-                     base::android::ScopedJavaGlobalRef<jobject>(j_callback));
-
   RegisterPolicyWithAccount(
       account,
       base::BindOnce(&SigninManagerAndroid::OnPolicyRegisterDone,
@@ -369,20 +365,14 @@ SigninManagerAndroid::GetManagementDomain(JNIEnv* env) {
 
 void SigninManagerAndroid::WipeProfileData(
     JNIEnv* env,
-    const JavaParamRef<jobject>& j_callback) {
-  WipeData(
-      profile_, true /* all data */,
-      base::BindOnce(base::android::RunRunnableAndroid,
-                     base::android::ScopedJavaGlobalRef<jobject>(j_callback)));
+    const base::RepeatingClosure& callback) {
+  WipeData(profile_, true /* all data */, callback);
 }
 
 void SigninManagerAndroid::WipeGoogleServiceWorkerCaches(
     JNIEnv* env,
-    const JavaParamRef<jobject>& j_callback) {
-  WipeData(
-      profile_, false /* only Google service worker caches */,
-      base::BindOnce(base::android::RunRunnableAndroid,
-                     base::android::ScopedJavaGlobalRef<jobject>(j_callback)));
+    const base::RepeatingClosure& callback) {
+  WipeData(profile_, false /* only Google service worker caches */, callback);
 }
 
 // static
@@ -400,9 +390,9 @@ std::string JNI_SigninManagerImpl_ExtractDomainName(JNIEnv* env,
 
 void SigninManagerAndroid::SetUserAcceptedAccountManagement(
     JNIEnv* env,
-    jboolean acceptedAccountManagement) {
+    bool accepted_account_management) {
   chrome::enterprise_util::SetUserAcceptedAccountManagement(
-      profile_, acceptedAccountManagement);
+      profile_, accepted_account_management);
 }
 
 bool SigninManagerAndroid::GetUserAcceptedAccountManagement(JNIEnv* env) {

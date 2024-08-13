@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
 
 #include <cmath>
@@ -170,26 +175,27 @@ CSSValue* ConsumeBaseline(CSSParserTokenStream& stream) {
 }
 
 std::optional<cssvalue::CSSLinearStop> ConsumeLinearStop(
-    CSSParserTokenRange& range,
+    CSSParserTokenStream& stream,
     const CSSParserContext& context) {
   std::optional<double> number;
   std::optional<double> length_a;
   std::optional<double> length_b;
-  while (!range.AtEnd()) {
-    if (range.Peek().GetType() == kCommaToken) {
+  while (!stream.AtEnd()) {
+    if (stream.Peek().GetType() == kCommaToken) {
       break;
     }
     CSSPrimitiveValue* value =
-        ConsumeNumber(range, context, CSSPrimitiveValue::ValueRange::kAll);
+        ConsumeNumber(stream, context, CSSPrimitiveValue::ValueRange::kAll);
     if (!number.has_value() && value && value->IsNumber()) {
       number = value->GetDoubleValue();
       continue;
     }
-    value = ConsumePercent(range, context, CSSPrimitiveValue::ValueRange::kAll);
+    value =
+        ConsumePercent(stream, context, CSSPrimitiveValue::ValueRange::kAll);
     if (!length_a.has_value() && value && value->IsPercentage()) {
       length_a = value->GetDoubleValue();
       value =
-          ConsumePercent(range, context, CSSPrimitiveValue::ValueRange::kAll);
+          ConsumePercent(stream, context, CSSPrimitiveValue::ValueRange::kAll);
       if (value && value->IsPercentage()) {
         length_b = value->GetDoubleValue();
       }
@@ -205,175 +211,193 @@ std::optional<cssvalue::CSSLinearStop> ConsumeLinearStop(
 
 CSSValue* ConsumeLinear(CSSParserTokenStream& stream,
                         const CSSParserContext& context) {
+  CSSValue* result;
+
   // https://w3c.github.io/csswg-drafts/css-easing/#linear-easing-function-parsing
   DCHECK_EQ(stream.Peek().FunctionId(), CSSValueID::kLinear);
-  CSSParserSavePoint savepoint(stream);
-  CSSParserTokenRange args = ConsumeFunction(stream);
-  Vector<cssvalue::CSSLinearStop> stop_list{};
-  std::optional<cssvalue::CSSLinearStop> linear_stop;
-  do {
-    linear_stop = ConsumeLinearStop(args, context);
-    if (!linear_stop.has_value()) {
+  {
+    CSSParserTokenStream::RestoringBlockGuard guard(stream);
+    Vector<cssvalue::CSSLinearStop> stop_list{};
+    std::optional<cssvalue::CSSLinearStop> linear_stop;
+    do {
+      linear_stop = ConsumeLinearStop(stream, context);
+      if (!linear_stop.has_value()) {
+        return nullptr;
+      }
+      stop_list.emplace_back(linear_stop.value());
+    } while (ConsumeCommaIncludingWhitespace(stream));
+    if (!stream.AtEnd()) {
       return nullptr;
     }
-    stop_list.emplace_back(linear_stop.value());
-  } while (ConsumeCommaIncludingWhitespace(args));
-  if (!args.AtEnd()) {
-    return nullptr;
-  }
-  // 1. Let function be a new linear easing function.
-  // 2. Let largestInput be negative infinity.
-  // 3. If there are less than two items in stopList, then return failure.
-  if (stop_list.size() < 2) {
-    return nullptr;
-  }
-  // 4. For each stop in stopList:
-  double largest_input = std::numeric_limits<double>::lowest();
-  Vector<gfx::LinearEasingPoint> points{};
-  for (wtf_size_t i = 0; i < stop_list.size(); ++i) {
-    const auto& stop = stop_list[i];
-    // 4.1. Let point be a new linear easing point with its output set
-    // to stop’s <number> as a number.
-    gfx::LinearEasingPoint point{std::numeric_limits<double>::quiet_NaN(),
-                                 stop.number};
-    // 4.2. Append point to function’s points.
-    points.emplace_back(point);
-    // 4.3. If stop has a <linear-stop-length>, then:
-    if (stop.length_a.has_value()) {
-      // 4.3.1. Set point’s input to whichever is greater:
-      // stop’s <linear-stop-length>'s first <percentage> as a number,
-      // or largestInput.
-      points.back().input = std::max(largest_input, stop.length_a.value());
-      // 4.3.2. Set largestInput to point’s input.
-      largest_input = points.back().input;
-      // 4.3.3. If stop’s <linear-stop-length> has a second <percentage>, then:
-      if (stop.length_b.has_value()) {
-        // 4.3.3.1. Let extraPoint be a new linear easing point with its output
-        // set to stop’s <number> as a number.
-        gfx::LinearEasingPoint extra_point{
-            // 4.3.3.3. Set extraPoint’s input to whichever is greater:
-            // stop’s <linear-stop-length>'s second <percentage>
-            // as a number, or largestInput.
-            std::max(largest_input, stop.length_b.value()), stop.number};
-        // 4.3.3.2. Append extraPoint to function’s points.
-        points.emplace_back(extra_point);
-        // 4.3.3.4. Set largestInput to extraPoint’s input.
-        largest_input = extra_point.input;
-      }
-      // 4.4. Otherwise, if stop is the first item in stopList, then:
-    } else if (i == 0) {
-      // 4.4.1. Set point’s input to 0.
-      points.back().input = 0;
-      // 4.4.2. Set largestInput to 0.
-      largest_input = 0;
-      // 4.5. Otherwise, if stop is the last item in stopList,
-      // then set point’s input to whichever is greater: 1 or largestInput.
-    } else if (i == stop_list.size() - 1) {
-      points.back().input = std::max(100., largest_input);
+    // 1. Let function be a new linear easing function.
+    // 2. Let largestInput be negative infinity.
+    // 3. If there are less than two items in stopList, then return failure.
+    if (stop_list.size() < 2) {
+      return nullptr;
     }
-  }
-  // 5. For runs of items in function’s points that have a null input, assign a
-  // number to the input by linearly interpolating between the closest previous
-  // and next points that have a non-null input.
-  wtf_size_t upper_index = 0;
-  for (wtf_size_t i = 1; i < points.size(); ++i) {
-    if (std::isnan(points[i].input)) {
-      if (i > upper_index) {
-        const auto* it = std::find_if(
-            std::next(points.begin(), i + 1), points.end(),
-            [](const auto& point) { return !std::isnan(point.input); });
-        upper_index = static_cast<wtf_size_t>(it - points.begin());
+    // 4. For each stop in stopList:
+    double largest_input = std::numeric_limits<double>::lowest();
+    Vector<gfx::LinearEasingPoint> points{};
+    for (wtf_size_t i = 0; i < stop_list.size(); ++i) {
+      const auto& stop = stop_list[i];
+      // 4.1. Let point be a new linear easing point with its output set
+      // to stop’s <number> as a number.
+      gfx::LinearEasingPoint point{std::numeric_limits<double>::quiet_NaN(),
+                                   stop.number};
+      // 4.2. Append point to function’s points.
+      points.emplace_back(point);
+      // 4.3. If stop has a <linear-stop-length>, then:
+      if (stop.length_a.has_value()) {
+        // 4.3.1. Set point’s input to whichever is greater:
+        // stop’s <linear-stop-length>'s first <percentage> as a number,
+        // or largestInput.
+        points.back().input = std::max(largest_input, stop.length_a.value());
+        // 4.3.2. Set largestInput to point’s input.
+        largest_input = points.back().input;
+        // 4.3.3. If stop’s <linear-stop-length> has a second <percentage>,
+        // then:
+        if (stop.length_b.has_value()) {
+          // 4.3.3.1. Let extraPoint be a new linear easing point with its
+          // output set to stop’s <number> as a number.
+          gfx::LinearEasingPoint extra_point{
+              // 4.3.3.3. Set extraPoint’s input to whichever is greater:
+              // stop’s <linear-stop-length>'s second <percentage>
+              // as a number, or largestInput.
+              std::max(largest_input, stop.length_b.value()), stop.number};
+          // 4.3.3.2. Append extraPoint to function’s points.
+          points.emplace_back(extra_point);
+          // 4.3.3.4. Set largestInput to extraPoint’s input.
+          largest_input = extra_point.input;
+        }
+        // 4.4. Otherwise, if stop is the first item in stopList, then:
+      } else if (i == 0) {
+        // 4.4.1. Set point’s input to 0.
+        points.back().input = 0;
+        // 4.4.2. Set largestInput to 0.
+        largest_input = 0;
+        // 4.5. Otherwise, if stop is the last item in stopList,
+        // then set point’s input to whichever is greater: 1 or largestInput.
+      } else if (i == stop_list.size() - 1) {
+        points.back().input = std::max(100., largest_input);
       }
-      points[i].input = points[i - 1].input +
-                        (points[upper_index].input - points[i - 1].input) /
-                            (upper_index - (i - 1));
     }
+    // 5. For runs of items in function’s points that have a null input, assign
+    // a number to the input by linearly interpolating between the closest
+    // previous and next points that have a non-null input.
+    wtf_size_t upper_index = 0;
+    for (wtf_size_t i = 1; i < points.size(); ++i) {
+      if (std::isnan(points[i].input)) {
+        if (i > upper_index) {
+          const auto* it = std::find_if(
+              std::next(points.begin(), i + 1), points.end(),
+              [](const auto& point) { return !std::isnan(point.input); });
+          upper_index = static_cast<wtf_size_t>(it - points.begin());
+        }
+        points[i].input = points[i - 1].input +
+                          (points[upper_index].input - points[i - 1].input) /
+                              (upper_index - (i - 1));
+      }
+    }
+    guard.Release();
+    result = MakeGarbageCollected<cssvalue::CSSLinearTimingFunctionValue>(
+        std::move(points));
   }
-  savepoint.Release();
+  stream.ConsumeWhitespace();
+
   // 6. Return function.
-  return MakeGarbageCollected<cssvalue::CSSLinearTimingFunctionValue>(
-      std::move(points));
+  return result;
 }
 
 CSSValue* ConsumeSteps(CSSParserTokenStream& stream,
                        const CSSParserContext& context) {
+  CSSValue* result;
+
   DCHECK_EQ(stream.Peek().FunctionId(), CSSValueID::kSteps);
-  CSSParserSavePoint savepoint(stream);
-  CSSParserTokenRange args = ConsumeFunction(stream);
+  {
+    CSSParserTokenStream::RestoringBlockGuard guard(stream);
 
-  CSSPrimitiveValue* steps = ConsumePositiveInteger(args, context);
-  if (!steps) {
-    return nullptr;
-  }
-
-  StepsTimingFunction::StepPosition position =
-      StepsTimingFunction::StepPosition::END;
-  if (ConsumeCommaIncludingWhitespace(args)) {
-    switch (args.ConsumeIncludingWhitespace().Id()) {
-      case CSSValueID::kStart:
-        position = StepsTimingFunction::StepPosition::START;
-        break;
-
-      case CSSValueID::kEnd:
-        position = StepsTimingFunction::StepPosition::END;
-        break;
-
-      case CSSValueID::kJumpBoth:
-        position = StepsTimingFunction::StepPosition::JUMP_BOTH;
-        break;
-
-      case CSSValueID::kJumpEnd:
-        position = StepsTimingFunction::StepPosition::JUMP_END;
-        break;
-
-      case CSSValueID::kJumpNone:
-        position = StepsTimingFunction::StepPosition::JUMP_NONE;
-        break;
-
-      case CSSValueID::kJumpStart:
-        position = StepsTimingFunction::StepPosition::JUMP_START;
-        break;
-
-      default:
-        return nullptr;
+    CSSPrimitiveValue* steps = ConsumePositiveInteger(stream, context);
+    if (!steps) {
+      return nullptr;
     }
-  }
 
-  if (!args.AtEnd()) {
-    return nullptr;
-  }
+    StepsTimingFunction::StepPosition position =
+        StepsTimingFunction::StepPosition::END;
+    if (ConsumeCommaIncludingWhitespace(stream)) {
+      switch (stream.ConsumeIncludingWhitespace().Id()) {
+        case CSSValueID::kStart:
+          position = StepsTimingFunction::StepPosition::START;
+          break;
 
-  // Steps(n, jump-none) requires n >= 2.
-  if (position == StepsTimingFunction::StepPosition::JUMP_NONE &&
-      steps->GetIntValue() < 2) {
-    return nullptr;
-  }
+        case CSSValueID::kEnd:
+          position = StepsTimingFunction::StepPosition::END;
+          break;
 
-  savepoint.Release();
-  return MakeGarbageCollected<cssvalue::CSSStepsTimingFunctionValue>(
-      steps->GetIntValue(), position);
+        case CSSValueID::kJumpBoth:
+          position = StepsTimingFunction::StepPosition::JUMP_BOTH;
+          break;
+
+        case CSSValueID::kJumpEnd:
+          position = StepsTimingFunction::StepPosition::JUMP_END;
+          break;
+
+        case CSSValueID::kJumpNone:
+          position = StepsTimingFunction::StepPosition::JUMP_NONE;
+          break;
+
+        case CSSValueID::kJumpStart:
+          position = StepsTimingFunction::StepPosition::JUMP_START;
+          break;
+
+        default:
+          return nullptr;
+      }
+    }
+
+    if (!stream.AtEnd()) {
+      return nullptr;
+    }
+
+    // Steps(n, jump-none) requires n >= 2.
+    if (position == StepsTimingFunction::StepPosition::JUMP_NONE &&
+        steps->GetIntValue() < 2) {
+      return nullptr;
+    }
+
+    guard.Release();
+    result = MakeGarbageCollected<cssvalue::CSSStepsTimingFunctionValue>(
+        steps->GetIntValue(), position);
+  }
+  stream.ConsumeWhitespace();
+  return result;
 }
 
 CSSValue* ConsumeCubicBezier(CSSParserTokenStream& stream,
                              const CSSParserContext& context) {
   DCHECK_EQ(stream.Peek().FunctionId(), CSSValueID::kCubicBezier);
-  CSSParserSavePoint savepoint(stream);
-  CSSParserTokenRange args = ConsumeFunction(stream);
+  CSSValue* result = nullptr;
+  {
+    CSSParserTokenStream::RestoringBlockGuard guard(stream);
 
-  double x1, y1, x2, y2;
-  if (ConsumeNumberRaw(args, context, x1) && x1 >= 0 && x1 <= 1 &&
-      ConsumeCommaIncludingWhitespace(args) &&
-      ConsumeNumberRaw(args, context, y1) &&
-      ConsumeCommaIncludingWhitespace(args) &&
-      ConsumeNumberRaw(args, context, x2) && x2 >= 0 && x2 <= 1 &&
-      ConsumeCommaIncludingWhitespace(args) &&
-      ConsumeNumberRaw(args, context, y2) && args.AtEnd()) {
-    savepoint.Release();
-    return MakeGarbageCollected<cssvalue::CSSCubicBezierTimingFunctionValue>(
-        x1, y1, x2, y2);
+    double x1, y1, x2, y2;
+    if (ConsumeNumberRaw(stream, context, x1) && x1 >= 0 && x1 <= 1 &&
+        ConsumeCommaIncludingWhitespace(stream) &&
+        ConsumeNumberRaw(stream, context, y1) &&
+        ConsumeCommaIncludingWhitespace(stream) &&
+        ConsumeNumberRaw(stream, context, x2) && x2 >= 0 && x2 <= 1 &&
+        ConsumeCommaIncludingWhitespace(stream) &&
+        ConsumeNumberRaw(stream, context, y2) && stream.AtEnd()) {
+      guard.Release();
+      result =
+          MakeGarbageCollected<cssvalue::CSSCubicBezierTimingFunctionValue>(
+              x1, y1, x2, y2);
+    }
+  }
+  if (result) {
+    stream.ConsumeWhitespace();
   }
 
-  return nullptr;
+  return result;
 }
 
 CSSIdentifierValue* ConsumeBorderImageRepeatKeyword(
@@ -1020,7 +1044,7 @@ class MathFunctionParser {
       CSSPrimitiveValue::ValueRange value_range,
       const Flags parsing_flags = Flags({Flag::AllowPercent}),
       CSSAnchorQueryTypes allowed_anchor_queries = kCSSAnchorQueryTypesNone,
-      HashMap<CSSValueID, double> color_channel_keyword_values = {})
+      const CSSColorChannelMap& color_channel_map = {})
       : stream_(&stream), savepoint_(Save(stream)) {
     const CSSParserToken token = stream.Peek();
     if (token.GetType() == kFunctionToken) {
@@ -1331,13 +1355,8 @@ CSSPrimitiveValue* ConsumeLengthInternal(
       case CSSPrimitiveValue::UnitType::kRchs:
       case CSSPrimitiveValue::UnitType::kRics:
       case CSSPrimitiveValue::UnitType::kRlhs:
-        break;
       case CSSPrimitiveValue::UnitType::kCaps:
       case CSSPrimitiveValue::UnitType::kRcaps:
-        if (!RuntimeEnabledFeatures::CSSCapFontUnitsEnabled()) {
-          return nullptr;
-        }
-        break;
       case CSSPrimitiveValue::UnitType::kViewportInlineSize:
       case CSSPrimitiveValue::UnitType::kViewportBlockSize:
       case CSSPrimitiveValue::UnitType::kSmallViewportWidth:
@@ -1759,7 +1778,10 @@ template CSSPrimitiveValue* ConsumeTime(
     const CSSParserContext& context,
     CSSPrimitiveValue::ValueRange value_range);
 
-CSSPrimitiveValue* ConsumeResolution(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSPrimitiveValue* ConsumeResolution(T& range,
                                      const CSSParserContext& context) {
   if (const CSSParserToken& token = range.Peek();
       token.GetType() == kDimensionToken) {
@@ -1785,6 +1807,11 @@ CSSPrimitiveValue* ConsumeResolution(CSSParserTokenRange& range,
 
   return nullptr;
 }
+
+template CSSPrimitiveValue* ConsumeResolution(CSSParserTokenRange& range,
+                                              const CSSParserContext& context);
+template CSSPrimitiveValue* ConsumeResolution(CSSParserTokenStream& range,
+                                              const CSSParserContext& context);
 
 // https://drafts.csswg.org/css-values-4/#ratio-value
 //
@@ -2583,11 +2610,12 @@ bool SystemAccentColorAllowed(const CSSParserContext& context) {
     return false;
   }
 
-  if (RuntimeEnabledFeatures::PreventReadingSystemAccentColorEnabled()) {
-    if (const auto* document = context.GetDocument()) {
-      if (document->GetPage()->GetChromeClient().IsIsolatedSVGChromeClient()) {
-        return false;
-      }
+  // We should not allow the system accent color to be rendered in image
+  // contexts because it could be read back by the page and used for
+  // fingerprinting.
+  if (const auto* document = context.GetDocument()) {
+    if (document->GetPage()->GetChromeClient().IsIsolatedSVGChromeClient()) {
+      return false;
     }
   }
 
@@ -2638,8 +2666,9 @@ CSSValue* ConsumeColorInternal(T& range,
   // Parses the color inputs rgb(), rgba(), hsl(), hsla(), hwb(), lab(),
   // oklab(), lch(), oklch() and color(). https://www.w3.org/TR/css-color-4/
   ColorFunctionParser parser;
-  if (parser.ConsumeFunctionalSyntaxColor(range, context, color)) {
-    return cssvalue::CSSColor::Create(color);
+  if (CSSValue* functional_syntax_color =
+          parser.ConsumeFunctionalSyntaxColor(range, context)) {
+    return functional_syntax_color;
   }
 
   if (RuntimeEnabledFeatures::StylableSelectEnabled() &&
@@ -2650,9 +2679,7 @@ CSSValue* ConsumeColorInternal(T& range,
     }
   }
 
-  if ((IsUASheetBehavior(context.Mode()) ||
-       RuntimeEnabledFeatures::CSSLightDarkColorsEnabled()) &&
-      allowed_colors == AllowedColors::kAll) {
+  if (allowed_colors == AllowedColors::kAll) {
     return ConsumeLightDark(ConsumeColor<CSSParserTokenRange>, range, context);
   }
   return nullptr;
@@ -3678,10 +3705,9 @@ CSSValue* ConsumeAxis(CSSParserTokenStream& stream,
   if (!x_dimension || !y_dimension || !z_dimension) {
     return nullptr;
   }
-  double x = To<CSSPrimitiveValue>(x_dimension)->GetDoubleValue();
-  double y = To<CSSPrimitiveValue>(y_dimension)->GetDoubleValue();
-  double z = To<CSSPrimitiveValue>(z_dimension)->GetDoubleValue();
-  return MakeGarbageCollected<cssvalue::CSSAxisValue>(x, y, z);
+  return MakeGarbageCollected<cssvalue::CSSAxisValue>(
+      To<CSSPrimitiveValue>(x_dimension), To<CSSPrimitiveValue>(y_dimension),
+      To<CSSPrimitiveValue>(z_dimension));
 }
 
 CSSValue* ConsumeIntrinsicSizeLonghand(CSSParserTokenStream& stream,
@@ -6631,14 +6657,12 @@ Vector<String> ParseGridTemplateAreasColumnNames(const String& grid_row_names) {
   return column_names;
 }
 
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-CSSValue* ConsumeGridBreadth(T& range, const CSSParserContext& context) {
-  const CSSParserToken& token = range.Peek();
+CSSValue* ConsumeGridBreadth(CSSParserTokenStream& stream,
+                             const CSSParserContext& context) {
+  const CSSParserToken& token = stream.Peek();
   if (IdentMatches<CSSValueID::kAuto, CSSValueID::kMinContent,
                    CSSValueID::kMaxContent>(token.Id())) {
-    return ConsumeIdent(range);
+    return ConsumeIdent(stream);
   }
   if (token.GetType() == kDimensionToken &&
       token.GetUnitType() == CSSPrimitiveValue::UnitType::kFlex) {
@@ -6646,30 +6670,31 @@ CSSValue* ConsumeGridBreadth(T& range, const CSSParserContext& context) {
       return nullptr;
     }
     return CSSNumericLiteralValue::Create(
-        range.ConsumeIncludingWhitespace().NumericValue(),
+        stream.ConsumeIncludingWhitespace().NumericValue(),
         CSSPrimitiveValue::UnitType::kFlex);
   }
-  return ConsumeLengthOrPercent(range, context,
+  return ConsumeLengthOrPercent(stream, context,
                                 CSSPrimitiveValue::ValueRange::kNonNegative,
                                 UnitlessQuirk::kForbid);
 }
 
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-CSSValue* ConsumeFitContent(T& stream, const CSSParserContext& context) {
-  CSSParserSavePoint savepoint(stream);
-  CSSParserTokenRange args = ConsumeFunction(stream);
-  CSSPrimitiveValue* length = ConsumeLengthOrPercent(
-      args, context, CSSPrimitiveValue::ValueRange::kNonNegative,
-      UnitlessQuirk::kAllow);
-  if (!length || !args.AtEnd()) {
-    return nullptr;
+CSSValue* ConsumeFitContent(CSSParserTokenStream& stream,
+                            const CSSParserContext& context) {
+  CSSFunctionValue* result;
+  {
+    CSSParserTokenStream::RestoringBlockGuard guard(stream);
+    stream.ConsumeWhitespace();
+    CSSPrimitiveValue* length = ConsumeLengthOrPercent(
+        stream, context, CSSPrimitiveValue::ValueRange::kNonNegative,
+        UnitlessQuirk::kAllow);
+    if (!length || !stream.AtEnd()) {
+      return nullptr;
+    }
+    guard.Release();
+    result = MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kFitContent);
+    result->Append(*length);
   }
-  savepoint.Release();
-  auto* result =
-      MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kFitContent);
-  result->Append(*length);
+  stream.ConsumeWhitespace();
   return result;
 }
 
@@ -6705,32 +6730,35 @@ bool IsGridTrackFixedSized(const CSSValue& value) {
          IsGridBreadthFixedSized(max_value);
 }
 
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-CSSValue* ConsumeGridTrackSize(T& stream, const CSSParserContext& context) {
+CSSValue* ConsumeGridTrackSize(CSSParserTokenStream& stream,
+                               const CSSParserContext& context) {
   const auto& token_id = stream.Peek().FunctionId();
 
   if (token_id == CSSValueID::kMinmax) {
-    CSSParserSavePoint savepoint(stream);
-    CSSParserTokenRange args = ConsumeFunction(stream);
-    CSSValue* min_track_breadth = ConsumeGridBreadth(args, context);
-    auto* min_track_breadth_primitive_value =
-        DynamicTo<CSSPrimitiveValue>(min_track_breadth);
-    if (!min_track_breadth ||
-        (min_track_breadth_primitive_value &&
-         min_track_breadth_primitive_value->IsFlex()) ||
-        !ConsumeCommaIncludingWhitespace(args)) {
-      return nullptr;
+    CSSFunctionValue* result;
+    DCHECK_EQ(stream.Peek().GetType(), kFunctionToken);
+    {
+      CSSParserTokenStream::RestoringBlockGuard guard(stream);
+      stream.ConsumeWhitespace();
+      CSSValue* min_track_breadth = ConsumeGridBreadth(stream, context);
+      auto* min_track_breadth_primitive_value =
+          DynamicTo<CSSPrimitiveValue>(min_track_breadth);
+      if (!min_track_breadth ||
+          (min_track_breadth_primitive_value &&
+           min_track_breadth_primitive_value->IsFlex()) ||
+          !ConsumeCommaIncludingWhitespace(stream)) {
+        return nullptr;
+      }
+      CSSValue* max_track_breadth = ConsumeGridBreadth(stream, context);
+      if (!max_track_breadth || !stream.AtEnd()) {
+        return nullptr;
+      }
+      guard.Release();
+      result = MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kMinmax);
+      result->Append(*min_track_breadth);
+      result->Append(*max_track_breadth);
     }
-    CSSValue* max_track_breadth = ConsumeGridBreadth(args, context);
-    if (!max_track_breadth || !args.AtEnd()) {
-      return nullptr;
-    }
-    savepoint.Release();
-    auto* result = MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kMinmax);
-    result->Append(*min_track_breadth);
-    result->Append(*max_track_breadth);
+    stream.ConsumeWhitespace();
     return result;
   }
 
@@ -6739,11 +6767,8 @@ CSSValue* ConsumeGridTrackSize(T& stream, const CSSParserContext& context) {
              : ConsumeGridBreadth(stream, context);
 }
 
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
 CSSCustomIdentValue* ConsumeCustomIdentForGridLine(
-    T& stream,
+    CSSParserTokenStream& stream,
     const CSSParserContext& context) {
   if (stream.Peek().Id() == CSSValueID::kAuto ||
       stream.Peek().Id() == CSSValueID::kSpan) {
@@ -6754,46 +6779,11 @@ CSSCustomIdentValue* ConsumeCustomIdentForGridLine(
 
 // Appends to the passed in CSSBracketedValueList if any, otherwise creates a
 // new one. Returns nullptr if an empty list is consumed.
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
 CSSBracketedValueList* ConsumeGridLineNames(
-    T& stream,
-    const CSSParserContext& context,
-    bool is_subgrid_track_list,
-    CSSBracketedValueList* line_names = nullptr) {
-  CSSParserSavePoint savepoint(stream);
-  if (stream.ConsumeIncludingWhitespace().GetType() != kLeftBracketToken) {
-    return nullptr;
-  }
-
-  if (!line_names) {
-    line_names = MakeGarbageCollected<CSSBracketedValueList>();
-  }
-
-  while (CSSCustomIdentValue* line_name =
-             ConsumeCustomIdentForGridLine(stream, context)) {
-    line_names->Append(*line_name);
-  }
-
-  if (stream.ConsumeIncludingWhitespace().GetType() != kRightBracketToken) {
-    return nullptr;
-  }
-  savepoint.Release();
-
-  if (!is_subgrid_track_list && line_names->length() == 0U) {
-    return nullptr;
-  }
-
-  return line_names;
-}
-
-template <>
-CSSBracketedValueList* ConsumeGridLineNames<CSSParserTokenStream>(
     CSSParserTokenStream& stream,
     const CSSParserContext& context,
     bool is_subgrid_track_list,
-    CSSBracketedValueList* line_names) {
+    CSSBracketedValueList* line_names = nullptr) {
   if (stream.Peek().GetType() != kLeftBracketToken) {
     return nullptr;
   }
@@ -6823,10 +6813,7 @@ CSSBracketedValueList* ConsumeGridLineNames<CSSParserTokenStream>(
   return line_names;
 }
 
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-bool AppendLineNames(T& stream,
+bool AppendLineNames(CSSParserTokenStream& stream,
                      const CSSParserContext& context,
                      bool is_subgrid_track_list,
                      CSSValueList* values) {
@@ -6838,25 +6825,24 @@ bool AppendLineNames(T& stream,
   return false;
 }
 
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-bool ConsumeGridTrackRepeatFunction(T& stream,
+bool ConsumeGridTrackRepeatFunction(CSSParserTokenStream& stream,
                                     const CSSParserContext& context,
                                     bool is_subgrid_track_list,
                                     CSSValueList& list,
                                     bool& is_auto_repeat,
                                     bool& all_tracks_are_fixed_sized) {
-  CSSParserTokenRange args = ConsumeFunction(stream);
+  DCHECK_EQ(stream.Peek().GetType(), kFunctionToken);
+  CSSParserTokenStream::BlockGuard guard(stream);
+  stream.ConsumeWhitespace();
 
   // <name-repeat> syntax for subgrids only supports `auto-fill`.
   if (is_subgrid_track_list &&
-      IdentMatches<CSSValueID::kAutoFit>(args.Peek().Id())) {
+      IdentMatches<CSSValueID::kAutoFit>(stream.Peek().Id())) {
     return false;
   }
 
   is_auto_repeat = IdentMatches<CSSValueID::kAutoFill, CSSValueID::kAutoFit>(
-      args.Peek().Id());
+      stream.Peek().Id());
   CSSValueList* repeated_values;
   // The number of repetitions for <auto-repeat> is not important at parsing
   // level because it will be computed later, let's set it to 1.
@@ -6864,10 +6850,10 @@ bool ConsumeGridTrackRepeatFunction(T& stream,
 
   if (is_auto_repeat) {
     repeated_values = MakeGarbageCollected<cssvalue::CSSGridAutoRepeatValue>(
-        args.ConsumeIncludingWhitespace().Id());
+        stream.ConsumeIncludingWhitespace().Id());
   } else {
     // TODO(rob.buis): a consumeIntegerRaw would be more efficient here.
-    CSSPrimitiveValue* repetition = ConsumePositiveInteger(args, context);
+    CSSPrimitiveValue* repetition = ConsumePositiveInteger(stream, context);
     if (!repetition) {
       return false;
     }
@@ -6876,23 +6862,23 @@ bool ConsumeGridTrackRepeatFunction(T& stream,
     repeated_values = CSSValueList::CreateSpaceSeparated();
   }
 
-  if (!ConsumeCommaIncludingWhitespace(args)) {
+  if (!ConsumeCommaIncludingWhitespace(stream)) {
     return false;
   }
 
   wtf_size_t number_of_line_name_sets =
-      AppendLineNames(args, context, is_subgrid_track_list, repeated_values);
+      AppendLineNames(stream, context, is_subgrid_track_list, repeated_values);
   wtf_size_t number_of_tracks = 0;
-  while (!args.AtEnd()) {
+  while (!stream.AtEnd()) {
     if (is_subgrid_track_list) {
       if (!number_of_line_name_sets ||
-          !AppendLineNames(args, context, is_subgrid_track_list,
+          !AppendLineNames(stream, context, is_subgrid_track_list,
                            repeated_values)) {
         return false;
       }
       ++number_of_line_name_sets;
     } else {
-      CSSValue* track_size = ConsumeGridTrackSize(args, context);
+      CSSValue* track_size = ConsumeGridTrackSize(stream, context);
       if (!track_size) {
         return false;
       }
@@ -6901,7 +6887,7 @@ bool ConsumeGridTrackRepeatFunction(T& stream,
       }
       repeated_values->Append(*track_size);
       ++number_of_tracks;
-      AppendLineNames(args, context, is_subgrid_track_list, repeated_values);
+      AppendLineNames(stream, context, is_subgrid_track_list, repeated_values);
     }
   }
 
@@ -7077,10 +7063,7 @@ CSSValue* ConsumeGridLine(CSSParserTokenStream& stream,
   return values;
 }
 
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-CSSValue* ConsumeGridTrackList(T& stream,
+CSSValue* ConsumeGridTrackList(CSSParserTokenStream& stream,
                                const CSSParserContext& context,
                                TrackListType track_list_type) {
   bool allow_grid_line_names = track_list_type != TrackListType::kGridAuto;
@@ -7106,7 +7089,7 @@ CSSValue* ConsumeGridTrackList(T& stream,
       is_subgrid_track_list || track_list_type == TrackListType::kGridTemplate;
   bool seen_auto_repeat = false;
   bool all_tracks_are_fixed_sized = true;
-  auto IsRangeAtEnd = [](T& stream) -> bool {
+  auto IsRangeAtEnd = [](CSSParserTokenStream& stream) -> bool {
     return stream.AtEnd() || stream.Peek().GetType() == kDelimiterToken;
   };
 
@@ -7121,6 +7104,7 @@ CSSValue* ConsumeGridTrackList(T& stream,
               all_tracks_are_fixed_sized)) {
         return nullptr;
       }
+      stream.ConsumeWhitespace();
       if (is_auto_repeat && seen_auto_repeat) {
         return nullptr;
       }
@@ -7159,10 +7143,6 @@ CSSValue* ConsumeGridTrackList(T& stream,
 
   return values;
 }
-
-template CSSValue* ConsumeGridTrackList(CSSParserTokenStream& stream,
-                                        const CSSParserContext& context,
-                                        TrackListType track_list_type);
 
 bool ParseGridTemplateAreasRow(const String& grid_row_names,
                                NamedGridAreaMap& grid_area_map,
@@ -7239,10 +7219,7 @@ bool ParseGridTemplateAreasRow(const String& grid_row_names,
   return true;
 }
 
-template <typename T>
-  requires std::is_same_v<T, CSSParserTokenStream> ||
-           std::is_same_v<T, CSSParserTokenRange>
-CSSValue* ConsumeGridTemplatesRowsOrColumns(T& stream,
+CSSValue* ConsumeGridTemplatesRowsOrColumns(CSSParserTokenStream& stream,
                                             const CSSParserContext& context) {
   switch (stream.Peek().Id()) {
     case CSSValueID::kNone:
@@ -7255,14 +7232,6 @@ CSSValue* ConsumeGridTemplatesRowsOrColumns(T& stream,
                                   TrackListType::kGridTemplate);
   }
 }
-
-template CSSValue* ConsumeGridTemplatesRowsOrColumns(
-    CSSParserTokenRange& stream,
-    const CSSParserContext& context);
-
-template CSSValue* ConsumeGridTemplatesRowsOrColumns(
-    CSSParserTokenStream& stream,
-    const CSSParserContext& context);
 
 bool ConsumeGridItemPositionShorthand(bool important,
                                       CSSParserTokenStream& stream,
@@ -7753,9 +7722,6 @@ CSSValue* ConsumeInitialLetter(CSSParserTokenStream& stream,
       return nullptr;
     }
     list->Append(*size);
-    if (stream.AtEnd()) {
-      return list;
-    }
     if (auto* sink_type =
             ConsumeIdent<CSSValueID::kDrop, CSSValueID::kRaise>(stream)) {
       list->Append(*sink_type);
@@ -7766,6 +7732,7 @@ CSSValue* ConsumeInitialLetter(CSSParserTokenStream& stream,
       list->Append(*sink);
       return list;
     }
+    return list;
   }
 
   return nullptr;
@@ -7957,9 +7924,6 @@ CSSValue* ConsumeTextBoxEdge(CSSParserTokenStream& stream) {
   }
   // The second parameter is optional, the first parameter will be used for
   // both if the second parameter is not provided.
-  if (stream.AtEnd()) {
-    return over_type;
-  }
   if (CSSIdentifierValue* under_type =
           ConsumeIdent<CSSValueID::kText, CSSValueID::kAlphabetic>(stream);
       under_type) {
@@ -7984,7 +7948,7 @@ CSSValue* ConsumeTextBoxEdge(CSSParserTokenStream& stream) {
     list->Append(*under_type);
     return list;
   }
-  return nullptr;
+  return over_type;
 }
 
 // Consume the `autospace` production.
@@ -8495,7 +8459,7 @@ namespace {
 //
 // Returns true if anything was set in `flip`.
 //
-// https://drafts.csswg.org/css-anchor-position-1/#typedef-position-try-options-try-tactic
+// https://drafts.csswg.org/css-anchor-position-1/#typedef-position-try-fallbacks-try-tactic
 bool ConsumeFlipsInto(CSSParserTokenStream& stream, CSSValue* (&flips)[3]) {
   bool seen_flip_block = false;
   bool seen_flip_inline = false;
@@ -8568,6 +8532,8 @@ CSSValue* ConsumeDashedIdentOrTactic(CSSParserTokenStream& stream,
 
 // inset-area( <inset-area> )
 CSSValue* ConsumeInsetAreaFunction(CSSParserTokenStream& stream) {
+  CHECK(!RuntimeEnabledFeatures::CSSInsetAreaValueEnabled());
+
   if (stream.Peek().FunctionId() != CSSValueID::kInsetArea) {
     return nullptr;
   }
@@ -8584,23 +8550,27 @@ CSSValue* ConsumeInsetAreaFunction(CSSParserTokenStream& stream) {
 
 }  // namespace
 
-CSSValue* ConsumeSinglePositionTryOption(CSSParserTokenStream& stream,
-                                         const CSSParserContext& context) {
+CSSValue* ConsumeSinglePositionTryFallback(CSSParserTokenStream& stream,
+                                           const CSSParserContext& context) {
   // // <dashed-ident> || <try-tactic>
   if (CSSValue* value = ConsumeDashedIdentOrTactic(stream, context)) {
     return value;
+  }
+  if (RuntimeEnabledFeatures::CSSInsetAreaValueEnabled()) {
+    // <inset-area>
+    return ConsumeInsetArea(stream);
   }
   // inset-area( <inset-area> )
   return ConsumeInsetAreaFunction(stream);
 }
 
-CSSValue* ConsumePositionTryOptions(CSSParserTokenStream& stream,
-                                    const CSSParserContext& context) {
-  // none | [ [<dashed-ident> || <try-tactic>] | inset-area( <inset-area> ) ]#
+CSSValue* ConsumePositionTryFallbacks(CSSParserTokenStream& stream,
+                                      const CSSParserContext& context) {
+  // none | [ [<dashed-ident> || <try-tactic>] | <'inset-area'> ]#
   if (stream.Peek().Id() == CSSValueID::kNone) {
     return ConsumeIdent(stream);
   }
-  return ConsumeCommaSeparatedList(ConsumeSinglePositionTryOption, stream,
+  return ConsumeCommaSeparatedList(ConsumeSinglePositionTryFallback, stream,
                                    context);
 }
 
@@ -8656,7 +8626,7 @@ struct InsetAreaKeyword {
             (first.type == kStartEnd || first.type == kSelfStartEnd));
   }
 
-  const CSSIdentifierValue* value;
+  CSSIdentifierValue* value;
   Type type;
 };
 
@@ -8773,7 +8743,7 @@ std::optional<InsetAreaKeyword> ConsumeInsetAreaKeyword(T& stream) {
 template <class T>
   requires std::is_same_v<T, CSSParserTokenStream> ||
            std::is_same_v<T, CSSParserTokenRange>
-const CSSValue* ConsumeInsetArea(T& range) {
+CSSValue* ConsumeInsetArea(T& range) {
   std::optional<InsetAreaKeyword> first = ConsumeInsetAreaKeyword(range);
   if (!first.has_value()) {
     return nullptr;
@@ -8794,8 +8764,8 @@ const CSSValue* ConsumeInsetArea(T& range) {
   if (!InsetAreaKeyword::IsCompatiblePair(first.value(), second.value())) {
     return nullptr;
   }
-  const CSSIdentifierValue* first_value = first.value().value;
-  const CSSIdentifierValue* second_value = second.value().value;
+  CSSIdentifierValue* first_value = first.value().value;
+  CSSIdentifierValue* second_value = second.value().value;
   if (first_value->GetValueID() == second_value->GetValueID()) {
     return first_value;
   }
@@ -8812,7 +8782,7 @@ const CSSValue* ConsumeInsetArea(T& range) {
                                             CSSValuePair::kDropIdenticalValues);
 }
 
-template const CSSValue* ConsumeInsetArea(CSSParserTokenStream& range);
+template CSSValue* ConsumeInsetArea(CSSParserTokenStream& range);
 
 bool IsRepeatedInsetAreaValue(CSSValueID value_id) {
   switch (value_id) {

@@ -2846,7 +2846,7 @@ class ProfilePickerLacrosFirstRunBrowserTestBase
           // before either showing or exiting it.
           // `GoThroughFirstRunFlow()` will do this, or the test
           // should call `sync_service()` to do this manually.
-          sync_service->SetTransportState(
+          sync_service->SetMaxTransportState(
               syncer::SyncService::TransportState::INITIALIZING);
 
           return sync_service;
@@ -2891,7 +2891,7 @@ class ProfilePickerLacrosFirstRunBrowserTestBase
         FirstRunService::EntryPoint::kProcessStartup, 1);
 
     // Unblock the sync service.
-    sync_service()->SetTransportState(
+    sync_service()->SetMaxTransportState(
         syncer::SyncService::TransportState::ACTIVE);
     sync_service()->FireStateChanged();
 
@@ -3208,10 +3208,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerLacrosManagedFirstRunBrowserTest,
 
   // Unblock the sync service and simulate the server-side
   // being disabled.
-  sync_service()->SetDisableReasons(
-      {syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY});
-  sync_service()->SetTransportState(
-      syncer::SyncService::TransportState::ACTIVE);
+  sync_service()->SetAllowedByEnterprisePolicy(false);
   sync_service()->FireStateChanged();
 
   // The pending state should resolve by skipping the FRE.

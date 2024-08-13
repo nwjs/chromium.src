@@ -10,6 +10,7 @@
 
 #include "base/functional/bind.h"
 #include "base/logging.h"
+#include "base/not_fatal_until.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -236,7 +237,7 @@ sk_sp<SkImage> FakeSkiaOutputSurface::MakePromiseSkImageFromRenderPass(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   auto it = sk_surfaces_.find(id);
-  DCHECK(it != sk_surfaces_.end());
+  CHECK(it != sk_surfaces_.end(), base::NotFatalUntil::M130);
   return it->second->makeImageSnapshot();
 }
 
@@ -247,7 +248,7 @@ void FakeSkiaOutputSurface::RemoveRenderPassResource(
 
   for (const auto& id : ids) {
     auto it = sk_surfaces_.find(id);
-    DCHECK(it != sk_surfaces_.end());
+    CHECK(it != sk_surfaces_.end(), base::NotFatalUntil::M130);
     sk_surfaces_.erase(it);
   }
 
@@ -311,8 +312,7 @@ void FakeSkiaOutputSurface::CopyOutput(
 
     request->SendResult(std::make_unique<CopyOutputTextureResult>(
         CopyOutputResult::Format::RGBA, geometry.result_bounds,
-        CopyOutputResult::TextureResult(local_mailbox, GenerateSyncToken(),
-                                        color_space),
+        CopyOutputResult::TextureResult(local_mailbox, color_space),
         std::move(release_callbacks)));
     return;
   }
@@ -428,7 +428,7 @@ gpu::Mailbox FakeSkiaOutputSurface::CreateSharedImage(
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
     RenderPassAlphaType alpha_type,
-    uint32_t usage,
+    gpu::SharedImageUsageSet usage,
     std::string_view debug_label,
     gpu::SurfaceHandle surface_handle) {
   return gpu::Mailbox::Generate();

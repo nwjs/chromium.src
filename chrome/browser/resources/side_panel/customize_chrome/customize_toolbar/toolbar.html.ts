@@ -14,21 +14,31 @@ export function getHtml(this: ToolbarElement) {
       back-button-title="$i18n{backButton}">
     <h2 slot="heading">$i18n{toolbarHeader}</h2>
   </sp-heading>
+  <div id="miniToolbarBackground">
+    <svg id="miniToolbar" src="icons/mini_toolbar.svg">
+      <use href="icons/mini_toolbar.svg#miniToolbar"></use>
+    </svg>
+  </div>
+  <div class="intro-text">$i18n{chooseToolbarIconsLabel}</div>
+  <cr-button id="resetToDefaultButton" class="floating-button"
+      @click="${this.onResetToDefaultClicked_}"
+      ?disabled="${this.resetToDefaultDisabled_}">
+    <div id="resetToDefaultIcon" class="cr-icon" slot="prefix-icon"></div>
+    $i18n{resetToDefaultButtonLabel}
+  </cr-button>
 </div>
 <hr class="sp-cards-separator">
-<div class="sp-card">
-  <sp-heading hide-back-button>
-    <h2 slot="heading">$i18n{chooseToolbarIconsHeader}</h2>
-  </sp-heading>
+<div class="sp-card" id="pinningSelectionCard">
   ${
       this.categories_.map(
           (category, categoryIndex) => html`
-    <h3 class="choose-icons-row">${category.displayName}</h3>
+    <div class="choose-icons-row category-title">${category.displayName}</div>
     ${
               this.actions_.map(
                   (action) => action.category === category.id ? html`
       <div class="toggle-container choose-icons-row">
-        <h4 class="toggle-title">${action.displayName}</h4>
+        <img class="toggle-icon" src="${action.iconUrl.url}"></img>
+        <div class="toggle-title">${action.displayName}</div>
         <cr-toggle @change="${this.getActionToggleHandler_(action.id)}"
             ?checked="${action.pinned}"></cr-toggle>
       </div>
@@ -39,6 +49,11 @@ export function getHtml(this: ToolbarElement) {
                   html`<hr class="sp-hr">` :
                   ''}
   `)}
+</div>
+<hr class="sp-cards-separator">
+<div class="sp-card" id="tipCard">
+  <img src="icons/lightbulb_outline.svg"></img>
+  $i18n{reorderTipLabel}
 </div>
 <!--_html_template_end_-->`;
 }

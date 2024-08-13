@@ -232,9 +232,6 @@ GPUInfo::GPUInfo()
       sandboxed(false),
       in_process_gpu(true),
       passthrough_cmd_decoder(false),
-#if BUILDFLAG(IS_MAC)
-      macos_specific_texture_target(gpu::GetPlatformSpecificTextureTarget()),
-#endif  // BUILDFLAG(IS_MAC)
       jpeg_decode_accelerator_supported(false),
       subpixel_font_rendering(true) {
 }
@@ -310,6 +307,7 @@ void GPUInfo::EnumerateFields(Enumerator* enumerator) const {
     bool amd_switchable;
     GPUDevice gpu;
     std::vector<GPUDevice> secondary_gpus;
+    std::vector<GPUDevice> npus;
     std::string pixel_shader_version;
     std::string vertex_shader_version;
     std::string max_msaa_samples;
@@ -333,9 +331,6 @@ void GPUInfo::EnumerateFields(Enumerator* enumerator) const {
     bool is_asan;
     bool is_clang_coverage;
     uint32_t target_cpu_bits;
-#if BUILDFLAG(IS_MAC)
-    uint32_t macos_specific_texture_target;
-#endif  // BUILDFLAG(IS_MAC)
 #if BUILDFLAG(IS_WIN)
     uint32_t directml_feature_level;
     uint32_t d3d12_feature_level;
@@ -375,7 +370,9 @@ void GPUInfo::EnumerateFields(Enumerator* enumerator) const {
   EnumerateGPUDevice(gpu, enumerator);
   for (const auto& secondary_gpu : secondary_gpus)
     EnumerateGPUDevice(secondary_gpu, enumerator);
-
+  for (const auto& npu : npus) {
+    EnumerateGPUDevice(npu, enumerator);
+  }
   enumerator->BeginAuxAttributes();
   enumerator->AddTimeDeltaInSecondsF("initializationTime", initialization_time);
   enumerator->AddBool("optimus", optimus);
@@ -404,10 +401,6 @@ void GPUInfo::EnumerateFields(Enumerator* enumerator) const {
   enumerator->AddInt("targetCpuBits", static_cast<int>(target_cpu_bits));
   enumerator->AddBool("canSupportThreadedTextureMailbox",
                       can_support_threaded_texture_mailbox);
-#if BUILDFLAG(IS_MAC)
-  enumerator->AddInt("macOSSpecificTextureTarget",
-                     macos_specific_texture_target);
-#endif  // BUILDFLAG(IS_MAC)
   // TODO(kbr): add dx_diagnostics on Windows.
 #if BUILDFLAG(IS_WIN)
   EnumerateOverlayInfo(overlay_info, enumerator);

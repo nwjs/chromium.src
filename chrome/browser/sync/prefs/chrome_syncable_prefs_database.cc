@@ -30,7 +30,7 @@
 #include "components/drive/drive_pref_names.h"  // nogncheck crbug.com/1125897
 #include "components/metrics/demographics/user_demographics.h"
 #include "components/user_manager/user_manager_pref_names.h"
-#include "components/variations/service/google_groups_updater_service.h"
+#include "components/variations/service/google_groups_manager.h"
 #include "ui/events/ash/pref_names.h"
 #endif
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -346,6 +346,12 @@ enum {
   kAccessibilityFaceGazeAdjustSpeedSeparately = 100287,
   kKeyboardAmbientLightSensorLastEnabled = 100288,
   kAccessibilityReadAnythingImagesEnabled = 100289,
+  kShelfMallAppPinRolls = 100290,
+  kDesktopToiOSAddressPromoLastImpressionTimestamp = 100291,
+  kDesktopToiOSAddressPromoImpressionsCounter = 100292,
+  kDesktopToiOSAddressPromoOptOut = 100293,
+  kMahiNudgeShownCount = 100294,
+  kAccessibilityMagnifierFollowsChromeVox = 100295,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -593,6 +599,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kAccessibilityScreenMagnifierFocusFollowingEnabled,
      {syncable_prefs_ids::kAccessibilityScreenMagnifierFocusFollowingEnabled,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilityMagnifierFollowsChromeVox,
+     {syncable_prefs_ids::kAccessibilityMagnifierFollowsChromeVox,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kAccessibilityMagnifierFollowsSts,
@@ -1169,6 +1179,14 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kSyncableVersionedWallpaperInfo,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
+    {prefs::kShelfMallAppPinRolls,
+     {syncable_prefs_ids::kShelfMallAppPinRolls, syncer::OS_PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kMergeableListWithRewriteOnUpdate}},
+    {ash::prefs::kMahiNudgeShownCount,
+     {syncable_prefs_ids::kMahiNudgeShownCount, syncer::OS_PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
     {performance_manager::user_tuning::prefs::kTabDiscardingExceptions,
      {syncable_prefs_ids::kTabDiscardingExceptions, syncer::PREFERENCES,
@@ -1284,7 +1302,7 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kURLsToRestoreOnStartup,
      {syncable_prefs_ids::kURLsToRestoreOnStartup, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
       sync_preferences::MergeBehavior::kMergeableListWithRewriteOnUpdate}},
     {prefs::kUserColor,
      {syncable_prefs_ids::kUserColor, syncer::PREFERENCES,
@@ -1502,13 +1520,25 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kHttpsFirstModeIncognito, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
+    {promos_prefs::kDesktopToiOSAddressPromoLastImpressionTimestamp,
+     {syncable_prefs_ids::kDesktopToiOSAddressPromoLastImpressionTimestamp,
+      syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {promos_prefs::kDesktopToiOSAddressPromoImpressionsCounter,
+     {syncable_prefs_ids::kDesktopToiOSAddressPromoImpressionsCounter,
+      syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {promos_prefs::kDesktopToiOSAddressPromoOptOut,
+     {syncable_prefs_ids::kDesktopToiOSAddressPromoOptOut, syncer::PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
 });
 
 }  // namespace
 
 std::optional<sync_preferences::SyncablePrefMetadata>
 ChromeSyncablePrefsDatabase::GetSyncablePrefMetadata(
-    const std::string& pref_name) const {
+    std::string_view pref_name) const {
   const auto it = kChromeSyncablePrefsAllowlist.find(pref_name);
   if (it != kChromeSyncablePrefsAllowlist.end()) {
     DCHECK(!common_syncable_prefs_database_.GetSyncablePrefMetadata(pref_name)

@@ -25,12 +25,14 @@
 #include "base/auto_reset.h"
 #include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_set.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/format_macros.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr_exclusion.h"
+#include "base/memory/stack_allocated.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/power_monitor/power_monitor.h"
@@ -477,6 +479,15 @@ int64_t HttpCache::Transaction::GetTotalSentBytes() const {
     total_sent_bytes += transaction->GetTotalSentBytes();
   }
   return total_sent_bytes;
+}
+
+int64_t HttpCache::Transaction::GetReceivedBodyBytes() const {
+  int64_t received_body_bytes = network_transaction_info_.received_body_bytes;
+  const HttpTransaction* transaction = GetOwnedOrMovedNetworkTransaction();
+  if (transaction) {
+    received_body_bytes = transaction->GetReceivedBodyBytes();
+  }
+  return received_body_bytes;
 }
 
 void HttpCache::Transaction::DoneReading() {
@@ -1613,9 +1624,10 @@ int HttpCache::Transaction::DoCacheReadResponse() {
 }
 
 int HttpCache::Transaction::DoCacheReadResponseComplete(int result) {
-  TRACE_EVENT_INSTANT(
-      "net", "HttpCacheTransaction::DoCacheReadResponseComplete",
-      perfetto::Track(trace_id_), "result", result, "io_buf_len", io_buf_len_);
+  TRACE_EVENT_INSTANT("net",
+                      "HttpCacheTransaction::DoCacheReadResponseComplete",
+                      perfetto::Track(trace_id_), "result", result,
+                      "io_buf_len", read_buf_->size());
   net_log_.EndEventWithNetErrorCode(NetLogEventType::HTTP_CACHE_READ_INFO,
                                     result);
   EndDiskCacheAccessTimeCount(DiskCacheAccessType::kRead);
@@ -1623,9 +1635,9 @@ int HttpCache::Transaction::DoCacheReadResponseComplete(int result) {
   // Record the time immediately before the cached response is parsed.
   read_headers_since_ = TimeTicks::Now();
 
-  if (result != io_buf_len_ ||
-      !HttpCache::ParseResponseInfo(read_buf_->data(), io_buf_len_, &response_,
-                                    &truncated_)) {
+  if (result != read_buf_->size() ||
+      !HttpCache::ParseResponseInfo(base::as_bytes(read_buf_->span()),
+                                    &response_, &truncated_)) {
     return OnCacheReadError(result, true);
   }
 
@@ -1917,7 +1929,6 @@ int HttpCache::Transaction::DoSendRequestComplete(int result) {
 
   const HttpResponseInfo* response = network_trans_->GetResponseInfo();
   response_.network_accessed = response->network_accessed;
-  response_.was_fetched_via_proxy = response->was_fetched_via_proxy;
   response_.proxy_chain = response->proxy_chain;
   response_.restricted_prefetch = response->restricted_prefetch;
   response_.resolve_error_info = response->resolve_error_info;
@@ -2565,10 +2576,9 @@ void HttpCache::Transaction::SetRequest(const NetLogWithSource& net_log) {
   //
   // The former modes trump latter modes, so if we find a matching header we
   // can stop iterating kSpecialHeaders.
-  //
   static const struct {
-    // This field is not a raw_ptr<> because it was filtered by the rewriter
-    // for: #global-scope
+    // RAW_PTR_EXCLUSION: Never allocated by PartitionAlloc (always points to
+    // constexpr tables), so there is no benefit to using a raw_ptr, only cost.
     RAW_PTR_EXCLUSION const HeaderNameAndValue* search;
     int load_flag;
   } kSpecialHeaders[] = {
@@ -3304,8 +3314,8 @@ int HttpCache::Transaction::DoConnectedCallback() {
     return OK;
   }
 
-  auto type = response_.was_fetched_via_proxy ? TransportType::kCachedFromProxy
-                                              : TransportType::kCached;
+  auto type = response_.WasFetchedViaProxy() ? TransportType::kCachedFromProxy
+                                             : TransportType::kCached;
   return connected_callback_.Run(
       TransportInfo(type, response_.remote_endpoint, /*accept_ch_frame_arg=*/"",
                     /*cert_is_issued_by_known_root=*/false, kProtoUnknown),
@@ -3932,6 +3942,8 @@ void HttpCache::Transaction::SaveNetworkTransactionInfo(
   network_transaction_info_.total_received_bytes +=
       transaction.GetTotalReceivedBytes();
   network_transaction_info_.total_sent_bytes += transaction.GetTotalSentBytes();
+  network_transaction_info_.received_body_bytes =
+      transaction.GetReceivedBodyBytes();
 
   ConnectionAttempts attempts = transaction.GetConnectionAttempts();
   for (const auto& attempt : attempts) {
