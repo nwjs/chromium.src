@@ -118,6 +118,7 @@
 #include "components/web_cache/renderer/web_cache_impl.h"
 #include "components/webapps/renderer/web_page_metadata_agent.h"
 #include "content/public/common/content_constants.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/page_visibility_state.h"
 #include "content/public/common/url_constants.h"
@@ -775,8 +776,9 @@ void ChromeContentRendererClient::RenderFrameCreated(
 #endif  // BUILDFLAG(HAS_SPELLCHECK_PANEL)
 #endif
 #if BUILDFLAG(ENABLE_FEED_V2)
-  if (render_frame->IsMainFrame() &&
-      feed::IsWebFeedEnabledForLocale(country_codes::GetCurrentCountryCode())) {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(feed::switches::kEnableRssLinkReader) &&
+      render_frame->IsMainFrame()) {
     new feed::RssLinkReader(render_frame, registry);
   }
 #endif
@@ -877,6 +879,25 @@ bool ChromeContentRendererClient::IsPluginHandledExternally(
 #else   // !(BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(ENABLE_PLUGINS))
   return false;
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(ENABLE_PLUGINS)
+}
+
+bool ChromeContentRendererClient::IsDomStorageDisabled() const {
+  if (!base::FeatureList::IsEnabled(features::kPdfEnforcements)) {
+    return false;
+  }
+
+#if BUILDFLAG(ENABLE_PDF) && BUILDFLAG(ENABLE_EXTENSIONS)
+  // PDF renderers shouldn't need to access DOM storage interfaces. Note that
+  // it's still possible to access localStorage or sessionStorage in a PDF
+  // document's context via DevTools; returning false here ensures that these
+  // objects are just seen as null by JavaScript (similarly to what happens for
+  // opaque origins). This avoids a renderer kill by the browser process which
+  // isn't expecting PDF renderer processes to ever use DOM storage
+  // interfaces. See https://crbug.com/357014503.
+  return pdf::IsPdfRenderer();
+#else
+  return false;
+#endif
 }
 
 v8::Local<v8::Object> ChromeContentRendererClient::GetScriptableObject(

@@ -75,6 +75,8 @@ namespace variations {
 class VariationsClient;
 }  // namespace variations
 
+enum class SidePanelEntryHideReason;
+
 class PrefService;
 class Profile;
 
@@ -357,7 +359,7 @@ class LensOverlayController : public LensSearchboxClient,
 
   // Called before the lens results panel begins hiding. This is called before
   // any side panel closing animations begin.
-  void OnSidePanelWillHide();
+  void OnSidePanelWillHide(SidePanelEntryHideReason reason);
 
   // Called when the lens side panel has been hidden.
   void OnSidePanelHidden();
@@ -390,7 +392,7 @@ class LensOverlayController : public LensSearchboxClient,
                                            int selection_end_index);
 
   // Testing function to issue a text request.
-  void RecordUkmLensOverlayInteractionForTesting(
+  void RecordUkmAndTaskCompletionForLensOverlayInteractionForTesting(
       lens::mojom::UserAction user_action);
 
   // Testing function to issue a translate request.
@@ -723,7 +725,7 @@ class LensOverlayController : public LensSearchboxClient,
   void CopyText(const std::string& text) override;
   void CloseSearchBubble() override;
   void ClosePreselectionBubble() override;
-  void RecordUkmLensOverlayInteraction(
+  void RecordUkmAndTaskCompletionForLensOverlayInteraction(
       lens::mojom::UserAction user_action) override;
 
   // Performs shared logic for IssueTextSelectionRequest() and

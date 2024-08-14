@@ -236,6 +236,12 @@ class OmniboxClient {
   // Focuses the `WebContents`, i.e. the web page of the current tab.
   virtual void FocusWebContents() {}
 
+  // Called when the user presses the thumbs down button on a suggestion.
+  // Displays the Feedback form for submitting detailed feedback on why they
+  // disliked the suggestion.
+  virtual void ShowFeedbackPage(const std::u16string& input_text,
+                                const GURL& destination_url) {}
+
   virtual void OnAutocompleteAccept(
       const GURL& destination_url,
       TemplateURLRef::PostContent* post_content,
@@ -255,6 +261,11 @@ class OmniboxClient {
 
   // Called when the omnibox popup is shown or hidden.
   virtual void OnPopupVisibilityChanged() {}
+
+  // Even though IPH suggestions aren't selectable like normal matches, they can
+  // have a 'learn more' or next-steps link. `OpenIphLink()` allows opening
+  // these in a new tab.
+  virtual void OpenIphLink(GURL gurl) {}
 
   virtual base::WeakPtr<OmniboxClient> AsWeakPtr() = 0;
 };

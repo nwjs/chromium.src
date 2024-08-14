@@ -138,7 +138,7 @@
 <translation id="1447907279406111651">Цяпер · Скончыцца ў <ph name="END_TIME" /></translation>
 <translation id="1448963928642384376">Хот-споты вашай прылады</translation>
 <translation id="1455242230282523554">Паказаць моўныя налады</translation>
-<translation id="1459693405370120464">Надвор'е</translation>
+<translation id="1459693405370120464">Надвор’е</translation>
 <translation id="1460620680449458626">Гук выключаны.</translation>
 <translation id="14648076227129703">Доступ да камеры атрымаюць праграмы "<ph name="APP1_NAME" />", "<ph name="APP2_NAME" />" і ўсе праграмы і вэб-сайты, якія маюць дазвол выкарыстоўваць камеру</translation>
 <translation id="1467432559032391204">Злева</translation>
@@ -387,7 +387,7 @@
 <translation id="2437771564543046790">Нізкі зарад акумулятара – уключаны рэжым энергазберажэння</translation>
 <translation id="243878895369688216">Адкрывалася ўчора</translation>
 <translation id="2440978926514840421">Файл GIF запісаны</translation>
-<translation id="2441427462554639370">Запіс закончыўся з-за крытычна малога аб'ёму вольнага месца ў сховішчы</translation>
+<translation id="2441427462554639370">Запіс закончыўся з-за крытычна малога аб’ёму вольнага месца ў сховішчы</translation>
 <translation id="2449089818483227734">Нізкі зарад акумулятара</translation>
 <translation id="2450205753526923158">Рэжым здымка экрана</translation>
 <translation id="2453860139492968684">Завяршыць</translation>
@@ -539,7 +539,7 @@
 <translation id="3017079585324758401">Фон</translation>
 <translation id="3018135054368884502">Пераматаць медыязмесціва ўперад</translation>
 <translation id="3033545621352269033">Уключана</translation>
-<translation id="3033912566804961911">Аб'яднаць са сталом "<ph name="DESK_NAME" />"</translation>
+<translation id="3033912566804961911">Аб’яднаць са сталом "<ph name="DESK_NAME" />"</translation>
 <translation id="3036649622769666520">Адкрыццё файлаў</translation>
 <translation id="3038571455154067151">Каб увайсці, увядзіце бацькоўскі код доступу Family Link</translation>
 <translation id="3039939407102840004">Узровень зараду акумулятара пяра – <ph name="PERCENTAGE" />%.</translation>
@@ -631,7 +631,7 @@
 <translation id="3369111525500416043">Хутка тэрмін выканання</translation>
 <translation id="3371140690572404006">Прылада USB-C (пярэдні порт справа)</translation>
 <translation id="3375634426936648815">Падключана</translation>
-<translation id="3378438761594387761">Тут з'явяцца нядаўна зробленыя здымкі экрана і апошнія спампоўкі</translation>
+<translation id="3378438761594387761">Тут з’явяцца нядаўна зробленыя здымкі экрана і апошнія спампоўкі</translation>
 <translation id="3386978599540877378">экранная лупа ў поўнаэкранным рэжыме</translation>
 <translation id="3387527074123400161">Chromium OS</translation>
 <translation id="3389599499324569679">Уключыць галасавы ўвод?</translation>
@@ -1057,7 +1057,7 @@
 <translation id="4826588772550366629">камеру і мікрафон</translation>
 <translation id="482908187605862807">Даступныя праграмы з Крамы Play</translation>
 <translation id="4831034276697007977">Сапраўды выключыць аўтаматычныя націсканні?</translation>
-<translation id="4849058404725798627">Вылучаць аб'ект з дапамогай клавіятурнага фокуса</translation>
+<translation id="4849058404725798627">Вылучаць аб’ект з дапамогай клавіятурнага фокуса</translation>
 <translation id="485592688953820832">Нічога не рабіць (паўза)</translation>
 <translation id="485634149294284819">Адкрыць меню клавіятуры</translation>
 <translation id="485806788160414322">Прайграць або прыпыніць медыязмесціва</translation>
@@ -1520,7 +1520,7 @@
 <translation id="6430225033895752525">Паказаць налады Канцэнтрацыі ўвагі</translation>
 <translation id="643147933154517414">Усё гатова</translation>
 <translation id="6431865393913628856">Запіс экрана</translation>
-<translation id="643593192654616063">Аб'ём сховішча, якое выкарыстоўваецца: <ph name="STORAGE_IN_USE_SIZE" />. Агульны аб'ём сховішча: <ph name="STORAGE_TOTAL_SIZE" />.</translation>
+<translation id="643593192654616063">Аб’ём сховішча, якое выкарыстоўваецца: <ph name="STORAGE_IN_USE_SIZE" />. Агульны аб’ём сховішча: <ph name="STORAGE_TOTAL_SIZE" />.</translation>
 <translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> на <ph name="RECEIVER_NAME" /></translation>
 <translation id="6445915701151710649">цэнтральны працэсар</translation>
 <translation id="6447111710783417522"><ph name="DATE" />, падзей: <ph name="NUMBER" /></translation>
@@ -1573,7 +1573,7 @@
 <translation id="661203523074512333"><ph name="SECURITY_STATUS" />, магутнасць сігналу – <ph name="SIGNAL_STRENGTH" />, знаходзіцца пад кіраваннем адміністратара</translation>
 <translation id="6612802754306526077">Выбраны рэжым запісу экрана</translation>
 <translation id="6612889377159412215">падзадача</translation>
-<translation id="6613765291890844037">Выкарыстоўваецца сховішча: <ph name="STORAGE_IN_USE_SIZE" /> | Агульны аб'ём сховішча: <ph name="STORAGE_TOTAL_SIZE" /></translation>
+<translation id="6613765291890844037">Выкарыстоўваецца сховішча: <ph name="STORAGE_IN_USE_SIZE" /> | Агульны аб’ём сховішча: <ph name="STORAGE_TOTAL_SIZE" /></translation>
 <translation id="6614169507485700968">Экран прыватнасці ўключаны</translation>
 <translation id="6622679827379792051">Наладзіць прагляд праграм з тэлефона</translation>
 <translation id="662279009180869175">Змяняйце памер падзеленага экрана з дапамогай клавіш са стрэлкамі ўлева і ўправа</translation>
@@ -1615,7 +1615,7 @@
 <translation id="6747985245839783873">Узровень зараду акумулятара: <ph name="PERCENTAGE" />%. Уключаны рэжым энергазберажэння.</translation>
 <translation id="6751052314767925245">Гэтай функцыяй кіруе адміністратар</translation>
 <translation id="6751826523481687655">Трасіроўка прадукцыйнасці ўключана</translation>
-<translation id="6752912906630585008">Стол <ph name="REMOVED_DESK" /> быў выдалены і аб'яднаны са Сталом <ph name="RECEIVE_DESK" /></translation>
+<translation id="6752912906630585008">Стол <ph name="REMOVED_DESK" /> быў выдалены і аб’яднаны са Сталом <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">укладкі</translation>
 <translation id="6757237461819837179">Медыяфайлы не прайграюцца</translation>
 <translation id="6760438044935091345">Гульнявая панэль</translation>
@@ -1848,7 +1848,7 @@
 <translation id="7654916369822103315">Вы змянілі раздзяляльнасць дысплэя "<ph name="DISPLAY_NAME" />" на <ph name="FALLBACK_RESOLUTION" /> (<ph name="FALLBACK_REFRESH_RATE" /> Гц). З-за абмежаванай паласы прапускання порта дысплэй не падтрымлівае раздзяляльнасць <ph name="SPECIFIED_RESOLUTION" /> (<ph name="SPECIFIED_REFRESH_RATE" /> Гц). Калі вы не пацвердзіце змяненне, будуць адноўлены папярэднія налады. Засталося часу: <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="7658239707568436148">Скасаваць</translation>
 <translation id="7659861092419699379">Працоўны стол і вокны закрыты</translation>
-<translation id="7660160718439869192">Прылада "<ph name="NAME" />" з'явіцца ў спісе прылад, звязаных з адрасам <ph name="EMAIL" /></translation>
+<translation id="7660160718439869192">Прылада "<ph name="NAME" />" з’явіцца ў спісе прылад, звязаных з адрасам <ph name="EMAIL" /></translation>
 <translation id="7662283695561029522">Дакраніцеся, каб сканфігураваць</translation>
 <translation id="7670953955701272011">Адкрыць гэту дату ў Google Календары</translation>
 <translation id="7671610481353807627">Праграмы адсартаваны па колеры</translation>
@@ -1929,7 +1929,7 @@
 <translation id="7904094684485781019">Адміністратар уліковага запісу забараніў уваход у некалькі ўліковых запісаў.</translation>
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7917760201509801422">Падключана прылад: <ph name="DEVICECOUNT" /></translation>
-<translation id="7923534281713082605">Надвор'е</translation>
+<translation id="7923534281713082605">Надвор’е</translation>
 <translation id="7926080067315048321">Паглядзець усе задачы ў вэб-версіі Google Задач</translation>
 <translation id="7930731167419639574">Запісы голасу апрацоўваюцца на прыладзе і нікуды не перадаюцца. Галасавы ўвод працуе па-за сеткай.</translation>
 <translation id="7932451802722951285">Адкрыць у Google Календары</translation>
@@ -2057,7 +2057,7 @@
 <translation id="8375916635258623388">Гэта прылада <ph name="DEVICE_NAME" /> і ваш тэлефон будуць падключацца аўтаматычна</translation>
 <translation id="8380784334203145311">Добрай ночы,</translation>
 <translation id="8382715499079447151">Абаронены прагляд</translation>
-<translation id="8388750414311082622">Нельга выдаліць віртуальны стол, які з'яўляецца апошнім.</translation>
+<translation id="8388750414311082622">Нельга выдаліць віртуальны стол, які з’яўляецца апошнім.</translation>
 <translation id="8394567579869570560">Бацькі заблакіравалі гэту прыладу</translation>
 <translation id="8401850874595457088">Адкрыць меню выбару мовы</translation>
 <translation id="8412677897383510995">Паказаць налады дысплэя</translation>

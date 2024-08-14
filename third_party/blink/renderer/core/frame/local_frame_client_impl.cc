@@ -1198,4 +1198,8 @@ void LocalFrameClientImpl::BindDevToolsAgent(
     devtools->BindReceiver(std::move(host), std::move(receiver));
 }
 
+bool LocalFrameClientImpl::IsDomStorageDisabled() const {
+  return web_frame_->Client()->IsDomStorageDisabled();
+}
+
 }  // namespace blink

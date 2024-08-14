@@ -789,6 +789,11 @@
 #include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
 #endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/feed/feed_service_factory.h"
+#include "components/feed/feed_feature_list.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
 using blink::mojom::EffectiveConnectionType;
 using blink::web_pref::WebPreferences;
 using content::BrowserThread;
@@ -1695,7 +1700,8 @@ void ChromeContentBrowserClient::MaybeProxyNetworkBoundRequest(
     content::BrowserContext* browser_context,
     net::handles::NetworkHandle bound_network,
     network::URLLoaderFactoryBuilder& factory_builder,
-    network::mojom::URLLoaderFactoryOverridePtr* factory_override) {
+    network::mojom::URLLoaderFactoryOverridePtr* factory_override,
+    const net::IsolationInfo& isolation_info) {
   if (bound_network == net::handles::kInvalidNetworkHandle) {
     return;
   }
@@ -1751,6 +1757,8 @@ void ChromeContentBrowserClient::MaybeProxyNetworkBoundRequest(
   network::mojom::URLLoaderFactoryParamsPtr params =
       network::mojom::URLLoaderFactoryParams::New();
   params->process_id = network::mojom::kBrowserProcessId;
+  params->is_trusted = true;
+  params->isolation_info = isolation_info;
   // Disable CORS wrapping, this is already handled by the caller.
   params->disable_web_security = true;
   network_bound_network_context_->CreateURLLoaderFactory(
@@ -3111,6 +3119,13 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
                                     switches::kChangeStackGuardOnForkEnabled);
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(IS_ANDROID)
+  // Communicating to renderer for starting the reader for web feed.
+  if (feed::IsWebFeedEnabledForLocale(feed::FeedServiceFactory::GetCountry())) {
+    command_line->AppendSwitch(feed::switches::kEnableRssLinkReader);
+  }
+#endif
 }
 
 std::string
@@ -6684,7 +6699,8 @@ void ChromeContentBrowserClient::WillCreateURLLoaderFactory(
   // packets over the network (to effectively target `bound_network`).
   MaybeProxyNetworkBoundRequest(browser_context,
                                 GetBoundNetworkFromRenderFrameHost(frame),
-                                factory_builder, factory_override);
+                                factory_builder, factory_override,
+                                isolation_info);
 }
 
 std::vector<std::unique_ptr<content::URLLoaderRequestInterceptor>>

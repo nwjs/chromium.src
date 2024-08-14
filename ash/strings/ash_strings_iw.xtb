@@ -78,7 +78,7 @@
 <translation id="124678866338384709">סגירת הכרטיסייה הנוכחית</translation>
 <translation id="1246890715821376239">אפליקציות שאינן נתמכות</translation>
 <translation id="1247372569136754018">מיקרופון (פנימי)</translation>
-<translation id="1247519845643687288">אפליקציות אחרונות</translation>
+<translation id="1247519845643687288">אפליקציות שהיו בשימוש לאחרונה</translation>
 <translation id="1252999807265626933">טעינה מ-<ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">מה מזג האוויר?</translation>
 <translation id="1256734167083229794">‏לחצת על מקש הקיצור של 'מגדיל למסך מלא'. אפשר להשתמש ב-<ph name="ZOOM_IN_ACCELERATOR" /> כדי להגדיל את התצוגה וב-<ph name="ZOOM_OUT_ACCELERATOR" /> כדי להקטין את התצוגה. כדי לזוז במסך כשמגדילים את התצוגה, משתמשים ב-Ctrl‏ + Alt + מקשי החיצים.</translation>
@@ -2240,7 +2240,7 @@
 <translation id="9077515519330855811">פקדי מדיה, <ph name="MEDIA_TITLE" /> מופעל עכשיו</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080073830732419341">המצלמה מוצמדת לפינה הימנית העליונה</translation>
-<translation id="9080132581049224423">כדי לחזור לדף הבית, מחליקים כלפי מעלה</translation>
+<translation id="9080132581049224423">כדי לחזור לדף הבית, צריך להחליק למעלה</translation>
 <translation id="9080206825613744995">המיקרופון נמצא בשימוש.</translation>
 <translation id="9083324773537346962">גרסת מערכת הפעלה </translation>
 <translation id="9084606467167974638">שינוי מיקום התפריט</translation>

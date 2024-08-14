@@ -425,6 +425,10 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
     return nullptr;
   }
 
+  // Specifies whether to disable DOM storage interfaces such as localStorage
+  // and sessionStorage.
+  virtual bool IsDomStorageDisabled() const { return false; }
+
   // Debugging -----------------------------------------------------------
   virtual void BindDevToolsAgent(
       mojo::PendingAssociatedRemote<mojom::blink::DevToolsAgentHost> host,

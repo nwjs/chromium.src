@@ -9,6 +9,8 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
+#include "components/component_updater/pref_names.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
@@ -140,9 +142,11 @@ bool CanUseModelExecutionFeatures(signin::IdentityManager* identity_manager) {
 ModelExecutionFeaturesController::ModelExecutionFeaturesController(
     PrefService* browser_context_profile_service,
     signin::IdentityManager* identity_manager,
+    PrefService* local_state,
     DogfoodStatus dogfood_status)
     : browser_context_profile_service_(browser_context_profile_service),
       identity_manager_(identity_manager),
+      local_state_(local_state),
       features_allowed_for_unsigned_user_(
           features::internal::GetAllowedFeaturesForUnsignedUser()),
       dogfood_status_(dogfood_status) {
@@ -261,6 +265,34 @@ ModelExecutionFeaturesController::GetCurrentUserValidityResult(
   return ModelExecutionFeaturesController::UserValidityResult::kValid;
 }
 
+ModelExecutionFeaturesController::SettingsVisibilityResult
+ModelExecutionFeaturesController::ShouldHideHistorySearch() const {
+#if !BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+  return SettingsVisibilityResult::kNotVisibleHardwareUnsupported;
+#else
+  // Component updates policy check.
+  if (!local_state_->GetBoolean(::prefs::kComponentUpdatesEnabled)) {
+    return SettingsVisibilityResult::kNotVisibleEnterprisePolicy;
+  }
+
+  // Performance class check.
+  std::string allowed_classes_string =
+      features::internal::kPerformanceClassListForHistorySearch.Get();
+  if (allowed_classes_string == "*" || allowed_classes_string.empty()) {
+    return SettingsVisibilityResult::kUnknown;
+  }
+
+  int perf_class = local_state_->GetInteger(
+      model_execution::prefs::localstate::kOnDevicePerformanceClass);
+  std::vector<std::string_view> allowed_classes_list = base::SplitStringPiece(
+      allowed_classes_string, ",", base::WhitespaceHandling::TRIM_WHITESPACE,
+      base::SplitResult::SPLIT_WANT_NONEMPTY);
+  return base::Contains(allowed_classes_list, base::ToString(perf_class))
+             ? SettingsVisibilityResult::kUnknown
+             : SettingsVisibilityResult::kNotVisibleHardwareUnsupported;
+#endif
+}
+
 bool ModelExecutionFeaturesController::IsSettingVisible(
     UserVisibleFeatureKey feature) const {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
@@ -295,13 +327,14 @@ bool ModelExecutionFeaturesController::IsSettingVisible(
     return false;
   }
 
-#if !BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
+  // Check feature-specific requirements.
   if (feature == UserVisibleFeatureKey::kHistorySearch) {
-    metrics_recorder.SetResult(
-        feature, SettingsVisibilityResult::kNotVisibleHardwareUnsupported);
-    return false;
+    SettingsVisibilityResult result = ShouldHideHistorySearch();
+    if (result != SettingsVisibilityResult::kUnknown) {
+      metrics_recorder.SetResult(feature, result);
+      return false;
+    }
   }
-#endif
 
   // If the setting is currently enabled by user, then we should show the
   // setting to the user regardless of any other checks.

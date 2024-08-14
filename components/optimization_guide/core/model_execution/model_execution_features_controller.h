@@ -62,6 +62,7 @@ class ModelExecutionFeaturesController
   // Must be created only for non-incognito browser contexts.
   ModelExecutionFeaturesController(PrefService* browser_context_profile_service,
                                    signin::IdentityManager* identity_manager,
+                                   PrefService* local_state,
                                    DogfoodStatus dogfood_status);
 
   ~ModelExecutionFeaturesController() override;
@@ -134,6 +135,11 @@ class ModelExecutionFeaturesController
   model_execution::prefs::ModelExecutionEnterprisePolicyValue
   GetEnterprisePolicyValue(UserVisibleFeatureKey feature) const;
 
+  // Performs settings visibility checks specific to History Search. If passed,
+  // `kUnknown` is returned. Otherwise, the corresponding enum for the failed
+  // check is returned (i.e. kNotVisibleXXXX).
+  SettingsVisibilityResult ShouldHideHistorySearch() const;
+
   // Initializes the state of the different features at startup.
   void InitializeFeatureSettings();
 
@@ -162,6 +168,9 @@ class ModelExecutionFeaturesController
   bool account_allows_model_execution_features_ = false;
 
   base::ObserverList<SettingsEnabledObserver> observers_;
+
+  // The PrefService is guaranteed to outlive `this`.
+  raw_ptr<PrefService> local_state_;
 
   // Set of features that are visible to unsigned users.
   const base::flat_set<UserVisibleFeatureKey>
