@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "media/gpu/test/video_test_helpers.h"
 
 #include <limits>
@@ -161,7 +166,7 @@ std::unique_ptr<EncodedDataHelper> EncodedDataHelper::Create(
       codec == VideoCodec::kAV1) {
     return std::make_unique<EncodedDataHelperIVF>(std::move(stream), codec);
   }
-  NOTREACHED_NORETURN() << "Unsupported codec " << GetCodecName(codec);
+  NOTREACHED() << "Unsupported codec " << GetCodecName(codec);
 }
 
 // static
@@ -511,8 +516,8 @@ scoped_refptr<DecoderBuffer> EncodedDataHelperIVF::GetNextBuffer() {
   if (ivf_frames.size() == 1) {
     return DecoderBuffer::CopyFrom(
         // TODO(crbug.com/40284755): spanify `IvfFrame`.
-        UNSAFE_BUFFERS(base::span(ivf_frames[0].data.get(),
-                                  ivf_frames[0].header.frame_size)));
+        UNSAFE_TODO(base::span(ivf_frames[0].data.get(),
+                               ivf_frames[0].header.frame_size)));
   }
 
   if (ivf_frames.size() > 3) {

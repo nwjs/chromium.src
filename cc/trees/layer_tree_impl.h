@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef CC_TREES_LAYER_TREE_IMPL_H_
 #define CC_TREES_LAYER_TREE_IMPL_H_
 
@@ -53,6 +58,7 @@ enum class ActivelyScrollingType;
 class DebugRectHistory;
 class ViewTransitionRequest;
 class DroppedFrameCounter;
+class GlobalStateThatImpactsTilePriority;
 class HeadsUpDisplayLayerImpl;
 class ImageDecodeCache;
 class LayerTreeDebugState;
@@ -138,6 +144,9 @@ class CC_EXPORT LayerTreeImpl {
   DroppedFrameCounter* dropped_frame_counter() const;
   MemoryHistory* memory_history() const;
   DebugRectHistory* debug_rect_history() const;
+  const GlobalStateThatImpactsTilePriority& global_tile_state() const {
+    return host_impl_->global_tile_state();
+  }
   bool IsActiveTree() const;
   bool IsPendingTree() const;
   bool IsRecycleTree() const;
@@ -505,8 +514,13 @@ class CC_EXPORT LayerTreeImpl {
   // priorities. Returns false if it was unable to update.  Updating lcd
   // text may cause invalidations, so should only be done after a commit.
   bool UpdateDrawProperties(
-      bool update_image_animation_controller = true,
+      bool update_tiles,
+      bool update_image_animation_controller,
       LayerImplList* output_update_layer_list_for_testing = nullptr);
+
+  // Update picture layers' tiles. Return true if any layer's tile priority
+  // is updated.
+  bool UpdateTiles();
 
   void set_needs_update_draw_properties() {
     needs_update_draw_properties_ = true;
@@ -606,7 +620,7 @@ class CC_EXPORT LayerTreeImpl {
   void ClearSwapPromises();
   void BreakSwapPromises(SwapPromise::DidNotSwapReason reason);
 
-  void DidModifyTilePriorities();
+  void DidModifyTilePriorities(bool pending_update_tiles = false);
 
   viz::ResourceId ResourceIdForUIResource(UIResourceId uid) const;
   void ProcessUIResourceRequestQueue();
@@ -646,8 +660,11 @@ class CC_EXPORT LayerTreeImpl {
   // scrollable layer or the first layer opaque to hit test, if one was hit.
   std::vector<const LayerImpl*> FindLayersUpToFirstScrollableOrOpaqueToHitTest(
       const gfx::PointF& screen_space_point);
-  bool PointHitsNonFastScrollableRegion(const gfx::PointF& scree_space_point,
-                                        const LayerImpl& layer) const;
+  bool PointHitsMainThreadScrollHitTestRegion(
+      const gfx::PointF& scree_space_point,
+      const LayerImpl& layer) const;
+  ElementId PointHitsNonCompositedScroll(const gfx::PointF& screen_space_point,
+                                         const LayerImpl& layer) const;
 
   // Returns the ElementId representing a frame's document at the given point.
   // In cases where cc doesn't have enough information to perform accurate
@@ -821,6 +838,10 @@ class CC_EXPORT LayerTreeImpl {
   // output of the current frame.
   bool HasViewTransitionSaveRequest() const;
 
+  // Manually flags `layer` as having been updated. This ensures it's included
+  // in the next set returned by TakeUpdatedLayers().
+  void MarkLayerUpdated(LayerImpl* layer);
+
   // Returns the set of layers that have been added or changed in some
   // meaningful way since the last call to TakeUpdatedLayers() or
   // ResetAllChangeTracking().
@@ -888,6 +909,8 @@ class CC_EXPORT LayerTreeImpl {
   bool new_local_surface_id_request_ : 1 = false;
 
   bool needs_update_draw_properties_ : 1 = true;
+
+  bool needs_update_tiles_ : 1 = false;
 
   // True if a scrollbar geometry value has changed. For example, if the scroll
   // offset changes, scrollbar thumb positions need to be updated.

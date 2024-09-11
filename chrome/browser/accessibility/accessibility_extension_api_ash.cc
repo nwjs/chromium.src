@@ -76,7 +76,7 @@ ash::AccessibilityToastType ConvertToastType(
     case accessibility_private::ToastType::kDictationMicMuted:
       return ash::AccessibilityToastType::kDictationMicMuted;
     case accessibility_private::ToastType::kNone:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -102,6 +102,22 @@ ash::DictationBubbleHintType ConvertDictationHintType(
     case accessibility_private::DictationBubbleHintType::kNone:
       NOTREACHED_IN_MIGRATION();
       return ash::DictationBubbleHintType::kTrySaying;
+  }
+}
+
+ash::AccessibilityScrollDirection ConvertScrollDirection(
+    accessibility_private::ScrollDirection direction) {
+  switch (direction) {
+    case accessibility_private::ScrollDirection::kUp:
+      return ash::AccessibilityScrollDirection::kUp;
+    case accessibility_private::ScrollDirection::kDown:
+      return ash::AccessibilityScrollDirection::kDown;
+    case accessibility_private::ScrollDirection::kLeft:
+      return ash::AccessibilityScrollDirection::kLeft;
+    case accessibility_private::ScrollDirection::kRight:
+      return ash::AccessibilityScrollDirection::kRight;
+    case accessibility_private::ScrollDirection::kNone:
+      NOTREACHED_NORETURN();
   }
 }
 
@@ -403,6 +419,9 @@ AccessibilityPrivateIsFeatureEnabledFunction::Run() {
     case accessibility_private::AccessibilityFeature::kFaceGaze:
       enabled = ::features::IsAccessibilityFaceGazeEnabled();
       break;
+    case accessibility_private::AccessibilityFeature::kFaceGazeGravityWells:
+      enabled = ::features::IsAccessibilityFaceGazeGravityWellsEnabled();
+      break;
     case accessibility_private::AccessibilityFeature::kNone:
       return RespondNow(Error("Unrecognized feature"));
   }
@@ -586,11 +605,26 @@ AccessibilityPrivateSendSyntheticMouseEventFunction::Run() {
     flags |= ui::EF_TOUCH_ACCESSIBILITY;
   }
 
+  if (mouse_data->is_double_click) {
+    flags |= ui::EF_IS_DOUBLE_CLICK;
+  }
+
   // Locations are assumed to be in screen coordinates.
   gfx::Point location_in_screen(mouse_data->x, mouse_data->y);
   AccessibilityManager::Get()->SendSyntheticMouseEvent(
       type, flags, changed_button_flags, location_in_screen);
 
+  return RespondNow(NoArguments());
+}
+
+ExtensionFunction::ResponseAction
+AccessibilityPrivateScrollAtPointFunction::Run() {
+  std::optional<accessibility_private::ScrollAtPoint::Params> params =
+      accessibility_private::ScrollAtPoint::Params::Create(args());
+  EXTENSION_FUNCTION_VALIDATE(params);
+  gfx::Point point(params->target.x, params->target.y);
+  ash::AccessibilityController::Get()->ScrollAtPoint(
+      point, ConvertScrollDirection(params->direction));
   return RespondNow(NoArguments());
 }
 

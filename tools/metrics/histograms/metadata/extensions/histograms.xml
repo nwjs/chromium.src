@@ -110,6 +110,43 @@ of interesting buckets, such as "internal + external".
                kCommandLine and kUnpacked)"/>
 </variants>
 
+<!--
+This is emitted for two scenarios when a worker may be unregistered:
+
+  1. due to an extension update to potentially unregistering the old worker or
+
+  2. due to the extension being deactivated (due to disable, uninstall, or
+  terminate)
+
+  #1 and #2 can both occur for an extension update.
+
+  #2 can occur independently outside of an extension update.
+-->
+
+<variants name="UnregistrationType">
+  <variant name=""
+      summary="This metric is emitted in the #1 (update) and #2 (deactivate
+               extension) scenarios. Note: in the scenario of an extension
+               update that has a worker (either as a background context or
+               registered via the Web API) to a worker-based extension this
+               metric may be double counted as true. This is because two
+               unregistrations requests are submitted and both will succeed.
+               This metric can also emit false expectedly when updating from
+               an MV2 extension with no workers registered."/>
+  <variant name="_AddExtension"
+      summary="This metric is only emitted in the #1 (update) scenario. Note:
+               This metric can expectedly emit false when updating from an
+               MV2 extension with no workers registered (either as a
+               background context, or registered via the web API). This is
+               because //extensions attempts to unregister a worker
+               regardless to ensure that those registered via the web API
+               (which //extensions doesn't track) are unregistered on update
+               to prepare for the updated version's worker to be registered."/>
+  <variant name="_DeactivateExtension"
+      summary="This metric is only emitted in the #2 (deactivate extension)
+               scenario when the worker is the current worker activation."/>
+</variants>
+
 <variants name="VerifiedFileType">
   <variant name=".BackgroundPage" summary="Extension background page"/>
   <variant name=".BackgroundScript" summary="Extension background script"/>
@@ -185,7 +222,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.ActiveScriptController.DeniedExtensions"
-    units="Extension Count" expires_after="2024-12-08">
+    units="Extension Count" expires_after="2025-02-09">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -314,7 +351,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.CommandLineWith{DeveloperModeState}{ExtensionState}"
-    units="count" expires_after="2024-11-17">
+    units="count" expires_after="2025-01-26">
   <owner>richche@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -403,7 +440,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.ContentSettings.PrimaryPatternUniqueSecondaryPatternWildcard"
-    enum="ContentType" expires_after="2024-11-17">
+    enum="ContentType" expires_after="2025-01-26">
   <owner>erikchen@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -431,7 +468,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.ContentSettings.PrimaryPatternWildcardSecondaryPatternWildcard"
-    enum="ContentType" expires_after="2024-11-17">
+    enum="ContentType" expires_after="2025-01-26">
   <owner>erikchen@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -477,7 +514,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.ContentVerification.DidHashMismatchOnFetchCompleteMV2"
-    enum="Boolean" expires_after="2024-12-01">
+    enum="Boolean" expires_after="2025-02-02">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -503,7 +540,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.ContentVerification.DidHashMismatchOnFetchCompleteMV3"
-    enum="Boolean" expires_after="2024-12-01">
+    enum="Boolean" expires_after="2025-02-02">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -575,7 +612,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.ContentVerification.VerifyFailedOnFileMV2{VerifiedFileType}"
-    enum="ContentVerifyJobResult" expires_after="2024-12-01">
+    enum="ContentVerifyJobResult" expires_after="2025-02-02">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -605,7 +642,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.ContentVerification.VerifyFailedOnFileMV3{VerifiedFileType}"
-    enum="ContentVerifyJobResult" expires_after="2024-12-01">
+    enum="ContentVerifyJobResult" expires_after="2025-02-02">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -619,7 +656,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.ContentVerification.VerifyFailedOnFileTypeMV2"
-    enum="VerifiedFileType" expires_after="2024-12-01">
+    enum="VerifiedFileType" expires_after="2025-02-02">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -641,7 +678,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.ContentVerification.VerifyFailedOnFileTypeMV3"
-    enum="VerifiedFileType" expires_after="2024-12-01">
+    enum="VerifiedFileType" expires_after="2025-02-02">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -663,7 +700,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.ContentVerification.VerifyJobResultMV2"
-    enum="ContentVerifyJobResult" expires_after="2024-12-01">
+    enum="ContentVerifyJobResult" expires_after="2025-02-02">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -687,7 +724,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.ContentVerification.VerifyJobResultMV3"
-    enum="ContentVerifyJobResult" expires_after="2024-12-01">
+    enum="ContentVerifyJobResult" expires_after="2025-02-02">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -943,12 +980,12 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.DeclarativeContentActionCreated"
-    enum="DeclarativeContentActionType" expires_after="2024-09-20">
+    enum="DeclarativeContentActionType" expires_after="2025-09-20">
   <owner>kelvinjiang@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
-    Number of times a declarative content action is created within an extension.
-    Emitted when a new declarative content action is created.
+    Number of times declarative content actions types are created. Emitted each
+    time a new declarative content action type is created for an extension.
   </summary>
 </histogram>
 
@@ -966,7 +1003,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.DeclarativeNetRequest.EvaluateBeforeRequestTime.SingleExtension2"
-    units="microseconds" expires_after="2024-12-08">
+    units="microseconds" expires_after="2025-02-10">
   <owner>kelvinjiang@chromium.org</owner>
   <owner>src/extensions/OWNERS</owner>
   <summary>
@@ -992,7 +1029,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.DeclarativeNetRequest.EvaluateRequestTime.AllExtensions3"
-    units="microseconds" expires_after="2024-12-04">
+    units="microseconds" expires_after="2025-02-02">
   <owner>kelvinjiang@chromium.org</owner>
   <owner>src/extensions/OWNERS</owner>
   <summary>
@@ -1258,23 +1295,6 @@ of interesting buckets, such as "internal + external".
   </summary>
 </histogram>
 
-<histogram name="Extensions.DeclarativeSetIconWasVisibleRendered"
-    enum="BooleanVisible" expires_after="2019-09-07">
-  <owner>dbertoni@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    Reports whether an icon specified in the declarativeContent.SetIcon API is
-    considered visible by our icon analysis code. This stat is emitted when we
-    create the underlying object that sets the icon when the declarative rule is
-    applied.
-
-    This replaces the previous stat, DeclarativeSetIconWasVisibleRendered, due
-    to a change to our analysis algorithm. The new algorithm renders the icon
-    against the toolbar background color and determines how visible the
-    resulting pixels are.
-  </summary>
-</histogram>
-
 <histogram name="Extensions.DeprecatedDisableReasonsObserved"
     enum="ExtensionDisableReason" expires_after="2024-06-01">
   <owner>anunoy@chromium.org</owner>
@@ -1496,31 +1516,6 @@ of interesting buckets, such as "internal + external".
     disabled, it can be for one or more reasons (although typically just one),
     so the sum of these may be greater than 'Extensions.Disabled' which is a
     count of the number of unique extensions that are disabled.
-  </summary>
-</histogram>
-
-<histogram name="Extensions.DynamicExtensionActionIconWasVisible"
-    enum="BooleanVisible" expires_after="2019-09-07">
-  <owner>dbertoni@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    Reports whether a call to set a dynamic icon in the toolbar passed an icon
-    considered visible by our icon analysis code.
-  </summary>
-</histogram>
-
-<histogram name="Extensions.DynamicExtensionActionIconWasVisibleRendered"
-    enum="BooleanVisible" expires_after="2019-09-07">
-  <owner>dbertoni@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    Reports whether a call to set a dynamic icon in the toolbar passed an icon
-    considered visible by our icon analysis code.
-
-    This replaces the previous stat, DynamicExtensionActionIconWasVisible, due
-    to a change to our analysis algorithm. The new algorithm renders the icon
-    against the toolbar background color and determines how visible the
-    resulting pixels are.
   </summary>
 </histogram>
 
@@ -1848,7 +1843,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.Events.ServiceWorkerDispatchFailed.Event"
-    enum="ExtensionEvents" expires_after="2024-12-08">
+    enum="ExtensionEvents" expires_after="2025-02-10">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -1859,7 +1854,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.Events.ServiceWorkerDispatchFailed.StartExternalRequestOk"
-    enum="Boolean" expires_after="2024-12-08">
+    enum="Boolean" expires_after="2025-02-10">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -1874,7 +1869,7 @@ of interesting buckets, such as "internal + external".
 
 <histogram
     name="Extensions.Events.ServiceWorkerDispatchFailed.StartExternalRequestResult"
-    enum="ServiceWorkerExternalRequestResult" expires_after="2024-12-08">
+    enum="ServiceWorkerExternalRequestResult" expires_after="2025-02-10">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -2569,7 +2564,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.Functions.DidSandboxedExtensionAPICall"
-    enum="Boolean" expires_after="2024-12-08">
+    enum="Boolean" expires_after="2025-02-10">
   <owner>wjmaclean@chromium.org</owner>
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
@@ -2625,7 +2620,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.Functions.ExtractJSCallStackElapsedTime"
-    units="microseconds" expires_after="2024-11-28">
+    units="microseconds" expires_after="2025-02-02">
   <owner>anunoy@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -2724,7 +2719,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.Functions.SucceededTotalExecutionTime" units="ms"
-    expires_after="2024-11-17">
+    expires_after="2025-01-19">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -2737,7 +2732,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.Functions.SynchronousExecutionTime" units="ms"
-    expires_after="2024-11-24">
+    expires_after="2025-01-26">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -3724,7 +3719,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.LoadTheme2" units="units"
-    expires_after="2024-11-17">
+    expires_after="2025-01-26">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -3796,37 +3791,6 @@ of interesting buckets, such as "internal + external".
     Measures how long ExtensionManagement::Refresh takes. This reloads all
     enterprise-related policies for all extensions, and is called both at
     startup and any time the enterprise policy changes.
-  </summary>
-</histogram>
-
-<histogram name="Extensions.ManifestIconSetIconWasVisibleForPacked"
-    enum="BooleanVisible" expires_after="2019-09-07">
-  <owner>dbertoni@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    Reports whether an icon that's specified in the manifest is considered
-    visible by our icon analysis code. This stat is only for packed extensions,
-    which we check dynamically when the icon is requested. The stat is emitted
-    the first time the default icon is requested, since we cache the icon that's
-    selected.
-  </summary>
-</histogram>
-
-<histogram name="Extensions.ManifestIconSetIconWasVisibleForPackedRendered"
-    enum="BooleanVisible" expires_after="2019-09-07">
-  <owner>dbertoni@chromium.org</owner>
-  <owner>extensions-core@chromium.org</owner>
-  <summary>
-    Reports whether an icon that's specified in the manifest is considered
-    visible by our icon analysis code. This stat is only for packed extensions,
-    which we check dynamically when the icon is requested. The stat is emitted
-    the first time the default icon is requested, since we cache the icon that's
-    selected.
-
-    This replaces the previous stat, ManifestIconSetIconWasVisibleForPacked, due
-    to a change to our analysis algorithm. The new algorithm renders the icon
-    against the toolbar background color and determines how visible the
-    resulting pixels are.
   </summary>
 </histogram>
 
@@ -4565,26 +4529,29 @@ of interesting buckets, such as "internal + external".
   </summary>
 </histogram>
 
-<histogram name="Extensions.ServiceWorkerBackground.Registration_FailStatus"
-    enum="ServiceWorkerStatusCode" expires_after="2024-12-08">
+<histogram name="Extensions.ServiceWorkerBackground.Registration_FailStatus2"
+    enum="ServiceWorkerStatusCode" expires_after="2025-02-15">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
     Tracks when a background service worker fails to register what is the
     ServiceWorkerStatusCode that occurred. Logged each time a service worker
     fails to register.
+
+    Note: incremented Aug, 2024 due to the implementation of worker registration
+    retries which could change the number of emits of this metric.
   </summary>
 </histogram>
 
 <histogram
     name="Extensions.ServiceWorkerBackground.RegistrationMismatchLocation"
-    enum="ExtensionLocation" expires_after="2024-12-08">
+    enum="ExtensionLocation" expires_after="2025-03-25">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
-    Recorded when Service Worker registration wasn't found when attempting to
-    verify that persisted-to-prefs (disk) worker registration. This also records
-    the manifest location of the extension.
+    Recorded when Service Worker registration wasn't found for an existing
+    extension when attempting to verify that persisted-to-prefs (ExtensionPrefs)
+    worker registration. It records the manifest location of the extension.
 
     Note: this histogram expired between 2023-04 and 2024-04, it will be missing
     data between those dates.
@@ -4592,8 +4559,8 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram
-    name="Extensions.ServiceWorkerBackground.RegistrationMismatchMitigated"
-    enum="Boolean" expires_after="2024-12-08">
+    name="Extensions.ServiceWorkerBackground.RegistrationMismatchMitigated2"
+    enum="Boolean" expires_after="2025-03-25">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -4601,27 +4568,53 @@ of interesting buckets, such as "internal + external".
     missing registration issue succeeded. The attempt is performed during
     extension load.
 
-    Note: this histogram expired between 2023-08 and 2024-04, it will be missing
-    data between those dates.
+    Note: incremented Aug, 2024 due to the implementation of worker registration
+    retries which could increase the number of emits of this metric.
+  </summary>
+</histogram>
+
+<histogram
+    name="Extensions.ServiceWorkerBackground.RegistrationMismatchMitigated_FailStatus2"
+    enum="ServiceWorkerStatusCode" expires_after="2025-01-15">
+  <owner>jlulejian@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    When a mitigation for a mismatched registration state between ExtensionPrefs
+    and the content service worker layer fails, this records the status that was
+    returned by the content service worker layer for the registration request
+    failure.
+
+    Emitted when
+    Extensions.ServiceWorkerBackground.RegistrationMismatchMitigated is false.
+
+    Note: incremented Aug, 2024 due to the implementation of worker registration
+    retries which could increase the number of emits of this metric.
   </summary>
 </histogram>
 
 <histogram name="Extensions.ServiceWorkerBackground.RegistrationTime"
-    units="ms" expires_after="2022-10-01">
-  <owner>lazyboy@chromium.org</owner>
-  <owner>dbertoni@chromium.org</owner>
+    units="ms" expires_after="2025-03-25">
+  <owner>jlulejian@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
   <summary>
-    The amount of time it takes to register a service worker background script.
+    The amount of time it takes to register a service worker background script
+    with the content service worker layer.
+
+    Measured in milliseconds from 1ms up to 10 seconds.
   </summary>
 </histogram>
 
 <histogram name="Extensions.ServiceWorkerBackground.RegistrationWhenExpected"
-    enum="Boolean" expires_after="2023-08-13">
-  <owner>lazyboy@chromium.org</owner>
-  <owner>dbertoni@chromium.org</owner>
+    enum="Boolean" expires_after="2025-03-25">
+  <owner>jlulejian@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
   <summary>
-    Whether or not an expected Service Worker registration was found. Note that
-    this expectation was stored in ExtensionPrefs.
+    Whether or not a Service Worker registration was found in the content
+    service worker layer after finding a registration for the worker in
+    ExtensionPrefs.
+
+    Emitted immediately after the content service worker layer has tried to
+    search for the registration.
   </summary>
 </histogram>
 
@@ -4708,7 +4701,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.ServiceWorkerBackground.WorkerCountAfterAdd"
-    units="registered workers" expires_after="2024-12-08">
+    units="registered workers" expires_after="2025-02-10">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -4719,7 +4712,7 @@ of interesting buckets, such as "internal + external".
 </histogram>
 
 <histogram name="Extensions.ServiceWorkerBackground.WorkerCountAfterRemove"
-    units="registered workers" expires_after="2024-12-08">
+    units="registered workers" expires_after="2025-02-10">
   <owner>rdevlin.cronin@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -4729,18 +4722,87 @@ of interesting buckets, such as "internal + external".
   </summary>
 </histogram>
 
-<histogram name="Extensions.ServiceWorkerBackground.WorkerRegistrationState"
+<histogram
+    name="Extensions.ServiceWorkerBackground.WorkerRegistrationRetryAttemptsResult"
+    enum="Boolean" expires_after="2025-02-06">
+  <owner>jlulejian@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    When an extension requests that its service worker be registered with the
+    content layer it can fail due to
+    blink::ServiceWorkerStatusCode::kErrorTimeout. When this happens we retry
+    multiple times to try to make the registration succeed.
+
+    Emits true if the retry results in a successful registration. Emits false if
+    either all retry attempts have been exhausted without success or a retry
+    resulted in a status code that is not
+    blink::ServiceWorkerStatusCode::kErrorTimeout.
+  </summary>
+</histogram>
+
+<histogram name="Extensions.ServiceWorkerBackground.WorkerRegistrationState2"
     enum="Boolean" expires_after="2024-12-15">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
     Tracks whether background service worker registration succeeded or not. It
     is emitted whenever an extension is enabled (including updates).
+
+    Note: incremented Aug, 2024 due to the implementation of worker registration
+    retries which will likely increase the number of emits of this metric.
+  </summary>
+</histogram>
+
+<histogram name="Extensions.ServiceWorkerBackground.WorkerScriptFetchNetError"
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-02-01">
+  <owner>jlulejian@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    Records the underlying net::Error that was encountered when the content
+    service worker layer tries to fetch the worker script (from disk) but
+    encounters a network error.
+
+    It is emitted each time a worker script fetch fails for a
+    blink::ServiceWorkerBackground::kErrorNetwork reason.
   </summary>
 </histogram>
 
 <histogram
-    name="Extensions.ServiceWorkerBackground.WorkerUnregistrationState{UnregistrationType}"
+    name="Extensions.ServiceWorkerBackground.WorkerUnregistrationFailureStatus{UnregistrationType}3"
+    enum="ServiceWorkerStatusCode" expires_after="2025-03-25">
+  <owner>jlulejian@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    The ServiceWorkerStatusCode when unregistering a worker for an extension
+    fails.
+
+    Emitted when Extensions.ServiceWorkerBackground.WorkerRegistrationState is
+    false.
+
+    It is emitted when this failure happens in two scenarios when a worker may
+    be unregistered:
+
+    1. due to an extension update to potentially unregister the old worker or
+
+    2. due to the extension being deactivated (due to disable, uninstall, or
+    terminate)
+
+    #1 and #2 can both occur for an extension update.
+
+    #2 can occur independently outside of an extension update.
+
+    {UnregistrationType}
+
+    Note: This metric was incremented Aug, 2024 due to the #2 case no longer
+    emitting the not found error if there was no previous worker registered. The
+    logic for #2 does not check if a worker was previously registered before
+    attempting to unregister it so the error is not considered a failure.
+  </summary>
+  <token key="UnregistrationType" variants="UnregistrationType"/>
+</histogram>
+
+<histogram
+    name="Extensions.ServiceWorkerBackground.WorkerUnregistrationState{UnregistrationType}2"
     enum="Boolean" expires_after="2025-01-15">
   <owner>jlulejian@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
@@ -4760,31 +4822,32 @@ of interesting buckets, such as "internal + external".
     #2 can occur independently outside of an extension update.
 
     {UnregistrationType}
+
+    Note: This metric was incremented Aug, 2024 due to the #2 case emitting true
+    if the error status is not found and there was no previous worker registered
+    (instead of the previous false). The logic for #2 does not check if a worker
+    was previously registered before attempting to unregister it so the error is
+    considered an unregistration success.
   </summary>
-  <token key="UnregistrationType">
-    <variant name=""
-        summary="This metric is emitted in the #1 (update) and #2 (deactivate
-                 extension) scenarios. Note: in the scenario of an extension
-                 update that has a worker (either as a background context or
-                 registered via the Web API) to a worker-based extension this
-                 metric may be double counted as true. This is because two
-                 unregistrations requests are submitted and both will
-                 succeed. This metric can also emit false expectedly when
-                 updating from an MV2 extension with no workers registered."/>
-    <variant name="_AddExtension"
-        summary="This metric is only emitted in the #1 (update) scenario.
-                 Note: This metric can expectedly emit false when updating
-                 from an MV2 extension with no workers registered (either as
-                 a background context, or registered via the web API). This
-                 is because //extensions attempts to unregister a worker
-                 regardless to ensure that those registered via the web API
-                 (which //extensions doesn't track) are unregistered on
-                 update to prepare for the updated version's worker to be
-                 registered."/>
-    <variant name="_DeactivateExtension"
-        summary="This metric is only emitted in the #2 (deactivate extension)
-                 scenario."/>
-  </token>
+  <token key="UnregistrationType" variants="UnregistrationType"/>
+</histogram>
+
+<histogram
+    name="Extensions.ServiceWorkerRenderer.ExtensionLoadStatusInWorkerScriptEvaluation"
+    enum="ExtensionLoadStatusOnScriptEval" expires_after="2025-02-15">
+  <owner>jlulejian@chromium.org</owner>
+  <owner>extensions-core@chromium.org</owner>
+  <summary>
+    This records the state of the extension loading in the (renderer) extension
+    registry during the process of service worker script evaluation. Loaded
+    means the extension is in the extension registry. Unloaded means the
+    extension was loaded, but is now unloaded (disabled). Unknown means that
+    there is no record of the extension in the renderer.
+
+    It is emitted potentially after the worker thread is started and the worker
+    script will soon or already is evaluating, but it is before the worker's
+    extension bindings sytem is created.
+  </summary>
 </histogram>
 
 <histogram

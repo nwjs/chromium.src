@@ -215,6 +215,13 @@ void PageLoadMetricsForwardObserver::OnParseStart(
 void PageLoadMetricsForwardObserver::OnParseStop(
     const mojom::PageLoadTiming& timing) {}
 
+void PageLoadMetricsForwardObserver::OnConnectStart(
+    const mojom::PageLoadTiming& timing) {}
+void PageLoadMetricsForwardObserver::OnDomainLookupStart(
+    const mojom::PageLoadTiming& timing) {}
+void PageLoadMetricsForwardObserver::OnDomainLookupEnd(
+    const mojom::PageLoadTiming& timing) {}
+
 void PageLoadMetricsForwardObserver::OnFirstPaintInPage(
     const mojom::PageLoadTiming& timing) {}
 
@@ -447,6 +454,13 @@ void PageLoadMetricsForwardObserver::OnCustomUserTimingMarkObserved(
     const std::vector<mojom::CustomUserTimingMarkPtr>& timings) {
   // This new API doesn't support FORWARD_OBSERVING that is discouraged for new
   // observers.
+}
+
+void PageLoadMetricsForwardObserver::OnAdAuctionComplete() {
+  if (!parent_observer_) {
+    return;
+  }
+  parent_observer_->OnAdAuctionComplete();
 }
 
 }  // namespace page_load_metrics

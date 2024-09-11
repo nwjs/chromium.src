@@ -190,9 +190,8 @@ bool RemoteSafeBrowsingDatabaseManager::CheckBrowseUrl(
       std::vector<GURL>{url});
 
   DVLOG(1) << "Checking for client " << client << " and URL " << url;
-  auto callback =
-      std::make_unique<SafeBrowsingApiHandlerBridge::ResponseCallback>(
-          base::BindOnce(&ClientRequest::OnRequestDone, req->GetWeakPtr()));
+  SafeBrowsingApiHandlerBridge::ResponseCallback callback =
+      base::BindOnce(&ClientRequest::OnRequestDone, req->GetWeakPtr());
   req->AddPendingCheck();
   switch (check_type) {
     case CheckBrowseUrlType::kHashDatabase:
@@ -239,9 +238,8 @@ bool RemoteSafeBrowsingDatabaseManager::CheckDownloadUrl(
       continue;
     }
     DVLOG(1) << "Checking for client " << client << " and URL " << url;
-    auto callback =
-        std::make_unique<SafeBrowsingApiHandlerBridge::ResponseCallback>(
-            base::BindOnce(&ClientRequest::OnRequestDone, req->GetWeakPtr()));
+    auto callback = SafeBrowsingApiHandlerBridge::ResponseCallback(
+        base::BindOnce(&ClientRequest::OnRequestDone, req->GetWeakPtr()));
     SafeBrowsingApiHandlerBridge::GetInstance().StartHashDatabaseUrlCheck(
         std::move(callback), url,
         CreateSBThreatTypeSet({SBThreatType::SB_THREAT_TYPE_URL_MALWARE,
@@ -257,12 +255,6 @@ bool RemoteSafeBrowsingDatabaseManager::CheckDownloadUrl(
 bool RemoteSafeBrowsingDatabaseManager::CheckExtensionIDs(
     const std::set<std::string>& extension_ids,
     Client* client) {
-  NOTREACHED_IN_MIGRATION();
-  return true;
-}
-
-bool RemoteSafeBrowsingDatabaseManager::CheckResourceUrl(const GURL& url,
-                                                         Client* client) {
   NOTREACHED_IN_MIGRATION();
   return true;
 }
@@ -304,9 +296,8 @@ bool RemoteSafeBrowsingDatabaseManager::CheckUrlForSubresourceFilter(
       std::vector<GURL>{url});
 
   DVLOG(1) << "Checking for client " << client << " and URL " << url;
-  auto callback =
-      std::make_unique<SafeBrowsingApiHandlerBridge::ResponseCallback>(
-          base::BindOnce(&ClientRequest::OnRequestDone, req->GetWeakPtr()));
+  auto callback = SafeBrowsingApiHandlerBridge::ResponseCallback(
+      base::BindOnce(&ClientRequest::OnRequestDone, req->GetWeakPtr()));
   req->AddPendingCheck();
   SafeBrowsingApiHandlerBridge::GetInstance().StartHashDatabaseUrlCheck(
       std::move(callback), url,
@@ -367,7 +358,7 @@ void RemoteSafeBrowsingDatabaseManager::StartOnSBThread(
     const V4ProtocolConfig& config) {
   VLOG(1) << "RemoteSafeBrowsingDatabaseManager starting";
   SafeBrowsingDatabaseManager::StartOnSBThread(url_loader_factory, config);
-
+  SafeBrowsingApiHandlerBridge::GetInstance().PopulateArtificialDatabase();
   enabled_ = true;
 }
 
@@ -383,6 +374,7 @@ void RemoteSafeBrowsingDatabaseManager::StopOnSBThread(bool shutdown) {
   for (const std::unique_ptr<ClientRequest>& req : to_callback) {
     req->OnRequestDone(SBThreatType::SB_THREAT_TYPE_SAFE, ThreatMetadata());
   }
+  SafeBrowsingApiHandlerBridge::GetInstance().ClearArtificialDatabase();
   enabled_ = false;
 
   SafeBrowsingDatabaseManager::StopOnSBThread(shutdown);

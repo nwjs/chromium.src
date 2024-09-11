@@ -13,13 +13,16 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/task_environment.h"
+#include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/segmentation_platform/ukm_data_manager_test_utils.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/commerce/core/mock_shopping_service.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_observer.h"
 #include "components/prefs/pref_service.h"
 #include "components/segmentation_platform/embedder/default_model/contextual_page_actions_model.h"
+#include "components/segmentation_platform/embedder/default_model/metrics_clustering.h"
 #include "components/segmentation_platform/embedder/default_model/most_visited_tiles_user.h"
 #include "components/segmentation_platform/internal/constants.h"
 #include "components/segmentation_platform/internal/database/client_result_prefs.h"
@@ -115,7 +118,8 @@ class SegmentationPlatformServiceFactoryTest : public testing::Test {
           {{"SamplingRate", "1"}}},
          {features::kSegmentationPlatformTabResumptionRanker, {}},
          {features::kSegmentationPlatformAndroidHomeModuleRanker, {}},
-         {features::kSegmentationPlatformURLVisitResumptionRanker, {}}},
+         {features::kSegmentationPlatformURLVisitResumptionRanker, {}},
+         {features::kSegmentationPlatformMetricsClustering, {}}},
         {});
 
     // Creating profile and initialising segmentation service.
@@ -310,7 +314,15 @@ class SegmentationPlatformServiceFactoryTest : public testing::Test {
   struct ProfileData {
     explicit ProfileData(UkmDataManagerTestUtils* test_utils,
                          const std::string& result_pref)
-        : test_utils(test_utils), profile(TestingProfile::Builder().Build()) {
+        : test_utils(test_utils) {
+      TestingProfile::Builder profile_builder;
+      profile_builder.AddTestingFactory(
+          commerce::ShoppingServiceFactory::GetInstance(),
+          base::BindRepeating([](content::BrowserContext* context) {
+            return commerce::MockShoppingService::Build();
+          }));
+      profile = profile_builder.Build();
+
       profile->GetPrefs()->SetString(kSegmentationClientResultPrefs,
                                      result_pref);
       test_utils->SetupForProfile(profile.get());
@@ -470,6 +482,18 @@ TEST_F(SegmentationPlatformServiceFactoryTest, TabResupmtionRanker) {
 }
 #endif  //! BUILDFLAG(IS_CHROMEOS)
 
+TEST_F(SegmentationPlatformServiceFactoryTest, MetricsClustering) {
+  InitServiceAndCacheResults(
+      segmentation_platform::MetricsClustering::kMetricsClusteringKey);
+
+  segmentation_platform::PredictionOptions prediction_options =
+      PredictionOptions::ForCached();
+
+  ExpectGetAnnotatedNumericResult(
+      segmentation_platform::MetricsClustering::kMetricsClusteringKey,
+      prediction_options, nullptr, PredictionStatus::kSucceeded);
+}
+
 #if BUILDFLAG(IS_ANDROID)
 // Tests for models in android platform.
 TEST_F(SegmentationPlatformServiceFactoryTest, TestDeviceTierSegment) {
@@ -504,13 +528,13 @@ TEST_F(SegmentationPlatformServiceFactoryTest, TestContextualPageActionsShare) {
 
   auto input_context = base::MakeRefCounted<InputContext>();
   input_context->metadata_args.emplace(
-      segmentation_platform::kContextualPageActionModelInputPriceTracking,
+      segmentation_platform::kContextualPageActionModelInputPriceInsights,
       segmentation_platform::processing::ProcessedValue::FromFloat(1));
   input_context->metadata_args.emplace(
-      segmentation_platform::kContextualPageActionModelInputReaderMode,
+      segmentation_platform::kContextualPageActionModelInputPriceTracking,
       segmentation_platform::processing::ProcessedValue::FromFloat(0));
   input_context->metadata_args.emplace(
-      segmentation_platform::kContextualPageActionModelInputPriceInsights,
+      segmentation_platform::kContextualPageActionModelInputReaderMode,
       segmentation_platform::processing::ProcessedValue::FromFloat(0));
 
   ExpectGetClassificationResult(
@@ -518,7 +542,7 @@ TEST_F(SegmentationPlatformServiceFactoryTest, TestContextualPageActionsShare) {
       /*expected_status=*/PredictionStatus::kSucceeded,
       /*expected_labels=*/
       std::vector<std::string>(1,
-                               kContextualPageActionModelLabelPriceTracking));
+                               kContextualPageActionModelLabelPriceInsights));
   clock()->Advance(base::Seconds(
       ContextualPageActionsModel::kShareOutputCollectionDelayInSec));
 

@@ -20,6 +20,7 @@ import org.chromium.components.metrics.MetricsSwitches;
 import org.chromium.components.network_session_configurator.NetworkSessionSwitches;
 import org.chromium.components.permissions.PermissionsAndroidFeatureList;
 import org.chromium.components.safe_browsing.SafeBrowsingFeatures;
+import org.chromium.components.sensitive_content.SensitiveContentFeatures;
 import org.chromium.components.variations.VariationsSwitches;
 import org.chromium.components.viz.common.VizFeatures;
 import org.chromium.content_public.common.ContentFeatures;
@@ -177,6 +178,9 @@ public final class ProductionSupportedFlagList {
                 VizFeatures.WEBVIEW_ENABLE_ADPF_RENDERER_MAIN,
                 "Include Renderer Main into ADPF session"),
         Flag.baseFeature(
+                VizFeatures.WEBVIEW_FRAME_RATE_HINTS,
+                "Provide frame rate hints to View system if supported by OS"),
+        Flag.baseFeature(
                 VizFeatures.ALLOW_UNDAMAGED_NONROOT_RENDER_PASS_TO_SKIP,
                 "Enable optimization for skipping undamaged nonroot render passes."),
         Flag.baseFeature(
@@ -239,11 +243,6 @@ public final class ProductionSupportedFlagList {
                 AndroidAutofillFeatures.ANDROID_AUTOFILL_PREFILL_REQUESTS_FOR_LOGIN_FORMS_NAME,
                 "When enabled, prefill requests are supported for login forms."),
         Flag.baseFeature(
-                AndroidAutofillFeatures.ANDROID_AUTOFILL_USE_PWM_PREDICTIONS_FOR_OVERRIDES_NAME,
-                "When enabled, the comparison between the cached form and the currently focused"
-                        + " form that is used to decide whether to show a bottom sheet is performed"
-                        + " by comparing password manager's FormDataParser predictions."),
-        Flag.baseFeature(
                 AndroidAutofillFeatures.ANDROID_AUTOFILL_PREFILL_REQUEST_FOR_CHANGE_PASSWORD_NAME,
                 "Enables sending prefill requests for Change Password forms."),
         Flag.baseFeature(
@@ -260,6 +259,10 @@ public final class ProductionSupportedFlagList {
                 AutofillFeatures.AUTOFILL_FIX_CACHING_ON_JAVA_SCRIPT_CHANGES,
                 "When enabled, Autofill will reset the autofill state of fields modified by JS"),
         Flag.baseFeature(
+                AutofillFeatures.AUTOFILL_GIVE_PRECEDENCE_TO_EMAIL_OVER_USERNAME,
+                "When enabled, Autofill will give precedence to heuristics results that predict an"
+                        + " email field over server predictions for a username field"),
+        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_INFER_COUNTRY_CALLING_CODE,
                 "Infers the country calling code from the profile's country, if available."),
         Flag.baseFeature(
@@ -268,9 +271,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_DONT_PRESERVE_AUTOFILL_STATE,
                 "Retrieves is_autofilled state from blink instead of the cache"),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_NEW_FOCUS_EVENTS,
-                "Changes the semantics of Autofill's focus-change events"),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_PAGE_LANGUAGE_DETECTION,
                 "Enables Autofill to retrieve the page language for form parsing."),
@@ -376,6 +376,10 @@ public final class ProductionSupportedFlagList {
                 "When enabled, autofill uses an extra cache for matching regular expressions "
                         + "while executing local heuristics."),
         Flag.baseFeature(
+                AutofillFeatures.AUTOFILL_STRUCTURED_FIELDS_DISABLE_ADDRESS_LINES,
+                "When enabled, Autofill disable address lines on forms with structured address"
+                        + " fields."),
+        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_ENABLE_LABEL_PRECEDENCE_FOR_TURKISH_ADDRESSES,
                 "When enabled, the precedence is given to the field label over the name when they"
                         + " match different types. Applied only for parsing of address forms in"
@@ -394,10 +398,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 NetworkServiceFeatures.PRIVATE_STATE_TOKENS,
                 "Enables the prototype Private State Tokens API."),
-        Flag.baseFeature(
-                NetworkServiceFeatures.COOKIE_ACCESS_DETAILS_NOTIFICATION_DE_DUPING,
-                "Enables de-duplicating cookie access details that are sent to observers via"
-                        + " OnCookiesAccessed."),
         Flag.baseFeature(
                 NetworkServiceFeatures.MASKED_DOMAIN_LIST,
                 "When enabled, the masked domain list required for IP Protection is loaded."),
@@ -473,6 +473,9 @@ public final class ProductionSupportedFlagList {
                 BlinkFeatures.ESTABLISH_GPU_CHANNEL_ASYNC,
                 "Enables establishing the GPU channel asnchronously when requesting a new "
                         + "layer tree frame sink."),
+        Flag.baseFeature(
+                BlinkFeatures.ELEMENT_GET_INNER_HTML,
+                "Enables the getInnerHTML() function on elements."),
         Flag.baseFeature(BlinkFeatures.TEXT_SIZE_ADJUST_IMPROVEMENTS, "Improved text-size-adjust."),
         Flag.baseFeature(
                 BlinkFeatures.PREFETCH_FONT_LOOKUP_TABLES,
@@ -527,6 +530,9 @@ public final class ProductionSupportedFlagList {
                 "Enable the use of an increased parse slice size per command buffer before"
                         + " each forced context switch."),
         Flag.baseFeature(
+                BlinkFeatures.REPORT_EVENT_TIMING_AT_VISIBILITY_CHANGE,
+                "Report event timing to UKM at visibility change."),
+        Flag.baseFeature(
                 BlinkFeatures.RUN_TEXT_INPUT_UPDATE_POST_LIFECYCLE,
                 "Runs code to update IME state at the end of a lifecycle update "
                         + "rather than the beginning."),
@@ -548,6 +554,7 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(BlinkFeatures.DYNAMIC_SCROLL_CULL_RECT_EXPANSION),
         Flag.baseFeature(BlinkFeatures.INTERSECTION_OPTIMIZATION),
         Flag.baseFeature(BlinkFeatures.EXPAND_COMPOSITED_CULL_RECT),
+        Flag.baseFeature(BlinkFeatures.RASTER_INDUCING_SCROLL),
         Flag.baseFeature(BlinkFeatures.SCROLLBAR_COLOR),
         Flag.baseFeature(BlinkFeatures.UNBLOCK_TOUCH_MOVE_EARLIER),
         Flag.baseFeature(
@@ -557,6 +564,9 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 AwFeatures.WEBVIEW_IMAGE_DRAG,
                 "If enabled, images can be dragged out from Webview"),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_DRAG_DROP_FILES,
+                "If enabled, files can be dropped into WebView"),
         Flag.baseFeature(
                 BlinkFeatures.WEB_RTC_COMBINED_NETWORK_AND_WORKER_THREAD,
                 "Combines WebRTC's worker thread and network thread onto a single thread."),
@@ -778,10 +788,6 @@ public final class ProductionSupportedFlagList {
                 "Enables extending the loading phase by some buffer time after "
                         + "First Meaningful Paint is signaled."),
         Flag.baseFeature(
-                BlinkFeatures.NON_STANDARD_APPEARANCE_VALUES_HIGH_USAGE,
-                "This flag allows non-standard CSS appearance values with page load "
-                        + "usage >= 0.001% and shows a deprecation warning."),
-        Flag.baseFeature(
                 BlinkFeatures.DISCARD_INPUT_EVENTS_TO_RECENTLY_MOVED_FRAMES,
                 "Enables a browser intervention which silently ignores input events "
                         + "targeting a cross-origin iframe which has moved within its "
@@ -796,6 +802,10 @@ public final class ProductionSupportedFlagList {
                 ContentFeatures.SELECTION_MENU_ITEM_MODIFICATION,
                 "Enables text selection menu item modification based on "
                         + "embedder implementation."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_AUTO_SAA,
+                "Enable auto granting storage access API requests. This will be done "
+                        + "if a relationship is detected between the app and the website."),
         Flag.baseFeature(
                 AwFeatures.WEBVIEW_SUPERVISED_USER_SITE_DETECTION,
                 "Enable detection of the loading of mature sites on "
@@ -883,6 +893,9 @@ public final class ProductionSupportedFlagList {
                 "If enabled, it posts PowerMonitor broadcast receiver init to a background"
                         + " thread."),
         Flag.baseFeature(
+                BaseFeatures.POST_GET_MY_MEMORY_STATE_TO_BACKGROUND,
+                "If enabled, getMyMemoryState IPC will be posted to background."),
+        Flag.baseFeature(
                 BlinkFeatures.REGISTER_JS_SOURCE_LOCATION_BLOCKING_BF_CACHE,
                 "Starts capturing bfcache blocking details"),
         Flag.baseFeature(
@@ -915,6 +928,9 @@ public final class ProductionSupportedFlagList {
                 BlinkFeatures.BOOST_NON_RENDER_BLOCKING_STYLE_LOADING_TASK_PRIORITY,
                 "If enabled, non-render-blocking style loading tasks have higher priority on"
                         + " visible pages"),
+        Flag.baseFeature(
+                MediaFeatures.BUILT_IN_HLS_PLAYER,
+                "Switches the HLS demuxer implementation from MediaPlayer to an internal one"),
         Flag.baseFeature(
                 MediaFeatures.LIBVPX_USE_CHROME_THREADS,
                 "Attaches libvpx threads to the chromium thread system."),
@@ -957,17 +973,14 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 BlinkFeatures.ALLOW_JAVA_SCRIPT_TO_RESET_AUTOFILL_STATE,
                 "When enabled, Autofill will reset the autofill state of fields modified by JS"),
-        Flag.baseFeature(
-                BlinkFeatures.AUTOFILL_INCLUDE_FORM_ELEMENTS_IN_SHADOW_DOM,
-                "Extract form elements from shadow DOM"),
-        Flag.baseFeature(
-                BlinkFeatures.AUTOFILL_INCLUDE_SHADOW_DOM_IN_UNASSOCIATED_LISTED_ELEMENTS,
-                "Include elements from shadow DOM in unassociated listed elements"),
-        Flag.baseFeature("ShadowDomSupport", "Improve shadow DOM support in password manager"),
         Flag.baseFeature("StandardCompliantNonSpecialSchemeURLParsing"),
         Flag.baseFeature(
                 BlinkFeatures.BLINK_SCHEDULER_PRIORITIZE_NAVIGATION_IP_CS,
                 "If enabled, main frame navigation IPCs have higher priority on visible pages"),
+        Flag.baseFeature(
+                BlinkFeatures.BLINK_SCHEDULER_DISCRETE_INPUT_MATCHES_RESPONSIVENESS_METRICS,
+                "If enabled, the scheduler filters discrete input based on responsivness metrics"
+                        + " definitions"),
         Flag.baseFeature(
                 BlinkFeatures.CURSOR_ANCHOR_INFO_MOJO_PIPE,
                 "If enabled, CursorAnchorInfo is sent from Blink to the browser using a single"
@@ -1069,6 +1082,17 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature("MojoUseBinder"),
         Flag.baseFeature(
                 ContentFeatures.WEB_PERMISSIONS_API, "Enables navigator.permissions.query()"),
+        Flag.baseFeature(
+                MediaFeatures.BUILT_IN_H264_DECODER, "Controls use of FFmpeg for H.264 decoding"),
+        Flag.baseFeature(
+                BlinkFeatures.DEFER_RENDERER_TASKS_AFTER_INPUT,
+                "If enabled, some renderer tasks will be deferred after discrete input events, e.g."
+                        + " keypress, and the subsequent frame"),
+        Flag.baseFeature(
+                SensitiveContentFeatures.SENSITIVE_CONTENT,
+                "Redact sensitive content during screen sharing, screen recording, and similar"
+                        + " actions"),
+
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

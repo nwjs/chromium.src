@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "cc/trees/layer_tree_host_impl.h"
 
 #include <stddef.h>
@@ -62,6 +67,7 @@
 #include "cc/layers/layer_impl.h"
 #include "cc/layers/render_surface_impl.h"
 #include "cc/layers/surface_layer_impl.h"
+#include "cc/layers/video_layer_impl.h"
 #include "cc/layers/viewport.h"
 #include "cc/metrics/compositor_frame_reporting_controller.h"
 #include "cc/metrics/custom_metrics_recorder.h"
@@ -567,6 +573,10 @@ LayerTreeHostImpl::~LayerTreeHostImpl() {
   // `compositor_frame_reporting_controller_` holds.
   compositor_frame_reporting_controller_->SetFrameSequenceTrackerCollection(
       nullptr);
+  // Similar to the logic above. The `compositor_frame_reporting_controller_`
+  // was given a `this` pointer for the event_latency_tracker and thus needs
+  // to be nulled to prevent it dangling.
+  compositor_frame_reporting_controller_->set_event_latency_tracker(nullptr);
 }
 
 InputHandler& LayerTreeHostImpl::GetInputHandler() {
@@ -797,8 +807,10 @@ void LayerTreeHostImpl::UpdateSyncTreeAfterCommitOrImplSideInvalidation() {
   // We can avoid updating the ImageAnimationController during this
   // DrawProperties update since it will be done when we animate the controller
   // below.
+  bool update_tiles = true;
   bool update_image_animation_controller = false;
-  sync_tree()->UpdateDrawProperties(update_image_animation_controller);
+  sync_tree()->UpdateDrawProperties(update_tiles,
+                                    update_image_animation_controller);
 
   // Defer invalidating images until UpdateDrawProperties is performed since
   // that updates whether an image should be animated based on its visibility
@@ -1077,6 +1089,9 @@ void LayerTreeHostImpl::AnimateInternal() {
 bool LayerTreeHostImpl::PrepareTiles() {
   DCHECK(!settings_.is_display_tree);
 
+  tile_priorities_dirty_ |= active_tree() && active_tree()->UpdateTiles();
+  tile_priorities_dirty_ |= pending_tree() && pending_tree()->UpdateTiles();
+
   if (!tile_priorities_dirty_)
     return false;
 
@@ -1283,6 +1298,8 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   // the root damage rect. The root damage rect is then used to scissor each
   // surface.
   DamageTracker::UpdateDamageTracking(active_tree_.get());
+  frame->damage_reasons =
+      active_tree_->RootRenderSurface()->damage_tracker()->GetDamageReasons();
 
   if (HasDamage()) {
     consecutive_frame_with_damage_count_++;
@@ -1368,6 +1385,10 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   bool have_missing_animated_tiles = false;
   int num_of_layers_with_videos = 0;
 
+  const bool compute_video_layer_preferred_interval =
+      !features::UseSurfaceLayerForVideo() &&
+      features::IsUsingFrameIntervalDecider();
+
   if (settings_.enable_compositing_based_throttling)
     throttle_decider_.Prepare();
   for (EffectTreeLayerListIterator it(active_tree());
@@ -1406,6 +1427,16 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
         if (layer->may_contain_video()) {
           num_of_layers_with_videos++;
           frame->may_contain_video = true;
+        }
+        if (compute_video_layer_preferred_interval &&
+            layer->GetLayerType() == mojom::LayerType::kVideo) {
+          VideoLayerImpl* video_layer = static_cast<VideoLayerImpl*>(layer);
+          std::optional<base::TimeDelta> video_preferred_interval =
+              video_layer->GetPreferredRenderInterval();
+          if (video_preferred_interval) {
+            frame->video_layer_preferred_intervals[video_preferred_interval
+                                                       .value()]++;
+          }
         }
         layer->NotifyKnownResourceIdsBeforeAppendQuads(known_resource_ids);
         layer->AppendQuads(target_render_pass, &append_quads_data);
@@ -1623,7 +1654,8 @@ DrawResult LayerTreeHostImpl::PrepareToDraw(FrameData* frame) {
   // we tick worklet animations and apply that output here instead.
   mutator_host_->TickWorkletAnimations();
 
-  bool ok = active_tree_->UpdateDrawProperties();
+  bool ok = active_tree_->UpdateDrawProperties(
+      /*update_tiles=*/true, /*update_image_animation_controller=*/true);
   DCHECK(ok) << "UpdateDrawProperties failed during draw";
 
   if (!settings_.is_display_tree) {
@@ -1852,17 +1884,20 @@ void LayerTreeHostImpl::UpdateTileManagerMemoryPolicy(
       global_tile_state_.soft_memory_limit_in_bytes,
       global_tile_state_.num_resources_limit);
 
-  DidModifyTilePriorities();
+  DidModifyTilePriorities(/*pending_update_tiles=*/false);
 }
 
-void LayerTreeHostImpl::DidModifyTilePriorities() {
+void LayerTreeHostImpl::DidModifyTilePriorities(bool pending_update_tiles) {
   if (settings_.is_display_tree) {
     return;
   }
 
-  // Mark priorities as dirty and schedule a PrepareTiles().
-  tile_priorities_dirty_ = true;
-  tile_manager_.DidModifyTilePriorities();
+  // Mark priorities as (maybe) dirty and schedule a PrepareTiles().
+  if (!pending_update_tiles) {
+    tile_priorities_dirty_ = true;
+    tile_manager_.DidModifyTilePriorities();
+  }
+
   client_->SetNeedsPrepareTilesOnImplThread();
 }
 
@@ -2076,12 +2111,23 @@ void LayerTreeHostImpl::NotifyTileStateChanged(const Tile* tile) {
 
   // We must have a pending or active tree layer here, since the layer is
   // guaranteed to outlive its tiles.
-  if (tile->tiling()->tree() == WhichTree::PENDING_TREE)
+  const bool is_pending_tree =
+      tile->tiling()->tree() == WhichTree::PENDING_TREE;
+  if (is_pending_tree) {
     layer_impl = pending_tree_->FindPendingTreeLayerById(tile->layer_id());
-  else
+  } else {
     layer_impl = active_tree_->FindActiveTreeLayerById(tile->layer_id());
+  }
 
   layer_impl->NotifyTileStateChanged(tile);
+
+  if (settings_.UseLayerContextForDisplay() && !is_pending_tree) {
+    // Pending tree tile updates are pushed to the display tree after
+    // activation. For active tree tile updates we push immediately.
+    layer_context_->UpdateDisplayTile(
+        static_cast<PictureLayerImpl&>(*layer_impl), *tile,
+        *resource_provider(), *layer_tree_frame_sink_->context_provider());
+  }
 
   if (!client_->IsInsideDraw() && tile->required_for_draw()) {
     // The LayerImpl::NotifyTileStateChanged() should damage the layer, so this
@@ -2825,6 +2871,47 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
       CurrentBeginFrameArgs().frame_time,
       frame->deadline_in_frames.value_or(0u), CurrentBeginFrameArgs().interval,
       frame->use_default_lower_bound_deadline);
+  metadata.frame_interval_inputs.frame_time =
+      CurrentBeginFrameArgs().frame_time;
+  metadata.frame_interval_inputs.has_input =
+      frame_rate_estimator_.input_priority_mode();
+
+  if (!frame->video_layer_preferred_intervals.empty() &&
+      frame->damage_reasons.Has(DamageReason::kVideoLayer)) {
+    for (auto& [video_interval, count] :
+         frame->video_layer_preferred_intervals) {
+      metadata.frame_interval_inputs.content_interval_info.push_back(
+          {viz::ContentFrameIntervalType::kVideo, video_interval, count - 1u});
+    }
+    frame->damage_reasons.Remove(DamageReason::kVideoLayer);
+  }
+
+  if (frame->damage_reasons.Has(DamageReason::kAnimatedImage)) {
+    std::optional<ImageAnimationController::ConsistentFrameDuration>
+        animating_image_duration =
+            image_animation_controller_.GetConsistentContentFrameDuration();
+    if (animating_image_duration) {
+      metadata.frame_interval_inputs.content_interval_info.push_back(
+          {viz::ContentFrameIntervalType::kAnimatingImage,
+           animating_image_duration->frame_duration,
+           animating_image_duration->num_images - 1u});
+      frame->damage_reasons.Remove(DamageReason::kAnimatedImage);
+    }
+  }
+
+  if (frame->damage_reasons.Has(DamageReason::kScrollbarFadeOutAnimation)) {
+    // Lower fade out animation to 20hz somewhat arbitrarily since it's small
+    // and hard to notice a low frame rate.
+    metadata.frame_interval_inputs.content_interval_info.push_back(
+        {viz::ContentFrameIntervalType::kScrollBarFadeOutAnimation,
+         base::Hertz(20)});
+    frame->damage_reasons.Remove(DamageReason::kScrollbarFadeOutAnimation);
+  }
+
+  // If all RedrawReasons have been recorded in `content_interval_info` and
+  // removed, then can set `has_only_content_frame_interval_updates`.
+  metadata.frame_interval_inputs.has_only_content_frame_interval_updates =
+      frame->damage_reasons.empty();
 
   base::TimeDelta preferred_frame_interval;
   static const bool feature_allowed =
@@ -2969,12 +3056,16 @@ void LayerTreeHostImpl::UpdateDisplayTree(FrameData& frame) {
   DCHECK(layer_context_);
 
   if (!active_tree()->LayerListIsEmpty()) {
-    bool ok = active_tree()->UpdateDrawProperties();
+    bool ok = active_tree()->UpdateDrawProperties(
+        /*update_tiles=*/true, /*update_image_animation_controller=*/true);
     DCHECK(ok) << "UpdateDrawProperties failed during display tree update";
   }
 
   tile_manager_.PrepareToDraw();
-  layer_context_->UpdateDisplayTreeFrom(*active_tree());
+  layer_context_->UpdateDisplayTreeFrom(
+      *active_tree(), *resource_provider(),
+      *layer_tree_frame_sink_->context_provider());
+  UpdateAnimationState(true);
   active_tree()->ResetAllChangeTracking();
 }
 
@@ -3167,7 +3258,8 @@ bool LayerTreeHostImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
   // return true to indicate that there might be damage in this frame.
   if (settings_.enable_early_damage_check && recent_frame_had_no_damage &&
       CanDraw()) {
-    bool ok = active_tree()->UpdateDrawProperties();
+    bool ok = active_tree()->UpdateDrawProperties(
+        /*update_tiles=*/true, /*update_image_animation_controller=*/true);
     DCHECK(ok);
     DamageTracker::UpdateDamageTracking(active_tree_.get());
     bool has_damage = HasDamage();
@@ -3572,7 +3664,7 @@ void LayerTreeHostImpl::ActivateSyncTree() {
   // If we have any picture layers, then by activating we also modified tile
   // priorities.
   if (!active_tree_->picture_layers().empty())
-    DidModifyTilePriorities();
+    DidModifyTilePriorities(/*pending_update_tiles=*/false);
 
   auto screenshot_token = active_tree()->TakeScreenshotDestinationToken();
   if (child_local_surface_id_allocator_.GetCurrentLocalSurfaceId().is_valid()) {
@@ -4516,8 +4608,9 @@ bool LayerTreeHostImpl::AnimateBrowserControls(base::TimeTicks time) {
 
 bool LayerTreeHostImpl::AnimateScrollbars(base::TimeTicks monotonic_time) {
   bool animated = false;
-  for (auto& pair : scrollbar_animation_controllers_)
+  for (auto& pair : scrollbar_animation_controllers_) {
     animated |= pair.second->Animate(monotonic_time);
+  }
   return animated;
 }
 
@@ -4701,7 +4794,7 @@ void LayerTreeHostImpl::SetTreePriority(TreePriority priority) {
   if (global_tile_state_.tree_priority == priority)
     return;
   global_tile_state_.tree_priority = priority;
-  DidModifyTilePriorities();
+  DidModifyTilePriorities(/*pending_update_tiles=*/false);
 }
 
 TreePriority LayerTreeHostImpl::GetTreePriority() const {
@@ -4779,8 +4872,9 @@ void LayerTreeHostImpl::ActivationStateAsValueInto(
 
 void LayerTreeHostImpl::SetDebugState(
     const LayerTreeDebugState& new_debug_state) {
-  if (LayerTreeDebugState::Equal(debug_state_, new_debug_state))
+  if (debug_state_ == new_debug_state) {
     return;
+  }
 
   debug_state_ = new_debug_state;
   UpdateTileManagerMemoryPolicy(ActualManagedMemoryPolicy());

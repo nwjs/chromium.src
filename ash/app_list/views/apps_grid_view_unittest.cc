@@ -907,6 +907,21 @@ class AppsGridViewTabletTest : public AppsGridViewTest,
 };
 INSTANTIATE_TEST_SUITE_P(All, AppsGridViewTabletTest, testing::Bool());
 
+// TODO(anasalazar): Consolidate with AppsGridViewTabletTest suite once drag and
+// drop refactor code is cleaned up.
+class AppsGridViewTabletTestWithDragAndDropRefactor
+    : public AppsGridViewTabletTest {
+ public:
+  AppsGridViewTabletTestWithDragAndDropRefactor() {
+    is_rtl_ = GetParam();
+    create_as_tablet_mode_ = true;
+    use_drag_drop_refactor_ = true;
+  }
+};
+INSTANTIATE_TEST_SUITE_P(All,
+                         AppsGridViewTabletTestWithDragAndDropRefactor,
+                         testing::Bool());
+
 // This does not test the font name or weight because ash_unittests returns
 // different font lists than chrome (e.g. "DejaVu Sans" instead of "Roboto").
 TEST_F(AppsGridViewTest, AppListItemViewFont) {
@@ -4022,7 +4037,7 @@ TEST_P(AppsGridViewTabletTest, TouchDragFlipToNextPage) {
   MaybeCheckHaptickEventsCount(0);
 }
 
-TEST_P(AppsGridViewTabletTest, ReparentDragToNewPage) {
+TEST_P(AppsGridViewTabletTestWithDragAndDropRefactor, ReparentDragToNewPage) {
   ASSERT_TRUE(paged_apps_grid_view_);
 
   GetTestModel()->CreateAndPopulateFolderWithApps(3);
@@ -4038,57 +4053,60 @@ TEST_P(AppsGridViewTabletTest, ReparentDragToNewPage) {
   AppListItemView* dragged_view =
       folder_apps_grid_view()->view_model()->view_at(0);
   const std::string dragged_view_id = dragged_view->item()->id();
-  auto* generator = GetEventGenerator();
+  StartDragForViewAndFireTimer(AppsGridView::MOUSE, dragged_view);
 
-  // Initiate drag.
-  generator->MoveMouseTo(dragged_view->GetBoundsInScreen().CenterPoint());
-  generator->PressLeftButton();
-  dragged_view->FireMouseDragTimerForTest();
-  generator->MoveMouseBy(10, 10);
+  MaybeCheckHaptickEventsCount(1);
 
-  // Drag the item outside the folder bounds.
-  gfx::Point point_outside_folder =
-      app_list_folder_view()->GetLocalBounds().bottom_center() +
-      gfx::Vector2d(10, 10);
-  views::View::ConvertPointToScreen(app_list_folder_view(),
-                                    &point_outside_folder);
-  generator->MoveMouseTo(point_outside_folder);
+  std::list<base::OnceClosure> tasks;
+  tasks.push_back(base::BindLambdaForTesting([&]() {
+    gfx::Point point_outside_folder =
+        app_list_folder_view()->GetLocalBounds().bottom_center() +
+        gfx::Vector2d(10, 10);
+    views::View::ConvertPointToScreen(app_list_folder_view(),
+                                      &point_outside_folder);
+    UpdateDragInScreen(AppsGridView::MOUSE, point_outside_folder,
+                       /*steps=*/10);
 
-  // Fire the reparent timer that should be started when an item is dragged out
-  // of folder bounds.
-  ASSERT_TRUE(folder_apps_grid_view()->FireFolderItemReparentTimerForTest());
-
-  // Reparent drag temporarily adds an extra slot to the apps grid, which should
-  // create an extra page.
-  EXPECT_EQ(2, GetPaginationModel()->total_pages());
-  EXPECT_EQ(0, GetPaginationModel()->selected_page());
-
-  // Move mouse to the bottom into the page flip zone.
-  generator->MoveMouseTo(
-      paged_apps_grid_view_->GetBoundsInScreen().bottom_center() +
-      gfx::Vector2d(0, -1));
-  ASSERT_TRUE(HasPendingPageFlip(paged_apps_grid_view_));
-  page_flip_waiter_->Wait();
-  // Move outside page flip zone, and verify the reorder timer gets run.
-  generator->MoveMouseBy(0, -50);
-
-  // Ensure that the reoreder timer ran, and that any views on the second page
-  // that should have been moved to the first page have done so.
-  ASSERT_TRUE(paged_apps_grid_view_->reorder_timer_for_test()->IsRunning());
-  paged_apps_grid_view_->reorder_timer_for_test()->FireNow();
-  test_api_->WaitForItemMoveAnimationDone();
-
-  // Move the item to the first empty slot on the second page.
-  gfx::Point empty_slot =
-      test_api_->GetItemTileRectAtVisualIndex(1, 0).CenterPoint();
-  views::View::ConvertPointToScreen(paged_apps_grid_view_, &empty_slot);
-  generator->MoveMouseTo(empty_slot);
-  if (paged_apps_grid_view_->reorder_timer_for_test()->IsRunning())
+    // Fire the reparent timer that should be started when an item is dragged
+    // out of folder bounds.
+    ASSERT_TRUE(folder_apps_grid_view()->FireFolderItemReparentTimerForTest());
+  }));
+  tasks.push_back(base::BindLambdaForTesting([&]() {
+    ASSERT_TRUE(paged_apps_grid_view_->reorder_timer_for_test()->IsRunning());
     paged_apps_grid_view_->reorder_timer_for_test()->FireNow();
-  test_api_->WaitForItemMoveAnimationDone();
+    test_api_->WaitForItemMoveAnimationDone();
 
-  // Finalize drag.
-  generator->ReleaseLeftButton();
+    // Reparent drag temporarily adds an extra slot to the apps grid, which
+    // should create an extra page.
+    EXPECT_EQ(2, GetPaginationModel()->total_pages());
+    EXPECT_EQ(0, GetPaginationModel()->selected_page());
+  }));
+  tasks.push_back(base::BindLambdaForTesting([&]() {
+    // Move mouse to the bottom into the page flip zone.
+    gfx::Point page_flip_zone =
+        paged_apps_grid_view_->GetBoundsInScreen().bottom_center() +
+        gfx::Vector2d(0, -1);
+    UpdateDragInScreen(AppsGridView::MOUSE, page_flip_zone,
+                       /*steps=*/10);
+    ASSERT_TRUE(HasPendingPageFlip(paged_apps_grid_view_));
+    page_flip_waiter_->Wait();
+  }));
+  tasks.push_back(base::BindLambdaForTesting([&]() {
+    // Move the item to an empty slot on the second page. Use the second slot as
+    // the first one may be occupied by an extra app from he previous step.
+    gfx::Point empty_slot =
+        test_api_->GetItemTileRectAtVisualIndex(1, 1).CenterPoint();
+    UpdateDrag(AppsGridView::MOUSE, empty_slot, paged_apps_grid_view_,
+               /*steps=*/10);
+    if (paged_apps_grid_view_->reorder_timer_for_test()->IsRunning()) {
+      paged_apps_grid_view_->reorder_timer_for_test()->FireNow();
+    }
+    test_api_->WaitForItemMoveAnimationDone();
+  }));
+  tasks.push_back(
+      base::BindLambdaForTesting([&]() { EndDrag(AppsGridView::MOUSE); }));
+  MaybeRunDragAndDropSequenceForAppList(&tasks, /*is_touch =*/false);
+  MaybeCheckHaptickEventsCount(1);
 
   EXPECT_EQ(1, GetPaginationModel()->selected_page());
   EXPECT_EQ(2, GetPaginationModel()->total_pages());
@@ -4100,7 +4118,8 @@ TEST_P(AppsGridViewTabletTest, ReparentDragToNewPage) {
   EXPECT_EQ(dragged_view_id, last_item_view->item()->id());
 }
 
-TEST_P(AppsGridViewTabletTest, ReparentDragToAFolderOnNewPage) {
+TEST_P(AppsGridViewTabletTestWithDragAndDropRefactor,
+       ReparentDragToAFolderOnNewPage) {
   ASSERT_TRUE(paged_apps_grid_view_);
 
   GetTestModel()->CreateAndPopulateFolderWithApps(3);
@@ -4119,50 +4138,55 @@ TEST_P(AppsGridViewTabletTest, ReparentDragToAFolderOnNewPage) {
   AppListItemView* dragged_view =
       folder_apps_grid_view()->view_model()->view_at(0);
   const std::string dragged_view_id = dragged_view->item()->id();
-  auto* generator = GetEventGenerator();
 
-  // Initiate drag.
-  generator->MoveMouseTo(dragged_view->GetBoundsInScreen().CenterPoint());
-  generator->PressLeftButton();
-  dragged_view->FireMouseDragTimerForTest();
-  generator->MoveMouseBy(10, 10);
+  StartDragForViewAndFireTimer(AppsGridView::MOUSE, dragged_view);
 
-  // Drag the item outside the folder bounds.
-  gfx::Point point_outside_folder =
-      app_list_folder_view()->GetLocalBounds().bottom_center() +
-      gfx::Vector2d(10, 10);
-  views::View::ConvertPointToScreen(app_list_folder_view(),
-                                    &point_outside_folder);
-  generator->MoveMouseTo(point_outside_folder);
+  MaybeCheckHaptickEventsCount(1);
 
-  // Fire the reparent timer that should be started when an item is dragged out
-  // of folder bounds.
-  ASSERT_TRUE(folder_apps_grid_view()->FireFolderItemReparentTimerForTest());
+  std::list<base::OnceClosure> tasks;
+  tasks.push_back(base::BindLambdaForTesting([&]() {
+    gfx::Point point_outside_folder =
+        app_list_folder_view()->GetLocalBounds().bottom_center() +
+        gfx::Vector2d(10, 10);
+    views::View::ConvertPointToScreen(app_list_folder_view(),
+                                      &point_outside_folder);
+    UpdateDragInScreen(AppsGridView::MOUSE, point_outside_folder,
+                       /*steps=*/10);
 
-  ASSERT_TRUE(paged_apps_grid_view_->reorder_timer_for_test()->IsRunning());
-  paged_apps_grid_view_->reorder_timer_for_test()->FireNow();
-  test_api_->WaitForItemMoveAnimationDone();
+    // Fire the reparent timer that should be started when an item is dragged
+    // out of folder bounds.
+    ASSERT_TRUE(folder_apps_grid_view()->FireFolderItemReparentTimerForTest());
+  }));
+  tasks.push_back(base::BindLambdaForTesting([&]() {
+    ASSERT_TRUE(paged_apps_grid_view_->reorder_timer_for_test()->IsRunning());
+    paged_apps_grid_view_->reorder_timer_for_test()->FireNow();
+    test_api_->WaitForItemMoveAnimationDone();
 
-  // Reparent drag temporarily adds an extra slot to the apps grid, which should
-  // create an extra page.
-  EXPECT_EQ(2, GetPaginationModel()->total_pages());
-  EXPECT_EQ(0, GetPaginationModel()->selected_page());
-
-  // Move mouse to the bottom into the page flip zone.
-  generator->MoveMouseTo(
-      paged_apps_grid_view_->GetBoundsInScreen().bottom_center() +
-      gfx::Vector2d(0, -1));
-  ASSERT_TRUE(HasPendingPageFlip(paged_apps_grid_view_));
-  page_flip_waiter_->Wait();
-
-  // Move the item on top of the folder in the first slot on the page.
-  gfx::Point trailing_slot =
-      test_api_->GetItemTileRectAtVisualIndex(1, 0).CenterPoint();
-  views::View::ConvertPointToScreen(paged_apps_grid_view_, &trailing_slot);
-  generator->MoveMouseTo(trailing_slot);
-
-  // Finalize drag.
-  generator->ReleaseLeftButton();
+    // Reparent drag temporarily adds an extra slot to the apps grid, which
+    // should create an extra page.
+    EXPECT_EQ(2, GetPaginationModel()->total_pages());
+    EXPECT_EQ(0, GetPaginationModel()->selected_page());
+  }));
+  tasks.push_back(base::BindLambdaForTesting([&]() {
+    // Move mouse to the bottom into the page flip zone.
+    gfx::Point page_flip_zone =
+        paged_apps_grid_view_->GetBoundsInScreen().bottom_center() +
+        gfx::Vector2d(0, -1);
+    UpdateDragInScreen(AppsGridView::MOUSE, page_flip_zone,
+                       /*steps=*/10);
+    ASSERT_TRUE(HasPendingPageFlip(paged_apps_grid_view_));
+    page_flip_waiter_->Wait();
+  }));
+  tasks.push_back(base::BindLambdaForTesting([&]() {
+    // Move the item on top of the folder in the first slot on the page.
+    gfx::Point trailing_slot =
+        test_api_->GetItemTileRectAtVisualIndex(1, 0).CenterPoint();
+    UpdateDrag(AppsGridView::MOUSE, trailing_slot, paged_apps_grid_view_,
+               /*steps=*/10);
+  }));
+  tasks.push_back(base::BindLambdaForTesting([&]() { EndDrag(); }));
+  MaybeRunDragAndDropSequenceForAppList(&tasks, /*is_touch =*/false);
+  MaybeCheckHaptickEventsCount(1);
 
   // The item was moved to another folder, so the number of pages should have
   // dropped back to 1.
@@ -6856,6 +6880,90 @@ TEST_F(AppsGridViewTest, PromiseIconLayers) {
   EXPECT_FALSE(installed_view->GetIconView()->layer());
   EXPECT_FALSE(HasPendingPromiseAppRemoval(promise_app_id));
   EXPECT_FALSE(installed_view->layer());
+}
+
+TEST_F(AppsGridViewTest, PromiseAppsSharePackage) {
+  AppListItem* first_item =
+      GetTestModel()->CreateAndAddPromiseItem("PromiseApp");
+  const std::string promise_app_id = first_item->GetMetadata()->id;
+  UpdateLayout();
+
+  AppListItemView* first_promise_view = apps_grid_view_->GetItemViewAt(0);
+
+  // Promise apps are created with app_status kPending.
+  EXPECT_EQ(first_promise_view->item()->progress(), -1.0f);
+  EXPECT_TRUE(first_promise_view->layer());
+
+  // Set the last status update to kInstallSuccess as if the app had finished
+  // installing.
+  first_item->UpdateAppStatusForTesting(AppStatus::kInstallSuccess);
+  EXPECT_TRUE(first_promise_view->layer());
+
+  ui::ScopedAnimationDurationScaleMode non_zero_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+
+  // Simulate pushing the installed app.
+  GetTestModel()->DeleteItem(first_item->id());
+  EXPECT_TRUE(HasPendingPromiseAppRemoval(promise_app_id));
+  auto* first_installed_item = GetTestModel()->CreateItem("installed_id1");
+  auto item_metadata = first_installed_item->CloneMetadata();
+  item_metadata->promise_package_id = promise_app_id;
+  first_installed_item->SetMetadata(std::move(item_metadata));
+  GetTestModel()->AddItem(std::move(first_installed_item));
+
+  // While the first item is waiting for the installed item, create a new
+  // promise app with the same package id and immediately push it.
+  EXPECT_TRUE(HasPendingPromiseAppRemoval(promise_app_id));
+  AppListItem* new_item = GetTestModel()->CreateAndAddPromiseItem("PromiseApp");
+  EXPECT_EQ(promise_app_id, new_item->id());
+  EXPECT_EQ(2u, apps_grid_view_->view_model()->view_size());
+  AppListItemView* new_promise_view = apps_grid_view_->GetItemViewAt(1);
+  EXPECT_EQ(promise_app_id, new_promise_view->item()->id());
+  GetTestModel()->DeleteItem(promise_app_id);
+  EXPECT_EQ(1u, apps_grid_view_->view_model()->view_size());
+
+  auto* new_installed_item = GetTestModel()->CreateItem("installed_id2");
+  item_metadata = new_installed_item->CloneMetadata();
+  item_metadata->promise_package_id = promise_app_id;
+  new_installed_item->SetMetadata(std::move(item_metadata));
+  GetTestModel()->AddItem(std::move(new_installed_item));
+  EXPECT_EQ(2u, apps_grid_view_->view_model()->view_size());
+
+  AppListItemView* first_installed_view = apps_grid_view_->GetItemViewAt(0);
+  EXPECT_EQ(first_installed_view->item()->id(), "installed_id1");
+  ASSERT_TRUE(first_installed_view->layer());
+  AppListItemView* new_installed_view = apps_grid_view_->GetItemViewAt(1);
+  EXPECT_EQ(new_installed_view->item()->id(), "installed_id2");
+  ASSERT_TRUE(new_installed_view->layer());
+  EXPECT_TRUE(HasPendingPromiseAppRemoval(promise_app_id));
+
+  // Verify that the layers are animating separately.
+  ASSERT_TRUE(first_installed_view->GetIconView()->layer());
+  EXPECT_TRUE(first_installed_view->GetIconView()
+                  ->layer()
+                  ->GetAnimator()
+                  ->is_animating());
+  ASSERT_TRUE(new_installed_view->GetIconView()->layer());
+  EXPECT_TRUE(new_installed_view->GetIconView()
+                  ->layer()
+                  ->GetAnimator()
+                  ->is_animating());
+
+  ui::LayerAnimationStoppedWaiter animation_waiter;
+  animation_waiter.Wait(first_installed_view->GetIconView()->layer());
+
+  // Both layer animations should end at about the same time, however, if the
+  // animation for the other view isnot over, wait for it.
+  if (new_installed_view->layer()) {
+    ui::LayerAnimationStoppedWaiter new_animation_waiter;
+    new_animation_waiter.Wait(new_installed_view->GetIconView()->layer());
+  }
+
+  EXPECT_FALSE(HasPendingPromiseAppRemoval(promise_app_id));
+  EXPECT_FALSE(first_installed_view->GetIconView()->layer());
+  EXPECT_FALSE(first_installed_view->layer());
+  EXPECT_FALSE(new_installed_view->GetIconView()->layer());
+  EXPECT_FALSE(new_installed_view->layer());
 }
 
 TEST_F(AppsGridViewTest, DragEndsDuringPromiseAppReplacement) {

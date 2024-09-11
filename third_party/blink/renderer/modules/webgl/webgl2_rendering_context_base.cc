@@ -11,6 +11,8 @@
 
 #include <memory>
 
+#include "base/compiler_specific.h"
+#include "base/containers/heap_array.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
@@ -650,18 +652,14 @@ ScriptValue WebGL2RenderingContextBase::getInternalformatParameter(
       GLint length = -1;
       ContextGL()->GetInternalformativ(target, internalformat,
                                        GL_NUM_SAMPLE_COUNTS, 1, &length);
-      if (length <= 0)
+      if (length <= 0) {
         return WebGLAny(script_state, DOMInt32Array::Create(0));
-
-      auto values = std::make_unique<GLint[]>(length);
-      for (GLint ii = 0; ii < length; ++ii)
-        values[ii] = 0;
-
+      }
+      auto values = base::HeapArray<GLint>::WithSize(length);
       ContextGL()->GetInternalformativ(target, internalformat, GL_SAMPLES,
-                                       length, values.get());
-      RecordInternalFormatParameter(internalformat, values.get(), length);
-      return WebGLAny(script_state,
-                      DOMInt32Array::Create(values.get(), length));
+                                       length, values.data());
+      RecordInternalFormatParameter(internalformat, values.data(), length);
+      return WebGLAny(script_state, DOMInt32Array::Create(values));
     }
     default:
       SynthesizeGLError(GL_INVALID_ENUM, "getInternalformatParameter",
@@ -4617,10 +4615,11 @@ ScriptValue WebGL2RenderingContextBase::getActiveUniformBlockParameter(
       Vector<GLint> indices(uniform_count);
       ContextGL()->GetActiveUniformBlockiv(
           ObjectOrZero(program), uniform_block_index, pname, indices.data());
-      return WebGLAny(
-          script_state,
-          DOMUint32Array::Create(reinterpret_cast<GLuint*>(indices.data()),
-                                 indices.size()));
+      // SAFETY: conversion from GLint to uint32_t doesn't change size.
+      static_assert(sizeof(GLint) == sizeof(uint32_t));
+      auto indices_span = UNSAFE_BUFFERS(base::span<uint32_t>(
+          reinterpret_cast<uint32_t*>(indices.data()), indices.size()));
+      return WebGLAny(script_state, DOMUint32Array::Create(indices_span));
     }
     case GL_UNIFORM_BLOCK_REFERENCED_BY_VERTEX_SHADER:
     case GL_UNIFORM_BLOCK_REFERENCED_BY_FRAGMENT_SHADER: {
@@ -5707,6 +5706,22 @@ WebGLBuffer* WebGL2RenderingContextBase::ValidateBufferDataTarget(
     SynthesizeGLError(GL_INVALID_OPERATION, function_name, "no buffer");
     return nullptr;
   }
+  if (transform_feedback_binding_->HasBoundIndexedTransformFeedbackBuffer(
+          buffer)) {
+    DCHECK(buffer != bound_vertex_array_object_->BoundElementArrayBuffer());
+    if (bound_indexed_uniform_buffers_.Contains(buffer) ||
+        bound_vertex_array_object_->HasArrayBuffer(buffer) ||
+        buffer == bound_array_buffer_ || buffer == bound_copy_read_buffer_ ||
+        buffer == bound_copy_write_buffer_ ||
+        buffer == bound_pixel_pack_buffer_ ||
+        buffer == bound_pixel_unpack_buffer_ ||
+        buffer == bound_uniform_buffer_) {
+      SynthesizeGLError(GL_INVALID_OPERATION, function_name,
+                        "buffer is bound to an indexed transform feedback "
+                        "binding point and some other binding point");
+      return nullptr;
+    }
+  }
   return buffer;
 }
 
@@ -5799,6 +5814,12 @@ void WebGL2RenderingContextBase::RemoveBoundBuffer(WebGLBuffer* buffer) {
     bound_uniform_buffer_ = nullptr;
 
   transform_feedback_binding_->UnbindBuffer(buffer);
+
+  for (auto& bound_buffer : bound_indexed_uniform_buffers_) {
+    if (bound_buffer == buffer) {
+      bound_buffer = nullptr;
+    }
+  }
 
   WebGLRenderingContextBase::RemoveBoundBuffer(buffer);
 }

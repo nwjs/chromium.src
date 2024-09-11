@@ -18,7 +18,6 @@ import androidx.core.app.NotificationManagerCompat;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.MathUtils;
-import org.chromium.base.compat.ApiHelperForO;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
@@ -326,6 +325,16 @@ public class NotificationUmaTracker {
         int NUM_ENTRIES = 6;
     }
 
+    /** The action during which the `WasGlobalStatePreserved` histogram is recorded. */
+    @IntDef({GlobalStatePreservedActionSuffix.UNDO, GlobalStatePreservedActionSuffix.COMMIT})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface GlobalStatePreservedActionSuffix {
+        int UNDO = 0;
+        int COMMIT = 1;
+
+        int NUM_ENTRIES = 2;
+    }
+
     private static class LazyHolder {
         private static final NotificationUmaTracker INSTANCE = new NotificationUmaTracker();
     }
@@ -357,7 +366,7 @@ public class NotificationUmaTracker {
         if (type == SystemNotificationType.UNKNOWN || notification == null) return;
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            logNotificationShown(type, ApiHelperForO.getNotificationChannelId(notification));
+            logNotificationShown(type, notification.getChannelId());
         } else {
             logNotificationShown(type, null);
         }
@@ -578,6 +587,18 @@ public class NotificationUmaTracker {
         RecordHistogram.recordBooleanHistogram(
                 "Mobile.SystemNotification.Permission.OneTapUnsubscribe.IsDuplicatePreUnsubscribe",
                 isDuplicate);
+    }
+
+    /**
+     * Records whether the Java global state was preserved between `PRE_UNSUBSCRIBE` and the
+     * `UNDO_UNSUBSCRIBE`/`COMMIT_UNSUBSCRIBE_*` events.
+     */
+    public void recordWasGlobalStatePreserved(
+            @GlobalStatePreservedActionSuffix int action, boolean wasPreserved) {
+        RecordHistogram.recordBooleanHistogram(
+                "Mobile.SystemNotification.Permission.OneTapUnsubscribe.WasGlobalStatePreserved."
+                        + (action == GlobalStatePreservedActionSuffix.UNDO ? "Undo" : "Commit"),
+                wasPreserved);
     }
 
     /**

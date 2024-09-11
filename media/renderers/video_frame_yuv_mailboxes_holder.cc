@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "media/renderers/video_frame_yuv_mailboxes_holder.h"
 
 #include <GLES3/gl3.h>
@@ -37,7 +42,7 @@ viz::SharedImageFormat PlaneSharedImageFormat(int num_channels,
     case 4:
       return viz::SinglePlaneFormat::kRGBA_8888;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 // Returns multiplanar format equivalent of a VideoPixelFormat.
@@ -63,7 +68,7 @@ viz::SharedImageFormat VideoPixelFormatToSharedImageFormat(
     case PIXEL_FORMAT_I420A:
       return viz::MultiPlaneFormat::kI420A;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 

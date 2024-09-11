@@ -104,8 +104,9 @@ DesktopCaptureChooseDesktopMediaFunction::Run() {
       DeprecatedGetOriginAsURL() : extension()->url();
   }
 
-  if (!target_render_frame_host)
+  if (!target_render_frame_host) {
     return RespondNow(Error(kTargetTabRequiredFromServiceWorker));
+  }
 
   const bool exclude_system_audio =
       params->options &&

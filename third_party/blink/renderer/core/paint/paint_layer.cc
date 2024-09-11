@@ -46,10 +46,10 @@
 
 #include <limits>
 
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc.h"
 #include "base/containers/adapters.h"
 #include "build/build_config.h"
 #include "cc/input/scroll_snap_data.h"
+#include "partition_alloc/partition_alloc.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/core/animation/scroll_timeline.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
@@ -1196,8 +1196,8 @@ PaintLayer* PaintLayer::HitTestLayer(
   DCHECK_GE(layout_object.GetDocument().Lifecycle().GetState(),
             DocumentLifecycle::kPrePaintClean);
 
-  if (UNLIKELY(layout_object.NeedsLayout() &&
-               !layout_object.ChildLayoutBlockedByDisplayLock())) {
+  if (layout_object.NeedsLayout() &&
+      !layout_object.ChildLayoutBlockedByDisplayLock()) [[unlikely]] {
     // Skip if we need layout. This should never happen. See crbug.com/1423308
     // and crbug.com/330051489.
     return nullptr;
@@ -1218,14 +1218,12 @@ PaintLayer* PaintLayer::HitTestLayer(
 
   std::optional<CheckAncestorPositionVisibilityScope>
       check_position_visibility_scope;
-  if (RuntimeEnabledFeatures::CSSPositionVisibilityEnabled()) {
-    if (InvisibleForPositionVisibility() ||
-        HasAncestorInvisibleForPositionVisibility()) {
-      return nullptr;
-    }
-    if (GetLayoutObject().IsStackingContext()) {
-      check_position_visibility_scope.emplace(*this);
-    }
+  if (InvisibleForPositionVisibility() ||
+      HasAncestorInvisibleForPositionVisibility()) {
+    return nullptr;
+  }
+  if (GetLayoutObject().IsStackingContext()) {
+    check_position_visibility_scope.emplace(*this);
   }
 
   // TODO(vmpstr): We need to add a simple document flag which says whether
@@ -1546,8 +1544,8 @@ bool PaintLayer::HitTestFragmentsWithPhase(
 
     inside_clip_rect = true;
 
-    if (UNLIKELY(GetLayoutObject().IsLayoutInline() &&
-                 GetLayoutObject().CanTraversePhysicalFragments())) {
+    if (GetLayoutObject().IsLayoutInline() &&
+        GetLayoutObject().CanTraversePhysicalFragments()) [[unlikely]] {
       // When hit-testing an inline that has a layer, we'll search for it in
       // each fragment of the containing block. Each fragment has its own
       // offset, and we need to do one fragment at a time. If the inline uses a
@@ -2157,17 +2155,8 @@ void PaintLayer::StyleDidChange(StyleDifference diff,
     MarkAncestorChainForFlagsUpdate();
   }
 
-  // If the (current)color changes and a filter is applied that uses it, the
-  // filter needs to be updated.
-  const ComputedStyle& new_style = GetLayoutObject().StyleRef();
-  if (diff.TextDecorationOrColorChanged()) {
-    if (new_style.HasFilter() && new_style.Filter().UsesCurrentColor()) {
-      GetLayoutObject().SetNeedsPaintPropertyUpdate();
-      SetFilterOnEffectNodeDirty();
-    }
-  }
-
   // HasNonContainedAbsolutePositionDescendant depends on position changes.
+  const ComputedStyle& new_style = GetLayoutObject().StyleRef();
   if (!old_style || old_style->GetPosition() != new_style.GetPosition())
     MarkAncestorChainForFlagsUpdate();
 
@@ -2443,9 +2432,6 @@ void PaintLayer::SetPreviousPaintResult(PaintResult result) {
 void PaintLayer::SetInvisibleForPositionVisibility(
     LayerPositionVisibility visibility,
     bool invisible) {
-  if (!RuntimeEnabledFeatures::CSSPositionVisibilityEnabled()) {
-    return;
-  }
   bool already_invisible = InvisibleForPositionVisibility();
   if (invisible) {
     invisible_for_position_visibility_ |= static_cast<int>(visibility);
@@ -2477,7 +2463,6 @@ void PaintLayer::SetInvisibleForPositionVisibility(
 }
 
 bool PaintLayer::HasAncestorInvisibleForPositionVisibility() const {
-  CHECK(RuntimeEnabledFeatures::CSSPositionVisibilityEnabled());
   if (!CheckAncestorPositionVisibilityScope::ShouldCheck()) {
     return false;
   }

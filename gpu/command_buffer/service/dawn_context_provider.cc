@@ -9,6 +9,7 @@
 
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/dcheck_is_on.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -53,12 +54,6 @@
 
 namespace gpu {
 namespace {
-
-#if DCHECK_IS_ON() || BUILDFLAG(IS_WIN)
-constexpr bool kUseUserDefinedLabels = true;
-#else
-constexpr bool kUseUserDefinedLabels = false;
-#endif
 
 // Used as a flag to test dawn initialization failure.
 BASE_FEATURE(kForceDawnInitializeFailure,
@@ -338,9 +333,12 @@ bool DawnSharedState::Initialize(
   }
   // The following toggles are all device-scoped toggles so it's not necessary
   // to pass them when creating the Instance above.
-  if (kUseUserDefinedLabels) {
-    enabled_toggles.push_back("use_user_defined_labels_in_backend");
-  }
+
+  // Only enable backend labels on Windows or DCHECK builds on other platforms
+  // since it can have non-trivial performance overhead e.g. with Metal.
+#if DCHECK_IS_ON() || BUILDFLAG(IS_WIN)
+  enabled_toggles.push_back("use_user_defined_labels_in_backend");
+#endif
 
 #if !DCHECK_IS_ON()
   if (features::kSkiaGraphiteDawnSkipValidation.Get()) {
@@ -526,6 +524,7 @@ bool DawnSharedState::Initialize(
       wgpu::FeatureName::TransientAttachments,
 
       wgpu::FeatureName::DawnLoadResolveTexture,
+      wgpu::FeatureName::DawnPartialLoadResolveTexture,
   };
 
   wgpu::Adapter adapter(adapters[0].Get());
@@ -614,7 +613,7 @@ bool DawnSharedState::Initialize(
 
   if (base::SingleThreadTaskRunner::HasCurrentDefault()) {
     base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
-        this, "DawnSharedState",
+        this, "DawnSharedContext",
         base::SingleThreadTaskRunner::GetCurrentDefault());
     registered_memory_dump_provider_ = true;
   }
@@ -657,6 +656,15 @@ void DawnSharedState::OnError(wgpu::ErrorType error_type, const char* message) {
 
   base::debug::DumpWithoutCrashing();
 
+#if !DCHECK_IS_ON()
+  // Do not provoke context loss on validation failures for non-DCHECK builds.
+  // We want to capture the above dump on validation errors, but not necessarily
+  // restart the GPU process unless we also have a device loss.
+  if (error_type == wgpu::ErrorType::Validation) {
+    return;
+  }
+#endif
+
   base::AutoLock auto_lock(context_lost_lock_);
   if (context_lost_reason_.has_value()) {
     return;
@@ -676,6 +684,8 @@ void DawnSharedState::OnError(wgpu::ErrorType error_type, const char* message) {
 }
 
 namespace {
+static constexpr char kDawnMemoryDumpPrefix[] = "gpu/dawn";
+
 class DawnMemoryDump : public dawn::native::MemoryDump {
  public:
   explicit DawnMemoryDump(base::trace_event::ProcessMemoryDump* pmd)
@@ -689,20 +699,20 @@ class DawnMemoryDump : public dawn::native::MemoryDump {
                  const char* key,
                  const char* units,
                  uint64_t value) override {
-    pmd_->GetOrCreateAllocatorDump(base::JoinString({kPrefix, name}, ""))
+    pmd_->GetOrCreateAllocatorDump(
+            base::JoinString({kDawnMemoryDumpPrefix, name}, "/"))
         ->AddScalar(key, units, value);
   }
 
   void AddString(const char* name,
                  const char* key,
                  const std::string& value) override {
-    pmd_->GetOrCreateAllocatorDump(base::JoinString({kPrefix, name}, ""))
+    pmd_->GetOrCreateAllocatorDump(
+            base::JoinString({kDawnMemoryDumpPrefix, name}, "/"))
         ->AddString(key, "", value);
   }
 
  private:
-  static constexpr char kPrefix[] = "gpu/dawn/";
-
   const raw_ptr<base::trace_event::ProcessMemoryDump> pmd_;
 };
 }  // namespace
@@ -710,10 +720,14 @@ class DawnMemoryDump : public dawn::native::MemoryDump {
 bool DawnSharedState::OnMemoryDump(
     const base::trace_event::MemoryDumpArgs& args,
     base::trace_event::ProcessMemoryDump* pmd) {
-  // TODO(https://crbug.com/330806170): Implement background level of
-  // detail support for emitting to UMA GPU memory histograms.
-  if (args.level_of_detail !=
+  if (args.level_of_detail ==
       base::trace_event::MemoryDumpLevelOfDetail::kBackground) {
+    using base::trace_event::MemoryAllocatorDump;
+    pmd->GetOrCreateAllocatorDump(kDawnMemoryDumpPrefix)
+        ->AddScalar(MemoryAllocatorDump::kNameSize,
+                    MemoryAllocatorDump::kUnitsBytes,
+                    dawn::native::ComputeEstimatedMemoryUsage(device_.Get()));
+  } else {
     DawnMemoryDump dump(pmd);
     dawn::native::DumpMemoryStatistics(device_.Get(), &dump);
   }
@@ -781,7 +795,7 @@ wgpu::Instance DawnContextProvider::GetInstance() const {
 }
 
 bool DawnContextProvider::InitializeGraphiteContext(
-    const GpuDriverBugWorkarounds& gpu_driver_workarounds) {
+    const skgpu::graphite::ContextOptions& context_options) {
   CHECK(!graphite_context_);
 
   if (auto device = GetDevice()) {
@@ -789,9 +803,7 @@ bool DawnContextProvider::InitializeGraphiteContext(
     backend_context.fInstance = GetInstance();
     backend_context.fDevice = device;
     backend_context.fQueue = device.GetQueue();
-    auto context_options =
-        GetDefaultGraphiteContextOptions(gpu_driver_workarounds);
-    context_options.fSetBackendLabels = kUseUserDefinedLabels;
+
     graphite_context_ = skgpu::graphite::ContextFactory::MakeDawn(
         backend_context, context_options);
   }

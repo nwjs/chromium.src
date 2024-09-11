@@ -29,10 +29,12 @@
 #include "cc/layers/layer_collections.h"
 #include "cc/layers/performance_properties.h"
 #include "cc/layers/render_surface_impl.h"
+#include "cc/layers/scroll_hit_test_rect.h"
 #include "cc/layers/touch_action_region.h"
 #include "cc/mojom/layer_type.mojom.h"
 #include "cc/paint/element_id.h"
 #include "cc/tiles/tile_priority.h"
+#include "cc/trees/damage_reason.h"
 #include "cc/trees/target_property.h"
 #include "components/viz/common/quads/shared_quad_state.h"
 #include "components/viz/common/surfaces/region_capture_bounds.h"
@@ -263,11 +265,16 @@ class CC_EXPORT LayerImpl {
 
   // Some properties on the LayerImpl are rarely set, and so are bundled
   // under a single unique_ptr.
-  struct RareProperties {
+  struct CC_EXPORT RareProperties {
+    RareProperties();
+    RareProperties(const RareProperties&);
+    ~RareProperties();
+
     // The bounds of elements marked for potential region capture, stored in
     // the coordinate space of this layer.
     viz::RegionCaptureBounds capture_bounds;
-    Region non_fast_scrollable_region;
+    Region main_thread_scroll_hit_test_region;
+    std::vector<ScrollHitTestRect> non_composited_scroll_hit_test_rects;
     Region wheel_event_handler_region;
   };
 
@@ -280,13 +287,27 @@ class CC_EXPORT LayerImpl {
 
   void ResetRareProperties() { rare_properties_.reset(); }
 
-  void SetNonFastScrollableRegion(const Region& region) {
+  void SetMainThreadScrollHitTestRegion(const Region& region) {
     if (rare_properties_ || !region.IsEmpty())
-      EnsureRareProperties().non_fast_scrollable_region = region;
+      EnsureRareProperties().main_thread_scroll_hit_test_region = region;
   }
-  const Region& non_fast_scrollable_region() const {
-    return rare_properties_ ? rare_properties_->non_fast_scrollable_region
-                            : Region::Empty();
+  const Region& main_thread_scroll_hit_test_region() const {
+    return rare_properties_
+               ? rare_properties_->main_thread_scroll_hit_test_region
+               : Region::Empty();
+  }
+
+  void SetNonCompositedScrollHitTestRects(
+      const std::vector<ScrollHitTestRect>& rects) {
+    if (rare_properties_ || !rects.empty()) {
+      EnsureRareProperties().non_composited_scroll_hit_test_rects = rects;
+    }
+  }
+  const std::vector<ScrollHitTestRect>* non_composited_scroll_hit_test_rects()
+      const {
+    return rare_properties_
+               ? &rare_properties_->non_composited_scroll_hit_test_rects
+               : nullptr;
   }
 
   void SetTouchActionRegion(TouchActionRegion);
@@ -328,6 +349,12 @@ class CC_EXPORT LayerImpl {
   // space. By default returns empty rect, but can be overridden by subclasses
   // as appropriate.
   virtual gfx::Rect GetDamageRect() const;
+
+  // Damage tracker will consider layer damaged if `LayerPropertyChanged` is
+  // true, or update_rect() or GetDamageRect() are non-empty. This method
+  // returns damage reasons for any and all of these cases. The default
+  // implementation adds kUntracked for all of these cases.
+  virtual DamageReasonSet GetDamageReasons() const;
 
   // This includes |layer_property_changed_not_from_property_trees_| and
   // property_trees changes.

@@ -20,6 +20,7 @@ import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -33,6 +34,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.OnTabSelectingListener;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabGridIphDialogCoordinator;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
@@ -90,7 +92,7 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
                 @Override
                 public void willCloseTab(Tab tab, boolean didCloseAlone) {
                     if (mCurrentTabModelFilterSupplier.get().getTabModel().getCount() == 1) {
-                        removeAllAppendedMessage();
+                        removeAllAppendedMessagePostAnimation();
                     } else if (mPriceMessageService != null
                             && mPriceMessageService.getBindingTabId() == tab.getId()) {
                         removePriceWelcomeMessage();
@@ -258,8 +260,6 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
      * coordinator.
      */
     public void registerMessages(@NonNull TabListCoordinator tabListCoordinator) {
-        if (tabListCoordinator.getTabListMode() != TabListCoordinator.TabListMode.GRID) return;
-
         tabListCoordinator.registerItemType(
                 TabProperties.UiType.MESSAGE,
                 new LayoutViewBuilder(R.layout.tab_grid_message_card_item),
@@ -280,7 +280,6 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
     public void initWithNative(@NonNull Profile profile, @TabListMode int mode) {
         assert profile != null;
         mProfile = profile;
-        if (mode != TabListCoordinator.TabListMode.GRID) return;
 
         if (ChromeFeatureList.sAndroidTabDeclutter.isEnabled()) {
             mArchivedTabsMessageService =
@@ -294,7 +293,12 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
                             mSnackbarManager,
                             mRegularTabCreator,
                             mBackPressManager,
-                            mModalDialogManager);
+                            mModalDialogManager,
+                            TrackerFactory.getTrackerForProfile(profile),
+                            () ->
+                                    appendNextMessage(
+                                            MessageService.MessageType.ARCHIVED_TABS_MESSAGE),
+                            mTabListCoordinatorSupplier);
             addObserver(mArchivedTabsMessageService);
             mMessageCardProviderCoordinator.subscribeMessageService(mArchivedTabsMessageService);
         }
@@ -540,6 +544,19 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
         for (MessageUpdateObserver observer : mObservers) {
             observer.onRemoveAllAppendedMessage();
         }
+    }
+
+    private void removeAllAppendedMessagePostAnimation() {
+        TabListCoordinator tabListCoordinator = mTabListCoordinatorSupplier.get();
+        if (tabListCoordinator == null) return;
+
+        tabListCoordinator.runOnItemAnimatorFinished(
+                () -> {
+                    if (mTabListCoordinatorSupplier.get() != tabListCoordinator) {
+                        return;
+                    }
+                    removeAllAppendedMessage();
+                });
     }
 
     /**

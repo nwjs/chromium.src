@@ -102,8 +102,7 @@ class AndroidAutofillProvider : public AutofillProvider,
                        const FormData& form,
                        bool known_success,
                        mojom::SubmissionSource source) override;
-  void OnFocusOnNonFormField(AndroidAutofillManager* manager,
-                             bool had_interacted_form) override;
+  void OnFocusOnNonFormField(AndroidAutofillManager* manager) override;
   void OnFocusOnFormField(AndroidAutofillManager* manager,
                           const FormData& form,
                           const FormFieldData& field) override;
@@ -200,11 +199,14 @@ class AndroidAutofillProvider : public AutofillProvider,
   // conditions are met:
   // 1. Prefill requests are supported (correct SDK version & feature flag).
   // 2. No prefill request has been sent so far, since the framework only
-  // supports caching a single form at a time.
+  //    supports caching a single form at a time.
   // 3. There is no ongoing Autofill session. This is to ensure that the
-  // `onProvideAutofillStructure` callback from the framework does not confuse
-  // information requests for caching and for the current Autofill session.
-  // 4. The form is predicted to be a login form.
+  //    `onProvideAutofillStructure` callback from the framework does not
+  //     confuse information requests for caching and for the current Autofill
+  //     session.
+  // 4. The form is predicted to be a login form or a (assuming that
+  //    `kAndroidAutofillPrefillRequestsForChangePassword` is enabled) a change
+  //     password form.
   void MaybeSendPrefillRequest(const AndroidAutofillManager& manager,
                                FormGlobalId form_id);
 
@@ -216,10 +218,10 @@ class AndroidAutofillProvider : public AutofillProvider,
     // Returns the `PasswordParserOverrides` obtained from matching the
     // `FieldRendererId`s of username and password fields in `pw_form` to the
     // `FieldGlobalId`s in `form_structure`. Returns `std::nullopt` if no unique
-    // matching could be found. A unique matching may not exist if the form is
-    // spread across multiple iframes. In practice, this should be extremely
-    // rare for password forms.
-    static std::optional<PasswordParserOverrides> FromLoginForm(
+    // matching could be found or if the matching is incomplete. A unique
+    // matching may not exist if the form is spread across multiple iframes. In
+    // practice, this should be extremely rare for password forms.
+    static std::optional<PasswordParserOverrides> FromPasswordForm(
         const password_manager::PasswordForm& pw_form,
         const FormStructure& form_structure);
 
@@ -228,6 +230,7 @@ class AndroidAutofillProvider : public AutofillProvider,
 
     std::optional<FieldGlobalId> username_field_id;
     std::optional<FieldGlobalId> password_field_id;
+    std::optional<FieldGlobalId> new_password_field_id;
   };
 
   // Checks whether `form` is similar to the cached form. `form_structure` must

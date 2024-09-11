@@ -27,13 +27,13 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider.IncognitoStateObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilterObserver;
@@ -95,13 +95,14 @@ public class TabGroupUiMediator implements BackPressHandler {
     private final TabModelObserver mTabModelObserver;
     private final ResetHandler mResetHandler;
     private final TabModelSelector mTabModelSelector;
+    private final TabContentManager mTabContentManager;
     private final TabCreatorManager mTabCreatorManager;
     private final BottomControlsCoordinator.BottomControlsVisibilityController
             mVisibilityController;
     private final IncognitoStateProvider mIncognitoStateProvider;
     private final LazyOneshotSupplier<DialogController> mTabGridDialogControllerSupplier;
     private final IncognitoStateObserver mIncognitoStateObserver;
-    private final TabModelSelectorObserver mTabModelSelectorObserver;
+    private final Callback<TabModel> mCurrentTabModelObserver;
     private final ObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
     private final ObservableSupplierImpl<Boolean> mHandleBackPressChangedSupplier;
 
@@ -124,6 +125,7 @@ public class TabGroupUiMediator implements BackPressHandler {
             ResetHandler resetHandler,
             PropertyModel model,
             TabModelSelector tabModelSelector,
+            TabContentManager tabContentManager,
             TabCreatorManager tabCreatorManager,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
             IncognitoStateProvider incognitoStateProvider,
@@ -138,6 +140,7 @@ public class TabGroupUiMediator implements BackPressHandler {
                 resetHandler,
                 model,
                 tabModelSelector,
+                tabContentManager,
                 tabCreatorManager,
                 layoutStateProviderSupplier,
                 incognitoStateProvider,
@@ -155,6 +158,7 @@ public class TabGroupUiMediator implements BackPressHandler {
             ResetHandler resetHandler,
             PropertyModel model,
             TabModelSelector tabModelSelector,
+            TabContentManager tabContentManager,
             TabCreatorManager tabCreatorManager,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
             IncognitoStateProvider incognitoStateProvider,
@@ -168,6 +172,7 @@ public class TabGroupUiMediator implements BackPressHandler {
         mResetHandler = resetHandler;
         mModel = model;
         mTabModelSelector = tabModelSelector;
+        mTabContentManager = tabContentManager;
         mTabCreatorManager = tabCreatorManager;
         mVisibilityController = visibilityController;
         mIncognitoStateProvider = incognitoStateProvider;
@@ -310,12 +315,9 @@ public class TabGroupUiMediator implements BackPressHandler {
                     }
                 };
 
-        mTabModelSelectorObserver =
-                new TabModelSelectorObserver() {
-                    @Override
-                    public void onTabModelSelected(TabModel newModel, TabModel oldModel) {
-                        resetTabStripWithRelatedTabsForId(mTabModelSelector.getCurrentTabId());
-                    }
+        mCurrentTabModelObserver =
+                (tabModel) -> {
+                    resetTabStripWithRelatedTabsForId(mTabModelSelector.getCurrentTabId());
                 };
 
         mTabGroupModelFilterObserver =
@@ -353,7 +355,7 @@ public class TabGroupUiMediator implements BackPressHandler {
                 };
 
         filterProvider.addTabModelFilterObserver(mTabModelObserver);
-        mTabModelSelector.addObserver(mTabModelSelectorObserver);
+        mTabModelSelector.getCurrentTabModelSupplier().addObserver(mCurrentTabModelObserver);
 
         if (layoutStateProvider != null) {
             setLayoutStateProvider(layoutStateProvider);
@@ -413,6 +415,10 @@ public class TabGroupUiMediator implements BackPressHandler {
 
                     Tab currentTab = mTabModelSelector.getCurrentTab();
                     if (currentTab == null) return;
+
+                    // Ensure the current tab has a thumbnail.
+                    mTabContentManager.cacheTabThumbnail(currentTab);
+
                     mResetHandler.resetGridWithListOfTabs(getTabsToShowForId(currentTab.getId()));
                     RecordUserAction.record("TabGroup.ExpandedFromStrip.TabGridDialog");
                 };
@@ -526,7 +532,7 @@ public class TabGroupUiMediator implements BackPressHandler {
             var filterProvider = mTabModelSelector.getTabModelFilterProvider();
 
             filterProvider.removeTabModelFilterObserver(mTabModelObserver);
-            mTabModelSelector.removeObserver(mTabModelSelectorObserver);
+            mTabModelSelector.getCurrentTabModelSupplier().removeObserver(mCurrentTabModelObserver);
             if (mTabGroupModelFilterObserver != null) {
                 ((TabGroupModelFilter) filterProvider.getTabModelFilter(false))
                         .removeTabGroupObserver(mTabGroupModelFilterObserver);

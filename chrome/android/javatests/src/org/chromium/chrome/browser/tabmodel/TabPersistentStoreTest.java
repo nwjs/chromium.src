@@ -102,7 +102,7 @@ import java.util.stream.Collectors;
     ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
     "force-fieldtrials=Study/Group"
 })
-@DisableFeatures(ChromeFeatureList.ANDROID_TAB_DECLUTTER)
+@DisableFeatures(ChromeFeatureList.ANDROID_TAB_DECLUTTER_RESCUE_KILLSWITCH)
 public class TabPersistentStoreTest {
     // Test activity type that does not restore tab on cold restart.
     // Any type other than ActivityType.TABBED works.
@@ -168,6 +168,7 @@ public class TabPersistentStoreTest {
                                     persistencePolicy.setTabContentManager(mMockTabContentManager);
                                     TabPersistentStore tabPersistentStore =
                                             new TabPersistentStore(
+                                                    TabPersistentStore.CLIENT_TAG_REGULAR,
                                                     persistencePolicy,
                                                     TestTabModelSelector.this,
                                                     getTabCreatorManager(),
@@ -428,6 +429,7 @@ public class TabPersistentStoreTest {
         return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     return new TabPersistentStore(
+                            TabPersistentStore.CLIENT_TAG_REGULAR,
                             persistencePolicy,
                             modelSelector,
                             creatorManager,
@@ -1567,7 +1569,7 @@ public class TabPersistentStoreTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     regularModel.addObserver(closeObserver);
-                    regularModel.closeAllTabs(false);
+                    regularModel.closeTabs(TabClosureParams.closeAllTabs().build());
                 });
         Assert.assertEquals(info.numRegularTabs, closedTabIds.size());
 

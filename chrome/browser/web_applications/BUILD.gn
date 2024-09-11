@@ -4,6 +4,7 @@
 
 import("//build/config/chromeos/ui_mode.gni")
 import("//chrome/browser/buildflags.gni")
+import("//extensions/buildflags/buildflags.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 import("//testing/test.gni")
 
@@ -189,6 +190,12 @@ source_set("web_applications") {
     "locks/lock.h",
     "locks/noop_lock.cc",
     "locks/noop_lock.h",
+    "locks/partitioned_lock.cc",
+    "locks/partitioned_lock.h",
+    "locks/partitioned_lock_id.cc",
+    "locks/partitioned_lock_id.h",
+    "locks/partitioned_lock_manager.cc",
+    "locks/partitioned_lock_manager.h",
     "locks/shared_web_contents_lock.cc",
     "locks/shared_web_contents_lock.h",
     "locks/shared_web_contents_with_app_lock.cc",
@@ -465,6 +472,7 @@ source_set("web_applications") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/shortcuts",
     "//chrome/browser/sync:factories",
+    "//chrome/browser/task_manager",
     "//chrome/common",
     "//chrome/common:chrome_features",
     "//chrome/common:non_code_constants",
@@ -484,7 +492,6 @@ source_set("web_applications") {
     "//components/pref_registry",
     "//components/resources:components_resources_grit",
     "//components/services/app_service",
-    "//components/services/storage:lock_manager",
     "//components/site_engagement/content",
     "//components/site_engagement/core/mojom:mojo_bindings",
     "//components/sync",
@@ -532,6 +539,9 @@ source_set("web_applications") {
 
     if (is_chromeos) {
       sources += [
+        # TODO(crbug.com/358173556): Remove internal sources.
+        "//chrome/browser/resources/preinstalled_web_apps/internal/container_util.cc",
+        "//chrome/browser/resources/preinstalled_web_apps/internal/container_util.h",
         "preinstalled_web_apps/app_mall.cc",
         "preinstalled_web_apps/app_mall.h",
         "preinstalled_web_apps/calculator.cc",
@@ -570,6 +580,7 @@ source_set("web_applications") {
       "//ash/public/cpp",
       "//ash/webui/system_apps/public:system_web_app_type",
       "//chrome/browser/ash/crosapi:browser_util",
+      "//chrome/browser/ash/drive",
       "//chrome/browser/ash/profiles",
       "//chrome/browser/ash/system_web_apps/types",
       "//chrome/common/chromeos/extensions",
@@ -716,9 +727,6 @@ source_set("web_applications_test_support") {
       "//chrome/browser/ash/system_web_apps/types",
     ]
   }
-  if (is_chromeos) {
-    deps += [ "//chromeos/constants" ]
-  }
 }
 
 # This has to be a separate target to avoid circular dependencies with
@@ -816,6 +824,7 @@ source_set("web_applications_unit_tests") {
     "isolated_web_apps/update_manifest/update_manifest_fetcher_unittest.cc",
     "isolated_web_apps/update_manifest/update_manifest_unittest.cc",
     "jobs/install_placeholder_job_unittest.cc",
+    "locks/partitioned_lock_manager_unittest.cc",
     "locks/web_app_lock_manager_unittest.cc",
     "os_integration/file_handling_sub_manager_unittest.cc",
     "os_integration/file_handling_utils_unittest.cc",
@@ -908,9 +917,7 @@ source_set("web_applications_unit_tests") {
     "//chrome/browser:browser_process",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/link_capturing:test_support",
-    "//chrome/browser/extensions:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/web_applications/extensions:extensions",
     "//chrome/common",
     "//chrome/common:chrome_features",
     "//chrome/test:test_support",
@@ -937,6 +944,13 @@ source_set("web_applications_unit_tests") {
     "//ui/gfx:test_support",
   ]
 
+  if (enable_extensions) {
+    deps += [
+      "//chrome/browser/extensions:test_support",
+      "//chrome/browser/web_applications/extensions:extensions",
+    ]
+  }
+
   if (is_chromeos_ash) {
     deps += [
       "//ash/components/arc:arc",
@@ -944,7 +958,6 @@ source_set("web_applications_unit_tests") {
       "//ash/components/arc/mojom",
       "//ash/constants",
       "//chrome/browser/ash",
-      "//chrome/browser/ash:test_support",
       "//chrome/browser/ash/app_list/arc:test_support",
       "//chrome/browser/ash/system_web_apps/test_support",
       "//chrome/browser/ash/system_web_apps/types",
@@ -983,8 +996,11 @@ group("unit_tests") {
   deps = [
     ":web_applications_unit_tests",
     "//chrome/browser/web_applications/app_service:unit_tests",
-    "//chrome/browser/web_applications/extensions:unit_tests",
   ]
+
+  if (enable_extensions) {
+    deps += [ "//chrome/browser/web_applications/extensions:unit_tests" ]
+  }
 }
 
 source_set("web_applications_browser_tests") {
@@ -1002,13 +1018,12 @@ source_set("web_applications_browser_tests") {
     "isolated_web_apps/garbage_collect_storage_partitions_command_browsertest.cc",
     "isolated_web_apps/get_isolated_web_app_browsing_data_command_browsertest.cc",
     "isolated_web_apps/install_isolated_web_app_from_command_line_browsertest.cc",
-    "isolated_web_apps/isolated_web_app_apply_update_command_browsertest.cc",
     "isolated_web_apps/isolated_web_app_browsertest.cc",
     "isolated_web_apps/isolated_web_app_browsing_data_browsertest.cc",
     "isolated_web_apps/isolated_web_app_csp_browsertest.cc",
     "isolated_web_apps/isolated_web_app_dev_tools_browsertest.cc",
     "isolated_web_apps/isolated_web_app_error_page_browsertest.cc",
-    "isolated_web_apps/isolated_web_app_prepare_and_store_update_command_browsertest.cc",
+    "isolated_web_apps/isolated_web_app_install_prepare_apply_update_browsertest.cc",
     "isolated_web_apps/isolated_web_app_uninstall_browsertest.cc",
     "isolated_web_apps/isolated_web_app_url_loader_factory_browsertest.cc",
     "isolated_web_apps/key_distribution/iwa_key_distribution_component_installer_browsertest.cc",
@@ -1037,6 +1052,10 @@ source_set("web_applications_browser_tests") {
     ]
   }
 
+  if (!is_chromeos_lacros) {
+    sources += [ "web_app_link_capturing_parameterized_browsertest.cc" ]
+  }
+
   if (is_linux) {
     sources += [
       "os_integration/web_app_file_handler_registration_linux_browsertest.cc",
@@ -1061,6 +1080,7 @@ source_set("web_applications_browser_tests") {
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/devtools:test_support",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/views/toolbar",
     "//chrome/common:chrome_features",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
@@ -1085,11 +1105,11 @@ source_set("web_applications_browser_tests") {
 
   if (is_chromeos_ash) {
     deps += [
-      "//chrome/browser/ash:test_support",
       "//chrome/browser/ash/login:test_support",
       "//chrome/browser/ash/login/ui",
       "//chrome/browser/ash/policy/core",
       "//chrome/browser/ash/policy/core:test_support",
+      "//chrome/browser/ash/policy/test_support",
       "//chrome/browser/ash/system_web_apps/test_support",
       "//chrome/browser/ash/system_web_apps/test_support:test_support_ui",
     ]
@@ -1149,6 +1169,10 @@ source_set("app_service_browser_tests") {
       "//chromeos/lacros:lacros",
       "//chromeos/startup",
     ]
+  }
+
+  if (is_chromeos_ash) {
+    deps += [ "//chrome/browser/ui/ash/shelf" ]
   }
 }
 

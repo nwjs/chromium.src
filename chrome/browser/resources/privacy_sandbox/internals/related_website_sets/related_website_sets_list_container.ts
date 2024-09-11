@@ -9,7 +9,7 @@ import type {CrButtonElement} from '//resources/cr_elements/cr_button/cr_button.
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
-import type {RelatedWebsiteSet} from './related_website_sets.mojom-webui.js';
+import type {Member, RelatedWebsiteSet} from './related_website_sets.mojom-webui.js';
 import {getCss} from './related_website_sets_list_container.css.js';
 import {getHtml} from './related_website_sets_list_container.html.js';
 
@@ -46,7 +46,7 @@ export class RelatedWebsiteSetsListContainerElement extends CrLitElement {
   query: string = '';
   errorMessage: string = '';
   protected isAnyRowCollapsed: boolean = true;
-  protected filteredItems: RelatedWebsiteSet[] = [];
+  filteredItems: RelatedWebsiteSet[] = [];
 
   private rowExpandedStates_: Map<string, boolean> = new Map();
 
@@ -67,12 +67,13 @@ export class RelatedWebsiteSetsListContainerElement extends CrLitElement {
   }
 
   private hasMatch_(set: RelatedWebsiteSet): boolean {
-    if (set.primarySite.toLowerCase().includes(this.query)) {
+    const normalizedQuery = this.query.toLowerCase().trim();
+    if (set.primarySite.toLowerCase().includes(normalizedQuery)) {
       return true;
     }
 
     for (const member of set.memberSites) {
-      if (member.site.toLowerCase().includes(this.query)) {
+      if (member.site.toLowerCase().includes(normalizedQuery)) {
         return true;
       }
     }
@@ -101,6 +102,10 @@ export class RelatedWebsiteSetsListContainerElement extends CrLitElement {
 
   protected getDisplayedError(): string {
     return this.errorMessage.replace('Error', '');
+  }
+
+  protected getMemberSites_(item: RelatedWebsiteSet): Member[] {
+    return item.memberSites.filter(ms => ms.site !== item.primarySite);
   }
 }
 

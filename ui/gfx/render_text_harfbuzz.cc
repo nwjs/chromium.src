@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/354829279): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ui/gfx/render_text_harfbuzz.h"
 
 #include <limits>
@@ -315,7 +320,7 @@ size_t ScriptInterval(const std::u16string& text,
   UScriptCode scripts[kMaxScripts] = { USCRIPT_INVALID_CODE };
 
   base::i18n::UTF16CharIterator char_iterator(
-      std::u16string_view(text.c_str() + start, length));
+      std::u16string_view(text).substr(start, length));
   size_t scripts_size = GetScriptExtensions(char_iterator.get(), scripts);
   *script = scripts[0];
 
@@ -1721,8 +1726,8 @@ SelectionModel RenderTextHarfBuzz::AdjacentLineSelectionModel(
   return next;
 }
 
-void RenderTextHarfBuzz::OnLayoutTextAttributeChanged(bool text_changed) {
-  RenderText::OnLayoutTextAttributeChanged(text_changed);
+void RenderTextHarfBuzz::OnLayoutTextAttributeChanged() {
+  RenderText::OnLayoutTextAttributeChanged();
 
   update_layout_run_list_ = true;
   OnDisplayTextAttributeChanged();
@@ -1914,20 +1919,95 @@ SelectionModel RenderTextHarfBuzz::LastSelectionModelInsideRun(
   return SelectionModel(position, CURSOR_FORWARD);
 }
 
+void RenderTextHarfBuzz::BuildResolvedTypefaceBreakList(
+    internal::TextRunList* run_list) {
+  const Font& primary_font = font_list().GetPrimaryFont();
+  for (auto& run : run_list->runs()) {
+    if (run->CountMissingGlyphs() > 0) {
+      for (size_t offset = 0; offset < run->shape.glyphs.size(); ++offset) {
+        constexpr uint16_t kMissingGlyphId = 0;
+        if (run->shape.glyphs[offset] == kMissingGlyphId) {
+          // Retrieve the whole grapheme that contains the missing glyphs.
+          size_t layout_text_offset = run->shape.glyph_to_char[offset];
+          size_t text_offset = DisplayIndexToTextIndex(layout_text_offset);
+          gfx::Range grapheme_range(ExpandRangeToGraphemeBoundary(
+              gfx::Range(text_offset, text_offset + 1)));
+          DCHECK(!grapheme_range.is_reversed());
+
+          // The grapheme text is from layout_text_ after all rewriting. It is
+          // the text that is used for shaping, so we need to convert our
+          // indices back to display indices after expanding to the nearest
+          // grapheme boundary.
+          const Range display_range(
+              TextIndexToDisplayIndex(grapheme_range.start()),
+              TextIndexToDisplayIndex(grapheme_range.end()));
+
+          // Determine the corresponding fallback font for the grapheme.
+          const std::u16string_view grapheme_text(
+              &GetLayoutText()[display_range.start()], display_range.length());
+
+          Font fallback_font(primary_font);
+          const bool fallback_found = GetFallbackFont(
+              primary_font, locale_, grapheme_text, &fallback_font);
+
+          // Only add to the breaklist if we found a fallback. This means that
+          // adjacent tofu will not be in isolated runs.
+          if (fallback_found) {
+            const SkTypefaceID fallback_font_id = fallback_font.platform_font()
+                                                      ->GetNativeSkTypeface()
+                                                      ->uniqueID();
+            layout_resolved_typefaces().ApplyValue(fallback_font_id,
+                                                   display_range);
+          }
+        }
+      }
+    }
+  }
+}
+
 void RenderTextHarfBuzz::ItemizeAndShapeText(const std::u16string& text,
                                              internal::TextRunList* run_list) {
   CommonizedRunsMap commonized_run_map;
-  ItemizeTextToRuns(text, run_list, &commonized_run_map);
+  const bool successfully_shaped_runs =
+      ItemizeAndShapeTextImpl(&commonized_run_map, text, run_list);
 
-  for (auto iter = commonized_run_map.begin(); iter != commonized_run_map.end();
-       ++iter) {
-    internal::TextRunHarfBuzz::FontParams font_params = iter->first;
-    font_params.ComputeRenderParamsFontSizeAndBaselineOffset();
-    ShapeRuns(text, font_params, std::move(iter->second));
+  // If we didn't successfully shape every run, break runs based on the resolved
+  // typeface. This will ensure that missing glyphs are isolated to their own
+  // runs, maximizing fallback opportunities. If this is a display run list, do
+  // not invalidate the text layout, as that has already been established in the
+  // prior step.
+  if (!successfully_shaped_runs && !ignore_missing_glyph_breaks_for_test_) {
+    BuildResolvedTypefaceBreakList(run_list);
+    ItemizeAndShapeTextImpl(&commonized_run_map, text, run_list);
+
+    // Resolved typefaces are no longer used and can be cleared.
+    layout_resolved_typefaces().Reset();
   }
 
   run_list->InitIndexMap();
   run_list->ComputePrecedingRunWidths();
+
+  UMA_HISTOGRAM_COUNTS_1000("RenderTextHarfBuzz.MissingGlyphCount",
+                            run_list->MissingGlyphCount());
+}
+
+bool RenderTextHarfBuzz::ItemizeAndShapeTextImpl(
+    CommonizedRunsMap* commonized_run_map,
+    const std::u16string& text,
+    internal::TextRunList* run_list) {
+  run_list->Reset();
+  commonized_run_map->clear();
+
+  ItemizeTextToRuns(text, run_list, commonized_run_map);
+  bool successfully_shaped_runs = true;
+  for (auto iter = commonized_run_map->begin();
+       iter != commonized_run_map->end(); ++iter) {
+    internal::TextRunHarfBuzz::FontParams font_params = iter->first;
+    font_params.ComputeRenderParamsFontSizeAndBaselineOffset();
+    successfully_shaped_runs &=
+        ShapeRuns(text, font_params, std::move(iter->second));
+  }
+  return successfully_shaped_runs;
 }
 
 void RenderTextHarfBuzz::ItemizeTextToRuns(
@@ -2027,7 +2107,7 @@ void RenderTextHarfBuzz::ItemizeTextToRuns(
   }
 }
 
-void RenderTextHarfBuzz::ShapeRuns(
+bool RenderTextHarfBuzz::ShapeRuns(
     const std::u16string& text,
     const internal::TextRunHarfBuzz::FontParams& font_params,
     std::vector<internal::TextRunHarfBuzz*> runs) {
@@ -2062,7 +2142,7 @@ void RenderTextHarfBuzz::ShapeRuns(
   runs.swap(need_shaping_runs);
   if (runs.empty()) {
     RecordShapeRunsFallback(ShapeRunFallback::NO_FALLBACK);
-    return;
+    return true;
   }
 
   // Keep a set of fonts already tried for shaping runs.
@@ -2083,7 +2163,7 @@ void RenderTextHarfBuzz::ShapeRuns(
     }
     if (runs.empty()) {
       RecordShapeRunsFallback(ShapeRunFallback::NO_FALLBACK);
-      return;
+      return true;
     }
   }
 
@@ -2132,7 +2212,7 @@ void RenderTextHarfBuzz::ShapeRuns(
   runs.swap(remaining_unshaped_runs);
   if (runs.empty()) {
     RecordShapeRunsFallback(ShapeRunFallback::FALLBACK);
-    return;
+    return true;
   }
 
   if (!IsRemoveFontLinkFallbacks()) {
@@ -2174,14 +2254,14 @@ void RenderTextHarfBuzz::ShapeRuns(
 #endif
     }
 
-  // Use a set to track the fallback fonts and avoid duplicate entries.
-  SCOPED_UMA_HISTOGRAM_LONG_TIMER(
-      "RenderTextHarfBuzz.ShapeRunsWithFallbackFontsTime");
-  TRACE_EVENT1("ui", "RenderTextHarfBuzz::ShapeRunsWithFallbackFonts",
-               "fonts_count", fallback_font_list.size());
+    // Use a set to track the fallback fonts and avoid duplicate entries.
+    SCOPED_UMA_HISTOGRAM_LONG_TIMER(
+        "RenderTextHarfBuzz.ShapeRunsWithFallbackFontsTime");
+    TRACE_EVENT1("ui", "RenderTextHarfBuzz::ShapeRunsWithFallbackFonts",
+                 "fonts_count", fallback_font_list.size());
 
-  // Try shaping with the fallback fonts.
-  for (const auto& font : fallback_font_list) {
+    // Try shaping with the fallback fonts.
+    for (const auto& font : fallback_font_list) {
       std::string font_name = font.GetFontName();
 
       FontRenderParamsQuery query;
@@ -2229,9 +2309,9 @@ void RenderTextHarfBuzz::ShapeRuns(
                                     uscript_getShortName(font_params.script));
           base::debug::DumpWithoutCrashing();
         }
-        return;
+        return true;
       }
-  }
+    }
   }
 
   for (internal::TextRunHarfBuzz*& run : runs) {
@@ -2242,6 +2322,7 @@ void RenderTextHarfBuzz::ShapeRuns(
   }
 
   RecordShapeRunsFallback(ShapeRunFallback::FAILED);
+  return false;
 }
 
 void RenderTextHarfBuzz::ShapeRunsWithFont(
@@ -2251,7 +2332,7 @@ void RenderTextHarfBuzz::ShapeRunsWithFont(
     std::vector<internal::TextRunHarfBuzz*>* successfully_shaped_runs) {
   // ShapeRunWithFont can be extremely slow, so use cached results if
   // possible. Only do this on the UI thread, to avoid synchronization
-  // overhead (and because almost all calls are on the UI thread. Also avoid
+  // overhead (and because almost all calls are on the UI thread). Also avoid
   // caching long strings, to avoid blowing up the cache size.
   constexpr size_t kMaxRunLengthToCache = 25;
   static base::NoDestructor<internal::ShapeRunCache> cache;

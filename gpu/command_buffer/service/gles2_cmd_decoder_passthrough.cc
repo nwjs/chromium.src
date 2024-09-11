@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "gpu/command_buffer/service/gles2_cmd_decoder_passthrough.h"
 
 #include <memory>
@@ -1377,6 +1382,13 @@ gpu::GLCapabilities GLES2DecoderPassthroughImpl::GetGLCapabilities() {
       feature_info_->feature_flags().occlusion_query_boolean;
   caps.timer_queries = feature_info_->feature_flags().ext_disjoint_timer_query;
 
+  if (feature_info_->workarounds().webgl_or_caps_max_texture_size) {
+    caps.max_texture_size =
+        std::min(caps.max_texture_size,
+                 feature_info_->workarounds().webgl_or_caps_max_texture_size);
+  }
+  caps.sync_query = feature_info_->feature_flags().chromium_sync_query;
+
   return caps;
 }
 
@@ -1962,6 +1974,7 @@ bool GLES2DecoderPassthroughImpl::LazySharedContextState::Initialize() {
   attribs.global_semaphore_share_group = true;
   attribs.robust_resource_initialization = true;
   attribs.robust_buffer_access = true;
+  attribs.allow_client_arrays = false;
   auto gl_context = gl::init::CreateGLContext(impl_->context_->share_group(),
                                               gl_surface.get(), attribs);
   if (!gl_context) {

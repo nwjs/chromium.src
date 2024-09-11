@@ -165,17 +165,8 @@ class CORE_EXPORT CSSParserImpl {
       wtf_size_t offset,
       const CSSParserContext*);
 
-  // A value for a standard property has the following restriction:
-  // it can not contain braces unless it's the whole value [1].
-  // This function makes use of that restriction to early-out of the
-  // streaming tokenizer as soon as possible.
-  //
-  // [1] https://github.com/w3c/csswg-drafts/issues/9317
-  static CSSTokenizedValue ConsumeRestrictedPropertyValue(
-      CSSParserTokenStream&);
-
-  // Custom properties (as well as descriptors) do not have the restriction
-  // explained above. This function will simply consume until AtEnd.
+  // Legacy function, mostly used for parsing descriptors. Will parsed
+  // until AtEnd.
   static CSSTokenizedValue ConsumeUnrestrictedPropertyValue(
       CSSParserTokenStream&);
 
@@ -299,9 +290,9 @@ class CORE_EXPORT CSSParserImpl {
                                CSSPropertyID,
                                bool is_in_declaration_list,
                                StyleRule::RuleType);
-  void ConsumeVariableValue(const CSSTokenizedValue&,
+  bool ConsumeVariableValue(CSSParserTokenStream& stream,
                             const AtomicString& property_name,
-                            bool important,
+                            bool allow_important_annotation,
                             bool is_animation_tainted);
 
   // Consumes tokens from the stream using the provided function, and wraps
@@ -329,30 +320,8 @@ class CORE_EXPORT CSSParserImpl {
   //
   // If CSSNestingType::kScope is provided, an implicit :scope {} rule
   // is created instead.
-  //
-  // The rule will carry the specified `signal`.
   StyleRule* CreateImplicitNestedRule(CSSNestingType,
-                                      StyleRule* parent_rule_for_nesting,
-                                      CSSSelector::Signal signal);
-
-  // Creates an invisible rule containing the declarations
-  // in parsed_properties_ within the range [start_index,end_index).
-  //
-  // The resulting rule will carry the specified signal, which may be kNone.
-  //
-  // See also CSSSelector::IsInvisible.
-  StyleRule* CreateInvisibleRule(const CSSSelector* selector_list,
-                                 wtf_size_t start_index,
-                                 wtf_size_t end_index,
-                                 CSSSelector::Signal);
-
-  // Adds the result of `CreateInvisibleRule` into `child_rules`,
-  // provided that we have any declarations to add.
-  void EmitInvisibleRuleIfNeeded(
-      StyleRule* parent_rule_for_nesting,
-      wtf_size_t start_index,
-      CSSSelector::Signal,
-      HeapVector<Member<StyleRuleBase>, 4>* child_rules);
+                                      StyleRule* parent_rule_for_nesting);
 
   // FIXME: Can we build CSSPropertyValueSets directly?
   HeapVector<CSSPropertyValue, 64> parsed_properties_;

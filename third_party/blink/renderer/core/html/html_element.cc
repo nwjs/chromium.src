@@ -88,6 +88,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_label_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_listbox_element.h"
 #include "third_party/blink/renderer/core/html/forms/labels_node_list.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
@@ -1900,8 +1901,9 @@ void HTMLElement::HidePopoverInternal(
     }
   }
 
-  if (auto* selectlist = popoverOwnerSelectListElement()) {
-    // popoverOwnerSelectListElement() is set on both the <selectlist> listbox
+  if (auto* selectlist =
+          DynamicTo<HTMLSelectListElement>(internalImplicitAnchor())) {
+    // internalImplicitAnchor() is set on both the <selectlist> listbox
     // and the <selectlist> autofill preview popover.
     if (selectlist->ListBoxPart() == this) {
       selectlist->ListboxWasClosed();
@@ -2350,15 +2352,15 @@ void HTMLElement::HoveredElementChanged(Element* old_element,
   }
 }
 
-void HTMLElement::SetPopoverOwnerSelectListElement(
-    HTMLSelectListElement* element) {
-  CHECK(RuntimeEnabledFeatures::HTMLSelectListElementEnabled());
+void HTMLElement::SetInternalImplicitAnchor(HTMLElement* element) {
+  CHECK(RuntimeEnabledFeatures::HTMLSelectListElementEnabled() ||
+        RuntimeEnabledFeatures::StylableSelectEnabled());
   CHECK(HasPopoverAttribute());
-  GetPopoverData()->setOwnerSelectListElement(element);
+  GetPopoverData()->setInternalImplicitAnchor(element);
 }
 
-HTMLSelectListElement* HTMLElement::popoverOwnerSelectListElement() const {
-  return GetPopoverData() ? GetPopoverData()->ownerSelectListElement()
+HTMLElement* HTMLElement::internalImplicitAnchor() const {
+  return GetPopoverData() ? GetPopoverData()->internalImplicitAnchor()
                           : nullptr;
 }
 
@@ -2719,7 +2721,8 @@ Node::InsertionNotificationRequest HTMLElement::InsertedInto(
 }
 
 void HTMLElement::RemovedFrom(ContainerNode& insertion_point) {
-  if (HasPopoverAttribute()) {
+  if (HasPopoverAttribute() &&
+      !GetDocument().StatePreservingAtomicMoveInProgress()) {
     // If a popover is removed from the document, make sure it gets
     // removed from the popover element stack and the top layer.
     bool was_in_document = insertion_point.isConnected();
@@ -3090,14 +3093,16 @@ void HTMLElement::OnDirAttrChanged(const AttributeModificationParams& params) {
     UpdateAncestorWithDirAuto(UpdateAncestorTraversal::ExcludeSelf);
   }
 
-  if (is_old_auto && !is_new_auto) {
+  if (is_old_auto) {
     if (!RecalcSelfOrAncestorHasDirAuto()) {
       ClearSelfOrAncestorHasDirAutoAttribute();
       UpdateDescendantHasDirAutoAttribute(false /* has_dir_auto */);
     }
-  } else if (!is_old_auto && is_new_auto) {
-    SetSelfOrAncestorHasDirAutoAttribute();
-    UpdateDescendantHasDirAutoAttribute(true /* has_dir_auto */);
+  } else {
+    if (RecalcSelfOrAncestorHasDirAuto()) {
+      SetSelfOrAncestorHasDirAutoAttribute();
+      UpdateDescendantHasDirAutoAttribute(true /* has_dir_auto */);
+    }
   }
 
   if (is_new_auto) {
@@ -3247,7 +3252,23 @@ bool HTMLElement::IsValidElement() {
 }
 
 bool HTMLElement::IsLabelable() const {
+  if (auto* target = DynamicTo<HTMLElement>(
+          GetShadowReferenceTarget(html_names::kForAttr))) {
+    return target->IsLabelable();
+  }
+
   return IsFormAssociatedCustomElement();
+}
+
+bool HTMLElement::HasActiveLabel() const {
+  for (const Element* active_element :
+       GetDocument().UserActionElements().ActiveElements()) {
+    const HTMLLabelElement* label = DynamicTo<HTMLLabelElement>(active_element);
+    if (label && label->Control() == this) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void HTMLElement::FinishParsingChildren() {

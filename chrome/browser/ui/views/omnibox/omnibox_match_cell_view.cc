@@ -56,6 +56,11 @@ namespace {
 // kUniformRowHeight flag is enabled.
 static constexpr int kUniformRowHeightIconSize = 28;
 
+// The gap between the left|right edge of the IPH background to the left|right
+// edge of the text bounds. Does not apply to the left side of IPHs with icons,
+// since the text will have to be further right to accommodate the icons.
+static constexpr int kIphTextIndent = 14;
+
 // The size (edge length or diameter) of the answer icon backgrounds (which may
 // be squares or circles).
 int GetAnswerImageSize() {
@@ -179,12 +184,19 @@ void OmniboxMatchCellView::ComputeMatchMaxWidths(
     int contents_width,
     int separator_width,
     int description_width,
+    int iph_link_width,
     int available_width,
     bool description_on_separate_line,
     bool allow_shrinking_contents,
     int* contents_max_width,
-    int* description_max_width) {
+    int* description_max_width,
+    int* iph_link_max_width) {
   available_width = std::max(available_width, 0);
+
+  // The IPH link is top priority.
+  *iph_link_max_width = std::min(iph_link_width, available_width);
+  available_width = std::max(available_width - iph_link_width, 0);
+
   *contents_max_width = std::min(contents_width, available_width);
   *description_max_width = std::min(description_width, available_width);
 
@@ -255,12 +267,8 @@ OmniboxMatchCellView::~OmniboxMatchCellView() = default;
 
 // static
 bool OmniboxMatchCellView::ShouldDisplayImage(const AutocompleteMatch& match) {
-  if (omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled) {
-    return match.answer_template.has_value() ||
-           match.type == AutocompleteMatchType::CALCULATOR ||
-           !match.image_url.is_empty();
-  }
-  return match.answer || match.type == AutocompleteMatchType::CALCULATOR ||
+  return match.answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED ||
+         match.type == AutocompleteMatchType::CALCULATOR ||
          !match.image_url.is_empty();
 }
 
@@ -296,7 +304,7 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
                                  : icon_view_->GetPreferredSize());
 
   // Used for non-weather answer images (e.g. calc answers).
-  const auto apply_vector_icon = [=](const gfx::VectorIcon& vector_icon) {
+  const auto apply_vector_icon = [=, this](const gfx::VectorIcon& vector_icon) {
     const auto* color_provider = GetColorProvider();
     const auto foreground_color_id =
         OmniboxFieldTrial::kSquareSuggestIconAnswers.Get()
@@ -334,25 +342,13 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
     answer_image_view_->SetSize(gfx::Size());
   } else {
     // Determine if we have a local icon (or else it will be downloaded).
-    if (omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled &&
-        match.answer_template.has_value()) {
-      if (match.answer_type == omnibox::ANSWER_TYPE_WEATHER) {
-        // Weather icons are downloaded. We just need to set the correct size.
-        answer_image_view_->SetImageSize(
-            gfx::Size(GetAnswerImageSize(), GetAnswerImageSize()));
-      } else {
-        apply_vector_icon(
-            AutocompleteMatch::AnswerTypeToAnswerIcon(match.answer_type));
-      }
-    } else if (match.answer) {
-      if (match.answer->type() == omnibox::ANSWER_TYPE_WEATHER) {
-        // Weather icons are downloaded. We just need to set the correct size.
-        answer_image_view_->SetImageSize(
-            gfx::Size(GetAnswerImageSize(), GetAnswerImageSize()));
-      } else {
-        apply_vector_icon(
-            AutocompleteMatch::AnswerTypeToAnswerIcon(match.answer->type()));
-      }
+    if (match.answer_type == omnibox::ANSWER_TYPE_WEATHER) {
+      // Weather icons are downloaded. We just need to set the correct size.
+      answer_image_view_->SetImageSize(
+          gfx::Size(GetAnswerImageSize(), GetAnswerImageSize()));
+    } else if (match.answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
+      apply_vector_icon(
+          AutocompleteMatch::AnswerTypeToAnswerIcon(match.answer_type));
     } else {
       SkColor color = GetColorProvider()->GetColor(
           GetOmniboxBackgroundColorId(result_view->GetThemeState()));
@@ -411,12 +407,7 @@ void OmniboxMatchCellView::SetImage(const gfx::ImageSkia& image,
                                     const AutocompleteMatch& match) {
   // Weather icons are also sourced remotely and therefore fall into this flow.
   // Other answers don't.
-  bool is_weather_answer =
-      omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled
-          ? (match.answer_template.has_value() &&
-             match.answer_type == omnibox::ANSWER_TYPE_WEATHER)
-          : (match.answer &&
-             match.answer->type() == omnibox::ANSWER_TYPE_WEATHER);
+  bool is_weather_answer = match.answer_type == omnibox::ANSWER_TYPE_WEATHER;
 
   int width = image.width();
   int height = image.height();
@@ -462,7 +453,10 @@ void OmniboxMatchCellView::SetImage(const gfx::ImageSkia& image,
 
 gfx::Insets OmniboxMatchCellView::GetInsets() const {
   const int vertical_margin = 0;
-  const int right_margin = 7;
+  // IPH text bounds should be centered within the IPH background when there's
+  // no IPH icon. So make their `right_margin` equal to their text's x position.
+  const int right_margin =
+      is_iph_type_ ? OmniboxMatchCellView::kMarginLeft + kIphTextIndent : 7;
   return gfx::Insets::TLBR(vertical_margin, OmniboxMatchCellView::kMarginLeft,
                            vertical_margin, right_margin);
 }
@@ -477,25 +471,10 @@ void OmniboxMatchCellView::Layout(PassKey) {
 
   const int row_height = child_area.height();
 
-  // The entity, answer, and icon images are horizontally centered within their
-  // bounds. So their center-line will be at `image_x+kImageBoundsWidth/2`. This
-  // means their left x coordinate will depend on their actual sizes. Their
-  // widths depend on the state of `kSquareSuggestIcons`, its params, and
-  // `kUniformRowHeight`. This code guarantees when cr23_layout is true:
-  // a) Entities' left x coordinate is 16.
-  // b) Entities, answers, and icons continue to be center-aligned.
-  // c) Regardless of the state of those other features and their widths.
-  // This applies to both touch-UI and non-touch-UI.
-  // TODO(manukh): Once we have a clearer picture of what will launch, this can
-  //   be simplified.
-  const int image_x = 16 + GetEntityImageSize() / 2 - kImageBoundsWidth / 2;
+  int image_x = GetImageIndent();
   views::ImageView* const image_view =
       has_image_ ? answer_image_view_.get() : icon_view_.get();
-  // The IPH row left inset is +kIPHLeftOffset from other suggestions, so the
-  // image bounds should be -kIPHLeftOffset to keep the icon aligned.
-  int bounds_offset = is_iph_type_ ? kIPHLeftOffset : 0;
-  image_view->SetBounds(image_x, y, kImageBoundsWidth - bounds_offset,
-                        row_height);
+  image_view->SetBounds(image_x, y, kImageBoundsWidth, row_height);
 
   const int text_indent = GetTextIndent() + tail_suggest_common_prefix_width_;
   x += text_indent;
@@ -518,10 +497,12 @@ void OmniboxMatchCellView::Layout(PassKey) {
     int content_width = content_view_->GetPreferredSize().width();
     int description_width = description_view_->GetPreferredSize().width();
     const gfx::Size separator_size = separator_view_->GetPreferredSize();
-    ComputeMatchMaxWidths(content_width, separator_size.width(),
-                          description_width, text_width,
-                          /*description_on_separate_line=*/false,
-                          !is_search_type_, &content_width, &description_width);
+    int iph_link_width = iph_link_view_->GetPreferredSize().width();
+    ComputeMatchMaxWidths(
+        content_width, separator_size.width(), description_width,
+        iph_link_width, /*available_width=*/text_width,
+        /*description_on_separate_line=*/false, !is_search_type_,
+        &content_width, &description_width, &iph_link_width);
     if (tail_suggest_ellipse_view_->GetVisible()) {
       const int tail_suggest_ellipse_width =
           tail_suggest_ellipse_view_->GetPreferredSize().width();
@@ -541,8 +522,7 @@ void OmniboxMatchCellView::Layout(PassKey) {
       separator_view_->SetSize(gfx::Size());
       description_view_->SetSize(gfx::Size());
     }
-    iph_link_view_->SetBounds(x, y, iph_link_view_->GetPreferredSize().width(),
-                              row_height);
+    iph_link_view_->SetBounds(x, y, iph_link_width, row_height);
   }
 }
 
@@ -570,11 +550,57 @@ gfx::Size OmniboxMatchCellView::CalculatePreferredSize(
   return gfx::Size(width, height);
 }
 
+int OmniboxMatchCellView::GetImageIndent() const {
+  // Image indent ignores the `OmniboxMatchCellView::GetInsets()`.
+
+  // This number is independent of other layout numbers; i.e., it's not meant to
+  // align with any other UI; it's just arbitrarily chosen by UX. Hence, it's
+  // not derived from other matches' `indent` below.
+  if (is_iph_type_)
+    return 2;
+
+  // The entity, answer, and icon images are horizontally centered within their
+  // bounds. So their center-line will be at `image_x+kImageBoundsWidth/2`. This
+  // means their left x coordinate will depend on their actual sizes. Their
+  // widths depend on the state of `kSquareSuggestIcons`, its params, and
+  // `kUniformRowHeight`. This code guarantees when cr23_layout is true:
+  // a) Entities' left x coordinate is 16.
+  // b) Entities, answers, and icons continue to be center-aligned.
+  // c) Regardless of the state of those other features and their widths.
+  // This applies to both touch-UI and non-touch-UI.
+  int indent = 16 + GetEntityImageSize() / 2 - kImageBoundsWidth / 2;
+
+  return indent;
+}
+
 int OmniboxMatchCellView::GetTextIndent() const {
-  // The IPH row left inset is +kIPHLeftOffset from other suggestions, so the
-  // text indent should be -kIPHLeftOffset to keep the text aligned.
-  int offset = is_iph_type_ ? kIPHLeftOffset : 0;
-  return 52 - offset;
+  // Text indent is added to the `OmniboxMatchCellView::GetInsets()`. It is not
+  // added to the image position & size.
+
+  // Some IPH matches have no icons. They should be moved further left so the
+  // gap between the IPH background and the start of the IPH text isn't jarring.
+  // Non-IPH matches without icons (e.g. the 'no results found' tab match) don't
+  // want to apply this left shift because their text needs to align with the
+  // other matches' and the omnibox's texts. This number is independent of other
+  // layout numbers; i.e., it's not meant to align with other UI; it's just
+  // arbitrarily chosen by UX. Hence, it's not derived from other matches'
+  // `indent` below.
+  if (is_iph_type_ && icon_view_->GetPreferredSize() == gfx::Size{})
+    return kIphTextIndent;
+
+  // For normal matches, the gap between the left edge of this view and the
+  // left edge of its favicon or answer image.
+  int indent = 52;
+
+  // The IPH row left inset is +`kIphOffset` from other suggestions, so the text
+  // indent should be -`kIphOffset` to keep the text aligned. IPH matches seem
+  // to have inner padding, so the gap between the left edge of this
+  // `OmniboxMatchCellView` and the IPH icon/text is actually larger than
+  // `indent`.
+  if (is_iph_type_)
+    indent -= kIphOffset;
+
+  return indent;
 }
 
 void OmniboxMatchCellView::SetTailSuggestCommonPrefixWidth(

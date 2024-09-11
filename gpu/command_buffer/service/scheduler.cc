@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "gpu/command_buffer/service/scheduler.h"
 
 #include <algorithm>
@@ -414,12 +419,10 @@ void Scheduler::Sequence::RemoveClientWait(CommandBufferId command_buffer_id) {
   UpdateSchedulingPriority();
 }
 
-Scheduler::Scheduler(SyncPointManager* sync_point_manager,
-                     const GpuPreferences& gpu_preferences)
+Scheduler::Scheduler(SyncPointManager* sync_point_manager)
     : sync_point_manager_(sync_point_manager), task_graph_(sync_point_manager) {
   if (base::FeatureList::IsEnabled(features::kUseGpuSchedulerDfs)) {
-    scheduler_dfs_ =
-        std::make_unique<SchedulerDfs>(&task_graph_, gpu_preferences);
+    scheduler_dfs_ = std::make_unique<SchedulerDfs>(&task_graph_);
   }
 }
 

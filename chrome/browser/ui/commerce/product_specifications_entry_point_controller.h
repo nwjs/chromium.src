@@ -29,10 +29,18 @@ class ProductSpecificationsEntryPointController
   class Observer : public base::CheckedObserver {
    public:
     // Called when entry points should show with `title`.
-    virtual void ShowEntryPointWithTitle(const std::string title) {}
+    virtual void ShowEntryPointWithTitle(const std::u16string& title) {}
 
     // Called when entry points should hide.
     virtual void HideEntryPoint() {}
+  };
+
+  // Possible source actions that could trigger compare entry points. These must
+  // be kept in sync with the values in enums.xml.
+  enum class CompareEntryPointTrigger {
+    FROM_SELECTION = 0,
+    FROM_NAVIGATION = 1,
+    kMaxValue = FROM_NAVIGATION,
   };
 
   explicit ProductSpecificationsEntryPointController(Browser* browser);

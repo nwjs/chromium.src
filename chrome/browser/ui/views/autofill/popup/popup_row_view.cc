@@ -19,6 +19,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_cell_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
@@ -77,6 +78,11 @@ constexpr int kExpandChildSuggestionsViewWidth = 24;
 constexpr int kExpandChildSuggestionsIconWidth = 16;
 constexpr int kExpandChildSuggestionsViewHorizontalPadding =
     (kExpandChildSuggestionsViewWidth - kExpandChildSuggestionsIconWidth) / 2;
+
+// The suggestion is considered acceptable if the following is true:
+// row view visible area >= total area * kAcceptingGuardVisibleAreaPortion.
+// See how it is used in `PopupRowView::OnVisibleBoundsChanged()` for details.
+constexpr float kAcceptingGuardVisibleAreaPortion = 0.5;
 
 // Computes the position and set size of the suggestion at `suggestion_index` in
 // `controller`'s suggestions ignoring `SuggestionType::kSeparator`s.
@@ -263,6 +269,12 @@ PopupRowView::PopupRowView(
   content_view_->GetViewAccessibility().SetPosInSet(position);
   content_view_->GetViewAccessibility().SetSetSize(set_size);
   content_view_->GetViewAccessibility().SetIsSelected(false);
+
+  if (controller_ && line_number_ < controller_->GetLineCount()) {
+    GetViewAccessibility().SetPosInSet(position);
+    GetViewAccessibility().SetSetSize(set_size);
+    GetViewAccessibility().SetRole(ax::mojom::Role::kListBoxOption);
+  }
   content_event_handler_ =
       set_exit_enter_callbacks(CellType::kContent, *content_view_);
   layout->SetFlexForView(content_view_.get(), 1);
@@ -322,7 +334,8 @@ void PopupRowView::OnMouseReleased(const ui::MouseEvent& event) {
   }
 
   if (event.IsOnlyLeftMouseButton() &&
-      content_view_->HitTestPoint(event.location()) && controller_) {
+      content_view_->HitTestPoint(event.location()) && controller_ &&
+      IsViewVisibleEnough()) {
     controller_->AcceptSuggestion(line_number_);
   }
 }
@@ -330,7 +343,8 @@ void PopupRowView::OnMouseReleased(const ui::MouseEvent& event) {
 void PopupRowView::OnGestureEvent(ui::GestureEvent* event) {
   switch (event->type()) {
     case ui::EventType::kGestureTap:
-      if (content_view_->HitTestPoint(event->location()) && controller_) {
+      if (content_view_->HitTestPoint(event->location()) && controller_ &&
+          IsViewVisibleEnough()) {
         controller_->AcceptSuggestion(line_number_);
       }
       break;
@@ -344,21 +358,25 @@ void PopupRowView::OnPaint(gfx::Canvas* canvas) {
   mouse_observed_outside_item_bounds_ |= !IsMouseHovered();
 }
 
+bool PopupRowView::GetNeedsNotificationWhenVisibleBoundsChange() const {
+  return base::FeatureList::IsEnabled(
+      features::kAutofillPopupDontAcceptNonVisibleEnoughSuggestion);
+}
+
+void PopupRowView::OnVisibleBoundsChanged() {
+  if (GetVisibleBounds().size().GetArea() >=
+      size().GetArea() * kAcceptingGuardVisibleAreaPortion) {
+    barrier_for_accepting_ = NextIdleBarrier::CreateNextIdleBarrierWithDelay(
+        AutofillSuggestionController::kIgnoreEarlyClicksOnSuggestionsDuration);
+  } else {
+    barrier_for_accepting_.reset();
+  }
+}
+
 void PopupRowView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   views::View::GetAccessibleNodeData(node_data);
 
   if (controller_ && line_number_ < controller_->GetLineCount()) {
-    ui::AXNodeData content_node_data;
-    content_view_->GetViewAccessibility().GetAccessibleNodeData(
-        &content_node_data);
-
-    node_data->role = content_node_data.role;
-    node_data->AddIntAttribute(
-        ax::mojom::IntAttribute::kPosInSet,
-        content_node_data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
-    node_data->AddIntAttribute(
-        ax::mojom::IntAttribute::kSetSize,
-        content_node_data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
     node_data->SetName(
         GetSuggestionA11yString(controller_->GetSuggestionAt(line_number_),
                                 /*add_call_to_action_if_expandable=*/false));
@@ -450,7 +468,7 @@ bool PopupRowView::HandleKeyPressEvent(
       const bool kHasKeyModifierPressed =
           event.GetModifiers() & blink::WebInputEvent::kKeyModifiers;
       if (*GetSelectedCell() == CellType::kContent && controller_ &&
-          !kHasKeyModifierPressed) {
+          !kHasKeyModifierPressed && IsViewVisibleEnough()) {
         controller_->AcceptSuggestion(line_number_);
         return true;
       }
@@ -459,6 +477,11 @@ bool PopupRowView::HandleKeyPressEvent(
     default:
       return false;
   }
+}
+
+bool PopupRowView::IsSelectable() const {
+  return controller_ && line_number_ < controller_->GetLineCount() &&
+         !controller_->GetSuggestionAt(line_number_).apply_deactivated_style;
 }
 
 void PopupRowView::UpdateUI() {
@@ -493,6 +516,20 @@ void PopupRowView::UpdateOpenSubPopupIconVisibility() {
 
   expand_child_suggestions_view_icon_->SetVisible(selected_cell_ ||
                                                   child_suggestions_displayed_);
+}
+
+bool PopupRowView::IsViewVisibleEnough() const {
+  if (controller_ &&
+      !controller_->IsViewVisibilityAcceptingThresholdEnabled()) {
+    return true;
+  }
+
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillPopupDontAcceptNonVisibleEnoughSuggestion)) {
+    return true;
+  }
+
+  return barrier_for_accepting_ && barrier_for_accepting_->value();
 }
 
 BEGIN_METADATA(PopupRowView)

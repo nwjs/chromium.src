@@ -23,6 +23,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/view_class_properties.h"
@@ -52,6 +53,7 @@ LensPreselectionBubble::LensPreselectionBubble(views::View* anchor_view,
   DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
   set_corner_radius(48);
   SetProperty(views::kElementIdentifierKey, kLensPreselectionBubbleElementId);
+  SetAccessibleWindowRole(ax::mojom::Role::kAlertDialog);
 }
 
 LensPreselectionBubble::~LensPreselectionBubble() = default;
@@ -91,6 +93,7 @@ void LensPreselectionBubble::Init() {
     exit_button_->SetProperty(views::kElementIdentifierKey,
                               kLensPreselectionBubbleExitButtonElementId);
   }
+  NotifyAccessibilityEvent(ax::mojom::Event::kAlert, true);
 }
 
 gfx::Rect LensPreselectionBubble::GetBubbleBounds() {
@@ -120,7 +123,8 @@ void LensPreselectionBubble::OnThemeChanged() {
       offline_ ? vector_icons::kErrorOutlineIcon
                : vector_icons::kGoogleLensMonochromeLogoIcon,
 #else
-      offline_ ? vector_icons::kErrorOutlineIcon : vector_icons::kSearchIcon,
+      offline_ ? vector_icons::kErrorOutlineIcon
+               : vector_icons::kSearchChromeRefreshIcon,
 #endif
       color_provider->GetColor(ui::kColorToastForeground), 24));
   label_->SetEnabledColor(color_provider->GetColor(ui::kColorToastForeground));

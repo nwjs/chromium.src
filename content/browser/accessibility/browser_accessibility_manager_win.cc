@@ -62,15 +62,19 @@ BrowserAccessibility* GetUiaTextPatternProvider(BrowserAccessibility& node) {
 // static
 BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
     const ui::AXTreeUpdate& initial_tree,
+    ui::AXNodeIdDelegate& node_id_delegate,
     ui::AXPlatformTreeManagerDelegate* delegate) {
-  return new BrowserAccessibilityManagerWin(initial_tree, delegate);
+  return new BrowserAccessibilityManagerWin(initial_tree, node_id_delegate,
+                                            delegate);
 }
 
 // static
 BrowserAccessibilityManager* BrowserAccessibilityManager::Create(
+    ui::AXNodeIdDelegate& node_id_delegate,
     ui::AXPlatformTreeManagerDelegate* delegate) {
   return new BrowserAccessibilityManagerWin(
-      BrowserAccessibilityManagerWin::GetEmptyDocument(), delegate);
+      BrowserAccessibilityManagerWin::GetEmptyDocument(), node_id_delegate,
+      delegate);
 }
 
 BrowserAccessibilityManagerWin*
@@ -80,8 +84,9 @@ BrowserAccessibilityManager::ToBrowserAccessibilityManagerWin() {
 
 BrowserAccessibilityManagerWin::BrowserAccessibilityManagerWin(
     const ui::AXTreeUpdate& initial_tree,
+    ui::AXNodeIdDelegate& node_id_delegate,
     ui::AXPlatformTreeManagerDelegate* delegate)
-    : BrowserAccessibilityManager(delegate) {
+    : BrowserAccessibilityManager(node_id_delegate, delegate) {
   ui::win::CreateATLModuleIfNeeded();
   Initialize(initial_tree);
 }
@@ -179,7 +184,7 @@ void BrowserAccessibilityManagerWin::FireAriaNotificationEvent(
             return NotificationProcessing_ImportantMostRecent;
         }
     }
-    NOTREACHED_NORETURN();
+    NOTREACHED();
   };
 
   const base::win::ScopedBstr announcement_bstr(base::UTF8ToWide(announcement));
@@ -257,7 +262,10 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
       break;
     case ui::AXEventGenerator::Event::ALERT:
       FireWinAccessibilityEvent(EVENT_SYSTEM_ALERT, wrapper);
-      FireUiaAccessibilityEvent(UIA_SystemAlertEventId, wrapper);
+      // Generated 'ALERT' events come from role=alert nodes in the tree.
+      // These should just be treated as normal live region changed events,
+      // since we don't want web pages to be performing system-wide alerts.
+      FireUiaAccessibilityEvent(UIA_LiveRegionChangedEventId, wrapper);
       break;
     case ui::AXEventGenerator::Event::ATOMIC_CHANGED:
       HandleAriaPropertiesChangedEvent(*wrapper);

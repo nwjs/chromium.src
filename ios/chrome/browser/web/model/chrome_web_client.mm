@@ -38,6 +38,9 @@
 #import "ios/chrome/browser/link_to_text/model/link_to_text_java_script_feature.h"
 #import "ios/chrome/browser/ntp/model/browser_policy_new_tab_page_rewriter.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/permissions/model/features.h"
+#import "ios/chrome/browser/permissions/model/geolocation_api_usage_java_script_feature.h"
+#import "ios/chrome/browser/permissions/model/media_api_usage_java_script_feature.h"
 #import "ios/chrome/browser/prerender/model/prerender_service.h"
 #import "ios/chrome/browser/prerender/model/prerender_service_factory.h"
 #import "ios/chrome/browser/reading_list/model/offline_page_tab_helper.h"
@@ -69,7 +72,6 @@
 #import "ios/chrome/browser/web/model/java_script_console/java_script_console_feature.h"
 #import "ios/chrome/browser/web/model/java_script_console/java_script_console_feature_factory.h"
 #import "ios/chrome/browser/web/model/print/print_java_script_feature.h"
-#import "ios/chrome/browser/web/model/session_state/web_session_state_tab_helper.h"
 #import "ios/chrome/browser/web/model/web_performance_metrics/web_performance_metrics_java_script_feature.h"
 #import "ios/chrome/browser/web_selection/model/web_selection_java_script_feature.h"
 #import "ios/chrome/common/channel_info.h"
@@ -361,6 +363,17 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
 
   features.push_back(
       SupervisedUserInterstitialJavaScriptFeature::GetInstance());
+
+  if (base::FeatureList::IsEnabled(
+          kJavaScriptPermissionBasedAPIMetricsEnabled)) {
+    if (GeolocationAPIUsageJavaScriptFeature::ShouldOverrideAPI()) {
+      features.push_back(GeolocationAPIUsageJavaScriptFeature::GetInstance());
+    }
+    if (MediaAPIUsageJavaScriptFeature::ShouldOverrideAPI()) {
+      features.push_back(MediaAPIUsageJavaScriptFeature::GetInstance());
+    }
+  }
+
   return features;
 }
 
@@ -480,12 +493,6 @@ void ChromeWebClient::LogDefaultUserAgent(web::WebState* web_state,
   bool use_desktop_agent = ShouldLoadUrlInDesktopMode(url, settings_map);
   base::UmaHistogramBoolean("IOS.PageLoad.DefaultModeMobile",
                             !use_desktop_agent);
-}
-
-NSData* ChromeWebClient::FetchSessionFromCache(web::WebState* web_state) const {
-  WebSessionStateTabHelper* tab_helper =
-      WebSessionStateTabHelper::FromWebState(web_state);
-  return tab_helper ? tab_helper->FetchSessionFromCache() : nil;
 }
 
 void ChromeWebClient::CleanupNativeRestoreURLs(web::WebState* web_state) const {

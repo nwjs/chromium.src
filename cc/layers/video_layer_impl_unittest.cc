@@ -128,7 +128,8 @@ TEST(VideoLayerImplTest, OccludesOtherLayers) {
       gfx::Size(10, 10), base::TimeDelta());
   provider.set_frame(video_frame);
   active_tree->set_needs_update_draw_properties();
-  active_tree->UpdateDrawProperties();
+  active_tree->UpdateDrawProperties(
+      /*update_tiles=*/true, /*update_image_animation_controller=*/true);
 
   // We have a frame now, so the video occludes the layer below it.
   EXPECT_TRUE(draw_properties.occlusion_in_content_space.IsOccluded(visible));
@@ -477,6 +478,34 @@ TEST(VideoLayerImplTest, NativeARGBFrameGeneratesTextureQuad) {
   const viz::TextureDrawQuad* texture_draw_quad =
       viz::TextureDrawQuad::MaterialCast(draw_quad);
   EXPECT_EQ(texture_draw_quad->resource_size_in_pixels(), resource_size);
+}
+
+TEST(VideoLayerImplTest, GetDamageReasons) {
+  gfx::Size layer_size(1000, 1000);
+
+  LayerTreeImplTestBase impl;
+  DebugSetImplThreadAndMainThreadBlocked(impl.task_runner_provider());
+
+  scoped_refptr<media::VideoFrame> video_frame = media::VideoFrame::CreateFrame(
+      media::PIXEL_FORMAT_I420, gfx::Size(10, 10), gfx::Rect(10, 10),
+      gfx::Size(10, 10), base::TimeDelta());
+  FakeVideoFrameProvider provider;
+  provider.set_frame(video_frame);
+
+  VideoLayerImpl* video_layer_impl = impl.AddLayerInActiveTree<VideoLayerImpl>(
+      &provider, media::VIDEO_ROTATION_0);
+
+  video_layer_impl->layer_tree_impl()->ResetAllChangeTracking();
+  EXPECT_TRUE(video_layer_impl->GetDamageReasons().empty());
+  video_layer_impl->SetBounds(layer_size);
+  EXPECT_EQ(video_layer_impl->GetDamageReasons(),
+            DamageReasonSet{DamageReason::kUntracked});
+
+  video_layer_impl->layer_tree_impl()->ResetAllChangeTracking();
+  EXPECT_TRUE(video_layer_impl->GetDamageReasons().empty());
+  video_layer_impl->SetNeedsRedraw();
+  EXPECT_EQ(video_layer_impl->GetDamageReasons(),
+            DamageReasonSet{DamageReason::kVideoLayer});
 }
 
 }  // namespace

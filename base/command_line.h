@@ -50,8 +50,8 @@ class BASE_EXPORT CommandLine {
 #endif
 
   using CharType = StringType::value_type;
-  using StringPieceType = std::basic_string_view<CharType>;
   using StringVector = std::vector<StringType>;
+  using StringViewType = std::basic_string_view<CharType>;
   using SwitchMap = std::map<std::string, StringType, std::less<>>;
 
   // Returns CommandLine object constructed with switches and keys alone.
@@ -60,7 +60,7 @@ class BASE_EXPORT CommandLine {
   static CommandLine FromArgvWithoutProgram(const StringVector& argv);
 
 #if BUILDFLAG(IS_WIN)
-  static CommandLine FromString(StringPieceType command_line);
+  static CommandLine FromString(StringViewType command_line);
 #endif
 
   // A constructor for CommandLines that only carry switches and arguments.
@@ -212,8 +212,7 @@ class BASE_EXPORT CommandLine {
   // Note: Switches will precede arguments regardless of appending order.
   void AppendSwitch(std::string_view switch_string);
   void AppendSwitchPath(std::string_view switch_string, const FilePath& path);
-  void AppendSwitchNative(std::string_view switch_string,
-                          StringPieceType value);
+  void AppendSwitchNative(std::string_view switch_string, StringViewType value);
   void AppendSwitchASCII(std::string_view switch_string,
                          std::string_view value);
 
@@ -236,7 +235,7 @@ class BASE_EXPORT CommandLine {
   // Note: Switches will precede arguments regardless of appending order.
   void AppendArg(std::string_view value);
   void AppendArgPath(const FilePath& value);
-  void AppendArgNative(StringPieceType value);
+  void AppendArgNative(StringViewType value);
 
 #if defined(OS_MAC)
   void FixOrigArgv4Finder(const StringType& value);
@@ -248,12 +247,12 @@ class BASE_EXPORT CommandLine {
 
   // Insert a command before the current command.
   // Common for debuggers, like "gdb --args".
-  void PrependWrapper(StringPieceType wrapper);
+  void PrependWrapper(StringViewType wrapper);
 
 #if BUILDFLAG(IS_WIN)
   // Initialize by parsing the given command line string.
   // The program name is assumed to be the first item in the string.
-  void ParseFromString(StringPieceType command_line);
+  void ParseFromString(StringViewType command_line);
 
   // Returns true if the command line had the --single-argument switch, and
   // thus likely came from a Windows shell registration. This is only set if the
@@ -325,7 +324,7 @@ class BASE_EXPORT CommandLine {
   // The string returned by GetCommandLineW(), to be parsed via
   // ParseFromString(). Empty if this command line was not parsed from a string,
   // or if ParseFromString() has finished executing.
-  StringPieceType raw_command_line_string_;
+  StringViewType raw_command_line_string_;
 
   // Set to true if the command line had --single-argument when initially
   // parsed. It does not change if the command line mutates after initial
@@ -359,7 +358,7 @@ class BASE_EXPORT DuplicateSwitchHandler {
  public:
   // out_value contains the existing value of the switch
   virtual void ResolveDuplicate(std::string_view key,
-                                CommandLine::StringPieceType new_value,
+                                CommandLine::StringViewType new_value,
                                 CommandLine::StringType& out_value) = 0;
   virtual ~DuplicateSwitchHandler() = default;
 };

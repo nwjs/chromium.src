@@ -267,22 +267,30 @@ CSSValue* ConsumeDescriptor(StyleRule::RuleType rule_type,
                             const CSSTokenizedValue& tokenized_value,
                             const CSSParserContext& context) {
   using Parser = AtRuleDescriptorParser;
-  CSSParserTokenRange range = tokenized_value.range;
 
   switch (rule_type) {
     case StyleRule::kFontFace:
       return Parser::ParseFontFaceDescriptor(id, tokenized_value, context);
-    case StyleRule::kFontPaletteValues:
-      return Parser::ParseAtFontPaletteValuesDescriptor(id, range, context);
-    case StyleRule::kProperty:
-      return Parser::ParseAtPropertyDescriptor(id, tokenized_value, context);
+    case StyleRule::kFontPaletteValues: {
+      CSSTokenizer tokenizer(tokenized_value.text);
+      CSSParserTokenStream stream(tokenizer);
+      return Parser::ParseAtFontPaletteValuesDescriptor(id, stream, context);
+    }
+    case StyleRule::kProperty: {
+      CSSTokenizer tokenizer(tokenized_value.text);
+      CSSParserTokenStream stream(tokenizer);
+      return Parser::ParseAtPropertyDescriptor(id, stream, context);
+    }
     case StyleRule::kCounterStyle: {
       CSSTokenizer tokenizer(tokenized_value.text);
       CSSParserTokenStream stream(tokenizer);
       return Parser::ParseAtCounterStyleDescriptor(id, stream, context);
     }
-    case StyleRule::kViewTransition:
-      return Parser::ParseAtViewTransitionDescriptor(id, range, context);
+    case StyleRule::kViewTransition: {
+      CSSTokenizer tokenizer(tokenized_value.text);
+      CSSParserTokenStream stream(tokenizer);
+      return Parser::ParseAtViewTransitionDescriptor(id, stream, context);
+    }
     case StyleRule::kCharset:
     case StyleRule::kContainer:
     case StyleRule::kStyle:
@@ -443,30 +451,41 @@ CSSValue* AtRuleDescriptorParser::ParseFontFaceDeclaration(
 
 CSSValue* AtRuleDescriptorParser::ParseAtPropertyDescriptor(
     AtRuleDescriptorID id,
-    const CSSTokenizedValue& tokenized_value,
+    CSSParserTokenStream& stream,
     const CSSParserContext& context) {
   CSSValue* parsed_value = nullptr;
-  CSSParserTokenRange range = tokenized_value.range;
   switch (id) {
     case AtRuleDescriptorID::Syntax:
-      range.ConsumeWhitespace();
-      parsed_value = css_parsing_utils::ConsumeString(range);
+      stream.ConsumeWhitespace();
+      parsed_value = css_parsing_utils::ConsumeString(stream);
       break;
     case AtRuleDescriptorID::InitialValue: {
-      // Note that we must retain leading whitespace here.
-      return CSSVariableParser::ParseDeclarationValue(
-          tokenized_value, false /* is_animation_tainted */, context);
+      bool important_ignored;
+      CSSVariableData* variable_data =
+          CSSVariableParser::ConsumeUnparsedDeclaration(
+              stream, /*allow_important_annotation=*/false,
+              /*is_animation_tainted=*/false,
+              /*must_contain_variable_reference=*/false,
+              /*restricted_value=*/false, /*comma_ends_declaration=*/false,
+              important_ignored, context.GetExecutionContext());
+      if (variable_data) {
+        return MakeGarbageCollected<CSSUnparsedDeclarationValue>(variable_data,
+                                                                 &context);
+      } else {
+        return nullptr;
+      }
     }
     case AtRuleDescriptorID::Inherits:
-      range.ConsumeWhitespace();
-      parsed_value = css_parsing_utils::ConsumeIdent<CSSValueID::kTrue,
-                                                     CSSValueID::kFalse>(range);
+      stream.ConsumeWhitespace();
+      parsed_value =
+          css_parsing_utils::ConsumeIdent<CSSValueID::kTrue,
+                                          CSSValueID::kFalse>(stream);
       break;
     default:
       break;
   }
 
-  if (!parsed_value || !range.AtEnd()) {
+  if (!parsed_value || !stream.AtEnd()) {
     return nullptr;
   }
 
@@ -475,26 +494,26 @@ CSSValue* AtRuleDescriptorParser::ParseAtPropertyDescriptor(
 
 CSSValue* AtRuleDescriptorParser::ParseAtViewTransitionDescriptor(
     AtRuleDescriptorID id,
-    CSSParserTokenRange& range,
+    CSSParserTokenStream& stream,
     const CSSParserContext& context) {
   CSSValue* parsed_value = nullptr;
   switch (id) {
     case AtRuleDescriptorID::Navigation:
-      range.ConsumeWhitespace();
+      stream.ConsumeWhitespace();
       parsed_value =
           css_parsing_utils::ConsumeIdent<CSSValueID::kAuto, CSSValueID::kNone>(
-              range);
+              stream);
       break;
     case AtRuleDescriptorID::Types: {
       CSSValueList* types = CSSValueList::CreateSpaceSeparated();
       parsed_value = types;
-      while (!range.AtEnd()) {
-        range.ConsumeWhitespace();
-        if (range.Peek().Id() == CSSValueID::kNone) {
+      while (!stream.AtEnd()) {
+        stream.ConsumeWhitespace();
+        if (stream.Peek().Id() == CSSValueID::kNone) {
           return nullptr;
         }
         CSSCustomIdentValue* ident =
-            css_parsing_utils::ConsumeCustomIdent(range, context);
+            css_parsing_utils::ConsumeCustomIdent(stream, context);
         if (!ident || ident->Value().StartsWith("-ua-")) {
           return nullptr;
         }
@@ -506,7 +525,7 @@ CSSValue* AtRuleDescriptorParser::ParseAtViewTransitionDescriptor(
       break;
   }
 
-  if (!parsed_value || !range.AtEnd()) {
+  if (!parsed_value || !stream.AtEnd()) {
     return nullptr;
   }
 

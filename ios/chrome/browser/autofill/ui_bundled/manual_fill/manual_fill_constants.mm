@@ -17,6 +17,12 @@ NSString* const kExpandedManualFillHeaderTopViewID =
 NSString* const kExpandedManualFillChromeLogoID =
     @"ExpandedManualFillChromeLogoID";
 
+NSString* const kExpandedManualFillAutofillFormButtonID =
+    @"ExpandedManualFillAutofillFormButtonID";
+
+NSString* const kExpandedManualFillOverflowMenuID =
+    @"ExpandedManualFillOverflowMenuID";
+
 NSString* const kPaymentManualFillGPayLogoID = @"PaymentManualFillGPayLogoID";
 
 }  // namespace manual_fill
@@ -34,15 +40,15 @@ NSString* const kPaymentManualFillGPayLogoID = @"PaymentManualFillGPayLogoID";
     case autofill::FillingProduct::kStandaloneCvc:
       return manual_fill::ManualFillDataType::kPaymentMethod;
     case autofill::FillingProduct::kPassword:
+      return manual_fill::ManualFillDataType::kPassword;
     case autofill::FillingProduct::kAutocomplete:
     case autofill::FillingProduct::kNone:
-      // `kPassword` acts as the default value when the FillingProduct
-      // doesn't point towards a specific data type.
-      return manual_fill::ManualFillDataType::kPassword;
+      return manual_fill::ManualFillDataType::kOther;
     case autofill::FillingProduct::kCompose:
+    case autofill::FillingProduct::kPredictionImprovements:
     case autofill::FillingProduct::kMerchantPromoCode:
       // These cases are currently not available on iOS.
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 

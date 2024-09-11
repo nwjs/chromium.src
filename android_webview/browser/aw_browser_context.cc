@@ -42,7 +42,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
-#include "components/autofill/core/browser/autocomplete_history_manager.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/cdm/browser/media_drm_storage_impl.h"
 #include "components/download/public/common/in_progress_download_manager.h"
@@ -80,6 +79,7 @@
 #include "net/proxy_resolution/proxy_resolution_service.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+#include "services/network/public/mojom/url_loader.mojom.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -753,6 +753,21 @@ blink::mojom::PermissionStatus AwBrowserContext::GetGeolocationPermission(
       base::android::ConvertUTF8ToJavaString(env, origin.spec()));
   return static_cast<blink::mojom::PermissionStatus>(
       Java_AwBrowserContext_getGeolocationPermission(env, obj_, j_origin));
+}
+
+mojo::PendingRemote<network::mojom::URLLoaderFactory>
+AwBrowserContext::CreateURLLoaderFactory() {
+  auto url_loader_factory_params =
+      network::mojom::URLLoaderFactoryParams::New();
+  url_loader_factory_params->process_id = network::mojom::kBrowserProcessId;
+  url_loader_factory_params->is_orb_enabled = false;
+  mojo::PendingRemote<network::mojom::URLLoaderFactory> factory;
+
+  GetDefaultStoragePartition()->GetNetworkContext()->CreateURLLoaderFactory(
+      factory.InitWithNewPipeAndPassReceiver(),
+      std::move(url_loader_factory_params));
+
+  return factory;
 }
 
 }  // namespace android_webview

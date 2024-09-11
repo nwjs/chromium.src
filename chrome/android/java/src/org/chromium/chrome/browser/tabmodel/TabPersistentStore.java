@@ -70,6 +70,10 @@ import java.util.concurrent.ExecutionException;
 
 /** This class handles saving and loading tab state from the persistent storage. */
 public class TabPersistentStore {
+    public static final String CLIENT_TAG_REGULAR = "Regular";
+    public static final String CLIENT_TAG_CUSTOM = "Custom";
+    public static final String CLIENT_TAG_ARCHIVED = "Archived";
+
     private static final String TAG = "tabmodel";
     private static final String TAG_MIGRATION = "fb_migration";
 
@@ -96,6 +100,8 @@ public class TabPersistentStore {
 
     private TabModelObserver mTabModelObserver;
     private TabModelSelectorTabRegistrationObserver mTabRegistrationObserver;
+
+    private int mDuplicateTabIdsSeen;
 
     @IntDef({ActiveTabState.OTHER, ActiveTabState.NTP, ActiveTabState.EMPTY})
     @Retention(RetentionPolicy.SOURCE)
@@ -287,6 +293,8 @@ public class TabPersistentStore {
         }
     }
 
+    private final Set<Integer> mSeenTabIds = new HashSet<>();
+    private final String mClientTag;
     private final TabPersistencePolicy mPersistencePolicy;
     private final TabModelSelector mTabModelSelector;
     private final TabCreatorManager mTabCreatorManager;
@@ -327,14 +335,17 @@ public class TabPersistentStore {
     /**
      * Creates an instance of a TabPersistentStore.
      *
+     * @param clientTag The client tag used to record metrics.
      * @param modelSelector The {@link TabModelSelector} to restore to and save from.
      * @param tabCreatorManager The {@link TabCreatorManager} to use.
      */
     public TabPersistentStore(
+            String clientTag,
             TabPersistencePolicy policy,
             TabModelSelector modelSelector,
             TabCreatorManager tabCreatorManager,
             TabWindowManager tabWindowManager) {
+        mClientTag = clientTag;
         mPersistencePolicy = policy;
         mTabModelSelector = modelSelector;
         mTabCreatorManager = tabCreatorManager;
@@ -795,8 +806,13 @@ public class TabPersistentStore {
                 }
             }
         }
-
         int tabId = tabToRestore.id;
+        if (ChromeFeatureList.sAndroidTabDeclutterDedupeTabIdsKillSwitch.isEnabled()
+                && mSeenTabIds.contains(tabId)) {
+            mDuplicateTabIdsSeen++;
+            return;
+        }
+
         if (tabState != null) {
             @TabRestoreMethod int tabRestoreMethod = TabRestoreMethod.TAB_STATE;
             RecordHistogram.recordEnumeratedHistogram(
@@ -809,6 +825,12 @@ public class TabPersistentStore {
                 mTabsToMigrate.add(tab);
             }
 
+            if (tab != null) {
+                RecordHistogram.recordBooleanHistogram(
+                        "Tabs.TabRestoreUrlMatch", tabToRestore.url.equals(tab.getUrl().getSpec()));
+            }
+
+            mSeenTabIds.add(tabId);
         } else {
             Log.w(TAG, "Failed to restore TabState; creating Tab with last known URL.");
             Tab fallbackTab =
@@ -1160,11 +1182,8 @@ public class TabPersistentStore {
         boolean isNtp = tab.isNativePage() && UrlUtilities.isNtpUrl(tab.getUrl());
         if (!isNtp) return false;
 
-        if (ChromeFeatureList.sAndroidTabGroupStableIds.isEnabled()) {
-            // Only skip NTP tabs that are not in a tab group.
-            return tab.getTabGroupId() == null;
-        }
-        return true;
+        // Only skip NTP tabs that are not in a tab group.
+        return tab.getTabGroupId() == null;
     }
 
     private void saveListToFile(TabModelSelectorMetadata listData) {
@@ -1670,19 +1689,24 @@ public class TabPersistentStore {
                 for (TabPersistentStoreObserver observer : mObservers) observer.onStateMerged();
             }
 
+            recordLegacyTabCountMetrics();
+            recordTabCountMetrics();
             cleanUpPersistentData();
             onStateLoaded();
             mTabLoader = null;
-            RecordHistogram.recordCount1MHistogram(
-                    "Tabs.Startup.TabCount.Regular", mTabModelSelector.getModel(false).getCount());
-            RecordHistogram.recordCount1MHistogram(
-                    "Tabs.Startup.TabCount.Incognito", mTabModelSelector.getModel(true).getCount());
             Log.d(
                     TAG,
                     "Loaded tab lists; counts: "
                             + mTabModelSelector.getModel(false).getCount()
                             + ","
                             + mTabModelSelector.getModel(true).getCount());
+
+            // If there were any duplicate tab ids seen, then force a write to overwrite tab ids.
+            if (ChromeFeatureList.sAndroidTabDeclutterDedupeTabIdsKillSwitch.isEnabled()
+                    && mDuplicateTabIdsSeen > 0) {
+                recordDuplicateTabIdMetrics();
+                saveState();
+            }
         } else {
             TabRestoreDetails tabToRestore = mTabsToRestore.removeFirst();
             mTabLoader = new TabLoader(tabToRestore);
@@ -1690,10 +1714,30 @@ public class TabPersistentStore {
         }
     }
 
+    private void recordDuplicateTabIdMetrics() {
+        RecordHistogram.recordCount1000Histogram(
+                "Tabs.Startup.TabCount2." + mClientTag + ".DuplicateTabIds", mDuplicateTabIdsSeen);
+    }
+
+    protected void recordLegacyTabCountMetrics() {
+        RecordHistogram.recordCount1MHistogram(
+                "Tabs.Startup.TabCount.Regular", mTabModelSelector.getModel(false).getCount());
+        RecordHistogram.recordCount1MHistogram(
+                "Tabs.Startup.TabCount.Incognito", mTabModelSelector.getModel(true).getCount());
+    }
+
+    private void recordTabCountMetrics() {
+        RecordHistogram.recordCount1MHistogram(
+                "Tabs.Startup.TabCount2." + mClientTag + ".Regular",
+                mTabModelSelector.getModel(false).getCount());
+        RecordHistogram.recordCount1MHistogram(
+                "Tabs.Startup.TabCount2." + mClientTag + ".Incognito",
+                mTabModelSelector.getModel(true).getCount());
+    }
+
     /**
      * Manages loading of {@link TabState}. Also used to track if a load is in progress and the tab
-     * details of that load.
-     * TODO(b/298058408) deprecate TabLoader
+     * details of that load. TODO(b/298058408) deprecate TabLoader
      */
     private class TabLoader {
         public final TabRestoreDetails mTabToRestore;

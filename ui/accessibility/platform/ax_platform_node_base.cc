@@ -1293,10 +1293,58 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
   AddAttributeToList(ax::mojom::BoolAttribute::kContainerLiveBusy,
                      "container-busy", attributes);
 
+  // Expose name-from.
+  ax::mojom::NameFrom name_from = GetNameFrom();
+  std::string from;
+  bool is_explicit_name = true;
+  switch (static_cast<ax::mojom::NameFrom>(name_from)) {
+    case ax::mojom::NameFrom::kAttribute:
+      from = "attribute";
+      DCHECK(!GetName().empty());
+      break;
+    case ax::mojom::NameFrom::kCaption:
+      from = "caption";
+      DCHECK(!GetName().empty());
+      break;
+    case ax::mojom::NameFrom::kContents:
+      is_explicit_name = false;
+      from = "contents";
+      DCHECK(!GetName().empty());
+      break;
+    case ax::mojom::NameFrom::kPlaceholder:
+      from = "placeholder";
+      DCHECK(!GetName().empty());
+      break;
+    case ax::mojom::NameFrom::kProhibited:
+    case ax::mojom::NameFrom::kProhibitedAndRedundant:
+      is_explicit_name = false;
+      from = "prohibited";
+      DCHECK(GetName().empty());
+      break;
+    case ax::mojom::NameFrom::kRelatedElement:
+      from = "related-element";
+      DCHECK(!GetName().empty());
+      break;
+    case ax::mojom::NameFrom::kPopoverAttribute:
+    case ax::mojom::NameFrom::kTitle:
+      from = "tooltip";
+      DCHECK(!GetName().empty());
+      break;
+    case ax::mojom::NameFrom::kValue:
+      from = "value";
+      DCHECK(!GetName().empty());
+      break;
+    case ax::mojom::NameFrom::kAttributeExplicitlyEmpty:
+      break;
+    case ax::mojom::NameFrom::kNone:
+      is_explicit_name = false;
+      break;  // Not exposed.
+  }
+  if (!from.empty()) {
+    AddAttributeToList("name-from", from, attributes);
+  }
   // Expose the non-standard explicit-name IA2 attribute.
-  int name_from;
-  if (GetIntAttribute(ax::mojom::IntAttribute::kNameFrom, &name_from) &&
-      name_from != static_cast<int32_t>(ax::mojom::NameFrom::kContents)) {
+  if (is_explicit_name) {
     AddAttributeToList("explicit-name", "true", attributes);
   }
 
@@ -1422,20 +1470,6 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
       AddAttributeToList(ax::mojom::IntAttribute::kAriaCellColumnIndex,
                          "colindex", attributes);
     }
-
-    // Experimental: expose aria-rowtext / aria-coltext. Not standardized
-    // yet, but obscure enough that it's safe to expose.
-    // http://crbug.com/791634
-    for (const auto& attribute_value : GetHtmlAttributes()) {
-      const std::string& attr = attribute_value.first;
-      const std::string& value = attribute_value.second;
-      if (attr == "aria-coltext") {
-        AddAttributeToList("coltext", value, attributes);
-      }
-      if (attr == "aria-rowtext") {
-        AddAttributeToList("rowtext", value, attributes);
-      }
-    }
   }
 
   // Expose row or column header sort direction.
@@ -1462,16 +1496,21 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
   }
 
   if (IsCellOrTableHeader(GetRole())) {
-    // Expose colspan attribute.
-    std::string colspan;
-    if (GetHtmlAttribute("aria-colspan", &colspan)) {
-      AddAttributeToList("colspan", colspan, attributes);
-    }
-    // Expose rowspan attribute.
-    std::string rowspan;
-    if (GetHtmlAttribute("aria-rowspan", &rowspan)) {
-      AddAttributeToList("rowspan", rowspan, attributes);
-    }
+    // These are the older, backwards compatible names that work with JAWS/NVDA:
+    AddAttributeToList(ax::mojom::StringAttribute::kAriaCellColumnIndexText,
+                       "coltext", attributes);
+    AddAttributeToList(ax::mojom::StringAttribute::kAriaCellRowIndexText,
+                       "rowtext", attributes);
+    // These newer names are consistent with the ARIA attribute names:
+    AddAttributeToList(ax::mojom::StringAttribute::kAriaCellColumnIndexText,
+                       "colindextext", attributes);
+    AddAttributeToList(ax::mojom::StringAttribute::kAriaCellRowIndexText,
+                       "rowindextext", attributes);
+
+    AddAttributeToList(ax::mojom::IntAttribute::kAriaCellColumnSpan, "colspan",
+                       attributes);
+    AddAttributeToList(ax::mojom::IntAttribute::kAriaCellRowSpan, "rowspan",
+                       attributes);
   }
 
   // Expose the value of a progress bar, slider, scroll bar or <select> element.
@@ -1918,9 +1957,9 @@ int AXPlatformNodeBase::GetHypertextOffsetFromEndpoint(
     return hypertext_offset;
   }
 
-  // Case 3. Is the selection endpoint in a completely different part of the
-  // tree?
-  //
+  // Case 3. Selection endpoint is in a completely different part of the tree:
+  // - Return 0 if it's in an earlier part of the tree.
+  // - Return GetHypertext.size() if it's in a later part of the tree.
   // We can safely assume that the endpoint is in another part of the tree or
   // at common parent, and that this object is a descendant of common parent.
   std::optional<size_t> endpoint_index_in_common_parent;
@@ -1932,15 +1971,27 @@ int AXPlatformNodeBase::GetHypertextOffsetFromEndpoint(
     }
   }
 
-  if (endpoint_index_in_common_parent < index_in_common_parent)
+  if (endpoint_index_in_common_parent < index_in_common_parent) {
+    // In earlier point in tree than endpoint_object.
     return 0;
-  if (endpoint_index_in_common_parent > index_in_common_parent)
+  }
+  if (endpoint_index_in_common_parent > index_in_common_parent) {
+    // In later point in the tree than endpoint_object.
     return static_cast<int>(GetHypertext().size());
+  }
 
   // TODO(crbug.com/40897578): Make sure this doesn't fire then turn the last
   // conditional into a CHECK_GT(endpoint_index_in_common_parent,
   // index_in_common_parent); and remove this code path.
-  DUMP_WILL_BE_NOTREACHED();
+  DUMP_WILL_BE_NOTREACHED()
+      << "Was not in descendant, so the endpoint_index_in_common_parent should "
+         "be < or > than the index_in_common_parent:\n"
+      << "\n* This: " << this << "\n* Endpoint object: " << endpoint_object
+      << "\n* Endpoint offset: " << endpoint_offset
+      << "\n* Common parent: " << common_parent
+      << "\n* Index in common parent: " << index_in_common_parent.value_or(-99)
+      << "\n* Endpoint in common parent: "
+      << endpoint_index_in_common_parent.value_or(-99);
   return -1;
 }
 

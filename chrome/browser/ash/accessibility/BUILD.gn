@@ -65,6 +65,7 @@ static_library("accessibility") {
 
   public_deps = [
     "//base",
+    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/profiles:profile",
     "//chrome/common/extensions/api",
     "//chromeos/ash/components/audio",
@@ -188,7 +189,6 @@ source_set("browser_tests") {
     "//base",
     "//chrome/app:command_ids",
     "//chrome/browser/apps/app_service",
-    "//chrome/browser/ash:test_support",
     "//chrome/browser/ash/accessibility/service:test_support",
     "//chrome/browser/ash/app_list/search",
     "//chrome/browser/ash/app_list/test:test_support",
@@ -198,6 +198,8 @@ source_set("browser_tests") {
     "//chrome/browser/ash/login/session",
     "//chrome/browser/ash/login/test:test_support",
     "//chrome/browser/ash/login/ui",
+    "//chrome/browser/ash/preferences",
+    "//chrome/browser/ui/ash/shelf",
     "//chrome/test:test_support",
     "//components/live_caption:constants",
     "//ui/events:test_support",

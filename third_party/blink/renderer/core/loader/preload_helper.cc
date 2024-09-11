@@ -153,8 +153,9 @@ bool MediaMatches(const String& media,
                   const ExecutionContext* execution_context) {
   MediaQuerySet* media_queries =
       MediaQuerySet::Create(media, execution_context);
-  MediaQueryEvaluator evaluator(media_values);
-  return evaluator.Eval(*media_queries);
+  MediaQueryEvaluator* evaluator =
+      MakeGarbageCollected<MediaQueryEvaluator>(media_values);
+  return evaluator->Eval(*media_queries);
 }
 
 KURL GetBestFitImageURL(const Document& document,
@@ -912,10 +913,11 @@ void PreloadHelper::FetchCompressionDictionaryIfNeeded(
 
   FetchParameters link_fetch_params(std::move(resource_request), options);
   IdleRequestOptions* idle_options = IdleRequestOptions::Create();
-  document.RequestIdleCallback(
-      MakeGarbageCollected<LoadDictionaryWhenIdleTask>(
-          std::move(link_fetch_params), document.Fetcher(), pending_preload),
-      idle_options);
+  ScriptedIdleTaskController::From(*document.GetExecutionContext())
+      .RegisterCallback(MakeGarbageCollected<LoadDictionaryWhenIdleTask>(
+                            std::move(link_fetch_params), document.Fetcher(),
+                            pending_preload),
+                        idle_options);
 }
 
 Resource* PreloadHelper::StartPreload(ResourceType type,
@@ -944,10 +946,15 @@ Resource* PreloadHelper::StartPreload(ResourceType type,
 
       params.SetRequestContext(mojom::blink::RequestContextType::SCRIPT);
       params.SetRequestDestination(network::mojom::RequestDestination::kScript);
+      const bool v8_compile_hints_magic_comment_runtime_enabled =
+          RuntimeEnabledFeatures::JavaScriptCompileHintsMagicRuntimeEnabled(
+              document.GetExecutionContext());
+
       resource = ScriptResource::Fetch(
           params, resource_fetcher, nullptr, document.GetAgent().isolate(),
           ScriptResource::kAllowStreaming, v8_compile_hints_producer,
-          v8_compile_hints_consumer);
+          v8_compile_hints_consumer,
+          v8_compile_hints_magic_comment_runtime_enabled);
       break;
     }
     case ResourceType::kCSSStyleSheet:

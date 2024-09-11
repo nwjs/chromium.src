@@ -26,8 +26,13 @@ NSString* const kNTPFeedHeaderIdentityDisc = @"kNTPFeedHeaderIdentityDisc";
 NSString* const kNTPCustomizationMenuButtonIdentifier =
     @"NTPCustomizationMenuButtonIdentifier";
 
+NSString* const kNTPFeedHeaderIdentityDiscBadge =
+    @"kNTPFeedHeaderIdentityDiscBadge";
+
 const CGFloat kHomeModuleContainerCornerRadius = 24.0f;
 
 const CGFloat kHomeModuleMinimumPadding = 4;
 
 const CGFloat kSpaceBetweenModules = 14;
+
+const NSInteger kCustomizationNewBadgeMaxImpressionCount = 3;

@@ -384,8 +384,6 @@ component("base") {
     "memory/memory_pressure_listener.h",
     "memory/memory_pressure_monitor.cc",
     "memory/memory_pressure_monitor.h",
-    "memory/nonscannable_memory.cc",
-    "memory/nonscannable_memory.h",
     "memory/page_size.h",
     "memory/platform_shared_memory_handle.cc",
     "memory/platform_shared_memory_handle.h",
@@ -425,12 +423,14 @@ component("base") {
     "memory/shared_memory_mapper.h",
     "memory/shared_memory_mapping.cc",
     "memory/shared_memory_mapping.h",
+    "memory/shared_memory_safety_checker.h",
     "memory/shared_memory_security_policy.cc",
     "memory/shared_memory_security_policy.h",
     "memory/shared_memory_tracker.cc",
     "memory/shared_memory_tracker.h",
     "memory/singleton.h",
     "memory/stack_allocated.h",
+    "memory/structured_shared_memory.h",
     "memory/unsafe_shared_memory_pool.cc",
     "memory/unsafe_shared_memory_pool.h",
     "memory/unsafe_shared_memory_region.cc",
@@ -475,6 +475,7 @@ component("base") {
     "metrics/histogram_flattener.h",
     "metrics/histogram_functions.cc",
     "metrics/histogram_functions.h",
+    "metrics/histogram_functions_internal_overloads.h",
     "metrics/histogram_macros.h",
     "metrics/histogram_macros_internal.h",
     "metrics/histogram_macros_local.h",
@@ -554,12 +555,14 @@ component("base") {
     "process/process_info.h",
     "process/set_process_title.cc",
     "process/set_process_title.h",
+    "profiler/call_stack_profile_params.h",
     "profiler/frame.cc",
     "profiler/frame.h",
     "profiler/metadata_recorder.cc",
     "profiler/metadata_recorder.h",
     "profiler/module_cache.cc",
     "profiler/module_cache.h",
+    "profiler/process_type.h",
     "profiler/profile_builder.h",
     "profiler/register_context.h",
     "profiler/sample_metadata.cc",
@@ -791,7 +794,6 @@ component("base") {
     "task/thread_pool/pooled_task_runner_delegate.h",
     "task/thread_pool/priority_queue.cc",
     "task/thread_pool/priority_queue.h",
-    "task/thread_pool/semaphore.h",
     "task/thread_pool/sequence.cc",
     "task/thread_pool/sequence.h",
     "task/thread_pool/service_thread.cc",
@@ -808,8 +810,6 @@ component("base") {
     "task/thread_pool/thread_group.h",
     "task/thread_pool/thread_group_impl.cc",
     "task/thread_pool/thread_group_impl.h",
-    "task/thread_pool/thread_group_semaphore.cc",
-    "task/thread_pool/thread_group_semaphore.h",
     "task/thread_pool/thread_group_worker_delegate.cc",
     "task/thread_pool/thread_group_worker_delegate.h",
     "task/thread_pool/thread_pool_impl.cc",
@@ -820,8 +820,6 @@ component("base") {
     "task/thread_pool/worker_thread.cc",
     "task/thread_pool/worker_thread.h",
     "task/thread_pool/worker_thread_observer.h",
-    "task/thread_pool/worker_thread_semaphore.cc",
-    "task/thread_pool/worker_thread_semaphore.h",
     "task/thread_pool/worker_thread_set.cc",
     "task/thread_pool/worker_thread_set.h",
     "task/thread_pool/worker_thread_waitable_event.cc",
@@ -1114,7 +1112,7 @@ component("base") {
   if (build_rust_base_conversions) {
     sources += [
       "containers/span_rust.h",
-      "strings/string_piece_rust.h",
+      "strings/string_view_rust.h",
     ]
 
     # Base provides conversions between CXX types and base types (e.g.
@@ -1557,7 +1555,6 @@ component("base") {
       "rand_util_nacl.cc",
       "sync_socket_nacl.cc",
       "system/sys_info_nacl.cc",
-      "task/thread_pool/semaphore/semaphore_default.cc",
       "threading/platform_thread_linux_base.cc",
       "threading/platform_thread_nacl.cc",
     ]
@@ -1635,10 +1632,6 @@ component("base") {
         "base_paths_android.cc",
         "base_paths_android.h",
       ]
-    }
-
-    if (is_linux || is_chromeos || is_android || is_fuchsia) {
-      sources += [ "task/thread_pool/semaphore/semaphore_posix.cc" ]
     }
 
     if (is_posix) {
@@ -1819,7 +1812,6 @@ component("base") {
       "synchronization/waitable_event_watcher_win.cc",
       "synchronization/waitable_event_win.cc",
       "system/sys_info_win.cc",
-      "task/thread_pool/semaphore/semaphore_win.cc",
       "threading/platform_thread_win.cc",
       "threading/platform_thread_win.h",
       "threading/thread_local_storage_win.cc",
@@ -2036,7 +2028,6 @@ component("base") {
       "strings/sys_string_conversions_apple.mm",
       "synchronization/waitable_event_apple.cc",
       "system/sys_info_apple.mm",
-      "task/thread_pool/semaphore/semaphore_apple.cc",
       "threading/platform_thread_apple.mm",
       "time/time_apple.mm",
     ]
@@ -2944,6 +2935,15 @@ if ((is_win && (current_cpu == "x64" || current_cpu == "arm64")) || is_mac ||
   loadable_module("base_profiler_test_support_library") {
     testonly = true
     sources = [ "profiler/test_support_library.cc" ]
+
+    # Don't link libc++ and libc++abi into the shared library.
+    # libc++abi uses `thread_local`, and that interferes with
+    # the ability to unload shared libraries on some systems.
+    no_default_deps = true
+    if (!toolchain_for_rust_host_build_tools) {
+      deps = [ "//build/config:common_deps_without_libcxx" ]
+      configs += [ "//build/config/sanitizers:link_shared_library" ]
+    }
   }
 }
 
@@ -2958,6 +2958,13 @@ if (is_android && (current_cpu == "arm" || current_cpu == "arm64")) {
   loadable_module("base_profiler_reparsing_test_support_library") {
     testonly = true
     sources = [ "profiler/test_support_library.cc" ]
+
+    # For consistency with base_profiler_reparsing_test_support_library.
+    no_default_deps = true
+    if (!toolchain_for_rust_host_build_tools) {
+      deps = [ "//build/config:common_deps_without_libcxx" ]
+      configs += [ "//build/config/sanitizers:link_shared_library" ]
+    }
   }
 }
 
@@ -3310,6 +3317,7 @@ test("base_unittests") {
     "memory/shared_memory_mapping_unittest.cc",
     "memory/shared_memory_region_unittest.cc",
     "memory/singleton_unittest.cc",
+    "memory/structured_shared_memory_unittest.cc",
     "memory/unsafe_shared_memory_pool_unittest.cc",
     "memory/values_equivalent_unittest.cc",
     "memory/weak_auto_reset_unittest.cc",
@@ -3355,6 +3363,7 @@ test("base_unittests") {
     "power_monitor/power_monitor_unittest.cc",
     "power_monitor/timer_sampling_event_source_unittest.cc",
     "process/environment_internal_unittest.cc",
+    "process/launch_unittest.cc",
     "process/memory_unittest.cc",
     "process/process_metrics_unittest.cc",
     "process/process_unittest.cc",
@@ -3453,7 +3462,6 @@ test("base_unittests") {
     "task/thread_pool/job_task_source_unittest.cc",
     "task/thread_pool/pooled_single_thread_task_runner_manager_unittest.cc",
     "task/thread_pool/priority_queue_unittest.cc",
-    "task/thread_pool/semaphore/semaphore_unittest.cc",
     "task/thread_pool/sequence_unittest.cc",
     "task/thread_pool/service_thread_unittest.cc",
     "task/thread_pool/task_source_sort_key_unittest.cc",
@@ -3463,7 +3471,6 @@ test("base_unittests") {
     "task/thread_pool/test_utils.cc",
     "task/thread_pool/test_utils.h",
     "task/thread_pool/thread_group_impl_unittest.cc",
-    "task/thread_pool/thread_group_semaphore_unittest.cc",
     "task/thread_pool/thread_group_unittest.cc",
     "task/thread_pool/thread_pool_impl_unittest.cc",
     "task/thread_pool/tracked_ref_unittest.cc",
@@ -3631,6 +3638,12 @@ test("base_unittests") {
   if (is_android && enable_chrome_android_internal) {
     data_deps += [ "//clank/build/bot/filters:base_unittests_filters" ]
   }
+
+  # Since cpu_unittest depends on __ARM_FEATURE_MEMORY_TAGGING, needs to
+  # enable clang's MTE feature.
+  configs += [
+    "//base/allocator/partition_allocator/src/partition_alloc:memory_tagging",
+  ]
 
   if (build_rust_base_conversions) {
     deps += [ "//build/rust:cxx_cppdeps" ]
@@ -4127,6 +4140,10 @@ test("base_unittests") {
       ]
     }
 
+    if (is_win) {
+      sources += [ "trace_event/trace_logging_minimal_win_unittest.cc" ]
+    }
+
     deps += [
       "//third_party/perfetto/include/perfetto/trace_processor:storage",
       "//third_party/perfetto/protos/perfetto/trace:lite",
@@ -4189,6 +4206,8 @@ if (enable_nocompile_tests) {
       "logging_nocompile.nc",
       "memory/protected_memory_nocompile.nc",
       "memory/ref_counted_nocompile.nc",
+      "memory/shared_memory_mapping_nocompile.nc",
+      "memory/structured_shared_memory_nocompile.nc",
       "memory/weak_ptr_nocompile.nc",
       "metrics/field_trial_params_nocompile.nc",
       "metrics/histogram_nocompile.nc",
@@ -4440,7 +4459,6 @@ if (is_android) {
     proguard_configs = [ "android/proguard/shared_with_cronet.flags" ]
     public_deps = [
       ":activity_state_java",
-      ":api_helpers_java",
       ":base_switches_java",
       ":callback_java",
       ":command_line_java",
@@ -4725,8 +4743,6 @@ if (is_android) {
       "android/java/src/org/chromium/base/task/SequencedTaskRunner.java",
       "android/java/src/org/chromium/base/task/SequencedTaskRunnerImpl.java",
       "android/java/src/org/chromium/base/task/SerialExecutor.java",
-      "android/java/src/org/chromium/base/task/SingleThreadTaskRunner.java",
-      "android/java/src/org/chromium/base/task/SingleThreadTaskRunnerImpl.java",
       "android/java/src/org/chromium/base/task/TaskOriginException.java",
       "android/java/src/org/chromium/base/task/TaskRunner.java",
       "android/java/src/org/chromium/base/task/TaskRunnerImpl.java",
@@ -4780,6 +4796,15 @@ if (is_android) {
 
   java_cpp_enum("application_status_enum_srcjar") {
     sources = [ "android/application_status_listener.h" ]
+  }
+
+  android_library("service_loader_java") {
+    deps = [
+      ":resetters_java",
+      "//build/android:build_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+    ]
+    sources = [ "android/java/src/org/chromium/base/ServiceLoaderUtil.java" ]
   }
 
   android_library("resetters_java") {
@@ -4846,29 +4871,6 @@ if (is_android) {
       "//build/android:build_java",
       "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
       "//third_party/android_deps:com_google_errorprone_error_prone_annotations_java",
-      "//third_party/androidx:androidx_annotation_annotation_experimental_java",
-      "//third_party/androidx:androidx_annotation_annotation_java",
-      "//third_party/jni_zero:jni_zero_java",
-    ]
-  }
-
-  # TODO(crbug.com/40825179): Delete these targets and inline their calls.
-  android_library("api_helpers_java") {
-    sources = [
-      "android/java/src/org/chromium/base/compat/ApiHelperForM.java",
-      "android/java/src/org/chromium/base/compat/ApiHelperForN.java",
-      "android/java/src/org/chromium/base/compat/ApiHelperForO.java",
-      "android/java/src/org/chromium/base/compat/ApiHelperForOMR1.java",
-      "android/java/src/org/chromium/base/compat/ApiHelperForP.java",
-      "android/java/src/org/chromium/base/compat/ApiHelperForQ.java",
-      "android/java/src/org/chromium/base/compat/ApiHelperForR.java",
-      "android/java/src/org/chromium/base/compat/ApiHelperForS.java",
-    ]
-    deps = [
-      ":callback_java",
-      ":log_java",
-      ":tasks_java",
-      "//build/android:build_java",
       "//third_party/androidx:androidx_annotation_annotation_experimental_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/jni_zero:jni_zero_java",
@@ -4965,6 +4967,7 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/library_loader/EarlyNativeTest.java",
       "android/javatests/src/org/chromium/base/metrics/RecordHistogramTest.java",
       "android/javatests/src/org/chromium/base/task/AsyncTaskTest.java",
+      "android/javatests/src/org/chromium/base/task/ChainedTasksTest.java",
       "android/javatests/src/org/chromium/base/task/PostTaskTest.java",
       "android/javatests/src/org/chromium/base/task/SequencedTaskRunnerImplTest.java",
       "android/javatests/src/org/chromium/base/test/metrics/HistogramWatcherTestBase.java",
@@ -5041,6 +5044,7 @@ if (is_android) {
       "test/android/javatests/src/org/chromium/base/test/BaseChromiumAndroidJUnitRunner.java",
       "test/android/javatests/src/org/chromium/base/test/BaseJUnit4ClassRunner.java",
       "test/android/javatests/src/org/chromium/base/test/LoadNative.java",
+      "test/android/javatests/src/org/chromium/base/test/NativeCoverageInstrumentationRunListener.java",
       "test/android/javatests/src/org/chromium/base/test/ScreenshotOnFailureStatement.java",
       "test/android/javatests/src/org/chromium/base/test/SharedPreferencesTestUtil.java",
       "test/android/javatests/src/org/chromium/base/test/TestTraceEvent.java",
@@ -5106,6 +5110,11 @@ if (is_android) {
       "test/android/javatests/src/org/chromium/base/test/util/ViewActionOnDescendant.java",
       "test/android/javatests/src/org/chromium/base/test/util/ViewPrinter.java",
     ]
+    if (use_clang_coverage) {
+      mergeable_android_manifests = [
+        "test/android/javatests/AndroidManifest_NativeCoverageListener.xml",
+      ]
+    }
   }
 
   generate_jni("base_java_test_support_uncommon_jni") {

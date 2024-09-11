@@ -8,7 +8,6 @@
 #include <limits>
 
 #include "base/containers/contains.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
@@ -32,9 +31,11 @@
 #include "services/webnn/public/mojom/webnn_buffer.mojom.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom.h"
+#include "services/webnn/public/mojom/webnn_graph_builder.mojom.h"
 #include "services/webnn/webnn_buffer_impl.h"
 #include "services/webnn/webnn_context_impl.h"
 #include "services/webnn/webnn_context_provider_impl.h"
+#include "services/webnn/webnn_graph_builder_impl.h"
 #include "services/webnn/webnn_test_utils.h"
 #include "services/webnn/webnn_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -43,29 +44,12 @@ namespace webnn {
 
 namespace {
 
-ContextProperties GetContextPropertiesForTesting() {
-  // A default set of WebNNContext properties for testing purposes.
-  return WebNNContextImpl::IntersectWithBaseProperties(
-      ContextProperties(InputOperandLayout::kNchw,
-                        {/*input=*/SupportedDataTypes::All(),
-                         /*constant=*/SupportedDataTypes::All(),
-                         /*arg_min_max_input=*/SupportedDataTypes::All(),
-                         /*arg_min_max_output=*/
-                         {OperandDataType::kInt32, OperandDataType::kInt64},
-                         /*concat_inputs=*/SupportedDataTypes::All(),
-                         /*gather_input=*/SupportedDataTypes::All(),
-                         /*gather_indices=*/SupportedDataTypes::All(),
-                         /*where_condition=*/SupportedDataTypes::All(),
-                         /*where_true_value=*/SupportedDataTypes::All(),
-                         /*where_false_value=*/SupportedDataTypes::All()}));
-}
-
 // A fake WebNNGraph Mojo interface implementation that binds a pipe for
 // computing graph message.
 class FakeWebNNGraphImpl final : public WebNNGraphImpl {
  public:
-  explicit FakeWebNNGraphImpl(WebNNContextImpl* context,
-                              ComputeResourceInfo compute_resource_info)
+  FakeWebNNGraphImpl(WebNNContextImpl* context,
+                     ComputeResourceInfo compute_resource_info)
       : WebNNGraphImpl(context, std::move(compute_resource_info)) {}
   ~FakeWebNNGraphImpl() override = default;
 
@@ -100,15 +84,11 @@ class FakeWebNNGraphImpl final : public WebNNGraphImpl {
 // buffer creation message.
 class FakeWebNNBufferImpl final : public WebNNBufferImpl {
  public:
-  explicit FakeWebNNBufferImpl(
+  FakeWebNNBufferImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
       WebNNContextImpl* context,
-      mojom::BufferInfoPtr buffer_info,
-      const base::UnguessableToken& buffer_handle)
-      : WebNNBufferImpl(std::move(receiver),
-                        context,
-                        std::move(buffer_info),
-                        buffer_handle) {}
+      mojom::BufferInfoPtr buffer_info)
+      : WebNNBufferImpl(std::move(receiver), context, std::move(buffer_info)) {}
   ~FakeWebNNBufferImpl() override = default;
 
  private:
@@ -122,17 +102,12 @@ class FakeWebNNBufferImpl final : public WebNNBufferImpl {
 // creating graph message.
 class FakeWebNNContextImpl final : public WebNNContextImpl {
  public:
-  FakeWebNNContextImpl(
-      mojo::PendingReceiver<mojom::WebNNContext> receiver,
-      mojo::PendingRemote<mojom::WebNNContextClient> client_remote,
-      WebNNContextProviderImpl* context_provider,
-      base::UnguessableToken context_handle)
+  FakeWebNNContextImpl(mojo::PendingReceiver<mojom::WebNNContext> receiver,
+                       WebNNContextProviderImpl* context_provider)
       : WebNNContextImpl(std::move(receiver),
-                         std::move(client_remote),
                          context_provider,
                          GetContextPropertiesForTesting(),
-                         mojom::CreateContextOptions::New(),
-                         std::move(context_handle)) {}
+                         mojom::CreateContextOptions::New()) {}
   ~FakeWebNNContextImpl() override = default;
 
   // WebNNContextImpl:
@@ -151,32 +126,15 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
                                        std::move(callback));
   }
 
-  std::unique_ptr<WebNNBufferImpl> CreateBufferImpl(
+  void CreateBufferImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
       mojom::BufferInfoPtr buffer_info,
-      const base::UnguessableToken& buffer_handle) override {
-    return std::make_unique<FakeWebNNBufferImpl>(
-        std::move(receiver), this, std::move(buffer_info), buffer_handle);
+      CreateBufferImplCallback callback) override {
+    std::move(callback).Run(std::make_unique<FakeWebNNBufferImpl>(
+        std::move(receiver), this, std::move(buffer_info)));
   }
 
   base::WeakPtrFactory<FakeWebNNContextImpl> weak_factory_{this};
-};
-
-// A fake WebNNContextClient Mojo interface implementation that binds a pipe for
-// context lost message.
-class FakeWebNNContextClientImpl : public mojom::WebNNContextClient {
- public:
-  explicit FakeWebNNContextClientImpl(
-      mojo::PendingReceiver<mojom::WebNNContextClient> client_receiver)
-      : client_receiver_(this, std::move(client_receiver)) {}
-
-  void OnLost(const std::string& message) override { is_lost_ = true; }
-
-  bool IsLost() const { return is_lost_; }
-
- private:
-  mojo::Receiver<mojom::WebNNContextClient> client_receiver_;
-  bool is_lost_ = false;
 };
 
 // Helper class to create the FakeWebNNContext that is intended to test
@@ -189,31 +147,17 @@ class FakeWebNNBackend : public WebNNContextProviderImpl::BackendForTesting {
       mojom::WebNNContextProvider::CreateWebNNContextCallback callback)
       override {
     mojo::PendingRemote<mojom::WebNNContext> remote;
-    base::UnguessableToken context_handle = base::UnguessableToken::Create();
-    mojo::PendingReceiver<mojom::WebNNContextClient> client_receiver;
     auto context_impl = std::make_unique<FakeWebNNContextImpl>(
-        remote.InitWithNewPipeAndPassReceiver(),
-        client_receiver.InitWithNewPipeAndPassRemote(), context_provider_impl,
-        context_handle);
+        remote.InitWithNewPipeAndPassReceiver(), context_provider_impl);
     ContextProperties context_properties = context_impl->properties();
     // The receiver bound to FakeWebNNContext.
-    context_impl_ = context_impl.get();
     auto success = mojom::CreateContextSuccess::New(
-        std::move(remote), std::move(client_receiver),
-        std::move(context_properties), std::move(context_handle));
+        std::move(remote), std::move(context_properties),
+        context_impl->handle());
     std::move(callback).Run(
         mojom::CreateContextResult::NewSuccess(std::move(success)));
     return context_impl;
   }
-
-  void DestroyWebNNContext() {
-    if (context_impl_) {
-      context_impl_.ExtractAsDangling()->OnLost("Context is lost");
-    }
-  }
-
- private:
-  raw_ptr<FakeWebNNContextImpl, DanglingUntriaged> context_impl_ = nullptr;
 };
 
 bool ValidateInputsForComputing(
@@ -233,11 +177,15 @@ bool ValidateInputsForComputing(
   webnn_context.Bind(
       std::move(create_context_result->get_success()->context_remote));
 
+  mojo::AssociatedRemote<mojom::WebNNGraphBuilder> graph_builder_remote;
+  webnn_context->CreateGraphBuilder(
+      graph_builder_remote.BindNewEndpointAndPassReceiver());
+
   // Creates WebNN Graph mojo interface with the graph information which is
   // validated before compiling.
   base::test::TestFuture<mojom::CreateGraphResultPtr> create_graph_future;
-  webnn_context->CreateGraph(std::move(graph_info),
-                             create_graph_future.GetCallback());
+  graph_builder_remote->CreateGraph(std::move(graph_info),
+                                    create_graph_future.GetCallback());
   mojom::CreateGraphResultPtr create_graph_result = create_graph_future.Take();
   mojo::AssociatedRemote<mojom::WebNNGraph> webnn_graph;
   webnn_graph.Bind(std::move(create_graph_result->get_graph_remote()));
@@ -261,43 +209,58 @@ bool ValidateInputsForComputing(
   return valid;
 }
 
-struct WebNNBufferInfo {
-  base::UnguessableToken buffer_handle;
-  OperandDataType data_type;
-  std::vector<uint32_t> shape;
-  bool create_buffer;
+struct CreateBufferSuccess {
+  std::optional<mojo::AssociatedRemote<mojom::WebNNBuffer>> webnn_buffer;
+  blink::WebNNBufferToken webnn_handle;
 };
 
-WebNNBufferInfo CreateWebNNBufferInfo(OperandDataType data_type,
-                                      std::vector<uint32_t> shape,
-                                      bool create_buffer = true) {
-  return {base::UnguessableToken::Create(), data_type, std::move(shape),
-          create_buffer};
+CreateBufferSuccess CreateWebNNBuffer(
+    mojo::Remote<mojom::WebNNContext>& webnn_context,
+    OperandDataType data_type,
+    std::vector<uint32_t> shape) {
+  base::test::TestFuture<mojom::CreateBufferResultPtr> create_buffer_future;
+  webnn_context->CreateBuffer(
+      mojom::BufferInfo::New(*OperandDescriptor::Create(data_type, shape),
+                             MLBufferUsage()),
+      create_buffer_future.GetCallback());
+  mojom::CreateBufferResultPtr create_buffer_result =
+      create_buffer_future.Take();
+  mojo::AssociatedRemote<mojom::WebNNBuffer> webnn_buffer;
+  webnn_buffer.Bind(
+      std::move(create_buffer_result->get_success()->buffer_remote));
+  return CreateBufferSuccess{
+      std::move(webnn_buffer),
+      std::move(create_buffer_result->get_success()->buffer_handle)};
 }
 
-// Converts inputs and outputs to MLBuffer then dispatches them.
-bool ValidateDispatch(mojom::GraphInfoPtr graph_info,
-                      base::flat_map<std::string, WebNNBufferInfo> inputs,
-                      base::flat_map<std::string, WebNNBufferInfo> outputs) {
-  // Creates WebNN Context mojo interface with the provider.
-  mojo::Remote<mojom::WebNNContextProvider> provider_remote;
-  WebNNContextProviderImpl::CreateForTesting(
-      provider_remote.BindNewPipeAndPassReceiver());
-
+mojo::Remote<mojom::WebNNContext> CreateWebNNContext(
+    mojo::Remote<mojom::WebNNContextProvider>& webnn_context_provider) {
   base::test::TestFuture<mojom::CreateContextResultPtr> create_context_future;
-  provider_remote->CreateWebNNContext(mojom::CreateContextOptions::New(),
-                                      create_context_future.GetCallback());
+  webnn_context_provider->CreateWebNNContext(
+      mojom::CreateContextOptions::New(), create_context_future.GetCallback());
   mojom::CreateContextResultPtr create_context_result =
       create_context_future.Take();
   mojo::Remote<mojom::WebNNContext> webnn_context;
   webnn_context.Bind(
       std::move(create_context_result->get_success()->context_remote));
+  return webnn_context;
+}
+
+// Converts inputs and outputs to MLBuffer then dispatches them.
+bool ValidateDispatch(
+    mojo::Remote<mojom::WebNNContext>& webnn_context,
+    mojom::GraphInfoPtr graph_info,
+    base::flat_map<std::string, CreateBufferSuccess> inputs,
+    base::flat_map<std::string, CreateBufferSuccess> outputs) {
+  mojo::AssociatedRemote<mojom::WebNNGraphBuilder> graph_builder_remote;
+  webnn_context->CreateGraphBuilder(
+      graph_builder_remote.BindNewEndpointAndPassReceiver());
 
   // Creates WebNN Graph mojo interface with the graph information which is
   // validated before compiling.
   base::test::TestFuture<mojom::CreateGraphResultPtr> create_graph_future;
-  webnn_context->CreateGraph(std::move(graph_info),
-                             create_graph_future.GetCallback());
+  graph_builder_remote->CreateGraph(std::move(graph_info),
+                                    create_graph_future.GetCallback());
   mojom::CreateGraphResultPtr create_graph_result = create_graph_future.Take();
   mojo::AssociatedRemote<mojom::WebNNGraph> webnn_graph;
   webnn_graph.Bind(std::move(create_graph_result->get_graph_remote()));
@@ -311,40 +274,16 @@ bool ValidateDispatch(mojom::GraphInfoPtr graph_info,
         valid = false;
       }));
 
-  // Create buffers for the inputs.
-  std::vector<mojo::AssociatedRemote<mojom::WebNNBuffer>> input_buffers(
-      inputs.size());
-  base::flat_map<std::string, base::UnguessableToken> dispatch_inputs;
+  // Assign buffers for the inputs.
+  base::flat_map<std::string, blink::WebNNBufferToken> dispatch_inputs;
   for (const auto& [name, buffer_info] : inputs) {
-    if (buffer_info.create_buffer) {
-      mojo::AssociatedRemote<mojom::WebNNBuffer> webnn_buffer;
-      webnn_context->CreateBuffer(
-          webnn_buffer.BindNewEndpointAndPassReceiver(),
-          mojom::BufferInfo::New(*OperandDescriptor::Create(
-                                     buffer_info.data_type, buffer_info.shape),
-                                 MLBufferUsage()),
-          buffer_info.buffer_handle);
-      input_buffers.push_back(std::move(webnn_buffer));
-    }
-    dispatch_inputs.emplace(name, buffer_info.buffer_handle);
+    dispatch_inputs.emplace(name, buffer_info.webnn_handle);
   }
 
-  // Create buffers for the outputs.
-  std::vector<mojo::AssociatedRemote<mojom::WebNNBuffer>> output_buffers(
-      outputs.size());
-  base::flat_map<std::string, base::UnguessableToken> dispatch_outputs;
+  // Assign buffers for the outputs.
+  base::flat_map<std::string, blink::WebNNBufferToken> dispatch_outputs;
   for (const auto& [name, buffer_info] : outputs) {
-    if (buffer_info.create_buffer) {
-      mojo::AssociatedRemote<mojom::WebNNBuffer> webnn_buffer;
-      webnn_context->CreateBuffer(
-          webnn_buffer.BindNewEndpointAndPassReceiver(),
-          mojom::BufferInfo::New(*OperandDescriptor::Create(
-                                     buffer_info.data_type, buffer_info.shape),
-                                 MLBufferUsage()),
-          buffer_info.buffer_handle);
-      output_buffers.push_back(std::move(webnn_buffer));
-    }
-    dispatch_outputs.emplace(name, buffer_info.buffer_handle);
+    dispatch_outputs.emplace(name, buffer_info.webnn_handle);
   }
 
   // Ensure CreateBuffer messages have a chance to finish before calling
@@ -379,8 +318,6 @@ class WebNNGraphImplTest : public testing::Test {
     WebNNContextProviderImpl::SetBackendForTesting(nullptr);
   }
 
-  void DestroyWebNNContext() { backend_for_testing_.DestroyWebNNContext(); }
-
  protected:
   WebNNGraphImplTest()
       : scoped_feature_list_(
@@ -402,7 +339,7 @@ struct OperandInfo {
 struct ArgMinMaxTester {
   mojom::ArgMinMax::Kind kind;
   OperandInfo input;
-  std::vector<uint32_t> axes;
+  uint32_t axis;
   bool keep_dimensions = false;
   OperandInfo output;
   bool expected;
@@ -416,46 +353,25 @@ struct ArgMinMaxTester {
         builder.BuildInput("input", input.dimensions, input.type);
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
-    builder.BuildArgMinMax(kind, input_operand_id, output_operand_id, axes,
+    builder.BuildArgMinMax(kind, input_operand_id, output_operand_id, axis,
                            keep_dimensions);
 
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
-
-TEST_F(WebNNGraphImplTest, ValidateContextLost) {
-  // Creates WebNN Context mojo interface with the provider.
-  mojo::Remote<mojom::WebNNContextProvider> provider_remote;
-  WebNNContextProviderImpl::CreateForTesting(
-      provider_remote.BindNewPipeAndPassReceiver());
-
-  base::test::TestFuture<mojom::CreateContextResultPtr> create_context_future;
-  provider_remote->CreateWebNNContext(mojom::CreateContextOptions::New(),
-                                      create_context_future.GetCallback());
-  mojom::CreateContextResultPtr create_context_result =
-      create_context_future.Take();
-  mojo::PendingReceiver<mojom::WebNNContextClient> context_client_receiver =
-      std::move(create_context_result->get_success()->context_client_receiver);
-  FakeWebNNContextClientImpl context_client_impl(
-      std::move(context_client_receiver));
-  EXPECT_FALSE(context_client_impl.IsLost());
-  DestroyWebNNContext();
-  EXPECT_TRUE(
-      base::test::RunUntil([&]() { return context_client_impl.IsLost(); }));
-}
 
 TEST_F(WebNNGraphImplTest, ArgMinMaxTest) {
   const auto ArgMinMaxKinds = {mojom::ArgMinMax_Kind::kMin,
                                mojom::ArgMinMax_Kind::kMax};
   for (const auto kind : ArgMinMaxKinds) {
     {
-      // Test argMinMax operator with axis = {0} and keep_dimensions = true.
+      // Test argMinMax operator with axis = 0 and keep_dimensions = true.
       ArgMinMaxTester{.kind = kind,
                       .input = {.type = OperandDataType::kFloat32,
                                 .dimensions = {2, 3, 4, 5}},
-                      .axes = {0},
+                      .axis = 0,
                       .keep_dimensions = true,
                       .output = {.type = OperandDataType::kInt32,
                                  .dimensions = {1, 3, 4, 5}},
@@ -463,40 +379,27 @@ TEST_F(WebNNGraphImplTest, ArgMinMaxTest) {
           .Test();
     }
     {
-      // Test argMinMax operator with axis = {0, 1} and keep_dimensions = false.
+      // Test argMinMax operator with axis = 1 and keep_dimensions = false.
       ArgMinMaxTester{
           .kind = kind,
           .input = {.type = OperandDataType::kFloat16,
                     .dimensions = {2, 3, 4, 5}},
-          .axes = {0, 1},
+          .axis = 1,
           .keep_dimensions = false,
-          .output = {.type = OperandDataType::kInt32, .dimensions = {4, 5}},
+          .output = {.type = OperandDataType::kInt32, .dimensions = {2, 4, 5}},
           .expected = true}
           .Test();
     }
     {
-      // Test the invalid graph when value in the axes sequence is greater than
-      // or equal to input rank.
+      // Test the invalid graph when axis is greater than or equal to input
+      // rank.
       ArgMinMaxTester{.kind = kind,
                       .input = {.type = OperandDataType::kFloat32,
                                 .dimensions = {2, 3, 4, 5}},
-                      .axes = {4},
+                      .axis = 4,
                       .keep_dimensions = true,
                       .output = {.type = OperandDataType::kInt32,
                                  .dimensions = {2, 3, 4, 1}},
-                      .expected = false}
-          .Test();
-    }
-    {
-      // Test the invalid graph when two or more values are same in the axes
-      // sequence.
-      ArgMinMaxTester{.kind = mojom::ArgMinMax::Kind::kMax,
-                      .input = {.type = OperandDataType::kFloat32,
-                                .dimensions = {2, 3, 4, 5}},
-                      .axes = {1, 1},
-                      .keep_dimensions = true,
-                      .output = {.type = OperandDataType::kInt32,
-                                 .dimensions = {1, 3, 4, 5}},
                       .expected = false}
           .Test();
     }
@@ -505,7 +408,7 @@ TEST_F(WebNNGraphImplTest, ArgMinMaxTest) {
       ArgMinMaxTester{.kind = kind,
                       .input = {.type = OperandDataType::kFloat32,
                                 .dimensions = {2, 3, 4, 5}},
-                      .axes = {0},
+                      .axis = 0,
                       .keep_dimensions = true,
                       .output = {.type = OperandDataType::kFloat32,
                                  .dimensions = {1, 3, 4, 5}},
@@ -517,7 +420,7 @@ TEST_F(WebNNGraphImplTest, ArgMinMaxTest) {
       ArgMinMaxTester{.kind = kind,
                       .input = {.type = OperandDataType::kFloat32,
                                 .dimensions = {2, 3, 4, 5}},
-                      .axes = {0},
+                      .axis = 0,
                       .keep_dimensions = false,
                       .output = {.type = OperandDataType::kInt32,
                                  .dimensions = {1, 3, 4, 5}},
@@ -530,10 +433,11 @@ TEST_F(WebNNGraphImplTest, ArgMinMaxTest) {
       GraphInfoBuilder builder;
       uint64_t input_operand_id =
           builder.BuildInput("input", {2, 3, 4, 5}, OperandDataType::kInt32);
-      builder.BuildArgMinMax(kind, input_operand_id, input_operand_id, {0},
-                             true);
-      EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                     builder.GetGraphInfo()));
+      builder.BuildArgMinMax(kind, input_operand_id, input_operand_id,
+                             /*axis=*/0,
+                             /*keep_dimensions=*/true);
+      EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+          context_properties, builder.GetGraphInfo()));
     }
   }
 }
@@ -559,8 +463,8 @@ struct ClampTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildClamp(input_operand_id, output_operand_id,
                        attributes.min_value, attributes.max_value);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -665,8 +569,8 @@ struct HardSigmoidTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildHardSigmoid(input_operand_id, output_operand_id, alpha, beta);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -718,16 +622,6 @@ TEST_F(WebNNGraphImplTest, HardSigmoidTest) {
   }
 }
 
-struct Activation {
-  mojom::Activation::Tag kind;
-  std::optional<float> elu_alpha;
-  std::optional<float> hard_sigmoid_alpha;
-  std::optional<float> hard_sigmoid_beta;
-  std::optional<float> leaky_relu_alpha;
-  std::optional<float> linear_alpha;
-  std::optional<float> linear_beta;
-};
-
 struct BatchNormalizationTester {
   OperandInfo input;
   OperandInfo mean;
@@ -769,8 +663,8 @@ struct BatchNormalizationTester {
     builder.BuildBatchNormalization(input_operand_id, mean_operand_id,
                                     variance_operand_id, output_operand_id,
                                     std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -994,8 +888,8 @@ TEST_F(WebNNGraphImplTest, BatchNormalizationTest) {
         input_operand_id, mean_operand_id, variance_operand_id,
         input_operand_id,
         BatchNormalizationTester::BatchNormalizationAttributes{});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for mean operand == output operand.
@@ -1010,8 +904,8 @@ TEST_F(WebNNGraphImplTest, BatchNormalizationTest) {
     builder.BuildBatchNormalization(
         input_operand_id, mean_operand_id, variance_operand_id, mean_operand_id,
         BatchNormalizationTester::BatchNormalizationAttributes{});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for variance operand == output operand.
@@ -1027,8 +921,8 @@ TEST_F(WebNNGraphImplTest, BatchNormalizationTest) {
         input_operand_id, mean_operand_id, variance_operand_id,
         variance_operand_id,
         BatchNormalizationTester::BatchNormalizationAttributes{});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -1053,8 +947,8 @@ struct ConcatTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildConcat(std::move(input_operand_ids), output_operand_id, axis);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -1206,8 +1100,8 @@ struct Conv2dTester {
     builder.BuildConv2d(type, input_operand_id, filter_operand_id,
                         output_operand_id, std::move(attributes),
                         bias_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -1406,8 +1300,8 @@ TEST_F(WebNNGraphImplTest, Conv2dTest) {
                         filter_operand_id, input_operand_id,
                         Conv2dTester::Conv2dAttributes{}, std::nullopt);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for filter operand == output operand.
@@ -1422,8 +1316,8 @@ TEST_F(WebNNGraphImplTest, Conv2dTest) {
                         filter_operand_id, filter_operand_id,
                         Conv2dTester::Conv2dAttributes{}, std::nullopt);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -1625,8 +1519,8 @@ TEST_F(WebNNGraphImplTest, ConvTranspose2dTest) {
                         filter_operand_id, input_operand_id,
                         Conv2dTester::Conv2dAttributes{}, std::nullopt);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for filter operand == output operand.
@@ -1641,8 +1535,8 @@ TEST_F(WebNNGraphImplTest, ConvTranspose2dTest) {
                         filter_operand_id, filter_operand_id,
                         Conv2dTester::Conv2dAttributes{}, std::nullopt);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -1666,8 +1560,8 @@ struct ElementWiseBinaryTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildElementWiseBinary(kind, lhs_operand_id, rhs_operand_id,
                                    output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 
@@ -1851,8 +1745,8 @@ struct ElementWiseUnaryTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildElementWiseUnary(kind, input_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -2175,8 +2069,8 @@ struct EluTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildElu(input_operand_id, output_operand_id, alpha);
 
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -2200,8 +2094,8 @@ TEST_F(WebNNGraphImplTest, EluTest) {
   }
   {
     // Test the invalid graph when the alpha is NAN.
-    EluTester{.input = {.type = OperandDataType::kInt32, .dimensions = {2}},
-              .output = {.type = OperandDataType::kInt32, .dimensions = {2}},
+    EluTester{.input = {.type = OperandDataType::kFloat32, .dimensions = {2}},
+              .output = {.type = OperandDataType::kFloat32, .dimensions = {2}},
               .alpha = NAN,
               .expected = false}
         .Test();
@@ -2236,8 +2130,8 @@ TEST_F(WebNNGraphImplTest, EluTest) {
     uint64_t input_operand_id =
         builder.BuildInput("input", {2}, OperandDataType::kFloat32);
     builder.BuildElu(input_operand_id, input_operand_id, /*alpha*/ 1.0);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -2257,8 +2151,8 @@ struct ExpandTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildExpand(input_operand_id, output_operand_id);
 
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -2322,8 +2216,8 @@ TEST_F(WebNNGraphImplTest, ExpandTest) {
     uint64_t input_operand_id =
         builder.BuildInput("input", {2}, OperandDataType::kFloat32);
     builder.BuildExpand(input_operand_id, input_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -2350,8 +2244,8 @@ struct GatherTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildGather(input_operand_id, indices_operand_id, output_operand_id,
                         attributes.axis);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -2440,8 +2334,8 @@ TEST_F(WebNNGraphImplTest, GatherTest) {
         builder.BuildInput("indices", {2}, OperandDataType::kUint32);
     builder.BuildGather(input_operand_id, indices_operand_id, input_operand_id,
                         /*axis*/ 0);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the output is as same as the indices.
@@ -2453,8 +2347,8 @@ TEST_F(WebNNGraphImplTest, GatherTest) {
         builder.BuildInput("indices", {3}, OperandDataType::kUint32);
     builder.BuildGather(input_operand_id, indices_operand_id,
                         indices_operand_id, /*axis*/ 0);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -2473,8 +2367,8 @@ struct GeluTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildGelu(input_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -2517,8 +2411,8 @@ TEST_F(WebNNGraphImplTest, GeluTest) {
     uint64_t input_operand_id =
         builder.BuildInput("input", {1}, OperandDataType::kFloat16);
     builder.BuildGelu(input_operand_id, input_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -2552,8 +2446,8 @@ struct GemmTester {
     }
     builder.BuildGemm(a_operand_id, b_operand_id, output_operand_id,
                       std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -2679,9 +2573,9 @@ struct GruTester {
     mojom::RecurrentNetworkDirection direction =
         mojom::RecurrentNetworkDirection::kForward;
     mojom::GruWeightLayout layout = mojom::GruWeightLayout::kZrn;
-    std::vector<Activation> activations = {
-        Activation{.kind = mojom::Activation::Tag::kSigmoid},
-        Activation{.kind = mojom::Activation::Tag::kTanh}};
+    std::vector<mojom::RecurrentNetworkActivation> activations = {
+        mojom::RecurrentNetworkActivation::kSigmoid,
+        mojom::RecurrentNetworkActivation::kTanh};
   };
 
   OperandInfo input;
@@ -2733,8 +2627,8 @@ struct GruTester {
     builder.BuildGru(input_operand_id, weight_operand_id,
                      recurrent_weight_operand_id, std::move(output_operand_ids),
                      steps, hidden_size, std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -2816,42 +2710,11 @@ TEST_F(WebNNGraphImplTest, GruTest) {
                                             hidden_size}},
         .steps = steps,
         .hidden_size = hidden_size,
-        .attributes = {.direction = mojom::RecurrentNetworkDirection::kBackward,
-                       .activations =
-                           {Activation{.kind =
-                                           mojom::Activation::Tag::kSigmoid},
-                            Activation{.kind = mojom::Activation::Tag::kTanh},
-                            Activation{.kind = mojom::Activation::Tag::kTanh}}},
-        .outputs = {{.type = OperandDataType::kFloat32,
-                     .dimensions = {num_directions, batch_size, hidden_size}}},
-        .expected = false}
-        .Test();
-  }
-  {
-    // Test the invalid graph when the leakyRelu activation has incorrect
-    // attributes.
-    uint32_t steps = 2;
-    uint32_t batch_size = 1;
-    uint32_t input_size = 3;
-    uint32_t hidden_size = 4;
-    uint32_t num_directions = 1;
-    GruTester{
-        .input = {.type = OperandDataType::kFloat32,
-                  .dimensions = {steps, batch_size, input_size}},
-        .weight = {.type = OperandDataType::kFloat32,
-                   .dimensions = {num_directions, 3 * hidden_size, input_size}},
-        .recurrent_weight = {.type = OperandDataType::kFloat32,
-                             .dimensions = {num_directions, 3 * hidden_size,
-                                            hidden_size}},
-        .steps = steps,
-        .hidden_size = hidden_size,
         .attributes =
             {.direction = mojom::RecurrentNetworkDirection::kBackward,
-             .activations = {Activation{.kind =
-                                            mojom::Activation::Tag::kSigmoid},
-                             Activation{
-                                 .kind = mojom::Activation::Tag::kLeakyRelu,
-                                 .leaky_relu_alpha = NAN}}},
+             .activations = {mojom::RecurrentNetworkActivation::kSigmoid,
+                             mojom::RecurrentNetworkActivation::kTanh,
+                             mojom::RecurrentNetworkActivation::kTanh}},
         .outputs = {{.type = OperandDataType::kFloat32,
                      .dimensions = {num_directions, batch_size, hidden_size}}},
         .expected = false}
@@ -2934,8 +2797,8 @@ TEST_F(WebNNGraphImplTest, GruTest) {
         {initial_hidden_state_operand_id}, steps, hidden_size,
         GruTester::GruAttributes{.initial_hidden_state_operand_id =
                                      initial_hidden_state_operand_id});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -2945,9 +2808,9 @@ struct GruCellTester {
     std::optional<uint64_t> recurrent_bias_operand_id;
     bool reset_after = true;
     mojom::GruWeightLayout layout = mojom::GruWeightLayout::kZrn;
-    std::vector<Activation> activations = {
-        Activation{.kind = mojom::Activation::Tag::kSigmoid},
-        Activation{.kind = mojom::Activation::Tag::kTanh}};
+    std::vector<mojom::RecurrentNetworkActivation> activations = {
+        mojom::RecurrentNetworkActivation::kSigmoid,
+        mojom::RecurrentNetworkActivation::kTanh};
   };
 
   OperandInfo input;
@@ -2990,8 +2853,8 @@ struct GruCellTester {
     builder.BuildGruCell(input_operand_id, weight_operand_id,
                          recurrent_weight_operand_id, hidden_state_operand_id,
                          output_operand_id, hidden_size, std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -3288,30 +3151,10 @@ TEST_F(WebNNGraphImplTest, GruCellTest) {
         .recurrent_weight = valid_recurrent_weight,
         .hidden_state = valid_hidden_state,
         .hidden_size = hidden_size,
-        .attributes = {.activations =
-                           {Activation{.kind =
-                                           mojom::Activation::Tag::kSigmoid},
-                            Activation{.kind = mojom::Activation::Tag::kTanh},
-                            Activation{.kind = mojom::Activation::Tag::kTanh}}},
-        .output = valid_output,
-        .expected = false}
-        .Test();
-  }
-  {
-    // Test the invalid graph when the leakyRelu activation has incorrect
-    // attributes.
-    GruCellTester{
-        .input = valid_input,
-        .weight = valid_weight,
-        .recurrent_weight = valid_recurrent_weight,
-        .hidden_state = valid_hidden_state,
-        .hidden_size = hidden_size,
         .attributes =
-            {.activations = {Activation{.kind =
-                                            mojom::Activation::Tag::kSigmoid},
-                             Activation{
-                                 .kind = mojom::Activation::Tag::kLeakyRelu,
-                                 .leaky_relu_alpha = NAN}}},
+            {.activations = {mojom::RecurrentNetworkActivation::kSigmoid,
+                             mojom::RecurrentNetworkActivation::kTanh,
+                             mojom::RecurrentNetworkActivation::kTanh}},
         .output = valid_output,
         .expected = false}
         .Test();
@@ -3381,8 +3224,8 @@ TEST_F(WebNNGraphImplTest, GruCellTest) {
                          recurrent_weight_operand_id, hidden_state_operand_id,
                          hidden_state_operand_id, hidden_size,
                          GruCellTester::GruCellAttributes{.reset_after = true});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -3421,8 +3264,8 @@ struct InstanceNormalizationTester {
     }
     builder.BuildInstanceNormalization(input_operand_id, output_operand_id,
                                        std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -3553,8 +3396,8 @@ TEST_F(WebNNGraphImplTest, InstanceNormalizationTest) {
     builder.BuildInstanceNormalization(
         input_operand_id, input_operand_id,
         InstanceNormalizationTester::InstanceNormalizationAttributes{});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the output is the same as the scale.
@@ -3570,8 +3413,8 @@ TEST_F(WebNNGraphImplTest, InstanceNormalizationTest) {
 
     builder.BuildInstanceNormalization(input_operand_id, scale_operand_id,
                                        std::move(attributes));
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the output is the same as the bias.
@@ -3587,8 +3430,8 @@ TEST_F(WebNNGraphImplTest, InstanceNormalizationTest) {
 
     builder.BuildInstanceNormalization(input_operand_id, bias_operand_id,
                                        std::move(attributes));
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -3626,8 +3469,8 @@ struct LayerNormalizationTester {
     }
     builder.BuildLayerNormalization(input_operand_id, output_operand_id,
                                     std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -3750,8 +3593,8 @@ TEST_F(WebNNGraphImplTest, LayerNormalizationTest) {
     builder.BuildLayerNormalization(
         input_operand_id, input_operand_id,
         LayerNormalizationTester::LayerNormalizationAttributes{});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the output is the same as the scale.
@@ -3768,8 +3611,8 @@ TEST_F(WebNNGraphImplTest, LayerNormalizationTest) {
 
     builder.BuildLayerNormalization(input_operand_id, scale_operand_id,
                                     std::move(attributes));
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the output is the same as the bias.
@@ -3786,8 +3629,8 @@ TEST_F(WebNNGraphImplTest, LayerNormalizationTest) {
 
     builder.BuildLayerNormalization(input_operand_id, bias_operand_id,
                                     std::move(attributes));
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -3802,10 +3645,10 @@ struct LstmTester {
     mojom::RecurrentNetworkDirection direction =
         mojom::RecurrentNetworkDirection::kForward;
     mojom::LstmWeightLayout layout = mojom::LstmWeightLayout::kIofg;
-    std::vector<Activation> activations = {
-        Activation{.kind = mojom::Activation::Tag::kSigmoid},
-        Activation{.kind = mojom::Activation::Tag::kTanh},
-        Activation{.kind = mojom::Activation::Tag::kTanh}};
+    std::vector<mojom::RecurrentNetworkActivation> activations = {
+        mojom::RecurrentNetworkActivation::kSigmoid,
+        mojom::RecurrentNetworkActivation::kTanh,
+        mojom::RecurrentNetworkActivation::kTanh};
   };
 
   OperandInfo input;
@@ -3869,8 +3712,8 @@ struct LstmTester {
                       recurrent_weight_operand_id,
                       std::move(output_operand_ids), steps, hidden_size,
                       std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -3947,40 +3790,6 @@ TEST_F(WebNNGraphImplTest, LstmTest) {
         .Test();
   }
   {
-    // Test the invalid graph when the leakyRelu activation has incorrect
-    // attributes.
-    uint32_t steps = 2;
-    uint32_t batch_size = 1;
-    uint32_t input_size = 3;
-    uint32_t hidden_size = 4;
-    uint32_t direction_count = 1;
-    LstmTester{
-        .input = {.type = OperandDataType::kFloat32,
-                  .dimensions = {steps, batch_size, input_size}},
-        .weight = {.type = OperandDataType::kFloat32,
-                   .dimensions = {direction_count, 4 * hidden_size,
-                                  input_size}},
-        .recurrent_weight = {.type = OperandDataType::kFloat32,
-                             .dimensions = {direction_count, 4 * hidden_size,
-                                            hidden_size}},
-        .steps = steps,
-        .hidden_size = hidden_size,
-        .attributes =
-            {.direction = mojom::RecurrentNetworkDirection::kBackward,
-             .activations = {Activation{.kind =
-                                            mojom::Activation::Tag::kSigmoid},
-                             Activation{.kind = mojom::Activation::Tag::kTanh},
-                             Activation{
-                                 .kind = mojom::Activation::Tag::kLeakyRelu,
-                                 .leaky_relu_alpha = NAN}}},
-        .outputs = {{.type = OperandDataType::kFloat32,
-                     .dimensions = {direction_count, batch_size, hidden_size}},
-                    {.type = OperandDataType::kFloat32,
-                     .dimensions = {direction_count, batch_size, hidden_size}}},
-        .expected = false}
-        .Test();
-  }
-  {
     // Test the invalid graph when the output is incorrect.
     uint32_t steps = 2;
     uint32_t batch_size = 1;
@@ -4032,8 +3841,8 @@ TEST_F(WebNNGraphImplTest, LstmTest) {
                       recurrent_weight_operand_id,
                       {output_operand_id, recurrent_weight_operand_id}, steps,
                       hidden_size, LstmTester::LstmAttributes{});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the initial cell state has the same id as
@@ -4067,8 +3876,8 @@ TEST_F(WebNNGraphImplTest, LstmTest) {
         {initial_cell_state_operand_id, output_operand_id}, steps, hidden_size,
         LstmTester::LstmAttributes{.initial_cell_state_operand_id =
                                        initial_cell_state_operand_id});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -4078,10 +3887,10 @@ struct LstmCellTester {
     std::optional<uint64_t> recurrent_bias_operand_id;
     std::optional<uint64_t> peephole_weight_operand_id;
     mojom::LstmWeightLayout layout = mojom::LstmWeightLayout::kIofg;
-    std::vector<Activation> activations = {
-        Activation{.kind = mojom::Activation::Tag::kSigmoid},
-        Activation{.kind = mojom::Activation::Tag::kTanh},
-        Activation{.kind = mojom::Activation::Tag::kTanh}};
+    std::vector<mojom::RecurrentNetworkActivation> activations = {
+        mojom::RecurrentNetworkActivation::kSigmoid,
+        mojom::RecurrentNetworkActivation::kTanh,
+        mojom::RecurrentNetworkActivation::kTanh};
   };
 
   OperandInfo input;
@@ -4138,8 +3947,8 @@ struct LstmCellTester {
                           recurrent_weight_operand_id, hidden_state_operand_id,
                           cell_state_operand_id, std::move(output_operand_ids),
                           hidden_size, std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -4315,27 +4124,6 @@ TEST_F(WebNNGraphImplTest, LstmCellTest) {
         .Test();
   }
   {
-    // Test the invalid graph when the leakyRelu activation has incorrect
-    // attributes.
-    LstmCellTester{
-        .input = valid_input,
-        .weight = valid_weight,
-        .recurrent_weight = valid_recurrent_weight,
-        .hidden_state = valid_hidden_state,
-        .cell_state = valid_cell_state,
-        .hidden_size = hidden_size,
-        .attributes =
-            {.activations = {Activation{.kind =
-                                            mojom::Activation::Tag::kSigmoid},
-                             Activation{.kind = mojom::Activation::Tag::kTanh},
-                             Activation{
-                                 .kind = mojom::Activation::Tag::kLeakyRelu,
-                                 .leaky_relu_alpha = NAN}}},
-        .outputs = valid_outputs,
-        .expected = false}
-        .Test();
-  }
-  {
     // Test the invalid graph when the cell state has the same id as
     // one of the outputs.
     auto context_properties = GetContextPropertiesForTesting();
@@ -4359,8 +4147,8 @@ TEST_F(WebNNGraphImplTest, LstmCellTest) {
                           cell_state_operand_id,
                           {cell_state_operand_id, output_operand_id},
                           hidden_size, LstmTester::LstmAttributes{});
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -4381,8 +4169,8 @@ struct MatmulTester {
         builder.BuildOutput("output", output.dimensions, output.type);
 
     builder.BuildMatmul(a_operand_id, b_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -4490,8 +4278,8 @@ TEST_F(WebNNGraphImplTest, MatmulTest) {
     uint64_t b_operand_id =
         builder.BuildInput("b", {3, 4}, OperandDataType::kFloat32);
     builder.BuildMatmul(a_operand_id, b_operand_id, a_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -4515,8 +4303,8 @@ struct PadTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildPad(input_operand_id, output_operand_id, beginning_padding,
                      ending_padding, mode, value);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -4587,8 +4375,8 @@ TEST_F(WebNNGraphImplTest, PadTest) {
         builder.BuildInput("input", {2, 3}, OperandDataType::kFloat32);
     builder.BuildPad(input_operand_id, input_operand_id, {1, 1}, {1, 1},
                      mojom::PaddingMode::Tag::kConstant, 0);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -4623,8 +4411,8 @@ struct Pool2dTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildPool2d(kind, input_operand_id, output_operand_id,
                         std::move(attributes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -4789,8 +4577,8 @@ struct PreluTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildPrelu(input_operand_id, slope_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -4898,8 +4686,8 @@ TEST_F(WebNNGraphImplTest, PreluTest) {
     uint64_t slope_operand_id =
         builder.BuildInput("slope", {2, 3}, OperandDataType::kFloat32);
     builder.BuildPrelu(input_operand_id, slope_operand_id, input_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the slope is as same as output.
@@ -4910,8 +4698,8 @@ TEST_F(WebNNGraphImplTest, PreluTest) {
     uint64_t output_operand_id =
         builder.BuildOutput("output", {2, 3}, OperandDataType::kFloat32);
     builder.BuildPrelu(input_operand_id, output_operand_id, output_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -4935,8 +4723,8 @@ struct ReduceTester {
     builder.BuildReduce(kind, input_operand_id, output_operand_id, axes,
                         keep_dimensions);
 
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -5191,8 +4979,8 @@ TEST_F(WebNNGraphImplTest, ReduceTest) {
         builder.BuildInput("input", {2, 3}, OperandDataType::kFloat32);
     builder.BuildReduce(mojom::Reduce::Kind::kSumSquare, input_operand_id,
                         input_operand_id, {0}, false);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -5211,8 +4999,8 @@ struct ReluTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildRelu(input_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -5228,10 +5016,11 @@ TEST_F(WebNNGraphImplTest, ReluTest) {
   }
   {
     // Test relu operator for 4-D tensor with int32 input.
-    ReluTester{
-        .input = {.type = OperandDataType::kInt32, .dimensions = {1, 5, 3, 7}},
-        .output = {.type = OperandDataType::kInt32, .dimensions = {1, 5, 3, 7}},
-        .expected = true}
+    ReluTester{.input = {.type = OperandDataType::kFloat32,
+                         .dimensions = {1, 5, 3, 7}},
+               .output = {.type = OperandDataType::kFloat32,
+                          .dimensions = {1, 5, 3, 7}},
+               .expected = true}
         .Test();
   }
   {
@@ -5281,8 +5070,8 @@ struct Resample2dTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildResample2d(input_operand_id, output_operand_id, attributes);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -5500,8 +5289,8 @@ TEST_F(WebNNGraphImplTest, Resample2dTest) {
     builder.BuildResample2d(input_operand_id, input_operand_id,
                             Resample2dTester::Resample2dAttributes{});
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -5520,8 +5309,8 @@ struct ReshapeTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildReshape(input_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -5585,8 +5374,8 @@ struct SliceTester {
     builder.BuildSlice(input_operand_id, output_operand_id,
                        std::move(attributes.starts),
                        std::move(attributes.sizes));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -5717,8 +5506,8 @@ struct FloatingPointUnaryTester {
         builder.BuildTanh(input_operand_id, output_operand_id);
         break;
     }
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -5729,14 +5518,6 @@ TEST_F(WebNNGraphImplTest, FloatingPointUnaryTest) {
     FloatingPointUnaryTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {2, 6}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {2, 6}},
-        .expected = true}
-        .Test();
-  }
-  {
-    // Test the operator for 3-D tensor with float16 input.
-    FloatingPointUnaryTester{
-        .input = {.type = OperandDataType::kFloat16, .dimensions = {2, 6, 4}},
-        .output = {.type = OperandDataType::kFloat16, .dimensions = {2, 6, 4}},
         .expected = true}
         .Test();
   }
@@ -5775,8 +5556,8 @@ TEST_F(WebNNGraphImplTest, FloatingPointUnaryTest) {
     builder.BuildLeakyRelu(input_operand_id, input_operand_id,
                            /*alpha*/ 1.0);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for leaky relu when alpha is NAN.
@@ -5789,8 +5570,8 @@ TEST_F(WebNNGraphImplTest, FloatingPointUnaryTest) {
     builder.BuildLeakyRelu(input_operand_id, output_operand_id,
                            /*alpha*/ NAN);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for linear when the input is as same as output.
@@ -5801,8 +5582,8 @@ TEST_F(WebNNGraphImplTest, FloatingPointUnaryTest) {
     builder.BuildLinear(input_operand_id, input_operand_id,
                         /*alpha*/ 1.0, /*beta*/ 0.0);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for linear when alpha is NAN.
@@ -5815,8 +5596,8 @@ TEST_F(WebNNGraphImplTest, FloatingPointUnaryTest) {
     builder.BuildLinear(input_operand_id, output_operand_id,
                         /*alpha*/ NAN, /*beta*/ 0.0);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for linear when beta is NAN.
@@ -5829,8 +5610,8 @@ TEST_F(WebNNGraphImplTest, FloatingPointUnaryTest) {
     builder.BuildLinear(input_operand_id, output_operand_id,
                         /*alpha*/ 1.0, /*beta*/ NAN);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for sigmoid when the input is as same as
@@ -5841,8 +5622,8 @@ TEST_F(WebNNGraphImplTest, FloatingPointUnaryTest) {
         builder.BuildInput("input", {2}, OperandDataType::kFloat32);
     builder.BuildSigmoid(input_operand_id, input_operand_id);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph for tanh when the input is as same as output.
@@ -5852,8 +5633,8 @@ TEST_F(WebNNGraphImplTest, FloatingPointUnaryTest) {
         builder.BuildInput("input", {2}, OperandDataType::kFloat32);
     builder.BuildTanh(input_operand_id, input_operand_id);
 
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -5873,8 +5654,8 @@ struct SoftmaxTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildSoftmax(input_operand_id, output_operand_id, axis);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -5885,15 +5666,6 @@ TEST_F(WebNNGraphImplTest, SoftmaxTest) {
     SoftmaxTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
-        .axis = 1,
-        .expected = true}
-        .Test();
-  }
-  {
-    // Test softmax operator for input operand with [1, 4] dimensions.
-    SoftmaxTester{
-        .input = {.type = OperandDataType::kFloat16, .dimensions = {1, 4}},
-        .output = {.type = OperandDataType::kFloat16, .dimensions = {1, 4}},
         .axis = 1,
         .expected = true}
         .Test();
@@ -5961,8 +5733,8 @@ struct SoftplusTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildSoftplus(input_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -6007,8 +5779,8 @@ TEST_F(WebNNGraphImplTest, SoftplusTest) {
     uint64_t input_operand_id =
         builder.BuildInput("input", {4, 6}, OperandDataType::kFloat32);
     builder.BuildSoftplus(input_operand_id, input_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -6027,8 +5799,8 @@ struct SoftsignTester {
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildSoftsign(input_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -6074,8 +5846,8 @@ TEST_F(WebNNGraphImplTest, SoftsignTest) {
     uint64_t input_operand_id =
         builder.BuildInput("input", {4, 6}, OperandDataType::kFloat32);
     builder.BuildSoftsign(input_operand_id, input_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -6100,8 +5872,8 @@ struct SplitTester {
                               outputs[i].dimensions, outputs[i].type));
     }
     builder.BuildSplit(input_operand_id, output_operand_ids, axis);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -6185,8 +5957,8 @@ TEST_F(WebNNGraphImplTest, ValidateSplitTest) {
     builder.BuildSplit(input_operand_id, {input_operand_id}, 0);
     builder.BuildSplit(input_operand_id,
                        {builder.BuildOutput("output", {4, 6}, kFloat32)}, 0);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -6207,8 +5979,8 @@ struct TransposeTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildTranspose(input_operand_id, output_operand_id,
                            std::move(permutation));
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -6297,8 +6069,8 @@ struct TriangularTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildTriangular(input_operand_id, output_operand_id, upper,
                             diagonal);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -6339,8 +6111,8 @@ TEST_F(WebNNGraphImplTest, TriangularTest) {
 
     builder.BuildTriangular(input_operand_id, input_operand_id,
                             /*upper*/ true, /*diagonal*/ -1);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -6366,8 +6138,8 @@ struct WhereTester {
         builder.BuildOutput("output", output.dimensions, output.type);
     builder.BuildWhere(condition_operand_id, true_value_operand_id,
                        false_value_operand_id, output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -6505,8 +6277,8 @@ TEST_F(WebNNGraphImplTest, WhereTest) {
         builder.BuildInput("false_value", {2, 4}, OperandDataType::kFloat32);
     builder.BuildWhere(condition_operand_id, true_value_operand_id,
                        false_value_operand_id, condition_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the true_value is as same as output.
@@ -6520,8 +6292,8 @@ TEST_F(WebNNGraphImplTest, WhereTest) {
         builder.BuildInput("false_value", {2, 4}, OperandDataType::kFloat32);
     builder.BuildWhere(condition_operand_id, true_value_operand_id,
                        false_value_operand_id, true_value_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
   {
     // Test the invalid graph when the false_value is as same as output.
@@ -6535,8 +6307,8 @@ TEST_F(WebNNGraphImplTest, WhereTest) {
         builder.BuildInput("false_value", {2, 4}, OperandDataType::kFloat32);
     builder.BuildWhere(condition_operand_id, true_value_operand_id,
                        false_value_operand_id, false_value_operand_id);
-    EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                   builder.GetGraphInfo()));
+    EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+        context_properties, builder.GetGraphInfo()));
   }
 }
 
@@ -6555,8 +6327,8 @@ TEST_F(WebNNGraphImplTest, ValidateInputsTest) {
   builder.BuildElementWiseBinary(mojom::ElementWiseBinary::Kind::kAdd,
                                  lhs_operand_id, rhs_operand_id,
                                  output_operand_id);
-  EXPECT_TRUE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()));
+  EXPECT_TRUE(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()));
 
   {
     // Validate the inputs match the expected.
@@ -6621,184 +6393,214 @@ TEST_F(WebNNGraphImplTest, ValidateDispatchTest) {
   builder.BuildElementWiseBinary(mojom::ElementWiseBinary::Kind::kAdd,
                                  lhs_operand_id, rhs_operand_id,
                                  output_2_operand_id);
-  EXPECT_TRUE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()));
+  EXPECT_TRUE(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()));
+
+  mojo::Remote<mojom::WebNNContextProvider> provider_remote;
+  WebNNContextProviderImpl::CreateForTesting(
+      provider_remote.BindNewPipeAndPassReceiver());
 
   {
     // Validate the inputs match the expected.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_TRUE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                 std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_TRUE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                 std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid inputs for invalid input size.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid outputs for invalid output size.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
     outputs["a_different_output_name"] =
-        CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+        CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid inputs for invalid input name.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["a_different_input_name"] = {base::UnguessableToken::Create(),
-                                        kDataType, kShape};
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["a_different_input_name"] =
+        CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid outputs for invalid input name.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
     outputs["a_different_output_name"] =
-        CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+        CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid inputs for invalid first input shape.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, {2, 5});
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, {2, 5});
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid inputs for invalid first input data type.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(OperandDataType::kInt8, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] =
+        CreateWebNNBuffer(webnn_context, OperandDataType::kInt8, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid outputs for invalid first output shape.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, {3, 4});
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, {3, 4});
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid inputs for invalid second input data type.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(OperandDataType::kInt32, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] =
+        CreateWebNNBuffer(webnn_context, OperandDataType::kInt32, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid outputs for invalid second output shape.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, {2, 5});
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, {2, 5});
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the inputs using the same buffer more than once.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    const WebNNBufferInfo& input_buffer =
-        CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["lhs"] = input_buffer;
-    inputs["rhs"] = {input_buffer.buffer_handle, kDataType, kShape,
-                     /*create_buffer=*/false};
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_TRUE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                 std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = {/*webnn_buffer=*/std::nullopt, inputs["lhs"].webnn_handle};
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_TRUE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                 std::move(inputs), std::move(outputs)));
   }
   {
     // Test the invalid outputs when using the same buffer more than once.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    const WebNNBufferInfo& output_buffer =
-        CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output1"] = output_buffer;
-    outputs["output2"] = {output_buffer.buffer_handle, kDataType, kShape,
-                          /*create_buffer=*/false};
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = {/*webnn_buffer=*/std::nullopt,
+                          outputs["output1"].webnn_handle};
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the inputs and outputs are invalid when using the same buffer.
-    const WebNNBufferInfo& input_and_output_buffer = {
-        base::UnguessableToken::Create(), kDataType, kShape};
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = input_and_output_buffer;
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = input_and_output_buffer;
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = {/*webnn_buffer=*/std::nullopt,
+                          inputs["lhs"].webnn_handle};
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the inputs are invalid when using a invalid buffer.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape, false);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = {/*webnn_buffer=*/std::nullopt};
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
   {
     // Test the outputs are invalid when using a invalid buffer.
-    base::flat_map<std::string, WebNNBufferInfo> inputs;
-    inputs["lhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    inputs["rhs"] = CreateWebNNBufferInfo(kDataType, kShape);
-    base::flat_map<std::string, WebNNBufferInfo> outputs;
-    outputs["output1"] = CreateWebNNBufferInfo(kDataType, kShape);
-    outputs["output2"] = CreateWebNNBufferInfo(kDataType, kShape, false);
-    EXPECT_FALSE(ValidateDispatch(builder.CloneGraphInfo(), std::move(inputs),
-                                  std::move(outputs)));
+    mojo::Remote<mojom::WebNNContext> webnn_context =
+        CreateWebNNContext(provider_remote);
+    base::flat_map<std::string, CreateBufferSuccess> inputs;
+    inputs["lhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    inputs["rhs"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    base::flat_map<std::string, CreateBufferSuccess> outputs;
+    outputs["output1"] = CreateWebNNBuffer(webnn_context, kDataType, kShape);
+    outputs["output2"] = {/*webnn_buffer=*/std::nullopt};
+    EXPECT_FALSE(ValidateDispatch(webnn_context, builder.CloneGraphInfo(),
+                                  std::move(inputs), std::move(outputs)));
   }
 }
 
@@ -6821,8 +6623,8 @@ struct ConstantOperandTester {
     builder.BuildElementWiseBinary(mojom::ElementWiseBinary::Kind::kAdd,
                                    lhs_operand_id, rhs_operand_id,
                                    output_operand_id);
-    EXPECT_EQ(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()),
+    EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()),
               expected);
   }
 };
@@ -6876,8 +6678,8 @@ TEST_F(WebNNGraphImplTest, BuildMultipleInputsAppendingConstants) {
                     intermediate_2_operand_id, GemmTester::GemmAttributes());
   builder.BuildGemm(intermediate_1_operand_id, intermediate_2_operand_id,
                     output_operand_id, GemmTester::GemmAttributes());
-  EXPECT_TRUE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()));
+  EXPECT_TRUE(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()));
 }
 
 // Test building a graph with two inputs and two constant in the following
@@ -6915,8 +6717,8 @@ TEST_F(WebNNGraphImplTest, BuildMultipleConstantsAppendingInputs) {
 
   builder.BuildGemm(intermediate_1_operand_id, intermediate_2_operand_id,
                     output_operand_id, GemmTester::GemmAttributes());
-  EXPECT_TRUE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                builder.GetGraphInfo()));
+  EXPECT_TRUE(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
+                                                       builder.GetGraphInfo()));
 }
 
 TEST_F(WebNNGraphImplTest, BuildOperationWithNonexistentInputs) {
@@ -6931,8 +6733,8 @@ TEST_F(WebNNGraphImplTest, BuildOperationWithNonexistentInputs) {
       builder.BuildOutput("output", {2, 2}, OperandDataType::kUint8);
   builder.BuildRelu(intermediate_operand_id, output_operand_id);
   builder.BuildRelu(input_operand_id, intermediate_operand_id);
-  EXPECT_FALSE(WebNNGraphImpl::IsValidForTesting(context_properties,
-                                                 builder.GetGraphInfo()));
+  EXPECT_FALSE(WebNNGraphBuilderImpl::IsValidForTesting(
+      context_properties, builder.GetGraphInfo()));
 }
 
 }  // namespace webnn

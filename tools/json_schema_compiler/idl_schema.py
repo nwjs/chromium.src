@@ -50,20 +50,13 @@ def ProcessComment(comment):
 
   Returns: A tuple that looks like:
     (
-      "The processed comment, minus all |parameter| mentions and jsexterns.",
-      "Any block wrapped in <jsexterns></jsexterns>.",
+      "The processed comment, minus all |parameter| mentions.",
       {
         'parameter_name_1': "The comment that followed |parameter_name_1|:",
         ...
       }
     )
   '''
-  jsexterns = None
-  match = re.search('<jsexterns>(.*)</jsexterns>', comment, re.DOTALL)
-  if match:
-    jsexterns = match.group(1).strip()
-    comment = comment[:match.start()] + comment[match.end():]
-
   def add_paragraphs(content):
     paragraphs = content.split('\n\n')
     if len(paragraphs) < 2:
@@ -92,7 +85,7 @@ def ProcessComment(comment):
         add_paragraphs(comment[param_comment_start:param_comment_end].strip())
         .replace('\n', ''))
 
-  return (parent_comment, jsexterns, params)
+  return (parent_comment, params)
 
 
 class Callspec(object):
@@ -251,10 +244,9 @@ class Member(object):
     parameter_comments = OrderedDict()
     for node in self.node.GetChildren():
       if node.cls == 'Comment':
-        (parent_comment, jsexterns, parameter_comments) = ProcessComment(
+        (parent_comment, parameter_comments) = ProcessComment(
             node.GetName())
         properties['description'] = parent_comment
-        properties['jsexterns'] = jsexterns
       elif node.cls == 'Callspec':
         name, parameters, return_type, returns_async = Callspec(
             node, parameter_comments
@@ -293,11 +285,6 @@ class Member(object):
     if value is not None:
       # IDL always returns values as strings, so cast to their real type.
       properties['value'] = self.cast_from_json_type(properties['type'], value)
-    enum_values = self.node.GetProperty('legalValues')
-    if enum_values:
-      # IDL always returns enum values as strings, so cast to their real type.
-      properties['enum'] = [self.cast_from_json_type(properties['type'], enum)
-                            for enum in enum_values]
     return name, properties
 
   def cast_from_json_type(self, json_type, string_value):

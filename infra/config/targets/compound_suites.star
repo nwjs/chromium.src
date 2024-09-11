@@ -46,6 +46,7 @@ targets.legacy_compound_suite(
         "linux_flavor_specific_chromium_gtests",
         "vr_android_specific_chromium_tests",
         "vr_platform_specific_chromium_gtests",
+        "webview_instrumentation_test_apk_single_process_mode_gtests",
     ],
 )
 
@@ -64,6 +65,7 @@ targets.legacy_compound_suite(
         "system_webview_shell_instrumentation_tests",  # Not an experimental test
         "webview_cts_tests_gtest",
         "webview_ui_instrumentation_tests",
+        "webview_instrumentation_test_apk_single_process_mode_gtests",
     ],
 )
 
@@ -94,6 +96,7 @@ targets.legacy_compound_suite(
         "system_webview_shell_instrumentation_tests",  # Not an experimental test
         "webview_cts_tests_gtest",
         "webview_ui_instrumentation_tests",
+        "webview_instrumentation_test_apk_single_process_mode_gtests",
     ],
 )
 
@@ -114,6 +117,7 @@ targets.legacy_compound_suite(
         # "vr_android_specific_chromium_tests",
         # "vr_platform_specific_chromium_gtests",
         "webview_64_cts_tests_gtest",
+        "webview_instrumentation_test_apk_single_process_mode_gtests",
         "webview_ui_instrumentation_tests",
     ],
 )
@@ -141,15 +145,6 @@ targets.legacy_compound_suite(
     basic_suites = [
         "chrome_isolated_script_tests",
         "chrome_private_code_test_isolated_scripts",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "chrome_wpt_tests_three_modes",
-    basic_suites = [
-        "chromium_wpt_tests_isolated_scripts",
-        "chromium_wpt_tests_headful_isolated_scripts",
-        "headless_shell_wpt_tests_isolated_scripts",
     ],
 )
 
@@ -215,6 +210,7 @@ targets.legacy_compound_suite(
         "linux_flavor_specific_chromium_gtests",
         "vr_android_specific_chromium_tests",
         "vr_platform_specific_chromium_gtests",
+        "webview_instrumentation_test_apk_single_process_mode_gtests",
     ],
 )
 
@@ -280,15 +276,6 @@ targets.legacy_compound_suite(
     ],
 )
 
-targets.legacy_compound_suite(
-    name = "chromium_linux_cast_receiver_gtests",
-    basic_suites = [
-        "cast_receiver_gtests",
-        "chromium_gtests",
-        "linux_flavor_specific_chromium_gtests",
-    ],
-)
-
 # When changing something here, change chromium_linux_and_gl_gtests,
 # chromium_linux_and_gl_and_vulkan_gtests in the same way.
 targets.legacy_compound_suite(
@@ -320,10 +307,6 @@ targets.legacy_compound_suite(
         "telemetry_perf_unittests_isolated_scripts",
         "vulkan_swiftshader_isolated_scripts",
         "chromium_web_tests_high_dpi_isolated_scripts",
-        # TODO(crbug.com/328079854): we should eventually run chrome_wpt_tests where
-        # blink_wpt_tests runs on Linux. There should not have any resource
-        # concern on this because those are all CI builders.
-        #"chromium_wpt_tests_isolated_scripts",
     ],
 )
 
@@ -362,7 +345,6 @@ targets.legacy_compound_suite(
         # TODO(crbug.com/40287410): Remove this once the BackgroundResourceFetch
         # feature launches.
         "chromium_web_tests_brfetch_isolated_scripts",
-        "chromium_wpt_tests_isolated_scripts",
     ],
 )
 
@@ -805,13 +787,6 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "gpu_fuchsia_telemetry_tests",
-    basic_suites = [
-        "gpu_validating_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "gpu_fyi_android_gtests",
     basic_suites = [
         "gpu_angle_unit_gtests",
@@ -1203,11 +1178,9 @@ targets.legacy_compound_suite(
     ],
 )
 
-# This is:
-#   linux_chromeos_gtests
-#   + 'linux_chromeos_browser_tests_require_lacros'
+# This is for linux-chromeos-rel CQ builder.
 targets.legacy_compound_suite(
-    name = "linux_chromeos_specific_and_lacros_dependent_gtests",
+    name = "linux_chromeos_rel_cq",
     basic_suites = [
         "aura_gtests",
         "chromium_gtests",
@@ -1216,7 +1189,6 @@ targets.legacy_compound_suite(
         "chromium_gtests_for_win_and_linux_only",
         "linux_chromeos_lacros_gtests",
         "linux_chromeos_specific_gtests",
-        "linux_chromeos_browser_tests_require_lacros",
         "linux_flavor_specific_chromium_gtests",
         "non_android_chromium_gtests",
         "pixel_experimental_browser_tests_gtests",

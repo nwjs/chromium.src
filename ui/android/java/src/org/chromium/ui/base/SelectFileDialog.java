@@ -249,6 +249,7 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
     private static WindowAndroid sWindowAndroidForTesting;
 
     private long mNativeSelectFileDialog;
+    private String mIntentAction;
     private List<String> mFileTypes;
     private boolean mCapture;
     private boolean mAllowMultiple;
@@ -308,6 +309,8 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
 
     /**
      * Creates and starts an intent based on the passed fileTypes and capture value.
+     *
+     * @param intentAction Intent action such as ACTION_GET_CONTENT.
      * @param fileTypes MIME types requested (i.e. "image/*")
      * @param capture The capture value as described in http://www.w3.org/TR/html-media-capture/
      * @param multiple Whether it should be possible to select multiple files.
@@ -315,7 +318,15 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
      */
     @CalledByNative
     protected void selectFile(
-            String[] fileTypes, boolean capture, boolean multiple, WindowAndroid window) {
+            String intentAction,
+            String[] fileTypes,
+            boolean capture,
+            boolean multiple,
+            WindowAndroid window) {
+        mIntentAction =
+                UiAndroidFeatureMap.isEnabled(UiAndroidFeatures.SELECT_FILE_OPEN_DOCUMENT)
+                        ? intentAction
+                        : Intent.ACTION_GET_CONTENT;
         mFileTypes = new ArrayList<String>(Arrays.asList(fileTypes));
         mCapture = capture;
         mAllowMultiple = multiple;
@@ -537,14 +548,16 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
             return;
         }
 
-        Intent getContentIntent = new Intent(Intent.ACTION_GET_CONTENT);
+        Intent getContentIntent = new Intent(mIntentAction);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2 && mAllowMultiple) {
             getContentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         }
 
-        // Set to all types, and restrict further by MIME-type below.
-        getContentIntent.setType(ALL_TYPES);
+        // Set to all types if not a dir, and restrict further by MIME-type below.
+        if (!Intent.ACTION_OPEN_DOCUMENT_TREE.equals(getContentIntent.getAction())) {
+            getContentIntent.setType(ALL_TYPES);
+        }
 
         List<String> types = new ArrayList<>(mFileTypes);
         if (types.size() > 0) {
@@ -584,20 +597,23 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
      * The deprecated way of launching a chooser intent to get files from an external source (use
      * showExternalPicker instead). If launching the Intent is not successful, the onFileNotSelected
      * is called to end file upload.
+     *
      * @param camera A camera capture intent to supply as extra Intent data.
      * @param camcorder A camcorder intent to supply as extra Intent data.
      * @param soundRecorder A soundRecorder intent to supply as extra Intent data.
      */
     private void showExternalPickerDeprecated(
             Intent camera, Intent camcorder, Intent soundRecorder) {
-        Intent getContentIntent = new Intent(Intent.ACTION_GET_CONTENT);
+        Intent getContentIntent = new Intent(mIntentAction);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2 && mAllowMultiple) {
             getContentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         }
 
-        // Set to all types, but potentially restricted further by MIME-type below.
-        getContentIntent.setType(ALL_TYPES);
+        // Set to all types if not a dir, but potentially restricted further by MIME-type below.
+        if (!Intent.ACTION_OPEN_DOCUMENT_TREE.equals(getContentIntent.getAction())) {
+            getContentIntent.setType(ALL_TYPES);
+        }
 
         ArrayList<Intent> extraIntents = new ArrayList<Intent>();
         if (acceptsSingleType()) {
@@ -951,11 +967,23 @@ public class SelectFileDialog implements WindowAndroid.IntentCallback, PhotoPick
         }
 
         if (ContentResolver.SCHEME_CONTENT.equals(results.getScheme())) {
+            Uri uri = results.getData();
+            if (UiAndroidFeatureMap.isEnabled(UiAndroidFeatures.SELECT_FILE_OPEN_DOCUMENT)) {
+                ContentResolver cr = ContextUtils.getApplicationContext().getContentResolver();
+                try {
+                    cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (SecurityException e) {
+                    Log.w(TAG, "No persisted read permission for " + uri);
+                }
+                try {
+                    cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                } catch (SecurityException e) {
+                    Log.w(TAG, "No persisted write permission for " + uri);
+                }
+            }
             GetDisplayNameTask task =
                     new GetDisplayNameTask(
-                            ContextUtils.getApplicationContext(),
-                            false,
-                            new Uri[] {results.getData()});
+                            ContextUtils.getApplicationContext(), false, new Uri[] {uri});
             task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
             return;
         }

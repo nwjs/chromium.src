@@ -169,8 +169,26 @@ AutofillManager::AutofillManager(AutofillDriver* driver)
 }
 
 AutofillManager::~AutofillManager() {
-  NotifyObservers(&Observer::OnAutofillManagerDestroyed);
   translate_observation_.Reset();
+}
+
+void AutofillManager::OnAutofillDriverLifecycleStateChanged(
+    LifecycleState old_state,
+    LifecycleState new_state,
+    base::PassKey<AutofillDriverFactory>) {
+  DCHECK_NE(new_state, old_state);
+  DCHECK_EQ(new_state, driver().GetLifecycleState());
+  NotifyObservers(&Observer::OnAutofillManagerStateChanged, old_state,
+                  new_state);
+  if (new_state == LifecycleState::kPendingReset) {
+    Reset();
+  }
+}
+
+void AutofillManager::Reset() {
+  parsing_weak_ptr_factory_.InvalidateWeakPtrs();
+  form_structures_.clear();
+  form_interactions_ukm_logger_ = CreateFormInteractionsUkmLogger();
 }
 
 // TODO(crbug.com/40219607): Unify form parsing logic.
@@ -462,8 +480,8 @@ void AutofillManager::OnFocusOnFormField(const FormData& form,
                                         form.global_id(), field_id)));
 }
 
-void AutofillManager::OnFocusOnNonFormField(bool had_interacted_form) {
-  OnFocusOnNonFormFieldImpl(had_interacted_form);
+void AutofillManager::OnFocusOnNonFormField() {
+  OnFocusOnNonFormFieldImpl();
 }
 
 void AutofillManager::OnDidEndTextFieldEditing() {
@@ -836,13 +854,6 @@ void AutofillManager::ParseFormAsync(
   }
 #endif
   std::move(run_heuristics_and_update_cache).Run(std::move(form_structure));
-}
-
-void AutofillManager::Reset() {
-  parsing_weak_ptr_factory_.InvalidateWeakPtrs();
-  NotifyObservers(&Observer::OnAutofillManagerReset);
-  form_structures_.clear();
-  form_interactions_ukm_logger_ = CreateFormInteractionsUkmLogger();
 }
 
 void AutofillManager::OnLoadedServerPredictions(

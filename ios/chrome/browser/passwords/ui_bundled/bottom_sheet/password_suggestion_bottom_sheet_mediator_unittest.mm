@@ -77,6 +77,7 @@ NSString* PrimaryActionLabelForUsernameFill() {
     : NSObject <FormSuggestionProvider>
 
 @property(weak, nonatomic, readonly) FormSuggestion* suggestion;
+@property(nonatomic, assign) NSInteger index;
 @property(weak, nonatomic, readonly) NSString* formName;
 @property(weak, nonatomic, readonly) NSString* fieldIdentifier;
 @property(weak, nonatomic, readonly) NSString* frameID;
@@ -170,6 +171,7 @@ NSString* PrimaryActionLabelForUsernameFill() {
 }
 
 - (void)didSelectSuggestion:(FormSuggestion*)suggestion
+                    atIndex:(NSInteger)index
                        form:(NSString*)formName
              formRendererID:(autofill::FormRendererId)formRendererID
             fieldIdentifier:(NSString*)fieldIdentifier
@@ -178,6 +180,7 @@ NSString* PrimaryActionLabelForUsernameFill() {
           completionHandler:(SuggestionHandledCompletion)completion {
   self.selected = YES;
   _suggestion = suggestion;
+  _index = index;
   _formName = [formName copy];
   _formRendererID = formRendererID;
   _fieldIdentifier = [fieldIdentifier copy];
@@ -215,7 +218,7 @@ class PasswordSuggestionBottomSheetMediatorTest : public PlatformTest {
         base::BindRepeating(
             &password_manager::BuildPasswordStore<
                 web::BrowserState, password_manager::TestPasswordStore>));
-    chrome_browser_state_ = builder.Build();
+    chrome_browser_state_ = std::move(builder).Build();
 
     consumer_ =
         OCMProtocolMock(@protocol(PasswordSuggestionBottomSheetConsumer));

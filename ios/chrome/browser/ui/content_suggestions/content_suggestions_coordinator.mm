@@ -21,6 +21,7 @@
 #import "components/search_engines/template_url_prepopulate_data.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/segmentation_platform/public/features.h"
+#import "components/segmentation_platform/public/segmentation_platform_service.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/commerce/model/shopping_service_factory.h"
@@ -30,6 +31,7 @@
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/favicon/model/large_icon_cache.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_item_type.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
@@ -66,6 +68,7 @@
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/commands/whats_new_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
@@ -200,56 +203,62 @@
   TabResumptionMediator* _tabResumptionMediator;
 
   MagicStackCollectionViewController* _magicStackCollectionView;
+
+  segmentation_platform::SegmentationPlatformService* _segmentationService;
+  segmentation_platform::DeviceSwitcherResultDispatcher*
+      _deviceSwitcherResultDispatcher;
 }
 
 - (void)start {
   DCHECK(self.browser);
   DCHECK(self.NTPMetricsDelegate);
-
   if (self.started) {
     // Prevent this coordinator from being started twice in a row
     return;
   }
-
   _started = YES;
 
-  self.authService = AuthenticationServiceFactory::GetForBrowserState(
-      self.browser->GetBrowserState());
+  ChromeBrowserState* browserState = self.browser->GetBrowserState();
+
+  _segmentationService = segmentation_platform::
+      SegmentationPlatformServiceFactory::GetForBrowserState(browserState);
+  _deviceSwitcherResultDispatcher =
+      segmentation_platform::SegmentationPlatformServiceFactory::
+          GetDispatcherForBrowserState(browserState);
+
+  self.authService =
+      AuthenticationServiceFactory::GetForBrowserState(browserState);
 
   PrefService* prefs =
-      ChromeBrowserState::FromBrowserState(self.browser->GetBrowserState())
-          ->GetPrefs();
+      ChromeBrowserState::FromBrowserState(browserState)->GetPrefs();
 
   favicon::LargeIconService* largeIconService =
-      IOSChromeLargeIconServiceFactory::GetForBrowserState(
-          self.browser->GetBrowserState());
-  LargeIconCache* cache = IOSChromeLargeIconCacheFactory::GetForBrowserState(
-      self.browser->GetBrowserState());
+      IOSChromeLargeIconServiceFactory::GetForBrowserState(browserState);
+
+  LargeIconCache* cache =
+      IOSChromeLargeIconCacheFactory::GetForBrowserState(browserState);
+
   std::unique_ptr<ntp_tiles::MostVisitedSites> mostVisitedFactory =
-      IOSMostVisitedSitesFactory::NewForBrowserState(
-          self.browser->GetBrowserState());
+      IOSMostVisitedSitesFactory::NewForBrowserState(browserState);
+
   ReadingListModel* readingListModel =
-      ReadingListModelFactory::GetForBrowserState(
-          self.browser->GetBrowserState());
+      ReadingListModelFactory::GetForBrowserState(browserState);
 
   self.contentSuggestionsMetricsRecorder =
       [[ContentSuggestionsMetricsRecorder alloc]
           initWithLocalState:GetApplicationContext()->GetLocalState()];
 
   syncer::SyncService* syncService =
-      SyncServiceFactory::GetForBrowserState(self.browser->GetBrowserState());
+      SyncServiceFactory::GetForBrowserState(browserState);
 
   AuthenticationService* authenticationService =
-      AuthenticationServiceFactory::GetForBrowserState(
-          self.browser->GetBrowserState());
+      AuthenticationServiceFactory::GetForBrowserState(browserState);
 
   signin::IdentityManager* identityManager =
-      IdentityManagerFactory::GetForBrowserState(
-          self.browser->GetBrowserState());
+      IdentityManagerFactory::GetForBrowserState(browserState);
 
   commerce::ShoppingService* shoppingService =
-      commerce::ShoppingServiceFactory::GetForBrowserState(
-          self.browser->GetBrowserState());
+      commerce::ShoppingServiceFactory::GetForBrowserState(browserState);
 
   self.contentSuggestionsMediator = [[ContentSuggestionsMediator alloc] init];
 
@@ -263,6 +272,8 @@
        URLLoadingBrowserAgent:UrlLoadingBrowserAgent::FromBrowser(
                                   self.browser)];
   _mostVisitedTilesMediator.contentSuggestionsDelegate = self.delegate;
+  _mostVisitedTilesMediator.contentSuggestionsMetricsRecorder =
+      self.contentSuggestionsMetricsRecorder;
   _mostVisitedTilesMediator.actionFactory = [[BrowserActionFactory alloc]
       initWithBrowser:self.browser
              scenario:kMenuScenarioHistogramMostVisitedEntry];
@@ -276,42 +287,16 @@
   _shortcutsMediator = [[ShortcutsMediator alloc]
       initWithReadingListModel:readingListModel
       featureEngagementTracker:feature_engagement::TrackerFactory::
-                                   GetForBrowserState(
-                                       self.browser->GetBrowserState())
+                                   GetForBrowserState(browserState)
                    authService:authenticationService];
   _shortcutsMediator.contentSuggestionsMetricsRecorder =
       self.contentSuggestionsMetricsRecorder;
   _shortcutsMediator.NTPMetricsDelegate = self.NTPMetricsDelegate;
-  _shortcutsMediator.dispatcher =
-      static_cast<id<ApplicationCommands, BrowserCoordinatorCommands>>(
-          self.browser->GetCommandDispatcher());
+  _shortcutsMediator.dispatcher = static_cast<
+      id<ApplicationCommands, BrowserCoordinatorCommands, WhatsNewCommands>>(
+      self.browser->GetCommandDispatcher());
   [moduleMediators addObject:_shortcutsMediator];
   self.contentSuggestionsMediator.shortcutsMediator = _shortcutsMediator;
-
-  BOOL isSetupListEnabled = set_up_list_utils::IsSetUpListActive(
-      GetApplicationContext()->GetLocalState());
-  if (isSetupListEnabled) {
-    const TemplateURL* defaultSearchURLTemplate =
-        ios::TemplateURLServiceFactory::GetForBrowserState(
-            self.browser->GetBrowserState())
-            ->GetDefaultSearchProvider();
-    BOOL isDefaultSearchEngine = defaultSearchURLTemplate &&
-                                 defaultSearchURLTemplate->prepopulate_id() ==
-                                     TemplateURLPrepopulateData::google.id;
-    _setUpListMediator = [[SetUpListMediator alloc]
-          initWithPrefService:prefs
-                  syncService:syncService
-              identityManager:identityManager
-        authenticationService:authenticationService
-                   sceneState:self.browser->GetSceneState()
-        isDefaultSearchEngine:isDefaultSearchEngine];
-    _setUpListMediator.commandHandler = self;
-    _setUpListMediator.contentSuggestionsMetricsRecorder =
-        self.contentSuggestionsMetricsRecorder;
-    _setUpListMediator.delegate = self.delegate;
-    self.contentSuggestionsMediator.setUpListMediator = _setUpListMediator;
-    [moduleMediators addObject:_setUpListMediator];
-  }
 
   if (IsTabResumptionEnabled()) {
     _tabResumptionMediator = [[TabResumptionMediator alloc]
@@ -325,40 +310,31 @@
     [moduleMediators addObject:_tabResumptionMediator];
   }
   if (IsIOSParcelTrackingEnabled() &&
-      !IsParcelTrackingDisabled(GetApplicationContext()->GetLocalState())) {
+      !IsParcelTrackingDisabled(
+          IsHomeCustomizationEnabled()
+              ? prefs
+              : GetApplicationContext()->GetLocalState())) {
     _parcelTrackingMediator = [[ParcelTrackingMediator alloc]
         initWithShoppingService:shoppingService
          URLLoadingBrowserAgent:UrlLoadingBrowserAgent::FromBrowser(
-                                    self.browser)];
+                                    self.browser)
+                    prefService:IsHomeCustomizationEnabled()
+                                    ? prefs
+                                    : GetApplicationContext()->GetLocalState()];
     _parcelTrackingMediator.NTPMetricsDelegate = self.NTPMetricsDelegate;
     [moduleMediators addObject:_parcelTrackingMediator];
   }
   if (IsSafetyCheckMagicStackEnabled()) {
     IOSChromeSafetyCheckManager* safetyCheckManager =
-        IOSChromeSafetyCheckManagerFactory::GetForBrowserState(
-            self.browser->GetBrowserState());
+        IOSChromeSafetyCheckManagerFactory::GetForBrowserState(browserState);
     _safetyCheckMediator = [[SafetyCheckMagicStackMediator alloc]
         initWithSafetyCheckManager:safetyCheckManager
                         localState:GetApplicationContext()->GetLocalState()
+                         userState:prefs
                           appState:self.browser->GetSceneState().appState];
     _safetyCheckMediator.presentationAudience = self;
     [moduleMediators addObject:_safetyCheckMediator];
   }
-
-  _magicStackRankingModel = [[MagicStackRankingModel alloc]
-      initWithSegmentationService:
-          segmentation_platform::SegmentationPlatformServiceFactory::
-              GetForBrowserState(self.browser->GetBrowserState())
-                      prefService:prefs
-                       localState:GetApplicationContext()->GetLocalState()
-                  moduleMediators:moduleMediators];
-  _magicStackRankingModel.contentSuggestionsMetricsRecorder =
-      self.contentSuggestionsMetricsRecorder;
-  self.contentSuggestionsMediator.magicStackRankingModel =
-      _magicStackRankingModel;
-  _magicStackRankingModel.delegate = self.contentSuggestionsMediator;
-  _magicStackRankingModel.homeStartDataSource = self.homeStartDataSource;
-
   if (!ShouldPutMostVisitedSitesInMagicStack()) {
     ContentSuggestionsViewController* viewController =
         [[ContentSuggestionsViewController alloc] init];
@@ -369,6 +345,45 @@
         self.contentSuggestionsMetricsRecorder;
     self.contentSuggestionsViewController = viewController;
   }
+  BOOL isSetupListEnabled = set_up_list_utils::IsSetUpListActive(
+      GetApplicationContext()->GetLocalState(), prefs);
+  if (isSetupListEnabled) {
+    const TemplateURL* defaultSearchURLTemplate =
+        ios::TemplateURLServiceFactory::GetForBrowserState(browserState)
+            ->GetDefaultSearchProvider();
+    BOOL isDefaultSearchEngine = defaultSearchURLTemplate &&
+                                 defaultSearchURLTemplate->prepopulate_id() ==
+                                     TemplateURLPrepopulateData::google.id;
+    _setUpListMediator = [[SetUpListMediator alloc]
+                   initWithPrefService:prefs
+                           syncService:syncService
+                       identityManager:identityManager
+                 authenticationService:authenticationService
+                            sceneState:self.browser->GetSceneState()
+                 isDefaultSearchEngine:isDefaultSearchEngine
+                   segmentationService:_segmentationService
+        deviceSwitcherResultDispatcher:_deviceSwitcherResultDispatcher];
+    if (IsSegmentedDefaultBrowserPromoEnabled()) {
+      [_setUpListMediator retrieveUserSegment];
+    }
+    _setUpListMediator.commandHandler = self;
+    _setUpListMediator.contentSuggestionsMetricsRecorder =
+        self.contentSuggestionsMetricsRecorder;
+    _setUpListMediator.delegate = self.delegate;
+    self.contentSuggestionsMediator.setUpListMediator = _setUpListMediator;
+    [moduleMediators addObject:_setUpListMediator];
+  }
+  _magicStackRankingModel = [[MagicStackRankingModel alloc]
+      initWithSegmentationService:_segmentationService
+                      prefService:prefs
+                       localState:GetApplicationContext()->GetLocalState()
+                  moduleMediators:moduleMediators];
+  _magicStackRankingModel.contentSuggestionsMetricsRecorder =
+      self.contentSuggestionsMetricsRecorder;
+  self.contentSuggestionsMediator.magicStackRankingModel =
+      _magicStackRankingModel;
+  _magicStackRankingModel.delegate = self.contentSuggestionsMediator;
+  _magicStackRankingModel.homeStartDataSource = self.homeStartDataSource;
 
   _magicStackCollectionView = [[MagicStackCollectionViewController alloc] init];
   _magicStackCollectionView.audience = self;
@@ -384,6 +399,8 @@
 }
 
 - (void)stop {
+  _segmentationService = nullptr;
+  _deviceSwitcherResultDispatcher = nullptr;
   [self.parcelTrackingMediator disconnect];
   self.parcelTrackingMediator = nil;
   [_shortcutsMediator disconnect];
@@ -428,11 +445,15 @@
 #pragma mark - Public methods
 
 - (void)refresh {
+  [_magicStackCollectionView reset];
   // Refresh in case there are new MVT to show.
   [_mostVisitedTilesMediator refreshMostVisitedTiles];
   [_safetyCheckMediator reset];
   [_parcelTrackingMediator reset];
   [_magicStackRankingModel fetchLatestMagicStackRanking];
+  // Fetch after resetting ranking since parcels could be returned
+  // synchronously.
+  [_parcelTrackingMediator fetchTrackedParcels];
 }
 
 #pragma mark - ContentSuggestionsCommands
@@ -472,32 +493,37 @@
 
 - (void)didTapMagicStackEditButton {
   base::RecordAction(base::UserMetricsAction("IOSMagicStackSettingsOpened"));
-  _magicStackHalfSheetTableViewController =
-      [[MagicStackHalfSheetTableViewController alloc] init];
+  if (IsHomeCustomizationEnabled()) {
+    [self.delegate openMagicStackCustomizationMenu];
+  } else {
+    _magicStackHalfSheetTableViewController =
+        [[MagicStackHalfSheetTableViewController alloc] init];
 
-  _magicStackHalfSheetMediator = [[MagicStackHalfSheetMediator alloc]
-      initWithPrefService:GetApplicationContext()->GetLocalState()];
-  _magicStackHalfSheetMediator.consumer =
-      _magicStackHalfSheetTableViewController;
-  _magicStackHalfSheetTableViewController.delegate = self;
-  _magicStackHalfSheetTableViewController.modelDelegate =
-      _magicStackHalfSheetMediator;
+    _magicStackHalfSheetMediator = [[MagicStackHalfSheetMediator alloc]
+        initWithPrefService:GetApplicationContext()->GetLocalState()];
+    _magicStackHalfSheetMediator.consumer =
+        _magicStackHalfSheetTableViewController;
+    _magicStackHalfSheetTableViewController.delegate = self;
+    _magicStackHalfSheetTableViewController.modelDelegate =
+        _magicStackHalfSheetMediator;
 
-  UINavigationController* navViewController = [[UINavigationController alloc]
-      initWithRootViewController:_magicStackHalfSheetTableViewController];
+    UINavigationController* navViewController = [[UINavigationController alloc]
+        initWithRootViewController:_magicStackHalfSheetTableViewController];
 
-  navViewController.modalPresentationStyle = UIModalPresentationPageSheet;
-  UISheetPresentationController* presentationController =
-      navViewController.sheetPresentationController;
-  presentationController.prefersEdgeAttachedInCompactHeight = YES;
-  presentationController.widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
-  presentationController.detents = @[
-    UISheetPresentationControllerDetent.mediumDetent,
-    UISheetPresentationControllerDetent.largeDetent
-  ];
-  [_magicStackCollectionView presentViewController:navViewController
-                                          animated:YES
-                                        completion:nil];
+    navViewController.modalPresentationStyle = UIModalPresentationPageSheet;
+    UISheetPresentationController* presentationController =
+        navViewController.sheetPresentationController;
+    presentationController.prefersEdgeAttachedInCompactHeight = YES;
+    presentationController.widthFollowsPreferredContentSizeWhenEdgeAttached =
+        YES;
+    presentationController.detents = @[
+      UISheetPresentationControllerDetent.mediumDetent,
+      UISheetPresentationControllerDetent.largeDetent
+    ];
+    [_magicStackCollectionView presentViewController:navViewController
+                                            animated:YES
+                                          completion:nil];
+  }
 }
 
 - (void)showMagicStackParcelList {
@@ -537,6 +563,7 @@
 #pragma mark - MagicStackModuleContainerDelegate
 
 - (void)seeMoreWasTappedForModuleType:(ContentSuggestionsModuleType)type {
+  [self.customizationDelegate dismissCustomizationMenu];
   switch (type) {
     case ContentSuggestionsModuleType::kSafetyCheck:
       [self didSelectSafetyCheckItem:SafetyCheckItemType::kDefault];
@@ -718,8 +745,7 @@
     case SafetyCheckItemType::kDefault:
       password_manager::PasswordCheckReferrer referrer =
           password_manager::PasswordCheckReferrer::kSafetyCheckMagicStack;
-      [settingsHandler showAndStartSafetyCheckInHalfSheet:YES
-                                                 referrer:referrer];
+      [settingsHandler showAndStartSafetyCheckForReferrer:referrer];
       break;
   }
 }
@@ -793,11 +819,23 @@
   // dismiss a previous instance and then clicks the item again the
   // previous instance may not have been stopped yet due to the animation.
   [_defaultBrowserPromoCoordinator stop];
-  _defaultBrowserPromoCoordinator =
-      [[SetUpListDefaultBrowserPromoCoordinator alloc]
-          initWithBaseViewController:[self viewController]
-                             browser:self.browser
-                         application:[UIApplication sharedApplication]];
+  if (IsSegmentedDefaultBrowserPromoEnabled()) {
+    _defaultBrowserPromoCoordinator =
+        [[SetUpListDefaultBrowserPromoCoordinator alloc]
+                initWithBaseViewController:[self viewController]
+                                   browser:self.browser
+                               application:[UIApplication sharedApplication]
+                       segmentationService:_segmentationService
+            deviceSwitcherResultDispatcher:_deviceSwitcherResultDispatcher];
+  } else {
+    _defaultBrowserPromoCoordinator =
+        [[SetUpListDefaultBrowserPromoCoordinator alloc]
+                initWithBaseViewController:[self viewController]
+                                   browser:self.browser
+                               application:[UIApplication sharedApplication]
+                       segmentationService:nullptr
+            deviceSwitcherResultDispatcher:nullptr];
+  }
   _defaultBrowserPromoCoordinator.delegate = self;
   [_defaultBrowserPromoCoordinator start];
 }
@@ -814,9 +852,9 @@
         }
       };
   // If there are 0 identities, kInstantSignin requires less taps.
-  ChromeBrowserState* browserState = self.browser->GetBrowserState();
   AuthenticationOperation operation =
-      ChromeAccountManagerServiceFactory::GetForBrowserState(browserState)
+      ChromeAccountManagerServiceFactory::GetForBrowserState(
+          self.browser->GetBrowserState())
               ->HasIdentities()
           ? AuthenticationOperation::kSigninOnly
           : AuthenticationOperation::kInstantSignin;

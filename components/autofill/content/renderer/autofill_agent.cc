@@ -238,6 +238,45 @@ bool ShowPredictions(const WebDocument& document,
           base::NumberToString(field.rank_in_host_form_signature_group),
       });
 
+      if (features::test::kAutofillShowTypePredictionsVerboseParam.Get()) {
+        std::u16string truncated_aria_label =
+            field_data.aria_label().substr(0, kMaxLabelSize);
+        base::ReplaceChars(truncated_aria_label, u"\n", u"|",
+                           &truncated_aria_label);
+
+        std::u16string truncated_aria_description =
+            field_data.aria_description().substr(0, kMaxLabelSize);
+        base::ReplaceChars(truncated_aria_description, u"\n", u"|",
+                           &truncated_aria_description);
+
+        std::string option_labels;
+        std::string option_values;
+        for (size_t option_index = 0;
+             option_index < field_data.options().size(); option_index++) {
+          const SelectOption& select_option =
+              field_data.options()[option_index];
+          const std::string delimiter = option_index > 0 ? "|" : "";
+          option_labels =
+              option_labels + delimiter + base::UTF16ToUTF8(select_option.text);
+          option_values = option_values + delimiter +
+                          base::UTF16ToUTF8(select_option.value);
+        }
+
+        title = base::StrCat({
+            title,
+            "\naria label: ",
+            base::UTF16ToUTF8(truncated_aria_label),
+            "\naria description: ",
+            base::UTF16ToUTF8(truncated_aria_description),
+            "\nplaceholder: ",
+            base::UTF16ToUTF8(field_data.placeholder()),
+            "\noption labels: ",
+            option_labels,
+            "\noption values: ",
+            option_values,
+        });
+      }
+
       WebString kAutocomplete = WebString::FromASCII("autocomplete");
       if (element.HasAttribute(kAutocomplete)) {
         title += "\nautocomplete: " +
@@ -381,8 +420,8 @@ class AutofillAgent::DeferringAutofillDriver : public mojom::AutofillDriver {
              caret_bounds, trigger_source);
   }
   void HidePopup() override { DeferMsg(&mojom::AutofillDriver::HidePopup); }
-  void FocusOnNonFormField(bool had_interacted_form) override {
-    DeferMsg(&mojom::AutofillDriver::FocusOnNonFormField, had_interacted_form);
+  void FocusOnNonFormField() override {
+    DeferMsg(&mojom::AutofillDriver::FocusOnNonFormField);
   }
   void FocusOnFormField(const FormData& form,
                         FieldRendererId field_id) override {
@@ -448,7 +487,8 @@ mojom::FocusedFieldType AutofillAgent::FocusStateNotifier::GetFieldType(
       blink::mojom::FormControlType::kInputSearch) {
     return mojom::FocusedFieldType::kFillableSearchField;
   }
-  if (input_element.IsPasswordFieldForAutofill()) {
+  if (input_element.FormControlTypeForAutofill() ==
+      blink::mojom::FormControlType::kInputPassword) {
     return mojom::FocusedFieldType::kFillablePasswordField;
   }
   if (agent_->password_autofill_agent_->IsUsernameInputField(input_element)) {
@@ -599,88 +639,6 @@ void AutofillAgent::DidChangeScrollOffsetImpl(FieldRendererId element_id) {
   HidePopup();
 }
 
-// With the old focus behavior, the context menu may be opened in a
-// contenteditable without AutofillDriverRouter in the browser process
-// knowing about the contenteditable and therefore may have not known
-// the frame. The old, hacky fix was to call
-// `ShowSuggestionsForContentEditable()` in `HandleFocusChangeComplete()`
-// even if `!focused_node_was_last_clicked`. This behavior has been removed
-// in crrev.com/c/5502049 in the anticipation of `kAutofillNewFocusEvents`.
-void AutofillAgent::FocusedElementChangedDeprecated(const WebElement& element) {
-  CHECK(!base::FeatureList::IsEnabled(features::kAutofillNewFocusEvents));
-  HidePopup();
-
-  WebFormElement last_focused_form = last_interacted_form().GetForm();
-  if (!element) {
-    // Focus moved away from the last interacted form (if any) to somewhere else
-    // on the page.
-    if (auto* autofill_driver = unsafe_autofill_driver()) {
-      autofill_driver->FocusOnNonFormField(!last_focused_form.IsNull());
-    }
-    return;
-  }
-
-  const WebFormControlElement form_control_element =
-      element.DynamicTo<WebFormControlElement>();
-
-  bool focus_moved_to_new_form = false;
-  if (last_focused_form &&
-      (!form_control_element ||
-       last_focused_form != form_util::GetOwningForm(form_control_element))) {
-    // The focused element is not part of the last interacted form (could be
-    // in a different form).
-    if (auto* autofill_driver = unsafe_autofill_driver()) {
-      autofill_driver->FocusOnNonFormField(/*had_interacted_form=*/true);
-    }
-    focus_moved_to_new_form = true;
-  }
-
-  // Calls HandleFocusChangeComplete() after notifying the focus is no longer on
-  // the previous form, then early return. No need to notify the newly focused
-  // element because that will be done by HandleFocusChangeComplete().
-  // Refer to http://crbug.com/1105254
-  if ((config_.uses_keyboard_accessory_for_suggestions ||
-       !config_.focus_requires_scroll) &&
-      element && unsafe_render_frame() &&
-      unsafe_render_frame()->GetWebFrame()->HasTransientUserActivation()) {
-    // If the focus change was caused by a user gesture,
-    // DidReceiveLeftMouseDownOrGestureTapInNode() will show the autofill
-    // suggestions. See crbug.com/730764 for why showing autofill suggestions as
-    // a result of JavaScript changing focus is enabled on WebView.
-    bool focused_node_was_last_clicked =
-        !base::FeatureList::IsEnabled(
-            features::kAutofillAndroidDisableSuggestionsOnJSFocus) ||
-        !config_.focus_requires_scroll;
-    HandleFocusChangeComplete(
-        /*focused_node_was_last_clicked=*/focused_node_was_last_clicked);
-  }
-
-  if (focus_moved_to_new_form) {
-    return;
-  }
-
-  if (!form_control_element || !form_control_element.IsEnabled() ||
-      !form_util::IsTextAreaElementOrTextInput(form_control_element)) {
-    return;
-  }
-
-  last_queried_element_ = FieldRef(form_control_element);
-
-  if (form_control_element.IsReadOnly()) {
-    return;
-  }
-  if (std::optional<FormAndField> form_and_field =
-          FindFormAndFieldForFormControlElement(
-              last_queried_element_.GetField(), field_data_manager(),
-              GetCallTimerState(kFocusedElementChangedDeprecated),
-              MaybeExtractDatalist({form_util::ExtractOption::kBounds}))) {
-    auto& [form, field] = *form_and_field;
-    if (auto* autofill_driver = unsafe_autofill_driver()) {
-      autofill_driver->FocusOnFormField(form, field->renderer_id());
-    }
-  }
-}
-
 CallTimerState AutofillAgent::GetCallTimerState(
     CallTimerState::CallSite call_site) const {
   return {.call_site = call_site,
@@ -691,11 +649,6 @@ CallTimerState AutofillAgent::GetCallTimerState(
 void AutofillAgent::FocusedElementChanged(
     const WebElement& new_focused_element) {
   ObserveCaret(new_focused_element);
-
-  if (!base::FeatureList::IsEnabled(features::kAutofillNewFocusEvents)) {
-    FocusedElementChangedDeprecated(new_focused_element);
-    return;
-  }
 
   HidePopup();
 
@@ -750,7 +703,7 @@ void AutofillAgent::FocusedElementChanged(
   }
 
   if (auto* autofill_driver = unsafe_autofill_driver()) {
-    autofill_driver->FocusOnNonFormField(true);
+    autofill_driver->FocusOnNonFormField();
     handle_focus_change();
   }
 }
@@ -1011,42 +964,6 @@ void AutofillAgent::ApplyFieldsAction(
     mojom::ActionPersistence action_persistence,
     const std::vector<FormFieldData::FillData>& fields) {
   CHECK(!fields.empty());
-  WebFormControlElement last_queried_element = last_queried_element_.GetField();
-  // If `last_queried_element_` is null or not focused, Autofill was either
-  // triggered from another frame or the `last_queried_element_` has been
-  // detached from the DOM or the focus was moved otherwise.
-  //
-  // If `last_queried_element_` is from a different form than `form`, then
-  // Autofill was triggered from a different form in the same frame, and either
-  // this is a subframe and both forms should be filled, or focus has changed
-  // right after the user accepted the suggestions.
-  //
-  // In these cases, we set `last_queried_element_` to some form field as if
-  // Autofill had been triggered from that field. This is necessary because
-  // currently AutofillAgent relies on `last_queried_element_` in many places.
-  const bool last_queried_element_needs_update =
-      !last_queried_element || !last_queried_element.Focused() ||
-      !base::Contains(fields,
-                      form_util::GetFormRendererId(
-                          form_util::GetOwningForm(last_queried_element)),
-                      &FormFieldData::FillData::host_form_id);
-  if (last_queried_element_needs_update &&
-      !base::FeatureList::IsEnabled(
-          features::kAutofillDontUpdateLastQueriedElementOnFill)) {
-    for (const FormFieldData::FillData& field : fields) {
-      last_queried_element =
-          form_util::GetFormControlByRendererId(field.renderer_id);
-      if (last_queried_element) {
-        last_queried_element_ = FieldRef(last_queried_element);
-        break;
-      }
-    }
-  }
-  if (!last_queried_element &&
-      !base::FeatureList::IsEnabled(
-          features::kAutofillDontUpdateLastQueriedElementOnFill)) {
-    return;
-  }
   WebDocument document = GetDocument();
   if (!document) {
     return;
@@ -1144,15 +1061,6 @@ void AutofillAgent::FieldTypePredictionsAvailable(
 }
 
 void AutofillAgent::ClearPreviewedForm() {
-  WebFormControlElement last_queried_element = last_queried_element_.GetField();
-  // TODO(crbug.com/40564702): It is very rare, but it looks like the |element_|
-  // can be null if a provisional load was committed immediately prior to
-  // clearing the previewed form.
-  if (!last_queried_element &&
-      !base::FeatureList::IsEnabled(
-          features::kAutofillDontUpdateLastQueriedElementOnFill)) {
-    return;
-  }
   // `password_generation_agent_` can be null in WebView.
   // TODO(crbug.com/326213028): Clear fields previewed by
   // `PasswordGenerationAgent` directly using `PasswordGenerationAgent`.
@@ -1323,8 +1231,12 @@ void AutofillAgent::AcceptDataListSuggestion(
   }
   std::u16string new_value = suggested_value;
   // If this element takes multiple values then replace the last part with
-  // the suggestion.
-  if (input_element.IsMultiple() && input_element.IsEmailField()) {
+  // the suggestion. We intentionally use `FormControlType()` instead of
+  // `FormControlTypeForAutofill()` because it does not matter here if the field
+  // has ever been a password field before.
+  if (input_element.IsMultiple() &&
+      input_element.FormControlType() ==  // nocheck
+          blink::mojom::FormControlType::kInputEmail) {
     std::u16string value = input_element.EditingValue().Utf16();
     std::vector<std::u16string_view> parts = base::SplitStringPiece(
         value, u",", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
@@ -1450,11 +1362,13 @@ void AutofillAgent::ShowSuggestions(
   }
 
   // Password field elements should only have suggestions shown by the password
-  // AutofillAgent. We call IsPasswordField() instead of
-  // IsPasswordFieldForAutofill() because we are interested in whether the field
-  // is *currently* a password field, not whether it has ever been a password
-  // field.
-  if (input_element && input_element.IsPasswordField() &&  // nocheck
+  // AutofillAgent. We call `FormControlType()` instead of
+  // `FormControlTypeForAutofill()` because we are interested in whether the
+  // field is *currently* a password field, not whether it has ever been a
+  // password field.
+  if (input_element &&
+      input_element.FormControlType()  // nocheck
+          == blink::mojom::FormControlType::kInputPassword &&
       !config_.query_password_suggestions) {
     return;
   }
@@ -1845,8 +1759,7 @@ void AutofillAgent::HandleFocusChangeComplete(
   // non-click focus.
   // TODO(crbug.com/40284726): This seems to be redundant. Remove call to
   // ShowSuggestionsForContentEditable.
-  if (focused_node_was_last_clicked ||
-      !base::FeatureList::IsEnabled(features::kAutofillNewFocusEvents)) {
+  if (focused_node_was_last_clicked) {
     ShowSuggestionsForContentEditable(
         focused_element,
         AutofillSuggestionTriggerSource::kContentEditableClicked);
@@ -1897,7 +1810,8 @@ void AutofillAgent::JavaScriptChangedValue(WebFormControlElement element,
 
   const auto input_element = element.DynamicTo<WebInputElement>();
   if (input_element && !element.Value().IsEmpty() &&
-      (input_element.IsPasswordFieldForAutofill() ||
+      (input_element.FormControlTypeForAutofill() ==
+           blink::mojom::FormControlType::kInputPassword ||
        password_autofill_agent_->IsUsernameInputField(input_element))) {
     password_autofill_agent_->UpdatePasswordStateForTextChange(input_element);
   }
@@ -2049,7 +1963,7 @@ void AutofillAgent::OnInferredFormSubmission(mojom::SubmissionSource source) {
     case mojom::SubmissionSource::FORM_SUBMISSION:
     // This source is handled by `AutofillAgent::OnProbablyFormSubmitted`.
     case mojom::SubmissionSource::PROBABLY_FORM_SUBMITTED:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
     case mojom::SubmissionSource::DOM_MUTATION_AFTER_AUTOFILL:
       if (base::FeatureList::IsEnabled(
               features::kAutofillUnifyAndFixFormTracking)) {

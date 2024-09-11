@@ -17,6 +17,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "remoting/base/capabilities.h"
 #include "remoting/base/constants.h"
@@ -82,9 +83,9 @@ ClientSession::ClientSession(
     std::unique_ptr<protocol::ConnectionToClient> connection,
     DesktopEnvironmentFactory* desktop_environment_factory,
     const DesktopEnvironmentOptions& desktop_environment_options,
-    const base::TimeDelta& max_duration,
     scoped_refptr<protocol::PairingRegistry> pairing_registry,
-    const std::vector<raw_ptr<HostExtension, VectorExperimental>>& extensions)
+    const std::vector<raw_ptr<HostExtension, VectorExperimental>>& extensions,
+    const SessionPolicies& local_policies)
     : event_handler_(event_handler),
       desktop_environment_factory_(desktop_environment_factory),
       desktop_environment_options_(desktop_environment_options),
@@ -97,10 +98,10 @@ ClientSession::ClientSession(
       host_clipboard_filter_(clipboard_echo_filter_.host_filter()),
       client_clipboard_filter_(clipboard_echo_filter_.client_filter()),
       client_clipboard_factory_(&client_clipboard_filter_),
-      max_duration_(max_duration),
       pairing_registry_(pairing_registry),
       connection_(std::move(connection)),
-      client_jid_(connection_->session()->jid()) {
+      client_jid_(connection_->session()->jid()),
+      effective_policies_(local_policies) {
   connection_->session()->AddPlugin(&host_experiment_session_plugin_);
   connection_->SetEventHandler(this);
 
@@ -506,9 +507,14 @@ void ClientSession::OnConnectionAuthenticated() {
 
   desktop_display_info_.Reset();
 
-  if (max_duration_.is_positive()) {
+  HOST_LOG << "Connection authenticated with session policies: "
+           << effective_policies_;
+
+  base::TimeDelta max_duration =
+      effective_policies_.maximum_session_duration.value_or(base::TimeDelta());
+  if (max_duration.is_positive()) {
     max_duration_timer_.Start(
-        FROM_HERE, max_duration_,
+        FROM_HERE, max_duration,
         base::BindOnce(&ClientSession::DisconnectSession,
                        base::Unretained(this), ErrorCode::MAX_SESSION_LENGTH));
   }
@@ -978,6 +984,22 @@ void ClientSession::UpdateMouseClampingFilterOffset() {
   mouse_clamping_filter_.set_output_offset(origin);
 }
 
+void ClientSession::OnLocalPoliciesChanged(const SessionPolicies& policies) {
+  // TODO: crbug.com/359977809 - add a test for overridden local policies.
+  if (local_session_policies_overridden_) {
+    return;
+  }
+  if (policies != effective_policies_) {
+    // Update `effective_policies_` anyway so that tests can check the latest
+    // known policies.
+    effective_policies_ = policies;
+    HOST_LOG << "Effective policies have changed. Terminating session.";
+    // TODO: crbug.com/359977809 - create a new error code for session policy
+    // changed.
+    DisconnectSession(ErrorCode::HOST_CONFIGURATION_ERROR);
+  }
+}
+
 void ClientSession::OnVideoSizeChanged(protocol::VideoStream* video_stream,
                                        const webrtc::DesktopSize& size_px,
                                        const webrtc::DesktopVector& dpi) {
@@ -1367,19 +1389,7 @@ void ClientSession::UpdateFractionalFilterFallback() {
     const DisplayGeometry* geo =
         desktop_display_info_.GetDisplayInfo(selected_display_index_);
 
-#if BUILDFLAG(IS_CHROMEOS)
-    // The input-injector on ChromeOS currently uses DIPs, but the video-layout
-    // sizes are reported in pixels on this platform. Although the offset
-    // calculation below gives correct results, the fallback geometry needs to
-    // account for the DIPs/pixels scaling - see crbug.com/1507189 and also the
-    // ChromeOS-specific behavior in SetMouseClampingFilter().
-    DisplaySize size_converter =
-        DisplaySize::FromPixels(geo->width, geo->height, geo->dpi);
-    new_size = webrtc::DesktopSize(size_converter.WidthAsDips(),
-                                   size_converter.HeightAsDips());
-#else
     new_size = webrtc::DesktopSize(geo->width, geo->height);
-#endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
   // The logic for input-injection offsets is dependent on the OS, and is

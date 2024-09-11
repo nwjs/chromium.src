@@ -27,6 +27,7 @@
 #include "ui/base/class_property.h"
 #include "ui/base/default_style.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
@@ -515,7 +516,7 @@ Widget* BubbleDialogDelegate::CreateBubble(
   // anchored at a specific point - they are always placed near the top center
   // of the window. To avoid unpleasant surprises, disallow setting an anchor
   // view or rectangle on these types of bubbles.
-  if (bubble_delegate->GetModalType() == ui::MODAL_TYPE_WINDOW) {
+  if (bubble_delegate->GetModalType() == ui::mojom::ModalType::kWindow) {
     DCHECK(!bubble_delegate->GetAnchorView());
     DCHECK_EQ(bubble_delegate->GetAnchorRect(), gfx::Rect());
   }
@@ -668,6 +669,9 @@ void BubbleDialogDelegate::OnAnchorWidgetBoundsChanged() {
 
 
 BubbleBorder::Shadow BubbleDialogDelegate::GetShadow() const {
+  if (!Widget::IsWindowCompositingSupported()) {
+    return BubbleBorder::Shadow::NO_SHADOW;
+  }
   return shadow_;
 }
 
@@ -1176,9 +1180,9 @@ void BubbleDialogDelegate::UpdateHighlightedButton(bool highlighted) {
   button = button ? button : Button::AsButton(GetAnchorView());
   if (button && highlight_button_when_shown_) {
     if (highlighted) {
-      button_anchor_higlight_ = button->AddAnchorHighlight();
+      button_anchor_highlight_ = button->AddAnchorHighlight();
     } else {
-      button_anchor_higlight_.reset();
+      button_anchor_highlight_.reset();
     }
   }
 }

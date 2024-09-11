@@ -57,9 +57,9 @@ class CONTENT_EXPORT PrerenderHost : public FrameTree::Delegate,
                                      public NavigationControllerDelegate {
  public:
   // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused. This enum corresponds to
-  // PrerenderActivationNavigationParamsMatch in
-  // tools/metrics/histograms/enums.xml
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(ActivationNavigationParamsMatch)
   enum class ActivationNavigationParamsMatch {
     kOk = 0,
     kInitiatorFrameToken = 1,
@@ -88,20 +88,28 @@ class CONTENT_EXPORT PrerenderHost : public FrameTree::Delegate,
     kRequestDestination = 24,
     kMaxValue = kRequestDestination,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/navigation/enums.xml:PrerenderActivationNavigationParamsMatch)
 
   // Reasons blocking navigation while waiting for headers started.
   enum class WaitingForHeadersStartedReason { kWithoutTimeout, kWithTimeout };
 
   // Reasons blocking navigation while waiting for headers finished.
+  //
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(WaitingForHeadersFinishedReason)
   enum class WaitingForHeadersFinishedReason {
-    kHeadersReceived,
-    kHostDestroyed,
-    kTimeoutElapsed,
-    kMaybeNavigationCancelled
-  };
+    kNoVarySearchHeaderReceived = 0,
+    kNoVarySearchHeaderNotReceived = 1,
+    kNoVarySearchHeaderParseFailed = 2,
+    kHostDestroyed = 3,
+    kTimeoutElapsed = 4,
+    kMaybeNavigationCancelled = 5,
 
-  // Types of URL match
-  enum class UrlMatchType { kExact, kNoVarySearch, kURLPredicateMatch };
+    kMaxValue = kMaybeNavigationCancelled,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/navigation/enums.xml:PrerenderWaitingForHeadersFinishedReason)
 
   // Observes a triggered prerender. Note that the observer should overlive the
   // prerender host instance, or be removed properly upon destruction.
@@ -328,8 +336,6 @@ class CONTENT_EXPORT PrerenderHost : public FrameTree::Delegate,
     return attributes_.initiator_devtools_navigation_token;
   }
 
-  const GURL& prerendering_url() const { return attributes_.prerendering_url; }
-
   bool IsBrowserInitiated() { return attributes_.IsBrowserInitiated(); }
 
   int frame_tree_node_id() const { return frame_tree_node_id_; }
@@ -346,10 +352,6 @@ class CONTENT_EXPORT PrerenderHost : public FrameTree::Delegate,
 
   bool is_ready_for_activation() const { return is_ready_for_activation_; }
 
-  const std::optional<PrerenderFinalStatus>& final_status() const {
-    return final_status_;
-  }
-
   PreloadingTriggerType trigger_type() const {
     return attributes_.trigger_type;
   }
@@ -365,6 +367,10 @@ class CONTENT_EXPORT PrerenderHost : public FrameTree::Delegate,
 
   const std::optional<net::HttpNoVarySearchData>& no_vary_search() const {
     return no_vary_search_;
+  }
+  const std::optional<network::mojom::NoVarySearchParseError>&
+  no_vary_search_parse_error() const {
+    return no_vary_search_parse_error_;
   }
 
   const std::optional<net::HttpNoVarySearchData>& no_vary_search_expected()
@@ -412,7 +418,8 @@ class CONTENT_EXPORT PrerenderHost : public FrameTree::Delegate,
       const blink::mojom::CommonNavigationParams& potential_activation,
       bool allow_initiator_and_transition_mismatch);
 
-  void SetNoVarySearch(net::HttpNoVarySearchData no_vary_search);
+  void MaybeSetNoVarySearch(network::mojom::NoVarySearchWithParseError&
+                                no_vary_search_with_parse_error);
 
   const PrerenderAttributes attributes_;
 
@@ -473,6 +480,8 @@ class CONTENT_EXPORT PrerenderHost : public FrameTree::Delegate,
   // No-Vary-Search header information for the main frame of the prerendered
   // page.
   std::optional<net::HttpNoVarySearchData> no_vary_search_;
+  std::optional<network::mojom::NoVarySearchParseError>
+      no_vary_search_parse_error_;
 
   // True if headers were received.
   bool were_headers_received_ = false;

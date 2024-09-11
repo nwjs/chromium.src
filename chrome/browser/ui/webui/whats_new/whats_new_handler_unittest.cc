@@ -12,12 +12,14 @@
 #include "chrome/browser/ui/hats/mock_hats_service.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new.mojom.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_ui.h"
+#include "chrome/browser/ui/webui/whats_new/whats_new_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_version.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/user_education/common/user_education_features.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_web_contents_factory.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -96,7 +98,7 @@ TEST_F(WhatsNewHandlerTest, GetServerUrl) {
       .WillOnce(testing::Invoke(
           [&](GURL actual_url) { EXPECT_EQ(actual_url, expected_url); }));
 
-  handler_->GetServerUrl(callback.Get());
+  handler_->GetServerUrl(false, callback.Get());
   mock_page_.FlushForTesting();
 }
 
@@ -195,7 +197,43 @@ TEST_P(WhatsNewHandlerTestWithCountry, SurveyIsTriggeredInActiveCountries) {
         .Times(0);
   }
 
-  handler_->GetServerUrl(callback.Get());
+  handler_->GetServerUrl(false, callback.Get());
+  mock_page_.FlushForTesting();
+}
+
+TEST_P(WhatsNewHandlerTestWithCountry,
+       AlternateSurveyIsTriggeredInActiveCountries) {
+  // Avoid creating actual url with WhatsNewRegistry
+  whats_new::DisableRemoteContentForTests();
+
+  auto country = GetParam();
+  base::test::ScopedFeatureList features;
+  features.InitWithFeaturesAndParameters(
+      {base::test::FeatureRefAndParams(
+           user_education::features::kWhatsNewVersion2, {}),
+       base::test::FeatureRefAndParams(
+           features::kHappinessTrackingSurveysForDesktopWhatsNew,
+           {{"whats-new-time", "20s"}})},
+      {});
+
+  handler_->set_override_latest_country_for_testing(country);
+
+  // Set activation threshold to trigger for
+  local_state_.Get()->SetInteger(prefs::kWhatsNewHatsActivationThreshold, 0);
+  base::MockCallback<WhatsNewHandler::GetServerUrlCallback> callback;
+  EXPECT_CALL(callback, Run).Times(1);
+
+  if (IsActiveCountry(country)) {
+    EXPECT_CALL(*mock_hats_service(), LaunchDelayedSurveyForWebContents)
+        .Times(1);
+  } else {
+    // Any threshold value will fail when the country is not set or not
+    // active.
+    EXPECT_CALL(*mock_hats_service(), LaunchDelayedSurveyForWebContents)
+        .Times(0);
+  }
+
+  handler_->GetServerUrl(false, callback.Get());
   mock_page_.FlushForTesting();
 }
 

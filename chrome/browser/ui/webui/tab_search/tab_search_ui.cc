@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/ui/webui/tab_search/tab_search_ui.h"
 
 #include <algorithm>
@@ -9,6 +14,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/trace_event/trace_event.h"
 #include "build/branding_buildflags.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
@@ -37,6 +43,14 @@ TabSearchUIConfig::TabSearchUIConfig()
 
 bool TabSearchUIConfig::ShouldAutoResizeHost() {
   return true;
+}
+
+bool TabSearchUIConfig::IsPreloadable() {
+  return true;
+}
+
+std::optional<int> TabSearchUIConfig::GetCommandIdForTesting() {
+  return IDC_TAB_SEARCH;
 }
 
 TabSearchUI::TabSearchUI(content::WebUI* web_ui)
@@ -161,9 +175,13 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
   source->AddBoolean(
       "tabReorganizationDividerEnabled",
       base::FeatureList::IsEnabled(features::kTabReorganizationDivider));
+  source->AddBoolean(
+      "tabOrganizationModelStrategyEnabled",
+      base::FeatureList::IsEnabled(features::kTabOrganizationModelStrategy));
 
   source->AddInteger("tabIndex", TabIndex());
   source->AddBoolean("showTabOrganizationFRE", ShowTabOrganizationFRE());
+  source->AddBoolean("declutterEnabled", features::IsTabstripDeclutter());
 
   ui::Accelerator accelerator(ui::VKEY_A,
                               ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR);

@@ -29,8 +29,8 @@ export class CraDialog extends MdDialog {
         --md-dialog-supporting-text-size: var(--cros-body-1-font-size);
         --md-dialog-supporting-text-weight: var(--cros-body-1-font-weight);
 
-        /* Want at least 80px left/right margin. */
-        max-width: min(512px, 100vw - 160px);
+        /* All dialog are "fixed" width in Recorder app. */
+        max-width: none;
       }
 
       .scrim {
@@ -40,14 +40,8 @@ export class CraDialog extends MdDialog {
         opacity: 1;
       }
 
-      /* This is the element that gets animated. */
-      .container::before {
+      dialog {
         box-shadow: var(--cros-sys-app_elevation3);
-      }
-
-      .container {
-        /* To not hide the box-shadow. */
-        overflow: initial;
       }
 
       slot[name="headline"]::slotted(*) {
@@ -62,8 +56,17 @@ export class CraDialog extends MdDialog {
         padding-bottom: 0;
       }
 
+      .scrollable.has-headline slot[name="content"]::slotted(*) {
+        padding-top: 16px;
+      }
+
       slot[name="actions"]::slotted(*) {
         padding: 32px 32px 28px;
+      }
+
+      /* CrOS dialog spec doesn't have the divider when the content scrolls. */
+      md-divider {
+        display: none !important;
       }
     `,
   ];

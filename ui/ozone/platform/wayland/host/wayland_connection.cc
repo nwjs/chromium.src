@@ -14,6 +14,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -37,6 +38,7 @@
 #include "ui/ozone/platform/wayland/host/proxy/wayland_proxy_impl.h"
 #include "ui/ozone/platform/wayland/host/single_pixel_buffer.h"
 #include "ui/ozone/platform/wayland/host/surface_augmenter.h"
+#include "ui/ozone/platform/wayland/host/toplevel_icon_manager.h"
 #include "ui/ozone/platform/wayland/host/wayland_buffer_factory.h"
 #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
 #include "ui/ozone/platform/wayland/host/wayland_cursor.h"
@@ -67,6 +69,7 @@
 #include "ui/ozone/platform/wayland/host/xdg_foreign_wrapper.h"
 #include "ui/ozone/platform/wayland/host/zwp_idle_inhibit_manager.h"
 #include "ui/ozone/platform/wayland/host/zwp_primary_selection_device_manager.h"
+#include "ui/ozone/public/ozone_switches.h"
 #include "ui/platform_window/common/platform_window_defaults.h"
 
 namespace ui {
@@ -150,6 +153,8 @@ bool WaylandConnection::Initialize(bool use_threaded_polling) {
                               &SinglePixelBuffer::Instantiate);
   RegisterGlobalObjectFactory(SurfaceAugmenter::kInterfaceName,
                               &SurfaceAugmenter::Instantiate);
+  RegisterGlobalObjectFactory(ToplevelIconManager::kInterfaceName,
+                              &ToplevelIconManager::Instantiate);
   RegisterGlobalObjectFactory(WaylandZAuraOutputManagerV2::kInterfaceName,
                               &WaylandZAuraOutputManagerV2::Instantiate);
   RegisterGlobalObjectFactory(WaylandDataDeviceManager::kInterfaceName,

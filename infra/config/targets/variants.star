@@ -247,34 +247,6 @@ targets.variant(
 )
 
 targets.variant(
-    name = "SIM_IPAD_10TH_GEN_16_4",
-    identifier = "iPad (10th generation) 16.4",
-    mixins = [
-        "ios_runtime_cache_16_4",
-    ],
-    args = [
-        "--platform",
-        "iPad (10th generation)",
-        "--version",
-        "16.4",
-    ],
-)
-
-targets.variant(
-    name = "SIM_IPAD_10TH_GEN_17_5",
-    identifier = "iPad (10th generation) 17.5",
-    mixins = [
-        "ios_runtime_cache_17_5",
-    ],
-    args = [
-        "--platform",
-        "iPad (10th generation)",
-        "--version",
-        "17.5",
-    ],
-)
-
-targets.variant(
     name = "SIM_IPAD_10TH_GEN_18_0",
     identifier = "iPad (10th generation) 18.0",
     mixins = [
@@ -285,20 +257,6 @@ targets.variant(
         "iPad (10th generation)",
         "--version",
         "18.0",
-    ],
-)
-
-targets.variant(
-    name = "SIM_IPHONE_13_16_4",
-    identifier = "iPhone 13 16.4",
-    mixins = [
-        "ios_runtime_cache_16_4",
-    ],
-    args = [
-        "--platform",
-        "iPhone 13",
-        "--version",
-        "16.4",
     ],
 )
 
@@ -327,6 +285,20 @@ targets.variant(
         "iPhone 14",
         "--version",
         "17.5",
+    ],
+)
+
+targets.variant(
+    name = "SIM_IPHONE_14_18_0",
+    identifier = "iPhone 14 18.0",
+    mixins = [
+        "ios_runtime_cache_18_0",
+    ],
+    args = [
+        "--platform",
+        "iPhone 14",
+        "--version",
+        "18.0",
     ],
 )
 
@@ -373,16 +345,16 @@ targets.variant(
 )
 
 targets.variant(
-    name = "SIM_IPHONE_14_PRO_MAX_16_4",
-    identifier = "iPhone 14 Pro Max 16.4",
+    name = "SIM_IPHONE_14_PLUS_18_0",
+    identifier = "iPhone 14 Plus 18.0",
     mixins = [
-        "ios_runtime_cache_16_4",
+        "ios_runtime_cache_18_0",
     ],
     args = [
         "--platform",
-        "iPhone 14 Pro Max",
+        "iPhone 14 Plus",
         "--version",
-        "16.4",
+        "18.0",
     ],
 )
 
@@ -503,22 +475,6 @@ targets.variant(
         if k != "cros_chrome_version"
     }),
 ) for name, variant in json.decode(io.read_file("./cros-skylab-variants.json")).items()]
-
-targets.variant(
-    name = "LACROS_AMD64_GENERIC",
-    identifier = "amd64-generic",
-    args = [
-        "--board=amd64-generic",
-        "--use-vm",
-    ],
-    swarming = targets.swarming(
-        dimensions = {
-            "cpu": "x86-64",
-            "kvm": "1",
-            "os": "Ubuntu-22.04",
-        },
-    ),
-)
 
 targets.variant(
     name = "LACROS_ASH_TOT",

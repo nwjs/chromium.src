@@ -350,7 +350,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 5
+          "shards": 3
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/"
@@ -803,7 +803,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 34
+          "shards": 39
         },
         "test": "interactive_ui_tests",
         "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
@@ -1787,7 +1787,8 @@
           "dimensions": {
             "os": "Ubuntu-22.04"
           },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/"
@@ -4909,7 +4910,8 @@
             "cpu": "x86-64",
             "os": "Ubuntu-22.04"
           },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/"
@@ -6520,7 +6522,8 @@
             "cpu": "x86-64",
             "os": "Ubuntu-22.04"
           },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/"
@@ -9116,7 +9119,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 4
+          "shards": 5
         },
         "test": "blink_unittests",
         "test_id_prefix": "ninja://third_party/blink/renderer/controller:blink_unittests/"
@@ -9541,7 +9544,8 @@
             "cpu": "x86-64",
             "os": "Mac-14"
           },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/"
@@ -10701,6 +10705,31 @@
         },
         "test": "blink_wpt_tests",
         "test_id_prefix": "ninja://:blink_wpt_tests/"
+      },
+      {
+        "args": [
+          "--test-list=../../third_party/blink/web_tests/TestLists/chrome.filter"
+        ],
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "chrome_wpt_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "results_handler": "layout tests",
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "chrome_wpt_tests",
+        "test_id_prefix": "ninja://:chrome_wpt_tests/"
       }
     ]
   },
@@ -10772,6 +10801,31 @@
         },
         "test": "blink_wpt_tests",
         "test_id_prefix": "ninja://:blink_wpt_tests/"
+      },
+      {
+        "args": [
+          "--test-list=../../third_party/blink/web_tests/TestLists/chrome.filter"
+        ],
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "chrome_wpt_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "results_handler": "layout tests",
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "chrome_wpt_tests",
+        "test_id_prefix": "ninja://:chrome_wpt_tests/"
       }
     ]
   },
@@ -10846,6 +10900,31 @@
         },
         "test": "blink_wpt_tests",
         "test_id_prefix": "ninja://:blink_wpt_tests/"
+      },
+      {
+        "args": [
+          "--test-list=../../third_party/blink/web_tests/TestLists/chrome.filter"
+        ],
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "chrome_wpt_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "results_handler": "layout tests",
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "chrome_wpt_tests",
+        "test_id_prefix": "ninja://:chrome_wpt_tests/"
       }
     ]
   },
@@ -12643,6 +12722,39 @@
       },
       {
         "args": [
+          "--webview-process-mode=single",
+          "--gs-results-bucket=chromium-result-details",
+          "--recover-devices"
+        ],
+        "merge": {
+          "args": [
+            "--bucket",
+            "chromium-result-details",
+            "--test-name",
+            "webview_instrumentation_test_apk_single_process_mode"
+          ],
+          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+        },
+        "name": "webview_instrumentation_test_apk_single_process_mode",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "device_os": "N2G48C",
+            "device_os_type": "userdebug",
+            "device_type": "bullhead",
+            "os": "Android"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
+        },
+        "test": "webview_instrumentation_test_apk",
+        "test_id_prefix": "ninja://android_webview/test:webview_instrumentation_test_apk/"
+      },
+      {
+        "args": [
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
@@ -12713,19 +12825,19 @@
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "absl_hardening_tests iPad Air (5th generation) 16.4",
+        "name": "absl_hardening_tests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12735,7 +12847,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -12744,11 +12856,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -12756,24 +12868,24 @@
         },
         "test": "absl_hardening_tests",
         "test_id_prefix": "ninja://third_party/abseil-cpp:absl_hardening_tests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "absl_hardening_tests iPhone X 16.4",
+        "name": "absl_hardening_tests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12783,7 +12895,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -12792,11 +12904,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -12804,24 +12916,24 @@
         },
         "test": "absl_hardening_tests",
         "test_id_prefix": "ninja://third_party/abseil-cpp:absl_hardening_tests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "base_unittests iPad Air (5th generation) 16.4",
+        "name": "base_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12831,7 +12943,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -12840,11 +12952,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -12852,24 +12964,24 @@
         },
         "test": "base_unittests",
         "test_id_prefix": "ninja://base:base_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "base_unittests iPhone X 16.4",
+        "name": "base_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12879,7 +12991,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -12888,11 +13000,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -12900,24 +13012,24 @@
         },
         "test": "base_unittests",
         "test_id_prefix": "ninja://base:base_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "boringssl_crypto_tests iPad Air (5th generation) 16.4",
+        "name": "boringssl_crypto_tests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12927,7 +13039,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -12936,11 +13048,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -12948,24 +13060,24 @@
         },
         "test": "boringssl_crypto_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_crypto_tests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "boringssl_crypto_tests iPhone X 16.4",
+        "name": "boringssl_crypto_tests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -12975,7 +13087,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -12984,11 +13096,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -12996,24 +13108,24 @@
         },
         "test": "boringssl_crypto_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_crypto_tests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "boringssl_ssl_tests iPad Air (5th generation) 16.4",
+        "name": "boringssl_ssl_tests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13023,7 +13135,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13032,11 +13144,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13044,24 +13156,24 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "boringssl_ssl_tests iPhone X 16.4",
+        "name": "boringssl_ssl_tests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13071,7 +13183,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13080,11 +13192,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13092,24 +13204,24 @@
         },
         "test": "boringssl_ssl_tests",
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "components_unittests iPad Air (5th generation) 16.4",
+        "name": "components_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13119,7 +13231,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13128,11 +13240,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13140,24 +13252,24 @@
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "components_unittests iPhone X 16.4",
+        "name": "components_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13167,7 +13279,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13176,11 +13288,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13188,24 +13300,24 @@
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crashpad_tests iPad Air (5th generation) 16.4",
+        "name": "crashpad_tests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13215,7 +13327,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13224,11 +13336,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13236,24 +13348,24 @@
         },
         "test": "crashpad_tests",
         "test_id_prefix": "ninja://third_party/crashpad/crashpad:crashpad_tests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crashpad_tests iPhone X 16.4",
+        "name": "crashpad_tests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13263,7 +13375,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13272,11 +13384,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13284,24 +13396,24 @@
         },
         "test": "crashpad_tests",
         "test_id_prefix": "ninja://third_party/crashpad/crashpad:crashpad_tests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crypto_unittests iPad Air (5th generation) 16.4",
+        "name": "crypto_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13311,7 +13423,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13320,11 +13432,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13332,24 +13444,24 @@
         },
         "test": "crypto_unittests",
         "test_id_prefix": "ninja://crypto:crypto_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "crypto_unittests iPhone X 16.4",
+        "name": "crypto_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13359,7 +13471,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13368,11 +13480,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13380,24 +13492,24 @@
         },
         "test": "crypto_unittests",
         "test_id_prefix": "ninja://crypto:crypto_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "gfx_unittests iPad Air (5th generation) 16.4",
+        "name": "gfx_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13407,7 +13519,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13416,11 +13528,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13428,24 +13540,24 @@
         },
         "test": "gfx_unittests",
         "test_id_prefix": "ninja://ui/gfx:gfx_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "gfx_unittests iPhone X 16.4",
+        "name": "gfx_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13455,7 +13567,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13464,11 +13576,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13476,24 +13588,24 @@
         },
         "test": "gfx_unittests",
         "test_id_prefix": "ninja://ui/gfx:gfx_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "google_apis_unittests iPad Air (5th generation) 16.4",
+        "name": "google_apis_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13503,7 +13615,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13512,11 +13624,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13524,24 +13636,24 @@
         },
         "test": "google_apis_unittests",
         "test_id_prefix": "ninja://google_apis:google_apis_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "google_apis_unittests iPhone X 16.4",
+        "name": "google_apis_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13551,7 +13663,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13560,11 +13672,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13572,24 +13684,24 @@
         },
         "test": "google_apis_unittests",
         "test_id_prefix": "ninja://google_apis:google_apis_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_unittests iPad Air (5th generation) 16.4",
+        "name": "ios_chrome_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13599,7 +13711,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13608,11 +13720,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13620,24 +13732,24 @@
         },
         "test": "ios_chrome_unittests",
         "test_id_prefix": "ninja://ios/chrome/test:ios_chrome_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_chrome_unittests iPhone X 16.4",
+        "name": "ios_chrome_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13647,7 +13759,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13656,11 +13768,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13668,24 +13780,24 @@
         },
         "test": "ios_chrome_unittests",
         "test_id_prefix": "ninja://ios/chrome/test:ios_chrome_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_components_unittests iPad Air (5th generation) 16.4",
+        "name": "ios_components_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13695,7 +13807,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13704,11 +13816,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13716,24 +13828,24 @@
         },
         "test": "ios_components_unittests",
         "test_id_prefix": "ninja://ios/components:ios_components_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_components_unittests iPhone X 16.4",
+        "name": "ios_components_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13743,7 +13855,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13752,11 +13864,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13764,24 +13876,24 @@
         },
         "test": "ios_components_unittests",
         "test_id_prefix": "ninja://ios/components:ios_components_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_net_unittests iPad Air (5th generation) 16.4",
+        "name": "ios_net_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13791,7 +13903,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13800,11 +13912,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13813,24 +13925,24 @@
         },
         "test": "ios_net_unittests",
         "test_id_prefix": "ninja://ios/net:ios_net_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_net_unittests iPhone X 16.4",
+        "name": "ios_net_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13840,7 +13952,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13849,11 +13961,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13862,24 +13974,24 @@
         },
         "test": "ios_net_unittests",
         "test_id_prefix": "ninja://ios/net:ios_net_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_remoting_unittests iPad Air (5th generation) 16.4",
+        "name": "ios_remoting_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13889,7 +14001,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13898,11 +14010,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13910,24 +14022,24 @@
         },
         "test": "ios_remoting_unittests",
         "test_id_prefix": "ninja://remoting/ios:ios_remoting_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_remoting_unittests iPhone X 16.4",
+        "name": "ios_remoting_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13937,7 +14049,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13946,11 +14058,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -13958,24 +14070,24 @@
         },
         "test": "ios_remoting_unittests",
         "test_id_prefix": "ninja://remoting/ios:ios_remoting_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_testing_unittests iPad Air (5th generation) 16.4",
+        "name": "ios_testing_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -13985,7 +14097,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -13994,11 +14106,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14006,24 +14118,24 @@
         },
         "test": "ios_testing_unittests",
         "test_id_prefix": "ninja://ios/testing:ios_testing_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_testing_unittests iPhone X 16.4",
+        "name": "ios_testing_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14033,7 +14145,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14042,11 +14154,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14054,24 +14166,24 @@
         },
         "test": "ios_testing_unittests",
         "test_id_prefix": "ninja://ios/testing:ios_testing_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_inttests iPad Air (5th generation) 16.4",
+        "name": "ios_web_inttests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14081,7 +14193,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14090,11 +14202,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14102,24 +14214,24 @@
         },
         "test": "ios_web_inttests",
         "test_id_prefix": "ninja://ios/web:ios_web_inttests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_inttests iPhone X 16.4",
+        "name": "ios_web_inttests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14129,7 +14241,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14138,11 +14250,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14150,24 +14262,24 @@
         },
         "test": "ios_web_inttests",
         "test_id_prefix": "ninja://ios/web:ios_web_inttests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_unittests iPad Air (5th generation) 16.4",
+        "name": "ios_web_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14177,7 +14289,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14186,11 +14298,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14198,24 +14310,24 @@
         },
         "test": "ios_web_unittests",
         "test_id_prefix": "ninja://ios/web:ios_web_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_unittests iPhone X 16.4",
+        "name": "ios_web_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14225,7 +14337,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14234,11 +14346,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14246,24 +14358,24 @@
         },
         "test": "ios_web_unittests",
         "test_id_prefix": "ninja://ios/web:ios_web_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_view_inttests iPad Air (5th generation) 16.4",
+        "name": "ios_web_view_inttests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14273,7 +14385,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14282,11 +14394,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14294,24 +14406,24 @@
         },
         "test": "ios_web_view_inttests",
         "test_id_prefix": "ninja://ios/web_view:ios_web_view_inttests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_view_inttests iPhone X 16.4",
+        "name": "ios_web_view_inttests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14321,7 +14433,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14330,11 +14442,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14342,24 +14454,24 @@
         },
         "test": "ios_web_view_inttests",
         "test_id_prefix": "ninja://ios/web_view:ios_web_view_inttests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_view_unittests iPad Air (5th generation) 16.4",
+        "name": "ios_web_view_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14369,7 +14481,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14378,11 +14490,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14390,24 +14502,24 @@
         },
         "test": "ios_web_view_unittests",
         "test_id_prefix": "ninja://ios/web_view:ios_web_view_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ios_web_view_unittests iPhone X 16.4",
+        "name": "ios_web_view_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14417,7 +14529,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14426,11 +14538,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14438,24 +14550,24 @@
         },
         "test": "ios_web_view_unittests",
         "test_id_prefix": "ninja://ios/web_view:ios_web_view_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "net_unittests iPad Air (5th generation) 16.4",
+        "name": "net_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14465,7 +14577,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14474,11 +14586,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14486,24 +14598,24 @@
         },
         "test": "net_unittests",
         "test_id_prefix": "ninja://net:net_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "net_unittests iPhone X 16.4",
+        "name": "net_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14513,7 +14625,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14522,11 +14634,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14534,24 +14646,24 @@
         },
         "test": "net_unittests",
         "test_id_prefix": "ninja://net:net_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "services_unittests iPad Air (5th generation) 16.4",
+        "name": "services_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14561,7 +14673,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14570,11 +14682,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14582,24 +14694,24 @@
         },
         "test": "services_unittests",
         "test_id_prefix": "ninja://services:services_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "services_unittests iPhone X 16.4",
+        "name": "services_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14609,7 +14721,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14618,11 +14730,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14630,24 +14742,24 @@
         },
         "test": "services_unittests",
         "test_id_prefix": "ninja://services:services_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "skia_unittests iPad Air (5th generation) 16.4",
+        "name": "skia_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14657,7 +14769,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14666,11 +14778,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14678,24 +14790,24 @@
         },
         "test": "skia_unittests",
         "test_id_prefix": "ninja://skia:skia_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "skia_unittests iPhone X 16.4",
+        "name": "skia_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14705,7 +14817,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14714,11 +14826,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14726,24 +14838,24 @@
         },
         "test": "skia_unittests",
         "test_id_prefix": "ninja://skia:skia_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "sql_unittests iPad Air (5th generation) 16.4",
+        "name": "sql_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14753,7 +14865,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14762,11 +14874,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14774,24 +14886,24 @@
         },
         "test": "sql_unittests",
         "test_id_prefix": "ninja://sql:sql_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "sql_unittests iPhone X 16.4",
+        "name": "sql_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14801,7 +14913,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14810,11 +14922,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14822,24 +14934,24 @@
         },
         "test": "sql_unittests",
         "test_id_prefix": "ninja://sql:sql_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ui_base_unittests iPad Air (5th generation) 16.4",
+        "name": "ui_base_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14849,7 +14961,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14858,11 +14970,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14870,24 +14982,24 @@
         },
         "test": "ui_base_unittests",
         "test_id_prefix": "ninja://ui/base:ui_base_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "ui_base_unittests iPhone X 16.4",
+        "name": "ui_base_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14897,7 +15009,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14906,11 +15018,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14918,24 +15030,24 @@
         },
         "test": "ui_base_unittests",
         "test_id_prefix": "ninja://ui/base:ui_base_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPad Air (5th generation)",
+          "iPad Air 11-inch (M2)",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "url_unittests iPad Air (5th generation) 16.4",
+        "name": "url_unittests iPad Air (6th generation) 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14945,7 +15057,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -14954,11 +15066,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -14966,24 +15078,24 @@
         },
         "test": "url_unittests",
         "test_id_prefix": "ninja://url:url_unittests/",
-        "variant_id": "iPad Air (5th generation) 16.4"
+        "variant_id": "iPad Air (6th generation) 18.0"
       },
       {
         "args": [
           "--platform",
-          "iPhone X",
+          "iPhone 15",
           "--version",
-          "16.4",
+          "18.0",
           "--out-dir",
           "${ISOLATED_OUTDIR}",
           "--xcode-build-version",
-          "15f31d",
+          "16a5211f",
           "--xctest"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "url_unittests iPhone X 16.4",
+        "name": "url_unittests iPhone 15 18.0",
         "resultdb": {
           "enable": true,
           "has_native_resultdb_integration": true
@@ -14993,7 +15105,7 @@
             {
               "cipd_package": "infra/tools/mac_toolchain/${platform}",
               "location": ".",
-              "revision": "git_revision:b28cf90d462a7bbd45c28f2d931960c2b9404cb0"
+              "revision": "git_revision:81653990788282be32e97d2e15ff585dd9f068f6"
             }
           ],
           "dimensions": {
@@ -15002,11 +15114,11 @@
           },
           "named_caches": [
             {
-              "name": "runtime_ios_16_4",
-              "path": "Runtime-ios-16.4"
+              "name": "runtime_ios_18_0",
+              "path": "Runtime-ios-18.0"
             },
             {
-              "name": "xcode_ios_15f31d",
+              "name": "xcode_ios_16a5211f",
               "path": "Xcode.app"
             }
           ],
@@ -15014,7 +15126,7 @@
         },
         "test": "url_unittests",
         "test_id_prefix": "ninja://url:url_unittests/",
-        "variant_id": "iPhone X 16.4"
+        "variant_id": "iPhone 15 18.0"
       }
     ]
   },
@@ -15308,7 +15420,8 @@
           "dimensions": {
             "os": "Ubuntu-22.04"
           },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
         },
         "test": "components_unittests",
         "test_id_prefix": "ninja://components:components_unittests/"

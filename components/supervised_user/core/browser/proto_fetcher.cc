@@ -30,8 +30,8 @@
 #include "components/supervised_user/core/browser/proto/kidsmanagement_messages.pb.h"
 #include "components/supervised_user/core/browser/proto/test.pb.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
+#include "google_apis/common/api_key_request_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
-#include "google_apis/google_api_keys.h"
 #include "net/base/request_priority.h"
 #include "net/http/http_status_code.h"
 #include "proto_fetcher.h"
@@ -91,6 +91,16 @@ constexpr std::string_view kSystemParameters("alt=proto");
 // buffer message.
 GURL CreateRequestUrl(const FetcherConfig& config,
                       const FetcherConfig::PathArgs& args) {
+  if (config.method == FetcherConfig::Method::kGet) {
+    std::string url =
+        base::StrCat({config.ServicePath(args), "?", kSystemParameters});
+    if (!config.system_param_suffix.empty()) {
+      url += base::StrCat({"&", config.system_param_suffix});
+    }
+    return GURL(config.service_endpoint.Get()).Resolve(url);
+  }
+  CHECK(config.system_param_suffix.empty())
+      << "System param suffix support for GET requests only.";
   return GURL(config.service_endpoint.Get())
       .Resolve(
           base::StrCat({config.ServicePath(args), "?", kSystemParameters}));
@@ -115,10 +125,7 @@ std::unique_ptr<network::SimpleURLLoader> InitializeSimpleUrlLoader(
         CreateAuthorizationHeader(access_token_info.value()));
   } else {
     CHECK(channel);
-    resource_request->headers.SetHeader(
-        "X-Goog-Api-Key", *channel == version_info::Channel::STABLE
-                              ? google_apis::GetAPIKey()
-                              : google_apis::GetNonStableAPIKey());
+    google_apis::AddDefaultAPIKeyToRequest(*resource_request, *channel);
   }
 
   std::unique_ptr<network::SimpleURLLoader> simple_url_loader =
@@ -311,9 +318,9 @@ std::string Metrics::GetMetricKey(MetricType metric_type) const {
     case MetricType::kAuthError:
       return "AuthError";
     case MetricType::kRetryCount:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -359,7 +366,7 @@ std::string Metrics::ToMetricEnumLabel(const ProtoFetcherStatus& status) {
     case ProtoFetcherStatus::DATA_ERROR:
       return "DataError";
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -385,11 +392,11 @@ std::string OverallMetrics::GetMetricKey(MetricType metric_type) const {
     case MetricType::kLatency:
       return "OverallLatency";
     case MetricType::kHttpStatusOrNetError:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
     case MetricType::kRetryCount:
       return "RetryCount";
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -488,6 +495,7 @@ void AbstractProtoFetcher::OnSimpleUrlLoaderComplete(
 
 std::optional<std::string> AbstractProtoFetcher::GetRequestPayload() const {
   if (config_.method == FetcherConfig::Method::kGet) {
+    CHECK(payload_.empty());
     return std::nullopt;
   }
   return payload_;
@@ -538,9 +546,6 @@ std::unique_ptr<ListFamilyMembersFetcher> FetchListFamilyMembers(
     ListFamilyMembersFetcher::Callback callback,
     const FetcherConfig& config) {
   kidsmanagement::ListMembersRequest request;
-  // If there is no associated Family Group with the account return an empty
-  // response instead of NOT_FOUND.
-  request.set_allow_empty_family(true);
   std::unique_ptr<ListFamilyMembersFetcher> fetcher =
       CreateFetcher<kidsmanagement::ListMembersResponse>(
           identity_manager, url_loader_factory, request, config);

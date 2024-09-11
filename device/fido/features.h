@@ -62,10 +62,6 @@ BASE_DECLARE_FEATURE(kWebAuthnICloudKeychainForInactiveWithDrive);
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnICloudKeychainForInactiveWithoutDrive);
 
-// Allow some sites to experiment with removing caBLE linking in requests.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnLinkingExperimentation);
-
 // Enable use of a cloud enclave authenticator service.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticator);
@@ -78,11 +74,6 @@ extern const base::FeatureParam<bool> kWebAuthnGpmPin;
 // Enable handling the passkeys reset flow.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnPasskeysReset);
-
-// Filter a priori discovered credentials on google.com to those that have a
-// user id that starts with "GOOGLE_ACCOUNT:".
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnFilterGooglePasskeys);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Enable ChromeOS native passkey support.
@@ -99,10 +90,6 @@ BASE_DECLARE_FEATURE(kWebAuthnRelatedOrigin);
 // Added in M121. Remove in or after M124.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kAllowExtensionsToSetWebAuthnRpIds);
-
-// Send and receive JSON from Play Services.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnAndroidFidoJson);
 
 // Prefer dispatching to a platform (i.e. internal transport) virtual
 // authenticator if available.
@@ -148,6 +135,10 @@ BASE_DECLARE_FEATURE(kWebAuthnAndroidOpenAccessory);
 // Send enclave requests with 5 seconds delay. For development purposes only.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay);
+
+// Enable non-autofill sign-in UI for conditional mediation.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnAmbientSignin);
 
 }  // namespace device
 

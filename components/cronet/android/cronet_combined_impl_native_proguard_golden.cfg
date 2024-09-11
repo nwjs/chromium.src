@@ -140,8 +140,6 @@
 # Suppress unnecessary warnings.
 -dontnote org.chromium.net.ProxyChangeListener$ProxyReceiver
 -dontnote org.chromium.net.AndroidKeyStore
-# Needs 'void setTextAppearance(int)' (API level 23).
--dontwarn org.chromium.base.ApiCompatibilityUtils
 # Needs 'boolean onSearchRequested(android.view.SearchEvent)' (API level 23).
 -dontwarn org.chromium.base.WindowCallbackWrapper
 
@@ -215,13 +213,13 @@
 
 # Keeps for method level annotations.
 -keepclasseswithmembers,allowaccessmodification class ** {
-  @org.jni_zero.AccessedByNative <fields>;
+  @**org.jni_zero.AccessedByNative <fields>;
 }
 -keepclasseswithmembers,includedescriptorclasses,allowaccessmodification class ** {
-  @org.jni_zero.CalledByNative <methods>;
+  @**org.jni_zero.CalledByNative <methods>;
 }
 -keepclasseswithmembers,includedescriptorclasses,allowaccessmodification class ** {
-  @org.jni_zero.CalledByNativeUnchecked <methods>;
+  @**org.jni_zero.CalledByNativeUnchecked <methods>;
 }
 
 # Allow unused native methods to be removed, but prevent renaming on those that
@@ -229,4 +227,9 @@
 # TODO(crbug.com/315973491): Restrict the broad scope of this rule.
 -keepclasseswithmembernames,includedescriptorclasses,allowaccessmodification class ** {
   native <methods>;
+}
+
+# Used when multiplexing. We don't package our own @UsedByReflection, so using this instead.
+-keepclasseswithmembers class !cr_allowunused,**J.N {
+  public long *_HASH;
 }

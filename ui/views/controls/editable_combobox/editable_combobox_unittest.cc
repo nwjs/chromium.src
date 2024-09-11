@@ -30,6 +30,7 @@
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/context_menu_controller.h"
+#include "ui/views/controls/button/button.h"
 #include "ui/views/controls/combobox/combobox_util.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/textfield/textfield.h"
@@ -125,6 +126,7 @@ class EditableComboboxTest : public ViewsTestBase {
   void DragMouseTo(const gfx::Point& location);
   MenuRunner* GetMenuRunner();
   bool IsMenuOpen();
+  Button* GetArrowButton();
   void PerformMouseEvent(Widget* widget,
                          const gfx::Point& point,
                          ui::EventType type);
@@ -314,6 +316,10 @@ MenuRunner* EditableComboboxTest::GetMenuRunner() {
 
 bool EditableComboboxTest::IsMenuOpen() {
   return combobox_ && GetMenuRunner() && GetMenuRunner()->IsRunning();
+}
+
+Button* EditableComboboxTest::GetArrowButton() {
+  return combobox_->GetArrowButtonForTesting();
 }
 
 void EditableComboboxTest::PerformMouseEvent(Widget* widget,
@@ -903,6 +909,48 @@ TEST_F(EditableComboboxTest, AccessibleNameAndRole) {
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"New name");
   EXPECT_EQ(combobox_->GetViewAccessibility().GetCachedName(), u"New name");
+}
+
+TEST_F(EditableComboboxTest, AccessibleValue) {
+  InitEditableCombobox();
+  // kValue should be empty when the combobox is empty.
+  ui::AXNodeData data;
+  combobox_->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kValue), u"");
+
+  FocusTextfield();
+  SendKeyEvent(ui::VKEY_A);
+  SendKeyEvent(ui::VKEY_DOWN);
+  EXPECT_TRUE(IsMenuOpen());
+  SendKeyEvent(ui::VKEY_RETURN);
+  WaitForMenuClosureAnimation();
+  EXPECT_FALSE(IsMenuOpen());
+
+  data = ui::AXNodeData();
+  combobox_->GetViewAccessibility().GetAccessibleNodeData(&data);
+  std::u16string val;
+  ASSERT_TRUE(
+      data.GetString16Attribute(ax::mojom::StringAttribute::kValue, &val));
+  EXPECT_EQ(u"item[0]", val);
+}
+
+TEST_F(EditableComboboxTest, AccessibleArrowDefaultActionVerb) {
+  InitEditableCombobox();
+  auto* arrow_button = GetArrowButton();
+  ui::AXNodeData data;
+  arrow_button->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.GetDefaultActionVerb(), ax::mojom::DefaultActionVerb::kOpen);
+
+  arrow_button->SetEnabled(false);
+  data = ui::AXNodeData();
+  arrow_button->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_FALSE(
+      data.HasIntAttribute(ax::mojom::IntAttribute::kDefaultActionVerb));
+
+  arrow_button->SetEnabled(true);
+  data = ui::AXNodeData();
+  arrow_button->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.GetDefaultActionVerb(), ax::mojom::DefaultActionVerb::kOpen);
 }
 
 using EditableComboboxDefaultTest = ViewsTestBase;

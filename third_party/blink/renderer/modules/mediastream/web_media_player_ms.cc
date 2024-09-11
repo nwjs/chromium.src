@@ -33,8 +33,6 @@
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
-#include "third_party/blink/public/platform/modules/mediastream/web_media_stream_audio_renderer.h"
-#include "third_party/blink/public/platform/modules/mediastream/web_media_stream_video_renderer.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/url_conversion.h"
@@ -44,8 +42,10 @@
 #include "third_party/blink/public/web/modules/media/web_media_player_util.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/modules/mediastream/media_stream_audio_renderer.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_local_frame_wrapper.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_renderer_factory.h"
+#include "third_party/blink/renderer/modules/mediastream/media_stream_video_renderer.h"
 #include "third_party/blink/renderer/modules/mediastream/web_media_player_ms_compositor.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_track.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_component.h"
@@ -921,6 +921,16 @@ void WebMediaPlayerMS::SetPreservesPitch(bool preserves_pitch) {
 void WebMediaPlayerMS::SetWasPlayedWithUserActivation(
     bool was_played_with_user_activation) {}
 
+void WebMediaPlayerMS::SetShouldPauseWhenFrameIsHidden(
+    bool should_pause_when_frame_is_hidden) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  should_pause_when_frame_is_hidden_ = should_pause_when_frame_is_hidden;
+}
+
+bool WebMediaPlayerMS::GetShouldPauseWhenFrameIsHidden() {
+  return should_pause_when_frame_is_hidden_;
+}
+
 void WebMediaPlayerMS::OnRequestPictureInPicture() {
   if (!bridge_) {
     ActivateSurfaceLayerForVideo(compositor_->GetMetadata().video_transform);
@@ -1217,6 +1227,16 @@ void WebMediaPlayerMS::OnPageShown() {
 }
 
 void WebMediaPlayerMS::OnIdleTimeout() {}
+
+void WebMediaPlayerMS::OnFrameShown() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  OnPageShown();
+}
+
+void WebMediaPlayerMS::OnFrameHidden() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  OnPageHidden();
+}
 
 void WebMediaPlayerMS::SetVolumeMultiplier(double multiplier) {
   // TODO(perkj, magjed): See TODO in OnPlay().

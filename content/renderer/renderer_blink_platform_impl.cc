@@ -67,6 +67,7 @@
 #include "content/renderer/service_worker/service_worker_subresource_loader.h"
 #include "content/renderer/v8_value_converter_impl.h"
 #include "content/renderer/variations_render_thread_observer.h"
+#include "content/renderer/webgraphics_shared_image_interface_provider_impl.h"
 #include "content/renderer/webgraphicscontext3d_provider_impl.h"
 #include "content/renderer/worker/dedicated_worker_host_factory_client.h"
 #include "content/renderer/worker/worker_thread_registry.h"
@@ -76,6 +77,7 @@
 #include "gpu/config/gpu_driver_bug_workarounds.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_info.h"
+#include "gpu/ipc/client/client_shared_image_interface.h"
 #include "gpu/ipc/client/gpu_channel_host.h"
 #include "media/audio/audio_output_device.h"
 #include "media/base/media_permission.h"
@@ -391,6 +393,12 @@ RendererBlinkPlatformImpl::CreateWebSocketHandshakeThrottleProvider() {
   return GetContentClient()
       ->renderer()
       ->CreateWebSocketHandshakeThrottleProvider();
+}
+
+bool RendererBlinkPlatformImpl::ShouldUseCodeCacheWithHashing(
+    const blink::WebURL& request_url) const {
+  return GetContentClient()->renderer()->ShouldUseCodeCacheWithHashing(
+      request_url);
 }
 
 bool RendererBlinkPlatformImpl::IsolateStartsInBackground() {
@@ -783,6 +791,25 @@ RendererBlinkPlatformImpl::CreateSharedOffscreenGraphicsContext3DProvider() {
       std::move(provider));
 }
 
+std::unique_ptr<blink::WebGraphicsSharedImageInterfaceProvider>
+RendererBlinkPlatformImpl::CreateSharedImageInterfaceProvider() {
+  auto* thread = RenderThreadImpl::current();
+
+  scoped_refptr<gpu::GpuChannelHost> gpu_channel =
+      thread->EstablishGpuChannelSync();
+  if (!gpu_channel) {
+    return nullptr;
+  }
+
+  auto shared_image_interface = gpu_channel->CreateClientSharedImageInterface();
+  if (!shared_image_interface) {
+    return nullptr;
+  }
+
+  return std::make_unique<WebGraphicsSharedImageInterfaceProviderImpl>(
+      std::move(shared_image_interface));
+}
+
 //------------------------------------------------------------------------------
 
 static std::unique_ptr<blink::WebGraphicsContext3DProvider>
@@ -1074,6 +1101,7 @@ base::WeakPtr<media::DecoderFactory>
 RendererBlinkPlatformImpl::GetMediaDecoderFactory() {
   blink::WebLocalFrame* const web_frame =
       blink::WebLocalFrame::FrameForCurrentContext();
+  CHECK(web_frame);
   RenderFrameImpl* render_frame = RenderFrameImpl::FromWebFrame(web_frame);
   return render_frame->GetMediaDecoderFactory();
 }

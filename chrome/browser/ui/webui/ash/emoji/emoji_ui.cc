@@ -2,10 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/ui/webui/ash/emoji/emoji_ui.h"
 
 #include <iostream>
 
+#include "ash/ash_element_identifiers.h"
 #include "ash/constants/ash_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -30,6 +36,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/display/screen.h"
 #include "ui/resources/grit/webui_resources.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/webui/color_change_listener/color_change_handler.h"
 
 namespace {
@@ -46,6 +53,7 @@ class EmojiBubbleDialogView : public WebUIBubbleDialogView {
         contents_wrapper_(std::move(contents_wrapper)) {
     set_has_parent(false);
     set_corner_radius(20);
+    SetProperty(views::kElementIdentifierKey, ash::kEmojiPickerElementId);
   }
 
  private:

@@ -124,9 +124,6 @@ public class SigninFirstRunFragmentTest {
     private static final String FULL_NAME1 = "Test Account1";
     private static final String GIVEN_NAME1 = "Account1";
     private static final String TEST_EMAIL2 = "test.account2@gmail.com";
-    private static final String CHILD_ACCOUNT_EMAIL =
-            AccountManagerTestRule.generateChildEmail("account@gmail.com");
-    private static final String CHILD_FULL_NAME = "Test Child";
 
     /** This class is used to test {@link SigninFirstRunFragment}. */
     public static class CustomSigninFirstRunFragment extends SigninFirstRunFragment {
@@ -254,32 +251,24 @@ public class SigninFirstRunFragmentTest {
         onView(withText(R.string.signin_add_account_to_device)).check(matches(isDisplayed()));
         onView(withText(R.string.signin_fre_dismiss_button)).check(matches(isDisplayed()));
 
-        AccountInfo accountInfo =
-                mSigninTestRule.addAccount(
-                        CHILD_ACCOUNT_EMAIL,
-                        CHILD_FULL_NAME,
-                        /* givenName= */ null,
-                        /* avatar= */ null);
+        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
         when(mPolicyLoadListenerMock.get()).thenReturn(true);
 
         checkFragmentWithChildAccount(
-                /* hasDisplayableFullName= */ true, /* hasDisplayableEmail= */ true, accountInfo);
+                /* hasDisplayableFullName= */ true,
+                /* hasDisplayableEmail= */ true,
+                AccountManagerTestRule.TEST_CHILD_ACCOUNT);
     }
 
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testFragmentWhenRemovingChildAccountDynamically() {
-        AccountInfo accountInfo =
-                mSigninTestRule.addAccount(
-                        CHILD_ACCOUNT_EMAIL,
-                        CHILD_FULL_NAME,
-                        /* givenName= */ null,
-                        /* avatar= */ null);
+        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
         launchActivityWithFragment();
-        checkFragmentWithChildAccount(true, true, accountInfo);
+        checkFragmentWithChildAccount(true, true, AccountManagerTestRule.TEST_CHILD_ACCOUNT);
 
-        mSigninTestRule.removeAccount(accountInfo.getId());
+        mSigninTestRule.removeAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT.getId());
 
         CriteriaHelper.pollUiThread(
                 () -> {
@@ -498,17 +487,14 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testFragmentWithChildAccount() {
-        AccountInfo accountInfo =
-                mSigninTestRule.addAccount(
-                        CHILD_ACCOUNT_EMAIL,
-                        CHILD_FULL_NAME,
-                        /* givenName= */ null,
-                        /* avatar= */ null);
+        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
         when(mPolicyLoadListenerMock.get()).thenReturn(true);
 
         launchActivityWithFragment();
         checkFragmentWithChildAccount(
-                /* hasDisplayableFullName= */ true, /* hasDisplayableEmail= */ true, accountInfo);
+                /* hasDisplayableFullName= */ true,
+                /* hasDisplayableEmail= */ true,
+                AccountManagerTestRule.TEST_CHILD_ACCOUNT);
     }
 
     @Test
@@ -545,6 +531,9 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
+            message = "Flaky, crbug.com/358148764")
     public void testSigninWithDefaultAccount() {
         mSigninTestRule.addAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, null);
         launchActivityWithFragment();
@@ -659,6 +648,9 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
+            message = "Flaky, crbug.com/358148764")
     public void testSigninWithNonDefaultAccount() {
         mSigninTestRule.addAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, /* avatar= */ null);
         mSigninTestRule.addAccount(
@@ -756,6 +748,9 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
+            message = "Flaky, crbug.com/358148764")
     public void testDismissButtonWhenUserIsSignedIn() {
         mSigninTestRule.addAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, null);
         final CoreAccountInfo primaryAccount = mSigninTestRule.addTestAccountThenSignin();
@@ -819,6 +814,9 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     @Features.EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
+            message = "Flaky, crbug.com/358148764")
     public void testContinueButtonWithChildAccount_replaceSyncWithSigninPromosEnabled() {
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProviderMock);
         ThreadUtils.runOnUiThreadBlocking(
@@ -882,6 +880,9 @@ public class SigninFirstRunFragmentTest {
         SigninFeatures.SEED_ACCOUNTS_REVAMP,
         ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS
     })
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
+            message = "Flaky, crbug.com/358148764")
     public void
             testContinueButtonWithChildAccountWithNonDisplayableAccountEmail_replaceSyncWithSigninPromosEnabled() {
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProviderMock);
@@ -931,6 +932,9 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     @Features.EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
+            message = "Flaky, crbug.com/358148764")
     public void
             testContinueButtonWithChildAccountWithNonDisplayableAccountEmailWithEmptyDisplayName_replaceSyncPromosWithSigninPromosEnabled() {
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProviderMock);
@@ -1102,6 +1106,9 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
+            message = "Flaky, crbug.com/358148764")
     public void testContinueButtonWhenAllowCrashUploadTurnedOff() {
         mSigninTestRule.addAccount(TEST_EMAIL1, FULL_NAME1, GIVEN_NAME1, null);
         launchActivityWithFragment();
@@ -1155,6 +1162,9 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @EnableFeatures(SigninFeatures.SEED_ACCOUNTS_REVAMP)
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    @DisableIf.Build(
+            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
+            message = "Flaky, crbug.com/358148764")
     public void testFragmentSigninWhenAddedAccountIsNotYetAvailable() {
         final String continueAsText =
                 mActivityTestRule
@@ -1369,17 +1379,14 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testFragmentWithChildAccount_doesNotApplyFREStringVariation() {
-        AccountInfo accountInfo =
-                mSigninTestRule.addAccount(
-                        CHILD_ACCOUNT_EMAIL,
-                        CHILD_FULL_NAME,
-                        /* givenName= */ null,
-                        /* avatar= */ null);
+        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
         when(mPolicyLoadListenerMock.get()).thenReturn(true);
 
         launchActivityWithFragment();
         checkFragmentWithChildAccount(
-                /* hasDisplayableFullName= */ true, /* hasDisplayableEmail= */ true, accountInfo);
+                /* hasDisplayableFullName= */ true,
+                /* hasDisplayableEmail= */ true,
+                AccountManagerTestRule.TEST_CHILD_ACCOUNT);
     }
 
     @Test

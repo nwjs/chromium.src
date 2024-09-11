@@ -20,15 +20,22 @@ extern const char kHistogramGWSNavigationStartToFirstResponseStart[];
 extern const char kHistogramGWSNavigationStartToFirstLoaderCallback[];
 extern const char kHistogramGWSNavigationStartToOnComplete[];
 
+extern const char kHistogramGWSConnectTimingFirstRequestDomainLookupDelay[];
+extern const char kHistogramGWSConnectTimingFirstRequestConnectDelay[];
+extern const char kHistogramGWSConnectTimingFirstRequestSslDelay[];
+extern const char kHistogramGWSConnectTimingFinalRequestDomainLookupDelay[];
+extern const char kHistogramGWSConnectTimingFinalRequestConnectDelay[];
+extern const char kHistogramGWSConnectTimingFinalRequestSslDelay[];
+
 extern const char kHistogramGWSAFTEnd[];
 extern const char kHistogramGWSAFTStart[];
 
 extern const char kHistogramGWSFirstContentfulPaint[];
 extern const char kHistogramGWSLargestContentfulPaint[];
 extern const char kHistogramGWSParseStart[];
-
-extern const char kGwsAFTStartMarkName[];
-extern const char kGwsAFTEndMarkName[];
+extern const char kHistogramGWSConnectStart[];
+extern const char kHistogramGWSDomainLookupStart[];
+extern const char kHistogramGWSDomainLookupEnd[];
 
 }  // namespace internal
 
@@ -61,17 +68,37 @@ class GWSPageLoadMetricsObserver
       const page_load_metrics::mojom::PageLoadTiming& timing) override;
   void OnParseStart(
       const page_load_metrics::mojom::PageLoadTiming& timing) override;
+  void OnConnectStart(
+      const page_load_metrics::mojom::PageLoadTiming& timing) override;
+  void OnDomainLookupStart(
+      const page_load_metrics::mojom::PageLoadTiming& timing) override;
+  void OnDomainLookupEnd(
+      const page_load_metrics::mojom::PageLoadTiming& timing) override;
   void OnComplete(
       const page_load_metrics::mojom::PageLoadTiming& timing) override;
   void OnCustomUserTimingMarkObserved(
       const std::vector<page_load_metrics::mojom::CustomUserTimingMarkPtr>&
           timings) override;
 
+  // The methods below are only intended for use in testing.
+  void SetIsFirstNavigationForTesting(bool is_first_navigation) {
+    is_first_navigation_ = is_first_navigation;
+  }
+
+  void SetNewTabPageForTesting(bool is_new_tab_page) {
+    is_new_tab_page_ = is_new_tab_page;
+  }
+
  private:
   void LogMetricsOnComplete();
   void RecordNavigationTimingHistograms();
 
+  std::string AddHistogramSuffix(const std::string histogram_name);
+
   content::NavigationHandleTiming navigation_handle_timing_;
+
+  bool is_first_navigation_ = false;
+  bool is_new_tab_page_ = false;
 };
 
 #endif  // CHROME_BROWSER_PAGE_LOAD_METRICS_OBSERVERS_GWS_PAGE_LOAD_METRICS_OBSERVER_H_

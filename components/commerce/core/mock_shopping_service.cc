@@ -8,7 +8,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "components/commerce/core/mock_cluster_manager.h"
 #include "components/commerce/core/product_specifications/mock_product_specifications_service.h"
-#include "components/sync/test/mock_model_type_change_processor.h"
+#include "components/sync/test/mock_data_type_local_change_processor.h"
 
 namespace commerce {
 
@@ -68,6 +68,7 @@ void MockShoppingService::SetupPermissiveMock() {
   SetIsPriceInsightsEligible(true);
   SetResponseForGetPriceInsightsInfoForUrl(std::nullopt);
   SetGetAllParcelStatusesCallbackValue(std::vector<ParcelTrackingStatus>());
+  SetQueryHistoryForUrlCallbackValue(history::QueryURLResult());
 }
 
 void MockShoppingService::SetAccountChecker(AccountChecker* account_checker) {
@@ -290,6 +291,17 @@ void MockShoppingService::SetResponseForGetProductSpecificationsForUrls(
                                           std::optional<ProductSpecifications>(
                                               std::move(specs))));
           });
+}
+
+void MockShoppingService::SetQueryHistoryForUrlCallbackValue(
+    history::QueryURLResult result) {
+  ON_CALL(*this, QueryHistoryForUrl)
+      .WillByDefault([result = std::move(result)](
+                         const GURL& url,
+                         history::HistoryService::QueryURLCallback callback) {
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE, base::BindOnce(std::move(callback), std::move(result)));
+      });
 }
 
 }  // namespace commerce

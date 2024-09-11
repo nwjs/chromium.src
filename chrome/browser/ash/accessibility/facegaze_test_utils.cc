@@ -64,8 +64,14 @@ std::string ToString(const FaceGazeGesture& gesture) {
       return "eyesLookRight";
     case FaceGazeGesture::EYES_LOOK_UP:
       return "eyesLookUp";
+    case FaceGazeGesture::JAW_LEFT:
+      return "jawLeft";
     case FaceGazeGesture::JAW_OPEN:
       return "jawOpen";
+    case FaceGazeGesture::JAW_RIGHT:
+      return "jawRight";
+    case FaceGazeGesture::MOUTH_FUNNEL:
+      return "mouthFunnel";
     case FaceGazeGesture::MOUTH_LEFT:
       return "mouthLeft";
     case FaceGazeGesture::MOUTH_PUCKER:
@@ -111,8 +117,14 @@ std::string ToString(const MediapipeGesture& gesture) {
       return "eyeSquintLeft";
     case MediapipeGesture::EYE_SQUINT_RIGHT:
       return "eyeSquintRight";
+    case MediapipeGesture::JAW_LEFT:
+      return "jawLeft";
     case MediapipeGesture::JAW_OPEN:
       return "jawOpen";
+    case MediapipeGesture::JAW_RIGHT:
+      return "jawRight";
+    case MediapipeGesture::MOUTH_FUNNEL:
+      return "mouthFunnel";
     case MediapipeGesture::MOUTH_LEFT:
       return "mouthLeft";
     case MediapipeGesture::MOUTH_PUCKER:
@@ -140,6 +152,8 @@ FaceGazeTestUtils::Config& FaceGazeTestUtils::Config::Default() {
   cursor_location_ = gfx::Point(600, 400);
   buffer_size_ = 1;
   use_cursor_acceleration_ = false;
+  dialog_accepted_ = true;
+
   return *this;
 }
 
@@ -163,6 +177,12 @@ FaceGazeTestUtils::Config& FaceGazeTestUtils::Config::WithBufferSize(int size) {
 FaceGazeTestUtils::Config& FaceGazeTestUtils::Config::WithCursorAcceleration(
     bool acceleration) {
   use_cursor_acceleration_ = acceleration;
+  return *this;
+}
+
+FaceGazeTestUtils::Config& FaceGazeTestUtils::Config::WithDialogAccepted(
+    bool accepted) {
+  dialog_accepted_ = accepted;
   return *this;
 }
 
@@ -236,6 +256,12 @@ void FaceGazeTestUtils::EnableFaceGaze(const Config& config) {
   event_generator_ = std::make_unique<ui::test::EventGenerator>(
       Shell::Get()->GetPrimaryRootWindow());
 
+  // Before enabling FaceGaze, ensure that the dialog accepted pref matches
+  // what is specified in the config.
+  GetPrefs()->SetBoolean(
+      prefs::kAccessibilityFaceGazeAcceleratorDialogHasBeenAccepted,
+      config.dialog_accepted());
+
   FaceGazeTestUtils::SetUpMediapipeDir();
   ASSERT_FALSE(AccessibilityManager::Get()->IsFaceGazeEnabled());
 
@@ -295,6 +321,12 @@ void FaceGazeTestUtils::MoveMouseTo(const gfx::Point& location) {
 void FaceGazeTestUtils::AssertCursorAt(const gfx::Point& location) {
   WaitForCursorPosition(location);
   ASSERT_EQ(location, display::Screen::GetScreen()->GetCursorScreenPoint());
+}
+
+void FaceGazeTestUtils::AssertScrollMode(bool active) {
+  std::string true_script = "faceGazeTestSupport.assertScrollMode(true);";
+  std::string false_script = "faceGazeTestSupport.assertScrollMode(false);";
+  ExecuteAccessibilityCommonScript(active ? true_script : false_script);
 }
 
 void FaceGazeTestUtils::ExecuteAccessibilityCommonScript(

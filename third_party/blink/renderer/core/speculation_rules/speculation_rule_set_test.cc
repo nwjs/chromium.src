@@ -1288,6 +1288,70 @@ TEST_F(SpeculationRuleSetTest, ConsoleWarningForInvalidRule) {
       }));
 }
 
+// Tests that a warning is shown when speculation rules are added using the
+// innerHTML setter, which doesn't currently do what the author meant.
+TEST_F(SpeculationRuleSetTest, ConsoleWarningForSetInnerHTML) {
+  auto* chrome_client = MakeGarbageCollected<ConsoleCapturingChromeClient>();
+  DummyPageHolder page_holder(/*initial_view_size=*/{}, chrome_client);
+  page_holder.GetFrame().GetSettings()->SetScriptEnabled(true);
+
+  Document& document = page_holder.GetDocument();
+  document.head()->setInnerHTML("<script type=speculationrules>{}</script>");
+
+  EXPECT_TRUE(base::ranges::any_of(
+      chrome_client->ConsoleMessages(), [](const String& message) {
+        return message.Contains("speculation rule") &&
+               message.Contains("will be ignored");
+      }));
+}
+
+// Tests that a console warning mentions that child modifications are
+// ineffective.
+TEST_F(SpeculationRuleSetTest, ConsoleWarningForChildModification) {
+  auto* chrome_client = MakeGarbageCollected<ConsoleCapturingChromeClient>();
+  DummyPageHolder page_holder(/*initial_view_size=*/{}, chrome_client);
+  page_holder.GetFrame().GetSettings()->SetScriptEnabled(true);
+
+  Document& document = page_holder.GetDocument();
+  HTMLScriptElement* script =
+      MakeGarbageCollected<HTMLScriptElement>(document, CreateElementFlags());
+  script->setAttribute(html_names::kTypeAttr, AtomicString("speculationrules"));
+  script->setText("{}");
+  document.head()->appendChild(script);
+
+  script->setText(R"({"prefetch": [{"urls": "/2"}]})");
+
+  EXPECT_TRUE(base::ranges::any_of(
+      chrome_client->ConsoleMessages(), [](const String& message) {
+        return message.Contains("speculation rule") &&
+               message.Contains("modified");
+      }));
+}
+
+// Tests that a console warning mentions duplicate keys.
+TEST_F(SpeculationRuleSetTest, ConsoleWarningForDuplicateKey) {
+  auto* chrome_client = MakeGarbageCollected<ConsoleCapturingChromeClient>();
+  DummyPageHolder page_holder(/*initial_view_size=*/{}, chrome_client);
+  page_holder.GetFrame().GetSettings()->SetScriptEnabled(true);
+
+  Document& document = page_holder.GetDocument();
+  HTMLScriptElement* script =
+      MakeGarbageCollected<HTMLScriptElement>(document, CreateElementFlags());
+  script->setAttribute(html_names::kTypeAttr, AtomicString("speculationrules"));
+  script->setText(
+      R"({
+        "prefetch": [{"urls": ["a.html"]}],
+        "prefetch": [{"urls": ["b.html"]}]
+      })");
+  document.head()->appendChild(script);
+
+  EXPECT_TRUE(base::ranges::any_of(
+      chrome_client->ConsoleMessages(), [](const String& message) {
+        return message.Contains("speculation rule") &&
+               message.Contains("more than one") &&
+               message.Contains("prefetch");
+      }));
+}
 TEST_F(SpeculationRuleSetTest, DropNotArrayAtRuleSetPosition) {
   auto* rule_set = CreateRuleSet(
       R"({
@@ -2674,13 +2738,16 @@ TEST_F(DocumentRulesTest, BaseURLChanged) {
 
   AddAnchor(*document.body(), "https://foo.com/bar");
   AddAnchor(*document.body(), "/bart");
-  String speculation_script = R"(
-    {"prefetch": [
-      {"source": "document", "where": {"href_matches": "/bar*"}}
-    ]}
-  )";
-  PropagateRulesToStubSpeculationHost(page_holder, speculation_host,
-                                      speculation_script);
+
+  HTMLScriptElement* speculation_script;
+  PropagateRulesToStubSpeculationHost(page_holder, speculation_host, [&]() {
+    speculation_script = InsertSpeculationRules(page_holder.GetDocument(),
+                                                R"(
+      {"prefetch": [
+        {"source": "document", "where": {"href_matches": "/bar*"}}
+      ]}
+    )");
+  });
   const auto& candidates = speculation_host.candidates();
   EXPECT_THAT(candidates, HasURLs(KURL("https://foo.com/bar"),
                                   KURL("https://foo.com/bart")));
@@ -2692,6 +2759,11 @@ TEST_F(DocumentRulesTest, BaseURLChanged) {
   // "https://bar.com/bar*" and doesn't match. "/bart" is resolved to
   // "https://bar.com/bart" and matches with "https://bar.com/bar*".
   EXPECT_THAT(candidates, HasURLs("https://bar.com/bart"));
+
+  // Test that removing the script causes the candidates to be removed.
+  PropagateRulesToStubSpeculationHost(page_holder, speculation_host,
+                                      [&]() { speculation_script->remove(); });
+  EXPECT_EQ(candidates.size(), 0u);
 }
 
 TEST_F(DocumentRulesTest, TargetHintFromLink) {

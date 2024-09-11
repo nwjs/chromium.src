@@ -94,22 +94,16 @@ size_t MaxNumSkSurface() {
 }
 
 // Creates a Graphite recorder, supplying it with a GraphiteImageProvider.
-std::unique_ptr<skgpu::graphite::Recorder>
-MakeGraphiteRecorderWithImageProvider(skgpu::graphite::Context* context) {
+std::unique_ptr<skgpu::graphite::Recorder> MakeGraphiteRecorder(
+    skgpu::graphite::Context* context,
+    size_t max_resource_cache_bytes,
+    size_t max_image_provider_cache_bytes) {
   skgpu::graphite::RecorderOptions options;
-  options.fImageProvider = sk_make_sp<gpu::GraphiteImageProvider>(
-      gpu::DetermineGraphiteImageProviderCacheLimitFromAvailableMemory());
+  options.fGpuBudgetInBytes = max_resource_cache_bytes;
+  options.fImageProvider =
+      sk_make_sp<gpu::GraphiteImageProvider>(max_image_provider_cache_bytes);
   return context->makeRecorder(options);
 }
-
-#if BUILDFLAG(SKIA_USE_DAWN)
-int32_t GetDawnMaxTextureSize(gpu::DawnContextProvider* context_provider) {
-  wgpu::SupportedLimits limits = {};
-  auto succeded = context_provider->GetDevice().GetLimits(&limits);
-  CHECK(succeded);
-  return limits.limits.maxTextureDimension2D;
-}
-#endif  // BUILDFLAG(SKIA_USE_DAWN)
 
 // Used to represent Skia backend type for UMA.
 // These values are persisted to logs. Entries should not be renumbered and
@@ -365,11 +359,20 @@ bool SharedContextState::IsUsingGL() const {
          gr_context_type_ == GrContextType::kNone;
 }
 
+bool SharedContextState::IsGraphiteDawn() const {
+  return gr_context_type() == GrContextType::kGraphiteDawn &&
+         dawn_context_provider();
+}
+
+bool SharedContextState::IsGraphiteMetal() const {
+  return gr_context_type() == GrContextType::kGraphiteMetal &&
+         metal_context_provider();
+}
+
 bool SharedContextState::IsGraphiteDawnMetal() const {
 #if BUILDFLAG(SKIA_USE_DAWN)
-  return gr_context_type_ == GrContextType::kGraphiteDawn &&
-         dawn_context_provider_ &&
-         dawn_context_provider_->backend_type() == wgpu::BackendType::Metal;
+  return IsGraphiteDawn() &&
+         dawn_context_provider()->backend_type() == wgpu::BackendType::Metal;
 #else
   return false;
 #endif
@@ -377,10 +380,9 @@ bool SharedContextState::IsGraphiteDawnMetal() const {
 
 bool SharedContextState::IsGraphiteDawnD3D() const {
 #if BUILDFLAG(SKIA_USE_DAWN)
-  return gr_context_type_ == GrContextType::kGraphiteDawn &&
-         dawn_context_provider_ &&
-         (dawn_context_provider_->backend_type() == wgpu::BackendType::D3D11 ||
-          dawn_context_provider_->backend_type() == wgpu::BackendType::D3D12);
+  return IsGraphiteDawn() &&
+         (dawn_context_provider()->backend_type() == wgpu::BackendType::D3D11 ||
+          dawn_context_provider()->backend_type() == wgpu::BackendType::D3D12);
 #else
   return false;
 #endif
@@ -388,9 +390,8 @@ bool SharedContextState::IsGraphiteDawnD3D() const {
 
 bool SharedContextState::IsGraphiteDawnVulkan() const {
 #if BUILDFLAG(SKIA_USE_DAWN)
-  return gr_context_type_ == GrContextType::kGraphiteDawn &&
-         dawn_context_provider_ &&
-         dawn_context_provider_->backend_type() == wgpu::BackendType::Vulkan;
+  return IsGraphiteDawn() &&
+         dawn_context_provider()->backend_type() == wgpu::BackendType::Vulkan;
 #else
   return false;
 #endif
@@ -398,9 +399,8 @@ bool SharedContextState::IsGraphiteDawnVulkan() const {
 
 bool SharedContextState::IsGraphiteDawnVulkanSwiftShader() const {
 #if BUILDFLAG(SKIA_USE_DAWN)
-  return gr_context_type_ == GrContextType::kGraphiteDawn &&
-         dawn_context_provider_ &&
-         dawn_context_provider_->is_vulkan_swiftshader_adapter();
+  return IsGraphiteDawn() &&
+         dawn_context_provider()->is_vulkan_swiftshader_adapter();
 #else
   return false;
 #endif
@@ -543,10 +543,13 @@ bool SharedContextState::InitializeGanesh(
 bool SharedContextState::InitializeGraphite(
     const GpuPreferences& gpu_preferences,
     const GpuDriverBugWorkarounds& workarounds) {
+  const skgpu::graphite::ContextOptions context_options =
+      GetDefaultGraphiteContextOptions(workarounds);
+
   if (gr_context_type_ == GrContextType::kGraphiteDawn) {
 #if BUILDFLAG(SKIA_USE_DAWN)
     CHECK(dawn_context_provider_);
-    if (dawn_context_provider_->InitializeGraphiteContext(workarounds)) {
+    if (dawn_context_provider_->InitializeGraphiteContext(context_options)) {
       graphite_context_ = dawn_context_provider_->GetGraphiteContext();
     } else {
       // There is currently no way for the GPU process to gracefully handle
@@ -562,8 +565,7 @@ bool SharedContextState::InitializeGraphite(
     CHECK_EQ(gr_context_type_, GrContextType::kGraphiteMetal);
 #if BUILDFLAG(SKIA_USE_METAL)
     if (metal_context_provider_ &&
-        metal_context_provider_->InitializeGraphiteContext(
-            GetDefaultGraphiteContextOptions(workarounds))) {
+        metal_context_provider_->InitializeGraphiteContext(context_options)) {
       graphite_context_ = metal_context_provider_->GetGraphiteContext();
     } else {
       DLOG(ERROR) << "Failed to create Graphite Context for Metal";
@@ -581,14 +583,23 @@ bool SharedContextState::InitializeGraphite(
   // images (for the SkiaRenderer recorder, this occurs in special cases such as
   // an SVG/CSS filter effect that references an image but that got the effect
   // promoted to composited).
+  size_t max_gpu_main_image_provider_cache_bytes = 0;
+  size_t max_viz_compositor_image_provider_cache_bytes = 0;
+  DetermineGraphiteImageProviderCacheLimits(
+      &max_gpu_main_image_provider_cache_bytes,
+      &max_viz_compositor_image_provider_cache_bytes);
+
   gpu_main_graphite_recorder_ =
-      MakeGraphiteRecorderWithImageProvider(graphite_context_);
+      MakeGraphiteRecorder(graphite_context_, context_options.fGpuBudgetInBytes,
+                           max_gpu_main_image_provider_cache_bytes);
   gpu_main_graphite_cache_controller_ =
       base::MakeRefCounted<raster::GraphiteCacheController>(
-          gpu_main_graphite_recorder_.get(), graphite_context_.get());
+          gpu_main_graphite_recorder_.get(), graphite_context_.get(),
+          dawn_context_provider_);
 
   viz_compositor_graphite_recorder_ =
-      MakeGraphiteRecorderWithImageProvider(graphite_context_);
+      MakeGraphiteRecorder(graphite_context_, context_options.fGpuBudgetInBytes,
+                           max_viz_compositor_image_provider_cache_bytes);
 
   transfer_cache_ = std::make_unique<ServiceTransferCache>(
       gpu_preferences,
@@ -1284,7 +1295,10 @@ void SharedContextState::ScheduleSkiaCleanup() {
   }
 }
 
-int32_t SharedContextState::GetMaxTextureSize() const {
+int32_t SharedContextState::GetMaxTextureSize() {
+  if (max_texture_size_.has_value()) {
+    return max_texture_size_.value();
+  }
   int32_t max_texture_size = 0;
   if (IsUsingGL()) {
     gl::GLApi* const api = gl::g_current_gl_context;
@@ -1296,27 +1310,27 @@ int32_t SharedContextState::GetMaxTextureSize() const {
                            ->vk_physical_device_properties()
                            .limits.maxImageDimension2D;
 #else
-    NOTREACHED_NORETURN();
+    NOTREACHED();
 #endif
   } else {
-    max_texture_size = 8192;
 #if BUILDFLAG(SKIA_USE_DAWN)
-#if BUILDFLAG(IS_IOS)
-    // Note: We currently run tests against the Graphite-Metal backend on iOS;
-    // in these contexts the Dawn context provider is not created.
     if (dawn_context_provider()) {
-      max_texture_size = GetDawnMaxTextureSize(dawn_context_provider());
+      wgpu::SupportedLimits limits = {};
+      auto succeded = dawn_context_provider()->GetDevice().GetLimits(&limits);
+      CHECK(succeded);
+      max_texture_size = limits.limits.maxTextureDimension2D;
     }
-#else
-    CHECK(dawn_context_provider());
-    max_texture_size = GetDawnMaxTextureSize(dawn_context_provider());
-#endif  // BUILDFLAG(IS_IOS)
 #endif  // BUILDFLAG(SKIA_USE_DAWN)
+#if BUILDFLAG(SKIA_USE_METAL)
+    if (metal_context_provider()) {
+      // This is a development only code path, so just assume 16K since that
+      // should be supported on non-ancient HW and ARM Macs in particular.
+      max_texture_size = 16384;
+    }
+#endif  // BUILDFLAG(SKIA_USE_METAL)
   }
-  // Ensure max_texture_size_ is less than INT_MAX so that gfx::Rect and friends
-  // can be used to accurately represent all valid sub-rects, with overflow
-  // cases, clamped to INT_MAX, always invalid.
-  max_texture_size = std::min(max_texture_size, INT32_MAX - 1);
+  DCHECK_GT(max_texture_size, 0);
+  max_texture_size_ = max_texture_size;
   return max_texture_size;
 }
 

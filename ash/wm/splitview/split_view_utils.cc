@@ -14,6 +14,7 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/root_window_controller.h"
 #include "ash/screen_util.h"
+#include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/system/toast/toast_manager_impl.h"
@@ -140,7 +141,7 @@ AnimationValues GetAnimationValuesForType(SplitviewAnimationType type) {
                   ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET};
   }
 
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 void ApplyAnimationSettings(
@@ -296,9 +297,7 @@ void DoSplitviewOpacityAnimation(ui::Layer* layer,
       target_opacity = 1.f;
       break;
     default:
-      NOTREACHED_IN_MIGRATION()
-          << "Not a valid split view opacity animation type.";
-      return;
+      NOTREACHED() << "Not a valid split view opacity animation type.";
   }
 
   if (layer->GetTargetOpacity() == target_opacity)
@@ -330,8 +329,7 @@ void DoSplitviewTransformAnimation(
     case SPLITVIEW_ANIMATION_SET_WINDOW_TRANSFORM:
       break;
     default:
-      NOTREACHED_IN_MIGRATION() << "Not a valid split view transform type.";
-      return;
+      NOTREACHED() << "Not a valid split view transform type.";
   }
 
   const AnimationValues values = GetAnimationValuesForType(type);
@@ -364,8 +362,7 @@ void DoSplitviewClipRectAnimation(
     case SPLITVIEW_ANIMATION_PREVIEW_AREA_SLIDE_OUT:
       break;
     default:
-      NOTREACHED_IN_MIGRATION() << "Not a valid split view clip rect type.";
-      return;
+      NOTREACHED() << "Not a valid split view clip rect type.";
   }
 
   const AnimationValues values = GetAnimationValuesForType(type);
@@ -391,7 +388,7 @@ WindowStateType GetWindowStateTypeFromSnapPosition(SnapPosition snap_position) {
     case SnapPosition::kSecondary:
       return WindowStateType::kSecondarySnapped;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -402,7 +399,7 @@ SnapPosition ToSnapPosition(chromeos::WindowStateType type) {
     case WindowStateType::kSecondarySnapped:
       return SnapPosition::kSecondary;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -716,8 +713,12 @@ int CalculateDividerPosition(aura::Window* root_window,
   // 1-DIP gap between snapped windows precludes multiresizing. See b/262011280.
   const float snap_length = (divider_upper_limit - divider_delta) * snap_ratio;
 
+  const bool is_layout_primary = IsLayoutPrimary(root_window);
+  const bool snap_to_left_or_top =
+      (is_layout_primary && snap_position == SnapPosition::kPrimary) ||
+      (!is_layout_primary && snap_position == SnapPosition::kSecondary);
   return std::clamp(
-      static_cast<int>(snap_position == SnapPosition::kPrimary
+      static_cast<int>(snap_to_left_or_top
                            ? snap_length
                            : divider_upper_limit - snap_length - divider_delta),
       0, divider_upper_limit);
@@ -841,7 +842,7 @@ SnapViewType ToSnapViewType(chromeos::WindowStateType state_type) {
     case chromeos::WindowStateType::kSecondarySnapped:
       return SnapViewType::kSecondary;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 

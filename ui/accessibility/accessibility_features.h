@@ -51,6 +51,10 @@ AX_BASE_EXPORT bool IsAccessibilityPdfOcrForSelectToSpeakEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPruneRedundantInlineText);
 AX_BASE_EXPORT bool IsAccessibilityPruneRedundantInlineTextEnabled();
 
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(
+    kAccessibilityPruneRedundantInlineConnectivity);
+AX_BASE_EXPORT bool IsAccessibilityPruneRedundantInlineConnectivityEnabled();
+
 // Use Alternative mechanism for acquiring image descriptions.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kImageDescriptionsAlternateRouting);
 AX_BASE_EXPORT bool IsImageDescriptionsAlternateRoutingEnabled();
@@ -137,6 +141,9 @@ AX_BASE_EXPORT bool IsAccessibilityReducedAnimationsEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFaceGaze);
 AX_BASE_EXPORT bool IsAccessibilityFaceGazeEnabled();
 
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFaceGazeGravityWells);
+AX_BASE_EXPORT bool IsAccessibilityFaceGazeGravityWellsEnabled();
+
 // Adds reduced animations toggle to kiosk quick settings.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityReducedAnimationsInKiosk);
 AX_BASE_EXPORT bool IsAccessibilityReducedAnimationsInKioskEnabled();
@@ -191,6 +198,10 @@ AX_BASE_EXPORT bool IsAccessibilityMagnifyAcceleratorDialogEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityDisableTrackpad);
 AX_BASE_EXPORT bool IsAccessibilityDisableTrackpadEnabled();
 
+// Controls whether the flash screen for notifications feature is available.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFlashScreenFeature);
+AX_BASE_EXPORT bool IsAccessibilityFlashScreenFeatureEnabled();
+
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -236,11 +247,6 @@ AX_BASE_EXPORT bool IsMainNodeAnnotationsEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kPdfOcr);
 AX_BASE_EXPORT bool IsPdfOcrEnabled();
 
-// Make the Read Anything Side Panel local (don't persist when opening a new
-// tab)
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingLocalSidePanel);
-AX_BASE_EXPORT bool IsReadAnythingLocalSidePanelEnabled();
-
 // Show the Read Aloud feature in Read Anything.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloud);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudEnabled();
@@ -280,6 +286,11 @@ AX_BASE_EXPORT bool IsReadAnythingImagesViaAlgorithmEnabled();
 // Enable Reading Mode to work on Google Docs. Should be disabled by default.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingDocsIntegration);
 AX_BASE_EXPORT bool IsReadAnythingDocsIntegrationEnabled();
+
+// Enable "load more" button to show at the end of Reading Mode panel.
+// Should be disabled by default.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingDocsLoadMoreButton);
+AX_BASE_EXPORT bool IsReadAnythingDocsLoadMoreButtonEnabled();
 
 // Write some ScreenAI library debug data in /tmp.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kScreenAIDebugMode);

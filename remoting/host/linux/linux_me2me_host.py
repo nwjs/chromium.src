@@ -1479,7 +1479,10 @@ class XDesktop(Desktop):
          # so the equivalent information gets logged in our main log file.
          "-logfile", "/dev/null",
          "-verbose", "3",
-         "-configdir", config_dir
+         "-configdir", config_dir,
+         # Pass a non-existent file, to prevent Xorg from reading the default
+         # config file: /etc/X11/xorg.conf
+         "-config", os.path.join(config_dir, "none")
         ] + extra_x_args, env=self._x_env())
     if not self.server_proc.pid:
       raise Exception("Could not start Xorg.")
@@ -2523,7 +2526,7 @@ def main():
   extra_start_host_args = []
   if HOST_EXTRA_PARAMS_ENV_VAR in os.environ:
       extra_start_host_args = \
-          re.split('\s+', os.environ[HOST_EXTRA_PARAMS_ENV_VAR].strip())
+          re.split(r"\s+", os.environ[HOST_EXTRA_PARAMS_ENV_VAR].strip())
   is_wayland = any([opt == '--enable-wayland' for opt in extra_start_host_args])
   if is_wayland:
     desktop = WaylandDesktop(sizes, host_config)

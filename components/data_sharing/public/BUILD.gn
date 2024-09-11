@@ -12,6 +12,7 @@ source_set("public") {
   sources = [
     "data_sharing_network_loader.cc",
     "data_sharing_network_loader.h",
+    "data_sharing_network_utils.h",
     "data_sharing_sdk_delegate.h",
     "data_sharing_service.h",
     "data_sharing_ui_delegate.h",
@@ -44,6 +45,7 @@ if (is_android) {
       "android/java/src/org/chromium/components/data_sharing/DataSharingUIDelegate.java",
       "android/java/src/org/chromium/components/data_sharing/GroupData.java",
       "android/java/src/org/chromium/components/data_sharing/GroupMember.java",
+      "android/java/src/org/chromium/components/data_sharing/GroupToken.java",
       "android/java/src/org/chromium/components/data_sharing/configs/AvatarConfig.java",
       "android/java/src/org/chromium/components/data_sharing/configs/GroupMemberConfig.java",
       "android/java/src/org/chromium/components/data_sharing/configs/MemberPickerConfig.java",
@@ -75,6 +77,7 @@ if (is_android) {
       "android/java/src/org/chromium/components/data_sharing/DataSharingNetworkResult.java",
       "android/java/src/org/chromium/components/data_sharing/GroupData.java",
       "android/java/src/org/chromium/components/data_sharing/GroupMember.java",
+      "android/java/src/org/chromium/components/data_sharing/GroupToken.java",
     ]
   }
 }

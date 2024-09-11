@@ -8,6 +8,7 @@
 #include "base/feature_list.h"
 #include "base/features.h"
 #include "base/time/time.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
 #include "build/chromeos_buildflags.h"
@@ -17,8 +18,7 @@
 #include "third_party/blink/public/common/interest_group/ad_auction_constants.h"
 #include "third_party/blink/public/common/switches.h"
 
-namespace blink {
-namespace features {
+namespace blink::features {
 
 // -----------------------------------------------------------------------------
 // Feature definitions and associated constants (feature params, et cetera)
@@ -41,8 +41,11 @@ BASE_FEATURE(kAdAuctionReportingWithMacroApi,
 BASE_FEATURE(kAdAuctionSignals,
              "AdAuctionSignals",
              base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<int> kAdAuctionSignalsMaxSizeBytes{
-    &kAdAuctionSignals, "ad-auction-signals-max-size-bytes", 10000};
+BASE_FEATURE_PARAM(int,
+                   kAdAuctionSignalsMaxSizeBytes,
+                   &kAdAuctionSignals,
+                   "ad-auction-signals-max-size-bytes",
+                   10000);
 
 // See https://github.com/WICG/turtledove/blob/main/FLEDGE.md
 // Changes default Permissions Policy for features join-ad-interest-group and
@@ -79,9 +82,11 @@ BASE_FEATURE(kAlignFontDisplayAutoTimeoutWithLCPGoal,
 
 // The amount of time allowed for 'display: auto' web fonts to load without
 // intervention, counted from navigation start.
-const base::FeatureParam<int>
-    kAlignFontDisplayAutoTimeoutWithLCPGoalTimeoutParam{
-        &kAlignFontDisplayAutoTimeoutWithLCPGoal, "lcp-limit-in-ms", 2000};
+BASE_FEATURE_PARAM(int,
+                   kAlignFontDisplayAutoTimeoutWithLCPGoalTimeoutParam,
+                   &kAlignFontDisplayAutoTimeoutWithLCPGoal,
+                   "lcp-limit-in-ms",
+                   2000);
 
 const base::FeatureParam<AlignFontDisplayAutoTimeoutWithLCPGoalMode>::Option
     align_font_display_auto_timeout_with_lcp_goal_modes[] = {
@@ -162,32 +167,11 @@ BASE_FEATURE(kAudioWorkletThreadPool,
              "AudioWorkletThreadPool",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, extraction of unassociated listed elements includes elements
-// inside Shadow DOM.
-BASE_FEATURE(kAutofillIncludeShadowDomInUnassociatedListedElements,
-             "AutofillIncludeShadowDomInUnassociatedListedElements",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, Autofill extracts all top level shadow DOM form elements of a
-// document. Additionally, the shadow-tree-including form control elements of a
-// form `f` include all descendants that are form controls - even those whose
-// closest shadow-tree-including form ancestor is a different form `f2` (which
-// itself is a descendant of `f`).
-BASE_FEATURE(kAutofillIncludeFormElementsInShadowDom,
-             "AutofillIncludeFormElementsInShadowDom",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If disabled (default for many years), autofilling triggers KeyDown and
 // KeyUp events that do not send any key codes. If enabled, these events
 // contain the "Unidentified" key.
 BASE_FEATURE(kAutofillSendUnidentifiedKeyAfterFill,
              "AutofillSendUnidentifiedKeyAfterFill",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Apply lazy-loading to ad frames which have embeds likely impacting Core Web
-// Vitals.
-BASE_FEATURE(kAutomaticLazyFrameLoadingToAds,
-             "AutomaticLazyFrameLoadingToAds",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // https://crbug.com/1472970
@@ -199,69 +183,9 @@ const base::FeatureParam<std::string> kAutoSpeculationRulesConfig{
 const base::FeatureParam<bool> kAutoSpeculationRulesHoldback{
     &kAutoSpeculationRules, "holdback", false};
 
-// The timeout value that forces loading iframes that are lazy loaded by
-// LazyAds. After this timeout, the frame loading is triggered even when the
-// intersection observer does not trigger iframe loading.
-const base::FeatureParam<int> kTimeoutMillisForLazyAds(
-    &features::kAutomaticLazyFrameLoadingToAds,
-    "timeout",
-    0);
-
-// Skip applying LazyAds for the first "skip_frame_count" frames in the
-// document, and apply LazyAds the rest if they are eligible.
-const base::FeatureParam<int> kSkipFrameCountForLazyAds(
-    &features::kAutomaticLazyFrameLoadingToAds,
-    "skip_frame_count",
-    0);
-
-// Apply lazy-loading to frames which have embeds likely impacting Core Web
-// Vitals.
-BASE_FEATURE(kAutomaticLazyFrameLoadingToEmbeds,
-             "AutomaticLazyFrameLoadingToEmbeds",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// The timeout value that forces loading iframes that are lazy loaded by
-// LazyEmbeds. After this timeout, the frame loading is triggered even when the
-// intersection observer does not trigger iframe loading.
-const base::FeatureParam<int> kTimeoutMillisForLazyEmbeds(
-    &features::kAutomaticLazyFrameLoadingToEmbeds,
-    "timeout",
-    0);
-
-// Skip applying LazyEmbeds for the first "skip_frame_count" frames in the
-// document, and apply LazyEmbeds the rest if they are eligible.
-const base::FeatureParam<int> kSkipFrameCountForLazyEmbeds(
-    &features::kAutomaticLazyFrameLoadingToEmbeds,
-    "skip_frame_count",
-    0);
-
-// Define the allowed websites to use LazyEmbeds. The allowed websites need to
-// be defined separately from kAutomaticLazyFrameLoadingToEmbeds because we want
-// to gather Blink.AutomaticLazyLoadFrame.LazyEmbedFrameCount UKM data even when
-// kAutomaticLazyFrameLoadingToEmbeds is disabled.
-BASE_FEATURE(kAutomaticLazyFrameLoadingToEmbedUrls,
-             "AutomaticLazyFrameLoadingToEmbedUrls",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Define the strategy for LazyEmbeds to decide which frames we apply
-// lazy-loading or not. If the loading strategy is kAllowList, the detection
-// logic is based on the allowlist that kAutomaticLazyFrameLoadingToEmbedUrls
-// passes to the client. If the strategy is kNonAds, the detection logic is
-// based on the Ad Tagging in chromium.
-const base::FeatureParam<AutomaticLazyFrameLoadingToEmbedLoadingStrategy>::
-    Option kAutomaticLazyFrameLoadingToEmbedLoadingStrategies[] = {
-        {AutomaticLazyFrameLoadingToEmbedLoadingStrategy::kAllowList,
-         "allow_list"},
-        {AutomaticLazyFrameLoadingToEmbedLoadingStrategy::kNonAds, "non_ads"}};
-const base::FeatureParam<AutomaticLazyFrameLoadingToEmbedLoadingStrategy>
-    kAutomaticLazyFrameLoadingToEmbedLoadingStrategyParam{
-        &kAutomaticLazyFrameLoadingToEmbedUrls, "strategy",
-        AutomaticLazyFrameLoadingToEmbedLoadingStrategy::kAllowList,
-        &kAutomaticLazyFrameLoadingToEmbedLoadingStrategies};
-
 BASE_FEATURE(kAvifGainmapHdrImages,
              "AvifGainmapHdrImages",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAvoidForcedLayoutOnInitialEmptyDocumentInSubframe,
              "AvoidForcedLayoutOnInitialEmptyDocumentInSubframe",
@@ -282,12 +206,21 @@ BASE_FEATURE(kBackForwardCacheWithKeepaliveRequest,
 BASE_FEATURE(kBackgroundResourceFetch,
              "BackgroundResourceFetch",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<bool> kBackgroundFontResponseProcessor{
-    &kBackgroundResourceFetch, "background-font-response-processor", true};
-const base::FeatureParam<bool> kBackgroundScriptResponseProcessor{
-    &kBackgroundResourceFetch, "background-script-response-processor", true};
-const base::FeatureParam<bool> kBackgroundCodeCacheDecoderStart{
-    &kBackgroundResourceFetch, "background-code-cache-decoder-start", true};
+BASE_FEATURE_PARAM(bool,
+                   kBackgroundFontResponseProcessor,
+                   &kBackgroundResourceFetch,
+                   "background-font-response-processor",
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kBackgroundScriptResponseProcessor,
+                   &kBackgroundResourceFetch,
+                   "background-script-response-processor",
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kBackgroundCodeCacheDecoderStart,
+                   &kBackgroundResourceFetch,
+                   "background-code-cache-decoder-start",
+                   true);
 
 // Redefine the oklab and oklch spaces to have gamut mapping baked into them.
 // https://crbug.com/1508329
@@ -317,16 +250,25 @@ BASE_FEATURE(kBoostImagePriority,
              base::FEATURE_ENABLED_BY_DEFAULT);
 // The number of images to bopost the priority of before returning
 // to the default (low) priority.
-const base::FeatureParam<int> kBoostImagePriorityImageCount{
-    &kBoostImagePriority, "image_count", 5};
+BASE_FEATURE_PARAM(int,
+                   kBoostImagePriorityImageCount,
+                   &kBoostImagePriority,
+                   "image_count",
+                   5);
 // Maximum size of an image (in px^2) to be considered "small".
 // Small images, where dimensions are specified in the markup, are not boosted.
-const base::FeatureParam<int> kBoostImagePriorityImageSize{&kBoostImagePriority,
-                                                           "image_size", 10000};
+BASE_FEATURE_PARAM(int,
+                   kBoostImagePriorityImageSize,
+                   &kBoostImagePriority,
+                   "image_size",
+                   10000);
 // Number of medium-priority requests to allow in tight-mode independent of the
 // total number of outstanding requests.
-const base::FeatureParam<int> kBoostImagePriorityTightMediumLimit{
-    &kBoostImagePriority, "tight_medium_limit", 2};
+BASE_FEATURE_PARAM(int,
+                   kBoostImagePriorityTightMediumLimit,
+                   &kBoostImagePriority,
+                   "tight_medium_limit",
+                   2);
 
 // Boost the priority of certain loading tasks (https://crbug.com/1470003).
 BASE_FEATURE(kBoostImageSetLoadingTaskPriority,
@@ -455,11 +397,17 @@ BASE_FEATURE(kCORSErrorsIssueOnly,
 BASE_FEATURE(kCacheCodeOnIdle,
              "CacheCodeOnIdle",
              base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<int> kCacheCodeOnIdleDelayParam{&kCacheCodeOnIdle,
-                                                         "delay-in-ms", 1};
+BASE_FEATURE_PARAM(int,
+                   kCacheCodeOnIdleDelayParam,
+                   &kCacheCodeOnIdle,
+                   "delay-in-ms",
+                   1);
 // Apply CacheCodeOnIdle only for service workers (https://crbug.com/1410082).
-const base::FeatureParam<bool> kCacheCodeOnIdleDelayServiceWorkerOnlyParam{
-    &kCacheCodeOnIdle, "service-worker-only", true};
+BASE_FEATURE_PARAM(bool,
+                   kCacheCodeOnIdleDelayServiceWorkerOnlyParam,
+                   &kCacheCodeOnIdle,
+                   "service-worker-only",
+                   true);
 
 // When enabled allows the header name used in the blink
 // CacheStorageCodeCacheHint runtime feature to be modified.  This runtime
@@ -616,6 +564,39 @@ BASE_FEATURE(kCreateImageBitmapOrientationNone,
 BASE_FEATURE(kDefaultViewportIsDeviceWidth,
              "DefaultViewportIsDeviceWidth",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDeferRendererTasksAfterInput,
+             "DeferRendererTasksAfterInput",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const char kDeferRendererTasksAfterInputPolicyParamName[] = "policy";
+const char kDeferRendererTasksAfterInputMinimalTypesPolicyName[] =
+    "minimal-types";
+const char
+    kDeferRendererTasksAfterInputNonUserBlockingDeferrableTypesPolicyName[] =
+        "non-user-blocking-deferrable-types";
+const char kDeferRendererTasksAfterInputNonUserBlockingTypesPolicyName[] =
+    "non-user-blocking-types";
+const char kDeferRendererTasksAfterInputAllDeferrableTypesPolicyName[] =
+    "all-deferrable-types";
+const char kDeferRendererTasksAfterInputAllTypesPolicyName[] = "all-types";
+
+const base::FeatureParam<TaskDeferralPolicy>::Option kTaskDeferralOptions[] = {
+    {TaskDeferralPolicy::kMinimalTypes,
+     kDeferRendererTasksAfterInputPolicyParamName},
+    {TaskDeferralPolicy::kNonUserBlockingDeferrableTypes,
+     kDeferRendererTasksAfterInputNonUserBlockingDeferrableTypesPolicyName},
+    {TaskDeferralPolicy::kNonUserBlockingTypes,
+     kDeferRendererTasksAfterInputNonUserBlockingTypesPolicyName},
+    {TaskDeferralPolicy::kAllDeferrableTypes,
+     kDeferRendererTasksAfterInputAllDeferrableTypesPolicyName},
+    {TaskDeferralPolicy::kAllTypes,
+     kDeferRendererTasksAfterInputAllTypesPolicyName}};
+
+const base::FeatureParam<TaskDeferralPolicy> kTaskDeferralPolicyParam{
+    &kDeferRendererTasksAfterInput,
+    kDeferRendererTasksAfterInputPolicyParamName,
+    TaskDeferralPolicy::kAllDeferrableTypes, &kTaskDeferralOptions};
 
 BASE_FEATURE(kDelayAsyncScriptExecution,
              "DelayAsyncScriptExecution",
@@ -802,7 +783,7 @@ BASE_FEATURE(kEventTimingFallbackToModalDialogStart,
 // pointerdown) as an interaction in performance event timing.
 BASE_FEATURE(kEventTimingHandleOrphanPointerup,
              "EventTimingHandleOrphanPointerup",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether LCP calculations should exclude low-entropy images. If
 // enabled, then the associated parameter sets the cutoff, expressed as the
@@ -892,6 +873,13 @@ BASE_FEATURE(kFencedFramesLocalUnpartitionedDataAccess,
 
 BASE_FEATURE(kFencedFramesReportEventHeaderChanges,
              "FencedFramesReportEventHeaderChanges",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables a bug fix that allows a 'src' allowlist in the |allow| parameter of a
+// <fencedframe> or <iframe> loaded with a FencedFrameConfig to behave as
+// expected. See: https://crbug.com/349080952
+BASE_FEATURE(kFencedFramesSrcPermissionsPolicy,
+             "FencedFramesSrcPermissionsPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls access to an API to exempt certain URLs from fenced frame
@@ -1133,7 +1121,12 @@ BASE_FEATURE(kImageLoadingPrioritizationFix,
 
 BASE_FEATURE(kIndexedDBCompressValuesWithSnappy,
              "IndexedDBCompressValuesWithSnappy",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int>
+    kIndexedDBCompressValuesWithSnappyCompressionThreshold{
+        &features::kIndexedDBCompressValuesWithSnappy,
+        /*name=*/"compression-threshold",
+        /*default_value=*/-1};
 
 BASE_FEATURE(kInputPredictorTypeChoice,
              "InputPredictorTypeChoice",
@@ -1421,9 +1414,6 @@ BASE_FEATURE(kPreloadSystemFonts,
 
 const base::FeatureParam<std::string> kPreloadSystemFontsTargets{
     &kPreloadSystemFonts, "preload_system_fonts_targets", "[]"};
-
-const base::FeatureParam<bool> kPreloadSystemFontsFromPage{
-    &kPreloadSystemFonts, "preload_system_fonts_from_page", false};
 
 const base::FeatureParam<int> kPreloadSystemFontsRequiredMemoryGB{
     &kPreloadSystemFonts, "preload_system_fonts_required_memory_gb", 4};
@@ -1766,9 +1756,20 @@ const base::FeatureParam<bool> kPartialLowEndModeExcludeCanvasFontCache{
 
 // When enabled, this flag partitions the :visited link hashtable by <link url,
 // top-level site, frame origin>.
-// TODO(crbug.com/329102369): complete the partitioned hashtable implementation.
 BASE_FEATURE(kPartitionVisitedLinkDatabase,
              "PartitionVisitedLinkDatabase",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, this flag partitions the :visited link hashtable by <link url,
+// top-level site, frame origin> AND adds the "self link" <link url, link as a
+// schemeful site, link as an origin> for each link :visited from a top-level or
+// same-origin subframe to the hashtable as well.
+// NOTE: users need only enable kPartitionVisitedLinkDatabaseWithSelfLinks
+// to achieve partitioning AND self links. You do NOT need to enable
+// kPartitionVisitedLinkDatabase as well, though doing so is a no-op and will
+// not change the behavior of this feature.
+BASE_FEATURE(kPartitionVisitedLinkDatabaseWithSelfLinks,
+             "PartitionVisitedLinkDatabaseWithSelfLinks",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the use of the PaintCache for Path2D objects that are rasterized
@@ -2216,6 +2217,10 @@ BASE_FEATURE(kSharedStorageCrossOriginScript,
              "SharedStorageCrossOriginScript",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSharedStorageCreateWorkletUseContextOriginByDefault,
+             "SharedStorageCreateWorkletUseContextOriginByDefault",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSharedStorageAPIEnableWALForDatabase,
              "SharedStorageAPIEnableWALForDatabase",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2289,26 +2294,6 @@ const base::FeatureParam<base::TimeDelta>
                                             "sw_warm_up_duration",
                                             base::Minutes(10)};
 
-// Enable IntersectionObserver to detect anchor's visibility.
-const base::FeatureParam<bool>
-    kSpeculativeServiceWorkerWarmUpIntersectionObserver{
-        &kSpeculativeServiceWorkerWarmUp, "sw_warm_up_intersection_observer",
-        true};
-
-// Duration from previous IntersectionObserver event to the next event.
-const base::FeatureParam<int>
-    kSpeculativeServiceWorkerWarmUpIntersectionObserverDelay{
-        &kSpeculativeServiceWorkerWarmUp,
-        "sw_warm_up_intersection_observer_delay", 100};
-
-// Warms up service workers when the anchor becomes visible.
-const base::FeatureParam<bool> kSpeculativeServiceWorkerWarmUpOnVisible{
-    &kSpeculativeServiceWorkerWarmUp, "sw_warm_up_on_visible", true};
-
-// Warms up service workers when the anchor is inserted into DOM.
-const base::FeatureParam<bool> kSpeculativeServiceWorkerWarmUpOnInsertedIntoDom{
-    &kSpeculativeServiceWorkerWarmUp, "sw_warm_up_on_inserted_into_dom", false};
-
 // Warms up service workers when a pointerover event is triggered on an anchor.
 const base::FeatureParam<bool> kSpeculativeServiceWorkerWarmUpOnPointerover{
     &kSpeculativeServiceWorkerWarmUp, "sw_warm_up_on_pointerover", true};
@@ -2326,6 +2311,13 @@ const base::FeatureParam<bool>
 // Warms up service worker after service worker is stopped on idle timeout.
 const base::FeatureParam<bool> kSpeculativeServiceWorkerWarmUpOnIdleTimeout{
     &kSpeculativeServiceWorkerWarmUp, "sw_warm_up_on_idle_timeout", true};
+
+// If enabled, ServiceWorkerStorage suppresses posting tasks when it is
+// possible. This behavior is expected to improve performance by getting rid of
+// redundant posting tasks.
+BASE_FEATURE(kServiceWorkerStorageSuppressPostTask,
+             "ServiceWorkerStorageSuppressPostTask",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, force renderer process foregrounded from CommitNavigation to
 // DOMContentLoad (crbug/351953350).
@@ -2352,7 +2344,8 @@ BASE_FEATURE(kStopInBackground,
              "stop-in-background",
 // b/248036988 - Disable this for Chromecast on Android builds to prevent apps
 // that play audio in the background from stopping.
-#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CAST_ANDROID)
+#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CAST_ANDROID) && \
+    !BUILDFLAG(IS_DESKTOP_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -2375,7 +2368,7 @@ BASE_FEATURE(kStylusRichGestures,
 // Enables third party script regex matching for detecting technologies.
 BASE_FEATURE(kThirdPartyScriptDetection,
              "ThirdPartyScriptDetection",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kThreadedBodyLoader,
              "ThreadedBodyLoader",
@@ -2432,6 +2425,10 @@ BASE_FEATURE(kUACHOverrideBlank,
 BASE_FEATURE(kEmulateLoadStartedForInspectorOncePerResource,
              "kEmulateLoadStartedForInspectorOncePerResource",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kBlinkSchedulerDiscreteInputMatchesResponsivenessMetrics,
+             "BlinkSchedulerDiscreteInputMatchesResponsivenessMetrics",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBlinkSchedulerPrioritizeNavigationIPCs,
              "BlinkSchedulerPrioritizeNavigationIPCs",
@@ -2540,6 +2537,11 @@ BASE_FEATURE(kWebAudioBypassOutputBuffering,
              "WebAudioBypassOutputBuffering",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Update echo cancellation output device on AudioContext construction.
+BASE_FEATURE(kWebAudioContextConstructorEchoCancellation,
+             "WebAudioContextConstructorEchoCancellation",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 /// Enables cache-aware WebFonts loading. See https://crbug.com/570205.
 // The feature is disabled on Android for WebView API issue discussed at
 // https://crbug.com/942440.
@@ -2556,12 +2558,17 @@ BASE_FEATURE(kWebRtcCombinedNetworkAndWorkerThread,
              "WebRtcCombinedNetworkAndWorkerThread",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(RTC_USE_H264) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
+// TODO(crbug.com/355256378): OpenH264 for encoding and FFmpeg for H264 decoding
+// should be detangled such that software decoding can be enabled without
+// software encoding.
+#if BUILDFLAG(RTC_USE_H264) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) && \
+    BUILDFLAG(ENABLE_OPENH264)
 // Run-time feature for the |rtc_use_h264| encoder/decoder.
 BASE_FEATURE(kWebRtcH264WithOpenH264FFmpeg,
              "WebRTC-H264WithOpenH264FFmpeg",
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(RTC_USE_H264) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
+#endif  // BUILDFLAG(RTC_USE_H264) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) &&
+        // BUILDFLAG(ENABLE_OPENH264)
 
 // Causes WebRTC to replace host ICE candidate IP addresses with generated
 // names ending in ".local" and resolve them using mDNS.
@@ -2668,9 +2675,10 @@ bool IsLinkPreviewTriggerTypeEnabled(LinkPreviewTriggerType type) {
 BASE_FEATURE(kExpandCompositedCullRect,
              "ExpandCompositedCullRect",
              base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<int> kPixelDistanceToExpand(&kExpandCompositedCullRect,
-                                                     "pixels",
-                                                     4000);
+const base::FeatureParam<int>
+    kCullRectPixelDistanceToExpand(&kExpandCompositedCullRect, "pixels", 4000);
+const base::FeatureParam<double>
+    kCullRectExpansionDPRCoef(&kExpandCompositedCullRect, "dpr_coef", 0);
 BASE_FEATURE(kTreatHTTPExpiresHeaderValueZeroAsExpiredInBlink,
              "TreatHTTPExpiresHeaderValueZeroAsExpiredInBlink",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2685,11 +2693,19 @@ BASE_FEATURE(kNoThrottlingVisibleAgent,
 
 BASE_FEATURE(kRenderSizeInScoreAdBrowserSignals,
              "RenderSizeInScoreAdBrowserSignals",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOptimizeLoadingDataUrls,
              "OptimizeLoadingDataUrls",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-}  // namespace features
-}  // namespace blink
+BASE_FEATURE(kCanvasSharedBitmapToSharedImage,
+             "CanvasSharedBitmapToSharedImage",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsCanvasSharedBitmapConversionEnabled() {
+  return base::FeatureList::IsEnabled(
+      features::kCanvasSharedBitmapToSharedImage);
+}
+
+}  // namespace blink::features

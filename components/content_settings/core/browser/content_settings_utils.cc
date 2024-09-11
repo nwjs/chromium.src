@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "components/content_settings/core/browser/content_settings_utils.h"
 
 #include <stddef.h>
@@ -236,8 +241,11 @@ bool IsGrantedByRelatedWebsiteSets(ContentSettingsType type,
   switch (type) {
     case ContentSettingsType::STORAGE_ACCESS:
     case ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS:
-      return metadata.session_model() ==
-             mojom::SessionModel::NON_RESTORABLE_USER_SESSION;
+      return metadata.decided_by_related_website_sets() ||
+             // TODO(b/344678400): Delete after NON_RESTORABLE_USER_SESSION is
+             // removed.
+             metadata.session_model() ==
+                 mojom::SessionModel::NON_RESTORABLE_USER_SESSION;
     default:
       return false;
   }

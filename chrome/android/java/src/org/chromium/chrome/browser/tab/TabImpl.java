@@ -322,11 +322,14 @@ class TabImpl implements Tab {
 
                     @Override
                     public void onViewDetachedFromWindow(View view) {
-                        if (mNativePageSmoothTransitionDelegate != null
-                                && isNativePage()
-                                && getNativePage().getView() == view) {
-                            mNativePageSmoothTransitionDelegate.cancel();
-                            mNativePageSmoothTransitionDelegate = null;
+                        if (isNativePage() && getNativePage().getView() == view) {
+                            if (mNativePageSmoothTransitionDelegate != null) {
+                                mNativePageSmoothTransitionDelegate.cancel();
+                                mNativePageSmoothTransitionDelegate = null;
+                            } else {
+                                // reset ntp view state.
+                                getView().setAlpha(1f);
+                            }
                         }
                         mIsViewAttachedToWindow = false;
                         updateInteractableState();
@@ -476,7 +479,7 @@ class TabImpl implements Tab {
     @CalledByNative
     @Override
     public String getTitle() {
-        if (mTitle == null) updateTitle();
+        if (TextUtils.isEmpty(mTitle)) updateTitle();
         return mTitle;
     }
 
@@ -646,7 +649,9 @@ class TabImpl implements Tab {
             // TODO(tedchoc): When showing the android NTP, delay the call to
             // TabImplJni.get().loadUrl until the android view has entirely rendered.
             if (!mIsNativePageCommitPending) {
-                boolean isPdf = PdfUtils.isPdfNavigation(params.getUrl(), params);
+                boolean isPdf =
+                        PdfUtils.shouldOpenPdfInline(isIncognito())
+                                && PdfUtils.isPdfNavigation(params.getUrl(), params);
                 mIsNativePageCommitPending =
                         maybeShowNativePage(params.getUrl(), false, isPdf ? new PdfInfo() : null);
                 if (isPdf) {
@@ -1208,8 +1213,10 @@ class TabImpl implements Tab {
 
     /** Hides the current {@link NativePage}, if any, and shows the {@link WebContents}'s view. */
     void showRenderedPage() {
-        updateTitle();
+        // During title update, we prioritize titles in NativePage instead of those from
+        // WebContents. Thus we should remove the obsolete NativePage before title update.
         if (mNativePage != null) hideNativePage(true, null);
+        updateTitle();
     }
 
     void updateWindowAndroid(WindowAndroid windowAndroid) {
@@ -1307,9 +1314,15 @@ class TabImpl implements Tab {
         switch (getWebContents().getCurrentBackForwardTransitionStage()) {
             case AnimationStage.NONE:
                 // Native animator is destroy before animation is done.
+                // Non-null nativePageSmoothTransitionDelegate means the page is transiting to
+                // a native page; otherwise, it possibly means transiting from a native page to
+                // another page.
                 if (mNativePageSmoothTransitionDelegate != null) {
                     mNativePageSmoothTransitionDelegate.cancel();
                     mNativePageSmoothTransitionDelegate = null;
+                } else if (isNativePage()) {
+                    // This means the ntp is fully showing now. Reset back to 1f.
+                    getView().setAlpha(1f);
                 }
                 return;
             case AnimationStage.OTHER:
@@ -1320,6 +1333,9 @@ class TabImpl implements Tab {
                                 notifyContentChanged();
                             });
                     mNativePageSmoothTransitionDelegate = null;
+                } else if (isNativePage()) {
+                    // Do a hidden transition for NTP view.
+                    getView().setAlpha(0.f);
                 }
                 return;
             case AnimationStage.INVOKE_ANIMATION:
@@ -1379,7 +1395,9 @@ class TabImpl implements Tab {
         // not set in some cases (e.g. Chrome restart or navigate backward to pdf page). When the
         // pdf file is downloaded to media store, we should set isPdf param and open pdf page
         // immediately, because no re-download is expected.
-        isPdf |= PdfUtils.isDownloadedPdf(url.getSpec());
+        isPdf |=
+                PdfUtils.shouldOpenPdfInline(isIncognito())
+                        && PdfUtils.isDownloadedPdf(url.getSpec());
         if (!maybeShowNativePage(url.getSpec(), isReload, isPdf ? new PdfInfo() : null)) {
             String downloadUrl = PdfUtils.decodePdfPageUrl(url.getSpec());
             if (downloadUrl != null) {
@@ -1740,9 +1758,7 @@ class TabImpl implements Tab {
             WebContents oldWebContents = mWebContents;
             mWebContents = webContents;
 
-            ContentView cv =
-                    ContentView.createContentView(
-                            mThemedApplicationContext, /* eventOffsetHandler= */ null, webContents);
+            ContentView cv = ContentView.createContentView(mThemedApplicationContext, webContents);
             cv.setContentDescription(
                     mThemedApplicationContext
                             .getResources()
@@ -1850,6 +1866,8 @@ class TabImpl implements Tab {
         if (mNativePageSmoothTransitionDelegate != null) {
             mNativePageSmoothTransitionDelegate.cancel();
             mNativePageSmoothTransitionDelegate = null;
+        } else if (isNativePage() && getView() != null) {
+            getView().setAlpha(1.f);
         }
         NativePage previousNativePage = mNativePage;
         if (mNativePage != null) {
@@ -2060,6 +2078,11 @@ class TabImpl implements Tab {
     @Override
     public int getParentId() {
         return mParentId;
+    }
+
+    @Override
+    public void setParentId(int parentId) {
+        mParentId = parentId;
     }
 
     @Override

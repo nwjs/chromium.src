@@ -110,8 +110,6 @@ using RequestMode = AuthenticatorCommonImpl::RequestMode;
 
 namespace {
 
-constexpr int kNoCableLinkingTimeoutMod1000 = 643;
-
 WebAuthenticationDelegate* GetWebAuthenticationDelegate() {
   return GetContentClient()->browser()->GetWebAuthenticationDelegate();
 }
@@ -660,9 +658,6 @@ struct AuthenticatorCommonImpl::RequestState {
   std::optional<CredentialRequestResult> get_assertion_result;
   std::optional<CredentialRequestResult> make_credential_result;
   bool discoverable_credential_request = false;
-  // no_cable_linking requests that both QR-linked and pre-linked phones be
-  // ignored for this request.
-  bool no_cable_linking = false;
   // Indicates whether the current request is a modal WebAuthn call, a
   // conditional UI WebAuthn call, or a payment-related request.
   std::optional<RequestMode> mode;
@@ -736,7 +731,6 @@ void AuthenticatorCommonImpl::StartMakeCredentialRequest(
   req_state_->make_credential_result.reset();
   InitDiscoveryFactory();
 
-  discovery_factory()->no_cable_linking = req_state_->no_cable_linking;
   req_state_->request_delegate->ConfigureDiscoveries(
       req_state_->caller_origin, req_state_->relying_party_id, RequestSource(),
       device::FidoRequestType::kMakeCredential,
@@ -795,7 +789,6 @@ void AuthenticatorCommonImpl::StartGetAssertionRequest(
   req_state_->get_assertion_result.reset();
   InitDiscoveryFactory();
 
-  discovery_factory()->no_cable_linking = req_state_->no_cable_linking;
   base::span<const device::CableDiscoveryData> cable_pairings;
   if (req_state_->ctap_get_assertion_request->cable_extension && IsFocused()) {
     cable_pairings = *req_state_->ctap_get_assertion_request->cable_extension;
@@ -883,15 +876,6 @@ void AuthenticatorCommonImpl::MakeCredential(
     req_state_->mode = RequestMode::kPayment;
   } else {
     req_state_->mode = RequestMode::kModalWebAuthn;
-  }
-
-  // TODO(crbug.com/40274309): remove this and everything else from
-  // the CL that added it if this is unused by June 2024.
-  if (options->timeout &&
-      base::FeatureList::IsEnabled(device::kWebAuthnLinkingExperimentation) &&
-      options->timeout->InMilliseconds() % 1000 ==
-          kNoCableLinkingTimeoutMod1000) {
-    req_state_->no_cable_linking = true;
   }
 
   BeginRequestTimeout(options->timeout);
@@ -1131,6 +1115,7 @@ void AuthenticatorCommonImpl::ContinueMakeCredentialAfterRpIdCheck(
   // Assemble clientDataJSON.
   ClientDataJsonParams client_data_json_params(
       ClientDataRequestType::kWebAuthnCreate, req_state_->caller_origin,
+      GetRenderFrameHost()->GetOutermostMainFrame()->GetLastCommittedOrigin(),
       options->challenge, is_cross_origin_iframe);
   if (options->remote_desktop_client_override) {
     client_data_json_params.origin =
@@ -1263,15 +1248,6 @@ void AuthenticatorCommonImpl::GetAssertion(
     req_state_->mode = RequestMode::kModalWebAuthn;
   }
   req_state_->hints.insert(options->hints.begin(), options->hints.end());
-
-  // TODO(crbug.com/40274309): remove this and everything else from
-  // the CL that added it if this is unused by June 2024.
-  if (options->timeout &&
-      base::FeatureList::IsEnabled(device::kWebAuthnLinkingExperimentation) &&
-      options->timeout->InMilliseconds() % 1000 ==
-          kNoCableLinkingTimeoutMod1000) {
-    req_state_->no_cable_linking = true;
-  }
 
   if (!options->is_conditional) {
     BeginRequestTimeout(options->timeout);
@@ -1445,16 +1421,13 @@ void AuthenticatorCommonImpl::ContinueGetAssertionAfterRpIdCheck(
 
   // Assemble clientDataJSON.
   ClientDataJsonParams client_data_json_params(
-      ClientDataRequestType::kWebAuthnGet, caller_origin, options->challenge,
-      is_cross_origin_iframe);
+      ClientDataRequestType::kWebAuthnGet, caller_origin,
+      GetRenderFrameHost()->GetOutermostMainFrame()->GetLastCommittedOrigin(),
+      options->challenge, is_cross_origin_iframe);
   if (payment_options) {
     client_data_json_params.type = ClientDataRequestType::kPaymentGet;
     client_data_json_params.payment_options = std::move(payment_options);
     client_data_json_params.payment_rp = req_state_->relying_party_id;
-    client_data_json_params.payment_top_origin = GetRenderFrameHost()
-                                                     ->GetOutermostMainFrame()
-                                                     ->GetLastCommittedOrigin()
-                                                     .Serialize();
   } else if (options->extensions->remote_desktop_client_override) {
     client_data_json_params.origin =
         options->extensions->remote_desktop_client_override->origin;
@@ -1645,10 +1618,7 @@ void AuthenticatorCommonImpl::ContinueIsUvpaaAfterOverrideCheck(
 #if BUILDFLAG(IS_MAC)
   IsUVPlatformAuthenticatorAvailable(GetBrowserContext(),
                                      std::move(uma_decorated_callback));
-#elif BUILDFLAG(IS_WIN)
-  IsUVPlatformAuthenticatorAvailable(GetBrowserContext()->IsOffTheRecord(),
-                                     std::move(uma_decorated_callback));
-#elif BUILDFLAG(IS_CHROMEOS)
+#elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   IsUVPlatformAuthenticatorAvailable(std::move(uma_decorated_callback));
 #else
   std::move(uma_decorated_callback).Run(false);
@@ -1756,14 +1726,27 @@ void AuthenticatorCommonImpl::ContinueReportAfterRpIdCheck(
     return;
   }
   req_state_->remote_rp_id_validation.reset();
-
   if (rp_id_validation_result != blink::mojom::AuthenticatorStatus::SUCCESS) {
     CompleteReportRequest(rp_id_validation_result);
     return;
   }
-  GetWebAuthenticationDelegate()->DeletePasskey(GetBrowserContext(),
-                                                options->unknown_credential_id,
-                                                req_state_->relying_party_id);
+  if (options->all_accepted_credentials) {
+    GetWebAuthenticationDelegate()->DeleteUnacceptedPasskeys(
+        WebContents::FromRenderFrameHost(GetRenderFrameHost()),
+        req_state_->relying_party_id,
+        options->all_accepted_credentials->user_id,
+        options->all_accepted_credentials->all_accepted_credentials_ids);
+  } else if (options->current_user_details) {
+    GetWebAuthenticationDelegate()->UpdateUserPasskeys(
+        WebContents::FromRenderFrameHost(GetRenderFrameHost()),
+        req_state_->relying_party_id, options->current_user_details->user_id,
+        options->current_user_details->name,
+        options->current_user_details->display_name);
+  } else if (options->unknown_credential_id) {
+    GetWebAuthenticationDelegate()->DeletePasskey(
+        WebContents::FromRenderFrameHost(GetRenderFrameHost()),
+        *options->unknown_credential_id, req_state_->relying_party_id);
+  }
   CompleteReportRequest(blink::mojom::AuthenticatorStatus::SUCCESS, nullptr);
 }
 
@@ -1937,9 +1920,17 @@ void AuthenticatorCommonImpl::OnRegisterResponse(
       RequestSource(), device::FidoRequestType::kMakeCredential,
       authenticator->GetType());
 
-  const bool is_transport_used_internal =
-      authenticator->AuthenticatorTransport() ==
-      device::FidoTransportProtocol::kInternal;
+  std::optional<device::FidoTransportProtocol> transport =
+      authenticator->AuthenticatorTransport();
+  bool is_transport_used_internal = false;
+  bool is_transport_used_cable = false;
+  if (transport) {
+    is_transport_used_internal =
+        *transport == device::FidoTransportProtocol::kInternal;
+    is_transport_used_cable =
+        *transport == device::FidoTransportProtocol::kHybrid;
+  }
+
   const auto attestation =
       req_state_->ctap_make_credential_request->attestation_preference;
   std::optional<AttestationErasureOption> attestation_erasure;
@@ -1960,6 +1951,11 @@ void AuthenticatorCommonImpl::OnRegisterResponse(
     // If enterprise attestation was requested, not approved by policy, and
     // not approved by the authenticator, then any attestation is stripped.
     attestation_erasure = AttestationErasureOption::kEraseAttestationAndAaguid;
+  } else if (is_transport_used_cable) {
+    // Attestation is not returned when caBLEv2 is used, but the AAGUID is
+    // maintained.
+    attestation_erasure =
+        AttestationErasureOption::kEraseAttestationButIncludeAaguid;
   } else if (is_transport_used_internal) {
     // Direct attestation from platform authenticators is known to be
     // privacy preserving, so we always return it when requested. Also,

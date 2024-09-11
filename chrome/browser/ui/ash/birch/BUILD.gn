@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/chrome_build.gni")
 import("//build/config/chromeos/ui_mode.gni")
 
 assert(is_chromeos_ash)
@@ -34,6 +35,8 @@ static_library("birch") {
     "refresh_token_waiter.h",
   ]
 
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+
   deps = [
     "//ash",
     "//ash/constants",
@@ -41,6 +44,7 @@ static_library("birch") {
     "//base",
     "//chrome/app/theme:chrome_unscaled_resources",
     "//chrome/browser/ash/app_list/search",
+    "//chrome/browser/ash/calendar",
     "//chrome/browser/ash/crosapi",
     "//chrome/browser/ash/crosapi:browser_util",
     "//chrome/browser/ash/file_suggest",
@@ -50,7 +54,6 @@ static_library("birch") {
     "//chrome/browser/favicon",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sync",
-    "//chrome/browser/ui/ash/calendar",
     "//chrome/common",
     "//components/favicon_base",
     "//components/history/core/browser",
@@ -64,6 +67,10 @@ static_library("birch") {
     "//ui/base",
     "//url",
   ]
+
+  if (is_chrome_branded) {
+    deps += [ "//chrome/browser/resources:preinstalled_web_apps_resources" ]
+  }
 
   allow_circular_includes_from = [ "//chrome/browser/ash/login/session" ]
 }

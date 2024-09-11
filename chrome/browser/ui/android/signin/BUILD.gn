@@ -58,7 +58,8 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ui/signin/ConfirmSyncDataStateMachine.java",
     "java/src/org/chromium/chrome/browser/ui/signin/ConfirmSyncDataStateMachineDelegate.java",
     "java/src/org/chromium/chrome/browser/ui/signin/ConsentTextTracker.java",
-    "java/src/org/chromium/chrome/browser/ui/signin/FullscreenSigninPromoUtil.java",
+    "java/src/org/chromium/chrome/browser/ui/signin/DialogWhenLargeContentLayout.java",
+    "java/src/org/chromium/chrome/browser/ui/signin/FullscreenSigninPromoLauncher.java",
     "java/src/org/chromium/chrome/browser/ui/signin/GoogleActivityController.java",
     "java/src/org/chromium/chrome/browser/ui/signin/MinorModeHelper.java",
     "java/src/org/chromium/chrome/browser/ui/signin/PersonalizedSigninPromoView.java",
@@ -92,6 +93,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ui/signin/account_picker/ExistingAccountRowViewBinder.java",
     "java/src/org/chromium/chrome/browser/ui/signin/account_picker/OnClickListenerViewBinder.java",
     "java/src/org/chromium/chrome/browser/ui/signin/account_picker/WebSigninAccountPickerDelegate.java",
+    "java/src/org/chromium/chrome/browser/ui/signin/fullscreen_signin/FreManagementNoticeDialogHelper.java",
     "java/src/org/chromium/chrome/browser/ui/signin/fullscreen_signin/FullscreenSigninCoordinator.java",
     "java/src/org/chromium/chrome/browser/ui/signin/fullscreen_signin/FullscreenSigninMediator.java",
     "java/src/org/chromium/chrome/browser/ui/signin/fullscreen_signin/FullscreenSigninProperties.java",
@@ -171,6 +173,8 @@ android_resources("java_resources") {
     "java/res/layout/uma_dialog.xml",
     "java/res/layout/upgrade_promo_landscape_view.xml",
     "java/res/layout/upgrade_promo_portrait_view.xml",
+    "java/res/values-large/dimens.xml",
+    "java/res/values-xlarge/dimens.xml",
     "java/res/values/dimens.xml",
   ]
   deps = [
@@ -185,12 +189,12 @@ robolectric_library("junit") {
   resources_package = "org.chromium.chrome.browser.ui.signin"
   sources = [
     "junit/src/org/chromium/chrome/browser/ui/signin/ConfirmSyncDataStateMachineTest.java",
-    "junit/src/org/chromium/chrome/browser/ui/signin/FullscreenSigninPromoUtilTest.java",
+    "junit/src/org/chromium/chrome/browser/ui/signin/FullscreenSigninPromoLauncherTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/SigninAccountPickerCoordinatorTest.java",
-    "junit/src/org/chromium/chrome/browser/ui/signin/SigninUtilsTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/SyncPromoControllerTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/account_picker/AccountPickerMediatorTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/account_picker/WebSigninAccountPickerDelegateTest.java",
+    "junit/src/org/chromium/chrome/browser/ui/signin/fullscreen_signin/FreManagementNoticeDialogHelperTest.java",
   ]
   deps = [
     ":java",
@@ -329,7 +333,6 @@ android_library("unit_device_javatests") {
     "//third_party/jni_zero:jni_zero_java",
     "//third_party/junit",
     "//third_party/mockito:mockito_java",
-    "//ui/accessibility:ui_accessibility_features_java",
     "//ui/android:ui_java_test_support",
     "//ui/android:ui_no_recycler_view_java",
   ]

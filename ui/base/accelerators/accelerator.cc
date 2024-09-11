@@ -415,7 +415,7 @@ std::u16string Accelerator::ApplyLongFormModifiers(
 #elif defined(OS_LINUX)
     result = ApplyModifierToAcceleratorString(result, IDS_APP_SUPER_MODIFIER);
 #else
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
 #endif
   }
 

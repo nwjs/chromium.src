@@ -71,6 +71,28 @@ bool ShouldPlaceBefore(const SavedTabGroup& group1,
 SavedTabGroupModel::SavedTabGroupModel() = default;
 SavedTabGroupModel::~SavedTabGroupModel() = default;
 
+std::vector<const SavedTabGroup*> SavedTabGroupModel::GetSavedTabGroupsOnly()
+    const {
+  std::vector<const SavedTabGroup*> saved_tab_groups;
+  for (const SavedTabGroup& group : saved_tab_groups_) {
+    if (!group.is_shared_tab_group()) {
+      saved_tab_groups.push_back(&group);
+    }
+  }
+  return saved_tab_groups;
+}
+
+std::vector<const SavedTabGroup*> SavedTabGroupModel::GetSharedTabGroupsOnly()
+    const {
+  std::vector<const SavedTabGroup*> shared_tab_groups;
+  for (const SavedTabGroup& group : saved_tab_groups_) {
+    if (group.is_shared_tab_group()) {
+      shared_tab_groups.push_back(&group);
+    }
+  }
+  return shared_tab_groups;
+}
+
 std::optional<int> SavedTabGroupModel::GetIndexOf(
     LocalTabGroupID tab_group_id) const {
   for (size_t i = 0; i < saved_tab_groups_.size(); i++) {
@@ -179,6 +201,20 @@ void SavedTabGroupModel::UpdateVisualData(
   for (auto& observer : observers_) {
     observer.SavedTabGroupUpdatedLocally(updated_guid,
                                          /*tab_guid=*/std::nullopt);
+  }
+}
+
+void SavedTabGroupModel::MakeTabGroupShared(
+    const LocalTabGroupID& local_group_id,
+    std::string collaboration_id) {
+  SavedTabGroup* group = GetMutableGroup(local_group_id);
+  CHECK(group);
+  CHECK(!group->is_shared_tab_group());
+
+  group->SetCollaborationId(std::move(collaboration_id));
+
+  for (SavedTabGroupModelObserver& observer : observers_) {
+    observer.SavedTabGroupSharedStateUpdatedLocally(group->saved_guid());
   }
 }
 

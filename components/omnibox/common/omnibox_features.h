@@ -120,12 +120,12 @@ inline constexpr base::FeatureParam<int> kOmniboxSpareRendererDelayMs{
 
 // Omnibox ML scoring.
 BASE_DECLARE_FEATURE(kLogUrlScoringSignals);
+BASE_DECLARE_FEATURE(kEnableHistoryScoringSignalsAnnotatorForSearches);
 BASE_DECLARE_FEATURE(kMlUrlPiecewiseMappedSearchBlending);
 BASE_DECLARE_FEATURE(kMlUrlScoreCaching);
 BASE_DECLARE_FEATURE(kMlUrlScoring);
 BASE_DECLARE_FEATURE(kMlUrlSearchBlending);
 BASE_DECLARE_FEATURE(kUrlScoringModel);
-BASE_DECLARE_FEATURE(kEnableForceSkipMlScoring);
 
 // Actions in Suggest - Action Chips for Entity Suggestions.
 // Data driven feature; flag helps tune behavior.

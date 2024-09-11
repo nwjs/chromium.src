@@ -84,7 +84,7 @@ namespace device {
 namespace mojom {
 class WakeLockContext;
 }
-}
+}  // namespace device
 
 namespace net {
 struct LoadStateWithParam;
@@ -100,7 +100,7 @@ struct AXTreeUpdate;
 class AXNode;
 class ColorProvider;
 class ColorProviderSource;
-}
+}  // namespace ui
 
 namespace content {
 
@@ -142,8 +142,7 @@ class PreloadingAttempt;
 // `GetController()`, and is used to load URLs into the WebContents, navigate
 // it backwards/forwards, etc.
 // See navigation_controller.h for more details.
-class WebContents : public PageNavigator,
-                    public base::SupportsUserData {
+class WebContents : public PageNavigator, public base::SupportsUserData {
   // Do not remove this macro!
   // The macro is maintained by the memory safety team.
   ADVANCED_MEMORY_SAFETY_CHECKS();
@@ -260,10 +259,17 @@ class WebContents : public PageNavigator,
         network::mojom::WebSandboxFlags::kNone;
 
     // Value used to set the last time the WebContents was made active, this is
+    // the value that'll be returned by GetLastActiveTimeTicks(). If this is
+    // left default initialized then the value is not passed on to the
+    // WebContents and GetLastActiveTimeTicks() will return the WebContents'
+    // creation time.
+    base::TimeTicks last_active_time_ticks;
+
+    // Value used to set the last time the WebContents was made active, this is
     // the value that'll be returned by GetLastActiveTime(). If this is left
     // default initialized then the value is not passed on to the WebContents
     // and GetLastActiveTime() will return the WebContents' creation time.
-    base::TimeTicks last_active_time;
+    base::Time last_active_time;
 
     // Code location responsible for creating the CreateParams.  This is used
     // mostly for debugging (e.g. to help attribute specific scenarios or
@@ -853,9 +859,17 @@ class WebContents : public PageNavigator,
   // directly to determine its aggregate audio state.
   virtual void OnAudioStateChanged() = 0;
 
+  // Get/Set the last time ticks that the WebContents was made active (either
+  // when it was created or shown with WasShown()). Note: GetLastActiveTimeTicks
+  // and GetLastActiveTime can get desynced if the process is suspended or if
+  // the clock is adjusted.
+  virtual base::TimeTicks GetLastActiveTimeTicks() = 0;
+
   // Get/Set the last time that the WebContents was made active (either when it
   // was created or shown with WasShown()).
-  virtual base::TimeTicks GetLastActiveTime() = 0;
+  // Note: GetLastActiveTimeTicks and GetLastActiveTime can get desynced if the
+  // process is suspended or if the clock is adjusted.
+  virtual base::Time GetLastActiveTime() = 0;
 
   // Invoked when the WebContents becomes shown/hidden. A hidden WebContents
   // isn't painted on the screen.
@@ -1236,8 +1250,17 @@ class WebContents : public PageNavigator,
                             bool bypass_cache,
                             ImageDownloadCallback callback) = 0;
 
-  // Same as DownloadImage(), but uses the ImageDownloader from the specified
-  // frame instead of the main frame.
+  // Same as DownloadImage(), but uses an ax node id to retrieve the URL once
+  // the download call has reached the renderer.
+  virtual int DownloadImageFromAxNode(const ui::AXTreeID tree_id,
+                                      const ui::AXNodeID node_id,
+                                      const gfx::Size& preferred_size,
+                                      uint32_t max_bitmap_size,
+                                      bool bypass_cache,
+                                      ImageDownloadCallback callback) = 0;
+
+  // Same as DownloadImage(), but uses the ImageDownloader from the
+  // specified frame instead of the main frame.
   virtual int DownloadImageInFrame(
       const GlobalRenderFrameHostId& initiator_frame_routing_id,
       const GURL& url,
@@ -1542,7 +1565,9 @@ class WebContents : public PageNavigator,
       bool should_warm_up_compositor,
       PreloadingHoldbackStatus holdback_status_override,
       PreloadingAttempt* preloading_attempt,
-      base::RepeatingCallback<bool(const GURL&)> url_match_predicate,
+      base::RepeatingCallback<bool(const GURL&,
+                                   const std::optional<UrlMatchType>&)>
+          url_match_predicate,
       base::RepeatingCallback<void(NavigationHandle&)>
           prerender_navigation_handle_callback) = 0;
 

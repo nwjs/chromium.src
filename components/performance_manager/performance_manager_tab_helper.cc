@@ -109,7 +109,7 @@ PerformanceManagerTabHelper::PerformanceManagerTabHelper(
   page_node_ = PerformanceManagerImpl::CreatePageNode(
       web_contents->GetWeakPtr(), web_contents->GetBrowserContext()->UniqueId(),
       web_contents->GetVisibleURL(), initial_property_flags,
-      web_contents->GetLastActiveTime());
+      web_contents->GetLastActiveTimeTicks());
   content::RenderFrameHost* main_rfh = web_contents->GetPrimaryMainFrame();
   DCHECK(main_rfh);
 
@@ -345,12 +345,21 @@ void PerformanceManagerTabHelper::OnFrameVisibilityChanged(
   }
   CHECK(render_frame_host->IsRenderFrameLive());
 
+  ViewportIntersectionState viewport_intersection_change = [visibility]() {
+    switch (visibility) {
+      case blink::mojom::FrameVisibility::kNotRendered:
+      case blink::mojom::FrameVisibility::kRenderedOutOfViewport:
+        return ViewportIntersectionState::kNotIntersecting;
+      case blink::mojom::FrameVisibility::kRenderedInViewport:
+        return ViewportIntersectionState::kIntersecting;
+    }
+  }();
+
   auto* frame_node = frame_it->second.get();
   PerformanceManagerImpl::CallOnGraphImpl(
-      FROM_HERE,
-      base::BindOnce(
-          &FrameNodeImpl::SetIntersectsViewport, base::Unretained(frame_node),
-          visibility == blink::mojom::FrameVisibility::kRenderedInViewport));
+      FROM_HERE, base::BindOnce(&FrameNodeImpl::SetViewportIntersectionState,
+                                base::Unretained(frame_node),
+                                viewport_intersection_change));
 }
 
 void PerformanceManagerTabHelper::OnFrameIsCapturingMediaStreamChanged(
@@ -440,8 +449,9 @@ std::optional<blink::mojom::PermissionStatus> PerformanceManagerTabHelper::
   permission_controller_subscription_id_ =
       permission_controller->SubscribeToPermissionStatusChange(
           blink::PermissionType::NOTIFICATIONS,
-          web_contents()->GetPrimaryMainFrame()->GetProcess(),
-          url::Origin::Create(web_contents()->GetLastCommittedURL()),
+          /*render_process_host=*/nullptr,
+          web_contents()->GetPrimaryMainFrame(),
+          url::Origin::Create(web_contents()->GetLastCommittedURL()).GetURL(),
           /*should_include_device_status=*/false,
           base::BindRepeating(&PerformanceManagerTabHelper::
                                   OnNotificationPermissionStatusChange,
@@ -474,6 +484,19 @@ void PerformanceManagerTabHelper::
   CHECK(permission_controller);
   permission_controller->UnsubscribeFromPermissionStatusChange(
       permission_controller_subscription_id_);
+}
+
+void PerformanceManagerTabHelper::FrameReceivedUserActivation(
+    content::RenderFrameHost* render_frame_host) {
+  // Ignore notifications that are received after the frame was deleted.
+  auto frame_it = frames_.find(render_frame_host);
+  if (frame_it == frames_.end()) {
+    return;
+  }
+  auto* frame_node = frame_it->second.get();
+  PerformanceManagerImpl::CallOnGraphImpl(
+      FROM_HERE, base::BindOnce(&FrameNodeImpl::SetHadUserActivation,
+                                base::Unretained(frame_node)));
 }
 
 void PerformanceManagerTabHelper::TitleWasSet(content::NavigationEntry* entry) {

@@ -9,8 +9,8 @@ import {BrowserServiceImpl, CrRouter, HistoryEmbeddingsBrowserProxyImpl, History
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {isMac} from 'chrome://resources/js/platform.js';
-import {pressAndReleaseKeyOn} from 'chrome://resources/polymer/v3_0/iron-test-helpers/mock-interactions.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {pressAndReleaseKeyOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise} from 'chrome://webui-test/test_util.js';
@@ -349,10 +349,10 @@ suite('HistoryAppTest', function() {
   test('ProductSpecsIncrementsToolbar', async () => {
     // Reset the app with product spec lists feature enabled.
     document.body.removeChild(element);
-    loadTimeData.overrideValues({productSpecificationsListsEnabled: true});
+    loadTimeData.overrideValues({compareHistoryEnabled: true});
     element = document.createElement('history-app');
     document.body.appendChild(element);
-    element.$.router.selectedPage = 'productSpecificationsLists';
+    element.$.router.selectedPage = 'comparisonTables';
     await flushTasks();
     assertEquals(0, element.$.toolbar.count);
 
@@ -379,10 +379,10 @@ suite('HistoryAppTest', function() {
   test('ProductSpecsSelectUnselectAll', async () => {
     // Reset the app with product spec lists feature enabled.
     document.body.removeChild(element);
-    loadTimeData.overrideValues({productSpecificationsListsEnabled: true});
+    loadTimeData.overrideValues({compareHistoryEnabled: true});
     element = document.createElement('history-app');
     document.body.appendChild(element);
-    element.$.router.selectedPage = 'productSpecificationsLists';
+    element.$.router.selectedPage = 'comparisonTables';
     await flushTasks();
     assertEquals(0, element.$.toolbar.count);
 

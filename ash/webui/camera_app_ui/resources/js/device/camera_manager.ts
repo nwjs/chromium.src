@@ -248,9 +248,15 @@ export class CameraManager implements EventListener {
     function setLidClosed(lidState: LidState) {
       state.set(state.State.LID_CLOSED, lidState === LidState.kClosed);
     }
-
     const lidState = await helper.initLidStateMonitor(setLidClosed);
     setLidClosed(lidState);
+
+    function setSWPirvacySwitchOn(isSWPrivacySwitchOn: boolean) {
+      state.set(state.State.SW_PRIVACY_SWITCH_ON, isSWPrivacySwitchOn);
+    }
+    const isSWPrivacySwitchOn =
+        await helper.initSWPrivacySwitchMonitor(setSWPirvacySwitchOn);
+    setSWPirvacySwitchOn(isSWPrivacySwitchOn);
 
     const handleScreenLockedChange = async (isScreenLocked: boolean) => {
       this.locked = isScreenLocked;
@@ -573,7 +579,7 @@ export class CameraManager implements EventListener {
       // reconfigure result which may not reflect the setting before calling it.
       // Thus still fallthrough here to start another reconfigure.
     }
-    this.scheduler.reconfigurer.resetFailedDevices();
+    this.scheduler.reconfigurer.resetConfigurationFailure();
     return this.doReconfigure();
   }
 
@@ -584,7 +590,7 @@ export class CameraManager implements EventListener {
     this.scheduler.reconfigurer.setShouldSuspend(shouldSuspend);
     state.set(state.State.SUSPEND, shouldSuspend);
     const perfLogger = PerfLogger.getInstance();
-    if (loadTimeData.isVideoCaptureDisallowed()) {
+    if (loadTimeData.isCCADisallowed()) {
       nav.open(ViewName.WARNING, WarningType.DISABLED_CAMERA);
       perfLogger.interrupt();
       return false;

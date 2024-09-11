@@ -10,14 +10,15 @@
 #include <vector>
 
 #include "base/check_deref.h"
-#include "components/sync/base/model_type.h"
+#include "base/logging.h"
+#include "components/sync/base/data_type.h"
+#include "components/sync/base/deletion_origin.h"
 #include "components/sync/model/conflict_resolution.h"
+#include "components/sync/model/data_type_local_change_processor.h"
+#include "components/sync/model/data_type_store.h"
+#include "components/sync/model/data_type_sync_bridge.h"
 #include "components/sync/model/metadata_batch.h"
 #include "components/sync/model/model_error.h"
-#include "components/sync/model/model_type_change_processor.h"
-#include "components/sync/model/model_type_store.h"
-#include "components/sync/model/model_type_store_with_in_memory_cache.h"
-#include "components/sync/model/model_type_sync_bridge.h"
 #include "components/sync/model/mutable_data_batch.h"
 #include "components/sync/protocol/cookie_specifics.pb.h"
 #include "components/sync/protocol/entity_data.h"
@@ -37,20 +38,25 @@ std::unique_ptr<syncer::EntityData> CreateEntityData(
 }  // namespace
 
 FloatingSsoSyncBridge::FloatingSsoSyncBridge(
-    std::unique_ptr<syncer::ModelTypeChangeProcessor> change_processor,
-    syncer::OnceModelTypeStoreFactory create_store_callback)
-    : syncer::ModelTypeSyncBridge(std::move(change_processor)) {
+    std::unique_ptr<syncer::DataTypeLocalChangeProcessor> change_processor,
+    syncer::OnceDataTypeStoreFactory create_store_callback)
+    : syncer::DataTypeSyncBridge(std::move(change_processor)) {
   StoreWithCache::CreateAndLoad(
       std::move(create_store_callback), syncer::COOKIES,
       base::BindOnce(&FloatingSsoSyncBridge::OnStoreCreated,
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
-FloatingSsoSyncBridge::~FloatingSsoSyncBridge() = default;
+FloatingSsoSyncBridge::~FloatingSsoSyncBridge() {
+  if (!deferred_cookie_additions_.empty() ||
+      !deferred_cookie_deletions_.empty()) {
+    DVLOG(1) << "Non-empty event queue at shutdown.";
+  }
+}
 
 std::unique_ptr<syncer::MetadataChangeList>
 FloatingSsoSyncBridge::CreateMetadataChangeList() {
-  return syncer::ModelTypeStore::WriteBatch::CreateMetadataChangeList();
+  return syncer::DataTypeStore::WriteBatch::CreateMetadataChangeList();
 }
 
 std::optional<syncer::ModelError> FloatingSsoSyncBridge::MergeFullSyncData(
@@ -118,9 +124,7 @@ FloatingSsoSyncBridge::ApplyIncrementalSyncChanges(
     }
   }
   batch->TakeMetadataChangesFrom(std::move(metadata_change_list));
-  store_->CommitWriteBatch(std::move(batch),
-                           base::BindOnce(&FloatingSsoSyncBridge::OnStoreCommit,
-                                          weak_ptr_factory_.GetWeakPtr()));
+  CommitToStore(std::move(batch));
   return {};
 }
 
@@ -161,7 +165,7 @@ syncer::ConflictResolution FloatingSsoSyncBridge::ResolveConflict(
     const syncer::EntityData& remote_data) const {
   // TODO: b/353222478 - prefer local SAML cookies if they were acquired
   // during the most recent ChromeOS sign-in.
-  return syncer::ModelTypeSyncBridge::ResolveConflict(storage_key, remote_data);
+  return syncer::DataTypeSyncBridge::ResolveConflict(storage_key, remote_data);
 }
 
 const FloatingSsoSyncBridge::CookieSpecificsEntries&
@@ -173,25 +177,107 @@ bool FloatingSsoSyncBridge::IsInitialDataReadFinishedForTest() const {
   return is_initial_data_read_finished_;
 }
 
+void FloatingSsoSyncBridge::SetOnCommitCallbackForTest(
+    base::RepeatingClosure callback) {
+  on_commit_callback_for_test_ = std::move(callback);
+}
+
 void FloatingSsoSyncBridge::OnStoreCreated(
     const std::optional<syncer::ModelError>& error,
     std::unique_ptr<StoreWithCache> store,
     std::unique_ptr<syncer::MetadataBatch> metadata_batch) {
   if (error) {
     change_processor()->ReportError(*error);
+    deferred_cookie_additions_.clear();
+    deferred_cookie_deletions_.clear();
     return;
   }
   CHECK(store);
   store_ = std::move(store);
   change_processor()->ModelReadyToSync(std::move(metadata_batch));
   is_initial_data_read_finished_ = true;
+  ProcessQueuedCookies();
+}
+
+void FloatingSsoSyncBridge::ProcessQueuedCookies() {
+  // Add all new cookies. The two queues should not overlap.
+  for (const auto& [key, specifics] : deferred_cookie_additions_) {
+    if (deferred_cookie_deletions_.contains(key)) {
+      DVLOG(1) << "Cookie present in both addition and deletetion queues. Will "
+                  "perform delete.";
+    } else {
+      AddOrUpdateCookie(specifics);
+    }
+  }
+  // Delete queued cookies.
+  for (const auto& storage_key : deferred_cookie_deletions_) {
+    DeleteCookie(storage_key);
+  }
+  deferred_cookie_additions_.clear();
+  deferred_cookie_deletions_.clear();
 }
 
 void FloatingSsoSyncBridge::OnStoreCommit(
     const std::optional<syncer::ModelError>& error) {
+  if (on_commit_callback_for_test_) {
+    on_commit_callback_for_test_.Run();
+  }
   if (error) {
     change_processor()->ReportError(*error);
   }
+}
+
+void FloatingSsoSyncBridge::CommitToStore(
+    std::unique_ptr<StoreWithCache::WriteBatch> batch) {
+  store_->CommitWriteBatch(std::move(batch),
+                           base::BindOnce(&FloatingSsoSyncBridge::OnStoreCommit,
+                                          weak_ptr_factory_.GetWeakPtr()));
+}
+
+bool FloatingSsoSyncBridge::IsCookieInStore(
+    const std::string& storage_key) const {
+  return store_->in_memory_data().contains(storage_key);
+}
+
+void FloatingSsoSyncBridge::AddOrUpdateCookie(
+    const sync_pb::CookieSpecifics& specifics) {
+  std::string storage_key = specifics.unique_key();
+
+  if (!is_initial_data_read_finished_) {
+    deferred_cookie_additions_[storage_key] = specifics;
+    deferred_cookie_deletions_.erase(storage_key);
+    return;
+  }
+
+  std::unique_ptr<StoreWithCache::WriteBatch> batch =
+      store_->CreateWriteBatch();
+
+  // Add/update this entry to the store and model.
+  change_processor()->Put(storage_key, CreateEntityData(specifics),
+                          batch->GetMetadataChangeList());
+  batch->WriteData(storage_key, specifics);
+
+  CommitToStore(std::move(batch));
+}
+
+void FloatingSsoSyncBridge::DeleteCookie(const std::string& storage_key) {
+  if (!is_initial_data_read_finished_) {
+    deferred_cookie_deletions_.insert(storage_key);
+    deferred_cookie_additions_.erase(storage_key);
+    return;
+  }
+
+  if (!IsCookieInStore(storage_key)) {
+    return;
+  }
+
+  std::unique_ptr<StoreWithCache::WriteBatch> batch =
+      store_->CreateWriteBatch();
+  change_processor()->Delete(storage_key, syncer::DeletionOrigin::Unspecified(),
+                             batch->GetMetadataChangeList());
+  batch->DeleteData(storage_key);
+
+  CommitToStore(std::move(batch));
 }
 
 }  // namespace ash::floating_sso

@@ -9,6 +9,11 @@
 //  2 parsing steps
 //  3 parsed values (selected)
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "media/parsers/vp9_parser.h"
 
 #include <algorithm>
@@ -151,7 +156,7 @@ int ClampLf(int lf) {
   return std::clamp(lf, 0, kMaxLoopFilterLevel);
 }
 
-std::string IncrementIV(const std::string& iv, uint32_t by) {
+std::string IncrementIV(std::string_view iv, uint32_t by) {
   // What we call the 'IV' value is actually somewhat of a misnomer:
   // "IV" = 0xFFFFFFFFFFFFFFFF0000000000000000
   //          └──actual IV───┘└─block counter┘
@@ -660,8 +665,7 @@ std::unique_ptr<DecryptConfig> Vp9Parser::NextFrameDecryptContextForTesting() {
   return std::move(frame_info.decrypt_config);
 }
 
-std::string Vp9Parser::IncrementIVForTesting(const std::string& iv,
-                                             uint32_t by) {
+std::string Vp9Parser::IncrementIVForTesting(std::string_view iv, uint32_t by) {
   return IncrementIV(iv, by);
 }
 

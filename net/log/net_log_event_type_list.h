@@ -957,7 +957,15 @@ EVENT_TYPE(SOCKET_POOL_CLOSING_SOCKET)
 // StreamAttempt and subclasses
 // ------------------------------------------------------------------------
 
+// Emitted when a StreamAttempt is created by HttpStreamPool.
+EVENT_TYPE(STREAM_ATTEMPT_BOUND_TO_POOL)
+
 // Marks the creation/destruction of a TcpStreamAttempt.
+// For the BEGIN phase, the following parameter is attached:
+//   {
+//      "ip_endpoint": <The IPEndPoint to connect>,
+//   }
+//
 // For the END phase, if there was an error, the following parameters are
 // attached:
 //   {
@@ -966,12 +974,28 @@ EVENT_TYPE(SOCKET_POOL_CLOSING_SOCKET)
 EVENT_TYPE(TCP_STREAM_ATTEMPT_ALIVE)
 
 // Marks the creation/destruction of a TlsStreamAttempt.
+// For the BEGIN phase, the following parameter is attached:
+//   {
+//      "host_port": <The host and port of the destination>,
+//   }
+//
 // For the END phase, if there was an error, the following parameters are
 // attached:
 //   {
 //      "net_error": <Net error code of the failure>,
 //   }
 EVENT_TYPE(TLS_STREAM_ATTEMPT_ALIVE)
+
+// Measures the time TlsStreamAttempt was waiting SSLConfig to be ready.
+EVENT_TYPE(TLS_STREAM_ATTEMPT_WAIT_FOR_SSL_CONFIG)
+
+// Measures the time TlsStreamAttempt took to connect (TLS handshake).
+// For the END phase, if there was an error, the following parameters are
+// attached:
+//   {
+//      "net_error": <Net error code of the failure>,
+//   }
+EVENT_TYPE(TLS_STREAM_ATTEMPT_CONNECT)
 
 // ------------------------------------------------------------------------
 // URLRequest
@@ -1342,6 +1366,72 @@ EVENT_TYPE(HTTP_STREAM_JOB_CONTROLLER_PROXY_SERVER_RESOLVED)
 //      "broken": <boolean>
 //   }
 EVENT_TYPE(HTTP_STREAM_JOB_CONTROLLER_ALT_SVC_FOUND)
+
+// ------------------------------------------------------------------------
+// HttpStreamPool
+// ------------------------------------------------------------------------
+
+// Logged when the HttpStreamPool is closing a StreamSocket:
+//   {
+//      "reason": <Reason the socket was closed>,
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_CLOSING_SOCKET)
+
+// Marks the start/end of a HttpStreamPool::Group.
+// The following parameters are attached:
+//   {
+//      "stream_key": <The HttpStreamKey of the group>,
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_GROUP_ALIVE)
+
+// Emitted when a group is requested a stream. The event parameters are:
+//   {
+//     "priority": <The priority of the erquest>,
+//     "allowed_bad_certs": <The list of allowed bad certs>,
+//     "enable_ip_based_pooling": <True when the request enables IP based
+//                                 pooling>,
+//     "source_dependency": <The source identifier of the request>
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_GROUP_REQUEST_STREAM)
+
+// Emitted when a group is requested a preconnect. The event parameter is:
+//   {
+//      "num_streams": <The number of streams requested>
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_GROUP_PRECONNECT)
+
+// Records on the caller's NetLog to indicate that an HttpStreamPool::Group is
+// servicing the request.
+EVENT_TYPE(HTTP_STREAM_POOL_GROUP_REQUEST_BOUND)
+
+// Emitted when an HttpStreamPool::Job is created. Used to add a reference to
+// HttpStreamPool::Group's net log.
+EVENT_TYPE(HTTP_STREAM_POOL_GROUP_JOB_CREATED)
+
+// Emitted when an HttpStreamPool::Job is destroyed. Used to add a reference to
+// HttpStreamPool::Group's net log.
+EVENT_TYPE(HTTP_STREAM_POOL_GROUP_JOB_DESTROYED)
+
+// Marks the start/end of a HttpStreamPool::Job.
+// For the BEGIN event, the event parameters are:
+//   {
+//     "stream_attempt_delay": <The stream attempt delay in milliseconds>,
+//     "source_dependency": <The source identifier of the parent group>
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_JOB_ALIVE)
+
+// Emitted when an HttpStreamPool::Job started a StreamAttempt.
+EVENT_TYPE(HTTP_STREAM_POOL_JOB_ATTEMPT_START)
+
+// Emitted when an HttpStreamPool::Job received completion from a StreamAttempt.
+EVENT_TYPE(HTTP_STREAM_POOL_JOB_ATTEMPT_END)
+
+// Emitted when the stream attempt delay has passed on an HttpStreamPool::Job.
+// The event parameter is:
+//   {
+//     "stream_attempt_delay": <The stream attempt delay in milliseconds>
+//   }
+EVENT_TYPE(HTTP_STREAM_POOL_JOB_STREAM_ATTEMPT_DELAY_PASSED)
 
 // ------------------------------------------------------------------------
 // HttpNetworkTransaction
@@ -1861,6 +1951,23 @@ EVENT_TYPE(QUIC_SESSION_POOL_PLATFORM_NOTIFICATION)
 // whether QuicSessions are closed or marked as going away.
 
 EVENT_TYPE(QUIC_SESSION_POOL_ON_IP_ADDRESS_CHANGED)
+
+// This event is emitted when a session request ends up using an existing
+// session with the same IP after DNS resolution.
+EVENT_TYPE(QUIC_SESSION_POOL_MATCHING_IP_SESSION_FOUND)
+
+// This event is emitted when a session request ends up using an existing
+// session with different IP after DNS resolution. This scenario occurs when the
+// existing session receives an ORIGIN frame, and the received origins encompass
+// the request's destination.
+EVENT_TYPE(QUIC_SESSION_POOL_POOLED_WITH_DIFFERENT_IP_SESSION)
+
+// This event is emitted when a session request can use an existing session but
+// not due to IP mismatch.
+EVENT_TYPE(QUIC_SESSION_POOL_CAN_POOL_BUT_DIFFERENT_IP)
+
+// This event is emitted when a session request cannot use an existing session.
+EVENT_TYPE(QUIC_SESSION_POOL_CANNOT_POOL_WITH_EXISTING_SESSIONS)
 
 //   {
 //     "net_error": <Net error code for the closure>,
@@ -2544,6 +2651,11 @@ EVENT_TYPE(QUIC_SESSION_ATTEMPTING_TO_PROCESS_UNDECRYPTABLE_PACKET)
 //   "reason": <the reason the key update was triggered>
 // }
 EVENT_TYPE(QUIC_SESSION_KEY_UPDATE)
+
+// Session received an ORIGIN frame
+// {
+//   "origins" : <list of received origins>
+EVENT_TYPE(QUIC_SESSION_ORIGIN_FRAME_RECEIVED)
 
 // ------------------------------------------------------------------------
 // QuicHttpStream

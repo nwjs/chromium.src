@@ -8,12 +8,14 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.Card
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.OTHERS;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -25,6 +27,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabContentManagerThumbnailProvider;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
@@ -411,6 +414,19 @@ class TabListEditorCoordinator {
         mTabListCoordinator.removeSpecialListItem(uiType, itemIdentifier);
     }
 
+    /**
+     * Override the content descriptions of the top-level layout and back button.
+     *
+     * @param containerContentDescription The content description for the top-level layout.
+     * @param backButtonContentDescription The content description for the back button.
+     */
+    public void overrideContentDescriptions(
+            @StringRes int containerContentDescription,
+            @StringRes int backButtonContentDescription) {
+        mTabListEditorLayout.overrideContentDescriptions(
+                containerContentDescription, backButtonContentDescription);
+    }
+
     private void createTabListCoordinator() {
         Profile regularProfile =
                 mCurrentTabModelFilterSupplier
@@ -468,6 +484,7 @@ class TabListEditorCoordinator {
                         mCurrentTabModelFilterSupplier,
                         thumbnailProvider,
                         mDisplayGroups,
+                        /* actionConfirmationManager= */ null,
                         mGridCardOnClickListenerProvider,
                         /* dialogHandler= */ null,
                         mTabActionState,
@@ -476,7 +493,12 @@ class TabListEditorCoordinator {
                         mTabListEditorLayout,
                         /* attachToParent= */ false,
                         COMPONENT_NAME,
-                        null,
+                        /* onModelTokenChange= */ null,
+                        /* hasEmptyView= */ false,
+                        /* emptyImageResId= */ Resources.ID_NULL,
+                        /* emptyHeadingStringResId= */ Resources.ID_NULL,
+                        /* emptySubheadingStringResId= */ Resources.ID_NULL,
+                        /* onTabGroupCreation= */ null,
                         /* allowDragAndDrop= */ false);
 
         // Note: The TabListEditorCoordinator is always created after native is initialized.
@@ -533,9 +555,7 @@ class TabListEditorCoordinator {
                             mCurrentTabModelFilterSupplier);
             return mMultiThumbnailCardProvider;
         }
-        return (tabId, thumbnailSize, callback, isSelected) -> {
-            tabContentManager.getTabThumbnailWithCallback(tabId, thumbnailSize, callback);
-        };
+        return new TabContentManagerThumbnailProvider(tabContentManager);
     }
 
     // Testing-specific methods

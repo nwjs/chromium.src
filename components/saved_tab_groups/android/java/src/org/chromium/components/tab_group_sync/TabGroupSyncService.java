@@ -23,7 +23,7 @@ public interface TabGroupSyncService {
      */
     interface Observer {
         /**
-         * Called when the sync database (ModelTypeStore) has been initialized and fully loaded to
+         * Called when the sync database (DataTypeStore) has been initialized and fully loaded to
          * memory.
          */
         void onInitialized();
@@ -111,6 +111,14 @@ public interface TabGroupSyncService {
      */
     void updateVisualData(
             LocalTabGroupId tabGroupId, @NonNull String title, @TabGroupColorId int color);
+
+    /**
+     * Makes the saved tab group a shared group.
+     *
+     * @param tabGroupId The local group ID of the corresponding tab group.
+     * @param collaborationId Collaboration ID with which the group is associated.
+     */
+    void makeTabGroupShared(LocalTabGroupId tabGroupId, @NonNull String collaborationId);
 
     /**
      * Adds a tab to a remote group. Should be called with response to a local tab addition to a tab

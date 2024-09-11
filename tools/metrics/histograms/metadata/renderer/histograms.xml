@@ -22,6 +22,12 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<variants name="DelegatedInkRenderer">
+  <variant name="OS" summary="using the native OS Delegated Ink API"/>
+  <variant name="Skia"
+      summary="using the Skia implementation for Delegated Ink"/>
+</variants>
+
 <variants name="RendererHostedContentType">
   <variant name="" summary="all renderers"/>
   <variant name=".Empty"
@@ -106,9 +112,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Renderer.DelegatedInkTrail.LatencyImprovement.{Renderer}.{Prediction}"
-    units="ms" expires_after="2024-08-01">
+    units="ms" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <improvement direction="HIGHER_IS_BETTER"/>
   <summary>
     The latency improvement provided by the delegated ink trail API
@@ -121,11 +128,7 @@ chromium-metrics-reviews@google.com.
     compared to the last API drawn point. The bigger the histogram's value, the
     closer Delegated Ink got us to the last pointer position.
   </summary>
-  <token key="Renderer">
-    <variant name="OS" summary="using the native OS Delegated Ink API"/>
-    <variant name="Skia"
-        summary="using the Skia implementation for Delegated Ink"/>
-  </token>
+  <token key="Renderer" variants="DelegatedInkRenderer"/>
   <token key="Prediction">
     <variant name="WithoutPrediction" summary="without point prediction"/>
     <variant name="WithPrediction" summary="using point draw prediction"/>
@@ -134,9 +137,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Renderer.DelegatedInkTrail.LatencyImprovementWithPrediction.Experiment{Number}"
-    units="ms" expires_after="2024-08-01">
+    units="ms" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <summary>
     The latency improvement provided by predicting extra delegated ink points
     when using the delegated ink trail API with SkiaRenderer in milliseconds.
@@ -155,9 +159,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.DelegatedInkTrail.Prediction.WrongDirection"
-    enum="BooleanDirection" expires_after="2024-08-01">
+    enum="BooleanDirection" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <summary>
     Boolean that indicates whether the prediction is in the same direction as
     the real trajectory at the same prediction time. True means the direction is
@@ -170,9 +175,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.DelegatedInkTrail.Prediction.{Direction}Prediction"
-    units="pixels" expires_after="2024-08-01">
+    units="pixels" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <summary>
     {Direction}shoot distance in pixels between a predicted point and the
     corresponding interpolated real point that occurred at the prediction time.
@@ -188,9 +194,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.DelegatedInkTrail.Prediction.{Type}Jitter"
-    units="pixels" expires_after="2024-08-01">
+    units="pixels" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <summary>
     Euclidean distance in pixels between two successive variations of delegated
     ink trail deltas which are the difference beween a predicted delegated ink
@@ -209,9 +216,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Renderer.DelegatedInkTrail.PredictionExperiment{Number}.Frame{ScoreType}"
-    units="pixels" expires_after="2024-08-01">
+    units="pixels" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <summary>
     Distance in pixels between a predicted point and the corresponding
     interpolated real point that occurred at the prediction time.
@@ -237,9 +245,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Renderer.DelegatedInkTrail.PredictionExperiment{Number}.WrongDirection"
-    enum="BooleanDirection" expires_after="2024-08-01">
+    enum="BooleanDirection" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <summary>
     Whether the prediction is in the same direction as the real trajectory at
     the same prediction time.
@@ -257,9 +266,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Renderer.DelegatedInkTrail.PredictionExperiment{Number}.{ScoreType}"
-    units="pixels" expires_after="2024-08-01">
+    units="pixels" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <summary>
     Distance in pixels between a predicted point and the corresponding
     interpolated real point that occurred at the prediction time.
@@ -282,9 +292,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Renderer.DelegatedInkTrail.PredictionExperiment{Number}.{Type}Jitter"
-    units="pixels" expires_after="2024-08-01">
+    units="pixels" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>sahir.vellani@microsoft.com</owner>
+  <owner>gastonr@microsoft.com</owner>
   <summary>
     Euclidean distance in pixels between two successive variations of delegated
     ink trail deltas which are the difference beween a predicted delegated ink
@@ -306,8 +317,43 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Renderer.DelegatedInkTrail.{Renderer}.OutstandingPointsToDraw"
+    units="count" expires_after="2025-08-01">
+  <owner>jonross@chromium.org</owner>
+  <owner>gastonr@microsoft.com</owner>
+  <owner>gerchiko@microsoft.com</owner>
+  <owner>sahir.vellani@microsoft.com</owner>
+  <summary>
+    Amount of points that are drawn per frame by the Delegated Ink API
+    {Renderer}. This metric can be used as a measurement of how much improvement
+    using the Delegated Ink API by telling us how many points ahead the
+    Delegated Ink API is from the JS API.
+  </summary>
+  <token key="Renderer" variants="DelegatedInkRenderer"/>
+</histogram>
+
+<histogram
+    name="Renderer.DelegatedInkTrail.{Renderer}.TimeFromDelegatedInkToApiPaint"
+    units="ms" expires_after="2025-08-01">
+  <owner>jonross@chromium.org</owner>
+  <owner>gastonr@microsoft.com</owner>
+  <owner>gerchiko@microsoft.com</owner>
+  <owner>sahir.vellani@microsoft.com</owner>
+  <improvement direction="HIGHER_IS_BETTER"/>
+  <summary>
+    Time in milliseconds between the first moment a point is drawn in the screen
+    via the Delegated Ink API using the {Renderer} and the call to
+    updateInkTrailStartPoint is made. This histogram assumes that the point
+    represented by the metadata is painted in the same frame that the metadata
+    is reported in. Note that not all points received as metadata will match a
+    point in the trail. Thus, not all metadata points will generate a histogram
+    fire.
+  </summary>
+  <token key="Renderer" variants="DelegatedInkRenderer"/>
+</histogram>
+
 <histogram name="Renderer.DelegatedInkTrail.{Renderer}.TimeToDrawPointsMillis"
-    units="ms" expires_after="2025-04-01">
+    units="ms" expires_after="2025-08-01">
   <owner>jonross@chromium.org</owner>
   <owner>gastonr@microsoft.com</owner>
   <owner>gerchiko@microsoft.com</owner>
@@ -315,12 +361,9 @@ chromium-metrics-reviews@google.com.
   <improvement direction="LOWER_IS_BETTER"/>
   <summary>
     Span of time in milliseconds between the creation of pointer events in the
-    browser process and sending the draw operation to the OS.
+    browser process and sending the draw operation to the OS {Renderer}.
   </summary>
-  <token key="Renderer">
-    <variant name="OS" summary="OS backed DelegatedInk renderer."/>
-    <variant name="Skia" summary="Skia backed DelegatedInk renderer."/>
-  </token>
+  <token key="Renderer" variants="DelegatedInkRenderer"/>
 </histogram>
 
 <histogram name="Renderer.Font.PrimaryFont.DomContentLoaded" units="ms"
@@ -396,7 +439,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Images.HasOverfetchedCappedPixels" enum="Boolean"
-    expires_after="2024-10-06">
+    expires_after="2025-03-03">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -406,7 +449,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Images.HasOverfetchedPixels" enum="Boolean"
-    expires_after="2024-11-03">
+    expires_after="2025-03-03">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -416,7 +459,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Images.HasSizesAttributeMiss" enum="Boolean"
-    expires_after="2024-09-03">
+    expires_after="2025-03-03">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -427,7 +470,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Images.OverfetchedCappedPixels" units="px^2"
-    expires_after="2024-11-03">
+    expires_after="2025-03-03">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -440,7 +483,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Images.OverfetchedPixels" units="px^2"
-    expires_after="2024-09-29">
+    expires_after="2025-03-03">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -453,7 +496,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Images.SizesAttributeMiss" units="px"
-    expires_after="2024-09-03">
+    expires_after="2025-03-03">
   <owner>iclelland@chromium.org</owner>
   <owner>speed-metrics-dev@chromium.org</owner>
   <summary>
@@ -533,7 +576,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Preload.UnusedResource2{Trigger}" enum="ResourceType"
-    expires_after="2024-12-01">
+    expires_after="2025-02-02">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -551,7 +594,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.Preload.UnusedResourceCount" units="count"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -562,7 +605,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.ProcessLifetime3{RendererHostedContentType}"
-    units="ms" expires_after="2024-12-01">
+    units="ms" expires_after="2025-02-02">
   <owner>fdoray@chromium.org</owner>
   <owner>olivierli@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
@@ -588,7 +631,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Renderer.RenderThreadImpl.Init" units="ms"
-    expires_after="2024-11-03">
+    expires_after="2025-01-26">
   <owner>jam@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <summary>
@@ -626,7 +669,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RendererScheduler.RendererMainThreadLoad5" units="%"
-    expires_after="2024-12-01">
+    expires_after="2025-02-02">
   <owner>altimin@chromium.org</owner>
   <summary>
     Renderer main thread load (percentage of time spent in tasks), reported in

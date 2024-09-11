@@ -9,6 +9,7 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/check_deref.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/android/plus_addresses/all_plus_addresses_bottom_sheet_controller.h"
 #include "components/plus_addresses/plus_address_types.h"
 #include "components/strings/grit/components_strings.h"
@@ -57,7 +58,7 @@ void AllPlusAddressesBottomSheetView::Show(
 
   for (const PlusProfile& profile : profiles) {
     java_profiles.emplace_back(Java_PlusProfile_Constructor(
-        env, profile.plus_address, GetOriginFromPlusProfile(profile)));
+        env, *profile.plus_address, GetOriginFromPlusProfile(profile)));
   }
 
   base::android::ScopedJavaLocalRef<jobject> ui_info =
@@ -102,7 +103,8 @@ AllPlusAddressesBottomSheetView::GetOrCreateJavaObject() {
   }
   return java_object_internal_ = Java_AllPlusAddressesBottomSheetBridge_create(
              jni_zero::AttachCurrentThread(), reinterpret_cast<intptr_t>(this),
-             controller_->GetNativeView()->GetWindowAndroid()->GetJavaObject());
+             controller_->GetNativeView()->GetWindowAndroid()->GetJavaObject(),
+             controller_->GetProfile()->GetJavaObject());
 }
 
 }  // namespace plus_addresses

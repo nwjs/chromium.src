@@ -31,26 +31,53 @@
 
 namespace webnn::dml {
 
+using Microsoft::WRL::ComPtr;
+
 namespace {
 
-using Microsoft::WRL::ComPtr;
+void HandleBufferCreationFailure(
+    const std::string& error_message,
+    WebNNContextImpl::CreateBufferImplCallback callback) {
+  std::move(callback).Run(base::unexpected(
+      CreateError(mojom::Error::Code::kUnknownError, error_message)));
+}
+
+}  // namespace
 
 // The context properties follow the supported feature level on the platform.
 // https://learn.microsoft.com/en-us/windows/ai/directml/dml-feature-level-history
 //
 // TODO(crbug.com/345271830): update the context properties based on a certain
 // feature level once there is a bundled DirectML.dll.
-ContextProperties GetProperties(DML_FEATURE_LEVEL feature_level) {
-  CHECK_GE(feature_level, kMinDMLFeatureLevelForGpu);
+// static
+ContextProperties ContextImplDml::GetProperties(
+    DML_FEATURE_LEVEL feature_level) {
+  CHECK_GE(feature_level, DML_FEATURE_LEVEL_4_0);
 
-  static constexpr SupportedDataTypes kGatherIndicesSupportedDataTypes{
-      OperandDataType::kInt32, OperandDataType::kUint32,
-      OperandDataType::kInt64, OperandDataType::kUint64};
+  static constexpr SupportedDataTypes kFloat16To32Ints32{
+      OperandDataType::kFloat16, OperandDataType::kFloat32,
+      OperandDataType::kInt32, OperandDataType::kUint32};
 
   static constexpr SupportedDataTypes kFloat16To32Ints8To32{
       OperandDataType::kFloat16, OperandDataType::kFloat32,
       OperandDataType::kInt8,    OperandDataType::kUint8,
       OperandDataType::kInt32,   OperandDataType::kUint32};
+
+  static constexpr SupportedDataTypes kFloat16To32Int8To64{
+      OperandDataType::kFloat16, OperandDataType::kFloat32,
+      OperandDataType::kInt8, OperandDataType::kInt32, OperandDataType::kInt64};
+
+  static constexpr SupportedDataTypes kFloat16To32Ints32To64{
+      OperandDataType::kFloat16, OperandDataType::kFloat32,
+      OperandDataType::kInt32,   OperandDataType::kUint32,
+      OperandDataType::kInt64,   OperandDataType::kUint64};
+
+  static constexpr SupportedDataTypes kUint8To32{OperandDataType::kUint8,
+                                                 OperandDataType::kUint32};
+
+  static constexpr SupportedDataTypes kGatherIndicesSupportedDataTypes{
+      OperandDataType::kInt32, OperandDataType::kUint32,
+      OperandDataType::kInt64, OperandDataType::kUint64};
 
   // TODO: crbug.com/345271830 - specify data types for all parameters.
   ContextProperties properties(
@@ -59,50 +86,187 @@ ContextProperties GetProperties(DML_FEATURE_LEVEL feature_level) {
        /*constant=*/SupportedDataTypes::All(),
 
        /*arg_min_max_input=*/SupportedDataTypes::All(),
-       /*arg_min_max_output=*/
-       {OperandDataType::kInt32, OperandDataType::kInt64},
+       /*arg_min_max_output=*/DataTypeConstraint::kInt32To64,
+
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_join_operator_desc#tensor-support
        /*concat_inputs=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_add_operator_desc#tensor-support
+       /*add_input=*/kFloat16To32Ints32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_subtract_operator_desc#tensor-support
+       /*sub_input=*/kFloat16To32Ints32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_multiply_operator_desc#tensor-support
+       /*mul_input=*/kFloat16To32Ints32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_divide_operator_desc#tensor-support
+       /*div_input=*/kFloat16To32Ints32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_max_operator_desc#tensor-support
+       /*max_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_min_operator_desc#tensor-support
+       /*min_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_pow_operator_desc#tensor-support
+       /*pow_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_equals_operator_desc#tensor-support
+       /*equal_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_greater_than_operator_desc#tensor-support
+       /*greater_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_greater_than_or_equal_operator_desc#tensor-support
+       /*greater_or_equal_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_less_than_operator_desc#tensor-support
+       /*lesser_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_less_than_or_equal_operator_desc#tensor-support
+       /*lesser_or_equal_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_not_operator_desc#tensor-support
+       /*logical_not_input=*/kUint8To32,
+
+       /*logical_output=*/kUint8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_abs_operator_desc#tensor-support
+       /*abs_input=*/DataTypeConstraint::kFloat16To32Int8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_ceil_operator_desc#tensor-support
+       /*ceil_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_cos_operator_desc#tensor-support
+       /*cos_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_erf_operator_desc#tensor-support
+       /*erf_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_exp_operator_desc#tensor-support
+       /*exp_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_floor_operator_desc#tensor-support
+       /*floor_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_identity_operator_desc#tensor-support
+       /*identity_input=*/kFloat16To32Ints8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_log_operator_desc#tensor-support
+       /*log_input=*/DataTypeConstraint::kFloat16To32,
+
+       // Neg is emulated by DML_ELEMENT_WISE_IDENTITY_OPERATOR_DESC, so the
+       // data type limits is set based on the spec.
+       // DML_ELEMENT_WISE_NEGATE_OPERATOR_DESC introduced in feature level 5.0
+       // also supports int64.
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_negate_operator_desc#tensor-support
+       /*neg_input=*/DataTypeConstraint::kFloat16To32Int8To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_recip_operator_desc#tensor-support
+       /*reciprocal_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_sin_operator_desc#tensor-support
+       /*sin_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_sqrt_operator_desc#tensor-support
+       /*sqrt_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_tan_operator_desc#tensor-support
+       /*tan_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_elu_operator_desc
+       /*elu_input=*/DataTypeConstraint::kFloat16To32,
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gather_operator_desc#tensor-support
        /*gather_input=*/kFloat16To32Ints8To32,
        /*gather_indices=*/kGatherIndicesSupportedDataTypes,
 
+       // Gelu is emulated when the feature level is less than 5.1.
+       // https://learn.microsoft.com/en-us/windows/ai/directml/api/ns-directml-dml_activation_gelu_operator_desc
+       /*gelu_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_leaky_relu_operator_desc
+       /*leaky_relu_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_relu_operator_desc
+       /*relu_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_sigmoid_operator_desc#tensor-support
+       /*sigmoid_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_slice_operator_desc#tensor-support
+       /*slice_input=*/kFloat16To32Ints8To32,
+
+       // Softmax is emulated when the feature level is less than 5.1.
+       // https://learn.microsoft.com/en-us/windows/ai/directml/api/ns-directml-dml_activation_softmax1_operator_desc
+       /*softmax_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_relu_operator_desc#tensor-support
+       /*softplus_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_softsign_operator_desc#tensor-support
+       /*softsign_input=*/DataTypeConstraint::kFloat16To32,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_split_operator_desc#tensor-support
+       /*split_input=*/kFloat16To32Ints8To32,
+
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_if_operator_desc
-       /*where_condition=*/{OperandDataType::kUint8},
-       /*where_true_value=*/kFloat16To32Ints8To32,
-       /*where_false_value=*/kFloat16To32Ints8To32});
+       /*where_condition=*/DataTypeConstraint::kUint8,
+       /*where_value=*/kFloat16To32Ints8To32});
 
   if (feature_level >= DML_FEATURE_LEVEL_4_1) {
     properties.data_type_limits.concat_inputs = SupportedDataTypes::All();
+    properties.data_type_limits.add_input = kFloat16To32Ints32To64;
+    properties.data_type_limits.sub_input = kFloat16To32Ints32To64;
+    properties.data_type_limits.mul_input = kFloat16To32Ints32To64;
+    properties.data_type_limits.equal_input = SupportedDataTypes::All();
+    properties.data_type_limits.greater_input = SupportedDataTypes::All();
+    properties.data_type_limits.greater_or_equal_input =
+        SupportedDataTypes::All();
+    properties.data_type_limits.lesser_input = SupportedDataTypes::All();
+    properties.data_type_limits.lesser_or_equal_input =
+        SupportedDataTypes::All();
+    properties.data_type_limits.abs_input = kFloat16To32Int8To64;
+    properties.data_type_limits.identity_input = SupportedDataTypes::All();
     properties.data_type_limits.gather_input = SupportedDataTypes::All();
+    properties.data_type_limits.slice_input = SupportedDataTypes::All();
+    properties.data_type_limits.split_input = SupportedDataTypes::All();
   }
 
   if (feature_level >= DML_FEATURE_LEVEL_5_0) {
-    properties.data_type_limits.where_true_value = SupportedDataTypes::All();
-    properties.data_type_limits.where_false_value = SupportedDataTypes::All();
+    properties.data_type_limits.max_input = SupportedDataTypes::All();
+    properties.data_type_limits.min_input = SupportedDataTypes::All();
+    properties.data_type_limits.where_value = SupportedDataTypes::All();
+  }
+
+  if (feature_level >= DML_FEATURE_LEVEL_5_1) {
+    properties.data_type_limits.add_input = SupportedDataTypes::All();
+    properties.data_type_limits.sub_input = SupportedDataTypes::All();
+    properties.data_type_limits.mul_input = SupportedDataTypes::All();
+    properties.data_type_limits.div_input = kFloat16To32Ints8To32;
+    properties.data_type_limits.relu_input =
+        DataTypeConstraint::kFloat16To32Int8To32;
+  }
+
+  if (feature_level >= DML_FEATURE_LEVEL_6_0) {
+    properties.data_type_limits.div_input = SupportedDataTypes::All();
   }
 
   return properties;
 }
 
-}  // namespace
-
 ContextImplDml::ContextImplDml(
     scoped_refptr<Adapter> adapter,
     mojo::PendingReceiver<mojom::WebNNContext> receiver,
-    mojo::PendingRemote<mojom::WebNNContextClient> client_remote,
     WebNNContextProviderImpl* context_provider,
     mojom::CreateContextOptionsPtr options,
     std::unique_ptr<CommandRecorder> command_recorder,
-    const gpu::GpuFeatureInfo& gpu_feature_info,
-    base::UnguessableToken context_handle)
+    const gpu::GpuFeatureInfo& gpu_feature_info)
     : WebNNContextImpl(std::move(receiver),
-                       std::move(client_remote),
                        context_provider,
                        GetProperties(adapter->max_supported_feature_level()),
-                       std::move(options),
-                       std::move(context_handle)),
+                       std::move(options)),
       adapter_(std::move(adapter)),
       command_recorder_(std::move(command_recorder)),
       gpu_feature_info_(gpu_feature_info) {
@@ -127,17 +291,19 @@ void ContextImplDml::CreateGraphImpl(
           gpu::DML_EXECUTION_DISABLE_META_COMMANDS));
 }
 
-std::unique_ptr<WebNNBufferImpl> ContextImplDml::CreateBufferImpl(
+void ContextImplDml::CreateBufferImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
     mojom::BufferInfoPtr buffer_info,
-    const base::UnguessableToken& buffer_handle) {
+    CreateBufferImplCallback callback) {
   // DML requires resources to be in multiple of 4 bytes.
   // https://learn.microsoft.com/en-us/windows/ai/directml/dml-helper-functions#dmlcalcbuffertensorsize
   constexpr uint64_t kDMLBufferAlignment = 4ull;
   if (std::numeric_limits<uint64_t>::max() - kDMLBufferAlignment <
       static_cast<uint64_t>(buffer_info->descriptor.PackedByteLength())) {
     LOG(ERROR) << "[WebNN] Buffer is too large to create.";
-    return nullptr;
+    HandleBufferCreationFailure("Failed to create buffer.",
+                                std::move(callback));
+    return;
   }
 
   const uint64_t aligned_buffer_byte_size = base::bits::AlignUp(
@@ -164,17 +330,18 @@ std::unique_ptr<WebNNBufferImpl> ContextImplDml::CreateBufferImpl(
   }
 
   if (FAILED(hr)) {
+    HandleBufferCreationFailure("Failed to create buffer.",
+                                std::move(callback));
     HandleContextLostOrCrash("Failed to create the external buffer.", hr);
-    return nullptr;
+    return;
   }
 
   // The receiver bound to WebNNBufferImpl.
   //
   // Safe to use ContextImplDml* because this context owns the buffer
   // being connected and that context cannot destruct before the buffer.
-  return std::make_unique<BufferImplDml>(std::move(receiver), std::move(buffer),
-                                         this, std::move(buffer_info),
-                                         buffer_handle);
+  std::move(callback).Run(std::make_unique<BufferImplDml>(
+      std::move(receiver), std::move(buffer), this, std::move(buffer_info)));
 }
 
 void ContextImplDml::ReadBuffer(

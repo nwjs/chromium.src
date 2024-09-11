@@ -56,6 +56,7 @@ import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider.IncognitoStateObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
@@ -64,7 +65,6 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
-import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilterObserver;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
@@ -97,6 +97,7 @@ public class TabGroupUiMediatorUnitTest {
     @Mock BottomControlsCoordinator.BottomControlsVisibilityController mVisibilityController;
     @Mock TabGroupUiMediator.ResetHandler mResetHandler;
     @Mock TabModelSelectorImpl mTabModelSelector;
+    @Mock TabContentManager mTabContentManager;
     @Mock TabCreatorManager mTabCreatorManager;
     @Mock TabCreator mTabCreator;
     @Mock LayoutStateProvider mLayoutManager;
@@ -109,9 +110,10 @@ public class TabGroupUiMediatorUnitTest {
     @Mock Context mContext;
     @Mock ObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
     @Mock private Resources mResources;
+    @Mock private ObservableSupplierImpl<TabModel> mTabModelSupplier;
+    @Captor private ArgumentCaptor<Callback<TabModel>> mTabModelSupplierObserverCaptor;
     @Captor ArgumentCaptor<TabModelObserver> mTabModelObserverArgumentCaptor;
     @Captor ArgumentCaptor<LayoutStateObserver> mLayoutStateObserverCaptor;
-    @Captor ArgumentCaptor<TabModelSelectorObserver> mTabModelSelectorObserverArgumentCaptor;
     @Captor ArgumentCaptor<IncognitoStateObserver> mIncognitoStateObserverArgumentCaptor;
     @Captor ArgumentCaptor<TabGroupModelFilterObserver> mTabGroupModelFilterObserverArgumentCaptor;
     @Captor ArgumentCaptor<TabObserver> mTabObserverCaptor;
@@ -196,6 +198,7 @@ public class TabGroupUiMediatorUnitTest {
                         mResetHandler,
                         mModel,
                         mTabModelSelector,
+                        mTabContentManager,
                         mTabCreatorManager,
                         mLayoutStateProviderSupplier,
                         mIncognitoStateProvider,
@@ -212,6 +215,8 @@ public class TabGroupUiMediatorUnitTest {
         // Verify strip button content description setup.
         verify(mContext).getString(R.string.accessibility_bottom_tab_strip_expand_tab_sheet);
         verify(mContext).getString(R.string.bottom_tab_grid_new_tab);
+
+        verify(mTabModelSupplier).addObserver(mTabModelSupplierObserverCaptor.capture());
 
         // Verify strip initial reset.
         List<Tab> tabs = mTabGroupModelFilter.getRelatedTabList(currentTab.getId());
@@ -281,10 +286,8 @@ public class TabGroupUiMediatorUnitTest {
         doReturn(mTabModel).when(mTabModelSelector).getCurrentModel();
         doReturn(mTab1).when(mTabModelSelector).getCurrentTab();
         doReturn(TAB1_ID).when(mTabModelSelector).getCurrentTabId();
-        doNothing()
-                .when(mTabModelSelector)
-                .addObserver(mTabModelSelectorObserverArgumentCaptor.capture());
         doReturn(tabModelList).when(mTabModelSelector).getModels();
+        when(mTabModelSelector.getCurrentTabModelSupplier()).thenReturn(mTabModelSupplier);
 
         doReturn(mTabModelFilterProvider).when(mTabModelSelector).getTabModelFilterProvider();
         doNothing()
@@ -347,6 +350,7 @@ public class TabGroupUiMediatorUnitTest {
 
         listener.onClick(mView);
 
+        verify(mTabContentManager).cacheTabThumbnail(mTab2);
         verify(mResetHandler).resetGridWithListOfTabs(mTabGroup2);
     }
 
@@ -893,7 +897,7 @@ public class TabGroupUiMediatorUnitTest {
         verify(mLayoutManager).removeObserver(mLayoutStateObserverCaptor.capture());
         verify(mIncognitoStateProvider)
                 .removeObserver(mIncognitoStateObserverArgumentCaptor.capture());
-        verify(mTabModelSelector).removeObserver(mTabModelSelectorObserverArgumentCaptor.capture());
+        verify(mTabModelSupplier).removeObserver(mTabModelSupplierObserverCaptor.capture());
         verify(mTabGroupModelFilter, times(2))
                 .removeTabGroupObserver(mTabGroupModelFilterObserverArgumentCaptor.capture());
     }
@@ -978,9 +982,7 @@ public class TabGroupUiMediatorUnitTest {
 
         // Mock that tab2 is selected after tab model switch, and tab2 is in a group.
         doReturn(TAB2_ID).when(mTabModelSelector).getCurrentTabId();
-        mTabModelSelectorObserverArgumentCaptor
-                .getValue()
-                .onTabModelSelected(mTabModel, incognitoTabModel);
+        mTabModelSupplierObserverCaptor.getValue().onResult(mTabModel);
 
         verifyResetStrip(true, mTabGroup2);
     }
@@ -993,9 +995,7 @@ public class TabGroupUiMediatorUnitTest {
 
         // Mock that tab1 is selected after tab model switch, and tab1 is a single tab.
         doReturn(TAB1_ID).when(mTabModelSelector).getCurrentTabId();
-        mTabModelSelectorObserverArgumentCaptor
-                .getValue()
-                .onTabModelSelected(mTabModel, incognitoTabModel);
+        mTabModelSupplierObserverCaptor.getValue().onResult(mTabModel);
 
         verifyResetStrip(false, null);
     }

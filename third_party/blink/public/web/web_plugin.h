@@ -155,9 +155,9 @@ class WebPlugin {
   // A returned value of 0 indicates failure.
   virtual int PrintBegin(const WebPrintParams& print_params) { return 0; }
 
-  // Prints the page specified by `page_number`, using the parameters passed to
+  // Prints the page specified by `page_index`, using the parameters passed to
   // `PrintBegin()`, into `canvas`.
-  virtual void PrintPage(int page_number, cc::PaintCanvas* canvas) {}
+  virtual void PrintPage(int page_index, cc::PaintCanvas* canvas) {}
 
   // Ends the print session. Further calls to `PrintPages()` will fail.
   virtual void PrintEnd() {}
@@ -247,10 +247,6 @@ class WebPlugin {
   virtual bool CanRotateView() { return false; }
   // Rotates the plugin's view of its content.
   virtual void RotateView(RotationType type) {}
-  // Check whether a plugin can be interacted with. A positive return value
-  // means the plugin has not loaded and hence cannot be interacted with.
-  // The plugin could, however, load successfully later.
-  virtual bool IsPlaceholder() { return true; }
   // Check whether a plugin failed to load, with there being no possibility of
   // it loading later.
   virtual bool IsErrorPlaceholder() { return false; }

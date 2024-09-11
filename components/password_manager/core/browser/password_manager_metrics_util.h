@@ -51,6 +51,12 @@ enum UIDisplayDisposition {
   AUTOMATIC_RELAUNCH_CHROME_BUBBLE = 19,
   AUTOMATIC_DEFAULT_STORE_CHANGED_BUBBLE = 20,
   AUTOMATIC_PASSKEY_SAVED_CONFIRMATION = 21,
+  AUTOMATIC_PASSKEY_DELETED_CONFIRMATION = 22,
+  MANUAL_PASSKEY_DELETED_CONFIRMATION = 23,
+  AUTOMATIC_PASSKEY_UPDATED_CONFIRMATION = 24,
+  MANUAL_PASSKEY_UPDATED_CONFIRMATION = 25,
+  AUTOMATIC_PASSKEY_NOT_ACCEPTED_BUBBLE = 26,
+  MANUAL_PASSKEY_NOT_ACCEPTED_BUBBLE = 27,
   NUM_DISPLAY_DISPOSITIONS,
 };
 
@@ -74,6 +80,7 @@ enum UIDismissalReason {
   CLICKED_BRAND_NAME_OBSOLETE = 11,         // obsolete.
   CLICKED_PASSWORDS_DASHBOARD = 12,
   CLICKED_MANAGE_PASSWORD = 13,
+  CLICKED_GOT_IT = 14,
   NUM_UI_RESPONSES,
 };
 
@@ -712,10 +719,11 @@ enum class TouchToFillPasswordGenerationTriggerOutcome {
 // numeric values should never be reused.
 enum class PasswordManagerCredentialRemovalReason {
   // TODO(crbug.com/342519805): Add reasons.
-  kSettings = 0,           // Stored as (1<<0) in the bit vector.
-  kClearBrowsingData = 1,  // Stored as (1<<1) in the bit vector.
-  kSync = 2,               // Stored as (1<<2) in the bit vector.
-  kMaxValue = kSync,
+  kSettings = 0,                        // Stored as (1<<0) in the bit vector.
+  kClearBrowsingData = 1,               // Stored as (1<<1) in the bit vector.
+  kSync = 2,                            // Stored as (1<<2) in the bit vector.
+  kDeletingUndecryptablePasswords = 3,  // Stored as (1<<3) in the bit vector.
+  kMaxValue = kDeletingUndecryptablePasswords,
 };
 
 std::string GetPasswordAccountStorageUsageLevelHistogramSuffix(

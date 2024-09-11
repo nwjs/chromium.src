@@ -23,6 +23,7 @@
 #include "ui/ozone/platform/wayland/test/mock_wp_presentation.h"
 #include "ui/ozone/platform/wayland/test/mock_xdg_activation_v1.h"
 #include "ui/ozone/platform/wayland/test/mock_xdg_shell.h"
+#include "ui/ozone/platform/wayland/test/mock_xdg_toplevel_icon.h"
 #include "ui/ozone/platform/wayland/test/mock_zwp_linux_dmabuf.h"
 #include "ui/ozone/platform/wayland/test/test_alpha_compositing.h"
 #include "ui/ozone/platform/wayland/test/test_compositor.h"
@@ -57,12 +58,14 @@ struct DisplayDeleter {
 enum class PrimarySelectionProtocol { kNone, kGtk, kZwp };
 enum class ShouldUseExplicitSynchronizationProtocol { kNone, kUse };
 enum class EnableAuraShellProtocol { kEnabled, kDisabled };
+// Text input protocol type.
+enum class ZWPTextInputWrapperType { kV1, kV3 };
 
 struct ServerConfig {
   TestZcrTextInputExtensionV1::Version text_input_extension_version =
       TestZcrTextInputExtensionV1::Version::kV14;
-  ui::ZWPTextInputWrapperType text_input_wrapper_type =
-      ui::ZWPTextInputWrapperType::kV1;
+  ZWPTextInputWrapperType text_input_wrapper_type =
+      ZWPTextInputWrapperType::kV1;
   TestCompositor::Version compositor_version = TestCompositor::Version::kV4;
   PrimarySelectionProtocol primary_selection_protocol =
       PrimarySelectionProtocol::kNone;
@@ -185,6 +188,10 @@ class TestWaylandServerThread : public TestOutput::Delegate,
 
   MockXdgActivationV1* xdg_activation_v1() { return &xdg_activation_v1_; }
 
+  MockXdgToplevelIconManagerV1* xdg_toplevel_icon_manager_v1() {
+    return &xdg_toplevel_icon_manager_v1_;
+  }
+
   void set_output_delegate(OutputDelegate* delegate) {
     output_delegate_ = delegate;
   }
@@ -258,6 +265,7 @@ class TestWaylandServerThread : public TestOutput::Delegate,
   MockWpPresentation wp_presentation_;
   TestWpPointerGestures wp_pointer_gestures_;
   MockXdgActivationV1 xdg_activation_v1_;
+  MockXdgToplevelIconManagerV1 xdg_toplevel_icon_manager_v1_;
   std::unique_ptr<TestSelectionDeviceManager> primary_selection_device_manager_;
 
   std::vector<std::unique_ptr<GlobalObject>> globals_;

@@ -120,7 +120,8 @@ Color StyleColor::Resolve(const Color& current_color,
     // are now resolved before used value time.
     CHECK(!IsSystemColorIncludingDeprecated());
     return ColorFromKeyword(color_keyword_, color_scheme,
-                            /*color_provider=*/nullptr);
+                            /*color_provider=*/nullptr,
+                            /*is_in_web_app_scope=*/false);
   }
   return GetColor();
 }
@@ -136,15 +137,18 @@ Color StyleColor::ResolveWithAlpha(Color current_color,
 
 StyleColor StyleColor::ResolveSystemColor(
     mojom::blink::ColorScheme color_scheme,
-    const ui::ColorProvider* color_provider) const {
+    const ui::ColorProvider* color_provider,
+    bool is_in_web_app_scope) const {
   CHECK(IsSystemColor());
-  Color color = ColorFromKeyword(color_keyword_, color_scheme, color_provider);
+  Color color = ColorFromKeyword(color_keyword_, color_scheme, color_provider,
+                                 is_in_web_app_scope);
   return StyleColor(color, color_keyword_);
 }
 
 Color StyleColor::ColorFromKeyword(CSSValueID keyword,
                                    mojom::blink::ColorScheme color_scheme,
-                                   const ui::ColorProvider* color_provider) {
+                                   const ui::ColorProvider* color_provider,
+                                   bool is_in_web_app_scope) {
   if (const char* value_name = getValueName(keyword)) {
     if (const NamedColor* named_color = FindColor(
             value_name, static_cast<wtf_size_t>(strlen(value_name)))) {
@@ -152,8 +156,8 @@ Color StyleColor::ColorFromKeyword(CSSValueID keyword,
     }
   }
 
-  return LayoutTheme::GetTheme().SystemColor(keyword, color_scheme,
-                                             color_provider);
+  return LayoutTheme::GetTheme().SystemColor(
+      keyword, color_scheme, color_provider, is_in_web_app_scope);
 }
 
 bool StyleColor::IsColorKeyword(CSSValueID id) {

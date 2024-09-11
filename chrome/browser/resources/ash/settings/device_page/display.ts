@@ -93,6 +93,11 @@ export interface SettingsDisplayElement {
 const SettingsDisplayElementBase =
     DeepLinkingMixin(PrefsMixin(RouteObserverMixin(I18nMixin(PolymerElement))));
 
+// Set the MIN_VISIBLE_PERCENT to 10%. The lowest brightness that the slider can
+// go is 5%, so the slider appears the same at 0% and 5%. Therefore, the minimum
+// visible percent should be greater than 5%.
+const MIN_VISIBLE_PERCENT = 10;
+
 export class SettingsDisplayElement extends SettingsDisplayElementBase {
   static get is() {
     return 'settings-display';
@@ -449,7 +454,18 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
   /**
    * Implements DisplayBrightnessSettingsObserver.OnDisplayBrightnessChanged.
    */
-  onDisplayBrightnessChanged(brightnessPercent: number): void {
+  onDisplayBrightnessChanged(
+      brightnessPercent: number, triggeredByAls: boolean): void {
+    if (triggeredByAls && brightnessPercent > 0 &&
+        brightnessPercent < MIN_VISIBLE_PERCENT) {
+      // When auto-brightness is enabled, it's likely that the automated
+      // brightness percentage will fall between 0% and 10%. To avoid confusion
+      // where the user cannot distinguish between the screen being off (0%)
+      // and low brightness levels, set the slider to a minimum visible
+      // percentage (10%).
+      this.currentInternalScreenBrightness_ = MIN_VISIBLE_PERCENT;
+      return;
+    }
     this.currentInternalScreenBrightness_ = brightnessPercent;
   }
 
@@ -942,6 +958,13 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
   }
 
   /**
+   * Returns true if external touch devices are connected a
+   */
+  private showTouchRemappingExperience_(): boolean {
+    return loadTimeData.getBoolean('enableTouchscreenMappingExperience');
+  }
+
+  /**
    * Returns true if the overscan setting should be shown for |display|.
    */
   private showOverscanSetting_(display: DisplayUnitInfo): boolean {
@@ -1192,6 +1215,10 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
    */
   private onTouchCalibrationClick_(): void {
     getDisplayApi().showNativeTouchCalibration(this.selectedDisplay!.id);
+  }
+
+  private onTouchMappingClick_(): void {
+    this.displaySettingsProvider.startNativeTouchscreenMappingExperience();
   }
 
   /**

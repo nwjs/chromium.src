@@ -15,16 +15,18 @@
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/system/progress_indicator/progress_indicator.h"
 #include "ash/test/ash_test_base.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/label.h"
 
 namespace ash {
@@ -71,9 +73,7 @@ class AppListItemViewTest : public AshTestBase,
   void SetUp() override {
     scoped_feature_list_.InitWithFeatureStates(
         {{app_list_features::kDragAndDropRefactor, IsUsingDragDropController()},
-         {features::kPromiseIcons, true},
-         {chromeos::features::kCrosWebAppShortcutUiUpdate, true},
-         {features::kSeparateWebAppShortcutBadgeIcon, true}});
+         {features::kPromiseIcons, true}});
 
     AshTestBase::SetUp();
 
@@ -110,15 +110,6 @@ class AppListItemViewTest : public AshTestBase,
     AppListItem* item =
         GetAppListTestHelper()->model()->CreateAndPopulateFolderWithApps(
             num_apps);
-    return item;
-  }
-
-  AppListItem* CreateWebAppShortcutItemWithHostBadge(const std::string& name) {
-    AppListItem* item =
-        GetAppListTestHelper()
-            ->model()
-            ->CreateAndAddWebAppShortcutItemWithHostBadge(name + "_id");
-    item->SetName(name);
     return item;
   }
 
@@ -165,19 +156,16 @@ TEST_P(AppListItemViewTest, NewInstallDot) {
   ASSERT_TRUE(new_install_dot);
   EXPECT_FALSE(new_install_dot->GetVisible());
   EXPECT_EQ(item_view->GetTooltipText({}), u"Google Buzz");
-  item_view->GetAccessibleNodeData(&node_data);
-  EXPECT_EQ(
-      node_data.GetStringAttribute(ax::mojom::StringAttribute::kDescription),
-      "");
+  EXPECT_EQ(item_view->GetViewAccessibility().GetCachedDescription(), u"");
 
   // When the app is a new install the dot is visible and the tooltip changes.
   item->SetIsNewInstall(true);
   EXPECT_TRUE(new_install_dot->GetVisible());
   EXPECT_EQ(item_view->GetTooltipText({}), u"Google Buzz\nNew install");
-  item_view->GetAccessibleNodeData(&node_data);
-  EXPECT_EQ(
-      node_data.GetStringAttribute(ax::mojom::StringAttribute::kDescription),
-      "New install");
+
+  EXPECT_EQ(item_view->GetViewAccessibility().GetCachedDescription(),
+            l10n_util::GetStringUTF16(
+                IDS_APP_LIST_NEW_INSTALL_ACCESSIBILE_DESCRIPTION));
 }
 
 TEST_P(AppListItemViewTest, LabelInsetWithNewInstallDot) {
@@ -518,6 +506,49 @@ TEST_P(AppListItemViewTest, AppStatusReflectsOnProgressIndicator) {
   // No crash.
 }
 
+TEST_P(AppListItemViewTest, AccessibleDescription) {
+  AppListItem* item = CreatePromiseAppListItem("TestItem 1");
+
+  auto* helper = GetAppListTestHelper();
+  helper->ShowAppList();
+
+  auto* apps_grid_view = helper->GetScrollableAppsGridView();
+  AppListItemView* view = apps_grid_view->GetItemViewAt(0);
+
+  EXPECT_EQ(view->GetViewAccessibility().GetCachedDescription(), u"");
+
+  // Promise apps are created with app_status kPending.
+  ProgressIndicator* progress_indicator = view->GetProgressIndicatorForTest();
+  ProgressIndicatorWaiter().WaitForProgress(progress_indicator, 0.0f);
+
+  item->SetAppStatus(AppStatus::kBlocked);
+  EXPECT_EQ(view->GetViewAccessibility().GetCachedDescription(),
+            l10n_util::GetStringUTF16(IDS_APP_LIST_BLOCKED_APP));
+
+  item->SetAppStatus(AppStatus::kPaused);
+  EXPECT_EQ(view->GetViewAccessibility().GetCachedDescription(),
+            l10n_util::GetStringUTF16(IDS_APP_LIST_PAUSED_APP));
+
+  item->SetAppStatus(AppStatus::kInstalling);
+  EXPECT_EQ(view->GetViewAccessibility().GetCachedDescription(), u"");
+}
+
+TEST_P(AppListItemViewTest, FolderItemAccessibleDescription) {
+  AppListItem* item = CreateFolderItem(2);
+
+  auto* helper = GetAppListTestHelper();
+  helper->ShowAppList();
+
+  auto* apps_grid_view = helper->GetScrollableAppsGridView();
+  AppListItemView* view = apps_grid_view->GetItemViewAt(0);
+
+  item->SetAppStatus(AppStatus::kInstalling);
+  item->SetProgress(0.3f);
+  EXPECT_EQ(view->GetViewAccessibility().GetCachedDescription(),
+            l10n_util::GetPluralStringFUTF16(
+                IDS_APP_LIST_FOLDER_NUMBER_OF_APPS_ACCESSIBILE_DESCRIPTION, 2));
+}
+
 TEST_P(AppListItemViewTest, UpdateProgressOnPromiseIcon) {
   AppListItem* item = CreatePromiseAppListItem("TestItem 1");
 
@@ -546,78 +577,6 @@ TEST_P(AppListItemViewTest, UpdateProgressOnPromiseIcon) {
   item->SetProgress(1.5f);
   EXPECT_EQ(view->item()->progress(), 1.5f);
   ProgressIndicatorWaiter().WaitForProgress(progress_indicator, 1.0f);
-}
-
-TEST_P(AppListItemViewTest, ShortcutIconEffectsShowOnShorcutItemWithHostBadge) {
-  AppListItem* item = CreateWebAppShortcutItemWithHostBadge("TestItem 1");
-
-  auto* helper = GetAppListTestHelper();
-  helper->ShowAppList();
-
-  auto* apps_grid_view = helper->GetScrollableAppsGridView();
-  AppListItemView* view = apps_grid_view->GetItemViewAt(0);
-
-  EXPECT_FALSE(item->GetHostBadgeIcon().isNull());
-  EXPECT_TRUE(view->has_host_badge_for_test());
-}
-
-TEST_P(AppListItemViewTest, NoShortcutIconEffectOntItemWithoutHostBadge) {
-  AppListItem* item = CreateAppListItem("TestItem 1");
-
-  auto* helper = GetAppListTestHelper();
-  helper->ShowAppList();
-
-  auto* apps_grid_view = helper->GetScrollableAppsGridView();
-  AppListItemView* view = apps_grid_view->GetItemViewAt(0);
-
-  EXPECT_TRUE(item->GetHostBadgeIcon().isNull());
-  EXPECT_FALSE(view->has_host_badge_for_test());
-}
-
-TEST_P(AppListItemViewTestWithDragDropController,
-       ShortcutIconEffectsPersistThroughDragDrop) {
-  AppListItem* item = CreateWebAppShortcutItemWithHostBadge("TestItem 1");
-
-  auto* helper = GetAppListTestHelper();
-  helper->ShowAppList();
-
-  auto* apps_grid_view = helper->GetScrollableAppsGridView();
-  AppListItemView* view = apps_grid_view->GetItemViewAt(0);
-  auto* generator = GetEventGenerator();
-  ASSERT_EQ(GetDragState(view), AppListItemView::DragState::kNone);
-
-  SetAppListItemViewForTest(view);
-
-  gfx::Point from = view->GetBoundsInScreen().CenterPoint();
-  generator->MoveTouch(from);
-  generator->PressTouch();
-  view->FireTouchDragTimerForTest();
-  EXPECT_EQ(GetDragState(view), AppListItemView::DragState::kInitialized);
-
-  // Make sure that the item view has a started drag state during drag.
-  ShellTestApi().drag_drop_controller()->SetLoopClosureForTesting(
-      base::BindLambdaForTesting([&]() {
-        drag_started_on_controller_++;
-        generator->MoveTouchBy(10, 10);
-        EXPECT_EQ(GetDragState(view), AppListItemView::DragState::kStarted);
-        generator->MoveMouseTo(apps_grid_view->GetBoundsInScreen().top_right());
-        generator->MoveTouchBy(10, 10);
-        EXPECT_EQ(GetDragState(view), AppListItemView::DragState::kStarted);
-        EXPECT_EQ(GetDragState(view), AppListItemView::DragState::kStarted);
-        generator->ReleaseTouch();
-      }),
-      base::DoNothing());
-
-  generator->MoveTouchBy(10, 10);
-
-  EXPECT_EQ(GetDragState(view), AppListItemView::DragState::kNone);
-  EXPECT_FALSE(view->FireTouchDragTimerForTest());
-  EXPECT_FALSE(IsIconScaled(view));
-
-  EXPECT_FALSE(item->GetHostBadgeIcon().isNull());
-  EXPECT_TRUE(view->has_host_badge_for_test());
-
-  MaybeCheckDragStartedOnControllerCount(1);
 }
 
 }  // namespace ash

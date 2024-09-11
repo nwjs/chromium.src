@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "ash/accessibility/accessibility_controller.h"
+#include "ash/accessibility/ui/accessibility_confirmation_dialog.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/shell.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
@@ -11,6 +14,8 @@
 #include "chrome/browser/ash/accessibility/accessibility_test_utils.h"
 #include "chrome/browser/ash/accessibility/facegaze_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/prefs/pref_change_registrar.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/events/event.h"
@@ -29,6 +34,10 @@ using MediapipeGesture = FaceGazeTestUtils::MediapipeGesture;
 using MockFaceLandmarkerResult = FaceGazeTestUtils::MockFaceLandmarkerResult;
 
 namespace {
+
+PrefService* GetPrefs() {
+  return AccessibilityManager::Get()->profile()->GetPrefs();
+}
 
 aura::Window* GetRootWindow() {
   auto* root_window = Shell::GetRootWindowForNewWindows();
@@ -63,7 +72,8 @@ class MockEventHandler : public ui::EventHandler {
     ui::EventType type = event->type();
     if (type == ui::EventType::kMousePressed ||
         type == ui::EventType::kMouseReleased ||
-        type == ui::EventType::kMouseMoved) {
+        type == ui::EventType::kMouseMoved ||
+        type == ui::EventType::kMousewheel) {
       mouse_events_.push_back(*event);
     }
   }
@@ -106,7 +116,6 @@ class FaceGazeIntegrationTest : public AccessibilityFeatureBrowserTest {
  protected:
   // InProcessBrowserTest:
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    utils_ = std::make_unique<FaceGazeTestUtils>();
     scoped_feature_list_.InitAndEnableFeature(
         ::features::kAccessibilityFaceGaze);
     InProcessBrowserTest::SetUpCommandLine(command_line);
@@ -114,6 +123,7 @@ class FaceGazeIntegrationTest : public AccessibilityFeatureBrowserTest {
 
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
+    utils_ = std::make_unique<FaceGazeTestUtils>();
     GetRootWindow()->AddPreTargetHandler(&event_handler_);
   }
 
@@ -421,6 +431,159 @@ IN_PROC_BROWSER_TEST_F(FaceGazeIntegrationTest, OpenSettingsPage) {
   utils()->ProcessFaceLandmarkerResult(MockFaceLandmarkerResult().WithGesture(
       MediapipeGesture::MOUTH_RIGHT, 40));
   waiter.Run();
+}
+
+IN_PROC_BROWSER_TEST_F(FaceGazeIntegrationTest, ToggleVirtualKeyboard) {
+  utils()->EnableFaceGaze(
+      Config()
+          .Default()
+          .WithGesturesToMacros(
+              {{FaceGazeGesture::JAW_OPEN, MacroName::TOGGLE_VIRTUAL_KEYBOARD}})
+          .WithGestureConfidences({{FaceGazeGesture::JAW_OPEN, 30}}));
+
+  base::RunLoop waiter;
+  ash::Shell::Get()
+      ->accessibility_controller()
+      ->SetVirtualKeyboardVisibleCallbackForTesting(
+          base::BindLambdaForTesting([&waiter]() { waiter.Quit(); }));
+
+  // Open jaw to toggle the virtual keyboard.
+  utils()->ProcessFaceLandmarkerResult(
+      MockFaceLandmarkerResult().WithGesture(MediapipeGesture::JAW_OPEN, 40));
+  waiter.Run();
+}
+
+IN_PROC_BROWSER_TEST_F(FaceGazeIntegrationTest, DoubleClick) {
+  utils()->EnableFaceGaze(
+      Config()
+          .Default()
+          .WithGesturesToMacros({{FaceGazeGesture::MOUTH_FUNNEL,
+                                  MacroName::MOUSE_CLICK_LEFT_DOUBLE}})
+          .WithGestureConfidences({{FaceGazeGesture::MOUTH_FUNNEL, 50}}));
+  event_handler().ClearEvents();
+
+  // Mouth funnel to trigger double click event.
+  utils()->ProcessFaceLandmarkerResult(MockFaceLandmarkerResult().WithGesture(
+      MediapipeGesture::MOUTH_FUNNEL, 60));
+  auto press_events =
+      event_handler().mouse_events(ui::EventType::kMousePressed);
+  auto release_events =
+      event_handler().mouse_events(ui::EventType::kMouseReleased);
+
+  ASSERT_EQ(1u, press_events.size());
+  ASSERT_EQ(1u, release_events.size());
+  const auto& press_event = press_events.back();
+  const auto& release_event = release_events.back();
+
+  ASSERT_TRUE(press_event.IsOnlyLeftMouseButton());
+  ASSERT_EQ(gfx::Point(600, 400), press_event.root_location());
+  // Assert that the press event is for a double click.
+  ASSERT_TRUE(ui::EF_IS_DOUBLE_CLICK & press_event.flags());
+
+  ASSERT_TRUE(release_event.IsOnlyLeftMouseButton());
+  ASSERT_EQ(gfx::Point(600, 400), release_event.root_location());
+  // Assert that the release event is for a double click.
+  ASSERT_TRUE(ui::EF_IS_DOUBLE_CLICK & release_event.flags());
+
+  // Release doesn't trigger anything else.
+  event_handler().ClearEvents();
+  utils()->ProcessFaceLandmarkerResult(MockFaceLandmarkerResult().WithGesture(
+      MediapipeGesture::MOUTH_FUNNEL, 30));
+  ASSERT_EQ(0u, event_handler().mouse_events().size());
+}
+
+IN_PROC_BROWSER_TEST_F(FaceGazeIntegrationTest, AcceptDialog) {
+  auto* controller = ash::Shell::Get()->accessibility_controller();
+  auto* prefs = GetPrefs();
+
+  base::RunLoop dialog_waiter;
+  controller->AddShowConfirmationDialogCallbackForTesting(
+      base::BindLambdaForTesting([&dialog_waiter]() { dialog_waiter.Quit(); }));
+  // Enabling FaceGaze should show the confirmation dialog.
+  utils()->EnableFaceGaze(Config().Default().WithDialogAccepted(false));
+  dialog_waiter.Run();
+  ASSERT_TRUE(prefs->GetBoolean(prefs::kAccessibilityFaceGazeEnabled));
+  ASSERT_FALSE(prefs->GetBoolean(
+      prefs::kAccessibilityFaceGazeAcceleratorDialogHasBeenAccepted));
+  ASSERT_NE(nullptr, controller->GetConfirmationDialogForTest());
+
+  base::RunLoop settings_waiter;
+  AccessibilityManager::Get()->SetOpenSettingsSubpageObserverForTest(
+      base::BindLambdaForTesting(
+          [&settings_waiter]() { settings_waiter.Quit(); }));
+  // Accepting the dialog should make FaceGaze open the settings page.
+  controller->GetConfirmationDialogForTest()->Accept();
+  settings_waiter.Run();
+  ASSERT_TRUE(prefs->GetBoolean(prefs::kAccessibilityFaceGazeEnabled));
+  // Verify that the dialog accepted pref is now true.
+  ASSERT_TRUE(prefs->GetBoolean(
+      prefs::kAccessibilityFaceGazeAcceleratorDialogHasBeenAccepted));
+}
+
+IN_PROC_BROWSER_TEST_F(FaceGazeIntegrationTest, CancelDialog) {
+  auto* controller = ash::Shell::Get()->accessibility_controller();
+  auto* prefs = GetPrefs();
+
+  base::RunLoop dialog_waiter;
+  controller->AddShowConfirmationDialogCallbackForTesting(
+      base::BindLambdaForTesting([&dialog_waiter]() { dialog_waiter.Quit(); }));
+  // Enabling FaceGaze should show the confirmation dialog.
+  utils()->EnableFaceGaze(Config().Default().WithDialogAccepted(false));
+  dialog_waiter.Run();
+  ASSERT_TRUE(prefs->GetBoolean(prefs::kAccessibilityFaceGazeEnabled));
+  ASSERT_FALSE(prefs->GetBoolean(
+      prefs::kAccessibilityFaceGazeAcceleratorDialogHasBeenAccepted));
+  ASSERT_NE(nullptr, controller->GetConfirmationDialogForTest());
+
+  base::RunLoop pref_waiter;
+  PrefChangeRegistrar change_observer;
+  change_observer.Init(prefs);
+  change_observer.Add(prefs::kAccessibilityFaceGazeEnabled,
+                      pref_waiter.QuitClosure());
+
+  // Canceling the dialog should turn off FaceGaze.
+  controller->GetConfirmationDialogForTest()->Cancel();
+  pref_waiter.Run();
+
+  ASSERT_FALSE(prefs->GetBoolean(prefs::kAccessibilityFaceGazeEnabled));
+  // Verify that the dialog accepted pref is still false.
+  ASSERT_FALSE(prefs->GetBoolean(
+      prefs::kAccessibilityFaceGazeAcceleratorDialogHasBeenAccepted));
+}
+
+IN_PROC_BROWSER_TEST_F(FaceGazeIntegrationTest, ScrollMode) {
+  utils()->EnableFaceGaze(
+      Config()
+          .Default()
+          .WithGesturesToMacros(
+              {{FaceGazeGesture::JAW_LEFT, MacroName::TOGGLE_SCROLL_MODE}})
+          .WithGestureConfidences({{FaceGazeGesture::JAW_LEFT, 30}})
+          .WithCursorSpeeds({/*up=*/1, /*down=*/1, /*left=*/1, /*right=*/1})
+          .WithGestureRepeatDelayMs(0));
+
+  // Move jaw left to enter scroll mode.
+  utils()->ProcessFaceLandmarkerResult(
+      MockFaceLandmarkerResult().WithGesture(MediapipeGesture::JAW_LEFT, 40));
+  utils()->AssertScrollMode(true);
+
+  event_handler().ClearEvents();
+  utils()->ProcessFaceLandmarkerResult(
+      MockFaceLandmarkerResult()
+          .WithNormalizedForeheadLocation(0.9, 0.9)
+          .WithGesture(MediapipeGesture::JAW_LEFT, 0));
+  utils()->TriggerMouseControllerInterval();
+
+  // Head movement should cause one scroll event to be sent.
+  ASSERT_EQ(1u,
+            event_handler().mouse_events(ui::EventType::kMousewheel).size());
+  // No mouse movement events should be sent.
+  ASSERT_EQ(0u,
+            event_handler().mouse_events(ui::EventType::kMouseMoved).size());
+
+  // Move jaw left again to exit scroll mode.
+  utils()->ProcessFaceLandmarkerResult(
+      MockFaceLandmarkerResult().WithGesture(MediapipeGesture::JAW_LEFT, 40));
+  utils()->AssertScrollMode(false);
 }
 
 }  // namespace ash

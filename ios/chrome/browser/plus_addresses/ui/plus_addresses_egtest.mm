@@ -5,10 +5,12 @@
 #import "base/strings/escape.h"
 #import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/feature_engagement/public/feature_constants.h"
 #import "components/plus_addresses/features.h"
 #import "components/plus_addresses/metrics/plus_address_metrics.h"
 #import "components/plus_addresses/plus_address_test_utils.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_constants.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
@@ -84,7 +86,8 @@ void ExpectModalTimeSample(
   GREYAssertTrue(self.testServer->Start(), @"Server did not start.");
 
   if ([self isRunningTest:@selector(testConfirmPlusAddressUsingBottomSheet)] ||
-      [self isRunningTest:@selector(testRefresh)]) {
+      [self isRunningTest:@selector(testRefresh)] ||
+      [self isRunningTest:@selector(testCreatePlusAddressIPH)]) {
     [self relaunchAppAndSetConfiguration];
   }
 
@@ -119,6 +122,11 @@ void ExpectModalTimeSample(
   if ([self isRunningTest:@selector(testRefresh)]) {
     config.features_enabled_and_params.push_back(
         {plus_addresses::features::kPlusAddressRefresh, {}});
+  }
+
+  if ([self isRunningTest:@selector(testCreatePlusAddressIPH)]) {
+    config.iph_feature_enabled =
+        feature_engagement::kIPHPlusAddressCreateSuggestionFeature.name;
   }
 
   // Relaunch the app to take the configuration into account.
@@ -157,14 +165,19 @@ void ExpectModalTimeSample(
   // Tap an element that is eligible for plus_address autofilling.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:chrome_test_util::TapWebElementWithId(kEmailFieldId)];
-  id<GREYMatcher> user_chip =
-      grey_text(base::SysUTF8ToNSString(kFakeSuggestionLabel));
+
+  NSString* suggestionLabel = base::SysUTF8ToNSString(kFakeSuggestionLabel);
+  id<GREYMatcher> userChip =
+      [AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]
+          ? grey_accessibilityLabel([NSString
+                stringWithFormat:@"%@, %@", suggestionLabel, suggestionLabel])
+          : grey_text(suggestionLabel);
 
   // Ensure the plus_address suggestion appears.
-  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:user_chip];
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:userChip];
 
   // Tapping it will trigger the UI.
-  [[EarlGrey selectElementWithMatcher:user_chip] performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:userChip] performAction:grey_tap()];
 }
 
 id<GREYMatcher> GetMatcherForErrorReportLink() {
@@ -380,6 +393,18 @@ id<GREYMatcher> GetMatcherForPlusAddressLabel(NSString* labelText) {
 
   // Click the cancel button, dismissing the bottom sheet.
   [[EarlGrey selectElementWithMatcher:cancelButton] performAction:grey_tap()];
+}
+
+// A test to check the plus address create suggestion IPH feature.
+- (void)testCreatePlusAddressIPH {
+  // Tap an element that is eligible for plus_address autofilling.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId(kEmailFieldId)];
+  id<GREYMatcher> iph_chip = grey_text(
+      l10n_util::GetNSString(IDS_PLUS_ADDRESS_CREATE_SUGGESTION_IPH_IOS));
+
+  // Ensure the plus_address suggestion IPH appears.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:iph_chip];
 }
 
 @end

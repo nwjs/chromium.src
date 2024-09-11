@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/chromeos/ui_mode.gni")
+import("//extensions/buildflags/buildflags.gni")
 
 assert(!is_android)
 
@@ -52,31 +53,37 @@ source_set("app_service") {
     "//chrome/app/theme:chrome_unscaled_resources",
     "//chrome/browser/apps/app_service/app_icon",
     "//chrome/browser/apps/app_service/app_icon:util",
-    "//chrome/browser/extensions",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources:app_icon_resources",
     "//chrome/browser/sync",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/web_applications",
-    "//chrome/browser/web_applications/extensions",
     "//components/app_constants",
     "//components/crx_file",
     "//components/keyed_service/content",
     "//components/services/app_service",
     "//components/web_package",
     "//components/webapps/common",
-    "//extensions/browser",
-    "//extensions/common",
   ]
 
   # TODO(crbug.com/40251079): Remove circular dependencies. Possibly flip
   # dependency direction so AppService doesn't depend on extensions
   # (crbug.com/1402146).
-  allow_circular_includes_from = [
-    "//chrome/browser/extensions",
-    "//chrome/browser/web_applications/extensions",
-  ]
+  allow_circular_includes_from = []
+
+  if (enable_extensions) {
+    deps += [
+      "//chrome/browser/extensions",
+      "//chrome/browser/web_applications/extensions",
+      "//extensions/browser",
+      "//extensions/common",
+    ]
+    allow_circular_includes_from += [
+      "//chrome/browser/extensions",
+      "//chrome/browser/web_applications/extensions",
+    ]
+  }
 
   if (is_chromeos) {
     sources += [
@@ -180,8 +187,6 @@ source_set("app_service") {
       "publishers/plugin_vm_apps.h",
       "publishers/remote_apps.cc",
       "publishers/remote_apps.h",
-      "publishers/shortcut_publisher.cc",
-      "publishers/shortcut_publisher.h",
       "publishers/standalone_browser_apps.cc",
       "publishers/standalone_browser_apps.h",
       "publishers/standalone_browser_extension_apps.cc",
@@ -192,8 +197,6 @@ source_set("app_service") {
       "publishers/web_apps_crosapi.h",
       "publishers/web_apps_crosapi_factory.cc",
       "publishers/web_apps_crosapi_factory.h",
-      "shortcut_removal_dialog.cc",
-      "shortcut_removal_dialog.h",
       "subscriber_crosapi.cc",
       "subscriber_crosapi.h",
       "subscriber_crosapi_factory.cc",
@@ -227,7 +230,9 @@ source_set("app_service") {
       "//chrome/browser:browser_process",
       "//chrome/browser/apps/almanac_api_client",
       "//chrome/browser/apps/app_service/promise_apps/proto",
+      "//chrome/browser/ash/android_sms",
       "//chrome/browser/ash/app_list",
+      "//chrome/browser/ash/app_list/app_service",
       "//chrome/browser/ash/app_list/arc",
       "//chrome/browser/ash/app_list/internal_app",
       "//chrome/browser/ash/app_list/search",
@@ -243,6 +248,7 @@ source_set("app_service") {
       "//chrome/browser/ash/arc/tracing",
       "//chrome/browser/ash/borealis",
       "//chrome/browser/ash/bruschetta",
+      "//chrome/browser/ash/calendar",
       "//chrome/browser/ash/child_accounts",
       "//chrome/browser/ash/child_accounts/on_device_controls",
       "//chrome/browser/ash/child_accounts/time_limits",
@@ -273,11 +279,24 @@ source_set("app_service") {
       "//chrome/browser/ash/system_web_apps/apps/camera_app",
       "//chrome/browser/ash/system_web_apps/apps/media_app",
       "//chrome/browser/ash/system_web_apps/types",
+      "//chrome/browser/chromeos/extensions/login_screen/login/cleanup",
       "//chrome/browser/image_fetcher",
       "//chrome/browser/metrics/structured:features",
       "//chrome/browser/resources",
-      "//chrome/browser/ui/ash/calendar",
       "//chrome/browser/ui/ash/multi_user",
+      "//chrome/browser/ui/ash/shelf",
+      "//chrome/browser/ui/ash/shelf/app_service",
+      "//chrome/browser/ui/ash/system_web_apps",
+      "//chrome/browser/ui/webui/ash/cloud_upload",
+      "//chrome/browser/ui/webui/ash/settings/app_management",
+      "//chrome/browser/ui/webui/ash/settings/pages",
+      "//chrome/browser/ui/webui/ash/settings/pages/apps",
+      "//chrome/browser/ui/webui/ash/settings/pages/device",
+      "//chrome/browser/ui/webui/ash/settings/pages/device/input_device_settings",
+      "//chrome/browser/ui/webui/ash/settings/pages/internet",
+      "//chrome/browser/ui/webui/ash/settings/pages/people",
+      "//chrome/browser/ui/webui/ash/settings/pages/privacy",
+      "//chrome/browser/ui/webui/ash/settings/services/settings_manager",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/components/login/login_state",
       "//chromeos/components/kiosk:kiosk",
@@ -300,12 +319,14 @@ source_set("app_service") {
 
     # TODO(crbug.com/40251079): Remove circular dependencies.
     allow_circular_includes_from += [
+      "//chrome/browser/ash/android_sms",
       "//chrome/browser/ash/app_list",
       "//chrome/browser/ash/app_list/arc",
       "//chrome/browser/ash/app_list/internal_app",
       "//chrome/browser/ash/app_list/search",
       "//chrome/browser/ash/app_restore",
       "//chrome/browser/ash/borealis",
+      "//chrome/browser/ash/app_list/app_service",
       "//chrome/browser/ash/app_mode/web_app",
       "//chrome/browser/ash/apps",
       "//chrome/browser/ash/arc",
@@ -315,6 +336,7 @@ source_set("app_service") {
       "//chrome/browser/ash/arc/privacy_items",
       "//chrome/browser/ash/arc/session",
       "//chrome/browser/ash/arc/tracing",
+      "//chrome/browser/ash/calendar",
       "//chrome/browser/ash/child_accounts",
       "//chrome/browser/ash/child_accounts/on_device_controls",
       "//chrome/browser/ash/child_accounts/time_limits",
@@ -335,7 +357,19 @@ source_set("app_service") {
       "//chrome/browser/ash/system_web_apps/apps",
       "//chrome/browser/ash/system_web_apps/apps/camera_app",
       "//chrome/browser/ash/system_web_apps/apps/media_app",
-      "//chrome/browser/ui/ash/calendar",
+      "//chrome/browser/chromeos/extensions/login_screen/login/cleanup",
+      "//chrome/browser/ui/ash/shelf",
+      "//chrome/browser/ui/ash/shelf/app_service",
+      "//chrome/browser/ui/ash/system_web_apps",
+      "//chrome/browser/ui/webui/ash/cloud_upload",
+      "//chrome/browser/ui/webui/ash/settings/pages",
+      "//chrome/browser/ui/webui/ash/settings/pages/apps",
+      "//chrome/browser/ui/webui/ash/settings/pages/device",
+      "//chrome/browser/ui/webui/ash/settings/pages/device/input_device_settings",
+      "//chrome/browser/ui/webui/ash/settings/pages/internet",
+      "//chrome/browser/ui/webui/ash/settings/pages/people",
+      "//chrome/browser/ui/webui/ash/settings/pages/privacy",
+      "//chrome/browser/ui/webui/ash/settings/services/settings_manager",
     ]
   }
 
@@ -423,7 +457,6 @@ source_set("unit_tests") {
     "//chrome/browser/apps/app_service/app_icon:unit_tests",
     "//chrome/browser/apps/app_service/app_icon:util",
     "//chrome/browser/apps/link_capturing:test_support",
-    "//chrome/browser/extensions",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources:component_extension_resources",
     "//chrome/browser/ui",
@@ -438,8 +471,6 @@ source_set("unit_tests") {
     "//components/services/app_service/public/cpp:test_support",
     "//components/user_manager",
     "//content/test:test_support",
-    "//extensions:test_support",
-    "//extensions/common",
     "//mojo/public/cpp/bindings:bindings_base",
     "//net",
     "//services/data_decoder/public/cpp:test_support",
@@ -456,6 +487,14 @@ source_set("unit_tests") {
     "//ui/gfx/geometry",
     "//url",
   ]
+
+  if (enable_extensions) {
+    deps += [
+      "//chrome/browser/extensions",
+      "//extensions:test_support",
+      "//extensions/common",
+    ]
+  }
 
   if (is_chromeos) {
     deps += [ "//chromeos/crosapi/mojom" ]
@@ -477,7 +516,6 @@ source_set("unit_tests") {
       "publishers/crostini_apps_unittest.cc",
       "publishers/guest_os_apps_unittest.cc",
       "publishers/plugin_vm_apps_unittest.cc",
-      "publishers/shortcut_publisher_unittest.cc",
       "webapk/webapk_install_task_unittest.cc",
       "webapk/webapk_manager_unittest.cc",
     ]
@@ -488,8 +526,8 @@ source_set("unit_tests") {
       "//chrome/browser/apps/app_service/app_install:unit_tests",
       "//chrome/browser/apps/app_service/promise_apps/proto",
       "//chrome/browser/ash",
-      "//chrome/browser/ash:test_support",
       "//chrome/browser/ash/app_list/arc",
+      "//chrome/browser/ash/app_list/arc:test_support",
       "//chrome/browser/ash/app_list/internal_app",
       "//chrome/browser/ash/apps",
       "//chrome/browser/ash/arc",
@@ -565,7 +603,6 @@ source_set("test_support") {
     ]
 
     deps += [
-      "//chrome/browser/ash:test_support",
       "//chrome/browser/ash/login/users:test_support",
       "//components/webapk:proto",
     ]

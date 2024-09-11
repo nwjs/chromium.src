@@ -35,6 +35,7 @@
 #include "net/proxy_resolution/proxy_resolution_service.h"
 #include "net/socket/connection_attempts.h"
 #include "net/ssl/ssl_config.h"
+#include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
 #include "net/websockets/websocket_handshake_stream_base.h"
 
 namespace net {
@@ -124,6 +125,11 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
   void OnNeedsClientAuth(SSLCertRequestInfo* cert_info) override;
 
   void OnQuicBroken() override;
+
+  void OnSwitchesToHttpStreamPool(
+      HttpStreamKey stream_key,
+      quic::ParsedQuicVersion quic_version) override;
+
   ConnectionAttempts GetConnectionAttempts() const override;
 
  private:
@@ -504,6 +510,10 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
   // using DNS times coming from the established stream.
   base::TimeTicks dns_resolution_start_time_override_;
   base::TimeTicks dns_resolution_end_time_override_;
+
+  base::TimeTicks blocked_initialize_stream_start_time_;
+  base::TimeTicks blocked_generate_proxy_auth_token_start_time_;
+  base::TimeTicks blocked_generate_server_auth_token_start_time_;
 
   // The number of bytes of the body received from network.
   int64_t received_body_bytes_ = 0;

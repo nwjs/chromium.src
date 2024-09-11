@@ -22,14 +22,16 @@
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/docking_promo_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
+#import "ios/chrome/browser/shared/public/commands/whats_new_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
@@ -38,6 +40,7 @@
 #import "ios/chrome/browser/ui/authentication/signin_presenter.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/utils.h"
+#import "ui/base/device_form_factor.h"
 
 namespace {
 
@@ -85,6 +88,30 @@ bool DefaultBrowserPromoCanceled() {
   }
 }
 
+// Returns true if the Feature Engagement Tracker has ever triggered for the
+// given `feature`.
+bool FETHasEverTriggered(Browser* browser, const base::Feature& feature) {
+  feature_engagement::Tracker* tracker =
+      feature_engagement::TrackerFactory::GetForBrowserState(
+          browser->GetBrowserState());
+  return tracker->HasEverTriggered(feature, true);
+}
+
+// Returns the user's type stored in local state prefs.
+TipsNotificationUserType GetUserType() {
+  PrefService* local_state = GetApplicationContext()->GetLocalState();
+  return static_cast<TipsNotificationUserType>(
+      local_state->GetInteger(kTipsNotificationsUserType));
+}
+
+// Sets the user's type in local state prefs, and records a histogram with the
+// type.
+void SetUserType(TipsNotificationUserType user_type) {
+  PrefService* local_state = GetApplicationContext()->GetLocalState();
+  local_state->SetInteger(kTipsNotificationsUserType, int(user_type));
+  base::UmaHistogramEnumeration("IOS.Notifications.Tips.UserType", user_type);
+}
+
 }  // namespace
 
 TipsNotificationClient::TipsNotificationClient()
@@ -95,6 +122,7 @@ TipsNotificationClient::TipsNotificationClient()
   pref_change_registrar_.Add(prefs::kAppLevelPushNotificationPermissions,
                              pref_callback);
   permitted_ = IsPermitted();
+  user_type_ = GetUserType();
 }
 
 TipsNotificationClient::~TipsNotificationClient() = default;
@@ -118,7 +146,7 @@ void TipsNotificationClient::HandleNotificationInteraction(
   // If the app is not yet foreground active, store the notification type and
   // handle it later when the app becomes foreground active.
   if (IsSceneLevelForegroundActive()) {
-    ClearAndMaybeRequestNotification(base::DoNothing());
+    CheckAndMaybeRequestNotification(base::DoNothing());
   }
 }
 
@@ -153,10 +181,13 @@ void TipsNotificationClient::OnSceneActiveForegroundBrowserReady() {
 void TipsNotificationClient::OnSceneActiveForegroundBrowserReady(
     base::OnceClosure closure) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  ClearAndMaybeRequestNotification(std::move(closure));
+  if (user_type_ == TipsNotificationUserType::kUnknown) {
+    ClassifyUser();
+  }
+  CheckAndMaybeRequestNotification(std::move(closure));
 }
 
-void TipsNotificationClient::ClearAndMaybeRequestNotification(
+void TipsNotificationClient::CheckAndMaybeRequestNotification(
     base::OnceClosure closure) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   permitted_ = IsPermitted();
@@ -164,16 +195,17 @@ void TipsNotificationClient::ClearAndMaybeRequestNotification(
     HandleNotificationInteraction(interacted_type_.value());
   }
 
-  // If we're no longer in the first 3 weeks, exit early to avoid incurring
-  // the cost of checking delivered and requested notifications.
-  if (!IsFirstRunRecent(base::Days(21))) {
+  // If the user hasn't opted-in, exit early to avoid incurring the cost of
+  // checking delivered and requested notifications.
+  if (!permitted_) {
     std::move(closure).Run();
     return;
   }
 
-  ClearNotification(
-      base::BindOnce(&TipsNotificationClient::MaybeRequestNotification,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(closure)));
+  GetPendingRequest(
+      base::BindOnce(&TipsNotificationClient::OnPendingRequestFound,
+                     weak_ptr_factory_.GetWeakPtr())
+          .Then(std::move(closure)));
 }
 
 // static
@@ -182,6 +214,8 @@ void TipsNotificationClient::RegisterLocalStatePrefs(
   registry->RegisterIntegerPref(kTipsNotificationsSentPref, 0);
   registry->RegisterIntegerPref(kTipsNotificationsLastSent, -1);
   registry->RegisterIntegerPref(kTipsNotificationsLastTriggered, -1);
+  registry->RegisterTimePref(kTipsNotificationsLastRequestedTime, base::Time());
+  registry->RegisterIntegerPref(kTipsNotificationsUserType, 0);
 }
 
 void TipsNotificationClient::GetPendingRequest(
@@ -196,42 +230,25 @@ void TipsNotificationClient::GetPendingRequest(
       getPendingNotificationRequestsWithCompletionHandler:completion];
 }
 
-void TipsNotificationClient::ClearNotification(base::OnceClosure callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  GetPendingRequest(
-      base::BindOnce(&TipsNotificationClient::OnNotificationCleared,
-                     weak_ptr_factory_.GetWeakPtr())
-          .Then(std::move(callback)));
-}
-
-void TipsNotificationClient::OnNotificationCleared(
+void TipsNotificationClient::OnPendingRequestFound(
     UNNotificationRequest* request) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!request) {
     MaybeLogTriggeredNotification();
     MaybeLogDismissedNotification();
     interacted_type_ = std::nullopt;
+    MaybeRequestNotification(base::DoNothing());
     return;
   }
 
   MaybeLogDismissedNotification();
   interacted_type_ = std::nullopt;
-  std::optional<TipsNotificationType> type = ParseTipsNotificationType(request);
-  if (type.has_value()) {
-    MarkNotificationTypeNotSent(type.value());
-    base::UmaHistogramEnumeration("IOS.Notifications.Tips.Cleared",
-                                  type.value());
-  }
-  [UNUserNotificationCenter.currentNotificationCenter
-      removePendingNotificationRequestsWithIdentifiers:@[
-        kTipsNotificationId
-      ]];
 }
 
 void TipsNotificationClient::MaybeRequestNotification(
     base::OnceClosure completion) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!IsFirstRunRecent(base::Days(14)) || !permitted_) {
+  if (!permitted_) {
     std::move(completion).Run();
     return;
   }
@@ -243,10 +260,12 @@ void TipsNotificationClient::MaybeRequestNotification(
   // The types of notifications that could be sent will be evaluated in the
   // order they appear in this array.
   static const TipsNotificationType kTypes[] = {
-      TipsNotificationType::kDefaultBrowser,
-      TipsNotificationType::kWhatsNew,
-      TipsNotificationType::kSignin,
       TipsNotificationType::kSetUpListContinuation,
+      TipsNotificationType::kWhatsNew,
+      TipsNotificationType::kOmniboxPosition,
+      TipsNotificationType::kDefaultBrowser,
+      TipsNotificationType::kDocking,
+      TipsNotificationType::kSignin,
   };
 
   for (TipsNotificationType type : kTypes) {
@@ -267,10 +286,17 @@ void TipsNotificationClient::MaybeRequestNotification(
   std::move(completion).Run();
 }
 
+void TipsNotificationClient::ClearAllRequestedNotifications() {
+  [UNUserNotificationCenter.currentNotificationCenter
+      removePendingNotificationRequestsWithIdentifiers:@[
+        kTipsNotificationId
+      ]];
+}
+
 void TipsNotificationClient::RequestNotification(TipsNotificationType type,
                                                  base::OnceClosure completion) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  UNNotificationRequest* request = TipsNotificationRequest(type);
+  UNNotificationRequest* request = TipsNotificationRequest(type, user_type_);
 
   auto completion_block = base::CallbackToBlock(base::BindPostTask(
       base::SequencedTaskRunner::GetCurrentDefault(),
@@ -281,14 +307,13 @@ void TipsNotificationClient::RequestNotification(TipsNotificationType type,
   [UNUserNotificationCenter.currentNotificationCenter
       addNotificationRequest:request
        withCompletionHandler:completion_block];
+  MarkNotificationTypeSent(type);
 }
 
 void TipsNotificationClient::OnNotificationRequested(TipsNotificationType type,
                                                      NSError* error) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!error) {
-    MarkNotificationTypeSent(type);
-  } else {
+  if (error) {
     base::RecordAction(
         base::UserMetricsAction("IOS.Notifications.Tips.NotSentError"));
   }
@@ -305,8 +330,12 @@ bool TipsNotificationClient::ShouldSendNotification(TipsNotificationType type) {
       return ShouldSendSignin();
     case TipsNotificationType::kSetUpListContinuation:
       return ShouldSendSetUpListContinuation();
+    case TipsNotificationType::kDocking:
+      return ShouldSendDocking();
+    case TipsNotificationType::kOmniboxPosition:
+      return ShouldSendOmniboxPosition();
     case TipsNotificationType::kError:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -321,11 +350,8 @@ bool TipsNotificationClient::ShouldSendWhatsNew() {
   if (!browser) {
     return false;
   }
-  feature_engagement::Tracker* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserState(
-          browser->GetBrowserState());
-  return !tracker->HasEverTriggered(
-      feature_engagement::kIPHWhatsNewUpdatedFeature, true);
+  return !FETHasEverTriggered(browser,
+                              feature_engagement::kIPHWhatsNewUpdatedFeature);
 }
 
 bool TipsNotificationClient::ShouldSendSignin() {
@@ -343,18 +369,46 @@ bool TipsNotificationClient::ShouldSendSignin() {
 }
 
 bool TipsNotificationClient::ShouldSendSetUpListContinuation() {
-  PrefService* local_state = GetApplicationContext()->GetLocalState();
-  if (!set_up_list_utils::IsSetUpListActive(local_state)) {
+  Browser* browser = GetSceneLevelForegroundActiveBrowser();
+  if (!browser) {
+    return false;
+  }
+  PrefService* local_prefs = GetApplicationContext()->GetLocalState();
+  PrefService* user_prefs = browser->GetBrowserState()->GetPrefs();
+  if (!set_up_list_utils::IsSetUpListActive(local_prefs, user_prefs)) {
     return false;
   }
 
   // The Set Up List only shows for 14 days after FirstRun, so this
   // notification should only be requested 14 days minus the trigger interval
   // after FirstRun.
-  if (!IsFirstRunRecent(base::Days(14) - TipsNotificationTriggerDelta())) {
+  if (!IsFirstRunRecent(base::Days(14) -
+                        TipsNotificationTriggerDelta(user_type_))) {
     return false;
   }
-  return !set_up_list_prefs::AllItemsComplete(local_state);
+  return !set_up_list_prefs::AllItemsComplete(local_prefs);
+}
+
+bool TipsNotificationClient::ShouldSendDocking() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  Browser* browser = GetSceneLevelForegroundActiveBrowser();
+  if (!browser) {
+    return false;
+  }
+  return !FETHasEverTriggered(browser,
+                              feature_engagement::kIPHiOSDockingPromoFeature) &&
+         !FETHasEverTriggered(
+             browser,
+             feature_engagement::kIPHiOSDockingPromoRemindMeLaterFeature);
+}
+
+bool TipsNotificationClient::ShouldSendOmniboxPosition() {
+  // OmniboxPositionChoice is only available on phones.
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
+    return false;
+  }
+  return !GetApplicationContext()->GetLocalState()->GetUserPrefValue(
+      prefs::kBottomOmnibox);
 }
 
 bool TipsNotificationClient::IsSceneLevelForegroundActive() {
@@ -383,6 +437,12 @@ void TipsNotificationClient::ShowUIForNotificationType(
     case TipsNotificationType::kSetUpListContinuation:
       ShowSetUpListContinuation();
       break;
+    case TipsNotificationType::kDocking:
+      ShowDocking();
+      break;
+    case TipsNotificationType::kOmniboxPosition:
+      ShowOmniboxPosition();
+      break;
     case TipsNotificationType::kError:
       NOTREACHED();
   }
@@ -401,7 +461,7 @@ void TipsNotificationClient::ShowDefaultBrowserPromo() {
 
 void TipsNotificationClient::ShowWhatsNew() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  [HandlerForProtocol(Dispatcher(), BrowserCoordinatorCommands) showWhatsNew];
+  [HandlerForProtocol(Dispatcher(), WhatsNewCommands) showWhatsNew];
 }
 
 void TipsNotificationClient::ShowSignin() {
@@ -432,6 +492,17 @@ void TipsNotificationClient::ShowSetUpListContinuation() {
       showSetUpListSeeMoreMenu];
 }
 
+void TipsNotificationClient::ShowDocking() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  [HandlerForProtocol(Dispatcher(), DockingPromoCommands) showDockingPromo:YES];
+}
+
+void TipsNotificationClient::ShowOmniboxPosition() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  [HandlerForProtocol(Dispatcher(), BrowserCoordinatorCommands)
+      showOmniboxPositionChoice];
+}
+
 void TipsNotificationClient::MarkNotificationTypeSent(
     TipsNotificationType type) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -440,6 +511,7 @@ void TipsNotificationClient::MarkNotificationTypeSent(
   sent_bitfield |= 1 << int(type);
   local_state->SetInteger(kTipsNotificationsSentPref, sent_bitfield);
   local_state->SetInteger(kTipsNotificationsLastSent, int(type));
+  local_state->SetTime(kTipsNotificationsLastRequestedTime, base::Time::Now());
   base::UmaHistogramEnumeration("IOS.Notifications.Tips.Sent", type);
 }
 
@@ -519,7 +591,32 @@ bool TipsNotificationClient::IsPermitted() {
 void TipsNotificationClient::OnPermittedPrefChanged(const std::string& name) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   bool newpermitted_ = IsPermitted();
-  if (permitted_ != newpermitted_) {
-    ClearAndMaybeRequestNotification(base::DoNothing());
+  if (permitted_ != newpermitted_ && IsSceneLevelForegroundActive()) {
+    ClearAllRequestedNotifications();
+    CheckAndMaybeRequestNotification(base::DoNothing());
   }
+}
+
+void TipsNotificationClient::ClassifyUser() {
+  PrefService* local_state = GetApplicationContext()->GetLocalState();
+
+  if (!local_state->GetUserPrefValue(kTipsNotificationsLastRequestedTime)) {
+    return;
+  }
+
+  base::Time now = base::Time::Now();
+  base::Time last_request =
+      local_state->GetTime(kTipsNotificationsLastRequestedTime);
+  if (now < last_request + base::Hours(2)) {
+    // Not enough time has passed to classify the user.
+    return;
+  }
+
+  if (now > last_request + TipsNotificationTriggerDelta(
+                               TipsNotificationUserType::kUnknown)) {
+    user_type_ = TipsNotificationUserType::kLessEngaged;
+  } else {
+    user_type_ = TipsNotificationUserType::kActiveSeeker;
+  }
+  SetUserType(user_type_);
 }

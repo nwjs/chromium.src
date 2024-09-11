@@ -108,7 +108,7 @@ public class ReadAloudController
     private final TabModel mIncognitoTabModel;
     @Nullable private Player mPlayerCoordinator;
     private final ObservableSupplier<LayoutManager> mLayoutManagerSupplier;
-    private final TapToSeekHandler mTapToSeekHandler;
+    private TapToSeekSelectionManager mTapToSeekSelectionManager;
     private final UserEducationHelper mUserEducationHelper;
 
     private TabModelTabObserver mTabObserver;
@@ -493,11 +493,14 @@ public class ReadAloudController
         mActivityWindowAndroid = activityWindowAndroid;
         mActivityLifecycleDispatcher = activityLifecycleDispatcher;
         mActivityLifecycleDispatcher.register(this);
-        mTapToSeekHandler = new TapToSeekHandler(mTabModel.getCurrentTabSupplier());
         mUserEducationHelper =
                 new UserEducationHelper(
                         activity, mProfileSupplier, new Handler(Looper.getMainLooper()));
         mActivePlaybackTabSupplier = new ObservableSupplierImpl<>();
+        if (ReadAloudFeatures.isTapToSeekEnabled()) {
+            mTapToSeekSelectionManager =
+                    new TapToSeekSelectionManager(this, mActivePlaybackTabSupplier);
+        }
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
@@ -566,7 +569,7 @@ public class ReadAloudController
                             if (tab != null && !GURL.isEmptyOrInvalid(tab.getUrl())) {
                                 PostTask.postDelayedTask(
                                         TaskTraits.UI_DEFAULT,
-                                        () -> maybeCheckReadability(tab.getUrl()),
+                                        () -> maybeCheckReadability(tab),
                                         READABILITY_DELAY);
                             }
                         }
@@ -681,7 +684,7 @@ public class ReadAloudController
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
-    public void maybeCheckReadability(GURL url) {
+    public void maybeCheckReadability(Tab tab) {
         if (!isAvailable()) {
             return;
         }
@@ -691,6 +694,10 @@ public class ReadAloudController
         if (mProfileSupplier.get() == null || !mProfileSupplier.get().isNativeInitialized()) {
             return;
         }
+        if (tab.isShowingErrorPage()) {
+            return;
+        }
+        GURL url = tab.getUrl();
         if (!isURLReadAloudSupported(url)) {
             ReadAloudMetrics.recordIsPageReadable(false);
             return;
@@ -1557,8 +1564,12 @@ public class ReadAloudController
     public void tapToSeek(String content, int beginOffset, int endOffset) {
         if (ReadAloudFeatures.isTapToSeekEnabled() && isPlayingCurrentTab()) {
             long timeWhenTapToSeekRequested = sClock.currentTimeMillis();
-            mTapToSeekHandler.tapToSeek(
-                    content, beginOffset, endOffset, mPlayback, mActivePlaybackTabSupplier.get());
+            TapToSeekHandler.tapToSeek(
+                    content,
+                    beginOffset,
+                    endOffset,
+                    mPlayback,
+                    mCurrentPlaybackData.state() == PLAYING);
             ReadAloudMetrics.recordTapToSeekTime(
                     sClock.currentTimeMillis() - timeWhenTapToSeekRequested);
         }

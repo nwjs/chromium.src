@@ -6,11 +6,13 @@
 
 #include <memory>
 
+#include "base/containers/span.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/file_system_access/file_system_access_features.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
@@ -50,7 +52,9 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "net/test/scoped_mutually_exclusive_feature_list.h"
 #include "services/network/public/cpp/resource_request_body.h"
+#include "third_party/blink/public/common/features.h"
 #include "ui/display/screen_base.h"
 
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
@@ -94,6 +98,15 @@ void ShowSettings(Browser* browser) {
 }
 
 }  // namespace
+
+BrowserNavigatorTest::BrowserNavigatorTest() {
+  scoped_feature_list_.InitWithFeatures(
+      {
+          features::kFileSystemAccessPersistentPermissions,
+          blink::features::kPartitionedPopins,
+      },
+      {});
+}
 
 NavigateParams BrowserNavigatorTest::MakeNavigateParams() const {
   return MakeNavigateParams(browser());
@@ -1795,9 +1808,66 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, ViewSourceUrlMatching) {
             browser()->tab_strip_model()->GetActiveWebContents()->GetURL());
 }
 
+enum class SplitCacheTestCase {
+  kEnabledTripleKeyed,
+  kEnabledTriplePlusCrossSiteMainFrameNavBool,
+  kEnabledTriplePlusMainFrameNavInitiator,
+  kEnabledTriplePlusNavInitiator
+};
+const struct TestCaseToFeatureMapping {
+  const SplitCacheTestCase test_case;
+  base::test::FeatureRef feature;
+} kTestCaseToFeatureMapping[] = {
+    {SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool,
+     net::features::kSplitCacheByCrossSiteMainFrameNavigationBoolean},
+    {SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator,
+     net::features::kSplitCacheByMainFrameNavigationInitiator},
+    {SplitCacheTestCase::kEnabledTriplePlusNavInitiator,
+     net::features::kSplitCacheByNavigationInitiator}};
+const base::span<const TestCaseToFeatureMapping> kTestCaseToFeatureMappingSpan(
+    kTestCaseToFeatureMapping);
+
+class BrowserNavigatorSplitHttpCacheTest
+    : public BrowserNavigatorTest,
+      public testing::WithParamInterface<SplitCacheTestCase> {
+ protected:
+  BrowserNavigatorSplitHttpCacheTest()
+      : split_cache_experiment_feature_list_(GetParam(),
+                                             kTestCaseToFeatureMappingSpan) {
+    split_cache_always_enabled_feature_list_.InitAndEnableFeature(
+        net::features::kSplitCacheByNetworkIsolationKey);
+  }
+
+ private:
+  net::test::ScopedMutuallyExclusiveFeatureList
+      split_cache_experiment_feature_list_;
+  base::test::ScopedFeatureList split_cache_always_enabled_feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    BrowserNavigatorSplitHttpCacheTest,
+    testing::ValuesIn(
+        {SplitCacheTestCase::kEnabledTripleKeyed,
+         SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool,
+         SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator,
+         SplitCacheTestCase::kEnabledTriplePlusNavInitiator}),
+    [](const testing::TestParamInfo<SplitCacheTestCase>& info) {
+      switch (info.param) {
+        case (SplitCacheTestCase::kEnabledTripleKeyed):
+          return "TripleKeyed";
+        case (SplitCacheTestCase::kEnabledTriplePlusCrossSiteMainFrameNavBool):
+          return "TriplePlusCrossSiteMainFrameNavigationBool";
+        case (SplitCacheTestCase::kEnabledTriplePlusMainFrameNavInitiator):
+          return "TriplePlusMainFrameNavigationInitiator";
+        case (SplitCacheTestCase::kEnabledTriplePlusNavInitiator):
+          return "TriplePlusNavigationInitiator";
+      }
+    });
+
 // This test verifies that browser initiated navigations can send requests
 // using POST.
-IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
+IN_PROC_BROWSER_TEST_P(BrowserNavigatorSplitHttpCacheTest,
                        SendBrowserInitiatedRequestUsingPOST) {
   // Uses a test sever to verify POST request.
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -1814,7 +1884,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
 
 // This test verifies that renderer initiated navigations can also send requests
 // using POST.
-IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
+IN_PROC_BROWSER_TEST_P(BrowserNavigatorSplitHttpCacheTest,
                        SendRendererInitiatedRequestUsingPOST) {
   // Uses a test sever to verify POST request.
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -2084,6 +2154,31 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest,
   // Should be PiP, with an app name.
   EXPECT_TRUE(params.browser->is_type_picture_in_picture());
   EXPECT_NE(params.browser->app_name(), std::string());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNavigatorTest, Popin) {
+  // Setup browser.
+  content::WebContents* tab_web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, false);
+
+  // Open popin and verify it's visible.
+  content::WebContentsAddedObserver new_tab_observer;
+  EXPECT_TRUE(content::ExecJs(tab_web_contents,
+                              "window.open('about:blank', '_blank', 'popin')"));
+  content::WebContents* popin_web_contents = new_tab_observer.GetWebContents();
+  BrowserWindow* popin_browser_window =
+      BrowserWindow::FindBrowserWindowWithWebContents(popin_web_contents);
+  EXPECT_NE(popin_browser_window, browser()->window());
+  EXPECT_TRUE(popin_browser_window->IsVisible());
+
+  // Focus new tab and verify popin is hidden.
+  browser()->tab_strip_model()->ActivateTabAt(1);
+  EXPECT_FALSE(popin_browser_window->IsVisible());
+
+  // Switch back to original tab and verify popin is visible.
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  EXPECT_TRUE(popin_browser_window->IsVisible());
 }
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)

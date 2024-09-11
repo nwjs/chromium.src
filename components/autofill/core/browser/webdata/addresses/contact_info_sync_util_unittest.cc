@@ -10,6 +10,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/country_type.h"
+#include "components/autofill/core/browser/data_model/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/profile_token_quality_test_api.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -25,6 +26,8 @@ constexpr char kGuid[] = "00000000-0000-0000-0000-000000000001";
 constexpr char kInvalidGuid[] = "1234";
 constexpr int kNonChromeModifier = 1234;
 const auto kUseDate = base::Time::FromSecondsSinceUnixEpoch(123);
+const auto kUseDate2 = base::Time::FromSecondsSinceUnixEpoch(34);
+// No third last use date, to test that absence is handled correctly.
 const auto kModificationDate = base::Time::FromSecondsSinceUnixEpoch(456);
 
 // Returns a profile with all fields set. Contains identical data to the data
@@ -35,7 +38,8 @@ AutofillProfile ConstructBaseProfile(
                           country_code);
 
   profile.set_use_count(123);
-  profile.set_use_date(kUseDate);
+  profile.set_use_date(kUseDate, 1);
+  profile.set_use_date(kUseDate2, 2);
   profile.set_modification_date(kModificationDate);
   profile.set_language_code("en");
   profile.set_profile_label("profile_label");
@@ -326,6 +330,7 @@ ContactInfoSpecifics ConstructBaseSpecifics() {
   specifics.set_guid(kGuid);
   specifics.set_use_count(123);
   specifics.set_use_date_unix_epoch_seconds(kUseDate.ToTimeT());
+  specifics.set_use_date2_unix_epoch_seconds(kUseDate2.ToTimeT());
   specifics.set_date_modified_unix_epoch_seconds(kModificationDate.ToTimeT());
   specifics.set_language_code("en");
   specifics.set_profile_label("profile_label");
@@ -691,7 +696,8 @@ class ContactInfoSyncUtilTest
          features::kAutofillEnableSupportForAddressOverflowAndLandmark,
          features::kAutofillEnableSupportForAdminLevel2,
          features::kAutofillEnableSupportForApartmentNumbers,
-         features::kAutofillEnableDependentLocalityParsing},
+         features::kAutofillEnableDependentLocalityParsing,
+         features::kAutofillTrackMultipleUseDates},
         {});
   }
 
@@ -849,7 +855,7 @@ TEST_P(ContactInfoSyncUtilTest, CreateAutofillProfileFromContactInfoSpecifics) {
   std::unique_ptr<AutofillProfile> converted_profile =
       CreateAutofillProfileFromContactInfoSpecifics(specifics);
   ASSERT_TRUE(converted_profile != nullptr);
-  EXPECT_TRUE(profile.EqualsIncludingUsageStatsForTesting(*converted_profile));
+  EXPECT_TRUE(test_api(profile).EqualsIncludingUsageStats(*converted_profile));
 }
 
 // Test that only specifics with valid GUID are converted.
@@ -865,7 +871,7 @@ TEST_F(ContactInfoSyncUtilTest,
 TEST_F(ContactInfoSyncUtilTest, ObservationResetting) {
   // Create a profile and collect an observation for NAME_FIRST.
   AutofillProfile profile = test::GetFullProfile();
-  profile.set_source_for_testing(AutofillProfile::Source::kAccount);
+  test_api(profile).set_source(AutofillProfile::Source::kAccount);
   test_api(profile.token_quality())
       .AddObservation(NAME_FIRST,
                       ProfileTokenQuality::ObservationType::kAccepted);

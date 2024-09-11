@@ -240,17 +240,21 @@ void HTMLAnchorElement::DefaultEventHandler(Event& event) {
   if (IsLink()) {
     EmitDidAnchorElementReceiveMouseEvent(*this, event);
 
-    if (isConnected() && base::FeatureList::IsEnabled(
-                             features::kSpeculativeServiceWorkerWarmUp)) {
+    static const bool kSpeculativeServiceWorkerWarmUpIsEnabled =
+        base::FeatureList::IsEnabled(features::kSpeculativeServiceWorkerWarmUp);
+    static const bool kSpeculativeServiceWorkerWarmUpOnPointerover =
+        features::kSpeculativeServiceWorkerWarmUpOnPointerover.Get();
+    static const bool kSpeculativeServiceWorkerWarmUpOnPointerdown =
+        features::kSpeculativeServiceWorkerWarmUpOnPointerdown.Get();
+    if (isConnected() && kSpeculativeServiceWorkerWarmUpIsEnabled) {
       Document& top_document = GetDocument().TopDocument();
       if (auto* observer =
               AnchorElementObserverForServiceWorker::From(top_document)) {
-        if (features::kSpeculativeServiceWorkerWarmUpOnPointerover.Get() &&
+        if (kSpeculativeServiceWorkerWarmUpOnPointerover &&
             (event.type() == event_type_names::kMouseover ||
              event.type() == event_type_names::kPointerover)) {
           observer->MaybeSendNavigationTargetLinks({this});
-        } else if (features::kSpeculativeServiceWorkerWarmUpOnPointerdown
-                       .Get() &&
+        } else if (kSpeculativeServiceWorkerWarmUpOnPointerdown &&
                    (event.type() == event_type_names::kMousedown ||
                     event.type() == event_type_names::kPointerdown ||
                     event.type() == event_type_names::kTouchstart)) {
@@ -536,7 +540,7 @@ void HTMLAnchorElement::NavigateToHyperlink(ResourceRequest request,
   request.SetRequestContext(mojom::blink::RequestContextType::HYPERLINK);
   FrameLoadRequest frame_request(window, request);
   frame_request.SetNavigationPolicy(navigation_policy);
-  frame_request.SetClientRedirectReason(ClientNavigationReason::kAnchorClick);
+  frame_request.SetClientNavigationReason(ClientNavigationReason::kAnchorClick);
   frame_request.SetSourceElement(this);
   const AtomicString& target =
       frame_request.CleanNavigationTarget(GetEffectiveTarget());
@@ -620,7 +624,8 @@ Element* HTMLAnchorElement::interestTargetElement() {
     return nullptr;
   }
 
-  return GetElementAttribute(html_names::kInteresttargetAttr);
+  return GetElementAttributeResolvingReferenceTarget(
+      html_names::kInteresttargetAttr);
 }
 
 AtomicString HTMLAnchorElement::interestAction() const {
@@ -792,27 +797,6 @@ Node::InsertionNotificationRequest HTMLAnchorElement::InsertedInto(
   }
 
   if (isConnected() && IsLink()) {
-    static const bool speculative_service_worker_warm_up_enabled =
-        base::FeatureList::IsEnabled(features::kSpeculativeServiceWorkerWarmUp);
-    if (speculative_service_worker_warm_up_enabled) {
-      static const bool warm_up_on_visible =
-          features::kSpeculativeServiceWorkerWarmUpOnVisible.Get();
-      static const bool warm_up_on_inserted_into_dom =
-          features::kSpeculativeServiceWorkerWarmUpOnInsertedIntoDom.Get();
-      if (warm_up_on_visible || warm_up_on_inserted_into_dom) {
-        Document& top_document = GetDocument().TopDocument();
-        if (auto* observer =
-                AnchorElementObserverForServiceWorker::From(top_document)) {
-          if (warm_up_on_visible) {
-            observer->ObserveAnchorElementVisibility(*this);
-          }
-          if (warm_up_on_inserted_into_dom) {
-            observer->MaybeSendNavigationTargetLinks({this});
-          }
-        }
-      }
-    }
-
     if (auto* document_rules =
             DocumentSpeculationRules::FromIfExists(GetDocument())) {
       document_rules->LinkInserted(this);

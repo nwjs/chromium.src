@@ -75,25 +75,22 @@ class AutofillAblationStudy;
 class AutofillComposeDelegate;
 class AutofillCrowdsourcingManager;
 class AutofillDriver;
+class AutofillDriverFactory;
 class AutofillMlPredictionModelHandler;
-class AutofillOfferManager;
 class AutofillOptimizationGuide;
 class AutofillSuggestionDelegate;
 class AutofillPlusAddressDelegate;
+class AutofillPredictionImprovementsDelegate;
 class AutofillProfile;
-class CreditCard;
 enum class CreditCardFetchResult;
 class FormDataImporter;
-class Iban;
 class LogManager;
 class PersonalDataManager;
 class StrikeDatabase;
 struct Suggestion;
-class TouchToFillDelegate;
 enum class WebauthnDialogState;
 
 namespace payments {
-class MandatoryReauthManager;
 class PaymentsAutofillClient;
 }
 
@@ -109,17 +106,6 @@ using PlusAddressCallback = base::OnceCallback<void(const std::string&)>;
 // with" (e.g. for the tab the BrowserAutofillManager is attached to).
 class AutofillClient {
  public:
-  enum class SaveCardOfferUserDecision {
-    // The user accepted credit card save.
-    kAccepted,
-
-    // The user explicitly declined credit card save.
-    kDeclined,
-
-    // The user ignored the credit card save prompt.
-    kIgnored,
-  };
-
   // Represents the user's possible decisions or outcomes in response to a
   // prompt related to address saving, updating, or migrating.
   // These values are persisted to logs. Entries should not be renumbered and
@@ -152,74 +138,6 @@ class AutofillClient {
     // prompt shown on the same tab.
     kAutoDeclined,
     kMaxValue = kAutoDeclined,
-  };
-
-  // Used for explicitly requesting the user to enter/confirm cardholder name,
-  // expiration date month and year.
-  struct UserProvidedCardDetails {
-    std::u16string cardholder_name;
-    std::u16string expiration_date_month;
-    std::u16string expiration_date_year;
-  };
-
-  enum class CardSaveType {
-    // Credit card is saved without the CVC.
-    kCardSaveOnly = 0,
-    // Credit card is saved with the CVC.
-    kCardSaveWithCvc = 1,
-    // Only CVC is saved.
-    kCvcSaveOnly = 2,
-  };
-
-  // Used for options of upload prompt.
-  struct SaveCreditCardOptions {
-    SaveCreditCardOptions& with_should_request_name_from_user(bool b) {
-      should_request_name_from_user = b;
-      return *this;
-    }
-
-    SaveCreditCardOptions& with_should_request_expiration_date_from_user(
-        bool b) {
-      should_request_expiration_date_from_user = b;
-      return *this;
-    }
-
-    SaveCreditCardOptions& with_show_prompt(bool b = true) {
-      show_prompt = b;
-      return *this;
-    }
-
-    SaveCreditCardOptions& with_has_multiple_legal_lines(bool b = true) {
-      has_multiple_legal_lines = b;
-      return *this;
-    }
-
-    SaveCreditCardOptions&
-    with_same_last_four_as_server_card_but_different_expiration_date(bool b) {
-      has_same_last_four_as_server_card_but_different_expiration_date = b;
-      return *this;
-    }
-
-    SaveCreditCardOptions& with_card_save_type(CardSaveType b) {
-      card_save_type = b;
-      return *this;
-    }
-
-    bool should_request_name_from_user = false;
-    bool should_request_expiration_date_from_user = false;
-    bool show_prompt = false;
-    bool has_multiple_legal_lines = false;
-    bool has_same_last_four_as_server_card_but_different_expiration_date =
-        false;
-    CardSaveType card_save_type = CardSaveType::kCardSaveOnly;
-  };
-
-  // TODO(crbug.com/325440757): Remove after the save-update controller
-  // splitting is done or remove this TODO if a new option is added. Used for
-  // options of save (and update) address profile prompt.
-  struct SaveAddressProfilePromptOptions {
-    // Whether the prompt suggests migration into the user's account.
-    bool is_migration_to_account = false;
   };
 
   // Required arguments to create a dropdown showing autofill suggestions.
@@ -295,6 +213,9 @@ class AutofillClient {
   virtual scoped_refptr<network::SharedURLLoaderFactory>
   GetURLLoaderFactory() = 0;
 
+  // Returns the AutofillDriverFactory.
+  virtual AutofillDriverFactory& GetAutofillDriverFactory() = 0;
+
   // Returns the AutofillCrowdsourcingManager for communication with the
   // Autofill server.
   virtual AutofillCrowdsourcingManager* GetCrowdsourcingManager();
@@ -322,6 +243,14 @@ class AutofillClient {
   // Returns the `AutofillComposeDelegate` instance for the tab of this client.
   virtual AutofillComposeDelegate* GetComposeDelegate();
 
+  // Returns the `AutofillPredictionImprovementsDelegate` instance for
+  // the tab of this client. This method can return nullptr if the user does not
+  // have the feature available, either because of not being part of the
+  // experiment or because of the current platform (prediction improvements are
+  // only available in Desktop).
+  virtual AutofillPredictionImprovementsDelegate*
+  GetAutofillPredictionImprovementsDelegate();
+
   // Returns the `AutofillPlusAddressDelegate` associated with the profile of
   // the window of this tab.
   virtual AutofillPlusAddressDelegate* GetPlusAddressDelegate();
@@ -344,8 +273,14 @@ class AutofillClient {
   // Gets the FormDataImporter instance owned by the client.
   virtual FormDataImporter* GetFormDataImporter() = 0;
 
-  // Gets the payments::PaymentsAutofillClient instance owned by the client.
+  // Gets the payments::PaymentsAutofillClient implementation owned by `this`.
+  // On platforms where there exists a payments::PaymentsAutofillClient, the
+  // instance that is returned is an existing payments::PaymentsAutofillClient
+  // that was created upon the AutofillClient implementation's creation. If no
+  // payments::PaymentsAutofillClient exists for a given platform, these
+  // functions will return nullptr.
   virtual payments::PaymentsAutofillClient* GetPaymentsAutofillClient();
+  const payments::PaymentsAutofillClient* GetPaymentsAutofillClient() const;
 
   // Gets the StrikeDatabase associated with the client. Note: Nullptr may be
   // returned so check before use.
@@ -361,11 +296,6 @@ class AutofillClient {
 
   // Gets an AddressNormalizer instance (can be null).
   virtual AddressNormalizer* GetAddressNormalizer() = 0;
-
-  // Gets an AutofillOfferManager instance (can be null for unsupported
-  // platforms).
-  virtual AutofillOfferManager* GetAutofillOfferManager();
-  const AutofillOfferManager* GetAutofillOfferManager() const;
 
   // Returns the last committed url of the primary main frame.
   virtual const GURL& GetLastCommittedPrimaryMainFrameURL() const = 0;
@@ -405,11 +335,6 @@ class AutofillClient {
   // Causes the Autofill settings UI to be shown.
   virtual void ShowAutofillSettings(SuggestionType suggestion_type) = 0;
 
-  // Gets or creates a payments autofill mandatory re-auth manager. This will be
-  // used to handle payments mandatory re-auth related flows.
-  virtual payments::MandatoryReauthManager*
-  GetOrCreatePaymentsMandatoryReauthManager();
-
   // Show an edit address profile dialog, giving the user an option to alter
   // autofill profile data. `on_user_decision_callback` is used to react to the
   // user decision of either saving changes or not.
@@ -428,35 +353,13 @@ class AutofillClient {
   // renders an update prompt where `original_profile` is the address profile
   // that will be updated if the user accepts the update prompt. Runs `callback`
   // once the user makes a decision with respect to the offer-to-save prompt.
-  // `options` carries extra configuration options for the prompt.
+  // `is_migration_to_account` differentiates saving `profile` in browser or
+  // in user's Google account.
   virtual void ConfirmSaveAddressProfile(
       const AutofillProfile& profile,
       const AutofillProfile* original_profile,
-      AutofillClient::SaveAddressProfilePromptOptions options,
+      bool is_migration_to_account,
       AddressProfileSavePromptCallback callback) = 0;
-
-  // Shows the Touch To Fill surface for filling credit card information, if
-  // possible, and returns |true| on success. |delegate| will be notified of
-  // events. `card_acceptabilies` is a boolean list denoting if the virtual
-  // card in `cards_to_suggest` is acceptable on the merchant's platform.
-  // Should be called only if the feature is supported by the platform.
-  virtual bool ShowTouchToFillCreditCard(
-      base::WeakPtr<TouchToFillDelegate> delegate,
-      base::span<const autofill::CreditCard> cards_to_suggest,
-      const std::vector<bool>& card_acceptabilies) = 0;
-
-  // Shows the Touch To Fill surface for filling IBAN information, if
-  // possible, returning `true` on success. `delegate` will be notified of
-  // events. This function is not implemented on iOS and iOS WebView, and
-  // should not be used on those platforms.
-  virtual bool ShowTouchToFillIban(
-      base::WeakPtr<TouchToFillDelegate> delegate,
-      base::span<const autofill::Iban> ibans_to_suggest);
-
-  // Hides the Touch To Fill surface for filling credit card information
-  // if one is currently shown. Should be called only if the feature is
-  // supported by the platform.
-  virtual void HideTouchToFillCreditCard() = 0;
 
   // Shows Autofill suggestions with the given `values`, `labels`, `icons`, and
   // `identifiers` for the element at `element_bounds`. `delegate` will be
@@ -566,36 +469,46 @@ class AutofillClient {
 
   virtual base::span<const AutofillProfile> GetTestAddresses() const;
 
-  // `PasswordFormType` describes the different outcomes of Password Manager's
-  // form parsing heuristics (see `FormDataParser`). Note that these are all
-  // predictions and may be inaccurate.
-  enum class PasswordFormType {
-    // The form is not password-related.
-    kNoPasswordForm = 0,
-    // The form is a predicted to be a login form, i.e. it has a username and a
-    // password field.
-    kLoginForm = 1,
-    // The form is predicted to be a signup form, i.e. it has a username field
-    // and a new password field.
-    kSignupForm = 2,
-    // The form is predicted to be a change password form, i.e. it has a current
-    // password field and a new password field.
-    kChangePasswordForm = 3,
-    // The form is predicted to be a reset password form, i.e. it has a new
-    // password field.
-    kResetPasswordForm = 4,
-    // The form is predicted to be the username form of a username-first flow,
-    // i.e. there is only a username field.
-    kSingleUsernameForm = 5
+  // `PasswordFormClassification` describes the different outcomes of Password
+  // Manager's form parsing heuristics (see `FormDataParser`). Note that these
+  // are all predictions and may be inaccurate.
+  struct PasswordFormClassification {
+    bool operator==(const PasswordFormClassification&) const = default;
+
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    enum class Type {
+      // The form is not password-related.
+      kNoPasswordForm = 0,
+      // The form is a predicted to be a login form, i.e. it has a username and
+      // a
+      // password field.
+      kLoginForm = 1,
+      // The form is predicted to be a signup form, i.e. it has a username field
+      // and a new password field.
+      kSignupForm = 2,
+      // The form is predicted to be a change password form, i.e. it has a
+      // current
+      // password field and a new password field.
+      kChangePasswordForm = 3,
+      // The form is predicted to be a reset password form, i.e. it has a new
+      // password field.
+      kResetPasswordForm = 4,
+      // The form is predicted to be the username form of a username-first flow,
+      // i.e. there is only a username field.
+      kSingleUsernameForm = 5
+    } type = Type::kNoPasswordForm;
+    std::optional<FieldGlobalId> username_field;
   };
   // Returns the heuristics predictions for the renderer form to which
   // `field_id` belongs inside the form with `form_id`. The browser form with
   // `form_id` is decomposed into renderer forms prior to running Password
   // Manager heuristics.
   // If the form cannot be found, `kNoPasswordForm` is returned.
-  virtual PasswordFormType ClassifyAsPasswordForm(AutofillManager& manager,
-                                                  FormGlobalId form_id,
-                                                  FieldGlobalId field_id) const;
+  virtual PasswordFormClassification ClassifyAsPasswordForm(
+      AutofillManager& manager,
+      FormGlobalId form_id,
+      FieldGlobalId field_id) const;
 };
 
 }  // namespace autofill

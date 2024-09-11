@@ -16,7 +16,7 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.password_check.PasswordCheckFactory;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
+import org.chromium.chrome.browser.settings.SettingsLauncherFactory;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.components.browser_ui.settings.SettingsLauncher.SettingsFragment;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -45,8 +45,7 @@ public class PasswordCheckupLauncher {
         PasswordManagerHelper passwordManagerHelper = PasswordManagerHelper.getForProfile(profile);
         // Force instantiation of GMSCore password check if GMSCore update is required. Password
         // check launch will fail and instead show the blocking dialog with the suggestion to
-        // update. This is the desired behavior with the feature
-        // UnifiedPasswordManagerSyncOnlyInGMSCore.
+        // update.
         if (passwordManagerHelper.canUseUpm()
                 || PasswordManagerUtilBridge.isGmsCoreUpdateRequired(
                         UserPrefs.get(profile), SyncServiceFactory.getForProfile(profile))) {
@@ -58,7 +57,7 @@ public class PasswordCheckupLauncher {
             return;
         }
 
-        PasswordCheckFactory.getOrCreate(new SettingsLauncherImpl())
+        PasswordCheckFactory.getOrCreate()
                 .showUi(windowAndroid.getContext().get(), passwordCheckReferrer);
     }
 
@@ -73,7 +72,7 @@ public class PasswordCheckupLauncher {
     @CalledByNative
     static void launchSafetyCheck(WindowAndroid windowAndroid) {
         if (windowAndroid.getContext().get() == null) return; // Window not available yet/anymore.
-        (new SettingsLauncherImpl())
+        SettingsLauncherFactory.createSettingsLauncher()
                 .launchSettingsActivity(
                         windowAndroid.getContext().get(), SettingsFragment.SAFETY_CHECK);
     }

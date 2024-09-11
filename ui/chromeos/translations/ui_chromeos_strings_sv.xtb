@@ -143,7 +143,7 @@
 <translation id="2141347188420181405">Nätverk <ph name="NETWORK_INDEX" /> av <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, signalstyrka <ph name="SIGNAL_STRENGTH" /> %, blockerat av administratören, information</translation>
 <translation id="2142680004883808240">ryskt fonetiskt tangentbord (YaZHert)</translation>
 <translation id="2143778271340628265">Manuell proxykonfiguration</translation>
-<translation id="2148716181193084225">Idag</translation>
+<translation id="2148716181193084225">I dag</translation>
 <translation id="2163152940313951844">Ogiltigt tecken: <ph name="CHARACTER_NAME" /></translation>
 <translation id="2178056538281447670">Microsoft 365</translation>
 <translation id="2184934335987813305">portugisiska med internationellt PC-tangentbord för USA</translation>
@@ -377,7 +377,6 @@
 <translation id="3999574733850440202">Nyligen öppnade Microsoft-filer har flyttats till OneDrive</translation>
 <translation id="4002066346123236978">Titel</translation>
 <translation id="4017788180641807848">engelska (USA) med Workman-tangentbord</translation>
-<translation id="4019998208269143058">Fäst i Snabbfiler</translation>
 <translation id="4040753847560036377">Fel PUK-kod</translation>
 <translation id="4057991113334098539">Aktiverar...</translation>
 <translation id="4092890906744441904">iriska</translation>
@@ -696,7 +695,6 @@
 <translation id="6320212353742551423"><ph name="ARCHIVE_TYPE" />-arkiv</translation>
 <translation id="6321303798550928047">Vinkar</translation>
 <translation id="6327785803543103246">Automatisk identifiering av webbproxy</translation>
-<translation id="6337014272874260727">Lossa från Snabbfiler</translation>
 <translation id="6339145975392024142">Internationellt för USA (PC)</translation>
 <translation id="6356685157277930264">Feedback för filfönster</translation>
 <translation id="6358884629796491903">Drake</translation>

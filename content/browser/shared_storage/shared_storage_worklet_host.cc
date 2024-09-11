@@ -13,7 +13,6 @@
 
 #include "base/check.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "components/services/storage/shared_storage/shared_storage_manager.h"
@@ -233,6 +232,7 @@ class SharedStorageWorkletHost::ScopedDevToolsHandle
 SharedStorageWorkletHost::SharedStorageWorkletHost(
     SharedStorageDocumentServiceImpl& document_service,
     const url::Origin& frame_origin,
+    const url::Origin& data_origin,
     const GURL& script_source_url,
     network::mojom::CredentialsMode credentials_mode,
     const std::vector<blink::mojom::OriginTrialFeature>& origin_trial_features,
@@ -241,7 +241,7 @@ SharedStorageWorkletHost::SharedStorageWorkletHost(
     blink::mojom::SharedStorageDocumentService::CreateWorkletCallback callback)
     : driver_(std::make_unique<SharedStorageRenderThreadWorkletDriver>(
           document_service.render_frame_host(),
-          script_source_url)),
+          data_origin)),
       document_service_(document_service.GetWeakPtr()),
       page_(
           static_cast<PageImpl&>(document_service.render_frame_host().GetPage())
@@ -253,7 +253,7 @@ SharedStorageWorkletHost::SharedStorageWorkletHost(
           storage_partition_->GetSharedStorageWorkletHostManager()),
       browser_context_(
           document_service.render_frame_host().GetBrowserContext()),
-      shared_storage_origin_(url::Origin::Create(script_source_url)),
+      shared_storage_origin_(data_origin),
       shared_storage_site_(net::SchemefulSite(shared_storage_origin_)),
       main_frame_origin_(document_service.main_frame_origin()),
       is_same_origin_worklet_(document_service.render_frame_host()
@@ -297,11 +297,14 @@ SharedStorageWorkletHost::SharedStorageWorkletHost(
 
   mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory;
 
+  // The data origin can't be opaque.
+  DCHECK(!shared_storage_origin_.opaque());
+
   url_loader_factory_proxy_ =
       std::make_unique<SharedStorageURLLoaderFactoryProxy>(
           std::move(frame_url_loader_factory),
           url_loader_factory.InitWithNewPipeAndPassReceiver(), frame_origin,
-          script_source_url, credentials_mode,
+          shared_storage_origin_, script_source_url, credentials_mode,
           static_cast<RenderFrameHostImpl&>(
               document_service_->render_frame_host())
               .ComputeSiteForCookies());
@@ -1431,7 +1434,7 @@ blink::mojom::PrivateAggregationOperationDetailsPtr
 SharedStorageWorkletHost::MaybeConstructPrivateAggregationOperationDetails(
     const blink::mojom::PrivateAggregationConfigPtr&
         private_aggregation_config) {
-  CHECK(browser_context_, base::NotFatalUntil::M128);
+  CHECK(browser_context_);
   CHECK(private_aggregation_config);
 
   if (!blink::ShouldDefinePrivateAggregationInSharedStorage()) {
@@ -1440,7 +1443,7 @@ SharedStorageWorkletHost::MaybeConstructPrivateAggregationOperationDetails(
 
   PrivateAggregationManager* private_aggregation_manager =
       PrivateAggregationManager::GetManager(*browser_context_);
-  CHECK(private_aggregation_manager, base::NotFatalUntil::M128);
+  CHECK(private_aggregation_manager);
 
   blink::mojom::PrivateAggregationOperationDetailsPtr pa_operation_details =
       blink::mojom::PrivateAggregationOperationDetails::New(

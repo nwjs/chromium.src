@@ -168,6 +168,7 @@ include_rules = [
 
   # Features should add explicit dependencies.
   "-ios/chrome/browser",
+  "+ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h",
 
   # Shared dependencies.
   "+ios/chrome/browser/shared/coordinator",
@@ -180,7 +181,7 @@ include_rules = [
   "-ios/chrome/browser/ui",
   "-ios/common/ui",
   "+ios/chrome/browser/ui/commands",
-  "+ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h",
+  "+ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h",
 
   # For tests.
   "+ios/chrome/test",

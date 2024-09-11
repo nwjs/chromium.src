@@ -195,7 +195,7 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   settings.enable_elastic_overscroll = true;
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_WIN)
   // Rasterized tiles must be overlay candidates to be forwarded.
   // This is very similar to the line above for Apple.
   settings.use_gpu_memory_buffer_resources =
@@ -354,9 +354,10 @@ void Compositor::SetLayerTreeFrameSink(
       display_private_->SetDisplayVSyncParameters(vsync_timebase_,
                                                   vsync_interval_);
     }
-    if (max_vrr_interval_.has_value()) {
-      display_private_->SetMaxVrrInterval(max_vrr_interval_);
-    }
+    display_private_->SetMaxVSyncAndVrr(max_vsync_interval_, vrr_state_);
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    display_private_->SetSupportedRefreshRates(seamless_refresh_rates_);
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   }
 
   MaybeUpdateObserveBeginFrame();
@@ -616,12 +617,14 @@ void Compositor::AddVSyncParameterObserver(
     display_private_->AddVSyncParameterObserver(std::move(observer));
 }
 
-void Compositor::SetMaxVrrInterval(
-    const std::optional<base::TimeDelta>& max_vrr_interval) {
-  max_vrr_interval_ = max_vrr_interval;
+void Compositor::SetMaxVSyncAndVrr(
+    const std::optional<base::TimeDelta>& max_vsync_interval,
+    display::VariableRefreshRateState vrr_state) {
+  max_vsync_interval_ = max_vsync_interval;
+  vrr_state_ = vrr_state;
 
   if (display_private_) {
-    display_private_->SetMaxVrrInterval(max_vrr_interval);
+    display_private_->SetMaxVSyncAndVrr(max_vsync_interval, vrr_state);
   }
 }
 
@@ -1015,5 +1018,22 @@ void Compositor::MaybeUpdateObserveBeginFrame() {
   display_private_->SetStandaloneBeginFrameObserver(
       host_begin_frame_observer_->GetBoundRemote());
 }
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+void Compositor::SetSeamlessRefreshRates(
+    const std::vector<float>& seamless_refresh_rates) {
+  seamless_refresh_rates_ = seamless_refresh_rates;
+
+  if (display_private_) {
+    display_private_->SetSupportedRefreshRates(seamless_refresh_rates);
+  }
+}
+
+void Compositor::OnSetPreferredRefreshRate(float refresh_rate) {
+  for (auto& observer : observer_list_) {
+    observer.OnSetPreferredRefreshRate(this, refresh_rate);
+  }
+}
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 }  // namespace ui

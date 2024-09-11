@@ -120,8 +120,8 @@ class PreloadingDecider::BehaviorConfig {
                preloading_predictor::kPreloadingHeuristicsMLModel) {
       return ml_model_eagerness_;
     } else {
-      NOTREACHED_NORETURN() << "unexpected predictor " << predictor.name()
-                            << "/" << predictor.ukm_value();
+      NOTREACHED() << "unexpected predictor " << predictor.name() << "/"
+                   << predictor.ukm_value();
     }
   }
 
@@ -142,8 +142,8 @@ class PreloadingDecider::BehaviorConfig {
           return ml_model_prerender_moderate_threshold_;
       }
     } else {
-      NOTREACHED_NORETURN() << "unexpected predictor " << predictor.name()
-                            << "/" << predictor.ukm_value();
+      NOTREACHED() << "unexpected predictor " << predictor.name() << "/"
+                   << predictor.ukm_value();
     }
   }
 
@@ -181,10 +181,8 @@ PreloadingDecider::PreloadingDecider(RenderFrameHost* rfh)
             &OnPrefetchDestroyed, rfh->GetWeakDocumentPtr()));
   }
 
-  if (base::FeatureList::IsEnabled(features::kPrerender2NewLimitAndScheduler)) {
-    prerenderer_->SetPrerenderCancellationCallback(
-        base::BindRepeating(&OnPrerenderCanceled, rfh->GetWeakDocumentPtr()));
-  }
+  prerenderer_->SetPrerenderCancellationCallback(
+      base::BindRepeating(&OnPrerenderCanceled, rfh->GetWeakDocumentPtr()));
 }
 
 PreloadingDecider::~PreloadingDecider() = default;
@@ -487,6 +485,7 @@ bool PreloadingDecider::MaybePrefetch(
       std::move(matched_candidate_pair.value().second), enacting_predictor);
 
   auto it = on_standby_candidates_.find(key);
+  CHECK(it != on_standby_candidates_.end());
   std::vector<blink::mojom::SpeculationCandidatePtr> candidates_for_key =
       std::move(it->second);
   RemoveStandbyCandidate(key);
@@ -616,6 +615,7 @@ std::pair<bool, bool> PreloadingDecider::MaybePrerender(
       result.first && PredictionOccursInOtherWebContents(*candidate);
 
   auto it = on_standby_candidates_.find(key);
+  CHECK(it != on_standby_candidates_.end());
   std::vector<blink::mojom::SpeculationCandidatePtr> processed =
       std::move(it->second);
   RemoveStandbyCandidate(it->first);

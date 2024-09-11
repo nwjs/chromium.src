@@ -22,6 +22,7 @@
 #include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/hash/hash.h"
+#include "base/types/fixed_array.h"
 #include "content/browser/accessibility/accessibility_tree_snapshot_combiner.h"
 #include "content/browser/accessibility/browser_accessibility_android.h"
 #include "content/browser/accessibility/browser_accessibility_manager_android.h"
@@ -215,7 +216,7 @@ std::optional<int> MaybeFindRowColumn(BrowserAccessibility* start_node,
     table_node = table_node->PlatformGetParent();
   }
 
-  if (!table_node || !cell_node) {
+  if (!table_node) {
     return ui::kInvalidAXNodeID;
   }
 
@@ -223,6 +224,18 @@ std::optional<int> MaybeFindRowColumn(BrowserAccessibility* start_node,
   ui::AXTableInfo* table_info = tree->GetTableInfo(table_node->node());
   if (!table_info) {
     return ui::kInvalidAXNodeID;
+  }
+
+  // Nothing more to do if the table is empty.
+  if (table_info->cell_ids.empty()) {
+    return ui::kInvalidAXNodeID;
+  }
+
+  // This may occur if we're somewhere in the table but not within a cell e.g.
+  // on the table node itself. In these cases, try to go to the first cell.
+  if (!cell_node) {
+    return table_info->cell_ids[0].empty() ? ui::kInvalidAXNodeID
+                                           : table_info->cell_ids[0][0];
   }
 
   // Move in the desired direction by the element type.
@@ -330,7 +343,7 @@ WebContentsAccessibilityAndroid::WebContentsAccessibilityAndroid(
   std::unique_ptr<ui::AXTreeUpdate> ax_tree_snapshot(
       reinterpret_cast<ui::AXTreeUpdate*>(ax_tree_update_ptr));
   snapshot_root_manager_ = std::make_unique<BrowserAccessibilityManagerAndroid>(
-      *ax_tree_snapshot, GetWeakPtr(), nullptr);
+      *ax_tree_snapshot, GetWeakPtr(), *this, nullptr);
   snapshot_root_manager_->BuildAXTreeHitTestCache();
   connector_ = nullptr;
 }
@@ -357,6 +370,16 @@ WebContentsAccessibilityAndroid::~WebContentsAccessibilityAndroid() {
   DeleteAutofillPopupProxy();
 
   Java_WebContentsAccessibilityImpl_onNativeObjectDestroyed(env, obj);
+}
+
+ui::AXPlatformNodeId WebContentsAccessibilityAndroid::GetOrCreateAXNodeUniqueId(
+    ui::AXNodeID ax_node_id) {
+  // Per-tab uniqueness is not necessary in snapshots, so return the blink node
+  // id.
+  return ui::AXPlatformNodeId(MakePassKey(), ax_node_id);
+}
+
+void WebContentsAccessibilityAndroid::OnAXNodeDeleted(ui::AXNodeID ax_node_id) {
 }
 
 void WebContentsAccessibilityAndroid::ConnectInstanceToRootManager(
@@ -1517,7 +1540,7 @@ WebContentsAccessibilityAndroid::GetCharacterBoundingBoxes(JNIEnv* env,
   float dip_scale = 1 / root_manager->device_scale_factor();
 
   gfx::Rect object_bounds = node->GetUnclippedRootFrameBoundsRect();
-  int coords[4 * len];
+  base::FixedArray<int> coords(4 * len);
   for (int i = 0; i < len; i++) {
     gfx::Rect char_bounds = node->GetUnclippedRootFrameInnerTextRangeBoundsRect(
         start + i, start + i + 1);
@@ -1531,7 +1554,7 @@ WebContentsAccessibilityAndroid::GetCharacterBoundingBoxes(JNIEnv* env,
     coords[4 * i + 2] = char_bounds.right();
     coords[4 * i + 3] = char_bounds.bottom();
   }
-  return base::android::ToJavaIntArray(env, coords,
+  return base::android::ToJavaIntArray(env, coords.data(),
                                        static_cast<size_t>(4 * len));
 }
 
@@ -1661,7 +1684,7 @@ void WebContentsAccessibilityAndroid::ProcessCompletedAccessibilityTreeSnapshot(
 
   // Construct a root manager without a delegate using the snapshot result.
   snapshot_root_manager_ = std::make_unique<BrowserAccessibilityManagerAndroid>(
-      result, GetWeakPtr(), /* delegate= */ nullptr);
+      result, GetWeakPtr(), *this, /* delegate= */ nullptr);
 
   auto* root = static_cast<BrowserAccessibilityAndroid*>(
       snapshot_root_manager_->GetBrowserAccessibilityRoot());

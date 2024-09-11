@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/apps/app_shim/app_shim_manager_mac.h"
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -1305,7 +1310,7 @@ void RecordSignatureValidationResult(SignatureValidationResult result) {
 
 bool AppShimManager::IsAcceptablyCodeSigned(pid_t pid) const {
   static const bool requires_adhoc_signature =
-      app_mode::UseAdHocSigningForWebAppShims();
+      web_app::UseAdHocSigningForWebAppShims();
 
   if (requires_adhoc_signature && IsAcceptablyAdHocCodeSigned(pid)) {
     RecordSignatureValidationResult(SignatureValidationResult::kSuccessAdHoc);

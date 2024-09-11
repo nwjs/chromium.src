@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef COMPONENTS_PAGE_LOAD_METRICS_BROWSER_OBSERVERS_AD_METRICS_AGGREGATE_FRAME_DATA_H_
 #define COMPONENTS_PAGE_LOAD_METRICS_BROWSER_OBSERVERS_AD_METRICS_AGGREGATE_FRAME_DATA_H_
 
@@ -41,8 +46,16 @@ class AggregateFrameData {
   // the earliest FCP after main frame nav start.
   void UpdateFirstAdFCPSinceNavStart(base::TimeDelta time_since_nav_start);
 
+  // Called when a Fledge auction completes, this method tracks
+  // if an auction completes before the `first_ad_fcp_after_main_nav_start()`.
+  void OnAdAuctionComplete();
+
   std::optional<base::TimeDelta> first_ad_fcp_after_main_nav_start() const {
     return first_ad_fcp_after_main_nav_start_;
+  }
+
+  bool completed_fledge_auction_before_fcp() const {
+    return completed_fledge_auction_before_fcp_;
   }
 
   int peak_windowed_non_ad_cpu_percent() const {
@@ -132,6 +145,10 @@ class AggregateFrameData {
 
   // The first FCP of any ad frame on the page.
   std::optional<base::TimeDelta> first_ad_fcp_after_main_nav_start_;
+
+  // Whether an ad auction completed (without being aborted) before the first ad
+  // FCP.
+  bool completed_fledge_auction_before_fcp_ = false;
 };
 
 }  // namespace page_load_metrics

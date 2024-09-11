@@ -16,6 +16,8 @@
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/common/password_manager_ui.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 using password_manager::PasswordForm;
 using password_manager::PasswordFormManagerForUI;
@@ -248,6 +250,21 @@ void ManagePasswordsState::OnPasskeySaved(const std::u16string& username,
   SetState(password_manager::ui::PASSKEY_SAVED_CONFIRMATION_STATE);
 }
 
+void ManagePasswordsState::OnPasskeyDeleted() {
+  ClearData();
+  SetState(password_manager::ui::PASSKEY_DELETED_CONFIRMATION_STATE);
+}
+
+void ManagePasswordsState::OnPasskeyUpdated() {
+  ClearData();
+  SetState(password_manager::ui::PASSKEY_UPDATED_CONFIRMATION_STATE);
+}
+
+void ManagePasswordsState::OnPasskeyNotAccepted() {
+  ClearData();
+  SetState(password_manager::ui::PASSKEY_NOT_ACCEPTED_STATE);
+}
+
 void ManagePasswordsState::TransitionToState(
     password_manager::ui::State state) {
   CHECK_NE(password_manager::ui::INACTIVE_STATE, state_);
@@ -322,11 +339,19 @@ void ManagePasswordsState::ChooseCredential(const PasswordForm* form) {
   std::move(credentials_callback_).Run(form);
 }
 
+void ManagePasswordsState::OpenPasswordDetailsBubble(
+    const password_manager::PasswordForm& form) {
+  single_credential_mode_credential_ = form;
+  SetState(password_manager::ui::State::MANAGE_STATE);
+}
+
 void ManagePasswordsState::ClearData() {
   form_manager_.reset();
+  clear_selected_password();
   local_credentials_forms_.clear();
   credentials_callback_.Reset();
   unsynced_credentials_.clear();
+  single_credential_mode_credential_.reset();
 }
 
 bool ManagePasswordsState::AddForm(const PasswordForm& form) {

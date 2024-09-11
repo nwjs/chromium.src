@@ -3,19 +3,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from __future__ import print_function
-
-import copy
 import json
 import os
 import re
 import subprocess
 import sys
 
-# Add src/testing/ into sys.path for importing common without pylint errors.
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
-from scripts import common
+import common
+
+CHROMIUM_ROOT = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
+BUILD_DIR = os.path.join(CHROMIUM_ROOT, 'build')
+
+if BUILD_DIR not in sys.path:
+  sys.path.insert(0, BUILD_DIR)
+import gn_helpers
+
 
 # A list of filename regexes that are allowed to have static initializers.
 # If something adds a static initializer, revert it. We don't accept regressions
@@ -153,7 +155,7 @@ def main_linux(src_dir):
       # Get the basename and remove line number suffix.
       basename = os.path.basename(e['filename']).split(':')[0]
       symbol = e['symbol_name']
-      descriptor = f"{basename} : {symbol}"
+      descriptor = f'{basename} : {symbol}'
       if not any(re.match(p, descriptor) for p in allowlist[binary_name]):
         ret = 1
         print(('Error: file "%s" is not expected to have static initializers in'
@@ -170,11 +172,17 @@ def main_linux(src_dir):
 
 
 def main_run(args):
-  if args.build_config_fs != 'Release':
+  if args.build_dir:
+    with open(os.path.join(args.build_dir, 'args.gn')) as f:
+      gn_args = gn_helpers.FromGNArgs(f.read())
+    if gn_args.get('is_debug') or gn_args.get('is_official_build'):
+      raise Exception('Only release builds are supported')
+  elif args.build_config_fs != 'Release':
     raise Exception('Only release builds are supported')
 
   src_dir = args.paths['checkout']
-  build_dir = os.path.join(src_dir, 'out', args.build_config_fs)
+  build_dir = args.build_dir or os.path.join(src_dir, 'out',
+                                             args.build_config_fs)
   os.chdir(build_dir)
 
   if sys.platform.startswith('darwin'):
@@ -196,7 +204,7 @@ def main_run(args):
     # TODO(crbug.com/40285648): Delete this assert if it's not seen to fail
     # anywhere.
     assert not check_if_chromeos(args), (
-        "This script is no longer supported for CrOS")
+        'This script is no longer supported for CrOS')
     rc = main_linux(src_dir)
   else:
     sys.stderr.write('Unsupported platform %s.\n' % repr(sys.platform))
@@ -219,7 +227,8 @@ def main_compile_targets(args):
   else:
     compile_targets = []
 
-  json.dump(compile_targets, args.output)
+  with open(args.output.name, 'w') as fd:
+    json.dump(compile_targets, fd)
 
   return 0
 

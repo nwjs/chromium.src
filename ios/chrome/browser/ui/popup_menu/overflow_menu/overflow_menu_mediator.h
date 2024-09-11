@@ -34,6 +34,7 @@ class BrowserPolicyConnectorIOS;
 @protocol FindInPageCommands;
 class FollowBrowserAgent;
 @protocol HelpCommands;
+@protocol LensOverlayCommands;
 @protocol OverflowMenuCustomizationCommands;
 @class OverflowMenuOrderer;
 class OverlayPresenter;
@@ -50,6 +51,7 @@ class TabBasedIPHBrowserAgent;
 @protocol TextZoomCommands;
 class WebNavigationBrowserAgent;
 class WebStateList;
+@protocol WhatsNewCommands;
 
 // Mediator for the overflow menu. This object is in charge of creating and
 // updating the items of the overflow menu.
@@ -68,9 +70,11 @@ class WebStateList;
 @property(nonatomic, weak) id<ApplicationCommands> applicationHandler;
 @property(nonatomic, weak) id<SettingsCommands> settingsHandler;
 @property(nonatomic, weak) id<BookmarksCommands> bookmarksHandler;
+@property(nonatomic, weak) id<LensOverlayCommands> lensOverlayHandler;
 @property(nonatomic, weak) id<BrowserCoordinatorCommands>
     browserCoordinatorHandler;
 @property(nonatomic, weak) id<FindInPageCommands> findInPageHandler;
+@property(nonatomic, weak) id<HelpCommands> helpHandler;
 @property(nonatomic, weak) id<OverflowMenuCustomizationCommands>
     overflowMenuCustomizationHandler;
 @property(nonatomic, weak) id<PageInfoCommands> pageInfoHandler;
@@ -79,6 +83,7 @@ class WebStateList;
     priceNotificationHandler;
 @property(nonatomic, weak) id<TextZoomCommands> textZoomHandler;
 @property(nonatomic, weak) id<QuickDeleteCommands> quickDeleteHandler;
+@property(nonatomic, weak) id<WhatsNewCommands> whatsNewHandler;
 
 // Navigation agent for reloading pages.
 @property(nonatomic, assign) WebNavigationBrowserAgent* navigationAgent;

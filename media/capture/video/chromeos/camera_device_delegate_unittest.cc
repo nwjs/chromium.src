@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "media/capture/video/chromeos/camera_device_delegate.h"
 
 #include <stddef.h>
@@ -445,7 +450,7 @@ class CameraDeviceDelegateTest : public ::testing::Test {
         .Times(1)
         .WillOnce(Invoke(&unittest_internal::MockGpuMemoryBufferManager::
                              CreateFakeGpuMemoryBuffer));
-    EXPECT_CALL(mock_gpu_memory_buffer_manager_,
+  EXPECT_CALL(mock_gpu_memory_buffer_manager_,
                 CreateGpuMemoryBuffer(
                     gfx::Size(kJpegMaxBufferSize, 1), gfx::BufferFormat::R_8,
                     gfx::BufferUsage::CAMERA_AND_CPU_READ_WRITE,

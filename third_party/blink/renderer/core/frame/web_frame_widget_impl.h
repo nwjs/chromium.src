@@ -249,10 +249,6 @@ class CORE_EXPORT WebFrameWidgetImpl
   const WebVector<gfx::Rect>& ViewportSegments() const override;
   void SetDelegatedInkMetadata(
       std::unique_ptr<gfx::DelegatedInkMetadata> metadata) final;
-  void DidOverscroll(const gfx::Vector2dF& overscroll_delta,
-                     const gfx::Vector2dF& accumulated_overscroll,
-                     const gfx::PointF& position,
-                     const gfx::Vector2dF& velocity) override;
   void InjectScrollbarGestureScroll(const gfx::Vector2dF& delta,
                                     ui::ScrollGranularity granularity,
                                     cc::ElementId scrollable_area_element_id,
@@ -429,6 +425,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   void SetHandlingInputEvent(bool handling) override;
   void ProcessInputEventSynchronouslyForTesting(
       const WebCoalescedInputEvent&) override;
+  void DispatchNonBlockingEventForTesting(
+      std::unique_ptr<WebCoalescedInputEvent> event) override;
   WebInputEventResult DispatchBufferedTouchEvents() override;
   WebInputEventResult HandleInputEvent(const WebCoalescedInputEvent&) override;
   void UpdateTextInputState() override;
@@ -506,6 +504,7 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   double GetZoomLevel() override;
   void SetZoomLevel(double zoom_level) override;
+  double GetCSSZoomFactor() const override;
 
   // Called when the View has auto resized.
   virtual void DidAutoResize(const gfx::Size& size);
@@ -912,6 +911,8 @@ class CORE_EXPORT WebFrameWidgetImpl
                                        const WebMouseWheelEvent&) override;
   WebInputEventResult HandleCharEvent(const WebKeyboardEvent&) override;
 
+  void SetZoomInternal(double zoom_level, double css_zoom_factor);
+
   WebInputEventResult HandleCapturedMouseEvent(const WebCoalescedInputEvent&);
   void MouseContextMenu(const WebMouseEvent&);
   void CancelDrag();
@@ -1229,6 +1230,7 @@ class CORE_EXPORT WebFrameWidgetImpl
       input_handler_weak_ptr_factory_{this};
 
   double zoom_level_ = 0;
+  double css_zoom_factor_ = 1;
 };
 
 }  // namespace blink

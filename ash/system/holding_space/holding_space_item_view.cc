@@ -89,40 +89,6 @@ class CallbackPainter : public views::Painter {
   Callback callback_;
 };
 
-// MinimumSizableView ---------------------------------------------------------
-
-// A view which respects a minimum size restriction.
-class MinimumSizableView : public views::View {
-  METADATA_HEADER(MinimumSizableView, views::View)
-
- public:
-  explicit MinimumSizableView(const gfx::Size& min_size)
-      : min_size_(min_size) {}
-
-  MinimumSizableView(const MinimumSizableView&) = delete;
-  MinimumSizableView& operator=(const MinimumSizableView&) = delete;
-  ~MinimumSizableView() override = default;
-
- private:
-  // views::View:
-  gfx::Size CalculatePreferredSize(
-      const views::SizeBounds& available_size) const override {
-    gfx::Size preferred_size(
-        views::View::CalculatePreferredSize(available_size));
-    preferred_size.SetToMax(min_size_);
-    return preferred_size;
-  }
-
-  int GetHeightForWidth(int width) const override {
-    return std::max(views::View::GetHeightForWidth(width), min_size_.height());
-  }
-
-  const gfx::Size min_size_;
-};
-
-BEGIN_METADATA(MinimumSizableView)
-END_METADATA
-
 }  // namespace
 
 // HoldingSpaceItemView --------------------------------------------------------
@@ -160,10 +126,7 @@ HoldingSpaceItemView::HoldingSpaceItemView(HoldingSpaceViewDelegate* delegate,
 
   // Background.
   SetBackground(views::CreateThemedRoundedRectBackground(
-      chromeos::features::IsJellyEnabled()
-          ? static_cast<ui::ColorId>(cros_tokens::kCrosSysSystemOnBase)
-          : kColorAshControlBackgroundColorInactive,
-      kHoldingSpaceCornerRadius));
+      cros_tokens::kCrosSysSystemOnBase, kHoldingSpaceCornerRadius));
 
   // Layer.
   SetPaintToLayer();
@@ -481,7 +444,7 @@ void HoldingSpaceItemView::OnPrimaryActionPressed() {
     if (!holding_space_util::ExecuteInProgressCommand(
             item(), HoldingSpaceCommandId::kCancelItem,
             holding_space_metrics::EventSource::kHoldingSpaceItem)) {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
     return;
   }

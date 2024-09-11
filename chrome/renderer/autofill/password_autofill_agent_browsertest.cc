@@ -4964,10 +4964,6 @@ TEST_F(PasswordAutofillAgentTest, ModifySearchField) {
 // DOM tree starts between the <form> and <input> tags.
 TEST_F(PasswordAutofillAgentTest,
        ProvisionalPasswordSavingWhenFormTagHostsShadowDom) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      password_manager::features::kShadowDomSupport);
-
   LoadHTML(kFormTagHostsShadowDomInputs);
 
   // Identify username and password elements.
@@ -5001,9 +4997,6 @@ TEST_F(PasswordAutofillAgentTest,
 // DOM tree starts between the <form> and <input> tags.
 TEST_F(PasswordAutofillAgentTest,
        PasswordSuggestionFillingWhenFormTagHostsShadowDom) {
-  base::test::ScopedFeatureList feature_list{
-      password_manager::features::kShadowDomSupport};
-
   LoadHTML(kFormTagHostsShadowDomInputs);
   ASSERT_TRUE(UpdateFormElementsForFormHostingShadowDom());
 
@@ -5025,9 +5018,6 @@ TEST_F(PasswordAutofillAgentTest,
 // Tests that password generation works when a Shadow DOM tree starts between
 // the <form> and <input> tags.
 TEST_F(PasswordAutofillAgentTest, PasswordGenerationWhenFormTagHostsShadowDom) {
-  base::test::ScopedFeatureList feature_list{
-      password_manager::features::kShadowDomSupport};
-
   LoadHTML(kFormTagHostsShadowDomInputs);
   ASSERT_TRUE(UpdateFormElementsForFormHostingShadowDom());
 
@@ -5123,10 +5113,45 @@ TEST_F(PasswordAutofillAgentTest, TimesReceivedFillDataForFormMetric) {
 }
 
 // Tests that if a password form was focused before parsing happened,
-// suggestions are shown to the user once the form is parsed.
-TEST_F(PasswordAutofillAgentTest, ShowSuggestionsOnParsingAutofocusedForm) {
+// suggestions are shown to the user once the form is parsed on Desktop,
+// but not on Android.
+TEST_F(PasswordAutofillAgentTest,
+       ShowSuggestionsOnParsingAutofocusedPasswordForm) {
   scoped_feature_list_.InitAndEnableFeature(
       password_manager::features::kShowSuggestionsOnAutofocus);
+
+#if BUILDFLAG(IS_ANDROID)
+  // A fixture needed to properly test suggestions showing on Android.
+  SimulateClosingKeyboardReplacingSurfaceIfAndroid(kUsernameName);
+  // The method above leaves the field focused, which is not needed for this
+  // test.
+  BlurElement(kUsernameName);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+  FocusElement(kUsernameName);
+  CheckSuggestionsNotShown();
+
+  // Simulate receiving credentials for filling from the browser and verify that
+  // suggestions are shown to the user.
+  fill_data_.wait_for_username = true;
+  SimulateOnFillPasswordForm(fill_data_);
+#if BUILDFLAG(IS_ANDROID)
+  CheckSuggestionsNotShown();
+#else
+  CheckSuggestions(/*typed_username=*/u"", true);
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
+// Tests that if a password form supporting WebAuthn was focused before parsing
+// happened, suggestions are shown to the user once the form is parsed on all
+// platforms.
+TEST_F(PasswordAutofillAgentTest,
+       ShowSuggestionsOnParsingAutofocusedWebAuthnForm) {
+  scoped_feature_list_.InitAndEnableFeature(
+      password_manager::features::kShowSuggestionsOnAutofocus);
+  LoadHTML(kWebAutnFieldHTML);
+  UpdateUsernameAndPasswordElements();
+  UpdateRendererIDsInFillData();
 
 #if BUILDFLAG(IS_ANDROID)
   // A fixture needed to properly test suggestions showing on Android.
@@ -5178,7 +5203,7 @@ TEST_F(PasswordAutofillAgentTest,
 // Tests that if a password form is not focused, suggestions are not shown to
 // the user once the form is parsed.
 TEST_F(PasswordAutofillAgentTest,
-       DoNotShowSuggestionsOnParsingWebAuthnFormWithoutFocus) {
+       DoNotShowSuggestionsOnParsingFormWithoutFocus) {
   scoped_feature_list_.InitAndEnableFeature(
       password_manager::features::kShowSuggestionsOnAutofocus);
 
@@ -5216,6 +5241,61 @@ TEST_F(PasswordAutofillAgentTest, InformingBrowserAboutIrrelevantTextFields) {
   // The users types into a field that was not parsed as username.
   SimulateUsernameTyping(kUsernameName);
   EXPECT_EQ(0, fake_driver_.called_inform_about_user_input_count());
+}
+
+// Tests that fields with banned fields do not show password suggestions.
+TEST_F(PasswordAutofillAgentTest, NoFillingFallbackForBannedFields) {
+  // Form consists both of credential and credit card fields.
+  LoadHTML(
+      R"(
+        <input type="text" id="username-field" name="username-field">
+        <input type="password" id="password-field" name="password-field">
+        <input type="text" id="credit-card-full-name"
+          name="credit-card-full-name" placeholder="Full Name">
+        <input type="password" id="credit-card-number"
+          name="credit-card-number" placeholder="Card number">
+        <input type="password" id="credit-card-cvc" name="credit-card-cvc"
+          placeholder="CVC">
+    )");
+  WebInputElement username_field = GetInputElementByID("username-field");
+  WebInputElement password_field = GetInputElementByID("username-field");
+  WebInputElement credit_card_full_name_field =
+      GetInputElementByID("credit-card-full-name");
+  WebInputElement credit_card_number_field =
+      GetInputElementByID("credit-card-number");
+  WebInputElement credit_card_cvc_field =
+      GetInputElementByID("credit-card-cvc");
+
+  // Password Manager found credential fields and has saved credentials.
+  PasswordFormFillData form_data;
+  form_data.form_renderer_id = FormRendererId();
+  form_data.username_element_renderer_id = FieldRef(username_field).GetId();
+  form_data.password_element_renderer_id = FieldRef(password_field).GetId();
+  form_data.preferred_login.username_value = kAliceUsername16;
+  form_data.preferred_login.password_value = kAlicePassword16;
+  form_data.suggestion_banned_fields = {
+      FieldRef(credit_card_full_name_field).GetId(),
+      FieldRef(credit_card_number_field).GetId(),
+      FieldRef(credit_card_cvc_field).GetId()};
+  password_autofill_agent_->SetPasswordFillData(form_data);
+
+  // Expect filling suggestion on credential forms.
+  EXPECT_TRUE(password_autofill_agent_->ShowSuggestions(
+      username_field,
+      AutofillSuggestionTriggerSource::kFormControlElementClicked));
+  EXPECT_TRUE(password_autofill_agent_->ShowSuggestions(
+      password_field,
+      AutofillSuggestionTriggerSource::kFormControlElementClicked));
+  // Expect no filling suggestion on credit card forms.
+  EXPECT_FALSE(password_autofill_agent_->ShowSuggestions(
+      credit_card_full_name_field,
+      AutofillSuggestionTriggerSource::kFormControlElementClicked));
+  EXPECT_FALSE(password_autofill_agent_->ShowSuggestions(
+      credit_card_number_field,
+      AutofillSuggestionTriggerSource::kFormControlElementClicked));
+  EXPECT_FALSE(password_autofill_agent_->ShowSuggestions(
+      credit_card_cvc_field,
+      AutofillSuggestionTriggerSource::kFormControlElementClicked));
 }
 
 #if BUILDFLAG(IS_ANDROID)

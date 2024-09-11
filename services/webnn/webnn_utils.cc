@@ -23,7 +23,7 @@ std::string OpKindToString(mojom::Conv2d::Kind kind) {
     case mojom::Conv2d::Kind::kTransposed:
       return ops::kConvTranspose2d;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 std::string OpKindToString(mojom::Pool2d::Kind kind) {
@@ -147,7 +147,7 @@ std::string OpTagToString(mojom::Operation::Tag tag) {
     case mojom::Operation::Tag::kWhere:
       return ops::kWhere;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 std::string OpKindToString(mojom::ArgMinMax::Kind kind) {
@@ -157,7 +157,7 @@ std::string OpKindToString(mojom::ArgMinMax::Kind kind) {
     case mojom::ArgMinMax::Kind::kMax:
       return ops::kArgMax;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 std::string OpKindToString(mojom::ElementWiseBinary::Kind kind) {
@@ -309,6 +309,14 @@ std::vector<uint32_t> PermuteArray(base::span<const uint32_t> array,
   }
 
   return permuted_array;
+}
+
+bool IsLogicalElementWiseBinary(mojom::ElementWiseBinary::Kind kind) {
+  return kind == mojom::ElementWiseBinary::Kind::kEqual ||
+         kind == mojom::ElementWiseBinary::Kind::kGreater ||
+         kind == mojom::ElementWiseBinary::Kind::kGreaterOrEqual ||
+         kind == mojom::ElementWiseBinary::Kind::kLesser ||
+         kind == mojom::ElementWiseBinary::Kind::kLesserOrEqual;
 }
 
 }  // namespace webnn

@@ -29,7 +29,8 @@ class NewTabPageHeaderViewControllerUnitTest : public PlatformTest {
     scoped_feature_list_.InitWithFeatures({kHomeCustomization}, {});
 
     view_controller_ = [[NewTabPageHeaderViewController alloc]
-        initWithUseNewBadgeForLensButton:YES];
+        initWithUseNewBadgeForLensButton:YES
+         useNewBadgeForCustomizationMenu:YES];
   }
 
  protected:
@@ -43,7 +44,7 @@ TEST_F(NewTabPageHeaderViewControllerUnitTest, TestSignedOut) {
   [view_controller_ loadViewIfNeeded];
 
   EXPECT_NE(nil, view_controller_.identityDiscButton);
-  EXPECT_NE(nil, view_controller_.headerView.customizationMenuView);
+  EXPECT_NE(nil, view_controller_.headerView.customizationMenuButton);
 
   // Checks that the identity disc's label is correctly set when
   // `setSignedOutAccountImage` is called, which is triggered by the mediator
@@ -60,7 +61,7 @@ TEST_F(NewTabPageHeaderViewControllerUnitTest, TestSignedIn) {
   [view_controller_ loadViewIfNeeded];
 
   EXPECT_NE(nil, view_controller_.identityDiscButton);
-  EXPECT_NE(nil, view_controller_.headerView.customizationMenuView);
+  EXPECT_NE(nil, view_controller_.headerView.customizationMenuButton);
 
   // Checks that the identity disc's label is correctly set when
   // `updateAccountImage:name:email:` is called, which is triggered by the

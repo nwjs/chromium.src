@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/chromeos/crosier_tests.gni")
+import("//build/config/chrome_build.gni")
 import("//build/config/chromeos/ui_mode.gni")
 
 assert(is_chromeos_ash)
@@ -26,6 +28,8 @@ static_library("arc") {
     "icon_decode_request.cc",
     "icon_decode_request.h",
   ]
+
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
   deps = [
     "//ash",
@@ -73,6 +77,10 @@ static_library("arc") {
     "//chrome/browser/image_decoder",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources:component_extension_resources_grit",
+    "//chrome/browser/ui/webui/ash",
+    "//chrome/browser/ui/webui/ash/settings/pages/about",
+    "//chrome/browser/ui/webui/ash/settings/pages/apps",
+    "//chrome/browser/ui/webui/ash/settings/pages/device",
     "//chrome/common",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus",
@@ -132,6 +140,9 @@ static_library("arc") {
     "//chrome/browser/ash/login/demo_mode",
     "//chrome/browser/ash/login/session",
     "//chrome/browser/ash/platform_keys/key_permissions",
+    "//chrome/browser/ui/webui/ash/settings/pages/about",
+    "//chrome/browser/ui/webui/ash/settings/pages/apps",
+    "//chrome/browser/ui/webui/ash/settings/pages/device",
   ]
 }
 
@@ -153,7 +164,7 @@ source_set("unit_tests") {
     "//ash/components/arc:arc_test_support",
     "//base",
     "//chrome/browser/ash",
-    "//chrome/browser/ash:test_support",
+    "//chrome/browser/ash/app_list/arc:test_support",
     "//chrome/browser/ash/arc/extensions:test_support",
     "//chrome/browser/ash/arc/fileapi",
     "//chrome/browser/ash/arc/policy",
@@ -161,6 +172,8 @@ source_set("unit_tests") {
     "//chrome/browser/ash/login",
     "//chrome/browser/ash/login/demo_mode:test_support",
     "//chrome/browser/ash/login/ui:test_support",
+    "//chrome/browser/ash/login/users:test_support",
+    "//chrome/browser/ui/webui/ash/login",
     "//chrome/test:test_support",
     "//chromeos/ash/components/install_attributes",
     "//components/arc:arc_test_support",
@@ -218,4 +231,21 @@ group("browser_tests") {
     "//chrome/browser/ash/arc/user_session:browser_tests",
     "//chrome/browser/ash/arc/vmm:browser_tests",
   ]
+}
+
+if (is_chromeos_device && is_chrome_branded) {
+  crosier_tests("integration_tests") {
+    sources = [ "arc_integration_test.cc" ]
+
+    sources_metadata = []  # Yaml file is missing.
+
+    deps = [
+      ":arc",
+      "//chrome/browser/ash/login/test:test_support",
+      "//chrome/test:ash_integration_test_support",
+      "//chrome/test:test_support",
+      "//chromeos/ui/base",
+      "//ui/aura",
+    ]
+  }
 }

@@ -57,6 +57,7 @@
 #include "third_party/blink/renderer/core/css/css_selector_watch.h"
 #include "third_party/blink/renderer/core/css/css_style_declaration.h"
 #include "third_party/blink/renderer/core/css/css_style_rule.h"
+#include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/element_rule_collector.h"
 #include "third_party/blink/renderer/core/css/font_face.h"
 #include "third_party/blink/renderer/core/css/out_of_flow_data.h"
@@ -137,6 +138,11 @@ bool ShouldStoreOldStyle(const StyleRecalcContext& style_recalc_context,
   // inside a size query container, or doing multiple style resolutions for
   // position-try-fallbacks.
   //
+  // For anchored elements that generate pseudo elements, we also need to store
+  // the old style for animating pseudo elements because style recalc for the
+  // originating anchored elements will always update its pseudo elements,
+  // causing the pseudo element styling to also have multiple passes.
+  //
   // If we are not inside a size query container or an element with
   // position-try-fallbacks, we can fall back to the default behavior (in
   // CSSAnimations) of using the current style on Element as the old style.
@@ -149,6 +155,9 @@ bool ShouldStoreOldStyle(const StyleRecalcContext& style_recalc_context,
   return (style_recalc_context.container ||
           state.StyleBuilder().HasAnchorFunctions() ||
           state.StyleBuilder().PositionAnchor() ||
+          (state.IsForPseudoElement() &&
+           (state.ParentStyle()->HasAnchorFunctions() ||
+            state.ParentStyle()->PositionAnchor())) ||
           state.StyleBuilder().GetPositionTryFallbacks() != nullptr) &&
          state.CanAffectAnimations();
 }
@@ -464,7 +473,7 @@ static CSSPropertyValueSet* UniversalOverlayUserAgentDeclaration() {
   return decl;
 }
 
-// UA rule: ::scroll-marker-group { contain: size !important; }
+// UA rule: ::scroll-marker-group { contain: layout size !important; }
 // The generation of ::scroll-marker pseudo-elements
 // cannot invalidate layout outside of this pseudo-element.
 static CSSPropertyValueSet* ScrollMarkerGroupUserAgentDeclaration() {
@@ -473,9 +482,10 @@ static CSSPropertyValueSet* ScrollMarkerGroupUserAgentDeclaration() {
       (MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLStandardMode)));
 
   if (decl->IsEmpty()) {
-    decl->SetProperty(CSSPropertyID::kContain,
-                      *CSSIdentifierValue::Create(CSSValueID::kSize),
-                      true /* important */);
+    CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+    list->Append(*CSSIdentifierValue::Create(CSSValueID::kLayout));
+    list->Append(*CSSIdentifierValue::Create(CSSValueID::kSize));
+    decl->SetProperty(CSSPropertyID::kContain, *list, /*important=*/true);
   }
   return decl;
 }
@@ -876,7 +886,7 @@ void StyleResolver::ForEachUARulesForElement(const Element& element,
   CSSDefaultStyleSheets& default_style_sheets =
       CSSDefaultStyleSheets::Instance();
   if (!print_media_type_) {
-    if (LIKELY(element.IsHTMLElement() || element.IsVTTElement())) {
+    if (element.IsHTMLElement() || element.IsVTTElement()) [[likely]] {
       func(default_style_sheets.DefaultHtmlStyle());
     } else if (element.IsSVGElement()) {
       func(default_style_sheets.DefaultSVGStyle());
@@ -1474,16 +1484,16 @@ void StyleResolver::ApplyBaseStyleNoCache(
     }
   }
 
-  if (element->IsScrollMarkerGroupPseudoElement()) {
-    cascade.MutableMatchResult().AddMatchedProperties(
-        ScrollMarkerGroupUserAgentDeclaration(), CascadeOrigin::kUserAgent);
-  }
-
   ElementRuleCollector collector(state.ElementContext(), style_recalc_context,
                                  selector_filter_, cascade.MutableMatchResult(),
                                  state.InsideLink());
 
   if (style_request.IsPseudoStyleRequest()) {
+    if (style_request.pseudo_id == kPseudoIdScrollMarkerGroup) {
+      cascade.MutableMatchResult().AddMatchedProperties(
+          ScrollMarkerGroupUserAgentDeclaration(), CascadeOrigin::kUserAgent);
+    }
+
     collector.SetPseudoElementStyleRequest(style_request);
     GetDocument().GetStyleEngine().EnsureUAStyleForPseudoElement(
         style_request.pseudo_id);
@@ -1541,7 +1551,7 @@ void StyleResolver::ApplyBaseStyleNoCache(
 
   if (!cache_success.IsFullCacheHit()) {
     ApplyPropertiesFromCascade(state, cascade, cache_success);
-    MaybeAddToMatchedPropertiesCache(state, cache_success, result);
+    MaybeAddToMatchedPropertiesCache(state, cache_success);
   }
 
   // TODO(crbug.com/1024156): do this for CustomHighlightNames too, so we
@@ -2463,8 +2473,7 @@ StyleResolver::CacheSuccess StyleResolver::ApplyMatchedCache(
 
 void StyleResolver::MaybeAddToMatchedPropertiesCache(
     StyleResolverState& state,
-    const CacheSuccess& cache_success,
-    const MatchResult& match_result) {
+    const CacheSuccess& cache_success) {
   state.LoadPendingResources();
 
   // NOTE: We replace everything that isn't a full cache hit. There are cases
@@ -2842,7 +2851,6 @@ void StyleResolver::Trace(Visitor* visitor) const {
   visitor->Trace(selector_filter_);
   visitor->Trace(document_);
   visitor->Trace(tracker_);
-  visitor->Trace(formatted_text_element_);
 }
 
 bool StyleResolver::IsForcedColorsModeEnabled() const {
@@ -3156,10 +3164,8 @@ void StyleResolver::PropagateStyleToViewport() {
                    nullptr);
     PROPAGATE_FROM(document_element_style, ForcedColorAdjust,
                    SetForcedColorAdjust, EForcedColorAdjust::kAuto);
-    if (RuntimeEnabledFeatures::UsedColorSchemeRootScrollbarsEnabled()) {
-      PROPAGATE_FROM(document_element_style, ColorSchemeFlagsIsNormal,
-                     SetColorSchemeFlagsIsNormal, false);
-    }
+    PROPAGATE_FROM(document_element_style, ColorSchemeFlagsIsNormal,
+                   SetColorSchemeFlagsIsNormal, false);
   }
 
   // scroll-start
@@ -3184,69 +3190,6 @@ void StyleResolver::PropagateStyleToViewport() {
 }
 #undef PROPAGATE_VALUE
 #undef PROPAGATE_FROM
-
-const ComputedStyle* StyleResolver::StyleForFormattedText(
-    bool is_text_run,
-    const FontDescription& default_font,
-    const CSSPropertyValueSet* css_property_value_set) {
-  return StyleForFormattedText(is_text_run, &default_font,
-                               /*parent_style*/ nullptr,
-                               css_property_value_set);
-}
-
-const ComputedStyle* StyleResolver::StyleForFormattedText(
-    bool is_text_run,
-    const ComputedStyle& parent_style,
-    const CSSPropertyValueSet* css_property_value_set) {
-  return StyleForFormattedText(is_text_run, /*default_font*/ nullptr,
-                               &parent_style, css_property_value_set);
-}
-
-const ComputedStyle* StyleResolver::StyleForFormattedText(
-    bool is_text_run,
-    const FontDescription* default_font,
-    const ComputedStyle* parent_style,
-    const CSSPropertyValueSet* css_property_value_set) {
-  DCHECK_NE(!!parent_style, !!default_font)
-      << "only one of `default_font` or `parent_style` should be specified";
-
-  // Set up our initial style properties based on either the `default_font` or
-  // `parent_style`.
-  ComputedStyleBuilder builder =
-      default_font ? CreateComputedStyleBuilder()
-                   : CreateComputedStyleBuilderInheritingFrom(*parent_style);
-  if (default_font) {
-    builder.SetFontDescription(*default_font);
-  }
-  builder.SetDisplay(is_text_run ? EDisplay::kInline : EDisplay::kBlock);
-
-  if (!css_property_value_set) {
-    return builder.TakeStyle();
-  }
-
-  // Apply any properties in the `css_property_value_set`.
-
-  // Use a dummy/disconnected element when resolving the styles so that we
-  // don't inherit anything from existing elements.
-  StyleResolverState state(
-      GetDocument(), EnsureElementForFormattedText(),
-      nullptr /* StyleRecalcContext */,
-      StyleRequest{parent_style ? parent_style : &InitialStyle()});
-  state.SetStyle(*builder.TakeStyle());
-
-  // Use StyleCascade to apply inheritance in the correct order.
-  STACK_UNINITIALIZED StyleCascade cascade(state);
-  cascade.MutableMatchResult().BeginAddingAuthorRulesForTreeScope(
-      GetDocument());
-  cascade.MutableMatchResult().AddMatchedProperties(css_property_value_set,
-                                                    CascadeOrigin::kAuthor,
-                                                    {.is_inline_style = true});
-  cascade.Apply();
-
-  StyleAdjuster::AdjustComputedStyle(state, nullptr);
-
-  return state.TakeStyle();
-}
 
 static Font ComputeInitialLetterFont(const ComputedStyle& style,
                                      const ComputedStyle& paragraph_style) {
@@ -3306,14 +3249,6 @@ const ComputedStyle* StyleResolver::StyleForInitialLetterText(
   builder.SetLineHeight(Length::Fixed(builder.FontHeight()));
   builder.SetVerticalAlign(EVerticalAlign::kBaseline);
   return builder.TakeStyle();
-}
-
-Element& StyleResolver::EnsureElementForFormattedText() {
-  if (!formatted_text_element_) {
-    formatted_text_element_ =
-        MakeGarbageCollected<Element>(html_names::kSpanTag, &GetDocument());
-  }
-  return *formatted_text_element_;
 }
 
 StyleRulePositionTry* StyleResolver::ResolvePositionTryRule(

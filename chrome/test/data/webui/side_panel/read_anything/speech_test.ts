@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import type {ReadAnythingElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import type {AppElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {PauseActionSource, ToolbarEvent, WordBoundaryMode} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertFalse, assertGT, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
@@ -13,7 +13,7 @@ import {FakeSpeechSynthesis} from './fake_speech_synthesis.js';
 // TODO: b/323960128 - Add tests for word boundaries here or in a
 // separate file.
 suite('Speech', () => {
-  let app: ReadAnythingElement;
+  let app: AppElement;
   let speechSynthesis: FakeSpeechSynthesis;
   const paragraph1: string[] = [
     'Something has changed within me, something is not the same.',
@@ -85,6 +85,7 @@ suite('Speech', () => {
     chrome.readingMode.setContentForTesting(axTree, leafIds);
     speechSynthesis = new FakeSpeechSynthesis();
     app.synth = speechSynthesis;
+    speechSynthesis.setDefaultVoices();
 
     app.enabledLangs = ['en'];
     app.getSpeechSynthesisVoice();
@@ -209,6 +210,7 @@ suite('Speech', () => {
         'after speech started, cancels speech and plays from selection',
         async () => {
           app.speechPlayingState.isSpeechTreeInitialized = true;
+          app.speechPlayingState.hasSpeechBeenTriggered = true;
 
           await selectAndPlay(axTree, 5, 0, 5, 10);
 
@@ -275,6 +277,7 @@ suite('Speech', () => {
     setup(() => {
       chrome.readingMode.initAxPositionWithNode(2);
       app.speechPlayingState.isSpeechTreeInitialized = true;
+      app.speechPlayingState.hasSpeechBeenTriggered = true;
       app.stopSpeech(PauseActionSource.BUTTON_CLICK);
     });
 
@@ -321,14 +324,17 @@ suite('Speech', () => {
   });
 
   test('previous granularity plays from there', () => {
+    speechSynthesis.setMaxSegments(7);
     chrome.readingMode.initAxPositionWithNode(2);
     app.playSpeech();
     speechSynthesis.clearSpokenUtterances();
 
+    speechSynthesis.setMaxSegments(1);
     emitEvent(app, ToolbarEvent.PREVIOUS_GRANULARITY);
 
     assertEquals(1, speechSynthesis.spokenUtterances.length);
-    assertEquals(paragraph2.at(-1)!, speechSynthesis.spokenUtterances[0]!.text);
+    assertEquals(
+        paragraph2.at(-2)!, speechSynthesis.spokenUtterances[0]!.text.trim());
   });
 
 
@@ -371,6 +377,7 @@ suite('Speech', () => {
       // Remote voices already reduce the size of a speech segment to avoid
       // the bug where speech stops without an error callback.
       speechSynthesis.useLocalVoices();
+      speechSynthesis.setDefaultVoices();
       chrome.readingMode.onVoiceChange = () => {};
       emitEvent(
           app, 'select-voice',
@@ -408,6 +415,7 @@ suite('Speech', () => {
     setup(() => {
       chrome.readingMode.initAxPositionWithNode(2);
       app.speechPlayingState.isSpeechTreeInitialized = true;
+      app.speechPlayingState.hasSpeechBeenTriggered = true;
       app.speechPlayingState.isSpeechActive = true;
     });
 

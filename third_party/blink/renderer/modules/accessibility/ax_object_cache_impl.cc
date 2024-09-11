@@ -460,6 +460,13 @@ bool IsShadowContentRelevantForAccessibility(const Node* node) {
       if (element->FastGetAttribute(html_names::kAriaHiddenAttr) == "true") {
         return false;
       }
+
+      // <select>'s autofill preview should not be included in the accessibility
+      // tree.
+      if (element->ShadowPseudoId() ==
+          shadow_element_names::kSelectAutofillPreview) {
+        return false;
+      }
     }
   }
 
@@ -1197,15 +1204,14 @@ bool AXObjectCacheImpl::IsRelevantPseudoElement(const Node& node) {
   if (!node.GetLayoutObject())
     return false;
 
-  // ::before, ::after, ::marker, ::scroll-marker and ::scroll-marker-group are
-  // relevant. Allowing these pseudo elements ensures that all visible
-  // descendant pseudo content will be reached, despite only being able to walk
-  // layout inside of pseudo content. However, AXObjects aren't created for
+  // ::before, ::after, ::marker, ::scroll-marker, ::scroll-*-buttons and
+  // ::scroll-marker-group are relevant. Allowing these pseudo elements ensures
+  // that all visible descendant pseudo content will be reached, despite only
+  // being able to walk layout inside of pseudo content. However, AXObjects
+  // aren't created for
   // ::first-letter subtrees. The text of ::first-letter is already available in
   // the child text node of the element that the CSS ::first letter applied to.
-  if (node.IsMarkerPseudoElement() || node.IsBeforePseudoElement() ||
-      node.IsAfterPseudoElement() || node.IsScrollMarkerGroupPseudoElement() ||
-      node.IsScrollMarkerPseudoElement()) {
+  if (To<PseudoElement>(node).CanGenerateContent()) {
     // Ignore non-inline whitespace content, which is used by many pages as
     // a "Micro Clearfix Hack" to clear floats without extra HTML tags. See
     // http://nicolasgallagher.com/micro-clearfix-hack/
@@ -3113,7 +3119,10 @@ void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
 
   SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
       "Accessibility.Performance.TotalAccessibilityCleanLayoutLifecycleStages");
-  TRACE_EVENT0("accessibility", "TotalAccessibilityCleanLayoutLifecycleStages");
+  TRACE_EVENT0("accessibility",
+               load_sent_
+                   ? "TotalAccessibilityCleanLayoutLifecycleStages"
+                   : "TotalAccessibilityCleanLayoutLifecycleStagesLoading");
 
   // Upon exiting this function, listen for tree updates again.
   absl::Cleanup lifecycle_returns_to_queueing_updates = [this] {
@@ -3127,7 +3136,9 @@ void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
     {
       SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
           "Accessibility.Performance.ProcessDeferredUpdatesLifecycleStage");
-      TRACE_EVENT0("accessibility", "ProcessDeferredUpdatesLifecycleStage");
+      TRACE_EVENT0("accessibility",
+                   load_sent_ ? "ProcessDeferredUpdatesLifecycleStage"
+                              : "ProcessDeferredUpdatesLifecycleStageLoading");
 
       // If this is the first update, ensure that both an initial tree exists
       // and that the relation cache is initialized. Any existing content with
@@ -3197,7 +3208,9 @@ void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
         lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kFinalizingTree);
         SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
             "Accessibility.Performance.FinalizingTreeLifecycleStage");
-        TRACE_EVENT0("accessibility", "FinalizingTreeLifecycleStage");
+        TRACE_EVENT0("accessibility",
+                     load_sent_ ? "FinalizingTreeLifecycleStage"
+                                : "FinalizingTreeLifecycleStageLoading");
 
         // Build out tree, such that each node has computed its children.
         FinalizeTree();
@@ -3216,7 +3229,8 @@ void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
   lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kSerialize);
   SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
       "Accessibility.Performance.SerializeLifecycleStage");
-  TRACE_EVENT0("accessibility", "SerializeLifecycleStage");
+  TRACE_EVENT0("accessibility", load_sent_ ? "SerializeLifecycleStage"
+                                           : "SerializeLifecycleStageLoading");
 
   // Check whether serializations are needed, or whether we are just here to
   // update as part of a tree snapshot.
@@ -3359,6 +3373,10 @@ bool AXObjectCacheImpl::SerializeUpdatesAndEvents() {
     // really occur and thus the function will return false.
     // Cancel serialization to avoid stalling pipeline.
     OnSerializationCancelled();
+  }
+
+  if (had_load_complete_messages) {
+    load_sent_ = true;
   }
 
   CHECK(serialization_in_flight_ == success);
@@ -3781,7 +3799,21 @@ bool AXObjectCacheImpl::MayHaveHTMLLabel(const HTMLElement& elem) {
   }
 
   // Return true if any ancestor is a label, as in <label><input></label>.
-  return Traversal<HTMLLabelElement>::FirstAncestor(elem);
+  if (Traversal<HTMLLabelElement>::FirstAncestor(elem)) {
+    return true;
+  }
+
+  // If the element is the reference target of its shadow host, also check if
+  // the host may have a label.
+  if (ShadowRoot* shadow_root = elem.ContainingShadowRoot()) {
+    if (shadow_root->referenceTargetElement() == &elem) {
+      if (HTMLElement* host = DynamicTo<HTMLElement>(shadow_root->host())) {
+        return MayHaveHTMLLabel(*host);
+      }
+    }
+  }
+
+  return false;
 }
 
 bool AXObjectCacheImpl::IsLabelOrDescription(Element& element) {
@@ -4290,6 +4322,14 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
     ChildrenChanged(element);
   } else if (attr_name == html_names::kHrefAttr) {
     DeferTreeUpdate(TreeUpdateReason::kRoleMaybeChangedFromHref, element);
+  } else if (attr_name == html_names::kLangAttr) {
+    MarkElementDirty(element);
+    // ATs may look at the language of the document as a whole on the root web
+    // area. Since the root's language can come from the <html> element's
+    // language, if the language changes on <html>, we need to update the root.
+    if (element == document_->documentElement()) {
+      MarkElementDirty(document_);
+    }
   }
 }
 
@@ -5011,6 +5051,10 @@ void AXObjectCacheImpl::MarkDocumentDirtyWithCleanLayout() {
   Root()->SetHasDirtyDescendants(true);
   MarkAXSubtreeDirtyWithCleanLayout(Root());
   ChildrenChangedWithCleanLayout(Root());
+  // Do not trim out load complete messages, they must be fired.
+  if (!load_sent_ && GetDocument().IsLoadCompleted()) {
+    PostNotification(&GetDocument(), ax::mojom::blink::Event::kLoadComplete);
+  }
 }
 
 void AXObjectCacheImpl::ResetSerializer() {
@@ -5182,7 +5226,8 @@ void AXObjectCacheImpl::SerializeLocationChanges() {
     return;
   }
 
-  TRACE_EVENT0("accessibility", "SerializeLocationChanges");
+  TRACE_EVENT0("accessibility", load_sent_ ? "SerializeLocationChanges"
+                                           : "SerializeLocationChangesLoading");
   SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
       "Accessibility.Performance.SerializeLocationChanges");
 

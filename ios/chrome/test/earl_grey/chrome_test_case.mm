@@ -223,6 +223,7 @@ void ResetAuthentication() {
   ResetAuthentication();
 
   // Reset any remaining sign-in state from previous tests.
+  [ChromeEarlGrey killWebKitNetworkProcess];
   [ChromeEarlGrey signOutAndClearIdentities];
   if (![ChromeTestCase isStartupTest]) {
     [ChromeEarlGrey openNewTab];
@@ -255,6 +256,7 @@ void ResetAuthentication() {
     [ChromeEarlGrey stopAllWebStatesLoading];
 
     // Clear any remaining test accounts and signed in users.
+    [ChromeEarlGrey killWebKitNetworkProcess];
     [ChromeEarlGrey signOutAndClearIdentities];
 
     [[self class] enableMockAuthentication];

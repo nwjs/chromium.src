@@ -75,6 +75,7 @@ bool IsFooterSuggestionType(SuggestionType type) {
     case SuggestionType::kCreditCardEntry:
     case SuggestionType::kCreditCardFieldByFieldFilling:
     case SuggestionType::kDatalistEntry:
+    case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddressEntry:
     case SuggestionType::kDevtoolsTestAddresses:
     case SuggestionType::kFillExistingPlusAddress:
@@ -165,9 +166,12 @@ void NotifyUserEducationAboutAcceptedSuggestion(
          IphEventPair{
              &feature_engagement::kIPHAutofillVirtualCardSuggestionFeature,
              "autofill_virtual_card_suggestion_accepted"},
+         IphEventPair{&feature_engagement::
+                          kIPHAutofillDisabledVirtualCardSuggestionFeature,
+                      "autofill_disabled_virtual_card_suggestion_accepted"},
          IphEventPair{
-             &feature_engagement::kIPHAutofillVirtualCardSuggestionFeature,
-             "autofill_virtual_card_suggestion_accepted"}});
+             &feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature,
+             "autofill_virtual_card_cvc_suggestion_accepted"}});
     if (auto it = base::ranges::find(kIphFeatures, suggestion.feature_for_iph,
                                      &IphEventPair::first);
         it != kIphFeatures.end()) {

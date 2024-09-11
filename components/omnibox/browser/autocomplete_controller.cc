@@ -38,6 +38,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "build/build_config.h"
 #include "components/omnibox/browser/actions/omnibox_action_in_suggest.h"
@@ -63,7 +64,6 @@
 #include "components/omnibox/browser/most_visited_sites_provider.h"
 #include "components/omnibox/browser/omnibox_feature_configs.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
-#include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/on_device_head_provider.h"
 #include "components/omnibox/browser/open_tab_provider.h"
 #include "components/omnibox/browser/page_classification_functions.h"
@@ -216,6 +216,17 @@ void RecordScoringSignalCoverageForProvider(
             provider_type + "." + pair.first,
         pair.second);
   }
+}
+
+void RecordMlScoringElapsedTime(base::TimeDelta elapsed) {
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "Omnibox.URLScoringModelExecuted.ElapsedTime", elapsed,
+      base::Microseconds(1), base::Milliseconds(3), 100);
+}
+
+void RecordTotalMatchesScored(size_t num_scored) {
+  base::UmaHistogramCounts1000("Omnibox.URLScoringModelExecuted.Matches",
+                               num_scored);
 }
 
 // Appends available autocompletion of the given type, subtype, and number to
@@ -1250,7 +1261,9 @@ void AutocompleteController::InitializeSyncProviders(int provider_types) {
   }
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   if (provider_types & AutocompleteProvider::TYPE_FEATURED_SEARCH) {
-    providers_.push_back(new FeaturedSearchProvider(provider_client_.get()));
+    featured_search_provider_ =
+        new FeaturedSearchProvider(provider_client_.get());
+    providers_.push_back(featured_search_provider_.get());
   }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 }
@@ -1451,8 +1464,17 @@ void AutocompleteController::PostProcessMatches() {
   MaybeRemoveCompanyEntityImages(&internal_result_);
   MaybeCleanSuggestionsForKeywordMode(input_, &internal_result_);
 
+  // Notify providers which of their matches were shown. If we end up with more
+  // providers to notify, we should add `RegisterDisplayedMatches()` to the
+  // `AutocompleteProvider` interface and iterate all providers here.
   if (search_provider_)
     search_provider_->RegisterDisplayedAnswers(internal_result_);
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  // `featured_search_provider_` isn't interested in "invisible" autocomplete
+  // runs, e.g. when text is copied.
+  if (featured_search_provider_ && !input_.omit_asynchronous_matches())
+    featured_search_provider_->RegisterDisplayedMatches(internal_result_);
+#endif
 
   // Mark the rich autocompletion feature triggered if the top match, or
   // would-be-top-match if rich autocompletion is counterfactual enabled, is
@@ -1573,6 +1595,7 @@ void AutocompleteController::UpdateAssociatedKeywords(
       // to a typical search.
       match.answer.reset();
       match.answer_template.reset();
+      match.answer_type = omnibox::ANSWER_TYPE_UNSPECIFIED;
       match.associated_keyword = std::make_unique<AutocompleteMatch>(
           keyword_provider_->CreateVerbatimMatch(exact_keyword, exact_keyword,
                                                  input_));
@@ -1996,7 +2019,7 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
 
   size_t eligible_matches_count = base::ranges::count_if(
       internal_result_.matches_,
-      [](const auto& match) { return match.IsUrlScoringEligible(); });
+      [](const auto& match) { return match.IsMlScoringEligible(); });
 
   if (eligible_matches_count == 0)
     return;
@@ -2008,36 +2031,39 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
   std::vector<ACMatches::iterator> eligible_match_itrs;
   for (auto match_itr = internal_result_.begin();
        match_itr != internal_result_.end(); ++match_itr) {
-    if (!match_itr->IsUrlScoringEligible()) {
+    if (!match_itr->IsMlScoringEligible()) {
       continue;
     }
 
     RecordScoringSignalCoverageForProvider(match_itr->scoring_signals.value(),
                                            match_itr->provider.get());
 
-    // Verify the eligible match or one of its duplicates has an expected type.
-    DCHECK(match_itr->MatchOrDuplicateMeets([](const auto& match) {
-      return AutocompleteScoringSignalsAnnotator::IsEligibleMatch(match);
-    })) << "Ineligible "
-        << AutocompleteMatchType::ToString(match_itr->type)
-        << " match receiving model scoring.";
-
     batch_scoring_signals.push_back(&match_itr->scoring_signals.value());
     eligible_match_itrs.push_back(match_itr);
   }
 
   auto elapsed_timer = base::ElapsedTimer();
-  const auto results = provider_client_->GetAutocompleteScoringModelService()
-                           ->BatchScoreAutocompleteUrlMatchesSync(
-                               std::move(batch_scoring_signals));
-  if (results.empty()) {
+  const auto ml_scores = provider_client_->GetAutocompleteScoringModelService()
+                             ->BatchScoreAutocompleteUrlMatchesSync(
+                                 std::move(batch_scoring_signals));
+  if (ml_scores.empty()) {
     return;
   }
 
-  if (results.size() != eligible_match_itrs.size()) {
+  if (ml_scores.size() != eligible_match_itrs.size()) {
     NOTREACHED_IN_MIGRATION();
     return;
   }
+
+  // Record how many eligible matches the model was executed for.
+  RecordTotalMatchesScored(ml_scores.size());
+
+  // Record how long it took to execute the model for all eligible matches.
+  RecordMlScoringElapsedTime(elapsed_timer.Elapsed());
+
+  // Record whether the model was executed for at least one eligible match.
+  provider_client_->GetOmniboxTriggeredFeatureService()->FeatureTriggered(
+      metrics::OmniboxEventProto_Feature_ML_URL_SCORING);
 
   // The goal is to redistribute the existing relevance scores among the
   // eligible matches according to the model prediction scores.
@@ -2053,8 +2079,8 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
   // Likewise, keep the same number of shortcut boosted suggestions but reassign
   // them to the highest scoring suggestions.
   size_t boosted_shortcut_count = 0;
-  for (size_t index = 0; index < results.size(); index++) {
-    const auto& prediction = results[index];
+  for (size_t index = 0; index < ml_scores.size(); index++) {
+    const auto& prediction = ml_scores[index];
     if (!prediction.has_value()) {
       continue;
     }
@@ -2070,22 +2096,7 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
 
   // Record the percentage of matches that were assigned non-null scores by
   // the ML scoring model.
-  RecordMlScoreCoverage(score_coverage_count, results.size());
-
-  if (!relevance_heap.empty()) {
-    // Record whether the model was executed for at least one eligible match.
-    provider_client_->GetOmniboxTriggeredFeatureService()->FeatureTriggered(
-        metrics::OmniboxEventProto_Feature_ML_URL_SCORING);
-
-    // Record how many eligible matches the model was executed for.
-    base::UmaHistogramCounts1000("Omnibox.URLScoringModelExecuted.Matches",
-                                 relevance_heap.size());
-
-    // Record how long it took to execute the model for all eligible matches.
-    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-        "Omnibox.URLScoringModelExecuted.ElapsedTime", elapsed_timer.Elapsed(),
-        base::Microseconds(1), base::Milliseconds(3), 100);
-  }
+  RecordMlScoreCoverage(score_coverage_count, ml_scores.size());
 
   while (!relevance_heap.empty()) {
     // If not in the counterfactual treatment, assign the highest relevance
@@ -2131,12 +2142,7 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
   std::vector<size_t> scored_positions;
   for (size_t i = 0; i < internal_result_.size(); ++i) {
     const auto& match = internal_result_.matches_[i];
-    // Do not attempt to score matches that are generally ineligible for ML
-    // scoring nor any stale suggestions sourced from the DocumentProvider
-    // cache.
-    if (!match.IsUrlScoringEligible() ||
-        (match.type == AutocompleteMatchType::DOCUMENT_SUGGESTION &&
-         match.relevance == 0)) {
+    if (!match.IsMlScoringEligible()) {
       continue;
     }
 
@@ -2152,21 +2158,23 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
   }
 
   auto elapsed_timer = base::ElapsedTimer();
-  const auto results = provider_client_->GetAutocompleteScoringModelService()
-                           ->BatchScoreAutocompleteUrlMatchesSync(
-                               std::move(batch_scoring_signals));
-  if (results.empty()) {
+  const auto ml_scores = provider_client_->GetAutocompleteScoringModelService()
+                             ->BatchScoreAutocompleteUrlMatchesSync(
+                                 std::move(batch_scoring_signals));
+  if (ml_scores.empty()) {
+    return;
+  }
+
+  if (ml_scores.size() != scored_positions.size()) {
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
   // Record how many eligible matches the model was executed for.
-  base::UmaHistogramCounts1000("Omnibox.URLScoringModelExecuted.Matches",
-                               results.size());
+  RecordTotalMatchesScored(ml_scores.size());
 
   // Record how long it took to execute the model for all eligible matches.
-  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-      "Omnibox.URLScoringModelExecuted.ElapsedTime", elapsed_timer.Elapsed(),
-      base::Microseconds(1), base::Milliseconds(3), 100);
+  RecordMlScoringElapsedTime(elapsed_timer.Elapsed());
 
   // Record whether the model was executed for at least one eligible match.
   provider_client_->GetOmniboxTriggeredFeatureService()->FeatureTriggered(
@@ -2181,9 +2189,9 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
   const int grouping_threshold = OmniboxFieldTrial::GetMLConfig()
                                      .mapped_search_blending_grouping_threshold;
 
-  int score_coverage_count = 0;
-  for (size_t i = 0; i < results.size(); ++i) {
-    const auto& prediction = results[i];
+  size_t score_coverage_count = 0;
+  for (size_t i = 0; i < ml_scores.size(); ++i) {
+    const auto& prediction = ml_scores[i];
     float p_value = prediction.value_or(0);
     if (prediction.has_value()) {
       score_coverage_count++;
@@ -2197,7 +2205,7 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
 
   // Record the percentage of matches that were assigned non-null scores by
   // the ML scoring model.
-  RecordMlScoreCoverage(score_coverage_count, results.size());
+  RecordMlScoreCoverage(score_coverage_count, ml_scores.size());
 
   // Following the initial relevance assignment, build a sorted list of
   // values which will contain the finalized set of relevance scores for URL
@@ -2205,9 +2213,7 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
   std::vector<int> scores_pool;
   for (size_t i = 0; i < internal_result_.size(); ++i) {
     const auto& match = internal_result_.matches_[i];
-    if (!match.IsUrlScoringEligible() ||
-        (match.type == AutocompleteMatchType::DOCUMENT_SUGGESTION &&
-         match.relevance == 0)) {
+    if (!match.IsMlScoringEligible()) {
       continue;
     }
     scores_pool.push_back(match.relevance);
@@ -2223,8 +2229,8 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
   }
 
   std::vector<std::pair<float, size_t>> prediction_and_position_heap;
-  for (size_t i = 0; i < results.size(); ++i) {
-    const auto& prediction = results[i];
+  for (size_t i = 0; i < ml_scores.size(); ++i) {
+    const auto& prediction = ml_scores[i];
     prediction_and_position_heap.push_back(
         {prediction.value_or(0), scored_positions[i]});
   }
@@ -2251,10 +2257,19 @@ void AutocompleteController::
                "AutocompleteController::"
                "RunBatchUrlScoringModelPiecewiseMappedSearchBlending");
 
+  using PiecewiseMappingVariant = OmniboxFieldTrial::PiecewiseMappingVariant;
+
   const auto break_points = OmniboxFieldTrial::GetPiecewiseMappingBreakPoints();
   if (break_points.empty()) {
     return;
   }
+
+  const auto break_points_verbatim_url =
+      OmniboxFieldTrial::GetPiecewiseMappingBreakPoints(
+          PiecewiseMappingVariant::kVerbatimUrl);
+  const auto break_points_search =
+      OmniboxFieldTrial::GetPiecewiseMappingBreakPoints(
+          PiecewiseMappingVariant::kSearch);
 
   // Sort according to traditional scores.
   // This is needed in order to ensure that the relevance score assignment logic
@@ -2268,12 +2283,7 @@ void AutocompleteController::
   std::vector<size_t> scored_positions;
   for (size_t i = 0; i < internal_result_.size(); ++i) {
     const auto& match = internal_result_.matches_[i];
-    // Do not attempt to score matches that are generally ineligible for ML
-    // scoring nor any stale suggestions sourced from the DocumentProvider
-    // cache.
-    if (!match.IsUrlScoringEligible() ||
-        (match.type == AutocompleteMatchType::DOCUMENT_SUGGESTION &&
-         match.relevance == 0)) {
+    if (!match.IsMlScoringEligible()) {
       continue;
     }
 
@@ -2289,21 +2299,23 @@ void AutocompleteController::
   }
 
   auto elapsed_timer = base::ElapsedTimer();
-  const auto results = provider_client_->GetAutocompleteScoringModelService()
-                           ->BatchScoreAutocompleteUrlMatchesSync(
-                               std::move(batch_scoring_signals));
-  if (results.empty()) {
+  const auto ml_scores = provider_client_->GetAutocompleteScoringModelService()
+                             ->BatchScoreAutocompleteUrlMatchesSync(
+                                 std::move(batch_scoring_signals));
+  if (ml_scores.empty()) {
+    return;
+  }
+
+  if (ml_scores.size() != scored_positions.size()) {
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
   // Record how many eligible matches the model was executed for.
-  base::UmaHistogramCounts1000("Omnibox.URLScoringModelExecuted.Matches",
-                               results.size());
+  RecordTotalMatchesScored(ml_scores.size());
 
   // Record how long it took to execute the model for all eligible matches.
-  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-      "Omnibox.URLScoringModelExecuted.ElapsedTime", elapsed_timer.Elapsed(),
-      base::Microseconds(1), base::Milliseconds(3), 100);
+  RecordMlScoringElapsedTime(elapsed_timer.Elapsed());
 
   // Record whether the model was executed for at least one eligible match.
   provider_client_->GetOmniboxTriggeredFeatureService()->FeatureTriggered(
@@ -2320,9 +2332,9 @@ void AutocompleteController::
       OmniboxFieldTrial::GetMLConfig()
           .piecewise_mapped_search_blending_relevance_bias;
 
-  int score_coverage_count = 0;
-  for (size_t i = 0; i < results.size(); ++i) {
-    const auto& prediction = results[i];
+  size_t score_coverage_count = 0;
+  for (size_t i = 0; i < ml_scores.size(); ++i) {
+    const auto& prediction = ml_scores[i];
     float p_value = prediction.value_or(0);
     if (prediction.has_value()) {
       score_coverage_count++;
@@ -2330,14 +2342,34 @@ void AutocompleteController::
     auto& match = internal_result_.matches_[scored_positions[i]];
     match.RecordAdditionalInfo("ml legacy relevance", match.relevance);
     match.RecordAdditionalInfo("ml model output", p_value);
+
+    const auto* break_points_for_transform = &break_points;
+    if (match.IsVerbatimUrlSuggestion() && !break_points_verbatim_url.empty()) {
+      break_points_for_transform = &break_points_verbatim_url;
+    } else if (AutocompleteMatch::IsSearchType(match.type) &&
+               !break_points_search.empty()) {
+      break_points_for_transform = &break_points_search;
+    }
     match.relevance =
-        ApplyPiecewiseScoringTransform(p_value, break_points) + relevance_bias;
-    match.shortcut_boosted = match.relevance > grouping_threshold;
+        ApplyPiecewiseScoringTransform(p_value, *break_points_for_transform) +
+        relevance_bias;
+
+    // Shortcut boosting should only be applied to shortcut suggestions that
+    // have been used (visited) more than once. This logic will also overwrite
+    // whatever value was originally set by ShortcutsProvider for the
+    // `shortcut_boosted` property.
+    const bool is_shortcut = match.provider && match.provider->type() ==
+                                                   ProviderType::TYPE_SHORTCUTS;
+    const bool has_enough_visits = match.scoring_signals.has_value() &&
+                                   match.scoring_signals->has_visit_count() &&
+                                   match.scoring_signals->visit_count() >= 2;
+    match.shortcut_boosted = is_shortcut && has_enough_visits &&
+                             match.relevance > grouping_threshold;
   }
 
   // Record the percentage of matches that were assigned non-null scores by
   // the ML scoring model.
-  RecordMlScoreCoverage(score_coverage_count, results.size());
+  RecordMlScoreCoverage(score_coverage_count, ml_scores.size());
 
   // Following the initial relevance assignment, build a sorted list of
   // values which will contain the finalized set of relevance scores for URL
@@ -2345,9 +2377,7 @@ void AutocompleteController::
   std::vector<int> scores_pool;
   for (size_t i = 0; i < internal_result_.size(); ++i) {
     const auto& match = internal_result_.matches_[i];
-    if (!match.IsUrlScoringEligible() ||
-        (match.type == AutocompleteMatchType::DOCUMENT_SUGGESTION &&
-         match.relevance == 0)) {
+    if (!match.IsMlScoringEligible()) {
       continue;
     }
     scores_pool.push_back(match.relevance);
@@ -2363,8 +2393,8 @@ void AutocompleteController::
   }
 
   std::vector<std::pair<float, size_t>> prediction_and_position_heap;
-  for (size_t i = 0; i < results.size(); ++i) {
-    const auto& prediction = results[i];
+  for (size_t i = 0; i < ml_scores.size(); ++i) {
+    const auto& prediction = ml_scores[i];
     prediction_and_position_heap.push_back(
         {prediction.value_or(0), scored_positions[i]});
   }
@@ -2394,24 +2424,31 @@ void AutocompleteController::MaybeRemoveCompanyEntityImages(
   if (result->match_at(0)->type == AutocompleteMatchType::HISTORY_URL) {
     history_domain = GetDomain(*result->match_at(0));
   }
-  if (history_domain.empty()) {
+
+  auto iter = base::ranges::find_if(result->matches_, [](const auto& match) {
+    return match.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY;
+  });
+  if (iter == result->matches_.end()) {
     return;
   }
-  for (size_t i = 1; i < result->size(); i++) {
-    // Do not attempt to change image to search loupe if not an entity
-    // suggestion.
-    if (result->match_at(i)->type !=
-        AutocompleteMatchType::SEARCH_SUGGEST_ENTITY) {
-      continue;
-    }
-    // Check that entity domain has a matching history domain.
-    if (history_domain == GetDomain(*result->match_at(i)) &&
-        (!result->match_at(i)->image_url.is_empty() ||
-         !result->match_at(i)->image_dominant_color.empty())) {
-      result->match_at(i)->image_url = GURL();
-      result->match_at(i)->image_dominant_color.clear();
+
+  bool image_ablated = false;
+  if (!history_domain.empty()) {
+    for (auto it = iter; it != result->matches_.end(); it++) {
+      // Do not attempt to change image to search loupe if not an entity
+      // suggestion.
+      if (it->type != AutocompleteMatchType::SEARCH_SUGGEST_ENTITY) {
+        continue;
+      }
+      // Check that the entity domain matches the history domain.
+      if (history_domain == GetDomain(*it)) {
+        it->image_url = GURL();
+        it->image_dominant_color.clear();
+        image_ablated = true;
+      }
     }
   }
+  base::UmaHistogramBoolean("Omnibox.CompanyEntityImageAblated", image_ablated);
 }
 
 void AutocompleteController::MaybeCleanSuggestionsForKeywordMode(

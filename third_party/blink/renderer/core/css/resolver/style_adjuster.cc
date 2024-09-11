@@ -193,6 +193,7 @@ static EDisplay EquivalentBlockDisplay(EDisplay display) {
     case EDisplay::kListItem:
     case EDisplay::kFlowRoot:
     case EDisplay::kLayoutCustom:
+    case EDisplay::kMasonry:
       return display;
     case EDisplay::kInlineTable:
       return EDisplay::kTable;
@@ -212,6 +213,8 @@ static EDisplay EquivalentBlockDisplay(EDisplay display) {
       return EDisplay::kListItem;
     case EDisplay::kInlineFlowRootListItem:
       return EDisplay::kFlowRootListItem;
+    case EDisplay::kInlineMasonry:
+      return EDisplay::kMasonry;
 
     case EDisplay::kContents:
     case EDisplay::kInline:
@@ -250,6 +253,8 @@ static EDisplay EquivalentInlineDisplay(EDisplay display) {
       return EDisplay::kInlineFlex;
     case EDisplay::kGrid:
       return EDisplay::kInlineGrid;
+    case EDisplay::kMasonry:
+      return EDisplay::kInlineMasonry;
     case EDisplay::kBlockMath:
       return EDisplay::kMath;
     case EDisplay::kBlockRuby:
@@ -264,6 +269,7 @@ static EDisplay EquivalentInlineDisplay(EDisplay display) {
     case EDisplay::kInlineGrid:
     case EDisplay::kInlineLayoutCustom:
     case EDisplay::kInlineListItem:
+    case EDisplay::kInlineMasonry:
     case EDisplay::kInlineTable:
     case EDisplay::kMath:
     case EDisplay::kRuby:
@@ -898,6 +904,7 @@ void StyleAdjuster::AdjustForForcedColorsMode(ComputedStyleBuilder& builder,
   }
   const ui::ColorProvider* color_provider =
       document.GetColorProviderForPainting(color_scheme);
+  auto is_in_web_app_scope = document.IsInWebAppScope();
 
   // Re-resolve some internal forced color properties whose initial
   // values are system colors. This is necessary to ensure we get
@@ -906,17 +913,17 @@ void StyleAdjuster::AdjustForForcedColorsMode(ComputedStyleBuilder& builder,
   if (builder.InternalForcedBackgroundColor().IsSystemColor()) {
     builder.SetInternalForcedBackgroundColor(
         builder.InternalForcedBackgroundColor().ResolveSystemColor(
-            color_scheme, color_provider));
+            color_scheme, color_provider, is_in_web_app_scope));
   }
   if (builder.InternalForcedColor().IsSystemColor()) {
     builder.SetInternalForcedColor(
-        builder.InternalForcedColor().ResolveSystemColor(color_scheme,
-                                                         color_provider));
+        builder.InternalForcedColor().ResolveSystemColor(
+            color_scheme, color_provider, is_in_web_app_scope));
   }
   if (builder.InternalForcedVisitedColor().IsSystemColor()) {
     builder.SetInternalForcedVisitedColor(
         builder.InternalForcedVisitedColor().ResolveSystemColor(
-            color_scheme, color_provider));
+            color_scheme, color_provider, is_in_web_app_scope));
   }
 }
 
@@ -966,14 +973,13 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
 
     bool is_document_element =
         element && element->GetDocument().documentElement() == element;
-    // Per the spec, position 'static' and 'relative' in the top layer compute
-    // to 'absolute'. Root elements that are in the top layer should just
-    // be left alone because the fullscreen.css doesn't apply any style to
-    // them.
+    // https://drafts.csswg.org/css-position-4/#top-styling
+    // Elements in the top layer must be out-of-flow positioned.
+    // Root elements that are in the top layer should just be left alone
+    // because the fullscreen.css doesn't apply any style to them.
     if ((builder.Overlay() == EOverlay::kAuto && !is_document_element) ||
         builder.StyleType() == kPseudoIdBackdrop) {
-      if (builder.GetPosition() == EPosition::kStatic ||
-          builder.GetPosition() == EPosition::kRelative) {
+      if (!builder.HasOutOfFlowPosition()) {
         builder.SetPosition(EPosition::kAbsolute);
       }
       if (builder.Display() == EDisplay::kContents) {

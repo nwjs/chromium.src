@@ -174,7 +174,7 @@ message SystemProfileProto {
     // The version of the OS.  The meaning of this field is OS-dependent.
     optional string version = 2;
 
-    // The fingerprint of the build.  This field is used only on Android.
+    // The fingerprint of the build.  Only used on Android and WebView.
     optional string build_fingerprint = 3;
 
     // The build number for the OS version. The same OS version may have a
@@ -702,6 +702,8 @@ message SystemProfileProto {
   // ChromeUserMetricsExtension. A benefit of this is that this can
   // differentiate sessions between cloned installs that may report the same
   // `session_id` but are actually different sessions.
+  // Note: Added in M125. Clients before will not set this field, and trying to
+  // read it will return the default value of 0.
   optional fixed64 session_hash = 46;
 
   // Information about the A/V output device(s) (typically just a TV).

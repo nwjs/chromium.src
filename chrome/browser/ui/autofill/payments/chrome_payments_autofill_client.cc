@@ -5,10 +5,13 @@
 #include "chrome/browser/ui/autofill/payments/chrome_payments_autofill_client.h"
 
 #include <optional>
+#include <vector>
 
 #include "base/check_deref.h"
+#include "chrome/browser/autofill/autofill_offer_manager_factory.h"
 #include "chrome/browser/autofill/iban_manager_factory.h"
 #include "chrome/browser/autofill/merchant_promo_code_manager_factory.h"
+#include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/autofill/payments/create_card_unmask_prompt_view.h"
@@ -20,14 +23,17 @@
 #include "chrome/browser/ui/autofill/risk_util.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/data_model/autofill_offer_data.h"
+#include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/metrics/payments/risk_data_metrics.h"
 #include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
+#include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
 #include "components/autofill/core/browser/payments/credit_card_cvc_authenticator.h"
 #include "components/autofill/core/browser/payments/credit_card_otp_authenticator.h"
 #include "components/autofill/core/browser/payments/credit_card_risk_based_authenticator.h"
 #include "components/autofill/core/browser/payments/iban_access_manager.h"
+#include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/offer_notification_options.h"
 #include "components/autofill/core/browser/payments/otp_unmask_delegate.h"
 #include "components/autofill/core/browser/payments/otp_unmask_result.h"
@@ -42,6 +48,8 @@
 #include "components/autofill/core/browser/ui/payments/card_unmask_otp_input_dialog_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_prompt_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_prompt_view.h"
+#include "components/autofill/core/browser/ui/suggestion.h"
+#include "components/autofill/core/browser/ui/touch_to_fill_delegate.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -52,6 +60,8 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_controller.h"
+#include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view_impl.h"
 #include "chrome/browser/ui/android/autofill/autofill_cvc_save_message_delegate.h"
 #include "chrome/browser/ui/android/autofill/autofill_save_card_bottom_sheet_bridge.h"
 #include "chrome/browser/ui/android/autofill/autofill_save_card_delegate_android.h"
@@ -90,16 +100,23 @@ ChromePaymentsAutofillClient::~ChromePaymentsAutofillClient() = default;
 
 void ChromePaymentsAutofillClient::LoadRiskData(
     base::OnceCallback<void(const std::string&)> callback) {
+  if (!risk_data_.empty() &&
+      base::FeatureList::IsEnabled(
+          features::kAutofillEnablePrefetchingRiskDataForRetrieval)) {
+    // Notify tests that the cached risk data was used and new risk data was not
+    // loaded, if the callback exists.
+    if (cached_risk_data_loaded_callback_for_testing_) {
+      std::move(cached_risk_data_loaded_callback_for_testing_).Run(risk_data_);
+      return;
+    }
+    std::move(callback).Run(risk_data_);
+    return;
+  }
   risk_util::LoadRiskData(
       0, web_contents(),
-      base::BindOnce(
-          [](base::OnceCallback<void(const std::string&)> callback,
-             base::TimeTicks start_time, const std::string& risk_data) {
-            autofill::autofill_metrics::LogRiskDataLoadingLatency(
-                base::TimeTicks::Now() - start_time);
-            std::move(callback).Run(risk_data);
-          },
-          std::move(callback), base::TimeTicks::Now()));
+      base::BindOnce(&ChromePaymentsAutofillClient::OnRiskDataLoaded,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback),
+                     base::TimeTicks::Now()));
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -252,7 +269,7 @@ void ChromePaymentsAutofillClient::ScanCreditCard(
 
 void ChromePaymentsAutofillClient::ConfirmSaveCreditCardLocally(
     const CreditCard& card,
-    AutofillClient::SaveCreditCardOptions options,
+    SaveCreditCardOptions options,
     LocalSaveCardPromptCallback callback) {
 #if BUILDFLAG(IS_ANDROID)
   DCHECK(options.show_prompt);
@@ -263,7 +280,7 @@ void ChromePaymentsAutofillClient::ConfirmSaveCreditCardLocally(
 
   // If a CVC is detected for an existing local card in the checkout form, the
   // CVC save prompt is shown in a message.
-  if (options.card_save_type == AutofillClient::CardSaveType::kCvcSaveOnly) {
+  if (options.card_save_type == CardSaveType::kCvcSaveOnly) {
     autofill_cvc_save_message_delegate_ =
         std::make_unique<AutofillCvcSaveMessageDelegate>(web_contents());
     autofill_cvc_save_message_delegate_->ShowMessage(
@@ -285,7 +302,7 @@ void ChromePaymentsAutofillClient::ConfirmSaveCreditCardLocally(
 void ChromePaymentsAutofillClient::ConfirmSaveCreditCardToCloud(
     const CreditCard& card,
     const LegalMessageLines& legal_message_lines,
-    AutofillClient::SaveCreditCardOptions options,
+    SaveCreditCardOptions options,
     UploadSaveCardPromptCallback callback) {
 #if BUILDFLAG(IS_ANDROID)
   DCHECK(options.show_prompt);
@@ -304,7 +321,7 @@ void ChromePaymentsAutofillClient::ConfirmSaveCreditCardToCloud(
 
   // If a CVC is detected for an existing server card in the checkout form,
   // the CVC save prompt is shown in a message.
-  if (options.card_save_type == AutofillClient::CardSaveType::kCvcSaveOnly) {
+  if (options.card_save_type == CardSaveType::kCvcSaveOnly) {
     autofill_cvc_save_message_delegate_ =
         std::make_unique<AutofillCvcSaveMessageDelegate>(web_contents());
     autofill_cvc_save_message_delegate_->ShowMessage(
@@ -470,6 +487,16 @@ void ChromePaymentsAutofillClient::ConfirmUploadIbanToCloud(
 #endif
 }
 
+void ChromePaymentsAutofillClient::IbanUploadCompleted(bool iban_saved,
+                                                       bool hit_max_strikes) {
+#if !BUILDFLAG(IS_ANDROID)
+  if (IbanBubbleControllerImpl* controller =
+          IbanBubbleControllerImpl::FromWebContents(web_contents())) {
+    controller->ShowConfirmationBubbleView(iban_saved, hit_max_strikes);
+  }
+#endif
+}
+
 void ChromePaymentsAutofillClient::ShowAutofillProgressDialog(
     AutofillProgressDialogType autofill_progress_dialog_type,
     base::OnceClosure cancel_callback) {
@@ -566,7 +593,6 @@ void ChromePaymentsAutofillClient::ShowUnmaskAuthenticatorSelectionDialog(
     base::OnceCallback<void(const std::string&)>
         confirm_unmask_challenge_option_callback,
     base::OnceClosure cancel_unmasking_closure) {
-  CHECK(!card_unmask_authentication_selection_controller_);
   card_unmask_authentication_selection_controller_ =
       std::make_unique<CardUnmaskAuthenticationSelectionDialogControllerImpl>(
           challenge_options,
@@ -758,6 +784,64 @@ ChromePaymentsAutofillClient::GetMerchantPromoCodeManager() {
   return MerchantPromoCodeManagerFactory::GetForProfile(profile);
 }
 
+AutofillOfferManager* ChromePaymentsAutofillClient::GetAutofillOfferManager() {
+  return AutofillOfferManagerFactory::GetForBrowserContext(
+      web_contents()->GetBrowserContext());
+}
+
+bool ChromePaymentsAutofillClient::ShowTouchToFillCreditCard(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const autofill::CreditCard> cards_to_suggest,
+    base::span<const Suggestion> suggestions) {
+#if BUILDFLAG(IS_ANDROID)
+  // Create the manual filling controller which will be used to show the
+  // unmasked virtual card details in the manual fallback.
+  ManualFillingController::GetOrCreate(web_contents())
+      ->UpdateSourceAvailability(
+          ManualFillingController::FillingSource::CREDIT_CARD_FALLBACKS,
+          !cards_to_suggest.empty());
+
+  return touch_to_fill_payment_method_controller_.Show(
+      std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
+      delegate, std::move(cards_to_suggest), std::move(suggestions));
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED();
+#endif
+}
+
+bool ChromePaymentsAutofillClient::ShowTouchToFillIban(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const autofill::Iban> ibans_to_suggest) {
+#if BUILDFLAG(IS_ANDROID)
+  return touch_to_fill_payment_method_controller_.Show(
+      std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
+      delegate, std::move(ibans_to_suggest));
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED();
+#endif
+}
+
+void ChromePaymentsAutofillClient::HideTouchToFillPaymentMethod() {
+#if BUILDFLAG(IS_ANDROID)
+  touch_to_fill_payment_method_controller_.Hide();
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED_IN_MIGRATION();
+#endif
+}
+
+payments::MandatoryReauthManager*
+ChromePaymentsAutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
+  if (!payments_mandatory_reauth_manager_) {
+    payments_mandatory_reauth_manager_ =
+        std::make_unique<payments::MandatoryReauthManager>(&client_.get());
+  }
+
+  return payments_mandatory_reauth_manager_.get();
+}
+
 #if BUILDFLAG(IS_ANDROID)
 AutofillSnackbarControllerImpl&
 ChromePaymentsAutofillClient::GetAutofillSnackbarController() {
@@ -778,9 +862,12 @@ ChromePaymentsAutofillClient::GetAutofillMessageController() {
 
   return *autofill_message_controller_;
 }
-#endif  // #if BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_ANDROID)
+TouchToFillPaymentMethodController&
+ChromePaymentsAutofillClient::GetTouchToFillPaymentMethodController() {
+  return touch_to_fill_payment_method_controller_;
+}
+
 void ChromePaymentsAutofillClient::
     SetAutofillSaveCardBottomSheetBridgeForTesting(
         std::unique_ptr<AutofillSaveCardBottomSheetBridge>
@@ -819,6 +906,28 @@ std::u16string ChromePaymentsAutofillClient::GetAccountHolderName() const {
   AccountInfo primary_account_info = identity_manager->FindExtendedAccountInfo(
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin));
   return base::UTF8ToUTF16(primary_account_info.full_name);
+}
+
+void ChromePaymentsAutofillClient::SetRiskDataForTesting(
+    const std::string& risk_data) {
+  risk_data_ = risk_data;
+}
+
+void ChromePaymentsAutofillClient::SetCachedRiskDataLoadedCallbackForTesting(
+    base::OnceCallback<void(const std::string&)>
+        cached_risk_data_loaded_callback_for_testing) {
+  cached_risk_data_loaded_callback_for_testing_ =
+      std::move(cached_risk_data_loaded_callback_for_testing);
+}
+
+void ChromePaymentsAutofillClient::OnRiskDataLoaded(
+    base::OnceCallback<void(const std::string&)> callback,
+    base::TimeTicks start_time,
+    const std::string& risk_data) {
+  autofill_metrics::LogRiskDataLoadingLatency(base::TimeTicks::Now() -
+                                              start_time);
+  risk_data_ = risk_data;
+  std::move(callback).Run(risk_data_);
 }
 
 }  // namespace autofill::payments

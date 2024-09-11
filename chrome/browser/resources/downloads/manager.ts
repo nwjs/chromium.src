@@ -88,7 +88,6 @@ export class DownloadsManagerElement extends DownloadsManagerElementBase {
 
       spinnerActive_: {
         type: Boolean,
-        notify: true,
       },
 
       bypassPromptItemId_: {
@@ -255,8 +254,9 @@ export class DownloadsManagerElement extends DownloadsManagerElementBase {
     // scrolls the download into view.
     if (this.items_.slice(0, 5).some(download => download.id === item.id)) {
       this.logEsbPromotionRowViewed();
+      return true;
     }
-    return true;
+    return false;
   }
 
   private logEsbPromotionRowViewed() {
@@ -291,6 +291,21 @@ export class DownloadsManagerElement extends DownloadsManagerElementBase {
         'warningBypassInterstitialSurveyTrustSiteWithUrl', url);
   }
 
+  private computeDangerInterstitialTrustSiteAccessible_(): string {
+    const bypassItem =
+        this.items_.find(item => item.id === this.bypassPromptItemId_);
+    if (!bypassItem) {
+      return '';
+    }
+
+    const url = mojoString16ToString(bypassItem.displayReferrerUrl);
+    if (url === '') {
+      return loadTimeData.getString(
+          'warningBypassInterstitialSurveyTrustSiteWithoutUrlAccessible');
+    }
+    return loadTimeData.getStringF(
+        'warningBypassInterstitialSurveyTrustSiteWithUrlAccessible', url);
+  }
 
   private hideBypassWarningPrompt_() {
     this.bypassPromptItemId_ = '';
@@ -480,6 +495,10 @@ export class DownloadsManagerElement extends DownloadsManagerElementBase {
 
   private onSearchChanged_() {
     this.inSearchMode_ = this.searchService_.isSearching();
+  }
+
+  private onSpinnerActiveChanged_(event: CustomEvent<{value: boolean}>) {
+    this.spinnerActive_ = event.detail.value;
   }
 
   private removeItem_(index: number) {

@@ -529,6 +529,7 @@
 // Autofill feedback.
 #define IDC_CONTENT_CONTEXT_AUTOFILL_FEEDBACK 52990
 // Autofill context menu commands
+#define IDC_CONTENT_CONTEXT_AUTOFILL_PREDICTION_IMPROVEMENTS 52993
 #define IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PLUS_ADDRESS 52994
 #define IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_ADDRESS 52995
 #define IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PAYMENTS 52996
@@ -547,6 +548,9 @@
 
 // Default browser prompt
 #define IDC_SET_BROWSER_AS_DEFAULT 53300
+
+// Enable / Disable compact mode for the browser
+#define IDC_COMPACT_MODE 53301
 
 // NOTE: The last valid command value is 57343 (0xDFFF)
 // See http://msdn.microsoft.com/en-us/library/t2zechd4(VS.71).aspx

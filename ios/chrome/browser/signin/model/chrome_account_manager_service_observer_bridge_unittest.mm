@@ -19,7 +19,7 @@ class ChromeAccountManagerServiceObserverBridgeTest : public PlatformTest {
     PlatformTest::SetUp();
 
     TestChromeBrowserState::Builder builder;
-    browser_state_ = builder.Build();
+    browser_state_ = std::move(builder).Build();
     ChromeAccountManagerService* account_manager_service =
         ChromeAccountManagerServiceFactory::GetForBrowserState(
             browser_state_.get());
@@ -47,7 +47,7 @@ class ChromeAccountManagerServiceObserverBridgeTest : public PlatformTest {
 // Tests that `onIdentityListChanged` is forwarded.
 TEST_F(ChromeAccountManagerServiceObserverBridgeTest, onIdentityListChanged) {
   OCMExpect([test_observer_ identityListChanged]);
-  observer_bridge_->OnIdentityListChanged(/*notify_user=*/false);
+  observer_bridge_->OnIdentityListChanged();
 }
 
 // Tests that `onIdentityChanged` is forwarded.

@@ -73,7 +73,6 @@ BASE_DECLARE_FEATURE(kNtpSharepointModule);
 BASE_DECLARE_FEATURE(kNtpShortcuts);
 BASE_DECLARE_FEATURE(kNtpHandleMostVisitedNavigationExplicitly);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModule);
-BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleBeginTimeDuration);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleMinimumVisitsRequired);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleMinimumImagesRequired);
 BASE_DECLARE_FEATURE(kNtpHistoryClustersModuleCategories);
@@ -139,12 +138,6 @@ extern const char kNtpDriveModuleCacheMaxAgeSParam[];
 // Parameter for communicating the experiment group of the Drive module
 // experiment.
 extern const char kNtpDriveModuleExperimentGroupParam[];
-// Parameter determining the fake data to request to surface a particular
-// visual layout.
-extern const char kNtpHistoryClustersModuleDataParam[];
-// Parameter determining the fake data to request to surface a particular
-// cart tile layout in history cluster module.
-extern const char kNtpChromeCartInHistoryClustersModuleDataParam[];
 // Parameter determining the type of middle slot promo data to render.
 extern const char kNtpMiddleSlotPromoDismissalParam[];
 // Parameter determining the modules that are eligigle for HaTS.
@@ -204,6 +197,9 @@ extern const char kNtpRealboxWidthBehaviorParam[];
 extern const char kNtpTabResumptionModuleCategoriesBlocklistParam[];
 extern const char kNtpMostRelevantTabResumptionModuleDataParam[];
 extern const char kNtpTabResumptionModuleDataParam[];
+// Parameter determining for how long a dismissed tab should be discarded
+// from the module's displayed visit resumption suggestions.
+extern const char kNtpTabResumptionModuleDismissalDurationParam[];
 // Parameter determining what types result types to request when fetching URL
 // visit aggregate data.
 extern const char kNtpTabResumptionModuleResultTypesParam[];
@@ -234,11 +230,6 @@ extern const base::FeatureParam<bool>
     kNtpRealboxCr23ExpandedStateBgMatchesOmnibox;
 // Parameter determining the whether the steady state realbox has a shadow.
 extern const base::FeatureParam<bool> kNtpRealboxCr23SteadyStateShadow;
-
-// Returns whether the NTP redesigned launchpad experience is enabled for the
-// given locale and country code.
-bool IsNtpModulesRedesignedEnabled(std::string application_locale,
-                                   std::string country_code);
 
 // Returns the timeout after which the load of a module should be aborted.
 base::TimeDelta GetModulesLoadTimeout();

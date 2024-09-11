@@ -21,6 +21,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_node_position.h"
@@ -44,6 +45,7 @@ class MojoUkmRecorder;
 
 class AXTreeDistiller;
 class ReadAnythingAppControllerTest;
+class ReadAnythingAppControllerScreen2xDataCollectionModeTest;
 
 ///////////////////////////////////////////////////////////////////////////////
 // ReadAnythingAppController
@@ -87,6 +89,7 @@ class ReadAnythingAppController
 
  private:
   friend ReadAnythingAppControllerTest;
+  friend ReadAnythingAppControllerScreen2xDataCollectionModeTest;
 
   explicit ReadAnythingAppController(content::RenderFrame* render_frame);
   ~ReadAnythingAppController() override;
@@ -113,6 +116,9 @@ class ReadAnythingAppController
                                ukm::SourceId ukm_source_id,
                                bool is_pdf) override;
   void OnAXTreeDestroyed(const ui::AXTreeID& tree_id) override;
+  void OnImageDataDownloaded(const ui::AXTreeID& tree_id,
+                             ui::AXNodeID node_id,
+                             const SkBitmap& image) override;
   void OnSettingsRestoredFromPrefs(
       read_anything::mojom::LineSpacing line_spacing,
       read_anything::mojom::LetterSpacing letter_spacing,
@@ -148,8 +154,8 @@ class ReadAnythingAppController
   void OnFontSizeReset();
   void OnLinksEnabledToggled();
   void OnImagesEnabledToggled();
-  float LetterSpacing() const;
-  float LineSpacing() const;
+  int LetterSpacing() const;
+  int LineSpacing() const;
   int ColorTheme() const;
   int HighlightGranularity() const;
   bool IsHighlightOn();
@@ -170,8 +176,7 @@ class ReadAnythingAppController
   std::string GetDataFontCss(ui::AXNodeID ax_node_id) const;
   std::string GetHtmlTag(ui::AXNodeID ax_node_id) const;
   std::string GetLanguage(ui::AXNodeID ax_node_id) const;
-  std::string GetNameAttributeText(ui::AXNode* ax_node) const;
-  std::string GetTextContent(ui::AXNodeID ax_node_id) const;
+  std::u16string GetTextContent(ui::AXNodeID ax_node_id) const;
   std::string GetTextDirection(ui::AXNodeID ax_node_id) const;
   std::string GetUrl(ui::AXNodeID ax_node_id) const;
   std::string GetAltText(ui::AXNodeID ax_node_id) const;
@@ -193,24 +198,15 @@ class ReadAnythingAppController
                          ui::AXNodeID focus_node_id,
                          int focus_offset) const;
   void OnCollapseSelection() const;
-  void OnRestartReadAloud();
   bool IsGoogleDocs() const;
   bool IsReadAloudEnabled() const;
   bool IsChromeOsAsh() const;
   bool IsAutoVoiceSwitchingEnabled() const;
   bool IsLanguagePackDownloadingEnabled() const;
   bool IsAutomaticWordHighlightingEnabled() const;
-  void OnStandardLineSpacing();
-  void OnLooseLineSpacing();
-  void OnVeryLooseLineSpacing();
-  void OnStandardLetterSpacing();
-  void OnWideLetterSpacing();
-  void OnVeryWideLetterSpacing();
-  void OnLightTheme();
-  void OnDefaultTheme();
-  void OnDarkTheme();
-  void OnYellowTheme();
-  void OnBlueTheme();
+  void OnLetterSpacingChange(int value);
+  void OnLineSpacingChange(int value);
+  void OnThemeChange(int value);
   void OnFontChange(const std::string& font);
   void OnSpeechRateChange(double rate);
   void OnVoiceChange(const std::string& voice, const std::string& lang);
@@ -223,9 +219,11 @@ class ReadAnythingAppController
   std::vector<std::string> GetSupportedFonts();
   void RequestImageDataUrl(ui::AXNodeID node_id) const;
   std::string GetImageDataUrl(ui::AXNodeID node_id) const;
+  v8::Local<v8::Value> GetImageBitmap(ui::AXNodeID node_id);
   void OnSpeechPlayingStateChanged(bool is_speech_active);
   std::string GetValidatedFontName(const std::string& font) const;
   std::vector<std::string> GetAllFonts();
+  void OnScrolledToBottom();
 
   // The language code that should be used to determine which voices are
   // supported for speech.
@@ -261,6 +259,8 @@ class ReadAnythingAppController
   // where this isn't needed.
   void InitAXPositionWithNode(const ui::AXNodeID& starting_node_id);
 
+  void ResetGranularityIndex();
+
   // Returns a list of AXNodeIds representing the next nodes that should be
   // spoken and highlighted with Read Aloud.
   // This defaults to returning the first granularity until
@@ -271,6 +271,10 @@ class ReadAnythingAppController
   // return by GetCurrentText will return the starting text and ending text
   // indices for specific text that should be referenced within the node.
   std::vector<ui::AXNodeID> GetCurrentText();
+
+  // Preprocess the text on the current page for speech to be used by
+  // Read Aloud.
+  void PreprocessTextForSpeech();
 
   // TODO(crbug.com/40927698): Random access to processed nodes might not always
   // work (e.g. if we're switching granularities or jumping to a specific node),
@@ -352,6 +356,8 @@ class ReadAnythingAppController
   mojo::Remote<read_anything::mojom::UntrustedPageHandler> page_handler_;
   mojo::Receiver<read_anything::mojom::UntrustedPage> receiver_{this};
 
+  std::map<ui::AXNodeID, SkBitmap> downloaded_images_;
+
   // Model that holds Read Aloud state for this controller.
   ReadAloudAppModel read_aloud_model_;
 
@@ -363,7 +369,6 @@ class ReadAnythingAppController
   ReadAnythingAppModel model_;
 
   // For metrics logging
-
   std::unique_ptr<ukm::MojoUkmRecorder> ukm_recorder_;
 
   // The time when the renderer constructor is first triggered.

@@ -65,6 +65,8 @@ const char* LayerTypeAsString(mojom::LayerType type) {
       return "cc::SurfaceLayerImpl";
     case mojom::LayerType::kPicture:
       return "cc::PictureLayerImpl";
+    case mojom::LayerType::kTileDisplay:
+      return "cc::TileDisplayLayerImpl";
     case mojom::LayerType::kMirror:
       return "cc::MirrorLayerImpl";
     case mojom::LayerType::kHeadsUpDisplay:
@@ -87,6 +89,10 @@ const char* LayerTypeAsString(mojom::LayerType type) {
 }
 
 }  // namespace
+
+LayerImpl::RareProperties::RareProperties() = default;
+LayerImpl::RareProperties::RareProperties(const RareProperties&) = default;
+LayerImpl::RareProperties::~RareProperties() = default;
 
 LayerImpl::LayerImpl(LayerTreeImpl* tree_impl,
                      int id,
@@ -651,6 +657,15 @@ gfx::Rect LayerImpl::GetDamageRect() const {
   return gfx::Rect();
 }
 
+DamageReasonSet LayerImpl::GetDamageReasons() const {
+  DamageReasonSet reasons;
+  if (LayerPropertyChanged() || !update_rect_.IsEmpty() ||
+      !GetDamageRect().IsEmpty()) {
+    reasons.Put(DamageReason::kUntracked);
+  }
+  return reasons;
+}
+
 void LayerImpl::SetCurrentScrollOffset(const gfx::PointF& scroll_offset) {
   DCHECK(IsActive());
   if (GetScrollTree().SetScrollOffset(element_id(), scroll_offset))
@@ -747,8 +762,10 @@ void LayerImpl::AsValueInto(base::trace_event::TracedValue* state) const {
   wheel_event_handler_region().AsValueInto(state);
   state->EndArray();
 
+  // TODO(crbug.com/358408565): At least DevTools reads from trace using this
+  // name.
   state->BeginArray("non_fast_scrollable_region");
-  non_fast_scrollable_region().AsValueInto(state);
+  main_thread_scroll_hit_test_region().AsValueInto(state);
   state->EndArray();
 
   state->SetBoolean("hit_testable", HitTestable());

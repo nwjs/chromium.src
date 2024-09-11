@@ -62,9 +62,7 @@ class ContentVerifierDelegate {
   // Called when the content verifier detects that a read of a file inside an
   // extension did not match its expected hash.
   virtual void VerifyFailed(const ExtensionId& extension_id,
-                            const base::FilePath& relative_path,
-                            ContentVerifyJob::FailureReason reason,
-                            scoped_refptr<ContentVerifyJob> verify_job) = 0;
+                            ContentVerifyJob::FailureReason reason) = 0;
 
   // Called when ExtensionSystem is shutting down.
   virtual void Shutdown() = 0;

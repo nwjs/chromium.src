@@ -8,6 +8,8 @@ assert(is_chromeos_ash)
 
 static_library("mahi") {
   sources = [
+    "mahi_availability.cc",
+    "mahi_availability.h",
     "mahi_browser_client_wrapper.cc",
     "mahi_browser_client_wrapper.h",
     "mahi_browser_delegate_ash.cc",
@@ -18,17 +20,24 @@ static_library("mahi") {
     "mahi_manager_impl.h",
   ]
 
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+
   deps = [
     "//ash",
     "//ash/constants",
     "//ash/webui/settings/public/constants:mojom",
     "//base",
+    "//chrome/browser:browser_process",
+    "//chrome/browser/ash/login/demo_mode",
     "//chrome/browser/ash/magic_boost",
+    "//chrome/browser/feedback",
     "//chromeos/components/magic_boost/public/cpp:cpp",
     "//chromeos/components/mahi/public/cpp",
     "//chromeos/strings:strings_grit",
     "//components/feedback",
+    "//components/history/core/browser:browser",
     "//components/manta",
+    "//components/variations/service:service",
     "//ui/aura",
     "//ui/base",
     "//ui/gfx",

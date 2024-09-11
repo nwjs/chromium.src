@@ -4,6 +4,8 @@
 
 #include "ash/public/cpp/picker/picker_search_result.h"
 
+#include <cstddef>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -42,11 +44,13 @@ bool PickerSearchResult::EmojiData::operator==(
 PickerSearchResult::ClipboardData::ClipboardData(
     base::UnguessableToken item_id,
     DisplayFormat display_format,
+    size_t file_count,
     std::u16string display_text,
     std::optional<ui::ImageModel> display_image,
     bool is_recent)
     : item_id(item_id),
       display_format(display_format),
+      file_count(file_count),
       display_text(std::move(display_text)),
       display_image(std::move(display_image)),
       is_recent(is_recent) {}
@@ -65,11 +69,13 @@ bool PickerSearchResult::ClipboardData::operator==(
 bool PickerSearchResult::LocalFileData::operator==(const LocalFileData&) const =
     default;
 
-PickerSearchResult::DriveFileData::DriveFileData(std::u16string title,
+PickerSearchResult::DriveFileData::DriveFileData(std::optional<std::string> id,
+                                                 std::u16string title,
                                                  GURL url,
                                                  base::FilePath file_path,
                                                  bool best_match)
-    : title(std::move(title)),
+    : id(std::move(id)),
+      title(std::move(title)),
       url(std::move(url)),
       file_path(std::move(file_path)),
       best_match(best_match) {}
@@ -167,10 +173,14 @@ PickerSearchResult PickerSearchResult::Text(std::u16string_view primary_text,
                                      std::move(icon), source));
 }
 
-PickerSearchResult PickerSearchResult::SearchRequest(std::u16string_view text,
-                                                     ui::ImageModel icon) {
+PickerSearchResult PickerSearchResult::SearchRequest(
+    std::u16string_view primary_text,
+    std::u16string_view secondary_text,
+    ui::ImageModel icon) {
   return PickerSearchResult(
-      SearchRequestData{.text = std::u16string(text), .icon = std::move(icon)});
+      SearchRequestData{.primary_text = std::u16string(primary_text),
+                        .secondary_text = std::u16string(secondary_text),
+                        .icon = std::move(icon)});
 }
 
 PickerSearchResult PickerSearchResult::Emoji(std::u16string_view emoji,
@@ -197,10 +207,11 @@ PickerSearchResult PickerSearchResult::Emoticon(std::u16string_view emoticon,
 PickerSearchResult PickerSearchResult::Clipboard(
     base::UnguessableToken item_id,
     ClipboardData::DisplayFormat display_format,
+    size_t file_count,
     std::u16string display_text,
     std::optional<ui::ImageModel> display_image,
     bool is_recent) {
-  return PickerSearchResult(ClipboardData(item_id, display_format,
+  return PickerSearchResult(ClipboardData(item_id, display_format, file_count,
                                           std::move(display_text),
                                           std::move(display_image), is_recent));
 }
@@ -221,12 +232,13 @@ PickerSearchResult PickerSearchResult::LocalFile(std::u16string title,
                                           .best_match = best_match});
 }
 
-PickerSearchResult PickerSearchResult::DriveFile(std::u16string title,
+PickerSearchResult PickerSearchResult::DriveFile(std::optional<std::string> id,
+                                                 std::u16string title,
                                                  const GURL& url,
                                                  base::FilePath file_path,
                                                  bool best_match) {
-  return PickerSearchResult(
-      DriveFileData(std::move(title), url, std::move(file_path), best_match));
+  return PickerSearchResult(DriveFileData(std::move(id), std::move(title), url,
+                                          std::move(file_path), best_match));
 }
 
 PickerSearchResult PickerSearchResult::Category(PickerCategory category) {
@@ -248,8 +260,11 @@ PickerSearchResult PickerSearchResult::NewWindow(
   return PickerSearchResult(NewWindowData{.type = type});
 }
 
-PickerSearchResult PickerSearchResult::CapsLock(bool enabled) {
-  return PickerSearchResult(CapsLockData{.enabled = enabled});
+PickerSearchResult PickerSearchResult::CapsLock(
+    bool enabled,
+    CapsLockData::Shortcut shortcut) {
+  return PickerSearchResult(
+      CapsLockData{.enabled = enabled, .shortcut = shortcut});
 }
 
 PickerSearchResult PickerSearchResult::CaseTransform(

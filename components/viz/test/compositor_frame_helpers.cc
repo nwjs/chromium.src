@@ -107,6 +107,12 @@ RenderPassBuilder& RenderPassBuilder::AddBackdropFilter(
   return *this;
 }
 
+RenderPassBuilder& RenderPassBuilder::SetTransformToRootTarget(
+    const gfx::Transform& transform) {
+  pass_->transform_to_root_target = transform;
+  return *this;
+}
+
 RenderPassBuilder& RenderPassBuilder::AddStubCopyOutputRequest(
     base::WeakPtr<CopyOutputRequest>* request_out) {
   auto request = std::make_unique<StubCopyOutputRequest>();
@@ -450,6 +456,12 @@ CompositorFrameBuilder& CompositorFrameBuilder::SetSendFrameTokenToEmbedder(
   return *this;
 }
 
+CompositorFrameBuilder& CompositorFrameBuilder::SetIsHandlingInteraction(
+    bool is_handling_interaction) {
+  frame_->metadata.is_handling_interaction = is_handling_interaction;
+  return *this;
+}
+
 CompositorFrameBuilder& CompositorFrameBuilder::AddDelegatedInkMetadata(
     const gfx::DelegatedInkMetadata& metadata) {
   frame_->metadata.delegated_ink_metadata =
@@ -512,6 +524,14 @@ AggregatedFrame MakeDefaultAggregatedFrame(size_t num_render_passes) {
                                           kDefaultDamageRect, gfx::Transform());
   }
   return frame;
+}
+
+CompositorFrame MakeDefaultInteractiveCompositorFrame(uint64_t source_id) {
+  return CompositorFrameBuilder()
+      .AddDefaultRenderPass()
+      .SetBeginFrameSourceId(source_id)
+      .SetIsHandlingInteraction(true)
+      .Build();
 }
 
 CompositorFrame MakeEmptyCompositorFrame() {

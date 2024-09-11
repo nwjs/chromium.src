@@ -59,7 +59,8 @@ class MODULES_EXPORT AudioContext : public BaseAudioContext,
   AudioContext(LocalDOMWindow&,
                const WebAudioLatencyHint&,
                std::optional<float> sample_rate,
-               WebAudioSinkDescriptor sink_descriptor);
+               WebAudioSinkDescriptor sink_descriptor,
+               bool update_echo_cancellation_on_first_start);
   ~AudioContext() override;
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError)
@@ -402,6 +403,10 @@ class MODULES_EXPORT AudioContext : public BaseAudioContext,
   // To keep the record of any render errors reported from the infra during
   // the life cycle of the context.
   bool render_error_occurred_ = false;
+
+  // If a sink ID is given via the constructor or `setSinkId()` method,
+  // this is set to `true`.
+  bool is_sink_id_given_ = false;
 };
 
 }  // namespace blink

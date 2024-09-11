@@ -37,6 +37,7 @@ import org.chromium.chrome.browser.night_mode.settings.ThemeSettingsFragment;
 import org.chromium.chrome.browser.password_check.PasswordCheck;
 import org.chromium.chrome.browser.password_check.PasswordCheckFactory;
 import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
+import org.chromium.chrome.browser.password_manager.PasswordManagerHelper;
 import org.chromium.chrome.browser.password_manager.PasswordManagerLauncher;
 import org.chromium.chrome.browser.password_manager.settings.PasswordsPreference;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -52,6 +53,8 @@ import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.sync.settings.SignInPreference;
 import org.chromium.chrome.browser.sync.settings.SyncPromoPreference;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarStatePredictor;
 import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -132,7 +135,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getActivity().setTitle(R.string.settings);
-        mPasswordCheck = PasswordCheckFactory.getOrCreate(new SettingsLauncherImpl());
+        mPasswordCheck = PasswordCheckFactory.getOrCreate();
         SigninManager signinManager = IdentityServicesProvider.get().getSigninManager(getProfile());
         if (signinManager.isSigninSupported(/* requireUpdatedPlayServices= */ false)) {
             signinManager.addSignInStateObserver(this);
@@ -263,7 +266,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
             templateUrlService.load();
         }
 
-        new AdaptiveToolbarStatePredictor(getProfile(), null)
+        new AdaptiveToolbarStatePredictor(getContext(), getProfile(), null)
                 .recomputeUiState(
                         uiState -> {
                             // We don't show the toolbar shortcut settings page if disabled from
@@ -324,10 +327,11 @@ public class MainSettings extends ChromeBaseSettingsFragment
         updatePlusAddressesPreference();
 
         boolean isTabGroupSyncAutoOpenConfigurable =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_GROUP_SYNC_ANDROID)
+                TabGroupSyncFeatures.isTabGroupSyncEnabled(getProfile())
                         && ChromeFeatureList.isEnabled(
                                 ChromeFeatureList.TAB_GROUP_SYNC_AUTO_OPEN_KILL_SWITCH);
         if (isTabGroupSyncAutoOpenConfigurable
+                || TabUiFeatureUtilities.isTabGroupCreationDialogShowConfigurable()
                 || ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_TAB_DECLUTTER)) {
             addPreferenceIfAbsent(PREF_TABS);
         } else {
@@ -419,7 +423,8 @@ public class MainSettings extends ChromeBaseSettingsFragment
                             .isSyncDisabledByEnterprisePolicy()) {
                         SyncSettingsUtils.showSyncDisabledByAdministratorToast(context);
                     } else if (isSyncConsentAvailable) {
-                        SettingsLauncher settingsLauncher = new SettingsLauncherImpl();
+                        SettingsLauncher settingsLauncher =
+                                SettingsLauncherFactory.createSettingsLauncher();
                         settingsLauncher.launchSettingsActivity(context, ManageSyncSettings.class);
                     } else {
                         // TODO(crbug.com/40067770): Remove after rolling out
@@ -464,7 +469,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
             preference.setFragment(null);
             preference.setOnPreferenceClickListener(
                     unused -> {
-                        new SettingsLauncherImpl()
+                        SettingsLauncherFactory.createSettingsLauncher()
                                 .launchSettingsActivity(
                                         getContext(),
                                         AutofillOptionsFragment.class,
@@ -496,6 +501,24 @@ public class MainSettings extends ChromeBaseSettingsFragment
                             /* managePasskeys= */ false);
                     return true;
                 });
+
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList
+                        .UNIFIED_PASSWORD_MANAGER_LOCAL_PASSWORDS_ANDROID_ACCESS_LOSS_WARNING)) {
+            // This is temporary code needed for migrating people to UPM. With UPM there is no
+            // longer passwords setting page in Chrome, so we need to ask users to export their
+            // passwords here, in main settings.
+            boolean startPasswordsExportFlow =
+                    getArguments() != null
+                            && getArguments()
+                                    .containsKey(PasswordManagerHelper.START_PASSWORDS_EXPORT)
+                            && getArguments()
+                                    .getBoolean(PasswordManagerHelper.START_PASSWORDS_EXPORT);
+            if (startPasswordsExportFlow) {
+                PasswordManagerHelper.getForProfile(getProfile()).launchExportFlow(getContext());
+                getArguments().putBoolean(PasswordManagerHelper.START_PASSWORDS_EXPORT, false);
+            }
+        }
     }
 
     private void updatePlusAddressesPreference() {
@@ -547,8 +570,14 @@ public class MainSettings extends ChromeBaseSettingsFragment
         // SignOutCoordinator.startSignOutFlow(), in other words SignOutCoordinator.showSnackbar()
         // should be private method.
 
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+        // onSignedOut() is also called when a supervised account revokes the sync consent without
+        // signing out, in this case the Snackbar should not be shown.
+        if (IdentityServicesProvider.get()
+                                .getIdentityManager(getProfile())
+                                .getPrimaryAccountInfo(ConsentLevel.SIGNIN)
+                        == null
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
             // Show the signout snackbar, or wait until `onStart()` if the fragment is not in the
             // `STARTED` state.
             if (getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {

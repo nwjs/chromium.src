@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "components/policy/core/common/cloud/test/policy_builder.h"
 
 #include "base/base64.h"
@@ -253,7 +258,7 @@ void SignData(const std::string& data,
     default:
       // `em::PolicyFetchRequest::NONE` indicates unsigned blobs.
       // Crash is OK here.
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 
   std::unique_ptr<crypto::SignatureCreator> signature_creator(

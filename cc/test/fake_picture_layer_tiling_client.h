@@ -14,6 +14,7 @@
 #include "cc/tiles/picture_layer_tiling.h"
 #include "cc/tiles/tile.h"
 #include "cc/tiles/tile_manager.h"
+#include "cc/tiles/tile_priority.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace viz {
@@ -44,10 +45,11 @@ class FakePictureLayerTilingClient : public PictureLayerTilingClient {
       const PictureLayerTiling* tiling) const override;
   bool RequiresHighResToDraw() const override;
   const PaintWorkletRecordMap& GetPaintWorkletRecords() const override;
-  void OnTilesAdded() override;
+  void OnAllTilesDoneCleared() override;
   std::vector<const DrawImage*> GetDiscardableImagesInRect(
       const gfx::Rect& rect) const override;
   ScrollOffsetMap GetRasterInducingScrollOffsets() const override;
+  const GlobalStateThatImpactsTilePriority& global_tile_state() const override;
 
   void set_twin_tiling_set(PictureLayerTilingSet* set) {
     twin_set_ = set;
@@ -80,6 +82,7 @@ class FakePictureLayerTilingClient : public PictureLayerTilingClient {
   Region invalidation_;
   bool has_valid_tile_priorities_;
   PaintWorkletRecordMap paint_worklet_records_;
+  GlobalStateThatImpactsTilePriority global_tile_state_;
 };
 
 }  // namespace cc

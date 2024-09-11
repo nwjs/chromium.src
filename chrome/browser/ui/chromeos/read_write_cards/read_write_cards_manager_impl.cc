@@ -149,6 +149,9 @@ ReadWriteCardsManagerImpl::GetControllers(
       base::unexpected(MagicBoostState::Error::kUninitialized);
   if (chromeos::features::IsMagicBoostEnabled()) {
     hmr_consent_status = MagicBoostState::Get()->hmr_consent_status();
+
+    // Ensure the disclaimer view is closed before moving to the next step
+    magic_boost_card_controller_->CloseDisclaimerUi();
   }
 
   // Return no controller if consent_status is `kDeclined` (users explicitly
@@ -161,7 +164,7 @@ ReadWriteCardsManagerImpl::GetControllers(
 
   if (hmr_consent_status.has_value()) {
     CHECK(hmr_consent_status == HMRConsentStatus::kApproved ||
-          hmr_consent_status == HMRConsentStatus::kPending);
+          hmr_consent_status == HMRConsentStatus::kPendingDisclaimer);
   }
 
   return GetQuickAnswersAndMahiControllers(params);

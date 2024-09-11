@@ -15,12 +15,14 @@ import("//chromeos/ash/components/assistant/assistant.gni")
 import("//components/viz/common/debugger/viz_debugger.gni")
 import("//content/common/features.gni")
 import("//content/public/common/zygote/features.gni")
+import("//device/bluetooth/emulation/buildflags.gni")
 import("//device/vr/buildflags/buildflags.gni")
 import("//gpu/vulkan/features.gni")
 import("//media/media_options.gni")
 import("//net/features.gni")
 import("//ppapi/buildflags/buildflags.gni")
 import("//printing/buildflags/buildflags.gni")
+import("//services/device/public/cpp/compute_pressure/buildflags.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//third_party/blink/public/public_features.gni")
 import("//tools/ipc_fuzzer/ipc_fuzzer.gni")
@@ -41,9 +43,9 @@ if (is_android) {
       "//content/test:*",
     ]
     deps = [
-      "//third_party/rust/font_types/v0_5:lib",
-      "//third_party/rust/read_fonts/v0_19:lib",
-      "//third_party/rust/skrifa/v0_19:lib",
+      "//third_party/rust/font_types/v0_6:lib",
+      "//third_party/rust/read_fonts/v0_20:lib",
+      "//third_party/rust/skrifa/v0_20:lib",
     ]
   }
 }
@@ -80,6 +82,7 @@ source_set("browser") {
     "//base:base_static",
     "//base:clang_profiling_buildflags",
     "//base/tracing/protos:chrome_track_event_resources",
+    "//build:android_buildflags",
     "//build:branding_buildflags",
     "//build:chromecast_buildflags",
     "//build:chromeos_buildflags",
@@ -107,6 +110,7 @@ source_set("browser") {
     "//components/network_session_configurator/browser",
     "//components/offline_pages/buildflags",
     "//components/offline_pages/core/request_header",
+    "//components/optimization_guide/core:features",
     "//components/os_crypt/sync",
     "//components/payments/content/icon",
     "//components/payments/mojom",
@@ -212,6 +216,7 @@ source_set("browser") {
     "//services/data_decoder/public/mojom",
     "//services/device:lib",
     "//services/device/public/cpp:device_features",
+    "//services/device/public/cpp/compute_pressure:buildflags",
     "//services/device/public/cpp/generic_sensor",
     "//services/device/public/cpp/geolocation",
     "//services/device/public/mojom",
@@ -227,6 +232,7 @@ source_set("browser") {
     "//services/network/public/mojom",
     "//services/resource_coordinator:lib",
     "//services/resource_coordinator/public/cpp:resource_coordinator_cpp",
+    "//services/resource_coordinator/public/cpp/memory_instrumentation:browser",
     "//services/screen_ai/buildflags",
     "//services/service_manager/public/cpp",
     "//services/service_manager/public/mojom",
@@ -438,8 +444,12 @@ source_set("browser") {
     "aggregation_service/report_scheduler_timer.h",
     "ai/echo_ai_manager_impl.cc",
     "ai/echo_ai_manager_impl.h",
+    "ai/echo_ai_rewriter.cc",
+    "ai/echo_ai_rewriter.h",
     "ai/echo_ai_text_session.cc",
     "ai/echo_ai_text_session.h",
+    "ai/echo_ai_writer.cc",
+    "ai/echo_ai_writer.h",
     "attribution_reporting/aggregatable_attribution_utils.cc",
     "attribution_reporting/aggregatable_attribution_utils.h",
     "attribution_reporting/aggregatable_debug_rate_limit_table.cc",
@@ -768,16 +778,6 @@ source_set("browser") {
     "code_cache/simple_lru_cache.h",
     "compositor/surface_utils.cc",
     "compositor/surface_utils.h",
-    "compute_pressure/pressure_client_impl.cc",
-    "compute_pressure/pressure_client_impl.h",
-    "compute_pressure/pressure_service_base.cc",
-    "compute_pressure/pressure_service_base.h",
-    "compute_pressure/pressure_service_for_frame.cc",
-    "compute_pressure/pressure_service_for_frame.h",
-    "compute_pressure/pressure_service_for_worker.cc",
-    "compute_pressure/pressure_service_for_worker.h",
-    "compute_pressure/web_contents_pressure_manager_proxy.cc",
-    "compute_pressure/web_contents_pressure_manager_proxy.h",
     "contacts/contacts_manager_impl.cc",
     "contacts/contacts_manager_impl.h",
     "contacts/contacts_provider.h",
@@ -1128,6 +1128,8 @@ source_set("browser") {
     "idle/idle_manager_impl.h",
     "image_capture/image_capture_impl.cc",
     "image_capture/image_capture_impl.h",
+    "in_memory_federated_permission_context.cc",
+    "in_memory_federated_permission_context.h",
     "indexed_db/indexed_db_internals_ui.cc",
     "indexed_db/indexed_db_internals_ui.h",
     "installedapp/fetch_related_apps_task.h",
@@ -1260,6 +1262,8 @@ source_set("browser") {
     "loader/prefetch_url_loader.h",
     "loader/prefetch_url_loader_service_context.cc",
     "loader/prefetch_url_loader_service_context.h",
+    "loader/reconnectable_url_loader_factory.cc",
+    "loader/reconnectable_url_loader_factory.h",
     "loader/response_head_update_params.cc",
     "loader/response_head_update_params.h",
     "loader/shared_cors_origin_access_list_impl.cc",
@@ -1422,8 +1426,6 @@ source_set("browser") {
     "network_service_client.h",
     "network_service_instance_impl.cc",
     "network_service_instance_impl.h",
-    "notification_service_impl.cc",
-    "notification_service_impl.h",
     "notifications/blink_notification_service_impl.cc",
     "notifications/blink_notification_service_impl.h",
     "notifications/devtools_event_logging.cc",
@@ -1830,6 +1832,8 @@ source_set("browser") {
     "renderer_host/navigation_transitions/navigation_entry_screenshot_cache.h",
     "renderer_host/navigation_transitions/navigation_entry_screenshot_manager.cc",
     "renderer_host/navigation_transitions/navigation_entry_screenshot_manager.h",
+    "renderer_host/navigation_transitions/navigation_transition_config.cc",
+    "renderer_host/navigation_transitions/navigation_transition_config.h",
     "renderer_host/navigation_transitions/navigation_transition_data.cc",
     "renderer_host/navigation_transitions/navigation_transition_data.h",
     "renderer_host/navigation_transitions/navigation_transition_utils.cc",
@@ -2195,8 +2199,6 @@ source_set("browser") {
     "ukm_internals_ui.h",
     "url_info.cc",
     "url_info.h",
-    "url_loader_factory_getter.cc",
-    "url_loader_factory_getter.h",
     "url_loader_factory_params_helper.cc",
     "url_loader_factory_params_helper.h",
     "usb/web_usb_service_impl.cc",
@@ -2368,6 +2370,20 @@ source_set("browser") {
     "worker_host/worker_script_loader_factory.h",
   ]
 
+  if (enable_bluetooth_emulation) {
+    deps += [
+      "//device/bluetooth:fake_bluetooth",
+      "//device/bluetooth/public/mojom:fake_bluetooth_interfaces",
+    ]
+
+    sources += [
+      "$target_gen_dir/devtools/protocol/bluetooth_emulation.cc",
+      "$target_gen_dir/devtools/protocol/bluetooth_emulation.h",
+      "devtools/protocol/bluetooth_emulation_handler.cc",
+      "devtools/protocol/bluetooth_emulation_handler.h",
+    ]
+  }
+
   # TODO(crbug.com/40226169): Remove `permissions_common`.
   # DO NOT add unrelated entries to this block.
   deps += [ "//components/permissions:permissions_common" ]
@@ -2378,6 +2394,21 @@ source_set("browser") {
     "permissions/permission_util.cc",
     "permissions/permission_util.h",
   ]
+
+  if (enable_compute_pressure) {
+    sources += [
+      "compute_pressure/pressure_client_impl.cc",
+      "compute_pressure/pressure_client_impl.h",
+      "compute_pressure/pressure_service_base.cc",
+      "compute_pressure/pressure_service_base.h",
+      "compute_pressure/pressure_service_for_frame.cc",
+      "compute_pressure/pressure_service_for_frame.h",
+      "compute_pressure/pressure_service_for_worker.cc",
+      "compute_pressure/pressure_service_for_worker.h",
+      "compute_pressure/web_contents_pressure_manager_proxy.cc",
+      "compute_pressure/web_contents_pressure_manager_proxy.h",
+    ]
+  }
 
   if (use_viz_debugger) {
     sources += [
@@ -2672,9 +2703,7 @@ source_set("browser") {
       "CoreGraphics.framework",
       "QuartzCore.framework",
       "IOSurface.framework",
-    ]
-    weak_frameworks = [
-      "UniformTypeIdentifiers.framework",  # macOS 11
+      "UniformTypeIdentifiers.framework",
     ]
   } else if (is_ios) {
     sources += [
@@ -2734,6 +2763,8 @@ source_set("browser") {
     sources += [
       "media/capture/frame_sink_video_capture_device.cc",
       "media/capture/frame_sink_video_capture_device.h",
+      "media/capture/native_screen_capture_picker.cc",
+      "media/capture/native_screen_capture_picker.h",
       "media/capture/web_contents_frame_tracker.cc",
       "media/capture/web_contents_frame_tracker.h",
       "media/capture/web_contents_video_capture_device.cc",
@@ -2770,8 +2801,12 @@ source_set("browser") {
         "media/capture/io_surface_capture_device_base_mac.cc",
         "media/capture/io_surface_capture_device_base_mac.h",
         "media/capture/mouse_cursor_overlay_controller_mac.mm",
+        "media/capture/native_screen_capture_picker_mac.h",
+        "media/capture/native_screen_capture_picker_mac.mm",
         "media/capture/screen_capture_kit_device_mac.h",
         "media/capture/screen_capture_kit_device_mac.mm",
+        "media/capture/screen_capture_kit_device_utils_mac.h",
+        "media/capture/screen_capture_kit_device_utils_mac.mm",
         "media/capture/screen_capture_kit_fullscreen_module.h",
         "media/capture/screen_capture_kit_fullscreen_module.mm",
         "media/capture/views_widget_video_capture_device_mac.cc",
@@ -2782,7 +2817,7 @@ source_set("browser") {
         "//sandbox/mac:seatbelt_extension",
       ]
       frameworks += [ "CoreMedia.framework" ]
-      weak_frameworks += [ "ScreenCaptureKit.framework" ]  # macOS 12.3
+      weak_frameworks = [ "ScreenCaptureKit.framework" ]  # macOS 12.3
     }
     if (is_chromeos_ash) {
       sources += [
@@ -3181,8 +3216,8 @@ source_set("browser") {
       "date_time_chooser/android/date_time_chooser_android.h",
       "device_posture/device_posture_platform_provider_android.cc",
       "device_posture/device_posture_platform_provider_android.h",
-      "font_unique_name_lookup/font_unique_name_lookup.cc",
-      "font_unique_name_lookup/font_unique_name_lookup.h",
+      "font_unique_name_lookup/font_unique_name_lookup_android.cc",
+      "font_unique_name_lookup/font_unique_name_lookup_android.h",
       "font_unique_name_lookup/font_unique_name_lookup_service.cc",
       "font_unique_name_lookup/font_unique_name_lookup_service.h",
       "media/android/browser_gpu_video_accelerator_factories.cc",
@@ -3358,6 +3393,13 @@ source_set("browser") {
       "picture_in_picture/document_picture_in_picture_navigation_throttle.h",
       "picture_in_picture/document_picture_in_picture_window_controller_impl.cc",
       "picture_in_picture/document_picture_in_picture_window_controller_impl.h",
+
+      # Cross-device digital credentials flows are handled by Play Services on
+      # Android, not the browser.
+      "webid/digital_credentials/cross_device_request_dispatcher.cc",
+      "webid/digital_credentials/cross_device_request_dispatcher.h",
+      "webid/digital_credentials/cross_device_transaction_impl.cc",
+      "webid/digital_credentials/cross_device_transaction_impl.h",
     ]
 
     if (!is_fuchsia) {
@@ -3370,6 +3412,7 @@ source_set("browser") {
     }
 
     deps += [
+      "//components/device_event_log",
       "//components/soda:constants",
       "//components/soda:soda",
       "//components/soda:utils",
@@ -3453,10 +3496,6 @@ source_set("browser") {
 
   if (use_ozone) {
     deps += [ "//ui/ozone" ]
-  }
-
-  if (use_cras) {
-    defines += [ "USE_CRAS" ]
   }
 
   if (enable_ipc_fuzzer) {

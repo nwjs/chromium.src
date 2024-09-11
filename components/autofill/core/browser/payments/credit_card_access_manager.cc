@@ -354,7 +354,7 @@ void CreditCardAccessManager::FetchCreditCard(
       // Full server cards are only possible after a previous unmasking on the
       // same page. When that happens, subsequent repeat fills of the unmasked
       // card should flow through the cache and not reach here.
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -792,16 +792,7 @@ bool CreditCardAccessManager::UserOptedInToFidoFromSettingsPageOnMobile()
 #if !BUILDFLAG(IS_IOS)
 void CreditCardAccessManager::OnFIDOAuthenticationComplete(
     const CreditCardFidoAuthenticator::FidoAuthenticationResponse& response) {
-#if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableFIDOProgressDialog)) {
-    // Close the progress dialog when the authentication for getting the full
-    // card completes.
-    payments_autofill_client().CloseAutofillProgressDialog(
-        /*show_confirmation_before_closing=*/true,
-        /*no_interactive_authentication_callback=*/base::OnceClosure());
-  }
-#else
+#if !BUILDFLAG(IS_ANDROID)
   // Close the Webauthn verify pending dialog. If FIDO authentication succeeded,
   // card is filled to the form, otherwise fall back to CVC authentication which
   // does not need the verify pending dialog either.
@@ -1674,7 +1665,8 @@ void CreditCardAccessManager::StartDeviceAuthenticationForFilling(
 
   payments::MandatoryReauthAuthenticationMethod authentication_method =
       autofill_client()
-          .GetOrCreatePaymentsMandatoryReauthManager()
+          .GetPaymentsAutofillClient()
+          ->GetOrCreatePaymentsMandatoryReauthManager()
           ->GetAuthenticationMethod();
 
   // If there is no supported auth method on the device, we should skip re-auth
@@ -1703,7 +1695,8 @@ void CreditCardAccessManager::StartDeviceAuthenticationForFilling(
       autofill_metrics::MandatoryReauthAuthenticationFlowEvent::kFlowStarted);
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_IOS)
   autofill_client()
-      .GetOrCreatePaymentsMandatoryReauthManager()
+      .GetPaymentsAutofillClient()
+      ->GetOrCreatePaymentsMandatoryReauthManager()
       ->AuthenticateWithMessage(
           l10n_util::GetStringUTF16(
               IDS_PAYMENTS_AUTOFILL_FILLING_MANDATORY_REAUTH),
@@ -1714,12 +1707,14 @@ void CreditCardAccessManager::StartDeviceAuthenticationForFilling(
   // TODO(crbug.com/40261690): Convert this to
   // MandatoryReauthManager::AuthenticateWithMessage() with the correct message
   // once it is supported. Currently, the message is "Verify it's you".
-  autofill_client().GetOrCreatePaymentsMandatoryReauthManager()->Authenticate(
-      base::BindOnce(
+  autofill_client()
+      .GetPaymentsAutofillClient()
+      ->GetOrCreatePaymentsMandatoryReauthManager()
+      ->Authenticate(base::BindOnce(
           &CreditCardAccessManager::OnDeviceAuthenticationResponseForFilling,
           GetWeakPtr(), authentication_method, card));
 #else
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 #endif
 }
 
@@ -1753,7 +1748,7 @@ void CreditCardAccessManager::OnDeviceAuthenticationResponseForFilling(
       .Run(successful_auth ? CreditCardFetchResult::kSuccess
                            : CreditCardFetchResult::kTransientError,
            card);
-  // `accessor->OnCreditCardFetched()` makes a copy of `card` and `cvc` before
+  // `on_credit_card_fetched_callback_` makes a copy of `card` and `cvc` before
   // it asynchronously fills them into the form. Thus we can safely call
   // `Reset()` here, and we should as from this class' point of view the
   // authentication flow is complete.
@@ -1763,13 +1758,17 @@ void CreditCardAccessManager::OnDeviceAuthenticationResponseForFilling(
 void CreditCardAccessManager::OnVcn3dsAuthenticationComplete(
     payments::PaymentsWindowManager::Vcn3dsAuthenticationResponse response) {
   if (response.card.has_value()) {
-    card_ = std::make_unique<CreditCard>(std::move(response.card.value()));
+    // `on_credit_card_fetched_callback_` makes a copy of `card` and `cvc`
+    // before it asynchronously fills them into the form. Thus it is safe to
+    // pass the address of `response.card.value()` here, as by the time it goes
+    // out of scope, a copy will have already been made to fill the form.
     std::move(on_credit_card_fetched_callback_)
-        .Run(CreditCardFetchResult::kSuccess, card_.get());
+        .Run(CreditCardFetchResult::kSuccess, &response.card.value());
   } else {
     std::move(on_credit_card_fetched_callback_)
         .Run(CreditCardFetchResult::kTransientError, nullptr);
   }
+  Reset();
 }
 
 }  // namespace autofill

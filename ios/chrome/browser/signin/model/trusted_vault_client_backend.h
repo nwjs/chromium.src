@@ -7,14 +7,21 @@
 
 #import <UIKit/UIKit.h>
 
+#import <map>
 #import <string>
 #import <vector>
 
+#import "base/feature_list.h"
 #import "base/functional/callback_forward.h"
 #import "base/ios/block_types.h"
 #import "base/observer_list.h"
 #import "components/keyed_service/core/keyed_service.h"
 #import "components/trusted_vault/trusted_vault_client.h"
+
+// TODO(crbug.com/361196003): Keychain iOS is expecting 'chromesync', but is
+// currently being sent users/me/securitydomains/chromesync. Fix this with a
+// temporary bandaid behind a kill switch. Revert and fix properly.
+BASE_DECLARE_FEATURE(kTrustedVaultSecurityDomainKillSwitch);
 
 @protocol SystemIdentity;
 
@@ -50,10 +57,9 @@ class TrustedVaultClientBackend : public KeyedService {
   ~TrustedVaultClientBackend() override;
 
   // Adds/removes observers.
-  virtual void AddObserver(Observer* observer,
-                           const std::string& security_domain_path) = 0;
-  virtual void RemoveObserver(Observer* observer,
-                              const std::string& security_domain_path) = 0;
+  void AddObserver(Observer* observer, const std::string& security_domain_path);
+  void RemoveObserver(Observer* observer,
+                      const std::string& security_domain_path);
 
   // Registers a delegate-like callback that implements device registration
   // verification.
@@ -114,6 +120,16 @@ class TrustedVaultClientBackend : public KeyedService {
   // Returns the member public key used to enroll the local device.
   virtual void GetPublicKeyForIdentity(id<SystemIdentity> identity,
                                        GetPublicKeyCallback callback) = 0;
+
+ protected:
+  // Functions to notify observers.
+  void NotifyKeysChanged(const std::string& security_domain_path);
+  void NotifyRecoverabilityChanged(const std::string& security_domain_path);
+
+ private:
+  // List of observers per security domain path.
+  std::map<std::string, base::ObserverList<Observer>>
+      observer_lists_per_security_domain_path_;
 };
 
 #endif  // IOS_CHROME_BROWSER_SIGNIN_MODEL_TRUSTED_VAULT_CLIENT_BACKEND_H_

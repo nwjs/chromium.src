@@ -725,7 +725,7 @@ void ServiceWorkerContextCore::AddWarmUpRequest(
     const GURL& document_url,
     const blink::StorageKey& key,
     ServiceWorkerContext::WarmUpServiceWorkerCallback callback) {
-  const size_t kRequestQueueLength =
+  static const size_t kRequestQueueLength =
       blink::features::kSpeculativeServiceWorkerWarmUpRequestQueueLength.Get();
 
   // Erase redundant warm-up requests.
@@ -744,15 +744,7 @@ void ServiceWorkerContextCore::AddWarmUpRequest(
     std::move(cb).Run();
   }
 
-  // TODO(crbug.com/40263674): Move `kFifo` to the caller.
-  const bool kFifo =
-      blink::features::kSpeculativeServiceWorkerWarmUpOnInsertedIntoDom.Get();
-
-  if (kFifo) {
-    warm_up_requests_.emplace_front(document_url, key, std::move(callback));
-  } else {
-    warm_up_requests_.emplace_back(document_url, key, std::move(callback));
-  }
+  warm_up_requests_.emplace_back(document_url, key, std::move(callback));
 
   while (warm_up_requests_.size() > kRequestQueueLength) {
     auto [front_url, front_key, front_callback] =
@@ -770,8 +762,10 @@ ServiceWorkerContextCore::PopNextWarmUpRequest() {
     return std::nullopt;
   }
 
+  static const int kSpeculativeServiceWorkerWarmUpMaxCount =
+      blink::features::kSpeculativeServiceWorkerWarmUpMaxCount.Get();
   if (GetWarmedUpServiceWorkerCount(live_versions_) >=
-      blink::features::kSpeculativeServiceWorkerWarmUpMaxCount.Get()) {
+      kSpeculativeServiceWorkerWarmUpMaxCount) {
     warm_up_requests_.clear();
     return std::nullopt;
   }

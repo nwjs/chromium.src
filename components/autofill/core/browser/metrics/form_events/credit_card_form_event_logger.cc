@@ -67,14 +67,12 @@ void CreditCardFormEventLogger::OnDidShowSuggestions(
     const FormStructure& form,
     const AutofillField& field,
     base::TimeTicks form_parsed_timestamp,
-    AutofillMetrics::PaymentsSigninState signin_state_for_metrics,
     bool off_the_record) {
   if (DoSuggestionsIncludeVirtualCard())
     Log(FORM_EVENT_SUGGESTIONS_SHOWN_WITH_VIRTUAL_CARD, form);
 
   // Also perform the logging actions from the base class:
   FormEventLoggerBase::OnDidShowSuggestions(form, field, form_parsed_timestamp,
-                                            signin_state_for_metrics,
                                             off_the_record);
 
   suggestion_shown_timestamp_ = base::TimeTicks::Now();
@@ -753,7 +751,8 @@ void CreditCardFormEventLogger::RecordCardUnmaskFlowEvent(
 
 bool CreditCardFormEventLogger::DoesCardHaveOffer(
     const CreditCard& credit_card) {
-  auto* offer_manager = client_->GetAutofillOfferManager();
+  auto* offer_manager =
+      client_->GetPaymentsAutofillClient()->GetAutofillOfferManager();
   if (!offer_manager)
     return false;
 

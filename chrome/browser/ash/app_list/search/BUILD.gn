@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/chrome_build.gni")
 import("//build/config/chromeos/ui_mode.gni")
 
 assert(is_chromeos_ash)
@@ -18,10 +19,6 @@ static_library("search") {
     "app_search_provider.h",
     "app_service_app_result.cc",
     "app_service_app_result.h",
-    "app_shortcuts_search_provider.cc",
-    "app_shortcuts_search_provider.h",
-    "app_shortcuts_search_result.cc",
-    "app_shortcuts_search_result.h",
     "app_zero_state_provider.cc",
     "app_zero_state_provider.h",
     "assistant_text_search_provider.cc",
@@ -79,6 +76,7 @@ static_library("search") {
     "//ash/webui/shortcut_customization_ui/backend",
     "//ash/webui/shortcut_customization_ui/backend/search:mojo_bindings",
     "//base",
+    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/app_list",
     "//chrome/browser/ash/app_list/search/ranking",
   ]
@@ -92,11 +90,13 @@ static_library("search") {
     "//chrome/browser/ash/app_list/search/util",
     "//chrome/browser/ash/app_list/vector_icons",
     "//chrome/browser/ash/crosapi:browser_util",
+    "//chrome/browser/ash/drive",
     "//chrome/browser/ash/release_notes",
     "//chrome/browser/chromeos/launcher_search:search_util",
     "//chrome/browser/metrics/structured:features",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sync:factories",
+    "//chrome/browser/ui/webui/ash/settings/search",
     "//chrome/browser/ui/webui/ash/settings/search/mojom",
     "//chrome/browser/web_applications",
     "//chrome/common:constants",
@@ -128,6 +128,10 @@ static_library("search") {
     "//chrome/browser/ui/webui/ash/settings/pages/device/input_device_settings:mojom",
   ]
 
+  if (is_chrome_branded) {
+    deps += [ "//chromeos/ash/resources/internal/strings:strings" ]
+  }
+
   allow_circular_includes_from = [
     "//chrome/browser/ash/app_list",
     "//chrome/browser/ash/app_list/arc",
@@ -141,8 +145,6 @@ source_set("unit_tests") {
 
   sources = [
     "app_discovery_metrics_manager_unittest.cc",
-    "app_search_provider_test_base.cc",
-    "app_search_provider_test_base.h",
     "app_search_provider_unittest.cc",
     "app_zero_state_provider_unittest.cc",
     "assistant_text_search_provider_unittest.cc",
@@ -164,6 +166,7 @@ source_set("unit_tests") {
 
   deps = [
     ":search",
+    ":test_support",
     "//ash",
     "//ash/components/arc:arc_test_support",
     "//ash/components/arc/mojom",
@@ -182,7 +185,6 @@ source_set("unit_tests") {
     "//chrome/browser",
     "//chrome/browser:browser_process",
     "//chrome/browser/apps/app_service",
-    "//chrome/browser/ash:test_support",
     "//chrome/browser/ash/app_list:test_support",
     "//chrome/browser/ash/app_list/arc:test_support",
     "//chrome/browser/ash/app_list/search/common",
@@ -195,6 +197,8 @@ source_set("unit_tests") {
     "//chrome/browser/sync:factories",
     "//chrome/browser/ui",
     "//chrome/browser/ui:test_support",
+    "//chrome/browser/ui/webui/ash/settings/search",
+    "//chrome/browser/ui/webui/ash/settings/test_support",
     "//chrome/browser/web_applications",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/common:constants",

@@ -69,10 +69,12 @@ class PersonalizationAppSeaPenProviderBase
                            GetSeaPenThumbnailsCallback callback) override;
 
   void SelectSeaPenThumbnail(uint32_t id,
+                             bool preview_mode,
                              SelectSeaPenThumbnailCallback callback) override;
 
   void SelectRecentSeaPenImage(
       uint32_t id,
+      bool preview_mode,
       SelectRecentSeaPenImageCallback callback) override;
 
   void GetRecentSeaPenImageIds(
@@ -89,6 +91,10 @@ class PersonalizationAppSeaPenProviderBase
 
   void HandleSeaPenIntroductionDialogClosed() override;
 
+  void IsInTabletMode(IsInTabletModeCallback callback) override;
+
+  void MakeTransparent() override;
+
   wallpaper_handlers::SeaPenFetcher* GetOrCreateSeaPenFetcher();
 
  protected:
@@ -96,6 +102,7 @@ class PersonalizationAppSeaPenProviderBase
 
   virtual void SelectRecentSeaPenImageInternal(
       uint32_t id,
+      bool preview_mode,
       SelectRecentSeaPenImageCallback callback) = 0;
 
   virtual void GetRecentSeaPenImageIdsInternal(
@@ -113,6 +120,7 @@ class PersonalizationAppSeaPenProviderBase
   virtual void OnFetchWallpaperDoneInternal(
       const SeaPenImage& sea_pen_image,
       const mojom::SeaPenQueryPtr& query,
+      bool preview_mode,
       base::OnceCallback<void(bool success)> callback) = 0;
 
   manta::proto::FeatureName feature_name_;
@@ -139,6 +147,7 @@ class PersonalizationAppSeaPenProviderBase
 
   void OnFetchWallpaperDone(SelectSeaPenThumbnailCallback callback,
                             const mojom::SeaPenQueryPtr& query,
+                            bool preview_mode,
                             std::optional<SeaPenImage> image);
 
   void OnRecentSeaPenImageSelected(bool success);
@@ -182,6 +191,8 @@ class PersonalizationAppSeaPenProviderBase
   // the rest of the delegate's lifetime, unless preemptively or subsequently
   // replaced by a mock in a test.
   std::unique_ptr<wallpaper_handlers::SeaPenFetcher> sea_pen_fetcher_;
+
+  const raw_ptr<content::WebUI> web_ui_ = nullptr;
 
   base::WeakPtrFactory<PersonalizationAppSeaPenProviderBase> weak_ptr_factory_{
       this};

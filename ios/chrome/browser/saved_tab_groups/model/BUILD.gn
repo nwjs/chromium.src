@@ -4,6 +4,8 @@
 
 source_set("model") {
   sources = [
+    "ios_tab_group_action_context.h",
+    "ios_tab_group_action_context.mm",
     "ios_tab_group_sync_delegate.h",
     "ios_tab_group_sync_delegate.mm",
     "ios_tab_group_sync_util.h",
@@ -30,11 +32,12 @@ source_set("model") {
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser_state",
+    "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list:utils",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/sync/model:data_type_store_service_factory",
     "//ios/chrome/browser/sync/model:device_info_sync_service_factory",
-    "//ios/chrome/browser/sync/model:model_type_store_service_factory",
     "//ios/chrome/browser/tab_insertion/model",
     "//ios/chrome/common",
     "//ios/web/public",

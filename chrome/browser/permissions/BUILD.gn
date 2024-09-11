@@ -4,6 +4,7 @@
 
 import("//build/config/ui.gni")
 import("//components/optimization_guide/features.gni")
+import("//services/device/public/cpp/geolocation/buildflags.gni")
 import("//third_party/protobuf/proto_library.gni")
 
 source_set("permissions") {
@@ -53,12 +54,14 @@ source_set("permissions") {
     "quiet_notification_permission_ui_config.h",
     "quiet_notification_permission_ui_state.cc",
     "quiet_notification_permission_ui_state.h",
+    "system/platform_handle.h",
     "system/system_permission_settings.cc",
     "system/system_permission_settings.h",
   ]
 
   public_deps = [
     "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/media/webrtc",
     "//chrome/browser/resource_coordinator:tab_lifecycle_observer",
   ]
 
@@ -163,6 +166,17 @@ source_set("permissions") {
     }
     deps += [ "//components/segmentation_platform/internal:optimization_guide_segmentation_handler" ]
   }
+
+  if (os_level_geolocation_permission_supported) {
+    sources += [
+      "system/geolocation_observation.cc",
+      "system/geolocation_observation.h",
+    ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/permission_bubble" ]
+  }
 }
 
 proto_library("permissions_proto") {
@@ -171,6 +185,7 @@ proto_library("permissions_proto") {
 
 source_set("unit_tests") {
   testonly = true
+
   sources = [
     "adaptive_quiet_notification_permission_ui_enabler_unittest.cc",
     "chrome_permission_manager_unittest.cc",
@@ -183,6 +198,8 @@ source_set("unit_tests") {
     "permission_revocation_request_unittests.cc",
     "prediction_based_permission_ui_selector_unittest.cc",
     "pref_based_quiet_permission_ui_selector_unittest.cc",
+    "system/mock_platform_handle.cc",
+    "system/mock_platform_handle.h",
   ]
 
   deps = [
@@ -214,8 +231,8 @@ source_set("unit_tests") {
 
   if (is_chromeos_ash) {
     deps += [
-      "//chrome/browser/ash:test_support",
       "//chrome/browser/ash/app_mode/web_app",
+      "//chrome/browser/ash/login/users:test_support",
     ]
   }
 }
@@ -236,6 +253,7 @@ if (!is_android) {
     ]
     deps = [
       ":permissions",
+      "//chrome/browser/media/webrtc",
       "//chrome/browser/optimization_guide:test_support",
       "//chrome/browser/ui:browser_element_identifiers",
       "//chrome/test:test_support",

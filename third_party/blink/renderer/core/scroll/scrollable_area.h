@@ -65,10 +65,6 @@ class AnimationTimeline;
 class Layer;
 }  // namespace cc
 
-namespace ui {
-class ColorProvider;
-}  // namespace ui
-
 namespace blink {
 class ChromeClient;
 class Document;
@@ -164,6 +160,8 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
       const PhysicalBoxStrut& scroll_margin,
       const mojom::blink::ScrollIntoViewParamsPtr&);
 
+  virtual PhysicalOffset LocalToScrollOriginOffset() const = 0;
+
   static bool ScrollBehaviorFromString(const String&,
                                        mojom::blink::ScrollBehavior&);
 
@@ -249,12 +247,6 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
     return static_cast<mojom::blink::ColorScheme>(
         overlay_scrollbar_color_scheme__);
   }
-
-  // Returns the color provider for this scrollbar.
-  const ui::ColorProvider* GetColorProvider(mojom::blink::ColorScheme) const;
-
-  // Returns the forced colors state for this scrollbar.
-  bool InForcedColorsMode() const;
 
   // This getter will create a MacScrollAnimator if it doesn't already exist,
   // only on MacOS.
@@ -378,9 +370,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
     return position.OffsetFromOrigin();
   }
   virtual gfx::Vector2d ScrollOffsetInt() const = 0;
-  virtual ScrollOffset GetScrollOffset() const {
-    return ScrollOffset(ScrollOffsetInt());
-  }
+  virtual ScrollOffset GetScrollOffset() const = 0;
   // Returns a floored version of the scroll offset as the web-exposed scroll
   // offset to ensure web compatibility in DOM APIs.
   virtual ScrollOffset GetWebExposedScrollOffset() const;

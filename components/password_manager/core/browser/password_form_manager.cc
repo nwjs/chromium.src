@@ -943,13 +943,13 @@ void PasswordFormManager::OnTimeout() {
 }
 
 bool PasswordFormManager::WebAuthnCredentialsAvailable() const {
-  auto check_credentials_delegate = [=]() {
+  auto check_credentials_delegate = [=, this]() {
     WebAuthnCredentialsDelegate* delegate =
         client_->GetWebAuthnCredentialsDelegateForDriver(driver_.get());
     return delegate && delegate->GetPasskeys().has_value();
   };
 #if BUILDFLAG(IS_ANDROID)
-  auto check_cred_man_delegate = [=]() {
+  auto check_cred_man_delegate = [=, this]() {
     WebAuthnCredManDelegate* delegate =
         client_->GetWebAuthnCredManDelegateForDriver(driver_.get());
     return delegate &&
@@ -1171,15 +1171,15 @@ void PasswordFormManager::FillNow() {
   if (parsed_observed_form_->HasPasswordElement() &&
       !parsed_observed_form_->IsSingleUsername()) {
     metrics_recorder_->RecordPotentialPreferredMatch(
-        form_fetcher_->GetPreferredMatch(),
-        form_fetcher_->WereGroupedCredentialsAvailable());
+        form_fetcher_->GetPreferredOrPotentialMatchedFormType());
   }
 
   SendFillInformationToRenderer(
       client_, driver_.get(), *parsed_observed_form_.get(),
       form_fetcher_->GetBestMatches(), form_fetcher_->GetFederatedMatches(),
       form_fetcher_->GetPreferredMatch(), metrics_recorder_.get(),
-      WebAuthnCredentialsAvailable());
+      WebAuthnCredentialsAvailable(),
+      form_parsing_result.suggestion_banned_fields);
   // No logic should be added after the call to `SendFillInformationToRenderer`.
   // That function can cause this `PasswordFormManager` to be destroyed, it can
   // happen when there are saved credentials available for filling on this

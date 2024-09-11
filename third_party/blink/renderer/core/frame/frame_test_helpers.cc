@@ -809,6 +809,7 @@ void TestWebFrameClient::Bind(WebLocalFrame* frame,
 }
 
 void TestWebFrameClient::FrameDetached() {
+  std::move(frame_detached_callback_).Run();
   frame_->Close();
   self_owned_.reset();
 }
@@ -968,6 +969,10 @@ void TestWebFrameClient::DestroyChildViews() {
   child_web_views_.clear();
 }
 
+void TestWebFrameClient::SetFrameDetachedCallback(base::OnceClosure callback) {
+  frame_detached_callback_ = std::move(callback);
+}
+
 TestWidgetInputHandlerHost* TestWebFrameWidget::GetInputHandlerHost() {
   if (!widget_input_handler_host_)
     widget_input_handler_host_ = std::make_unique<TestWidgetInputHandlerHost>();
@@ -1025,7 +1030,8 @@ void TestWebFrameWidget::BindWidgetChannels(
   mojo::PendingRemote<mojom::blink::RenderInputRouterClient> rir_client_remote;
   // Setup RenderInputRouter mojo connections.
   widget_remote->SetupRenderInputRouterConnections(
-      rir_client_remote.InitWithNewPipeAndPassReceiver());
+      rir_client_remote.InitWithNewPipeAndPassReceiver(),
+      /* viz_client= */ mojo::NullReceiver());
   widget_host_->BindRenderInputRouterInterfaces(std::move(rir_client_remote));
 
   widget_host_->GetWidgetInputHandler(

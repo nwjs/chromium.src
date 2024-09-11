@@ -362,6 +362,7 @@ void AutofillKeyboardAccessoryControllerImpl::OnDeletionDialogClosed(
     case FillingProduct::kPassword:
     case FillingProduct::kCompose:
     case FillingProduct::kPlusAddresses:
+    case FillingProduct::kPredictionImprovements:
       break;
   }
 
@@ -473,11 +474,6 @@ void AutofillKeyboardAccessoryControllerImpl::Show(
   barrier_for_accepting_ = NextIdleBarrier::CreateNextIdleBarrierWithDelay(
       kIgnoreEarlyClicksOnSuggestionsDuration);
   delegate_->OnSuggestionsShown();
-}
-
-void AutofillKeyboardAccessoryControllerImpl::DisableThresholdForTesting(
-    bool disable_threshold) {
-  disable_threshold_for_testing_ = disable_threshold;
 }
 
 void AutofillKeyboardAccessoryControllerImpl::SetKeepPopupOpenForTesting(
@@ -594,13 +590,6 @@ void AutofillKeyboardAccessoryControllerImpl::
   for (const Suggestion& suggestion : suggestions_) {
     labels_.push_back(CreateLabel(suggestion));
   }
-}
-
-void AutofillKeyboardAccessoryControllerImpl::SetViewForTesting(
-    std::unique_ptr<AutofillKeyboardAccessoryView> view) {
-  view_ = std::move(view);
-  barrier_for_accepting_ = NextIdleBarrier::CreateNextIdleBarrierWithDelay(
-      kIgnoreEarlyClicksOnSuggestionsDuration);
 }
 
 }  // namespace autofill

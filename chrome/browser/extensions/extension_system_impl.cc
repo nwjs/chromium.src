@@ -74,8 +74,6 @@
 #include "components/user_manager/user_manager.h"
 #endif
 
-#include "content/nw/src/nw_content_verifier_delegate.h"
-
 namespace extensions {
 
 namespace {
@@ -173,7 +171,7 @@ void ExtensionSystemImpl::Shared::InitInstallGates() {
       ExtensionPrefs::DelayReason::kWaitForImports,
       extension_service_->shared_module_service());
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (chrome::IsRunningInForcedAppMode()) {
+  if (IsRunningInForcedAppMode()) {
     kiosk_app_update_install_gate_ =
         std::make_unique<ash::KioskAppUpdateInstallGate>(profile_);
     extension_service_->RegisterInstallGate(
@@ -193,7 +191,7 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   LoadErrorReporter::Init(allow_noisy_errors);
 
   content_verifier_ = new ContentVerifier(
-      profile_, std::make_unique<NWContentVerifierDelegate>(profile_));
+      profile_, std::make_unique<ChromeContentVerifierDelegate>(profile_));
 
   service_worker_manager_ = std::make_unique<ServiceWorkerManager>(profile_);
 
@@ -222,8 +220,8 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   // load any extensions.
   {
     InstallVerifier::Get(profile_)->Init();
-    ChromeContentVerifierDelegate::VerifyInfo::Mode mode = (ChromeContentVerifierDelegate::VerifyInfo::Mode)
-        NWContentVerifierDelegate::GetDefaultMode();
+    ChromeContentVerifierDelegate::VerifyInfo::Mode mode =
+        ChromeContentVerifierDelegate::GetDefaultMode();
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     mode = std::max(mode,
                     ChromeContentVerifierDelegate::VerifyInfo::Mode::BOOTSTRAP);
@@ -259,7 +257,7 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   // to a user session.
   skip_session_extensions = !ash::LoginState::Get()->IsUserLoggedIn() ||
                             !ash::ProfileHelper::IsUserProfile(profile_);
-  if (chrome::IsRunningInForcedAppMode()) {
+  if (IsRunningInForcedAppMode()) {
     extension_service_->component_loader()
         ->AddDefaultComponentExtensionsForKioskMode(skip_session_extensions);
   } else {

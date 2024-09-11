@@ -7,12 +7,15 @@
 #import "base/ios/ios_util.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
+#import "base/strings/sys_string_conversions.h"
 #import "components/prefs/pref_service.h"
 #import "components/search_engines/template_url_service.h"
 #import "ios/chrome/browser/context_menu/ui_bundled/context_menu_configuration_provider+Testing.h"
 #import "ios/chrome/browser/context_menu/ui_bundled/context_menu_utils.h"
 #import "ios/chrome/browser/favicon/model/favicon_loader.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
+#import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_commands.h"
+#import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/photos/model/photos_availability.h"
 #import "ios/chrome/browser/photos/model/photos_metrics.h"
@@ -26,6 +29,8 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
+#import "ios/chrome/browser/shared/public/commands/activity_service_share_url_command.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
@@ -39,8 +44,6 @@
 #import "ios/chrome/browser/shared/ui/util/image/image_saver.h"
 #import "ios/chrome/browser/shared/ui/util/pasteboard_util.h"
 #import "ios/chrome/browser/shared/ui/util/url_with_title.h"
-#import "ios/chrome/browser/ui/incognito_reauth/incognito_reauth_commands.h"
-#import "ios/chrome/browser/ui/incognito_reauth/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/ui/lens/lens_availability.h"
 #import "ios/chrome/browser/ui/lens/lens_entrypoint.h"
 #import "ios/chrome/browser/ui/menu/browser_action_factory.h"
@@ -58,6 +61,7 @@
 #import "ios/web/common/url_scheme_util.h"
 #import "ios/web/public/ui/context_menu_params.h"
 #import "ios/web/public/web_state.h"
+#import "net/base/apple/url_conversions.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
@@ -71,6 +75,8 @@ NSString* const kContextMenuEllipsis = @"…";
 // Maximum length for a context menu title formed from an address, date or phone
 // number experience.
 const NSUInteger kContextMenuMaxTitleLength = 30;
+// Full URL alert accessibility identifier.
+NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
 
 }  // namespace
 
@@ -216,12 +222,30 @@ const NSUInteger kContextMenuMaxTitleLength = 30;
   if (isLink || isImage) {
     menuTitle = GetContextMenuTitle(params);
 
-    // Truncate context meny titles that originate from URLs, leaving text
-    // titles untruncated.
     if (!IsImageTitle(params) &&
         menuTitle.length > kContextMenuMaxURLTitleLength + 1) {
-      menuTitle = [[menuTitle substringToIndex:kContextMenuMaxURLTitleLength]
-          stringByAppendingString:kContextMenuEllipsis];
+      if (base::FeatureList::IsEnabled(kShareInWebContextMenuIOS)) {
+        menuTitle = nil;
+        // "Show URL action" at the top of the context menu.
+        __weak __typeof(self) weakSelf = self;
+        NSString* URLString = base::SysUTF8ToNSString(params.link_url.spec());
+        BrowserActionFactory* actionFactory =
+            [[BrowserActionFactory alloc] initWithBrowser:self.browser
+                                                 scenario:menuScenario];
+        UIAction* showFullURL = [actionFactory
+            actionToShowFullURL:URLString
+                          block:^{
+                            [weakSelf showFullURLPopUp:params
+                                             URLString:URLString];
+                          }];
+
+        [menuElements insertObject:showFullURL atIndex:0];
+      } else {
+        // Truncate context menu titles that originate from URLs, leaving text
+        // titles untruncated.
+        menuTitle = [[menuTitle substringToIndex:kContextMenuMaxURLTitleLength]
+            stringByAppendingString:kContextMenuEllipsis];
+      }
     }
   }
 
@@ -344,6 +368,18 @@ const NSUInteger kContextMenuMaxTitleLength = 30;
   UIAction* copyLink =
       [actionFactory actionToCopyURL:[[CrURL alloc] initWithGURL:linkURL]];
   [linkMenuElements addObject:copyLink];
+
+  // Share Link.
+  if (base::FeatureList::IsEnabled(kShareInWebContextMenuIOS)) {
+    UIAction* shareLink = [actionFactory actionToShareWithBlock:^{
+      [weakSelf
+          shareURLFromContextMenu:linkURL
+                         URLTitle:(params.text.length != 0) ? params.text
+                                                            : params.alt_text
+                           params:params];
+    }];
+    [linkMenuElements addObject:shareLink];
+  }
 
   return linkMenuElements;
 }
@@ -680,6 +716,45 @@ const NSUInteger kContextMenuMaxTitleLength = 30;
   }
 
   return imageSearchingMenuElements;
+}
+
+// Creates the UIAlertController with URLString that appears when clicking
+// on Show Full URL button from the context menu.
+- (void)showFullURLPopUp:(web::ContextMenuParams)params
+               URLString:(NSString*)URLString {
+  UIAlertController* alert = [UIAlertController
+      alertControllerWithTitle:(params.text.length != 0) ? params.text : @""
+                       message:URLString
+                preferredStyle:UIAlertControllerStyleAlert];
+
+  UIAlertAction* defaultAction = [UIAlertAction
+      actionWithTitle:l10n_util::GetNSString(IDS_IOS_CLOSE_ALERT_BUTTON_LABEL)
+                style:UIAlertActionStyleDefault
+              handler:nil];
+
+  [alert addAction:defaultAction];
+  alert.view.accessibilityIdentifier = kAlertAccessibilityIdentifier;
+  // The alert pop up will be presenting on top of the menu.
+  [self.baseViewController.presentedViewController presentViewController:alert
+                                                                animated:YES
+                                                              completion:nil];
+}
+
+// Calls the shareURLFromContextMenu with the given command.
+- (void)shareURLFromContextMenu:(const GURL&)URLToShare
+                       URLTitle:(NSString*)URLTitle
+                         params:(web::ContextMenuParams)params {
+  id<ActivityServiceCommands> handler = HandlerForProtocol(
+      _browser->GetCommandDispatcher(), ActivityServiceCommands);
+
+  CGRect sourceRect = CGRectMake(params.location.x, params.location.y, 0, 0);
+
+  ActivityServiceShareURLCommand* command =
+      [[ActivityServiceShareURLCommand alloc] initWithURL:URLToShare
+                                                    title:URLTitle
+                                               sourceView:params.view
+                                               sourceRect:sourceRect];
+  [handler shareURLFromContextMenu:command];
 }
 
 @end

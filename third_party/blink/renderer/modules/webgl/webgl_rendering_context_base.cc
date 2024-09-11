@@ -36,6 +36,7 @@
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/numerics/checked_math.h"
 #include "base/synchronization/lock.h"
 #include "base/task/single_thread_task_runner.h"
@@ -1891,19 +1892,20 @@ bool WebGLRenderingContextBase::CopyRenderingResultsFromDrawingBuffer(
       return false;
     gpu::raster::RasterInterface* raster_interface =
         shared_context_wrapper->ContextProvider()->RasterInterface();
-    const gpu::Mailbox& mailbox =
-        resource_provider->GetBackingMailboxForOverwrite();
-    GLenum texture_target = resource_provider->GetBackingTextureTarget();
-    if (mailbox.IsZero())
+    auto client_si =
+        resource_provider->GetBackingClientSharedImageForOverwrite();
+    if (!client_si) {
       return false;
+    }
 
     // TODO(xlai): Flush should not be necessary if the synchronization in
     // CopyToPlatformTexture is done correctly. See crbug.com/794706.
     raster_interface->Flush();
 
     return GetDrawingBuffer()->CopyToPlatformMailbox(
-        raster_interface, mailbox, texture_target, flip_y, gfx::Point(0, 0),
-        gfx::Rect(drawing_buffer_->Size()), source_buffer);
+        raster_interface, client_si->mailbox(), client_si->GetTextureTarget(),
+        flip_y, gfx::Point(0, 0), gfx::Rect(drawing_buffer_->Size()),
+        source_buffer);
   }
 
   // As the resource provider is not accelerated, we don't need an accelerated
@@ -3642,9 +3644,8 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
     case GL_COLOR_WRITEMASK:
       return GetBooleanArrayParameter(script_state, pname);
     case GL_COMPRESSED_TEXTURE_FORMATS:
-      return WebGLAny(script_state, DOMUint32Array::Create(
-                                        compressed_texture_formats_.data(),
-                                        compressed_texture_formats_.size()));
+      return WebGLAny(script_state,
+                      DOMUint32Array::Create(compressed_texture_formats_));
     case GL_CULL_FACE:
       return GetBooleanParameter(script_state, pname);
     case GL_CULL_FACE_MODE:
@@ -4427,23 +4428,24 @@ ScriptValue WebGLRenderingContextBase::getUniform(
             ContextGL()->GetUniformfv(ObjectOrZero(program), location, value);
             if (length == 1)
               return WebGLAny(script_state, value[0]);
-            return WebGLAny(script_state,
-                            DOMFloat32Array::Create(value, length));
+            return WebGLAny(script_state, DOMFloat32Array::Create(
+                                              base::span(value).first(length)));
           }
           case GL_INT: {
             GLint value[4] = {0};
             ContextGL()->GetUniformiv(ObjectOrZero(program), location, value);
             if (length == 1)
               return WebGLAny(script_state, value[0]);
-            return WebGLAny(script_state, DOMInt32Array::Create(value, length));
+            return WebGLAny(script_state, DOMInt32Array::Create(
+                                              base::span(value).first(length)));
           }
           case GL_UNSIGNED_INT: {
             GLuint value[4] = {0};
             ContextGL()->GetUniformuiv(ObjectOrZero(program), location, value);
             if (length == 1)
               return WebGLAny(script_state, value[0]);
-            return WebGLAny(script_state,
-                            DOMUint32Array::Create(value, length));
+            return WebGLAny(script_state, DOMUint32Array::Create(
+                                              base::span(value).first(length)));
           }
           case GL_BOOL: {
             GLint value[4] = {0};
@@ -4537,18 +4539,17 @@ ScriptValue WebGLRenderingContextBase::getVertexAttrib(
         case kFloat32ArrayType: {
           GLfloat float_value[4];
           ContextGL()->GetVertexAttribfv(index, pname, float_value);
-          return WebGLAny(script_state,
-                          DOMFloat32Array::Create(float_value, 4));
+          return WebGLAny(script_state, DOMFloat32Array::Create(float_value));
         }
         case kInt32ArrayType: {
           GLint int_value[4];
           ContextGL()->GetVertexAttribIiv(index, pname, int_value);
-          return WebGLAny(script_state, DOMInt32Array::Create(int_value, 4));
+          return WebGLAny(script_state, DOMInt32Array::Create(int_value));
         }
         case kUint32ArrayType: {
           GLuint uint_value[4];
           ContextGL()->GetVertexAttribIuiv(index, pname, uint_value);
-          return WebGLAny(script_state, DOMUint32Array::Create(uint_value, 4));
+          return WebGLAny(script_state, DOMUint32Array::Create(uint_value));
         }
         default:
           NOTREACHED_IN_MIGRATION();
@@ -7460,7 +7461,8 @@ ScriptValue WebGLRenderingContextBase::GetWebGLFloatArrayParameter(
     }
     RecordIdentifiableGLParameterDigest(pname, builder.GetToken());
   }
-  return WebGLAny(script_state, DOMFloat32Array::Create(value, length));
+  return WebGLAny(script_state,
+                  DOMFloat32Array::Create(base::span(value).first(length)));
 }
 
 ScriptValue WebGLRenderingContextBase::GetWebGLIntArrayParameter(
@@ -7488,7 +7490,8 @@ ScriptValue WebGLRenderingContextBase::GetWebGLIntArrayParameter(
     }
     RecordIdentifiableGLParameterDigest(pname, builder.GetToken());
   }
-  return WebGLAny(script_state, DOMInt32Array::Create(value, length));
+  return WebGLAny(script_state,
+                  DOMInt32Array::Create(base::span(value).first(length)));
 }
 
 WebGLTexture* WebGLRenderingContextBase::ValidateTexture2DBinding(
@@ -8882,7 +8885,8 @@ void WebGLRenderingContextBase::addProgramCompletionQuery(WebGLProgram* program,
     DCHECK_GT(program_completion_query_list_.size(), 0u);
     WebGLProgram* program_to_remove = program_completion_query_list_[0];
     auto program_iter = program_completion_query_map_.find(program_to_remove);
-    DCHECK_NE(program_iter, program_completion_query_map_.end());
+    CHECK_NE(program_iter, program_completion_query_map_.end(),
+             base::NotFatalUntil::M130);
     ContextGL()->DeleteQueriesEXT(1, &program_iter->value);
     program_completion_query_map_.erase(program_iter);
     program_completion_query_list_.EraseAt(0);

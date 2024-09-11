@@ -281,6 +281,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="File encrypted"/>
   <int value="8" label="Unsupported file type"/>
   <int value="9" label="Too many requests"/>
+  <int value="10" label="Incomplete response"/>
 </enum>
 
 <enum name="SafeBrowsingCheckUrlAction">
@@ -362,9 +363,10 @@ chromium-metrics-reviews@google.com.
 
 <enum name="SafeBrowsingRTConsumerVersionReason">
   <int value="0" label="Total checks"/>
-  <int value="1" label="Off the record"/>
+  <int value="1" label="[Deprecated] Off the record"/>
   <int value="2" label="No valid DM token"/>
   <int value="3" label="Policy not set"/>
+  <int value="4" label="Incognito"/>
 </enum>
 
 <enum name="SafeBrowsingRTLookupResponseVerdictType">

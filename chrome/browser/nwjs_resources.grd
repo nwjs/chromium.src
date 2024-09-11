@@ -206,6 +206,7 @@
       <include name="IDR_COMPONENTS_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_MEMORY_INTERNALS_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_MEMORY_INTERNALS_JS" file="resources\empty.js" type="BINDATA" />
+      <include name="IDR_READING_MODE_GDOCS_HELPER_MANIFEST" file="resources\reading_mode_gdocs_helper\manifest.json" type="BINDATA" />
       <if expr="enable_pdf">
         <include name="IDR_PDF_MANIFEST" file="resources\pdf\manifest.json" type="BINDATA" />
       </if>

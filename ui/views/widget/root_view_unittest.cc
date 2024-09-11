@@ -544,7 +544,7 @@ class NestedEventOnEvent : public View {
                                 ui::EF_NONE, ui::EF_NONE);
       // Avoid infinite recursion if |nested_event_type_| ==
       // EventType::kMouseExited.
-      nested_event_type_ = ui::kUnknown;
+      nested_event_type_ = ui::EventType::kUnknown;
       root_view_->OnMouseExited(exit_event);
     }
   }
@@ -932,6 +932,11 @@ TEST_F(RootViewTest, AnnounceTextAsTest) {
   hidden_polite_view->GetAccessibleNodeData(&node_data);
   EXPECT_EQ(kPoliteText,
             node_data.GetString16Attribute(ax::mojom::StringAttribute::kName));
+  hidden_polite_view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
+  std::string val;
+  ASSERT_TRUE(node_data.GetStringAttribute(
+      ax::mojom::StringAttribute::kContainerLiveStatus, &val));
+  ASSERT_EQ("polite", val);
 }
 
 #endif  // !BUILDFLAG(IS_MAC)

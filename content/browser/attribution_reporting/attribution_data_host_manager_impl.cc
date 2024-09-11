@@ -28,7 +28,6 @@
 #include "base/memory/raw_ref.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
@@ -115,7 +114,7 @@ enum class NavigationDataHostStatus {
 
   kMaxValue = kProcessed,
 };
-// LINT.ThenChange(//tools/metrics/histograms/enums.xml:ConversionNavigationDataHostStatus)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/attribution_reporting/enums.xml:ConversionNavigationDataHostStatus)
 
 void RecordNavigationDataHostStatus(NavigationDataHostStatus event) {
   base::UmaHistogramEnumeration("Conversions.NavigationDataHostStatus3", event);
@@ -139,7 +138,7 @@ enum class RegistrationMethod {
   kForegroundOrBackgroundBrowser = 10,
   kMaxValue = kForegroundOrBackgroundBrowser,
 };
-// LINT.ThenChange(//tools/metrics/histograms/enums.xml:ConversionsRegistrationMethod)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/attribution_reporting/enums.xml:ConversionsRegistrationMethod)
 
 void RecordRegistrationMethod(RegistrationMethod method) {
   base::UmaHistogramEnumeration("Conversions.RegistrationMethod2", method);
@@ -155,7 +154,7 @@ enum class RegisterDataHostOutcome {
   kDropped = 2,
   kMaxValue = kDropped,
 };
-// LINT.ThenChange(//tools/metrics/histograms/enums.xml:ConversionRegisterDataHostOutcome)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/attribution_reporting/enums.xml:ConversionRegisterDataHostOutcome)
 
 void RecordRegisterDataHostHostOutcome(RegisterDataHostOutcome status) {
   base::UmaHistogramEnumeration("Conversions.RegisterDataHostOutcome", status);
@@ -170,7 +169,7 @@ enum class NavigationUnexpectedRegistration {
   kRegistrationMissingUponReceivingData = 1,
   kMaxValue = kRegistrationMissingUponReceivingData,
 };
-// LINT.ThenChange(//tools/metrics/histograms/enums.xml:ConversionNavigationUnexpectedRegistration)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/attribution_reporting/enums.xml:ConversionNavigationUnexpectedRegistration)
 
 // See https://crbug.com/1500667 for details. There are assumptions that a
 // navigation registration can only be registered once and that it must be
@@ -193,7 +192,7 @@ enum class BackgroundNavigationOutcome {
   kNeverTiedIneligible = 3,
   kMaxValue = kNeverTiedIneligible,
 };
-// LINT.ThenChange(//tools/metrics/histograms/enums.xml:ConversionBackgroundNavigationOutcome)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/attribution_reporting/enums.xml:ConversionBackgroundNavigationOutcome)
 
 void RecordBackgroundNavigationOutcome(BackgroundNavigationOutcome outcome) {
   base::UmaHistogramEnumeration("Conversions.BackgroundNavigation.Outcome",
@@ -315,7 +314,7 @@ Registrar ConvertToRegistrar(AttributionReportingOsRegistrar os_registrar) {
     case AttributionReportingOsRegistrar::kOs:
       return Registrar::kOs;
     case AttributionReportingOsRegistrar::kDisabled:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -501,7 +500,7 @@ class AttributionDataHostManagerImpl::RegistrationContext {
       case RegistrationMethod::kNavBackgroundBlinkViaSW:
       case RegistrationMethod::kForegroundBlinkViaSW:
       case RegistrationMethod::kBackgroundBlinkViaSW:
-        NOTREACHED_NORETURN();
+        NOTREACHED();
     }
   }
 
@@ -590,8 +589,7 @@ struct AttributionDataHostManagerImpl::HeaderPendingDecode {
         reporting_url(std::move(reporting_url)),
         report_header_errors(report_header_errors),
         registration_type(registration_type) {
-    CHECK_EQ(*this->reporting_origin, url::Origin::Create(this->reporting_url),
-             base::NotFatalUntil::M128);
+    CHECK_EQ(*this->reporting_origin, url::Origin::Create(this->reporting_url));
   }
 
   HeaderPendingDecode(const HeaderPendingDecode&) = delete;
@@ -697,7 +695,7 @@ class AttributionDataHostManagerImpl::Registrations {
   bool operator<(const Registrations& other) const { return id() < other.id(); }
 
   void CompleteRegistrations() {
-    CHECK(!registrations_complete_, base::NotFatalUntil::M128);
+    CHECK(!registrations_complete_);
     registrations_complete_ = true;
   }
 
@@ -951,8 +949,7 @@ struct AttributionDataHostManagerImpl::PendingRegistrationData {
       : headers(std::move(headers)),
         reporting_origin(std::move(reporting_origin)),
         reporting_url(std::move(reporting_url)) {
-    CHECK_EQ(*this->reporting_origin, url::Origin::Create(this->reporting_url),
-             base::NotFatalUntil::M128);
+    CHECK_EQ(*this->reporting_origin, url::Origin::Create(this->reporting_url));
   }
 
   PendingRegistrationData(const PendingRegistrationData&) = delete;
@@ -1069,8 +1066,6 @@ AttributionDataHostManagerImpl::AttributionDataHostManagerImpl(
       base::Unretained(this)));
 }
 
-// TODO(anthonygarant): Should we bind all `deferred_receivers_` when the
-// `AttributionDataHostManagerImpl` is about to be destroyed?
 AttributionDataHostManagerImpl::~AttributionDataHostManagerImpl() = default;
 
 void AttributionDataHostManagerImpl::RegisterDataHost(
@@ -1405,7 +1400,7 @@ void AttributionDataHostManagerImpl::NotifyNavigationRegistrationStarted(
     // when the navigation data host disconnects.
     auto [__, inserted] =
         ongoing_background_datahost_registrations_.emplace(navigation_id);
-    CHECK(inserted, base::NotFatalUntil::M128);
+    CHECK(inserted);
 
     receivers_.Add(
         this, std::move(it->second),
@@ -1743,7 +1738,7 @@ void AttributionDataHostManagerImpl::SourceDataAvailable(
     attribution_reporting::SourceRegistration data,
     bool was_fetched_via_service_worker) {
   // This is validated by the Mojo typemapping.
-  CHECK(reporting_origin.IsValid(), base::NotFatalUntil::M128);
+  CHECK(reporting_origin.IsValid());
 
   const RegistrationContext* context =
       GetReceiverRegistrationContextForSource();
@@ -1785,7 +1780,7 @@ void AttributionDataHostManagerImpl::TriggerDataAvailable(
     attribution_reporting::TriggerRegistration data,
     bool was_fetched_via_service_worker) {
   // This is validated by the Mojo typemapping.
-  CHECK(reporting_origin.IsValid(), base::NotFatalUntil::M128);
+  CHECK(reporting_origin.IsValid());
 
   const RegistrationContext* context =
       GetReceiverRegistrationContextForTrigger();
@@ -1904,7 +1899,7 @@ void AttributionDataHostManagerImpl::NotifyFencedFrameReportingBeaconData(
     return;
   }
 
-  CHECK(!it->registrations_complete(), base::NotFatalUntil::M128);
+  CHECK(!it->registrations_complete());
   if (is_final_response) {
     it->CompleteRegistrations();
   }
@@ -1976,18 +1971,13 @@ void AttributionDataHostManagerImpl::HandleParsedWebSource(
       return base::unexpected(SourceRegistrationError::kInvalidJson);
     }
 
-    base::Value::Dict* dict = result->GetIfDict();
-    if (!dict) {
-      return base::unexpected(SourceRegistrationError::kRootWrongType);
-    }
-
     auto source_type = registrations.navigation_id().has_value()
                            ? SourceType::kNavigation
                            : SourceType::kEvent;
 
     ASSIGN_OR_RETURN(auto registration,
                      attribution_reporting::SourceRegistration::Parse(
-                         std::move(*dict), source_type));
+                         *std::move(result), source_type));
 
     if (auto navigation_id = registrations.navigation_id()) {
       AddNavigationSourceRegistrationToBatchMap(
@@ -2022,14 +2012,9 @@ void AttributionDataHostManagerImpl::HandleParsedWebTrigger(
       return base::unexpected(TriggerRegistrationError::kInvalidJson);
     }
 
-    base::Value::Dict* dict = result->GetIfDict();
-    if (!dict) {
-      return base::unexpected(TriggerRegistrationError::kRootWrongType);
-    }
-
     ASSIGN_OR_RETURN(
         auto registration,
-        attribution_reporting::TriggerRegistration::Parse(std::move(*dict)));
+        attribution_reporting::TriggerRegistration::Parse(*std::move(result)));
 
     return AttributionTrigger(
         std::move(pending_decode.reporting_origin), std::move(registration),

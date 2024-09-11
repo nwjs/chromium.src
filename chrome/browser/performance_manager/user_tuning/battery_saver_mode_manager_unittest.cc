@@ -84,6 +84,8 @@ class MockObserver : public performance_manager::user_tuning::
   MOCK_METHOD1(OnDeviceHasBatteryChanged, void(bool));
 };
 
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
+
 base::BatteryLevelProvider::BatteryState CreateBatteryState(
     bool under_threshold) {
   return {
@@ -95,7 +97,8 @@ base::BatteryLevelProvider::BatteryState CreateBatteryState(
       .capture_time = base::TimeTicks::Now()};
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#else  // BUILDFLAG(IS_CHROMEOS_ASH)
+
 class ScopedFakePowerManagerClientLifetime {
  public:
   ScopedFakePowerManagerClientLifetime() {
@@ -106,16 +109,14 @@ class ScopedFakePowerManagerClientLifetime {
     chromeos::PowerManagerClient::Shutdown();
   }
 };
-#endif
+
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 }  // namespace
 
 class BatterySaverModeManagerTest : public ::testing::Test {
  public:
   void SetUp() override {
-    feature_list_.InitAndEnableFeature(
-        ::features::kBatterySaverModeRenderTuning);
-
     auto source = std::make_unique<FakePowerMonitorSource>();
     power_monitor_source_ = source.get();
     base::PowerMonitor::Initialize(std::move(source));
@@ -176,9 +177,10 @@ class BatterySaverModeManagerTest : public ::testing::Test {
   bool child_process_tuning_enabled_ = false;
   bool freezing_enabled_ = false;
   std::unique_ptr<BatterySaverModeManager> manager_;
-
-  base::test::ScopedFeatureList feature_list_;
 };
+
+// Battery Saver is controlled by the OS on ChromeOS
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
 
 TEST_F(BatterySaverModeManagerTest, TemporaryBatterySaver) {
   StartManager();
@@ -574,7 +576,8 @@ TEST_F(BatterySaverModeManagerTest,
   EXPECT_EQ(100, manager()->SampledBatteryPercentage());
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#else   // BUILDFLAG(IS_CHROMEOS_ASH)
+
 TEST_F(BatterySaverModeManagerTest, ManagedFromPowerManager) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(ash::features::kBatterySaver);
@@ -632,6 +635,6 @@ TEST_F(BatterySaverModeManagerTest,
   EXPECT_TRUE(child_process_tuning_enabled());
   EXPECT_TRUE(freezing_enabled());
 }
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 }  // namespace performance_manager::user_tuning

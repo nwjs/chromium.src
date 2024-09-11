@@ -27,8 +27,6 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/extensions_browser_client.h"
-#include "extensions/browser/guest_view/web_view/web_view_guest.h"
-#include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
 #include "extensions/browser/l10n_file_util.h"
 #include "extensions/browser/network_permissions_updater.h"
 #include "extensions/browser/service_worker/service_worker_task_queue.h"
@@ -48,6 +46,11 @@
 #include "ipc/ipc_channel_proxy.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
+#endif
 
 namespace extensions {
 
@@ -171,12 +174,14 @@ void RendererStartupHelper::InitializeProcess(
   renderer->SetScriptingAllowlist(
       ExtensionsClient::Get()->GetScriptingAllowlist());
 
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
   // If the new render process is a WebView guest process, propagate the WebView
   // partition ID to it.
   if (WebViewRendererState::GetInstance()->IsGuest(process->GetID())) {
     std::string webview_partition_id = WebViewGuest::GetPartitionID(process);
     renderer->SetWebViewPartitionID(webview_partition_id);
   }
+#endif
 
   BrowserContext* renderer_context = process->GetBrowserContext();
 
@@ -513,9 +518,9 @@ void RendererStartupHelper::GetMessageBundle(
   const std::string& default_locale = LocaleInfo::GetDefaultLocale(extension);
   if (default_locale.empty()) {
     // A little optimization: send the answer here to avoid an extra thread hop.
-    std::unique_ptr<MessageBundle::SubstitutionMap> dictionary_map(
+    std::unique_ptr<MessageBundle::SubstitutionMap> dictionary_map =
         l10n_file_util::LoadNonLocalizedMessageBundleSubstitutionMap(
-            extension_id));
+            extension_id);
     std::move(callback).Run(ToFlatMap(*dictionary_map));
     return;
   }
@@ -546,10 +551,9 @@ void RendererStartupHelper::GetMessageBundle(
              const ExtensionId& main_extension_id,
              const std::string& default_locale,
              extension_l10n_util::GzippedMessagesPermission gzip_permission) {
-            return base::WrapUnique<MessageBundle::SubstitutionMap>(
-                l10n_file_util::LoadMessageBundleSubstitutionMapFromPaths(
-                    extension_paths, main_extension_id, default_locale,
-                    gzip_permission));
+            return l10n_file_util::LoadMessageBundleSubstitutionMapFromPaths(
+                extension_paths, main_extension_id, default_locale,
+                gzip_permission);
           },
           paths_to_load, extension_id, default_locale,
           extension_l10n_util::GetGzippedMessagesPermissionForExtension(

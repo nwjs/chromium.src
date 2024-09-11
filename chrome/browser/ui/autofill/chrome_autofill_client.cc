@@ -22,7 +22,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/autofill/address_normalizer_factory.h"
 #include "chrome/browser/autofill/autocomplete_history_manager_factory.h"
-#include "chrome/browser/autofill/autofill_offer_manager_factory.h"
 #include "chrome/browser/autofill/autofill_optimization_guide_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/strike_database_factory.h"
@@ -40,7 +39,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_promo_util.h"
-#include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/autofill/address_bubbles_controller.h"
@@ -74,7 +72,6 @@
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/browser/form_data_importer.h"
-#include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
@@ -106,6 +103,7 @@
 #include "components/plus_addresses/plus_address_types.h"
 #include "components/prefs/pref_service.h"
 #include "components/profile_metrics/browser_profile_type.h"
+#include "components/security_state/content/security_state_tab_helper.h"
 #include "components/security_state/core/security_state.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -128,10 +126,10 @@
 #include "chrome/browser/android/signin/signin_bridge.h"
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
-#include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view_impl.h"
 #include "chrome/browser/ui/android/autofill/autofill_accessibility_utils.h"
 #include "chrome/browser/ui/autofill/payments/autofill_snackbar_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/offer_notification_controller_android.h"
+#include "components/autofill/core/browser/autofill_prediction_improvements_delegate.h"
 #include "components/autofill/core/browser/payments/autofill_save_card_infobar_delegate_mobile.h"
 #include "components/autofill/core/browser/payments/autofill_save_card_infobar_mobile.h"
 #include "components/infobars/content/content_infobar_manager.h"
@@ -140,12 +138,15 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/webauthn/android/internal_authenticator_android.h"
 #else  // !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/autofill_prediction_improvements/chrome_autofill_prediction_improvements_client.h"
 #include "chrome/browser/ui/autofill/delete_address_profile_dialog_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/offer_notification_bubble_controller_impl.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"  // nogncheck
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
+#include "components/autofill_prediction_improvements/core/browser/autofill_prediction_improvements_manager.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_COMPOSE)
@@ -272,6 +273,23 @@ AutofillPlusAddressDelegate* ChromeAutofillClient::GetPlusAddressDelegate() {
       web_contents()->GetBrowserContext());
 }
 
+AutofillPredictionImprovementsDelegate*
+ChromeAutofillClient::GetAutofillPredictionImprovementsDelegate() {
+#if !BUILDFLAG(IS_ANDROID)
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillPredictionImprovementsEnabled)) {
+    return nullptr;
+  }
+  if (tabs::TabInterface* tab = tabs::TabInterface::MaybeGetFromContents(
+          web_contents()->GetOutermostWebContents())) {
+    ChromeAutofillPredictionImprovementsClient* client =
+        tab->GetTabFeatures()->chrome_autofill_prediction_improvements_client();
+    return client ? &client->GetManager() : nullptr;
+  }
+#endif
+  return nullptr;
+}
+
 void ChromeAutofillClient::OfferPlusAddressCreation(
     const url::Origin& main_frame_origin,
     PlusAddressCallback callback) {
@@ -343,11 +361,6 @@ AddressNormalizer* ChromeAutofillClient::GetAddressNormalizer() {
   return AddressNormalizerFactory::GetInstance();
 }
 
-AutofillOfferManager* ChromeAutofillClient::GetAutofillOfferManager() {
-  return AutofillOfferManagerFactory::GetForBrowserContext(
-      web_contents()->GetBrowserContext());
-}
-
 const GURL& ChromeAutofillClient::GetLastCommittedPrimaryMainFrameURL() const {
   return web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL();
 }
@@ -365,8 +378,9 @@ ChromeAutofillClient::GetSecurityLevelForUmaHistograms() {
   // If there is no helper, it means we are not in a "web" state (for example
   // the file picker on CrOS). Return SECURITY_LEVEL_COUNT which will not be
   // logged.
-  if (!helper)
+  if (!helper) {
     return security_state::SecurityLevel::SECURITY_LEVEL_COUNT;
+  }
 
   return helper->GetSecurityLevel();
 }
@@ -377,8 +391,9 @@ const translate::LanguageState* ChromeAutofillClient::GetLanguageState() {
   // the top level frame vs whatever frame directly holds the form.
   auto* translate_manager =
       ChromeTranslateClient::GetManagerFromWebContents(web_contents());
-  if (translate_manager)
+  if (translate_manager) {
     return translate_manager->GetLanguageState();
+  }
 #endif
   return nullptr;
 }
@@ -389,8 +404,9 @@ translate::TranslateDriver* ChromeAutofillClient::GetTranslateDriver() {
   // the top level frame vs whatever frame directly holds the form.
   auto* translate_client =
       ChromeTranslateClient::FromWebContents(web_contents());
-  if (translate_client)
+  if (translate_client) {
     return translate_client->translate_driver();
+  }
 #endif
   return nullptr;
 }
@@ -473,16 +489,6 @@ void ChromeAutofillClient::ShowAutofillSettings(
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
-payments::MandatoryReauthManager*
-ChromeAutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
-  if (!payments_mandatory_reauth_manager_) {
-    payments_mandatory_reauth_manager_ =
-        std::make_unique<payments::MandatoryReauthManager>(this);
-  }
-
-  return payments_mandatory_reauth_manager_.get();
-}
-
 void ChromeAutofillClient::ShowEditAddressProfileDialog(
     const AutofillProfile& profile,
     AddressProfileSavePromptCallback on_user_decision_callback) {
@@ -509,7 +515,7 @@ void ChromeAutofillClient::ShowEditAddressProfileDialog(
       /*on_user_decision_callback=*/std::move(on_user_decision_callback));
 #else
   // Edit address profile dialog is only available is desktop.
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 #endif
 }
 
@@ -527,67 +533,23 @@ void ChromeAutofillClient::ShowDeleteAddressProfileDialog(
       /*delete_dialog_callback=*/std::move(delete_dialog_callback));
 #else
   // Delete address profile dialog is only available is desktop.
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 #endif
 }
 
 void ChromeAutofillClient::ConfirmSaveAddressProfile(
     const AutofillProfile& profile,
     const AutofillProfile* original_profile,
-    SaveAddressProfilePromptOptions options,
+    bool is_migration_to_account,
     AddressProfileSavePromptCallback callback) {
 #if BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/40164488): Respect SaveAddressProfilePromptOptions.
   save_update_address_profile_flow_manager_.OfferSave(
-      web_contents(), profile, original_profile,
-      options.is_migration_to_account, std::move(callback));
+      web_contents(), profile, original_profile, is_migration_to_account,
+      std::move(callback));
 #else
   AddressBubblesController::SetUpAndShowSaveOrUpdateAddressBubble(
-      web_contents(), profile, original_profile, options, std::move(callback));
-#endif
-}
-
-// TODO(crbug.com/309163844): Add follow-up ManualFallback for showing IBANs.
-bool ChromeAutofillClient::ShowTouchToFillCreditCard(
-    base::WeakPtr<TouchToFillDelegate> delegate,
-    base::span<const autofill::CreditCard> cards_to_suggest,
-    const std::vector<bool>& card_acceptabilities) {
-#if BUILDFLAG(IS_ANDROID)
-  // Create the manual filling controller which will be used to show the
-  // unmasked virtual card details in the manual fallback.
-  ManualFillingController::GetOrCreate(web_contents())
-      ->UpdateSourceAvailability(
-          ManualFillingController::FillingSource::CREDIT_CARD_FALLBACKS,
-          !cards_to_suggest.empty());
-
-  return touch_to_fill_payment_method_controller_.Show(
-      std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
-      delegate, std::move(cards_to_suggest), std::move(card_acceptabilities));
-#else
-  // Touch To Fill is not supported on Desktop.
-  NOTREACHED_NORETURN();
-#endif
-}
-
-bool ChromeAutofillClient::ShowTouchToFillIban(
-    base::WeakPtr<TouchToFillDelegate> delegate,
-    base::span<const autofill::Iban> ibans_to_suggest) {
-#if BUILDFLAG(IS_ANDROID)
-  return touch_to_fill_payment_method_controller_.Show(
-      std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
-      delegate, std::move(ibans_to_suggest));
-#else
-  // Touch To Fill is not supported on Desktop.
-  NOTREACHED_NORETURN();
-#endif
-}
-
-void ChromeAutofillClient::HideTouchToFillCreditCard() {
-#if BUILDFLAG(IS_ANDROID)
-  touch_to_fill_payment_method_controller_.Hide();
-#else
-  // Touch To Fill is not supported on Desktop.
-  NOTREACHED_IN_MIGRATION();
+      web_contents(), profile, original_profile, is_migration_to_account,
+      std::move(callback));
 #endif
 }
 
@@ -700,7 +662,7 @@ bool ChromeAutofillClient::IsAutocompleteEnabled() const {
 }
 
 bool ChromeAutofillClient::IsPasswordManagerEnabled() {
-  PasswordManagerSettingsService* settings_service =
+  password_manager::PasswordManagerSettingsService* settings_service =
       PasswordManagerSettingsServiceFactory::GetForProfile(GetProfile());
   return settings_service->IsSettingEnabled(
       password_manager::PasswordManagerSetting::kOfferToSavePasswords);
@@ -731,8 +693,9 @@ bool ChromeAutofillClient::IsContextSecure() const {
 
   SecurityStateTabHelper* helper =
       SecurityStateTabHelper::FromWebContents(web_contents());
-  if (!helper)
+  if (!helper) {
     return false;
+  }
 
   const auto security_level = helper->GetSecurityLevel();
   content::NavigationEntry* entry =
@@ -834,8 +797,9 @@ ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
 }
 
 Profile* ChromeAutofillClient::GetProfile() const {
-  if (!web_contents())
+  if (!web_contents()) {
     return nullptr;
+  }
   return Profile::FromBrowserContext(web_contents()->GetBrowserContext());
 }
 
@@ -890,15 +854,15 @@ base::span<const AutofillProfile> ChromeAutofillClient::GetTestAddresses()
   return test_addresses_;
 }
 
-AutofillClient::PasswordFormType ChromeAutofillClient::ClassifyAsPasswordForm(
-    AutofillManager& manager,
-    FormGlobalId form_id,
-    FieldGlobalId field_id) const {
+AutofillClient::PasswordFormClassification
+ChromeAutofillClient::ClassifyAsPasswordForm(AutofillManager& manager,
+                                             FormGlobalId form_id,
+                                             FieldGlobalId field_id) const {
   // Find the form with `form_id` and decompose into renderer forms.
   std::optional<RendererFormsWithServerPredictions> forms_and_predictions =
       RendererFormsWithServerPredictions::FromBrowserForm(manager, form_id);
   if (!forms_and_predictions) {
-    return PasswordFormType::kNoPasswordForm;
+    return {};
   }
 
   // Find the form to which `field_id` belongs.
@@ -912,7 +876,7 @@ AutofillClient::PasswordFormType ChromeAutofillClient::ClassifyAsPasswordForm(
                form.fields().end();
       });
   if (it == forms_and_predictions->renderer_forms.end()) {
-    return PasswordFormType::kNoPasswordForm;
+    return {};
   }
 
   password_manager::FormDataParser parser;
@@ -925,8 +889,15 @@ AutofillClient::PasswordFormType ChromeAutofillClient::ClassifyAsPasswordForm(
   std::unique_ptr<password_manager::PasswordForm> pw_form =
       parser.Parse(it->first, password_manager::FormDataParser::Mode::kFilling,
                    /*stored_usernames=*/{});
-  return pw_form ? pw_form->GetPasswordFormType()
-                 : PasswordFormType::kNoPasswordForm;
+  if (!pw_form) {
+    return {};
+  }
+  PasswordFormClassification result{.type = pw_form->GetPasswordFormType()};
+  if (!pw_form->username_element_renderer_id.is_null()) {
+    result.username_field = FieldGlobalId(
+        field_id.frame_token, pw_form->username_element_renderer_id);
+  }
+  return result;
 }
 
 }  // namespace autofill

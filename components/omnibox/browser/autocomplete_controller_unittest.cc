@@ -11,6 +11,7 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -21,6 +22,7 @@
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/fake_autocomplete_controller.h"
+#include "components/omnibox/browser/fake_autocomplete_provider.h"
 #include "components/omnibox/browser/fake_autocomplete_provider_client.h"
 #include "components/omnibox/browser/omnibox_feature_configs.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
@@ -202,6 +204,7 @@ class AutocompleteControllerTest : public testing::Test {
 };
 
 TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage) {
+  base::HistogramTester histogram_tester;
   std::vector<AutocompleteMatch> matches;
   // To ablate entity image the historical match must be the first and the
   // company entity can be in any other slot.
@@ -216,24 +219,68 @@ TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage) {
 
   MaybeRemoveCompanyEntityImages();
   ASSERT_TRUE(ImageURLAndImageDominantColorIsEmpty(/*index=*/2));
+  histogram_tester.ExpectBucketCount("Omnibox.CompanyEntityImageAblated", true,
+                                     1);
 }
 
 TEST_F(AutocompleteControllerTest, CompanyEntityImageNotRemoved) {
-  std::vector<AutocompleteMatch> matches;
   // History match is not the first suggestion. Entity's image should not be
   // removed.
-  matches.push_back(
-      CreateCompanyEntityMatch(/*website_uri=*/"https://www.wellsfargo.com/"));
-  matches.push_back(
-      CreateHistoryURLMatch(/*destination_url=*/"https://www.wellsfargo.com/"));
-  matches.push_back(CreateSearchMatch());
+  {
+    base::HistogramTester histogram_tester;
+    std::vector<AutocompleteMatch> matches;
+    matches.push_back(CreateCompanyEntityMatch(
+        /*website_uri=*/"https://www.wellsfargo.com/"));
+    matches.push_back(CreateHistoryURLMatch(
+        /*destination_url=*/"https://www.wellsfargo.com/"));
+    matches.push_back(CreateSearchMatch());
 
-  SetAutocompleteMatches(matches);
-  ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/0));
+    SetAutocompleteMatches(matches);
+    ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/0));
 
-  MaybeRemoveCompanyEntityImages();
-  // The entity's image_url should remain as is.
-  ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/0));
+    MaybeRemoveCompanyEntityImages();
+    // The entity's image_url should remain as is.
+    ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/0));
+    histogram_tester.ExpectBucketCount("Omnibox.CompanyEntityImageAblated",
+                                       false, 1);
+  }
+
+  // History match is the first suggestion, but there isn't a matching company
+  // entity.
+  {
+    base::HistogramTester histogram_tester;
+    std::vector<AutocompleteMatch> matches;
+    matches.push_back(CreateHistoryURLMatch(
+        /*destination_url=*/"https://www.wellsfargo.com/"));
+    matches.push_back(
+        CreateCompanyEntityMatch(/*website_uri=*/"https://www.weather.com/"));
+
+    SetAutocompleteMatches(matches);
+    ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/1));
+
+    MaybeRemoveCompanyEntityImages();
+    // The entity's image_url should remain as is.
+    ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/1));
+    histogram_tester.ExpectBucketCount("Omnibox.CompanyEntityImageAblated",
+                                       false, 1);
+  }
+  // There is a company entity, but no history match.
+  {
+    base::HistogramTester histogram_tester;
+    std::vector<AutocompleteMatch> matches;
+    matches.push_back(CreateSearchMatch());
+    matches.push_back(
+        CreateCompanyEntityMatch(/*website_uri=*/"https://www.weather.com/"));
+
+    SetAutocompleteMatches(matches);
+    ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/1));
+
+    MaybeRemoveCompanyEntityImages();
+    // The entity's image_url should remain as is.
+    ASSERT_FALSE(ImageURLAndImageDominantColorIsEmpty(/*index=*/1));
+    histogram_tester.ExpectBucketCount("Omnibox.CompanyEntityImageAblated",
+                                       false, 1);
+  }
 }
 
 // Desktop has some special handling for bare '@' inputs.
@@ -1056,30 +1103,83 @@ TEST_F(AutocompleteControllerTest, MlRanking_PiecewiseMappedSearchBlending) {
           "history 1100 .186",
       }));
 
-  // Verify that URLs are grouped above searches if their final score is
-  // greater than `grouping_threshold` (i.e. "shortcut boosting").
+  scoped_refptr<FakeAutocompleteProvider> shortcut_provider =
+      new FakeAutocompleteProvider(AutocompleteProvider::Type::TYPE_SHORTCUTS);
+
+  auto shortcut_match = CreateMlScoredMatch(
+      "shortcut 600 0.75", AutocompleteMatchType::HISTORY_URL, true, 600, 0.75);
+  shortcut_match.provider = shortcut_provider.get();
+
+  // Non-boosted shortcut suggestions should be ranked BELOW searches.
+  shortcut_match.scoring_signals->set_visit_count(0);
   EXPECT_THAT(
       controller_.SimulateCleanAutocompletePass({
-          // Final score: 1133
-          CreateHistoryUrlMlScoredMatch("history 1350 .473", true, 1350, .473),
-          CreateSearchMatch("search 1400", false, 1400),
-          CreateSearchMatch("search 800", true, 800),
-          CreateSearchMatch("search 600", false, 600),
           // Final score: 1431
           CreateHistoryUrlMlScoredMatch("history 1200 .914", true, 1200, .914),
-          // Final score: 872
-          CreateHistoryUrlMlScoredMatch("history 1100 .186", false, 1100, .186),
-          // Final score: 1000
-          CreateHistoryUrlMlScoredMatch("history 500 .25", true, 500, .25),
+          // Final score: 700
+          CreateSearchMatch("search 700", true, 700),
+          // Final score: 1300
+          shortcut_match,
       }),
       testing::ElementsAreArray({
           "history 1200 .914",
-          "history 1350 .473",
-          "search 1400",
-          "search 800",
-          "search 600",
-          "history 500 .25",
-          "history 1100 .186",
+          "search 700",
+          "shortcut 600 0.75",
+      }));
+
+  // Boosted shortcut suggestions should be ranked ABOVE searches.
+  shortcut_match.scoring_signals->set_visit_count(5);
+  EXPECT_THAT(
+      controller_.SimulateCleanAutocompletePass({
+          // Final score: 1431
+          CreateHistoryUrlMlScoredMatch("history 1200 .914", true, 1200, .914),
+          // Final score: 700
+          CreateSearchMatch("search 700", true, 700),
+          // Final score: 1300
+          shortcut_match,
+      }),
+      testing::ElementsAreArray({
+          "history 1200 .914",
+          "shortcut 600 0.75",
+          "search 700",
+      }));
+
+  // ...unless their final relevance score (obtained via piecewise ML scoring)
+  // is below the "grouping threshold".
+  shortcut_match = CreateMlScoredMatch(
+      "shortcut 600 0.25", AutocompleteMatchType::HISTORY_URL, true, 600, 0.25);
+  shortcut_match.provider = shortcut_provider.get();
+  shortcut_match.scoring_signals->set_visit_count(5);
+  EXPECT_THAT(
+      controller_.SimulateCleanAutocompletePass({
+          // Final score: 1431
+          CreateHistoryUrlMlScoredMatch("history 1200 .914", true, 1200, .914),
+          // Final score: 700
+          CreateSearchMatch("search 700", true, 700),
+          // Final score: 1000
+          shortcut_match,
+      }),
+      testing::ElementsAreArray({
+          "history 1200 .914",
+          "search 700",
+          "shortcut 600 0.25",
+      }));
+
+  // In general, URL suggestions are NOT "shortcut boosted" above searches even
+  // when they're scored higher via ML scoring.
+  EXPECT_THAT(
+      controller_.SimulateCleanAutocompletePass({
+          // Final score: 1431
+          CreateHistoryUrlMlScoredMatch("history 1200 .914", true, 1200, .914),
+          // Final score: 700
+          CreateSearchMatch("search 700", true, 700),
+          // Final score: 1300
+          CreateHistoryUrlMlScoredMatch("history 1100 .75", true, 1100, .75),
+      }),
+      testing::ElementsAreArray({
+          "history 1200 .914",
+          "search 700",
+          "history 1100 .75",
       }));
 
   // When multiple URL suggestions have been assigned the same score by the ML

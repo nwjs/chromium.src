@@ -140,6 +140,9 @@ bool GetAppOutputInternal(const std::vector<std::string>& argv,
   }
 
   Process process = LaunchProcess(argv, launch_options);
+  if (!process.IsValid()) {
+    return false;
+  }
 
   // Close the parent process' write descriptor, so that EOF is generated in
   // read loop below.
@@ -252,10 +255,8 @@ Process LaunchProcess(const std::vector<std::string>& argv,
                                     ? options.real_path.value().c_str()
                                     : argv_cstr[0];
 
-  if (__builtin_available(macOS 11.0, *)) {
-    if (options.enable_cpu_security_mitigations) {
-      DPSXCHECK(posix_spawnattr_set_csm_np(attr.get(), POSIX_SPAWN_NP_CSM_ALL));
-    }
+  if (options.enable_cpu_security_mitigations) {
+    DPSXCHECK(posix_spawnattr_set_csm_np(attr.get(), POSIX_SPAWN_NP_CSM_ALL));
   }
 
   if (!options.current_directory.empty()) {

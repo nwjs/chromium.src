@@ -71,6 +71,26 @@ TEST_F(PickerEmojiBarViewTest, HasGridRole) {
   EXPECT_EQ(emoji_bar.GetAccessibleRole(), ax::mojom::Role::kGrid);
 }
 
+TEST_F(PickerEmojiBarViewTest, HasAccessibleNameWithGifsEnabled) {
+  MockEmojiBarViewDelegate mock_delegate;
+  PickerEmojiBarView emoji_bar(&mock_delegate, kPickerWidth,
+                               /*is_gifs_enabled=*/true);
+
+  EXPECT_EQ(emoji_bar.GetAccessibleName(),
+            l10n_util::GetStringUTF16(
+                IDS_PICKER_EMOJI_BAR_WITH_GIFS_GRID_ACCESSIBLE_NAME));
+}
+
+TEST_F(PickerEmojiBarViewTest, HasAccessibleNameWithGifsDisabled) {
+  MockEmojiBarViewDelegate mock_delegate;
+  PickerEmojiBarView emoji_bar(&mock_delegate, kPickerWidth,
+                               /*is_gifs_enabled=*/false);
+
+  EXPECT_EQ(
+      emoji_bar.GetAccessibleName(),
+      l10n_util::GetStringUTF16(IDS_PICKER_EMOJI_BAR_GRID_ACCESSIBLE_NAME));
+}
+
 TEST_F(PickerEmojiBarViewTest, HasSingleChildRowRole) {
   MockEmojiBarViewDelegate mock_delegate;
   PickerEmojiBarView emoji_bar(&mock_delegate, kPickerWidth);
@@ -192,9 +212,20 @@ TEST_F(PickerEmojiBarViewTest, ClickingMoreEmojisButton) {
   LeftClickOn(*emoji_bar->more_emojis_button_for_testing());
 }
 
-TEST_F(PickerEmojiBarViewTest, MoreEmojisButtonHasTooltip) {
+TEST_F(PickerEmojiBarViewTest, MoreEmojisButtonHasTooltipWithGifsEnabled) {
   MockEmojiBarViewDelegate mock_delegate;
-  PickerEmojiBarView view(&mock_delegate, kPickerWidth);
+  PickerEmojiBarView view(&mock_delegate, kPickerWidth,
+                          /*is_gifs_enabled=*/true);
+
+  EXPECT_EQ(view.more_emojis_button_for_testing()->GetTooltipText(),
+            l10n_util::GetStringUTF16(
+                IDS_PICKER_MORE_EMOJIS_AND_GIFS_BUTTON_ACCESSIBLE_NAME));
+}
+
+TEST_F(PickerEmojiBarViewTest, MoreEmojisButtonHasTooltipWithGifsDisabled) {
+  MockEmojiBarViewDelegate mock_delegate;
+  PickerEmojiBarView view(&mock_delegate, kPickerWidth,
+                          /*is_gifs_enabled=*/false);
 
   EXPECT_EQ(
       view.more_emojis_button_for_testing()->GetTooltipText(),
@@ -336,6 +367,20 @@ TEST_F(PickerEmojiBarViewTest, GetsItemRightOfSkipsGifsIfGifsDisabled) {
 
   EXPECT_EQ(emoji_bar->GetItemRightOf(emoji_bar_items[0]),
             emoji_bar->more_emojis_button_for_testing());
+}
+
+TEST_F(PickerEmojiBarViewTest, ItemsAreTruncatedToFit) {
+  MockEmojiBarViewDelegate mock_delegate;
+  PickerEmojiBarView emoji_bar(&mock_delegate, 200);
+
+  emoji_bar.SetSearchResults({PickerSearchResult::Emoji(u"😊"),
+                              PickerSearchResult::Emoji(u"😊"),
+                              PickerSearchResult::Emoji(u"😊")});
+
+  EXPECT_EQ(emoji_bar.GetNumItems(), 2u);
+  EXPECT_THAT(emoji_bar.GetItemsForTesting(),
+              ElementsAre(Truly(&views::IsViewClass<PickerEmojiItemView>),
+                          Truly(&views::IsViewClass<PickerEmojiItemView>)));
 }
 
 }  // namespace

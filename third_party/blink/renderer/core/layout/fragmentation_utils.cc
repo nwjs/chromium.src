@@ -59,6 +59,25 @@ inline int FragmentainerBreakPrecedence(EBreakBetween break_value) {
   }
 }
 
+bool ShouldCloneBlockStartBorderPadding(const BoxFragmentBuilder& builder) {
+  if (builder.Node().Style().BoxDecorationBreak() !=
+      EBoxDecorationBreak::kClone) {
+    return false;
+  }
+  const BlockBreakToken* previous_break_token = builder.PreviousBreakToken();
+  if (!previous_break_token) {
+    return true;
+  }
+  if (previous_break_token->MonolithicOverflow()) {
+    LayoutUnit space_left =
+        FragmentainerSpaceLeft(builder, /*is_for_children=*/false);
+    if (space_left < builder.BorderScrollbarPadding().BlockSum()) {
+      return false;
+    }
+  }
+  return !previous_break_token->IsAtBlockEnd();
+}
+
 }  // anonymous namespace
 
 EBreakBetween JoinFragmentainerBreakValues(EBreakBetween first_value,
@@ -416,20 +435,8 @@ void SetupFragmentBuilderForFragmentation(
   // count as being cloned or not depends on whether the fragment currently
   // being built is known to be the last fragment. If it is, block-end box
   // decorations will behave as normally, so that child content may overflow it.
-  bool clone_box_start_decorations = [&] {
-    if (node.Style().BoxDecorationBreak() != EBoxDecorationBreak::kClone) {
-      return false;
-    }
-    if (!previous_break_token) {
-      return true;
-    }
-    if (previous_break_token->MonolithicOverflow() &&
-        space_left < builder->BorderScrollbarPadding().BlockSum()) {
-      return false;
-    }
-    return !previous_break_token->IsAtBlockEnd();
-  }();
-
+  bool clone_box_start_decorations =
+      ShouldCloneBlockStartBorderPadding(*builder);
   bool clone_box_end_decorations = clone_box_start_decorations;
 
   if (clone_box_start_decorations) {
@@ -455,8 +462,8 @@ void SetupFragmentBuilderForFragmentation(
       // constrained. If it doesn't affect the block size, it means that we can
       // tell before layout how much more space this node needs.
       LayoutUnit max_block_size = ComputeBlockSizeForFragment(
-          space, node.Style(), builder->BorderPadding(), LayoutUnit::Max(),
-          builder->InitialBorderBoxSize().inline_size);
+          space, To<BlockNode>(node), builder->BorderPadding(),
+          LayoutUnit::Max(), builder->InitialBorderBoxSize().inline_size);
       DCHECK(space.HasKnownFragmentainerBlockSize());
 
       // If max_block_size is "infinite", we can't tell for sure that it's going
@@ -504,6 +511,11 @@ void SetupFragmentBuilderForFragmentation(
     builder->PropagateTallestUnbreakableBlockSize(unbreakable.block_start);
     builder->PropagateTallestUnbreakableBlockSize(unbreakable.block_end);
   }
+}
+
+bool ShouldIncludeBlockStartBorderPadding(const BoxFragmentBuilder& builder) {
+  return !IsBreakInside(builder.PreviousBreakToken()) ||
+         ShouldCloneBlockStartBorderPadding(builder);
 }
 
 bool ShouldIncludeBlockEndBorderPadding(const BoxFragmentBuilder& builder) {

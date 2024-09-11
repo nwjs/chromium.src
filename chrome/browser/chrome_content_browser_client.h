@@ -19,6 +19,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/supports_user_data.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -355,9 +356,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin& destination_origin,
       content::PrivacySandboxInvokingAPI invoking_api,
       bool post_impression_reporting) override;
-  void OnAuctionComplete(content::RenderFrameHost* render_frame_host,
-                         content::InterestGroupManager::InterestGroupDataKey
-                             winner_data_key) override;
+  void OnAuctionComplete(
+      content::RenderFrameHost* render_frame_host,
+      std::optional<content::InterestGroupManager::InterestGroupDataKey>
+          winner_data_key) override;
   bool IsAttributionReportingOperationAllowed(
       content::BrowserContext* browser_context,
       AttributionReportingOperation operation,
@@ -903,6 +905,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin& origin) override;
   bool IsJitDisabledForSite(content::BrowserContext* browser_context,
                             const GURL& site_url) override;
+  bool AreV8OptimizationsDisabledForSite(
+      content::BrowserContext* browser_context,
+      const GURL& site_url) override;
   ukm::UkmService* GetUkmService() override;
 
   blink::mojom::OriginTrialsSettingsPtr GetOriginTrialsSettings() override;
@@ -998,9 +1003,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsTransientActivationRequiredForShowFileOrDirectoryPicker(
       content::WebContents* web_contents) override;
 
-  bool IsTransientActivationRequiredForHtmlFullscreen(
-      content::RenderFrameHost* render_frame_host) override;
-
   bool ShouldUseFirstPartyStorageKey(const url::Origin& origin) override;
 
   std::unique_ptr<content::ResponsivenessCalculatorDelegate>
@@ -1064,6 +1066,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   void BindAIManager(
       content::BrowserContext* browser_context,
+      std::variant<content::RenderFrameHost*, base::SupportsUserData*> host,
       mojo::PendingReceiver<blink::mojom::AIManager> receiver) override;
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1074,6 +1077,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       base::OnceCallback<void(std::optional<blink::mojom::RelatedApplication>)>
           callback) override;
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+  bool IsSaveableNavigation(
+      content::NavigationHandle* navigation_handle) override;
 
   void SetSamplingProfiler(
       std::unique_ptr<MainThreadStackSamplingProfiler> sampling_profiler);

@@ -13,10 +13,10 @@
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client_manager.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
-#import "ios/chrome/browser/shared/model/browser_state/browser_state_info_cache.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 
 namespace {
 
@@ -33,7 +33,7 @@ struct PermissionsPref {
 
 @implementation PushNotificationAccountContextManager {
   // Used to retrieve BrowserStates located at a given path.
-  raw_ptr<ios::ChromeBrowserStateManager> _chromeBrowserStateManager;
+  raw_ptr<ChromeBrowserStateManager> _chromeBrowserStateManager;
 
   // A dictionary that maps a user's GAIA ID to an unsigned integer representing
   // the number of times the account is signed in across BrowserStates.
@@ -41,7 +41,7 @@ struct PermissionsPref {
 }
 
 - (instancetype)initWithChromeBrowserStateManager:
-    (ios::ChromeBrowserStateManager*)manager {
+    (ChromeBrowserStateManager*)manager {
   self = [super init];
 
   if (self) {
@@ -49,7 +49,7 @@ struct PermissionsPref {
     BrowserStateInfoCache* infoCache = manager->GetBrowserStateInfoCache();
     const size_t numberOfBrowserStates = infoCache->GetNumberOfBrowserStates();
     for (size_t i = 0; i < numberOfBrowserStates; i++) {
-      std::string gaiaID = infoCache->GetGAIAIdOfBrowserStateAtIndex(i);
+      const std::string& gaiaID = infoCache->GetGAIAIdOfBrowserStateAtIndex(i);
       [self addAccount:gaiaID];
     }
   }
@@ -172,11 +172,11 @@ struct PermissionsPref {
   const size_t numberOfBrowserStates = infoCache->GetNumberOfBrowserStates();
 
   for (size_t i = 0; i < numberOfBrowserStates; i++) {
-    std::string browserStateGaiaID =
+    const std::string& browserStateGaiaID =
         infoCache->GetGAIAIdOfBrowserStateAtIndex(i);
     if (gaiaID == browserStateGaiaID) {
-      base::FilePath path = infoCache->GetPathOfBrowserStateAtIndex(i);
-      return _chromeBrowserStateManager->GetBrowserStateByPath(path);
+      const std::string& name = infoCache->GetNameOfBrowserStateAtIndex(i);
+      return _chromeBrowserStateManager->GetBrowserStateByName(name);
     }
   }
 
@@ -203,6 +203,7 @@ struct PermissionsPref {
               prefs::kFeaturePushNotificationPermissions, clientKey};
     }
     case PushNotificationClientId::kTips:
+    case PushNotificationClientId::kSafetyCheck:
       return {GetApplicationContext()->GetLocalState(),
               prefs::kAppLevelPushNotificationPermissions, clientKey};
   }

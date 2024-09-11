@@ -39,6 +39,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -88,13 +89,14 @@ class RatingsView : public views::View {
     SetID(ExtensionInstallDialogView::kRatingsViewId);
     SetLayoutManager(std::make_unique<views::BoxLayout>(
         views::BoxLayout::Orientation::kHorizontal));
+
+    GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
   }
   RatingsView(const RatingsView&) = delete;
   RatingsView& operator=(const RatingsView&) = delete;
   ~RatingsView() override = default;
 
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
-    node_data->role = ax::mojom::Role::kStaticText;
     std::u16string accessible_text;
     if (rating_count_ == 0) {
       accessible_text = l10n_util::GetStringUTF16(
@@ -159,6 +161,33 @@ class RatingLabel : public views::Label {
 };
 
 BEGIN_METADATA(RatingLabel)
+END_METADATA
+
+// TODO(crbug.com/355018927): Remove this when we implement in views::Label.
+class TitleLabelWrapper : public views::View {
+  METADATA_HEADER(TitleLabelWrapper, views::View)
+
+ public:
+  explicit TitleLabelWrapper(std::unique_ptr<views::View> title) {
+    SetUseDefaultFillLayout(true);
+    title_ = AddChildView(std::move(title));
+  }
+
+ private:
+  // View:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
+    gfx::Size preferred_size = title_->GetPreferredSize(available_size);
+    if (!available_size.width().is_bounded()) {
+      preferred_size.set_width(title_->GetMinimumSize().width());
+    }
+    return preferred_size;
+  }
+
+  raw_ptr<views::View> title_ = nullptr;
+};
+
+BEGIN_METADATA(TitleLabelWrapper)
 END_METADATA
 
 void AddResourceIcon(const gfx::ImageSkia* skia_image, void* data) {
@@ -367,7 +396,7 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
   if (prompt_->requires_parent_permission())
     default_button = ui::DIALOG_BUTTON_OK;
 
-  SetModalType(ui::MODAL_TYPE_WINDOW);
+  SetModalType(ui::mojom::ModalType::kWindow);
   set_fixed_width(views::LayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH));
 
@@ -483,11 +512,8 @@ void ExtensionInstallDialogView::AddedToWidget() {
   layout->AddRows(1, views::TableLayout::kFixedSize);
   title_container->AddChildView(std::move(icon));
 
-  std::unique_ptr<views::Label> title_label =
-      views::BubbleFrameView::CreateDefaultTitleLabel(title_);
-  // Setting the title's preferred size to 0 ensures it won't influence the
-  // overall size of the dialog. It will be expanded by TableLayout.
-  title_label->SetPreferredSize(gfx::Size(0, 0));
+  auto title_label = std::make_unique<TitleLabelWrapper>(
+      views::BubbleFrameView::CreateDefaultTitleLabel(title_));
   if (prompt_->has_webstore_data()) {
     auto webstore_data_container = std::make_unique<views::View>();
     webstore_data_container->SetLayoutManager(
@@ -496,7 +522,7 @@ void ExtensionInstallDialogView::AddedToWidget() {
             provider->GetDistanceMetric(
                 DISTANCE_RELATED_CONTROL_VERTICAL_SMALL)));
 
-    webstore_data_container->AddChildView(title_label.release());
+    webstore_data_container->AddChildView(std::move(title_label));
 
     auto rating_container = std::make_unique<views::View>();
     rating_container->SetLayoutManager(std::make_unique<views::BoxLayout>(

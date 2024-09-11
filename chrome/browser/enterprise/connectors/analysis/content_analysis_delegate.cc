@@ -42,7 +42,7 @@
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/enterprise/common/files_scan_data.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
-#include "components/enterprise/connectors/analysis/analysis_settings.h"
+#include "components/enterprise/connectors/core/analysis_settings.h"
 #include "components/policy/core/common/chrome_schema.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/web_ui/safe_browsing_ui.h"
@@ -1121,7 +1121,8 @@ void ContentAnalysisDelegate::FinishLargeDataRequestEarly(
   // it wasn't added in OnGetRequestData
   safe_browsing::WebUIInfoSingleton::GetInstance()->AddToDeepScanRequests(
       request->per_profile_request(), /*access_token*/ "", /*upload_info*/
-      "Skipped - Large data blocked", request->content_analysis_request());
+      "Skipped - Large data blocked", /*upload_url*/ "",
+      request->content_analysis_request());
   safe_browsing::WebUIInfoSingleton::GetInstance()->AddToDeepScanResponses(
       /*token=*/"", safe_browsing::BinaryUploadService::ResultToString(result),
       enterprise_connectors::ContentAnalysisResponse());

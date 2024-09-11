@@ -383,7 +383,8 @@ void OptimizationGuideKeyedService::Initialize() {
     hint_store = hint_store_ ? hint_store_->AsWeakPtr() : nullptr;
   }
 
-  optimization_guide_logger_ = std::make_unique<OptimizationGuideLogger>();
+  optimization_guide_logger_ = OptimizationGuideLogger::GetInstance();
+  DCHECK(optimization_guide_logger_);
   hints_manager_ = std::make_unique<optimization_guide::ChromeHintsManager>(
       profile, profile->GetPrefs(), hint_store, top_host_provider_.get(),
       tab_url_provider_.get(), url_loader_factory,
@@ -734,13 +735,17 @@ bool OptimizationGuideKeyedService::ShouldFeatureBeCurrentlyEnabledForUser(
 }
 
 bool OptimizationGuideKeyedService::ShouldFeatureBeCurrentlyAllowedForFeedback(
-    optimization_guide::UserVisibleFeatureKey feature) const {
+    optimization_guide::proto::LogAiDataRequest::FeatureCase feature) const {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   // If logging is enabled, feedback is always also enabled.
+  const optimization_guide::MqlsFeatureMetadata* metadata =
+      optimization_guide::MqlsFeatureRegistry::GetInstance().GetFeature(
+          feature);
+  DCHECK(metadata);
   if (model_execution_features_controller_ &&
       model_execution_features_controller_
-          ->ShouldFeatureBeCurrentlyAllowedForLogging(feature)) {
+          ->ShouldFeatureBeCurrentlyAllowedForLogging(metadata)) {
     return true;
   }
 
@@ -749,7 +754,14 @@ bool OptimizationGuideKeyedService::ShouldFeatureBeCurrentlyAllowedForFeedback(
   auto* variations_service = g_browser_process->variations_service();
   bool is_dogfood_client =
       !!variations_service && variations_service->IsLikelyDogfoodClient();
-  return is_dogfood_client && ShouldFeatureBeCurrentlyEnabledForUser(feature);
+  std::optional<optimization_guide::UserVisibleFeatureKey> feature_key =
+      metadata->user_visible_feature_key();
+  if (!feature_key) {
+    // This isn't a user-visible feature, so we shouldn't show the feedback UI.
+    return false;
+  }
+  return is_dogfood_client &&
+         ShouldFeatureBeCurrentlyEnabledForUser(*feature_key);
 }
 
 bool OptimizationGuideKeyedService::IsSettingVisible(

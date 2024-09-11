@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_POLICY_CHROME_BROWSER_CLOUD_MANAGEMENT_CONTROLLER_DESKTOP_H_
 #define CHROME_BROWSER_POLICY_CHROME_BROWSER_CLOUD_MANAGEMENT_CONTROLLER_DESKTOP_H_
 
+#include <variant>
+
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/policy/cbcm_invalidations_initializer.h"
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
@@ -20,6 +22,7 @@ class InstanceIDDriver;
 namespace policy {
 class ChromeBrowserCloudManagementRegisterWatcher;
 class CloudPolicyInvalidator;
+class FmRegistrationTokenUploader;
 class RemoteCommandsInvalidator;
 
 // Desktop implementation of the platform-specific operations of CBCMController.
@@ -89,6 +92,7 @@ class ChromeBrowserCloudManagementControllerDesktop
       invalidation_service_or_listener_ =
           std::unique_ptr<invalidation::InvalidationService>{nullptr};
   std::unique_ptr<CloudPolicyInvalidator> policy_invalidator_;
+  std::unique_ptr<FmRegistrationTokenUploader> fm_registration_token_uploader_;
 
   // This invalidator is responsible for receiving remote commands invalidations
   std::unique_ptr<RemoteCommandsInvalidator> commands_invalidator_;

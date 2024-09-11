@@ -6,15 +6,12 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "build/build_config.h"
 
 namespace lens::features {
 
 BASE_FEATURE(kLensStandalone,
              "LensStandalone",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kLensImageCompression,
-             "LensImageCompression",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensSearchOptimizations,
@@ -45,7 +42,19 @@ BASE_FEATURE(kEnableContextMenuInLensSidePanel,
              "EnableContextMenuInLensSidePanel",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlay, "LensOverlay", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlay,
+             "LensOverlay",
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
+
+BASE_FEATURE(kLensOverlayTranslateButton,
+             "LensOverlayTranslateButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const base::FeatureParam<int> kLensOverlayMinRamMb{&kLensOverlay, "min_ram_mb",
                                                    /*default=value=*/-1};
 const base::FeatureParam<std::string> kActivityUrl{
@@ -95,7 +104,7 @@ const base::FeatureParam<int> kLensOverlayImageDownscaleUiScalingFactor{
 const base::FeatureParam<bool> kLensOverlayDebuggingMode{
     &kLensOverlay, "debugging-mode", false};
 const base::FeatureParam<int> kLensOverlayVerticalTextMargin{
-    &kLensOverlay, "text-vertical-margin", 4};
+    &kLensOverlay, "text-vertical-margin", 12};
 const base::FeatureParam<int> kLensOverlayHorizontalTextMargin{
     &kLensOverlay, "text-horizontal-margin", 4};
 const base::FeatureParam<bool> kLensOverlaySearchBubble{&kLensOverlay,
@@ -165,6 +174,10 @@ constexpr base::FeatureParam<bool>
     kUseSearchContextForTextOnlyLensOverlayRequests{
         &kLensOverlay, "use-search-context-for-text-only-requests", false};
 
+constexpr base::FeatureParam<bool>
+    kUseSearchContextForMultimodalLensOverlayRequests{
+        &kLensOverlay, "use-search-context-for-multimodal-requests", false};
+
 constexpr base::FeatureParam<int> kLensOverlayTapRegionHeight{
     &kLensOverlay, "tap-region-height", 300};
 constexpr base::FeatureParam<int> kLensOverlayTapRegionWidth{
@@ -172,7 +185,7 @@ constexpr base::FeatureParam<int> kLensOverlayTapRegionWidth{
 
 constexpr base::FeatureParam<double>
     kLensOverlaySelectTextOverRegionTriggerThreshold{
-        &kLensOverlay, "select-text-over-region-trigger-threshold", 0.03};
+        &kLensOverlay, "select-text-over-region-trigger-threshold", 0.1};
 
 constexpr base::FeatureParam<int> kLensOverlaySignificantRegionMinArea{
     &kLensOverlay, "significant-regions-min-area", 500};
@@ -201,6 +214,9 @@ const base::FeatureParam<bool> kLensOverlayEnableInFullscreen{
 
 constexpr base::FeatureParam<int> kLensOverlaySegmentationMaskCornerRadius{
     &kLensOverlay, "segmentation-mask-corner-radius", 12};
+
+constexpr base::FeatureParam<int> kLensOverlayFindBarStringsVariant{
+    &kLensOverlay, "find-bar-strings-variant", 0};
 
 constexpr base::FeatureParam<std::string> kHomepageURLForLens{
     &kLensStandalone, "lens-homepage-url", "https://lens.google.com/v3/"};
@@ -241,26 +257,12 @@ constexpr base::FeatureParam<bool> kDismissLoadingStateOnDidFinishLoad{
 constexpr base::FeatureParam<bool> kDismissLoadingStateOnPrimaryPageChanged{
     &kLensStandalone, "dismiss-loading-state-on-primary-page-changed", false};
 
-constexpr base::FeatureParam<int> kMaxAreaForImageSearch{
-    &kLensImageCompression, "dimensions-max-area", 1000000};
-
-constexpr base::FeatureParam<int> kMaxPixelsForImageSearch{
-    &kLensImageCompression, "dimensions-max-pixels", 1000};
-
 const base::FeatureParam<bool> kEnableLensFullscreenSearch{
     &kLensSearchOptimizations, "enable-lens-fullscreen-search", false};
 
 bool GetEnableLatencyLogging() {
   return base::FeatureList::IsEnabled(kEnableLatencyLogging) &&
          base::FeatureList::IsEnabled(kLensStandalone);
-}
-
-int GetMaxAreaForImageSearch() {
-  return kMaxAreaForImageSearch.Get();
-}
-
-int GetMaxPixelsForImageSearch() {
-  return kMaxPixelsForImageSearch.Get();
 }
 
 std::string GetHomepageURLForLens() {
@@ -441,6 +443,10 @@ bool UseSearchContextForTextOnlyLensOverlayRequests() {
   return kUseSearchContextForTextOnlyLensOverlayRequests.Get();
 }
 
+bool UseSearchContextForMultimodalLensOverlayRequests() {
+  return kUseSearchContextForMultimodalLensOverlayRequests.Get();
+}
+
 int GetLensOverlayVerticalTextMargin() {
   return kLensOverlayVerticalTextMargin.Get();
 }
@@ -560,6 +566,14 @@ bool GetLensOverlayEnableInFullscreen() {
 
 int GetLensOverlaySegmentationMaskCornerRadius() {
   return kLensOverlaySegmentationMaskCornerRadius.Get();
+}
+
+int GetLensOverlayFindBarStringsVariant() {
+  return kLensOverlayFindBarStringsVariant.Get();
+}
+
+bool IsLensOverlayTranslateButtonEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlayTranslateButton);
 }
 
 }  // namespace lens::features

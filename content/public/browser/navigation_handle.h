@@ -253,6 +253,11 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // |bool IsPost()| as opposed to |const std::string& GetMethod()| method.
   virtual bool IsPost() = 0;
 
+  // Gets the request method for the initial network request. Unlike `IsPost()`,
+  // This will not change during the navigation (e.g. after encountering a
+  // server redirect).
+  virtual std::string GetRequestMethod() = 0;
+
   // Returns a sanitized version of the referrer for this request.
   virtual const blink::mojom::Referrer& GetReferrer() = 0;
 
@@ -633,6 +638,10 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // `true` if the timeout is being started for the first time. Repeated calls
   // will be ignored (they won't reset the timeout) and will return `false`.
   virtual bool SetNavigationTimeout(base::TimeDelta timeout) = 0;
+  // Cancels the request timeout for this navigation. If the navigation is still
+  // happening, it will continue as if the timer wasn't set. Otherwise, this is
+  // a no-op.
+  virtual void CancelNavigationTimeout() = 0;
 
   // Configures whether a Cookie header added to this request should not be
   // overwritten by the network service.

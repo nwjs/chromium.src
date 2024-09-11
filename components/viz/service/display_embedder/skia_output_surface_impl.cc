@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "components/viz/service/display_embedder/skia_output_surface_impl.h"
 
 #include <memory>
@@ -15,6 +20,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/memory_pressure_listener.h"
 #include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "base/synchronization/waitable_event.h"
@@ -41,7 +47,6 @@
 #include "components/viz/service/display_embedder/skia_output_surface_dependency.h"
 #include "components/viz/service/display_embedder/skia_output_surface_impl_on_gpu.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
-#include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "gpu/command_buffer/service/graphite_cache_controller.h"
@@ -91,25 +96,31 @@ namespace viz {
 
 namespace {
 
-// Records Viz Graphite memory dumps via a global object that registers and
-// unregisters itself as a memory dump provider as appropriate based on
-// SkiaOutputSurfaceImpl instances beginning and ending their usage of Graphite
-// state.
-class GraphiteVizMemoryDumpProvider
+// Records memory dumps and responds to memory pressure signals for Graphite Viz
+// via a global object.
+class GraphiteVizMemoryAssistant
     : public base::trace_event::MemoryDumpProvider {
  public:
-  static GraphiteVizMemoryDumpProvider& GetInstance() {
-    static base::NoDestructor<GraphiteVizMemoryDumpProvider> instance;
+  static GraphiteVizMemoryAssistant& GetInstance() {
+    static base::NoDestructor<GraphiteVizMemoryAssistant> instance;
     return *instance;
   }
 
   void AddClient(skgpu::graphite::Recorder* recorder,
+                 gpu::raster::GraphiteCacheController* cache_controller,
                  scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
     if (num_clients_ == 0) {
       CHECK(!recorder_);
+      CHECK(!cache_controller_);
       recorder_ = recorder;
+      cache_controller_ = cache_controller;
       base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
-          this, "GraphiteVizMemoryDumpProvider", std::move(task_runner));
+          this, "GraphiteVizMemoryAssistant", std::move(task_runner));
+
+      memory_pressure_listener_.emplace(
+          FROM_HERE,
+          base::BindRepeating(&GraphiteVizMemoryAssistant::HandleMemoryPressure,
+                              base::Unretained(this)));
     }
     num_clients_++;
   }
@@ -117,17 +128,19 @@ class GraphiteVizMemoryDumpProvider
   void RemoveClient() {
     num_clients_--;
     if (num_clients_ == 0) {
+      memory_pressure_listener_.reset();
       recorder_ = nullptr;
+      cache_controller_ = nullptr;
       base::trace_event::MemoryDumpManager::GetInstance()
           ->UnregisterDumpProvider(this);
     }
   }
 
  private:
-  friend class base::NoDestructor<GraphiteVizMemoryDumpProvider>;
+  friend class base::NoDestructor<GraphiteVizMemoryAssistant>;
 
-  GraphiteVizMemoryDumpProvider() = default;
-  ~GraphiteVizMemoryDumpProvider() override = default;
+  GraphiteVizMemoryAssistant() = default;
+  ~GraphiteVizMemoryAssistant() override = default;
 
   // MemoryDumpProvider:
   bool OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
@@ -172,7 +185,27 @@ class GraphiteVizMemoryDumpProvider
     return true;
   }
 
+  void HandleMemoryPressure(
+      base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
+    switch (memory_pressure_level) {
+      case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE:
+        return;
+      case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE:
+        // With moderate pressure, clear any unlocked resources.
+        cache_controller_->CleanUpScratchResources();
+        break;
+      case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL:
+        cache_controller_->CleanUpAllResources();
+        break;
+    }
+  }
+
+  // NOTE: The implementation guarantees that the callback will always be called
+  // on the thread that created the listener.
+  std::optional<base::MemoryPressureListener> memory_pressure_listener_;
+
   raw_ptr<skgpu::graphite::Recorder> recorder_ = nullptr;
+  raw_ptr<gpu::raster::GraphiteCacheController> cache_controller_ = nullptr;
   uint32_t num_clients_ = 0;
 };
 
@@ -314,67 +347,6 @@ SkiaOutputSurfaceImpl::ScopedPaint::SnapRecording() {
   return graphite_recorder_->snap();
 }
 
-SkiaOutputSurfaceImpl::FrameBufferDamageTracker::FrameBufferDamageTracker(
-    size_t number_of_buffers)
-    : number_of_buffers_(number_of_buffers) {}
-
-SkiaOutputSurfaceImpl::FrameBufferDamageTracker::~FrameBufferDamageTracker() =
-    default;
-
-void SkiaOutputSurfaceImpl::FrameBufferDamageTracker::FrameBuffersChanged(
-    const gfx::Size& frame_buffer_size) {
-  frame_buffer_size_ = frame_buffer_size;
-  damage_between_frames_.clear();
-  cached_current_damage_.reset();
-}
-
-void SkiaOutputSurfaceImpl::FrameBufferDamageTracker::SwappedWithDamage(
-    const gfx::Rect& damage) {
-  damage_between_frames_.push_back(damage);
-  // Keep at most `number_of_buffers_` frames.
-  if (damage_between_frames_.size() > number_of_buffers_) {
-    damage_between_frames_.pop_front();
-  }
-  cached_current_damage_.reset();
-}
-
-void SkiaOutputSurfaceImpl::FrameBufferDamageTracker::SkippedSwapWithDamage(
-    const gfx::Rect& damage) {
-  if (!damage_between_frames_.empty()) {
-    damage_between_frames_.back().Union(damage);
-    cached_current_damage_.reset();
-  } else {
-    // First frame after `FrameBuffersChanged already has full damage.
-    // So no need to keep track of it with another entry, which would violate
-    // the condition the deque size is at most `number_of_buffers_ - 1`.
-  }
-}
-
-gfx::Rect
-SkiaOutputSurfaceImpl::FrameBufferDamageTracker::GetCurrentFrameBufferDamage()
-    const {
-  if (!cached_current_damage_)
-    cached_current_damage_ = ComputeCurrentFrameBufferDamage();
-  return *cached_current_damage_;
-}
-
-gfx::Rect SkiaOutputSurfaceImpl::FrameBufferDamageTracker::
-    ComputeCurrentFrameBufferDamage() const {
-  // First `number_of_buffers_` frames has full frame damage.
-  if (damage_between_frames_.size() < number_of_buffers_) {
-    return gfx::Rect(frame_buffer_size_);
-  }
-
-  // Subsequent frames has `number_of_buffers_ - 1` frames of incremental
-  // damange unioned. Note index 0 is specifically skipped over its the damage
-  // that's last drawn into that's drawn into the current frame buffer.
-  gfx::Rect result;
-  for (size_t i = 1; i < damage_between_frames_.size(); ++i) {
-    result.Union(damage_between_frames_[i]);
-  }
-  return result;
-}
-
 // static
 std::unique_ptr<SkiaOutputSurface> SkiaOutputSurfaceImpl::Create(
     DisplayCompositorMemoryAndTaskController* display_controller,
@@ -422,7 +394,7 @@ SkiaOutputSurfaceImpl::~SkiaOutputSurfaceImpl() {
   root_ddl_recorder_.reset();
 
   if (graphite_recorder_) {
-    GraphiteVizMemoryDumpProvider::GetInstance().RemoveClient();
+    GraphiteVizMemoryAssistant::GetInstance().RemoveClient();
   }
 
   if (!render_pass_image_cache_.empty()) {
@@ -509,10 +481,8 @@ void SkiaOutputSurfaceImpl::Reshape(const ReshapeParams& params) {
 
   sk_color_space_ = params.color_space.ToSkColorSpace();
 
-  if (use_damage_area_from_skia_output_device_) {
+  if (capabilities_.damage_area_from_skia_output_device) {
     damage_of_current_buffer_ = gfx::Rect(size_);
-  } else if (frame_buffer_damage_tracker_) {
-    frame_buffer_damage_tracker_->FrameBuffersChanged(size_);
   }
 
   if (is_using_raw_draw_ && is_raw_draw_using_msaa_) {
@@ -894,22 +864,6 @@ DBG_FLAG_FBOOL("skia_gpu.swap_buffers.force_disable_makecurrent",
 void SkiaOutputSurfaceImpl::SwapBuffers(OutputSurfaceFrame frame) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!current_paint_);
-  // If the renderer allocates images then `current_buffer_modified_` isn't
-  // updated, and we can't make this check.
-  DCHECK(capabilities_.renderer_allocates_images ||
-         ((!frame.sub_buffer_rect || !frame.sub_buffer_rect->IsEmpty()) ==
-          current_buffer_modified_));
-
-  // If current_buffer_modified_ is false, it means SkiaRenderer doesn't draw
-  // anything for current frame. So this SwapBuffer() must be a empty swap, so
-  // the previous buffer will be used for this frame.
-  if (frame_buffer_damage_tracker_ && current_buffer_modified_) {
-    gfx::Rect damage_rect =
-        frame.sub_buffer_rect ? *frame.sub_buffer_rect : gfx::Rect(size_);
-    frame_buffer_damage_tracker_->SwappedWithDamage(damage_rect);
-  }
-  current_buffer_modified_ = false;
-
   // impl_on_gpu_ is released on the GPU thread by a posted task from
   // SkiaOutputSurfaceImpl::dtor. So it is safe to use base::Unretained.
   auto callback =
@@ -942,15 +896,6 @@ void SkiaOutputSurfaceImpl::SwapBuffers(OutputSurfaceFrame frame) {
 
 void SkiaOutputSurfaceImpl::SwapBuffersSkipped(
     const gfx::Rect root_pass_damage_rect) {
-  if (current_buffer_modified_ && frame_buffer_damage_tracker_) {
-    // If |current_buffer_modified_| is true but we skipped swap there is still
-    // damage to the current framebuffer to account for. Unlike SwapBuffers()
-    // don't reset current buffers rect, since that damage still need to be
-    // taken into account when the buffer is swapped later.
-    frame_buffer_damage_tracker_->SkippedSwapWithDamage(root_pass_damage_rect);
-  }
-  current_buffer_modified_ = false;
-
   // PostTask to the GPU thread to deal with freeing resources and running
   // callbacks.
   auto task = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::SwapBuffersSkipped,
@@ -964,18 +909,6 @@ void SkiaOutputSurfaceImpl::SwapBuffersSkipped(
   if (reset_ddl_recorder_on_swap_) {
     RecreateRootDDLRecorder();
   }
-}
-
-void SkiaOutputSurfaceImpl::ScheduleOutputSurfaceAsOverlay(
-    OverlayProcessorInterface::OutputSurfaceOverlayPlane output_surface_plane) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // impl_on_gpu_ is released on the GPU thread by a posted task from
-  // SkiaOutputSurfaceImpl::dtor. So it is safe to use base::Unretained.
-  auto callback = base::BindOnce(
-      &SkiaOutputSurfaceImplOnGpu::ScheduleOutputSurfaceAsOverlay,
-      base::Unretained(impl_on_gpu_.get()), std::move(output_surface_plane));
-  EnqueueGpuTask(std::move(callback), {}, /*make_current=*/false,
-                 /*need_framebuffer=*/false);
 }
 
 SkCanvas* SkiaOutputSurfaceImpl::BeginPaintRenderPass(
@@ -1095,7 +1028,6 @@ void SkiaOutputSurfaceImpl::EndPaint(
   // base::Unretained.
   if (current_paint_->mailbox().IsZero()) {
     // Draw on the root render pass.
-    current_buffer_modified_ = true;
     auto task = base::BindOnce(
         &SkiaOutputSurfaceImplOnGpu::FinishPaintCurrentFrame,
         base::Unretained(impl_on_gpu_.get()), std::move(ddl),
@@ -1245,21 +1177,8 @@ bool SkiaOutputSurfaceImpl::Initialize() {
   // wait.
   FlushGpuTasks(SyncMode::kWaitForTasksFinished);
 
-  if (capabilities_.preserve_buffer_content &&
-      capabilities_.supports_post_sub_buffer) {
-    capabilities_.only_invalidates_damage_rect = false;
-    // If there is only one pending frame, then we can use damage area hint from
-    // SkiaOutputDevice, otherwise we have to track damage area with
-    // FrameBufferDamageTracker.
-    if (capabilities_.pending_swap_params.max_pending_swaps == 1 &&
-        capabilities_.damage_area_from_skia_output_device) {
-      use_damage_area_from_skia_output_device_ = true;
-      damage_of_current_buffer_ = gfx::Rect();
-    } else if (!capabilities_.renderer_allocates_images) {
-      // We don't need a damage tracker if SkiaRenderer allocates the images,
-      // because it will keep track of the damage as well.
-      frame_buffer_damage_tracker_.emplace(capabilities_.number_of_buffers);
-    }
+  if (capabilities_.damage_area_from_skia_output_device) {
+    damage_of_current_buffer_.emplace();
   }
 
   // |graphite_recorder_| is used on viz thread, so we get or create cache
@@ -1267,8 +1186,9 @@ bool SkiaOutputSurfaceImpl::Initialize() {
   if (graphite_recorder_) {
     graphite_cache_controller_ =
         GetOrCreateGraphiteCacheController(graphite_recorder_);
-    GraphiteVizMemoryDumpProvider::GetInstance().AddClient(
-        graphite_recorder_, dependency_->GetClientTaskRunner());
+    GraphiteVizMemoryAssistant::GetInstance().AddClient(
+        graphite_recorder_, graphite_cache_controller_.get(),
+        dependency_->GetClientTaskRunner());
   }
   return result;
 }
@@ -1300,7 +1220,6 @@ void SkiaOutputSurfaceImpl::InitializeOnGpuThread(bool* result) {
     return;
   }
   capabilities_ = impl_on_gpu_->capabilities();
-  is_displayed_as_overlay_ = impl_on_gpu_->IsDisplayedAsOverlay();
 
   auto shared_context_state = dependency_->GetSharedContextState();
   gr_context_type_ = shared_context_state->gr_context_type();
@@ -1432,7 +1351,7 @@ SkiaOutputSurfaceImpl::CreateGrSurfaceCharacterizationCurrentFrame(
 #if BUILDFLAG(ENABLE_VULKAN)
   VkFormat vk_format = VK_FORMAT_UNDEFINED;
 #endif
-  LOG_IF(DFATAL, !characterization.isValid())
+  LOG_IF(FATAL, !characterization.isValid())
       << "\n  surface_size=" << surface_size.ToString()
       << "\n  format=" << static_cast<int>(color_type)
       << "\n  color_type=" << static_cast<int>(color_type)
@@ -1460,17 +1379,10 @@ void SkiaOutputSurfaceImpl::DidSwapBuffersComplete(
     gfx::GpuFenceHandle release_fence) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(client_);
-  last_swapped_mailbox_ = params.primary_plane_mailbox;
 
-  if (frame_buffer_damage_tracker_ &&
-      params.swap_response.result ==
-          gfx::SwapResult::SWAP_NAK_RECREATE_BUFFERS) {
-    frame_buffer_damage_tracker_->FrameBuffersChanged(size_);
-  }
-
-  if (use_damage_area_from_skia_output_device_) {
+  if (capabilities_.damage_area_from_skia_output_device) {
+    DCHECK(params.frame_buffer_damage_area);
     damage_of_current_buffer_ = params.frame_buffer_damage_area;
-    DCHECK(damage_of_current_buffer_);
   }
 
   if (!params.ca_layer_params.is_empty)
@@ -1690,15 +1602,6 @@ GrBackendFormat SkiaOutputSurfaceImpl::GetGrBackendFormatForTexture(
   }
 }
 
-bool SkiaOutputSurfaceImpl::IsDisplayedAsOverlayPlane() const {
-  return is_displayed_as_overlay_;
-}
-
-gpu::Mailbox SkiaOutputSurfaceImpl::GetOverlayMailbox() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return last_swapped_mailbox_;
-}
-
 void SkiaOutputSurfaceImpl::SetNeedsSwapSizeNotifications(
     bool needs_swap_size_notifications) {
   needs_swap_size_notifications_ = needs_swap_size_notifications;
@@ -1735,29 +1638,6 @@ gpu::SyncToken SkiaOutputSurfaceImpl::Flush() {
   return sync_token;
 }
 
-bool SkiaOutputSurfaceImpl::EnsureMinNumberOfBuffers(int n) {
-  DCHECK(capabilities_.supports_dynamic_frame_buffer_allocation);
-  DCHECK_GT(n, 0);
-  DCHECK_LE(n, capabilities_.number_of_buffers);
-
-  if (cached_number_of_buffers_ >= n)
-    return false;
-
-  cached_number_of_buffers_ = n;
-  if (frame_buffer_damage_tracker_) {
-    frame_buffer_damage_tracker_->FrameBuffersChanged(size_);
-  }
-
-  auto task =
-      base::BindOnce(&SkiaOutputSurfaceImplOnGpu::EnsureMinNumberOfBuffers,
-                     base::Unretained(impl_on_gpu_.get()), n);
-  EnqueueGpuTask(std::move(task), std::vector<gpu::SyncToken>(),
-                 /*make_current=*/true,
-                 /*need_framebuffer=*/false);
-  FlushGpuTasks(SyncMode::kNoWait);
-  return true;
-}
-
 void SkiaOutputSurfaceImpl::ContextLost() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DLOG(ERROR) << "SkiaOutputSurfaceImpl::ContextLost()";
@@ -1774,16 +1654,11 @@ void SkiaOutputSurfaceImpl::ScheduleOrRetainGpuTask(
 }
 
 gfx::Rect SkiaOutputSurfaceImpl::GetCurrentFramebufferDamage() const {
-  if (use_damage_area_from_skia_output_device_) {
-    DCHECK(damage_of_current_buffer_);
+  if (capabilities_.damage_area_from_skia_output_device) {
     return *damage_of_current_buffer_;
   }
 
-  if (!frame_buffer_damage_tracker_) {
-    return gfx::Rect();
-  }
-
-  return frame_buffer_damage_tracker_->GetCurrentFrameBufferDamage();
+  return gfx::Rect();
 }
 
 void SkiaOutputSurfaceImpl::SetNeedsMeasureNextDrawLatency() {

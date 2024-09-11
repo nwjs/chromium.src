@@ -21,6 +21,7 @@
 #include "ash/system/accessibility/unified_accessibility_detailed_view_controller.h"
 #include "ash/system/audio/unified_audio_detailed_view_controller.h"
 #include "ash/system/audio/unified_volume_slider_controller.h"
+#include "ash/system/audio/unified_volume_view.h"
 #include "ash/system/bluetooth/bluetooth_detailed_view_controller.h"
 #include "ash/system/bluetooth/bluetooth_feature_pod_controller.h"
 #include "ash/system/brightness/quick_settings_display_detailed_view_controller.h"
@@ -137,6 +138,9 @@ UnifiedSystemTrayController::CreateQuickSettingsView(int max_height) {
       std::make_unique<UnifiedVolumeSliderController>(this);
   unified_volume_view_ =
       qs_view->AddSliderView(volume_slider_controller_->CreateView());
+  views::AsViewClass<QuickSettingsSlider>(
+      views::AsViewClass<UnifiedVolumeView>(unified_volume_view_)->slider())
+      ->set_is_toggleable_volume_slider(true);
 
   brightness_slider_controller_ =
       std::make_unique<UnifiedBrightnessSliderController>(
@@ -164,10 +168,11 @@ void UnifiedSystemTrayController::HandleSignOutAction() {
   if (ShouldShowDeferredUpdateDialog()) {
     DeferredUpdateDialog::CreateDialog(
         DeferredUpdateDialog::Action::kSignOut,
-        base::BindOnce(&SessionControllerImpl::RequestSignOut,
-                       base::Unretained(Shell::Get()->session_controller())));
+        base::BindOnce(
+            &LockStateController::RequestSignOut,
+            base::Unretained(Shell::Get()->lock_state_controller())));
   } else {
-    Shell::Get()->session_controller()->RequestSignOut();
+    Shell::Get()->lock_state_controller()->RequestSignOut();
   }
 }
 
@@ -419,7 +424,7 @@ void UnifiedSystemTrayController::InitFeatureTiles() {
   create_tile(VIEW_ID_FEATURE_TILE_HOTSPOT,
               std::make_unique<HotspotFeaturePodController>(this),
               feature_pod_controllers_, tiles);
-  if (base::FeatureList::IsEnabled(features::kFocusMode)) {
+  if (features::IsFocusModeEnabled()) {
     create_tile(VIEW_ID_FEATURE_TILE_FOCUS_MODE,
                 std::make_unique<FocusModeFeaturePodController>(this),
                 feature_pod_controllers_, tiles);

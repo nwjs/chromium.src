@@ -8,13 +8,13 @@
 
 #include "base/feature_list.h"
 #include "base/features.h"
+#include "chrome/common/chrome_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_hats_trigger_helper.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/download/download_warning_desktop_hats_utils.h"
-#include "chrome/common/chrome_features.h"
 #include "components/password_manager/core/browser/features/password_features.h"  // nogncheck
 #include "components/performance_manager/public/features.h"         // nogncheck
 #include "components/permissions/constants.h"                       // nogncheck
@@ -73,7 +73,6 @@ constexpr char kHatsSurveyTriggerRedWarning[] = "red-warning";
 constexpr char kHatsSurveyTriggerSettings[] = "settings";
 constexpr char kHatsSurveyTriggerSettingsPrivacy[] = "settings-privacy";
 constexpr char kHatsSurveyTriggerSettingsSecurity[] = "settings-security";
-constexpr char kHatsSurveyTriggerExtensions[] = "extensions";
 constexpr char kHatsSurveyTriggerSuggestedPasswordsExperiment[] =
     "suggested-passwords-experiment";
 constexpr char kHatsSurveyTriggerTrustSafetyPrivacySandbox4ConsentAccept[] =
@@ -90,6 +89,7 @@ constexpr char kHatsSurveyTriggerTrustSafetyTrustedSurface[] =
     "ts-trusted-surface";
 constexpr char kHatsSurveyTriggerTrustSafetyTransactions[] = "ts-transactions";
 constexpr char kHatsSurveyTriggerWhatsNew[] = "whats-new";
+constexpr char kHatsSurveyTriggerWhatsNewAlternate[] = "whats-new-alternate";
 constexpr char kHatsSurveyTriggerTrustSafetyV2BrowsingData[] =
     "ts-v2-browsing-data";
 constexpr char kHatsSurveyTriggerTrustSafetyV2ControlGroup[] =
@@ -124,6 +124,8 @@ constexpr char kHatsSurveyTriggerWallpaperSearch[] = "wallpaper-search";
 #else   // BUILDFLAG(IS_ANDROID)
 constexpr char kHatsSurveyTriggerAndroidStartupSurvey[] = "startup_survey";
 constexpr char kHatsSurveyTriggerQuickDelete[] = "quick_delete_survey";
+constexpr char kHatsSurveyTriggerSafetyHubAndroid[] =
+    "safety_hub_android_survey";
 #endif  // #if !BUILDFLAG(IS_ANDROID)
 
 constexpr char kHatsSurveyTriggerTesting[] = "testing";
@@ -136,6 +138,7 @@ namespace {
 
 constexpr char kHatsSurveyProbability[] = "probability";
 constexpr char kHatsSurveyEnSiteID[] = "en_site_id";
+constexpr char kHatsSurveyHistogramName[] = "hats_histogram_name";
 constexpr double kHatsSurveyProbabilityDefault = 0;
 
 // Survey configs must always be hardcoded here, so that they require review
@@ -397,18 +400,6 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
           "User proceeded past interstitial", "Enhanced protection enabled",
           "Threat is phishing", "Threat is malware",
           "Threat is unwanted software", "Threat is billing"});
-  survey_configs.emplace_back(
-      &features::kHappinessTrackingSurveysExtensionsSafetyHub,
-      kHatsSurveyTriggerExtensions,
-      features::kHappinessTrackingSurveysExtensionsSafetyHubTriggerId.Get(),
-      std::vector<std::string>{},
-      std::vector<std::string>{
-          "Average extension age in days", "Age of profile in days",
-          "Time since last extension was installed in days",
-          "Number of extensions installed", "Time on extension page in seconds",
-          "Extension review panel shown", "Number of extensions removed",
-          "Number of extensions kept",
-          "Number of non-trigger extensions removed", "Client Channel"});
 
   // Autofill surveys.
   survey_configs.emplace_back(
@@ -457,6 +448,11 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
   survey_configs.emplace_back(
       &features::kHappinessTrackingSurveysForDesktopWhatsNew,
       kHatsSurveyTriggerWhatsNew, "SYLcvnoRH0ugnJ3q1cK0RAHYFycs");
+  // What's New survey for alternate studies. For example, compare
+  // v1 and v2 sentiments side-by-side.
+  survey_configs.emplace_back(
+      &features::kHappinessTrackingSurveysForDesktopWhatsNew,
+      kHatsSurveyTriggerWhatsNewAlternate, "6bnVh68QF0ugnJ3q1cK0NQxjpCFS");
 
   // Performance Controls surveys.
   survey_configs.emplace_back(
@@ -557,6 +553,11 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       kHatsSurveyTriggerQuickDelete,
       chrome::android::kQuickDeleteAndroidSurveyTriggerId.Get());
 
+  survey_configs.emplace_back(
+      &features::kSafetyHubAndroidSurvey, kHatsSurveyTriggerSafetyHubAndroid,
+      features::kSafetyHubAndroidTriggerId.Get(),
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      std::vector<std::string>{"Notification module type"});
 #endif  // #if !BUILDFLAG(IS_ANDROID)
 
   return survey_configs;
@@ -575,7 +576,8 @@ SurveyConfig::SurveyConfig(
     const std::string& trigger,
     const std::optional<std::string>& presupplied_trigger_id,
     const std::vector<std::string>& product_specific_bits_data_fields,
-    const std::vector<std::string>& product_specific_string_data_fields)
+    const std::vector<std::string>& product_specific_string_data_fields,
+    bool log_responses_to_uma)
     : trigger(trigger),
       product_specific_bits_data_fields(product_specific_bits_data_fields),
       product_specific_string_data_fields(product_specific_string_data_fields) {
@@ -598,6 +600,12 @@ SurveyConfig::SurveyConfig(
                                       : base::FeatureParam<std::string>(
                                             feature, kHatsSurveyEnSiteID, "")
                                             .Get();
+
+  if (log_responses_to_uma) {
+    histogram_name =
+        base::FeatureParam<std::string>(feature, kHatsSurveyHistogramName, "")
+            .Get();
+  }
 
   user_prompted =
       base::FeatureParam<bool>(feature, "user_prompted", false).Get();

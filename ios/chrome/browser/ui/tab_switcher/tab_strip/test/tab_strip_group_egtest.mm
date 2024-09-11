@@ -4,6 +4,8 @@
 
 #import <XCTest/XCTest.h>
 
+#import "base/strings/sys_string_conversions.h"
+#import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_groups_constants.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_strip/ui/swift_constants_for_objective_c.h"
@@ -51,6 +53,30 @@ id<GREYMatcher> CreateTabGroupCancelButtonMatcher() {
                     grey_sufficientlyVisible(), nil);
 }
 
+// Returns the matcher for the tab group snackbar.
+id<GREYMatcher> TabGroupSnackbarMatcher(int tabGroupCount) {
+  NSString* messageLabel =
+      base::SysUTF16ToNSString(l10n_util::GetPluralStringFUTF16(
+          IDS_IOS_TAB_GROUP_SNACKBAR_LABEL, tabGroupCount));
+  return grey_allOf(
+      grey_accessibilityID(@"MDCSnackbarMessageTitleAutomationIdentifier"),
+      grey_text(messageLabel), nil);
+}
+
+// Returns the matcher for the tab group snackbar action .
+id<GREYMatcher> TabGroupSnackbarActionMatcher() {
+  return grey_allOf(grey_kindOfClassName(@"M3CButton"),
+                    grey_buttonTitle(l10n_util::GetNSString(
+                        IDS_IOS_TAB_GROUP_SNACKBAR_ACTION)),
+                    nil);
+}
+
+// Returns the matcher for the Tab Groups view as third panel of Tab Grid.
+id<GREYMatcher> TabGroupsPanel() {
+  return grey_allOf(grey_accessibilityID(kTabGroupsPanelIdentifier),
+                    grey_sufficientlyVisible(), nil);
+}
+
 // Opens the tab group creation view using the long press context menu for the
 // tab at `index`.
 void OpenTabGroupCreationViewUsingLongPressForCellAtIndex(int index) {
@@ -72,6 +98,14 @@ void SetTabGroupCreationName(NSString* group_name) {
   [[EarlGrey selectElementWithMatcher:CreateTabGroupTextFieldMatcher()]
       performAction:grey_tap()];
   [ChromeEarlGrey simulatePhysicalKeyboardEvent:group_name flags:0];
+}
+
+// Identifer for cell at given `index` in the tab grid.
+NSString* IdentifierForRegularCellAtIndex(unsigned int index) {
+  return [NSString stringWithFormat:@"%@%u",
+                                    TabStripCollectionViewConstants
+                                        .tabStripTabCellPrefixIdentifier,
+                                    index];
 }
 
 // Returns a matcher for a tab strip tab cell with `title` as title.
@@ -172,6 +206,36 @@ void AddTabToNewGroup(id<GREYMatcher> tab_cell_matcher,
                       grey_accessibilityID(kCreateTabGroupViewIdentifier)];
 }
 
+// Finds the element with the given `identifier` of given `type`.
+XCUIElement* GetElementMatchingIdentifier(XCUIApplication* app,
+                                          NSString* identifier,
+                                          XCUIElementType type) {
+  XCUIElementQuery* query = [[app.windows.firstMatch
+      descendantsMatchingType:type] matchingIdentifier:identifier];
+  return [query elementBoundByIndex:0];
+}
+
+// Drags and drops the cell with the given `src_cell_identifier` to the
+// `dst_cell_identifier` position.
+void DragDropTabStripTabCellInTabStripView(NSString* src_cell_identifier,
+                                           NSString* dst_cell_identifier) {
+  XCUIApplication* app = [[XCUIApplication alloc] init];
+  XCUIElement* src_element = GetElementMatchingIdentifier(
+      app, src_cell_identifier, XCUIElementTypeCell);
+  XCUICoordinate* start_point =
+      [src_element coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)];
+
+  XCUIElement* dst_element = GetElementMatchingIdentifier(
+      app, dst_cell_identifier, XCUIElementTypeCell);
+  XCUICoordinate* end_point =
+      [dst_element coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.5)];
+
+  [start_point pressForDuration:1.5
+           thenDragToCoordinate:end_point
+                   withVelocity:XCUIGestureVelocityDefault
+            thenHoldForDuration:1.0];
+}
+
 }  // namespace
 
 // Tests for the tab strip shown on iPad.
@@ -185,6 +249,7 @@ void AddTabToNewGroup(id<GREYMatcher> tab_cell_matcher,
   config.features_enabled.push_back(kTabGroupsInGrid);
   config.features_enabled.push_back(kTabGroupsIPad);
   config.features_enabled.push_back(kModernTabStrip);
+  config.features_enabled.push_back(kTabGroupSync);
   return config;
 }
 
@@ -587,8 +652,14 @@ void AddTabToNewGroup(id<GREYMatcher> tab_cell_matcher,
   // Long press the tab group and tap "Ungroup".
   [[EarlGrey selectElementWithMatcher:TabStripGroupCellMatcher(kGroupTitle1)]
       performAction:grey_longPress()];
+  // Tap a ungroup button.
   [[EarlGrey selectElementWithMatcher:ContextMenuButtonMatcher(
                                           IDS_IOS_CONTENT_CONTEXT_UNGROUP)]
+      performAction:grey_tap()];
+  // Confirm ungrouping.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::AlertAction(
+                                          l10n_util::GetNSString(
+                                              IDS_IOS_CONTENT_CONTEXT_UNGROUP))]
       performAction:grey_tap()];
 
   // Wait for the tab group to disappear and check that the tab is still here.
@@ -618,9 +689,15 @@ void AddTabToNewGroup(id<GREYMatcher> tab_cell_matcher,
   // Long press the tab group and tap "Delete Group".
   [[EarlGrey selectElementWithMatcher:TabStripGroupCellMatcher(kGroupTitle1)]
       performAction:grey_longPress()];
-
+  // Tap a delete button.
   [[EarlGrey selectElementWithMatcher:ContextMenuButtonMatcher(
                                           IDS_IOS_CONTENT_CONTEXT_DELETEGROUP)]
+      performAction:grey_tap()];
+  // Confirm deleting a group.
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::AlertAction(
+                                   l10n_util::GetNSString(
+                                       IDS_IOS_CONTENT_CONTEXT_DELETEGROUP))]
       performAction:grey_tap()];
 
   // Wait for the tab group to disappear and check that the tab disappeared too.
@@ -629,6 +706,267 @@ void AddTabToNewGroup(id<GREYMatcher> tab_cell_matcher,
                                                  kGroupTitle1)];
   [[EarlGrey selectElementWithMatcher:TabStripTabCellMatcher(aboutTabTitle)]
       assertWithMatcher:grey_nil()];
+
+  // Check that the snackbar is not dislpayed.
+  [[EarlGrey selectElementWithMatcher:TabGroupSnackbarMatcher(1)]
+      assertWithMatcher:grey_nil()];
+}
+
+// Tests that a tab group can be closed.
+- (void)testTabStripCloseGroup {
+  if ([ChromeEarlGrey isCompactWidth]) {
+    EARL_GREY_TEST_SKIPPED(@"No tab strip on this device.");
+  }
+
+  // Open a new tab and load "chrome://about".
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://about")];
+  NSString* aboutTabTitle = [ChromeEarlGrey currentTabTitle];
+
+  // Add the current tab to a new group.
+  AddTabToNewGroup(TabStripTabCellSelectedMatcher(), kGroupTitle1);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabStripGroupCellMatcher(
+                                                          kGroupTitle1)];
+
+  // Long press the tab group and tap "Close Group".
+  [[EarlGrey selectElementWithMatcher:TabStripGroupCellMatcher(kGroupTitle1)]
+      performAction:grey_longPress()];
+  [[EarlGrey selectElementWithMatcher:ContextMenuButtonMatcher(
+                                          IDS_IOS_CONTENT_CONTEXT_CLOSEGROUP)]
+      performAction:grey_tap()];
+
+  // Wait for the tab group to disappear and check that the tab disappeared too.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:TabStripGroupCellMatcher(
+                                                 kGroupTitle1)];
+  [[EarlGrey selectElementWithMatcher:TabStripTabCellMatcher(aboutTabTitle)]
+      assertWithMatcher:grey_nil()];
+
+  // Check that the snackbar is dislpayed.
+  [[EarlGrey selectElementWithMatcher:TabGroupSnackbarMatcher(1)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+}
+
+// Tests the "Close Other Tabs" action when a tab group is involved.
+- (void)testTabStripCloseOtherTabsWithGroup {
+  if ([ChromeEarlGrey isCompactWidth]) {
+    EARL_GREY_TEST_SKIPPED(@"No tab strip on this device.");
+  }
+
+  // Open tabs.
+  [ChromeEarlGrey loadURL:GURL("chrome://about")];
+  NSString* aboutTabTitle = [ChromeEarlGrey currentTabTitle];
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://version")];
+  NSString* versionTabTitle = [ChromeEarlGrey currentTabTitle];
+
+  GREYAssertEqual([ChromeEarlGrey mainTabCount], 2,
+                  @"Three tabs were expected to be open");
+
+  // Add the first tab to a new group.
+  AddTabToNewGroup(TabStripTabCellMatcher(aboutTabTitle), kGroupTitle1);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabStripGroupCellMatcher(
+                                                          kGroupTitle1)];
+
+  // Long press the non grouped tab and tap "Close Other Tabs".
+  [[EarlGrey selectElementWithMatcher:TabStripTabCellMatcher(versionTabTitle)]
+      performAction:grey_longPress()];
+  [[EarlGrey
+      selectElementWithMatcher:ContextMenuButtonMatcher(
+                                   IDS_IOS_CONTENT_CONTEXT_CLOSEOTHERTABS)]
+      performAction:grey_tap()];
+
+  // Wait for other tabs to disappear.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:TabStripGroupCellMatcher(
+                                                 kGroupTitle1)];
+  [[EarlGrey selectElementWithMatcher:TabStripTabCellMatcher(versionTabTitle)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Check that the snackbar is dislpayed.
+  [[EarlGrey selectElementWithMatcher:TabGroupSnackbarMatcher(1)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+}
+
+// Tests the "Close Other Tabs" action when a tab group is not involved.
+- (void)testTabStripCloseOtherTabsWithoutGroup {
+  if ([ChromeEarlGrey isCompactWidth]) {
+    EARL_GREY_TEST_SKIPPED(@"No tab strip on this device.");
+  }
+
+  // Open tabs.
+  [ChromeEarlGrey loadURL:GURL("chrome://about")];
+  NSString* aboutTabTitle = [ChromeEarlGrey currentTabTitle];
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://version")];
+  NSString* versionTabTitle = [ChromeEarlGrey currentTabTitle];
+
+  GREYAssertEqual([ChromeEarlGrey mainTabCount], 2,
+                  @"Three tabs were expected to be open");
+
+  // Add the first tab to a new group.
+  AddTabToNewGroup(TabStripTabCellMatcher(aboutTabTitle), kGroupTitle1);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabStripGroupCellMatcher(
+                                                          kGroupTitle1)];
+
+  // Long press the grouped tab and tap "Close Other Tabs".
+  [[EarlGrey selectElementWithMatcher:TabStripTabCellMatcher(aboutTabTitle)]
+      performAction:grey_longPress()];
+  [[EarlGrey
+      selectElementWithMatcher:ContextMenuButtonMatcher(
+                                   IDS_IOS_CONTENT_CONTEXT_CLOSEOTHERTABS)]
+      performAction:grey_tap()];
+
+  // Wait for other tabs to disappear.
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:TabStripTabCellMatcher(
+                                                             versionTabTitle)];
+  [[EarlGrey selectElementWithMatcher:TabStripGroupCellMatcher(kGroupTitle1)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Check that the snackbar is not dislpayed.
+  [[EarlGrey selectElementWithMatcher:TabGroupSnackbarMatcher(1)]
+      assertWithMatcher:grey_nil()];
+}
+
+// Tests dragging the last tab out of a group then accepting to delete the
+// group.
+- (void)testDragLastTabOutOfGroupDelete {
+  if ([ChromeEarlGrey isCompactWidth]) {
+    EARL_GREY_TEST_SKIPPED(@"No tab strip on this device.");
+  }
+
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://version")];
+
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://about")];
+
+  AddTabToNewGroup(TabStripTabCellMatcher(@"About Version"), kGroupTitle1);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabStripGroupCellMatcher(
+                                                          kGroupTitle1)];
+
+  // Tab0: New Tab
+  // Group 1
+  // Tab2 in group 1: About Version
+  // Tab3, currently active: Chrome URLs
+
+  // Move Tab2 to Tab3.
+  DragDropTabStripTabCellInTabStripView(IdentifierForRegularCellAtIndex(2),
+                                        IdentifierForRegularCellAtIndex(3));
+
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
+                                   IDS_IOS_CONTENT_CONTEXT_DELETEGROUP)]
+      performAction:grey_tap()];
+
+  [[EarlGrey selectElementWithMatcher:TabStripGroupCellMatcher(kGroupTitle1)]
+      assertWithMatcher:grey_nil()];
+}
+
+// Tests dragging the last tab out of a group then cancelling it.
+- (void)testDragLastTabOutOfGroupCancel {
+  if ([ChromeEarlGrey isCompactWidth]) {
+    EARL_GREY_TEST_SKIPPED(@"No tab strip on this device.");
+  }
+
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://version")];
+
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://about")];
+
+  AddTabToNewGroup(TabStripTabCellMatcher(@"About Version"), kGroupTitle1);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabStripGroupCellMatcher(
+                                                          kGroupTitle1)];
+
+  // Tab0: New Tab
+  // Group 1
+  // Tab2 in group 1: About Version
+  // Tab3, currently active: Chrome URLs
+
+  // Move Tab2 to Tab3.
+  DragDropTabStripTabCellInTabStripView(IdentifierForRegularCellAtIndex(2),
+                                        IdentifierForRegularCellAtIndex(3));
+
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
+                                   IDS_CANCEL)] performAction:grey_tap()];
+
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabStripGroupCellMatcher(
+                                                          kGroupTitle1)];
+}
+
+// Tests that a tab group can be deleted.
+- (void)testTabStripCancelConfirmation {
+  if ([ChromeEarlGrey isCompactWidth]) {
+    EARL_GREY_TEST_SKIPPED(@"No tab strip on this device.");
+  }
+
+  // Open a new tab and load "chrome://about".
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://about")];
+  NSString* aboutTabTitle = [ChromeEarlGrey currentTabTitle];
+
+  // Add the current tab to a new group.
+  AddTabToNewGroup(TabStripTabCellSelectedMatcher(), kGroupTitle1);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabStripGroupCellMatcher(
+                                                          kGroupTitle1)];
+
+  // Long press the tab group and tap "Delete Group".
+  [[EarlGrey selectElementWithMatcher:TabStripGroupCellMatcher(kGroupTitle1)]
+      performAction:grey_longPress()];
+  // Tap a delete button.
+  [[EarlGrey selectElementWithMatcher:ContextMenuButtonMatcher(
+                                          IDS_IOS_CONTENT_CONTEXT_DELETEGROUP)]
+      performAction:grey_tap()];
+  // Cancel the action by tapping a tab title (= outside the delete button).
+  [[EarlGrey selectElementWithMatcher:TabStripTabCellMatcher(aboutTabTitle)]
+      performAction:grey_tap()];
+
+  // Check that the group and the tab still exist.
+  [[EarlGrey selectElementWithMatcher:TabStripGroupCellMatcher(kGroupTitle1)]
+      assertWithMatcher:grey_notNil()];
+  [[EarlGrey selectElementWithMatcher:TabStripTabCellMatcher(aboutTabTitle)]
+      assertWithMatcher:grey_notNil()];
+}
+
+// Tests the tab group snackbar CTA.
+- (void)testTabStripTabGroupSnackbarAction {
+  if ([ChromeEarlGrey isCompactWidth]) {
+    EARL_GREY_TEST_SKIPPED(@"No tab strip on this device.");
+  }
+
+  // Open a new tab and load "chrome://about".
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:GURL("chrome://about")];
+  NSString* aboutTabTitle = [ChromeEarlGrey currentTabTitle];
+
+  // Add the current tab to a new group.
+  AddTabToNewGroup(TabStripTabCellSelectedMatcher(), kGroupTitle1);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabStripGroupCellMatcher(
+                                                          kGroupTitle1)];
+
+  // Long press the tab group and tap "Close Group".
+  [[EarlGrey selectElementWithMatcher:TabStripGroupCellMatcher(kGroupTitle1)]
+      performAction:grey_longPress()];
+  [[EarlGrey selectElementWithMatcher:ContextMenuButtonMatcher(
+                                          IDS_IOS_CONTENT_CONTEXT_CLOSEGROUP)]
+      performAction:grey_tap()];
+
+  // Wait for the tab group to disappear and check that the tab disappeared too.
+  [ChromeEarlGrey
+      waitForUIElementToDisappearWithMatcher:TabStripGroupCellMatcher(
+                                                 kGroupTitle1)];
+  [[EarlGrey selectElementWithMatcher:TabStripTabCellMatcher(aboutTabTitle)]
+      assertWithMatcher:grey_nil()];
+
+  // Tap on the snackbar action.
+  [[EarlGrey selectElementWithMatcher:TabGroupSnackbarActionMatcher()]
+      performAction:grey_tap()];
+
+  // Check that the Tab Groups Panel is shown.
+  [[EarlGrey selectElementWithMatcher:TabGroupsPanel()]
+      assertWithMatcher:grey_notNil()];
 }
 
 @end

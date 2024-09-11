@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_model_listener.h"
 
+#include "base/check.h"
 #include "base/containers/contains.h"
 #include "base/memory/raw_ptr.h"
 #include "base/ranges/algorithm.h"
@@ -11,12 +12,12 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/local_tab_group_listener.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_service_wrapper.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/saved_tab_groups/features.h"
 #include "components/saved_tab_groups/saved_tab_group_model.h"
+#include "components/saved_tab_groups/tab_group_sync_service.h"
 #include "components/tab_groups/tab_group_id.h"
 
 namespace content {
@@ -28,14 +29,16 @@ namespace tab_groups {
 SavedTabGroupModelListener::SavedTabGroupModelListener() = default;
 
 SavedTabGroupModelListener::SavedTabGroupModelListener(
-    TabGroupServiceWrapper* wrapper_service,
+    TabGroupSyncService* service,
     Profile* profile)
-    : wrapper_service_(wrapper_service), profile_(profile) {
-  DCHECK(wrapper_service);
-  DCHECK(profile);
+    : service_(service), profile_(profile) {
+  CHECK(service);
+  CHECK(profile);
+
   for (Browser* browser : *BrowserList::GetInstance()) {
     OnBrowserAdded(browser);
   }
+
   BrowserList::GetInstance()->AddObserver(this);
 }
 
@@ -61,9 +64,9 @@ void SavedTabGroupModelListener::OnTabGroupAdded(
   SavedTabGroup copy_group = group_web_contents_map_pair.first;
   std::map<content::WebContents*, base::Uuid> copy_web_contents_to_uuid_map =
       group_web_contents_map_pair.second;
-  wrapper_service_->AddGroup(std::move(copy_group));
+  service_->AddGroup(std::move(copy_group));
 
-  std::optional<SavedTabGroup> group = wrapper_service_->GetGroup(group_id);
+  std::optional<SavedTabGroup> group = service_->GetGroup(group_id);
   ConnectToLocalTabGroup(group.value(),
                          std::move(copy_web_contents_to_uuid_map));
 }
@@ -221,6 +224,11 @@ void SavedTabGroupModelListener::WillCloseAllTabs(
   }
 }
 
+bool SavedTabGroupModelListener::IsTrackingLocalTabGroup(
+    const tab_groups::TabGroupId& group_id) {
+  return local_tab_group_listeners_.contains(group_id);
+}
+
 void SavedTabGroupModelListener::ConnectToLocalTabGroup(
     const SavedTabGroup& saved_tab_group,
     std::map<content::WebContents*, base::Uuid> web_contents_map) {
@@ -235,8 +243,8 @@ void SavedTabGroupModelListener::ConnectToLocalTabGroup(
   CHECK_EQ(local_group_size, web_contents_map.size());
 
   auto [iterator, success] = local_tab_group_listeners_.try_emplace(
-      local_group_id, local_group_id, saved_tab_group.saved_guid(),
-      wrapper_service_, web_contents_map);
+      local_group_id, local_group_id, saved_tab_group.saved_guid(), service_,
+      web_contents_map);
   CHECK(success);
 }
 
@@ -272,7 +280,7 @@ void SavedTabGroupModelListener::ResumeLocalObservation() {
 
 void SavedTabGroupModelListener::DisconnectLocalTabGroup(
     tab_groups::TabGroupId tab_group_id) {
-  wrapper_service_->RemoveLocalTabGroupMapping(tab_group_id);
+  service_->RemoveLocalTabGroupMapping(tab_group_id);
   local_tab_group_listeners_.erase(tab_group_id);
 }
 

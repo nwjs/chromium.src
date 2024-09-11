@@ -38,16 +38,22 @@ import java.util.Objects;
 
 /** Utilities for inline pdf support. */
 public class PdfUtils {
-    @IntDef({PdfPageType.NONE, PdfPageType.TRANSIENT, PdfPageType.LOCAL})
+    @IntDef({
+        PdfPageType.NONE,
+        PdfPageType.TRANSIENT_SECURE,
+        PdfPageType.LOCAL,
+        PdfPageType.TRANSIENT_INSECURE
+    })
     @Retention(RetentionPolicy.SOURCE)
     public @interface PdfPageType {
         int NONE = 0;
-        int TRANSIENT = 1;
+        int TRANSIENT_SECURE = 1;
         int LOCAL = 2;
+        int TRANSIENT_INSECURE = 3;
     }
 
     private static final String TAG = "PdfUtils";
-    private static final String PDF_EXTENSION = "pdf";
+    private static final String PARAM_ANDROID_INLINE_PDF_IN_INCOGNITO = "inline_pdf_in_incognito";
     private static boolean sShouldOpenPdfInlineForTesting;
     private static boolean sSkipLoadPdfForTesting;
 
@@ -90,9 +96,6 @@ public class PdfUtils {
     }
 
     private static String getDecodedScheme(String url) {
-        if (!shouldOpenPdfInline()) {
-            return null;
-        }
         String decodedUrl = PdfUtils.decodePdfPageUrl(url);
         if (decodedUrl == null) {
             return null;
@@ -103,18 +106,31 @@ public class PdfUtils {
 
     /** Determines whether to open pdf inline. */
     @CalledByNative
-    public static boolean shouldOpenPdfInline() {
+    public static boolean shouldOpenPdfInline(boolean isIncognito) {
         if (sShouldOpenPdfInlineForTesting) return true;
-        // TODO(https://crbug.com/327492784): Update checks once release plan is finalized.
-        return ContentFeatureMap.isEnabled(ContentFeatureList.ANDROID_OPEN_PDF_INLINE)
-                && BuildCompat.isAtLeastV();
+        if (!ContentFeatureMap.isEnabled(ContentFeatureList.ANDROID_OPEN_PDF_INLINE)) {
+            return false;
+        }
+        if (isIncognito
+                && !ContentFeatureMap.getInstance()
+                        .getFieldTrialParamByFeatureAsBoolean(
+                                ContentFeatureList.ANDROID_OPEN_PDF_INLINE,
+                                PARAM_ANDROID_INLINE_PDF_IN_INCOGNITO,
+                                false)) {
+            return false;
+        }
+        // TODO(https://crbug.com/337674493): Check if pdf viewer is available on pre-V devices.
+        return BuildCompat.isAtLeastV();
     }
 
     public static PdfInfo getPdfInfo(NativePage nativePage) {
         if (nativePage == null || !nativePage.isPdf()) {
             return null;
         }
-        return new PdfInfo(nativePage.getTitle(), nativePage.getCanonicalFilepath());
+        return new PdfInfo(
+                nativePage.getTitle(),
+                nativePage.getCanonicalFilepath(),
+                nativePage.isDownloadSafe());
     }
 
     static String getFileNameFromUrl(String url, String defaultTitle) {
@@ -144,20 +160,35 @@ public class PdfUtils {
 
     static String getFilePathFromUrl(String url) {
         GURL gurl = new GURL(url);
-        if (getPdfPageType(gurl) == PdfPageType.LOCAL) {
+        if (getPdfPageTypeInternal(gurl, false) == PdfPageType.LOCAL) {
             return url;
         }
         return null;
     }
 
     /** Return the type of the pdf page. */
-    public static @PdfPageType int getPdfPageType(GURL url) {
-        String scheme = url.getScheme();
+    public static @PdfPageType int getPdfPageType(NativePage pdfPage) {
+        if (pdfPage == null || !pdfPage.isPdf()) {
+            return PdfPageType.NONE;
+        }
+        assert pdfPage instanceof PdfPage;
+        GURL url = new GURL(pdfPage.getUrl());
+        return getPdfPageTypeInternal(url, pdfPage.isDownloadSafe());
+    }
+
+    private static @PdfPageType int getPdfPageTypeInternal(GURL url, boolean isDownloadSafe) {
+        // The url may be encoded. Try to decode first.
+        String scheme = getDecodedScheme(url.getSpec());
+        // Get scheme from url directly if fail to decode.
+        if (scheme == null) {
+            scheme = url.getScheme();
+        }
+
         if (scheme == null) {
             return PdfPageType.NONE;
         }
         if (scheme.equals(UrlConstants.HTTP_SCHEME) || scheme.equals(UrlConstants.HTTPS_SCHEME)) {
-            return PdfPageType.TRANSIENT;
+            return isDownloadSafe ? PdfPageType.TRANSIENT_SECURE : PdfPageType.TRANSIENT_INSECURE;
         }
         if (scheme.equals(UrlConstants.CONTENT_SCHEME) || scheme.equals(UrlConstants.FILE_SCHEME)) {
             return PdfPageType.LOCAL;

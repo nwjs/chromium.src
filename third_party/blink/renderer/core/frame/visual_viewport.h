@@ -147,6 +147,8 @@ class CORE_EXPORT VisualViewport : public GarbageCollected<VisualViewport>,
   float Scale() const { return scale_; }
   bool IsPinchGestureActive() const { return is_pinch_gesture_active_; }
 
+  PhysicalOffset LocalToScrollOriginOffset() const final;
+
   // Convert the given rect in the main LocalFrameView's coordinates into a rect
   // in the viewport. The given and returned rects are in CSS pixels, meaning
   // scale isn't applied.
@@ -209,7 +211,7 @@ class CORE_EXPORT VisualViewport : public GarbageCollected<VisualViewport>,
   bool IsScrollCornerVisible() const override { return false; }
   gfx::Rect ScrollCornerRect() const override { return gfx::Rect(); }
   gfx::Vector2d ScrollOffsetInt() const override {
-    return gfx::ToFlooredVector2d(offset_);
+    return SnapScrollOffsetToPhysicalPixels(offset_);
   }
   ScrollOffset GetScrollOffset() const override { return offset_; }
   gfx::Vector2d MinimumScrollOffsetInt() const override;

@@ -225,7 +225,7 @@ export {SettingsMultideviceTaskContinuationItemElement} from './multidevice_page
 export {SettingsMultideviceWifiSyncDisabledLinkElement} from './multidevice_page/multidevice_wifi_sync_disabled_link.js';
 export {NearbyShareReceiveDialogElement} from './nearby_share_page/nearby_share_receive_dialog.js';
 export {SettingsNearbyShareSubpageElement} from './nearby_share_page/nearby_share_subpage.js';
-export {SettingsAudioAndCaptionsPageElement} from './os_a11y_page/audio_and_captions_page.js';
+export {NotificationColor, SettingsAudioAndCaptionsPageElement} from './os_a11y_page/audio_and_captions_page.js';
 export {AudioAndCaptionsPageBrowserProxy, AudioAndCaptionsPageBrowserProxyImpl} from './os_a11y_page/audio_and_captions_page_browser_proxy.js';
 export {SettingsAxAnnotationsSectionElement} from './os_a11y_page/ax_annotations_section.js';
 export {BluetoothBrailleDisplayListener, BluetoothBrailleDisplayManager} from './os_a11y_page/bluetooth_braille_display_manager.js';
@@ -234,8 +234,9 @@ export {ChangeDictationLocaleDialog, DictationLocaleOption} from './os_a11y_page
 export {SettingsChromeVoxSubpageElement} from './os_a11y_page/chromevox_subpage.js';
 export {SettingsCursorAndTouchpadPageElement} from './os_a11y_page/cursor_and_touchpad_page.js';
 export {SettingsDisplayAndMagnificationSubpageElement} from './os_a11y_page/display_and_magnification_subpage.js';
-export {FaceGazeAddActionDialogElement} from './os_a11y_page/facegaze_actions_add_dialog.js';
+export {AddDialogPage, FaceGazeAddActionDialogElement} from './os_a11y_page/facegaze_actions_add_dialog.js';
 export {FaceGazeActionsCardElement} from './os_a11y_page/facegaze_actions_card.js';
+export {FACEGAZE_COMMAND_PAIR_ADDED_EVENT_NAME, FaceGazeCommandPair} from './os_a11y_page/facegaze_constants.js';
 export {FaceGazeCursorCardElement} from './os_a11y_page/facegaze_cursor_card.js';
 export {SettingsFaceGazeSubpageElement} from './os_a11y_page/facegaze_subpage.js';
 export {SettingsKeyboardAndTextInputPageElement} from './os_a11y_page/keyboard_and_text_input_page.js';

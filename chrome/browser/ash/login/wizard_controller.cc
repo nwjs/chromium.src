@@ -84,8 +84,6 @@
 #include "chrome/browser/ash/login/screens/hardware_data_collection_screen.h"
 #include "chrome/browser/ash/login/screens/hid_detection_screen.h"
 #include "chrome/browser/ash/login/screens/install_attributes_error_screen.h"
-#include "chrome/browser/ash/login/screens/kiosk_autolaunch_screen.h"
-#include "chrome/browser/ash/login/screens/kiosk_enable_screen.h"
 #include "chrome/browser/ash/login/screens/lacros_data_backward_migration_screen.h"
 #include "chrome/browser/ash/login/screens/lacros_data_migration_screen.h"
 #include "chrome/browser/ash/login/screens/local_state_error_screen.h"
@@ -108,6 +106,7 @@
 #include "chrome/browser/ash/login/screens/osauth/password_selection_screen.h"
 #include "chrome/browser/ash/login/screens/osauth/recovery_eligibility_screen.h"
 #include "chrome/browser/ash/login/screens/packaged_license_screen.h"
+#include "chrome/browser/ash/login/screens/perks_discovery_screen.h"
 #include "chrome/browser/ash/login/screens/personalized_recommend_apps_screen.h"
 #include "chrome/browser/ash/login/screens/pin_setup_screen.h"
 #include "chrome/browser/ash/login/screens/quick_start_screen.h"
@@ -187,8 +186,6 @@
 #include "chrome/browser/ui/webui/ash/login/hardware_data_collection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/hid_detection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/install_attributes_error_screen_handler.h"
-#include "chrome/browser/ui/webui/ash/login/kiosk_autolaunch_screen_handler.h"
-#include "chrome/browser/ui/webui/ash/login/kiosk_enable_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/lacros_data_backward_migration_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/lacros_data_migration_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/local_password_setup_handler.h"
@@ -210,6 +207,7 @@
 #include "chrome/browser/ui/webui/ash/login/packaged_license_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/parental_handoff_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/password_selection_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/perks_discovery_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/personalized_recommend_apps_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/pin_setup_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/quick_start_screen_handler.h"
@@ -238,6 +236,7 @@
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "chromeos/ash/components/dbus/update_engine/update_engine_client.h"
 #include "chromeos/ash/components/geolocation/simple_geolocation_provider.h"
+#include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/language_packs/language_pack_manager.h"
 #include "chromeos/ash/components/network/network_state.h"
 #include "chromeos/ash/components/network/network_state_handler.h"
@@ -316,13 +315,12 @@ const StaticOobeScreenId kResumablePostLoginScreens[] = {
     DisplaySizeScreenView::kScreenId,
     TouchpadScrollScreenView::kScreenId,
     CategoriesSelectionScreenView::kScreenId,
+    PerksDiscoveryScreenView::kScreenId,
 };
 
 const StaticOobeScreenId kScreensWithHiddenStatusArea[] = {
     EnableAdbSideloadingScreenView::kScreenId,
     EnableDebuggingScreenView::kScreenId,
-    KioskAutolaunchScreenView::kScreenId,
-    KioskEnableScreenView::kScreenId,
     ManagementTransitionScreenView::kScreenId,
     TpmErrorView::kScreenId,
     InstallAttributesErrorView::kScreenId,
@@ -679,14 +677,6 @@ WizardController::CreateScreens() {
       oobe_ui->GetView<EnableDebuggingScreenHandler>()->AsWeakPtr(),
       base::BindRepeating(&WizardController::OnEnableDebuggingScreenExit,
                           weak_factory_.GetWeakPtr())));
-  append(std::make_unique<KioskEnableScreen>(
-      oobe_ui->GetView<KioskEnableScreenHandler>()->AsWeakPtr(),
-      base::BindRepeating(&WizardController::OnKioskEnableScreenExit,
-                          weak_factory_.GetWeakPtr())));
-  append(std::make_unique<KioskAutolaunchScreen>(
-      oobe_ui->GetView<KioskAutolaunchScreenHandler>()->AsWeakPtr(),
-      base::BindRepeating(&WizardController::OnKioskAutolaunchScreenExit,
-                          weak_factory_.GetWeakPtr())));
   append(std::make_unique<LocaleSwitchScreen>(
       oobe_ui->GetView<LocaleSwitchScreenHandler>()->AsWeakPtr(),
       base::BindRepeating(&WizardController::OnLocaleSwitchScreenExit,
@@ -998,6 +988,11 @@ WizardController::CreateScreens() {
       base::BindRepeating(&WizardController::OnEnterOldPasswordScreenExit,
                           weak_factory_.GetWeakPtr())));
 
+  append(std::make_unique<PerksDiscoveryScreen>(
+      oobe_ui->GetView<PerksDiscoveryScreenHandler>()->AsWeakPtr(),
+      base::BindRepeating(&WizardController::OnPerksDiscoveryScreenExit,
+                          weak_factory_.GetWeakPtr())));
+
   append(std::make_unique<OSAuthErrorScreen>(
       oobe_ui->GetView<OSAuthErrorScreenHandler>()->AsWeakPtr(),
       base::BindRepeating(&WizardController::OnOSAuthErrorScreenExit,
@@ -1124,14 +1119,6 @@ void WizardController::ShowDrivePinningScreen() {
 
 void WizardController::ShowResetScreen() {
   SetCurrentScreen(GetScreen(ResetView::kScreenId));
-}
-
-void WizardController::ShowKioskEnableScreen() {
-  SetCurrentScreen(GetScreen(KioskEnableScreenView::kScreenId));
-}
-
-void WizardController::ShowKioskAutolaunchScreen() {
-  SetCurrentScreen(GetScreen(KioskAutolaunchScreenView::kScreenId));
 }
 
 void WizardController::ShowEnableAdbSideloadingScreen() {
@@ -1293,6 +1280,10 @@ void WizardController::ShowCategoriesSelectionScreen() {
 
 void WizardController::ShowPersonalizedRecomendAppsScreen() {
   SetCurrentScreen(GetScreen(PersonalizedRecommendAppsScreenView::kScreenId));
+}
+
+void WizardController::ShowPerksDiscoveryScreen() {
+  SetCurrentScreen(GetScreen(PerksDiscoveryScreenView::kScreenId));
 }
 
 void WizardController::ShowTouchpadScrollScreen() {
@@ -1493,9 +1484,6 @@ void WizardController::OnGaiaScreenExit(GaiaScreen::Result result) {
     }
     case GaiaScreen::Result::ENTERPRISE_ENROLL:
       ShowEnrollmentScreenIfEligible();
-      break;
-    case GaiaScreen::Result::START_CONSUMER_KIOSK:
-      LoginDisplayHost::default_host()->AttemptShowEnableConsumerKioskScreen();
       break;
     case GaiaScreen::Result::ENTER_QUICK_START:
       [[fallthrough]];
@@ -1897,6 +1885,19 @@ void WizardController::OnCategoriesSelectionScreenExit(
   }
 }
 
+void WizardController::OnPerksDiscoveryScreenExit(
+    PerksDiscoveryScreen::Result result) {
+  OnScreenExit(PerksDiscoveryScreenView::kScreenId,
+               PerksDiscoveryScreen::GetResultString(result));
+  if (features::IsOobeAiIntroEnabled()) {
+    ShowAiIntroScreen();
+  } else if (features::IsOobeGeminiIntroEnabled()) {
+    ShowGeminiIntroScreen();
+  } else {
+    ShowAssistantOptInFlowScreen();
+  }
+}
+
 void WizardController::OnPersonalizedRecomendAppsScreenExit(
     PersonalizedRecommendAppsScreen::Result result) {
   OnScreenExit(PersonalizedRecommendAppsScreenView::kScreenId,
@@ -1912,13 +1913,7 @@ void WizardController::OnPersonalizedRecomendAppsScreenExit(
     case PersonalizedRecommendAppsScreen::Result::kDataMalformed:
     case PersonalizedRecommendAppsScreen::Result::kError:
     case PersonalizedRecommendAppsScreen::Result::kTimeout:
-      if (features::IsOobeAiIntroEnabled()) {
-        ShowAiIntroScreen();
-      } else if (features::IsOobeGeminiIntroEnabled()) {
-        ShowGeminiIntroScreen();
-      } else {
-        ShowAssistantOptInFlowScreen();
-      }
+        ShowPerksDiscoveryScreen();
       break;
   }
 }
@@ -2256,32 +2251,6 @@ void WizardController::OnEnableDebuggingScreenExit() {
   OnDeviceModificationCanceled();
 }
 
-void WizardController::OnKioskEnableScreenExit() {
-  OnScreenExit(KioskEnableScreenView::kScreenId, kDefaultExitReason);
-
-  ShowLoginScreen();
-}
-
-void WizardController::OnKioskAutolaunchScreenExit(
-    KioskAutolaunchScreen::Result result) {
-  OnScreenExit(KioskAutolaunchScreenView::kScreenId,
-               KioskAutolaunchScreen::GetResultString(result));
-
-  switch (result) {
-    case KioskAutolaunchScreen::Result::COMPLETED: {
-      auto app = KioskController::Get().GetAutoLaunchApp();
-      // TODO(b/304452967): Monitor crashes and upgrade to regular CHECKs.
-      DUMP_WILL_BE_CHECK(app.has_value());
-      DUMP_WILL_BE_CHECK_EQ(app->id().type, KioskAppType::kChromeApp);
-      AutoLaunchKioskApp(app.value());
-      break;
-    }
-    case KioskAutolaunchScreen::Result::CANCELED:
-      ShowLoginScreen();
-      break;
-  }
-}
-
 void WizardController::OnDemoPreferencesScreenExit(
     DemoPreferencesScreen::Result result) {
   OnScreenExit(DemoPreferencesScreenView::kScreenId,
@@ -2393,11 +2362,7 @@ void WizardController::OnCryptohomeRecoverySetupScreenExit(
     CryptohomeRecoverySetupScreen::Result result) {
   OnScreenExit(CryptohomeRecoverySetupScreenView::kScreenId,
                CryptohomeRecoverySetupScreen::GetResultString(result));
-  if (ash::features::AreLocalPasswordsEnabledForConsumers()) {
-    ShowPasswordSelectionScreen();
-  } else {
-    ShowFingerprintSetupScreen();
-  }
+  ShowPasswordSelectionScreen();
 }
 
 void WizardController::OnPasswordSelectionScreenExit(
@@ -2616,13 +2581,7 @@ void WizardController::OnRecommendAppsScreenExit(
     case RecommendAppsScreen::Result::kSkipped:
     case RecommendAppsScreen::Result::kNotApplicable:
     case RecommendAppsScreen::Result::kLoadError:
-      if (features::IsOobeAiIntroEnabled()) {
-        ShowAiIntroScreen();
-      } else if (features::IsOobeGeminiIntroEnabled()) {
-        ShowGeminiIntroScreen();
-      } else {
-        ShowAssistantOptInFlowScreen();
-      }
+        ShowPerksDiscoveryScreen();
       break;
   }
 }
@@ -2646,14 +2605,7 @@ void WizardController::OnRemoteActivityNotificationScreenExit() {
 
 void WizardController::OnAppDownloadingScreenExit() {
   OnScreenExit(AppDownloadingScreenView::kScreenId, kDefaultExitReason);
-
-  if (features::IsOobeAiIntroEnabled()) {
-    ShowAiIntroScreen();
-  } else if (features::IsOobeGeminiIntroEnabled()) {
-    ShowGeminiIntroScreen();
-  } else {
-    ShowAssistantOptInFlowScreen();
-  }
+  ShowPerksDiscoveryScreen();
 }
 
 void WizardController::OnAiIntroScreenExit(AiIntroScreen::Result result) {
@@ -3022,11 +2974,18 @@ void WizardController::UpdateOobeConfiguration() {
       configuration::ConfigurationHandlerSide::HANDLER_CPP);
   auto* requisition_value = wizard_context_->configuration.FindString(
       configuration::kDeviceRequisition);
+
   if (requisition_value) {
     VLOG(1) << "Using Device Requisition from configuration"
             << *requisition_value;
     policy::EnrollmentRequisitionManager::SetDeviceRequisition(
         *requisition_value);
+  } else if (policy::EnrollmentRequisitionManager::IsCuttlefishDevice()) {
+    VLOG(1) << "Using default Device Requisition value for Cuttlefish build "
+               "configuration"
+            << policy::EnrollmentRequisitionManager::kCuttlefishRequisition;
+    policy::EnrollmentRequisitionManager::SetDeviceRequisition(
+        policy::EnrollmentRequisitionManager::kCuttlefishRequisition);
   } else if (policy::EnrollmentRequisitionManager::IsMeetDevice()) {
     VLOG(1) << "Using default Device Requisition value for CFM build "
                "configuration"
@@ -3081,10 +3040,6 @@ void WizardController::AdvanceToScreen(OobeScreenId screen_id) {
     InitiateOOBEUpdate();
   } else if (screen_id == ResetView::kScreenId) {
     ShowResetScreen();
-  } else if (screen_id == KioskEnableScreenView::kScreenId) {
-    ShowKioskEnableScreen();
-  } else if (screen_id == KioskAutolaunchScreenView::kScreenId) {
-    ShowKioskAutolaunchScreen();
   } else if (screen_id == EnableAdbSideloadingScreenView::kScreenId) {
     ShowEnableAdbSideloadingScreen();
   } else if (screen_id == EnableDebuggingScreenView::kScreenId) {
@@ -3180,6 +3135,8 @@ void WizardController::AdvanceToScreen(OobeScreenId screen_id) {
     ShowCategoriesSelectionScreen();
   } else if (screen_id == PersonalizedRecommendAppsScreenView::kScreenId) {
     ShowPersonalizedRecomendAppsScreen();
+  } else if (screen_id == PerksDiscoveryScreenView::kScreenId) {
+    ShowPerksDiscoveryScreen();
   } else if (screen_id == TpmErrorView::kScreenId ||
              screen_id == InstallAttributesErrorView::kScreenId ||
              screen_id == FamilyLinkNoticeView::kScreenId ||

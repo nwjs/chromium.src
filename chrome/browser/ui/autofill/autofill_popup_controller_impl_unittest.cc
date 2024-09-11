@@ -9,6 +9,7 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/ui/autofill/autofill_popup_controller_impl_test_api.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller_test_base.h"
 #include "chrome/browser/ui/autofill/test_autofill_popup_controller_autofill_client.h"
 #include "components/autofill/core/browser/ui/popup_interaction.h"
@@ -335,8 +336,8 @@ TEST_F(AutofillPopupControllerImplTest, PopupForwardsSuggestionPosition) {
           {0, 0, 10, 10}, {Suggestion(SuggestionType::kAddressEntry)},
           AutoselectFirstSuggestion(false));
   ASSERT_TRUE(sub_controller);
-  static_cast<AutofillPopupControllerImpl*>(sub_controller.get())
-      ->SetViewForTesting(client().sub_popup_view()->GetWeakPtr());
+  test_api(static_cast<AutofillPopupControllerImpl&>(*sub_controller))
+      .SetView(client().sub_popup_view()->GetWeakPtr());
 
   EXPECT_CALL(manager().external_delegate(),
               DidAcceptSuggestion(_, EqualsSuggestionPosition(
@@ -474,8 +475,8 @@ TEST_F(AutofillPopupControllerImplTest,
 
   // Setting a view makes the subsequent `Show()` call successful and stores
   // the visible duration metric start time.
-  static_cast<AutofillPopupControllerImpl*>(sub_controller.get())
-      ->SetViewForTesting(client().sub_popup_view()->GetWeakPtr());
+  test_api(static_cast<AutofillPopupControllerImpl&>(*sub_controller))
+      .SetView(client().sub_popup_view()->GetWeakPtr());
   sub_controller->Show({Suggestion(SuggestionType::kPasswordEntry)},
                        AutofillSuggestionTriggerSource::kPasswordManager,
                        AutoselectFirstSuggestion(false));
@@ -505,7 +506,8 @@ TEST_F(AutofillPopupControllerImplTest,
       .WillOnce(Return(true));
   // Remove the first entry. The popup should be redrawn since its size has
   // changed.
-  EXPECT_CALL(*client().popup_view(), OnSuggestionsChanged());
+  EXPECT_CALL(*client().popup_view(),
+              OnSuggestionsChanged(/*prefer_prev_arrow_side=*/false));
   EXPECT_TRUE(client().popup_controller(manager()).RemoveSuggestion(
       0,
       AutofillMetrics::SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
@@ -553,10 +555,12 @@ TEST_F(AutofillPopupControllerImplTest,
                                  Suggestion(u"axx"),
                              });
 
-  EXPECT_CALL(*client().popup_view(), OnSuggestionsChanged());
+  EXPECT_CALL(*client().popup_view(),
+              OnSuggestionsChanged(/*prefer_prev_arrow_side=*/true));
   controller.SetFilter(AutofillPopupController::SuggestionFilter(u"ab"));
 
-  EXPECT_CALL(*client().popup_view(), OnSuggestionsChanged());
+  EXPECT_CALL(*client().popup_view(),
+              OnSuggestionsChanged(/*prefer_prev_arrow_side=*/true));
   controller.SetFilter(std::nullopt);
 }
 
@@ -617,15 +621,20 @@ TEST_F(AutofillPopupControllerImplTest,
 }
 
 TEST_F(AutofillPopupControllerImplTest,
-       SuggestionFiltration_FooterSuggestionsAreNotFiltratable) {
+       SuggestionFiltration_StaticSuggestionsAreNotFilteredOut) {
   using enum SuggestionType;
+
+  Suggestion footer_suggestion1 = Suggestion(kSeparator);
+  footer_suggestion1.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
+  Suggestion footer_suggestion2 = Suggestion(kUndoOrClear);
+  footer_suggestion2.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
 
   AutofillPopupController& controller = client().popup_controller(manager());
   ShowSuggestions(manager(), {
                                  Suggestion(u"abc", kAddressEntry),
                                  Suggestion(u"abx", kAddressEntry),
-                                 Suggestion(kSeparator),
-                                 Suggestion(kUndoOrClear),
+                                 std::move(footer_suggestion1),
+                                 std::move(footer_suggestion2),
                              });
 
   controller.SetFilter(AutofillPopupController::SuggestionFilter(u"ab"));
@@ -667,6 +676,24 @@ TEST_F(AutofillPopupControllerImplTest,
   EXPECT_TRUE(controller.HasFilteredOutSuggestions());
 }
 
+TEST_F(
+    AutofillPopupControllerImplTest,
+    SuggestionFiltration_PresentOnlyWithoutFilterSuggestionsAlwaysFilteredOut) {
+  using enum SuggestionType;
+  Suggestion suggestion1 = Suggestion(u"abcd", kAddressEntry);
+  Suggestion suggestion2 = Suggestion(u"abcd", kAddressEntry);
+  suggestion2.filtration_policy =
+      Suggestion::FiltrationPolicy::kPresentOnlyWithoutFilter;
+
+  AutofillPopupController& controller = client().popup_controller(manager());
+  ShowSuggestions(manager(), {std::move(suggestion1), std::move(suggestion2)});
+
+  ASSERT_EQ(controller.GetSuggestions().size(), 2u);
+
+  controller.SetFilter(AutofillPopupController::SuggestionFilter(u"ab"));
+  EXPECT_EQ(controller.GetSuggestions().size(), 1u);
+}
+
 TEST_F(AutofillPopupControllerImplTest, RemoveSuggestion) {
   ShowSuggestions(manager(),
                   {SuggestionType::kAddressEntry, SuggestionType::kAddressEntry,
@@ -683,7 +710,8 @@ TEST_F(AutofillPopupControllerImplTest, RemoveSuggestion) {
 
   // Remove the first entry. The popup should be redrawn since its size has
   // changed.
-  EXPECT_CALL(*client().popup_view(), OnSuggestionsChanged());
+  EXPECT_CALL(*client().popup_view(),
+              OnSuggestionsChanged(/*prefer_prev_arrow_side=*/false));
   EXPECT_TRUE(client().popup_controller(manager()).RemoveSuggestion(
       0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
   Mock::VerifyAndClearExpectations(client().popup_view());

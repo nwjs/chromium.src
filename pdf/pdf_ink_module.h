@@ -23,6 +23,7 @@
 #include "pdf/page_orientation.h"
 #include "pdf/pdf_ink_undo_redo_model.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -78,16 +79,19 @@ class PdfInkModule {
     // Gets current zoom factor.
     virtual float GetZoom() const = 0;
 
-    // Notifies the client that a stroke has finished drawing or erasing.
-    virtual void StrokeFinished() {}
-
     // Notifies the client to invalidate the `rect`.  Coordinates are
     // screen-based, based on the same viewport origin that was used to specify
     // the `blink::WebMouseEvent` positions during stroking.
     virtual void Invalidate(const gfx::Rect& rect) {}
 
-    // Returns whether the page at `index` is visible or not.
-    virtual bool IsPageVisible(int index) = 0;
+    // Returns whether the page at `page_index` is visible or not.
+    virtual bool IsPageVisible(int page_index) = 0;
+
+    // Notifies the client that a stroke has finished drawing or erasing.
+    virtual void StrokeFinished() {}
+
+    // Asks the client to change the cursor to `bitmap`.
+    virtual void UpdateInkCursorImage(SkBitmap bitmap) {}
 
     // Returns the 0-based page index for the given `point` if it is on a
     // visible page, or -1 if `point` is not on a visible page.
@@ -109,6 +113,9 @@ class PdfInkModule {
 
   // Returns whether the message was handled or not.
   bool OnMessage(const base::Value::Dict& message);
+
+  // Informs PdfInkModule that the plugin geometry changed.
+  void OnGeometryChanged();
 
   // For testing only. Returns the current `PdfInkBrush` used to draw strokes,
   // or nullptr if there is no brush.
@@ -149,7 +156,8 @@ class PdfInkModule {
     // The event position for the last input.  Coordinates match the
     // screen-based position that are provided during stroking from
     // `blink::WebMouseEvent` positions.  Used after stroking has already
-    // started, to support invalidation.
+    // started, for invalidation and for extrapolating where a stroke crosses
+    // the page boundary.
     std::optional<gfx::PointF> input_last_event_position;
 
     // The points that make up the current stroke, divided into
@@ -217,12 +225,12 @@ class PdfInkModule {
   // Return values have the same semantics as OnMouse()* above.
   bool StartStroke(const gfx::PointF& position);
   bool ContinueStroke(const gfx::PointF& position);
-  bool FinishStroke();
+  bool FinishStroke(const gfx::PointF& position);
 
   // Return values have the same semantics as OnMouse*() above.
   bool StartEraseStroke(const gfx::PointF& position);
   bool ContinueEraseStroke(const gfx::PointF& position);
-  bool FinishEraseStroke();
+  bool FinishEraseStroke(const gfx::PointF& position);
 
   // Shared code for the Erase methods above. Returns if stroke(s) got erased or
   // not.
@@ -265,11 +273,17 @@ class PdfInkModule {
       const gfx::PointF& position,
       int page_index);
 
+  // Helper to convert `position` to a canonical position and record it into
+  // `current_tool_state_`. Can only be called when drawing.
+  void RecordStrokePosition(const gfx::PointF& position);
+
   void ApplyUndoRedoCommands(const PdfInkUndoRedoModel::Commands& commands);
   void ApplyUndoRedoCommandsHelper(std::set<size_t> ids, bool should_draw);
 
   void ApplyUndoRedoDiscards(
       const PdfInkUndoRedoModel::DiscardedDrawCommands& discards);
+
+  void MaybeSetCursor();
 
   const raw_ref<Client> client_;
 

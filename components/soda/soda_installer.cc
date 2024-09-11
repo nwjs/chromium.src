@@ -5,10 +5,12 @@
 #include "components/soda/soda_installer.h"
 
 #include <optional>
+#include <string>
 
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/observer_list.h"
+#include "base/strings/string_split.h"
 #include "base/values.h"
 #include "build/chromeos_buildflags.h"
 #include "components/live_caption/pref_names.h"
@@ -26,6 +28,10 @@
 namespace {
 
 constexpr int kSodaCleanUpDelayInDays = 30;
+const constexpr char* const kDefaultEnabledLanguages[] = {
+    "en-US", "fr-FR", "it-IT", "de-DE",       "es-ES",
+    "ja-JP", "hi-IN", "pt-BR", "ko-KR",       "pl-PL",
+    "th-TH", "tr-TR", "id-ID", "cmn-Hans-CN", "cmn-Hant-TW"};
 
 }  // namespace
 
@@ -132,8 +138,17 @@ void SodaInstaller::SetUninstallTimer(PrefService* profile_prefs,
       base::Time::Now() + base::Days(kSodaCleanUpDelayInDays));
 }
 
+std::string SodaInstaller::GetLanguageDlcNameForLocale(
+    const std::string& locale) const {
+  return std::string();
+}
+
 bool SodaInstaller::IsSodaInstalled(LanguageCode language_code) const {
   return (soda_binary_installed_ && IsLanguageInstalled(language_code));
+}
+
+bool SodaInstaller::IsSodaBinaryInstalled() const {
+  return soda_binary_installed_;
 }
 
 const std::set<LanguageCode> SodaInstaller::InstalledLanguages() const {
@@ -299,6 +314,19 @@ bool SodaInstaller::IsAnyFeatureUsingSodaEnabled(PrefService* prefs) {
 #else  // !BUILDFLAG(IS_CHROMEOS_ASH)
   return prefs->GetBoolean(prefs::kLiveCaptionEnabled);
 #endif
+}
+
+std::vector<std::string> SodaInstaller::GetLiveCaptionEnabledLanguages() const {
+  std::vector<std::string> enabled_languages = base::SplitString(
+      base::GetFieldTrialParamValueByFeature(
+          media::kLiveCaptionExperimentalLanguages, "available_languages"),
+      ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
+
+  for (const char* const enabled_language : kDefaultEnabledLanguages) {
+    enabled_languages.push_back(enabled_language);
+  }
+
+  return enabled_languages;
 }
 
 }  // namespace speech

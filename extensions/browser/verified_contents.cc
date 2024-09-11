@@ -45,7 +45,6 @@ const char kSignedContentKey[] = "signed_content";
 const char kTreeHashPerFile[] = "treehash per file";
 const char kTreeHash[] = "treehash";
 const char kWebstoreKId[] = "webstore";
-const char kNWJSKId[] = "nwjs";
 
 // Helper function to iterate over a list of dictionaries, returning the
 // dictionary that has |key| -> |value| in it, if any, or null.
@@ -109,21 +108,7 @@ std::unique_ptr<VerifiedContents> VerifiedContents::Create(
     std::string_view contents) {
   // Note: VerifiedContents constructor is private.
   auto verified_contents = base::WrapUnique(new VerifiedContents(public_key));
-  std::string payload, manifest;
-#if 0 //NWJS: fixme
-  std::string manifest_contents;
-  base::FilePath manifest_path = path.DirName().AppendASCII("package.json");
-  if (!base::ReadFileToString(manifest_path, &manifest_contents))
-    return nullptr;
-#endif
-  if (!verified_contents->GetPayload(contents, &manifest, "manifest"))
-    return nullptr;
-#if 0
-  if (manifest != manifest_contents) {
-    LOG(FATAL) << "manifest mismatch: " << manifest;
-    return nullptr;
-  }
-#endif
+  std::string payload;
   if (!verified_contents->GetPayload(contents, &payload))
     return nullptr;
 
@@ -265,8 +250,7 @@ bool VerifiedContents::TreeHashRootEquals(const base::FilePath& relative_path,
 // the extension's key too (eg for non-webstore hosted extensions such as
 // enterprise installs).
 bool VerifiedContents::GetPayload(std::string_view contents,
-                                  std::string* payload,
-				  const char* manifest) {
+                                  std::string* payload) {
   std::optional<base::Value> top_list = base::JSONReader::Read(contents);
   if (!top_list || !top_list->is_list())
     return false;
@@ -299,9 +283,6 @@ bool VerifiedContents::GetPayload(std::string_view contents,
   const base::Value::Dict* signature_dict =
       FindDictionaryWithValue(*signatures, kHeaderKidKey, kWebstoreKId);
   if (!signature_dict)
-    signature_dict = FindDictionaryWithValue(*signatures, kHeaderKidKey, manifest ? "manifest" : kNWJSKId);
-
-  if (!signature_dict)
     return false;
 
   const std::string* protected_value =
@@ -315,8 +296,7 @@ bool VerifiedContents::GetPayload(std::string_view contents,
                              &decoded_signature))
     return false;
 
-  const std::string* encoded_payload =
-    signed_content->FindString(manifest ? "manifest" : kPayloadKey);
+  const std::string* encoded_payload = signed_content->FindString(kPayloadKey);
   if (!encoded_payload)
     return false;
 

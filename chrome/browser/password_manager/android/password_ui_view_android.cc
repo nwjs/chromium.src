@@ -40,7 +40,7 @@
 #include "url/gurl.h"
 
 // Must come after other includes, because FromJniType() uses Profile.
-#include "chrome/android/chrome_jni_headers/PasswordUIView_jni.h"
+#include "chrome/browser/password_manager/android/jni_headers/PasswordUIView_jni.h"
 
 namespace {
 
@@ -89,10 +89,9 @@ PasswordUIViewAndroid::SerializationResult SerializePasswords(
 
 }  // namespace
 
-PasswordUIViewAndroid::PasswordUIViewAndroid(
-    JNIEnv* env,
-    const jni_zero::JavaRef<jobject>& obj,
-    Profile* profile)
+PasswordUIViewAndroid::PasswordUIViewAndroid(JNIEnv* env,
+                                             jobject obj,
+                                             Profile* profile)
     : profile_(profile),
       profile_store_(ProfilePasswordStoreFactory::GetForProfile(
           profile,
@@ -250,7 +249,6 @@ void PasswordUIViewAndroid::HandleSerializePasswords(
 void PasswordUIViewAndroid::HandleShowPasswordEntryEditingView(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& context,
-    const base::android::JavaRef<jobject>& settings_launcher,
     int index,
     const JavaParamRef<jobject>& obj) {
   if (static_cast<size_t>(index) >= passwords_.size() ||
@@ -267,13 +265,12 @@ void PasswordUIViewAndroid::HandleShowPasswordEntryEditingView(
       &saved_passwords_presenter_,
       base::BindOnce(&PasswordUIViewAndroid::OnEditUIDismissed,
                      base::Unretained(this)),
-      context, settings_launcher);
+      context);
 }
 
 void PasswordUIViewAndroid::HandleShowBlockedCredentialView(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& context,
-    const base::android::JavaRef<jobject>& settings_launcher,
     int index,
     const JavaParamRef<jobject>& obj) {
   if (static_cast<size_t>(index) >= blocked_sites_.size() ||
@@ -285,7 +282,7 @@ void PasswordUIViewAndroid::HandleShowBlockedCredentialView(
       std::vector<std::u16string>(), &saved_passwords_presenter_,
       base::BindOnce(&PasswordUIViewAndroid::OnEditUIDismissed,
                      base::Unretained(this)),
-      context, settings_launcher);
+      context);
 }
 
 void PasswordUIViewAndroid::ShowMigrationWarning(
@@ -321,7 +318,7 @@ static jlong JNI_PasswordUIView_Init(JNIEnv* env,
                                      const JavaParamRef<jobject>& obj,
                                      Profile* profile) {
   PasswordUIViewAndroid* controller =
-      new PasswordUIViewAndroid(env, obj, profile);
+      new PasswordUIViewAndroid(env, obj.obj(), profile);
   return reinterpret_cast<intptr_t>(controller);
 }
 

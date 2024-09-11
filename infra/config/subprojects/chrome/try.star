@@ -85,6 +85,10 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
+    builder = "android-internal-dbg",
+)
+
+chrome_internal_verifier(
     builder = "android-internal-rel",
 )
 
@@ -98,18 +102,6 @@ chrome_internal_verifier(
 
 chrome_internal_verifier(
     builder = "chromeos-betty-cfi-thin-lto-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "chromeos-betty-pi-arc-cfi-thin-lto-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "chromeos-betty-pi-arc-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "chromeos-betty-pi-arc-chrome-accessibility-fyi",
 )
 
 chrome_internal_verifier(
@@ -238,10 +230,6 @@ chrome_internal_verifier(
 
 chrome_internal_verifier(
     builder = "linux-chromeos-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "linux-chromeos-chrome-with-lacros",
 )
 
 chrome_internal_verifier(

@@ -199,8 +199,6 @@ class HTMLLinkElement;
 class HTMLMetaElement;
 class HitTestRequest;
 class HttpRefreshScheduler;
-class IdleRequestOptions;
-class IdleTask;
 class IntersectionObserverController;
 class LayoutUpgrade;
 class LayoutView;
@@ -238,7 +236,6 @@ class ScriptRunnerDelayer;
 class ScriptValue;
 class ScriptableDocumentParser;
 class ScriptedAnimationController;
-class ScriptedIdleTaskController;
 class SecurityOrigin;
 class SelectorQueryCache;
 class SerializedScriptValue;
@@ -1220,11 +1217,13 @@ class CORE_EXPORT Document : public ContainerNode,
   // this is the top level document or the owner is remote.
   HTMLFrameOwnerElement* LocalOwner() const;
 
-  void WillChangeFrameOwnerProperties(int margin_width,
-                                      int margin_height,
-                                      mojom::blink::ScrollbarMode,
-                                      bool is_display_none,
-                                      mojom::blink::ColorScheme color_scheme);
+  void WillChangeFrameOwnerProperties(
+      int margin_width,
+      int margin_height,
+      mojom::blink::ScrollbarMode,
+      bool is_display_none,
+      mojom::blink::ColorScheme color_scheme,
+      mojom::blink::PreferredColorScheme preferred_color_scheme);
 
   String title() const { return title_; }
   void setTitle(const String&);
@@ -1571,9 +1570,6 @@ class CORE_EXPORT Document : public ContainerNode,
   int RequestAnimationFrame(FrameCallback*);
   void CancelAnimationFrame(int id);
 
-  int RequestIdleCallback(IdleTask*, const IdleRequestOptions*);
-  void CancelIdleCallback(int id);
-
   ScriptedAnimationController& GetScriptedAnimationController();
 
   void InitDNSPrefetch();
@@ -1847,7 +1843,6 @@ class CORE_EXPORT Document : public ContainerNode,
   }
   // To be called from MutationEventSuppressionScope.
   void SetSuppressMutationEvents(bool suppress) {
-    CHECK_NE(suppress, suppress_mutation_events_);
     suppress_mutation_events_ = suppress;
   }
 
@@ -1992,8 +1987,6 @@ class CORE_EXPORT Document : public ContainerNode,
     return rendering_had_begun_for_last_style_update_;
   }
 
-  void IncrementLazyAdsFrameCount();
-  void IncrementLazyEmbedsFrameCount();
   void IncrementImmediateChildFrameCreationCount();
   int GetImmediateChildFrameCreationCount() const;
 
@@ -2211,8 +2204,6 @@ class CORE_EXPORT Document : public ContainerNode,
       delete;  // This will catch anyone doing an unnecessary check.
   bool IsElementNode() const =
       delete;  // This will catch anyone doing an unnecessary check.
-
-  ScriptedIdleTaskController& EnsureScriptedIdleTaskController();
 
   bool HasPendingVisualUpdate() const {
     return lifecycle_.GetState() == DocumentLifecycle::kVisualUpdatePending;
@@ -2536,7 +2527,9 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool is_dns_prefetch_enabled_;
   bool have_explicitly_disabled_dns_prefetch_;
-  bool contains_plugins_;
+
+  // TODO(crbug.com/40511450): Remove once PPAPI is gone.
+  bool contains_plugins_ = false;
 
   bool has_render_blocking_expect_link_elements_ = false;
 
@@ -2698,7 +2691,6 @@ class CORE_EXPORT Document : public ContainerNode,
   unsigned write_recursion_depth_;
 
   Member<ScriptedAnimationController> scripted_animation_controller_;
-  Member<ScriptedIdleTaskController> scripted_idle_task_controller_;
   Member<TextAutosizer> text_autosizer_;
 
   void ElementDataCacheClearTimerFired(TimerBase*);

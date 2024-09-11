@@ -48,6 +48,10 @@ interface DropdownOption<T extends string> {
 
 export class ExportDialog extends ReactiveLitElement {
   static override styles: CSSResultGroup = css`
+    :host {
+      display: contents;
+    }
+
     cra-dialog {
       width: 440px;
 
@@ -89,18 +93,17 @@ export class ExportDialog extends ReactiveLitElement {
 
   private readonly recordingDataManager = useRecordingDataManager();
 
-  private readonly textTokens = new ScopedAsyncComputed(this, async () => {
+  private readonly transcription = new ScopedAsyncComputed(this, async () => {
     if (this.recordingIdSignal.value === null) {
       return null;
     }
-    const {textTokens} = await this.recordingDataManager.getTranscription(
+    return this.recordingDataManager.getTranscription(
       this.recordingIdSignal.value,
     );
-    return textTokens;
   });
 
   private readonly transcriptionAvailable = computed(
-    () => this.textTokens.value !== null && this.textTokens.value.length > 0,
+    () => !(this.transcription.value?.isEmpty() ?? true),
   );
 
   private readonly exportQueue = new AsyncJobQueue('drop');

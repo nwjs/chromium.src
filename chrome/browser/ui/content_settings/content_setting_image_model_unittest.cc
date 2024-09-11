@@ -47,6 +47,8 @@
 #include "net/cookies/cookie_options.h"
 #include "services/device/public/cpp/device_features.h"
 #include "services/device/public/cpp/geolocation/buildflags.h"
+#include "testing/gmock/include/gmock/gmock-actions.h"
+#include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
@@ -60,12 +62,13 @@
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
-#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
-#include "services/device/public/cpp/geolocation/location_system_permission_status.h"
-#include "services/device/public/cpp/test/fake_geolocation_system_permission_manager.h"
+#include "chrome/browser/permissions/system/mock_platform_handle.h"
+#include "chrome/browser/permissions/system/system_permission_settings.h"
 #endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
 using content_settings::PageSpecificContentSettings;
+using testing::_;
+using testing::Return;
 
 namespace {
 
@@ -177,8 +180,7 @@ class ContentSettingImageModelTest : public BrowserWithTestWindowTest {
 TEST_F(ContentSettingImageModelTest, Update) {
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   PageSpecificContentSettings* content_settings =
       PageSpecificContentSettings::GetForFrame(
           web_contents()->GetPrimaryMainFrame());
@@ -197,15 +199,14 @@ TEST_F(ContentSettingImageModelTest, Update) {
 TEST_F(ContentSettingImageModelTest, RPHUpdate) {
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
           ContentSettingImageModel::ImageType::PROTOCOL_HANDLERS);
   content_setting_image_model->Update(web_contents());
   EXPECT_FALSE(content_setting_image_model->is_visible());
 
-  chrome::PageSpecificContentSettingsDelegate::FromWebContents(web_contents())
+  PageSpecificContentSettingsDelegate::FromWebContents(web_contents())
       ->set_pending_protocol_handler(
           custom_handlers::ProtocolHandler::CreateProtocolHandler(
               "mailto", GURL("https://www.google.com/")));
@@ -216,8 +217,7 @@ TEST_F(ContentSettingImageModelTest, RPHUpdate) {
 TEST_F(ContentSettingImageModelTest, CookieAccessed) {
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   HostContentSettingsMapFactory::GetForProfile(profile())
       ->SetDefaultContentSetting(ContentSettingsType::COOKIES,
                                  CONTENT_SETTING_BLOCK);
@@ -247,8 +247,7 @@ TEST_F(ContentSettingImageModelTest, CookieAccessed) {
 TEST_F(ContentSettingImageModelTest, SensorAccessed) {
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   PageSpecificContentSettings* content_settings =
       PageSpecificContentSettings::GetForFrame(
           web_contents()->GetPrimaryMainFrame());
@@ -323,18 +322,16 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsChanged) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures({features::kWinSystemLocationPermission}, {});
 #endif  // BUILDFLAG(IS_WIN)
-  auto test_geolocation_system_permission_manager =
-      std::make_unique<device::FakeGeolocationSystemPermissionManager>();
-  device::FakeGeolocationSystemPermissionManager*
-      geolocation_system_permission_manager =
-          test_geolocation_system_permission_manager.get();
-  device::GeolocationSystemPermissionManager::SetInstance(
-      std::move(test_geolocation_system_permission_manager));
+  system_permission_settings::MockPlatformHandle mock_platform_handle;
+  system_permission_settings::SetInstanceForTesting(&mock_platform_handle);
+  EXPECT_CALL(mock_platform_handle, IsAllowed(ContentSettingsType::GEOLOCATION))
+      .WillRepeatedly(Return(false));
+  EXPECT_CALL(mock_platform_handle, CanPrompt(ContentSettingsType::GEOLOCATION))
+      .WillRepeatedly(Return(false));
 
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   GURL requesting_origin = GURL("https://www.example.com");
   NavigateAndCommit(web_contents(), requesting_origin);
   PageSpecificContentSettings* content_settings =
@@ -349,8 +346,8 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsChanged) {
   EXPECT_FALSE(content_setting_image_model->is_visible());
   EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
 
-  geolocation_system_permission_manager->SetSystemPermission(
-      device::LocationSystemPermissionStatus::kAllowed);
+  EXPECT_CALL(mock_platform_handle, IsAllowed(ContentSettingsType::GEOLOCATION))
+      .WillRepeatedly(Return(true));
 
   settings_map->SetDefaultContentSetting(ContentSettingsType::GEOLOCATION,
                                          CONTENT_SETTING_ALLOW);
@@ -368,8 +365,9 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsChanged) {
       /* tooltip_empty = */ false, IDS_BLOCKED_GEOLOCATION_MESSAGE,
       /* explanatory_string_id = */ 0);
 
-  geolocation_system_permission_manager->SetSystemPermission(
-      device::LocationSystemPermissionStatus::kDenied);
+  EXPECT_CALL(mock_platform_handle, IsAllowed(ContentSettingsType::GEOLOCATION))
+      .WillRepeatedly(Return(false));
+
   UpdateModelAndVerifyStates(
       content_setting_image_model.get(), /* is_visible = */ true,
       /* tooltip_empty = */ false, IDS_BLOCKED_GEOLOCATION_MESSAGE,
@@ -382,22 +380,27 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsChanged) {
       IDS_GEOLOCATION_TURNED_OFF);
 }
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+// This test verifies the UI behavior when OS-level geolocation permission is
+// undetermined. This state is only applicable on macOS and Windows.
 TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsUndetermined) {
 #if BUILDFLAG(IS_WIN)
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures({features::kWinSystemLocationPermission}, {});
 #endif  // BUILDFLAG(IS_WIN)
-  auto test_geolocation_system_permission_manager =
-      std::make_unique<device::FakeGeolocationSystemPermissionManager>();
-  test_geolocation_system_permission_manager->SetSystemPermission(
-      device::LocationSystemPermissionStatus::kNotDetermined);
-  device::GeolocationSystemPermissionManager::SetInstance(
-      std::move(test_geolocation_system_permission_manager));
+  system_permission_settings::MockPlatformHandle mock_platform_handle;
+  system_permission_settings::SetInstanceForTesting(&mock_platform_handle);
+  EXPECT_CALL(mock_platform_handle, IsAllowed(ContentSettingsType::GEOLOCATION))
+      .WillRepeatedly(Return(false));
+  EXPECT_CALL(mock_platform_handle, CanPrompt(ContentSettingsType::GEOLOCATION))
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_platform_handle,
+              Request(ContentSettingsType::GEOLOCATION, _))
+      .Times(1);
 
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   GURL requesting_origin = GURL("https://www.example.com");
   NavigateAndCommit(web_contents(), requesting_origin);
   PageSpecificContentSettings* content_settings =
@@ -431,6 +434,8 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsUndetermined) {
       content_setting_image_model.get(), /* is_visible = */ true,
       /* tooltip_empty = */ false, IDS_BLOCKED_GEOLOCATION_MESSAGE, 0);
 }
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+
 #endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
 // Regression test for https://crbug.com/955408
@@ -438,8 +443,7 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsUndetermined) {
 TEST_F(ContentSettingImageModelTest, SensorAccessPermissionsChanged) {
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   NavigateAndCommit(web_contents(), GURL("https://www.example.com"));
   PageSpecificContentSettings* content_settings =
       PageSpecificContentSettings::GetForFrame(
@@ -563,8 +567,7 @@ TEST_F(ContentSettingImageModelTest, NULLPageSpecificContentSettings) {
 TEST_F(ContentSettingImageModelTest, SubresourceFilter) {
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   PageSpecificContentSettings* content_settings =
       PageSpecificContentSettings::GetForFrame(
           web_contents()->GetPrimaryMainFrame());
@@ -583,8 +586,7 @@ TEST_F(ContentSettingImageModelTest, SubresourceFilter) {
 TEST_F(ContentSettingImageModelTest, NotificationsIconVisibility) {
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   PageSpecificContentSettings* content_settings =
       PageSpecificContentSettings::GetForFrame(
           web_contents()->GetPrimaryMainFrame());
@@ -612,8 +614,7 @@ TEST_F(ContentSettingImageModelTest, NotificationsIconSystemPermission) {
 
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   PageSpecificContentSettings* content_settings =
       PageSpecificContentSettings::GetForFrame(
           web_contents()->GetPrimaryMainFrame());
@@ -670,8 +671,7 @@ TEST_F(ContentSettingImageModelTest,
 
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
-      std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-          web_contents()));
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
   PageSpecificContentSettings* content_settings =
       PageSpecificContentSettings::GetForFrame(
           web_contents()->GetPrimaryMainFrame());

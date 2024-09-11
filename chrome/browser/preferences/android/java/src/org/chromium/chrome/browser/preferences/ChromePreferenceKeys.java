@@ -713,6 +713,10 @@ public final class ChromePreferenceKeys {
     public static final String SHARING_LAST_SHARED_COMPONENT_NAME =
             "Chrome.Sharing.LastSharedComponentName";
 
+    /** Stores whether the tab group creation dialog should be shown. */
+    public static final String SHOW_TAB_GROUP_CREATION_DIALOG =
+            "Chrome.Tab.ShowTabGroupCreationDialog";
+
     public static final String SIGNIN_ACCOUNTS_CHANGED = "prefs_sync_accounts_changed";
 
     /** Holds the new account's name if the currently signed in account has been renamed. */
@@ -800,7 +804,9 @@ public final class ChromePreferenceKeys {
             "Chrome.Tab.ArchiveAutoDeleteEnabled";
     public static final String TAB_DECLUTTER_AUTO_DELETE_TIME_DELTA_HOURS =
             "Chrome.Tab.ArchiveAutoDeleteTimeDeltaHours";
-    public static final String TAB_DECLUTTER_DIALOG_IPH = "Chrome.Tab.ShowArchiveTabDialogIPH";
+    public static final String TAB_DECLUTTER_DIALOG_IPH_DISMISS_COUNT =
+            "Chrome.Tab.DialogIphDismissCount";
+
     public static final String TAB_ID_MANAGER_NEXT_ID =
             "org.chromium.chrome.browser.tab.TabIdManager.NEXT_ID";
 
@@ -1023,6 +1029,7 @@ public final class ChromePreferenceKeys {
                 SETTINGS_SAFETY_CHECK_LAST_RUN_TIMESTAMP,
                 SETTINGS_SAFETY_CHECK_RUN_COUNTER,
                 SHARING_LAST_SHARED_COMPONENT_NAME,
+                SHOW_TAB_GROUP_CREATION_DIALOG,
                 SYNC_PROMO_SHOW_COUNT.pattern(),
                 SIGNIN_PROMO_NTP_FIRST_SHOWN_TIME,
                 SIGNIN_PROMO_NTP_LAST_SHOWN_TIME,
@@ -1035,7 +1042,7 @@ public final class ChromePreferenceKeys {
                 TAB_DECLUTTER_ARCHIVE_TIME_DELTA_HOURS,
                 TAB_DECLUTTER_AUTO_DELETE_ENABLED,
                 TAB_DECLUTTER_AUTO_DELETE_TIME_DELTA_HOURS,
-                TAB_DECLUTTER_DIALOG_IPH,
+                TAB_DECLUTTER_DIALOG_IPH_DISMISS_COUNT,
                 TAB_TEARING_MAX_INSTANCES_FAILURE_START_TIME_MS,
                 TAB_TEARING_MAX_INSTANCES_FAILURE_COUNT,
                 TWA_DISCLOSURE_SEEN_PACKAGES,

@@ -4,12 +4,16 @@
 
 package org.chromium.chrome.browser.tab_resumption;
 
+import static org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.DISPLAY_TEXT_MAX_LINES_DEFAULT;
+import static org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.DISPLAY_TEXT_MAX_LINES_WITH_REASON;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -22,9 +26,13 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleMetricsUtils.ClickInfo;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleMetricsUtils.ModuleShowConfig;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallback;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 
 /** The view containing suggestion tiles on the tab resumption module. */
 public class TabResumptionTileContainerView extends LinearLayout {
@@ -81,7 +89,10 @@ public class TabResumptionTileContainerView extends LinearLayout {
             SuggestionBundle bundle,
             UrlImageProvider urlImageProvider,
             SuggestionClickCallback suggestionClickCallback,
-            boolean useSalientImage) {
+            boolean useSalientImage,
+            TabModelSelector tabModelSelector,
+            Tab trackingTab,
+            Callback<Tab> tabObserverCallback) {
         reset();
 
         @ModuleShowConfig
@@ -118,6 +129,17 @@ public class TabResumptionTileContainerView extends LinearLayout {
                         suggestionClickCallback.onSuggestionClicked(clickedEntry);
                     };
 
+            if (entry.needMatchLocalTab && entry.getLocalTabId() == Tab.INVALID_TAB_ID) {
+                if (trackingTab != null && entry.url.equals(trackingTab.getUrl())) {
+                    // If the shown Tab matches the tracking Tab, updates the entry with assigned
+                    // Tab Id.
+                    entry.setLocalTabId(trackingTab.getId());
+                    // Registers to listen to the tab's closing event, so the tab resumption module
+                    // will update if the current shown Tab is closed.
+                    tabObserverCallback.onResult(trackingTab);
+                }
+            }
+
             if (entry.isLocalTab() && isSingle) {
                 allTilesTexts +=
                         loadLocalTabSingle(
@@ -125,7 +147,8 @@ public class TabResumptionTileContainerView extends LinearLayout {
                                 entry,
                                 urlImageProvider,
                                 suggestionClickCallbackWithLogging,
-                                clickInfo);
+                                clickInfo,
+                                recencyMs);
             } else {
                 int layoutId =
                         isSingle
@@ -134,7 +157,7 @@ public class TabResumptionTileContainerView extends LinearLayout {
                 TabResumptionTileView tileView =
                         (TabResumptionTileView)
                                 LayoutInflater.from(getContext()).inflate(layoutId, this, false);
-                allTilesTexts += loadTileTexts(entry, isSingle, tileView);
+                allTilesTexts += loadTileTexts(entry, isSingle, tileView, recencyMs);
                 loadTileUrlImage(
                         entry,
                         urlImageProvider,
@@ -144,15 +167,62 @@ public class TabResumptionTileContainerView extends LinearLayout {
                 bindSuggestionClickCallback(
                         tileView, suggestionClickCallbackWithLogging, entry, clickInfo);
                 addView(tileView);
+
+                if (entry.needMatchLocalTab && entry.getLocalTabId() == Tab.INVALID_TAB_ID) {
+                    // For any history or foreign session suggestion which doesn't match the
+                    // tracking Tab but still need to check, creates a callback to update the tile
+                    // if a match of a local Tab is found after the tab state is initialized.
+                    Callback<TabModelSelector> callback =
+                            mCallbackController.makeCancelable(
+                                    (tms) -> {
+                                        updateTile(
+                                                entry,
+                                                tileView,
+                                                suggestionClickCallback,
+                                                tms,
+                                                tabObserverCallback);
+                                    });
+                    TabModelUtils.runOnTabStateInitialized(tabModelSelector, callback);
+                }
             }
             ++entryIndex;
         }
         return allTilesTexts;
     }
 
+    /**
+     * Called to update a TabResumptionTileView to track a local Tab. It updates the click listener
+     * for the view, and register to observe the Tab's closure state.
+     */
+    private void updateTile(
+            SuggestionEntry entry,
+            TabResumptionTileView tileView,
+            SuggestionClickCallback suggestionClickCallback,
+            TabModelSelector tabModelSelector,
+            Callback<Tab> tabObserverCallback) {
+        TabModel tabModel = tabModelSelector.getModel(false);
+        int index = TabModelUtils.getTabIndexByUrl(tabModel, entry.url.getSpec());
+
+        if (index != TabModel.INVALID_TAB_INDEX) {
+            Tab tab = tabModel.getTabAt(index);
+            if (tab.getId() != Tab.INVALID_TAB_ID) {
+                entry.setLocalTabId(tab.getId());
+                // Registers to listen to the tab's closing event.
+                tabObserverCallback.onResult(tab);
+                // Updates the click listener of the tile to allow switching to an existing Tab,
+                // rather than navigates within the same NTP.
+                bindSuggestionClickCallback(
+                        tileView, suggestionClickCallback, entry, ClickInfo.LOCAL_SINGLE_FIRST);
+            }
+        }
+    }
+
     /** Renders and returns the texts of a {@link TabResumptionTileView}. */
     private String loadTileTexts(
-            SuggestionEntry entry, boolean isSingle, TabResumptionTileView tileView) {
+            SuggestionEntry entry,
+            boolean isSingle,
+            TabResumptionTileView tileView,
+            long recencyMs) {
         Resources res = getContext().getResources();
         String domainUrl = TabResumptionModuleUtils.getDomainUrl(entry.url);
         if (isSingle) {
@@ -163,6 +233,10 @@ public class TabResumptionTileContainerView extends LinearLayout {
                     isHistory
                             ? tileView.maybeShowAppChip(mPackageManager, entry.type, entry.appId)
                             : null;
+            String preInfoText =
+                    appChipText == null
+                            ? getReasonToShowTab(entry.reasonToShowTab, recencyMs)
+                            : null;
             String postInfoText =
                     isHistory
                             ? domainUrl
@@ -170,7 +244,8 @@ public class TabResumptionTileContainerView extends LinearLayout {
                                     R.string.tab_resumption_module_domain_url_and_device_name,
                                     domainUrl,
                                     entry.sourceName);
-            return tileView.setSuggestionTextsSingle(null, appChipText, entry.title, postInfoText);
+            return tileView.setSuggestionTextsSingle(
+                    preInfoText, appChipText, entry.title, postInfoText);
         }
 
         String infoText;
@@ -186,13 +261,25 @@ public class TabResumptionTileContainerView extends LinearLayout {
         return tileView.setSuggestionTextsMulti(entry.title, infoText);
     }
 
+    private String getReasonToShowTab(String reasonToShowTab, long recencyMs) {
+        if (TabResumptionModuleUtils.TAB_RESUMPTION_SHOW_DEFAULT_REASON.getValue()
+                && TextUtils.isEmpty(reasonToShowTab)) {
+            String recencyString =
+                    TabResumptionModuleUtils.getRecencyString(getResources(), recencyMs);
+            return getContext()
+                    .getString(R.string.tab_resumption_module_default_reason, recencyString);
+        }
+        return reasonToShowTab;
+    }
+
     /** Loads texts and images for the single Local Tab suggestion. */
     private String loadLocalTabSingle(
             ViewGroup parentView,
             SuggestionEntry localTabEntry,
             UrlImageProvider urlImageProvider,
             SuggestionClickCallback suggestionClickCallback,
-            @ClickInfo int clickInfo) {
+            @ClickInfo int clickInfo,
+            long recencyMs) {
         assert localTabEntry.isLocalTab();
         Resources res = getContext().getResources();
         LocalTileView tileView =
@@ -205,6 +292,13 @@ public class TabResumptionTileContainerView extends LinearLayout {
         String domainUrl = TabResumptionModuleUtils.getDomainUrl(localTabEntry.url);
         tileView.setUrl(domainUrl);
         tileView.setTitle(localTabEntry.title);
+
+        String reason = getReasonToShowTab(localTabEntry.reasonToShowTab, recencyMs);
+        boolean showReason = !TextUtils.isEmpty(reason);
+        tileView.setShowReason(reason);
+        tileView.setMaxLinesForTitle(
+                showReason ? DISPLAY_TEXT_MAX_LINES_WITH_REASON : DISPLAY_TEXT_MAX_LINES_DEFAULT);
+
         urlImageProvider.fetchImageForUrl(
                 localTabEntry.url,
                 (Bitmap bitmap) -> {
@@ -212,19 +306,22 @@ public class TabResumptionTileContainerView extends LinearLayout {
                     tileView.setFavicon(urlDrawable);
                 });
         urlImageProvider.getTabThumbnail(
-                localTabEntry.localTabId,
-                mThumbnailSize,
-                (Bitmap tabThumbnail) -> {
-                    tileView.setTabThumbnail(tabThumbnail);
-                });
+                localTabEntry.getLocalTabId(), mThumbnailSize, tileView::setTabThumbnail);
 
         bindSuggestionClickCallback(tileView, suggestionClickCallback, localTabEntry, clickInfo);
 
         parentView.addView(tileView);
-        return localTabEntry.title
-                + TabResumptionTileView.SEPARATE_COMMA
-                + domainUrl
-                + TabResumptionTileView.SEPARATE_PERIOD;
+
+        StringBuilder builder = new StringBuilder();
+        if (showReason) {
+            builder.append(reason);
+            builder.append(TabResumptionTileView.SEPARATE_COMMA);
+        }
+        builder.append(localTabEntry.title);
+        builder.append(TabResumptionTileView.SEPARATE_COMMA);
+        builder.append(domainUrl);
+        builder.append(TabResumptionTileView.SEPARATE_PERIOD);
+        return builder.toString();
     }
 
     /** Loads the main URL image of a {@link TabResumptionTileView}. */

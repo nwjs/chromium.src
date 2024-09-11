@@ -206,6 +206,7 @@ class CORE_EXPORT FrameLoader final {
   void setUserAgentOverride(const String& agent);
   String userAgentOverride() const;
 
+  bool IsCommittingNavigation() const { return committing_navigation_; }
   bool HasProvisionalNavigation() const {
     return committing_navigation_ || client_navigation_.get();
   }

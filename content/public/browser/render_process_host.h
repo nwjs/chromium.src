@@ -230,6 +230,13 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // JIT disabled.
   virtual bool IsJitDisabled() = 0;
 
+  // Indicates whether the current RenderProcessHost is running with v8
+  // optimizations disabled. This is distinct from IsJitDisabled() -
+  // IsJitDisabled() disables all JIT compilation in the renderer, while
+  // AreV8OptimizationsDisabled() only disables the higher-tier V8 optimizers,
+  // leaving the basic JIT compiler in V8 (and the wasm JIT compiler) enabled.
+  virtual bool AreV8OptimizationsDisabled() = 0;
+
   // Indicates whether the current RenderProcessHost exclusively hosts PDF
   // content.
   virtual bool IsPdf() = 0;
@@ -356,7 +363,7 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // Sets a process priority override. This overrides the entire built-in
   // priority setting mechanism for the process.
   // TODO(pmonette): Make this work well on Android.
-  virtual void SetPriorityOverride(bool foreground) = 0;
+  virtual void SetPriorityOverride(base::Process::Priority priority) = 0;
   virtual bool HasPriorityOverride() = 0;
   virtual void ClearPriorityOverride() = 0;
 #endif
@@ -448,8 +455,8 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // a crash.
   virtual const base::TimeTicks& GetLastInitTime() = 0;
 
-  // Returns true if this process currently has backgrounded priority.
-  virtual bool IsProcessBackgrounded() = 0;
+  // Returns the priority of this process.
+  virtual base::Process::Priority GetPriority() = 0;
 
   // Returns a list of durations for active KeepAlive requests.
   // For debugging only. TODO(wjmaclean): Remove once the causes behind
@@ -477,9 +484,11 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // process. RegisterRenderFrameHost and UnregisterRenderFrameHost are the
   // implementation details and should be called only from within //content.
   virtual void RegisterRenderFrameHost(
-      const GlobalRenderFrameHostId& render_frame_host_id) = 0;
+      const GlobalRenderFrameHostId& render_frame_host_id,
+      bool is_outermost_main_frame) = 0;
   virtual void UnregisterRenderFrameHost(
-      const GlobalRenderFrameHostId& render_frame_host_id) = 0;
+      const GlobalRenderFrameHostId& render_frame_host_id,
+      bool is_outermost_main_frame) = 0;
 
   // "Worker ref count" is similar to "Keep alive ref count", but is specific to
   // workers since they do not have pre-defined timeouts. Also affected by
@@ -741,6 +750,12 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // v8. The default state is `false`, meaning the power/speed tuning is left up
   // to the different components to figure out.
   virtual void SetBatterySaverMode(bool battery_saver_mode_enabled) = 0;
+
+  // Return the memory usage of this process. On Android this value is
+  // provided by the renderer periodically. On other platforms this value is
+  // read from the OS but is cached for a short duration so we don't incur
+  // a cost on every call.
+  virtual uint64_t GetPrivateMemoryFootprint() = 0;
 
   // Static management functions -----------------------------------------------
 

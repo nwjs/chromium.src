@@ -43,13 +43,14 @@ import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowMimeTypeMap;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.FeatureList;
 import org.chromium.base.FileUtils;
 import org.chromium.base.FileUtilsJni;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CallbackHelper;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.ui.permissions.PermissionCallback;
 
@@ -59,13 +60,15 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Tests logic in the SelectFileDialog class. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@DisableFeatures({
+    UiAndroidFeatures.DEPRECATED_EXTERNAL_PICKER_FUNCTION,
+    UiAndroidFeatures.SELECT_FILE_OPEN_DOCUMENT
+})
 @LooperMode(LooperMode.Mode.PAUSED)
 public class SelectFileDialogTest {
     // A callback that fires when the file selection pipeline shuts down as a result of an action.
@@ -80,10 +83,6 @@ public class SelectFileDialogTest {
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         PostTask.setPrenativeThreadPoolExecutorForTesting(mExecutor);
-
-        Map<String, Boolean> featureMap = new HashMap<>();
-        featureMap.put(UiAndroidFeatures.DEPRECATED_EXTERNAL_PICKER_FUNCTION, false);
-        FeatureList.setTestFeatures(featureMap);
     }
 
     private void runAllAsyncTasks() {
@@ -153,8 +152,7 @@ public class SelectFileDialogTest {
         }
     }
 
-    @Test
-    public void testMimeTypesWithExternalPicker() throws Exception {
+    public void testMimeTypesWithExternalPicker(String intentAction) throws Exception {
         TestSelectFileDialog selectFileDialog = new TestSelectFileDialog(0);
         WindowAndroid windowAndroid = Mockito.mock(WindowAndroid.class);
 
@@ -162,6 +160,7 @@ public class SelectFileDialogTest {
         // simulate the pipeline aborting because showIntent fails.
         int callCount = mOnActionCallback.getCallCount();
         selectFileDialog.selectFile(
+                intentAction,
                 new String[] {"application/pdf"},
                 /* capture= */ false,
                 /* multiple= */ false,
@@ -202,6 +201,7 @@ public class SelectFileDialogTest {
         // remain open.
         callCount = mOnActionCallback.getCallCount();
         selectFileDialog.selectFile(
+                intentAction,
                 new String[] {"application/pdf"},
                 /* capture= */ false,
                 /* multiple= */ false,
@@ -242,6 +242,7 @@ public class SelectFileDialogTest {
         // Add a media file to the mix and allow multiple files.
         callCount = mOnActionCallback.getCallCount();
         selectFileDialog.selectFile(
+                intentAction,
                 new String[] {"application/pdf", "image/gif"},
                 /* capture= */ false,
                 /* multiple= */ true,
@@ -249,6 +250,17 @@ public class SelectFileDialogTest {
         assertEquals(0, selectFileDialog.mFileSelectionSuccess);
         assertEquals(0, selectFileDialog.mFileSelectionAborted);
         selectFileDialog.resetFileSelectionAttempts();
+    }
+
+    @Test
+    public void testMimeTypesWithExternalPicker() throws Exception {
+        testMimeTypesWithExternalPicker(Intent.ACTION_GET_CONTENT);
+    }
+
+    @Test
+    @EnableFeatures({UiAndroidFeatures.SELECT_FILE_OPEN_DOCUMENT})
+    public void testMimeTypesWithExternalPickerOpenDocument() throws Exception {
+        testMimeTypesWithExternalPicker(Intent.ACTION_OPEN_DOCUMENT);
     }
 
     @Test
@@ -283,7 +295,11 @@ public class SelectFileDialogTest {
 
         // Select an empty MIME type.
         selectFileDialog.selectFile(
-                new String[] {}, /* capture= */ false, /* multiple= */ false, windowAndroid);
+                Intent.ACTION_GET_CONTENT,
+                new String[] {},
+                /* capture= */ false,
+                /* multiple= */ false,
+                windowAndroid);
         assertEquals(0, selectFileDialog.mFileSelectionSuccess);
         assertEquals(0, selectFileDialog.mFileSelectionAborted);
         selectFileDialog.resetFileSelectionAttempts();
@@ -300,6 +316,7 @@ public class SelectFileDialogTest {
         // is denied).
         int callCount = mOnActionCallback.getCallCount();
         selectFileDialog.selectFile(
+                Intent.ACTION_GET_CONTENT,
                 new String[] {"image/jpeg"},
                 /* capture= */ true,
                 /* multiple= */ false,
@@ -458,6 +475,7 @@ public class SelectFileDialogTest {
         // Ensure permission request in selectFile can handle interrupted permission flow.
         int callCount = mOnActionCallback.getCallCount();
         selectFileDialog.selectFile(
+                Intent.ACTION_GET_CONTENT,
                 new String[] {"image/jpeg"},
                 /* capture= */ true,
                 /* multiple= */ false,

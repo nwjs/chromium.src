@@ -37,6 +37,7 @@
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/version.h"
+#include "build/build_config.h"
 #include "chrome/updater/auto_run_on_os_upgrade_task.h"
 #include "chrome/updater/change_owners_task.h"
 #include "chrome/updater/check_for_updates_task.h"
@@ -61,6 +62,10 @@
 #include "components/update_client/protocol_definition.h"
 #include "components/update_client/update_client.h"
 #include "components/update_client/update_client_errors.h"
+
+#if BUILDFLAG(IS_MAC)
+#include <sys/mount.h>
+#endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
 #include <winhttp.h>
@@ -541,10 +546,6 @@ MakeUpdateClientCrxStateChangeCallback(
         update_state.error_code = crx_update_item.error_code;
         update_state.extra_code1 = crx_update_item.extra_code1;
         if (crx_update_item.installer_result) {
-          if (crx_update_item.installer_result->original_error) {
-            update_state.error_code =
-                crx_update_item.installer_result->original_error;
-          }
           update_state.installer_cmd_line =
               crx_update_item.installer_result->installer_cmd_line;
           update_state.installer_text =
@@ -598,6 +599,22 @@ MakeUpdateClientCrxStateChangeCallback(
       config, persisted_data, new_install, callback);
 }
 
+bool IsPathOnReadOnlyMount(const base::FilePath& path) {
+  if (path.empty()) {
+    return false;
+  }
+#if BUILDFLAG(IS_MAC)
+  struct statfs fsinfo = {};
+  if (statfs(path.value().c_str(), &fsinfo) == -1) {
+    LOG(ERROR) << "Failed to stat: " << path;
+    return false;
+  }
+  return fsinfo.f_flags & MNT_RDONLY;
+#else
+  return false;
+#endif  // BUILDFLAG(IS_MAC)
+}
+
 }  // namespace
 
 UpdateServiceImplImpl::UpdateServiceImplImpl(scoped_refptr<Configurator> config)
@@ -632,6 +649,14 @@ void UpdateServiceImplImpl::RegisterApp(
     base::OnceCallback<void(int)> callback) {
   VLOG(1) << __func__;
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (IsPathOnReadOnlyMount(request.existence_checker_path)) {
+    VLOG(1) << "Existence check path " << request.existence_checker_path
+            << " is on read-only file system. Registration of "
+            << request.app_id << " is skipped.";
+    std::move(callback).Run(kRegistrationError);
+    return;
+  }
+
   if (!base::EqualsCaseInsensitiveASCII(request.app_id, kUpdaterAppId)) {
     config_->GetUpdaterPersistedData()->SetHadApps();
   }
@@ -660,6 +685,7 @@ void UpdateServiceImplImpl::GetAppStates(
     app_state.brand_code = persisted_data->GetBrandCode(app_id);
     app_state.brand_path = persisted_data->GetBrandPath(app_id);
     app_state.ecp = persisted_data->GetExistenceCheckerPath(app_id);
+    app_state.cohort = persisted_data->GetCohort(app_id);
     apps.push_back(app_state);
   }
   main_task_runner_->PostTask(
@@ -1030,13 +1056,15 @@ void UpdateServiceImplImpl::RunInstaller(const std::string& app_id,
              StateChangeCallback state_update, bool usage_stats_enabled) {
             base::ScopedTempDir temp_dir;
             if (!temp_dir.CreateUniqueTempDir()) {
+              return InstallerResult(
+                  {.category_ = update_client::ErrorCategory::kInstall,
+                   .code_ = kErrorCreatingTempDir,
 #if BUILDFLAG(IS_WIN)
-              InstallerResult result(kErrorApplicationInstallerFailed);
-              result.original_error = HRESULTFromLastError();
-              return result;
-#else   // BUILDFLAG(IS_WIN)
-              return InstallerResult(kErrorApplicationInstallerFailed);
+                   .extra_ = HRESULTFromLastError()
+#else
+                   .extra_ = logging::GetLastSystemErrorCode()
 #endif  // BUILDFLAG(IS_WIN)
+                  });
             }
 
             return RunApplicationInstaller(
@@ -1069,8 +1097,10 @@ void UpdateServiceImplImpl::RunInstaller(const std::string& app_id,
             // Final state update after installation completes.
             UpdateState state;
             state.app_id = app_id;
-            state.state = result.error == 0 ? UpdateState::State::kUpdated
-                                            : UpdateState::State::kUpdateError;
+            state.state =
+                result.result.category_ == update_client::ErrorCategory::kNone
+                    ? UpdateState::State::kUpdated
+                    : UpdateState::State::kUpdateError;
 
             const base::Version registered_version =
                 internal::GetRegisteredInstallerVersion(app_id);
@@ -1081,18 +1111,16 @@ void UpdateServiceImplImpl::RunInstaller(const std::string& app_id,
               installer_version = registered_version;
             }
 
-            if (result.error == 0 && installer_version.IsValid()) {
+            if (result.result.category_ ==
+                    update_client::ErrorCategory::kNone &&
+                installer_version.IsValid()) {
               persisted_data->SetProductVersion(app_id, installer_version);
               config->GetPrefService()->CommitPendingWrite();
-            } else {
-              state.error_category = UpdateService::ErrorCategory::kInstaller;
             }
 
-            // Handle the offline installer cases similar to the online cases,
-            // and get the `error_code` from `original_error`.
-            state.error_code =
-                result.original_error ? result.original_error : result.error;
-            state.extra_code1 = result.extended_error;
+            state.error_category = ToErrorCategory(result.result.category_);
+            state.error_code = result.result.code_;
+            state.extra_code1 = result.result.extra_;
             state.installer_text = result.installer_text;
 #if BUILDFLAG(IS_WIN)
             if (state.installer_text.empty())
@@ -1118,14 +1146,18 @@ void UpdateServiceImplImpl::RunInstaller(const std::string& app_id,
               update_client->SendPing(
                   install_data,
                   {.event_type = update_client::protocol_request::kEventInstall,
-                   .result = result.error == 0,
-                   .error_code = result.error,
-                   .extra_code1 = result.extended_error},
+                   .result = result.result.category_ ==
+                             update_client::ErrorCategory::kNone,
+                   .error_category = result.result.category_,
+                   .error_code = result.result.code_,
+                   .extra_code1 = result.result.extra_},
                   base::DoNothing());
             }
 
-            std::move(callback).Run(result.error == 0 ? Result::kSuccess
-                                                      : Result::kInstallFailed);
+            std::move(callback).Run(result.result.category_ ==
+                                            update_client::ErrorCategory::kNone
+                                        ? Result::kSuccess
+                                        : Result::kInstallFailed);
           },
           config_, config_->GetUpdaterPersistedData(), update_client_,
           installer_version, state_update, app_info.app_id, app_info.ap,

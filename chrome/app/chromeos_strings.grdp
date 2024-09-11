@@ -1431,7 +1431,7 @@
     Please wait...
   </message>
   <!-- Strings for perks discovery screen-->
-  <message name="IDS_LOGIN_PERKS_SCREEN_LOADING" translateable="false" desc="Message shown while the perks are being fetched for the server.">
+  <message name="IDS_LOGIN_PERKS_SCREEN_LOADING" desc="Message shown while the perks are being fetched for the server.">
     Please wait...
   </message>
   <!-- Strings for app downloading screen -->
@@ -7451,16 +7451,6 @@ Your <ph name="DEVICE_TYPE">{0}<ex>Chromebook</ex></ph> will be locked now.
     Opening windows from your previous device
   </message>
 
-  <!-- Shortcut Removal Dialog -->
-  <message name="IDS_PROMP_SHORTCUT_REMOVAL_TITLE"
-    desc="Title text for remove a shortcut in its host app. Example: 'Remove Fortnite - GeForce Now shortcut?'">
-    Remove "<ph name="SHORTCUT_NAME">$1<ex>Fortnite</ex></ph> - <ph name="APP_NAME">$2<ex>GeForce Now</ex></ph>" shortcut?
-  </message>
-  <message name="IDS_PROMP_REMOVE_SHORTCUT_BUTTON"
-    desc="Text for the remove button on the shortcut removal prompt">
-    Remove
-  </message>
-
   <!-- Shortcut Accessibility Label-->
   <message name="IDS_APP_SHORTCUT_ACCESSIBILITY_LABEL"
     desc="The accessibility label of an app shortcut. Example: 'Funny Cat Video, Google Chrome'">
@@ -7476,17 +7466,6 @@ Your <ph name="DEVICE_TYPE">{0}<ex>Chromebook</ex></ph> will be locked now.
   </message>
   <message name="IDS_REMOTE_ACTIVITY_NOTIFICATION_BUTTON_LABEL" desc="Button label for describing that the device is available for use and user can click on the button to remove the full screen notification.">
     Continue to use the device
-  </message>
-
-  <!-- Standalone Window Migration UX -->
-  <message name="IDS_STANDALONE_WINDOW_MIGRATION_UX_BUBBLE_HEADING" desc="Text to notify users of apps previously opening in browser by default now opening in a standalone window">
-    <ph name="APP">$1<ex>Google Docs</ex></ph> now opens as an app
-  </message>
-  <message name="IDS_STANDALONE_WINDOW_MIGRATION_UX_BUBBLE_TEXT" desc="Further explanation to notify users of apps previously opening in browser by default now opening in a standalone window">
-    All apps on ChromeOS now open in their own app windows instead of in Chrome.
-  </message>
-  <message name="IDS_STANDALONE_WINDOW_MIGRATION_UX_GOT_IT" desc="Used for Got it text on button for users to click to acknowledge the standalone window nudge">
-    Got it
   </message>
 
   <!-- App install dialog -->

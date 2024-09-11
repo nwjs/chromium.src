@@ -414,12 +414,6 @@ BASE_FEATURE(kVisibilityAwareResourceScheduler,
 
 BASE_FEATURE(kSharedZstd, "SharedZstd", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// This feature will permits de-duplicating cookie access details that are sent
-// to observers via OnCookiesAccessed.
-BASE_FEATURE(kCookieAccessDetailsNotificationDeDuping,
-             "CookieAccessDetailsNotificationDeDuping",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // This feature will reduce TransferSizeUpdated IPC from the network service.
 // When enabled, the network service will send the IPC only when DevTools is
 // attached or the request is for an ad request.
@@ -473,5 +467,12 @@ BASE_FEATURE(kNetworkContextPrefetch,
 const base::FeatureParam<int> kNetworkContextPrefetchMaxLoaders{
     &kNetworkContextPrefetch,
     /*name=*/"max_loaders", /*default_value=*/10};
+
+// This feature enables treating 0.0.0.0/8 as the public address space instead
+// of private or local. This is a killswitch for a tightening of a loophole in
+// Private Network Access. See https://crbug.com/40058874.
+BASE_FEATURE(kTreatNullIPAsPublicAddressSpace,
+             "TreatNullIPAsPublicAddressSpace",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace network::features

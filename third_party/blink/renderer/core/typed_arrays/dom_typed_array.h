@@ -42,11 +42,6 @@ class DOMTypedArray final : public DOMArrayBufferView {
     return Create(buffer, 0, array.size());
   }
 
-  static ThisType* Create(const ValueType* array, size_t length) {
-    // SAFETY: Caller guarantees that `array` contains `length` elements.
-    return Create(UNSAFE_BUFFERS(base::span(array, length)));
-  }
-
   static ThisType* CreateOrNull(size_t length) {
     DOMArrayBuffer* buffer =
         DOMArrayBuffer::CreateOrNull(length, sizeof(ValueType));

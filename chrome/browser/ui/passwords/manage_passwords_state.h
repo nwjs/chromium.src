@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_PASSWORDS_MANAGE_PASSWORDS_STATE_H_
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "base/functional/callback.h"
@@ -101,6 +102,15 @@ class ManagePasswordsState {
   // passkey and whether GPM pin was created in the same flow.
   void OnPasskeySaved(const std::u16string& username, bool gpm_pin_created);
 
+  // Move to PASSKEY_DELETED_CONFIRMATION_STATE.
+  void OnPasskeyDeleted();
+
+  // Move to PASSKEY_UPDATED_CONFIRMATION_STATE.
+  void OnPasskeyUpdated();
+
+  // Move to PASSKEY_NOT_ACCEPTED_STATE.
+  void OnPasskeyNotAccepted();
+
   // Move to MOVE_CREDENTIAL_AFTER_LOG_IN_STATE. Triggers a bubble to move the
   // just submitted form to the user's account store.
   void OnPasswordMovable(
@@ -122,6 +132,9 @@ class ManagePasswordsState {
   // credentials callback. Method should be called in the
   // CREDENTIAL_REQUEST_STATE state.
   void ChooseCredential(const password_manager::PasswordForm* form);
+
+  // Move to MANAGE_STATE with initial credential to show its details.
+  void OpenPasswordDetailsBubble(const password_manager::PasswordForm& form);
 
   password_manager::ui::State state() const { return state_; }
   const std::vector<password_manager::PasswordForm>& unsynced_credentials()
@@ -148,6 +161,11 @@ class ManagePasswordsState {
   }
   void clear_selected_password() { selected_password_.reset(); }
 
+  const std::optional<password_manager::PasswordForm>&
+  single_credential_mode_credential() const {
+    return single_credential_mode_credential_;
+  }
+
   bool auth_for_account_storage_opt_in_failed() const {
     return auth_for_account_storage_opt_in_failed_;
   }
@@ -168,6 +186,10 @@ class ManagePasswordsState {
     return local_credentials_forms_;
   }
 
+  void ClearSingleCredentialModeCredential() {
+    single_credential_mode_credential_ = std::nullopt;
+  }
+
  private:
   // Removes all the PasswordForms stored in this object.
   void ClearData();
@@ -186,6 +208,10 @@ class ManagePasswordsState {
 
   // Contains password selected for moving to the account.
   std::unique_ptr<password_manager::PasswordForm> selected_password_;
+
+  // The credential for the bubble in the single credential mode.
+  std::optional<password_manager::PasswordForm>
+      single_credential_mode_credential_;
 
   // Contains all the current forms.
   std::vector<std::unique_ptr<password_manager::PasswordForm>>

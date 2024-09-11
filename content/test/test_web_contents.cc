@@ -242,6 +242,10 @@ void TestWebContents::TestDidFailLoadWithError(const GURL& url,
   GetPrimaryMainFrame()->DidFailLoadWithError(url, error_code);
 }
 
+void TestWebContents::TestDidFirstVisuallyNonEmptyPaint() {
+  OnFirstVisuallyNonEmptyPaint(GetPrimaryPage());
+}
+
 bool TestWebContents::CrossProcessNavigationPending() {
   // If we don't have a speculative RenderFrameHost then it means we did not
   // change SiteInstances so we must be in the same process.
@@ -402,7 +406,12 @@ void TestWebContents::ResetPauseSubresourceLoadingCalled() {
   pause_subresource_loading_called_ = false;
 }
 
-void TestWebContents::SetLastActiveTime(base::TimeTicks last_active_time) {
+void TestWebContents::SetLastActiveTimeTicks(
+    base::TimeTicks last_active_time_ticks) {
+  last_active_time_ticks_ = last_active_time_ticks;
+}
+
+void TestWebContents::SetLastActiveTime(base::Time last_active_time) {
   last_active_time_ = last_active_time;
 }
 

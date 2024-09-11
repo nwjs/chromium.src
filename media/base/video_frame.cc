@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "media/base/video_frame.h"
 
 #include <GLES2/gl2.h>
@@ -182,7 +187,7 @@ gfx::Size VideoFrame::SampleSize(VideoPixelFormat format, size_t plane) {
           break;
       }
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 // Checks if |source_format| can be wrapped into a |target_format| frame.
@@ -1230,7 +1235,7 @@ int VideoFrame::BytesPerElement(VideoPixelFormat format, size_t plane) {
     case PIXEL_FORMAT_UNKNOWN:
       break;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 // static
@@ -1344,6 +1349,9 @@ bool VideoFrame::HasMappableGpuBuffer() const {
 bool VideoFrame::HasNativeGpuMemoryBuffer() const {
   if (wrapped_frame_) {
     return wrapped_frame_->HasNativeGpuMemoryBuffer();
+  } else if (is_mappable_si_enabled_) {
+    CHECK(shared_images_[0]);
+    return !shared_images_[0]->IsSharedMemoryForVideoFrame();
   } else if (gpu_memory_buffer_) {
     return gpu_memory_buffer_->GetType() != gfx::SHARED_MEMORY_BUFFER;
   }
@@ -1441,18 +1449,18 @@ gfx::ColorSpace VideoFrame::CompatRGBColorSpace() const {
 }
 
 bool VideoFrame::RequiresExternalSampler() const {
-  const bool is_multiplanar_pixel_format = format() == PIXEL_FORMAT_NV12 ||
-                                           format() == PIXEL_FORMAT_YV12 ||
-                                           format() == PIXEL_FORMAT_P010LE;
+  const bool is_multiplanar_pixel_format =
+      format() == PIXEL_FORMAT_NV12 || format() == PIXEL_FORMAT_NV12A ||
+      format() == PIXEL_FORMAT_YV12 || format() == PIXEL_FORMAT_P010LE;
 
   // With SharedImageFormats NumTextures() is always 1. Use
   // SharedImageFormatType to check for NumTextures for legacy formats and
   // kSharedImageFormatExternalSampler for SharedImageFormats. Note that
   // kSharedImageFormatExternalSampler is set only for multiplanar formats.
   const bool requires_external_sampler =
-      shared_image_format_type() ==
-          SharedImageFormatType::kSharedImageFormatExternalSampler ||
-      (is_multiplanar_pixel_format &&
+      is_multiplanar_pixel_format &&
+      ((shared_image_format_type() ==
+        SharedImageFormatType::kSharedImageFormatExternalSampler) ||
        (NumTextures() == 1 &&
         shared_image_format_type() == SharedImageFormatType::kLegacy));
 
@@ -1480,7 +1488,7 @@ template <typename T>
 T VideoFrame::GetVisibleDataInternal(T data, size_t plane) const {
   DCHECK(IsValidPlane(format(), plane));
   DCHECK(IsMappable());
-  if (UNLIKELY(!data)) {
+  if (!data) [[unlikely]] {
     return nullptr;
   }
 

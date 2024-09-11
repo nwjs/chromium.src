@@ -30,7 +30,7 @@ VideoDecoderType GetPreferredLinuxDecoderImplementation() {
     case media::OOPVDMode::kEnabledWithoutGpuProcessAsProxy:
       // The browser process ensures that this path is never reached for this
       // OOP-VD mode.
-      NOTREACHED_NORETURN();
+      NOTREACHED();
     case media::OOPVDMode::kDisabled:
       break;
   }
@@ -197,8 +197,7 @@ class GpuMojoMediaClientLinux final : public GpuMojoMediaClient {
   }
 
   std::optional<SupportedVideoDecoderConfigs>
-  GetPlatformSupportedVideoDecoderConfigs(
-      GetVdaConfigsCB get_vda_configs) final {
+  GetPlatformSupportedVideoDecoderConfigs() final {
     VideoDecoderType decoder_implementation =
         GetActualPlatformDecoderImplementation(gpu_preferences_, gpu_info_);
     base::UmaHistogramEnumeration("Media.VaapiLinux.SupportedVideoDecoder",

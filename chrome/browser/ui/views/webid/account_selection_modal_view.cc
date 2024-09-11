@@ -33,8 +33,10 @@
 #include "skia/ext/image_operations.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/image/canvas_image_source.h"
 #include "ui/gfx/image/image_skia_operations.h"
@@ -118,7 +120,7 @@ AccountSelectionModalView::AccountSelectionModalView(
                                widget_observer,
                                std::move(url_loader_factory),
                                rp_for_display) {
-  SetModalType(ui::MODAL_TYPE_CHILD);
+  SetModalType(ui::mojom::ModalType::kChild);
   SetOwnedByWidget(true);
   set_fixed_width(kDialogWidth);
   SetShowTitle(false);
@@ -200,13 +202,19 @@ void AccountSelectionModalView::InitDialogWidget() {
 
 std::unique_ptr<views::View>
 AccountSelectionModalView::CreatePlaceholderAccountRow() {
+  const SkColor kPlaceholderColor =
+      color_utils::IsDark(web_contents_->GetColorProvider().GetColor(
+          ui::kColorDialogBackground))
+          ? gfx::kGoogleGrey800
+          : gfx::kGoogleGrey200;
+
   std::unique_ptr<views::View> placeholder_account_icon =
       std::make_unique<views::View>();
   placeholder_account_icon->SetPreferredSize(
       gfx::Size(kModalAvatarSize, kModalAvatarSize));
   placeholder_account_icon->SizeToPreferredSize();
-  placeholder_account_icon->SetBackground(views::CreateRoundedRectBackground(
-      gfx::kGoogleGrey200, kModalAvatarSize));
+  placeholder_account_icon->SetBackground(
+      views::CreateRoundedRectBackground(kPlaceholderColor, kModalAvatarSize));
 
   constexpr int kPlaceholderAccountRowPadding = 16;
   auto row = std::make_unique<views::View>();
@@ -238,7 +246,7 @@ AccountSelectionModalView::CreatePlaceholderAccountRow() {
       gfx::Size(kPlaceholderAccountNameWidth, kPlaceholderTextHeight));
   placeholder_account_name->SizeToPreferredSize();
   placeholder_account_name->SetBackground(views::CreateRoundedRectBackground(
-      gfx::kGoogleGrey200, kPlaceholderRadius));
+      kPlaceholderColor, kPlaceholderRadius));
 
   views::View* placeholder_account_email =
       text_column->AddChildView(std::make_unique<views::View>());
@@ -246,7 +254,7 @@ AccountSelectionModalView::CreatePlaceholderAccountRow() {
       gfx::Size(kPlaceholderAccountEmailWidth, kPlaceholderTextHeight));
   placeholder_account_email->SizeToPreferredSize();
   placeholder_account_email->SetBackground(views::CreateRoundedRectBackground(
-      gfx::kGoogleGrey200, kPlaceholderRadius));
+      kPlaceholderColor, kPlaceholderRadius));
 
   return row;
 }
@@ -418,7 +426,8 @@ void AccountSelectionModalView::ShowMultiAccountPicker(
   RemoveNonHeaderChildViews();
 
   ConfigureBrandImageView(brand_icon_,
-                          idp_display_data_list[0].idp_metadata.brand_icon_url);
+                          idp_display_data_list[0].idp_metadata.brand_icon_url,
+                          /*show_placeholder=*/true);
 
   // Show the "Choose an account to continue" label.
   CHECK(body_label_);
@@ -540,7 +549,8 @@ void AccountSelectionModalView::ShowSingleAccountConfirmDialog(
   RemoveNonHeaderChildViews();
 
   ConfigureBrandImageView(brand_icon_,
-                          idp_display_data.idp_metadata.brand_icon_url);
+                          idp_display_data.idp_metadata.brand_icon_url,
+                          /*show_placeholder=*/true);
 
   // Show the "Choose an account to continue" label.
   CHECK(body_label_);
@@ -599,7 +609,8 @@ void AccountSelectionModalView::ShowRequestPermissionDialog(
   RemoveNonHeaderChildViews();
 
   ConfigureBrandImageView(brand_icon_,
-                          idp_display_data.idp_metadata.brand_icon_url);
+                          idp_display_data.idp_metadata.brand_icon_url,
+                          /*show_placeholder=*/true);
 
   // Hide the "Choose an account to continue" label.
   CHECK(body_label_);
@@ -644,13 +655,12 @@ AccountSelectionModalView::CreateBrandIconImageView(
   brand_icon_ = brand_icon_image_view.get();
   brand_icon_image_view->SetImageSize(
       gfx::Size(kModalIdpIconSize, kModalIdpIconSize));
-  if (brand_icon_url.is_valid()) {
-    ConfigureBrandImageView(brand_icon_image_view.get(), brand_icon_url);
-  } else {
-    brand_icon_image_view->SetImage(ui::ImageModel::FromVectorIcon(
-        kWebidGlobeIcon, ui::kColorIconSecondary, kModalIdpIconSize));
-    brand_icon_image_view->SetVisible(true);
-  }
+
+  // The brand icon image view is first created in the loading dialog. Do not
+  // show the placeholder globe icon in the loading dialog because we do not yet
+  // know whether there will be an icon.
+  ConfigureBrandImageView(brand_icon_image_view.get(), brand_icon_url,
+                          /*show_placeholder=*/false);
 
   // Create background image view.
   std::unique_ptr<BackgroundImageView> background_image_view =

@@ -24,7 +24,6 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
@@ -251,6 +250,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
       break;
     case PushNotificationClientId::kCommerce:
     case PushNotificationClientId::kTips:
+    case PushNotificationClientId::kSafetyCheck:
       // This should never be reached.
       DCHECK(FALSE);
       break;
@@ -275,9 +275,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
     case PushNotificationClientId::kSports:
       return _sportsNotificationsItem;
     case PushNotificationClientId::kTips:
+    case PushNotificationClientId::kSafetyCheck:
     case PushNotificationClientId::kCommerce:
       // Not a switch.
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 

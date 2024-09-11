@@ -1883,8 +1883,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
             mOmniboxEnabled = true;
             mOmniboxBackground =
                     AppCompatResources.getDrawable(
-                            getContext(),
-                            R.drawable.modern_toolbar_text_box_background_with_primary_color);
+                            getContext(), R.drawable.custom_tabs_url_bar_omnibox_bg);
             mOmniboxBackground.mutate();
             mOmniboxBackground.setTint(
                     ChromeColors.getSurfaceColor(getContext(), R.dimen.toolbar_text_box_elevation));
@@ -1920,6 +1919,19 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                                 tab.getWindowAndroid().getActivity().get(),
                                 tab.getUrl(),
                                 clientPackageName);
+                    });
+
+            mUrlBar.setAccessibilityDelegate(
+                    new View.AccessibilityDelegate() {
+                        @Override
+                        public void onInitializeAccessibilityNodeInfo(
+                                View host, AccessibilityNodeInfo info) {
+                            super.onInitializeAccessibilityNodeInfo(host, info);
+                            info.setClickable(true);
+                            info.setLongClickable(true);
+                            info.setEnabled(true);
+                            info.setEditable(false);
+                        }
                     });
         }
     }

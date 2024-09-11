@@ -25,9 +25,11 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/parcel_tracking_opt_in_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
@@ -55,7 +57,7 @@
 #import "ios/chrome/browser/ui/toolbar/public/fakebox_focuser.h"
 #import "ios/chrome/browser/url_loading/model/fake_url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
-#import "ios/chrome/test/ios_chrome_scoped_testing_chrome_browser_state_manager.h"
+#import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/testing_application_context.h"
 #import "ios/testing/scoped_block_swizzler.h"
 #import "ios/web/public/test/fakes/fake_navigation_context.h"
@@ -173,11 +175,8 @@ class NewTabPageCoordinatorTest : public PlatformTest {
         IOSChromeSafetyCheckManagerFactory::GetInstance(),
         IOSChromeSafetyCheckManagerFactory::GetDefaultFactory());
 
-    browser_state_manager_ = std::make_unique<TestChromeBrowserStateManager>(
-        test_cbs_builder.Build());
-
-    TestingApplicationContext::GetGlobal()->SetChromeBrowserStateManager(
-        browser_state_manager_.get());
+    browser_state_ = browser_state_manager_.AddBrowserStateWithBuilder(
+        std::move(test_cbs_builder));
 
     AuthenticationServiceFactory::CreateAndInitializeForBrowserState(
         GetBrowserState(),
@@ -188,13 +187,12 @@ class NewTabPageCoordinatorTest : public PlatformTest {
 
     std::vector<base::test::FeatureRef> enabled;
     enabled.push_back(kEnableDiscoverFeedTopSyncPromo);
+    enabled.push_back(kEnableWebChannels);
     std::vector<base::test::FeatureRef> disabled;
     scoped_feature_list_.InitWithFeatures(enabled, disabled);
   }
 
-  ChromeBrowserState* GetBrowserState() {
-    return browser_state_manager_->GetLastUsedBrowserStateForTesting();
-  }
+  ChromeBrowserState* GetBrowserState() { return browser_state_.get(); }
 
   std::unique_ptr<web::FakeWebState> CreateWebState(const char* url) {
     auto test_web_state = std::make_unique<web::FakeWebState>();
@@ -301,12 +299,16 @@ class NewTabPageCoordinatorTest : public PlatformTest {
   }
 
   void SetupCommandHandlerMocks() {
+    help_commands_handler_mock = OCMProtocolMock(@protocol(HelpCommands));
     omnibox_commands_handler_mock = OCMProtocolMock(@protocol(OmniboxCommands));
     snackbar_commands_handler_mock =
         OCMProtocolMock(@protocol(SnackbarCommands));
     fakebox_focuser_handler_mock = OCMProtocolMock(@protocol(FakeboxFocuser));
     parcel_tracking_commands_handler_mock_ =
         OCMProtocolMock(@protocol(ParcelTrackingOptInCommands));
+    [browser_.get()->GetCommandDispatcher()
+        startDispatchingToTarget:help_commands_handler_mock
+                     forProtocol:@protocol(HelpCommands)];
     [browser_.get()->GetCommandDispatcher()
         startDispatchingToTarget:omnibox_commands_handler_mock
                      forProtocol:@protocol(OmniboxCommands)];
@@ -367,16 +369,19 @@ class NewTabPageCoordinatorTest : public PlatformTest {
   }
 
   web::WebTaskEnvironment task_environment_;
+  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
+  TestChromeBrowserStateManager browser_state_manager_;
+  raw_ptr<ChromeBrowserState> browser_state_;
   raw_ptr<web::WebState> web_state_;
   id toolbar_delegate_;
   id delegate_;
-  std::unique_ptr<TestChromeBrowserStateManager> browser_state_manager_;
   std::unique_ptr<Browser> browser_;
   UIViewController* fake_feed_view_controller_;
   NewTabPageCoordinator* coordinator_;
   NewTabPageMetricsRecorder* NTPMetricsRecorder_;
   id component_factory_mock_;
   UIViewController* base_view_controller_;
+  id help_commands_handler_mock;
   id omnibox_commands_handler_mock;
   id snackbar_commands_handler_mock;
   id fakebox_focuser_handler_mock;

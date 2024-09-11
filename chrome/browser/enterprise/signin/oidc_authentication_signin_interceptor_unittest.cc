@@ -448,7 +448,7 @@ class OidcAuthenticationSigninInterceptorTest
     if (expect_registration_attempt == RegistrationResult::kFailure) {
       EXPECT_CALL(*mock_client_ptr,
                   RegisterWithOidcResponse(_, kExampleOidcTokens.auth_token,
-                                           kExampleOidcTokens.id_token, _))
+                                           kExampleOidcTokens.id_token, _, _))
           .WillOnce(Invoke([&]() {
             mock_client_ptr->SetStatus(policy::DM_STATUS_TEMPORARY_UNAVAILABLE);
             mock_client_ptr->NotifyClientError();
@@ -458,7 +458,7 @@ class OidcAuthenticationSigninInterceptorTest
     } else if (expect_registration_attempt == RegistrationResult::kSuccess) {
       EXPECT_CALL(*mock_client_ptr,
                   RegisterWithOidcResponse(_, kExampleOidcTokens.auth_token,
-                                           kExampleOidcTokens.id_token, _))
+                                           kExampleOidcTokens.id_token, _, _))
           .WillOnce(Invoke([&]() {
             mock_client_ptr->SetDMToken(kExampleDmToken);
             mock_client_ptr->SetStatus(policy::DM_STATUS_SUCCESS);
@@ -691,6 +691,8 @@ TEST_P(OidcAuthenticationSigninInterceptorTest, ProfileCreationThenSwitch) {
       /*expect_profile_created=*/true,
       /*expected_number_of_windows=*/2, GetLastFunnelStepForSuccess());
 
+  AddTab(browser(), GURL("http://foo/1"));
+
   TestProfileCreationOrSwitch(
       kExampleOidcTokens, kExampleIssuerIdentifier, kExampleSubjectIdentifier,
       /*expect_profile_created=*/false,
@@ -711,6 +713,8 @@ TEST_P(OidcAuthenticationSigninInterceptorTest,
       /*expect_profile_created=*/true,
       /*expected_number_of_windows=*/1, GetLastFunnelStepForSuccess());
 
+  AddTab(browser(), GURL("http://foo/1"));
+
   TestProfileCreationOrSwitch(
       kExampleOidcTokens, kExampleIssuerIdentifier, "new_subject_id",
       /*expect_profile_created=*/true,
@@ -723,6 +727,8 @@ TEST_P(OidcAuthenticationSigninInterceptorTest,
       kExampleOidcTokens, kExampleIssuerIdentifier, kExampleSubjectIdentifier,
       /*expect_profile_created=*/true,
       /*expected_number_of_windows=*/1, GetLastFunnelStepForSuccess());
+
+  AddTab(browser(), GURL("http://foo/1"));
 
   TestProfileCreationOrSwitch(
       kExampleOidcTokens, "some_other_issuer", kExampleSubjectIdentifier,
@@ -842,7 +848,7 @@ TEST_P(OidcAuthenticationSigninInterceptorFetchFailureTest,
       RegistrationResult::kSuccess,
       signin::SigninChoice::SIGNIN_CHOICE_NEW_PROFILE,
       /*expect_dialog_to_show=*/true,
-      signin::SigninChoiceOperationResult::SIGNIN_TIMEOUT);
+      signin::SigninChoiceOperationResult::SIGNIN_CONFIRM_SUCCESS);
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

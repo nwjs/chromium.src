@@ -18,6 +18,7 @@
 #include "ash/picker/views/picker_item_with_submenu_view.h"
 #include "ash/picker/views/picker_list_item_container_view.h"
 #include "ash/picker/views/picker_list_item_view.h"
+#include "ash/picker/views/picker_shortcut_hint_view.h"
 #include "ash/picker/views/picker_strings.h"
 #include "ash/picker/views/picker_traversable_item_container.h"
 #include "ash/public/cpp/picker/picker_category.h"
@@ -26,6 +27,7 @@
 #include "ash/style/typography.h"
 #include "base/functional/overloaded.h"
 #include "base/notreached.h"
+#include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "chromeos/components/editor_menu/public/cpp/icon.h"
 #include "chromeos/ui/base/file_icon_util.h"
@@ -37,6 +39,7 @@
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/text_constants.h"
+#include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/link.h"
@@ -107,13 +110,11 @@ std::u16string GetLabelForCaseTransformType(
     PickerSearchResult::CaseTransformData::Type type) {
   switch (type) {
     case PickerSearchResult::CaseTransformData::Type::kUpperCase:
-      return l10n_util::GetStringUTF16(IDS_PICKER_UPPER_CASE_CATEGORY_LABEL);
+      return l10n_util::GetStringUTF16(IDS_PICKER_UPPER_CASE_MENU_LABEL);
     case PickerSearchResult::CaseTransformData::Type::kLowerCase:
-      return l10n_util::GetStringUTF16(IDS_PICKER_LOWER_CASE_CATEGORY_LABEL);
+      return l10n_util::GetStringUTF16(IDS_PICKER_LOWER_CASE_MENU_LABEL);
     case PickerSearchResult::CaseTransformData::Type::kTitleCase:
-      return l10n_util::GetStringUTF16(IDS_PICKER_TITLE_CASE_CATEGORY_LABEL);
-    case PickerSearchResult::CaseTransformData::Type::kSentenceCase:
-      return l10n_util::GetStringUTF16(IDS_PICKER_SENTENCE_CASE_CATEGORY_LABEL);
+      return l10n_util::GetStringUTF16(IDS_PICKER_TITLE_CASE_MENU_LABEL);
   }
 }
 
@@ -126,8 +127,6 @@ const gfx::VectorIcon& GetIconForCaseTransformType(
       return kPickerLowerCaseIcon;
     case PickerSearchResult::CaseTransformData::Type::kTitleCase:
       return kPickerTitleCaseIcon;
-    case PickerSearchResult::CaseTransformData::Type::kSentenceCase:
-      return kPickerSentenceCaseIcon;
   }
 }
 
@@ -138,6 +137,34 @@ std::u16string FormatBrowsingHistoryUrl(const GURL& url) {
           url_formatter::kFormatUrlOmitHTTPS |
           url_formatter::kFormatUrlOmitTrivialSubdomains,
       base::UnescapeRule::SPACES, nullptr, nullptr, nullptr);
+}
+
+std::optional<base::File::Info> ResolveFileInfo(const base::FilePath& path) {
+  base::File::Info info;
+  if (!base::GetFileInfo(path, &info)) {
+    return std::nullopt;
+  }
+  return info;
+}
+
+// This should align with `chromeos::clipboard_history::GetIconForDescriptor`.
+const gfx::VectorIcon& GetIconForClipboardData(
+    const PickerSearchResult::ClipboardData& data) {
+  switch (data.display_format) {
+    case PickerSearchResult::ClipboardData::DisplayFormat::kText:
+      return chromeos::kTextIcon;
+    case PickerSearchResult::ClipboardData::DisplayFormat::kUrl:
+      return vector_icons::kLinkIcon;
+    case PickerSearchResult::ClipboardData::DisplayFormat::kImage:
+      return chromeos::kFiletypeImageIcon;
+    case PickerSearchResult::ClipboardData::DisplayFormat::kFile:
+      return data.file_count == 1 ? chromeos::GetIconForPath(base::FilePath(
+                                        base::UTF16ToUTF8(data.display_text)))
+                                  : vector_icons::kContentCopyIcon;
+    case PickerSearchResult::ClipboardData::DisplayFormat::kHtml:
+      NOTREACHED();
+  }
+  NOTREACHED();
 }
 
 }  // namespace
@@ -165,6 +192,7 @@ std::unique_ptr<PickerItemView> PickerSectionView::CreateItemFromResult(
     const PickerSearchResult& result,
     PickerPreviewBubbleController* preview_controller,
     PickerAssetFetcher* asset_fetcher,
+    int available_width,
     SelectResultCallback select_result_callback) {
   using ReturnType = std::unique_ptr<PickerItemView>;
   return std::visit(
@@ -180,51 +208,46 @@ std::unique_ptr<PickerItemView> PickerSectionView::CreateItemFromResult(
           [&](const PickerSearchResult::SearchRequestData& data) -> ReturnType {
             auto item_view = std::make_unique<PickerListItemView>(
                 std::move(select_result_callback));
-            item_view->SetPrimaryText(data.text);
+            item_view->SetPrimaryText(data.primary_text);
+            item_view->SetSecondaryText(data.secondary_text);
             item_view->SetLeadingIcon(data.icon);
             return item_view;
           },
           [&](const PickerSearchResult::EmojiData& data) -> ReturnType {
-            NOTREACHED_NORETURN();
+            NOTREACHED();
           },
           [&](const PickerSearchResult::ClipboardData& data) -> ReturnType {
             auto item_view = std::make_unique<PickerListItemView>(
                 std::move(select_result_callback));
-            const gfx::VectorIcon* icon = nullptr;
             switch (data.display_format) {
               case PickerSearchResult::ClipboardData::DisplayFormat::kFile:
-                icon = &vector_icons::kContentCopyIcon;
-                item_view->SetPrimaryText(data.display_text);
-                break;
               case PickerSearchResult::ClipboardData::DisplayFormat::kText:
-                icon = &chromeos::kTextIcon;
+              case PickerSearchResult::ClipboardData::DisplayFormat::kUrl:
                 item_view->SetPrimaryText(data.display_text);
                 break;
               case PickerSearchResult::ClipboardData::DisplayFormat::kImage:
                 if (!data.display_image.has_value()) {
                   return nullptr;
                 }
-                icon = &chromeos::kFiletypeImageIcon;
-                item_view->SetPrimaryImage(*data.display_image);
+                item_view->SetPrimaryImage(*data.display_image,
+                                           available_width);
                 break;
               case PickerSearchResult::ClipboardData::DisplayFormat::kHtml:
-                icon = &vector_icons::kCodeIcon;
-                item_view->SetPrimaryText(
-                    l10n_util::GetStringUTF16(IDS_PICKER_HTML_CONTENT));
-                break;
+                NOTREACHED();
             }
-            if (icon) {
-              item_view->SetLeadingIcon(ui::ImageModel::FromVectorIcon(
-                  *icon, cros_tokens::kCrosSysOnSurface, kIconSize));
-            }
+            item_view->SetLeadingIcon(ui::ImageModel::FromVectorIcon(
+                GetIconForClipboardData(data), cros_tokens::kCrosSysOnSurface,
+                kIconSize));
             return item_view;
           },
           [&](const PickerSearchResult::BrowsingHistoryData& data)
               -> ReturnType {
             auto item_view = std::make_unique<PickerListItemView>(
                 std::move(select_result_callback));
-            item_view->SetPrimaryText(data.title);
-            item_view->SetSecondaryText(FormatBrowsingHistoryUrl(data.url));
+            std::u16string formatted_url = FormatBrowsingHistoryUrl(data.url);
+            item_view->SetPrimaryText(data.title.empty() ? formatted_url
+                                                         : data.title);
+            item_view->SetSecondaryText(formatted_url);
             item_view->SetLeadingIcon(data.icon, kBrowsingHistoryIconSize);
             return item_view;
           },
@@ -235,7 +258,8 @@ std::unique_ptr<PickerItemView> PickerSectionView::CreateItemFromResult(
             // `base::Unretained` is safe because `asset_fetcher` outlives the
             // return value.
             item_view->SetPreview(
-                preview_controller, data.file_path,
+                preview_controller,
+                base::BindOnce(ResolveFileInfo, data.file_path), data.file_path,
                 base::BindRepeating(&PickerAssetFetcher::FetchFileThumbnail,
                                     base::Unretained(asset_fetcher)),
                 /*update_icon=*/true);
@@ -252,7 +276,8 @@ std::unique_ptr<PickerItemView> PickerSectionView::CreateItemFromResult(
             // `base::Unretained` is safe because `asset_fetcher` outlives the
             // return value.
             item_view->SetPreview(
-                preview_controller, data.file_path,
+                preview_controller,
+                base::BindOnce(ResolveFileInfo, data.file_path), data.file_path,
                 base::BindRepeating(&PickerAssetFetcher::FetchFileThumbnail,
                                     base::Unretained(asset_fetcher)),
                 /*update_icon=*/false);
@@ -296,11 +321,13 @@ std::unique_ptr<PickerItemView> PickerSectionView::CreateItemFromResult(
             auto item_view = std::make_unique<PickerListItemView>(
                 std::move(select_result_callback));
             item_view->SetPrimaryText(l10n_util::GetStringUTF16(
-                data.enabled ? IDS_PICKER_CAPS_ON_CATEGORY_LABEL
-                             : IDS_PICKER_CAPS_OFF_CATEGORY_LABEL));
+                data.enabled ? IDS_PICKER_CAPS_LOCK_ON_MENU_LABEL
+                             : IDS_PICKER_CAPS_LOCK_OFF_MENU_LABEL));
             item_view->SetLeadingIcon(ui::ImageModel::FromVectorIcon(
                 data.enabled ? kPickerCapsLockOnIcon : kPickerCapsLockOffIcon,
                 cros_tokens::kCrosSysOnSurface));
+            item_view->SetShortcutHintView(
+                std::make_unique<PickerShortcutHintView>(data.shortcut));
             return item_view;
           },
           [&](const PickerSearchResult::CaseTransformData& data) -> ReturnType {
@@ -403,7 +430,7 @@ PickerItemView* PickerSectionView::AddItem(
     return AddItemWithSubmenu(std::unique_ptr<PickerItemWithSubmenuView>(
         views::AsViewClass<PickerItemWithSubmenuView>(item.release())));
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 PickerItemView* PickerSectionView::AddResult(
@@ -411,7 +438,7 @@ PickerItemView* PickerSectionView::AddResult(
     PickerPreviewBubbleController* preview_controller,
     SelectResultCallback select_result_callback) {
   return AddItem(CreateItemFromResult(result, preview_controller,
-                                      asset_fetcher_,
+                                      asset_fetcher_, section_width_,
                                       std::move(select_result_callback)));
 }
 

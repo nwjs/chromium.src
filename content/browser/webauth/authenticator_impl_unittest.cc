@@ -522,7 +522,7 @@ url::Origin GetTestOrigin() {
 }
 
 std::string GetTestClientDataJSON(ClientDataRequestType type) {
-  return BuildClientDataJson({std::move(type), GetTestOrigin(),
+  return BuildClientDataJson({std::move(type), GetTestOrigin(), GetTestOrigin(),
                               GetTestChallengeBytes(),
                               /*is_cross_origin_iframe=*/false});
 }
@@ -895,7 +895,8 @@ TEST_F(AuthenticatorImplTest, ClientDataJSONSerialization) {
   std::vector<uint8_t> challenge_bytes = {1, 2, 3};
   EXPECT_EQ(
       BuildClientDataJson({ClientDataRequestType::kWebAuthnCreate,
-                           GetTestOrigin(), challenge_bytes, false})
+                           GetTestOrigin(), GetTestOrigin(), challenge_bytes,
+                           false})
           .find(
               "{\"type\":\"webauthn.create\",\"challenge\":\"AQID\",\"origin\":"
               "\"https://a.google.com\",\"crossOrigin\":false"),
@@ -905,11 +906,13 @@ TEST_F(AuthenticatorImplTest, ClientDataJSONSerialization) {
   static const struct {
     const ClientDataRequestType type;
     url::Origin origin;
+    url::Origin top_origin;
     std::vector<uint8_t> challenge;
     bool is_cross_origin;
   } kTestCases[] = {
       {
           ClientDataRequestType::kWebAuthnGet,
+          GetTestOrigin(),
           GetTestOrigin(),
           {1, 2, 3},
           false,
@@ -917,6 +920,14 @@ TEST_F(AuthenticatorImplTest, ClientDataJSONSerialization) {
       {
           ClientDataRequestType::kPaymentGet,
           GetTestOrigin(),
+          GetTestOrigin(),
+          {1, 2, 3},
+          false,
+      },
+      {
+          ClientDataRequestType::kWebAuthnCreate,
+          GetTestOrigin(),
+          url::Origin::Create(GURL("https://toplevel.example")),
           {1, 2, 3},
           false,
       },
@@ -926,8 +937,9 @@ TEST_F(AuthenticatorImplTest, ClientDataJSONSerialization) {
   for (const auto& test : kTestCases) {
     SCOPED_TRACE(num++);
 
-    const std::string json = BuildClientDataJson(
-        {test.type, test.origin, test.challenge, test.is_cross_origin});
+    const std::string json =
+        BuildClientDataJson({test.type, test.origin, test.top_origin,
+                             test.challenge, test.is_cross_origin});
 
     const auto parsed = base::JSONReader::Read(json);
     ASSERT_TRUE(parsed.has_value());
@@ -957,6 +969,12 @@ TEST_F(AuthenticatorImplTest, ClientDataJSONSerialization) {
         base::Base64UrlEncodePolicy::OMIT_PADDING, &expected_challenge);
     EXPECT_EQ(*parsed->GetDict().FindString("challenge"), expected_challenge);
     EXPECT_EQ(*parsed->GetDict().FindBool("crossOrigin"), test.is_cross_origin);
+    if (test.is_cross_origin) {
+      EXPECT_EQ(*parsed->GetDict().FindString("topOrigin"),
+                test.top_origin.Serialize());
+    } else {
+      EXPECT_EQ(parsed->GetDict().FindString("topOrigin"), nullptr);
+    }
   }
 }
 
@@ -1668,7 +1686,7 @@ TEST_F(AuthenticatorImplTest, GetAssertionResponseWithAttestedCredentialData) {
 }
 
 #if BUILDFLAG(IS_WIN)
-TEST_F(AuthenticatorImplTest, IsUVPAA) {
+TEST_F(AuthenticatorImplTest, Win_IsUVPAA) {
   virtual_device_factory_->set_discover_win_webauthn_api_authenticator(true);
   NavigateAndCommit(GURL(kTestOrigin1));
   mojo::Remote<blink::mojom::Authenticator> authenticator =
@@ -1679,11 +1697,14 @@ TEST_F(AuthenticatorImplTest, IsUVPAA) {
                                          : "!enable_win_webauthn_api");
     for (const bool is_uvpaa : {false, true}) {
       SCOPED_TRACE(is_uvpaa ? "is_uvpaa" : "!is_uvpaa");
-
-      fake_win_webauthn_api_.set_available(enable_win_webauthn_api);
-      fake_win_webauthn_api_.set_is_uvpaa(is_uvpaa);
-
-      EXPECT_EQ(AuthenticatorIsUvpaa(), enable_win_webauthn_api && is_uvpaa);
+      for (bool is_off_the_record : {true, false}) {
+        SCOPED_TRACE(is_off_the_record ? "off the record" : "on the record");
+        static_cast<TestBrowserContext*>(GetBrowserContext())
+            ->set_is_off_the_record(is_off_the_record);
+        fake_win_webauthn_api_.set_available(enable_win_webauthn_api);
+        fake_win_webauthn_api_.set_is_uvpaa(is_uvpaa);
+        EXPECT_EQ(AuthenticatorIsUvpaa(), enable_win_webauthn_api && is_uvpaa);
+      }
     }
   }
 }
@@ -1695,36 +1716,6 @@ TEST_F(AuthenticatorImplTest, IsUVPAA) {
   EXPECT_FALSE(AuthenticatorIsUvpaa());
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(IS_WIN)
-class OffTheRecordAuthenticatorImplTest : public AuthenticatorImplTest {
- protected:
-  std::unique_ptr<BrowserContext> CreateBrowserContext() override {
-    auto browser_context = std::make_unique<TestBrowserContext>();
-    browser_context->set_is_off_the_record(true);
-    return browser_context;
-  }
-};
-
-// Tests that IsUVPAA returns true if the version of Windows supports an
-// appropriate warning.
-TEST_F(OffTheRecordAuthenticatorImplTest, WinIsUVPAAIncognito) {
-  virtual_device_factory_->set_discover_win_webauthn_api_authenticator(true);
-  NavigateAndCommit(GURL(kTestOrigin1));
-  fake_win_webauthn_api_.set_available(true);
-  fake_win_webauthn_api_.set_is_uvpaa(true);
-
-  for (bool win_api_supports_incognito_warning : {false, true}) {
-    SCOPED_TRACE(win_api_supports_incognito_warning
-                     ? "supports incognito"
-                     : "does not support incognito");
-    fake_win_webauthn_api_.set_version(win_api_supports_incognito_warning
-                                           ? WEBAUTHN_API_VERSION_4
-                                           : WEBAUTHN_API_VERSION_3);
-    EXPECT_EQ(AuthenticatorIsUvpaa(), win_api_supports_incognito_warning);
-  }
-}
-#endif  // BUILDFLAG(IS_WIN)
 
 // TestWebAuthenticationRequestProxy is a test fake implementation of the
 // WebAuthenticationRequestProxy embedder interface.
@@ -9338,7 +9329,7 @@ class AuthenticatorCableV2Test : public AuthenticatorImplRequestDelegateTest {
         /*contact_device_stream=*/nullptr,
         /*extension_contents=*/std::vector<device::CableDiscoveryData>(),
         GetPairingCallback(), GetInvalidatedPairingCallback(),
-        GetEventCallback());
+        GetEventCallback(), /*must_support_ctap=*/true);
 
     ReplaceDiscoveryFactory(
         std::make_unique<DiscoveryFactory>(std::move(discovery)));
@@ -9380,7 +9371,7 @@ class AuthenticatorCableV2Test : public AuthenticatorImplRequestDelegateTest {
         std::move(callback_and_event_stream.second),
         /*extension_contents=*/std::vector<device::CableDiscoveryData>(),
         GetPairingCallback(), GetInvalidatedPairingCallback(),
-        GetEventCallback());
+        GetEventCallback(), /*must_support_ctap=*/true);
 
     maybe_contact_phones_callback_ = base::BindLambdaForTesting([&]() {
       callback_and_event_stream.first.Run(
@@ -9486,8 +9477,8 @@ TEST_F(AuthenticatorCableV2Test, QRBasedWithNoPairing) {
       qr_generator_key_, std::move(ble_advert_events_),
       /*contact_device_stream=*/nullptr,
       /*extension_contents=*/std::vector<device::CableDiscoveryData>(),
-      GetPairingCallback(), GetInvalidatedPairingCallback(),
-      GetEventCallback());
+      GetPairingCallback(), GetInvalidatedPairingCallback(), GetEventCallback(),
+      /*must_support_ctap=*/true);
 
   ReplaceDiscoveryFactory(
       std::make_unique<DiscoveryFactory>(std::move(discovery)));
@@ -9516,8 +9507,8 @@ TEST_F(AuthenticatorCableV2Test, HandshakeError) {
       qr_generator_key_, std::move(ble_advert_events_),
       /*contact_device_stream=*/nullptr,
       /*extension_contents=*/std::vector<device::CableDiscoveryData>(),
-      GetPairingCallback(), GetInvalidatedPairingCallback(),
-      GetEventCallback());
+      GetPairingCallback(), GetInvalidatedPairingCallback(), GetEventCallback(),
+      /*must_support_ctap=*/true);
 
   ReplaceDiscoveryFactory(
       std::make_unique<DiscoveryFactory>(std::move(discovery)));
@@ -9557,8 +9548,8 @@ TEST_F(AuthenticatorCableV2Test, NetworkServiceCrash) {
       qr_generator_key_, std::move(ble_advert_events_),
       /*contact_device_stream=*/nullptr,
       /*extension_contents=*/std::vector<device::CableDiscoveryData>(),
-      GetPairingCallback(), GetInvalidatedPairingCallback(),
-      GetEventCallback());
+      GetPairingCallback(), GetInvalidatedPairingCallback(), GetEventCallback(),
+      /*must_support_ctap=*/true);
 
   ReplaceDiscoveryFactory(
       std::make_unique<DiscoveryFactory>(std::move(discovery)));
@@ -9635,8 +9626,8 @@ TEST_F(AuthenticatorCableV2Test, ContactIDDisabled) {
       qr_generator_key_, std::move(ble_advert_events_),
       std::move(callback_and_event_stream.second),
       /*extension_contents=*/std::vector<device::CableDiscoveryData>(),
-      GetPairingCallback(), GetInvalidatedPairingCallback(),
-      GetEventCallback());
+      GetPairingCallback(), GetInvalidatedPairingCallback(), GetEventCallback(),
+      /*must_support_ctap=*/true);
 
   ReplaceDiscoveryFactory(
       std::make_unique<DiscoveryFactory>(std::move(discovery)));
@@ -9709,7 +9700,8 @@ TEST_F(AuthenticatorCableV2Test, ServerLink) {
       base::BindLambdaForTesting([&]() { return network_context_.get(); }),
       qr_generator_key_, std::move(ble_advert_events_),
       /*contact_device_stream=*/nullptr, extension_values, GetPairingCallback(),
-      GetInvalidatedPairingCallback(), GetEventCallback());
+      GetInvalidatedPairingCallback(), GetEventCallback(),
+      /*must_support_ctap=*/true);
 
   ReplaceDiscoveryFactory(
       std::make_unique<DiscoveryFactory>(std::move(discovery)));
@@ -9742,8 +9734,8 @@ TEST_F(AuthenticatorCableV2Test, LateLinking) {
       qr_generator_key_, std::move(ble_advert_events_),
       /*contact_device_stream=*/nullptr,
       /*extension_contents=*/std::vector<device::CableDiscoveryData>(),
-      GetPairingCallback(), GetInvalidatedPairingCallback(),
-      GetEventCallback());
+      GetPairingCallback(), GetInvalidatedPairingCallback(), GetEventCallback(),
+      /*must_support_ctap=*/true);
 
   ReplaceDiscoveryFactory(
       std::make_unique<DiscoveryFactory>(std::move(discovery)));
@@ -9786,7 +9778,7 @@ class AuthenticatorCableV2AuthenticatorTest
         /*contact_device_stream=*/nullptr,
         /*extension_contents=*/std::vector<device::CableDiscoveryData>(),
         GetPairingCallback(), GetInvalidatedPairingCallback(),
-        GetEventCallback());
+        GetEventCallback(), /*must_support_ctap=*/true);
 
     ReplaceDiscoveryFactory(
         std::make_unique<DiscoveryFactory>(std::move(discovery)));

@@ -57,6 +57,7 @@ class CONTENT_EXPORT BackForwardTransitionAnimationManagerAndroid
   void OnGestureInvoked() override;
   void OnContentForNavigationEntryShown() override;
   AnimationStage GetCurrentAnimationStage() override;
+  void SetFavicon(const SkBitmap& favicon) override;
 
   // `ui::ViewAndroidObserver`:
   void OnAttachedToWindow() override {}
@@ -86,6 +87,8 @@ class CONTENT_EXPORT BackForwardTransitionAnimationManagerAndroid
   void DidStartNavigation(NavigationHandle* navigation_handle) override;
   void ReadyToCommitNavigation(NavigationHandle* navigation_handle) override;
   void DidFinishNavigation(NavigationHandle* navigation_handle) override;
+
+  SkBitmap MaybeCopyContentAreaAsBitmapSync();
 
   // This is called before the `old_host` is swapped out and before the
   // `new_host` is swapped in.

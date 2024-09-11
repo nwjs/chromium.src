@@ -146,6 +146,9 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(
   if (frameless_)
     return;
   SetLayoutManager(std::unique_ptr<views::LayoutManager>(layout_));
+
+  // Expose this view as a generic container as it contains/paints many things.
+  GetViewAccessibility().SetRole(ax::mojom::Role::kPane);
 }
 
 OpaqueBrowserFrameView::~OpaqueBrowserFrameView() {}
@@ -456,14 +459,6 @@ void OpaqueBrowserFrameView::UpdateWindowTitle() {
       window_title_->SchedulePaint();
     }
   }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// OpaqueBrowserFrameView, views::View overrides:
-
-void OpaqueBrowserFrameView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  // Expose this view as a generic container as it contains/paints many things.
-  node_data->role = ax::mojom::Role::kPane;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -782,7 +777,7 @@ int OpaqueBrowserFrameView::CalculateCaptionButtonBackgroundXOffset(
     case VIEW_ID_CLOSE_BUTTON:
       return (is_rtl ? 0 : minimize_width + maximize_restore_width);
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 

@@ -14,13 +14,17 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
+#import "ios/chrome/browser/shared/ui/elements/new_feature_badge_view.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/dynamic_type_util.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_features.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
 #import "ios/chrome/browser/ui/lens/lens_availability.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_constants.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_delegate.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_constants.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_container_view.h"
@@ -70,6 +74,12 @@ const CGFloat kEndButtonSeparation = 19.0;
 
 // The height of the divider between the mic and lens icons.
 const CGFloat kIconDividerHeight = 13.0;
+
+// The offset of the account error badge from the ADP center.
+const CGFloat kAccountBadgeOffsetFromDiscCenter = 10.0;
+
+// The size of the account error badge that is on top the ADP.
+const CGFloat kErrorSymbolPointSize = 16.0;
 
 // The leading space / padding in the unscrolled fakebox.
 CGFloat HintLabelFakeboxLeadingSpace() {
@@ -205,6 +215,10 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   UIFont* _hintLabelFontSmall;
   // Stores the big font used for the unpinned fakebox.
   UIFont* _hintLabelFontBig;
+  // Image view of the account disc particle badge.
+  UIImageView* _accountDiscParticleBadgeImageView;
+  // The New Feature badge on the customization menu's entrypoint.
+  UIView* _customizationNewFeatureBadge;
 }
 
 #pragma mark - Public
@@ -242,6 +256,10 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   self.identityDiscView.translatesAutoresizingMaskIntoConstraints = NO;
   CGFloat dimension =
       ntp_home::kIdentityAvatarDimension + 2 * ntp_home::kHeaderIconMargin;
+  if (base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)) {
+    // Add extra margin to show the error badge if any.
+    dimension += ntp_home::kHeaderIconMargin;
+  }
   [NSLayoutConstraint activateConstraints:@[
     [self.identityDiscView.heightAnchor constraintEqualToConstant:dimension],
     [self.identityDiscView.widthAnchor constraintEqualToConstant:dimension],
@@ -252,30 +270,6 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
         constraintEqualToAnchor:self.toolBarView.topAnchor
                        constant:ntp_home::kIdentityAvatarPadding],
   ]];
-}
-
-- (void)setCustomizationMenuView:(UIView*)customizationMenuView {
-  if (_customizationMenuView) {
-    [_customizationMenuView removeFromSuperview];
-  }
-
-  customizationMenuView.translatesAutoresizingMaskIntoConstraints = NO;
-
-  [self.toolBarView addSubview:customizationMenuView];
-  [NSLayoutConstraint activateConstraints:@[
-    [customizationMenuView.centerYAnchor
-        constraintEqualToAnchor:self.toolBarView.centerYAnchor],
-    [customizationMenuView.heightAnchor
-        constraintEqualToConstant:ntp_home::kCustomizationMenuButtonDimension],
-    [customizationMenuView.widthAnchor
-        constraintEqualToAnchor:customizationMenuView.heightAnchor],
-    [customizationMenuView.leadingAnchor
-        constraintEqualToAnchor:self.safeAreaLayoutGuide.leadingAnchor
-                       constant:(ntp_home::kIdentityAvatarPadding +
-                                 ntp_home::kHeaderIconMargin)],
-  ]];
-
-  _customizationMenuView = customizationMenuView;
 }
 
 - (void)addViewsToSearchField:(UIView*)searchField {
@@ -668,6 +662,90 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   self.separator.alpha = 1;
   self.voiceSearchButton.alpha = 1;
   self.lensButton.alpha = 1;
+}
+
+- (void)setIdentityDiscErrorBadge {
+  if (!_identityDiscView) {
+    return;
+  }
+  _accountDiscParticleBadgeImageView = [[UIImageView alloc]
+      initWithImage:DefaultSymbolWithPointSize(kErrorCircleFillSymbol,
+                                               kErrorSymbolPointSize)];
+  _accountDiscParticleBadgeImageView.translatesAutoresizingMaskIntoConstraints =
+      NO;
+  _accountDiscParticleBadgeImageView.tintColor =
+      [UIColor colorNamed:kRed500Color];
+  _accountDiscParticleBadgeImageView.backgroundColor =
+      [UIColor colorNamed:@"ntp_background_color"];
+  _accountDiscParticleBadgeImageView.layer.cornerRadius =
+      _accountDiscParticleBadgeImageView.frame.size.width / 2;
+  _accountDiscParticleBadgeImageView.clipsToBounds = YES;
+  _accountDiscParticleBadgeImageView.accessibilityIdentifier =
+      kNTPFeedHeaderIdentityDiscBadge;
+
+  [_identityDiscView addSubview:_accountDiscParticleBadgeImageView];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [_accountDiscParticleBadgeImageView.centerXAnchor
+        constraintEqualToAnchor:_identityDiscView.centerXAnchor
+                       constant:kAccountBadgeOffsetFromDiscCenter],
+    [_accountDiscParticleBadgeImageView.centerYAnchor
+        constraintEqualToAnchor:_identityDiscView.centerYAnchor
+                       constant:kAccountBadgeOffsetFromDiscCenter],
+  ]];
+}
+
+- (void)removeIdentityDiscErrorBadge {
+  [_accountDiscParticleBadgeImageView removeFromSuperview];
+  _accountDiscParticleBadgeImageView = nil;
+}
+
+- (void)setCustomizationMenuButton:(UIButton*)customizationMenuButton
+                      withNewBadge:(BOOL)hasNewBadge {
+  if (_customizationMenuButton) {
+    [_customizationMenuButton removeFromSuperview];
+  }
+
+  customizationMenuButton.translatesAutoresizingMaskIntoConstraints = NO;
+  customizationMenuButton.layer.cornerRadius =
+      ntp_home::kCustomizationMenuButtonCornerRadius;
+  customizationMenuButton.pointerInteractionEnabled = YES;
+  customizationMenuButton.clipsToBounds = YES;
+
+  NewFeatureBadgeView* newBadgeView =
+      [[NewFeatureBadgeView alloc] initWithBadgeSize:20 fontSize:10];
+  newBadgeView.translatesAutoresizingMaskIntoConstraints = NO;
+  newBadgeView.userInteractionEnabled = NO;
+  newBadgeView.layer.opacity = hasNewBadge ? 1 : 0;
+
+  [self.toolBarView addSubview:customizationMenuButton];
+  [self.toolBarView addSubview:newBadgeView];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [customizationMenuButton.centerYAnchor
+        constraintEqualToAnchor:self.toolBarView.centerYAnchor],
+    [customizationMenuButton.heightAnchor
+        constraintEqualToConstant:ntp_home::kCustomizationMenuButtonDimension],
+    [customizationMenuButton.widthAnchor
+        constraintEqualToAnchor:customizationMenuButton.heightAnchor],
+    [customizationMenuButton.leadingAnchor
+        constraintEqualToAnchor:self.safeAreaLayoutGuide.leadingAnchor
+                       constant:(ntp_home::kIdentityAvatarPadding +
+                                 ntp_home::kHeaderIconMargin)],
+    [newBadgeView.centerXAnchor
+        constraintEqualToAnchor:customizationMenuButton.centerXAnchor
+                       constant:14],
+    [newBadgeView.centerYAnchor
+        constraintEqualToAnchor:customizationMenuButton.centerYAnchor
+                       constant:-14],
+  ]];
+
+  _customizationMenuButton = customizationMenuButton;
+  _customizationNewFeatureBadge = newBadgeView;
+}
+
+- (void)hideBadgeOnCustomizationMenu {
+  _customizationNewFeatureBadge.alpha = 0;
 }
 
 #pragma mark - UITraitEnvironment

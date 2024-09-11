@@ -112,6 +112,10 @@ OnDeviceModelAdaptationLoader::OnDeviceModelAdaptationLoader(
       background_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::BEST_EFFORT})) {
   CHECK(features::internal::IsOnDeviceModelAdaptationEnabled(feature_));
+  if (!on_device_component_state_manager) {
+    return;
+  }
+
   component_state_manager_observation_.Observe(
       on_device_component_state_manager.get());
   if (auto* state = on_device_component_state_manager->GetState()) {
@@ -144,15 +148,18 @@ void OnDeviceModelAdaptationLoader::StateChanged(
     return;
   }
   base_model_spec_ = state->GetBaseModelSpec();
-  if (!switches::GetOnDeviceModelExecutionOverride() && !base_model_spec_) {
-    RecordAdaptationModelAvailability(
-        feature_, OnDeviceModelAdaptationAvailability::kBaseModelSpecInvalid);
-    return;
-  }
-  if (!WasOnDeviceEligibleFeatureRecentlyUsed(feature_, *local_state_)) {
-    RecordAdaptationModelAvailability(
-        feature_, OnDeviceModelAdaptationAvailability::kFeatureNotRecentlyUsed);
-    return;
+  if (!switches::GetOnDeviceModelExecutionOverride()) {
+    if (!base_model_spec_) {
+      RecordAdaptationModelAvailability(
+          feature_, OnDeviceModelAdaptationAvailability::kBaseModelSpecInvalid);
+      return;
+    }
+    if (!WasOnDeviceEligibleFeatureRecentlyUsed(feature_, *local_state_)) {
+      RecordAdaptationModelAvailability(
+          feature_,
+          OnDeviceModelAdaptationAvailability::kFeatureNotRecentlyUsed);
+      return;
+    }
   }
 
   proto::Any any_metadata;

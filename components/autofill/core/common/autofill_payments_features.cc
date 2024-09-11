@@ -46,11 +46,15 @@ BASE_FEATURE(kAutofillEnableCardBenefitsForCapitalOne,
              "AutofillEnableCardBenefitsForCapitalOne",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, card benefits offered by issuers will be synced from the
-// Payments server.
+// When enabled, Chrome will show metadata along with other card information
+// when the virtual card is presented to users.
 BASE_FEATURE(kAutofillEnableCardBenefitsSync,
              "AutofillEnableCardBenefitsSync",
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // When enabled, card product name (instead of issuer network) will be shown in
 // Payments Autofill UI.
@@ -70,13 +74,6 @@ BASE_FEATURE(kAutofillEnableCvcStorageAndFilling,
 BASE_FEATURE(kAutofillEnableNewCardArtAndNetworkImages,
              "AutofillEnableNewCardArtAndNetworkImages",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, a progress dialog will display while authenticating with FIDO.
-// TODO(crbug.com/40229268): Clean up kAutofillEnableFIDOProgressDialog when
-// it's fully rolled out.
-BASE_FEATURE(kAutofillEnableFIDOProgressDialog,
-             "AutofillEnableFIDOProgressDialog",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, server card retrieval will begin with a risk-based check
 // instead of jumping straight to CVC or biometric auth.
@@ -116,8 +113,8 @@ BASE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory,
              "AutofillEnableOffersInClankKeyboardAccessory",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, risk data is prefetched during payments autofill flows to reduce
-// user-perceived latency.
+// When enabled, risk data is prefetched during payments autofill flows to
+// reduce user-perceived latency.
 BASE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval,
              "AutofillEnablePrefetchingRiskDataForRetrieval",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -127,13 +124,21 @@ BASE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval,
 // result when completed.
 BASE_FEATURE(kAutofillEnableSaveCardLoadingAndConfirmation,
              "AutofillEnableSaveCardLoadingAndConfirmation",
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // When enabled, save card will fallback to a local save if the server upload of
 // a card encounters a failure.
 BASE_FEATURE(kAutofillEnableSaveCardLocalSaveFallback,
              "AutofillEnableSaveCardLocalSaveFallback",
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // When enabled, Autofill will attempt to offer upload save for IBANs
 // (International Bank Account Numbers) and autofill server-based IBANs.
@@ -161,7 +166,11 @@ BASE_FEATURE(kAutofillEnableVcn3dsAuthentication,
 // result when completed.
 BASE_FEATURE(kAutofillEnableVcnEnrollLoadingAndConfirmation,
              "AutofillEnableVcnEnrollLoadingAndConfirmation",
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // When enabled, Chrome will display grayed out virtual card suggestions on
 // merchant websites where the merchant has opted-out of virtual cards.
@@ -196,6 +205,12 @@ BASE_FEATURE(kAutofillParseVcnCardOnFileStandaloneCvcFields,
              "AutofillParseVcnCardOnFileStandaloneCvcFields",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, the "Show cards from your Google Account" Autofill suggestion
+// will not be displayed, and Autofill will work as if it had been selected.
+BASE_FEATURE(kAutofillRemovePaymentsButterDropdown,
+             "AutofillRemovePaymentsButterDropdown",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, the add/edit local card dialog in chrome://settings on Desktop
 // requires that the card number be valid before saving is allowed.
 BASE_FEATURE(kAutofillRequireValidLocalCardsInSettings,
@@ -217,6 +232,11 @@ BASE_FEATURE(kAutofillSkipAndroidBottomSheetForIban,
              "AutofillSkipAndroidBottomSheetForIban",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+// When enabled, adds a timeout on the network request for Unmask requests.
+BASE_FEATURE(kAutofillUnmaskCardRequestTimeout,
+             "AutofillUnmaskCardRequestTimeout",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, adds a timeout on the network request for UploadCard requests.
 BASE_FEATURE(kAutofillUploadCardRequestTimeout,

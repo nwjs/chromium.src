@@ -8,6 +8,7 @@
 <translation id="1020274983236703756">Hiện đã có các nội dung dành riêng cho <ph name="PRODUCT_NAME" /></translation>
 <translation id="1022628058306505708">Dòng chảy Trái đất</translation>
 <translation id="1026212596705997935">Phím tắt đang được sử dụng cho "<ph name="CONFLICT_ACCEL_NAME" />". Nhấn một phím tắt mới. Để thay thế phím tắt hiện có, hãy nhấn phím tắt này một lần nữa.</translation>
+<translation id="1030856839388844477">Đặt lại mức sử dụng dữ liệu</translation>
 <translation id="1047458377670401304"><ph name="CPU_NAME" /> (<ph name="THREAD_COUNT" /> luồng, <ph name="CPU_MAX_CLOCK_SPEED" /> GHz)</translation>
 <translation id="1047773237499189053">Đã có tính năng mới, hãy sử dụng phím Mũi tên lên để tìm hiểu thêm.</translation>
 <translation id="1049663189809099096">vàng nhạt</translation>
@@ -62,6 +63,8 @@
 <translation id="1290331692326790741">Tín hiệu yếu</translation>
 <translation id="1300115153046603471">APN thuộc loại mặc định và <ph name="ATTACH" />.</translation>
 <translation id="1301069673413256657">GSM</translation>
+<translation id="1301340234286078471">Chuyển đổi</translation>
+<translation id="1304014921944666344">Ngày tạo</translation>
 <translation id="1308754910631152188">Đang cập nhật (đã xong <ph name="PERCENTAGE_VALUE" />%)</translation>
 <translation id="1309341072016605398"><ph name="MINUTES" /> phút</translation>
 <translation id="1310380015393971138">Không có sẵn mạng <ph name="NETWORK_NAME" /></translation>
@@ -75,6 +78,7 @@
 <translation id="1343442362630695901">hồ muối</translation>
 <translation id="1367951781824006909">Chọn tệp</translation>
 <translation id="1371650399987522809">Phản hồi về hình nền dựa trên công nghệ AI của Google</translation>
+<translation id="1374385338586507108">Định nghĩa</translation>
 <translation id="1387854245479784695">Đây là số liệu tổng hợp của tất cả lõi</translation>
 <translation id="1393206549145430405">lâu đài</translation>
 <translation id="1394661041439318933">Hộp đựng còn <ph name="BATTERY_PERCENTAGE" />% pin.</translation>
@@ -118,6 +122,7 @@
 <translation id="1567064801249837505">Album</translation>
 <translation id="1572585716423026576">Đặt làm hình nền</translation>
 <translation id="1578784163189013834">Chọn nền cho trình bảo vệ màn hình</translation>
+<translation id="1588438908519853928">Bình thường</translation>
 <translation id="1591562245178063882">Tháng này</translation>
 <translation id="1593528591614229756">Hãy nhớ chọn APN do nhà cung cấp mạng di động hoặc quản trị viên của bạn cung cấp. Nếu bạn chọn một APN thì mọi APN tuỳ chỉnh sẽ bị tắt. APN không hợp lệ có thể làm gián đoạn kết nối di động. <ph name="LINK_BEGIN" />Tìm hiểu thêm<ph name="LINK_END" /></translation>
 <translation id="160633243685262989">Xem trước hình ảnh</translation>
@@ -178,7 +183,6 @@
 <translation id="1827738518074806965">Phòng tranh</translation>
 <translation id="1836553715834333258">Màu hệ thống</translation>
 <translation id="183675228220305365">chủ nghĩa hiện thực</translation>
-<translation id="1837537071599385610">Hướng dẫn đặt câu lệnh</translation>
 <translation id="1838374766361614909">Xóa tìm kiếm</translation>
 <translation id="1840474674287087346">Màu màn hình</translation>
 <translation id="184095011128924488">sáng tạo</translation>
@@ -339,7 +343,6 @@
 <translation id="2645380101799517405">Chế độ điều khiển</translation>
 <translation id="2652403576514495859">bật/tắt tính năng nhập bằng giọng nói</translation>
 <translation id="2653659639078652383">Gửi</translation>
-<translation id="2653807227758181366">Mô tả hình nền mà bạn muốn tạo hoặc dùng câu lệnh mẫu</translation>
 <translation id="2654647726140493436">Vui lòng không tắt <ph name="DEVICE_TYPE" /> hoặc rút cáp nguồn của <ph name="DEVICE_TYPE" /> ra trong lúc quá trình cập nhật đang diễn ra</translation>
 <translation id="2656001153562991489">Dành riêng cho Chromebook Plus</translation>
 <translation id="2665671725390405060">Nghe phát âm</translation>
@@ -358,6 +361,7 @@
 <translation id="2780756493585863768">Nền gần đây được tạo dựa trên công nghệ AI của Google</translation>
 <translation id="2783010256799387990">ĐÃ ĐẠT</translation>
 <translation id="2786429550992142861">vải lanh</translation>
+<translation id="2787237339470862294">Ngôn ngữ này hiện chưa được hỗ trợ</translation>
 <translation id="2787435249130282949">bàn phím sáng hơn</translation>
 <translation id="2805756323405976993">Ứng dụng</translation>
 <translation id="28232023175184696">Không thể kết nối Internet. Hãy nhấp để thử lại.</translation>
@@ -417,9 +421,6 @@
 <translation id="3199982728237701504">Khay nạp tài liệu (2 mặt)</translation>
 <translation id="3201315366910775591">Người khác có thể cập nhật album chia sẻ</translation>
 <translation id="3211671540163313381">Ánh xạ phím cho d-pad</translation>
-<translation id="3224812403568276799">Khi được bạn cho phép, ứng dụng Máy ghi âm sẽ dùng tính năng phân tích âm thanh nâng cao để tự động phát hiện các giọng nói khác nhau và gắn nhãn chung cho từng giọng nói, chẳng hạn như Người nói 1 và Người nói 2.
-
-Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài đặt.</translation>
 <translation id="3226405216343213872">Đang tìm máy quét</translation>
 <translation id="3226657629376379887">Trình đơn thao tác của bố cục</translation>
 <translation id="3227186760713762082">Lấy giá trị <ph name="CATEGORY_TEXT" /> chia cho <ph name="CONVERSION_RATE" /></translation>
@@ -508,6 +509,7 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="3708186454126126312">Đã kết nối trước đây</translation>
 <translation id="3715651196924935218">Thoát khỏi trạng thái nổi</translation>
 <translation id="3716250181321371108">Tạo chế độ điều khiển</translation>
+<translation id="3716830479327464973">Khi bạn cho phép tính năng này, ứng dụng Máy ghi âm sẽ phân tích bản ghi âm của bạn để:</translation>
 <translation id="3740976234706877572"><ph name="AVERAGE_SCORE" /> ★ (<ph name="AGGREGATED_COUNT" /> bài đánh giá)</translation>
 <translation id="3748026146096797577">Chưa được kết nối</translation>
 <translation id="3749289110408117711">Tên tệp</translation>
@@ -534,6 +536,7 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="3869314628814282185">vải tuyn</translation>
 <translation id="387301095347517405">Số lần pin của bạn được sạc đầy</translation>
 <translation id="3877066159641251281">Nghe bản dịch</translation>
+<translation id="3880601782712134623">Tự động phát hiện các giọng nói khác nhau và gắn nhãn chung chung cho từng người nói, chẳng hạn như Người nói 1 và Người nói 2</translation>
 <translation id="3885327323343477505">Thay đổi trình bảo vệ màn hình</translation>
 <translation id="3889914174935857450">Đặt lại ngày</translation>
 <translation id="3897092660631435901">Menu</translation>
@@ -559,6 +562,7 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="4021031199988160623">Chuyển sang chế độ máy tính xách tay để kiểm tra</translation>
 <translation id="4034824040120875894">Máy in</translation>
 <translation id="4035877632587724847">Không cho phép</translation>
+<translation id="4042658354407913408">Phần tóm tắt đang tắt</translation>
 <translation id="4044093238444069296">Không thể kết nối với cổng vào</translation>
 <translation id="4046123991198612571">Bản nhạc tiếp theo</translation>
 <translation id="404928562651467259">CẢNH BÁO</translation>
@@ -636,6 +640,7 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="4422041425070339732">mũi tên xuống</translation>
 <translation id="4425149324548788773">Drive của tôi</translation>
 <translation id="4428374560396076622"><ph name="NETWORK_NAME" /> đang tắt</translation>
+<translation id="4428840632568803690">Người nói <ph name="SPEAKER_LABEL" /></translation>
 <translation id="4429881212383817840">Vé Kerberos sẽ sớm hết hạn</translation>
 <translation id="4431821876790500265">Xem báo cáo</translation>
 <translation id="4443192710976771874">đỏ</translation>
@@ -668,9 +673,11 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="4562494484721939086">Không có dịch vụ</translation>
 <translation id="4570558255126759859">Bạn muốn tải mô hình Gemini xuống để tóm tắt các bản ghi?</translation>
 <translation id="4573777384450697571">Không thành công – Chứng chỉ đã hết hạn</translation>
+<translation id="4575450106703099687">lựa chọn hỗ trợ tiếp cận</translation>
 <translation id="458794348635939462">Không phân giải được một số máy chủ</translation>
 <translation id="4593212453765072419">Yêu cầu xác thực proxy</translation>
 <translation id="4594021849294327751">Tạo bản chép lời</translation>
+<translation id="4607282946861182308">Không tạo được hình ảnh cho nội dung này. Hãy thử một câu lệnh khác.</translation>
 <translation id="4609350030397390689">Giảm độ sáng đèn bàn phím</translation>
 <translation id="4627232916386272576"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="PRINTED_PAGE_NUMBER" />/<ph name="TOTAL_PAGE_NUMBER" />. Hãy nhấn để hủy lệnh in.</translation>
 <translation id="463791356324567266">Đang hủy quá trình quét...</translation>
@@ -757,6 +764,7 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="5049856988445523908">Đã khóa SIM (<ph name="LOCK_TYPE" />)</translation>
 <translation id="5050042263972837708">Tên nhóm</translation>
 <translation id="5051044138948155788">Đây là trang duy nhất. Thao tác này sẽ đưa bạn đến màn hình bắt đầu quét.</translation>
+<translation id="5078711626843651677">Các mẫu giọng nói sẽ được lưu trữ tạm thời trên thiết bị cho đến khi gắn nhãn người nói xong. Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài đặt.</translation>
 <translation id="5078983345702708852">tối tân</translation>
 <translation id="5087864757604726239">quay lại</translation>
 <translation id="5088172560898466307">Tên máy chủ</translation>
@@ -811,9 +819,11 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="5318334351163689047">Không gửi được yêu cầu TCP</translation>
 <translation id="53196409393069519">Bạn muốn bật tính năng chép lời?</translation>
 <translation id="5326394068492324457"><ph name="DOCUMENT_TITLE" />, <ph name="PRINTER_NAME" />, <ph name="CREATION_TIME" />, <ph name="COMPLETION_STATUS" /></translation>
+<translation id="5327248766486351172">Tên</translation>
 <translation id="5332948983412042822">Chọn ngay một mật khẩu mới</translation>
 <translation id="5333530671332546086">Trạng thái cổng không xác định</translation>
 <translation id="5335373365677455232">hồng</translation>
+<translation id="5344619683981067131">Đang thay thế văn bản đã chọn bằng nội dung gợi ý</translation>
 <translation id="5346687412805619883">Mạng cục bộ</translation>
 <translation id="5358174242040570474">Đã xảy ra lỗi. Hãy thử chọn lại hình nền hoặc mở lại ứng dụng.</translation>
 <translation id="5372659122375744710">Mạng Wi-Fi không bảo mật</translation>
@@ -865,6 +875,7 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="5662240986744577912">bật/tắt màn hình bảo vệ quyền riêng tư</translation>
 <translation id="5669267381087807207">Đang kích hoạt</translation>
 <translation id="5670702108860320605">BSSID</translation>
+<translation id="5674943355143004615">Mô tả hình nền bạn muốn tạo</translation>
 <translation id="5680504961595602662"><ph name="SURREAL_LANDSCAPE" /> huyền ảo có <ph name="SURREAL_SUBJECT" /></translation>
 <translation id="5685478548317291523">quả anh đào</translation>
 <translation id="5691511426247308406">Gia đình</translation>
@@ -875,6 +886,7 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="5707900041990977207"><ph name="CURRENT_PAGE" />/<ph name="TOTAL_PAGES" /></translation>
 <translation id="572854785834323605">Nút chỉnh sửa dành cho <ph name="SHORTCUT_DESCRIPTION" />.</translation>
 <translation id="5733298426544876109">Cập nhật <ph name="DEVICE_NAME" /></translation>
+<translation id="5736820754189340309">Đã đặt lại mức sử dụng dữ liệu</translation>
 <translation id="574392208103952083">Trung bình</translation>
 <translation id="5757187557809630523">bản nhạc tiếp theo</translation>
 <translation id="5760715441271661976">Trạng thái trang xác thực</translation>
@@ -884,6 +896,7 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="57838592816432529">Tắt tiếng</translation>
 <translation id="5784136236926853061">Yêu cầu HTTP có độ trễ cao</translation>
 <translation id="5790391387506209808">ngọc lưu ly</translation>
+<translation id="5810692306010756935">Chuyển đổi</translation>
 <translation id="5816802250591013230">Chưa chỉ định phím tắt nào</translation>
 <translation id="5826644637650799838">Giới thiệu về hình nền</translation>
 <translation id="5832805196449965646">Thêm người</translation>
@@ -972,7 +985,6 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="6231648282154119906">Vì bạn đã chọn cấp độ bảo vệ nâng cao nên tính năng Duyệt web An toàn của Google sẽ tự động quét các tệp đáng ngờ</translation>
 <translation id="6232017090690406397">Pin</translation>
 <translation id="6234024205316847054">Hiển thị các điểm chính</translation>
-<translation id="6235460611964961764">Đặt lại mức sử dụng dữ liệu theo cách thủ công</translation>
 <translation id="6243280677745499710">Hiện đã được đặt</translation>
 <translation id="6250316632541035980">thịt xông khói và trứng</translation>
 <translation id="6265268291107409527">Phím được chọn là <ph name="KEYS" />. <ph name="ASSIGN_INSTRUCTION" /></translation>
@@ -1097,7 +1109,9 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="6798678288485555829">Điều hướng văn bản</translation>
 <translation id="680983167891198932">Khóa</translation>
 <translation id="6816797338148849397">Có thông tin liên quan đến nội dung bạn chọn. Sử dụng phím Mũi tên lên để truy cập.</translation>
+<translation id="6831043979455480757">Dịch</translation>
 <translation id="6853312040151791195">Tốc độ xả pin</translation>
+<translation id="6862416241246624313">Đã gửi phản hồi</translation>
 <translation id="6866732840889595464">hoa cúc</translation>
 <translation id="6871256179359663621">tím nhạt</translation>
 <translation id="6889786074662672253">Khi đang khởi động lại, đừng rút thiết bị bên ngoài này ra hay tắt máy tính. Bạn có thể thu nhỏ cửa sổ này. Quá trình này có thể mất vài phút và thiết bị bên ngoài của bạn có thể không hoạt động được trong thời gian này.</translation>
@@ -1106,7 +1120,9 @@ Bạn có thể tắt lựa chọn này bất cứ lúc nào trong phần Cài �
 <translation id="6905163627763043954">Dùng thử</translation>
 <translation id="6905724422583748843">Quay lại <ph name="PAGE_NAME" /></translation>
 <translation id="6910312834584889076">Nắp của máy quét đang mở. Hãy đóng nắp máy quét rồi thử lại.</translation>
+<translation id="6910845598686542904">Tính toán các mẫu giọng nói được phát hiện trong bản ghi âm</translation>
 <translation id="6911383237894364323">Không thể kết nối với máy chủ phương tiện</translation>
+<translation id="6930242544192836755">Thời lượng</translation>
 <translation id="6930597342185648547">Thông tin về nền</translation>
 <translation id="6939667434404433010">Tìm tên bản ghi âm</translation>
 <translation id="6939766318048400022">Quán cà phê</translation>
@@ -1289,6 +1305,7 @@ Hãy tải mô hình chép lời xuống (tối đa 100 MB) để nhận các b�
 <translation id="7802764839223122985">Thiếu phím. <ph name="REASSIGN_INSTRUCTION" /></translation>
 <translation id="780301667611848630">Không, cảm ơn</translation>
 <translation id="7805768142964895445">Trạng thái</translation>
+<translation id="7811024689617730980">Chọn ngày tự động đặt lại trong khoảng từ ngày 1 đến ngày 31, bao gồm cả hai ngày này</translation>
 <translation id="7813073042185856802">ngọn núi</translation>
 <translation id="7819857487979277519">PSK (WPA hoặc RSN)</translation>
 <translation id="7824219488248240180">trường phái hậu ấn tượng</translation>
@@ -1327,6 +1344,7 @@ Hãy tải mô hình chép lời xuống (tối đa 100 MB) để nhận các b�
 <translation id="8004582292198964060">Trình duyệt</translation>
 <translation id="8017679124341497925">Đã chỉnh sửa phím tắt</translation>
 <translation id="802154636333426148">Tải xuống không thành công</translation>
+<translation id="8028993641010258682">Kích thước</translation>
 <translation id="8031884997696620457">HSPAPlus</translation>
 <translation id="80398733265834479">Bật chế độ màu tự động</translation>
 <translation id="8041089156583427627">Gửi ý kiến phản hồi</translation>
@@ -1363,6 +1381,7 @@ Hãy tải mô hình chép lời xuống (tối đa 100 MB) để nhận các b�
 <translation id="8208861521865154048">Đặc quyền</translation>
 <translation id="8226628635270268143">Chọn ảnh và album bạn yêu thích</translation>
 <translation id="8227119283605456246">Đính kèm tệp</translation>
+<translation id="8227488649450500937">Hãy dùng thử một trong các câu lệnh sau hoặc xem <ph name="BEGIN_LINK_PROMPTING_GUIDE" />hướng dẫn viết câu lệnh<ph name="END_LINK_PROMPTING_GUIDE" /></translation>
 <translation id="8230672074305416752">Không ping được cổng của mạng mặc định</translation>
 <translation id="8238771987802558562">Chọn một APN</translation>
 <translation id="8246209727385807362">Nhà cung cấp dịch vụ không xác định</translation>
@@ -1538,6 +1557,7 @@ Hãy tải mô hình chép lời xuống (tối đa 100 MB) để nhận các b�
 <translation id="9087578468327036362">Báo lỗi truy vấn này</translation>
 <translation id="9088306295921699330">Mức sử dụng hiện tại</translation>
 <translation id="9095775724867566971">PluginVm</translation>
+<translation id="909856219855259344">Thông tin khác về nút Đặt lại ngày</translation>
 <translation id="9100765901046053179">Cài đặt nâng cao</translation>
 <translation id="910415269708673980">Làm mới phiếu cho <ph name="PRINCIPAL_NAME" /></translation>
 <translation id="9106415115617144481">Đang quét trang <ph name="PAGE_NUMBER" /></translation>
@@ -1568,6 +1588,7 @@ Hãy tải mô hình chép lời xuống (tối đa 100 MB) để nhận các b�
 <translation id="939519157834106403">SSID</translation>
 <translation id="945522503751344254">Gửi phản hồi</translation>
 <translation id="950520315903467048">Thiếu phím cho <ph name="DIRECTION" />. <ph name="ASSIGN_INSTRUCTION" /></translation>
+<translation id="951780398843003443">So sánh các giọng nói trong suốt quá trình ghi âm để bản chép lời phản ánh nội dung và thời điểm nói của người nói</translation>
 <translation id="952992212772159698">Chưa được kích hoạt</translation>
 <translation id="95718197892796296">đất sét</translation>
 <translation id="960719561871045870">Mã của nhà mạng</translation>

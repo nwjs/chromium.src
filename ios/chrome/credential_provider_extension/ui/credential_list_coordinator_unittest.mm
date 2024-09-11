@@ -26,6 +26,7 @@ NSData* StringToData(std::string str) {
 
 ArchivableCredential* TestPasswordCredential() {
   return [[ArchivableCredential alloc] initWithFavicon:nil
+                                                  gaia:nil
                                               password:@"qwerty123"
                                                   rank:1
                                       recordIdentifier:@"recordIdentifier"
@@ -38,6 +39,7 @@ ArchivableCredential* TestPasswordCredential() {
 ArchivableCredential* TestPasskeyCredential() {
   return
       [[ArchivableCredential alloc] initWithFavicon:@"favicon"
+                                               gaia:nil
                                    recordIdentifier:@"recordIdentifier"
                                              syncId:StringToData("syncId")
                                            username:@"username"
@@ -47,7 +49,8 @@ ArchivableCredential* TestPasskeyCredential() {
                                                rpId:@"rpId"
                                          privateKey:StringToData("privateKey")
                                           encrypted:StringToData("encrypted")
-                                       creationTime:kJan1st2024];
+                                       creationTime:kJan1st2024
+                                       lastUsedTime:kJan1st2024];
 }
 
 }  // namespace

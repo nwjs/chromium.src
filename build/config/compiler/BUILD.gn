@@ -216,7 +216,9 @@ if (is_android) {
   declare_args() {
     chrome_orderfile_path = ""
 
-    if (defined(default_chrome_orderfile)) {
+    # The default orderfile should not be used when generating a new PGO
+    # profile (chrome_pgo_phase == 1) to avoid affecting profiling.
+    if (defined(default_chrome_orderfile) && chrome_pgo_phase != 1) {
       # Allow downstream tools to set orderfile path with
       # another variable.
       chrome_orderfile_path = default_chrome_orderfile
@@ -933,6 +935,19 @@ config("compiler") {
         "MLGO is currently only supported for targeting Android on a linux host")
     if (use_thin_lto) {
       ldflags += [ "-Wl,-mllvm,-enable-ml-inliner=release" ]
+      if (is_high_end_android) {
+        # Besides using the arm64 - trained model, instruct the inline advisor
+        # to not use the ML policy (which will aim to reduce size) for any
+        # callsites where the caller is not cold. This avoids performance
+        # regressions while still bringing size benefits.
+        # Profile quality is essential here.
+        ldflags += [
+          "-Wl,-mllvm,-ml-inliner-model-selector=arm64-mixed",
+          "-Wl,-mllvm,-ml-inliner-skip-policy=if-caller-not-cold",
+        ]
+      } else {
+        ldflags += [ "-Wl,-mllvm,-ml-inliner-model-selector=arm32-size" ]
+      }
     }
   }
 
@@ -1721,7 +1736,7 @@ config("runtime_library") {
   # the C++ symbols. This config ensures the C++ symbols exist and are strong in
   # order to cause that replacement to occur by explicitly linking in clang's
   # compiler-rt library.
-  if (is_clang && toolchain_has_rust) {
+  if (is_clang && !is_nacl && !is_cronet_build) {
     configs += [ "//build/config/clang:compiler_builtins" ]
   }
 
@@ -1934,9 +1949,6 @@ config("default_warnings") {
         # TODO(crbug.com/330524456): -Wcast-function-type is under -Wextra now.
         "-Wno-cast-function-type",
 
-        # TODO(crbug.com/40231599) Evaluate and possibly enable.
-        "-Wno-deprecated-builtins",
-
         # TODO(crbug.com/40255410) Evaluate and possibly enable.
         "-Wno-deprecated-this-capture",
 
@@ -1963,6 +1975,9 @@ config("default_warnings") {
 
         # TODO(crbug.com/344680447): Fix and re-enable.
         cflags_cc += [ "-Wno-missing-template-arg-list-after-template-kw" ]
+
+        # TODO(crbug.com/356172342): Fix and re-enable.
+        cflags_cc += [ "-Wno-dangling-assignment-gsl" ]
       }
     }
 
@@ -1979,8 +1994,13 @@ config("default_warnings") {
   }
 
   # TODO(crbug.com/354162568): Clean up and enable.
-  if (llvm_force_head_revision && is_apple && use_lld) {
+  if (is_apple && use_lld) {
     ldflags += [ "-Wl,--no-warn-duplicate-rpath" ]
+  }
+
+  # TODO(crbug.com/355446806): Clean up and enable.
+  if (is_apple) {
+    ldflags += [ "-Wl,-no_warn_duplicate_libraries" ]
   }
 
   # Rust warnings
@@ -2494,10 +2514,13 @@ config("optimize") {
       cflags = [ "-Os" ] + common_optimize_on_cflags
     }
 
-    if (is_clang && use_ml_inliner && is_a_target_toolchain && !is_chromeos) {
+    if (is_clang && use_ml_inliner && is_a_target_toolchain && !is_chromeos &&
+        !is_high_end_android) {
       cflags += [
         "-mllvm",
         "-enable-ml-inliner=release",
+        "-mllvm",
+        "-ml-inliner-model-selector=arm32-size",
       ]
     }
 

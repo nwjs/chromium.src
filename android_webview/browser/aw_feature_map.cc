@@ -11,6 +11,7 @@
 #include "base/no_destructor.h"
 #include "components/embedder_support/android/metrics/features.h"
 #include "components/safe_browsing/core/common/features.h"
+#include "components/viz/common/features.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "android_webview/browser_jni_headers/AwFeatureMap_jni.h"
@@ -27,6 +28,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewDisplayCutout,
     &features::kWebViewDragDropFiles,
     &features::kWebViewExitReasonMetric,
+    &::features::kWebViewFrameRateHints,
     &features::kWebViewInvokeZoomPickerOnGSU,
     &features::kWebViewMixedContentAutoupgrades,
     &features::kWebViewTestFeature,
@@ -51,6 +53,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewPreloadClasses,
     &features::kWebViewDoNotSendAccessibilityEventsOnGSU,
     &features::kWebViewHyperlinkContextMenu,
+    &base::features::kPostGetMyMemoryStateToBackground,
 };
 
 // static

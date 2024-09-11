@@ -5,6 +5,7 @@
 #include "services/webnn/webnn_test_utils.h"
 
 #include "base/check_is_test.h"
+#include "services/webnn/webnn_context_impl.h"
 
 namespace webnn {
 
@@ -70,13 +71,13 @@ uint64_t GraphInfoBuilder::BuildOutput(const std::string& name,
 void GraphInfoBuilder::BuildArgMinMax(mojom::ArgMinMax::Kind kind,
                                       uint64_t input_operand_id,
                                       uint64_t output_operand_id,
-                                      std::vector<uint32_t> axes,
+                                      uint32_t axis,
                                       bool keep_dimensions) {
   mojom::ArgMinMaxPtr arg_min_max = mojom::ArgMinMax::New();
   arg_min_max->kind = kind;
   arg_min_max->input_operand_id = input_operand_id;
   arg_min_max->output_operand_id = output_operand_id;
-  arg_min_max->axes = axes;
+  arg_min_max->axis = axis;
   arg_min_max->keep_dimensions = keep_dimensions;
   graph_info_->operations.push_back(
       mojom::Operation::NewArgMinMax(std::move(arg_min_max)));
@@ -204,7 +205,7 @@ void GraphInfoBuilder::BuildElementWiseBinary(
 void GraphInfoBuilder::BuildExpand(uint64_t input_operand_id,
                                    uint64_t output_operand_id) {
   graph_info_->operations.push_back(mojom::Operation::NewExpand(
-      mojom::Expand::New(input_operand_id, output_operand_id)));
+      mojom::Expand::New(input_operand_id, output_operand_id, "")));
 }
 
 void GraphInfoBuilder::BuildMatmul(uint64_t a_operand_id,
@@ -244,7 +245,8 @@ void GraphInfoBuilder::BuildGather(uint64_t input_operand_id,
 
 void GraphInfoBuilder::BuildGelu(uint64_t input_operand_id,
                                  uint64_t output_operand_id) {
-  mojom::GeluPtr gelu = mojom::Gelu::New(input_operand_id, output_operand_id);
+  mojom::GeluPtr gelu =
+      mojom::Gelu::New(input_operand_id, output_operand_id, "");
   graph_info_->operations.push_back(mojom::Operation::NewGelu(std::move(gelu)));
 }
 
@@ -330,14 +332,14 @@ void GraphInfoBuilder::BuildSoftmax(uint64_t input_operand_id,
                                     uint64_t output_operand_id,
                                     uint32_t axis) {
   mojom::SoftmaxPtr softmax =
-      mojom::Softmax::New(input_operand_id, output_operand_id, axis);
+      mojom::Softmax::New(input_operand_id, output_operand_id, axis, "");
   graph_info_->operations.push_back(
       mojom::Operation::NewSoftmax(std::move(softmax)));
 }
 
 void GraphInfoBuilder::BuildSoftplus(uint64_t input_operand_id,
                                      uint64_t output_operand_id) {
-  auto softplus = mojom::Softplus::New(input_operand_id, output_operand_id);
+  auto softplus = mojom::Softplus::New(input_operand_id, output_operand_id, "");
   graph_info_->operations.push_back(
       mojom::Operation::NewSoftplus(std::move(softplus)));
 }
@@ -375,7 +377,7 @@ void GraphInfoBuilder::BuildTriangular(uint64_t input_operand_id,
                                        bool upper,
                                        int32_t diagonal) {
   mojom::TriangularPtr triangular = mojom::Triangular::New(
-      input_operand_id, output_operand_id, upper, diagonal);
+      input_operand_id, output_operand_id, upper, diagonal, "");
   graph_info_->operations.push_back(
       mojom::Operation::NewTriangular(std::move(triangular)));
 }
@@ -430,6 +432,62 @@ mojom::GraphInfoPtr GraphInfoBuilder::CloneGraphInfo() const {
         constant_buffer.Clone();
   }
   return cloned_graph_info;
+}
+
+mojom::GraphInfoPtr GraphInfoBuilder::TakeGraphInfo() {
+  return std::move(graph_info_);
+}
+
+ContextProperties GetContextPropertiesForTesting() {
+  return WebNNContextImpl::IntersectWithBaseProperties(
+      ContextProperties(InputOperandLayout::kNchw,
+                        {/*input=*/SupportedDataTypes::All(),
+                         /*constant=*/SupportedDataTypes::All(),
+                         /*arg_min_max_input=*/SupportedDataTypes::All(),
+                         /*arg_min_max_output=*/
+                         {OperandDataType::kInt32, OperandDataType::kInt64},
+                         /*concat_inputs=*/SupportedDataTypes::All(),
+                         /*add_input=*/SupportedDataTypes::All(),
+                         /*sub_input=*/SupportedDataTypes::All(),
+                         /*mul_input=*/SupportedDataTypes::All(),
+                         /*div_input=*/SupportedDataTypes::All(),
+                         /*max_input=*/SupportedDataTypes::All(),
+                         /*min_input=*/SupportedDataTypes::All(),
+                         /*pow_input=*/SupportedDataTypes::All(),
+                         /*equal_input=*/SupportedDataTypes::All(),
+                         /*greater_input=*/SupportedDataTypes::All(),
+                         /*greater_or_equal_input=*/SupportedDataTypes::All(),
+                         /*lesser_input=*/SupportedDataTypes::All(),
+                         /*lesser_or_equal_input=*/SupportedDataTypes::All(),
+                         /*logical_not_input=*/SupportedDataTypes::All(),
+                         /*logical_output=*/SupportedDataTypes::All(),
+                         /*abs_input=*/SupportedDataTypes::All(),
+                         /*ceil_input=*/SupportedDataTypes::All(),
+                         /*cos_input=*/SupportedDataTypes::All(),
+                         /*erf_input=*/SupportedDataTypes::All(),
+                         /*exp_input=*/SupportedDataTypes::All(),
+                         /*floor_input=*/SupportedDataTypes::All(),
+                         /*identity_input=*/SupportedDataTypes::All(),
+                         /*log_input=*/SupportedDataTypes::All(),
+                         /*neg_input=*/SupportedDataTypes::All(),
+                         /*reciprocal_input=*/SupportedDataTypes::All(),
+                         /*sin_input=*/SupportedDataTypes::All(),
+                         /*sqrt_input=*/SupportedDataTypes::All(),
+                         /*tan_input=*/SupportedDataTypes::All(),
+                         /*elu_input=*/SupportedDataTypes::All(),
+                         /*gather_input=*/SupportedDataTypes::All(),
+                         /*gather_indices=*/SupportedDataTypes::All(),
+                         /*gelu_input=*/SupportedDataTypes::All(),
+                         /*leaky_relu_input=*/SupportedDataTypes::All(),
+                         /*relu_input=*/SupportedDataTypes::All(),
+                         /*sigmoid_input=*/SupportedDataTypes::All(),
+                         /*slice_input=*/SupportedDataTypes::All(),
+                         /*softmax_input=*/SupportedDataTypes::All(),
+                         /*softplus_input=*/SupportedDataTypes::All(),
+                         /*softsign_input=*/SupportedDataTypes::All(),
+                         /*split_input=*/SupportedDataTypes::All(),
+                         /*where_condition=*/SupportedDataTypes::All(),
+                         /*where_value=*/SupportedDataTypes::All()}));
 }
 
 }  // namespace webnn

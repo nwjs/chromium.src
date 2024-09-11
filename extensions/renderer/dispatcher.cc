@@ -24,6 +24,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/lazy_instance.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -90,6 +91,7 @@
 #include "gin/converter.h"
 #include "services/network/public/mojom/cors.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url_request.h"
@@ -149,6 +151,16 @@ namespace {
 
 static const char kOnSuspendEvent[] = "runtime.onSuspend";
 static const char kOnSuspendCanceledEvent[] = "runtime.onSuspendCanceled";
+
+enum class ExtensionRendererLoadStatus {
+  // Extension is neither loaded in the registry nor unloaded.
+  kUnknownExtension = 0,
+  // Extension is loaded in the registry.
+  kExtensionLoaded = 1,
+  // Extension was loaded in the registry, but was unloaded.
+  kExtensionUnloaded = 2,
+  kMaxValue = kExtensionUnloaded,
+};
 
 // Returns whether or not extension APIs are allowed for the specified
 // `script_url` and `scope`. The script must be specified in the extension's
@@ -542,7 +554,8 @@ void Dispatcher::WillEvaluateServiceWorkerOnWorkerThread(
     v8::Local<v8::Context> v8_context,
     int64_t service_worker_version_id,
     const GURL& service_worker_scope,
-    const GURL& script_url) {
+    const GURL& script_url,
+    const blink::ServiceWorkerToken& service_worker_token) {
   const base::TimeTicks start_time = base::TimeTicks::Now();
 
   // TODO(crbug.com/40626913): We may want to give service workers not
@@ -558,6 +571,19 @@ void Dispatcher::WillEvaluateServiceWorkerOnWorkerThread(
 
   const Extension* extension =
       RendererExtensionRegistry::Get()->GetExtensionOrAppByURL(script_url);
+
+  ExtensionRendererLoadStatus load_status =
+      ExtensionRendererLoadStatus::kUnknownExtension;
+  if (extension) {
+    load_status = ExtensionRendererLoadStatus::kExtensionLoaded;
+  } else if (base::Contains(unloaded_extensions_, script_url.host())) {
+    // script_url.host() is the extension's ID.
+    load_status = ExtensionRendererLoadStatus::kExtensionUnloaded;
+  }
+  base::UmaHistogramEnumeration(
+      "Extensions.ServiceWorkerRenderer."
+      "ExtensionLoadStatusInWorkerScriptEvaluation",
+      load_status);
 
   if (!extension) {
     // TODO(kalman): This is no good. Instead we need to either:
@@ -615,7 +641,8 @@ void Dispatcher::WillEvaluateServiceWorkerOnWorkerThread(
   CHECK(worker_activation_token.has_value());
   worker_dispatcher->AddWorkerData(
       context_proxy, service_worker_version_id, worker_activation_token,
-      context, CreateBindingsSystem(worker_dispatcher, std::move(ipc_sender)));
+      service_worker_token, context,
+      CreateBindingsSystem(worker_dispatcher, std::move(ipc_sender)));
 
   // TODO(lazyboy): Make sure accessing |source_map_| in worker thread is
   // safe.
@@ -956,20 +983,13 @@ void Dispatcher::LoadExtensions(
 
     RendererExtensionRegistry* extension_registry =
         RendererExtensionRegistry::Get();
-    // TODO(kalman): This test is deliberately not a CHECK (though I wish it
-    // could be) and uses extension->id() not params.id:
-    // 1. For some reason params.id can be empty. I've only seen it with
-    //    the webstore extension, in tests, and I've spent some time trying to
-    //    figure out why - but cost/benefit won.
-    // 2. The browser only sends this IPC to RenderProcessHosts once, but the
-    //    Dispatcher is attached to a RenderThread. Presumably there is a
-    //    mismatch there. In theory one would think it's possible for the
-    //    browser to figure this out itself - but again, cost/benefit.
-    if (!extension_registry->Insert(extension)) {
-      // TODO(devlin): This may be fixed by crbug.com/528026. Monitor, and
-      // consider making this a release CHECK.
-      NOTREACHED_IN_MIGRATION();
-    }
+    // TODO(jlulejian): This is deliberately a CHECK because other parts of the
+    // renderer assume that an extension has been loaded (e.g. specifically
+    // worker script evaluation process). If this fails, other CHECK()s and
+    // logic will fail too.
+    CHECK(extension_registry->Insert(extension));
+
+    unloaded_extensions_.erase(extension->id());
 
     if (worker_activation_token.has_value()) {
       extension_registry->SetWorkerActivationToken(
@@ -1035,6 +1055,8 @@ void Dispatcher::UnloadExtension(const ExtensionId& extension_id) {
     NOTREACHED_IN_MIGRATION();
     return;
   }
+
+  unloaded_extensions_.insert(extension_id);
 
   ExtensionsRendererClient::Get()->OnExtensionUnloaded(extension_id);
 

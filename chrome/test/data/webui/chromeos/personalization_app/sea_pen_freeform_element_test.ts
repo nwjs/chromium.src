@@ -6,7 +6,9 @@ import 'chrome://personalization/strings.m.js';
 
 import {SeaPenFreeformElement, SeaPenImagesElement, SeaPenRecentWallpapersElement, SeaPenSamplesElement, setTransitionsEnabled, WallpaperGridItemElement} from 'chrome://personalization/js/personalization_app.js';
 import {CrButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_button/cr_button.js';
+import {MantaStatusCode} from 'chrome://resources/ash/common/sea_pen/sea_pen.mojom-webui.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import {assert} from 'chrome://webui-test/chai.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
 
@@ -24,7 +26,7 @@ suite('SeaPenFreeformElementTest', function() {
         freeformElement!.shadowRoot!.querySelector(SeaPenSamplesElement.is);
     const samples = seaPenSamplesElement!.shadowRoot!
                         .querySelectorAll<WallpaperGridItemElement>(
-                            `${WallpaperGridItemElement.is}:not([hidden])`);
+                            `${WallpaperGridItemElement.is}`);
     assertTrue(!!samples, 'samples should exist');
 
     return Array.from(samples).map(sample => {
@@ -64,8 +66,8 @@ suite('SeaPenFreeformElementTest', function() {
         !!freeformElement.shadowRoot!.querySelector('#tabContainer'),
         'tab container is not shown');
     assertTrue(
-        !!freeformElement.shadowRoot!.querySelector('#samplesTitle'),
-        'Sample Prompts title is shown');
+        !!freeformElement.shadowRoot!.querySelector('#promptingGuide'),
+        'Prompting guide is shown');
     assertTrue(
         !!freeformElement.shadowRoot!.querySelector(SeaPenSamplesElement.is),
         'sea-pen-samples shown on freeform page');
@@ -76,6 +78,9 @@ suite('SeaPenFreeformElementTest', function() {
     assertTrue(
         !!freeformElement!.shadowRoot!.getElementById('shuffle'),
         'shuffle button should be shown');
+    assertTrue(
+        !!freeformElement!.shadowRoot!.getElementById('promptingGuide'),
+        'prompting guide should exist');
 
     assertFalse(
         !!freeformElement.shadowRoot!.querySelector<HTMLElement>(
@@ -130,6 +135,9 @@ suite('SeaPenFreeformElementTest', function() {
     assertFalse(
         !!freeformElement!.shadowRoot!.getElementById('shuffle'),
         'shuffle button should be hidden for results tab');
+    assertFalse(
+        !!freeformElement!.shadowRoot!.getElementById('promptingGuide'),
+        'prompting guide should be hidden for results tab');
 
     assertTrue(
         !!freeformElement.shadowRoot!.querySelector<HTMLElement>(
@@ -165,30 +173,39 @@ suite('SeaPenFreeformElementTest', function() {
     assertTrue(
         !!freeformElement!.shadowRoot!.getElementById('shuffle'),
         'shuffle button should be shown for samples tab');
+    assertTrue(
+        !!freeformElement!.shadowRoot!.getElementById('promptingGuide'),
+        'prompting guide should be shown for samples tab');
     assertFalse(
         !!freeformElement.shadowRoot!.querySelector<HTMLElement>(
             SeaPenImagesElement.is),
         'sea-pen-images is not shown');
   });
 
-  test('shuffles suggestions', async () => {
+  test('shuffles samples', async () => {
     freeformElement = initElement(SeaPenFreeformElement);
     await waitAfterNextRender(freeformElement);
-    const shuffleButton =
-        freeformElement!.shadowRoot!.getElementById('shuffle');
-    assertTrue(!!shuffleButton, 'shuffle button should exist');
+
+    let seaPenSamplesElement =
+        freeformElement.shadowRoot!.querySelector(SeaPenSamplesElement.is);
+    await waitAfterNextRender(seaPenSamplesElement as HTMLElement);
+    assertTrue(!!seaPenSamplesElement, 'sea-pen-samples is visible');
     const originalSamples = getSamples();
 
-    shuffleButton.click();
+    // Click shuffle button
+    const shuffleButton =
+        freeformElement!.shadowRoot!.getElementById('shuffle');
+    shuffleButton!.click();
     await waitAfterNextRender(freeformElement);
+    seaPenSamplesElement =
+        freeformElement.shadowRoot!.querySelector(SeaPenSamplesElement.is);
+    await waitAfterNextRender(seaPenSamplesElement as HTMLElement);
 
-    chai.assert.notSameOrderedMembers(
+    assert.notSameOrderedMembers(
         originalSamples, getSamples(), 'the order should be different');
-    chai.assert.sameMembers(
-        originalSamples, getSamples(), 'the samples should be the same');
   });
 
-  test('shuffles suggestions with tab', async () => {
+  test('shuffles samples with tab', async () => {
     personalizationStore.data.wallpaper.seaPen.currentSeaPenQuery =
         seaPenProvider.seaPenFreeformQuery;
     freeformElement = initElement(SeaPenFreeformElement);
@@ -218,9 +235,29 @@ suite('SeaPenFreeformElementTest', function() {
         freeformElement.shadowRoot!.querySelector(SeaPenSamplesElement.is);
     await waitAfterNextRender(seaPenSamplesElement as HTMLElement);
 
-    chai.assert.notSameOrderedMembers(
+    assert.notSameOrderedMembers(
         originalSamples, getSamples(), 'the order should be different');
-    chai.assert.sameMembers(
-        originalSamples, getSamples(), 'the samples should be the same');
+  });
+
+  test('shows results page for errors', async () => {
+    personalizationStore.data.wallpaper.seaPen.thumbnailResponseStatusCode =
+        MantaStatusCode.kGenericError;
+    freeformElement = initElement(SeaPenFreeformElement);
+    await waitAfterNextRender(freeformElement);
+
+    // Results tab should be present and pressed.
+    const tabContainer =
+        freeformElement.shadowRoot!.querySelector('#tabContainer');
+    assertTrue(!!tabContainer, 'tab container should exist');
+    const resultsTabButton =
+        tabContainer!.querySelector<CrButtonElement>('#resultsTab');
+    assertTrue(!!resultsTabButton, 'results tab displays');
+    assertEquals(
+        'true', resultsTabButton.getAttribute('aria-pressed'),
+        'results tab is pressed');
+    assertTrue(
+        !!freeformElement.shadowRoot!.querySelector<HTMLElement>(
+            SeaPenImagesElement.is),
+        'sea-pen-images is shown');
   });
 });

@@ -44,6 +44,7 @@
 #include "components/autofill/core/browser/browser_autofill_manager_test_api.h"
 #include "components/autofill/core/browser/crowdsourcing/mock_autofill_crowdsourcing_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -56,6 +57,7 @@
 #include "components/autofill/core/browser/mock_autofill_compose_delegate.h"
 #include "components/autofill/core/browser/mock_autofill_optimization_guide.h"
 #include "components/autofill/core/browser/mock_autofill_plus_address_delegate.h"
+#include "components/autofill/core/browser/mock_autofill_prediction_improvements_delegate.h"
 #include "components/autofill/core/browser/mock_single_field_form_fill_router.h"
 #include "components/autofill/core/browser/payments/credit_card_cvc_authenticator.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -66,6 +68,7 @@
 #include "components/autofill/core/browser/payments_suggestion_generator.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/profile_token_quality.h"
+#include "components/autofill/core/browser/profile_token_quality_test_api.h"
 #include "components/autofill/core/browser/strike_databases/payments/test_credit_card_save_strike_database.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_clock.h"
@@ -351,7 +354,7 @@ Suggestion GetCardSuggestion(const std::string& network,
     last_four = "0005";
     expiration_date = "04/10";
   } else {
-    NOTREACHED_NORETURN();
+    NOTREACHED();
   }
   return GenerateSuggestionFromCardDetails(network, icon, last_four,
                                            expiration_date, nickname, type);
@@ -553,6 +556,10 @@ class MockAutofillClient : public TestAutofillClient {
               (),
               (override));
   MOCK_METHOD(void, NotifyAutofillManualFallbackUsed, (), (override));
+  MOCK_METHOD(AutofillPredictionImprovementsDelegate*,
+              GetAutofillPredictionImprovementsDelegate,
+              (),
+              (override));
 };
 
 class MockTouchToFillDelegate : public TouchToFillDelegate {
@@ -864,7 +871,7 @@ class BrowserAutofillManagerTest : public testing::Test {
     // Mandatory re-auth is required for credit card autofill on automotive, so
     // the authenticator response needs to be properly mocked.
 #if BUILDFLAG(IS_ANDROID)
-    autofill_client_.SetUpDeviceBiometricAuthenticatorSuccessOnAutomotive();
+    payments_client().SetUpDeviceBiometricAuthenticatorSuccessOnAutomotive();
 #endif
   }
 
@@ -1558,7 +1565,7 @@ TEST_F(BrowserAutofillManagerTest,
 
   auto simulate_user_ignored_suggestions = [&](const FormData& form,
                                                const FormFieldData& field) {
-    browser_autofill_manager_->Reset();
+    test_api(*browser_autofill_manager_).Reset();
     browser_autofill_manager_->AddSeenForm(form, {NAME_FIRST, NAME_LAST});
     GetAutofillSuggestions(form, field);
     // This ensures that the field has `did_trigger_suggestion_` set.
@@ -3042,29 +3049,6 @@ TEST_F(BrowserAutofillManagerTest,
   EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
 }
 
-// Tests that BrowserAutofillManager ignores loss of focus events sent from the
-// renderer if the renderer did not have a previously-interacted form.
-// TODO(crbug.com/40726656): Remove this test when workaround is no longer
-// needed.
-TEST_F(BrowserAutofillManagerTest,
-       ShouldIgnoreLossOfFocusWithNoPreviouslyInteractedForm) {
-  FormData form = CreateTestAddressFormData();
-
-  browser_autofill_manager_->UpdatePendingForm(form);
-  ASSERT_TRUE(test_api(*browser_autofill_manager_)
-                  .pending_form_data()
-                  ->SameFormAs(form));
-
-  // Receiving a notification that focus is no longer on the form *without* the
-  // renderer having a previously-interacted form should not result in
-  // any changes to the pending form.
-  browser_autofill_manager_->OnFocusOnNonFormField(
-      /*had_interacted_form=*/false);
-  EXPECT_TRUE(test_api(*browser_autofill_manager_)
-                  .pending_form_data()
-                  ->SameFormAs(form));
-}
-
 TEST_F(BrowserAutofillManagerTest,
        ShouldNotShowCreditCardsSuggestionsIfCreditCardAutofillDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
@@ -3294,7 +3278,7 @@ TEST_P(BrowserAutofillManagerLogAblationTest, TestLogging) {
     FormSubmitted(form);
 
   // Flush FormEventLoggers.
-  browser_autofill_manager_->Reset();
+  test_api(*browser_autofill_manager_).Reset();
 
   // Validate the recorded metrics.
   std::string form_type_str = (form_type == LogAblationFormType::kAddress ||
@@ -3606,7 +3590,7 @@ TEST_F(BrowserAutofillManagerTest, AutocompleteUnrecognizedFields_KeyMetrics) {
     FormSubmitted(form);
 
     base::HistogramTester histogram_tester;
-    browser_autofill_manager_->Reset();
+    test_api(*browser_autofill_manager_).Reset();
     histogram_tester.ExpectTotalCount(
         "Autofill.KeyMetrics.FillingAssistance.Address", 1);
   }
@@ -3619,7 +3603,7 @@ TEST_F(BrowserAutofillManagerTest, AutocompleteUnrecognizedFields_KeyMetrics) {
     FormSubmitted(form);
 
     base::HistogramTester histogram_tester;
-    browser_autofill_manager_->Reset();
+    test_api(*browser_autofill_manager_).Reset();
     histogram_tester.ExpectTotalCount(
         "Autofill.KeyMetrics.FillingAssistance.Address", 0);
   }
@@ -4291,8 +4275,7 @@ TEST_F(BrowserAutofillManagerWithLogEventsTest, LogEventsAtRefillForm) {
       expected_events.push_back(FillFieldLogEvent{
           .fill_event_id = trigger_fill_field_log_event2->fill_event_id,
           .had_value_before_filling = OptionalBoolean::kTrue,
-          .autofill_skipped_status =
-              FieldFillingSkipReason::kAutofilledFieldsNotRefill,
+          .autofill_skipped_status = FieldFillingSkipReason::kAlreadyAutofilled,
           .was_autofilled_before_security_policy = OptionalBoolean::kFalse,
           .had_value_after_filling = OptionalBoolean::kTrue,
           .filling_method = FillingMethod::kNone,
@@ -5114,7 +5097,7 @@ TEST_F(BrowserAutofillManagerTest, OnLoadedServerPredictions_ResetManager) {
   std::string response_string;
   ASSERT_TRUE(response.SerializeToString(&response_string));
   // Reset the manager (such as during a navigation).
-  browser_autofill_manager_->Reset();
+  test_api(*browser_autofill_manager_).Reset();
 
   base::HistogramTester histogram_tester;
   test_api(*browser_autofill_manager_)
@@ -5509,7 +5492,7 @@ TEST_F(BrowserAutofillManagerTest, OnTextFieldDidChangeAndUnfocus_Upload) {
       form, form.fields().front().global_id(), base::TimeTicks::Now());
 
   // Simulate lost of focus on the form.
-  browser_autofill_manager_->OnFocusOnNonFormField(true);
+  browser_autofill_manager_->OnFocusOnNonFormField();
 }
 
 // Test that navigating with a filled form sends an upload with types matching
@@ -5559,7 +5542,7 @@ TEST_F(BrowserAutofillManagerTest, OnTextFieldDidChangeAndNavigation_Upload) {
       form, form.fields().front().global_id(), base::TimeTicks::Now());
 
   // Simulate a navigation so that the pending form is uploaded.
-  browser_autofill_manager_->Reset();
+  test_api(*browser_autofill_manager_).Reset();
 }
 
 // Test that unfocusing a filled form sends an upload with types matching the
@@ -5608,7 +5591,7 @@ TEST_F(BrowserAutofillManagerTest, OnDidFillAutofillFormDataAndUnfocus_Upload) {
                                                        base::TimeTicks::Now());
 
   // Simulate lost of focus on the form.
-  browser_autofill_manager_->OnFocusOnNonFormField(true);
+  browser_autofill_manager_->OnFocusOnNonFormField();
 }
 
 // Test that suggestions are returned for credit card fields with an
@@ -7301,6 +7284,41 @@ TEST_F(BrowserAutofillManagerTest, ComposeSuggestionsAreQueriedForTextareas) {
   external_delegate()->CheckSuggestionCount(form.fields()[0].global_id(), 1);
 }
 
+// Tests that suggestions requested with
+// `AutofillSuggestionTriggerSource::kPredictionImprovements` will be filled
+// automatically (via `FormFiller::FillOrPreviewFields()`).
+TEST_F(BrowserAutofillManagerTest, FillFormWithPredictionImprovements) {
+  FormData form = CreateTestAddressFormData();
+  FormsSeen({form});
+
+  MockAutofillPredictionImprovementsDelegate delegate;
+  ON_CALL(autofill_client_, GetAutofillPredictionImprovementsDelegate)
+      .WillByDefault(Return(&delegate));
+  AutofillPredictionImprovementsDelegate::FillPredictionsCallback fill_callback;
+  EXPECT_CALL(delegate, ExtractImprovedPredictionsForFormFields)
+      .WillOnce(
+          [&](const FormData& form,
+              AutofillPredictionImprovementsDelegate::FillPredictionsCallback
+                  callback) { fill_callback = std::move(callback); });
+
+  GetAutofillSuggestions(
+      form, form.fields().front(),
+      AutofillSuggestionTriggerSource::kPredictionImprovements);
+
+  FormFieldData* field = form.FindFieldByNameForTest(u"firstname");
+  ASSERT_TRUE(field);
+  field->set_value(u"John");
+
+  EXPECT_CALL(*autofill_driver_,
+              ApplyFieldAction(autofill::mojom::FieldActionType::kReplaceAll,
+                               autofill::mojom::ActionPersistence::kFill,
+                               field->global_id(), field->value()));
+  fill_callback.Run(autofill::mojom::ActionPersistence::kFill,
+                    autofill::mojom::FieldActionType::kReplaceAll, form, *field,
+                    field->value(),
+                    autofill::SuggestionType::kAutocompleteEntry, std::nullopt);
+}
+
 // Test param indicates if there is an active screen reader.
 class OnFocusOnFormFieldTest : public BrowserAutofillManagerTest,
                                public testing::WithParamInterface<bool> {
@@ -7803,7 +7821,7 @@ TEST_F(BrowserAutofillManagerVotingTest, DynamicFormSubmission) {
 
   // 2. Simulate removing focus from the form, which triggers a blur vote.
   FormSignature first_form_signature = CalculateFormSignature(form_);
-  browser_autofill_manager_->OnFocusOnNonFormField(true);
+  browser_autofill_manager_->OnFocusOnNonFormField();
 
   // 3. Simulate typing into second field
   test_api(form_).field(1).set_value(u"Presley");
@@ -7825,7 +7843,7 @@ TEST_F(BrowserAutofillManagerVotingTest, DynamicFormSubmission) {
                                        FieldType::NAME_LAST_SECOND})),
               ObservedSubmissionIs(false))),
           _, _));
-  browser_autofill_manager_->OnFocusOnNonFormField(true);
+  browser_autofill_manager_->OnFocusOnNonFormField();
 
   // 5. Grow the form by one field, which changes the form signature.
   test_api(form_).Append(CreateTestFormField(
@@ -7867,10 +7885,10 @@ TEST_F(BrowserAutofillManagerVotingTest, BlurVoteOnNavigation) {
                                 FieldAutofillTypeIs({FieldType::EMPTY_TYPE})),
                       ObservedSubmissionIs(false))),
                   _, _));
-  browser_autofill_manager_->OnFocusOnNonFormField(true);
+  browser_autofill_manager_->OnFocusOnNonFormField();
 
   // Simulate a navigation. This is when the vote is sent.
-  browser_autofill_manager_->Reset();
+  test_api(*browser_autofill_manager_).Reset();
 }
 
 // Ensure that a submission vote blocks sending a blur vote for the same form
@@ -7880,7 +7898,7 @@ TEST_F(BrowserAutofillManagerVotingTest, NoBlurVoteOnSubmission) {
 
   // Simulate removing focus from form, which enqueues a blur vote. The blur
   // vote will be ignored and only the submission will be sent.
-  browser_autofill_manager_->OnFocusOnNonFormField(true);
+  browser_autofill_manager_->OnFocusOnNonFormField();
   EXPECT_CALL(*crowdsourcing_manager(),
               StartUploadRequest(
                   FirstElementIs(AllOf(
@@ -7900,33 +7918,34 @@ TEST_F(BrowserAutofillManagerTest, OnSingleFieldSuggestionSelected) {
   FormData form = test::CreateTestAddressFormData();
   FormFieldData& field = test_api(form).field(0);
 
+  Suggestion autocomplete_suggestion(test_value,
+                                     SuggestionType::kAutocompleteEntry);
   EXPECT_CALL(single_field_form_fill_router(),
-              OnSingleFieldSuggestionSelected(
-                  test_value, SuggestionType::kAutocompleteEntry));
+              OnSingleFieldSuggestionSelected(autocomplete_suggestion));
 
   browser_autofill_manager_->OnSingleFieldSuggestionSelected(
-      test_value, SuggestionType::kAutocompleteEntry, form, field);
-
-  EXPECT_CALL(single_field_form_fill_router(),
-              OnSingleFieldSuggestionSelected(
-                  test_value, SuggestionType::kAutocompleteEntry));
-
-  browser_autofill_manager_->OnSingleFieldSuggestionSelected(
-      test_value, SuggestionType::kAutocompleteEntry, form, field);
-
-  EXPECT_CALL(
-      single_field_form_fill_router(),
-      OnSingleFieldSuggestionSelected(test_value, SuggestionType::kIbanEntry));
-
-  browser_autofill_manager_->OnSingleFieldSuggestionSelected(
-      test_value, SuggestionType::kIbanEntry, form, field);
+      autocomplete_suggestion, form, field);
 
   EXPECT_CALL(single_field_form_fill_router(),
-              OnSingleFieldSuggestionSelected(
-                  test_value, SuggestionType::kMerchantPromoCodeEntry));
+              OnSingleFieldSuggestionSelected(autocomplete_suggestion));
 
   browser_autofill_manager_->OnSingleFieldSuggestionSelected(
-      test_value, SuggestionType::kMerchantPromoCodeEntry, form, field);
+      autocomplete_suggestion, form, field);
+
+  Suggestion iban_suggestion(test_value, SuggestionType::kIbanEntry);
+  EXPECT_CALL(single_field_form_fill_router(),
+              OnSingleFieldSuggestionSelected(iban_suggestion));
+
+  browser_autofill_manager_->OnSingleFieldSuggestionSelected(iban_suggestion,
+                                                             form, field);
+
+  Suggestion merchant_promo_suggestion(test_value,
+                                       SuggestionType::kMerchantPromoCodeEntry);
+  EXPECT_CALL(single_field_form_fill_router(),
+              OnSingleFieldSuggestionSelected(merchant_promo_suggestion));
+
+  browser_autofill_manager_->OnSingleFieldSuggestionSelected(
+      merchant_promo_suggestion, form, field);
 }
 
 // Test that we correctly fill an address form and update the used profile.
@@ -7961,8 +7980,8 @@ TEST_F(BrowserAutofillManagerTest, FillAddressForm_CollectObservations) {
   personal_data().test_address_data_manager().ClearProfiles();
   AutofillProfile profile = test::GetFullProfile();
   // This is needed to not get an update prompt that would compromise the test.
-  profile.set_source_for_testing(AutofillProfile::Source::kAccount);
-  profile.token_quality().disable_randomization_for_testing();
+  test_api(profile).set_source(AutofillProfile::Source::kAccount);
+  test_api(profile.token_quality()).disable_randomization();
   personal_data().address_data_manager().AddProfile(profile);
   const AutofillProfile* pdm_profile =
       personal_data().address_data_manager().GetProfileByGUID(profile.guid());
@@ -8051,7 +8070,7 @@ TEST_F(BrowserAutofillManagerPlusAddressTest, NoPlusAddressesWithNameFields) {
 TEST_F(BrowserAutofillManagerPlusAddressTest,
        CreatePlusAddressSuggestionShownWithAddressSuggestions) {
   using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum AutofillClient::PasswordFormType;
+  using enum AutofillClient::PasswordFormClassification::Type;
 
   // Plus address suggestions request.
   EXPECT_CALL(plus_address_delegate(), GetSuggestions)
@@ -8095,7 +8114,7 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
 TEST_F(BrowserAutofillManagerPlusAddressTest,
        CreatePlusAddressSuggestionShown) {
   using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum AutofillClient::PasswordFormType;
+  using enum AutofillClient::PasswordFormClassification::Type;
   personal_data().test_address_data_manager().ClearProfiles();
 
   // Plus address suggestions request.
@@ -8135,7 +8154,7 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
 TEST_F(BrowserAutofillManagerPlusAddressTest,
        NoPlusAddressOnlyIBANsSuggestions) {
   using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum AutofillClient::PasswordFormType;
+  using enum AutofillClient::PasswordFormClassification::Type;
   personal_data().test_address_data_manager().ClearProfiles();
 
   // No plus address suggestions request.
@@ -8178,7 +8197,7 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
 TEST_F(BrowserAutofillManagerPlusAddressTest,
        NoPlusAddressOnlyPromoCodesSuggestions) {
   using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum AutofillClient::PasswordFormType;
+  using enum AutofillClient::PasswordFormClassification::Type;
   personal_data().test_address_data_manager().ClearProfiles();
 
   // No plus address suggestions request.
@@ -8224,7 +8243,7 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
 TEST_F(BrowserAutofillManagerPlusAddressTest,
        CreatePlusAddressSuggestionShownWithSingleFieldFormFillSuggestions) {
   using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum AutofillClient::PasswordFormType;
+  using enum AutofillClient::PasswordFormClassification::Type;
   personal_data().test_address_data_manager().ClearProfiles();
 
   // Plus address suggestions request.
@@ -8274,7 +8293,7 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
 TEST_F(BrowserAutofillManagerPlusAddressTest,
        NoStandaloneManagePlusAddressSuggestion) {
   using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum AutofillClient::PasswordFormType;
+  using enum AutofillClient::PasswordFormClassification::Type;
   personal_data().test_address_data_manager().ClearProfiles();
   EXPECT_CALL(plus_address_delegate(), GetSuggestions)
       .WillOnce(RunOnceCallback<5>(std::vector<Suggestion>{}));
@@ -8303,7 +8322,7 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
 // a manual fallback for plus addresses.
 TEST_F(BrowserAutofillManagerPlusAddressTest, ManualFallbackPlusAddress) {
   using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum AutofillClient::PasswordFormType;
+  using enum AutofillClient::PasswordFormClassification::Type;
   EXPECT_CALL(
       plus_address_delegate(),
       GetSuggestions(

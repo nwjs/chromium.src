@@ -167,7 +167,7 @@ void AXRelationCache::CheckElementWasProcessed(Element& element) {
   }
 
   AXObject* obj = Get(ancestor);
-  NOTREACHED_NORETURN()
+  NOTREACHED()
       << "The following element was attached to the document, but "
          "UpdateCacheAfterNodeIsAttached() was never called with it, and it "
          "did not exist when the cache was first initialized:"
@@ -682,7 +682,10 @@ void AXRelationCache::UpdateAriaOwnsWithCleanLayout(AXObject* owner,
   } else if (element && element->HasExplicitlySetAttrAssociatedElements(
                             html_names::kAriaOwnsAttr)) {
     UpdateAriaOwnsFromAttrAssociatedElementsWithCleanLayout(
-        owner, *element->GetAttrAssociatedElements(html_names::kAriaOwnsAttr),
+        owner,
+        // TODO (crbug.com/353750122): Set resolve_reference_target to false.
+        *element->GetAttrAssociatedElements(html_names::kAriaOwnsAttr,
+                                            /*resolve_reference_target*/ true),
         owned_children, force);
   } else {
     // Figure out the ids that actually correspond to children that exist
@@ -1066,7 +1069,12 @@ void AXRelationCache::RemoveOwnedRelation(AXID obj_id) {
     }
     if (AXObject* owner = ObjectFromAXID(owner_id)) {
       if (object_cache_->lifecycle().StateAllowsImmediateTreeUpdates()) {
-        object_cache_->ChildrenChangedWithCleanLayout(owner);
+        // Currently in CommitAXUpdates(). Changing the children of the owner
+        // here could interfere with the execution of RemoveSubtree().
+        // The next call AXRelationCache::ProcessUpdatesWithCleanLayout()
+        // will refresh this owner before the tree is frozen.
+        owner_ids_to_update_.insert(owner_id);
+        object_cache_->MarkAXObjectDirtyWithCleanLayout(owner);
       } else {
         object_cache_->ChildrenChanged(owner);
       }
@@ -1104,7 +1112,7 @@ Node* AXRelationCache::LabelChanged(HTMLLabelElement& label) {
   }
 
   all_previously_seen_label_target_ids_.insert(id);
-  return label.control();
+  return label.Control();
 }
 
 void AXRelationCache::MaybeRestoreParentOfOwnedChild(AXID removed_child_axid) {

@@ -45,6 +45,7 @@
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
 #include "third_party/blink/renderer/core/svg/svg_document_extensions.h"
 #include "third_party/blink/renderer/core/timing/event_timing.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "ui/gfx/geometry/point_conversions.h"
 
 namespace blink {
@@ -497,9 +498,9 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
   // If clicking on a frame scrollbar, do not mess up with content focus.
   if (auto* layout_view = frame_->ContentLayoutObject()) {
     if (hit_test_result.GetScrollbar() && frame_->ContentLayoutObject()) {
-      if (hit_test_result.GetScrollbar()->GetScrollableArea() ==
-          layout_view->GetScrollableArea())
+      if (hit_test_result.GetScrollbar()->GetLayoutBox() == layout_view) {
         return WebInputEventResult::kNotHandled;
+      }
     }
   }
 
@@ -512,7 +513,7 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
     // When clicking on a <label> for a form associated custom element with
     // delegatesFocus, we should focus the custom element's focus delegate.
     if (auto* label = DynamicTo<HTMLLabelElement>(element)) {
-      auto* control = label->control();
+      auto* control = label->Control();
       if (control && control->IsShadowHostWithDelegatesFocus()) {
         element = control;
       }
@@ -538,12 +539,21 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
   // crbug.com/657237 for details.
   if (element &&
       frame_->Selection().ComputeVisibleSelectionInDOMTree().IsRange()) {
-    const EphemeralRange& range = frame_->Selection()
-                                      .ComputeVisibleSelectionInDOMTree()
-                                      .ToNormalizedEphemeralRange();
-    if (IsNodeFullyContained(range, *element) &&
-        element->IsDescendantOf(frame_->GetDocument()->FocusedElement()))
-      return WebInputEventResult::kNotHandled;
+    // Don't check for scroll controls pseudo elements, since they can't
+    // be in selection, until we support selecting their content.
+    // Just clear the selection, since it won't be cleared otherwise.
+    if (RuntimeEnabledFeatures::PseudoElementsFocusableEnabled() &&
+        element->IsScrollControlPseudoElement()) {
+      frame_->Selection().Clear();
+    } else {
+      const EphemeralRange& range = frame_->Selection()
+                                        .ComputeVisibleSelectionInDOMTree()
+                                        .ToNormalizedEphemeralRange();
+      if (IsNodeFullyContained(range, *element) &&
+          element->IsDescendantOf(frame_->GetDocument()->FocusedElement())) {
+        return WebInputEventResult::kNotHandled;
+      }
+    }
   }
 
   // Only change the focus when clicking scrollbars if it can transfered to a
@@ -979,9 +989,11 @@ bool MouseEventManager::TryStartDrag(
   // updateStyleAndLayoutIgnorePendingStylesheets needs to be audited.  See
   // http://crbug.com/590369 for more details.
   frame_->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kInput);
-  if (IsInPasswordField(
-          frame_->Selection().ComputeVisibleSelectionInDOMTree().Start()))
+  if (GetDragState().drag_type_ == kDragSourceActionSelection &&
+      IsInPasswordField(
+          frame_->Selection().ComputeVisibleSelectionInDOMTree().Start())) {
     return false;
+  }
 
   // Set the clipboard access policy to protected
   // (https://html.spec.whatwg.org/multipage/dnd.html#concept-dnd-p) to

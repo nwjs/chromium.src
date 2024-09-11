@@ -9,11 +9,10 @@
 
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/glanceables/common/glanceables_util.h"
+#include "ash/public/cpp/window_properties.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/shell.h"
-#include "ash/shell_delegate.h"
 #include "ash/strings/grit/ash_strings.h"
-#include "ash/style/ash_color_id.h"
 #include "ash/style/icon_button.h"
 #include "ash/style/pill_button.h"
 #include "ash/style/rounded_container.h"
@@ -34,6 +33,7 @@
 #include "ash/system/tray/hover_highlight_view.h"
 #include "ash/system/tray/tri_view.h"
 #include "ash/wm/desks/templates/saved_desk_item_view.h"
+#include "ash/wm/window_properties.h"
 #include "base/check_op.h"
 #include "base/i18n/time_formatting.h"
 #include "base/strings/string_number_conversions.h"
@@ -46,7 +46,6 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/insets.h"
-#include "ui/gfx/text_constants.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/ink_drop.h"
@@ -91,11 +90,6 @@ constexpr int kTimerTextfieldCornerRadius = 8;
 // Task view constants.
 constexpr auto kTaskViewContainerInsets = gfx::Insets::TLBR(4, 24, 22, 24);
 constexpr auto kTaskViewHeaderInsets = gfx::Insets::VH(18, 0);
-
-// Feedback button constants.
-constexpr auto kFeedbackButtonInsets = gfx::Insets::TLBR(16, 0, 4, 0);
-constexpr auto kFeedbackButtonPadding = gfx::Insets::VH(6, 12);
-constexpr int kFeedbackButtonIconTextSpacing = 8;
 
 constexpr int kToggleButtonLeftPadding = 8;
 
@@ -336,17 +330,15 @@ FocusModeDetailedView::FocusModeDetailedView(DetailedViewDelegate* delegate)
 
   const base::flat_set<focus_mode_util::SoundType>& sound_sections =
       focus_mode_controller->focus_mode_sounds_controller()->sound_sections();
-  views::View* sound_view =
+  focus_mode_sounds_view_ =
       scroll_content()->AddChildView(std::make_unique<FocusModeSoundsView>(
           sound_sections, is_network_connected));
-  sound_view->SetID(ViewId::kSoundView);
+  focus_mode_sounds_view_->SetID(ViewId::kSoundView);
 
   const bool in_focus_session = focus_mode_controller->in_focus_session();
 
   CreateDoNotDisturbContainer();
   do_not_disturb_view_->SetVisible(!in_focus_session);
-
-  CreateFeedbackButton();
 
   scroll_content()->SizeToPreferredSize();
   if (!in_focus_session) {
@@ -402,6 +394,16 @@ void FocusModeDetailedView::AddedToWidget() {
   // The `TrayBubbleView` may not exist in unit tests.
   if (views::WidgetDelegate* bubble_view = GetWidget()->widget_delegate()) {
     bubble_view->SetCanActivate(true);
+    if (auto* window = GetWidget()->GetNativeWindow()) {
+      // Set window properties to stay in the overview mode when the focus panel
+      // gained the focus.
+      window->SetProperty(kStayInOverviewOnActivationKey, true);
+
+      // We should set a property to stay in overview mode when the focus panel
+      // was destroyed. For example, we click `Start` toggle button to start a
+      // focus session, we will close the bubble view.
+      window->SetProperty(kIgnoreWindowActivationKey, true);
+    }
   }
 }
 
@@ -487,18 +489,19 @@ void FocusModeDetailedView::CreateToggleView() {
         *toggle_view_->sub_text_label());
   }
 
-  toggle_view_->AddRightView(
-      std::make_unique<PillButton>(
-          base::BindRepeating(
-              &FocusModeController::ToggleFocusMode,
-              base::Unretained(focus_mode_controller),
-              focus_mode_histogram_names::ToggleSource::kFocusPanel),
-          l10n_util::GetStringUTF16(
-              in_focus_session
-                  ? IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_END_BUTTON_LABEL
-                  : IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_START_BUTTON),
-          PillButton::Type::kPrimaryLargeWithoutIcon, /*icon=*/nullptr)
-          .release());
+  auto toggle_button = std::make_unique<PillButton>(
+      base::BindRepeating(
+          &FocusModeController::ToggleFocusMode,
+          base::Unretained(focus_mode_controller),
+          focus_mode_histogram_names::ToggleSource::kFocusPanel),
+      l10n_util::GetStringUTF16(
+          in_focus_session
+              ? IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_END_BUTTON_LABEL
+              : IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_START_BUTTON),
+      PillButton::Type::kPrimaryLargeWithoutIcon, /*icon=*/nullptr);
+  toggle_button->SetUseLabelAsDefaultTooltip(false);
+  toggle_button->SetID(ViewId::kToggleFocusButton);
+  toggle_view_->AddRightView(toggle_button.release());
   UpdateToggleButtonAccessibility(in_focus_session);
 
   toggle_view_->SetFocusBehavior(View::FocusBehavior::NEVER);
@@ -507,6 +510,15 @@ void FocusModeDetailedView::CreateToggleView() {
       toggle_view_->tri_view()->box_layout();
   toggle_view_tri_view_layout->set_cross_axis_alignment(
       views::BoxLayout::CrossAxisAlignment::kCenter);
+
+  // We need to reset the accessible name for `toggle_view_`, so that ChromeVox
+  // will not announce the a11y name when tabbing on its `right_view()`.
+  views::ViewAccessibility& view_accessibility =
+      toggle_view_->GetViewAccessibility();
+  view_accessibility.SetName(std::u16string());
+  // Set a valid role for this view to avoid announcing the role for
+  // `toggle_view_`.
+  view_accessibility.SetRole(ax::mojom::Role::kRow);
 }
 
 void FocusModeDetailedView::UpdateToggleButtonAccessibility(
@@ -521,15 +533,11 @@ void FocusModeDetailedView::UpdateToggleButtonAccessibility(
     toggle_button->GetViewAccessibility().SetName(l10n_util::GetStringFUTF16(
         IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_BUTTON_INACTIVE,
         duration_string));
-    toggle_button->SetTooltipText(l10n_util::GetStringUTF16(
-        IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_START_BUTTON_ACCESSIBLE_NAME));
     return;
   }
 
   toggle_button->GetViewAccessibility().SetName(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_END_BUTTON_ACCESSIBLE_NAME));
-  toggle_button->SetTooltipText(
-      toggle_button->GetViewAccessibility().GetCachedName());
 }
 
 void FocusModeDetailedView::UpdateTimerAdjustmentButtonAccessibility() {
@@ -570,7 +578,7 @@ void FocusModeDetailedView::CreateTimerView() {
   timer_view_header->SetText(l10n_util::GetStringUTF16(
       IDS_ASH_STATUS_TRAY_FOCUS_MODE_TIMER_SUBHEADER));
   timer_view_header->SetHorizontalAlignment(
-      gfx::HorizontalAlignment::ALIGN_TO_HEAD);
+      gfx::HorizontalAlignment::ALIGN_LEFT);
   timer_view_header->SetBorder(
       views::CreateEmptyBorder(kTimerViewHeaderInsets));
   timer_view_header->SetEnabledColorId(cros_tokens::kCrosSysOnSurfaceVariant);
@@ -618,6 +626,7 @@ void FocusModeDetailedView::CreateTimerView() {
   // b/302038651.
   timer_textfield_ = textfield_container->AddChildView(
       std::make_unique<SystemTextfield>(SystemTextfield::Type::kLarge));
+  timer_textfield_->SetID(ViewId::kTimerTextfield);
   timer_textfield_->SetHorizontalAlignment(
       gfx::HorizontalAlignment::ALIGN_CENTER);
   timer_textfield_->SetFontList(
@@ -643,8 +652,7 @@ void FocusModeDetailedView::CreateTimerView() {
       std::make_unique<views::Label>(l10n_util::GetPluralStringFUTF16(
           IDS_ASH_STATUS_TRAY_FOCUS_MODE_MINUTES_LABEL,
           controller->session_duration().InMinutes())));
-  minutes_label_->SetHorizontalAlignment(
-      gfx::HorizontalAlignment::ALIGN_TO_HEAD);
+  minutes_label_->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
   TypographyProvider::Get()->StyleLabel(TypographyToken::kCrosDisplay6Regular,
                                         *minutes_label_);
   timer_setting_view_->SetFlexForView(end_time_container, 1);
@@ -657,8 +665,7 @@ void FocusModeDetailedView::CreateTimerView() {
 
   end_time_label_ =
       end_time_container->AddChildView(std::make_unique<views::Label>());
-  end_time_label_->SetHorizontalAlignment(
-      gfx::HorizontalAlignment::ALIGN_TO_HEAD);
+  end_time_label_->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
   TypographyProvider::Get()->StyleLabel(TypographyToken::kCrosAnnotation1,
                                         *end_time_label_);
   end_time_label_->SetEnabledColorId(cros_tokens::kCrosSysSecondary);
@@ -709,7 +716,11 @@ void FocusModeDetailedView::UpdateTimerView(bool in_focus_session) {
 }
 
 void FocusModeDetailedView::HandleTextfieldActivationChange() {
-  if (!timer_textfield_->IsActive() && timer_textfield_->HasFocus()) {
+  if (timer_textfield_->IsActive()) {
+    return;
+  }
+
+  if (timer_textfield_->HasFocus()) {
     auto* focus_manager = timer_textfield_->GetWidget()->GetFocusManager();
     focus_manager->ClearFocus();
     focus_manager->SetStoredFocusView(nullptr);
@@ -718,14 +729,14 @@ void FocusModeDetailedView::HandleTextfieldActivationChange() {
     // timer_textfield_ after the bug resolved. The reason for calling it can be
     // found from the description of the bug.
     timer_textfield_->UpdateBackground();
-
-    // Once we clear the focus for the `timer_textfield_`, we need to call the
-    // function below manually to update the UI according to the latest session
-    // duration, since the `OnViewBlurred` for the textfield controller doesn't
-    // automatically call it to avoid the bug b/315358227.
-    SetInactiveSessionDuration(base::Minutes(
-        focus_mode_util::GetTimerTextfieldInputInMinutes(timer_textfield_)));
   }
+
+  // Once we clear the focus for the `timer_textfield_`, we need to call the
+  // function below manually to update the UI according to the latest session
+  // duration, since the `OnViewBlurred` for the textfield controller doesn't
+  // automatically call it to avoid the bug b/315358227.
+  SetInactiveSessionDuration(base::Minutes(
+      focus_mode_util::GetTimerTextfieldInputInMinutes(timer_textfield_)));
 }
 
 void FocusModeDetailedView::CreateTaskView(bool is_network_connected) {
@@ -744,8 +755,7 @@ void FocusModeDetailedView::CreateTaskView(bool is_network_connected) {
       task_view_container_->AddChildView(std::make_unique<views::Label>());
   task_view_header->SetText(
       l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_FOCUS_MODE_TASK_SUBHEADER));
-  task_view_header->SetHorizontalAlignment(
-      gfx::HorizontalAlignment::ALIGN_TO_HEAD);
+  task_view_header->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   task_view_header->SetBorder(views::CreateEmptyBorder(kTaskViewHeaderInsets));
   task_view_header->SetEnabledColorId(cros_tokens::kCrosSysOnSurfaceVariant);
   TypographyProvider::Get()->StyleLabel(TypographyToken::kCrosBody2,
@@ -759,8 +769,12 @@ void FocusModeDetailedView::CreateTaskView(bool is_network_connected) {
 void FocusModeDetailedView::OnTaskViewAnimate(const int shift_height) {
   std::vector<views::View*> animatable_views;
 
-  // Currently, we only have the `do_not_disturb_view_` below the task view
-  // container. We only need to insert a new added view into this map in future.
+  // Add the views that show up below the tasks view container into
+  // `animatable_views`.
+  if (focus_mode_sounds_view_->GetVisible()) {
+    animatable_views.push_back(focus_mode_sounds_view_);
+  }
+
   if (do_not_disturb_view_->GetVisible()) {
     animatable_views.push_back(do_not_disturb_view_);
   }
@@ -828,43 +842,6 @@ void FocusModeDetailedView::OnDoNotDisturbToggleClicked() {
       do_not_disturb_toggle_button_->GetIsOn());
 }
 
-void FocusModeDetailedView::CreateFeedbackButton() {
-  auto* button_container =
-      scroll_content()->AddChildView(std::make_unique<views::BoxLayoutView>());
-  button_container->SetOrientation(views::BoxLayout::Orientation::kHorizontal);
-  button_container->SetMainAxisAlignment(
-      views::BoxLayout::MainAxisAlignment::kCenter);
-  button_container->SetInsideBorderInsets(kFeedbackButtonInsets);
-
-  auto* feedback_button =
-      button_container->AddChildView(std::make_unique<PillButton>(
-          base::BindRepeating(&FocusModeDetailedView::OnFeedbackButtonPressed,
-                              base::Unretained(this)),
-          l10n_util::GetStringUTF16(
-              IDS_ASH_STATUS_TRAY_FOCUS_MODE_FEEDBACK_BUTTON),
-          PillButton::Type::kFloatingWithIconLeading));
-  feedback_button->SetImageModel(
-      views::Button::STATE_NORMAL,
-      ui::ImageModel::FromVectorIcon(kFeedbackIcon,
-                                     cros_tokens::kCrosSysSecondary));
-  feedback_button->SetEnabledTextColorIds(kColorAshTextColorSecondary);
-  feedback_button->SetImageLabelSpacing(kFeedbackButtonIconTextSpacing);
-  feedback_button->SetBorder(views::CreateEmptyBorder(kFeedbackButtonPadding));
-
-  views::InkDropHost* const ink_drop = views::InkDrop::Get(feedback_button);
-  ink_drop->SetMode(views::InkDropHost::InkDropMode::ON);
-  ink_drop->GetInkDrop()->SetShowHighlightOnHover(true);
-  ink_drop->SetVisibleOpacity(1.0f);
-  ink_drop->SetBaseColorId(cros_tokens::kButtonBackgroundColorSecondaryHover);
-}
-
-void FocusModeDetailedView::OnFeedbackButtonPressed() {
-  Shell::Get()->shell_delegate()->OpenFeedbackDialog(
-      ShellDelegate::FeedbackSource::kFocusMode,
-      /*description_template=*/"#FocusMode",
-      /*category_tag=*/std::string());
-}
-
 void FocusModeDetailedView::OnClockMinutePassed() {
   if (FocusModeController::Get()->in_focus_session()) {
     UpdateToggleButtonAccessibility(/*in_focus_session=*/true);
@@ -903,6 +880,14 @@ void FocusModeDetailedView::AdjustInactiveSessionDuration(bool decrement) {
           decrement);
 
   SetInactiveSessionDuration(adjusted_duration);
+
+  // Read the session duration after it is adjusted.
+  Shell::Get()
+      ->accessibility_controller()
+      ->TriggerAccessibilityAlertWithMessage(
+          base::UTF16ToUTF8(focus_mode_util::GetDurationString(
+              focus_mode_controller->session_duration(),
+              /*digital_format=*/false)));
 }
 
 void FocusModeDetailedView::UpdateTimerSettingViewUI() {

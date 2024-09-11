@@ -70,8 +70,11 @@ SuggestionFiltrationResult FilterSuggestions(
   std::u16string filter_lowercased = base::i18n::ToLower(*filter);
   for (size_t i = 0; i < suggestions.size(); ++i) {
     const Suggestion& suggestion = suggestions[i];
-    // Footer suggestions cannot be filtered out.
-    if (IsFooterItem(suggestions, i)) {
+    if (suggestion.filtration_policy ==
+        Suggestion::FiltrationPolicy::kPresentOnlyWithoutFilter) {
+      continue;
+    } else if (suggestion.filtration_policy ==
+               Suggestion::FiltrationPolicy::kStatic) {
       result.first.push_back(suggestion);
       result.second.emplace_back();
     } else if (size_t pos = base::i18n::ToLower(suggestion.main_text.value)
@@ -114,6 +117,7 @@ bool ShouldLogPopupInteractionShown(
       return true;
     case AutofillSuggestionTriggerSource::kTextFieldDidChange:
     case AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge:
+    case AutofillSuggestionTriggerSource::kPredictionImprovements:
       return false;
   }
 }
@@ -302,11 +306,6 @@ void AutofillPopupControllerImpl::Show(
   }
 }
 
-void AutofillPopupControllerImpl::DisableThresholdForTesting(
-    bool disable_threshold) {
-  disable_threshold_for_testing_ = disable_threshold;
-}
-
 void AutofillPopupControllerImpl::SetKeepPopupOpenForTesting(
     bool keep_popup_open_for_testing) {
   keep_popup_open_for_testing_ = keep_popup_open_for_testing;
@@ -326,6 +325,11 @@ void AutofillPopupControllerImpl::UpdateDataListValues(
 
 void AutofillPopupControllerImpl::PinView() {
   is_view_pinned_ = true;
+}
+
+bool AutofillPopupControllerImpl::IsViewVisibilityAcceptingThresholdEnabled()
+    const {
+  return !disable_threshold_for_testing_;
 }
 
 void AutofillPopupControllerImpl::Hide(SuggestionHidingReason reason) {
@@ -381,9 +385,7 @@ void AutofillPopupControllerImpl::ViewDestroyed() {
 }
 
 void AutofillPopupControllerImpl::OnSuggestionsChanged() {
-  if (view_) {
-    view_->OnSuggestionsChanged();
-  }
+  OnSuggestionsChanged(/*prefer_prev_arrow_side=*/false);
 }
 
 void AutofillPopupControllerImpl::AcceptSuggestion(int index) {
@@ -457,6 +459,13 @@ const std::vector<Suggestion>& AutofillPopupControllerImpl::GetSuggestions()
   return filter_ ? filtered_suggestions_ : non_filtered_suggestions_;
 }
 
+void AutofillPopupControllerImpl::OnSuggestionsChanged(
+    bool prefer_prev_arrow_side) {
+  if (view_) {
+    view_->OnSuggestionsChanged(prefer_prev_arrow_side);
+  }
+}
+
 void AutofillPopupControllerImpl::UpdateFilteredSuggestions(
     bool notify_suggestions_changed) {
   if (filter_) {
@@ -469,7 +478,7 @@ void AutofillPopupControllerImpl::UpdateFilteredSuggestions(
     suggestion_filter_matches_.clear();
   }
   if (notify_suggestions_changed) {
-    OnSuggestionsChanged();
+    OnSuggestionsChanged(/*prefer_prev_arrow_side=*/true);
   }
 }
 
@@ -517,7 +526,7 @@ bool AutofillPopupControllerImpl::RemoveSuggestion(
           AutofillMetrics::LogDeleteAddressProfileFromKeyboardAccessory();
           break;
         case AutofillMetrics::SingleEntryRemovalMethod::kDeleteButtonClicked:
-          NOTREACHED_NORETURN();
+          NOTREACHED();
       }
       break;
     case FillingProduct::kAutocomplete:
@@ -538,6 +547,7 @@ bool AutofillPopupControllerImpl::RemoveSuggestion(
     case FillingProduct::kPassword:
     case FillingProduct::kCompose:
     case FillingProduct::kPlusAddresses:
+    case FillingProduct::kPredictionImprovements:
       break;
   }
 
@@ -845,13 +855,6 @@ void AutofillPopupControllerImpl::OnPopupPainted() {
 bool AutofillPopupControllerImpl::HasFilteredOutSuggestions() const {
   return filter_.has_value() &&
          filtered_suggestions_.size() != non_filtered_suggestions_.size();
-}
-
-void AutofillPopupControllerImpl::SetViewForTesting(
-    base::WeakPtr<AutofillPopupView> view) {
-  view_ = std::move(view);
-  barrier_for_accepting_ = NextIdleBarrier::CreateNextIdleBarrierWithDelay(
-      kIgnoreEarlyClicksOnSuggestionsDuration);
 }
 
 }  // namespace autofill

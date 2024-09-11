@@ -14,6 +14,7 @@
 <translation id="1282031177488366470">Help om Chrome se kenmerke en werkverrigting te verbeter</translation>
 <translation id="1333745675627230582">Speel Chrome Dino-speletjie</translation>
 <translation id="1352919863522755794">Google Wagwoordbestuurder kon nie jou wagwoorde nagaan nie. Probeer jou internetverbinding nagaan.</translation>
+<translation id="1380565463006545725">Kry die krag van Chrome-inkopies</translation>
 <translation id="139623527619433858">Gebruik Chrome vir iPad by verstek</translation>
 <translation id="1407843355326180937">Meld by hierdie werf en Chrome aan om jou boekmerke en meer op al jou toestelle te kry.</translation>
 <translation id="1436059927646026729">Maak My nuutste oortjie in Chrome oop</translation>
@@ -35,6 +36,7 @@ Dinge om in ag te neem:
 <translation id="1554731936187952550">Jy het Chrome se sterkste sekuriteit teen skadelike webwerwe</translation>
 <translation id="1615715390546812898">Soek met stem in Chrome.</translation>
 <translation id="1657395063736185342">Soek visuele elemente in Chrome</translation>
+<translation id="1670609221633730681">Chrome-wenk: Kies jou adresbalkposisie</translation>
 <translation id="1675955119303651351">Sommige van jou Chrome-data is nog nie in jou Google-rekening gestoor nie.
         Probeer om ’n paar minute te wag voordat jy afmeld. As jy nou afmeld, sal hierdie data uitgevee word.</translation>
 <translation id="1682483655351012182">Sinkroniseer jou Chrome-data</translation>
@@ -43,6 +45,7 @@ Dinge om in ag te neem:
 <translation id="1799920918471566157">Chrome-wenke</translation>
 <translation id="1830634592642484976">Hierdie adres is tans in Chrome gestoor. Stoor dit in jou Google-rekening, <ph name="USER_EMAIL" />, om dit in alle Google-produkte te gebruik.</translation>
 <translation id="1910975740091000991">Chrome vir iOS</translation>
+<translation id="1917288746637765175">Gebruik by verstek Chrome om maklik prysinsigte te kry</translation>
 <translation id="1917964099031477364">Hierdie rekening en enige ongstoorde data sal uit Chrome en ander Google-programme op hierdie toestel verwyder word.</translation>
 <translation id="1965935827552890526">Voltooi wat jy besig was om in jou ander oop Chrome-venster te doen.</translation>
 <translation id="1987779152850321833">Voltooi die voorgestelde handelinge hier onder om Chrome ten beste te benut.</translation>
@@ -78,7 +81,6 @@ Dinge om in ag te neem:
 <translation id="2767464022270041271">Geen gestoorde wagwoorde nie. Google Wagwoordbestuurder kan jou wagwoorde nagaan wanneer jy hulle stoor.</translation>
 <translation id="2869959624320573933">Meld by Chrome aan</translation>
 <translation id="2876628302275096482">Kom meer te wete oor <ph name="BEGIN_LINK" />hoe Chrome jou data privaat hou<ph name="END_LINK" /></translation>
-<translation id="2952581218264071393">1. Maak Chrome-instellings oop</translation>
 <translation id="2957447865124070833">Kies <ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /></translation>
 <translation id="3030414234702425231">Omdat jy afmeld uit 'n rekening wat deur <ph name="SIGNOUT_MANAGED_DOMAIN" /> bestuur word, sal jou Chrome-data op hierdie toestel uitgevee word. Jou data sal in jou Google-rekening bly.</translation>
 <translation id="309672519329227863">Kry toegang tot jou Chrome-wagwoorde en meer van ander apps af.</translation>
@@ -90,7 +92,6 @@ Dinge om in ag te neem:
 <translation id="3340938510625667914">Chrome-handelinge</translation>
 <translation id="3345341804167540816">Gebruik Chrome oral</translation>
 <translation id="3360031466389132716">{THRESHOLD,plural, =1{Dit gebeur wanneer Chrome vir {THRESHOLD} minuut nie gebruik word nie}other{Dit gebeur wanneer Chrome vir {THRESHOLD} minute nie gebruik word nie}}</translation>
-<translation id="3399930248910934354">Maak Chrome-instellings oop</translation>
 <translation id="344736123700721678">Kry vinniger toegang tot Chrome vanaf jou tuisskermdok</translation>
 <translation id="3472587960215700950">Chrome gebruik Google Maps om vir jou aanwysings en plaaslike inligting oor bespeurde adresse te gee.</translation>
 <translation id="3503014945441706099">Kry Verbeterde Veiligblaai ook vir hierdie Chrome-profiel</translation>
@@ -112,12 +113,14 @@ Dinge om in ag te neem:
 <translation id="3984746313391923992">Jou organisasie vereis dat jy van Chrome afgemeld bly.</translation>
 <translation id="3988789688219830639">Google Chrome het nie toegang tot jou foto's of video's nie. Aktiveer toegang in iOS-instellings &gt; Privacy &gt; Photos.</translation>
 <translation id="4064699917955374540">Verifieer dis jy om Chrome-data in jou Google-rekening te gebruik en te stoor.</translation>
+<translation id="4066411101507716142">Kry vinniger toegang tot Chrome van jou iPad se tuisskermdok af.</translation>
 <translation id="4067858366537947361">Maak Chrome se Incognito-oortjie oop</translation>
 <translation id="4093042601582616698">Maak Chrome jou verstekblaaier?</translation>
 <translation id="417201473131094001">Nie gesteun op Chrome Kanarie nie</translation>
 <translation id="424864128008805179">Meld af uit Chrome?</translation>
 <translation id="4251174643044751591">Maak die betaalmetode-instellingbladsy in Chrome oop.</translation>
 <translation id="4286914711740227883">Vee blaaierdata in Chrome uit</translation>
+<translation id="430839890088895017">Chrome-wenk: Skuif Chrome na die dok toe</translation>
 <translation id="4453284704333523777">Bestuur Chrome-instellings</translation>
 <translation id="4523886039239821078">Sekere byvoegings het veroorsaak dat Chrome omval. Probeer om hulle te deïnstalleer:</translation>
 <translation id="4633328489441962921">Chrome kan nie vir opdaterings kyk nie</translation>
@@ -181,6 +184,7 @@ Dinge om in ag te neem:
 <translation id="6272822675004864999">Skakel kennisgewings in jou iOS-instellings aan om kennisgewings van Chrome af te ontvang.</translation>
 <translation id="630693926528731525">Jou wagwoord is nie gedeel nie. Gaan jou internetverbinding na en maak seker dat jy by Chrome aangemeld is. Probeer dan weer.</translation>
 <translation id="6348855835728304880">Kry van ander apps op hierdie toestel af toegang tot jou Chrome-wagwoorde en meer.</translation>
+<translation id="6373751563207403289">Veiligheidskontrole hou jou veilig teen dataskendings, onveilige webwerwe en meer. Ontvang waarskuwings oor enige privaatheid- of sekuriteitkwessies wat Chrome vir jou bespeur.</translation>
 <translation id="6374691158439235563">Voltooi die opstel van Chrome</translation>
 <translation id="6389317667633680932">Verken nuwe kenmerke wat jou help om die meeste uit Chrome te kry.</translation>
 <translation id="6412673304250309937">Vergelyk URL'e met 'n lys onveilige werwe wat in Chrome geberg word. As 'n werf probeer om jou wagwoord te steel, of wanneer jy 'n skadelike lêer aflaai, sal Chrome dalk ook URL'e, insluitend stukkies bladsyinhoud, na Veiligblaai toe stuur.</translation>
@@ -205,6 +209,7 @@ Jou data is met jou wagfrase geënkripteer. Voer dit in om Chrome-data in jou Go
 Gaan na <ph name="BEGIN_LINK" />Google-dienste<ph name="END_LINK" /> vir meer instellings wat data gebruik om jou Chrome-ervaring te verbeter.</translation>
 <translation id="6916015246697034114">Soek met stem in Chrome</translation>
 <translation id="6975725306479268850">Kies Chrome vir Outovul</translation>
+<translation id="6979238427560462592">’n Gepasmaakte stroom wat deur Google vir jou gemaak is. Insluitend Nuus, Sport en Weer.</translation>
 <translation id="7004159181872656283">Soek visuele elemente in Chrome.</translation>
 <translation id="7056826488869329999">Maak veiligheidskontrole in Chrome oop en laat dit loop.</translation>
 <translation id="7059914902409643750">Maak Chrome jou eie</translation>
@@ -230,11 +235,12 @@ Gaan na <ph name="BEGIN_LINK" />Google-dienste<ph name="END_LINK" /> vir meer in
 <translation id="7394108421562933108">Maps in Chrome</translation>
 <translation id="7400722733683201933">Meer oor Google Chrome</translation>
 <translation id="7466693328838535498">Voer Chrome in die Search-legstuk-boks in</translation>
-<translation id="746684838091935575">3. Kies Chrome</translation>
 <translation id="7492574581995589075">Jou organisasie het die vermoë afgeskakel om Chrome-data in jou Google-rekening te gebruik en te stoor. Nuwe boekmerke, wagwoorde en meer sal slegs op hierdie toestel gestoor word.</translation>
 <translation id="7581063337314642333">Besoek die oortjierooster in Chrome</translation>
+<translation id="7642373780953416937">Ontvang waarskuwings oor enige privaatheid- of sekuriteitkwessies wat Chrome outomaties vir jou bespeur.</translation>
 <translation id="7662994914830945754">Meld aan en skakel sinkronisering aan om jou oortjies te sien van waar ook al jy Chrome gebruik</translation>
 <translation id="7669869107155339016">Gaan na Chrome-instellings.</translation>
+<translation id="7683540977001394271">Kry vinniger toegang tot Chrome van jou iPhone se tuisskermdok af.</translation>
 <translation id="769104993356536261">Gebruik Chrome-handelinge op iOS</translation>
 <translation id="7693590760643069321">Jy kan Chrome nou enige tyd gebruik wanneer jy op skakels in boodskappe, dokumente en ander programme tik.</translation>
 <translation id="7698568245838009292">Chrome wil toegang tot die kamera hê</translation>
@@ -248,6 +254,7 @@ Gaan na <ph name="BEGIN_LINK" />Google-dienste<ph name="END_LINK" /> vir meer in
 <translation id="8006014511203279255">Gebruik Chrome enige tyd wanneer jy op skakels in boodskappe of ander apps tik.</translation>
 <translation id="8022947259858476807">Gebruik by verstek Chrome om skakels oop te maak, van legstukke af te soek, en wagwoorde outomaties by ander programme in te vul</translation>
 <translation id="804638182476029347">Laat Chrome-kennisgewings toe om prysverlagingopletberigte te kry</translation>
+<translation id="804756029368067824">Stel Chrome as jou verstekblaaier om pryse maklik na te spoor en om prysinsigte te kry vir dinge wat jy wil koop.</translation>
 <translation id="8065292699993359127">Maak URL'e in Chrome in Incognitomodus oop</translation>
 <translation id="8069507567842347179">Hierdie pakkie is reeds op Chrome nagespoor.</translation>
 <translation id="8136856065410661948">Dit sal gebruik word om geleenthede uit Chrome en Google Lens in jou Apple Calendar te skep.</translation>
@@ -275,6 +282,7 @@ Jou data is op <ph name="TIME" /> met jou wagfrase geënkripteer. Voer dit in om
   2. Tik op Verstekblaaierprogram
   3. Kies Chrome.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
+<translation id="8544583291890527417">Waarskuwings oor enige privaatheid- of sekuriteitkwessies wat Chrome vir jou bespeur.</translation>
 <translation id="8558480467877843976">Jy kan Chrome nou enige tyd gebruik wanneer jy blaai of op skakels in boodskappe, dokumente en ander programme tik.</translation>
 <translation id="8603022514504485810">Google Wagwoordbestuurder kon nie alle wagwoorde nagaan nie. Probeer môre weer of <ph name="BEGIN_LINK" />gaan wagwoorde in jou Google-rekening na<ph name="END_LINK" />.</translation>
 <translation id="8727043961453758442">Benut Chrome ten beste</translation>
@@ -290,7 +298,6 @@ Jou data is op <ph name="TIME" /> met jou wagfrase geënkripteer. Voer dit in om
 <translation id="8857676124663337448">Google Wagwoordbestuurder kon nie alle wagwoorde nagaan nie. Probeer môre weer.</translation>
 <translation id="8865415417596392024">Chrome-data in jou rekening</translation>
 <translation id="8874688701962049679">Wenke om die meeste uit Chrome te kry.</translation>
-<translation id="8891935667620843985">Jy kan skakels in Chrome outomaties oopmaak deur dit jou verstekblaaierprogram te maak.</translation>
 <translation id="8897749957032330183">Wagwoorde word op hierdie toestel in Google Wagwoordbestuurder gestoor.</translation>
 <translation id="8949681853939555434">Stel Chrome as jou verstekblaaier</translation>
 <translation id="9068336935206019333">Maak in Chrome Incognito oop</translation>
@@ -298,6 +305,7 @@ Jou data is op <ph name="TIME" /> met jou wagfrase geënkripteer. Voer dit in om
 <translation id="9112744793181547300">Stel Chrome as verstek?</translation>
 <translation id="9122931302567044771">Dit beteken dat Chrome elke keer die rekenaarwerf sal versoek.</translation>
 <translation id="9181628561061032322">Maak Chrome se onlangse oortjies oop.</translation>
+<translation id="9194404253580584015">’n Gepasmaakte stroom wat deur Google vir jou gemaak is.</translation>
 <translation id="953008885340860025">Chrome is afgemeld</translation>
 <translation id="97300214378190234">Gebruik Chrome enige tyd wanneer jy op skakels in ander apps tik.</translation>
 </translationbundle>

@@ -76,10 +76,6 @@ class CORE_EXPORT LayoutText : public LayoutObject {
 
   static LayoutText* CreateEmptyAnonymous(Document&, const ComputedStyle*);
 
-  static LayoutText* CreateAnonymousForFormattedText(Document&,
-                                                     const ComputedStyle*,
-                                                     String);
-
   const char* GetName() const override {
     NOT_DESTROYED();
     return "LayoutText";
@@ -479,8 +475,9 @@ inline wtf_size_t LayoutText::FirstInlineFragmentItemIndex() const {
 }
 
 inline void LayoutText::DetachAbstractInlineTextBoxesIfNeeded() {
-  if (UNLIKELY(has_abstract_inline_text_box_))
+  if (has_abstract_inline_text_box_) [[unlikely]] {
     DetachAbstractInlineTextBoxes();
+  }
 }
 
 template <>

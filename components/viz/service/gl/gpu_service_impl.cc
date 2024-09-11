@@ -607,8 +607,7 @@ void GpuServiceImpl::InitializeWithHost(
   if (scheduler) {
     scheduler_ = scheduler;
   } else {
-    owned_scheduler_ =
-        std::make_unique<gpu::Scheduler>(sync_point_manager, gpu_preferences_);
+    owned_scheduler_ = std::make_unique<gpu::Scheduler>(sync_point_manager);
     scheduler_ = owned_scheduler_.get();
   }
 
@@ -1094,9 +1093,7 @@ void GpuServiceImpl::StoreBlobToDisk(const gpu::GpuDiskCacheHandle& handle,
                                      const std::string& key,
                                      const std::string& shader) {
   std::string prefix_key = key;
-  if (base::FeatureList::IsEnabled(
-          features::kGenGpuDiskCacheKeyPrefixInGpuService) &&
-      GetHandleType(handle) == gpu::GpuDiskCacheType::kGlShaders) {
+  if (GetHandleType(handle) == gpu::GpuDiskCacheType::kGlShaders) {
     std::string prefix = GetShaderPrefixKey();
     prefix_key = prefix + ":" + key;
   }
@@ -1117,9 +1114,7 @@ void GpuServiceImpl::LoadedBlob(const gpu::GpuDiskCacheHandle& handle,
   const bool clear_shader_cache = base::FeatureList::IsEnabled(
       features::kClearGrShaderDiskCacheOnInvalidPrefix);
 
-  if (base::FeatureList::IsEnabled(
-          features::kGenGpuDiskCacheKeyPrefixInGpuService) &&
-      GetHandleType(handle) == gpu::GpuDiskCacheType::kGlShaders) {
+  if (GetHandleType(handle) == gpu::GpuDiskCacheType::kGlShaders) {
     std::string prefix = GetShaderPrefixKey();
     bool prefix_ok = !key.compare(0, prefix.length(), prefix);
     UMA_HISTOGRAM_BOOLEAN("GPU.ShaderLoadPrefixOK", prefix_ok);
@@ -1735,11 +1730,7 @@ void GpuServiceImpl::GetDawnInfoOnMain(bool collect_metrics,
   // Pause the watchdog around Dawn info collection since it is known to be
   // slow loading GPU drivers.
   if (watchdog_thread_ && pause_watchdog) {
-    if (report_only_mode) {
-      watchdog_thread_->EnableReportOnlyMode();
-    } else {
-      watchdog_thread_->PauseWatchdog();
-    }
+    watchdog_thread_->PauseWatchdog();
   }
 
   if (report_only_mode) {
@@ -1753,11 +1744,7 @@ void GpuServiceImpl::GetDawnInfoOnMain(bool collect_metrics,
   }
 
   if (watchdog_thread_ && pause_watchdog) {
-    if (report_only_mode) {
-      watchdog_thread_->DisableReportOnlyMode();
-    } else {
-      watchdog_thread_->ResumeWatchdog();
-    }
+    watchdog_thread_->ResumeWatchdog();
   }
 
   io_runner_->PostTask(FROM_HERE,

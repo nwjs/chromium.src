@@ -19,6 +19,7 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/supports_user_data.h"
 #include "base/time/time.h"
 #include "base/types/strong_alias.h"
 #include "base/values.h"
@@ -71,7 +72,7 @@
 #include "third_party/blink/public/common/mediastream/media_devices.h"
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
-#include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
+#include "third_party/blink/public/mojom/ai/ai_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/browsing_topics/browsing_topics.mojom-forward.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_cloud_identifier.mojom-forward.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_error.mojom-forward.h"
@@ -322,7 +323,8 @@ class CONTENT_EXPORT ContentBrowserClient {
     InstantRendererForNewTabPage = 3,
     ExtensionProcess = 4,
     JitDisabled = 5,
-    kMaxValue = JitDisabled,
+    V8OptimizationsDisabled = 6,
+    kMaxValue = V8OptimizationsDisabled,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/browser/enums.xml:SpareProcessRefusedByEmbedderReason)
 
@@ -974,7 +976,8 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   virtual void OnAuctionComplete(
       RenderFrameHost* render_frame_host,
-      InterestGroupManager::InterestGroupDataKey data_key);
+      std::optional<content::InterestGroupManager::InterestGroupDataKey>
+          winner_data_key);
 
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
@@ -2187,6 +2190,12 @@ class CONTENT_EXPORT ContentBrowserClient {
                                         bool* ignore_navigation);
 #endif
 
+  // Whether same-site RenderFrameHost swaps due to RenderDocument is allowed
+  // for navigations from `rfh`. Embedders can choose to disallow this if there
+  // are cases that are not correctly supported yet.
+  virtual bool ShouldAllowSameSiteRenderFrameHostChange(
+      const content::RenderFrameHost& rfh);
+
   // Called on IO or UI thread to determine whether or not to allow load and
   // render MHTML page from http/https URLs.
   virtual bool AllowRenderingMhtmlOverHttp(
@@ -2658,6 +2667,21 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool IsJitDisabledForSite(BrowserContext* browser_context,
                                     const GURL& site_url);
 
+  // Whether v8 optimizations should be disabled for the given |browser_context|
+  // and |site_url|. Pass an empty GURL for |site_url| to get the default
+  // optimization policy for |browser_context|. Don't resolve |site_url| to an
+  // effective URL before passing it to this function.
+  //
+  // This is distinct from IsJitDisabledForSite(): IsJitDisabledForSite()
+  // disables JIT compilation altogether in the process, which fully disables
+  // wasm and forces v8 to operate in interpreted mode.
+  // AreV8OptimizationsDisabledForSite() only disables v8's "higher tier"
+  // optimizers, leaving the basic JIT compiler and the wasm JIT compiler
+  // enabled.
+  virtual bool AreV8OptimizationsDisabledForSite(
+      BrowserContext* browser_context,
+      const GURL& site_url);
+
   // Returns the URL-Keyed Metrics service for chrome:ukm.
   virtual ukm::UkmService* GetUkmService();
 
@@ -2839,11 +2863,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool IsTransientActivationRequiredForShowFileOrDirectoryPicker(
       WebContents* web_contents);
 
-  // Return whether entering fullscreen requires transient activation.
-  // The embedder may waive that requirement for user settings or tests.
-  virtual bool IsTransientActivationRequiredForHtmlFullscreen(
-      content::RenderFrameHost* render_frame_host);
-
   // Checks if `origin` should always receive a first-party StorageKey
   // in RenderFrameHostImpl. Currently in Chrome, this is true for all
   // extension origins.
@@ -2974,6 +2993,7 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   virtual void BindAIManager(
       BrowserContext* browser_context,
+      std::variant<RenderFrameHost*, base::SupportsUserData*> host,
       mojo::PendingReceiver<blink::mojom::AIManager> receiver);
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -2993,6 +3013,12 @@ class CONTENT_EXPORT ContentBrowserClient {
       base::OnceCallback<void(std::optional<blink::mojom::RelatedApplication>)>
           callback);
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+  // Whether the destination URL from a NavigationHandle can be saved and
+  // synced to another machine and reloaded there. Some navigations, such as
+  // http POST requests, cannot be synced across machines as the request body
+  // is no longer available when reloading the URL.
+  virtual bool IsSaveableNavigation(NavigationHandle* navigation_handle);
 };
 
 }  // namespace content

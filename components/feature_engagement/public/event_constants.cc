@@ -69,7 +69,7 @@ const char kChromeOpened[] = "chrome_opened";
 const char kIncognitoTabOpened[] = "incognito_tab_opened";
 const char kClearedBrowsingData[] = "cleared_browsing_data";
 const char kViewedReadingList[] = "viewed_reading_list";
-const char kViewedWhatsNew[] = "viewed_whats_new_m125";
+const char kViewedWhatsNew[] = "viewed_whats_new_m128";
 const char kTriggeredTranslateInfobar[] = "triggered_translate_infobar";
 const char kBottomToolbarOpened[] = "bottom_toolbar_opened";
 const char kDiscoverFeedLoaded[] = "discover_feed_loaded";
@@ -107,7 +107,6 @@ const char kTabGridToolbarItemUsed[] = "tab_grid_toolbar_item_used";
 const char kHistoryOnOverflowMenuUsed[] = "history_on_overflow_menu_used";
 const char kShareToolbarItemUsed[] = "share_toolbar_item_used";
 const char kLensButtonKeyboardUsed[] = "lens_keyboard_used";
-const char kOmniboxPositionPromoShown[] = "omnibox_position_promo_shown";
 const char kParcelTrackingTriggered[] = "parcel_tracking_triggered";
 const char kParcelTracked[] = "parcel_tracked";
 const char kIOSMultiGestureRefreshUsed[] = "multi_gesture_refresh_used";
@@ -155,6 +154,9 @@ const char kIOSContextualPanelSampleModelEntrypointUsed[] =
     "ios_contextual_panel_sample_model_entrypoint_used";
 const char kIOSContextualPanelPriceInsightsEntrypointUsed[] =
     "ios_contextual_panel_price_insights_entrypoint_used";
+const char kIOSContextualPanelPriceInsightsEntrypointExplicitlyDismissed[] =
+    "ios_contextual_panel_price_insights_entrypoint_explicitly_dismissed";
+const char kHomeCustomizationMenuUsed[] = "home_customization_menu_used";
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)

@@ -479,7 +479,8 @@ TEST_F(SingleScrollbarAnimationControllerThinningFluentTest,
        MouseOverHiddenBar) {
   // Scrollbars opacity value is 1.f on these tests start up. Set it 0 to
   // simulate a hidden scrollbar
-  scrollbar_layer_->SetOverlayScrollbarLayerOpacityAnimated(0.f);
+  scrollbar_layer_->SetOverlayScrollbarLayerOpacityAnimated(
+      0.f, /*fade_out_animation=*/false);
   EXPECT_FLOAT_EQ(0.f, scrollbar_layer_->Opacity());
 
   // Move mouse on top of scrollbar.
@@ -621,7 +622,7 @@ TEST_P(SingleScrollbarAnimationControllerThinningTest,
       scrollbar_controller_->device_viewport_last_pointer_location());
   EXPECT_FALSE(scrollbar_controller_->mouse_is_near_scrollbar_thumb());
   EXPECT_FALSE(scrollbar_controller_->mouse_is_over_scrollbar_thumb());
-  EXPECT_TRUE(scrollbar_controller_->mouse_is_near_scrollbar_track());
+  EXPECT_TRUE(scrollbar_controller_->mouse_is_near_scrollbar());
   scrollbar_controller_->DidMouseDown();
   EXPECT_FALSE(scrollbar_controller_->captured());
 
@@ -631,7 +632,7 @@ TEST_P(SingleScrollbarAnimationControllerThinningTest,
   scrollbar_controller_->DidScrollUpdate();
   EXPECT_TRUE(scrollbar_controller_->mouse_is_near_scrollbar_thumb());
   EXPECT_TRUE(scrollbar_controller_->mouse_is_over_scrollbar_thumb());
-  EXPECT_TRUE(scrollbar_controller_->mouse_is_near_scrollbar_track());
+  EXPECT_TRUE(scrollbar_controller_->mouse_is_near_scrollbar());
 
   // Clicking now should capture the thumb.
   scrollbar_controller_->DidMouseDown();

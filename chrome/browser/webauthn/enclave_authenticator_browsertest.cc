@@ -129,6 +129,7 @@ using trusted_vault::MockTrustedVaultConnection;
 constexpr int32_t kSecretVersion = 417;
 constexpr uint8_t kSecurityDomainSecret[32] = {0};
 constexpr char kEmail[] = "test@gmail.com";
+constexpr char kEmailLocalPartOnly[] = "test";
 // This value is derived by the Sync testing code from `kEmail` but is needed
 // directly in these tests in order to simulate the `StoreKeys` calls to the
 // `EnclaveManager`.
@@ -922,7 +923,7 @@ class EnclaveAuthenticatorBrowserTest : public SyncTest {
     } else if (script_result == "\"IsUVPAA: false\"") {
       return false;
     }
-    NOTREACHED_NORETURN() << "unexpected IsUVPAA result: " << script_result;
+    NOTREACHED() << "unexpected IsUVPAA result: " << script_result;
   }
 
   void SetBiometricsEnabled(bool enabled) {
@@ -980,7 +981,8 @@ class EnclaveAuthenticatorWithPinBrowserTest
   EnclaveAuthenticatorWithPinBrowserTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{device::kWebAuthnEnclaveAuthenticator,
-          {{device::kWebAuthnGpmPin.name, "true"}}}},
+          {{device::kWebAuthnGpmPin.name, "true"}}},
+         {device::kWebAuthnICloudRecoveryKey, {}}},
         /*disabled_features=*/{
             device::kWebAuthnUseInsecureSoftwareUnexportableKeys});
   }
@@ -2419,6 +2421,30 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithoutPinBrowserTest,
     delegate_observer()->WaitForDelegateDestruction();
   }
 
+  // For Google-internal users, the username in the create request is just the
+  // local part of the email address. Enclave should not appear for those cases
+  // either.
+  {
+    CheckRegistrationStateNotRequested();
+    content::WebContents* web_contents =
+        browser()->tab_strip_model()->GetActiveWebContents();
+    content::DOMMessageQueue message_queue(web_contents);
+    content::ExecuteScriptAsync(
+        web_contents, base::ReplaceStringPlaceholders(kMakeCredentialGoogle,
+                                                      {kEmailLocalPartOnly},
+                                                      /*offsets=*/nullptr));
+    delegate_observer()->WaitForUI();
+    EXPECT_TRUE(
+        base::ranges::none_of(dialog_model()->mechanisms, [](const auto& m) {
+          return absl::holds_alternative<
+              AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
+        }));
+    dialog_model()->CancelAuthenticatorRequest();
+    std::string script_result;
+    ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+    delegate_observer()->WaitForDelegateDestruction();
+  }
+
   // But trying to create a passkey for a different account is fine.
   {
     trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult
@@ -3502,16 +3528,16 @@ class BlockingUnexportableKeyProvider : public crypto::UnexportableKeyProvider {
   std::unique_ptr<crypto::UnexportableSigningKey> GenerateSigningKeySlowly(
       base::span<const crypto::SignatureVerifier::SignatureAlgorithm>
           acceptable_algorithms) override {
-    NOTREACHED_NORETURN();
+    NOTREACHED();
   }
 
   std::unique_ptr<crypto::UnexportableSigningKey> FromWrappedSigningKeySlowly(
       base::span<const uint8_t> wrapped_key) override {
-    NOTREACHED_NORETURN();
+    NOTREACHED();
   }
 
   bool DeleteSigningKeySlowly(base::span<const uint8_t> wrapped_key) override {
-    NOTREACHED_NORETURN();
+    NOTREACHED();
   }
 };
 

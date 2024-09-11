@@ -38,6 +38,7 @@ source_set("browser_state_service_factory") {
     "//ios/chrome/browser/commerce/model",
     "//ios/chrome/browser/commerce/model/push_notification",
     "//ios/chrome/browser/shared/model/browser_state",
+    "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/signin/model",
   ]
 }
@@ -84,12 +85,14 @@ source_set("push_notification_service") {
     "//ios/chrome/browser/content_notification/model:content_notification_service",
     "//ios/chrome/browser/content_notification/model:content_notification_service_factory",
     "//ios/chrome/browser/content_notification/model:util",
+    "//ios/chrome/browser/safety_check_notifications/model:notification_client",
     "//ios/chrome/browser/search_engines/model:template_url_service_factory",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
+    "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/public/features:features",
     "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/sync/model:device_info_sync_service_factory",
@@ -104,17 +107,20 @@ source_set("push_notification_client") {
     "push_notification_client.mm",
     "push_notification_client_id.h",
   ]
-  deps = [
+  public_deps = [
     "//base",
+    "//ios/chrome/browser/shared/model/browser_state",
+    "//url:url",
+  ]
+  deps = [
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/browser",
-    "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
+    "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/url_loading/model",
     "//ios/public/provider/chrome/browser/user_feedback:user_feedback_api",
-    "//url:url",
   ]
 }
 
@@ -151,6 +157,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/shared/model/browser_state:test_support",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
+    "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/public/features:features",
     "//ios/chrome/browser/signin/model:fake_system_identity",
     "//ios/chrome/test:test_support",

@@ -263,7 +263,7 @@ constexpr base::TimeDelta kSyncOperationTimeout = base::Seconds(10);
 }
 
 // Tests to open the account details twice in a row.
-// TODO(crbug.com/357828862): Test disabled because flakey in M128.
+// TODO(crbug.com/357145635): Test failing on builders.
 - (void)DISABLED_testOpenTwiceAccountDetails {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
 
@@ -409,8 +409,15 @@ constexpr base::TimeDelta kSyncOperationTimeout = base::Seconds(10);
 
 // Tests that users data is not cleared when the signed in account disappear and
 // it is a managed account.
-// TODO(crbug.com/357828862): Test disabled because flakey in M128.
-- (void)DISABLED_testManagedAccountRemovedFromAnotherGoogleApp {
+// TODO(crbug.com/355243751): This test is flaky on simulator.
+#if TARGET_IPHONE_SIMULATOR
+#define MAYBE_testManagedAccountRemovedFromAnotherGoogleApp \
+  FLAKY_testManagedAccountRemovedFromAnotherGoogleApp
+#else
+#define MAYBE_testManagedAccountRemovedFromAnotherGoogleApp \
+  testManagedAccountRemovedFromAnotherGoogleApp
+#endif
+- (void)MAYBE_testManagedAccountRemovedFromAnotherGoogleApp {
   // Sign In `fakeManagedIdentity`.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeManagedIdentity];
   [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity];

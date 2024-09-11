@@ -108,6 +108,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_fragment.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
 #include "third_party/blink/renderer/core/scroll/scroll_animator_base.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
@@ -525,6 +526,9 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
                                            .GetOrResetContentCaptureManager()) {
     manager->OnScrollPositionChanged();
   }
+  if (GetLayoutBox()->IsScrollContainerWithScrollMarkerGroup()) {
+    GetLayoutBox()->UpdateScrollMarkerControlsAfterScroll();
+  }
   if (AXObjectCache* cache =
           GetLayoutBox()->GetDocument().ExistingAXObjectCache())
     cache->HandleScrollPositionChanged(GetLayoutBox());
@@ -584,7 +588,7 @@ bool PaintLayerScrollableArea::BackgroundNeedsRepaintOnScroll() const {
 }
 
 gfx::Vector2d PaintLayerScrollableArea::ScrollOffsetInt() const {
-  return gfx::ToFlooredVector2d(scroll_offset_);
+  return SnapScrollOffsetToPhysicalPixels(scroll_offset_);
 }
 
 ScrollOffset PaintLayerScrollableArea::GetScrollOffset() const {
@@ -2386,6 +2390,19 @@ void PaintLayerScrollableArea::Resize(const gfx::Point& pos,
   // keep the point under the cursor in view.
 }
 
+PhysicalOffset PaintLayerScrollableArea::LocalToScrollOriginOffset() const {
+  PhysicalOffset border_origin_to_scroll_origin(-GetLayoutBox()->BorderLeft(),
+                                                -GetLayoutBox()->BorderTop());
+  // There might be scroll bar between border_origin and scroll_origin.
+  gfx::Vector2d scroll_bar_adjustment =
+      GetLayoutBox()->OriginAdjustmentForScrollbars();
+  border_origin_to_scroll_origin.left -= scroll_bar_adjustment.x();
+  border_origin_to_scroll_origin.top -= scroll_bar_adjustment.y();
+  border_origin_to_scroll_origin +=
+      PhysicalOffset::FromVector2dFFloor(GetScrollOffset());
+  return border_origin_to_scroll_origin;
+}
+
 PhysicalRect PaintLayerScrollableArea::ScrollIntoView(
     const PhysicalRect& absolute_rect,
     const PhysicalBoxStrut& scroll_margin,
@@ -2400,22 +2417,9 @@ PhysicalRect PaintLayerScrollableArea::ScrollIntoView(
 
   PhysicalRect local_expose_rect =
       GetLayoutBox()->AbsoluteToLocalRect(absolute_rect, flag);
-  PhysicalOffset border_origin_to_scroll_origin(-GetLayoutBox()->BorderLeft(),
-                                                -GetLayoutBox()->BorderTop());
-  // There might be scroll bar between border_origin and scroll_origin.
-  gfx::Vector2d scroll_bar_adjustment =
-      GetLayoutBox()->OriginAdjustmentForScrollbars();
-  border_origin_to_scroll_origin.left -= scroll_bar_adjustment.x();
-  border_origin_to_scroll_origin.top -= scroll_bar_adjustment.y();
-  border_origin_to_scroll_origin +=
-      PhysicalOffset::FromVector2dFFloor(GetScrollOffset());
-  // Represent the rect in the container's scroll-origin coordinate.
-  local_expose_rect.Move(border_origin_to_scroll_origin);
-  PhysicalRect scroll_snapport_rect = VisibleScrollSnapportRect();
-
-  ScrollOffset target_offset = ScrollAlignment::GetScrollOffsetToExpose(
-      scroll_snapport_rect, local_expose_rect, scroll_margin,
-      *params->align_x.get(), *params->align_y.get(), GetScrollOffset());
+  ScrollOffset target_offset = scroll_into_view_util::GetScrollOffsetToExpose(
+      *this, local_expose_rect, scroll_margin, *params->align_x.get(),
+      *params->align_y.get());
   ScrollOffset new_scroll_offset(
       ClampScrollOffset(gfx::ToRoundedVector2d(target_offset)));
 
@@ -2449,7 +2453,6 @@ PhysicalRect PaintLayerScrollableArea::ScrollIntoView(
     SetScrollOffset(new_scroll_offset, params->type,
                     mojom::blink::ScrollBehavior::kInstant);
   }
-
   ScrollOffset scroll_offset_difference = new_scroll_offset - old_scroll_offset;
   // The container hasn't performed the scroll yet if it's for scroll sequence.
   // To calculate the result from the scroll, we move the |local_expose_rect| to
@@ -2458,8 +2461,8 @@ PhysicalRect PaintLayerScrollableArea::ScrollIntoView(
       -PhysicalOffset::FromVector2dFRound(scroll_offset_difference));
 
   // Represent the rects in the container's border-box coordinate.
-  local_expose_rect.Move(-border_origin_to_scroll_origin);
-  scroll_snapport_rect.Move(-border_origin_to_scroll_origin);
+  PhysicalRect scroll_snapport_rect =
+      VisibleScrollSnapportRect() - LocalToScrollOriginOffset();
   PhysicalRect intersect =
       Intersection(scroll_snapport_rect, local_expose_rect);
 
@@ -2585,6 +2588,13 @@ bool PaintLayerScrollableArea::ShouldScrollOnMainThread() const {
   DCHECK_GE(GetDocument()->Lifecycle().GetState(),
             DocumentLifecycle::kPaintClean);
   if (HasBeenDisposed()) {
+    return true;
+  }
+
+  if (RuntimeEnabledFeatures::ExcludePopupMainThreadScrollingReasonEnabled() &&
+      !GetLayoutBox()->GetFrame()->Client()->GetWebFrame()) {
+    // If there's no WebFrame, then there's no WebFrameWidget, and we can't do
+    // threaded scrolling. This currently only happens in a WebPagePopup.
     return true;
   }
 

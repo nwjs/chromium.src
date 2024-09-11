@@ -724,6 +724,11 @@ bool IsTouchCalibrationAvailable() {
          display::HasExternalTouchscreenDevice();
 }
 
+bool IsTouchscreenRemappingExperienceAvailable() {
+  return features::IsTouchscreenMappingExperienceEnabled() &&
+         display::HasExternalTouchscreenDevice();
+}
+
 bool IsListAllDisplayModesEnabled() {
   return display::features::IsListAllDisplayModesEnabled();
 }
@@ -852,6 +857,9 @@ void AddDeviceKeyboardStrings(content::WebUIDataSource* html_source) {
       {"openAppLabel", IDS_SETTINGS_PER_DEVICE_OPEN_APP_LABEL},
       {"installAppLabel", IDS_SETTINGS_PER_DEVICE_INSTALL_APP_LABEL},
       {"installAppButton", IDS_SETTINGS_PER_DEVICE_INSTALL_APP_BUTTON},
+      {"deviceNameLabel", IDS_SETTINGS_PER_DEVICE_NAME},
+      {"deviceBatteryLabel",
+       IDS_SETTINGS_PER_DEVICE_BATTERY_PERCENTAGE_A11Y_LABEL},
   };
   html_source->AddLocalizedStrings(keyboard_strings);
 
@@ -1894,6 +1902,8 @@ void DeviceSection::AddDeviceDisplayStrings(
        IDS_SETTINGS_DISPLAY_NIGHT_LIGHT_SCHEDULE_SUNSET_TO_SUNRISE},
       {"displayNightLightGeolocationWarningText",
        IDS_SETTINGS_DISPLAY_NIGHT_LIGHT_GEOLOCATION_WARNING_TEXT},
+      {"displayNightLightGeolocationManagedWarningText",
+       IDS_SETTINGS_DISPLAY_NIGHT_LIGHT_GEOLOCATION_MANAGED_WARNING_TEXT},
       {"displayNightLightTemperatureLabel",
        IDS_SETTINGS_DISPLAY_NIGHT_LIGHT_TEMPERATURE_LABEL},
       {"displayNightLightTempSliderMaxLabel",
@@ -1964,6 +1974,8 @@ void DeviceSection::AddDeviceDisplayStrings(
        IDS_SETTINGS_DISPLAY_TOUCH_CALIBRATION_TEXT},
       {"displayTouchCalibrationTitle",
        IDS_SETTINGS_DISPLAY_TOUCH_CALIBRATION_TITLE},
+      {"displayTouchMappingText", IDS_SETTINGS_DISPLAY_TOUCH_MAPPING_TEXT},
+      {"displayTouchMappingTitle", IDS_SETTINGS_DISPLAY_TOUCH_MAPPING_TITLE},
       {"displayUnifiedDesktop", IDS_SETTINGS_DISPLAY_UNIFIED_DESKTOP},
       {"displayUnifiedDesktopOff", IDS_SETTINGS_DISPLAY_UNIFIED_DESKTOP_OFF},
       {"displayUnifiedDesktopOn", IDS_SETTINGS_DISPLAY_UNIFIED_DESKTOP_ON},
@@ -2008,6 +2020,9 @@ void DeviceSection::AddDeviceDisplayStrings(
 
   html_source->AddBoolean("enableTouchCalibrationSetting",
                           IsTouchCalibrationAvailable());
+
+  html_source->AddBoolean("enableTouchscreenMappingExperience",
+                          IsTouchscreenRemappingExperienceAvailable());
 
   html_source->AddString("invalidDisplayId",
                          base::NumberToString(display::kInvalidDisplayId));

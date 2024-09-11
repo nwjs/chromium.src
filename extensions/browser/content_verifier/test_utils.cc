@@ -236,9 +236,7 @@ std::set<base::FilePath> MockContentVerifierDelegate::GetBrowserImagePaths(
 
 void MockContentVerifierDelegate::VerifyFailed(
     const ExtensionId& extension_id,
-    const base::FilePath& relative_path,
-    ContentVerifyJob::FailureReason reason,
-    scoped_refptr<ContentVerifyJob> verify_job) {
+    ContentVerifyJob::FailureReason reason) {
   ADD_FAILURE() << "Unexpected call for this test";
 }
 

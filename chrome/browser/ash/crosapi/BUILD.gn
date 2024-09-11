@@ -36,11 +36,6 @@ static_library("browser_util") {
 }
 
 static_library("crosapi") {
-  defines = []
-  if (use_cras) {
-    defines += [ "USE_CRAS" ]
-  }
-
   sources = [
     "arc_ash.cc",
     "arc_ash.h",
@@ -334,6 +329,7 @@ static_library("crosapi") {
     "//base",
     "//build/config/chromebox_for_meetings:buildflags",
     "//chrome/browser:browser_process",
+    "//chrome/browser:primitives",
     "//chrome/browser/apps/app_service/app_icon",
     "//chrome/browser/ash/accessibility",
     "//chrome/browser/ash/app_list",
@@ -344,6 +340,7 @@ static_library("crosapi") {
     "//chrome/browser/ash/arc",
     "//chrome/browser/ash/attestation",
     "//chrome/browser/ash/cert_provisioning",
+    "//chrome/browser/ash/drive",
     "//chrome/browser/ash/exo",
     "//chrome/browser/ash/file_manager",
     "//chrome/browser/ash/file_manager/virtual_tasks",
@@ -361,6 +358,7 @@ static_library("crosapi") {
     "//chrome/browser/ash/mahi",
     "//chrome/browser/ash/mahi/media_app",
     "//chrome/browser/ash/net",
+    "//chrome/browser/ash/network_change_manager",
     "//chrome/browser/ash/notifications",
     "//chrome/browser/ash/platform_keys",
     "//chrome/browser/ash/platform_keys/key_permissions",
@@ -368,6 +366,7 @@ static_library("crosapi") {
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/dlp",
     "//chrome/browser/ash/policy/handlers",
+    "//chrome/browser/ash/policy/multi_screen_capture",
     "//chrome/browser/ash/printing",
     "//chrome/browser/ash/printing/history",
     "//chrome/browser/ash/printing/history:print_job_info_proto",
@@ -377,6 +376,7 @@ static_library("crosapi") {
     "//chrome/browser/ash/privacy_hub",
     "//chrome/browser/ash/profiles",
     "//chrome/browser/ash/remote_apps",
+    "//chrome/browser/ash/settings",
     "//chrome/browser/ash/smart_reader",
     "//chrome/browser/ash/sync",
     "//chrome/browser/ash/system",
@@ -386,11 +386,17 @@ static_library("crosapi") {
     "//chrome/browser/ash/system_web_apps/apps/media_app",
     "//chrome/browser/ash/system_web_apps/types",
     "//chrome/browser/ash/trusted_vault",
+    "//chrome/browser/ash/url_handler",
+    "//chrome/browser/chromeos/extensions/file_system_provider",
+    "//chrome/browser/chromeos/extensions/login_screen/login/cleanup",
+    "//chrome/browser/chromeos/platform_keys",
+    "//chrome/browser/feedback",
     "//chrome/browser/image_decoder:image_decoder",
     "//chrome/browser/media/router/discovery/access_code:access_code_cast_feature",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/screen_ai:screen_ai_install_state",
     "//chrome/browser/ui/ash/keyboard",
+    "//chrome/browser/ui/webui/ash/kerberos",
     "//chrome/browser/ui/webui/ash/parent_access:mojo_bindings",
     "//chrome/browser/web_applications",
     "//chrome/common",
@@ -417,6 +423,7 @@ static_library("crosapi") {
     "//chromeos/ash/components/nearby/common/connections_manager",
     "//chromeos/ash/components/network",
     "//chromeos/ash/components/network/portal_detector",
+    "//chromeos/ash/components/nonclosable_app_ui",
     "//chromeos/ash/components/osauth/public",
     "//chromeos/ash/components/report:utils",
     "//chromeos/ash/components/settings",
@@ -503,9 +510,6 @@ static_library("crosapi") {
     "//ui/views",
   ]
 
-  # Needed only to allow circular includes.
-  deps += [ "//chrome/browser/chromeos/echo" ]
-
   # local_printer_ash.cc includes
   # chrome/browser/ash/printing/print_management/printing_manager.h, which in
   # turn requires //chromeos/components/print_management/mojom to generate the
@@ -518,6 +522,9 @@ static_library("crosapi") {
 
   public_deps = [
     ":browser_util",
+    "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser/task_manager",
+    "//chrome/browser/ui/webui/ash/parent_access",
     "//media/gpu:buildflags",
     "//printing",
   ]
@@ -527,24 +534,29 @@ static_library("crosapi") {
     "//chrome/browser/ash/app_list/search",
     "//chrome/browser/ash/app_restore",
     "//chrome/browser/ash/apps",
+    "//chrome/browser/ash/drive",
+    "//chrome/browser/ash/file_manager/virtual_tasks",
     "//chrome/browser/ash/file_system_provider",
+    "//chrome/browser/ash/input_method",
+    "//chrome/browser/ash/login",
     "//chrome/browser/ash/login/session",
     "//chrome/browser/ash/mahi",
     "//chrome/browser/ash/mahi/media_app",
     "//chrome/browser/ash/net",
-    "//chrome/browser/ash/input_method",
-    "//chrome/browser/ash/login",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/dlp",
     "//chrome/browser/ash/system_web_apps/apps/help_app",
     "//chrome/browser/ash/system_web_apps/apps/media_app",
-    "//chrome/browser/ash/file_manager/virtual_tasks",
-    "//chrome/browser/chromeos/echo",
+    "//chrome/browser/ash/url_handler",
+    "//chrome/browser/chromeos/extensions/file_system_provider",
+    "//chrome/browser/chromeos/extensions/login_screen/login/cleanup",
+    "//chrome/browser/chromeos/platform_keys",
   ]
 }
 
 static_library("test_support") {
   testonly = true
+
   sources = [
     "ash_requires_lacros_browsertestbase.cc",
     "ash_requires_lacros_browsertestbase.h",
@@ -565,7 +577,9 @@ static_library("test_support") {
     "test_crosapi_environment.cc",
     "test_crosapi_environment.h",
   ]
+
   allow_circular_includes_from = [ "//chrome/test:test_support" ]
+
   deps = [
     ":crosapi",
     "//ash",
@@ -574,11 +588,12 @@ static_library("test_support") {
     "//ash/components/arc:arc_test_support",
     "//base",
     "//chrome/browser/apps/app_service",
-    "//chrome/browser/ash:test_support",
     "//chrome/browser/ash/accessibility",
     "//chrome/browser/ash/printing",
     "//chrome/browser/ash/printing:test_support",
+    "//chrome/browser/ash/printing/history:test_support",
     "//chrome/browser/ui/ash/desks",
+    "//chrome/browser/ui/webui/ash/app_install",
     "//chrome/test:test_support",
     "//chromeos/ash/components/dbus/shill",
     "//chromeos/ash/components/standalone_browser:test_support",
@@ -669,31 +684,37 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_config",
     "//base/test:test_support",
-    "//chrome/browser/ash:test_support",
     "//chrome/browser/ash/attestation",
     "//chrome/browser/ash/attestation:test_support",
     "//chrome/browser/ash/cert_provisioning:test_support",
     "//chrome/browser/ash/file_manager",
     "//chrome/browser/ash/file_manager:test_support",
     "//chrome/browser/ash/login",
+    "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/ash/platform_keys:test_support",
     "//chrome/browser/ash/platform_keys/key_permissions:test_support",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/core:test_support",
     "//chrome/browser/ash/policy/dlp",
+    "//chrome/browser/ash/policy/dlp/test:test_support",
     "//chrome/browser/ash/printing",
     "//chrome/browser/ash/printing:test_support",
     "//chrome/browser/ash/printing/oauth2",
     "//chrome/browser/ash/printing/oauth2:test_support",
     "//chrome/browser/ash/scanning",
     "//chrome/browser/ash/scanning:test_support",
+    "//chrome/browser/ash/settings",
+    "//chrome/browser/ash/settings:test_support",
     "//chrome/browser/ash/wallpaper_handlers:test_support",
     "//chrome/browser/chromeos:test_support",
     "//chrome/browser/chromeos/launcher_search:search_util",
+    "//chrome/browser/chromeos/platform_keys",
     "//chrome/browser/ui/ash",
     "//chrome/browser/ui/ash:test_support",
     "//chrome/browser/ui/ash/desks",
     "//chrome/browser/ui/ash/picker",
+    "//chrome/browser/ui/ash/shelf",
+    "//chrome/browser/ui/webui/ash/parent_access",
     "//chrome/common/printing",
     "//chrome/test:test_support",
     "//chromeos/ash/components/channel",
@@ -767,7 +788,6 @@ source_set("browser_tests") {
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service:app_registry_cache_waiter",
     "//chrome/browser/ash",
-    "//chrome/browser/ash:test_support",
     "//chrome/browser/ash/login",
     "//chrome/browser/ash/login:test_support",
     "//chrome/browser/ash/login/app_mode/test:test_support",
@@ -783,6 +803,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/ash:test_support",
     "//chrome/common",
     "//chrome/test:test_support",
+    "//chrome/test/base/ash/util:test_support",
     "//chromeos/ash/components/dbus/session_manager",
     "//chromeos/ash/components/dbus/shill",
     "//chromeos/ash/components/standalone_browser",

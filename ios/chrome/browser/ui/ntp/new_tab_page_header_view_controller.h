@@ -14,6 +14,7 @@
 @protocol ApplicationCommands;
 @protocol BrowserCoordinatorCommands;
 @protocol FakeboxFocuser;
+@protocol HomeCustomizationDelegate;
 @protocol NewTabPageControllerDelegate;
 @protocol NewTabPageHeaderCommands;
 @class NewTabPageMetricsRecorder;
@@ -30,6 +31,8 @@
                         UserAccountImageUpdateDelegate>
 
 - (instancetype)initWithUseNewBadgeForLensButton:(BOOL)useNewBadgeForLensButton
+                 useNewBadgeForCustomizationMenu:
+                     (BOOL)useNewBadgeForCustomizationMenu
     NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithNibName:(NSString*)nibNameOrNil
@@ -67,9 +70,17 @@
 // ContentSuggestions.
 @property(nonatomic, strong, readonly) UIButton* identityDiscButton;
 
+// Customization menu button shown in this ViewController.
+// TODO(crbug.com/40165977): Remove once the Feed header properly supports
+// ContentSuggestions.
+@property(nonatomic, readonly) UIButton* customizationMenuButton;
+
 // Should be set to YES if an animation will run that requires animating the
 // font scale, for example, during a fakebox defocus animation.
 @property(nonatomic, assign) BOOL allowFontScaleAnimation;
+
+// The delegate for the Home Customization menu.
+@property(nonatomic, weak) id<HomeCustomizationDelegate> customizationDelegate;
 
 // Animation to expand this header in response to focusing the omnibox to match
 // the fake omnibox with the omnibox's.
@@ -112,6 +123,9 @@
 
 // Shows the fakebox.
 - (void)omniboxDidResignFirstResponder;
+
+// Hides the new feature badge on the Home customization menu's entrypoint.
+- (void)hideBadgeOnCustomizationMenu;
 
 @end
 

@@ -1,7 +1,14 @@
 // Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #pragma clang diagnostic ignored "-Wunused-const-variable"
+
 #include "chrome/browser/ui/webui/settings/settings_ui.h"
 
 #include <stddef.h>
@@ -32,6 +39,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
@@ -368,21 +376,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "enableCbdTimeframeRequired",
       base::FeatureList::IsEnabled(features::kCbdTimeframeRequired));
 
-  html_source->AddBoolean(
-      "enableFriendlierSafeBrowsingSettings",
-      base::FeatureList::IsEnabled(
-          safe_browsing::kFriendlierSafeBrowsingSettingsEnhancedProtection) &&
-          base::FeatureList::IsEnabled(
-              safe_browsing::
-                  kFriendlierSafeBrowsingSettingsStandardProtection));
-
   html_source->AddBoolean("enableHashPrefixRealTimeLookups",
                           safe_browsing::hash_realtime_utils::
                               IsHashRealTimeLookupEligibleInSession());
 
   html_source->AddBoolean("enableHttpsFirstModeNewSettings",
-                          base::FeatureList::IsEnabled(
-                              features::kHttpsFirstModeIncognitoNewSettings));
+                          IsBalancedModeAvailable());
 
   html_source->AddBoolean(
       "enableKeyboardAndPointerLockPrompt",
@@ -425,6 +424,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "extendedReportingRemovePrefDependency",
       base::FeatureList::IsEnabled(
           safe_browsing::kExtendedReportingRemovePrefDependency));
+
+  html_source->AddBoolean(
+      "hashPrefixRealTimeLookupsSamplePing",
+      base::FeatureList::IsEnabled(
+          safe_browsing::kHashPrefixRealTimeLookupsSamplePing));
 
   AddSettingsPageUIHandler(std::make_unique<AboutHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ResetSettingsHandler>(profile));
@@ -528,21 +532,17 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("enableSafetyHub",
                           base::FeatureList::IsEnabled(features::kSafetyHub));
 
-  // Tracking Protection
+  // Mode B UX
   html_source->AddBoolean(
       "is3pcdCookieSettingsRedesignEnabled",
       TrackingProtectionSettingsFactory::GetForProfile(profile)
           ->IsTrackingProtection3pcdEnabled());
+
+  // ACT UX
   html_source->AddBoolean(
-      "enableTrackingProtectionRolloutUx",
-      TrackingProtectionSettingsFactory::GetForProfile(profile)
-              ->IsTrackingProtection3pcdEnabled() &&
-          base::FeatureList::IsEnabled(
-              privacy_sandbox::kTrackingProtectionSettingsLaunch));
-  html_source->AddBoolean(
-      "isIpProtectionV1Enabled",
+      "isIpProtectionUxEnabled",
       base::FeatureList::IsEnabled(privacy_sandbox::kIpProtectionUx));
-  html_source->AddBoolean("isFingerprintingProtectionEnabled",
+  html_source->AddBoolean("isFingerprintingProtectionUxEnabled",
                           base::FeatureList::IsEnabled(
                               privacy_sandbox::kFingerprintingProtectionUx));
 
@@ -552,15 +552,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
           privacy_sandbox::kPrivacySandboxProactiveTopicsBlocking));
 
   html_source->AddBoolean(
-      "proactiveTopicsBlockingIncludesModeB",
-      privacy_sandbox::kPrivacySandboxProactiveTopicsBlockingIncludeModeB
-          .Get());
-
-  html_source->AddBoolean("isInCookieDeprecationFacilitatedTesting",
-                          base::FeatureList::IsEnabled(
-                              features::kCookieDeprecationFacilitatedTesting));
-
-  html_source->AddBoolean(
       "isPrivacySandboxPrivacyGuideAdTopicsEnabled",
       base::FeatureList::IsEnabled(
           privacy_sandbox::kPrivacySandboxPrivacyGuideAdTopics));
@@ -568,17 +559,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   // Performance
   AddSettingsPageUIHandler(std::make_unique<PerformanceHandler>());
   html_source->AddBoolean(
-      "isDiscardRingImprovementsEnabled",
-      base::FeatureList::IsEnabled(
-          performance_manager::features::kDiscardRingImprovements));
-  html_source->AddBoolean(
       "isPerformanceInterventionUiEnabled",
       base::FeatureList::IsEnabled(
           performance_manager::features::kPerformanceInterventionUI));
-  html_source->AddBoolean(
-      "isMemorySaverModeAggressivenessEnabled",
-      base::FeatureList::IsEnabled(
-          performance_manager::features::kMemorySaverModeAggressiveness));
   html_source->AddBoolean(
       "isBatterySaverModeManagedByOS",
       performance_manager::user_tuning::IsBatterySaverModeManagedByOS());

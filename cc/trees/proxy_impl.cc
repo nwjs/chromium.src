@@ -805,7 +805,8 @@ void ProxyImpl::ScheduledActionUpdateDisplayTree() {
   // The tile visibility/priority of the pending tree needs to be updated so
   // that it doesn't get activated before the raster is complete.
   if (host_impl_->pending_tree()) {
-    host_impl_->pending_tree()->UpdateDrawProperties();
+    host_impl_->pending_tree()->UpdateDrawProperties(
+        /*update_tiles=*/true, /*update_image_animation_controller=*/true);
   }
 }
 
@@ -920,7 +921,7 @@ DrawResult ProxyImpl::DrawInternal(bool forced_draw) {
   DCHECK(IsImplThread());
   DCHECK(host_impl_.get());
 
-  TRACE_EVENT_WITH_FLOW0("viz,benchmark", "MainFrame.Draw",
+  TRACE_EVENT_WITH_FLOW0("viz,benchmark,input.scrolling", "MainFrame.Draw",
                          TRACE_ID_LOCAL(host_impl_->active_tree()->trace_id()),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
 
@@ -980,8 +981,10 @@ DrawResult ProxyImpl::DrawInternal(bool forced_draw) {
   // The tile visibility/priority of the pending tree needs to be updated so
   // that it doesn't get activated before the raster is complete. But this needs
   // to happen after the draw, off of the critical path to draw.
-  if (host_impl_->pending_tree())
-    host_impl_->pending_tree()->UpdateDrawProperties();
+  if (host_impl_->pending_tree()) {
+    host_impl_->pending_tree()->UpdateDrawProperties(
+        /*update_tiles=*/true, /*update_image_animation_controller=*/true);
+  }
 
   DCHECK_NE(DrawResult::kInvalidResult, result);
   return result;

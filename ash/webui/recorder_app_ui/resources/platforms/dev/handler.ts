@@ -17,7 +17,7 @@ import {SAMPLE_RATE} from '../../core/audio_constants.js';
 import {InternalMicInfo} from '../../core/microphone_manager.js';
 import {
   Model,
-  ModelId,
+  ModelLoader,
   ModelResponse,
   ModelState,
 } from '../../core/on_device_model/types.js';
@@ -25,7 +25,12 @@ import {
   PlatformHandler as PlatformHandlerBase,
 } from '../../core/platform_handler.js';
 import {signal} from '../../core/reactive/signal.js';
-import {SodaEvent, SodaSession, TimeDelta} from '../../core/soda/types.js';
+import {
+  HypothesisPart,
+  SodaEvent,
+  SodaSession,
+  TimeDelta,
+} from '../../core/soda/types.js';
 import {
   assert,
   assertEnumVariant,
@@ -49,8 +54,8 @@ import {
 } from './settings.js';
 import {strings} from './strings.js';
 
-class ModelDev implements Model {
-  async suggestTitles(content: string): Promise<ModelResponse<string[]>> {
+class TitleSuggestionModelDev implements Model<string[]> {
+  async execute(content: string): Promise<ModelResponse<string[]>> {
     await sleep(3000);
     const words = content.split(' ');
     const result = [
@@ -62,7 +67,11 @@ class ModelDev implements Model {
     return {kind: 'success', result};
   }
 
-  async summarize(content: string): Promise<ModelResponse> {
+  close(): void {}
+}
+
+class SummaryModelDev implements Model<string> {
+  async execute(content: string): Promise<ModelResponse<string>> {
     await sleep(3000);
     const result = `Summary for ${content.substring(0, 40)}...`;
     // TODO(pihsun): Mock error state.
@@ -70,6 +79,34 @@ class ModelDev implements Model {
   }
 
   close(): void {}
+}
+
+class ModelLoaderDev<T> extends ModelLoader<T> {
+  constructor(private readonly model: Model<T>) {
+    super();
+  }
+
+  override state = signal<ModelState>({kind: 'notInstalled'});
+
+  override async load(): Promise<Model<T>> {
+    console.log('model installation requested');
+    if (this.state.value.kind === 'notInstalled') {
+      this.state.value = {kind: 'installing', progress: 0};
+      // Simulate the loading of model.
+      let progress = 0;
+      while (true) {
+        await sleep(200);
+        // 4% per 200 ms -> simulate 5 seconds for the whole installation.
+        progress += 4;
+        if (progress >= 100) {
+          this.state.value = {kind: 'installed'};
+          break;
+        }
+        this.state.value = {kind: 'installing', progress};
+      }
+    }
+    return this.model;
+  }
 }
 
 // Random placeholder text from ChromeOS blog.
@@ -126,8 +163,10 @@ involved at chromium.org.
 Lastly, here is a short video that explains why we're so excited about Google
 Chrome OS.`.split('\n\n').map((line) => line.split(/\s+/));
 
-// Emit one word per 300 ms.
-const WORD_INTERVAL_MS = 300;
+// Emit one word per 200 ms.
+const WORD_INTERVAL_MS = 200;
+
+const MAX_NUM_SPEAKER = 3;
 
 function timeDelta(milliseconds: number): TimeDelta {
   return {microseconds: BigInt(milliseconds * 1000)};
@@ -144,6 +183,8 @@ class SodaSessionDev implements SodaSession {
 
   private fakeTimeMs = 0;
 
+  private speakerLabelCorrectionPart: HypothesisPart|null = null;
+
   // TODO(pihsun): Simulate partial result being changed/corrected.
   private emitSodaNextWord(finishLine = false): void {
     this.fakeTimeMs += WORD_INTERVAL_MS;
@@ -152,22 +193,52 @@ class SodaSessionDev implements SodaSession {
       return;
     }
     const currentLine = assertExists(TRANSCRIPTION_LINES[this.currentLineIdx]);
+    const lineStartTimeMs =
+      this.fakeTimeMs - (this.currentWordIdx + 1) * WORD_INTERVAL_MS;
     const timingEvent = {
-      audioStartTime: timeDelta(
-        this.fakeTimeMs - (this.currentWordIdx + 1) * WORD_INTERVAL_MS,
-      ),
+      audioStartTime: timeDelta(lineStartTimeMs),
       eventEndTime: timeDelta(this.fakeTimeMs),
     };
+    // Speaker label starts from "1".
+    const lineSpeakerLabel = (this.currentLineIdx % MAX_NUM_SPEAKER) + 1;
+    const hypothesisPart =
+      currentLine.slice(0, this.currentWordIdx + 1).map((w, i) => {
+        let speakerLabel = lineSpeakerLabel;
+        if (i === 0 && this.currentLineIdx > 0 && !finishLine) {
+          // Change speaker label of first word of each line to "wrong" speaker
+          // ID, to simulate speaker label correction event.
+          speakerLabel--;
+          if (speakerLabel === 0) {
+            speakerLabel = MAX_NUM_SPEAKER;
+          }
+        }
+        return {
+          text: [w],
+          alignment: timeDelta(i * WORD_INTERVAL_MS),
+          leadingSpace: true,
+          speakerLabel: speakerLabel.toString(),
+        } satisfies HypothesisPart;
+      });
+
+    // Emit the previous line correction event on the half point of the
+    // next line.
+    if ((this.currentWordIdx >= currentLine.length / 2 || finishLine) &&
+        this.speakerLabelCorrectionPart !== null) {
+      this.observers.notify({
+        labelCorrectionEvent: {
+          hypothesisParts: [this.speakerLabelCorrectionPart],
+        },
+      });
+      this.speakerLabelCorrectionPart = null;
+    }
 
     if (this.currentWordIdx === currentLine.length - 1 || finishLine) {
-      const hypothesisPart =
-        currentLine.slice(0, this.currentWordIdx + 1).map((w, i) => {
-          return {
-            text: [w],
-            alignment: timeDelta(i * WORD_INTERVAL_MS),
-            leadingSpace: true,
-          };
-        });
+      this.speakerLabelCorrectionPart = {
+        text: [assertExists(currentLine[0])],
+        alignment: timeDelta(lineStartTimeMs),
+        leadingSpace: true,
+        speakerLabel: lineSpeakerLabel.toString(),
+      };
       this.observers.notify({
         finalResult: {
           finalHypotheses: currentLine,
@@ -187,6 +258,7 @@ class SodaSessionDev implements SodaSession {
           partialText: [
             currentLine.slice(0, this.currentWordIdx + 1).join(' '),
           ],
+          hypothesisPart,
           timingEvent,
         },
       });
@@ -250,12 +322,9 @@ function substituteI18nString(label: string, ...args: Array<number|string>):
 }
 
 export class PlatformHandler extends PlatformHandlerBase {
-  readonly sodaState = signal<ModelState>({kind: 'notInstalled'});
+  override readonly quietMode = signal(false);
 
-  readonly modelStates = new Map([
-    [ModelId.SUMMARY, signal<ModelState>({kind: 'notInstalled'})],
-    [ModelId.GEMINI_XXS_IT_BASE, signal<ModelState>({kind: 'notInstalled'})],
-  ]);
+  override readonly sodaState = signal<ModelState>({kind: 'notInstalled'});
 
   override async init(): Promise<void> {
     settingsInit();
@@ -265,26 +334,11 @@ export class PlatformHandler extends PlatformHandlerBase {
     }
   }
 
-  override async loadModel(modelId: ModelId): Promise<Model> {
-    console.log('model installation requested');
-    const state = assertExists(this.modelStates.get(modelId));
-    if (state.value.kind === 'notInstalled') {
-      state.value = {kind: 'installing', progress: 0};
-      // Simulate the loading of model.
-      let progress = 0;
-      while (true) {
-        await sleep(200);
-        // 4% per 200 ms -> simulate 5 seconds for the whole installation.
-        progress += 4;
-        if (progress >= 100) {
-          state.value = {kind: 'installed'};
-          break;
-        }
-        state.value = {kind: 'installing', progress};
-      }
-    }
-    return new ModelDev();
-  }
+  override summaryModelLoader = new ModelLoaderDev(new SummaryModelDev());
+
+  override titleSuggestionModelLoader = new ModelLoaderDev(
+    new TitleSuggestionModelDev(),
+  );
 
   override installSoda(): void {
     console.log('SODA installation requested');
@@ -316,7 +370,8 @@ export class PlatformHandler extends PlatformHandlerBase {
     return new SodaSessionDev();
   }
 
-  override async getMicrophoneInfo(_deviceId: string
+  override async getMicrophoneInfo(
+    _deviceId: string,
   ): Promise<InternalMicInfo> {
     return {isDefault: false, isInternal: false};
   }
@@ -400,5 +455,11 @@ export class PlatformHandler extends PlatformHandlerBase {
       stream.removeTrack(videoTrack);
     }
     return stream;
+  }
+
+  override getLocale(): string|undefined {
+    // Always use en-US in dev mode, since mock for the main i18n also use en-US
+    // translations.
+    return 'en-US';
   }
 }

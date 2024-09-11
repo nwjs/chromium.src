@@ -5,6 +5,7 @@
 #include "ash/system/focus_mode/focus_mode_metrics_recorder.h"
 
 #include "ash/constants/ash_pref_names.h"
+#include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/system/focus_mode/focus_mode_controller.h"
 #include "ash/system/focus_mode/focus_mode_histogram_names.h"
@@ -51,7 +52,7 @@ void RecordStartSessionSourceHistogram(
               kFeaturePod);
       break;
     case ash::focus_mode_histogram_names::ToggleSource::kContextualPanel:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -276,7 +277,7 @@ void FocusModeMetricsRecorder::SetHasSelectedSoundType(
       has_selected_youtube_music_ = true;
       break;
     case focus_mode_util::SoundType::kNone:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 
   playlists_played_count_++;

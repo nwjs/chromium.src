@@ -1528,9 +1528,13 @@ void NetworkHandler::OnEndpointsUpdatedForOrigin(
   if (!host_ || endpoints.empty()) {
     return;
   }
-  url::Origin origin = endpoints[0].group_key.origin;
+  // Endpoint should have an origin.
+  DCHECK(endpoints[0].group_key.origin.has_value());
+  url::Origin origin = endpoints[0].group_key.origin.value();
   DCHECK(base::ranges::all_of(endpoints, [&](auto const& endpoint) {
-    return endpoint.group_key.origin == origin;
+    // Endpoint should have an origin.
+    DCHECK(endpoint.group_key.origin.has_value());
+    return endpoint.group_key.origin.value() == origin;
   }));
   std::vector<GURL> reporting_filter_urls = ComputeReportingURLs(host_);
 
@@ -1659,7 +1663,7 @@ void NetworkHandler::GetCookies(Maybe<Array<String>> protocol_urls,
   bool is_webui = host_ && host_->web_ui();
 
   urls.erase(std::remove_if(urls.begin(), urls.end(),
-                            [=](const GURL& url) {
+                            [=, this](const GURL& url) {
                               return !client_->MayAttachToURL(url, is_webui);
                             }),
              urls.end());

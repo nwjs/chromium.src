@@ -12,6 +12,8 @@ static_library("focus_mode") {
     "chrome_focus_mode_delegate.h",
   ]
 
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+
   deps = [
     "//ash",
     "//base",
@@ -38,9 +40,11 @@ source_set("browser_tests") {
     "//ash/constants",
     "//ash/public/cpp",
     "//base/test:test_support",
+    "//chrome/browser/ash/accessibility:browser_tests",
     "//chrome/browser/policy:test_support",
     "//chrome/browser/ui/ash",
     "//chrome/test:test_support",
+    "//chrome/test/base/ash/util:test_support",
     "//content/test:test_support",
     "//ui/views",
   ]

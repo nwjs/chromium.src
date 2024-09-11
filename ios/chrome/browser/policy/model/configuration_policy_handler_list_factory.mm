@@ -19,6 +19,7 @@
 #import "components/history/core/common/pref_names.h"
 #import "components/lens/lens_overlay_permission_utils.h"
 #import "components/metrics/metrics_pref_names.h"
+#import "components/optimization_guide/core/feature_registry/feature_registration.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/policy/core/browser/boolean_disabling_policy_handler.h"
 #import "components/policy/core/browser/configuration_policy_handler.h"
@@ -147,6 +148,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { policy::key::kDownloadManagerSaveToDriveSettings,
     prefs::kIosSaveToDriveDownloadManagerPolicySettings,
     base::Value::Type::INTEGER },
+  { policy::key::kTabCompareSettings,
+    optimization_guide::prefs::kProductSpecificationsEnterprisePolicyAllowed,
+    base::Value::Type::INTEGER},
 };
 // clang-format on
 

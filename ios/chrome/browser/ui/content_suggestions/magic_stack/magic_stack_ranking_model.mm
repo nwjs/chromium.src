@@ -127,7 +127,10 @@
 #pragma mark - Public
 
 - (void)fetchLatestMagicStackRanking {
-    [self fetchMagicStackModuleRankingFromSegmentationPlatform];
+  _magicStackOrderFromSegmentationReceived = NO;
+  _magicStackOrderFromSegmentation = nil;
+  _latestMagicStackConfigOrder = nil;
+  [self fetchMagicStackModuleRankingFromSegmentationPlatform];
 }
 
 - (void)logMagicStackEngagementForType:(ContentSuggestionsModuleType)type {
@@ -140,8 +143,9 @@
 #pragma mark - SetUpListMediatorAudience
 
 - (void)removeSetUpList {
-  UMA_HISTOGRAM_ENUMERATION(kMagicStackModuleDisabledHistogram,
-                            ContentSuggestionsModuleType::kCompactedSetUpList);
+  base::UmaHistogramEnumeration(
+      kMagicStackModuleDisabledHistogram,
+      ContentSuggestionsModuleType::kCompactedSetUpList);
   [self.delegate magicStackRankingModel:self
                           didRemoveItem:_setUpListMediator.setUpListConfigs[0]];
 }
@@ -159,8 +163,8 @@
     return;
   }
 
-  UMA_HISTOGRAM_ENUMERATION(kMagicStackModuleDisabledHistogram,
-                            ContentSuggestionsModuleType::kSafetyCheck);
+  base::UmaHistogramEnumeration(kMagicStackModuleDisabledHistogram,
+                                ContentSuggestionsModuleType::kSafetyCheck);
   [self.delegate magicStackRankingModel:self
                           didRemoveItem:_safetyCheckMediator.safetyCheckState];
 }
@@ -169,7 +173,8 @@
 
 - (void)tabResumptionHelperDidReceiveItem {
   CHECK(IsTabResumptionEnabled());
-  if (tab_resumption_prefs::IsTabResumptionDisabled(_localState)) {
+  if (tab_resumption_prefs::IsTabResumptionDisabled(
+          IsHomeCustomizationEnabled() ? _prefService : _localState)) {
     return;
   }
 
@@ -177,7 +182,8 @@
 }
 
 - (void)tabResumptionHelperDidReconfigureItem {
-  if (tab_resumption_prefs::IsTabResumptionDisabled(_localState)) {
+  if (tab_resumption_prefs::IsTabResumptionDisabled(
+          IsHomeCustomizationEnabled() ? _prefService : _localState)) {
     return;
   }
   TabResumptionItem* item = _tabResumptionMediator.itemConfig;
@@ -185,8 +191,8 @@
 }
 
 - (void)removeTabResumptionModule {
-  UMA_HISTOGRAM_ENUMERATION(kMagicStackModuleDisabledHistogram,
-                            ContentSuggestionsModuleType::kTabResumption);
+  base::UmaHistogramEnumeration(kMagicStackModuleDisabledHistogram,
+                                ContentSuggestionsModuleType::kTabResumption);
   [self.delegate magicStackRankingModel:self
                           didRemoveItem:_tabResumptionMediator.itemConfig];
 }
@@ -197,12 +203,15 @@
   MagicStackModule* item = _parcelTrackingMediator.parcelTrackingItemToShow;
   NSArray<MagicStackModule*>* rank = [self latestMagicStackConfigRank];
   NSUInteger index = [rank indexOfObject:item];
+  if (index == NSNotFound) {
+    return;
+  }
   [self.delegate magicStackRankingModel:self didInsertItem:item atIndex:index];
 }
 
 - (void)parcelTrackingDisabled {
-  UMA_HISTOGRAM_ENUMERATION(kMagicStackModuleDisabledHistogram,
-                            ContentSuggestionsModuleType::kParcelTracking);
+  base::UmaHistogramEnumeration(kMagicStackModuleDisabledHistogram,
+                                ContentSuggestionsModuleType::kParcelTracking);
   [self.delegate
       magicStackRankingModel:self
                didRemoveItem:_parcelTrackingMediator.parcelTrackingItemToShow];
@@ -315,6 +324,13 @@
       segmentation_platform::kParcelTrackingFreshness,
       segmentation_platform::processing::ProcessedValue::FromFloat(
           parcelTrackingFreshnessImpressionCount));
+  int priceTrackingPromoFreshnessImpressionCount = _localState->GetInteger(
+      prefs::
+          kIosMagicStackSegmentationPriceTrackingPromoImpressionsSinceFreshness);
+  inputContext->metadata_args.emplace(
+      segmentation_platform::kPriceTrackingPromoFreshness,
+      segmentation_platform::processing::ProcessedValue::FromFloat(
+          priceTrackingPromoFreshnessImpressionCount));
   __weak MagicStackRankingModel* weakSelf = self;
   segmentation_platform::PredictionOptions options;
 
@@ -338,7 +354,6 @@
     options.on_demand_execution = true;
   }
   ranking_fetch_start_time_ = base::TimeTicks::Now();
-  _magicStackOrderFromSegmentationReceived = NO;
   _segmentationService->GetClassificationResult(
       segmentation_platform::kIosModuleRankerKey, options, inputContext,
       base::BindOnce(
@@ -419,25 +434,55 @@
         }
         [magicStackOrder addObject:_tabResumptionMediator.itemConfig];
         break;
-      case ContentSuggestionsModuleType::kSafetyCheck:
-        if (!IsSafetyCheckMagicStackEnabled() ||
+      case ContentSuggestionsModuleType::kSafetyCheck: {
+        // Handles adding Safety Check to Magic Stack. Disables/hides if:
+        // - Manually disabled or disabled via preferences.
+        // - No current or previous issues, to avoid consistently displaying the
+        // "All Safe" state and taking up carousel space for other modules.
+        // - Irrelevant modules are hidden and it's not the first ranked module.
+        BOOL disabled =
+            !IsSafetyCheckMagicStackEnabled() ||
             safety_check_prefs::IsSafetyCheckInMagicStackDisabled(
-                _localState)) {
+                IsHomeCustomizationEnabled() ? _prefService : _localState);
+
+        if (disabled) {
+          base::UmaHistogramEnumeration(
+              kIOSSafetyCheckMagicStackHiddenReason,
+              IOSSafetyCheckHiddenReason::kManuallyDisabled);
           break;
         }
+
+        int previousIssuesCount = _localState->GetInteger(
+            prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount);
+
+        int issuesCount =
+            [_safetyCheckMediator.safetyCheckState numberOfIssues];
+
+        BOOL hidden = ShouldHideSafetyCheckModuleIfNoIssues() &&
+                      (previousIssuesCount == 0) &&
+                      (previousIssuesCount == issuesCount);
+
+        if (hidden) {
+          base::UmaHistogramEnumeration(kIOSSafetyCheckMagicStackHiddenReason,
+                                        IOSSafetyCheckHiddenReason::kNoIssues);
+          break;
+        }
+
         // If ShouldHideIrrelevantModules() is enabled and it is not the first
         // ranked module, do not add it to the Magic Stack.
         if (!ShouldHideIrrelevantModules() || [magicStackOrder count] == 0) {
           [magicStackOrder addObject:_safetyCheckMediator.safetyCheckState];
         }
+
         break;
+      }
       case ContentSuggestionsModuleType::kShortcuts:
         [magicStackOrder addObject:_shortcutsMediator.shortcutsConfig];
         break;
       case ContentSuggestionsModuleType::kParcelTracking:
         if (IsIOSParcelTrackingEnabled() &&
             !IsParcelTrackingDisabled(
-                GetApplicationContext()->GetLocalState()) &&
+                IsHomeCustomizationEnabled() ? _prefService : _localState) &&
             _parcelTrackingMediator.parcelTrackingItemToShow) {
           [magicStackOrder
               addObject:_parcelTrackingMediator.parcelTrackingItemToShow];
@@ -476,7 +521,8 @@
 // Returns YES if the tab resumption module should added into the Magic Stack.
 - (BOOL)shouldShowTabResumption {
   return IsTabResumptionEnabled() &&
-         !tab_resumption_prefs::IsTabResumptionDisabled(_localState) &&
+         !tab_resumption_prefs::IsTabResumptionDisabled(
+             IsHomeCustomizationEnabled() ? _prefService : _localState) &&
          _tabResumptionMediator.itemConfig;
 }
 

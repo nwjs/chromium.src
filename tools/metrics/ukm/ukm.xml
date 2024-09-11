@@ -22,7 +22,10 @@ be describing additional metrics about the same event.
   <owner>rakina@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
-    Metrics recorded each time a SRP navigation/page load is abandoned.
+    Metrics recorded each time a SRP navigation/page load is abandoned (e.g. the
+    navigation got cancelled, or the user backgrounded the app while the page
+    load is not finished yet, etc. See AbandonedPageLoadMetricsObserver for more
+    details).
   </summary>
   <metric name="AbandonReason">
     <summary>
@@ -3683,36 +3686,6 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="Blink.AutomaticLazyLoadFrame" singular="True">
-  <owner>chikamune@google.com</owner>
-  <owner>sisidovski@google.com</owner>
-  <owner>kouhei@google.com</owner>
-  <summary>
-    Records metrics for LazyAds and LazyEmbeds Interventions. LazyAds and
-    LazyEmbeds Interventions will automatically apply lazy loading to ad's
-    frames and embedded web applications so that we can automatically improve
-    Core Web Vitals for many sites. These metrics help us to know to what degree
-    these Interventions can improve Core Web Vitals when the sites are eligible
-    for LazyAds or LazyEmbeds.
-  </summary>
-  <metric name="LazyAdsFrameCount">
-    <summary>
-      Records the total number of per-page ad frames that are eligible for the
-      LazyAds interventions by AutomaticLazyFrameLoadingToAds. The exponential
-      bucketing is applied for privacy reasons by using
-      ukm::GetExponentialBucketMinForCounts1000().
-    </summary>
-  </metric>
-  <metric name="LazyEmbedsFrameCount">
-    <summary>
-      Records the total number of per-page frames that are eligible for the
-      LazyEmbeds interventions by AutomaticLazyFrameLoadingToEmbeds. The
-      exponential bucketing is applied for privacy reasons by using
-      ukm::GetExponentialBucketMinForCounts1000().
-    </summary>
-  </metric>
-</event>
-
 <event name="Blink.ContentManagementSystem.Versions" singular="True">
   <owner>felixarntz@google.com</owner>
   <owner>nrosenthal@chromium.org</owner>
@@ -5590,6 +5563,23 @@ be describing additional metrics about the same event.
     <summary>
       The number of unique context domains have requested the topics. Rounded to
       the nearest exponential bucket (with a bucket ratio of 1.15).
+    </summary>
+  </metric>
+</event>
+
+<event name="BrowsingTopics.TopicsRedirectChainDetected">
+  <owner>yaoxia@chromium.org</owner>
+  <owner>jkarlin@chromium.org</owner>
+  <summary>
+    Records the redirect state related to Topics. Recorded when a page is
+    detected to have initiated a chain of redirects, and at least two pages
+    within that chain invoke the Topics API, suggesting potential misuse of the
+    API. This event can be logged multiple times for the same page if the
+    redirect chain continues to grow.
+  </summary>
+  <metric name="NumberOfPagesCallingTopics">
+    <summary>
+      The number of pages that invoked the Topics API in the redirect chain.
     </summary>
   </metric>
 </event>
@@ -7814,6 +7804,29 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Extensions.MV2ExtensionHandledInSoftDisable">
+  <owner>rdevlin.cronin@chromium.org</owner>
+  <owner>emiliapaz@chromium.org</owner>
+  <summary>
+    Recorded each time a user either re-enables or removes an extension affected
+    by the Manifest V2 deprecation during the &quot;soft disable&quot;
+    deprecation phase. Recorded when the user takes this action. This is only
+    recorded for extensions that update from the Chrome Web Store.
+  </summary>
+  <metric name="Action" enum="ExtensionMV2DeprecationAction">
+    <summary>
+      The action the user took on the extension.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="Extensions.OnNavigation" singular="True">
   <owner>chikamune@chromium.org</owner>
   <owner>yyanagisawa@chromium.org</owner>
@@ -8123,6 +8136,31 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="FamilyLinkUser.ReauthenticationInterstitial">
+  <owner>chrome-kids-eng@google.com</owner>
+  <summary>
+    These metrics are logged when an unauthenticated Family Link user tries to
+    navigate to YouTube in the main frame, prompting a re-authentication
+    interstitial.
+  </summary>
+  <metric name="InterstitialShown" enum="BooleanHit">
+    <summary>
+      Recorded when the re-authentication interstitial is displayed.
+    </summary>
+  </metric>
+  <metric name="ReauthenticationCompleted" enum="BooleanHit">
+    <summary>
+      Recorded when users successfully re-authenticates and can continue
+      navigation, and vice-versa for failed reauthentication.
+    </summary>
+  </metric>
+  <metric name="ReauthenticationStarted" enum="BooleanHit">
+    <summary>
+      Recorded when users initiate re-authentication from the interstitial.
+    </summary>
+  </metric>
+</event>
+
 <event name="FastCheckout.FormStatus">
   <owner>bwolfgang@google.com</owner>
   <owner>jkeitel@google.com</owner>
@@ -8207,6 +8245,13 @@ be describing additional metrics about the same event.
       indicates that subresource filtering was activated. All other reasons
       indicate that subresource filtering was not activated.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="AllowlistSource">
     <summary>
@@ -8214,6 +8259,13 @@ be describing additional metrics about the same event.
       allowlist entry. 0 = Unknown, 1 = UserBypass, 2 = Enterprise. Recorded
       only when `ActivationDecision` is &quot;URL allowlisted&quot;
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="DryRun">
     <summary>
@@ -8222,6 +8274,13 @@ be describing additional metrics about the same event.
       is evaluated against resources loaded on the page, but subresource
       blocking is not actually applied.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -12266,6 +12325,11 @@ be describing additional metrics about the same event.
         </statistics>
       </history>
     </aggregation>
+  </metric>
+  <metric name="IsFromMediaCapabilities" enum="Boolean">
+    <summary>
+      Whether called by MediaCapabilities or not.
+    </summary>
   </metric>
   <metric name="IsTopFrame" enum="Boolean">
     <summary>
@@ -16768,6 +16832,14 @@ be describing additional metrics about the same event.
     <summary>
       The estimated private footprint of the page, in kilobytes.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="RecentCPUUsage">
     <summary>
@@ -16775,11 +16847,27 @@ be describing additional metrics about the same event.
       as 100% usage of 1 full core. (The same scale as the
       PerformanceMonitor.AverageCPU8.* histograms.)
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="ResidentSetSizeEstimate">
     <summary>
       The estimated resident set size of the page, in kilobytes.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="TotalRecentCPUUsageAllPages">
     <summary>
@@ -16788,6 +16876,14 @@ be describing additional metrics about the same event.
       PerformanceMonitor.AverageCPU8.* histograms.) RecentCPUUsage can be
       compared to this to find how the page compares to other open tabs.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 

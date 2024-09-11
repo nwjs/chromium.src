@@ -20,8 +20,8 @@
 #include "base/uuid.h"
 #include "chrome/browser/bookmarks/url_and_id.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sync/data_type_store_service_factory.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
-#include "chrome/browser/sync/model_type_store_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
 #include "chrome/browser/ui/browser.h"
@@ -30,6 +30,7 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_model_listener.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_pref_names.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_proxy.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/common/channel_info.h"
@@ -40,13 +41,15 @@
 #include "components/saved_tab_groups/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/stats.h"
 #include "components/saved_tab_groups/sync_data_type_configuration.h"
+#include "components/saved_tab_groups/tab_group_sync_bridge_mediator.h"
 #include "components/saved_tab_groups/tab_group_sync_metrics_logger.h"
+#include "components/saved_tab_groups/tab_group_sync_service.h"
 #include "components/saved_tab_groups/types.h"
-#include "components/sync/base/model_type.h"
+#include "components/sync/base/data_type.h"
 #include "components/sync/base/report_unrecoverable_error.h"
-#include "components/sync/model/client_tag_based_model_type_processor.h"
-#include "components/sync/model/model_type_change_processor.h"
-#include "components/sync/model/model_type_store_service.h"
+#include "components/sync/model/client_tag_based_data_type_processor.h"
+#include "components/sync/model/data_type_local_change_processor.h"
+#include "components/sync/model/data_type_store_service.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/sync_device_info/device_info_sync_service.h"
@@ -58,19 +61,45 @@
 namespace tab_groups {
 namespace {
 
+class ScopedLocalObservationPauserImpl : public ScopedLocalObservationPauser {
+ public:
+  explicit ScopedLocalObservationPauserImpl(
+      SavedTabGroupModelListener* listener);
+  ~ScopedLocalObservationPauserImpl() override;
+
+  // Disallow copy/assign.
+  ScopedLocalObservationPauserImpl(const ScopedLocalObservationPauserImpl&) =
+      delete;
+  ScopedLocalObservationPauserImpl& operator=(
+      const ScopedLocalObservationPauserImpl&) = delete;
+
+ private:
+  raw_ptr<SavedTabGroupModelListener> listener_;
+};
+
+ScopedLocalObservationPauserImpl::ScopedLocalObservationPauserImpl(
+    SavedTabGroupModelListener* listener)
+    : listener_(listener) {
+  listener_->PauseLocalObservation();
+}
+
+ScopedLocalObservationPauserImpl::~ScopedLocalObservationPauserImpl() {
+  listener_->ResumeLocalObservation();
+}
+
 constexpr base::TimeDelta kDelayBeforeMetricsLogged = base::Hours(1);
 
-std::unique_ptr<syncer::ModelTypeChangeProcessor>
+std::unique_ptr<syncer::DataTypeLocalChangeProcessor>
 CreateSavedTabGroupChangeProcessor() {
-  return std::make_unique<syncer::ClientTagBasedModelTypeProcessor>(
+  return std::make_unique<syncer::ClientTagBasedDataTypeProcessor>(
       syncer::SAVED_TAB_GROUP,
       base::BindRepeating(&syncer::ReportUnrecoverableError,
                           chrome::GetChannel()));
 }
 
-std::unique_ptr<syncer::ModelTypeChangeProcessor>
+std::unique_ptr<syncer::DataTypeLocalChangeProcessor>
 CreateSharedTabGroupDataChangeProcessor() {
-  return std::make_unique<syncer::ClientTagBasedModelTypeProcessor>(
+  return std::make_unique<syncer::ClientTagBasedDataTypeProcessor>(
       syncer::SHARED_TAB_GROUP_DATA,
       base::BindRepeating(&syncer::ReportUnrecoverableError,
                           chrome::GetChannel()));
@@ -78,7 +107,7 @@ CreateSharedTabGroupDataChangeProcessor() {
 
 std::unique_ptr<SyncDataTypeConfiguration>
 MaybeCreateSyncConfigurationForSharedTabGroupData(
-    syncer::OnceModelTypeStoreFactory store_factory) {
+    syncer::OnceDataTypeStoreFactory store_factory) {
   if (!base::FeatureList::IsEnabled(
           data_sharing::features::kDataSharingFeature)) {
     return nullptr;
@@ -94,20 +123,22 @@ SavedTabGroupKeyedService::SavedTabGroupKeyedService(
     Profile* profile,
     syncer::DeviceInfoTracker* device_info_tracker)
     : profile_(profile),
-      wrapper_service_(std::make_unique<TabGroupServiceWrapper>(nullptr, this)),
-      listener_(wrapper_service_.get(), profile),
-      sync_bridge_mediator_(
+      model_(std::make_unique<SavedTabGroupModel>()),
+      service_proxy_(std::make_unique<TabGroupSyncServiceProxy>(this)),
+      listener_(
+          std::make_unique<SavedTabGroupModelListener>(service_proxy_.get(),
+                                                       profile)),
+      sync_bridge_mediator_(std::make_unique<TabGroupSyncBridgeMediator>(
           model(),
           profile->GetPrefs(),
           std::make_unique<SyncDataTypeConfiguration>(
               CreateSavedTabGroupChangeProcessor(),
               GetStoreFactory()),
-          MaybeCreateSyncConfigurationForSharedTabGroupData(GetStoreFactory())),
+          MaybeCreateSyncConfigurationForSharedTabGroupData(
+              GetStoreFactory()))),
       metrics_logger_(
           std::make_unique<TabGroupSyncMetricsLogger>(device_info_tracker)) {
-  // TODO: Don't observe depending on which service we are using in
-  // `wrapper_service_`.
-  model()->AddObserver(this);
+  model_->AddObserver(this);
 
   metrics_timer_.Start(
       FROM_HERE, kDelayBeforeMetricsLogged,
@@ -116,36 +147,23 @@ SavedTabGroupKeyedService::SavedTabGroupKeyedService(
 }
 
 SavedTabGroupKeyedService::~SavedTabGroupKeyedService() {
-  model_.RemoveObserver(this);
+  model_->RemoveObserver(this);
 }
 
-// Whether the sync setting is on for saved tab groups.
-bool SavedTabGroupKeyedService::AreSavedTabGroupsSynced() {
-  const syncer::SyncService* const sync_service =
-      SyncServiceFactory::GetForProfile(profile_);
-
-  if (!sync_service->IsSyncFeatureEnabled()) {
-    return false;
-  }
-
-  return sync_service->GetUserSettings()->GetSelectedTypes().Has(
-      syncer::UserSelectableType::kSavedTabGroups);
-}
-
-syncer::OnceModelTypeStoreFactory SavedTabGroupKeyedService::GetStoreFactory() {
-  DCHECK(ModelTypeStoreServiceFactory::GetForProfile(profile()));
-  return ModelTypeStoreServiceFactory::GetForProfile(profile())
+syncer::OnceDataTypeStoreFactory SavedTabGroupKeyedService::GetStoreFactory() {
+  DCHECK(DataTypeStoreServiceFactory::GetForProfile(profile()));
+  return DataTypeStoreServiceFactory::GetForProfile(profile())
       ->GetStoreFactory();
 }
 
-base::WeakPtr<syncer::ModelTypeControllerDelegate>
+base::WeakPtr<syncer::DataTypeControllerDelegate>
 SavedTabGroupKeyedService::GetSavedTabGroupControllerDelegate() {
-  return sync_bridge_mediator_.GetSavedTabGroupControllerDelegate();
+  return sync_bridge_mediator_->GetSavedTabGroupControllerDelegate();
 }
 
-base::WeakPtr<syncer::ModelTypeControllerDelegate>
+base::WeakPtr<syncer::DataTypeControllerDelegate>
 SavedTabGroupKeyedService::GetSharedTabGroupControllerDelegate() {
-  return sync_bridge_mediator_.GetSharedTabGroupControllerDelegate();
+  return sync_bridge_mediator_->GetSharedTabGroupControllerDelegate();
 }
 
 void SavedTabGroupKeyedService::ConnectRestoredGroupToSaveId(
@@ -185,14 +203,19 @@ void SavedTabGroupKeyedService::SaveRestoredGroup(
 void SavedTabGroupKeyedService::UpdateAttributions(
     const LocalTabGroupID& group_id,
     const std::optional<LocalTabID>& tab_id) {
-  model_.UpdateLastUpdaterCacheGuidForGroup(
-      sync_bridge_mediator_.GetLocalCacheGuidForSavedBridge(), group_id,
+  model_->UpdateLastUpdaterCacheGuidForGroup(
+      sync_bridge_mediator_->GetLocalCacheGuidForSavedBridge(), group_id,
       tab_id);
 }
 
 std::optional<std::string> SavedTabGroupKeyedService::GetLocalCacheGuid()
     const {
-  return sync_bridge_mediator_.GetLocalCacheGuidForSavedBridge();
+  return sync_bridge_mediator_->GetLocalCacheGuidForSavedBridge();
+}
+
+std::unique_ptr<ScopedLocalObservationPauser>
+SavedTabGroupKeyedService::CreateScopedLocalObserverPauser() {
+  return std::make_unique<ScopedLocalObservationPauserImpl>(listener_.get());
 }
 
 void SavedTabGroupKeyedService::OnTabAddedToGroupLocally(
@@ -226,7 +249,7 @@ std::optional<TabGroupId> SavedTabGroupKeyedService::OpenSavedTabGroupInBrowser(
     Browser* browser,
     const base::Uuid saved_group_guid,
     OpeningSource opening_source) {
-  const SavedTabGroup* saved_group = model_.Get(saved_group_guid);
+  const SavedTabGroup* saved_group = model_->Get(saved_group_guid);
 
   // In the case where this function is called after confirmation of an
   // interstitial, the saved_group could be null, so protect against this by
@@ -291,7 +314,7 @@ TabGroupId SavedTabGroupKeyedService::AddOpenedTabsToGroup(
   tab_strip_model_for_creation->AddToGroupForRestore(tab_indices, tab_group_id);
 
   // Update the saved tab group to link to the local group id.
-  model_.OnGroupOpenedInTabStrip(saved_group.saved_guid(), tab_group_id);
+  model_->OnGroupOpenedInTabStrip(saved_group.saved_guid(), tab_group_id);
 
   TabGroup* const tab_group =
       tab_strip_model_for_creation->group_model()->GetTabGroup(tab_group_id);
@@ -306,7 +329,7 @@ TabGroupId SavedTabGroupKeyedService::AddOpenedTabsToGroup(
   UpdateGroupVisualData(saved_group.saved_guid(),
                         saved_group.local_group_id().value());
 
-  listener_.ConnectToLocalTabGroup(saved_group, opened_web_contents_to_uuid);
+  listener_->ConnectToLocalTabGroup(saved_group, opened_web_contents_to_uuid);
 
   return tab_group_id;
 }
@@ -326,10 +349,10 @@ base::Uuid SavedTabGroupKeyedService::SaveGroup(const TabGroupId& group_id,
   SavedTabGroup saved_tab_group(
       tab_group->visual_data()->title(), tab_group->visual_data()->color(), {},
       std::nullopt, std::nullopt, tab_group->id(),
-      sync_bridge_mediator_.GetLocalCacheGuidForSavedBridge(),
+      sync_bridge_mediator_->GetLocalCacheGuidForSavedBridge(),
       /*last_updater_cache_guid=*/std::nullopt,
       /*created_before_syncing_tab_groups=*/
-      !sync_bridge_mediator_.IsSavedBridgeSyncing());
+      !sync_bridge_mediator_->IsSavedBridgeSyncing());
   if (is_pinned) {
     saved_tab_group.SetPinned(true);
   }
@@ -353,11 +376,11 @@ base::Uuid SavedTabGroupKeyedService::SaveGroup(const TabGroupId& group_id,
   }
 
   const base::Uuid saved_group_guid = saved_tab_group.saved_guid();
-  model_.Add(std::move(saved_tab_group));
+  model_->Add(std::move(saved_tab_group));
 
   // Link the local group to the saved group in the listener.
-  listener_.ConnectToLocalTabGroup(*model_.Get(saved_group_guid),
-                                   opened_web_contents_to_uuid);
+  listener_->ConnectToLocalTabGroup(*model_->Get(saved_group_guid),
+                                    opened_web_contents_to_uuid);
 
   LogEvent(TabGroupEvent::kTabGroupCreated, saved_group_guid);
   return saved_group_guid;
@@ -366,7 +389,7 @@ base::Uuid SavedTabGroupKeyedService::SaveGroup(const TabGroupId& group_id,
 void SavedTabGroupKeyedService::UnsaveGroup(const TabGroupId& group_id,
                                             ClosingSource closing_source) {
   // Get the guid since disconnect removes the local id.
-  const SavedTabGroup* group = model_.Get(group_id);
+  const SavedTabGroup* group = model_->Get(group_id);
   CHECK(group);
 
   EventDetails event_details(TabGroupEvent::kTabGroupRemoved);
@@ -378,26 +401,26 @@ void SavedTabGroupKeyedService::UnsaveGroup(const TabGroupId& group_id,
   DisconnectLocalTabGroup(group_id);
 
   // Unsave the group.
-  model_.Remove(group->saved_guid());
+  model_->Remove(group->saved_guid());
 }
 
 void SavedTabGroupKeyedService::PauseTrackingLocalTabGroup(
     const TabGroupId& group_id) {
-  listener_.PauseTrackingLocalTabGroup(group_id);
+  listener_->PauseTrackingLocalTabGroup(group_id);
 }
 
 void SavedTabGroupKeyedService::ResumeTrackingLocalTabGroup(
     const base::Uuid& saved_group_guid,
     const TabGroupId& group_id) {
-  listener_.ResumeTrackingLocalTabGroup(group_id);
+  listener_->ResumeTrackingLocalTabGroup(group_id);
 }
 
 void SavedTabGroupKeyedService::DisconnectLocalTabGroup(
     const TabGroupId& group_id) {
-  listener_.DisconnectLocalTabGroup(group_id);
+  listener_->DisconnectLocalTabGroup(group_id);
 
   // Stop listening to the current tab group and notify observers.
-  model_.OnGroupClosedInTabStrip(group_id);
+  model_->OnGroupClosedInTabStrip(group_id);
 }
 
 void SavedTabGroupKeyedService::ConnectLocalTabGroup(
@@ -414,7 +437,7 @@ void SavedTabGroupKeyedService::ConnectLocalTabGroup(
       tab_strip_model->group_model()->GetTabGroup(local_group_id);
   CHECK(tab_group);
 
-  const SavedTabGroup* const saved_group = model_.Get(saved_guid);
+  const SavedTabGroup* const saved_group = model_->Get(saved_guid);
   CHECK(saved_group);
 
   const size_t tabs_in_group = tab_group->tab_count();
@@ -436,12 +459,12 @@ void SavedTabGroupKeyedService::ConnectLocalTabGroup(
   UpdateWebContentsToMatchSavedTabGroupTabs(tab_strip_model, saved_group,
                                             tab_range);
 
-  model_.OnGroupOpenedInTabStrip(saved_guid, local_group_id);
+  model_->OnGroupOpenedInTabStrip(saved_guid, local_group_id);
   UpdateGroupVisualData(saved_guid, local_group_id);
 
-  listener_.ConnectToLocalTabGroup(
-      *model_.Get(saved_guid), GetWebContentsToTabGuidMappingForSavedGroup(
-                                   tab_strip_model, saved_group, tab_range));
+  listener_->ConnectToLocalTabGroup(
+      *model_->Get(saved_guid), GetWebContentsToTabGuidMappingForSavedGroup(
+                                    tab_strip_model, saved_group, tab_range));
 }
 
 void SavedTabGroupKeyedService::SavedTabGroupModelLoaded() {
@@ -450,7 +473,7 @@ void SavedTabGroupKeyedService::SavedTabGroupModelLoaded() {
   PrefService* pref_service = profile()->GetPrefs();
   if (IsTabGroupsSaveUIUpdateEnabled() &&
       !saved_tab_groups::prefs::IsTabGroupSavesUIUpdateMigrated(pref_service)) {
-    model_.MigrateTabGroupSavesUIUpdate();
+    model_->MigrateTabGroupSavesUIUpdate();
     saved_tab_groups::prefs::SetTabGroupSavesUIUpdateMigrated(pref_service);
   }
 
@@ -480,13 +503,13 @@ void SavedTabGroupKeyedService::SavedTabGroupRemovedFromSync(
   }
 
   // Update the local group's contents to match the saved group's.
-  listener_.RemoveLocalGroupFromSync(removed_group.local_group_id().value());
+  listener_->RemoveLocalGroupFromSync(removed_group.local_group_id().value());
 }
 
 void SavedTabGroupKeyedService::SavedTabGroupUpdatedFromSync(
     const base::Uuid& group_guid,
     const std::optional<base::Uuid>& tab_guid) {
-  const SavedTabGroup* const saved_group = model_.Get(group_guid);
+  const SavedTabGroup* const saved_group = model_->Get(group_guid);
   CHECK(saved_group);
 
   // Do nothing if the saved group is not open in the tabstrip.
@@ -495,7 +518,7 @@ void SavedTabGroupKeyedService::SavedTabGroupUpdatedFromSync(
   }
 
   // Update the local group's contents to match the saved group's.
-  listener_.UpdateLocalGroupFromSync(saved_group->local_group_id().value());
+  listener_->UpdateLocalGroupFromSync(saved_group->local_group_id().value());
 }
 
 void SavedTabGroupKeyedService::AddMissingTabsToOutOfSyncLocalTabGroup(
@@ -627,12 +650,13 @@ void SavedTabGroupKeyedService::UpdateGroupVisualData(
     const TabGroupId group_id) {
   TabGroup* const tab_group = SavedTabGroupUtils::GetTabGroupWithId(group_id);
   CHECK(tab_group);
-  const SavedTabGroup* const saved_group = model_.Get(saved_group_guid);
+  const SavedTabGroup* const saved_group = model_->Get(saved_group_guid);
   CHECK(saved_group);
 
   // Update the group to use the saved title and color.
-  TabGroupVisualData visual_data(saved_group->title(), saved_group->color(),
-                                 /*is_collapsed=*/false);
+  TabGroupVisualData visual_data(
+      saved_group->title(), saved_group->color(),
+      /*is_collapsed=*/tab_group->visual_data()->is_collapsed());
   tab_group->SetVisualData(visual_data, /*is_customized=*/true);
 }
 
@@ -686,7 +710,7 @@ void SavedTabGroupKeyedService::LogEvent(
     return;
   }
 
-  const auto* group = model_.Get(group_saved_id);
+  const auto* group = model_->Get(group_saved_id);
   if (!group) {
     LOG(WARNING) << __func__ << " Called for a group that doesn't exist";
     return;

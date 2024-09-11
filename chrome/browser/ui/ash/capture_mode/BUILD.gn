@@ -10,21 +10,28 @@ static_library("capture_mode") {
   sources = [
     "chrome_capture_mode_delegate.cc",
     "chrome_capture_mode_delegate.h",
+    "search_results_view.cc",
+    "search_results_view.h",
   ]
+
+  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 
   deps = [
     "//ash/constants",
     "//ash/public/cpp",
     "//base",
     "//chrome/browser:browser_process",
+    "//chrome/browser:primitives",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/ash",
     "//chrome/browser/ash/crosapi",
     "//chrome/browser/ash/drive",
     "//chrome/browser/ash/file_manager",
     "//chrome/browser/ash/policy/dlp",
+    "//chrome/browser/ash/policy/skyvault",
     "//chrome/browser/ash/video_conference",
     "//chrome/browser/ui/ash/system_web_apps",
+    "//chrome/browser/ui/webui/ash/cloud_upload",
     "//chrome/browser/web_applications",
     "//chrome/common",
     "//chromeos/ash/components/drivefs/mojom",
@@ -52,6 +59,7 @@ source_set("browser_tests") {
     "capture_mode_browsertest.cc",
     "chrome_capture_mode_delegate_browsertest.cc",
     "recording_service_browsertest.cc",
+    "sunfish_browsertest.cc",
   ]
 
   deps = [

@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "components/viz/common/resources/shared_image_format_utils.h"
-#include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
 #include "gpu/command_buffer/service/skia_utils.h"
@@ -61,6 +60,13 @@ bool SkiaOutputDeviceOffscreen::Reshape(const ReshapeParams& params) {
   DCHECK_EQ(params.transform, gfx::OVERLAY_TRANSFORM_NONE);
   DiscardBackbuffer();
   size_ = params.GfxSize();
+  if (size_.width() > capabilities_.max_texture_size ||
+      size_.height() > capabilities_.max_texture_size) {
+    LOG(ERROR) << "The requested size (" << size_.ToString()
+               << ") exceeds the max texture size ("
+               << capabilities_.max_texture_size << ")";
+    return false;
+  }
   sk_color_type_ = params.image_info.colorType();
   sk_color_space_ = params.image_info.refColorSpace();
   sample_count_ = params.sample_count;

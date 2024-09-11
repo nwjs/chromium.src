@@ -17,7 +17,7 @@
 #import "components/password_manager/core/browser/password_manager_client.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
-#import "components/sync/base/model_type.h"
+#import "components/sync/base/data_type.h"
 #import "components/sync/service/sync_service.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/form_fetcher_consumer_bridge.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_action_cell.h"
@@ -311,8 +311,10 @@ BOOL AreCredentialsAtIndicesConnected(
               isConnectedToNextItem:isConnectedToNextItem
                     contentInjector:self
                         menuActions:menuActions
+                          cellIndex:i
         cellIndexAccessibilityLabel:cellIndexAccessibilityLabel
-             showAutofillFormButton:_showAutofillFormButton];
+             showAutofillFormButton:_showAutofillFormButton
+            fromAllPasswordsContext:[self isFromAllPasswordsContext]];
     [items addObject:item];
   }
   return items;
@@ -456,16 +458,15 @@ BOOL AreCredentialsAtIndicesConnected(
 // Creates a UIAction to edit a password from a UIMenu.
 - (UIAction*)createMenuEditActionForPassword:(PasswordForm)password {
   MenuScenarioHistogram menuScenario =
-      self.isActionSectionEnabled
-          ? kMenuScenarioHistogramAutofillManualFallbackPasswordEntry
-          : kMenuScenarioHistogramAutofillManualFallbackAllPasswordsEntry;
+      [self isFromAllPasswordsContext]
+          ? kMenuScenarioHistogramAutofillManualFallbackAllPasswordsEntry
+          : kMenuScenarioHistogramAutofillManualFallbackPasswordEntry;
   ActionFactory* actionFactory =
       [[ActionFactory alloc] initWithScenario:menuScenario];
 
   __weak __typeof(self) weakSelf = self;
   UIAction* editAction = [actionFactory actionToEditWithBlock:^{
-    [weakSelf openPasswordDetailsInEditMode:CredentialUIEntry(password)
-                           fromMenuScenario:menuScenario];
+    [weakSelf openPasswordDetailsInEditMode:CredentialUIEntry(password)];
   }];
 
   return editAction;
@@ -473,15 +474,22 @@ BOOL AreCredentialsAtIndicesConnected(
 
 // Requests the appropriate delegate to open the details of the given credential
 // in edit mode.
-- (void)openPasswordDetailsInEditMode:(CredentialUIEntry)credential
-                     fromMenuScenario:(MenuScenarioHistogram)menuScenario {
-  if (menuScenario ==
-      kMenuScenarioHistogramAutofillManualFallbackAllPasswordsEntry) {
+- (void)openPasswordDetailsInEditMode:(CredentialUIEntry)credential {
+  BOOL fromAllPasswordContext = [self isFromAllPasswordsContext];
+  if (fromAllPasswordContext) {
+    base::RecordAction(base::UserMetricsAction(
+        "ManualFallback_OtherPasswords_OverflowMenu_Edit"));
     [self.delegate manualFillPasswordMediator:self
         didTriggerOpenPasswordDetailsInEditMode:credential];
   } else {
+    base::RecordAction(
+        base::UserMetricsAction("ManualFallback_Password_OverflowMenu_Edit"));
     [self.navigator openPasswordDetailsInEditModeForCredential:credential];
   }
+}
+
+- (BOOL)isFromAllPasswordsContext {
+  return !self.isActionSectionEnabled;
 }
 
 #pragma mark - Setters
@@ -531,9 +539,22 @@ BOOL AreCredentialsAtIndicesConnected(
                              requiresHTTPS:requiresHTTPS];
 }
 
-- (void)autofillFormWithSuggestion:(FormSuggestion*)formSuggestion {
+- (void)autofillFormWithCredential:(ManualFillCredential*)credential
+                      shouldReauth:(BOOL)shouldReauth {
   [self.delegate manualFillPasswordMediatorWillInjectContent:self];
-  [self.contentInjector autofillFormWithSuggestion:formSuggestion];
+  [self.contentInjector autofillFormWithCredential:credential
+                                      shouldReauth:shouldReauth];
+}
+
+- (void)autofillFormWithSuggestion:(FormSuggestion*)formSuggestion
+                           atIndex:(NSInteger)index {
+  [self.delegate manualFillPasswordMediatorWillInjectContent:self];
+  [self.contentInjector autofillFormWithSuggestion:formSuggestion
+                                           atIndex:index];
+}
+
+- (BOOL)isActiveFormAPasswordForm {
+  return [self.contentInjector isActiveFormAPasswordForm];
 }
 
 #pragma mark - TableViewFaviconDataSource

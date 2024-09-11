@@ -187,7 +187,7 @@ class CookieSettingsTestBase : public testing::Test {
     tracking_protection_settings_ =
         std::make_unique<privacy_sandbox::TrackingProtectionSettings>(
             &prefs_, settings_map_.get(),
-            /*onboarding_service=*/nullptr, /*is_incognito=*/false);
+            /*is_incognito=*/false);
 
     auto has_fedcm_sharing_permission =
         CookieSettings::NoFedCmSharingPermissionsCallback();
@@ -268,8 +268,7 @@ class CookieSettingsTest : public CookieSettingsTestBase,
  public:
   CookieSettingsTest() {
     std::vector<base::test::FeatureRef> enabled_features = {
-        privacy_sandbox::kTrackingProtectionContentSettingFor3pcb,
-        privacy_sandbox::kTrackingProtectionSettingsLaunch};
+        privacy_sandbox::kTrackingProtectionContentSettingFor3pcb};
     std::vector<base::test::FeatureRef> disabled_features;
 
     if (IsIndexedContentSettingsEnabled()) {
@@ -1980,20 +1979,6 @@ TEST_P(CookieSettingsTest, PreservesBlockingStateFrom3pcdOnOffboarding) {
   EXPECT_EQ(prefs_.GetInteger(prefs::kCookieControlsMode),
             static_cast<int>(CookieControlsMode::kBlockThirdParty));
 }
-
-// iOS always returns false
-#if !BUILDFLAG(IS_IOS)
-TEST_P(CookieSettingsTest,
-       ShouldBlockThirdPartyCookiesFalseForAllowedEnterprisePolicyIn3pcd) {
-  // Returns true by default in 3PCD.
-  prefs_.SetBoolean(prefs::kTrackingProtection3pcdEnabled, true);
-  EXPECT_TRUE(cookie_settings_->ShouldBlockThirdPartyCookies());
-
-  // Returns false when pref for enterprise policy is set to true.
-  prefs_.SetBoolean(prefs::kAllowAll3pcToggleEnabled, true);
-  EXPECT_FALSE(cookie_settings_->ShouldBlockThirdPartyCookies());
-}
-#endif
 
 TEST_P(CookieSettingsTest, LegacyCookieAccessAllowAll) {
   settings_map_->SetDefaultContentSetting(

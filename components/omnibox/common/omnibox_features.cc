@@ -416,6 +416,13 @@ BASE_FEATURE(kLogUrlScoringSignals,
              "LogUrlScoringSignals",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If true, enables history scoring signal annotator for populating history
+// scoring signals associated with Search suggestions. These signals will be
+// empty for Search suggestions otherwise.
+BASE_FEATURE(kEnableHistoryScoringSignalsAnnotatorForSearches,
+             "EnableHistoryScoringSignalsAnnotatorForSearches",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, (floating-point) ML model scores are mapped to (integral)
 // relevance scores by means of a piecewise function. This allows for the
 // integration of URL model scores with search traditional scores.
@@ -444,12 +451,6 @@ BASE_FEATURE(kMlUrlSearchBlending,
 BASE_FEATURE(kUrlScoringModel,
              "UrlScoringModel",
              enabled_by_default_desktop_only);
-
-// If enabled, skips ML scoring for those autocomplete matches which were
-// constructed by deduping an ML-eligible and ML-ineligible match.
-BASE_FEATURE(kEnableForceSkipMlScoring,
-             "EnableForceSkipMlScoring",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Actions in Suggest is a data-driven feature; it's considered enabled when the
 // data is available.
@@ -571,6 +572,10 @@ BASE_FEATURE(kOmniboxElegantTextHeight,
              "OmniboxElegantTextHeight",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kOmniboxAblateVisibleNetworks,
+             "OmniboxAblateVisibleNetworks",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 namespace android {
 static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
   static base::NoDestructor<base::android::FeatureMap> kFeatureMap(
@@ -584,6 +589,7 @@ static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
           &kRichAutocompletion,
           &kUseFusedLocationProvider,
           &kOmniboxElegantTextHeight,
+          &kOmniboxAblateVisibleNetworks,
       }});
 
   return reinterpret_cast<jlong>(kFeatureMap.get());

@@ -12,6 +12,7 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/pattern.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -20,6 +21,7 @@
 #include "base/test/values_test_util.h"
 #include "base/values.h"
 #include "components/network_session_configurator/common/network_switches.h"
+#include "content/browser/in_memory_federated_permission_context.h"
 #include "content/browser/webid/fake_identity_request_dialog_controller.h"
 #include "content/browser/webid/identity_registry.h"
 #include "content/browser/webid/test/mock_digital_identity_provider.h"
@@ -37,7 +39,6 @@
 #include "content/public/test/content_browser_test.h"
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/shell/browser/shell.h"
-#include "content/shell/browser/shell_federated_permission_context.h"
 #include "net/base/features.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_status_code.h"
@@ -405,9 +406,9 @@ class WebIdIdpSigninStatusBrowserTest : public WebIdBrowserTest {
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 
-  ShellFederatedPermissionContext* sharing_context() {
+  InMemoryFederatedPermissionContext* sharing_context() {
     BrowserContext* context = shell()->web_contents()->GetBrowserContext();
-    return static_cast<ShellFederatedPermissionContext*>(
+    return static_cast<InMemoryFederatedPermissionContext*>(
         context->GetFederatedIdentityPermissionContext());
   }
 };
@@ -423,9 +424,9 @@ class WebIdIdpSigninStatusForFetchKeepAliveBrowserTest
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 
-  ShellFederatedPermissionContext* sharing_context() {
+  InMemoryFederatedPermissionContext* sharing_context() {
     BrowserContext* context = shell()->web_contents()->GetBrowserContext();
-    return static_cast<ShellFederatedPermissionContext*>(
+    return static_cast<InMemoryFederatedPermissionContext*>(
         context->GetFederatedIdentityPermissionContext());
   }
 };
@@ -444,9 +445,9 @@ class WebIdIdPRegistryBrowserTest : public WebIdBrowserTest {
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 
-  ShellFederatedPermissionContext* sharing_context() {
+  InMemoryFederatedPermissionContext* sharing_context() {
     BrowserContext* context = shell()->web_contents()->GetBrowserContext();
-    return static_cast<ShellFederatedPermissionContext*>(
+    return static_cast<InMemoryFederatedPermissionContext*>(
         context->GetFederatedIdentityPermissionContext());
   }
 };
@@ -1165,9 +1166,9 @@ class WebIdDigitalCredentialsBrowserTest : public WebIdBrowserTest {
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 
-  ShellFederatedPermissionContext* sharing_context() {
+  InMemoryFederatedPermissionContext* sharing_context() {
     BrowserContext* context = shell()->web_contents()->GetBrowserContext();
-    return static_cast<ShellFederatedPermissionContext*>(
+    return static_cast<InMemoryFederatedPermissionContext*>(
         context->GetFederatedIdentityPermissionContext());
   }
 
@@ -1640,7 +1641,7 @@ IN_PROC_BROWSER_TEST_F(WebIdBrowserTest,
   // The client id `client_id_1` is on the `approved_clients` list defined in
   // content/test/data/fedcm/accounts_endpoint.json so by exempting the IdP from
   // the check, auto re-authn can be triggered and a token can be returned.
-  static_cast<ShellFederatedPermissionContext*>(
+  static_cast<InMemoryFederatedPermissionContext*>(
       shell()
           ->web_contents()
           ->GetBrowserContext()
@@ -1650,6 +1651,65 @@ IN_PROC_BROWSER_TEST_F(WebIdBrowserTest,
   idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
 
   EXPECT_EQ(std::string(kToken), EvalJs(shell(), GetBasicRequestString()));
+}
+
+// Verify that using mediation in the wrong place adds log to console.
+IN_PROC_BROWSER_TEST_F(WebIdBrowserTest,
+                       MediationInIdentityCredentialRequestOptions) {
+  idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
+
+  std::string script = R"(
+        (async () => {
+          var x = (await navigator.credentials.get({
+            identity: {
+              providers: [{
+                configURL: ')" +
+                       BaseIdpUrl() + R"(',
+                clientId: 'client_id_1',
+                nonce: '12345',
+              }],
+              mediation: 'required'
+            }
+          }));
+          return x.token;
+        }) ()
+    )";
+
+  WebContentsConsoleObserver console_observer(shell()->web_contents());
+  console_observer.SetPattern(
+      "The 'mediation' parameter should be used outside of 'identity' in the "
+      "FedCM API call.");
+  EXPECT_EQ(std::string(kToken), EvalJs(shell(), script));
+  EXPECT_TRUE(base::MatchPattern(console_observer.GetMessageAt(0u),
+                                 "*The 'mediation' parameter*"));
+  ASSERT_TRUE(console_observer.Wait());
+}
+
+// Verify that using mediation in the right place does not add log to console.
+IN_PROC_BROWSER_TEST_F(WebIdBrowserTest,
+                       NoConsoleWarningWithProperMediationCall) {
+  idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
+
+  std::string script = R"(
+        (async () => {
+          var x = (await navigator.credentials.get({
+            identity: {
+              providers: [{
+                configURL: ')" +
+                       BaseIdpUrl() + R"(',
+                clientId: 'client_id_1',
+                nonce: '12345',
+              }],
+            },
+            mediation: 'required'
+          }));
+          return x.token;
+        }) ()
+    )";
+
+  WebContentsConsoleObserver console_observer(shell()->web_contents());
+  EXPECT_EQ(std::string(kToken), EvalJs(shell(), script));
+  EXPECT_TRUE(console_observer.messages().empty());
 }
 
 }  // namespace content

@@ -125,6 +125,14 @@ struct BidderWorkletBid {
   // Render URL of the bid, plus sizing information.
   blink.mojom.AdDescriptor ad_descriptor;
 
+  // Indicates whether this bid should be thrown away if the k-anonymity
+  // check on the selectedBuyerAndSellerReportingId fails.
+  bool selected_buyer_and_seller_reporting_id_required = false;
+
+  // The selected reporting id from the interest group's ad's
+  // `selectableBuyerAndSellerReportingIds` array.
+  string? selected_buyer_and_seller_reporting_id;
+
   // Ad components associated with bid, if any. These allow a single ad to be
   // composed of multiple smaller ads. The `ad_descriptor` contains the main
   // URL, and is responsible for laying out these ads URLs in its subframes.
@@ -171,6 +179,7 @@ enum ReportingIdField {
   kInterestGroupName = 1,
   kBuyerReportingId = 2,
   kBuyerAndSellerReportingId = 3,
+  kSelectedBuyerAndSellerReportingId = 4,
 };
 
 // Represents the time between BidderWorklet::BeginGenerateBid and each of the
@@ -190,6 +199,12 @@ struct GenerateBidDependencyLatencies {
 
   // Download of TrustedBiddingSignals
   mojo_base.mojom.TimeDelta? trusted_bidding_signals_latency;
+
+  // Times of each step of the GenerateBid flow, used to compute start and end
+  // times for latency phase UKMs.
+  mojo_base.mojom.TimeTicks deps_wait_start_time;
+  mojo_base.mojom.TimeTicks generate_bid_start_time;
+  mojo_base.mojom.TimeTicks generate_bid_finish_time;
 };
 
 // Single use client for each GenerateBid() call. Allows deferring generating
@@ -485,12 +500,21 @@ interface BidderWorklet {
   //  `is_for_additional_bid` If true, this will call reportAdditionalBidWin()
   //  rather than reportWin().
   //
-  // `reporting_id_field` Describes which kind of ad campaign identification
-  //  signal has been provided to ReportWin(), corresponding to either the
-  //  interest group name or a field on the registered ad itself.
+  // `interest_group_name_reporting_id` Optional string value that when
+  //  contains value, represents the ad campaign identification signal that
+  //  has been provided to ReportWin().
   //
-  // `reporting_id` The string value of the field described by
-  //  `reporting_id_field`.
+  // `buyer_reporting_id` Optional string value that when
+  //  contains value, represents the ad campaign identification signal that
+  //  has been provided to ReportWin().
+  //
+  // `buyer_and_seller_reporting_id` Optional string value that when
+  //  contains value, represents the ad campaign identification signal that
+  //  has been provided to ReportWin().
+  //
+  // `selected_buyer_and_seller_reporting_id` Optional string
+  // value that when contains value, represents the selected ad campaign
+  // identification signal that has been provided to ReportWin().
   //
   // `auction_signals_json` The JSON representation of the auction signals for
   //  the auction, if specified by the publisher page and provided to bidder
@@ -616,8 +640,10 @@ interface BidderWorklet {
   //  Includes errors from failing to load the worklet script.
   ReportWin(
       bool is_for_additional_bid,
-      ReportingIdField reporting_id_field,
-      string reporting_id,
+      string? interest_group_name_reporting_id,
+      string? buyer_reporting_id,
+      string? buyer_and_seller_reporting_id,
+      string? selected_buyer_and_seller_reporting_id,
       string? auction_signals_json,
       string? per_buyer_signals_json,
       url.mojom.Url? direct_from_seller_per_buyer_signals,

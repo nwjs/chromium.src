@@ -377,7 +377,6 @@
 <translation id="3999574733850440202">Жақында ашылған Microsoft файлдары OneDrive дискісіне көшірілді</translation>
 <translation id="4002066346123236978">Тақырып</translation>
 <translation id="4017788180641807848">Ағылшын (АҚШ), Workman пернетақтасымен</translation>
-<translation id="4019998208269143058">"Файлдарға жылдам өту" бөліміне бекіту</translation>
 <translation id="4040753847560036377">PUK коды дұрыс емес.</translation>
 <translation id="4057991113334098539">Іске қосылуда...</translation>
 <translation id="4092890906744441904">Ирланд</translation>
@@ -528,7 +527,7 @@
 <translation id="509429900233858213">Қате орын алды.</translation>
 <translation id="5098629044894065541">иврит</translation>
 <translation id="5102922915594634436">Синхрондалған қалталарды басқару</translation>
-<translation id="5109254780565519649">Қате пайда болды. Кейбір элементтер қалпына келтірілмеген болуы мүмкін.</translation>
+<translation id="5109254780565519649">Қате шықты. Кейбір элементтер қалпына келтірілмеген болуы мүмкін.</translation>
 <translation id="5110329002213341433">Ағылшын (Канада)</translation>
 <translation id="5119780910075847424">Синхрондау кідіртілді</translation>
 <translation id="5123433949759960244">Баскетбол</translation>
@@ -696,7 +695,6 @@
 <translation id="6320212353742551423"><ph name="ARCHIVE_TYPE" /> мұрағаты</translation>
 <translation id="6321303798550928047">Қол бұлғау</translation>
 <translation id="6327785803543103246">Вебпрокси-серверді автоматты анықтау</translation>
-<translation id="6337014272874260727">"Файлдарға жылдам өту" бөлімінен босату</translation>
 <translation id="6339145975392024142">АҚШ халықаралық (ДК)</translation>
 <translation id="6356685157277930264">Файлдар пікірлері терезесі</translation>
 <translation id="6358884629796491903">Айдаһар</translation>
@@ -721,7 +719,7 @@
 <translation id="6509122719576673235">норвег</translation>
 <translation id="6528513914570774834">Бұл құрылғының басқа пайдаланушыларына осы желіні пайдалануға рұқсат ету</translation>
 <translation id="6549689063733911810">Соңғы</translation>
-<translation id="6558280019477628686">Қате пайда болды. Кейбір элементтер жойылмаған болуы мүмкін.</translation>
+<translation id="6558280019477628686">Қате шықты. Кейбір элементтер жойылмаған болуы мүмкін.</translation>
 <translation id="656398493051028875">"<ph name="FILENAME" />" жойылуда…</translation>
 <translation id="6581162200855843583">Google Drive сілтемесі</translation>
 <translation id="6588648400954570689">Файлды синхрондау параметрлері</translation>

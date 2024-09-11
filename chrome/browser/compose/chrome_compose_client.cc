@@ -20,6 +20,7 @@
 #include "chrome/browser/compose/compose_enabling.h"
 #include "chrome/browser/compose/compose_text_usage_logger.h"
 #include "chrome/browser/compose/proactive_nudge_tracker.h"
+#include "chrome/browser/compose/proto/compose_optimization_guide.pb.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -658,6 +659,8 @@ bool ChromeComposeClient::ShouldTriggerPopup(
       GetMSBBStateFromPrefs());
 
   compose::ProactiveNudgeTracker::Signals nudge_signals;
+  nudge_signals.ukm_source_id =
+      GetWebContents().GetPrimaryMainFrame()->GetPageUkmSourceId();
   nudge_signals.page_origin =
       web_contents()->GetPrimaryMainFrame()->GetLastCommittedOrigin();
   nudge_signals.page_url = web_contents()->GetURL();
@@ -679,7 +682,7 @@ bool ChromeComposeClient::ShouldTriggerPopup(
       // If the proactive nudge is disabled but the selection nudge is is
       // enabled we need to initialize the nudge tracker for this form field to
       // accept the selection nudge.
-      return nudge_tracker_.OnlySelectionNudgeRequestedForFormField(
+      return nudge_tracker_.ProactiveNudgeRequestedForFormField(
           std::move(nudge_signals));
     }
     return false;
@@ -870,6 +873,33 @@ void ChromeComposeClient::ShowProactiveNudge(autofill::FormGlobalId form,
         field, autofill::AutofillSuggestionTriggerSource::
                    kComposeDelayedProactiveNudge);
   }
+}
+
+compose::ComposeHintMetadata ChromeComposeClient::GetComposeHintMetadata() {
+  if (!opt_guide_) {
+    return compose::ComposeHintMetadata::default_instance();
+  }
+
+  optimization_guide::OptimizationMetadata opt_guide_metadata;
+  auto opt_guide_has_hint = opt_guide_->CanApplyOptimization(
+      GetWebContents().GetPrimaryMainFrame()->GetLastCommittedURL(),
+      optimization_guide::proto::OptimizationType::COMPOSE,
+      &opt_guide_metadata);
+  if (opt_guide_has_hint !=
+      optimization_guide::OptimizationGuideDecision::kTrue) {
+    return compose::ComposeHintMetadata::default_instance();
+  }
+
+  if (opt_guide_metadata.any_metadata().has_value()) {
+    std::optional<compose::ComposeHintMetadata> compose_metadata =
+        optimization_guide::ParsedAnyMetadata<compose::ComposeHintMetadata>(
+            opt_guide_metadata.any_metadata().value());
+    if (compose_metadata.has_value()) {
+      return compose_metadata.value();
+    }
+  }
+
+  return compose::ComposeHintMetadata::default_instance();
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(ChromeComposeClient);

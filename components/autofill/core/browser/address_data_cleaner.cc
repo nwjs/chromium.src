@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/address_data_cleaner.h"
 
+#include "base/containers/to_vector.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "components/autofill/core/browser/address_data_manager.h"
@@ -33,20 +34,20 @@ bool ShouldWaitForSync(syncer::SyncService* sync_service) {
     return false;
   }
 
-  auto should_wait = [&sync_service](syncer::ModelType model_type) {
-    switch (sync_service->GetDownloadStatusFor(model_type)) {
-      case syncer::SyncService::ModelTypeDownloadStatus::kWaitingForUpdates:
+  auto should_wait = [&sync_service](syncer::DataType data_type) {
+    switch (sync_service->GetDownloadStatusFor(data_type)) {
+      case syncer::SyncService::DataTypeDownloadStatus::kWaitingForUpdates:
         return true;
-      case syncer::SyncService::ModelTypeDownloadStatus::kUpToDate:
+      case syncer::SyncService::DataTypeDownloadStatus::kUpToDate:
       // If the download status is kError, it will likely not become available
       // anytime soon. In this case, don't defer the cleanups.
-      case syncer::SyncService::ModelTypeDownloadStatus::kError:
+      case syncer::SyncService::DataTypeDownloadStatus::kError:
         return false;
     }
-    NOTREACHED_NORETURN();
+    NOTREACHED();
   };
-  return should_wait(syncer::ModelType::AUTOFILL_PROFILE) ||
-         should_wait(syncer::ModelType::CONTACT_INFO);
+  return should_wait(syncer::DataType::AUTOFILL_PROFILE) ||
+         should_wait(syncer::DataType::CONTACT_INFO);
 }
 
 // Quasi duplicates of rank one, those conflicting token has low quality qualify
@@ -236,13 +237,10 @@ AddressDataCleaner::CalculateMinimalIncompatibleTypeSets(
     const AutofillProfileComparator& comparator) {
   // Unfortunately, a vector of non-pointers is needed for
   // `CalculateMinimalIncompatibleTypeSets()`.
-  std::vector<AutofillProfile> existing_profiles_copy;
-  existing_profiles_copy.reserve(existing_profiles.size());
-  for (const AutofillProfile* profile : existing_profiles) {
-    existing_profiles_copy.push_back(*profile);
-  }
   return CalculateMinimalIncompatibleTypeSets(
-      import_candidate, existing_profiles_copy, comparator);
+      import_candidate,
+      base::ToVector(existing_profiles, [](auto* x) { return *x; }),
+      comparator);
 }
 
 // static
@@ -322,7 +320,7 @@ void AddressDataCleaner::DeleteDisusedAddresses() {
   // pointers in `profiles`.
   std::vector<std::string> guids_to_delete;
   for (const AutofillProfile* profile : profiles) {
-    if (profile->IsDeletable()) {
+    if (IsAutofillEntryWithUseDateDeletable(profile->use_date())) {
       guids_to_delete.push_back(profile->guid());
     }
   }

@@ -91,6 +91,9 @@ class PageLoadMetricsForwardObserver final
   void OnLoadEventStart(const mojom::PageLoadTiming& timing) override;
   void OnParseStart(const mojom::PageLoadTiming& timing) override;
   void OnParseStop(const mojom::PageLoadTiming& timing) override;
+  void OnConnectStart(const mojom::PageLoadTiming& timing) override;
+  void OnDomainLookupStart(const mojom::PageLoadTiming& timing) override;
+  void OnDomainLookupEnd(const mojom::PageLoadTiming& timing) override;
   void OnFirstPaintInPage(const mojom::PageLoadTiming& timing) override;
   void OnFirstImagePaintInPage(const mojom::PageLoadTiming& timing) override;
   void OnFirstContentfulPaintInPage(
@@ -175,6 +178,7 @@ class PageLoadMetricsForwardObserver final
   void OnSharedStorageSelectURLCalled() override;
   void OnCustomUserTimingMarkObserved(
       const std::vector<mojom::CustomUserTimingMarkPtr>& timings) override;
+  void OnAdAuctionComplete() override;
 
   // Holds the forward target observer running in the parent PageLoadTracker.
   base::WeakPtr<PageLoadMetricsObserverInterface> parent_observer_;

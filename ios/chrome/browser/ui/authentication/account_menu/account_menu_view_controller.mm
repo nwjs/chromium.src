@@ -11,6 +11,7 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/settings/model/sync/utils/account_error_ui_info.h"
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -25,9 +26,7 @@
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_mutator.h"
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_view_controller_presentation_delegate.h"
 #import "ios/chrome/browser/ui/authentication/cells/central_account_view.h"
-#import "ios/chrome/browser/ui/authentication/cells/table_view_identity_cell.h"
-#import "ios/chrome/browser/ui/authentication/cells/table_view_identity_item.h"
-#import "ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h"
+#import "ios/chrome/browser/ui/authentication/cells/table_view_account_item.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_image_detail_text_cell.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_image_detail_text_item.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -87,22 +86,35 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   self.tableView.accessibilityIdentifier = kAccountMenuTableViewId;
   self.tableView.backgroundColor =
       [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
-  RegisterTableViewCell<TableViewIdentityCell>(self.tableView);
+  RegisterTableViewCell<TableViewAccountCell>(self.tableView);
   RegisterTableViewCell<SettingsImageDetailTextCell>(self.tableView);
   RegisterTableViewCell<TableViewTextCell>(self.tableView);
   [self setUpNavigationController];
   [self setUpTableContent];
   [self updatePrimaryAccount];
-  [self.sheetPresentationController invalidateDetents];
+  [self resize];
 }
 
 - (void)viewWillLayoutSubviews {
   [super viewWillLayoutSubviews];
   // Update the bottom sheet height.
-  [self.sheetPresentationController invalidateDetents];
+  [self resize];
 }
 
 #pragma mark - Private
+
+// Resizes the view for current content.
+- (void)resize {
+  // Update the bottom sheet height.
+  [self.sheetPresentationController invalidateDetents];
+  // Update the popover height.
+  CGFloat height =
+      [self.tableView
+          systemLayoutSizeFittingSize:self.popoverPresentationController
+                                          .containerView.bounds.size]
+          .height;
+  self.preferredContentSize = CGSize(self.preferredContentSize.width, height);
+}
 
 // Sets up the navigation controller’s buttons.
 - (void)setUpNavigationController {
@@ -157,8 +169,11 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
       @[
         [UIColor colorNamed:kGrey500Color], [UIColor colorNamed:kGrey300Color]
       ]);
-  self.navigationItem.leftBarButtonItem =
+  UIBarButtonItem* ellipsisButton =
       [[UIBarButtonItem alloc] initWithImage:ellipsisImage menu:ellipsisMenu];
+  ellipsisButton.accessibilityIdentifier =
+      kAccountMenuSecondaryActionMenuButtonId;
+  self.navigationItem.leftBarButtonItem = ellipsisButton;
 }
 
 - (UITableViewCell*)cellForTableView:(UITableView*)tableView
@@ -167,11 +182,11 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   NSString* gaiaID = base::apple::ObjCCast<NSString>(itemIdentifier);
   if (gaiaID) {
     // `itemIdentifier` is a gaia id.
-    TableViewIdentityItem* item =
-        [self.dataSource identityItemForGaiaID:gaiaID];
-    TableViewIdentityCell* cell =
-        DequeueTableViewCell<TableViewIdentityCell>(tableView);
+    TableViewAccountItem* item = [self.dataSource identityItemForGaiaID:gaiaID];
+    TableViewAccountCell* cell =
+        DequeueTableViewCell<TableViewAccountCell>(tableView);
     [item configureCell:cell withStyler:[[ChromeTableViewStyler alloc] init]];
+    cell.accessibilityIdentifier = kAccountMenuSecondaryAccountButtonId;
     return cell;
   }
 
@@ -179,6 +194,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   RowIdentifier rowIdentifier = static_cast<RowIdentifier>(
       base::apple::ObjCCastStrict<NSNumber>(itemIdentifier).integerValue);
   NSString* label = nil;
+  NSString* accessibilityIdentifier = nil;
   switch (rowIdentifier) {
     case RowIdentifierErrorExplanation: {
       SettingsImageDetailTextCell* cell =
@@ -192,22 +208,26 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
       item.imageViewTintColor = [UIColor colorNamed:kRed500Color];
       [item configureCell:cell withStyler:[[ChromeTableViewStyler alloc] init]];
       cell.selectionStyle = UITableViewCellSelectionStyleNone;
+      cell.accessibilityIdentifier = kAccountMenuErrorMessageId;
       return cell;
     }
     case RowIdentifierErrorButton:
       label = l10n_util::GetNSString(
           self.dataSource.accountErrorUIInfo.buttonLabelID);
+      accessibilityIdentifier = kAccountMenuErrorActionButtonId;
       break;
     case RowIdentifierAddAccount:
       label =
           l10n_util::GetNSString(IDS_IOS_OPTIONS_ACCOUNTS_ADD_ACCOUNT_BUTTON);
+      accessibilityIdentifier = kAccountMenuAddAccountButtonId;
       break;
     case RowIdentifierSignOut:
       label =
           l10n_util::GetNSString(IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_ITEM);
+      accessibilityIdentifier = kAccountMenuSignoutButtonId;
       break;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
   // If the function has not returned yet. This cell contains only text.
 
@@ -217,6 +237,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   item.text = label;
   TableViewTextCell* cell = DequeueTableViewCell<TableViewTextCell>(tableView);
   [item configureCell:cell withStyler:[[ChromeTableViewStyler alloc] init]];
+  cell.accessibilityIdentifier = accessibilityIdentifier;
   return cell;
 }
 
@@ -241,6 +262,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 }
 
 - (void)userTappedOnClose {
+  base::RecordAction(base::UserMetricsAction("Signin_AccountMenu_Close"));
   [self.delegate viewControllerWantsToBeClosed:self];
 }
 
@@ -340,7 +362,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
         base::RecordAction(
             base::UserMetricsAction("Signin_AccountMenu_Signout"));
         CGRect cellRect = [tableView rectForRowAtIndexPath:indexPath];
-        [self.delegate signOutFromTargetRect:cellRect];
+        [self.delegate signOutFromTargetRect:cellRect callback:nil];
         break;
     }
   }

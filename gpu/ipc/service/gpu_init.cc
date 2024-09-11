@@ -26,7 +26,6 @@
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
 #include "build/chromeos_buildflags.h"
-#include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/config/gpu_driver_bug_list.h"
@@ -184,22 +183,12 @@ class GpuWatchdogInit {
 
 void PauseGpuWatchdog(GpuWatchdogThread* watchdog_thread) {
   if (watchdog_thread) {
-    if (base::FeatureList::IsEnabled(
-            features::kEnableWatchdogReportOnlyModeOnGpuInit)) {
-      watchdog_thread->EnableReportOnlyMode();
-    } else {
-      watchdog_thread->PauseWatchdog();
-    }
+    watchdog_thread->PauseWatchdog();
   }
 }
 void ResumeGpuWatchdog(GpuWatchdogThread* watchdog_thread) {
   if (watchdog_thread) {
-    if (base::FeatureList::IsEnabled(
-            features::kEnableWatchdogReportOnlyModeOnGpuInit)) {
-      watchdog_thread->DisableReportOnlyMode();
-    } else {
-      watchdog_thread->ResumeWatchdog();
-    }
+    watchdog_thread->ResumeWatchdog();
   }
 }
 
@@ -462,12 +451,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   // Therefore, we only allow or disallow sync and real buffer page flip
   // testing for ash-chrome.
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
-  params.allow_sync_and_real_buffer_page_flip_testing =
-      gpu_preferences_.enable_chromeos_direct_video_decoder;
-#else   // !BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
   params.allow_sync_and_real_buffer_page_flip_testing = true;
-#endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   ui::OzonePlatform::InitializeForGPU(params);
 #endif  // BUILDFLAG(IS_OZONE)
@@ -982,12 +966,7 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
   // Therefore, we only allow or disallow sync and real buffer page flip
   // testing for ash-chrome.
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
-  params.allow_sync_and_real_buffer_page_flip_testing =
-      gpu_preferences_.enable_chromeos_direct_video_decoder;
-#else   // !BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
   params.allow_sync_and_real_buffer_page_flip_testing = true;
-#endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   ui::OzonePlatform::InitializeForGPU(params);
 #endif
@@ -1257,6 +1236,14 @@ bool GpuInit::InitializeVulkan() {
 
   gpu_info_.vulkan_info =
       vulkan_implementation_->GetVulkanInstance()->vulkan_info();
+  // Limit the use of Vulkan's vendorID and deviceID to Android.
+  // This is because other platforms, for example, Linux, collect such
+  // information somewhere else and we don't want to overwrite it.
+#if BUILDFLAG(IS_ANDROID)
+  gpu_info_.gpu.vendor_id = device_properties.vendor_id;
+  gpu_info_.gpu.device_id = device_properties.device_id;
+#endif  // BUILDFLAG(IS_ANDROID)
+
   return true;
 #else   // !BUILDFLAG(ENABLE_VULKAN)
   return false;

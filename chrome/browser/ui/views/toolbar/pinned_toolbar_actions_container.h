@@ -63,11 +63,11 @@ class PinnedToolbarActionsContainer
       const ui::DropTargetEvent& event) override;
 
   // PinnedToolbarActionsModel::Observer:
-  void OnActionAdded(const actions::ActionId& id) override;
-  void OnActionRemoved(const actions::ActionId& id) override;
-  void OnActionMoved(const actions::ActionId& id,
-                     int from_index,
-                     int to_index) override;
+  void OnActionAddedLocally(const actions::ActionId& id) override;
+  void OnActionRemovedLocally(const actions::ActionId& id) override;
+  void OnActionMovedLocally(const actions::ActionId& id,
+                            int from_index,
+                            int to_index) override {}
   void OnActionsChanged() override;
 
   // views::DragController:
@@ -90,6 +90,9 @@ class PinnedToolbarActionsContainer
   bool IsActionPinnedOrPoppedOut(const actions::ActionId& id);
   PinnedActionToolbarButton* GetButtonFor(const actions::ActionId& id);
 
+  // Removes the popped out button if it should no longer remain in the toolbar.
+  void MaybeRemovePoppedOutButtonFor(const actions::ActionId& id);
+
  private:
   friend class PinnedSidePanelInteractiveTest;
   friend class PinnedToolbarActionsContainerTest;
@@ -98,8 +101,6 @@ class PinnedToolbarActionsContainer
   struct DropInfo;
 
   PinnedActionToolbarButton* AddPoppedOutButtonFor(const actions::ActionId& id);
-  // Removes the popped out button if it should no longer remain in the toolbar.
-  void MaybeRemovePoppedOutButtonFor(const actions::ActionId& id);
   void AddPinnedActionButtonFor(const actions::ActionId& id);
   void RemovePinnedActionButtonFor(const actions::ActionId& id);
   PinnedActionToolbarButton* GetPinnedButtonFor(const actions::ActionId& id);

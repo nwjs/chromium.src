@@ -586,7 +586,7 @@ ProxyHostObserver* GetProxyHostObserver() {
 
 bool IsRequestCompatibleWithSpeculativeRFH(NavigationRequest* request) {
   return request->state() <=
-             NavigationRequest::NavigationState::WILL_START_REQUEST &&
+             NavigationRequest::NavigationState::WILL_PROCESS_RESPONSE &&
          request->GetAssociatedRFHType() ==
              NavigationRequest::AssociatedRenderFrameHostType::NONE;
 }
@@ -1227,8 +1227,6 @@ void SimulateGestureScrollSequence(RenderWidgetHost* render_widget_host,
   scroll_update.SetPositionInWidget(gfx::PointF(point));
   scroll_update.data.scroll_update.delta_x = delta.x();
   scroll_update.data.scroll_update.delta_y = delta.y();
-  scroll_update.data.scroll_update.velocity_x = 0;
-  scroll_update.data.scroll_update.velocity_y = 0;
   render_widget_host->ForwardGestureEvent(scroll_update);
 
   blink::WebGestureEvent scroll_end(
@@ -2434,13 +2432,13 @@ RenderFrameMetadataProviderImpl* RenderFrameMetadataProviderFromRenderFrameHost(
 }  // namespace
 
 TitleWatcher::TitleWatcher(WebContents* web_contents,
-                           const std::u16string& expected_title)
+                           std::u16string_view expected_title)
     : WebContentsObserver(web_contents) {
-  expected_titles_.push_back(expected_title);
+  expected_titles_.emplace_back(expected_title);
 }
 
-void TitleWatcher::AlsoWaitForTitle(const std::u16string& expected_title) {
-  expected_titles_.push_back(expected_title);
+void TitleWatcher::AlsoWaitForTitle(std::u16string_view expected_title) {
+  expected_titles_.emplace_back(expected_title);
 }
 
 TitleWatcher::~TitleWatcher() = default;
@@ -4410,6 +4408,36 @@ void SpeculativeRenderFrameHostObserver::RenderFrameCreated(
       IsRequestCompatibleWithSpeculativeRFH(request) &&
       request->GetURL() == url_) {
     run_loop_.Quit();
+  }
+}
+
+SpareRenderProcessObserver::SpareRenderProcessObserver() {
+  subscription_ =
+      RenderProcessHost::RegisterSpareRenderProcessHostChangedCallback(
+          base::BindRepeating(
+              &SpareRenderProcessObserver::SpareRenderProcessHostChanged,
+              weak_factory_.GetWeakPtr()));
+}
+
+SpareRenderProcessObserver::~SpareRenderProcessObserver() = default;
+
+void SpareRenderProcessObserver::SpareRenderProcessHostChanged(
+    RenderProcessHost* render_process_host) {
+  spare_render_process_host_ = render_process_host;
+  if (quit_closure_) {
+    std::move(quit_closure_).Run();
+  }
+}
+
+RenderProcessHost* SpareRenderProcessObserver::spare_render_process_host() {
+  return spare_render_process_host_;
+}
+
+void SpareRenderProcessObserver::WaitForSpareRenderProcessCreation() {
+  base::RunLoop loop;
+  quit_closure_ = loop.QuitClosure();
+  if (!spare_render_process_host_) {
+    loop.Run();
   }
 }
 

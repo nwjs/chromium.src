@@ -54,7 +54,7 @@ std::string GetScreenShotNameForErrorStatus(MahiResponseStatus status) {
       return "UnsupportedLanguage";
     case chromeos::MahiResponseStatus::kLowQuota:
     case chromeos::MahiResponseStatus::kSuccess:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -132,7 +132,7 @@ TEST_P(MahiErrorStatusViewPixelTest, Basics) {
           mahi_constants::ViewId::kErrorStatusView);
   ASSERT_TRUE(error_status_view);
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      GetScreenShotNameForErrorStatus(GetParam()), /*revision_number=*/4,
+      GetScreenShotNameForErrorStatus(GetParam()), /*revision_number=*/5,
       error_status_view));
 }
 

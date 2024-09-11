@@ -34,13 +34,8 @@ void ChromeGuestViewManagerDelegate::OnGuestAdded(
   CreateSessionServiceTabHelper(guest_web_contents);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  // Notifies kiosk system session about the added guest.
-  // TODO(b/233167287): Implement guest view handling for Lacros.
-  ash::KioskSystemSession* session =
-      ash::KioskController::Get().GetKioskSystemSession();
-  if (session) {
-    session->OnGuestAdded(guest_web_contents);
-  }
+  // Notifies Kiosk controller about the added guest.
+  ash::KioskController::Get().OnGuestAdded(guest_web_contents);
 #endif
 }
 

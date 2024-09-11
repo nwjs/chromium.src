@@ -15,6 +15,7 @@
 #include "base/allocator/partition_alloc_features.h"
 #include "base/at_exit.h"
 #include "base/check.h"
+#include "base/containers/span.h"
 #include "base/cpu.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/debug/stack_trace.h"
@@ -602,14 +603,22 @@ void CheckDanglingRawPtrBufferEmpty() {
                << entry->task_trace << "\n"
                << entry->stack_trace << "\n";
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_INSTANCE_TRACER)
+    auto is_frame_ptr_not_null = [](const void* frame_ptr) {
+      return frame_ptr != nullptr;
+    };
     std::vector<std::array<const void*, 32>> stack_traces =
         internal::InstanceTracer::GetStackTracesForDanglingRefs(entry->id);
     for (const auto& raw_stack_trace : stack_traces) {
+      CHECK(ranges::is_partitioned(raw_stack_trace, is_frame_ptr_not_null))
+          << "`raw_stack_trace` is expected to be partitioned: non-null values "
+             "at the begining followed by `nullptr`s.";
       LOG(ERROR) << "Dangling reference from:\n";
-      LOG(ERROR) << debug::StackTrace(raw_stack_trace.data(),
-                                      raw_stack_trace.size() -
-                                          static_cast<size_t>(ranges::count(
-                                              raw_stack_trace, nullptr)))
+      LOG(ERROR) << debug::StackTrace(
+                        // This call truncates the `nullptr` tail of the stack
+                        // trace (see the `is_partitioned` CHECK above).
+                        make_span(raw_stack_trace.begin(),
+                                  ranges::partition_point(
+                                      raw_stack_trace, is_frame_ptr_not_null)))
                  << "\n";
     }
 #else

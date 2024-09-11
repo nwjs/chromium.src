@@ -16,6 +16,7 @@
 #import "components/unified_consent/pref_names.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_storage_type.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/bookmark_earl_grey.h"
+#import "ios/chrome/browser/history/ui_bundled/history_ui_constants.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_test_app_interface.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -26,7 +27,6 @@
 #import "ios/chrome/browser/ui/authentication/signin/signin_constants.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
-#import "ios/chrome/browser/ui/history/history_ui_constants.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
 #import "ios/chrome/browser/ui/reading_list/reading_list_app_interface.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_app_interface.h"
@@ -362,7 +362,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   // Should be removed after TODO(crbug.com/40065405).
   if ([self isRunningTest:@selector
             (DISABLED_testSyncSpinnerDismissedInRecentlyClosedTabs)]) {
-    [ChromeEarlGrey signOutAndClearIdentitiesAndWaitForCompletion];
+    [ChromeEarlGrey signOutAndClearIdentities];
   }
 
   [super tearDown];
@@ -644,15 +644,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 // Tests that the Undo button is no longer available after tapping Close All,
 // then creating a new tab, then coming back to the tab grid.
 // Validates this case when Tab Grid Bulk Actions feature is enabled.
-// TODO(crbug.com/41494757): Test fails on device.
-#if !TARGET_IPHONE_SIMULATOR
-#define MAYBE_testUndoCloseAllNotAvailableAfterNewTabCreation \
-  DISABLED_testUndoCloseAllNotAvailableAfterNewTabCreation
-#else
-#define MAYBE_testUndoCloseAllNotAvailableAfterNewTabCreation \
-  testUndoCloseAllNotAvailableAfterNewTabCreation
-#endif
-- (void)MAYBE_testUndoCloseAllNotAvailableAfterNewTabCreation {
+- (void)testUndoCloseAllNotAvailableAfterNewTabCreation {
   [ChromeEarlGreyUI openTabGrid];
 
   [[EarlGrey selectElementWithMatcher:VisibleTabGridEditButton()]
@@ -1315,10 +1307,9 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
   [ChromeEarlGrey waitForMainTabCount:2 inWindowWithNumber:1];
 
-  // Open tab grid in both window.
+  // Open tab grid in both windows.
   [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(0)];
   [ChromeEarlGreyUI openTabGrid];
-
   [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(1)];
   [ChromeEarlGreyUI openTabGrid];
 
@@ -1363,6 +1354,79 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
       performAction:grey_tap()];
 }
 
+// Tests dragging all tab grid items to another window.
+- (void)testDragAndDropAllItemsToOtherWindow {
+  if (![ChromeEarlGrey areMultipleWindowsSupported]) {
+    EARL_GREY_TEST_SKIPPED(@"Multiple windows can't be opened.");
+  }
+
+  // Setup first window with tab 1 and 2.
+  [ChromeEarlGrey loadURL:_URL1];
+  [ChromeEarlGrey waitForWebStateContainingText:kResponse1];
+
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:_URL2];
+  [ChromeEarlGrey waitForWebStateContainingText:kResponse2];
+
+  [ChromeEarlGrey waitForMainTabCount:2 inWindowWithNumber:0];
+
+  // Open second window.
+  [ChromeEarlGrey openNewWindow];
+  [ChromeEarlGrey waitUntilReadyWindowWithNumber:1];
+  [ChromeEarlGrey waitForForegroundWindowCount:2];
+
+  // Setup second window with tabs 3 and 4.
+  [ChromeEarlGrey loadURL:_URL3 inWindowWithNumber:1];
+  [ChromeEarlGrey waitForWebStateContainingText:kResponse3
+                             inWindowWithNumber:1];
+
+  [ChromeEarlGrey openNewTabInWindowWithNumber:1];
+  [ChromeEarlGrey loadURL:_URL4 inWindowWithNumber:1];
+  [ChromeEarlGrey waitForWebStateContainingText:kResponse4
+                             inWindowWithNumber:1];
+
+  [ChromeEarlGrey waitForMainTabCount:2 inWindowWithNumber:1];
+
+  // Open tab grid in both windows.
+  [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(0)];
+  [ChromeEarlGreyUI openTabGrid];
+  [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(1)];
+  [ChromeEarlGreyUI openTabGrid];
+
+  GREYWaitForAppToIdle(@"App failed to idle");
+
+  [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(0)];
+  [[EarlGrey selectElementWithMatcher:VisibleTabGridEditButton()]
+      performAction:grey_tap()];
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
+      performAction:grey_tap()];
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridEditSelectAllButton()]
+      performAction:grey_tap()];
+
+  // DnD first tab of left window to left edge of first tab in second window.
+  // Note: move to left half of the destination tile, to avoid unwanted
+  // scrolling that would happen closer to the left edge.
+  GREYAssert(LongPressCellAndDragToOffsetOf(IdentifierForCellAtIndex(0), 0,
+                                            IdentifierForCellAtIndex(0), 1,
+                                            CGVectorMake(0.5, 0.5)),
+             @"Failed to DND cell on cell");
+
+  GREYWaitForAppToIdle(@"App failed to idle");
+
+  [ChromeEarlGrey waitForMainTabCount:0 inWindowWithNumber:0];
+  [ChromeEarlGrey waitForMainTabCount:4 inWindowWithNumber:1];
+
+  [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(0)];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::TabGridDoneButton()]
+      performAction:grey_tap()];
+
+  [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(1)];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::TabGridDoneButton()]
+      performAction:grey_tap()];
+}
+
 // Tests dragging incognito tab grid item between windows.
 // TODO(crbug.com/40839724): Re-enable this test.
 - (void)FLAKY_testDragAndDropIncognitoBetweenWindows {
@@ -1385,10 +1449,9 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
   [ChromeEarlGrey waitForMainTabCount:1 inWindowWithNumber:1];
 
-  // Open tab grid in both window.
+  // Open tab grid in both windows.
   [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(0)];
   [ChromeEarlGreyUI openTabGrid];
-
   [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(1)];
   [ChromeEarlGreyUI openTabGrid];
 
@@ -1846,13 +1909,9 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
                            inStorage:BookmarkStorageType::kLocalOrSyncable];
 }
 
-// Tests adding items to the readinglist from the tab grid edit mode.
-- (void)testTabGridBulkActionAddToReadingList {
-  // TODO(crbug.com/40900596): Test flakes when run on iOS 16.
-  if (@available(iOS 16, *)) {
-    EARL_GREY_TEST_DISABLED(@"Fails on iOS 16.");
-  }
-
+// Tests adding items to the Reading List from the tab grid edit mode.
+// TODO(crbug.com/40900596): Test flakes.
+- (void)FLAKY_testTabGridBulkActionAddToReadingList {
   [ChromeEarlGrey loadURL:_URL1];
   [ChromeEarlGrey waitForWebStateContainingText:kResponse1];
 

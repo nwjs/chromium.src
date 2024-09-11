@@ -1,17 +1,22 @@
 <style include="cr-icons cr-hidden-style">
   :host {
     --column-width: 220px;
+    --detail-container-margin-bottom: 24px;
+    --new-column-selector-width: 42px;
     --table-gap: 8px;
   }
 
   #table {
+    container-type: inline-size;
     display: grid;
     font-size: 12px;
     gap: var(--table-gap);
     grid-auto-flow: column;
-    grid-template-columns: auto;
+    grid-template-columns: repeat(var(--num-columns), var(--column-width));
     grid-template-rows: auto;
     line-height: 16px;
+    padding-inline-end: calc(var(--new-column-selector-width) + var(
+        --table-gap)); /* Include space for selector. */
     width: fit-content;
   }
 
@@ -65,12 +70,20 @@
     z-index: 1;
   }
 
+  .open-tab-button:not(:hover) {
+    background-color: color-mix(in srgb, var(
+      --color-product-specifications-icon-button-background) 65%, transparent);
+  }
+
   .detail-container {
     display: flex;
     flex-direction: column;
     gap: var(--table-gap);
-    margin-bottom: 24px;
     width: var(--column-width);
+  }
+
+  .detail-text {
+    margin-bottom: var(--detail-container-margin-bottom);
   }
 
   .detail-title {
@@ -81,13 +94,35 @@
     width: var(--column-width);
   }
 
+  /*
+   * Ensure the 'detail-title' element within the first column
+   * spans the full container width, allowing its nested sticky span
+   * to remain positioned correctly even when the column is scrolled
+   * away from.
+   */
+  .col[is-first-column] .detail-title {
+    padding-inline-end: var(--table-gap);
+    width: 100cqw;
+  }
+
+  .col[is-first-column] .detail-title span {
+    left: 0;
+    position: sticky;
+  }
+
   .col:not([is-first-column]) .detail-title span {
     visibility: hidden;
   }
 
-  .detail-description,
-  .detail-summary {
-    margin-inline-end: 24px;
+  #newColumnSelectorContainer {
+    order: var(--num-columns); /* Keep at the end during drag-and-drop. */
+    position: sticky;
+    right: 0;
+    z-index: 2;
+  }
+
+  ::slotted([slot=newColumnSelector]) {
+    z-index: 1;
   }
 </style>
 
@@ -95,7 +130,8 @@
   <template is="dom-repeat" id="columnRepeat" items="[[columns]]"
       as="column" index-as="columnIndex">
     <div class="col"
-        style$="grid-row: span [[getRowCount_(column.productDetails.length)]]"
+        style$="grid-row: span [[getRowCount_(column.productDetails.length)]];
+            scroll-snap-align: [[getScrollSnapAlign_(draggingColumn)]];"
         on-pointerenter="onShowOpenTabButton_"
         is-dragging$="[[isDragging_(columnIndex, draggingColumn)]]"
         is-first-column$="[[isFirstColumn_(columnIndex, draggingColumn)]]">
@@ -123,27 +159,42 @@
         <cr-icon-button class="open-tab-button icon-external"
             hidden$="[[!showOpenTabButton_(columnIndex,
                 draggingColumn, hoveredColumnIndex_)]]"
-            on-click="onOpenTabButtonClick_">
+            on-click="onOpenTabButtonClick_"
+            title="$i18n{openProductPage}">
         </cr-icon-button>
       </div>
       <template is="dom-repeat" items="[[column.productDetails]]" as="detail"
           index-as="rowIndex">
         <div class="detail-container"
+            aria-label="[[detail.title]]"
             hidden$="[[!showRow_(detail.title, rowIndex)]]">
+          <template is="dom-if" if="[[detail.title]]">
             <div class="detail-title">
-              <span>[[detail.title]]</span>
+              <span aria-hidden="true">[[detail.title]]</span>
             </div>
-            <div class="detail-description"
-                hidden$="[[!showDescription_(detail.title, rowIndex,
-                    columns)]]">
-              [[detail.description]]
-            </div>
-            <div class="detail-summary"
-                hidden$="[[!showSummary_(detail.title, rowIndex, columns)]]">
-              [[detail.summary]]
-            </div>
+          </template>
+          <template is="dom-if" if="[[contentIsString_(detail.content)]]">
+            <div class="detail-text">[[detail.content]]</div>
+          </template>
+          <template is="dom-if"
+              if="[[contentIsProductDescription_(detail.content)]]">
+            <description-section
+                description="[[filterProductDescription_(detail.content,
+                    detail.title, rowIndex)]]"
+                product-name="[[column.selectedItem.title]]">
+            </description-section>
+          </template>
+          <template is="dom-if"
+              if="[[contentIsBuyingOptionsLink_(detail.content)]]">
+            <buying-options-section jackpot-url="[[detail.content.jackpotUrl]]">
+            </buying-options-section>
+          </template>
         </div>
       </template>
     </div>
   </template>
+  <div id="newColumnSelectorContainer">
+    <slot name="selectorGradient"></slot>
+    <slot name="newColumnSelector"></slot>
+  </div>
 </div>

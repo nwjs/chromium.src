@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -258,10 +263,9 @@ IN_PROC_BROWSER_TEST_F(UserCloudPolicyManagerExistingConsumerUserTest,
   // leak of verification keys/signatures.
   signin::AccountManagedStatusFinder::SetNonEnterpriseDomainForTesting(
       "example.com");
-  ASSERT_EQ(signin::AccountManagedStatusFinder::IsEnterpriseUserBasedOnEmail(
-                logged_in_user_mixin_->GetAccountId().GetUserEmail()),
-            signin::AccountManagedStatusFinder::EmailEnterpriseStatus::
-                kKnownNonEnterprise);
+  ASSERT_FALSE(
+      signin::AccountManagedStatusFinder::MayBeEnterpriseUserBasedOnEmail(
+          logged_in_user_mixin_->GetAccountId().GetUserEmail()));
 
   user_manager::KnownUser known_user(g_browser_process->local_state());
   // If a user signs in with a known non-enterprise account there should be no

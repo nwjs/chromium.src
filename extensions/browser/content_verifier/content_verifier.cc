@@ -21,7 +21,6 @@
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
-#include "base/task/thread_pool.h"
 #include "base/threading/thread_restrictions.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -41,9 +40,6 @@
 #include "extensions/common/utils/base_string.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/network/public/mojom/network_context.mojom.h"
-
-#include "base/files/file_util.h"
-#include "base/threading/thread_restrictions.h"
 
 namespace extensions {
 
@@ -406,8 +402,6 @@ class ContentVerifier::HashHelper {
       std::move(callback).Run(content_hash);
     callback_infos_.erase(iter);
 
-    DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-
     // OnFetchComplete will check content_hash->hash_mismatch_unix_paths():
     content_verifier_->OnFetchComplete(content_hash);
   }
@@ -540,6 +534,13 @@ ContentVerifier::~ContentVerifier() {
 void ContentVerifier::Start() {
   ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
   observation_.Observe(registry);
+  content::GetIOThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce(&ContentVerifier::StartOnIO, this));
+}
+
+void ContentVerifier::StartOnIO() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  verification_enabled_ = true;
 }
 
 void ContentVerifier::Shutdown() {
@@ -557,49 +558,44 @@ void ContentVerifier::ShutdownOnIO() {
   hash_helper_.reset();
 }
 
+// static
 scoped_refptr<ContentVerifyJob> ContentVerifier::CreateAndStartJobFor(
     const ExtensionId& extension_id,
     const base::FilePath& extension_root,
-    const base::FilePath& relative_path) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-
-  const ContentVerifierIOData::ExtensionData* data =
-      io_data_.GetData(extension_id);
-  // The absence of |data| generally means that we don't have to verify the
-  // extension resource. However, it could also mean that
-  // OnExtensionLoadedOnIO didn't get a chance to fire yet.
-  // See https://crbug.com/826584 for an example of how this can happen from
-  // ExtensionUserScriptLoader. Currently, ExtensionUserScriptLoader performs a
-  // thread hopping to work around this problem.
-  // TODO(lazyboy): Prefer queueing up jobs in these case instead of the thread
-  // hopping solution, but that requires a substantial change in
-  // ContnetVerifier/ContentVerifyJob.
-  if (!data)
-    return nullptr;
-
+    const base::FilePath& relative_path,
+    scoped_refptr<ContentVerifier> verifier) {
   base::FilePath normalized_unix_path = NormalizeRelativePath(relative_path);
-
-  VerifiedFileType verified_file_type =
-      VerifiedFileTypeHelper(*data).GetVerifiedFileType(normalized_unix_path);
-  if (verified_file_type == VerifiedFileType::kNone) {
-    return nullptr;  // Not a file to be verified.
-  }
-
-  std::vector<VerifiedFileType> file_types({verified_file_type});
-  auto callback =
-      base::BindOnce(&ContentVerifier::VerifyFailed, this, extension_id,
-                     file_types, data->manifest_version, relative_path);
 
   // TODO(asargent) - we can probably get some good performance wins by having
   // a cache of ContentHashReader's that we hold onto past the end of each job.
   scoped_refptr<ContentVerifyJob> job = base::MakeRefCounted<ContentVerifyJob>(
-      extension_id, data->version, extension_root, normalized_unix_path,
-      data->manifest_version, std::move(callback));
-  job->Start(this);
+      extension_id, extension_root, normalized_unix_path);
+
+  // Priority set explicitly to avoid unwanted task priority inheritance.
+  content::GetIOThreadTaskRunner({base::TaskPriority::USER_BLOCKING})
+      ->PostTask(FROM_HERE,
+                 base::BindOnce(&ContentVerifier::OnJobCreated, verifier, job));
+
   return job;
 }
 
-void ContentVerifier::GetContentHash(
+void ContentVerifier::OnJobCreated(scoped_refptr<ContentVerifyJob> job) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  if (shutdown_on_io_ || !verification_enabled_) {
+    return;
+  }
+
+  // If the extension data is not ready yet, add the job to the pending list.
+  // It will be started when the data is available.
+  if (!ready_extensions_.contains(job->extension_id())) {
+    pending_jobs_[job->extension_id()].push_back(std::move(job));
+    return;
+  }
+
+  StartJob(job);
+}
+
+void ContentVerifier::CreateContentHash(
     const ExtensionId& extension_id,
     const base::FilePath& extension_root,
     const base::Version& extension_version,
@@ -607,25 +603,6 @@ void ContentVerifier::GetContentHash(
     ContentHashCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   if (shutdown_on_io_) {
-    // NOTE: Release |callback| asynchronously, so that we don't release ref of
-    // ContentVerifyJob and possibly destroy it synchronously here while
-    // ContentVerifyJob is holding a lock. The lock destroyer would fail DCHECK
-    // in that case.
-    // TODO(lazyboy): Make CreateJobFor return a scoped_refptr instead of raw
-    // pointer to fix this. Also add unit test to exercise this code path
-    // explicitly.
-    content::GetIOThreadTaskRunner({})->PostTask(
-        FROM_HERE, base::DoNothingWithBoundArgs(std::move(callback)));
-    return;
-  }
-
-  CacheKey cache_key(extension_id, extension_version,
-                     force_missing_computed_hashes_creation);
-  auto cache_iter = cache_.find(cache_key);
-  if (cache_iter != cache_.end()) {
-    // Currently, we expect |callback| to be called asynchronously.
-    content::GetIOThreadTaskRunner({})->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), cache_iter->second));
     return;
   }
 
@@ -634,6 +611,8 @@ void ContentVerifier::GetContentHash(
   DCHECK(data);
   ContentHash::FetchKey fetch_key =
       GetFetchKey(extension_id, extension_root, extension_version);
+  CacheKey cache_key(extension_id, extension_version,
+                     force_missing_computed_hashes_creation);
   // Since |shutdown_on_io_| = false, GetOrCreateHashHelper() must return
   // non-nullptr instance of HashHelper.
   GetOrCreateHashHelper()->GetContentHash(
@@ -643,80 +622,42 @@ void ContentVerifier::GetContentHash(
                      std::move(callback)));
 }
 
+scoped_refptr<const ContentHash> ContentVerifier::GetCachedContentHash(
+    const ExtensionId& extension_id,
+    const base::Version& extension_version,
+    bool force_missing_computed_hashes_creation) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  if (shutdown_on_io_) {
+    return nullptr;
+  }
+
+  CacheKey cache_key(extension_id, extension_version,
+                     force_missing_computed_hashes_creation);
+  auto cache_iter = cache_.find(cache_key);
+  return cache_iter != cache_.end() ? cache_iter->second : nullptr;
+}
+
 bool ContentVerifier::ShouldComputeHashesOnInstall(const Extension& extension) {
   return delegate_->GetVerifierSourceType(extension) ==
          ContentVerifierDelegate::VerifierSourceType::UNSIGNED_HASHES;
-}
-
-void ContentVerifier::OnHashReady(const std::string& extension_id,
-                                  const base::FilePath& extension_root,
-                                  const base::FilePath& relative_path,
-                                  scoped_refptr<ContentVerifyJob> verify_job) {
-  base::ThreadPool::PostTaskAndReplyWithResult(
-                                   FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::BindOnce(&ContentVerifier::OpenFile, this, extension_root, relative_path, verify_job),
-      base::BindOnce(&ContentVerifier::OnFileReady, this, extension_root, relative_path, verify_job));
-}
-
-bool ContentVerifier::OpenFile(const base::FilePath& extension_root,
-                               const base::FilePath& relative_path,
-                               scoped_refptr<ContentVerifyJob> job) {
-  job->file_.Initialize(extension_root.Append(relative_path), base::File::FLAG_OPEN | base::File::FLAG_READ);
-  return true;
-}
-
-void ContentVerifier::OnFileReady(const base::FilePath& extension_root,
-                                  const base::FilePath& relative_path,
-                                  scoped_refptr<ContentVerifyJob> job, bool result) {
-  if (!job->file_.IsValid())
-    job->DoneReading();
-
-  base::ThreadPool::PostTaskAndReplyWithResult(
-                                   FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::BindOnce(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),
-     base::BindOnce(&ContentVerifier::BytesRead, this, extension_root, relative_path, job));
-}
-bool ContentVerifier::ReadFile(const base::FilePath& extension_root,
-                               const base::FilePath& relative_path,
-                               scoped_refptr<ContentVerifyJob> job) {
-  job->len_ = job->file_.ReadAtCurrentPos(job->buf_, 32768);
-  if (job->len_ <= 0)
-    job->file_.Close();
-  return true;
-}
-
-void ContentVerifier::BytesRead(const base::FilePath& extension_root,
-                                const base::FilePath& relative_path,
-                                scoped_refptr<ContentVerifyJob> job, bool result) {
-  if (job->len_ <= 0) {
-    job->DoneReading();
-  } else {
-    job->BytesRead(job->buf_, job->len_, base::File::FILE_OK);
-    base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::BindOnce(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),
-      base::BindOnce(&ContentVerifier::BytesRead, this, extension_root, relative_path, job));
-  }
 }
 
 void ContentVerifier::VerifyFailed(
     const ExtensionId& extension_id,
     const std::vector<VerifiedFileType>& failed_file_types,
     int manifest_version,
-    const base::FilePath& relative_path,
-    ContentVerifyJob::FailureReason reason,
-    scoped_refptr<ContentVerifyJob> verify_job) {
+    ContentVerifyJob::FailureReason reason) {
   if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
     content::GetUIThreadTaskRunner({})->PostTask(
         FROM_HERE,
         base::BindOnce(&ContentVerifier::VerifyFailed, this, extension_id,
-                       failed_file_types, manifest_version, relative_path, reason, verify_job));
+                       failed_file_types, manifest_version, reason));
     return;
   }
   if (shutdown_on_ui_)
     return;
 
-  VLOG(1) << "VerifyFailed " << extension_id << " reason:" << reason << " " << relative_path.AsUTF8Unsafe();
+  VLOG(1) << "VerifyFailed " << extension_id << " reason:" << reason;
   DCHECK_NE(ContentVerifyJob::NONE, reason);
 
   for (VerifiedFileType file_type : failed_file_types) {
@@ -724,7 +665,7 @@ void ContentVerifier::VerifyFailed(
     switch (file_type) {
       case VerifiedFileType::kNone:
         // We should only consider a file type that should be verified.
-        NOTREACHED_NORETURN();
+        NOTREACHED();
       case VerifiedFileType::kBackgroundPage:
         histogram_suffix = "BackgroundPage";
         break;
@@ -795,7 +736,7 @@ void ContentVerifier::VerifyFailed(
     }
   }
 
-  delegate_->VerifyFailed(extension_id, relative_path, reason, verify_job);
+  delegate_->VerifyFailed(extension_id, reason);
 }
 
 void ContentVerifier::OnExtensionLoaded(
@@ -806,12 +747,10 @@ void ContentVerifier::OnExtensionLoaded(
 
   std::unique_ptr<ContentVerifierIOData::ExtensionData> io_data =
       CreateIOData(extension, delegate_.get());
-  if (io_data) {
-    content::GetIOThreadTaskRunner({})->PostTask(
-        FROM_HERE, base::BindOnce(&ContentVerifier::OnExtensionLoadedOnIO, this,
-                                  extension->id(), extension->path(),
-                                  extension->version(), std::move(io_data)));
-  }
+  content::GetIOThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce(&ContentVerifier::OnExtensionLoadedOnIO, this,
+                                extension->id(), extension->path(),
+                                extension->version(), std::move(io_data)));
 }
 
 void ContentVerifier::OnExtensionLoadedOnIO(
@@ -822,11 +761,17 @@ void ContentVerifier::OnExtensionLoadedOnIO(
   if (shutdown_on_io_)
     return;
 
-  io_data_.AddData(extension_id, std::move(*data));
-  GetContentHash(extension_id, extension_root, extension_version,
-                 false /* force_missing_computed_hashes_creation */,
-                 // HashHelper will respond directly to OnFetchComplete().
-                 base::DoNothing());
+  // `data` may be null if no verification is needed for the extension. In that
+  // case, we just mark the extension as ready.
+  if (data) {
+    io_data_.AddData(extension_id, std::move(*data));
+    CreateContentHash(extension_id, extension_root, extension_version,
+                      /*force_missing_computed_hashes_creation=*/false,
+                      // HashHelper will respond directly to OnFetchComplete().
+                      base::DoNothing());
+  }
+
+  OnExtensionDataReady(extension_id);
 }
 
 void ContentVerifier::OnExtensionUnloaded(
@@ -854,7 +799,7 @@ GURL ContentVerifier::GetSignatureFetchUrlForTest(
 void ContentVerifier::VerifyFailedForTest(
     const ExtensionId& extension_id,
     ContentVerifyJob::FailureReason reason) {
-  VerifyFailed(extension_id, {VerifiedFileType::kMiscFile}, 3, base::FilePath(), reason, nullptr);
+  VerifyFailed(extension_id, {VerifiedFileType::kMiscFile}, 3, reason);
 }
 
 void ContentVerifier::ClearCacheForTesting() {
@@ -876,6 +821,45 @@ void ContentVerifier::OnExtensionUnloadedOnIO(
   HashHelper* hash_helper = GetOrCreateHashHelper();
   if (hash_helper)
     hash_helper->Cancel(extension_id, extension_version);
+
+  ready_extensions_.erase(extension_id);
+  pending_jobs_.erase(extension_id);
+}
+
+void ContentVerifier::OnExtensionDataReady(const ExtensionId& extension_id) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+  ready_extensions_.insert(extension_id);
+
+  if (auto it = pending_jobs_.find(extension_id); it != pending_jobs_.end()) {
+    for (const auto& job : it->second) {
+      StartJob(job);
+    }
+    pending_jobs_.erase(it);
+  }
+}
+
+bool ContentVerifier::StartJob(const scoped_refptr<ContentVerifyJob>& job) {
+  const ContentVerifierIOData::ExtensionData* data =
+      io_data_.GetData(job->extension_id());
+  // The absence of |data| means that we don't have to verify the extension
+  // resource.
+  if (!data) {
+    return false;
+  }
+
+  VerifiedFileType verified_file_type =
+      VerifiedFileTypeHelper(*data).GetVerifiedFileType(job->relative_path());
+  if (verified_file_type == VerifiedFileType::kNone) {
+    return false;  // Not a file to be verified.
+  }
+
+  std::vector<VerifiedFileType> file_types({verified_file_type});
+  auto callback =
+      base::BindOnce(&ContentVerifier::VerifyFailed, this, job->extension_id(),
+                     file_types, data->manifest_version);
+
+  job->Start(this, data->version, data->manifest_version, std::move(callback));
+  return true;
 }
 
 void ContentVerifier::OnFetchComplete(
@@ -936,7 +920,7 @@ void ContentVerifier::OnFetchComplete(
   // Note: `data` must be non-null here, since we'd only populate
   // `file_hash_mismatches` if it's available.
   VerifyFailed(extension_id, file_hash_mismatches, data->manifest_version,
-               base::FilePath(), ContentVerifyJob::HASH_MISMATCH, nullptr);
+               ContentVerifyJob::HASH_MISMATCH);
 }
 
 ContentHash::FetchKey ContentVerifier::GetFetchKey(

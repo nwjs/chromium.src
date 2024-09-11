@@ -244,7 +244,7 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // |row| should be a view index, not a model index.
   // |visible_column_index| indexes into |visible_columns_|.
   AXVirtualView* GetVirtualAccessibilityCell(size_t row,
-                                             size_t visible_column_index);
+                                             size_t visible_column_index) const;
 
   bool header_row_is_active() const { return header_row_is_active_; }
 
@@ -391,6 +391,10 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // 1.
   GroupRange GetGroupRange(size_t model_index) const;
 
+  // Updates the accessible name for the table's views from `start_view_index`
+  // up to `start_view_index` + `length`.
+  void UpdateAccessibleNameForIndex(size_t start_view_index, size_t length);
+
   // Updates a set of accessibility views that expose the visible table contents
   // to assistive software.
   void RebuildVirtualAccessibilityChildren();
@@ -400,6 +404,14 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // process of changing but the virtual accessibility children haven't been
   // updated yet, e.g. showing or hiding a column via SetColumnVisibility().
   void ClearVirtualAccessibilityChildren();
+
+  void SetAccessibleSelectionForIndex(size_t view_index, bool selected) const;
+  void SetAccessibleSelectionForRange(size_t start_view_index,
+                                      size_t end_view_index,
+                                      bool selected) const;
+  void ClearAccessibleSelection() const;
+  void UpdateAccessibleSelectionForColumnIndex(
+      size_t visible_column_index) const;
 
   // Helper functions used in UpdateVirtualAccessibilityChildrenBounds() for
   // calculating the accessibility bounds for the header and table rows and
@@ -438,7 +450,7 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // Returns the virtual accessibility view corresponding to the specified row.
   // |row| should be a view index into the TableView's body elements, not a
   // model index.
-  AXVirtualView* GetVirtualAccessibilityBodyRow(size_t row);
+  AXVirtualView* GetVirtualAccessibilityBodyRow(size_t row) const;
 
   // Returns the virtual accessibility view corresponding to the header row, if
   // it exists.
@@ -448,8 +460,9 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // given row at the specified column index.
   // `ax_row` should be the virtual view of either a header or body row.
   // `visible_column_index` indexes into `visible_columns_`.
-  AXVirtualView* GetVirtualAccessibilityCellImpl(AXVirtualView* ax_row,
-                                                 size_t visible_column_index);
+  AXVirtualView* GetVirtualAccessibilityCellImpl(
+      AXVirtualView* ax_row,
+      size_t visible_column_index) const;
 
   // Creates a virtual accessibility view that is used to expose information
   // about the row at |view_index| to assistive software.

@@ -1085,7 +1085,7 @@ bool AudioRendererImpl::HandleDecodedBuffer_Locked(
     case kUninitialized:
     case kInitializing:
     case kFlushing:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
 
     case kFlushed:
       DCHECK(!pending_read_);
@@ -1194,7 +1194,11 @@ int AudioRendererImpl::Render(base::TimeDelta delay,
                               base::TimeTicks delay_timestamp,
                               const AudioGlitchInfo& glitch_info,
                               AudioBus* audio_bus) {
-  TRACE_EVENT1("media", "AudioRendererImpl::Render", "id", player_id_);
+  TRACE_EVENT("media", "AudioRendererImpl::Render", "id", player_id_,
+              "playout_delay (ms)", delay.InMillisecondsF(),
+              "delay_timestamp (ms)",
+              (delay_timestamp - base::TimeTicks()).InMillisecondsF());
+
   int frames_requested = audio_bus->frames();
   DVLOG(4) << __func__ << " delay:" << delay << " glitch_info:["
            << glitch_info.ToString() << "]"
@@ -1419,7 +1423,7 @@ void AudioRendererImpl::HandleAbortedReadOrDecodeError(PipelineStatus status) {
   switch (state_) {
     case kUninitialized:
     case kInitializing:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
     case kFlushing:
       ChangeState_Locked(kFlushed);
       if (status == PIPELINE_OK) {

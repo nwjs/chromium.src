@@ -135,6 +135,10 @@
 #include "ui/base/ime/mojom/virtual_keyboard_types.mojom.h"
 #endif
 
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
+
 using gfx::RectToSkIRect;
 using gfx::SkIRectToRect;
 
@@ -1351,14 +1355,21 @@ RenderWidgetHostViewAura::GetKeyboardLayoutMap() {
 
 ////////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostViewAura, ui::TextInputClient implementation:
+base::WeakPtr<ui::TextInputClient> RenderWidgetHostViewAura::AsWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
+}
+
 void RenderWidgetHostViewAura::SetCompositionText(
     const ui::CompositionText& composition) {
   if (!text_input_manager_ || !text_input_manager_->GetActiveWidget())
     return;
 
+  // Historically we haven't supported selection range with composition string
+  // due to prior bugs. Introducing support for it can reveal issues as seen
+  // with Korean IME in Windows for instance. See crbug.com/363266897
   text_input_manager_->GetActiveWidget()->ImeSetComposition(
       composition.text, composition.ime_text_spans, gfx::Range::InvalidRange(),
-      composition.selection.start(), composition.selection.end());
+      composition.selection.end(), composition.selection.end());
 
   has_composition_text_ = !composition.text.empty();
 }
@@ -1943,6 +1954,22 @@ void RenderWidgetHostViewAura::NotifyOnFrameFocusChanged() {
 void RenderWidgetHostViewAura::OnDisplayMetricsChanged(
     const display::Display& display,
     uint32_t metrics) {
+#if BUILDFLAG(IS_OZONE)
+  // TODO(crbug.com/348590032) If per-window scaling is enabled, the display
+  // scale comparison below is not applicable as the WindowTreeHost uses the
+  // accurate per-window scale value and the display uses a scale factor value
+  // that is inferred from the logical size which is prone to rounding errors,
+  // in which case this will never match and end up suppressing visual
+  // properties synchronization after the display configuration changes. So
+  // process display metrics change as usual skipping such checks. Also see
+  // RenderWidgetHostViewBase::UpdateScreenInfo().
+  if (ui::OzonePlatform::GetInstance()
+          ->GetPlatformRuntimeProperties()
+          .supports_per_window_scaling) {
+    ProcessDisplayMetricsChanged();
+    return;
+  }
+#endif  // BUILDFLAG(IS_OZONE)
   display::Screen* screen = display::Screen::GetScreen();
   if (display.id() != screen->GetDisplayNearestWindow(window_).id())
     return;

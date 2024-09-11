@@ -67,9 +67,8 @@ bool g_offline_login_per_user_allowed_ = true;
 // Returns the current running kiosk app profile in a kiosk session. Otherwise,
 // returns nullptr.
 Profile* GetAppProfile() {
-  return chrome::IsRunningInForcedAppMode()
-             ? ProfileManager::GetActiveUserProfile()
-             : nullptr;
+  return IsRunningInForcedAppMode() ? ProfileManager::GetActiveUserProfile()
+                                    : nullptr;
 }
 
 }  // namespace
@@ -121,7 +120,6 @@ void ErrorScreen::ShowOfflineLoginOption(bool show) {
 void ErrorScreen::OnOfflineLoginClicked() {
   // Reset hide callback as we advance to OfflineLoginScreen. Exit from this
   // screen is handled by WizardController.
-  // TODO(https://crbug.com/1199816, dkuzmin): Use exit_callback_ once available
   on_hide_callback_ = base::OnceClosure();
   Hide();
   LoginDisplayHost::default_host()->StartWizard(OfflineLoginView::kScreenId);
@@ -397,8 +395,6 @@ void ErrorScreen::OnReloadGaiaClicked() {
 
 void ErrorScreen::OnContinueAppLaunchButtonClicked() {
   DCHECK_EQ(parent_screen_, AppLaunchSplashScreenView::kScreenId.AsId());
-  // TODO(https://crbug.com/1199816, dkuzmin): Use exit_callback_ once
-  // available
   auto* oobe_ui = LoginDisplayHost::default_host()->GetOobeUI();
   oobe_ui->GetView<AppLaunchSplashScreenHandler>()->ContinueAppLaunch();
 }

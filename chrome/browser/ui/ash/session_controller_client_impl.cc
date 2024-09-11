@@ -558,6 +558,10 @@ void SessionControllerClientImpl::OnUserProfileLoaded(
       ash::ProfileHelper::Get()->GetProfileByAccountId(account_id));
 }
 
+void SessionControllerClientImpl::OnUserSessionStartUpTaskCompleted() {
+  session_controller_->NotifyFirstSessionReady();
+}
+
 void SessionControllerClientImpl::OnCustodianInfoChanged() {
   DCHECK(supervised_user_profile_);
   User* user =
@@ -609,7 +613,7 @@ void SessionControllerClientImpl::SendSessionInfoIfChanged() {
   auto info = std::make_unique<ash::SessionInfo>();
   info->can_lock_screen = CanLockScreen();
   info->should_lock_screen_automatically = ShouldLockScreenAutomatically();
-  info->is_running_in_app_mode = chrome::IsRunningInAppMode();
+  info->is_running_in_app_mode = IsRunningInAppMode();
   info->is_demo_session =
       ash::DemoSession::Get() && ash::DemoSession::Get()->started();
   info->add_user_session_policy = GetAddUserSessionPolicy();

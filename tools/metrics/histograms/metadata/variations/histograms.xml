@@ -47,7 +47,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.AppSeedFreshness" units="minutes"
-    expires_after="2024-11-17">
+    expires_after="2025-01-19">
   <owner>ntfschr@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
   <summary>
@@ -62,7 +62,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.ExtendedSafeMode.BeaconFileDeserializationError"
-    enum="JsonDeserializationError" expires_after="2024-11-17">
+    enum="JsonDeserializationError" expires_after="2025-01-26">
   <owner>caitlinfischer@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <component>1456342</component>
@@ -114,7 +114,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="Variations.FieldTriamParamsLogInvalidValue"
     enum="VariationsLogInvalidValue" expires_after="2024-09-01">
   <owner>thiabaud@google.com</owner>
-  <owner>jwd@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     Logged whenever |base::LogInvalidValue| is called, i.e. whenever an invalid
@@ -188,7 +187,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.ForcedFieldTrialsAtStartupForInternalsPage"
-    enum="Boolean" expires_after="2024-10-15">
+    enum="Boolean" expires_after="2025-01-26">
   <owner>harringtond@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -246,7 +245,6 @@ chromium-metrics-reviews@google.com.
 <histogram name="Variations.Headers.RequestContextCategory"
     enum="VariationsHeadersRequestContextCategory" expires_after="2024-08-04">
   <owner>asvitkine@chromium.org</owner>
-  <owner>jwd@chromium.org</owner>
   <owner>caitlinfischer@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -260,7 +258,6 @@ chromium-metrics-reviews@google.com.
     name="Variations.Headers.URLValidationResult{VariationsHeadersURLValidationResult}"
     enum="VariationsHeadersURLValidationResult" expires_after="2023-11-01">
   <owner>asvitkine@chromium.org</owner>
-  <owner>jwd@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     The result of whether to append Variations headers to a request. Logged when
@@ -289,7 +286,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Variations.InvalidStudyReason"
     enum="VariationsInvalidStudyReason" expires_after="2024-11-01">
-  <owner>jwd@chromium.org</owner>
+  <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
     Records the reason for rejecting an invalid study. Recorded when processing
@@ -745,7 +742,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.WebViewDownloadJobInterval" units="minutes"
-    expires_after="2024-11-17">
+    expires_after="2025-01-19">
   <owner>ntfschr@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
   <summary>
@@ -756,7 +753,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.WebViewDownloadJobQueueTime" units="minutes"
-    expires_after="2024-11-17">
+    expires_after="2025-01-19">
   <owner>ntfschr@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
   <summary>

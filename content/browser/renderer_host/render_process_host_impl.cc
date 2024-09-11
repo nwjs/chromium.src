@@ -36,7 +36,8 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/shared_memory_mapping.h"
+#include "base/memory/read_only_shared_memory_region.h"
+#include "base/memory/structured_shared_memory.h"
 #include "base/memory/unsafe_shared_memory_region.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/metrics/histogram_base.h"
@@ -242,6 +243,10 @@
 #include "services/tracing/public/cpp/system_tracing_service.h"
 #endif
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "services/resource_coordinator/public/cpp/memory_instrumentation/os_metrics.h"
+#endif
+
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
 #include "content/browser/v8_snapshot_files.h"
 #endif
@@ -322,6 +327,8 @@ RenderProcessHostFactory* g_render_process_host_factory_ = nullptr;
 RenderProcessHostImpl* g_main_host = nullptr;
 
 const char kSiteProcessMapKeyName[] = "content_site_process_map";
+
+const void* const kProcessPerSiteUmaLoggedKey = &kProcessPerSiteUmaLoggedKey;
 
 RenderProcessHost::AnalyzeHungRendererFunction g_analyze_hung_renderer =
     nullptr;
@@ -475,6 +482,78 @@ class RenderProcessHostIsReadyObserver : public RenderProcessHostObserver {
   base::WeakPtrFactory<RenderProcessHostIsReadyObserver> weak_factory_{this};
 };
 
+bool HasEnoughMemoryForAnotherMainFrame(RenderProcessHost* host,
+                                        size_t main_frame_count) {
+  // Grab the current memory footprint and determine if we can fit the size
+  // of another main frame into the memory space that is set as an upper limit.
+  //
+  // A few definitions:
+  // PMF - the private memory footprint of the memory allocated by the
+  //       process excluding any shared memory segments.
+  // size_per_top_level_frame - the estimated size of a top level frame,
+  //       assuming each top level frame is around the same size. This
+  //       is calculated by dividing the PMF by the number of top level frames
+  //       in the process. This algorithm treats any OOPIFs being equally
+  //       divided amongst the number of top level frames as it is difficult to
+  //       determine the cost of individual frames. This could be incorrect but
+  //       is an overestimation on the size of a top level frame which should
+  //       bias the algorithm to be more conservative.
+  // frame_size_factor - A multiple of how much space should be available for
+  //       allowing the top level main frame into the process. For example if
+  //       the expected size of a top level frame was 100K, and the factor was
+  //       1.5, the process must have 150K left in its allocation limit.
+  // estimated_size - The expected size of the new frame. This value is
+  //       calculated by multiplying the size_per_top_level_frame by the
+  //       frame_size_factor.
+  // process_memory_limit - The upper process memory limit that we wish to keep.
+  //       We should try to keep the private memory less than this value.
+  //
+  // The algorithm:
+  //    Should Use Same Process = (PMF + estimated_size) < process_memory_limit
+  uint64_t private_memory_footprint = host->GetPrivateMemoryFootprint();
+
+  // Zero indicates we didn't obtain a PMF so we should just deny it, because
+  // we cannot estimate the size of other frames currently assigned to a process
+  // (e.g., after a crash).
+  if (private_memory_footprint == 0) {
+    return false;
+  }
+  uint64_t size_per_top_level_frame =
+      private_memory_footprint /
+      std::max(main_frame_count, static_cast<size_t>(1));
+  uint64_t process_memory_limit = base::saturated_cast<uint64_t>(
+      features::kProcessPerSiteMainFrameTotalMemoryLimit.Get());
+
+  double frame_size_factor =
+      features::kProcessPerSiteMainFrameSiteScalingFactor.Get();
+  // Check that we have a factor of at least 1.
+  if (frame_size_factor < 1.0f) {
+    frame_size_factor = 1.0f;
+  }
+
+  // estimated_size = PMF + (size_per_top_level_frame * factor)
+  base::ClampedNumeric<uint64_t> estimated_size = size_per_top_level_frame;
+  estimated_size *= frame_size_factor;
+  estimated_size += private_memory_footprint;
+
+  if (estimated_size < process_memory_limit) {
+    return true;
+  }
+
+  // Only log the histogram once per RenderProcessHost. Since the
+  // RenderProcessHost can enter and exit this condition because of the dynamic
+  // nature of memory allocation we don't want to over-record it so we only
+  // record it on the first time we determine we are over the limit.
+  if (!host->GetUserData(kProcessPerSiteUmaLoggedKey)) {
+    base::UmaHistogramCounts1000(
+        "BrowserRenderProcessHost.ProcessPerSiteMainFrameLimit",
+        main_frame_count);
+    host->SetUserData(kProcessPerSiteUmaLoggedKey,
+                      std::make_unique<base::SupportsUserData::Data>());
+  }
+  return false;
+}
+
 bool MayReuseAndIsSuitableWithMainFrameThreshold(
     RenderProcessHost* host,
     SiteInstanceImpl* site_instance,
@@ -522,7 +601,7 @@ bool MayReuseAndIsSuitableWithMainFrameThreshold(
     return false;
   }
 
-  return true;
+  return HasEnoughMemoryForAnotherMainFrame(host, main_frame_count);
 }
 
 // The following class is used to track the sites each RenderProcessHost is
@@ -600,7 +679,7 @@ class SiteProcessCountTracker : public base::SupportsUserData::Data,
 
     std::map<ProcessID, Count>& counts_per_process = result->second;
     for (auto iter : counts_per_process) {
-      RenderProcessHost* host = RenderProcessHost::FromID(iter.first);
+      auto* host = RenderProcessHost::FromID(iter.first);
       if (!host) {
         // TODO(clamy): This shouldn't happen but we are getting reports from
         // the field that this is happening. We need to figure out why some
@@ -1290,6 +1369,9 @@ RenderProcessHost* RenderProcessHostImpl::CreateRenderProcessHost(
     if (site_instance->IsPdf()) {
       flags |= RenderProcessFlags::kPdf;
     }
+    if (site_instance->AreV8OptimizationsDisabled()) {
+      flags |= RenderProcessFlags::kV8OptimizationsDisabled;
+    }
   }
 #if BUILDFLAG(IS_WIN)
   if (site_instance && GetContentClient()->browser()->ShouldUseSkiaFontManager(
@@ -1474,6 +1556,10 @@ RenderProcessHostImpl::~RenderProcessHostImpl() {
         gpu_client_->RemoveDiskCacheHandles();
     }
   }
+
+  base::UmaHistogramCounts1000(
+      "BrowserRenderProcessHost.MaxOutermostMainFrames",
+      max_outermost_main_frames_);
 
   // "Cleanup in progress"
   TRACE_EVENT_END("shutdown", perfetto::Track::FromPointer(this),
@@ -1736,34 +1822,18 @@ void RenderProcessHostImpl::InitializeSharedMemoryRegionsOnceChannelIsUp() {
   // It's possible for InitializeChannelProxy() to be called multiple times for
   // the same host (e.g. from AgentSchedulingGroupHost::RenderProcessExited()).
   // In that case, we only need to resend the read-only memory region.
-  if (!last_foreground_time_region_.IsValid()) {
-    static_assert(
-        std::atomic<base::TimeTicks>::is_always_lock_free,
-        "Atomically sharing TimeTicks across processes might be unsafe");
-
-    last_foreground_time_region_ = base::ReadOnlySharedMemoryRegion::Create(
-        sizeof(std::atomic<base::TimeTicks>));
-    CHECK(last_foreground_time_region_.IsValid());
-
-    // Placement new to initialize the std::atomic in place.
-    new (last_foreground_time_region_.mapping.memory())
-        std::atomic<base::TimeTicks>;
-    // Then initialized to the appropriate value. `std::memory_order_relaxed` is
-    // sufficient as reads on the renderer side will happen-after this per the
-    // ordering relationship implicitly established between this operation and
-    // the renderer via TransferSharedLastForegroundTime().
-    last_foreground_time_region_.mapping
-        .GetMemoryAs<std::atomic<base::TimeTicks>>()
-        ->store(priority_.is_background() ? base::TimeTicks()
-                                          : base::TimeTicks::Now(),
-                std::memory_order_relaxed);
+  if (!last_foreground_time_region_.has_value()) {
+    last_foreground_time_region_ =
+        base::AtomicSharedMemory<base::TimeTicks>::Create(
+            priority_.is_background() ? base::TimeTicks()
+                                      : base::TimeTicks::Now());
+    CHECK(last_foreground_time_region_.has_value());
   }
-  CHECK(last_foreground_time_region_.IsValid());
 
   // Duplicate the ReadOnlySharedMemoryRegion so it can be shared again if this
   // host switches to hosting a new renderer.
   renderer_interface_->TransferSharedLastForegroundTime(
-      last_foreground_time_region_.region.Duplicate());
+      last_foreground_time_region_->DuplicateReadOnlyRegion());
 }
 
 void RenderProcessHostImpl::ResetChannelProxy() {
@@ -2440,8 +2510,8 @@ const base::TimeTicks& RenderProcessHostImpl::GetLastInitTime() {
   return last_init_time_;
 }
 
-bool RenderProcessHostImpl::IsProcessBackgrounded() {
-  return priority_.is_background();
+base::Process::Priority RenderProcessHostImpl::GetPriority() {
+  return priority_.GetProcessPriority();
 }
 
 void RenderProcessHostImpl::IncrementKeepAliveRefCount(uint64_t handle_id) {
@@ -2552,15 +2622,28 @@ void RenderProcessHostImpl::ForEachRenderFrameHost(
 }
 
 void RenderProcessHostImpl::RegisterRenderFrameHost(
-    const GlobalRenderFrameHostId& render_frame_host_id) {
+    const GlobalRenderFrameHostId& render_frame_host_id,
+    bool is_outermost_main_frame) {
   DCHECK(!base::Contains(render_frame_host_id_set_, render_frame_host_id));
+
+  if (is_outermost_main_frame) {
+    ++outermost_main_frame_count_;
+    max_outermost_main_frames_ =
+        std::max(max_outermost_main_frames_, outermost_main_frame_count_);
+  }
+
   render_frame_host_id_set_.insert(render_frame_host_id);
 }
 
 void RenderProcessHostImpl::UnregisterRenderFrameHost(
-    const GlobalRenderFrameHostId& render_frame_host_id) {
+    const GlobalRenderFrameHostId& render_frame_host_id,
+    bool is_outermost_main_frame) {
   DCHECK(base::Contains(render_frame_host_id_set_, render_frame_host_id));
   render_frame_host_id_set_.erase(render_frame_host_id);
+  if (is_outermost_main_frame) {
+    CHECK_NE(outermost_main_frame_count_, 0u);
+    --outermost_main_frame_count_;
+  }
 }
 
 void RenderProcessHostImpl::IncrementWorkerRefCount() {
@@ -2934,20 +3017,28 @@ void RenderProcessHostImpl::DiscardSpareRenderProcessHostForTesting() {
 
 // static
 bool RenderProcessHostImpl::IsSpareProcessKeptAtAllTimes() {
-  if (!SiteIsolationPolicy::UseDedicatedProcessesForAllSites())
-    return false;
-
-  if (!base::FeatureList::IsEnabled(features::kSpareRendererForSitePerProcess))
-    return false;
-
   // Spare renderer actually hurts performance on low-memory devices.  See
   // https://crbug.com/843775 for more details.
   //
   // The comparison below is using 1077 rather than 1024 because this helps
   // ensure that devices with exactly 1GB of RAM won't get included because of
   // inaccuracies or off-by-one errors.
-  if (base::SysInfo::AmountOfPhysicalMemoryMB() <= 1077)
+  if (base::SysInfo::AmountOfPhysicalMemoryMB() <= 1077) {
     return false;
+  }
+
+  bool android_spare_process_override = base::FeatureList::IsEnabled(
+      features::kAndroidWarmUpSpareRendererWithTimeout);
+  if (!SiteIsolationPolicy::UseDedicatedProcessesForAllSites() &&
+      !android_spare_process_override) {
+    return false;
+  }
+
+  if (!base::FeatureList::IsEnabled(
+          features::kSpareRendererForSitePerProcess) &&
+      !android_spare_process_override) {
+    return false;
+  }
 
   return true;
 }
@@ -3028,6 +3119,10 @@ bool RenderProcessHostImpl::IsForGuestsOnly() {
 
 bool RenderProcessHostImpl::IsJitDisabled() {
   return !!(flags_ & RenderProcessFlags::kJitDisabled);
+}
+
+bool RenderProcessHostImpl::AreV8OptimizationsDisabled() {
+  return !!(flags_ & RenderProcessFlags::kV8OptimizationsDisabled);
 }
 
 bool RenderProcessHostImpl::IsPdf() {
@@ -3114,9 +3209,13 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
       command_line->AppendSwitchASCII(blink::switches::kJavaScriptFlags,
                                       "--jitless");
     } else {
+      // TODO(https://crbug.com/338434846): put this back to --jitless.
       command_line->AppendSwitchASCII(blink::switches::kJavaScriptFlags,
                                       "--no-maglev,--no-turbofan");
     }
+  } else if (AreV8OptimizationsDisabled()) {
+    command_line->AppendSwitchASCII(blink::switches::kJavaScriptFlags,
+                                    "--disable-optimizing-compilers");
   }
 
   if (features::IsTouchTextEditingRedesignEnabled()) {
@@ -3196,7 +3295,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kAllowLoopbackInPeerConnection,
     switches::kAudioBufferSize,
     switches::kAutoplayPolicy,
-    switches::kMojoCoreLibraryPath,
     switches::kDisable2dCanvasImageChromium,
     switches::kDisableYUVImageDecoding,
     switches::kDisableAcceleratedVideoDecode,
@@ -4020,17 +4118,18 @@ void RenderProcessHostImpl::RemovePriorityClient(
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-void RenderProcessHostImpl::SetPriorityOverride(bool foregrounded) {
-  foreground_override_ = foregrounded;
+void RenderProcessHostImpl::SetPriorityOverride(
+    base::Process::Priority priority) {
+  priority_override_ = priority;
   UpdateProcessPriority();
 }
 
 bool RenderProcessHostImpl::HasPriorityOverride() {
-  return foreground_override_.has_value();
+  return priority_override_.has_value();
 }
 
 void RenderProcessHostImpl::ClearPriorityOverride() {
-  foreground_override_.reset();
+  priority_override_.reset();
   UpdateProcessPriority();
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -4244,6 +4343,13 @@ bool RenderProcessHostImpl::IsSuitableHost(
   // reused.
   if (host->IsJitDisabled() != site_info.is_jit_disabled())
     return false;
+
+  // If this process has a different v8 optimization policy to the site then it
+  // can't be reused.
+  if (host->AreV8OptimizationsDisabled() !=
+      site_info.are_v8_optimizations_disabled()) {
+    return false;
+  }
 
   // PDF and non-PDF content cannot share processes.
   if (host->IsPdf() != site_info.is_pdf())
@@ -4834,6 +4940,15 @@ void RenderProcessHostImpl::ProcessDied(
 
   within_process_died_observer_ = false;
 
+  if (!sent_process_created_) {
+    // Observers who listen for process creation will not get the
+    // RenderProcessExited event if the process fails to launch and dies
+    // before creation, so we send a different event to the creation observers.
+    for (auto* observer : GetAllCreationObservers()) {
+      observer->OnRenderProcessHostCreationFailed(this, info);
+    }
+  }
+
   // Initialize a new ChannelProxy in case this host is re-used for a new
   // process. This ensures that new messages can be sent on the host ASAP
   // (even before Init()) and they'll eventually reach the new process.
@@ -4950,6 +5065,80 @@ void RenderProcessHostImpl::SetPrivateMemoryFootprint(
 }
 #endif
 
+void RenderProcessHostImpl::SetPrivateMemoryFootprintForTesting(
+    uint64_t private_memory_footprint_bytes) {
+  private_memory_footprint_bytes_ = private_memory_footprint_bytes;
+#if !BUILDFLAG(IS_ANDROID)
+  private_memory_footprint_valid_until_ =
+      base::TimeTicks::Now() + base::Hours(1);
+#endif
+}
+
+uint64_t RenderProcessHostImpl::GetPrivateMemoryFootprint() {
+#if BUILDFLAG(IS_ANDROID)
+  return private_memory_footprint_bytes_;
+#else
+  // If we don't have a process yet or have died, our memory footprint is 0.
+  if (!GetProcess().IsValid()) {
+    return 0;
+  }
+
+  base::TimeTicks now = base::TimeTicks::Now();
+  if (now <= private_memory_footprint_valid_until_) {
+    return private_memory_footprint_bytes_;
+  }
+
+  // Private memory footprint of a process is calculated using its private bytes
+  // and swap bytes. ProcessMetrics::GetTotalsSummary() is more precise in
+  // getting the private bytes but can be very slow under heavy memory pressure.
+  // Instead, use anonymous RSS as a faster estimation of private bytes for the
+  // process.
+  auto dump = memory_instrumentation::mojom::RawOSMemDump::New();
+  dump->platform_private_footprint =
+      memory_instrumentation::mojom::PlatformPrivateFootprint::New();
+#if BUILDFLAG(IS_APPLE)
+  bool success =
+      memory_instrumentation::OSMetrics::FillOSMemoryDumpFromTaskPort(
+          ChildProcessTaskPortProvider::GetInstance()->TaskForHandle(
+              GetProcess().Handle()),
+          dump.get());
+#else
+  bool success = memory_instrumentation::OSMetrics::FillOSMemoryDump(
+      GetProcess().Pid(), dump.get());
+#endif
+
+  // Failed to get private memory for the process, e.g. the process has died.
+  if (!success) {
+    return 0;
+  }
+
+  // This code is the same as `CalculatePrivateFootprintKb` in the
+  // ResourceCoordinator.
+  // See design docs linked in the bugs for the rationale of the computation:
+  // - Linux/Android: https://crbug.com/707019 .
+  // - Mac OS: https://crbug.com/707021 .
+  // - Win: https://crbug.com/707022 .
+  uint64_t total_size = 0;
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+    BUILDFLAG(IS_FUCHSIA)
+  total_size = dump->platform_private_footprint->rss_anon_bytes +
+               dump->platform_private_footprint->vm_swap_bytes;
+#elif BUILDFLAG(IS_APPLE)
+  total_size = dump->platform_private_footprint->phys_footprint_bytes;
+#elif BUILDFLAG(IS_WIN)
+  total_size = dump->platform_private_footprint->private_bytes;
+#endif
+
+  constexpr base::TimeDelta kPrivateMemoryFootprintCacheValidTime =
+      base::Seconds(20);
+
+  private_memory_footprint_bytes_ = total_size;
+  private_memory_footprint_valid_until_ =
+      now + kPrivateMemoryFootprintCacheValidTime;
+  return total_size;
+#endif
+}
+
 void RenderProcessHostImpl::HasGpuProcess(HasGpuProcessCallback callback) {
   GpuProcessHost::GetHasGpuProcess(std::move(callback));
 }
@@ -5035,14 +5224,15 @@ void RenderProcessHostImpl::UpdateProcessPriority() {
 #endif
 #if !BUILDFLAG(IS_ANDROID)
           ,
-      foreground_override_
+      priority_override_
 #endif
   );
 
-  if (priority_ == priority)
+  if (priority_ == priority) {
     return;
-  const bool background_state_changed =
-      priority_.is_background() != priority.is_background();
+  }
+  const bool priority_state_changed =
+      priority_.GetProcessPriority() != priority.GetProcessPriority();
   const bool visibility_state_changed = priority_.visible != priority.visible;
 
   TRACE_EVENT("renderer_host", "RenderProcessHostImpl::UpdateProcessPriority",
@@ -5074,16 +5264,16 @@ void RenderProcessHostImpl::UpdateProcessPriority() {
   }
 
   // Notify the child process of the change in state.
-  if ((background_state_changed) || visibility_state_changed) {
+  if (priority_state_changed || visibility_state_changed) {
     SendProcessStateToRenderer();
   }
   for (auto& observer : internal_observers_)
-    observer.RenderProcessBackgroundedChanged(this);
+    observer.RenderProcessPriorityChanged(this);
 
   // Update the priority of the process running the controller service worker
   // when client's background state changed. We can make the service worker
   // process backgrounded if all of its clients are backgrounded.
-  if (background_state_changed) {
+  if (priority_state_changed) {
     UpdateControllerServiceWorkerProcessPriority();
   }
 }
@@ -5110,11 +5300,9 @@ void RenderProcessHostImpl::SendProcessStateToRenderer() {
   // `std::memory_order_relaxed` is sufficient as the recipient only reads the
   // latest TimeTicks value it sees and doesn't depend on it reflecting anything
   // about the state of other memory.
-  last_foreground_time_region_.mapping
-      .GetMemoryAs<std::atomic<base::TimeTicks>>()
-      ->store(priority_.is_background() ? base::TimeTicks()
-                                        : base::TimeTicks::Now(),
-              std::memory_order_relaxed);
+  last_foreground_time_region_->WritableRef().store(
+      priority_.is_background() ? base::TimeTicks() : base::TimeTicks::Now(),
+      std::memory_order_relaxed);
 
   base::Process::Priority priority = priority_.GetProcessPriority();
   mojom::RenderProcessVisibleState visible_state =
@@ -5134,7 +5322,7 @@ void RenderProcessHostImpl::OnProcessLaunched() {
   if (child_process_launcher_) {
     DCHECK(child_process_launcher_->GetProcess().IsValid());
     // TODO(crbug.com/40590142): This should be based on
-    // |priority_.is_background()|, see similar check below.
+    // |priority_.GetProcessPriority()|, see similar check below.
     DCHECK_EQ(blink::kLaunchingProcessIsBackgrounded, !priority_.visible);
 
     // Unpause the channel now that the process is launched. We don't flush it
@@ -5162,7 +5350,7 @@ void RenderProcessHostImpl::OnProcessLaunched() {
     // Android child process priority works differently and cannot be queried
     // directly from base::Process.
     // TODO(crbug.com/40590142): Fix initial priority on Android to
-    // reflect |priority_.is_background()|.
+    // reflect |priority_.GetProcessPriority()|.
     DCHECK_EQ(blink::kLaunchingProcessIsBackgrounded, !priority_.visible);
 #else
     priority_.visible = child_process_launcher_->GetProcess().GetPriority() ==
@@ -5184,6 +5372,10 @@ void RenderProcessHostImpl::OnProcessLaunched() {
 
   // Send the initial system color info to the renderer.
   ThemeHelper::GetInstance()->SendSystemColorInfo(GetRendererInterface());
+
+  // Remember when we call the creation observers, so we know when to send
+  // creation failed events to the observers.
+  sent_process_created_ = true;
 
   // NOTE: This needs to be before flushing queued messages, because
   // ExtensionService uses this notification to initialize the renderer

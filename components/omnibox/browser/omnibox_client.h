@@ -153,7 +153,6 @@ class OmniboxClient {
   // UMA opted-in users.  Examines the user's profile to determine if the
   // current page is the user's home page.
   virtual metrics::OmniboxEventProto::PageClassification GetPageClassification(
-      OmniboxFocusSource focus_source,
       bool is_prefetch) = 0;
 
   // Returns the security level that the toolbar should display.
@@ -166,6 +165,10 @@ class OmniboxClient {
   // current URL.  When search term replacement is active, this returns a search
   // icon.
   virtual const gfx::VectorIcon& GetVectorIcon() const = 0;
+
+  // Returns the LensOverlayInteractionResponse if available.
+  virtual std::optional<lens::proto::LensOverlayInteractionResponse>
+  GetLensOverlayInteractionResponse() const;
 
   // Checks whether |template_url| is an extension keyword; if so, asks the
   // ExtensionOmniboxEventRouter to process |match| for it and returns true.

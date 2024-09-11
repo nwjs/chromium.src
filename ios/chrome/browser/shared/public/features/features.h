@@ -35,6 +35,10 @@ BASE_DECLARE_FEATURE(kTestFeature);
 // Feature to add the Safety Check module to the Magic Stack.
 BASE_DECLARE_FEATURE(kSafetyCheckMagicStack);
 
+// Killswitch for conditionally hiding the Safety Check module in the Magic
+// Stack if no issues are found.
+BASE_DECLARE_FEATURE(kSafetyCheckModuleHiddenIfNoIssuesKillswitch);
+
 // A parameter representing how many hours must elapse before the Safety Check
 // is automatically run in the Magic Stack.
 extern const char kSafetyCheckMagicStackAutorunHoursThreshold[];
@@ -44,6 +48,10 @@ const base::TimeDelta TimeDelayForSafetyCheckAutorun();
 
 // Feature to enable Safety Check Push Notifications.
 BASE_DECLARE_FEATURE(kSafetyCheckNotifications);
+
+// Feature to enable the refactored implementation of the `OmahaService`, using
+// new `OmahaServiceObserver`(s) for Omaha clients. Acts as a killswitch.
+BASE_DECLARE_FEATURE(kOmahaServiceRefactor);
 
 // Safety Check Notifications experiment variations.
 extern const char kSafetyCheckNotificationsExperimentType[];
@@ -120,6 +128,13 @@ extern const char kIOSDockingPromoOldUserInactiveThreshold[];
 // Feature flag to enable the Docking Promo.
 BASE_DECLARE_FEATURE(kIOSDockingPromo);
 
+// Feature flag to enable the Docking Promo feature exclusively for users who
+// first meet the promo's eligibility criteria.
+//
+// NOTE: This feature flag exists to improve metrics logging to better
+// understand the feature's impact on user engagement and conversion rates.
+BASE_DECLARE_FEATURE(kIOSDockingPromoForEligibleUsersOnly);
+
 // Killswitch to enable the fixed Docking Promo trigger logic.
 BASE_DECLARE_FEATURE(kIOSDockingPromoFixedTriggerLogicKillswitch);
 
@@ -134,8 +149,12 @@ enum class DockingPromoDisplayTriggerArm {
   kDuringFRE = 2,
 };
 
-// Helper function to check if kIOSDockingPromo is enabled.
+// Helper function to check if `kIOSDockingPromo` is enabled.
 bool IsDockingPromoEnabled();
+
+// Helper function to check if `kIOSDockingPromoForEligibleUsersOnly` is
+// enabled.
+bool IsDockingPromoForEligibleUsersOnlyEnabled();
 
 // Returns the experiment type for the Docking Promo feature.
 DockingPromoDisplayTriggerArm DockingPromoExperimentTypeEnabled();
@@ -299,48 +318,9 @@ extern const char kBottomOmniboxDefaultSettingParamSafariSwitcher[];
 // Feature flag to change the default position of the omnibox.
 BASE_DECLARE_FEATURE(kBottomOmniboxDefaultSetting);
 
-// Feature flag to enable the bottom omnibox FRE promo.
-BASE_DECLARE_FEATURE(kBottomOmniboxPromoFRE);
-
-// Feature flag to enable the bottom omnibox app-launch promo.
-BASE_DECLARE_FEATURE(kBottomOmniboxPromoAppLaunch);
-
-// Feature param under kBottomOmniboxPromoFRE or kBottomOmniboxPromoAppLaunch to
-// skip the promo conditions for testing.
-extern const char kBottomOmniboxPromoParam[];
-extern const char kBottomOmniboxPromoParamForced[];
-
-// Type of bottom omnibox promo.
-enum class BottomOmniboxPromoType {
-  // kBottomOmniboxPromoFRE.
-  kFRE,
-  // kBottomOmniboxPromoAppLaunch.
-  kAppLaunch,
-  // Any promo type.
-  kAny,
-};
-
-// Whether the bottom omnibox promo of `type` is enabled.
-bool IsBottomOmniboxPromoFlagEnabled(BottomOmniboxPromoType type);
-
-// Feature flag to change the default proposed position in omnibox promos.
-BASE_DECLARE_FEATURE(kBottomOmniboxPromoDefaultPosition);
-
-// Feature param under kBottomOmniboxPromoDefaultPosition to select the default
-// position.
-extern const char kBottomOmniboxPromoDefaultPositionParam[];
-extern const char kBottomOmniboxPromoDefaultPositionParamTop[];
-extern const char kBottomOmniboxPromoDefaultPositionParamBottom[];
-
-// Feature flag to enable region filter for the bottom omnibox promos.
-BASE_DECLARE_FEATURE(kBottomOmniboxPromoRegionFilter);
-
 // Feature flag to put all clipboard access onto a background thread. Any
 // synchronous clipboard access will always return nil/false.
 BASE_DECLARE_FEATURE(kOnlyAccessClipboardAsync);
-
-// Feature flag that enables default browser video in settings experiment.
-BASE_DECLARE_FEATURE(kDefaultBrowserVideoInSettings);
 
 // Feature flag to try using the page theme color in the top toolbar
 BASE_DECLARE_FEATURE(kThemeColorInTopToolbar);
@@ -352,8 +332,14 @@ BASE_DECLARE_FEATURE(kTabGridAlwaysBounce);
 // Whether the Safety Check module should be shown in the Magic Stack.
 bool IsSafetyCheckMagicStackEnabled();
 
+// Whether the Safety Check module is hidden when no issues are found.
+bool ShouldHideSafetyCheckModuleIfNoIssues();
+
 // Whether Safety Check Push Notifications should be sent to the user.
 bool IsSafetyCheckNotificationsEnabled();
+
+// Whether the refactored implementation of the `OmahaService` is enabled.
+bool IsOmahaServiceRefactorEnabled();
 
 // Returns the experiment type for the Safety Check Notifications feature.
 SafetyCheckNotificationsExperimentalArm
@@ -581,12 +567,19 @@ BASE_DECLARE_FEATURE(kTabResumption1_5);
 // images.
 extern const char kTR15SalientImageParam[];
 
+// A value for `kTR15SalientImageParam` to enable thumbnails images for local
+// tabs and not salient images.
+extern const char kTR15SalientImageThumbnailsOnly[];
+
 // A parameter to indicate whether the Tab resumption tile should have a see
 // more button.
 extern const char kTR15SeeMoreButtonParam[];
 
 // Feature that enables tab resumption 2.0.
 BASE_DECLARE_FEATURE(kTabResumption2);
+
+// The parameter to enable Tab resumption 2 bubble.
+extern const char kTabResumption2BubbleParam[];
 
 // A parameter to indicate whether the Most Visited Tiles should be in the Magic
 // Stack.
@@ -626,14 +619,21 @@ bool IsTabResumptionEnabled();
 // `IsTabResumptionEnabled`.
 bool IsTabResumption2_0Enabled();
 
+// Whether to show the reason bubble for Tab resumption.
+bool IsTabResumption2BubbleEnabled();
+
 // Whether the tab resumption feature is enabled for most recent tab only.
 bool IsTabResumptionEnabledForMostRecentTabOnly();
 
 // Whether the tab resumption enhancements feature is enabled.
 bool IsTabResumption1_5Enabled();
 
-// Whether the tab resumption with salient images is enabled.
+// Whether the tab resumption with salient images for distant tabs (or fallback
+// for local tabs) is enabled.
 bool IsTabResumption1_5SalientImageEnabled();
+
+// Whether the tab resumption with salient images for local tabs is enabled.
+bool IsTabResumption1_5ThumbnailsImageEnabled();
 
 // Whether the tab resumption with see more button is enabled.
 bool IsTabResumption1_5SeeMoreEnabled();
@@ -663,9 +663,15 @@ BASE_DECLARE_FEATURE(kInactiveNavigationAfterAppLaunchKillSwitch);
 // Feature flag to enable Tips Notifications.
 BASE_DECLARE_FEATURE(kIOSTipsNotifications);
 
-// Feature param to specify how much time after the app starts to trigger
-// Tips notifications.
-extern const char kIOSTipsNotificationsTriggerTimeParam[];
+// Feature param to specify how much time should elapse before a Tip
+// notification should trigger for an unclassified user.
+extern const char kIOSTipsNotificationsUnknownTriggerTimeParam[];
+// Feature param to specify how much time should elapse before a Tip
+// notification should trigger, for an "Active Seeker" user.
+extern const char kIOSTipsNotificationsActiveSeekerTriggerTimeParam[];
+// Feature param to specify how much time should elapse before a Tip
+// notification should trigger, for a "Less Engaged" user.
+extern const char kIOSTipsNotificationsLessEngagedTriggerTimeParam[];
 
 // Feature param containing a bitfield to specify which notifications should be
 // enabled. Bits are assigned based on the enum `TipsNotificationType`.
@@ -748,5 +754,24 @@ bool IsHomeMemoryImprovementsEnabled();
 BASE_DECLARE_FEATURE(kRichBubbleWithoutImage);
 
 bool IsRichBubbleWithoutImageEnabled();
+
+// Feature flag to enable account confirmation snackbar on startup.
+BASE_DECLARE_FEATURE(kIdentityConfirmationSnackbar);
+
+// Feature param to specify how much time between identity confirmation snackbar
+// triggers to avoid over-prompting. Overridable through Finch.
+extern const base::FeatureParam<base::TimeDelta>
+    kIdentityConfirmationMinDisplayInterval;
+
+// Feature param to specify how much time to keep between the identity
+// confirmation snackbar and the last sign-in to avoid over-prompting.
+// Overridable through Finch.
+extern const base::FeatureParam<base::TimeDelta>
+    kIdentityConfirmationMinTimeSinceSignin;
+
+// Feature flag to enable the registration of customized UITrait arrays. This
+// feature flag is related to the effort to remove invocations of
+// 'traitCollectionDidChange' which was deprecated in iOS 17.
+BASE_DECLARE_FEATURE(kEnableTraitCollectionRegistration);
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

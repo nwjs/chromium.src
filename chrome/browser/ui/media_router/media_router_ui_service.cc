@@ -21,7 +21,7 @@ MediaRouterUIService::MediaRouterUIService(Profile* profile)
 
 MediaRouterUIService::MediaRouterUIService(
     Profile* profile,
-    std::unique_ptr<MediaRouterActionController> action_controller)
+    std::unique_ptr<CastToolbarButtonController> action_controller)
     : profile_(profile),
 #if defined(NWJS_SDK)
       action_controller_(std::move(action_controller)),
@@ -46,7 +46,7 @@ MediaRouterUIService* MediaRouterUIService::Get(Profile* profile) {
   return MediaRouterUIServiceFactory::GetForBrowserContext(profile);
 }
 
-MediaRouterActionController* MediaRouterUIService::action_controller() {
+CastToolbarButtonController* MediaRouterUIService::action_controller() {
 #if defined(NWJS_SDK)
   return action_controller_.get();
 #else
@@ -67,7 +67,7 @@ void MediaRouterUIService::ConfigureService() {
 #if defined(NWJS_SDK)
     if (!action_controller_) {
       action_controller_ =
-          std::make_unique<MediaRouterActionController>(profile_);
+          std::make_unique<CastToolbarButtonController>(profile_);
     }
 #endif
 #if BUILDFLAG(IS_CHROMEOS)

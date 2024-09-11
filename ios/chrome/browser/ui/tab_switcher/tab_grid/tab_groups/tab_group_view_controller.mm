@@ -9,18 +9,19 @@
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
+#import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
-#import "ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/ui/menu/action_factory.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_constants.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_group_grid_view_controller.h"
-#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_group_mutator.h"
-#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_groups_commands.h"
-#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_groups_constants.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_paging.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_group_mutator.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_groups_constants.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_group_action_type.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -68,12 +69,14 @@ constexpr CGFloat kSpace = 8;
   UILabel* _titleLabel;
   // Dot view in the navigation bar.
   UIView* _coloredDotView;
+  // Whether this is an incognito group.
+  BOOL _incognito;
 }
 
 #pragma mark - Public
 
 - (instancetype)initWithHandler:(id<TabGroupsCommands>)handler
-                     lightTheme:(BOOL)lightTheme
+                      incognito:(BOOL)incognito
                        tabGroup:(const TabGroup*)tabGroup {
   CHECK(IsTabGroupInGridEnabled())
       << "You should not be able to create a tab group view controller outside "
@@ -81,14 +84,14 @@ constexpr CGFloat kSpace = 8;
   CHECK(tabGroup);
   if (self = [super init]) {
     _handler = handler;
+    _incognito = incognito;
     _tabGroup = tabGroup;
     _gridViewController = [[TabGroupGridViewController alloc] init];
-    if (lightTheme) {
+    if (!incognito) {
       _gridViewController.theme = GridThemeLight;
     } else {
       _gridViewController.theme = GridThemeDark;
     }
-    _gridViewController.mode = TabGridModeGroup;
     _gridViewController.viewDelegate = self;
 
     // This view controller has a dark background and should be considered as
@@ -277,7 +280,7 @@ constexpr CGFloat kSpace = 8;
                                         menu:[self configuredTabGroupMenu]];
   dotsItem.accessibilityIdentifier = kTabGroupOverflowMenuButtonIdentifier;
   dotsItem.accessibilityLabel = l10n_util::GetNSString(
-      IDS_IOS_MANUAL_FALLBACK_THREE_DOT_MENU_BUTTON_ACCESSIBILITY_LABEL);
+      IDS_IOS_TAB_GROUP_THREE_DOT_MENU_BUTTON_ACCESSIBILITY_LABEL);
 
   navigationItem.rightBarButtonItems = @[ dotsItem, plusItem ];
   return navigationItem;
@@ -397,11 +400,16 @@ constexpr CGFloat kSpace = 8;
     [menuElements addObject:[actionFactory actionToCloseTabGroupWithBlock:^{
                     [weakSelf closeGroup];
                   }]];
+    if (!_incognito) {
+      [menuElements addObject:[actionFactory actionToDeleteTabGroupWithBlock:^{
+                      [weakSelf deleteGroup];
+                    }]];
+    }
+  } else {
+    [menuElements addObject:[actionFactory actionToDeleteTabGroupWithBlock:^{
+                    [weakSelf deleteGroup];
+                  }]];
   }
-  // TODO(crbug.com/352297050): Don't show "Delete group" when in incognito.
-  [menuElements addObject:[actionFactory actionToDeleteTabGroupWithBlock:^{
-                  [weakSelf deleteGroup];
-                }]];
 
   return [UIMenu menuWithTitle:@"" children:menuElements];
 }
@@ -420,6 +428,17 @@ constexpr CGFloat kSpace = 8;
 
 // Ungroups the current group (keeps the tab) and closes the view.
 - (void)ungroup {
+  // Shows the confirmation to ungroup the current group (keep the tab) and
+  // close the view. Do nothing when a user cancels the action.
+  if (IsTabGroupSyncEnabled()) {
+    [_handler
+        showTabGroupConfirmationForAction:TabGroupActionType::kUngroupTabGroup
+                                    group:_tabGroup->GetWeakPtr()
+                         sourceButtonItem:_navigationBar.topItem
+                                              .rightBarButtonItems[0]];
+    return;
+  }
+
   [self.mutator ungroup];
   [_handler hideTabGroup];
 }
@@ -432,6 +451,17 @@ constexpr CGFloat kSpace = 8;
 
 // Deletes the tabs and deletes the current group and closes the view.
 - (void)deleteGroup {
+  if (IsTabGroupSyncEnabled()) {
+    // Shows the confirmation to delete the tabs, delete the current group and
+    // close the view. Do nothing when a user cancels the action.
+    [_handler
+        showTabGroupConfirmationForAction:TabGroupActionType::kDeleteTabGroup
+                                    group:_tabGroup->GetWeakPtr()
+                         sourceButtonItem:_navigationBar.topItem
+                                              .rightBarButtonItems[0]];
+    return;
+  }
+
   [self.mutator deleteGroup];
   [_handler hideTabGroup];
 }

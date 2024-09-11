@@ -61,6 +61,9 @@ extern const base::FeatureParam<bool> kEnableAnswers;
 // Specifies whether to use the ML Answerer (if false, the mock is used).
 extern const base::FeatureParam<bool> kUseMlAnswerer;
 
+// Specifies the min score for generated answer from the ML answerer.
+extern const base::FeatureParam<double> kMlAnswererMinScore;
+
 // Specifies whether to use the ML Embedder to embed passages and queries.
 extern const base::FeatureParam<bool> kUseMlEmbedder;
 
@@ -78,6 +81,7 @@ extern const base::FeatureParam<int> kScheduledEmbeddingsMax;
 
 // Whether quality logging data should be sent.
 extern const base::FeatureParam<bool> kSendQualityLog;
+extern const base::FeatureParam<bool> kSendQualityLogV2;
 
 // The number of threads to use for embeddings generation. A value of -1 means
 // to use the default number of threads.
@@ -116,6 +120,10 @@ extern const base::FeatureParam<base::TimeDelta> kEmbeddingsServiceTimeout;
 // Comma-separated list, all ASCII, expected to be lowercased; may contain a mix
 // of words and phrases.
 extern const base::FeatureParam<std::string> kFilterTerms;
+
+// Comma-separated list of decimal integer hash values to decode as a set of
+// uint32_t. These can match against either one or two word phrases.
+extern const base::FeatureParam<std::string> kFilterHashes;
 
 // Whether the history embeddings feature is enabled. This only checks if the
 // feature flags are enabled and does not check the user's opt-in preference.

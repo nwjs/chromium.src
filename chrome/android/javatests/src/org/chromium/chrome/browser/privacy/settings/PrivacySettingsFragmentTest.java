@@ -64,6 +64,7 @@ import org.chromium.chrome.browser.privacy_sandbox.FakePrivacySandboxBridge;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridgeJni;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
+import org.chromium.chrome.browser.settings.SettingsLauncherFactory;
 import org.chromium.chrome.browser.signin.SigninCheckerProvider;
 import org.chromium.chrome.browser.sync.settings.GoogleServicesSettings;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -297,7 +298,6 @@ public class PrivacySettingsFragmentTest {
     @Features.EnableFeatures(ChromeFeatureList.IP_PROTECTION_V1)
     @Features.DisableFeatures({
         ChromeFeatureList.TRACKING_PROTECTION_3PCD,
-        ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH
     })
     public void testIpProtectionFragment() throws IOException {
         setShowTrackingProtection(false);
@@ -376,7 +376,6 @@ public class PrivacySettingsFragmentTest {
     @Features.EnableFeatures(ChromeFeatureList.IP_PROTECTION_V1)
     @Features.DisableFeatures({
         ChromeFeatureList.TRACKING_PROTECTION_3PCD,
-        ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH
     })
     public void testIpProtectionSettingsE2E() throws ExecutionException {
         setIpProtection(false);
@@ -396,7 +395,6 @@ public class PrivacySettingsFragmentTest {
     @Features.EnableFeatures(ChromeFeatureList.FINGERPRINTING_PROTECTION_SETTING)
     @Features.DisableFeatures({
         ChromeFeatureList.TRACKING_PROTECTION_3PCD,
-        ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH
     })
     public void testFingerprintingProtectionSettingsE2E() throws ExecutionException {
         setFpProtection(false);
@@ -418,7 +416,6 @@ public class PrivacySettingsFragmentTest {
     @Features.EnableFeatures({
         ChromeFeatureList.IP_PROTECTION_V1,
         ChromeFeatureList.TRACKING_PROTECTION_3PCD,
-        ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH
     })
     public void testIpProtectionSettingsWithTrackingProtectionEnabled() {
         setIpProtection(false);
@@ -437,7 +434,6 @@ public class PrivacySettingsFragmentTest {
     @Features.EnableFeatures({
         ChromeFeatureList.FINGERPRINTING_PROTECTION_SETTING,
         ChromeFeatureList.TRACKING_PROTECTION_3PCD,
-        ChromeFeatureList.TRACKING_PROTECTION_SETTINGS_LAUNCH
     })
     public void testFingerprintingProtectionSettingsWithTrackingProtectionEnabled() {
         setFpProtection(false);
@@ -585,7 +581,7 @@ public class PrivacySettingsFragmentTest {
     @Features.EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
     public void testSignedOutFooterLink() {
         mSettingsActivityTestRule.startSettingsActivity();
-        mSettingsActivityTestRule.getFragment().setSettingsLauncher(mSettingsLauncher);
+        SettingsLauncherFactory.setInstanceForTesting(mSettingsLauncher);
 
         onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
         String footer =

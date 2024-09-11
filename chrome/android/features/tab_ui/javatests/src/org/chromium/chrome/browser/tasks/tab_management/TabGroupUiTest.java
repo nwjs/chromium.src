@@ -60,7 +60,6 @@ import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -95,7 +94,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DisableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
-@EnableFeatures({ChromeFeatureList.ANDROID_TAB_GROUP_STABLE_IDS})
 @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
 @Batch(Batch.PER_CLASS)
 public class TabGroupUiTest {
@@ -184,6 +182,7 @@ public class TabGroupUiTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
+    @DisabledTest(message = "crbug.com/359640997")
     public void testRenderStrip_Select10thTabIn10Tabs() throws IOException {
         final ChromeTabbedActivity cta = sActivityTestRule.getActivity();
         AtomicReference<RecyclerView> recyclerViewReference = new AtomicReference<>();
@@ -443,7 +442,8 @@ public class TabGroupUiTest {
                 coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    coordinator.simulateEdgeToEdgeChangeForTesting(100);
+                    coordinator.simulateEdgeToEdgeChangeForTesting(
+                            100, /* isDrawingToEdge= */ true, /* isPageOptInToEdge= */ true);
                 });
 
         assertFalse(

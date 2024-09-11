@@ -10,9 +10,11 @@
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/functional/callback.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "components/autofill/core/browser/address_data_cleaner.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/geo/alternative_state_name_map_updater.h"
@@ -28,8 +30,8 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
-#include "components/sync/base/model_type.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -139,9 +141,9 @@ void AddressDataManager::AddChangeCallback(base::OnceClosure callback) {
   change_callbacks_.push_back(std::move(callback));
 }
 
-void AddressDataManager::OnAutofillChangedBySync(syncer::ModelType model_type) {
-  if (model_type == syncer::ModelType::AUTOFILL_PROFILE ||
-      model_type == syncer::ModelType::CONTACT_INFO) {
+void AddressDataManager::OnAutofillChangedBySync(syncer::DataType data_type) {
+  if (data_type == syncer::DataType::AUTOFILL_PROFILE ||
+      data_type == syncer::DataType::CONTACT_INFO) {
     LoadProfiles();
   }
 }
@@ -316,7 +318,7 @@ bool AddressDataManager::IsEligibleForAddressAccountStorage() const {
   }
 
   // The CONTACT_INFO data type is only running for eligible users. See
-  // ContactInfoModelTypeController.
+  // ContactInfoDataTypeController.
   return sync_service_->GetActiveDataTypes().Has(syncer::CONTACT_INFO);
 }
 
@@ -368,6 +370,17 @@ void AddressDataManager::RecordUseOf(const AutofillProfile& profile) {
   AutofillProfile updated_profile = *adm_profile;
   updated_profile.RecordAndLogUse();
   UpdateProfile(updated_profile);
+
+  if (base::FeatureList::IsEnabled(features::kAutofillTrackMultipleUseDates)) {
+    size_t uses = 1;
+    while (uses < updated_profile.usage_history_size() &&
+           updated_profile.use_date(uses + 1)) {
+      uses++;
+    }
+    base::UmaHistogramExactLinear("Autofill.NumberOfLastUsedDatesAfterFilling",
+                                  uses,
+                                  updated_profile.usage_history_size() + 1);
+  }
 }
 
 AddressCountryCode AddressDataManager::GetDefaultCountryCodeForNewAddress()
@@ -641,7 +654,7 @@ bool AddressDataManager::IsAutofillSyncToggleAvailable() const {
 
   return contact_info_precondition_checker_ &&
          contact_info_precondition_checker_->GetPreconditionState() ==
-             syncer::ModelTypeController::PreconditionState::kPreconditionsMet;
+             syncer::DataTypeController::PreconditionState::kPreconditionsMet;
 }
 
 void AddressDataManager::SetAutofillSelectableTypeEnabled(bool enabled) {
@@ -825,7 +838,21 @@ void AddressDataManager::LogStoredDataMetrics() const {
   autofill_metrics::LogStoredProfileTokenQualityMetrics(profiles);
   if (base::FeatureList::IsEnabled(
           features::kAutofillLogDeduplicationMetrics)) {
-    autofill_metrics::LogDeduplicationStartupMetrics(profiles, app_locale_);
+    // Since the computation of deduplication metrics is expensive, the
+    // recording is delayed by 30 seconds (arbitrary number) to prevent startup
+    // time regressions.
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](base::WeakPtr<const AddressDataManager> adm) {
+              if (!adm) {
+                return;
+              }
+              autofill_metrics::LogDeduplicationStartupMetrics(
+                  adm->GetProfiles(), adm->app_locale());
+            },
+            weak_factory_.GetWeakPtr()),
+        base::Seconds(30));
   }
   autofill_metrics::LogLocalProfileSupersetMetrics(std::move(profiles),
                                                    app_locale_);

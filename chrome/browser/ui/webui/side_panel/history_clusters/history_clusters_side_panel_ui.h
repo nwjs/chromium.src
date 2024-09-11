@@ -44,6 +44,8 @@ class HistoryClustersSidePanelUIConfig
 
   // DefaultTopChromeWebUIConfig::
   bool IsWebUIEnabled(content::BrowserContext* browser_context) override;
+  bool IsPreloadable() override;
+  std::optional<int> GetCommandIdForTesting() override;
 };
 
 class HistoryClustersSidePanelUI : public TopChromeWebUIController,
@@ -87,6 +89,7 @@ class HistoryClustersSidePanelUI : public TopChromeWebUIController,
   // WebContentsObserver:
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
+  void OnVisibilityChanged(content::Visibility visibility) override;
 
   static constexpr std::string GetWebUIName() {
     return "HistoryClustersSidePanel";

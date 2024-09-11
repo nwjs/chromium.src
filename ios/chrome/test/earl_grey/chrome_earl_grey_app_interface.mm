@@ -41,6 +41,8 @@
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/default_browser/model/utils_test_support.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
+#import "ios/chrome/browser/first_run/ui_bundled/first_run_screen_provider.h"
+#import "ios/chrome/browser/first_run/ui_bundled/first_run_util.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service.h"
@@ -57,8 +59,6 @@
 #import "ios/chrome/browser/shared/ui/util/omnibox_util.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
-#import "ios/chrome/browser/ui/first_run/first_run_screen_provider.h"
-#import "ios/chrome/browser/ui/first_run/first_run_util.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/popup_menu/overflow_menu/feature_flags.h"
 #import "ios/chrome/browser/unified_consent/model/unified_consent_service_factory.h"
@@ -833,7 +833,7 @@ NSString* SerializedValue(const base::Value* value) {
 
 #pragma mark - Sync Utilities (EG2)
 
-+ (int)numberOfSyncEntitiesWithType:(syncer::ModelType)type {
++ (int)numberOfSyncEntitiesWithType:(syncer::DataType)type {
   return chrome_test_util::GetNumberOfSyncEntities(type);
 }
 
@@ -886,7 +886,7 @@ NSString* SerializedValue(const base::Value* value) {
   return success && !error;
 }
 
-+ (void)triggerSyncCycleForType:(syncer::ModelType)type {
++ (void)triggerSyncCycleForType:(syncer::DataType)type {
   chrome_test_util::TriggerSyncCycle(type);
 }
 
@@ -1020,13 +1020,13 @@ NSString* SerializedValue(const base::Value* value) {
   std::string UTF8Name = base::SysNSStringToUTF8(name);
   NSError* __autoreleasing tempError = nil;
   bool success = chrome_test_util::VerifyNumberOfSyncEntitiesWithName(
-      (syncer::ModelType)type, UTF8Name, count, &tempError);
+      (syncer::DataType)type, UTF8Name, count, &tempError);
   NSError* error = tempError;
 
   if (!success and !error) {
     NSString* errorString =
         [NSString stringWithFormat:@"Expected %zu entities of the %d type.",
-                                   count, (syncer::ModelType)type];
+                                   count, (syncer::DataType)type];
     return testing::NSErrorWithLocalizedDescription(errorString);
   }
 
@@ -1070,6 +1070,10 @@ NSString* SerializedValue(const base::Value* value) {
 + (void)addBookmarkWithSyncPassphrase:(NSString*)syncPassphrase {
   chrome_test_util::AddBookmarkWithSyncPassphrase(
       base::SysNSStringToUTF8(syncPassphrase));
+}
+
++ (void)addSyncPassphrase:(NSString*)syncPassphrase {
+  chrome_test_util::AddSyncPassphrase(base::SysNSStringToUTF8(syncPassphrase));
 }
 
 + (BOOL)isSyncHistoryDataTypeSelected {

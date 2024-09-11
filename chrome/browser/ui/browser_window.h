@@ -340,6 +340,10 @@ class BrowserWindow : public ui::BaseWindow {
   // Updates the toolbar with the state for the specified |contents|.
   virtual void UpdateToolbar(content::WebContents* contents) = 0;
 
+  // Updates the toolbar's visible security state. Returns true if the toolbar
+  // was redrawn.
+  virtual bool UpdateToolbarSecurityState() = 0;
+
   // Updates whether or not the custom tab bar is visible. Animates the
   // transition if |animate| is true.
   virtual void UpdateCustomTabBarVisibility(bool visible, bool animate) = 0;
@@ -572,6 +576,7 @@ class BrowserWindow : public ui::BaseWindow {
   // values are those which will be associated with the survey response.
   virtual void ShowHatsDialog(
       const std::string& site_id,
+      const std::optional<std::string>& histogram_name,
       base::OnceClosure success_callback,
       base::OnceClosure failure_callback,
       const SurveyBitsData& product_specific_bits_data,

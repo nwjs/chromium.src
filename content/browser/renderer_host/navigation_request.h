@@ -355,6 +355,7 @@ class CONTENT_EXPORT NavigationRequest
   base::TimeTicks NavigationInputStart() override;
   const NavigationHandleTiming& GetNavigationHandleTiming() override;
   bool IsPost() override;
+  std::string GetRequestMethod() override;
   const blink::mojom::Referrer& GetReferrer() override;
   void SetReferrer(blink::mojom::ReferrerPtr referrer) override;
   bool HasUserGesture() override;
@@ -434,6 +435,7 @@ class CONTENT_EXPORT NavigationRequest
   bool IsPdf() override;
   void WriteIntoTrace(perfetto::TracedProto<TraceProto> context) const override;
   bool SetNavigationTimeout(base::TimeDelta timeout) override;
+  void CancelNavigationTimeout() override;
   void SetAllowCookiesFromBrowser(bool allow_cookies_from_browser) override;
   void GetResponseBody(ResponseBodyCallback callback) override;
   PreloadingTriggerType GetPrerenderTriggerType() override;
@@ -2913,6 +2915,9 @@ class CONTENT_EXPORT NavigationRequest
 
   // If true, HTTPS Upgrades will be disabled on this navigation request.
   bool force_no_https_upgrade_ = false;
+
+  // The initial request method of the request, before any redirects.
+  std::string request_method_;
 
   base::WeakPtrFactory<NavigationRequest> weak_factory_{this};
 };

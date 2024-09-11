@@ -7,7 +7,6 @@
 
 #import "base/functional/bind.h"
 #import "base/test/scoped_feature_list.h"
-#import "components/autofill/core/browser/autofill_client.h"
 #import "components/autofill/core/browser/payments/autofill_save_card_delegate.h"
 #import "components/autofill/core/browser/payments/payments_autofill_client.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
@@ -27,13 +26,14 @@ constexpr int kNavEntryId = 10;
 class AutofillSaveCardInfoBarDelegateTest : public PlatformTest {
  public:
   void LocalSaveCardPromptCallbackFn(
-      AutofillClient::SaveCardOfferUserDecision user_decision) {
+      payments::PaymentsAutofillClient::SaveCardOfferUserDecision
+          user_decision) {
     last_user_decision_ = user_decision;
   }
 
   void UploadSaveCardPromptCallbackFn(
-      AutofillClient::SaveCardOfferUserDecision user_decision,
-      const AutofillClient::UserProvidedCardDetails&
+      payments::PaymentsAutofillClient::SaveCardOfferUserDecision user_decision,
+      const payments::PaymentsAutofillClient::UserProvidedCardDetails&
           user_provided_card_details) {
     last_user_decision_ = user_decision;
     last_user_provided_card_details_ = user_provided_card_details;
@@ -63,7 +63,8 @@ class AutofillSaveCardInfoBarDelegateTest : public PlatformTest {
           payments::PaymentsAutofillClient::UploadSaveCardPromptCallback>
           save_card_callback) {
     auto save_card_delegate = std::make_unique<AutofillSaveCardDelegate>(
-        std::move(save_card_callback), AutofillClient::SaveCreditCardOptions());
+        std::move(save_card_callback),
+        payments::PaymentsAutofillClient::SaveCreditCardOptions());
     return std::make_unique<AutofillSaveCardInfoBarDelegateIOS>(
         AutofillSaveCardUiInfo(), std::move(save_card_delegate));
   }
@@ -78,8 +79,9 @@ class AutofillSaveCardInfoBarDelegateTest : public PlatformTest {
       .is_form_submission = false,
       .has_user_gesture = true};
   std::unique_ptr<AutofillSaveCardInfoBarDelegateIOS> delegate_;
-  std::optional<AutofillClient::SaveCardOfferUserDecision> last_user_decision_;
-  std::optional<AutofillClient::UserProvidedCardDetails>
+  std::optional<payments::PaymentsAutofillClient::SaveCardOfferUserDecision>
+      last_user_decision_;
+  std::optional<payments::PaymentsAutofillClient::UserProvidedCardDetails>
       last_user_provided_card_details_;
   std::optional<bool> card_saved_;
   bool ran_on_confirmation_closed_callback_ = false;
@@ -100,8 +102,9 @@ TEST_F(AutofillSaveCardInfoBarDelegateTest, UpdateAndAccept_Local) {
       /*expiration_date_year=*/u"24"));
 
   ASSERT_TRUE(last_user_decision_);
-  EXPECT_EQ(AutofillClient::SaveCardOfferUserDecision::kAccepted,
-            last_user_decision_);
+  EXPECT_EQ(
+      payments::PaymentsAutofillClient::SaveCardOfferUserDecision::kAccepted,
+      last_user_decision_);
 }
 
 // Tests that the user decision is propagated when accepting upload.
@@ -123,8 +126,9 @@ TEST_F(AutofillSaveCardInfoBarDelegateTest, UpdateAndAccept_Upload) {
       /*expiration_date_year=*/expiration_date_year));
 
   ASSERT_TRUE(last_user_decision_ && last_user_provided_card_details_);
-  EXPECT_EQ(AutofillClient::SaveCardOfferUserDecision::kAccepted,
-            last_user_decision_);
+  EXPECT_EQ(
+      payments::PaymentsAutofillClient::SaveCardOfferUserDecision::kAccepted,
+      last_user_decision_);
   EXPECT_THAT(
       *last_user_provided_card_details_,
       ::testing::FieldsAre(/*cardholder_name=*/cardholder_name,

@@ -36,10 +36,10 @@
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
-#import "ios/chrome/browser/shared/model/browser_state/browser_state_info_cache.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
@@ -84,10 +84,10 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
       continue;
     }
 
-    base::FilePath path = info_cache->GetPathOfBrowserStateAtIndex(i);
+    const std::string& name = info_cache->GetNameOfBrowserStateAtIndex(i);
     PrefService* pref_service = GetApplicationContext()
                                     ->GetChromeBrowserStateManager()
-                                    ->GetBrowserStateByPath(path)
+                                    ->GetBrowserStateByName(name)
                                     ->GetPrefs();
 
     NSMutableDictionary<NSString*, NSNumber*>* preference_map =
@@ -226,6 +226,12 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
       id<SystemIdentity> identity =
           authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
       config.primaryAccount = identity;
+      // Send an initial NAU to share the OS auth status and channel status with
+      // the server. Send an NAU on every foreground to report the OS Auth
+      // Settings.
+      ContentNotificationService* contentNotificationService =
+          ContentNotificationServiceFactory::GetForBrowserState(browserState);
+      [self sendSettingsChangeNAUWithService:contentNotificationService];
     }
   }
 
@@ -281,7 +287,7 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
   ChromeBrowserState* browserState =
       sceneState.browserProviderInterface.mainBrowserProvider.browser
           ->GetBrowserState();
-  if ([self isContentNotificationAvailable:browserState]) {
+  if (IsContentNotificationEnabled(browserState)) {
     ContentNotificationService* contentNotificationService =
         ContentNotificationServiceFactory::GetForBrowserState(browserState);
     int maxNauSentPerSession = base::GetFieldTrialParamByFeatureAsInt(
@@ -322,25 +328,30 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
       }
     }
     // Send an NAU on every foreground to report the OS Auth Settings.
-    [PushNotificationUtil
-        getPermissionSettings:^(UNNotificationSettings* settings) {
-          UNAuthorizationStatus previousAuthStatus =
-              [PushNotificationUtil getSavedPermissionSettings];
-            ContentNotificationNAUConfiguration* config =
-                [[ContentNotificationNAUConfiguration alloc] init];
-            ContentNotificationSettingsAction* settingsAction =
-                [[ContentNotificationSettingsAction alloc] init];
-            settingsAction.previousAuthorizationStatus = previousAuthStatus;
-            settingsAction.currentAuthorizationStatus =
-                settings.authorizationStatus;
-            config.settingsAction = settingsAction;
-            contentNotificationService->SendNAUForConfiguration(config);
-        }];
+    [self sendSettingsChangeNAUWithService:contentNotificationService];
   }
   [PushNotificationUtil
       getPermissionSettings:^(UNNotificationSettings* settings) {
         [PushNotificationUtil
             updateAuthorizationStatusPref:settings.authorizationStatus];
+      }];
+}
+
+- (void)sendSettingsChangeNAUWithService:
+    (ContentNotificationService*)contentNotificationService {
+  [PushNotificationUtil
+      getPermissionSettings:^(UNNotificationSettings* settings) {
+        UNAuthorizationStatus previousAuthStatus =
+            [PushNotificationUtil getSavedPermissionSettings];
+        ContentNotificationNAUConfiguration* config =
+            [[ContentNotificationNAUConfiguration alloc] init];
+        ContentNotificationSettingsAction* settingsAction =
+            [[ContentNotificationSettingsAction alloc] init];
+        settingsAction.previousAuthorizationStatus = previousAuthStatus;
+        settingsAction.currentAuthorizationStatus =
+            settings.authorizationStatus;
+        config.settingsAction = settingsAction;
+        contentNotificationService->SendNAUForConfiguration(config);
       }];
 }
 

@@ -6,9 +6,9 @@ import 'chrome://downloads/downloads.js';
 
 import type {DownloadsDangerousDownloadInterstitialElement, PageRemote} from 'chrome://downloads/downloads.js';
 import {BrowserProxy, loadTimeData} from 'chrome://downloads/downloads.js';
-import {keyDownOn} from 'chrome://resources/polymer/v3_0/iron-test-helpers/mock-interactions.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestDownloadsProxy} from './test_support.js';
@@ -65,7 +65,7 @@ suite('interstitial tests', function() {
 
     const backToSafetyButton =
         interstitial!.shadowRoot!.querySelector<HTMLElement>(
-            '#back-to-safety-button');
+            '#backToSafetyButton');
     assertTrue(!!backToSafetyButton);
     backToSafetyButton.click();
 
@@ -155,5 +155,30 @@ suite('interstitial tests', function() {
 
     assertEquals(0, cancelCounter);
     assertTrue(interstitial.$.dialog.open);
+  });
+
+  test('selected radio option is set correctly', async () => {
+    const surveyGroup =
+        interstitial.shadowRoot!.querySelector('cr-radio-group');
+    assertTrue(!!surveyGroup);
+
+    const surveyOptions =
+        interstitial.shadowRoot!.querySelectorAll('cr-radio-button');
+    assertEquals(3, surveyOptions.length);
+
+    assertTrue(!!surveyOptions[0]);
+    surveyOptions[0].click();
+    await microtasksFinished();
+    assertTrue(surveyOptions[0].checked);
+
+    assertTrue(!!surveyOptions[1]);
+    surveyOptions[1].click();
+    await microtasksFinished();
+    assertTrue(surveyOptions[1].checked);
+
+    assertTrue(!!surveyOptions[2]);
+    surveyOptions[2].click();
+    await microtasksFinished();
+    assertTrue(surveyOptions[2].checked);
   });
 });

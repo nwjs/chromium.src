@@ -58,6 +58,12 @@ class PasswordsClientUIDelegate {
   // back to manage or inactive state.
   virtual void OnHideManualFallbackForSaving() = 0;
 
+  // Called by user's explicit action to show the details of a credential, e.g.
+  // by choosing the "View details" option for a manual fallback password
+  // suggestion.
+  virtual void OnOpenPasswordDetailsBubble(
+      const password_manager::PasswordForm& form) = 0;
+
   // Called when the site asks user to choose from credentials. This triggers
   // the UI to prompt the user. |local_credentials| shouldn't be empty. |origin|
   // is a URL of the site that requested a credential.
@@ -122,6 +128,18 @@ class PasswordsClientUIDelegate {
   // then the confirmation of that is also displayed in the title.
   virtual void OnPasskeySaved(const std::u16string& username,
                               bool gpm_pin_created) = 0;
+
+  // Called when a passkey has just been deleted to display a confirmation of
+  // that to the user.
+  virtual void OnPasskeyDeleted() = 0;
+
+  // Called when a passkey has just been updated to display a confirmation of
+  // that to the user.
+  virtual void OnPasskeyUpdated() = 0;
+
+  // Called when a passkey has just been deleted because it was not present on
+  // an all accepted credentials report.
+  virtual void OnPasskeyNotAccepted() = 0;
 
  protected:
   virtual ~PasswordsClientUIDelegate() = default;

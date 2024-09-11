@@ -91,7 +91,7 @@ bool ChromeEnterpriseRealTimeUrlLookupService::CanPerformFullURLLookup() const {
   return RealTimePolicyEngine::CanPerformEnterpriseFullURLLookup(
       profile_->GetPrefs(),
       connectors_service_->GetDMTokenForRealTimeUrlCheck().has_value(),
-      profile_->IsOffTheRecord());
+      profile_->IsOffTheRecord(), profile_->IsGuestSession());
 }
 
 bool ChromeEnterpriseRealTimeUrlLookupService::
@@ -103,7 +103,7 @@ bool ChromeEnterpriseRealTimeUrlLookupService::
   if (policy::ManagementServiceFactory::GetForProfile(profile_)
           ->HasManagementAuthority(
               policy::EnterpriseManagementAuthority::CLOUD_DOMAIN) &&
-      !chrome::enterprise_util::IsProfileAffiliated(profile_)) {
+      !enterprise_util::IsProfileAffiliated(profile_)) {
     return false;
   }
 
@@ -238,6 +238,21 @@ bool ChromeEnterpriseRealTimeUrlLookupService::CanSendRTSampleRequest() const {
 
 std::string ChromeEnterpriseRealTimeUrlLookupService::GetUserEmail() const {
   return GetProfileEmail(profile_);
+}
+
+std::string ChromeEnterpriseRealTimeUrlLookupService::GetBrowserDMTokenString()
+    const {
+  return connectors_service_->GetBrowserDmToken().value_or("");
+}
+
+std::string ChromeEnterpriseRealTimeUrlLookupService::GetProfileDMTokenString()
+    const {
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
+  if (enterprise_util::IsProfileAffiliated(profile_)) {
+    return connectors_service_->GetProfileDmToken().value_or("");
+  }
+#endif
+  return "";
 }
 
 }  // namespace safe_browsing

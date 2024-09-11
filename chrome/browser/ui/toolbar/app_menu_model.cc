@@ -35,12 +35,14 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/sync_ui_util.h"
+#include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -75,6 +77,7 @@
 #include "chrome/browser/ui/views/side_panel/companion/companion_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
+#include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_page_handler.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_util.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -497,6 +500,7 @@ ProfileSubMenuModel::ProfileSubMenuModel(
     if (BuildSyncSection()) {
       AddSeparator(ui::NORMAL_SEPARATOR);
     }
+
     ProfileAttributesEntry* profile_attributes =
         GetProfileAttributesFromProfile(profile);
     // If the profile is being deleted, profile_attributes may be null.
@@ -506,8 +510,10 @@ ProfileSubMenuModel::ProfileSubMenuModel(
           account_info.IsEmpty()
               ? profile_attributes->GetAvatarIcon(
                     avatar_icon_size, /*use_high_res_file=*/true,
-                    /*icon_params=*/
-                    {.has_padding = false, .has_background = false})
+                    GetPlaceholderAvatarIconParamsDependingOnTheme(
+                        ThemeServiceFactory::GetForProfile(profile),
+                        /*background_color_id=*/ui::kColorMenuBackground,
+                        *color_provider))
               : account_info.account_image;
       // The avatar image can be empty if the account image hasn't been
       // fetched yet, if there is no image, or in tests.
@@ -880,7 +886,10 @@ void ToolsMenuModel::Build(Browser* browser) {
       GetIndexOfCommandId(IDC_SHOW_READING_MODE_SIDE_PANEL).value(),
       kReadingModeMenuItem);
 
-  if (base::FeatureList::IsEnabled(features::kToolbarPinning)) {
+  if (base::FeatureList::IsEnabled(features::kToolbarPinning) &&
+      CustomizeChromePageHandler::IsSupported(
+          NtpCustomBackgroundServiceFactory::GetForProfile(browser->profile()),
+          browser->profile())) {
     AddItemWithStringIdAndVectorIcon(this, IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL,
                                      IDS_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL,
                                      kEditChromeRefreshIcon);

@@ -240,7 +240,7 @@ bool PaintArtifactCompositor::ComputeNeedsCompositedScrolling(
   // the opaqueness of the scrolling contents. If it has an opaque rect
   // covering the whole scrolling contents, we can use composited scrolling
   // without losing LCD text.
-  for (auto* next = chunk_cursor + 1; next != artifact.GetPaintChunks().end();
+  for (auto next = chunk_cursor + 1; next != artifact.GetPaintChunks().end();
        ++next) {
     if (&next->properties.Transform() ==
         &chunk_cursor->properties.Transform()) {
@@ -727,6 +727,7 @@ void SynthesizedClip::UpdateLayer(const ClipPaintPropertyNode& clip,
     // See: cc::LayerTreeHostImpl::IsInitialScrollHitTestReliable().
     layer_->SetHitTestable(true);
   }
+  CHECK_EQ(layer_->client(), this);
 
   const auto& path = clip.ClipPath();
   SkRRect new_rrect(clip.PaintClipRect());
@@ -798,7 +799,7 @@ SynthesizedClip& PaintArtifactCompositor::CreateOrReuseSynthesizedClipLayer(
     bool needs_layer,
     CompositorElementId& mask_isolation_id,
     CompositorElementId& mask_effect_id) {
-  auto* entry = base::ranges::find_if(
+  auto entry = base::ranges::find_if(
       synthesized_clip_cache_, [&clip](const auto& entry) {
         return entry.key == &clip && !entry.in_use;
       });
@@ -999,7 +1000,7 @@ void PaintArtifactCompositor::Update(
 
   property_tree_manager.Finalize();
 
-  auto* new_end = std::remove_if(
+  auto new_end = std::remove_if(
       synthesized_clip_cache_.begin(), synthesized_clip_cache_.end(),
       [](const auto& entry) { return !entry.in_use; });
   synthesized_clip_cache_.Shrink(

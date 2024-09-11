@@ -103,11 +103,6 @@ BASE_FEATURE(kAccessCodeCastUI,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// Enables showing the EV certificate details in the Page Info bubble.
-BASE_FEATURE(kEvDetailsInPageInfo,
-             "EvDetailsInPageInfo",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Enables the feature to remove the last confirmation dialog when relaunching
 // to update Chrome.
@@ -205,6 +200,9 @@ const base::FeatureParam<PreloadTopChromeWebUIMode> kPreloadTopChromeWebUIMode{
 const char kPreloadTopChromeWebUISmartPreloadName[] = "smart-preload";
 const base::FeatureParam<bool> kPreloadTopChromeWebUISmartPreload{
     &kPreloadTopChromeWebUI, kPreloadTopChromeWebUISmartPreloadName, false};
+const char kPreloadTopChromeWebUIDelayPreloadName[] = "delay-preload";
+const base::FeatureParam<bool> kPreloadTopChromeWebUIDelayPreload{
+    &kPreloadTopChromeWebUI, kPreloadTopChromeWebUIDelayPreloadName, false};
 
 // Enables exiting browser fullscreen (users putting the browser itself into the
 // fullscreen mode via the browser UI or shortcuts) with press-and-hold Esc.
@@ -305,6 +303,14 @@ bool IsTabOrganization() {
   return base::FeatureList::IsEnabled(features::kTabOrganization);
 }
 
+BASE_FEATURE(kTabstripDeclutter,
+             "TabstripDeclutter",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsTabstripDeclutter() {
+  return base::FeatureList::IsEnabled(features::kTabstripDeclutter);
+}
+
 BASE_FEATURE(kMultiTabOrganization,
              "MultiTabOrganization",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -319,6 +325,10 @@ BASE_FEATURE(kTabReorganization,
 
 BASE_FEATURE(kTabReorganizationDivider,
              "TabReorganizationDivider",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabOrganizationModelStrategy,
+             "TabOrganizationModelStrategy",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kTabOrganizationTriggerPeriod{
@@ -399,9 +409,15 @@ BASE_FEATURE(kEnterpriseProfileBadging,
              "EnterpriseProfileBadging",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the management button on the toolbar.
+// Enables the management button on the toolbar for all managed browsers.
 BASE_FEATURE(kManagementToolbarButton,
              "ManagementToolbarButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the management button on the toolbar by default for browser managed
+// by trusted sources.
+BASE_FEATURE(kManagementToolbarButtonForTrustedManagementSources,
+             "ManagementToolbarButtonForTrustedManagementSources",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnterpriseUpdatedProfileCreationScreen,
@@ -442,10 +458,6 @@ BASE_FEATURE(kViewsFirstRunDialog,
              "ViewsFirstRunDialog",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kViewsTaskManager,
-             "ViewsTaskManager",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kViewsJSAppModalDialog,
              "ViewsJSAppModalDialog",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -462,5 +474,7 @@ BASE_FEATURE(kUsePortalAccentColor,
              "UsePortalAccentColor",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
+
+BASE_FEATURE(kCompactMode, "CompactMode", base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

@@ -1,7 +1,6 @@
 // Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-#pragma clang diagnostic ignored "-Wunreachable-code"
 
 #include "extensions/browser/content_verifier/content_hash.h"
 
@@ -53,7 +52,7 @@ std::unique_ptr<VerifiedContents> ReadVerifiedContents(
   if (!verified_contents ||
       verified_contents->extension_id() != key.extension_id ||
       verified_contents->version() != key.extension_version) {
-    if (delete_invalid_file && false && !base::DeleteFile(verified_contents_path)) {
+    if (delete_invalid_file && !base::DeleteFile(verified_contents_path)) {
       LOG(WARNING) << "Failed to delete " << verified_contents_path.value();
     }
     return nullptr;

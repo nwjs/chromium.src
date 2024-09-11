@@ -15,6 +15,8 @@
 #include "ash/picker/views/picker_submenu_controller.h"
 #include "ash/style/style_util.h"
 #include "ash/style/typography.h"
+#include "base/functional/bind.h"
+#include "base/memory/weak_ptr.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
@@ -45,6 +47,9 @@ constexpr auto kBorderInsets = gfx::Insets::TLBR(8, 16, 8, 16);
 
 PickerItemWithSubmenuView::PickerItemWithSubmenuView()
     : PickerItemView(base::DoNothing(), FocusIndicatorStyle::kFocusBar) {
+  SetCallback(base::BindRepeating(&PickerItemWithSubmenuView::ShowSubmenu,
+                                  weak_ptr_factory_.GetWeakPtr()));
+
   // This view only contains one child for the moment, but treat this as a
   // full-width vertical list.
   SetLayoutManager(std::make_unique<views::BoxLayout>())
@@ -118,9 +123,11 @@ void PickerItemWithSubmenuView::ShowSubmenu() {
   std::vector<std::unique_ptr<PickerItemView>> items;
   items.reserve(entries_.size());
   for (const auto& [result, callback] : entries_) {
+    // There are no image item results in submenus, so can pass 0 for
+    // `available_width`.
     items.push_back(PickerSectionView::CreateItemFromResult(
         result, /*preview_controller=*/nullptr, /*asset_fetcher=*/nullptr,
-        callback));
+        /*available_width=*/0, callback));
   }
   GetSubmenuController()->Show(this, std::move(items));
 }

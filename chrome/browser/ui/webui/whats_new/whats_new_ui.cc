@@ -2,13 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/ui/webui/whats_new/whats_new_ui.h"
 
 #include "base/feature_list.h"
 #include "base/version.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/global_desktop_features.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/browser_command/browser_command_handler.h"
@@ -27,6 +32,7 @@
 #include "components/user_education/common/user_education_features.h"
 #include "components/user_education/webui/whats_new_registry.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -34,7 +40,7 @@
 
 namespace {
 
-void CreateAndAddWhatsNewUIHtmlSource(Profile* profile) {
+void CreateAndAddWhatsNewUIHtmlSource(Profile* profile, bool enable_staging) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile, chrome::kChromeUIWhatsNewHost);
 
@@ -47,11 +53,15 @@ void CreateAndAddWhatsNewUIHtmlSource(Profile* profile) {
   };
   source->AddLocalizedStrings(kStrings);
   source->AddBoolean("isWhatsNewV2", user_education::features::IsWhatsNewV2());
+  source->AddBoolean("isStaging", enable_staging);
 
   // Allow embedding of iframe from chrome.com
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ChildSrc,
-      "child-src chrome://webui-test https://www.google.com/;");
+      enable_staging
+          ? "child-src chrome://webui-test https://www.google.com/ "
+            "https://chrome-staging.corp.google.com/;"
+          : "child-src chrome://webui-test https://www.google.com/;");
 }
 
 }  // namespace
@@ -69,7 +79,9 @@ WhatsNewUI::WhatsNewUI(content::WebUI* web_ui)
       page_factory_receiver_(this),
       browser_command_factory_receiver_(this),
       profile_(Profile::FromWebUI(web_ui)) {
-  CreateAndAddWhatsNewUIHtmlSource(profile_);
+  GURL url = web_ui->GetWebContents()->GetVisibleURL();
+  bool enable_staging = url.query_piece().compare("staging=true") == 0;
+  CreateAndAddWhatsNewUIHtmlSource(profile_, enable_staging);
 }
 
 // static
@@ -118,10 +130,18 @@ void WhatsNewUI::CreateBrowserCommandHandler(
   std::vector<browser_command::mojom::Command> supported_commands = {};
 
   if (user_education::features::IsWhatsNewV2()) {
-    auto* registry =
-        g_browser_process->GetDesktopFeatures()->whats_new_registry();
+    auto* registry = g_browser_process->GetFeatures()->whats_new_registry();
     CHECK(registry);
     supported_commands = registry->GetActiveCommands();
+  } else {
+    // TODO(crbug.com/342172972): Remove legacy browser command format.
+    // Modules launching during the V2 experiment need to also be
+    // enabled in this list for V1.
+    supported_commands.insert(
+        supported_commands.end(),
+        {
+            browser_command::mojom::Command::kOpenPaymentsSettings,
+        });
   }
 
   // Legacy list. Do not add browser commands here. Browser commands

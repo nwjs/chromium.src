@@ -54,10 +54,10 @@ constexpr CommandLine::CharType kSwitchValueSeparator[] =
 // By putting slash last, we can control whether it is treaded as a switch
 // value by changing the value of switch_prefix_count to be one less than
 // the array size.
-constexpr CommandLine::StringPieceType kSwitchPrefixes[] = {L"--", L"-", L"/"};
+constexpr CommandLine::StringViewType kSwitchPrefixes[] = {L"--", L"-", L"/"};
 #elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
 // Unixes don't use slash as a switch.
-constexpr CommandLine::StringPieceType kSwitchPrefixes[] = {"--", "-"};
+constexpr CommandLine::StringViewType kSwitchPrefixes[] = {"--", "-"};
 #endif
 size_t switch_prefix_count = std::size(kSwitchPrefixes);
 
@@ -72,7 +72,7 @@ constexpr CommandLine::CharType kSingleArgument[] =
     FILE_PATH_LITERAL("single-argument");
 #endif  // BUILDFLAG(IS_WIN)
 
-size_t GetSwitchPrefixLength(CommandLine::StringPieceType string) {
+size_t GetSwitchPrefixLength(CommandLine::StringViewType string) {
   for (size_t i = 0; i < switch_prefix_count; ++i) {
     CommandLine::StringType prefix(kSwitchPrefixes[i]);
     if (string.substr(0, prefix.length()) == prefix)
@@ -101,8 +101,8 @@ bool IsSwitch(const CommandLine::StringType& string,
 
 // Returns true iff |string| represents a switch with key
 // |switch_key_without_prefix|, regardless of value.
-bool IsSwitchWithKey(CommandLine::StringPieceType string,
-                     CommandLine::StringPieceType switch_key_without_prefix) {
+bool IsSwitchWithKey(CommandLine::StringViewType string,
+                     CommandLine::StringViewType switch_key_without_prefix) {
   size_t prefix_length = GetSwitchPrefixLength(string);
   if (prefix_length == 0 || prefix_length == string.length())
     return false;
@@ -269,7 +269,7 @@ CommandLine::CommandLine(CommandLine&& other) noexcept
     :
 #if BUILDFLAG(IS_WIN)
       raw_command_line_string_(
-          std::exchange(other.raw_command_line_string_, StringPieceType())),
+          std::exchange(other.raw_command_line_string_, StringViewType())),
       has_single_argument_switch_(
           std::exchange(other.has_single_argument_switch_, false)),
 #endif  // BUILDFLAG(IS_WIN)
@@ -320,7 +320,7 @@ CommandLine& CommandLine::operator=(const CommandLine& other) {
 CommandLine& CommandLine::operator=(CommandLine&& other) noexcept {
 #if BUILDFLAG(IS_WIN)
   raw_command_line_string_ =
-      std::exchange(other.raw_command_line_string_, StringPieceType());
+      std::exchange(other.raw_command_line_string_, StringViewType());
   has_single_argument_switch_ =
       std::exchange(other.has_single_argument_switch_, false);
 #endif  // BUILDFLAG(IS_WIN)
@@ -427,7 +427,7 @@ CommandLine CommandLine::FromArgvWithoutProgram(const StringVector& argv) {
 
 #if BUILDFLAG(IS_WIN)
 // static
-CommandLine CommandLine::FromString(StringPieceType command_line) {
+CommandLine CommandLine::FromString(StringViewType command_line) {
   CommandLine cmd(NO_PROGRAM);
   cmd.ParseFromString(command_line);
   return cmd;
@@ -552,7 +552,7 @@ void CommandLine::AppendSwitchPath(std::string_view switch_string,
 }
 
 void CommandLine::AppendSwitchNative(std::string_view switch_string,
-                                     CommandLine::StringPieceType value) {
+                                     CommandLine::StringViewType value) {
 #if BUILDFLAG(ENABLE_COMMANDLINE_SEQUENCE_CHECKS)
   sequence_checker_.Check();
 #endif
@@ -664,7 +664,7 @@ void CommandLine::AppendArgPath(const FilePath& path) {
   AppendArgNative(path.value());
 }
 
-void CommandLine::AppendArgNative(StringPieceType value) {
+void CommandLine::AppendArgNative(StringViewType value) {
 #if BUILDFLAG(ENABLE_COMMANDLINE_SEQUENCE_CHECKS)
   sequence_checker_.Check();
 #endif
@@ -686,14 +686,14 @@ void CommandLine::AppendArguments(const CommandLine& other,
   }
 }
 
-void CommandLine::PrependWrapper(StringPieceType wrapper) {
+void CommandLine::PrependWrapper(StringViewType wrapper) {
 #if BUILDFLAG(ENABLE_COMMANDLINE_SEQUENCE_CHECKS)
   sequence_checker_.Check();
 #endif
   if (wrapper.empty())
     return;
   // Split the wrapper command based on whitespace (with quoting).
-  // StringPieceType does not currently work directly with StringTokenizerT.
+  // StringViewType does not currently work directly with StringTokenizerT.
   using CommandLineTokenizer =
       StringTokenizerT<StringType, StringType::const_iterator>;
   StringType wrapper_string(wrapper);
@@ -709,7 +709,7 @@ void CommandLine::PrependWrapper(StringPieceType wrapper) {
 }
 
 #if BUILDFLAG(IS_WIN)
-void CommandLine::ParseFromString(StringPieceType command_line) {
+void CommandLine::ParseFromString(StringViewType command_line) {
   command_line = TrimWhitespace(command_line, TRIM_ALL);
   if (command_line.empty())
     return;
@@ -738,7 +738,7 @@ void CommandLine::ParseFromString(StringPieceType command_line) {
                          << command_line;
   StringVector argv(args, args + num_args);
   InitFromArgv(argv);
-  raw_command_line_string_ = StringPieceType();
+  raw_command_line_string_ = StringViewType();
   LocalFree(args);
 
   if (downlevel_shell32_dll)
@@ -912,7 +912,7 @@ void CommandLine::ParseAsSingleArgument(
   if (arg_position >= raw_command_line_string_.length())
     return;
   has_single_argument_switch_ = true;
-  const StringPieceType arg = raw_command_line_string_.substr(arg_position);
+  const StringViewType arg = raw_command_line_string_.substr(arg_position);
   if (!arg.empty()) {
     AppendArgNative(arg);
   }

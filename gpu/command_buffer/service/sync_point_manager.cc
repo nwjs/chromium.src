@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "gpu/command_buffer/service/sync_point_manager.h"
 
 #include <limits.h>
@@ -219,8 +224,8 @@ void SyncPointClientState::Destroy() {
 std::vector<base::OnceClosure>
 SyncPointClientState::DestroyAndReturnCallbacks() {
   base::AutoLock lock(fence_sync_lock_);
-  DCHECK(sync_point_manager_);  // not destroyed
-  sync_point_manager_ = nullptr;
+  DCHECK(!destroyed_.IsSet());
+  destroyed_.Set();
   std::vector<base::OnceClosure> callbacks;
   callbacks.reserve(release_callback_queue_.size());
   while (!release_callback_queue_.empty()) {
@@ -235,7 +240,7 @@ SyncPointClientState::DestroyAndReturnCallbacks() {
 
 bool SyncPointClientState::Wait(const SyncToken& sync_token,
                                 base::OnceClosure callback) {
-  DCHECK(sync_point_manager_);  // not destroyed
+  DCHECK(!destroyed_.IsSet());
   // Validate that this Wait call is between BeginProcessingOrderNumber() and
   // FinishProcessingOrderNumber(), or else we may deadlock.
   DCHECK(order_data_->IsProcessingOrderNumber());
@@ -285,8 +290,9 @@ void SyncPointClientState::ReleaseFenceSync(uint64_t release) {
   // Validate that this Release call is between BeginProcessingOrderNumber() and
   // FinishProcessingOrderNumber(), or else we may deadlock.
   DCHECK(order_data_->IsProcessingOrderNumber());
-  DCHECK(sync_point_manager_)
+  DCHECK(!destroyed_.IsSet())
       << "Attempting to release fence on destroyed client state.";
+
   bool updated = EnsureFenceSyncReleased(release);
   // Suppress unused variable error in release builds.
   (void)updated;
@@ -323,6 +329,7 @@ bool SyncPointClientState::EnsureFenceSyncReleased(uint64_t release) {
 
 void SyncPointClientState::EnsureWaitReleased(uint64_t release,
                                               uint64_t callback_id) {
+  // This method should not be called if graph-based validation is enabled.
   DCHECK(!sync_point_manager_->graph_validation_enabled());
 
   // Call callbacks without the lock to avoid possible deadlocks.
@@ -435,8 +442,7 @@ void SyncPointManager::DestroySyncPointClientState(
   }
   // At this point, if SyncPointClientState::Wait is called, it will (correctly)
   // return false because client_state is removed from our map. It is safe to
-  // call the callbacks (assuming they don't reference any of the other
-  // SyncPointClientState methods that DCHECK(sync_point_manager_)).
+  // call the callbacks.
   for (auto& closure : callbacks) {
     std::move(closure).Run();
   }

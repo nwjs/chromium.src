@@ -312,8 +312,6 @@ const char* ToString(ax::mojom::Role role) {
       return "figure";
     case ax::mojom::Role::kFooter:
       return "footer";
-    case ax::mojom::Role::kFooterAsNonLandmark:
-      return "footerAsNonLandmark";
     case ax::mojom::Role::kForm:
       return "form";
     case ax::mojom::Role::kGenericContainer:
@@ -332,8 +330,6 @@ const char* ToString(ax::mojom::Role role) {
       return "group";
     case ax::mojom::Role::kHeader:
       return "header";
-    case ax::mojom::Role::kHeaderAsNonLandmark:
-      return "headerAsNonLandmark";
     case ax::mojom::Role::kHeading:
       return "heading";
     case ax::mojom::Role::kIframe:
@@ -488,6 +484,10 @@ const char* ToString(ax::mojom::Role role) {
       return "rubyAnnotation";
     case ax::mojom::Role::kSection:
       return "section";
+    case ax::mojom::Role::kSectionFooter:
+      return "sectionFooter";
+    case ax::mojom::Role::kSectionHeader:
+      return "sectionHeader";
     case ax::mojom::Role::kSectionWithoutName:
       return "sectionWithoutName";
     case ax::mojom::Role::kStrong:
@@ -744,8 +744,6 @@ ax::mojom::Role StringToRole(const std::string& role) {
     return ax::mojom::Role::kFigure;
   } else if (role == "kFooter") {
     return ax::mojom::Role::kFooter;
-  } else if (role == "kFooterAsNonLandmark") {
-    return ax::mojom::Role::kFooterAsNonLandmark;
   } else if (role == "kForm") {
     return ax::mojom::Role::kForm;
   } else if (role == "kGenericContainer") {
@@ -764,8 +762,6 @@ ax::mojom::Role StringToRole(const std::string& role) {
     return ax::mojom::Role::kGroup;
   } else if (role == "kHeader") {
     return ax::mojom::Role::kHeader;
-  } else if (role == "kHeaderAsNonLandmark") {
-    return ax::mojom::Role::kHeaderAsNonLandmark;
   } else if (role == "kHeading") {
     return ax::mojom::Role::kHeading;
   } else if (role == "kIframe") {
@@ -920,6 +916,10 @@ ax::mojom::Role StringToRole(const std::string& role) {
     return ax::mojom::Role::kRubyAnnotation;
   } else if (role == "kSection") {
     return ax::mojom::Role::kSection;
+  } else if (role == "kSectionFooter") {
+    return ax::mojom::Role::kSectionFooter;
+  } else if (role == "kSectionHeader") {
+    return ax::mojom::Role::kSectionHeader;
   } else if (role == "kSectionWithoutName") {
     return ax::mojom::Role::kSectionWithoutName;
   } else if (role == "kStrong") {
@@ -2380,6 +2380,8 @@ const char* ToString(ax::mojom::NameFrom name_from) {
       return "placeholder";
     case ax::mojom::NameFrom::kProhibited:
       return "prohibited";
+    case ax::mojom::NameFrom::kProhibitedAndRedundant:
+      return "prohibitedAndRedundant";
     case ax::mojom::NameFrom::kRelatedElement:
       return "relatedElement";
     case ax::mojom::NameFrom::kTitle:
@@ -2556,7 +2558,7 @@ const char* ToString(ax::mojom::AriaNotificationInterrupt interrupt) {
     case ax::mojom::AriaNotificationInterrupt::kPending:
       return "pending";
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 const char* ToString(ax::mojom::AriaNotificationPriority priority) {
@@ -2566,7 +2568,7 @@ const char* ToString(ax::mojom::AriaNotificationPriority priority) {
     case ax::mojom::AriaNotificationPriority::kImportant:
       return "important";
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 }  // namespace ui

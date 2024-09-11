@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/chromeos/crosier_tests.gni")
 import("//build/config/chromeos/ui_mode.gni")
 
 assert(is_chromeos_ash)
@@ -58,6 +59,7 @@ static_library("child_accounts") {
 
   public_deps = [
     "//base",
+    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ash/app_list/arc",
     "//chromeos/ash/components/dbus/system_clock",
     "//chromeos/dbus/power",
@@ -81,7 +83,9 @@ static_library("child_accounts") {
     "//chrome/browser/ash/child_accounts/parent_access_code",
     "//chrome/browser/ash/child_accounts/time_limits",
     "//chrome/browser/ash/policy/core",
+    "//chrome/browser/ash/policy/uploading",
     "//chrome/browser/ash/profiles",
+    "//chrome/browser/ash/settings",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profiles",
     "//chrome/common",
@@ -149,7 +153,7 @@ source_set("unit_tests") {
     "//base",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service:test_support",
-    "//chrome/browser/ash:test_support",
+    "//chrome/browser/ash/app_list/arc:test_support",
     "//chrome/browser/ash/child_accounts/apps",
     "//chrome/browser/ash/child_accounts/on_device_controls",
     "//chrome/browser/ash/child_accounts/on_device_controls:unit_tests",
@@ -189,7 +193,6 @@ source_set("browser_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/ash",
-    "//chrome/browser/ash:test_support",
     "//chrome/browser/ash/child_accounts:test_support",
     "//chrome/browser/ash/child_accounts/parent_access_code:browser_tests",
     "//chrome/browser/ash/child_accounts/time_limits",
@@ -198,6 +201,7 @@ source_set("browser_tests") {
     "//chrome/browser/ash/login/lock",
     "//chrome/browser/ash/login/lock:test_support",
     "//chrome/browser/ash/login/test:test_support",
+    "//chrome/browser/ash/login/users:test_support",
     "//chrome/browser/ash/policy/core:test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
@@ -218,7 +222,23 @@ source_set("browser_tests") {
   ]
 }
 
-if (!is_chromeos_device) {
+if (is_chromeos_device) {
+  crosier_tests("integration_tests") {
+    sources = [ "web_approvals_integration_test.cc" ]
+
+    sources_metadata = [ "web_approvals_integration_test.yaml" ]
+
+    deps = [
+      ":child_accounts",
+      "//chrome/browser/ash/login/test:test_support",
+      "//chrome/test:ash_integration_test_support",
+      "//chrome/test:test_support",
+      "//chrome/test:test_support_ui",
+      "//chrome/test/base/ash/interactive:test_support",
+      "//ui/aura",
+    ]
+  }
+} else {
   source_set("interactive_ui_tests") {
     testonly = true
 
@@ -238,13 +258,12 @@ if (!is_chromeos_device) {
       "//base",
       "//base/test:test_support",
       "//chrome/browser/ash",
-      "//chrome/browser/ash:test_support",
       "//chrome/browser/ash/app_restore",
       "//chrome/browser/ash/child_accounts/parent_access_code:test_support",
       "//chrome/browser/ash/child_accounts/time_limits",
       "//chrome/browser/ash/child_accounts/time_limits:test_support",
       "//chrome/browser/ash/login/test:test_support",
-      "//chrome/browser/ui",
+      "//chrome/browser/ui/ash/shelf",
       "//chrome/test:test_support",
       "//chrome/test/base/ash/interactive:test_support",
       "//ui/aura",

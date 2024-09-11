@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/ash/app_list/search/local_image_search/image_annotation_worker.h"
 
 #include <algorithm>
@@ -12,7 +17,9 @@
 #include <string>
 #include <vector>
 
+#include "ash/constants/ash_features.h"
 #include "ash/public/cpp/image_util.h"
+#include "base/feature_list.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_path_watcher.h"
@@ -266,6 +273,13 @@ void ImageAnnotationWorker::OnDlcInstalled() {
       return;
     }
 
+    // The installation status of `image_content_annotator_` only updates when
+    // function `EnsureAnnotatorIsConnected()` is called. Thus, at each retry we
+    // should trigger it again so that it attempts to bind the annotator.
+    if (use_ica_) {
+      image_content_annotator_.EnsureAnnotatorIsConnected();
+    }
+
     // It is expected to be ready on a first try. Also, it is not a time
     // sensitive task, so we do not need to implement a full-fledged observer.
     base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
@@ -308,6 +322,10 @@ void ImageAnnotationWorker::OnFileChange(const base::FilePath& path,
   DVLOG(1) << "Adding to a queue";
   files_to_process_.push(std::move(path));
   if (files_to_process_.size() == 1) {
+    // TODO(b:353385656): Remove this log after the performance analysis.
+    if (base::FeatureList::IsEnabled(ash::features::kLocalImageSearchOnCore)) {
+      LOG(ERROR) << "image indexing starts.";
+    }
     queue_processing_start_time_ = base::TimeTicks::Now();
     return ProcessNextItem();
   }
@@ -326,6 +344,10 @@ void ImageAnnotationWorker::ProcessNextItem() {
         "Apps.AppList.AnnotationStorage.ImageAnnotationWorker."
         "QueueProcessingTime",
         base::TimeTicks::Now() - queue_processing_start_time_);
+    // TODO(b:353385656): Remove this log after the performance analysis.
+    if (base::FeatureList::IsEnabled(ash::features::kLocalImageSearchOnCore)) {
+      LOG(ERROR) << "image indexing finishes.";
+    }
     image_content_annotator_.DisconnectAnnotator();
     return;
   }

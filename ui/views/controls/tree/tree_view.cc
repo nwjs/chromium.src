@@ -240,6 +240,7 @@ void TreeView::CommitEdit() {
   model_->SetTitle(GetSelectedNode(), editor_->GetText());
   editor_->GetViewAccessibility().SetName(
       GetSelectedNode()->GetAccessibleTitle());
+  selected_node_->UpdateAccessibleName();
   CancelEdit();
   if (editor_has_focus)
     RequestFocus();
@@ -368,8 +369,9 @@ void TreeView::SetRootShown(bool root_shown) {
   AXVirtualView* ax_view = root_.accessibility_view();
   // There should always be a virtual accessibility view for the root, unless
   // someone calls this method before setting a model.
-  if (ax_view)
+  if (ax_view) {
     ax_view->NotifyAccessibilityEvent(ax::mojom::Event::kStateChanged);
+  }
   DrawnNodesChanged();
 }
 
@@ -606,6 +608,8 @@ void TreeView::TreeNodeChanged(TreeModel* model, TreeModelNode* model_node) {
         ax::mojom::Event::kLocationChanged);
     DrawnNodesChanged();
   }
+
+  node->UpdateAccessibleName();
 }
 
 void TreeView::ContentsChanged(Textfield* sender,
@@ -805,7 +809,9 @@ void TreeView::UpdateSelection(TreeModelNode* model_node,
 
   if (selection_changed) {
     SchedulePaintForNode(selected_node_);
+    SetAccessibleSelectionForNode(selected_node_, false);
     selected_node_ = node;
+    SetAccessibleSelectionForNode(selected_node_, true);
     SchedulePaintForNode(selected_node_);
   }
 
@@ -911,30 +917,16 @@ std::unique_ptr<AXVirtualView> TreeView::CreateAndSetAccessibilityView(
                           base::Unretained(this), node);
   ax_view->SetPopulateDataCallback(std::move(selected_callback));
   node->set_accessibility_view(ax_view.get());
+  node->UpdateAccessibleName();
   return ax_view;
 }
 
 void TreeView::PopulateAccessibilityData(InternalNode* node,
                                          ui::AXNodeData* data) {
   DCHECK(node);
-  TreeModelNode* selected_model_node = GetSelectedNode();
-  InternalNode* selected_node =
-      selected_model_node
-          ? GetInternalNodeForModelNode(selected_model_node,
-                                        CreateType::kDontCreateIfNotLoaded)
-          : nullptr;
-  const bool selected = (node == selected_node);
-  data->AddBoolAttribute(ax::mojom::BoolAttribute::kSelected, selected);
-  data->SetDefaultActionVerb(ax::mojom::DefaultActionVerb::kSelect);
-
-  if (node->is_expanded())
-    data->AddState(ax::mojom::State::kExpanded);
-  else
-    data->AddState(ax::mojom::State::kCollapsed);
 
   DCHECK(node->model_node()) << "InternalNode must be initialized. Did you "
                                 "forget to call ConfigureInternalNode(node)?";
-  data->SetName(node->model_node()->GetTitle());
 
   // "AXVirtualView" will by default add the "invisible" state to any
   // virtual views that are not attached to a parent view.
@@ -986,6 +978,19 @@ void TreeView::PopulateAccessibilityData(InternalNode* node,
     data->AddState(node != &root_ || root_shown_ ? ax::mojom::State::kInvisible
                                                  : ax::mojom::State::kIgnored);
   }
+}
+
+void TreeView::SetAccessibleSelectionForNode(InternalNode* node,
+                                             bool selected) {
+  if (!node) {
+    return;
+  }
+  AXVirtualView* ax_view = node->accessibility_view();
+  DCHECK(ax_view);
+
+  ui::AXNodeData& node_data = ax_view->GetCustomData();
+  node_data.AddBoolAttribute(ax::mojom::BoolAttribute::kSelected, selected);
+  node_data.SetDefaultActionVerb(ax::mojom::DefaultActionVerb::kSelect);
 }
 
 void TreeView::DrawnNodesChanged() {
@@ -1462,7 +1467,9 @@ void TreeView::SetHasFocusIndicator(bool shows) {
 
 // InternalNode ----------------------------------------------------------------
 
-TreeView::InternalNode::InternalNode() = default;
+TreeView::InternalNode::InternalNode() {
+  SetAccessibleIsExpanded(is_expanded_);
+}
 
 TreeView::InternalNode::~InternalNode() = default;
 
@@ -1474,6 +1481,27 @@ void TreeView::InternalNode::Reset(ui::TreeModelNode* node) {
   accessibility_view_ = nullptr;
 }
 
+void TreeView::InternalNode::set_is_expanded(bool expanded) {
+  is_expanded_ = expanded;
+  SetAccessibleIsExpanded(is_expanded_);
+}
+
+void TreeView::InternalNode::SetAccessibleIsExpanded(bool expanded) {
+  if (!accessibility_view_) {
+    return;
+  }
+
+  ui::AXNodeData& node_data = accessibility_view_->GetCustomData();
+
+  if (expanded) {
+    node_data.RemoveState(ax::mojom::State::kCollapsed);
+    node_data.AddState(ax::mojom::State::kExpanded);
+  } else {
+    node_data.RemoveState(ax::mojom::State::kExpanded);
+    node_data.AddState(ax::mojom::State::kCollapsed);
+  }
+}
+
 size_t TreeView::InternalNode::NumExpandedNodes() const {
   size_t result = 1;  // For this.
   if (!is_expanded_)
@@ -1481,6 +1509,20 @@ size_t TreeView::InternalNode::NumExpandedNodes() const {
   for (const auto& child : children())
     result += child->NumExpandedNodes();
   return result;
+}
+
+void TreeView::InternalNode::UpdateAccessibleName() {
+  if (!accessibility_view_) {
+    return;
+  }
+
+  std::u16string name = model_node()->GetTitle();
+  ui::AXNodeData& node_data = accessibility_view_->GetCustomData();
+  if (name.empty()) {
+    node_data.SetNameExplicitlyEmpty();
+  } else {
+    node_data.SetNameChecked(name);
+  }
 }
 
 int TreeView::InternalNode::GetMaxWidth(TreeView* tree, int indent, int depth) {

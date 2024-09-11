@@ -29,8 +29,8 @@ scoped_refptr<StreamParserBuffer> StreamParserBuffer::CopyFrom(
     TrackId track_id) {
   if (auto* media_client = GetMediaClient()) {
     if (auto* alloc = media_client->GetMediaAllocator()) {
-      auto data_span = UNSAFE_BUFFERS(
-          base::span(data, base::checked_cast<size_t>(data_size)));
+      auto data_span =
+          UNSAFE_TODO(base::span(data, base::checked_cast<size_t>(data_size)));
       return StreamParserBuffer::FromExternalMemory(
           alloc->CopyFrom(data_span), is_key_frame, type, track_id);
     }
@@ -46,6 +46,15 @@ scoped_refptr<StreamParserBuffer> StreamParserBuffer::FromExternalMemory(
     TrackId track_id) {
   return base::WrapRefCounted(new StreamParserBuffer(
       std::move(external_memory), is_key_frame, type, track_id));
+}
+
+scoped_refptr<StreamParserBuffer> StreamParserBuffer::FromArray(
+    base::HeapArray<uint8_t> heap_array,
+    bool is_key_frame,
+    Type type,
+    TrackId track_id) {
+  return base::WrapRefCounted(new StreamParserBuffer(
+      std::move(heap_array), is_key_frame, type, track_id));
 }
 
 DecodeTimestamp StreamParserBuffer::GetDecodeTimestamp() const {
@@ -72,6 +81,15 @@ StreamParserBuffer::StreamParserBuffer(
   set_is_key_frame(is_key_frame);
 }
 
+StreamParserBuffer::StreamParserBuffer(base::HeapArray<uint8_t> heap_array,
+                                       bool is_key_frame,
+                                       Type type,
+                                       TrackId track_id)
+    : DecoderBuffer(std::move(heap_array)), type_(type), track_id_(track_id) {
+  set_duration(kNoTimestamp);
+  set_is_key_frame(is_key_frame);
+}
+
 StreamParserBuffer::StreamParserBuffer(const uint8_t* data,
                                        int data_size,
                                        bool is_key_frame,
@@ -80,8 +98,7 @@ StreamParserBuffer::StreamParserBuffer(const uint8_t* data,
     : DecoderBuffer(
           // TODO(crbug.com/40284755): Convert `StreamBufferParser` to
           // `size_t` and `base::span`.
-          UNSAFE_BUFFERS(
-              base::span(data, base::checked_cast<size_t>(data_size)))),
+          UNSAFE_TODO(base::span(data, base::checked_cast<size_t>(data_size)))),
       decode_timestamp_(kNoDecodeTimestamp),
       config_id_(kInvalidConfigId),
       type_(type),

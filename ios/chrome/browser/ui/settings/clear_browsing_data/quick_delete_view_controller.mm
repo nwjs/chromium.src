@@ -16,6 +16,7 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/settings/cells/clear_browsing_data_constants.h"
 #import "ios/chrome/browser/ui/settings/clear_browsing_data/quick_delete_mutator.h"
 #import "ios/chrome/browser/ui/settings/clear_browsing_data/quick_delete_presentation_commands.h"
@@ -27,6 +28,10 @@
 #import "ui/base/l10n/l10n_util_mac.h"
 
 namespace {
+
+// Delay to observe when dismissing the UI after showing the confirmation
+// indicator that the deletion has concluded.
+constexpr NSTimeInterval kDismissDelay = 1;
 
 // Trash icon view size.
 constexpr CGFloat kTrashIconContainerViewSize = 64;
@@ -124,6 +129,8 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
   buttonConfiguration.background.backgroundColor =
       [UIColor colorNamed:kRedColor];
   self.primaryActionButton.configuration = buttonConfiguration;
+  self.confirmationCheckmarkColor = [UIColor colorNamed:kRed600Color];
+  self.confirmationButtonColor = [UIColor colorNamed:kRed100Color];
 
   // Assign the table view's anchors now that it is in the same hierarchy as the
   // top view and that the content has been loaded.
@@ -162,8 +169,7 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
 }
 
 - (void)confirmationAlertSecondaryAction {
-  CHECK(self.presentationHandler);
-  [self.presentationHandler dismissQuickDelete];
+  [self dismissQuickDelete];
 }
 
 #pragma mark - UITableViewDelegate
@@ -197,9 +203,9 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
         [[CrURL alloc]
             initWithGURL:GURL(kClearBrowsingDataDSEMyActivityUrlInFooterURL)]
       ];
-      [footer
-            setText:l10n_util::GetNSString(IDS_IOS_DELETE_BROWSING_DATA_FOOTER)
-          withColor:[UIColor colorNamed:kTextSecondaryColor]];
+      [footer setText:l10n_util::GetNSString(
+                          IDS_IOS_DELETE_BROWSING_DATA_BOTTOM_SHEET_FOOTER)
+            withColor:[UIColor colorNamed:kTextSecondaryColor]];
       return footer;
     }
     case SectionIdentifierTimeRange:
@@ -207,7 +213,7 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
       return nil;
     }
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 - (CGFloat)tableView:(UITableView*)tableView
@@ -282,16 +288,79 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
                   }];
 }
 
+- (void)updateHistoryWithResult:
+    (const browsing_data::BrowsingDataCounter::Result&)result {
+  // TODO(crbug.com/353211728): Refactor summary using this result.
+}
+
+- (void)updateTabsWithResult:
+    (const browsing_data::BrowsingDataCounter::Result&)result {
+  // TODO(crbug.com/353211728): Refactor summary using this result.
+}
+
+- (void)updateCacheWithResult:
+    (const browsing_data::BrowsingDataCounter::Result&)result {
+  // TODO(crbug.com/353211728): Refactor summary using this result.
+}
+
+- (void)updatePasswordsWithResult:
+    (const browsing_data::BrowsingDataCounter::Result&)result {
+  // TODO(crbug.com/353211728): Refactor summary using this result.
+}
+
 - (void)updateAutofillWithResult:
     (const browsing_data::BrowsingDataCounter::Result&)result {
-  // TODO(crbug.com/341107834): Refactor summary using this result.
+  // TODO(crbug.com/353211728): Refactor summary using this result.
+}
+
+- (void)setHistorySelection:(BOOL)selected {
+  // TODO(crbug.com/353211728): Refactor summary using this type selection.
+}
+
+- (void)setTabsSelection:(BOOL)selected {
+  // TODO(crbug.com/353211728): Refactor summary using this type selection.
+}
+
+- (void)setSiteDataSelection:(BOOL)selected {
+  // TODO(crbug.com/353211728): Refactor summary using this type selection.
+}
+
+- (void)setCacheSelection:(BOOL)selected {
+  // TODO(crbug.com/353211728): Refactor summary using this type selection.
+}
+
+- (void)setPasswordsSelection:(BOOL)selected {
+  // TODO(crbug.com/353211728): Refactor summary using this type selection.
 }
 
 - (void)setAutofillSelection:(BOOL)selected {
-  // TODO(crbug.com/341107834): Refactor summary using this type selection.
+  // TODO(crbug.com/353211728): Refactor summary using this type selection.
+}
+
+- (void)deletionInProgress {
+  self.view.userInteractionEnabled = NO;
+  self.isLoading = YES;
+  self.isConfirmed = NO;
+}
+
+- (void)deletionFinished {
+  self.isLoading = NO;
+  self.isConfirmed = YES;
+  TriggerHapticFeedbackForNotification(UINotificationFeedbackTypeSuccess);
+
+  // Add an artificial delay for dimissing the UI, so the user is able to see
+  // the confirmation state.
+  [self performSelector:@selector(dismissQuickDelete)
+             withObject:nil
+             afterDelay:kDismissDelay];
 }
 
 #pragma mark - Private
+
+// Triggers the dismission of the Quick Delete UI.
+- (void)dismissQuickDelete {
+  [self.presentationHandler dismissQuickDelete];
+}
 
 // Updates the bottom sheet height by also updating the table view height. The
 // table view might have a different height after the browsing data summary is
@@ -406,7 +475,7 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
       return browsingDataCell;
     }
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 // Returns a UIMenu with all supported time ranges for deletion.
@@ -474,7 +543,7 @@ typedef NS_ENUM(NSInteger, ItemIdentifier) {
       // This value should not be reached since it's not a part of the menu.
       break;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 // Returns a view of a trash icon with a red background with vertical padding.

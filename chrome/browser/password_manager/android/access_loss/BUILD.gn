@@ -1,0 +1,127 @@
+import("//build/config/android/rules.gni")
+import("//third_party/jni_zero/jni_zero.gni")
+
+generate_jni("jni_headers") {
+  sources = [ "java/src/org/chromium/chrome/browser/access_loss/PasswordAccessLossWarningBridge.java" ]
+}
+
+android_library("java") {
+  srcjar_deps = [
+    ":jni_headers",
+    "//chrome/browser/password_manager/android:java_enum_srcjar",
+  ]
+  resources_package = "org.chromium.chrome.browser.access_loss"
+
+  sources = [
+    "java/src/org/chromium/chrome/browser/access_loss/PasswordAccessLossDialogSettingsCoordinator.java",
+    "java/src/org/chromium/chrome/browser/access_loss/PasswordAccessLossWarningBridge.java",
+  ]
+
+  deps = [
+    "//base:base_java",
+    "//build/android:build_java",
+    "//chrome/browser/password_manager/android:java_resources",
+    "//chrome/browser/password_manager/android/bottom_sheet:java",
+    "//components/browser_ui/bottomsheet/android:java",
+    "//third_party/androidx:androidx_annotation_annotation_java",
+    "//third_party/jni_zero:jni_zero_java",
+    "//ui/android:ui_java",
+  ]
+}
+
+robolectric_library("junit") {
+  sources = [
+    "java/src/org/chromium/chrome/browser/access_loss/PasswordAccessLossDialogSettingsCoordinatorTest.java",
+    "java/src/org/chromium/chrome/browser/access_loss/PasswordAccessLossWarningBridgeTest.java",
+  ]
+
+  deps = [
+    ":java",
+    "//base:base_java",
+    "//base:base_java_test_support",
+    "//base:base_junit_test_support",
+    "//chrome/android:chrome_jni_headers_java",
+    "//chrome/browser/flags:java",
+    "//chrome/browser/password_manager/android:utils",
+    "//components/browser_ui/bottomsheet/android:java",
+    "//third_party/junit",
+    "//third_party/mockito:mockito_java",
+    "//ui/android:ui_java",
+    "//ui/android:ui_java_test_support",
+  ]
+}
+
+source_set("public") {
+  sources = [
+    "password_access_loss_warning_bridge.h",
+    "password_access_loss_warning_bridge_impl.cc",
+    "password_access_loss_warning_bridge_impl.h",
+  ]
+
+  deps = [
+    ":jni_headers",
+    "//base",
+    "//chrome/browser/password_manager/android:utils",
+    "//components/password_manager/core/browser/features:password_features",
+    "//components/prefs:prefs",
+    "//ui/android:android",
+    "//ui/gfx:native_widget_types",
+  ]
+}
+
+android_library("javatests") {
+  testonly = true
+  resources_package = "org.chromium.chrome.browser.access_loss"
+
+  sources = [ "java/src/org/chromium/chrome/browser/access_loss/PasswordAccessLossWarningRenderTest.java" ]
+
+  deps = [
+    ":java",
+    "//base:base_java",
+    "//base:base_java_test_support",
+    "//chrome/android:chrome_java",
+    "//chrome/browser/flags:java",
+    "//chrome/browser/password_manager/android/bottom_sheet:java_resources",
+    "//chrome/browser/ui/android/night_mode:night_mode_java_test_support",
+    "//chrome/test/android:chrome_java_integration_test_support",
+    "//chrome/test/android:chrome_java_unit_test_support",
+    "//components/browser_ui/bottomsheet/android:java",
+    "//components/browser_ui/bottomsheet/android:manager_java",
+    "//components/browser_ui/bottomsheet/android/test:java",
+    "//third_party/androidx:androidx_test_runner_java",
+    "//third_party/junit:junit",
+    "//third_party/mockito:mockito_java",
+    "//ui/android:ui_java_test_support",
+    "//ui/android:ui_no_recycler_view_java",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+
+  deps = [
+    ":public",
+    "//components/prefs:prefs",
+    "//testing/gmock",
+    "//ui/gfx:native_widget_types",
+  ]
+
+  sources = [
+    "mock_password_access_loss_warning_bridge.cc",
+    "mock_password_access_loss_warning_bridge.h",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "password_access_loss_warning_bridge_impl_unittest.cc" ]
+  deps = [
+    ":public",
+    "//base/test:test_support",
+    "//components/password_manager/core/browser/features:password_features",
+    "//components/password_manager/core/browser/password_store:password_store_impl",
+    "//components/password_manager/core/common:common",
+    "//components/prefs:prefs",
+    "//components/prefs:test_support",
+  ]
+}

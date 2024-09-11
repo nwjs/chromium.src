@@ -8,7 +8,6 @@
 #include "ash/ash_export.h"
 #include "ash/picker/model/picker_search_results_section.h"
 #include "ash/picker/views/picker_page_view.h"
-#include "ash/picker/views/picker_preview_bubble_controller.h"
 #include "ash/picker/views/picker_submenu_controller.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
@@ -20,6 +19,7 @@
 namespace views {
 class ImageView;
 class Label;
+class Throbber;
 class View;
 }
 
@@ -30,18 +30,21 @@ class PickerSearchResult;
 class PickerSearchResultsViewDelegate;
 class PickerSectionListView;
 class PickerSectionView;
+class PickerPreviewBubbleController;
 class PickerSkeletonLoaderView;
 
 class ASH_EXPORT PickerSearchResultsView : public PickerPageView {
   METADATA_HEADER(PickerSearchResultsView, PickerPageView)
 
  public:
-  // `delegate`, `asset_fetcher` and `submenu_controller` must remain valid for
-  // the lifetime of this class.
-  explicit PickerSearchResultsView(PickerSearchResultsViewDelegate* delegate,
-                                   int picker_view_width,
-                                   PickerAssetFetcher* asset_fetcher,
-                                   PickerSubmenuController* submenu_controller);
+  // `delegate`, `asset_fetcher`, `submenu_controller`, `preview_controller`
+  // must remain valid for the lifetime of this class.
+  explicit PickerSearchResultsView(
+      PickerSearchResultsViewDelegate* delegate,
+      int picker_view_width,
+      PickerAssetFetcher* asset_fetcher,
+      PickerSubmenuController* submenu_controller,
+      PickerPreviewBubbleController* preview_controller);
   PickerSearchResultsView(const PickerSearchResultsView&) = delete;
   PickerSearchResultsView& operator=(const PickerSearchResultsView&) = delete;
   ~PickerSearchResultsView() override;
@@ -79,6 +82,9 @@ class ASH_EXPORT PickerSearchResultsView : public PickerPageView {
   // Returns the index of `inserted_result` in the search result list.
   int GetIndex(const PickerSearchResult& inserted_result);
 
+  // Sets the number of emoji results for accessibility.
+  void SetNumEmojiResultsForA11y(size_t num_emoji_results);
+
   PickerSectionListView* section_list_view_for_testing() {
     return section_list_view_;
   }
@@ -93,6 +99,8 @@ class ASH_EXPORT PickerSearchResultsView : public PickerPageView {
     return *no_results_illustration_;
   }
   views::Label& no_results_label_for_testing() { return *no_results_label_; }
+
+  views::View& throbber_container_for_testing() { return *throbber_container_; }
 
   PickerSkeletonLoaderView& skeleton_loader_view_for_testing() {
     return *skeleton_loader_view_;
@@ -111,7 +119,11 @@ class ASH_EXPORT PickerSearchResultsView : public PickerPageView {
   void OnTrailingLinkClicked(PickerSectionType section_type,
                              const ui::Event& event);
 
+  void StartThrobber();
+  void StopThrobber();
+
   void StopLoadingAnimation();
+  void UpdateAccessibleName();
 
   raw_ptr<PickerSearchResultsViewDelegate> delegate_;
 
@@ -129,10 +141,19 @@ class ASH_EXPORT PickerSearchResultsView : public PickerPageView {
   raw_ptr<views::ImageView> no_results_illustration_ = nullptr;
   raw_ptr<views::Label> no_results_label_ = nullptr;
 
-  // The skeleton loader view, shown when the results are pending.
+  // The throbber is shown when results are pending and the skeleton loader is
+  // not already being shown.
+  raw_ptr<views::View> throbber_container_ = nullptr;
+  raw_ptr<views::Throbber> throbber_ = nullptr;
+
+  // The skeleton loader can be shown when results are pending.
   raw_ptr<PickerSkeletonLoaderView> skeleton_loader_view_ = nullptr;
 
-  PickerPreviewBubbleController preview_controller_;
+  raw_ptr<PickerPreviewBubbleController> preview_controller_;
+
+  // Number of emoji search results displayed by the emoji bar. Used for
+  // accessibility announcements.
+  int num_emoji_results_displayed_ = 0;
 };
 
 }  // namespace ash

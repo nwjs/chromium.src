@@ -10,8 +10,6 @@
 
 #include "base/check.h"
 #include "base/containers/contains.h"
-#include "base/debug/crash_logging.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
@@ -35,7 +33,9 @@
 #include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
 #include "net/base/net_errors.h"
-#include "url/gurl.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/metrics/public/cpp/ukm_source.h"
 
 namespace fingerprinting_protection_filter {
 namespace {
@@ -96,8 +96,7 @@ ThrottleManager::~ThrottleManager() {
 std::unique_ptr<ThrottleManager> ThrottleManager::CreateForNewPage(
     VerifiedRulesetDealer::Handle* dealer_handle,
     FingerprintingProtectionWebContentsHelper& web_contents_helper) {
-  if (!base::FeatureList::IsEnabled(
-          features::kEnableFingerprintingProtectionFilter)) {
+  if (!features::IsFingerprintingProtectionFeatureEnabled()) {
     return nullptr;
   }
 
@@ -211,16 +210,6 @@ void ThrottleManager::DidFinishInFrameNavigation(
   if (!navigation_handle->HasCommitted() && !is_initial_navigation) {
     // TODO(https://crbug.com/40280666): Figure out how we can have a
     // navigation that is not the initial with no frame filter.
-    SCOPED_CRASH_KEY_STRING1024(
-        "crbug40280666", "navigation-url",
-        navigation_handle->GetURL().possibly_invalid_spec());
-    SCOPED_CRASH_KEY_STRING256(
-        "crbug40280666", "navigation-error-code",
-        net::ErrorToString(navigation_handle->GetNetErrorCode()));
-    SCOPED_CRASH_KEY_STRING1024(
-        "crbug40280666", "last-committed-url",
-        frame_host->GetLastCommittedURL().possibly_invalid_spec());
-    base::debug::DumpWithoutCrashing();
     return;
   }
 
@@ -230,9 +219,11 @@ void ThrottleManager::DidFinishInFrameNavigation(
 
   if (IsInSubresourceFilterRoot(navigation_handle)) {
     current_committed_load_has_notified_disallowed_load_ = false;
+    statistics_.reset();
     if (filter) {
-      // TODO(https://crbug.com/40280666): Add statistics when available in a
-      // shared SubresourceFilter directory.
+      statistics_ = std::make_unique<subresource_filter::PageLoadStatistics>(
+          filter->activation_state(),
+          kFingerprintingProtectionRulesetConfig.uma_tag);
       if (filter->activation_state().enable_logging) {
         CHECK(filter->activation_state().activation_level !=
               subresource_filter::mojom::ActivationLevel::kDisabled);
@@ -251,7 +242,10 @@ void ThrottleManager::DidFinishInFrameNavigation(
 
 void ThrottleManager::DidFinishLoad(content::RenderFrameHost* render_frame_host,
                                     const GURL& validated_url) {
-  // TODO(https://crbug.com/40280666): Add statistics when available.
+  if (!statistics_ || render_frame_host != &page_->GetMainDocument()) {
+    return;
+  }
+  statistics_->OnDidFinishLoad();
 }
 
 void ThrottleManager::DidBecomePrimaryPage() {
@@ -278,9 +272,12 @@ void ThrottleManager::OnPageCreated(content::Page& page) {
 // activation for that page load.
 void ThrottleManager::OnPageActivationComputed(
     content::NavigationHandle* navigation_handle,
-    const subresource_filter::mojom::ActivationState& activation_state) {
+    const subresource_filter::mojom::ActivationState& activation_state,
+    const subresource_filter::ActivationDecision& activation_decision) {
   CHECK(IsInSubresourceFilterRoot(navigation_handle));
   CHECK(!navigation_handle->HasCommitted());
+
+  page_activation_decision_ = activation_decision;
 
   ChildActivationThrottleHandle* throttle_handle =
       ChildActivationThrottleHandle::GetForNavigationHandle(*navigation_handle);
@@ -328,6 +325,28 @@ ThrottleManager::GetFrameActivationState(content::RenderFrameHost* frame_host) {
   return std::nullopt;
 }
 
+void ThrottleManager::LogActivationDecisionUkm(
+    content::NavigationHandle* navigation_handle) {
+  ukm::SourceId source_id = navigation_handle->GetNextPageUkmSourceId();
+  ukm::builders::FingerprintingProtection builder(source_id);
+
+  FilterHandle* filter_handle =
+      FilterHandle::GetForCurrentDocument(&page_->GetMainDocument());
+  if (!filter_handle) {
+    // Without any active filtering, no need to emit ukm.
+    return;
+  }
+  if (filter_handle->filter()->activation_state().activation_level ==
+      subresource_filter::mojom::ActivationLevel::kDryRun) {
+    DCHECK_EQ(subresource_filter::ActivationDecision::ACTIVATED,
+              page_activation_decision_);
+    builder.SetDryRun(true);
+  }
+  builder.SetActivationDecision(
+      static_cast<int64_t>(page_activation_decision_));
+  builder.Record(ukm::UkmRecorder::Get());
+}
+
 void ThrottleManager::MaybeNotifyOnBlockedResource(
     content::RenderFrameHost* frame_host) {
   CHECK(page_);
@@ -340,8 +359,14 @@ void ThrottleManager::MaybeNotifyOnBlockedResource(
   FilterHandle* filter_handle =
       FilterHandle::GetForCurrentDocument(&page_->GetMainDocument());
   if (!filter_handle ||
-      filter_handle->filter()->activation_state().activation_level !=
-          subresource_filter::mojom::ActivationLevel::kEnabled) {
+      filter_handle->filter()->activation_state().activation_level ==
+          subresource_filter::mojom::ActivationLevel::kDisabled) {
+    return;
+  }
+
+  if (!filter_handle ||
+      filter_handle->filter()->activation_state().activation_level ==
+          subresource_filter::mojom::ActivationLevel::kDryRun) {
     return;
   }
 
@@ -353,6 +378,11 @@ void ThrottleManager::MaybeNotifyOnBlockedResource(
   if (page_->IsPrimary()) {
     web_contents_helper_->NotifyOnBlockedResources();
   }
+}
+
+void ThrottleManager::NotifyDisallowLoadPolicy(
+    content::NavigationHandle* navigation_handle) {
+  LogActivationDecisionUkm(navigation_handle);
 }
 
 subresource_filter::mojom::ActivationState
@@ -396,8 +426,9 @@ void ThrottleManager::DidDisallowFirstSubresource() {
 
 void ThrottleManager::SetDocumentLoadStatistics(
     subresource_filter::mojom::DocumentLoadStatisticsPtr statistics) {
-  // TODO(https://crbug.com/40280666): Record a set of DocumentLoadStatistics
-  // in the PageLoadStatistics.
+  if (statistics_) {
+    statistics_->OnDocumentLoadStatistics(*statistics);
+  }
 }
 
 AsyncDocumentSubresourceFilter* ThrottleManager::FilterForFinishedNavigation(

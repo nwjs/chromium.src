@@ -7,6 +7,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "chrome/browser/ui/commerce/price_tracking_page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/commerce/price_insights_icon_view.h"
@@ -15,10 +16,10 @@
 #include "components/image_fetcher/core/request_metadata.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/browser/web_contents_user_data.h"
 #include "ui/gfx/image/image.h"
 
 class GURL;
+class SidePanelRegistry;
 class SidePanelUI;
 namespace bookmarks {
 class BookmarkModel;
@@ -44,10 +45,13 @@ class ProductSpecificationsPageActionController;
 
 // This tab helper is used to update and maintain the state of UI for commerce
 // features.
-class CommerceUiTabHelper
-    : public content::WebContentsObserver,
-      public content::WebContentsUserData<CommerceUiTabHelper> {
+class CommerceUiTabHelper : public content::WebContentsObserver {
  public:
+  CommerceUiTabHelper(content::WebContents* contents,
+                      ShoppingService* shopping_service,
+                      bookmarks::BookmarkModel* model,
+                      image_fetcher::ImageFetcher* image_fetcher,
+                      SidePanelRegistry* side_panel_registry);
   ~CommerceUiTabHelper() override;
   CommerceUiTabHelper(const CommerceUiTabHelper& other) = delete;
   CommerceUiTabHelper& operator=(const CommerceUiTabHelper& other) =
@@ -121,7 +125,9 @@ class CommerceUiTabHelper
   // A notification that the price tracking icon was clicked.
   void OnPriceTrackingIconClicked();
 
-  // A notification that the coupon code in the Discounts bubble is copied.
+  // TODO(b/355566609): Expose the DiscountsPageActionController getter instead
+  // of the discount related methods below.
+  //  A notification that the coupon code in the Discounts bubble is copied.
   void OnDiscountsCouponCodeCopied();
   // Return whether the coupon code is copied. This will reset the copied
   // status.
@@ -130,6 +136,7 @@ class CommerceUiTabHelper
   // |discount_id|.
   virtual bool ShouldAutoShowDiscountsBubble(uint64_t discount_id,
                                              bool is_merchant_wide);
+  void DiscountsBubbleShown(uint64_t discount_id);
 
   PriceTrackingPageActionController* GetPriceTrackingControllerForTesting();
 
@@ -137,17 +144,11 @@ class CommerceUiTabHelper
       std::unique_ptr<PriceTrackingPageActionController> controller);
 
  protected:
-  CommerceUiTabHelper(content::WebContents* contents,
-                          ShoppingService* shopping_service,
-                          bookmarks::BookmarkModel* model,
-                          image_fetcher::ImageFetcher* image_fetcher);
-
   const std::optional<bool>& GetPendingTrackingStateForTesting();
 
   virtual std::unique_ptr<views::View> CreateShoppingInsightsWebView();
 
  private:
-  friend class content::WebContentsUserData<CommerceUiTabHelper>;
   friend class CommerceUiTabHelperTest;
 
   void UpdateUiForShoppingServiceReady(ShoppingService* service);
@@ -158,8 +159,6 @@ class CommerceUiTabHelper
   void HandlePriceInsightsInfoResponse(
       const GURL& url,
       const std::optional<PriceInsightsInfo>& info);
-
-  void HandleDiscountsResponse(const DiscountsMap& map);
 
   void UpdateDiscountsIconView();
 
@@ -210,6 +209,7 @@ class CommerceUiTabHelper
   raw_ptr<ShoppingService, DanglingUntriaged> shopping_service_;
   raw_ptr<bookmarks::BookmarkModel> bookmark_model_;
   raw_ptr<image_fetcher::ImageFetcher> image_fetcher_;
+  raw_ptr<SidePanelRegistry> side_panel_registry_;
 
   std::unique_ptr<PriceTrackingPageActionController> price_tracking_controller_;
   std::unique_ptr<ProductSpecificationsPageActionController>
@@ -259,13 +259,13 @@ class CommerceUiTabHelper
   // track of which page action actually expanded.
   std::optional<PageActionIconType> page_action_expanded_;
 
+  base::TimeTicks page_action_icon_compute_start_time_;
+
   // The price insights icon label type for the current page load.
   PriceInsightsIconView::PriceInsightsIconLabelType price_insights_label_type_ =
       PriceInsightsIconView::PriceInsightsIconLabelType::kNone;
 
   base::WeakPtrFactory<CommerceUiTabHelper> weak_ptr_factory_{this};
-
-  WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
 
 }  // namespace commerce

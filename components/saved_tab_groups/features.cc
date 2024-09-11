@@ -32,10 +32,6 @@ BASE_FEATURE(kTabGroupSyncForceOff,
              "TabGroupSyncForceOff",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAndroidTabGroupStableIds,
-             "AndroidTabGroupStableIds",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Builds off of the original TabGroupsSave feature by making some UI tweaks and
 // adjustments. This flag controls the v2 update of sync, restore, dialog
 // triggering, extension support etc. b/325123353
@@ -47,7 +43,12 @@ BASE_FEATURE(kTabGroupsSaveV2,
 // and sync support for pinning saved tab groups.
 BASE_FEATURE(kTabGroupsSaveUIUpdate,
              "TabGroupsSaveUIUpdate",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // Feature flag specific to UNO. Controls how we handle tab groups on sign-out
 // and sync toggle. Can be defined independently for each platform.

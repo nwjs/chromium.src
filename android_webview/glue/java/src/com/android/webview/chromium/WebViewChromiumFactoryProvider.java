@@ -340,11 +340,17 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                         mWebViewPrefs.getBoolean(WEBVIEW_CONTEXT_EXPERIMENT_PREF, false)
                                 && Build.VERSION.SDK_INT <= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
             }
-            boolean webViewContextWasApplied = false;
 
-            if (sUseWebViewContext
-                    || CommandLine.getInstance()
-                            .hasSwitch(AwSwitches.WEBVIEW_USE_SEPARATE_RESOURCE_CONTEXT)) {
+            // Enable if the device is *not* a Samsung and any of the following are true:
+            // - We found a shared pref to enable the feature as part of an experiment.
+            // - The command line switch is enabled (overrides experiment value).
+            // - The app is one of Walton's launcher apps.
+            if (!"SAMSUNG".equalsIgnoreCase(Build.MANUFACTURER)
+                    && (sUseWebViewContext
+                            || CommandLine.getInstance()
+                                    .hasSwitch(AwSwitches.WEBVIEW_USE_SEPARATE_RESOURCE_CONTEXT)
+                            || "com.aurora.launcher".equals(ctx.getPackageName())
+                            || "com.qiku.android.launcher3".equals(ctx.getPackageName()))) {
                 try {
                     Context override =
                             ctx.createPackageContext(
@@ -360,18 +366,17 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                                                     packageInfo.packageName)
                                     & 0xff000000)
                             == 0x7f000000) {
-                        ClassLoaderContextWrapperFactory.setWebViewResourceOverrideContext(
-                                override, R.style.WebViewBaseTheme);
-                        webViewContextWasApplied = true;
-                    } else {
-                        Log.w(TAG, "Attempted to use WebView's context in standalone WebView.");
+                        ClassLoaderContextWrapperFactory.setOverrideInfo(
+                                packageInfo.packageName,
+                                R.style.WebViewBaseTheme,
+                                Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+                        // Use this to report the actual state of the feature at runtime.
+                        AwBrowserMainParts.setUseWebViewContext(true);
                     }
                 } catch (PackageManager.NameNotFoundException e) {
                     Log.e(TAG, "Could not get resource override context.");
                 }
             }
-            // Use this to report the actual state of the feature at runtime.
-            AwBrowserMainParts.setUseWebViewContext(webViewContextWasApplied);
 
             // WebView needs to make sure to always use the wrapped application context.
             ctx = ClassLoaderContextWrapperFactory.get(ctx);
@@ -461,6 +466,9 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
             ThreadUtils.setWillOverrideUiThread();
             BuildInfo.setBrowserPackageInfo(packageInfo);
+            // Trigger the creation of the BuildInfo singleton to avoid potential issues reading
+            // the command line if this happens on another thread.
+            BuildInfo.getInstance();
             AndroidXProcessGlobalConfig androidXConfig = AndroidXProcessGlobalConfig.getConfig();
             try (StrictModeContext ignored = StrictModeContext.allowDiskWrites()) {
                 try (ScopedSysTraceEvent e2 =

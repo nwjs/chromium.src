@@ -15,7 +15,6 @@
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
 
-class ChromeBrowserState;
 @protocol SyncPresenter;
 
 // Test fixture for SyncErrorInfobarBannerInteractionHandler.
@@ -23,7 +22,7 @@ class SyncErrorInfobarBannerInteractionHandlerTest : public PlatformTest {
  public:
   SyncErrorInfobarBannerInteractionHandlerTest() {
     TestChromeBrowserState::Builder builder;
-    chrome_browser_state_ = builder.Build();
+    chrome_browser_state_ = std::move(builder).Build();
 
     id presenter = OCMStrictProtocolMock(@protocol(SyncPresenter));
     infobar_ = std::make_unique<InfoBarIOS>(

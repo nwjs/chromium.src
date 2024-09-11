@@ -63,6 +63,9 @@ namespace internal {
 const char kAbandonedPageLoadMetricsHistogramPrefix[] =
     "PageLoad.Clients.Leakage2.";
 
+const char kMilestoneToAbandon[] = "ToAbandon";
+const char kLastMilestoneBeforeAbandon[] = "LastMilestoneBeforeAbandon";
+
 const char kAbandonReasonNewReloadNavigation[] = "NewReloadNavigation";
 const char kAbandonReasonNewHistoryNavigation[] = "NewHistoryNavigation";
 const char kAbandonReasonNewOtherNavigationBrowserInitiated[] =
@@ -103,8 +106,13 @@ const char kFirstContentfulPaint[] = "FirstContentfulPaint";
 const char kDOMContentLoaded[] = "DOMContentLoaded";
 const char kLoadEventStarted[] = "LoadStarted";
 const char kLargestContentfulPaint[] = "LargestContentfulPaint";
+
 const char kAFTStart[] = "AFTStart";
 const char kAFTEnd[] = "AFTEnd";
+const char kHeaderChunkStart[] = "HeaderChunkStart";
+const char kHeaderChunkEnd[] = "HeaderChunkEnd";
+const char kBodyChunkStart[] = "BodyChunkStart";
+const char kBodyChunkEnd[] = "BodyChunkEnd";
 
 const char kRendererProcessCreatedBeforeNavHistogramName[] =
     "RendererProcessCreatedBeforeNav";
@@ -189,6 +197,14 @@ std::string AbandonedPageLoadMetricsObserver::NavigationMilestoneToString(
       return internal::kAFTStart;
     case NavigationMilestone::kAFTEnd:
       return internal::kAFTEnd;
+    case NavigationMilestone::kHeaderChunkStart:
+      return internal::kHeaderChunkStart;
+    case NavigationMilestone::kHeaderChunkEnd:
+      return internal::kHeaderChunkEnd;
+    case NavigationMilestone::kBodyChunkStart:
+      return internal::kBodyChunkStart;
+    case NavigationMilestone::kBodyChunkEnd:
+      return internal::kBodyChunkEnd;
   }
 }
 
@@ -259,10 +275,13 @@ std::string AbandonedPageLoadMetricsObserver::
     GetMilestoneToAbandonHistogramNameWithoutPrefixSuffix(
         NavigationMilestone milestone,
         std::optional<AbandonReason> abandon_reason) {
-  return NavigationMilestoneToString(milestone) + "ToAbandon." +
-         (abandon_reason.has_value()
-              ? AbandonReasonToString(abandon_reason.value())
-              : "");
+  const std::string milestone_to_abandon =
+      NavigationMilestoneToString(milestone) + internal::kMilestoneToAbandon;
+  if (abandon_reason.has_value()) {
+    return milestone_to_abandon + "." +
+           AbandonReasonToString(abandon_reason.value());
+  }
+  return milestone_to_abandon;
 }
 
 std::string AbandonedPageLoadMetricsObserver::
@@ -275,10 +294,11 @@ std::string AbandonedPageLoadMetricsObserver::
 std::string AbandonedPageLoadMetricsObserver::
     GetLastMilestoneBeforeAbandonHistogramNameWithoutPrefixSuffix(
         std::optional<AbandonReason> abandon_reason) {
-  return std::string("LastMilestoneBeforeAbandon.") +
-         (abandon_reason.has_value()
-              ? AbandonReasonToString(abandon_reason.value())
-              : "");
+  if (abandon_reason.has_value()) {
+    return std::string(internal::kLastMilestoneBeforeAbandon) + "." +
+           AbandonReasonToString(abandon_reason.value());
+  }
+  return internal::kLastMilestoneBeforeAbandon;
 }
 
 std::string
@@ -326,7 +346,12 @@ void AbandonedPageLoadMetricsObserver::LogAbandonHistograms(
                 milestone, abandon_reason) +
             suffix,
         event_time - relative_start_time);
-    std::string milestone_string = NavigationMilestoneToString(milestone);
+    PAGE_LOAD_HISTOGRAM(
+        GetHistogramPrefix() +
+            GetMilestoneToAbandonHistogramNameWithoutPrefixSuffix(
+                milestone, std::nullopt) +
+            suffix,
+        event_time - relative_start_time);
     base::UmaHistogramEnumeration(
         GetHistogramPrefix() +
             GetAbandonReasonAtMilestoneHistogramNameWithoutPrefixSuffix(
@@ -337,6 +362,12 @@ void AbandonedPageLoadMetricsObserver::LogAbandonHistograms(
         GetHistogramPrefix() +
             GetLastMilestoneBeforeAbandonHistogramNameWithoutPrefixSuffix(
                 abandon_reason) +
+            suffix,
+        milestone);
+    base::UmaHistogramEnumeration(
+        GetHistogramPrefix() +
+            GetLastMilestoneBeforeAbandonHistogramNameWithoutPrefixSuffix(
+                std::nullopt) +
             suffix,
         milestone);
   }

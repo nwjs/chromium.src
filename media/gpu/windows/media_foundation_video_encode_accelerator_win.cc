@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "media/gpu/windows/media_foundation_video_encode_accelerator_win.h"
 
 #include <objbase.h>
@@ -270,6 +275,14 @@ int GetMaxTemporalLayerVendorLimit(
     return 1;
   }
 
+  // Intel drivers with issues of dynamically changing bitrate at CBR mode for
+  // HEVC should be blocked from L1T3 encoding, as there is no SW BRC support
+  // for that at present.
+  if (codec == VideoCodec::kHEVC && vendor == DriverVendor::kIntel &&
+      workarounds.disable_hevc_hmft_cbr_encoding) {
+    return 2;
+  }
+
   // Temporal layer encoding is disabled for VP9 unless a flag is enabled.
   //
   // For example, the Intel VP9 HW encoder reports supporting 3 temporal layers
@@ -403,7 +416,7 @@ std::vector<IMFActivate*> EnumerateHardwareEncodersLegacy(VideoCodec codec) {
       continue;
     }
 
-    if (desc.VendorId == 0x1414) {
+    if (desc.VendorId == 0x1414 && desc.DeviceId == 0x8c) {
       // Skip MS software adapters.
       --num_adapters;
     } else {
@@ -891,9 +904,10 @@ bool MediaFoundationVideoEncodeAccelerator::Initialize(
   if (use_sw_brc &&
       (codec_ == VideoCodec::kVP9
 #if BUILDFLAG(ENABLE_PLATFORM_HEVC)
-       || (codec_ == VideoCodec::kHEVC &&
-           base::FeatureList::IsEnabled(kMediaFoundationUseSWBRCForH265) &&
-           num_temporal_layers_ <= 2)
+       || (codec_ == VideoCodec::kHEVC && num_temporal_layers_ <= 2 &&
+           ((vendor_ == DriverVendor::kIntel &&
+             workarounds_.disable_hevc_hmft_cbr_encoding) ||
+            base::FeatureList::IsEnabled(kMediaFoundationUseSWBRCForH265)))
 #endif  // BUILDFLAG(ENABLE_PLATFORM_HEVC)
 #if BUILDFLAG(ENABLE_LIBAOM)
        || codec_ == VideoCodec::kAV1
@@ -2480,6 +2494,11 @@ void MediaFoundationVideoEncodeAccelerator::MediaEventHandler(
         // the Flush() has finished.
         SetState(kPostFlushing);
       }
+      break;
+    }
+    case MEError: {
+      NotifyErrorStatus({EncoderStatus::Codes::kEncoderHardwareDriverError,
+                         "Media Foundation encountered a critical failure."});
       break;
     }
     default:

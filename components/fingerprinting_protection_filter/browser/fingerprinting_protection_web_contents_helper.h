@@ -28,6 +28,7 @@ namespace subresource_filter {
 namespace mojom {
 class ActivationState;
 }  // namespace mojom
+enum class ActivationDecision;
 enum class LoadPolicy;
 }  // namespace subresource_filter
 
@@ -48,7 +49,8 @@ class FingerprintingProtectionWebContentsHelper
       content::WebContents* web_contents,
       PrefService* pref_service,
       privacy_sandbox::TrackingProtectionSettings* tracking_protection_settings,
-      subresource_filter::VerifiedRulesetDealer::Handle* dealer_handle);
+      subresource_filter::VerifiedRulesetDealer::Handle* dealer_handle,
+      bool is_incognito);
 
   FingerprintingProtectionWebContentsHelper(
       const FingerprintingProtectionWebContentsHelper&) = delete;
@@ -69,7 +71,8 @@ class FingerprintingProtectionWebContentsHelper
   // throttles created in MaybeAppendNavigationThrottles().
   void NotifyPageActivationComputed(
       content::NavigationHandle* navigation_handle,
-      const subresource_filter::mojom::ActivationState& activation_state);
+      const subresource_filter::mojom::ActivationState& activation_state,
+      const subresource_filter::ActivationDecision& activation_decision);
 
   // Called in WillStartRequest or WillRedirectRequest stage from a
   // ChildFrameNavigationFilteringThrottle.
@@ -99,6 +102,7 @@ class FingerprintingProtectionWebContentsHelper
       content::NavigationHandle* navigation_handle) override;
   void DidFinishLoad(content::RenderFrameHost* render_frame_host,
                      const GURL& validated_url) override;
+  void WebContentsDestroyed() override;
 
  private:
   explicit FingerprintingProtectionWebContentsHelper(
@@ -106,6 +110,8 @@ class FingerprintingProtectionWebContentsHelper
       PrefService* pref_service,
       privacy_sandbox::TrackingProtectionSettings* tracking_protection_settings,
       subresource_filter::VerifiedRulesetDealer::Handle* dealer_handle);
+
+  void Detach();
 
   friend class content::WebContentsUserData<
       FingerprintingProtectionWebContentsHelper>;
@@ -120,6 +126,9 @@ class FingerprintingProtectionWebContentsHelper
   base::flat_set<raw_ptr<ThrottleManager, CtnExperimental>> throttle_managers_;
 
   bool is_subresource_blocked_ = false;
+
+  // Tracks refreshes observed.
+  int refresh_count_ = 0;
 
   base::ObserverList<FingerprintingProtectionObserver>::Unchecked
       observer_list_;

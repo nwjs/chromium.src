@@ -23,14 +23,12 @@ import {
   usePlatformHandler,
   useRecordingDataManager,
 } from '../core/lit/context.js';
-import {ModelId} from '../core/on_device_model/types.js';
 import {
   ReactiveLitElement,
   ScopedAsyncComputed,
 } from '../core/reactive/lit.js';
 import {computed, signal} from '../core/reactive/signal.js';
 import {RecordingMetadata} from '../core/recording_data_manager.js';
-import {concatTextTokens} from '../core/soda/soda.js';
 import {settings, SummaryEnableState} from '../core/state/settings.js';
 import {assertInstanceof} from '../core/utils/assert.js';
 
@@ -64,7 +62,7 @@ export class RecordingTitle extends ReactiveLitElement {
       anchor-name: --title;
       border-radius: 12px;
       box-sizing: border-box;
-      font: var(--cros-button-1-font);
+      font: var(--cros-headline-1-font);
       overflow: hidden;
       padding: 8px 16px;
       text-overflow: ellipsis;
@@ -102,24 +100,21 @@ export class RecordingTitle extends ReactiveLitElement {
 
   private readonly platformHandler = usePlatformHandler();
 
-  private readonly textTokens = new ScopedAsyncComputed(this, async () => {
+  private readonly transcription = new ScopedAsyncComputed(this, async () => {
     if (this.recordingMetadataSignal.value === null) {
       return null;
     }
-    const {textTokens} = await this.recordingDataManager.getTranscription(
+    return this.recordingDataManager.getTranscription(
       this.recordingMetadataSignal.value.id,
     );
-    return textTokens;
   });
 
   private readonly shouldShowTitleSuggestion = computed(() => {
-    const modelState = this.platformHandler.getModelState(
-      ModelId.GEMINI_XXS_IT_BASE,
-    );
+    const modelState = this.platformHandler.titleSuggestionModelLoader.state;
     return (
       modelState.value.kind === 'installed' &&
       settings.value.summaryEnabled === SummaryEnableState.ENABLED &&
-      this.textTokens.value !== null && this.textTokens.value.length > 0
+      this.transcription.value !== null && !this.transcription.value.isEmpty()
     );
   });
 
@@ -130,15 +125,15 @@ export class RecordingTitle extends ReactiveLitElement {
         !this.shouldShowTitleSuggestion.value) {
       return null;
     }
-    if (this.textTokens.value === null) {
+    if (this.transcription.value === null) {
       return null;
     }
-    const text = concatTextTokens(this.textTokens.value);
-    const model = await this.platformHandler.loadModel(
-      ModelId.GEMINI_XXS_IT_BASE,
-    );
+    // TODO(pihsun): Have a specific format for transcription to be used as
+    // model input.
+    const text = this.transcription.value.toPlainText();
+    const model = await this.platformHandler.titleSuggestionModelLoader.load();
     try {
-      return await model.suggestTitles(text);
+      return await model.execute(text);
       // TODO(pihsun): Handle error.
     } finally {
       model.close();

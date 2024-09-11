@@ -311,11 +311,15 @@ AutofillProfile CreateStarterProfile(
 
 }  // namespace
 
-
 AutofillProfile::AutofillProfile(const std::string& guid,
                                  Source source,
                                  AddressCountryCode country_code)
-    : guid_(guid),
+    : AutofillDataModel(/*usage_history_size=*/
+                        base::FeatureList::IsEnabled(
+                            features::kAutofillTrackMultipleUseDates)
+                            ? 3
+                            : 1),
+      guid_(guid),
       phone_number_(this),
       address_(country_code),
       source_(source),
@@ -346,7 +350,9 @@ AutofillProfile& AutofillProfile::operator=(const AutofillProfile& profile) {
     return *this;
 
   set_use_count(profile.use_count());
-  set_use_date(profile.use_date());
+  for (size_t i = 1; i <= usage_history_size(); i++) {
+    set_use_date(profile.use_date(i), i);
+  }
   set_modification_date(profile.modification_date());
 
   set_guid(profile.guid());
@@ -444,9 +450,11 @@ AutofillProfile AutofillProfile::CreateFromJavaObject(
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
-double AutofillProfile::GetRankingScore(base::Time current_time) const {
+double AutofillProfile::GetRankingScore(base::Time current_time,
+                                        bool use_frecency) const {
   if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableRankingFormulaAddressProfiles)) {
+          features::kAutofillEnableRankingFormulaAddressProfiles) &&
+      !use_frecency) {
     // Exponentially decay the use count by the days since the data model was
     // last used.
     return log10(use_count() + 1) *
@@ -456,6 +464,16 @@ double AutofillProfile::GetRankingScore(base::Time current_time) const {
   }
   // Default to legacy frecency scoring.
   return AutofillDataModel::GetRankingScore(current_time);
+}
+
+bool AutofillProfile::HasGreaterRankingThan(const AutofillProfile* other,
+                                            base::Time comparison_time,
+                                            bool use_frecency) const {
+  const double score = GetRankingScore(comparison_time, use_frecency);
+  const double other_score =
+      other->GetRankingScore(comparison_time, use_frecency);
+  return AutofillDataModel::CompareRankingScores(score, other_score,
+                                                 other->use_date());
 }
 
 void AutofillProfile::GetMatchingTypes(const std::u16string& text,
@@ -626,12 +644,6 @@ bool AutofillProfile::EqualsForUpdatePurposes(
          Compare(new_profile) == 0;
 }
 
-bool AutofillProfile::EqualsIncludingUsageStatsForTesting(
-    const AutofillProfile& profile) const {
-  return use_count() == profile.use_count() &&
-         UseDateEqualsInSeconds(&profile) && *this == profile;
-}
-
 bool AutofillProfile::operator==(const AutofillProfile& profile) const {
   return guid() == profile.guid() && EqualsSansGuid(profile);
 }
@@ -710,9 +722,7 @@ bool AutofillProfile::IsStrictSupersetOf(
 }
 
 AddressCountryCode AutofillProfile::GetAddressCountryCode() const {
-  std::string country_code =
-      base::UTF16ToUTF8(GetRawInfo(ADDRESS_HOME_COUNTRY));
-  return AddressCountryCode(country_code);
+  return GetAddress().GetAddressCountryCode();
 }
 
 void AutofillProfile::OverwriteDataFromForLegacySync(
@@ -792,7 +802,7 @@ bool AutofillProfile::MergeDataFrom(const AutofillProfile& profile,
   // a similar, fully-typed submission that merges to an existing profile should
   // not be counted as a re-use of that profile.
   set_use_count(std::max(profile.use_count(), use_count()));
-  set_use_date(std::max(profile.use_date(), use_date()));
+  MergeUseDates(profile);
 
   // Update the fields which need to be modified, if any. Note: that we're
   // comparing the fields for representational equality below (i.e., are the
@@ -1015,7 +1025,7 @@ std::u16string AutofillProfile::ConstructInferredLabel(
 void AutofillProfile::RecordAndLogUse() {
   const base::Time now = AutofillClock::Now();
   const base::TimeDelta time_since_last_used = now - use_date();
-  set_use_date(now);
+  RecordUseDate(now);
   // Ensure that use counts are not skewed by multiple filling operations of the
   // form. This is especially important for forms fully annotated with
   // autocomplete=unrecognized. For such forms, keyboard accessory chips only
@@ -1287,9 +1297,9 @@ AutofillType AutofillProfile::GetFillingType(AutofillType field_type) const {
     case FieldTypeGroup::kUnfillable:
     case FieldTypeGroup::kIban:
     case FieldTypeGroup::kStandaloneCvcField:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 }  // namespace autofill

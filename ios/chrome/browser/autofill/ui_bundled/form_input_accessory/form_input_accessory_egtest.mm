@@ -11,12 +11,13 @@
 #import "components/password_manager/core/browser/features/password_features.h"
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/sync/service/sync_prefs.h"
-#import "ios/chrome/browser/passwords/model/password_manager_app_interface.h"
-#import "ios/chrome/browser/passwords/ui_bundled/bottom_sheet/password_suggestion_bottom_sheet_app_interface.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/form_input_accessory/form_input_accessory_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
+#import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
+#import "ios/chrome/browser/passwords/model/password_manager_app_interface.h"
+#import "ios/chrome/browser/passwords/ui_bundled/bottom_sheet/password_suggestion_bottom_sheet_app_interface.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/common/ui/elements/form_input_accessory_view.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
@@ -29,6 +30,10 @@
 #import "net/test/embedded_test_server/default_handlers.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
+
+using chrome_test_util::ManualFallbackFormSuggestionViewMatcher;
+
+namespace {
 
 constexpr char kFormUsername[] = "un";
 constexpr char kFormPassword[] = "pw";
@@ -46,6 +51,81 @@ constexpr char kFormAddress[] = "form_address";
 constexpr char kFormCity[] = "form_city";
 constexpr char kFormState[] = "form_state";
 constexpr char kFormZip[] = "form_zip";
+
+constexpr NSString* kExampleUsername = @"user";
+
+// Matcher for the autofill password suggestion chip in the keyboard accessory.
+id<GREYMatcher> KeyboardAccessoryPasswordSuggestion() {
+  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    return grey_allOf(grey_text(kExampleUsername),
+                      grey_ancestor(grey_accessibilityID(
+                          kFormInputAccessoryViewAccessibilityID)),
+                      nil);
+  }
+
+  return grey_accessibilityLabel(
+      [NSString stringWithFormat:@"%@ ••••••••", kExampleUsername]);
+}
+
+// Verifies that the number of accepted address suggestions recorded for the
+// given `suggestion_index` is as expected.
+void CheckAddressAutofillSuggestionAcceptedIndexMetricsCount(
+    NSInteger suggestion_index) {
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:suggestion_index
+                         forHistogram:
+                             @"Autofill.SuggestionAcceptedIndex.Profile"],
+      @"Unexpected histogram count for accepted address suggestion index.");
+
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:suggestion_index
+                         forHistogram:@"Autofill.UserAcceptedSuggestionAtIndex."
+                                      @"Address.KeyboardAccessory"],
+      @"Unexpected histogram count for keyboard accessory accepted address "
+      @"suggestion index.");
+}
+
+// Verifies that the number of accepted card suggestions recorded for the given
+// `suggestion_index` is as expected.
+void CheckCardAutofillSuggestionAcceptedIndexMetricsCount(
+    NSInteger suggestion_index) {
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:suggestion_index
+                         forHistogram:
+                             @"Autofill.SuggestionAcceptedIndex.CreditCard"],
+      @"Unexpected histogram count for accepted card suggestion index.");
+
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:suggestion_index
+                         forHistogram:@"Autofill.UserAcceptedSuggestionAtIndex."
+                                      @"CreditCard.KeyboardAccessory"],
+      @"Unexpected histogram count for keyboard accessory accepted card "
+      @"suggestion index.");
+}
+
+// Verifies that the number of accepted password suggestions recorded for the
+// given `suggestion_index` is as expected.
+void CheckPasswordAutofillSuggestionAcceptedIndexMetricsCount(
+    NSInteger suggestion_index) {
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:suggestion_index
+                         forHistogram:@"Autofill.UserAcceptedSuggestionAtIndex."
+                                      @"Password.KeyboardAccessory"],
+      @"Unexpected histogram count for keyboard accessory accepted password "
+      @"suggestion index.");
+}
+
+}  // namespace
 
 @interface FormInputAccessoryEGTest : WebHttpServerChromeTestCase
 @end
@@ -65,6 +145,11 @@ constexpr char kFormZip[] = "form_zip";
   // Make sure an address suggestion is available.
   [AutofillAppInterface clearProfilesStore];
   [AutofillAppInterface saveExampleProfile];
+
+  // Set up histogram tester.
+  GREYAssertNil([MetricsAppInterface setupHistogramTester],
+                @"Cannot setup histogram tester.");
+  [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
 }
 
 - (void)tearDown {
@@ -72,6 +157,11 @@ constexpr char kFormZip[] = "form_zip";
   [AutofillAppInterface clearProfilesStore];
   GREYAssertTrue([PasswordManagerAppInterface clearCredentials],
                  @"Clearing credentials wasn't done.");
+
+  // Clean up histogram tester.
+  [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
+  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
+                @"Failed to release histogram tester.");
   [super tearDown];
 }
 
@@ -218,7 +308,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
   [FormInputAccessoryAppInterface mockReauthenticationModuleExpectedResult:
                                       ReauthenticationResult::kSuccess];
 
-  NSString* username = @"user";
+  NSString* username = kExampleUsername;
   NSString* password = @"password";
   [PasswordManagerAppInterface
       storeCredentialWithUsername:username
@@ -229,13 +319,18 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:chrome_test_util::TapWebElementWithId(kFormPassword)];
 
-  id<GREYMatcher> user_chip = grey_accessibilityLabel(@"user ••••••••");
+  id<GREYMatcher> user_chip = KeyboardAccessoryPasswordSuggestion();
 
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:user_chip];
 
   [[EarlGrey selectElementWithMatcher:user_chip] performAction:grey_tap()];
 
   [self verifyFieldsHaveBeenFilledWithUsername:username password:password];
+
+  // Verify that the acceptance of the password suggestion at index 0 was
+  // correctly recorded.
+  CheckPasswordAutofillSuggestionAcceptedIndexMetricsCount(
+      /*suggestion_index=*/0);
 
   [FormInputAccessoryAppInterface removeMockReauthenticationModule];
 }
@@ -250,7 +345,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
   [FormInputAccessoryAppInterface mockReauthenticationModuleExpectedResult:
                                       ReauthenticationResult::kSuccess];
 
-  NSString* username = @"user";
+  NSString* username = kExampleUsername;
   NSString* password = @"password";
   [PasswordManagerAppInterface
       storeCredentialWithUsername:username
@@ -262,7 +357,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
       performAction:chrome_test_util::TapWebElementWithId(
                         kSigninUffFormUsername)];
 
-  id<GREYMatcher> user_chip = grey_accessibilityLabel(@"user ••••••••");
+  id<GREYMatcher> user_chip = KeyboardAccessoryPasswordSuggestion();
 
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:user_chip];
 
@@ -283,7 +378,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
   [FormInputAccessoryAppInterface mockReauthenticationModuleExpectedResult:
                                       ReauthenticationResult::kSuccess];
 
-  NSString* username = @"user";
+  NSString* username = kExampleUsername;
   NSString* password = @"password";
   [PasswordManagerAppInterface
       storeCredentialWithUsername:username
@@ -295,7 +390,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
       performAction:chrome_test_util::TapWebElementWithId(
                         kSigninUffFormPassword)];
 
-  id<GREYMatcher> user_chip = grey_accessibilityLabel(@"user ••••••••");
+  id<GREYMatcher> user_chip = KeyboardAccessoryPasswordSuggestion();
 
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:user_chip];
 
@@ -307,13 +402,15 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
 }
 
 // Tests that tapping on a credit card related field opens the keyboard
-// accessory with the proper suggestion visible and that tapping on that
+// accessory with the proper suggestions visible and that tapping on a
 // suggestion properly fills the related fields on the form.
 - (void)testFillCreditCardFieldsOnForm {
   [AutofillAppInterface setUpMockReauthenticationModule];
   [AutofillAppInterface mockReauthenticationModuleCanAttempt:YES];
   [AutofillAppInterface mockReauthenticationModuleExpectedResult:
                             ReauthenticationResult::kSuccess];
+
+  [AutofillAppInterface saveMaskedCreditCard];
 
   [self loadPaymentsPage];
 
@@ -331,15 +428,25 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
 
   autofill::CreditCard card = autofill::test::GetCreditCard();
 
+  // Wait for the keyboard accessory to appear.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
+                      ManualFallbackFormSuggestionViewMatcher()];
+
+  // Scroll to the right of the keyboard accessory so that the second card
+  // suggestion is visible.
+  [[EarlGrey selectElementWithMatcher:ManualFallbackFormSuggestionViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeRight)];
+
   id<GREYMatcher> cc_chip = grey_text(base::SysUTF16ToNSString(card.GetInfo(
       autofill::CREDIT_CARD_NAME_FULL, l10n_util::GetLocaleOverride())));
-
-  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:cc_chip];
-
   [[EarlGrey selectElementWithMatcher:cc_chip] performAction:grey_tap()];
 
   // Verify that the page is filled properly.
   [self verifyCreditCardInfosHaveBeenFilled:card];
+
+  // Verify that the acceptance of the card suggestion at index 1 was correctly
+  // recorded.
+  CheckCardAutofillSuggestionAcceptedIndexMetricsCount(/*suggestion_index=*/1);
 
   [AutofillAppInterface clearMockReauthenticationModule];
 }
@@ -364,6 +471,11 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
 
   // Verify that the page is filled properly.
   [self verifyAddressInfosHaveBeenFilled:profile];
+
+  // Verify that the acceptance of the address suggestion at index 0 was
+  // correctly recorded.
+  CheckAddressAutofillSuggestionAcceptedIndexMetricsCount(
+      /*suggestion_index=*/0);
 }
 
 // Tests that the manual fill button opens the expanded manual fill view.

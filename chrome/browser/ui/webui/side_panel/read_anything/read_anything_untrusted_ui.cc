@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_ui.h"
 
 #include <string>
@@ -23,7 +28,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
-#include "read_anything_untrusted_ui.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/resources/grit/webui_resources.h"
@@ -70,8 +74,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"letterSpacingVeryWideTitle",
        IDS_READING_MODE_SPACING_COMBOBOX_VERY_WIDE},
       {"playDescription", IDS_READING_MODE_PLAY_DESCRIPTION},
-      {"playLabel", IDS_READING_MODE_PLAY_SPEECH},
-      {"pauseLabel", IDS_READING_MODE_PAUSE_SPEECH},
+      {"playAriaLabel", IDS_READING_MODE_PLAY_SPEECH},
       {"stopLabel", IDS_READING_MODE_STOP_SPEECH},
       {"playTooltip", IDS_READING_MODE_PLAY_TOOLTIP},
       {"previewTooltip", IDS_READING_MODE_PREVIEW_TOOLTIP},

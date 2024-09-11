@@ -43,6 +43,7 @@
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/policy_generator.h"
@@ -581,10 +582,13 @@ class CleanupOrphanedBundlesTest
   void SimulateOrphanedBundle(Profile* profile,
                               const std::string& bundle_directory) {
     base::ScopedAllowBlockingForTesting allow_blocking;
-    ASSERT_TRUE(base::CreateDirectory(CHECK_DEREF(profile)
-                                          .GetPath()
-                                          .Append(kIwaDirName)
-                                          .Append(bundle_directory)));
+    auto base_path = CHECK_DEREF(profile)
+                         .GetPath()
+                         .Append(kIwaDirName)
+                         .Append(bundle_directory);
+    ASSERT_TRUE(base::CreateDirectory(base_path));
+    ASSERT_TRUE(
+        base::WriteFile(base_path.Append("main.swbn"), "Sample content"));
   }
 
   bool CheckBundleDirectoryExists(Profile* profile,

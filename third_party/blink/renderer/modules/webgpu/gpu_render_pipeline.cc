@@ -132,29 +132,21 @@ wgpu::StencilFaceState AsDawnType(const GPUStencilFaceState* webgpu_desc) {
   return dawn_desc;
 }
 
-void GPUPrimitiveStateAsWGPUPrimitiveState(
-    const GPUPrimitiveState* webgpu_desc, OwnedPrimitiveState* dawn_state) {
+wgpu::PrimitiveState AsDawnType(const GPUPrimitiveState* webgpu_desc) {
   DCHECK(webgpu_desc);
-  DCHECK(dawn_state);
 
-  dawn_state->dawn_desc.nextInChain = nullptr;
-  dawn_state->dawn_desc.topology = AsDawnEnum(webgpu_desc->topology());
+  wgpu::PrimitiveState dawn_desc = {};
+  dawn_desc.topology = AsDawnEnum(webgpu_desc->topology());
+
   if (webgpu_desc->hasStripIndexFormat()) {
-    dawn_state->dawn_desc.stripIndexFormat =
-        AsDawnEnum(webgpu_desc->stripIndexFormat());
+    dawn_desc.stripIndexFormat = AsDawnEnum(webgpu_desc->stripIndexFormat());
   }
-  dawn_state->dawn_desc.frontFace = AsDawnEnum(webgpu_desc->frontFace());
-  dawn_state->dawn_desc.cullMode = AsDawnEnum(webgpu_desc->cullMode());
 
-#ifdef WGPU_BREAKING_CHANGE_DEPTH_CLIP_CONTROL
-  dawn_state->dawn_desc.unclippedDepth = webgpu_desc->unclippedDepth();
-#else
-  if (webgpu_desc->unclippedDepth()) {
-    auto* depth_clip_control = &dawn_state->depth_clip_control;
-    depth_clip_control->unclippedDepth = webgpu_desc->unclippedDepth();
-    dawn_state->dawn_desc.nextInChain = depth_clip_control;
-  }
-#endif
+  dawn_desc.frontFace = AsDawnEnum(webgpu_desc->frontFace());
+  dawn_desc.cullMode = AsDawnEnum(webgpu_desc->cullMode());
+  dawn_desc.unclippedDepth = webgpu_desc->unclippedDepth();
+
+  return dawn_desc;
 }
 
 void GPUDepthStencilStateAsWGPUDepthStencilState(
@@ -174,6 +166,15 @@ void GPUDepthStencilStateAsWGPUDepthStencilState(
   dawn_state->dawn_desc.nextInChain = nullptr;
   dawn_state->dawn_desc.format = AsDawnEnum(webgpu_desc->format());
 
+#ifdef WGPU_BREAKING_CHANGE_DEPTH_WRITE_ENABLED
+  wgpu::OptionalBool depthWriteEnabled = wgpu::OptionalBool::Undefined;
+  if (webgpu_desc->hasDepthWriteEnabled()) {
+    depthWriteEnabled = webgpu_desc->depthWriteEnabled()
+                            ? wgpu::OptionalBool::True
+                            : wgpu::OptionalBool::False;
+  }
+  dawn_state->dawn_desc.depthWriteEnabled = depthWriteEnabled;
+#else
   // This extension struct is required so that the Dawn C API can differentiate
   // whether depthWriteEnabled was provided or not. The Dawn C API will assume
   // the boolean is defined, unless the extension struct is added and
@@ -183,6 +184,7 @@ void GPUDepthStencilStateAsWGPUDepthStencilState(
   dawn_state->dawn_desc.nextInChain = depth_write_defined;
   dawn_state->dawn_desc.depthWriteEnabled =
       webgpu_desc->hasDepthWriteEnabled() && webgpu_desc->depthWriteEnabled();
+#endif
 
   wgpu::CompareFunction depthCompare = wgpu::CompareFunction::Undefined;
   if (webgpu_desc->hasDepthCompare()) {
@@ -401,9 +403,7 @@ void ConvertToDawnType(v8::Isolate* isolate,
   GPUVertexStateAsWGPUVertexState(device, vertex, dawn_vertex);
 
   // Primitive
-  GPUPrimitiveStateAsWGPUPrimitiveState(
-      webgpu_desc->primitive(), &dawn_desc_info->primitive);
-  dawn_desc_info->dawn_desc.primitive = dawn_desc_info->primitive.dawn_desc;
+  dawn_desc_info->dawn_desc.primitive = AsDawnType(webgpu_desc->primitive());
 
   // DepthStencil
   if (webgpu_desc->hasDepthStencil()) {
@@ -436,9 +436,8 @@ GPURenderPipeline* GPURenderPipeline::Create(
   DCHECK(webgpu_desc);
 
   v8::Isolate* isolate = script_state->GetIsolate();
-  ExceptionState exception_state(
-      isolate, ExceptionContextType::kConstructorOperationInvoke,
-      "GPURenderPipeline");
+  ExceptionState exception_state(isolate, v8::ExceptionContext::kConstructor,
+                                 "GPURenderPipeline");
 
   GPURenderPipeline* pipeline;
   OwnedRenderPipelineDescriptor dawn_desc_info;

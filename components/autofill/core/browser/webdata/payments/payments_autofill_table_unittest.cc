@@ -19,23 +19,22 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/autofill_type.h"
-#include "components/autofill/core/browser/data_model/autofill_metadata.h"
 #include "components/autofill/core/browser/data_model/autofill_offer_data.h"
 #include "components/autofill/core/browser/data_model/autofill_wallet_usage_data.h"
 #include "components/autofill/core/browser/data_model/bank_account.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/data_model/credit_card_benefit_test_api.h"
 #include "components/autofill/core/browser/data_model/credit_card_cloud_token_data.h"
+#include "components/autofill/core/browser/data_model/payments_metadata.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
-#include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/browser/webdata/autofill_change.h"
-#include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
@@ -97,6 +96,8 @@ class PaymentsAutofillTableTest : public testing::Test {
 
   base::FilePath file_;
   base::ScopedTempDir temp_dir_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   std::unique_ptr<PaymentsAutofillTable> table_;
   std::unique_ptr<WebDatabase> db_;
 };
@@ -180,7 +181,7 @@ TEST_F(PaymentsAutofillTableTest, MaskedServerIban) {
   EXPECT_THAT(ibans, UnorderedElementsAre(*masked_server_ibans[0],
                                           *masked_server_ibans[1],
                                           *masked_server_ibans[2]));
-  std::vector<AutofillMetadata> outputs;
+  std::vector<PaymentsMetadata> outputs;
   ASSERT_TRUE(table_->GetServerIbansMetadata(outputs));
   ASSERT_FALSE(outputs.empty());
   EXPECT_EQ(iban_0.use_date(), outputs[0].use_date);
@@ -214,9 +215,9 @@ TEST_F(PaymentsAutofillTableTest, CreditCard) {
   work_creditcard.SetNickname(u"Corporate card");
   work_creditcard.set_cvc(u"123");
 
-  Time pre_creation_time = AutofillClock::Now();
+  Time pre_creation_time = base::Time::Now();
   EXPECT_TRUE(table_->AddCreditCard(work_creditcard));
-  Time post_creation_time = AutofillClock::Now();
+  Time post_creation_time = base::Time::Now();
 
   // Get the 'Work' credit card.
   std::unique_ptr<CreditCard> db_creditcard =
@@ -255,9 +256,9 @@ TEST_F(PaymentsAutofillTableTest, CreditCard) {
   target_creditcard.SetNickname(u"Grocery card");
   target_creditcard.set_cvc(u"234");
 
-  pre_creation_time = AutofillClock::Now();
+  pre_creation_time = base::Time::Now();
   EXPECT_TRUE(table_->AddCreditCard(target_creditcard));
-  post_creation_time = AutofillClock::Now();
+  post_creation_time = base::Time::Now();
   db_creditcard = table_->GetCreditCard(target_creditcard.guid());
   ASSERT_TRUE(db_creditcard);
   EXPECT_EQ(target_creditcard, *db_creditcard);
@@ -289,9 +290,9 @@ TEST_F(PaymentsAutofillTableTest, CreditCard) {
   target_creditcard.SetRawInfo(CREDIT_CARD_NAME_FULL, u"Charles Grady");
   target_creditcard.SetNickname(u"Supermarket");
   target_creditcard.set_cvc(u"234");
-  Time pre_modification_time = AutofillClock::Now();
+  Time pre_modification_time = base::Time::Now();
   EXPECT_TRUE(table_->UpdateCreditCard(target_creditcard));
-  Time post_modification_time = AutofillClock::Now();
+  Time post_modification_time = base::Time::Now();
   db_creditcard = table_->GetCreditCard(target_creditcard.guid());
   ASSERT_TRUE(db_creditcard);
   EXPECT_EQ(target_creditcard, *db_creditcard);
@@ -332,10 +333,8 @@ TEST_F(PaymentsAutofillTableTest, AddCreditCardCvcWithFlagOff) {
 TEST_F(PaymentsAutofillTableTest, CreditCardCvc) {
   base::test::ScopedFeatureList features(
       features::kAutofillEnableCvcStorageAndFilling);
-  const base::Time arbitrary_time = base::Time::FromSecondsSinceUnixEpoch(25);
-  // Create the test clock and set the time to a specific value.
-  TestAutofillClock test_clock;
-  test_clock.SetNow(arbitrary_time);
+  const base::Time arbitrary_time = base::Time::Now();
+
   CreditCard card = test::WithCvc(test::GetCreditCard());
   EXPECT_TRUE(table_->AddCreditCard(card));
 
@@ -349,9 +348,8 @@ TEST_F(PaymentsAutofillTableTest, CreditCardCvc) {
             arbitrary_time.ToTimeT());
 
   // Set the current time to another value.
-  const base::Time some_later_time =
-      base::Time::FromSecondsSinceUnixEpoch(1000);
-  test_clock.SetNow(some_later_time);
+  task_environment_.FastForwardBy(base::Seconds(1000));
+  const base::Time some_later_time = base::Time::Now();
 
   // Update the credit card but CVC is same.
   card.SetRawInfo(CREDIT_CARD_NAME_FULL, u"Charles Grady");
@@ -365,9 +363,8 @@ TEST_F(PaymentsAutofillTableTest, CreditCardCvc) {
             arbitrary_time.ToTimeT());
 
   // Set the current time to another value.
-  const base::Time much_later_time =
-      base::Time::FromSecondsSinceUnixEpoch(5000);
-  test_clock.SetNow(much_later_time);
+  task_environment_.FastForwardBy(base::Seconds(5000));
+  const base::Time much_later_time = base::Time::Now();
 
   // Update the credit card and CVC is different.
   card.SetRawInfo(CREDIT_CARD_NAME_FULL, u"Jack Torrance");
@@ -588,7 +585,7 @@ TEST_F(PaymentsAutofillTableTest, UpdateCreditCard) {
   table_->AddCreditCard(credit_card);
 
   // Set a mocked value for the credit card's creation time.
-  const time_t kMockCreationDate = AutofillClock::Now().ToTimeT() - 13;
+  const time_t kMockCreationDate = base::Time::Now().ToTimeT() - 13;
   sql::Statement s_mock_creation_date(
       db_->GetSQLConnection()->GetUniqueStatement(
           "UPDATE credit_cards SET date_modified = ?"));
@@ -625,7 +622,7 @@ TEST_F(PaymentsAutofillTableTest, UpdateCreditCard) {
   EXPECT_FALSE(s_updated.Step());
 
   // Set a mocked value for the credit card's modification time.
-  const time_t mock_modification_date = AutofillClock::Now().ToTimeT() - 7;
+  const time_t mock_modification_date = base::Time::Now().ToTimeT() - 7;
   sql::Statement s_mock_modification_date(
       db_->GetSQLConnection()->GetUniqueStatement(
           "UPDATE credit_cards SET date_modified = ?"));
@@ -661,7 +658,7 @@ TEST_F(PaymentsAutofillTableTest, UpdateCreditCardOriginOnly) {
   table_->AddCreditCard(credit_card);
 
   // Set a mocked value for the credit card's creation time.
-  const time_t kMockCreationDate = AutofillClock::Now().ToTimeT() - 13;
+  const time_t kMockCreationDate = base::Time::Now().ToTimeT() - 13;
   sql::Statement s_mock_creation_date(
       db_->GetSQLConnection()->GetUniqueStatement(
           "UPDATE credit_cards SET date_modified = ?"));
@@ -977,15 +974,15 @@ TEST_F(PaymentsAutofillTableTest, SetGetServerCards) {
 
 TEST_F(PaymentsAutofillTableTest, SetGetRemoveServerCardMetadata) {
   // Create and set the metadata.
-  AutofillMetadata input;
+  PaymentsMetadata input;
   input.id = "server id";
   input.use_count = 50;
-  input.use_date = AutofillClock::Now();
+  input.use_date = base::Time::Now();
   input.billing_address_id = "billing id";
   EXPECT_TRUE(table_->AddServerCardMetadata(input));
 
   // Make sure it was added correctly.
-  std::vector<AutofillMetadata> outputs;
+  std::vector<PaymentsMetadata> outputs;
   ASSERT_TRUE(table_->GetServerCardsMetadata(outputs));
   ASSERT_EQ(1U, outputs.size());
   EXPECT_EQ(input, outputs[0]);
@@ -1004,11 +1001,11 @@ TEST_F(PaymentsAutofillTableTest, SetGetRemoveServerIbanMetadata) {
   Iban iban = test::GetServerIban();
   // Set the metadata.
   iban.set_use_count(50);
-  iban.set_use_date(AutofillClock::Now());
+  iban.set_use_date(base::Time::Now());
   EXPECT_TRUE(table_->AddOrUpdateServerIbanMetadata(iban.GetMetadata()));
 
   // Make sure it was added correctly.
-  std::vector<AutofillMetadata> outputs;
+  std::vector<PaymentsMetadata> outputs;
   ASSERT_TRUE(table_->GetServerIbansMetadata(outputs));
   ASSERT_EQ(1U, outputs.size());
   EXPECT_EQ(iban.GetMetadata(), outputs[0]);
@@ -1023,15 +1020,15 @@ TEST_F(PaymentsAutofillTableTest, SetGetRemoveServerIbanMetadata) {
 
 TEST_F(PaymentsAutofillTableTest, AddUpdateServerCardMetadata) {
   // Create and set the metadata.
-  AutofillMetadata input;
+  PaymentsMetadata input;
   input.id = "server id";
   input.use_count = 50;
-  input.use_date = AutofillClock::Now();
+  input.use_date = base::Time::Now();
   input.billing_address_id = "billing id";
   ASSERT_TRUE(table_->AddServerCardMetadata(input));
 
   // Make sure it was added correctly.
-  std::vector<AutofillMetadata> outputs;
+  std::vector<PaymentsMetadata> outputs;
   ASSERT_TRUE(table_->GetServerCardsMetadata(outputs));
   ASSERT_EQ(1U, outputs.size());
   ASSERT_EQ(input, outputs[0]);
@@ -1071,11 +1068,11 @@ TEST_F(PaymentsAutofillTableTest, UpdateServerCardMetadataDoesNotChangeData) {
   ASSERT_NE(outputs[0]->use_count(), 51u);
   outputs[0]->set_use_count(51);
 
-  AutofillMetadata input_metadata = outputs[0]->GetMetadata();
+  PaymentsMetadata input_metadata = outputs[0]->GetMetadata();
   EXPECT_TRUE(table_->UpdateServerCardMetadata(input_metadata));
 
   // Make sure it was updated correctly.
-  std::vector<AutofillMetadata> output_metadata;
+  std::vector<PaymentsMetadata> output_metadata;
   ASSERT_TRUE(table_->GetServerCardsMetadata(output_metadata));
   ASSERT_EQ(1U, output_metadata.size());
   EXPECT_EQ(input_metadata, output_metadata[0]);
@@ -1103,7 +1100,7 @@ TEST_F(PaymentsAutofillTableTest, UpdateServerIbanMetadata) {
   EXPECT_TRUE(table_->AddOrUpdateServerIbanMetadata(outputs[0]->GetMetadata()));
 
   // Make sure it was updated correctly.
-  std::vector<AutofillMetadata> output_metadata;
+  std::vector<PaymentsMetadata> output_metadata;
   ASSERT_TRUE(table_->GetServerIbansMetadata(output_metadata));
   ASSERT_EQ(1U, output_metadata.size());
   EXPECT_EQ(outputs[0]->GetMetadata(), output_metadata[0]);
@@ -1117,15 +1114,15 @@ TEST_F(PaymentsAutofillTableTest, UpdateServerIbanMetadata) {
 
 TEST_F(PaymentsAutofillTableTest, RemoveWrongServerCardMetadata) {
   // Crete and set some metadata.
-  AutofillMetadata input;
+  PaymentsMetadata input;
   input.id = "server id";
   input.use_count = 50;
-  input.use_date = AutofillClock::Now();
+  input.use_date = base::Time::Now();
   input.billing_address_id = "billing id";
   table_->AddServerCardMetadata(input);
 
   // Make sure it was added correctly.
-  std::vector<AutofillMetadata> outputs;
+  std::vector<PaymentsMetadata> outputs;
   ASSERT_TRUE(table_->GetServerCardsMetadata(outputs));
   ASSERT_EQ(1U, outputs.size());
   EXPECT_EQ(input, outputs[0]);
@@ -1189,7 +1186,7 @@ TEST_F(PaymentsAutofillTableTest, SetServerCardsData) {
   EXPECT_EQ(u"Fake description", outputs[0]->product_description());
 
   // Make sure no metadata was added.
-  std::vector<AutofillMetadata> metadata;
+  std::vector<PaymentsMetadata> metadata;
   ASSERT_TRUE(table_->GetServerCardsMetadata(metadata));
   ASSERT_EQ(0U, metadata.size());
 
@@ -1212,10 +1209,10 @@ TEST_F(PaymentsAutofillTableTest, SetServerCardsData) {
 // Tests that adding server cards data does not delete the existing metadata.
 TEST_F(PaymentsAutofillTableTest, SetServerCardsData_ExistingMetadata) {
   // Create and set some metadata.
-  AutofillMetadata input;
+  PaymentsMetadata input;
   input.id = "server id";
   input.use_count = 50;
-  input.use_date = AutofillClock::Now();
+  input.use_date = base::Time::Now();
   input.billing_address_id = "billing id";
   table_->AddServerCardMetadata(input);
 
@@ -1225,7 +1222,7 @@ TEST_F(PaymentsAutofillTableTest, SetServerCardsData_ExistingMetadata) {
   table_->SetServerCardsData(inputs);
 
   // Make sure the metadata is still intact.
-  std::vector<AutofillMetadata> outputs;
+  std::vector<PaymentsMetadata> outputs;
   ASSERT_TRUE(table_->GetServerCardsMetadata(outputs));
   EXPECT_THAT(outputs, ElementsAre(input));
 }
@@ -1368,6 +1365,8 @@ TEST_F(PaymentsAutofillTableTest, SetGetPaymentsCustomerData_MultipleSet) {
 }
 
 TEST_F(PaymentsAutofillTableTest, SetGetCreditCardCloudData_OneTimeSet) {
+  // Move the time to 20XX.
+  task_environment_.FastForwardBy(base::Days(365) * 40);
   std::vector<CreditCardCloudTokenData> inputs;
   inputs.push_back(test::GetCreditCardCloudTokenData1());
   inputs.push_back(test::GetCreditCardCloudTokenData2());
@@ -1381,6 +1380,8 @@ TEST_F(PaymentsAutofillTableTest, SetGetCreditCardCloudData_OneTimeSet) {
 }
 
 TEST_F(PaymentsAutofillTableTest, SetGetCreditCardCloudData_MultipleSet) {
+  // Move the time to 20XX.
+  task_environment_.FastForwardBy(base::Days(365) * 40);
   std::vector<CreditCardCloudTokenData> inputs;
   CreditCardCloudTokenData input1 = test::GetCreditCardCloudTokenData1();
   inputs.push_back(input1);
@@ -1543,9 +1544,9 @@ TEST_F(PaymentsAutofillTableTest, SetAndGetVirtualCardUsageData) {
 
   table_->SetVirtualCardUsageData(virtual_card_usage_data);
 
-  std::vector<std::unique_ptr<VirtualCardUsageData>> output_data;
+  std::vector<VirtualCardUsageData> output_data;
 
-  EXPECT_TRUE(table_->GetAllVirtualCardUsageData(&output_data));
+  EXPECT_TRUE(table_->GetAllVirtualCardUsageData(output_data));
   EXPECT_EQ(virtual_card_usage_data.size(), output_data.size());
 
   for (const auto& data : virtual_card_usage_data) {
@@ -1557,11 +1558,11 @@ TEST_F(PaymentsAutofillTableTest, SetAndGetVirtualCardUsageData) {
     EXPECT_NE(it, output_data.end());
 
     // All corresponding fields must be equal.
-    EXPECT_EQ(data.usage_data_id(), (*it)->usage_data_id());
-    EXPECT_EQ(data.instrument_id(), (*it)->instrument_id());
-    EXPECT_EQ(data.virtual_card_last_four(), (*it)->virtual_card_last_four());
+    EXPECT_EQ(data.usage_data_id(), it->usage_data_id());
+    EXPECT_EQ(data.instrument_id(), it->instrument_id());
+    EXPECT_EQ(data.virtual_card_last_four(), it->virtual_card_last_four());
     EXPECT_EQ(data.merchant_origin().Serialize(),
-              (*it)->merchant_origin().Serialize());
+              it->merchant_origin().Serialize());
   }
 }
 
@@ -1573,7 +1574,7 @@ TEST_F(PaymentsAutofillTableTest, AddUpdateRemoveVirtualCardUsageData) {
 
   // Get the inserted VirtualCardUsageData.
   std::string usage_data_id = *virtual_card_usage_data.usage_data_id();
-  std::unique_ptr<VirtualCardUsageData> usage_data =
+  std::optional<VirtualCardUsageData> usage_data =
       table_->GetVirtualCardUsageData(usage_data_id);
   ASSERT_TRUE(usage_data);
   EXPECT_EQ(virtual_card_usage_data, *usage_data);
@@ -1602,8 +1603,8 @@ TEST_F(PaymentsAutofillTableTest, RemoveAllVirtualCardUsageData) {
 
   EXPECT_TRUE(table_->RemoveAllVirtualCardUsageData());
 
-  std::vector<std::unique_ptr<VirtualCardUsageData>> usage_data;
-  EXPECT_TRUE(table_->GetAllVirtualCardUsageData(&usage_data));
+  std::vector<VirtualCardUsageData> usage_data;
+  EXPECT_TRUE(table_->GetAllVirtualCardUsageData(usage_data));
   EXPECT_TRUE(usage_data.empty());
 }
 
@@ -1732,7 +1733,7 @@ TEST_F(PaymentsAutofillTableTest, AddInactiveCreditCardBenefit) {
   std::vector<CreditCardBenefit> input_benefits;
   CreditCardMerchantBenefit inactive_benefit =
       test::GetActiveCreditCardMerchantBenefit();
-  test_api(inactive_benefit).SetStartTime(AutofillClock::Now() + base::Days(1));
+  test_api(inactive_benefit).SetStartTime(base::Time::Now() + base::Days(1));
   EXPECT_TRUE(inactive_benefit.IsValidForWriteFromSync());
   input_benefits.push_back(std::move(inactive_benefit));
   EXPECT_TRUE(table_->SetCreditCardBenefits(input_benefits));
@@ -1902,23 +1903,6 @@ TEST_F(PaymentsAutofillTableTest,
       [&iban_payment_instrument](sync_pb::PaymentInstrument& p) {
         return p.instrument_id() == iban_payment_instrument.instrument_id();
       }));
-}
-
-TEST_F(PaymentsAutofillTableTest,
-       PaymentInstrument_DoesNotStorePaymentInstrumentWithoutDetails) {
-  // Add a payment instrument without details to the table.
-  sync_pb::PaymentInstrument payment_instrument;
-  payment_instrument.set_instrument_id(1234);
-  std::vector<sync_pb::PaymentInstrument> payment_instruments{
-      payment_instrument};
-  table_->SetPaymentInstruments(payment_instruments);
-
-  // Attempt to retrieve the payment instruments.
-  std::vector<sync_pb::PaymentInstrument> payment_instruments_from_table;
-  table_->GetPaymentInstruments(payment_instruments_from_table);
-
-  // Check that no payment instruments were retrieved.
-  EXPECT_TRUE(payment_instruments_from_table.empty());
 }
 
 TEST_F(PaymentsAutofillTableTest,

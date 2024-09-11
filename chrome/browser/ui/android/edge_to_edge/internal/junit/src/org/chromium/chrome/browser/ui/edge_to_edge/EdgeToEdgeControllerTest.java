@@ -17,6 +17,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -52,7 +53,7 @@ import org.robolectric.annotation.Implements;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.Features;
 import org.chromium.blink.mojom.ViewportFit;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -70,7 +71,6 @@ import org.chromium.ui.base.WindowAndroid;
  * Tests the EdgeToEdgeController code. Ideally this would include {@link EdgeToEdgeController},
  * {@link EdgeToEdgeControllerFactory}, along with {@link EdgeToEdgeControllerImpl}
  */
-@DisableIf.Build(sdk_is_less_than = VERSION_CODES.R)
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(
         sdk = VERSION_CODES.R,
@@ -79,18 +79,32 @@ import org.chromium.ui.base.WindowAndroid;
 public class EdgeToEdgeControllerTest {
 
     private static final int TOP_INSET = 113;
+    private static final int TOP_INSET_LANDSCAPE = 98;
     private static final int BOTTOM_INSET = 59;
+    private static final int BOTTOM_INSET_LANDSCAPE = 54;
+    private static final int BOTTOM_KEYBOARD_INSET = 150;
     private static final Insets NAVIGATION_BAR_INSETS = Insets.of(0, 0, 0, BOTTOM_INSET);
     private static final Insets STATUS_BAR_INSETS = Insets.of(0, TOP_INSET, 0, 0);
     private static final Insets SYSTEM_INSETS = Insets.of(0, TOP_INSET, 0, BOTTOM_INSET);
-    private static final Insets IME_INSETS = Insets.of(0, 0, 0, 0);
+    private static final Insets SYSTEM_INSETS_LANDSCAPE =
+            Insets.of(0, TOP_INSET_LANDSCAPE, 0, BOTTOM_INSET_LANDSCAPE);
+    private static final Insets IME_INSETS_NO_KEYBOARD = Insets.of(0, 0, 0, 0);
+    private static final Insets IME_INSETS_KEYBOARD = Insets.of(0, 0, 0, BOTTOM_KEYBOARD_INSET);
 
     private static final WindowInsetsCompat SYSTEM_BARS_WINDOW_INSETS =
             new WindowInsetsCompat.Builder()
                     .setInsets(WindowInsetsCompat.Type.navigationBars(), NAVIGATION_BAR_INSETS)
                     .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
                     .setInsets(WindowInsetsCompat.Type.systemBars(), SYSTEM_INSETS)
-                    .setInsets(WindowInsetsCompat.Type.ime(), IME_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.ime(), IME_INSETS_NO_KEYBOARD)
+                    .build();
+
+    private static final WindowInsetsCompat SYSTEM_BARS_WINDOW_INSETS_WITH_KEYBOARD =
+            new WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.navigationBars(), NAVIGATION_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.systemBars(), SYSTEM_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.ime(), IME_INSETS_KEYBOARD)
                     .build();
 
     private Activity mActivity;
@@ -186,11 +200,47 @@ public class EdgeToEdgeControllerTest {
 
     @Test
     public void drawEdgeToEdge_ToEdgeAndToNormal() {
-        mEdgeToEdgeControllerImpl.drawToEdge(true);
+        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowInsets= */ false);
         assertToEdgeExpectations();
 
-        mEdgeToEdgeControllerImpl.drawToEdge(false);
+        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowInsets= */ false);
         assertToNormalExpectations();
+    }
+
+    @Test
+    public void drawEdgeToEdge_UpdateWindowInsets_toNormal() {
+        mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS);
+        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowInsets= */ false);
+        verify(mOsWrapper).setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(BOTTOM_INSET));
+
+        mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS_LANDSCAPE);
+        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowInsets= */ true);
+        verify(mOsWrapper)
+                .setPadding(
+                        any(), eq(0), eq(TOP_INSET_LANDSCAPE), eq(0), eq(BOTTOM_INSET_LANDSCAPE));
+
+        mEdgeToEdgeControllerImpl.setKeyboardInsetsForTesting(IME_INSETS_KEYBOARD);
+        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowInsets= */ true);
+        verify(mOsWrapper)
+                .setPadding(
+                        any(), eq(0), eq(TOP_INSET_LANDSCAPE), eq(0), eq(BOTTOM_KEYBOARD_INSET));
+    }
+
+    @Test
+    public void drawEdgeToEdge_UpdateWindowInsets_toEdge() {
+        mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS);
+        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowInsets= */ false);
+        verify(mOsWrapper).setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(0));
+
+        mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS_LANDSCAPE);
+        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowInsets= */ true);
+        verify(mOsWrapper).setPadding(any(), eq(0), eq(TOP_INSET_LANDSCAPE), eq(0), eq(0));
+
+        mEdgeToEdgeControllerImpl.setKeyboardInsetsForTesting(IME_INSETS_KEYBOARD);
+        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowInsets= */ true);
+        verify(mOsWrapper)
+                .setPadding(
+                        any(), eq(0), eq(TOP_INSET_LANDSCAPE), eq(0), eq(BOTTOM_KEYBOARD_INSET));
     }
 
     /** Test nothing is done when the Feature is not enabled. */
@@ -335,13 +385,7 @@ public class EdgeToEdgeControllerTest {
         // Check the Navigation Bar color, as an indicator that we really changed the window.
         assertNotEquals(Color.TRANSPARENT, mActivity.getWindow().getNavigationBarColor());
         // Pad the top and the bottom to keep it all normal.
-        verify(mOsWrapper, times(2))
-                .setPadding(
-                        any(),
-                        eq(0),
-                        intThat(Matchers.greaterThan(0)),
-                        eq(0),
-                        intThat(Matchers.greaterThan(0)));
+        verify(mOsWrapper).setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(BOTTOM_INSET));
     }
 
     /** Test that we update WebContentsObservers when a Tab changes WebContents. */
@@ -409,11 +453,36 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
+    @Features.EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN)
+    public void testSwitchLayout() {
+        mEdgeToEdgeControllerImpl.setIsOptedIntoEdgeToEdgeForTesting(false);
+        mEdgeToEdgeControllerImpl.setIsDrawingToEdgeForTesting(true);
+        mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS);
+
+        doReturn(LayoutType.TAB_SWITCHER).when(mLayoutManager).getActiveLayoutType();
+        mEdgeToEdgeControllerImpl.onStartedShowing(LayoutType.TAB_SWITCHER);
+        assertToNormalExpectations();
+
+        doReturn(LayoutType.BROWSING).when(mLayoutManager).getActiveLayoutType();
+        mEdgeToEdgeControllerImpl.onStartedShowing(LayoutType.BROWSING);
+        assertToEdgeExpectations();
+    }
+
+    @Test
     public void isSupportedConfiguration_default() {
         assertTrue(
                 "The default setup should be a supported configuration but it not!",
                 EdgeToEdgeControllerFactory.isSupportedConfiguration(
                         Robolectric.buildActivity(AppCompatActivity.class).setup().get()));
+    }
+
+    @Test
+    public void disabledWhenNotActivityNotAttached() {
+        Activity activity = Robolectric.buildActivity(AppCompatActivity.class).create().get();
+        assertNull(activity.getWindow().getDecorView().getRootWindowInsets());
+        assertFalse(
+                "The activity is not supported before its root window insets is available.",
+                EdgeToEdgeControllerFactory.isSupportedConfiguration(activity));
     }
 
     @Test
@@ -533,6 +602,39 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
+    public void noPadAdjustmentWhenNotDrawingToEdge() {
+        mEdgeToEdgeControllerImpl.setIsOptedIntoEdgeToEdgeForTesting(false);
+        mEdgeToEdgeControllerImpl.setIsDrawingToEdgeForTesting(false);
+        mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS);
+        mEdgeToEdgeControllerImpl.setKeyboardInsetsForTesting(null);
+
+        MockPadAdjuster mockPadAdjuster = new MockPadAdjuster();
+        mEdgeToEdgeControllerImpl.registerAdjuster(mockPadAdjuster);
+        mockPadAdjuster.checkInsets(0);
+    }
+
+    @Test
+    public void toggleKeyboard_properlyPadAdjusters() {
+        mEdgeToEdgeControllerImpl.setIsOptedIntoEdgeToEdgeForTesting(true);
+        mEdgeToEdgeControllerImpl.setIsDrawingToEdgeForTesting(true);
+        mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS);
+        mEdgeToEdgeControllerImpl.setKeyboardInsetsForTesting(null);
+
+        // Register a new pad adjuster. Without the keyboard or browser controls visible, the insets
+        // should just match the system bottom inset.
+        MockPadAdjuster mockPadAdjuster = new MockPadAdjuster();
+        mEdgeToEdgeControllerImpl.registerAdjuster(mockPadAdjuster);
+        mockPadAdjuster.checkInsets(BOTTOM_INSET);
+
+        mEdgeToEdgeControllerImpl.handleWindowInsets(
+                mViewMock, SYSTEM_BARS_WINDOW_INSETS_WITH_KEYBOARD);
+        mockPadAdjuster.checkInsets(0);
+
+        mEdgeToEdgeControllerImpl.handleWindowInsets(mViewMock, SYSTEM_BARS_WINDOW_INSETS);
+        mockPadAdjuster.checkInsets(BOTTOM_INSET);
+    }
+
+    @Test
     public void handleBrowserControls_properlyPadAdjusters() {
         int unused = -1;
         int browserControlsHeight = BOTTOM_INSET * 2;
@@ -549,17 +651,17 @@ public class EdgeToEdgeControllerTest {
         // should just match the system bottom inset.
         MockPadAdjuster mockPadAdjuster = new MockPadAdjuster();
         mEdgeToEdgeControllerImpl.registerAdjuster(mockPadAdjuster);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, BOTTOM_INSET);
+        mockPadAdjuster.checkInsets(BOTTOM_INSET);
 
         // Sometimes, the controls offset can change even when browser controls aren't visible. This
         // should be a no-op.
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
                 unused, unused, /* bottomOffset= */ browserControlsHeight, unused, false, false);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, BOTTOM_INSET);
+        mockPadAdjuster.checkInsets(BOTTOM_INSET);
 
         // Show browser controls.
         mEdgeToEdgeControllerImpl.onBottomControlsHeightChanged(browserControlsHeight, unused);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, 0);
+        mockPadAdjuster.checkInsets(0);
 
         // Scroll off browser controls gradually.
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
@@ -569,7 +671,7 @@ public class EdgeToEdgeControllerTest {
                 unused,
                 false,
                 false);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, 0);
+        mockPadAdjuster.checkInsets(0);
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
                 unused,
                 unused,
@@ -577,10 +679,10 @@ public class EdgeToEdgeControllerTest {
                 unused,
                 false,
                 false);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, 0);
+        mockPadAdjuster.checkInsets(0);
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
                 unused, unused, /* bottomOffset= */ browserControlsHeight, unused, false, false);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, BOTTOM_INSET);
+        mockPadAdjuster.checkInsets(BOTTOM_INSET);
 
         // Scroll the browser controls back up.
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
@@ -590,14 +692,14 @@ public class EdgeToEdgeControllerTest {
                 unused,
                 false,
                 false);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, 0);
+        mockPadAdjuster.checkInsets(0);
         mEdgeToEdgeControllerImpl.onControlsOffsetChanged(
                 unused, unused, /* bottomOffset= */ 0, unused, false, false);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, 0);
+        mockPadAdjuster.checkInsets(0);
 
         // Hide browser controls.
         mEdgeToEdgeControllerImpl.onBottomControlsHeightChanged(0, unused);
-        mockPadAdjuster.checkInsets(BOTTOM_INSET, BOTTOM_INSET);
+        mockPadAdjuster.checkInsets(BOTTOM_INSET);
 
         mEdgeToEdgeControllerImpl.unregisterAdjuster(mockPadAdjuster);
     }
@@ -643,27 +745,17 @@ public class EdgeToEdgeControllerTest {
     //  OnApplyWindowInsetsListener is correct.
 
     private class MockPadAdjuster implements EdgeToEdgePadAdjuster {
-        private int mDefaultInset;
-        private int mInsetWithBrowserControls;
+        private int mInset;
 
         MockPadAdjuster() {}
 
         @Override
-        public void overrideBottomInset(int defaultInset, int insetWithBrowserControls) {
-            mDefaultInset = defaultInset;
-            mInsetWithBrowserControls = insetWithBrowserControls;
+        public void overrideBottomInset(int inset) {
+            mInset = inset;
         }
 
-        void checkInsets(int expectedDefaultInset, int expectedInsetWithBrowserControls) {
-            assertEquals(
-                    "The pad adjuster does not have the expected default inset.",
-                    expectedDefaultInset,
-                    mDefaultInset);
-            assertEquals(
-                    "The pad adjuster does not have the expected inset account for browser"
-                            + " controls.",
-                    expectedInsetWithBrowserControls,
-                    mInsetWithBrowserControls);
+        void checkInsets(int expected) {
+            assertEquals("The pad adjuster does not have the expected inset.", expected, mInset);
         }
     }
 }

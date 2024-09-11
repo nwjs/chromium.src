@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "media/renderers/video_resource_updater.h"
 
 #include <stddef.h>
@@ -122,7 +127,7 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
           si_formats[0] = viz::LegacyMultiPlaneFormat::kNV12A;
           break;
         default:
-          NOTREACHED_NORETURN();
+          NOTREACHED();
       }
     } else {
 #if BUILDFLAG(IS_OZONE)
@@ -143,14 +148,14 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
           si_formats[0] = viz::MultiPlaneFormat::kNV12A;
           break;
         default:
-          NOTREACHED_NORETURN();
+          NOTREACHED();
       }
       si_formats[0].SetPrefersExternalSampler();
 #else
       // MultiplanarSharedImage with external sampling is supported only on
       // Ozone, and VideoFrames with external sampler should not be created on
       // other platforms.
-      NOTREACHED_NORETURN();
+      NOTREACHED();
 #endif
     }
 
@@ -390,7 +395,7 @@ viz::SharedImageFormat GetRGBSharedImageFormat(VideoPixelFormat format) {
     case PIXEL_FORMAT_ARGB:
       return viz::SinglePlaneFormat::kBGRA_8888;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 #endif
 }
@@ -523,7 +528,7 @@ viz::SharedImageFormat VideoPixelFormatToMultiPlanarSharedImageFormat(
     case PIXEL_FORMAT_YUV422AP10:
     case PIXEL_FORMAT_YUV444AP10:
     case PIXEL_FORMAT_UNKNOWN:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -546,7 +551,7 @@ std::vector<VideoFrame::Plane> GetVideoFramePlanes(
       return {VideoFrame::Plane::kY, VideoFrame::Plane::kU,
               VideoFrame::Plane::kV, VideoFrame::Plane::kA};
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 bool UseMultiplanarSoftwarePixelUpload(const gfx::ColorSpace& cs) {

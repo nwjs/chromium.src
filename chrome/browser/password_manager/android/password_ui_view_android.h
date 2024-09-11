@@ -48,9 +48,7 @@ class PasswordUIViewAndroid
     std::string error;
   };
 
-  PasswordUIViewAndroid(JNIEnv* env,
-                        const jni_zero::JavaRef<jobject>& obj,
-                        Profile* profile);
+  PasswordUIViewAndroid(JNIEnv* env, jobject obj, Profile* profile);
 
   PasswordUIViewAndroid(const PasswordUIViewAndroid&) = delete;
   PasswordUIViewAndroid& operator=(const PasswordUIViewAndroid&) = delete;
@@ -86,13 +84,11 @@ class PasswordUIViewAndroid
   void HandleShowPasswordEntryEditingView(
       JNIEnv* env,
       const base::android::JavaRef<jobject>& context,
-      const base::android::JavaRef<jobject>& settings_launcher,
       int index,
       const base::android::JavaParamRef<jobject>& obj);
   void HandleShowBlockedCredentialView(
       JNIEnv* env,
       const base::android::JavaRef<jobject>& context,
-      const base::android::JavaRef<jobject>& settings_launcher,
       int index,
       const base::android::JavaParamRef<jobject>& obj);
   void ShowMigrationWarning(

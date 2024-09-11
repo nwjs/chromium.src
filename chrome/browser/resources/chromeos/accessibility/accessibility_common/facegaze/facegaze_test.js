@@ -13,24 +13,6 @@ FaceGazeTest = class extends FaceGazeTestBase {
         /*failOnConsoleError=*/ true);
   }
 
-  async startFacegazeWithConfigAndForeheadLocation_(
-      config, forehead_x, forehead_y) {
-    await this.configureFaceGaze(config);
-
-    // No matter the starting location, the cursor position won't change
-    // initially, and upcoming forehead locations will be computed relative to
-    // this.
-    const result = new MockFaceLandmarkerResult().setNormalizedForeheadLocation(
-        forehead_x, forehead_y);
-    this.processFaceLandmarkerResult(result);
-    if (config.cursorControlEnabled) {
-      this.assertLatestCursorPosition(config.mouseLocation);
-    } else {
-      assertEquals(
-          null, this.mockAccessibilityPrivate.getLatestCursorPosition());
-    }
-  }
-
   assertMouseClickAt(args) {
     const {pressEvent, releaseEvent, isLeft, x, y} = args;
     const button = isLeft ?
@@ -66,6 +48,22 @@ AX_TEST_F(
       for (const gesture of facialGestures) {
         assertTrue(facialGesturesToMediapipeGestures.has(gesture));
       }
+    });
+
+AX_TEST_F(
+    'FaceGazeTest',
+    'GestureDetectorUpdatesStateAfterToggleGestureInfoForSettingsEvent',
+    async function() {
+      await this.configureFaceGaze(new Config());
+
+      // Tests that GestureDetector updates its state after a
+      // toggleGestureInfoForSettings event is received from
+      // chrome.accessibilityPrivate.
+      this.mockAccessibilityPrivate.toggleGestureInfoForSettings(false);
+      assertFalse(GestureDetector.shouldSendGestureDetectionInfo_);
+
+      this.mockAccessibilityPrivate.toggleGestureInfoForSettings(true);
+      assertTrue(GestureDetector.shouldSendGestureDetectionInfo_);
     });
 
 AX_TEST_F('FaceGazeTest', 'IntervalReusesForeheadLocation', async function() {

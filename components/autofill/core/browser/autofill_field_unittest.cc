@@ -58,6 +58,22 @@ TEST_F(AutofillFieldTest, Type_ServerPredictionOfCityAndNumber_OverrideHtml) {
   EXPECT_EQ(PHONE_HOME_CITY_AND_NUMBER, field.Type().GetStorableType());
 }
 
+// Tests that a local heuristics prediction for `EMAIL_ADDRESS` overrides server
+// predictions for `USERNAME` or `SINGLE_USERNAME`.
+TEST_F(AutofillFieldTest, EmailOverridesUsernameType) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillGivePrecedenceToEmailOverUsername};
+  AutofillField field;
+
+  field.set_server_predictions({test::CreateFieldPrediction(USERNAME)});
+  field.set_heuristic_type(GetActiveHeuristicSource(), EMAIL_ADDRESS);
+  EXPECT_EQ(field.Type().GetStorableType(), EMAIL_ADDRESS);
+
+  field.set_server_predictions({test::CreateFieldPrediction(SINGLE_USERNAME)});
+  field.set_heuristic_type(GetActiveHeuristicSource(), EMAIL_ADDRESS);
+  EXPECT_EQ(field.Type().GetStorableType(), EMAIL_ADDRESS);
+}
+
 TEST_F(AutofillFieldTest, IsFieldFillable) {
   AutofillField field;
   ASSERT_EQ(UNKNOWN_TYPE, field.Type().GetStorableType());
@@ -329,8 +345,7 @@ TEST(AutofillFieldLogEventTypeTest, AppendLogEventIfNotRepeated) {
   AutofillField::FieldLogEventType c = FillFieldLogEvent{
       .fill_event_id = absl::get<TriggerFillFieldLogEvent>(b).fill_event_id,
       .had_value_before_filling = OptionalBoolean::kTrue,
-      .autofill_skipped_status =
-          FieldFillingSkipReason::kAutofilledFieldsNotRefill,
+      .autofill_skipped_status = FieldFillingSkipReason::kAlreadyAutofilled,
       .was_autofilled_before_security_policy = OptionalBoolean::kTrue,
       .had_value_after_filling = OptionalBoolean::kTrue};
 

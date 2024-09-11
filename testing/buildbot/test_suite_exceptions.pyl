@@ -110,6 +110,7 @@
         'args': [
           '--gtest_filter=-ImportantSitesUtilBrowserTest.DSENotConsideredImportantInRegularMode', # https://crbug.com/1034001
         ],
+        'ci_only': True,
         'swarming': {
           'dimensions': {
             'device_type': 'crosshatch',
@@ -214,13 +215,6 @@
       'linux-lacros-dbg-tests-fyi',
     ],
     'modifications': {
-      # anglebug.com/6894
-      'fuchsia-fyi-x64-asan': {
-        'args': [
-          # crbug.com/
-          '--gtest_filter=-ConstructCompilerTest.DefaultParameters',
-        ],
-      },
       'linux-chromeos-rel': {
         # b/41493162: angle_unittests has a high failure rate.
         # Re-enable cq when the issue is fixed.
@@ -292,11 +286,6 @@
           'shards': 5,
         },
       },
-      'fuchsia-fyi-x64-asan': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.lsan.base_unittests.filter',
-        ],
-      },
     },
   },
   'bf_cache_content_browsertests': {
@@ -314,6 +303,7 @@
   'blink_platform_unittests': {
     'modifications': {
       'android-pie-arm64-rel': {
+        'ci_only': True,
         # TODO(crbug.com/40142574): Move this back to walleye if/when additional
         # capacity has been deployed.
         'swarming': {
@@ -345,11 +335,11 @@
   },
   'blink_web_tests': {
     'remove_from': [
-      # No arm64 apache suppport for fuchsia arm64 bots yet.
-      'fuchsia-arm64-cast-receiver-rel',
-      'fuchsia-fyi-arm64-dbg',
       # TODO: crbug.com/346921029 - fix broken tests.
       'linux-win-cross-rel',
+      # TODO(crbug.com/349968686): Missing dll on win11-23h2, which is the only
+      # available win11 version on arm64 in swarming.
+      'win11-arm64-rel-tests',
       'Win10 Tests x64 (dbg)',
       'win11-arm64-dbg-tests',
     ],
@@ -368,14 +358,6 @@
             'gpu': None,
           },
           'shards': 12,
-        },
-      },
-      'Mac10.15 Tests': {
-        'swarming': {
-          'dimensions': {
-            'gpu': None,
-          },
-          'shards': 1,
         },
       },
       'Mac11 Tests': {
@@ -489,18 +471,6 @@
           'shards': 2,
         },
       },
-      # Save some overhead loads of starting up emulator.
-      'fuchsia-x64-cast-receiver-dbg': {
-        'swarming': {
-          'shards': 1,
-        },
-      },
-      # Save some overhead loads of starting up emulator.
-      'fuchsia-x64-cast-receiver-rel': {
-        'swarming': {
-          'shards': 1,
-        },
-      },
       'linux-blink-rel': {
         'swarming': {
           'hard_timeout': 2400,
@@ -558,12 +528,6 @@
             'gpu': None,
           },
           'shards': 12,
-        },
-      },
-      'mac10.15-blink-rel': {
-        'swarming': {
-          'shards': 1,
-          'hard_timeout': 2400,
         },
       },
       'mac11.0-blink-rel': {
@@ -633,14 +597,6 @@
           'hard_timeout': 2400,
         },
       },
-      'win11-arm64-rel-tests': {
-        'swarming': {
-          'dimensions': {
-            # TODO(crbug.com/349968686): Workaround missing dll on win11-23h2.
-            'os': 'Windows-11-22621',
-          },
-        },
-      },
       'win11-blink-rel': {
         'swarming': {
           'hard_timeout': 2400,
@@ -653,9 +609,6 @@
       'Win10 Tests x64 (dbg)',
       'devtools_frontend_linux_blink_light_rel',
       'devtools_frontend_linux_blink_light_rel_fastbuild',
-      # No arm64 apache suppport for fuchsia arm64 bots yet.
-      'fuchsia-arm64-cast-receiver-rel',
-      'fuchsia-fyi-arm64-dbg',
       'linux-rel-cft',
       # TODO: crbug.com/346921029 - fix broken tests.
       'linux-win-cross-rel',
@@ -678,14 +631,6 @@
             'gpu': None,
           },
           'shards': 18,
-        },
-      },
-      'Mac10.15 Tests': {
-        'swarming': {
-          'dimensions': {
-            'gpu': None,
-          },
-          'shards': 1,
         },
       },
       'Mac11 Tests': {
@@ -768,10 +713,6 @@
         },
       },
       'Win10 Tests x64': {
-        'args': [
-          '--target',
-          'Release_x64',
-        ],
         'swarming': {
           "shards": 18,
         },
@@ -779,18 +720,6 @@
       'Win11 Tests x64': {
         'swarming': {
           "shards": 18
-        },
-      },
-      # Save some overhead loads of starting up emulator.
-      'fuchsia-x64-cast-receiver-dbg': {
-        'swarming': {
-          'shards': 1,
-        },
-      },
-      # Save some overhead loads of starting up emulator.
-      'fuchsia-x64-cast-receiver-rel': {
-        'swarming': {
-          'shards': 1,
         },
       },
       'linux-bfcache-rel': {
@@ -845,12 +774,6 @@
             'gpu': None,
           },
           'shards': 18,
-        },
-      },
-      'mac10.15-blink-rel': {
-        'swarming': {
-          'shards': 1,
-          'hard_timeout': 2400,
         },
       },
       'mac11.0-blink-rel': {
@@ -932,8 +855,6 @@
     'remove_from': [
       'CrWinAsan(dll)', # https://crbug.com/935598
       'ToTLinuxTSan',  # https://crbug.com/368525
-      # TODO(crbug.com/40166003): Enable the suite in 'Mac10.15 Tests' once it's
-      # off CQ.
       'mac-code-coverage', # https://crbug.com/1201386
       'mac11-arm64-rel-tests', # https://crbug.com/1406364
       'mac12-arm64-rel-tests', # https://crbug.com/1406364
@@ -1034,13 +955,6 @@
         'swarming': {
           'shards': 20,  # crbug.com/1361887
         },
-      },
-      'Mac10.15 Tests': {
-        # crbug.com/1042757
-        'swarming': {
-          'shards': 30,
-        },
-        'experiment_percentage': 100,
       },
       'Mac11 Tests': {
         'ci_only': True,
@@ -1307,6 +1221,9 @@
         # TODO(crbug.com/343210417) : Remove once fixed.
         'experiment_percentage': 100,
       },
+      'android-pie-arm64-rel': {
+        'ci_only': True,
+      },
       'android-pie-x86-rel': {
         # https://crbug.com/1039860
         'args': [
@@ -1322,12 +1239,6 @@
         'swarming': {
           'shards': 4,
         },
-      },
-      # crbug.com/1241502
-      'fuchsia-fyi-arm64-dbg': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.debug.cc_unittests.filter',
-        ],
       },
       'linux-lacros-tester-rel': {
         'ci_only': True, # https://crbug.com/1509554
@@ -1401,6 +1312,11 @@
     'remove_from': [
       'android-code-coverage-native', # Does not generate profraw data.
     ],
+    'modifications': {
+      'android-pie-arm64-rel': {
+        'ci_only': True,
+      },
+    },
   },
   'chrome_public_test_apk': {
     'remove_from': [
@@ -1461,10 +1377,11 @@
           'shards': 40,
         },
       },
-      'android-14-arm64-fyi-rel': {
+      'android-14-arm64-rel': {
         'args': [
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.device_14.chrome_public_test_apk.filter',
         ],
+        'ci_only': True,
       },
       'android-14-x64-rel': {
         'args': [
@@ -1738,23 +1655,12 @@
       },
     },
   },
-  'compositor_unittests': {
-    'modifications': {
-      # crbug.com/1241502
-      'fuchsia-fyi-arm64-dbg': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.debug.compositor_unittests.filter',
-        ],
-      },
-    },
-  },
   'content_browsertests': {
     'remove_from': [
       # TODO(crbug.com/40263601): Temporarily remove it from android-12L builder due to infra flakiness.
       'android-12l-x64-dbg-tests',
       'CrWinAsan(dll)', # https://crbug.com/935598
       # TODO(crbug.com/40241445): Enable on Fuchsia asan/clang builders.
-      'fuchsia-fyi-x64-asan',
       'ToTFuchsia x64',
       'ToTFuchsiaOfficial arm64',
       'linux-chromeos-chrome-preuprev', # http://b/331706144
@@ -1917,6 +1823,7 @@
       },
       'android-14-arm64-rel': {
         'args': [
+          '--gtest-also-run-pre-tests',
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.device_14.content_browsertests.filter',
         ],
       },
@@ -1929,6 +1836,9 @@
         },
       },
       'android-15-x64-fyi-rel': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15.content_browsertests.filter',
+        ],
         'swarming': {
           'shards': 40,
         },
@@ -1975,6 +1885,7 @@
           '--gtest-also-run-pre-tests',
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.pie_arm64.content_browsertests_coverage.filter',
         ],
+        'ci_only': True,
         'swarming': {
           # TODO(crbug.com/40922014): Temporarily increase the shard by 5 for the surging number of tests.
           # Recover to default number of shards(20) after the bug is fixed.
@@ -2012,11 +1923,6 @@
         'swarming': {
           'shards': 41,
         },
-      },
-      'fuchsia-x64-cast-receiver-rel': {
-        # Temporarily only run this on CI due to resource requirements.
-        # TODO(crbug.com/40872145): Remove this once resources are available.
-        'ci_only': True,
       },
       'linux-chromeos-code-coverage': {
         'swarming': {
@@ -2120,6 +2026,11 @@
         'args': [
           '--disable-features=WebRTC-H264WithOpenH264FFmpeg',
         ],
+      },
+      'win11-arm64-dbg-tests': {
+        'swarming': {
+          'shards': 16,
+        },
       },
     },
   },
@@ -2251,11 +2162,6 @@
           'shards': 12,
         },
       },
-      'fuchsia-fyi-x64-asan': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.lsan.content_unittests.filter',
-        ],
-      },
       'win-rel-cft': {
         # crbug.com/337984655
         'args': [
@@ -2319,10 +2225,6 @@
     # exception once there is enough capacity to run these tests.
     'remove_from': [
       'Android FYI Release (Pixel 2)',
-      # crbug.com/42050042, crbug.com/42050537 these tests do not work on
-      # swiftshader on arm64
-      'fuchsia-arm64-cast-receiver-rel',
-      'fuchsia-fyi-arm64-dbg',
     ],
   },
   'crashpad_tests': {
@@ -2403,6 +2305,18 @@
       # remove this exception once fixed.
       'mac-osxbeta-rel': {
         'experiment_percentage': 100,
+      },
+    },
+  },
+  # Do not run cronet_sizes on CQ builders (binaries are
+  # instrumented for code coverage)
+  'cronet_sizes': {
+    'modifications': {
+      'android-cronet-x64-dbg': {
+        'ci_only': True,
+      },
+      'android-cronet-x86-dbg': {
+        'ci_only': True,
       },
     },
   },
@@ -2674,10 +2588,6 @@
     # exception once there is enough capacity to run these tests.
     'remove_from': [
       'Android FYI Release (Pixel 2)',
-      # crbug.com/42050042, crbug.com/42050537 these tests do not work on
-      # swiftshader on arm64
-      'fuchsia-arm64-cast-receiver-rel',
-      'fuchsia-fyi-arm64-dbg',
     ],
     'replacements': {
       # The V8 builders pass the V8 revision for ${got_revision}, so instead
@@ -2735,11 +2645,6 @@
         'swarming': {
           'shards': 2,
         },
-      },
-      'fuchsia-fyi-x64-asan': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.lsan.extensions_unittests.filter',
-        ],
       },
       # https://crbug.com/1111979,
       'linux-lacros-code-coverage': {
@@ -2804,11 +2709,6 @@
         'args': [
           # https://crbug.com/1404782
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.pie_arm64.gin_unittests.filter',
-        ],
-      },
-      'fuchsia-fyi-x64-asan': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.lsan.gin_unittests.filter',
         ],
       },
     },
@@ -3049,10 +2949,6 @@
       'Android FYI Release (Pixel 2)',
       # crbug.com/1458020 for Mac Retina ASAN removal
       'Mac FYI Retina ASAN (AMD)',
-      # crbug.com/42050042, crbug.com/42050537 these tests do not work on
-      # swiftshader on arm64
-      'fuchsia-arm64-cast-receiver-rel',
-      'fuchsia-fyi-arm64-dbg',
     ],
   },
   'gpu_pytype': {
@@ -3114,10 +3010,6 @@
       'Android FYI Release (Pixel 2)',
       # crbug.com/1458020 for Mac Retina ASAN removal
       'Mac FYI Retina ASAN (AMD)',
-      # crbug.com/42050042, crbug.com/42050537 these tests do not work on
-      # swiftshader on arm64
-      'fuchsia-arm64-cast-receiver-rel',
-      'fuchsia-fyi-arm64-dbg',
     ],
   },
   'headless_browsertests': {
@@ -3170,8 +3062,6 @@
           '--exit-after-n-crashes-or-timeouts=10000',
           '--exit-after-n-failures=10000',
           '--no-retry-failures',
-          '--target',
-          'Release_x64',
         ],
         'experiment_percentage': 100,
       },
@@ -3496,7 +3386,7 @@
     'modifications': {
       'android-11-x86-rel': {
         'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.media_unittests.filter',
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_11.media_unittests.filter',
         ],
       },
       'android-12-x64-rel': {
@@ -3554,12 +3444,6 @@
           'shards': 3,
         },
       },
-      # crbug.com/1241502
-      'fuchsia-fyi-arm64-dbg': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.debug.media_unittests.filter',
-        ],
-      },
     },
   },
   'mediapipe_passthrough_tests': {
@@ -3607,6 +3491,20 @@
         'swarming': {
           'shards': 2,
         },
+      },
+    },
+  },
+  'monochrome_public_bundle_smoke_test': {
+    'modifications': {
+      'android-pie-arm64-rel': {
+        'ci_only': True,
+      },
+    },
+  },
+  'monochrome_public_smoke_test': {
+    'modifications': {
+      'android-pie-arm64-rel': {
+        'ci_only': True,
       },
     },
   },
@@ -3878,12 +3776,6 @@
           '--gtest_filter=-ScopedDirTest.CloseOutOfScope',
         ],
       },
-      'fuchsia-fyi-x64-asan': {
-        'args': [
-          # TODO(crbug.com/40761189): Error messages only show up in klog.
-          '--gtest_filter=-PagedMemoryTest.AccessUncommittedMemoryTriggersASAN'
-        ],
-      },
     },
     'remove_from': [
       # TODO(crbug.com/41440830): Fix permission issue when creating tmp files
@@ -4047,12 +3939,6 @@
     },
   },
   'pixel_skia_gold_validating_test': {
-    'remove_from': [
-      # crbug.com/42050042, crbug.com/42050537 these tests do not work on
-      # swiftshader on arm64
-      'fuchsia-arm64-cast-receiver-rel',
-      'fuchsia-fyi-arm64-dbg',
-    ],
     'modifications': {
       'Android FYI Release (Pixel 4)': {
         'args': [
@@ -4153,12 +4039,6 @@
     },
   },
   'screenshot_sync_validating_tests': {
-    'remove_from': [
-      # crbug.com/42050042, crbug.com/42050537 these tests do not work on
-      # swiftshader on arm64
-      'fuchsia-arm64-cast-receiver-rel',
-      'fuchsia-fyi-arm64-dbg',
-    ],
     'modifications': {
       'Android FYI Release (Pixel 4)': {
         'args': [
@@ -4240,11 +4120,6 @@
           'shards': 7,
         },
       },
-      'fuchsia-fyi-x64-asan': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.lsan.services_unittests.filter',
-        ],
-      },
     }
   },
   'services_webnn_unittests': {
@@ -4253,16 +4128,6 @@
         'args': [
           # crbug.com/1522972
           '--test-launcher-filter-file=../../testing/buildbot/filters/win.win_arm64.services_webnn_unittests.filter',
-        ],
-      },
-    },
-  },
-  'snapshot_unittests': {
-    'modifications': {
-      # crbug.com/40194695
-      'fuchsia-fyi-arm64-dbg': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.debug.snapshot_unittests.filter',
         ],
       },
     },
@@ -4496,8 +4361,6 @@
     },
     'remove_from': [
       'android-pie-arm64-rel',
-      # crbug.com/936540
-      'Mac10.15 Tests',
       # TODO crbug.com/1277277
       'mac14-tests-dbg',
       'Linux - Future (dbg)',  # client.v8.chromium
@@ -4773,12 +4636,6 @@
   },
   'views_unittests': {
     'modifications': {
-      # crbug.com/1241502
-      'fuchsia-fyi-arm64-dbg': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.debug.views_unittests.filter',
-        ],
-      },
       # https://crbug.com/1111979,
       'linux-lacros-code-coverage': {
         'args': [
@@ -4829,10 +4686,8 @@
         # TODO(crbug.com/343210417) : Remove once fixed.
         'experiment_percentage': 100,
       },
-      'fuchsia-fyi-arm64-dbg': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.debug.viz_unittests.filter',
-        ],
+      'android-pie-arm64-rel': {
+        'ci_only': True,
       },
       'linux-lacros-tester-rel': {
         'ci_only': True, # https://crbug.com/1509573
@@ -5527,7 +5382,7 @@
       },
     },
   },
-  'webview_instrumentation_test_apk': {
+  'webview_instrumentation_test_apk_multiple_process_mode': {
     'remove_from': [
       # This test frequently fails on Android, https://crbug.com/824959
       # matching android builders, the test fails on these.
@@ -5582,7 +5437,7 @@
       },
       'android-15-x64-fyi-rel': {
         'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.webview_instrumentation_test_apk.filter',
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.14.webview_instrumentation_test_apk.filter',
         ],
         'swarming': {
           'shards': 12,
@@ -5595,7 +5450,7 @@
         'swarming': {
           # Shard number is increased for longer test execution time and added
           # local coverage data merging time.
-          'shards': 36,
+          'shards': 24,
         },
       },
       # If you change this, make similar changes in android-x86-code-coverage below
@@ -5604,7 +5459,7 @@
           '--use-persistent-shell',
         ],
         'swarming': {
-          'shards': 27,
+          'shards': 15,
         },
       },
       'android-pie-arm64-rel': {
@@ -5613,7 +5468,7 @@
         ],
         'ci_only': True, # crbug/1368281
         'swarming': {
-          'shards': 9,
+          'shards': 6,
         },
       },
       'android-pie-x86-rel': {
@@ -5621,7 +5476,7 @@
           '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.webview_instrumentation_test_apk.filter',
         ],
         'swarming': {
-          'shards': 13, # crbug.com/1294924
+          'shards': 8, # crbug.com/1294924
         },
       },
       'android-tablet-14-arm64-fyi-rel': {
@@ -5635,7 +5490,7 @@
           '--use-persistent-shell',
         ],
         'swarming': {
-          'shards': 27,
+          'shards': 18,
         },
       },
     },
@@ -5661,6 +5516,57 @@
           # Shard number is increased for longer test execution time and added
           # local coverage data merging time.
           'shards': 30,
+        },
+      },
+    }
+  },
+  'webview_instrumentation_test_apk_single_process_mode': {
+    'modifications': {
+      'android-code-coverage-native': {
+        'args': [
+          '--use-persistent-shell',
+        ],
+        'swarming': {
+          # Shard number is increased for longer test execution time and added
+          # local coverage data merging time.
+          'shards': 12,
+        },
+      },
+      # If you change this, make similar changes in android-x86-code-coverage below
+      'android-oreo-x86-rel': {
+        # This builder is mirrored by CQ builder. Only multiple process tests run in CQ.
+        'ci_only': True,
+        'args': [
+          '--use-persistent-shell',
+        ],
+        'swarming': {
+          'shards': 9,
+        },
+      },
+      'android-pie-arm64-rel': {
+        'args': [
+          '--use-persistent-shell',
+        ],
+        'ci_only': True, # crbug/1368281
+        'swarming': {
+          'shards': 3,
+        },
+      },
+     'android-pie-x86-rel': {
+        'args': [
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator.webview_instrumentation_test_apk.filter',
+        ],
+        'swarming': {
+          'shards': 5, # crbug.com/1294924
+        },
+      },
+      # Keep this same as android-oreo-x86-rel above
+      'android-x86-code-coverage': {
+        'args': [
+          '--use-persistent-shell',
+        ],
+        'swarming': {
+          'shards': 9,
         },
       },
     }

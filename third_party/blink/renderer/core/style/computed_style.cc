@@ -168,7 +168,7 @@ const ComputedStyle* ComputedStyle::GetInitialStyleSingleton() {
       ThreadSpecific<Persistent<const ComputedStyle>>,
       thread_specific_initial_style, ());
   Persistent<const ComputedStyle>& persistent = *thread_specific_initial_style;
-  if (UNLIKELY(!persistent)) {
+  if (!persistent) [[unlikely]] {
     persistent = MakeGarbageCollected<ComputedStyle>(PassKey());
     LEAK_SANITIZER_IGNORE_OBJECT(&persistent);
   }
@@ -196,7 +196,7 @@ const ComputedStyle* ComputedStyle::GetInitialStyleForImgSingleton() {
       ThreadSpecific<Persistent<const ComputedStyle>>,
       thread_specific_initial_style, ());
   Persistent<const ComputedStyle>& persistent = *thread_specific_initial_style;
-  if (UNLIKELY(!persistent)) {
+  if (!persistent) [[unlikely]] {
     persistent = BuildInitialStyleForImg(*GetInitialStyleSingleton());
     LEAK_SANITIZER_IGNORE_OBJECT(&persistent);
   }
@@ -359,10 +359,10 @@ bool ComputedStyle::NeedsReattachLayoutTree(const Element& element,
 
   // LayoutObject tree structure for <legend> depends on whether it's a
   // rendered legend or not.
-  if (UNLIKELY(IsA<HTMLLegendElement>(element) &&
-               (old_style->IsFloating() != new_style->IsFloating() ||
-                old_style->HasOutOfFlowPosition() !=
-                    new_style->HasOutOfFlowPosition()))) {
+  if (IsA<HTMLLegendElement>(element) &&
+      (old_style->IsFloating() != new_style->IsFloating() ||
+       old_style->HasOutOfFlowPosition() != new_style->HasOutOfFlowPosition()))
+      [[unlikely]] {
     return true;
   }
 
@@ -729,22 +729,6 @@ const ComputedStyle* ComputedStyle::GetCachedPseudoElementStyle(
   return nullptr;
 }
 
-bool ComputedStyle::CachedPseudoElementStylesDependOnFontMetrics() const {
-  if (!HasCachedPseudoElementStyles()) {
-    return false;
-  }
-
-  DCHECK_EQ(StyleType(), kPseudoIdNone);
-
-  for (const auto& pseudo_style : *GetPseudoElementStyleCache()) {
-    if (pseudo_style->DependsOnFontMetrics()) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 const ComputedStyle* ComputedStyle::AddCachedPseudoElementStyle(
     const ComputedStyle* pseudo,
     PseudoId pseudo_id,
@@ -962,6 +946,14 @@ StyleDifference ComputedStyle::VisualInvalidationDiff(
     diff.SetZIndexChanged();
   }
 
+  // If the (current)color changes and a filter uses it, the filter needs to be
+  // updated. This reads `diff.TextDecorationOrColorChanged()` and so needs to
+  // be after the setters, above.
+  if (diff.TextDecorationOrColorChanged() && HasFilter() &&
+      Filter().UsesCurrentColor()) {
+    diff.SetFilterChanged();
+  }
+
   // The following condition needs to be at last, because it may depend on
   // conditions in diff computed above.
   if ((field_diff & kScrollAnchor) || diff.TransformChanged()) {
@@ -1136,11 +1128,14 @@ bool ComputedStyle::DiffNeedsNormalPaintInvalidation(
   }
 
   if (field_diff & kBackgroundCurrentColor) {
-    // If the background image depends on currentColor
-    // (e.g., background-image: linear-gradient(currentColor, #fff)), and the
-    // color has changed, we need to recompute it even though VisuallyEqual()
+    // If the background-image or background-color depends on currentColor
+    // (e.g., background-image: linear-gradient(currentColor, #fff) or
+    // background-color: color-mix(in srgb, currentcolor ...)), and the color
+    // has changed, we need to recompute it even though VisuallyEqual()
     // thinks the old and new background styles are identical.
-    if (BackgroundInternal().AnyLayerUsesCurrentColor() &&
+    if ((BackgroundInternal().AnyLayerUsesCurrentColor() ||
+         BackgroundColor().IsUnresolvedColorMixFunction() ||
+         InternalVisitedBackgroundColor().IsUnresolvedColorMixFunction()) &&
         (GetCurrentColor() != other.GetCurrentColor() ||
          GetInternalVisitedCurrentColor() !=
              other.GetInternalVisitedCurrentColor())) {
@@ -2421,7 +2416,7 @@ LayoutUnit ComputedStyle::ComputedLineHeightAsFixed(const Font& font) const {
     return MinimumValueForLength(lh, ComputedFontSizeAsFixed(font));
   }
 
-  return LayoutUnit::FromFloatFloor(lh.Value());
+  return LayoutUnit::FromFloatRound(lh.Value());
 }
 
 LayoutUnit ComputedStyle::ComputedLineHeightAsFixed() const {
@@ -3063,11 +3058,9 @@ void ComputedStyleBuilder::SetUsedColorScheme(
 
   SetColorSchemeForced(forced_scheme);
 
-  if (RuntimeEnabledFeatures::UsedColorSchemeRootScrollbarsEnabled()) {
-    const bool is_normal =
-        flags == static_cast<ColorSchemeFlags>(ColorSchemeFlag::kNormal);
-    SetColorSchemeFlagsIsNormal(is_normal);
-  }
+  const bool is_normal =
+      flags == static_cast<ColorSchemeFlags>(ColorSchemeFlag::kNormal);
+  SetColorSchemeFlagsIsNormal(is_normal);
 }
 
 CSSVariableData* ComputedStyleBuilder::GetVariableData(

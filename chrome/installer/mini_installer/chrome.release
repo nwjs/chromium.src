@@ -29,7 +29,6 @@ eventlog_provider.dll: %(ChromeDir)s\
 icudtl.dat: %(ChromeDir)s\
 libEGL.dll: %(ChromeDir)s\
 libGLESv2.dll: %(ChromeDir)s\
-mojo_core.dll: %(ChromeDir)s\
 notification_helper.exe: %(ChromeDir)s\
 optimization_guide_internal.dll: %(ChromeDir)s\
 resources.pak: %(ChromeDir)s\

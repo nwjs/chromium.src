@@ -90,10 +90,10 @@ class AutofillPopupControllerImpl
   void Show(std::vector<Suggestion> suggestions,
             AutofillSuggestionTriggerSource trigger_source,
             AutoselectFirstSuggestion autoselect_first_suggestion) override;
-  void DisableThresholdForTesting(bool disable_threshold) override;
   void SetKeepPopupOpenForTesting(bool keep_popup_open_for_testing) override;
   void UpdateDataListValues(base::span<const SelectOption> options) override;
   void PinView() override;
+  bool IsViewVisibilityAcceptingThresholdEnabled() const override;
 
   // AutofillPopupController:
   void SelectSuggestion(int index) override;
@@ -112,7 +112,6 @@ class AutofillPopupControllerImpl
   bool HandleKeyPressEvent(const input::NativeWebKeyboardEvent& event) override;
   void OnPopupPainted() override;
   base::WeakPtr<AutofillPopupController> GetWeakPtr() override;
-  void SetViewForTesting(base::WeakPtr<AutofillPopupView> view) override;
 
  protected:
   AutofillPopupControllerImpl(
@@ -150,6 +149,7 @@ class AutofillPopupControllerImpl
   virtual void HideViewAndDie();
 
  private:
+  friend class AutofillPopupControllerImplTestApi;
   friend class AutofillSuggestionController;
 
   // Clear the internal state of the controller. This is needed to ensure that
@@ -163,6 +163,11 @@ class AutofillPopupControllerImpl
 
   // Returns `true` if this popup has no parent, and `false` for sub-popups.
   bool IsRootPopup() const;
+
+  // Notifies the view that the suggestions provided by the controller changed.
+  // If `prefer_prev_arrow_side` is `true`, the view takes prev arrow side as
+  // the first preferred when recalculating the popup position.
+  void OnSuggestionsChanged(bool prefer_prev_arrow_side);
 
   void UpdateFilteredSuggestions(bool notify_suggestions_changed);
 

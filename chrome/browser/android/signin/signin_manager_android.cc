@@ -139,11 +139,10 @@ class ProfileDataRemover : public content::BrowsingDataRemover::Observer {
   raw_ptr<content::BrowsingDataRemover> remover_;
 };
 
-// Returns whether the user is a managed user or not.
+// Returns whether the user *may* be a managed user.
 bool ShouldLoadPolicyForUser(const std::string& username) {
-  return signin::AccountManagedStatusFinder::IsEnterpriseUserBasedOnEmail(
-             username) ==
-         signin::AccountManagedStatusFinder::EmailEnterpriseStatus::kUnknown;
+  return signin::AccountManagedStatusFinder::MayBeEnterpriseUserBasedOnEmail(
+      username);
 }
 
 }  // namespace
@@ -313,8 +312,7 @@ void SigninManagerAndroid::IsAccountManaged(
     return;
   }
 
-  if (!base::FeatureList::IsEnabled(switches::kSeedAccountsRevamp) &&
-      base::FeatureList::IsEnabled(switches::kEnterprisePolicyOnSignin)) {
+  if (!base::FeatureList::IsEnabled(switches::kSeedAccountsRevamp)) {
     // Force seed the account, since requesting management status would require
     // access token, and this operation would result in a crash if done on a
     // non seeded account. See https://crbug.com/332900316.
@@ -391,10 +389,10 @@ std::string JNI_SigninManagerImpl_ExtractDomainName(JNIEnv* env,
 void SigninManagerAndroid::SetUserAcceptedAccountManagement(
     JNIEnv* env,
     bool accepted_account_management) {
-  chrome::enterprise_util::SetUserAcceptedAccountManagement(
+  enterprise_util::SetUserAcceptedAccountManagement(
       profile_, accepted_account_management);
 }
 
 bool SigninManagerAndroid::GetUserAcceptedAccountManagement(JNIEnv* env) {
-  return chrome::enterprise_util::UserAcceptedAccountManagement(profile_);
+  return enterprise_util::UserAcceptedAccountManagement(profile_);
 }

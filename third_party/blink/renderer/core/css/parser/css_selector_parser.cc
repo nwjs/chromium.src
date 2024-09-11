@@ -1002,7 +1002,7 @@ PseudoId CSSSelectorParser::ParsePseudoElement(const String& selector_string,
     CSSParserToken selector_name_token = stream.Peek();
     if (selector_name_token.GetType() == kIdentToken) {
       stream.Consume();
-      if (!selector_name_token.Value().Is8Bit()) {
+      if (!selector_name_token.Value().ContainsOnlyASCIIOrEmpty()) {
         return kPseudoIdInvalid;
       }
       if (stream.Peek().GetType() != kEOFToken) {
@@ -1142,10 +1142,18 @@ bool IsPseudoClassValidAfterPseudoElement(
       return pseudo_class == CSSSelector::kPseudoWindowInactive;
     case CSSSelector::kPseudoPart:
     // TODO(crbug.com/1511354): Add tests for the PseudoSelect cases here
+    case CSSSelector::kPseudoSelectFallbackDatalist:
+      // TODO(crbug.com/1511354): This separate case is only here to support
+      // kPseudoPopoverOpen. As part of the part-like pseudo-elements feature,
+      // kPseudoPopoverOpen may be supported by kPseudoPart, in which case this
+      // case could be combined with kPseudoPart.
+      if (pseudo_class == CSSSelector::kPseudoPopoverOpen) {
+        return true;
+      }
+      [[fallthrough]];
     case CSSSelector::kPseudoSelectFallbackButton:
     case CSSSelector::kPseudoSelectFallbackButtonIcon:
     case CSSSelector::kPseudoSelectFallbackButtonText:
-    case CSSSelector::kPseudoSelectFallbackDatalist:
       return IsUserActionPseudoClass(pseudo_class) ||
              pseudo_class == CSSSelector::kPseudoState ||
              pseudo_class == CSSSelector::kPseudoStateDeprecatedSyntax;
@@ -1161,7 +1169,10 @@ bool IsPseudoClassValidAfterPseudoElement(
     case CSSSelector::kPseudoSearchText:
       return pseudo_class == CSSSelector::kPseudoCurrent;
     case CSSSelector::kPseudoScrollMarker:
-      return pseudo_class == CSSSelector::kPseudoFocus;
+      // TODO(crbug.com/40824273): User action pseudos should be allowed more
+      // generally after pseudo elements.
+      return pseudo_class == CSSSelector::kPseudoFocus ||
+             pseudo_class == CSSSelector::kPseudoChecked;
     default:
       return false;
   }
@@ -1916,13 +1927,15 @@ bool CSSSelectorParser::ConsumeNestingParent(CSSParserTokenStream& stream) {
 
   if (is_inside_has_argument_) {
     // In case that a nesting parent selector is inside a :has() pseudo class,
-    // mark the :has() containing a pseudo selector so that the StyleEngine can
-    // invalidate the anchor element of the :has() for a pseudo state change
-    // in the parent selector. (crbug.com/1517866)
-    // This ignores whether the nesting parent actually contains a pseudo to
-    // avoid nesting parent lookup overhead and the complexity caused by
-    // reparenting style rules.
+    // mark the :has() containing a pseudo selector and a complex selector
+    // so that the StyleEngine can invalidate the anchor element of the :has()
+    // for a pseudo state change (crbug.com/1517866) or a complex selector
+    // state change (crbug.com/350946979) in the parent selector.
+    // These ignore whether the nesting parent actually contains a pseudo or
+    // complex selector to avoid nesting parent lookup overhead and the
+    // complexity caused by reparenting style rules.
     found_pseudo_in_has_argument_ = true;
+    found_complex_logical_combinations_in_has_argument_ = true;
   }
 
   return true;
@@ -2111,7 +2124,7 @@ bool CSSSelectorParser::ConsumeANPlusB(CSSParserTokenStream& stream,
   result.second = ClampTo<int>(b.NumericValue());
   if (sign == kMinusSign) {
     // Negating minimum integer returns itself, instead return max integer.
-    if (UNLIKELY(result.second == std::numeric_limits<int>::min())) {
+    if (result.second == std::numeric_limits<int>::min()) [[unlikely]] {
       result.second = std::numeric_limits<int>::max();
     } else {
       result.second = -result.second;

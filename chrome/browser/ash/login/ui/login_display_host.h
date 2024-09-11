@@ -14,7 +14,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list_types.h"
 #include "chrome/browser/ash/customization/customization_document.h"
-#include "chrome/browser/ash/login/oobe_quick_start/target_device_bootstrap_controller.h"
 #include "chrome/browser/ash/login/oobe_screen.h"
 #include "chrome/browser/ash/login/ui/signin_ui.h"
 #include "components/user_manager/user_type.h"
@@ -32,6 +31,10 @@ class Rect;
 }  // namespace gfx
 
 namespace ash {
+
+namespace quick_start {
+class TargetDeviceBootstrapController;
+}  // namespace quick_start
 
 class ExistingUserController;
 class KioskAppId;
@@ -137,9 +140,6 @@ class LoginDisplayHost {
   // is true, the app is being auto-launched with no delay.
   virtual void StartKiosk(const KioskAppId& kiosk_app_id,
                           bool is_auto_launch) = 0;
-
-  // Performs necessary check and shows consumer kiosk UI if eligible.
-  virtual void AttemptShowEnableConsumerKioskScreen() = 0;
 
   // Show the gaia dialog. If available, `account` is preloaded in the gaia
   // dialog.

@@ -22,10 +22,10 @@ import {
 
 import {i18n} from '../core/i18n.js';
 import {usePlatformHandler} from '../core/lit/context.js';
-import {ModelId, ModelResponse} from '../core/on_device_model/types.js';
+import {ModelResponse} from '../core/on_device_model/types.js';
 import {ReactiveLitElement} from '../core/reactive/lit.js';
 import {signal} from '../core/reactive/signal.js';
-import {concatTextTokens, TextToken} from '../core/soda/soda.js';
+import {Transcription} from '../core/soda/soda.js';
 import {settings, SummaryEnableState} from '../core/state/settings.js';
 import {assertExhaustive} from '../core/utils/assert.js';
 
@@ -120,7 +120,7 @@ export class SummarizationView extends ReactiveLitElement {
     }
 
     #summary {
-      font: var(--cros-body-2-font);
+      font: var(--cros-body-1-font);
       padding: 12px 16px;
       white-space: pre-wrap;
     }
@@ -142,20 +142,29 @@ export class SummarizationView extends ReactiveLitElement {
       position: absolute;
       right: 0;
     }
+
+    #disabled {
+      background: var(--cros-sys-surface_variant);
+      border-radius: 8px;
+      color: var(--cros-sys-on_surface_variant);
+      font: var(--cros-label-1-font);
+      padding: 8px;
+      text-align: center;
+    }
   `;
 
   static override properties: PropertyDeclarations = {
-    textTokens: {attribute: false},
+    transcription: {attribute: false},
   };
 
-  textTokens: TextToken[] = [];
+  transcription: Transcription|null = null;
 
   // TODO(pihsun): Store the summarization in metadata.
   // TODO(pihsun): Reset summarization when textTokens changes? Probably
   // should just pass in the whole metadata after we have summarization in
   // metadata though, but would still need a way to "re-run" summarization
   // for dev iteration purpose.
-  private readonly summary = signal<ModelResponse|null>(null);
+  private readonly summary = signal<ModelResponse<string>|null>(null);
 
   // TODO(pihsun): Have a single struct for all possible states, instead of
   // multiple boolean.
@@ -179,10 +188,10 @@ export class SummarizationView extends ReactiveLitElement {
   private async requestSummary() {
     this.summaryRequested.value = true;
     this.summaryOpened.value = true;
-    const text = concatTextTokens(this.textTokens);
-    const model = await this.platformHandler.loadModel(ModelId.SUMMARY);
+    const text = this.transcription?.toPlainText() ?? '';
+    const model = await this.platformHandler.summaryModelLoader.load();
     try {
-      this.summary.value = await model.summarize(text);
+      this.summary.value = await model.execute(text);
       // TODO(pihsun): Handle error.
     } finally {
       model.close();
@@ -265,40 +274,42 @@ export class SummarizationView extends ReactiveLitElement {
   }
 
   override render(): RenderResult {
-    const summaryModelState = this.platformHandler.getModelState(
-      ModelId.SUMMARY,
-    );
+    const summaryModelState = this.platformHandler.summaryModelLoader.state;
     const summaryEnabled = settings.value.summaryEnabled;
 
-    if (summaryEnabled === SummaryEnableState.DISABLED ||
-        summaryModelState.value.kind === 'unavailable') {
+    if (summaryModelState.value.kind === 'unavailable') {
       this.classList.add('empty');
       return nothing;
     }
 
     this.classList.remove('empty');
-
-    if (summaryEnabled === SummaryEnableState.UNKNOWN) {
-      return html`<summary-consent-card></summary-consent-card>`;
+    switch (summaryEnabled) {
+      case SummaryEnableState.DISABLED:
+        return html`<div id="disabled">${i18n.summaryDisabledLabel}</div>`;
+      case SummaryEnableState.UNKNOWN:
+        return html`<summary-consent-card></summary-consent-card>`;
+      case SummaryEnableState.ENABLED:
+        switch (summaryModelState.value.kind) {
+          case 'error':
+            // TODO(pihsun): Handle error
+            return nothing;
+          case 'installing':
+            return this.renderSummaryInstalling(
+              summaryModelState.value.progress,
+            );
+          case 'installed':
+            return this.renderSummary();
+          case 'notInstalled':
+            return html`<summary-consent-card></summary-consent-card>`;
+          default:
+            assertExhaustive(summaryModelState.value.kind);
+        }
+      // eslint doesn't detect that the above case never reaches here, but tsc
+      // prevents us from adding "break;" here since it's unreachable code.
+      // eslint-disable-next-line no-fallthrough
+      default:
+        assertExhaustive(summaryEnabled);
     }
-
-    if (summaryEnabled === SummaryEnableState.ENABLED) {
-      switch (summaryModelState.value.kind) {
-        case 'error':
-          // TODO(pihsun): Handle error
-          return nothing;
-        case 'installing':
-          return this.renderSummaryInstalling(summaryModelState.value.progress);
-        case 'installed':
-          return this.renderSummary();
-        case 'notInstalled':
-          return html`<summary-consent-card></summary-consent-card>`;
-        default:
-          assertExhaustive(summaryModelState.value.kind);
-      }
-    }
-
-    assertExhaustive(summaryEnabled);
   }
 }
 

@@ -199,4 +199,8 @@ bool RenderFrameHostDelegate::IsPopup() const {
   return false;
 }
 
+RenderFrameHostImpl* RenderFrameHostDelegate::PartitionedPopinOpener() const {
+  return nullptr;
+}
+
 }  // namespace content

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "ash/webui/sanitize_ui/sanitize_ui.h"
 
 #include "ash/webui/common/trusted_types_util.h"
@@ -61,7 +66,23 @@ SanitizeDialogUI::SanitizeDialogUI(content::WebUI* web_ui)
        IDS_SANITIZE_DONE_ACCORDION_CHROME_HOMEPAGE},
       {"sanitizeDoneAccordionChromeLanguages",
        IDS_SANITIZE_DONE_ACCORDION_CHROME_LANGUAGES},
-  };
+      {"sanitizeDoneButtonExtensions", IDS_SANITIZE_DONE_BUTTON_EXTENSIONS},
+      {"sanitizeDoneButtonChromeOSInput",
+       IDS_SANITIZE_DONE_BUTTON_CHROMEOS_INPUT},
+      {"sanitizeDoneButtonChromeOSNetwork",
+       IDS_SANITIZE_DONE_BUTTON_CHROMEOS_NETWORK},
+      {"sanitizeDoneButtonChromeStartup",
+       IDS_SANITIZE_DONE_BUTTON_CHROME_STARTUP},
+      {"sanitizeDoneButtonChromeHomepage",
+       IDS_SANITIZE_DONE_BUTTON_CHROME_HOMEPAGE},
+      {"sanitizeDoneButtonChromeLanguages",
+       IDS_SANITIZE_DONE_BUTTON_CHROME_LANGUAGES},
+      {"sanitizeDescription", IDS_SANITIZE_DESCRIPTION},
+      {"sanitizeDialogTitle", IDS_SANITIZE_HEADING},
+      {"sanitizeDialogExplanation", IDS_SANITIZE_WARNING},
+      {"sanitizeDialogButton", IDS_SANITIZE},
+      {"sanitizeFeedback", IDS_SANITIZE_FEEDBACK},
+      {"sanitizeCancel", IDS_SANITIZE_CANCEL}};
   html_source->AddLocalizedStrings(kLocalizedStrings);
 }
 

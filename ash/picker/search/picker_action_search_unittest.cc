@@ -115,7 +115,9 @@ INSTANTIATE_TEST_SUITE_P(
                     .caps_lock_state_to_search = false,
                 },
             .query = u"caps",
-            .expected_results = {PickerSearchResult::CapsLock(false)},
+            .expected_results = {PickerSearchResult::CapsLock(
+                /*enabled=*/false,
+                PickerSearchResult::CapsLockData::Shortcut::kAltSearch)},
         },
         // Caps Lock On
         TestCase{
@@ -124,7 +126,9 @@ INSTANTIATE_TEST_SUITE_P(
                     .caps_lock_state_to_search = true,
                 },
             .query = u"caps",
-            .expected_results = {PickerSearchResult::CapsLock(true)},
+            .expected_results = {PickerSearchResult::CapsLock(
+                /*enabled=*/true,
+                PickerSearchResult::CapsLockData::Shortcut::kAltSearch)},
         },
         // Uppercase
         TestCase{
@@ -145,16 +149,6 @@ INSTANTIATE_TEST_SUITE_P(
             .query = u"lower",
             .expected_results = {PickerSearchResult::CaseTransform(
                 CaseTransformType::kLowerCase)},
-        },
-        // Sentence case
-        TestCase{
-            .options =
-                {
-                    .search_case_transforms = true,
-                },
-            .query = u"sentence",
-            .expected_results = {PickerSearchResult::CaseTransform(
-                CaseTransformType::kSentenceCase)},
         },
         // Title case
         TestCase{

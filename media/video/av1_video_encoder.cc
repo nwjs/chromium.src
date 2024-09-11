@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "media/video/av1_video_encoder.h"
 
 #include <algorithm>
@@ -69,8 +74,8 @@ aom_img_fmt GetAomImgFormat(VideoPixelFormat format) {
     case PIXEL_FORMAT_I420:
       return AOM_IMG_FMT_I420;
     default:
-      NOTREACHED_NORETURN();  // Enforced by prior call to
-                              // GetConversionFormat().
+      NOTREACHED();  // Enforced by prior call to
+                     // GetConversionFormat().
   }
 }
 

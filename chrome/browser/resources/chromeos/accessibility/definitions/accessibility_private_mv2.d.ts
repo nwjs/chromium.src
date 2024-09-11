@@ -164,6 +164,7 @@ declare global {
         y: number;
         touchAccessibility?: boolean;
         mouseButton?: SyntheticMouseEventButton;
+        isDoubleClick?: boolean;
       }
 
       export enum SelectToSpeakState {
@@ -212,6 +213,7 @@ declare global {
         DICTATION_CONTEXT_CHECKING = 'dictationContextChecking',
         FACE_GAZE = 'faceGaze',
         GOOGLE_TTS_HIGH_QUALITY_VOICES = 'googleTtsHighQualityVoices',
+        FACE_GAZE_GRAVITY_WELLS = 'faceGazeGravityWells',
       }
 
       export enum SelectToSpeakPanelAction {
@@ -325,6 +327,14 @@ declare global {
         model: ArrayBuffer;
         wasm: ArrayBuffer;
       }
+
+      export enum ScrollDirection {
+        UP = 'up',
+        DOWN = 'down',
+        LEFT = 'left',
+        RIGHT = 'right',
+      }
+
 
       export function getDisplayNameForLocale(
           localeCodeToTranslate: string, displayLocaleCode: string): string;
@@ -443,6 +453,9 @@ declare global {
 
       export function showToast(type: ToastType): void;
 
+      export function scrollAtPoint(
+          target: ScreenPoint, direction: ScrollDirection): void;
+
       export const onIntroduceChromeVox: ChromeEvent<() => void>;
 
       export const onChromeVoxFocusChanged:
@@ -491,6 +504,8 @@ declare global {
 
       export const onToggleDictation: ChromeEvent<(activated: boolean) => void>;
 
+      export const onToggleGestureInfoForSettings:
+          ChromeEvent<(enabled: boolean) => void>;
     }
   }
 }

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/extensions/extension_service.h"
 
 #include <stddef.h>
@@ -8467,14 +8472,12 @@ TEST_P(ExternalExtensionPriorityTest, PolicyForegroundFetch) {
   EXPECT_EQ(helper.test_url_loader_factory().NumPending(), 1);
   network::TestURLLoaderFactory::PendingRequest* pending_request =
       helper.test_url_loader_factory().GetPendingRequest(0);
-  std::string header;
-  EXPECT_TRUE(pending_request->request.headers.GetHeader(
-      "X-Goog-Update-Interactivity", &header));
   bool is_high_priority =
       GetParam() == ManifestLocation::kExternalPolicyDownload ||
       GetParam() == ManifestLocation::kExternalComponent;
-  const char* expected_header = is_high_priority ? "fg" : "bg";
-  EXPECT_EQ(expected_header, header);
+  std::string expected_header = is_high_priority ? "fg" : "bg";
+  EXPECT_EQ(expected_header, pending_request->request.headers.GetHeader(
+                                 "X-Goog-Update-Interactivity"));
 
   // Destroy updater's downloader as it uses |helper|.
   service()->updater()->SetExtensionDownloaderForTesting(nullptr);

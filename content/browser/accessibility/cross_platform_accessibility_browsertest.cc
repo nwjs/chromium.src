@@ -39,6 +39,7 @@
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_tree.h"
 #include "ui/accessibility/ax_tree_id.h"
+#include "ui/base/buildflags.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "base/win/atl.h"
@@ -1504,6 +1505,10 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   EXPECT_EQ(-1, GetIntAttr(header5, ax::mojom::IntAttribute::kSortDirection));
 }
 
+// Fuchsia WebEngine (currently the only content embedder on the platform)
+// does not use or include these localization strings,
+// see: https://crbug.com/358567091 for more details.
+#if !BUILDFLAG(IS_FUCHSIA)
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
                        LocalizedLandmarkType) {
   LoadInitialAccessibilityTreeFromHtml(R"HTML(
@@ -1695,6 +1700,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
         mark_text_node, ax::mojom::Role::kStaticText, u"highlight");
   }
 }
+#endif  // #if !BUILDFLAG(IS_FUCHSIA)
 
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
                        TooltipStringAttributeMutuallyExclusiveOfNameFromTitle) {
@@ -2410,7 +2416,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   LoadInitialAccessibilityTreeFromHtml(R"HTML(
       <!DOCTYPE html>
       <html>
-      <body>
+      <body lang="fr">
         <div>
           <button>This should be accessible</button>
         </div>
@@ -2430,8 +2436,9 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   ASSERT_NE(body_node, nullptr);
 
   // Make sure this is actually the body element.
-  ASSERT_EQ(body_node->GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag),
-            "body");
+  ASSERT_EQ(
+      body_node->GetStringAttribute(ax::mojom::StringAttribute::kLanguage),
+      "fr");
   ASSERT_TRUE(body_node->IsIgnored());
 
   AccessibilityNotificationWaiter waiter(
@@ -2823,6 +2830,32 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   EXPECT_TRUE(
       input->HasIntListAttribute(ax::mojom::IntListAttribute::kTextOperations));
 }
+
+#if BUILDFLAG(HAS_PLATFORM_ACCESSIBILITY_SUPPORT)
+IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
+                       IdDeletedOnNodeRemoval) {
+  // Load some HTML.
+  LoadInitialAccessibilityTreeFromHtml(
+      R"HTML("<div>One</div><div id="div-02">Two</div>)HTML");
+
+  // Count the number of unique IDs in the RFHI.
+  RenderFrameHostImpl* rfh_impl = static_cast<RenderFrameHostImpl*>(
+      shell()->web_contents()->GetPrimaryMainFrame());
+  size_t starting_unique_id_count = rfh_impl->GetAxUniqueIdCountForTesting();
+
+  // Delete a node and wait for the corresponding events to be handled.
+  {
+    AccessibilityNotificationWaiter waiter(
+        shell()->web_contents(), ui::kAXModeComplete,
+        ui::AXEventGenerator::Event::CHILDREN_CHANGED);
+    ExecuteScript("document.getElementById('div-02').remove()");
+    ASSERT_TRUE(waiter.WaitForNotification());
+  }
+
+  // Verify that the number of unique IDs has dropped.
+  ASSERT_LT(rfh_impl->GetAxUniqueIdCountForTesting(), starting_unique_id_count);
+}
+#endif
 
 class AriaNotifyCrossPlatformAccessibilityBrowserTest
     : public CrossPlatformAccessibilityBrowserTest {

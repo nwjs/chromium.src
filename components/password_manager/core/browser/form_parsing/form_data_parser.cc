@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <set>
@@ -29,6 +30,7 @@
 #include "components/autofill/core/common/autofill_regexes.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/password_generation_util.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -1080,6 +1082,11 @@ bool FieldValueIsTooShortForSaving(const FormFieldData* field) {
   return field && GetFieldValue(*field).size() <= 1;
 }
 
+bool FieldMaxLengthAllowsPasswordGeneration(const FormFieldData& field) {
+  return field.max_length() >=
+         autofill::password_generation::kMinimumPasswordLength;
+}
+
 }  // namespace
 
 FormParsingResult::FormParsingResult() = default;
@@ -1087,10 +1094,12 @@ FormParsingResult::FormParsingResult() = default;
 FormParsingResult::FormParsingResult(
     std::unique_ptr<PasswordForm> password_form,
     UsernameDetectionMethod username_detection_method,
-    bool is_new_password_reliable)
+    bool is_new_password_reliable,
+    std::vector<autofill::FieldRendererId> suggestion_banned_fields)
     : password_form(std::move(password_form)),
       username_detection_method(username_detection_method),
-      is_new_password_reliable(is_new_password_reliable) {}
+      is_new_password_reliable(is_new_password_reliable),
+      suggestion_banned_fields(std::move(suggestion_banned_fields)) {}
 
 FormParsingResult::FormParsingResult(FormParsingResult&& other) = default;
 
@@ -1137,9 +1146,19 @@ FormParsingResult FormDataParser::ParseAndReturnParsingResult(
   // Fields with server prediction `CREDIT_CARD_FIELD`, `CREDIT_CARD_NUMBER`,
   // `NOT_USERNAME`, and `NOT_PASSWORD` must not be considered in base
   // heuristics parsing or parsing using autocomplete attributes.
+  std::vector<autofill::FieldRendererId> suggestion_banned_fields;
+  for (const ProcessedField& field : processed_fields) {
+    if (field.server_hints_non_credential_field) {
+      suggestion_banned_fields.push_back(field.field->renderer_id());
+    }
+  }
   std::erase_if(processed_fields, [](ProcessedField field) {
     return field.server_hints_non_credential_field;
   });
+  // Server classified all fields as not related to credentials, early return.
+  if (processed_fields.empty()) {
+    return FormParsingResult();
+  }
 
   // (2) If that failed, try to parse with autocomplete attributes.
   if (!significant_fields.is_single_username) {
@@ -1213,6 +1232,8 @@ FormParsingResult FormDataParser::ParseAndReturnParsingResult(
   // user saves the already entered one.
   bool is_new_password_reliable = mode == Mode::kFilling &&
                                   significant_fields.new_password &&
+                                  FieldMaxLengthAllowsPasswordGeneration(
+                                      *significant_fields.new_password) &&
                                   new_password_found_before_heuristic;
 
   if (mode == Mode::kFilling) {
@@ -1239,7 +1260,7 @@ FormParsingResult FormDataParser::ParseAndReturnParsingResult(
       AssemblePasswordForm(form_data, significant_fields,
                            std::move(all_alternative_passwords),
                            std::move(all_alternative_usernames), predictions_),
-      method, is_new_password_reliable);
+      method, is_new_password_reliable, suggestion_banned_fields);
 }
 
 std::unique_ptr<PasswordForm> FormDataParser::Parse(

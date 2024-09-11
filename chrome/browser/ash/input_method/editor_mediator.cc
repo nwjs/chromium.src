@@ -32,6 +32,11 @@
 #include "ui/display/tablet_state.h"
 
 namespace ash::input_method {
+namespace {
+
+constexpr std::u16string_view kAnnouncementViewName = u"Orca";
+
+}
 
 EditorMediator::EditorMediator(
     Profile* profile,
@@ -47,7 +52,8 @@ EditorMediator::EditorMediator(
                                                   GetEditorOpportunityMode())),
       consent_store_(
           std::make_unique<EditorConsentStore>(profile->GetPrefs(),
-                                               metrics_recorder_.get())) {
+                                               metrics_recorder_.get())),
+      announcer_(kAnnouncementViewName) {
   editor_context_.OnTabletModeUpdated(
       display::Screen::GetScreen()->InTabletMode());
 }
@@ -119,10 +125,6 @@ void EditorMediator::OnFocus(int context_id) {
         std::make_unique<EditorServiceConnector>(&editor_context_);
     ResetEditorConnections();
   }
-
-  GetTextFieldContextualInfo(
-      base::BindOnce(&EditorMediator::OnTextFieldContextualInfoChanged,
-                     weak_ptr_factory_.GetWeakPtr()));
 
   if (IsServiceConnected()) {
     service_connection_->system_actuator()->OnFocus(context_id);
@@ -215,6 +217,7 @@ void EditorMediator::HandleTrigger(
     case EditorMode::kRewrite:
       mako_bubble_coordinator_.LoadEditorUI(
           profile_, MakoEditorMode::kRewrite,
+          /*can_fallback_to_center_position=*/true,
           active_query_context.preset_query_id,
           active_query_context.freeform_text);
       query_context_ = std::nullopt;
@@ -223,6 +226,7 @@ void EditorMediator::HandleTrigger(
     case EditorMode::kWrite:
       mako_bubble_coordinator_.LoadEditorUI(
           profile_, MakoEditorMode::kWrite,
+          /*can_fallback_to_center_position=*/true,
           active_query_context.preset_query_id,
           active_query_context.freeform_text);
       query_context_ = std::nullopt;
@@ -255,6 +259,10 @@ void EditorMediator::HandleTrigger(
 }
 
 void EditorMediator::CacheContext() {
+  GetTextFieldContextualInfo(
+      base::BindOnce(&EditorMediator::OnTextFieldContextualInfoChanged,
+                     weak_ptr_factory_.GetWeakPtr()));
+
   mako_bubble_coordinator_.CacheContextCaretBounds();
 
   size_t selected_length =

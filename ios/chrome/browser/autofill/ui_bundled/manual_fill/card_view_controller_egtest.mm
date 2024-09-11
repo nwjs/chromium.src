@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/form_input_accessory/form_input_accessory_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
+#import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/common/ui/elements/form_input_accessory_view.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -25,7 +26,6 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
-using base::test::ios::kWaitForActionTimeout;
 using chrome_test_util::ButtonWithAccessibilityLabelId;
 using chrome_test_util::CancelButton;
 using chrome_test_util::ManualFallbackAddPaymentMethodMatcher;
@@ -84,16 +84,6 @@ id<GREYMatcher> NotSecureWebsiteAlert() {
       IDS_IOS_MANUAL_FALLBACK_NOT_SECURE_TITLE);
 }
 
-// Waits for the keyboard to appear. Returns NO on timeout.
-BOOL WaitForKeyboardToAppear() {
-  GREYCondition* waitForKeyboard = [GREYCondition
-      conditionWithName:@"Wait for keyboard"
-                  block:^BOOL {
-                    return [EarlGrey isKeyboardShownWithError:nil];
-                  }];
-  return [waitForKeyboard waitWithTimeout:kWaitForActionTimeout.InSecondsF()];
-}
-
 // Opens the payment method manual fill view and verifies that the card view
 // controller is visible afterwards.
 void OpenPaymentMethodManualFillView() {
@@ -139,8 +129,7 @@ id<GREYMatcher> CreditCardManualFillViewTab() {
 // Matcher for the overflow menu button shown in the payment method cells.
 id<GREYMatcher> OverflowMenuButton() {
   return grey_allOf(
-      chrome_test_util::ButtonWithAccessibilityLabelId(
-          IDS_IOS_MANUAL_FALLBACK_THREE_DOT_MENU_BUTTON_ACCESSIBILITY_LABEL),
+      grey_accessibilityID(manual_fill::kExpandedManualFillOverflowMenuID),
       grey_interactable(), nullptr);
 }
 
@@ -160,8 +149,8 @@ id<GREYMatcher> OverflowMenuShowDetailsAction() {
 
 // Matcher for the "Autofill Form" button shown in the payment method cells.
 id<GREYMatcher> AutofillFormButton() {
-  return grey_allOf(ButtonWithAccessibilityLabelId(
-                        IDS_IOS_MANUAL_FALLBACK_AUTOFILL_FORM_BUTTON_TITLE),
+  return grey_allOf(grey_accessibilityID(
+                        manual_fill::kExpandedManualFillAutofillFormButtonID),
                     grey_interactable(), nullptr);
 }
 
@@ -246,6 +235,28 @@ id<GREYMatcher> CvcChipButton() {
       grey_interactable(), nullptr);
 }
 
+// Verifies that the number of accepted suggestions recorded for the given
+// `suggestion_index` is as expected.
+void CheckAutofillSuggestionAcceptedIndexMetricsCount(
+    NSInteger suggestion_index) {
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:suggestion_index
+                         forHistogram:
+                             @"Autofill.SuggestionAcceptedIndex.CreditCard"],
+      @"Unexpected histogram count for accepted card suggestion index.");
+
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:suggestion_index
+                         forHistogram:@"Autofill.UserAcceptedSuggestionAtIndex."
+                                      @"CreditCard.ManualFallback"],
+      @"Unexpected histogram count for manual fallback accepted card "
+      @"suggestion index.");
+}
+
 // Checks that the chip buttons of the local card are all visible.
 void CheckChipButtonsOfLocalCard() {
   autofill::CreditCard card = autofill::test::GetCreditCard();
@@ -315,12 +326,22 @@ void DismissPaymentBottomSheet() {
   [AutofillAppInterface clearCreditCardStore];
   [AutofillAppInterface clearAllServerDataForTesting];
   [AutofillAppInterface considerCreditCardFormSecureForTesting];
+
+  // Set up histogram tester.
+  GREYAssertNil([MetricsAppInterface setupHistogramTester],
+                @"Cannot setup histogram tester.");
+  [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
 }
 
 - (void)tearDown {
   [AutofillAppInterface clearCreditCardStore];
   [AutofillAppInterface clearAllServerDataForTesting];
   [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait error:nil];
+
+  // Clean up histogram tester.
+  [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
+  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
+                @"Failed to release histogram tester.");
   [super tearDown];
 }
 
@@ -374,6 +395,18 @@ void DismissPaymentBottomSheet() {
   // Open the payment method manual fill view and verify that the card table
   // view controller is visible.
   OpenPaymentMethodManualFillView();
+
+  // Verify that the number of visible suggestions in the keyboard accessory was
+  // correctly recorded.
+  NSString* histogram =
+      [AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]
+          ? @"ManualFallback.VisibleSuggestions.ExpandIcon.OpenPaymentMethods"
+          : @"ManualFallback.VisibleSuggestions.OpenCreditCards";
+  GREYAssertNil(
+      [MetricsAppInterface expectUniqueSampleWithCount:1
+                                             forBucket:1
+                                          forHistogram:histogram],
+      @"Unexpected histogram error for number of visible suggestions.");
 }
 
 // Tests that the saved card chip buttons are all visible in the card
@@ -430,6 +463,16 @@ void DismissPaymentBottomSheet() {
       l10n_util::GetNSString(IDS_IOS_MANUAL_FALLBACK_NO_PAYMENT_METHODS));
   [[EarlGrey selectElementWithMatcher:noPaymentMethodsFoundMessage]
       assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Verify that the number of visible suggestions in the keyboard accessory was
+  // correctly recorded.
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:0
+                         forHistogram:@"ManualFallback.VisibleSuggestions."
+                                      @"OpenCreditCards"],
+      @"Unexpected histogram error for number of visible suggestions.");
 }
 
 // Tests that the cards view controller contains the "Manage Payment
@@ -475,6 +518,14 @@ void DismissPaymentBottomSheet() {
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
+
+  // Refresh the view by scrolling to the top as the virtual card and regular
+  // card cells are otherwise superimposed. We don't think this issue is likely
+  // to happen in production, but it's worth investigating further.
+  // TODO(crbug.com/359542780): Remove when rendering issue is fixed.
+  [[EarlGrey
+      selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeTop)];
 
   // Assert presence of virtual card.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
@@ -965,7 +1016,7 @@ void DismissPaymentBottomSheet() {
       performAction:TapWebElementWithId(kFormElementName)];
 
   // Wait for the accessory icon to appear.
-  GREYAssert(WaitForKeyboardToAppear(), @"Keyboard didn't appear.");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
@@ -991,8 +1042,7 @@ void DismissPaymentBottomSheet() {
   // Bring up the keyboard
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
-  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
-                 @"Keyboard Should be Shown");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
@@ -1014,11 +1064,18 @@ void DismissPaymentBottomSheet() {
   // Bring up the keyboard
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
-  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
-                 @"Keyboard Should be Shown");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
+
+  // Refresh the view by scrolling to the top as the virtual card and regular
+  // card cells are otherwise superimposed. We don't think this issue is likely
+  // to happen in production, but it's worth investigating further.
+  // TODO(crbug.com/359542780): Remove when rendering issue is fixed.
+  [[EarlGrey
+      selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeTop)];
 
   // Assert presence of virtual card.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
@@ -1048,8 +1105,7 @@ void DismissPaymentBottomSheet() {
   // Bring up the keyboard
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
-  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
-                 @"Keyboard Should be Shown");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
@@ -1096,8 +1152,7 @@ void DismissPaymentBottomSheet() {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
   DismissPaymentBottomSheet();
-  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
-                 @"Keyboard Should be Shown");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
@@ -1137,8 +1192,7 @@ void DismissPaymentBottomSheet() {
   // Bring up the keyboard
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
-  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
-                 @"Keyboard Should be Shown");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
@@ -1182,8 +1236,7 @@ void DismissPaymentBottomSheet() {
   // Bring up the keyboard
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
-  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
-                 @"Keyboard Should be Shown");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
@@ -1194,6 +1247,10 @@ void DismissPaymentBottomSheet() {
 
   // Verify that the page is filled properly.
   [self verifyCreditCardInfosHaveBeenFilled:autofill::test::GetCreditCard()];
+
+  // Verify that the acceptance of the card suggestion at index 0 was correctly
+  // recorded.
+  CheckAutofillSuggestionAcceptedIndexMetricsCount(/*suggestion_index=*/0);
 
   [AutofillAppInterface clearMockReauthenticationModule];
 }
@@ -1213,20 +1270,10 @@ void DismissPaymentBottomSheet() {
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementName)];
   DismissPaymentBottomSheet();
-  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
-                 @"Keyboard Should be Shown");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();
-
-  // Check that the GPay icon is not visible in the local card cell.
-  [[EarlGrey selectElementWithMatcher:GPayIcon(local_card_last_digits)]
-      assertWithMatcher:grey_notVisible()];
-
-  // Scroll down to show the masked card.
-  [[EarlGrey
-      selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
-      performAction:grey_scrollInDirection(kGREYDirectionDown, 200)];
 
   // Check that the GPay icon is only visible in the masked card cell when the
   // Keyboard Accessory Upgrade feature is enabled.
@@ -1234,6 +1281,15 @@ void DismissPaymentBottomSheet() {
       assertWithMatcher:[AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]
                             ? grey_sufficientlyVisible()
                             : grey_notVisible()];
+
+  // Scroll down to show the local card.
+  [[EarlGrey
+      selectElementWithMatcher:ManualFallbackCreditCardTableViewMatcher()]
+      performAction:grey_scrollInDirection(kGREYDirectionDown, 200)];
+
+  // Check that the GPay icon is not visible in the local card cell.
+  [[EarlGrey selectElementWithMatcher:GPayIcon(local_card_last_digits)]
+      assertWithMatcher:grey_notVisible()];
 }
 
 #pragma mark - Private
@@ -1253,7 +1309,7 @@ void DismissPaymentBottomSheet() {
       performAction:TapWebElementWithId(kFormElementName)];
 
   // Wait for the accessory icon to appear.
-  GREYAssert(WaitForKeyboardToAppear(), @"Keyboard didn't appear.");
+  [ChromeEarlGrey waitForKeyboardToAppear];
 
   // Open the payment method manual fill view.
   OpenPaymentMethodManualFillView();

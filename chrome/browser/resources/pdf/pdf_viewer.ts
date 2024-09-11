@@ -2,44 +2,46 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import './elements/viewer-error-dialog.js';
+// This import is necessary for html_to_wrapper to detect this is a Polymer
+// element.
+import 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import './elements/viewer_error_dialog.js';
 // <if expr="enable_ink">
-import './elements/viewer-ink-host.js';
+import './elements/viewer_ink_host.js';
 // </if>
-import './elements/viewer-password-dialog.js';
+import './elements/viewer_password_dialog.js';
 // <if expr="enable_pdf_ink2">
-import './elements/viewer-side-panel.js';
+import './elements/viewer_side_panel.js';
 // </if>
-import './elements/viewer-pdf-sidenav.js';
-import './elements/viewer-properties-dialog.js';
-import './elements/viewer-toolbar.js';
-import './elements/shared-vars.css.js';
+import './elements/viewer_pdf_sidenav.js';
+import './elements/viewer_properties_dialog.js';
+import './elements/viewer_toolbar.js';
+import './elements/shared_vars.css.js';
 import './pdf_viewer_shared_style.css.js';
 import 'chrome://resources/cr_elements/cr_hidden_style.css.js';
 import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
 
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import {isMac} from 'chrome://resources/js/platform.js';
 import {listenOnce} from 'chrome://resources/js/util.js';
 
 import type {Bookmark} from './bookmark_type.js';
 import type {BrowserApi} from './browser_api.js';
 import type {Attachment, DocumentMetadata, ExtendedKeyEvent, Point} from './constants.js';
-import {FittingType, SaveRequestType} from './constants.js';
+import {FittingType, FormFieldFocusType, SaveRequestType} from './constants.js';
 import type {MessageData} from './controller.js';
-import {PluginController} from './controller.js';
-// <if expr="enable_pdf_ink2">
-import {PluginControllerEventType} from './controller.js';
+import {PluginController, PluginControllerEventType} from './controller.js';
 // </if>
 // <if expr="enable_ink">
 import type {ContentController} from './controller.js';
 // </if>
-import type {ChangePageAndXyDetail, ChangePageDetail, NavigateDetail} from './elements/viewer-bookmark.js';
-import {ChangePageOrigin} from './elements/viewer-bookmark.js';
-import type {ViewerErrorDialogElement} from './elements/viewer-error-dialog.js';
-import type {ViewerPasswordDialogElement} from './elements/viewer-password-dialog.js';
-import type {ViewerPdfSidenavElement} from './elements/viewer-pdf-sidenav.js';
-import type {ViewerToolbarElement} from './elements/viewer-toolbar.js';
+import type {ChangePageAndXyDetail, ChangePageDetail, NavigateDetail} from './elements/viewer_bookmark.js';
+import {ChangePageOrigin} from './elements/viewer_bookmark.js';
+import type {ViewerErrorDialogElement} from './elements/viewer_error_dialog.js';
+import type {ViewerPasswordDialogElement} from './elements/viewer_password_dialog.js';
+import type {ViewerPdfSidenavElement} from './elements/viewer_pdf_sidenav.js';
+import type {ViewerToolbarElement} from './elements/viewer_toolbar.js';
 // <if expr="enable_ink">
 import {InkController, InkControllerEventType} from './ink_controller.js';
 //</if>
@@ -208,9 +210,9 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       },
       // </if>
 
-      isFormFieldFocused_: {
-        type: Boolean,
-        value: false,
+      formFieldFocus_: {
+        type: FormFieldFocusType,
+        value: FormFieldFocusType.NONE,
       },
 
       /** The current loading progress of the PDF document (0 - 100). */
@@ -288,7 +290,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   // <if expr="enable_pdf_ink2">
   private hasInk2Edits_: boolean;
   // </if>
-  private isFormFieldFocused_: boolean;
+  private formFieldFocus_: FormFieldFocusType;
   private loadProgress_: number;
   private navigator_: PdfNavigator|null = null;
   private pageNo_: number;
@@ -395,7 +397,8 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     }
 
     // Let the viewport handle directional key events.
-    if (this.viewport.handleDirectionalKeyEvent(e, this.isFormFieldFocused_)) {
+    if (this.viewport.handleDirectionalKeyEvent(
+            e, this.formFieldFocus_ !== FormFieldFocusType.NONE)) {
       return;
     }
 
@@ -446,11 +449,25 @@ export class PdfViewerElement extends PdfViewerBaseElement {
    */
   private handleToolbarKeyEvent_(e: KeyboardEvent) {
     // TODO(thestig): Should this use hasCtrlModifier() or stay as is?
-    if (e.key === '\\' && e.ctrlKey) {
-      this.$.toolbar.fitToggle();
+    if (isMac ? !e.metaKey || e.ctrlKey : !e.ctrlKey || e.metaKey) {
+      return;
     }
+
     // TODO: Add handling for additional relevant hotkeys for the new unified
     // toolbar.
+    switch (e.key) {
+      case '\\':
+        this.$.toolbar.fitToggle();
+        return;
+      // <if expr="enable_pdf_ink2">
+      case 'z':
+        this.$.toolbar.undo();
+        return;
+      case 'y':
+        this.$.toolbar.redo();
+        return;
+      // </if>
+    }
   }
 
   // <if expr="enable_ink">
@@ -877,8 +894,8 @@ export class PdfViewerElement extends PdfViewerBaseElement {
             (data as unknown as {smoothScrolling: boolean}).smoothScrolling);
         return;
       case 'formFocusChange':
-        const focusedData = data as unknown as {focused: boolean};
-        this.isFormFieldFocused_ = focusedData.focused;
+        const focusedData = data as unknown as {focused: FormFieldFocusType};
+        this.formFieldFocus_ = focusedData.focused;
         return;
       case 'touchSelectionOccurred':
         this.sendScriptingMessage({

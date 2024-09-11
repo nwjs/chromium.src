@@ -266,7 +266,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   // Verify the "manage accounts" view is popped.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kSettingsAccountsTableViewId)]
+                                          kSettingsLegacyAccountsTableViewId)]
       assertWithMatcher:grey_notVisible()];
 
   // Verify the "manage sync" view is popped.
@@ -316,10 +316,11 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [ChromeEarlGrey connectFakeSyncServerNetwork];
 }
 
+// TODO(crbug.com/355133719): Remove FLAKY_ from this test.
 // Tests the unsynced data dialog shows when there are unsynced readinglist
 // entries. Also verifies that the user is still signed in when the dialog
 // Cancel button is tapped.
-- (void)testUnsyncedDataDialogShowsInCaseOfUnsyncedReadingListEntry {
+- (void)FLAKY_testUnsyncedDataDialogShowsInCaseOfUnsyncedReadingListEntry {
   // TODO(crbug.com/41494658): Test fails on iPhone device and simulator.
   if (![ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_DISABLED(@"Fails on iPhone.");
@@ -767,7 +768,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // Tests the account settings is with a user actionable error; enter
 // passphrase error.
 - (void)testAccountSettingsWithError {
-  [ChromeEarlGrey addBookmarkWithSyncPassphrase:kPassphrase];
+  [ChromeEarlGrey addSyncPassphrase:kPassphrase];
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
@@ -1442,7 +1443,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // Tests the account settings and the user actionable error view are dismissed
 // on account removal.
 - (void)testAccountSettingsWithErrorDismissed {
-  [ChromeEarlGrey addBookmarkWithSyncPassphrase:kPassphrase];
+  [ChromeEarlGrey addSyncPassphrase:kPassphrase];
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
@@ -1475,7 +1476,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
 // Tests the passphrase error view is dismissed when "Cancel" button is pressed.
 - (void)testErrorViewFromAccountSettingsDismissed {
-  [ChromeEarlGrey addBookmarkWithSyncPassphrase:kPassphrase];
+  [ChromeEarlGrey addSyncPassphrase:kPassphrase];
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
@@ -1549,7 +1550,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // and cleared when account is removed from device.
 - (void)testRememberCustomPassphraseAfterSignout {
   // Enable custom passphrase.
-  [ChromeEarlGrey addBookmarkWithSyncPassphrase:kPassphrase];
+  [ChromeEarlGrey addSyncPassphrase:kPassphrase];
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 

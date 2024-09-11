@@ -71,9 +71,9 @@ BASE_FEATURE(kFallbackToAudioTabMirroring,
 
 BASE_FEATURE(kCastMirroringPlayoutDelay,
              "CastMirroringPlayoutDelay",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kCastMirroringPlayoutDelayMs{
-    &kCastMirroringPlayoutDelay, "cast_mirroring_playout_delay_ms", -1};
+    &kCastMirroringPlayoutDelay, "cast_mirroring_playout_delay_ms", 200};
 
 // TODO(b/202294946): Remove when enabled by default after a few milestones.
 BASE_FEATURE(kGlobalMediaControlsCastStartStop,
@@ -87,8 +87,8 @@ BASE_FEATURE(kCastSilentlyRemoveVcOnNavigation,
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_MAC)
-BASE_FEATURE(kUseNetworkFrameworkForCastDiscovery,
-             "UseNetworkFrameworkForCastDiscovery",
+BASE_FEATURE(kUseNetworkFrameworkForLocalDiscovery,
+             "UseNetworkFrameworkForLocalDiscovery",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 

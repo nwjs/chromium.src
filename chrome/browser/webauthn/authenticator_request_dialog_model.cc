@@ -26,13 +26,18 @@
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
+#include "chrome/browser/ui/webauthn/ambient/ambient_signin_controller.h"
 #include "chrome/browser/ui/webauthn/authenticator_request_dialog.h"
 #include "chrome/browser/ui/webauthn/authenticator_request_window.h"
+#include "chrome/browser/ui/webauthn/user_actions.h"
 #include "chrome/browser/webauthn/authenticator_reference.h"
 #include "chrome/browser/webauthn/authenticator_transport.h"
 #include "chrome/browser/webauthn/change_pin_controller_impl.h"
@@ -44,6 +49,8 @@
 #include "components/device_event_log/device_event_log.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/features.h"
 #include "components/vector_icons/vector_icons.h"
@@ -201,10 +208,6 @@ password_manager::PasskeyCredential::Source ToPasswordManagerSource(
 void MaybeStoreLastUsedPairing(
     content::RenderFrameHost* rfh,
     const std::array<uint8_t, device::kP256X962Length>& pairing_public_key) {
-  if (!rfh) {
-    // The RFH might be null in unit tests, or it might not be alive anymore.
-    return;
-  }
   Profile* profile = Profile::FromBrowserContext(rfh->GetBrowserContext());
   profile->GetPrefs()->SetString(
       webauthn::pref_names::kLastUsedPairingFromSyncPublicKey,
@@ -215,10 +218,6 @@ void MaybeStoreLastUsedPairing(
 // available.
 std::optional<std::vector<uint8_t>> RetrieveLastUsedPairing(
     content::RenderFrameHost* rfh) {
-  if (!rfh) {
-    // The RFH might be null in unit tests, or it might not be alive anymore.
-    return std::nullopt;
-  }
   Profile* profile = Profile::FromBrowserContext(rfh->GetBrowserContext());
   std::string maybe_last_used_pairing = profile->GetPrefs()->GetString(
       webauthn::pref_names::kLastUsedPairingFromSyncPublicKey);
@@ -432,6 +431,15 @@ std::optional<content::GlobalRenderFrameHostId> FrameHostIdFromMaybeNull(
   return render_frame_host->GetGlobalId();
 }
 
+content::WebContents* GetWebContentsFromFrameHostId(
+    std::optional<content::GlobalRenderFrameHostId> frame_host_id) {
+  if (!frame_host_id) {
+    return nullptr;
+  }
+  return content::WebContents::FromRenderFrameHost(
+      content::RenderFrameHost::FromID(*frame_host_id));
+}
+
 bool ProfileAuthenticatorWillDoUserVerification(
     device::UserVerificationRequirement requirement,
     bool platform_has_biometrics) {
@@ -481,7 +489,7 @@ void AuthenticatorRequestDialogModel::SetStep(Step step) {
   ui_disabled_ = false;
 
   const StepUIType ui_type = step_ui_type(step_);
-  auto* web_contents = GetWebContents();
+  auto* web_contents = GetWebContentsFromFrameHostId(frame_host_id);
   if (previous_ui_type != ui_type && web_contents) {
     // The UI observes `OnStepTransition` and updates automatically.
     switch (ui_type) {
@@ -516,24 +524,42 @@ void AuthenticatorRequestDialogModel::DisableUiOrShowLoadingDialog() {
   }
 }
 
-content::WebContents* AuthenticatorRequestDialogModel::GetWebContents() const {
-  if (!frame_host_id) {
-    return nullptr;
-  }
-  return content::WebContents::FromRenderFrameHost(
-      content::RenderFrameHost::FromID(*frame_host_id));
-}
-
-content::RenderFrameHost* AuthenticatorRequestDialogModel::GetRenderFrameHost()
-    const {
-  if (!frame_host_id) {
-    return nullptr;
-  }
-  return content::RenderFrameHost::FromID(*frame_host_id);
-}
-
 bool AuthenticatorRequestDialogModel::should_dialog_be_closed() const {
   return step_ui_type(step_) != StepUIType::DIALOG;
+}
+
+std::optional<AccountInfo>
+AuthenticatorRequestDialogModel::GetGpmAccountInfo() {
+  Profile* profile = GetProfile();
+  if (!profile) {
+    return std::nullopt;
+  }
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+  if (!identity_manager) {
+    return std::nullopt;
+  }
+  CoreAccountInfo core_account_info =
+      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+  CHECK(!core_account_info.IsEmpty());
+  return identity_manager->FindExtendedAccountInfo(core_account_info);
+}
+
+std::string AuthenticatorRequestDialogModel::GetGpmAccountEmail() {
+  std::optional<AccountInfo> account_info = GetGpmAccountInfo();
+  if (!account_info) {
+    return "";
+  }
+  return account_info->email;
+}
+
+Profile* AuthenticatorRequestDialogModel::GetProfile() {
+  content::RenderFrameHost* rfh =
+      content::RenderFrameHost::FromID(*frame_host_id);
+  if (!rfh) {
+    return nullptr;
+  }
+  return Profile::FromBrowserContext(rfh->GetBrowserContext());
 }
 
 #define AUTHENTICATOR_REQUEST_EVENT_0(name)        \
@@ -616,15 +642,15 @@ void AuthenticatorRequestDialogController::ResetEphemeralState() {
 }
 
 AuthenticatorRequestDialogController::AuthenticatorRequestDialogController(
-    AuthenticatorRequestDialogModel* model)
-    : model_(model) {
+    AuthenticatorRequestDialogModel* model,
+    content::RenderFrameHost* render_frame_host)
+    : model_(model), frame_host_id_(render_frame_host->GetGlobalId()) {
   model_->observers.AddObserver(this);
-  content::RenderFrameHost* frame_host = model_->GetRenderFrameHost();
-  if (frame_host &&
-      base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)) {
+  if (base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)) {
     webauthn::PasskeyModel* passkey_model =
         PasskeyModelFactory::GetInstance()->GetForProfile(
-            Profile::FromBrowserContext(frame_host->GetBrowserContext()));
+            Profile::FromBrowserContext(
+                render_frame_host->GetBrowserContext()));
     if (passkey_model) {
       passkey_model_observation_.Observe(passkey_model);
     }
@@ -698,13 +724,13 @@ void AuthenticatorRequestDialogController::StartFlow(
 }
 
 void AuthenticatorRequestDialogController::StartOver() {
+  PrefService* pref_service =
+      Profile::FromBrowserContext(GetRenderFrameHost()->GetBrowserContext())
+          ->GetOriginalProfile()
+          ->GetPrefs();
   if (model_->step() == Step::kTrustThisComputerCreation ||
       model_->step() == Step::kTrustThisComputerAssertion) {
     device::enclave::RecordEvent(device::enclave::Event::kOnboardingRejected);
-    auto* pref_service = Profile::FromBrowserContext(
-                             model_->GetRenderFrameHost()->GetBrowserContext())
-                             ->GetOriginalProfile()
-                             ->GetPrefs();
     int current_gpm_decline_count = pref_service->GetInteger(
         webauthn::pref_names::kEnclaveDeclinedGPMBootstrappingCount);
     pref_service->SetInteger(
@@ -712,10 +738,6 @@ void AuthenticatorRequestDialogController::StartOver() {
         std::min(current_gpm_decline_count + 1,
                  device::enclave::kMaxGPMBootstrapPrompts));
   } else if (enclave_was_priority_mechanism_) {
-    auto* pref_service = Profile::FromBrowserContext(
-                             model_->GetRenderFrameHost()->GetBrowserContext())
-                             ->GetOriginalProfile()
-                             ->GetPrefs();
     int current_gpm_decline_count = pref_service->GetInteger(
         webauthn::pref_names::kEnclaveDeclinedGPMCredentialCreationCount);
     pref_service->SetInteger(
@@ -916,8 +938,7 @@ void AuthenticatorRequestDialogController::
 bool AuthenticatorRequestDialogController::StartGuidedFlowForHint(
     AuthenticatorTransport transport) {
   Profile* const profile =
-      Profile::FromBrowserContext(
-          model_->GetRenderFrameHost()->GetBrowserContext())
+      Profile::FromBrowserContext(GetRenderFrameHost()->GetBrowserContext())
           ->GetOriginalProfile();
   const auto mechanism_is_transport = [](const Mechanism& mech,
                                          AuthenticatorTransport transport) {
@@ -949,7 +970,7 @@ bool AuthenticatorRequestDialogController::StartGuidedFlowForHint(
                     mechanism_is_transport(mech,
                                            AuthenticatorTransport::kInternal));
           default:
-            NOTREACHED_NORETURN();
+            NOTREACHED();
             return false;
         }
       });
@@ -1060,7 +1081,7 @@ void AuthenticatorRequestDialogController::OnBleStatusKnown(
       return;
     case BleStatus::kPendingPermissionRequest:
       // This should have been handled by EnsureBleAdapterIsPoweredAndContinue.
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -1214,8 +1235,9 @@ void AuthenticatorRequestDialogController::CancelAuthenticatorRequest() {
 
 void AuthenticatorRequestDialogController::OnRequestComplete() {
   if (use_conditional_mediation_) {
-    auto* render_frame_host = model_->GetRenderFrameHost();
-    auto* web_contents = model_->GetWebContents();
+    auto* render_frame_host = GetRenderFrameHost();
+    auto* web_contents =
+        content::WebContents::FromRenderFrameHost(render_frame_host);
     if (web_contents && render_frame_host) {
       ChromeWebAuthnCredentialsDelegateFactory::GetFactory(web_contents)
           ->GetDelegateForFrame(render_frame_host)
@@ -1289,6 +1311,7 @@ void AuthenticatorRequestDialogController::OnUserConsentDenied() {
   }
 
   if (ephemeral_state_.did_dispatch_to_icloud_keychain_) {
+    webauthn::user_actions::RecordICloudCancelled();
     // If we dispatched automatically to iCloud Keychain and the
     // user clicked cancel, give them the option to try something else.
     bool did_trigger_automatically =
@@ -1549,10 +1572,10 @@ void AuthenticatorRequestDialogController::SetSelectedAuthenticatorForTesting(
 
 void AuthenticatorRequestDialogController::ContactPriorityPhone() {
   if (model_->step() == Step::kTrustThisComputerAssertion) {
-    auto* pref_service = Profile::FromBrowserContext(
-                             model_->GetRenderFrameHost()->GetBrowserContext())
-                             ->GetOriginalProfile()
-                             ->GetPrefs();
+    auto* pref_service =
+        Profile::FromBrowserContext(GetRenderFrameHost()->GetBrowserContext())
+            ->GetOriginalProfile()
+            ->GetPrefs();
     int current_gpm_decline_count = pref_service->GetInteger(
         webauthn::pref_names::kEnclaveDeclinedGPMBootstrappingCount);
     pref_service->SetInteger(
@@ -1934,8 +1957,7 @@ void AuthenticatorRequestDialogController::StartEnclave() {
 
 void AuthenticatorRequestDialogController::ReauthForSyncRestore() {
   signin_ui_util::ShowReauthForPrimaryAccountWithAuthError(
-      Profile::FromBrowserContext(
-          model_->GetWebContents()->GetBrowserContext()),
+      Profile::FromBrowserContext(GetRenderFrameHost()->GetBrowserContext()),
       signin_metrics::AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG);
   CancelAuthenticatorRequest();
 }
@@ -1980,63 +2002,71 @@ void AuthenticatorRequestDialogController::ContactPhoneAfterBleIsPowered(
 void AuthenticatorRequestDialogController::StartConditionalMediationRequest() {
   model_->creds = transport_availability_.recognized_credentials;
 
-  auto* render_frame_host = model_->GetRenderFrameHost();
-  auto* web_contents = model_->GetWebContents();
-  if (web_contents && render_frame_host) {
-    std::vector<password_manager::PasskeyCredential> credentials;
-    std::optional<size_t> priority_phone_index =
-        GetIndexOfMostRecentlyUsedPhoneFromSync();
-    std::optional<std::u16string> priority_phone_name;
-    if (priority_phone_index) {
-      priority_phone_name =
-          base::UTF8ToUTF16(paired_phones_[*priority_phone_index]->name);
+  auto* render_frame_host = GetRenderFrameHost();
+  auto* web_contents =
+      content::WebContents::FromRenderFrameHost(render_frame_host);
+  std::vector<password_manager::PasskeyCredential> credentials;
+  std::optional<size_t> priority_phone_index =
+      GetIndexOfMostRecentlyUsedPhoneFromSync();
+  std::optional<std::u16string> priority_phone_name;
+  if (priority_phone_index) {
+    priority_phone_name =
+        base::UTF8ToUTF16(paired_phones_[*priority_phone_index]->name);
+  }
+  for (const auto& credential : model_->creds) {
+    if (credential.source == device::AuthenticatorType::kPhone &&
+        !priority_phone_index) {
+      continue;
     }
-    for (const auto& credential : model_->creds) {
-      if (credential.source == device::AuthenticatorType::kPhone &&
-          !priority_phone_index) {
-        continue;
-      }
-      if (credential.source == device::AuthenticatorType::kEnclave &&
-          !enclave_enabled_) {
-        continue;
-      }
-      password_manager::PasskeyCredential& passkey = credentials.emplace_back(
-          ToPasswordManagerSource(credential.source),
-          password_manager::PasskeyCredential::RpId(credential.rp_id),
-          password_manager::PasskeyCredential::CredentialId(credential.cred_id),
-          password_manager::PasskeyCredential::UserId(credential.user.id),
-          password_manager::PasskeyCredential::Username(
-              credential.user.name.value_or("")),
-          password_manager::PasskeyCredential::DisplayName(
-              credential.user.display_name.value_or("")));
-      if (credential.source == device::AuthenticatorType::kPhone) {
-        passkey.set_authenticator_label(l10n_util::GetStringFUTF16(
-            IDS_PASSWORD_MANAGER_PASSKEY_FROM_PHONE, *priority_phone_name));
-      }
+    if (credential.source == device::AuthenticatorType::kEnclave &&
+        !enclave_enabled_) {
+      continue;
     }
-    bool offer_passkey_from_another_device;
-    switch (transport_availability_.conditional_ui_treatment) {
-      case TransportAvailabilityInfo::ConditionalUITreatment::kDefault:
-        offer_passkey_from_another_device = true;
-        break;
-      case TransportAvailabilityInfo::ConditionalUITreatment::
-          kDontShowEmptyConditionalUI:
-        offer_passkey_from_another_device = !credentials.empty();
-        break;
-      case TransportAvailabilityInfo::ConditionalUITreatment::
-          kNeverOfferPasskeyFromAnotherDevice:
-        offer_passkey_from_another_device = false;
-        break;
+    password_manager::PasskeyCredential& passkey = credentials.emplace_back(
+        ToPasswordManagerSource(credential.source),
+        password_manager::PasskeyCredential::RpId(credential.rp_id),
+        password_manager::PasskeyCredential::CredentialId(credential.cred_id),
+        password_manager::PasskeyCredential::UserId(credential.user.id),
+        password_manager::PasskeyCredential::Username(
+            credential.user.name.value_or("")),
+        password_manager::PasskeyCredential::DisplayName(
+            credential.user.display_name.value_or("")));
+    if (credential.source == device::AuthenticatorType::kPhone) {
+      passkey.set_authenticator_label(l10n_util::GetStringFUTF16(
+          IDS_PASSWORD_MANAGER_PASSKEY_FROM_PHONE, *priority_phone_name));
     }
-    ReportConditionalUiPasskeyCount(credentials.size());
-    auto* webauthn_credentials_delegate_factory =
-        ChromeWebAuthnCredentialsDelegateFactory::GetFactory(web_contents)
-            ->GetDelegateForFrame(render_frame_host);
-    if (webauthn_credentials_delegate_factory) {
-      // May be null on tests.
-      webauthn_credentials_delegate_factory->OnCredentialsReceived(
-          std::move(credentials), offer_passkey_from_another_device);
-    }
+  }
+  bool offer_passkey_from_another_device;
+  switch (transport_availability_.conditional_ui_treatment) {
+    case TransportAvailabilityInfo::ConditionalUITreatment::kDefault:
+      offer_passkey_from_another_device = true;
+      break;
+    case TransportAvailabilityInfo::ConditionalUITreatment::
+        kDontShowEmptyConditionalUI:
+      offer_passkey_from_another_device = !credentials.empty();
+      break;
+    case TransportAvailabilityInfo::ConditionalUITreatment::
+        kNeverOfferPasskeyFromAnotherDevice:
+      offer_passkey_from_another_device = false;
+      break;
+  }
+  ReportConditionalUiPasskeyCount(credentials.size());
+  auto* webauthn_credentials_delegate_factory =
+      ChromeWebAuthnCredentialsDelegateFactory::GetFactory(web_contents)
+          ->GetDelegateForFrame(render_frame_host);
+  if (webauthn_credentials_delegate_factory) {
+    // May be null on tests.
+    webauthn_credentials_delegate_factory->OnCredentialsReceived(
+        std::move(credentials), offer_passkey_from_another_device);
+  }
+  if (base::FeatureList::IsEnabled(device::kWebAuthnAmbientSignin)) {
+    auto* controller =
+        ambient_signin::AmbientSigninController::GetOrCreateForCurrentDocument(
+            render_frame_host);
+    // TODO(crbug.com/358119268): Autofill conditional UI filters some
+    // credentials. Do the same for the Ambient UI.
+    controller->AddAndShowWebAuthnMethods(model());
+    model()->AddObserver(controller);
   }
   SetCurrentStep(Step::kConditionalMediation);
 }
@@ -2065,7 +2095,7 @@ void AuthenticatorRequestDialogController::ContactNextPhoneByName(
       found_name = true;
       model_->selected_phone_name = name;
       if (!paired_phones_contacted_[i]) {
-        MaybeStoreLastUsedPairing(model_->GetRenderFrameHost(),
+        MaybeStoreLastUsedPairing(GetRenderFrameHost(),
                                   phone->peer_public_key_x962);
         paired_phones_contacted_[i] = true;
         contact_phone_callback_.Run(
@@ -2087,7 +2117,7 @@ AuthenticatorRequestDialogController::GetIndexOfMostRecentlyUsedPhoneFromSync()
     const {
   // Try finding the most recently used phone from sync.
   std::optional<std::vector<uint8_t>> last_used_pairing =
-      RetrieveLastUsedPairing(model_->GetRenderFrameHost());
+      RetrieveLastUsedPairing(GetRenderFrameHost());
   if (last_used_pairing) {
     for (size_t i = 0; i < paired_phones_.size(); ++i) {
       if (paired_phones_[i]->from_sync_deviceinfo &&
@@ -2264,7 +2294,7 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
         Mechanism::Enclave(), name, name, vector_icons::kPasswordManagerIcon,
         base::BindRepeating(&AuthenticatorRequestDialogController::StartEnclave,
                             base::Unretained(this)));
-    mechanism.description = base::UTF8ToUTF16(model_->account_name);
+    mechanism.description = base::UTF8ToUTF16(model_->GetGpmAccountEmail());
     model_->mechanisms.emplace_back(std::move(mechanism));
   }
   if (enclave_needs_reauth_ && !use_conditional_mediation_) {
@@ -2337,9 +2367,6 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
     }
     bool skip_to_phone_confirmation =
         is_get_assertion &&
-#if BUILDFLAG(IS_WIN)
-        !WebAuthnApiSupportsHybrid() &&
-#endif
         transport_availability_.has_platform_authenticator_credential ==
             device::FidoRequestHandlerBase::RecognizedCredential::
                 kNoRecognizedCredential &&
@@ -2507,9 +2534,9 @@ AuthenticatorRequestDialogController::IndexOfMakeCredentialPriorityMechanism() {
   // authenticator and avoid showing the mechanism selection sheet.
   if (transport_availability_.make_credential_attachment !=
       device::AuthenticatorAttachment::kCrossPlatform) {
-    Profile* profile = Profile::FromBrowserContext(
-                           model_->GetRenderFrameHost()->GetBrowserContext())
-                           ->GetOriginalProfile();
+    Profile* profile =
+        Profile::FromBrowserContext(GetRenderFrameHost()->GetBrowserContext())
+            ->GetOriginalProfile();
     if (base::FeatureList::IsEnabled(device::kWebAuthnEnclaveAuthenticator) &&
         CanDefaultToEnclave(profile) && enclave_enabled_) {
       priority_list.emplace_back(Mechanism::Enclave());
@@ -2656,6 +2683,9 @@ void AuthenticatorRequestDialogController::
   if (platform_authenticator_it->type ==
       device::AuthenticatorType::kICloudKeychain) {
     ephemeral_state_.did_dispatch_to_icloud_keychain_ = true;
+    webauthn::user_actions::RecordICloudShown(
+        transport_availability_.request_type ==
+        device::FidoRequestType::kMakeCredential);
   }
 
   DispatchRequestAsync(&*platform_authenticator_it);
@@ -2711,4 +2741,9 @@ bool AuthenticatorRequestDialogController::CanDefaultToEnclave(
           webauthn::pref_names::kEnclaveDeclinedGPMBootstrappingCount) >=
       device::enclave::kMaxGPMBootstrapPrompts;
   return !enclave_decline_limit_reached && !enclave_bootstrap_limit_reached;
+}
+
+content::RenderFrameHost*
+AuthenticatorRequestDialogController::GetRenderFrameHost() const {
+  return content::RenderFrameHost::FromID(frame_host_id_);
 }

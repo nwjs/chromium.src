@@ -5,6 +5,8 @@
 #ifndef ASH_PUBLIC_CPP_PICKER_PICKER_SEARCH_RESULT_H_
 #define ASH_PUBLIC_CPP_PICKER_PICKER_SEARCH_RESULT_H_
 
+#include <cstddef>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -54,7 +56,8 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
   };
 
   struct SearchRequestData {
-    std::u16string text;
+    std::u16string primary_text;
+    std::u16string secondary_text;
     ui::ImageModel icon;
 
     bool operator==(const SearchRequestData&) const;
@@ -76,17 +79,21 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
       kText,
       kImage,
       kHtml,
+      kUrl,
     };
 
     // Unique ID that specifies which item in the clipboard this refers to.
     base::UnguessableToken item_id;
     DisplayFormat display_format;
+    // If this is 1, `display_text` should be the filename of the file.
+    size_t file_count;
     std::u16string display_text;
     std::optional<ui::ImageModel> display_image;
     bool is_recent;
 
     ClipboardData(base::UnguessableToken item_id,
                   DisplayFormat display_format,
+                  size_t file_count,
                   std::u16string display_text,
                   std::optional<ui::ImageModel> display_image,
                   bool is_recent);
@@ -123,12 +130,14 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
   };
 
   struct DriveFileData {
+    std::optional<std::string> id;
     std::u16string title;
     GURL url;
     base::FilePath file_path;
     bool best_match;
 
-    DriveFileData(std::u16string title,
+    DriveFileData(std::optional<std::string> id,
+                  std::u16string title,
                   GURL url,
                   base::FilePath file_path,
                   bool best_match);
@@ -179,7 +188,14 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
   };
 
   struct CapsLockData {
+    enum class Shortcut {
+      kAltLauncher,
+      kAltSearch,
+      kFnRightAlt,
+    };
+
     bool enabled;
+    Shortcut shortcut;
 
     bool operator==(const CapsLockData&) const;
   };
@@ -188,7 +204,6 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
     enum Type {
       kUpperCase,
       kLowerCase,
-      kSentenceCase,
       kTitleCase,
     };
 
@@ -228,7 +243,8 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
       std::u16string_view secondary_text,
       ui::ImageModel icon,
       TextData::Source source = TextData::Source::kUnknown);
-  static PickerSearchResult SearchRequest(std::u16string_view text,
+  static PickerSearchResult SearchRequest(std::u16string_view primary_text,
+                                          std::u16string_view secondary_text,
                                           ui::ImageModel icon);
   static PickerSearchResult Emoji(std::u16string_view emoji,
                                   std::u16string name = u"");
@@ -239,13 +255,15 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
   static PickerSearchResult Clipboard(
       base::UnguessableToken item_id,
       ClipboardData::DisplayFormat display_format,
+      size_t file_count,
       std::u16string display_text,
       std::optional<ui::ImageModel> display_image,
       bool is_recent);
   static PickerSearchResult LocalFile(std::u16string title,
                                       base::FilePath file_path,
                                       bool best_match = false);
-  static PickerSearchResult DriveFile(std::u16string title,
+  static PickerSearchResult DriveFile(std::optional<std::string> id,
+                                      std::u16string title,
                                       const GURL& url,
                                       base::FilePath file_path,
                                       bool best_match = false);
@@ -256,7 +274,8 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
       std::optional<chromeos::editor_menu::PresetQueryCategory> category,
       std::optional<std::string> preset_query_id);
   static PickerSearchResult NewWindow(NewWindowData::Type type);
-  static PickerSearchResult CapsLock(bool enabled);
+  static PickerSearchResult CapsLock(bool enabled,
+                                     CapsLockData::Shortcut shortcut);
   static PickerSearchResult CaseTransform(CaseTransformData::Type type);
 
   const Data& data() const;

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/views/commerce/price_tracking_icon_view.h"
-
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -16,8 +14,10 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
 #include "chrome/browser/ui/commerce/mock_commerce_ui_tab_helper.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/commerce/price_tracking_bubble_dialog_view.h"
+#include "chrome/browser/ui/views/commerce/price_tracking_icon_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
@@ -169,9 +169,10 @@ class PriceTrackingIconViewInteractiveTest : public InteractiveBrowserTest {
                   .Run(std::move(image), image_fetcher::RequestMetadata());
             });
 
-    tab_helper_ = static_cast<commerce::CommerceUiTabHelper*>(
-        commerce::CommerceUiTabHelper::FromWebContents(
-            browser()->tab_strip_model()->GetActiveWebContents()));
+    tab_helper_ = browser()
+                      ->GetActiveTabInterface()
+                      ->GetTabFeatures()
+                      ->commerce_ui_tab_helper();
     tab_helper_->GetPriceTrackingControllerForTesting()
         ->SetImageFetcherForTesting(image_fetcher_.get());
 
@@ -208,8 +209,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId),
       WaitForShow(kPriceTrackingBubbleDialogId));
 
   auto* bubble = static_cast<PriceTrackingBubbleDialogView*>(
@@ -245,13 +246,13 @@ IN_PROC_BROWSER_TEST_F(
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
+      WaitForShow(kPriceTrackingChipElementId),
       CheckView(kPriceTrackingChipElementId,
                 base::BindOnce([](PriceTrackingIconView* view) {
                   return view->GetVectorIcon().name ==
                          omnibox::kPriceTrackingEnabledRefreshIcon.name;
                 })),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      PressButton(kPriceTrackingChipElementId),
       WaitForShow(kPriceTrackingBubbleDialogId));
 
   auto* bubble = static_cast<PriceTrackingBubbleDialogView*>(
@@ -281,8 +282,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId),
       WaitForShow(kPriceTrackingBubbleDialogId));
 
   auto* bubble = static_cast<PriceTrackingBubbleDialogView*>(
@@ -308,8 +309,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId),
       WaitForShow(kPriceTrackingBubbleDialogId));
 
   auto* widget =
@@ -324,7 +325,7 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
 
   RunTestSequence(WaitForHide(kPriceTrackingBubbleDialogId),
                   // Click the icon again to reshow the bubble.
-                  PressButton(kPriceTrackingChipElementId), FlushEvents(),
+                  PressButton(kPriceTrackingChipElementId),
                   WaitForShow(kPriceTrackingBubbleDialogId));
 }
 
@@ -339,7 +340,7 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
 
   RunTestSequence(
       InstrumentTab(kShoppingTab),
-      NavigateWebContents(kShoppingTab, shopping_url), FlushEvents(),
+      NavigateWebContents(kShoppingTab, shopping_url),
       WaitForShow(kPriceTrackingChipElementId),
       CheckView(kPriceTrackingChipElementId,
                 base::BindOnce([](PriceTrackingIconView* view) {
@@ -351,7 +352,7 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
                   return view->GetVectorIcon().name ==
                           omnibox::kPriceTrackingDisabledRefreshIcon.name;
                 })),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      PressButton(kPriceTrackingChipElementId),
       WaitForShow(kPriceTrackingBubbleDialogId));
 
   SimulateServerPriceTrackStateUpdated(true, shopping_url);
@@ -391,12 +392,12 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
   const GURL shopping_url = embedded_test_server()->GetURL(kShoppingURL);
   RunTestSequence(InstrumentTab(kShoppingTab),
                   NavigateWebContents(kShoppingTab, shopping_url),
-                  FlushEvents(), WaitForShow(kPriceTrackingChipElementId));
+                  WaitForShow(kPriceTrackingChipElementId));
 
   bookmarks::BookmarkModel* bookmark_model =
       BookmarkModelFactory::GetForBrowserContext(browser()->profile());
   EXPECT_FALSE(bookmarks::IsBookmarkedByUser(bookmark_model, shopping_url));
-  RunTestSequence(PressButton(kPriceTrackingChipElementId), FlushEvents());
+  RunTestSequence(PressButton(kPriceTrackingChipElementId));
 
   EXPECT_TRUE(bookmarks::IsBookmarkedByUser(bookmark_model, shopping_url));
 }
@@ -419,8 +420,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents());
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId));
   EXPECT_EQ(user_action_tester.GetActionCount(
                 "Commerce.PriceTracking.OmniboxChipClicked"),
             1);
@@ -448,8 +449,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents());
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId));
   EXPECT_EQ(user_action_tester.GetActionCount(
                 "Commerce.PriceTracking.OmniboxChip.Tracked"),
             1);
@@ -485,8 +486,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents());
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId));
 
   EXPECT_EQ(user_action_tester.GetActionCount(
                 "Commerce.PriceTracking.OmniboxChip.Tracked"),
@@ -513,8 +514,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents());
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId));
   EXPECT_EQ(user_action_tester.GetActionCount(
                 "Commerce.PriceTracking.OmniboxChip.Tracked"),
             0);
@@ -527,7 +528,7 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
+      WaitForShow(kPriceTrackingChipElementId),
       CheckViewProperty(kPriceTrackingChipElementId,
                         &PriceTrackingIconView::GetAccessibleName,
                         l10n_util::GetStringUTF16(IDS_OMNIBOX_TRACKING_PRICE)),
@@ -564,7 +565,7 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewErrorHandelingTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
+      WaitForShow(kPriceTrackingChipElementId),
       CheckView(kPriceTrackingChipElementId,
                 base::BindOnce([](PriceTrackingIconView* view) {
                   return view->GetIconLabelForTesting() ==
@@ -575,7 +576,7 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingIconViewErrorHandelingTest,
                   return view->GetVectorIcon().name ==
                           omnibox::kPriceTrackingDisabledRefreshIcon.name;
                 })),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      PressButton(kPriceTrackingChipElementId),
 
       // After the button press, nothing should have changes since the
       // subscription failed.
@@ -626,8 +627,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingBubbleInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId),
       WaitForShow(kPriceTrackingBubbleDialogId));
 
   EXPECT_EQ(user_action_tester_.GetActionCount(
@@ -655,8 +656,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingBubbleInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents());
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId));
 
   EXPECT_EQ(user_action_tester_.GetActionCount(
                 "Commerce.PriceTracking.ConfirmationShown"),
@@ -683,8 +684,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingBubbleInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId),
       WaitForShow(kPriceTrackingBubbleDialogId));
 
   static_cast<PriceTrackingBubbleDialogView*>(
@@ -711,8 +712,8 @@ IN_PROC_BROWSER_TEST_F(PriceTrackingBubbleInteractiveTest,
       InstrumentTab(kShoppingTab),
       NavigateWebContents(kShoppingTab,
                           embedded_test_server()->GetURL(kShoppingURL)),
-      FlushEvents(), WaitForShow(kPriceTrackingChipElementId),
-      PressButton(kPriceTrackingChipElementId), FlushEvents(),
+      WaitForShow(kPriceTrackingChipElementId),
+      PressButton(kPriceTrackingChipElementId),
       WaitForShow(kPriceTrackingBubbleDialogId));
 
   static_cast<PriceTrackingBubbleDialogView*>(

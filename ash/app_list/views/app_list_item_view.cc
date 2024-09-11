@@ -230,10 +230,7 @@ class DotView : public views::View {
   METADATA_HEADER(DotView, views::View)
 
  public:
-  DotView()
-      : color_id_(chromeos::features::IsJellyEnabled()
-                      ? static_cast<ui::ColorId>(cros_tokens::kCrosSysTertiary)
-                      : kColorAshIconColorProminent) {
+  DotView() : color_id_(cros_tokens::kCrosSysTertiary) {
     // The dot is not clickable.
     SetCanProcessEventsWithinSubtree(false);
   }
@@ -314,7 +311,6 @@ class AppListItemView::FolderIconView : public views::View,
                  const AppListConfig* config,
                  float icon_scale)
       : folder_item_(folder_item),
-        jelly_style_(chromeos::features::IsJellyEnabled()),
         config_(config),
         icon_scale_(icon_scale) {
     SetPaintToLayer();
@@ -376,10 +372,7 @@ class AppListItemView::FolderIconView : public views::View,
     // Draw the background circle of the icon.
     SkCanvas canvas(bitmap);
     SkPaint background_circle;
-    const ui::ColorId color_id =
-        jelly_style_
-            ? static_cast<ui::ColorId>(cros_tokens::kCrosSysSystemOnBase)
-            : kColorAshControlBackgroundColorInactive;
+    const ui::ColorId color_id = cros_tokens::kCrosSysSystemOnBase;
     background_circle.setColor(GetColorProvider()->GetColor(color_id));
     background_circle.setStyle(SkPaint::kFill_Style);
     background_circle.setAntiAlias(true);
@@ -441,9 +434,7 @@ class AppListItemView::FolderIconView : public views::View,
     cc::PaintFlags flags;
     flags.setStyle(cc::PaintFlags::kFill_Style);
     flags.setAntiAlias(true);
-    flags.setColor(GetColorProvider()->GetColor(
-        jelly_style_ ? static_cast<ui::ColorId>(cros_tokens::kCrosSysPrimary)
-                     : kColorAshFolderItemCountBackgroundColor));
+    flags.setColor(GetColorProvider()->GetColor(cros_tokens::kCrosSysPrimary));
     canvas->DrawCircle(draw_center, counter_radius, flags);
 
     // Paint the number of apps that are not showing in the folder icon.
@@ -451,11 +442,8 @@ class AppListItemView::FolderIconView : public views::View,
     gfx::FontList font_list = config_->item_counter_in_folder_icon_font();
     canvas->DrawStringRectWithFlags(
         text, font_list,
-        GetColorProvider()->GetColor(
-            jelly_style_
-                ? static_cast<ui::ColorId>(cros_tokens::kCrosSysOnPrimary)
-                : kColorAshInvertedTextColorPrimary),
-        bounds, gfx::Canvas::TEXT_ALIGN_CENTER);
+        GetColorProvider()->GetColor(cros_tokens::kCrosSysOnPrimary), bounds,
+        gfx::Canvas::TEXT_ALIGN_CENTER);
   }
 
   void OnPaint(gfx::Canvas* canvas) override {
@@ -527,9 +515,6 @@ class AppListItemView::FolderIconView : public views::View,
 
   // The folder item this icon view paints.
   raw_ptr<AppListFolderItem> folder_item_;
-
-  // Whether Jelly style feature is enabled.
-  const bool jelly_style_;
 
   raw_ptr<const AppListConfig, DanglingUntriaged> config_;
 
@@ -624,14 +609,10 @@ AppListItemView::AppListItemView(const AppListConfig* app_list_config,
     UpdateProgressIndicatorState();
   }
 
-  const bool is_jelly_enabled = chromeos::features::IsJellyEnabled();
-  StyleUtil::SetUpInkDropForButton(
-      this, gfx::Insets(),
-      /*highlight_on_hover=*/false,
-      /*highlight_on_focus=*/false,
-      is_jelly_enabled
-          ? static_cast<ui::ColorId>(cros_tokens::kCrosSysRippleNeutralOnSubtle)
-          : gfx::kPlaceholderColor);
+  StyleUtil::SetUpInkDropForButton(this, gfx::Insets(),
+                                   /*highlight_on_hover=*/false,
+                                   /*highlight_on_focus=*/false,
+                                   cros_tokens::kCrosSysRippleNeutralOnSubtle);
   views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::OFF);
 
   SetHideInkDropWhenShowingContextMenu(false);
@@ -641,9 +622,7 @@ AppListItemView::AppListItemView(const AppListConfig* app_list_config,
   views::FocusRing::Install(this);
   views::FocusRing* const focus_ring = views::FocusRing::Get(this);
   focus_ring->SetOutsetFocusRingDisabled(true);
-  focus_ring->SetColorId(is_jelly_enabled ? static_cast<ui::ColorId>(
-                                                cros_tokens::kCrosSysFocusRing)
-                                          : ui::kColorAshFocusRing);
+  focus_ring->SetColorId(cros_tokens::kCrosSysFocusRing);
   focus_ring->SetHasFocusPredicate(base::BindRepeating([](const View* view) {
     const auto* v = views::AsViewClass<AppListItemView>(view);
     CHECK(v);
@@ -672,17 +651,12 @@ AppListItemView::AppListItemView(const AppListConfig* app_list_config,
   title->SetBackgroundColor(SK_ColorTRANSPARENT);
   title->SetHandlesTooltips(false);
   title->SetHorizontalAlignment(gfx::ALIGN_CENTER);
-  if (is_jelly_enabled) {
-    TypographyProvider::Get()->StyleLabel(
-        app_list_config_->type() == AppListConfigType::kDense
-            ? TypographyToken::kCrosAnnotation1
-            : TypographyToken::kCrosButton2,
-        *title);
-    title->SetEnabledColorId(cros_tokens::kCrosSysOnSurface);
-  } else {
-    title->SetFontList(app_list_config_->app_title_font());
-    title->SetEnabledColorId(kColorAshTextColorPrimary);
-  }
+  TypographyProvider::Get()->StyleLabel(
+      app_list_config_->type() == AppListConfigType::kDense
+          ? TypographyToken::kCrosAnnotation1
+          : TypographyToken::kCrosButton2,
+      *title);
+  title->SetEnabledColorId(cros_tokens::kCrosSysOnSurface);
 
   icon_background_ = AddChildView(std::make_unique<views::View>());
   icon_background_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
@@ -762,6 +736,8 @@ AppListItemView::AppListItemView(const AppListConfig* app_list_config,
         break;
     }
   }
+
+  UpdateAccessibleDescription();
 }
 
 void AppListItemView::InitializeIconLoader() {
@@ -1252,67 +1228,6 @@ void AppListItemView::SetItemName(const std::u16string& display_name,
 
 void AppListItemView::SetItemAccessibleName(const std::u16string& name) {
   GetViewAccessibility().SetName(name);
-}
-
-void AppListItemView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  // When this item is being removed, there will still be an accessible object
-  // in the accessibility tree until it is destroyed. Populating AXNodeData
-  // with the information from the button makes it possible for assistive
-  // technologies to obtain the name and role/type of the control along with
-  // relevant states such as disabled. It is also necessary to pass the
-  // accessibility paint checks: items that claim to be focusable must have
-  // a valid role.
-  DCHECK(node_data);
-  Button::GetAccessibleNodeData(node_data);
-
-  if (!item_weak_) {
-    return;
-  }
-
-  // The list of descriptions to be announced.
-  std::vector<std::u16string> descriptions;
-
-  if (item_weak_->is_folder()) {
-    // For folder items, announce the number of apps in the folder.
-    std::u16string app_count_announcement = l10n_util::GetPluralStringFUTF16(
-        IDS_APP_LIST_FOLDER_NUMBER_OF_APPS_ACCESSIBILE_DESCRIPTION,
-        item_weak_->AsFolderItem()->ChildItemCount());
-    descriptions.push_back(app_count_announcement);
-  }
-
-  auto app_status = item_weak_->app_status();
-  std::u16string app_status_description;
-  switch (app_status) {
-    case AppStatus::kBlocked:
-      app_status_description =
-          ui::ResourceBundle::GetSharedInstance().GetLocalizedString(
-              IDS_APP_LIST_BLOCKED_APP);
-      break;
-    case AppStatus::kPaused:
-      app_status_description =
-          ui::ResourceBundle::GetSharedInstance().GetLocalizedString(
-              IDS_APP_LIST_PAUSED_APP);
-      break;
-    default:
-      if (item_weak_->is_new_install()) {
-        app_status_description =
-            ui::ResourceBundle::GetSharedInstance().GetLocalizedString(
-                IDS_APP_LIST_NEW_INSTALL_ACCESSIBILE_DESCRIPTION);
-      }
-      break;
-  }
-  if (!app_status_description.empty()) {
-    descriptions.push_back(app_status_description);
-  }
-
-  if (context_ == Context::kAppsCollection) {
-    descriptions.push_back(GetAppCollectionName(item_weak_->collection_id()));
-  }
-
-  // Set the concatenated descriptions.
-  if (!descriptions.empty()) {
-    node_data->SetDescription(base::JoinString(descriptions, u" "));
-  }
 }
 
 void AppListItemView::OnContextMenuModelReceived(
@@ -2197,12 +2112,15 @@ void AppListItemView::ItemIsNewInstallChanged() {
     new_install_dot_->SetVisible(item_weak_->is_new_install());
     DeprecatedLayoutImmediately();
   }
+
+  UpdateAccessibleDescription();
 }
 
 void AppListItemView::ItemBeingDestroyed() {
   DCHECK(item_weak_);
   item_weak_->RemoveObserver(this);
   item_weak_ = nullptr;
+  UpdateAccessibleDescription();
   if (!use_item_icon_) {
     folder_icon_->ResetFolderItem();
   }
@@ -2225,6 +2143,11 @@ void AppListItemView::ItemProgressUpdated() {
 
 void AppListItemView::ItemAppStatusUpdated() {
   UpdateProgressIndicatorState();
+  UpdateAccessibleDescription();
+}
+
+void AppListItemView::ItemAppCollectionIdChanged() {
+  UpdateAccessibleDescription();
 }
 
 bool AppListItemView::ImageModelHasPlaceholderIcon() const {
@@ -2381,7 +2304,7 @@ void AppListItemView::SetBackgroundExtendedState(bool extend_icon,
       .SetRoundedCorners(background_layer,
                          gfx::RoundedCornersF(corner_radius * icon_scale_),
                          animation_tween_type);
-  if (chromeos::features::IsJellyEnabled() && GetWidget()) {
+  if (GetWidget()) {
     builder.GetCurrentSequence().SetColor(
         background_layer,
         GetColorProvider()->GetColor(GetBackgroundLayerColorId()),
@@ -2390,10 +2313,6 @@ void AppListItemView::SetBackgroundExtendedState(bool extend_icon,
 }
 
 ui::ColorId AppListItemView::GetBackgroundLayerColorId() const {
-  if (!chromeos::features::IsJellyEnabled()) {
-    return kColorAshControlBackgroundColorInactive;
-  }
-
   if (is_icon_extended_) {
     return cros_tokens::kCrosSysRippleNeutralOnSubtle;
   }
@@ -2421,6 +2340,60 @@ ui::Layer* AppListItemView::GetIconBackgroundLayer() {
 
 bool AppListItemView::AlwaysPaintsToLayer() {
   return is_promise_app_ || progress_indicator_;
+}
+
+void AppListItemView::UpdateAccessibleDescription() {
+  if (!item_weak_) {
+    GetViewAccessibility().RemoveDescription();
+    return;
+  }
+
+  // The list of descriptions to be announced.
+  std::vector<std::u16string> descriptions;
+
+  if (item_weak_->is_folder()) {
+    // For folder items, announce the number of apps in the folder.
+    std::u16string app_count_announcement = l10n_util::GetPluralStringFUTF16(
+        IDS_APP_LIST_FOLDER_NUMBER_OF_APPS_ACCESSIBILE_DESCRIPTION,
+        item_weak_->AsFolderItem()->ChildItemCount());
+    descriptions.push_back(app_count_announcement);
+  }
+
+  auto app_status = item_weak_->app_status();
+  std::u16string app_status_description;
+  switch (app_status) {
+    case AppStatus::kBlocked:
+      app_status_description =
+          ui::ResourceBundle::GetSharedInstance().GetLocalizedString(
+              IDS_APP_LIST_BLOCKED_APP);
+      break;
+    case AppStatus::kPaused:
+      app_status_description =
+          ui::ResourceBundle::GetSharedInstance().GetLocalizedString(
+              IDS_APP_LIST_PAUSED_APP);
+      break;
+    default:
+      if (item_weak_->is_new_install()) {
+        app_status_description =
+            ui::ResourceBundle::GetSharedInstance().GetLocalizedString(
+                IDS_APP_LIST_NEW_INSTALL_ACCESSIBILE_DESCRIPTION);
+      }
+      break;
+  }
+  if (!app_status_description.empty()) {
+    descriptions.push_back(app_status_description);
+  }
+
+  if (context_ == Context::kAppsCollection) {
+    descriptions.push_back(GetAppCollectionName(item_weak_->collection_id()));
+  }
+
+  // Set the concatenated descriptions.
+  if (!descriptions.empty()) {
+    GetViewAccessibility().SetDescription(base::JoinString(descriptions, u" "));
+  } else {
+    GetViewAccessibility().RemoveDescription();
+  }
 }
 
 BEGIN_METADATA(AppListItemView)

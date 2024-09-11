@@ -9,6 +9,8 @@ import './cra/cra-dialog.js';
 import './cra/cra-icon.js';
 import './cra/cra-icon-button.js';
 import './settings-row.js';
+import './speaker-label-consent-dialog.js';
+import './transcription-consent-dialog.js';
 
 import {
   Switch as CrosSwitch,
@@ -17,16 +19,17 @@ import {
   createRef,
   css,
   html,
+  live,
   nothing,
   ref,
 } from 'chrome://resources/mwc/lit/index.js';
 
 import {i18n} from '../core/i18n.js';
 import {usePlatformHandler} from '../core/lit/context.js';
-import {ModelId} from '../core/on_device_model/types.js';
 import {ReactiveLitElement} from '../core/reactive/lit.js';
 import {
   settings,
+  SpeakerLabelEnableState,
   SummaryEnableState,
   TranscriptionEnableState,
 } from '../core/state/settings.js';
@@ -37,6 +40,7 @@ import {
 } from '../core/utils/assert.js';
 
 import {CraDialog} from './cra/cra-dialog.js';
+import {SpeakerLabelConsentDialog} from './speaker-label-consent-dialog.js';
 import {TranscriptionConsentDialog} from './transcription-consent-dialog.js';
 
 /**
@@ -138,15 +142,16 @@ export class SettingsMenu extends ReactiveLitElement {
 
   private readonly platformHandler = usePlatformHandler();
 
+  private readonly dialog = createRef<CraDialog>();
+
   private readonly transcriptionConsentDialog =
     createRef<TranscriptionConsentDialog>();
 
-  private get dialog(): CraDialog|null {
-    return this.shadowRoot?.querySelector('cra-dialog') ?? null;
-  }
+  private readonly speakerLabelConsentDialog =
+    createRef<SpeakerLabelConsentDialog>();
 
   show(): void {
-    this.dialog?.show();
+    this.dialog.value?.show();
   }
 
   private get summaryEnabled() {
@@ -157,12 +162,9 @@ export class SettingsMenu extends ReactiveLitElement {
     settings.mutate((s) => {
       s.summaryEnabled = SummaryEnableState.ENABLED;
     });
-    this.platformHandler.downloadModel(ModelId.SUMMARY);
+    this.platformHandler.summaryModelLoader.download();
     // The settings download both the model for summary and title suggestion.
-    // TODO(pihsun): Rename the summary-related settings and functions to be
-    // more accurate that it controls both settings for summary and title
-    // suggestion.
-    this.platformHandler.downloadModel(ModelId.GEMINI_XXS_IT_BASE);
+    this.platformHandler.titleSuggestionModelLoader.download();
   }
 
   private onSummaryToggle(ev: Event) {
@@ -174,7 +176,7 @@ export class SettingsMenu extends ReactiveLitElement {
   }
 
   private renderSummaryModelDescriptionAndAction() {
-    const state = this.platformHandler.getModelState(ModelId.SUMMARY).value;
+    const state = this.platformHandler.summaryModelLoader.state.value;
     if (state.kind === 'notInstalled') {
       // Shows the "download" button when the summary model is not installed,
       // even if it's already enabled by user. This shouldn't happen in normal
@@ -242,7 +244,7 @@ export class SettingsMenu extends ReactiveLitElement {
   }
 
   private renderSummaryModelSettings() {
-    if (this.platformHandler.getModelState(ModelId.SUMMARY).value.kind ===
+    if (this.platformHandler.summaryModelLoader.state.value.kind ===
         'unavailable') {
       return nothing;
     }
@@ -254,18 +256,48 @@ export class SettingsMenu extends ReactiveLitElement {
     `;
   }
 
+  private onSpeakerLabelToggle() {
+    switch (settings.value.speakerLabelEnabled) {
+      case SpeakerLabelEnableState.ENABLED:
+        settings.mutate((s) => {
+          s.speakerLabelEnabled = SpeakerLabelEnableState.DISABLED;
+        });
+        return;
+      case SpeakerLabelEnableState.DISABLED:
+        settings.mutate((s) => {
+          s.speakerLabelEnabled = SpeakerLabelEnableState.ENABLED;
+        });
+        return;
+      case SpeakerLabelEnableState.UNKNOWN:
+      case SpeakerLabelEnableState.DISABLED_FIRST:
+        this.speakerLabelConsentDialog.value?.show();
+        // This force the switch to be re-rendered so it'll catch the "live"
+        // value and set selected back to false.
+        this.requestUpdate();
+        return;
+      default:
+        assertExhaustive(settings.value.speakerLabelEnabled);
+    }
+  }
+
   private renderTranscriptionDetailSettings() {
     if (!this.transcriptionEnabled ||
         this.platformHandler.sodaState.value.kind === 'notInstalled') {
       return nothing;
     }
+    const speakerLabelEnabled =
+      settings.value.speakerLabelEnabled === SpeakerLabelEnableState.ENABLED;
     return html`
       <settings-row>
-        <span slot="label">${i18n.settingsOptionsSpeakerIdLabel}</span>
+        <span slot="label">${i18n.settingsOptionsSpeakerLabelLabel}</span>
         <span slot="description">
-          ${i18n.settingsOptionsSpeakerIdDescription}
+          ${i18n.settingsOptionsSpeakerLabelDescription}
         </span>
-        <cros-switch slot="action"></cros-switch>
+        <cros-switch
+          slot="action"
+          .selected=${live(speakerLabelEnabled)}
+          @change=${this.onSpeakerLabelToggle}
+        ></cros-switch>
       </settings-row>
       <!-- TODO: b/336963138 - Add transcription language. -->
       ${this.renderSummaryModelSettings()}
@@ -273,16 +305,34 @@ export class SettingsMenu extends ReactiveLitElement {
   }
 
   private onCloseClick() {
-    this.dialog?.close();
+    this.dialog.value?.close();
   }
 
-  private onTranscriptionToggle(ev: Event) {
-    const target = assertInstanceof(ev.target, CrosSwitch);
-    settings.mutate((s) => {
-      s.transcriptionEnabled = target.selected ?
-        TranscriptionEnableState.ENABLED :
-        TranscriptionEnableState.DISABLED;
-    });
+  private onTranscriptionToggle() {
+    // TODO(pihsun): This is the same as in toggleTranscriptionEnabled in
+    // record-page.ts, consider how to centralize the logic for all
+    // transcription enable/available state transitions.
+    switch (settings.value.transcriptionEnabled) {
+      case TranscriptionEnableState.ENABLED:
+        settings.mutate((s) => {
+          s.transcriptionEnabled = TranscriptionEnableState.DISABLED;
+        });
+        return;
+      case TranscriptionEnableState.DISABLED:
+        settings.mutate((s) => {
+          s.transcriptionEnabled = TranscriptionEnableState.ENABLED;
+        });
+        return;
+      case TranscriptionEnableState.UNKNOWN:
+      case TranscriptionEnableState.DISABLED_FIRST:
+        this.transcriptionConsentDialog.value?.show();
+        // This force the switch to be re-rendered so it'll catch the "live"
+        // value and set selected back to false.
+        this.requestUpdate();
+        return;
+      default:
+        assertExhaustive(settings.value.transcriptionEnabled);
+    }
   }
 
   private onInstallSodaClick() {
@@ -331,7 +381,7 @@ export class SettingsMenu extends ReactiveLitElement {
     const transcriptionToggle = html`
       <cros-switch
         slot="action"
-        .selected=${this.transcriptionEnabled}
+        .selected=${live(this.transcriptionEnabled)}
         @change=${this.onTranscriptionToggle}
       >
       </cros-switch>
@@ -395,9 +445,48 @@ export class SettingsMenu extends ReactiveLitElement {
     `;
   }
 
+  private onDoNotDisturbToggle() {
+    this.platformHandler.quietMode.update((s) => !s);
+  }
+
+  private renderDoNotDisturbSettingsRow() {
+    return html`
+      <settings-row>
+        <span slot="label">${i18n.settingsOptionsDoNotDisturbLabel}</span>
+        <span slot="description">
+          ${i18n.settingsOptionsDoNotDisturbDescription}
+        </span>
+        <cros-switch
+          slot="action"
+          .selected=${live(this.platformHandler.quietMode.value)}
+          @change=${this.onDoNotDisturbToggle}
+        ></cros-switch>
+      </settings-row>
+    `;
+  }
+
+  private onKeepScreenOnToggle() {
+    settings.mutate((s) => {
+      s.keepScreenOn = !s.keepScreenOn;
+    });
+  }
+
+  private renderKeepScreenOnSettingsRow() {
+    return html`
+      <settings-row>
+        <span slot="label">${i18n.settingsOptionsKeepScreenOnLabel}</span>
+        <cros-switch
+          slot="action"
+          .selected=${live(settings.value.keepScreenOn)}
+          @change=${this.onKeepScreenOnToggle}
+        ></cros-switch>
+      </settings-row>
+    `;
+  }
+
   override render(): RenderResult {
-    // TODO: b/354109582 - Implement actual functionality of all settings.
-    return html`<cra-dialog>
+    // TODO: b/354109582 - Implement actual functionality of keep screen on.
+    return html`<cra-dialog ${ref(this.dialog)}>
         <div slot="content">
           <div id="header">
             ${i18n.settingsHeader}
@@ -414,21 +503,8 @@ export class SettingsMenu extends ReactiveLitElement {
             <div class="section">
               <div class="title">${i18n.settingsSectionGeneralHeader}</div>
               <div class="body">
-                <settings-row>
-                  <span slot="label">
-                    ${i18n.settingsOptionsDoNotDisturbLabel}
-                  </span>
-                  <span slot="description">
-                    ${i18n.settingsOptionsDoNotDisturbDescription}
-                  </span>
-                  <cros-switch slot="action"></cros-switch>
-                </settings-row>
-                <settings-row>
-                  <span slot="label">
-                    ${i18n.settingsOptionsKeepScreenOnLabel}
-                  </span>
-                  <cros-switch slot="action"></cros-switch>
-                </settings-row>
+                ${this.renderDoNotDisturbSettingsRow()}
+                ${this.renderKeepScreenOnSettingsRow()}
               </div>
             </div>
             ${this.renderTranscriptionSection()}
@@ -436,7 +512,9 @@ export class SettingsMenu extends ReactiveLitElement {
         </div>
       </cra-dialog>
       <transcription-consent-dialog ${ref(this.transcriptionConsentDialog)}>
-      </transcription-consent-dialog>`;
+      </transcription-consent-dialog>
+      <speaker-label-consent-dialog ${ref(this.speakerLabelConsentDialog)}>
+      </speaker-label-consent-dialog>`;
   }
 }
 

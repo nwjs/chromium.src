@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "remoting/base/auto_thread_task_runner.h"
+#include "remoting/base/session_policies.h"
 #include "remoting/host/chromoting_host_context.h"
 #include "remoting/host/host_extension.h"
 #include "remoting/protocol/pairing_registry.h"
@@ -92,9 +93,9 @@ void It2MeStandaloneHost::Connect() {
   options.set_enable_user_interface(false);
   session_ = std::make_unique<ClientSession>(
       &handler_, std::unique_ptr<protocol::ConnectionToClient>(&connection_),
-      &factory_, options, base::TimeDelta(),
-      scoped_refptr<protocol::PairingRegistry>(),
-      std::vector<raw_ptr<HostExtension, VectorExperimental>>());
+      &factory_, options, scoped_refptr<protocol::PairingRegistry>(),
+      std::vector<raw_ptr<HostExtension, VectorExperimental>>(),
+      SessionPolicies());
   session_->OnConnectionAuthenticated();
   session_->OnConnectionChannelsConnected();
   session_->CreateMediaStreams();

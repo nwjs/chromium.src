@@ -14,15 +14,21 @@
 #include "android_webview/browser/aw_ip_protection_config_provider_factory.h"
 #include "base/check.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
+#include "base/sequence_checker.h"
 #include "base/strings/strcat.h"
-#include "components/ip_protection/blind_sign_message_android_impl.h"
-#include "components/ip_protection/ip_protection_config_provider_helper.h"
-#include "components/ip_protection/ip_protection_proxy_config_fetcher.h"
+#include "base/task/bind_post_task.h"
+#include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
+#include "base/threading/sequence_bound.h"
+#include "components/ip_protection/android/ip_protection_token_ipc_fetcher.h"
+#include "components/ip_protection/common/ip_protection_config_provider_helper.h"
+#include "components/ip_protection/common/ip_protection_proxy_config_fetcher.h"
 #include "components/version_info/android/channel_getter.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/storage_partition.h"
@@ -37,30 +43,25 @@
 #include "net/third_party/quiche/src/quiche/blind_sign_auth/blind_sign_auth.h"
 #include "net/third_party/quiche/src/quiche/blind_sign_auth/proto/blind_sign_auth_options.pb.h"
 #include "net/third_party/quiche/src/quiche/blind_sign_auth/proto/spend_token_data.pb.h"
-
-namespace {
-// TODO(crbug.com/40216037): Once `google_apis::GetAPIKey()` handles this
-// logic we can remove this helper.
-std::string GetAPIKey() {
-  version_info::Channel channel = version_info::android::GetChannel();
-  return channel == version_info::Channel::STABLE
-             ? google_apis::GetAPIKey()
-             : google_apis::GetNonStableAPIKey();
-}
-}  // namespace
+#include "third_party/abseil-cpp/absl/status/status.h"
 
 namespace android_webview {
 
 AwIpProtectionConfigProvider::AwIpProtectionConfigProvider(
     AwBrowserContext* aw_browser_context)
-    : aw_browser_context_(aw_browser_context) {}
+    : aw_browser_context_(aw_browser_context),
+      token_fetcher_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN})) {}
 
 AwIpProtectionConfigProvider::~AwIpProtectionConfigProvider() = default;
 
 void AwIpProtectionConfigProvider::SetUp() {
-  if (!blind_sign_message_android_impl_) {
-    blind_sign_message_android_impl_ =
-        std::make_unique<ip_protection::BlindSignMessageAndroidImpl>();
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (!ip_protection_token_ipc_fetcher_) {
+    ip_protection_token_ipc_fetcher_ =
+        base::SequenceBound<ip_protection::IpProtectionTokenIpcFetcher>(
+            token_fetcher_task_runner_);
   }
 
   if (!ip_protection_proxy_config_fetcher_) {
@@ -71,38 +72,24 @@ void AwIpProtectionConfigProvider::SetUp() {
                 ->GetURLLoaderFactoryForBrowserProcess()
                 .get(),
             ip_protection::IpProtectionConfigProviderHelper::kWebViewIpBlinding,
-            GetAPIKey());
-  }
-
-  if (!bsa_) {
-    if (!blind_sign_auth_) {
-      privacy::ppn::BlindSignAuthOptions bsa_options{};
-      bsa_options.set_enable_privacy_pass(true);
-
-      blind_sign_auth_ = std::make_unique<quiche::BlindSignAuth>(
-          blind_sign_message_android_impl_.get(), std::move(bsa_options));
-    }
-    bsa_ = blind_sign_auth_.get();
+            google_apis::GetAPIKey(version_info::android::GetChannel()));
   }
 }
 
 void AwIpProtectionConfigProvider::SetUpForTesting(
     std::unique_ptr<ip_protection::IpProtectionProxyConfigRetriever>
         ip_protection_proxy_config_retriever,
-    std::unique_ptr<ip_protection::BlindSignMessageAndroidImpl>
-        blind_sign_message_android_impl,
-    quiche::BlindSignAuthInterface* bsa) {
+    std::unique_ptr<quiche::BlindSignAuthInterface> bsa) {
   // Carefully destroy any existing values in the correct order.
-  bsa_ = nullptr;
-  blind_sign_auth_ = nullptr;
-  blind_sign_message_android_impl_ = nullptr;
+  ip_protection_token_ipc_fetcher_.Reset();
   ip_protection_proxy_config_fetcher_ = nullptr;
 
+  ip_protection_token_ipc_fetcher_ =
+      base::SequenceBound<ip_protection::IpProtectionTokenIpcFetcher>(
+          token_fetcher_task_runner_, std::move(bsa));
   ip_protection_proxy_config_fetcher_ =
       std::make_unique<ip_protection::IpProtectionProxyConfigFetcher>(
           std::move(ip_protection_proxy_config_retriever));
-  blind_sign_message_android_impl_ = std::move(blind_sign_message_android_impl);
-  bsa_ = bsa;
 }
 
 void AwIpProtectionConfigProvider::GetProxyList(GetProxyListCallback callback) {
@@ -113,7 +100,7 @@ void AwIpProtectionConfigProvider::GetProxyList(GetProxyListCallback callback) {
   // If IP Protection is disabled then don't attempt to get a proxy list.
   if (!IsIpProtectionEnabled()) {
     std::move(callback).Run(/*proxy_chains=*/std::nullopt,
-                            /*geo_hint=*/nullptr);
+                            /*geo_hint=*/std::nullopt);
     return;
   }
 
@@ -144,36 +131,34 @@ void AwIpProtectionConfigProvider::TryGetAuthTokens(
     return;
   }
 
-  FetchBlindSignedToken(base::checked_cast<int>(batch_size), proxy_layer,
+  auto quiche_proxy_layer =
+      proxy_layer == network::mojom::IpProtectionProxyLayer::kProxyA
+          ? quiche::ProxyLayer::kProxyA
+          : quiche::ProxyLayer::kProxyB;
+  FetchBlindSignedToken(base::checked_cast<int>(batch_size), quiche_proxy_layer,
                         std::move(callback));
 }
 
 void AwIpProtectionConfigProvider::FetchBlindSignedToken(
     int batch_size,
-    network::mojom::IpProtectionProxyLayer proxy_layer,
+    quiche::ProxyLayer quiche_proxy_layer,
     TryGetAuthTokensCallback callback) {
   auto bsa_get_tokens_start_time = base::TimeTicks::Now();
-  auto quiche_proxy_layer =
-      proxy_layer == network::mojom::IpProtectionProxyLayer::kProxyA
-          ? quiche::ProxyLayer::kProxyA
-          : quiche::ProxyLayer::kProxyB;
-  bsa_->GetTokens(
-      /*oauth_token=*/std::nullopt, batch_size, quiche_proxy_layer,
-      quiche::BlindSignAuthServiceType::kWebviewIpBlinding,
-      [weak_ptr = weak_ptr_factory_.GetWeakPtr(), bsa_get_tokens_start_time,
-       callback = std::move(callback)](
-          absl::StatusOr<absl::Span<quiche::BlindSignToken>> tokens) mutable {
-        if (weak_ptr) {
-          weak_ptr->OnFetchBlindSignedTokenCompleted(
-              bsa_get_tokens_start_time, std::move(callback), tokens);
-        }
-      });
+  ip_protection_token_ipc_fetcher_
+      .AsyncCall(
+          &ip_protection::IpProtectionTokenIpcFetcher::FetchBlindSignedToken)
+      .WithArgs(
+          /*access_token=*/std::nullopt, batch_size, quiche_proxy_layer,
+          base::BindPostTaskToCurrentDefault(base::BindOnce(
+              &AwIpProtectionConfigProvider::OnFetchBlindSignedTokenCompleted,
+              weak_ptr_factory_.GetWeakPtr(), bsa_get_tokens_start_time,
+              std::move(callback))));
 }
 
 void AwIpProtectionConfigProvider::OnFetchBlindSignedTokenCompleted(
     base::TimeTicks bsa_get_tokens_start_time,
     TryGetAuthTokensCallback callback,
-    absl::StatusOr<absl::Span<quiche::BlindSignToken>> tokens) {
+    absl::StatusOr<std::vector<quiche::BlindSignToken>> tokens) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (is_shutting_down_) {
     return;
@@ -208,11 +193,12 @@ void AwIpProtectionConfigProvider::OnFetchBlindSignedTokenCompleted(
     return;
   }
 
-  std::vector<network::mojom::BlindSignedAuthTokenPtr> bsa_tokens;
+  std::vector<network::BlindSignedAuthToken> bsa_tokens;
   for (const quiche::BlindSignToken& token : tokens.value()) {
-    network::mojom::BlindSignedAuthTokenPtr converted_token = ip_protection::
-        IpProtectionConfigProviderHelper::CreateBlindSignedAuthToken(token);
-    if (converted_token.is_null() || converted_token->token.empty()) {
+    std::optional<network::BlindSignedAuthToken> converted_token =
+        ip_protection::IpProtectionConfigProviderHelper::
+            CreateBlindSignedAuthToken(token);
+    if (!converted_token.has_value() || converted_token->token.empty()) {
       VLOG(2) << "AwIpProtectionConfigProvider::"
                  "OnFetchBlindSignedTokenCompleted failed to convert "
                  "`quiche::BlindSignAuth` token to a "
@@ -221,8 +207,9 @@ void AwIpProtectionConfigProvider::OnFetchBlindSignedTokenCompleted(
           /*bsa_tokens=*/std::nullopt, std::move(callback),
           AwIpProtectionTryGetAuthTokensResult::kFailedBSAOther);
       return;
+    } else {
+      bsa_tokens.push_back(std::move(converted_token).value());
     }
-    bsa_tokens.push_back(std::move(converted_token));
   }
 
   const base::TimeTicks current_time = base::TimeTicks::Now();
@@ -234,8 +221,7 @@ void AwIpProtectionConfigProvider::OnFetchBlindSignedTokenCompleted(
 }
 
 void AwIpProtectionConfigProvider::TryGetAuthTokensComplete(
-    std::optional<std::vector<network::mojom::BlindSignedAuthTokenPtr>>
-        bsa_tokens,
+    std::optional<std::vector<network::BlindSignedAuthToken>> bsa_tokens,
     TryGetAuthTokensCallback callback,
     AwIpProtectionTryGetAuthTokensResult result) {
   if (result == AwIpProtectionTryGetAuthTokensResult::kSuccess) {
@@ -302,9 +288,9 @@ void AwIpProtectionConfigProvider::Shutdown() {
   is_shutting_down_ = true;
   receivers_.Clear();
 
+  ip_protection_token_ipc_fetcher_.Reset();
   aw_browser_context_ = nullptr;
-  bsa_ = nullptr;
-  blind_sign_auth_ = nullptr;
+  ip_protection_proxy_config_fetcher_ = nullptr;
 }
 
 // static

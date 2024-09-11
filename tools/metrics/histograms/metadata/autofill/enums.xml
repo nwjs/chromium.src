@@ -4708,8 +4708,10 @@ Called by update_autofill_enums.py.-->
 <enum name="IbanSuggestionsEvent">
   <int value="0" label="IBAN suggestions shown"/>
   <int value="1" label="IBAN suggestions shown (once)"/>
-  <int value="2" label="IBAN suggestion selected"/>
-  <int value="3" label="IBAN suggestion selected (once)"/>
+  <int value="2" label="Local IBAN suggestion selected"/>
+  <int value="3" label="Local IBAN suggestion selected (once)"/>
+  <int value="4" label="Server IBAN suggestion selected"/>
+  <int value="5" label="Server IBAN suggestion selected (once)"/>
 </enum>
 
 <enum name="IbanUploadEnabledStatus">
@@ -4815,10 +4817,6 @@ Called by update_autofill_enums.py.-->
   <int value="2" label="Suggestions popup shown (once)"/>
 </enum>
 
-<enum name="PasswordManagerPasswordLossPotentialReason">
-  <int value="0" label="The reason is unknown"/>
-</enum>
-
 <enum name="PaymentsWindowUserConsentDialogResult">
   <int value="0" label="The tab or browser was closed"/>
   <int value="1" label="The escape key was pressed, closing the dialog"/>
@@ -4894,6 +4892,12 @@ Called by update_autofill_enums.py.-->
   <int value="13"
       label="Server and heuristic type, garbage autocomplete attribute"/>
   <int value="14" label="Server and heuristic type, autocomplete=off"/>
+</enum>
+
+<enum name="RelativePosition">
+  <int value="0" label="Ranked higher"/>
+  <int value="1" label="Ranked lower"/>
+  <int value="2" label="Ranked same"/>
 </enum>
 
 <enum name="RendererFillSkipReason">

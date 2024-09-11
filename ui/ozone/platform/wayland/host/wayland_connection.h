@@ -169,6 +169,10 @@ class WaylandConnection {
     return fractional_scale_manager_v1_.get();
   }
 
+  xdg_toplevel_icon_manager_v1* toplevel_icon_manager_v1() const {
+    return toplevel_icon_manager_v1_.get();
+  }
+
   void SetPlatformCursor(wl_cursor* cursor_data, int buffer_scale);
 
   void SetCursorBufferListener(WaylandCursorBufferListener* listener);
@@ -384,6 +388,7 @@ class WaylandConnection {
   friend class OverlayPrioritizer;
   friend class SinglePixelBuffer;
   friend class SurfaceAugmenter;
+  friend class ToplevelIconManager;
   friend class WaylandDataDeviceManager;
   friend class WaylandOutput;
   friend class WaylandSeat;
@@ -466,8 +471,11 @@ class WaylandConnection {
 
   uint32_t compositor_version_ = 0;
   wl::Object<wl_display> display_;
-  wl::Object<wl_proxy> wrapped_display_;
+  // `event_queue_` must be declared before `wrapped_display_`, so that the
+  // latter is destroyed first. This prevents libwayland warnings about the
+  // queue being destroyed while the proxy is still attached.
   wl::Object<wl_event_queue> event_queue_;
+  wl::Object<wl_proxy> wrapped_display_;
   wl::Object<wl_registry> registry_;
   wl::Object<wl_compositor> compositor_;
   wl::Object<wl_subcompositor> subcompositor_;
@@ -489,6 +497,7 @@ class WaylandConnection {
   wl::Object<zcr_extended_drag_v1> extended_drag_v1_;
   wl::Object<zxdg_output_manager_v1> xdg_output_manager_;
   wl::Object<wp_fractional_scale_manager_v1> fractional_scale_manager_v1_;
+  wl::Object<xdg_toplevel_icon_manager_v1> toplevel_icon_manager_v1_;
 
   // Manages Wayland windows.
   WaylandWindowManager window_manager_{this};

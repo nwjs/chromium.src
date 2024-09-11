@@ -82,9 +82,7 @@ class ChromeContentVerifierDelegate : public ContentVerifierDelegate {
   std::set<base::FilePath> GetBrowserImagePaths(
       const extensions::Extension* extension) override;
   void VerifyFailed(const ExtensionId& extension_id,
-                    const base::FilePath& relative_path,
-                    ContentVerifyJob::FailureReason reason,
-                    scoped_refptr<ContentVerifyJob> verify_job) override;
+                    ContentVerifyJob::FailureReason reason) override;
   void Shutdown() override;
 
   // A helper class to allow tests to provide their own `VerifyInfo` for

@@ -46,7 +46,7 @@ class ASH_EXPORT FocusModeTray : public TrayBackgroundView,
   void HideBubbleWithView(const TrayBubbleView* bubble_view) override;
   void HideBubble(const TrayBubbleView* bubble_view) override;
   TrayBubbleView* GetBubbleView() override;
-  void CloseBubble() override;
+  void CloseBubbleInternal() override;
   void ShowBubble() override;
   void UpdateTrayItemColor(bool is_active) override;
   void OnThemeChanged() override;
@@ -164,6 +164,10 @@ class ASH_EXPORT FocusModeTray : public TrayBackgroundView,
   // moment; it will be reset to false when starting or ending a focus session,
   // or extending a focus session during the ending moment.
   bool bounce_in_animation_finished_ = false;
+
+  // The percentage threshold that the session progress needs to exceed in order
+  // to trigger a progress ring paint.
+  double progress_ring_update_threshold_ = 0.0;
 
   base::ScopedObservation<FocusModeTasksModel, FocusModeTasksModel::Observer>
       tasks_observation_{this};

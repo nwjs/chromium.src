@@ -7,6 +7,7 @@
 #include "base/barrier_callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/stringprintf.h"
+#include "components/history_embeddings/history_embeddings_features.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/features/history_answer.pb.h"
@@ -28,6 +29,10 @@ static constexpr std::string kPassageIdToken = "ID";
 
 std::string GetPassageIdStr(size_t id) {
   return base::StringPrintf("%04d", static_cast<int>(id));
+}
+
+float GetMlAnswerScoreThreshold() {
+  return kMlAnswererMinScore.Get();
 }
 
 void AddQueryAndPassagesToSession(const std::string& query,
@@ -63,8 +68,8 @@ class MlAnswerer::SessionManager {
   ~SessionManager() {
     // Run the existing callback if not called yet with canceled status.
     if (!callback_.is_null()) {
-      Finish(AnswererResult{ComputeAnswerStatus::EXECUTION_CANCELLED, query_,
-                            Answer()});
+      Finish(AnswererResult(ComputeAnswerStatus::EXECUTION_CANCELLED, query_,
+                            Answer()));
     }
   }
 
@@ -118,17 +123,15 @@ class MlAnswerer::SessionManager {
       optimization_guide::OptimizationGuideModelStreamingExecutionResult
           result) {
     if (!result.response.has_value()) {
-      Finish(AnswererResult{ComputeAnswerStatus::EXECUTION_FAILURE, query_,
-                            Answer()});
+      Finish(AnswererResult(ComputeAnswerStatus::EXECUTION_FAILURE, query_,
+                            Answer()));
     } else if (result.response->is_complete) {
       auto response = optimization_guide::ParsedAnyMetadata<
           optimization_guide::proto::HistoryAnswerResponse>(
           std::move(result.response).value().response);
-      Finish(AnswererResult{ComputeAnswerStatus::SUCCESS,
-                            query_,
-                            response->answer(),
-                            urls_[session_index],
-                            {}});
+      Finish(AnswererResult(ComputeAnswerStatus::SUCCESS, query_,
+                            response->answer(), std::move(result.log_entry),
+                            urls_[session_index], {}));
     }
   }
 
@@ -143,6 +146,14 @@ class MlAnswerer::SessionManager {
         max_index = i;
       }
     }
+
+    // Return unanswerable status due to highest score is below the threshold.
+    if (max_score < GetMlAnswerScoreThreshold()) {
+      Finish(
+          AnswererResult{ComputeAnswerStatus::UNANSWERABLE, query_, Answer()});
+      return;
+    }
+
     // Continue decoding using the session with the highest score.
     // Use a dummy request here since both passages and query are already added
     // to context.
@@ -191,8 +202,8 @@ void MlAnswerer::ComputeAnswer(std::string query,
         optimization_guide::ModelBasedCapabilityKey::kHistorySearch,
         /*config_params=*/std::nullopt);
     if (session == nullptr) {
-      session_manager_->Finish(AnswererResult{
-          ComputeAnswerStatus::MODEL_UNAVAILABLE, query, Answer()});
+      session_manager_->Finish(AnswererResult(
+          ComputeAnswerStatus::MODEL_UNAVAILABLE, query, Answer()));
       return;
     }
 

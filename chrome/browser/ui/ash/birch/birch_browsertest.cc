@@ -12,6 +12,7 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/test/test_new_window_delegate.h"
+#include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/wm/overview/overview_grid_test_api.h"
 #include "ash/wm/overview/overview_test_util.h"
@@ -32,6 +33,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/views/widget/widget.h"
+#include "url/gurl.h"
 
 namespace ash {
 namespace {
@@ -45,7 +47,7 @@ class TestWeatherProvider : public BirchDataProvider {
   // BirchDataProvider:
   void RequestBirchDataFetch() override {
     std::vector<BirchWeatherItem> items;
-    items.emplace_back(u"Cloudy", 70.f, ui::ImageModel());
+    items.emplace_back(u"Cloudy", 70.f, GURL("http://icon.com/"));
     Shell::Get()->birch_model()->SetWeatherItems(std::move(items));
   }
 };
@@ -117,7 +119,7 @@ class TestFileSuggestProvider : public BirchDataProvider {
   // BirchDataProvider:
   void RequestBirchDataFetch() override {
     std::vector<BirchFileItem> items;
-    items.emplace_back(base::FilePath("test-path"), u"suggestion",
+    items.emplace_back(base::FilePath("test-path"), "title", u"suggestion",
                        base::Time::Now() - base::Minutes(30), "file_id",
                        "icon_url");
     Shell::Get()->birch_model()->SetFileSuggestItems(std::move(items));
@@ -140,8 +142,7 @@ class TestRecentTabsProvider : public BirchDataProvider {
     std::vector<BirchTabItem> items;
     items.emplace_back(u"tab", GURL("http://example.com/"), base::Time::Now(),
                        GURL("http://favicon.com/"), "session",
-                       BirchTabItem::DeviceFormFactor::kDesktop,
-                       ui::ImageModel());
+                       BirchTabItem::DeviceFormFactor::kDesktop);
     Shell::Get()->birch_model()->SetRecentTabItems(std::move(items));
   }
 };
@@ -155,8 +156,7 @@ class TestLastActiveProvider : public BirchDataProvider {
   // BirchDataProvider:
   void RequestBirchDataFetch() override {
     std::vector<BirchLastActiveItem> items;
-    items.emplace_back(u"item", GURL("http://example.com/"), base::Time(),
-                       ui::ImageModel());
+    items.emplace_back(u"item", GURL("http://example.com/"), base::Time());
     Shell::Get()->birch_model()->SetLastActiveItems(std::move(items));
   }
 };
@@ -170,7 +170,7 @@ class TestMostVisitedProvider : public BirchDataProvider {
   // BirchDataProvider:
   void RequestBirchDataFetch() override {
     std::vector<BirchMostVisitedItem> items;
-    items.emplace_back(u"item", GURL("http://example.com/"), ui::ImageModel());
+    items.emplace_back(u"item", GURL("http://example.com/"));
     Shell::Get()->birch_model()->SetMostVisitedItems(std::move(items));
   }
 };
@@ -184,8 +184,8 @@ class TestSelfShareProvider : public BirchDataProvider {
   void RequestBirchDataFetch() override {
     std::vector<BirchSelfShareItem> items;
     items.emplace_back(u"guid", u"tab", GURL("http://example.com/"),
-                       base::Time::Now(), u"my device", ui::ImageModel(),
-                       base::DoNothing());
+                       base::Time::Now(), u"my device",
+                       SecondaryIconType::kTabFromPhone, base::DoNothing());
     Shell::Get()->birch_model()->SetSelfShareItems(std::move(items));
   }
 };
@@ -198,8 +198,8 @@ class TestLostMediaProvider : public BirchDataProvider {
   // BirchDataProvider:
   void RequestBirchDataFetch() override {
     std::vector<BirchLostMediaItem> items;
-    items.emplace_back(GURL("https://www.source.com"), u"media title", false,
-                       ui::ImageModel(),
+    items.emplace_back(GURL("https://www.source.com"), u"media title",
+                       std::nullopt, SecondaryIconType::kLostMediaVideo,
                        base::BindRepeating(&TestLostMediaProvider::OnActivation,
                                            weak_factory_.GetWeakPtr()));
     Shell::Get()->birch_model()->SetLostMediaItems(std::move(items));
@@ -276,8 +276,8 @@ void ClickOnView(views::View* target_view) {
   event_generator.ClickLeftButton();
 }
 
-// Disables all data type prefs except the one given.
-void DisableAllDataTypePrefsExcept(const char* exception) {
+// Disables all data type prefs except the given exceptions.
+void DisableAllDataTypePrefsExcept(std::vector<const char*> exceptions) {
   PrefService* pref_service =
       Shell::Get()->session_controller()->GetPrimaryUserPrefService();
   ASSERT_TRUE(pref_service);
@@ -285,12 +285,17 @@ void DisableAllDataTypePrefsExcept(const char* exception) {
       prefs::kBirchUseCalendar,     prefs::kBirchUseFileSuggest,
       prefs::kBirchUseChromeTabs,   prefs::kBirchUseLostMedia,
       prefs::kBirchUseReleaseNotes, prefs::kBirchUseWeather,
+      prefs::kBirchUseCoral,
   };
   for (const char* pref : kDataPrefs) {
-    if (strcmp(pref, exception)) {
-      // This isn't the exception pref, so set it to false.
-      pref_service->SetBoolean(pref, false);
+    bool enable = false;
+    for (const char* exception : exceptions) {
+      /*strcmp returns 0 when inputs are the same*/
+      if (0 == strcmp(pref, exception)) {
+        enable = true;
+      }
     }
+    pref_service->SetBoolean(pref, enable);
   }
 }
 
@@ -350,7 +355,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, WeatherChip) {
 
   // Disable the prefs for data providers other than weather. This ensures the
   // data is fresh once the weather provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseWeather);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseWeather});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -389,7 +395,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, CalendarChip) {
 
   // Disable the prefs for data providers other than calendar. This ensures the
   // data is fresh once the calendar provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseCalendar);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseCalendar});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -434,7 +441,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, AttachmentChip) {
   // Disable the prefs for data providers other than file suggest, which
   // controls attachments. This ensures the data is fresh once the attachment
   // provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseFileSuggest);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseFileSuggest});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -472,7 +480,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, FileSuggestChip) {
 
   // Disable the prefs for data providers other than file suggest. This ensures
   // the data is fresh once the calendar provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseFileSuggest);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseFileSuggest});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -511,7 +520,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, RecentTabsChip) {
 
   // Disable the prefs for data providers other than chrome tabs. This ensures
   // the data is fresh once the test provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseChromeTabs);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseChromeTabs});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -554,7 +564,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, LastActiveChip) {
 
   // Disable the prefs for data providers other than chrome tabs. This ensures
   // the data is fresh once the last active provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseChromeTabs);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseChromeTabs});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -598,7 +609,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, MostVisitedChip) {
 
   // Disable the prefs for data providers other than chrome tabs. This ensures
   // the data is fresh once the most visited provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseChromeTabs);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseChromeTabs});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -637,7 +649,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, SelfShareChip) {
 
   // Disable the prefs for data providers other than chrome tabs. This ensures
   // the data is fresh once the self share provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseChromeTabs);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseChromeTabs});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -676,7 +689,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, LostMediaChip) {
 
   // Disable the prefs for data providers other than lost media. This ensures
   // the data is fresh once the lost media provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseLostMedia);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseLostMedia});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.
@@ -715,7 +729,8 @@ IN_PROC_BROWSER_TEST_F(BirchBrowserTest, ReleaseNotesChip) {
 
   // Disable the prefs for data providers other than release notes. This
   // ensures the data is fresh once the release notes provider replies.
-  DisableAllDataTypePrefsExcept(prefs::kBirchUseReleaseNotes);
+  DisableAllDataTypePrefsExcept(
+      std::vector<const char*>{prefs::kBirchUseReleaseNotes});
 
   // Ensure the item remover is initialized, otherwise data fetches won't
   // complete.

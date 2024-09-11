@@ -14,6 +14,7 @@
 <translation id="1282031177488366470">Chrome の機能と動作の改善に協力する</translation>
 <translation id="1333745675627230582">Chrome Dino ゲームをプレイ</translation>
 <translation id="1352919863522755794">Google パスワード マネージャーでパスワードを確認できませんでした。インターネット接続を確認してみてください。</translation>
+<translation id="1380565463006545725">Chrome をショッピングに活用</translation>
 <translation id="139623527619433858">iPad 版 Chrome をデフォルトで使用する</translation>
 <translation id="1407843355326180937">このサイトと Chrome にログインすると、すべてのデバイスで同じブックマークやその他の設定を使用できます。</translation>
 <translation id="1436059927646026729">Chrome で最近使ったタブを開く</translation>
@@ -35,6 +36,7 @@
 <translation id="1554731936187952550">Chrome の最高強度のセキュリティで有害なウェブサイトから保護します</translation>
 <translation id="1615715390546812898">Chrome で音声検索します。</translation>
 <translation id="1657395063736185342">Chrome でビジュアルを検索する</translation>
+<translation id="1670609221633730681">Chrome のヒント: アドレスバーの位置を選択</translation>
 <translation id="1675955119303651351">Chrome データの一部が Google アカウントにまだ保存されていません。
         数分待ってからログアウトしてください。今すぐログアウトすると、このデータは削除されます。</translation>
 <translation id="1682483655351012182">Chrome のデータを同期する</translation>
@@ -43,6 +45,7 @@
 <translation id="1799920918471566157">Chrome を使いこなすヒント</translation>
 <translation id="1830634592642484976">この住所は現在、Chrome に保存されています。Google サービス全体で使用するには、Google アカウント（<ph name="USER_EMAIL" />）に保存してください。</translation>
 <translation id="1910975740091000991">Chrome for iOS</translation>
+<translation id="1917288746637765175">Chrome を既定に設定して価格情報を簡単にチェック</translation>
 <translation id="1917964099031477364">このアカウントと保存されていないデータは、Chrome やこのデバイスの他の Google アプリから削除されます。</translation>
 <translation id="1965935827552890526">開いている別の Chrome ウィンドウでの作業を終了してください。</translation>
 <translation id="1987779152850321833">Chrome を最大限に活用するには、下記のおすすめの操作を行ってください。</translation>
@@ -78,7 +81,6 @@
 <translation id="2767464022270041271">保存されているパスワードがありません。パスワードを保存すると、Google パスワード マネージャーで確認できるようになります。</translation>
 <translation id="2869959624320573933">Chrome へのログイン</translation>
 <translation id="2876628302275096482"><ph name="BEGIN_LINK" />Chrome でユーザーデータのプライバシーを保護する方法<ph name="END_LINK" />についての詳細</translation>
-<translation id="2952581218264071393">1. Chrome の設定を開く</translation>
 <translation id="2957447865124070833">[<ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" />] を選択する</translation>
 <translation id="3030414234702425231"><ph name="SIGNOUT_MANAGED_DOMAIN" /> で管理されているアカウントからログアウトするにあたり、Chrome データはこのデバイスから削除されます（ただし Google アカウントには残ります）。</translation>
 <translation id="309672519329227863">他のアプリから Chrome のパスワードなどにアクセスできます。</translation>
@@ -90,7 +92,6 @@
 <translation id="3340938510625667914">Chrome アクション</translation>
 <translation id="3345341804167540816">Chromeをどこでも使用</translation>
 <translation id="3360031466389132716">{THRESHOLD,plural, =1{Chrome を {THRESHOLD} 分間使用しなかった場合に行われます。}other{Chrome を {THRESHOLD} 分間使用しなかった場合に行われます。}}</translation>
-<translation id="3399930248910934354">Chrome の設定を開く</translation>
 <translation id="344736123700721678">ホーム画面ドックから Chrome にすばやくアクセス</translation>
 <translation id="3472587960215700950">Chrome では Google マップを使用して、検出された住所までの経路やローカル情報を表示しています。</translation>
 <translation id="3503014945441706099">この Chrome プロフィールもセーフ ブラウジング保護強化機能で保護されます</translation>
@@ -112,12 +113,14 @@
 <translation id="3984746313391923992">組織が Chrome にログインしないように求めています。</translation>
 <translation id="3988789688219830639">Google Chrome で写真または動画にアクセスできません。iOS の [設定] &gt; [プライバシー] &gt; [写真] でアクセスを有効にしてください。</translation>
 <translation id="4064699917955374540">Google アカウントで Chrome のデータを使用して保存するには、本人確認を行ってください。</translation>
+<translation id="4066411101507716142">iPad のホーム画面ドックから Chrome にすばやくアクセス。</translation>
 <translation id="4067858366537947361">Chrome でシークレット タブを開く</translation>
 <translation id="4093042601582616698">Chrome をデフォルトのブラウザに設定しますか？</translation>
 <translation id="417201473131094001">Chrome Canary では対象外です。</translation>
 <translation id="424864128008805179">Chrome からログアウトしますか？</translation>
 <translation id="4251174643044751591">Chrome でお支払い方法の設定ページを開きます。</translation>
 <translation id="4286914711740227883">Chrome の閲覧履歴データを削除</translation>
+<translation id="430839890088895017">Chrome のヒント: Chrome をドックに移動</translation>
 <translation id="4453284704333523777">Chrome の設定を管理する</translation>
 <translation id="4523886039239821078">アドオンが原因でChromeがクラッシュしました。次をアンインストールしてください:</translation>
 <translation id="4633328489441962921">Chrome でアップデートを確認できません</translation>
@@ -181,6 +184,7 @@
 <translation id="6272822675004864999">Chrome から通知を受け取るには、iOS の [設定] で通知をオンにしてください。</translation>
 <translation id="630693926528731525">パスワードは共有されませんでした。インターネット接続と、Chrome にログインしていることを確認してから、もう一度お試しください。</translation>
 <translation id="6348855835728304880">このデバイスの他のアプリから、Chrome のパスワードなどにアクセスできます。</translation>
+<translation id="6373751563207403289">安全チェックにより、データ侵害や安全でないウェブサイトなどの脅威から保護されているかどうかが確認されます。Chrome で検出されたプライバシーやセキュリティの問題がある場合は、アラートが表示されます。</translation>
 <translation id="6374691158439235563">Chrome の設定を完了しましょう</translation>
 <translation id="6389317667633680932">Chrome を最大限に活用するための新機能をご紹介します。</translation>
 <translation id="6412673304250309937">Chrome に保存されている安全でないサイトのリストと URL を照合します。サイトがパスワードを不正に取得しようとしている場合や、ユーザーが安全でないファイルをダウンロードしようとした場合は、URL とページ コンテンツの一部をセーフ ブラウジングに送信することがあります。</translation>
@@ -205,6 +209,7 @@
 Chrome を使いやすくするためにデータを使用するその他の設定については、<ph name="BEGIN_LINK" />Google サービス<ph name="END_LINK" />をご覧ください。</translation>
 <translation id="6916015246697034114">Chrome で音声検索</translation>
 <translation id="6975725306479268850">自動入力で Chrome を選択する</translation>
+<translation id="6979238427560462592">Google があなた向けに作成したカスタム フィード。ニュース、スポーツ、天気情報など。</translation>
 <translation id="7004159181872656283">Chrome でビジュアルを検索します。</translation>
 <translation id="7056826488869329999">Chrome で安全チェックを開いて実行します。</translation>
 <translation id="7059914902409643750">Chrome を独自にカスタマイズ</translation>
@@ -230,11 +235,12 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="7394108421562933108">Chrome の Google マップ表示</translation>
 <translation id="7400722733683201933">Google Chrome について</translation>
 <translation id="7466693328838535498">[検索ウィジェット] ボックスに「Chrome」と入力</translation>
-<translation id="746684838091935575">3.[Chrome] を選択する</translation>
 <translation id="7492574581995589075">Google アカウントで Chrome データを使用、保存する機能は組織によって無効にされています。新しいブックマークやパスワードなどは、このデバイスにのみ保存されます。</translation>
 <translation id="7581063337314642333">Chrome でタブグリッドにアクセス</translation>
+<translation id="7642373780953416937">Chrome で自動的に検出されたプライバシーとセキュリティの問題がある場合は、アラートが表示されます。</translation>
 <translation id="7662994914830945754">どのデバイスからでも Chrome で自分のタブにアクセスするには、ログインして同期をオンにしてください</translation>
 <translation id="7669869107155339016">Chrome 設定に移動します。</translation>
+<translation id="7683540977001394271">iPhone のホーム画面ドックから Chrome にすばやくアクセス。</translation>
 <translation id="769104993356536261">iOS で Chrome アクションを使用する</translation>
 <translation id="7693590760643069321">メッセージ、ドキュメント、他のアプリのリンクをタップしたときに、常に Chrome が使えるようになります。</translation>
 <translation id="7698568245838009292">Chrome がカメラへのアクセス許可を求めています</translation>
@@ -248,6 +254,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="8006014511203279255">メッセージや他のアプリ内でリンクをタップしたときに、常に Chrome で開くよう設定できます。</translation>
 <translation id="8022947259858476807">Chrome を既定に設定すると、リンクの表示やウィジェットからの検索、他のアプリへのパスワード自動入力に使用できるようになります</translation>
 <translation id="804638182476029347">Chrome の通知設定で値下げアラートの受信を許可する</translation>
+<translation id="804756029368067824">Chrome を既定のブラウザに設定すると、買いたい商品の価格を簡単にトラッキングして購入の判断材料にできます。</translation>
 <translation id="8065292699993359127">URL を Chrome のシークレット モードで開く</translation>
 <translation id="8069507567842347179">この荷物は Chrome ですでに追跡されています。</translation>
 <translation id="8136856065410661948">Chrome や Google レンズから Apple カレンダーの予定を作成するために使用されます。</translation>
@@ -275,6 +282,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
   2. [デフォルトのブラウザアプリ] をタップします。
   3. [Chrome] を選択します。</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
+<translation id="8544583291890527417">Chrome で検出されたプライバシーやセキュリティの問題についてのアラートです。</translation>
 <translation id="8558480467877843976">ブラウジングするときや、メッセージ、ドキュメント、他のアプリのリンクをタップしたときに、常に Chrome が使えるようになります。</translation>
 <translation id="8603022514504485810">Google パスワード マネージャーですべてのパスワードを確認できませんでした。明日もう一度お試しいただくか、<ph name="BEGIN_LINK" />Google アカウント内のパスワードをご確認ください<ph name="END_LINK" />。</translation>
 <translation id="8727043961453758442">Chrome を最大限に活用</translation>
@@ -290,7 +298,6 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="8857676124663337448">Google パスワード マネージャーですべてのパスワードを確認できませんでした。明日もう一度お試しください。</translation>
 <translation id="8865415417596392024">アカウント内の Chrome のデータ</translation>
 <translation id="8874688701962049679">Chrome を最大限に活用するためのヒント。</translation>
-<translation id="8891935667620843985">Chrome をデフォルトのブラウザアプリに設定すると、Chrome で自動的にリンクを開くことができます。</translation>
 <translation id="8897749957032330183">パスワードは、このデバイスの Google パスワード マネージャーに保存されます。</translation>
 <translation id="8949681853939555434">Chrome をデフォルトのブラウザに設定する</translation>
 <translation id="9068336935206019333">シークレット モードの Chrome で開く</translation>
@@ -298,6 +305,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="9112744793181547300">Chrome を既定に設定しますか？</translation>
 <translation id="9122931302567044771">Chrome は毎回 PC 版サイトをリクエストします。</translation>
 <translation id="9181628561061032322">Chrome で最近使ったタブを開きます。</translation>
+<translation id="9194404253580584015">Google があなた向けに生成したカスタム フィード。</translation>
 <translation id="953008885340860025">Chrome がログアウトされました</translation>
 <translation id="97300214378190234">他のアプリのリンクをタップしたときに、常に Chrome で開くよう設定できます。</translation>
 </translationbundle>

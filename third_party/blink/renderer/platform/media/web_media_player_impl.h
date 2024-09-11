@@ -258,6 +258,10 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   void SetPowerExperimentState(bool state) override;
   void SuspendForFrameClosed() override;
 
+  void SetShouldPauseWhenFrameIsHidden(
+      bool should_pause_when_frame_is_hidden) override;
+  bool GetShouldPauseWhenFrameIsHidden() override;
+
   bool HasAvailableVideoFrame() const override;
   bool HasReadableVideoFrame() const override;
 
@@ -278,6 +282,8 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   // WebMediaPlayerDelegate::Observer implementation.
   void OnPageHidden() override;
   void OnPageShown() override;
+  void OnFrameHidden() override;
+  void OnFrameShown() override;
   void OnIdleTimeout() override;
 
   void RequestRemotePlaybackDisabled(bool disabled) override;
@@ -590,6 +596,10 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
 
   // // Returns true if the player's hosting page (WebView) is hidden or closed.
   bool IsPageHidden() const;
+
+  // Returns true if the player's host frame is hidden or closed in the host
+  // page.
+  bool IsFrameHidden() const;
 
   // Returns true if the player is in streaming mode, meaning that the source
   // or the demuxer doesn't support timeline or seeking.
@@ -1118,6 +1128,8 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   // Request pipeline to suspend. It should not block other signals after
   // suspended.
   bool pending_oneshot_suspend_ = false;
+
+  bool should_pause_when_frame_is_hidden_ = false;
 
   base::CancelableOnceClosure have_enough_after_lazy_load_cb_;
 

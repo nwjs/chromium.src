@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/paint/highlight_painter.h"
 
+#include "base/not_fatal_until.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -192,7 +193,8 @@ TextPaintStyle TextPaintStyleForTextMatch(const TextMatchMarker& marker,
   const Color platform_text_color =
       LayoutTheme::GetTheme().PlatformTextSearchColor(
           marker.IsActiveMatch(), document.InForcedColorsMode(), color_scheme,
-          document.GetColorProviderForPainting(color_scheme));
+          document.GetColorProviderForPainting(color_scheme),
+          document.IsInWebAppScope());
   // Comparing against the value of the 'color' property doesn't always make
   // sense (for example for SVG <text> which paints using 'fill' and 'stroke').
   if (!ignore_current_color) {
@@ -533,7 +535,8 @@ void HighlightPainter::PaintNonCssMarkers(Phase phase) {
                   document.InForcedColorsMode(),
                   originating_style_.UsedColorScheme(),
                   document.GetColorProviderForPainting(
-                      originating_style_.UsedColorScheme()));
+                      originating_style_.UsedColorScheme()),
+                  document.IsInWebAppScope());
           PaintRect(
               paint_info_.context,
               ComputeBackgroundRect(text, paint_start_offset, paint_end_offset),
@@ -969,7 +972,8 @@ void HighlightPainter::PaintHighlightOverlays(
       // transformed text (include text paths). This might be fixable by
       // transforming the ink overflow before using it to expamd the clip.
       TextPainter::SvgTextPaintState* svg_state = text_painter_.GetSvgState();
-      if (UNLIKELY(svg_state) && part.type == HighlightLayerType::kSelection) {
+      if (svg_state && part.type == HighlightLayerType::kSelection)
+          [[unlikely]] {
         // SVG text painting needs to know it is painting selection.
         is_painting_selection_reset.emplace(&svg_state->is_painting_selection_,
                                             true);
@@ -1083,18 +1087,18 @@ LineRelativeRect HighlightPainter::LocalRectInWritingModeSpace(
     return LineRelativeLocalRect(fragment_item_, text, from, to);
   }
 
-  const HighlightEdgeInfo* from_info =
+  auto from_info =
       std::lower_bound(edges_info_.begin(), edges_info_.end(), from,
                        [](const HighlightEdgeInfo& info, unsigned offset) {
                          return info.offset < offset;
                        });
-  const HighlightEdgeInfo* to_info =
+  auto to_info =
       std::lower_bound(from_info, edges_info_.end(), to,
                        [](const HighlightEdgeInfo& info, unsigned offset) {
                          return info.offset < offset;
                        });
-  DCHECK_NE(from_info, edges_info_.end());
-  DCHECK_NE(to_info, edges_info_.end());
+  CHECK_NE(from_info, edges_info_.end(), base::NotFatalUntil::M130);
+  CHECK_NE(to_info, edges_info_.end(), base::NotFatalUntil::M130);
 
   // This rect is used for 2 purposes: To set the offset and width for
   // text decoration painting, and the set the clip. The former uses the
@@ -1118,7 +1122,7 @@ LineRelativeRect HighlightPainter::LocalRectInWritingModeSpace(
 
 void HighlightPainter::ClipToPartRect(const LineRelativeRect& part_rect) {
   gfx::RectF clip_rect{part_rect};
-  if (UNLIKELY(fragment_item_.IsSvgText())) {
+  if (fragment_item_.IsSvgText()) [[unlikely]] {
     clip_rect = TextDecorationPainter::ExpandRectForSVGDecorations(part_rect);
   } else {
     clip_rect.Offset(0, fragment_item_.InkOverflowRect().Y());

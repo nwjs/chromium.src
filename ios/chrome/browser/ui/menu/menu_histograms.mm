@@ -12,6 +12,7 @@ namespace {
 const char kMenuEntryPointsHistogram[] = "Mobile.ContextMenu.EntryPoints";
 
 // Histograms for tracking actions performed on given menus.
+// LINT.IfChange
 const char kBookmarkEntryActionsHistogram[] =
     "Mobile.ContextMenu.BookmarkEntry.Actions";
 const char kBookmarkFolderActionsHistogram[] =
@@ -61,6 +62,9 @@ const char kAutofillManualFallbackPaymentEntryActionsHistogram[] =
     "Mobile.ContextMenu.AutofillManualFallbackPaymentEntry.Actions";
 const char kAutofillManualFallbackAddressEntryActionsHistogram[] =
     "Mobile.ContextMenu.AutofillManualFallbackAddressEntry.Actions";
+const char kTabGroupsPanelEntryActionsHistogram[] =
+    "Mobile.ContextMenu.TabGroupsPanelEntry.Actions";
+// LINT.ThenChange(/tools/metrics/histograms/metadata/mobile/histograms.xml)
 }  // namespace
 
 void RecordMenuShown(MenuScenarioHistogram scenario) {
@@ -122,7 +126,9 @@ const char* GetActionsHistogramName(MenuScenarioHistogram scenario) {
       return kAutofillManualFallbackPaymentEntryActionsHistogram;
     case kMenuScenarioHistogramAutofillManualFallbackAddressEntry:
       return kAutofillManualFallbackAddressEntryActionsHistogram;
+    case kMenuScenarioHistogramTabGroupsPanelEntry:
+      return kTabGroupsPanelEntryActionsHistogram;
     case kMenuScenarioHistogramCount:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }

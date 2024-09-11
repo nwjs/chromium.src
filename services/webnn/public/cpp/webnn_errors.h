@@ -128,9 +128,12 @@ std::string COMPONENT_EXPORT(WEBNN_PUBLIC_CPP)
     NotSupportedOutputTypeError(std::string_view output_name,
                                 OperandDataType type,
                                 SupportedDataTypes supported_types);
+std::string COMPONENT_EXPORT(WEBNN_PUBLIC_CPP)
+    NotSupportedMLBufferTypeError(OperandDataType type,
+                                  SupportedDataTypes supported_types);
 
 std::string COMPONENT_EXPORT(WEBNN_PUBLIC_CPP)
-    GetLabelErrorSuffix(std::string_view label);
+    GetErrorLabelPrefix(std::string_view label);
 
 }  // namespace webnn
 

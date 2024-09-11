@@ -30,6 +30,28 @@ BASE_FEATURE(kPlusAddressAffiliations,
              "PlusAddressAffiliations",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, mobile manual fallbacks for addresses and passwords show plus
+// address filling information.
+BASE_FEATURE(kPlusAddressAndroidManualFallbackEnabled,
+             "PlusAddressAndroidManualFallbackEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+// When enabled, autofill stops overriding single field form fill suggestions
+// with plus address suggestions. Instead, it shows them together in the same
+// context menu.
+BASE_FEATURE(kPlusAddressAndSingleFieldFormFill,
+             "PlusAddressAndSingleFieldFormFill",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, Chrome will fetch the blocklist data using the Component
+// Updater and employ that for blocking Plus Addresses. Otherwise, the blocklist
+// information is sourced from a Finch parameter.
+BASE_FEATURE(kPlusAddressBlocklistEnabled,
+             "PlusAddressBlocklistEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls the enabled/disabled state of the experimental feature.
 BASE_FEATURE(kPlusAddressesEnabled,
              "PlusAddressesEnabled",
@@ -66,10 +88,48 @@ BASE_FEATURE(kPlusAddressGlobalToggle,
              "PlusAddressGlobalToggle",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_IOS)
+// When enabled, mobile manual fallbacks for addresses and passwords show plus
+// address filling information.
+BASE_FEATURE(kPlusAddressIOSManualFallbackEnabled,
+             "PlusAddressIOSManualFallbackEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_IOS)
+
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, loading states during plus address creation on Android are more
+// refined.
+BASE_FEATURE(kPlusAddressLoadingStatesAndroid,
+             "PlusAddressLoadingStatesAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+// When enabled, plus address creation is offered on all email fields that are
+// not a username field - even if they are on a login form or a change password
+// form.
+// Intended as a killswitch to protect against unexpected behavior.
+// TODO: crbug.com/355398505 - clean up.
+BASE_FEATURE(kPlusAddressOfferCreationOnAllNonUsernameFields,
+             "PlusAddressOfferCreationOnAllNonUsernameFields",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, we offer plus address creation on single username forms.
 BASE_FEATURE(kPlusAddressOfferCreationOnSingleUsernameForms,
              "PlusAddressOfferCreationOnSingleUsernameForms",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, plus addresses are preallocated to avoid having to query the
+// server for every reserve call.
+BASE_FEATURE(kPlusAddressPreallocation,
+             "PlusAddressPreallocation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// The minimum number of locally stored pre-allocated plus addresses. If the
+// number slips below this threshold, more are requested.
+extern const base::FeatureParam<int> kPlusAddressPreallocationMinimumSize(
+    &kPlusAddressPreallocation,
+    "minimum-size",
+    10);
 
 // When enabled, `GoogleGroupsManager::IsFeatureEnabledForProfile` is used to
 // check whether `kPlusAddressesEnabled` is enabled. Used as a killswitch.
@@ -96,20 +156,5 @@ BASE_FEATURE(kPlusAddressSettingsRefreshDesktop,
 BASE_FEATURE(kPlusAddressUserOnboardingEnabled,
              "PlusAddressUserOnboardingEnabled",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, autofill stops overriding single field form fill suggestions
-// with plus address suggestions. Instead, it shows them together in the same
-// context menu.
-BASE_FEATURE(kPlusAddressAndSingleFieldFormFill,
-             "PlusAddressAndSingleFieldFormFill",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_ANDROID)
-// When enabled, mobile manual fallbacks for addresses and passwords show plus
-// address filling information.
-BASE_FEATURE(kPlusAddressAndroidManualFallbackEnabled,
-             "PlusAddressAndroidManualFallbackEnabled",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace plus_addresses::features

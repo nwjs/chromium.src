@@ -9,6 +9,7 @@
 
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/system/mahi/mahi_constants.h"
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
@@ -93,6 +94,8 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
   // NoSessionAshTestBase::
   void SetUp() override {
     NoSessionAshTestBase::SetUp();
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kMahiRestrictionsOverride);
 
     magic_boost_state_ = std::make_unique<MagicBoostStateAsh>();
     mahi_manager_impl_ = std::make_unique<MahiManagerImpl>();
@@ -126,12 +129,14 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
   bool IsEnabled() const { return mahi_manager_impl_->IsEnabled(); }
 
   crosapi::mojom::MahiPageInfoPtr CreatePageInfo(const std::string& url,
-                                                 const std::u16string& title) {
+                                                 const std::u16string& title,
+                                                 bool is_incognito = false) {
     return crosapi::mojom::MahiPageInfo::New(
         /*client_id=*/base::UnguessableToken(),
         /*page_id=*/base::UnguessableToken(), /*url=*/GURL(url),
         /*title=*/title,
-        /*favicon_image=*/gfx::ImageSkia(), /*is_distillable*/ true);
+        /*favicon_image=*/gfx::ImageSkia(), /*is_distillable=*/true,
+        /*is_incognito=*/is_incognito);
   }
 
   MahiCacheManager* GetCacheManager() {
@@ -142,10 +147,11 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
     mahi_manager_impl_->NotifyRefreshAvailability(available);
   }
 
-  void RequestSummary() {
+  void RequestSummary(bool incognito = false) {
     // Sets the page that needed to get summary.
-    mahi_manager_impl_->SetCurrentFocusedPageInfo(
-        CreatePageInfo("http://url1.com/abc#skip", u"Title of url1"));
+    mahi_manager_impl_->SetCurrentFocusedPageInfo(CreatePageInfo(
+        /*url=*/"http://url1.com/abc#skip", /*title=*/u"Title of url1",
+        /*is_incognito=*/incognito));
     // Gets the summary of the page.
     mahi_manager_impl_->GetSummary(base::DoNothing());
   }
@@ -181,6 +187,22 @@ TEST_F(MahiManagerImplTest, CacheSavedForSummaryRequest) {
   EXPECT_EQ(base::UTF16ToUTF8(summary.value()), kFakeSummary);
 }
 
+TEST_F(MahiManagerImplTest, NoCacheSavedForIncognitoPage) {
+  // No cache at the beginning.
+  EXPECT_EQ(GetCacheManager()->size(), 0);
+
+  // Request summary from a incognito page.
+  RequestSummary(/*incognito=*/true);
+
+  // Summary is not saved in the cache.
+  EXPECT_EQ(GetCacheManager()->size(), 0);
+
+  // Request summary from a normal page.
+  RequestSummary(/*incognito=*/false);
+  // Summary is saved in the cache.
+  EXPECT_EQ(GetCacheManager()->size(), 1);
+}
+
 TEST_F(MahiManagerImplTest, NoSummaryCallWhenSummaryIsInCache) {
   // Adds some content to the cache.
   const std::u16string new_summary(u"new summary");
@@ -200,6 +222,60 @@ TEST_F(MahiManagerImplTest, NoSummaryCallWhenSummaryIsInCache) {
   EXPECT_EQ(summary.value(), new_summary);
 }
 
+TEST_F(MahiManagerImplTest, ClearAllCacheWhenAllHistoryAreBeingCleared) {
+  // No cache yet.
+  EXPECT_EQ(GetCacheManager()->size(), 0);
+
+  RequestSummary();
+
+  // Summary is saved in the cache.
+  EXPECT_EQ(GetCacheManager()->size(), 1);
+
+  mahi_manager_impl_->OnHistoryDeletions(
+      nullptr, history::DeletionInfo::ForAllHistory());
+
+  // Cache should be empty
+  EXPECT_EQ(GetCacheManager()->size(), 0);
+}
+
+TEST_F(MahiManagerImplTest, ClearURLs) {
+  // No cache yet.
+  EXPECT_EQ(GetCacheManager()->size(), 0);
+
+  RequestSummary();
+
+  // Summary is saved in the cache.
+  EXPECT_EQ(GetCacheManager()->size(), 1);
+
+  // Try to delete URLs that aren't in the cache.
+  {
+    const auto kUrl1 = GURL("http://www.a.com");
+    const auto kUrl2 = GURL("http://www.b.com");
+    history::URLRows urls_to_delete = {history::URLRow(kUrl1),
+                                       history::URLRow(kUrl2)};
+    history::DeletionInfo deletion_info =
+        history::DeletionInfo::ForUrls(urls_to_delete, std::set<GURL>());
+    mahi_manager_impl_->OnHistoryDeletions(nullptr, deletion_info);
+
+    // Cache size doesn't change.
+    EXPECT_EQ(GetCacheManager()->size(), 1);
+  }
+
+  // List of URLs contains a URL that is in the cache.
+  {
+    const auto kUrl1 = GURL("http://www.a.com");
+    const auto kUrl2 = GURL("http://url1.com/abc#should_delete");
+    history::URLRows urls_to_delete = {history::URLRow(kUrl1),
+                                       history::URLRow(kUrl2)};
+    history::DeletionInfo deletion_info =
+        history::DeletionInfo::ForUrls(urls_to_delete, std::set<GURL>());
+    mahi_manager_impl_->OnHistoryDeletions(nullptr, deletion_info);
+
+    // The URL should be deleted from the cache.
+    EXPECT_EQ(GetCacheManager()->size(), 0);
+  }
+}
+
 TEST_F(MahiManagerImplTest, TurnOffSettingsClearCache) {
   // No cache yet.
   EXPECT_EQ(GetCacheManager()->size(), 0);
@@ -211,6 +287,20 @@ TEST_F(MahiManagerImplTest, TurnOffSettingsClearCache) {
 
   // Cache must be empty after user turn off the settings.
   SetMahiEnabledByUserPref(false);
+  EXPECT_EQ(GetCacheManager()->size(), 0);
+}
+
+TEST_F(MahiManagerImplTest, ClearCacheSuccessfully) {
+  // No cache yet.
+  EXPECT_EQ(GetCacheManager()->size(), 0);
+
+  RequestSummary();
+
+  // Summary is saved in the cache.
+  EXPECT_EQ(GetCacheManager()->size(), 1);
+
+  // Cache must be empty after cleared.
+  mahi_manager_impl_->ClearCache();
   EXPECT_EQ(GetCacheManager()->size(), 0);
 }
 

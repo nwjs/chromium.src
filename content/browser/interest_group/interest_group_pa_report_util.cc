@@ -17,7 +17,6 @@
 #include "base/check_op.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/numerics/clamped_math.h"
 #include "components/aggregation_service/aggregation_coordinator_utils.h"
@@ -67,8 +66,7 @@ std::optional<double> GetBaseValue(
       }
       return std::nullopt;
   }
-  NOTREACHED(base::NotFatalUntil::M128);
-  return std::nullopt;
+  NOTREACHED();
 }
 
 // Returns contribution's bucket calculated from `base`, and `bucket_obj`'s
@@ -234,6 +232,49 @@ CalculateContributionBucketAndValue(
 
 }  // namespace
 
+PrivateAggregationKey::PrivateAggregationKey(
+    url::Origin reporting_origin,
+    std::optional<url::Origin> aggregation_coordinator_origin)
+    : reporting_origin(std::move(reporting_origin)),
+      aggregation_coordinator_origin(
+          std::move(aggregation_coordinator_origin)) {}
+
+PrivateAggregationKey::PrivateAggregationKey(
+    const PrivateAggregationKey& other) = default;
+
+PrivateAggregationKey& PrivateAggregationKey::operator=(
+    const PrivateAggregationKey& other) = default;
+
+PrivateAggregationKey::PrivateAggregationKey(PrivateAggregationKey&& other) =
+    default;
+
+PrivateAggregationKey& PrivateAggregationKey::operator=(
+    PrivateAggregationKey&& other) = default;
+
+PrivateAggregationKey::~PrivateAggregationKey() = default;
+
+PrivateAggregationPhaseKey::PrivateAggregationPhaseKey(
+    url::Origin reporting_origin,
+    PrivateAggregationPhase phase,
+    std::optional<url::Origin> aggregation_coordinator_origin)
+    : reporting_origin(reporting_origin),
+      phase(phase),
+      aggregation_coordinator_origin(aggregation_coordinator_origin) {}
+
+PrivateAggregationPhaseKey::PrivateAggregationPhaseKey(
+    const PrivateAggregationPhaseKey&) = default;
+
+PrivateAggregationPhaseKey& PrivateAggregationPhaseKey::operator=(
+    const PrivateAggregationPhaseKey&) = default;
+
+PrivateAggregationPhaseKey::PrivateAggregationPhaseKey(
+    PrivateAggregationPhaseKey&&) = default;
+
+PrivateAggregationPhaseKey& PrivateAggregationPhaseKey::operator=(
+    PrivateAggregationPhaseKey&&) = default;
+
+PrivateAggregationPhaseKey::~PrivateAggregationPhaseKey() = default;
+
 PrivateAggregationRequestWithEventType::PrivateAggregationRequestWithEventType(
     auction_worklet::mojom::PrivateAggregationRequestPtr request,
     std::optional<std::string> event_type)
@@ -258,7 +299,7 @@ FillInPrivateAggregationRequest(
     const std::optional<auction_worklet::mojom::RejectReason> reject_reason,
     const PrivateAggregationTimings& timings,
     bool is_winner) {
-  CHECK(request, base::NotFatalUntil::M128);
+  CHECK(request);
   if (request->contribution->is_histogram_contribution()) {
     // TODO(crbug.com/40254406): Report a bad mojom message when contribution's
     // value is negative. The worklet code should prevent that, but the worklet
@@ -273,7 +314,7 @@ FillInPrivateAggregationRequest(
 
   // The mojom API declaration should ensure `contribution` being a
   // for-event contribution if not a histogram contribution.
-  CHECK(contribution->is_for_event_contribution(), base::NotFatalUntil::M128);
+  CHECK(contribution->is_for_event_contribution());
   const auction_worklet::mojom::EventTypePtr& event_type =
       contribution->get_for_event_contribution()->event_type;
   std::optional<std::string> non_reserved_event_type = std::nullopt;
@@ -407,7 +448,10 @@ bool HasValidFilteringId(
     filtering_id =
         request->contribution->get_for_event_contribution()->filtering_id;
   }
+  return IsValidFilteringId(filtering_id);
+}
 
+bool IsValidFilteringId(std::optional<uint64_t> filtering_id) {
   if (!base::FeatureList::IsEnabled(
           blink::features::kPrivateAggregationApiFilteringIds)) {
     return filtering_id == std::nullopt;

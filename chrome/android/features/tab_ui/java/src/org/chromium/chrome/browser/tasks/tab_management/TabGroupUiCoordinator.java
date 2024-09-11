@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.Resources;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,12 +15,13 @@ import androidx.annotation.NonNull;
 
 import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.supplier.LazyOneshotSupplierImpl;
+import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -65,8 +67,10 @@ public class TabGroupUiCoordinator
     private final ScrimCoordinator mScrimCoordinator;
     private final ObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
     private final BottomSheetController mBottomSheetController;
+    private final DataSharingTabManager mDataSharingTabManager;
     private final ViewGroup mRootView;
     private final TabModelSelector mTabModelSelector;
+    private final LazyOneshotSupplier<ActionConfirmationManager> mActionConfirmationSupplier;
     private final OneshotSupplier<LayoutStateProvider> mLayoutStateProviderSupplier;
     private final SnackbarManager mSnackbarManager;
     private final TabCreatorManager mTabCreatorManager;
@@ -74,7 +78,7 @@ public class TabGroupUiCoordinator
     private final ModalDialogManager mModalDialogManager;
     private PropertyModelChangeProcessor mModelChangeProcessor;
     private TabGridDialogCoordinator mTabGridDialogCoordinator;
-    private LazyOneshotSupplierImpl<TabGridDialogMediator.DialogController>
+    private LazyOneshotSupplier<TabGridDialogMediator.DialogController>
             mTabGridDialogControllerSupplier;
     private TabListCoordinator mTabStripCoordinator;
     private TabGroupUiMediator mMediator;
@@ -88,6 +92,7 @@ public class TabGroupUiCoordinator
             @NonNull ScrimCoordinator scrimCoordinator,
             @NonNull ObservableSupplier<Boolean> omniboxFocusStateSupplier,
             @NonNull BottomSheetController bottomSheetController,
+            @NonNull DataSharingTabManager dataSharingTabManager,
             @NonNull TabModelSelector tabModelSelector,
             @NonNull TabContentManager tabContentManager,
             @NonNull ViewGroup rootView,
@@ -109,7 +114,10 @@ public class TabGroupUiCoordinator
                                     .inflate(R.layout.bottom_tab_strip_toolbar, parentView, false);
             mTabListContainerView = mToolbarView.getViewContainer();
             mBottomSheetController = bottomSheetController;
+            mDataSharingTabManager = dataSharingTabManager;
             mTabModelSelector = tabModelSelector;
+            mActionConfirmationSupplier =
+                    LazyOneshotSupplier.fromSupplier(this::createActionConfirmationManager);
             mLayoutStateProviderSupplier = layoutStateProviderSupplier;
             mRootView = rootView;
             mSnackbarManager = snackbarManager;
@@ -120,22 +128,27 @@ public class TabGroupUiCoordinator
         }
     }
 
-    private void initTabGridDialogCoordinator() {
+    private ActionConfirmationManager createActionConfirmationManager() {
+        Profile profile = mTabModelSelector.getModel(false).getProfile();
+        TabGroupModelFilter regularFilter =
+                (TabGroupModelFilter)
+                        mTabModelSelector.getTabModelFilterProvider().getTabModelFilter(false);
+        return new ActionConfirmationManager(
+                profile, mActivity, regularFilter, mModalDialogManager);
+    }
+
+    private TabGridDialogMediator.DialogController initTabGridDialogCoordinator() {
         assert mTabGridDialogControllerSupplier != null;
-        if (mTabGridDialogCoordinator != null) return;
+        if (mTabGridDialogCoordinator != null) return mTabGridDialogCoordinator;
 
         var currentTabModelFilterSupplier =
                 mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilterSupplier();
-        Profile profile = mTabModelSelector.getModel(false).getProfile();
-        TabGroupModelFilter filter = (TabGroupModelFilter) currentTabModelFilterSupplier.get();
-        ActionConfirmationManager actionConfirmationManager =
-                new ActionConfirmationManager(profile, mActivity, filter, mModalDialogManager);
-
         mTabGridDialogCoordinator =
                 new TabGridDialogCoordinator(
                         mActivity,
                         mBrowserControlsStateProvider,
                         mBottomSheetController,
+                        mDataSharingTabManager,
                         currentTabModelFilterSupplier,
                         mTabContentManager,
                         mTabCreatorManager,
@@ -146,9 +159,9 @@ public class TabGroupUiCoordinator
                         mScrimCoordinator,
                         mTabStripCoordinator.getTabGroupTitleEditor(),
                         mRootView,
-                        actionConfirmationManager,
+                        mActionConfirmationSupplier.get(),
                         mModalDialogManager);
-        mTabGridDialogControllerSupplier.set(mTabGridDialogCoordinator);
+        return mTabGridDialogCoordinator;
     }
 
     /** Handle any initialization that occurs once native has been loaded. */
@@ -169,6 +182,7 @@ public class TabGroupUiCoordinator
                             currentTabModelFilterSupplier,
                             /* thumbnailProvider= */ null,
                             /* actionOnRelatedTabs= */ false,
+                            mActionConfirmationSupplier.get(),
                             /* gridCardOnClickListenerProvider= */ null,
                             /* dialogHandler= */ null,
                             TabProperties.TabActionState.UNSET,
@@ -178,6 +192,11 @@ public class TabGroupUiCoordinator
                             /* attachToParent= */ true,
                             COMPONENT_NAME,
                             onModelTokenChange,
+                            /* hasEmptyView= */ false,
+                            /* emptyImageResId= */ Resources.ID_NULL,
+                            /* emptyHeadingStringResId= */ Resources.ID_NULL,
+                            /* emptySubheadingStringResId= */ Resources.ID_NULL,
+                            /* onTabGroupCreation= */ null,
                             /* allowDragAndDrop= */ false);
             mTabStripCoordinator.initWithNative(mTabModelSelector.getModel(false).getProfile());
 
@@ -192,12 +211,7 @@ public class TabGroupUiCoordinator
             //  and the dialog here.
             if (mScrimCoordinator != null) {
                 mTabGridDialogControllerSupplier =
-                        new LazyOneshotSupplierImpl<>() {
-                            @Override
-                            public void doSet() {
-                                initTabGridDialogCoordinator();
-                            }
-                        };
+                        LazyOneshotSupplier.fromSupplier(this::initTabGridDialogCoordinator);
             } else {
                 mTabGridDialogControllerSupplier = null;
             }
@@ -210,6 +224,7 @@ public class TabGroupUiCoordinator
                             this,
                             mModel,
                             mTabModelSelector,
+                            mTabContentManager,
                             mTabCreatorManager,
                             mLayoutStateProviderSupplier,
                             mIncognitoStateProvider,

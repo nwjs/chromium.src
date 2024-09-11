@@ -272,7 +272,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void AddSuppressShowingImeCallback(
       const SuppressShowingImeCallback& callback) override;
   void RemoveSuppressShowingImeCallback(
-      const SuppressShowingImeCallback& callback) override;
+      const SuppressShowingImeCallback& callback,
+      bool trigger_ime) override;
   void AddInputEventObserver(
       RenderWidgetHost::InputEventObserver* observer) override;
   void RemoveInputEventObserver(
@@ -744,6 +745,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // TODO(dcheng): Tests call this directly but shouldn't have to. Investigate
   // getting rid of this.
   blink::VisualProperties GetInitialVisualProperties();
+
+  // Clears the state of the VisualProperties of this widget.
+  void ClearVisualProperties();
 
   // Pushes updated visual properties to the renderer as well as whether the
   // focused node should be scrolled into view.
@@ -1502,6 +1506,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   const viz::FrameSinkId frame_sink_id_;
 
+  // Used to avoid unnecessary IPC calls when ForwardDelegatedInkPoint receives
+  // the same point twice.
+  std::optional<gfx::DelegatedInkPoint> last_delegated_ink_point_sent_;
+
   bool sent_autoscroll_scroll_begin_ = false;
   gfx::PointF autoscroll_start_position_;
 
@@ -1512,6 +1520,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   base::OneShotTimer pending_user_activation_timer_;
 
   input::InputRouterImpl::RequestMouseLockCallback request_pointer_lock_callback_;
+
+  ui::mojom::TextInputStatePtr saved_text_input_state_for_suppression_;
 
   // Parameters to pass to blink::mojom::Widget::WasShown after
   // `waiting_for_init_` becomes true. These are stored in a struct instead of
@@ -1559,6 +1569,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   bool view_is_frame_sink_id_owner_{false};
 
   std::unique_ptr<CompositorMetricRecorder> compositor_metric_recorder_;
+
+  std::optional<mojo::PendingRemote<blink::mojom::RenderInputRouterClient>>
+      viz_rir_client_remote_;
 
   base::WeakPtrFactory<RenderWidgetHostImpl> weak_factory_{this};
 };

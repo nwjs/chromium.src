@@ -163,7 +163,10 @@ class DCompSurfaceImageBacking::D3DTextureGLSurfaceEGL
   }
 
  protected:
-  ~D3DTextureGLSurfaceEGL() override { Destroy(); }
+  ~D3DTextureGLSurfaceEGL() override {
+    InvalidateWeakPtrs();
+    Destroy();
+  }
 
  private:
   gfx::Size size_;
@@ -294,7 +297,7 @@ DCompSurfaceImageBacking::ProduceSkiaGraphite(
       std::move(dawn_representation), context_state,
       context_state->gpu_main_graphite_recorder(), manager, this, tracker);
 #else
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 #endif  // BUILDFLAG(SKIA_USE_DAWN)
 }
 

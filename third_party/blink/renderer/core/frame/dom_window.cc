@@ -109,7 +109,7 @@ v8::Local<v8::Object> DOMWindow::AssociateWithWrapper(
     v8::Isolate*,
     const WrapperTypeInfo*,
     v8::Local<v8::Object> wrapper) {
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 v8::Local<v8::Object> DOMWindow::AssociateWithWrapper(
@@ -769,7 +769,7 @@ void DOMWindow::ReportCoopAccess(const char* property_name) {
   const LocalFrameToken accessing_main_frame_token =
       accessing_main_frame.GetLocalFrameToken();
 
-  auto* it = coop_access_monitor_.begin();
+  auto it = coop_access_monitor_.begin();
   while (it != coop_access_monitor_.end()) {
     if ((*it)->accessing_main_frame != accessing_main_frame_token) {
       ++it;
@@ -1104,7 +1104,7 @@ void DOMWindow::Trace(Visitor* visitor) const {
 
 void DOMWindow::DisconnectCoopAccessMonitor(
     const LocalFrameToken& accessing_main_frame) {
-  auto* it = coop_access_monitor_.begin();
+  auto it = coop_access_monitor_.begin();
   while (it != coop_access_monitor_.end()) {
     if ((*it)->accessing_main_frame == accessing_main_frame) {
       it = coop_access_monitor_.erase(it);

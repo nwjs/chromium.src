@@ -240,6 +240,9 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
     // The original BeginFrameArgs that triggered the latest update from the
     // main thread.
     viz::BeginFrameArgs origin_begin_main_frame_args;
+    DamageReasonSet damage_reasons;
+    // Preferred frame rate of VideoLayerImpl mapped to number of layers.
+    base::flat_map<base::TimeDelta, uint32_t> video_layer_preferred_intervals;
     // Indicates if there are SharedElementDrawQuads in this frame.
     bool has_shared_element_resources = false;
     // Indicates if this frame has a save directive which will add copy requests
@@ -659,7 +662,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   void DidNotProduceFrame(const viz::BeginFrameAck& ack,
                           FrameSkippedReason reason);
   void OnBeginImplFrameDeadline();
-  void DidModifyTilePriorities();
+  void DidModifyTilePriorities(bool pending_update_tiles);
   // Requests that we do not produce frames until the new viz::LocalSurfaceId
   // has been activated.
   void SetTargetLocalSurfaceId(

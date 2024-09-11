@@ -8,12 +8,13 @@ import 'chrome://resources/mwc/@material/web/icon/icon.js';
 import 'chrome://resources/mwc/@material/web/iconbutton/icon-button.js';
 import '../components/audio-waveform.js';
 import '../components/cra/cra-image.js';
-import '../components/cra/cra-menu.js';
 import '../components/cra/cra-menu-item.js';
+import '../components/cra/cra-menu.js';
 import '../components/delete-recording-dialog.js';
 import '../components/export-dialog.js';
-import '../components/recording-title.js';
 import '../components/recording-file-list.js';
+import '../components/recording-info-dialog.js';
+import '../components/recording-title.js';
 import '../components/secondary-button.js';
 import '../components/summarization-view.js';
 import '../components/transcription-view.js';
@@ -26,6 +27,7 @@ import {
   createRef,
   css,
   html,
+  live,
   nothing,
   PropertyDeclarations,
   ref,
@@ -34,20 +36,42 @@ import {
 import {CraMenu} from '../components/cra/cra-menu.js';
 import {DeleteRecordingDialog} from '../components/delete-recording-dialog.js';
 import {ExportDialog} from '../components/export-dialog.js';
+import {RecordingInfoDialog} from '../components/recording-info-dialog.js';
 import {i18n} from '../core/i18n.js';
 import {
   AnimationFrameController,
 } from '../core/lit/animation_frame_controller.js';
 import {useRecordingDataManager} from '../core/lit/context.js';
 import {
+  ComputedState,
   ReactiveLitElement,
   ScopedAsyncComputed,
   ScopedAsyncEffect,
 } from '../core/reactive/lit.js';
-import {computed, signal} from '../core/reactive/signal.js';
+import {computed, Dispose, effect, signal} from '../core/reactive/signal.js';
 import {navigateTo} from '../core/state/route.js';
-import {assertInstanceof} from '../core/utils/assert.js';
+import {assertExists, assertInstanceof} from '../core/utils/assert.js';
 import {formatDuration} from '../core/utils/datetime.js';
+
+/**
+ * Mapping from playback speed to icon names.
+ *
+ * Note that the playback speed numbers can be precisely represented by IEEE 754
+ * floating point numbers, so using those as key shouldn't pose precision
+ * issues.
+ */
+const PLAYBACK_SPEED_ICON_MAP = new Map([
+  [0.25, 'rate_0_25'],
+  [0.5, 'rate_0_5'],
+  [0.75, 'rate_0_75'],
+  [1.0, 'rate_1_0'],
+  [1.25, 'rate_1_25'],
+  [1.5, 'rate_1_5'],
+  [1.75, 'rate_1_75'],
+  [2.0, 'rate_2_0'],
+]);
+
+const PLAYBACK_SPEEDS = Array.from(PLAYBACK_SPEED_ICON_MAP.keys());
 
 /**
  * Playback page of Recorder App.
@@ -196,10 +220,13 @@ export class PlaybackPage extends ReactiveLitElement {
     }
 
     #volume-controls {
-      align-items: center;
-      display: flex;
       left: 0;
       position: absolute;
+    }
+
+    #inline-slider {
+      align-items: center;
+      display: flex;
 
       & > cra-icon-button {
         margin-right: 0;
@@ -208,13 +235,45 @@ export class PlaybackPage extends ReactiveLitElement {
       & > cros-slider {
         min-inline-size: initial;
         width: 180px;
+      }
 
-        /*
-         * TODO: b/336963138 - Slider should be in a separate layer when
-         * viewpoint is small.
-         */
-        @container style(--small-viewport: 1) {
-          display: none;
+      @container style(--small-viewport: 1) {
+        display: none;
+      }
+    }
+
+    #floating-slider-base {
+      display: none;
+
+      @container style(--small-viewport: 1) {
+        display: block;
+      }
+
+      & > cra-icon-button {
+        anchor-name: --volume-button;
+        margin: 0;
+        padding: 4px;
+      }
+
+      /* TODO(pihsun): Animate the opening/closing */
+      & > [popover]:popover-open {
+        align-items: center;
+        background: var(--cros-sys-base_elevated);
+        border: none;
+        border-radius: 8px;
+        box-shadow: var(--cros-sys-app_elevation3);
+        display: flex;
+        flex-flow: row;
+        inset-area: center span-right;
+        margin: initial;
+        overflow: initial;
+        padding: 0;
+        position: absolute;
+        position-anchor: --volume-button;
+
+        & > cros-slider {
+          min-inline-size: initial;
+          width: 180px;
         }
       }
     }
@@ -256,8 +315,12 @@ export class PlaybackPage extends ReactiveLitElement {
       padding: 0 12px;
     }
 
-    cra-menu {
+    #menu {
       --cros-menu-width: 200px;
+    }
+
+    #speed-menu {
+      --cros-menu-width: 160px;
     }
   `;
 
@@ -283,7 +346,17 @@ export class PlaybackPage extends ReactiveLitElement {
 
   private readonly exportDialog = createRef<ExportDialog>();
 
+  private readonly recordingInfoDialog = createRef<RecordingInfoDialog>();
+
   private readonly recordingDataManager = useRecordingDataManager();
+
+  private readonly playbackSpeed = signal(1);
+
+  private readonly playbackSpeedMenu = createRef<CraMenu>();
+
+  private readonly playbackSpeedMenuOpened = signal(false);
+
+  private readonly floatingVolume = createRef<HTMLElement>();
 
   // TODO(pihsun): Loading spinner when loading metadata.
   private readonly recordingMetadata = computed(() => {
@@ -309,14 +382,13 @@ export class PlaybackPage extends ReactiveLitElement {
     await this.audio.play();
   });
 
-  private readonly textTokens = new ScopedAsyncComputed(this, async () => {
+  private readonly transcription = new ScopedAsyncComputed(this, async () => {
     if (this.recordingIdSignal.value === null) {
       return null;
     }
-    const {textTokens} = await this.recordingDataManager.getTranscription(
+    return this.recordingDataManager.getTranscription(
       this.recordingIdSignal.value,
     );
-    return textTokens;
   });
 
   private readonly powers = new ScopedAsyncComputed(this, async () => {
@@ -330,6 +402,9 @@ export class PlaybackPage extends ReactiveLitElement {
   });
 
   private readonly showTranscription = signal(false);
+
+  // TODO(pihsun): ScopedEffect without the async part?
+  private autoOpenTranscription: Dispose|null = null;
 
   constructor() {
     super();
@@ -349,6 +424,18 @@ export class PlaybackPage extends ReactiveLitElement {
         this.audioPlaying.value = !this.audio.paused;
       }),
     );
+
+    this.audio.addEventListener('ratechange', () => {
+      if (this.audio.playbackRate !== this.playbackSpeed.value) {
+        // TODO(pihsun): Integrate with error reporting.
+        // TODO(pihsun): Check if this will be fired on pause.
+        console.warn(
+          'Audio playback speed mismatch',
+          this.audio.playbackRate,
+          this.playbackSpeed.value,
+        );
+      }
+    });
   }
 
   private revokeAudio() {
@@ -358,10 +445,30 @@ export class PlaybackPage extends ReactiveLitElement {
     }
   }
 
+  override connectedCallback(): void {
+    super.connectedCallback();
+    if (this.autoOpenTranscription === null) {
+      this.autoOpenTranscription = effect(() => {
+        if (this.transcription.state === ComputedState.DONE) {
+          // We only updates the transcription open state when it's just
+          // computed.
+          const transcription = this.transcription.valueSignal.peek();
+
+          // Default to show transcription panel if there's a non-empty
+          // transcription.
+          this.showTranscription.value =
+            transcription !== null && !transcription.isEmpty();
+        }
+      });
+    }
+  }
+
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this.audio.pause();
     this.revokeAudio();
+    this.autoOpenTranscription?.();
+    this.autoOpenTranscription = null;
   }
 
   private onWordClick(ev: CustomEvent<{startMs: number}>) {
@@ -400,17 +507,18 @@ export class PlaybackPage extends ReactiveLitElement {
       <audio-waveform
         .values=${this.powers.value}
         .currentTime=${this.currentTime.value}
+        .transcription=${this.transcription.value}
       >
       </audio-waveform>
     `;
   }
 
   private renderTranscription() {
-    const textTokens = this.textTokens.value;
-    if (textTokens === null) {
+    const transcription = this.transcription.value;
+    if (transcription === null) {
       return nothing;
     }
-    if (textTokens.length === 0) {
+    if (transcription.isEmpty()) {
       return html`<div id="transcription-empty">
         <cra-image name="transcription_no_speech"></cra-image>
         ${i18n.transcriptionNoSpeechText}
@@ -418,12 +526,12 @@ export class PlaybackPage extends ReactiveLitElement {
     }
     // TODO: b/336963138 - Animation while opening/closing the panel.
     return html`<transcription-view
-      .textTokens=${textTokens}
+      .transcription=${transcription}
       @word-clicked=${this.onWordClick}
       .currentTime=${this.currentTime.value}
       seekable
     >
-      <summarization-view .textTokens=${textTokens}></summarization-view>
+      <summarization-view .transcription=${transcription}></summarization-view>
     </transcription-view>`;
   }
 
@@ -468,16 +576,21 @@ export class PlaybackPage extends ReactiveLitElement {
     this.exportDialog.value?.show();
   }
 
+  private onShowDetailClick() {
+    this.recordingInfoDialog.value?.show();
+  }
+
   private renderMenu() {
     // TODO: b/344789992 - Implements show detail.
     return html`
-      <cra-menu ${ref(this.menu)} anchor="show-menu">
+      <cra-menu ${ref(this.menu)} anchor="show-menu" id="menu">
         <cra-menu-item
           headline=${i18n.playbackMenuExportOption}
           @cros-menu-item-triggered=${this.onExportClick}
         ></cra-menu-item>
         <cra-menu-item
           headline=${i18n.playbackMenuShowDetailOption}
+          @cros-menu-item-triggered=${this.onShowDetailClick}
         ></cra-menu-item>
         <cros-menu-separator></cros-menu-separator>
         <cra-menu-item
@@ -485,6 +598,10 @@ export class PlaybackPage extends ReactiveLitElement {
           @cros-menu-item-triggered=${this.onDeleteClick}
         ></cra-menu-item>
       </cra-menu>
+      <recording-info-dialog
+        ${ref(this.recordingInfoDialog)}
+        .recordingId=${this.recordingId}
+      ></recording-info-dialog>
       <export-dialog ${ref(this.exportDialog)} .recordingId=${this.recordingId}>
       </export-dialog>
       <delete-recording-dialog
@@ -501,9 +618,10 @@ export class PlaybackPage extends ReactiveLitElement {
 
   private renderHeader() {
     const transcriptionToggleButton =
-      this.textTokens.value === null ? nothing : html`
+      this.transcription.value === null ? nothing : html`
             <cra-icon-button
               buttonstyle="toggle"
+              .selected=${live(this.showTranscription.value)}
               @click=${this.toggleTranscription}
             >
               <cra-icon slot="icon" name="notes"></cra-icon>
@@ -524,11 +642,10 @@ export class PlaybackPage extends ReactiveLitElement {
           id="show-menu"
           @click=${this.toggleMenu}
         >
-          <!-- TODO: b/336963138 - Implements more menu -->
           <cra-icon slot="icon" name="more_vertical"></cra-icon>
         </cra-icon-button>
+        ${this.renderMenu()}
       </div>
-      ${this.renderMenu()}
     `;
   }
 
@@ -563,6 +680,145 @@ export class PlaybackPage extends ReactiveLitElement {
     </div>`;
   }
 
+  private renderSpeedControl(): RenderResult {
+    const iconName = assertExists(
+      PLAYBACK_SPEED_ICON_MAP.get(this.playbackSpeed.value),
+    );
+    const menuItems = PLAYBACK_SPEEDS.map((speed) => {
+      const label =
+        speed === 1.0 ? i18n.playbackSpeedNormalOption : speed.toString();
+      const onClick = () => {
+        this.playbackSpeed.value = speed;
+        this.audio.playbackRate = speed;
+      };
+
+      return html`<cra-menu-item
+        headline=${label}
+        ?checked=${this.playbackSpeed.value === speed}
+        @cros-menu-item-triggered=${onClick}
+      ></cra-menu-item>`;
+    });
+
+    const onMenuOpen = () => {
+      this.playbackSpeedMenuOpened.value = true;
+    };
+    const onMenuClose = () => {
+      this.playbackSpeedMenuOpened.value = false;
+    };
+    const togglePlaybackSpeedMenu = () => {
+      this.playbackSpeedMenu.value?.toggle();
+    };
+
+    return html`
+      <cra-menu
+        ${ref(this.playbackSpeedMenu)}
+        anchor="show-speed-menu"
+        id="speed-menu"
+        @opened=${onMenuOpen}
+        @closed=${onMenuClose}
+      >
+        ${menuItems}
+      </cra-menu>
+      <cra-icon-button
+        buttonstyle="toggle"
+        id="show-speed-menu"
+        @click=${togglePlaybackSpeedMenu}
+        .selected=${live(this.playbackSpeedMenuOpened.value)}
+      >
+        <cra-icon slot="icon" .name=${iconName}></cra-icon>
+        <cra-icon slot="selectedIcon" .name=${iconName}></cra-icon>
+      </cra-icon-button>
+    `;
+  }
+
+  private onVolumeInput(ev: Event) {
+    const slider = assertInstanceof(ev.target, CrosSlider);
+    this.audio.muted = false;
+    this.audio.volume = slider.value / 100;
+    this.requestUpdate();
+  }
+
+  private toggleMuted() {
+    this.audio.muted = !this.audio.muted;
+    this.requestUpdate();
+  }
+
+  private renderVolumeIcon() {
+    const {muted, volume} = this.audio;
+    const iconName = (() => {
+      if (muted) {
+        return 'volume_mute';
+      }
+      if (volume === 0) {
+        return 'volume_off';
+      }
+      return volume < 0.5 ? 'volume_down' : 'volume_up';
+    })();
+    return html`<cra-icon slot="icon" .name=${iconName}></cra-icon>`;
+  }
+
+  private renderVolumeSlider() {
+    const {muted, volume} = this.audio;
+    const volumeDisplay = muted ? 0 : Math.round(volume * 100);
+    return html`
+      <cros-slider
+        withlabel
+        .value=${volumeDisplay}
+        min="0"
+        max="100"
+        @input=${this.onVolumeInput}
+      ></cros-slider>
+    `;
+  }
+
+  private showFloatingVolume() {
+    this.floatingVolume.value?.showPopover();
+  }
+
+  private hideFloatingVolume(ev: FocusEvent) {
+    const newTarget = ev.relatedTarget;
+    if (newTarget !== null && newTarget instanceof Node &&
+        this.floatingVolume.value?.contains(newTarget)) {
+      return;
+    }
+    this.floatingVolume.value?.hidePopover();
+  }
+
+  private renderVolumeControl(): RenderResult {
+    return html`
+      <div id="inline-slider">
+        <cra-icon-button buttonstyle="floating" @click=${this.toggleMuted}>
+          ${this.renderVolumeIcon()}
+        </cra-icon-button>
+        ${this.renderVolumeSlider()}
+      </div>
+      <div id="floating-slider-base">
+        <cra-icon-button
+          buttonstyle="floating"
+          @click=${this.showFloatingVolume}
+        >
+          ${this.renderVolumeIcon()}
+        </cra-icon-button>
+        <div
+          popover
+          ${ref(this.floatingVolume)}
+          @focusout=${this.hideFloatingVolume}
+        >
+          <cra-icon-button buttonstyle="floating" @click=${this.toggleMuted}>
+            ${this.renderVolumeIcon()}
+          </cra-icon-button>
+          ${this.renderVolumeSlider()}
+          <cra-icon-button
+            buttonstyle="floating"
+            @click=${this.hideFloatingVolume}
+          >
+            <cra-icon slot="icon" name="close"></cra-icon>
+          </cra-icon-button>
+        </div>
+      </div>
+    `;
+  }
+
   override render(): RenderResult {
     const mainSectionClasses = {
       'show-transcription': this.showTranscription.value,
@@ -582,18 +838,7 @@ export class PlaybackPage extends ReactiveLitElement {
       <div id="footer">
         ${this.renderAudioTimeline()}
         <div id="actions">
-          <div id="volume-controls">
-            <cra-icon-button buttonstyle="floating">
-              <!-- TODO: b/336963138 - Implements volume button -->
-              <!--
-                TODO: b/336963138 - The icon should change based on current
-                volume.
-              -->
-              <cra-icon slot="icon" name="volume_up"></cra-icon>
-            </cra-icon-button>
-            <!-- TODO: b/336963138 - Implements volume slider -->
-            <cros-slider withlabel value="50" min="0" max="100"></cros-slider>
-          </div>
+          <div id="volume-controls">${this.renderVolumeControl()}</div>
           <div id="middle-controls">
             <secondary-button @click=${this.onRewind10Secs}>
               <cra-icon slot="icon" name="replay_10"></cra-icon>
@@ -603,12 +848,7 @@ export class PlaybackPage extends ReactiveLitElement {
               <cra-icon slot="icon" name="forward_10"></cra-icon>
             </secondary-button>
           </div>
-          <div id="speed-controls">
-            <cra-icon-button buttonstyle="floating">
-              <!-- TODO: b/336963138 - Implements speed control -->
-              <cra-icon slot="icon" name="rate_1_0"></cra-icon>
-            </cra-icon-button>
-          </div>
+          <div id="speed-controls">${this.renderSpeedControl()}</div>
         </div>
       </div>
     `;

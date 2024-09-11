@@ -28,6 +28,7 @@
 #include "gpu/command_buffer/client/context_support.h"
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/command_buffer/common/capabilities.h"
+#include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
 #include "gpu/command_buffer/common/shared_image_trace_utils.h"
 #include "gpu/config/gpu_driver_bug_workaround_type.h"
@@ -35,7 +36,9 @@
 #include "gpu/config/gpu_feature_type.h"
 #include "skia/buildflags.h"
 #include "skia/ext/legacy_display_globals.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/public/platform/web_graphics_shared_image_interface_provider.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_color_params.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
@@ -153,7 +156,7 @@ class CanvasResourceProviderBitmap : public CanvasResourceProvider {
 
   ~CanvasResourceProviderBitmap() override = default;
 
-  bool IsValid() const final { return GetSkSurface(); }
+  bool IsValid() const override { return GetSkSurface(); }
   bool IsAccelerated() const final { return false; }
   bool SupportsDirectCompositing() const override { return false; }
 
@@ -186,16 +189,33 @@ class CanvasResourceProviderSharedBitmap : public CanvasResourceProviderBitmap {
       const SkImageInfo& info,
       cc::PaintFlags::FilterQuality filter_quality,
       base::WeakPtr<CanvasResourceDispatcher> resource_dispatcher,
+      WebGraphicsSharedImageInterfaceProvider* shared_image_interface_provider,
       CanvasResourceHost* resource_host)
       : CanvasResourceProviderBitmap(info,
                                      filter_quality,
                                      std::move(resource_dispatcher),
-                                     resource_host) {
+                                     resource_host),
+        shared_image_interface_provider_(
+            shared_image_interface_provider
+                ? shared_image_interface_provider->GetWeakPtr()
+                : nullptr) {
+    DCHECK(!features::IsCanvasSharedBitmapConversionEnabled() ||
+           shared_image_interface_provider_);
     DCHECK(ResourceDispatcher());
     type_ = kSharedBitmap;
   }
   ~CanvasResourceProviderSharedBitmap() override = default;
+
+  bool IsValid() const final {
+    bool invalid_shared_image_interface =
+        features::IsCanvasSharedBitmapConversionEnabled() &&
+        !shared_image_interface_provider_;
+    return !invalid_shared_image_interface && GetSkSurface();
+  }
+
   bool SupportsDirectCompositing() const override { return true; }
+  base::WeakPtr<WebGraphicsSharedImageInterfaceProvider>
+      shared_image_interface_provider_;
 
  private:
   scoped_refptr<CanvasResource> CreateResource() final {
@@ -208,6 +228,7 @@ class CanvasResourceProviderSharedBitmap : public CanvasResourceProviderBitmap {
     }
 
     return CanvasResourceSharedBitmap::Create(info, CreateWeakPtr(),
+                                              shared_image_interface_provider_,
                                               FilterQuality());
   }
 
@@ -283,18 +304,20 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     return shared_image_usage_flags_ &
            gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
   }
-  gpu::Mailbox GetBackingMailboxForOverwrite() override {
+  scoped_refptr<gpu::ClientSharedImage>
+  GetBackingClientSharedImageForOverwrite() override {
     DCHECK(is_accelerated_);
 
     if (IsGpuContextLost())
-      return gpu::Mailbox();
+      return nullptr;
 
     WillDrawInternal(false);
-    return resource_->GetClientSharedImage()->mailbox();
+    return resource_->GetClientSharedImage();
   }
 
-  GLenum GetBackingTextureTarget() const override {
-    return resource()->GetClientSharedImage()->GetTextureTarget();
+  gpu::Mailbox GetBackingMailboxForOverwrite() override {
+    auto client_si = GetBackingClientSharedImageForOverwrite();
+    return client_si ? client_si->mailbox() : gpu::Mailbox();
   }
 
   uint32_t GetSharedImageUsageFlags() const override {
@@ -316,9 +339,10 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
       return false;
 
     WillDrawInternal(true);
-    RasterInterface()->WritePixels(GetBackingMailboxForOverwrite(), x, y,
-                                   GetBackingTextureTarget(),
-                                   SkPixmap(orig_info, pixels, row_bytes));
+    RasterInterface()->WritePixels(
+        GetBackingMailboxForOverwrite(), x, y,
+        resource()->GetClientSharedImage()->GetTextureTarget(),
+        SkPixmap(orig_info, pixels, row_bytes));
 
     // If the overdraw optimization kicked in, we need to indicate that the
     // pixels do not need to be cleared, otherwise the subsequent
@@ -474,8 +498,9 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
           auto mailbox = resource()->GetClientSharedImage()->mailbox();
 
           raster_interface->CopySharedImage(
-              old_mailbox, mailbox, GetBackingTextureTarget(), 0, 0, 0, 0,
-              Size().width(), Size().height(), false /* unpack_flip_y */,
+              old_mailbox, mailbox,
+              resource()->GetClientSharedImage()->GetTextureTarget(), 0, 0, 0,
+              0, Size().width(), Size().height(), false /* unpack_flip_y */,
               false /* unpack_premultiply_alpha */);
         } else if (use_oop_rasterization_) {
           // If we're not copying over the previous contents, we need to ensure
@@ -917,7 +942,8 @@ class CanvasResourceProviderSwapChain final : public CanvasResourceProvider {
     WillDraw();
     RasterInterface()->WritePixels(
         resource_->GetBackBufferClientSharedImage()->mailbox(), x, y,
-        GetBackingTextureTarget(), SkPixmap(orig_info, pixels, row_bytes));
+        resource_->GetBackBufferClientSharedImage()->GetTextureTarget(),
+        SkPixmap(orig_info, pixels, row_bytes));
     return true;
   }
 
@@ -966,6 +992,7 @@ CanvasResourceProvider::CreateSharedBitmapProvider(
     cc::PaintFlags::FilterQuality filter_quality,
     ShouldInitialize should_initialize,
     base::WeakPtr<CanvasResourceDispatcher> resource_dispatcher,
+    WebGraphicsSharedImageInterfaceProvider* shared_image_interface_provider,
     CanvasResourceHost* resource_host) {
   // SharedBitmapProvider has to have a valid resource_dispatecher to be able to
   // be created.
@@ -973,7 +1000,8 @@ CanvasResourceProvider::CreateSharedBitmapProvider(
     return nullptr;
 
   auto provider = std::make_unique<CanvasResourceProviderSharedBitmap>(
-      info, filter_quality, std::move(resource_dispatcher), resource_host);
+      info, filter_quality, std::move(resource_dispatcher),
+      shared_image_interface_provider, resource_host);
   if (provider->IsValid()) {
     if (should_initialize ==
         CanvasResourceProvider::ShouldInitialize::kCallClear)
@@ -1394,9 +1422,9 @@ void CanvasResourceProvider::FlushIfRecordingLimitExceeded() {
   if (IsPrinting() && clear_frame_) {
     return;
   }
-  if (UNLIKELY(recorder_->ReleasableOpBytesUsed() > max_recorded_op_bytes_) ||
-      UNLIKELY(recorder_->ReleasableImageBytesUsed() >
-               max_pinned_image_bytes_)) {
+  if (recorder_->ReleasableOpBytesUsed() > max_recorded_op_bytes_ ||
+      recorder_->ReleasableImageBytesUsed() > max_pinned_image_bytes_)
+      [[unlikely]] {
     FlushCanvas(FlushReason::kRecordingLimitExceeded);
   }
 }
@@ -1426,14 +1454,14 @@ bool CanvasResourceProvider::OverwriteImage(
   if (!raster) {
     return false;
   }
-  gpu::Mailbox dst_mailbox = GetBackingMailboxForOverwrite();
-  if (dst_mailbox.IsZero()) {
+  auto dst_client_si = GetBackingClientSharedImageForOverwrite();
+  if (!dst_client_si) {
     return false;
   }
 
   raster->WaitSyncTokenCHROMIUM(ready_sync_token.GetConstData());
-  raster->CopySharedImage(shared_image_mailbox, dst_mailbox,
-                          GetBackingTextureTarget(), /*xoffset=*/0,
+  raster->CopySharedImage(shared_image_mailbox, dst_client_si->mailbox(),
+                          dst_client_si->GetTextureTarget(), /*xoffset=*/0,
                           /*yoffset=*/0, copy_rect.x(), copy_rect.y(),
                           copy_rect.width(), copy_rect.height(), unpack_flip_y,
                           unpack_premultiply_alpha);

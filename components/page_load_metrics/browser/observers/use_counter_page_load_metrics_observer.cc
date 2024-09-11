@@ -410,6 +410,16 @@ UseCounterMetricsRecorder::GetWebFeatureToWebDXFeatureMap() {
           {WebFeature::kAbortSignalAny, WebDXFeature::kAbortsignalAny},
           {WebFeature::kNavigationAPI, WebDXFeature::kNavigation},
           {WebFeature::kMathMLMathElement, WebDXFeature::kMathml},
+          {WebFeature::kCanvasRenderingContext2DConicGradient,
+           WebDXFeature::kCanvasCreateconicgradient},
+          {WebFeature::kCanvasRenderingContext2DReset,
+           WebDXFeature::kCanvasReset},
+          {WebFeature::kCanvasRenderingContext2DRoundRect,
+           WebDXFeature::kCanvasRoundrect},
+          {WebFeature::kCSSColorMixFunction, WebDXFeature::kColorMix},
+          {WebFeature::kImageSet, WebDXFeature::kImageSet},
+          {WebFeature::kStructuredCloneMethod, WebDXFeature::kStructuredClone},
+          {WebFeature::kSlotAssignNode, WebDXFeature::kSlotAssign},
       });
 
   return *kMap;
@@ -421,6 +431,7 @@ UseCounterMetricsRecorder::GetCSSProperties2WebDXFeatureMap() {
       const base::flat_map<CSSSampleId, WebDXFeature>>
       kMap({
           {CSSSampleId::kAccentColor, WebDXFeature::kAccentColor},
+          {CSSSampleId::kAnchorName, WebDXFeature::kAnchorPositioning},
           {CSSSampleId::kAnimationComposition,
            WebDXFeature::kAnimationComposition},
           {CSSSampleId::kAppearance, WebDXFeature::kAppearance},
@@ -452,6 +463,15 @@ UseCounterMetricsRecorder::GetCSSProperties2WebDXFeatureMap() {
           {CSSSampleId::kRotate, WebDXFeature::kIndividualTransforms},
           {CSSSampleId::kScale, WebDXFeature::kIndividualTransforms},
           {CSSSampleId::kWillChange, WebDXFeature::kWillChange},
+          {CSSSampleId::kMaskImage, WebDXFeature::kMasks},
+          {CSSSampleId::kMaskClip, WebDXFeature::kMasks},
+          {CSSSampleId::kMaskSize, WebDXFeature::kMasks},
+          {CSSSampleId::kMaskOrigin, WebDXFeature::kMasks},
+          {CSSSampleId::kMaskRepeat, WebDXFeature::kMasks},
+          {CSSSampleId::kMaskComposite, WebDXFeature::kMasks},
+          {CSSSampleId::kMaskPosition, WebDXFeature::kMasks},
+          {CSSSampleId::kMaskMode, WebDXFeature::kMasks},
+          {CSSSampleId::kMask, WebDXFeature::kMasks},
       });
 
   return *kMap;

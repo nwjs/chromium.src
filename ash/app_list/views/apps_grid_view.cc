@@ -1251,6 +1251,7 @@ void AppsGridView::OnDragEntered(const ui::DropTargetEvent& event) {
   reorder_placeholder_ =
       drag_view_ ? drag_view_init_index_
                  : GetGridIndexFromIndexInViewModel(view_model()->view_size());
+  UpdatePaging();
 
   // When reparenting drag, the preferred grid size may change if there are no
   // extra slots on the grid for the placeholder item.
@@ -2191,6 +2192,7 @@ void AppsGridView::HandleKeyboardFoldering(ui::KeyboardCode key_code) {
     // `DeprecatedLayoutImmediately()` needs to be called after
     // `SetOpenFolderInfo()`.
     DeprecatedLayoutImmediately();
+    UpdatePaging();
   }
 }
 
@@ -2360,7 +2362,7 @@ void AppsGridView::EndDragFromReparentItemInRootLevel(
       // item.
       MaybeCreateDragReorderAccessibilityEvent();
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
   }
 
@@ -3110,7 +3112,9 @@ void AppsGridView::AddPendingPromiseAppRemoval(
     const ui::ImageModel& default_image) {
   auto found = pending_promise_apps_removals_.find(id);
   if (found != pending_promise_apps_removals_.end()) {
-    NOTREACHED_IN_MIGRATION();
+    // A promise app might share app id with other apps in the same package.
+    // If a promise app removal is already scheduled to be removed for this
+    // package, just return normally.
     return;
   }
 

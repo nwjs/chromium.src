@@ -4,14 +4,22 @@
 
 #include "chrome/browser/ai/ai_manager_keyed_service.h"
 
+#include <memory>
+
+#include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_forward.h"
+#include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
+#include "chrome/browser/ai/ai_context_bound_object_set.h"
+#include "chrome/browser/ai/ai_rewriter.h"
 #include "chrome/browser/ai/ai_text_session.h"
+#include "chrome/browser/ai/ai_writer.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -21,8 +29,8 @@
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
-#include "third_party/blink/public/mojom/ai/ai_manager.mojom-shared.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
+#include "third_party/blink/public/mojom/ai/ai_text_session_info.mojom.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-shared.h"
 
 namespace {
@@ -91,7 +99,21 @@ ConvertOnDeviceModelEligibilityReasonToModelAvailabilityCheckResult(
     case optimization_guide::OnDeviceModelEligibilityReason::kSuccess:
       NOTREACHED_IN_MIGRATION();
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
+}
+
+std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
+CreateComposeSession(content::BrowserContext& browser_context) {
+  OptimizationGuideKeyedService* service =
+      OptimizationGuideKeyedServiceFactory::GetForProfile(
+          Profile::FromBrowserContext(&browser_context));
+  if (!service) {
+    return nullptr;
+  }
+  optimization_guide::SessionConfigParams config_params =
+      optimization_guide::SessionConfigParams{.disable_server_fallback = true};
+  return service->StartSession(
+      optimization_guide::ModelBasedCapabilityKey::kCompose, config_params);
 }
 
 }  // namespace
@@ -103,8 +125,9 @@ AIManagerKeyedService::AIManagerKeyedService(
 AIManagerKeyedService::~AIManagerKeyedService() {}
 
 void AIManagerKeyedService::AddReceiver(
-    mojo::PendingReceiver<blink::mojom::AIManager> receiver) {
-  receivers_.Add(this, std::move(receiver));
+    mojo::PendingReceiver<blink::mojom::AIManager> receiver,
+    AIContextBoundObjectSet::ReceiverContext context) {
+  receivers_.Add(this, std::move(receiver), context);
 }
 
 void AIManagerKeyedService::CanCreateTextSession(
@@ -125,20 +148,17 @@ void AIManagerKeyedService::CanCreateTextSession(
   CanOptimizationGuideKeyedServiceCreateGenericSession(std::move(callback));
 }
 
-void AIManagerKeyedService::CreateTextSession(
+std::unique_ptr<AITextSession> AIManagerKeyedService::CreateTextSessionInternal(
     mojo::PendingReceiver<blink::mojom::AITextSession> receiver,
-    blink::mojom::AITextSessionSamplingParamsPtr sampling_params,
-    CreateTextSessionCallback callback) {
+    const blink::mojom::AITextSessionSamplingParamsPtr& sampling_params,
+    AIContextBoundObjectSet* context_bound_object_set,
+    const std::optional<const AITextSession::Context>& context) {
   CHECK(browser_context_);
   OptimizationGuideKeyedService* service =
       OptimizationGuideKeyedServiceFactory::GetForProfile(
-          Profile::FromBrowserContext(browser_context_));
+          Profile::FromBrowserContext(browser_context_.get()));
   if (!service) {
-    receivers_.ReportBadMessage(
-        "Caller should ensure `CanStartModelExecutionSession()` "
-        "returns true before calling this method.");
-    std::move(callback).Run(/*success=*/false);
-    return;
+    return nullptr;
   }
 
   optimization_guide::SessionConfigParams config_params =
@@ -153,26 +173,111 @@ void AIManagerKeyedService::CreateTextSession(
       session = service->StartSession(
           optimization_guide::ModelBasedCapabilityKey::kPromptApi,
           config_params);
-  // TODO(leimy): after this check is done by optimization guide and we can
-  // return that from `CanStartModelExecutionSession()`, we should replace this
-  // block by a CHECK, and stop returning any boolean value from this method.
   if (!session) {
-    std::move(callback).Run(/*success=*/false);
-    return;
+    return nullptr;
   }
-  // The new `AITextSession` shares the same lifetime with the `receiver`.
-  mojo::MakeSelfOwnedReceiver(
-      std::make_unique<AITextSession>(std::move(session),
-                                      config_params.sampling_params),
-      std::move(receiver));
-  std::move(callback).Run(/*success=*/true);
+
+  return std::make_unique<AITextSession>(
+      std::move(session), browser_context_->GetWeakPtr(), std::move(receiver),
+      context_bound_object_set, context);
 }
 
-void AIManagerKeyedService::GetDefaultTextSessionSamplingParams(
-    GetDefaultTextSessionSamplingParamsCallback callback) {
-  std::move(callback).Run(blink::mojom::AITextSessionSamplingParams::New(
+void AIManagerKeyedService::CreateTextSession(
+    mojo::PendingReceiver<blink::mojom::AITextSession> receiver,
+    blink::mojom::AITextSessionSamplingParamsPtr sampling_params,
+    const std::optional<std::string>& system_prompt,
+    CreateTextSessionCallback callback) {
+  // Since this is a mojo IPC implementation, the context should be non-null;
+  AIContextBoundObjectSet* context_bound_object_set =
+      AIContextBoundObjectSet::GetFromContext(receivers_.current_context());
+  std::unique_ptr<AITextSession> session = CreateTextSessionInternal(
+      std::move(receiver), sampling_params, context_bound_object_set);
+  if (!session) {
+    // TODO(crbug.com/343325183): probably we should consider returning an error
+    // enum and throw a clear exception from the blink side.
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
+  if (system_prompt.has_value()) {
+    // If the system prompt is provided, we need to set the system prompt and
+    // invoke the callback after it.
+    session->SetSystemPrompt(system_prompt.value(), std::move(callback));
+  } else {
+    std::move(callback).Run(session->GetTextSessionInfo());
+  }
+
+  context_bound_object_set->AddContextBoundObject(std::move(session));
+}
+
+void AIManagerKeyedService::GetTextModelInfo(
+    GetTextModelInfoCallback callback) {
+  std::move(callback).Run(blink::mojom::AITextModelInfo::New(
       optimization_guide::features::GetOnDeviceModelDefaultTopK(),
+      optimization_guide::features::GetOnDeviceModelMaxTopK(),
       optimization_guide::features::GetOnDeviceModelDefaultTemperature()));
+}
+
+void AIManagerKeyedService::CreateWriter(
+    const std::optional<std::string>& shared_context,
+    mojo::PendingRemote<blink::mojom::AIManagerCreateWriterClient> client) {
+  mojo::Remote<blink::mojom::AIManagerCreateWriterClient> client_remote(
+      std::move(client));
+  std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
+      session = CreateComposeSession(*browser_context_);
+  if (!session) {
+    // TODO(crbug.com/357967382): Return an error enum and throw a clear
+    // exception from the blink side.
+    // TODO(crbug.com/357967382): Consider retrying for
+    // kConfigNotAvailableForFeature case.
+    client_remote->OnResult(mojo::PendingRemote<blink::mojom::AIWriter>());
+    return;
+  }
+  // The new `AIWriter` shares the same lifetime with the passed remote.
+  // TODO(crbug.com/357967382): Move the ownership of `AIWriter` to a UserData
+  // structure like `AITextSessionSet`.
+  mojo::PendingRemote<blink::mojom::AIWriter> pending_remote;
+  mojo::MakeSelfOwnedReceiver(
+      std::make_unique<AIWriter>(std::move(session), shared_context),
+      pending_remote.InitWithNewPipeAndPassReceiver());
+  client_remote->OnResult(std::move(pending_remote));
+}
+
+void AIManagerKeyedService::CreateRewriter(
+    const std::optional<std::string>& shared_context,
+    blink::mojom::AIRewriterTone tone,
+    blink::mojom::AIRewriterLength length,
+    mojo::PendingRemote<blink::mojom::AIManagerCreateRewriterClient> client) {
+  mojo::Remote<blink::mojom::AIManagerCreateRewriterClient> client_remote(
+      std::move(client));
+  if (tone != blink::mojom::AIRewriterTone::kAsIs &&
+      length != blink::mojom::AIRewriterLength::kAsIs) {
+    // TODO(crbug.com/358214322): Currently the combination of the tone and the
+    // length option is not supported.
+    // TODO(crbug.com/358214322): Return an error enum and throw a clear
+    // exception from the blink side.
+    client_remote->OnResult(mojo::PendingRemote<blink::mojom::AIRewriter>());
+    return;
+  }
+  std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
+      session = CreateComposeSession(*browser_context_);
+  if (!session) {
+    // TODO(crbug.com/358214322): Return an error enum and throw a clear
+    // exception from the blink side.
+    // TODO(crbug.com/358214322): Consider retrying for
+    // kConfigNotAvailableForFeature case.
+    client_remote->OnResult(mojo::PendingRemote<blink::mojom::AIRewriter>());
+    return;
+  }
+  // The new `AIRewriter` shares the same lifetime with the passed remote.
+  // TODO(crbug.com/358214322): Move the ownership of `AIRewriter` to a UserData
+  // structure like `AITextSessionSet`.
+  mojo::PendingRemote<blink::mojom::AIRewriter> pending_remote;
+  mojo::MakeSelfOwnedReceiver(
+      std::make_unique<AIRewriter>(std::move(session), shared_context, tone,
+                                   length),
+      pending_remote.InitWithNewPipeAndPassReceiver());
+  client_remote->OnResult(std::move(pending_remote));
 }
 
 void AIManagerKeyedService::
@@ -186,8 +291,8 @@ void AIManagerKeyedService::
   // If the `OptimizationGuideKeyedService` cannot be retrieved, return false.
   if (!service) {
     std::move(callback).Run(
-        /*result=*/blink::mojom::ModelAvailabilityCheckResult::
-            kNoServiceNotRunning);
+        /*result=*/
+        blink::mojom::ModelAvailabilityCheckResult::kNoServiceNotRunning);
     return;
   }
 
@@ -206,6 +311,27 @@ void AIManagerKeyedService::
 
   std::move(callback).Run(
       /*result=*/blink::mojom::ModelAvailabilityCheckResult::kReadily);
+}
+
+void AIManagerKeyedService::CreateTextSessionForCloning(
+    base::PassKey<AITextSession> pass_key,
+    mojo::PendingReceiver<blink::mojom::AITextSession> receiver,
+    blink::mojom::AITextSessionSamplingParamsPtr sampling_params,
+    AIContextBoundObjectSet* context_bound_object_set,
+    const AITextSession::Context& context,
+    CreateTextSessionCallback callback) {
+  std::unique_ptr<AITextSession> session = CreateTextSessionInternal(
+      std::move(receiver), sampling_params, context_bound_object_set, context);
+  if (!session) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
+  blink::mojom::AITextSessionInfoPtr session_info =
+      session->GetTextSessionInfo();
+  AIContextBoundObjectSet::GetFromContext(receivers_.current_context())
+      ->AddContextBoundObject(std::move(session));
+  std::move(callback).Run(std::move(session_info));
 }
 
 void AIManagerKeyedService::OnModelPathValidationComplete(

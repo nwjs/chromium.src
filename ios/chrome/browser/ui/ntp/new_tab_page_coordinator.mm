@@ -13,6 +13,8 @@
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "base/time/time.h"
+#import "components/feature_engagement/public/event_constants.h"
+#import "components/feature_engagement/public/tracker.h"
 #import "components/feed/core/v2/public/common_enums.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
 #import "components/feed/feed_feature_list.h"
@@ -32,6 +34,7 @@
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 #import "ios/chrome/browser/discover_feed/model/feed_constants.h"
 #import "ios/chrome/browser/discover_feed/model/feed_model_configuration.h"
+#import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/follow/model/follow_browser_agent.h"
 #import "ios/chrome/browser/follow/model/followed_web_site.h"
 #import "ios/chrome/browser/follow/model/followed_web_site_state.h"
@@ -40,6 +43,7 @@
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_state.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/overscroll_actions/ui_bundled/overscroll_actions_controller.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -52,6 +56,7 @@
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
@@ -94,8 +99,10 @@
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_recorder.h"
 #import "ios/chrome/browser/ui/ntp/metrics/home_metrics.h"
+#import "ios/chrome/browser/ui/ntp/metrics/new_tab_page_metrics_constants.h"
 #import "ios/chrome/browser/ui/ntp/metrics/new_tab_page_metrics_recorder.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_component_factory_protocol.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_constants.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_controller_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator+Testing.h"
@@ -107,7 +114,6 @@
 #import "ios/chrome/browser/ui/ntp/new_tab_page_mediator.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_metrics_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_view_controller.h"
-#import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_controller.h"
 #import "ios/chrome/browser/ui/sharing/sharing_coordinator.h"
 #import "ios/chrome/browser/ui/sharing/sharing_params.h"
 #import "ios/chrome/browser/ui/toolbar/public/fakebox_focuser.h"
@@ -480,6 +486,9 @@
 }
 
 - (void)focusFakebox {
+  if (IsHomeCustomizationEnabled()) {
+    [self dismissCustomizationMenu];
+  }
   [self.NTPViewController focusOmnibox];
 }
 
@@ -508,13 +517,16 @@
   [self.NTPViewController omniboxDidResignFirstResponder];
 }
 
-- (void)constrainFeedHeaderManagementButtonNamedGuide {
+- (void)constrainNamedGuideForFeedIPH {
   if (self.browser->GetBrowserState()->IsOffTheRecord()) {
     return;
   }
-  [LayoutGuideCenterForBrowser(self.browser)
-      referenceView:self.feedHeaderViewController.managementButton
-          underName:kFeedHeaderManagementButtonGuide];
+  UIView* viewToConstrain =
+      IsHomeCustomizationEnabled()
+          ? [self.headerViewController customizationMenuButton]
+          : self.feedHeaderViewController.managementButton;
+  [LayoutGuideCenterForBrowser(self.browser) referenceView:viewToConstrain
+                                                 underName:kFeedIPHNamedGuide];
 }
 
 - (void)updateFollowingFeedHasUnseenContent:(BOOL)hasUnseenContent {
@@ -551,6 +563,9 @@
 
 - (void)didNavigateAwayFromNTP {
   [self cancelOmniboxEdit];
+  if (IsHomeCustomizationEnabled()) {
+    [self dismissCustomizationMenu];
+  }
   [self saveNTPState];
   [self updateNTPIsVisible:NO];
   [self updateStartForVisibilityChange:NO];
@@ -721,6 +736,7 @@
                      OmniboxCommands, FakeboxFocuser, LensCommands>>(
           self.browser->GetCommandDispatcher());
   self.headerViewController.commandHandler = self;
+  self.headerViewController.customizationDelegate = self;
   self.headerViewController.delegate = self.NTPViewController;
   self.headerViewController.layoutGuideCenter =
       LayoutGuideCenterForBrowser(self.browser);
@@ -736,6 +752,7 @@
   self.contentSuggestionsCoordinator.delegate = self;
   self.contentSuggestionsCoordinator.NTPMetricsDelegate = self;
   self.contentSuggestionsCoordinator.homeStartDataSource = self;
+  self.contentSuggestionsCoordinator.customizationDelegate = self;
   [self.contentSuggestionsCoordinator start];
 }
 
@@ -789,7 +806,8 @@
 
   [self configureMainViewControllerUsing:self.NTPViewController];
   self.NTPViewController.feedMetricsRecorder = self.feedMetricsRecorder;
-  self.NTPViewController.bubblePresenter = self.bubblePresenter;
+  self.NTPViewController.helpHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
   self.NTPViewController.mutator = self.NTPMediator;
 }
 
@@ -843,6 +861,9 @@
 }
 
 - (void)identityDiscWasTapped:(UIView*)identityDisc {
+  if (IsHomeCustomizationEnabled()) {
+    [self dismissCustomizationMenu];
+  }
   [self.NTPMetricsRecorder recordIdentityDiscTapped];
   id<ApplicationCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
@@ -875,15 +896,30 @@
 }
 
 - (void)customizationMenuWasTapped:(UIView*)customizationMenu {
-  if (!_customizationCoordinator) {
-    _customizationCoordinator = [[HomeCustomizationCoordinator alloc]
-        initWithBaseViewController:self.NTPViewController
-                           browser:self.browser];
-    _customizationCoordinator.delegate = self;
-    [_customizationCoordinator start];
+  if (_customizationCoordinator) {
+    // The menu is already opened, so tapping an entrypoint again should close
+    // it.
+    [self dismissCustomizationMenu];
+    return;
   }
-  [_customizationCoordinator
-      presentCustomizationMenuAtPage:CustomizationMenuPage::kMain];
+
+  if (self.prefService->GetInteger(
+          prefs::kNTPHomeCustomizationNewBadgeImpressionCount) <=
+      kCustomizationNewBadgeMaxImpressionCount) {
+    base::RecordAction(
+        base::UserMetricsAction(kNTPCustomizationNewBadgeTappedAction));
+    // Set the new badge impression count to `INT_MAX` to ensure it isn't shown
+    // again, even if we increase the max impression count.
+    self.prefService->SetInteger(
+        prefs::kNTPHomeCustomizationNewBadgeImpressionCount, INT_MAX);
+
+    [self.headerViewController hideBadgeOnCustomizationMenu];
+  }
+
+  [self.NTPMetricsRecorder recordHomeCustomizationMenuOpenedFromEntrypoint:
+                               HomeCustomizationEntrypoint::kMain];
+
+  [self openCustomizationMenuAtPage:CustomizationMenuPage::kMain animated:YES];
 }
 
 #pragma mark - FeedMenuCoordinatorDelegate
@@ -1004,7 +1040,8 @@
 }
 
 - (BOOL)shouldFeedBeVisible {
-  return self.NTPMediator.feedHeaderVisible && [self.feedExpandedPref value];
+  return self.NTPMediator.feedHeaderVisible &&
+         ([self.feedExpandedPref value] || IsHomeCustomizationEnabled());
 }
 
 - (BOOL)isFollowingFeedAvailable {
@@ -1053,6 +1090,21 @@
                           params:params
                       originView:view];
   [_sharingCoordinator start];
+}
+
+- (void)openMagicStackCustomizationMenu {
+  if (_customizationCoordinator) {
+    // The menu is already opened, so tapping an entrypoint again should close
+    // it.
+    [self dismissCustomizationMenu];
+    return;
+  }
+
+  [self.NTPMetricsRecorder recordHomeCustomizationMenuOpenedFromEntrypoint:
+                               HomeCustomizationEntrypoint::kMagicStack];
+
+  [self openCustomizationMenuAtPage:CustomizationMenuPage::kMagicStack
+                           animated:NO];
 }
 
 #pragma mark - FeedSignInPromoDelegate
@@ -1174,6 +1226,7 @@
 }
 
 - (void)updateModuleVisibility {
+  [_customizationCoordinator updateMenuData];
   [self handleChangeInModules];
   [self cancelOmniboxEdit];
   [self setContentOffsetToTop];
@@ -1302,22 +1355,26 @@
   RecordMagicStackClick(ContentSuggestionsModuleType::kShortcuts,
                         [self isStartSurface]);
   RecordHomeAction(IOSHomeActionType::kShortcuts, [self isStartSurface]);
+  [self dismissCustomizationMenu];
 }
 
 - (void)setUpListItemOpened {
   RecordHomeAction(IOSHomeActionType::kSetUpList, [self isStartSurface]);
+  [self dismissCustomizationMenu];
 }
 
 - (void)safetyCheckOpened {
   RecordMagicStackClick(ContentSuggestionsModuleType::kSafetyCheck,
                         [self isStartSurface]);
   RecordHomeAction(IOSHomeActionType::kSafetyCheck, [self isStartSurface]);
+  [self dismissCustomizationMenu];
 }
 
 - (void)parcelTrackingOpened {
   RecordMagicStackClick(ContentSuggestionsModuleType::kParcelTracking,
                         [self isStartSurface]);
   RecordHomeAction(IOSHomeActionType::kParcelTracking, [self isStartSurface]);
+  [self dismissCustomizationMenu];
 }
 
 #pragma mark - OverscrollActionsControllerDelegate
@@ -1347,7 +1404,7 @@
 
 - (BOOL)shouldAllowOverscrollActionsForOverscrollActionsController:
     (OverscrollActionsController*)controller {
-  return YES;
+  return !IsHomeCustomizationEnabled() || !_customizationCoordinator;
 }
 
 - (UIView*)toolbarSnapshotViewForOverscrollActionsController:
@@ -1682,8 +1739,33 @@
   if (!self.browser->GetBrowserState()->IsOffTheRecord()) {
     if (visible) {
       self.didAppearTime = base::TimeTicks::Now();
+
+      if (IsHomeCustomizationEnabled()) {
+        [self.NTPMetricsRecorder
+            recordCustomizationState:[self currentCustomizationState]];
+
+        PrefService* prefService = self.prefService;
+        BOOL safetyCheckEnabled = prefService->GetBoolean(
+            prefs::kHomeCustomizationMagicStackSafetyCheckEnabled);
+        BOOL setUpListEnabled = prefService->GetBoolean(
+            prefs::kHomeCustomizationMagicStackSetUpListEnabled);
+        BOOL tabResumptionEnabled = prefService->GetBoolean(
+            prefs::kHomeCustomizationMagicStackTabResumptionEnabled);
+        BOOL parcelTrackingEnabled = prefService->GetBoolean(
+            prefs::kHomeCustomizationMagicStackParcelTrackingEnabled);
+        [self.NTPMetricsRecorder
+            recordMagicStackCustomizationStateWithSetUpList:setUpListEnabled
+                                                safetyCheck:safetyCheckEnabled
+
+                                              tabResumption:tabResumptionEnabled
+                                             parcelTracking:
+                                                 parcelTrackingEnabled];
+      }
+
+      // TODO(crbug.com/350990359): Deprecate IOS.NTP.Impression when Home
+      // Customization launches.
       if (self.NTPMediator.feedHeaderVisible) {
-        if ([self.feedExpandedPref value]) {
+        if ([self.feedExpandedPref value] || IsHomeCustomizationEnabled()) {
           [self.NTPMetricsRecorder
               recordHomeImpression:IOSNTPImpressionType::kFeedVisible
                     isStartSurface:[self isStartSurface]];
@@ -1743,6 +1825,64 @@
   [self.NTPMediator restoreNTPStateForWebState:self.webState];
 }
 
+// Opens the Home customization menu at a specific `page`.
+- (void)openCustomizationMenuAtPage:(CustomizationMenuPage)page
+                           animated:(BOOL)animated {
+  _customizationCoordinator = [[HomeCustomizationCoordinator alloc]
+      initWithBaseViewController:self.NTPViewController
+                         browser:self.browser];
+  _customizationCoordinator.delegate = self;
+  [_customizationCoordinator start];
+  [_customizationCoordinator presentCustomizationMenuPage:page];
+  feature_engagement::TrackerFactory::GetForBrowserState(
+      self.browser->GetBrowserState())
+      ->NotifyEvent(feature_engagement::events::kHomeCustomizationMenuUsed);
+}
+
+// Returns the current customization state represnting the visibility of NTP
+// components.
+- (IOSNTPImpressionCustomizationState)currentCustomizationState {
+  CHECK(IsHomeCustomizationEnabled());
+  PrefService* prefService = self.prefService;
+  BOOL MVTEnabled =
+      prefService->GetBoolean(prefs::kHomeCustomizationMostVisitedEnabled);
+  BOOL magicStackEnabled =
+      prefService->GetBoolean(prefs::kHomeCustomizationMagicStackEnabled);
+  BOOL feedEnabled = prefService->GetBoolean(prefs::kArticlesForYouEnabled);
+
+  // All components enabled/disabled.
+  if (MVTEnabled && magicStackEnabled && feedEnabled) {
+    return IOSNTPImpressionCustomizationState::kAllEnabled;
+  }
+  if (!MVTEnabled && !magicStackEnabled && !feedEnabled) {
+    return IOSNTPImpressionCustomizationState::kAllDisabled;
+  }
+
+  // 2 components enabled.
+  if (MVTEnabled && magicStackEnabled && !feedEnabled) {
+    return IOSNTPImpressionCustomizationState::kMVTAndMagicStackEnabled;
+  }
+  if (MVTEnabled && !magicStackEnabled && feedEnabled) {
+    return IOSNTPImpressionCustomizationState::kMVTAndFeedEnabled;
+  }
+  if (!MVTEnabled && magicStackEnabled && feedEnabled) {
+    return IOSNTPImpressionCustomizationState::kMagicStackAndFeedEnabled;
+  }
+
+  // 1 component enabled.
+  if (MVTEnabled && !magicStackEnabled && !feedEnabled) {
+    return IOSNTPImpressionCustomizationState::kMVTEnabled;
+  }
+  if (!MVTEnabled && magicStackEnabled && !feedEnabled) {
+    return IOSNTPImpressionCustomizationState::kMagicStackEnabled;
+  }
+  if (!MVTEnabled && !magicStackEnabled && feedEnabled) {
+    return IOSNTPImpressionCustomizationState::kFeedEnabled;
+  }
+
+  NOTREACHED_NORETURN();
+}
+
 #pragma mark - AccountMenuCoordinatorDelegate
 
 - (void)acountMenuCoordinatorShouldStop:(AccountMenuCoordinator*)coordinator {
@@ -1752,8 +1892,13 @@
 
 #pragma mark - HomeCustomizationDelegate
 
-- (void)handleCustomizationMenuDismissed:
-    (HomeCustomizationCoordinator*)coordinator {
+- (void)dismissCustomizationMenu {
+  // Return early if the customization menu is not presented to avoid dismissing
+  // another view controller.
+  if (!_customizationCoordinator) {
+    return;
+  }
+  [self.NTPViewController dismissViewControllerAnimated:YES completion:nil];
   [_customizationCoordinator stop];
   _customizationCoordinator = nil;
 }

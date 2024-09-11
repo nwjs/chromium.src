@@ -29,6 +29,10 @@ class UnguessableToken;
 
 namespace ash {
 
+namespace youtube_music {
+struct PlaybackData;
+}  // namespace youtube_music
+
 class FocusModeYouTubeMusicDelegate;
 
 // This class is used to download images and record the info of playlists after
@@ -129,6 +133,9 @@ class ASH_EXPORT FocusModeSoundsController
   // deselect based on its previous state.
   void TogglePlaylist(const focus_mode_util::SelectedPlaylist& playlist_data);
 
+  void PausePlayback();
+  void ResumePlayingPlayback();
+
   // Download images by providing urls. `update_sounds_view_callback` will be
   // called only when finishing downloading all non-empty thumbnails for the
   // Soundscape type or the YouTube Music type of playlists; however, if
@@ -140,10 +147,35 @@ class ASH_EXPORT FocusModeSoundsController
 
   void UpdateFromUserPrefs();
 
-  // Sets the failure callback for all YouTube Music API requests. This callback
-  // is used to update the specific UIs that are dependent on the account
-  // premium status.
-  void SetYouTubeMusicFailureCallback(base::RepeatingClosure callback);
+  // Sets the no premium callback for all YouTube Music API requests. This
+  // callback is used to update the specific UIs that are dependent on the
+  // account premium status.
+  void SetYouTubeMusicNoPremiumCallback(base::RepeatingClosure callback);
+
+  // Reports playback to the media server. It's only used for YouTube Music at
+  // the moment.
+  void ReportYouTubeMusicPlayback(
+      const youtube_music::PlaybackData& playback_data);
+
+  void set_soundscape_playlists_for_testing(
+      std::vector<std::unique_ptr<Playlist>> soundscape_playlists) {
+    soundscape_playlists_.swap(soundscape_playlists);
+  }
+  void set_youtube_music_playlists_for_testing(
+      std::vector<std::unique_ptr<Playlist>> youtube_music_playlists) {
+    youtube_music_playlists_.swap(youtube_music_playlists);
+  }
+  void set_selected_playlist_for_testing(
+      const focus_mode_util::SelectedPlaylist& playlist) {
+    selected_playlist_ = playlist;
+  }
+  void update_selected_playlist_state_for_testing(
+      focus_mode_util::SoundState new_state) {
+    selected_playlist_.state = new_state;
+  }
+  void set_simulate_playback_for_testing() {
+    simulate_playback_for_testing_ = true;
+  }
 
  private:
   bool IsPlaylistAllowed(
@@ -186,6 +218,8 @@ class ASH_EXPORT FocusModeSoundsController
   bool has_audio_focus_ = false;
   base::UnguessableToken media_session_request_id_ =
       base::UnguessableToken::Null();
+
+  bool simulate_playback_for_testing_ = false;
 
   base::ObserverList<Observer> observers_;
 

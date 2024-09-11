@@ -826,7 +826,7 @@ void LocalFrameView::UpdateLayout() {
   v8::Isolate* isolate = frame_->GetPage()->GetAgentGroupScheduler().Isolate();
   ENTER_EMBEDDER_STATE(isolate, frame_, BlinkState::LAYOUT);
   TRACE_EVENT_BEGIN0("blink,benchmark", "LocalFrameView::layout");
-  if (UNLIKELY(RuntimeEnabledFeatures::BlinkRuntimeCallStatsEnabled())) {
+  if (RuntimeEnabledFeatures::BlinkRuntimeCallStatsEnabled()) [[unlikely]] {
     rcs_scope.emplace(RuntimeCallStats::From(isolate),
                       RuntimeCallStats::CounterId::kUpdateLayout);
   }
@@ -2080,14 +2080,14 @@ bool LocalFrameView::UpdateLifecyclePhases(
     DocumentUpdateReason reason) {
   // If the lifecycle is postponed, which can happen if the inspector requests
   // it, then we shouldn't update any lifecycle phases.
-  if (UNLIKELY(frame_->GetDocument() &&
-               frame_->GetDocument()->Lifecycle().LifecyclePostponed())) {
+  if (frame_->GetDocument() &&
+      frame_->GetDocument()->Lifecycle().LifecyclePostponed()) [[unlikely]] {
     return false;
   }
 
   // Prevent reentrance.
   // TODO(vmpstr): Should we just have a DCHECK instead here?
-  if (UNLIKELY(IsUpdatingLifecycle())) {
+  if (IsUpdatingLifecycle()) [[unlikely]] {
     DUMP_WILL_BE_NOTREACHED()
         << "LocalFrameView::updateLifecyclePhasesInternal() reentrance";
     return false;
@@ -3931,11 +3931,11 @@ void LocalFrameView::PaintFrame(GraphicsContext& context,
 }
 
 void LocalFrameView::PrintPage(GraphicsContext& context,
-                               wtf_size_t page_number,
+                               wtf_size_t page_index,
                                const CullRect& cull_rect) {
   DCHECK(GetFrame().GetDocument()->Printing());
   if (pagination_state_) {
-    pagination_state_->SetCurrentPageNumber(page_number);
+    pagination_state_->SetCurrentPageIndex(page_index);
   }
   const PaintFlags flags =
       PaintFlag::kOmitCompositingInfo | PaintFlag::kAddUrlMetadata;
@@ -4313,6 +4313,13 @@ void LocalFrameView::VisibilityForThrottlingChanged() {
 void LocalFrameView::VisibilityChanged(
     blink::mojom::FrameVisibility visibility) {
   frame_->GetLocalFrameHostRemote().VisibilityChanged(visibility);
+
+  // LocalFrameClient member may not be valid in some tests.
+  if (frame_->Client() && frame_->Client()->GetWebFrame() &&
+      frame_->Client()->GetWebFrame()->Client()) {
+    frame_->Client()->GetWebFrame()->Client()->OnFrameVisibilityChanged(
+        visibility);
+  }
 }
 
 void LocalFrameView::RenderThrottlingStatusChanged() {

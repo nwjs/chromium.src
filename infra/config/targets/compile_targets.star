@@ -194,11 +194,6 @@ targets.compile_target(
 )
 
 targets.compile_target(
-    name = "core_runtime_simple",
-    label = "//chromecast/cast_core:core_runtime_simple",
-)
-
-targets.compile_target(
     name = "cronet_package",
     label = "//components/cronet:cronet_package",
 )
@@ -216,11 +211,6 @@ targets.compile_target(
 targets.compile_target(
     name = "empty_main",
     label = "//testing:empty_main",
-)
-
-targets.compile_target(
-    name = "test_ash_chrome_cipd_yaml",
-    label = "//chrome/test:test_ash_chrome_cipd_yaml",
 )
 
 targets.compile_target(

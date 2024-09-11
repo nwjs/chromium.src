@@ -2062,6 +2062,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="drive" label="Module ID for Google Drive module"/>
   <suffix name="dummy" label="Module ID for a dummy module"/>
   <suffix name="dummy2" label="Module ID for another dummy module"/>
+  <suffix name="google_calendar" label="Module ID for Google Calendar"/>
   <suffix name="history_clusters"
       label="Module ID for History Clusters module"/>
   <suffix name="shopping_tasks" label="Module ID for Shopping Tasks"/>
@@ -2931,6 +2932,8 @@ chromium-metrics-reviews@google.com.
       label="Fragmentation of Blink GC's main thread heap."/>
   <suffix name="CommandBuffer"
       label="Only counting memory used by GL command buffers."/>
+  <suffix name="DawnSharedContext"
+      label="Only counting memory used by the Graphite Dawn shared context."/>
   <suffix name="Discardable"
       label="Only counting memory used by Discardable manager."/>
   <suffix name="ExtensionFunctions"
@@ -3202,6 +3205,9 @@ chromium-metrics-reviews@google.com.
   <suffix name="SiteStorage.BlobStorage"
       label="Only counting memory used by in-memory blob files."/>
   <suffix name="Skia" label="Only counting memory used by Skia caches."/>
+  <suffix name="Skia.PurgeableSize"
+      label="Only counting memory used by Skia caches which Skia considers
+             purgeable."/>
   <suffix name="Skia.SkGlyphCache"
       label="Only counting memory used by Skia glyph cache."/>
   <suffix name="Skia.SkResourceCache"
@@ -3563,7 +3569,6 @@ chromium-metrics-reviews@google.com.
              active; recorded only for the non-active profiles."/>
   <suffix name="SingleProfile" label="Recorded only for single-profile users."/>
   <suffix name="UponDeletion" label="Recorded for a profile upon its deletion"/>
-  <affected-histogram name="Profile.State.Avatar"/>
   <affected-histogram name="Profile.State.LastUsed"/>
   <affected-histogram name="Profile.State.SyncEnabled"/>
   <affected-histogram name="Profile.State.UnconsentedPrimaryAccountType"/>
@@ -3778,7 +3783,6 @@ chromium-metrics-reviews@google.com.
   <suffix name="CertCsdDownloadAllowlist" label=""/>
   <suffix name="CertCsdDownloadWhitelist" label=""/>
   <suffix name="ChromeExtMalware" label=""/>
-  <suffix name="ChromeUrlClientIncident" label=""/>
   <suffix name="IpMalware" label=""/>
   <suffix name="UrlBilling" label=""/>
   <suffix name="UrlCsdAllowlist" label=""/>
@@ -4423,6 +4427,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="Eche" label="Eche"/>
   <suffix name="FaceML" label="Face ML (Deprecated)"/>
   <suffix name="FirmwareUpdate" label="FirmwareUpdate"/>
+  <suffix name="Graduation" label="Graduation"/>
   <suffix name="Help" label="Help"/>
   <suffix name="Mall" label="App Mall"/>
   <suffix name="Media" label="Media"/>

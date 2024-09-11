@@ -42,12 +42,17 @@ import {computed, Dispose, effect, signal} from '../core/reactive/signal.js';
 import {RecordingCreateParams} from '../core/recording_data_manager.js';
 import {RecordingSession} from '../core/recording_session.js';
 import {navigateTo} from '../core/state/route.js';
-import {settings, TranscriptionEnableState} from '../core/state/settings.js';
+import {
+  settings,
+  SpeakerLabelEnableState,
+  TranscriptionEnableState,
+} from '../core/state/settings.js';
 import {
   assertExhaustive,
   assertExists,
   assertInstanceof,
 } from '../core/utils/assert.js';
+import {AsyncJobQueue} from '../core/utils/async_job_queue.js';
 import {formatDuration} from '../core/utils/datetime.js';
 
 function getDefaultTitle(): string {
@@ -288,11 +293,13 @@ export class RecordPage extends ReactiveLitElement {
       }
     }
 
-    #exit-dialog div[slot="actions"] cra-button:first-child {
-      align-self: flex-start;
+    #exit-dialog {
+      width: 440px;
 
-      /* There's a 8px gap. */
-      margin-right: 72px;
+      & div[slot="actions"] cra-button:first-child {
+        align-self: flex-start;
+        margin-right: auto;
+      }
     }
   `;
 
@@ -334,6 +341,12 @@ export class RecordPage extends ReactiveLitElement {
   private readonly transcriptionConsentDialog =
     createRef<TranscriptionConsentDialog>();
 
+  private wakeLock: WakeLockSentinel|null = null;
+
+  private readonly wakeLockRequestQueue = new AsyncJobQueue('keepLatest');
+
+  private readonly micMuted = signal(false);
+
   private async startRecording() {
     if (this.recordingSession.value !== null) {
       return;
@@ -346,6 +359,8 @@ export class RecordPage extends ReactiveLitElement {
         micId: assertExists(this.micId),
         includeSystemAudio: this.includeSystemAudio,
         platformHandler: this.platformHandler,
+        speakerLabelEnabled: settings.value.speakerLabelEnabled ===
+          SpeakerLabelEnableState.ENABLED,
       });
     } catch (e) {
       if (e instanceof DOMException &&
@@ -381,12 +396,37 @@ export class RecordPage extends ReactiveLitElement {
       }
     });
     this.recordingSession.value = session;
+    if (settings.value.keepScreenOn) {
+      this.requestWakeLock();
+    }
+  }
+
+  private requestWakeLock() {
+    this.wakeLockRequestQueue.push(async () => {
+      // Don't request a new wake lock when the old one is still in effect,
+      // since according to
+      // https://w3c.github.io/screen-wake-lock/#garbage-collection we
+      // shouldn't drop the wake lock that is not released.
+      if (this.wakeLock === null || this.wakeLock.released) {
+        this.wakeLock = await navigator.wakeLock.request('screen');
+      }
+    });
+  }
+
+  private releaseWakeLock() {
+    this.wakeLockRequestQueue.push(async () => {
+      if (this.wakeLock !== null) {
+        await this.wakeLock.release();
+        this.wakeLock = null;
+      }
+    });
   }
 
   private async cancelRecording() {
     if (this.recordingSession.value === null) {
       return;
     }
+    this.releaseWakeLock();
     await this.recordingSession.value.finish();
     this.transcriptionEnableDispose?.();
     this.transcriptionEnableDispose = null;
@@ -402,6 +442,7 @@ export class RecordPage extends ReactiveLitElement {
     if (this.recordingSession.value === null) {
       return null;
     }
+    this.releaseWakeLock();
     const session = this.recordingSession.value;
     const audioData = await session.finish();
     const params: RecordingCreateParams = {
@@ -409,7 +450,7 @@ export class RecordPage extends ReactiveLitElement {
       durationMs: Math.round(session.progress.value.length * 1000),
       recordedAt: Date.now(),
       powers: session.progress.value.powers,
-      textTokens: session.progress.value.textTokens,
+      transcription: session.progress.value.transcription,
     };
     const id = await this.recordingDataManager.createRecording(
       params,
@@ -430,16 +471,30 @@ export class RecordPage extends ReactiveLitElement {
     }
   }
 
+  private readonly onVisibilityChange = () => {
+    if (this.wakeLock !== null && this.wakeLock.released &&
+        document.visibilityState === 'visible') {
+      // Re-acquire the wake lock if the recorder app is brought back to
+      // foreground.
+      // See https://developer.chrome.com/docs/capabilities/web-apis/wake-lock/
+      // TODO(pihsun): We need to have a private API if it's required to have
+      // screen kept on when recording in background.
+      this.requestWakeLock();
+    }
+  };
+
   override async connectedCallback(): Promise<void> {
     super.connectedCallback();
     // TODO(pihsun): auto-starting the recording since this page is arrived
     // from clicking "record" button from the main page. Reconsider how to do
     // this properly.
     await this.startRecording();
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
 
   override async disconnectedCallback(): Promise<void> {
     super.disconnectedCallback();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     // Cancel current recording when leaving page / hot reloading.
     // TODO: b/336963138 - Have a confirmation before leaving.
     // TODO: b/336963138 - Exit handler for the whole page.
@@ -490,6 +545,11 @@ export class RecordPage extends ReactiveLitElement {
     navigateTo('/');
   }
 
+  private onToggleMuted() {
+    this.micMuted.update((s) => !s);
+    this.recordingSession.value?.setMicMuted(this.micMuted.value);
+  }
+
   private renderAudioWaveform() {
     if (this.recordingSession.value === null) {
       return nothing;
@@ -498,9 +558,11 @@ export class RecordPage extends ReactiveLitElement {
     return html`
       <audio-waveform .values=${session.progress.value.powers}>
       </audio-waveform>
-      <cra-icon-button shape="circle">
-        <!-- TODO: b/336963138 - Implement mute. -->
-        <cra-icon slot="icon" name="mic"></cra-icon>
+      <cra-icon-button shape="circle" @click=${this.onToggleMuted}>
+        <cra-icon
+          slot="icon"
+          .name=${this.micMuted.value ? 'mic_muted' : 'mic'}
+        ></cra-icon>
       </cra-icon-button>
     `;
   }
@@ -513,11 +575,11 @@ export class RecordPage extends ReactiveLitElement {
     // TODO: b/344789835 - Add state when transcription is disabled.
     // TODO: b/336963138 - Animation while opening/closing the panel.
     const session = this.recordingSession.value;
-    const {textTokens} = session.progress.value;
-    if (textTokens !== null && textTokens.length > 0) {
+    const {transcription} = session.progress.value;
+    if (transcription !== null && !transcription.isEmpty()) {
       // If there are existing transcription, it is always shown even if the
       // transcription is disabled afterwards.
-      return html`<transcription-view .textTokens=${textTokens}>
+      return html`<transcription-view .transcription=${transcription}>
       </transcription-view>`;
     }
 

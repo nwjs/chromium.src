@@ -47,7 +47,6 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "content/public/renderer/render_frame.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_vector.h"
@@ -167,6 +166,9 @@ constexpr std::string_view kPlaceholder = "placeholder";
 constexpr std::string_view kRole = "role";
 constexpr std::string_view kScript = "script";
 constexpr std::string_view kSpan = "span";
+#if BUILDFLAG(IS_ANDROID)
+constexpr std::string_view kSrc = "src";
+#endif
 constexpr std::string_view kStrong = "strong";
 constexpr std::string_view kSubmit = "submit";
 constexpr std::string_view kTable = "table";
@@ -274,9 +276,12 @@ bool IsMonthInput(const WebInputElement& element) {
 }
 
 bool IsCheckableElement(const WebFormControlElement& element) {
-  WebInputElement input_element = element.DynamicTo<WebInputElement>();
-  return input_element &&
-         (input_element.IsCheckbox() || input_element.IsRadioButton());
+  using enum blink::mojom::FormControlType;
+  // We intentionally use `FormControlType()` instead of
+  // `FormControlTypeForAutofill()` because the existing callers do not care if
+  // the field has ever been a password field before.
+  return element && (element.FormControlType() == kInputCheckbox ||  // nocheck
+                     element.FormControlType() == kInputRadio);      // nocheck
 }
 
 bool IsCheckableElement(const WebElement& element) {
@@ -1215,11 +1220,10 @@ void FilterOptionElementsAndGetOptionStrings(
 }
 
 bool ShouldSkipFillField(const FormFieldData::FillData& field,
-                         const WebFormControlElement& element,
-                         bool is_initiating_element) {
+                         const WebFormControlElement& element) {
   enum class SkipReason {
     kUnfillable = 0,
-    kNoValueToFill = 1,
+    // kNoValueToFill = 1,
     kPreviouslyAutofilled = 2,
     kUserEditedText = 3,
     kUserEditedSelect = 4,
@@ -1237,16 +1241,7 @@ bool ShouldSkipFillField(const FormFieldData::FillData& field,
                                   SkipReason::kUnfillable);
     return true;
   }
-  // Skip if there is no value to fill.
-  if (field.value.empty() || !field.is_autofilled) {
-    base::UmaHistogramEnumeration(kSkipReasonHistogram,
-                                  SkipReason::kNoValueToFill);
-    return true;
-  }
-  if (is_initiating_element) {
-    return false;
-  }
-  if (field.force_override) {
+  if (element.Focused() || field.force_override) {
     return false;
   }
   // Skip filling previously autofilled fields unless autofill is instructed to
@@ -1934,6 +1929,20 @@ void WebFormControlElementToFormField(
   }
 }
 
+#if BUILDFLAG(IS_ANDROID)
+// Checks whether an `element` looks like a captcha based on
+// heuristics. The heuristics cannot be perfect and therefore is a subject to
+// change, e.g. adding a list of domains of captcha providers to be compared
+// with 'src' attribute.
+bool IsLikelyCaptchaIframe(const WebElement& element) {
+  static constexpr std::string_view kCaptcha = "captcha";
+  return GetAttribute<kSrc>(element).Find(kCaptcha) != std::string::npos ||
+         GetAttribute<kTitle>(element).Find(kCaptcha) != std::string::npos ||
+         GetAttribute<kId>(element).Find(kCaptcha) != std::string::npos ||
+         GetAttribute<kName>(element).Find(kCaptcha) != std::string::npos;
+}
+#endif
+
 std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
     const WebDocument& document,
     const WebFormElement& form_element,
@@ -2097,6 +2106,15 @@ std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
   }
   form.set_fields(std::move(fields));
   form.set_child_frames(std::move(child_frames));
+  // `likely_contains_captcha` is only needed for Android for the autosubmission
+  // after filling credentials from TTF bottom sheet.
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordSuggestionBottomSheetV2)) {
+    form.set_likely_contains_captcha(
+        base::ranges::any_of(iframe_elements, IsLikelyCaptchaIframe));
+  }
+#endif
   return form;
 }
 
@@ -2222,7 +2240,7 @@ FormControlType ToAutofillFormControlType(blink::mojom::FormControlType type) {
     case blink::mojom::FormControlType::kTextArea:
       return FormControlType::kTextArea;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -2246,7 +2264,7 @@ bool IsCheckable(FormControlType form_control_type) {
     case FormControlType::kTextArea:
       return false;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 bool IsWebauthnTaggedElement(const WebFormControlElement& element) {
@@ -2315,15 +2333,11 @@ std::vector<WebFormControlElement> GetOwnedFormControls(
   }
   std::vector<WebFormControlElement> unowned_form_controls =
       document.UnassociatedFormControls().ReleaseVector();  // nocheck
-  if (base::FeatureList::IsEnabled(
-          blink::features::
-              kAutofillIncludeShadowDomInUnassociatedListedElements)) {
-    // A form control element may be unassociated inside its Shadow DOM, but
-    // owned (in the Autofill sense) by a <form> containing the shadow host.
-    std::erase_if(unowned_form_controls, [](const WebFormControlElement& e) {
-      return e.OwnerShadowHost() && HasFormAncestor(e);
-    });
-  }
+  // A form control element may be unassociated inside its Shadow DOM, but
+  // owned (in the Autofill sense) by a <form> containing the shadow host.
+  std::erase_if(unowned_form_controls, [](const WebFormControlElement& e) {
+    return e.OwnerShadowHost() && HasFormAncestor(e);
+  });
   return unowned_form_controls;
 }
 
@@ -2338,50 +2352,26 @@ std::vector<WebFormControlElement> GetOwnedAutofillableFormControls(
 
 WebFormElement GetOwningForm(const WebFormControlElement& form_control) {
   CHECK(form_control);
-  // When `kAutofillIncludeFormElementsInShadowDom` is enabled, the owning form
-  // is the furthest ancestor form element, if there is one.
-  if (base::FeatureList::IsEnabled(
-          blink::features::kAutofillIncludeFormElementsInShadowDom)) {
-    WebFormElement owner;
-    // Look for ancestors of the associated form of `form_control` inside the
-    // same tree.
-    for (WebNode same_dom_ancestor = form_control.Form();  // nocheck
-         same_dom_ancestor;
-         same_dom_ancestor = same_dom_ancestor.ParentNode()) {
-      if (auto form = same_dom_ancestor.DynamicTo<WebFormElement>()) {
-        owner = form;
-      }
+  // The owning form is the furthest ancestor form element, if there is one.
+  WebFormElement owner;
+  // Look for ancestors of the associated form of `form_control` inside the
+  // same tree.
+  for (WebNode same_dom_ancestor = form_control.Form();  // nocheck
+       same_dom_ancestor; same_dom_ancestor = same_dom_ancestor.ParentNode()) {
+    if (auto form = same_dom_ancestor.DynamicTo<WebFormElement>()) {
+      owner = form;
     }
-
-    // If `form_control` is inside Shadow DOM, also consider ancestors of
-    // `form_control`.
-    for (WebNode ancestor = form_control.OwnerShadowHost(); ancestor;
-         ancestor = ancestor.ParentOrShadowHostNode()) {
-      if (auto form = ancestor.DynamicTo<WebFormElement>()) {
-        owner = form;
-      }
-    }
-    return owner;
   }
 
-  if (WebFormElement form = form_control.Form()) {
-    return form;
-  }
-  // If we are in a shadow DOM, then look to see if the host(s) are inside a
-  // form element we can use.
-  size_t levels_up = kMaxShadowLevelsUp;
-  for (WebElement host = form_control.OwnerShadowHost(); host && levels_up > 0;
-       host = host.OwnerShadowHost(), --levels_up) {
-    for (WebNode parent = host; parent; parent = parent.ParentNode()) {
-      if (parent.IsElementNode()) {
-        WebElement parentElement = parent.To<WebElement>();
-        if (HasTagName<kForm>(parentElement)) {
-          return parentElement.To<WebFormElement>();
-        }
-      }
+  // If `form_control` is inside Shadow DOM, also consider ancestors of
+  // `form_control`.
+  for (WebNode ancestor = form_control.OwnerShadowHost(); ancestor;
+       ancestor = ancestor.ParentOrShadowHostNode()) {
+    if (auto form = ancestor.DynamicTo<WebFormElement>()) {
+      owner = form;
     }
   }
-  return WebFormElement();
+  return owner;
 }
 
 std::optional<std::pair<FormData, raw_ref<const FormFieldData>>>
@@ -2426,71 +2416,67 @@ FindFormAndFieldForFormControlElement(
   // `GetOwningForm(element)` returns the unowned form, but
   // `GetOwnedFormControls()` does not include the field.
   // See crbug.com/347059988 for more details.
-  if (base::FeatureList::IsEnabled(
-          blink::features::
-              kAutofillIncludeShadowDomInUnassociatedListedElements)) {
-    GURL url;
-    if (WebDocument doc = element.GetDocument()) {
-      url = doc.Url();
+  GURL url;
+  if (WebDocument doc = element.GetDocument()) {
+    url = doc.Url();
+  }
+  auto get_id = [](const WebElement& e) {
+    return e ? e.GetIdAttribute().Utf8() : "";
+  };
+  auto is_top_level = [](const WebFormElement form) {
+    WebNode n = form;
+    while (n && (n = n.ParentOrShadowHostNode())) {
+      if (n.DynamicTo<WebFormElement>()) {
+        return false;
+      }
     }
-    auto get_id = [](const WebElement& e) {
-      return e ? e.GetIdAttribute().Utf8() : "";
-    };
-    auto is_top_level = [](const WebFormElement form) {
-      WebNode n = form;
-      while (n && (n = n.ParentOrShadowHostNode())) {
-        if (n.DynamicTo<WebFormElement>()) {
-          return false;
-        }
+    return true;
+  };
+  auto has_nested_form = [](const WebFormElement form,
+                            WebFormControlElement elem) {
+    for (WebNode n = elem; n && n != form; n = n.ParentOrShadowHostNode()) {
+      if (n.DynamicTo<WebFormElement>()) {
+        return true;
       }
-      return true;
-    };
-    auto has_nested_form = [](const WebFormElement form,
-                              WebFormControlElement elem) {
-      for (WebNode n = elem; n && n != form; n = n.ParentOrShadowHostNode()) {
-        if (n.DynamicTo<WebFormElement>()) {
-          return true;
-        }
-      }
-      return false;
-    };
-    auto get_form_size = [&document](const WebFormElement& form) {
-      return document
-                 ? static_cast<int>(GetOwnedFormControls(document, form).size())
-                 : -1;
-    };
-    WebFormElement assoc_form_element = element.Form();
+    }
+    return false;
+  };
+  auto get_form_size = [&document](const WebFormElement& form) {
+    return document
+               ? static_cast<int>(GetOwnedFormControls(document, form).size())
+               : -1;
+  };
+  WebFormElement assoc_form_element = element.Form();  // nocheck
 
-    // clang-format off
-    SCOPED_CRASH_KEY_STRING64("Autofill", "url", url.spec());
-    SCOPED_CRASH_KEY_BOOL("Autofill", "ExtractFormData_succeeded", extract_form_data_succeeded);
-    SCOPED_CRASH_KEY_NUMBER("Autofill", "extracted_form_size", form->fields().size());
+  // clang-format off
+  SCOPED_CRASH_KEY_STRING64("Autofill", "url", url.spec());
+  SCOPED_CRASH_KEY_BOOL("Autofill", "ExtractFormData_succeeded", extract_form_data_succeeded);
+  SCOPED_CRASH_KEY_NUMBER("Autofill", "extracted_form_size", form->fields().size());
 
-    SCOPED_CRASH_KEY_STRING64("Autofill", "elem_tag_name", element.TagName().Utf8());
-    SCOPED_CRASH_KEY_STRING64("Autofill", "elem_id", get_id(element));
-    SCOPED_CRASH_KEY_STRING64("Autofill", "elem_form_attr", element.GetAttribute("form").Utf8());
-    SCOPED_CRASH_KEY_NUMBER("Autofill", "elem_form_control_type", base::to_underlying(element.FormControlType()));  // nocheck
+  SCOPED_CRASH_KEY_STRING64("Autofill", "elem_tag_name", element.TagName().Utf8());
+  SCOPED_CRASH_KEY_STRING64("Autofill", "elem_id", get_id(element));
+  SCOPED_CRASH_KEY_STRING64("Autofill", "elem_form_attr", element.GetAttribute("form").Utf8());
+  SCOPED_CRASH_KEY_NUMBER("Autofill", "elem_form_control_type", base::to_underlying(element.FormControlType()));  // nocheck
 
-    SCOPED_CRASH_KEY_BOOL("Autofill", "elem_autofillable", IsAutofillableElement(element));
-    SCOPED_CRASH_KEY_BOOL("Autofill", "elem_document", !!document);
-    SCOPED_CRASH_KEY_BOOL("Autofill", "elem_connected", element.IsConnected());
-    SCOPED_CRASH_KEY_BOOL("Autofill", "elem_in_shadow_dom", !!element.OwnerShadowHost());
+  SCOPED_CRASH_KEY_BOOL("Autofill", "elem_autofillable", IsAutofillableElement(element));
+  SCOPED_CRASH_KEY_BOOL("Autofill", "elem_document", !!document);
+  SCOPED_CRASH_KEY_BOOL("Autofill", "elem_connected", element.IsConnected());
+  SCOPED_CRASH_KEY_BOOL("Autofill", "elem_in_shadow_dom", !!element.OwnerShadowHost());
 
 #define SCOPED_CRASH_KEYS_FOR_FORM(prefix, f)                                                                              \
-    SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_non_null", !!f);                                                                \
-    SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_connected", f && f.IsConnected());                                    \
-    SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_in_shadow_dom", f && !!f.OwnerShadowHost());                          \
-    SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_in_same_dom", f && element.OwnerShadowHost() == f.OwnerShadowHost()); \
-    SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_is_top_level", is_top_level(f));                                      \
-    SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_has_nested_form", has_nested_form(f, element));                       \
-    SCOPED_CRASH_KEY_NUMBER("Autofill", #prefix "_form_size", get_form_size(f));                                           \
-    SCOPED_CRASH_KEY_STRING64("Autofill", #prefix "_form_id", get_id(f));
-    SCOPED_CRASH_KEYS_FOR_FORM("assoc", assoc_form_element);
-    SCOPED_CRASH_KEYS_FOR_FORM("owng", form_element);
+  SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_non_null", !!f);                                                                \
+  SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_connected", f && f.IsConnected());                                    \
+  SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_in_shadow_dom", f && !!f.OwnerShadowHost());                          \
+  SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_in_same_dom", f && element.OwnerShadowHost() == f.OwnerShadowHost()); \
+  SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_is_top_level", is_top_level(f));                                      \
+  SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_has_nested_form", has_nested_form(f, element));                       \
+  SCOPED_CRASH_KEY_NUMBER("Autofill", #prefix "_form_size", get_form_size(f));                                           \
+  SCOPED_CRASH_KEY_STRING64("Autofill", #prefix "_form_id", get_id(f));
+  SCOPED_CRASH_KEYS_FOR_FORM(assoc, assoc_form_element);
+  SCOPED_CRASH_KEYS_FOR_FORM(owng, form_element);
 #undef FORM_CRASH_KEYS
-    // clang-format on
-    NOTREACHED(base::NotFatalUntil::M129);
-  }
+  // clang-format on
+  NOTREACHED(base::NotFatalUntil::M130);
   return std::nullopt;
 }
 
@@ -2598,8 +2584,7 @@ std::vector<std::pair<FieldRef, WebAutofillState>> ApplyFieldsAction(
       continue;
     }
     if ((action_type == mojom::FormActionType::kFill &&
-         ShouldSkipFillField(field, element,
-                             /*is_initiating_element=*/element.Focused())) ||
+         ShouldSkipFillField(field, element)) ||
         (action_type == mojom::FormActionType::kUndo &&
          !element.IsAutofilled())) {
       continue;
@@ -2675,7 +2660,9 @@ void ClearPreviewedElements(
     // Clearing the suggested value in the focused node can cause the selection
     // to be lost. We force-set selection range in order to restore the text
     // cursor.
-    if (control_element.Focused()) {
+    if (control_element.Focused() &&
+        !base::FeatureList::IsEnabled(
+            features::kAutofillDontUpdateSelectionRangeOnPreviewClearing)) {
       auto length =
           base::checked_cast<unsigned>(control_element.Value().length());
       control_element.SetSelectionRange(length, length);
@@ -2780,11 +2767,7 @@ void TraverseDomForFourDigitCombinations(
   // elements nearby in search of four digit combinations.
   std::vector<WebFormControlElement> form_control_elements;
 
-  for (const WebFormElement& form :
-       base::FeatureList::IsEnabled(
-           blink::features::kAutofillIncludeFormElementsInShadowDom)
-           ? document.GetTopLevelForms()
-           : document.Forms()) {
+  for (const WebFormElement& form : document.GetTopLevelForms()) {
     base::ranges::move(GetOwnedFormControls(document, form),
                        std::back_inserter(form_control_elements));
   }
@@ -2867,13 +2850,6 @@ void TraverseDomForFourDigitCombinations(
 
   std::move(potential_matches)
       .Run(std::vector<std::string>(matches.begin(), matches.end()));
-}
-
-WebFormElement GetFormElementForPasswordInput(const WebInputElement& element) {
-  return base::FeatureList::IsEnabled(
-             password_manager::features::kShadowDomSupport)
-             ? form_util::GetOwningForm(element)
-             : element.Form();
 }
 
 std::u16string GetAriaLabelForTesting(  // IN-TEST

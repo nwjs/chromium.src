@@ -109,8 +109,7 @@ D3D11Status DefaultTexture2DWrapper::BeginSharedImageAccess() {
 
 D3D11Status DefaultTexture2DWrapper::ProcessTexture(
     const gfx::ColorSpace& input_color_space,
-    ClientSharedImageOrMailboxHolder& shared_image_dest,
-    gfx::ColorSpace* output_color_space) {
+    ClientSharedImageOrMailboxHolder& shared_image_dest) {
   // If we've received an error, then return it to our caller.  This is probably
   // from some previous operation.
   // TODO(liberato): Return the error.
@@ -120,9 +119,6 @@ D3D11Status DefaultTexture2DWrapper::ProcessTexture(
   }
 
   shared_image_dest = shared_image_;
-
-  // We're just binding, so the output and output color spaces are the same.
-  *output_color_space = input_color_space;
 
   // TODO(hitawala): Possibly optimize this method as input and stored color
   // spaces should be same.
@@ -180,15 +176,9 @@ void DefaultTexture2DWrapper::OnError(D3D11Status status) {
     received_error_ = status;
 }
 
-void DefaultTexture2DWrapper::SetStreamHDRMetadata(
-    const gfx::HDRMetadata& stream_metadata) {}
-
-void DefaultTexture2DWrapper::SetDisplayHDRMetadata(
-    const DXGI_HDR_METADATA_HDR10& dxgi_display_metadata) {}
-
 void DefaultTexture2DWrapper::OnGPUResourceInitDone(
     scoped_refptr<media::D3D11PictureBuffer> picture_buffer,
-    std::unique_ptr<gpu::VideoDecodeImageRepresentation> shared_image_rep,
+    std::unique_ptr<gpu::VideoImageRepresentation> shared_image_rep,
     scoped_refptr<gpu::ClientSharedImage> client_shared_image) {
   DCHECK(shared_image_rep);
   shared_image_rep_ = std::move(shared_image_rep);
@@ -219,6 +209,8 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
         .Run(std::move(D3D11Status::Codes::kGetCommandBufferHelperFailed));
     return;
   }
+
+  auto* shared_image_manager = helper_->GetSharedImageManager();
 
   // Usage flags to allow the display compositor to draw from it, video to
   // decode from it, and webgl/canvas to read from it.
@@ -257,8 +249,9 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
     }
 
     dxgi_shared_handle_state =
-        helper_->GetDXGISharedHandleManager()->CreateAnonymousSharedHandleState(
-            base::win::ScopedHandle(shared_handle), texture);
+        shared_image_manager->dxgi_shared_handle_manager()
+            ->CreateAnonymousSharedHandleState(
+                base::win::ScopedHandle(shared_handle), texture);
   }
   const bool is_thread_safe =
       IsDedicatedMediaServiceThreadEnabled(gl::ANGLEImplementation::kD3D11);
@@ -284,10 +277,9 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
       return;
     }
 
-    auto* shared_image_manager = helper_->GetSharedImageManager();
     auto* memory_type_tracker = helper_->GetMemoryTypeTracker();
-    std::unique_ptr<gpu::VideoDecodeImageRepresentation> shared_image_rep =
-        shared_image_manager->ProduceVideoDecode(
+    std::unique_ptr<gpu::VideoImageRepresentation> shared_image_rep =
+        shared_image_manager->ProduceVideo(
             video_device.Get(), shared_image->mailbox(), memory_type_tracker);
     if (!shared_image_rep) {
       std::move(on_error_cb)
@@ -312,9 +304,9 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
         gpu::D3DImageBacking::Create(
             mailbox, DXGIFormatToMultiPlanarSharedImageFormat(dxgi_format),
             size, color_space, kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
-            usage, "VideoTexture", texture, std::move(dxgi_shared_handle_state),
-            caps, GL_TEXTURE_EXTERNAL_OES, array_slice,
-            /*use_update_subresource1=*/false, is_thread_safe);
+            usage, "VideoTexture", texture, /*dcomp_texture=*/nullptr,
+            std::move(dxgi_shared_handle_state), caps, GL_TEXTURE_EXTERNAL_OES,
+            array_slice, /*use_update_subresource1=*/false, is_thread_safe);
 
     if (!backing) {
       std::move(on_error_cb)
@@ -325,14 +317,13 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
     // the textures.
     backing->SetCleared();
 
-    auto* shared_image_manager = helper_->GetSharedImageManager();
     auto* memory_type_tracker = helper_->GetMemoryTypeTracker();
     shared_image_ =
         shared_image_manager->Register(std::move(backing), memory_type_tracker);
 
-    std::unique_ptr<gpu::VideoDecodeImageRepresentation> shared_image_rep =
-        shared_image_manager->ProduceVideoDecode(video_device.Get(), mailbox,
-                                                 memory_type_tracker);
+    std::unique_ptr<gpu::VideoImageRepresentation> shared_image_rep =
+        shared_image_manager->ProduceVideo(video_device.Get(), mailbox,
+                                           memory_type_tracker);
     if (!shared_image_rep) {
       std::move(on_error_cb)
           .Run(

@@ -47,6 +47,7 @@
 #include "chrome/browser/ash/login/test/fake_recovery_service_mixin.h"
 #include "chrome/browser/ash/login/test/js_checker.h"
 #include "chrome/browser/ash/login/test/login_manager_mixin.h"
+#include "chrome/browser/ash/login/test/network_portal_detector_mixin.h"
 #include "chrome/browser/ash/login/test/oobe_base_test.h"
 #include "chrome/browser/ash/login/test/oobe_screen_exit_waiter.h"
 #include "chrome/browser/ash/login/test/oobe_screen_waiter.h"
@@ -61,7 +62,6 @@
 #include "chrome/browser/ash/policy/core/device_policy_builder.h"
 #include "chrome/browser/ash/policy/test_support/embedded_policy_test_server_mixin.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/ash/scoped_test_system_nss_key_slot_mixin.h"
 #include "chrome/browser/ash/settings/scoped_testing_cros_settings.h"
 #include "chrome/browser/ash/settings/stub_cros_settings_provider.h"
 #include "chrome/browser/browser_process.h"
@@ -78,6 +78,7 @@
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/test/base/ash/scoped_test_system_nss_key_slot_mixin.h"
 #include "chrome/test/base/fake_gaia_mixin.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
@@ -156,7 +157,7 @@ constexpr char kClientCert2Name[] = "client_2";
 constexpr char kLoadingDialog[] = "loadingDialog";
 constexpr char kSigninWebview[] = "$('gaia-signin').getSigninFrame()";
 constexpr char kSigninWebviewOnLockScreen[] =
-    "$('main-element').getSigninFrame_()";
+    "$('main-element').getSigninFrame()";
 constexpr char kTestCookieHost[] = "host1.com";
 constexpr char kTestCookieName[] = "TestCookie";
 constexpr char kTestCookieValue[] = "present";
@@ -178,6 +179,8 @@ constexpr test::UIPath kQuickStartButton = {
 const char kLoginRequests[] = "OOBE.GaiaScreen.LoginRequests";
 const char kPasswordIgnoredChars[] = "OOBE.GaiaScreen.PasswordIgnoredChars";
 const char kSuccessLoginRequests[] = "OOBE.GaiaScreen.SuccessLoginRequests";
+const char kPasswordlessLoginRequests[] =
+    "OOBE.GaiaScreen.PasswordlessLoginRequests";
 
 void InjectCookieDoneCallback(base::OnceClosure done_closure,
                               net::CookieAccessResult result) {
@@ -914,6 +917,7 @@ IN_PROC_BROWSER_TEST_F(WebviewDeviceOwnedLoginTest, AllowNewUser) {
   test::OobeJS().ExpectTrue(frame_url + ".search('flow=nosignup') != -1");
 }
 
+// TODO(b/360829605) Add browser tests for case where proxy auth is required.
 // Class for testing `DeviceAuthenticationFlowAutoReloadInterval` policy cases.
 class AutoReloadWebviewLoginTest : public WebviewLoginTest {
  public:
@@ -988,8 +992,19 @@ class AutoReloadWebviewLoginTest : public WebviewLoginTest {
   }
 
  protected:
+  bool IsAutoReloadActive() {
+    return LoginDisplayHost::default_host()
+        ->GetOobeUI()
+        ->GetHandler<GaiaScreenHandler>()
+        ->GetAutoReloadManagerForTesting()
+        .IsTimerActiveForTesting();
+  }
+
   std::unique_ptr<base::SimpleTestClock> test_clock_;
   std::unique_ptr<base::SimpleTestTickClock> test_tick_clock_;
+
+  // TODO(b/360343807): Use NetworkStateTestHelper instead.
+  NetworkPortalDetectorMixin network_portal_detector_{&mixin_host_};
 
  private:
   policy::DevicePolicyBuilder device_policy_builder_;
@@ -1007,11 +1022,11 @@ IN_PROC_BROWSER_TEST_F(AutoReloadWebviewLoginTest,
       ash::prefs::kAuthenticationFlowAutoReloadInterval);
   EXPECT_EQ(pref_reload_interval, 0);
 
-  EXPECT_FALSE(LoginDisplayHost::default_host()
-                   ->GetOobeUI()
-                   ->GetHandler<GaiaScreenHandler>()
-                   ->GetAutoReloadManagerForTesting()
-                   .IsTimerActiveForTesting());
+  EXPECT_FALSE(IsAutoReloadActive());
+
+  std::string frame_url = "$('gaia-signin').authenticator.reloadUrl_";
+  test::OobeJS().ExpectTrue(frame_url +
+                            ".search('auto_reload_attempts') == -1");
 }
 
 IN_PROC_BROWSER_TEST_F(AutoReloadWebviewLoginTest, NewUserWithAutoReloadSet) {
@@ -1023,9 +1038,16 @@ IN_PROC_BROWSER_TEST_F(AutoReloadWebviewLoginTest, NewUserWithAutoReloadSet) {
 
   WaitForGaiaPageReload();
 
+  std::string frame_url = "$('gaia-signin').authenticator.reloadUrl_";
+  test::OobeJS().ExpectTrue(frame_url +
+                            ".search('auto_reload_attempts=1') != -1");
+
   AdvanceTime(base::Minutes(10));
 
   WaitForGaiaPageReload();
+
+  test::OobeJS().ExpectTrue(frame_url +
+                            ".search('auto_reload_attempts=2') != -1");
 }
 
 IN_PROC_BROWSER_TEST_F(AutoReloadWebviewLoginTest,
@@ -1043,11 +1065,31 @@ IN_PROC_BROWSER_TEST_F(AutoReloadWebviewLoginTest,
 
   SetAutoReloadInterval(0);  // 0 minutes
 
-  EXPECT_FALSE(LoginDisplayHost::default_host()
-                   ->GetOobeUI()
-                   ->GetHandler<GaiaScreenHandler>()
-                   ->GetAutoReloadManagerForTesting()
-                   .IsTimerActiveForTesting());
+  EXPECT_FALSE(IsAutoReloadActive());
+}
+
+IN_PROC_BROWSER_TEST_F(AutoReloadWebviewLoginTest,
+                       AutoreloadOnErrorScreenShown) {
+  SetAutoReloadInterval(10);  // 10 minutes
+
+  WaitForGaiaPageLoad();
+
+  AdvanceTime(base::Minutes(5));
+  EXPECT_TRUE(IsAutoReloadActive());
+
+  // Simulate network going offline.
+  network_portal_detector_.SimulateDefaultNetworkState(
+      NetworkPortalDetectorMixin::NetworkStatus::kOffline);
+  OobeScreenWaiter(ErrorScreenView::kScreenId).Wait();
+
+  EXPECT_FALSE(IsAutoReloadActive());
+
+  network_portal_detector_.SimulateDefaultNetworkState(
+      NetworkPortalDetectorMixin::NetworkStatus::kOnline);
+
+  WaitForGaiaPageReload();
+
+  EXPECT_TRUE(IsAutoReloadActive());
 }
 
 class ReauthWebviewLoginTest : public WebviewLoginTest {
@@ -1072,7 +1114,7 @@ class ReauthWebviewLoginTest : public WebviewLoginTest {
     EXPECT_TRUE(LoginScreenTestApi::IsForcedOnlineSignin(test_user.account_id));
     // Focus triggers online signin.
     EXPECT_TRUE(LoginScreenTestApi::FocusUser(test_user.account_id));
-    WaitForGaiaPageLoad();
+    WaitForGaiaPageLoadAndPropertyUpdate();
     EXPECT_TRUE(LoginScreenTestApi::IsOobeDialogVisible());
   }
 };
@@ -1097,6 +1139,16 @@ IN_PROC_BROWSER_TEST_F(ReauthWebviewPasswordlessLoginTest, GaiaPasswordFactor) {
   // Passwordless login is disallowed when Gaia password factor is
   // configured.
   EXPECT_TRUE(fake_gaia_.fake_gaia()->passwordless_support_level().empty());
+
+  test::OobeJS().ClickOnPath(kPrimaryButton);
+  SigninFrameJS().TypeIntoPath(FakeGaiaMixin::kFakeUserPassword,
+                               FakeGaiaMixin::kPasswordPath);
+  test::OobeJS().ClickOnPath(kPrimaryButton);
+  OobeScreenExitWaiter(GaiaView::kScreenId).Wait();
+
+  // Passwordless login is not allowed, hence the metric is not updated.
+  histogram_tester_.ExpectUniqueSample(kPasswordlessLoginRequests,
+                                       0 /* password login */, 0);
 }
 
 IN_PROC_BROWSER_TEST_F(ReauthWebviewPasswordlessLoginTest,
@@ -1106,6 +1158,15 @@ IN_PROC_BROWSER_TEST_F(ReauthWebviewPasswordlessLoginTest,
   // configured.
   EXPECT_EQ(fake_gaia_.fake_gaia()->passwordless_support_level(),
             base::ToString(GaiaView::PasswordlessSupportLevel::kConsumersOnly));
+
+  test::OobeJS().ClickOnPath(kPrimaryButton);
+  SigninFrameJS().TypeIntoPath(FakeGaiaMixin::kFakeUserPassword,
+                               FakeGaiaMixin::kPasswordPath);
+  test::OobeJS().ClickOnPath(kPrimaryButton);
+  OobeScreenExitWaiter(GaiaView::kScreenId).Wait();
+
+  histogram_tester_.ExpectUniqueSample(kPasswordlessLoginRequests,
+                                       0 /* passwordless login */, 1);
 }
 
 class ReauthTokenWebviewLoginTest : public ReauthWebviewLoginTest {

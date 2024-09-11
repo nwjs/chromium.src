@@ -148,8 +148,9 @@ class IsolatedOriginTestBase : public ContentBrowserTest {
         WebExposedIsolationInfo::CreateNonIsolated(),
         WebExposedIsolationLevel::kNotIsolated, /*is_guest=*/false,
         /*does_site_request_dedicated_process_for_coop=*/false,
-        /*is_jit_disabled=*/false, /*is_pdf=*/false,
-        /*is_fenced=*/false, /*cross_origin_isolation_key=*/std::nullopt));
+        /*is_jit_disabled=*/false, /*are_v8_optimizations_disabled=*/false,
+        /*is_pdf=*/false, /*is_fenced=*/false,
+        /*cross_origin_isolation_key=*/std::nullopt));
   }
 
   WebContentsImpl* web_contents() const {
@@ -176,8 +177,9 @@ class IsolatedOriginTestBase : public ContentBrowserTest {
         WebExposedIsolationInfo::CreateNonIsolated(),
         WebExposedIsolationLevel::kNotIsolated, /*is_guest=*/false,
         /*does_site_request_dedicated_process_for_coop=*/false,
-        /*is_jit_disabled=*/false, /*is_pdf=*/false,
-        /*is_fenced=*/false, /*cross_origin_isolation_key=*/std::nullopt));
+        /*is_jit_disabled=*/false, /*are_v8_optimizations_disabled=*/false,
+        /*is_pdf=*/false, /*is_fenced=*/false,
+        /*cross_origin_isolation_key=*/std::nullopt));
   }
 
  protected:
@@ -1039,12 +1041,29 @@ IN_PROC_BROWSER_TEST_F(OriginKeyedProcessByDefaultTest,
   EXPECT_TRUE(isolation_state2->requires_origin_keyed_process());
 }
 
+// The test ExplicitOptInRespected tests the speculative RFH created before
+// receiving the OAC headers. The delay must be set to zero so that the
+// speculative RFH is always created before receiving the header.
+class OriginKeyedProcessByDefaultTestWithoutSpeculativeRFHDelay
+    : public OriginKeyedProcessByDefaultTest {
+ public:
+  OriginKeyedProcessByDefaultTestWithoutSpeculativeRFHDelay() {
+    feature_list_for_defer_speculative_rfh_.InitAndEnableFeatureWithParameters(
+        features::kDeferSpeculativeRFHCreation,
+        {{"create_speculative_rfh_delay_ms", "0"}});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_for_defer_speculative_rfh_;
+};
+
 // Using origin-keyed processes by default faces a challenge for speculative
 // RenderFrameHosts, which are created before any OAC headers arrive.
 // Note: the origin is tracked even though the SiteInfo still says it is an
 // origin-keyed process by default.
-IN_PROC_BROWSER_TEST_F(OriginKeyedProcessByDefaultTest,
-                       ExplicitOptInRespected) {
+IN_PROC_BROWSER_TEST_F(
+    OriginKeyedProcessByDefaultTestWithoutSpeculativeRFHDelay,
+    ExplicitOptInRespected) {
   GURL test_url(https_server()->GetURL("foo.com",
                                        "/cross_site_iframe_factory.html?"
                                        "foo.com(foo.com)"));
@@ -1683,8 +1702,9 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInHeaderTest,
       WebExposedIsolationInfo::CreateNonIsolated(),
       WebExposedIsolationLevel::kNotIsolated, /*is_guest=*/false,
       /*does_site_request_dedicated_process_for_coop=*/false,
-      /*is_jit_disabled=*/false, /*is_pdf=*/false,
-      /*is_fenced=*/false, /*cross_origin_isolation_key=*/std::nullopt));
+      /*is_jit_disabled=*/false, /*are_v8_optimizations_disabled=*/false,
+      /*is_pdf=*/false, /*is_fenced=*/false,
+      /*cross_origin_isolation_key=*/std::nullopt));
   EXPECT_TRUE(NavigateToURL(shell(), test_url));
   EXPECT_EQ(2u, CollectAllRenderFrameHosts(shell()->web_contents()).size());
 

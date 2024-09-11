@@ -140,28 +140,59 @@ class LenientMockObserver : public FrameNodeImpl::Observer {
   LenientMockObserver() = default;
   ~LenientMockObserver() override = default;
 
-  MOCK_METHOD1(OnFrameNodeAdded, void(const FrameNode*));
-  MOCK_METHOD1(OnBeforeFrameNodeRemoved, void(const FrameNode*));
-  MOCK_METHOD1(OnIsCurrentChanged, void(const FrameNode*));
-  MOCK_METHOD1(OnNetworkAlmostIdleChanged, void(const FrameNode*));
-  MOCK_METHOD1(OnFrameLifecycleStateChanged, void(const FrameNode*));
-  MOCK_METHOD2(OnURLChanged, void(const FrameNode*, const GURL&));
-  MOCK_METHOD2(OnOriginChanged,
-               void(const FrameNode*, const std::optional<url::Origin>&));
-  MOCK_METHOD1(OnIsAdFrameChanged, void(const FrameNode*));
-  MOCK_METHOD1(OnFrameIsHoldingWebLockChanged, void(const FrameNode*));
-  MOCK_METHOD1(OnFrameIsHoldingIndexedDBLockChanged, void(const FrameNode*));
-  MOCK_METHOD2(OnPriorityAndReasonChanged,
-               void(const FrameNode*, const PriorityAndReason& previous_value));
-  MOCK_METHOD1(OnHadFormInteractionChanged, void(const FrameNode*));
-  MOCK_METHOD1(OnHadUserEditsChanged, void(const FrameNode*));
-  MOCK_METHOD1(OnIsAudibleChanged, void(const FrameNode*));
-  MOCK_METHOD1(OnIsCapturingMediaStreamChanged, void(const FrameNode*));
-  MOCK_METHOD1(OnIntersectsViewportChanged, void(const FrameNode*));
-  MOCK_METHOD2(OnFrameVisibilityChanged,
-               void(const FrameNode*, FrameNode::Visibility));
-  MOCK_METHOD1(OnNonPersistentNotificationCreated, void(const FrameNode*));
-  MOCK_METHOD2(OnFirstContentfulPaint, void(const FrameNode*, base::TimeDelta));
+  MOCK_METHOD(void, OnFrameNodeAdded, (const FrameNode*), (override));
+  MOCK_METHOD(void, OnBeforeFrameNodeRemoved, (const FrameNode*), (override));
+  MOCK_METHOD(void, OnIsCurrentChanged, (const FrameNode*), (override));
+  MOCK_METHOD(void, OnNetworkAlmostIdleChanged, (const FrameNode*), (override));
+  MOCK_METHOD(void,
+              OnFrameLifecycleStateChanged,
+              (const FrameNode*),
+              (override));
+  MOCK_METHOD(void, OnURLChanged, (const FrameNode*, const GURL&), (override));
+  MOCK_METHOD(void,
+              OnOriginChanged,
+              (const FrameNode*, const std::optional<url::Origin>&),
+              (override));
+  MOCK_METHOD(void, OnIsAdFrameChanged, (const FrameNode*), (override));
+  MOCK_METHOD(void,
+              OnFrameIsHoldingWebLockChanged,
+              (const FrameNode*),
+              (override));
+  MOCK_METHOD(void,
+              OnFrameIsHoldingIndexedDBLockChanged,
+              (const FrameNode*),
+              (override));
+  MOCK_METHOD(void,
+              OnPriorityAndReasonChanged,
+              (const FrameNode*, const PriorityAndReason& previous_value),
+              (override));
+  MOCK_METHOD(void, OnHadUserActivationChanged, (const FrameNode*), (override));
+  MOCK_METHOD(void,
+              OnHadFormInteractionChanged,
+              (const FrameNode*),
+              (override));
+  MOCK_METHOD(void, OnHadUserEditsChanged, (const FrameNode*), (override));
+  MOCK_METHOD(void, OnIsAudibleChanged, (const FrameNode*), (override));
+  MOCK_METHOD(void,
+              OnIsCapturingMediaStreamChanged,
+              (const FrameNode*),
+              (override));
+  MOCK_METHOD(void,
+              OnViewportIntersectionStateChanged,
+              (const FrameNode*),
+              (override));
+  MOCK_METHOD(void,
+              OnFrameVisibilityChanged,
+              (const FrameNode*, FrameNode::Visibility),
+              (override));
+  MOCK_METHOD(void,
+              OnNonPersistentNotificationCreated,
+              (const FrameNode*),
+              (override));
+  MOCK_METHOD(void,
+              OnFirstContentfulPaint,
+              (const FrameNode*, base::TimeDelta),
+              (override));
 
   void SetCreatedFrameNode(const FrameNode* frame_node) {
     created_frame_node_ = frame_node;
@@ -455,6 +486,29 @@ TEST_F(FrameNodeImplTest, Priority) {
   graph()->RemoveFrameNodeObserver(&obs);
 }
 
+TEST_F(FrameNodeImplTest, UserActivation) {
+  auto process = CreateNode<ProcessNodeImpl>();
+  auto page = CreateNode<PageNodeImpl>();
+  auto frame_node = CreateFrameNodeAutoId(process.get(), page.get());
+
+  MockObserver obs;
+  graph()->AddFrameNodeObserver(&obs);
+
+  EXPECT_FALSE(frame_node->HadFormInteraction());
+
+  EXPECT_CALL(obs, OnHadUserActivationChanged(frame_node.get()));
+  frame_node->SetHadUserActivation();
+  EXPECT_TRUE(frame_node->HadUserActivation());
+  testing::Mock::VerifyAndClear(&obs);
+
+  EXPECT_CALL(obs, OnHadUserActivationChanged(frame_node.get())).Times(0);
+  frame_node->SetHadUserActivation();
+  EXPECT_TRUE(frame_node->HadUserActivation());
+  testing::Mock::VerifyAndClear(&obs);
+
+  graph()->RemoveFrameNodeObserver(&obs);
+}
+
 TEST_F(FrameNodeImplTest, FormInteractions) {
   auto process = CreateNode<ProcessNodeImpl>();
   auto page = CreateNode<PageNodeImpl>();
@@ -517,7 +571,7 @@ TEST_F(FrameNodeImplTest, IsCapturingMediaStream) {
   graph()->RemoveFrameNodeObserver(&obs);
 }
 
-TEST_F(FrameNodeImplTest, IntersectsViewport) {
+TEST_F(FrameNodeImplTest, ViewportIntersectionState) {
   auto process = CreateNode<ProcessNodeImpl>();
   auto page = CreateNode<PageNodeImpl>();
   // A child frame node is used because the intersection with the viewport of a
@@ -530,15 +584,19 @@ TEST_F(FrameNodeImplTest, IntersectsViewport) {
   graph()->AddFrameNodeObserver(&obs);
 
   // Initially unknown.
-  EXPECT_FALSE(child_frame_node->IntersectsViewport().has_value());
+  EXPECT_FALSE(child_frame_node->GetViewportIntersectionState().has_value());
 
-  EXPECT_CALL(obs, OnIntersectsViewportChanged(child_frame_node.get()));
-  child_frame_node->SetIntersectsViewport(true);
-  EXPECT_TRUE(child_frame_node->IntersectsViewport().value());
+  EXPECT_CALL(obs, OnViewportIntersectionStateChanged(child_frame_node.get()));
+  child_frame_node->SetViewportIntersectionState(
+      ViewportIntersectionState::kNotIntersecting);
+  EXPECT_EQ(child_frame_node->GetViewportIntersectionState().value(),
+            ViewportIntersectionState::kNotIntersecting);
 
-  EXPECT_CALL(obs, OnIntersectsViewportChanged(child_frame_node.get()));
-  child_frame_node->SetIntersectsViewport(false);
-  EXPECT_FALSE(child_frame_node->IntersectsViewport().value());
+  EXPECT_CALL(obs, OnViewportIntersectionStateChanged(child_frame_node.get()));
+  child_frame_node->SetViewportIntersectionState(
+      ViewportIntersectionState::kIntersecting);
+  EXPECT_EQ(child_frame_node->GetViewportIntersectionState().value(),
+            ViewportIntersectionState::kIntersecting);
 
   graph()->RemoveFrameNodeObserver(&obs);
 }
@@ -608,14 +666,21 @@ class LenientMockPageObserver : public PageNode::ObserverDefaultImpl {
   LenientMockPageObserver() = default;
   ~LenientMockPageObserver() override = default;
 
-  MOCK_METHOD1(OnBeforePageNodeRemoved, void(const PageNode* page_node));
+  MOCK_METHOD(void,
+              OnBeforePageNodeRemoved,
+              (const PageNode* page_node),
+              (override));
 
   // Note that embedder functionality is actually tested in the
   // performance_manager_browsertest.
-  MOCK_METHOD2(OnOpenerFrameNodeChanged,
-               void(const PageNode*, const FrameNode*));
-  MOCK_METHOD3(OnEmbedderFrameNodeChanged,
-               void(const PageNode*, const FrameNode*, EmbeddingType));
+  MOCK_METHOD(void,
+              OnOpenerFrameNodeChanged,
+              (const PageNode*, const FrameNode*),
+              (override));
+  MOCK_METHOD(void,
+              OnEmbedderFrameNodeChanged,
+              (const PageNode*, const FrameNode*, EmbeddingType),
+              (override));
 };
 
 using MockPageObserver = ::testing::StrictMock<LenientMockPageObserver>;

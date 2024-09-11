@@ -446,7 +446,6 @@ KNOWN_NON_IOS_LIBRARIES = set([
     os.path.join('third_party', 're2'),
     os.path.join('third_party', 'safe_browsing'),
     os.path.join('third_party', 'smhasher'),
-    os.path.join('third_party', 'sudden_motion_sensor'),
     os.path.join('third_party', 'swiftshader'),
     os.path.join('third_party', 'swig'),
     os.path.join('third_party', 'talloc'),
@@ -1224,7 +1223,7 @@ def GenerateLicenseFileCsv(
   #   * License text for library included in product,
   #   * Mirrored source for reciprocal licences.
   #   * Signoff date.
-  static_data = ["Chromium", "Yes", "No", "N/A"]
+  static_data = ["Chromium", "Yes", "Yes", "N/A"]
 
   # Add informative CSV header row to make it clear which columns represent
   # which data in the review spreadsheet.

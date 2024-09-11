@@ -61,7 +61,6 @@ void ContentHashFetcher::OnSimpleLoaderComplete(
 }
 
 void ContentHashFetcher::Start(HashFetcherCallback hash_fetcher_callback) {
-#if 0
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   hash_fetcher_callback_ = std::move(hash_fetcher_callback);
@@ -108,7 +107,6 @@ void ContentHashFetcher::Start(HashFetcherCallback hash_fetcher_callback) {
       url_loader_factory_remote.get(),
       base::BindOnce(&ContentHashFetcher::OnSimpleLoaderComplete,
                      base::Unretained(this)));
-#endif
 }
 
 ContentHashFetcher::~ContentHashFetcher() {

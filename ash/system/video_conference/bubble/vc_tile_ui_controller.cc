@@ -15,7 +15,9 @@
 #include "ash/system/video_conference/video_conference_utils.h"
 #include "base/barrier_callback.h"
 #include "base/containers/flat_set.h"
+#include "base/debug/crash_logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice.pb.h"
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice_client.h"
 #include "chromeos/utils/haptics_util.h"
@@ -32,6 +34,7 @@ VcTileUiController::VcTileUiController(const VcHostedEffect* effect)
     : effect_(effect->get_weak_ptr()) {
   effect_id_ = effect->id();
   effect_state_ = effect->GetWeakState(/*index=*/0);
+  effect_state_label_for_debug_ = effect_state_->label_text();
   auto* dlc_service_client = DlcserviceClient::Get();
   if (!dlc_service_client) {
     // `dlc_service_client` may not exist in tests.
@@ -228,6 +231,13 @@ void VcTileUiController::OnDlcDownloadStateFetched(
   if (!tile_) {
     return;
   }
+
+  SCOPED_CRASH_KEY_STRING32("VCTileUIC", "label",
+                            base::UTF16ToUTF8(effect_state_label_for_debug_));
+
+  CHECK(effect_state_)
+      << "DLC State retrieved, but `effect_state_` is no longer valid for: "
+      << effect_state_label_for_debug_;
 
   VideoConferenceTrayController::Get()->OnDlcDownloadStateFetched(
       /*add_warning=*/download_state == FeatureTile::DownloadState::kError,

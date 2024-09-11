@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/functional/callback.h"
+#include "chrome/browser/ash/boca/boca_app_client_impl.h"
 #include "chrome/browser/ash/magic_boost/magic_boost_state_ash.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/ui/ash/in_session_auth_token_provider_impl.h"
@@ -45,7 +46,6 @@ class DisplaySettingsHandler;
 }
 
 class AccessibilityControllerClient;
-class AmbientClientImpl;
 class AppAccessNotifier;
 class AppListClientImpl;
 class ArcOpenUrlDelegateImpl;
@@ -55,6 +55,7 @@ class CampaignsManagerClientImpl;
 class CampaignsManagerSession;
 class CastConfigControllerMediaRouter;
 class DesksClient;
+class ExoParts;
 class ImeControllerClientImpl;
 class InSessionAuthDialogClient;
 class LobsterClientFactoryImpl;
@@ -73,10 +74,6 @@ class TabClusterUIClient;
 class TabletModePageBehavior;
 class VpnListForwarder;
 class WallpaperControllerClientImpl;
-
-#if BUILDFLAG(ENABLE_WAYLAND_SERVER)
-class ExoParts;
-#endif
 
 namespace internal {
 class ChromeShelfControllerInitializer;
@@ -134,6 +131,7 @@ class ChromeBrowserMainExtraPartsAsh : public ChromeBrowserMainExtraParts {
   std::unique_ptr<ash::NewWindowDelegateProvider> new_window_delegate_provider_;
   std::unique_ptr<ash::ArcWindowWatcher> arc_window_watcher_;
   std::unique_ptr<ArcOpenUrlDelegateImpl> arc_open_url_delegate_impl_;
+  std::unique_ptr<ash::boca::BocaAppClientImpl> boca_client_;
   std::unique_ptr<ImeControllerClientImpl> ime_controller_client_;
   std::unique_ptr<InSessionAuthDialogClient> in_session_auth_dialog_client_;
   std::unique_ptr<ash::InSessionAuthTokenProviderImpl>
@@ -170,9 +168,7 @@ class ChromeBrowserMainExtraPartsAsh : public ChromeBrowserMainExtraParts {
   std::unique_ptr<CampaignsManagerSession> campaigns_manager_session_;
   std::unique_ptr<ash::PeripheralsAppDelegateImpl> peripherals_app_delegate_;
 
-#if BUILDFLAG(ENABLE_WAYLAND_SERVER)
   std::unique_ptr<ExoParts> exo_parts_;
-#endif
 
   // Initialized in PostProfileInit in all configs:
   std::unique_ptr<LoginScreenClientImpl> login_screen_client_;
@@ -187,7 +183,6 @@ class ChromeBrowserMainExtraPartsAsh : public ChromeBrowserMainExtraParts {
 
   // Initialized in PostBrowserStart in all configs:
   std::unique_ptr<MobileDataNotifications> mobile_data_notifications_;
-  std::unique_ptr<AmbientClientImpl> ambient_client_;
 
   // Boolean that is set to true after PostBrowserStart() executes.
   bool did_post_browser_start_ = false;

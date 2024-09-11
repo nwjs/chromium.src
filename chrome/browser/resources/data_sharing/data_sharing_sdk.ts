@@ -22,7 +22,7 @@ declare enum Code {
   INTERNAL = 13,
   UNAVAILABLE = 14,
   DATA_LOSS = 15,
-  DO_NOT_USE_RESERVED_FOR_FUTURE_EXPANSION_USE_DEFAULT_IN_SWITCH_INSTEAD = 20,
+  DO_NOT_USE_RESERVED_FOR_FUTURE_EXPANSION_USE_DEFAULT_IN_SWITCH_INSTEAD = 20
 }
 
 declare enum ShareAction {
@@ -32,39 +32,95 @@ declare enum ShareAction {
 }
 
 interface DataSharingSdkResponse {
-  readonly finalShareAction?: {action: ShareAction, status: Code};
+  readonly finalShareAction?: {
+    action: ShareAction,
+    status: Code,
+  };
 }
+
+declare interface DataSharingSdkGroup {
+  id: string;
+  name?: string;
+  members: DataSharingSdkGroupMember[];
+}
+
+declare interface DataSharingSdkGroupMember {
+  photoUrl: string;
+  displayName: string;
+  profileId: string;
+  role: DataSharingMemberRole;
+  displayValue: string;
+}
+
+declare interface DataSharingSdkSitePreview {
+  url: string;
+  faviconUrl?: string;
+}
+
+declare interface DataSharingSdkGetLinkParams {
+  groupId: string;
+  tokenSecret?: string;
+}
+
+declare type DataSharingSdkGetLink = (params: DataSharingSdkGetLinkParams) =>
+    string;
+declare type DataSharingMemberRole =
+    'unknown' | 'member' | 'owner' | 'invitee' | 'applicant';
+
 declare interface Token {
   access_token: string;
 }
+
+declare interface DataSharingSdkGroupId {
+  resourceId?: string;
+  groupId?: string;
+}
+
+declare interface DataSharingSdkGroupIds {
+  resourceIds?: string[];
+  groupIds?: string[];
+}
+
 declare global {
   interface Window {
-    gapi: {auth: {getToken: () => Token}};
+    gapi: {
+      auth: {
+        getToken: () => Token,
+      },
+    };
     data_sharing_sdk: {
-      setOauthAccessToken: (options: {accessToken: string}) => void,
-      createGroup: (options: {resourceId: string}) => void,
-      readGroups: (options: {resourceIds: string[]}) => void,
-      runJoinFlow: (options: {
-        resourceId: string,
+      setOauthAccessToken: (options: {
+        accessToken: string,
+      }) => void,
+      createGroup: (options: {}) => Promise<DataSharingSdkGroup>,
+      readGroups: (options: DataSharingSdkGroupIds&{}) =>
+          Promise<DataSharingSdkGroup[]>,
+      runJoinFlow: (options: DataSharingSdkGroupId&{
         tokenSecret: string,
         parent?: HTMLElement,
+        previewSites?: DataSharingSdkSitePreview[],
       }) => Promise<DataSharingSdkResponse>,
-      runInviteFlow: (options: {resourceId: string, parent?: HTMLElement}) =>
-          Promise<DataSharingSdkResponse>,
-      runManageFlow: (options: {resourceId: string, parent?: HTMLElement}) =>
-          Promise<DataSharingSdkResponse>,
+      runInviteFlow: (options: {
+        parent?: HTMLElement,
+        getShareLink?: DataSharingSdkGetLink,
+        title?: string,
+      }) => Promise<DataSharingSdkResponse>,
+      runManageFlow: (options: DataSharingSdkGroupId&{
+        parent?: HTMLElement,
+        getShareLink?: DataSharingSdkGetLink,
+      }) => Promise<DataSharingSdkResponse>,
       updateClearcut: (options: {enabled: boolean}) => void,
     };
   }
 }
-export {};
+export { };
 
 window.data_sharing_sdk = {
-  setOauthAccessToken: () => void{},
-  createGroup: () => void{},
-  readGroups: () => void{},
+  setOauthAccessToken: () => void {},
+  createGroup: () => Promise.resolve({ id: '', members: [] }),
+  readGroups: () => Promise.resolve([]),
   runJoinFlow: () => Promise.resolve({}),
   runInviteFlow: () => Promise.resolve({}),
   runManageFlow: () => Promise.resolve({}),
-  updateClearcut: () => void{},
+  updateClearcut: () => void {},
 };

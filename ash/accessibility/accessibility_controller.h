@@ -62,6 +62,7 @@ enum class DictationBubbleHintType;
 enum class DictationBubbleIconType;
 enum class DictationNotificationType;
 class DisableTrackpadEventRewriter;
+class FlashScreenController;
 class FloatingAccessibilityController;
 class PointScanController;
 class ScopedBacklightsForcedOff;
@@ -93,6 +94,10 @@ enum class A11yNotificationType {
   kDicationOnlyPumpkinDownloaded,
   // Shown when the SODA DLC (but no other DLCs) have downloaded.
   kDictationOnlySodaDownloaded,
+  // Shown when the facegaze-assets DLC has successfully downloaded.
+  kFaceGazeAssetsDownloaded,
+  // Shown when the facegaze-assets DLC failed to download.
+  kFaceGazeAssetsFailed,
   // Shown when braille display is connected while spoken feedback is not
   // enabled yet. Note: in this case braille display connected would enable
   // spoken feedback.
@@ -241,6 +246,7 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   Feature& dictation() const;
   Feature& disable_trackpad() const;
   Feature& face_gaze() const;
+  Feature& flash_notifications() const;
   Feature& floating_menu() const;
   Feature& focus_highlight() const;
   Feature& large_cursor() const;
@@ -567,6 +573,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
       const std::optional<std::u16string>& text,
       const std::optional<std::vector<DictationBubbleHintType>>& hints);
 
+  // Shows a notification notifying the user about the FaceGaze DLC download.
+  void ShowNotificationForFaceGaze(FaceGazeNotificationType type);
+
   // Cancels all of spoken feedback's current and queued speech immediately.
   void SilenceSpokenFeedback();
 
@@ -600,6 +609,8 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
                               base::OnceClosure on_cancel_callback,
                               base::OnceClosure on_close_callback);
   gfx::Rect GetConfirmationDialogBoundsInScreen();
+
+  void PreviewFlashNotification() const;
 
   // SessionObserver:
   void OnSigninScreenPrefServiceInitialized(PrefService* prefs) override;
@@ -658,6 +669,17 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
 
   bool VerifyFeaturesDataForTesting();
 
+  SelectToSpeakEventHandler* GetSelectToSpeakEventHandlerForTesting() const {
+    return select_to_speak_event_handler_.get();
+  }
+
+  void SetVirtualKeyboardVisibleCallbackForTesting(
+      base::RepeatingCallback<void()> callback);
+
+  // Scrolls at the target location in the specified direction.
+  void ScrollAtPoint(const gfx::Point& target,
+                     AccessibilityScrollDirection direction);
+
  private:
   // Populate |features_| with the feature of the correct type.
   void CreateAccessibilityFeatures();
@@ -691,6 +713,7 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void UpdateLiveCaptionFromPref();
   void UpdateCursorColorFromPrefs(bool notify);
   void UpdateFaceGazeFromPrefs();
+  void UpdateFlashNotificationsFromPrefs();
   void UpdateColorCorrectionFromPrefs();
   void UpdateCaretBlinkIntervalFromPrefs() const;
   void UpdateSwitchAccessKeyCodesFromPref(SwitchAccessCommand command);
@@ -760,6 +783,8 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   bool switch_access_disable_dialog_showing_ = false;
   bool skip_switch_access_notification_ = false;
 
+  base::RepeatingCallback<void()> set_virtual_keyboard_visible_callback_;
+
   // Used to control the highlights of caret, cursor and focus.
   std::unique_ptr<AccessibilityHighlightController>
       accessibility_highlight_controller_;
@@ -785,6 +810,8 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   // Used to control accessibility-related notifications.
   std::unique_ptr<AccessibilityNotificationController>
       accessibility_notification_controller_;
+
+  std::unique_ptr<FlashScreenController> flash_screen_controller_;
 
   // True if ChromeVox should enable its volume slide gesture.
   bool enable_chromevox_volume_slide_gesture_ = false;

@@ -17,10 +17,13 @@
 #include "ui/base/l10n/time_format.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/geometry/size.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/layout/layout_manager.h"
 #include "ui/views/view.h"
 
 namespace ash {
@@ -31,7 +34,6 @@ constexpr int kHorizontalBorderDp = 16;
 constexpr int kChildrenSpacingDp = 4;
 constexpr int kTimeWidthDp = 204;
 constexpr int kMultiprofileWidthDp = 304;
-constexpr int kHeightDp = 98;
 constexpr int kIconSizeDp = 24;
 constexpr int kTitleFontSizeDeltaDp = 3;
 constexpr int kContentsFontSizeDeltaDp = -1;
@@ -133,7 +135,7 @@ LockScreenMessage GetLockScreenMessage(AuthDisabledReason lock_reason,
     case AuthDisabledReason::kTimeLimitOverride:
       return GetOverrideMessage();
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -154,6 +156,7 @@ DisabledAuthMessageView::DisabledAuthMessageView() {
       views::BoxLayout::Orientation::kVertical,
       gfx::Insets::VH(kVerticalBorderDp, kHorizontalBorderDp),
       kChildrenSpacingDp));
+  preferred_width_ = kTimeWidthDp;
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
   SetFocusBehavior(FocusBehavior::ALWAYS);
@@ -185,6 +188,8 @@ DisabledAuthMessageView::DisabledAuthMessageView() {
   decorate_label(message_contents_);
   message_contents_->SetMultiLine(true);
   message_contents_->SetEnabledColorId(kColorAshTextColorPrimary);
+
+  GetViewAccessibility().SetRole(ax::mojom::Role::kPane);
 }
 
 DisabledAuthMessageView::~DisabledAuthMessageView() = default;
@@ -195,7 +200,7 @@ void DisabledAuthMessageView::SetAuthDisabledMessage(
   LockScreenMessage message = GetLockScreenMessage(
       auth_disabled_data.reason, auth_disabled_data.auth_reenabled_time,
       auth_disabled_data.device_used_time, use_24hour_clock);
-  SetPreferredSize(gfx::Size(kTimeWidthDp, kHeightDp));
+  preferred_width_ = kTimeWidthDp;
   message_icon_->SetVisible(true);
   CHECK(!message.icon.IsEmpty());
   message_icon_->SetImage(message.icon);
@@ -208,7 +213,7 @@ void DisabledAuthMessageView::SetAuthDisabledMessage(
 void DisabledAuthMessageView::SetAuthDisabledMessage(
     const std::u16string& title,
     const std::u16string& content) {
-  SetPreferredSize(gfx::Size(kMultiprofileWidthDp, kHeightDp));
+  preferred_width_ = kMultiprofileWidthDp;
   message_icon_->SetVisible(false);
   message_title_->SetText(title);
   message_contents_->SetText(content);
@@ -218,17 +223,22 @@ void DisabledAuthMessageView::RequestFocus() {
   message_title_->RequestFocus();
 }
 
+gfx::Size DisabledAuthMessageView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  int height =
+      GetLayoutManager()->GetPreferredHeightForWidth(this, preferred_width_);
+  return gfx::Size(preferred_width_, height);
+}
+
 void DisabledAuthMessageView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   // Any view which claims to be focusable is expected to have an accessible
-  // name and accessible role so that screen readers know what to present to
-  // the user when it gains focus. In the case of this particular view,
-  // `RequestFocus` gives focus to the `message_title_` label. As a result,
-  // this view is not end-user focusable. However, its official focusability
-  // will cause the accessibility paint checks to fail. Give this view a
-  // container role. If the `message_title_` has text, set the accessible
+  // name so that screen readers know what to present to the user when it gains
+  // focus. In the case of this particular view, `RequestFocus` gives focus to
+  // the `message_title_` label. As a result, this view is not end-user
+  // focusable. However, its official focusability will cause the accessibility
+  // paint checks to fail. If the `message_title_` has text, set the accessible
   // name to that text; otherwise set the name explicitly empty to prevent
   // the paint check from failing during tests.
-  node_data->role = ax::mojom::Role::kPane;
   if (message_title_->GetText().empty()) {
     node_data->SetNameExplicitlyEmpty();
   } else {

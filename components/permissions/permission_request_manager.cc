@@ -249,7 +249,7 @@ void PermissionRequestManager::AddRequest(
 
   if (should_auto_approve_request) {
     if (should_auto_approve_request == PermissionAction::GRANTED) {
-      request->PermissionGranted(/*is_one_time=*/false);
+      request->PermissionGranted(/*is_one_time=*/true);
     }
     request->RequestFinished();
     return;
@@ -763,7 +763,7 @@ void PermissionRequestManager::OpenHelpCenterLink(const ui::Event& event) {
           /*navigation_handle_callback=*/{});
       break;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 

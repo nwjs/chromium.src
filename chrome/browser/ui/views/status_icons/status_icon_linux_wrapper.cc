@@ -132,7 +132,7 @@ void StatusIconLinuxWrapper::OnImplInitializationFailed() {
       menu_model_ = nullptr;
       return;
     case kTypeNone:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 

@@ -358,7 +358,8 @@ void MakeSuperPageExtentEntriesShared(PartitionRoot* root,
   }
 
   // For normal-bucketed.
-  for (internal::PartitionSuperPageExtentEntry* extent = root->first_extent;
+  for (const internal::ReadOnlyPartitionSuperPageExtentEntry* extent =
+           root->first_extent;
        extent != nullptr; extent = extent->next) {
     //  The page which contains the extent is in-used and shared mapping.
     uintptr_t super_page = SuperPagesBeginFromExtent(extent);
@@ -371,7 +372,8 @@ void MakeSuperPageExtentEntriesShared(PartitionRoot* root,
   }
 
   // For direct-mapped.
-  for (const internal::PartitionDirectMapExtent* extent = root->direct_map_list;
+  for (const internal::ReadOnlyPartitionDirectMapExtent* extent =
+           root->direct_map_list;
        extent != nullptr; extent = extent->next_extent) {
     internal::PartitionAddressSpace::MapMetadata(
         reinterpret_cast<uintptr_t>(extent) & internal::kSuperPageBaseMask,
@@ -1144,6 +1146,9 @@ void PartitionRoot::Init(PartitionOptions opts) {
     PA_CHECK(!settings.memory_tagging_enabled_ ||
              !settings.use_configurable_pool);
 
+    settings.use_random_memory_tagging_ =
+        opts.memory_tagging.random_memory_tagging == PartitionOptions::kEnabled;
+
     settings.memory_tagging_reporting_mode_ =
         opts.memory_tagging.reporting_mode;
 #endif  // PA_BUILDFLAG(HAS_MEMORY_TAGGING)
@@ -1182,8 +1187,6 @@ void PartitionRoot::Init(PartitionOptions opts) {
     }
 #endif  // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
 #endif  // PA_CONFIG(EXTRAS_REQUIRED)
-
-    settings.quarantine_mode = QuarantineMode::kAlwaysDisabled;
 
     // We mark the sentinel slot span as free to make sure it is skipped by our
     // logic to find a new active slot span.
@@ -1325,7 +1328,7 @@ bool PartitionRoot::TryReallocInPlaceForDirectMap(
       internal::IsManagedByDirectMap(reinterpret_cast<uintptr_t>(slot_span)));
 
   size_t raw_size = AdjustSizeForExtrasAdd(requested_size);
-  auto* extent = DirectMapExtent::FromSlotSpanMetadata(slot_span);
+  auto* extent = ReadOnlyDirectMapExtent::FromSlotSpanMetadata(slot_span);
   size_t current_reservation_size = extent->reservation_size;
   // Calculate the new reservation size the way PartitionDirectMap() would, but
   // skip the alignment, because this call isn't requesting it.
@@ -1458,7 +1461,7 @@ bool PartitionRoot::TryReallocInPlaceForNormalBuckets(
   if (slot_span->CanStoreRawSize()) {
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) && PA_BUILDFLAG(DCHECKS_ARE_ON)
     internal::InSlotMetadata* old_ref_count = nullptr;
-    if (PA_LIKELY(brp_enabled())) {
+    if (brp_enabled()) [[likely]] {
       old_ref_count = InSlotMetadataPointerFromSlotStartAndSize(
           slot_start, slot_span->bucket->slot_size);
     }
@@ -1467,7 +1470,7 @@ bool PartitionRoot::TryReallocInPlaceForNormalBuckets(
     size_t new_raw_size = AdjustSizeForExtrasAdd(new_size);
     slot_span->SetRawSize(new_raw_size);
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) && PA_BUILDFLAG(DCHECKS_ARE_ON)
-    if (PA_LIKELY(brp_enabled())) {
+    if (brp_enabled()) [[likely]] {
       internal::InSlotMetadata* new_ref_count =
           InSlotMetadataPointerFromSlotStartAndSize(
               slot_start, slot_span->bucket->slot_size);
@@ -1487,7 +1490,7 @@ bool PartitionRoot::TryReallocInPlaceForNormalBuckets(
   // place. When we cannot do it in place (`return false` above), the allocator
   // falls back to free()+malloc(), so this is consistent.
   ThreadCache* thread_cache = GetOrCreateThreadCache();
-  if (PA_LIKELY(ThreadCache::IsValid(thread_cache))) {
+  if (ThreadCache::IsValid(thread_cache)) [[likely]] {
     thread_cache->RecordDeallocation(current_usable_size);
     thread_cache->RecordAllocation(GetSlotUsableSize(slot_span));
   }
@@ -1681,7 +1684,7 @@ void PartitionRoot::DumpStats(const char* partition_name,
       }
     }
 
-    for (DirectMapExtent* extent = direct_map_list;
+    for (const ReadOnlyDirectMapExtent* extent = direct_map_list;
          extent && num_direct_mapped_allocations < kMaxReportableDirectMaps;
          extent = extent->next_extent, ++num_direct_mapped_allocations) {
       PA_DCHECK(!extent->next_extent ||
@@ -1899,7 +1902,7 @@ PA_NOINLINE void PartitionRoot::QuarantineForBrp(
     void* object) {
   auto usable_size = GetSlotUsableSize(slot_span);
   auto hook = PartitionAllocHooks::GetQuarantineOverrideHook();
-  if (PA_UNLIKELY(hook)) {
+  if (hook) [[unlikely]] {
     hook(object, usable_size);
   } else {
     internal::SecureMemset(object, internal::kQuarantinedByte, usable_size);

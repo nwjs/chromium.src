@@ -13,6 +13,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_switches.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
@@ -34,6 +35,7 @@
 #import "ios/chrome/browser/ui/ntp/metrics/new_tab_page_metrics_recorder.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_constants.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_controller_delegate.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_header_commands.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_header_view.h"
@@ -91,13 +93,17 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
 
 @implementation NewTabPageHeaderViewController {
   BOOL _useNewBadgeForLensButton;
+  BOOL _useNewBadgeForCustomizationMenu;
+  BOOL _hasAccountError;
 }
 
-- (instancetype)initWithUseNewBadgeForLensButton:
-    (BOOL)useNewBadgeForLensButton {
+- (instancetype)initWithUseNewBadgeForLensButton:(BOOL)useNewBadgeForLensButton
+                 useNewBadgeForCustomizationMenu:
+                     (BOOL)useNewBadgeForCustomizationMenu {
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
     _useNewBadgeForLensButton = useNewBadgeForLensButton;
+    _useNewBadgeForCustomizationMenu = useNewBadgeForCustomizationMenu;
   }
   return self;
 }
@@ -339,6 +345,11 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
                    completion:nil];
 }
 
+- (void)hideBadgeOnCustomizationMenu {
+  CHECK(IsHomeCustomizationEnabled());
+  [self.headerView hideBadgeOnCustomizationMenu];
+}
+
 #pragma mark - Private
 
 // Initialize and add a search field tap target and a voice search button.
@@ -482,22 +493,19 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
           colorWithAlphaComponent:0.8];
   buttonConfiguration.baseForegroundColor =
       [UIColor colorNamed:kTextSecondaryColor];
-  customizationMenuButton.layer.cornerRadius =
-      ntp_home::kCustomizationMenuButtonCornerRadius;
-  customizationMenuButton.pointerInteractionEnabled = YES;
-  customizationMenuButton.clipsToBounds = YES;
 
   customizationMenuButton.accessibilityIdentifier =
       kNTPCustomizationMenuButtonIdentifier;
-
-  // TODO(crbug.com/350990359): Add a11y label.
+  customizationMenuButton.accessibilityLabel =
+      l10n_util::GetNSString(IDS_IOS_HOME_CUSTOMIZATION_ACCESSIBILITY_LABEL);
 
   customizationMenuButton.configuration = buttonConfiguration;
   [customizationMenuButton addTarget:self.commandHandler
                               action:@selector(customizationMenuWasTapped:)
                     forControlEvents:UIControlEventTouchUpInside];
 
-  [self.headerView setCustomizationMenuView:customizationMenuButton];
+  [self.headerView setCustomizationMenuButton:customizationMenuButton
+                                 withNewBadge:_useNewBadgeForCustomizationMenu];
 }
 
 // Configures `identityDiscButton` with the current state of
@@ -525,6 +533,7 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
           initWithEntryPoint:LensEntrypoint::NewTabPage
            presentationStyle:LensInputSelectionPresentationStyle::SlideFromRight
       presentationCompletion:nil];
+  [self.customizationDelegate dismissCustomizationMenu];
   [self.dispatcher openLensInputSelection:command];
 }
 
@@ -535,6 +544,7 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
   UIView* voiceSearchButton = base::apple::ObjCCastStrict<UIView>(sender);
   [self.layoutGuideCenter referenceView:voiceSearchButton
                               underName:kVoiceSearchButtonGuide];
+  [self.customizationDelegate dismissCustomizationMenu];
   [self.dispatcher startVoiceSearch];
 }
 
@@ -739,6 +749,21 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
   [self updateVoiceSearchDisplay];
 }
 
+- (void)updateADPBadgeWithErrorFound:(BOOL)hasAccountError {
+  CHECK(base::FeatureList::IsEnabled(kIdentityDiscAccountMenu));
+
+  if (hasAccountError == _hasAccountError) {
+    return;
+  }
+
+  _hasAccountError = hasAccountError;
+  if (_hasAccountError) {
+    [self.headerView setIdentityDiscErrorBadge];
+  } else {
+    [self.headerView removeIdentityDiscErrorBadge];
+  }
+}
+
 #pragma mark - UserAccountImageUpdateDelegate
 
 - (void)setSignedOutAccountImage {
@@ -747,6 +772,7 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
 
   self.identityDiscAccessibilityLabel = l10n_util::GetNSString(
       IDS_IOS_IDENTITY_DISC_SIGNED_OUT_ACCESSIBILITY_LABEL);
+
   // `self.identityDiscButton` should not be updated if the view has not been
   // created yet.
   if (self.identityDiscButton) {
@@ -811,6 +837,12 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
       beamWithPreferredLength:interaction.view.bounds.size.height / 2
                          axis:UIAxisVertical];
   return [UIPointerStyle styleWithEffect:effect shape:shape];
+}
+
+#pragma mark - Getters
+
+- (UIButton*)customizationMenuButton {
+  return [self.headerView customizationMenuButton];
 }
 
 @end

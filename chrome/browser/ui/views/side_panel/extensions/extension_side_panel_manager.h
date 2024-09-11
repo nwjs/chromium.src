@@ -45,10 +45,14 @@ class ExtensionSidePanelManager : public SidePanelRegistryObserver,
       delete;
   ~ExtensionSidePanelManager() override;
 
-  static ExtensionSidePanelManager* GetOrCreateForBrowser(Browser* browser);
+  static void CreateForBrowser(Browser* browser,
+                               SidePanelRegistry* window_registry);
+  static ExtensionSidePanelManager* GetForBrowserForTesting(Browser* browser);
 
-  static ExtensionSidePanelManager* GetOrCreateForWebContents(
-      Profile* profile,
+  static void CreateForTab(Profile* profile,
+                           content::WebContents* web_contents,
+                           SidePanelRegistry* tab_registry);
+  static ExtensionSidePanelManager* GetForTabForTesting(
       content::WebContents* web_contents);
 
   ExtensionSidePanelCoordinator* GetExtensionCoordinatorForTesting(
@@ -69,6 +73,9 @@ class ExtensionSidePanelManager : public SidePanelRegistryObserver,
 
   // SidePanelRegistryObserver implementation.
   void OnRegistryDestroying(SidePanelRegistry* registry) override;
+
+  // Called when the tab is about to be discarded.
+  void WillDiscard();
 
   // ProfileObserver implementation.
   // OTR profiles for a browser window can be destroyed before the browser's

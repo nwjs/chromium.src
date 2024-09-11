@@ -100,10 +100,14 @@ static_library("devtools") {
     "//build/config:precompiled_headers",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  public_deps = [
+    "//chrome/browser:browser_public_dependencies",
+    "//chrome/browser:primitives",
+  ]
 
   deps = [
     "//base",
+    "//chrome/browser/search",
     "//chrome/browser/search_engines",
     "//chrome/browser/sync",
 
@@ -144,10 +148,12 @@ static_library("devtools") {
       "//chrome/browser/apps/app_service:constants",
       "//chrome/browser/media/router:media_router_feature",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/task_manager",
       "//chrome/browser/themes",
       "//chrome/browser/ui/exclusive_access",
       "//chrome/browser/web_applications",
       "//chrome/common",
+      "//components/flags_ui",
       "//components/guest_view/browser",
       "//components/infobars/content",
       "//components/infobars/core",

@@ -237,12 +237,7 @@ class ReplaceTrackRequest : public RTCVoidRequest {
   }
 
   void RequestFailed(const webrtc::RTCError& error) override {
-    ScriptState::Scope scope(resolver_->GetScriptState());
-    ExceptionState exception_state(resolver_->GetScriptState()->GetIsolate(),
-                                   ExceptionContextType::kOperationInvoke,
-                                   "RTCRtpSender", "replaceTrack");
-    ThrowExceptionFromRTCError(error, exception_state);
-    resolver_->Reject(exception_state);
+    RejectPromiseFromRTCError(error, resolver_);
   }
 
   void Trace(Visitor* visitor) const override {
@@ -271,12 +266,7 @@ class SetParametersRequest : public RTCVoidRequest {
 
   void RequestFailed(const webrtc::RTCError& error) override {
     sender_->ClearLastReturnedParameters();
-    ScriptState::Scope scope(resolver_->GetScriptState());
-    ExceptionState exception_state(resolver_->GetScriptState()->GetIsolate(),
-                                   ExceptionContextType::kOperationInvoke,
-                                   "RTCRtpSender", "setParameters");
-    ThrowExceptionFromRTCError(error, exception_state);
-    resolver_->Reject(exception_state);
+    RejectPromiseFromRTCError(error, resolver_);
   }
 
   void Trace(Visitor* visitor) const override {
@@ -692,10 +682,11 @@ RTCDtlsTransport* RTCRtpSender::rtcpTransport() {
 
 ScriptPromise<IDLUndefined> RTCRtpSender::replaceTrack(
     ScriptState* script_state,
-    MediaStreamTrack* with_track) {
+    MediaStreamTrack* with_track,
+    ExceptionState& exception_state) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
+  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
+      script_state, exception_state.GetContext());
   auto promise = resolver->Promise();
   if (pc_->IsClosed()) {
     resolver->RejectWithDOMException(DOMExceptionCode::kInvalidStateError,
@@ -704,11 +695,7 @@ ScriptPromise<IDLUndefined> RTCRtpSender::replaceTrack(
   }
 
   if (with_track && kind_ != with_track->kind()) {
-    ExceptionState exception_state(script_state->GetIsolate(),
-                                   ExceptionContextType::kOperationInvoke,
-                                   "RTCRtpSender", "replaceTrack");
-    exception_state.ThrowTypeError("Track kind does not match Sender kind");
-    resolver->Reject(exception_state);
+    resolver->RejectWithTypeError("Track kind does not match Sender kind");
     return promise;
   }
 
@@ -822,10 +809,11 @@ RTCRtpSendParameters* RTCRtpSender::getParameters() {
 ScriptPromise<IDLUndefined> RTCRtpSender::setParameters(
     ScriptState* script_state,
     const RTCRtpSendParameters* parameters,
-    const RTCSetParameterOptions* options) {
+    const RTCSetParameterOptions* options,
+    ExceptionState& exception_state) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
+  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
+      script_state, exception_state.GetContext());
   auto promise = resolver->Promise();
 
   if (!last_returned_parameters_) {
@@ -861,9 +849,9 @@ ScriptPromise<IDLUndefined> RTCRtpSender::setParameters(
     const auto& encoding_options = options->encodingOptions();
     if (!encoding_options.empty()) {
       if (encoding_options.size() != encodings.size()) {
-        resolver->Reject(MakeGarbageCollected<DOMException>(
+        resolver->RejectWithDOMException(
             DOMExceptionCode::kInvalidModificationError,
-            "encodingOptions size must match number of encodings."));
+            "encodingOptions size must match number of encodings.");
       }
       for (wtf_size_t i = 0; i < encoding_options.size(); i++) {
         encodings[i].request_key_frame = encoding_options[i]->keyFrame();
@@ -1012,6 +1000,7 @@ void RTCRtpSender::Trace(Visitor* visitor) const {
   visitor->Trace(last_returned_parameters_);
   visitor->Trace(transceiver_);
   visitor->Trace(encoded_streams_);
+  visitor->Trace(transform_);
   ScriptWrappable::Trace(visitor);
   ExecutionContextLifecycleObserver::Trace(visitor);
 }
@@ -1087,7 +1076,7 @@ RTCRtpCapabilities* RTCRtpSender::getCapabilities(ScriptState* state,
 
 void RTCRtpSender::MaybeShortCircuitEncodedStreams() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  if (!encoded_streams_) {
+  if (!encoded_streams_ && !transform_) {
     transform_shortcircuited_ = true;
     LogMessage("Starting short circuiting of encoded transform");
     if (kind_ == "video") {
@@ -1361,6 +1350,43 @@ RTCInsertableStreams* RTCRtpSender::CreateEncodedVideoStreams(
 
   encoded_streams_->setWritable(writable_stream);
   return encoded_streams_;
+}
+
+void RTCRtpSender::setTransform(RTCRtpScriptTransform* transform,
+                                ExceptionState& exception_state) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (transform_ == transform) {
+    return;
+  }
+  if (!transform) {
+    transform_->Detach();
+    transform_ = nullptr;
+    return;
+  }
+  if (transform->IsAttached()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Transform is already in use");
+    return;
+  }
+  if (transform_) {
+    transform_->Detach();
+  }
+  transform_ = transform;
+  transform_->Attach();
+  if (kind_ == "audio") {
+    transform_->CreateAudioUnderlyingSourceAndSink(
+        WTF::CrossThreadBindOnce(
+            &RTCRtpSender::UnregisterEncodedAudioStreamCallback,
+            WrapCrossThreadWeakPersistent(this)),
+        encoded_audio_transformer_);
+    return;
+  }
+  CHECK_EQ(kind_, "video");
+  transform_->CreateVideoUnderlyingSourceAndSink(
+      WTF::CrossThreadBindOnce(
+          &RTCRtpSender::UnregisterEncodedVideoStreamCallback,
+          WrapCrossThreadWeakPersistent(this)),
+      encoded_video_transformer_);
 }
 
 void RTCRtpSender::OnVideoFrameFromEncoder(

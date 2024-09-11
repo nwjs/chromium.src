@@ -74,7 +74,7 @@ class VerifiedContents {
 
   // Returns the base64url-decoded "payload" field from the |contents|, if
   // the signature was valid.
-  bool GetPayload(std::string_view contents, std::string* payload, const char* manifest = nullptr);
+  bool GetPayload(std::string_view contents, std::string* payload);
 
   // The |protected_value| and |payload| arguments should be base64url encoded
   // strings, and |signature_bytes| should be a byte array. See comments in the

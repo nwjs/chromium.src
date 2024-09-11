@@ -106,11 +106,13 @@ source_set("browser_tests") {
       "chromeos/ash_common/cr_elements/ash_common_cr_elements_browsertest.cc",
       "chromeos/ash_common/sea_pen/sea_pen_browsertest.cc",
       "chromeos/ash_common/webui_resource_browsertest.cc",
+      "chromeos/boca_ui/boca_app_browsertest.cc",
       "chromeos/diagnostics/diagnostics_browsertest.cc",
       "chromeos/edu_coexistence/edu_coexistence_browsertest.cc",
       "chromeos/enterprise_reporting/enterprise_reporting_browsertest.cc",
       "chromeos/extended_updates/extended_updates_browsertest.cc",
       "chromeos/firmware_update/firmware_update_browsertest.cc",
+      "chromeos/healthd_internals/healthd_internals_browsertest.cc",
       "chromeos/inline_login/inline_login_browsertest.cc",
       "chromeos/oobe/security_token_pin_browsertest.cc",
       "chromeos/os_feedback_ui/os_feedback_browsertest.cc",
@@ -190,6 +192,7 @@ source_set("browser_tests") {
     "//components/history_clusters/core",
     "//components/history_clusters/history_clusters_internals/webui:constants",
     "//components/history_embeddings",
+    "//components/lens:enterprise_policy",
     "//components/lens:features",
     "//components/optimization_guide/core",
     "//components/optimization_guide/optimization_guide_internals/webui:url_constants",
@@ -211,7 +214,6 @@ source_set("browser_tests") {
   if (is_chromeos_ash) {
     deps += [
       "//chrome/browser/ash",
-      "//chrome/browser/ash:test_support",
       "//chrome/browser/ash/crostini:test_support",
       "//chrome/browser/ash/extended_updates/test:test_support",
       "//chrome/browser/ash/login/ui",
@@ -219,6 +221,8 @@ source_set("browser_tests") {
       "//chrome/browser/ash/system_web_apps/apps/personalization_app",
       "//chrome/browser/ash/system_web_apps/apps/personalization_app:test_support",
       "//chrome/browser/nearby_sharing/common",
+      "//chrome/browser/ui/webui/ash/extended_updates",
+      "//chrome/browser/ui/webui/ash/login",
       "//chromeos/ash/components/standalone_browser",
       "//components/manta",
     ]
@@ -343,6 +347,7 @@ webui_ts_library("build_ts") {
     "mocked_metrics_reporter.ts",
     "mock_timer_test.ts",
     "mock_timer.ts",
+    "mouse_mock_interactions.ts",
     "polymer_test_util.ts",
     "test_api.ts",
     "test_browser_proxy.ts",
@@ -370,6 +375,11 @@ webui_ts_library("build_ts") {
     "//tools/typescript/definitions/metrics_private.d.ts",
     "//tools/typescript/definitions/settings_private.d.ts",
   ]
+
+  path_mappings =
+      [ "//webui-test/chai.js|" +
+        rebase_path("//third_party/node/node_modules/@types/chai/index.d.ts",
+                    target_gen_dir) ]
 }
 
 generate_grd("build_grd") {
@@ -561,6 +571,7 @@ generate_grd("build_grd") {
       "chromeos/ash_common:build_grdp",
       "chromeos/ash_common/cr_elements:build_grdp",
       "chromeos/ash_common/sea_pen:build_grdp",
+      "chromeos/boca_ui:build_grdp",
       "chromeos/borealis_installer:build_grdp",
       "chromeos/cloud_upload:build_grdp",
       "chromeos/diagnostics:build_grdp",
@@ -569,6 +580,7 @@ generate_grd("build_grd") {
       "chromeos/enterprise_reporting:build_grdp",
       "chromeos/extended_updates:build_grdp",
       "chromeos/firmware_update:build_grdp",
+      "chromeos/healthd_internals:build_grdp",
       "chromeos/inline_login:build_grdp",
       "chromeos/manage_mirrorsync:build_grdp",
       "chromeos/office_fallback:build_grdp",
@@ -593,6 +605,7 @@ generate_grd("build_grd") {
       "$target_gen_dir/chromeos/ash_common/resources.grdp",
       "$target_gen_dir/chromeos/ash_common/cr_elements/resources.grdp",
       "$target_gen_dir/chromeos/ash_common/sea_pen/resources.grdp",
+      "$target_gen_dir/chromeos/boca_ui/resources.grdp",
       "$target_gen_dir/chromeos/borealis_installer/resources.grdp",
       "$target_gen_dir/chromeos/cloud_upload/resources.grdp",
       "$target_gen_dir/chromeos/diagnostics/resources.grdp",
@@ -601,6 +614,7 @@ generate_grd("build_grd") {
       "$target_gen_dir/chromeos/enterprise_reporting/resources.grdp",
       "$target_gen_dir/chromeos/extended_updates/resources.grdp",
       "$target_gen_dir/chromeos/firmware_update/resources.grdp",
+      "$target_gen_dir/chromeos/healthd_internals/resources.grdp",
       "$target_gen_dir/chromeos/inline_login/resources.grdp",
       "$target_gen_dir/chromeos/manage_mirrorsync/resources.grdp",
       "$target_gen_dir/chromeos/office_fallback/resources.grdp",

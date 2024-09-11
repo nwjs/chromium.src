@@ -29,12 +29,12 @@ unzip -l foo.apks
 ```
 
 *** note
-Adding new features vis feature splits is highly encouraged when it makes sense
+Adding new features via feature splits is highly encouraged when it makes sense
 to do so:
- * Has a non-trivial amount of Dex (>50kb)
+ * Has a non-trivial amount of Java code (after optimization). E.g. >150kb
  * Not needed on startup
  * Has a small integration surface (calls into it must be done with reflection)
- * Not used by WebView (WebView does not support DFMs)
+ * Not used by WebView
 ***
 
 [android_build_instructions.md#multiple-chrome-targets]: android_build_instructions.md#multiple-chrome-targets
@@ -238,8 +238,8 @@ $ adb shell dumpsys package org.chromium.chrome | grep splits
 *** note
 The wrapper script's `install` command does approximately:
 ```sh
-java -jar third_party/android_build_tools/bundletool/bundletool.jar build-apks --output tmp.apks ...
-java -jar third_party/android_build_tools/bundletool/bundletool.jar install-apks --apks tmp.apks
+java -jar third_party/android_build_tools/bundletool/cipd/bundletool.jar build-apks --output tmp.apks ...
+java -jar third_party/android_build_tools/bundletool/cipd/bundletool.jar install-apks --apks tmp.apks
 ```
 
 The `install-apks` command uses `adb install-multiple` under-the-hood.

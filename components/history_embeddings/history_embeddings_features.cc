@@ -75,6 +75,10 @@ const base::FeatureParam<bool> kUseMlAnswerer(&kHistoryEmbeddings,
                                               "UseMlAnswerer",
                                               false);
 
+const base::FeatureParam<double> kMlAnswererMinScore(&kHistoryEmbeddings,
+                                                     "MlAnswererMinScore",
+                                                     0.5);
+
 const base::FeatureParam<bool> kUseMlEmbedder(&kHistoryEmbeddings,
                                               "UseMlEmbedder",
                                               true);
@@ -94,6 +98,9 @@ const base::FeatureParam<int> kScheduledEmbeddingsMax(&kHistoryEmbeddings,
 const base::FeatureParam<bool> kSendQualityLog(&kHistoryEmbeddings,
                                                "SendQualityLog",
                                                false);
+const base::FeatureParam<bool> kSendQualityLogV2(&kHistoryEmbeddings,
+                                                 "SendQualityLogV2",
+                                                 false);
 
 const base::FeatureParam<int> kEmbedderNumThreads(&kHistoryEmbeddings,
                                                   "EmbeddingsNumThreads",
@@ -131,6 +138,10 @@ const base::FeatureParam<base::TimeDelta> kEmbeddingsServiceTimeout(
 const base::FeatureParam<std::string> kFilterTerms(&kHistoryEmbeddings,
                                                    "FilterTerms",
                                                    "");
+
+const base::FeatureParam<std::string> kFilterHashes(&kHistoryEmbeddings,
+                                                    "FilterHashes",
+                                                    "");
 
 bool IsHistoryEmbeddingsEnabled() {
 #if BUILDFLAG(IS_CHROMEOS)

@@ -2,12 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
 
 #include <string>
 #include <utility>
 
 #include "base/feature_list.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -38,6 +44,14 @@ HistoryClustersSidePanelUIConfig::HistoryClustersSidePanelUIConfig()
 bool HistoryClustersSidePanelUIConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
   return base::FeatureList::IsEnabled(history_clusters::kSidePanelJourneys);
+}
+
+bool HistoryClustersSidePanelUIConfig::IsPreloadable() {
+  return true;
+}
+
+std::optional<int> HistoryClustersSidePanelUIConfig::GetCommandIdForTesting() {
+  return IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL;
 }
 
 HistoryClustersSidePanelUI::HistoryClustersSidePanelUI(content::WebUI* web_ui)
@@ -139,4 +153,14 @@ void HistoryClustersSidePanelUI::DidFinishNavigation(
 
   logger->set_navigation_id(navigation_handle->GetNavigationId());
   logger->set_initial_state(metrics_initial_state_);
+}
+
+void HistoryClustersSidePanelUI::OnVisibilityChanged(
+    content::Visibility visibility) {
+  if (visibility != content::Visibility::VISIBLE) {
+    return;
+  }
+  history_clusters::HistoryClustersMetricsLogger::GetOrCreateForPage(
+      web_ui()->GetWebContents()->GetPrimaryPage())
+      ->WasShown();
 }

@@ -38,8 +38,7 @@
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_keyed_service.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
@@ -344,16 +343,6 @@ base::expected<base::Value::Dict, std::string> ExtensionTabUtil::OpenTab(
           function->extension(), function->source_context_type(),
           navigate_params.navigated_or_inserted_contents);
 
-  if (tab_strip) {
-    std::optional<tab_groups::TabGroupId> group =
-        tab_strip->GetTabGroupForTab(new_index);
-    if (group.has_value()) {
-      if (tab_groups_util::IsGroupSaved(group.value(), tab_strip)) {
-        return base::unexpected(tabs_constants::kSavedTabGroupNotEditableError);
-      }
-    }
-  }
-
   // Return data about the newly created tab.
   return ExtensionTabUtil::CreateTabObject(
              navigate_params.navigated_or_inserted_contents, scrub_tab_behavior,
@@ -456,6 +445,8 @@ api::tabs::Tab ExtensionTabUtil::CreateTabObject(
   tab_object.index = tab_index;
   tab_object.window_id = GetWindowIdOfTab(contents);
   tab_object.status = GetLoadingStatus(contents);
+  tab_object.last_accessed =
+      contents->GetLastActiveTime().InMillisecondsFSinceUnixEpoch();
   tab_object.nwstatus = GetLoadingStatus(contents);
   tab_object.active = tab_strip && tab_index == tab_strip->active_index();
   tab_object.selected = tab_strip && tab_index == tab_strip->active_index();
@@ -468,13 +459,6 @@ api::tabs::Tab ExtensionTabUtil::CreateTabObject(
         tab_strip->GetTabGroupForTab(tab_index);
     if (group.has_value()) {
       tab_object.group_id = tab_groups_util::GetGroupId(group.value());
-    }
-
-    std::optional<base::Time> last_accessed =
-        tab_strip->GetLastAccessed(tab_index);
-
-    if (last_accessed.has_value()) {
-      tab_object.last_accessed = last_accessed->InMillisecondsFSinceUnixEpoch();
     }
   }
 
@@ -607,7 +591,7 @@ api::tabs::MutedInfo ExtensionTabUtil::CreateMutedInfo(
   DCHECK(contents);
   api::tabs::MutedInfo info;
   info.muted = contents->IsAudioMuted();
-  switch (chrome::GetTabAudioMutedReason(contents)) {
+  switch (GetTabAudioMutedReason(contents)) {
     case TabMutedReason::NONE:
       break;
     case TabMutedReason::AUDIO_INDICATOR:
@@ -1194,12 +1178,12 @@ bool ExtensionTabUtil::TabIsInSavedTabGroup(content::WebContents* contents,
     tab_strip_model = browser->tab_strip_model();
   }
 
-  tab_groups::SavedTabGroupKeyedService* saved_tab_group_service =
-      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
+  tab_groups::TabGroupSyncService* tab_group_service =
+      tab_groups::SavedTabGroupUtils::GetServiceForProfile(
           tab_strip_model->profile());
 
   // If the service failed to start, then there are no saved tab groups.
-  if (!saved_tab_group_service) {
+  if (!tab_group_service) {
     return false;
   }
 
@@ -1211,7 +1195,7 @@ bool ExtensionTabUtil::TabIsInSavedTabGroup(content::WebContents* contents,
     return false;
   }
 
-  return saved_tab_group_service->model()->Contains(tab_group_id.value());
+  return tab_group_service->GetGroup(tab_group_id.value()).has_value();
 }
 
 }  // namespace extensions

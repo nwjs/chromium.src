@@ -55,6 +55,7 @@ class VcBackgroundUISeaPenProviderImpl
 
   void SelectRecentSeaPenImageInternal(
       uint32_t id,
+      bool preview_mode,
       SelectRecentSeaPenImageCallback callback) override;
 
   void GetRecentSeaPenImageIdsInternal(
@@ -72,6 +73,7 @@ class VcBackgroundUISeaPenProviderImpl
   void OnFetchWallpaperDoneInternal(
       const SeaPenImage& sea_pen_image,
       const ash::personalization_app::mojom::SeaPenQueryPtr& query,
+      bool preview_mode,
       base::OnceCallback<void(bool success)> callback) override;
 
   base::ScopedObservation<media::CameraHalDispatcherImpl,

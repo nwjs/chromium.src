@@ -27,7 +27,7 @@
 @property(nonatomic, strong) UIView* identityDiscView;
 
 // The entrypoint for the Home customization menu.
-@property(nonatomic, strong) UIView* customizationMenuView;
+@property(nonatomic, strong) UIButton* customizationMenuButton;
 
 // Voice search button.
 @property(nonatomic, strong, readonly) UIButton* voiceSearchButton;
@@ -92,6 +92,20 @@
 
 // Shows the buttons within the fakebox.
 - (void)showFakeboxButtons;
+
+// Shows account disc particle error badge.
+- (void)setIdentityDiscErrorBadge;
+
+// Removes account disc particle error badge.
+- (void)removeIdentityDiscErrorBadge;
+
+// Sets the Home customization menu entrypoint with a conditional "new feature"
+// badge.
+- (void)setCustomizationMenuButton:(UIButton*)customizationMenuButton
+                      withNewBadge:(BOOL)hasNewBadge;
+
+// Hides the new feature badge on the Home customization menu's entrypoint.
+- (void)hideBadgeOnCustomizationMenu;
 
 @end
 

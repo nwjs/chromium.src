@@ -11,6 +11,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/scoped_observation_traits.h"
+#include "base/uuid.h"
 #include "components/saved_tab_groups/saved_tab_group.h"
 #include "components/saved_tab_groups/saved_tab_group_model_observer.h"
 #include "components/saved_tab_groups/saved_tab_group_tab.h"
@@ -18,7 +19,7 @@
 class PrefService;
 
 namespace syncer {
-class ModelTypeControllerDelegate;
+class DataTypeControllerDelegate;
 }  // namespace syncer
 
 namespace tab_groups {
@@ -47,9 +48,9 @@ class TabGroupSyncBridgeMediator : public SavedTabGroupModelObserver {
   ~TabGroupSyncBridgeMediator() override;
 
   // Delegates for sync initialization.
-  base::WeakPtr<syncer::ModelTypeControllerDelegate>
+  base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetSavedTabGroupControllerDelegate();
-  base::WeakPtr<syncer::ModelTypeControllerDelegate>
+  base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetSharedTabGroupControllerDelegate();
 
   // SavedTabGroupSyncBridge specific getters.
@@ -62,6 +63,8 @@ class TabGroupSyncBridgeMediator : public SavedTabGroupModelObserver {
   void SavedTabGroupUpdatedLocally(
       const base::Uuid& group_guid,
       const std::optional<base::Uuid>& tab_guid) override;
+  void SavedTabGroupSharedStateUpdatedLocally(
+      const base::Uuid& group_guid) override;
   void SavedTabGroupTabsReorderedLocally(const base::Uuid& group_guid) override;
   void SavedTabGroupReorderedLocally() override;
   void SavedTabGroupLocalIdChanged(const base::Uuid& group_guid) override;

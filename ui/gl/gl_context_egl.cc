@@ -154,6 +154,11 @@ bool GLContextEGL::InitializeImpl(GLSurface* compatible_surface,
   // contexts are compatible
   if (!gl_display_->ext->b_EGL_KHR_no_config_context) {
     config_ = compatible_surface->GetConfig();
+    if (!config_) {
+      LOG(ERROR) << "Failed to get config for surface "
+                 << compatible_surface->GetHandle();
+      return false;
+    }
     EGLint config_renderable_type = 0;
     if (!eglGetConfigAttrib(gl_display_->GetDisplay(), config_,
                             EGL_RENDERABLE_TYPE, &config_renderable_type)) {
@@ -285,10 +290,13 @@ bool GLContextEGL::InitializeImpl(GLSurface* compatible_surface,
 
   if (gl_display_->ext->b_EGL_ANGLE_create_context_client_arrays) {
     context_attributes.push_back(EGL_CONTEXT_CLIENT_ARRAYS_ENABLED_ANGLE);
-    context_attributes.push_back(
-        attribs.angle_create_context_client_arrays ? EGL_TRUE : EGL_FALSE);
+    context_attributes.push_back(attribs.allow_client_arrays ? EGL_TRUE
+                                                             : EGL_FALSE);
   } else {
-    DCHECK(!attribs.angle_create_context_client_arrays);
+    // Client arrays are allowed by default without
+    // ANGLE_create_context_client_arrays to control it. Verify that's the
+    // requested behavior.
+    DCHECK(attribs.allow_client_arrays);
   }
 
   if (gl_display_->ext->b_EGL_ANGLE_robust_resource_initialization ||

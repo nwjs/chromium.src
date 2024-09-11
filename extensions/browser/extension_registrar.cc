@@ -6,6 +6,7 @@
 
 #include "base/check_op.h"
 #include "base/containers/contains.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
@@ -31,12 +32,21 @@
 #include "extensions/browser/task_queue_util.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/crosapi/browser_util.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 using content::DevToolsAgentHost;
+
+namespace {
+
+BASE_FEATURE(kExtensionUpdatesImmediatelyUnregisterWorker,
+             "ExtensionUpdatesImmediatelyUnregisterWorker",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+}  // namespace
 
 namespace extensions {
 
@@ -80,7 +90,7 @@ void ExtensionRegistrar::AddExtension(
       // but that's caused problems. There are apparently times when this
       // happens that we aren't accounting for. We should track those down and
       // fix them, but it can be tricky.
-      NOTREACHED_IN_MIGRATION()
+      DUMP_WILL_BE_NOTREACHED()
           << "Attempted to downgrade extension." << "\nID: " << extension->id()
           << "\nOld Version: " << old->version()
           << "\nNew Version: " << extension->version()
@@ -534,27 +544,44 @@ void ExtensionRegistrar::UnregisterServiceWorkerWithRootScope(
   // Even though the unregistration process for a service worker is
   // asynchronous, we begin the process before the new extension is added, so
   // the old worker will be unregistered before the new one is registered.
-  context->UnregisterServiceWorker(
-      new_extension->url(),
-      blink::StorageKey::CreateFirstParty(new_extension->origin()),
-      base::BindOnce(&ExtensionRegistrar::NotifyServiceWorkerUnregistered,
-                     weak_factory_.GetWeakPtr(), new_extension->id()));
+  if (base::FeatureList::IsEnabled(
+          kExtensionUpdatesImmediatelyUnregisterWorker)) {
+    context->UnregisterServiceWorkerImmediately(
+        new_extension->url(),
+        blink::StorageKey::CreateFirstParty(new_extension->origin()),
+        base::BindOnce(&ExtensionRegistrar::NotifyServiceWorkerUnregistered,
+                       weak_factory_.GetWeakPtr(), new_extension->id()));
+  } else {
+    context->UnregisterServiceWorker(
+        new_extension->url(),
+        blink::StorageKey::CreateFirstParty(new_extension->origin()),
+        base::BindOnce(&ExtensionRegistrar::NotifyServiceWorkerUnregistered,
+                       weak_factory_.GetWeakPtr(), new_extension->id()));
+  }
 }
 
 void ExtensionRegistrar::NotifyServiceWorkerUnregistered(
     const ExtensionId& extension_id,
-    bool success) {
+    blink::ServiceWorkerStatusCode status) {
+  bool success = status == blink::ServiceWorkerStatusCode::kOk;
   base::UmaHistogramBoolean(
-      "Extensions.ServiceWorkerBackground.WorkerUnregistrationState", success);
+      "Extensions.ServiceWorkerBackground.WorkerUnregistrationState2", success);
   base::UmaHistogramBoolean(
       "Extensions.ServiceWorkerBackground.WorkerUnregistrationState_"
-      "AddExtension",
+      "AddExtension2",
       success);
 
   if (!success) {
     // TODO(crbug.com/346732739): Handle this case.
     LOG(ERROR) << "Failed to unregister service worker for extension "
                << extension_id;
+    base::UmaHistogramEnumeration(
+        "Extensions.ServiceWorkerBackground.WorkerUnregistrationFailureStatus3",
+        status);
+    base::UmaHistogramEnumeration(
+        "Extensions.ServiceWorkerBackground.WorkerUnregistrationFailureStatus_"
+        "AddExtension3",
+        status);
   }
 }
 
@@ -630,7 +657,8 @@ void ExtensionRegistrar::MaybeSpinUpLazyContext(const Extension* extension,
   context_id.GetTaskQueue()->AddPendingTask(context_id, base::DoNothing());
 }
 
-void ExtensionRegistrar::OnServiceWorkerRegistered(const WorkerId& worker_id) {
+void ExtensionRegistrar::OnStartedTrackingServiceWorkerInstance(
+    const WorkerId& worker_id) {
   // Just release the host. We only get here when the new worker has been
   // attached and resumed by the DevTools, and all we need in case of service
   // worker-based extensions is to keep the host around for the target

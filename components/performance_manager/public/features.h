@@ -27,12 +27,6 @@ BASE_DECLARE_FEATURE(kRunOnMainThreadSync);
 #define URGENT_DISCARDING_FROM_PERFORMANCE_MANAGER() true
 #endif
 
-// Enables urgent discarding of pages directly from PerformanceManager rather
-// than via TabManager on Ash Chrome.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-BASE_DECLARE_FEATURE(kAshUrgentDiscardingFromPerformanceManager);
-#endif
-
 // When enabled removes the rate limit on reporting tab processes to resourced.
 #if BUILDFLAG(IS_CHROMEOS)
 BASE_DECLARE_FEATURE(kUnthrottledTabProcessReporting);
@@ -57,16 +51,6 @@ BASE_DECLARE_FEATURE(kPerformanceControlsBatterySaverOptOutSurvey);
 // battery.
 extern const base::FeatureParam<base::TimeDelta>
     kPerformanceControlsBatterySurveyLookback;
-
-// Round 2.5 Performance Controls features
-
-// This enables the UI for adjusting the aggresiveness of memory saver mode.
-BASE_DECLARE_FEATURE(kMemorySaverModeAggressiveness);
-
-// Whether to enable showing improvements to the discarded tab indicator, namely
-// increasing the size of the favicon, as well as removing the transparency and
-// updating the color of the discard ring.
-BASE_DECLARE_FEATURE(kDiscardRingImprovements);
 
 // Round 3 Performance Controls features
 
@@ -169,6 +153,12 @@ extern const base::FeatureParam<double>
 // When enabled, browsing instances with high CPU usage in background are frozen
 // when Battery Saver is active. Depends on kCPUMeasurementInFreezingPolicy.
 BASE_DECLARE_FEATURE(kFreezingOnBatterySaver);
+
+// This is the similar to `kFreezingOnBatterySaver`, with some changes to
+// facilitate testing:
+// - Pretend that Battery Saver is active even if it's not.
+// - Pretend that all tabs have high CPU usage in background.
+BASE_DECLARE_FEATURE(kFreezingOnBatterySaverForTesting);
 
 // When enabled, Resource Attribution measurements will include contexts for
 // individual origins.

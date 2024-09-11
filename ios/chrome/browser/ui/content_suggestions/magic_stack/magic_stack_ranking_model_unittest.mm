@@ -24,12 +24,14 @@
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
+#import "ios/chrome/browser/first_run/ui_bundled/first_run_util.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_model_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_test_utils.h"
 #import "ios/chrome/browser/safety_check/model/ios_chrome_safety_check_manager_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/test/fake_scene_state.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state_manager.h"
@@ -39,6 +41,7 @@
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_recent_tab_browser_agent.h"
+#import "ios/chrome/browser/sync/model/mock_sync_service_utils.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_action_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_item.h"
@@ -59,12 +62,10 @@
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_helper_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_mediator.h"
-#import "ios/chrome/browser/ui/first_run/first_run_util.h"
 #import "ios/chrome/browser/url_loading/model/fake_url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_variations_service.h"
-#import "ios/chrome/test/testing_application_context.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
@@ -214,6 +215,9 @@ class MagicStackRankingModelTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetDefaultFactory());
     test_cbs_builder.AddTestingFactory(
+        SyncServiceFactory::GetInstance(),
+        base::BindRepeating(&CreateMockSyncService));
+    test_cbs_builder.AddTestingFactory(
         segmentation_platform::SegmentationPlatformServiceFactory::
             GetInstance(),
         segmentation_platform::SegmentationPlatformServiceFactory::
@@ -229,15 +233,10 @@ class MagicStackRankingModelTest : public PlatformTest {
         IOSChromeLargeIconServiceFactory::GetInstance(),
         IOSChromeLargeIconServiceFactory::GetDefaultFactory());
 
-    browser_state_manager_ = std::make_unique<TestChromeBrowserStateManager>(
-        test_cbs_builder.Build());
-
-    TestingApplicationContext::GetGlobal()->SetChromeBrowserStateManager(
-        browser_state_manager_.get());
+    browser_state_ = browser_state_manager_.AddBrowserStateWithBuilder(
+        std::move(test_cbs_builder));
 
     browser_ = std::make_unique<TestBrowser>(GetBrowserState());
-
-    local_state_ = TestingApplicationContext::GetGlobal()->GetLocalState();
 
     // Necessary set up for kIOSSetUpList.
     GetLocalState()->ClearPref(set_up_list_prefs::kDisabled);
@@ -278,16 +277,19 @@ class MagicStackRankingModelTest : public PlatformTest {
         featureEngagementTracker:(feature_engagement::Tracker*)tracker
                      authService:authentication_service];
     _setUpListMediator = [[FakeSetUpListMediator alloc]
-          initWithPrefService:GetBrowserState()->GetPrefs()
-                  syncService:syncService
-              identityManager:identityManager
-        authenticationService:authenticationService
-                   sceneState:scene_state_
-        isDefaultSearchEngine:NO];
+                   initWithPrefService:GetBrowserState()->GetPrefs()
+                           syncService:syncService
+                       identityManager:identityManager
+                 authenticationService:authenticationService
+                            sceneState:scene_state_
+                 isDefaultSearchEngine:NO
+                   segmentationService:nullptr
+        deviceSwitcherResultDispatcher:nullptr];
     _setUpListMediator.shouldShowSetUpList = YES;
     _parcelTrackingMediator = [[FakeParcelTrackingMediator alloc]
         initWithShoppingService:shopping_service_.get()
-         URLLoadingBrowserAgent:url_loader_];
+         URLLoadingBrowserAgent:url_loader_
+                    prefService:GetLocalState()];
     _tabResumptionMediator = [[FakeTabResumptionMediator alloc]
         initWithLocalState:GetLocalState()
                prefService:GetBrowserState()->GetPrefs()
@@ -299,9 +301,10 @@ class MagicStackRankingModelTest : public PlatformTest {
         IOSChromeLargeIconCacheFactory::GetForBrowserState(GetBrowserState());
     std::unique_ptr<ntp_tiles::MostVisitedSites> most_visited_sites =
         std::make_unique<ntp_tiles::MostVisitedSites>(
-            &pref_service_, /*top_sites*/ nullptr, /*popular_sites*/ nullptr,
-            /*custom_links*/ nullptr, /*icon_cacher*/ nullptr,
-            /*supervisor=*/nullptr, true);
+            &pref_service_, /*identity_manager*/ nullptr,
+            /*supervised_user_service*/ nullptr, /*top_sites*/ nullptr,
+            /*popular_sites*/ nullptr,
+            /*custom_links*/ nullptr, /*icon_cacher*/ nullptr, true);
     _mostVisitedTilesMediator = [[FakeMostVisitedTilesMediator alloc]
         initWithMostVisitedSite:std::move(most_visited_sites)
                     prefService:GetBrowserState()->GetPrefs()
@@ -315,6 +318,7 @@ class MagicStackRankingModelTest : public PlatformTest {
         initWithSafetyCheckManager:IOSChromeSafetyCheckManagerFactory::
                                        GetForBrowserState(GetBrowserState())
                         localState:GetLocalState()
+                         userState:GetBrowserState()->GetPrefs()
                           appState:mockAppState];
 
     _magicStackRankingModel = [[MagicStackRankingModel alloc]
@@ -341,11 +345,11 @@ class MagicStackRankingModelTest : public PlatformTest {
     histogram_tester_ = std::make_unique<base::HistogramTester>();
   }
 
-  ChromeBrowserState* GetBrowserState() {
-    return browser_state_manager_->GetLastUsedBrowserStateForTesting();
-  }
+  ChromeBrowserState* GetBrowserState() { return browser_state_.get(); }
 
-  PrefService* GetLocalState() { return local_state_; }
+  PrefService* GetLocalState() {
+    return GetApplicationContext()->GetLocalState();
+  }
 
   ~MagicStackRankingModelTest() override {
     [_setUpListMediator disconnect];
@@ -377,9 +381,10 @@ class MagicStackRankingModelTest : public PlatformTest {
 
   web::WebTaskEnvironment task_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
-  std::unique_ptr<TestChromeBrowserStateManager> browser_state_manager_;
+  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
+  TestChromeBrowserStateManager browser_state_manager_;
+  raw_ptr<ChromeBrowserState> browser_state_;
   sync_preferences::TestingPrefServiceSyncable pref_service_;
-  raw_ptr<PrefService> local_state_;
   FakeSceneState* scene_state_;
   std::unique_ptr<TestChromeBrowserState> chrome_browser_state_;
   std::unique_ptr<Browser> browser_;
@@ -503,7 +508,7 @@ TEST_F(MagicStackRankingModelTest, TestModelDidGetLatestRankingOrder) {
         base::RunLoop().RunUntilIdle();
         return [delegate_.rank count] > 0;
       }));
-  NSArray* expectedModuleRank = @[ @(5), @(0), @(1), @(7), @(10), @(11) ];
+  NSArray* expectedModuleRank = @[ @(5), @(0), @(1), @(10), @(11) ];
   EXPECT_EQ([delegate_.rank count], [expectedModuleRank count]);
   for (NSUInteger i = 0; i < [expectedModuleRank count]; i++) {
     MagicStackModule* config = delegate_.rank[i];
@@ -526,12 +531,12 @@ TEST_F(MagicStackRankingModelTest, TestFeatureInsertCalls) {
       }));
 
   [_magicStackRankingModel newParcelsAvailable];
-  EXPECT_EQ(delegate_.lastInsertionIndex, 5u);
+  EXPECT_EQ(delegate_.lastInsertionIndex, 4u);
   EXPECT_EQ(delegate_.lastInsertedItem,
             _parcelTrackingMediator.parcelTrackingItemToShow);
 
   [_magicStackRankingModel tabResumptionHelperDidReceiveItem];
-  EXPECT_EQ(delegate_.lastInsertionIndex, 4u);
+  EXPECT_EQ(delegate_.lastInsertionIndex, 3u);
   EXPECT_EQ(delegate_.lastInsertedItem, _tabResumptionMediator.itemConfig);
 }
 

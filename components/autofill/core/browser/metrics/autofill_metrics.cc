@@ -18,6 +18,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/types/cxx23_to_underlying.h"
+#include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/autofill_data_util.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_type.h"
@@ -31,6 +32,7 @@
 #include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/browser/metrics/form_events/form_event_logger_base.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/ui/popup_interaction.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_clock.h"
@@ -924,7 +926,7 @@ void AutofillMetrics::LogCardUnmaskAuthenticationSelectionDialogShown(
 void AutofillMetrics::LogCreditCardInfoBarMetric(
     InfoBarMetric metric,
     bool is_uploading,
-    AutofillClient::SaveCreditCardOptions options) {
+    payments::PaymentsAutofillClient::SaveCreditCardOptions options) {
   DCHECK_LT(metric, NUM_INFO_BAR_METRICS);
 
   std::string destination = is_uploading ? ".Server" : ".Local";
@@ -955,7 +957,7 @@ void AutofillMetrics::LogCreditCardInfoBarMetric(
   }
 
   if (options.card_save_type ==
-      AutofillClient::CardSaveType::kCardSaveWithCvc) {
+      payments::PaymentsAutofillClient::CardSaveType::kCardSaveWithCvc) {
     base::UmaHistogramEnumeration(base::StrCat({"Autofill.CreditCardInfoBar",
                                                 destination, ".SavingWithCvc"}),
                                   metric, NUM_INFO_BAR_METRICS);
@@ -1002,16 +1004,16 @@ void AutofillMetrics::LogProgressDialogShown(
 std::string_view AutofillMetrics::GetDialogTypeStringForLogging(
     AutofillProgressDialogType autofill_progress_dialog_type) {
   switch (autofill_progress_dialog_type) {
-    case AutofillProgressDialogType::kAndroidFIDOProgressDialog:
-      return "AndroidFIDO";
     case AutofillProgressDialogType::kVirtualCardUnmaskProgressDialog:
       return "VirtualCardUnmask";
     case AutofillProgressDialogType::kServerCardUnmaskProgressDialog:
       return "ServerCardUnmask";
     case AutofillProgressDialogType::kServerIbanUnmaskProgressDialog:
       return "ServerIbanUnmask";
-    default:
-      NOTREACHED_NORETURN();
+    case AutofillProgressDialogType::k3dsFetchVcnProgressDialog:
+      return "3dsFetchVirtualCard";
+    case AutofillProgressDialogType::kUnspecified:
+      NOTREACHED();
   }
 }
 
@@ -2245,7 +2247,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
   // Set the fields with autofill information according to Autofill2.FieldInfo
   // UKM schema:
   // https://docs.google.com/document/d/1ZH0JbL6bES3cD4KqZWsGR6n8I-rhnkx6no6nQOgYq5w/
-  OptionalBoolean was_focused = OptionalBoolean::kFalse;
+  OptionalBoolean was_focused_by_tap_or_click = OptionalBoolean::kFalse;
   OptionalBoolean suggestion_was_available = OptionalBoolean::kUndefined;
   OptionalBoolean suggestion_was_shown = OptionalBoolean::kUndefined;
   OptionalBoolean suggestion_was_accepted = OptionalBoolean::kUndefined;
@@ -2343,7 +2345,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
                   "need to be updated.");
     if (auto* event =
             absl::get_if<AskForValuesToFillFieldLogEvent>(&log_event)) {
-      was_focused = OptionalBoolean::kTrue;
+      was_focused_by_tap_or_click = OptionalBoolean::kTrue;
       suggestion_was_available |= event->has_suggestion;
       suggestion_was_shown |= event->suggestion_is_shown;
       if (suggestion_was_shown == OptionalBoolean::kTrue &&
@@ -2469,8 +2471,9 @@ void AutofillMetrics::FormInteractionsUkmLogger::
   SetStatusVector(AutofillStatus::kIsFocusable, field.IsFocusable());
   SetStatusVector(AutofillStatus::kUserTypedIntoField,
                   OptionalBooleanToBool(user_typed_into_field));
-  SetStatusVector(AutofillStatus::kWasFocused,
-                  OptionalBooleanToBool(was_focused));
+  SetStatusVector(AutofillStatus::kWasFocused, field.was_focused());
+  SetStatusVector(AutofillStatus::kWasFocusedByTapOrClick,
+                  OptionalBooleanToBool(was_focused_by_tap_or_click));
   SetStatusVector(AutofillStatus::kIsInSubFrame,
                   form.ToFormData().host_frame() != field.host_frame());
 
@@ -2481,7 +2484,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
         OptionalBooleanToBool(filling_prevented_by_iframe_security_policy));
   }
 
-  if (was_focused == OptionalBoolean::kTrue) {
+  if (was_focused_by_tap_or_click == OptionalBoolean::kTrue) {
     SetStatusVector(AutofillStatus::kSuggestionWasAvailable,
                     OptionalBooleanToBool(suggestion_was_available));
     SetStatusVector(AutofillStatus::kSuggestionWasShown,
@@ -2596,8 +2599,6 @@ void AutofillMetrics::LogAutofillFieldInfoAfterSubmission(
       }
     }
 
-    // TODO(crbug.com/40225658): Modify the enum object of SubmissionSource by
-    // assigning values (= 0, = 1, ...) and adding a comment to not change it.
     builder.SetSubmittedType1(submitted_type1)
         .SetSubmissionSource(static_cast<int>(form.submission_source()))
         .SetMillisecondsFromFormParsedUntilSubmission(
@@ -3091,20 +3092,6 @@ AutofillMetrics::UkmTimestampPin::UkmTimestampPin(
 AutofillMetrics::UkmTimestampPin::~UkmTimestampPin() {
   DCHECK(logger_->has_pinned_timestamp());
   logger_->set_pinned_timestamp(base::TimeTicks());
-}
-
-// static
-void AutofillMetrics::LogFieldParsingPageTranslationStatusMetric(bool metric) {
-  base::UmaHistogramBoolean("Autofill.ParsedFieldTypesWasPageTranslated",
-                            metric);
-}
-
-// static
-void AutofillMetrics::LogFieldParsingTranslatedFormLanguageMetric(
-    std::string_view locale) {
-  base::UmaHistogramSparse(
-      "Autofill.ParsedFieldTypesUsingTranslatedPageLanguage",
-      language::LanguageUsageMetrics::ToLanguageCodeHash(locale));
 }
 
 // static

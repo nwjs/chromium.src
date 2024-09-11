@@ -45,7 +45,7 @@ class PaymentsSuggestionBottomSheetCoordinatorTest : public PlatformTest {
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetDefaultFactory());
-    browser_state_ = builder.Build();
+    browser_state_ = std::move(builder).Build();
     browser_ = std::make_unique<TestBrowser>(browser_state_.get());
     autofill::PersonalDataManager* personal_data_manager =
         autofill::PersonalDataManagerFactory::GetForBrowserState(
@@ -96,7 +96,7 @@ class PaymentsSuggestionBottomSheetCoordinatorTest : public PlatformTest {
   }
 
   web::WebTaskEnvironment task_environment_;
-  IOSChromeScopedTestingLocalState local_state_;
+  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   std::unique_ptr<TestChromeBrowserState> browser_state_;
   std::unique_ptr<TestBrowser> browser_;
   UIWindow* window_;
@@ -114,9 +114,10 @@ TEST_F(PaymentsSuggestionBottomSheetCoordinatorTest, PrimaryButton) {
 
   [coordinator_ start];
 
-  [coordinator_ primaryButtonTapped:[[CreditCardData alloc]
-                                        initWithCreditCard:credit_card_
-                                                      icon:nil]];
+  [coordinator_ primaryButtonTappedForCard:[[CreditCardData alloc]
+                                               initWithCreditCard:credit_card_
+                                                             icon:nil]
+                                   atIndex:0];
   [coordinator_ stop];
   task_environment_.RunUntilIdle();
 
@@ -135,9 +136,10 @@ TEST_F(PaymentsSuggestionBottomSheetCoordinatorTest, PrimaryButtonVirtualCard) {
 
   [coordinator_ start];
 
-  [coordinator_ primaryButtonTapped:[[CreditCardData alloc]
-                                        initWithCreditCard:virtual_card_
-                                                      icon:nil]];
+  [coordinator_ primaryButtonTappedForCard:[[CreditCardData alloc]
+                                               initWithCreditCard:virtual_card_
+                                                             icon:nil]
+                                   atIndex:0];
   [coordinator_ stop];
   task_environment_.RunUntilIdle();
 

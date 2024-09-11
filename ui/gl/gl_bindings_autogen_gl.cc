@@ -8,6 +8,11 @@
 //    clang-format -i -style=chromium filename
 // DO NOT EDIT!
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include <string>
 
 #include "base/trace_event/trace_event.h"
@@ -14498,7 +14503,7 @@ void LogGLApi::glWindowRectanglesEXTFn(GLenum mode,
 
 namespace {
 void NoContextHelper(const char* method_name) {
-  NOTREACHED_IN_MIGRATION()
+  DUMP_WILL_BE_NOTREACHED()
       << "Trying to call " << method_name << " without current GL context";
   LOG(ERROR) << "Trying to call " << method_name
              << " without current GL context";

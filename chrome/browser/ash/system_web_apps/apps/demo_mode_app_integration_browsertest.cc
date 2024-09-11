@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "ash/constants/ash_features.h"
 #include "ash/display/screen_orientation_controller.h"
 #include "ash/shell.h"
 #include "ash/webui/demo_mode_app_ui/demo_mode_app_untrusted_ui.h"
@@ -15,6 +16,7 @@
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/user_action_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/threading/thread_checker_impl.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
@@ -86,6 +88,11 @@ class DemoModeAppIntegrationTestBase : public ash::SystemWebAppIntegrationTest {
 class DemoModeAppIntegrationTest : public DemoModeAppIntegrationTestBase {
  public:
   using DemoModeAppIntegrationTestBase::DemoModeAppIntegrationTestBase;
+  DemoModeAppIntegrationTest() {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{features::kDemoModeAppLandscapeLocked},
+        /*disabled_features=*/{});
+  }
 
  protected:
   // ash::SystemWebAppIntegrationTest:
@@ -102,6 +109,7 @@ class DemoModeAppIntegrationTest : public DemoModeAppIntegrationTestBase {
   // and DeviceStateMixin also sets the owner key.
   DeviceStateMixin device_state_mixin_{
       &mixin_host_, ash::DeviceStateMixin::State::OOBE_COMPLETED_DEMO_MODE};
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Class that waits for, then asserts, that a widget has entered or exited
@@ -379,6 +387,9 @@ IN_PROC_BROWSER_TEST_P(DemoModeAppIntegrationTest,
       LaunchParamsForApp(ash::SystemWebAppType::DEMO_MODE);
   params.override_url = GURL(ash::kChromeUntrustedUIDemoModeAppURL +
                              file_path.BaseName().MaybeAsASCII());
+  // The launch source of the demo mode app should be kFromChromeInternal in
+  // demo session.
+  params.launch_source = apps::LaunchSource::kFromChromeInternal;
 
   // Assert that AppServiceProxy::Launch is called by using a mock AppPublisher.
   // We mock here instead of testing that an actual app is launched due to this
@@ -399,10 +410,7 @@ IN_PROC_BROWSER_TEST_P(DemoModeAppIntegrationTest,
 
   // Since we launched the fake app using the LaunchApp Mojo API, we expect to
   // see one count in AppLaunchSource::kDemoModeApp, but no others.
-  histogram_tester_.ExpectBucketCount("DemoMode.AppLaunchSource",
-                                      DemoSession::AppLaunchSource::kShelf, 0);
-  histogram_tester_.ExpectBucketCount(
-      "DemoMode.AppLaunchSource", DemoSession::AppLaunchSource::kAppList, 0);
+  histogram_tester_.ExpectTotalCount("DemoMode.AppLaunchSource", 1);
   histogram_tester_.ExpectBucketCount(
       "DemoMode.AppLaunchSource", DemoSession::AppLaunchSource::kDemoModeApp,
       1);

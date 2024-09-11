@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/metrics/histogram_functions.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "components/grit/components_resources.h"
 #include "components/security_interstitials/content/security_interstitial_controller_client.h"
@@ -13,9 +14,17 @@
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
+#include "services/metrics/public/cpp/metrics_utils.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "ui/base/l10n/l10n_util.h"
 
 using security_interstitials::MetricsHelper;
+
+namespace {
+constexpr char kBlockedSiteVerifyItsYouInterstitialStateHistogramName[] =
+    "FamilyLinkUser.BlockedSiteVerifyItsYouInterstitialState";
+}  // namespace
 
 // static
 const security_interstitials::SecurityInterstitialPage::TypeID
@@ -26,6 +35,9 @@ SupervisedUserVerificationPage::SupervisedUserVerificationPage(
     content::WebContents* web_contents,
     const std::string& email_to_reauth,
     const GURL& request_url,
+    VerificationPurpose verification_purpose,
+    supervised_user::ChildAccountService* child_account_service,
+    ukm::SourceId source_id,
     std::unique_ptr<
         security_interstitials::SecurityInterstitialControllerClient>
         controller_client)
@@ -34,7 +46,20 @@ SupervisedUserVerificationPage::SupervisedUserVerificationPage(
           request_url,
           std::move(controller_client)),
       email_to_reauth_(email_to_reauth),
-      request_url_(request_url) {}
+      request_url_(request_url),
+      verification_purpose_(verification_purpose),
+      child_account_service_(child_account_service),
+      source_id_(source_id) {
+  if (child_account_service_) {
+    // Reloads the interstitial to continue navigation once the supervised user
+    // is authenticated.
+    google_auth_state_subscription_ =
+        child_account_service_->ObserveGoogleAuthState(base::BindRepeating(
+            &SupervisedUserVerificationPage::OnReauthenticationCompleted,
+            base::Unretained(this)));
+    RecordReauthStatusMetrics(Status::SHOWN);
+  }
+}
 
 SupervisedUserVerificationPage::~SupervisedUserVerificationPage() = default;
 
@@ -43,24 +68,50 @@ SupervisedUserVerificationPage::GetTypeForTesting() {
   return SupervisedUserVerificationPage::kTypeForTesting;
 }
 
+void SupervisedUserVerificationPage::OnReauthenticationCompleted() {
+  RecordReauthStatusMetrics(Status::REAUTH_COMPLETED);
+  controller()->Reload();
+}
+
 void SupervisedUserVerificationPage::PopulateInterstitialStrings(
     base::Value::Dict& load_time_data) {
   PopulateStringsForSharedHTML(load_time_data);
-  load_time_data.Set("tabTitle", l10n_util::GetStringUTF16(
-                                     IDS_SUPERVISED_USER_VERIFY_IT_IS_YOU));
   load_time_data.Set("optInLink", l10n_util::GetStringUTF16(
                                       IDS_SAFE_BROWSING_SCOUT_REPORTING_AGREE));
   load_time_data.Set(
       "enhancedProtectionMessage",
       l10n_util::GetStringUTF16(IDS_SAFE_BROWSING_ENHANCED_PROTECTION_MESSAGE));
-  load_time_data.Set("heading", l10n_util::GetStringUTF16(
-                                    IDS_SUPERVISED_USER_VERIFY_IT_IS_YOU));
-  load_time_data.Set("primaryParagraph",
+
+  switch (verification_purpose_) {
+    case VerificationPurpose::REAUTH_REQUIRED_SITE:
+      load_time_data.Set(
+          "tabTitle",
+          l10n_util::GetStringUTF16(IDS_SUPERVISED_USER_VERIFY_PAGE_TAB_TITLE));
+      load_time_data.Set("heading",
+                         l10n_util::GetStringUTF16(
+                             IDS_SUPERVISED_USER_VERIFY_PAGE_PRIMARY_HEADING));
+      load_time_data.Set(
+          "primaryParagraph",
+          l10n_util::GetStringUTF16(
+              IDS_SUPERVISED_USER_VERIFY_PAGE_PRIMARY_PARAGRAPH));
+      break;
+    case VerificationPurpose::BLOCKED_SITE:
+      load_time_data.Set(
+          "tabTitle", l10n_util::GetStringUTF16(IDS_BLOCK_INTERSTITIAL_TITLE));
+      load_time_data.Set("heading", l10n_util::GetStringUTF16(
+                                        IDS_CHILD_BLOCK_INTERSTITIAL_HEADER));
+      load_time_data.Set(
+          "primaryParagraph",
+          l10n_util::GetStringUTF16(
+              IDS_CHILD_BLOCK_INTERSTITIAL_MESSAGE_NOT_SIGNED_IN));
+      break;
+    default:
+      NOTREACHED_NORETURN();
+  }
+
+  load_time_data.Set("primaryButtonText",
                      l10n_util::GetStringUTF16(
-                         IDS_SUPERVISED_USER_VERIFY_PAGE_PRIMARY_PARAGRAPH));
-  load_time_data.Set(
-      "primaryButtonText",
-      l10n_util::GetStringUTF16(IDS_SUPERVISED_USER_VERIFY_IT_IS_YOU));
+                         IDS_SUPERVISED_USER_VERIFY_PAGE_PRIMARY_BUTTON));
 }
 
 void SupervisedUserVerificationPage::OnInterstitialClosing() {}
@@ -83,6 +134,65 @@ void SupervisedUserVerificationPage::PopulateStringsForSharedHTML(
   load_time_data.Set("type", "SUPERVISED_USER_VERIFY");
 }
 
+void SupervisedUserVerificationPage::RecordReauthStatusMetrics(Status status) {
+  switch (verification_purpose_) {
+    case VerificationPurpose::REAUTH_REQUIRED_SITE:
+      RecordYouTubeReauthStatusUkm(status);
+      break;
+    case VerificationPurpose::BLOCKED_SITE:
+      RecordBlockedUrlReauthStatusUma(status);
+      break;
+    default:
+      NOTREACHED();
+  }
+}
+
+void SupervisedUserVerificationPage::RecordYouTubeReauthStatusUkm(
+    Status status) {
+  CHECK_EQ(verification_purpose_, VerificationPurpose::REAUTH_REQUIRED_SITE);
+
+  auto builder =
+      ukm::builders::FamilyLinkUser_ReauthenticationInterstitial(source_id_);
+  switch (status) {
+    case Status::SHOWN:
+      builder.SetInterstitialShown(true);
+      break;
+    case Status::REAUTH_STARTED:
+      builder.SetReauthenticationStarted(true);
+      break;
+    case Status::REAUTH_COMPLETED:
+      builder.SetReauthenticationCompleted(true);
+      break;
+    default:
+      NOTREACHED();
+  }
+  builder.Record(ukm::UkmRecorder::Get());
+}
+
+void SupervisedUserVerificationPage::RecordBlockedUrlReauthStatusUma(
+    Status status) {
+  CHECK_EQ(verification_purpose_, VerificationPurpose::BLOCKED_SITE);
+
+  auto state =
+      FamilyLinkUserReauthenticationInterstitialState::kInterstitialShown;
+  switch (status) {
+    case Status::SHOWN:
+      break;
+    case Status::REAUTH_STARTED:
+      state = FamilyLinkUserReauthenticationInterstitialState::
+          kReauthenticationStarted;
+      break;
+    case Status::REAUTH_COMPLETED:
+      state = FamilyLinkUserReauthenticationInterstitialState::
+          kReauthenticationCompleted;
+      break;
+    default:
+      NOTREACHED();
+  }
+  base::UmaHistogramEnumeration(
+      kBlockedSiteVerifyItsYouInterstitialStateHistogramName, state);
+}
+
 void SupervisedUserVerificationPage::CommandReceived(
     const std::string& command) {
   if (command == "\"pageLoadComplete\"") {
@@ -96,8 +206,9 @@ void SupervisedUserVerificationPage::CommandReceived(
 
   switch (cmd) {
     case security_interstitials::CMD_OPEN_LOGIN:
-      controller()->OpenUrlInCurrentTab(signin::GetChromeReauthURL(
-          {.email = email_to_reauth_, .continue_url = request_url_}));
+      RecordReauthStatusMetrics(Status::REAUTH_STARTED);
+      controller()->OpenUrlInNewForegroundTab(
+          signin::GetChromeReauthURL({.email = email_to_reauth_}));
       break;
     case security_interstitials::CMD_DONT_PROCEED:
     case security_interstitials::CMD_OPEN_HELP_CENTER:
@@ -120,6 +231,6 @@ void SupervisedUserVerificationPage::CommandReceived(
       // Commands are for testing.
       break;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }

@@ -1,6 +1,4 @@
 This is a testharness.js-based test.
-[FAIL] getCoalescedEvents in event
-  assert_equals: expected false but got true
 [FAIL] getPredictedEvents()[0].target
   assert_equals: expected null but got Element node <div id="target0"></div>
 [FAIL] getPredictedEvents()[0].offsetX

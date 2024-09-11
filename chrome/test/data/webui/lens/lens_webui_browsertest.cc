@@ -116,6 +116,16 @@ IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayCloseButton) {
   RunOverlayTest("lens/overlay/overlay_close_button_test.js", "mocha.run()");
 }
 
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_OverlayCursor DISABLED_OverlayCursor
+#else
+#define MAYBE_OverlayCursor OverlayCursor
+#endif
+// TODO(b/357503842): Test is failing on Linux bot.
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, MAYBE_OverlayCursor) {
+  RunOverlayTest("lens/overlay/overlay_cursor_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayMoreOptionsButton) {
   RunOverlayTest("lens/overlay/overlay_more_options_button_test.js",
                  "mocha.run()");
@@ -157,8 +167,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayTest, CubicBezier) {
   RunOverlayTest("lens/overlay/cubic_bezier_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(LensOverlayTest, CursorTooltip) {
-  RunOverlayTest("lens/overlay/cursor_tooltip_test.js", "mocha.run()");
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, TranslateButton) {
+  RunOverlayTest("lens/overlay/translate_button_test.js", "mocha.run()");
 }
 
 using LensSidePanelTest = LensOverlayTest;

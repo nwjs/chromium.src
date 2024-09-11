@@ -57,6 +57,7 @@ import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
+import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -111,6 +112,7 @@ public class AutofillOptionsTest {
 
         mJniMocker.mock(UserPrefsJni.TEST_HOOKS, mMockUserPrefsJni);
         doReturn(mPrefs).when(mMockUserPrefsJni).get(mProfile);
+        HelpAndFeedbackLauncherFactory.setInstanceForTesting(mHelpAndFeedbackLauncher);
 
         mScenario =
                 FragmentScenario.launchInContainer(
@@ -124,7 +126,6 @@ public class AutofillOptionsTest {
                             (AutofillOptionsFragment)
                                     fragment; // Valid until scenario is recreated.
                     mFragment.setProfile(mProfile);
-                    mFragment.setHelpAndFeedbackLauncher(mHelpAndFeedbackLauncher);
                 });
     }
 

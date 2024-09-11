@@ -13,6 +13,7 @@
 #include "base/containers/contains.h"
 #include "base/debug/debugging_buildflags.h"
 #include "base/debug/profiler.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
@@ -550,6 +551,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_NAME_WINDOW:
       PromptToNameWindow(browser_);
       break;
+    case IDC_COMPACT_MODE:
+      ToggleCompactMode(browser_);
+      break;
 
 #if BUILDFLAG(IS_CHROMEOS)
     case IDC_TOGGLE_MULTITASK_MENU:
@@ -1073,7 +1077,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     }
 
     case IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL: {
-      ShowCustomizeChromeSidePanel();
+      ShowCustomizeChromeSidePanel(CustomizeChromeSection::kAppearance);
       break;
     }
 
@@ -1250,6 +1254,10 @@ void BrowserCommandController::InitCommandState() {
   UpdateTabRestoreCommandState();
   command_updater_.UpdateCommandEnabled(IDC_EXIT, true);
   command_updater_.UpdateCommandEnabled(IDC_NAME_WINDOW, true);
+  if (base::FeatureList::IsEnabled(features::kCompactMode)) {
+    command_updater_.UpdateCommandEnabled(IDC_COMPACT_MODE, true);
+  }
+
   command_updater_.UpdateCommandEnabled(IDC_ORGANIZE_TABS, true);
   command_updater_.UpdateCommandEnabled(IDC_CREATE_NEW_TAB_GROUP, true);
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1932,8 +1940,8 @@ void BrowserCommandController::UpdateCommandsForMediaRouter() {
   if (is_locked_fullscreen_)
     return;
 
-  command_updater_.UpdateCommandEnabled(IDC_ROUTE_MEDIA,
-                                        CanRouteMedia(browser_));
+  UpdateCommandAndActionEnabled(IDC_ROUTE_MEDIA, kActionRouteMedia,
+                                CanRouteMedia(browser_));
 }
 
 void BrowserCommandController::UpdateCommandsForTabKeyboardFocus(
@@ -1982,6 +1990,13 @@ void BrowserCommandController::UpdateCommandsForTabStripStateChanged() {
 actions::ActionItem* BrowserCommandController::FindAction(
     actions::ActionId action_id) {
   BrowserActions* browser_actions = browser_->browser_actions();
+
+  // If there is no root action item then ActionManager falls back to the
+  // root_action_parent_ which might contain actions from other browser windows.
+  if (!browser_actions->root_action_item()) {
+    return nullptr;
+  }
+
   return actions::ActionManager::Get().FindAction(
       action_id, browser_actions->root_action_item());
 }

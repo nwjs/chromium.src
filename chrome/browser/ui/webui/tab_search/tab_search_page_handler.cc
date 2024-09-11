@@ -24,6 +24,7 @@
 #include "chrome/browser/extensions/api/tab_groups/tab_groups_util.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/favicon/favicon_utils.h"
+#include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -37,7 +38,6 @@
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_request.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service.h"
@@ -58,6 +58,7 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
+#include "components/optimization_guide/proto/model_quality_service.pb.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/user_education/common/tutorial_identifier.h"
 #include "components/user_education/common/tutorial_service.h"
@@ -389,6 +390,17 @@ TabSearchPageHandler::GetTabDetails(int32_t tab_id) {
   return std::nullopt;
 }
 
+void TabSearchPageHandler::GetTabOrganizationModelStrategy(
+    GetTabOrganizationModelStrategyCallback callback) {
+  Profile* profile = Profile::FromWebUI(web_ui_);
+  const int32_t strategy_int = profile->GetPrefs()->GetInteger(
+      tab_search_prefs::kTabOrganizationModelStrategy);
+  const auto strategy =
+      static_cast<tab_search::mojom::TabOrganizationModelStrategy>(
+          strategy_int);
+  std::move(callback).Run(std::move(strategy));
+}
+
 void TabSearchPageHandler::SwitchToTab(
     tab_search::mojom::SwitchToTabInfoPtr switch_to_tab_info) {
   std::optional<TabDetails> optional_details =
@@ -594,7 +606,7 @@ void TabSearchPageHandler::TriggerFeedback(int32_t session_id) {
       OptimizationGuideKeyedServiceFactory::GetForProfile(browser->profile());
   if (!opt_guide_keyed_service ||
       !opt_guide_keyed_service->ShouldFeatureBeCurrentlyAllowedForFeedback(
-          optimization_guide::UserVisibleFeatureKey::kTabOrganization)) {
+          optimization_guide::proto::LogAiDataRequest::kTabOrganization)) {
     return;
   }
   base::Value::Dict feedback_metadata;
@@ -627,6 +639,15 @@ void TabSearchPageHandler::OpenHelpPage() {
                         ui::PageTransition::PAGE_TRANSITION_LINK);
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   Navigate(&params);
+}
+
+void TabSearchPageHandler::SetTabOrganizationModelStrategy(
+    tab_search::mojom::TabOrganizationModelStrategy strategy) {
+  const auto strategy_int = static_cast<int32_t>(strategy);
+  Profile* profile = Profile::FromWebUI(web_ui_);
+  profile->GetPrefs()->SetInteger(
+      tab_search_prefs::kTabOrganizationModelStrategy, strategy_int);
+  page_->TabOrganizationModelStrategyUpdated(std::move(strategy));
 }
 
 void TabSearchPageHandler::SetUserFeedback(
@@ -931,7 +952,8 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTab(
 
   tab_data->show_icon = tab_renderer_data.show_icon;
 
-  const base::TimeTicks last_active_time_ticks = contents->GetLastActiveTime();
+  const base::TimeTicks last_active_time_ticks =
+      contents->GetLastActiveTimeTicks();
   tab_data->last_active_time_ticks = last_active_time_ticks;
 
   // last_active_time_for_testing can affect pixel tests depending on when the
@@ -943,7 +965,7 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTab(
           : GetLastActiveElapsedText(last_active_time_ticks);
 
   std::vector<TabAlertState> alert_states =
-      chrome::GetTabAlertStatesForContents(contents);
+      GetTabAlertStatesForContents(contents);
   // Currently, we only report media alert states.
   base::ranges::copy_if(alert_states.begin(), alert_states.end(),
                         std::back_inserter(tab_data->alert_states),

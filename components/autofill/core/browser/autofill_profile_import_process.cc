@@ -540,7 +540,8 @@ void ProfileImportProcess::CollectMetrics(
           existing_profiles, app_locale_);
     }
     if (UserAccepted()) {
-      autofill_metrics::LogNewProfileStorage(*confirmed_import_candidate_);
+      autofill_metrics::LogNewProfileStorageLocation(
+          *confirmed_import_candidate_);
     }
   } else if (is_confirmable_update()) {
     autofill_metrics::LogProfileUpdateImportDecision(

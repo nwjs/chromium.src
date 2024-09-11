@@ -52,7 +52,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Browser.Actions.PinnedActionsCount" units="actions"
-    expires_after="2024-11-17">
+    expires_after="2025-01-26">
   <owner>corising@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -75,7 +75,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.DarkModeStatus" enum="DarkModeStatus"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>lgrey@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -85,7 +85,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.ERP.AppInstallTrackerDiskConsumption" units="bytes"
-    expires_after="2024-11-17">
+    expires_after="2025-01-26">
   <owner>vshenvi@google.com</owner>
   <owner>cros-reporting-team@google.com</owner>
   <summary>
@@ -149,7 +149,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.ERP.EnqueueFailureDestination"
-    enum="EnterpriseCloudReportingDestination" expires_after="2024-11-20">
+    enum="EnterpriseCloudReportingDestination" expires_after="2025-01-26">
   <owner>vshenvi@google.com</owner>
   <owner>cros-reporting-team@google.com</owner>
   <summary>
@@ -160,7 +160,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.ERP.EnqueueSuccessDestination"
-    enum="EnterpriseCloudReportingDestination" expires_after="2024-11-20">
+    enum="EnterpriseCloudReportingDestination" expires_after="2025-01-26">
   <owner>vshenvi@google.com</owner>
   <owner>cros-reporting-team@google.com</owner>
   <summary>
@@ -171,7 +171,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.ERP.EventEnqueueResult"
-    enum="EnterpriseCloudReportingStatusCode" expires_after="2024-12-08">
+    enum="EnterpriseCloudReportingStatusCode" expires_after="2025-02-10">
   <owner>lbaraz@chromium.org</owner>
   <owner>xuhong@chromium.org</owner>
   <owner>src/components/reporting/OWNERS</owner>
@@ -317,7 +317,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.ERP.PsrResult" enum="EnterpriseReportingPsrResult"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>xuhong@chromium.org</owner>
   <owner>cros-reporting-team@google.com</owner>
   <summary>
@@ -474,7 +474,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.ERP.{ManagementStatus}UploadEncryptedReport"
-    enum="EnterpriseDMServerRequestSuccess" expires_after="2024-11-17">
+    enum="EnterpriseDMServerRequestSuccess" expires_after="2025-01-26">
   <owner>jrhilke@google.com</owner>
   <owner>src/components/reporting/OWNERS</owner>
   <summary>
@@ -501,6 +501,29 @@ chromium-metrics-reviews@google.com.
     <variant name="Request" summary="request"/>
     <variant name="Response" summary="response"/>
   </token>
+</histogram>
+
+<histogram name="Browser.MainThreadsCongestion.1MinAfterResume" units="janks"
+    expires_after="2025-02-10">
+  <owner>kawasin@google.com</owner>
+  <owner>baseos-perf@google.com</owner>
+  <summary>
+    This metric is a specialized subset of the `Browser.MainThreadsCongestion`
+    metric, designed to capture the metrics specifically during the first minute
+    after a device resumes from suspend. After the main message loop starts, the
+    calculation for Browser.MainThreadsCongestion is done on a periodic 30
+    second interval. Any calculations that occur within a minute of resuming
+    will also emit this metric. Each 30 second duration is divided into 100ms
+    intervals. This metric counts the number of these intervals that were
+    &quot;congested&quot;. An interval is congested if during it the UI or IO
+    thread executes an &quot;important&quot; task that was queued more than 100
+    ms ago, or a non-important task or a native event handler that started
+    executing more than 100 ms ago. See
+    https://docs.google.com/document/d/1vDSGFvJblh7yJ3U3RVB_7qZLubyfTbQdQjuN1GoUNkc/edit
+    for more details.
+
+    This is supported by ChromeOS only.
+  </summary>
 </histogram>
 
 <histogram
@@ -535,7 +558,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.MainThreadsCongestion.LowMemory" units="janks"
-    expires_after="2024-11-21">
+    expires_after="2025-01-26">
   <owner>vovoy@chromium.org</owner>
   <owner>chromeos-memory@google.com</owner>
   <summary>
@@ -555,7 +578,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.MainThreadsCongestion.Used" units="janks"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>pmonette@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -619,7 +642,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.MainThreadsCongestion{UsageScenario}" units="janks"
-    expires_after="2024-12-08">
+    expires_after="2025-02-09">
   <owner>pmonette@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -873,7 +896,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.Responsiveness.IOJanksTotalPerMinute" units="janks"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>gab@chromium.org</owner>
   <owner>olivierli@chromium.org</owner>
   <summary>
@@ -887,7 +910,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.Responsiveness.IOJankyIntervalsPerMinute"
-    units="janks" expires_after="2024-12-08">
+    units="janks" expires_after="2025-02-10">
   <owner>gab@chromium.org</owner>
   <owner>olivierli@chromium.org</owner>
   <summary>
@@ -906,7 +929,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.SupportTool.SupportToolWebUIAction"
-    enum="SupportToolWebUIActionType" expires_after="2024-10-25">
+    enum="SupportToolWebUIActionType" expires_after="2025-02-02">
   <owner>iremuguz@google.com</owner>
   <owner>chromeos-commercial-supportability@google.com</owner>
   <summary>
@@ -962,7 +985,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.Tabs.TabSwitchResult3{TabSwitchingType}"
-    enum="TabSwitchResult2" expires_after="2024-12-08">
+    enum="TabSwitchResult2" expires_after="2025-02-09">
   <owner>fdoray@chromium.org</owner>
   <owner>joenotcharles@google.com</owner>
   <owner>catan-team@chromium.org</owner>
@@ -988,7 +1011,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.Tabs.TotalSwitchDuration3{TabSwitchingType}"
-    units="ms" expires_after="2024-12-08">
+    units="ms" expires_after="2025-02-09">
   <owner>jonross@chromium.org</owner>
   <owner>joenotcharles@google.com</owner>
   <owner>catan-team@chromium.org</owner>
@@ -1002,7 +1025,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.WindowCount.Guest" units="units"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>rhalavati@chromium.org</owner>
   <owner>chrome-privacy-core@google.com</owner>
   <summary>
@@ -1014,7 +1037,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Browser.WindowCount.Incognito" units="units"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>rhalavati@chromium.org</owner>
   <owner>chrome-privacy-core@google.com</owner>
   <summary>
@@ -1088,6 +1111,9 @@ chromium-metrics-reviews@google.com.
   <owner>chrome-stability-core@google.com</owner>
   <summary>
     The launch error codes for failed renderer process launches.
+
+    In M129 we are more accurately tracking renderer process launch failures,
+    and expect to find a significant spike in volume.
   </summary>
 </histogram>
 
@@ -1097,11 +1123,16 @@ chromium-metrics-reviews@google.com.
 
   <owner>wfh@chromium.org</owner>
   <owner>chrome-stability-core@google.com</owner>
-  <summary>Count of renderer process launch failures grouped by type.</summary>
+  <summary>
+    Count of renderer process launch failures grouped by type.
+
+    In M129 we are more accurately tracking renderer process launch failures,
+    and expect to find a significant spike in volume.
+  </summary>
 </histogram>
 
 <histogram name="BrowserRenderProcessHost.Cleanup.DelayReason"
-    enum="RenderProcessHostDelayShutdownReason" expires_after="2024-12-08">
+    enum="RenderProcessHostDelayShutdownReason" expires_after="2025-02-10">
   <owner>mych@chromium.org</owner>
   <owner>bfcache-dev@chromium.org</owner>
   <summary>
@@ -1182,6 +1213,28 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="BrowserRenderProcessHost.MaxOutermostMainFrames"
+    units="frames" expires_after="M132">
+  <owner>dtapuska@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Records the maximum number of outermost main frames that were hosted in the
+    process. This is logged when the RenderProcessHost is destroyed.
+  </summary>
+</histogram>
+
+<histogram name="BrowserRenderProcessHost.ProcessPerSiteMainFrameLimit"
+    units="frames" expires_after="M132">
+  <owner>dtapuska@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Records the number of outermost main frames that were hosted in the process
+    when it was determined no more should be placed in the process for the
+    ProcessPerSite algorithm. This is recorded only when this limit is first
+    crossed for each RenderProcessHost.
+  </summary>
+</histogram>
+
 <histogram name="BrowserRenderProcessHost.SpareProcessDelayTime" units="ms"
     expires_after="2025-01-05">
   <owner>kerenzhu@chromium.org</owner>
@@ -1216,7 +1269,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowserRenderProcessHost.SpareProcessRefusedByEmbedderReason"
-    enum="SpareProcessMaybeTakeAction" expires_after="2024-11-03">
+    enum="SpareProcessRefusedByEmbedderReason" expires_after="2025-02-10">
   <owner>gjc@google.com</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -1342,7 +1395,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowserSwitcher.CacheFile.MoveSuccess" enum="BooleanSuccess"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>nicolaso@chromium.org</owner>
   <owner>pastarmovj@chromium.org</owner>
   <summary>
@@ -1602,7 +1655,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SidePanel.TimeOfLongestAnimationStep" units="ms"
-    expires_after="2024-12-08">
+    expires_after="2025-02-10">
   <owner>corising@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -1660,7 +1713,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SidePanel.{SidePanelEntry}.TimeFromEntryTriggerToShown"
-    units="ms" expires_after="2024-12-08">
+    units="ms" expires_after="2025-02-10">
   <owner>corising@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>

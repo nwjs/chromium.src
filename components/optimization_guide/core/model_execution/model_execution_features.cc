@@ -64,9 +64,9 @@ BASE_FEATURE(kOnDeviceModelTestFeature,
              "OnDeviceModelTestFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kOnDeviceModelPromptApiFeature,
-             "OnDeviceModelPromptApiFeature",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kModelAdaptationHistorySearch,
+             "ModelAdaptationHistorySearch",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsGraduatedFeature(UserVisibleFeatureKey feature) {
   bool is_graduated = false;
@@ -139,6 +139,7 @@ bool IsOnDeviceModelEnabled(ModelBasedCapabilityKey feature) {
           optimization_guide::features::kOptimizationGuideComposeOnDeviceEval);
     case ModelBasedCapabilityKey::kTest:
       return base::FeatureList::IsEnabled(kOnDeviceModelTestFeature);
+    case ModelBasedCapabilityKey::kFormsPredictions:
     case ModelBasedCapabilityKey::kTabOrganization:
     case ModelBasedCapabilityKey::kWallpaperSearch:
     case ModelBasedCapabilityKey::kTextSafety:
@@ -166,11 +167,10 @@ bool IsOnDeviceModelAdaptationEnabled(ModelBasedCapabilityKey feature) {
       return base::GetFieldTrialParamByFeatureAsBool(
           kOnDeviceModelTestFeature, "enable_adaptation", false);
     case ModelBasedCapabilityKey::kPromptApi:
-      return base::GetFieldTrialParamByFeatureAsBool(
-          kOnDeviceModelPromptApiFeature, "enable_adaptation", false);
+      return true;
     case ModelBasedCapabilityKey::kHistorySearch:
-      // TODO(crbug.com/325108985): Update to true once we onboard the model.
-      return false;
+      return true;
+    case ModelBasedCapabilityKey::kFormsPredictions:
     case ModelBasedCapabilityKey::kTabOrganization:
     case ModelBasedCapabilityKey::kWallpaperSearch:
     case ModelBasedCapabilityKey::kTextSafety:
@@ -179,27 +179,22 @@ bool IsOnDeviceModelAdaptationEnabled(ModelBasedCapabilityKey feature) {
 }
 // LINT.ThenChange(IsOnDeviceModelEnabled)
 
-// LINT.IfChange(GetOptimizationTargetForModelAdaptation)
 proto::OptimizationTarget GetOptimizationTargetForModelAdaptation(
-    ModelBasedCapabilityKey feature) {
-  switch (feature) {
-    case ModelBasedCapabilityKey::kCompose:
-      return proto::OPTIMIZATION_TARGET_COMPOSE;
-    case ModelBasedCapabilityKey::kTest:
-      return proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
-    // TODO(crbug.com/325108985): Update once we onboard the model.
-    case ModelBasedCapabilityKey::kHistorySearch:
-      NOTREACHED_IN_MIGRATION();
-      break;
-    case ModelBasedCapabilityKey::kPromptApi:
-    case ModelBasedCapabilityKey::kTabOrganization:
-    case ModelBasedCapabilityKey::kWallpaperSearch:
-    case ModelBasedCapabilityKey::kTextSafety:
-      NOTREACHED_IN_MIGRATION();
+    ModelBasedCapabilityKey feature_key) {
+  proto::OptimizationTarget optimization_target;
+  if (proto::OptimizationTarget_Parse(
+          "OPTIMIZATION_TARGET_" +
+              proto::ModelExecutionFeature_Name(static_cast<int>(feature_key)),
+          &optimization_target)) {
+    return optimization_target;
+  } else if (feature_key == ModelBasedCapabilityKey::kTest) {
+    return proto::OPTIMIZATION_TARGET_MODEL_VALIDATION;
+  } else if (feature_key == ModelBasedCapabilityKey::kCompose) {
+    return proto::OPTIMIZATION_TARGET_COMPOSE;
   }
+  NOTREACHED_IN_MIGRATION();
   return proto::OPTIMIZATION_TARGET_UNKNOWN;
 }
-// LINT.ThenChange(IsOnDeviceModelEnabled)
 
 }  // namespace internal
 

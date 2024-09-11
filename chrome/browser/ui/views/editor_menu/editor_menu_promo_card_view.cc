@@ -71,16 +71,18 @@ EditorMenuPromoCardView::EditorMenuPromoCardView(
       delegate_(delegate) {
   CHECK(delegate_);
   InitLayout();
+
+  GetViewAccessibility().SetRole(ax::mojom::Role::kDialog);
 }
 
 EditorMenuPromoCardView::~EditorMenuPromoCardView() = default;
 
 // static
-views::UniqueWidgetPtr EditorMenuPromoCardView::CreateWidget(
+std::unique_ptr<views::Widget> EditorMenuPromoCardView::CreateWidget(
     const gfx::Rect& anchor_view_bounds,
     EditorMenuViewDelegate* delegate) {
   views::Widget::InitParams params(
-      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_POPUP);
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.activatable = views::Widget::InitParams::Activatable::kYes;
@@ -89,8 +91,7 @@ views::UniqueWidgetPtr EditorMenuPromoCardView::CreateWidget(
   params.z_order = ui::ZOrderLevel::kFloatingUIElement;
   params.name = kWidgetName;
 
-  views::UniqueWidgetPtr widget =
-      std::make_unique<views::Widget>(std::move(params));
+  auto widget = std::make_unique<views::Widget>(std::move(params));
   EditorMenuPromoCardView* editor_menu_promo_card_view =
       widget->SetContentsView(std::make_unique<EditorMenuPromoCardView>(
           anchor_view_bounds, delegate));
@@ -110,7 +111,6 @@ void EditorMenuPromoCardView::RequestFocus() {
 }
 
 void EditorMenuPromoCardView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  node_data->role = ax::mojom::Role::kDialog;
   node_data->SetName(GetEditorMenuPromoCardTitle());
 }
 

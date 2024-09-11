@@ -126,7 +126,7 @@ const AtomicString& InputType::TypeToString(Type type) {
     case Type::kWeek:
       return input_type_names::kWeek;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 // Listed once to avoid any discrepancy between InputType::Create and
@@ -563,7 +563,7 @@ String InputType::BadInputText() const {
 }
 
 String InputType::ValueNotEqualText(const Decimal& value) const {
-  NOTREACHED_IN_MIGRATION();
+  DUMP_WILL_BE_NOTREACHED();
   return String();
 }
 

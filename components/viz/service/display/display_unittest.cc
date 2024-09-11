@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "components/viz/service/display/display.h"
 
 #include <limits>
@@ -65,6 +70,7 @@
 #include "components/viz/test/viz_test_suite.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
+#include "gpu/command_buffer/service/scheduler.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "gpu/command_buffer/service/sync_point_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -225,7 +231,7 @@ class DisplayTest : public testing::Test {
     // DisplayCompositorMemoryAndTaskController.
     auto display = std::make_unique<Display>(
         &shared_bitmap_manager_, &shared_image_manager_, &sync_point_manager_,
-        settings, &debug_settings_, frame_sink_id,
+        &gpu_scheduler_, settings, &debug_settings_, frame_sink_id,
         nullptr /* DisplayCompositorMemoryAndTaskController */,
         std::move(output_surface), std::move(overlay_processor),
         std::move(scheduler), task_runner_);
@@ -275,6 +281,7 @@ class DisplayTest : public testing::Test {
   ServerSharedBitmapManager shared_bitmap_manager_;
   gpu::SharedImageManager shared_image_manager_;
   gpu::SyncPointManager sync_point_manager_;
+  gpu::Scheduler gpu_scheduler_{&sync_point_manager_};
   FrameSinkManagerImpl manager_;
   std::unique_ptr<CompositorFrameSinkSupport> support_;
   ParentLocalSurfaceIdAllocator id_allocator_;
@@ -2114,6 +2121,80 @@ TEST_F(SkiaDelegatedInkRendererTest, DrawTrailWhenMetadataIsCloseEnough) {
 
   ink_renderer()->FinalizePathForDraw();
   EXPECT_EQ(GetPathPointCount(), 0);
+}
+
+// Tests that the OutstandingPointsToDraw histogram is fired correctly.
+TEST_F(SkiaDelegatedInkRendererTest, SkiaDelegatedInkOutstandingPointsToDraw) {
+  const std::string kHistogramName =
+      "Renderer.DelegatedInkTrail.Skia.OutstandingPointsToDraw";
+  const base::HistogramTester histogram_tester;
+  const int32_t kPointerId = 17;
+  SetUpRenderers();
+
+  ink_renderer()->ReportPointsDrawn();
+  // No histogram should be fired when there are no points to draw.
+  histogram_tester.ExpectTotalCount(kHistogramName, 0);
+
+  // Add one point, a histogram with a count of one should be fired.
+  const base::TimeTicks timestamp = base::TimeTicks::Now();
+  const gfx::PointF point(45.f, 78.f);
+  CreateAndStoreDelegatedInkPoint(point, timestamp, kPointerId);
+  SendMetadata(gfx::DelegatedInkMetadata(
+      gfx::PointF(point.x(), point.y()), 45.f, SK_ColorBLACK, timestamp,
+      gfx::RectF(0, 0, 100, 100), base::TimeTicks::Now(),
+      /*hovering=*/false));
+  ink_renderer()->ReportPointsDrawn();
+  histogram_tester.ExpectUniqueSample(kHistogramName, 1, 1);
+
+  // Add two point, a histogram with a count of two and three should be fired.
+  CreateAndStoreDelegatedInkPoint(point + gfx::Vector2d(1, 1),
+                                  timestamp + base::Milliseconds(10),
+                                  kPointerId);
+  ink_renderer()->ReportPointsDrawn();
+  histogram_tester.ExpectTotalCount(kHistogramName, 2);
+  histogram_tester.ExpectBucketCount(kHistogramName, 2, 1);
+  CreateAndStoreDelegatedInkPoint(point + gfx::Vector2d(2, 2),
+                                  timestamp + base::Milliseconds(20),
+                                  kPointerId);
+  ink_renderer()->ReportPointsDrawn();
+  histogram_tester.ExpectBucketCount(kHistogramName, 3, 1);
+  histogram_tester.ExpectTotalCount(kHistogramName, 3);
+}
+
+// Tests that the TimeToDrawMillis histogram is fired correctly.
+TEST_F(SkiaDelegatedInkRendererTest, SkiaDelegatedInkTimeToDrawMillis) {
+  const std::string kHistogramName =
+      "Renderer.DelegatedInkTrail.Skia.TimeToDrawPointsMillis";
+  const base::HistogramTester histogram_tester;
+  constexpr int32_t kPointerId = 1u;
+  SetUpRenderers();
+
+  ink_renderer()->ReportPointsDrawn();
+  // No histogram should be fired when there are no points to draw.
+  histogram_tester.ExpectTotalCount(kHistogramName, 0);
+
+  // Add one point to the trail and ensure one histogram instance is fired.
+  const base::TimeTicks timestamp = base::TimeTicks::Now();
+  const gfx::PointF point(45.f, 78.f);
+  CreateAndStoreDelegatedInkPoint(point, timestamp, kPointerId);
+  SendMetadata(gfx::DelegatedInkMetadata(
+      gfx::PointF(point.x(), point.y()), 45.f, SK_ColorBLACK, timestamp,
+      gfx::RectF(0, 0, 100, 100), base::TimeTicks::Now(),
+      /*hovering=*/false));
+  ink_renderer()->ReportPointsDrawn();
+  histogram_tester.ExpectTotalCount(kHistogramName, 1);
+
+  // Add two points to the trail and ensure that the histogram is fired three
+  // times (three points, four total histogram fires accounting for the
+  // previous).
+  CreateAndStoreDelegatedInkPoint(point + gfx::Vector2d(1, 1),
+                                  timestamp + base::Milliseconds(1),
+                                  kPointerId);
+  CreateAndStoreDelegatedInkPoint(point + gfx::Vector2d(2, 2),
+                                  timestamp + base::Milliseconds(2),
+                                  kPointerId);
+  ink_renderer()->ReportPointsDrawn();
+  histogram_tester.ExpectTotalCount(kHistogramName, 4);
 }
 
 enum class DelegatedInkType { kPlatformInk, kSkiaInk };

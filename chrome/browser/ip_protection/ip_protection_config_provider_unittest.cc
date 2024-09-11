@@ -9,6 +9,7 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -16,8 +17,9 @@
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
-#include "components/ip_protection/ip_protection_config_provider_helper.h"
-#include "components/ip_protection/ip_protection_proxy_config_fetcher.h"
+#include "components/ip_protection/common/ip_protection_config_http.h"
+#include "components/ip_protection/common/ip_protection_config_provider_helper.h"
+#include "components/ip_protection/common/ip_protection_proxy_config_fetcher.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
@@ -32,6 +34,7 @@
 #include "net/third_party/quiche/src/quiche/blind_sign_auth/proto/spend_token_data.pb.h"
 #include "services/network/test/test_shared_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/status/status.h"
 
 namespace {
 
@@ -44,6 +47,8 @@ constexpr char kTokenBatchHistogram[] =
 
 constexpr char kTestEmail[] = "test@example.com";
 
+// TODO(b/360340499): Move MockBlindSignAuth to separate class to deduplicate
+// code in chrome and webview config providers.
 class MockBlindSignAuth : public quiche::BlindSignAuthInterface {
  public:
   void GetTokens(std::optional<std::string> oauth_token,
@@ -63,27 +68,38 @@ class MockBlindSignAuth : public quiche::BlindSignAuthInterface {
       result = status_;
     }
 
-    content::GetUIThreadTaskRunner({})->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            [](quiche::SignedTokenCallback callback,
-               absl::StatusOr<absl::Span<quiche::BlindSignToken>> result) {
-              std::move(callback)(std::move(result));
-            },
-            std::move(callback), std::move(result)));
+    std::move(callback)(std::move(result));
   }
 
+  void set_tokens(std::vector<quiche::BlindSignToken> tokens) {
+    tokens_ = std::move(tokens);
+  }
+
+  void set_status(absl::Status status) { status_ = std::move(status); }
+  bool get_tokens_called() const { return get_tokens_called_; }
+
+  const std::string& oauth_token() const { return oauth_token_; }
+
+  int num_tokens() const { return num_tokens_; }
+
+  quiche::ProxyLayer proxy_layer() const { return proxy_layer_; }
+
+  const absl::Status& status() const { return status_; }
+
+  const std::vector<quiche::BlindSignToken>& tokens() const { return tokens_; }
+
+ private:
   // True if `GetTokens()` was called.
-  bool get_tokens_called_;
+  bool get_tokens_called_ = false;
 
   // The token with which `GetTokens()` was called.
-  std::string oauth_token_;
+  std::string oauth_token_ = "";
 
   // The num_tokens with which `GetTokens()` was called.
-  int num_tokens_;
+  int num_tokens_ = 0;
 
   // The proxy for which the tokens are intended for.
-  quiche::ProxyLayer proxy_layer_;
+  quiche::ProxyLayer proxy_layer_ = quiche::ProxyLayer::kProxyA;
 
   // If not Ok, the status that will be returned from `GetTokens()`.
   absl::Status status_ = absl::OkStatus();
@@ -161,7 +177,9 @@ class IpProtectionConfigProviderTest : public testing::Test {
  protected:
   IpProtectionConfigProviderTest()
       : expiration_time_(base::Time::Now() + base::Hours(1)),
-        geo_hint_(network::mojom::GeoHint::New("US", "US-AL", "ALABASTER")) {
+        geo_hint_({.country_code = "US",
+                   .iso_region = "US-AL",
+                   .city_name = "ALABASTER"}) {
     privacy_sandbox::RegisterProfilePrefs(prefs()->registry());
     HostContentSettingsMap::RegisterProfilePrefs(prefs()->registry());
   }
@@ -174,16 +192,16 @@ class IpProtectionConfigProviderTest : public testing::Test {
         std::make_unique<privacy_sandbox::TrackingProtectionSettings>(
             prefs(),
             /*host_content_settings_map=*/host_content_settings_map_.get(),
-            /*onboarding_service=*/nullptr, /*is_incognito=*/false);
+            /*is_incognito=*/false);
+    auto bsa = std::make_unique<MockBlindSignAuth>();
+    bsa_ = bsa.get();
     getter_ = std::make_unique<IpProtectionConfigProvider>(
         IdentityManager(), tracking_protection_settings_.get(), prefs(),
         /*profile=*/nullptr);
-    bsa_ = std::make_unique<MockBlindSignAuth>();
     getter_->SetUpForTesting(
         std::make_unique<MockIpProtectionProxyConfigRetriever>(std::nullopt),
-        std::make_unique<IpProtectionConfigHttp>(
-            base::MakeRefCounted<network::TestSharedURLLoaderFactory>()),
-        bsa_.get());
+        base::MakeRefCounted<network::TestSharedURLLoaderFactory>(),
+        std::move(bsa));
   }
 
   void TearDown() override {
@@ -275,7 +293,7 @@ class IpProtectionConfigProviderTest : public testing::Test {
 
   // Expect that the TryGetAuthTokens call returned the given tokens.
   void ExpectTryGetAuthTokensResult(
-      std::vector<network::mojom::BlindSignedAuthTokenPtr> bsa_tokens) {
+      std::vector<network::BlindSignedAuthToken> bsa_tokens) {
     EXPECT_EQ(std::get<0>(tokens_future_.Get()), bsa_tokens);
   }
 
@@ -287,6 +305,8 @@ class IpProtectionConfigProviderTest : public testing::Test {
     if (!bsa_tokens) {
       EXPECT_EQ(*try_again_after, base::Time::Now() + try_again_delta);
     }
+    // Clear future so it can be reused and accept new tokens.
+    tokens_future_.Clear();
   }
 
   sync_preferences::TestingPrefServiceSyncable* prefs() { return &prefs_; }
@@ -299,12 +319,12 @@ class IpProtectionConfigProviderTest : public testing::Test {
   content::BrowserTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   base::test::TestFuture<
-      std::optional<std::vector<network::mojom::BlindSignedAuthTokenPtr>>,
+      const std::optional<std::vector<network::BlindSignedAuthToken>>&,
       std::optional<base::Time>>
       tokens_future_;
 
   base::test::TestFuture<const std::optional<std::vector<net::ProxyChain>>&,
-                         network::mojom::GeoHintPtr>
+                         const std::optional<network::GeoHint>&>
       proxy_list_future_;
 
   // Test environment for IdentityManager. This must come after the
@@ -315,7 +335,7 @@ class IpProtectionConfigProviderTest : public testing::Test {
   base::Time expiration_time_;
 
   // A convenient geo hint for fake tokens.
-  network::mojom::GeoHintPtr geo_hint_;
+  network::GeoHint geo_hint_;
 
   base::HistogramTester histogram_tester_;
 
@@ -326,40 +346,37 @@ class IpProtectionConfigProviderTest : public testing::Test {
   scoped_refptr<HostContentSettingsMap> host_content_settings_map_;
 
   std::unique_ptr<IpProtectionConfigProvider> getter_;
-  // Note: In the real implementation, `IpProtectionConfigProvider()` owns the
-  // BSA implementation and can't be destroyed before it, which is important
-  // because BSA takes a pointer to `IpProtectionConfigProvider()` when
-  // requesting tokens and calls back with it once tokens are available. Here,
-  // `getter_` doesn't own the BSA implementation, so it's important to ensure
-  // that `bsa_` gets destroyed before `getter_` when the test class is
-  // destroyed so that `bsa_` doesn't call back into a destroyed `getter_`.
-  std::unique_ptr<MockBlindSignAuth> bsa_;
+  // quiche::BlindSignAuthInterface owned and used by the sequence bound
+  // ip_protection_token_fetcher_ in getter_.
+  raw_ptr<MockBlindSignAuth> bsa_;
 };
 
 // The success case: a primary account is available, and BSA gets a token for
 // it.
 TEST_F(IpProtectionConfigProviderTest, Success) {
   primary_account_behavior_ = PrimaryAccountBehavior::kReturnsToken;
-  bsa_->tokens_ = {ip_protection::IpProtectionConfigProviderHelper::
-                       CreateBlindSignTokenForTesting(
-                           "single-use-1", expiration_time_, *geo_hint_),
-                   ip_protection::IpProtectionConfigProviderHelper::
-                       CreateBlindSignTokenForTesting(
-                           "single-use-2", expiration_time_, *geo_hint_)};
+  bsa_->set_tokens({ip_protection::IpProtectionConfigProviderHelper::
+                        CreateBlindSignTokenForTesting(
+                            "single-use-1", expiration_time_, geo_hint_),
+                    ip_protection::IpProtectionConfigProviderHelper::
+                        CreateBlindSignTokenForTesting(
+                            "single-use-2", expiration_time_, geo_hint_)});
 
   TryGetAuthTokens(2, network::mojom::IpProtectionProxyLayer::kProxyB);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
-  EXPECT_EQ(bsa_->num_tokens_, 2);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyB);
-  std::vector<network::mojom::BlindSignedAuthTokenPtr> expected;
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
+  EXPECT_EQ(bsa_->num_tokens(), 2);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyB);
+  std::vector<network::BlindSignedAuthToken> expected;
   expected.push_back(ip_protection::IpProtectionConfigProviderHelper::
                          CreateMockBlindSignedAuthTokenForTesting(
-                             "single-use-1", expiration_time_, *geo_hint_));
+                             "single-use-1", expiration_time_, geo_hint_)
+                             .value());
   expected.push_back(ip_protection::IpProtectionConfigProviderHelper::
                          CreateMockBlindSignedAuthTokenForTesting(
-                             "single-use-2", expiration_time_, *geo_hint_));
+                             "single-use-2", expiration_time_, geo_hint_)
+                             .value());
   ExpectTryGetAuthTokensResult(std::move(expected));
   histogram_tester_.ExpectUniqueSample(
       kTryGetAuthTokensResultHistogram,
@@ -374,10 +391,10 @@ TEST_F(IpProtectionConfigProviderTest, NoTokens) {
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->num_tokens_, 1);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyA);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->num_tokens(), 1);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyA);
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
   ExpectTryGetAuthTokensResultFailed(
       ip_protection::IpProtectionConfigProviderHelper::kTransientBackoff);
   histogram_tester_.ExpectUniqueSample(
@@ -396,15 +413,15 @@ TEST_F(IpProtectionConfigProviderTest, MalformedTokens) {
       .region = "US-CA",
       .city = "MOUNTAIN VIEW",
   };
-  bsa_->tokens_ = {
-      {"invalid-token-proto-data", absl::Now() + absl::Hours(1), geo_hint}};
+  bsa_->set_tokens(
+      {{"invalid-token-proto-data", absl::Now() + absl::Hours(1), geo_hint}});
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyB);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->num_tokens_, 1);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyB);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->num_tokens(), 1);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyB);
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
   ExpectTryGetAuthTokensResultFailed(
       ip_protection::IpProtectionConfigProviderHelper::kTransientBackoff);
   histogram_tester_.ExpectUniqueSample(
@@ -416,31 +433,31 @@ TEST_F(IpProtectionConfigProviderTest, MalformedTokens) {
 
 TEST_F(IpProtectionConfigProviderTest, TokenGeoHintContainsOnlyCountry) {
   primary_account_behavior_ = PrimaryAccountBehavior::kReturnsToken;
-  auto geo_hint_country = network::mojom::GeoHint::New();
-  geo_hint_country->country_code = "US";
-  bsa_->tokens_ = {
-      ip_protection::IpProtectionConfigProviderHelper::
-          CreateBlindSignTokenForTesting("single-use-1", expiration_time_,
-                                         *geo_hint_country),
-      ip_protection::IpProtectionConfigProviderHelper::
-          CreateBlindSignTokenForTesting("single-use-2", expiration_time_,
-                                         *geo_hint_country)};
+  network::GeoHint geo_hint_country;
+  geo_hint_country.country_code = "US";
+  bsa_->set_tokens(
+      {ip_protection::IpProtectionConfigProviderHelper::
+           CreateBlindSignTokenForTesting("single-use-1", expiration_time_,
+                                          geo_hint_country),
+       ip_protection::IpProtectionConfigProviderHelper::
+           CreateBlindSignTokenForTesting("single-use-2", expiration_time_,
+                                          geo_hint_country)});
 
   TryGetAuthTokens(2, network::mojom::IpProtectionProxyLayer::kProxyB);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
-  EXPECT_EQ(bsa_->num_tokens_, 2);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyB);
-  std::vector<network::mojom::BlindSignedAuthTokenPtr> expected;
-  expected.push_back(
-      ip_protection::IpProtectionConfigProviderHelper::
-          CreateMockBlindSignedAuthTokenForTesting(
-              "single-use-1", expiration_time_, *geo_hint_country));
-  expected.push_back(
-      ip_protection::IpProtectionConfigProviderHelper::
-          CreateMockBlindSignedAuthTokenForTesting(
-              "single-use-2", expiration_time_, *geo_hint_country));
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
+  EXPECT_EQ(bsa_->num_tokens(), 2);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyB);
+  std::vector<network::BlindSignedAuthToken> expected;
+  expected.push_back(ip_protection::IpProtectionConfigProviderHelper::
+                         CreateMockBlindSignedAuthTokenForTesting(
+                             "single-use-1", expiration_time_, geo_hint_country)
+                             .value());
+  expected.push_back(ip_protection::IpProtectionConfigProviderHelper::
+                         CreateMockBlindSignedAuthTokenForTesting(
+                             "single-use-2", expiration_time_, geo_hint_country)
+                             .value());
   ExpectTryGetAuthTokensResult(std::move(expected));
   histogram_tester_.ExpectUniqueSample(
       kTryGetAuthTokensResultHistogram,
@@ -451,17 +468,17 @@ TEST_F(IpProtectionConfigProviderTest, TokenGeoHintContainsOnlyCountry) {
 
 TEST_F(IpProtectionConfigProviderTest, TokenHasMissingGeoHint) {
   primary_account_behavior_ = PrimaryAccountBehavior::kReturnsToken;
-  bsa_->tokens_ = {
-      ip_protection::IpProtectionConfigProviderHelper::
-          CreateBlindSignTokenForTesting("single-use-1", expiration_time_,
-                                         *network::mojom::GeoHint::New())};
+  network::GeoHint geo_hint;
+  bsa_->set_tokens({ip_protection::IpProtectionConfigProviderHelper::
+                        CreateBlindSignTokenForTesting(
+                            "single-use-1", expiration_time_, geo_hint)});
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->num_tokens_, 1);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyA);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->num_tokens(), 1);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyA);
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
   ExpectTryGetAuthTokensResultFailed(
       ip_protection::IpProtectionConfigProviderHelper::kTransientBackoff);
   histogram_tester_.ExpectUniqueSample(
@@ -474,14 +491,14 @@ TEST_F(IpProtectionConfigProviderTest, TokenHasMissingGeoHint) {
 // BSA returns a 400 error.
 TEST_F(IpProtectionConfigProviderTest, BlindSignedTokenError400) {
   primary_account_behavior_ = PrimaryAccountBehavior::kReturnsToken;
-  bsa_->status_ = absl::InvalidArgumentError("uhoh");
+  bsa_->set_status(absl::InvalidArgumentError("uhoh"));
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->num_tokens_, 1);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyA);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->num_tokens(), 1);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyA);
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
   ExpectTryGetAuthTokensResultFailed(
       ip_protection::IpProtectionConfigProviderHelper::kBugBackoff);
   histogram_tester_.ExpectUniqueSample(
@@ -494,14 +511,14 @@ TEST_F(IpProtectionConfigProviderTest, BlindSignedTokenError400) {
 // BSA returns a 401 error.
 TEST_F(IpProtectionConfigProviderTest, BlindSignedTokenError401) {
   primary_account_behavior_ = PrimaryAccountBehavior::kReturnsToken;
-  bsa_->status_ = absl::UnauthenticatedError("uhoh");
+  bsa_->set_status(absl::UnauthenticatedError("uhoh"));
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyB);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->num_tokens_, 1);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyB);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->num_tokens(), 1);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyB);
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
   ExpectTryGetAuthTokensResultFailed(
       ip_protection::IpProtectionConfigProviderHelper::kBugBackoff);
   histogram_tester_.ExpectUniqueSample(
@@ -514,14 +531,14 @@ TEST_F(IpProtectionConfigProviderTest, BlindSignedTokenError401) {
 // BSA returns a 403 error.
 TEST_F(IpProtectionConfigProviderTest, BlindSignedTokenError403) {
   primary_account_behavior_ = PrimaryAccountBehavior::kReturnsToken;
-  bsa_->status_ = absl::PermissionDeniedError("uhoh");
+  bsa_->set_status(absl::PermissionDeniedError("uhoh"));
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->num_tokens_, 1);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyA);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->num_tokens(), 1);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyA);
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
   ExpectTryGetAuthTokensResultFailed(
       ip_protection::IpProtectionConfigProviderHelper::kNotEligibleBackoff);
   histogram_tester_.ExpectUniqueSample(
@@ -534,14 +551,14 @@ TEST_F(IpProtectionConfigProviderTest, BlindSignedTokenError403) {
 // BSA returns some other error.
 TEST_F(IpProtectionConfigProviderTest, BlindSignedTokenErrorOther) {
   primary_account_behavior_ = PrimaryAccountBehavior::kReturnsToken;
-  bsa_->status_ = absl::UnknownError("uhoh");
+  bsa_->set_status(absl::UnknownError("uhoh"));
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyB);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->num_tokens_, 1);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyB);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->num_tokens(), 1);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyB);
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
   ExpectTryGetAuthTokensResultFailed(
       ip_protection::IpProtectionConfigProviderHelper::kTransientBackoff);
   histogram_tester_.ExpectUniqueSample(
@@ -554,26 +571,28 @@ TEST_F(IpProtectionConfigProviderTest, BlindSignedTokenErrorOther) {
 // The CanUseChromeIpProtection capability is not present (`kUnknown`).
 TEST_F(IpProtectionConfigProviderTest, AccountCapabilityUnknown) {
   primary_account_behavior_ = PrimaryAccountBehavior::kUnknownEligibility;
-  bsa_->tokens_ = {ip_protection::IpProtectionConfigProviderHelper::
-                       CreateBlindSignTokenForTesting(
-                           "single-use-1", expiration_time_, *geo_hint_),
-                   ip_protection::IpProtectionConfigProviderHelper::
-                       CreateBlindSignTokenForTesting(
-                           "single-use-2", expiration_time_, *geo_hint_)};
+  bsa_->set_tokens({ip_protection::IpProtectionConfigProviderHelper::
+                        CreateBlindSignTokenForTesting(
+                            "single-use-1", expiration_time_, geo_hint_),
+                    ip_protection::IpProtectionConfigProviderHelper::
+                        CreateBlindSignTokenForTesting(
+                            "single-use-2", expiration_time_, geo_hint_)});
 
   TryGetAuthTokens(2, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
-  EXPECT_EQ(bsa_->num_tokens_, 2);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyA);
-  std::vector<network::mojom::BlindSignedAuthTokenPtr> expected;
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
+  EXPECT_EQ(bsa_->num_tokens(), 2);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyA);
+  std::vector<network::BlindSignedAuthToken> expected;
   expected.push_back(ip_protection::IpProtectionConfigProviderHelper::
                          CreateMockBlindSignedAuthTokenForTesting(
-                             "single-use-1", expiration_time_, *geo_hint_));
+                             "single-use-1", expiration_time_, geo_hint_)
+                             .value());
   expected.push_back(ip_protection::IpProtectionConfigProviderHelper::
                          CreateMockBlindSignedAuthTokenForTesting(
-                             "single-use-2", expiration_time_, *geo_hint_));
+                             "single-use-2", expiration_time_, geo_hint_)
+                             .value());
   ExpectTryGetAuthTokensResult(std::move(expected));
   histogram_tester_.ExpectUniqueSample(
       kTryGetAuthTokensResultHistogram,
@@ -588,7 +607,7 @@ TEST_F(IpProtectionConfigProviderTest, AuthTokenTransientError) {
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyB);
 
-  EXPECT_FALSE(bsa_->get_tokens_called_);
+  EXPECT_FALSE(bsa_->get_tokens_called());
   ExpectTryGetAuthTokensResultFailed(
       ip_protection::IpProtectionConfigProviderHelper::kTransientBackoff);
   histogram_tester_.ExpectUniqueSample(
@@ -603,7 +622,7 @@ TEST_F(IpProtectionConfigProviderTest, AuthTokenPersistentError) {
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_FALSE(bsa_->get_tokens_called_);
+  EXPECT_FALSE(bsa_->get_tokens_called());
   ExpectTryGetAuthTokensResultFailed(base::TimeDelta::Max());
   histogram_tester_.ExpectUniqueSample(
       kTryGetAuthTokensResultHistogram,
@@ -616,7 +635,7 @@ TEST_F(IpProtectionConfigProviderTest, NoPrimary) {
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyB);
 
-  EXPECT_FALSE(bsa_->get_tokens_called_);
+  EXPECT_FALSE(bsa_->get_tokens_called());
   ExpectTryGetAuthTokensResultFailed(base::TimeDelta::Max());
   histogram_tester_.ExpectUniqueSample(
       kTryGetAuthTokensResultHistogram,
@@ -636,7 +655,7 @@ TEST_F(IpProtectionConfigProviderTest, TryGetAuthTokens_IpProtectionDisabled) {
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_FALSE(bsa_->get_tokens_called_);
+  EXPECT_FALSE(bsa_->get_tokens_called());
   ExpectTryGetAuthTokensResultFailed(base::TimeDelta::Max());
   histogram_tester_.ExpectUniqueSample(
       kTryGetAuthTokensResultHistogram,
@@ -653,20 +672,20 @@ TEST_F(IpProtectionConfigProviderTest, AccountLoginTriggersBackoffReset) {
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_FALSE(bsa_->get_tokens_called_);
+  EXPECT_FALSE(bsa_->get_tokens_called());
   ExpectTryGetAuthTokensResultFailed(base::TimeDelta::Max());
 
   primary_account_behavior_ = PrimaryAccountBehavior::kReturnsToken;
-  bsa_->tokens_ = {ip_protection::IpProtectionConfigProviderHelper::
-                       CreateBlindSignTokenForTesting(
-                           "single-use-1", expiration_time_, *geo_hint_)};
+  bsa_->set_tokens({ip_protection::IpProtectionConfigProviderHelper::
+                        CreateBlindSignTokenForTesting(
+                            "single-use-1", expiration_time_, geo_hint_)});
 
   TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyA);
 
-  EXPECT_TRUE(bsa_->get_tokens_called_);
-  EXPECT_EQ(bsa_->oauth_token_, "access_token");
-  EXPECT_EQ(bsa_->num_tokens_, 1);
-  EXPECT_EQ(bsa_->proxy_layer_, quiche::ProxyLayer::kProxyA);
+  EXPECT_TRUE(bsa_->get_tokens_called());
+  EXPECT_EQ(bsa_->oauth_token(), "access_token");
+  EXPECT_EQ(bsa_->num_tokens(), 1);
+  EXPECT_EQ(bsa_->proxy_layer(), quiche::ProxyLayer::kProxyA);
 }
 #endif
 
@@ -683,7 +702,7 @@ TEST_F(IpProtectionConfigProviderTest, SessionRefreshTriggersBackoffReset) {
           GoogleServiceAuthError::State::INVALID_GAIA_CREDENTIALS));
 
   base::test::TestFuture<
-      std::optional<std::vector<network::mojom::BlindSignedAuthTokenPtr>>,
+      const std::optional<std::vector<network::BlindSignedAuthToken>>&,
       std::optional<base::Time>>
       tokens_future;
   getter_->TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyB,
@@ -697,17 +716,17 @@ TEST_F(IpProtectionConfigProviderTest, SessionRefreshTriggersBackoffReset) {
       account_info.account_id,
       GoogleServiceAuthError(GoogleServiceAuthError::State::NONE));
 
-  bsa_->tokens_ = {ip_protection::IpProtectionConfigProviderHelper::
-                       CreateBlindSignTokenForTesting(
-                           "single-use-1", expiration_time_, *geo_hint_)};
+  bsa_->set_tokens({ip_protection::IpProtectionConfigProviderHelper::
+                        CreateBlindSignTokenForTesting(
+                            "single-use-1", expiration_time_, geo_hint_)});
   tokens_future.Clear();
   getter_->TryGetAuthTokens(1, network::mojom::IpProtectionProxyLayer::kProxyB,
                             tokens_future.GetCallback());
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       "access_token", base::Time::Now());
-  const std::optional<std::vector<network::mojom::BlindSignedAuthTokenPtr>>&
-      tokens = tokens_future.Get<std::optional<
-          std::vector<network::mojom::BlindSignedAuthTokenPtr>>>();
+  const std::optional<std::vector<network::BlindSignedAuthToken>>& tokens =
+      tokens_future
+          .Get<std::optional<std::vector<network::BlindSignedAuthToken>>>();
   ASSERT_TRUE(tokens);
 }
 
@@ -797,15 +816,16 @@ TEST_F(IpProtectionConfigProviderTest, ProxyOverrideFlagsAll) {
   chain->set_proxy_a("proxyA2");
   chain->set_proxy_b("proxyB2");
 
-  response.mutable_geo_hint()->set_country_code(geo_hint_->country_code);
-  response.mutable_geo_hint()->set_iso_region(geo_hint_->iso_region);
-  response.mutable_geo_hint()->set_city_name(geo_hint_->city_name);
+  response.mutable_geo_hint()->set_country_code(geo_hint_.country_code);
+  response.mutable_geo_hint()->set_iso_region(geo_hint_.iso_region);
+  response.mutable_geo_hint()->set_city_name(geo_hint_.city_name);
 
+  auto bsa = std::make_unique<MockBlindSignAuth>();
+  bsa_ = bsa.get();
   getter_->SetUpForTesting(
       std::make_unique<MockIpProtectionProxyConfigRetriever>(response),
-      std::make_unique<IpProtectionConfigHttp>(
-          base::MakeRefCounted<network::TestSharedURLLoaderFactory>()),
-      bsa_.get());
+      base::MakeRefCounted<network::TestSharedURLLoaderFactory>(),
+      std::move(bsa));
   getter_->GetProxyList(proxy_list_future_.GetCallback());
   ASSERT_TRUE(proxy_list_future_.Wait()) << "GetProxyList did not call back";
 
@@ -816,8 +836,8 @@ TEST_F(IpProtectionConfigProviderTest, ProxyOverrideFlagsAll) {
   EXPECT_THAT(proxy_list.value(),
               testing::ElementsAreArray(proxy_override_list));
 
-  ASSERT_TRUE(geo_hint);  // Check that GeoHintPtr is not null.
-  EXPECT_TRUE(geo_hint->Equals(*geo_hint_));
+  ASSERT_TRUE(geo_hint.has_value());  // Check that GeoHint is not null.
+  EXPECT_TRUE(geo_hint == geo_hint_);
 }
 
 TEST_F(IpProtectionConfigProviderTest, GetProxyListFailure) {
@@ -837,16 +857,17 @@ TEST_F(IpProtectionConfigProviderTest, GetProxyListFailure) {
             }
           });
 
+  auto bsa = std::make_unique<MockBlindSignAuth>();
+  bsa_ = bsa.get();
   getter_->SetUpForTesting(
       std::make_unique<MockIpProtectionProxyConfigRetriever>(
           mock_get_proxy_config),
-      std::make_unique<IpProtectionConfigHttp>(
-          base::MakeRefCounted<network::TestSharedURLLoaderFactory>()),
-      bsa_.get());
+      base::MakeRefCounted<network::TestSharedURLLoaderFactory>(),
+      std::move(bsa));
 
   auto call_get_proxy_list = [this](bool expect_success) {
     base::test::TestFuture<const std::optional<std::vector<net::ProxyChain>>&,
-                           network::mojom::GeoHintPtr>
+                           const std::optional<network::GeoHint>&>
         future;
     this->getter_->GetProxyList(future.GetCallback());
     ASSERT_TRUE(future.Wait());
@@ -861,10 +882,10 @@ TEST_F(IpProtectionConfigProviderTest, GetProxyListFailure) {
 
       // `GetProxyConfigResponse` used is default instance which means GeoHint
       // will not be populated and should be a nullptr.
-      EXPECT_TRUE(geo_hint.is_null());
+      EXPECT_FALSE(geo_hint.has_value());
     } else {
       EXPECT_EQ(proxy_list, std::nullopt);
-      EXPECT_TRUE(geo_hint.is_null());
+      EXPECT_FALSE(geo_hint.has_value());
     }
   };
 
@@ -922,15 +943,16 @@ TEST_F(IpProtectionConfigProviderTest, GetProxyList_IpProtectionDisabled) {
   chain->set_proxy_b("proxy1b");
   chain->set_chain_id(1);
 
-  response.mutable_geo_hint()->set_country_code(geo_hint_->country_code);
-  response.mutable_geo_hint()->set_iso_region(geo_hint_->iso_region);
-  response.mutable_geo_hint()->set_city_name(geo_hint_->city_name);
+  response.mutable_geo_hint()->set_country_code(geo_hint_.country_code);
+  response.mutable_geo_hint()->set_iso_region(geo_hint_.iso_region);
+  response.mutable_geo_hint()->set_city_name(geo_hint_.city_name);
 
+  auto bsa = std::make_unique<MockBlindSignAuth>();
+  bsa_ = bsa.get();
   getter_->SetUpForTesting(
       std::make_unique<MockIpProtectionProxyConfigRetriever>(response),
-      std::make_unique<IpProtectionConfigHttp>(
-          base::MakeRefCounted<network::TestSharedURLLoaderFactory>()),
-      bsa_.get());
+      base::MakeRefCounted<network::TestSharedURLLoaderFactory>(),
+      std::move(bsa));
 
   prefs()->SetBoolean(prefs::kIpProtectionEnabled, false);
 
@@ -942,16 +964,17 @@ TEST_F(IpProtectionConfigProviderTest, GetProxyList_IpProtectionDisabled) {
   const auto& [proxy_list, geo_hint] = proxy_list_future_.Get();
 
   EXPECT_EQ(proxy_list, std::nullopt);
-  EXPECT_TRUE(geo_hint.is_null());
+  EXPECT_FALSE(geo_hint.has_value());
 }
 
 // Do a basic check of the token formats.
 TEST_F(IpProtectionConfigProviderTest, TokenFormat) {
-  network::mojom::BlindSignedAuthTokenPtr result =
+  network::BlindSignedAuthToken result =
       ip_protection::IpProtectionConfigProviderHelper::
-          CreateMockBlindSignedAuthTokenForTesting(
-              "single-use-1", expiration_time_, *geo_hint_);
-  std::string token = (*result).token;
+          CreateMockBlindSignedAuthTokenForTesting("single-use-1",
+                                                   expiration_time_, geo_hint_)
+              .value();
+  std::string& token = result.token;
   size_t token_position = token.find("PrivateToken token=");
   size_t extensions_position = token.find("extensions=");
 

@@ -32,7 +32,6 @@
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "components/autofill/core/browser/autofill_type.h"
-#include "components/autofill/core/browser/data_model/autofill_metadata.h"
 #include "components/autofill/core/browser/data_model/autofill_offer_data.h"
 #include "components/autofill/core/browser/data_model/autofill_wallet_usage_data.h"
 #include "components/autofill/core/browser/data_model/bank_account.h"
@@ -40,6 +39,7 @@
 #include "components/autofill/core/browser/data_model/credit_card_cloud_token_data.h"
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/data_model/payment_instrument.h"
+#include "components/autofill/core/browser/data_model/payments_metadata.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
@@ -238,13 +238,11 @@ constexpr std::initializer_list<std::pair<std::string_view, std::string_view>>
 constexpr std::string_view kGenericPaymentInstrumentsTable =
     "generic_payment_instruments";
 // kInstrumentId = "instrument_id"
-constexpr std::string_view kPaymentInstrumentType = "payment_instrument_type";
 constexpr std::string_view kSerializedValueEncrypted =
     "serialized_value_encrypted";
 constexpr std::initializer_list<std::pair<std::string_view, std::string_view>>
     kGenericPaymentInstrumentsColumnNamesAndTypes = {
         {kInstrumentId, "INTEGER PRIMARY KEY NOT NULL"},
-        {kPaymentInstrumentType, "INTEGER NOT NULL DEFAULT 0"},
         {kSerializedValueEncrypted, "VARCHAR NOT NULL"}};
 
 void BindEncryptedStringToColumn(sql::Statement* s,
@@ -345,41 +343,27 @@ void BindVirtualCardUsageDataToStatement(
   s.BindString16(3, *virtual_card_usage_data.virtual_card_last_four());
 }
 
-PaymentInstrument::PaymentInstrumentType GetPaymentInstrumentType(
-    sync_pb::PaymentInstrument payment_instrument) {
-  if (payment_instrument.has_bank_account()) {
-    return PaymentInstrument::PaymentInstrumentType::kBankAccount;
-  } else if (payment_instrument.has_iban()) {
-    return PaymentInstrument::PaymentInstrumentType::kIban;
-  }
-  return PaymentInstrument::PaymentInstrumentType::kUnknown;
-}
-
 void BindPaymentInstrumentToStatement(
     const sync_pb::PaymentInstrument& payment_instrument,
     sql::Statement* s,
     const AutofillTableEncryptor& encryptor) {
   int index = 0;
   s->BindInt64(index++, payment_instrument.instrument_id());
-  s->BindInt(index++,
-             static_cast<int>(GetPaymentInstrumentType(payment_instrument)));
   BindEncryptedStringToColumn(
       s, index++, payment_instrument.SerializeAsString(), encryptor);
 }
 
-std::unique_ptr<VirtualCardUsageData> GetVirtualCardUsageDataFromStatement(
-    sql::Statement& s) {
+VirtualCardUsageData GetVirtualCardUsageDataFromStatement(sql::Statement& s) {
   int index = 0;
   std::string id = s.ColumnString(index++);
   int64_t instrument_id = s.ColumnInt64(index++);
   std::string merchant_domain = s.ColumnString(index++);
   std::u16string last_four = s.ColumnString16(index++);
 
-  return std::make_unique<VirtualCardUsageData>(
-      VirtualCardUsageData::UsageDataId(id),
-      VirtualCardUsageData::InstrumentId(instrument_id),
-      VirtualCardUsageData::VirtualCardLastFour(last_four),
-      url::Origin::Create(GURL(merchant_domain)));
+  return {VirtualCardUsageData::UsageDataId(id),
+          VirtualCardUsageData::InstrumentId(instrument_id),
+          VirtualCardUsageData::VirtualCardLastFour(last_four),
+          url::Origin::Create(GURL(merchant_domain))};
 }
 
 std::string DecryptStringFromColumn(sql::Statement& s,
@@ -591,6 +575,9 @@ bool PaymentsAutofillTable::MigrateToVersion(int version,
     case 129:
       *update_compatible_version = false;
       return MigrateToVersion129AddGenericPaymentInstrumentsTable();
+    case 131:
+      *update_compatible_version = true;
+      return MigrateToVersion131RemoveGenericPaymentInstrumentTypeColumn();
   }
   return true;
 }
@@ -1059,7 +1046,7 @@ bool PaymentsAutofillTable::ClearLocalCvcs() {
 }
 
 bool PaymentsAutofillTable::AddServerCardMetadata(
-    const AutofillMetadata& card_metadata) {
+    const PaymentsMetadata& card_metadata) {
   sql::Statement s;
   InsertBuilder(db_, s, kServerCardMetadataTable,
                 {kUseCount, kUseDate, kBillingAddressId, kId});
@@ -1091,7 +1078,7 @@ bool PaymentsAutofillTable::UpdateServerCardMetadata(const CreditCard& credit_ca
 }
 
 bool PaymentsAutofillTable::UpdateServerCardMetadata(
-    const AutofillMetadata& card_metadata) {
+    const PaymentsMetadata& card_metadata) {
   // Do not check if there was a record that got deleted. Inserting a new one is
   // also fine.
   RemoveServerCardMetadata(card_metadata.id);
@@ -1113,7 +1100,7 @@ bool PaymentsAutofillTable::RemoveServerCardMetadata(const std::string& id) {
 }
 
 bool PaymentsAutofillTable::GetServerCardsMetadata(
-    std::vector<AutofillMetadata>& cards_metadata) const {
+    std::vector<PaymentsMetadata>& cards_metadata) const {
   cards_metadata.clear();
 
   sql::Statement s;
@@ -1123,7 +1110,7 @@ bool PaymentsAutofillTable::GetServerCardsMetadata(
   while (s.Step()) {
     int index = 0;
 
-    AutofillMetadata card_metadata;
+    PaymentsMetadata card_metadata;
     card_metadata.id = s.ColumnString(index++);
     card_metadata.use_count = s.ColumnInt64(index++);
     card_metadata.use_date = base::Time::FromDeltaSinceWindowsEpoch(
@@ -1135,7 +1122,7 @@ bool PaymentsAutofillTable::GetServerCardsMetadata(
 }
 
 bool PaymentsAutofillTable::AddOrUpdateServerIbanMetadata(
-    const AutofillMetadata& iban_metadata) {
+    const PaymentsMetadata& iban_metadata) {
   // There's no need to verify if removal succeeded, because if it's a new IBAN,
   // the removal call won't do anything.
   RemoveServerIbanMetadata(iban_metadata.id);
@@ -1158,7 +1145,7 @@ bool PaymentsAutofillTable::RemoveServerIbanMetadata(const std::string& instrume
 }
 
 bool PaymentsAutofillTable::GetServerIbansMetadata(
-    std::vector<AutofillMetadata>& ibans_metadata) const {
+    std::vector<PaymentsMetadata>& ibans_metadata) const {
   ibans_metadata.clear();
   sql::Statement s;
   SelectBuilder(db_, s, kMaskedIbansMetadataTable,
@@ -1166,7 +1153,7 @@ bool PaymentsAutofillTable::GetServerIbansMetadata(
 
   while (s.Step()) {
     int index = 0;
-    AutofillMetadata iban_metadata;
+    PaymentsMetadata iban_metadata;
     iban_metadata.id = s.ColumnString(index++);
     iban_metadata.use_count = s.ColumnInt64(index++);
     iban_metadata.use_date = base::Time::FromDeltaSinceWindowsEpoch(
@@ -1300,7 +1287,7 @@ bool PaymentsAutofillTable::GetServerIbans(std::vector<std::unique_ptr<Iban>>& i
     iban->set_nickname(s.ColumnString16(index++));
     iban->set_prefix(s.ColumnString16(index++));
     iban->set_suffix(s.ColumnString16(index++));
-    iban->set_length(s.ColumnInt64(index++));
+    index++;  // Skip unused `length` field.
     ibans.push_back(std::move(iban));
   }
 
@@ -1326,7 +1313,8 @@ bool PaymentsAutofillTable::SetServerIbansData(const std::vector<Iban>& ibans) {
     s.BindString16(index++, iban.nickname());
     s.BindString16(index++, iban.prefix());
     s.BindString16(index++, iban.suffix());
-    s.BindInt64(index++, iban.length());
+    // TODO(b/355074921): Clean up length field from kMaskedIbansTable table.
+    s.BindInt64(index++, 0);
     if (!s.Run()) {
       return false;
     }
@@ -1499,7 +1487,7 @@ bool PaymentsAutofillTable::GetAutofillOffers(
 
 bool PaymentsAutofillTable::AddOrUpdateVirtualCardUsageData(
     const VirtualCardUsageData& virtual_card_usage_data) {
-  std::unique_ptr<VirtualCardUsageData> existing_data =
+  std::optional<VirtualCardUsageData> existing_data =
       GetVirtualCardUsageData(*virtual_card_usage_data.usage_data_id());
   sql::Statement s;
   if (!existing_data) {
@@ -1513,7 +1501,8 @@ bool PaymentsAutofillTable::AddOrUpdateVirtualCardUsageData(
   return s.Run();
 }
 
-std::unique_ptr<VirtualCardUsageData> PaymentsAutofillTable::GetVirtualCardUsageData(
+std::optional<VirtualCardUsageData>
+PaymentsAutofillTable::GetVirtualCardUsageData(
     const std::string& usage_data_id) {
   sql::Statement s;
   SelectBuilder(db_, s, kVirtualCardUsageDataTable,
@@ -1521,7 +1510,7 @@ std::unique_ptr<VirtualCardUsageData> PaymentsAutofillTable::GetVirtualCardUsage
                 "WHERE id = ?");
   s.BindString(0, usage_data_id);
   if (!s.Step()) {
-    return nullptr;
+    return std::nullopt;
   }
   return GetVirtualCardUsageDataFromStatement(s);
 }
@@ -1558,15 +1547,14 @@ void PaymentsAutofillTable::SetVirtualCardUsageData(
 }
 
 bool PaymentsAutofillTable::GetAllVirtualCardUsageData(
-    std::vector<std::unique_ptr<VirtualCardUsageData>>*
-        virtual_card_usage_data) {
-  virtual_card_usage_data->clear();
+    std::vector<VirtualCardUsageData>& virtual_card_usage_data) {
+  virtual_card_usage_data.clear();
 
   sql::Statement s;
   SelectBuilder(db_, s, kVirtualCardUsageDataTable,
                 {kId, kInstrumentId, kMerchantDomain, kLastFour});
   while (s.Step()) {
-    virtual_card_usage_data->push_back(GetVirtualCardUsageDataFromStatement(s));
+    virtual_card_usage_data.push_back(GetVirtualCardUsageDataFromStatement(s));
   }
 
   return s.Succeeded();
@@ -1834,16 +1822,10 @@ bool PaymentsAutofillTable::SetPaymentInstruments(
 
   // Insert the new values.
   sql::Statement insert;
-  InsertBuilder(
-      db_, insert, kGenericPaymentInstrumentsTable,
-      {kInstrumentId, kPaymentInstrumentType, kSerializedValueEncrypted});
+  InsertBuilder(db_, insert, kGenericPaymentInstrumentsTable,
+                {kInstrumentId, kSerializedValueEncrypted});
   for (const sync_pb::PaymentInstrument& payment_instrument :
        payment_instruments) {
-    // Don't store unknown payment instruments in the table.
-    if (GetPaymentInstrumentType(payment_instrument) ==
-        PaymentInstrument::PaymentInstrumentType::kUnknown) {
-      continue;
-    }
     BindPaymentInstrumentToStatement(payment_instrument, &insert,
                                      *autofill_table_encryptor_);
     insert.Run();
@@ -1858,14 +1840,12 @@ bool PaymentsAutofillTable::GetPaymentInstruments(
   payment_instruments.clear();
 
   sql::Statement s;
-  SelectBuilder(
-      db_, s, kGenericPaymentInstrumentsTable,
-      {kInstrumentId, kPaymentInstrumentType, kSerializedValueEncrypted});
+  SelectBuilder(db_, s, kGenericPaymentInstrumentsTable,
+                {kInstrumentId, kSerializedValueEncrypted});
 
   while (s.Step()) {
     int index = 0;
     int64_t instrument_id = s.ColumnInt64(index++);
-    int payment_instrument_type = s.ColumnInt(index++);
     auto serialized_value =
         DecryptStringFromColumn(s, index++, *autofill_table_encryptor_);
     sync_pb::PaymentInstrument payment_instrument;
@@ -1873,9 +1853,9 @@ bool PaymentsAutofillTable::GetPaymentInstruments(
       payment_instruments.emplace_back(payment_instrument);
     } else {
       DLOG(WARNING)
-          << "Instrument dropped: Failed to deserialize AUTOFILL model type "
+          << "Instrument dropped: Failed to deserialize AUTOFILL data type "
              "sync_pb::PaymentInstrument with id = "
-          << instrument_id << " and type = " << payment_instrument_type;
+          << instrument_id;
     }
   }
 
@@ -2148,6 +2128,12 @@ bool PaymentsAutofillTable::
     MigrateToVersion129AddGenericPaymentInstrumentsTable() {
   return CreateTable(db_, kGenericPaymentInstrumentsTable,
                      kGenericPaymentInstrumentsColumnNamesAndTypes);
+}
+
+bool PaymentsAutofillTable::
+    MigrateToVersion131RemoveGenericPaymentInstrumentTypeColumn() {
+  return DropColumnIfExists(db_, kGenericPaymentInstrumentsTable,
+                            "payment_instrument_type");
 }
 
 void PaymentsAutofillTable::AddMaskedCreditCards(

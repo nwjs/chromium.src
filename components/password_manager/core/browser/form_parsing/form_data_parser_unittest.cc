@@ -86,6 +86,7 @@ struct FieldDataDescription {
   // If not -1, indicates on which rank among predicted usernames this should
   // be. Unused ranks will be padded with unique IDs (not found in any fields).
   int predicted_username = -1;
+  uint64_t max_length_attr = FormFieldData::kDefaultMaxLength;
 };
 
 // Describes a test case for the parser.
@@ -314,6 +315,7 @@ class FormParserTest : public testing::Test {
       field.set_is_enabled(field_description.is_enabled);
       field.set_is_readonly(field_description.is_readonly);
       field.set_properties_mask(field_description.properties_mask);
+      field.set_max_length(field_description.max_length_attr);
       if (field_description.value == kNonimportantValue) {
         field.set_value(StampUniqueSuffix(u"value"));
       } else {
@@ -3317,7 +3319,8 @@ TEST_F(FormParserTest, UsernameFoundByServerPredictions) {
   FormDataParser parser;
   parser.set_predictions(std::move(predictions));
 
-  auto [result, username_detection_method, is_new_password_reliable] =
+  auto [result, username_detection_method, is_new_password_reliable,
+        suggestion_banned_fields] =
       parser.ParseAndReturnParsingResult(
           form_data, FormDataParser::Mode::kSaving, /*stored_usernames=*/{});
   EXPECT_EQ(username_detection_method,
@@ -3333,7 +3336,8 @@ TEST_F(FormParserTest, BaseHeuristicsFindUsernameFieldWithStoredUsername) {
                         CreateField(FormControlType::kInputPassword, u"")});
 
   FormDataParser parser;
-  auto [password_form, username_detection_method, is_new_password_reliable] =
+  auto [password_form, username_detection_method, is_new_password_reliable,
+        suggestion_banned_fields] =
       parser.ParseAndReturnParsingResult(
           form_data, FormDataParser::Mode::kFilling, {kUsername});
   ASSERT_TRUE(password_form);
@@ -3343,6 +3347,35 @@ TEST_F(FormParserTest, BaseHeuristicsFindUsernameFieldWithStoredUsername) {
   EXPECT_TRUE(password_form->HasUsernameElement());
   EXPECT_EQ(password_form->username_element_renderer_id,
             form_data.fields()[0].renderer_id());
+}
+
+TEST_F(FormParserTest, PasswordFieldsWithMaxLength) {
+  CheckTestData(
+      {{
+           .description_for_logging = "New password with maxlength attr "
+                                      "sufficient for password generation",
+           .fields =
+               {
+                   {.role = ElementRole::NEW_PASSWORD,
+                    .autocomplete_attribute = "new-password",
+                    .value = u"LoooongStrooongPassword",
+                    .form_control_type = FormControlType::kInputPassword,
+                    .max_length_attr = 13},
+               },
+           .is_new_password_reliable = true,
+       },
+       {
+           .description_for_logging = "New password with small maxlength attr",
+           .fields =
+               {
+                   {.role = ElementRole::NEW_PASSWORD,
+                    .autocomplete_attribute = "new-password",
+                    .value = u"Short",
+                    .form_control_type = FormControlType::kInputPassword,
+                    .max_length_attr = 5},
+               },
+           .is_new_password_reliable = false,
+       }});
 }
 
 }  // namespace

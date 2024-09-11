@@ -155,6 +155,7 @@
 
 การไม่ตั้งค่านโยบายจะทำให้ไม่มีข้อยกเว้นสำหรับ <ph name="DEVICE_AUTHENTICATION_URL_BLOCKLIST_POLICY_NAME" /></translation>
 <translation id="1068801725746725727">เปิดใช้การรับแบบสำรวจเกี่ยวกับ Google Safe Browsing</translation>
+<translation id="107045325503547419">ขึ้นอยู่กับกระบวนการเปิดตัวฟีเจอร์</translation>
 <translation id="1073983258515362346">รายงานข้อมูลเกี่ยวกับแบ็กไลต์ของอุปกรณ์
 
       หากตั้งค่านโยบายเป็น "เท็จ" หรือไม่ได้ตั้งค่า จะไม่มีการรายงานข้อมูล
@@ -358,6 +359,7 @@
 <translation id="1257550411839719984">ตั้งค่าไดเรกทอรีเริ่มต้นสำหรับดาวน์โหลด</translation>
 <translation id="1262993197422487260">ไม่แสดงปุ่ม "แสดงรหัสผ่าน" ในหน้าจอเข้าสู่ระบบและหน้าจอล็อก</translation>
 <translation id="1265053460044691532">จำกัดเวลาที่ผู้ใช้ซึ่งตรวจสอบสิทธิ์ผ่าน SAML สามารถเข้าสู่ระบบในแบบออฟไลน์</translation>
+<translation id="1265076559723566171">ควบคุมการตั้งค่าสำหรับผู้ใช้ EDU</translation>
 <translation id="1271811620059192171">เปิดใช้นโยบายที่มาจากกลุ่มขนาดเล็ก</translation>
 <translation id="127264587838521316">เปิดใช้คำขอติดตั้งส่วนขยายของ <ph name="PRODUCT_NAME" /></translation>
 <translation id="1272798957154751008">เปิดใช้การย้ายข้อมูลของอุปกรณ์ Chromad ไปยังการจัดการระบบคลาวด์</translation>
@@ -432,6 +434,15 @@
       หากเลือก "บังคับใช้" (2) ไว้ ผู้ใช้จะระงับการใช้เครื่องมือเลือกโปรไฟล์ไม่ได้ เครื่องมือเลือกโปรไฟล์จะแสดงแม้ว่าจะมีให้เลือกเพียงโปรโฟล์เดียวเท่านั้น</translation>
 <translation id="1339174690935954950">ป้องกันไม่ให้ผู้ใช้ส่งความคิดเห็น</translation>
 <translation id="1340053691042184658">ป้องกันไม่ให้เข้าสู่ระบบเบราว์เซอร์ในโหมดผู้มาเยือน</translation>
+<translation id="134154550994512097">นโยบายนี้ควบคุมว่าผู้ใช้เปิดใช้โหมด HTTPS เท่านั้น (ใช้การเชื่อมต่อที่ปลอดภัยทุกครั้ง) ในการตั้งค่าได้หรือไม่ โหมด "HTTPS เท่านั้น" จะอัปเกรดการนำทางทั้งหมดให้เป็นแบบ HTTPS
+      หากไม่ได้ตั้งค่านี้หรือตั้งค่าเป็น "อนุญาต" ผู้ใช้จะได้รับอนุญาตให้เปิดใช้โหมด "HTTPS เท่านั้น"
+      หากตั้งค่านี้เป็น "ไม่อนุญาต" ผู้ใช้จะไม่ได้รับอนุญาตให้เปิดใช้โหมด "HTTPS เท่านั้น"
+      หากตั้งค่านี้เป็น force_enabled ระบบจะเปิดใช้โหมด HTTPS เท่านั้นในโหมดเข้มงวด และผู้ใช้จะปิดใช้ไม่ได้
+      หากตั้งค่านี้เป็น force_balanced_enabled ระบบจะเปิดใช้โหมด HTTPS เท่านั้นในโหมดสมดุล และผู้ใช้จะปิดใช้ไม่ได้
+      รองรับ force_enabled ตั้งแต่เวอร์ชัน M112 เป็นต้นไป และรองรับ force_balanced_enabled ตั้งแต่เวอร์ชัน M129 เป็นต้นไป
+      หากตั้งค่านโยบายนี้เป็นค่าที่ Chrome เวอร์ชันที่ได้รับนโยบายไม่รองรับ Chrome จะใช้การตั้งค่าที่อนุญาตโดยค่าเริ่มต้น
+
+ฟีเจอร์นี้จะใช้นโยบาย <ph name="HTTP_ALLOWLIST_POLICY_NAME" /> แยกต่างหากเพื่อยกเว้นชื่อโฮสต์หรือรูปแบบชื่อโฮสต์ที่ต้องการไม่ให้อัปเกรดเป็น HTTPS ได้</translation>
 <translation id="1342918903685430097">กำหนดค่าเวอร์ชัน <ph name="PRODUCT_OS_NAME" /> ขั้นต่ำที่อุปกรณ์จะใช้ได้</translation>
 <translation id="1343128241903870688">ปิดใช้การรายงานข้อมูลแอปของอุปกรณ์</translation>
 <translation id="1347198119056266798">นโยบายนี้เลิกใช้งานไปแล้ว โปรดใช้ <ph name="FORCE_GOOGLE_SAFE_SEARCH_POLICY_NAME" /> และ <ph name="FORCE_YOUTUBE_RESTRICT_POLICY_NAME" /> แทน ระบบจะไม่สนใจนโยบายนี้หากมีการตั้งค่านโยบาย <ph name="FORCE_GOOGLE_SAFE_SEARCH_POLICY_NAME" />, <ph name="FORCE_YOUTUBE_RESTRICT_POLICY_NAME" /> หรือ <ph name="FORCE_YOUTUBE_SAFETY_MODE_POLICY_NAME" /> (เลิกใช้งานแล้ว)
@@ -445,6 +456,27 @@
 <translation id="1348603614848418219">ปิดใช้การย้ายข้อมูลของอุปกรณ์ที่มีการจัดการของ <ph name="MS_AD_NAME" /> ไปยังการจัดการระบบคลาวด์</translation>
 <translation id="1352799151662469739">ระยะเวลาเป็นมิลลิวินาทีก่อนล็อกหน้าจอหลังจากไม่มีการป้อนข้อมูลจากผู้ใช้ ขณะที่เครื่องทำงานโดยเสียบปลั๊ก</translation>
 <translation id="1353416417709895349">ปิดใช้การตรวจสอบการสกัดกั้น DNS และแถบข้อมูล "หรือคุณหมายถึง http://intranetsite/"</translation>
+<translation id="1353910503649343481">การตั้งค่านโยบายนี้จะกำหนดค่าพร็อกซีสำหรับ Chrome และแอป ARC โดยไม่พิจารณาตัวเลือกเกี่ยวกับพร็อกซีทั้งหมดที่ระบุจากบรรทัดคำสั่ง
+
+       การไม่ตั้งค่านโยบายนี้จะทำให้ผู้ใช้เลือกการตั้งค่าพร็อกซีได้
+
+       การตั้งค่านโยบาย <ph name="PROXY_SETTINGS_POLICY_NAME" /> จะยอมรับช่องต่อไปนี้
+         * <ph name="PROXY_MODE_PROXY_SETTINGS_FIELD" /> ซึ่งช่วยให้คุณระบุพร็อกซีเซิร์ฟเวอร์ที่ Chrome จะใช้ได้ และป้องกันไม่ให้ผู้ใช้เปลี่ยนการตั้งค่าพร็อกซี
+         * <ph name="PROXY_PAC_URL_PROXY_SETTINGS_FIELD" /> URL ไปยังไฟล์ .pac ของพร็อกซี หรือสคริปต์ PAC ที่เข้ารหัสเป็น URL ข้อมูลที่มีประเภท MIME application/x-ns-proxy-autoconfig
+         * <ph name="PROXY_PAC_MANDATORY_PROXY_SETTINGS_FIELD" /> สำหรับป้องกันไม่ให้สแต็กเครือข่ายเปลี่ยนไปใช้วิธีสำรอง นั่นคือการเชื่อมต่อโดยตรงกับสคริปต์ PAC ที่ไม่ถูกต้องหรือไม่พร้อมใช้งาน
+         * <ph name="PROXY_SERVER_PROXY_SETTINGS_FIELD" /> คือ URL ของพร็อกซีเซิร์ฟเวอร์
+         * <ph name="PROXY_BYPASS_LIST_PROXY_SETTINGS_FIELD" /> คือรายการโฮสต์ที่จะข้ามพร็อกซี
+
+      ช่อง <ph name="PROXY_SERVER_MODE_PROXY_SETTINGS_FIELD" /> เลิกใช้งานแล้วเพื่อใช้ช่อง <ph name="PROXY_MODE_PROXY_SETTINGS_FIELD" />
+
+        สำหรับ <ph name="PROXY_MODE_PROXY_SETTINGS_FIELD" /> หากคุณเลือกค่าต่อไปนี้
+          * <ph name="PROXY_MODE_ENUM_DIRECT" /> ระบบจะไม่ใช้พร็อกซีและจะไม่พิจารณาช่องอื่นๆ ทั้งหมด
+          * <ph name="PROXY_MODE_ENUM_SYSTEM" /> ระบบจะใช้พร็อกซีของระบบและจะไม่พิจารณาช่องอื่นๆ ทั้งหมด
+          * <ph name="PROXY_MODE_ENUM_AUTO_DETECT" /> ระบบจะไม่พิจารณาช่องอื่นๆ ทั้งหมด
+          * <ph name="PROXY_MODE_ENUM_FIXED_SERVERS" /> ระบบจะใช้ช่อง <ph name="PROXY_SERVER_PROXY_SETTINGS_FIELD" /> และ <ph name="PROXY_BYPASS_LIST_PROXY_SETTINGS_FIELD" />
+          * ระบบจะใช้ช่อง<ph name="PROXY_MODE_ENUM_PAC_SCRIPT" />, <ph name="PROXY_BYPASS_LIST_PROXY_PAC_URL" />, <ph name="PROXY_PAC_MANDATORY_PROXY_SETTINGS_FIELD" /> และ <ph name="PROXY_BYPASS_LIST_PROXY_SETTINGS_FIELD" />
+
+      หมายเหตุ: ดูตัวอย่างโดยละเอียดเพิ่มเติมได้ที่ The Chromium Projects ( https://www.chromium.org/developers/design-documents/network-settings#TOC-Command-line-options-for-proxy-sett )</translation>
 <translation id="1354280967938151061">ปิดใช้ ARC</translation>
 <translation id="1354424209129232709">สูงสุด:</translation>
 <translation id="1355050231181289439"> นโยบายนี้ควบคุมว่าจะให้ระบบเปิดใช้การแมปแป้นพิมพ์ลัดสากลที่ปรับปรุงแล้วหรือไม่
@@ -464,7 +496,6 @@
 <translation id="1369698103169067223">ไม่ได้เปิดใช้ Glanceables สำหรับผู้ใช้</translation>
 <translation id="1371626834351873151">การลด User Agent จะเปิดใช้สำหรับต้นทางทั้งหมด</translation>
 <translation id="1371851989348083665">อนุญาตให้ใช้ "<ph name="ASSISTANT_PRODUCT_NAME" />" บนเว็บ</translation>
-<translation id="1372511977715560169">ควบคุมการเปิดใช้ฟีเจอร์ <ph name="GEN_AI_WALLPAPER_FEATURE_NAME" /> ใน <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="1372618949173323717">ปิดใช้ JavaScript</translation>
 <translation id="1376119291123231789">เปิดใช้โหมดการชาร์จแบตเตอรี่ขั้นสูง</translation>
 <translation id="1376299650477150211">อนุญาตให้คุณกำหนดรายการรูปแบบ URL ของเว็บไซต์ซึ่งระบุเว็บไซต์ที่ปิดใช้การเพิ่มประสิทธิภาพ JavaScript ขั้นสูง
@@ -793,6 +824,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
       หากไม่ได้ตั้งค่า <ph name="IDLE_ACTION_FIELD_NAME" /> ระบบจะใช้ <ph name="IDLE_ACTION_ENUM_SUSPEND" />
 
       หมายเหตุ: มีการตั้งค่าแยกต่างหากสำหรับการทำงานโดยเสียบปลั๊กและแบตเตอรี่</translation>
+<translation id="1607734317623618500">เว็บแอปคีออสก์ใช้งานแบบออฟไลน์ได้</translation>
 <translation id="1608755754295374538">URL ที่จะได้รับสิทธิ์การเข้าถึงอุปกรณ์จับเสียงโดยไม่ต้องแจ้ง</translation>
 <translation id="1608901087213748889">เรียกให้ทำงานเมื่อไม่มีการใช้งานคอมพิวเตอร์
 
@@ -880,6 +912,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="165769015320654523">ให้สิทธิ์เว็บไซต์เหล่านี้โดยอัตโนมัติในการเชื่อมต่อกับอุปกรณ์ HID ที่มีรหัสผู้ให้บริการและรหัสผลิตภัณฑ์ที่กำหนด</translation>
 <translation id="1659406551862245683">เปลี่ยนลักษณะการทำงานเริ่มต้นในการปรับขนาดของแป้นพิมพ์เสมือนให้ปรับขนาดวิวพอร์ตของเลย์เอาต์</translation>
 <translation id="166427968280387991">พร็อกซีเซิร์ฟเวอร์</translation>
+<translation id="1666001345366986837">การตั้งค่าสำหรับฟีเจอร์พื้นหลัง VC ที่ Generative AI สร้างขึ้น</translation>
 <translation id="1670638264428789878">เปิดใช้ชุดเว็บไซต์ที่เกี่ยวข้อง</translation>
 <translation id="1671405606278443620">การตั้งค่าสำหรับการค้นหาประวัติการเข้าชมซึ่งทำงานด้วยระบบ AI</translation>
 <translation id="1673097259557436886">แจ้งเว็บไซต์เสมอหากไม่มีวิธีการชำระเงินที่บันทึกไว้</translation>
@@ -909,27 +942,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
       นโยบายนี้อนุญาตให้ระบุความละเอียดสำหรับทำแรสเตอร์ PDF เพื่อการพิมพ์โดยเฉพาะ
 
       หากตั้งค่านโยบายนี้เป็น 0 หรือไม่ได้ตั้งค่าเลย จะมีการใช้ความละเอียดเริ่มต้นของระบบในระหว่างการทำแรสเตอร์รูปภาพในหน้าเนื้อหา</translation>
-<translation id="1700458869527146675">การตั้งค่านโยบายนี้จะกำหนดค่าพร็อกซีสำหรับ Chrome และแอป ARC โดยไม่พิจารณาตัวเลือกเกี่ยวกับพร็อกซีทั้งหมดที่ระบุจากบรรทัดคำสั่ง
-
-       การไม่ตั้งค่านโยบายนี้จะทำให้ผู้ใช้เลือกการตั้งค่าพร็อกซีได้
-
-       การตั้งค่านโยบาย <ph name="PROXY_SETTINGS_POLICY_NAME" /> จะยอมรับช่องต่อไปนี้
-         * <ph name="PROXY_MODE_PROXY_SETTINGS_FIELD" /> สำหรับให้คุณระบุพร็อกซีเซิร์ฟเวอร์ที่ Chrome จะใช้ได้ และป้องกันไม่ให้ผู้ใช้เปลี่ยนการตั้งค่าพร็อกซี
-         * <ph name="PROXY_PAC_URL_PROXY_SETTINGS_FIELD" /> คือ URL ที่ชี้ไปยังไฟล์ .pac ของพร็อกซี
-         * <ph name="PROXY_PAC_MANDATORY_PROXY_SETTINGS_FIELD" /> สำหรับป้องกันไม่ให้สแต็กเครือข่ายเปลี่ยนไปใช้วิธีสำรอง นั่นคือการเชื่อมต่อโดยตรงกับสคริปต์ PAC ที่ไม่ถูกต้องหรือไม่พร้อมใช้งาน
-         * <ph name="PROXY_SERVER_PROXY_SETTINGS_FIELD" /> คือ URL ของพร็อกซีเซิร์ฟเวอร์
-         * <ph name="PROXY_BYPASS_LIST_PROXY_SETTINGS_FIELD" /> คือรายการโฮสต์ที่จะข้ามพร็อกซี
-
-       ช่อง <ph name="PROXY_SERVER_MODE_PROXY_SETTINGS_FIELD" /> เลิกใช้งานแล้วเพื่อใช้ช่อง <ph name="PROXY_MODE_PROXY_SETTINGS_FIELD" />
-
-        สำหรับ <ph name="PROXY_MODE_PROXY_SETTINGS_FIELD" /> หากคุณเลือกค่าต่อไปนี้
-          * <ph name="PROXY_MODE_ENUM_DIRECT" /> ระบบจะไม่ใช้พร็อกซีและจะไม่พิจารณาช่องอื่นๆ ทั้งหมด
-          * <ph name="PROXY_MODE_ENUM_SYSTEM" /> ระบบจะใช้พร็อกซีของระบบและจะไม่พิจารณาช่องอื่นๆ ทั้งหมด
-          * <ph name="PROXY_MODE_ENUM_AUTO_DETECT" /> ระบบจะไม่พิจารณาช่องอื่นๆ ทั้งหมด
-          * <ph name="PROXY_MODE_ENUM_FIXED_SERVERS" /> ระบบจะใช้ช่อง <ph name="PROXY_SERVER_PROXY_SETTINGS_FIELD" /> และ <ph name="PROXY_BYPASS_LIST_PROXY_SETTINGS_FIELD" />
-          * <ph name="PROXY_MODE_ENUM_PAC_SCRIPT" /> ระบบจะใช้ช่อง <ph name="PROXY_BYPASS_LIST_PROXY_PAC_URL" />, <ph name="PROXY_PAC_MANDATORY_PROXY_SETTINGS_FIELD" /> และ <ph name="PROXY_BYPASS_LIST_PROXY_SETTINGS_FIELD" />
-
-      หมายเหตุ: ดูตัวอย่างโดยละเอียดเพิ่มเติมได้ที่ The Chromium Projects ( https://www.chromium.org/developers/design-documents/network-settings#TOC-Command-line-options-for-proxy-sett )</translation>
 <translation id="1700811900332333712">อนุญาตให้อุปกรณ์ขอทำ Powerwash</translation>
 <translation id="1705215165572785706">ใช้ปุ่มแถวบนสุดเป็นปุ่มสำหรับสื่อ แต่ผู้ใช้จะแก้ไขได้</translation>
 <translation id="1708496595873025510">ตั้งค่าข้อจำกัดการเรียกเมล็ดรูปแบบ</translation>
@@ -1105,6 +1117,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 นโยบายนี้จะไม่มีผลเมื่อตั้งค่าที่ระดับแมชชีน</translation>
 <translation id="1837165432382702436">ความสูงของหน้าโดยหน่วยเป็นไมโครเมตร</translation>
 <translation id="1838910874018595451">การกำหนดค่าที่กรอกไว้ล่วงหน้าสำหรับตั๋ว Kerberos</translation>
+<translation id="1839042185432919430">อนุญาตให้เว็บแอปคีออสก์แสดงพรอมต์จากเครือข่ายเมื่อเปิดใช้แอป หากอุปกรณ์ออฟไลน์อยู่</translation>
 <translation id="1843102210803941014">เปิดใช้เฉพาะคุกกี้และข้อมูลที่จำเป็นในการค้นหา</translation>
 <translation id="1843117931376765605">อัตราการรีเฟรชสำหรับนโยบายผู้ใช้</translation>
 <translation id="1844620919405873871">กำหนดค่านโยบายที่เกี่ยวข้องกับการปลดล็อกด่วน</translation>
@@ -1462,13 +1475,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
       หากเปิดใช้นโยบายหรือไม่ได้ตั้งค่า ระบบจะเปิดใช้คำจำกัดความของคำตอบด่วน
       หากปิดใช้นโยบาย ระบบจะปิดใช้คำจำกัดความของคำตอบด่วน</translation>
-<translation id="2095778449451007308">นโยบายนี้ควบคุมว่าผู้ใช้เปิดใช้โหมด HTTPS เท่านั้น (ใช้การเชื่อมต่อที่ปลอดภัยทุกครั้ง) ในการตั้งค่าได้หรือไม่ โหมด HTTPS เท่านั้นจะอัปเกรดการนำทางทั้งหมดให้เป็นแบบ HTTPS
-      หากไม่ได้ตั้งค่านี้หรือตั้งค่าเป็นอนุญาต ผู้ใช้จะได้รับอนุญาตให้เปิดใช้โหมด HTTPS เท่านั้น
-      หากตั้งค่านี้เป็นไม่อนุญาต ผู้ใช้จะไม่ได้รับอนุญาตให้เปิดใช้โหมด HTTPS เท่านั้น
-      หากตั้งค่านี้เป็น force_enabled ระบบจะเปิดใช้โหมด HTTPS เท่านั้น และผู้ใช้จะปิดใช้การตั้งค่านี้ไม่ได้
-      ระบบรองรับการบังคับให้เปิดใช้โหมด HTTPS เท่านั้นในเวอร์ชัน M112 เป็นต้นไป
-
-ฟีเจอร์นี้จะใช้นโยบาย <ph name="HTTP_ALLOWLIST_POLICY_NAME" /> แยกต่างหากเพื่อยกเว้นชื่อโฮสต์หรือรูปแบบชื่อโฮสต์ที่ต้องการไม่ให้อัปเกรดเป็น HTTPS ได้</translation>
 <translation id="209586405398070749">เวอร์ชันเสถียร</translation>
 <translation id="2096932573113293941">ขอสิทธิ์เรียกใช้ปลั๊กอินที่ต้องมีการให้สิทธิ์จากผู้ใช้</translation>
 <translation id="2098658257603918882">เปิดใช้งานการรายงานการใช้และข้อมูลเกี่ยวกับการขัดข้อง</translation>
@@ -1514,7 +1520,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
       การไม่ตั้งค่า <ph name="DEFAULT_SEARCH_PROVIDER_ICON_URL_POLICY_NAME" /> จะทำให้ไม่มีไอคอนสำหรับผู้ให้บริการค้นหารายนั้น</translation>
 <translation id="2136073175041447267">กำหนดค่าไดรฟ์ในระบบคลาวด์ (Google ไดรฟ์, Microsoft OneDrive) ใน <ph name="PRODUCT_OS_NAME" /></translation>
-<translation id="2140379319368541863">ไม่อนุญาตให้ใช้ "วอลเปเปอร์ GenAI"</translation>
 <translation id="2144236546337326489">อนุญาตให้มีการเปิดใช้การทำงานอย่างต่อเนื่องในฮับโทรศัพท์</translation>
 <translation id="2145735238144543545">ต้องมีใบรับรองไคลเอ็นต์</translation>
 <translation id="2146103669166779785">ระบบจะใช้สีแบบเลขฐานสิบหกเพื่อสร้างธีมและนำไปใช้กับเบราว์เซอร์</translation>
@@ -1799,7 +1804,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
       การไม่ตั้งค่านโยบายหมายความว่า <ph name="DEFAULT_CLIPBOARD_SETTING" /> จะมีผลกับทุกเว็บไซต์ (หากตั้งค่าไว้) แต่หากไม่ได้ตั้งค่าไว้ การตั้งค่าส่วนตัวของผู้ใช้จะมีผล
 
       ดูข้อมูลโดยละเอียดเกี่ยวกับรูปแบบ <ph name="URL_LABEL" /> ที่ถูกต้องได้ที่ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns ใช้ไวลด์การ์ด (<ph name="WILDCARD_VALUE" />) ได้</translation>
-<translation id="2297432074108752232">อนุญาตให้ใช้ "พื้นหลัง GenAI VC" โดยไม่ปรับปรุงโมเดล AI</translation>
 <translation id="2299220924812062390">ระบุรายการปลั๊กอินที่เปิดใช้งาน</translation>
 <translation id="2299815818824242485">ไม่อนุญาตการค้นหาผ่านพร็อกซีที่มีการปกป้องสูงขึ้น</translation>
 <translation id="2303795211377219696">เปิดใช้ "ป้อนข้อความอัตโนมัติ" สำหรับบัตรเครดิต</translation>
@@ -1910,6 +1914,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
       การตั้งค่า <ph name="VARIATIONS_DISABLED_OPTION_NAME" /> (ค่า 2) จะไม่อนุญาตให้ใช้รูปแบบใดก็ตามกับเบราว์เซอร์ โปรดทราบว่าโหมดนี้อาจขัดขวางไม่ให้นักพัฒนาแอปของ <ph name="PRODUCT_NAME" /> ทำการแก้ไขด้านความปลอดภัยที่สำคัญมากได้อย่างทันท่วงที และด้วยเหตุนี้จึงไม่แนะนำให้ใช้โหมดนี้</translation>
 <translation id="2402537890732357732">แสดงป้ายกำกับการจัดการเสมอ</translation>
 <translation id="2402547085566757554">ไม่ใช้หน้าแท็บใหม่เป็นหน้าแรก</translation>
+<translation id="2405765347317553213">การตั้งค่าการเปรียบเทียบแท็บ</translation>
 <translation id="240713331529749993">การตั้งค่านโยบายหมายความว่าต้นทางแต่ละแห่งที่มีชื่อในรายการที่คั่นด้วยคอมมาจะทำงานในกระบวนการเฉพาะบน Android กระบวนการของต้นทางแต่ละแห่งที่มีชื่อจะได้รับอนุญาตให้มีเอกสารจากต้นทางนั้นและโดเมนย่อยเท่านั้น ตัวอย่างเช่น การระบุ https://a1.example.com/ จะอนุญาต https://a2.a1.example.com/ ในกระบวนการเดียวกัน แต่ไม่อนุญาต https://example.com หรือ https://b.example.com โปรดทราบว่า Android จะแยกเว็บไซต์ที่มีความละเอียดอ่อนบางเว็บไซต์โดยค่าเริ่มต้นใน <ph name="PRODUCT_NAME" /> เวอร์ชัน 77 เป็นต้นไป และนโยบายนี้จะขยายการทำงานของโหมดดังกล่าวให้แยกต้นทางบางรายการเพิ่มเติม
 
       ตั้งแต่ <ph name="PRODUCT_NAME" /> เวอร์ชัน 77 คุณจะระบุช่วงต้นทางเพื่อแยกโดยใช้ไวลด์การ์ดได้ด้วย ตัวอย่างเช่น การระบุ https://[*.]corp.example.com จะทำให้ทุกต้นทางภายใต้ https://corp.example.com มีกระบวนการเฉพาะของตนเอง ซึ่งรวมถึง https://corp.example.com, https://a1.corp.example.com และ https://a2.a1.corp.example.com
@@ -2029,7 +2034,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="2492240920793040106">เปิดใช้การรายงานข้อมูลระบบและเนื้อหาของหน้าเพื่อช่วยปรับปรุง Google Safe Browsing</translation>
 <translation id="2496180316473517155">ประวัติการเข้าชมที่เรียกดู</translation>
 <translation id="2497751676088107779">สคริปต์ของผู้ใช้</translation>
-<translation id="2497965601277442929">ไม่อนุญาตให้ผู้ใช้เปิดใช้โหมด "HTTPS เท่านั้น"</translation>
 <translation id="249798396824949930"> กำหนดว่าจะให้เบราว์เซอร์ตรวจหาขอบเขตนโยบายที่จำเป็นใน <ph name="MAC_OS_NAME" /> ได้หรือไม่
 
       หากตั้งค่านโยบายเป็น "เปิดใช้" หรือไม่ได้ตั้งค่า ขอบเขตของนโยบายแต่ละรายการจะกำหนดตามขอบเขตของโปรไฟล์ที่มีการจัดการของ <ph name="MAC_OS_NAME" />
@@ -2602,6 +2606,9 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="2973972555495515337">หากตั้งค่านโยบายเป็น "เปิดใช้" ระบบจะอนุญาตให้เว็บแอปพลิเคชันของบุคคลที่สามใช้ <ph name="DESK_API_NAME" /> เพื่อบันทึกและแชร์เดสก์ <ph name="PRODUCT_OS_NAME" /> หากตั้งค่านโยบายเป็น "ปิดใช้" ผู้ใช้จะบันทึกและแชร์ข้อมูลเดสก์ผ่าน <ph name="DESK_API_NAME" /> ไม่ได้ หากไม่ได้ตั้งค่านโยบาย ลักษณะการทำงานจะเหมือนกับการตั้งค่าเป็น "ปิดใช้" นโยบายนี้จะมีผลกับอุปกรณ์ที่ลงทะเบียนไว้เท่านั้น</translation>
 <translation id="2976033779241323433">เปิดใช้แป้นพิมพ์เสมือนแบบสัมผัสตามการเรียนรู้เริ่มต้นของระบบ</translation>
 <translation id="2976429807269247880">การตั้งค่าลักษณะการทำงานของคุกกี้ <ph name="ATTRIBUTE_SAMESITE_NAME" /> เดิม</translation>
+<translation id="2977576137210520963">การตั้งค่านโยบายนี้เป็นการระบุรายการ URL ที่จะมีการจับคู่รูปแบบกับต้นทางการรักษาความปลอดภัยของ URL ที่ขอ หากรูปแบบตรงกัน ระบบจะให้สิทธิ์เข้าถึงอุปกรณ์จับเสียงโดยไม่แสดงข้อความแจ้ง
+
+      ดูข้อมูลโดยละเอียดเกี่ยวกับรูปแบบ <ph name="URL_LABEL" /> ที่ถูกต้องได้ที่ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns อย่างไรก็ตาม โปรดทราบว่านโยบายนี้ไม่รองรับรูปแบบ "*" ที่ตรงกับ URL ใดก็ตาม</translation>
 <translation id="2979696534869541158">บังคับใช้การใช้งานเดิม</translation>
 <translation id="2985927503455169394">ใช้โหมดเริ่มต้นของการเริ่มต้นใช้งาน Assistant</translation>
 <translation id="2987155890997901449">เปิดใช้ ARC</translation>
@@ -2660,7 +2667,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
       ใน <ph name="PRODUCT_NAME" /> เวอร์ชัน 81 ขึ้นไป หากไม่ได้ตั้งค่านโยบายนี้ ระบบจะเปิดใช้การตรวจสอบสิทธิ์แบบแอมเบียนท์เฉพาะในเซสชันปกติ</translation>
 <translation id="3021562480854470924">อนุญาตให้มีจุดการย้อนกลับ</translation>
-<translation id="3023172689742785487">บังคับให้เปิดใช้โหมด "HTTPS เท่านั้น"</translation>
 <translation id="3023572080620427845">URL ของไฟล์ XML ที่มี URL ที่จะโหลดในเบราว์เซอร์สำรอง</translation>
 <translation id="302528139996622624">การตั้งค่ารูปภาพ</translation>
 <translation id="3026740867910702435">เปิดใช้ฟีเจอร์การช่วยเหลือพิเศษด้วยเคอร์เซอร์ขนาดใหญ่ในหน้าจอการเข้าสู่ระบบ
@@ -2781,7 +2787,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
       หากเว็บไซต์ตรงกับรูปแบบ URL ในนโยบายนี้ ระบบจะไม่พิจารณานโยบาย <ph name="TAB_CAPTURE_ALLOWED_BY_ORIGINS_POLICY_NAME" />, <ph name="WINDOW_CAPTURE_ALLOWED_BY_ORIGINS_POLICY_NAME" />, <ph name="SCREEN_CAPTURE_ALLOWED_BY_ORIGINS_POLICY_NAME" /> และ <ph name="SCREEN_CAPTURE_ALLOWED_POLICY_NAME" />
 
       ดูข้อมูลโดยละเอียดเกี่ยวกับรูปแบบ <ph name="URL_LABEL" /> ที่ถูกต้องได้ที่ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns  นโยบายนี้จะจับคู่โดยอิงตามต้นทางเท่านั้น ระบบจึงไม่สนใจเส้นทางใดก็ตามในรูปแบบ URL</translation>
-<translation id="3111315283985318774">ควบคุมการเปิดใช้ฟีเจอร์ <ph name="GEN_AI_VC_BACKGROUND_FEATURE_NAME" /> ใน <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3112501357749061018">รายการใบรับรอง TLS ที่ <ph name="PRODUCT_NAME" /> ควรเชื่อถือสำหรับการตรวจสอบสิทธิ์เซิร์ฟเวอร์ โดยมีการเพิ่มข้อจำกัดไว้นอกใบรับรอง หากไม่มีข้อจำกัดของประเภทใดประเภทหนึ่ง ระบบจะอนุญาตให้ใช้ชื่อของประเภทนั้น
 ใบรับรองควรเข้ารหัสฐาน 64 ต้องระบุข้อจำกัดอย่างน้อย 1 ข้อสำหรับใบรับรองแต่ละรายการ</translation>
 <translation id="3118552207903834734">อนุญาตให้ผู้ใช้กำหนดค่าชื่อโฮสต์อุปกรณ์ของตนได้</translation>
@@ -2983,6 +2988,13 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
       เว็บไซต์ที่กำหนดค่าไว้จะเปิดในเบราว์เซอร์อื่นแทน <ph name="PRODUCT_NAME" /> โดยอัตโนมัติ</translation>
 <translation id="3252724033247471310">อนุญาตให้ต้นทางเหล่านี้จับภาพแท็บที่มีต้นทางเดียวกัน</translation>
+<translation id="325374928725737694">หากปิดใช้นโยบายนี้ แสดงว่าเว็บแอปคีออสก์ไม่สามารถทำงานแบบออฟไลน์ได้ ระบบจะแสดงพรอมต์จากเครือข่ายเมื่อเริ่มเซสชันคีออสก์แล้วอุปกรณ์ออฟไลน์อยู่เท่านั้น การดำเนินการนี้จะทำให้มั่นใจได้ว่าอุปกรณ์จะออนไลน์ก่อนเปิดใช้แอปได้สำเร็จ
+
+พรอมต์จากเครือข่ายนี้อาจไม่แสดง หากตั้งค่าแอปเป็นเปิดใช้อัตโนมัติและปิดใช้ <ph name="PROMPT_POLICY_NAME" /> (<ph name="PROMPT_POLICY_URL" />) อยู่
+
+นโยบายนี้จะไม่มีผลกับแอป Chrome หรือเว็บแอปที่มี URL การติดตั้งซึ่งทำการเปลี่ยนเส้นทางแบบข้ามต้นทางไปยังเว็บแอปอื่น (เช่น หาก URL การติดตั้งแอปคือ <ph name="APP_INSTALL_URL" /> แต่มีการเปลี่ยนเส้นทางไปยังเว็บแอปอื่นเมื่อโหลด เช่น <ph name="APP_REDIRECTED_URL" />)
+
+หากตั้งค่านโยบายเป็น "จริง" หรือไม่ได้ตั้งค่า ระบบจะเปิดใช้เว็บแอป แม้ว่าอุปกรณ์จะออฟไลน์อยู่ก็ตาม</translation>
 <translation id="3255624750680556186">การตั้งค่านโยบายเป็น "เปิดใช้" หรือไม่ได้ตั้งค่าจะทำให้อุปกรณ์ทริกเกอร์ Powerwash ได้
 
       การตั้งค่านโยบายเป็น "ปิดใช้" จะทำให้อุปกรณ์ทริกเกอร์ Powerwash ไม่ได้ อาจเกิดข้อยกเว้นให้ทำ Powerwash ได้หากตั้งค่า <ph name="TPM_FIRMWARE_UPDATE_SETTINGS_NAME" /> เป็นค่าที่อนุญาตให้อัปเดตเฟิร์มแวร์ TPM แต่เฟิร์มแวร์ TPM ยังไม่ได้รับการอัปเดต</translation>
@@ -3047,6 +3059,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="3308724602356134956">หากคุณตั้งค่านโยบาย <ph name="PRODUCT_OS_NAME" /> จะดาวน์โหลดและใช้รูปภาพวอลเปเปอร์ที่คุณตั้งค่าไว้เป็นพื้นหลังของเดสก์ท็อปของผู้ใช้และหน้าจอลงชื่อเข้าใช้ และผู้ใช้จะเปลี่ยนแปลงไม่ได้ ระบุ URL (ที่เข้าถึงได้โดยไม่ต้องมีการตรวจสอบสิทธิ์) ซึ่ง <ph name="PRODUCT_OS_NAME" /> ดาวน์โหลดรูปภาพวอลเปเปอร์ รวมถึงแฮชแบบเข้ารหัส (เป็นรูปแบบ JPEG ที่มีขนาดไฟล์ไม่เกิน 16 MB) ได้เพื่อยืนยันความสมบูรณ์
 
       หากไม่ได้ตั้งค่า ผู้ใช้จะเป็นผู้เลือกรูปภาพสำหรับพื้นหลังของเดสก์ท็อปและหน้าจอลงชื่อเข้าใช้</translation>
+<translation id="3313395530427546108">อย่าใช้การรับรองโค้ดเฉพาะกิจ</translation>
 <translation id="3315324240256767419">เปิดใช้ฟีเจอร์หน้าต่างท่องเว็บแบบส่วนตัว</translation>
 <translation id="3321099611644751329">ใบรับรอง TLS ที่ <ph name="PRODUCT_NAME" /> ควรเชื่อถือสำหรับการตรวจสอบสิทธิ์เซิร์ฟเวอร์พร้อมกับข้อจำกัด</translation>
 <translation id="3323819750604111729">เปิดใช้การนำเข้าบุ๊กมาร์กเมื่อเรียกใช้ครั้งแรก</translation>
@@ -3488,6 +3501,17 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="3660562134618097814">โอนคุกกี้ SAML IdP ขณะลงชื่อเข้าใช้</translation>
 <translation id="3662660961914441274">ปิดใช้การจัดเก็บไฟล์ของผู้ใช้ในเครื่อง</translation>
 <translation id="3665437376055221832">แสดงข้อความแจ้งผู้ใช้เฉพาะในกรณีที่ไม่มีใบรับรองตรงกับการเลือกอัตโนมัติ</translation>
+<translation id="3667467644216039144">กำหนดค่ารายการประเภทข้อมูลการท่องเว็บที่ควรจะลบออกเมื่อผู้ใช้ปิดหน้าต่างเบราว์เซอร์ทั้งหมด
+
+คำเตือน: การตั้งค่านโยบายนี้อาจส่งผลกระทบและนำข้อมูลส่วนตัวในเครื่องออกอย่างถาวร เราขอแนะนำให้ทดสอบการตั้งค่าก่อนใช้งานเพื่อป้องกันการลบข้อมูลส่วนตัวโดยไม่ตั้งใจ
+
+ประเภทข้อมูลที่มี ได้แก่ ประวัติการท่องเว็บ (<ph name="DATA_TYPE_BROWSING_HISTORY" />) ประวัติการดาวน์โหลด (<ph name="DATA_TYPE_DOWNLOAD_HISTORY" />) คุกกี้ (<ph name="DATA_TYPE_COOKIES_AND_OTHER_SITE_DATA" />) แคช <ph name="DATA_TYPE_CACHED_IMAGES_AND_FILES" /> ข้อความป้อนอัตโนมัติ (<ph name="DATA_TYPE_AUTOFILL" />) รหัสผ่าน (<ph name="DATA_TYPE_PASSWORD" />) การตั้งค่าเว็บไซต์ (<ph name="DATA_TYPE_SITE_SETTINGS" />) และข้อมูลแอปที่โฮสต์ไว้ (<ph name="DATA_TYPE_HOSTED_APP_DATA" />) นโยบายนี้ไม่มีความสำคัญเหนือ <ph name="ALLOW_DELETING_BROWSER_HISTORY_POLICY_NAME" />
+
+นโยบายนี้กำหนดให้ตั้งค่านโยบาย <ph name="SYNC_DISABLED_POLICY_NAME" /> เป็น "จริง" จนถึง Chrome 114 ตั้งแต่ Chrome 115 เป็นต้นไป การตั้งค่านโยบายนี้จะปิดใช้การซิงค์สำหรับประเภทข้อมูลที่เกี่ยวข้อง หากไม่ได้ปิดใช้ "<ph name="CHROME_SYNC_NAME" />" ไว้โดยการตั้งค่านโยบาย <ph name="SYNC_DISABLED_POLICY_NAME" /> และ <ph name="BROWSER_SIGNIN_POLICY_NAME" /> ปิดใช้อยู่
+
+หากการลบข้อมูลเริ่มขึ้นแล้วและดำเนินการไม่เสร็จสิ้นด้วยเหตุผลบางประการ ระบบจะล้างข้อมูลการท่องเว็บในครั้งถัดไปที่โหลดโปรไฟล์
+
+หาก <ph name="PRODUCT_NAME" /> ไม่ได้ออกอย่างราบรื่น (เช่น หากเบราว์เซอร์หรือระบบปฏิบัติการขัดข้อง) ระบบจะไม่ล้างข้อมูลการท่องเว็บเนื่องจากการปิดเบราว์เซอร์ไม่ได้เกิดจากการที่ผู้ใช้ปิดหน้าต่างเบราว์เซอร์ทั้งหมด</translation>
 <translation id="3671773704245936868">ปิดใช้การไฮไลต์โฟกัสแป้นพิมพ์</translation>
 <translation id="3674010627788940405">ไม่รองรับส่วนหัวของคำขอที่ไม่มีไวลด์การ์ดสำหรับ CORS</translation>
 <translation id="3675303748198647471">โดยทั่วไปแล้ว setTimeout(…, 0) จะใช้เพื่อแบ่งงาน JavaScript ที่ยาว
@@ -3503,6 +3527,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
           นโยบายนี้เป็นนโยบายชั่วคราวซึ่งจะถูกนำออกใน "<ph name="PRODUCT_NAME" />" เวอร์ชัน 107 กำหนดเวลานี้อาจเลื่อนออกไปได้หากมีบริษัทที่ยังคงต้องการใช้จำนวนมาก
           </translation>
+<translation id="3677660004554019617">ไม่อนุญาตให้ใช้พื้นหลัง VC ที่ Generative AI สร้างขึ้น</translation>
 <translation id="3678069907945250643">อนุญาตให้แอปการปรับเปลี่ยนเฉพาะบุคคลเข้าถึง Google Photos</translation>
 <translation id="3680529017993214255">เปิดใช้ฟีเจอร์และส่งข้อมูลเพื่อช่วยฝึกโมเดล AI</translation>
 <translation id="3685979383016152590">การตั้งค่านโยบายนี้จะกำหนดนโยบายการเข้าถึงที่ใช้กับการกำหนดค่าเครื่องพิมพ์จำนวนมาก โดยควบคุมว่าเครื่องพิมพ์เครื่องใดใน <ph name="PRINTERS_BULK_CONFIGURATION_POLICY_NAME" /> ที่พร้อมใช้งานสำหรับผู้ใช้
@@ -3518,13 +3543,25 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="3695204334462456702">ปลายทางของโปรโตคอลที่ใช้ Zeroconf (mDNS + DNS-SD) (เลิกใช้งานแล้ว)</translation>
 <translation id="3695706037816556327">การดำเนินการเมื่อมีการนำโทเค็นความปลอดภัยออก (เช่น สมาร์ทการ์ด) สำหรับ <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3696134803170884851">ปิดเสียงการชาร์จ</translation>
-<translation id="3699322543136447790">อนุญาตให้ใช้ "วอลเปเปอร์ GenAI" โดยไม่ปรับปรุงโมเดล AI</translation>
 <translation id="3699986274986041335">ถามทุกครั้งที่เว็บไซต์ต้องการได้รับสิทธิ์สำหรับแบบอักษรในเครื่อง</translation>
 <translation id="3700193037252896716">ความถี่ที่ควรมีการรีบูต</translation>
 <translation id="3700318587977845664">ความถี่ในการตรวจหาอัปเดตซ้ำ</translation>
 <translation id="3701121231485832347">ควบคุมการตั้งค่าเฉพาะของอุปกรณ์ <ph name="PRODUCT_OS_NAME" /> ที่ <ph name="MS_AD_NAME" /> จัดการ</translation>
 <translation id="3702518095257671450">เอกสารรับรองระยะไกล</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (เราเลิกใช้งานช่องบรรทัดเดียวแล้วและจะนำออกในเร็วๆ นี้ โปรดเริ่มใช้กล่องข้อความหลายบรรทัดด้านล่างนี้)</translation>
+<translation id="3705648857103435170">นโยบายนี้จะเปิดใช้แอป Graduation สำหรับผู้ใช้ที่มีการจัดการ แอป Graduation ช่วยให้ผู้ใช้โอนข้อมูลจากบัญชีที่มีการจัดการไปยังบัญชีผู้ใช้ทั่วไปได้
+
+    หากตั้งค่า <ph name="GRADUATION_ENABLEMENT_STATUS_IS_ENABLED_VALUE" /> เป็น <ph name="GRADUATION_ENABLEMENT_STATUS_IS_ENABLED_VALUE_TRUE" /> แอป Graduation จะแสดงขึ้นในระหว่างวันที่เริ่มต้นและสิ้นสุดตามเวลาท้องถิ่น
+
+    หากตั้งค่า <ph name="GRADUATION_ENABLEMENT_STATUS_IS_ENABLED_VALUE" /> เป็น <ph name="GRADUATION_ENABLEMENT_STATUS_IS_ENABLED_VALUE_FALSE" /> หรือไม่ได้ตั้งค่า แอปจะไม่แสดงขึ้น
+
+    หากไม่ได้ตั้งค่า <ph name="GRADUATION_ENABLEMENT_STATUS_START_DATE_VALUE" /> ไว้ แอปจะแสดงจนถึงวันที่สิ้นสุด
+
+    หากไม่ได้ตั้งค่า <ph name="GRADUATION_ENABLEMENT_STATUS_END_DATE_VALUE" /> ไว้ แอปจะแสดงไปแบบไม่มีกำหนดเริ่มตั้งแต่วันที่เริ่มต้น
+
+    หากไม่ได้ตั้งค่าทั้ง <ph name="GRADUATION_ENABLEMENT_STATUS_START_DATE_VALUE" /> และ <ph name="GRADUATION_ENABLEMENT_STATUS_END_DATE_VALUE" /> ไว้ แอปจะแสดงไปแบบไม่มีกำหนด หากวันที่เริ่มต้นและวันที่สิ้นสุดไม่ถูกต้อง แอป Graduation จะไม่แสดง ซึ่งรวมถึงกรณีที่ไม่ได้ระบุวันที่ หรือวันที่สิ้นสุดมาก่อนวันที่เริ่มต้น
+
+    ทั้งนี้ คุณต้องเปิดใช้การโอนข้อมูลด้วย Takeout เพื่อให้แอป Graduation ทำงานได้อย่างถูกต้องอีกด้วย ดูข้อมูลเพิ่มเติมได้ที่ https://support.google.com/a/answer/6364687</translation>
 <translation id="3711561721191203926">เมื่อตั้งค่านโยบายนี้เป็น "เปิดใช้" เมื่อใดก็ตามที่คำเตือนแสดงขึ้นใน <ph name="DEV_TOOLS_NAME" /> เนื่องจากการตรวจสอบ <ph name="PRIVATE_NETWORK_ACCESS" /> ล้มเหลว ระบบจะบล็อกคำขอหลักแทน
 
 เมื่อตั้งค่านโยบายนี้เป็น "ปิดใช้" หรือไม่ได้ตั้งค่า ระบบจะไม่บังคับใช้คำเตือน <ph name="PRIVATE_NETWORK_ACCESS" /> ทั้งหมดและจะไม่บล็อกคำขอ
@@ -3684,6 +3721,7 @@ URL ต้องเป็นรูปแบบมาตรฐาน เช่น
 
       ผู้ใช้จะนำเครื่องจัดการโปรโตคอลที่นโยบายลงทะเบียนไว้ออกไม่ได้ แต่หากติดตั้งเครื่องจัดการเริ่มต้นเครื่องใหม่ ก็จะเปลี่ยนเครื่องจัดการโปรโตคอลที่นโยบายติดตั้งไว้ได้</translation>
 <translation id="3842619997238271109">ไม่อนุญาตให้โฮสต์การเข้าถึงระยะไกลใช้ PIN และการตรวจสอบสิทธิ์การจับคู่เมื่อยอมรับการเชื่อมต่อไคลเอ็นต์</translation>
+<translation id="3845318141474759319">อนุญาตให้ใช้วอลเปเปอร์ Generative AI โดยไม่ปรับปรุงโมเดล AI</translation>
 <translation id="3851443303439635700">กำหนดเกณฑ์ระดับการซ้อนซึ่งควบคุมการเริ่มฟังก์ชัน setTimeout() ของ JavaScript</translation>
 <translation id="3858658082795336534">โหมดพิมพ์ 2 ด้านเริ่มต้น</translation>
 <translation id="3859780406608282662">เพิ่มพารามิเตอร์เพื่อเรียกข้อมูลเริ่มต้นของรูปแบบใน <ph name="PRODUCT_OS_NAME" />
@@ -3799,6 +3837,7 @@ URL ต้องเป็นรูปแบบมาตรฐาน เช่น
 การตั้งค่านโยบายเป็น "ปิดใช้" จะปิดฟีเจอร์การเข้ารหัสเนื้อหาด้วย <ph name="ZSTANDARD_SHORTNAME" />
 
 นโยบายนี้มีไว้เพื่อใช้ชั่วคราวและจะนำออกในอนาคต</translation>
+<translation id="3935592079035695061">มิลลิวินาทีนับตั้งแต่เที่ยงคืน</translation>
 <translation id="3941289958028934630">ปิดใช้ฟีเจอร์อธิบายและอ่านออกเสียงในหน้าจอการเข้าสู่ระบบ</translation>
 <translation id="3943930334592166130">นโยบายนี้ควบคุมว่าระบบจะแสดงข้อความแจ้งให้ผู้ใช้เลือกใบรับรองไคลเอ็นต์หรือไม่เมื่อมีใบรับรองที่ตรงกันมากกว่า 1 รายการ <ph name="AUTO_SELECT_CERTIFICATE_FOR_URLS_POLICY_NAME" />
       หากตั้งค่านโยบายนี้เป็น "เปิดใช้" ระบบจะแสดงข้อความแจ้งให้ผู้ใช้เลือกใบรับรองไคลเอ็นต์เมื่อนโยบายการเลือกอัตโนมัติพบใบรับรองที่ตรงกันหลายรายการ
@@ -4014,27 +4053,6 @@ URL ต้องเป็นรูปแบบมาตรฐาน เช่น
 <translation id="4101282687722389021">การประทับเวลา UTC สำหรับครั้งสุดท้ายที่อัปเดตข้อมูลนี้ ส่งเป็นสตริงเพราะการประทับเวลาไม่พอดีกับจำนวนเต็ม</translation>
 <translation id="4101826711886952606">การตั้งค่า "Home/End" ใช้แป้นพิมพ์ลัดที่มีแป้นกดร่วม Alt</translation>
 <translation id="4102347680024644994">รายงานเหตุการณ์การตรวจจับและการตอบสนองแบบขยาย (XDR)</translation>
-<translation id="4104303092334469130">กำหนดค่ารายการกฎการควบคุมข้อมูลเพื่อป้องกันข้อมูลรั่วไหล
-
-      กฎแต่ละข้อประกอบด้วยข้อมูลต่อไปนี้
-      - ช่องเงื่อนไขที่จะเรียกใช้กฎนั้น ระบบจะเรียกใช้กฎต่อเมื่อการดำเนินการของผู้ใช้ตรงกับทุกช่องที่มีการป้อนข้อมูลไว้ในช่อง <ph name="DATA_CONTROLS_SOURCES" />, <ph name="DATA_CONTROLS_DESTINATIONS" />, <ph name="DATA_CONTROLS_AND" />, <ph name="DATA_CONTROLS_OR" /> และ <ph name="DATA_CONTROLS_NOT" /> สำหรับช่องย่อยของรายการ จะต้องจับคู่เพียง 1 รายการเท่านั้น เช่น ต้องจับคู่รูปแบบ URL เพียง 1 รายการจึงจะเรียกใช้กฎได้
-      - รายการการจำกัดที่จะใช้ อาจมีเพียงเงื่อนไข <ph name="DATA_CONTROLS_SOURCES" /> หรือ <ph name="DATA_CONTROLS_DESTINATIONS" /> เท่านั้นโดยขึ้นอยู่กับการจำกัด
-
-      คุณจะเพิ่มกฎเพื่อดำเนินการต่อไปนี้ได้
-      - ควบคุมข้อมูลในคลิปบอร์ดที่แชร์ระหว่างแหล่งที่มาและปลายทาง
-      - ควบคุมการบล็อกภาพหน้าจอตามแท็บแหล่งที่มา
-
-      หากตั้งค่านโยบาย <ph name="ON_SECURITY_EVENT_ENTERPRISE_CONNECTOR" /> เป็น "จริง" ระบบจะรายงานกฎที่เรียกใช้ไปยังผู้ดูแลระบบ
-      ระดับการจำกัดอาจตั้งค่าเป็น "BLOCK", "WARN" หรือ "REPORT"
-      - หากตั้งค่าระดับการจำกัดเป็น "BLOCK" ระบบจะไม่อนุญาตให้ดำเนินการ
-      - หากตั้งค่าระดับการจำกัดเป็น "WARN" ผู้ใช้จะได้รับคำเตือนและอาจเลือกดำเนินการต่อหรือยกเลิกการดำเนินการก็ได้
-      - หากตั้งค่าระดับการจำกัดเป็น "REPORT" การดำเนินการของผู้ใช้จะไม่ถูกขัดจังหวะ แต่ระบบจะส่งรายงานหากเปิดใช้นโยบาย <ph name="ON_SECURITY_EVENT_ENTERPRISE_CONNECTOR" />
-
-      หมายเหตุ:
-      - จัดรูปแบบ URL ตามรูปแบบนี้ ( https://support.google.com/chrome/a?p=url_blocklist_filter_format )
-      - สำหรับกฎการป้องกันข้อมูลรั่วไหลของ <ph name="PRODUCT_OS_NAME" /> โดยเฉพาะ โปรดดูนโยบาย <ph name="DATA_LEAK_PREVENTION_RULES_LIST" /> ด้วย
-
-      หากไม่ได้ตั้งค่านโยบาย ระบบจะไม่จำกัดการใช้งาน</translation>
 <translation id="4105989332710272578">ปิดการบังคับใช้ความโปร่งใสของใบรับรองสำหรับรายการ URL</translation>
 <translation id="410740968939768919">ควบคุมว่าจะใช้ส่วนขยายซึ่งใช้ไฟล์ Manifest V2 ในหน้าจอลงชื่อเข้าใช้ของ <ph name="PRODUCT_OS_NAME" /> หรือไม่
 
@@ -4194,6 +4212,7 @@ URL ต้องเป็นรูปแบบมาตรฐาน เช่น
       การตั้งค่านโยบายนี้เป็น "เท็จ" จะทำให้การแปลง DNS ของระบบ (getaddrinfo()) ทำงานในกระบวนการของเครือข่ายแทนที่จะเป็นกระบวนการของเบราว์เซอร์ การดำเนินการนี้อาจบังคับให้ระบบปิดใช้แซนด์บ็อกซ์บริการเครือข่าย ซึ่งทำให้ความปลอดภัยของ <ph name="PRODUCT_NAME" /> ลดลง
 
       หากไม่ได้ตั้งค่านโยบายนี้ การแปลง DNS ของระบบอาจทำงานในบริการเครือข่าย นอกบริการเครือข่าย หรือทั้งในและนอกบริการเครือข่าย โดยขึ้นอยู่กับการกำหนดค่าของระบบและแฟล็กฟีเจอร์</translation>
+<translation id="4232128469957872687">การตั้งค่า EDU</translation>
 <translation id="4234788818648224034">รายการโดเมนที่จะยกเว้นไม่ให้มีการจับคู่ข้อมูลโดยใช้ DNS-over-HTTPS ระบบจะไม่สนใจนโยบายนี้เมื่อตั้งค่าโหมด DNS ที่ปลอดภัยเป็น "ปิด" (ใช้ DNS แบบข้อความธรรมดาเสมอ)
 
 หากมีการตั้งค่า <ph name="DOH_TEMPLATES_POLICY_NAME" /> ไว้ด้วย ระบบจะใช้โดเมนที่เจาะจงมากขึ้น โดเมนที่เจาะจงมากขึ้นดูจากจำนวนจุด (".") ในโดเมน เมื่อโดเมนตรงกับนโยบายทั้งสอง ระบบจะใช้ DNS-over-HTTPS สำหรับโดเมนโดยค่าเริ่มต้น
@@ -4271,6 +4290,7 @@ URL ต้องเป็นรูปแบบมาตรฐาน เช่น
 
 การตั้งค่า <ph name="CHROME_OS_RELEASE_CHANNEL_POLICY_NAME" /> จะมีผลเฉพาะในกรณีที่ตั้งค่า <ph name="CHROME_OS_RELEASE_CHANNEL_DELEGATED_POLICY_NAME" /> เป็น "เท็จ"</translation>
 <translation id="4298476374822550051">เปิดใช้ข้อตกลงเกี่ยวกับคีย์ในการเข้ารหัสเพื่อรักษาความปลอดภัยจากคอมพิวเตอร์ควอนตัมของ Kyber สำหรับ TLS</translation>
+<translation id="4301478455179579340">การรับรองแอปพลิเคชันแบบเนทีฟระหว่างการติดตั้ง Progressive Web Application</translation>
 <translation id="4303167373847512281">อนุญาตให้ใช้โหมดนักพัฒนาซอฟต์แวร์</translation>
 <translation id="4307116964468610577">นโยบายนี้จะช่วยยืดอายุการใช้งานแบตเตอรี่ของระบบโดยจะชาร์จจนเต็มความจุเพียง 1 ครั้งต่อวัน ส่วนระยะเวลาที่เหลือของวัน แบตเตอรี่จะคงสถานะการชาร์จไว้ในระดับที่ต่ำลงซึ่งเหมาะกับพื้นที่เก็บข้อมูลมากกว่า แม้ว่าจะเสียบเข้ากับแหล่งจ่ายไฟก็ตาม
 
@@ -4393,6 +4413,25 @@ URL ต้องเป็นรูปแบบมาตรฐาน เช่น
           หากตั้งค่านโยบายนี้เป็น "จริง" WebSQL ในบริบทที่ไม่ปลอดภัยจะพร้อมใช้งาน
           หากตั้งค่านโยบายนี้เป็น "เท็จ" หรือไม่ได้ตั้งค่า WebSQL ในบริบทที่ไม่ปลอดภัยจะยังคงใช้งานได้จนถึงเวอร์ชัน M109 จากนั้นจะใช้งานไม่ได้ตั้งแต่เวอร์ชัน M110
 เราได้นำนโยบายนี้ออกในเวอร์ชัน M112</translation>
+<translation id="4401357095119743747">รายการของการตั้งค่าบริการเครื่องมือเชื่อมต่อ Chrome Enterprise ที่จะใช้กับเครื่องมือเชื่อมต่อ <ph name="ON_FILE_TRANSFER_ENTERPRISE_CONNECTOR" /> Enterprise ซึ่งจะเรียกใช้งานเมื่อมีการโอนไฟล์ภายใน <ph name="PRODUCT_OS_NAME" />
+
+      ช่อง <ph name="ENTERPRISE_CONNECTOR_SOURCE_DESTINATION_LIST_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_TAGS_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_ENABLE_FIELD" /> และ <ph name="ENTERPRISE_CONNECTOR_DISABLE_FIELD" /> ใช้เพื่อกำหนดว่าเครื่องมือเชื่อมต่อควรส่งไฟล์สำหรับการวิเคราะห์หรือไม่เมื่อมีการโอนระหว่างแหล่งที่มาและปลายทาง รวมถึงแท็กใดที่จะรวมอยู่ในคำขอการวิเคราะห์สำหรับไฟล์นั้น แท็กที่สอดคล้องกับกฎ "เปิดใช้" จะรวมอยู่ในคำขอการวิเคราะห์หากแหล่งที่มาและปลายทางตรงกับกฎที่เกี่ยวข้องกับแท็กดังกล่าวตราบใดที่ไม่มีกฎ "ปิดใช้" ที่มีแท็กเดียวกันนั้นตรงกับการโอน การวิเคราะห์จะเกิดขึ้นหากมีอย่างน้อย 1 แท็กในคำขอ กฎ <ph name="ENTERPRISE_CONNECTOR_SOURCE_DESTINATION_LIST_FIELD" /> กำหนดโดยรายการการจับคู่ ซึ่งแต่ละคู่มีรายการแหล่งที่มาและรายการปลายทาง <ph name="ENTERPRISE_CONNECTOR_FILE_SYSTEM_TYPE_FIELD" /> จะกำหนดว่าควรใช้กฎกับระบบไฟล์ใด
+
+      ช่อง <ph name="ENTERPRISE_CONNECTOR_SERVICE_PROVIDER_FIELD" /> จะระบุว่าผู้ให้บริการการวิเคราะห์ใดที่สอดคล้องกับการตั้งค่า
+
+      ช่อง <ph name="ENTERPRISE_CONNECTOR_BLOCK_UNTIL_VERDICT_FIELD" /> ที่ตั้งไว้เป็น 1 หมายความว่า <ph name="PRODUCT_OS_NAME" /> จะรอให้มีการตอบสนองจากบริการการวิเคราะห์ก่อนอนุญาตการโอน ค่าที่เป็นจำนวนเต็มอื่นๆ หมายความว่า <ph name="PRODUCT_OS_NAME" /> จะอนุญาตการโอนทันที
+
+      ฟิลด์ <ph name="ENTERPRISE_CONNECTOR_DEFAULT_ACTION_FIELD" /> ที่ตั้งไว้เป็น "บล็อก" หมายความว่า <ph name="PRODUCT_OS_NAME" /> จะไม่อนุญาตให้ผู้ใช้โอนไฟล์หากเกิดข้อผิดพลาดขณะสื่อสารกับบริการการวิเคราะห์ ค่าอื่นๆ หมายความว่า <ph name="PRODUCT_OS_NAME" /> อนุญาตการโอนไฟล์หากเกิดข้อผิดพลาดขณะสื่อสารกับบริการการวิเคราะห์
+
+      ช่อง <ph name="ENTERPRISE_CONNECTOR_BLOCK_PASSWORD_PROTECTED_FIELD" /> จะควบคุมให้ <ph name="PRODUCT_OS_NAME" /> บล็อกหรืออนุญาตไฟล์ที่มีการป้องกันด้วยรหัสผ่าน
+
+      ช่อง <ph name="ENTERPRISE_CONNECTOR_BLOCK_LARGE_FILES_FIELD" /> จะควบคุมให้ <ph name="PRODUCT_OS_NAME" /> บล็อกหรืออนุญาตให้วิเคราะห์ไฟล์ที่มีขนาดใหญ่เกินไป
+
+      ช่อง <ph name="ENTERPRISE_CONNECTOR_REQUIRE_JUSTIFICATION_TAGS_FIELD" /> ใช้เพื่อกำหนดว่าเครื่องมือเชื่อมต่อต้องกำหนดให้ผู้ใช้ป้อนเหตุผลสำหรับแท็กใดเพื่อข้ามการสแกนที่ทำให้เกิดคำเตือนแบบข้ามได้ หากไม่ได้ตั้งค่าช่องนี้ ระบบจะถือว่าไม่จำเป็นต้องป้อนเหตุผล
+
+      ช่อง <ph name="ENTERPRISE_CONNECTOR_CUSTOM_MESSAGES_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_MESSAGE_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_LEARN_MORE_URL_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_LANGUAGE_FIELD" /> และ <ph name="ENTERPRISE_CONNECTOR_TAG_FIELD" /> ใช้เพื่อกำหนดค่าข้อความที่จะแสดงแก่ผู้ใช้เมื่อมีคำเตือนปรากฏขึ้นหลังจากที่การสแกนตรวจพบการละเมิด ช่องข้อความมีข้อความที่จะแสดงต่อผู้ใช้และต้องมีความยาวไม่เกิน 200 อักขระ ช่อง <ph name="ENTERPRISE_CONNECTOR_LEARN_MORE_URL_FIELD" /> มี URL จากผู้ดูแลระบบ ซึ่งผู้ใช้สามารถคลิกเพื่อดูข้อมูลเพิ่มเติมจากลูกค้าเกี่ยวกับเหตุผลที่การดำเนินการถูกบล็อก ช่อง <ph name="ENTERPRISE_CONNECTOR_LANGUAGE_FIELD" /> จะมีหรือไม่มีก็ได้และจะมีภาษาของข้อความ ช่อง <ph name="ENTERPRISE_CONNECTOR_LANGUAGE_FIELD" /> ที่เว้นว่างไว้หรือมีค่าเป็น "ค่าเริ่มต้น" จะระบุข้อความที่จะใช้เมื่อภาษาของผู้ใช้ไม่มีข้อความ ช่องแท็กจะระบุประเภทการสแกนที่จะมีการแสดงข้อความ รายการ <ph name="ENTERPRISE_CONNECTOR_CUSTOM_MESSAGES_FIELD" /> อาจมีหรือไม่มีรายการย่อยเพิ่มเติม โดยที่รายการย่อยแต่ละรายการจำเป็นต้องมีช่องข้อความและช่องแท็กที่ไม่เว้นว่างไว้
+
+      นโยบายนี้ต้องมีการตั้งค่าเพิ่มเติมจึงจะมีผล โปรดดูข้อมูลเพิ่มเติมที่ https://support.google.com/chrome/a?p=chrome_enterprise_connector_policies_setting</translation>
 <translation id="4402887080007986374">เวอร์ชันที่ถูกต้องของข้อกำหนดในการให้บริการของ Edu Coexistence</translation>
 <translation id="4408428864159735559">รายการพื้นที่แชร์ไฟล์ของเครือข่ายที่กำหนดค่าไว้ล่วงหน้า</translation>
 <translation id="4410236409016356088">เปิดใช้การควบคุมปริมาณแบนด์วิดท์ของเครือข่าย</translation>
@@ -5238,6 +5277,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
       หากไม่ได้ตั้งค่านโยบายนี้หรือปิดใช้ไว้ webkitRequestFileSystem ที่มีประเภทเป็นถาวรจะทำงานด้วยโควต้าชั่วคราว
       </translation>
+<translation id="5104606191349861549">แป้นพิมพ์ลัด (รองรับตั้งแต่เวอร์ชัน 129)</translation>
 <translation id="5105313908130842249">ระยะหน่วงเวลาการล็อกหน้าจอเมื่อทำงานโดยใช้พลังงานแบตเตอรี่</translation>
 <translation id="510604120100968366">เปิดใช้ฟีเจอร์เสียงเตือนแบตเตอรี่ต่ำ
 
@@ -5586,6 +5626,15 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="5331746669335642668">นโยบายระบบคลาวด์ของ <ph name="PRODUCT_NAME" /> จะลบล้างนโยบายแพลตฟอร์ม</translation>
 <translation id="5334404204520035180">ควบคุมการใช้ WebPrinting API</translation>
 <translation id="5334501839642146593">ไม่ส่งเมตริกไปยัง Google</translation>
+<translation id="5334717773960843025">การเปรียบเทียบแท็บเป็นเครื่องมือที่ทำงานด้วยระบบ AI สําหรับการเปรียบเทียบข้อมูลในแท็บของผู้ใช้ ตัวอย่างเช่น ระบบสามารถเสนอฟีเจอร์แก่ผู้ใช้เมื่อเปิดแท็บที่มีผลิตภัณฑ์ในหมวดหมู่ที่คล้ายกันอยู่หลายแท็บ
+
+0 = เปิดใช้ฟีเจอร์ให้กับผู้ใช้ แล้วส่งข้อมูลที่เกี่ยวข้องไปยัง Google เพื่อช่วยฝึกหรือปรับปรุงโมเดล AI ข้อมูลที่เกี่ยวข้องอาจรวมถึงพรอมต์ อินพุต เอาต์พุต และเนื้อหาแหล่งที่มา โดยทั้งนี้จะขึ้นอยู่กับฟีเจอร์นั้นๆ อาจมีการตรวจสอบจากเจ้าหน้าที่เพื่อวัตถุประสงค์ในการปรับปรุงโมเดล AI เท่านั้น
+
+0 คือค่าเริ่มต้น เว้นแต่จะระบุไว้ด้านล่าง
+
+1 = เปิดใช้ฟีเจอร์ให้กับผู้ใช้ แต่ไม่ต้องส่งข้อมูลไปยัง Google เพื่อฝึกหรือปรับปรุงโมเดล AI 1 คือค่าเริ่มต้นสำหรับผู้ใช้ระดับองค์กรที่จัดการโดย <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />
+
+2 = ปิดใช้ฟีเจอร์ 2 คือค่าเริ่มต้นสำหรับบัญชี Education ที่จัดการโดย <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" /></translation>
 <translation id="5335910979215357815">เปิดใช้ Save and Share API สำหรับการควบคุม <ph name="PRODUCT_OS_NAME" /> ของบุคคลที่สาม</translation>
 <translation id="5339096331970464266">เปิดใช้แป้นพิมพ์เสมือนสำหรับการช่วยเหลือพิเศษ</translation>
 <translation id="5340008866815063393">เปิดใช้การรายงานข้อมูลนโยบาย</translation>
@@ -5881,6 +5930,15 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="5561811616825571914">เลือกใบรับรองไคลเอ็นต์สำหรับเว็บไซต์เหล่านี้โดยอัตโนมัติในหน้าลงชื่อเข้าใช้</translation>
 <translation id="5561893881195372931">ปิดใช้คอนทราสต์สูง</translation>
 <translation id="5563240289883266691">เปิดใช้การรายงานการใช้แอป Linux</translation>
+<translation id="5564424694465792000">นโยบายนี้ควบคุมลักษณะการลงชื่อเข้าใช้ของเบราว์เซอร์ โดยให้คุณระบุว่าผู้ใช้จะลงชื่อเข้าใช้ <ph name="PRODUCT_NAME" /> ด้วยบัญชีของตนและใช้บริการที่เกี่ยวข้องกับบัญชี เช่น การซิงค์ของ <ph name="PRODUCT_NAME" /> ได้หรือไม่
+
+      หากตั้งค่านโยบายเป็น "ปิดใช้การลงชื่อเข้าใช้เบราว์เซอร์" ผู้ใช้จะลงชื่อเข้าใช้เบราว์เซอร์และใช้บริการที่เกี่ยวข้องกับบัญชีไม่ได้ ในกรณีนี้ฟีเจอร์ระดับเบราว์เซอร์ เช่น การซิงค์ของ <ph name="PRODUCT_NAME" /> จะใช้ไม่ได้และไม่พร้อมใช้งาน ใน <ph name="IOS_NAME" /> หากผู้ใช้ลงชื่อเข้าใช้และมีการตั้งค่านโยบายเป็น "ปิดใช้" ผู้ใช้จะออกจากระบบทันที ในแพลตฟอร์มอื่นๆ ผู้ใช้จะออกจากระบบเมื่อเรียกใช้ <ph name="PRODUCT_NAME" /> ครั้งถัดไป ในทุกแพลตฟอร์ม ระบบจะเก็บข้อมูลโปรไฟล์ในเครื่อง เช่น บุ๊กมาร์ก รหัสผ่าน ฯลฯ ไว้ และข้อมูลเหล่านี้ยังใช้ได้อยู่ ผู้ใช้จะยังลงชื่อเข้าใช้และใช้เว็บเซอร์วิสของ Google เช่น Gmail ได้ต่อไป
+
+      หากตั้งค่านโยบายเป็น "เปิดใช้การลงชื่อเข้าใช้เบราว์เซอร์" ผู้ใช้จะได้รับอนุญาตให้ลงชื่อเข้าใช้เบราว์เซอร์ ในทุกแพลตฟอร์มยกเว้น <ph name="IOS_NAME" /> ผู้ใช้จะลงชื่อเข้าใช้เบราว์เซอร์โดยอัตโนมัติเมื่อลงชื่อเข้าใช้เว็บเซอร์วิสของ Google เช่น Gmail การลงชื่อเข้าใช้เบราว์เซอร์หมายถึงเบราว์เซอร์จะเก็บข้อมูลบัญชีของผู้ใช้ไว้ แต่ไม่ได้หมายความว่าระบบจะเปิดใช้การซิงค์ของ <ph name="PRODUCT_NAME" /> โดยค่าเริ่มต้น ผู้ใช้ต้องเลือกใช้ฟีเจอร์นี้แยกต่างหาก การเปิดใช้นโยบายนี้จะป้องกันไม่ให้ผู้ใช้ปิดการตั้งค่าที่อนุญาตให้ลงชื่อเข้าใช้เบราว์เซอร์ หากต้องการควบคุมความพร้อมใช้งานของฟีเจอร์การซิงค์ของ <ph name="PRODUCT_NAME" /> ให้ใช้นโยบาย <ph name="SYNC_POLICY_NAME" />
+
+      หากตั้งค่านโยบายเป็น "บังคับให้ลงชื่อเข้าใช้เบราว์เซอร์" ระบบจะแสดงกล่องโต้ตอบการเลือกบัญชีและบังคับให้ผู้ใช้เลือกบัญชีเพื่อลงชื่อเข้าใช้เบราว์เซอร์ ในกรณีของบัญชีที่จัดการ วิธีนี้ช่วยให้แน่ใจว่าจะมีการใช้งานและบังคับใช้นโยบายที่เกี่ยวข้องกับบัญชีนั้น ค่าเริ่มต้นของ <ph name="GUEST_MODE_POLICY_NAME" /> ตั้งไว้เป็น "ปิดใช้" โปรดทราบว่าโปรไฟล์ที่ไม่ได้ลงชื่อเข้าใช้ที่มีอยู่จะถูกล็อกและเข้าถึงไม่ได้หลังจากเปิดใช้นโยบายนี้แล้ว ดูข้อมูลเพิ่มเติมได้จากบทความในศูนย์ช่วยเหลือที่ https://support.google.com/chrome/a/answer/7572556 ตัวเลือกนี้ไม่รองรับใน <ph name="LINUX_OS_NAME" /> หรือ <ph name="ANDROID_NAME" /> ซึ่งจะเปลี่ยนกลับไปเป็น "เปิดใช้การลงชื่อเข้าใช้เบราว์เซอร์" หากใช้
+
+      หากไม่ได้ตั้งค่านโยบายนี้ ผู้ใช้เลือกได้ว่าจะเปิดใช้การลงชื่อเข้าใช้เบราว์เซอร์หรือไม่ในการตั้งค่า <ph name="PRODUCT_NAME" /> และใช้งานได้ตามความเหมาะสม</translation>
 <translation id="5565178130821694365">ต้องป้อนรหัสผ่านทุก 2 วัน (48 ชั่วโมง)</translation>
 <translation id="5566210228171064229">อนุญาตการพิมพ์ทั้งกรณีที่มีและไม่มี PIN</translation>
 <translation id="5569504149646180067">กําหนดค่าการลงชื่อเข้าใช้โดยอัตโนมัติสําหรับบัญชีที่มาจากผู้ให้บริการข้อมูลประจําตัวในระบบคลาวด์ของ Microsoft®
@@ -6230,7 +6288,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="5848438019586925019">อัลกอริทึมสำหรับการสร้างคู่คีย์</translation>
 <translation id="5851248808417680865">ใช้ธีมมืด</translation>
 <translation id="585270638818921943">ป้องกันไม่ให้ผู้ใช้ใช้แอป Android จากแหล่งที่มาที่ไม่น่าเชื่อถือ</translation>
-<translation id="5853547031212075792">อนุญาตให้ผู้ใช้เปิดใช้โหมด "HTTPS เท่านั้น"</translation>
 <translation id="5859344336338527083">การตั้งค่านโยบายจะระบุ URL ที่ติดตั้งส่วนขยาย แอป และธีมได้ ก่อน <ph name="PRODUCT_NAME" /> 21 ผู้ใช้คลิกลิงก์เพื่อไปยังไฟล์ *.crx ได้ จากนั้น <ph name="PRODUCT_NAME" /> จะเสนอให้ติดตั้งไฟล์หลังจากแสดงคำเตือน 2-3 รายการ แต่ในเวอร์ชันต่อมา จะต้องมีการดาวน์โหลดไฟล์ดังกล่าวและลากไปที่หน้าการตั้งค่า <ph name="PRODUCT_NAME" /> การตั้งค่านี้อนุญาตให้บาง URL มีขั้นตอนการติดตั้งแบบเก่าแต่ใช้งานง่ายกว่าได้
 
       แต่ละรายการในลิสต์นี้เป็นรูปแบบการจับคู่สไตล์ส่วนขยาย (ดู https://developer.chrome.com/extensions/match_patterns) ผู้ใช้จะติดตั้งรายการต่างๆ ได้โดยง่ายจาก URL ที่ตรงกับรายการในลิสต์นี้ ทั้งตำแหน่งของไฟล์ *.crx และหน้าเว็บที่เริ่มการดาวน์โหลด (URL ที่มา) จะต้องได้รับอนุญาตจากรูปแบบเหล่านี้
@@ -6484,15 +6541,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
       การไม่ตั้งค่านโยบาย (หากอุปกรณ์รองรับ) จะทำให้มีการใช้โหมดการชาร์จแบตเตอรี่แบบมาตรฐาน และผู้ใช้จะเปลี่ยนไม่ได้
 
       หมายเหตุ: หากเลือกโหมดการชาร์จแบตเตอรี่ที่กำหนดเอง ให้ระบุ <ph name="DEVICE_BATTERY_CHARGE_CUSTOM_START_CHARGING_POLICY_NAME" /> และ <ph name="DEVICE_BATTERY_CHARGE_CUSTOM_STOP_CHARGING_POLICY_NAME" /> ด้วย</translation>
-<translation id="60655674079349516">กำหนดค่ารายการประเภทข้อมูลการท่องเว็บที่ควรจะลบออกเมื่อผู้ใช้ปิดหน้าต่างเบราว์เซอร์ทั้งหมด
-
-คำเตือน: การตั้งค่านโยบายนี้อาจส่งผลกระทบและนำข้อมูลส่วนบุคคลในเครื่องออกอย่างถาวร เราขอแนะนำให้ทดสอบการตั้งค่าก่อนใช้งานเพื่อป้องกันการลบข้อมูลส่วนตัวโดยไม่ตั้งใจ
-
-ประเภทข้อมูลที่มี ได้แก่ ประวัติการท่องเว็บ (<ph name="DATA_TYPE_BROWSING_HISTORY" />) ประวัติการดาวน์โหลด (<ph name="DATA_TYPE_DOWNLOAD_HISTORY" />) คุกกี้ (<ph name="DATA_TYPE_COOKIES_AND_OTHER_SITE_DATA" />) แคช <ph name="DATA_TYPE_CACHED_IMAGES_AND_FILES" /> ข้อความป้อนอัตโนมัติ (<ph name="DATA_TYPE_AUTOFILL" />) รหัสผ่าน (<ph name="DATA_TYPE_PASSWORD" />) การตั้งค่าเว็บไซต์ (<ph name="DATA_TYPE_SITE_SETTINGS" />) และข้อมูลแอปที่โฮสต์ไว้ (<ph name="DATA_TYPE_HOSTED_APP_DATA" />) นโยบายนี้ไม่มีความสำคัญเหนือ <ph name="ALLOW_DELETING_BROWSER_HISTORY_POLICY_NAME" />
-
-นโยบายนี้กำหนดให้ตั้งค่านโยบาย <ph name="SYNC_DISABLED_POLICY_NAME" /> เป็น "จริง" จนถึง Chrome 114 ตั้งแต่ Chrome 115 เป็นต้นไป การตั้งค่านโยบายนี้จะปิดใช้การซิงค์สำหรับประเภทข้อมูลที่เกี่ยวข้อง หากไม่ได้ปิดใช้ "<ph name="CHROME_SYNC_NAME" />" ไว้โดยการตั้งค่านโยบาย <ph name="SYNC_DISABLED_POLICY_NAME" /> และ <ph name="BROWSER_SIGNIN_POLICY_NAME" /> ปิดใช้อยู่
-
-หาก <ph name="PRODUCT_NAME" /> ไม่ได้ออกอย่างราบรื่น (เช่น หากเบราว์เซอร์หรือระบบปฏิบัติการขัดข้อง) ระบบจะล้างข้อมูลการท่องเว็บในครั้งถัดไปที่โหลดโปรไฟล์</translation>
 <translation id="6066761914755798079">หาก <ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> เปิดอยู่ การตั้งค่า <ph name="DEFAULT_SEARCH_PROVIDER_SUGGEST_URL_POLICY_NAME" /> จะระบุ URL ของเครื่องมือค้นหาเพื่อจัดเตรียมการแนะนำการค้นหา URL ดังกล่าวควรมีสตริง <ph name="SEARCH_TERM_MARKER" /> ซึ่งข้อความค้นหาของผู้ใช้จะมาแทนที่ในการค้นหา
 
       คุณระบุ URL การค้นหาของ Google เป็น <ph name="GOOGLE_SUGGEST_SEARCH_URL" /> ได้</translation>
@@ -6610,6 +6658,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
 หลังจากการตั้งค่าเริ่มต้น ผู้ใช้จะเปิดหรือปิดการสำรองและกู้คืนข้อมูลได้</translation>
 <translation id="6169768162756928771">การตั้งค่าการจัดการข้อมูลประจำตัวของผู้ใช้ GAIA</translation>
+<translation id="6170316094401732532">ไม่จำกัดการตั้งค่าโหมด HTTPS เท่านั้นของผู้ใช้</translation>
 <translation id="6172110090237528457">กำหนดค่าโปรแกรมรักษาหน้าจอระดับอุปกรณ์สำหรับหน้าจอการเข้าสู่ระบบ
 
 หากตั้งค่านโยบายนี้เป็น "จริง" อุปกรณ์ <ph name="PRODUCT_OS_NAME" /> จะแสดงโปรแกรมรักษาหน้าจอเมื่อไม่มีการใช้งานในหน้าจอการเข้าสู่ระบบ
@@ -6737,6 +6786,27 @@ Salt ต้องเป็นสตริงที่ยาว 8 ถึง 32 �
       หากตั้งค่านโยบายนี้เป็น "เปิดใช้" หรือไม่ได้ตั้งค่า ผู้ใช้จะติดตั้งและเรียกใช้ Chrome สำหรับการทดสอบได้
 
       หากตั้งค่านโยบายนี้เป็น "ปิดใช้" ผู้ใช้จะไม่ได้รับอนุญาตให้เรียกใช้ Chrome สำหรับการทดสอบ ผู้ใช้จะยังคงติดตั้ง Chrome สำหรับการทดสอบได้ แต่จะไม่เรียกใช้กับโปรไฟล์ที่ตั้งค่านโยบายนี้เป็น "ปิดใช้"</translation>
+<translation id="6258646807927528870">กำหนดค่ารายการกฎการควบคุมข้อมูลเพื่อป้องกันข้อมูลรั่วไหล
+
+      กฎแต่ละข้อประกอบด้วยข้อมูลต่อไปนี้
+      - ช่องเงื่อนไขที่จะเรียกใช้กฎนั้น ระบบจะเรียกใช้กฎต่อเมื่อการดำเนินการของผู้ใช้ตรงกับทุกช่องที่มีการป้อนข้อมูลไว้ในช่อง <ph name="DATA_CONTROLS_SOURCES" />, <ph name="DATA_CONTROLS_DESTINATIONS" />, <ph name="DATA_CONTROLS_AND" />, <ph name="DATA_CONTROLS_OR" /> และ <ph name="DATA_CONTROLS_NOT" /> สำหรับช่องย่อยของรายการ จะต้องจับคู่เพียง 1 รายการเท่านั้น เช่น ต้องจับคู่รูปแบบ URL เพียง 1 รายการจึงจะเรียกใช้กฎได้
+      - รายการการจำกัดที่จะใช้ อาจมีเพียงเงื่อนไข <ph name="DATA_CONTROLS_SOURCES" /> หรือ <ph name="DATA_CONTROLS_DESTINATIONS" /> เท่านั้นโดยขึ้นอยู่กับการจำกัด
+
+      คุณจะเพิ่มกฎเพื่อดำเนินการต่อไปนี้ได้
+      - ควบคุมข้อมูลในคลิปบอร์ดที่แชร์ระหว่างแหล่งที่มาและปลายทาง
+      - ควบคุมการบล็อกภาพหน้าจอตามแท็บแหล่งที่มา
+
+      หากตั้งค่านโยบาย <ph name="ON_SECURITY_EVENT_ENTERPRISE_CONNECTOR" /> เป็น "จริง" ระบบจะรายงานกฎที่เรียกใช้ไปยังผู้ดูแลระบบ
+      ระดับการจำกัดอาจตั้งค่าเป็น "BLOCK", "WARN" หรือ "REPORT"
+      - หากตั้งค่าระดับการจำกัดเป็น "BLOCK" ระบบจะไม่อนุญาตให้ดำเนินการ
+      - หากตั้งค่าระดับการจำกัดเป็น "WARN" ผู้ใช้จะได้รับคำเตือนและอาจเลือกดำเนินการต่อหรือยกเลิกการดำเนินการก็ได้
+      - หากตั้งค่าระดับการจำกัดเป็น "REPORT" การดำเนินการของผู้ใช้จะไม่ถูกขัดจังหวะ แต่ระบบจะส่งรายงานหากเปิดใช้นโยบาย <ph name="ON_SECURITY_EVENT_ENTERPRISE_CONNECTOR" />
+
+      หมายเหตุ:
+      - จัดรูปแบบ URL ตามรูปแบบนี้ ( https://support.google.com/chrome/a?p=url_blocklist_filter_format )
+      - สำหรับกฎการป้องกันข้อมูลรั่วไหลของ <ph name="PRODUCT_OS_NAME" /> โดยเฉพาะ โปรดดูนโยบาย <ph name="DATA_LEAK_PREVENTION_RULES_LIST" /> ด้วย
+
+      หากไม่ได้ตั้งค่านโยบาย ระบบจะไม่จำกัดการใช้งาน</translation>
 <translation id="6258658183356534534">ควบคุมฟีเจอร์ User-Agent Client Hints GREASE Update</translation>
 <translation id="6261643884958898336">รายงานข้อมูลการระบุเครื่อง</translation>
 <translation id="6264247808139384018">การตั้งค่านโยบายเป็น "เปิดใช้" หรือไม่ตั้งค่าจะทำให้ผู้ใช้ที่ตรวจสอบสิทธิ์ด้วยรหัสผ่านล็อกหน้าจอได้
@@ -6873,6 +6943,14 @@ Salt ต้องเป็นสตริงที่ยาว 8 ถึง 32 �
 <translation id="632248221998836641">ลบล้างการตรวจสอบความสามารถในการเข้าถึงของ IPv6 ค้นหาระเบียน AAAA เสมอสำหรับการแปลงชื่อโฮสต์</translation>
 <translation id="6324274808543634377">การตั้งค่า F11/F12 ใช้แป้นพิมพ์ลัดที่มีแป้นกดร่วม Alt</translation>
 <translation id="6327643515544933974">การตั้งค่า USB ของเว็บ</translation>
+<translation id="6328272502368270191">นโยบายนี้จะเปิดหรือปิดใช้ฟีเจอร์วอลเปเปอร์ Generative AI สำหรับ <ph name="PRODUCT_OS_NAME" />
+1 คือค่าเริ่มต้น
+
+1 = อนุญาตให้ใช้วอลเปเปอร์ Generative AI โดยไม่ปรับปรุงโมเดล AI 1 คือค่าเริ่มต้นสำหรับผู้ใช้ระดับองค์กรที่จัดการโดย <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" /> และบัญชี Education ที่จัดการโดย <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />
+
+2 = ไม่อนุญาตให้ใช้วอลเปเปอร์ Generative AI
+
+ดูข้อมูลเพิ่มเติมเกี่ยวกับการจัดการข้อมูลสำหรับฟีเจอร์ Generative AI ได้ที่ https://support.google.com/chrome/a?p=generative_ai_settings</translation>
 <translation id="6330882599388782338">อนุญาตให้เว็บไซต์เข้าถึงเซ็นเซอร์</translation>
 <translation id="6331167725613770725">โปรดทราบว่าจะมีการเลิกใช้งานและนำนโยบายนี้ออกใน <ph name="PRODUCT_OS_NAME" /> เวอร์ชัน 85 โปรดใช้ <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" /> แทน
 
@@ -7282,6 +7360,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 
       หากไม่ได้ตั้งค่านโยบายนี้ ผู้ใช้จะใช้ปลั๊กอินใดก็ตามที่ติดตั้งไว้ในระบบได้ ยกเว้นปลั๊กอินที่มีฮาร์ดโค้ดที่เข้ากันไม่ได้ ล้าสมัย หรือเป็นอันตราย</translation>
 <translation id="6571055160227165318">อนุญาตให้ Chrome Flag เปิดใช้ WebSQL ได้</translation>
+<translation id="6574216414580419109">การตั้งค่าสำหรับฟีเจอร์วอลเปเปอร์ Generative AI</translation>
 <translation id="6574903167639386816">ล้างข้อมูลโปรไฟล์ในดิสก์เมื่อเซสชันของผู้ใช้สิ้นสุดลง</translation>
 <translation id="6575403002861093126">การตั้งค่านโยบายจะระบุอายุการใช้งาน (เป็นจำนวนชั่วโมง) ของแคช Group Policy Object (GPO) ซึ่งเป็นระยะเวลาสูงสุดที่สามารถใช้ GPO ซ้ำได้ก่อนที่จะดาวน์โหลดอีกครั้ง ระบบจะใช้ GPO ที่แคชไว้ ตราบใดที่ยังเป็นเวอร์ชันเดิม แทนการดาวน์โหลด GPO ซ้ำในการดึงข้อมูลนโยบายแต่ละครั้ง
 
@@ -7303,18 +7382,14 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 
           นโยบายนี้จะไม่มีผลหากเปิดใช้ ปล่อยว่างไว้ หรือไม่ได้ตั้งค่า</translation>
 <translation id="6583249367505445969">ปิดใช้แถบบุ๊กมาร์ก</translation>
+<translation id="6583473893541367102">การตั้งค่านโยบายนี้เป็นการระบุรายการ URL ที่จะมีการจับคู่รูปแบบกับต้นทางการรักษาความปลอดภัยของ URL ที่ขอ หากรูปแบบตรงกัน ระบบจะให้สิทธิ์เข้าถึงอุปกรณ์จับภาพวิดีโอโดยไม่แสดงข้อความแจ้ง
+
+      ดูข้อมูลโดยละเอียดเกี่ยวกับรูปแบบ <ph name="URL_LABEL" /> ที่ถูกต้องได้ที่ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns อย่างไรก็ตาม โปรดทราบว่านโยบายนี้ไม่รองรับรูปแบบ "*" ที่ตรงกับ URL ใดก็ตาม</translation>
 <translation id="6584122839583172231">การตั้งค่า F12 ใช้แป้นพิมพ์ลัดที่มีแป้นกดร่วม Ctrl และ Shift</translation>
 <translation id="6584541828182430328">ปิดใช้การแสดงการแจ้งเตือนโหมดเต็มหน้าจอ</translation>
 <translation id="658537215958747575">อนุญาตให้ต้นทางที่มีคุณสมบัติตามเกณฑ์ใช้ Direct Sockets</translation>
 <translation id="6588634282328239769">แสดง URL แบบเต็ม</translation>
 <translation id="6589049539706330510">เปิดใช้การรองรับ</translation>
-<translation id="6590906503707750118">นโยบายนี้จะเปิดหรือปิดใช้ <ph name="GEN_AI_WALLPAPER_FEATURE_NAME" /> สำหรับ <ph name="PRODUCT_OS_NAME" />
-0 = ไม่อนุญาตให้ใช้ <ph name="GEN_AI_WALLPAPER_FEATURE_NAME" />
-
-1 = อนุญาตให้ใช้ <ph name="GEN_AI_WALLPAPER_FEATURE_NAME" /> โดยไม่ปรับปรุงโมเดล AI
-
-หากตั้งค่านโยบายนี้เป็น "ไม่ตั้งค่า" ระบบจะอนุญาตให้ใช้ฟีเจอร์ <ph name="GEN_AI_WALLPAPER_FEATURE_NAME" /> โดยไม่ปรับปรุงโมเดล AI สำหรับผู้ใช้ระดับองค์กรและผู้ใช้ EDU
-ใน M127 มีการปิดใช้นโยบายนี้สำหรับผู้ใช้ระดับองค์กรโดยค่าเริ่มต้น</translation>
 <translation id="6593025196187527239">การตั้งค่านโยบายเป็น "จริง" หรือไม่ได้ตั้งค่าจะทำให้ผู้ใช้ใช้ ARC ได้ เว้นแต่จะมีการปิด ARC ไว้ด้วยวิธีการอื่นๆ การตั้งค่านโยบายเป็น "เท็จ" หมายความว่าผู้ใช้นอกโดเมนจะใช้ ARC ไม่ได้
 
 การเปลี่ยนแปลงนโยบายจะมีผลขณะที่ ARC ไม่ได้ทำงานอยู่เท่านั้น เช่น ขณะเริ่มต้น ChromeOS</translation>
@@ -7551,6 +7626,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 <translation id="6770454900105963262">รายงานข้อมูลเกี่ยวกับเซสชันคีออสก์ที่ใช้งาน</translation>
 <translation id="6774132787348495175">ไม่อนุญาตให้ผู้ใช้ใช้เครื่องเสมือนที่จำเป็นต่อการรองรับแอป Linux</translation>
 <translation id="6782331708811245959">เปิดใช้การรายงานโหมดเปิดเครื่องของอุปกรณ์</translation>
+<translation id="6783578496154221347">ใช้ WeeklyTimeIntervalChecked ในโค้ดใหม่</translation>
 <translation id="6785201942412171878">ควบคุมแป้นพิมพ์ลัดที่ใช้ในการเรียกใช้งานคีย์ "Six Pack" ของ PageUp/PageDown</translation>
 <translation id="6786666051053129545">แสดงขั้นตอนการเปิดใช้ Voice Match สำหรับ Google Assistant</translation>
 <translation id="6786747875388722282">ส่วนขยาย</translation>
@@ -7754,13 +7830,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 <translation id="6929746927224321095">ปิดใช้การป้อนข้อความอัตโนมัติ</translation>
 <translation id="6931242315485576290">ปิดใช้งานการซิงค์ข้อมูลกับ Google</translation>
 <translation id="6932282102911647185">ไฟแบ็กไลต์ของแป้นพิมพ์เป็นสีม่วง</translation>
-<translation id="6934127980901887540">นโยบายนี้จะเปิดหรือปิดใช้ฟีเจอร์ <ph name="GEN_AI_VC_BACKGROUND_FEATURE_NAME" /> สำหรับ <ph name="PRODUCT_OS_NAME" />
-0 = ไม่อนุญาตให้ใช้ <ph name="GEN_AI_VC_BACKGROUND_FEATURE_NAME" />
-
-1 = อนุญาตให้ใช้ <ph name="GEN_AI_VC_BACKGROUND_FEATURE_NAME" /> โดยไม่ปรับปรุงโมเดล AI
-
-หากตั้งค่านโยบายนี้เป็น "ไม่ตั้งค่า" ระบบจะอนุญาตให้ใช้ฟีเจอร์ <ph name="GEN_AI_VC_BACKGROUND_FEATURE_NAME" /> สำหรับผู้ใช้ระดับองค์กรและผู้ใช้ EDU
-ใน M127 มีการปิดใช้นโยบายนี้สำหรับผู้ใช้ระดับองค์กรโดยค่าเริ่มต้น</translation>
 <translation id="6938424179790370595">การตั้งค่านโยบายเป็น "ไม่มี" จะปิดแว่นขยายหน้าจอ
 
 หากคุณตั้งค่านโยบายนี้ ผู้ใช้จะเปลี่ยนไม่ได้ หากไม่ได้ตั้งค่า แว่นขยายหน้าจอจะปิดอยู่ในตอนแรก แต่ผู้ใช้จะเปิดได้ทุกเมื่อ</translation>
@@ -7821,6 +7890,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 
       หากไม่ได้ตั้งค่านโยบายนี้ ระบบจะปิดใช้ HTTP/0.9 ในพอร์ตที่ไม่ใช่ค่าเริ่มต้น</translation>
 <translation id="6969332115615661188">ปิดใช้งานอินพุตวิดีโอ</translation>
+<translation id="6969949359984470271">เว็บแอปคีออสก์ใช้งานแบบออฟไลน์ไม่ได้</translation>
 <translation id="6971579036359007697">ควบคุมการย้ายข้อมูลไฟล์ในเครื่องไปยังระบบคลาวด์
 มีผลเฉพาะกับผู้ใช้ SkyVault เท่านั้น นั่นคือเมื่อ LocalUserFilesAllowed เป็นเท็จ มิเช่นนั้นระบบจะไม่สนใจนโยบายนี้
 
@@ -8076,6 +8146,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 <translation id="7146198347561863646">การตั้งค่านโยบายเป็น "เปิดใช้" หรือไม่ตั้งค่าจะทำให้มีการใช้ Wake Lock เพื่อการจัดการพลังงานได้ ส่วนขยายจะขอ Wake Lock ได้ผ่านทาง Power Management Extension API และแอป ARC
 
       การตั้งค่านโยบายเป็น "ปิดใช้" จะทำให้ระบบเพิกเฉยต่อคำขอ Wake Lock</translation>
+<translation id="7146363485174988200">ใช้การรับรองโค้ดเฉพาะกิจ</translation>
 <translation id="7148958378210448356">รายการแป้นพิมพ์ลัดที่มีแป้น Launcher ซึ่งกำหนดไว้ล่วงหน้าจะไม่ดำเนินการใดๆ</translation>
 <translation id="7149042336307555519"> ประเภทการเชื่อมต่อที่อนุญาตให้ใช้สำหรับการอัปเดตระบบปฏิบัติการ การอัปเดตระบบปฏิบัติการอาจทำให้การเชื่อมต่อทำงานหนักมากเนื่องจากขนาดของการอัปเดต และอาจทำให้มีค่าใช้จ่ายเพิ่มเติม ดังนั้น โดยค่าเริ่มต้นจึงไม่มีการเปิดใช้การอัปเดตกับประเภทการเชื่อมต่อที่ถือว่ามีค่าใช้จ่ายสูง (ปัจจุบันมีเพียง "เน็ตมือถือ")
 
@@ -8147,9 +8218,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
       หากส่วนขยายใดไม่อยู่ในรายการหรือไม่มีการตั้งค่ารายการไว้ จะเรียกใช้ API ไม่สำเร็จและมีรหัสข้อผิดพลาด</translation>
 <translation id="718956142899066210">ประเภทการเชื่อมต่อที่อนุญาตสำหรับการอัปเดต</translation>
 <translation id="7190286937411178540">เปิดใช้ฟีเจอร์การช่วยเหลือพิเศษสำหรับการไฮไลต์โฟกัสของแป้นพิมพ์</translation>
-<translation id="7193489339723768342">การตั้งค่านโยบายนี้เป็นการระบุรายการ URL ที่จะมีการจับคู่รูปแบบกับต้นทางการรักษาความปลอดภัยของ URL ที่ขอ หากรูปแบบตรงกัน ระบบจะให้สิทธิ์เข้าถึงอุปกรณ์จับเสียงโดยไม่แสดงข้อความแจ้ง
-
-      ดูข้อมูลโดยละเอียดเกี่ยวกับรูปแบบ <ph name="URL_LABEL" /> ที่ถูกต้องได้ที่ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns</translation>
 <translation id="719398790886719721">ปิดใช้การเข้าถึงรูทของเครื่องเสมือนใน Linux</translation>
 <translation id="7194407337890404814">ชื่อผู้ให้บริการการค้นหาเริ่มต้น</translation>
 <translation id="7196336906814426783">นโยบายนี้จะกำหนดช่วงเวลารายสัปดาห์สำหรับการตั้งเวลาการระงับอัตโนมัติ เมื่อช่วงเวลาเริ่มต้นขึ้น อุปกรณ์ <ph name="PRODUCT_OS_NAME" /> จะเข้าสู่โหมดระงับและจะทำงานอีกครั้งเมื่อช่วงเวลาสิ้นสุดลง
@@ -8208,23 +8276,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 * "ผสานรวม" จะผสานรวมนโยบายผู้ใช้ใน GPO ของผู้ใช้กับนโยบายผู้ใช้ใน GPO ของคอมพิวเตอร์ ทั้งนี้ GPO ของคอมพิวเตอร์จะมีความสำคัญเหนือกว่า
 
 * "แทนที่" จะแทนที่นโยบายผู้ใช้ใน GPO ของผู้ใช้ด้วยนโยบายผู้ใช้ใน GPO ของคอมพิวเตอร์ ระบบจะไม่พิจารณา GPO ของผู้ใช้</translation>
-<translation id="7258250780552783197">รายการของการตั้งค่าบริการเครื่องมือเชื่อมต่อ Chrome Enterprise ที่จะใช้กับเครื่องมือเชื่อมต่อ <ph name="ON_FILE_TRANSFER_ENTERPRISE_CONNECTOR" /> Enterprise ซึ่งจะเรียกใช้งานเมื่อมีการโอนไฟล์ใน "<ph name="PRODUCT_OS_NAME" />"
-
-      ช่อง <ph name="ENTERPRISE_CONNECTOR_SOURCE_DESTINATION_LIST_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_TAGS_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_ENABLE_FIELD" /> และ <ph name="ENTERPRISE_CONNECTOR_DISABLE_FIELD" /> ใช้เพื่อกำหนดว่าเครื่องมือเชื่อมต่อควรส่งไฟล์สำหรับการวิเคราะห์หรือไม่เมื่อมีการโอนระหว่างแหล่งที่มาและปลายทาง รวมถึงแท็กใดที่จะรวมอยู่ในคำขอการวิเคราะห์สำหรับไฟล์นั้น แท็กที่สอดคล้องกับกฎ "เปิดใช้" จะรวมอยู่ในคำขอการวิเคราะห์หากแหล่งที่มาและปลายทางตรงกับกฎที่เกี่ยวข้องกับแท็กดังกล่าวตราบใดที่ไม่มีกฎ "ปิดใช้" ที่มีแท็กเดียวกันนั้นตรงกับการโอน การวิเคราะห์จะเกิดขึ้นหากมีอย่างน้อย 1 แท็กในคำขอ กฎ <ph name="ENTERPRISE_CONNECTOR_SOURCE_DESTINATION_LIST_FIELD" /> กำหนดโดยรายการการจับคู่ ซึ่งแต่ละคู่มีรายการแหล่งที่มาและรายการปลายทาง <ph name="ENTERPRISE_CONNECTOR_FILE_SYSTEM_TYPE_FIELD" /> จะกำหนดว่าควรใช้กฎกับระบบไฟล์ใด
-
-      ช่อง <ph name="ENTERPRISE_CONNECTOR_SERVICE_PROVIDER_FIELD" /> จะระบุว่าผู้ให้บริการการวิเคราะห์ใดที่สอดคล้องกับการตั้งค่า
-
-      ช่อง <ph name="ENTERPRISE_CONNECTOR_BLOCK_UNTIL_VERDICT_FIELD" /> ที่ตั้งไว้เป็น 1 หมายความว่า "<ph name="PRODUCT_OS_NAME" />" จะรอให้มีการตอบสนองจากบริการการวิเคราะห์ก่อนอนุญาตการโอน ค่าที่เป็นจำนวนเต็มอื่นๆ หมายความว่า "<ph name="PRODUCT_OS_NAME" />" จะอนุญาตการโอนทันที
-
-      ช่อง <ph name="ENTERPRISE_CONNECTOR_BLOCK_PASSWORD_PROTECTED_FIELD" /> จะควบคุมให้ "<ph name="PRODUCT_OS_NAME" />" บล็อกหรืออนุญาตไฟล์ที่มีการป้องกันด้วยรหัสผ่าน
-
-      ช่อง <ph name="ENTERPRISE_CONNECTOR_BLOCK_LARGE_FILES_FIELD" /> จะควบคุมให้ "<ph name="PRODUCT_OS_NAME" />" บล็อกหรืออนุญาตให้วิเคราะห์ไฟล์ที่มีขนาดใหญ่เกินไป
-
-      ช่อง <ph name="ENTERPRISE_CONNECTOR_REQUIRE_JUSTIFICATION_TAGS_FIELD" /> ใช้เพื่อกำหนดว่าเครื่องมือเชื่อมต่อต้องกำหนดให้ผู้ใช้ป้อนเหตุผลสำหรับแท็กใดเพื่อข้ามการสแกนที่ทำให้เกิดคำเตือนแบบข้ามได้ หากไม่ได้ตั้งค่าช่องนี้ ระบบจะถือว่าไม่จำเป็นต้องป้อนเหตุผล
-
-      ช่อง <ph name="ENTERPRISE_CONNECTOR_CUSTOM_MESSAGES_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_MESSAGE_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_LEARN_MORE_URL_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_LANGUAGE_FIELD" /> และ <ph name="ENTERPRISE_CONNECTOR_TAG_FIELD" /> ใช้เพื่อกำหนดค่าข้อความที่จะแสดงแก่ผู้ใช้เมื่อมีคำเตือนปรากฏขึ้นหลังจากที่การสแกนตรวจพบการละเมิด ช่องข้อความมีข้อความที่จะแสดงต่อผู้ใช้และต้องมีความยาวไม่เกิน 200 อักขระ ช่อง <ph name="ENTERPRISE_CONNECTOR_LEARN_MORE_URL_FIELD" /> มี URL จากผู้ดูแลระบบ ซึ่งผู้ใช้สามารถคลิกเพื่อดูข้อมูลเพิ่มเติมจากลูกค้าเกี่ยวกับเหตุผลที่การดำเนินการถูกบล็อก ช่อง <ph name="ENTERPRISE_CONNECTOR_LANGUAGE_FIELD" /> จะมีหรือไม่มีก็ได้และจะมีภาษาของข้อความ ช่อง <ph name="ENTERPRISE_CONNECTOR_LANGUAGE_FIELD" /> ที่เว้นว่างไว้หรือมีค่าเป็น "ค่าเริ่มต้น" จะระบุข้อความที่จะใช้เมื่อภาษาของผู้ใช้ไม่มีข้อความ ช่องแท็กจะระบุประเภทการสแกนที่จะมีการแสดงข้อความ รายการ <ph name="ENTERPRISE_CONNECTOR_CUSTOM_MESSAGES_FIELD" /> อาจมีหรือไม่มีรายการย่อยเพิ่มเติม โดยที่รายการย่อยแต่ละรายการจำเป็นต้องมีช่องข้อความและช่องแท็กที่ไม่เว้นว่างไว้
-
-      นโยบายนี้ต้องมีการตั้งค่าเพิ่มเติมจึงจะมีผล โปรดดูข้อมูลเพิ่มเติมที่ https://support.google.com/chrome/a?p=chrome_enterprise_connector_policies_setting</translation>
 <translation id="7258823566580374486">เปิดใช้งานการปิดม่านโฮสต์การเข้าถึงระยะไกล</translation>
 <translation id="7260204423892780600">ควบคุมการตั้งค่าสำหรับ Google Assistant</translation>
 <translation id="7261140115553020049">เปิดใช้บริการพื้นที่ทำงานแบบลอย</translation>
@@ -8441,7 +8492,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 
       หากตั้งค่านโยบายเป็น "ปิดใช้" หน้าแท็บใหม่จะไม่แสดงประกาศในช่องกลางแม้ว่าจะมีประกาศ
       </translation>
-<translation id="7457431437931521451">ไม่อนุญาตให้ใช้ "พื้นหลัง GenAI VC"</translation>
 <translation id="7459601923199346224">ควบคุมนโยบายด้านผู้ใช้และอุปกรณ์สำหรับการจัดการใบรับรอง</translation>
 <translation id="7459633275230216698">อนุญาตกล่องโต้ตอบการเลือกไฟล์</translation>
 <translation id="7462256705280836453">เลือกว่าจะปิดใช้การตั้งค่าโฆษณาที่เว็บไซต์แนะนำโดย <ph name="PRIVACY_SANDBOX_NAME" /> ได้หรือไม่</translation>
@@ -8474,6 +8524,14 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 <translation id="748292668225669178">กําหนดค่าการต่อเชื่อมของ <ph name="MICROSOFT_ONE_DRIVE_NAME" /></translation>
 <translation id="7485481791539008776">กฎการเลือกเครื่องพิมพ์เริ่มต้น</translation>
 <translation id="7486205887492534734">แสดงข้อความแจ้งเมื่อมีใบรับรองตรงกันหลายรายการบนหน้าจอการลงชื่อเข้าใช้</translation>
+<translation id="7487148156560435405">นโยบายนี้จะเปิดหรือปิดใช้ฟีเจอร์พื้นหลัง VC ที่ Generative AI สร้างขึ้นสำหรับ <ph name="PRODUCT_OS_NAME" />
+1 คือค่าเริ่มต้น
+
+1 = อนุญาตให้ใช้พื้นหลัง VC ที่ Generative AI สร้างขึ้นโดยไม่ปรับปรุงโมเดล AI 1 คือค่าเริ่มต้นสำหรับผู้ใช้ระดับองค์กรที่จัดการโดย <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" /> และบัญชี Education ที่จัดการโดย <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />
+
+2 = ไม่อนุญาตให้ใช้พื้นหลัง VC ที่ Generative AI สร้างขึ้น
+
+ดูข้อมูลเพิ่มเติมเกี่ยวกับการจัดการข้อมูลสำหรับฟีเจอร์ Generative AI ได้ที่ https://support.google.com/chrome/a?p=generative_ai_settings</translation>
 <translation id="748873163367340515">ใช้เฉพาะคุกกี้และข้อมูลที่จำเป็นในการค้นหา</translation>
 <translation id="7489169777107143496">ปิดใช้การสแกนอย่างละเอียดสำหรับการดาวน์โหลดด้วย Google Safe Browsing</translation>
 <translation id="7489661071474025727">ระบุว่าผู้ใช้บนอุปกรณ์ <ph name="PRODUCT_OS_NAME" /> ได้เปิดใช้งานบริการกู้คืนบัญชีอยู่หรือไม่
@@ -8581,15 +8639,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 
       หากอุปกรณ์ของผู้ใช้ไม่มีการจัดการ ความพร้อมใช้งานของนโยบายนี้จะขึ้นอยู่กับว่าผู้ใช้เป็นเจ้าของอุปกรณ์หรือไม่ด้วย</translation>
 <translation id="7570291542739287032">เฉพาะในระบบคลาวด์</translation>
-<translation id="7571530187275708765">นโยบายนี้ควบคุมลักษณะการลงชื่อเข้าใช้ของเบราว์เซอร์ โดยให้คุณระบุว่าผู้ใช้จะลงชื่อเข้าใช้ <ph name="PRODUCT_NAME" /> ด้วยบัญชีของตนและใช้บริการที่เกี่ยวข้องกับบัญชี เช่น การซิงค์ของ <ph name="PRODUCT_NAME" /> ได้หรือไม่
-
-      หากตั้งค่านโยบายเป็น "ปิดใช้การลงชื่อเข้าใช้เบราว์เซอร์" ผู้ใช้จะลงชื่อเข้าใช้เบราว์เซอร์และใช้บริการที่เกี่ยวข้องกับบัญชีไม่ได้ ในกรณีนี้ฟีเจอร์ระดับเบราว์เซอร์ เช่น การซิงค์ของ <ph name="PRODUCT_NAME" /> จะใช้ไม่ได้และไม่พร้อมใช้งาน ใน <ph name="IOS_NAME" /> หากผู้ใช้ลงชื่อเข้าใช้และมีการตั้งค่านโยบายเป็น "ปิดใช้" ผู้ใช้จะออกจากระบบทันที ในแพลตฟอร์มอื่นๆ ผู้ใช้จะออกจากระบบเมื่อเรียกใช้ <ph name="PRODUCT_NAME" /> ครั้งถัดไป ในทุกแพลตฟอร์ม ระบบจะเก็บข้อมูลโปรไฟล์ในเครื่อง เช่น บุ๊กมาร์ก รหัสผ่าน ฯลฯ ไว้ และข้อมูลเหล่านี้ยังใช้ได้อยู่ ผู้ใช้จะยังลงชื่อเข้าใช้และใช้บริการเว็บของ Google เช่น Gmail ได้ต่อไป
-
-      หากตั้งค่านโยบายเป็น "เปิดใช้การลงชื่อเข้าใช้เบราว์เซอร์" ผู้ใช้จะได้รับอนุญาตให้ลงชื่อเข้าใช้เบราว์เซอร์ ในทุกแพลตฟอร์มยกเว้น <ph name="IOS_NAME" /> ผู้ใช้จะลงชื่อเข้าใช้เบราว์เซอร์โดยอัตโนมัติเมื่อลงชื่อเข้าใช้บริการเว็บของ Google เช่น Gmail การลงชื่อเข้าใช้เบราว์เซอร์หมายถึงเบราว์เซอร์จะเก็บข้อมูลบัญชีของผู้ใช้ไว้ แต่ไม่ได้หมายความว่าระบบจะเปิดใช้การซิงค์ของ <ph name="PRODUCT_NAME" /> โดยค่าเริ่มต้น ผู้ใช้ต้องเลือกใช้ฟีเจอร์นี้แยกต่างหาก การเปิดใช้นโยบายนี้จะป้องกันไม่ให้ผู้ใช้ปิดการตั้งค่าที่อนุญาตให้ลงชื่อเข้าใช้เบราว์เซอร์ หากต้องการควบคุมความพร้อมใช้งานของฟีเจอร์การซิงค์ของ <ph name="PRODUCT_NAME" /> ให้ใช้นโยบาย <ph name="SYNC_POLICY_NAME" />
-
-      หากตั้งค่านโยบายเป็น "บังคับให้ลงชื่อเข้าใช้เบราว์เซอร์" ระบบจะแสดงกล่องโต้ตอบการเลือกบัญชีและบังคับให้ผู้ใช้เลือกบัญชีเพื่อลงชื่อเข้าใช้เบราว์เซอร์ ในกรณีของบัญชีที่จัดการ วิธีนี้ช่วยให้แน่ใจว่าจะมีการใช้งานและบังคับใช้นโยบายที่เกี่ยวข้องกับบัญชีนั้น ค่าเริ่มต้นของ <ph name="GUEST_MODE_POLICY_NAME" /> ตั้งไว้เป็น "ปิดใช้" โปรดทราบว่าโปรไฟล์ที่ไม่ได้ลงชื่อเข้าใช้ที่มีอยู่จะถูกล็อกและเข้าถึงไม่ได้หลังจากเปิดใช้นโยบายนี้แล้ว ดูข้อมูลเพิ่มเติมได้จากบทความในศูนย์ช่วยเหลือที่ https://support.google.com/chrome/a/answer/7572556 ตัวเลือกนี้ใช้กับ <ph name="LINUX_OS_NAME" />, <ph name="ANDROID_NAME" /> หรือ <ph name="IOS_NAME" /> ไม่ได้ และจะเปลี่ยนกลับไปเป็น "เปิดใช้การลงชื่อเข้าใช้เบราว์เซอร์" หากมีการใช้ตัวเลือกนี้
-
-      หากไม่ได้ตั้งค่านโยบายนี้ ผู้ใช้เลือกได้ว่าจะเปิดใช้การลงชื่อเข้าใช้เบราว์เซอร์หรือไม่ในการตั้งค่า <ph name="PRODUCT_NAME" /> และใช้งานได้ตามความเหมาะสม</translation>
 <translation id="757395965347379751">เมื่อเปิดใช้การตั้งค่านี้ <ph name="PRODUCT_NAME" /> จะอนุญาตใบรับรองที่มีการลงชื่อของ SHA-1 ตราบใดที่ผ่านการตรวจสอบความถูกต้องและอยู่ในห่วงโซ่เดียวกับใบรับรอง CA ที่ติดตั้งในเครื่อง
 
       โปรดทราบว่านโยบายนี้ขึ้นอยู่กับกลุ่มการตรวจสอบใบรับรองระบบปฏิบัติการที่อนุญาตลายเซ็นของ SHA-1 หากการอัปเดตระบบปฏิบัติการเปลี่ยนแปลงการจัดการใบรับรอง SHA-1 ของระบบปฏิบัติการ นโยบายนี้จะไม่มีผลบังคับใช้อีกต่อไป นอกจากนี้ นโยบายนี้ยังมีจุดประสงค์เพื่อใช้เป็นการแก้ปัญหาชั่วคราวเพื่อให้องค์กรต่างๆ มีเวลามากขึ้นในการเลิกใช้งาน SHA-1  การถอดนโยบายนี้ออกจะเกิดขึ้นประมาณวันที่ 1 มกราคม 2019
@@ -8600,6 +8649,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 
       หากเปิดใช้นโยบายหรือไม่ได้ตั้งค่า ระบบจะเปิดใช้การแปลงหน่วยของคำตอบด่วน
       หากปิดใช้นโยบาย ระบบจะปิดใช้การแปลงหน่วยของคำตอบด่วน</translation>
+<translation id="7584363090329234690">อนุญาตให้ใช้พื้นหลัง VC ที่ Generative AI สร้างขึ้นโดยไม่ปรับปรุงโมเดล AI</translation>
 <translation id="7585312329612243723">เปิดใช้โฟลว์เอกสารรับรองของ <ph name="CHROME_ENTERPRISE_DEVICE_TRUST_CONNECTOR" /> สำหรับรายการ URL ในเบราว์เซอร์ที่มีการจัดการ</translation>
 <translation id="7587345076013230465">แสดงข้อความแจ้งให้ผู้ใช้เลือกใบรับรองไคลเอ็นต์เมื่อนโยบายการเลือกอัตโนมัติตรงกับใบรับรองหลายรายการบนหน้าจอการลงชื่อเข้าใช้</translation>
 <translation id="7587921466180902617">เปิดการลองใช้ Screencast สำหรับผู้ใช้ Family Link</translation>
@@ -8647,6 +8697,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
       หากไม่ได้ตั้งค่าไว้ ระบบจะปิดใช้เคอร์เซอร์ขนาดใหญ่ในหน้าจอลงชื่อเข้าใช้ ผู้ใช้จะเปิดใช้เมื่อใดก็ได้ และสถานะนั้นในหน้าจอลงชื่อเข้าใช้จะยังคงอยู่ตลอดระหว่างการใช้งานของผู้ใช้แต่ละคน
 
           หมายเหตุ: <ph name="DEVICE_LOGIN_SCREEN_LARGE_CURSOR_ENABLED" /> จะลบล้างนโยบายนี้หากระบุนโยบายเดิมไว้</translation>
+<translation id="7630403270894231662">ใช้ WeeklyTimeChecked ในโค้ดใหม่</translation>
 <translation id="7632147323011514740">ช่วงเวลาที่ขั้นตอนการอัปเดตภาพรวมของข้อมูล ARC จะเริ่มต้นสำหรับเซสชันผู้เยี่ยมชมที่มีการจัดการได้</translation>
 <translation id="7632724434767231364">ชื่อไลบรารี GSSAPI</translation>
 <translation id="7635106595080609261">การตั้งค่านโยบายเป็น "เปิดใช้" หรือไม่ตั้งค่าจะทำให้ Chrome แสดงผลได้ และผู้ใช้จะเปิดกล่องโต้ตอบสำหรับการเลือกไฟล์ได้
@@ -8764,6 +8815,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
       หมายเหตุ: ดูรายการตัวแปรที่คุณใช้ได้ (https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables)</translation>
 <translation id="7719808201797990069">การยกเว้นรูปแบบ URL สำหรับการละทิ้งแท็บ</translation>
 <translation id="7721944091689270995">User ID <ph name="PLUGIN_VM_NAME" /></translation>
+<translation id="7725010277314676939">บังคับให้เปิดใช้โหมด HTTPS เท่านั้นในโหมดเข้มงวด</translation>
 <translation id="7728486978686128364">ไม่ต้องใช้เมธอดคำขอตัวพิมพ์ใหญ่ ยกเว้น DELETE/GET/HEAD/OPTIONS/POST/PUT</translation>
 <translation id="7731026922044991970">เปลี่ยนกลับไปใช้ลักษณะการทำงาน <ph name="ATTRIBUTE_SAMESITE_NAME" /> เดิมสำหรับคุกกี้ในทุกเว็บไซต์</translation>
 <translation id="7732907212083471072">นโยบายที่นำออก</translation>
@@ -8776,9 +8828,6 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 
       นโยบายนี้มีไว้เพื่อใช้ชั่วคราวและจะนำออกหลังจากมีการเปิดตัว UI ลูกโป่งการดาวน์โหลดแบบใหม่อย่างเต็มรูปแบบ</translation>
 <translation id="7736521021425189418">เทอร์มินัล (รองรับตั้งแต่เวอร์ชัน 117)</translation>
-<translation id="77379430721695807">การตั้งค่านโยบายนี้เป็นการระบุรายการ URL ที่จะมีการจับคู่รูปแบบกับต้นทางการรักษาความปลอดภัยของ URL ที่ขอ หากรูปแบบตรงกัน ระบบจะให้สิทธิ์เข้าถึงอุปกรณ์จับภาพวิดีโอโดยไม่แสดงข้อความแจ้ง
-
-      ดูข้อมูลโดยละเอียดเกี่ยวกับรูปแบบ <ph name="URL_LABEL" /> ที่ถูกต้องได้ที่ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns</translation>
 <translation id="7740644123648617252">เปิดใช้การนำเข้าข้อมูลแบบฟอร์มที่ป้อนอัตโนมัติเมื่อเรียกใช้ครั้งแรก</translation>
 <translation id="7744253761377202223">เปอร์เซ็นต์ความสว่างของหน้าจอขณะที่เครื่องทำงานโดยเสียบปลั๊ก</translation>
 <translation id="7747447585227954402">อนุญาตให้อุปกรณ์ใช้ <ph name="PLUGIN_VM_NAME" /> ใน <ph name="PRODUCT_OS_NAME" /></translation>
@@ -8988,6 +9037,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 การตั้งค่านโยบายเป็น "ปิดใช้" หรือไม่ได้ตั้งค่าจะทำให้ไม่มีการสร้างการรับรองและเรียกใช้ <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> ไม่สำเร็จ</translation>
 <translation id="7906983682927840536">ดึงข้อมูลระยะเวลา Keepalive เมื่อปิดเบราว์เซอร์</translation>
 <translation id="7908384265697653397">เวลาเป็นวันก่อนที่ผู้ใช้จะออกจากระบบหากเวอร์ชัน <ph name="PRODUCT_OS_NAME" /> น้อยกว่า <ph name="CHROMEOS_VERSION_PROPERTY_NAME" /> ตามที่ระบุไว้</translation>
+<translation id="7909751052609510518">งานพิมพ์ (รองรับตั้งแต่เวอร์ชัน 129)</translation>
 <translation id="7911685775490889216">กำหนดค่าช่วงเวลาเป็นวินาทีเพื่อแสดงรูปภาพเมื่อโปรแกรมรักษาหน้าจอสำหรับหน้าจอล็อกมีรูปภาพหลายรูปที่จะแสดง
 
 ค่าที่ใช้ได้จะอยู่ในช่วง 1-9,999 วินาที การไม่ตั้งค่านโยบายจะทำให้ <ph name="PRODUCT_OS_NAME" /> ใช้ค่าเริ่มต้นเป็น 60 วินาที
@@ -9015,6 +9065,11 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 <translation id="793473937901685727">ตั้งค่าความพร้อมใช้งานของใบรับรองสำหรับแอป ARC</translation>
 <translation id="7936302526928951356">สตริง User-Agent จะไม่หยุดเวอร์ชันหลัก</translation>
 <translation id="7937766917976512374">อนุญาตหรือปฏิเสธการจับวิดีโอ</translation>
+<translation id="7937825205289116563">การตั้งค่านโยบายเป็น "เปิดใช้" หรือไม่ได้ตั้งค่าจะทำให้ใช้การรับรองเฉพาะกิจสำหรับแอปพลิเคชันแบบเนทีฟที่สร้างขึ้นเมื่อติดตั้ง Progressive Web Application (PWA) ได้ การดำเนินการนี้ช่วยให้แอปพลิเคชันที่ติดตั้งแต่ละรายการมีข้อมูลประจำตัวที่ไม่ซ้ำกันในคอมโพเนนต์ระบบ <ph name="MAC_OS_NAME" />
+
+การตั้งค่านโยบายเป็น "ปิดใช้" จะส่งผลให้ทุกแอปพลิเคชันแบบเนทีฟที่สร้างเมื่อติดตั้ง Progressive Web Application มีข้อมูลประจำตัวเดียวกัน ซึ่งอาจรบกวนฟังก์ชันการทำงานของ <ph name="MAC_OS_NAME" />
+
+ปิดใช้นโยบายเฉพาะในกรณีที่คุณใช้โซลูชันการรักษาความปลอดภัยอุปกรณ์ปลายทางที่บล็อกแอปพลิเคชันที่มีการรับรองแบบ Ad-hoc</translation>
 <translation id="7941528208359969119">อนุญาตให้ดำเนินการตรวจสอบ <ph name="OCSP_CRL_LABEL" /> ออนไลน์</translation>
 <translation id="7941975817681987555">อย่าคาดการณ์การทำงานของเครือข่ายจากการเชื่อมต่อเครือข่ายใดๆ</translation>
 <translation id="7945445169067895719">เปิดใช้การล็อกเมื่ออุปกรณ์มีการระงับการใช้งานหรือพับจอ</translation>
@@ -9154,6 +9209,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns * ไม�
 <translation id="802776363472387903">แฮช SHA-256 ของรูปภาพ <ph name="PLUGIN_VM_NAME" /></translation>
 <translation id="8028814157747157754">เปิดใช้ผู้ให้บริการค้นหาเริ่มต้นและอนุญาตให้ผู้ใช้แก้ไขรายชื่อผู้ให้บริการค้นหา</translation>
 <translation id="8029201909194194377">ระยะเวลาเซสชันสูงสุดที่อนุญาตสำหรับการเชื่อมต่อของการเข้าถึงจากระยะไกล</translation>
+<translation id="8031651557770840616">ไม่อนุญาตให้ใช้วอลเปเปอร์ Generative AI</translation>
 <translation id="8033450879690820321">นโยบายนี้ช่วยให้สามารถเลือกไม่ใช้ลักษณะการทำงานใหม่ของแถบเลื่อนที่โฟกัสได้ของแป้นพิมพ์ได้ชั่วคราว
 
 เมื่อเปิดใช้หรือไม่ได้ตั้งค่านโยบายนี้ แถบเลื่อนที่ไม่มีองค์ประกอบย่อยที่โฟกัสได้จะโฟกัสได้ด้วยแป้นพิมพ์โดยค่าเริ่มต้น นอกจากนี้ แถบเลื่อนจะโฟกัสได้ด้วยการคลิกและโฟกัสได้ด้วยการเขียนโปรแกรมโดยค่าเริ่มต้น
@@ -10619,6 +10675,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
       นโยบายนี้เป็นมาตรการชั่วคราวและจะถูกนำออกใน<ph name="PRODUCT_NAME" /> เวอร์ชันต่อๆ ไป หลังจากนำนโยบายออกแล้ว <ph name="PRODUCT_NAME" /> จะส่งคำขอประเภท DNS เพิ่มเติมได้ทุกครั้ง</translation>
 <translation id="9167719789236691545">ปิดใช้ไดรฟ์ในแอป Files ของ <ph name="PRODUCT_OS_NAME" /></translation>
+<translation id="9172648973829444124">บังคับให้เปิดใช้โหมด HTTPS เท่านั้นในโหมดสมดุล</translation>
 <translation id="9172911925443428317">ไม่อนุญาตให้แสดงโปรโมชันการให้คะแนนของ App Store</translation>
 <translation id="9173133289347070466">แบบสำรวจในผลิตภัณฑ์ของ <ph name="PRODUCT_NAME" /> จะรวบรวมความคิดเห็นของผู้ใช้สำหรับเบราว์เซอร์นี้ คำตอบจากแบบสำรวจจะไม่เชื่อมโยงกับบัญชีผู้ใช้
 เมื่อเปิดใช้นโยบายนี้หรือไม่ได้ตั้งค่า ระบบอาจแสดงแบบสำรวจในผลิตภัณฑ์ต่อผู้ใช้
@@ -10630,6 +10687,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 <translation id="9180108183162961002">อนุญาตให้เข้าสู่ระบบเบราว์เซอร์ในโหมดผู้มาเยือน</translation>
 <translation id="9185963199234034321">เปิดใช้คอนทราสต์สูงในหน้าจอการเข้าสู่ระบบและอนุญาตให้ผู้ใช้ปิดใช้ชั่วคราว</translation>
 <translation id="9187743794267626640">ปิดใช้งานการต่อเชื่อมที่จัดเก็บข้อมูลภายนอก</translation>
+<translation id="9189737595688383533">ไม่อนุญาตให้ผู้ใช้เปิดใช้โหมด HTTPS เท่านั้น</translation>
 <translation id="9190022798664427644">เปิดใช้เสียงแบบโมโน</translation>
 <translation id="9190456586252617675">นโยบายนี้ควบคุมโหมดของการเริ่มต้นใช้งาน Assistant
 
@@ -10694,6 +10752,7 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns
 
       หากตั้งค่านโยบายนี้เป็น "จริง" หรือไม่ได้กำหนดค่า ผู้ใช้ทั้งหมดจะเข้าสู่ระบบได้</translation>
 <translation id="966425658642788645">ใช้ลักษณะการทำงานเริ่มต้น</translation>
+<translation id="970144760302377175">กำหนดค่าเมื่อเครื่องมือ Graduation ของ <ph name="PRODUCT_OS_NAME" /> พร้อมใช้งาน</translation>
 <translation id="971677226939413180">ไม่มีตัวเลือกการพิมพ์เป็นรูปภาพให้ผู้ใช้เลือก</translation>
 <translation id="974349541138387272">ระบุเทมเพลต URI ของรีโซลเวอร์ DNS-over-HTTPS ที่ต้องการ</translation>
 <translation id="978658824596356870">รูปแบบนาฬิการะบบ 24 ชั่วโมง</translation>

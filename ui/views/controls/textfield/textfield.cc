@@ -268,6 +268,7 @@ Textfield::Textfield()
   // accessibility trees of all the platforms we support.
   GetViewAccessibility().SetIsLeaf(true);
   UpdateAccessibilityTextDirection();
+  UpdateAccessibleDefaultActionVerb();
 }
 
 Textfield::~Textfield() {
@@ -899,7 +900,7 @@ void Textfield::OnGestureEvent(ui::GestureEvent* event) {
     case ui::EventType::kGestureScrollEnd:
     case ui::EventType::kScrollFlingStart:
       if (HandleGestureForSelectionDragging(event)) {
-        NOTREACHED_NORETURN();
+        NOTREACHED();
       }
       if (HasFocus()) {
         if (show_touch_handles_after_scroll_) {
@@ -911,7 +912,7 @@ void Textfield::OnGestureEvent(ui::GestureEvent* event) {
       break;
     case ui::EventType::kGestureEnd:
       if (HandleGestureForSelectionDragging(event)) {
-        NOTREACHED_NORETURN();
+        NOTREACHED();
       }
       break;
     default:
@@ -1040,9 +1041,6 @@ void Textfield::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   // Editable state indicates support of editable interface, and is always set
   // for a textfield, even if disabled or readonly.
   node_data->AddState(ax::mojom::State::kEditable);
-  if (GetEnabled()) {
-    node_data->SetDefaultActionVerb(ax::mojom::DefaultActionVerb::kActivate);
-  }
   if (text_input_type_ == ui::TEXT_INPUT_TYPE_PASSWORD) {
     node_data->SetValue(std::u16string(
         GetText().size(), gfx::RenderText::kPasswordReplacementChar));
@@ -1055,12 +1053,6 @@ void Textfield::GetAccessibleNodeData(ui::AXNodeData* node_data) {
                              base::checked_cast<int32_t>(range.start()));
   node_data->AddIntAttribute(ax::mojom::IntAttribute::kTextSelEnd,
                              base::checked_cast<int32_t>(range.end()));
-
-  // TODO(crbug.com/325137417): In order to update the cache whenever the offset
-  // changes, we could set this attribute in
-  // Textfield::UpdateCursorViewPosition.
-  node_data->AddIntAttribute(ax::mojom::IntAttribute::kScrollX,
-                             GetRenderText()->GetUpdatedDisplayOffset().x());
 
 #if BUILDFLAG(SUPPORTS_AX_TEXT_OFFSETS)
   std::u16string ax_value =
@@ -1608,6 +1600,10 @@ void Textfield::ExecuteCommand(int command_id, int event_flags) {
 ////////////////////////////////////////////////////////////////////////////////
 // Textfield, ui::TextInputClient overrides:
 
+base::WeakPtr<ui::TextInputClient> Textfield::AsWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
+}
+
 void Textfield::SetCompositionText(const ui::CompositionText& composition) {
   if (GetTextInputType() == ui::TEXT_INPUT_TYPE_NONE)
     return;
@@ -1976,7 +1972,7 @@ bool Textfield::IsTextEditCommandEnabled(ui::TextEditCommand command) const {
     case ui::TextEditCommand::INVALID_COMMAND:
       return false;
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 void Textfield::SetTextEditCommandForNextKeyEvent(ui::TextEditCommand command) {
@@ -2331,7 +2327,7 @@ Textfield::EditCommandResult Textfield::DoExecuteTextEditCommand(
     case ui::TextEditCommand::SET_MARK:
     case ui::TextEditCommand::UNSELECT:
     case ui::TextEditCommand::INVALID_COMMAND:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 
   return {changed, cursor_changed};
@@ -2748,6 +2744,8 @@ gfx::Rect Textfield::CalculateCursorViewBounds() const {
 
 void Textfield::UpdateCursorViewPosition() {
   cursor_view_->SetBoundsRect(CalculateCursorViewBounds());
+  GetViewAccessibility().SetScrollX(
+      GetRenderText()->GetUpdatedDisplayOffset().x());
 }
 
 int Textfield::GetTextStyle() const {
@@ -2846,6 +2844,7 @@ bool Textfield::Cut() {
       model_->Cut()) {
     if (controller_)
       controller_->OnAfterCutOrCopy(ui::ClipboardBuffer::kCopyPaste);
+
     return true;
   }
   return false;
@@ -2864,6 +2863,7 @@ bool Textfield::Paste() {
   if (!GetReadOnly() && model_->Paste()) {
     if (controller_)
       controller_->OnAfterPaste();
+
     return true;
   }
   return false;
@@ -3015,6 +3015,7 @@ void Textfield::OnEnabledChanged() {
   if (GetEnabled() && GetReadOnly()) {
     GetViewAccessibility().SetReadOnly(true);
   }
+  UpdateAccessibleDefaultActionVerb();
 }
 
 void Textfield::DropDraggedText(
@@ -3220,6 +3221,15 @@ void Textfield::StopSelectionDragging() {
   }
   selection_dragging_state_ = SelectionDraggingState::kNone;
   selection_drag_type_ = std::nullopt;
+}
+
+void Textfield::UpdateAccessibleDefaultActionVerb() {
+  if (GetEnabled()) {
+    GetViewAccessibility().SetDefaultActionVerb(
+        ax::mojom::DefaultActionVerb::kActivate);
+  } else {
+    GetViewAccessibility().RemoveDefaultActionVerb();
+  }
 }
 
 BEGIN_METADATA(Textfield)

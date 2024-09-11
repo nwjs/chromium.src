@@ -20,10 +20,11 @@
 #include "chrome/browser/ash/login/users/avatar/user_image_manager_registry.h"
 #include "chrome/browser/ash/login/users/chrome_user_manager_impl.h"
 #include "chrome/browser/ash/net/ash_proxy_monitor.h"
+#include "chrome/browser/ash/net/secure_dns_manager.h"
 #include "chrome/browser/ash/net/system_proxy_manager.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/ash/scheduler_configuration_manager.h"
+#include "chrome/browser/ash/scheduler_config/scheduler_configuration_manager.h"
 #include "chrome/browser/ash/settings/cros_settings_holder.h"
 #include "chrome/browser/ash/system/automatic_reboot_manager.h"
 #include "chrome/browser/ash/system/device_disabling_manager.h"
@@ -116,20 +117,13 @@ void BrowserProcessPlatformPart::InitializeUserManager() {
   if (auto* login_state = ash::LoginState::Get()) {
     login_state->OnUserManagerCreated(user_manager_.get());
   }
-  if (auto* policy_manager =
-          browser_policy_connector_ash()->GetDeviceCloudPolicyManager()) {
-    policy_manager->OnUserManagerCreated(user_manager_.get());
-  }
-
+  browser_policy_connector_ash()->OnUserManagerCreated(user_manager_.get());
   user_manager_->Initialize();
 }
 
 void BrowserProcessPlatformPart::DestroyUserManager() {
   user_manager_->Destroy();
-  if (auto* policy_manager =
-          browser_policy_connector_ash()->GetDeviceCloudPolicyManager()) {
-    policy_manager->OnUserManagerWillBeDestroyed(user_manager_.get());
-  }
+  browser_policy_connector_ash()->OnUserManagerWillBeDestroyed();
   if (auto* login_state = ash::LoginState::Get()) {
     login_state->OnUserManagerWillBeDestroyed(user_manager_.get());
   }
@@ -242,9 +236,13 @@ void BrowserProcessPlatformPart::InitializePrimaryProfileServices(
     ash::SystemProxyManager::Get()->StartObservingPrimaryProfilePrefs(
         primary_profile);
   }
+
+  secure_dns_manager_ =
+      std::make_unique<ash::SecureDnsManager>(g_browser_process->local_state());
 }
 
 void BrowserProcessPlatformPart::ShutdownPrimaryProfileServices() {
+  secure_dns_manager_.reset();
   if (ash::SystemProxyManager::Get())
     ash::SystemProxyManager::Get()->StopObservingPrimaryProfilePrefs();
   essential_search_manager_.reset();

@@ -21,8 +21,6 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/profile_token_quality.h"
 #include "components/autofill/core/browser/profile_token_quality_test_api.h"
-#include "components/autofill/core/browser/test_autofill_clock.h"
-#include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/webdata/common/web_database.h"
 #include "sql/statement.h"
@@ -190,7 +188,7 @@ TEST_P(AddressAutofillTableProfileTest, AutofillProfile) {
   EXPECT_TRUE(
       table_.RemoveAutofillProfile(home_profile.guid(), profile_source()));
   std::vector<std::unique_ptr<AutofillProfile>> profiles;
-  EXPECT_TRUE(table_.GetAutofillProfiles(profile_source(), &profiles));
+  EXPECT_TRUE(table_.GetAutofillProfiles(profile_source(), profiles));
   EXPECT_TRUE(profiles.empty());
 }
 
@@ -208,10 +206,10 @@ TEST_F(AddressAutofillTableTest, GetAutofillProfiles) {
 
   std::vector<std::unique_ptr<AutofillProfile>> profiles;
   EXPECT_TRUE(table_.GetAutofillProfiles(
-      AutofillProfile::Source::kLocalOrSyncable, &profiles));
+      AutofillProfile::Source::kLocalOrSyncable, profiles));
   EXPECT_THAT(profiles, ElementsAre(testing::Pointee(local_profile)));
   EXPECT_TRUE(
-      table_.GetAutofillProfiles(AutofillProfile::Source::kAccount, &profiles));
+      table_.GetAutofillProfiles(AutofillProfile::Source::kAccount, profiles));
   EXPECT_THAT(profiles, ElementsAre(testing::Pointee(account_profile)));
 }
 
@@ -229,7 +227,7 @@ TEST_P(AddressAutofillTableProfileTest, RemoveAllAutofillProfiles) {
 
   // Expect that the profiles from `profile_source()` are gone.
   std::vector<std::unique_ptr<AutofillProfile>> profiles;
-  ASSERT_TRUE(table_.GetAutofillProfiles(profile_source(), &profiles));
+  ASSERT_TRUE(table_.GetAutofillProfiles(profile_source(), profiles));
   EXPECT_TRUE(profiles.empty());
 
   // Expect that the profile from the opposite source remains.
@@ -237,7 +235,7 @@ TEST_P(AddressAutofillTableProfileTest, RemoveAllAutofillProfiles) {
       profile_source() == AutofillProfile::Source::kAccount
           ? AutofillProfile::Source::kLocalOrSyncable
           : AutofillProfile::Source::kAccount;
-  ASSERT_TRUE(table_.GetAutofillProfiles(other_source, &profiles));
+  ASSERT_TRUE(table_.GetAutofillProfiles(other_source, profiles));
   EXPECT_EQ(profiles.size(), 1u);
 }
 
@@ -275,6 +273,32 @@ TEST_P(AddressAutofillTableProfileTest, ProfileTokenQuality) {
       test_api(profile.token_quality()).GetHashesForStoredType(NAME_FIRST),
       UnorderedElementsAre(ProfileTokenQualityTestApi::FormSignatureHash(12),
                            ProfileTokenQualityTestApi::FormSignatureHash(21)));
+}
+
+// Tests that last use dates are persisted, if present.
+TEST_P(AddressAutofillTableProfileTest, UseDates) {
+  base::test::ScopedFeatureList feature{
+      features::kAutofillTrackMultipleUseDates};
+  AutofillProfile profile = CreateAutofillProfile();
+  // Since the table stores time_ts, microseconds get lost in conversion.
+  const base::Time initial_use_date =
+      base::Time::FromTimeT(profile.use_date().ToTimeT());
+  ASSERT_FALSE(profile.use_date(2).has_value());
+  ASSERT_FALSE(profile.use_date(3).has_value());
+
+  table_.AddAutofillProfile(profile);
+  profile = *table_.GetAutofillProfile(profile.guid(), profile.source());
+  EXPECT_EQ(profile.use_date(1), initial_use_date);
+  EXPECT_FALSE(profile.use_date(2).has_value());
+  EXPECT_FALSE(profile.use_date(3).has_value());
+
+  profile.RecordUseDate(initial_use_date + base::Days(1));
+  profile.RecordUseDate(initial_use_date + base::Days(2));
+  table_.UpdateAutofillProfile(profile);
+  profile = *table_.GetAutofillProfile(profile.guid(), profile.source());
+  EXPECT_EQ(profile.use_date(1), initial_use_date + base::Days(2));
+  EXPECT_EQ(profile.use_date(2), initial_use_date + base::Days(1));
+  EXPECT_EQ(profile.use_date(3), initial_use_date);
 }
 
 TEST_P(AddressAutofillTableProfileTest, UpdateAutofillProfile) {
@@ -347,7 +371,7 @@ TEST_F(AddressAutofillTableTest, RemoveAutofillDataModifiedBetween) {
   // Remove all entries modified in the bounded time range [17,41).
   std::vector<std::unique_ptr<AutofillProfile>> profiles;
   table_.RemoveAutofillDataModifiedBetween(Time::FromTimeT(17),
-                                           Time::FromTimeT(41), &profiles);
+                                           Time::FromTimeT(41), profiles);
 
   // Two profiles should have been removed.
   ASSERT_EQ(2UL, profiles.size());
@@ -386,7 +410,7 @@ TEST_F(AddressAutofillTableTest, RemoveAutofillDataModifiedBetween) {
 
   // Remove all entries modified on or after time 51 (unbounded range).
   table_.RemoveAutofillDataModifiedBetween(Time::FromTimeT(51), Time(),
-                                           &profiles);
+                                           profiles);
   ASSERT_EQ(2UL, profiles.size());
   EXPECT_EQ("00000000-0000-0000-0000-000000000004", profiles[0]->guid());
   EXPECT_EQ("00000000-0000-0000-0000-000000000005", profiles[1]->guid());
@@ -414,7 +438,7 @@ TEST_F(AddressAutofillTableTest, RemoveAutofillDataModifiedBetween) {
   EXPECT_FALSE(s_autofill_profile_names_unbounded.Step());
 
   // Remove all remaining entries.
-  table_.RemoveAutofillDataModifiedBetween(Time(), Time(), &profiles);
+  table_.RemoveAutofillDataModifiedBetween(Time(), Time(), profiles);
 
   // Two profiles should have been removed.
   ASSERT_EQ(2UL, profiles.size());

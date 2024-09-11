@@ -102,11 +102,14 @@ struct ScoredUrlRow {
 
 struct SearchResult {
   SearchResult();
-  SearchResult(const SearchResult&);
   SearchResult(SearchResult&&);
   ~SearchResult();
-  SearchResult& operator=(const SearchResult&);
   SearchResult& operator=(SearchResult&&);
+
+  // Explicit copy only, since the `answerer_result` contains a log entry.
+  // This should only be called if `answerer_result` is not populated with
+  // a log entry yet, for example after initial search and before answering.
+  SearchResult Clone();
 
   // Gets the answer text from within the `answerer_result`.
   const std::string& AnswerText() const;
@@ -186,7 +189,8 @@ class HistoryEmbeddingsService : public KeyedService,
   base::WeakPtr<HistoryEmbeddingsService> AsWeakPtr();
 
   // Submit quality logging data after user selects an item from search result.
-  void SendQualityLog(const SearchResult& result,
+  // Note, the `result` contains a log entry that will be consumed by this call.
+  void SendQualityLog(SearchResult& result,
                       optimization_guide::proto::UserFeedback user_feedback,
                       std::set<size_t> selections,
                       size_t num_entered_characters,
@@ -382,6 +386,9 @@ class HistoryEmbeddingsService : public KeyedService,
   // Multi-word phrases with spaces, checked by finding substring in query.
   std::vector<std::string> filter_phrases_;
 
+  // Hashes for phrases of one or two words to be filtered.
+  std::unordered_set<uint32_t> filter_hashes_;
+
   // Callback called when `ProcessAndStorePassages` completes. Needed for tests
   // as the blink dependency doesn't have a 'wait for pending requests to
   // complete' mechanism.
@@ -409,6 +416,8 @@ enum class QueryFiltered {
   FILTERED_NOT_ASCII,
   FILTERED_PHRASE_MATCH,
   FILTERED_TERM_MATCH,
+  FILTERED_ONE_WORD_HASH_MATCH,
+  FILTERED_TWO_WORD_HASH_MATCH,
 
   // These enum values are logged in UMA. Do not reuse or skip any values.
   // The order doesn't need to be chronological, but keep identities stable.
@@ -439,6 +448,9 @@ enum class ExtractionCancelled {
 // Record UMA histogram with cancellation reason when extraction,
 // embedding, etc. is cancelled before completion and storage.
 void RecordExtractionCancelled(ExtractionCancelled reason);
+
+// Hash function used for query filtering.
+uint32_t HashString(std::string_view str);
 
 }  // namespace history_embeddings
 

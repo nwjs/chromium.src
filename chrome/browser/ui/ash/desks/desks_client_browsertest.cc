@@ -26,9 +26,7 @@
 #include "ash/test/ash_test_util.h"
 #include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "ash/wm/desks/desk.h"
-#include "ash/wm/desks/desk_action_button.h"
 #include "ash/wm/desks/desk_action_context_menu.h"
-#include "ash/wm/desks/desk_action_view.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/desks/desks_test_api.h"
 #include "ash/wm/desks/desks_test_util.h"
@@ -37,6 +35,7 @@
 #include "ash/wm/desks/templates/saved_desk_controller.h"
 #include "ash/wm/desks/templates/saved_desk_metrics_util.h"
 #include "ash/wm/desks/templates/saved_desk_presenter.h"
+#include "ash/wm/desks/templates/saved_desk_save_desk_button.h"
 #include "ash/wm/desks/templates/saved_desk_test_util.h"
 #include "ash/wm/desks/templates/saved_desk_util.h"
 #include "ash/wm/float/float_controller.h"
@@ -355,56 +354,16 @@ void ClickView(const views::View* view) {
   event_generator.ClickLeftButton();
 }
 
-// TODO(hewer): Combine with `SelectSaveDeskAsTemplateButton` in
-// `full_restore_app_launch_handler_browsertest.cc`.
 // If `wait_for_ui` is true, wait for the callback from the model to update the
 // UI.
 void ClickSaveDeskAsTemplateButton(bool wait_for_ui) {
-  // TODO(http://b/350771229): Remove `if` when Forest is enabled.
-  if (ash::features::IsForestFeatureEnabled()) {
-    // Tests in this suite only have a single desk, so the bar view should be in
-    // zero state when overview is started.
-    aura::Window* root_window = ash::Shell::GetPrimaryRootWindow();
-    auto* bar_view = ash::OverviewController::Get()
-                         ->overview_session()
-                         ->GetGridWithRootWindow(root_window)
-                         ->desks_bar_view();
-    ASSERT_TRUE(bar_view);
-    ASSERT_TRUE(bar_view->IsZeroState());
-
-    // Click the default desk button so it will expand to a `DeskMiniView`.
-    auto* default_button = bar_view->default_desk_button();
-    ASSERT_TRUE(default_button);
-    ClickView(default_button);
-
-    // Wait for the desk bar to finish animating to the expanded state.
-    ash::DesksTestApi::WaitForDeskBarUiUpdate(bar_view);
-
-    // Clicking the default desk button selects the desk's name field. We can
-    // press enter or escape or click to select out of it.
-    SendKey(ui::VKEY_RETURN);
-
-    ASSERT_FALSE(bar_view->IsZeroState());
-    ASSERT_EQ(bar_view->mini_views().size(), 1u);
-    ash::DeskMiniView* mini_view = bar_view->mini_views()[0];
-    ASSERT_TRUE(mini_view);
-
-    // Use the desk action view to get the context menu button.
-    ASSERT_TRUE(mini_view->desk_action_view());
-    ash::DeskActionButton* menu_button =
-        mini_view->desk_action_view()->context_menu_button();
-    ASSERT_TRUE(menu_button);
-    ASSERT_TRUE(menu_button->GetVisible());
-
-    // Click the button to open the context menu.
-    ClickView(menu_button);
-    ash::DeskActionContextMenu* menu = mini_view->context_menu();
-    ASSERT_TRUE(menu);
-
+  if (ash::features::IsSavedDeskUiRevampEnabled()) {
     // Get the menu option to save the desk as a template and click it.
     views::MenuItemView* menu_item =
-        ash::DesksTestApi::GetDeskActionContextMenuItem(
-            menu, ash::DeskActionContextMenu::CommandId::kSaveAsTemplate);
+        ash::DesksTestApi::OpenDeskContextMenuAndGetMenuItem(
+            ash::Shell::GetPrimaryRootWindow(),
+            ash::DeskBarViewBase::Type::kOverview, /*index=*/0u,
+            ash::DeskActionContextMenu::CommandId::kSaveAsTemplate);
     ASSERT_TRUE(menu_item);
     ClickView(menu_item);
   } else {
@@ -1601,7 +1560,7 @@ IN_PROC_BROWSER_TEST_F(DesksClientTest, SystemUIBasic) {
   // Note that this button needs at least one window to show up. Browser tests
   // have an existing browser window, so no new window needs to be created.
   // TODO(http://b/350771229): Remove `if` when Forest is enabled.
-  if (ash::features::IsForestFeatureEnabled()) {
+  if (ash::features::IsSavedDeskUiRevampEnabled()) {
     ClickSaveDeskAsTemplateButton();
   } else {
     const views::Button* save_desk_as_template_button =
@@ -3346,11 +3305,10 @@ using SaveAndRecallBrowserTest = DesksClientTest;
 IN_PROC_BROWSER_TEST_F(SaveAndRecallBrowserTest,
                        SystemUIBlockingDialogAccepted) {
   // TODO(http://b/350771229): This test tests clicking the "Save desk for
-  // later" button that will not be shown if the Forest feature is enabled. This
-  // test will be fixed before the button change is no longer hidden behind
-  // Forest.
-  if (ash::features::IsForestFeatureEnabled()) {
-    GTEST_SKIP() << "Skipping test body for Forest Feature.";
+  // later" button that will not be shown if the feature is enabled. This test
+  // will be fixed before the button change is no longer hidden behind the flag.
+  if (ash::features::IsSavedDeskUiRevampEnabled()) {
+    GTEST_SKIP() << "Skipping test body for saved desk revamp feature.";
   }
 
   SetupBrowserToConfirmClose(browser());
@@ -3386,11 +3344,10 @@ IN_PROC_BROWSER_TEST_F(SaveAndRecallBrowserTest,
 IN_PROC_BROWSER_TEST_F(SaveAndRecallBrowserTest,
                        SystemUIBlockingDialogRejected) {
   // TODO(http://b/350771229): This test tests clicking the "Save desk for
-  // later" button that will not be shown if the Forest feature is enabled. This
-  // test will be fixed before the button change is no longer hidden behind
-  // Forest.
-  if (ash::features::IsForestFeatureEnabled()) {
-    GTEST_SKIP() << "Skipping test body for Forest Feature.";
+  // later" button that will not be shown if the feature is enabled. This test
+  // will be fixed before the button change is no longer hidden behind the flag.
+  if (ash::features::IsSavedDeskUiRevampEnabled()) {
+    GTEST_SKIP() << "Skipping test body for saved desk revamp feature.";
   }
 
   SetupBrowserToConfirmClose(browser());

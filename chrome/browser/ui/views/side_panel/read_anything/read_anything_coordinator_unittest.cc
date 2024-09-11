@@ -12,6 +12,9 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/accessibility/embedded_a11y_extension_loader.h"
 #include "chrome/browser/companion/core/features.h"
+#include "chrome/browser/extensions/component_loader.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -37,7 +40,6 @@ class MockReadAnythingCoordinatorObserver
  public:
   MOCK_METHOD(void, Activate, (bool active), (override));
   MOCK_METHOD(void, OnActivePageDistillable, (bool distillable), (override));
-  MOCK_METHOD(void, OnCoordinatorDestroyed, (), (override));
 };
 
 class ReadAnythingCoordinatorTest : public TestWithBrowserView {
@@ -53,45 +55,55 @@ class ReadAnythingCoordinatorTest : public TestWithBrowserView {
   void SetUp() override {
     base::test::ScopedFeatureList features;
     scoped_feature_list_.InitWithFeatures(
-        {features::kReadAnythingDocsIntegration,
-         features::kReadAnythingLocalSidePanel},
+        {
+            features::kReadAnythingDocsIntegration,
+        },
         {});
     TestWithBrowserView::SetUp();
 
-    side_panel_coordinator_ =
-        SidePanelUtil::GetSidePanelCoordinatorForBrowser(browser());
+    InitExtensionSystem(profile());
+
+    side_panel_coordinator_ = browser()->GetFeatures().side_panel_coordinator();
     read_anything_coordinator_ =
-        ReadAnythingCoordinator::GetOrCreateForBrowser(browser());
+        browser()->GetFeatures().read_anything_coordinator();
 
     // Ensure a kReadAnything entry is added to the contextual registry for the
     // first tab.
     AddTabToBrowser(GURL("http://foo1.com"));
-    auto* tab_one_registry =
-        SidePanelRegistry::Get(browser_view()->GetActiveWebContents());
+    auto* tab_one_registry = SidePanelRegistry::GetDeprecated(
+        browser_view()->GetActiveWebContents());
     contextual_registries_.push_back(tab_one_registry);
 
     // Ensure a kReadAnything entry is added to the contextual registry for the
     // second tab.
     AddTabToBrowser(GURL("http://foo2.com"));
-    auto* tab_two_registry =
-        SidePanelRegistry::Get(browser_view()->GetActiveWebContents());
+    auto* tab_two_registry = SidePanelRegistry::GetDeprecated(
+        browser_view()->GetActiveWebContents());
     contextual_registries_.push_back(tab_two_registry);
 
     // Verify the first tab has one entry, kReadAnything.
     browser_view()->browser()->tab_strip_model()->ActivateTabAt(0);
-    SidePanelRegistry* contextual_registry =
-        SidePanelRegistry::Get(browser_view()->GetActiveWebContents());
+    SidePanelRegistry* contextual_registry = SidePanelRegistry::GetDeprecated(
+        browser_view()->GetActiveWebContents());
     ASSERT_EQ(contextual_registry->entries().size(), 1u);
     EXPECT_EQ(contextual_registry->entries()[0]->key().id(),
               SidePanelEntry::Id::kReadAnything);
 
     // Verify the second tab has one entry, kReadAnything.
     browser_view()->browser()->tab_strip_model()->ActivateTabAt(1);
-    contextual_registry =
-        SidePanelRegistry::Get(browser_view()->GetActiveWebContents());
+    contextual_registry = SidePanelRegistry::GetDeprecated(
+        browser_view()->GetActiveWebContents());
     ASSERT_EQ(contextual_registry->entries().size(), 1u);
     EXPECT_EQ(contextual_registry->entries()[0]->key().id(),
               SidePanelEntry::Id::kReadAnything);
+  }
+
+  void InitExtensionSystem(Profile* profile) {
+    extensions::TestExtensionSystem* extension_system =
+        static_cast<extensions::TestExtensionSystem*>(
+            extensions::ExtensionSystem::Get(profile));
+    extension_system->CreateExtensionService(
+        base::CommandLine::ForCurrentProcess(), base::FilePath(), false);
   }
 
   // Wrapper methods around the ReadAnythingCoordinator. These do nothing more
@@ -122,11 +134,27 @@ class ReadAnythingCoordinatorTest : public TestWithBrowserView {
   void AddTabToBrowser(const GURL& tab_url) {
     AddTab(browser_view()->browser(), tab_url);
     // Remove the companion entry if it present.
-    auto* registry =
-        SidePanelRegistry::Get(browser_view()->GetActiveWebContents());
+    auto* registry = SidePanelRegistry::GetDeprecated(
+        browser_view()->GetActiveWebContents());
     registry->Deregister(
         SidePanelEntry::Key(SidePanelEntry::Id::kSearchCompanion));
   }
+
+#if !BUILDFLAG(IS_CHROMEOS_LACROS)
+  bool IsGDocsHelperExtensionLoaded() {
+#if BUILDFLAG(IS_CHROMEOS)
+    return EmbeddedA11yExtensionLoader::GetInstance()->IsExtensionInstalled(
+        extension_misc::kReadingModeGDocsHelperExtensionId);
+#else
+    extensions::ComponentLoader* component_loader =
+        extensions::ExtensionSystem::Get(profile())
+            ->extension_service()
+            ->component_loader();
+    return component_loader->Exists(
+        extension_misc::kReadingModeGDocsHelperExtensionId);
+#endif  // BUILDFLAG(IS_CHROMEOS)
+  }
+#endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
  protected:
   content::ScopedWebUIConfigRegistration webui_config_registration_{
@@ -153,11 +181,6 @@ TEST_F(ReadAnythingCoordinatorTest, ContainerViewsAreUnique) {
   EXPECT_NE(view1, view2);
 }
 
-TEST_F(ReadAnythingCoordinatorTest, OnCoordinatorDestroyedCalled) {
-  AddObserver(&coordinator_observer_);
-  EXPECT_CALL(coordinator_observer_, OnCoordinatorDestroyed()).Times(1);
-}
-
 TEST_F(ReadAnythingCoordinatorTest,
        ActivateCalled_ShowAndHideReadAnythingEntry) {
   AddObserver(&coordinator_observer_);
@@ -177,24 +200,20 @@ TEST_F(ReadAnythingCoordinatorTest,
        SidePanelShowAndHide_NonLacros_CallEmbeddedA11yExtensionLoader) {
   SidePanelEntry* entry = contextual_registries_[0]->GetEntryForKey(
       SidePanelEntry::Key(SidePanelEntry::Id::kReadAnything));
-  EXPECT_FALSE(EmbeddedA11yExtensionLoader::GetInstance()->IsExtensionInstalled(
-      extension_misc::kReadingModeGDocsHelperExtensionId));
+  EXPECT_FALSE(IsGDocsHelperExtensionLoaded());
 
   // If the local side panel entry is shown, install the helper extension.
   entry->OnEntryShown();
-  EXPECT_TRUE(EmbeddedA11yExtensionLoader::GetInstance()->IsExtensionInstalled(
-      extension_misc::kReadingModeGDocsHelperExtensionId));
+  EXPECT_TRUE(IsGDocsHelperExtensionLoaded());
 
   // If the local side panel entry is hidden, remove the helper extension after
   // a timeout.
   entry->OnEntryHidden();
   // The helper extension is not removed immediately.
-  EXPECT_TRUE(EmbeddedA11yExtensionLoader::GetInstance()->IsExtensionInstalled(
-      extension_misc::kReadingModeGDocsHelperExtensionId));
+  EXPECT_TRUE(IsGDocsHelperExtensionLoaded());
   // The helper extension is removed after a timeout.
   task_environment()->FastForwardBy(base::Seconds(30));
-  EXPECT_FALSE(EmbeddedA11yExtensionLoader::GetInstance()->IsExtensionInstalled(
-      extension_misc::kReadingModeGDocsHelperExtensionId));
+  EXPECT_FALSE(IsGDocsHelperExtensionLoaded());
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
@@ -256,10 +275,9 @@ class ReadAnythingCoordinatorScreen2xDataCollectionModeTest
         {features::kDataCollectionModeForScreen2x}, {});
     TestWithBrowserView::SetUp();
 
-    side_panel_coordinator_ =
-        SidePanelUtil::GetSidePanelCoordinatorForBrowser(browser());
+    side_panel_coordinator_ = browser()->GetFeatures().side_panel_coordinator();
     read_anything_coordinator_ =
-        ReadAnythingCoordinator::GetOrCreateForBrowser(browser());
+        browser()->GetFeatures().read_anything_coordinator();
 
     AddTab(browser_view()->browser(), GURL("http://foo1.com"));
     browser_view()->browser()->tab_strip_model()->ActivateTabAt(0);

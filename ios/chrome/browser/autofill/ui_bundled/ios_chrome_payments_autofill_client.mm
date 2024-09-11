@@ -21,6 +21,7 @@
 #import "components/autofill/core/browser/payments/credit_card_cvc_authenticator.h"
 #import "components/autofill/core/browser/payments/credit_card_otp_authenticator.h"
 #import "components/autofill/core/browser/payments/credit_card_risk_based_authenticator.h"
+#import "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #import "components/autofill/core/browser/payments/otp_unmask_delegate.h"
 #import "components/autofill/core/browser/payments/otp_unmask_result.h"
 #import "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -85,7 +86,7 @@ void IOSChromePaymentsAutofillClient::LoadRiskData(
 
 void IOSChromePaymentsAutofillClient::ConfirmSaveCreditCardLocally(
     const CreditCard& card,
-    AutofillClient::SaveCreditCardOptions options,
+    SaveCreditCardOptions options,
     LocalSaveCardPromptCallback callback) {
   DCHECK(options.show_prompt);
   infobar_manager_->AddInfoBar(CreateSaveCardInfoBarMobile(
@@ -98,7 +99,7 @@ void IOSChromePaymentsAutofillClient::ConfirmSaveCreditCardLocally(
 void IOSChromePaymentsAutofillClient::ConfirmSaveCreditCardToCloud(
     const CreditCard& card,
     const LegalMessageLines& legal_message_lines,
-    AutofillClient::SaveCreditCardOptions options,
+    SaveCreditCardOptions options,
     UploadSaveCardPromptCallback callback) {
   DCHECK(options.show_prompt);
 
@@ -371,6 +372,15 @@ void IOSChromePaymentsAutofillClient::OpenPromoCodeOfferDetailsURL(
       url, web::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
       /*is_renderer_initiated=*/false));
+}
+
+payments::MandatoryReauthManager*
+IOSChromePaymentsAutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
+  if (!payments_reauth_manager_) {
+    payments_reauth_manager_ =
+        std::make_unique<payments::MandatoryReauthManager>(&client_.get());
+  }
+  return payments_reauth_manager_.get();
 }
 
 }  // namespace autofill::payments

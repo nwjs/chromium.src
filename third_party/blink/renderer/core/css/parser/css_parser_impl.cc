@@ -200,14 +200,15 @@ MutableCSSPropertyValueSet::SetResult CSSParserImpl::ParseVariableValue(
   STACK_UNINITIALIZED CSSParserImpl parser(context);
   CSSTokenizer tokenizer(value);
   CSSParserTokenStream stream(tokenizer);
-  CSSTokenizedValue tokenized_value = ConsumeUnrestrictedPropertyValue(stream);
-  parser.ConsumeVariableValue(tokenized_value, property_name, important,
-                              is_animation_tainted);
-  if (parser.parsed_properties_.empty()) {
+  if (!parser.ConsumeVariableValue(stream, property_name,
+                                   /*allow_important_annotation=*/false,
+                                   is_animation_tainted)) {
     return MutableCSSPropertyValueSet::kParseError;
-  } else {
-    return declaration->AddParsedProperties(parser.parsed_properties_);
   }
+  if (important) {
+    parser.parsed_properties_.back().SetImportant();
+  }
+  return declaration->AddParsedProperties(parser.parsed_properties_);
 }
 
 static inline void FilterProperties(
@@ -1118,8 +1119,7 @@ StyleRuleNamespace* CSSParserImpl::ConsumeNamespaceRule(
 
 StyleRule* CSSParserImpl::CreateImplicitNestedRule(
     CSSNestingType nesting_type,
-    StyleRule* parent_rule_for_nesting,
-    CSSSelector::Signal signal) {
+    StyleRule* parent_rule_for_nesting) {
   constexpr bool kNotImplicit =
       false;  // The rule is implicit, but the &/:scope is not.
 
@@ -1132,17 +1132,14 @@ StyleRule* CSSParserImpl::CreateImplicitNestedRule(
     case CSSNestingType::kNesting:
       // kPseudoParent
       selectors.push_back(CSSSelector(parent_rule_for_nesting, kNotImplicit));
-      selectors.back().SetSignal(signal);
       break;
     case CSSNestingType::kScope: {
       // See CSSSelector::RelationType::kScopeActivation.
       CSSSelector selector;
       selector.SetTrue();
       selector.SetRelation(CSSSelector::kScopeActivation);
-      selector.SetSignal(signal);
       selectors.push_back(selector);
       selectors.push_back(CSSSelector(AtomicString("scope"), kNotImplicit));
-      selectors.back().SetSignal(signal);
       break;
     }
   }
@@ -1155,66 +1152,6 @@ StyleRule* CSSParserImpl::CreateImplicitNestedRule(
       base::span<CSSSelector>{selectors.data(), selectors.size()},
       CreateCSSPropertyValueSet(parsed_properties_, context_->Mode(),
                                 context_->GetDocument()));
-}
-
-StyleRule* CSSParserImpl::CreateInvisibleRule(const CSSSelector* selector_list,
-                                              wtf_size_t start_index,
-                                              wtf_size_t end_index,
-                                              CSSSelector::Signal signal) {
-  DCHECK(selector_list);
-  DCHECK_LT(start_index, end_index);
-  // Create a invisible rule covering all declarations since `start_index`.
-
-  HeapVector<CSSPropertyValue, 64> invisible_declarations;
-  invisible_declarations.AppendRange(parsed_properties_.begin() + start_index,
-                                     parsed_properties_.begin() + end_index);
-
-  // Copy the selector list, and mark each CSSSelector (top-level) as invisible.
-  // We only strictly need to mark the first CSSSelector in each complex
-  // selector, but it's easier to just mark everything.
-  HeapVector<CSSSelector> selectors;
-  for (const CSSSelector* selector = selector_list; selector;
-       selector = selector->IsLastInSelectorList() ? nullptr : (selector + 1)) {
-    selectors.push_back(*selector);
-    selectors.back().SetInvisible();
-    selectors.back().SetSignal(signal);
-  }
-
-  CHECK(!selectors.empty());
-  CHECK(selectors.back().IsLastInComplexSelector());
-  CHECK(selectors.back().IsLastInSelectorList());
-
-  return StyleRule::Create(
-      base::span<CSSSelector>{selectors.data(), selectors.size()},
-      CreateCSSPropertyValueSet(invisible_declarations, context_->Mode(),
-                                context_->GetDocument()));
-}
-
-void CSSParserImpl::EmitInvisibleRuleIfNeeded(
-    StyleRule* parent_rule_for_nesting,
-    wtf_size_t start_index,
-    CSSSelector::Signal signal,
-    HeapVector<Member<StyleRuleBase>, 4>* child_rules) {
-  if (!child_rules) {
-    // This can happen we we consume a declaration list
-    // for a top-level style rule.
-    return;
-  }
-  if (!parent_rule_for_nesting) {
-    // This can happen for @page, which behaves simiarly to CSS Nesting
-    // (and cares about child rules), but doesn't have a parent style rule.
-    return;
-  }
-  wtf_size_t end_index = parsed_properties_.size();
-  if (start_index >= end_index) {
-    // No need to emit a rule with nothing in it.
-    return;
-  }
-  if (StyleRule* invisible_rule =
-          CreateInvisibleRule(parent_rule_for_nesting->FirstSelector(),
-                              start_index, end_index, signal)) {
-    child_rules->push_back(invisible_rule);
-  }
 }
 
 StyleRuleMedia* CSSParserImpl::ConsumeMediaRule(
@@ -2184,13 +2121,13 @@ StyleRuleFunction* CSSParserImpl::ConsumeFunctionRule(
   CSSVariableData* return_value = nullptr;
   {
     CSSParserTokenStream::Boundary boundary(stream, kSemicolonToken);
-    CSSTokenizedValue tokenized_value =
-        ConsumeUnrestrictedPropertyValue(stream);
-    // TODO(sesse): Are these the right values for is_animation_tainted and
-    // needs_variable_resolution?
-    return_value =
-        CSSVariableData::Create(tokenized_value, /*is_animation_tainted=*/false,
-                                /*needs_variable_resolution=*/true);
+    bool important_ignored;
+    return_value = CSSVariableParser::ConsumeUnparsedDeclaration(
+        stream, /*allow_important_annotation=*/false,
+        /*is_animation_tainted=*/false,
+        /*must_contain_variable_reference=*/false, /*restricted_value=*/false,
+        /*comma_ends_declaration=*/false, important_ignored,
+        context_->GetExecutionContext());
   }
 
   while (!stream.AtEnd()) {
@@ -2581,12 +2518,6 @@ void CSSParserImpl::ConsumeDeclarationList(
     observer_->StartRuleBody(stream.Offset());
   }
 
-  // Whenever we hit a nested rule, we emit a invisible rule from the
-  // declarations in [parsed_properties_.begin() + invisible_rule_start_index,
-  // parsed_properties_.end()>, and update invisible_rule_start_index to prepare
-  // for the next invisible rule.
-  wtf_size_t invisible_rule_start_index = kNotFound;
-
   while (true) {
     // Having a lookahead may skip comments, which are used by the observer.
     DCHECK(!stream.HasLookAhead() || stream.AtEnd());
@@ -2617,10 +2548,6 @@ void CSSParserImpl::ConsumeDeclarationList(
         StyleRuleBase* child = ConsumeNestedRule(
             id, rule_type, stream, nesting_type, parent_rule_for_nesting);
         if (child && child_rules) {
-          EmitInvisibleRuleIfNeeded(
-              parent_rule_for_nesting, invisible_rule_start_index,
-              CSSSelector::Signal::kBareDeclarationShift, child_rules);
-          invisible_rule_start_index = parsed_properties_.size();
           child_rules->push_back(child);
         }
         break;
@@ -2637,19 +2564,12 @@ void CSSParserImpl::ConsumeDeclarationList(
             DCHECK_EQ(stream.UncheckedPeek().GetType(), kSemicolonToken);
             stream.UncheckedConsume();  // kSemicolonToken
           }
-          if (child_rules && !child_rules->empty()) {
-            // https://github.com/w3c/csswg-drafts/issues/8738
-            context_->Count(WebFeature::kCSSDeclarationAfterNestedRule);
-          }
           break;
-        } else if (stream.UncheckedPeek().GetType() == kSemicolonToken) {
+        } else if (stream.Peek().GetType() == kSemicolonToken) {
           // As an optimization, we avoid the restart below (retrying as a
           // nested style rule) if we ended on a kSemicolonToken, as this
           // situation can't produce a valid rule.
-          stream.SkipUntilPeekedTypeIs<kSemicolonToken>();
-          if (!stream.AtEnd()) {
-            stream.UncheckedConsume();  // kSemicolonToken
-          }
+          stream.UncheckedConsume();  // kSemicolonToken
           break;
         }
         // Retry as nested rule.
@@ -2663,10 +2583,6 @@ void CSSParserImpl::ConsumeDeclarationList(
                                 parent_rule_for_nesting);
           if (child) {
             if (child_rules) {
-              EmitInvisibleRuleIfNeeded(
-                  parent_rule_for_nesting, invisible_rule_start_index,
-                  CSSSelector::Signal::kBareDeclarationShift, child_rules);
-              invisible_rule_start_index = parsed_properties_.size();
               child_rules->push_back(child);
             }
             break;
@@ -2692,54 +2608,10 @@ void CSSParserImpl::ConsumeDeclarationList(
     }
   }
 
-  // We need a final call to EmitInvisibleRuleIfNeeded in case there are
-  // trailing bare declarations.
-  EmitInvisibleRuleIfNeeded(parent_rule_for_nesting, invisible_rule_start_index,
-                            CSSSelector::Signal::kBareDeclarationShift,
-                            child_rules);
-
   if (use_observer) {
     observer_->EndRuleBody(stream.LookAheadOffset());
   }
 }
-
-namespace {
-
-// This function returns true if the specificities of the complex selectors
-// in the provided selector list are all equal.
-//
-// This is interesting information for use-counting purposes
-// (crbug.com/1517290), because a return value of 'true' means that
-// wrapping the selector list in :is()/& does not change the specificity.
-bool AllSpecificitiesEqual(const CSSSelector* selector_list) {
-  const CSSSelector* selector = selector_list;
-  unsigned specificity = selector->Specificity();
-  while ((selector = CSSSelectorList::Next(*selector))) {
-    if (specificity != selector->Specificity()) {
-      return false;
-    }
-  }
-  return true;
-}
-
-CSSSelector::Signal SignalForImplicitNestedRule(
-    CSSNestingType nesting_type,
-    StyleRule* parent_rule_for_nesting) {
-  if (nesting_type == CSSNestingType::kScope) {
-    // We do not need to signal for kScope, as it's currently not relevant
-    // to any use-counting effort.
-    return CSSSelector::Signal::kNone;
-  }
-  CHECK_EQ(nesting_type, CSSNestingType::kNesting);
-  if (AllSpecificitiesEqual(parent_rule_for_nesting->FirstSelector())) {
-    // No need to signal kNestedGroupRuleSpecificity if the specificity will
-    // be the same anyway.
-    return CSSSelector::Signal::kNone;
-  }
-  return CSSSelector::Signal::kNestedGroupRuleSpecificity;
-}
-
-}  // namespace
 
 // Consumes a list of style rules and stores the result in `child_rules`,
 // or (if `is_nested_group_rule` is true) consumes the interior of a nested
@@ -2777,47 +2649,8 @@ void CSSParserImpl::ConsumeRuleListOrNestedDeclarationList(
     ConsumeDeclarationList(stream, StyleRule::kStyle, nesting_type,
                            parent_rule_for_nesting, child_rules);
     if (!parsed_properties_.empty()) {
-      if (nesting_type == CSSNestingType::kNesting) {
-        // We currently have a use-counter which aims to figure out whether or
-        // not the current specificity behavior of implicit nested rules
-        // matters (see CSSSelector::Signal).
-        //
-        // We trigger this use-counter by setting a signal on the regular
-        // implicit &-rule, and additionally we generate a (nonsignaling)
-        // invisible rule with the alternative specificity characteristics.
-        //
-        // Hopefully we'll be able to prove that the signaling rule
-        // (the regular &-rule) will have basically no effect in the presence
-        // of the invisible rule. This would mean we can remove the &-rule,
-        // and make the alternative invisible rule non-invisible.
-
-        CSSSelector::Signal implicit_signal =
-            SignalForImplicitNestedRule(nesting_type, parent_rule_for_nesting);
-
-        // "Alternative invisible rule", as described above. Note that we create
-        // this before calling CreateImplicitNestedRule, because that function
-        // consumes `parsed_properties_`, which CreateInvisibleRule also
-        // needs.
-        StyleRule* invisible_rule =
-            CreateInvisibleRule(parent_rule_for_nesting->FirstSelector(),
-                                /* start_index */ 0u,
-                                /* end_index */ parsed_properties_.size(),
-                                CSSSelector::Signal::kNone);
-
-        // "Regular &-rule", as described above.
-        child_rules->push_front(CreateImplicitNestedRule(
-            nesting_type, parent_rule_for_nesting, implicit_signal));
-
-        // Note that we're using push_front: the invisible rule appears *before*
-        // the &-rule.
-        if (implicit_signal != CSSSelector::Signal::kNone && invisible_rule) {
-          child_rules->push_front(invisible_rule);
-        }
-      } else {
-        CHECK_EQ(nesting_type, CSSNestingType::kScope);
-        child_rules->push_front(CreateImplicitNestedRule(
-            nesting_type, parent_rule_for_nesting, CSSSelector::Signal::kNone));
-      }
+      child_rules->push_front(
+          CreateImplicitNestedRule(nesting_type, parent_rule_for_nesting));
     }
   } else {
     ConsumeRuleList(stream, kRegularRuleList, nesting_type,
@@ -2910,6 +2743,9 @@ bool CSSParserImpl::ConsumeDeclaration(CSSParserTokenStream& stream,
 
   if (id) {
     if (parsing_descriptor) {
+      // TODO(sesse): When we move descriptor parsing entirely
+      // to the streaming parser, remove this and the remnants
+      // of ConsumeUnrestrictedPropertyValue().
       CSSTokenizedValue tokenized_value =
           ConsumeUnrestrictedPropertyValue(stream);
       important = RemoveImportantAnnotationIfPresent(tokenized_value);
@@ -2926,16 +2762,14 @@ bool CSSParserImpl::ConsumeDeclaration(CSSParserTokenStream& stream,
             rule_type != StyleRule::kKeyframe) {
           return false;
         }
-        CSSTokenizedValue tokenized_value =
-            ConsumeUnrestrictedPropertyValue(stream);
-        important = RemoveImportantAnnotationIfPresent(tokenized_value);
-        if (important && (rule_type == StyleRule::kKeyframe)) {
+        AtomicString variable_name = lhs.Value().ToAtomicString();
+        bool allow_important_annotation = (rule_type != StyleRule::kKeyframe);
+        bool is_animation_tainted = rule_type == StyleRule::kKeyframe;
+        if (!ConsumeVariableValue(stream, variable_name,
+                                  allow_important_annotation,
+                                  is_animation_tainted)) {
           return false;
         }
-        AtomicString variable_name = lhs.Value().ToAtomicString();
-        bool is_animation_tainted = rule_type == StyleRule::kKeyframe;
-        ConsumeVariableValue(tokenized_value, variable_name, important,
-                             is_animation_tainted);
       } else if (unresolved_property != CSSPropertyID::kInvalid) {
         if (observer_) {
           CSSParserTokenStream::State savepoint = stream.Save();
@@ -2950,9 +2784,13 @@ bool CSSParserImpl::ConsumeDeclaration(CSSParserTokenStream& stream,
             important = parsed_properties_.back().IsImportant();
           } else {
             stream.Restore(savepoint);
-            CSSTokenizedValue tokenized_value =
-                ConsumeRestrictedPropertyValue(stream);
-            important = RemoveImportantAnnotationIfPresent(tokenized_value);
+            // NOTE: This call is solely to update “important”.
+            CSSVariableParser::ConsumeUnparsedDeclaration(
+                stream, /*allow_important_annotation=*/true,
+                /*is_animation_tainted=*/false,
+                /*must_contain_variable_reference=*/false,
+                /*restricted_value=*/true, /*comma_ends_declaration=*/false,
+                important, context_->GetExecutionContext());
           }
         } else {
           ConsumeDeclarationValue(stream, unresolved_property,
@@ -2970,9 +2808,12 @@ bool CSSParserImpl::ConsumeDeclaration(CSSParserTokenStream& stream,
       // If we skipped the main call to ConsumeValue due to an invalid
       // property/descriptor, the inspector still needs to know the offset
       // where the would-be declaration ends.
-      CSSTokenizedValue tokenized_value =
-          ConsumeRestrictedPropertyValue(stream);
-      important = RemoveImportantAnnotationIfPresent(tokenized_value);
+      CSSVariableParser::ConsumeUnparsedDeclaration(
+          stream, /*allow_important_annotation=*/true,
+          /*is_animation_tainted=*/false,
+          /*must_contain_variable_reference=*/false,
+          /*restricted_value=*/true, /*comma_ends_declaration=*/false,
+          important, context_->GetExecutionContext());
     }
     // The end offset is the offset of the terminating token, which is peeked
     // but not yet consumed.
@@ -2984,17 +2825,36 @@ bool CSSParserImpl::ConsumeDeclaration(CSSParserTokenStream& stream,
   return parsed_properties_.size() != properties_count;
 }
 
-void CSSParserImpl::ConsumeVariableValue(
-    const CSSTokenizedValue& tokenized_value,
-    const AtomicString& variable_name,
-    bool important,
-    bool is_animation_tainted) {
-  if (CSSValue* value = CSSVariableParser::ParseDeclarationIncludingCSSWide(
-          tokenized_value, is_animation_tainted, *context_)) {
-    parsed_properties_.push_back(
-        CSSPropertyValue(CSSPropertyName(variable_name), *value, important));
-    context_->Count(context_->Mode(), CSSPropertyID::kVariable);
+bool CSSParserImpl::ConsumeVariableValue(CSSParserTokenStream& stream,
+                                         const AtomicString& variable_name,
+                                         bool allow_important_annotation,
+                                         bool is_animation_tainted) {
+  stream.EnsureLookAhead();
+
+  // First, see if this is (only) a CSS-wide keyword.
+  bool important;
+  const CSSValue* value = CSSPropertyParser::ConsumeCSSWideKeyword(
+      stream, allow_important_annotation, important);
+  if (!value) {
+    // It was not, so try to parse it as an unparsed declaration value
+    // (which is pretty free-form).
+    CSSVariableData* variable_data =
+        CSSVariableParser::ConsumeUnparsedDeclaration(
+            stream, allow_important_annotation, is_animation_tainted,
+            /*must_contain_variable_reference=*/false,
+            /*restricted_value=*/false, /*comma_ends_declaration=*/false,
+            important, context_->GetExecutionContext());
+    if (!variable_data) {
+      return false;
+    }
+
+    value = MakeGarbageCollected<CSSUnparsedDeclarationValue>(variable_data,
+                                                              context_);
   }
+  parsed_properties_.push_back(
+      CSSPropertyValue(CSSPropertyName(variable_name), *value, important));
+  context_->Count(context_->Mode(), CSSPropertyID::kVariable);
+  return true;
 }
 
 // NOTE: Leading whitespace must be stripped from the stream, since
@@ -3025,24 +2885,6 @@ CSSTokenizedValue CSSParserImpl::ConsumeValue(
 
   return {range, stream.StringRangeAt(value_start_offset,
                                       value_end_offset - value_start_offset)};
-}
-
-CSSTokenizedValue CSSParserImpl::ConsumeRestrictedPropertyValue(
-    CSSParserTokenStream& stream) {
-  if (stream.Peek().GetType() == kLeftBraceToken) {
-    // '{}' must be the whole value, hence we simply consume a component
-    // value from the stream, and consider this the whole value.
-    return ConsumeValue(stream, [](CSSParserTokenStream& stream) {
-      return stream.ConsumeComponentValueIncludingWhitespace();
-    });
-  }
-  // Otherwise, we consume until we're AtEnd() (which in the normal case
-  // means we hit a kSemicolonToken), or until we see kLeftBraceToken.
-  // The latter is a kind of error state, which is dealt with via additional
-  // AtEnd() checks at the call site.
-  return ConsumeValue(stream, [](CSSParserTokenStream& stream) {
-    return stream.ConsumeUntilPeekedTypeIs<kLeftBraceToken>();
-  });
 }
 
 CSSTokenizedValue CSSParserImpl::ConsumeUnrestrictedPropertyValue(

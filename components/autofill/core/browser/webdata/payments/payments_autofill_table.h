@@ -16,7 +16,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/time/time.h"
 #include "components/autofill/core/browser/data_model/credit_card_benefit.h"
-#include "components/sync/base/model_type.h"
+#include "components/sync/base/data_type.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
 #include "components/webdata/common/web_database_table.h"
 
@@ -28,7 +28,6 @@ class Time;
 
 namespace autofill {
 
-struct AutofillMetadata;
 class AutofillOfferData;
 class AutofillTableEncryptor;
 class BankAccount;
@@ -36,6 +35,7 @@ class CreditCard;
 struct CreditCardCloudTokenData;
 class Iban;
 struct PaymentsCustomerData;
+struct PaymentsMetadata;
 class VirtualCardUsageData;
 // Helper struct to better group server cvc related variables for better
 // passing last_updated_timestamp, which is needed for sync bridge. Limited
@@ -341,9 +341,6 @@ struct ServerCvc {
 //                      as eWallets.
 //
 //   instrument_id      The server-generated ID for the payment instrument.
-//   payment_instrument_type
-//                      An enum indicating the type of details associated with
-//                      the payment instrument.
 //   serialized_value_encrypted
 //                      A byte-encoded representation of the payment
 //                      instrument's protobuf, encrypted.
@@ -449,16 +446,16 @@ class PaymentsAutofillTable : public WebDatabaseTable {
   // occurred.
   // TODO (crbug.com/1504063): Merge Add/UpdateServerCardMetadata into a single
   // method AddOrUpdateServerCardMetadata.
-  bool AddServerCardMetadata(const AutofillMetadata& card_metadata);
+  bool AddServerCardMetadata(const PaymentsMetadata& card_metadata);
   bool UpdateServerCardMetadata(const CreditCard& credit_card);
-  bool UpdateServerCardMetadata(const AutofillMetadata& card_metadata);
+  bool UpdateServerCardMetadata(const PaymentsMetadata& card_metadata);
   bool RemoveServerCardMetadata(const std::string& id);
   bool GetServerCardsMetadata(
-      std::vector<AutofillMetadata>& cards_metadata) const;
-  bool AddOrUpdateServerIbanMetadata(const AutofillMetadata& iban_metadata);
+      std::vector<PaymentsMetadata>& cards_metadata) const;
+  bool AddOrUpdateServerIbanMetadata(const PaymentsMetadata& iban_metadata);
   bool RemoveServerIbanMetadata(const std::string& instrument_id);
   bool GetServerIbansMetadata(
-      std::vector<AutofillMetadata>& ibans_metadata) const;
+      std::vector<PaymentsMetadata>& ibans_metadata) const;
 
   // Method to add the server cards independently from the metadata.
   void SetServerCardsData(const std::vector<CreditCard>& credit_cards);
@@ -482,7 +479,7 @@ class PaymentsAutofillTable : public WebDatabaseTable {
 
   // Overwrite the server IBANs and server IBAN metadata with the given `ibans`.
   // This distinction is necessary compared with above method, because metadata
-  // and data are synced through separate model types in prod code, while this
+  // and data are synced through separate data types in prod code, while this
   // method is an easy way to set up during tests.
   void SetServerIbansForTesting(const std::vector<Iban>& ibans);
 
@@ -505,14 +502,13 @@ class PaymentsAutofillTable : public WebDatabaseTable {
   // table
   bool AddOrUpdateVirtualCardUsageData(
       const VirtualCardUsageData& virtual_card_usage_data);
-  std::unique_ptr<VirtualCardUsageData> GetVirtualCardUsageData(
+  std::optional<VirtualCardUsageData> GetVirtualCardUsageData(
       const std::string& usage_data_id);
   bool RemoveVirtualCardUsageData(const std::string& usage_data_id);
   void SetVirtualCardUsageData(
       const std::vector<VirtualCardUsageData>& virtual_card_usage_data);
   bool GetAllVirtualCardUsageData(
-      std::vector<std::unique_ptr<VirtualCardUsageData>>*
-          virtual_card_usage_data);
+      std::vector<VirtualCardUsageData>& virtual_card_usage_data);
   bool RemoveAllVirtualCardUsageData();
 
   // Deletes all data from the server card tables. Returns true if any data was
@@ -591,6 +587,7 @@ class PaymentsAutofillTable : public WebDatabaseTable {
   MigrateToVersion124AndDeletePaymentInstrumentRelatedTablesAndAddMaskedBankAccountTable();
   bool MigrateToVersion125DeleteFullServerCardsTable();
   bool MigrateToVersion129AddGenericPaymentInstrumentsTable();
+  bool MigrateToVersion131RemoveGenericPaymentInstrumentTypeColumn();
 
  private:
   // Adds to |masked_credit_cards| and updates |server_card_metadata|.

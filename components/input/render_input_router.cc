@@ -123,10 +123,12 @@ RenderInputRouter::RenderInputRouter(
           std::make_unique<RenderInputRouterLatencyTracker>(delegate)),
       render_input_router_client_(host),
       delegate_(delegate),
-      task_runner_(std::move(task_runner)) {}
+      task_runner_(std::move(task_runner)) {
+  TRACE_EVENT("input", "RenderInputRouter::RenderInputRouter");
+}
 
 void RenderInputRouter::SetupInputRouter(float device_scale_factor) {
-  TRACE_EVENT("toplevel.flow", "RenderInputRouter::SetupInputRouter");
+  TRACE_EVENT("input", "RenderInputRouter::SetupInputRouter");
 
   input_router_ = std::make_unique<InputRouterImpl>(
       this, this, fling_scheduler_.get(),
@@ -145,7 +147,7 @@ void RenderInputRouter::BindRenderInputRouterInterfaces(
 }
 
 void RenderInputRouter::RendererWidgetCreated(bool for_frame_widget) {
-  TRACE_EVENT("toplevel.flow", "RenderInputRouter::RendererWidgetCreated");
+  TRACE_EVENT("input", "RenderInputRouter::RendererWidgetCreated");
 
   client_remote_->GetWidgetInputHandler(
       widget_input_handler_.BindNewPipeAndPassReceiver(task_runner_),
@@ -170,7 +172,7 @@ void RenderInputRouter::SetDeviceScaleFactor(float device_scale_factor) {
 }
 
 void RenderInputRouter::ProgressFlingIfNeeded(base::TimeTicks current_time) {
-  TRACE_EVENT("toplevel.flow", "RenderInputRouter::ProgressFlingIfNeeded");
+  TRACE_EVENT("input", "RenderInputRouter::ProgressFlingIfNeeded");
   fling_scheduler_->ProgressFlingOnBeginFrameIfneeded(current_time);
 }
 
@@ -178,8 +180,17 @@ void RenderInputRouter::StopFling() {
   input_router()->StopFling();
 }
 
+bool RenderInputRouter::IsAnyScrollGestureInProgress() const {
+  for (size_t i = 0; i < is_in_gesture_scroll_.size(); i++) {
+    if (is_in_gesture_scroll_[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 blink::mojom::WidgetInputHandler* RenderInputRouter::GetWidgetInputHandler() {
-  TRACE_EVENT("toplevel.flow", "RenderInputRouter::GetWidgetInputHandler");
+  TRACE_EVENT("input", "RenderInputRouter::GetWidgetInputHandler");
 
   if (widget_input_handler_) {
     return widget_input_handler_.get();
@@ -432,7 +443,7 @@ void RenderInputRouter::DispatchInputEventWithLatencyInfo(
 void RenderInputRouter::ForwardTouchEventWithLatencyInfo(
     const blink::WebTouchEvent& touch_event,
     const ui::LatencyInfo& latency) {
-  TRACE_EVENT0("input", "RenderInputRouter::ForwardTouchEvent");
+  TRACE_EVENT0("input,input.scrolling", "RenderInputRouter::ForwardTouchEvent");
 
   // Always forward TouchEvents for touch stream consistency. They will be
   // ignored if appropriate in FilterInputEvent().

@@ -34,6 +34,8 @@ declare namespace chrome {
     let linksEnabled: boolean;
     let imagesEnabled: boolean;
     let imagesFeatureEnabled: boolean;
+    // The numerical enum value of these styles, not the actual value used to
+    // style the app.
     let lineSpacing: number;
     let letterSpacing: number;
     let colorTheme: number;
@@ -155,9 +157,7 @@ declare namespace chrome {
     function onLinkClicked(nodeId: number): void;
 
     // Called when the line spacing is changed via the webui toolbar.
-    function onStandardLineSpacing(): void;
-    function onLooseLineSpacing(): void;
-    function onVeryLooseLineSpacing(): void;
+    function onLineSpacingChange(value: number): void;
 
     // Called when a user makes a font size change via the webui toolbar.
     function onFontSizeChanged(increase: boolean): void;
@@ -170,16 +170,10 @@ declare namespace chrome {
     function onImagesEnabledToggled(): void;
 
     // Called when the letter spacing is changed via the webui toolbar.
-    function onStandardLetterSpacing(): void;
-    function onWideLetterSpacing(): void;
-    function onVeryWideLetterSpacing(): void;
+    function onLetterSpacingChange(value: number): void;
 
     // Called when the color theme is changed via the webui toolbar.
-    function onDefaultTheme(): void;
-    function onLightTheme(): void;
-    function onDarkTheme(): void;
-    function onYellowTheme(): void;
-    function onBlueTheme(): void;
+    function onThemeChange(value: number): void;
 
     // Returns the css name of the given font, or the default if it's not valid.
     function getValidatedFontName(font: string): string;
@@ -220,10 +214,6 @@ declare namespace chrome {
     // by clicking.
     function onCollapseSelection(): void;
 
-    // Called when we are restarting read aloud after we've already started
-    // playing speech.
-    function onRestartReadAloud(): void;
-
     // Set the content. Used by tests only.
     // SnapshotLite is a data structure which resembles an AXTreeUpdate. E.g.:
     //   const axTree = {
@@ -257,6 +247,9 @@ declare namespace chrome {
     // SidePanelWebUIView::ShowUI
     function shouldShowUi(): boolean;
 
+    // Called when the Read Anything panel is scrolled all the way down.
+    function onScrolledToBottom(): void;
+
     ////////////////////////////////////////////////////////////////
     // Implemented in read_anything/app.ts and called by native c++.
     ////////////////////////////////////////////////////////////////
@@ -276,10 +269,6 @@ declare namespace chrome {
 
     // Redraws images when the enabled state changes.
     function updateImages(): void;
-
-    // Updates an images src attribute with a data url. The data url must have
-    // been requested first.
-    function updateImage(nodeId: number): void;
 
     // Ping that the selection has been updated.
     function updateSelection(): void;
@@ -322,6 +311,15 @@ declare namespace chrome {
     // for text associated with these nodes.
     function getCurrentText(): number[];
 
+    // Begins processing the speech segments on the current page to be used by
+    // Read Aloud. This will split the speech into segments and process
+    // words to be used by word highlighting. This allows text to be traversed
+    // more quickly after speech begins.
+    function preprocessTextForSpeech(): void;
+
+    // Resets the granularity index.
+    function resetGranularityIndex(): void;
+
     // Increments the processed_granularity_index_ in ReadAnythingAppModel,
     // effectively updating ReadAloud's state of the current granularity to
     // refer to the next granularity.
@@ -339,9 +337,19 @@ declare namespace chrome {
     function getAccessibleBoundary(text: string, maxSpeechLength: number):
         number;
 
-    // Requests the image in the form of a data url. The result will then be
-    // stored in the AXNode which can be fetched on content update.
-    function requestImageDataUrl(nodeId: number): void;
+    // Requests the image in the form of bitmap. onImageDownloaded will be
+    // called when the image has been downloaded.
+    function requestImageData(nodeId: number): void;
+
+    // Called to inform the web ui that an image has been downloaded for the
+    // given node id.
+    function onImageDownloaded(nodeId: number): void;
+
+    // Should be called in onImageDownloaded. This function gets the bitmap data
+    // as a byte array along with the height and width of the image so that the
+    // bitmap can be rendered to a canvas.
+    function getImageBitmap(nodeId: number):
+        {data: Uint8ClampedArray, width: number, height: number};
 
     // Gets the stored image data url from the AXNode.
     function getImageDataUrl(nodeId: number): string;

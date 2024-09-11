@@ -8,9 +8,9 @@
 #import "base/time/time.h"
 #import "components/network_time/network_time_tracker.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
-#import "ios/chrome/browser/shared/model/browser_state/browser_state_info_cache.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
+#import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 
 namespace metrics {
@@ -51,6 +51,8 @@ int DemographicsClient::GetNumberOfProfilesOnDisk() {
       ->GetNumberOfBrowserStates();
 }
 
+// TODO(crbug.com/355629111): this API needs to be re-designed to work
+// with Multiple Identities.
 ChromeBrowserState* DemographicsClient::GetCachedBrowserState() {
   ChromeBrowserState* chrome_browser_state = chrome_browser_state_.get();
   if (!chrome_browser_state) {

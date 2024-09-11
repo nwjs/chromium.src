@@ -139,8 +139,7 @@ julietlevesque@google.com
 bhartmire@google.com
 # crostini
 davidmunro@google.com
-hollingum@google.com
-danielng@google.com
+philpearson@google.com
 # cryptohome
 emaxx@chromium.org
 jorgelo@chromium.org
@@ -430,6 +429,7 @@ knollr@chromium.org
 dmurph@chromium.org
 # signin
 alexilin@chromium.org
+bsazonov@chromium.org
 rsult@google.com
 # simple
 wanderview@chromium.org
@@ -437,6 +437,9 @@ wanderview@chromium.org
 drubery@chromium.org
 thefrog@chromium.org
 xinghuilu@chromium.org
+# startup
+fdoray@chromium.org
+spvw@chromium.org
 # storage
 ayui@chromium.org
 wanderview@chromium.org
@@ -464,6 +467,7 @@ toyoshim@chromium.org
 poromov@chromium.org
 # user_education
 dfried@chromium.org
+mickeyburks@chromium.org
 # v8
 mlippautz@chromium.org
 # web_apk

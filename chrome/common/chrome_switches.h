@@ -73,9 +73,7 @@ extern const char kDisableAutoMaximizeForTests[];
 extern const char kDisableBackgroundNetworking[];
 extern const char kDisableClientSidePhishingDetection[];
 extern const char kDisableComponentExtensionsWithBackgroundPages[];
-#if BUILDFLAG(ENABLE_COMPONENT_UPDATER)
 extern const char kDisableComponentUpdate[];
-#endif
 extern const char kDisableCrashpadForTesting[];
 extern const char kDisableDefaultApps[];
 extern const char kDisableDomainReliability[];
@@ -176,7 +174,6 @@ extern const char kSimulateOutdated[];
 extern const char kSimulateOutdatedNoAU[];
 extern const char kSimulateUpgrade[];
 extern const char kSimulateIdleTimeout[];
-extern const char kSkipLocalUpmGmsCoreVersionCheckForTesting[];
 extern const char kSSLVersionMax[];
 extern const char kSSLVersionMin[];
 extern const char kSSLVersionTLSv12[];
@@ -186,7 +183,6 @@ extern const char kStartMaximized[];
 extern const char kStartStackProfiler[];
 extern const char kStartStackProfilerBrowserTest[];
 extern const char kStoragePressureNotificationInterval[];
-extern const char kSupervisedUserId[];
 extern const char kSystemLogUploadFrequency[];
 extern const char kThisTabCaptureAutoAccept[];
 extern const char kThisTabCaptureAutoReject[];

@@ -81,8 +81,8 @@ BASE_FEATURE(kUseHostResolverCache,
              "UseHostResolverCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUseServiceEndpointRequest,
-             "UseServiceEndpointRequest",
+BASE_FEATURE(kHappyEyeballsV3,
+             "HappyEyeballsV3",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kAlternativePortForGloballyReachableCheck{
@@ -126,6 +126,22 @@ BASE_FEATURE(kSplitCacheByIncludeCredentials,
 
 BASE_FEATURE(kSplitCacheByNetworkIsolationKey,
              "SplitCacheByNetworkIsolationKey",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSplitCacheByCrossSiteMainFrameNavigationBoolean,
+             "SplitCacheByCrossSiteMainFrameNavigationBoolean",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSplitCacheByMainFrameNavigationInitiator,
+             "SplitCacheByMainFrameNavigationInitiator",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSplitCacheByNavigationInitiator,
+             "SplitCacheByNavigationInitiator",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kHttpCacheKeyingExperimentControlGroup2024,
+             "HttpCacheKeyingExperimentControlGroup2024",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSplitCodeCacheByNetworkIsolationKey,
@@ -240,9 +256,6 @@ BASE_FEATURE(kThirdPartyStoragePartitioning,
              "ThirdPartyStoragePartitioning",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Whether to use the new code paths needed to support partitioning Blob URLs.
-// This exists as a kill-switch in case an issue is identified with the Blob
-// URL implementation that causes breakage.
 BASE_FEATURE(kTopLevelTpcdOriginTrial,
              "TopLevelTpcdOriginTrial",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -253,7 +266,7 @@ BASE_FEATURE(kTpcdTrialSettings,
 
 BASE_FEATURE(kTopLevelTpcdTrialSettings,
              "TopLevelTpcdSupportSettings",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTpcdMetadataGrants,
              "TpcdMetadataGrants",
@@ -431,6 +444,11 @@ const base::FeatureParam<int> kIpPrivacyDebugExperimentArm{
     /*name=*/"IpPrivacyDebugExperimentArm",
     /*default_value=*/0};
 
+const base::FeatureParam<bool> kIpPrivacyCacheTokensByGeo{
+    &kEnableIpProtectionProxy,
+    /*name=*/"IpPrivacyCacheTokensByGeo",
+    /*default_value=*/false};
+
 // Network-change migration requires NetworkHandle support, which are currently
 // only supported on Android (see
 // NetworkChangeNotifier::AreNetworkHandlesSupported).
@@ -569,5 +587,11 @@ BASE_FEATURE(kReportingApiEnableEnterpriseCookieIssues,
 BASE_FEATURE(kOptimizeParsingDataUrls,
              "OptimizeParsingDataUrls",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// TODO(crbug.com/347047841): Remove this flag when we branch for M131 or later,
+// if we haven't had to turn this off.
+BASE_FEATURE(kLegacyPKCS1ForTLS13,
+             "LegacyPKCS1ForTLS13",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace net::features

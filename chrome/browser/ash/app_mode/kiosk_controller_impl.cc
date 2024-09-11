@@ -89,7 +89,7 @@ KioskApp EmptyKioskApp(const KioskAppId& app_id) {
                       /*icon=*/gfx::ImageSkia(),
                       /*url=*/GURL()};
   }
-  NOTREACHED_NORETURN();
+  NOTREACHED();
 }
 
 }  // namespace
@@ -136,9 +136,8 @@ std::optional<KioskApp> KioskControllerImpl::GetAutoLaunchApp() const {
   if (const auto& web_account_id = web_app_manager_.GetAutoLaunchAccountId();
       web_account_id.is_valid()) {
     return WebAppById(web_app_manager_, web_account_id);
-  } else if (chrome_app_manager_.IsAutoLaunchEnabled()) {
-    std::string chrome_app_id = chrome_app_manager_.GetAutoLaunchApp();
-    CHECK(!chrome_app_id.empty());
+  } else if (std::string chrome_app_id = chrome_app_manager_.GetAutoLaunchApp();
+             !chrome_app_id.empty()) {
     return ChromeAppById(chrome_app_manager_, chrome_app_id);
   }
   return std::nullopt;
@@ -232,6 +231,14 @@ bool KioskControllerImpl::HandleAccelerator(LoginAcceleratorAction action) {
   return launch_controller_ && launch_controller_->HandleAccelerator(action);
 }
 
+void KioskControllerImpl::OnGuestAdded(
+    content::WebContents* guest_web_contents) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (system_session_.has_value()) {
+    system_session_->OnGuestAdded(guest_web_contents);
+  }
+}
+
 KioskSystemSession* KioskControllerImpl::GetKioskSystemSession() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
@@ -303,11 +310,6 @@ void KioskControllerImpl::OnUserLoggedIn(const user_manager::User& user) {
       !kiosk_app_id.empty()) {
     chrome_app_manager_.SetAppWasAutoLaunchedWithZeroDelay(kiosk_app_id);
   }
-
-  if (auto* input_controller =
-          ui::OzonePlatform::GetInstance()->GetInputController()) {
-    input_controller->DisableKeyboardImposterCheck();
-  }
 }
 
 void KioskControllerImpl::OnAppLaunched(
@@ -318,6 +320,10 @@ void KioskControllerImpl::OnAppLaunched(
 }
 
 void KioskControllerImpl::OnLaunchComplete(KioskAppLaunchError::Error error) {
+  if (auto* input_controller =
+          ui::OzonePlatform::GetInstance()->GetInputController()) {
+    input_controller->DisableKeyboardImposterCheck();
+  }
   // Delete the launcher so it doesn't end up with dangling references.
   DeleteLaunchControllerAsync();
 }
@@ -346,6 +352,10 @@ void KioskControllerImpl::OnLaunchCompleteAfterCrash(
     const std::optional<std::string>& app_name) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (success) {
+    if (auto* input_controller =
+            ui::OzonePlatform::GetInstance()->GetInputController()) {
+      input_controller->DisableKeyboardImposterCheck();
+    }
     InitializeKioskSystemSession(app, profile, app_name);
   } else {
     chrome::AttemptUserExit();

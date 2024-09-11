@@ -123,13 +123,19 @@ bool RestrictionBlocksRemapping(
         return false;
       }
       return remapping.button->get_vkey() != ui::VKEY_TAB;
+    case mojom::CustomizationRestriction::kAllowFKeyRewrites:
+      if (remapping.button->is_customizable_button()) {
+        return false;
+      }
+      return !(remapping.button->get_vkey() >= ui::VKEY_F1 &&
+               remapping.button->get_vkey() <= ui::VKEY_F15);
   }
 }
 
-// "0111_185a" is from the list of supported device keys listed here:
+// "0111:185a" is from the list of supported device keys listed here:
 // google3/chrome/chromeos/apps_foundation/almanac/fondue/boq/
 // peripherals_service/manual_config/companion_apps.h
-constexpr char kWelcomeExperienceTestDeviceKey[] = "0111_185a";
+constexpr char kWelcomeExperienceTestDeviceKey[] = "0111:185a";
 
 }  // namespace
 

@@ -18,7 +18,6 @@
 #import "components/autofill/core/browser/country_type.h"
 #import "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
 #import "components/autofill/core/browser/payments/card_unmask_delegate.h"
-#import "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #import "components/autofill/core/browser/personal_data_manager.h"
 #import "components/autofill/core/browser/strike_databases/strike_database.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_prompt_options.h"
@@ -69,6 +68,7 @@ class ChromeAutofillClientIOS : public AutofillClient {
   version_info::Channel GetChannel() const override;
   bool IsOffTheRecord() const override;
   scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override;
+  AutofillDriverFactory& GetAutofillDriverFactory() override;
   AutofillCrowdsourcingManager* GetCrowdsourcingManager() override;
   PersonalDataManager* GetPersonalDataManager() override;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() override;
@@ -90,12 +90,10 @@ class ChromeAutofillClientIOS : public AutofillClient {
   translate::TranslateDriver* GetTranslateDriver() override;
   GeoIpCountryCode GetVariationConfigCountryCode() const override;
   void ShowAutofillSettings(SuggestionType suggestion_type) override;
-  payments::MandatoryReauthManager* GetOrCreatePaymentsMandatoryReauthManager()
-      override;
   void ConfirmSaveAddressProfile(
       const AutofillProfile& profile,
       const AutofillProfile* original_profile,
-      SaveAddressProfilePromptOptions options,
+      bool is_migration_to_account,
       AddressProfileSavePromptCallback callback) override;
   void ShowEditAddressProfileDialog(
       const AutofillProfile& profile,
@@ -103,11 +101,6 @@ class ChromeAutofillClientIOS : public AutofillClient {
   void ShowDeleteAddressProfileDialog(
       const AutofillProfile& profile,
       AddressProfileDeleteDialogCallback delete_dialog_callback) override;
-  bool ShowTouchToFillCreditCard(
-      base::WeakPtr<TouchToFillDelegate> delegate,
-      base::span<const CreditCard> cards_to_suggest,
-      const std::vector<bool>& card_acceptabilities) override;
-  void HideTouchToFillCreditCard() override;
   void ShowAutofillSuggestions(
       const PopupOpenArgs& open_args,
       base::WeakPtr<AutofillSuggestionDelegate> delegate) override;
@@ -134,7 +127,7 @@ class ChromeAutofillClientIOS : public AutofillClient {
                                 PlusAddressCallback callback) override;
   std::unique_ptr<device_reauth::DeviceAuthenticator> GetDeviceAuthenticator()
       override;
-  PasswordFormType ClassifyAsPasswordForm(
+  PasswordFormClassification ClassifyAsPasswordForm(
       AutofillManager& manager,
       FormGlobalId form_id,
       FieldGlobalId field_id) const override;
@@ -167,7 +160,6 @@ class ChromeAutofillClientIOS : public AutofillClient {
   raw_ptr<infobars::InfoBarManager> infobar_manager_;
   std::unique_ptr<LogManager> log_manager_;
   const AutofillAblationStudy ablation_study_;
-  std::unique_ptr<payments::MandatoryReauthManager> payments_reauth_manager_;
 
   // Order matters for this initialization. This initialization must happen
   // after all of the members passed into the constructor of

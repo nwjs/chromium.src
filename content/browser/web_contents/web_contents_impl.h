@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/allocator/partition_allocator/src/partition_alloc/buildflags.h"
 #include "base/callback_list.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/callback_helpers.h"
@@ -55,6 +54,7 @@
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/mhtml_generation_result.h"
+#include "content/public/browser/preloading.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
@@ -63,10 +63,10 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/load_states.h"
 #include "net/base/network_handle.h"
+#include "partition_alloc/buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "services/device/public/mojom/geolocation_context.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom-forward.h"
-#include "third_party/blink/public/common/frame/transient_allow_fullscreen.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/choosers/color_chooser.mojom.h"
@@ -456,7 +456,8 @@ class CONTENT_EXPORT WebContentsImpl
   bool IsBeingDestroyed() override;
   void NotifyNavigationStateChanged(InvalidateTypes changed_flags) override;
   void OnAudioStateChanged() override;
-  base::TimeTicks GetLastActiveTime() override;
+  base::TimeTicks GetLastActiveTimeTicks() override;
+  base::Time GetLastActiveTime() override;
   void WasShown() override;
   void WasHidden() override;
   void WasOccluded() override;
@@ -552,12 +553,19 @@ class CONTENT_EXPORT WebContentsImpl
   void DidChooseColorInColorChooser(SkColor color) override;
   void DidEndColorChooser() override;
 #endif
+  int DownloadImageFromAxNode(const ui::AXTreeID tree_id,
+                              const ui::AXNodeID node_id,
+                              const gfx::Size& preferred_size,
+                              uint32_t max_bitmap_size,
+                              bool bypass_cache,
+                              ImageDownloadCallback callback) override;
   int DownloadImage(const GURL& url,
                     bool is_favicon,
                     const gfx::Size& preferred_size,
                     uint32_t max_bitmap_size,
                     bool bypass_cache,
                     ImageDownloadCallback callback) override;
+
   int DownloadImageInFrame(
       const GlobalRenderFrameHostId& initiator_frame_routing_id,
       const GURL& url,
@@ -954,7 +962,8 @@ class CONTENT_EXPORT WebContentsImpl
       bool should_warm_up_compositor,
       PreloadingHoldbackStatus holdback_status_override,
       PreloadingAttempt* preloading_attempt,
-      base::RepeatingCallback<bool(const GURL&)>,
+      base::RepeatingCallback<bool(const GURL&,
+                                   const std::optional<UrlMatchType>&)>,
       base::RepeatingCallback<void(NavigationHandle&)>) override;
   void CancelAllPrerendering() override;
   void BackNavigationLikely(PreloadingPredictor predictor,
@@ -1472,10 +1481,9 @@ class CONTENT_EXPORT WebContentsImpl
     return ownership_location_;
   }
 
-  std::optional<double> AdjustedChildZoom(
-      const RenderWidgetHostViewChildFrame* render_widget) override;
-
   bool IsPopup() const override;
+
+  RenderFrameHostImpl* PartitionedPopinOpener() const override;
 
  private:
   using FrameTreeIterationCallback = base::RepeatingCallback<void(FrameTree&)>;
@@ -1502,7 +1510,7 @@ class CONTENT_EXPORT WebContentsImpl
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, FrameTreeShape);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest,
                            NonActivityCaptureDoesNotCountAsActivity);
-  FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, GetLastActiveTime);
+  FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, GetLastActiveTimeTicks);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest,
                            LoadResourceFromMemoryCacheWithBadSecurityInfo);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest,
@@ -1749,6 +1757,8 @@ class CONTENT_EXPORT WebContentsImpl
                           const std::vector<SkBitmap>& images,
                           const std::vector<gfx::Size>& original_image_sizes);
 
+  int GetNextDownloadId();
+
   // Callback function when showing JavaScript dialogs. Takes in a routing ID
   // pair to identify the RenderFrameHost that opened the dialog, because it's
   // possible for the RenderFrameHost to be deleted by the time this is called.
@@ -1931,7 +1941,7 @@ class CONTENT_EXPORT WebContentsImpl
   // can be called with the current visibility to affect capturing
   // changes.
   // |is_activity| controls whether a change to |visible| affects
-  // the value returned by GetLastActiveTime().
+  // the value returned by GetLastActiveTimeTicks().
   void UpdateVisibilityAndNotifyPageAndView(Visibility new_visibility,
                                             bool is_activity = true);
 
@@ -2024,6 +2034,9 @@ class CONTENT_EXPORT WebContentsImpl
 
   // A scope that disallows custom cursors has expired.
   void DisallowCustomCursorScopeExpired();
+
+  // WarmUp a spare render process for future navigations.
+  void WarmUpAndroidSpareRenderer();
 
   // Describes the different types of groups we can be interested in when
   // looking for scriptable frames.
@@ -2206,9 +2219,13 @@ class CONTENT_EXPORT WebContentsImpl
   // Settings that get passed to the renderer process.
   blink::RendererPreferences renderer_preferences_;
 
+  // The time ticks that this WebContents was last made active. The initial
+  // value is the WebContents creation time.
+  base::TimeTicks last_active_time_ticks_;
+
   // The time that this WebContents was last made active. The initial value is
   // the WebContents creation time.
-  base::TimeTicks last_active_time_;
+  base::Time last_active_time_;
 
   // The most recent time that this WebContents was interacted with. Currently,
   // this counts:
@@ -2468,9 +2485,6 @@ class CONTENT_EXPORT WebContentsImpl
   // Records the last time we saw a screen orientation change.
   base::TimeTicks last_screen_orientation_change_time_;
 
-  // Manages a transient affordance for this page's frames to enter fullscreen.
-  blink::TransientAllowFullscreen transient_allow_fullscreen_;
-
   // Indicates how many sources are currently suppressing the unresponsive
   // renderer dialog.
   int suppress_unresponsive_renderer_count_ = 0;
@@ -2537,10 +2551,16 @@ class CONTENT_EXPORT WebContentsImpl
   // loading requests over a specific network. The network handle is set when
   // WebContents is created and will not change during the life cycle of
   // WebContents.
-  net::handles::NetworkHandle target_network_ = net::handles::kInvalidNetworkHandle;
+  net::handles::NetworkHandle target_network_ =
+      net::handles::kInvalidNetworkHandle;
 
   // Whether this contents represents a window initially opened as a new popup.
   bool is_popup_{false};
+
+  // If this window was opened as a new partitioned popin this will be the
+  // frame of the opener. This will only have a value if `is_popup_` is true.
+  // See https://explainers-by-googlers.github.io/partitioned-popins/
+  base::WeakPtr<RenderFrameHostImpl> partitioned_popin_opener_;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};

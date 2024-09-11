@@ -100,12 +100,7 @@ class MockAutofillPopupController : public AutofillPopupController {
                AutofillSuggestionTriggerSource,
                AutoselectFirstSuggestion),
               (override));
-  MOCK_METHOD(void, DisableThresholdForTesting, (bool), (override));
   MOCK_METHOD(void, SetKeepPopupOpenForTesting, (bool), (override));
-  MOCK_METHOD(void,
-              SetViewForTesting,
-              (base::WeakPtr<AutofillPopupView>),
-              (override));
   MOCK_METHOD(void,
               UpdateDataListValues,
               (base::span<const SelectOption>),
@@ -118,6 +113,10 @@ class MockAutofillPopupController : public AutofillPopupController {
               (const input::NativeWebKeyboardEvent& event),
               (override));
   MOCK_METHOD(bool, HasFilteredOutSuggestions, (), (const override));
+  MOCK_METHOD(bool,
+              IsViewVisibilityAcceptingThresholdEnabled,
+              (),
+              (const override));
 
   void set_suggestions(const std::vector<SuggestionType>& ids) {
     suggestions_.clear();

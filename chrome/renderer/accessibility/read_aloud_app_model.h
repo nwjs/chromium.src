@@ -64,6 +64,8 @@ class ReadAloudAppModel {
   // where this isn't needed.
   void InitAXPositionWithNode(ui::AXNode* ax_node);
 
+  void ResetGranularityIndex();
+
   // Returns a list of AXNodeIds representing the next nodes that should be
   // spoken and highlighted with Read Aloud.
   // This defaults to returning the first granularity until
@@ -77,6 +79,12 @@ class ReadAloudAppModel {
       bool is_pdf,
       bool is_docs,
       const std::set<ui::AXNodeID>* current_nodes);
+
+  // Asynchronously preprocess the text on the current page that will be
+  // used for Read Aloud.
+  void PreprocessTextForSpeech(bool is_pdf,
+                               bool is_docs,
+                               const std::set<ui::AXNodeID>* current_nodes);
 
   // Increments the processed_granularity_index_, updating ReadAloud's state of
   // the current granularity to refer to the next granularity. The current
@@ -166,7 +174,8 @@ class ReadAloudAppModel {
       ui::AXNode* anchor_node,
       int start_index,
       int end_index,
-      a11y::ReadAloudCurrentGranularity& current_granularity);
+      a11y::ReadAloudCurrentGranularity& current_granularity,
+      bool is_docs);
 
   // Returns if we should end text traversal from the current position, due
   // to reaching the end of content or reaching a point, such as a paragraph,
@@ -187,6 +196,7 @@ class ReadAloudAppModel {
   // continue to the next node, or continue within the same node.
   a11y::TraversalState AddTextFromStartOfNode(
       bool is_pdf,
+      bool is_docs,
       a11y::ReadAloudCurrentGranularity& current_granularity);
 
   // Helper method for GetNextNodes.
@@ -202,6 +212,7 @@ class ReadAloudAppModel {
   // continue to the next node, or continue within the same node.
   a11y::TraversalState AddTextFromMiddleOfNode(
       bool is_pdf,
+      bool is_docs,
       a11y::ReadAloudCurrentGranularity& current_granularity);
 
   bool PositionEndsWithOpeningPunctuation(
@@ -218,6 +229,8 @@ class ReadAloudAppModel {
       bool is_docs,
       const std::set<ui::AXNodeID>* current_nodes);
 
+  ui::AXNodePosition::AXPositionInstance GetNextSentencePosition() const;
+
   // Helper for GetNextNodes.
   // Returns true if the node at the current AXPosition has no more text
   // remaining.
@@ -226,7 +239,7 @@ class ReadAloudAppModel {
   //      return true. However, if Read Aloud has only read out the first
   //      sentence, this will return false because "You need to not stare."
   //      still needs to be read.
-  bool NoValidTextRemainingInCurrentNode(bool is_pdf) const;
+  bool NoValidTextRemainingInCurrentNode(bool is_pdf, bool is_docs) const;
 
   // Whether Read Aloud speech is currently playing or not.
   bool speech_playing_ = false;
@@ -281,6 +294,8 @@ class ReadAloudAppModel {
   // Previously processed granularities on the current page.
   std::vector<a11y::ReadAloudCurrentGranularity>
       processed_granularities_on_current_page_;
+
+  const ui::AXMovementOptions sentence_movement_options_;
 };
 
 #endif  // CHROME_RENDERER_ACCESSIBILITY_READ_ALOUD_APP_MODEL_H_

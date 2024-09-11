@@ -2,9 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "chrome/browser/ui/webui/ash/settings/pages/multidevice/multidevice_section.h"
 
-#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "base/feature_list.h"
 #include "base/no_destructor.h"
@@ -14,6 +18,7 @@
 #include "chrome/browser/nearby_sharing/common/nearby_share_features.h"
 #include "chrome/browser/nearby_sharing/common/nearby_share_prefs.h"
 #include "chrome/browser/nearby_sharing/common/nearby_share_resource_getter.h"
+#include "chrome/browser/nearby_sharing/nearby_share_settings.h"
 #include "chrome/browser/nearby_sharing/nearby_sharing_service.h"
 #include "chrome/browser/nearby_sharing/nearby_sharing_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -789,7 +794,7 @@ void MultiDeviceSection::AddLoadTimeData(
       ash::features::IsFastPairSoftwareScanningSupportEnabled());
 
   html_source->AddBoolean("isQuickShareV2Enabled",
-                          ::features::IsQuickShareV2Enabled());
+                          chromeos::features::IsQuickShareV2Enabled());
 }
 
 void MultiDeviceSection::AddHandlers(content::WebUI* web_ui) {
