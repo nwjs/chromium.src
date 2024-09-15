@@ -499,6 +499,7 @@ source_set("browser_sources") {
     "//base",
     "//base:i18n",
     "//build:chromeos_buildflags",
+    "//chrome/common/extensions/api",
     "//components/back_forward_cache",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",

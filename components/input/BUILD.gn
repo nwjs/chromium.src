@@ -82,6 +82,7 @@ component("input") {
   deps = [
     "//base",
     "//cc",
+    "//media/mojo/mojom:remoting",
     "//services/viz/public/mojom",
     "//third_party/blink/public/common:headers",
     "//ui/base",
