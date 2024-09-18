@@ -522,7 +522,7 @@
 <translation id="1375557162880614858">શું તમે ChromeOS Flex માટેનું બિલ્ટ-ઇન સ્ક્રીન રીડર, ChromeVox સક્રિય કરવા માગો છો?</translation>
 <translation id="1375938286942050085">સેટઅપ પૂર્ણ થયું! આગલી ગેમ રમવા માટે, તમારું ડિવાઇસ તૈયાર કરો</translation>
 <translation id="137651782282853227">સાચવેલા સરનામાં અહીં દેખાશે</translation>
-<translation id="1376771218494401509">નામ અને વિંડો…</translation>
+<translation id="1376771218494401509">વિન્ડોને કોઈ નામ આપો...</translation>
 <translation id="1377600615067678409">હાલ પૂરતું છોડો</translation>
 <translation id="1378613616312864539"><ph name="NAME" />, આ સેટિંગને નિયંત્રિત કરી રહ્યાં છે</translation>
 <translation id="1378848228640136848">{NUM_COMPROMISED,plural, =0{ચેડાં કરાયેલો કોઈ પાસવર્ડ નથી}=1{ચેડાં કરાયેલો 1 પાસવર્ડ}one{ચેડાં કરાયેલો {NUM_COMPROMISED} પાસવર્ડ}other{ચેડાં કરાયેલા {NUM_COMPROMISED} પાસવર્ડ}}</translation>
@@ -630,7 +630,7 @@
 <translation id="1456849775870359518">તમારા ટૅબ ફરી ખૂલશે</translation>
 <translation id="1457907785077086338">ઍપના બૅજનો રંગ</translation>
 <translation id="146000042969587795">આ ફ્રેમ બ્લૉક કરવામાં આવી હતી કારણ કે તેમાં અમુક અસુરક્ષિત કન્ટેન્ટ છે.</translation>
-<translation id="1461041542809785877">ભજવણી</translation>
+<translation id="1461041542809785877">પર્ફોર્મન્સ</translation>
 <translation id="1461177659295855031">બુકમાર્ક બાર ફોલ્ડર પર ખસેડો</translation>
 <translation id="1461288887896722288">તમે હમણાં જ મેનેજ કરેલા એકાઉન્ટમાં સાઇન ઇન થયા છો, મેનેજ કરેલી નવી પ્રોફાઇલ બનાવવાથી તમે તે એકાઉન્ટ સાથે લિંક કરેલા કેટલાક સંસાધનો ઍક્સેસ કરી શકશો.</translation>
 <translation id="146219525117638703">ONC સ્થિતિ</translation>
@@ -2477,7 +2477,7 @@
 <translation id="2735712963799620190">શેડ્યૂલ</translation>
 <translation id="2737363922397526254">સંકુચિત કરો...</translation>
 <translation id="2737538893171115082">Chromebook માટે Steam (બીટા)ને તમારા ઍડમિનિસ્ટ્રેટર દ્વારા બ્લૉક કરવામાં આવ્યું છે. તમારા ઍડમિનિસ્ટ્રેટરે આ પૉલિસીઓ ચાલુ કરવાની જરૂર છે:</translation>
-<translation id="2737719817922589807">અને બુકમાર્ક તથા સૂચિઓ</translation>
+<translation id="2737719817922589807">બુકમાર્ક તથા સૂચિઓ</translation>
 <translation id="2737916598897808047"><ph name="APP_NAME" /> તમારી સ્ક્રીન પરનું કન્ટેન્ટ <ph name="TARGET_NAME" /> સાથે શેર કરવા માગે છે.</translation>
 <translation id="2738030019664645674">સાઇટને તમારા ડિવાઇસ પર ઇન્સ્ટૉલ કરેલા ફૉન્ટનો ઉપયોગ કરવાની મંજૂરી આપશો નહીં</translation>
 <translation id="2738771556149464852">આના પછી નહીં</translation>
@@ -6491,7 +6491,7 @@
 <translation id="5669863904928111203">ChromeOS જૂનું છે</translation>
 <translation id="5671641761787789573">છબીઓ બ્લૉક કરી</translation>
 <translation id="5671658447180261823">સૂચન <ph name="SUGGESTION_NAME" /> કાઢી નાખો</translation>
-<translation id="567210741546439261">અને બુકમાર્ક તથા સૂચિઓ</translation>
+<translation id="567210741546439261">બુકમાર્ક તથા સૂચિઓ</translation>
 <translation id="5674059598547281505">પાછળનું સત્ર ફરી શરુ કરીએ?</translation>
 <translation id="567587836466137939">આ ડિવાઇસને <ph name="MONTH_AND_YEAR" /> સુધી ઑટોમૅટિક સૉફ્ટવેર અને સુરક્ષા અપડેટ મળશે. <ph name="LINK_BEGIN" />વધુ જાણો<ph name="LINK_END" /></translation>
 <translation id="567643736130151854">બધા ડિવાઇસ પર તમારા બુકમાર્ક, પાસવર્ડ અને વધુ મેળવવા માટે સાઇન ઇન કરો અને સિંક ચાલુ કરો</translation>
@@ -8725,7 +8725,7 @@ USB ડિવાઇસ</translation>
 <translation id="7338630283264858612">ડિવાઇસ અનુક્રમ નંબર અમાન્ય છે.</translation>
 <translation id="7339763383339757376">PKCS #7, સિંગલ પ્રમાણપત્ર</translation>
 <translation id="7339785458027436441">લખતી વખતે જોડણી તપાસો</translation>
-<translation id="7339898014177206373">નવી વિંડો</translation>
+<translation id="7339898014177206373">નવી વિન્ડો</translation>
 <translation id="7340179705876485790">1 કરતાં વધુ પેજ પાછળ જવા માટે, 'પાછળ' પર ક્લિક કરી રાખો.</translation>
 <translation id="7340650977506865820">સાઇટ તમારી સ્ક્રીન શેર કરી રહી છે</translation>
 <translation id="7340757554212515731">Googleને ક્રૅશ રિપોર્ટ તેમજ ડાયગ્નોસ્ટિક અને વપરાશનો ડેટા ઑટોમૅટિક રીતે મોકલે છે</translation>
@@ -10779,7 +10779,7 @@ USB ડિવાઇસ</translation>
 <translation id="8791534160414513928">તમારા બ્રાઉઝિંગ ટ્રાફિક સાથે એક ‘Do Not Track’ વિનંતી મોકલો</translation>
 <translation id="8793390639824829328">શેર કરેલા ટૅબને સ્ક્રોલ અને નાના-મોટા કરવા માટે, સાઇટ આ સુવિધાનો ઉપયોગ કરે છે</translation>
 <translation id="879413103056696865">હોટસ્પોટ ચાલુ હોય તે વખતે, તમારો <ph name="PHONE_NAME" />:</translation>
-<translation id="8795916974678578410">નવી વિંડો</translation>
+<translation id="8795916974678578410">નવી વિન્ડો</translation>
 <translation id="8796919761992612392">તમારા Chromeને કસ્ટમાઇઝ કરો</translation>
 <translation id="8797459392481275117">આ સાઇટનો ક્યારેય અનુવાદ કરશો નહીં</translation>
 <translation id="8798099450830957504">ડિફૉલ્ટ</translation>
@@ -11232,7 +11232,7 @@ USB ડિવાઇસ</translation>
 <translation id="9106236359747881194">શોધવા માટે ટેક્સ્ટ પસંદ કરો</translation>
 <translation id="9107096627210171112">અનુવાદ કરો...</translation>
 <translation id="9107624673674616016">રંગની પેન્સિલ</translation>
-<translation id="9108035152087032312">નામ અને વિંડો…</translation>
+<translation id="9108035152087032312">વિન્ડોને કોઈ નામ આપો...</translation>
 <translation id="9108072915170399168">ડેટા વપરાશના હાલના સેટિંગ ઇન્ટરનેટ વિના માટે સેટ છે</translation>
 <translation id="9108294543511800041">હવે તમે તમારા ફોનના તાજેતરના ફોટા, મીડિયા અને નોટિફિકેશન જોઈ શકો છો</translation>
 <translation id="9108674852930645435">તમારા <ph name="DEVICE_TYPE" /> પર નવું શું છે તે જુઓ</translation>
