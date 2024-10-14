@@ -11,6 +11,7 @@
 
 #include "base/command_line.h"
 #include "base/containers/span.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -28,6 +29,7 @@
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/password_manager/account_password_store_factory.h"
+#include "chrome/browser/password_manager/android/first_cct_page_load_marker.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate_factory.h"
 #include "chrome/browser/password_manager/field_info_manager_factory.h"
@@ -120,9 +122,11 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
 #include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/android/tab_web_contents_delegate_android.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/keyboard_accessory/android/password_accessory_controller.h"
 #include "chrome/browser/keyboard_accessory/android/password_accessory_controller_impl.h"
+#include "chrome/browser/password_manager/android/access_loss/password_access_loss_warning_bridge_impl.h"
 #include "chrome/browser/password_manager/android/account_chooser_dialog_android.h"
 #include "chrome/browser/password_manager/android/auto_signin_first_run_dialog_android.h"
 #include "chrome/browser/password_manager/android/auto_signin_prompt_controller.h"
@@ -151,6 +155,7 @@
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/survey_config.h"
+#include "chrome/browser/ui/webauthn/ambient/ambient_signin_controller.h"
 #include "components/policy/core/common/features.h"
 #endif
 
@@ -199,6 +204,33 @@ static const char kPasswordBreachEntryTrigger[] = "PASSWORD_ENTRY";
 url::Origin URLToOrigin(GURL url) {
   return url::Origin::Create(url.DeprecatedGetOriginAsURL());
 }
+
+void MaybeShowAccessLossWarning(
+    PrefService* prefs,
+    base::WeakPtr<content::WebContents> web_contents,
+    Profile* profile) {
+  if (!web_contents) {
+    return;
+  }
+  PasswordAccessLossWarningBridgeImpl bridge;
+  if (bridge.ShouldShowAccessLossNoticeSheet(prefs,
+                                             /*called_at_startup=*/true)) {
+    bridge.MaybeShowAccessLossNoticeSheet(
+        prefs, web_contents->GetTopLevelNativeWindow(), profile,
+        /*called_at_startup=*/true);
+  }
+}
+
+void MaybeShowPostMigrationSheetWrapper(
+    base::WeakPtr<content::WebContents> web_contents,
+    Profile* profile) {
+  if (!web_contents) {
+    return;
+  }
+  local_password_migration::MaybeShowPostMigrationSheet(
+      web_contents->GetTopLevelNativeWindow(), profile);
+}
+
 #endif
 
 }  // namespace
@@ -557,7 +589,8 @@ void ChromePasswordManagerClient::
 
 bool ChromePasswordManagerClient::IsReauthBeforeFillingRequired(
     device_reauth::DeviceAuthenticator* authenticator) {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
   if (!GetLocalStatePrefs() || !GetPrefs() || !authenticator) {
     return false;
   }
@@ -1072,6 +1105,16 @@ ChromePasswordManagerClient::GetMetricsRecorder() {
   return base::OptionalToPtr(metrics_recorder_);
 }
 
+#if BUILDFLAG(IS_ANDROID)
+password_manager::FirstCctPageLoadPasswordsUkmRecorder*
+ChromePasswordManagerClient::GetFirstCctPageLoadUkmRecorder() {
+  if (first_cct_page_load_metrics_recorder_) {
+    return first_cct_page_load_metrics_recorder_.get();
+  }
+  return nullptr;
+}
+#endif
+
 password_manager::PasswordRequirementsService*
 ChromePasswordManagerClient::GetPasswordRequirementsService() {
   return password_manager::PasswordRequirementsServiceFactory::
@@ -1232,6 +1275,19 @@ ChromePasswordManagerClient::ShowCrossDomainConfirmationPopup(
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+void ChromePasswordManagerClient::ShowCredentialsInAmbientBubble(
+    std::vector<std::unique_ptr<password_manager::PasswordForm>> forms,
+    CredentialsCallback callback) {
+#if !BUILDFLAG(IS_ANDROID)
+  auto* controller =
+      ambient_signin::AmbientSigninController::GetOrCreateForCurrentDocument(
+          web_contents()->GetPrimaryMainFrame());
+  controller->AddAndShowPasswordMethods(std::move(forms), std::move(callback));
+#else
+  NOTREACHED_NORETURN();
+#endif
+}
+
 void ChromePasswordManagerClient::AutomaticGenerationAvailable(
     const autofill::password_generation::PasswordGenerationUIData& ui_data) {
   content::RenderFrameHost* rfh =
@@ -1302,14 +1358,13 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
     return;
   }
 
-  // In `kNudgePassword` experiment generated password is previewed when the
-  // popup is visible and any character typed by the user is treated as
+  // With `kPasswordGenerationSoftNudge` enabled generated password is previewed
+  // when the popup is visible and any character typed by the user is treated as
   // rejection.
-  if (password_manager::features::kPasswordGenerationExperimentVariationParam
-          .Get() ==
-      password_manager::features::PasswordGenerationVariation::kNudgePassword) {
-    // TODO(crbug.com/40267520): Rewrite the AutomaticGenerationAvailable
-    // triggering instead of checking a boolean if the experiment is launched.
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordGenerationSoftNudge)) {
+    // TODO(crbug.com/366198626): Rewrite the AutomaticGenerationAvailable
+    // triggering instead of checking a boolean when the feature is launched.
     if (ui_data.input_field_empty) {
       ShowPasswordGenerationPopup(PasswordGenerationType::kAutomatic, driver,
                                   ui_data);
@@ -1362,8 +1417,7 @@ void ChromePasswordManagerClient::ShowPasswordEditingPopup(
   popup_controller_ = PasswordGenerationPopupControllerImpl::GetOrCreate(
       popup_controller_, element_bounds_in_screen_space, ui_data,
       driver->AsWeakPtr(), observer_, web_contents(),
-      password_generation_driver_receivers_.GetCurrentTargetFrame(),
-      GetPrefs());
+      password_generation_driver_receivers_.GetCurrentTargetFrame());
   DCHECK(!password_value.empty());
   popup_controller_->UpdateGeneratedPassword(password_value);
   popup_controller_->Show(
@@ -1655,10 +1709,31 @@ ChromePasswordManagerClient::ChromePasswordManagerClient(
     tried_launching_post_migration_sheet_on_startup = true;
     TryToShowPostPasswordMigrationSheet();
   }
-#endif
+  // This prevents the access loss warning from trying to show on opening new
+  // tabs after the initial attempt to show the sheet on startup.
+  static bool tried_launching_access_loss_warning_on_startup = false;
+  if (!tried_launching_access_loss_warning_on_startup) {
+    tried_launching_access_loss_warning_on_startup = true;
+    TryToShowAccessLossWarningSheet();
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 void ChromePasswordManagerClient::PrimaryPageChanged(content::Page& page) {
+#if BUILDFLAG(IS_ANDROID)
+  if (first_cct_page_load_metrics_recorder_) {
+    first_cct_page_load_metrics_recorder_.reset();
+  } else {
+    bool first_cct_page_load =
+        FirstCctPageLoadMarker::ConsumeMarker(web_contents());
+    TabAndroid* tab_android = TabAndroid::FromWebContents(web_contents());
+    if (tab_android && tab_android->IsCustomTab() && first_cct_page_load) {
+      first_cct_page_load_metrics_recorder_ = std::make_unique<
+          password_manager::FirstCctPageLoadPasswordsUkmRecorder>(
+          web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId());
+    }
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
   // Logging has no sense on WebUI sites.
   log_manager_->SetSuspended(web_contents()->GetWebUI() != nullptr);
 
@@ -1667,9 +1742,9 @@ void ChromePasswordManagerClient::PrimaryPageChanged(content::Page& page) {
 
   httpauth_manager_.OnDidFinishMainFrameNavigation();
 
-  // From this point on, the ContentCredentialManager will service API calls in
-  // the context of the new WebContents::GetLastCommittedURL, which may very
-  // well be cross-origin. Disconnect existing client, and drop pending
+  // From this point on, the ContentCredentialManager will service API calls
+  // in the context of the new WebContents::GetLastCommittedURL, which may
+  // very well be cross-origin. Disconnect existing client, and drop pending
   // requests.
   content_credential_manager_.DisconnectBinding();
 
@@ -1845,7 +1920,7 @@ void ChromePasswordManagerClient::ShowPasswordGenerationPopup(
   popup_controller_ = PasswordGenerationPopupControllerImpl::GetOrCreate(
       popup_controller_, element_bounds_in_screen_space, ui_data,
       driver->AsWeakPtr(), observer_, web_contents(),
-      driver->render_frame_host(), GetPrefs());
+      driver->render_frame_host());
 
   popup_controller_->GeneratePasswordValue(type);
   popup_controller_->Show(PasswordGenerationPopupController::kOfferGeneration);
@@ -1892,9 +1967,16 @@ void ChromePasswordManagerClient::TryToShowPostPasswordMigrationSheet() {
   // This is to let the method run after all the initialization tasks have been
   // completed.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&local_password_migration::MaybeShowPostMigrationSheet,
-                     web_contents()->GetTopLevelNativeWindow(), profile_));
+      FROM_HERE, base::BindOnce(&MaybeShowPostMigrationSheetWrapper,
+                                web_contents()->GetWeakPtr(), profile_));
+}
+
+void ChromePasswordManagerClient::TryToShowAccessLossWarningSheet() {
+  // This is to let the method run after all the initialization tasks have been
+  // completed.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&MaybeShowAccessLossWarning, GetPrefs(),
+                                web_contents()->GetWeakPtr(), profile_));
 }
 #endif
 

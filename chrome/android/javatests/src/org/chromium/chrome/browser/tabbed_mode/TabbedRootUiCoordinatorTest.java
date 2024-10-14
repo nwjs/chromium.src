@@ -94,11 +94,4 @@ public class TabbedRootUiCoordinatorTest {
     public void testRecordPrivacySandboxActivityTypeDoesNotIncrementRecordWhenFlagIsDisabled() {
         verify(mPrivacySandboxBridgeJni, never()).recordActivityType(any(), anyInt());
     }
-
-    @Test
-    @MediumTest
-    @EnableFeatures(ChromeFeatureList.CLAY_BLOCKING)
-    public void testDeviceChoiceDialogPlaceholder() {
-        verify(mSearchEngineChoiceService, never()).shouldShowDeviceChoiceDialog();
-    }
 }

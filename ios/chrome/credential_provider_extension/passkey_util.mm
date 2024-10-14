@@ -4,6 +4,7 @@
 
 #import "ios/chrome/credential_provider_extension/passkey_util.h"
 
+#import "base/apple/foundation_util.h"
 #import "base/containers/span.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
@@ -18,18 +19,19 @@ namespace {
 
 // Appends "data" at the end of "container".
 void Append(std::vector<uint8_t>& container, NSData* data) {
-  const uint8_t* bytes = reinterpret_cast<const uint8_t*>(data.bytes);
-  container.insert(container.end(), bytes, bytes + data.length);
+  base::span<const uint8_t> span = base::apple::NSDataToSpan(data);
+  // Use append_range when C++23 is available.
+  container.insert(container.end(), span.begin(), span.end());
 }
 
-// Returns the security domain secret by fetching it from the vault.
-NSData* GetSecurityDomainSecret() {
-  // TODO(crbug.com/330355124): Replace this placeholder function with a real
-  // vault access.
-  std::vector<uint8_t> sds;
-  base::HexStringToBytes(
-      "1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF", &sds);
-  return [NSData dataWithBytes:sds.data() length:sds.size()];
+// Returns the security domain secret from the vault keys.
+NSData* GetSecurityDomainSecret(
+    const PasskeyKeychainProvider::SharedKeyList& keyList) {
+  if (keyList.empty()) {
+    return nil;
+  }
+  // TODO(crbug.com/355041765): Do we need to handle multiple keys?
+  return [NSData dataWithBytes:keyList[0].data() length:keyList[0].size()];
 }
 
 // Wrapper around passkey_model_utils's MakeAuthenticatorDataForAssertion
@@ -72,6 +74,8 @@ NSData* GenerateSignature(NSData* encrypted_private_key,
   sync_pb::WebauthnCredentialSpecifics_Encrypted credential_secrets;
   if (!webauthn::passkey_model_utils::DecryptWebauthnCredentialSpecificsData(
           trusted_vault_key, credential_specifics, &credential_secrets)) {
+    // TODO(crbug.com/355047427): On the first failed attempt, mark keys as
+    // stale, re-fetch the keys and try to decrypt again.
     return nil;
   }
 
@@ -94,17 +98,14 @@ NSData* GenerateSignature(NSData* encrypted_private_key,
 
 }  // namespace
 
-void FetchSecurityDomainSecret(FetchKeyCompletionBlock completion) {
-  NSData* security_domain_secret = GetSecurityDomainSecret();
-  completion(security_domain_secret);
-}
-
 ASPasskeyRegistrationCredential* PerformPasskeyCreation(
     NSData* client_data_hash,
     NSString* rp_id,
     NSString* user_name,
     NSData* user_handle,
-    NSData* security_domain_secret) API_AVAILABLE(ios(17.0)) {
+    const PasskeyKeychainProvider::SharedKeyList& keyList)
+    API_AVAILABLE(ios(17.0)) {
+  NSData* security_domain_secret = GetSecurityDomainSecret(keyList);
   if (!security_domain_secret) {
     return nil;
   }
@@ -154,7 +155,13 @@ ASPasskeyAssertionCredential* PerformPasskeyAssertion(
     id<Credential> credential,
     NSData* client_data_hash,
     NSArray<NSData*>* allowed_credentials,
-    NSData* security_domain_secret) API_AVAILABLE(ios(17.0)) {
+    const PasskeyKeychainProvider::SharedKeyList& keyList)
+    API_AVAILABLE(ios(17.0)) {
+  NSData* security_domain_secret = GetSecurityDomainSecret(keyList);
+  if (!security_domain_secret) {
+    return nil;
+  }
+
   // If the array is empty, then the relying party accepts any passkey
   // credential.
   if (allowed_credentials.count > 0 &&
@@ -171,7 +178,7 @@ ASPasskeyAssertionCredential* PerformPasskeyAssertion(
   // Update the credential's last used time.
   credential.lastUsedTime =
       base::Time::Now().ToDeltaSinceWindowsEpoch().InMicroseconds();
-  // TODO(crbug.com/330355124): Save the last used time of the credential to
+  // TODO(crbug.com/355047898): Save the last used time of the credential to
   //                            update it the next time Chrome syncs.
 
   return [ASPasskeyAssertionCredential

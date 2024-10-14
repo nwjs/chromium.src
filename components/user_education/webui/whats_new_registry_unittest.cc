@@ -52,6 +52,10 @@ BASE_FEATURE(kTestEditionEnabled1,
 BASE_FEATURE(kTestEditionEnabled2,
              "TestEditionEnabled2",
              base::FEATURE_DISABLED_BY_DEFAULT);
+// Enabled by default.
+BASE_FEATURE(kTestEditionEnabledByDefault,
+             "TestEditionEnabledByDefault",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // Disabled by default.
 BASE_FEATURE(kTestEditionDisabled,
              "TestEditionDisabled",
@@ -132,7 +136,7 @@ class WhatsNewRegistryTest : public testing::Test {
     whats_new_registry_->RegisterModule(
         WhatsNewModule(kTestModuleDisabledByDefault, ""));
     whats_new_registry_->RegisterModule(
-        WhatsNewModule("", BrowserCommand::kUnknownCommand));
+        WhatsNewModule("", "", BrowserCommand::kUnknownCommand));
   }
 
   void RegisterModulesAndEditions(
@@ -145,6 +149,8 @@ class WhatsNewRegistryTest : public testing::Test {
         {BrowserCommand::kOpenAISettings, BrowserCommand::kOpenSafetyCheck}));
     whats_new_registry_->RegisterEdition(
         WhatsNewEdition(kTestEditionEnabled2, ""));
+    whats_new_registry_->RegisterEdition(
+        WhatsNewEdition(kTestEditionEnabledByDefault, ""));
     whats_new_registry_->RegisterEdition(
         WhatsNewEdition(kTestEditionDisabled, ""));
   }
@@ -215,12 +221,13 @@ TEST_F(WhatsNewRegistryTest, FindModulesForActiveFeaturesWithEditions) {
   RegisterModulesAndEditions(std::move(mock_storage_service));
 
   auto active_features = whats_new_registry_->GetActiveFeatureNames();
-  EXPECT_EQ(static_cast<size_t>(3), active_features.size());
+  EXPECT_EQ(static_cast<size_t>(4), active_features.size());
   // Editions appear first, in register order.
   EXPECT_EQ("TestEditionEnabled1", active_features.at(0));
   EXPECT_EQ("TestEditionEnabled2", active_features.at(1));
+  EXPECT_EQ("TestEditionEnabledByDefault", active_features.at(2));
   // Modules appear last.
-  EXPECT_EQ("TestModuleEnabled", active_features.at(2));
+  EXPECT_EQ("TestModuleEnabled", active_features.at(3));
 }
 
 TEST_F(WhatsNewRegistryTest, FindModulesForActiveFeaturesWithUsedEdition) {

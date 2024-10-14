@@ -13,7 +13,10 @@
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/dips/dips_navigation_flow_detector_wrapper.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_navigation_controller.h"
+#include "chrome/browser/fingerprinting_protection/chrome_fingerprinting_protection_web_contents_helper_factory.h"
 #include "chrome/browser/image_fetcher/image_fetcher_service_factory.h"
+#include "chrome/browser/privacy_sandbox/privacy_sandbox_tab_observer.h"
+#include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -30,6 +33,7 @@
 #include "chrome/browser/ui/views/webid/fedcm_account_selection_view_controller.h"
 #include "chrome/browser/user_annotations/user_annotations_web_contents_observer.h"
 #include "components/browsing_topics/browsing_topics_service.h"
+#include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_features.h"
 #include "components/image_fetcher/core/image_fetcher_service.h"
 #include "components/permissions/permission_indicators_tab_data.h"
 #include "extensions/common/extension_features.h"
@@ -108,9 +112,20 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
       commerce_ui_tab_helper_ =
           CreateCommerceUiTabHelper(tab.GetContents(), profile);
     }
+
+    privacy_sandbox_tab_observer_ =
+        std::make_unique<privacy_sandbox::PrivacySandboxTabObserver>(
+            tab.GetContents());
   }
-  fedcm_account_selection_view_controller_ =
-      std::make_unique<FedCmAccountSelectionViewController>(&tab);
+
+  // FedCM is supported in general web content, but not in chrome UI. Of the
+  // BrowserWindow types, devtools show Chrome UI and the rest show general web
+  // content.
+  if (tab.GetBrowserWindowInterface()->GetType() !=
+      BrowserWindowInterface::Type::TYPE_DEVTOOLS) {
+    fedcm_account_selection_view_controller_ =
+        std::make_unique<FedCmAccountSelectionViewController>(&tab);
+  }
 
   customize_chrome_side_panel_controller_ =
       std::make_unique<customize_chrome::SidePanelControllerViews>(tab);
@@ -128,6 +143,14 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
   read_anything_side_panel_controller_ =
       std::make_unique<ReadAnythingSidePanelController>(
           &tab, side_panel_registry_.get());
+
+  if (fingerprinting_protection_filter::features::
+          IsFingerprintingProtectionFeatureEnabled()) {
+    CreateFingerprintingProtectionWebContentsHelper(
+        tab.GetContents(), profile->GetPrefs(),
+        TrackingProtectionSettingsFactory::GetForProfile(profile),
+        profile->IsIncognitoProfile());
+  }
 }
 
 TabFeatures::TabFeatures() = default;
@@ -191,6 +214,13 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
     chrome_autofill_prediction_improvements_client_ =
         ChromeAutofillPredictionImprovementsClient::MaybeCreateForWebContents(
             new_contents);
+  }
+
+  if (privacy_sandbox_tab_observer_) {
+    privacy_sandbox_tab_observer_.reset();
+    privacy_sandbox_tab_observer_ =
+        std::make_unique<privacy_sandbox::PrivacySandboxTabObserver>(
+            tab->GetContents());
   }
   if (base::FeatureList::IsEnabled(
           extensions_features::kExtensionSidePanelIntegration)) {

@@ -25,6 +25,8 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
+#include "third_party/blink/public/mojom/frame/lifecycle.mojom-forward.h"
+#include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom-forward.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -76,6 +78,8 @@ class FrameNodeImpl
   void SetIsAdFrame(bool is_ad_frame) override;
   void SetHadFormInteraction() override;
   void SetHadUserEdits() override;
+  void OnStartedUsingWebRTC() override;
+  void OnStoppedUsingWebRTC() override;
   void OnNonPersistentNotificationCreated() override;
   void OnFirstContentfulPaint(
       base::TimeDelta time_since_navigation_start) override;
@@ -99,6 +103,7 @@ class FrameNodeImpl
   bool IsAdFrame() const override;
   bool IsHoldingWebLock() const override;
   bool IsHoldingIndexedDBLock() const override;
+  bool UsesWebRTC() const override;
   bool HadUserActivation() const override;
   bool HadFormInteraction() const override;
   bool HadUserEdits() const override;
@@ -126,21 +131,31 @@ class FrameNodeImpl
   NodeSetView<WorkerNodeImpl*> child_worker_nodes() const;
 
   // Setters are not thread safe.
-  void SetIsCurrent(bool is_current);
+  // Updates the IsCurrent() property on both `previous_frame_node` and
+  // `current_frame_node` and sends a single notification to FrameNodeObservers.
+  static void UpdateCurrentFrame(FrameNodeImpl* previous_frame_node,
+                                 FrameNodeImpl* current_frame_node,
+                                 GraphImpl* graph);
   void SetHadUserActivation();
   void SetIsHoldingWebLock(bool is_holding_weblock);
   void SetIsHoldingIndexedDBLock(bool is_holding_indexeddb_lock);
   void SetIsAudible(bool is_audible);
   void SetIsCapturingMediaStream(bool is_capturing_media_stream);
   void SetViewportIntersectionState(
-      ViewportIntersectionState viewport_intersection_state);
+      const blink::mojom::ViewportIntersectionState&
+          viewport_intersection_state);
+  void SetViewportIntersectionState(
+      blink::mojom::FrameVisibility frame_visibility);
   void SetInitialVisibility(Visibility visibility);
   void SetVisibility(Visibility visibility);
   void SetResidentSetKbEstimate(uint64_t rss_estimate);
   void SetPrivateFootprintKbEstimate(uint64_t private_footprint_estimate);
 
   // Invoked when a navigation is committed in the frame.
-  void OnNavigationCommitted(GURL url, url::Origin origin, bool same_document);
+  void OnNavigationCommitted(GURL url,
+                             url::Origin origin,
+                             bool same_document,
+                             bool is_served_from_back_forward_cache);
 
   // Invoked by |worker_node| when it starts/stops being a child of this frame.
   void AddChildWorker(WorkerNodeImpl* worker_node);
@@ -170,6 +185,11 @@ class FrameNodeImpl
                        PageNodeImpl* page_node);
   void RemoveEmbeddedPage(base::PassKey<PageNodeImpl> key,
                           PageNodeImpl* page_node);
+
+  void SetViewportIntersectionStateForTesting(
+      ViewportIntersectionState viewport_intersection_state) {
+    SetViewportIntersectionStateImpl(viewport_intersection_state);
+  }
 
  private:
   friend class FrameNodeImplDescriber;
@@ -224,6 +244,12 @@ class FrameNodeImpl
     ObservedProperty::
         NotifiesOnlyOnChanges<bool, &FrameNodeObserver::OnHadUserEditsChanged>
             had_user_edits{false};
+
+    // Whether the document uses WebRTC.
+    ObservedProperty::NotifiesOnlyOnChanges<
+        bool,
+        &FrameNodeObserver::OnFrameUsesWebRTCChanged>
+        uses_web_rtc{false};
   };
 
   // Invoked by subframes on joining/leaving the graph.
@@ -250,6 +276,12 @@ class FrameNodeImpl
   bool HasFrameNodeInAncestors(FrameNodeImpl* frame_node) const;
   bool HasFrameNodeInDescendants(FrameNodeImpl* frame_node) const;
   bool HasFrameNodeInTree(FrameNodeImpl* frame_node) const;
+
+  // Sets the `is_current_` property. Returns true if its value changed as a
+  // result of this call.
+  bool SetIsCurrent(bool is_current);
+  void SetViewportIntersectionStateImpl(
+      ViewportIntersectionState viewport_intersection_state);
 
   mojo::Receiver<mojom::DocumentCoordinationUnit> receiver_{this};
 
@@ -321,9 +353,7 @@ class FrameNodeImpl
       &FrameNodeObserver::OnFrameIsHoldingIndexedDBLockChanged>
       is_holding_indexeddb_lock_{false};
 
-  ObservedProperty::
-      NotifiesOnlyOnChanges<bool, &FrameNodeObserver::OnIsCurrentChanged>
-          is_current_{false};
+  bool is_current_{false};
 
   // Properties associated with a Document, which are reset when a
   // different-document navigation is committed in the frame.
@@ -374,6 +404,12 @@ class FrameNodeImpl
       Visibility,
       &FrameNodeObserver::OnFrameVisibilityChanged>
       visibility_{Visibility::kUnknown};
+
+  // Indicates that SetViewportIntersectionState() was called with a
+  // blink::mojom::ViewportIntersectionState instance. This is only called for
+  // remote frames and take precedence over frame visibility updates. When true,
+  // frame visibility updates are ignored.
+  bool has_viewport_intersection_updates_ = false;
 
   base::WeakPtr<FrameNodeImpl> weak_this_;
   base::WeakPtrFactory<FrameNodeImpl> weak_factory_

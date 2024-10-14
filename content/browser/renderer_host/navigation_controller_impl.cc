@@ -1894,6 +1894,7 @@ void NavigationControllerImpl::UpdateNavigationEntryDetails(
       params.method, params.post_id, nullptr /* blob_url_loader_factory */,
       ComputePolicyContainerPoliciesForFrameEntry(
           rfh, request && request->IsSameDocument(),
+          request ? request->DidEncounterError() : false,
           request ? request->common_params().url : params.url));
 
   if (rfh->GetParent()) {
@@ -2342,6 +2343,7 @@ void NavigationControllerImpl::RendererDidNavigateNewSubframe(
   }
   std::unique_ptr<PolicyContainerPolicies> policy_container_policies =
       ComputePolicyContainerPoliciesForFrameEntry(rfh, is_same_document,
+                                                  request->DidEncounterError(),
                                                   request->GetURL());
   bool protect_url_in_navigation_api = false;
   if (is_same_document) {
@@ -3633,9 +3635,8 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::NavigateWithoutEntry(
     const LoadURLParams& params) {
   // Find the appropriate FrameTreeNode.
   FrameTreeNode* node = nullptr;
-  if (params.frame_tree_node_id != RenderFrameHost::kNoFrameTreeNodeId ||
-      !params.frame_name.empty()) {
-    node = params.frame_tree_node_id != RenderFrameHost::kNoFrameTreeNodeId
+  if (params.frame_tree_node_id || !params.frame_name.empty()) {
+    node = params.frame_tree_node_id
                ? frame_tree_->FindByID(params.frame_tree_node_id)
                : frame_tree_->FindByName(params.frame_name);
     DCHECK(!node || &node->frame_tree() == &frame_tree());
@@ -4585,7 +4586,14 @@ std::unique_ptr<PolicyContainerPolicies>
 NavigationControllerImpl::ComputePolicyContainerPoliciesForFrameEntry(
     RenderFrameHostImpl* rfh,
     bool is_same_document,
+    bool navigation_encountered_error,
     const GURL& url) {
+  if (navigation_encountered_error) {
+    // We should never reload the policy container of an error page from
+    // history, see https://crbug.com/364773822.
+    return nullptr;
+  }
+
   if (is_same_document) {
     DCHECK(GetLastCommittedEntry());
     FrameNavigationEntry* previous_frame_entry =
@@ -4852,9 +4860,9 @@ NavigationControllerImpl::GetNavigationApiHistoryEntryVectors(
   // provided, then report it as the `previous_entry`.
   FrameNavigationEntry* previous_entry = nullptr;
   if (frame_tree_->is_prerendering()) {
-    int initiator_id = PrerenderHost::GetFromFrameTreeNode(*node)
-                           .initiator_frame_tree_node_id();
-    if (initiator_id != RenderFrameHost::kNoFrameTreeNodeId) {
+    FrameTreeNodeId initiator_id = PrerenderHost::GetFromFrameTreeNode(*node)
+                                       .initiator_frame_tree_node_id();
+    if (initiator_id) {
       auto* initiator_node = FrameTreeNode::GloballyFindByID(initiator_id);
       previous_entry = initiator_node->frame_tree()
                            .controller()

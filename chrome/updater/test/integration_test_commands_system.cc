@@ -115,7 +115,8 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
                             const std::string& child_window_text_to_find,
                             const bool always_launch_cmd,
                             const bool verify_app_logo_loaded,
-                            const bool expect_success) const override {
+                            const bool expect_success,
+                            const bool wait_for_the_installer) const override {
     RunCommand(
         "install_updater_and_app",
         {
@@ -127,6 +128,8 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
             Param("verify_app_logo_loaded",
                   BoolToString(verify_app_logo_loaded)),
             Param("expect_success", BoolToString(expect_success)),
+            Param("wait_for_the_installer",
+                  BoolToString(wait_for_the_installer)),
         });
   }
 
@@ -554,6 +557,16 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
   }
   void DMDeregisterDevice() override { RunCommand("dm_deregister_device"); }
   void DMCleanup() override { RunCommand("dm_cleanup"); }
+  void InstallEnterpriseCompanionApp(
+      const base::Value::Dict& external_overrides) override {
+    RunCommand(
+        "install_enterprise_companion_app",
+        {Param("external_overrides",
+               StringFromValue(base::Value(external_overrides.Clone())))});
+  }
+  void UninstallEnterpriseCompanionApp() override {
+    RunCommand("uninstall_enterprise_companion_app");
+  }
 
  private:
   ~IntegrationTestCommandsSystem() override = default;

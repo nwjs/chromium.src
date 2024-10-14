@@ -9,12 +9,12 @@ assert(is_chromeos_ash,
 
 static_library("babelorca") {
   sources = [
+    "babel_orca_manager.cc",
+    "babel_orca_manager.h",
     "oauth_token_fetcher.cc",
     "oauth_token_fetcher.h",
     "request_data_wrapper.cc",
     "request_data_wrapper.h",
-    "response_callback_wrapper.h",
-    "response_callback_wrapper_impl.h",
     "tachyon_authed_client.h",
     "tachyon_authed_client_impl.cc",
     "tachyon_authed_client_impl.h",
@@ -25,6 +25,7 @@ static_library("babelorca") {
     "tachyon_registrar.cc",
     "tachyon_registrar.h",
     "tachyon_request_data_provider.h",
+    "tachyon_request_error.h",
     "tachyon_utils.cc",
     "tachyon_utils.h",
     "token_data_wrapper.h",
@@ -38,7 +39,9 @@ static_library("babelorca") {
 
   deps = [
     "//base",
+    "//chromeos/ash/components/boca",
     "//chromeos/ash/components/boca/babelorca/proto",
+    "//chromeos/ash/components/boca/proto",
     "//components/signin/public/base",
     "//components/signin/public/identity_manager",
     "//google_apis",
@@ -77,7 +80,6 @@ source_set("unit_tests") {
 
   sources = [
     "oauth_token_fetcher_unittest.cc",
-    "response_callback_wrapper_impl_unittest.cc",
     "tachyon_authed_client_impl_unittest.cc",
     "tachyon_client_impl_unittest.cc",
     "tachyon_registrar_unittest.cc",

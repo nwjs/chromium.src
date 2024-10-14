@@ -5,6 +5,7 @@
 #include "chrome/browser/screen_ai/screen_ai_service_router.h"
 
 #include <utility>
+#include <vector>
 
 #include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
@@ -45,6 +46,18 @@ enum class ComponentAvailability {
   kMaxValue = kUnavailableWithoutNetwork,
 };
 
+bool IsModelFileContentReadable(base::File& file) {
+  if (!file.IsValid()) {
+    return false;
+  }
+  int file_size = file.GetLength();
+  if (!file_size) {
+    return false;
+  }
+  std::vector<uint8_t> buffer(file_size);
+  return file.ReadAndCheck(0, base::make_span(buffer));
+}
+
 // The name of the file that contains the list of files that are downloaded with
 // the component and are required to initialize the library.
 const base::FilePath::CharType kMainContentExtractionFilesList[] =
@@ -58,7 +71,7 @@ class ComponentFiles {
                           const base::FilePath::CharType* files_list_file_name);
   ComponentFiles(const ComponentFiles&) = delete;
   ComponentFiles& operator=(const ComponentFiles&) = delete;
-  ~ComponentFiles() = default;
+  ~ComponentFiles();
 
   static std::unique_ptr<ComponentFiles> Load(
       const base::FilePath::CharType* files_list_file_name);
@@ -99,15 +112,29 @@ ComponentFiles::ComponentFiles(
     base::FilePath relative_path(relative_file_path);
 #endif
     const base::FilePath full_path = component_folder.Append(relative_path);
-
     model_files_[relative_path] =
         base::File(full_path, base::File::FLAG_OPEN | base::File::FLAG_READ);
-    if (!model_files_[relative_path].IsValid()) {
+    if (!IsModelFileContentReadable(model_files_[relative_path])) {
       VLOG(0) << "Could not open " << full_path;
       model_files_.clear();
       return;
     }
   }
+}
+
+ComponentFiles::~ComponentFiles() {
+  if (model_files_.empty()) {
+    return;
+  }
+
+  // Transfer ownership of the file handles to a thread that may block, and let
+  // them get destroyed there.
+  base::ThreadPool::PostTask(
+      FROM_HERE,
+      {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
+      base::BindOnce(
+          [](base::flat_map<base::FilePath, base::File> model_files) {},
+          std::move(model_files_)));
 }
 
 std::unique_ptr<ComponentFiles> ComponentFiles::Load(
@@ -368,7 +395,8 @@ void ScreenAIServiceRouter::InitializeOCR(
     base::TimeTicks request_start_time,
     mojo::PendingReceiver<mojom::OCRService> receiver,
     std::unique_ptr<ComponentFiles> component_files) {
-  if (component_files->model_files_.empty()) {
+  if (component_files->model_files_.empty() ||
+      !screen_ai_service_factory_.is_bound()) {
     ScreenAIServiceRouter::SetLibraryLoadState(Service::kOCR,
                                                request_start_time, false);
     return;
@@ -387,7 +415,8 @@ void ScreenAIServiceRouter::InitializeMainContentExtraction(
     base::TimeTicks request_start_time,
     mojo::PendingReceiver<mojom::MainContentExtractionService> receiver,
     std::unique_ptr<ComponentFiles> component_files) {
-  if (component_files->model_files_.empty()) {
+  if (component_files->model_files_.empty() ||
+      !screen_ai_service_factory_.is_bound()) {
     ScreenAIServiceRouter::SetLibraryLoadState(Service::kMainContentExtraction,
                                                request_start_time, false);
     return;

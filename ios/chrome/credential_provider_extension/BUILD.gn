@@ -31,6 +31,7 @@ source_set("credential_provider") {
   deps = [
     ":account_verification_provider",
     ":metrics_util",
+    ":passkey_keychain_util",
     ":passkey_util",
     ":reauthentication_handler",
     ":system_strings",
@@ -107,10 +108,23 @@ source_set("passkey_util") {
     "passkey_util.mm",
   ]
   deps = [
+    ":passkey_keychain_provider_header",
     "//base",
     "//components/sync/protocol",
     "//components/webauthn/core/browser:passkey_model",
     "//ios/chrome/common/credential_provider:ui",
+  ]
+  frameworks = [ "Foundation.framework" ]
+}
+
+source_set("passkey_keychain_util") {
+  sources = [
+    "passkey_keychain_util.h",
+    "passkey_keychain_util.mm",
+  ]
+  deps = [
+    ":passkey_keychain_provider",
+    "//base",
   ]
   frameworks = [ "Foundation.framework" ]
 }
@@ -138,6 +152,30 @@ source_set("metrics_util") {
     "//base",
     "//ios/chrome/common/app_group",
   ]
+  frameworks = [ "Foundation.framework" ]
+}
+
+source_set("passkey_keychain_provider") {
+  public_deps = [ ":passkey_keychain_provider_header" ]
+  deps = [ ios_passkey_keychain_provider_target ]
+  assert_no_deps = [ "//ios/chrome/browser/*" ]
+  frameworks = [ "Foundation.framework" ]
+}
+
+source_set("passkey_keychain_provider_header") {
+  sources = [ "passkey_keychain_provider.h" ]
+  deps = [ "//base" ]
+  assert_no_deps = [ "//ios/chrome/browser/*" ]
+  frameworks = [ "Foundation.framework" ]
+}
+
+source_set("passkey_keychain_provider_implementation") {
+  sources = [ "passkey_keychain_provider.mm" ]
+  deps = [
+    ":passkey_keychain_provider_header",
+    "//base",
+  ]
+  assert_no_deps = [ "//ios/chrome/browser/*" ]
   frameworks = [ "Foundation.framework" ]
 }
 

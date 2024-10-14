@@ -12,6 +12,7 @@ import './horizontal_carousel.js';
 import 'chrome://resources/cr_elements/cr_hidden_style.css.js';
 import 'chrome://resources/cr_elements/cr_feedback_buttons/cr_feedback_buttons.js';
 import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
+import './shared_vars.css.js';
 
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import type {BrowserProxy} from 'chrome://resources/cr_components/commerce/browser_proxy.js';
@@ -35,14 +36,13 @@ import type {NewColumnSelectorElement} from './new_column_selector.js';
 import {SectionType} from './product_selection_menu.js';
 import type {ProductSelectorElement} from './product_selector.js';
 import {Router} from './router.js';
-import type {PriceInsightsInfo, ProductInfo, ProductSpecifications, ProductSpecificationsProduct} from './shopping_service.mojom-webui.js';
+import type {ProductInfo, ProductSpecifications, ProductSpecificationsProduct} from './shopping_service.mojom-webui.js';
 import {UserFeedback} from './shopping_service.mojom-webui.js';
 import type {TableElement} from './table.js';
 import type {UrlListEntry} from './utils.js';
 import {WindowProxy} from './window_proxy.js';
 
 interface AggregatedProductData {
-  priceInsightsInfo: PriceInsightsInfo|null;
   productInfo: ProductInfo|null;
   spec: ProductSpecificationsProduct|null;
 }
@@ -75,6 +75,7 @@ export interface ProductSpecificationsElement {
     offlineToast: CrToastElement,
     productSelector: ProductSelectorElement,
     specs: HTMLElement,
+    summaryContainer: HTMLElement,
     summaryTable: TableElement,
     syncPromo: HTMLElement,
     turnOnSyncButton: CrButtonElement,
@@ -107,8 +108,8 @@ enum AppState {
 
 function getProductDetails(
     product: ProductSpecificationsProduct|null,
-    productSpecs: ProductSpecifications, productInfo: ProductInfo|null,
-    priceInsightsInfo: PriceInsightsInfo|null): ProductDetail[] {
+    productSpecs: ProductSpecifications,
+    productInfo: ProductInfo|null): ProductDetail[] {
   const productDetails: ProductDetail[] = [];
 
   // First add rows that don't come directly from the product
@@ -157,7 +158,9 @@ function getProductDetails(
   // The last row is buying options.
   productDetails.push({
     title: null,
-    content: {jackpotUrl: priceInsightsInfo?.jackpot.url ?? ''},
+    content: {
+      jackpotUrl: product?.buyingOptionsUrl.url || '',
+    },
   });
 
   return productDetails;
@@ -225,6 +228,8 @@ export class ProductSpecificationsElement extends PolymerElement {
   private eventTracker_: EventTracker = new EventTracker();
   private id_: Uuid|null = null;
   private listenerIds_: number[] = [];
+  private loadingAnimationSlidePx_: number = 16;
+  private loadingAnimationSlideDurationMs_: number = 200;
   private minLoadingAnimationMs_: number = 500;
   private productSpecificationsFeatureState_: ProductSpecificationsFeatureState;
   private shoppingApi_: BrowserProxy = BrowserProxyImpl.getInstance();
@@ -315,6 +320,14 @@ export class ProductSpecificationsElement extends PolymerElement {
       const {set} = await this.shoppingApi_.getProductSpecificationsSetByUuid(
           {value: idParam});
       if (set) {
+        const {disclosureShown} =
+            await this.shoppingApi_.maybeShowProductSpecificationDisclosure(
+                /* urls= */[], /* name= */ '', idParam);
+        if (disclosureShown) {
+          this.showEmptyState_ = true;
+          this.id_ = null;
+          return;
+        }
         document.title = set.name;
         this.setName_ = set.name;
         this.populateTable_(set.urls.map(url => (url.url)));
@@ -410,10 +423,19 @@ export class ProductSpecificationsElement extends PolymerElement {
   }
 
   private async populateTable_(urls: string[]) {
+    this.$.errorToast.hide();
+
+    // Transition directly to the empty state if there are no URLs.
+    if (urls.length === 0) {
+      this.tableColumns_ = [];
+      this.showEmptyState_ = true;
+      return;
+    }
+
+    await this.enterLoadingState_(urls.length);
+
     const start = Date.now();
     this.showEmptyState_ = false;
-    this.loadingState_ = {loading: true, urlCount: urls.length};
-    this.$.errorToast.hide();
 
     const tableColumns: TableColumn[] = [];
     if (urls.length) {
@@ -436,9 +458,8 @@ export class ProductSpecificationsElement extends PolymerElement {
             url,
             imageUrl: info?.imageUrl?.url || product?.imageUrl?.url || '',
           },
-          productDetails: getProductDetails(
-              product || null, productSpecs, info || null,
-              aggregatedDataByUrl.get(url)?.priceInsightsInfo || null),
+          productDetails:
+              getProductDetails(product || null, productSpecs, info || null),
         });
       }));
 
@@ -459,24 +480,11 @@ export class ProductSpecificationsElement extends PolymerElement {
 
     this.tableColumns_ = tableColumns;
     this.showEmptyState_ = this.tableColumns_.length === 0;
-    this.loadingState_ = {loading: false, urlCount: 0};
+    this.exitLoadingState_();
   }
 
   private get isOffline_(): boolean {
     return !WindowProxy.getInstance().onLine;
-  }
-
-  private async getPriceInsightsInfoForUrls_(urls: string[]):
-      Promise<Map<string, PriceInsightsInfo>> {
-    const infoMap: Map<string, PriceInsightsInfo> = new Map();
-    for (const url of urls) {
-      const {priceInsightsInfo} =
-          await this.shoppingApi_.getPriceInsightsInfoForUrl({url});
-      if (priceInsightsInfo && priceInsightsInfo.clusterId) {
-        infoMap.set(url, priceInsightsInfo);
-      }
-    }
-    return infoMap;
   }
 
   private async getProductInfoForUrls_(urls: string[]):
@@ -494,8 +502,6 @@ export class ProductSpecificationsElement extends PolymerElement {
   private async aggregateProductDataByUrl_(
       urls: string[], specs: ProductSpecifications):
       Promise<Map<string, AggregatedProductData>> {
-    const urlToPriceInsightsInfoMap: Map<string, PriceInsightsInfo> =
-        await this.getPriceInsightsInfoForUrls_(urls);
     const urlToProductInfoMap: Map<string, ProductInfo> =
         await this.getProductInfoForUrls_(urls);
     const specProductMap: Map<string, ProductSpecificationsProduct> = new Map();
@@ -508,11 +514,9 @@ export class ProductSpecificationsElement extends PolymerElement {
 
     const aggregatedDatas: Map<string, AggregatedProductData> = new Map();
     urls.forEach((url) => {
-      const priceInsightsInfo = urlToPriceInsightsInfoMap.get(url);
       const productInfo = urlToProductInfoMap.get(url);
       const productSpecs = specProductMap.get(url);
       aggregatedDatas.set(url, {
-        priceInsightsInfo: priceInsightsInfo ?? null,
         productInfo: productInfo ?? null,
         spec: productSpecs ?? null,
       });
@@ -579,7 +583,8 @@ export class ProductSpecificationsElement extends PolymerElement {
     }
     const {disclosureShown} =
         await this.shoppingApi_.maybeShowProductSpecificationDisclosure(
-            urls.map(url => ({url})), this.setName_ ? this.setName_ : '');
+            urls.map(url => ({url})), this.setName_ ? this.setName_ : '',
+            /* set_id= */ '');
     // If the disclosure is shown, we won't update the current set.
     if (!disclosureShown) {
       this.modifyUrls_(urls);
@@ -672,6 +677,10 @@ export class ProductSpecificationsElement extends PolymerElement {
         (column: TableColumn) => column.selectedItem.url);
   }
 
+  private isTableFull_(columnCount: number): boolean {
+    return columnCount >= loadTimeData.getInteger('maxTableSize');
+  }
+
   private onSetUpdated_(set: ProductSpecificationsSet) {
     if (set.uuid.value !== this.id_?.value) {
       return;
@@ -741,6 +750,64 @@ export class ProductSpecificationsElement extends PolymerElement {
   private getDisclaimerText_(): string {
     return loadTimeData.getStringF(
         'experimentalFeatureDisclaimer', loadTimeData.getString('userEmail'));
+  }
+
+  private fadeAndSlideOutSummaryContainer_(): Animation {
+    return this.$.summaryContainer.animate(
+        [
+          {opacity: 1, transform: 'translateY(0px)'},
+          {
+            opacity: 0,
+            transform: `translateY(-${this.loadingAnimationSlidePx_}px)`,
+          },
+        ],
+        {
+          duration: this.loadingAnimationSlideDurationMs_,
+          easing: 'ease-out',
+          fill: 'forwards',
+        });
+  }
+
+  private fadeAndSlideInSummaryContainer_(): Animation {
+    return this.$.summaryContainer.animate(
+        [
+          {
+            opacity: 0,
+            transform: `translateY(${this.loadingAnimationSlidePx_}px)`,
+          },
+          {opacity: 1, transform: 'translateY(0px)'},
+        ],
+        {
+          duration: this.loadingAnimationSlideDurationMs_,
+          easing: 'ease-out',
+          fill: 'forwards',
+        });
+  }
+
+  // Resolves upon updating the loading state.
+  private async enterLoadingState_(urlCount: number): Promise<void> {
+    if ([AppState.ERROR, AppState.SYNC_SCREEN, AppState.LOADING].includes(
+            this.appState_)) {
+      this.loadingState_ = {loading: true, urlCount};
+      return Promise.resolve();
+    }
+
+    const anim = this.fadeAndSlideOutSummaryContainer_();
+    return new Promise<void>(resolve => {
+      anim.addEventListener('finish', () => {
+        this.loadingState_ = {loading: true, urlCount};
+        resolve();
+        this.fadeAndSlideInSummaryContainer_();
+      });
+    });
+  }
+
+  private exitLoadingState_() {
+    const anim = this.fadeAndSlideOutSummaryContainer_();
+    anim.addEventListener('finish', () => {
+      this.loadingState_ = {loading: false, urlCount: 0};
+      this.fadeAndSlideInSummaryContainer_();
+    });
   }
 }
 

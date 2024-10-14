@@ -959,6 +959,9 @@ FOO_SCRIPT_SUITE = """\
     'foo_scripts': {
       'foo_test': {
         'script': 'foo.py',
+        'args': ['common-arg'],
+        'precommit_args': ['precommit-arg'],
+        'non_precommit_args': ['non-precommit-arg'],
       },
       'bar_test': {
         'script': 'bar.py',
@@ -1856,7 +1859,7 @@ class UnitTest(TestCase):
     self.assertFalse(fbb.printed_lines)
 
   def test_load_multiple_isolate_map_files_with_duplicates(self):
-    self.args.isolate_map_files = ['gn_isolate_map.pyl']
+    self.args.isolate_map_files = [self.args.gn_isolate_map_pyl_path]
     fbb = FakeBBGen(self.args,
                     FOO_GTESTS_WATERFALL,
                     REUSING_TEST_WITH_DIFFERENT_NAME,
@@ -1875,7 +1878,7 @@ class UnitTest(TestCase):
                     gn_isolate_map=GN_ISOLATE_MAP)
     fbb.load_configuration_files()
     isolate_dict = {}
-    isolate_map_1 = fbb.load_pyl_file('gn_isolate_map.pyl')
+    isolate_map_1 = fbb.load_pyl_file(self.args.gn_isolate_map_pyl_path)
     isolate_map_2 = fbb.load_pyl_file('gn_isolate_map2.pyl')
     isolate_dict.update(isolate_map_1)
     isolate_dict.update(isolate_map_2)

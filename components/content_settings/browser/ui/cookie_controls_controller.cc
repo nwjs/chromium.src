@@ -205,14 +205,12 @@ CookieControlsController::Status CookieControlsController::GetStatus(
                 /*protections_on=*/false)};
   }
 
-  CookieBlocking3pcdStatus blocking_status =
-      CookieBlocking3pcdStatus::kNotIn3pcd;
-  if (tracking_protection_settings_ &&
-      tracking_protection_settings_->IsTrackingProtection3pcdEnabled()) {
-    blocking_status =
-        tracking_protection_settings_->AreAllThirdPartyCookiesBlocked()
-            ? CookieBlocking3pcdStatus::kAll
-            : CookieBlocking3pcdStatus::kLimited;
+  auto blocking_status = CookieBlocking3pcdStatus::kNotIn3pcd;
+  if (cookie_settings_->AreThirdPartyCookiesLimited()) {
+    blocking_status = CookieBlocking3pcdStatus::kLimited;
+  } else if (tracking_protection_settings_ &&
+             tracking_protection_settings_->AreAllThirdPartyCookiesBlocked()) {
+    blocking_status = CookieBlocking3pcdStatus::kAll;
   }
 
   SettingInfo info;
@@ -259,11 +257,10 @@ CookieControlsController::CreateTrackingProtectionFeatureList(
     CookieControlsEnforcement enforcement,
     bool cookies_allowed,
     bool protections_on) {
-  auto status_label =
-      cookies_allowed ? BlockingStatus::kAllowed : BlockingStatus::kBlocked;
-  if (!cookies_allowed && tracking_protection_settings_ &&
-      tracking_protection_settings_->IsTrackingProtection3pcdEnabled() &&
-      !tracking_protection_settings_->AreAllThirdPartyCookiesBlocked()) {
+  auto status_label = BlockingStatus::kBlocked;
+  if (cookies_allowed) {
+    status_label = BlockingStatus::kAllowed;
+  } else if (cookie_settings_->AreThirdPartyCookiesLimited()) {
     status_label = BlockingStatus::kLimited;
   }
 
@@ -387,14 +384,6 @@ void CookieControlsController::OnEntryPointAnimated() {
   base::Value::Dict metadata = GetMetadata(settings_map_, url);
   metadata.Set(kEntryPointAnimatedKey, base::Value(true));
   ApplyMetadataChanges(settings_map_, url, std::move(metadata));
-}
-
-bool CookieControlsController::FirstPartyCookiesBlocked() {
-  // No overrides are given since existing ones only pertain to 3P checks.
-  const GURL& url = GetWebContents()->GetLastCommittedURL();
-  return !cookie_settings_->IsFullCookieAccessAllowed(
-      url, net::SiteForCookies::FromUrl(url), url::Origin::Create(url),
-      net::CookieSettingOverrides());
 }
 
 bool CookieControlsController::HasUserChangedCookieBlockingForSite() {

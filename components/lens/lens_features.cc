@@ -55,6 +55,14 @@ BASE_FEATURE(kLensOverlayTranslateButton,
              "LensOverlayTranslateButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensOverlayImageContextMenuActions,
+             "LensOverlayImageContextMenuActions",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensOverlayContextualSearchbox,
+             "LensOverlayContextualSearchbox",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const base::FeatureParam<int> kLensOverlayMinRamMb{&kLensOverlay, "min_ram_mb",
                                                    /*default=value=*/-1};
 const base::FeatureParam<std::string> kActivityUrl{
@@ -73,8 +81,10 @@ const base::FeatureParam<bool> kLensOverlayUseTieredDownscaling{
     &kLensOverlay, "enable-tiered-downscaling", false};
 const base::FeatureParam<bool> kLensOverlaySendLatencyGen204{
     &kLensOverlay, "enable-gen204-latency", true};
-const base::FeatureParam<bool> kLensOverlaySendTaskCompletion204{
+const base::FeatureParam<bool> kLensOverlaySendTaskCompletionGen204{
     &kLensOverlay, "enable-gen204-task-completion", true};
+const base::FeatureParam<bool> kLensOverlaySendSemanticEventGen204{
+    &kLensOverlay, "enable-gen204-semantic-event", true};
 const base::FeatureParam<int> kLensOverlayImageMaxArea{
     &kLensOverlay, "image-dimensions-max-area", 1500000};
 const base::FeatureParam<int> kLensOverlayImageMaxHeight{
@@ -178,6 +188,12 @@ constexpr base::FeatureParam<bool>
     kUseSearchContextForMultimodalLensOverlayRequests{
         &kLensOverlay, "use-search-context-for-multimodal-requests", false};
 
+constexpr base::FeatureParam<bool> kUsePdfsAsContext{
+    &kLensOverlay, "use-pdfs-as-context", false};
+
+constexpr base::FeatureParam<bool> kUseInnerTextAsContext{
+    &kLensOverlay, "use-inner-text-as-context", false};
+
 constexpr base::FeatureParam<int> kLensOverlayTapRegionHeight{
     &kLensOverlay, "tap-region-height", 300};
 constexpr base::FeatureParam<int> kLensOverlayTapRegionWidth{
@@ -195,6 +211,18 @@ constexpr base::FeatureParam<int> kLensOverlayMaxSignificantRegions{
 
 constexpr base::FeatureParam<int> kLensOverlayLivePageBlurRadiusPixels{
     &kLensOverlay, "live-page-blur-radius-pixels", 200};
+
+constexpr base::FeatureParam<bool> kLensOverlayUseCustomBlur{
+    &kLensOverlay, "use-custom-blur", true};
+
+constexpr base::FeatureParam<int> kLensOverlayCustomBlurBlurRadiusPixels{
+    &kLensOverlay, "custom-blur-blur-radius-pixels", 60};
+
+constexpr base::FeatureParam<double> kLensOverlayCustomBlurQuality{
+    &kLensOverlay, "custom-blur-quality", 0.1};
+
+constexpr base::FeatureParam<double> kLensOverlayCustomBlurRefreshRateHertz{
+    &kLensOverlay, "custom-blur-refresh-rate-hertz", 30};
 
 constexpr base::FeatureParam<double>
     kLensOverlayPostSelectionComparisonThreshold{
@@ -217,6 +245,18 @@ constexpr base::FeatureParam<int> kLensOverlaySegmentationMaskCornerRadius{
 
 constexpr base::FeatureParam<int> kLensOverlayFindBarStringsVariant{
     &kLensOverlay, "find-bar-strings-variant", 0};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayImageContextMenuActionsEnableCopyAsImage{
+        &kLensOverlayImageContextMenuActions, "enable-copy-as-image", false};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayImageContextMenuActionsEnableSaveAsImage{
+        &kLensOverlayImageContextMenuActions, "enable-save-as-image", false};
+
+constexpr base::FeatureParam<int>
+    kLensOverlayImageContextMenuActionsTextReceivedTimeout{
+        &kLensOverlayImageContextMenuActions, "text-received-timeout", 2000};
 
 constexpr base::FeatureParam<std::string> kHomepageURLForLens{
     &kLensStandalone, "lens-homepage-url", "https://lens.google.com/v3/"};
@@ -376,7 +416,11 @@ bool GetLensOverlaySendLatencyGen204() {
 }
 
 bool GetLensOverlaySendTaskCompletionGen204() {
-  return kLensOverlaySendTaskCompletion204.Get();
+  return kLensOverlaySendTaskCompletionGen204.Get();
+}
+
+bool GetLensOverlaySendSemanticEventGen204() {
+  return kLensOverlaySendSemanticEventGen204.Get();
 }
 
 int GetLensOverlayImageMaxArea() {
@@ -445,6 +489,14 @@ bool UseSearchContextForTextOnlyLensOverlayRequests() {
 
 bool UseSearchContextForMultimodalLensOverlayRequests() {
   return kUseSearchContextForMultimodalLensOverlayRequests.Get();
+}
+
+bool UsePdfsAsContext() {
+  return kUsePdfsAsContext.Get();
+}
+
+bool UseInnerTextAsContext() {
+  return kUseInnerTextAsContext.Get();
 }
 
 int GetLensOverlayVerticalTextMargin() {
@@ -548,6 +600,22 @@ int GetLensOverlayLivePageBlurRadiusPixels() {
   return kLensOverlayLivePageBlurRadiusPixels.Get();
 }
 
+bool GetLensOverlayUseCustomBlur() {
+  return kLensOverlayUseCustomBlur.Get();
+}
+
+int GetLensOverlayCustomBlurBlurRadiusPixels() {
+  return kLensOverlayCustomBlurBlurRadiusPixels.Get();
+}
+
+double GetLensOverlayCustomBlurQuality() {
+  return kLensOverlayCustomBlurQuality.Get();
+}
+
+double GetLensOverlayCustomBlurRefreshRateHertz() {
+  return kLensOverlayCustomBlurRefreshRateHertz.Get();
+}
+
 int GetLensOverlayServerRequestTimeout() {
   return kLensOverlayServerRequestTimeout.Get();
 }
@@ -574,6 +642,24 @@ int GetLensOverlayFindBarStringsVariant() {
 
 bool IsLensOverlayTranslateButtonEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlayTranslateButton);
+}
+
+bool IsLensOverlayCopyAsImageEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlayImageContextMenuActions) &&
+         kLensOverlayImageContextMenuActionsEnableCopyAsImage.Get();
+}
+
+bool IsLensOverlaySaveAsImageEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlayImageContextMenuActions) &&
+         kLensOverlayImageContextMenuActionsEnableSaveAsImage.Get();
+}
+
+int GetLensOverlayImageContextMenuActionsTextReceivedTimeout() {
+  return kLensOverlayImageContextMenuActionsTextReceivedTimeout.Get();
+}
+
+bool IsLensOverlayContextualSearchboxEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlayContextualSearchbox);
 }
 
 }  // namespace lens::features

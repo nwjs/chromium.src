@@ -28,9 +28,9 @@
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state_manager.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/ui/price_notifications/cells/price_notifications_table_view_item.h"
@@ -130,7 +130,7 @@ class PriceNotificationsPriceTrackingMediatorTest : public PlatformTest {
               return commerce::MockShoppingService::Build();
             }));
     TestChromeBrowserState* test_chrome_browser_state =
-        browser_state_manager_.AddBrowserStateWithBuilder(std::move(builder));
+        profile_manager_.AddProfileWithBuilder(std::move(builder));
 
     browser_list_ =
         BrowserListFactory::GetForBrowserState(test_chrome_browser_state);
@@ -163,7 +163,7 @@ class PriceNotificationsPriceTrackingMediatorTest : public PlatformTest {
         initWithShoppingService:(commerce::ShoppingService*)shopping_service_
                   bookmarkModel:bookmark_model_
                    imageFetcher:std::move(image_fetcher_)
-                       webState:(web::WebState*)web_state_.get()
+                       webState:web_state_.get()->GetWeakPtr()
         pushNotificationService:(PushNotificationService*)
                                     push_notification_service_.get()];
   }
@@ -185,7 +185,7 @@ class PriceNotificationsPriceTrackingMediatorTest : public PlatformTest {
 
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  TestChromeBrowserStateManager browser_state_manager_;
+  TestProfileManagerIOS profile_manager_;
   std::unique_ptr<Browser> browser_;
   PriceNotificationsPriceTrackingMediator* mediator_;
   std::unique_ptr<web::FakeWebState> web_state_;
@@ -305,7 +305,8 @@ TEST_F(PriceNotificationsPriceTrackingMediatorTest,
   shopping_service_->SetResponseForGetProductInfoForUrl(optional_product_info);
   shopping_service_->SetSubscribeCallbackValue(false);
 
-  price_insights_consumer_.didPresentStartPriceTrackingErrorAlertForItem = NO;
+  price_insights_consumer_.didPresentStartPriceTrackingErrorSnackbarForItem =
+      NO;
   mediator_.priceInsightsConsumer = price_insights_consumer_;
   [mediator_ tryPriceInsightsTrackItem:GetPriceInsightsItem()];
 
@@ -313,7 +314,7 @@ TEST_F(PriceNotificationsPriceTrackingMediatorTest,
       base::test::ios::kWaitForActionTimeout, ^bool {
         base::RunLoop().RunUntilIdle();
         return price_insights_consumer_
-            .didPresentStartPriceTrackingErrorAlertForItem;
+            .didPresentStartPriceTrackingErrorSnackbarForItem;
       }));
 
   EXPECT_OCMOCK_VERIFY(mock_notification_center_);
@@ -362,7 +363,7 @@ TEST_F(PriceNotificationsPriceTrackingMediatorTest,
   shopping_service_->SetUnsubscribeCallbackValue(false);
   shopping_service_->SetResponseForGetProductInfoForUrl(optional_product_info);
 
-  price_insights_consumer_.didPresentStopPriceTrackingErrorAlertForItem = NO;
+  price_insights_consumer_.didPresentStopPriceTrackingErrorSnackbarForItem = NO;
   mediator_.priceInsightsConsumer = price_insights_consumer_;
   [mediator_ priceInsightsStopTrackingItem:GetPriceInsightsItem()];
 
@@ -370,7 +371,7 @@ TEST_F(PriceNotificationsPriceTrackingMediatorTest,
       base::test::ios::kWaitForActionTimeout, ^bool {
         base::RunLoop().RunUntilIdle();
         return price_insights_consumer_
-            .didPresentStopPriceTrackingErrorAlertForItem;
+            .didPresentStopPriceTrackingErrorSnackbarForItem;
       }));
 }
 

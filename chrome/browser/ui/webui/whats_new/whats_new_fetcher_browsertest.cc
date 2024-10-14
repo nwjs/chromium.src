@@ -8,6 +8,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/global_features.h"
+#include "chrome/browser/ui/webui/whats_new/whats_new_storage_service_impl.h"
 #include "chrome/common/chrome_version.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/user_education/common/user_education_features.h"
@@ -40,14 +41,36 @@ BASE_FEATURE(kTestModuleDisabledByDefault,
              base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace
 
+class GlobalFeaturesFake : public GlobalFeatures {
+ public:
+  GlobalFeaturesFake() = default;
+
+ protected:
+  std::unique_ptr<whats_new::WhatsNewRegistry> CreateWhatsNewRegistry()
+      override {
+    auto registry = std::make_unique<whats_new::WhatsNewRegistry>(
+        std::make_unique<whats_new::WhatsNewStorageServiceImpl>());
+
+    return registry;
+  }
+};
+
+std::unique_ptr<GlobalFeatures> CreateGlobalFeatures() {
+  return std::make_unique<GlobalFeaturesFake>();
+}
+
 class WhatsNewFetcherBrowserTest : public InteractiveBrowserTest {
  public:
   WhatsNewFetcherBrowserTest() {
+    GlobalFeatures::ReplaceGlobalFeaturesForTesting(
+        base::BindRepeating(&CreateGlobalFeatures));
     feature_list_.InitWithFeatures({user_education::features::kWhatsNewVersion2,
                                     kTestModuleEnabled, kTestModule2Enabled},
                                    {kTestModuleDisabled});
   }
-  ~WhatsNewFetcherBrowserTest() override = default;
+  ~WhatsNewFetcherBrowserTest() override {
+    GlobalFeatures::ReplaceGlobalFeaturesForTesting(base::NullCallback());
+  }
 
   whats_new::WhatsNewRegistry* GetRegistry() {
     return g_browser_process->GetFeatures()->whats_new_registry();
@@ -91,7 +114,7 @@ IN_PROC_BROWSER_TEST_F(WhatsNewFetcherBrowserTest,
   whats_new::WhatsNewRegistry* registry = GetRegistry();
   registry->RegisterModule(whats_new::WhatsNewModule(kTestModuleEnabled, ""));
   registry->RegisterModule(
-      whats_new::WhatsNewModule("", BrowserCommand::kNoOpCommand));
+      whats_new::WhatsNewModule("", "", BrowserCommand::kNoOpCommand));
 
   std::string expected = base::StringPrintf(
       "https://www.google.com/chrome/v2/whats-new/?version=%d",
@@ -112,7 +135,7 @@ IN_PROC_BROWSER_TEST_F(WhatsNewFetcherBrowserTest,
   registry->RegisterModule(whats_new::WhatsNewModule(kTestModuleEnabled, ""));
   registry->RegisterModule(whats_new::WhatsNewModule(kTestModule2Enabled, ""));
   registry->RegisterModule(
-      whats_new::WhatsNewModule("", BrowserCommand::kNoOpCommand));
+      whats_new::WhatsNewModule("", "", BrowserCommand::kNoOpCommand));
 
   std::string expected = base::StringPrintf(
       "https://www.google.com/chrome/v2/whats-new/?version=%d",
@@ -141,7 +164,7 @@ IN_PROC_BROWSER_TEST_F(WhatsNewFetcherBrowserTest,
       whats_new::WhatsNewModule(kTestModuleDisabledByDefault, ""));
   // Will be ignored - no feature.
   registry->RegisterModule(
-      whats_new::WhatsNewModule("", BrowserCommand::kNoOpCommand));
+      whats_new::WhatsNewModule("", "", BrowserCommand::kNoOpCommand));
 
   std::string expected = base::StringPrintf(
       "https://www.google.com/chrome/v2/whats-new/?version=%d",

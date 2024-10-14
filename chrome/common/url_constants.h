@@ -493,13 +493,6 @@ inline constexpr char kSafetyTipHelpCenterURL[] =
 inline constexpr char16_t kSearchHistoryUrlInClearBrowsingData[] =
     u"https://myactivity.google.com/product/search?utm_source=chrome_cbd";
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-// Google search history URL that leads users from the "Get the most out of
-// Chrome" to their search history in their Google account.
-inline constexpr char16_t kSearchHistoryUrlInGetTheMostOutOfChrome[] =
-    u"https://myactivity.google.com/product/search?utm_source=chrome_gtmooc";
-#endif
-
 // The URL for the "See more security tips" with advices how to create a strong
 // password.
 inline constexpr char kSeeMoreSecurityTipsURL[] =
@@ -590,6 +583,10 @@ inline constexpr char16_t kWhoIsMyAdministratorHelpURL[] =
 // The URL for the "Learn more" link about CWS Enhanced Safe Browsing.
 inline constexpr char16_t kCwsEnhancedSafeBrowsingLearnMoreURL[] =
     u"https://support.google.com/chrome?p=cws_enhanced_safe_browsing";
+
+// The URL path to online privacy policy.
+inline constexpr char kPrivacyPolicyOnlineURLPath[] =
+    "https://policies.google.com/privacy/embedded";
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS_ASH)
 // "Learn more" URL for the enhanced playback notification dialog.
@@ -801,10 +798,6 @@ inline constexpr char kCrosEulaOnlineURLPath[] =
 inline constexpr char kArcTosOnlineURLPath[] =
     "https://play.google/play-terms/embedded/";
 
-// The URL path to online privacy policy.
-inline constexpr char kPrivacyPolicyOnlineURLPath[] =
-    "https://policies.google.com/privacy/embedded";
-
 // The URL for the "learn more" link for TPM firmware update.
 inline constexpr char kTPMFirmwareUpdateLearnMoreURL[] =
     "https://support.google.com/chromebook?p=tpm_update";
@@ -856,6 +849,11 @@ inline constexpr char kSuggestedContentLearnMoreURL[] =
 inline constexpr char kTabletModeGesturesLearnMoreURL[] =
     "https://support.google.com/chromebook?p=tablet_mode_gestures";
 
+// The URL for the help center article about video chat enhanced features.
+inline constexpr char kVcLearnMoreURL[] =
+    "https://support.google.com/chromebook/answer/10264237"
+    "#zippy=enhanced-features-available-on-chromebook-plus";
+
 // The URL for the help center article about Wi-Fi sync.
 inline constexpr char kWifiSyncLearnMoreURL[] =
     "https://support.google.com/chromebook?p=wifisync";
@@ -889,6 +887,10 @@ inline constexpr char16_t kDeviceExtendedUpdatesLearnMoreURL[] =
 // The URL for the YoutTube Music Premium signup page.
 inline constexpr char kYoutubeMusicPremiumURL[] =
     "https://music.youtube.com/music_premium";
+
+// The URL for the Chromebook Perks page for YouTube.
+inline constexpr char kChromebookPerksYouTubePage[] =
+    "https://www.google.com/chromebook/perks/?id=youtube.2020";
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_MAC)

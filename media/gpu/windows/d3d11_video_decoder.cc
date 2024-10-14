@@ -784,19 +784,17 @@ void D3D11VideoDecoder::CreatePictureBuffers() {
 
     base::OnceCallback<void(scoped_refptr<media::D3D11PictureBuffer>)>
         picture_buffer_gpu_resource_init_done_cb = base::DoNothing();
-    if (base::FeatureList::IsEnabled(kD3D11VideoDecoderUseSharedHandle) ||
-        base::FeatureList::IsEnabled(kUseClientSharedImageForD3D11Video)) {
-      // WebGPU requires interop on the picture buffer to achieve zero copy.
-      // This requires a picture buffer to produce a shared image representation
-      // during initialization. Add picture buffer in_client_use count to idle
-      // the decoder until picture buffer finished gpu resource initialization
-      // in gpu thread.
-      picture_buffers_[i]->add_client_use();
-      picture_buffer_gpu_resource_init_done_cb =
-          base::BindPostTaskToCurrentDefault(base::BindOnce(
-              &D3D11VideoDecoder::PictureBufferGPUResourceInitDone,
-              weak_factory_.GetWeakPtr()));
-    }
+
+    // WebGPU requires interop on the picture buffer to achieve zero copy.
+    // This requires a picture buffer to produce a shared image representation
+    // during initialization. Add picture buffer in_client_use count to idle
+    // the decoder until picture buffer finished gpu resource initialization
+    // in gpu thread.
+    picture_buffers_[i]->add_client_use();
+    picture_buffer_gpu_resource_init_done_cb =
+        base::BindPostTaskToCurrentDefault(
+            base::BindOnce(&D3D11VideoDecoder::PictureBufferGPUResourceInitDone,
+                           weak_factory_.GetWeakPtr()));
 
     D3D11Status result = picture_buffers_[i]->Init(
         gpu_task_runner_, get_helper_cb_, video_device_,
@@ -858,7 +856,7 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
     picture_color_space = config_.color_space_info().ToGfxColorSpace();
   }
 
-  media::ClientSharedImageOrMailboxHolder shared_image;
+  scoped_refptr<gpu::ClientSharedImage> shared_image;
   D3D11Status result =
       picture_buffer->ProcessTexture(picture_color_space, shared_image);
   if (!result.is_ok()) {
@@ -866,25 +864,11 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
     return false;
   }
 
-  scoped_refptr<VideoFrame> frame;
-  if (absl::holds_alternative<scoped_refptr<gpu::ClientSharedImage>>(
-          shared_image)) {
-    scoped_refptr<gpu::ClientSharedImage> client_shared_image =
-        absl::get<scoped_refptr<gpu::ClientSharedImage>>(
-            std::move(shared_image));
-    frame = VideoFrame::WrapSharedImage(
-        texture_selector_->PixelFormat(), client_shared_image,
-        client_shared_image->creation_sync_token(), GL_TEXTURE_EXTERNAL_OES,
-        VideoFrame::ReleaseMailboxCB(), picture_buffer->size(), visible_rect,
-        natural_size, timestamp);
-  } else {
-    gpu::MailboxHolder mailbox_holders[VideoFrame::kMaxPlanes] = {
-        absl::get<gpu::MailboxHolder>(std::move(shared_image))};
-    frame = VideoFrame::WrapNativeTextures(
-        texture_selector_->PixelFormat(), mailbox_holders,
-        VideoFrame::ReleaseMailboxCB(), picture_buffer->size(), visible_rect,
-        natural_size, timestamp);
-  }
+  scoped_refptr<VideoFrame> frame = VideoFrame::WrapSharedImage(
+      texture_selector_->PixelFormat(), shared_image,
+      shared_image->creation_sync_token(), GL_TEXTURE_EXTERNAL_OES,
+      VideoFrame::ReleaseMailboxCB(), picture_buffer->size(), visible_rect,
+      natural_size, timestamp);
 
   if (!frame) {
     // This can happen if, somehow, we get an unsupported combination of

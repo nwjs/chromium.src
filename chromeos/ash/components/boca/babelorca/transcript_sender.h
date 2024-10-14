@@ -11,14 +11,15 @@
 #include <string>
 #include <string_view>
 
-#include "base/functional/callback_forward.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
+#include "base/time/time.h"
 #include "base/types/expected.h"
-#include "chromeos/ash/components/boca/babelorca/response_callback_wrapper.h"
+#include "chromeos/ash/components/boca/babelorca/tachyon_request_error.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 
 namespace media {
@@ -32,26 +33,34 @@ struct NetworkTrafficAnnotationTag;
 namespace ash::babelorca {
 
 class BabelOrcaMessage;
-class InboxSendResponse;
 class TachyonAuthedClient;
 class TachyonRequestDataProvider;
 
 // Class to send transcriptions.
 class TranscriptSender {
  public:
+  struct Options {
+    size_t max_allowed_char = 200;
+    size_t max_errors_num = 2;
+  };
+
   TranscriptSender(
       TachyonAuthedClient* authed_client,
       TachyonRequestDataProvider* request_data_provider,
+      base::Time init_timestamp,
       std::string_view sender_email,
       const net::NetworkTrafficAnnotationTag& network_traffic_annotation,
-      size_t max_allowed_char);
+      Options options,
+      base::OnceClosure failure_cb);
 
   TranscriptSender(const TranscriptSender&) = delete;
   TranscriptSender& operator=(const TranscriptSender&) = delete;
 
   ~TranscriptSender();
 
-  void SendTranscriptionUpdate(const media::SpeechRecognitionResult& transcript,
+  // Returns `true` if will accept sending request, `false` otherwise.
+  // Currently, it only rejects sending if max number of errors is reached.
+  bool SendTranscriptionUpdate(const media::SpeechRecognitionResult& transcript,
                                const std::string& language);
 
  private:
@@ -66,8 +75,7 @@ class TranscriptSender {
   void Send(int max_retries, std::string message);
 
   void OnSendResponse(
-      base::expected<InboxSendResponse,
-                     ResponseCallbackWrapper::TachyonRequestError> response);
+      base::expected<std::string, TachyonRequestError> response);
 
   SEQUENCE_CHECKER(sequence_checker_);
 
@@ -82,10 +90,12 @@ class TranscriptSender {
 
   const raw_ptr<TachyonAuthedClient> authed_client_;
   const raw_ptr<TachyonRequestDataProvider> request_data_provider_;
+  const int64_t init_timestamp_ms_;
   const std::string sender_email_;
   const net::NetworkTrafficAnnotationTag network_traffic_annotation_;
-  const size_t max_allowed_char_;
-  const std::string sender_uuid_;
+  const Options options_;
+  base::OnceClosure failure_cb_;
+  size_t errors_num_ GUARDED_BY_CONTEXT(sequence_checker_) = 0;
 
   base::WeakPtrFactory<TranscriptSender> weak_ptr_factory{this};
 };

@@ -9,6 +9,7 @@
 #include "components/feature_engagement/public/configuration.h"
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/feature_engagement/public/group_constants.h"
 
 #if BUILDFLAG(IS_IOS)
 #include "base/metrics/field_trial_params.h"
@@ -169,20 +170,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->trigger = EventConfig("iph_reading_mode_side_panel_trigger",
                                   Comparator(LESS_THAN, 3), 360, 360);
     config->used = EventConfig("reading_mode_side_panel_shown",
-                               Comparator(EQUAL, 0), 360, 360);
-    return config;
-  }
-
-  if (kIPHSidePanelGenericMenuFeature.name == feature->name) {
-    std::optional<FeatureConfig> config = FeatureConfig();
-    config->valid = true;
-    config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(ANY, 0);
-    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
-    // Show the promo once a year if the side panel was not opened.
-    config->trigger = EventConfig("side_panel_from_menu_trigger",
-                                  Comparator(EQUAL, 0), 360, 360);
-    config->used = EventConfig("side_panel_from_menu_shown",
                                Comparator(EQUAL, 0), 360, 360);
     return config;
   }
@@ -459,54 +446,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->used =
         EventConfig("companion_side_panel_region_search_button_clicked",
                     Comparator(EQUAL, 0), 360, 360);
-    return config;
-  }
-
-  if (kIPHDesktopCustomizeChromeFeature.name == feature->name) {
-    std::optional<FeatureConfig> config = FeatureConfig();
-    config->valid = true;
-    config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(ANY, 0);
-    // Used to increase the usage of Customize Chrome for users who have opened
-    // it 0 times in the last 360 days.
-    config->used =
-        EventConfig("customize_chrome_opened", Comparator(EQUAL, 0), 360, 360);
-    // Triggered when IPH hasn't been shown in the past day.
-    config->trigger = EventConfig("iph_customize_chrome_triggered",
-                                  Comparator(EQUAL, 0), 1, 360);
-    config->snooze_params.max_limit = 4;
-    return config;
-  }
-
-  if (kIPHDesktopCustomizeChromeRefreshFeature.name == feature->name) {
-    std::optional<FeatureConfig> config = FeatureConfig();
-    config->valid = true;
-    config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(ANY, 0);
-    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
-    // Show IPH regardless of customize_chrome usage
-    config->used =
-        EventConfig("customize_chrome_opened", Comparator(ANY, 0), 360, 360);
-    // Triggered when IPH has been shown less than twice this year.
-    config->trigger = EventConfig("iph_customize_chrome_refresh_triggered",
-                                  Comparator(LESS_THAN, 2), 360, 360);
-    config->snooze_params.max_limit = 4;
-    return config;
-  }
-
-  if (kIPHDesktopNewTabPageModulesCustomizeFeature.name == feature->name) {
-    std::optional<FeatureConfig> config = FeatureConfig();
-    config->valid = true;
-    config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(EQUAL, 0);
-    config->session_rate_impact.type = SessionRateImpact::Type::ALL;
-    // Show the promo max once every 10 years if the user hasn't interacted with
-    // the modules within the last year.
-    config->trigger = EventConfig("iph_desktop_new_tab_page_modules_triggered",
-                                  Comparator(EQUAL, 0), 3600, 3600);
-    config->used = EventConfig(events::kDesktopNTPModuleUsed,
-                               Comparator(EQUAL, 0), 360, 360);
-    config->snooze_params.max_limit = 5;
     return config;
   }
 
@@ -938,22 +877,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                     Comparator(LESS_THAN, 10), 7, 360));
     return config;
   }
-  if (kIPHAddToHomescreenMessageFeature.name == feature->name) {
-    // A config that allows the Add to homescreen message IPH to be shown:
-    // * Once per 15 days
-    // * Up to 2 times but only if unused in the last 15 days.
-    std::optional<FeatureConfig> config = FeatureConfig();
-    config->valid = true;
-    config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(EQUAL, 0);
-    config->trigger = EventConfig("add_to_homescreen_message_iph_trigger",
-                                  Comparator(LESS_THAN, 2), 90, 90);
-    config->used = EventConfig("add_to_homescreen_dialog_shown",
-                               Comparator(EQUAL, 0), 90, 90);
-    config->event_configs.insert(EventConfig(
-        "add_to_homescreen_message_iph_trigger", Comparator(EQUAL, 0), 15, 90));
-    return config;
-  }
 
   // A generic feature that always returns true.
   if (kIPHGenericAlwaysTriggerHelpUiFeature.name == feature->name) {
@@ -1130,6 +1053,11 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
   if (kIPHTabSwitcherButtonFeature.name == feature->name) {
+    // Adjusted to be less spammy for users that may know what the tab switcher
+    // is. Show after 14 days of Chrome being installed, once every 90 days,
+    // unless the user has used the tab switcher button in the last year.
+    // Hopefully a year will be long enough that infrequent users of a given
+    // Chrome channel should almost never see it.
     std::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(GREATER_THAN_OR_EQUAL, 14);
@@ -1137,6 +1065,19 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->trigger =
         EventConfig("tab_switcher_iph_triggered", Comparator(EQUAL, 0), 90, 90);
     config->used = EventConfig("tab_switcher_button_clicked",
+                               Comparator(EQUAL, 0), 360, 360);
+    config->snooze_params.snooze_interval = 7;
+    config->snooze_params.max_limit = 3;
+    return config;
+  }
+  if (kIPHTabSwitcherButtonSwitchIncognitoFeature.name == feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(LESS_THAN, 1);
+    config->trigger = EventConfig("tab_switcher_switch_incognito_iph_triggered",
+                                  Comparator(EQUAL, 0), 90, 90);
+    config->used = EventConfig("tab_switcher_button_long_clicked",
                                Comparator(EQUAL, 0), 14, 90);
     config->snooze_params.snooze_interval = 7;
     config->snooze_params.max_limit = 3;
@@ -1640,6 +1581,63 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
     return config;
   }
+
+  if (kIPHDefaultBrowserPromoMagicStackFeature.name == feature->name) {
+    // A config that allows the default browser promo Magic Stack to be shown:
+    // * Up to 3 times
+    // * Neither Magic Stack, Messages, nor the settings card has been triggered
+    // in the last 7 days.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->trigger =
+        EventConfig("default_browser_promo_magic_stack_trigger",
+                    Comparator(LESS_THAN, 3), k10YearsInDays, k10YearsInDays);
+    config->groups.push_back(kClankDefaultBrowserPromosGroup.name);
+
+    return config;
+  }
+
+  if (kIPHDefaultBrowserPromoMessagesFeature.name == feature->name) {
+    // A config that allows the default browser promo messages to be shown:
+    // * Up to 2 times
+    // * Neither Magic Stack, Messages, nor the settings card has been triggered
+    // in the last 7 days.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->trigger =
+        EventConfig("default_browser_promo_messages_trigger",
+                    Comparator(LESS_THAN, 2), k10YearsInDays, k10YearsInDays);
+    config->used = EventConfig("default_browser_promo_messages_used",
+                               Comparator(ANY, 0), 90, 90);
+    config->event_configs.insert(
+        EventConfig("default_browser_promo_messages_dismissed",
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays));
+    config->groups.push_back(kClankDefaultBrowserPromosGroup.name);
+    return config;
+  }
+
+  if (kIPHDefaultBrowserPromoSettingCardFeature.name == feature->name) {
+    // A config that allows the default browser promo setting card to be shown:
+    // * Up to 4 times
+    // * Neither Magic Stack, Messages, nor the settings card has been triggered
+    // in the last 7 days.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->trigger =
+        EventConfig("default_browser_promo_setting_card_trigger",
+                    Comparator(LESS_THAN, 4), k10YearsInDays, k10YearsInDays);
+    config->used = EventConfig("default_browser_promo_setting_card_used",
+                               Comparator(ANY, 0), 90, 90);
+    config->event_configs.insert(
+        EventConfig("default_browser_promo_setting_card_dismissed",
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays));
+    config->groups.push_back(kClankDefaultBrowserPromosGroup.name);
+
+    return config;
+  }
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -1794,6 +1792,33 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         // BUILDFLAG(IS_FUCHSIA)
 
 #if BUILDFLAG(IS_IOS)
+  if (kIPHiOSLensOverlayEntrypointTipFeature.name == feature->name) {
+    // A config that allows the Lens overlay IPH to be shown to users. This will
+    // be triggered a maximum of 2 times (once per week), and if the user has
+    // not used lens overlay.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+
+    constexpr char kLensOverlayFeatureTriggerEvent[] =
+        "lens_overlay_feature_trigger";
+
+    config->trigger =
+        EventConfig(kLensOverlayFeatureTriggerEvent, Comparator(LESS_THAN, 2),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+
+    config->event_configs.emplace(kLensOverlayFeatureTriggerEvent,
+                                  Comparator(EQUAL, 0), 7, 7);
+
+    config->used =
+        EventConfig(feature_engagement::events::kLensOverlayEntrypointUsed,
+                    Comparator(EQUAL, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+
+    return config;
+  }
   if (kIPHiOSContextualPanelPriceInsightsFeature.name == feature->name) {
     // The contextual panel's price insights entrypoint IPH config to control
     // the impressions of the IPH for this infoblock. Shows the IPH 3 times
@@ -1941,8 +1966,9 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->session_rate_impact.type = SessionRateImpact::Type::NONE;
     config->trigger = EventConfig("blue_dot_promo_overflow_menu_shown",
                                   Comparator(ANY, 0), 360, 360);
-    // Stop showing blue dot promo if settings was tapped at least 3 times.
-    config->used = EventConfig("blue_dot_promo_overflow_menu_dismissed",
+    // Stop showing blue dot promo if overflow menu opened while blue dot was
+    // showing at least 3 times.
+    config->used = EventConfig("blue_dot_promo_overflow_menu_opened",
                                Comparator(LESS_THAN, 3), 360, 360);
     // Stop showing blue dot promo if default browser settings was opened at
     // least once.
@@ -1966,9 +1992,14 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
     // Continue checking deprecated settings badge conditions to not show blue
     // dot at all if user would not have qualified for settings badge.
+    // TODO(crbug.com/362504599): Remove in July 2025.
     config->event_configs.insert(
         EventConfig("blue_dot_promo_settings_shown_new_session",
                     Comparator(LESS_THAN_OR_EQUAL, 2), 360, 360));
+    // TODO(crbug.com/362504058): Remove in Sept 2025.
+    config->event_configs.insert(
+        EventConfig("blue_dot_promo_overflow_menu_dismissed",
+                    Comparator(LESS_THAN, 3), 360, 360));
 
     config->blocked_by.type = BlockedBy::Type::NONE;
     config->blocking.type = Blocking::Type::NONE;

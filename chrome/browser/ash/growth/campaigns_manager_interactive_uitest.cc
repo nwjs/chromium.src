@@ -22,8 +22,8 @@
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/test/base/ash/interactive/interactive_ash_test.h"
-#include "chromeos/ash/components/growth/campaigns_constants.h"
 #include "chromeos/ash/components/growth/campaigns_manager.h"
+#include "chromeos/ash/components/growth/campaigns_utils.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/test/mock_tracker.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -153,6 +153,26 @@ base::FilePath GetCampaignsFilePath(const base::ScopedTempDir& dir) {
   return dir.GetPath().Append(kCampaignsFileName);
 }
 
+class TestCampaignsManagerObserver : public growth::CampaignsManager::Observer {
+ public:
+  // Spins a RunLoop until campaigns are loaded.
+  void wait() {
+    if (loaded_) {
+      return;
+    }
+    run_loop_.Run();
+  }
+
+  void OnCampaignsLoadCompleted() override {
+    loaded_ = true;
+    run_loop_.Quit();
+  }
+
+ private:
+  base::RunLoop run_loop_;
+  bool loaded_ = false;
+};
+
 }  // namespace
 
 // CampaignsManagerInteractiveUiTest -------------------------------------------
@@ -175,6 +195,13 @@ class CampaignsManagerInteractiveUiTest : public InteractiveAshTest {
                                      temp_dir_.GetPath().value());
 
     InteractiveAshTest::SetUpCommandLine(command_line);
+  }
+
+  void SetUpOnMainThread() override {
+    InteractiveAshTest::SetUpOnMainThread();
+    InteractiveAshTest::SetupContextWidget();
+
+    WaitForCampaignLoaded();
   }
 
   void TearDownOnMainThread() override {
@@ -215,6 +242,14 @@ class CampaignsManagerInteractiveUiTest : public InteractiveAshTest {
   }
 
  protected:
+  void WaitForCampaignLoaded() {
+    auto* campaigns_manager = growth::CampaignsManager::Get();
+    ASSERT_TRUE(campaigns_manager);
+    observer_ = std::make_unique<TestCampaignsManagerObserver>();
+    campaigns_manager->AddObserver(observer_.get());
+    observer_->wait();
+  }
+
   auto CheckHistogramCounts(const std::string& name,
                             int sample,
                             int expected_count) {
@@ -251,6 +286,7 @@ class CampaignsManagerInteractiveUiTest : public InteractiveAshTest {
   base::CallbackListSubscription create_services_subscription_;
   base::HistogramTester histogram_tester_;
   ui::ScopedAnimationDurationScaleMode animation_duration_;
+  std::unique_ptr<TestCampaignsManagerObserver> observer_;
   base::WeakPtrFactory<CampaignsManagerInteractiveUiTest> weak_ptr_factory_{
       this};
 };
@@ -261,8 +297,8 @@ IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
       "ChromeOSAshGrowthCampaigns_Campaign100_Impression";
   EXPECT_CALL(*GetMockTracker(), NotifyEvent(event_name)).Times(1);
 
-  growth::CampaignsManager::Get()->RecordEventForTargeting(
-      growth::CampaignEvent::kImpression, "100");
+  growth::CampaignsManager::Get()->RecordEvent(
+      GetEventName(growth::CampaignEvent::kImpression, "100"));
 }
 
 IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
@@ -271,8 +307,8 @@ IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
       "ChromeOSAshGrowthCampaigns_Campaign100_Dismissed";
   EXPECT_CALL(*GetMockTracker(), NotifyEvent(event_name)).Times(1);
 
-  growth::CampaignsManager::Get()->RecordEventForTargeting(
-      growth::CampaignEvent::kDismissed, "100");
+  growth::CampaignsManager::Get()->RecordEvent(
+      GetEventName(growth::CampaignEvent::kDismissed, "100"));
 }
 
 IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
@@ -281,8 +317,8 @@ IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
       "ChromeOSAshGrowthCampaigns_Group10_Impression";
   EXPECT_CALL(*GetMockTracker(), NotifyEvent(event_name)).Times(1);
 
-  growth::CampaignsManager::Get()->RecordEventForTargeting(
-      growth::CampaignEvent::kGroupImpression, "10");
+  growth::CampaignsManager::Get()->RecordEvent(
+      GetEventName(growth::CampaignEvent::kGroupImpression, "10"));
 }
 
 IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
@@ -290,8 +326,8 @@ IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
   const std::string event_name = "ChromeOSAshGrowthCampaigns_Group10_Dismissed";
   EXPECT_CALL(*GetMockTracker(), NotifyEvent(event_name)).Times(1);
 
-  growth::CampaignsManager::Get()->RecordEventForTargeting(
-      growth::CampaignEvent::kGroupDismissed, "10");
+  growth::CampaignsManager::Get()->RecordEvent(
+      GetEventName(growth::CampaignEvent::kGroupDismissed, "10"));
 }
 
 IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
@@ -300,8 +336,8 @@ IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest,
       "ChromeOSAshGrowthCampaigns_AppOpened_AppId_abcd";
   EXPECT_CALL(*GetMockTracker(), NotifyEvent(event_name)).Times(1);
 
-  growth::CampaignsManager::Get()->RecordEventForTargeting(
-      growth::CampaignEvent::kAppOpened, "abcd");
+  growth::CampaignsManager::Get()->RecordEvent(
+      GetEventName(growth::CampaignEvent::kAppOpened, "abcd"));
 }
 
 IN_PROC_BROWSER_TEST_F(CampaignsManagerInteractiveUiTest, ClearConfig) {
@@ -326,8 +362,7 @@ class CampaignsManagerInteractiveUiNudgeTest
   }
 
   void SetUpOnMainThread() override {
-    InProcessBrowserTest::SetUpOnMainThread();
-    InteractiveAshTest::SetupContextWidget();
+    CampaignsManagerInteractiveUiTest::SetUpOnMainThread();
 
     // Use SWA as targets and anchors in the tests.
     InstallSystemApps();
@@ -449,11 +484,6 @@ class CampaignsManagerInteractiveUiNotificationTest
  public:
   CampaignsManagerInteractiveUiNotificationTest() {
     base::WriteFile(GetCampaignsFilePath(temp_dir_), kCampaignsNotification);
-  }
-
-  void SetUpOnMainThread() override {
-    InProcessBrowserTest::SetUpOnMainThread();
-    InteractiveAshTest::SetupContextWidget();
   }
 
  protected:

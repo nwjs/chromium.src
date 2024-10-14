@@ -516,6 +516,12 @@ void CheckClientDownloadRequestBase::OnURLLoaderComplete(
   }
   base::UmaHistogramSparse("SBClientDownload.DownloadRequestNetError",
                            -loader_->NetError());
+
+  if (!access_token_.empty()) {
+    MaybeLogCookieReset(*loader_,
+                        SafeBrowsingAuthenticatedEndpoint::kDownloadProtection);
+  }
+
   DownloadCheckResultReason reason = REASON_SERVER_PING_FAILED;
   DownloadCheckResult result = DownloadCheckResult::UNKNOWN;
   std::string token;
@@ -589,9 +595,9 @@ void CheckClientDownloadRequestBase::OnURLLoaderComplete(
     }
 
     bool upload_requested = response.upload();
-    MaybeStorePingsForDownload(result, upload_requested,
-                               client_download_request_data_,
-                               *response_body.get());
+    MaybeBeginFeedbackForDownload(result, upload_requested,
+                                  client_download_request_data_,
+                                  *response_body.get());
   }
 
   // We don't need the loader anymore.

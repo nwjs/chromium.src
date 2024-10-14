@@ -5,7 +5,10 @@
 #import "ios/chrome/browser/safety_check_notifications/utils/utils.h"
 
 #import "base/strings/sys_string_conversions.h"
+#import "base/time/time.h"
 #import "ios/chrome/browser/safety_check_notifications/utils/constants.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
@@ -96,14 +99,50 @@ UNNotificationContent* NotificationContent(NSString* title,
   return content;
 }
 
+// Returns the time duration of user inactivity required before Safety Check
+// notifications are triggered. This duration can be modified through
+// Experimental settings or Finch. If no override is set, a default value is
+// used.
+double InactiveThresholdForNotifications() {
+  std::optional<int> forced_threshold = experimental_flags::
+      GetForcedInactivityThresholdForSafetyCheckNotifications();
+
+  if (!forced_threshold.has_value()) {
+    return InactiveThresholdForSafetyCheckNotifications().InSecondsF();
+  }
+
+  return static_cast<double>(forced_threshold.value());
+}
+
 }  // namespace
+
+UNNotificationRequest* PasswordNotificationRequest(
+    PasswordSafetyCheckState state,
+    password_manager::InsecurePasswordCounts insecure_password_counts) {
+  UNNotificationContent* content =
+      NotificationForPasswordCheckState(state, insecure_password_counts);
+
+  if (!content) {
+    return nil;
+  }
+
+  // TODO(crbug.com/362475364): Enable Password notification trigger
+  // to be configurable via Finch to allow for better testing and
+  // experimentation.
+  return [UNNotificationRequest
+      requestWithIdentifier:kSafetyCheckPasswordNotificationID
+                    content:content
+                    trigger:[UNTimeIntervalNotificationTrigger
+                                triggerWithTimeInterval:
+                                    InactiveThresholdForNotifications()
+                                                repeats:NO]];
+}
 
 UNNotificationContent* NotificationForPasswordCheckState(
     PasswordSafetyCheckState state,
     password_manager::InsecurePasswordCounts insecure_password_counts) {
-  if (state == PasswordSafetyCheckState::kUnmutedCompromisedPasswords) {
-    CHECK_GT(insecure_password_counts.compromised_count, 0);
-
+  if (state == PasswordSafetyCheckState::kUnmutedCompromisedPasswords &&
+      insecure_password_counts.compromised_count > 0) {
     return NotificationContent(
         l10n_util::GetNSString(
             IDS_IOS_SAFETY_CHECK_NOTIFICATIONS_CHANGE_PASSWORDS),
@@ -113,9 +152,8 @@ UNNotificationContent* NotificationForPasswordCheckState(
         UserInfoForPasswordNotification(state, insecure_password_counts));
   }
 
-  if (state == PasswordSafetyCheckState::kReusedPasswords) {
-    CHECK_GT(insecure_password_counts.reused_count, 0);
-
+  if (state == PasswordSafetyCheckState::kReusedPasswords &&
+      insecure_password_counts.reused_count > 0) {
     return NotificationContent(
         l10n_util::GetNSString(
             IDS_IOS_SAFETY_CHECK_NOTIFICATIONS_CHANGE_PASSWORDS),
@@ -125,9 +163,8 @@ UNNotificationContent* NotificationForPasswordCheckState(
         UserInfoForPasswordNotification(state, insecure_password_counts));
   }
 
-  if (state == PasswordSafetyCheckState::kWeakPasswords) {
-    CHECK_GT(insecure_password_counts.weak_count, 0);
-
+  if (state == PasswordSafetyCheckState::kWeakPasswords &&
+      insecure_password_counts.weak_count > 0) {
     return NotificationContent(
         l10n_util::GetNSString(
             IDS_IOS_SAFETY_CHECK_NOTIFICATIONS_CHANGE_PASSWORDS),
@@ -138,6 +175,26 @@ UNNotificationContent* NotificationForPasswordCheckState(
   }
 
   return nil;
+}
+
+UNNotificationRequest* UpdateChromeNotificationRequest(
+    UpdateChromeSafetyCheckState state) {
+  UNNotificationContent* content = NotificationForUpdateChromeCheckState(state);
+
+  if (!content) {
+    return nil;
+  }
+
+  // TODO(crbug.com/362475364): Enable Update Chrome notification trigger
+  // to be configurable via Finch to allow for better testing and
+  // experimentation.
+  return [UNNotificationRequest
+      requestWithIdentifier:kSafetyCheckUpdateChromeNotificationID
+                    content:content
+                    trigger:[UNTimeIntervalNotificationTrigger
+                                triggerWithTimeInterval:
+                                    InactiveThresholdForNotifications()
+                                                repeats:NO]];
 }
 
 UNNotificationContent* NotificationForUpdateChromeCheckState(
@@ -153,6 +210,26 @@ UNNotificationContent* NotificationForUpdateChromeCheckState(
   return nil;
 }
 
+UNNotificationRequest* SafeBrowsingNotificationRequest(
+    SafeBrowsingSafetyCheckState state) {
+  UNNotificationContent* content = NotificationForSafeBrowsingCheckState(state);
+
+  if (!content) {
+    return nil;
+  }
+
+  // TODO(crbug.com/362475364): Enable Safe Browsing notification trigger
+  // to be configurable via Finch to allow for better testing and
+  // experimentation.
+  return [UNNotificationRequest
+      requestWithIdentifier:kSafetyCheckSafeBrowsingNotificationID
+                    content:content
+                    trigger:[UNTimeIntervalNotificationTrigger
+                                triggerWithTimeInterval:
+                                    InactiveThresholdForNotifications()
+                                                repeats:NO]];
+}
+
 UNNotificationContent* NotificationForSafeBrowsingCheckState(
     SafeBrowsingSafetyCheckState state) {
   if (state == SafeBrowsingSafetyCheckState::kUnsafe) {
@@ -165,4 +242,23 @@ UNNotificationContent* NotificationForSafeBrowsingCheckState(
   }
 
   return nil;
+}
+
+std::optional<SafetyCheckNotificationType> ParseSafetyCheckNotificationType(
+    UNNotificationRequest* request) {
+  if ([request.identifier
+          isEqualToString:kSafetyCheckUpdateChromeNotificationID]) {
+    return SafetyCheckNotificationType::kUpdateChrome;
+  }
+
+  if ([request.identifier isEqualToString:kSafetyCheckPasswordNotificationID]) {
+    return SafetyCheckNotificationType::kPasswords;
+  }
+
+  if ([request.identifier
+          isEqualToString:kSafetyCheckSafeBrowsingNotificationID]) {
+    return SafetyCheckNotificationType::kSafeBrowsing;
+  }
+
+  return std::nullopt;
 }

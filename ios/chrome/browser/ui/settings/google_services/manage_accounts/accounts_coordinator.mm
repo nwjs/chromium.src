@@ -6,16 +6,19 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/metrics/user_metrics.h"
+#import "components/signin/public/base/signin_metrics.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/service/sync_service.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
@@ -25,7 +28,7 @@
 #import "ios/chrome/browser/signin/model/system_identity_manager.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/ui/authentication/authentication_ui_util.h"
-#import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
+#import "ios/chrome/browser/ui/authentication/signout_action_sheet/signout_action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/scoped_ui_blocker/scoped_ui_blocker.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/accounts_mediator.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/accounts_mediator_delegate.h"
@@ -36,8 +39,12 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
+using signin_metrics::AccessPoint;
+using signin_metrics::PromoAction;
+
 @interface AccountsCoordinator () <AccountsMediatorDelegate,
-                                   SettingsNavigationControllerDelegate>
+                                   SettingsNavigationControllerDelegate,
+                                   SignoutActionSheetCoordinatorDelegate>
 @end
 
 @implementation AccountsCoordinator {
@@ -58,6 +65,9 @@
 
   // Coordinator to display modal alerts to the user.
   AlertCoordinator* _errorAlertCoordinator;
+
+  // Modal alert for sign out.
+  SignoutActionSheetCoordinator* _signoutCoordinator;
 }
 
 @synthesize baseNavigationController = _baseNavigationController;
@@ -83,8 +93,8 @@
   DCHECK(browser);
   DCHECK(!browser->GetBrowserState()->IsOffTheRecord());
 
-  if (self = [super initWithBaseViewController:navigationController
-                                       browser:browser]) {
+  if ((self = [super initWithBaseViewController:navigationController
+                                        browser:browser])) {
     _closeSettingsOnAddAccount = closeSettingsOnAddAccount;
     _baseNavigationController = navigationController;
   }
@@ -102,18 +112,14 @@
                                 GetForBrowserState(browserState)
                 authService:AuthenticationServiceFactory::GetForBrowserState(
                                 browserState)
-            identityManager:IdentityManagerFactory::GetForBrowserState(
+            identityManager:IdentityManagerFactory::GetForProfile(
                                 browserState)];
 
   if (base::FeatureList::IsEnabled(kIdentityDiscAccountMenu) &&
       !syncService->HasSyncConsent()) {
     AccountsTableViewController* viewController =
         [[AccountsTableViewController alloc]
-            initWithCloseSettingsOnAddAccount:_closeSettingsOnAddAccount
-                   applicationCommandsHandler:HandlerForProtocol(
-                                                  self.browser
-                                                      ->GetCommandDispatcher(),
-                                                  ApplicationCommands)];
+            initWithOfferSignout:self.showSignoutButton];
     _viewController = viewController;
     _mediator.consumer = viewController;
     _mediator.delegate = self;
@@ -165,6 +171,8 @@
   if (accountsTableViewController) {
     accountsTableViewController.mutator = nil;
   }
+  [_signoutCoordinator stop];
+  _signoutCoordinator = nil;
   _viewController.modelIdentityDataSource = nil;
   _viewController = nil;
   _mediator.consumer = nil;
@@ -179,13 +187,31 @@
   if ([_viewController respondsToSelector:@selector(settingsWillBeDismissed)]) {
     [_viewController performSelector:@selector(settingsWillBeDismissed)];
   }
-  [_viewController.navigationController dismissViewControllerAnimated:YES
-                                                           completion:nil];
+  if (_closeSettingsOnAddAccount) {
+    [base::apple::ObjCCastStrict<SettingsNavigationController>(
+        _viewController.navigationController)
+        popViewControllerOrCloseSettingsAnimated:YES];
+  } else {
+    [_viewController.navigationController dismissViewControllerAnimated:YES
+                                                             completion:nil];
+  }
   [self stop];
 }
 
 - (void)settingsWasDismissed {
   [self stop];
+}
+
+#pragma mark - SignoutActionSheetCoordinatorDelegate
+
+- (void)signoutActionSheetCoordinatorPreventUserInteraction:
+    (SignoutActionSheetCoordinator*)coordinator {
+  [_viewController preventUserInteraction];
+}
+
+- (void)signoutActionSheetCoordinatorAllowUserInteraction:
+    (SignoutActionSheetCoordinator*)coordinator {
+  [_viewController allowUserInteraction];
 }
 
 #pragma mark - AccountsMediatorDelegate
@@ -207,17 +233,57 @@
   [_confirmRemoveIdentityAlertCoordinator
       addItemWithTitle:l10n_util::GetNSString(IDS_IOS_REMOVE_ACCOUNT_LABEL)
                 action:^{
+                  base::RecordAction(base::UserMetricsAction(
+                      "Signin_AccountsTableView_AccountDetail_RemoveAccount_"
+                      "Confirmed"));
                   [weakSelf removeAccountDialogConfirmedWithIdentity:identity];
                 }
                  style:UIAlertActionStyleDestructive];
   [_confirmRemoveIdentityAlertCoordinator
       addItemWithTitle:l10n_util::GetNSString(IDS_CANCEL)
                 action:^() {
+                  base::RecordAction(base::UserMetricsAction(
+                      "Signin_AccountsTableView_AccountDetail_RemoveAccount_"
+                      "ConfirmationCancelled"));
                   [weakSelf handleAlertCoordinatorCancel];
                 }
                  style:UIAlertActionStyleCancel];
 
   [_confirmRemoveIdentityAlertCoordinator start];
+}
+
+- (void)showAddAccountToDevice {
+  [_viewController preventUserInteraction];
+  __weak __typeof(self) weakSelf = self;
+  ShowSigninCommand* command = [[ShowSigninCommand alloc]
+      initWithOperation:AuthenticationOperation::kAddAccount
+               identity:nil
+            accessPoint:AccessPoint::ACCESS_POINT_SETTINGS
+            promoAction:PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO
+               callback:^(SigninCoordinatorResult result,
+                          SigninCompletionInfo* completionInfo) {
+                 [weakSelf addAccountToDeviceCompleted];
+               }];
+  [HandlerForProtocol(self.browser->GetCommandDispatcher(), ApplicationCommands)
+              showSignin:command
+      baseViewController:_viewController];
+}
+
+- (void)signOutWithItemView:(UIView*)itemView {
+  DCHECK(!_signoutCoordinator);
+  _signoutCoordinator = [[SignoutActionSheetCoordinator alloc]
+      initWithBaseViewController:_viewController
+                         browser:self.browser
+                            rect:itemView.bounds
+                            view:itemView
+                      withSource:signin_metrics::ProfileSignout::
+                                     kUserClickedSignoutSettings];
+  __weak __typeof(self) weakSelf = self;
+  _signoutCoordinator.completion = ^(BOOL success) {
+    [weakSelf handleSignOutCompleted:success];
+  };
+  _signoutCoordinator.delegate = self;
+  [_signoutCoordinator start];
 }
 
 #pragma mark - Private
@@ -252,6 +318,14 @@
 - (void)forgetIdentityDone {
   _UIBlocker.reset();
   [_viewController allowUserInteraction];
+  ProfileIOS* profile = self.browser->GetProfile();
+  if (!AuthenticationServiceFactory::GetForProfile(profile)->HasPrimaryIdentity(
+          signin::ConsentLevel::kSignin)) {
+    // If there is no signed-in account after identity removal, then the primary
+    // identity was removed, and there is no signed-in account at this stage.
+    [self closeSettings];
+    return;
+  }
 }
 
 - (void)forgetIdentityFailedWithError:(NSError*)error {
@@ -280,6 +354,25 @@
   DCHECK(_confirmRemoveIdentityAlertCoordinator);
   [_confirmRemoveIdentityAlertCoordinator stop];
   _confirmRemoveIdentityAlertCoordinator = nil;
+}
+
+- (void)addAccountToDeviceCompleted {
+  [_viewController allowUserInteraction];
+  if (_closeSettingsOnAddAccount) {
+    [self closeSettings];
+  }
+}
+
+- (void)handleSignOutCompleted:(BOOL)success {
+  [_signoutCoordinator stop];
+  _signoutCoordinator = nil;
+  if (!success) {
+    return;
+  }
+  ChromeBrowserState* browserState = self.browser->GetBrowserState();
+  CHECK(!AuthenticationServiceFactory::GetForBrowserState(browserState)
+             ->HasPrimaryIdentity(signin::ConsentLevel::kSignin));
+  [self closeSettings];
 }
 
 @end

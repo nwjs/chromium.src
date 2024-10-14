@@ -28,8 +28,10 @@ class RuleMetaData {
  public:
   RuleMetaData();
   RuleMetaData(const RuleMetaData& other);
-
+  RuleMetaData(RuleMetaData&& other);
   RuleMetaData& operator=(const RuleMetaData& other);
+  RuleMetaData& operator=(RuleMetaData&& other);
+
   bool operator==(const RuleMetaData& other) const;
 
   base::Time last_modified() const { return last_modified_; }
@@ -86,7 +88,7 @@ class RuleMetaData {
   // Returns whether the Rule is expired. Expiration is handled by
   // HostContentSettingsMap automatically, clients do not have to check this
   // attribute manually.
-  bool IsExpired(base::Clock* clock) const;
+  bool IsExpired(const base::Clock* clock) const;
 
   // Computes the setting's lifetime, based on the lifetime and expiration that
   // were read from persistent storage.

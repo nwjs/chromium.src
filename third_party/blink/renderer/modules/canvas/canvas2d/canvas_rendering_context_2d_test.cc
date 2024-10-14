@@ -35,6 +35,8 @@
 #include "cc/paint/paint_image.h"
 #include "cc/paint/paint_op.h"
 #include "cc/test/paint_op_matchers.h"
+#include "components/viz/common/resources/release_callback.h"
+#include "components/viz/common/resources/transferable_resource.h"
 #include "components/viz/test/test_context_provider.h"
 #include "components/viz/test/test_gles2_interface.h"
 #include "gpu/command_buffer/client/test_shared_image_interface.h"
@@ -185,6 +187,12 @@ namespace blink {
 
 enum BitmapOpacity { kOpaqueBitmap, kTransparentBitmap };
 
+class AcceleratedCompositingTestPlatform
+    : public blink::TestingPlatformSupport {
+ public:
+  bool IsGpuCompositingDisabled() const override { return false; }
+};
+
 class FakeImageSource : public CanvasImageSource {
  public:
   FakeImageSource(gfx::Size, BitmapOpacity);
@@ -246,6 +254,9 @@ class CanvasRenderingContext2DTest : public ::testing::Test,
   }
 
   HTMLCanvasElement& CanvasElement() const { return *canvas_element_; }
+  cc::PaintCanvas& Canvas() {
+    return CanvasElement().ResourceProvider()->Canvas();
+  }
   CanvasRenderingContext2D* Context2D() const {
     return static_cast<CanvasRenderingContext2D*>(
         CanvasElement().RenderingContext());
@@ -440,11 +451,11 @@ class FakeCanvasResourceProvider : public CanvasResourceProvider {
   FakeCanvasResourceProvider(const SkImageInfo& info,
                              RasterModeHint hint,
                              CanvasResourceHost* resource_host)
-      : CanvasResourceProvider(CanvasResourceProvider::kBitmap,
+      : CanvasResourceProvider(CanvasResourceProvider::kSharedImage,
                                info,
                                cc::PaintFlags::FilterQuality::kLow,
                                /*is_origin_top_left=*/false,
-                               /*context_provider_wrapper=*/nullptr,
+                               SharedGpuContext::ContextProviderWrapper(),
                                /*resource_dispatcher=*/nullptr,
                                resource_host),
         is_accelerated_(hint != RasterModeHint::kPreferCPU) {
@@ -457,9 +468,14 @@ class FakeCanvasResourceProvider : public CanvasResourceProvider {
   ~FakeCanvasResourceProvider() override = default;
   bool IsAccelerated() const override { return is_accelerated_; }
   scoped_refptr<CanvasResource> ProduceCanvasResource(FlushReason) override {
-    return scoped_refptr<CanvasResource>();
+    return scoped_refptr<CanvasResource>(CanvasResourceSharedImage::Create(
+        GetSkImageInfo(), SharedGpuContext::ContextProviderWrapper(),
+        CreateWeakPtr(), cc::PaintFlags::FilterQuality::kLow,
+        /*is_origin_top_left=*/true, IsAccelerated(),
+        gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
+            gpu::SHARED_IMAGE_USAGE_RASTER_WRITE));
   }
-  bool SupportsDirectCompositing() const override { return false; }
+  bool SupportsDirectCompositing() const override { return true; }
   bool IsValid() const override { return true; }
   sk_sp<SkSurface> CreateSkSurface() const override {
     return SkSurfaces::Raster(GetSkImageInfo());
@@ -502,6 +518,62 @@ template <typename... Args>
 testing::Matcher<base::HistogramTester> OverdrawOpAre(Args... args) {
   return OverdrawOpAreMatcher(
       std::unordered_set<BaseRenderingContext2D::OverdrawOp>{args...});
+}
+
+TEST_P(CanvasRenderingContext2DTest,
+       PrepareMailboxWhenContextIsLostWithFailedRestore) {
+  // Gpu compositing must be supported for this test to be able to create
+  // a CanvasResourceSharedBitmap instance.
+  ScopedTestingPlatformSupport<AcceleratedCompositingTestPlatform>
+      accelerated_compositing_scope;
+
+  CreateContext(kNonOpaque);
+
+  // Do initial setup to ensure that CanvasResourceHost will check for the GPU
+  // context being lost as part of checking resource validity:
+
+  // * Install a CanvasResourceProvider that is accelerated and supports direct
+  //   compositing. The former is necessary to ensure that
+  //   CanvasResourceHost::IsResourceValid() checks for context loss, while the
+  //   latter is necessary for GetOrCreateCcLayerIfNeeded() to succeed.
+  gfx::Size size = CanvasElement().Size();
+  auto provider = std::make_unique<FakeCanvasResourceProvider>(
+      SkImageInfo::MakeN32Premul(size.width(), size.height()),
+      RasterModeHint::kPreferGPU, &CanvasElement());
+  CanvasElement().SetResourceProviderForTesting(
+      std::move(provider), std::make_unique<Canvas2DLayerBridge>(), size);
+
+  // * The host must also be in GPU compositing mode for IsResourceValid()
+  //   to check for context loss.
+  CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
+
+  // * Finally, IsResourceValid() always returns true in the absence of a CC
+  //   layer.
+  EXPECT_TRUE(CanvasElement().GetOrCreateCcLayerIfNeeded());
+
+  // The resource should start off valid.
+  EXPECT_TRUE(CanvasElement().IsResourceValid());
+
+  viz::TransferableResource resource;
+  viz::ReleaseCallback release_callback;
+  EXPECT_TRUE(CanvasElement().PrepareTransferableResource(nullptr, &resource,
+                                                          &release_callback));
+
+  // Losing the context should result in the resource becoming invalid and the
+  // host being unable to produce a TransferableResource from it.
+  test_context_provider_->TestContextGL()->set_context_lost(true);
+  EXPECT_FALSE(CanvasElement().IsResourceValid());
+  EXPECT_FALSE(CanvasElement().PrepareTransferableResource(nullptr, &resource,
+                                                           &release_callback));
+
+  // Restoration of the context should fail because
+  // Platform::createSharedOffscreenGraphicsContext3DProvider() is stubbed in
+  // unit tests. This simulates what would happen when attempting to restore
+  // while the GPU process is down.
+  Context2D()->TryRestoreContextEvent(/*timer=*/nullptr);
+  EXPECT_FALSE(CanvasElement().IsResourceValid());
+  EXPECT_FALSE(CanvasElement().PrepareTransferableResource(nullptr, &resource,
+                                                           &release_callback));
 }
 
 TEST_P(CanvasRenderingContext2DTest, FillRect_FullCoverage) {
@@ -2015,6 +2087,45 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, DrawImage_Video_Flush) {
   // There should not be any Recorded ops at this point.
   EXPECT_FALSE(
       CanvasElement().ResourceProvider()->Recorder().HasRecordedDrawOps());
+}
+
+TEST_P(CanvasRenderingContext2DTest, FlushRestoresClipStack) {
+  CreateContext(kNonOpaque);
+
+  // Ensure that the ResourceProvider and canvas are created.
+  CanvasElement().GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferCPU);
+
+  // Set a transform.
+  Context2D()->translate(5, 0);
+  EXPECT_EQ(Canvas().getLocalToDevice().rc(0, 3), 5);
+
+  // Draw something so that there is something to flush.
+  cc::PaintFlags flags;
+  Canvas().drawLine(0, 0, 2, 2, flags);
+
+  // Flush the canvas and verify that a new drawing canvas is created that has
+  // the transform restored.
+  EXPECT_TRUE(Context2D()->FlushCanvas(FlushReason::kTesting));
+  EXPECT_EQ(Canvas().getLocalToDevice().rc(0, 3), 5);
+}
+
+TEST_P(CanvasRenderingContext2DTest, PutImageDataRestoresClipStack) {
+  CreateContext(kNonOpaque);
+
+  // Ensure that the ResourceProvider and canvas are created.
+  CanvasElement().GetOrCreateCanvasResourceProvider(RasterModeHint::kPreferCPU);
+
+  // Set a transform.
+  Context2D()->translate(5, 0);
+  EXPECT_EQ(Canvas().getLocalToDevice().rc(0, 3), 5);
+
+  // Invoke putImageData(). This forces a flush, after which the transform
+  // should be restored.
+  NonThrowableExceptionState exception_state;
+  Context2D()->fillRect(3, 3, 1, 1);
+  Context2D()->putImageData(full_image_data_.Get(), 0, 0, exception_state);
+
+  EXPECT_EQ(Canvas().getLocalToDevice().rc(0, 3), 5);
 }
 
 TEST_P(CanvasRenderingContext2DTestAccelerated,

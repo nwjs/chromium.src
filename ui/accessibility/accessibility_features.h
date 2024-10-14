@@ -101,10 +101,6 @@ AX_BASE_EXPORT bool IsTextBasedAudioDescriptionEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUseAXPositionForDocumentMarkers);
 AX_BASE_EXPORT bool IsUseAXPositionForDocumentMarkersEnabled();
 
-// Performs a move over a copy of snapshot tree data in AXTreeCombiner.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUseMoveNotCopyInAXTreeCombiner);
-AX_BASE_EXPORT bool IsUseMoveNotCopyInAXTreeCombinerEnabled();
-
 // Performs a move over a copy of merge tree update.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUseMoveNotCopyInMergeTreeUpdate);
 AX_BASE_EXPORT bool IsUseMoveNotCopyInMergeTreeUpdateEnabled();
@@ -194,13 +190,17 @@ AX_BASE_EXPORT bool IsAccessibilityShakeToLocateEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMagnifyAcceleratorDialog);
 AX_BASE_EXPORT bool IsAccessibilityMagnifyAcceleratorDialogEnabled();
 
-// Controls whether the Select to Speak keyboard shortcut is enabled.
+// Controls whether the disable trackpad feature is enabled.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityDisableTrackpad);
 AX_BASE_EXPORT bool IsAccessibilityDisableTrackpadEnabled();
 
 // Controls whether the flash screen for notifications feature is available.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFlashScreenFeature);
 AX_BASE_EXPORT bool IsAccessibilityFlashScreenFeatureEnabled();
+
+// Controls whether the filter keys features are available.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFilterKeys);
+AX_BASE_EXPORT bool IsAccessibilityFilterKeysEnabled();
 
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 

@@ -34,9 +34,11 @@
 #include "components/variations/service/google_groups_manager_prefs.h"
 #include "ui/events/ash/pref_names.h"
 #endif
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "extensions/browser/pref_names.h"  // nogncheck
+#endif
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "components/supervised_user/core/common/pref_names.h"
-#include "extensions/browser/pref_names.h"  // nogncheck
 #endif
 
 namespace browser_sync {
@@ -358,6 +360,9 @@ enum {
   kAccessibilityFlashNotificationsEnabled = 100298,
   kAccessibilityFlashNotificationsColor = 100299,
   kPinnedChromeLabsMigrationComplete = 100300,
+  kAccessibilityFaceGazeGesturesToKeyCombos = 100301,
+  kFocusModeYTMDisplayOAuthConsent = 100302,
+  kFocusModeYTMDisplayFreeTrial = 100303,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -531,7 +536,7 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
 #endif  // BUILDFLAG(IS_ANDROID)
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
     {extensions::pref_names::kPinnedExtensions,
      {syncable_prefs_ids::kPinnedExtensions, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
@@ -745,6 +750,14 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kFocusModeSoundSection,
      {syncable_prefs_ids::kFocusModeSoundSection, syncer::OS_PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kFocusModeYTMDisplayOAuthConsent,
+     {syncable_prefs_ids::kFocusModeYTMDisplayOAuthConsent,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kFocusModeYTMDisplayFreeTrial,
+     {syncable_prefs_ids::kFocusModeYTMDisplayFreeTrial, syncer::OS_PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kKeyboardDefaultChromeOSSettings,
@@ -1145,6 +1158,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityFaceGazeCursorUseAcceleration,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilityFaceGazeGesturesToKeyCombos,
+     {syncable_prefs_ids::kAccessibilityFaceGazeGesturesToKeyCombos,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kMergeableDict}},
     {ash::prefs::kAccessibilityFaceGazeGesturesToMacros,
      {syncable_prefs_ids::kAccessibilityFaceGazeGesturesToMacros,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,

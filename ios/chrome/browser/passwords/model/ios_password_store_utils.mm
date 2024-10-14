@@ -18,7 +18,7 @@
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_reuse_manager_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_password_manager_settings_service_factory.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 
 namespace password_manager {
@@ -54,7 +54,7 @@ class StoreMetricReporterHelper : public base::SupportsUserData::Data {
             browser_state_, ServiceAccessType::EXPLICIT_ACCESS)
             .get();
     syncer::SyncService* sync_service =
-        SyncServiceFactory::GetForBrowserStateIfExists(browser_state_);
+        SyncServiceFactory::GetForProfileIfExists(browser_state_);
     password_manager::PasswordReuseManager* password_reuse_manager =
         IOSChromePasswordReuseManagerFactory::GetForBrowserState(
             browser_state_);

@@ -195,7 +195,6 @@ class PLATFORM_EXPORT WidgetBase
       cc::ActiveFrameSequenceTrackers trackers) override;
   std::unique_ptr<cc::BeginMainFrameMetrics> GetBeginMainFrameMetrics()
       override;
-  std::unique_ptr<cc::WebVitalMetrics> GetWebVitalMetrics() override;
   void BeginUpdateLayers() override;
   void EndUpdateLayers() override;
   void UpdateVisualState() override;
@@ -210,8 +209,6 @@ class PLATFORM_EXPORT WidgetBase
   cc::AnimationTimeline* ScrollAnimationTimeline() const;
   cc::LayerTreeHost* LayerTreeHost() const;
   scheduler::WidgetScheduler* WidgetScheduler();
-
-  mojom::blink::WidgetHost* GetWidgetHostRemote() { return widget_host_.get(); }
 
   // Returns if we should gather begin main frame metrics. If there is no
   // compositor thread this returns false.
@@ -264,7 +261,6 @@ class PLATFORM_EXPORT WidgetBase
       std::unique_ptr<blink::WebCoalescedInputEvent> event);
   void SetEditCommandsForNextKeyEvent(
       Vector<mojom::blink::EditCommandPtr> edit_commands);
-  void SetMouseCapture(bool capture);
   void ImeSetComposition(const String& text,
                          const Vector<ui::ImeTextSpan>& ime_text_spans,
                          const gfx::Range& replacement_range,
@@ -293,7 +289,7 @@ class PLATFORM_EXPORT WidgetBase
 
   LCDTextPreference ComputeLCDTextPreference() const;
 
-  const viz::LocalSurfaceId& local_surface_id_from_parent() {
+  const viz::LocalSurfaceId& local_surface_id_from_parent() const {
     return local_surface_id_from_parent_;
   }
 
@@ -389,12 +385,7 @@ class PLATFORM_EXPORT WidgetBase
   const display::ScreenInfo& GetScreenInfo();
 
   // Accessors for information about available screens and the current screen.
-  void set_screen_infos(const display::ScreenInfos& s) { screen_infos_ = s; }
   const display::ScreenInfos& screen_infos() const { return screen_infos_; }
-
-  const viz::LocalSurfaceId& local_surface_id_from_parent() const {
-    return local_surface_id_from_parent_;
-  }
 
   bool is_embedded() const { return is_embedded_; }
 

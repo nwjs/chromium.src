@@ -1286,8 +1286,7 @@ TEST_F(DataTypeWorkerTest, ReceiveDecryptableEntities) {
 
 // Test the receipt of decryptable entities, and that the worker will keep the
 // entities until the decryption key arrives.
-TEST_F(DataTypeWorkerTest,
-       ReceiveDecryptableEntitiesShouldWaitTillKeyArrives) {
+TEST_F(DataTypeWorkerTest, ReceiveDecryptableEntitiesShouldWaitTillKeyArrives) {
   NormalInitialize();
 
   // This next update will be encrypted using the second key.
@@ -1490,63 +1489,6 @@ TEST_F(DataTypeWorkerTest, DecryptUpdateIfPossibleDespiteEncryptionDisabled) {
   EXPECT_FALSE(worker()->BlockForEncryption());
   EXPECT_EQ(1u, processor()->GetNumUpdateResponses());
   EXPECT_EQ(1u, processor()->GetNthUpdateResponse(0).size());
-}
-
-TEST_F(DataTypeWorkerTest, TimeUntilEncryptionKeyFoundMetric) {
-  base::HistogramTester histogram_tester;
-  NormalInitialize();
-  int get_updates_while_should_have_been_known = 0;
-
-  // Send a GetUpdatesResponse containing data encrypted with an unknown key.
-  // The cryptographer doesn't have pending keys, so in theory this key should
-  // have been known by now. This will cause
-  // |get_updates_while_should_have_been_known| to be incremented by the end
-  // of this GetUpdates cycle.
-  SetUpdateEncryptionFilter(1);
-  TriggerPartialUpdateFromServer(10, kTag1, kValue1);
-
-  // The fact that the data type is now blocked should have been recorded.
-  histogram_tester.ExpectUniqueSample(
-      "Sync.DataTypeBlockedDueToUndecryptableUpdate",
-      DataTypeForHistograms::kPreferences, 1);
-
-  // Send empty GetUpdatesResponse. The counter shouldn't change.
-  TriggerEmptyUpdateFromServer();
-
-  // Finish the GetUpdates cycle. The counter should be set to 1.
-  get_updates_while_should_have_been_known++;
-
-  // An empty GetUpdates cycle. The counter should be set to 2.
-  TriggerEmptyUpdateFromServer();
-  get_updates_while_should_have_been_known++;
-
-  // Send the Nigori containing the missing key. The key isn't available yet
-  // though.
-  AddPendingKey();
-
-  // Another empty GetUpdates cycle. This one shouldn't be counted, since the
-  // cryptographer now knows it's lacking some keys.
-  TriggerEmptyUpdateFromServer();
-
-  // Double check the histogram hasn't been recorded so far.
-  EXPECT_TRUE(
-      histogram_tester.GetAllSamples("Sync.DataTypeTimeUntilEncryptionKeyFound")
-          .empty());
-  EXPECT_TRUE(
-      histogram_tester
-          .GetAllSamples("Sync.DataTypeTimeUntilEncryptionKeyFound.PREFERENCE")
-          .empty());
-
-  // Make the key available. The correct number of GetUpdates cycles should
-  // have been recorded.
-  DecryptPendingKey();
-  ASSERT_EQ(2, get_updates_while_should_have_been_known);
-  histogram_tester.ExpectUniqueSample(
-      "Sync.DataTypeTimeUntilEncryptionKeyFound",
-      get_updates_while_should_have_been_known, 1);
-  histogram_tester.ExpectUniqueSample(
-      "Sync.DataTypeTimeUntilEncryptionKeyFound.PREFERENCE",
-      get_updates_while_should_have_been_known, 1);
 }
 
 TEST_F(DataTypeWorkerTest, IgnoreUpdatesEncryptedWithKeysMissingForTooLong) {
@@ -3094,7 +3036,7 @@ class DataTypeWorkerIncomingPasswordSharingInvitationTest
  public:
   DataTypeWorkerIncomingPasswordSharingInvitationTest()
       : DataTypeWorkerTest(INCOMING_PASSWORD_SHARING_INVITATION,
-                            /*is_encrypted_type=*/false) {}
+                           /*is_encrypted_type=*/false) {}
 };
 
 TEST_F(DataTypeWorkerIncomingPasswordSharingInvitationTest,
@@ -3280,8 +3222,9 @@ TEST_F(DataTypeWorkerAckTrackingTest, OverflowAndRecover) {
     invalidation_ids.push_back(SendInvalidation(i + 10, "hint"));
   }
 
-  for (int id : invalidation_ids)
+  for (int id : invalidation_ids) {
     EXPECT_TRUE(IsInvalidationUnacknowledged(id));
+  }
 
   // This invalidation, though arriving the most recently, has the oldest
   // version number so it should be dropped first.
@@ -3299,8 +3242,9 @@ TEST_F(DataTypeWorkerAckTrackingTest, OverflowAndRecover) {
   // This should recover from the drop and bring us back into sync.
   worker()->ApplyUpdates(status_controller(), /*cycle_done=*/true);
 
-  for (int id : invalidation_ids)
+  for (int id : invalidation_ids) {
     EXPECT_TRUE(IsInvalidationAcknowledged(id));
+  }
 
   EXPECT_TRUE(IsInvalidationAcknowledged(inv100_id));
 
@@ -3530,7 +3474,7 @@ class DataTypeWorkerSharedTabGroupDataTest : public DataTypeWorkerTest {
  protected:
   DataTypeWorkerSharedTabGroupDataTest()
       : DataTypeWorkerTest(SHARED_TAB_GROUP_DATA,
-                            /*is_encrypted_type=*/false) {
+                           /*is_encrypted_type=*/false) {
     CHECK(SharedTypes().Has(SHARED_TAB_GROUP_DATA));
   }
 };

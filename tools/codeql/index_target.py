@@ -54,11 +54,12 @@ def index_one_target(target_name,
                      codeql_binary_path,
                      out_path,
                      logger,
-                     gn_path=None,
-                     logfile=None):
+                     ninja_path='ninja',
+                     gn_path='gn',
+                     logfile=None,
+                     reduce_cores_used=False):
   try:
-    process_stdout = subprocess.check_output(
-        [args.gn_path, 'clean', args.out_path])
+    process_stdout = subprocess.check_output([gn_path, 'clean', out_path])
     log_subprocess_output(process_stdout)
   except subprocess.CalledProcessError as e:
     print("Failed to clean build directory between targets")
@@ -79,11 +80,15 @@ def index_one_target(target_name,
     exit(1)
 
   print("Tracing compilation.")
+  trace_command = [
+      codeql_binary_path, 'database', 'trace-command', db_path,
+      f'--working-dir={src_path}', '--', ninja_path, '-C', out_path, target_name
+  ]
+  if reduce_cores_used:
+    usable_cpu_count = int(multiprocessing.cpu_count() / 2)
+    trace_command.extend(['-j', str(usable_cpu_count)])
   try:
-    process_stdout = subprocess.check_output([
-        codeql_binary_path, 'database', 'trace-command', db_path,
-        f'--working-dir={src_path}', '--', 'ninja', '-C', out_path, target_name
-    ])
+    process_stdout = subprocess.check_output(trace_command)
     log_subprocess_output(process_stdout)
   except subprocess.CalledProcessError as e:
     print("CodeQL trace-process failed with return code %s" % e.returncode)
@@ -159,6 +164,17 @@ def main():
       default='gn',
       help=('Path to the gn executable. If this is not set, the script assumes '
             'it is located at `gn` somehwere in the user\'s PATH.'))
+  parser.add_argument(
+      '--ninja_path',
+      type=str,
+      default='ninja',
+      help=('Path to the ninja executable. If this is not set, the script '
+            'assumes it is located at `ninja` somehwere in the user\'s PATH.'))
+  parser.add_argument(
+      '--reduce_cores_used',
+      default=False,
+      action='store_true',
+      help=('If set, reduces the number of cores used when building a target.'))
   args = parser.parse_args()
 
   if (args.logfile):
@@ -177,7 +193,8 @@ def main():
     actual_targets_to_index = args.gn_targets
   for target in actual_targets_to_index:
     index_one_target(target, src_path, args.db_path, args.codeql_binary_path,
-                     args.out_path, logger, args.gn_path, args.logfile)
+                     args.out_path, logger, args.ninja_path, args.gn_path,
+                     args.logfile, args.reduce_cores_used)
 
 if __name__ == '__main__':
   main()

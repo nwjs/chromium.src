@@ -93,6 +93,19 @@ BASE_FEATURE(kSavedTabGroupNotifyOnInteractionTimeChanged,
              "SavedTabGroupNotifyOnInteractionTimeChanged",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Feature flag to determine whether an alternate illustration should be used on
+// the history sync consent screen. This feature should be used independent of
+// any other features in this file.
+BASE_FEATURE(kUseAlternateHistorySyncIllustration,
+             "UseAlternateHistorySyncIllustration",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Force remove all closed tab groups from the sync local DB on startup if this
+// feature flag is enabled.
+BASE_FEATURE(kForceRemoveClosedTabGroupsOnStartup,
+             "ForceRemoveClosedTabGroupsOnStartup",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsTabGroupsSaveV2Enabled() {
   return base::FeatureList::IsEnabled(kTabGroupsSaveV2);
 }
@@ -123,6 +136,10 @@ bool RestrictDownloadOnSyncedTabs() {
 
 bool DeferMediaLoadInBackgroundTab() {
   return base::FeatureList::IsEnabled(kDeferMediaLoadInBackgroundTab);
+}
+
+bool ShouldForceRemoveClosedTabGroupsOnStartup() {
+  return base::FeatureList::IsEnabled(kForceRemoveClosedTabGroupsOnStartup);
 }
 
 }  // namespace tab_groups

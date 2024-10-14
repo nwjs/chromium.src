@@ -9,18 +9,22 @@
 #include <iterator>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "components/attribution_reporting/aggregatable_filtering_id_max_bytes.h"
 #include "components/attribution_reporting/aggregatable_trigger_config.h"
 #include "components/attribution_reporting/aggregation_keys.h"
+#include "components/attribution_reporting/attribution_scopes_data.h"
 #include "components/attribution_reporting/constants.h"
 #include "components/attribution_reporting/event_report_windows.h"
 #include "components/attribution_reporting/filters.h"
@@ -32,8 +36,10 @@
 #include "components/attribution_reporting/trigger_data_matching.mojom.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
 #include "content/browser/attribution_reporting/attribution_reporting.pb.h"
+#include "content/browser/attribution_reporting/stored_source.h"
 #include "sql/statement.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
+#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -142,7 +148,7 @@ DeserializeCommonAggregatableData(
 
 }  // namespace
 
-url::Origin DeserializeOrigin(const std::string& origin) {
+url::Origin DeserializeOrigin(std::string_view origin) {
   return url::Origin::Create(GURL(origin));
 }
 
@@ -507,6 +513,48 @@ std::optional<TriggerSpecs> DeserializeTriggerSpecs(
                                                                    uint8_t{0});
                                            }),
       std::move(specs), max_event_level_reports);
+}
+
+std::string SerializeAttributionScopesData(
+    const attribution_reporting::AttributionScopesData& scopes_data) {
+  proto::AttributionScopesData msg;
+  const auto& scopes = scopes_data.attribution_scopes_set().scopes();
+
+  msg.mutable_scopes()->Add(scopes.begin(), scopes.end());
+  msg.set_scope_limit(scopes_data.attribution_scope_limit());
+  msg.set_max_event_states(scopes_data.max_event_states());
+
+  return msg.SerializeAsString();
+}
+
+base::expected<std::optional<attribution_reporting::AttributionScopesData>,
+               absl::monostate>
+DeserializeAttributionScopesData(sql::Statement& stmt, int col) {
+  proto::AttributionScopesData msg;
+  if (stmt.GetColumnType(col) == sql::ColumnType::kNull) {
+    return std::nullopt;
+  }
+
+  if (base::span<const uint8_t> blob = stmt.ColumnBlob(col);
+      !msg.ParseFromArray(blob.data(), blob.size())) {
+    return base::unexpected(absl::monostate());
+  }
+
+  base::flat_set<std::string> scopes(
+      std::make_move_iterator(msg.scopes().begin()),
+      std::make_move_iterator(msg.scopes().end()));
+  auto scopes_data = attribution_reporting::AttributionScopesData::Create(
+      attribution_reporting::AttributionScopesSet(std::move(scopes)),
+      msg.scope_limit(), msg.max_event_states());
+  if (!scopes_data.has_value()) {
+    // DB entry is corrupted.
+    return base::unexpected(absl::monostate());
+  }
+  return scopes_data;
+}
+
+void DeduplicateSourceIds(std::vector<StoredSource::Id>& ids) {
+  ids = base::flat_set<StoredSource::Id>(std::move(ids)).extract();
 }
 
 }  // namespace content

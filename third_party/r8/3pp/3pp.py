@@ -89,12 +89,15 @@ def _install(version, output_prefix):
 
     # Shrink (improves r8/d8 launch time):
     # Needs the -D flag to avoid compilation error, see http://b/311202383.
-    java_home = common.path_within_checkout('third_party/jdk/current')
+    # TODO(b/361625094): Use third_party/jdk/current after the Java
+    # cross-reference pipeline has been updated to JDK 21.
+    java_home = common.path_within_checkout('third_party/jdk11/current')
     common.run_cmd(
         shlex.split(f"""
         {java_home}/bin/java
             -Dcom.android.tools.r8.enableKeepAnnotations=1
-            -jar build/libs/r8.jar
+            -cp build/libs/r8.jar
+            com.android.tools.r8.R8
             --debug
             --classfile
             --no-minification
@@ -117,7 +120,9 @@ def main():
     def do_install(args):
         _install(args.version, args.output_prefix)
 
-    common.main(do_latest=do_latest, do_install=do_install, runtime_deps=['//third_party/jdk/current'])
+    # TODO(b/361625094): Use third_party/jdk/current after the Java
+    # cross-reference pipeline has been updated to JDK 21.
+    common.main(do_latest=do_latest, do_install=do_install, runtime_deps=['//third_party/jdk11/current'])
 
 
 if __name__ == '__main__':

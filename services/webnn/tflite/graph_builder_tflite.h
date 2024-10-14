@@ -21,7 +21,7 @@
 #include "services/webnn/public/mojom/webnn_context_provider.mojom-forward.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom-forward.h"
 #include "third_party/flatbuffers/src/include/flatbuffers/flatbuffers.h"
-#include "third_party/tflite/src/tensorflow/lite/schema/schema_generated.h"
+#include "third_party/tflite/src/tensorflow/compiler/mlir/lite/schema/schema_generated.h"
 
 namespace webnn::tflite {
 
@@ -335,6 +335,8 @@ class GraphBuilderTflite final {
 
   // A helper function for serializing WebNN gru and lstm operations.
   template <typename RecurrentNetworkType>
+    requires(std::is_same_v<RecurrentNetworkType, mojom::Gru> ||
+             std::is_same_v<RecurrentNetworkType, mojom::Lstm>)
   base::expected<OperatorOffset, std::string> SerializeRecurrentNetwork(
       const RecurrentNetworkType& recurrent_network);
 

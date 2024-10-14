@@ -231,6 +231,7 @@ cc_library(
         "//mediapipe/framework:android_no_jni": ["resource_util_loonix.cc"],
         "//mediapipe:ios": ["resource_util_apple.cc"],
         "//mediapipe:macos": ["resource_util_default.cc"],
+        "//mediapipe:emscripten": ["resource_util_emscripten.cc"],
         "//mediapipe:windows": ["resource_util_windows.cc"],
     }),
     hdrs = [
@@ -255,7 +256,10 @@ cc_library(
         "//mediapipe/framework/port:singleton",
         "//mediapipe/framework/port:status",
         "//mediapipe/framework/port:statusor",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
     ] + select({
@@ -268,6 +272,7 @@ cc_library(
         ],
         "//mediapipe/framework:android_no_jni": [],
         "//mediapipe:ios": [],
+        "//mediapipe:emscripten": [],
         "//mediapipe:macos": [
             "@com_google_absl//absl/flags:flag",
         ],
@@ -345,7 +350,7 @@ cc_library(
 
 cc_library(
     name = "time_series_test_util",
-    testonly = 1,
+    testonly = True,
     hdrs = ["time_series_test_util.h"],
     visibility = ["//visibility:public"],
     deps = [
@@ -381,7 +386,7 @@ cc_test(
 
 cc_library(
     name = "packet_test_util",
-    testonly = 1,
+    testonly = True,
     hdrs = ["packet_test_util.h"],
     visibility = ["//visibility:public"],
     deps = [
@@ -431,7 +436,7 @@ cc_test(
 
 cc_library(
     name = "image_test_utils",
-    testonly = 1,
+    testonly = True,
     srcs = ["image_test_utils.cc"],
     hdrs = ["image_test_utils.h"],
     visibility = ["//visibility:public"],
@@ -472,5 +477,26 @@ cc_test(
         "//mediapipe/framework:calculator_cc_proto",
         "//mediapipe/framework/port:gtest",
         "//mediapipe/framework/port:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "str_util",
+    srcs = ["str_util.cc"],
+    hdrs = ["str_util.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_absl//absl/functional:any_invocable",
+        "@com_google_absl//absl/strings:string_view",
+    ],
+)
+
+cc_test(
+    name = "str_util_test",
+    srcs = ["str_util_test.cc"],
+    deps = [
+        ":str_util",
+        "//mediapipe/framework/port:gtest_main",
+        "@com_google_absl//absl/strings:string_view",
     ],
 )

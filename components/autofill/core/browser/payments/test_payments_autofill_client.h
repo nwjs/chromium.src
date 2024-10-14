@@ -23,9 +23,18 @@
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 
+#if !BUILDFLAG(IS_IOS)
+namespace webauthn {
+class InternalAuthenticator;
+}
+#endif  // !BUILDFLAG(IS_IOS)
+
 namespace autofill {
 
 class AutofillClient;
+#if !BUILDFLAG(IS_IOS)
+class AutofillDriver;
+#endif  // !BUILDFLAG(IS_IOS)
 class CreditCardCvcAuthenticator;
 class CreditCardOtpAuthenticator;
 class MerchantPromoCodeManager;
@@ -106,6 +115,10 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
       base::WeakPtr<TouchToFillDelegate> delegate,
       base::span<const autofill::CreditCard> cards_to_suggest,
       base::span<const Suggestion> suggestions) override;
+#if !BUILDFLAG(IS_IOS)
+  std::unique_ptr<webauthn::InternalAuthenticator>
+  CreateCreditCardInternalAuthenticator(AutofillDriver* driver) override;
+#endif
   MockMandatoryReauthManager* GetOrCreatePaymentsMandatoryReauthManager()
       override;
 
@@ -139,6 +152,8 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   bool offer_to_save_iban_bubble_was_shown() const {
     return offer_to_save_iban_bubble_was_shown_;
   }
+
+  bool risk_data_loaded() const { return risk_data_loaded_; }
 
   bool ConfirmUploadIbanToCloudWasCalled() const {
     return confirm_upload_iban_to_cloud_called_ &&
@@ -197,6 +212,9 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   // Populated if IBAN save was offered. True if bubble was shown, false
   // otherwise.
   bool offer_to_save_iban_bubble_was_shown_ = false;
+
+  // True if LoadRiskData() was called, false otherwise.
+  bool risk_data_loaded_ = false;
 
   LegalMessageLines legal_message_lines_;
 

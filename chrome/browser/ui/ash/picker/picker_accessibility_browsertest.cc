@@ -10,8 +10,8 @@
 #include "ash/picker/views/mock_picker_search_results_view_delegate.h"
 #include "ash/picker/views/picker_emoji_bar_view.h"
 #include "ash/picker/views/picker_emoji_item_view.h"
-#include "ash/picker/views/picker_emoticon_item_view.h"
 #include "ash/picker/views/picker_feature_tour.h"
+#include "ash/picker/views/picker_image_item_view.h"
 #include "ash/picker/views/picker_item_with_submenu_view.h"
 #include "ash/picker/views/picker_key_event_handler.h"
 #include "ash/picker/views/picker_list_item_view.h"
@@ -22,7 +22,6 @@
 #include "ash/picker/views/picker_search_results_view.h"
 #include "ash/picker/views/picker_section_list_view.h"
 #include "ash/picker/views/picker_section_view.h"
-#include "ash/picker/views/picker_symbol_item_view.h"
 #include "ash/picker/views/picker_view_delegate.h"
 #include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/shell.h"
@@ -49,6 +48,7 @@
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/image_button.h"
+#include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/view.h"
@@ -355,9 +355,9 @@ IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
           /*delegate=*/nullptr, /*picker_width=*/1000,
           /*is_gifs_enabled=*/true));
   view->SetSearchResults({
-      ash::PickerSearchResult::Emoji(u"😊", u"happy"),
-      ash::PickerSearchResult::Symbol(u"♬", u"music"),
-      ash::PickerSearchResult::Emoticon(u"(°□°)", u"surprise"),
+      ash::PickerEmojiResult::Emoji(u"😊", u"happy"),
+      ash::PickerEmojiResult::Symbol(u"♬", u"music"),
+      ash::PickerEmojiResult::Emoticon(u"(°□°)", u"surprise"),
   });
 
   sm_.Call([view]() { view->GetItemsForTesting()[0]->RequestFocus(); });
@@ -558,6 +558,134 @@ IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
+                       ImageRowItemAnnouncesTitle) {
+  std::unique_ptr<views::Widget> widget =
+      ash::TestWidgetBuilder()
+          .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
+          .BuildClientOwnsWidget();
+  auto* view =
+      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+          /*section_width=*/100, /*asset_fetcher=*/nullptr,
+          /*submenu_controller=*/nullptr));
+  ash::PickerSectionView* section = view->AddSection();
+  section->AddTitleLabel(u"Section1");
+  section->SetImageRowProperties(u"Image Row", base::DoNothing(),
+                                 u"More Items");
+  ash::PickerImageItemView* item =
+      section->AddImageRowItem(std::make_unique<ash::PickerImageItemView>(
+          std::make_unique<views::ImageView>(
+              ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
+          u"title1", base::DoNothing()));
+  item->SetAction(ash::PickerActionType::kInsert);
+  section->AddImageRowItem(std::make_unique<ash::PickerImageItemView>(
+      std::make_unique<views::ImageView>(
+          ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
+      u"title2", base::DoNothing()));
+
+  sm_.Call([item]() { item->RequestFocus(); });
+
+  sm_.ExpectSpeechPattern("Insert title1");
+  sm_.ExpectSpeechPattern("Button");
+  sm_.ExpectSpeechPattern("row 1 column 1");
+  sm_.ExpectSpeechPattern("Table Image Row, 1 by 3");
+  sm_.ExpectSpeechPattern("Press * to activate");
+  sm_.Replay();
+}
+
+IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
+                       ImageRowMoreItemsButtonAnnouncesTooltip) {
+  std::unique_ptr<views::Widget> widget =
+      ash::TestWidgetBuilder()
+          .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
+          .BuildClientOwnsWidget();
+  auto* view =
+      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+          /*section_width=*/100, /*asset_fetcher=*/nullptr,
+          /*submenu_controller=*/nullptr));
+  ash::PickerSectionView* section = view->AddSection();
+  section->AddTitleLabel(u"Section1");
+  section->SetImageRowProperties(u"Image Row", base::DoNothing(),
+                                 u"More Items");
+  section->AddImageRowItem(std::make_unique<ash::PickerImageItemView>(
+      std::make_unique<views::ImageView>(
+          ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
+      u"title", base::DoNothing()));
+
+  sm_.Call([section]() {
+    section->GetImageRowMoreItemsButtonForTesting()->RequestFocus();
+  });
+
+  sm_.ExpectSpeechPattern("More Items");
+  sm_.ExpectSpeechPattern("Button");
+  sm_.ExpectSpeechPattern("row 1 column 2");
+  sm_.ExpectSpeechPattern("Table Image Row, 1 by 2");
+  sm_.ExpectSpeechPattern("Press * to activate");
+  sm_.Replay();
+}
+
+IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
+                       ImageGridItemAnnouncesTitle) {
+  std::unique_ptr<views::Widget> widget =
+      ash::TestWidgetBuilder()
+          .SetWidgetType(views::Widget::InitParams::TYPE_WINDOW_FRAMELESS)
+          .BuildClientOwnsWidget();
+  auto* view =
+      widget->SetContentsView(std::make_unique<ash::PickerSectionListView>(
+          /*section_width=*/100, /*asset_fetcher=*/nullptr,
+          /*submenu_controller=*/nullptr));
+  ash::PickerSectionView* section = view->AddSection();
+  section->AddTitleLabel(u"Section1");
+  ash::PickerImageItemView* item1 =
+      section->AddImageGridItem(std::make_unique<ash::PickerImageItemView>(
+          std::make_unique<views::ImageView>(
+              ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
+          u"title1", base::DoNothing()));
+  item1->SetAction(ash::PickerActionType::kInsert);
+
+  ash::PickerImageItemView* item2 =
+      section->AddImageGridItem(std::make_unique<ash::PickerImageItemView>(
+          std::make_unique<views::ImageView>(
+              ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
+          u"title2", base::DoNothing()));
+  item2->SetAction(ash::PickerActionType::kOpen);
+
+  ash::PickerImageItemView* item3 =
+      section->AddImageGridItem(std::make_unique<ash::PickerImageItemView>(
+          std::make_unique<views::ImageView>(
+              ui::ImageModel::FromImage(gfx::test::CreateImage(1))),
+          u"title3", base::DoNothing()));
+
+  sm_.Call([item1]() { item1->RequestFocus(); });
+
+  sm_.ExpectSpeechPattern("Insert title1");
+  sm_.ExpectSpeechPattern("Button");
+  sm_.ExpectSpeechPattern("List item");
+  sm_.ExpectSpeechPattern("1 of 3");
+  sm_.ExpectSpeechPattern("Press * to activate");
+
+  sm_.Call([item2]() { item2->RequestFocus(); });
+
+  // TODO: b/362129770 - item2 should not have "List end".
+  sm_.ExpectSpeechPattern("Open title2");
+  sm_.ExpectSpeechPattern("Button");
+  sm_.ExpectSpeechPattern("List item");
+  sm_.ExpectSpeechPattern("2 of 3");
+  sm_.ExpectSpeechPattern("List end");
+  sm_.ExpectSpeechPattern("Press * to activate");
+
+  sm_.Call([item3]() { item3->RequestFocus(); });
+
+  // TODO: b/362129770 - item3 should have "List end".
+  sm_.ExpectSpeechPattern("title3");
+  sm_.ExpectSpeechPattern("Button");
+  sm_.ExpectSpeechPattern("List item");
+  sm_.ExpectSpeechPattern("3 of 3");
+  sm_.ExpectSpeechPattern("Press * to activate");
+
+  sm_.Replay();
+}
+
+IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
                        FocusingItemInSectionListViewAnnouncesSizeAndPosition) {
   std::unique_ptr<views::Widget> widget =
       ash::TestWidgetBuilder()
@@ -636,7 +764,7 @@ IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
   auto* view =
       widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
           /*delegate=*/nullptr, /*picker_width=*/1000));
-  view->SetSearchResults({ash::PickerSearchResult::Emoji(u"😊", u"happy")});
+  view->SetSearchResults({ash::PickerEmojiResult::Emoji(u"😊", u"happy")});
 
   sm_.Call([view]() { view->GetItemsForTesting().front()->RequestFocus(); });
 
@@ -655,7 +783,7 @@ IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
   auto* view =
       widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
           /*delegate=*/nullptr, /*picker_width=*/1000));
-  view->SetSearchResults({ash::PickerSearchResult::Symbol(u"♬", u"music")});
+  view->SetSearchResults({ash::PickerEmojiResult::Symbol(u"♬", u"music")});
 
   sm_.Call([view]() { view->GetItemsForTesting().front()->RequestFocus(); });
 
@@ -675,7 +803,7 @@ IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
       widget->SetContentsView(std::make_unique<ash::PickerEmojiBarView>(
           /*delegate=*/nullptr, /*picker_width=*/1000));
   view->SetSearchResults(
-      {ash::PickerSearchResult::Emoticon(u"(°□°)", u"surprise")});
+      {ash::PickerEmojiResult::Emoticon(u"(°□°)", u"surprise")});
 
   sm_.Call([view]() { view->GetItemsForTesting().front()->RequestFocus(); });
 
@@ -765,7 +893,7 @@ IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
   sm_.Call([&controller]() {
     controller.ToggleWidget();
     controller.CloseWidgetThenInsertResultOnNextFocus(
-        ash::PickerSearchResult::Text(u"abc"));
+        ash::PickerTextResult(u"abc"));
   });
 
   sm_.ExpectSpeechPattern("Picker");

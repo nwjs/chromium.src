@@ -25,7 +25,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kUseGles2ForOopR);
 // alongside the definition of their values in the .cc file.
 #if BUILDFLAG(IS_ANDROID)
 GPU_EXPORT BASE_DECLARE_FEATURE(kAndroidSurfaceControl);
-GPU_EXPORT BASE_DECLARE_FEATURE(kEnableGpuMemoryBufferImplAHB);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControl);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControlForTV);
 GPU_EXPORT BASE_DECLARE_FEATURE(kAImageReader);
@@ -45,10 +44,7 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kEnableMSAAOnNewIntelGPUs);
 GPU_EXPORT BASE_DECLARE_FEATURE(kDawnSIRepsUseClientProvidedInternalUsages);
 
 #if BUILDFLAG(IS_WIN)
-GPU_EXPORT BASE_DECLARE_FEATURE(kDisableVideoOverlayIfMoving);
-
 GPU_EXPORT BASE_DECLARE_FEATURE(kNoUndamagedOverlayPromotion);
-
 #endif
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
@@ -81,8 +77,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kNoDiscardableMemoryForGpuDecodePath);
 GPU_EXPORT BASE_DECLARE_FEATURE(kEnableDrDc);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kPruneOldTransferCacheEntries);
-
-GPU_EXPORT BASE_DECLARE_FEATURE(kUseGpuSchedulerDfs);
 
 #if BUILDFLAG(IS_ANDROID)
 // This flag is use additionally with kEnableDrDc to enable the feature for
@@ -124,8 +118,6 @@ GPU_EXPORT bool IncreaseBufferCountForHighFrameRate();
 GPU_EXPORT bool IncreaseBufferCountForWebViewOverlays();
 #endif
 
-// Don't directly check this flag. Instead, please call
-// IsSyncPointGraphValidationEnabled().
 GPU_EXPORT BASE_DECLARE_FEATURE(kSyncPointGraphValidation);
 
 GPU_EXPORT bool IsSyncPointGraphValidationEnabled();

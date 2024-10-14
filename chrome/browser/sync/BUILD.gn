@@ -13,6 +13,8 @@ source_set("sync") {
     "account_bookmark_sync_service_factory.h",
     "chrome_sync_client.cc",
     "chrome_sync_client.h",
+    "chrome_sync_controller_builder.cc",
+    "chrome_sync_controller_builder.h",
     "data_type_store_service_factory.cc",
     "data_type_store_service_factory.h",
     "device_info_sync_client_impl.cc",
@@ -57,7 +59,6 @@ source_set("sync") {
     "//components/keyed_service/core",
     "//components/prefs",
     "//components/sessions:session_id",
-    "//components/sharing_message",
     "//components/sync/model",
     "//components/sync/service",
     "//components/sync_device_info",
@@ -104,8 +105,8 @@ source_set("sync") {
     "//components/privacy_sandbox:tracking_protection_prefs",
     "//components/saved_tab_groups:core",
     "//components/saved_tab_groups:model",
-    "//components/search_engines",
     "//components/send_tab_to_self",
+    "//components/sharing_message",
     "//components/spellcheck:buildflags",
     "//components/spellcheck/browser",
     "//components/strings:components_strings_grit",
@@ -152,6 +153,10 @@ source_set("sync") {
       "sessions/browser_list_router_helper.h",
       "sync_ui_util.cc",
       "sync_ui_util.h",
+    ]
+    public_deps += [
+      "//chrome/browser/ui:browser_list",
+      "//chrome/browser/ui/tabs:tab_strip_model_observer",
     ]
     deps += [
       "//chrome/browser/themes",

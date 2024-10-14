@@ -13,7 +13,7 @@
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
 
 namespace {
@@ -42,10 +42,9 @@ id<FormSuggestionProvider> AutofillTabHelper::GetSuggestionProvider() {
 }
 
 AutofillTabHelper::AutofillTabHelper(web::WebState* web_state)
-    : browser_state_(
-          ChromeBrowserState::FromBrowserState(web_state->GetBrowserState())),
+    : profile_(ProfileIOS::FromBrowserState(web_state->GetBrowserState())),
       autofill_agent_([[AutofillAgent alloc]
-          initWithPrefService:browser_state_->GetPrefs()
+          initWithPrefService:profile_->GetPrefs()
                      webState:web_state]),
       web_state_(web_state) {
   web_state->AddObserver(this);
@@ -54,7 +53,7 @@ AutofillTabHelper::AutofillTabHelper(web::WebState* web_state)
       InfoBarManagerImpl::FromWebState(web_state);
   DCHECK(infobar_manager);
   autofill_client_ = std::make_unique<autofill::ChromeAutofillClientIOS>(
-      browser_state_, web_state, infobar_manager, autofill_agent_);
+      profile_, web_state, infobar_manager, autofill_agent_);
 
   autofill::AutofillDriverIOSFactory::CreateForWebState(
       web_state, autofill_client_.get(), autofill_agent_,

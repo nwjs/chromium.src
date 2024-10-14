@@ -20,7 +20,6 @@ static_library("app_mode") {
     "//ash/public/cpp",
     "//base",
     "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ui/webui/ash/login",
   ]
 
   deps = [
@@ -28,10 +27,8 @@ static_library("app_mode") {
     "//ash/constants",
     "//chrome/browser:browser_process",
     "//chrome/browser/ash/app_mode/web_app",
-    "//chrome/browser/ash/crosapi",
     "//chrome/browser/ash/crosapi:browser_util",
     "//chrome/browser/ash/login",
-    "//chrome/browser/ash/login/ui",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/ash/keyboard",
@@ -74,7 +71,6 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//chrome/browser",
     "//chrome/browser:browser_process",
-    "//chrome/browser/ash",
     "//chrome/browser/ash/app_mode:test_support",
     "//chrome/browser/ash/app_mode/web_app",
     "//chrome/browser/ash/crosapi",

@@ -314,7 +314,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   const base::UnguessableToken& GetDevToolsFrameToken() const {
     return devtools_frame_token_;
   }
-  const std::string& GetFrameIdForTracing();
+  const String& GetFrameIdForTracing();
 
   void SetEmbeddingToken(const base::UnguessableToken& embedding_token);
   const std::optional<base::UnguessableToken>& GetEmbeddingToken() const {
@@ -578,7 +578,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   bool is_loading_;
   // Contains token to be used as a frame id in the devtools protocol.
   base::UnguessableToken devtools_frame_token_;
-  std::optional<std::string> trace_value_;
+  std::optional<String> trace_value_;
 
   // Embedding token, if existing, associated to this frame. For local frames
   // this will only be valid if the frame has committed a navigation and will
@@ -649,8 +649,8 @@ DEFINE_COMPARISON_OPERATORS_WITH_REFERENCES(Frame)
 //
 // TRACE_EVENT1("category", "event_name", "frame",
 // GetFrameIdForTracing(GetFrame()));
-static inline std::string GetFrameIdForTracing(Frame* frame) {
-  return frame ? frame->GetFrameIdForTracing() : std::string();
+static inline const String& GetFrameIdForTracing(Frame* frame) {
+  return frame ? frame->GetFrameIdForTracing() : g_empty_string;
 }
 
 }  // namespace blink

@@ -16,7 +16,6 @@
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/debug/stack_trace.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -499,13 +498,23 @@ bool DisplayManager::InitFromCommandLine() {
   if (!command_line->HasSwitch(::switches::kHostWindowBounds)) {
     return false;
   }
-  const std::string size_str =
+  const std::string specs =
       command_line->GetSwitchValueASCII(::switches::kHostWindowBounds);
+
+  // If the origin is not specified, put the host window next to the previous.
+  int next_x = 0;
   for (const std::string& part : base::SplitString(
-           size_str, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL)) {
+           specs, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL)) {
     info_list.push_back(ManagedDisplayInfo::CreateFromSpec(part));
     info_list.back().set_native(true);
     info_list.back().set_from_native_platform(true);
+    auto bounds_in_native = info_list.back().bounds_in_native();
+    if (bounds_in_native.origin().IsOrigin()) {
+      gfx::Rect bounds(bounds_in_native.size());
+      bounds.set_x(next_x);
+      info_list.back().SetBounds(bounds);
+    }
+    next_x = bounds_in_native.right();
   }
   MaybeInitInternalDisplay(&info_list[0]);
   OnNativeDisplaysChanged(info_list);
@@ -1119,10 +1128,6 @@ void DisplayManager::UpdateDisplays() {
 
 void DisplayManager::UpdateDisplaysWith(
     const DisplayInfoList& updated_display_info_list) {
-  // Catch and report any nested display updates for crbug.com/330166338.
-  if (is_updating_displays_) {
-    base::debug::DumpWithoutCrashing();
-  }
   base::AutoReset<bool> is_updating_displays_resetter(&is_updating_displays_,
                                                       true);
 

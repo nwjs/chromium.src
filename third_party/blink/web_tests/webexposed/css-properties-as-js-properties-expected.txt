@@ -286,7 +286,9 @@ maskPosition
 maskRepeat
 maskSize
 maskType
+masonrySlack
 masonryTemplateTracks
+masonryTrack
 masonryTrackEnd
 masonryTrackStart
 mathDepth
@@ -482,6 +484,8 @@ textTransform
 textUnderlineOffset
 textUnderlinePosition
 textWrap
+textWrapMode
+textWrapStyle
 timelineScope
 top
 touchAction

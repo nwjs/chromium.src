@@ -10,7 +10,7 @@
 #import "components/prefs/pref_service_factory.h"
 #import "components/signin/core/browser/account_investigator.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 
 namespace ios {
@@ -23,9 +23,15 @@ AccountInvestigatorFactory* AccountInvestigatorFactory::GetInstance() {
 
 // static
 AccountInvestigator* AccountInvestigatorFactory::GetForBrowserState(
-    ChromeBrowserState* browser_state) {
+    ProfileIOS* profile) {
+  return GetForProfile(profile);
+}
+
+// static
+AccountInvestigator* AccountInvestigatorFactory::GetForProfile(
+    ProfileIOS* profile) {
   return static_cast<AccountInvestigator*>(
-      GetInstance()->GetServiceForBrowserState(browser_state, true));
+      GetInstance()->GetServiceForBrowserState(profile, true));
 }
 
 AccountInvestigatorFactory::AccountInvestigatorFactory()
@@ -45,7 +51,7 @@ AccountInvestigatorFactory::BuildServiceInstanceFor(
   std::unique_ptr<AccountInvestigator> investigator =
       std::make_unique<AccountInvestigator>(
           chrome_browser_state->GetPrefs(),
-          IdentityManagerFactory::GetForBrowserState(chrome_browser_state));
+          IdentityManagerFactory::GetForProfile(chrome_browser_state));
   investigator->Initialize();
   return std::move(investigator);
 }

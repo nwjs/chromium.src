@@ -88,8 +88,6 @@ class CONTENT_EXPORT BackForwardTransitionAnimationManagerAndroid
   void ReadyToCommitNavigation(NavigationHandle* navigation_handle) override;
   void DidFinishNavigation(NavigationHandle* navigation_handle) override;
 
-  SkBitmap MaybeCopyContentAreaAsBitmapSync();
-
   // This is called before the `old_host` is swapped out and before the
   // `new_host` is swapped in.
   //
@@ -121,6 +119,14 @@ class CONTENT_EXPORT BackForwardTransitionAnimationManagerAndroid
   // current animation.
   void OnAnimationStageChanged();
 
+  // Called upon ignoring an input event.
+  void MaybeRecordIgnoredInput(const blink::WebInputEvent& event);
+
+  // Called from the animator when a stable screenshot is not dismissed. This
+  // can happen to a very busy renderer when it couldn't submit a new frame
+  // after the navigation.
+  void OnPostNavigationFirstFrameTimeout();
+
   WebContentsViewAndroid* web_contents_view_android() const {
     return web_contents_view_android_;
   }
@@ -133,9 +139,12 @@ class CONTENT_EXPORT BackForwardTransitionAnimationManagerAndroid
       std::unique_ptr<BackForwardTransitionAnimator::Factory> factory) {
     animator_factory_ = std::move(factory);
   }
+
  private:
   // The browser test needs to access the test-only `animator_`.
   friend class BackForwardTransitionAnimationManagerBrowserTest;
+
+  SkBitmap MaybeCopyContentAreaAsBitmapSync();
 
   // If the animator state is terminal, this will synchronously destroy the
   // animator. Terminal states are when all the animation has finished in the

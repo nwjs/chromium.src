@@ -37,14 +37,14 @@ SessionAccessor::Ptr SessionAccessor::Create(
     const ChromeML& chrome_ml,
     scoped_refptr<base::SequencedTaskRunner> task_runner,
     ChromeMLModel model,
-    base::File adaptation_data) {
+    on_device_model::AdaptationAssets adaptation_assets) {
   Ptr handle(new SessionAccessor(chrome_ml, task_runner, model),
              base::OnTaskRunnerDeleter(task_runner));
   // SessionAccessor is deleted on `task_runner_` so base::Unretained is safe.
   task_runner->PostTask(FROM_HERE,
                         base::BindOnce(&SessionAccessor::CreateInternal,
                                        base::Unretained(handle.get()),
-                                       std::move(adaptation_data)));
+                                       std::move(adaptation_assets)));
   return handle;
 }
 
@@ -93,12 +93,12 @@ void SessionAccessor::Score(const std::string& text, ChromeMLScoreFn score_fn) {
                      text, std::move(score_fn)));
 }
 
-void SessionAccessor::SizeInTokens(const std::string& text,
+void SessionAccessor::SizeInTokens(on_device_model::mojom::InputPtr input,
                                    ChromeMLSizeInTokensFn size_in_tokens_fn) {
-  task_runner_->PostTask(FROM_HERE,
-                         base::BindOnce(&SessionAccessor::SizeInTokensInternal,
-                                        base::Unretained(this), text,
-                                        std::move(size_in_tokens_fn)));
+  task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&SessionAccessor::SizeInTokensInternal,
+                                base::Unretained(this), std::move(input),
+                                std::move(size_in_tokens_fn)));
 }
 
 DISABLE_CFI_DLSYM
@@ -108,12 +108,19 @@ void SessionAccessor::CloneFrom(SessionAccessor* other) {
 }
 
 DISABLE_CFI_DLSYM
-void SessionAccessor::CreateInternal(base::File adaptation_data) {
+void SessionAccessor::CreateInternal(
+    on_device_model::AdaptationAssets adaptation_assets) {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  if (adaptation_data.IsValid()) {
-    ChromeMLModelData data = {
-        .weights_file = adaptation_data.TakePlatformFile(),
-    };
+  if (adaptation_assets.weights.IsValid() ||
+      !adaptation_assets.weights_path.empty()) {
+    ChromeMLModelData data;
+    std::string weights_path_str =
+        adaptation_assets.weights_path.AsUTF8Unsafe();
+    if (adaptation_assets.weights.IsValid()) {
+      data.weights_file = adaptation_assets.weights.TakePlatformFile();
+    } else {
+      data.model_path = weights_path_str.data();
+    }
     ChromeMLAdaptationDescriptor descriptor = {
         .model_data = &data,
     };
@@ -135,10 +142,13 @@ void SessionAccessor::ExecuteInternal(
       .max_tokens = input->max_tokens.value_or(0),
       .token_offset = input->token_offset.value_or(0),
       .max_output_tokens = input->max_output_tokens.value_or(0),
-      .context_saved_fn = &context_saved_fn,
       .top_k = input->top_k.value_or(1),
       .temperature = input->temperature.value_or(0),
   };
+  if (input->input) {
+    options.input = input->input->pieces.data();
+    options.input_size = input->input->pieces.size();
+  }
   if (context_saved_fn) {
     options.context_saved_fn = &context_saved_fn;
   }
@@ -158,10 +168,12 @@ void SessionAccessor::ScoreInternal(const std::string& text,
 
 DISABLE_CFI_DLSYM
 void SessionAccessor::SizeInTokensInternal(
-    const std::string& text,
+    on_device_model::mojom::InputPtr input,
     ChromeMLSizeInTokensFn size_in_tokens_fn) {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  chrome_ml_->api().SessionSizeInTokens(session_, text, size_in_tokens_fn);
+  chrome_ml_->api().SessionSizeInTokensInputPiece(
+      session_, model_, input->pieces.data(), input->pieces.size(),
+      size_in_tokens_fn);
 }
 
 }  // namespace ml

@@ -38,7 +38,7 @@ class BookmarkModel;
 namespace gfx {
 class Image;
 struct VectorIcon;
-}
+}  // namespace gfx
 
 class AutocompleteControllerEmitter;
 class PrefService;
@@ -263,12 +263,18 @@ class OmniboxClient {
   virtual void OnInputInProgress(bool in_progress) {}
 
   // Called when the omnibox popup is shown or hidden.
-  virtual void OnPopupVisibilityChanged() {}
+  virtual void OnPopupVisibilityChanged(bool popup_is_open) {}
+
+  // Called when the thumbnail image has been removed.
+  virtual void OnThumbnailRemoved() {}
 
   // Even though IPH suggestions aren't selectable like normal matches, they can
   // have a 'learn more' or next-steps link. `OpenIphLink()` allows opening
   // these in a new tab.
   virtual void OpenIphLink(GURL gurl) {}
+
+  // Returns true if history embeddings is enabled and user has opted in.
+  virtual bool IsHistoryEmbeddingsEnabled() const;
 
   virtual base::WeakPtr<OmniboxClient> AsWeakPtr() = 0;
 };

@@ -13,18 +13,24 @@
 #include "components/webauthn/core/browser/passkey_sync_bridge.h"
 #include "ios/chrome/browser/affiliations/model/ios_chrome_affiliation_service_factory.h"
 #include "ios/chrome/browser/shared/model/browser_state/browser_state_otr_helper.h"
-#include "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#include "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #include "ios/chrome/browser/sync/model/data_type_store_service_factory.h"
 #include "ios/web/public/browser_state.h"
 
 // static
 webauthn::PasskeyModel* IOSPasskeyModelFactory::GetForBrowserState(
-    ChromeBrowserState* browser_state) {
-  return base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)
-             ? static_cast<webauthn::PasskeyModel*>(
-                   GetInstance()->GetServiceForBrowserState(browser_state,
-                                                            true))
-             : nullptr;
+    ProfileIOS* profile) {
+  return GetForProfile(profile);
+}
+
+// static
+webauthn::PasskeyModel* IOSPasskeyModelFactory::GetForProfile(
+    ProfileIOS* profile) {
+  if (!base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)) {
+    return nullptr;
+  }
+  return static_cast<webauthn::PasskeyModel*>(
+      GetInstance()->GetServiceForBrowserState(profile, true));
 }
 
 // static
@@ -45,17 +51,15 @@ IOSPasskeyModelFactory::~IOSPasskeyModelFactory() {}
 
 std::unique_ptr<KeyedService> IOSPasskeyModelFactory::BuildServiceInstanceFor(
     web::BrowserState* context) const {
-  ChromeBrowserState* browser_state =
-      ChromeBrowserState::FromBrowserState(context);
+  ProfileIOS* profile = ProfileIOS::FromBrowserState(context);
   auto sync_bridge = std::make_unique<webauthn::PasskeySyncBridge>(
-      DataTypeStoreServiceFactory::GetForBrowserState(browser_state)
-          ->GetStoreFactory());
+      DataTypeStoreServiceFactory::GetForProfile(profile)->GetStoreFactory());
 
   std::unique_ptr<password_manager::PasskeyAffiliationSourceAdapter> adapter =
       std::make_unique<password_manager::PasskeyAffiliationSourceAdapter>(
           sync_bridge.get());
 
-  IOSChromeAffiliationServiceFactory::GetForBrowserState(browser_state)
+  IOSChromeAffiliationServiceFactory::GetForBrowserState(profile)
       ->RegisterSource(std::move(adapter));
   return sync_bridge;
 }

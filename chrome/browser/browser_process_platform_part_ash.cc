@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/memory/singleton.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/ash/login/session/chrome_session_manager.h"
 #include "chrome/browser/ash/login/users/avatar/user_image_manager_registry.h"
 #include "chrome/browser/ash/login/users/chrome_user_manager_impl.h"
+#include "chrome/browser/ash/login/users/profile_user_manager_controller.h"
 #include "chrome/browser/ash/net/ash_proxy_monitor.h"
 #include "chrome/browser/ash/net/secure_dns_manager.h"
 #include "chrome/browser/ash/net/system_proxy_manager.h"
@@ -34,11 +36,15 @@
 #include "chrome/browser/ash/system/timezone_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/component_updater/metadata_table_chromeos.h"
+#include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/common/chrome_switches.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_flusher.h"
 #include "chromeos/ash/components/dbus/debug_daemon/debug_daemon_client.h"
 #include "chromeos/ash/components/geolocation/simple_geolocation_provider.h"
+#include "chromeos/ash/components/login/login_state/login_state.h"
+#include "chromeos/ash/components/policy/restriction_schedule/device_restriction_schedule_controller.h"
+#include "chromeos/ash/components/policy/restriction_schedule/device_restriction_schedule_controller_delegate_impl.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/timezone/timezone_resolver.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
@@ -106,6 +112,9 @@ void BrowserProcessPlatformPart::InitializeUserManager() {
   DCHECK(!user_manager_);
   CHECK(session_manager_);
   user_manager_ = ash::ChromeUserManagerImpl::CreateChromeUserManager();
+  profile_user_manager_controller_ =
+      std::make_unique<ash::ProfileUserManagerController>(
+          g_browser_process->profile_manager(), user_manager_.get());
   user_image_manager_registry_ =
       std::make_unique<ash::UserImageManagerRegistry>(user_manager_.get());
   session_manager_->OnUserManagerCreated(user_manager_.get());
@@ -129,7 +138,23 @@ void BrowserProcessPlatformPart::DestroyUserManager() {
   }
 
   user_image_manager_registry_.reset();
+  profile_user_manager_controller_.reset();
   user_manager_.reset();
+}
+
+void BrowserProcessPlatformPart::
+    InitializeDeviceRestrictionScheduleController() {
+  device_restriction_schedule_controller_delegate_impl_ = std::make_unique<
+      policy::DeviceRestrictionScheduleControllerDelegateImpl>();
+  device_restriction_schedule_controller_ =
+      std::make_unique<policy::DeviceRestrictionScheduleController>(
+          *device_restriction_schedule_controller_delegate_impl_,
+          CHECK_DEREF(g_browser_process->local_state()));
+}
+
+void BrowserProcessPlatformPart::ShutdownDeviceRestrictionScheduleController() {
+  device_restriction_schedule_controller_.reset();
+  device_restriction_schedule_controller_delegate_impl_.reset();
 }
 
 void BrowserProcessPlatformPart::InitializeDeviceDisablingManager() {
@@ -237,8 +262,9 @@ void BrowserProcessPlatformPart::InitializePrimaryProfileServices(
         primary_profile);
   }
 
-  secure_dns_manager_ =
-      std::make_unique<ash::SecureDnsManager>(g_browser_process->local_state());
+  secure_dns_manager_ = std::make_unique<ash::SecureDnsManager>(
+      g_browser_process->local_state(), primary_profile->GetPrefs(),
+      primary_profile->GetProfilePolicyConnector()->IsManaged());
 }
 
 void BrowserProcessPlatformPart::ShutdownPrimaryProfileServices() {

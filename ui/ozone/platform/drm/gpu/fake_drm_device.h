@@ -103,6 +103,7 @@ inline constexpr uint32_t kPlaneCtmId = 5002;
 inline constexpr uint32_t kRotationPropId = 5003;
 inline constexpr uint32_t kColorEncodingPropId = 5004;
 inline constexpr uint32_t kColorRangePropId = 5005;
+inline constexpr uint32_t kSizeHintsPropId = 5006;
 
 // Blob IDs:
 inline constexpr uint32_t kBaseBlobId = 6000;
@@ -183,6 +184,8 @@ class FakeDrmDevice : public DrmDevice {
   ScopedDrmPropertyBlob CreateInFormatsBlob(
       const std::vector<uint32_t>& supported_formats,
       const std::vector<drm_format_modifier>& supported_format_modifiers);
+  ScopedDrmPropertyBlob CreateSizeHintsBlob(
+      const std::vector<gfx::Size>& sizes);
   int get_set_crtc_call_count() const { return set_crtc_call_count_; }
   int get_add_framebuffer_call_count() const {
     return add_framebuffer_call_count_;
@@ -230,6 +233,11 @@ class FakeDrmDevice : public DrmDevice {
   uint32_t get_cursor_handle_for_crtc(uint32_t crtc) const {
     const auto it = crtc_cursor_map_.find(crtc);
     return it != crtc_cursor_map_.end() ? it->second : 0;
+  }
+
+  gfx::Point get_crtc_cursor_location(uint32_t crtc) const {
+    const auto it = crtc_cursor_location_map_.find(crtc);
+    return it != crtc_cursor_location_map_.end() ? it->second : gfx::Point();
   }
 
   // Resets `drm_state_` to be empty, with no properties configured and no
@@ -465,6 +473,7 @@ class FakeDrmDevice : public DrmDevice {
   base::flat_map<uint32_t /*handle*/, sk_sp<SkSurface>> buffers_;
 
   std::map<uint32_t, uint32_t> crtc_cursor_map_;
+  std::unordered_map<uint32_t, gfx::Point> crtc_cursor_location_map_;
 
   std::set<uint32_t> framebuffer_ids_;
   std::map<uint32_t, uint32_t> crtc_fb_;

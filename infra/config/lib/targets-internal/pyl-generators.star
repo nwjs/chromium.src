@@ -33,8 +33,7 @@ _PYL_HEADER_FMT = """\
 # Instead:
 # 1. Modify {star_file}
 # 2. Run //infra/config/main.star
-# 3. Run //infra/config/scripts/sync-pyl-files.py
-
+{extra_comments}
 {{
 {entries}
 }}
@@ -64,6 +63,7 @@ def _generate_gn_isolate_map_pyl(ctx):
         entries.append("  },")
     ctx.output["testing/gn_isolate_map.pyl"] = _PYL_HEADER_FMT.format(
         star_file = "//infra/config/targets/binaries.star and/or //infra/config/targets/tests.star (for tests defined using targets.tests.junit_test)",
+        extra_comments = "",
         entries = "\n".join(entries),
     )
 
@@ -184,6 +184,7 @@ def _generate_mixin_values(formatter, mixin, generate_skylab_container = False):
     for args_attr in (
         "args",
         "precommit_args",
+        "non_precommit_args",
         "android_args",
         "chromeos_args",
         "desktop_args",
@@ -241,6 +242,8 @@ def _generate_mixin_values(formatter, mixin, generate_skylab_container = False):
             formatter.add_line("'cros_build_target': '{}',".format(skylab.cros_build_target))
         if skylab.cros_model:
             formatter.add_line("'cros_model': '{}',".format(skylab.cros_model))
+        if skylab.cros_cbx:
+            formatter.add_line("'cros_cbx': True,")
         if skylab.cros_img:
             formatter.add_line("'cros_img': '{}',".format(skylab.cros_img))
         if skylab.use_lkgm:
@@ -301,6 +304,13 @@ def _generate_mixins_pyl(ctx):
 
     ctx.output["testing/mixins.pyl"] = _PYL_HEADER_FMT.format(
         star_file = "//infra/config/targets/mixins.star",
+        extra_comments = "\n".join([
+            "",
+            "# The copy of this file in //testing/buildbot is not read by generate_buildbot_json.py,",
+            "# but must be present for downstream uses. It can be kept in sync by running",
+            "# //infra/config/scripts/sync-pyl-files.py.",
+            "",
+        ]),
         entries = formatter.output(),
     )
 
@@ -328,6 +338,7 @@ def _generate_variants_pyl(ctx):
 
     ctx.output["testing/variants.pyl"] = _PYL_HEADER_FMT.format(
         star_file = "//infra/config/targets/variants.star",
+        extra_comments = "",
         entries = formatter.output(),
     )
 
@@ -419,9 +430,10 @@ def _generate_test_suites_pyl(ctx):
 
             # Merge any args from the target with those specified for the test
             # in the suite
-            merged_args = args.listify(target_test_config.args, mixin_values.get("args"))
-            if merged_args:
-                mixin_values["args"] = merged_args
+            for a in ("args", "precommit_args", "non_precommit_args"):
+                merged_args = args.listify(getattr(target_test_config, a), mixin_values.get(a))
+                if merged_args:
+                    mixin_values[a] = merged_args
 
             # merge and resultdb can be set on the binary, but don't override
             # values set on the test in the suite
@@ -491,6 +503,7 @@ def _generate_test_suites_pyl(ctx):
 
     ctx.output["testing/test_suites.pyl"] = _PYL_HEADER_FMT.format(
         star_file = "//infra/config/targets/basic_suites.star, //infra/config/targets/compound_suites.star and/or //infra/config/targets/matrix_compound_suites.star",
+        extra_comments = "",
         entries = formatter.output(),
     )
 

@@ -38,11 +38,6 @@ class PasswordGenerationPopupViewViews : public autofill::PopupBaseView,
   void NudgePasswordSelectionUpdated() override;
 
   const views::ViewAccessibility& GetPasswordViewViewAccessibilityForTest();
-  int GetHelpTextMessageIdForTesting() const;
-
-  // static
-  static std::u16string JoinMultiplePasswordGenerationStrings(
-      const std::u16string& help_text);
 
  private:
   class GeneratedPasswordBox;
@@ -52,7 +47,6 @@ class PasswordGenerationPopupViewViews : public autofill::PopupBaseView,
   void CreateLayoutAndChildren();
 
   // views:Views implementation.
-  void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
 

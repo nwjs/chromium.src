@@ -14,6 +14,7 @@
 #include "build/buildflag.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
 #include "components/password_manager/core/browser/affiliation/affiliated_match_helper.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_manager_buildflags.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_store/get_logins_with_affiliations_request_handler.h"
@@ -29,14 +30,9 @@
 #include "components/sync/model/proxy_data_type_controller_delegate.h"
 
 #if !BUILDFLAG(USE_LOGIN_DATABASE_AS_BACKEND)
-#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_store/password_data_type_controller_delegate_android.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #endif  // !BUILDFLAG(USE_LOGIN_DATABASE_AS_BACKEND)
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "components/password_manager/core/browser/features/password_features.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace password_manager {
 
@@ -210,12 +206,17 @@ void PasswordStoreBuiltInBackend::InitBackend(
     std::move(init_database_callback).Run(nullptr);
     return;
   }
+  os_crypt_async::Encryptor::Option option =
+      base::FeatureList::IsEnabled(features::kUseNewEncryptionMethod)
+          ? os_crypt_async::Encryptor::Option::kNone
+          : os_crypt_async::Encryptor::Option::kEncryptSyncCompat;
+
   subscription_ = os_crypt_async_->GetInstance(
       metrics_util::TimeCallback(
           base::BindOnce(&ConvertToUniquePtr)
               .Then(std::move(init_database_callback)),
           "PasswordManager.OsCryptAsync.GetInstanceTime"),
-      os_crypt_async::Encryptor::Option::kEncryptSyncCompat);
+      option);
 }
 
 void PasswordStoreBuiltInBackend::GetAllLoginsAsync(

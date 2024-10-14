@@ -10,11 +10,13 @@ static_library("graduation") {
   sources = [
     "graduation_ui.cc",
     "graduation_ui.h",
-    "url_constants.cc",
-    "url_constants.h",
   ]
+
+  public_deps = [ ":url_constants" ]
+
   deps = [
     "resources:resources",
+    "//ash:ash",
     "//ash/constants:constants",
     "//ash/webui/common:chrome_os_webui_config",
     "//ash/webui/common:trusted_types_util",
@@ -23,5 +25,14 @@ static_library("graduation") {
     "//chromeos/strings",
     "//content/public/browser",
     "//ui/webui",
+  ]
+}
+
+# Url constants pulled out to enable depending on production url constants in
+# browser tests.
+source_set("url_constants") {
+  sources = [
+    "url_constants.cc",
+    "url_constants.h",
   ]
 }

@@ -8,21 +8,10 @@
 #include "third_party/blink/renderer/core/css/css_test_helpers.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
-#include "third_party/blink/renderer/core/css/parser/css_tokenized_value.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
-
-namespace {
-
-Vector<CSSParserToken, 32> Parse(const char* input) {
-  String string(input);
-  CSSTokenizer tokenizer(string);
-  return tokenizer.TokenizeToEOF();
-}
-
-}  // namespace
 
 const char* valid_variable_reference_value[] = {
     // clang-format off
@@ -62,8 +51,12 @@ const char* invalid_variable_reference_value[] = {
 const char* valid_attr_values[] = {
     // clang-format off
     "attr(p)",
+    "attr(p,)",
     "attr(p string)",
     "attr(p color)",
+    "attr(p, color)",
+    "attr(p color,)",
+    "attr(p color, color)",
     "attr(p number)",
     "attr(p color, red)",
     // clang-format on
@@ -72,8 +65,7 @@ const char* valid_attr_values[] = {
 const char* invalid_attr_values[] = {
     // clang-format off
     "attr(p url)",
-    "attr(p, url)",
-    "attr(p url,)",
+    "attr(p !)",
     "attr(p color red)",
     // clang-format on
 };
@@ -91,8 +83,7 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 TEST_P(ValidVariableReferenceTest, ConsumeUnparsedDeclaration) {
   SCOPED_TRACE(GetParam());
-  CSSTokenizer tokenizer{String(GetParam())};
-  CSSParserTokenStream stream(tokenizer);
+  CSSParserTokenStream stream{GetParam()};
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   bool important;
@@ -105,14 +96,11 @@ TEST_P(ValidVariableReferenceTest, ConsumeUnparsedDeclaration) {
 
 TEST_P(ValidVariableReferenceTest, ParseUniversalSyntaxValue) {
   SCOPED_TRACE(GetParam());
-  Vector<CSSParserToken, 32> tokens = Parse(GetParam());
-  CSSParserTokenRange range(tokens);
-  CSSTokenizedValue tokenized_value = {range, /* text */ ""};
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   EXPECT_NE(nullptr,
             CSSVariableParser::ParseUniversalSyntaxValue(
-                tokenized_value, *context, /* is_animation_tainted */ false));
+                GetParam(), *context, /* is_animation_tainted */ false));
 }
 
 class InvalidVariableReferenceTest
@@ -128,8 +116,7 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 TEST_P(InvalidVariableReferenceTest, ConsumeUnparsedDeclaration) {
   SCOPED_TRACE(GetParam());
-  CSSTokenizer tokenizer{String(GetParam())};
-  CSSParserTokenStream stream(tokenizer);
+  CSSParserTokenStream stream{GetParam()};
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   bool important;
@@ -142,14 +129,11 @@ TEST_P(InvalidVariableReferenceTest, ConsumeUnparsedDeclaration) {
 
 TEST_P(InvalidVariableReferenceTest, ParseUniversalSyntaxValue) {
   SCOPED_TRACE(GetParam());
-  Vector<CSSParserToken, 32> tokens = Parse(GetParam());
-  CSSParserTokenRange range(tokens);
-  CSSTokenizedValue tokenized_value = {range, /* text */ ""};
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   EXPECT_NE(nullptr,
             CSSVariableParser::ParseUniversalSyntaxValue(
-                tokenized_value, *context, /* is_animation_tainted */ false));
+                GetParam(), *context, /* is_animation_tainted */ false));
 }
 
 class CustomPropertyDeclarationTest
@@ -167,14 +151,11 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 TEST_P(CustomPropertyDeclarationTest, ParseDeclarationValue) {
   SCOPED_TRACE(GetParam());
-  Vector<CSSParserToken, 32> tokens = Parse(GetParam());
-  CSSParserTokenRange range(tokens);
-  CSSTokenizedValue tokenized_value = {range, /* text */ ""};
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   EXPECT_NE(nullptr,
             CSSVariableParser::ParseDeclarationValue(
-                tokenized_value, /* is_animation_tainted */ false, *context));
+                GetParam(), /* is_animation_tainted */ false, *context));
 }
 
 class ValidAttrTest : public testing::Test,
@@ -187,8 +168,7 @@ INSTANTIATE_TEST_SUITE_P(All,
 TEST_P(ValidAttrTest, ContainsValidAttr) {
   ScopedCSSAdvancedAttrFunctionForTest scoped_feature(true);
   SCOPED_TRACE(GetParam());
-  CSSTokenizer tokenizer{String(GetParam())};
-  CSSParserTokenStream stream(tokenizer);
+  CSSParserTokenStream stream{GetParam()};
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   bool important;
@@ -210,8 +190,7 @@ TEST_P(InvalidAttrTest, ContainsValidAttr) {
   ScopedCSSAdvancedAttrFunctionForTest scoped_feature(true);
 
   SCOPED_TRACE(GetParam());
-  CSSTokenizer tokenizer{String(GetParam())};
-  CSSParserTokenStream stream(tokenizer);
+  CSSParserTokenStream stream{GetParam()};
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   bool important;

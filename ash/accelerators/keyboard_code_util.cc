@@ -100,6 +100,8 @@ const gfx::VectorIcon* GetVectorIconForKeyboardCode(ui::KeyboardCode key_code) {
       return &ash::kKsvBrowserForwardIcon;
     case ui::VKEY_BROWSER_REFRESH:
       return &ash::kKsvReloadIcon;
+    case ui::VKEY_BROWSER_HOME:
+      return &ash::kKsvBrowserHomeIcon;
     case ui::VKEY_ZOOM:
       return &ash::kKsvFullscreenIcon;
     case ui::VKEY_MEDIA_LAUNCH_APP1:
@@ -110,6 +112,8 @@ const gfx::VectorIcon* GetVectorIconForKeyboardCode(ui::KeyboardCode key_code) {
 #else
       return &ash::kKsvOverviewIcon;
 #endif
+    case ui::VKEY_MEDIA_LAUNCH_MAIL:
+      return &ash::kKsMediaLaunchMailIcon;
     case ui::VKEY_BRIGHTNESS_DOWN:
       return &ash::kKsvBrightnessDownIcon;
     case ui::VKEY_BRIGHTNESS_UP:
@@ -120,6 +124,12 @@ const gfx::VectorIcon* GetVectorIconForKeyboardCode(ui::KeyboardCode key_code) {
 #else
       return &ash::kKsvOverviewIcon;
 #endif
+    case ui::VKEY_KBD_BACKLIGHT_TOGGLE:
+      return &ash::kKsKeyboardBrightnessToggleIcon;
+    case ui::VKEY_KBD_BRIGHTNESS_DOWN:
+      return &ash::kKsKeyboardBrightnessDownIcon;
+    case ui::VKEY_KBD_BRIGHTNESS_UP:
+      return &ash::kKsKeyboardBrightnessUpIcon;
     case ui::VKEY_VOLUME_MUTE:
       return &ash::kKsvMuteIcon;
     case ui::VKEY_VOLUME_DOWN:
@@ -134,6 +144,8 @@ const gfx::VectorIcon* GetVectorIconForKeyboardCode(ui::KeyboardCode key_code) {
       return &ash::kKsvArrowLeftIcon;
     case ui::VKEY_RIGHT:
       return &ash::kKsvArrowRightIcon;
+    case ui::VKEY_ACCESSIBILITY:
+      return &ash::kKsAccessibilityIcon;
     case ui::VKEY_PRIVACY_SCREEN_TOGGLE:
       return &ash::kKsvPrivacyScreenToggleIcon;
     case ui::VKEY_SNAPSHOT:

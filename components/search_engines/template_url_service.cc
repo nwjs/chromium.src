@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "components/search_engines/search_engines_switches.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
 #pragma allow_unsafe_buffers
@@ -47,7 +48,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/choice_made_location.h"
-#include "components/search_engines/enterprise_site_search_manager.h"
+#include "components/search_engines/enterprise/enterprise_site_search_manager.h"
 #include "components/search_engines/keyword_web_data_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
@@ -460,21 +461,18 @@ void TemplateURLService::RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       prefs::kDefaultSearchProviderContextMenuAccessAllowed, true);
 
-  if (search_engines::IsChoiceScreenFlagEnabled(
-          search_engines::ChoicePromo::kAny)) {
-    registry->RegisterInt64Pref(
-        prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp, 0);
-    registry->RegisterStringPref(
-        prefs::kDefaultSearchProviderChoiceScreenCompletionVersion,
-        std::string());
-    registry->RegisterDictionaryPref(
-        prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
+  registry->RegisterInt64Pref(
+      prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp, 0);
+  registry->RegisterStringPref(
+      prefs::kDefaultSearchProviderChoiceScreenCompletionVersion,
+      std::string());
+  registry->RegisterDictionaryPref(
+      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
 
 #if BUILDFLAG(IS_IOS)
-    registry->RegisterIntegerPref(
-        prefs::kDefaultSearchProviderChoiceScreenSkippedCount, 0);
+  registry->RegisterIntegerPref(
+      prefs::kDefaultSearchProviderChoiceScreenSkippedCount, 0);
 #endif
-  }
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1463,10 +1461,13 @@ void TemplateURLService::OnWebDataServiceRequestDone(
     if (updated_keywords_metadata.HasBuiltinKeywordData()) {
       web_data_service_->SetBuiltinKeywordDataVersion(
           updated_keywords_metadata.builtin_keyword_data_version);
-      web_data_service_->SetBuiltinKeywordMilestone(
-          updated_keywords_metadata.builtin_keyword_milestone);
       web_data_service_->SetBuiltinKeywordCountry(
           updated_keywords_metadata.builtin_keyword_country);
+
+      // Added 20/08/2024.
+      // This is used for database cleanup.
+      // TODO(b/361013517): Remove the call and cleanup the code in a year.
+      web_data_service_->ClearBuiltinKeywordMilestone();
     }
 
     if (updated_keywords_metadata.HasStarterPackData()) {
@@ -1492,14 +1493,14 @@ void TemplateURLService::OnWebDataServiceRequestDone(
 std::u16string TemplateURLService::GetKeywordShortName(
     const std::u16string& keyword,
     bool* is_omnibox_api_extension_keyword,
-    bool* is_ask_google_keyword) const {
+    bool* is_gemini_keyword) const {
   const TemplateURL* template_url = GetTemplateURLForKeyword(keyword);
 
   // TODO(sky): Once LocationBarView adds a listener to the TemplateURLService
   // to track changes to the model, this should become a DCHECK.
   if (template_url) {
-    *is_ask_google_keyword = template_url->starter_pack_id() ==
-                             TemplateURLStarterPackData::kAskGoogle;
+    *is_gemini_keyword =
+        template_url->starter_pack_id() == TemplateURLStarterPackData::kGemini;
     *is_omnibox_api_extension_keyword =
         template_url->type() == TemplateURL::OMNIBOX_API_EXTENSION;
     return template_url->AdjustedShortNameForLocaleDirection();
@@ -1827,12 +1828,6 @@ bool TemplateURLService::IsEeaChoiceCountry() {
       search_engine_choice_service_->GetCountryId());
 }
 
-#if BUILDFLAG(IS_ANDROID)
-bool TemplateURLService::ShouldShowUpdatedSettings() {
-  return search_engine_choice_service_->ShouldShowUpdatedSettings();
-}
-#endif
-
 std::string TemplateURLService::GetSessionToken() {
   base::TimeTicks current_time(base::TimeTicks::Now());
   // Renew token if it expired.
@@ -1943,11 +1938,10 @@ TemplateURLService::CreateTemplateURLFromTemplateURLAndSyncData(
 
   // Past bugs might have caused either of these fields to be empty.  Just
   // delete this data off the server.
-  if (specifics.url().empty() || specifics.sync_guid().empty()) {
-    change_list->push_back(
-        syncer::SyncChange(FROM_HERE,
-                           syncer::SyncChange::ACTION_DELETE,
-                           sync_data));
+  if (specifics.url().empty() || specifics.sync_guid().empty() ||
+      specifics.keyword().empty()) {
+    change_list->emplace_back(FROM_HERE, syncer::SyncChange::ACTION_DELETE,
+                              sync_data);
     UMA_HISTOGRAM_ENUMERATION(kDeleteSyncedEngineHistogramName,
         DELETE_ENGINE_EMPTY_FIELD, DELETE_ENGINE_MAX);
     return nullptr;
@@ -1966,14 +1960,6 @@ TemplateURLService::CreateTemplateURLFromTemplateURLAndSyncData(
   data.SetShortName(base::UTF8ToUTF16(specifics.short_name()));
   data.originating_url = GURL(specifics.originating_url());
   std::u16string keyword(base::UTF8ToUTF16(specifics.keyword()));
-  // NOTE: Once this code has shipped in a couple of stable releases, we can
-  // probably remove the migration portion, comment out the
-  // "autogenerate_keyword" field entirely in the .proto file, and fold the
-  // empty keyword case into the "delete data" block above.
-  bool reset_keyword =
-      specifics.autogenerate_keyword() || specifics.keyword().empty();
-  if (reset_keyword)
-    keyword = u"dummy";  // Will be replaced below.
   DCHECK(!keyword.empty());
   data.SetKeyword(keyword);
   data.SetURL(specifics.url());
@@ -2011,9 +1997,7 @@ TemplateURLService::CreateTemplateURLFromTemplateURLAndSyncData(
                                   search_engine_choice_service);
 
   DCHECK_EQ(TemplateURL::NORMAL, turl->type());
-  if (reset_keyword || deduped) {
-    if (reset_keyword)
-      turl->ResetKeywordIfNecessary(search_terms_data, true);
+  if (deduped) {
     syncer::SyncData updated_sync_data = CreateSyncDataFromTemplateURL(*turl);
     change_list->push_back(syncer::SyncChange(
         FROM_HERE, syncer::SyncChange::ACTION_UPDATE, updated_sync_data));
@@ -2050,8 +2034,7 @@ void TemplateURLService::Init() {
     client_->SetOwner(this);
 
   pref_change_registrar_.Init(&prefs_.get());
-  if (search_engines::IsChoiceScreenFlagEnabled(
-          search_engines::ChoicePromo::kAny)) {
+  if (base::FeatureList::IsEnabled(switches::kSearchEngineChoiceTrigger)) {
     // We migrate `kSyncedDefaultSearchProviderGUID` to
     // `kDefaultSearchProviderGUID` if the latter was never set.
     if (!prefs_->HasPrefPath(prefs::kDefaultSearchProviderGUID)) {
@@ -2066,6 +2049,7 @@ void TemplateURLService::Init() {
             &TemplateURLService::OnDefaultSearchProviderGUIDChanged,
             base::Unretained(this)));
   } else {
+    // TODO(b/364828491): Deprecate `kSyncedDefaultSearchProviderGUID`.
     pref_change_registrar_.Add(
         prefs::kSyncedDefaultSearchProviderGUID,
         base::BindRepeating(
@@ -2298,9 +2282,8 @@ void TemplateURLService::UpdateTemplateURLIfPrepopulated(
 void TemplateURLService::MaybeUpdateDSEViaPrefs(TemplateURL* synced_turl) {
   // The DSE is not synced anymore when the `kSearchEngineChoiceTrigger` feature
   // is enabled.
-  // TODO(b/341011768): Revisit whether we need to keep the DSE sync code.
-  if (search_engines::IsChoiceScreenFlagEnabled(
-          search_engines::ChoicePromo::kAny)) {
+  // TODO(b/341011768): Remove DSE sync code.
+  if (base::FeatureList::IsEnabled(switches::kSearchEngineChoiceTrigger)) {
     return;
   }
 

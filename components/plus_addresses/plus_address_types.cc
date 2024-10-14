@@ -9,7 +9,7 @@
 #include <ostream>
 #include <string>
 
-#include "third_party/abseil-cpp/absl/types/variant.h"
+#include "net/http/http_status_code.h"
 
 namespace plus_addresses {
 
@@ -32,7 +32,7 @@ PreallocatedPlusAddress& PreallocatedPlusAddress::operator=(
 PreallocatedPlusAddress::~PreallocatedPlusAddress() = default;
 
 PlusProfile::PlusProfile(std::optional<std::string> profile_id,
-                         facet_t facet,
+                         affiliations::FacetURI facet,
                          PlusAddress plus_address,
                          bool is_confirmed)
     : profile_id(std::move(profile_id)),
@@ -42,6 +42,18 @@ PlusProfile::PlusProfile(std::optional<std::string> profile_id,
 PlusProfile::PlusProfile(const PlusProfile&) = default;
 PlusProfile::PlusProfile(PlusProfile&&) = default;
 PlusProfile::~PlusProfile() = default;
+
+bool PlusAddressRequestError::IsQuotaError() const {
+  return error_type_ == PlusAddressRequestErrorType::kNetworkError &&
+         http_response_code_.value_or(net::HTTP_REQUEST_TIMEOUT) ==
+             net::HTTP_TOO_MANY_REQUESTS;
+}
+
+bool PlusAddressRequestError::IsTimeoutError() const {
+  return error_type_ == PlusAddressRequestErrorType::kNetworkError &&
+         http_response_code_.value_or(net::HTTP_TOO_MANY_REQUESTS) ==
+             net::HTTP_REQUEST_TIMEOUT;
+}
 
 PlusAddressDataChange::PlusAddressDataChange(Type type, PlusProfile profile)
     : type_(type), profile_(std::move(profile)) {}
@@ -90,7 +102,7 @@ std::ostream& operator<<(std::ostream& os,
 std::ostream& operator<<(std::ostream& os, const PlusProfile& profile) {
   os << "PlusProfile(profile_id=" << profile.profile_id.value_or("")
      << ",facet=";
-  absl::visit([&](const auto& f) { os << f; }, profile.facet);
+  os << profile.facet;
   return os << ",plus_address=" << *profile.plus_address
             << ",is_confirmed=" << profile.is_confirmed << ")";
 }

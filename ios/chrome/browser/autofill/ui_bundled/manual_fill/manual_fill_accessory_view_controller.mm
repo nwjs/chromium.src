@@ -6,27 +6,15 @@
 
 #import "base/ios/ios_util.h"
 #import "base/metrics/user_metrics.h"
+#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_accessory_view_controller_delegate.h"
+#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
-#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_accessory_view_controller_delegate.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
-
-namespace manual_fill {
-
-NSString* const AccessoryKeyboardAccessibilityIdentifier =
-    @"kManualFillAccessoryKeyboardAccessibilityIdentifier";
-NSString* const AccessoryPasswordAccessibilityIdentifier =
-    @"kManualFillAccessoryPasswordAccessibilityIdentifier";
-NSString* const AccessoryAddressAccessibilityIdentifier =
-    @"kManualFillAccessoryAddressAccessibilityIdentifier";
-NSString* const AccessoryCreditCardAccessibilityIdentifier =
-    @"kManualFillAccessoryCreditCardAccessibilityIdentifier";
-
-}  // namespace manual_fill
 
 namespace {
 
@@ -97,9 +85,15 @@ static NSTimeInterval MFAnimationDuration = 0.2;
 }
 
 - (void)resetAnimated:(BOOL)animated {
+  // Icon states are not modified when the Keyboard Accessory Upgrade feature is
+  // enabled, so no need to reset anyhting.
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    return;
+  }
+  __weak __typeof(self) weakSelf = self;
   [UIView animateWithDuration:animated ? MFAnimationDuration : 0
                    animations:^{
-                     [self resetIcons];
+                     [weakSelf resetIcons];
                    }];
   if (!self.keyboardButton.hidden) {
     [self setKeyboardButtonHidden:YES animated:animated];
@@ -192,7 +186,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
                        symbolNamed:kKeyboardSymbol
                      defaultSymbol:YES
            accessibilityIdentifier:manual_fill::
-                                       AccessoryKeyboardAccessibilityIdentifier
+                                       kAccessoryKeyboardAccessibilityIdentifier
                 accessibilityLabel:l10n_util::GetNSString(
                                        IDS_IOS_MANUAL_FALLBACK_SHOW_KEYBOARD)];
     [icons addObject:self.keyboardButton];
@@ -205,7 +199,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
                      symbolNamed:kPasswordSymbol
                    defaultSymbol:NO
          accessibilityIdentifier:manual_fill::
-                                     AccessoryPasswordAccessibilityIdentifier
+                                     kAccessoryPasswordAccessibilityIdentifier
               accessibilityLabel:l10n_util::GetNSString(
                                      IDS_IOS_MANUAL_FALLBACK_SHOW_PASSWORDS)];
 
@@ -223,7 +217,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
                            symbolNamed:kCreditCardSymbol
                          defaultSymbol:YES
                accessibilityIdentifier:
-                   manual_fill::AccessoryCreditCardAccessibilityIdentifier
+                   manual_fill::kAccessoryCreditCardAccessibilityIdentifier
                     accessibilityLabel:
                         l10n_util::GetNSString(
                             IDS_IOS_MANUAL_FALLBACK_SHOW_CREDIT_CARDS)];
@@ -235,7 +229,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
                      symbolNamed:kLocationSymbol
                    defaultSymbol:NO
          accessibilityIdentifier:manual_fill::
-                                     AccessoryAddressAccessibilityIdentifier
+                                     kAccessoryAddressAccessibilityIdentifier
               accessibilityLabel:l10n_util::GetNSString(
                                      IDS_IOS_MANUAL_FALLBACK_SHOW_ADDRESSES)];
 
@@ -274,8 +268,9 @@ static NSTimeInterval MFAnimationDuration = 0.2;
   ]];
 }
 
-// Resets the icon's color and userInteractionEnabled.
+// Resets the icon's color and `userInteractionEnabled` state.
 - (void)resetIcons {
+  CHECK(!IsKeyboardAccessoryUpgradeEnabled());
   self.accountButton.userInteractionEnabled = YES;
   self.cardsButton.userInteractionEnabled = YES;
   self.passwordButton.userInteractionEnabled = YES;
@@ -286,6 +281,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
 }
 
 - (void)setKeyboardButtonHidden:(BOOL)hidden animated:(BOOL)animated {
+  CHECK(!IsKeyboardAccessoryUpgradeEnabled());
   [UIView animateWithDuration:animated ? MFAnimationDuration : 0
                    animations:^{
                      // Workaround setting more than once the `hidden` property
@@ -303,6 +299,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
 }
 
 - (void)keyboardButtonPressed:(UIButton*)keyboardButton {
+  CHECK(!IsKeyboardAccessoryUpgradeEnabled());
   base::RecordAction(base::UserMetricsAction("ManualFallback_Close"));
   [self resetAnimated:YES];
   [self.delegate manualFillAccessoryViewController:self
@@ -310,6 +307,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
 }
 
 - (void)passwordButtonPressed:(UIButton*)passwordButton {
+  CHECK(!IsKeyboardAccessoryUpgradeEnabled());
   base::RecordAction(base::UserMetricsAction("ManualFallback_OpenPassword"));
   [self setKeyboardButtonHidden:NO animated:YES];
   [self resetIcons];
@@ -320,6 +318,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
 }
 
 - (void)cardButtonPressed:(UIButton*)creditCardButton {
+  CHECK(!IsKeyboardAccessoryUpgradeEnabled());
   base::RecordAction(base::UserMetricsAction("ManualFallback_OpenCreditCard"));
   [self setKeyboardButtonHidden:NO animated:YES];
   [self resetIcons];
@@ -330,6 +329,7 @@ static NSTimeInterval MFAnimationDuration = 0.2;
 }
 
 - (void)accountButtonPressed:(UIButton*)accountButton {
+  CHECK(!IsKeyboardAccessoryUpgradeEnabled());
   base::RecordAction(base::UserMetricsAction("ManualFallback_OpenProfile"));
   [self setKeyboardButtonHidden:NO animated:YES];
   [self resetIcons];

@@ -23,6 +23,7 @@
 #import "ios/chrome/browser/ui/toolbar/buttons/toolbar_button_factory.h"
 #import "ios/chrome/browser/ui/toolbar/buttons/toolbar_configuration.h"
 #import "ios/chrome/browser/ui/toolbar/buttons/toolbar_tab_grid_button.h"
+#import "ios/chrome/browser/ui/toolbar/buttons/toolbar_tab_grid_button_style.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_constants.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_utils.h"
 #import "ios/chrome/common/material_timing.h"
@@ -256,8 +257,9 @@ const CGFloat kFullscreenProgressFullyExpanded = 1.0;
 }
 
 - (void)setLoadingState:(BOOL)loading {
-  if (self.loading == loading)
+  if (self.loading == loading) {
     return;
+  }
 
   self.loading = loading;
   self.view.reloadButton.hiddenInCurrentState = loading;
@@ -281,15 +283,17 @@ const CGFloat kFullscreenProgressFullyExpanded = 1.0;
 }
 
 - (void)setTabCount:(int)tabCount addedInBackground:(BOOL)inBackground {
-  if (self.view.tabGridButton.tabCount == tabCount)
+  if (self.view.tabGridButton.tabCount == tabCount) {
     return;
+  }
 
   CGFloat scaleSign = tabCount > self.view.tabGridButton.tabCount ? 1 : -1;
   self.view.tabGridButton.tabCount = tabCount;
 
-  if (IsRegularXRegularSizeClass(self))
+  if (IsRegularXRegularSizeClass(self)) {
     // No animation on Regular x Regular.
     return;
+  }
 
   CGFloat scaleFactor = 1 + scaleSign * kScaleFactorDiff;
 
@@ -347,6 +351,10 @@ const CGFloat kFullscreenProgressFullyExpanded = 1.0;
   }
   _underPageBackgroundColor = underPageBackgroundColor;
   [self updateBackgroundColor];
+}
+
+- (void)setTabGridButtonStyle:(ToolbarTabGridButtonStyle)tabGridButtonStyle {
+  [self.view setTabGridButtonStyle:tabGridButtonStyle];
 }
 
 #pragma mark - NewTabPageControllerDelegate
@@ -418,6 +426,13 @@ const CGFloat kFullscreenProgressFullyExpanded = 1.0;
   self.view.openNewTabButton.iphHighlighted = NO;
   self.view.tabGridButton.iphHighlighted = NO;
   self.view.toolsMenuButton.iphHighlighted = NO;
+}
+
+- (void)setOverflowMenuBlueDot:(BOOL)hasBlueDot {
+  // Blue dot should also use the highlighted icon.
+  self.view.toolsMenuButton.iphHighlighted = hasBlueDot;
+
+  self.view.toolsMenuButton.hasBlueDot = hasBlueDot;
 }
 
 #pragma mark - Private

@@ -29,10 +29,11 @@ namespace content {
 
 namespace {
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_FUCHSIA) && \
+    !BUILDFLAG(IS_MAC)
 constexpr int kBFCacheTestTimeoutMs = 3000;
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS) &&
-        // !BUILDFLAG(IS_FUCHSIA)
+        // !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_MAC)
 constexpr char kAttemptToObserveSymlinkHistogram[] =
     "Storage.FileSystemAccess.AttemptToObserveSymlinkOrJunction";
 
@@ -628,8 +629,10 @@ IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest, ObserveFile) {
   // clang-format on
   auto records = EvalJs(shell(), script).ExtractList();
   EXPECT_THAT(records.GetList(), testing::Not(testing::IsEmpty()));
-  histogram_tester.ExpectUniqueSample(kAttemptToObserveSymlinkHistogram,
-                                      /*sample=*/false, 1);
+  if (GetTestFileSystemType() == TestFileSystemType::kLocal) {
+    histogram_tester.ExpectUniqueSample(kAttemptToObserveSymlinkHistogram,
+                                        /*sample=*/false, 1);
+  }
 }
 #endif  // !BUILDFLAG(IS_MAC)
 
@@ -865,14 +868,9 @@ IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
 }
 #endif  // !BUILDFLAG(IS_MAC)
 
-// TODO(crbug.com/343961295): Windows reports two events when a swap file
-// is closed: a "disappeared" for the target file being overwritten, and a
-// "appeared" for the swap file being moved to the target file.
-//
-// TODO(crbug.com/357134621): Like on Windows, FSEvents (Mac) also reports two
-// events when the swap file is closed. This test fails due to a "disappear"
-// event being reported.
-#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC)
+// TODO(crbug.com/357134621): FSEvents (Mac) reports two events when the swap
+// file is closed. This test fails due to a "disappear" event being reported.
+#if !BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
                        ObserveFileReportsType) {
   base::FilePath file_path = CreateFileToBePicked();
@@ -1252,13 +1250,9 @@ IN_PROC_BROWSER_TEST_P(
 }
 #endif  // !BUILDFLAG(IS_MAC)
 
-// TODO(crbug.com/343961295): Windows reports two events when a swap file
-// is closed: a "disappeared" for the target file being overwritten, and a
-// "appeared" for the swap file being moved to the target file.
-//
 // TODO(b/321980270): Filter out changes to swap files reported by FSEvents,
 // and re-enable this test on Mac.
-#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_MAC)
+#if !BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
                        WritableReportsSingleModifiedEventOnClose) {
   base::FilePath dir_path = CreateDirectoryToBePicked();
@@ -1289,17 +1283,8 @@ IN_PROC_BROWSER_TEST_P(FileSystemAccessObserverBrowserTest,
   // Expect one modified event upon closing the writable.
   auto records = EvalJs(shell(), script).ExtractList();
   EXPECT_THAT(records.GetList(), testing::SizeIs(1));
-  // TODO(b/350790385): On inotify, coalescing move events are not always
-  // guaranteed, and when it fails to coalesce, it results in "appeared" event
-  // on the new path. In the case of swap file, this unfortunately means it
-  // cannot be converted to "modified". Consider improving coalescing
-  // implementation and/or have `FileSystemAccessWatcherManager` convert
-  // "moved" to "appeard" or "disappeared" instead of `FilePathWatcher` being
-  // responsible for the conversion on inotify-based platforms.
   auto& record_dict = records.GetList().front().GetDict();
-  EXPECT_THAT(
-      *record_dict.FindString("type"),
-      testing::AnyOf(testing::StrEq("modified"), testing::StrEq("appeared")));
+  EXPECT_THAT(*record_dict.FindString("type"), testing::StrEq("modified"));
   const auto relative_path_component_matcher = testing::Conditional(
       SupportsReportingModifiedPath(), testing::ElementsAre("file.txt"),
       testing::IsEmpty());
@@ -1345,6 +1330,10 @@ class FileSystemAccessObserverWithBFCacheBrowserTest
   base::test::ScopedFeatureList feature_list_for_back_forward_cache_;
 };
 
+// TODO(b/360153904): This test is flaky on Mac, likely as a result of FSEvents
+// reporting events later than expected, on occasion. Re-enable once flake is
+// resolved.
+#if !BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(FileSystemAccessObserverWithBFCacheBrowserTest,
                        ReceivesFileUpdatesAfterReturningFromBFCache) {
   base::FilePath file_path = CreateFileToBePicked();
@@ -1431,6 +1420,7 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessObserverWithBFCacheBrowserTest,
                 .ExtractInt(),
             1);
 }
+#endif  // !BUILDFLAG(IS_MAC)
 
 IN_PROC_BROWSER_TEST_F(FileSystemAccessObserverWithBFCacheBrowserTest,
                        NotifyOnReturnFromBFCacheWhenFileUpdates) {

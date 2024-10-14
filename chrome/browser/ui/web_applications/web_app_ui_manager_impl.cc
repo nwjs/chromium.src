@@ -570,7 +570,7 @@ void WebAppUiManagerImpl::MaybeCreateEnableSupportedLinksInfobar(
 }
 
 void WebAppUiManagerImpl::MaybeShowIPHPromoForAppsLaunchedViaLinkCapturing(
-    content::WebContents* web_contents,
+    Browser* browser,
     Profile* profile,
     const std::string& app_id) {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -582,12 +582,12 @@ void WebAppUiManagerImpl::MaybeShowIPHPromoForAppsLaunchedViaLinkCapturing(
   }
 
   const Browser* app_browser =
-      AppBrowserController::FindForWebApp(*profile, app_id);
+      browser ? browser : AppBrowserController::FindForWebApp(*profile, app_id);
   if (!app_browser) {
     return;
   }
 
-  if (WebAppPrefGuardrails::GetForLinkCapturingIph(
+  if (WebAppPrefGuardrails::GetForNavigationCapturingIph(
           app_browser->profile()->GetPrefs())
           .IsBlockedByGuardrails(app_id)) {
     return;
@@ -843,7 +843,7 @@ void WebAppUiManagerImpl::OnIPHPromoResponseForLinkCapturing(
     case user_education::FeaturePromoClosedReason::kAction:
       base::RecordAction(
           base::UserMetricsAction("LinkCapturingIPHAppBubbleAccepted"));
-      WebAppPrefGuardrails::GetForLinkCapturingIph(
+      WebAppPrefGuardrails::GetForNavigationCapturingIph(
           browser->profile()->GetPrefs())
           .RecordAccept(app_id);
       break;
@@ -851,7 +851,7 @@ void WebAppUiManagerImpl::OnIPHPromoResponseForLinkCapturing(
     case user_education::FeaturePromoClosedReason::kCancel:
       base::RecordAction(
           base::UserMetricsAction("LinkCapturingIPHAppBubbleNotAccepted"));
-      WebAppPrefGuardrails::GetForLinkCapturingIph(
+      WebAppPrefGuardrails::GetForNavigationCapturingIph(
           browser->profile()->GetPrefs())
           .RecordDismiss(app_id, base::Time::Now());
       break;

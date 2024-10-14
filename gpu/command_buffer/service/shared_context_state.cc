@@ -35,12 +35,12 @@
 #include "gpu/vulkan/buildflags.h"
 #include "skia/buildflags.h"
 #include "skia/ext/skia_trace_memory_dump_impl.h"
-#include "third_party/skia/include/gpu/GrBackendSemaphore.h"
-#include "third_party/skia/include/gpu/GrTypes.h"
+#include "third_party/skia/include/gpu/ganesh/GrBackendSemaphore.h"
+#include "third_party/skia/include/gpu/ganesh/GrTypes.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "third_party/skia/include/gpu/ganesh/gl/GrGLDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/mock/GrMockTypes.h"
 #include "third_party/skia/include/gpu/graphite/Context.h"
-#include "third_party/skia/include/gpu/mock/GrMockTypes.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_share_group.h"
@@ -52,10 +52,14 @@
 #include <vulkan/vulkan.h>
 
 #include "components/viz/common/gpu/vulkan_context_provider.h"
-#include "gpu/command_buffer/service/external_semaphore_pool.h"
 #include "gpu/vulkan/vulkan_device_queue.h"
 #include "gpu/vulkan/vulkan_implementation.h"
 #include "gpu/vulkan/vulkan_util.h"
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN)
+#include "gpu/command_buffer/service/external_semaphore_pool.h"
+#endif
+
 #endif
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -282,7 +286,8 @@ SharedContextState::SharedContextState(
       sk_surface_cache_(MaxNumSkSurface()) {
   if (gr_context_type_ == GrContextType::kVulkan) {
     if (vk_context_provider_) {
-#if BUILDFLAG(ENABLE_VULKAN)
+#if BUILDFLAG(ENABLE_VULKAN) && \
+    (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN))
       external_semaphore_pool_ = std::make_unique<ExternalSemaphorePool>(this);
 #endif
       use_virtualized_gl_contexts_ = false;
@@ -314,7 +319,8 @@ SharedContextState::~SharedContextState() {
   DCHECK(IsCurrent(nullptr) || context_lost());
   transfer_cache_.reset();
 
-#if BUILDFLAG(ENABLE_VULKAN)
+#if BUILDFLAG(ENABLE_VULKAN) && \
+    (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN))
   external_semaphore_pool_.reset();
 #endif
 
@@ -819,8 +825,9 @@ void SharedContextState::FlushWriteAccess(
 }
 
 void SharedContextState::SubmitIfNecessary(
-    std::vector<GrBackendSemaphore> signal_semaphores) {
-  if (graphite_context()) {
+    std::vector<GrBackendSemaphore> signal_semaphores,
+    bool need_graphite_submit) {
+  if (graphite_context() && need_graphite_submit) {
     // It's necessary to submit before dropping a scoped access since we want
     // the Dawn texture to be alive on submit.
     // NOTE: Graphite uses Dawn and the Graphite SharedImage representation does
@@ -1058,9 +1065,13 @@ void SharedContextState::UpdateSkiaOwnedMemorySize() {
     gr_context_->getResourceCacheUsage(nullptr /* resourceCount */, &new_size);
   } else {
     // NOTE: If `graphite_context_` is non-null, the GPU main recorder is
-    // guaranteed to be non-null as well.
+    // guaranteed to be non-null as well. Add the image provider's size too
+    // since with Graphite that's owned by Chrome rather than Skia as in Ganesh.
+    const auto* image_provider = static_cast<const gpu::GraphiteImageProvider*>(
+        gpu_main_graphite_recorder_->clientImageProvider());
     new_size = graphite_context_->currentBudgetedBytes() +
-               gpu_main_graphite_recorder_->currentBudgetedBytes();
+               gpu_main_graphite_recorder_->currentBudgetedBytes() +
+               image_provider->CurrentSizeInBytes();
   }
   // Skia does not have a CommandBufferId. PeakMemoryMonitor currently does not
   // use CommandBufferId to identify source, so use zero here to separate

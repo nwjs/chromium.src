@@ -11,6 +11,7 @@
 
 #include <tuple>
 
+#include "base/check.h"
 #include "base/check_op.h"
 #include "base/files/file_util.h"
 #include "base/immediate_crash.h"
@@ -262,7 +263,7 @@ DWORD LockFileFlagsForMode(File::LockMode mode) {
     case File::LockMode::kExclusive:
       return flags | LOCKFILE_EXCLUSIVE_LOCK;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 }  // namespace
@@ -399,12 +400,7 @@ void File::DoInitialize(const FilePath& path, uint32_t flags) {
     disposition = TRUNCATE_EXISTING;
   }
 
-  if (!disposition) {
-    ::SetLastError(ERROR_INVALID_PARAMETER);
-    error_details_ = FILE_ERROR_FAILED;
-    NOTREACHED_IN_MIGRATION();
-    return;
-  }
+  CHECK(disposition);
 
   DWORD access = 0;
   if (flags & FLAG_WRITE)

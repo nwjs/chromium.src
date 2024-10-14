@@ -21,6 +21,10 @@ BocaAppClient* BocaAppClient::Get() {
   return g_instance;
 }
 
+bool BocaAppClient::HasInstance() {
+  return g_instance;
+}
+
 BocaAppClient::BocaAppClient() {
   CHECK_EQ(g_instance, nullptr);
   g_instance = this;
@@ -29,6 +33,31 @@ BocaAppClient::BocaAppClient() {
 BocaAppClient::~BocaAppClient() {
   CHECK_EQ(g_instance, this);
   g_instance = nullptr;
+}
+
+void BocaAppClient::AddSessionManager(BocaSessionManager* session_manager) {
+  // Session manager is created as profile service upon signin, so we can always
+  // guarantee the active profile identity matches the session manager identity.
+  auto* identity_manager = GetIdentityManager();
+  CHECK(identity_manager);
+  identity_manager->AddObserver(this);
+  auto [it, was_inserted] =
+      session_manager_map_.emplace(identity_manager, session_manager);
+  CHECK(it->second == session_manager);
+}
+
+BocaSessionManager* BocaAppClient::GetSessionManager() {
+  auto it = session_manager_map_.find(GetIdentityManager());
+  CHECK(it != session_manager_map_.end());
+  return it->second;
+}
+
+void BocaAppClient::OnIdentityManagerShutdown(
+    signin::IdentityManager* identity_manager) {
+  // Remove observer here as boca_app_client detroys pretty-late(post
+  // profile destroy).
+  identity_manager->RemoveObserver(this);
+  session_manager_map_.erase(identity_manager);
 }
 
 }  // namespace ash::boca

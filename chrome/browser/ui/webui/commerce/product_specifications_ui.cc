@@ -29,6 +29,7 @@
 #include "components/commerce/core/commerce_constants.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/feature_utils.h"
+#include "components/commerce/core/product_specifications/product_specifications_service.h"
 #include "components/commerce/core/shopping_service.h"
 #include "components/commerce/core/webui/shopping_service_handler.h"
 #include "components/favicon_base/favicon_url_parser.h"
@@ -120,6 +121,7 @@ ProductSpecificationsUI::ProductSpecificationsUI(content::WebUI* web_ui)
       {"renameGroup", IDS_COMPARE_RENAME},
       {"seeAll", IDS_COMPARE_SEE_ALL},
       {"suggestedTabs", IDS_COMPARE_SUGGESTIONS_SECTION},
+      {"tableFullMessage", IDS_COMPARE_TABLE_FULL_MESSAGE},
       {"tableMenuA11yLabel", IDS_COMPARE_TABLE_MENU_A11Y_LABEL},
       {"tableNameInputA11yLabel", IDS_COMPARE_TITLE_INPUT_A11Y_LABEL},
       {"thumbsDown", IDS_THUMBS_DOWN},
@@ -130,6 +132,8 @@ ProductSpecificationsUI::ProductSpecificationsUI(content::WebUI* web_ui)
   source->AddString("productSpecificationsManagementUrl",
                     kChromeUICompareListsUrl);
   source->AddString("compareLearnMoreUrl", kChromeUICompareLearnMoreUrl);
+  source->AddInteger("maxNameLength", kMaxNameLength);
+  source->AddInteger("maxTableSize", kMaxTableSize);
 
   std::string email;
   signin::IdentityManager* identity_manager =

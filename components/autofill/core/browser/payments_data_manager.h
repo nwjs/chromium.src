@@ -27,6 +27,7 @@
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/payments/account_info_getter.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
+#include "components/autofill/core/browser/ui/autofill_image_fetcher_base.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_observer.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -43,7 +44,6 @@ class SyncService;
 
 namespace autofill {
 
-class AutofillImageFetcherBase;
 class AutofillOptimizationGuide;
 class BankAccount;
 struct CreditCardArtImage;
@@ -195,7 +195,7 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Returns true if the user has at least 1 masked bank account.
   bool HasMaskedBankAccounts() const;
   // Returns the masked bank accounts that can be suggested to the user.
-  std::vector<BankAccount> GetMaskedBankAccounts() const;
+  base::span<const BankAccount> GetMaskedBankAccounts() const;
 
   // Returns the Payments customer data. Returns nullptr if no data is present.
   virtual PaymentsCustomerData* GetPaymentsCustomerData() const;
@@ -295,6 +295,11 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Removes the credit card or IBAN identified by `guid`.
   // Returns true if something was removed.
   virtual bool RemoveByGUID(const std::string& guid);
+
+  // Removes all local credit cards and CVCs modified on or after `delete_begin`
+  // and strictly before `delete_end`. Used for browsing data deletion purposes.
+  // TODO(crbug.com/310301981): Consider local IBANs?
+  void RemoveLocalDataModifiedBetween(base::Time begin, base::Time end);
 
   // Called to indicate `credit_card` was used (to fill in a form).
   // Updates the database accordingly.
@@ -512,8 +517,13 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // to the query handle.
   void CancelPendingServerQuery(WebDataServiceBase::Handle* handle);
 
-  // Asks `image_fetcher_` to fetch images.
-  void FetchImagesForURLs(base::span<const GURL> updated_urls) const;
+  // Asks `image_fetcher_` to fetch images. Each image represented by an url in
+  // the list `updated_urls` is downloaded in all the sizes specified by
+  // `image_sizes`. The total # of images downloaded is `updated_urls`.size() x
+  // `image_sizes`.size().
+  void FetchImagesForURLs(
+      base::span<const GURL> updated_urls,
+      base::span<const AutofillImageFetcherBase::ImageSize> image_sizes) const;
 
   // The first time this is called, logs a UMA metrics about the user's credit
   // card, offer and IBAN.
@@ -535,7 +545,7 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   std::vector<std::unique_ptr<Iban>> server_ibans_;
 
   // Cached versions of the masked bank accounts.
-  std::vector<std::unique_ptr<BankAccount>> masked_bank_accounts_;
+  std::vector<BankAccount> masked_bank_accounts_;
 
   // Cached version of the CreditCardCloudTokenData obtained from the database.
   std::vector<std::unique_ptr<CreditCardCloudTokenData>>

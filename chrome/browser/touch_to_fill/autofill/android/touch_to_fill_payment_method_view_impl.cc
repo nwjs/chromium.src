@@ -80,10 +80,19 @@ bool TouchToFillPaymentMethodViewImpl::Show(
   std::vector<base::android::ScopedJavaLocalRef<jobject>> suggestions_array;
   suggestions_array.reserve(suggestions.size());
   for (const Suggestion& suggestion : suggestions) {
+    CHECK_GT(suggestion.labels.size(), 0U);
+    CHECK_EQ(suggestion.labels[0].size(), 1U);
+    std::u16string secondarySubLabel =
+        suggestion.labels.size() > 1 && suggestion.labels[1].size() > 0 &&
+                !suggestion.labels[1][0].value.empty()
+            ? suggestion.labels[1][0].value
+            : u"";
     suggestions_array.push_back(
         Java_TouchToFillPaymentMethodViewBridge_createAutofillSuggestion(
             env, suggestion.main_text.value, suggestion.minor_text.value,
-            suggestion.apply_deactivated_style));
+            suggestion.labels[0][0].value, secondarySubLabel,
+            suggestion.apply_deactivated_style,
+            suggestion.should_display_terms_available));
   }
   Java_TouchToFillPaymentMethodViewBridge_showSheet(
       env, java_object_, std::move(credit_cards_array),

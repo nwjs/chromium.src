@@ -6,17 +6,25 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/test/ash_test_base.h"
+#include "base/functional/overloaded.h"
+#include "base/test/run_until.h"
 #include "base/test/test_future.h"
 #include "chromeos/ash/components/cryptohome/system_salt_getter.h"
 #include "chromeos/ash/components/dbus/userdataauth/fake_cryptohome_misc_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/fake_userdataauth_client.h"
 #include "chromeos/ash/components/login/auth/public/cryptohome_key_constants.h"
+#include "chromeos/ash/components/osauth/impl/request/password_manager_auth_request.h"
+#include "chromeos/ash/components/osauth/impl/request/settings_auth_request.h"
+#include "chromeos/ash/components/osauth/impl/request/webauthn_auth_request.h"
 #include "chromeos/ash/components/osauth/public/auth_parts.h"
+#include "chromeos/ash/components/osauth/public/request/auth_request.h"
 #include "components/user_manager/fake_user_manager.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user_manager.h"
 #include "third_party/cros_system_api/dbus/cryptohome/dbus-constants.h"
+#include "ui/base/l10n/l10n_util.h"
 
 namespace ash {
 
@@ -26,13 +34,25 @@ constexpr char kUserEmail[] = "expected_email@example.com";
 constexpr char kExpectedPassword[] = "expected_password";
 constexpr char kExpectedPin[] = "123456";
 constexpr char kExpectedSalt[] = "test salt";
+constexpr char kRpId[] = "example.com";
 
 }  // namespace
 
-class ActiveSessionAuthControllerTest : public NoSessionAshTestBase {
+enum class TestVariant {
+  kWebAuthN,
+  kPasswordManager,
+  kSettings,
+};
+
+class ActiveSessionAuthControllerTest
+    : public NoSessionAshTestBase,
+      public testing::WithParamInterface<TestVariant> {
  public:
-  using OnAuthComplete =
+  using TokenBasedCallback =
       base::test::TestFuture<bool, const ash::AuthProofToken&, base::TimeDelta>;
+  using WebAuthNCallback = base::test::TestFuture<bool>;
+  using OnAuthComplete = std::variant<std::unique_ptr<TokenBasedCallback>,
+                                      std::unique_ptr<WebAuthNCallback>>;
 
   void SetUp() override {
     InitializeUserManager();
@@ -138,6 +158,44 @@ class ActiveSessionAuthControllerTest : public NoSessionAshTestBase {
         account_identifier, auth_factor, auth_input);
   }
 
+  OnAuthComplete ShowAuthDialogForVariant(TestVariant variant) {
+    auto make_password_manager_request = []() {
+      auto future = std::make_unique<TokenBasedCallback>();
+
+      Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
+          std::make_unique<PasswordManagerAuthRequest>(future->GetCallback()));
+
+      return OnAuthComplete{std::move(future)};
+    };
+
+    auto make_settings_request = []() {
+      auto future = std::make_unique<TokenBasedCallback>();
+
+      Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
+          std::make_unique<SettingsAuthRequest>(future->GetCallback()));
+
+      return OnAuthComplete{std::move(future)};
+    };
+
+    auto make_webauthn_request = []() {
+      auto future = std::make_unique<WebAuthNCallback>();
+
+      Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
+          std::make_unique<WebAuthNAuthRequest>(kRpId, future->GetCallback()));
+
+      return OnAuthComplete{std::move(future)};
+    };
+
+    switch (variant) {
+      case TestVariant::kWebAuthN:
+        return make_webauthn_request();
+      case TestVariant::kPasswordManager:
+        return make_password_manager_request();
+      case TestVariant::kSettings:
+        return make_settings_request();
+    }
+  }
+
  protected:
   AccountId account_id_;
   TestingPrefServiceSimple local_state_;
@@ -147,14 +205,14 @@ class ActiveSessionAuthControllerTest : public NoSessionAshTestBase {
 
 // Tests that the StartAuthSession call to cryptohome includes the correct
 // account id.
-TEST_F(ActiveSessionAuthControllerTest,
-       StartAuthSessionCalledWithCorrectAccountId) {
+TEST_P(ActiveSessionAuthControllerTest,
+       StartAuthSessionCalledWithCorrectAccountIdAndReturnsPasswordFactor) {
   AddGaiaPassword(account_id_, kExpectedPassword);
 
-  OnAuthComplete future;
+  auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
+      Shell::Get()->active_session_auth_controller());
 
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
+  ShowAuthDialogForVariant(GetParam());
 
   base::RunLoop().RunUntilIdle();
 
@@ -166,52 +224,23 @@ TEST_F(ActiveSessionAuthControllerTest,
           ->GetLastRequest<
               FakeUserDataAuthClient::Operation::kStartAuthSession>();
   EXPECT_EQ(start_auth_session_request.account_id().account_id(), kUserEmail);
-}
-
-// Tests that the ListAuthFactors call to cryptohome includes the correct
-// account id and returns the password factor.
-TEST_F(ActiveSessionAuthControllerTest, ListAuthFactorsReturnsPassword) {
-  AddGaiaPassword(account_id_, kExpectedPassword);
-
-  auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
-      Shell::Get()->active_session_auth_controller());
-
-  OnAuthComplete future;
-
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
-
-  base::RunLoop().RunUntilIdle();
-
   AuthFactorSet available_factors =
       ActiveSessionAuthControllerImpl::TestApi(controller)
           .GetAvailableFactors();
-
-  EXPECT_TRUE(
-      FakeUserDataAuthClient::Get()
-          ->WasCalled<FakeUserDataAuthClient::Operation::kListAuthFactors>());
-  auto list_auth_factors_request =
-      FakeUserDataAuthClient::Get()
-          ->GetLastRequest<
-              FakeUserDataAuthClient::Operation::kListAuthFactors>();
-  EXPECT_EQ(list_auth_factors_request.account_id().account_id(), kUserEmail);
   EXPECT_EQ(1u, available_factors.size());
   EXPECT_TRUE(available_factors.Has(AuthInputType::kPassword));
 }
 
 // Tests that the ListAuthFactors call to cryptohome includes the correct
 // account id and returns the password and pin factors.
-TEST_F(ActiveSessionAuthControllerTest, ListAuthFactorsReturnsPasswordAndPin) {
+TEST_P(ActiveSessionAuthControllerTest, StartAuthSessionReturnsPasswordAndPin) {
   AddGaiaPassword(account_id_, kExpectedPassword);
   AddCryptohomePin(account_id_, kExpectedPin);
 
   auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
       Shell::Get()->active_session_auth_controller());
 
-  OnAuthComplete future;
-
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
+  ShowAuthDialogForVariant(GetParam());
 
   // Await show.
   base::RunLoop().RunUntilIdle();
@@ -220,14 +249,6 @@ TEST_F(ActiveSessionAuthControllerTest, ListAuthFactorsReturnsPasswordAndPin) {
       ActiveSessionAuthControllerImpl::TestApi(controller)
           .GetAvailableFactors();
 
-  EXPECT_TRUE(
-      FakeUserDataAuthClient::Get()
-          ->WasCalled<FakeUserDataAuthClient::Operation::kListAuthFactors>());
-  auto list_auth_factors_request =
-      FakeUserDataAuthClient::Get()
-          ->GetLastRequest<
-              FakeUserDataAuthClient::Operation::kListAuthFactors>();
-  EXPECT_EQ(list_auth_factors_request.account_id().account_id(), kUserEmail);
   EXPECT_EQ(2u, available_factors.size());
   EXPECT_TRUE(available_factors.Has(AuthInputType::kPassword));
   EXPECT_TRUE(available_factors.Has(AuthInputType::kPin));
@@ -236,16 +257,13 @@ TEST_F(ActiveSessionAuthControllerTest, ListAuthFactorsReturnsPasswordAndPin) {
 // Tests that the AuthenticateAuthFactor call to cryptohome includes the
 // correct account id and password, and that the `OnAuthComplete` callback
 // is called with correct parameters.
-TEST_F(ActiveSessionAuthControllerTest, SubmitPassword) {
+TEST_P(ActiveSessionAuthControllerTest, SubmitPassword) {
   AddGaiaPassword(account_id_, kExpectedPassword);
 
   auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
       Shell::Get()->active_session_auth_controller());
 
-  OnAuthComplete future;
-
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
+  auto future = ShowAuthDialogForVariant(GetParam());
 
   // Await show.
   base::RunLoop().RunUntilIdle();
@@ -264,23 +282,24 @@ TEST_F(ActiveSessionAuthControllerTest, SubmitPassword) {
   EXPECT_EQ(
       authenticate_auth_factor_request.auth_input().password_input().secret(),
       HashPassword(kExpectedPassword));
-  EXPECT_TRUE(future.IsReady());
-  EXPECT_EQ(future.Get<bool>(), true);
+
+  std::visit(base::Overloaded([](auto&& arg) {
+               EXPECT_TRUE(arg->IsReady());
+               EXPECT_EQ(arg->template Get<bool>(), true);
+             }),
+             future);
 }
 
 // Tests that the AuthenticateAuthFactor call to cryptohome includes the
 // correct account id and password, and that the `OnAuthComplete` callback
 // is not called with wrong credentials.
-TEST_F(ActiveSessionAuthControllerTest, WrongPassword) {
+TEST_P(ActiveSessionAuthControllerTest, WrongPassword) {
   AddGaiaPassword(account_id_, kExpectedPassword);
 
   auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
       Shell::Get()->active_session_auth_controller());
 
-  OnAuthComplete future;
-
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
+  auto future = ShowAuthDialogForVariant(GetParam());
 
   // Await show.
   base::RunLoop().RunUntilIdle();
@@ -304,13 +323,15 @@ TEST_F(ActiveSessionAuthControllerTest, WrongPassword) {
   EXPECT_EQ(
       authenticate_auth_factor_request.auth_input().password_input().secret(),
       HashPassword(kExpectedPassword));
-  EXPECT_FALSE(future.IsReady());
+
+  std::visit(base::Overloaded([](auto&& arg) { EXPECT_FALSE(arg->IsReady()); }),
+             future);
 }
 
 // Tests that the AuthenticateAuthFactor call to cryptohome includes the
 // correct account id and pin, and that the `OnAuthComplete` callback
 // is called with the correct credentials.
-TEST_F(ActiveSessionAuthControllerTest, SubmitPin) {
+TEST_P(ActiveSessionAuthControllerTest, SubmitPin) {
   AddGaiaPassword(account_id_, kExpectedPassword);
   AddCryptohomePin(account_id_, kExpectedPin);
 
@@ -321,10 +342,7 @@ TEST_F(ActiveSessionAuthControllerTest, SubmitPin) {
   auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
       Shell::Get()->active_session_auth_controller());
 
-  OnAuthComplete future;
-
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
+  auto future = ShowAuthDialogForVariant(GetParam());
 
   // Await show.
   base::RunLoop().RunUntilIdle();
@@ -341,14 +359,18 @@ TEST_F(ActiveSessionAuthControllerTest, SubmitPin) {
 
   EXPECT_EQ(authenticate_auth_factor_request.auth_input().pin_input().secret(),
             HashPin(kExpectedPin));
-  EXPECT_TRUE(future.IsReady());
-  EXPECT_EQ(future.Get<bool>(), true);
+
+  std::visit(base::Overloaded([](auto&& arg) {
+               EXPECT_TRUE(arg->IsReady());
+               EXPECT_EQ(arg->template Get<bool>(), true);
+             }),
+             future);
 }
 
 // Tests that the AuthenticateAuthFactor call to cryptohome includes the
 // account id and pin, and that the `OnAuthComplete` callback
 // is not called with a wrong credentials error reply.
-TEST_F(ActiveSessionAuthControllerTest, WrongPin) {
+TEST_P(ActiveSessionAuthControllerTest, WrongPin) {
   AddGaiaPassword(account_id_, kExpectedPassword);
   AddCryptohomePin(account_id_, kExpectedPin);
 
@@ -359,10 +381,7 @@ TEST_F(ActiveSessionAuthControllerTest, WrongPin) {
   auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
       Shell::Get()->active_session_auth_controller());
 
-  OnAuthComplete future;
-
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
+  auto future = ShowAuthDialogForVariant(GetParam());
 
   // Await show.
   base::RunLoop().RunUntilIdle();
@@ -384,13 +403,15 @@ TEST_F(ActiveSessionAuthControllerTest, WrongPin) {
 
   EXPECT_EQ(authenticate_auth_factor_request.auth_input().pin_input().secret(),
             HashPin(kExpectedPin));
-  EXPECT_FALSE(future.IsReady());
+
+  std::visit(base::Overloaded([](auto&& arg) { EXPECT_FALSE(arg->IsReady()); }),
+             future);
 }
 
 // Tests that the AuthenticateAuthFactor calls to cryptohome are
 // correctly formed when pin and password authentication are both
 // tried.
-TEST_F(ActiveSessionAuthControllerTest, BadPinThenGoodPassword) {
+TEST_P(ActiveSessionAuthControllerTest, BadPinThenGoodPassword) {
   AddGaiaPassword(account_id_, kExpectedPassword);
   AddCryptohomePin(account_id_, kExpectedPin);
   const std::string bad_pin = "bad_pin";
@@ -402,10 +423,7 @@ TEST_F(ActiveSessionAuthControllerTest, BadPinThenGoodPassword) {
   auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
       Shell::Get()->active_session_auth_controller());
 
-  OnAuthComplete future;
-
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
+  auto future = ShowAuthDialogForVariant(GetParam());
 
   // Await show.
   base::RunLoop().RunUntilIdle();
@@ -422,7 +440,9 @@ TEST_F(ActiveSessionAuthControllerTest, BadPinThenGoodPassword) {
 
   EXPECT_EQ(authenticate_auth_factor_request.auth_input().pin_input().secret(),
             HashPin(bad_pin));
-  EXPECT_FALSE(future.IsReady());
+
+  std::visit(base::Overloaded([](auto&& arg) { EXPECT_FALSE(arg->IsReady()); }),
+             future);
 
   // Await authentication with password.
   ActiveSessionAuthControllerImpl::TestApi(controller)
@@ -437,22 +457,57 @@ TEST_F(ActiveSessionAuthControllerTest, BadPinThenGoodPassword) {
   EXPECT_EQ(
       authenticate_auth_factor_request.auth_input().password_input().secret(),
       HashPassword(kExpectedPassword));
-  EXPECT_TRUE(future.IsReady());
-  EXPECT_EQ(future.Get<bool>(), true);
+
+  std::visit(base::Overloaded([](auto&& arg) {
+               EXPECT_TRUE(arg->IsReady());
+               EXPECT_EQ(arg->template Get<bool>(), true);
+             }),
+             future);
+}
+
+// Check the format and content of pin lockout status message.
+TEST_P(ActiveSessionAuthControllerTest, PinLockoutMessage) {
+  AddGaiaPassword(account_id_, kExpectedPassword);
+  AddCryptohomePin(account_id_, kExpectedPin);
+  const std::string bad_pin = "bad_pin";
+
+  user_manager::KnownUser known_user(Shell::Get()->local_state());
+  known_user.SetStringPref(account_id_, prefs::kQuickUnlockPinSalt,
+                           kExpectedSalt);
+
+  auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
+      Shell::Get()->active_session_auth_controller());
+  auto test_api = ActiveSessionAuthControllerImpl::TestApi(controller);
+
+  ShowAuthDialogForVariant(GetParam());
+
+  // Await show.
+  ASSERT_TRUE(base::test::RunUntil([&]() { return controller->IsShown(); }));
+
+  const base::TimeDelta in_a_while = base::Seconds(60);
+  test_api.SetPinStatus(std::make_unique<cryptohome::PinStatus>(in_a_while));
+
+  EXPECT_EQ(
+      test_api.GetPinStatusMessage(),
+      l10n_util::GetStringFUTF16(IDS_ASH_IN_SESSION_AUTH_PIN_DELAY_REQUIRED,
+                                 u"1 minute, 0 seconds"));
+
+  test_api.SetPinStatus(
+      std::make_unique<cryptohome::PinStatus>(base::TimeDelta::Max()));
+  EXPECT_EQ(
+      test_api.GetPinStatusMessage(),
+      l10n_util::GetStringUTF16(IDS_ASH_IN_SESSION_AUTH_PIN_TOO_MANY_ATTEMPTS));
 }
 
 // Tests that the OnAuthCancel callback is called with the correct
 // parameters.
-TEST_F(ActiveSessionAuthControllerTest, OnAuthCancel) {
+TEST_P(ActiveSessionAuthControllerTest, OnAuthCancel) {
   AddGaiaPassword(account_id_, kExpectedPassword);
 
   auto* controller = static_cast<ActiveSessionAuthControllerImpl*>(
       Shell::Get()->active_session_auth_controller());
 
-  OnAuthComplete future;
-
-  Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-      ActiveSessionAuthController::Reason::kSettings, future.GetCallback());
+  auto future = ShowAuthDialogForVariant(GetParam());
 
   // Await show.
   base::RunLoop().RunUntilIdle();
@@ -462,9 +517,23 @@ TEST_F(ActiveSessionAuthControllerTest, OnAuthCancel) {
   // Await close.
   base::RunLoop().RunUntilIdle();
 
-  EXPECT_TRUE(future.IsReady());
-  EXPECT_FALSE(future.Get<bool>());
-  EXPECT_EQ(future.Get<1>(), std::string{});
+  std::visit(base::Overloaded(
+                 [](std::unique_ptr<WebAuthNCallback>& callback) {
+                   EXPECT_TRUE(callback->IsReady());
+                   EXPECT_FALSE(callback->Get<bool>());
+                 },
+                 [](std::unique_ptr<TokenBasedCallback>& callback) {
+                   EXPECT_TRUE(callback->IsReady());
+                   EXPECT_FALSE(callback->Get<bool>());
+                   EXPECT_EQ(callback->Get<1>(), std::string{});
+                 }),
+             future);
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         ActiveSessionAuthControllerTest,
+                         testing::Values(TestVariant::kWebAuthN,
+                                         TestVariant::kSettings,
+                                         TestVariant::kPasswordManager));
 
 }  // namespace ash

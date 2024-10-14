@@ -125,6 +125,17 @@ the generic promo launch. -->
   <int value="2" label="Disabled"/>
 </enum>
 
+<enum name="IOSAnnotationType">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Date"/>
+  <int value="2" label="Address"/>
+  <int value="3" label="Phone"/>
+  <int value="4" label="Link"/>
+  <int value="5" label="Measurement"/>
+  <int value="6" label="ParcelTracking"/>
+  <int value="7" label="ParcelCarrier"/>
+</enum>
+
 <enum name="IOSBringAndroidTabsPromptActionType">
   <int value="0" label="Review tabs"/>
   <int value="1" label="Open tabs"/>
@@ -341,6 +352,7 @@ the generic promo launch. -->
   <int value="7" label="Safety Check tile"/>
   <int value="8" label="Parcel Tracking tile"/>
   <int value="9" label="Distant tab resumption tile"/>
+  <int value="10" label="Price Tracking Promo tile"/>
 </enum>
 
 <enum name="IOSHomeCustomizationEntrypoint">
@@ -370,6 +382,7 @@ the generic promo launch. -->
 </enum>
 
 <enum name="IOSMagicStackModuleType">
+  <int value="-1" label="Invalid"/>
   <int value="0" label="Most Visited Tiles"/>
   <int value="1" label="Shortcuts"/>
   <int value="2" label="Set Up List Sync"/>
@@ -386,19 +399,6 @@ the generic promo launch. -->
   <int value="13" label="Set Up List Notifications"/>
   <int value="14" label="Placeholder"/>
   <int value="15" label="Price Tracking Promo"/>
-</enum>
-
-<enum name="IOSMainThreadFreezeDetectionNotRunningAfterReportBlock">
-  <int value="0" label="After Breakpad Ref">
-    Freeze detection stopped after obtaining the breakpad lock.
-  </int>
-  <int value="1" label="After FileManager UTE move">
-    Freeze detection stopped after moving the hang report out of the Breakpad
-    directory and into the |UTE| directory.
-  </int>
-  <int value="2" label="After Crashpad DumpWithoutCrash">
-    Freeze detection stopped after calling DumpWithCrash from Crashpad.
-  </int>
 </enum>
 
 <enum name="IOSMiniMapConsentOutcome">
@@ -674,6 +674,17 @@ the generic promo launch. -->
   <int value="1" label="No issues"/>
 </enum>
 
+<!-- LINT.IfChange(IOSSafetyCheckNotificationType) -->
+
+<enum name="IOSSafetyCheckNotificationType">
+  <int value="0" label="Update Chrome"/>
+  <int value="1" label="Passwords"/>
+  <int value="2" label="Safe Browsing"/>
+  <int value="3" label="Error"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/safety_check_notifications/utils/constants.h:SafetyCheckNotificationType) -->
+
 <enum name="IOSSaveToDriveOutcomeType">
   <int value="0" label="Failure - WebState Hidden"/>
   <int value="1" label="Failure - WebState Destroyed"/>
@@ -879,6 +890,8 @@ the generic promo launch. -->
   <int value="4" label="SetUpList Continuation"/>
   <int value="5" label="Docking"/>
   <int value="6" label="Omnibox Position"/>
+  <int value="7" label="Lens"/>
+  <int value="8" label="Enhanced Safe Browsing"/>
 </enum>
 
 <enum name="IOSTipsNotificationUserType">
@@ -1067,13 +1080,18 @@ the generic promo launch. -->
   <int value="1" label="Open Instructions"/>
 </enum>
 
+<!-- LINT.IfChange(PushNotificationClientId) -->
+
 <enum name="PushNotificationClientId">
   <int value="1" label="Commerce"/>
   <int value="2" label="Content"/>
   <int value="3" label="Tips"/>
   <int value="4" label="Sports"/>
   <int value="5" label="Safety Check"/>
+  <int value="6" label="Send Tab"/>
 </enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/push_notification/model/push_notification_client_id.h:PushNotificationClientId) -->
 
 <enum name="PushNotificationLifecycleEvent">
   <int value="0" label="Notification received on device"/>

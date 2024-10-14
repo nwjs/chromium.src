@@ -12,8 +12,9 @@
 #include "net/base/net_error_details.h"
 #include "net/base/net_export.h"
 #include "net/base/request_priority.h"
+#include "net/http/alternative_service.h"
 #include "net/http/http_response_info.h"
-#include "net/http/http_stream_key.h"
+#include "net/http/http_stream_pool_switching_info.h"
 #include "net/log/net_log_source.h"
 #include "net/log/net_log_with_source.h"
 #include "net/proxy_resolution/proxy_info.h"
@@ -23,7 +24,6 @@
 #include "net/spdy/spdy_session_pool.h"
 #include "net/ssl/ssl_config.h"
 #include "net/ssl/ssl_info.h"
-#include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
 #include "net/websockets/websocket_handshake_stream_base.h"
 #include "url/gurl.h"
 
@@ -118,8 +118,7 @@ class NET_EXPORT_PRIVATE HttpStreamRequest {
     // better way to resolve proxies. This method is needed because currently
     // HttpStreamFactory::JobController resolves proxies.
     virtual void OnSwitchesToHttpStreamPool(
-        HttpStreamKey stream_key,
-        quic::ParsedQuicVersion quic_version) = 0;
+        HttpStreamPoolSwitchingInfo request_info) = 0;
   };
 
   class NET_EXPORT_PRIVATE Helper {

@@ -39,8 +39,6 @@ namespace ash::vc_background_ui {
 
 namespace {
 
-using std::literals::string_view_literals::operator""sv;
-
 void AddStrings(content::WebUIDataSource* source) {
   source->AddString("vcBackgroundTitle",
                     l10n_util::GetStringUTF16(IDS_VC_BACKGROUND_APP_TITLE));
@@ -53,7 +51,7 @@ void AddStrings(content::WebUIDataSource* source) {
 }
 
 void AddResources(content::WebUIDataSource* source) {
-  source->AddResourcePath(""sv, IDR_ASH_VC_BACKGROUND_INDEX_HTML);
+  source->AddResourcePath("", IDR_ASH_VC_BACKGROUND_INDEX_HTML);
   source->AddResourcePaths(base::make_span(kAshVcBackgroundResources,
                                            kAshVcBackgroundResourcesSize));
 
@@ -132,9 +130,11 @@ void VcBackgroundUI::AddBooleans(content::WebUIDataSource* source) {
   source->AddBoolean("isSeaPenUseExptTemplateEnabled",
                      common_sea_pen_requirements &&
                          ::ash::features::IsSeaPenUseExptTemplateEnabled());
-  source->AddBoolean("isSeaPenEnterpriseEnabled",
+  source->AddBoolean("isManagedSeaPenEnabled",
                      common_sea_pen_requirements &&
-                         ::ash::features::IsSeaPenEnterpriseEnabled());
+                         sea_pen_provider_->IsManagedSeaPenEnabled());
+  source->AddBoolean("isManagedSeaPenFeedbackEnabled",
+                     sea_pen_provider_->IsManagedSeaPenFeedbackEnabled());
   source->AddBoolean("isLacrosEnabled",
                      ::crosapi::lacros_startup_state::IsLacrosEnabled());
   source->AddBoolean("isVcResizeThumbnailEnabled",

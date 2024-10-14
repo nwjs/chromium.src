@@ -101,7 +101,7 @@ enum FeatureState {
 //
 //   BASE_FEATURE_PARAM(int, kMyFeatureParam, kMyFeature, "MyFeatureParam", 0);
 //
-// `T` is a parameter type, one of bool, int, double, std::string, and
+// `T` is a parameter type, one of bool, int, size_t, double, std::string, and
 // base::TimeDelta. Enum types are not supported for now.
 //
 // For now, ScopedFeatureList doesn't work to change the value dynamically when
@@ -121,6 +121,23 @@ enum FeatureState {
   constinit const base::FeatureParam<T> feature_object_name(      \
       feature, name, default_value,                               \
       &field_trial_params_internal::                              \
+          GetFeatureParamWithCacheFor##feature_object_name)
+
+// Same as BASE_FEATURE_PARAM() but used for enum type parameters with on extra
+// argument, `options`. See base::FeatureParam<Enum> template declaration in
+// //base/metrics/field_trial_params.h for `options`' details.
+#define BASE_FEATURE_ENUM_PARAM(T, feature_object_name, feature, name, \
+                                default_value, options)                \
+  namespace field_trial_params_internal {                              \
+  T GetFeatureParamWithCacheFor##feature_object_name(                  \
+      const base::FeatureParam<T>* feature_param) {                    \
+    static const T param = feature_param->GetWithoutCache();           \
+    return param;                                                      \
+  }                                                                    \
+  } /* field_trial_params_internal */                                  \
+  constinit const base::FeatureParam<T> feature_object_name(           \
+      feature, name, default_value, options,                           \
+      &field_trial_params_internal::                                   \
           GetFeatureParamWithCacheFor##feature_object_name)
 
 // Secret handshake to (try to) ensure all places that construct a base::Feature

@@ -1,4 +1,4 @@
-<style include="cr-icons cr-hidden-style">
+<style include="cr-icons cr-hidden-style shared-vars">
   :host {
     --column-width: 220px;
     --detail-container-margin-bottom: 24px;
@@ -23,13 +23,25 @@
   .col {
     display: grid;
     grid-template-rows: subgrid;
+    margin: var(--column-hover-padding) 0; /* Include space for hover border. */
+    position: relative;
     width: var(--column-width);
   }
 
   .col[is-dragging] {
+    z-index: 2;
+  }
+
+  .col[is-dragging]::before {
     background-color: var(
         --color-product-specifications-summary-background-dragging);
-    z-index: 2;
+    border-radius: 10px;
+    bottom: calc(-1 * var(--column-hover-padding));
+    content: '';
+    left: calc(-1 * var(--column-hover-padding));
+    position: absolute;
+    right: calc(-1 * var(--column-hover-padding));
+    top: calc(-1 * var(--column-hover-padding));
   }
 
   product-selector {
@@ -64,15 +76,19 @@
     --cr-icon-button-icon-size: 16px;
     --cr-icon-button-margin-end: 0;
     --cr-icon-button-size: 20px;
+    background-color: var(
+        --color-product-specifications-icon-button-background);
     position: absolute;
     right: 11px;
     top: 11px;
     z-index: 1;
   }
 
-  .open-tab-button:not(:hover) {
-    background-color: color-mix(in srgb, var(
-      --color-product-specifications-icon-button-background) 65%, transparent);
+  .open-tab-button:hover {
+    background: linear-gradient(var(
+        --color-product-specifications-icon-button-hovered-background), var(
+        --color-product-specifications-icon-button-hovered-background)), var(
+        --color-product-specifications-icon-button-background);
   }
 
   .detail-container {
@@ -116,6 +132,7 @@
 
   #newColumnSelectorContainer {
     order: var(--num-columns); /* Keep at the end during drag-and-drop. */
+    padding-top: var(--column-hover-padding);
     position: sticky;
     right: 0;
     z-index: 2;

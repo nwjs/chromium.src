@@ -46,9 +46,6 @@ const char kChromeWebstoreUpdateURL[] =
 const char kAppMenuUtmSource[] = "ext_app_menu";
 const char kExtensionsMenuUtmSource[] = "ext_extensions_menu";
 const char kExtensionsSidebarUtmSource[] = "ext_sidebar";
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-const char kGetMostChromeUtmSource[] = "gtmooc";
-#endif
 
 GURL GetWebstoreLaunchURL() {
   extensions::ExtensionsClient* client = extensions::ExtensionsClient::Get();
@@ -90,7 +87,7 @@ GURL GetWebstoreItemJsonDataURL(const extensions::ExtensionId& extension_id) {
               extension_id);
 }
 
-GURL GetWebstoreItemSnippetURL(const std::string& extension_id) {
+GURL GetWebstoreItemSnippetURL(const extensions::ExtensionId& extension_id) {
   if (g_item_snippet_url_for_test_) {
     // Return `<base URL><extension_id>`. There is no suffix if the URL is
     // overridden by a test.

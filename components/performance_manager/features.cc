@@ -140,17 +140,6 @@ BASE_FEATURE(kUrgentPageDiscarding,
              "UrgentPageDiscarding",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCPUInterventionEvaluationLogging,
-             "CPUInterventionEvaluationLogging",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-const base::FeatureParam<base::TimeDelta> kDelayBeforeLogging{
-    &kCPUInterventionEvaluationLogging, "delay_before_logging",
-    base::Seconds(60)};
-
-const base::FeatureParam<int> kThresholdChromeCPUPercent{
-    &kCPUInterventionEvaluationLogging, "threshold_chrome_cpu_percent", 25};
-
 BASE_FEATURE(kCPUMeasurementInFreezingPolicy,
              "CPUMeasurementInFreezingPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -172,6 +161,10 @@ BASE_FEATURE(kFreezingOnBatterySaverForTesting,
 
 BASE_FEATURE(kResourceAttributionIncludeOrigins,
              "ResourceAttributionIncludeOrigins",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSeamlessRenderFrameSwap,
+             "SeamlessRenderFrameSwap",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace performance_manager::features

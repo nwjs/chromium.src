@@ -46,9 +46,6 @@ namespace enterprise_connectors {
 
 namespace {
 
-constexpr ReportingConnector kAllReportingConnectors[] = {
-    ReportingConnector::SECURITY_EVENT};
-
 #if !BUILDFLAG(IS_ANDROID)
 constexpr AnalysisConnector kAllAnalysisConnectors[] = {
     AnalysisConnector::FILE_DOWNLOADED, AnalysisConnector::FILE_ATTACHED,
@@ -86,12 +83,6 @@ constexpr char kNormalLocalAnalysisSettingsPref[] = R"([
     "block_password_protected": true,
     "block_large_files": true,
   },
-])";
-
-constexpr char kNormalReportingSettingsPref[] = R"([
-  {
-    "service_provider": "google"
-  }
 ])";
 
 constexpr char kDlpAndMalwareUrl[] = "https://foo.com";
@@ -232,12 +223,12 @@ class ConnectorsManagerLocalAnalysisPolicyTest
 TEST_P(ConnectorsManagerLocalAnalysisPolicyTest, Test) {
   std::unique_ptr<ScopedConnectorPref> scoped_pref =
       set_policy() ? std::make_unique<ScopedConnectorPref>(
-                         pref_service(), ConnectorPref(connector()),
+                         pref_service(), AnalysisConnectorPref(connector()),
                          kNormalLocalAnalysisSettingsPref)
                    : nullptr;
 
   ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
-  EXPECT_EQ(set_policy(), manager.IsConnectorEnabled(connector()));
+  EXPECT_EQ(set_policy(), manager.IsAnalysisConnectorEnabled(connector()));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -261,7 +252,7 @@ class ConnectorsManagerConnectorPoliciesTest
 
   const char* pref_value() const { return std::get<2>(GetParam()); }
 
-  const char* pref() const { return ConnectorPref(connector()); }
+  const char* pref() const { return AnalysisConnectorPref(connector()); }
 
   void SetUpExpectedAnalysisSettings(const char* pref) {
     auto expected_settings = ExpectedAnalysisSettings(pref, url());
@@ -585,7 +576,7 @@ class ConnectorsManagerConnectorPoliciesSourceDestinationTest
 
   const char* pref_value() const { return std::get<2>(GetParam()); }
 
-  const char* pref() const { return ConnectorPref(connector()); }
+  const char* pref() const { return AnalysisConnectorPref(connector()); }
 
   void SetUpExpectedAnalysisSettings(const char* pref) {
     auto expected_settings =
@@ -718,7 +709,7 @@ class ConnectorsManagerAnalysisConnectorsTest
 
   const char* pref_value() const { return std::get<1>(GetParam()); }
 
-  const char* pref() const { return ConnectorPref(connector()); }
+  const char* pref() const { return AnalysisConnectorPref(connector()); }
 };
 
 TEST_P(ConnectorsManagerAnalysisConnectorsTest, DynamicPolicies) {
@@ -823,7 +814,7 @@ class ConnectorsManagerAnalysisConnectorsSourceDestinationTest
 
   const char* pref_value() const { return std::get<1>(GetParam()); }
 
-  const char* pref() const { return ConnectorPref(connector()); }
+  const char* pref() const { return AnalysisConnectorPref(connector()); }
 
  protected:
   std::unique_ptr<SourceDestinationTestingHelper>
@@ -881,52 +872,6 @@ INSTANTIATE_TEST_SUITE_P(
 
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-class ConnectorsManagerReportingTest
-    : public ConnectorsManagerTest,
-      public testing::WithParamInterface<ReportingConnector> {
- public:
-  ReportingConnector connector() const { return GetParam(); }
-
-  const char* pref() const { return ConnectorPref(connector()); }
-};
-
-TEST_P(ConnectorsManagerReportingTest, DynamicPolicies) {
-  // TODO(b/344593927): Re-enable this test for Android.
-#if BUILDFLAG(IS_ANDROID)
-  ASSERT_FALSE(pref_service()->FindPreference(
-      "enterprise_connectors.on_security_event"));
-#else
-  ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
-  // The cache is initially empty.
-  ASSERT_TRUE(manager.GetReportingConnectorsSettingsForTesting().empty());
-
-  // Once the pref is updated, the settings should be cached, and reporting
-  // settings can be obtained.
-  {
-    ScopedConnectorPref scoped_pref(pref_service(), pref(),
-                                    kNormalReportingSettingsPref);
-
-    const auto& cached_settings =
-        manager.GetReportingConnectorsSettingsForTesting();
-    ASSERT_FALSE(cached_settings.empty());
-    ASSERT_EQ(1u, cached_settings.count(connector()));
-    ASSERT_EQ(1u, cached_settings.at(connector()).size());
-
-    auto settings =
-        cached_settings.at(connector()).at(0).GetReportingSettings();
-    ASSERT_TRUE(settings.has_value());
-    ValidateSettings(settings.value());
-  }
-
-  // The cache should be empty again after the pref is reset.
-  ASSERT_TRUE(manager.GetAnalysisConnectorsSettingsForTesting().empty());
-#endif
-}
-
-INSTANTIATE_TEST_SUITE_P(ConnectorsManagerReportingTest,
-                         ConnectorsManagerReportingTest,
-                         testing::ValuesIn(kAllReportingConnectors));
-
 #if BUILDFLAG(ENTERPRISE_LOCAL_CONTENT_ANALYSIS)
 class ConnectorsManagerLocalAnalysisConnectorTest
     : public ConnectorsManagerTest,
@@ -934,7 +879,7 @@ class ConnectorsManagerLocalAnalysisConnectorTest
  public:
   AnalysisConnector connector() const { return GetParam(); }
 
-  const char* pref() const { return ConnectorPref(connector()); }
+  const char* pref() const { return AnalysisConnectorPref(connector()); }
 };
 
 TEST_P(ConnectorsManagerLocalAnalysisConnectorTest, DynamicPolicies) {
@@ -1027,7 +972,7 @@ class ConnectorsManagerDataRegionTest
 
   DataRegion data_region() const { return std::get<1>(GetParam()); }
 
-  const char* pref() const { return ConnectorPref(connector()); }
+  const char* pref() const { return AnalysisConnectorPref(connector()); }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -1070,9 +1015,8 @@ TEST_F(ConnectorsManagerTest, ReportingUrlFlagOverrideNoProviderSettings) {
   ASSERT_FALSE(pref_service()->FindPreference(
       "enterprise_connectors.on_security_event"));
 #else
-  ScopedConnectorPref scoped_pref(
-      pref_service(), ConnectorPref(ReportingConnector::SECURITY_EVENT),
-      kNoProviderReportingSettings);
+  ScopedConnectorPref scoped_pref(pref_service(), kOnSecurityEventPref,
+                                  kNoProviderReportingSettings);
   SetUpTestCommandLine();
   ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
   std::optional<ReportingSettings> reporting_settings =
@@ -1088,9 +1032,8 @@ TEST_F(ConnectorsManagerTest,
   ASSERT_FALSE(pref_service()->FindPreference(
       "enterprise_connectors.on_security_event"));
 #else
-  ScopedConnectorPref scoped_pref(
-      pref_service(), ConnectorPref(ReportingConnector::SECURITY_EVENT),
-      kNormalReportingSettingsWithoutEvents);
+  ScopedConnectorPref scoped_pref(pref_service(), kOnSecurityEventPref,
+                                  kNormalReportingSettingsWithoutEvents);
   SetUpTestCommandLine();
   ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
   std::optional<ReportingSettings> reporting_settings =
@@ -1109,9 +1052,8 @@ TEST_F(ConnectorsManagerTest,
   ASSERT_FALSE(pref_service()->FindPreference(
       "enterprise_connectors.on_security_event"));
 #else
-  ScopedConnectorPref scoped_pref(
-      pref_service(), ConnectorPref(ReportingConnector::SECURITY_EVENT),
-      kNormalReportingSettingsWithEvents);
+  ScopedConnectorPref scoped_pref(pref_service(), kOnSecurityEventPref,
+                                  kNormalReportingSettingsWithEvents);
   SetUpTestCommandLine();
   ConnectorsManager manager(pref_service(), GetServiceProviderConfig());
   std::optional<ReportingSettings> reporting_settings =

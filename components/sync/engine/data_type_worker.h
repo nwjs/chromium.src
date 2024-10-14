@@ -103,8 +103,8 @@ enum class PendingInvalidationStatus {
 //
 // Lives on the sync sequence.
 class DataTypeWorker : public UpdateHandler,
-                        public CommitContributor,
-                        public CommitQueue {
+                       public CommitContributor,
+                       public CommitQueue {
  public:
   // Public for testing.
   enum DecryptionStatus { SUCCESS, DECRYPTION_PENDING, FAILED_TO_DECRYPT };
@@ -299,8 +299,8 @@ class DataTypeWorker : public UpdateHandler,
   void MaybeDropPendingUpdatesEncryptedWith(const std::string& key_name);
 
   // Removes elements of |unknown_encryption_keys_by_name_| that no longer fit
-  // the definition of an unknown key, and returns their info.
-  std::vector<UnknownEncryptionKeyInfo> RemoveKeysNoLongerUnknown();
+  // the definition of an unknown key.
+  void RemoveKeysNoLongerUnknown();
 
   // Sends copy of |pending_invalidations_| vector to |data_type_processor_|
   // to store them in storage along |data_type_state_|.

@@ -20,8 +20,8 @@
 #import "ios/chrome/browser/autofill/model/form_input_navigator.h"
 #import "ios/chrome/browser/autofill/model/form_input_suggestions_provider.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_controller.mm"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -471,15 +471,14 @@ UIImage* defaultIconForType(autofill::SuggestionType type) {
 
 // Resets the password bottom sheet dismiss count to 0.
 - (void)resetPasswordBottomSheetDismissCount {
-  ChromeBrowserState* browserState =
-      _webState
-          ? ChromeBrowserState::FromBrowserState(_webState->GetBrowserState())
-          : nullptr;
-  if (browserState) {
-    int dismissCount = browserState->GetPrefs()->GetInteger(
+  ProfileIOS* profile =
+      _webState ? ProfileIOS::FromBrowserState(_webState->GetBrowserState())
+                : nullptr;
+  if (profile) {
+    int dismissCount = profile->GetPrefs()->GetInteger(
         prefs::kIosPasswordBottomSheetDismissCount);
-    browserState->GetPrefs()->SetInteger(
-        prefs::kIosPasswordBottomSheetDismissCount, 0);
+    profile->GetPrefs()->SetInteger(prefs::kIosPasswordBottomSheetDismissCount,
+                                    0);
     if (dismissCount > 0) {
       // Log how many times the bottom sheet had been dismissed before being
       // re-enabled.

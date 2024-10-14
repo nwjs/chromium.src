@@ -139,8 +139,10 @@ base::expected<TriggerRegistration, TriggerRegistrationError> ParseDict(
       registration.aggregatable_values,
       AggregatableValues::FromJSON(dict.Find(kAggregatableValues)));
 
-  ASSIGN_OR_RETURN(registration.attribution_scopes,
-                   AttributionScopesSet::FromJSON(dict));
+  if (base::FeatureList::IsEnabled(features::kAttributionScopes)) {
+    ASSIGN_OR_RETURN(registration.attribution_scopes,
+                     AttributionScopesSet::FromJSON(dict));
+  }
 
   registration.debug_key = ParseDebugKey(dict);
   registration.debug_reporting = ParseDebugReporting(dict);
@@ -163,6 +165,9 @@ base::expected<TriggerRegistration, TriggerRegistrationError> ParseDict(
             ? TriggerRegistrationError::kAggregatableValuesListValueInvalid
             : TriggerRegistrationError::kAggregatableValuesValueInvalid);
   }
+
+  base::UmaHistogramCounts100("Conversions.ScopesPerTriggerRegistration",
+                              registration.attribution_scopes.scopes().size());
 
   return registration;
 }
@@ -237,8 +242,9 @@ base::Value::Dict TriggerRegistration::ToJson() const {
 
   aggregatable_debug_reporting_config.Serialize(dict);
 
-  attribution_scopes.Serialize(dict);
-
+  if (base::FeatureList::IsEnabled(features::kAttributionScopes)) {
+    attribution_scopes.SerializeForTrigger(dict);
+  }
   return dict;
 }
 

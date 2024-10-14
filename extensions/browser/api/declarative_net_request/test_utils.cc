@@ -25,6 +25,7 @@
 #include "extensions/browser/api/declarative_net_request/ruleset_source.h"
 #include "extensions/browser/api/web_request/web_request_info.h"
 #include "extensions/browser/extension_prefs.h"
+#include "extensions/common/api/declarative_net_request.h"
 #include "extensions/common/api/declarative_net_request/test_utils.h"
 #include "extensions/common/extension.h"
 #include "net/http/http_response_headers.h"
@@ -465,12 +466,18 @@ FileBackedRulesetSource CreateTemporarySource(RulesetID id,
 dnr_api::ModifyHeaderInfo CreateModifyHeaderInfo(
     dnr_api::HeaderOperation operation,
     std::string header,
-    std::optional<std::string> value) {
+    std::optional<std::string> value,
+    std::optional<std::string> regex_filter,
+    std::optional<std::string> regex_substitution,
+    std::optional<dnr_api::HeaderRegexOptions> regex_options) {
   dnr_api::ModifyHeaderInfo header_info;
 
   header_info.operation = std::move(operation);
   header_info.header = std::move(header);
   header_info.value = std::move(value);
+  header_info.regex_filter = std::move(regex_filter);
+  header_info.regex_substitution = std::move(regex_substitution);
+  header_info.regex_options = std::move(regex_options);
 
   return header_info;
 }

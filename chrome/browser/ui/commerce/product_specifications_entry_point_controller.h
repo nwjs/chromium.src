@@ -7,13 +7,10 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
-#include "components/commerce/core/commerce_types.h"
 #include "components/commerce/core/compare/cluster_manager.h"
-#include "content/public/browser/web_contents.h"
 
-class Browser;
+class BrowserWindowInterface;
 
 namespace commerce {
 
@@ -43,7 +40,8 @@ class ProductSpecificationsEntryPointController
     kMaxValue = FROM_NAVIGATION,
   };
 
-  explicit ProductSpecificationsEntryPointController(Browser* browser);
+  explicit ProductSpecificationsEntryPointController(
+      BrowserWindowInterface* browser);
   ~ProductSpecificationsEntryPointController() override;
 
   // TabStripModelObserver:
@@ -51,9 +49,6 @@ class ProductSpecificationsEntryPointController
       TabStripModel* tab_strip_model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
-  void TabChangedAt(content::WebContents* contents,
-                    int index,
-                    TabChangeType change_type) override;
 
   // Registers an observer.
   void AddObserver(Observer* observer);
@@ -81,6 +76,10 @@ class ProductSpecificationsEntryPointController
 
   // ClusterManager::Observer
   void OnClusterFinishedForNavigation(const GURL& url) override;
+
+  // Gets called by CommerceUiTabHelper to be notified about any navigation
+  // events in this window that happens in `contents`.
+  void DidFinishNavigation(content::WebContents* contents);
 
   std::optional<EntryPointInfo> entry_point_info_for_testing() {
     return current_entry_point_info_;
@@ -120,7 +119,7 @@ class ProductSpecificationsEntryPointController
 
   // Info of the entry point that is currently showing, when available.
   std::optional<EntryPointInfo> current_entry_point_info_;
-  raw_ptr<Browser, DanglingUntriaged> browser_;
+  raw_ptr<BrowserWindowInterface, DanglingUntriaged> browser_;
   raw_ptr<ShoppingService, DanglingUntriaged> shopping_service_;
   raw_ptr<ClusterManager, DanglingUntriaged> cluster_manager_;
   raw_ptr<ProductSpecificationsService> product_specifications_service_;

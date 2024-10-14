@@ -100,6 +100,32 @@ enum ChromeDistanceMetric {
   DISTANCE_PERMISSION_PROMPT_HORIZONTAL_ICON_LABEL_PADDING,
   // Horizontal spacing between icon and label in the rich hover button.
   DISTANCE_RICH_HOVER_BUTTON_ICON_HORIZONTAL,
+  // Distance between most child elements inside the toast.
+  DISTANCE_TOAST_BUBBLE_BETWEEN_CHILD_SPACING,
+  // Distance between the toast label and action button.
+  DISTANCE_TOAST_BUBBLE_BETWEEN_LABEL_ACTION_BUTTON_SPACING,
+  // Height of the toast.
+  DISTANCE_TOAST_BUBBLE_HEIGHT,
+  // Height of toast action buttons.
+  DISTANCE_TOAST_BUBBLE_HEIGHT_ACTION_BUTTON,
+  // Height of the toast text and close button icon.
+  DISTANCE_TOAST_BUBBLE_HEIGHT_CONTENT,
+  // Width and height of the vector icons shown in the toast bubble.
+  DISTANCE_TOAST_BUBBLE_ICON_SIZE,
+  // Left and right margins of the leading vector icon shown in the toast
+  // bubble.
+  DISTANCE_TOAST_BUBBLE_LEADING_ICON_SIDE_MARGINS,
+  // Distance between left border of the toast and the icon.
+  DISTANCE_TOAST_BUBBLE_MARGIN_LEFT,
+  // Distance between the right border of the toast and the action button, if
+  // the action button is the rightmost element.
+  DISTANCE_TOAST_BUBBLE_MARGIN_RIGHT_ACTION_BUTTON,
+  // Distance between the right border of the toast and the close button, if the
+  // close button is the rightmost element.
+  DISTANCE_TOAST_BUBBLE_MARGIN_RIGHT_CLOSE_BUTTON,
+  // Distance between the right border of the toast and the label, if the label
+  // is the rightmost element.
+  DISTANCE_TOAST_BUBBLE_MARGIN_RIGHT_LABEL,
 };
 
 class ChromeLayoutProvider : public views::LayoutProvider {

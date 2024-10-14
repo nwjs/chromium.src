@@ -5,17 +5,19 @@
 source_set("ui") {
   sources = [
     "drive_file_picker_consumer.h",
+    "drive_file_picker_item.h",
+    "drive_file_picker_item.mm",
     "drive_file_picker_mutator.h",
     "drive_file_picker_navigation_controller.h",
     "drive_file_picker_navigation_controller.mm",
     "drive_file_picker_table_view_controller.h",
     "drive_file_picker_table_view_controller.mm",
-    "drive_item.h",
-    "drive_item.mm",
+    "drive_file_picker_table_view_controller_delegate.h",
     "root_drive_file_picker_table_view_controller.h",
     "root_drive_file_picker_table_view_controller.mm",
   ]
   deps = [
+    ":alert_utils",
     ":constants",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/shared/public/commands",
@@ -25,6 +27,7 @@ source_set("ui") {
     "//ios/chrome/browser/shared/ui/table_view",
     "//ios/chrome/browser/shared/ui/table_view:utils",
     "//ios/chrome/browser/shared/ui/util",
+    "//ios/chrome/browser/ui/menu",
     "//ios/chrome/browser/ui/settings/password:title_view",
     "//ios/chrome/common/ui/colors",
     "//ios/chrome/common/ui/util",
@@ -36,4 +39,12 @@ source_set("constants") {
     "drive_file_picker_constants.h",
     "drive_file_picker_constants.mm",
   ]
+}
+
+source_set("alert_utils") {
+  sources = [
+    "drive_file_picker_alert_utils.h",
+    "drive_file_picker_alert_utils.mm",
+  ]
+  deps = [ "//base" ]
 }

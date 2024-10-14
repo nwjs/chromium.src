@@ -2081,6 +2081,13 @@ void BookmarkBarView::OnAppsPageShortcutVisibilityPrefChanged() {
 }
 
 void BookmarkBarView::OnTabGroupsVisibilityPrefChanged() {
+  // Incognito browsers also get triggered if the associated regular profile
+  // browser is triggered. Early return because incognito has no
+  // `saved_tab_group_bar_`.
+  if (!chrome::IsSavedTabGroupsEnabled(browser_->profile())) {
+    return;
+  }
+
   DCHECK(saved_tab_group_bar_);
   // Only perform layout if required.
   bool visible = chrome::ShouldShowTabGroupsInBookmarkBar(browser_->profile());
@@ -2182,8 +2189,9 @@ void BookmarkBarView::PerformDrop(
   DCHECK_NE(index, static_cast<size_t>(-1));
 
   base::RecordAction(base::UserMetricsAction("BookmarkBar_DragEnd"));
-  output_drag_op = chrome::DropBookmarks(browser_->profile(), data, parent_node,
-                                         index, copy);
+  output_drag_op = chrome::DropBookmarks(
+      browser_->profile(), data, parent_node, index, copy,
+      chrome::BookmarkReorderDropTarget::kBookmarkBarView);
 }
 
 int BookmarkBarView::GetDropLocationModelIndexForTesting() const {

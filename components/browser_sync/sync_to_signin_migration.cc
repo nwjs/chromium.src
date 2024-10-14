@@ -42,9 +42,28 @@ enum class SyncToSigninMigrationDecision {
   kDontMigrateFlagDisabled = 5,
   kUndoMigration = 6,
   kUndoNotNecessary = 7,
-  kMaxValue = kUndoNotNecessary
+  kMigrateForced = 8,
+  kDontMigrateAuthError = 9,
+  kMaxValue = kDontMigrateAuthError
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncToSigninMigrationDecisionOverall)
+
+// See docs of the kFirstTimeTriedToMigrateSyncFeaturePausedToSignin pref.
+void SetFirstTimeTriedToMigrateSyncPaused(PrefService* pref_service) {
+  const char* pref_name = syncer::prefs::internal::
+      kFirstTimeTriedToMigrateSyncFeaturePausedToSignin;
+  if (!base::FeatureList::IsEnabled(switches::kMigrateSyncingUserToSignedIn)) {
+    pref_service->ClearPref(pref_name);
+    return;
+  }
+
+  if (pref_service->FindPreference(pref_name)->IsDefaultValue() &&
+      syncer::SyncFeatureStatusForMigrationsRecorder::
+              GetSyncFeatureStatusForSyncToSigninMigration(pref_service) ==
+          syncer::SyncFeatureStatusForSyncToSigninMigration::kPaused) {
+    pref_service->SetTime(pref_name, base::Time::Now());
+  }
+}
 
 SyncToSigninMigrationDecision GetSyncToSigninMigrationDecision(
     const PrefService* pref_service) {
@@ -76,23 +95,51 @@ SyncToSigninMigrationDecision GetSyncToSigninMigrationDecision(
   syncer::SyncFeatureStatusForSyncToSigninMigration status =
       syncer::SyncFeatureStatusForMigrationsRecorder::
           GetSyncFeatureStatusForSyncToSigninMigration(pref_service);
+  bool forced = false;
   switch (status) {
-    case syncer::SyncFeatureStatusForSyncToSigninMigration::kDisabledOrPaused:
+    case syncer::SyncFeatureStatusForSyncToSigninMigration::kDisabled:
     case syncer::SyncFeatureStatusForSyncToSigninMigration::kActive:
-      // In both these cases, the status is known, and migration can go ahead.
+      // In all these cases, the status is known, and migration can go ahead.
       break;
+    case syncer::SyncFeatureStatusForSyncToSigninMigration::kPaused: {
+      if (base::FeatureList::IsEnabled(
+              switches::kForceMigrateSyncingUserToSignedIn)) {
+        forced = true;
+        break;
+      }
+      base::Time first_attempt_time = pref_service->GetTime(
+          syncer::prefs::internal::
+              kFirstTimeTriedToMigrateSyncFeaturePausedToSignin);
+      if (!first_attempt_time.is_null() &&
+          base::Time::Now() <
+              first_attempt_time +
+                  switches::kMinDelayToMigrateSyncPaused.Get()) {
+        return SyncToSigninMigrationDecision::kDontMigrateAuthError;
+      }
+      // The auth error hasn't been resolved within the allotted time. Go ahead
+      // with the migration.
+      break;
+    }
     case syncer::SyncFeatureStatusForSyncToSigninMigration::kInitializing:
       // In the previous browser run, Sync didn't finish initializing. Defer
-      // migration.
+      // migration, unless force-migration is enabled.
+      if (base::FeatureList::IsEnabled(
+              switches::kForceMigrateSyncingUserToSignedIn)) {
+        forced = true;
+        break;
+      }
       return SyncToSigninMigrationDecision::kDontMigrateSyncStatusInitializing;
     case syncer::SyncFeatureStatusForSyncToSigninMigration::kUndefined:
       // The Sync status pref was never set (which should only happen once per
       // client), or has an unknown/invalid value (which should never happen).
+      // Defer migration, unless force-migration is enabled.
+      if (base::FeatureList::IsEnabled(
+              switches::kForceMigrateSyncingUserToSignedIn)) {
+        forced = true;
+        break;
+      }
       return SyncToSigninMigrationDecision::kDontMigrateSyncStatusUndefined;
   }
-  // TODO(crbug.com/40282890): After some number of attempts, treat
-  // "initializing" or "undefined/unknown" as "Sync disabled" and go ahead with
-  // the migration?
 
   // Check the feature flag(s) last, so that metrics can record all the other
   // reasons to not do the migration, even with the flag disabled.
@@ -102,7 +149,8 @@ SyncToSigninMigrationDecision GetSyncToSigninMigrationDecision(
     return SyncToSigninMigrationDecision::kDontMigrateFlagDisabled;
   }
 
-  return SyncToSigninMigrationDecision::kMigrate;
+  return forced ? SyncToSigninMigrationDecision::kMigrateForced
+                : SyncToSigninMigrationDecision::kMigrate;
 }
 
 void UndoSyncToSigninMigration(PrefService* pref_service) {
@@ -146,6 +194,10 @@ void UndoSyncToSigninMigration(PrefService* pref_service) {
       prefs::kGoogleServicesLastSyncingUsername,
       pref_service->GetString(
           prefs::kGoogleServicesSyncingUsernameMigratedToSignedIn));
+
+  pref_service->ClearPref(
+      syncer::prefs::internal::
+          kFirstTimeTriedToMigrateSyncFeaturePausedToSignin);
 
   // Clear the "migrated user" prefs, so the "undo" logic doesn't run again.
   pref_service->ClearPref(
@@ -215,6 +267,9 @@ void MaybeMigrateSyncingUserToSignedIn(const base::FilePath& profile_path,
   // Global migration decision and metrics.
   // ======================================
 
+  // Influences GetSyncToSigninMigrationDecision(), so call it first.
+  SetFirstTimeTriedToMigrateSyncPaused(pref_service);
+
   const SyncToSigninMigrationDecision decision =
       GetSyncToSigninMigrationDecision(pref_service);
   base::UmaHistogramEnumeration("Sync.SyncToSigninMigrationDecision", decision);
@@ -228,11 +283,13 @@ void MaybeMigrateSyncingUserToSignedIn(const base::FilePath& profile_path,
     case SyncToSigninMigrationDecision::kDontMigrateNotSyncing:
     case SyncToSigninMigrationDecision::kDontMigrateSyncStatusUndefined:
     case SyncToSigninMigrationDecision::kDontMigrateSyncStatusInitializing:
+    case SyncToSigninMigrationDecision::kDontMigrateAuthError:
     case SyncToSigninMigrationDecision::kUndoNotNecessary:
       // No migration, and no point in recording per-type metrics - we're done.
       return;
     case SyncToSigninMigrationDecision::kDontMigrateFlagDisabled:
     case SyncToSigninMigrationDecision::kMigrate:
+    case SyncToSigninMigrationDecision::kMigrateForced:
       // If actually migrating, or the feature flag being disabled is the only
       // reason for not migrating, also record more detailed per-type metrics.
       break;
@@ -243,7 +300,8 @@ void MaybeMigrateSyncingUserToSignedIn(const base::FilePath& profile_path,
   // ===================================================
 
   const bool doing_migration =
-      decision == SyncToSigninMigrationDecision::kMigrate;
+      decision == SyncToSigninMigrationDecision::kMigrate ||
+      decision == SyncToSigninMigrationDecision::kMigrateForced;
 
   const SyncToSigninMigrationDataTypeDecision bookmarks_decision =
       GetSyncToSigninMigrationDataTypeDecision(
@@ -280,7 +338,7 @@ void MaybeMigrateSyncingUserToSignedIn(const base::FilePath& profile_path,
                     syncer::DataTypeToHistogramSuffix(syncer::READING_LIST)}),
       reading_list_decision);
 
-  if (decision != SyncToSigninMigrationDecision::kMigrate) {
+  if (!doing_migration) {
     return;
   }
 

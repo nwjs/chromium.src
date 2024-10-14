@@ -26,6 +26,7 @@
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_utils.h"
 #include "chrome/browser/keyboard_accessory/android/password_accessory_controller.h"
+#include "chrome/browser/password_manager/android/access_loss/password_access_loss_warning_bridge_impl.h"
 #include "chrome/browser/password_manager/android/all_passwords_bottom_sheet_controller.h"
 #include "chrome/browser/password_manager/android/password_generation_controller.h"
 #include "chrome/browser/password_manager/android/password_manager_launcher_android.h"
@@ -35,6 +36,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/chrome_security_state_tab_helper.h"
 #include "chrome/browser/ui/android/plus_addresses/all_plus_addresses_bottom_sheet_controller.h"
+#include "chrome/browser/ui/android/plus_addresses/plus_addresses_helper.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/webauthn/android/webauthn_request_delegate_android.h"
 #include "chrome/grit/generated_resources.h"
@@ -45,6 +47,7 @@
 #include "components/device_reauth/device_authenticator.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/core/browser/credential_cache.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/origin_credential_store.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_driver.h"
@@ -65,7 +68,7 @@ using autofill::AccessorySheetData;
 using autofill::AccessorySheetField;
 using autofill::FooterCommand;
 using autofill::PasskeySection;
-using autofill::PlusAddressSection;
+using autofill::PlusAddressInfo;
 using autofill::UserInfo;
 using autofill::mojom::FocusedFieldType;
 using password_manager::CredentialCache;
@@ -109,15 +112,33 @@ autofill::UserInfo TranslateCredentials(const UiCredential& credential,
   return user_info;
 }
 
-std::u16string GetTitle(bool has_suggestions, const url::Origin& origin) {
+std::u16string GetPasswordTitle(bool has_credentials,
+                                bool has_standalone_plus_addresses,
+                                const url::Origin& origin) {
   const std::u16string elided_url =
       url_formatter::FormatOriginForSecurityDisplay(
           origin, url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC);
-  return has_suggestions
-             ? std::u16string()
-             : l10n_util::GetStringFUTF16(
-                   IDS_PASSWORD_MANAGER_ACCESSORY_PASSWORD_LIST_EMPTY_MESSAGE,
-                   elided_url);
+  if (!has_credentials) {
+    return l10n_util::GetStringFUTF16(
+        IDS_PASSWORD_MANAGER_ACCESSORY_PASSWORD_LIST_EMPTY_MESSAGE, elided_url);
+  }
+  return has_standalone_plus_addresses
+             ? l10n_util::GetStringFUTF16(
+                   IDS_PASSWORD_MANAGER_ACCESSORY_PASSWORD_LIST_TITLE,
+                   elided_url)
+             : std::u16string();
+}
+
+std::u16string GetPlusAddressTitle(bool has_standalone_plus_addresses,
+                                   const url::Origin& origin) {
+  const std::u16string elided_url =
+      url_formatter::FormatOriginForSecurityDisplay(
+          origin, url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC);
+  return has_standalone_plus_addresses
+             ? l10n_util::GetStringFUTF16(
+                   IDS_PLUS_ADDRESS_FALLBACK_MANUAL_FILLING_SHEET_TITLE,
+                   elided_url)
+             : std::u16string();
 }
 
 password_manager::PasswordManagerDriver* GetPasswordManagerDriver(
@@ -148,15 +169,6 @@ ShouldShowAction ShouldShowCredManReentryAction(
       return ShouldShowAction(false);
   }
   NOTREACHED() << "Showing undefined for " << focused_field_type;
-}
-
-std::string GetOriginFromPlusProfile(
-    const plus_addresses::PlusProfile& profile) {
-  if (absl::holds_alternative<std::string>(profile.facet)) {
-    return absl::get<std::string>(profile.facet);
-  } else {
-    return absl::get<affiliations::FacetURI>(profile.facet).canonical_spec();
-  }
 }
 
 }  // namespace
@@ -196,6 +208,7 @@ PasswordAccessoryControllerImpl::GetSheetData() const {
 
   std::vector<PasskeySection> passkeys_to_add;
   std::vector<UserInfo> info_to_add;
+  std::vector<autofill::PlusAddressInfo> plus_address_info_to_add;
   base::span<const PlusProfile> plus_profiles =
       plus_profiles_provider_
           ? plus_profiles_provider_->GetAffiliatedPlusProfiles()
@@ -229,6 +242,14 @@ PasswordAccessoryControllerImpl::GetSheetData() const {
     }
   }
 
+  for (const PlusProfile& profile : plus_profiles) {
+    if (!plus_addresses_used_as_usernames[*profile.plus_address]) {
+      plus_address_info_to_add.emplace_back(
+          autofill::PlusAddressInfo(profile.facet.canonical_spec(),
+                                    base::UTF8ToUTF16(*profile.plus_address)));
+    }
+  }
+
   if (password_manager::PasswordManagerDriver* driver =
           driver_supplier_.Run((&GetWebContents()))) {
     if (password_manager::WebAuthnCredentialsDelegate* credentials_delegate =
@@ -246,20 +267,20 @@ PasswordAccessoryControllerImpl::GetSheetData() const {
 
   bool has_suggestions = !info_to_add.empty() || !passkeys_to_add.empty();
   AccessorySheetData data = autofill::CreateAccessorySheetData(
-      autofill::AccessoryTabType::PASSWORDS, GetTitle(has_suggestions, origin),
+      autofill::AccessoryTabType::PASSWORDS,
+      GetPasswordTitle(has_suggestions, !plus_address_info_to_add.empty(),
+                       origin),
+      GetPlusAddressTitle(!plus_address_info_to_add.empty(), origin),
       std::move(info_to_add), CreateManagePasswordsFooter());
   base::ranges::for_each(std::move(passkeys_to_add),
                          [&data](PasskeySection section) {
                            data.add_passkey_section(std::move(section));
                          });
-
-  for (const PlusProfile& profile : plus_profiles) {
-    if (!plus_addresses_used_as_usernames[*profile.plus_address]) {
-      data.add_plus_address_section(autofill::PlusAddressSection(
-          GetOriginFromPlusProfile(profile),
-          base::UTF8ToUTF16(*profile.plus_address)));
-    }
-  }
+  base::ranges::for_each(
+      std::move(plus_address_info_to_add),
+      [&data](autofill::PlusAddressInfo plus_address_info) {
+        data.add_plus_address_info(std::move(plus_address_info));
+      });
 
   if (ShouldShowRecoveryToggle(origin)) {
     BlocklistedStatus blocklisted_status =
@@ -334,7 +355,8 @@ void PasswordAccessoryControllerImpl::CreateForWebContents(
             web_contents, credential_cache, nullptr,
             ChromePasswordManagerClient::FromWebContents(web_contents),
             base::BindRepeating(GetPasswordManagerDriver),
-            base::BindRepeating(&local_password_migration::ShowWarning))));
+            base::BindRepeating(&local_password_migration::ShowWarning),
+            std::make_unique<PasswordAccessLossWarningBridgeImpl>())));
   }
 }
 
@@ -345,7 +367,9 @@ void PasswordAccessoryControllerImpl::CreateForWebContentsForTesting(
     base::WeakPtr<ManualFillingController> manual_filling_controller,
     password_manager::PasswordManagerClient* password_client,
     PasswordDriverSupplierForFocusedFrame driver_supplier,
-    ShowMigrationWarningCallback show_migration_warning_callback) {
+    ShowMigrationWarningCallback show_migration_warning_callback,
+    std::unique_ptr<PasswordAccessLossWarningBridge>
+        access_loss_warning_bridge) {
   DCHECK(web_contents) << "Need valid WebContents to attach controller to!";
   DCHECK(!FromWebContents(web_contents)) << "Controller already attached!";
   DCHECK(manual_filling_controller);
@@ -356,7 +380,8 @@ void PasswordAccessoryControllerImpl::CreateForWebContentsForTesting(
       base::WrapUnique(new PasswordAccessoryControllerImpl(
           web_contents, credential_cache, std::move(manual_filling_controller),
           password_client, std::move(driver_supplier),
-          std::move(show_migration_warning_callback))));
+          std::move(show_migration_warning_callback),
+          std::move(access_loss_warning_bridge))));
 }
 
 void PasswordAccessoryControllerImpl::OnOptionSelected(
@@ -417,7 +442,7 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
         }
       }
       return;
-    case autofill::AccessoryAction::CREATE_PLUS_ADDRESS_FROM_PASSWORD_SHEET: {
+    case autofill::AccessoryAction::CREATE_PLUS_ADDRESS_FROM_PASSWORD_SHEET:
       if (auto* client = autofill::ContentAutofillClient::FromWebContents(
               &GetWebContents())) {
         client->OfferPlusAddressCreation(
@@ -428,8 +453,7 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
         GetManualFillingController()->Hide();
       }
       return;
-    }
-    case autofill::AccessoryAction::SELECT_PLUS_ADDRESS_FROM_PASSWORD_SHEET: {
+    case autofill::AccessoryAction::SELECT_PLUS_ADDRESS_FROM_PASSWORD_SHEET:
       all_plus_addresses_bottom_sheet_controller_ = std::make_unique<
           plus_addresses::AllPlusAddressesBottomSheetController>(
           &GetWebContents());
@@ -438,7 +462,9 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
           weak_ptr_factory_.GetWeakPtr()));
       GetManualFillingController()->Hide();
       return;
-    }
+    case autofill::AccessoryAction::MANAGE_PLUS_ADDRESS_FROM_PASSWORD_SHEET:
+      plus_addresses::ShowManagePlusAddressesPage(GetWebContents());
+      return;
     default:
       NOTREACHED_IN_MIGRATION()
           << "Unhandled selected action: " << static_cast<int>(selected_action);
@@ -546,7 +572,8 @@ PasswordAccessoryControllerImpl::PasswordAccessoryControllerImpl(
     base::WeakPtr<ManualFillingController> manual_filling_controller,
     password_manager::PasswordManagerClient* password_client,
     PasswordDriverSupplierForFocusedFrame driver_supplier,
-    ShowMigrationWarningCallback show_migration_warning_callback)
+    ShowMigrationWarningCallback show_migration_warning_callback,
+    std::unique_ptr<PasswordAccessLossWarningBridge> access_loss_warning_bridge)
     : content::WebContentsObserver(web_contents),
       content::WebContentsUserData<PasswordAccessoryControllerImpl>(
           *web_contents),
@@ -556,6 +583,7 @@ PasswordAccessoryControllerImpl::PasswordAccessoryControllerImpl(
       driver_supplier_(std::move(driver_supplier)),
       show_migration_warning_callback_(
           std::move(show_migration_warning_callback)),
+      access_loss_warning_bridge_(std::move(access_loss_warning_bridge)),
       plus_address_service_(PlusAddressServiceFactory::GetForBrowserContext(
           GetWebContents().GetBrowserContext())) {}
 
@@ -659,6 +687,16 @@ PasswordAccessoryControllerImpl::CreateManagePasswordsFooter() const {
             l10n_util::GetStringUTF16(
                 IDS_PLUS_ADDRESS_SELECT_PLUS_ADDRESS_LINK_ANDROID),
             autofill::AccessoryAction::SELECT_PLUS_ADDRESS_FROM_PASSWORD_SHEET);
+      }
+      // Show "Manage plus addresses" action only if the user has at least 1
+      // affiliated plus addresses already saved for the current domain.
+      if (plus_profiles_provider_ &&
+          !plus_profiles_provider_->GetAffiliatedPlusProfiles().empty()) {
+        footer_commands_to_add.emplace_back(FooterCommand(
+            l10n_util::GetStringUTF16(
+                IDS_PLUS_ADDRESS_MANAGE_PLUS_ADDRESSES_LINK_ANDROID),
+            autofill::AccessoryAction::
+                MANAGE_PLUS_ADDRESS_FROM_PASSWORD_SHEET));
       }
     }
   }
@@ -827,6 +865,18 @@ void PasswordAccessoryControllerImpl::FillSelection(
         Profile::FromBrowserContext(GetWebContents().GetBrowserContext()),
         password_manager::metrics_util::PasswordMigrationWarningTriggers::
             kKeyboardAcessorySheet);
+  }
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::
+              kUnifiedPasswordManagerLocalPasswordsAndroidAccessLossWarning)) {
+    Profile* profile =
+        Profile::FromBrowserContext(GetWebContents().GetBrowserContext());
+    if (profile && access_loss_warning_bridge_->ShouldShowAccessLossNoticeSheet(
+                       profile->GetPrefs(), /*called_at_startup=*/false)) {
+      access_loss_warning_bridge_->MaybeShowAccessLossNoticeSheet(
+          profile->GetPrefs(), GetWebContents().GetTopLevelNativeWindow(),
+          profile, /*called_at_startup=*/false);
+    }
   }
 }
 

@@ -43,6 +43,7 @@
 #include "services/network/public/mojom/ip_address_space.mojom-blink.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/loader/lcp_critical_path_predictor_util.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
@@ -111,6 +112,9 @@ class ResourceFetcherTest : public testing::Test {
   ResourceFetcherTest()
       : task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     Resource::SetClockForTesting(task_environment_.GetMockClock());
+    // The state of global LcppEnabled flag depends on several feature flags
+    // which can be enabled/disabled in tests. Clear the global flag value.
+    ResetLcppEnabledForTesting();
   }
   ~ResourceFetcherTest() override {
     MemoryCache::Get()->EvictResources();
@@ -286,77 +290,6 @@ TEST_F(ResourceFetcherTest, UseExistingResource) {
   histogram_tester.ExpectBucketCount(
       "Blink.MemoryCache.RevalidationPolicy.Mock",
       0 /* RevalidationPolicy::kUse */, 2);
-}
-
-TEST_F(ResourceFetcherTest, MemoryCachePerContextUseExistingResource) {
-  base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kScopeMemoryCachePerContext);
-
-  KURL url("http://127.0.0.1:8000/foo.html");
-  ResourceResponse response(url);
-  response.SetHttpStatusCode(200);
-  response.SetHttpHeaderField(http_names::kCacheControl,
-                              AtomicString("max-age=3600"));
-  platform_->GetURLLoaderMockFactory()->RegisterURL(
-      url, WrappedResourceResponse(response),
-      test::PlatformTestDataPath(kTestResourceFilename));
-
-  FetchParameters fetch_params =
-      FetchParameters::CreateForTest(ResourceRequest(url));
-
-  auto* fetcher_a = CreateFetcher();
-  Resource* resource_a = MockResource::Fetch(fetch_params, fetcher_a, nullptr);
-  ASSERT_TRUE(resource_a);
-  platform_->GetURLLoaderMockFactory()->ServeAsynchronousRequests();
-  EXPECT_TRUE(resource_a->IsLoaded());
-  EXPECT_TRUE(MemoryCache::Get()->Contains(resource_a));
-
-  Resource* resource_a1 = MockResource::Fetch(fetch_params, fetcher_a, nullptr);
-  ASSERT_TRUE(resource_a1);
-  EXPECT_EQ(resource_a, resource_a1);
-
-  // Test histograms.
-  histogram_tester.ExpectTotalCount("Blink.MemoryCache.RevalidationPolicy.Mock",
-                                    2);
-  histogram_tester.ExpectBucketCount(
-      "Blink.MemoryCache.RevalidationPolicy.Mock",
-      3 /* RevalidationPolicy::kLoad */, 1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.MemoryCache.RevalidationPolicy.Mock",
-      0 /* RevalidationPolicy::kUse */, 1);
-
-  // Create a new fetcher and load the same resource. It should be loaded again.
-  auto* fetcher_b = CreateFetcher();
-  Resource* resource_b = MockResource::Fetch(fetch_params, fetcher_b, nullptr);
-  EXPECT_NE(resource_a1, resource_b);
-  ASSERT_TRUE(resource_b);
-  platform_->GetURLLoaderMockFactory()->ServeAsynchronousRequests();
-  EXPECT_TRUE(resource_b->IsLoaded());
-  EXPECT_TRUE(MemoryCache::Get()->Contains(resource_b));
-  histogram_tester.ExpectTotalCount("Blink.MemoryCache.RevalidationPolicy.Mock",
-                                    3);
-  histogram_tester.ExpectBucketCount(
-      "Blink.MemoryCache.RevalidationPolicy.Mock",
-      3 /* RevalidationPolicy::kLoad */, 2);
-
-  // (TODO: crbug.com/1127971) Using the first fetcher now should reuse the same
-  // resource as was earlier loaded by the same fetcher.
-  // EXPECT_EQ(resource_a1, resource_a2);
-  Resource* resource_a2 = MockResource::Fetch(fetch_params, fetcher_a, nullptr);
-  EXPECT_EQ(resource_b, resource_a2);
-  histogram_tester.ExpectBucketCount(
-      "Blink.MemoryCache.RevalidationPolicy.Mock",
-      0 /* RevalidationPolicy::kUse */, 2);
-
-  // Using the second fetcher now should reuse the same resource as was earlier
-  // loaded by the same fetcher.
-  Resource* resource_b1 = MockResource::Fetch(fetch_params, fetcher_b, nullptr);
-  EXPECT_EQ(resource_b, resource_b1);
-  histogram_tester.ExpectBucketCount(
-      "Blink.MemoryCache.RevalidationPolicy.Mock",
-      0 /* RevalidationPolicy::kUse */, 3);
 }
 
 TEST_F(ResourceFetcherTest, MetricsPerTopFrameSite) {
@@ -1667,7 +1600,7 @@ TEST_F(ResourceFetcherTest,
   ASSERT_EQ(observer->GetLastRequest(), std::nullopt);
 
   otherContextFetcher->EmulateLoadStartedForInspector(
-      resource, url, mojom::blink::RequestContextType::FONT,
+      resource, mojom::blink::RequestContextType::FONT,
       network::mojom::RequestDestination::kFont,
       fetch_initiator_type_names::kCSS);
 
@@ -1683,7 +1616,7 @@ TEST_F(ResourceFetcherTest,
   observer->ClearLastRequest();
 
   otherContextFetcher->EmulateLoadStartedForInspector(
-      resource, url, mojom::blink::RequestContextType::FONT,
+      resource, mojom::blink::RequestContextType::FONT,
       network::mojom::RequestDestination::kFont,
       fetch_initiator_type_names::kCSS);
 
@@ -1725,7 +1658,7 @@ TEST_F(ResourceFetcherTest,
   ASSERT_EQ(observer->GetLastRequest(), std::nullopt);
 
   otherContextFetcher->EmulateLoadStartedForInspector(
-      resource, url, mojom::blink::RequestContextType::FONT,
+      resource, mojom::blink::RequestContextType::FONT,
       network::mojom::RequestDestination::kFont,
       fetch_initiator_type_names::kCSS);
 
@@ -1741,7 +1674,7 @@ TEST_F(ResourceFetcherTest,
   observer->ClearLastRequest();
 
   otherContextFetcher->EmulateLoadStartedForInspector(
-      resource, url, mojom::blink::RequestContextType::FONT,
+      resource, mojom::blink::RequestContextType::FONT,
       network::mojom::RequestDestination::kFont,
       fetch_initiator_type_names::kCSS);
 

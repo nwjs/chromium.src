@@ -3,9 +3,8 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
-import 'chrome://resources/cr_elements/icons.html.js';
+import 'chrome://resources/cr_elements/icons_lit.html.js';
 import 'chrome://resources/cr_elements/cr_progress/cr_progress.js';
-import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import './icons.html.js';
 import './viewer_download_controls.js';
 import './viewer_page_selector.js';
@@ -96,6 +95,7 @@ export class ViewerToolbarElement extends CrLitElement {
 
       pageNo: {type: Number},
       pdfAnnotationsEnabled: {type: Boolean},
+      pdfCr23Enabled: {type: Boolean},
       // <if expr="enable_pdf_ink2">
       pdfInk2Enabled: {type: Boolean},
       // </if>
@@ -133,6 +133,7 @@ export class ViewerToolbarElement extends CrLitElement {
   loadProgress: number = 0;
   pageNo: number = 0;
   pdfAnnotationsEnabled: boolean = false;
+  pdfCr23Enabled: boolean = false;
   printingEnabled: boolean = false;
   rotated: boolean = false;
   viewportZoom: number = 0;
@@ -141,7 +142,7 @@ export class ViewerToolbarElement extends CrLitElement {
   twoUpViewEnabled: boolean = false;
   protected displayAnnotations_: boolean = true;
   private fittingType_: FittingType = FittingType.FIT_TO_PAGE;
-  private moreMenuOpen_: boolean = false;
+  protected moreMenuOpen_: boolean = false;
   protected loading_: boolean = true;
   private viewportZoomPercent_: number = 0;
 
@@ -205,9 +206,14 @@ export class ViewerToolbarElement extends CrLitElement {
     this.dispatchEvent(new CustomEvent('sidenav-toggle-click'));
   }
 
+  protected iconsetName_(): string {
+    return this.pdfCr23Enabled ? 'pdf-cr23' : 'pdf';
+  }
+
   protected fitToButtonIcon_(): string {
-    return this.fittingType_ === FittingType.FIT_TO_PAGE ? 'pdf:fit-to-height' :
-                                                           'pdf:fit-to-width';
+    return this.iconsetName_() +
+        (this.fittingType_ === FittingType.FIT_TO_PAGE ? ':fit-to-height' :
+                                                         ':fit-to-width');
   }
 
   /** @return The appropriate tooltip for the current state. */
@@ -460,11 +466,9 @@ export class ViewerToolbarElement extends CrLitElement {
     this.currentStroke--;
 
     this.updateCanUndoRedo_();
-    if (!this.canUndoAnnotation_) {
-      // Dispatch the event only on undo or redo.
-      this.dispatchEvent(new CustomEvent(
-          'can-undo-changed', {detail: false, bubbles: true, composed: true}));
-    }
+    this.dispatchEvent(new CustomEvent(
+        'strokes-updated',
+        {detail: this.currentStroke, bubbles: true, composed: true}));
   }
 
   /**
@@ -480,13 +484,10 @@ export class ViewerToolbarElement extends CrLitElement {
 
     this.pluginController_.redo();
     this.currentStroke++;
-
-    if (!this.canUndoAnnotation_) {
-      // Dispatch the event only on undo or redo.
-      this.dispatchEvent(new CustomEvent(
-          'can-undo-changed', {detail: true, bubbles: true, composed: true}));
-    }
     this.updateCanUndoRedo_();
+    this.dispatchEvent(new CustomEvent(
+        'strokes-updated',
+        {detail: this.currentStroke, bubbles: true, composed: true}));
   }
 
   /**
@@ -501,6 +502,18 @@ export class ViewerToolbarElement extends CrLitElement {
     this.canUndoAnnotation_ = !isTextFormFieldFocused && this.currentStroke > 0;
     this.canRedoAnnotation_ =
         !isTextFormFieldFocused && this.currentStroke < this.mostRecentStroke;
+  }
+
+  /**
+   * Reset the stroke counts for testing. This allows tests to re-use the same
+   * toolbar.
+   */
+  resetStrokesForTesting() {
+    this.currentStroke = 0;
+    this.mostRecentStroke = 0;
+    this.updateCanUndoRedo_();
+    this.dispatchEvent(new CustomEvent(
+        'strokes-updated', {detail: 0, bubbles: true, composed: true}));
   }
   // </if>
 

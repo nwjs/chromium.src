@@ -12,13 +12,18 @@ export class TestTabSearchApiProxy extends TestBrowserProxy implements
   callbackRouterRemote: PageRemote;
   private profileData_?: ProfileData;
   private tabOrganizationSession_?: TabOrganizationSession;
+  private staleTabs_: Tab[] = [];
 
   constructor() {
     super([
       'closeTab',
+      'declutterTabs',
       'acceptTabOrganization',
       'rejectTabOrganization',
+      'renameTabOrganization',
+      'excludeFromStaleTabs',
       'getProfileData',
+      'getStaleTabs',
       'getTabOrganizationSession',
       'getTabOrganizationModelStrategy',
       'openRecentlyClosedEntry',
@@ -49,19 +54,38 @@ export class TestTabSearchApiProxy extends TestBrowserProxy implements
     this.methodCalled('closeTab', [tabId]);
   }
 
+  declutterTabs(tabIds: number[]) {
+    this.methodCalled('declutterTabs', [tabIds]);
+  }
+
   acceptTabOrganization(
-      sessionId: number, organizationId: number, name: string, tabs: Tab[]) {
+      sessionId: number, organizationId: number, tabs: Tab[]) {
     this.methodCalled(
-        'acceptTabOrganization', [sessionId, organizationId, name, tabs]);
+        'acceptTabOrganization', [sessionId, organizationId, tabs]);
   }
 
   rejectTabOrganization(sessionId: number, organizationId: number) {
     this.methodCalled('rejectTabOrganization', [sessionId, organizationId]);
   }
 
+  renameTabOrganization(
+      sessionId: number, organizationId: number, name: string) {
+    this.methodCalled(
+        'renameTabOrganization', [sessionId, organizationId, name]);
+  }
+
+  excludeFromStaleTabs(tabId: number) {
+    this.methodCalled('excludeFromStaleTabs', [tabId]);
+  }
+
   getProfileData() {
     this.methodCalled('getProfileData');
     return Promise.resolve({profileData: this.profileData_!});
+  }
+
+  getStaleTabs() {
+    this.methodCalled('getStaleTabs');
+    return Promise.resolve({tabs: this.staleTabs_});
   }
 
   getTabOrganizationSession() {
@@ -157,5 +181,9 @@ export class TestTabSearchApiProxy extends TestBrowserProxy implements
 
   setSession(session: TabOrganizationSession) {
     this.tabOrganizationSession_ = session;
+  }
+
+  setStaleTabs(tabs: Tab[]) {
+    this.staleTabs_ = tabs;
   }
 }

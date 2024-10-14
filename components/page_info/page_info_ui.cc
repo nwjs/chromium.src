@@ -203,6 +203,8 @@ base::span<const PageInfoUI::PermissionUIInfo> GetContentSettingsUIInfo() {
        IDS_SITE_SETTINGS_TYPE_VR_MID_SENTENCE},
       {ContentSettingsType::AR, IDS_SITE_SETTINGS_TYPE_AR,
        IDS_SITE_SETTINGS_TYPE_AR_MID_SENTENCE},
+      {ContentSettingsType::HAND_TRACKING, IDS_SITE_SETTINGS_TYPE_HAND_TRACKING,
+       IDS_SITE_SETTINGS_TYPE_HAND_TRACKING_MID_SENTENCE},
       {ContentSettingsType::CAMERA_PAN_TILT_ZOOM,
        IDS_SITE_SETTINGS_TYPE_CAMERA_PAN_TILT_ZOOM,
        IDS_SITE_SETTINGS_TYPE_CAMERA_PAN_TILT_ZOOM_MID_SENTENCE},
@@ -246,6 +248,9 @@ base::span<const PageInfoUI::PermissionUIInfo> GetContentSettingsUIInfo() {
       {ContentSettingsType::WINDOW_MANAGEMENT,
        IDS_SITE_SETTINGS_TYPE_WINDOW_MANAGEMENT,
        IDS_SITE_SETTINGS_TYPE_WINDOW_MANAGEMENT_MID_SENTENCE},
+      {ContentSettingsType::WEB_APP_INSTALLATION,
+       IDS_SITE_SETTINGS_TYPE_WEB_APP_INSTALLATION,
+       IDS_SITE_SETTINGS_TYPE_WEB_APP_INSTALLATION_MID_SENTENCE},
 #endif
   };
   return kPermissionUIInfo;
@@ -303,15 +308,6 @@ ContentSetting GetEffectiveSetting(ContentSettingsType type,
   return effective_setting;
 }
 
-void SetTargetContentSetting(PageInfo::PermissionInfo& permission,
-                             ContentSetting target_setting) {
-  // If content setting's default setting matches target setting, set
-  // default setting to avoid crearing a site exception.
-  permission.setting = permission.default_setting == target_setting
-                           ? CONTENT_SETTING_DEFAULT
-                           : target_setting;
-}
-
 void CreateOppositeToDefaultSiteException(
     PageInfo::PermissionInfo& permission,
     ContentSetting opposite_to_block_setting) {
@@ -363,6 +359,9 @@ std::u16string GetPermissionAskStateString(ContentSettingsType type) {
     case ContentSettingsType::AUTOMATIC_DOWNLOADS:
       message_id = IDS_PAGE_INFO_STATE_TEXT_AUTOMATIC_DOWNLOADS_ASK;
       break;
+    case ContentSettingsType::HAND_TRACKING:
+      message_id = IDS_PAGE_INFO_STATE_TEXT_HAND_TRACKING_ASK;
+      break;
     case ContentSettingsType::VR:
       message_id = IDS_PAGE_INFO_STATE_TEXT_VR_ASK;
       break;
@@ -408,6 +407,9 @@ std::u16string GetPermissionAskStateString(ContentSettingsType type) {
       break;
     case ContentSettingsType::POINTER_LOCK:
       message_id = IDS_PAGE_INFO_STATE_TEXT_POINTER_LOCK_ASK;
+      break;
+    case ContentSettingsType::WEB_APP_INSTALLATION:
+      message_id = IDS_PAGE_INFO_STATE_TEXT_WEB_APP_INSTALLATION_ASK;
       break;
     default:
       NOTREACHED_IN_MIGRATION();
@@ -902,12 +904,12 @@ void PageInfoUI::ToggleBetweenAllowAndBlock(
   switch (permission.setting) {
     case CONTENT_SETTING_ALLOW:
       DCHECK_EQ(opposite_to_block_setting, CONTENT_SETTING_ALLOW);
-      SetTargetContentSetting(permission, CONTENT_SETTING_BLOCK);
+      permission.setting = CONTENT_SETTING_BLOCK;
       permission.is_one_time = false;
       permission.is_in_use = false;
       break;
     case CONTENT_SETTING_BLOCK:
-      SetTargetContentSetting(permission, opposite_to_block_setting);
+      permission.setting = opposite_to_block_setting;
       permission.is_one_time = false;
       permission.is_in_use = false;
       break;
@@ -926,7 +928,7 @@ void PageInfoUI::ToggleBetweenAllowAndBlock(
     }
     case CONTENT_SETTING_ASK:
       DCHECK_EQ(opposite_to_block_setting, CONTENT_SETTING_ASK);
-      SetTargetContentSetting(permission, CONTENT_SETTING_BLOCK);
+      permission.setting = CONTENT_SETTING_BLOCK;
       break;
     default:
       NOTREACHED_IN_MIGRATION();

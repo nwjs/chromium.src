@@ -34,7 +34,6 @@ import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
-import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityNavigationController;
@@ -64,6 +63,7 @@ import org.chromium.chrome.browser.page_info.ChromePageInfoHighlight;
 import org.chromium.chrome.browser.privacy_sandbox.ActivityTypeMapper;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridge;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxDialogController;
+import org.chromium.chrome.browser.privacy_sandbox.SurfaceType;
 import org.chromium.chrome.browser.privacy_sandbox.TrackingProtectionSnackbarController;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.readaloud.ReadAloudIPHController;
@@ -73,7 +73,6 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.RequestDesktopUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
@@ -238,17 +237,31 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
         mToolbarCoordinator = customTabToolbarCoordinator;
         mNavigationController = customTabNavigationController;
         mIntentDataProvider = intentDataProvider;
-        if (intentDataProvider.get().getActivityType() == ActivityType.CUSTOM_TAB
+        boolean isAuthTab = intentDataProvider.get().isAuthTab();
+        if ((activityType == ActivityType.CUSTOM_TAB || isAuthTab)
                 && !intentDataProvider.get().isOpenedByChrome()
                 && intentDataProvider.get().getCustomTabMode() != INCOGNITO) {
-            String appId = mIntentDataProvider.get().getClientPackageName();
-            if (TextUtils.isEmpty(appId)) {
-                appId = CustomTabIntentDataProvider.getAppIdFromReferrer(activity);
+            String appId = null;
+            // AuthTab sets the ID to null by design to show the default branding (toast)
+            // every time one is launched.
+            if (!isAuthTab) {
+                appId = mIntentDataProvider.get().getClientPackageName();
+                if (TextUtils.isEmpty(appId)) {
+                    appId = CustomTabIntentDataProvider.getAppIdFromReferrer(activity);
+                }
             }
             String browserName = activity.getResources().getString(R.string.app_name);
+            int toastTemplateId =
+                    isAuthTab
+                            ? R.string.auth_tab_secured_by_chrome_template
+                            : R.string.twa_running_in_chrome_template;
             mBrandingController =
                     new BrandingController(
-                            activity, appId, browserName, new ChromePureJavaExceptionReporter());
+                            activity,
+                            appId,
+                            browserName,
+                            toastTemplateId,
+                            new ChromePureJavaExceptionReporter());
         }
         // TODO(353517557): Do initialization necessary for ActivityType.AUTH_TAB
 
@@ -304,14 +317,21 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
             }
         }
 
+        CustomTabsConnection connection = CustomTabsConnection.getInstance();
         boolean shouldEnableOmnibox =
-                CustomTabsConnection.getInstance()
-                        .shouldEnableOmniboxForIntent(mIntentDataProvider.get());
+                connection.shouldEnableOmniboxForIntent(mIntentDataProvider.get());
         RecordHistogram.recordBooleanHistogram(
                 "CustomTabs.Omnibox.EnabledState", shouldEnableOmnibox);
         if (shouldEnableOmnibox) {
-            toolbar.setOmniboxEnabled(mIntentDataProvider.get().getClientPackageName());
+            toolbar.setOmniboxEnabled(
+                    mIntentDataProvider.get().getClientPackageName(),
+                    connection.getAlternateOmniboxTapHandler(mIntentDataProvider.get()));
         }
+    }
+
+    @Override
+    protected boolean canPreviewPromoteToTab() {
+        return mActivityType == ActivityType.CUSTOM_TAB;
     }
 
     @Override
@@ -321,26 +341,6 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
         mGoogleBottomBarCoordinator = getGoogleBottomBarCoordinator();
         if (mGoogleBottomBarCoordinator != null) {
             mGoogleBottomBarCoordinator.onFinishNativeInitialization();
-        }
-        if (EphemeralTabCoordinator.isSupported()) {
-            Supplier<TabCreator> tabCreator =
-                    () ->
-                            mTabCreatorManagerSupplier
-                                    .get()
-                                    .getTabCreator(
-                                            mTabModelSelectorSupplier.get().isIncognitoSelected());
-            boolean canPromoteToTab =
-                    mActivityType == ActivityType.CUSTOM_TAB
-                            || mActivityType == ActivityType.TRUSTED_WEB_ACTIVITY;
-            mEphemeralTabCoordinatorSupplier.set(
-                    new EphemeralTabCoordinator(
-                            mActivity,
-                            mWindowAndroid,
-                            mActivity.getWindow().getDecorView(),
-                            mActivityTabProvider,
-                            tabCreator,
-                            getBottomSheetController(),
-                            canPromoteToTab));
         }
         new OneShotCallback<>(
                 mProfileSupplier,
@@ -635,7 +635,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                             boolean didShowPrompt = false;
                             boolean shouldShowPrivacySandboxDialog =
                                     PrivacySandboxDialogController.shouldShowPrivacySandboxDialog(
-                                            currentModelProfile);
+                                            currentModelProfile, SurfaceType.AGACCT);
                             int activityType = mIntentDataProvider.get().getActivityType();
                             boolean isCustomTab =
                                     activityType == ActivityType.CUSTOM_TAB
@@ -666,7 +666,10 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                                     didShowPrompt =
                                             PrivacySandboxDialogController
                                                     .maybeLaunchPrivacySandboxDialog(
-                                                            mActivity, currentModelProfile);
+                                                            mActivity,
+                                                            currentModelProfile,
+                                                            SurfaceType.AGACCT,
+                                                            mWindowAndroid);
                                 }
                             }
                             if (!didShowPrompt) {

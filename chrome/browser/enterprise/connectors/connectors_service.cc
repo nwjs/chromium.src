@@ -18,7 +18,6 @@
 #include "chrome/browser/enterprise/connectors/connectors_manager.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/util/affiliation.h"
-#include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -32,6 +31,7 @@
 #include "components/enterprise/browser/controller/browser_dm_token_storage.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
+#include "components/enterprise/connectors/core/connectors_manager_base.h"
 #include "components/enterprise/connectors/core/connectors_prefs.h"
 #include "components/enterprise/connectors/core/service_provider_config.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
@@ -49,8 +49,12 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/common/url_constants.h"
 #include "device_management_backend.pb.h"
-#include "extensions/browser/extension_registry_factory.h"
 #include "google_apis/gaia/gaia_auth_util.h"
+
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
+#include "extensions/browser/extension_registry_factory.h"
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chromeos/components/mgs/managed_guest_session_utils.h"
@@ -202,15 +206,16 @@ std::unique_ptr<ClientMetadata> ConnectorsService::GetBasicClientMetadata(
 
 std::optional<ReportingSettings> ConnectorsService::GetReportingSettings(
     ReportingConnector connector) {
-  if (!ConnectorsEnabled())
+#if BUILDFLAG(IS_CHROMEOS)
+  if (!ConnectorsEnabled()) {
     return std::nullopt;
+  }
 
   std::optional<ReportingSettings> settings =
       connectors_manager_->GetReportingSettings(connector);
   if (!settings.has_value())
     return std::nullopt;
 
-#if BUILDFLAG(IS_CHROMEOS)
   Profile* profile = Profile::FromBrowserContext(context_);
   if (IncludeDeviceInfo(profile, /*per_profile=*/false)) {
     // The device dm token includes additional information like a device id,
@@ -224,15 +229,8 @@ std::optional<ReportingSettings> ConnectorsService::GetReportingSettings(
     }
   }
 #endif
-  std::optional<DmToken> dm_token = GetDmToken(ConnectorScopePref(connector));
-  if (!dm_token.has_value())
-    return std::nullopt;
 
-  settings.value().dm_token = dm_token.value().value;
-  settings.value().per_profile =
-      dm_token.value().scope == policy::POLICY_SCOPE_USER;
-
-  return settings;
+  return ConnectorsServiceBase::GetReportingSettings(connector);
 }
 
 std::optional<AnalysisSettings> ConnectorsService::GetAnalysisSettings(
@@ -283,7 +281,8 @@ std::optional<AnalysisSettings> ConnectorsService::GetCommonAnalysisSettings(
   }
 #endif
 
-  std::optional<DmToken> dm_token = GetDmToken(ConnectorScopePref(connector));
+  std::optional<DmToken> dm_token =
+      GetDmToken(AnalysisConnectorScopePref(connector));
   bool is_cloud = settings.value().cloud_or_local_settings.is_cloud_analysis();
 
   if (is_cloud) {
@@ -297,7 +296,7 @@ std::optional<AnalysisSettings> ConnectorsService::GetCommonAnalysisSettings(
   settings.value().per_profile =
       (dm_token.has_value() &&
        dm_token.value().scope == policy::POLICY_SCOPE_USER) ||
-      GetPolicyScope(ConnectorScopePref(connector)) ==
+      GetPolicyScope(AnalysisConnectorScopePref(connector)) ==
           policy::POLICY_SCOPE_USER;
   settings.value().client_metadata = BuildClientMetadata(is_cloud);
 
@@ -308,25 +307,7 @@ bool ConnectorsService::IsConnectorEnabled(AnalysisConnector connector) const {
   if (!ConnectorsEnabled())
     return false;
 
-  return connectors_manager_->IsConnectorEnabled(connector);
-}
-
-bool ConnectorsService::IsConnectorEnabled(ReportingConnector connector) const {
-  if (!ConnectorsEnabled())
-    return false;
-
-  return connectors_manager_->IsConnectorEnabled(connector);
-}
-
-std::vector<std::string> ConnectorsService::GetReportingServiceProviderNames(
-    ReportingConnector connector) {
-  if (!ConnectorsEnabled())
-    return {};
-
-  if (!GetDmToken(ConnectorScopePref(connector)).has_value())
-    return {};
-
-  return connectors_manager_->GetReportingServiceProviderNames(connector);
+  return connectors_manager_->IsAnalysisConnectorEnabled(connector);
 }
 
 std::vector<const AnalysisConfig*> ConnectorsService::GetAnalysisServiceConfigs(
@@ -382,8 +363,9 @@ std::vector<std::string> ConnectorsService::GetAnalysisServiceProviderNames(
   if (!ConnectorsEnabled())
     return {};
 
-  if (!GetDmToken(ConnectorScopePref(connector)).has_value())
+  if (!GetDmToken(AnalysisConnectorScopePref(connector)).has_value()) {
     return {};
+  }
 
   return connectors_manager_->GetAnalysisServiceProviderNames(connector);
 }
@@ -395,11 +377,11 @@ std::string ConnectorsService::GetManagementDomain() {
   std::optional<policy::PolicyScope> scope = std::nullopt;
   for (const char* scope_pref :
        {enterprise_connectors::kEnterpriseRealTimeUrlCheckScope,
-        ConnectorScopePref(AnalysisConnector::FILE_ATTACHED),
-        ConnectorScopePref(AnalysisConnector::FILE_DOWNLOADED),
-        ConnectorScopePref(AnalysisConnector::BULK_DATA_ENTRY),
-        ConnectorScopePref(AnalysisConnector::PRINT),
-        ConnectorScopePref(ReportingConnector::SECURITY_EVENT)}) {
+        AnalysisConnectorScopePref(AnalysisConnector::FILE_ATTACHED),
+        AnalysisConnectorScopePref(AnalysisConnector::FILE_DOWNLOADED),
+        AnalysisConnectorScopePref(AnalysisConnector::BULK_DATA_ENTRY),
+        AnalysisConnectorScopePref(AnalysisConnector::PRINT),
+        kOnSecurityEventScopePref}) {
     std::optional<DmToken> dm_token = GetDmToken(scope_pref);
     if (dm_token.has_value()) {
       scope = dm_token.value().scope;
@@ -461,7 +443,7 @@ std::string ConnectorsService::GetRealTimeUrlCheckIdentifier() const {
     return std::string();
   }
 
-  return safe_browsing::GetProfileEmail(identity_manager);
+  return GetProfileEmail(identity_manager);
 }
 
 ConnectorsManager* ConnectorsService::ConnectorsManagerForTesting() {
@@ -572,6 +554,15 @@ const PrefService* ConnectorsService::GetPrefs() const {
   return Profile::FromBrowserContext(context_)->GetPrefs();
 }
 
+ConnectorsManagerBase* ConnectorsService::GetConnectorsManagerBase() {
+  return connectors_manager_.get();
+}
+
+const ConnectorsManagerBase* ConnectorsService::GetConnectorsManagerBase()
+    const {
+  return connectors_manager_.get();
+}
+
 std::unique_ptr<ClientMetadata> ConnectorsService::BuildClientMetadata(
     bool is_cloud) {
   auto reporting_settings =
@@ -630,7 +621,9 @@ ConnectorsServiceFactory::ConnectorsServiceFactory()
     : BrowserContextKeyedServiceFactory(
           "ConnectorsService",
           BrowserContextDependencyManager::GetInstance()) {
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   DependsOn(extensions::ExtensionRegistryFactory::GetInstance());
+#endif
 }
 
 ConnectorsServiceFactory::~ConnectorsServiceFactory() = default;
@@ -650,12 +643,14 @@ KeyedService* ConnectorsServiceFactory::BuildServiceInstanceFor(
 
 content::BrowserContext* ConnectorsServiceFactory::GetBrowserContextToUse(
     content::BrowserContext* context) const {
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   // Do not construct the connectors service if the extensions are disabled for
   // the given context.
   if (extensions::ChromeContentBrowserClientExtensionsPart::
           AreExtensionsDisabledForProfile(context)) {
     return nullptr;
   }
+#endif
 
   // On Chrome OS, settings from the primary/main profile apply to all
   // profiles, besides incognito.

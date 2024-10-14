@@ -71,6 +71,7 @@
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
 #include "third_party/blink/renderer/core/html/fenced_frame/html_fenced_frame_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
@@ -518,14 +519,19 @@ std::string TruncateString(const String& str,
   return str_utf8;
 }
 
-void TruncateAndAddStringAttribute(
+bool TruncateAndAddStringAttribute(
     ui::AXNodeData* dst,
     ax::mojom::blink::StringAttribute attribute,
     const String& value,
     uint32_t max_len = kMaxStringAttributeLength) {
   if (!value.empty()) {
-    dst->AddStringAttribute(attribute, TruncateString(value, max_len));
+    std::string value_utf8 = TruncateString(value, max_len);
+    if (!value_utf8.empty()) {
+      dst->AddStringAttribute(attribute, value_utf8);
+      return true;
+    }
   }
+  return false;
 }
 
 void AddIntListAttributeFromOffsetVector(
@@ -980,8 +986,34 @@ Node* AXObject::GetParentNodeForComputeParent(AXObjectCacheImpl& cache,
   // computed, and when a parent is not provided or computed, the accessible
   // object will not be created.
   Node* parent = LayoutTreeBuilderTraversal::Parent(*node);
-  if (!parent) {
-    return nullptr;
+
+  // The parent of a customizable select's popup is the select.
+  if (IsA<HTMLDataListElement>(node)) {
+    if (auto* select = DynamicTo<HTMLSelectElement>(node->OwnerShadowHost())) {
+      if (node == select->PopoverForAppearanceBase()) {
+        return select;
+      }
+    }
+  }
+
+  // For the content of a customizable select, the parent must be the element
+  // assigned the role of kMenuListPopup. To accomplish this, it is necessary to
+  // adapt to unusual DOM structure. If no parent, or the parent has a <select>
+  // shadow host, then the actual parent should be the <select>.
+  // TODO(aleventhal, jarhar): try to simplify this code. @jarhar wrote in code
+  // review: "I don't think that a UA <slot> will ever get returned by
+  // LayoutTreeBuilderTraversal::Parent. In this case, I think
+  // LayoutTreeBuilderTraversal::Parent should just return the <select>."
+
+  HTMLSelectElement* owner_select = nullptr;
+  if (IsA<HTMLSlotElement>(parent) && parent->IsInUserAgentShadowRoot()) {
+    owner_select = DynamicTo<HTMLSelectElement>(parent->OwnerShadowHost());
+  } else if (!parent) {
+    owner_select = DynamicTo<HTMLSelectElement>(NodeTraversal::Parent(*node));
+  }
+  if (owner_select && owner_select->IsAppearanceBasePicker()) {
+    // Return the popup's <datalist> element.
+    return owner_select->PopoverForAppearanceBase();
   }
 
   // Descendants of pseudo elements must only be created by walking the tree via
@@ -1076,8 +1108,13 @@ bool AXObject::CanHaveChildren(Element& element) {
            input->FormControlType() != FormControlType::kInputRange;
   }
 
-  if (IsA<HTMLOptionElement>(element)) {
-    return false;
+  // For consistency with the past, options with a single text child are leaves.
+  // However, options can now sometimes have interesting children, for
+  // a <select> menulist that uses appearance:base-select.
+  if (auto* option = DynamicTo<HTMLOptionElement>(element)) {
+    return option->OwnerSelectElement() &&
+           option->OwnerSelectElement()->IsAppearanceBasePicker() &&
+           !option->HasOneTextChild();
   }
 
   if (IsA<HTMLProgressElement>(element)) {
@@ -1136,9 +1173,7 @@ AXObject* AXObject::ComputeNonARIAParent(AXObjectCacheImpl& cache,
   if (!current_node) {
     return nullptr;
   }
-
   Node* parent_node = GetParentNodeForComputeParent(cache, current_node);
-
   return cache.Get(parent_node);
 }
 
@@ -1703,6 +1738,9 @@ void AXObject::SerializeLangAttribute(ui::AXNodeData* node_data) const {
 }
 
 void AXObject::SerializeLineAttributes(ui::AXNodeData* node_data) const {
+  // TODO(accessibility):Skip the search for objects not in an inline
+  // formatting context.
+  // See LayoutObject::IsInLayoutNGInlineFormattingContext.
   if (AXObject* next_on_line = NextOnLine()) {
     CHECK(!next_on_line->IsDetached());
     node_data->AddIntAttribute(ax::mojom::blink::IntAttribute::kNextOnLineId,
@@ -1789,12 +1827,14 @@ void AXObject::SerializeNameAndDescriptionAttributes(
     int max_length = node_data->role == ax::mojom::blink::Role::kStaticText
                          ? kMaxStaticTextLength
                          : kMaxStringAttributeLength;
-    TruncateAndAddStringAttribute(
-        node_data, ax::mojom::blink::StringAttribute::kName, name, max_length);
-    node_data->SetNameFrom(name_from);
-    AddIntListAttributeFromObjects(
-        ax::mojom::blink::IntListAttribute::kLabelledbyIds, name_objects,
-        node_data);
+    if (TruncateAndAddStringAttribute(node_data,
+                                      ax::mojom::blink::StringAttribute::kName,
+                                      name, max_length)) {
+      node_data->SetNameFrom(name_from);
+      AddIntListAttributeFromObjects(
+          ax::mojom::blink::IntListAttribute::kLabelledbyIds, name_objects,
+          node_data);
+    }
   } else if (name_from == ax::mojom::blink::NameFrom::kProhibited) {
     DCHECK(name.empty());
     node_data->SetNameFrom(ax::mojom::blink::NameFrom::kProhibited);
@@ -2283,21 +2323,6 @@ void AXObject::SerializeUnignoredAttributes(ui::AXNodeData* node_data,
   if (IsNotUserSelectable()) {
     node_data->AddBoolAttribute(
         ax::mojom::blink::BoolAttribute::kNotUserSelectableStyle, true);
-  }
-
-  if (accessibility_mode.has_mode(ui::AXMode::kScreenReader) ||
-      accessibility_mode.has_mode(ui::AXMode::kPDFPrinting)) {
-    // The DOMNodeID from Blink. Currently only populated when using
-    // the accessibility tree for PDF exporting. Warning, this is totally
-    // unrelated to the ID attribute for an HTML element - it's an ID used to
-    // uniquely identify nodes in Blink.
-    // TODO(accessibility) Remove this and use the AXObjectID(), which is the
-    // the same when there there is a DOM node (will always be positive).
-    int dom_node_id = GetDOMNodeId();
-    if (dom_node_id) {
-      node_data->AddIntAttribute(ax::mojom::blink::IntAttribute::kDOMNodeId,
-                                 dom_node_id);
-    }
   }
 
   // If text, return early as a performance tweak, as the rest of the properties
@@ -3249,15 +3274,18 @@ void AXObject::UpdateCachedAttributeValuesIfNeeded(
   // dependent on having the correct new cached value.
   bool is_inert = ComputeIsInertViaStyle(style);
   bool is_aria_hidden = ComputeIsAriaHidden();
+  bool is_in_menu_list_subtree = ComputeIsInMenuListSubtree();
   bool is_descendant_of_disabled_node = ComputeIsDescendantOfDisabledNode();
   bool is_changing_inherited_values = false;
   if (cached_is_inert_ != is_inert ||
       cached_is_aria_hidden_ != is_aria_hidden ||
+      cached_is_in_menu_list_subtree_ != is_in_menu_list_subtree ||
       cached_is_descendant_of_disabled_node_ !=
           is_descendant_of_disabled_node) {
     is_changing_inherited_values = true;
     cached_is_inert_ = is_inert;
     cached_is_aria_hidden_ = is_aria_hidden;
+    cached_is_in_menu_list_subtree_ = is_in_menu_list_subtree;
     cached_is_descendant_of_disabled_node_ = is_descendant_of_disabled_node;
   }
 
@@ -3635,8 +3663,13 @@ bool AXObject::IsAriaHiddenRoot() const {
   auto* node = GetNode();
 
   // The aria-hidden attribute is not valid for the main html and body elements:
-  // See more at https://github.com/w3c/aria/pull/1880
-  if (IsA<HTMLBodyElement>(node) || node == GetDocument()->documentElement()) {
+  // See more at https://github.com/w3c/aria/pull/1880.
+  // Also ignored for <option> because it would unnecessarily complicate the
+  // logic in the case where the option is selected, and aria-hidden does not
+  // prevent selection of the option (it cannot because ARIA does not affect
+  // behavior outside of assistive tech driven by a11y API).
+  if (IsA<HTMLBodyElement>(node) || node == GetDocument()->documentElement() ||
+      IsA<HTMLOptionElement>(node)) {
     AXObjectCache().DiscardBadAriaHiddenBecauseOfElement(*this);
     return false;
   }
@@ -4320,13 +4353,21 @@ bool AXObject::ComputeCanSetFocusAttribute() {
     return false;
   }
 
+  // Customizable select: get focusable state from displayed button if present.
+  if (auto* select = DynamicTo<HTMLSelectElement>(elem)) {
+    if (auto* button = select->DisplayedButton()) {
+      elem = button;
+    }
+  }
+
   // We should not need style updates at this point.
   CHECK(!elem->NeedsStyleRecalc())
       << "\n* Element: " << elem << "\n* Object: " << this
       << "\n* LayoutObject: " << GetLayoutObject();
 
   // Focusable: element supports focus.
-  return elem->SupportsFocus(Element::UpdateBehavior::kNoneForAccessibility);
+  return elem->SupportsFocus(Element::UpdateBehavior::kNoneForAccessibility) !=
+         FocusableState::kNotFocusable;
 }
 
 bool AXObject::IsKeyboardFocusable() const {
@@ -4598,7 +4639,7 @@ String AXObject::RecursiveTextAlternative(
     const AXObject& ax_obj,
     const AXObject* aria_label_or_description_root,
     AXObjectSet& visited) {
-  ax::mojom::blink::NameFrom tmp_name_from = ax::mojom::blink::NameFrom::kNone;
+  ax::mojom::blink::NameFrom tmp_name_from;
   return RecursiveTextAlternative(ax_obj, aria_label_or_description_root,
                                   visited, tmp_name_from);
 }
@@ -4608,8 +4649,9 @@ String AXObject::RecursiveTextAlternative(
     const AXObject* aria_label_or_description_root,
     AXObjectSet& visited,
     ax::mojom::blink::NameFrom& name_from) {
-  if (visited.Contains(&ax_obj) && !aria_label_or_description_root)
+  if (visited.Contains(&ax_obj) && !aria_label_or_description_root) {
     return String();
+  }
 
   return ax_obj.TextAlternative(true, aria_label_or_description_root, visited,
                                 name_from, nullptr, nullptr);
@@ -4670,14 +4712,14 @@ bool AXObject::ComputeIsHiddenViaStyle(const ComputedStyle* style) {
   }
 
   if (style) {
-    if (GetLayoutObject())
-      return style->Visibility() != EVisibility::kVisible;
-
+    if (GetLayoutObject()) {
+      return style->UsedVisibility() != EVisibility::kVisible;
+    }
     // TODO(crbug.com/1286465): It's not consistent to only check
     // IsEnsuredInDisplayNone() on layoutless elements.
     return GetNode() && GetNode()->IsElementNode() &&
            (style->IsEnsuredInDisplayNone() ||
-            style->Visibility() != EVisibility::kVisible);
+            style->UsedVisibility() != EVisibility::kVisible);
   }
 
   Node* node = GetNode();
@@ -4756,6 +4798,12 @@ bool AXObject::IsHiddenForTextAlternativeCalculation(
   // settled, see: https://github.com/w3c/accname/issues/76
   if (node->IsMarkerPseudoElement())
     return true;
+
+  // HTML Options build their accessible name even when they are hidden in a
+  // collapsed <select>.
+  if (!IsAriaHidden() && AncestorMenuListOption()) {
+    return false;
+  }
 
   // Step 2A from: http://www.w3.org/TR/accname-aam-1.1
   // When traversing an aria-labelledby relation where the targeted node is
@@ -5340,6 +5388,58 @@ bool AXObject::IsOnlyChild() const {
   return ax_parent_included->ChildrenIncludingIgnored().size() == 1;
 }
 
+bool AXObject::IsInMenuListSubtree() {
+  CheckCanAccessCachedValues();
+  UpdateCachedAttributeValuesIfNeeded();
+  return cached_is_in_menu_list_subtree_;
+}
+
+bool AXObject::ComputeIsInMenuListSubtree() {
+  if (IsRoot()) {
+    return false;
+  }
+  return IsMenuList() || ParentObject()->IsInMenuListSubtree();
+}
+
+bool AXObject::IsMenuList() const {
+  return RoleValue() == ax::mojom::blink::Role::kComboBoxSelect;
+}
+
+const AXObject* AXObject::AncestorMenuListOption() const {
+  if (!IsInMenuListSubtree()) {
+    return nullptr;
+  }
+  for (const AXObject* ax_option = this; ax_option;
+       ax_option = ax_option->ParentObject()) {
+    if (ax_option->RoleValue() == ax::mojom::blink::Role::kMenuListOption &&
+        IsA<HTMLOptionElement>(ax_option->GetNode())) {
+      return ax_option;
+    }
+  }
+
+  return nullptr;
+}
+
+const AXObject* AXObject::AncestorMenuList() const {
+  if (!IsInMenuListSubtree()) {
+    return nullptr;
+  }
+  for (const AXObject* ax_menu_list = this; ax_menu_list;
+       ax_menu_list = ax_menu_list->ParentObject()) {
+    if (ax_menu_list->IsMenuList()) {
+      DCHECK(IsA<HTMLSelectElement>(ax_menu_list->GetNode()));
+      DCHECK(To<HTMLSelectElement>(ax_menu_list->GetNode())->UsesMenuList());
+      DCHECK(!To<HTMLSelectElement>(ax_menu_list->GetNode())->IsMultiple());
+      return ax_menu_list;
+    }
+  }
+#if DCHECK_IS_ON()
+  NOTREACHED() << "No menu list found:\n" << ParentChainToStringHelper(this);
+#else
+  NOTREACHED();
+#endif
+}
+
 bool AXObject::IsLiveRegionRoot() const {
   const AtomicString& live_region = LiveRegionStatus();
   return !live_region.empty();
@@ -5488,7 +5588,8 @@ ax::mojom::blink::Role AXObject::DetermineAriaRole() const {
     if (IsFrame(GetNode()))
       return ax::mojom::blink::Role::kIframePresentational;
     if ((GetElement() && GetElement()->SupportsFocus(
-                             Element::UpdateBehavior::kNoneForAccessibility)) ||
+                             Element::UpdateBehavior::kNoneForAccessibility) !=
+                             FocusableState::kNotFocusable) ||
         HasAriaAttribute(true /* does_undo_role_presentation */)) {
       // Must be exposed with a role if focusable or has a global ARIA property
       // that is allowed in this context. See
@@ -5525,7 +5626,8 @@ ax::mojom::blink::Role AXObject::DetermineAriaRole() const {
       }
     } else if (GetElement() &&
                GetElement()->SupportsFocus(
-                   Element::UpdateBehavior::kNoneForAccessibility)) {
+                   Element::UpdateBehavior::kNoneForAccessibility) !=
+                   FocusableState::kNotFocusable) {
       role = ax::mojom::blink::Role::kComboBoxMenuButton;
     }
   }
@@ -6861,13 +6963,6 @@ AXObject::AXObjectVector AXObject::TableCellChildren() const {
   return result;
 }
 
-int AXObject::GetDOMNodeId() const {
-  Node* node = GetNode();
-  if (node)
-    return node->GetDomNodeId();
-  return 0;
-}
-
 void AXObject::GetRelativeBounds(AXObject** out_container,
                                  gfx::RectF& out_bounds_in_container,
                                  gfx::Transform& out_container_transform,
@@ -7174,6 +7269,15 @@ bool AXObject::OnNativeClickAction() {
 
   Element* element = GetClosestElement();
 
+  // Forward default action on custom select to its button.
+  if (auto* select = DynamicTo<HTMLSelectElement>(GetNode())) {
+    if (select->IsAppearanceBaseButton()) {
+      if (auto* button = select->DisplayedButton()) {
+        element = button;
+      }
+    }
+  }
+
   if (element) {
     // Always set the sequential focus navigation starting point.
     // Even if this element isn't focusable, if you press "Tab" it will
@@ -7183,7 +7287,8 @@ bool AXObject::OnNativeClickAction() {
     // Explicitly focus the element if it's focusable but not currently
     // the focused element, to be consistent with
     // EventHandler::HandleMousePressEvent.
-    if (element->IsFocusable() && !element->IsFocusedElementInDocument()) {
+    if (element->IsFocusable(Element::UpdateBehavior::kNoneForAccessibility) &&
+        !element->IsFocusedElementInDocument()) {
       Page* const page = GetDocument()->GetPage();
       if (page) {
         page->GetFocusController().SetFocusedElement(
@@ -7611,6 +7716,11 @@ bool AXObject::SupportsNameFromContents(bool recursive) const {
       result = true;
       break;
 
+    case ax::mojom::blink::Role::kMenuListOption:
+      // If only has one text child, will use HTMLOptionElement::DisplayLabel().
+      result = !GetElement()->HasOneTextChild();
+      break;
+
     // ----- No name from contents -------------------------
     // These never have or contribute a name from contents, as they are
     // containers for many subobjects. Superset of nameFrom:author ARIA roles.
@@ -7710,7 +7820,6 @@ bool AXObject::SupportsNameFromContents(bool recursive) const {
     case ax::mojom::blink::Role::kMathMLText:
     case ax::mojom::blink::Role::kMathMLUnder:
     case ax::mojom::blink::Role::kMathMLUnderOver:
-    case ax::mojom::blink::Role::kMenuListOption:
     case ax::mojom::blink::Role::kMenuListPopup:
     case ax::mojom::blink::Role::kMenu:
     case ax::mojom::blink::Role::kMenuBar:
@@ -8177,6 +8286,11 @@ String AXObject::ToString(bool verbose) const {
     }
     if (cached_values_only ? !!cached_live_region_root_ : !!LiveRegionRoot()) {
       string_builder = string_builder + " inLiveRegion";
+    }
+
+    if (cached_values_only ? cached_is_in_menu_list_subtree_
+                           : IsInMenuListSubtree()) {
+      string_builder = string_builder + " inMenuList";
     }
 
     if (cached_values_only) {

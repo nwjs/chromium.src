@@ -128,6 +128,10 @@ export class TranscriptionView extends ReactiveLitElement {
         }
       }
 
+      .speaker-pending {
+        --speaker-label-shapes-color: var(--cros-sys-on_surface_variant);
+      }
+
       .sentence {
         border-radius: 4px;
         box-decoration-break: clone;
@@ -146,8 +150,9 @@ export class TranscriptionView extends ReactiveLitElement {
         .seekable & {
           cursor: pointer;
 
-          &:hover {
+          &:hover, &:focus {
             background: var(--cros-sys-highlight_shape);
+            outline: none;
           }
         }
 
@@ -327,7 +332,7 @@ export class TranscriptionView extends ReactiveLitElement {
         // For the first word, the leadingSpace is already added at the
         // sentence level. Otherwise we follows the leadingSpace for the part
         // and treat missing field as having a space.
-        const leadingSpace = i === 0 ? false : part?.leadingSpace ?? true;
+        const leadingSpace = i === 0 ? false : part.leadingSpace ?? true;
         if (!highlightWord) {
           return `${leadingSpace ? ' ' : ''}${part.text}`;
         }
@@ -341,41 +346,69 @@ export class TranscriptionView extends ReactiveLitElement {
   private renderSpeakerLabel(
     speakerLabels: string[],
     speakerLabel: string|null,
+    partial: boolean,
   ) {
     if (speakerLabel === null) {
       return nothing;
     }
-    const speakerLabelIdx = speakerLabels.indexOf(speakerLabel);
-    assert(speakerLabelIdx !== -1);
-    return html`<div
-      class="speaker-label ${getSpeakerLabelClass(speakerLabelIdx)}"
-    >
-      ${i18n.transcriptionSpeakerLabelLabel(speakerLabel)}
+
+    let speakerLabelClass: string;
+    let speakerLabelLabel: string;
+
+    if (partial) {
+      speakerLabelClass = 'speaker-pending';
+      speakerLabelLabel = i18n.transcriptionSpeakerLabelPendingLabel;
+    } else {
+      const speakerLabelIdx = speakerLabels.indexOf(speakerLabel);
+      assert(speakerLabelIdx !== -1);
+      speakerLabelClass = getSpeakerLabelClass(speakerLabelIdx);
+      speakerLabelLabel = i18n.transcriptionSpeakerLabelLabel(speakerLabel);
+    }
+
+    return html`<div class="speaker-label ${speakerLabelClass}">
+      ${speakerLabelLabel}
     </div>`;
   }
 
-  private renderParagraph(speakerLabels: string[], parts: TextPart[]) {
+  private renderParagraphContent(parts: TextPart[]) {
+    if (!this.seekable) {
+      // Don't render each sentence/word as separate DOM node when there's no
+      // need for seeking, so there would be fewer DOM nodes.
+      return parts
+        .map((part, i) => {
+          const leadingSpace = part.leadingSpace ?? i > 0;
+          return `${leadingSpace ? ' ' : ''}${part.text}`;
+        })
+        .join('');
+    }
     // TODO: b/341014241 - Better heuristic for cutting sentences.
     const sentences = sliceWhen(parts, ({text}) => {
       return text.endsWith('.') || text.endsWith('?') || text.endsWith('!');
     });
-    const {speakerLabel} = assertExists(parts[0]);
+    return repeat(
+      sentences,
+      (_v, i) => i,
+      (sentence, i) => {
+        // Use the leadingSpace field for the first word. If the
+        // leadingSpace field is missing, add space after the first
+        // sentence.
+        const leadingSpace = sentence[0]?.leadingSpace ?? i > 0;
+        return html`${leadingSpace ? ' ' : ''}<span
+            class="sentence"
+            data-start-ms=${ifDefined(sentence[0]?.timeRange?.startMs)}
+            tabindex=${this.seekable ? 0 : -1}
+            role="button"
+            >${this.renderSentence(sentence)}</span
+          >`;
+      },
+    );
+  }
+
+  private renderParagraph(speakerLabels: string[], parts: TextPart[]) {
+    const {speakerLabel, partial} = assertExists(parts[0]);
     return [
-      this.renderSpeakerLabel(speakerLabels, speakerLabel),
-      repeat(
-        sentences,
-        (_v, i) => i,
-        (sentence, i) => {
-          // Use the leadingSpace field for the first word. If the leadingSpace
-          // field is missing, add space after the first sentence.
-          const leadingSpace = sentence[0]?.leadingSpace ?? i > 0;
-          return html`${leadingSpace ? ' ' : ''}<span
-              class="sentence"
-              data-start-ms=${ifDefined(sentence[0]?.timeRange?.startMs)}
-              >${this.renderSentence(sentence)}</span
-            >`;
-        },
-      ),
+      this.renderSpeakerLabel(speakerLabels, speakerLabel, partial ?? false),
+      this.renderParagraphContent(parts),
     ];
   }
 
@@ -429,11 +462,12 @@ export class TranscriptionView extends ReactiveLitElement {
           <div class="row">
             <span
               class="timestamp"
-              tabindex="0"
+              tabindex=${this.seekable ? 0 : -1}
               data-start-ms=${ifDefined(startTimeRange?.startMs)}
+              role="button"
             >
               ${startTimeDisplay}
-              <md-focus-ring></md-focus-ring>
+              ${this.seekable ? html`<md-focus-ring></md-focus-ring>` : nothing}
             </span>
             <div class="paragraph">
               ${this.renderParagraph(speakerLabels, parts)}

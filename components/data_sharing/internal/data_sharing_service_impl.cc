@@ -92,7 +92,10 @@ DataSharingServiceImpl::DataSharingServiceImpl(
           std::make_unique<DataSharingNetworkLoaderImpl>(url_loader_factory,
                                                          identity_manager)),
       sdk_delegate_(std::move(sdk_delegate)),
-      ui_delegate_(std::move(ui_delegate)) {
+      ui_delegate_(std::move(ui_delegate)),
+      preview_server_proxy_(
+          std::make_unique<PreviewServerProxy>(identity_manager,
+                                               url_loader_factory)) {
   auto change_processor =
       std::make_unique<syncer::ClientTagBasedDataTypeProcessor>(
           syncer::COLLABORATION_GROUP,
@@ -104,6 +107,18 @@ DataSharingServiceImpl::DataSharingServiceImpl(
   if (sdk_delegate_) {
     sdk_delegate_->Initialize(data_sharing_network_loader_.get());
   }
+
+  // Initialize ServiceStatus.
+  current_status_.collaboration_status = CollaborationStatus::kDisabled;
+  if (base::FeatureList::IsEnabled(features::kDataSharingFeature)) {
+    current_status_.collaboration_status =
+        CollaborationStatus::kEnabledCreateAndJoin;
+  }
+
+  // TODO(b/360184707): Add identity manager and sync service to observe state
+  // changes.
+  current_status_.signin_status = SigninStatus::kNotSignedIn;
+  current_status_.sync_status = SyncStatus::kNotSyncing;
 }
 
 DataSharingServiceImpl::~DataSharingServiceImpl() {
@@ -575,6 +590,21 @@ void DataSharingServiceImpl::EnsureGroupVisibility(
       params,
       base::BindOnce(&DataSharingServiceImpl::OnAccessTokenAdded,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void DataSharingServiceImpl::GetSharedEntitiesPreview(
+    const GroupToken& group_token,
+    base::OnceCallback<void(const SharedDataPreviewOrFailureOutcome&)>
+        callback) {
+  preview_server_proxy_->GetSharedDataPreview(group_token, std::move(callback));
+}
+
+DataSharingUIDelegate* DataSharingServiceImpl::GetUIDelegate() {
+  return ui_delegate_.get();
+}
+
+ServiceStatus DataSharingServiceImpl::GetServiceStatus() {
+  return current_status_;
 }
 
 void DataSharingServiceImpl::OnAccessTokenAdded(

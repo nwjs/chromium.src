@@ -10,7 +10,7 @@
 #import "components/trusted_vault/trusted_vault_server_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/ui/util/identity_snackbar/identity_snackbar_message.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
@@ -28,7 +29,8 @@
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_mediator.h"
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_mediator_delegate.h"
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_view_controller.h"
-#import "ios/chrome/browser/ui/authentication/account_menu/account_menu_view_controller_presentation_delegate.h"
+#import "ios/chrome/browser/ui/authentication/signin/signin_completion_info.h"
+#import "ios/chrome/browser/ui/authentication/signin/signin_constants.h"
 #import "ios/chrome/browser/ui/authentication/signout_action_sheet/signout_action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/settings/sync/sync_encryption_passphrase_table_view_controller.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -42,12 +44,13 @@ namespace {
 const FakeSystemIdentity* kPrimaryIdentity = [FakeSystemIdentity fakeIdentity1];
 const FakeSystemIdentity* kSecondaryIdentity =
     [FakeSystemIdentity fakeIdentity2];
+const FakeSystemIdentity* kManagedIdentity =
+    [FakeSystemIdentity fakeManagedIdentity];
 
 }  // namespace
 
 @interface AccountMenuCoordinator (Testing) <
     AccountMenuMediatorDelegate,
-    AccountMenuViewControllerPresentationDelegate,
     SignoutActionSheetCoordinatorDelegate,
     UIAdaptivePresentationControllerDelegate,
     UINavigationControllerDelegate>
@@ -110,20 +113,20 @@ class AccountMenuCoordinatorTest : public PlatformTest {
 
     // Replacing the view controller and mediator by mock.
     view_ = coordinator_.viewController.view;
+    navigation_controller_ = coordinator_.viewController.navigationController;
     view_controller_ = OCMStrictClassMock([AccountMenuViewController class]);
     OCMStub([view_controller_ view]).andReturn(view_);
+    OCMStub([view_controller_ navigationController])
+        .andReturn(navigation_controller_);
     coordinator_.viewController = view_controller_;
 
     [coordinator_.mediator disconnect];
     mediator_ = OCMStrictClassMock([AccountMenuMediator class]);
     coordinator_.mediator = mediator_;
-    OCMStub([mediator_ signOutFlowInProgress]).andReturn(NO);
-    OCMStub([mediator_ addAccountOperationInProgress]).andReturn(NO);
   }
 
   void TearDown() override {
     OCMExpect(view_controller_.dataSource = nil);
-    OCMExpect(view_controller_.delegate = nil);
     OCMExpect(view_controller_.mutator = nil);
     OCMExpect(mediator_.consumer = nil);
     OCMExpect([mediator_ disconnect]);
@@ -132,6 +135,8 @@ class AccountMenuCoordinatorTest : public PlatformTest {
     VerifyMock();
     PlatformTest::TearDown();
   }
+
+  virtual const FakeSystemIdentity* primary_identity() = 0;
 
  protected:
   void VerifyMock() {
@@ -157,38 +162,15 @@ class AccountMenuCoordinatorTest : public PlatformTest {
   FakeSystemIdentityManager* fake_system_identity_manager_;
   // The view owned by the view controller.
   UIView* view_;
-
-  // Expects `setSignoutFlowInProgress:in_progress` and ensure any request to
-  // `signoutFlowInProgress` returns `in_progress`.
-  void ExpectSetSignoutFlowInProgress(bool in_progress) {
-    OCMExpect([mediator_ setSignOutFlowInProgress:in_progress])
-        .andDo(^(NSInvocation* invocation) {
-          OCMStub([mediator_ signOutFlowInProgress]).andReturn(in_progress);
-        });
-  }
-
-  // Expects that the sign-out flow gets set to YES and then NO.
-  void ExpectSetSignoutFlowInProgressOnAndOff() {
-    ExpectSetSignoutFlowInProgress(YES);
-    ExpectSetSignoutFlowInProgress(NO);
-  }
-
-  // Expects `setAddAccountOperationInProgress:in_progress` and ensure any
-  // request to `addAccountOperationInProgress` returns `in_progress`.
-  void ExpectAddAccountOperation(bool in_progress) {
-    OCMExpect([mediator_ setAddAccountOperationInProgress:in_progress])
-        .andDo(^(NSInvocation* invocation) {
-          OCMStub([mediator_ addAccountOperationInProgress])
-              .andReturn(in_progress);
-        });
-  }
+  // The navigation controller of the view controller.
+  UINavigationController* navigation_controller_;
 
  private:
-  // Signs in kPrimaryIdentity as primary identity.
+  // Signs in primary_identity() as primary identity.
   void SigninWithPrimaryIdentity() {
-    fake_system_identity_manager_->AddIdentity(kPrimaryIdentity);
+    fake_system_identity_manager_->AddIdentity(primary_identity());
     authentication_service_->SignIn(
-        kPrimaryIdentity, signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
+        primary_identity(), signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   }
 
   // Add kSecondaryIdentity as a secondary identity.
@@ -202,17 +184,16 @@ class AccountMenuCoordinatorTest : public PlatformTest {
   std::unique_ptr<TestBrowser> browser_;
 };
 
-#pragma mark - AccountMenuViewControllerPresentationDelegate
-
-// Tests view controller requesting to be closed.
-TEST_F(AccountMenuCoordinatorTest, testWantsToBeClosed) {
-  OCMExpect([delegate_ acountMenuCoordinatorShouldStop:coordinator_]);
-  [coordinator_ viewControllerWantsToBeClosed:coordinator_.viewController];
-}
+class AccountMenuCoordinatorNonManagedTest : public AccountMenuCoordinatorTest {
+ public:
+  const FakeSystemIdentity* primary_identity() override {
+    return kPrimaryIdentity;
+  }
+};
 
 // Tests that `didTapManageYourGoogleAccount` requests the view controller to
 // present a view.
-TEST_F(AccountMenuCoordinatorTest, testManageYourGoogleAccount) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testManageYourGoogleAccount) {
   OCMExpect([view_controller_ presentViewController:[OCMArg any]
                                            animated:YES
                                          completion:nil]);
@@ -221,22 +202,19 @@ TEST_F(AccountMenuCoordinatorTest, testManageYourGoogleAccount) {
 
 // Tests that `didTapEditAccountList` has no impact on the view controller and
 // mediator.
-TEST_F(AccountMenuCoordinatorTest, testEditAccountList) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testEditAccountList) {
   [coordinator_ didTapEditAccountList];
 }
 
 // Tests that `signOutFromTargetRect` requests the delegate to be stopped and
 // shows a snackbar and calls its completion.
-TEST_F(AccountMenuCoordinatorTest, testSignOut) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testSignOut) {
   base::RunLoop run_loop;
   base::RepeatingClosure closure = run_loop.QuitClosure();
   CGRect rect = CGRect();
   OCMExpect([delegate_ acountMenuCoordinatorShouldStop:coordinator_]);
   OCMExpect([mock_snackbar_commands_handler_
-      showSnackbarMessage:[OCMArg isNotNil]
-             bottomOffset:0]);
-  ExpectSetSignoutFlowInProgressOnAndOff();
-  ExpectSetSignoutFlowInProgressOnAndOff();
+      showSnackbarMessageOverBrowserToolbar:[OCMArg isNotNil]]);
   [coordinator_ signOutFromTargetRect:rect
                              callback:^(BOOL success) {
                                EXPECT_TRUE(success);
@@ -250,61 +228,64 @@ TEST_F(AccountMenuCoordinatorTest, testSignOut) {
 
 // Tests that `didTapAddAccount` requests the appllication commands handler to
 // show signin.
-TEST_F(AccountMenuCoordinatorTest, testAddAccount) {
-  ExpectAddAccountOperation(YES);
-  OCMExpect([mock_application_commands_handler_ showSignin:[OCMArg any]
-                                        baseViewController:[OCMArg any]]);
-  [coordinator_ didTapAddAccount];
+TEST_F(AccountMenuCoordinatorNonManagedTest, testAddAccount) {
+  base::RunLoop run_loop;
+  base::RepeatingClosure closure = run_loop.QuitClosure();
+  __block ShowSigninCommand* command = nil;
+  OCMExpect([mock_application_commands_handler_
+              showSignin:[OCMArg
+                             checkWithBlock:^BOOL(ShowSigninCommand* param) {
+                               command = param;
+                               return true;
+                             }]
+      baseViewController:[OCMArg any]]);
+  [coordinator_ didTapAddAccount:^(SigninCoordinatorResult result,
+                                   SigninCompletionInfo* info) {
+    closure.Run();
+  }];
+  command.callback(SigninCoordinatorResult::SigninCoordinatorResultSuccess,
+                   nil);
+  run_loop.Run();
 }
 
 #pragma mark - AccountMenuMediatorDelegate
 
 // Tests that `mediatorWantsToBeDismissed` requests to the delegate to stop the
 // coordinator.
-TEST_F(AccountMenuCoordinatorTest, testMediatorWantsToBeDismissed) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testMediatorWantsToBeDismissed) {
   OCMExpect([delegate_ acountMenuCoordinatorShouldStop:coordinator_]);
   [coordinator_ mediatorWantsToBeDismissed:coordinator_.mediator];
 }
 
-// Tests that `triggerSignoutWithTargetRect` shows a snackbar and calls its
-// completion.
-TEST_F(AccountMenuCoordinatorTest, testTriggerSignout) {
-  OCMExpect([mock_snackbar_commands_handler_ showSnackbarMessage:[OCMArg any]
-                                                    bottomOffset:0]);
-
-  base::RunLoop run_loop;
-  base::RepeatingClosure closure = run_loop.QuitClosure();
+// Tests that `triggerAccountSwitchWithTargetRect` calls the account switch
+// using the application handler.
+TEST_F(AccountMenuCoordinatorNonManagedTest, TestAccountSwitch) {
   CGRect rect = CGRect();
-  ExpectSetSignoutFlowInProgressOnAndOff();
-  ExpectSetSignoutFlowInProgressOnAndOff();
-  [coordinator_ triggerSignoutWithTargetRect:rect
-                                  completion:^(BOOL success) {
-                                    EXPECT_TRUE(success);
-                                    closure.Run();
-                                  }];
-  run_loop.Run();
-}
+  __block ShowSigninCommandCompletionCallback callback = nil;
+  OCMExpect([mock_application_commands_handler_
+      switchAccountWithBaseViewController:navigation_controller_
+                              newIdentity:kSecondaryIdentity
+                                     rect:rect
+                           rectAnchorView:view_
+          viewWillBeDismissedAfterSignout:NO
+                         signInCompletion:[OCMArg
+                                              checkWithBlock:^BOOL(id value) {
+                                                callback = value;
+                                                return true;
+                                              }]]);
 
-// Tests that `triggerSigninWithSystemIdentity` call its completion.
-TEST_F(AccountMenuCoordinatorTest, testSignin) {
-  base::RunLoop run_loop;
-  base::RepeatingClosure closure = run_loop.QuitClosure();
   [coordinator_
-      triggerSigninWithSystemIdentity:kSecondaryIdentity
-                           completion:^(id<SystemIdentity> systemIdentity) {
-                             EXPECT_EQ(systemIdentity, kSecondaryIdentity);
-                             closure.Run();
-                           }];
+      triggerAccountSwitchWithTargetRect:rect
+                             newIdentity:kSecondaryIdentity
+         viewWillBeDismissedAfterSignout:NO
+                        signInCompletion:^(SigninCoordinatorResult result,
+                                           SigninCompletionInfo* info) {
+                          EXPECT_EQ(result, SigninCoordinatorResultSuccess);
+                        }];
 
-  run_loop.Run();
-}
-
-// Tests that `triggerAccountSwitchSnackbarWithIdentity` shows a snackbar.
-TEST_F(AccountMenuCoordinatorTest, testSnackbar) {
-  OCMExpect([mock_snackbar_commands_handler_
-      showSnackbarMessageOverBrowserToolbar:
-          [OCMArg isKindOfClass:[MDCSnackbarMessage class]]]);
-  [coordinator_ triggerAccountSwitchSnackbarWithIdentity:kPrimaryIdentity];
+  SigninCompletionInfo* signinCompletionInfo = [SigninCompletionInfo
+      signinCompletionInfoWithIdentity:kSecondaryIdentity];
+  callback(SigninCoordinatorResultSuccess, signinCompletionInfo);
 }
 
 #pragma mark - SyncErrorSettingsCommandHandler
@@ -313,7 +294,7 @@ TEST_F(AccountMenuCoordinatorTest, testSnackbar) {
 // view controller and mediator. Tests also that the
 // `SyncEncryptionPassphraseTableViewController` is allocated, and the view is
 // correctly closed when the coordinator is stopped.
-TEST_F(AccountMenuCoordinatorTest, testPassphrase) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testPassphrase) {
   SyncEncryptionPassphraseTableViewController* passphraseViewController =
       [SyncEncryptionPassphraseTableViewController alloc];
   id classMock =
@@ -324,7 +305,7 @@ TEST_F(AccountMenuCoordinatorTest, testPassphrase) {
 
 // Tests that `openTrustedVaultReauthForFetchKeys` calls
 // `showTrustedVaultReauthForFetchKeysFromViewController`.
-TEST_F(AccountMenuCoordinatorTest, testFetchKeys) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testFetchKeys) {
   OCMExpect([mock_application_commands_handler_
       showTrustedVaultReauthForFetchKeysFromViewController:[OCMArg any]
                                           securityDomainID:
@@ -342,7 +323,7 @@ TEST_F(AccountMenuCoordinatorTest, testFetchKeys) {
 
 // Tests that `openTrustedVaultReauthForDegradedRecoverability` calls
 // `showTrustedVaultReauthForDegradedRecoverabilityFromViewController`.
-TEST_F(AccountMenuCoordinatorTest, testDegradedRecoverability) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testDegradedRecoverability) {
   OCMExpect([mock_application_commands_handler_
       showTrustedVaultReauthForDegradedRecoverabilityFromViewController:[OCMArg
                                                                             any]
@@ -364,12 +345,12 @@ TEST_F(AccountMenuCoordinatorTest, testDegradedRecoverability) {
 
 // Tests that `openMDMErrodDialogWithSystemIdentity` has no effects on the
 // mediator and view controller.
-TEST_F(AccountMenuCoordinatorTest, testMDMError) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testMDMError) {
   [coordinator_ openMDMErrodDialogWithSystemIdentity:kPrimaryIdentity];
 }
 
 // Tests that `openPrimaryAccountReauthDialog` calls `showSignin`.
-TEST_F(AccountMenuCoordinatorTest, testReauth) {
+TEST_F(AccountMenuCoordinatorNonManagedTest, testReauth) {
   OCMExpect([mock_application_commands_handler_
               showSignin:[OCMArg checkWithBlock:^BOOL(
                                      ShowSigninCommand* value) {

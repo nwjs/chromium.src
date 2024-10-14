@@ -138,6 +138,10 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
 
   std::vector<int> context_group_ids_for_testing() const;
 
+  const std::string& join_origin_hash_salt_for_testing() const {
+    return join_origin_hash_salt_;
+  }
+
   size_t GetNextThreadIndex();
 
   static bool IsKAnon(const mojom::BidderWorkletNonSharedParams*
@@ -145,10 +149,11 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
                       const std::string& key);
 
   // This doesn't look at the component ads.
-  static bool IsMainAdKAnon(const mojom::BidderWorkletNonSharedParams*
-                                bidder_worklet_non_shared_params,
-                            const GURL& script_source_url,
-                            const mojom::BidderWorkletBidPtr& bid);
+  static bool IsMainAdKAnon(
+      const mojom::BidderWorkletNonSharedParams*
+          bidder_worklet_non_shared_params,
+      const GURL& script_source_url,
+      const SetBidBindings::BidAndWorkletOnlyMetadata& bid_and_metadata);
 
   static bool IsComponentAdKAnon(
       const mojom::BidderWorkletNonSharedParams*
@@ -743,7 +748,15 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
   std::vector<scoped_refptr<AuctionV8Helper>> v8_helpers_;
   std::vector<scoped_refptr<AuctionV8Helper::DebugId>> debug_ids_;
 
+  // The next therad index to use for parsing trusted signals, for handling
+  // `generateBid` when the execution mode is not group-by-origin, and for
+  // `reportWin`.
   size_t next_thread_index_ = 0;
+
+  // A salt value used to hash `join_origin` from `generateBid` when the
+  // execution mode is 'group-by-origin'. The hash will determine the thread
+  // responsible for handling 'generateBid'.
+  std::string join_origin_hash_salt_;
 
   mojo::Remote<network::mojom::URLLoaderFactory> url_loader_factory_;
 
@@ -774,6 +787,9 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
   // These are deleted once each resource is loaded.
   std::unique_ptr<WorkletLoader> worklet_loader_;
   std::unique_ptr<WorkletWasmLoader> wasm_loader_;
+  base::TimeTicks code_download_start_;
+  std::optional<base::TimeDelta> js_fetch_latency_;
+  std::optional<base::TimeDelta> wasm_fetch_latency_;
 
   // Lives on `v8_runners_`. Since it's deleted there via DeleteSoon, tasks can
   // be safely posted from main thread to it with an Unretained pointer.

@@ -75,14 +75,15 @@ class IOSChromePaymentsAutofillClient : public PaymentsAutofillClient {
       const LegalMessageLines& legal_message_lines,
       SaveCreditCardOptions options,
       UploadSaveCardPromptCallback callback) override;
-  void CreditCardUploadCompleted(bool card_saved,
-                                 std::optional<OnConfirmationClosedCallback>
-                                     on_confirmation_closed_callback) override;
+  void CreditCardUploadCompleted(
+      payments::PaymentsAutofillClient::PaymentsRpcResult result,
+      std::optional<OnConfirmationClosedCallback>
+          on_confirmation_closed_callback) override;
   void ShowVirtualCardEnrollDialog(
       const VirtualCardEnrollmentFields& virtual_card_enrollment_fields,
       base::OnceClosure accept_virtual_card_callback,
       base::OnceClosure decline_virtual_card_callback) override;
-  void VirtualCardEnrollCompleted(bool is_vcn_enrolled) override;
+  void VirtualCardEnrollCompleted(PaymentsRpcResult result) override;
   void ShowCardUnmaskOtpInputDialog(
       const CardUnmaskChallengeOption& challenge_option,
       base::WeakPtr<OtpUnmaskDelegate> delegate) override;

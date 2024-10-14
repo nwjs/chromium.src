@@ -11,6 +11,7 @@
 #include "ash/ash_export.h"
 #include "ash/auth/views/auth_container_view.h"
 #include "ash/auth/views/auth_header_view.h"
+#include "ash/public/cpp/login_types.h"
 #include "ash/style/icon_button.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -25,6 +26,10 @@
 #include "ui/views/controls/button/button.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/view.h"
+
+namespace cryptohome {
+class PinStatus;
+}  // namespace cryptohome
 
 namespace ash {
 
@@ -96,7 +101,8 @@ class ASH_EXPORT ActiveSessionAuthView : public views::View,
 
   void SetHasPin(bool has_pin);
   bool HasPin() const;
-  void SetPinStatus(const std::u16string& status_str);
+  void SetPinStatus(std::unique_ptr<cryptohome::PinStatus> pin_status);
+  const std::u16string& GetPinStatusMessage() const;
 
   // Enables or disables the input area of the view. The header area (e.g.,
   // close button) remains accessible even in the disabled state.
@@ -109,6 +115,10 @@ class ASH_EXPORT ActiveSessionAuthView : public views::View,
   void ResetInputfields();
 
   void OnTitleChanged(const std::u16string& error_str) override;
+
+  // FingerprintView actions:
+  void SetFingerprintState(FingerprintState state);
+  void NotifyFingerprintAuthFailure();
 
  private:
   // Internal methods for managing views.

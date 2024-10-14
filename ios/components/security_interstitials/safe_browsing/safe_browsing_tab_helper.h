@@ -24,6 +24,15 @@
 class SafeBrowsingClient;
 @protocol SafeBrowsingTabHelperDelegate;
 
+// Used to identify which redirect chain logic branch should be used. For
+// example, `kPendingMainFrame` will use logic related to
+// `pending_main_frame_redirect_chain_`.
+enum class RedirectChain {
+  kPendingMainFrame = 0,
+  kToBeCommitted = 1,
+  kCommitted = 2,
+};
+
 // Filters used to look for specific types of queries while iterating through a
 // redirect chain. These filters can be used to affect if a partially completed
 // policy decision is made. For example, `kSyncQueries` can be used to see if
@@ -71,6 +80,10 @@ class SafeBrowsingTabHelper
     // navigations occurred before the URL check has finished.
     bool IsQueryStale(const SafeBrowsingQueryManager::Query& query);
 
+    // Returns whether a query contained in `query_data` is still relevant. May
+    // return false if navigations occurred before the URL check has finished.
+    bool IsQueryStale(const SafeBrowsingQueryManager::QueryData& query_data);
+
     // Returns a policy decision based on query `result`.
     web::WebStatePolicyDecider::PolicyDecision CreatePolicyDecision(
         const SafeBrowsingQueryManager::Query& query,
@@ -90,8 +103,7 @@ class SafeBrowsingTabHelper
     // taking into account if the check is a sync or async check.
     void HandlePolicyDecision(
         const SafeBrowsingQueryManager::QueryData& query_data,
-        const web::WebStatePolicyDecider::PolicyDecision& policy_decision,
-        bool is_async_check);
+        const web::WebStatePolicyDecider::PolicyDecision& policy_decision);
 
     // Notifies the policy decider that a new main frame document has been
     // loaded.
@@ -138,11 +150,33 @@ class SafeBrowsingTabHelper
     // been decided, returns null.
     MainFrameUrlQuery* GetOldestPendingMainFrameQuery(const GURL& url);
 
-    // Returns the oldest query for `query_data` that has not yet received a
-    // decision taking into account if the sync, async, or both checks have been
-    // completed. If there are no queries for `query_data` or if all such
-    // queries have already been decided, returns null.
+    // Returns the oldest pending main frame query for `query_data` that has not
+    // yet received a decision taking into account `query_data` to distinguish
+    // sync and async queries. If there are no queries for `query_data` or if
+    // all relevant queries have already been decided, returns null.
     MainFrameUrlQuery* GetOldestPendingMainFrameQuery(
+        const SafeBrowsingQueryManager::QueryData& query_data);
+
+    // Returns the oldest pending query for the
+    // `to_be_committed_redirect_chain_` that has not yet received a decision
+    // taking into account `query_data` to distinguish sync and async queries.
+    // If there are no queries for `query_data` or if all relevant queries have
+    // already been decided, returns null.
+    MainFrameUrlQuery* GetOldestPendingToBeCommittedQuery(
+        const SafeBrowsingQueryManager::QueryData& query_data);
+
+    // Returns the oldest pending query for the `committed_redirect_chain_` that
+    // has not yet received a decision taking into account `query_data` to
+    // distinguish sync and async queries. If there are no queries for
+    // `query_data` or if all relevant queries have already been decided,
+    // returns null.
+    MainFrameUrlQuery* GetOldestPendingCommittedQuery(
+        const SafeBrowsingQueryManager::QueryData& query_data);
+
+    // Iterates through the `redirect_chain` and uses `query_data` to return an
+    // unanswered sync or async query.
+    MainFrameUrlQuery* GetUnansweredQueryForRedirectChain(
+        RedirectChain redirect_chain,
         const SafeBrowsingQueryManager::QueryData& query_data);
 
     // Callback invoked when a main frame query for `url` has finished with
@@ -159,6 +193,22 @@ class SafeBrowsingTabHelper
         const SafeBrowsingQueryManager::QueryData& query_data,
         web::WebStatePolicyDecider::PolicyDecision decision);
 
+    // Decisions made from async checks aren't required to allow a navigation to
+    // proceed. Therefore, this function doesn't necessarily run the response
+    // callback provided from `PolicyDecider::ShouldAllowResponse()`. The main
+    // purpose of `OnMainFrameUrlAsyncQueryDecided()` is to update the policy
+    // `decision` and to potentially block a navigation if an unsafe decision is
+    // received from an async check.
+    void OnMainFrameUrlAsyncQueryDecided(
+        const SafeBrowsingQueryManager::QueryData& query_data,
+        web::WebStatePolicyDecider::PolicyDecision decision);
+
+    // Updates a MainFrameUrlQuery's components and the related policy
+    // `decision`.
+    void UpdateQuery(MainFrameUrlQuery* query,
+                     QueryType query_type,
+                     web::WebStatePolicyDecider::PolicyDecision decision);
+
     // Returns the policy decision determined by the results of queries for URLs
     // in the main-frame redirect chain and the `pending_main_frame_query`. If
     // at least one such query has received a decision to cancel the navigation,
@@ -171,16 +221,17 @@ class SafeBrowsingTabHelper
     MainFrameRedirectChainDecision();
 
     // Returns the policy decision determined by the results of queries for URLs
-    // in the `pending_main_frame_redirect_chain_`, the
-    // `pending_main_frame_query`, and a redirect chain filter. Regardless of
-    // the `filter`, if at least one such query has received a decision to
-    // cancel the navigation, the overall decision is to cancel, even if some
-    // queries have not yet received a response. After applying the `filter`, if
-    // all queries have a decision to allow the navigation, then the decision is
-    // to allow the navigation. Otherwise, the overall decision depends on query
-    // results that have not yet been received, so std::nullopt is returned.
+    // in a `redirect_chain`, and a redirect chain filter. Regardless of the
+    // `filter`, if at least one such query has received a decision to cancel
+    // the navigation, the overall decision is to cancel, even if some queries
+    // have not yet received a response. After applying the `filter`, if the
+    // relevant queries have a decision to allow the navigation, then the
+    // decision is to allow the navigation. Otherwise, the overall decision
+    // depends on query results that have not yet been received, so std::nullopt
+    // is returned.
     std::optional<web::WebStatePolicyDecider::PolicyDecision>
-    RedirectChainDecisionWithFilter(RedirectChainFilter filter);
+    RedirectChainDecisionWithFilter(RedirectChain redirect_chain,
+                                    RedirectChainFilter filter);
 
     // The sync_check_complete and async_check_complete from `query` are used to
     // detect if a query belongs to a certain RedirectChainFilter. Returns
@@ -191,6 +242,10 @@ class SafeBrowsingTabHelper
         const MainFrameUrlQuery& query,
         std::optional<web::WebStatePolicyDecider::PolicyDecision> decision,
         RedirectChainFilter filter);
+
+    // Moves `pending_main_frame_redirect_chain_` to
+    // `to_be_committed_redirect_chain_`.
+    void UpdateToBeCommittedRedirectChain();
 
     // The URL check query manager.
     raw_ptr<SafeBrowsingQueryManager> query_manager_;
@@ -206,6 +261,12 @@ class SafeBrowsingTabHelper
     // current `pending_main_frame_query_`. This does not include
     // `pending_main_frame_query_` itself.
     std::list<MainFrameUrlQuery> pending_main_frame_redirect_chain_;
+    // A list of queries corresponding to the redirect chain saved at
+    // `ShouldAllowResponse()` and before `DidFinishNavigation()`.
+    std::list<MainFrameUrlQuery> to_be_committed_redirect_chain_;
+    // A list of queries corresponding to the redirect chain saved after
+    // DidFinishNavigation() is called.
+    std::list<MainFrameUrlQuery> committed_redirect_chain_;
   };
 
   // Helper object that observes results of URL check queries.
@@ -223,6 +284,8 @@ class SafeBrowsingTabHelper
         safe_browsing::SafeBrowsingUrlCheckerImpl::PerformedCheck
             performed_check) override;
     void SafeBrowsingSyncQueryFinished(
+        const SafeBrowsingQueryManager::QueryData& query_data) override;
+    void SafeBrowsingAsyncQueryFinished(
         const SafeBrowsingQueryManager::QueryData& query_data) override;
     void SafeBrowsingQueryManagerDestroyed(
         SafeBrowsingQueryManager* manager) override;

@@ -29,7 +29,8 @@
 
 @interface SigninPolicySceneAgent () <AppStateObserver,
                                       AuthenticationServiceObserving,
-                                      IdentityManagerObserverBridgeDelegate> {
+                                      IdentityManagerObserverBridgeDelegate,
+                                      UIBlockerManagerObserver> {
   // Observes changes in identity to make sure that the sign-in state matches
   // the BrowserSignin policy.
   std::unique_ptr<signin::IdentityManagerObserverBridge>
@@ -76,6 +77,7 @@
   [super setSceneState:sceneState];
 
   [self.sceneState.appState addObserver:self];
+  [self.sceneState.appState addUIBlockerManagerObserver:self];
 }
 
 #pragma mark - SceneStateObserver
@@ -84,6 +86,7 @@
   // Tear down objects tied to the scene state before it is deleted.
   [self tearDownObservers];
   [self.sceneState.appState removeObserver:self];
+  [self.sceneState.appState removeUIBlockerManagerObserver:self];
   [self.sceneState removeObserver:self];
   self.mainBrowser = nullptr;
 }
@@ -127,6 +130,12 @@
   [self handleSigninPromptsIfUIAvailable];
 }
 
+#pragma mark - UIBlockerManagerObserver
+
+- (void)currentUIBlockerRemoved {
+  [self handleSigninPromptsIfUIAvailable];
+}
+
 #pragma mark - AuthenticationServiceObserving
 
 - (void)onServiceStatusChanged {
@@ -156,7 +165,7 @@
 
   // Set observer for primary account changes.
   signin::IdentityManager* identityManager =
-      IdentityManagerFactory::GetForBrowserState(browserState);
+      IdentityManagerFactory::GetForProfile(browserState);
   _identityObserverBridge =
       std::make_unique<signin::IdentityManagerObserverBridge>(identityManager,
                                                               self);

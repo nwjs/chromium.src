@@ -63,7 +63,7 @@
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
-#include "components/password_manager/core/browser/password_store/split_stores_and_local_upm.h"
+#include "components/password_manager/core/browser/split_stores_and_local_upm.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -257,6 +257,17 @@ class FakePasswordAutofillAgent
   void FillPasswordSuggestion(const std::u16string& username,
                               const std::u16string& password) override {}
 
+  void FillPasswordSuggestionById(autofill::FieldRendererId username_element_id,
+                                  autofill::FieldRendererId password_element_id,
+                                  const std::u16string& username,
+                                  const std::u16string& password) override {}
+
+  void PreviewPasswordSuggestionById(
+      autofill::FieldRendererId username_element_id,
+      autofill::FieldRendererId password_element_id,
+      const std::u16string& username,
+      const std::u16string& password) override {}
+
   void InformNoSavedCredentials(
       bool should_show_popup_without_passwords) override {}
 
@@ -305,7 +316,8 @@ class MockPasswordAccessoryControllerImpl
                                         mf_controller,
                                         password_client,
                                         driver_supplier,
-                                        base::DoNothing()) {}
+                                        base::DoNothing(),
+                                        nullptr) {}
 
   MOCK_METHOD(void,
               RefreshSuggestionsForField,
@@ -736,7 +748,7 @@ TEST_F(ChromePasswordManagerClientTest,
       GURL("https://passwords.google.com/path?query=1")));
 }
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 // Test that authentication is not possible if the `authenticator` is `nullptr`.
 TEST_F(ChromePasswordManagerClientTest, CanUseBiometricAuthNoAuthenticator) {
   EXPECT_FALSE(GetClient()->IsReauthBeforeFillingRequired(

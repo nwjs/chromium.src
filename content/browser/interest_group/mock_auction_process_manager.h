@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include <list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -141,10 +142,20 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet,
   // OnGenerateBidComplete()), respectively, to return `delta`.
   void SetBidderTrustedSignalsFetchLatency(base::TimeDelta delta);
   void SetBiddingLatency(base::TimeDelta delta);
+  void SetCodeFetchLatencies(std::optional<base::TimeDelta> js_fetch_latency,
+                             std::optional<base::TimeDelta> wasm_fetch_latency);
 
   // Same for `reporting_latency` for ReportWin()
   void SetReportingLatency(base::TimeDelta delta) {
     reporting_latency_ = delta;
+  }
+
+  // Controls what's passed to `non_kanon_pa_requests` of the generate bid
+  // callback.
+  void SetNonKAnonPARequests(
+      std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>
+          non_kanon_pa_requests) {
+    non_kanon_pa_requests_ = std::move(non_kanon_pa_requests);
   }
 
   // Invokes the GenerateBid callback. A bid of base::nullopt means no bid
@@ -193,23 +204,24 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet,
   // Flush the receiver pipe and return whether or not its closed.
   bool PipeIsClosed();
 
-  void SetSelectedBuyerAndSellerReportingIdRequired(bool required);
   void SetSelectedBuyerAndSellerReportingId(
       std::optional<std::string> selected);
 
  private:
   void OnPipeClosed() { pipe_closed_ = true; }
 
-  mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidClient>
-      generate_bid_client_;
+  std::list<mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidClient>>
+      generate_bid_clients_;
   mojo::AssociatedReceiverSet<auction_worklet::mojom::GenerateBidFinalizer,
                               base::TimeDelta>
       finalizer_receiver_set_;
 
   bool pipe_closed_ = false;
 
-  bool selected_buyer_and_seller_reporting_id_required_ = false;
   std::optional<std::string> selected_buyer_and_seller_reporting_id_;
+
+  std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>
+      non_kanon_pa_requests_;
 
   std::unique_ptr<base::RunLoop> generate_bid_run_loop_;
   std::unique_ptr<base::RunLoop> report_win_run_loop_;
@@ -232,6 +244,8 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet,
   // OnGenerateBidComplete()), respectively,
   base::TimeDelta trusted_signals_fetch_latency_;
   base::TimeDelta bidding_latency_;
+  std::optional<base::TimeDelta> js_fetch_latency_;
+  std::optional<base::TimeDelta> wasm_fetch_latency_;
 
   // To be fed as `reporting_latency` to ReportWin() callback.
   base::TimeDelta reporting_latency_;
@@ -285,8 +299,6 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
       const std::optional<blink::AdCurrency>& component_expect_bid_currency,
       const url::Origin& browser_signal_interest_group_owner,
       const GURL& browser_signal_render_url,
-      const std::optional<bool>
-          browser_signal_selected_buyer_and_seller_reporting_id_required,
       const std::optional<std::string>&
           browser_signal_selected_buyer_and_seller_reporting_id,
       const std::optional<std::string>&
@@ -368,6 +380,10 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
     expect_send_pending_signals_requests_called_ = value;
   }
 
+  void SetCodeFetchLatency(std::optional<base::TimeDelta> js_fetch_latency) {
+    js_fetch_latency_ = js_fetch_latency;
+  }
+
  private:
   std::unique_ptr<base::RunLoop> score_ad_run_loop_;
   std::list<ScoreAdParams> score_ad_params_;
@@ -380,6 +396,9 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
 
   // To be fed as `reporting_latency` to ReportResult() callback.
   base::TimeDelta reporting_latency_;
+
+  // Used for reporting callback as well.
+  std::optional<base::TimeDelta> js_fetch_latency_;
 
   // Receiver is last so that destroying `this` while there's a pending callback
   // over the pipe will not DCHECK.

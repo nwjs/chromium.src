@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/commerce/commerce_page_action_controller.h"
 #include "chrome/browser/ui/commerce/discounts_page_action_controller.h"
 #include "chrome/browser/ui/commerce/price_tracking_page_action_controller.h"
+#include "chrome/browser/ui/commerce/product_specifications_entry_point_controller.h"
 #include "chrome/browser/ui/commerce/product_specifications_page_action_controller.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/commerce/price_insights_icon_view.h"
@@ -90,7 +91,8 @@ CommerceUiTabHelper::CommerceUiTabHelper(
       shopping_service_(shopping_service),
       bookmark_model_(model),
       image_fetcher_(image_fetcher),
-      side_panel_registry_(side_panel_registry) {
+      side_panel_registry_(side_panel_registry),
+      price_insights_label_type_(PriceInsightsIconLabelType::kNone) {
   if (!image_fetcher_) {
     CHECK_IS_TEST();
   }
@@ -172,8 +174,7 @@ void CommerceUiTabHelper::DidFinishNavigation(
   pending_tracking_state_.reset();
   price_insights_info_.reset();
   icon_use_recorded_for_page_.clear();
-  price_insights_label_type_ =
-      PriceInsightsIconView::PriceInsightsIconLabelType::kNone;
+  price_insights_label_type_ = PriceInsightsIconLabelType::kNone;
 
   MakeShoppingInsightsSidePanelUnavailable();
 
@@ -202,6 +203,17 @@ void CommerceUiTabHelper::DidFinishNavigation(
         web_contents()->GetLastCommittedURL(),
         base::BindOnce(&CommerceUiTabHelper::HandleProductInfoResponse,
                        weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  auto* browser = chrome::FindBrowserWithTab(web_contents());
+  if (browser) {
+    auto* product_specifications_entry_point_controller =
+        browser->browser_window_features()
+            ->product_specifications_entry_point_controller();
+    if (product_specifications_entry_point_controller) {
+      product_specifications_entry_point_controller->DidFinishNavigation(
+          web_contents());
+    }
   }
 }
 
@@ -351,7 +363,8 @@ void CommerceUiTabHelper::MaybeComputePageActionToExpand() {
   if (ShouldShowDiscountsIconView()) {
     commerce::metrics::DiscountsMetricCollector::
         RecordDiscountsPageActionIconExpandState(
-            IsPageActionIconExpanded(PageActionIconType::kDiscounts));
+            IsPageActionIconExpanded(PageActionIconType::kDiscounts),
+            GetDiscounts());
   }
 }
 
@@ -571,10 +584,9 @@ void CommerceUiTabHelper::ComputePageActionToExpand() {
 
   // Prioritize the price insights icon.
   if (ShouldShowPriceInsightsIconView()) {
-    PriceInsightsIconView::PriceInsightsIconLabelType label_type =
+    PriceInsightsIconLabelType label_type =
         GetPriceInsightsIconLabelTypeForPage();
-    bool icon_has_label =
-        label_type != PriceInsightsIconView::PriceInsightsIconLabelType::kNone;
+    bool icon_has_label = label_type != PriceInsightsIconLabelType::kNone;
 
     if (icon_has_label && tracker &&
         tracker->ShouldTriggerHelpUI(
@@ -599,7 +611,7 @@ void CommerceUiTabHelper::ComputePageActionToExpand() {
   MaybeRecordShoppingInformationUKM(std::nullopt);
 }
 
-PriceInsightsIconView::PriceInsightsIconLabelType
+PriceInsightsIconLabelType
 CommerceUiTabHelper::GetPriceInsightsIconLabelTypeForPage() {
   auto& price_insights_info = GetPriceInsightsInfo();
 
@@ -607,16 +619,16 @@ CommerceUiTabHelper::GetPriceInsightsIconLabelTypeForPage() {
       !price_insights_info->typical_low_price_micros.has_value() ||
       !price_insights_info->typical_high_price_micros.has_value() ||
       price_insights_info->catalog_history_prices.empty()) {
-    return PriceInsightsIconView::PriceInsightsIconLabelType::kNone;
+    return PriceInsightsIconLabelType::kNone;
   } else if (price_insights_info->price_bucket ==
              commerce::PriceBucket::kLowPrice) {
-    return PriceInsightsIconView::PriceInsightsIconLabelType::kPriceIsLow;
+    return PriceInsightsIconLabelType::kPriceIsLow;
   } else if (price_insights_info->price_bucket ==
                  commerce::PriceBucket::kHighPrice &&
              commerce::kPriceInsightsChipLabelExpandOnHighPrice.Get()) {
-    return PriceInsightsIconView::PriceInsightsIconLabelType::kPriceIsHigh;
+    return PriceInsightsIconLabelType::kPriceIsHigh;
   } else {
-    return PriceInsightsIconView::PriceInsightsIconLabelType::kNone;
+    return PriceInsightsIconLabelType::kNone;
   }
 }
 

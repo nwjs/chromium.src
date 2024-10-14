@@ -93,7 +93,7 @@ suite('NewTabPageAppTest', () => {
 
     test('open voice search event opens voice search overlay', async () => {
       // Act.
-      $$(app, '#realbox')!.dispatchEvent(new Event('open-voice-search'));
+      $$(app, '#searchbox')!.dispatchEvent(new Event('open-voice-search'));
       await microtasksFinished();
 
       // Assert.
@@ -192,7 +192,7 @@ suite('NewTabPageAppTest', () => {
       // Act.
 
       // Create a dark mode theme with a custom background.
-      const theme = createTheme(true);
+      const theme = createTheme({isDark: true});
       theme.backgroundImage = createBackgroundImage('https://foo.com');
       callbackRouterRemote.setTheme(theme);
       await callbackRouterRemote.$.flushForTesting();
@@ -226,7 +226,7 @@ suite('NewTabPageAppTest', () => {
       // Arrange.
 
       // Set theme that triggers the scrim.
-      const theme = createTheme(true);
+      const theme = createTheme({isDark: true});
       theme.backgroundImage = createBackgroundImage('https://foo.com');
       callbackRouterRemote.setTheme(theme);
       await callbackRouterRemote.$.flushForTesting();
@@ -401,7 +401,7 @@ suite('NewTabPageAppTest', () => {
             // Act.
 
             // Create a theme with a custom background.
-            const theme = createTheme(isDark);
+            const theme = createTheme({isDark: isDark});
             theme.backgroundImage = createBackgroundImage('https://foo.com');
             callbackRouterRemote.setTheme(theme);
             await callbackRouterRemote.$.flushForTesting();
@@ -981,7 +981,7 @@ suite('NewTabPageAppTest', () => {
   suite('LensUploadDialog', () => {
     suiteSetup(() => {
       loadTimeData.overrideValues({
-        realboxLensSearch: true,
+        searchboxLensSearch: true,
       });
     });
 
@@ -996,20 +996,20 @@ suite('NewTabPageAppTest', () => {
       await callbackRouterRemote.$.flushForTesting();
 
       // Act.
-      $$(app, '#realbox')!.dispatchEvent(new Event('open-lens-search'));
+      $$(app, '#searchbox')!.dispatchEvent(new Event('open-lens-search'));
       await microtasksFinished();
 
       // Assert.
       const dialog = app.shadowRoot!.querySelector('ntp-lens-upload-dialog');
       assertTrue(!!dialog);
-      assertStyle($$(app, '#realbox')!, 'visibility', 'hidden');
+      assertStyle($$(app, '#searchbox')!, 'visibility', 'hidden');
 
       // Act.
       dialog.closeDialog();
       await microtasksFinished();
 
       // Assert.
-      assertStyle($$(app, '#realbox')!, 'visibility', 'visible');
+      assertStyle($$(app, '#searchbox')!, 'visibility', 'visible');
     });
   });
 
@@ -1046,7 +1046,7 @@ suite('NewTabPageAppTest', () => {
                 $$(app, '#customizeButton .customize-icon')!,
                 'background-color', 'rgb(255, 255, 255)');
 
-            const theme = createTheme(true);
+            const theme = createTheme({isDark: true});
             theme.backgroundImage = createBackgroundImage('https://foo.com');
             callbackRouterRemote.setTheme(theme);
             await callbackRouterRemote.$.flushForTesting();
@@ -1276,7 +1276,7 @@ suite('NewTabPageAppTest', () => {
                 32, $$<HTMLElement>(app, '#customizeButton')!.offsetWidth);
 
             // Create and set theme.
-            const theme = createTheme(true);
+            const theme = createTheme({isDark: true});
             theme.backgroundImage = createBackgroundImage('https://foo.com');
             callbackRouterRemote.setTheme(theme);
             await callbackRouterRemote.$.flushForTesting();
@@ -1338,6 +1338,77 @@ suite('NewTabPageAppTest', () => {
       test('button has no animation if the flag is disabled', () => {
         assertButtonNotAnimated();
       });
+    });
+
+    suite('ConditionalVisibility', () => {
+      suiteSetup(() => {
+        loadTimeData.overrideValues({
+          wallpaperSearchButtonEnabled: true,
+        });
+      });
+
+      test(
+          'wallpaper search button shows when there is no condition',
+          async () => {
+            loadTimeData.overrideValues({
+              wallpaperSearchButtonHideCondition: /*NONE*/ 0,
+            });
+
+            assertTrue(!!app.shadowRoot!.querySelector('#customizeButton'));
+            assertTrue(
+                !!app.shadowRoot!.querySelector('#wallpaperSearchButton'));
+
+            const theme = createTheme();
+            theme.backgroundImage = createBackgroundImage('https://foo.com');
+            await callbackRouterRemote.$.flushForTesting();
+
+            assertTrue(!!app.shadowRoot!.querySelector('#customizeButton'));
+            assertTrue(
+                !!app.shadowRoot!.querySelector('#wallpaperSearchButton'));
+          });
+
+      test(
+          'wallpaper search button conditionally hides when background is set',
+          async () => {
+            loadTimeData.overrideValues({
+              wallpaperSearchButtonHideCondition: /*BACKGROUND_IMAGE_SET*/ 1,
+            });
+
+            assertTrue(!!app.shadowRoot!.querySelector('#customizeButton'));
+            assertTrue(
+                !!app.shadowRoot!.querySelector('#wallpaperSearchButton'));
+
+            // Set theme with a background image.
+            const theme = createTheme();
+            theme.backgroundImage = createBackgroundImage('https://img.png');
+            callbackRouterRemote.setTheme(theme);
+            await backgroundManager.whenCalled('setShowBackgroundImage');
+            await microtasksFinished();
+
+            assertTrue(!!app.shadowRoot!.querySelector('#customizeButton'));
+            assertFalse(
+                !!app.shadowRoot!.querySelector('#wallpaperSearchButton'));
+          });
+
+      test(
+          'wallpaper search button conditionally hides when theme is set',
+          async () => {
+            loadTimeData.overrideValues({
+              wallpaperSearchButtonHideCondition: /*THEME_SET*/ 2,
+            });
+
+            assertTrue(!!app.shadowRoot!.querySelector('#customizeButton'));
+            assertTrue(
+                !!app.shadowRoot!.querySelector('#wallpaperSearchButton'));
+
+            callbackRouterRemote.setTheme(createTheme({isBaseline: false}));
+            await callbackRouterRemote.$.flushForTesting();
+            await microtasksFinished();
+
+            assertTrue(!!app.shadowRoot!.querySelector('#customizeButton'));
+            assertFalse(
+                !!app.shadowRoot!.querySelector('#wallpaperSearchButton'));
+          });
     });
   });
 });

@@ -78,25 +78,13 @@ std::ostream& operator<<(std::ostream& out,
 class AutofillStructuredAddress : public testing::Test {
  public:
   AutofillStructuredAddress() {
-    features_.InitWithFeatures(
-        {features::kAutofillEnableSupportForLandmark,
-         features::kAutofillEnableSupportForBetweenStreets,
-         features::kAutofillEnableSupportForAdminLevel2,
-         features::kAutofillEnableSupportForApartmentNumbers,
-         features::kAutofillEnableSupportForAddressOverflow,
-         features::kAutofillEnableSupportForBetweenStreetsOrLandmark,
-         features::kAutofillEnableSupportForAddressOverflowAndLandmark,
-         features::kAutofillEnableDependentLocalityParsing,
-         features::kAutofillUseI18nAddressModel,
-         features::kAutofillUseAUAddressModel,
-         features::kAutofillUseBRAddressModel,
-         features::kAutofillUseCAAddressModel,
-         features::kAutofillUseDEAddressModel,
-         features::kAutofillUseINAddressModel,
-         features::kAutofillUseITAddressModel,
-         features::kAutofillUseMXAddressModel,
-         features::kAutofillUsePLAddressModel},
-        {});
+    features_.InitWithFeatures({features::kAutofillUseAUAddressModel,
+                                features::kAutofillUseCAAddressModel,
+                                features::kAutofillUseDEAddressModel,
+                                features::kAutofillUseINAddressModel,
+                                features::kAutofillUseITAddressModel,
+                                features::kAutofillUsePLAddressModel},
+                               {});
   }
 
  private:
@@ -328,6 +316,12 @@ TEST_F(AutofillStructuredAddress, ParseStreetAddress) {
        .house_number = "1",
        .floor = "",
        .apartment_num = "3"},
+      // Regression test for crbug.com/365252089 (the trailing \n is important
+      // because it means that the AddressLinesDecomposition part of the
+      // street-address-alternative-1 cascade failed and the legacy fallback
+      // regular expressions tried to bind an apartment number which is not part
+      // of the DE custom hierarchy).
+      {.country_code = "DE", .street_address = "2 Foo, Apt 2\n"},
   };
 
   for (const auto& test_case : test_cases) {

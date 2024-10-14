@@ -17,7 +17,7 @@
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/plus_addresses/model/plus_address_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/web/public/web_state.h"
@@ -48,15 +48,16 @@ using manual_fill::ManualFillDataType;
   ManualFillPlusAddressMediator* _manualFillPlusAddressMediator;
 }
 
-- (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                                   browser:(Browser*)browser
-                               forDataType:(ManualFillDataType)dataType
-                    reauthenticationModule:
-                        (ReauthenticationModule*)reauthenticationModule {
+- (instancetype)
+    initWithBaseViewController:(UIViewController*)viewController
+                       browser:(Browser*)browser
+                   forDataType:(ManualFillDataType)dataType
+          focusedFieldDataType:(ManualFillDataType)focusedFieldDataType
+        reauthenticationModule:(ReauthenticationModule*)reauthenticationModule {
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
-    _focusedFieldDataType = dataType;
     _selectedSegmentDataType = dataType;
+    _focusedFieldDataType = focusedFieldDataType;
     _reauthenticationModule = reauthenticationModule;
     _manualFillPlusAddressMediator = nil;
   }
@@ -67,9 +68,9 @@ using manual_fill::ManualFillDataType;
   self.expandedManualFillViewController =
       [[ExpandedManualFillViewController alloc]
           initWithDelegate:self
-               forDataType:_focusedFieldDataType];
+               forDataType:_selectedSegmentDataType];
 
-  [self showManualFillingOptionsForDataType:_focusedFieldDataType];
+  [self showManualFillingOptionsForDataType:_selectedSegmentDataType];
 }
 
 - (void)stop {
@@ -227,23 +228,23 @@ using manual_fill::ManualFillDataType;
     return _manualFillPlusAddressMediator;
   }
 
-  ChromeBrowserState* browserState = self.browser->GetBrowserState();
+  ProfileIOS* profile = self.browser->GetProfile();
   FaviconLoader* faviconLoader =
-      IOSChromeFaviconLoaderFactory::GetForBrowserState(browserState);
+      IOSChromeFaviconLoaderFactory::GetForProfile(profile);
 
   WebStateList* webStateList = self.browser->GetWebStateList();
   CHECK(webStateList->GetActiveWebState());
   const GURL& URL = webStateList->GetActiveWebState()->GetLastCommittedURL();
 
   plus_addresses::PlusAddressService* plusAddressService =
-      PlusAddressServiceFactory::GetForBrowserState(browserState);
+      PlusAddressServiceFactory::GetForProfile(profile);
   CHECK(plusAddressService);
 
   _manualFillPlusAddressMediator = [[ManualFillPlusAddressMediator alloc]
       initWithFaviconLoader:faviconLoader
          plusAddressService:plusAddressService
                         URL:URL
-             isOffTheRecord:browserState->IsOffTheRecord()];
+             isOffTheRecord:profile->IsOffTheRecord()];
 
   return _manualFillPlusAddressMediator;
 }

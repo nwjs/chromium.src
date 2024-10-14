@@ -14,9 +14,12 @@
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/supervised_user/child_accounts/child_account_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
 #include "chrome/browser/supervised_user/supervised_user_navigation_observer.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "chrome/browser/supervised_user/supervised_user_verification_page.h"
 #include "components/supervised_user/core/browser/supervised_user_interstitial.h"
 #include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
@@ -198,6 +201,26 @@ void SupervisedUserNavigationThrottle::OnCheckDone(
   }
 }
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+SupervisedUserVerificationPage::VerificationPurpose
+GetVerificationPurposeFromFilteringReason(
+    supervised_user::FilteringBehaviorReason reason) {
+  switch (reason) {
+    case supervised_user::FilteringBehaviorReason::DEFAULT:
+      return SupervisedUserVerificationPage::VerificationPurpose::
+          DEFAULT_BLOCKED_SITE;
+    case supervised_user::FilteringBehaviorReason::ASYNC_CHECKER:
+      return SupervisedUserVerificationPage::VerificationPurpose::
+          SAFE_SITES_BLOCKED_SITE;
+    case supervised_user::FilteringBehaviorReason::MANUAL:
+      return SupervisedUserVerificationPage::VerificationPurpose::
+          MANUAL_BLOCKED_SITE;
+    default:
+      NOTREACHED_NORETURN();
+  }
+}
+#endif
+
 void SupervisedUserNavigationThrottle::OnInterstitialResult(
     CallbackActions action,
     bool already_sent_request,
@@ -213,24 +236,31 @@ void SupervisedUserNavigationThrottle::OnInterstitialResult(
           navigation_handle()->GetWebContents()->GetBrowserContext());
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+      supervised_user::ChildAccountService* child_account_service =
+          ChildAccountServiceFactory::GetForProfile(profile);
       if (base::FeatureList::IsEnabled(
               supervised_user::
                   kForceSupervisedUserReauthenticationForBlockedSites) &&
-          !supervised_user::IsAuthenticatedSupervisedProfile(profile)) {
-        // Show the re-authentication interstitial if the user signed out of the
-        // content area, as parent's approval requires authentication. This
-        // interstitial is only available on Linux/Mac/Windows as ChromeOS and
-        // Android have different re-auth mechanisms.
+          SupervisedUserVerificationPage::ShouldShowPage(
+              *child_account_service) &&
+          (is_main_frame ||
+           base::FeatureList::IsEnabled(
+               supervised_user::
+                   kAllowSupervisedUserReauthenticationForSubframes))) {
+        // Show the re-authentication interstitial if the user signed out of
+        // the content area, as parent's approval requires authentication.
+        // This interstitial is only available on Linux/Mac/Windows as
+        // ChromeOS and Android have different re-auth mechanisms.
         CancelDeferredNavigation(
             content::NavigationThrottle::ThrottleCheckResult(
                 CANCEL, net::ERR_BLOCKED_BY_CLIENT,
                 supervised_user::CreateReauthenticationInterstitial(
                     *navigation_handle(),
-                    SupervisedUserVerificationPage::VerificationPurpose::
-                        BLOCKED_SITE)));
+                    GetVerificationPurposeFromFilteringReason(reason_))));
         return;
       }
 #endif
+
       std::string interstitial_html =
           supervised_user::SupervisedUserInterstitial::GetHTMLContents(
               SupervisedUserServiceFactory::GetForProfile(profile),

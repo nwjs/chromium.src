@@ -91,9 +91,14 @@ class MockHttpStreamRequestDelegate : public HttpStreamRequest::Delegate {
 
   MOCK_METHOD0(OnQuicBroken, void());
 
-  MOCK_METHOD2(OnSwitchesToHttpStreamPool,
-               void(HttpStreamKey stream_key,
-                    quic::ParsedQuicVersion quic_version));
+  // `switching_info` is not copyable and therefore cannot be mocked.
+  MOCK_METHOD1(OnSwitchesToHttpStreamPoolImpl,
+               void(HttpStreamPoolSwitchingInfo& switching_info));
+
+  void OnSwitchesToHttpStreamPool(
+      HttpStreamPoolSwitchingInfo switching_info) override {
+    OnSwitchesToHttpStreamPoolImpl(switching_info);
+  }
 };
 
 class MockHttpStreamFactoryJob : public HttpStreamFactory::Job {

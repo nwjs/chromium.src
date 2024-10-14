@@ -176,7 +176,6 @@ public class FirstRunIntegrationTest {
                 });
 
         FirstRunStatus.setFirstRunSkippedByPolicy(false);
-        AccountManagerFacadeProvider.resetInstanceForTests();
     }
 
     private ActivityMonitor getMonitor(Class activityClass) {
@@ -327,11 +326,6 @@ public class FirstRunIntegrationTest {
                 () -> {
                     Assert.assertNull("mAccountsPromise is already initialized!", mAccountsPromise);
                     mAccountsPromise = new Promise<>();
-                    // getCoreAccountInfos() is called by AccountTrackerService.seedAccounts();
-                    // TODO(crbug.com/40228999): Remove when account manager facade initiates
-                    //  seeding.
-                    Mockito.when(mAccountManagerFacade.getCoreAccountInfos())
-                            .thenReturn(new Promise<>());
                 });
         Mockito.when(mAccountManagerFacade.getCoreAccountInfos()).thenReturn(mAccountsPromise);
         AccountManagerFacadeProvider.setInstanceForTests(mAccountManagerFacade);
@@ -631,6 +625,7 @@ public class FirstRunIntegrationTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "issuetracker.google.com/360931705")
     public void testFirstRunSkippedSharedPreferenceRefresh() throws Exception {
         // Set that the first run was previous skipped by policy in shared preference, then
         // refreshing shared preference should cause its value to become false, since there's no

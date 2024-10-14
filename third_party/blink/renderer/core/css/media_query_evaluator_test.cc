@@ -21,6 +21,7 @@
 #include "third_party/blink/renderer/core/css/media_list.h"
 #include "third_party/blink/renderer/core/css/media_values.h"
 #include "third_party/blink/renderer/core/css/media_values_cached.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
 #include "third_party/blink/renderer/core/css/parser/media_query_parser.h"
 #include "third_party/blink/renderer/core/css/resolver/media_query_result.h"
@@ -35,7 +36,7 @@
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
-#include "ui/base/ui_base_types.h"
+#include "ui/base/mojom/window_show_state.mojom-blink.h"
 #include "ui/gfx/display_color_spaces.h"
 
 namespace blink {
@@ -518,12 +519,9 @@ void TestMQEvaluator(MediaQueryEvaluatorTestCase* test_cases,
       query_set = MediaQuerySet::Create();
     } else {
       StringView str(test_cases[i].input);
-      CSSTokenizer tokenizer(StringView(test_cases[i].input));
-      auto [tokens, offsets] = tokenizer.TokenizeToEOFWithOffsets();
-      query_set = MediaQueryParser::ParseMediaQuerySetInMode(
-          CSSParserTokenRange(tokens),
-          CSSParserTokenOffsets(tokens, std::move(offsets), str), mode,
-          nullptr);
+      CSSParserTokenStream stream(str);
+      query_set =
+          MediaQueryParser::ParseMediaQuerySetInMode(stream, mode, nullptr);
     }
     EXPECT_EQ(test_cases[i].output, media_query_evaluator->Eval(*query_set))
         << "Query: " << test_cases[i].input;
@@ -564,7 +562,7 @@ TEST(MediaQueryEvaluatorTest, Cached) {
 
   // Default display-state values.
   {
-    data.window_show_state = ui::SHOW_STATE_DEFAULT;
+    data.window_show_state = ui::mojom::blink::WindowShowState::kDefault;
     ScopedDesktopPWAsAdditionalWindowingControlsForTest scoped_feature(true);
     auto* media_values = MakeGarbageCollected<MediaValuesCached>(data);
     MediaQueryEvaluator* media_query_evaluator =
@@ -1573,7 +1571,7 @@ TEST_F(MediaQueryEvaluatorIdentifiabilityTest,
   UpdateAllLifecyclePhases();
   EXPECT_TRUE(GetDocument().WasMediaFeatureEvaluated(
       static_cast<int>(IdentifiableSurface::MediaFeatureName::kOrientation)));
-  EXPECT_EQ(collector()->entries().size(), 1u);
+  ASSERT_EQ(collector()->entries().size(), 1u);
 
   auto& entry = collector()->entries().front();
   EXPECT_EQ(entry.metrics.size(), 1u);
@@ -1669,7 +1667,7 @@ TEST_F(MediaQueryEvaluatorIdentifiabilityTest,
                 IdentifiableToken(
                     IdentifiableSurface::MediaFeatureName::kDisplayState)));
   EXPECT_EQ(entry.metrics.begin()->value,
-            IdentifiableToken(ui::SHOW_STATE_DEFAULT));
+            IdentifiableToken(ui::mojom::blink::WindowShowState::kDefault));
 }
 
 TEST_F(MediaQueryEvaluatorIdentifiabilityTest,

@@ -23,12 +23,14 @@
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/credential_provider_extension/account_verification_provider.h"
 #import "ios/chrome/credential_provider_extension/metrics_util.h"
+#import "ios/chrome/credential_provider_extension/passkey_keychain_util.h"
 #import "ios/chrome/credential_provider_extension/passkey_util.h"
 #import "ios/chrome/credential_provider_extension/reauthentication_handler.h"
 #import "ios/chrome/credential_provider_extension/ui/consent_coordinator.h"
 #import "ios/chrome/credential_provider_extension/ui/credential_list_coordinator.h"
 #import "ios/chrome/credential_provider_extension/ui/credential_response_handler.h"
 #import "ios/chrome/credential_provider_extension/ui/feature_flags.h"
+#import "ios/chrome/credential_provider_extension/ui/saving_enterprise_disabled_view_controller.h"
 #import "ios/chrome/credential_provider_extension/ui/stale_credentials_view_controller.h"
 
 namespace {
@@ -202,6 +204,11 @@ UIColor* BackgroundColor() {
     return;
   }
 
+  if (!IsPasswordCreationUserEnabled()) {
+    [self showSavingDisabledByEnterpriseAlert];
+    return;
+  }
+
   ASPasskeyCredentialRequest* passkeyCredentialRequest =
       base::apple::ObjCCastStrict<ASPasskeyCredentialRequest>(
           registrationRequest);
@@ -227,7 +234,7 @@ UIColor* BackgroundColor() {
           passkeyCredentialRequest.credentialIdentity);
 
   __weak __typeof(self) weakSelf = self;
-  FetchKeyCompletionBlock completion = ^(NSData* securityDomainSecret) {
+  auto completion = ^(const PasskeyKeychainProvider::SharedKeyList& keyList) {
     CredentialProviderViewController* strongSelf = weakSelf;
     if (!strongSelf) {
       return;
@@ -236,8 +243,7 @@ UIColor* BackgroundColor() {
     ASPasskeyRegistrationCredential* passkeyRegistrationCredential =
         PerformPasskeyCreation(passkeyCredentialRequest.clientDataHash,
                                identity.relyingPartyIdentifier,
-                               identity.userName, identity.userHandle,
-                               securityDomainSecret);
+                               identity.userName, identity.userHandle, keyList);
     if (passkeyRegistrationCredential) {
       [strongSelf completeRegistrationRequestWithSelectedPasskeyCredential:
                       passkeyRegistrationCredential];
@@ -246,7 +252,11 @@ UIColor* BackgroundColor() {
     }
   };
 
-  FetchSecurityDomainSecret(completion);
+  // TODO(crbug.com/355047459): Add navigation controller.
+  FetchSecurityDomainSecret(
+      [self gaia],
+      /*navigation_controller =*/nil,
+      PasskeyKeychainProvider::ReauthenticatePurpose::kEncrypt, completion);
 }
 
 #pragma mark - Properties
@@ -367,24 +377,29 @@ UIColor* BackgroundColor() {
       ASPasskeyCredentialRequest* passkeyCredentialRequest =
           base::apple::ObjCCastStrict<ASPasskeyCredentialRequest>(
               credentialRequest);
-      // TODO(crbug.com/330355124): Handle
+      // TODO(crbug.com/355047459): Handle
       // passkeyCredentialRequest.userVerificationPreference.
 
       __weak __typeof(self) weakSelf = self;
-      FetchKeyCompletionBlock completion = ^(NSData* securityDomainSecret) {
-        CredentialProviderViewController* strongSelf = weakSelf;
-        if (!strongSelf) {
-          return;
-        }
+      auto completion =
+          ^(const PasskeyKeychainProvider::SharedKeyList& keyList) {
+            CredentialProviderViewController* strongSelf = weakSelf;
+            if (!strongSelf) {
+              return;
+            }
 
-        ASPasskeyAssertionCredential* passkeyCredential =
-            PerformPasskeyAssertion(credential,
-                                    passkeyCredentialRequest.clientDataHash,
-                                    nil, securityDomainSecret);
-        [strongSelf userSelectedPasskey:passkeyCredential];
-      };
+            ASPasskeyAssertionCredential* passkeyCredential =
+                PerformPasskeyAssertion(credential,
+                                        passkeyCredentialRequest.clientDataHash,
+                                        nil, keyList);
+            [strongSelf userSelectedPasskey:passkeyCredential];
+          };
 
-      FetchSecurityDomainSecret(completion);
+      // TODO(crbug.com/355047459): Add navigation controller.
+      FetchSecurityDomainSecret(
+          credential.gaia,
+          /*navigation_controller =*/nil,
+          PasskeyKeychainProvider::ReauthenticatePurpose::kDecrypt, completion);
       return;
     }
   }
@@ -515,6 +530,34 @@ UIColor* BackgroundColor() {
                                               code:errorCode
                                           userInfo:nil];
   [self.extensionContext cancelRequestWithError:error];
+}
+
+// Displays sheet with information that credential saving is disabled by the
+// enterprise policy.
+- (void)showSavingDisabledByEnterpriseAlert {
+  // TODO(crbug.com/362719658): Check whether it's possible to make the whole
+  // VC a half sheet.
+  SavingEnterpriseDisabledViewController*
+      savingEnterpriseDisabledViewController =
+          [[SavingEnterpriseDisabledViewController alloc] init];
+  savingEnterpriseDisabledViewController.actionHandler = self;
+  [self presentViewController:savingEnterpriseDisabledViewController
+                     animated:YES
+                   completion:nil];
+}
+
+- (NSString*)gaia {
+  // TODO(crbug.com/355041765): Get gaia from ios keychain instead of the
+  // credential store, since that would fail if there are no synced credentials
+  // in the store.
+  NSArray<id<Credential>>* credentials = self.credentialStore.credentials;
+  NSUInteger credentialIndex =
+      [credentials indexOfObjectPassingTest:^BOOL(id<Credential> credential,
+                                                  NSUInteger idx, BOOL* stop) {
+        return credential.gaia.length > 0;
+      }];
+  return credentialIndex != NSNotFound ? credentials[credentialIndex].gaia
+                                       : nil;
 }
 
 #pragma mark - SuccessfulReauthTimeAccessor

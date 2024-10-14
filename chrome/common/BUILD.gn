@@ -133,7 +133,6 @@ static_library("common_lib") {
   ]
   sources = [
     "all_messages.h",
-    "child_process_logging.h",
     "chrome_content_client.cc",
     "chrome_content_client.h",
     "chrome_content_client_constants.cc",
@@ -210,6 +209,7 @@ static_library("common_lib") {
     "//components/favicon_base",
     "//components/flags_ui:switches",
     "//components/gcm_driver/common",
+    "//components/language_detection/content/common",
     "//components/metrics",
     "//components/metrics:net",
     "//components/nacl/common:buildflags",
@@ -287,9 +287,15 @@ static_library("common_lib") {
 
   if (enable_extensions_core) {
     public_deps += [
+      "//chrome/common/extensions",
       "//extensions/common",
       "//extensions/common:common_constants",
       "//extensions/common:core_api_provider",
+    ]
+
+    sources += [
+      "initialize_extensions_client.cc",
+      "initialize_extensions_client.h",
     ]
 
     # TODO(https://crbug.com/356905053): Gradually include more of these sources
@@ -299,8 +305,6 @@ static_library("common_lib") {
       sources += [
         "controlled_frame/controlled_frame.cc",
         "controlled_frame/controlled_frame.h",
-        "initialize_extensions_client.cc",
-        "initialize_extensions_client.h",
       ]
       deps += [
         "//chrome/common/apps/platform_apps",
@@ -308,7 +312,6 @@ static_library("common_lib") {
         "//components/app_constants",
       ]
       public_deps += [
-        "//chrome/common/extensions",
         "//content/nw/src/api:nw_api",
         "//chrome/common/extensions/api",
         "//chrome/common/extensions/api:extensions_features",
@@ -370,17 +373,12 @@ static_library("common_lib") {
 
   if (is_win) {
     sources += [
-      "child_process_logging_win.cc",
       "conflicts/module_watcher_win.cc",
       "conflicts/module_watcher_win.h",
       "conflicts/remote_module_watcher_win.cc",
       "conflicts/remote_module_watcher_win.h",
     ]
-    deps += [
-      "//chrome/chrome_elf:chrome_elf_main_include",
-      "//chrome/common/win:eventlog_messages",
-      "//components/crash/core/app:crash_export_thunk_include",
-    ]
+    deps += [ "//chrome/common/win:eventlog_messages" ]
 
     public_deps += [
       "//components/dom_distiller/core",  # Needed by chrome_content_client.cc.

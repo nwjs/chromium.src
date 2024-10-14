@@ -187,9 +187,15 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
   void save();
   void restore(ExceptionState& exception_state);
   // Push state on state stack and creates bitmap for subsequent draw ops.
-  void beginLayer(ScriptState*,
+  void beginLayer(ScriptState* script_state) {
+    beginLayerImpl(script_state, /*options=*/nullptr,
+                   /*exception_state=*/nullptr);
+  }
+  void beginLayer(ScriptState* script_state,
                   const BeginLayerOptions* options,
-                  ExceptionState& exception_state);
+                  ExceptionState& exception_state) {
+    beginLayerImpl(script_state, options, &exception_state);
+  }
   // Pop state stack if top state was pushed by beginLayer, restore state and draw the bitmap.
   void endLayer(ExceptionState& exception_state);
   int LayerCount() const { return layer_count_; }
@@ -244,7 +250,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
   void placeElement(Element* element,
                     double x,
                     double y,
-                    ExceptionState& exception_state) {}
+                    ExceptionState& exception_state);
   void drawImage(const V8CanvasImageSource* image_source,
                  double x,
                  double y,
@@ -708,9 +714,12 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
 
   CanvasRenderingContext2DState::SaveType SaveLayerForState(
       const CanvasRenderingContext2DState& state,
-      sk_sp<PaintFilter> filter,
-      cc::PaintCanvas& canvas) const;
+      sk_sp<PaintFilter> layer_filter,
+      cc::PaintCanvas& canvas);
 
+  void beginLayerImpl(ScriptState* script_state,
+                      const BeginLayerOptions* options,
+                      ExceptionState* exception_state);
   void AddLayerFilterUserCount(const V8CanvasFilterInput*);
 
   // Pops from the top of the state stack, inverts transform, restores the

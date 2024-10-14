@@ -6,6 +6,7 @@
 #define CONTENT_BROWSER_INTEREST_GROUP_INTEREST_GROUP_PA_REPORT_UTIL_H_
 
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "base/time/time.h"
@@ -45,6 +46,17 @@ struct CONTENT_EXPORT PrivateAggregationRequestWithEventType {
 struct CONTENT_EXPORT PrivateAggregationTimings {
   base::TimeDelta script_run_time;
   base::TimeDelta signals_fetch_time;
+};
+
+struct CONTENT_EXPORT PrivateAggregationParticipantData {
+  // These metrics are set on bidders only; on sellers they are always 0.
+
+  // Number of interest groups that got selected to make bids (after filtering,
+  // capabilities checks, discarding those w/o ads, etc).
+  int participating_interest_group_count = 0;
+
+  // These metrics are set for both bidders and sellers.
+  base::TimeDelta average_code_fetch_time;
 };
 
 // Key used to group Private aggregation signals.
@@ -117,8 +129,14 @@ FillInPrivateAggregationRequest(
     double winning_bid,
     double highest_scoring_other_bid,
     const std::optional<auction_worklet::mojom::RejectReason> reject_reason,
+    const PrivateAggregationParticipantData& participant_data,
     const PrivateAggregationTimings& timings,
     bool is_winner);
+
+// Returns true if `request` is a for-event contribution with "reserved.once"
+// event type.
+CONTENT_EXPORT bool IsPrivateAggregationRequestReservedOnce(
+    const auction_worklet::mojom::PrivateAggregationRequest& request);
 
 // Splits a vector of requests into those with matching debug mode details and
 // then forwards to a new mojo pipe.
@@ -135,6 +153,12 @@ CONTENT_EXPORT bool HasValidFilteringId(
 
 // Returns true if filtering ID is valid.
 CONTENT_EXPORT bool IsValidFilteringId(std::optional<uint64_t> filtering_id);
+
+// If `pa_requests` contains malformed requests, returns an error message.
+// Otherwise returns nullopt.
+CONTENT_EXPORT std::optional<std::string> ValidatePrivateAggregationRequests(
+    const std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>&
+        pa_requests);
 
 }  // namespace content
 

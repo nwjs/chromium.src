@@ -712,6 +712,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="WebAPK"/>
   <int value="4" label="Webapp (not WebAPK)"/>
   <int value="5" label="Pre-First-Tab (Startup/Warmup)"/>
+  <int value="6" label="Auth Tab"/>
 </enum>
 
 <enum name="ChromeStartupDelegateFailureType">
@@ -986,12 +987,17 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Got JPEG thumbnail on refetch"/>
 </enum>
 
+<!-- LINT.IfChange(HubPaneId) -->
+
 <enum name="HubPaneId">
   <int value="0" label="Regular tab switcher"/>
   <int value="1" label="Incognito tab switcher"/>
   <int value="2" label="Bookmarks"/>
   <int value="3" label="Tab groups"/>
+  <int value="4" label="Cross device"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/hub/android/java/src/org/chromium/chrome/browser/hub/PaneId.java:PaneId) -->
 
 <enum name="IncognitoReauthPromoActionType">
   <int value="0" label="Promo accepted"/>

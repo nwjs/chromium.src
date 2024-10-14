@@ -2,7 +2,6 @@
 # Instead:
 # 1. Modify //infra/config/targets/binaries.star and/or //infra/config/targets/tests.star (for tests defined using targets.tests.junit_test)
 # 2. Run //infra/config/main.star
-# 3. Run //infra/config/scripts/sync-pyl-files.py
 
 {
   "absl_hardening_tests": {
@@ -242,13 +241,41 @@
       "--disable-extensions",
     ],
   },
+  "cast_audio_backend_unittests": {
+    "label": "//chromecast/media/cma/backend:cast_audio_backend_unittests",
+    "type": "console_test_launcher",
+  },
   "cast_base_junit_tests": {
     "label": "//chromecast/base:cast_base_junit_tests",
     "type": "generated_script",
   },
+  "cast_base_unittests": {
+    "label": "//chromecast/base:cast_base_unittests",
+    "type": "console_test_launcher",
+  },
+  "cast_cast_core_unittests": {
+    "label": "//chromecast/cast_core:cast_cast_core_unittests",
+    "type": "console_test_launcher",
+  },
+  "cast_crash_unittests": {
+    "label": "//chromecast/crash:cast_crash_unittests",
+    "type": "console_test_launcher",
+  },
+  "cast_display_settings_unittests": {
+    "label": "//chromecast/ui/display_settings:cast_display_settings_unittests",
+    "type": "console_test_launcher",
+  },
+  "cast_graphics_unittests": {
+    "label": "//chromecast/graphics:cast_graphics_unittests",
+    "type": "console_test_launcher",
+  },
   "cast_junit_test_lists": {
     "label": "//chromecast:cast_junit_test_lists",
     "type": "additional_compile_target",
+  },
+  "cast_media_unittests": {
+    "label": "//chromecast/media:cast_media_unittests",
+    "type": "console_test_launcher",
   },
   "cast_runner_browsertests": {
     "label": "//fuchsia_web/runners:cast_runner_browsertests",
@@ -274,9 +301,17 @@
     "label": "//chromecast:cast_shell_apk",
     "type": "additional_compile_target",
   },
+  "cast_shell_browsertests": {
+    "label": "//chromecast:cast_shell_browsertests",
+    "type": "console_test_launcher",
+  },
   "cast_shell_junit_tests": {
     "label": "//chromecast/browser/android:cast_shell_junit_tests",
     "type": "generated_script",
+  },
+  "cast_shell_unittests": {
+    "label": "//chromecast:cast_shell_unittests",
+    "type": "console_test_launcher",
   },
   "cast_test_lists": {
     "label": "//chromecast:cast_test_lists",
@@ -325,6 +360,14 @@
   "chrome/updater:all": {
     "label": "//chrome/updater:all",
     "type": "additional_compile_target",
+  },
+  "chrome_ai_wpt_tests": {
+    "label": "//components/optimization_guide/internal/testing:chrome_ai_wpt_tests",
+    "type": "generated_script",
+    "args": [
+      "--results-directory",
+      "${ISOLATED_OUTDIR}",
+    ],
   },
   "chrome_all_tast_tests": {
     "label": "//chromeos:chrome_all_tast_tests",
@@ -605,16 +648,13 @@
     "label": "//content/test:content_unittests",
     "type": "windowed_test_launcher",
   },
-  "courgette_unittests": {
-    "label": "//courgette:courgette_unittests",
-    "type": "console_test_launcher",
+  "core_runtime_simple": {
+    "label": "//chromecast/cast_core:core_runtime_simple",
+    "type": "additional_compile_target",
   },
-  "cq_medium_tast_tests": {
-    "label": "//chromeos:cq_medium_tast_tests",
-    "type": "generated_script",
-    "args": [
-      "--logs-dir=${ISOLATED_OUTDIR}",
-    ],
+  "core_runtime_starboard": {
+    "label": "//chromecast/cast_core:core_runtime_starboard",
+    "type": "additional_compile_target",
   },
   "crashpad_tests": {
     "label": "//third_party/crashpad/crashpad:crashpad_tests",
@@ -966,10 +1006,6 @@
     "label": "//ios/net:ios_net_unittests",
     "type": "generated_script",
   },
-  "ios_remoting_unittests": {
-    "label": "//remoting/ios:ios_remoting_unittests",
-    "type": "generated_script",
-  },
   "ios_testing_unittests": {
     "label": "//ios/testing:ios_testing_unittests",
     "type": "generated_script",
@@ -1013,13 +1049,6 @@
   "keyboard_unittests": {
     "label": "//ash/keyboard/ui:keyboard_unittests",
     "type": "windowed_test_launcher",
-  },
-  "lacros_all_tast_tests": {
-    "label": "//chromeos/lacros:lacros_all_tast_tests",
-    "type": "generated_script",
-    "args": [
-      "--logs-dir=${ISOLATED_OUTDIR}",
-    ],
   },
   "lacros_chrome_browsertests": {
     "label": "//chrome/test:lacros_chrome_browsertests",
@@ -1336,14 +1365,6 @@
     "label": "//chrome/test:performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle",
     "type": "generated_script",
   },
-  "performance_test_suite_eve": {
-    "label": "//chrome/test:performance_test_suite_eve",
-    "type": "generated_script",
-  },
-  "performance_test_suite_octopus": {
-    "label": "//chrome/test:performance_test_suite_octopus",
-    "type": "generated_script",
-  },
   "performance_web_engine_test_suite": {
     "label": "//content/test:performance_web_engine_test_suite",
     "type": "script",
@@ -1424,16 +1445,8 @@
     "label": "//remoting:remoting_unittests",
     "type": "windowed_test_launcher",
   },
-  "resource_sizes_chromecast": {
-    "label": "//chromecast:resource_sizes_chromecast",
-    "type": "generated_script",
-  },
   "resource_sizes_cronet_sample_apk": {
     "label": "//components/cronet/android:resource_sizes_cronet_sample_apk",
-    "type": "generated_script",
-  },
-  "resource_sizes_lacros_chrome": {
-    "label": "//chromeos/lacros:resource_sizes_lacros_chrome",
     "type": "generated_script",
   },
   "rust_build_tests": {
@@ -1662,6 +1675,10 @@
   },
   "traffic_annotation_auditor_dependencies": {
     "label": "//:traffic_annotation_auditor_dependencies",
+    "type": "additional_compile_target",
+  },
+  "traffic_annotation_proto": {
+    "label": "//chrome/browser/privacy:traffic_annotation_proto",
     "type": "additional_compile_target",
   },
   "trichrome_chrome_bundle_smoke_test": {
@@ -2004,6 +2021,7 @@
       "--test-launcher-jobs=1",
       "--test-launcher-retry-limit=0",
       "--enable-pixel-output-in-tests",
+      "--enable-unsafe-swiftshader",
     ],
   },
   "xvfb_py_unittests": {

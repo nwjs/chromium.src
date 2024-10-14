@@ -78,11 +78,13 @@ extern const base::FeatureParam<bool> kPriceInsightsUseCache;
 extern const char kProductSpecsMigrateToMultiSpecificsParam[];
 extern const base::FeatureParam<bool> kProductSpecsMigrateToMultiSpecifics;
 BASE_DECLARE_FEATURE(kPriceTrackingIconColors);
+BASE_DECLARE_FEATURE(kPriceTrackingPromo);
 
 BASE_DECLARE_FEATURE(kProductSpecifications);
 BASE_DECLARE_FEATURE(kProductSpecificationsClearMetadataOnNewlySupportedFields);
 BASE_DECLARE_FEATURE(kProductSpecificationsMultiSpecifics);
 BASE_DECLARE_FEATURE(kProductSpecificationsSyncTitle);
+BASE_DECLARE_FEATURE(kProductSpecificationsCache);
 
 BASE_DECLARE_FEATURE(kShoppingIconColorVariant);
 BASE_DECLARE_FEATURE(kShoppingList);

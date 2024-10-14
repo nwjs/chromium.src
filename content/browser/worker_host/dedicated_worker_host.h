@@ -261,8 +261,7 @@ class CONTENT_EXPORT DedicatedWorkerHost final
       const std::vector<std::string>& directory_path_components,
       blink::mojom::FileSystemAccessManager::GetSandboxedFileSystemCallback
           callback) override;
-  GlobalRenderFrameHostId GetAssociatedRenderFrameHostId() const override;
-  base::UnguessableToken GetDevToolsToken() const override;
+  storage::BucketClientInfo GetBucketClientInfo() const override;
 
   // Returns the features set that disable back-forward cache.
   blink::scheduler::WebSchedulerTrackedFeatures
@@ -270,6 +269,10 @@ class CONTENT_EXPORT DedicatedWorkerHost final
 
   const BackForwardCacheBlockingDetails& GetBackForwardCacheBlockingDetails()
       const;
+
+  // This is called when out-of-process Network Service crashes,
+  // or when DevTools updates its network interception.
+  void UpdateSubresourceLoaderFactories();
 
   base::WeakPtr<ServiceWorkerClient> GetServiceWorkerClient();
 
@@ -303,9 +306,7 @@ class CONTENT_EXPORT DedicatedWorkerHost final
       RenderFrameHostImpl* ancestor_render_frame_host,
       bool* bypass_redirect_checks);
 
-  // Updates subresource loader factories. This is supposed to be called when
-  // out-of-process Network Service crashes.
-  void UpdateSubresourceLoaderFactories();
+  void OnNetworkServiceCrash();
 
   void OnMojoDisconnect();
 

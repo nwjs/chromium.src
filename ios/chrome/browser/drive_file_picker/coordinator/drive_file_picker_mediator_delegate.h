@@ -12,15 +12,22 @@
 // Handles the browsing and searching a drive folder.
 @protocol DriveFilePickerMediatorDelegate
 
-// Browses a given drive folder.
-- (void)browseDriveFolderWithMediator:
+// Browses a given drive collection.
+- (void)browseDriveCollectionWithMediator:
             (DriveFilePickerMediator*)driveFilePickerMediator
-                          driveFolder:(NSString*)driveFolder;
+                                    title:(NSString*)title
+                                    query:(DriveListQuery)query
+                                   filter:(DriveFilePickerFilter)filter
+                      ignoreAcceptedTypes:(BOOL)ignoreAcceptedTypes
+                          sortingCriteria:(DriveItemsSortingType)sortingCriteria
+                         sortingDirection:
+                             (DriveItemsSortingOrder)sortingDirection;
 
-// Searches in a given drive folder.
-- (void)searchDriveFolderWithMediator:
-            (DriveFilePickerMediator*)driveFilePickerMediator
-                          driveFolder:(NSString*)driveFolder;
+// Called when the mediator has submitted file selection to the web page.
+- (void)mediatorDidSubmitFileSelection:(DriveFilePickerMediator*)mediator;
+
+// Returns to the parent coordinator.
+- (void)browseToParentWithMediator:(DriveFilePickerMediator*)mediator;
 
 @end
 

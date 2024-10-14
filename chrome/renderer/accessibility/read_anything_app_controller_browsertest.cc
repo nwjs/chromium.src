@@ -8,10 +8,15 @@
 #include <string>
 #include <vector>
 
+#include "base/base_paths.h"
+#include "base/files/file_path.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/raw_ptr.h"
+#include "base/path_service.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/common/accessibility/read_anything_constants.h"
 #include "chrome/renderer/accessibility/ax_tree_distiller.h"
+#include "chrome/renderer/accessibility/phrase_segmentation/dependency_parser_model.h"
 #include "chrome/renderer/accessibility/read_anything_test_utils.h"
 #include "chrome/test/base/chrome_render_view_test.h"
 #include "content/public/renderer/render_frame.h"
@@ -24,6 +29,36 @@
 #include "ui/accessibility/ax_serializable_tree.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
+
+namespace {
+
+base::File GetInvalidModelFile() {
+  base::ScopedTempDir temp_dir;
+  EXPECT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath file_path =
+      temp_dir.GetPath().AppendASCII("model_file.tflite");
+  base::File file(file_path, (base::File::FLAG_CREATE | base::File::FLAG_READ |
+                              base::File::FLAG_WRITE |
+                              base::File::FLAG_CAN_DELETE_ON_CLOSE));
+  EXPECT_TRUE(UNSAFE_TODO(file.WriteAtCurrentPos("12345", 5)));
+  return file;
+}
+
+base::File GetValidModelFile() {
+  base::FilePath source_root_dir;
+  base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &source_root_dir);
+  base::FilePath model_file_path = source_root_dir.AppendASCII("chrome")
+                                       .AppendASCII("test")
+                                       .AppendASCII("data")
+                                       .AppendASCII("accessibility")
+                                       .AppendASCII("phrase_segmentation")
+                                       .AppendASCII("model.tflite");
+  base::File file(model_file_path,
+                  (base::File::FLAG_OPEN | base::File::FLAG_READ));
+  return file;
+}
+
+}  // namespace
 
 class MockAXTreeDistiller : public AXTreeDistiller {
  public:
@@ -42,6 +77,10 @@ class MockReadAnythingUntrustedPageHandler
  public:
   MockReadAnythingUntrustedPageHandler() = default;
 
+  MOCK_METHOD(void,
+              GetDependencyParserModel,
+              (GetDependencyParserModelCallback mojo_callback),
+              (override));
   MOCK_METHOD(void,
               GetVoicePackInfo,
               (const std::string& language,
@@ -69,7 +108,7 @@ class MockReadAnythingUntrustedPageHandler
                int focus_offset),
               (override));
   MOCK_METHOD(void, OnCollapseSelection, (), (override));
-  MOCK_METHOD(void, OnSnapshotRequested, (), (override));
+  MOCK_METHOD(void, OnScreenshotRequested, (), (override));
   MOCK_METHOD(void, OnCopy, (), (override));
   MOCK_METHOD(void,
               OnLineSpaceChange,
@@ -115,6 +154,8 @@ class MockReadAnythingUntrustedPageHandler
   mojo::Receiver<read_anything::mojom::UntrustedPageHandler> receiver_{this};
 };
 
+using testing::ElementsAre;
+using testing::IsEmpty;
 using testing::Mock;
 
 class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
@@ -250,6 +291,11 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
     controller_->AccessibilityEventReceived(tree_id, updates, events);
   }
 
+  void AccessibilityLocationChangesReceived(
+      const std::vector<ui::AXLocationChanges>& details) {
+    controller_->AccessibilityLocationChangesReceived(details);
+  }
+
   // Since a11y events happen asynchronously, they can come between the time
   // distillation finishes and pending updates are unserialized in
   // OnAXTreeDistilled. Thus we need to be able to set distillation progress
@@ -354,9 +400,9 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
 
   bool IsHighlightOn() { return controller_->IsHighlightOn(); }
 
-  void TurnedHighlightOn() { controller_->TurnedHighlightOn(); }
-
-  void TurnedHighlightOff() { controller_->TurnedHighlightOff(); }
+  void OnHighlightGranularityChanged(const int value) {
+    controller_->OnHighlightGranularityChanged(value);
+  }
 
   std::vector<ui::AXNodeID> GetChildren(ui::AXNodeID ax_node_id) {
     return controller_->GetChildren(ax_node_id);
@@ -515,19 +561,11 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
         &controller_->model_.display_node_ids());
   }
 
-  ui::AXNodeID GetNodeIdForCurrentSegmentIndex(int index) {
-    ui::AXNodeID id =
-        controller_->read_aloud_model_.GetNodeIdForCurrentSegmentIndex(index);
-    return id;
-  }
-
-  ui::AXNodeID GetHighlightStartIndex(ui::AXNodeID& node_id, int index) {
-    return controller_->read_aloud_model_.GetHighlightStartIndex(node_id,
-                                                                 index);
-  }
-
-  int GetWordLength(int index) {
-    return controller_->read_aloud_model_.GetNextWordHighlightLength(index);
+  std::vector<ReadAloudTextSegment> GetHighlightForCurrentSegmentIndex(
+      int index,
+      bool phrase) {
+    return controller_->read_aloud_model_.GetHighlightForCurrentSegmentIndex(
+        index, phrase);
   }
 
   std::vector<ui::AXNodeID> GetCurrentText(
@@ -581,6 +619,22 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
     InitAXPosition(nodes[0].id);
   }
 
+  bool IsPhraseHighlightingEnabled() {
+    return controller_->IsPhraseHighlightingEnabled();
+  }
+
+  ui::AXNodeData GetNodeData(ui::AXNodeID ax_node_id) {
+    return controller_->model_.GetAXNode(ax_node_id)->data();
+  }
+
+  DependencyParserModel& GetDependencyParserModel() {
+    return controller_->GetDependencyParserModelForTesting();
+  }
+
+  void UpdateDependencyParserModel(base::File model_file) {
+    controller_->UpdateDependencyParserModel(std::move(model_file));
+  }
+
   ui::AXTreeID tree_id_;
   raw_ptr<MockAXTreeDistiller, DanglingUntriaged> distiller_ = nullptr;
   testing::StrictMock<MockReadAnythingUntrustedPageHandler> page_handler_;
@@ -592,10 +646,16 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
 };
 
 TEST_F(ReadAnythingAppControllerTest, IsReadAloudEnabled) {
+// Read Aloud is currently only enabled by default on ChromeOS.
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  EXPECT_TRUE(IsReadAloudEnabled());
+
+#else
   EXPECT_FALSE(IsReadAloudEnabled());
 
   scoped_feature_list_.InitAndEnableFeature(features::kReadAnythingReadAloud);
   EXPECT_TRUE(IsReadAloudEnabled());
+#endif  // IS_CHROMEOS_ASH
 }
 
 TEST_F(ReadAnythingAppControllerTest, OnLetterSpacingChange_ValidChange) {
@@ -706,6 +766,7 @@ TEST_F(ReadAnythingAppControllerTest,
   ASSERT_EQ(GetStoredVoice(), current_voice);
 }
 
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
 TEST_F(ReadAnythingAppControllerTest,
        GetStoredVoice_NoAutoSwitching_ReturnsLatestVoiceRegardlessOfLang) {
   std::string current_lang = "it-IT";
@@ -720,6 +781,7 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_CALL(page_handler_, OnVoiceChange).Times(2);
   ASSERT_EQ(GetStoredVoice(), current_voice);
 }
+#endif  // !IS_CHROMEOS_ASH
 
 TEST_F(ReadAnythingAppControllerTest, GetStoredVoice_NoVoices_ReturnsEmpty) {
   scoped_feature_list_.InitWithFeatures(
@@ -806,7 +868,7 @@ TEST_F(ReadAnythingAppControllerTest, OnSettingsRestoredFromPrefs) {
   int color_value = 0;
   double speech_rate = 1.5;
   std::string voice_value = "Italian voice 3";
-  std::string language_value = "it-IT";
+  std::string language_value = "it";
   base::Value::Dict voices = base::Value::Dict();
   voices.Set(language_value, voice_value);
   base::Value::List languages_enabled_in_pref = base::Value::List();
@@ -814,6 +876,8 @@ TEST_F(ReadAnythingAppControllerTest, OnSettingsRestoredFromPrefs) {
   auto highlight_granularity =
       read_anything::mojom::HighlightGranularity::kDefaultValue;
   int highlight_granularity_value = 0;
+
+  SetLanguageCode(language_value);
 
   OnSettingsRestoredFromPrefs(
       line_spacing, letter_spacing, font_name, font_size, links_enabled,
@@ -1657,6 +1721,43 @@ TEST_F(ReadAnythingAppControllerTest, AccessibilityEventReceivedWhileSpeaking) {
   EXPECT_EQ(u"Node 4", GetTextContent(4));
 }
 
+TEST_F(ReadAnythingAppControllerTest, AccessibilityLocationChangesReceived) {
+  ui::AXTreeUpdate update;
+  ui::AXTreeID id_1 = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update, id_1);
+
+  ui::AXRelativeBounds initial_bounds;
+  initial_bounds.bounds = gfx::RectF(1, 1, 100, 100);
+  initial_bounds.offset_container_id = 12345;
+  ui::AXNodeData node;
+  node.id = 2;
+  node.relative_bounds = initial_bounds;
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.child_ids = {node.id};
+  update.nodes = {root, node};
+  update.root_id = root.id;
+
+  AccessibilityEventReceived({update});
+  OnAXTreeDistilled({1});
+  OnActiveAXTreeIDChanged(id_1);
+
+  // Create a new bounding box that the node will update to have
+  ui::AXRelativeBounds location_update;
+  location_update.offset_container_id = 1;
+  location_update.bounds = gfx::RectF(5, 5, 100, 100);
+  ui::AXLocationChanges location_changes;
+  location_changes.id = 2;
+  location_changes.ax_tree_id = id_1;
+  location_changes.new_location = location_update;
+
+  // Test that the node data updates correctly
+  AccessibilityLocationChangesReceived({location_changes});
+  node = GetNodeData(2);
+  EXPECT_EQ(node.relative_bounds, location_update);
+}
+
 TEST_F(ReadAnythingAppControllerTest, OnActiveAXTreeIDChanged) {
   // Create three AXTreeUpdates with three different tree IDs.
   std::vector<ui::AXTreeID> tree_ids = {ui::AXTreeID::CreateNewAXTreeID(),
@@ -2348,7 +2449,8 @@ TEST_F(ReadAnythingAppControllerTest, TurnedHighlightOn_SavesHighlightState) {
                   read_anything::mojom::HighlightGranularity::kOff))
       .Times(0);
 
-  TurnedHighlightOn();
+  OnHighlightGranularityChanged(
+      static_cast<int>(read_anything::mojom::HighlightGranularity::kOn));
 
   EXPECT_TRUE(IsHighlightOn());
 }
@@ -2363,7 +2465,8 @@ TEST_F(ReadAnythingAppControllerTest, TurnedHighlightOff_SavesHighlightState) {
                   read_anything::mojom::HighlightGranularity::kOff))
       .Times(1);
 
-  TurnedHighlightOff();
+  OnHighlightGranularityChanged(
+      static_cast<int>(read_anything::mojom::HighlightGranularity::kOff));
 
   EXPECT_FALSE(IsHighlightOn());
 }
@@ -3912,8 +4015,20 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_EQ(first_granularity.text, sentence1);
 }
 
+testing::Matcher<ReadAloudTextSegment> TextSegmentMatcher(ui::AXNodeID id,
+                                                          int text_start,
+                                                          int text_end) {
+  return testing::AllOf(
+      ::testing::Field(&ReadAloudTextSegment::id, ::testing::Eq(id)),
+      ::testing::Field(&ReadAloudTextSegment::text_start,
+                       ::testing::Eq(text_start)),
+      ::testing::Field(&ReadAloudTextSegment::text_end,
+                       ::testing::Eq(text_end)));
+}
+
 TEST_F(ReadAnythingAppControllerTest,
-       GetHighlightStartIndex_ReturnsCorrectIndex) {
+       GetHighlightForCurrentSegmentIndex_ReturnsCorrectNodes) {
+  // Text indices             0 123456789012345678901
   std::u16string sentence = u"I\'m crossing the line!";
   ui::AXNodeData static_text = test::TextNode(/*id= */ 2, sentence);
 
@@ -3921,7 +4036,7 @@ TEST_F(ReadAnythingAppControllerTest,
 
   // Before there are any processed granularities, GetHighlightStartIndex
   // should return an invalid id.
-  EXPECT_EQ(GetHighlightStartIndex(static_text.id, 1), -1);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(1, false), IsEmpty());
 
   std::vector<ui::AXNodeID> node_ids = GetCurrentText();
   EXPECT_EQ((int)node_ids.size(), 1);
@@ -3931,19 +4046,25 @@ TEST_F(ReadAnythingAppControllerTest,
 
   // Since we just have one node with one text segment, the returned index
   // should equal the passed parameter.
-  EXPECT_EQ(GetHighlightStartIndex(static_text.id, 0), 0);
-  EXPECT_EQ(GetHighlightStartIndex(static_text.id, 3), 3);
-  EXPECT_EQ(GetHighlightStartIndex(static_text.id, 7), 7);
-  EXPECT_EQ(GetHighlightStartIndex(static_text.id, sentence_length - 1),
-            sentence_length - 1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text.id, sentence_length), -1);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text.id, 0, 4)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(3, false),
+              ElementsAre(TextSegmentMatcher(static_text.id, 3, 4)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(7, false),
+              ElementsAre(TextSegmentMatcher(static_text.id, 7, 13)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence_length - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text.id, 21, 22)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence_length, false),
+              IsEmpty());
 }
 
-TEST_F(ReadAnythingAppControllerTest,
-       GetHighlightStartIndex_SegmentSpansMultipleNodes_ReturnsCorrectIndex) {
-  std::u16string sentence1 = u"And I\'m done holding back,";
-  std::u16string sentence2 = u"so lookout, clear the track- it\'s my";
-  std::u16string sentence3 = u"turn.";
+TEST_F(
+    ReadAnythingAppControllerTest,
+    GetHighlightForCurrentSegmentIndex_SentenceSpansMultipleNodes_ReturnsCorrectNodes) {
+  // Text indices:             0123456789012345678901234567890
+  std::u16string sentence1 = u"Never feel heavy ";
+  std::u16string sentence2 = u"or earthbound, ";
+  std::u16string sentence3 = u"no worries or doubts interfere.";
 
   ui::AXNodeData static_text1 = test::TextNode(/* id= */ 2, sentence1);
   ui::AXNodeData static_text2 = test::TextNode(/* id= */ 3, sentence2);
@@ -3951,64 +4072,71 @@ TEST_F(ReadAnythingAppControllerTest,
 
   InitializeWithAndProcessNodes({static_text1, static_text2, static_text3});
 
-  // Before there are any processed granularities, GetHighlightStartIndex
-  // should return an invalid id.
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 1), -1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id, 1), -1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text3.id, 1), -1);
+  // Before there are any processed granularities,
+  // GetHighlightForCurrentSegmentIndex should return an empty array.
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(1, false), IsEmpty());
 
   std::vector<ui::AXNodeID> node_ids = GetCurrentText();
   EXPECT_EQ((int)node_ids.size(), 3);
 
-  // Storing as a separate variable so we don't need to cast every time.
-  int sentence1_length = (int)sentence1.length();
-  int sentence2_length = (int)sentence2.length();
-  int sentence3_length = (int)sentence3.length();
+  // Spot check that indices 0->sentence1.length() map to the first node id.
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 6)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(7, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 7, 11)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length() - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 16, 17)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length(), false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 3)));
 
-  // For the first node in the first segment, the returned index should equal
-  // the passed parameter.
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 0), 0);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 3), 3);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 7), 7);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, sentence1_length - 1),
-            sentence1_length - 1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, sentence1_length), -1);
+  // Spot check that indices in sentence 2 map to the second node id.
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length() + 1, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 1, 3)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(26, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 9, 15)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length() - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 14, 15)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length(), false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 0, 3)));
 
-  // For the second node, the correct index is the index that the boundary
-  // index corresponds to within the second node.
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id, sentence1_length), 0);
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id, sentence1_length + 3), 3);
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id, sentence1_length + 7), 7);
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id,
-                                   sentence1_length + sentence2_length - 1),
-            sentence2_length - 1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id,
-                                   sentence1_length + sentence2_length),
-            -1);
+  // Spot check that indices in sentence 3 map to the third node id.
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length() + 1, false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 1, 3)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(40, false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 8, 11)));
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(
+          sentence1.length() + sentence2.length() + sentence3.length() - 1,
+          false),
+      ElementsAre(TextSegmentMatcher(static_text3.id, 30, 31)));
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(
+          sentence1.length() + sentence2.length() + sentence3.length(), false),
+      IsEmpty());
 
-  // For the third node, the correct index is the index that the boundary
-  // index corresponds to within the third node.
-  EXPECT_EQ(GetHighlightStartIndex(static_text3.id,
-                                   sentence1_length + sentence2_length),
-            0);
-  EXPECT_EQ(GetHighlightStartIndex(static_text3.id,
-                                   sentence1_length + sentence2_length + 1),
-            1);
-  EXPECT_EQ(GetHighlightStartIndex(
-                static_text3.id,
-                sentence1_length + sentence2_length + sentence3_length - 1),
-            sentence3_length - 1);
-  EXPECT_EQ(GetHighlightStartIndex(
-                static_text3.id,
-                sentence1_length + sentence2_length + sentence3_length),
-            -1);
+  // Out-of-bounds nodes return an empty array.
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(
+          sentence1.length() + sentence2.length() + sentence3.length() + 1,
+          false),
+      IsEmpty());
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(535, false), IsEmpty());
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(-10, false), IsEmpty());
 }
 
-TEST_F(ReadAnythingAppControllerTest,
-       GetHighlightStartIndex_NodeSpansMultipleSegments_ReturnsCorrectIndex) {
+TEST_F(
+    ReadAnythingAppControllerTest,
+    GetHighlightForCurrentSegmentIndex_NodeSpansMultipleSentences_ReturnsCorrectNodes) {
+  // Text indices:            0 12345678901234 5678901234
   std::u16string segment1 = u"I\'m taking what\'s mine! ";
+  // Text indices:            012345678901234567890123456
   std::u16string segment2 = u"Every drop, every smidge. ";
+  // Text indices:            0123 45678901234 5678901234567890123456
   std::u16string segment3 = u"If I\'m burning a bridge, let it burn. ";
+  // Text indices:            01234 56789012345678901
   std::u16string segment4 = u"But I\'m crossing the ";
 
   std::u16string node1_text = segment1 + segment2 + segment3 + segment4;
@@ -4021,8 +4149,8 @@ TEST_F(ReadAnythingAppControllerTest,
 
   // Before there are any processed granularities, GetHighlightStartIndex
   // should return an invalid id.
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 1), -1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id, 1), -1);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(1, false), IsEmpty());
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(1, false), IsEmpty());
 
   std::vector<ui::AXNodeID> node_ids = GetCurrentText();
   EXPECT_EQ((int)node_ids.size(), 1);
@@ -4036,12 +4164,17 @@ TEST_F(ReadAnythingAppControllerTest,
 
   // For the first node in the first segment, the returned index should equal
   // the passed parameter.
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 0), 0);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 6), 6);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 15), 15);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, segment1_length - 1),
-            segment1_length - 1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, segment1_length), -1);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 4)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(6, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 6, 11)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(15, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 15, 16)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(segment1_length - 1, false),
+              ElementsAre(TextSegmentMatcher(
+                  static_text1.id, segment1_length - 1, segment1_length)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(segment1_length, false),
+              IsEmpty());
 
   // Move to segment 2.
   node_ids = MoveToNextGranularityAndGetText();
@@ -4050,14 +4183,24 @@ TEST_F(ReadAnythingAppControllerTest,
   // For the second segment, the boundary index will have reset for the new
   // speech segment. The correct highlight start index is the index that the
   // boundary index within the segment corresponds to within the node.
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 0), segment1_length);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 10), segment1_length + 10);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 13), segment1_length + 13);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, segment2_length - 1),
-            segment1_length + segment2_length - 1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id,
-                                   segment1_length + segment2_length),
-            -1);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, segment1_length,
+                                             segment1_length + 6)));
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(10, false),
+      ElementsAre(TextSegmentMatcher(static_text1.id, segment1_length + 10,
+                                     segment1_length + 12)));
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(13, false),
+      ElementsAre(TextSegmentMatcher(static_text1.id, segment1_length + 13,
+                                     segment1_length + 18)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(segment2_length - 1, false),
+              ElementsAre(TextSegmentMatcher(
+                  static_text1.id, segment1_length + segment2_length - 1,
+                  segment1_length + segment2_length)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  segment1_length + segment2_length, false),
+              IsEmpty());
 
   // Move to segment 3.
   node_ids = MoveToNextGranularityAndGetText();
@@ -4066,18 +4209,30 @@ TEST_F(ReadAnythingAppControllerTest,
   // For the third segment, the boundary index will have reset for the new
   // speech segment. The correct highlight start index is the index that the
   // boundary index within the segment corresponds to within the node.
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 0),
-            segment1_length + segment2_length);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 9),
-            segment1_length + segment2_length + 9);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 13),
-            segment1_length + +segment2_length + 13);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, segment3_length - 1),
-            segment1_length + segment2_length + segment3_length - 1);
-  EXPECT_EQ(
-      GetHighlightStartIndex(
-          static_text1.id, segment1_length + segment2_length + segment3_length),
-      -1);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(
+                  static_text1.id, segment1_length + segment2_length,
+                  segment1_length + segment2_length + 3)));
+
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(9, false),
+              ElementsAre(TextSegmentMatcher(
+                  static_text1.id, segment1_length + segment2_length + 9,
+                  segment1_length + segment2_length + 15)));
+
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(13, false),
+              ElementsAre(TextSegmentMatcher(
+                  static_text1.id, segment1_length + segment2_length + 13,
+                  segment1_length + segment2_length + 15)));
+
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(segment3_length - 1, false),
+              ElementsAre(TextSegmentMatcher(
+                  static_text1.id,
+                  segment1_length + segment2_length + segment3_length - 1,
+                  segment1_length + segment2_length + segment3_length)));
+
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  segment1_length + segment2_length + segment3_length, false),
+              IsEmpty());
 
   // Move to segment 4.
   node_ids = MoveToNextGranularityAndGetText();
@@ -4086,95 +4241,63 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_EQ((int)node_ids[1], static_text2.id);
 
   // For the fourth segment, there are two nodes. For the first node,
-  // the correct highlight start corresponds to the index within the first node.
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 0),
-            segment1_length + segment2_length + segment3_length);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 2),
-            segment1_length + segment2_length + segment3_length + 2);
-  EXPECT_EQ(GetHighlightStartIndex(static_text1.id, 8),
-            segment1_length + segment2_length + segment3_length + 8);
-  EXPECT_EQ(
-      GetHighlightStartIndex(static_text1.id, segment4_partial_length - 1),
-      segment1_length + segment2_length + segment3_length +
-          segment4_partial_length - 1);
-  EXPECT_EQ(GetHighlightStartIndex(
-                static_text1.id, segment1_length + segment2_length +
-                                     segment3_length + segment4_partial_length),
-            -1);
+  // the correct highlight start corresponds to the index within the first
+  // node.
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(0, false),
+      ElementsAre(TextSegmentMatcher(
+          static_text1.id, segment1_length + segment2_length + segment3_length,
+          segment1_length + segment2_length + segment3_length + 4)));
+
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(2, false),
+              ElementsAre(TextSegmentMatcher(
+                  static_text1.id,
+                  segment1_length + segment2_length + segment3_length + 2,
+                  segment1_length + segment2_length + segment3_length + 4)));
+
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(8, false),
+              ElementsAre(TextSegmentMatcher(
+                  static_text1.id,
+                  segment1_length + segment2_length + segment3_length + 8,
+                  segment1_length + segment2_length + segment3_length + 17)));
+
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(segment4_partial_length - 1, false),
+      ElementsAre(
+          TextSegmentMatcher(static_text1.id,
+                             segment1_length + segment2_length +
+                                 segment3_length + segment4_partial_length - 1,
+                             segment1_length + segment2_length +
+                                 segment3_length + segment4_partial_length)));
+
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  segment1_length + segment2_length + segment3_length +
+                      segment4_partial_length,
+                  false),
+              IsEmpty());
 
   // For the second node, the highlight index corresponds to the position within
   // the second node.
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id, segment4_partial_length),
-            0);
-  EXPECT_EQ(
-      GetHighlightStartIndex(static_text2.id, segment4_partial_length + 2), 2);
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id, segment4_full_length - 1),
-            (int)node2_text.length() - 1);
-  EXPECT_EQ(GetHighlightStartIndex(static_text2.id, segment4_full_length), -1);
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(segment4_partial_length, false),
+      ElementsAre(TextSegmentMatcher(static_text2.id, 0, 5)));
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(segment4_partial_length + 2, false),
+      ElementsAre(TextSegmentMatcher(static_text2.id, 2, 5)));
+
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(segment4_full_length - 1, false),
+      ElementsAre(TextSegmentMatcher(static_text2.id,
+                                     (int)node2_text.length() - 1,
+                                     (int)node2_text.length())));
+
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(segment4_full_length, false),
+              IsEmpty());
 }
 
 TEST_F(ReadAnythingAppControllerTest,
-       GetNodeIdForCurrentSegmentIndex_ReturnsCorrectNodes) {
-  std::u16string sentence1 = u"Never feel heavy ";
-  std::u16string sentence2 = u"or earthbound, ";
-  std::u16string sentence3 = u"no worries or doubts interfere.";
-
-  ui::AXNodeData static_text1 = test::TextNode(/* id= */ 2, sentence1);
-  ui::AXNodeData static_text2 = test::TextNode(/* id= */ 3, sentence2);
-  ui::AXNodeData static_text3 = test::TextNode(/* id= */ 4, sentence3);
-
-  InitializeWithAndProcessNodes({static_text1, static_text2, static_text3});
-
-  // Before there are any processed granularities,
-  // GetNodeIdForCurrentSegmentIndex should return an invalid id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(1), ui::kInvalidAXNodeID);
-
-  std::vector<ui::AXNodeID> node_ids = GetCurrentText();
-  EXPECT_EQ((int)node_ids.size(), 3);
-
-  // Spot check that indices 0->sentence1.length() map to the first node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(0), static_text1.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(7), static_text1.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() - 1),
-            static_text1.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length()),
-            static_text2.id);
-
-  // Spot check that indices in sentence 2 map to the second node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() + 1),
-            static_text2.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(26), static_text2.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() +
-                                            sentence2.length() - 1),
-            static_text2.id);
-  EXPECT_EQ(
-      GetNodeIdForCurrentSegmentIndex(sentence1.length() + sentence2.length()),
-      static_text3.id);
-
-  // Spot check that indices in sentence 3 map to the third node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() +
-                                            sentence2.length() + 1),
-            static_text3.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(40), static_text3.id);
-  EXPECT_EQ(
-      GetNodeIdForCurrentSegmentIndex(sentence1.length() + sentence2.length() +
-                                      sentence3.length() - 1),
-      static_text3.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(
-                sentence1.length() + sentence2.length() + sentence3.length()),
-            ui::kInvalidAXNodeID);
-
-  // Out-of-bounds nodes return invalid.
-  EXPECT_EQ(
-      GetNodeIdForCurrentSegmentIndex(sentence1.length() + sentence2.length() +
-                                      sentence3.length() + 1),
-      ui::kInvalidAXNodeID);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(535), ui::kInvalidAXNodeID);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(-10), ui::kInvalidAXNodeID);
-}
-
-TEST_F(ReadAnythingAppControllerTest,
-       GetNodeIdForCurrentSegmentIndex_AfterNext_ReturnsCorrectNodes) {
+       GetHighlightForCurrentSegmentIndex_AfterNext_ReturnsCorrectNodes) {
+  // Text indices:             012345678901234567890123456789012
   std::u16string sentence1 = u"Never feel heavy or earthbound. ";
   std::u16string sentence2 = u"No worries or doubts ";
   std::u16string sentence3 = u"interfere.";
@@ -4187,45 +4310,51 @@ TEST_F(ReadAnythingAppControllerTest,
 
   // Before there are any processed granularities,
   // GetNodeIdForCurrentSegmentIndex should return an invalid id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(1), ui::kInvalidAXNodeID);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(1, false), IsEmpty());
 
   std::vector<ui::AXNodeID> node_ids = GetCurrentText();
   EXPECT_EQ((int)node_ids.size(), 1);
 
   // Spot check that indices 0->sentence1.length() map to the first node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(0), static_text1.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(7), static_text1.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() - 1),
-            static_text1.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length()),
-            ui::kInvalidAXNodeID);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 6)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(7, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 7, 11)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length() - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 31, 32)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length(), false),
+              IsEmpty());
 
   // Move to the next granularity.
   node_ids = MoveToNextGranularityAndGetText();
   EXPECT_EQ((int)node_ids.size(), 2);
 
   // Spot check that indices in sentence 2 map to the second node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(0), static_text2.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(7), static_text2.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence2.length() - 1),
-            static_text2.id);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 3)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(7, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 7, 11)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence2.length() - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 20, 21)));
 
   // Spot check that indices in sentence 3 map to the third node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence2.length() + 1),
-            static_text3.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(27), static_text3.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence2.length() +
-                                            sentence3.length() - 1),
-            static_text3.id);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence2.length() + 1, false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 1, 10)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(27, false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 6, 10)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence2.length() + sentence3.length() - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 9, 10)));
 
   // Out-of-bounds nodes return invalid.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence2.length() +
-                                            sentence3.length() + 1),
-            ui::kInvalidAXNodeID);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence2.length() + sentence3.length() + 1, false),
+              IsEmpty());
 }
 
 TEST_F(ReadAnythingAppControllerTest,
-       GetNodeIdForCurrentSegmentIndex_AfterPrevious_ReturnsCorrectNodes) {
+       GetHighlightForCurrentSegmentIndex_AfterPrevious_ReturnsCorrectNodes) {
+  // Text indices:             01234567890123456789012345678901234567890
   std::u16string sentence1 = u"There's nothing but you ";
   std::u16string sentence2 = u"looking down on the view from up here. ";
   std::u16string sentence3 = u"Stretch out with the wind behind you.";
@@ -4238,7 +4367,7 @@ TEST_F(ReadAnythingAppControllerTest,
 
   // Before there are any processed granularities,
   // GetNodeIdForCurrentSegmentIndex should return an invalid id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(1), ui::kInvalidAXNodeID);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(1, false), IsEmpty());
 
   std::vector<ui::AXNodeID> node_ids = GetCurrentText();
   EXPECT_EQ((int)node_ids.size(), 2);
@@ -4248,75 +4377,283 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_EQ((int)node_ids.size(), 1);
 
   // Spot check that indices 0->sentence3.length() map to the third node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(0), static_text3.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(7), static_text3.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence3.length() - 1),
-            static_text3.id);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 0, 8)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(7, false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 7, 8)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence3.length() - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 36, 37)));
 
   // Move backwards.
   node_ids = MoveToPreviousGranularityAndGetText();
   EXPECT_EQ((int)node_ids.size(), 2);
 
   // Spot check that indices in sentence 1 map to the first node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(0), static_text1.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(6), static_text1.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() - 1),
-            static_text1.id);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 8)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(6, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 6, 8)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length() - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 23, 24)));
 
   // Spot check that indices in sentence 2 map to the second node id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() + 1),
-            static_text2.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(27), static_text2.id);
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() +
-                                            sentence2.length() - 1),
-            static_text2.id);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length() + 1, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 1, 8)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(27, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 3, 8)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length() - 1, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 38, 39)));
 
   // Out-of-bounds nodes return invalid.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(sentence1.length() +
-                                            sentence2.length() + 1),
-            ui::kInvalidAXNodeID);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length() + 1, false),
+              IsEmpty());
 }
 
 TEST_F(ReadAnythingAppControllerTest,
-       GetNextWordHighlightLength_ReturnsCorrectLength) {
+       GetHighlightForCurrentSegmentIndex_MultinodeWords_ReturnsCorrectLength) {
   std::u16string word1 = u"Stretch ";
   std::u16string word2 = u"out ";
   std::u16string word3 = u"with ";
   std::u16string word4 = u"the ";
   std::u16string word5 = u"wind ";
-  std::u16string word6 = u"behind ";
-  std::u16string word7 = u"you.";
-  std::u16string sentence =
-      word1 + word2 + word3 + word4 + word5 + word6 + word7;
-  ui::AXNodeData static_text1 = test::TextNode(/* id= */ 2, sentence);
+  std::u16string word6 = u"beh";
+  std::u16string word7 = u"ind ";
+  std::u16string word8 = u"you.";
+  std::u16string sentence1 = word1 + word2 + word3 + word4 + word5 + word6;
+  ui::AXNodeData static_text1 = test::TextNode(/* id= */ 2, sentence1);
+  std::u16string sentence2 = word7 + word8;
+  ui::AXNodeData static_text2 = test::TextNode(/* id= */ 3, sentence2);
 
-  InitializeWithAndProcessNodes({static_text1});
+  InitializeWithAndProcessNodes({static_text1, static_text2});
 
   // Before there are any processed granularities,
   // GetNodeIdForCurrentSegmentIndex should return an invalid id.
-  EXPECT_EQ(GetNodeIdForCurrentSegmentIndex(1), ui::kInvalidAXNodeID);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(1, false), IsEmpty());
 
   std::vector<ui::AXNodeID> node_ids = GetCurrentText();
-  EXPECT_EQ((int)node_ids.size(), 1);
+  EXPECT_EQ((int)node_ids.size(), 2);
 
   // Throughout first word.
-  EXPECT_EQ(GetWordLength(0), (int)word1.length());
-  EXPECT_EQ(GetWordLength(2), (int)word1.length() - 2);
-  EXPECT_EQ(GetWordLength((int)word1.length()) - 2, 2);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 8)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(2, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 2, 8)));
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex((int)word1.length() - 2, false),
+      ElementsAre(TextSegmentMatcher(static_text1.id, 6, 8)));
 
   // Throughout third word.
-  int third_word_index = sentence.find(word3);
-  EXPECT_EQ(GetWordLength(third_word_index), (int)word3.length());
-  EXPECT_EQ(GetWordLength(third_word_index + 2), (int)word3.length() - 2);
+  int third_word_index = sentence1.find(word3);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(third_word_index, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 12, 17)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(third_word_index + 2, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 14, 17)));
 
-  int last_word_index = sentence.find(word7);
-  EXPECT_EQ(GetWordLength(last_word_index), (int)word7.length());
-  EXPECT_EQ(GetWordLength(last_word_index + 2), (int)word7.length() - 2);
+  // Words split across node boundaries
+  int sixth_word_index = sentence1.find(word6);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sixth_word_index, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 26, 29),
+                          TextSegmentMatcher(static_text2.id, 0, 4)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sixth_word_index + 2, false),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 28, 29),
+                          TextSegmentMatcher(static_text2.id, 0, 4)));
+
+  int seventh_word_index = sentence1.length();
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(seventh_word_index, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 4)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(seventh_word_index + 2, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 2, 4)));
+
+  int last_word_index = sentence1.length() + sentence2.find(word8);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(last_word_index, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 4, 8)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(last_word_index + 2, false),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 6, 8)));
 
   // Boundary testing.
-  EXPECT_EQ(GetWordLength(-5), 0);
-  EXPECT_EQ(GetWordLength(sentence.length()), 0);
-  EXPECT_EQ(GetWordLength(sentence.length() + 1), 0);
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(-5, false), IsEmpty());
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length(), false),
+              IsEmpty());
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length() + 1, false),
+              IsEmpty());
+}
+
+TEST_F(
+    ReadAnythingAppControllerTest,
+    GetHighlightForCurrentSegmentIndex_PhrasesEnabled_NoModel_SentenceSpansMultipleNodes_ReturnsCorrectNodes) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kReadAnythingReadAloud,
+       features::kReadAnythingReadAloudAutomaticWordHighlighting,
+       features::kReadAnythingReadAloudPhraseHighlighting},
+      {});
+
+  EXPECT_TRUE(IsPhraseHighlightingEnabled());
+  // Text indices:             0123456789012345678901234567890
+  std::u16string sentence1 = u"Never feel heavy ";
+  std::u16string sentence2 = u"or earthbound, ";
+  std::u16string sentence3 = u"no worries or doubts interfere.";
+
+  ui::AXNodeData static_text1 = test::TextNode(/* id= */ 2, sentence1);
+  ui::AXNodeData static_text2 = test::TextNode(/* id= */ 3, sentence2);
+  ui::AXNodeData static_text3 = test::TextNode(/* id= */ 4, sentence3);
+
+  InitializeWithAndProcessNodes({static_text1, static_text2, static_text3});
+  PreprocessTextForSpeech();
+
+  std::vector<ui::AXNodeID> node_ids = GetCurrentText();
+  EXPECT_EQ((int)node_ids.size(), 3);
+
+  // Spot check that indices 0->sentence1.length() map to the first node id.
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, true),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 17)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(7, true),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 17)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length() - 1, true),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 17)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length(), true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 3)));
+
+  // Spot check that indices in sentence 2 map to the second node id.
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(sentence1.length() + 1, true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 3)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(26, true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 3)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length() - 1, true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 3)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length(), true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 3)));
+
+  // Spot check that indices in sentence 3 map to the third node id.
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(
+                  sentence1.length() + sentence2.length() + 1, true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 0, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 3)));
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(40, true),
+              ElementsAre(TextSegmentMatcher(static_text3.id, 3, 21)));
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(
+          sentence1.length() + sentence2.length() + sentence3.length() - 1,
+          true),
+      ElementsAre(TextSegmentMatcher(static_text3.id, 21, 31)));
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(
+          sentence1.length() + sentence2.length() + sentence3.length(), true),
+      IsEmpty());
+
+  // Out-of-bounds nodes return an empty array.
+  EXPECT_THAT(
+      GetHighlightForCurrentSegmentIndex(
+          sentence1.length() + sentence2.length() + sentence3.length() + 1,
+          true),
+      IsEmpty());
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(535, true), IsEmpty());
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(-10, true), IsEmpty());
+}
+
+TEST_F(
+    ReadAnythingAppControllerTest,
+    GetHighlightForCurrentSegmentIndex_PhrasesEnabled_ValidModel_SentenceSpansMultipleNodes_ReturnsCorrectNodes) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kReadAnythingReadAloud,
+       features::kReadAnythingReadAloudAutomaticWordHighlighting,
+       features::kReadAnythingReadAloudPhraseHighlighting},
+      {});
+
+  UpdateDependencyParserModel(GetValidModelFile());
+  DependencyParserModel& model = GetDependencyParserModel();
+
+  EXPECT_TRUE(model.IsAvailable());
+
+  EXPECT_TRUE(IsPhraseHighlightingEnabled());
+
+  // Text indices:             0123456789012345678901234567890
+  std::u16string sentence1 = u"Never feel heavy or ";
+  std::u16string sentence2 = u"earthbound, no ";
+  std::u16string sentence3 = u"worries or doubts interfere.";
+
+  // Expected phrases:
+  // Never feel heavy or earthbound, /no worries or doubts interfere.
+  // Expected phrase breaks: 0, 32
+
+  ui::AXNodeData static_text1 = test::TextNode(/* id= */ 2, sentence1);
+  ui::AXNodeData static_text2 = test::TextNode(/* id= */ 3, sentence2);
+  ui::AXNodeData static_text3 = test::TextNode(/* id= */ 4, sentence3);
+
+  InitializeWithAndProcessNodes({static_text1, static_text2, static_text3});
+  PreprocessTextForSpeech();
+
+  std::vector<ui::AXNodeID> node_ids = GetCurrentText();
+  EXPECT_EQ((int)node_ids.size(), 3);
+
+  // First character (N) => first phrase
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(0, true),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 20),
+                          TextSegmentMatcher(static_text2.id, 0, 12)));
+
+  // 20th character (e of earthbound) => first phrase
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(20, true),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 20),
+                          TextSegmentMatcher(static_text2.id, 0, 12)));
+
+  // 31st character (space before "no") => first phrase
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(31, true),
+              ElementsAre(TextSegmentMatcher(static_text1.id, 0, 20),
+                          TextSegmentMatcher(static_text2.id, 0, 12)));
+
+  // 32nd character (n of no) => second phrase
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(32, true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 12, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 28)));
+
+  // 35th character (w of worries) => second phrase
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(35, true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 12, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 28)));
+
+  // 62nd character (final .) => second phrase
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(62, true),
+              ElementsAre(TextSegmentMatcher(static_text2.id, 12, 15),
+                          TextSegmentMatcher(static_text3.id, 0, 28)));
+
+  // 63rd character (past the end of the sentence) => empty
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(63, true), IsEmpty());
+
+  // Invalid indices.
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(535, true), IsEmpty());
+  EXPECT_THAT(GetHighlightForCurrentSegmentIndex(-10, true), IsEmpty());
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       GetDependencyParserModel_UnavailableWithoutModelFile) {
+  DependencyParserModel& model = GetDependencyParserModel();
+  EXPECT_FALSE(model.IsAvailable());
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       GetDependencyParserModel_AvailableWithValidModelFile) {
+  UpdateDependencyParserModel(GetValidModelFile());
+  DependencyParserModel& model = GetDependencyParserModel();
+
+  EXPECT_TRUE(model.IsAvailable());
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       GetDependencyParserModel_UnavailableWithInvalidModelFile) {
+  UpdateDependencyParserModel(GetInvalidModelFile());
+  DependencyParserModel& model = GetDependencyParserModel();
+
+  EXPECT_FALSE(model.IsAvailable());
 }
 
 class ReadAnythingAppControllerScreen2xDataCollectionModeTest
@@ -4331,6 +4668,10 @@ class ReadAnythingAppControllerScreen2xDataCollectionModeTest
     content::RenderFrame* render_frame =
         content::RenderFrame::FromWebFrame(GetMainFrame());
     controller_ = ReadAnythingAppController::Install(render_frame);
+
+    // Set the page handler for testing.
+    controller_->page_handler_.reset();
+    controller_->page_handler_.Bind(page_handler_.BindNewPipeAndPassRemote());
 
     // Set distiller for testing.
     std::unique_ptr<AXTreeDistiller> distiller =
@@ -4359,6 +4700,7 @@ TEST_F(ReadAnythingAppControllerScreen2xDataCollectionModeTest,
   // distiller_->Distill(). However, with the data collection mode enabled,
   // Distill() is not called immediately.
   EXPECT_CALL(*distiller_, Distill).Times(0);
+  EXPECT_CALL(page_handler_, OnScreenshotRequested).Times(0);
   SetScreenAIServiceReady();
   OnActiveAXTreeIDChanged(tree_id_);
   Mock::VerifyAndClearExpectations(distiller_);
@@ -4369,6 +4711,7 @@ TEST_F(ReadAnythingAppControllerScreen2xDataCollectionModeTest,
   // When the AXTreeID changes, and 30s pass, the controller calls
   // distiller_->Distill().
   EXPECT_CALL(*distiller_, Distill).Times(1);
+  EXPECT_CALL(page_handler_, OnScreenshotRequested).Times(1);
   SetScreenAIServiceReady();
   OnActiveAXTreeIDChanged(tree_id_);
   task_environment_.FastForwardBy(base::Seconds(31));
@@ -4383,6 +4726,7 @@ TEST_F(ReadAnythingAppControllerScreen2xDataCollectionModeTest,
   task_environment_.FastForwardBy(base::Seconds(31));
 
   EXPECT_CALL(*distiller_, Distill).Times(1);
+  EXPECT_CALL(page_handler_, OnScreenshotRequested).Times(1);
   SetScreenAIServiceReady();
   Mock::VerifyAndClearExpectations(distiller_);
 }
@@ -4392,6 +4736,7 @@ TEST_F(ReadAnythingAppControllerScreen2xDataCollectionModeTest,
   // When the AXTreeID changes, and 30s pass, the controller does not call
   // distiller_->Distill() as the screenAI service is not ready.
   EXPECT_CALL(*distiller_, Distill).Times(0);
+  EXPECT_CALL(page_handler_, OnScreenshotRequested).Times(0);
   OnActiveAXTreeIDChanged(tree_id_);
   task_environment_.FastForwardBy(base::Seconds(31));
   Mock::VerifyAndClearExpectations(distiller_);
@@ -4412,6 +4757,7 @@ TEST_F(ReadAnythingAppControllerScreen2xDataCollectionModeTest,
   // When the load complete event is received, and the tree is stable for 10s,
   // the controller calls distiller_->Distill().
   EXPECT_CALL(*distiller_, Distill).Times(1);
+  EXPECT_CALL(page_handler_, OnScreenshotRequested).Times(1);
   SetScreenAIServiceReady();
   ui::AXEvent load_complete(0, ax::mojom::Event::kLoadComplete);
   OnActiveAXTreeIDChanged(tree_id_);
@@ -4441,6 +4787,7 @@ TEST_F(ReadAnythingAppControllerScreen2xDataCollectionModeTest,
   // When the load complete event is received, and the tree remains unstable,
   // the controller does not call distiller_->Distill().
   EXPECT_CALL(*distiller_, Distill).Times(0);
+  EXPECT_CALL(page_handler_, OnScreenshotRequested).Times(0);
   SetScreenAIServiceReady();
 
   ui::AXEvent load_complete(0, ax::mojom::Event::kLoadComplete);
@@ -4475,6 +4822,7 @@ TEST_F(ReadAnythingAppControllerScreen2xDataCollectionModeTest,
   // When the load complete event is received, even if the tree remains
   // unstable, the controller does not calls distiller_->Distill() after 30s.
   EXPECT_CALL(*distiller_, Distill).Times(1);
+  EXPECT_CALL(page_handler_, OnScreenshotRequested).Times(1);
   SetScreenAIServiceReady();
 
   ui::AXEvent load_complete(0, ax::mojom::Event::kLoadComplete);

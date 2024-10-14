@@ -30,11 +30,14 @@
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/ash/components/login/auth/auth_performer.h"
 #include "chromeos/ash/components/osauth/impl/legacy_auth_surface_registry.h"
+#include "chromeos/ash/components/osauth/impl/request/password_manager_auth_request.h"
+#include "chromeos/ash/components/osauth/impl/request/settings_auth_request.h"
 #include "chromeos/ash/components/osauth/public/auth_factor_status_consumer.h"
 #include "chromeos/ash/components/osauth/public/auth_hub.h"
 #include "chromeos/ash/components/osauth/public/common_types.h"
 #include "chromeos/components/webauthn/webauthn_request_registrar.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -60,7 +63,7 @@ std::unique_ptr<views::Widget> CreateAuthDialogWidget(
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.delegate = new views::WidgetDelegate();
-  params.show_state = ui::SHOW_STATE_NORMAL;
+  params.show_state = ui::mojom::WindowShowState::kNormal;
   params.parent = nullptr;
   params.name = "AuthDialogWidget";
 
@@ -129,18 +132,13 @@ void InSessionAuthDialogControllerImpl::ShowAuthDialog(
 
   if (reason == Reason::kAccessPasswordManager &&
       features::IsUseAuthPanelInSessionEnabled()) {
-    // CreateAndShowAuthPanel(prompt, std::move(on_auth_complete), reason,
-    //                        account_id);
     Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-        ActiveSessionAuthController::Reason::kPasswordManager,
-        std::move(on_auth_complete));
+        std::make_unique<PasswordManagerAuthRequest>(
+            std::move(on_auth_complete)));
   } else if (reason == Reason::kAccessAuthenticationSettings &&
              features::IsUseAuthPanelInSessionEnabled()) {
-    // CreateAndShowAuthPanel(prompt, std::move(on_auth_complete), reason,
-    //                        account_id);
     Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-        ActiveSessionAuthController::Reason::kSettings,
-        std::move(on_auth_complete));
+        std::make_unique<SettingsAuthRequest>(std::move(on_auth_complete)));
   } else {
     // We don't manage the lifetime of `AuthenticationDialog` here.
     // `AuthenticatonDialog` is-a View and it is instead owned by it's widget,

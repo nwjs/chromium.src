@@ -17,6 +17,7 @@
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/fill_layout.h"
@@ -172,13 +173,13 @@ gfx::Rect NativeAppWindowViews::GetRestoredBounds() const {
   return widget_->GetRestoredBounds();
 }
 
-ui::WindowShowState NativeAppWindowViews::GetRestoredState() const {
+ui::mojom::WindowShowState NativeAppWindowViews::GetRestoredState() const {
   // Stub implementation. See also ChromeNativeAppWindowViews.
   if (IsMaximized())
-    return ui::SHOW_STATE_MAXIMIZED;
+    return ui::mojom::WindowShowState::kMaximized;
   if (IsFullscreen())
-    return ui::SHOW_STATE_FULLSCREEN;
-  return ui::SHOW_STATE_NORMAL;
+    return ui::mojom::WindowShowState::kFullscreen;
+  return ui::mojom::WindowShowState::kNormal;
 }
 
 gfx::Rect NativeAppWindowViews::GetBounds() const {
@@ -275,8 +276,9 @@ bool NativeAppWindowViews::ShouldSaveWindowPlacement() const {
   return true;
 }
 
-void NativeAppWindowViews::SaveWindowPlacement(const gfx::Rect& bounds,
-                                               ui::WindowShowState show_state) {
+void NativeAppWindowViews::SaveWindowPlacement(
+    const gfx::Rect& bounds,
+    ui::mojom::WindowShowState show_state) {
   views::WidgetDelegate::SaveWindowPlacement(bounds, show_state);
   app_window_->OnNativeWindowChanged();
 }

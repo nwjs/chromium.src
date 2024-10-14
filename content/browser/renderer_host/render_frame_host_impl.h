@@ -44,7 +44,6 @@
 #include "base/unguessable_token.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
-#include "content/browser/accessibility/browser_accessibility_manager.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/browser_interface_broker_impl.h"
 #include "content/browser/buckets/bucket_context.h"
@@ -81,6 +80,7 @@
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/javascript_dialog_manager.h"
@@ -185,6 +185,7 @@
 #include "ui/accessibility/platform/ax_platform_tree_manager.h"
 #include "ui/accessibility/platform/ax_platform_tree_manager_delegate.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
+#include "ui/accessibility/platform/browser_accessibility_manager.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
@@ -260,10 +261,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kDoNotEvictOnAXLocationChange);
 }  // namespace features
 
 namespace content {
-
-namespace internal {
-class DocumentServiceBase;
-}  // namespace internal
 
 class AgentSchedulingGroupHost;
 class BrowsingContextState;
@@ -451,7 +448,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       base::FunctionRef<void(RenderFrameHost*)> on_frame) override;
   // TODO (crbug.com/1251545) : Frame tree node id should only be known for
   // subframes. As such, update this method.
-  int GetFrameTreeNodeId() const override;
+  FrameTreeNodeId GetFrameTreeNodeId() const override;
   const base::UnguessableToken& GetDevToolsFrameToken() override;
   std::optional<base::UnguessableToken> GetEmbeddingToken() override;
   const std::string& GetFrameName() override;
@@ -477,14 +474,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void ExecuteJavaScriptInIsolatedWorld(const std::u16string& javascript,
                                         JavaScriptResultCallback callback,
                                         int32_t world_id) override;
-  void ExecuteJavaScriptForTests(
-      const std::u16string& javascript,
-      JavaScriptResultCallback callback,
-      int32_t world_id = ISOLATED_WORLD_ID_GLOBAL) override;
+  void ExecuteJavaScriptForTests(const std::u16string& javascript,
+                                 JavaScriptResultCallback callback,
+                                 int32_t world_id) override;
   void ExecuteJavaScriptWithUserGestureForTests(
       const std::u16string& javascript,
       JavaScriptResultCallback callback,
-      int32_t world_id = ISOLATED_WORLD_ID_GLOBAL) override;
+      int32_t world_id) override;
   void ExecutePluginActionAtLocalLocation(
       const gfx::Point& location,
       blink::mojom::PluginActionType plugin_action) override;
@@ -511,8 +507,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void SendInterventionReport(const std::string& id,
                               const std::string& message) override;
   WebUI* GetWebUI() override;
-  void AllowBindings(int binding_flags) override;
-  int GetEnabledBindings() override;
+  void AllowBindings(BindingsPolicySet bindings) override;
+  BindingsPolicySet GetEnabledBindings() override;
   void SetWebUIProperty(const std::string& name,
                         const std::string& value) override;
   void DisableBeforeUnloadHangMonitorForTesting() override;
@@ -541,7 +537,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       bool push_to_renderer_now) override;
   bool IsSandboxed(network::mojom::WebSandboxFlags flags) override;
   void FlushNetworkAndNavigationInterfacesForTesting(
-      bool do_nothing_if_no_network_service_connection = false) override;
+      bool do_nothing_if_no_network_service_connection) override;
   void PrepareForInnerWebContentsAttach(
       PrepareForInnerWebContentsAttachCallback callback) override;
   blink::FrameOwnerElementType GetFrameOwnerElementType() override;
@@ -1470,14 +1466,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
   };
 
   // Access the BrowserAccessibilityManager if it already exists.
-  BrowserAccessibilityManager* browser_accessibility_manager() const {
+  ui::BrowserAccessibilityManager* browser_accessibility_manager() const {
     return browser_accessibility_manager_.get();
   }
 
   // If accessibility is enabled, get the BrowserAccessibilityManager for
   // this frame, or create one if it doesn't exist yet, otherwise return
   // null.
-  BrowserAccessibilityManager* GetOrCreateBrowserAccessibilityManager();
+  ui::BrowserAccessibilityManager* GetOrCreateBrowserAccessibilityManager();
 
   void set_no_create_browser_accessibility_manager_for_testing(bool flag) {
     no_create_browser_accessibility_manager_for_testing_ = flag;
@@ -1578,6 +1574,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // Sends a renderer-debug URL to the renderer process for handling.
   void HandleRendererDebugURL(const GURL& url);
+
+  // Requests that the renderer discard the frame associated with this host,
+  // freeing up as many resources as possible.
+  void DiscardFrame();
 
   // BEGIN IPC REVIEW BOUNDARY: to enforce security review for IPC, these
   // methods are defined in render_frame_host_impl_interface_bindings.cc.
@@ -2214,7 +2214,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   net::CookieSettingOverrides GetCookieSettingOverrides() override;
 
-  PolicyContainerHost* policy_container_host() {
+  PolicyContainerHost* policy_container_host() const {
     return policy_container_host_.get();
   }
 
@@ -2282,10 +2282,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
     return media_device_id_salt_base_;
   }
 
-  void set_inner_tree_main_frame_tree_node_id(int id) {
+  void set_inner_tree_main_frame_tree_node_id(FrameTreeNodeId id) {
     inner_tree_main_frame_tree_node_id_ = id;
   }
-  int inner_tree_main_frame_tree_node_id() const {
+  FrameTreeNodeId inner_tree_main_frame_tree_node_id() const {
     return inner_tree_main_frame_tree_node_id_;
   }
 
@@ -2487,7 +2487,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
           remote_frame_interfaces,
       const blink::RemoteFrameToken& frame_token,
       const base::UnguessableToken& devtools_frame_token) override;
-  void ForwardFencedFrameEventToEmbedder(
+  void ForwardFencedFrameEventAndUserActivationToEmbedder(
       const std::string& event_type) override;
   void OnViewTransitionOptInChanged(blink::mojom::ViewTransitionSameOriginOptIn
                                         view_transition_opt_in) override;
@@ -2577,23 +2577,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Document-associated data. This is cleared whenever a new document is hosted
   // by this RenderFrameHost. Please refer to the description at
   // content/public/browser/document_user_data.h for more details.
-  base::SupportsUserData::Data* GetDocumentUserData(const void* key) const {
-    return document_associated_data_->GetUserData(key);
+  const DocumentAssociatedData& document_associated_data() const {
+    return *document_associated_data_;
   }
 
-  void SetDocumentUserData(const void* key,
-                           std::unique_ptr<base::SupportsUserData::Data> data) {
-    document_associated_data_->SetUserData(key, std::move(data));
+  DocumentAssociatedData& document_associated_data() {
+    return *document_associated_data_;
   }
-
-  void RemoveDocumentUserData(const void* key) {
-    document_associated_data_->RemoveUserData(key);
-  }
-
-  void AddDocumentService(internal::DocumentServiceBase* document_service,
-                          base::PassKey<internal::DocumentServiceBase>);
-  void RemoveDocumentService(internal::DocumentServiceBase* document_service,
-                             base::PassKey<internal::DocumentServiceBase>);
 
   // Called when we commit speculative RFH early due to not having an alive
   // current frame. This happens when the renderer crashes before navigating to
@@ -2881,11 +2871,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
                               base::Value)>;
 
   // Runs JavaScript in this frame, without restrictions. ONLY FOR TESTS.
-  // This method can optionally trigger a fake user activation notification,
-  // and can wait for returned promises to be resolved.
+  // This method can optionally:
+  // - Trigger a fake user activation notification.
+  // - Wait for returned promises to be resolved.
+  // - Choose to honor JS content settings.
   void ExecuteJavaScriptForTests(const std::u16string& javascript,
                                  bool has_user_gesture,
                                  bool resolve_promises,
+                                 bool honor_js_content_settings,
                                  int32_t world_id,
                                  JavaScriptResultAndTypeCallback callback);
 
@@ -2907,8 +2900,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const storage::BucketInfo& bucket,
       const std::vector<std::string>& directory_path_components,
       blink::mojom::BucketHost::GetDirectoryCallback callback) override;
-  GlobalRenderFrameHostId GetAssociatedRenderFrameHostId() const override;
-  base::UnguessableToken GetDevToolsToken() const override;
+  storage::BucketClientInfo GetBucketClientInfo() const override;
 
   // Returns false if this document not the initial empty document, or if the
   // current document's input stream has been opened with document.open(),
@@ -3097,6 +3089,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // this instance's AXNodeIdDelegate implementation.
   size_t GetAxUniqueIdCountForTesting() const { return ax_unique_ids_.size(); }
 
+  // Allows tests to disable the unload event timer to simulate bugs that
+  // happen before it fires (to avoid flakiness).
+  void DisableUnloadTimerForTesting();
+
  protected:
   friend class RenderFrameHostFactory;
 
@@ -3195,6 +3191,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   friend class WebContentsSplitCacheBrowserTest;
   friend class RenderFrameHostManagerUnloadBrowserTest;
   friend class NavigationBrowserTest;
+  friend class FrameHostInterceptorForPopins;
 
   FRIEND_TEST_ALL_PREFIXES(NavigatorTest, TwoNavigationsRacingCommit);
   FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplBeforeUnloadBrowserTest,
@@ -3616,10 +3613,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // will be a nullptr when the url is not the savable URLs or valid.
   void GetSavableResourceLinksCallback(
       blink::mojom::GetSavableResourceLinksReplyPtr reply);
-
-  // Allows tests to disable the unload event timer to simulate bugs that
-  // happen before it fires (to avoid flakiness).
-  void DisableUnloadTimerForTesting();
 
   // Creates a NavigationRequest for synchronous navigation that have committed
   // in the renderer process. Those are:
@@ -4203,6 +4196,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // increasing the priority of the renderer process anymore.
   void MaybeResetBoostRenderProcessForLoading();
 
+  // A discard optimization that attempts a shutdown of the associated render
+  // process. Shutdown may be reattempted if unsuccessful to give outstanding
+  // keep-alive requests a chance to resolve before timing out.
+  void CleanupRenderProcessForDiscardIfPossible();
+
   // The RenderViewHost that this RenderFrameHost is associated with.
   //
   // It is kept alive as long as any RenderFrameHosts or RenderFrameProxyHosts
@@ -4556,7 +4554,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   std::unique_ptr<service_manager::InterfaceProvider> remote_interfaces_;
 
   // The object managing the accessibility tree for this frame.
-  std::unique_ptr<BrowserAccessibilityManager> browser_accessibility_manager_;
+  std::unique_ptr<ui::BrowserAccessibilityManager>
+      browser_accessibility_manager_;
 
   // A mapping of each AXNodeID managed by `browser_accessibility_manager_`,
   // which is only unique within its renderer, to an AXUniqueId, which is unique
@@ -4739,9 +4738,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   std::unique_ptr<blink::AssociatedInterfaceProvider>
       remote_associated_interfaces_;
 
-  // A bitwise OR of bindings types that have been enabled for this RenderFrame.
+  // The set of bindings types that have been enabled for this RenderFrame.
   // See BindingsPolicy for details.
-  int enabled_bindings_ = 0;
+  BindingsPolicySet enabled_bindings_;
 
   // Parsed permissions policy header. It is parsed from blink, received during
   // DidCommitProvisionalLoad. This is constant during the whole lifetime of
@@ -5049,9 +5048,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
       vibration_manager_listeners_;
 
   // Indicates whether this frame is an outer delegate frame for some other
-  // RenderFrameHost. This will be a valid ID if so, and
-  // `kFrameTreeNodeInvalidId` otherwise.
-  int inner_tree_main_frame_tree_node_id_;
+  // RenderFrameHost. This will be a valid ID if so, and invalid otherwise.
+  FrameTreeNodeId inner_tree_main_frame_tree_node_id_;
 
   // Indicates whether navigator.credentials.get({otp: {transport:"sms"}}) has
   // been used on a document (regardless of the outcome).

@@ -299,7 +299,52 @@ targets.binaries.console_test_launcher(
     label = "//fuchsia_web/runners:cast_runner_unittests",
 )
 
-# TODO(crbug.com/41489655): Remove unneeded cast_* suites.
+# TODO(issues.chromium.org/1516671): Remove unneeded cast_* suites.
+
+targets.binaries.console_test_launcher(
+    name = "cast_display_settings_unittests",
+    label = "//chromecast/ui/display_settings:cast_display_settings_unittests",
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_audio_backend_unittests",
+    label = "//chromecast/media/cma/backend:cast_audio_backend_unittests",
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_base_unittests",
+    label = "//chromecast/base:cast_base_unittests",
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_cast_core_unittests",
+    label = "//chromecast/cast_core:cast_cast_core_unittests",
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_crash_unittests",
+    label = "//chromecast/crash:cast_crash_unittests",
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_graphics_unittests",
+    label = "//chromecast/graphics:cast_graphics_unittests",
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_media_unittests",
+    label = "//chromecast/media:cast_media_unittests",
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_shell_browsertests",
+    label = "//chromecast:cast_shell_browsertests",
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_shell_unittests",
+    label = "//chromecast:cast_shell_unittests",
+)
 
 targets.binaries.windowed_test_launcher(
     name = "cast_unittests",
@@ -335,14 +380,6 @@ targets.binaries.generated_script(
 targets.binaries.generated_script(
     name = "chrome_disabled_tast_tests",
     label = "//chromeos:chrome_disabled_tast_tests",
-    args = [
-        "--logs-dir=${ISOLATED_OUTDIR}",
-    ],
-)
-
-targets.binaries.generated_script(
-    name = "cq_medium_tast_tests",
-    label = "//chromeos:cq_medium_tast_tests",
     args = [
         "--logs-dir=${ISOLATED_OUTDIR}",
     ],
@@ -600,11 +637,6 @@ targets.binaries.console_test_launcher(
 targets.binaries.windowed_test_launcher(
     name = "content_unittests",
     label = "//content/test:content_unittests",
-)
-
-targets.binaries.console_test_launcher(
-    name = "courgette_unittests",
-    label = "//courgette:courgette_unittests",
 )
 
 targets.binaries.console_test_launcher(
@@ -1018,11 +1050,6 @@ targets.binaries.generated_script(
 )
 
 targets.binaries.generated_script(
-    name = "ios_remoting_unittests",
-    label = "//remoting/ios:ios_remoting_unittests",
-)
-
-targets.binaries.generated_script(
     name = "ios_testing_unittests",
     label = "//ios/testing:ios_testing_unittests",
 )
@@ -1065,14 +1092,6 @@ targets.binaries.generated_script(
 targets.binaries.windowed_test_launcher(
     name = "keyboard_unittests",
     label = "//ash/keyboard/ui:keyboard_unittests",
-)
-
-targets.binaries.generated_script(
-    name = "lacros_all_tast_tests",
-    label = "//chromeos/lacros:lacros_all_tast_tests",
-    args = [
-        "--logs-dir=${ISOLATED_OUTDIR}",
-    ],
 )
 
 targets.binaries.windowed_test_launcher(
@@ -1328,6 +1347,22 @@ targets.binaries.generated_script(
     label = "//components/optimization_guide/internal/testing:ondevice_stability_tests_light",
 )
 
+targets.binaries.generated_script(
+    name = "chrome_ai_wpt_tests",
+    label = "//components/optimization_guide/internal/testing:chrome_ai_wpt_tests",
+    results_handler = "layout tests",
+    args = [
+        "--results-directory",
+        "${ISOLATED_OUTDIR}",
+    ],
+    merge = targets.merge(
+        script = "//third_party/blink/tools/merge_web_test_results.py",
+        args = [
+            "--verbose",
+        ],
+    ),
+)
+
 targets.binaries.console_test_launcher(
     name = "openscreen_unittests",
     label = "//chrome/browser/media/router:openscreen_unittests",
@@ -1425,16 +1460,6 @@ targets.binaries.generated_script(
     label = "//chrome/test:performance_test_suite_android_clank_trichrome_bundle",
 )
 
-targets.binaries.generated_script(
-    name = "performance_test_suite_eve",
-    label = "//chrome/test:performance_test_suite_eve",
-)
-
-targets.binaries.generated_script(
-    name = "performance_test_suite_octopus",
-    label = "//chrome/test:performance_test_suite_octopus",
-)
-
 targets.binaries.script(
     name = "performance_web_engine_test_suite",
     label = "//content/test:performance_web_engine_test_suite",
@@ -1506,11 +1531,6 @@ targets.binaries.windowed_test_launcher(
 )
 
 targets.binaries.generated_script(
-    name = "resource_sizes_chromecast",
-    label = "//chromecast:resource_sizes_chromecast",
-)
-
-targets.binaries.generated_script(
     name = "resource_sizes_cronet_sample_apk",
     label = "//components/cronet/android:resource_sizes_cronet_sample_apk",
     merge = targets.merge(
@@ -1520,11 +1540,6 @@ targets.binaries.generated_script(
         enable = True,
         result_format = "single",
     ),
-)
-
-targets.binaries.generated_script(
-    name = "resource_sizes_lacros_chrome",
-    label = "//chromeos/lacros:resource_sizes_lacros_chrome",
 )
 
 targets.binaries.console_test_launcher(
@@ -2180,6 +2195,7 @@ targets.binaries.windowed_test_launcher(
         "--test-launcher-jobs=1",
         "--test-launcher-retry-limit=0",
         "--enable-pixel-output-in-tests",
+        "--enable-unsafe-swiftshader",
     ],
 )
 

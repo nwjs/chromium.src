@@ -144,6 +144,12 @@ export class SiteDetailsElement extends SiteDetailsElementBase {
             loadTimeData.getBoolean('enableAutomaticFullscreenContentSetting'),
       },
 
+      enableHandTrackingContentSetting_: {
+        type: Boolean,
+        value: () =>
+              loadTimeData.getBoolean('enableHandTrackingContentSetting'),
+      },
+
       capturedSurfaceControlEnabled_: {
         type: Boolean,
         value: () => loadTimeData.getBoolean('capturedSurfaceControlEnabled'),
@@ -164,6 +170,11 @@ export class SiteDetailsElement extends SiteDetailsElementBase {
         value: () =>
             loadTimeData.getBoolean('enableKeyboardAndPointerLockPrompt'),
       },
+
+      enableWebAppInstallation_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableWebAppInstallation'),
+      },
     };
   }
 
@@ -178,7 +189,9 @@ export class SiteDetailsElement extends SiteDetailsElementBase {
   private enableWebBluetoothNewPermissionsBackend_: boolean;
   private autoPictureInPictureEnabled_: boolean;
   private enableAutomaticFullscreenContentSetting_: boolean;
+  private enableHandTrackingContentSetting_: boolean;
   private capturedSurfaceControlEnabled_: boolean;
+  private enableWebAppInstallation_: boolean;
   private websiteUsageProxy_: WebsiteUsageBrowserProxy =
       WebsiteUsageBrowserProxyImpl.getInstance();
   private enableKeyboardAndPointerLockPrompt_: boolean;

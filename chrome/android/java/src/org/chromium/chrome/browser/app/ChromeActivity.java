@@ -61,7 +61,6 @@ import org.chromium.base.supplier.UnownedUserDataSupplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityUtils;
-import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivitySessionTracker;
 import org.chromium.chrome.browser.ChromeApplicationImpl;
 import org.chromium.chrome.browser.ChromeKeyboardVisibilityDelegate;
@@ -111,9 +110,6 @@ import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManagerSupplier;
 import org.chromium.chrome.browser.fullscreen.FullscreenBackPressHandler;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
-import org.chromium.chrome.browser.gsa.ContextReporter;
-import org.chromium.chrome.browser.gsa.GSAAccountChangeListener;
-import org.chromium.chrome.browser.gsa.GSAState;
 import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.init.ProcessInitializationHandler;
@@ -125,6 +121,7 @@ import org.chromium.chrome.browser.layouts.LayoutManagerAppUtils;
 import org.chromium.chrome.browser.media.FullscreenVideoPictureInPictureController;
 import org.chromium.chrome.browser.metrics.LaunchMetrics;
 import org.chromium.chrome.browser.metrics.LegacyTabStartupMetricsTracker;
+import org.chromium.chrome.browser.metrics.SimpleStartupForegroundSessionDetector;
 import org.chromium.chrome.browser.metrics.StartupMetricsTracker;
 import org.chromium.chrome.browser.metrics.UmaActivityObserver;
 import org.chromium.chrome.browser.modaldialog.TabModalLifetimeHandler;
@@ -152,7 +149,6 @@ import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegateImpl;
 import org.chromium.chrome.browser.share.ShareDelegateSupplier;
 import org.chromium.chrome.browser.stylus_handwriting.StylusWritingCoordinator;
-import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.tab.RequestDesktopUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabHidingType;
@@ -214,7 +210,6 @@ import org.chromium.components.policy.CombinedPolicyProvider;
 import org.chromium.components.policy.CombinedPolicyProvider.PolicyChangeListener;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.profile_metrics.BrowserProfileType;
-import org.chromium.components.sync.SyncService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.webapk.lib.client.WebApkValidator;
 import org.chromium.components.webapps.AddToHomescreenCoordinator;
@@ -319,7 +314,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     private TabContentManager mTabContentManager;
 
     private final UmaActivityObserver mUmaActivityObserver;
-    private ContextReporter mContextReporter;
 
     private boolean mPartnerBrowserRefreshNeeded;
 
@@ -331,9 +325,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     private boolean mNativeInitialized;
     private boolean mRemoveWindowBackgroundDone;
-
-    // Observes when sync becomes ready to create the mContextReporter.
-    private SyncService.SyncStateChangedListener mSyncStateChangedListener;
 
     // The FullscreenVideoPictureInPictureController is initialized lazily https://crbug.com/729738.
     private FullscreenVideoPictureInPictureController mFullscreenVideoPictureInPictureController;
@@ -385,8 +376,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     @Nullable private BottomContainer mBottomContainer;
 
     private LaunchCauseMetrics mLaunchCauseMetrics;
-
-    private GSAAccountChangeListener mGSAAccountChangeListener;
 
     // TODO(crbug.com/40631552): Pull MenuOrKeyboardActionController out of ChromeActivity.
     private List<MenuOrKeyboardActionController.MenuOrKeyboardActionHandler> mMenuActionHandlers =
@@ -699,6 +688,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             mSnackbarManager = new SnackbarManager(this, mBottomContainer, getWindowAndroid());
             getWindowAndroid().getInsetObserver().addObserver(mSnackbarManager);
             SnackbarManagerProvider.attach(getWindowAndroid(), mSnackbarManager);
+            // TODO (crbug/359973775): Pass InsetObserver as a ModalDialogManager ctor arg so that
+            // all instances are registered as inset observers.
+            getModalDialogManager().setInsetObserver(getWindowAndroid().getInsetObserver());
 
             // Make the activity listen to policy change events
             CombinedPolicyProvider.get().addPolicyChangeListener(this);
@@ -1144,35 +1136,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         return StatusBarColorController.UNDEFINED_STATUS_BAR_COLOR;
     }
 
-    private void createContextReporterIfNeeded() {
-        if (!mStarted) return; // Sync state reporting should work only in started state.
-        if (mContextReporter != null || getActivityTab() == null) return;
-
-        final SyncService syncService = getSyncServiceForOriginalProfile();
-
-        if (syncService != null && syncService.isSyncingUnencryptedUrls()) {
-            mContextReporter =
-                    AppHooks.get()
-                            .createGsaHelper()
-                            .getContextReporter(
-                                    getActivityTabProvider(),
-                                    mTabModelSelectorSupplier,
-                                    mRootUiCoordinator.getContextReporter());
-
-            if (mSyncStateChangedListener != null) {
-                syncService.removeSyncStateChangedListener(mSyncStateChangedListener);
-                mSyncStateChangedListener = null;
-            }
-
-            return;
-        }
-
-        if (mSyncStateChangedListener == null && syncService != null) {
-            mSyncStateChangedListener = () -> createContextReporterIfNeeded();
-            syncService.addSyncStateChangedListener(mSyncStateChangedListener);
-        }
-    }
-
     @Override
     public void onResumeWithNative() {
         startUmaSession();
@@ -1196,7 +1159,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         if (isMainIntentLaunch) {
             RecordHistogram.recordBooleanHistogram(
                     "Startup.Android.MainIntentIsColdStart",
-                    ColdStartTracker.wasColdOnFirstActivityCreationOrNow());
+                    ColdStartTracker.wasColdOnFirstActivityCreationOrNow()
+                            && SimpleStartupForegroundSessionDetector
+                                    .runningCleanForegroundSession());
         }
 
         Tab tab = getActivityTab();
@@ -1351,19 +1316,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     @Override
     public void onStopWithNative() {
-        if (GSAState.getInstance().isGsaAvailable() && !SysUtils.isLowEndDevice()) {
-            if (mGSAAccountChangeListener != null) mGSAAccountChangeListener.disconnect();
-        }
-        if (mSyncStateChangedListener != null) {
-            SyncService syncService = getSyncServiceForOriginalProfile();
-            if (syncService != null) {
-                syncService.removeSyncStateChangedListener(mSyncStateChangedListener);
-            }
-            mSyncStateChangedListener = null;
-        }
-        if (mContextReporter != null) {
-            mContextReporter.disable();
-        }
         if (mFullscreenVideoPictureInPictureController != null) {
             mFullscreenVideoPictureInPictureController.onStop();
             mFullscreenVideoPictureInPictureController = null;
@@ -1477,26 +1429,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                                     ChromeActivity.this,
                                     getProfileProviderSupplier().get().getOriginalProfile());
                         });
-
-        // GSA connection is not needed on low-end devices because Icing is disabled.
-        if (!SysUtils.isLowEndDevice()) {
-            DeferredStartupHandler.getInstance()
-                    .addDeferredTask(
-                            () -> {
-                                if (isActivityFinishingOrDestroyed()
-                                        || !GSAState.getInstance().isGsaAvailable()) {
-                                    return;
-                                }
-
-                                if (mGSAAccountChangeListener == null) {
-                                    mGSAAccountChangeListener =
-                                            GSAAccountChangeListener.create(
-                                                    AppHooks.get().createGsaHelper());
-                                }
-                                mGSAAccountChangeListener.connect();
-                                createContextReporterIfNeeded();
-                            });
-        }
 
         DeferredStartupHandler.getInstance()
                 .addDeferredTask(
@@ -2696,18 +2628,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             return doPrintShare(this, mActivityTabProvider);
         }
 
-        if (id == R.id.add_to_homescreen_id) {
-            RecordUserAction.record("MobileMenuAddToHomescreen");
-            return doAddToHomescreenOrInstallWebApp(
-                    currentTab, AppMenuVerbiage.APP_MENU_OPTION_ADD_TO_HOMESCREEN);
-        }
-
-        if (id == R.id.install_webapp_id) {
-            RecordUserAction.record("InstallWebAppFromMenu");
-            return doAddToHomescreenOrInstallWebApp(
-                    currentTab, AppMenuVerbiage.APP_MENU_OPTION_INSTALL);
-        }
-
         if (id == R.id.universal_install) {
             RecordUserAction.record("UniversalInstallFromMenu");
             return doUniversalInstall(
@@ -3049,8 +2969,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             // Install dialog the default and go with that in case of errors. Since Install App is
             // the menu item that would have been shown, if Universal Install was disabled, we
             // fall back to the Install App option.
-            return doAddToHomescreenOrInstallWebApp(
-                    currentTab, AppMenuVerbiage.APP_MENU_OPTION_INSTALL);
+            return doAddToHomescreen(currentTab, AppMenuVerbiage.APP_MENU_OPTION_INSTALL);
         }
 
         ResolveInfo resolveInfo =
@@ -3063,11 +2982,10 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                         this,
                         currentTab.getWebContents(),
                         () -> {
-                            doInstallThroughUniversalInstall(
-                                    currentTab, AppMenuVerbiage.APP_MENU_OPTION_INSTALL);
+                            doAddToHomescreen(currentTab, AppMenuVerbiage.APP_MENU_OPTION_INSTALL);
                         },
                         () -> {
-                            doInstallThroughUniversalInstall(
+                            doAddToHomescreen(
                                     currentTab, AppMenuVerbiage.APP_MENU_OPTION_ADD_TO_HOMESCREEN);
                         },
                         () -> {
@@ -3082,24 +3000,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         return true;
     }
 
-    /**
-     * Returns whether the Add to Home screen or Install Web App action was successfully started.
-     */
-    private boolean doInstallThroughUniversalInstall(Tab currentTab, int menuItemType) {
-        return doAddToHomescreenOrInstallWebAppImpl(
-                currentTab, menuItemType, /* universalInstall= */ true);
-    }
-
-    /**
-     * Returns whether the Add to Home screen or Install Web App action was successfully started.
-     */
-    private boolean doAddToHomescreenOrInstallWebApp(Tab currentTab, int menuItemType) {
-        return doAddToHomescreenOrInstallWebAppImpl(
-                currentTab, menuItemType, /* universalInstall= */ false);
-    }
-
-    private boolean doAddToHomescreenOrInstallWebAppImpl(
-            Tab currentTab, int menuItemType, boolean universalInstall) {
+    private boolean doAddToHomescreen(Tab currentTab, int menuItemType) {
         if (menuItemType == AppMenuVerbiage.APP_MENU_OPTION_INSTALL) {
             PwaBottomSheetController controller =
                     PwaBottomSheetControllerProvider.from(getWindowAndroid());
@@ -3115,8 +3016,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                 getWindowAndroid(),
                 getModalDialogManager(),
                 currentTab.getWebContents(),
-                menuItemType,
-                universalInstall);
+                menuItemType);
         return true;
     }
 
@@ -3163,12 +3063,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         return ChromeFeatureList.sVerticalAutomotiveBackButtonToolbar.isEnabled()
                 ? AutomotiveToolbarImplementation.WITH_TOOLBAR_VIEW
                 : AutomotiveToolbarImplementation.WITH_ACTION_BAR;
-    }
-
-    private @Nullable SyncService getSyncServiceForOriginalProfile() {
-        if (!mTabModelProfileSupplier.hasValue()) return null;
-        return SyncServiceFactory.getForProfile(
-                mTabModelProfileSupplier.get().getOriginalProfile());
     }
 
     /**

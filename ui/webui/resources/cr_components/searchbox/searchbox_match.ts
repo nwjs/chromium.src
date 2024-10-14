@@ -78,21 +78,9 @@ export class SearchboxMatchElement extends PolymerElement {
         reflectToAttribute: true,
       },
 
-      expandedStateIconsChromeRefresh: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('realboxCr23ExpandedStateLayout'),
-      },
-
       hasAction: {
         type: Boolean,
         computed: `computeHasAction_(match.actions)`,
-        reflectToAttribute: true,
-      },
-
-      /** Whether action chip will have an outset focus ring. */
-      hasOutsetActionFocusRing: {
-        type: Boolean,
-        computed: `computeHasOutsetActionFocusRing_(hasAction)`,
         reflectToAttribute: true,
       },
 
@@ -135,12 +123,6 @@ export class SearchboxMatchElement extends PolymerElement {
         value: -1,
       },
 
-      realboxConsistentRowHeight: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('realboxCr23ConsistentRowHeight'),
-        reflectToAttribute: true,
-      },
-
       renderType: {
         type: String,
         reflectToAttribute: true,
@@ -156,6 +138,12 @@ export class SearchboxMatchElement extends PolymerElement {
       //========================================================================
       // Private properties
       //========================================================================
+
+      isLensSearchbox_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('isLensSearchbox'),
+        reflectToAttribute: true,
+      },
 
       /** Rendered match contents based on autocomplete provided styling. */
       contentsHtml_: {
@@ -195,13 +183,11 @@ export class SearchboxMatchElement extends PolymerElement {
   }
 
   override ariaLabel: string;
-  expandedStateIconsChromeRefresh: boolean;
   hasAction: boolean;
-  hasOutsetActionFocusRing: boolean;
   hasImage: boolean;
   match: AutocompleteMatch;
   matchIndex: number;
-  realboxConsistentRowHeight: boolean;
+  searchboxConsistentRowHeight: boolean;
   sideType: SideType;
   private actionIsVisible_: boolean;
   private contentsHtml_: TrustedHTML;
@@ -326,7 +312,7 @@ export class SearchboxMatchElement extends PolymerElement {
     // a prefix of the former. Thus `match.answer.firstLine` can be rendered
     // using the markup in `match.contentsClass` which contains positions in
     // `match.contents` and the markup to be applied to those positions.
-    // See //chrome/browser/ui/webui/realbox/realbox_handler.cc
+    // See //chrome/browser/ui/webui/searchbox/searchbox_handler.cc
     const matchContents =
         match.answer ? match.answer.firstLine : match.contents;
     return match.swapContentsAndDescription ?
@@ -363,10 +349,6 @@ export class SearchboxMatchElement extends PolymerElement {
     return this.match?.actions?.length > 0;
   }
 
-  private computeHasOutsetActionFocusRing_() {
-    return this.expandedStateIconsChromeRefresh && this.hasAction;
-  }
-
   private computeTailSuggestPrefix_(): string {
     if (!this.match || !this.match.tailSuggestCommonPrefix) {
       return '';
@@ -401,7 +383,7 @@ export class SearchboxMatchElement extends PolymerElement {
 
   private computeSeparatorText_(): string {
     return this.match && decodeString16(this.match.description) ?
-        loadTimeData.getString('realboxSeparator') :
+        loadTimeData.getString('searchboxSeparator') :
         '';
   }
 

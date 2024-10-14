@@ -14,6 +14,7 @@
 #include "base/feature_list.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string_split.h"
+#include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/preloading/prefetch/no_vary_search_helper.h"
 #include "content/browser/preloading/prefetch/prefetch_document_manager.h"
 #include "content/browser/preloading/prefetch/prefetch_params.h"
@@ -175,11 +176,9 @@ PreloadingDecider::PreloadingDecider(RenderFrameHost* rfh)
       preconnector_(render_frame_host()),
       prefetcher_(render_frame_host()),
       prerenderer_(std::make_unique<PrerendererImpl>(render_frame_host())) {
-  if (PrefetchNewLimitsEnabled()) {
-    PrefetchDocumentManager::GetOrCreateForCurrentDocument(rfh)
-        ->SetPrefetchDestructionCallback(base::BindRepeating(
-            &OnPrefetchDestroyed, rfh->GetWeakDocumentPtr()));
-  }
+  PrefetchDocumentManager::GetOrCreateForCurrentDocument(rfh)
+      ->SetPrefetchDestructionCallback(
+          base::BindRepeating(&OnPrefetchDestroyed, rfh->GetWeakDocumentPtr()));
 
   prerenderer_->SetPrerenderCancellationCallback(
       base::BindRepeating(&OnPrerenderCanceled, rfh->GetWeakDocumentPtr()));
@@ -352,6 +351,8 @@ void PreloadingDecider::UpdateSpeculationCandidates(
   if (observer_for_testing_) {
     observer_for_testing_->UpdateSpeculationCandidates(candidates);
   }
+  devtools_instrumentation::DidUpdateSpeculationCandidates(render_frame_host(),
+                                                           candidates);
 
   WebContents* web_contents =
       WebContents::FromRenderFrameHost(&render_frame_host());

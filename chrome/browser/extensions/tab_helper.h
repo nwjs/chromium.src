@@ -9,6 +9,8 @@
 #include <set>
 #include <string>
 
+#include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
+
 #include "base/memory/raw_ptr.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 

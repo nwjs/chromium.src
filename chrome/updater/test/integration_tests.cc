@@ -28,14 +28,15 @@
 #include "base/test/scoped_run_loop_timeout.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_timeouts.h"
+#include "base/threading/platform_thread.h"
 #include "base/time/time.h"
-#include "base/uuid.h"
 #include "base/values.h"
 #include "base/version.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/enterprise_companion/device_management_storage/dm_storage.h"
+#include "chrome/enterprise_companion/installer_paths.h"
 #include "chrome/updater/constants.h"
 #include "chrome/updater/device_management/dm_policy_builder_for_testing.h"
 #include "chrome/updater/ipc/ipc_support.h"
@@ -56,6 +57,7 @@
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "components/update_client/protocol_definition.h"
 #include "components/update_client/update_client.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "url/gurl.h"
@@ -250,10 +252,12 @@ class IntegrationTest : public ::testing::Test {
                             const std::string& child_window_text_to_find = {},
                             const bool always_launch_cmd = false,
                             const bool verify_app_logo_loaded = false,
-                            const bool expect_success = true) {
+                            const bool expect_success = true,
+                            const bool wait_for_the_installer = true) {
     test_commands_->InstallUpdaterAndApp(
         app_id, is_silent_install, tag, child_window_text_to_find,
-        always_launch_cmd, verify_app_logo_loaded, expect_success);
+        always_launch_cmd, verify_app_logo_loaded, expect_success,
+        wait_for_the_installer);
   }
 
   void ExpectInstalled() { test_commands_->ExpectInstalled(); }
@@ -676,6 +680,15 @@ class IntegrationTest : public ::testing::Test {
   void DMDeregisterDevice() { test_commands_->DMDeregisterDevice(); }
 
   void DMCleanup() { test_commands_->DMCleanup(); }
+
+  void InstallEnterpriseCompanionApp(
+      const base::Value::Dict& external_overrides) {
+    test_commands_->InstallEnterpriseCompanionApp(external_overrides);
+  }
+
+  void UninstallEnterpriseCompanionApp() {
+    test_commands_->UninstallEnterpriseCompanionApp();
+  }
 
   scoped_refptr<IntegrationTestCommands> test_commands_;
 
@@ -1197,6 +1210,35 @@ TEST_F(IntegrationTest, UpdateApp) {
 }
 
 #if BUILDFLAG(IS_WIN)
+TEST_F(IntegrationTest, GZipUpdateResponses) {
+  ScopedServer test_server(test_commands_);
+  test_server.set_gzip_response(true);
+  ASSERT_NO_FATAL_FAILURE(Install());
+
+  const std::string kAppId("test");
+  ASSERT_NO_FATAL_FAILURE(InstallApp(kAppId));
+  base::Version v1("1");
+  ASSERT_NO_FATAL_FAILURE(ExpectUpdateSequence(
+      &test_server, kAppId, "", UpdateService::Priority::kBackground,
+      base::Version("0.1"), v1));
+  ASSERT_NO_FATAL_FAILURE(RunWake(0));
+
+  base::Version v2("2");
+  const std::string kInstallDataIndex("test_install_data_index");
+  ASSERT_NO_FATAL_FAILURE(
+      ExpectUpdateSequence(&test_server, kAppId, kInstallDataIndex,
+                           UpdateService::Priority::kForeground, v1, v2));
+  ASSERT_NO_FATAL_FAILURE(Update(kAppId, kInstallDataIndex));
+
+  ASSERT_TRUE(WaitForUpdaterExit());
+  ASSERT_NO_FATAL_FAILURE(ExpectAppVersion(kAppId, v2));
+  ASSERT_NO_FATAL_FAILURE(ExpectLastChecked());
+  ASSERT_NO_FATAL_FAILURE(ExpectLastStarted());
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
 TEST_F(IntegrationTest, UpdateAppSucceedsEvenAfterDeletingInterfaces) {
   ScopedServer test_server(test_commands_);
   ASSERT_NO_FATAL_FAILURE(Install());
@@ -1491,6 +1533,7 @@ TEST_F(IntegrationTest, RotateLog) {
 }
 
 #if BUILDFLAG(CHROMIUM_BRANDING) || BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
 TEST_F(IntegrationTest, SelfUpdateFromOldReal) {
   ScopedServer test_server(test_commands_);
 
@@ -1794,10 +1837,14 @@ class IntegrationTestDeviceManagement : public IntegrationTest {
       GTEST_SKIP();
     }
     DMCleanup();
+    UninstallEnterpriseCompanionApp();
     ASSERT_NO_FATAL_FAILURE(SetMachineManaged(true));
   }
 
   void TearDown() override {
+    if (IsSystemInstall(GetUpdaterScopeForTesting())) {
+      UninstallEnterpriseCompanionApp();
+    }
     DMCleanup();
     IntegrationTest::TearDown();
   }
@@ -2031,6 +2078,98 @@ TEST_F(IntegrationTestDeviceManagement, QualifyUpdaterWhenUpdateDisabled) {
   ASSERT_NO_FATAL_FAILURE(RunWake(0));
   ASSERT_TRUE(WaitForUpdaterExit());
   ASSERT_NO_FATAL_FAILURE(ExpectVersionActive(kUpdaterVersion));
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTestDeviceManagement, FetchPolicyViaCompanionApp) {
+  ASSERT_NO_FATAL_FAILURE(Install());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  net::test_server::EmbeddedTestServer null_server;
+  ASSERT_TRUE(null_server.Start());
+  InstallEnterpriseCompanionApp(
+      base::Value::Dict()
+          .Set("crash_upload_url", test_server_->crash_upload_url().spec())
+          .Set("dm_encrypted_reporting_url", null_server.base_url().spec())
+          .Set("dm_realtime_reporting_url", null_server.base_url().spec())
+          .Set("dm_server_url", test_server_->device_management_url().spec())
+          .Set("event_logging_url", null_server.base_url().spec()));
+  ASSERT_TRUE(WaitForUpdaterExit());
+
+  OmahaSettingsClientProto omaha_settings;
+  omaha_settings.set_install_default(
+      enterprise_management::INSTALL_DEFAULT_DISABLED);
+  omaha_settings.set_download_preference("not-cacheable");
+  ApplicationSettings app;
+  app.set_app_guid(kApp1.appid);
+  app.set_update(enterprise_management::AUTOMATIC_UPDATES_ONLY);
+  omaha_settings.mutable_application_settings()->Add(std::move(app));
+
+  DMPushEnrollmentToken(kEnrollmentToken);
+  ExpectDeviceManagementRegistrationRequestViaCompanionApp(
+      test_server_.get(), kEnrollmentToken, kDMToken);
+  ExpectDeviceManagementPolicyFetchRequestViaCompanionApp(
+      test_server_.get(), kDMToken, omaha_settings);
+
+  ExpectUpdateCheckRequest(test_server_.get());
+  ASSERT_NO_FATAL_FAILURE(RunWake(0));
+  ASSERT_TRUE(WaitForUpdaterExit());
+
+  // Verify the policies downloaded by the companion app.
+  scoped_refptr<device_management_storage::DMStorage> dm_storage =
+      device_management_storage::GetDefaultDMStorage();
+  ASSERT_NE(dm_storage, nullptr);
+  std::optional<OmahaSettingsClientProto> omaha_policy =
+      GetOmahaPolicySettings(dm_storage);
+  ASSERT_TRUE(omaha_policy);
+  EXPECT_EQ(omaha_policy->install_default(),
+            enterprise_management::INSTALL_DEFAULT_DISABLED);
+  EXPECT_EQ(omaha_policy->download_preference(), "not-cacheable");
+  ASSERT_GT(omaha_policy->application_settings_size(), 0);
+  const ApplicationSettings& app_policy =
+      omaha_policy->application_settings()[0];
+  EXPECT_EQ(app_policy.app_guid(), kApp1.appid);
+  EXPECT_EQ(app_policy.update(), enterprise_management::AUTOMATIC_UPDATES_ONLY);
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTestDeviceManagement,
+       UninstallCompanionAppWhenUninstallUpdater) {
+  ASSERT_NO_FATAL_FAILURE(ExpectInstallSequence(
+      test_server_.get(), kApp1.appid, "", UpdateService::Priority::kForeground,
+      base::Version({0, 0, 0, 0}), kApp1.v1));
+  ASSERT_NO_FATAL_FAILURE(InstallUpdaterAndApp(
+      kApp1.appid, /*is_silent_install=*/true,
+      base::StrCat({"appguid=", kApp1.appid, "&usagestats=1"})));
+  ASSERT_TRUE(WaitForUpdaterExit());
+
+  net::test_server::EmbeddedTestServer null_server;
+  ASSERT_TRUE(null_server.Start());
+  InstallEnterpriseCompanionApp(
+      base::Value::Dict()
+          .Set("crash_upload_url", test_server_->crash_upload_url().spec())
+          .Set("dm_encrypted_reporting_url", null_server.base_url().spec())
+          .Set("dm_realtime_reporting_url", null_server.base_url().spec())
+          .Set("dm_server_url", test_server_->device_management_url().spec())
+          .Set("event_logging_url", null_server.base_url().spec()));
+
+  const base::FilePath companion_app_exe =
+      enterprise_companion::GetInstallDirectory()->AppendASCII(
+          kCompanionAppExecutableName);
+  ASSERT_TRUE(base::PathExists(companion_app_exe));
+
+  // Uninstall ping for the app.
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
+  // Expect an update check and then the uninstall ping for the updater itself.
+  ExpectUpdateCheckRequest(test_server_.get());
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
+  ASSERT_NO_FATAL_FAILURE(UninstallApp(kApp1.appid));
+  ASSERT_NO_FATAL_FAILURE(RunWake(0));
+  ASSERT_TRUE(WaitForUpdaterExit());
+  ASSERT_TRUE(WaitFor([&] { return !base::PathExists(companion_app_exe); }));
   ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
@@ -2582,7 +2721,7 @@ class IntegrationTestUserInSystem : public IntegrationTest {
     user_test_commands_->InstallUpdaterAndApp(
         app_id, is_silent_install, tag, child_window_text_to_find,
         always_launch_cmd, verify_app_logo_loaded,
-        /*expect_success=*/true);
+        /*expect_success=*/true, /*wait_for_the_installer=*/true);
   }
 
   scoped_refptr<IntegrationTestCommands> user_test_commands_ =
@@ -2890,6 +3029,111 @@ TEST_F(IntegrationTest, KSAdminTaggedApp) {
   ASSERT_NO_FATAL_FAILURE(UninstallApp("org.chromium.testapp"));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 #endif  // defined(ADDRESS_SANITIZER)
+}
+
+TEST_F(IntegrationTest, CRURegistrationInstallsUpdater) {
+  if (IsSystemInstall(GetUpdaterScopeForTesting())) {
+    GTEST_SKIP();
+  }
+  ScopedServer test_server(test_commands_);
+  ASSERT_NO_FATAL_FAILURE(ExpectRegistrationTestAppUserUpdaterInstallSuccess());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ExpectUninstallPing(&test_server);
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, CRURegistrationIdempotentInstallSuccess) {
+  if (IsSystemInstall(GetUpdaterScopeForTesting())) {
+    GTEST_SKIP();
+  }
+  ScopedServer test_server(test_commands_);
+  ASSERT_NO_FATAL_FAILURE(Install());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ASSERT_NO_FATAL_FAILURE(ExpectRegistrationTestAppUserUpdaterInstallSuccess());
+  ExpectInstalled();
+
+  ExpectUninstallPing(&test_server);
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, CRURegistrationRegister) {
+  if (IsSystemInstall(GetUpdaterScopeForTesting())) {
+    GTEST_SKIP();
+  }
+  ScopedServer test_server(test_commands_);
+  ASSERT_NO_FATAL_FAILURE(Install());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ASSERT_NO_FATAL_FAILURE(ExpectRegistrationTestAppRegisterSuccess());
+  ExpectAppVersion("org.chromium.CRURegistration.testing.RegisterMe",
+                   base::Version({1, 0, 0, 0}));
+
+  ExpectUninstallPing(&test_server);
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, CRURegistrationInstallAndRegister) {
+  if (IsSystemInstall(GetUpdaterScopeForTesting())) {
+    GTEST_SKIP();
+  }
+  ScopedServer test_server(test_commands_);
+  ASSERT_NO_FATAL_FAILURE(ExpectRegistrationTestAppInstallAndRegisterSuccess());
+  ExpectInstalled();
+  ExpectAppVersion("org.chromium.CRURegistration.testing.RegisterMe",
+                   base::Version({2, 0, 0, 0}));
+
+  ExpectUninstallPing(&test_server);
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+// This is a copy of ReportsActive, but it uses CRURegistration to mark the
+// app active. If both this test and ReportsActive fail, suspect an issue with
+// actives reporting; if only this test fails, suspect CRURegistration.
+TEST_F(IntegrationTest, CRURegistrationReportsActive) {
+  if (IsSystemInstall(GetUpdaterScopeForTesting())) {
+    GTEST_SKIP();
+  }
+  // A longer than usual timeout is needed for this test because the macOS
+  // UpdateServiceInternal server takes at least 10 seconds to shut down after
+  // Install, and InstallApp cannot make progress until it shut downs and
+  // releases the global prefs lock.
+  ASSERT_GE(TestTimeouts::action_timeout(), base::Seconds(18));
+  base::test::ScopedRunLoopTimeout timeout(FROM_HERE,
+                                           TestTimeouts::action_timeout());
+
+  ScopedServer test_server(test_commands_);
+  ASSERT_NO_FATAL_FAILURE(Install());
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  // Register apps test1 and test2. Expect pings for each.
+  ASSERT_NO_FATAL_FAILURE(InstallApp("test1"));
+  ASSERT_NO_FATAL_FAILURE(InstallApp("test2"));
+
+  // Set test1 to be active via CRURegistration and do a background updatecheck.
+  ASSERT_NO_FATAL_FAILURE(ExpectCRURegistrationMarksActive("test1"));
+  ASSERT_NO_FATAL_FAILURE(ExpectActive("test1"));
+  ASSERT_NO_FATAL_FAILURE(ExpectNotActive("test2"));
+  test_server.ExpectOnce(
+      {request::GetUpdaterUserAgentMatcher(),
+       request::GetContentMatcher(
+           {R"(.*"appid":"test1","enabled":true,"installdate":-1,)",
+            R"("ping":{"ad":-1,.*)"})},
+      R"()]}')"
+      "\n"
+      R"({"response":{"protocol":"3.1","daystart":{"elapsed_)"
+      R"(days":5098}},"app":[{"appid":"test1","status":"ok",)"
+      R"("updatecheck":{"status":"noupdate"}},{"appid":"test2",)"
+      R"("status":"ok","updatecheck":{"status":"noupdate"}}]})");
+  ASSERT_NO_FATAL_FAILURE(RunWake(0));
+
+  // The updater has cleared the active bits.
+  ASSERT_NO_FATAL_FAILURE(ExpectNotActive("test1"));
+  ASSERT_NO_FATAL_FAILURE(ExpectNotActive("test2"));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
 #if !defined(ADDRESS_SANITIZER)
@@ -3616,7 +3860,7 @@ TEST_F(IntegrationTest, LogFileInTmpAfterUninstall) {
   ASSERT_TRUE(WaitForUpdaterExit());
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
 
-  // Expect no updater logs in %TMP%.
+  // Expect no updater logs in the temp dir.
   EXPECT_EQ(GetUpdaterLogFilesInTmp().size(), 0u);
 
   ASSERT_NO_FATAL_FAILURE(SetServerStarts(24));
@@ -3625,19 +3869,12 @@ TEST_F(IntegrationTest, LogFileInTmpAfterUninstall) {
   ASSERT_NO_FATAL_FAILURE(RunUninstallCmdLine());
   ASSERT_TRUE(WaitForUpdaterExit());
 
-  // Expect a single updater log in %TMP%, and confirm that the file name has an
-  // uuid embedded within it.
+  // Expect a single updater log in the temp dir.
   int invocation_count = 0;
   for (const auto& file : GetUpdaterLogFilesInTmp()) {
     ++invocation_count;
     if (invocation_count == 1) {
-      std::wstring file_base = file.BaseName().value();
-      EXPECT_TRUE(base::StartsWith(file_base, L"updater"));
-      EXPECT_TRUE(base::EndsWith(file_base, L".log"));
-      base::ReplaceSubstringsAfterOffset(&file_base, 0, L"updater", {});
-      base::ReplaceSubstringsAfterOffset(&file_base, 0, L".log", {});
-      EXPECT_TRUE(
-          base::Uuid::ParseLowercase(base::WideToUTF8(file_base)).is_valid());
+      EXPECT_EQ(file.BaseName().value(), L"updater.log");
     } else {
       ADD_FAILURE() << "Unexpected, more than one updater log found: " << file;
     }
@@ -3758,6 +3995,42 @@ TEST_F(IntegrationTest, OfflineInstallOemMode) {
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
   ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
                                             /*is_silent_install=*/false));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, ExpectErrorUIWhenGetSetupLockFails) {
+  ScopedServer test_update_server(test_commands_);
+  const std::string kAppId("googletest");
+  const base::Version v1("1");
+  ASSERT_NO_FATAL_FAILURE(ExpectInstallSequence(
+      &test_update_server, kAppId, "", UpdateService::Priority::kForeground,
+      base::Version({0, 0, 0, 0}), v1));
+
+  // The test runs the installer twice. One installer succeeds, and the other
+  // installer times out on the setup lock.
+  for (int i = 0; i <= 1; ++i) {
+    ASSERT_NO_FATAL_FAILURE(InstallUpdaterAndApp(
+        kAppId, /*is_silent_install=*/false, "usagestats=1",
+        /*child_window_text_to_find=*/{},
+        /*always_launch_cmd=*/false,
+        /*verify_app_logo_loaded=*/false,
+        /*expect_success=*/true,
+        /*wait_for_the_installer=*/false));
+    base::PlatformThread::Sleep(base::Seconds(1));
+  }
+
+  // Dismiss the setup lock error dialog, and then the success dialog.
+  for (const auto message_id : {IDS_UNABLE_TO_GET_SETUP_LOCK_BASE,
+                                IDS_BUNDLE_INSTALLED_SUCCESSFULLY_BASE}) {
+    ASSERT_NO_FATAL_FAILURE(
+        CloseInstallCompleteDialog(GetLocalizedString(message_id)));
+  }
+
+  ASSERT_TRUE(WaitForUpdaterExit());
+
+  ASSERT_NO_FATAL_FAILURE(ExpectAppVersion(kAppId, v1));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_update_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 

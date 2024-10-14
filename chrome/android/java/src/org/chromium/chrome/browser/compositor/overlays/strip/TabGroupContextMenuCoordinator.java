@@ -5,10 +5,15 @@
 package org.chromium.chrome.browser.compositor.overlays.strip;
 
 import android.content.Context;
+import android.text.Editable;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.View.MeasureSpec;
+import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.EditText;
+import android.widget.ListAdapter;
+import android.widget.ListView;
 
 import androidx.annotation.DimenRes;
 import androidx.annotation.VisibleForTesting;
@@ -41,6 +46,8 @@ import org.chromium.ui.listmenu.ListSectionDividerProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.text.EmptyTextWatcher;
+import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
 import org.chromium.ui.widget.RectProvider;
 
 /**
@@ -55,6 +62,11 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
     private TabGroupModelFilter mTabGroupModelFilter;
     private int mGroupRootId;
     private Context mContext;
+
+    // Title currently modified by the user through the edit box. This does not include previously
+    // updated or default title.
+    private String mCurrentModifiedTitle;
+    private boolean mIsPresetTitleUsed;
     private WindowAndroid mWindowAndroid;
     private KeyboardVisibilityDelegate.KeyboardVisibilityListener mKeyboardVisibilityListener;
 
@@ -87,8 +99,8 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
         mTabGroupModelFilter = tabGroupModelFilter;
         mWindowAndroid = windowAndroid;
         mKeyboardVisibilityListener =
-                isHiding -> {
-                    updateTabGroupTitle();
+                isShowing -> {
+                    if (!isShowing) updateTabGroupTitle();
                 };
     }
 
@@ -98,7 +110,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
             ActionConfirmationManager actionConfirmationManager,
             TabCreator tabCreator,
             boolean isTabGroupSyncEnabled) {
-        return (menuId, tabId) -> {
+        return (menuId, tabId, collaborationId) -> {
             if (menuId == org.chromium.chrome.R.id.ungroup_tab) {
                 TabUiUtils.ungroupTabGroup(
                         tabGroupModelFilter,
@@ -147,6 +159,7 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                 /* horizontalOverlapAnchor= */ true,
                 /* verticalOverlapAnchor= */ false,
                 /* animStyle= */ ResourcesCompat.ID_NULL,
+                HorizontalOrientation.LAYOUT_DIRECTION,
                 mWindowAndroid.getActivity().get());
         recordUserAction("Shown");
     }
@@ -217,6 +230,35 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                             isIncognito,
                             true));
         }
+
+        setListViewHeightBasedOnChildren();
+    }
+
+    /**
+     * Calculates and sets the total height of the action menu ListView to prevent the ListView from
+     * collapsing when nested inside a parent ScrollView.
+     */
+    public void setListViewHeightBasedOnChildren() {
+        assert mContentView != null : "Menu view should not be null";
+
+        ListView listView = mContentView.findViewById(R.id.tab_group_action_menu_list);
+        listView.setScrollContainer(false);
+
+        ListAdapter listAdapter = listView.getAdapter();
+        if (listAdapter == null) {
+            return;
+        }
+
+        int totalHeight = 0;
+        for (int i = 0; i < listAdapter.getCount(); i++) {
+            View listItem = listAdapter.getView(i, null, listView);
+            listItem.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
+            totalHeight += listItem.getMeasuredHeight();
+        }
+
+        ViewGroup.LayoutParams params = listView.getLayoutParams();
+        params.height = totalHeight + listView.getPaddingTop() + listView.getPaddingBottom();
+        listView.setLayoutParams(params);
     }
 
     @Override
@@ -250,25 +292,32 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
 
     @VisibleForTesting
     void updateTabGroupTitle() {
-        String newTitle = mGroupTitleEditText.getText().toString();
-        if (newTitle == null || TextUtils.isEmpty(newTitle)) {
+        String newTitle = mCurrentModifiedTitle;
+        if (newTitle == null) {
+            return;
+        } else if (TextUtils.isEmpty(newTitle) || newTitle.equals(getDefaultTitle())) {
             mTabGroupModelFilter.deleteTabGroupTitle(mGroupRootId);
             recordUserAction("TitleReset");
-            setEditTextToDefaultGroupTitle();
+            setExistingOrDefaultTitle(getDefaultTitle());
         } else if (TabUiUtils.updateTabGroupTitle(mTabGroupModelFilter, mGroupRootId, newTitle)) {
             recordUserAction("TitleChanged");
         }
+        mCurrentModifiedTitle = null;
     }
 
-    private void setEditTextToDefaultGroupTitle() {
-        String defaultTitle =
-                TabGroupTitleEditor.getDefaultTitle(
-                        mContext, mTabGroupModelFilter.getRelatedTabCountForRootId(mGroupRootId));
-        mGroupTitleEditText.setText(defaultTitle);
+    private void setExistingOrDefaultTitle(String s) {
+        // Flip `IsPresetTitleUsed`to prevent `TextWatcher` from treating `#setText` as a title
+        // update.
+        mIsPresetTitleUsed = true;
+        mGroupTitleEditText.setText(s);
     }
 
-    // TODO(crbug.com/358689769): Enable live editing and updating of the group title by
-    // implementing a `TextWatcher`.
+    private String getDefaultTitle() {
+        return TabGroupTitleEditor.getDefaultTitle(
+                mContext, mTabGroupModelFilter.getRelatedTabCountForRootId(mGroupRootId));
+    }
+
+    // TODO(crbug.com/358689769): Enable live editing and updating of the group title.
     private void buildTitleEditor(boolean isIncognito) {
         mGroupTitleEditText = mContentView.findViewById(R.id.tab_group_title);
 
@@ -282,13 +331,25 @@ public class TabGroupContextMenuCoordinator extends TabGroupOverflowMenuCoordina
                     R.style.TextAppearance_TextLarge_Primary_Baseline_Light);
         }
 
+        // Listen to title update as user types.
+        mGroupTitleEditText.addTextChangedListener(
+                new EmptyTextWatcher() {
+                    @Override
+                    public void afterTextChanged(Editable s) {
+                        if (!mIsPresetTitleUsed) {
+                            mCurrentModifiedTitle = s.toString();
+                        }
+                        mIsPresetTitleUsed = false;
+                    }
+                });
+
         // Set the initial text to the existing group title, defaulting to "N tabs" if no title name
         // is set.
         String curGroupTitle = mTabGroupModelFilter.getTabGroupTitle(mGroupRootId);
         if (curGroupTitle == null || curGroupTitle.isEmpty()) {
-            setEditTextToDefaultGroupTitle();
+            setExistingOrDefaultTitle(getDefaultTitle());
         } else {
-            mGroupTitleEditText.setText(curGroupTitle);
+            setExistingOrDefaultTitle(curGroupTitle);
         }
 
         // Add listener to group title EditText to update group title when keyboard starts hiding.

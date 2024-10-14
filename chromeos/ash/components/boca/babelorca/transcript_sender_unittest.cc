@@ -7,13 +7,18 @@
 #include <string>
 
 #include "base/test/task_environment.h"
+#include "base/test/test_future.h"
+#include "base/time/time.h"
+#include "base/types/expected.h"
 #include "chromeos/ash/components/boca/babelorca/fakes/fake_tachyon_authed_client.h"
 #include "chromeos/ash/components/boca/babelorca/fakes/fake_tachyon_client.h"
 #include "chromeos/ash/components/boca/babelorca/fakes/fake_tachyon_request_data_provider.h"
 #include "chromeos/ash/components/boca/babelorca/proto/babel_orca_message.pb.h"
 #include "chromeos/ash/components/boca/babelorca/proto/tachyon.pb.h"
 #include "chromeos/ash/components/boca/babelorca/proto/tachyon_enums.pb.h"
+#include "chromeos/ash/components/boca/babelorca/request_data_wrapper.h"
 #include "chromeos/ash/components/boca/babelorca/tachyon_constants.h"
+#include "chromeos/ash/components/boca/babelorca/tachyon_request_error.h"
 #include "media/mojo/mojom/speech_recognition_result.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -24,12 +29,13 @@ namespace {
 
 constexpr char kSenderEmail[] = "sender@test.com";
 constexpr char kLanguage[] = "en-US";
+constexpr int64_t kInitTimestampMs = 1724792276909;
 
 struct TranscriptSenderTestCase {
   std::string test_name;
   std::string transcript1;
   std::string transcript2;
-  int max_allowed_char;
+  size_t max_allowed_char;
   std::string expected_sent_transcript;
   int expected_index;
 };
@@ -55,14 +61,21 @@ TEST(TranscriptSenderTest, SendOneMessageLongerThanMaxAllowed) {
   const std::string kTranscriptText = "hello transcription";
   FakeTachyonAuthedClient authed_client;
   FakeTachyonRequestDataProvider request_data_provider;
-  TranscriptSender sender(&authed_client, &request_data_provider, kSenderEmail,
-                          TRAFFIC_ANNOTATION_FOR_TESTS, kMaxAllowedChar);
+  base::test::TestFuture<void> failure_future;
+  TranscriptSender sender(
+      &authed_client, &request_data_provider,
+      base::Time::FromMillisecondsSinceUnixEpoch(kInitTimestampMs),
+      kSenderEmail, TRAFFIC_ANNOTATION_FOR_TESTS,
+      {.max_allowed_char = kMaxAllowedChar}, failure_future.GetCallback());
 
   media::SpeechRecognitionResult transcript(kTranscriptText,
                                             /*is_final=*/false);
-  sender.SendTranscriptionUpdate(transcript, kLanguage);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript, kLanguage));
   authed_client.WaitForRequest();
+  authed_client.ExecuteResponseCallback(
+      InboxSendResponse().SerializeAsString());
 
+  EXPECT_FALSE(failure_future.IsReady());
   InboxSendRequest sent_request;
   ASSERT_TRUE(sent_request.ParseFromString(authed_client.GetRequestString()));
   EXPECT_EQ(sent_request.header().auth_token_payload(),
@@ -89,10 +102,11 @@ TEST(TranscriptSenderTest, SendOneMessageLongerThanMaxAllowed) {
               testing::StrEq(kTachyonAppName));
 
   EXPECT_EQ(sent_request.message().message_type(), InboxMessage::GROUP);
-  EXPECT_EQ(sent_request.message().message_class(), InboxMessage::USER);
+  EXPECT_EQ(sent_request.message().message_class(), InboxMessage::EPHEMERAL);
 
   BabelOrcaMessage message;
   ASSERT_TRUE(message.ParseFromString(sent_request.message().message()));
+  EXPECT_EQ(message.session_id(), request_data_provider.session_id());
   EXPECT_EQ(message.order(), 0);
   EXPECT_FALSE(message.has_previous_transcript());
   ASSERT_TRUE(message.has_current_transcript());
@@ -109,20 +123,30 @@ TEST(TranscriptSenderTest, SendNewTranscript) {
   std::string request_string1;
   std::string request_string2;
   FakeTachyonRequestDataProvider request_data_provider;
-  TranscriptSender sender(&authed_client, &request_data_provider, kSenderEmail,
-                          TRAFFIC_ANNOTATION_FOR_TESTS, kMaxAllowedChar);
+  base::test::TestFuture<void> failure_future;
+  TranscriptSender sender(
+      &authed_client, &request_data_provider,
+      base::Time::FromMillisecondsSinceUnixEpoch(kInitTimestampMs),
+      kSenderEmail, TRAFFIC_ANNOTATION_FOR_TESTS,
+      {.max_allowed_char = kMaxAllowedChar}, failure_future.GetCallback());
 
   media::SpeechRecognitionResult transcript1(kTranscriptText,
                                              /*is_final=*/true);
-  sender.SendTranscriptionUpdate(transcript1, kLanguage);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript1, kLanguage));
   authed_client.WaitForRequest();
   request_string1 = authed_client.GetRequestString();
+  authed_client.ExecuteResponseCallback(
+      InboxSendResponse().SerializeAsString());
+
   media::SpeechRecognitionResult transcript2(kTranscriptText,
                                              /*is_final=*/false);
-  sender.SendTranscriptionUpdate(transcript2, kLanguage);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript2, kLanguage));
   authed_client.WaitForRequest();
   request_string2 = authed_client.GetRequestString();
+  authed_client.ExecuteResponseCallback(
+      InboxSendResponse().SerializeAsString());
 
+  EXPECT_FALSE(failure_future.IsReady());
   InboxSendRequest sent_request1;
   BabelOrcaMessage message1;
   ASSERT_TRUE(sent_request1.ParseFromString(request_string1));
@@ -147,7 +171,135 @@ TEST(TranscriptSenderTest, SendNewTranscript) {
   VerifyTranscriptPartProto(message2.previous_transcript(), /*transcript_id=*/0,
                             "hello3", /*index=*/14, /*is_final=*/true,
                             kLanguage);
-  EXPECT_EQ(message1.sender_uuid(), message2.sender_uuid());
+  EXPECT_EQ(message1.init_timestamp_ms(), kInitTimestampMs);
+  EXPECT_EQ(message2.init_timestamp_ms(), kInitTimestampMs);
+}
+
+TEST(TranscriptSenderTest, RejectSendingAndReplyOnMaxErrorsReached) {
+  base::test::TaskEnvironment task_environment;
+  const int kMaxAllowedChar = 26;
+  const std::string kTranscriptText = "hello1 hello2 hello3";
+  FakeTachyonAuthedClient authed_client;
+  FakeTachyonRequestDataProvider request_data_provider;
+  base::test::TestFuture<void> failure_future;
+  TranscriptSender sender(
+      &authed_client, &request_data_provider,
+      base::Time::FromMillisecondsSinceUnixEpoch(kInitTimestampMs),
+      kSenderEmail, TRAFFIC_ANNOTATION_FOR_TESTS,
+      {.max_allowed_char = kMaxAllowedChar, .max_errors_num = 2},
+      failure_future.GetCallback());
+
+  media::SpeechRecognitionResult transcript1(kTranscriptText,
+                                             /*is_final=*/true);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript1, kLanguage));
+  authed_client.WaitForRequest();
+  authed_client.ExecuteResponseCallback(
+      base::unexpected(TachyonRequestError::kHttpError));
+
+  media::SpeechRecognitionResult transcript2(kTranscriptText,
+                                             /*is_final=*/false);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript2, kLanguage));
+  authed_client.WaitForRequest();
+  authed_client.ExecuteResponseCallback(
+      base::unexpected(TachyonRequestError::kHttpError));
+
+  media::SpeechRecognitionResult transcript3(kTranscriptText,
+                                             /*is_final=*/false);
+  EXPECT_FALSE(sender.SendTranscriptionUpdate(transcript3, kLanguage));
+
+  EXPECT_TRUE(failure_future.IsReady());
+}
+
+TEST(TranscriptSenderTest, ResetErrorCountOnSuccess) {
+  base::test::TaskEnvironment task_environment;
+  const int kMaxAllowedChar = 26;
+  const std::string kTranscriptText = "hello1 hello2 hello3";
+  FakeTachyonAuthedClient authed_client;
+  FakeTachyonRequestDataProvider request_data_provider;
+  base::test::TestFuture<void> failure_future;
+  TranscriptSender sender(
+      &authed_client, &request_data_provider,
+      base::Time::FromMillisecondsSinceUnixEpoch(kInitTimestampMs),
+      kSenderEmail, TRAFFIC_ANNOTATION_FOR_TESTS,
+      {.max_allowed_char = kMaxAllowedChar, .max_errors_num = 2},
+      failure_future.GetCallback());
+
+  // Failed request
+  media::SpeechRecognitionResult transcript1(kTranscriptText,
+                                             /*is_final=*/true);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript1, kLanguage));
+  authed_client.WaitForRequest();
+  authed_client.ExecuteResponseCallback(
+      base::unexpected(TachyonRequestError::kHttpError));
+
+  // Successful request, should reset error count.
+  media::SpeechRecognitionResult transcript2(kTranscriptText,
+                                             /*is_final=*/false);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript2, kLanguage));
+  authed_client.WaitForRequest();
+  authed_client.ExecuteResponseCallback(
+      InboxSendResponse().SerializeAsString());
+
+  // Failed request, should not trigger failure callback since the error count
+  // was reset.
+  media::SpeechRecognitionResult transcript3(kTranscriptText,
+                                             /*is_final=*/false);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript3, kLanguage));
+  authed_client.WaitForRequest();
+  authed_client.ExecuteResponseCallback(
+      base::unexpected(TachyonRequestError::kHttpError));
+
+  EXPECT_FALSE(failure_future.IsReady());
+}
+
+TEST(TranscriptSenderTest, InflightRequestsAreHandledOnFailure) {
+  base::test::TaskEnvironment task_environment;
+  const int kMaxAllowedChar = 26;
+  const std::string kTranscriptText = "hello1 hello2 hello3";
+  FakeTachyonAuthedClient authed_client;
+  FakeTachyonRequestDataProvider request_data_provider;
+  base::test::TestFuture<void> failure_future;
+  TranscriptSender sender(
+      &authed_client, &request_data_provider,
+      base::Time::FromMillisecondsSinceUnixEpoch(kInitTimestampMs),
+      kSenderEmail, TRAFFIC_ANNOTATION_FOR_TESTS,
+      {.max_allowed_char = kMaxAllowedChar, .max_errors_num = 2},
+      failure_future.GetCallback());
+
+  media::SpeechRecognitionResult transcript1(kTranscriptText,
+                                             /*is_final=*/true);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript1, kLanguage));
+  authed_client.WaitForRequest();
+  RequestDataWrapper::ResponseCallback response_cb1 =
+      authed_client.TakeResponseCallback();
+
+  media::SpeechRecognitionResult transcript2(kTranscriptText,
+                                             /*is_final=*/false);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript2, kLanguage));
+  authed_client.WaitForRequest();
+  RequestDataWrapper::ResponseCallback response_cb2 =
+      authed_client.TakeResponseCallback();
+
+  media::SpeechRecognitionResult transcript3(kTranscriptText,
+                                             /*is_final=*/false);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript3, kLanguage));
+  authed_client.WaitForRequest();
+  RequestDataWrapper::ResponseCallback response_cb3 =
+      authed_client.TakeResponseCallback();
+
+  std::move(response_cb1)
+      .Run(base::unexpected(TachyonRequestError::kHttpError));
+  std::move(response_cb2)
+      .Run(base::unexpected(TachyonRequestError::kHttpError));
+
+  EXPECT_TRUE(failure_future.IsReady());
+
+  std::move(response_cb3)
+      .Run(base::unexpected(TachyonRequestError::kHttpError));
+
+  media::SpeechRecognitionResult transcript4(kTranscriptText,
+                                             /*is_final=*/false);
+  EXPECT_FALSE(sender.SendTranscriptionUpdate(transcript3, kLanguage));
 }
 
 TEST_P(TranscriptSenderTest, SendTwoMessages) {
@@ -155,17 +307,19 @@ TEST_P(TranscriptSenderTest, SendTwoMessages) {
   FakeTachyonAuthedClient authed_client;
   InboxSendRequest sent_request2;
   FakeTachyonRequestDataProvider request_data_provider;
-  TranscriptSender sender(&authed_client, &request_data_provider, kSenderEmail,
-                          TRAFFIC_ANNOTATION_FOR_TESTS,
-                          GetParam().max_allowed_char);
+  TranscriptSender sender(
+      &authed_client, &request_data_provider,
+      base::Time::FromMillisecondsSinceUnixEpoch(kInitTimestampMs),
+      kSenderEmail, TRAFFIC_ANNOTATION_FOR_TESTS,
+      {.max_allowed_char = GetParam().max_allowed_char}, base::DoNothing());
 
   media::SpeechRecognitionResult transcript1(GetParam().transcript1,
                                              /*is_final=*/false);
-  sender.SendTranscriptionUpdate(transcript1, kLanguage);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript1, kLanguage));
   authed_client.WaitForRequest();
   media::SpeechRecognitionResult transcript2(GetParam().transcript2,
                                              /*is_final=*/true);
-  sender.SendTranscriptionUpdate(transcript2, kLanguage);
+  EXPECT_TRUE(sender.SendTranscriptionUpdate(transcript2, kLanguage));
   authed_client.WaitForRequest();
 
   BabelOrcaMessage message2;

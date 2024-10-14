@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
+#include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_prefs.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_sync_handler.h"
 #include "chrome/browser/ui/webui/webui_util.h"
@@ -33,6 +34,7 @@
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "ui/base/accelerators/accelerator.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/views/style/platform_style.h"
 #include "ui/webui/color_change_listener/color_change_handler.h"
@@ -92,7 +94,7 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"searchTabs", IDS_TAB_SEARCH_SEARCH_TABS},
       {"tabCount", IDS_TAB_SEARCH_TAB_COUNT},
       {"tabSearchTabName", IDS_TAB_SEARCH_TAB_NAME},
-      // Tab organization UI strings
+      // Auto tab groups UI strings
       {"clearAriaLabel", IDS_TAB_ORGANIZATION_CLEAR_ARIA_LABEL},
       {"clearSuggestions", IDS_TAB_ORGANIZATION_CLEAR_SUGGESTIONS},
       {"createGroup", IDS_TAB_ORGANIZATION_CREATE_GROUP},
@@ -150,6 +152,13 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"tipTitle", IDS_TAB_ORGANIZATION_TIP_TITLE},
       {"thumbsDown", IDS_TAB_ORGANIZATION_THUMBS_DOWN},
       {"thumbsUp", IDS_TAB_ORGANIZATION_THUMBS_UP},
+      // Declutter UI strings
+      {"declutterTitle", IDS_DECLUTTER_TITLE},
+      // Selector UI strings
+      {"autoTabGroupsSelectorHeading", IDS_AUTO_TAB_GROUPS_SELECTOR_HEADING},
+      {"autoTabGroupsSelectorSubheading",
+       IDS_AUTO_TAB_GROUPS_SELECTOR_SUBHEADING},
+      {"declutterSelectorSubheading", IDS_DECLUTTER_SELECTOR_SUBHEADING},
   };
   source->AddLocalizedStrings(kStrings);
   source->AddBoolean("useRipples", views::PlatformStyle::kUseRipples);
@@ -181,19 +190,30 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
 
   source->AddInteger("tabIndex", TabIndex());
   source->AddBoolean("showTabOrganizationFRE", ShowTabOrganizationFRE());
-  source->AddBoolean("declutterEnabled", features::IsTabstripDeclutter());
+  source->AddBoolean("declutterEnabled",
+                     features::IsTabstripDeclutterEnabled());
 
   ui::Accelerator accelerator(ui::VKEY_A,
                               ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR);
   source->AddString("shortcutText", accelerator.GetShortcutText());
+  // TODO(b/362269642): Once the stale threshold duration is Finch-
+  // configurable, replace the hardcoded 7 below with the value of that
+  // parameter.
+  source->AddString("declutterBody",
+                    l10n_util::GetStringFUTF16(IDS_DECLUTTER_BODY, u"7")),
 
-  webui::SetupWebUIDataSource(
-      source, base::make_span(kTabSearchResources, kTabSearchResourcesSize),
-      IDR_TAB_SEARCH_TAB_SEARCH_HTML);
+      webui::SetupWebUIDataSource(
+          source, base::make_span(kTabSearchResources, kTabSearchResourcesSize),
+          IDR_TAB_SEARCH_TAB_SEARCH_HTML);
 
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
+
+  auto plural_string_handler = std::make_unique<PluralStringHandler>();
+  plural_string_handler->AddLocalizedString("declutterSelectorHeading",
+                                            IDS_DECLUTTER_SELECTOR_HEADING);
+  web_ui->AddMessageHandler(std::move(plural_string_handler));
 
   web_ui->AddMessageHandler(std::make_unique<TabSearchSyncHandler>(profile));
 

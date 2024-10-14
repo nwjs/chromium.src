@@ -13,10 +13,13 @@
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
+#include "base/values.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/net_export.h"
 #include "net/base/network_change_notifier.h"
 #include "net/base/request_priority.h"
+#include "net/http/alternative_service.h"
+#include "net/http/http_stream_pool_switching_info.h"
 #include "net/http/http_stream_request.h"
 #include "net/socket/next_proto.h"
 #include "net/socket/ssl_client_socket.h"
@@ -39,6 +42,27 @@ class NET_EXPORT_PRIVATE HttpStreamPool
     : public NetworkChangeNotifier::IPAddressObserver,
       public SSLClientContext::Observer {
  public:
+  // Indicates whether per pool/group limits should be respected or not.
+  enum class RespectLimits {
+    kRespect,
+    kIgnore,
+  };
+
+  // Observes events on the HttpStreamPool and may intercept preconnects. Used
+  // only for tests.
+  class NET_EXPORT_PRIVATE TestDelegate {
+   public:
+    virtual ~TestDelegate() = default;
+
+    // Called when a stream is requested.
+    virtual void OnRequestStream(const HttpStreamKey& stream_key) = 0;
+
+    // Called when a preconnect is requested. When returns a non-nullopt value,
+    // the preconnect completes with the value.
+    virtual std::optional<int> OnPreconnect(const HttpStreamKey& stream_key,
+                                            size_t num_streams) = 0;
+  };
+
   // Reasons for closing streams.
   static constexpr std::string_view kIpAddressChanged = "IP address changed";
   static constexpr std::string_view kSslConfigChanged =
@@ -68,8 +92,10 @@ class NET_EXPORT_PRIVATE HttpStreamPool
   static constexpr base::TimeDelta kConnectionAttemptDelay =
       base::Milliseconds(250);
 
-  class NET_EXPORT_PRIVATE Group;
   class NET_EXPORT_PRIVATE Job;
+  class NET_EXPORT_PRIVATE JobController;
+  class NET_EXPORT_PRIVATE Group;
+  class NET_EXPORT_PRIVATE AttemptManager;
   class NET_EXPORT_PRIVATE QuicTask;
 
   explicit HttpStreamPool(HttpNetworkSession* http_network_session,
@@ -83,19 +109,17 @@ class NET_EXPORT_PRIVATE HttpStreamPool
   // Requests an HttpStream.
   std::unique_ptr<HttpStreamRequest> RequestStream(
       HttpStreamRequest::Delegate* delegate,
-      const HttpStreamKey& stream_key,
+      HttpStreamPoolSwitchingInfo switching_info,
       RequestPriority priority,
       const std::vector<SSLConfig::CertAndStatus>& allowed_bad_certs,
       bool enable_ip_based_pooling,
       bool enable_alternative_services,
-      quic::ParsedQuicVersion quic_version,
       const NetLogWithSource& net_log);
 
   // Requests that enough connections/sessions for `num_streams` be opened.
   // `callback` is only invoked when the return value is `ERR_IO_PENDING`.
-  int Preconnect(const HttpStreamKey& stream_key,
+  int Preconnect(HttpStreamPoolSwitchingInfo switching_info,
                  size_t num_streams,
-                 quic::ParsedQuicVersion quic_version,
                  CompletionOnceCallback callback);
 
   // Increments/Decrements the total number of idle streams in this pool.
@@ -122,6 +146,9 @@ class NET_EXPORT_PRIVATE HttpStreamPool
            total_connecting_stream_count_;
   }
 
+  // Closes all streams in this pool and cancels all pending requests.
+  void FlushWithError(int error, std::string_view net_log_close_reason_utf8);
+
   void CloseIdleStreams(std::string_view net_log_close_reason_utf8);
 
   bool ReachedMaxStreamLimit() const {
@@ -143,6 +170,9 @@ class NET_EXPORT_PRIVATE HttpStreamPool
   // Called when a group has completed.
   void OnGroupComplete(Group* group);
 
+  // Called when a JobController has completed.
+  void OnJobControllerComplete(JobController* job_controller);
+
   // Checks if there are any pending requests in groups and processes them. If
   // `this` reached the maximum number of streams, it will try to close idle
   // streams before processing pending requests.
@@ -162,6 +192,11 @@ class NET_EXPORT_PRIVATE HttpStreamPool
                                  const QuicSessionKey& quic_session_key,
                                  bool enable_ip_based_pooling,
                                  bool enable_alternative_services);
+
+  // Retrieves information on the current state of the pool as a base::Value.
+  base::Value::Dict GetInfoAsValue() const;
+
+  void SetDelegateForTesting(std::unique_ptr<TestDelegate> observer);
 
   Group& GetOrCreateGroupForTesting(const HttpStreamKey& stream_key);
 
@@ -191,10 +226,14 @@ class NET_EXPORT_PRIVATE HttpStreamPool
     max_stream_sockets_per_group_ = max_stream_sockets_per_group;
   }
 
+  Group& GetOrCreateGroup(const HttpStreamKey& stream_key);
+
+  size_t JobControllerCountForTesting() const {
+    return job_controllers_.size();
+  }
+
  private:
   class PooledStreamRequestHelper;
-
-  Group& GetOrCreateGroup(const HttpStreamKey& stream_key);
 
   Group* GetGroup(const HttpStreamKey& stream_key);
 
@@ -244,6 +283,11 @@ class NET_EXPORT_PRIVATE HttpStreamPool
   std::set<std::unique_ptr<PooledStreamRequestHelper>,
            base::UniquePtrComparator>
       pooled_stream_request_helpers_;
+
+  std::set<std::unique_ptr<JobController>, base::UniquePtrComparator>
+      job_controllers_;
+
+  std::unique_ptr<TestDelegate> delegate_for_testing_;
 };
 
 }  // namespace net

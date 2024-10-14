@@ -23,7 +23,7 @@
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/model/web_state_list/test/fake_web_state_list_delegate.h"
 #import "ios/chrome/browser/shared/model/web_state_list/test/web_state_list_builder_from_description.h"
@@ -778,6 +778,21 @@ TEST_F(TabGroupLocalUpdateObserverTest, DeleteGroupAfterRemovingLastTtab) {
       .Times(0);
   EXPECT_CALL(*mock_service_, RemoveGroup(tab_group_id));
   web_state_list->CloseWebStateAt(/*index*/ 0, WebStateList::CLOSE_NO_FLAGS);
+}
+
+// Tests that the service is correctly called when the active tab is updated.
+TEST_F(TabGroupLocalUpdateObserverTest, UpdateActiveTab) {
+  WebStateList* web_state_list = browser_->GetWebStateList();
+  WebStateListBuilderFromDescription builder(web_state_list);
+  ASSERT_TRUE(builder.BuildWebStateListFromDescription("| [0 a b] c* d e f"));
+
+  const TabGroup* group = builder.GetTabGroupForIdentifier('0');
+  web::WebState* web_state_a = builder.GetWebStateForIdentifier('a');
+
+  EXPECT_CALL(*mock_service_,
+              OnTabSelected(group->tab_group_id(),
+                            web_state_a->GetUniqueIdentifier().identifier()));
+  web_state_list->ActivateWebStateAt(0);
 }
 
 }  // namespace tab_groups

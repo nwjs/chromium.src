@@ -18,6 +18,10 @@ StubBirchClient::StubDataProvider::StubDataProvider() = default;
 
 StubBirchClient::StubDataProvider::~StubDataProvider() = default;
 
+void StubBirchClient::StubDataProvider::RunDataProviderChangedCallback() {
+  NotifyDataProviderChanged();
+}
+
 void StubBirchClient::StubDataProvider::RequestBirchDataFetch() {
   did_request_birch_data_fetch_ = true;
 }
@@ -131,4 +135,9 @@ void StubBirchClient::GetFaviconImage(
   did_get_favicon_image_ = true;
   std::move(callback).Run(ui::ImageModel());
 }
+
+ui::ImageModel StubBirchClient::GetChromeBackupIcon() {
+  return ui::ImageModel();
+}
+
 }  // namespace ash

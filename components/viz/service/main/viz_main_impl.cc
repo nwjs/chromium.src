@@ -42,7 +42,7 @@ std::unique_ptr<base::Thread> CreateAndStartIOThread() {
   base::Thread::Options thread_options(base::MessagePumpType::IO, 0);
   // TODO(reveman): Remove this in favor of setting it explicitly for each
   // type of process.
-  thread_options.thread_type = base::ThreadType::kCompositing;
+  thread_options.thread_type = base::ThreadType::kDisplayCritical;
   auto io_thread = std::make_unique<base::Thread>("GpuIOThread");
   CHECK(io_thread->StartWithOptions(std::move(thread_options)));
 
@@ -88,7 +88,7 @@ VizMainImpl::VizMainImpl(Delegate* delegate,
   // split into separate processes. Until then this is necessary to be able to
   // run Mushrome (chrome with mus) with Mus running in the browser process.
   if (dependencies_.power_monitor_source) {
-    base::PowerMonitor::Initialize(
+    base::PowerMonitor::GetInstance()->Initialize(
         std::move(dependencies_.power_monitor_source));
   }
 
@@ -130,6 +130,8 @@ VizMainImpl::VizMainImpl(Delegate* delegate,
       gpu_init_->gpu_feature_info(), gpu_init_->gpu_info_for_hardware_gpu(),
       gpu_init_->gpu_feature_info_for_hardware_gpu(),
       gpu_init_->gpu_extra_info(), std::move(init_params));
+  gpu_service_->SetRequestBeginFrameForGpuServiceCB(base::BindRepeating(
+      &VizMainImpl::RequestBeginFrameForGpuService, base::Unretained(this)));
   VizDebugger::GetInstance();
 }
 
@@ -311,6 +313,11 @@ void VizMainImpl::CreateFrameSinkManagerInternal(
 
   viz_compositor_thread_runner_->CreateFrameSinkManager(std::move(params),
                                                         gpu_service_.get());
+}
+
+void VizMainImpl::RequestBeginFrameForGpuService(bool toggle) {
+  DCHECK(gpu_thread_task_runner_->BelongsToCurrentThread());
+  viz_compositor_thread_runner_->RequestBeginFrameForGpuService(toggle);
 }
 
 #if BUILDFLAG(USE_VIZ_DEBUGGER)

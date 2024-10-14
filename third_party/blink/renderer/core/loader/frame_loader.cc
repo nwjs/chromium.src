@@ -385,6 +385,13 @@ void FrameLoader::SaveScrollState() {
 
 void FrameLoader::DispatchUnloadEventAndFillOldDocumentInfoIfNeeded(
     bool will_commit_new_document_in_this_frame) {
+  TRACE_EVENT0("navigation",
+               "FrameLoader::DispatchUnloadEventAndFillOldDocInfo");
+  const std::string_view histogram_suffix =
+      will_commit_new_document_in_this_frame ? "CommitInFrame" : "Other";
+  base::ScopedUmaHistogramTimer histogram_timer(base::StrCat(
+      {"Navigation.FrameLoader.DispatchUnloadEventAndFillOldDocInfo.",
+       histogram_suffix}));
   FrameNavigationDisabler navigation_disabler(*frame_);
   SaveScrollState();
 
@@ -526,10 +533,11 @@ void FrameLoader::ProcessScrollForSameDocumentNavigation(
     const KURL& url,
     WebFrameLoadType frame_load_type,
     std::optional<HistoryItem::ViewState> view_state,
-    mojom::blink::ScrollRestorationType scroll_restoration_type) {
+    mojom::blink::ScrollRestorationType scroll_restoration_type,
+    mojom::blink::ScrollBehavior scroll_behavior) {
   if (view_state) {
     RestoreScrollPositionAndViewState(frame_load_type, *view_state,
-                                      scroll_restoration_type);
+                                      scroll_restoration_type, scroll_behavior);
   }
 
   // We need to scroll to the fragment whether or not a hash change occurred,
@@ -1072,6 +1080,9 @@ void FrameLoader::CommitNavigation(
     std::unique_ptr<WebNavigationParams> navigation_params,
     std::unique_ptr<WebDocumentLoader::ExtraData> extra_data,
     CommitReason commit_reason) {
+  TRACE_EVENT0("navigation", "FrameLoader::CommitNavigation");
+  base::ScopedUmaHistogramTimer histogram_timer(
+      "Navigation.FrameLoader.CommitNavigation");
   DCHECK(document_loader_);
   DCHECK(frame_->GetDocument());
   DCHECK(Client()->HasWebView());
@@ -1130,8 +1141,12 @@ void FrameLoader::CommitNavigation(
   if (commit_reason == CommitReason::kXSLT ||
       commit_reason == CommitReason::kJavascriptUrl ||
       commit_reason == CommitReason::kDiscard) {
+    // It is important to clone the previous loader's ExtraData instead of
+    // extracting it since it may be needed to handle operations in the
+    // document's unload handler (such as same-site navigation, see
+    // crbug.com/361658816).
     DCHECK(!extra_data);
-    extra_data = document_loader_->TakeExtraData();
+    extra_data = document_loader_->CloneExtraData();
   }
 
   // Create the OldDocumentInfoForCommit for the old document (that might be in
@@ -1307,6 +1322,9 @@ void FrameLoader::DidAccessInitialDocument() {
 }
 
 bool FrameLoader::DetachDocument() {
+  TRACE_EVENT0("navigation", "FrameLoader::DetachDocument");
+  base::ScopedUmaHistogramTimer histogram_timer(
+      "Navigation.FrameLoader.DetachDocument");
   DCHECK(frame_->GetDocument());
   DCHECK(document_loader_);
 
@@ -1364,7 +1382,9 @@ bool FrameLoader::DetachDocument() {
 void FrameLoader::CommitDocumentLoader(DocumentLoader* document_loader,
                                        HistoryItem* previous_history_item,
                                        CommitReason commit_reason) {
-  TRACE_EVENT("blink", "FrameLoader::CommitDocumentLoader");
+  TRACE_EVENT0("navigation", "FrameLoader::CommitDocumentLoader");
+  base::ScopedUmaHistogramTimer histogram_timer(
+      "Navigation.FrameLoader.CommitDocumentLoader");
   base::ElapsedTimer timer;
   document_loader_ = document_loader;
   CHECK(document_loader_);
@@ -1419,16 +1439,25 @@ void FrameLoader::RestoreScrollPositionAndViewState() {
       !GetDocumentLoader()->NavigationScrollAllowed()) {
     return;
   }
+
+  // We need to suppress scroll restoration animations for navigations with
+  // visual transitions for the same-document case only. This is done in
+  // ProcessScrollForSameDocumentNavigation.
+  //
+  // For cross-document navigations (which take this path) the animation is
+  // suppressed by default.
   RestoreScrollPositionAndViewState(
       GetDocumentLoader()->LoadType(),
       *GetDocumentLoader()->GetHistoryItem()->GetViewState(),
-      GetDocumentLoader()->GetHistoryItem()->ScrollRestorationType());
+      GetDocumentLoader()->GetHistoryItem()->ScrollRestorationType(),
+      mojom::blink::ScrollBehavior::kAuto);
 }
 
 void FrameLoader::RestoreScrollPositionAndViewState(
     WebFrameLoadType load_type,
     const HistoryItem::ViewState& view_state,
-    mojom::blink::ScrollRestorationType scroll_restoration_type) {
+    mojom::blink::ScrollRestorationType scroll_restoration_type,
+    mojom::blink::ScrollBehavior scroll_behavior) {
   LocalFrameView* view = frame_->View();
   if (!view || !view->LayoutViewport() || !frame_->IsAttached() ||
       frame_->GetDocument()->IsInitialEmptyDocument()) {
@@ -1439,10 +1468,12 @@ void FrameLoader::RestoreScrollPositionAndViewState(
 
   view->LayoutViewport()->SetPendingHistoryRestoreScrollOffset(
       view_state,
-      scroll_restoration_type != mojom::blink::ScrollRestorationType::kManual);
+      scroll_restoration_type != mojom::blink::ScrollRestorationType::kManual,
+      scroll_behavior);
   view->GetScrollableArea()->SetPendingHistoryRestoreScrollOffset(
       view_state,
-      scroll_restoration_type != mojom::blink::ScrollRestorationType::kManual);
+      scroll_restoration_type != mojom::blink::ScrollRestorationType::kManual,
+      scroll_behavior);
 
   view->ScheduleAnimation();
 }
@@ -1711,7 +1742,8 @@ void FrameLoader::CancelClientNavigation(CancelNavigationReason reason) {
   ClearClientNavigation();
   if (WebPluginContainerImpl* plugin = frame_->GetWebPluginContainer())
     plugin->DidFailLoading(error);
-  Client()->AbortClientNavigation();
+  Client()->AbortClientNavigation(reason ==
+                                  CancelNavigationReason::kNewNavigation);
 }
 
 void FrameLoader::DispatchDocumentElementAvailable() {

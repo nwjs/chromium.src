@@ -29,6 +29,7 @@ import org.chromium.components.ip_protection_auth.common.IErrorCode;
 import org.chromium.components.ip_protection_auth.common.IIpProtectionAuthAndSignCallback;
 import org.chromium.components.ip_protection_auth.common.IIpProtectionAuthService;
 import org.chromium.components.ip_protection_auth.common.IIpProtectionGetInitialDataCallback;
+import org.chromium.components.ip_protection_auth.common.IIpProtectionGetProxyConfigCallback;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -77,9 +78,9 @@ public final class IpProtectionAuthClient implements AutoCloseable {
 
     /** This class must be used exclusively from the main thread. */
     private static final class ConnectionSetup implements ServiceConnection {
+        @NonNull private final Context mContext;
         @Nullable private IpProtectionAuthServiceCallback mCallback;
-        private final Context mContext;
-        private IpProtectionAuthClient mIpProtectionClient;
+        @Nullable private IpProtectionAuthClient mIpProtectionClient;
         private boolean mBound;
 
         ConnectionSetup(
@@ -113,8 +114,10 @@ public final class IpProtectionAuthClient implements AutoCloseable {
             try (TraceEvent event =
                     TraceEvent.scoped("IpProtectionAuthClient.Create.OnServiceDisconnected")) {
                 unbindIfBound();
-                mIpProtectionClient.mCallbackTracker.rejectUnresolvedCallbacks(
-                        AuthRequestError.OTHER);
+                if (mIpProtectionClient != null) {
+                    mIpProtectionClient.mCallbackTracker.rejectUnresolvedCallbacks(
+                            AuthRequestError.OTHER);
+                }
             }
         }
 
@@ -123,8 +126,10 @@ public final class IpProtectionAuthClient implements AutoCloseable {
             try (TraceEvent event =
                     TraceEvent.scoped("IpProtectionAuthClient.Create.OnBindingDied")) {
                 unbindIfBound();
-                mIpProtectionClient.mCallbackTracker.rejectUnresolvedCallbacks(
-                        AuthRequestError.OTHER);
+                if (mIpProtectionClient != null) {
+                    mIpProtectionClient.mCallbackTracker.rejectUnresolvedCallbacks(
+                            AuthRequestError.OTHER);
+                }
             }
         }
 
@@ -307,6 +312,30 @@ public final class IpProtectionAuthClient implements AutoCloseable {
         }
     }
 
+    private final class IIpProtectionGetProxyConfigCallbackStub
+            extends IIpProtectionGetProxyConfigCallback.Stub {
+        private final CallbackTracker.TrackedCallback mCallback;
+
+        IIpProtectionGetProxyConfigCallbackStub(CallbackTracker.TrackedCallback callback) {
+            mCallback = callback;
+        }
+
+        @Override
+        public void reportResult(byte[] bytes) {
+            if (bytes == null) {
+                Log.e(TAG, "null getProxyConfig response");
+                mCallback.onError(AuthRequestError.OTHER);
+                return;
+            }
+            mCallback.onResult(bytes);
+        }
+
+        @Override
+        public void reportError(int errorCode) {
+            mCallback.onError(convertErrorCodeToAuthRequestError(errorCode));
+        }
+    }
+
     IpProtectionAuthClient(
             @NonNull ConnectionSetup connectionSetup,
             @NonNull IIpProtectionAuthService ipProtectionAuthService) {
@@ -431,6 +460,29 @@ public final class IpProtectionAuthClient implements AutoCloseable {
                 mService.authAndSign(request, callbackStub);
             } catch (RuntimeException | RemoteException ex) {
                 Log.e(TAG, "error calling authAndSign", ex);
+                trackedCallback.onError(AuthRequestError.OTHER);
+            }
+        }
+    }
+
+    // See documentation in native IpProtectionAuthClient::GetProxyConfig
+    @CalledByNative
+    public void getProxyConfig(byte[] request, IpProtectionByteArrayCallback callback) {
+        try (TraceEvent event =
+                TraceEvent.scoped("IpProtectionAuthClient.Request.GetProxyConfig")) {
+            if (mService == null) {
+                // This denotes a coding error by the caller so it makes sense to throw an
+                // unchecked exception.
+                throw new IllegalStateException("Already closed");
+            }
+            CallbackTracker.TrackedCallback trackedCallback =
+                    mCallbackTracker.wrapCallback(callback);
+            IIpProtectionGetProxyConfigCallbackStub callbackStub =
+                    new IIpProtectionGetProxyConfigCallbackStub(trackedCallback);
+            try {
+                mService.getProxyConfig(request, callbackStub);
+            } catch (RuntimeException | RemoteException ex) {
+                Log.e(TAG, "error calling getProxyConfig", ex);
                 trackedCallback.onError(AuthRequestError.OTHER);
             }
         }

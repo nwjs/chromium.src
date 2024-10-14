@@ -123,7 +123,6 @@
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/crosapi/browser_data_migrator.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/ui/ash/browser_data_migration_error_dialog.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_context_menu.h"
 #include "chrome/browser/ui/browser_commands_chromeos.h"
 #include "chromeos/ash/components/standalone_browser/migrator_util.h"
@@ -192,6 +191,10 @@ bool CanOpenFile(Browser* browser) {
     return local_state->GetBoolean(prefs::kAllowFileSelectionDialogs);
 
   return true;
+}
+
+void InvokeAction(actions::ActionId id, actions::ActionItem* scope) {
+  actions::ActionManager::Get().FindAction(id, scope)->InvokeAction();
 }
 
 }  // namespace
@@ -704,9 +707,16 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
 
     // Clipboard commands
     case IDC_CUT:
+      InvokeAction(actions::kActionCut,
+                   browser_->GetActions()->root_action_item());
+      break;
     case IDC_COPY:
+      InvokeAction(actions::kActionCopy,
+                   browser_->GetActions()->root_action_item());
+      break;
     case IDC_PASTE:
-      CutCopyPaste(browser_, id);
+      InvokeAction(actions::kActionPaste,
+                   browser_->GetActions()->root_action_item());
       break;
 
     // Find-in-page
@@ -929,31 +939,6 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       ShowSettingsSubPage(browser_->GetBrowserForOpeningWebUi(),
                           chrome::kSafetyHubSubPage);
       break;
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-    case IDC_LACROS_DATA_MIGRATION: {
-      auto* user_manager = user_manager::UserManager::Get();
-      const auto* user = user_manager->GetPrimaryUser();
-      DCHECK(user);
-      // Unset local state holding the internal state of the previous migration
-      // attempts used to avoid the infinite loop of the migration.
-      // Because user explicitly triggered the migration so we should try to
-      // run it always.
-      ash::BrowserDataMigratorImpl::ClearMigrationStep(
-          user_manager->GetLocalState());
-      ash::standalone_browser::migrator_util::ClearMigrationAttemptCountForUser(
-          user_manager->GetLocalState(), user->username_hash());
-      ash::BrowserDataMigratorImpl::MaybeRestartToMigrateWithDiskCheck(
-          user->GetAccountId(), user->username_hash(),
-          base::BindOnce(
-              [](bool result, const std::optional<uint64_t>& required_size) {
-                if (!result && required_size.has_value())
-                  ash::OpenBrowserDataMigrationErrorDialog(*required_size);
-              }));
-      break;
-    }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
     case IDC_HELP_PAGE_VIA_KEYBOARD:
       ShowHelp(browser_, HELP_SOURCE_KEYBOARD);
       break;
@@ -1018,7 +1003,7 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     // Hosted App commands
     case IDC_COPY_URL:
-      CopyURL(browser_->tab_strip_model()->GetActiveWebContents());
+      CopyURL(browser_, browser_->tab_strip_model()->GetActiveWebContents());
       break;
     case IDC_OPEN_IN_CHROME:
       OpenInChrome(browser_);
@@ -1426,9 +1411,6 @@ void BrowserCommandController::InitCommandState() {
   // These are always enabled; the menu determines their menu item visibility.
   command_updater_.UpdateCommandEnabled(IDC_UPGRADE_DIALOG, true);
   command_updater_.UpdateCommandEnabled(IDC_SET_BROWSER_AS_DEFAULT, true);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  command_updater_.UpdateCommandEnabled(IDC_LACROS_DATA_MIGRATION, true);
-#endif
 
   // Safety Hub commands.
   command_updater_.UpdateCommandEnabled(
@@ -1563,8 +1545,20 @@ void BrowserCommandController::UpdateCommandsForExtensionsMenu() {
 }
 
 void BrowserCommandController::UpdateCommandsForTabState() {
-  if (is_locked_fullscreen_)
+  // Keep commands disabled when in locked fullscreen so users cannot exit this
+  // mode. Only update navigation ones when the webapp is locked for OnTask
+  // (only relevant for non-web browser scenarios).
+  // TODO(b/365146870): Remove once we consolidate locked fullscreen with
+  // OnTask.
+  bool skip_all_command_updates = is_locked_fullscreen_;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (browser_->IsLockedForOnTask()) {
+    skip_all_command_updates = false;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+  if (skip_all_command_updates) {
     return;
+  }
 
   content::WebContents* current_web_contents =
       browser_->tab_strip_model()->GetActiveWebContents();
@@ -1578,6 +1572,13 @@ void BrowserCommandController::UpdateCommandsForTabState() {
   command_updater_.UpdateCommandEnabled(IDC_RELOAD, can_reload);
   command_updater_.UpdateCommandEnabled(IDC_RELOAD_BYPASSING_CACHE, can_reload);
   command_updater_.UpdateCommandEnabled(IDC_RELOAD_CLEARING_CACHE, can_reload);
+  if (is_locked_fullscreen_) {
+    // Skip other command updates.
+    // NOTE: If new commands are being added, please add them after this
+    // conditional and notify the ChromeOS team by filing a bug under this
+    // component -- b/?q=componentid:1389107.
+    return;
+  }
 
   // Window management commands
   bool is_app = browser_->is_type_app() || browser_->is_type_app_popup();
@@ -1630,9 +1631,8 @@ void BrowserCommandController::UpdateCommandsForTabState() {
                                 can_translate);
 #endif
 
-  bool is_isolated_app = current_web_contents->GetPrimaryMainFrame()
-                             ->GetWebExposedIsolationLevel() ==
-                         WebExposedIsolationLevel::kIsolatedApplication;
+  bool is_isolated_app = browser_->app_controller() &&
+                         browser_->app_controller()->IsIsolatedWebApp();
   bool is_pinned_home_tab = web_app::IsPinnedHomeTab(
       browser_->tab_strip_model(), browser_->tab_strip_model()->active_index());
   command_updater_.UpdateCommandEnabled(
@@ -1868,6 +1868,17 @@ void BrowserCommandController::UpdateCommandsForLockedFullscreenMode() {
 #if DCHECK_IS_ON()
     NonAllowlistedCommandsAreDisabled(&command_updater_);
 #endif
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    // Enable commands that allow users to switch between tabs if the webapp is
+    // locked for OnTask (only relevant for non-web browser scenarios).
+    if (browser_->IsLockedForOnTask()) {
+      bool supports_tabs =
+          browser_->SupportsWindowFeature(Browser::FEATURE_TABSTRIP);
+      command_updater_.UpdateCommandEnabled(IDC_SELECT_NEXT_TAB, supports_tabs);
+      command_updater_.UpdateCommandEnabled(IDC_SELECT_PREVIOUS_TAB,
+                                            supports_tabs);
+    }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   } else {
     // Do an init call to re-initialize command state after the
     // DisableAllCommands.
@@ -1970,6 +1981,12 @@ void BrowserCommandController::UpdateCommandsForWebContentsFocus() {
 }
 
 void BrowserCommandController::UpdateCommandsForTabStripStateChanged() {
+  if (is_locked_fullscreen_) {
+    // Keep tab management commands disabled when in locked fullscreen so users
+    // cannot exit this mode. Only relevant for non-web browser scenarios.
+    return;
+  }
+
   int tab_index = browser_->tab_strip_model()->active_index();
   // No commands are updated if there is not yet any selected tab.
   if (tab_index == TabStripModel::kNoTab) {
@@ -2032,7 +2049,8 @@ void BrowserCommandController::ShowCustomizeChromeSidePanel(
   customize_chrome::SidePanelController* side_panel_controller =
       tab->tab_features()->customize_chrome_side_panel_controller();
 
-  if (!side_panel_controller) {
+  if (!side_panel_controller ||
+      !side_panel_controller->IsCustomizeChromeEntryAvailable()) {
     return;
   }
 

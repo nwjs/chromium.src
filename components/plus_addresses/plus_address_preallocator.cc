@@ -134,18 +134,44 @@ void PlusAddressPreallocator::AllocatePlusAddress(
   ProcessAllocationRequests(/*is_user_triggered=*/true);
 }
 
+std::optional<PlusProfile>
+PlusAddressPreallocator::AllocatePlusAddressSynchronously(
+    const url::Origin& origin,
+    AllocationMode mode) {
+  auto facet = affiliations::FacetURI::FromPotentiallyInvalidSpec(
+      origin.GetURL().spec());
+  if (!facet.is_valid()) {
+    return std::nullopt;
+  }
+  if (!IsEnabled()) {
+    return std::nullopt;
+  }
+  if (!requests_.empty()) {
+    return std::nullopt;
+  }
+
+  if (std::optional<PlusAddress> address = GetNextPreallocatedPlusAddress()) {
+    return std::make_optional<PlusProfile>(
+        /*profile_id=*/std::nullopt,
+        /*facet=*/std::move(facet),
+        /*plus_address=*/std::move(address).value(),
+        /*is_confirmed=*/false);
+  }
+  return std::nullopt;
+}
+
 bool PlusAddressPreallocator::IsRefreshingSupported(
     const url::Origin& origin) const {
   return true;
 }
 
 void PlusAddressPreallocator::RemoveAllocatedPlusAddress(
-    std::string_view plus_address) {
+    const PlusAddress& plus_address) {
   {
     ScopedListPrefUpdate update(&pref_service_.get(),
                                 prefs::kPreallocatedAddresses);
     update->EraseIf([&](const base::Value& value) {
-      return *value.GetDict().FindString(kPlusAddressKey) == plus_address;
+      return *value.GetDict().FindString(kPlusAddressKey) == *plus_address;
     });
   }
   FixIndexOfNextPreallocatedAddress();
@@ -247,7 +273,7 @@ void PlusAddressPreallocator::OnReceivePreallocatedPlusAddresses(
 void PlusAddressPreallocator::ProcessAllocationRequests(
     bool is_user_triggered) {
   if (!IsEnabled()) {
-    // TODO: crbug.com/324559503 - distinguish between the signout case other
+    // TODO: crbug.com/366206137 - distinguish between the signout case other
     // reasons for errors by making `IsEnabled` return an error code. That  will
     // likely also require changing the `IsEnabledCheck`'s return type.
     ReplyToRequestsWithError(

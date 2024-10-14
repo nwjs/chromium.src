@@ -21,7 +21,7 @@
 #include "components/viz/service/viz_service_export.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
-#include "third_party/skia/include/gpu/GrBackendSemaphore.h"
+#include "third_party/skia/include/gpu/ganesh/GrBackendSemaphore.h"
 #include "ui/gfx/swap_result.h"
 
 class GrDirectContext;
@@ -177,6 +177,11 @@ class VIZ_SERVICE_EXPORT SkiaOutputDevice {
   void SetDrawTimings(base::TimeTicks submitted, base::TimeTicks started);
 
   void SetDependencyTimings(base::TimeTicks task_ready);
+
+  // Copy and return the contents of the surface owned by this device. If this
+  // output device is surfaceless, then reads back from the OS compositor tree,
+  // including non-protected overlays.
+  virtual void ReadbackForTesting(base::OnceCallback<void(SkBitmap)> callback);
 
  protected:
   // Only valid between StartSwapBuffers and FinishSwapBuffers.

@@ -26,7 +26,12 @@ BASE_DECLARE_FEATURE(kAutocompleteActionPredictorConfidenceCutoff);
 BASE_DECLARE_FEATURE(kBookmarksTreeView);
 BASE_DECLARE_FEATURE(kBookmarkTriggerForPrerender2);
 BASE_DECLARE_FEATURE(kCertificateTransparencyAskBeforeEnabling);
+BASE_DECLARE_FEATURE(kCertVerificationNetworkTime);
 BASE_DECLARE_FEATURE(kClosedTabCache);
+
+#if BUILDFLAG(IS_LINUX)
+BASE_DECLARE_FEATURE(kDbusSecretPortal);
+#endif
 
 BASE_DECLARE_FEATURE(kDestroyProfileOnBrowserClose);
 BASE_DECLARE_FEATURE(kDestroySystemProfiles);
@@ -39,6 +44,16 @@ extern const base::FeatureParam<bool> kDevToolsConsoleInsightsOptIn;
 BASE_DECLARE_FEATURE(kDevToolsFreestylerDogfood);
 extern const base::FeatureParam<std::string> kDevToolsFreestylerDogfoodModelId;
 extern const base::FeatureParam<double> kDevToolsFreestylerDogfoodTemperature;
+
+enum class DevToolsFreestylerUserTier {
+    // Users who are internal testers or validators.
+    // In future, the data from these users will be excluded from training data when logging is enabled.
+    kTesters,
+    // Users in the general public.
+    kPublic
+};
+
+extern const base::FeatureParam<DevToolsFreestylerUserTier> kDevToolsFreestylerDogfoodUserTier;
 
 BASE_DECLARE_FEATURE(kDevToolsExplainThisResourceDogfood);
 extern const base::FeatureParam<std::string>
@@ -127,7 +142,16 @@ BASE_DECLARE_FEATURE(kRegisterOsUpdateHandlerWin);
 BASE_DECLARE_FEATURE(kRestartNetworkServiceUnsandboxedForFailedLaunch);
 BASE_DECLARE_FEATURE(kSandboxExternalProtocolBlocked);
 BASE_DECLARE_FEATURE(kSandboxExternalProtocolBlockedWarning);
+
+#if BUILDFLAG(IS_LINUX)
+BASE_DECLARE_FEATURE(kSecretPortalKeyProviderUseForEncryption);
+#endif
+
 BASE_DECLARE_FEATURE(kSupportSearchSuggestionForPrerender2);
+
+#if !BUILDFLAG(IS_ANDROID)
+BASE_DECLARE_FEATURE(kTaskManagerDesktopRefresh);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 BASE_DECLARE_FEATURE(kTriggerNetworkDataMigration);
 
@@ -145,6 +169,7 @@ BASE_DECLARE_FEATURE(kBrowserDynamicCodeDisabled);
 BASE_DECLARE_FEATURE(kReportPakFileIntegrity);
 
 BASE_DECLARE_FEATURE(kRemovalOfIWAsFromTabCapture);
+
 }  // namespace features
 
 #endif  // CHROME_BROWSER_BROWSER_FEATURES_H_

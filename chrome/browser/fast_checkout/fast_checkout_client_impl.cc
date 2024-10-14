@@ -4,6 +4,7 @@
 
 #include "chrome/browser/fast_checkout/fast_checkout_client_impl.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "base/containers/flat_set.h"
@@ -59,7 +60,8 @@ autofill::AutofillField* GetFieldToFill(
     const std::vector<std::unique_ptr<autofill::AutofillField>>& fields,
     bool is_credit_card_form) {
   for (const std::unique_ptr<autofill::AutofillField>& field : fields) {
-    if (IsVisibleTextField(*field) && field->IsEmpty() &&
+    if (IsVisibleTextField(*field) &&
+        field->value(autofill::ValueSemantics::kCurrent).empty() &&
         ((!is_credit_card_form &&
           kAddressFieldTypes.contains(field->Type().group())) ||
          (is_credit_card_form &&
@@ -81,15 +83,13 @@ bool IsEmailForm(const autofill::FormStructure& form) {
   // `kAddressForm` includes email fields.
   bool is_address_form =
       form.GetFormTypes().contains(autofill::FormType::kAddressForm);
-  bool has_name_or_address_field = base::ranges::any_of(
-      form.fields().begin(), form.fields().end(),
-      [](const std::unique_ptr<autofill::AutofillField>& field) {
+  bool has_name_or_address_field = std::ranges::any_of(
+      form.fields(), [](const std::unique_ptr<autofill::AutofillField>& field) {
         autofill::FieldTypeGroup type_group = field->Type().group();
         return IsNameOrAddress(type_group) && IsVisibleTextField(*field);
       });
-  bool has_focusable_email_field = base::ranges::any_of(
-      form.fields().begin(), form.fields().end(),
-      [](const std::unique_ptr<autofill::AutofillField>& field) {
+  bool has_focusable_email_field = std::ranges::any_of(
+      form.fields(), [](const std::unique_ptr<autofill::AutofillField>& field) {
         return field->Type().group() == autofill::FieldTypeGroup::kEmail &&
                IsVisibleTextField(*field);
       });
@@ -362,13 +362,12 @@ void FastCheckoutClientImpl::OnPersonalDataChanged() {
 }
 
 bool FastCheckoutClientImpl::AllFormsAreFilled() const {
-  return base::ranges::all_of(form_filling_states_.begin(),
-                              form_filling_states_.end(),
-                              [](const auto& pair) {
-                                return pair.second == FillingState::kFilled;
-                              }) &&
-         base::ranges::all_of(
-             form_signatures_to_fill_.begin(), form_signatures_to_fill_.end(),
+  return std::ranges::all_of(form_filling_states_,
+                             [](const auto& pair) {
+                               return pair.second == FillingState::kFilled;
+                             }) &&
+         std::ranges::all_of(
+             form_signatures_to_fill_,
              [&](autofill::FormSignature form_signature) {
                return form_filling_states_.contains(std::make_pair(
                           form_signature, autofill::FormType::kAddressForm)) ||

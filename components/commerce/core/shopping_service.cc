@@ -62,6 +62,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/search/ntp_features.h"
 #include "components/session_proto_db/session_proto_storage.h"
+#include "components/sessions/core/tab_restore_service.h"
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
@@ -184,7 +185,8 @@ ShoppingService::ShoppingService(
     SessionProtoStorage<parcel_tracking_db::ParcelTrackingContent>*
         parcel_tracking_proto_db,
     history::HistoryService* history_service,
-    std::unique_ptr<commerce::WebExtractor> web_extractor)
+    std::unique_ptr<commerce::WebExtractor> web_extractor,
+    sessions::TabRestoreService* tab_restore_service)
     : country_on_startup_(country_on_startup),
       locale_on_startup_(locale_on_startup),
       opt_guide_(opt_guide),
@@ -201,6 +203,7 @@ ShoppingService::ShoppingService(
                       IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos))),
       web_extractor_(std::move(web_extractor)),
       history_service_(history_service),
+      tab_restore_service_(tab_restore_service),
       weak_ptr_factory_(this) {
   // Register for the types of information we're allowed to receive from
   // optimization guide.
@@ -238,7 +241,10 @@ ShoppingService::ShoppingService(
   }
 
   if (identity_manager && account_checker_) {
-    if (subscription_proto_db) {
+    if (subscription_proto_db &&
+        commerce::IsRegionLockedFeatureEnabled(
+            kShoppingList, kShoppingListRegionLaunched,
+            account_checker_->GetCountry(), account_checker_->GetLocale())) {
       subscriptions_manager_ = std::make_unique<SubscriptionsManager>(
           identity_manager, url_loader_factory, subscription_proto_db,
           account_checker_.get());
@@ -309,6 +315,11 @@ ShoppingService::ShoppingService(
 
   if (history_service_) {
     history_service_observation_.Observe(history_service_);
+  }
+
+  if (product_specifications_service_) {
+    product_specifications_observation_.Observe(
+        product_specifications_service_);
   }
 }
 
@@ -733,16 +744,9 @@ void ShoppingService::GetPriceInsightsInfoForUrl(
                      weak_ptr_factory_.GetWeakPtr(), url, std::move(callback)));
 }
 
-void ShoppingService::GetDiscountInfoForUrls(const std::vector<GURL>& urls,
-                                             DiscountInfoCallback callback) {
-  const auto barrier_callback = base::BarrierCallback<DiscountsPair>(
-      urls.size(),
-      base::BindOnce(&ShoppingService::OnGetAllDiscountsFromOptGuide,
-                     weak_ptr_factory_.GetWeakPtr(), urls,
-                     std::move(callback)));
-  for (const GURL& url : urls) {
-    GetDiscountInfoFromOptGuide(url, barrier_callback);
-  }
+void ShoppingService::GetDiscountInfoForUrl(const GURL& url,
+                                            DiscountInfoCallback callback) {
+  GetDiscountInfoFromOptGuide(url, std::move(callback));
 }
 
 void ShoppingService::GetProductSpecificationsForUrls(
@@ -771,9 +775,33 @@ void ShoppingService::GetProductSpecificationsForUrls(
                   std::move(callback).Run(std::move(cluster_ids), std::nullopt);
                   return;
                 }
+
+                const ProductSpecifications* cached_specs =
+                    service->product_specifications_cache_.GetEntry(
+                        cluster_ids);
+                if (cached_specs) {
+                  std::move(callback).Run(std::move(cluster_ids),
+                                          *cached_specs);
+                  return;
+                }
+
                 service->product_specs_server_proxy_
                     ->GetProductSpecificationsForClusterIds(
-                        cluster_ids, std::move(callback));
+                        cluster_ids,
+                        base::BindOnce(
+                            [](ProductSpecificationsCallback callback,
+                               base::WeakPtr<ShoppingService> service,
+                               std::vector<uint64_t> cluster_ids,
+                               std::optional<ProductSpecifications> specs) {
+                              if (specs.has_value()) {
+                                service->product_specifications_cache_.SetEntry(
+                                    cluster_ids, specs.value());
+                              }
+
+                              std::move(callback).Run(std::move(cluster_ids),
+                                                      std::move(specs));
+                            },
+                            std::move(callback), service));
               },
               std::move(callback), weak_ptr_factory_.GetWeakPtr()));
 
@@ -1459,12 +1487,11 @@ void ShoppingService::HandleOptGuideShoppingPageTypesResponse(
 
 void ShoppingService::GetDiscountInfoFromOptGuide(
     const GURL& url,
-    DiscountsOptGuideCallback callback) {
+    DiscountInfoCallback callback) {
   if (!opt_guide_ || !IsDiscountInfoApiEnabled()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
-        base::BindOnce(std::move(callback),
-                       DiscountsPair(url, std::vector<DiscountInfo>())));
+        base::BindOnce(std::move(callback), url, std::vector<DiscountInfo>()));
     return;
   }
 
@@ -1476,16 +1503,28 @@ void ShoppingService::GetDiscountInfoFromOptGuide(
 
 void ShoppingService::HandleOptGuideDiscountInfoResponse(
     const GURL& url,
-    DiscountsOptGuideCallback callback,
+    DiscountInfoCallback callback,
     optimization_guide::OptimizationGuideDecision decision,
     const optimization_guide::OptimizationMetadata& metadata) {
   if (decision != optimization_guide::OptimizationGuideDecision::kTrue) {
-    std::move(callback).Run(DiscountsPair(url, std::vector<DiscountInfo>()));
+    std::move(callback).Run(url, std::vector<DiscountInfo>());
     return;
   }
 
-  std::move(callback).Run(
-      DiscountsPair(url, OptGuideResultToDiscountInfos(metadata)));
+  std::vector<DiscountInfo> discount_infos =
+      OptGuideResultToDiscountInfos(metadata);
+
+  if (discount_infos.size() != 0) {
+    base::UmaHistogramEnumeration(kDiscountsFetchResultHistogramName,
+                                  DiscountsFetchResult::kInfoFromOptGuide);
+  }
+
+  if (discounts_storage_) {
+    discounts_storage_->HandleServerDiscounts(url, std::move(discount_infos),
+                                              std::move(callback));
+  } else {
+    std::move(callback).Run(url, std::move(discount_infos));
+  }
 }
 
 std::vector<DiscountInfo> ShoppingService::OptGuideResultToDiscountInfos(
@@ -1584,34 +1623,6 @@ std::vector<DiscountInfo> ShoppingService::OptGuideResultToDiscountInfos(
   }
 
   return discount_infos;
-}
-
-void ShoppingService::OnGetAllDiscountsFromOptGuide(
-    const std::vector<GURL>& urls,
-    DiscountInfoCallback callback,
-    const std::vector<DiscountsPair>& results) {
-  DiscountsMap map;
-  std::vector<std::string> urls_to_check_in_db;
-
-  for (const auto& discount_pair : results) {
-    const GURL& url = discount_pair.first;
-    const std::vector<DiscountInfo>& discount_infos = discount_pair.second;
-
-    if (discount_infos.empty()) {
-      urls_to_check_in_db.push_back(url.spec());
-    } else {
-      map.insert(discount_pair);
-      base::UmaHistogramEnumeration(kDiscountsFetchResultHistogramName,
-                                    DiscountsFetchResult::kInfoFromOptGuide);
-    }
-  }
-
-  if (discounts_storage_) {
-    discounts_storage_->HandleServerDiscounts(
-        urls_to_check_in_db, std::move(map), std::move(callback));
-  } else {
-    std::move(callback).Run(std::move(map));
-  }
 }
 
 void ShoppingService::SetDiscountsStorageForTesting(
@@ -1878,6 +1889,20 @@ void ShoppingService::OnHistoryDeletions(
   // reliable way to clear entries from the revently viewed list. If a user is
   // deleting items from history, clear the whole list.
   recently_visited_tabs_.clear();
+}
+
+void ShoppingService::OnProductSpecificationsSetRemoved(
+    const ProductSpecificationsSet& set) {
+  if (!tab_restore_service_) {
+    return;
+  }
+
+  tab_restore_service_->DeleteNavigationEntries(base::BindRepeating(
+      [](const std::string& base_url,
+         const sessions::SerializedNavigationEntry& entry) {
+        return entry.virtual_url().spec().starts_with(base_url);
+      },
+      GetProductSpecsTabUrlForID(set.uuid()).spec()));
 }
 
 void ShoppingService::QueryHistoryForUrl(

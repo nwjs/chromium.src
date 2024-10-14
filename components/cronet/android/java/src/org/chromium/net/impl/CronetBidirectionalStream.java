@@ -24,7 +24,6 @@ import org.chromium.net.ConnectionCloseSource;
 import org.chromium.net.CronetException;
 import org.chromium.net.ExperimentalBidirectionalStream;
 import org.chromium.net.NetworkException;
-import org.chromium.net.QuicException;
 import org.chromium.net.RequestFinishedInfo;
 import org.chromium.net.RequestPriority;
 import org.chromium.net.UrlResponseInfo;
@@ -153,7 +152,7 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
     private boolean mRequestHeadersSent;
 
     // Metrics information. Obtained when request succeeds, fails or is canceled.
-    private RequestFinishedInfo.Metrics mMetrics;
+    private CronetMetrics mMetrics;
     private boolean mQuicConnectionMigrationAttempted;
     private boolean mQuicConnectionMigrationSuccessful;
 
@@ -712,8 +711,7 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
         if (mResponseInfo != null) {
             mResponseInfo.setReceivedByteCount(receivedByteCount);
         }
-        if (errorCode == NetworkException.ERROR_QUIC_PROTOCOL_FAILED
-                || errorCode == NetworkException.ERROR_NETWORK_CHANGED) {
+        if (errorCode == NetworkException.ERROR_QUIC_PROTOCOL_FAILED || nativeQuicError != 0) {
             failWithException(
                     new QuicExceptionImpl(
                             "Exception in BidirectionalStream: " + errorString,
@@ -943,13 +941,21 @@ public class CronetBidirectionalStream extends ExperimentalBidirectionalStream {
         @ConnectionCloseSource int source = ConnectionCloseSource.UNKNOWN;
         CronetTrafficInfo.RequestFailureReason failureReason =
                 CronetTrafficInfo.RequestFailureReason.UNKNOWN;
-        if (mException instanceof NetworkException networkException) {
+
+        // Going through the API layer will lead to NoSuchMethodError exceptions
+        // because there is no guarantee that the API will have the method.
+        // It's possible to use an old API of Cronet with a new implementation.
+        // In order to work around this, only impl classes are mentioned
+        // to ensure that the methods will always be found.
+        // See b/361725824 for more information.
+        if (mException instanceof NetworkExceptionImpl networkException) {
             networkInternalErrorCode = networkException.getCronetInternalErrorCode();
             failureReason = CronetTrafficInfo.RequestFailureReason.NETWORK;
-            if (mException instanceof QuicException quicException) {
-                quicNetworkErrorCode = quicException.getQuicDetailedErrorCode();
-                source = quicException.getConnectionCloseSource();
-            }
+        } else if (mException instanceof QuicExceptionImpl quicException) {
+            networkInternalErrorCode = quicException.getCronetInternalErrorCode();
+            quicNetworkErrorCode = quicException.getQuicDetailedErrorCode();
+            source = quicException.getConnectionCloseSource();
+            failureReason = CronetTrafficInfo.RequestFailureReason.NETWORK;
         } else if (mException != null) {
             failureReason = CronetTrafficInfo.RequestFailureReason.OTHER;
         }

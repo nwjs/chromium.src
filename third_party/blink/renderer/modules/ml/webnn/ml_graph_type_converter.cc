@@ -11,6 +11,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/types/expected_macros.h"
+#include "services/webnn/public/cpp/context_properties.h"
 #include "services/webnn/public/cpp/graph_validation_utils.h"
 #include "services/webnn/public/cpp/operand_descriptor.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom-blink-forward.h"
@@ -20,6 +21,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_clamp_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_conv_2d_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_conv_transpose_2d_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_cumulative_sum_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_elu_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gather_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gemm_options.h"
@@ -498,6 +500,53 @@ std::optional<base::span<const uint32_t>> GetConvTranspose2DFilterPermutation(
   }
 }
 
+constexpr std::array<uint32_t, 2> kResample2dChannelFirstAxes{2u, 3u};
+constexpr std::array<uint32_t, 2> kResample2dChannelLastAxes{1u, 2u};
+std::optional<std::vector<uint32_t>> GetResample2DPermutation(
+    const Vector<uint32_t>& from_axes,
+    const webnn::ContextProperties& context_properties) {
+  if (context_properties.resample_2d_axes == webnn::Resample2DAxes::kAny) {
+    return std::nullopt;
+  }
+
+  base::span<const uint32_t> to_axes =
+      context_properties.resample_2d_axes ==
+              webnn::Resample2DAxes::kChannelsFirst
+          ? kResample2dChannelFirstAxes
+          : kResample2dChannelLastAxes;
+
+  CHECK_EQ(from_axes.size(), 2u);
+  CHECK(base::ranges::is_sorted(from_axes));
+  if (from_axes == to_axes) {
+    return std::nullopt;
+  }
+
+  std::vector<uint32_t> permutation{0u, 1u, 2u, 3u};
+
+  // Move each axis from from_axes to to_axes.
+  for (size_t i = 0; i < from_axes.size(); ++i) {
+    uint32_t from_axis = from_axes[static_cast<wtf_size_t>(i)];
+    uint32_t to_axis = to_axes[i];
+    // Find the current index of the from_axis as it could have been moved from
+    // previous iteration.
+    auto it = base::ranges::find(permutation, from_axis);
+    CHECK(it != permutation.end());
+    size_t from_axis_index = std::distance(permutation.begin(), it);
+    std::swap(permutation[to_axis], permutation[from_axis_index]);
+  }
+  return permutation;
+}
+
+std::vector<uint32_t> GetInversePermutation(
+    base::span<const uint32_t> permutation) {
+  std::vector<uint32_t> inverse_perm(permutation.size());
+  for (size_t i = 0; i < permutation.size(); ++i) {
+    CHECK(permutation[i] < inverse_perm.size());
+    inverse_perm[permutation[i]] = base::checked_cast<uint32_t>(i);
+  }
+  return inverse_perm;
+}
+
 OperationPtr CreateArgMinMaxOperation(const OperandToIdMap& operand_to_id_map,
                                       const MLOperator* op,
                                       blink_mojom::ArgMinMax::Kind kind) {
@@ -706,6 +755,44 @@ std::optional<String> SerializeConv2dOperation(
   return std::nullopt;
 }
 
+OperationPtr CreateCumulativeSumOperation(
+    const OperandToIdMap& operand_to_id_map,
+    const MLOperator* cumulative_sum) {
+  const auto* cumulative_sum_operator =
+      static_cast<const MLCumulativeSumOperator*>(cumulative_sum);
+  const auto* options =
+      static_cast<const MLCumulativeSumOptions*>(cumulative_sum->Options());
+
+  auto cumulative_sum_mojo = blink_mojom::CumulativeSum::New(
+      GetOperatorInputId(cumulative_sum, operand_to_id_map),
+      GetOperatorOutputId(cumulative_sum, operand_to_id_map),
+      cumulative_sum_operator->Axis(), options->exclusive(),
+      options->reversed(), options->label());
+
+  return blink_mojom::Operation::NewCumulativeSum(
+      std::move(cumulative_sum_mojo));
+}
+
+OperationPtr CreateDequantizeLinearOperation(
+    const OperandToIdMap& operand_to_id_map,
+    const MLOperator* dequantize_linear) {
+  auto dequantize_linear_mojo = blink_mojom::DequantizeLinear::New();
+  dequantize_linear_mojo->input_operand_id =
+      GetOperatorInputId(dequantize_linear, operand_to_id_map, 0);
+  dequantize_linear_mojo->scale_operand_id =
+      GetOperatorInputId(dequantize_linear, operand_to_id_map, 1);
+  dequantize_linear_mojo->zero_point_operand_id =
+      GetOperatorInputId(dequantize_linear, operand_to_id_map, 2);
+  dequantize_linear_mojo->output_operand_id =
+      GetOperatorOutputId(dequantize_linear, operand_to_id_map);
+
+  const auto* options = static_cast<const blink::MLOperatorOptions*>(
+      dequantize_linear->Options());
+  dequantize_linear_mojo->label = options->label();
+  return blink_mojom::Operation::NewDequantizeLinear(
+      std::move(dequantize_linear_mojo));
+}
+
 OperationPtr CreateElementWiseBinaryOperator(
     const OperandToIdMap& operand_to_id_map,
     const MLOperator* binary,
@@ -762,6 +849,26 @@ OperationPtr CreateGatherOperation(const OperandToIdMap& operand_to_id_map,
   gather_mojo->axis = options->axis();
   gather_mojo->label = options->label();
   return webnn::mojom::blink::Operation::NewGather(std::move(gather_mojo));
+}
+
+OperationPtr CreateGatherElementsOperation(
+    const OperandToIdMap& operand_to_id_map,
+    const MLOperator* gather_elements) {
+  auto gather_elements_mojo = webnn::mojom::blink::GatherElements::New();
+  gather_elements_mojo->input_operand_id =
+      GetOperatorInputId(gather_elements, operand_to_id_map, 0);
+  gather_elements_mojo->indices_operand_id =
+      GetOperatorInputId(gather_elements, operand_to_id_map, 1);
+  gather_elements_mojo->output_operand_id =
+      GetOperatorOutputId(gather_elements, operand_to_id_map);
+
+  const auto* options =
+      static_cast<const MLGatherOptions*>(gather_elements->Options());
+  CHECK(options);
+  gather_elements_mojo->axis = options->axis();
+  gather_elements_mojo->label = options->label();
+  return webnn::mojom::blink::Operation::NewGatherElements(
+      std::move(gather_elements_mojo));
 }
 
 OperationPtr CreateGeluOperation(const OperandToIdMap& operand_to_id_map,
@@ -1248,6 +1355,26 @@ OperationPtr CreatePreluOperation(const OperandToIdMap& operand_to_id_map,
   return blink_mojom::Operation::NewPrelu(std::move(prelu_mojo));
 }
 
+OperationPtr CreateQuantizeLinearOperation(
+    const OperandToIdMap& operand_to_id_map,
+    const MLOperator* quantize_linear) {
+  auto quantize_linear_mojo = blink_mojom::QuantizeLinear::New();
+  quantize_linear_mojo->input_operand_id =
+      GetOperatorInputId(quantize_linear, operand_to_id_map, 0);
+  quantize_linear_mojo->scale_operand_id =
+      GetOperatorInputId(quantize_linear, operand_to_id_map, 1);
+  quantize_linear_mojo->zero_point_operand_id =
+      GetOperatorInputId(quantize_linear, operand_to_id_map, 2);
+  quantize_linear_mojo->output_operand_id =
+      GetOperatorOutputId(quantize_linear, operand_to_id_map);
+
+  const auto* options =
+      static_cast<const blink::MLOperatorOptions*>(quantize_linear->Options());
+  quantize_linear_mojo->label = options->label();
+  return blink_mojom::Operation::NewQuantizeLinear(
+      std::move(quantize_linear_mojo));
+}
+
 OperationPtr CreateReduceOperator(const OperandToIdMap& operand_to_id_map,
                                   const MLOperator* reduce,
                                   const blink_mojom::Reduce::Kind kind) {
@@ -1291,54 +1418,57 @@ void SerializeResample2dOperation(
       break;
   }
 
+  // If axes are not present, the values are assumed to be channels first [2,
+  // 3].
+  auto axes = options->getAxesOr(
+      {kResample2dChannelFirstAxes[0], kResample2dChannelFirstAxes[1]});
+  CHECK_EQ(axes.size(), 2u);
+
   // When the target sizes are specified, the scales argument is ignored.
   if (!options->hasSizes()) {
     // If scales are not present, the values are assumed to be [1.0, 1.0].
     auto scales = options->getScalesOr({1.0, 1.0});
     CHECK_EQ(scales.size(), 2u);
-    resample2d_mojo->scales = {scales[0], scales[1]};
+    // If axes are not sorted, and backends are expecting sorted axes, sort the
+    // corresponding scales too.
+    if (context_properties.resample_2d_axes != webnn::Resample2DAxes::kAny &&
+        axes[0] > axes[1]) {
+      std::swap(scales[0], scales[1]);
+    }
+    resample2d_mojo->scales = scales;
   }
 
-  const Vector<uint32_t> channel_first_axes{2, 3};
-  const Vector<uint32_t> channel_last_axes{1, 2};
-  // If axes are not present, the values are assumed to be [2, 3].
-  auto axes = options->getAxesOr(channel_first_axes);
-  CHECK_EQ(axes.size(), 2u);
 
   const MLOperand* input_operand = resample2d->Inputs()[0];
   const MLOperand* output_operand = resample2d->Outputs()[0];
   uint64_t input_operand_id = operand_to_id_map.at(input_operand);
   uint64_t output_operand_id = operand_to_id_map.at(output_operand);
 
-  // TODO: crbug.com/329658123 - Support other axes or pass input_layout
-  // instead.
-  std::optional<blink::V8MLInputOperandLayout::Enum> input_layout;
-  if (axes == channel_first_axes) {
-    input_layout = blink::V8MLInputOperandLayout::Enum::kNchw;
-  } else if (axes == channel_last_axes) {
-    input_layout = blink::V8MLInputOperandLayout::Enum::kNhwc;
-  }
-
-  if (input_layout) {
-    const std::optional<base::span<const uint32_t>> input_permutation =
-        GetInputOperandPermutation(*input_layout, context_properties);
-    if (input_permutation.has_value()) {
-      if (axes == channel_first_axes) {
-        axes = channel_last_axes;
-      } else {
-        axes = channel_first_axes;
-      }
-      input_operand_id = InsertInputTranspose(operand_to_id_map, input_operand,
-                                              *input_permutation, graph_info,
-                                              options->label());
-
-      output_operand_id = InsertTemporaryOperand(
-          operand_to_id_map,
-          *webnn::OperandDescriptor::Create(
-              output_operand->DataType(),
-              PermuteShape(output_operand->Shape(), *input_permutation)),
-          graph_info);
+  base::ranges::sort(axes);
+  const std::optional<std::vector<uint32_t>> input_permutation =
+      GetResample2DPermutation(axes, context_properties);
+  if (input_permutation.has_value()) {
+    switch (context_properties.resample_2d_axes) {
+      case webnn::Resample2DAxes::kChannelsFirst:
+        axes = {kResample2dChannelFirstAxes[0], kResample2dChannelFirstAxes[1]};
+        break;
+      case webnn::Resample2DAxes::kChannelsLast:
+        axes = {kResample2dChannelLastAxes[0], kResample2dChannelLastAxes[1]};
+        break;
+      case webnn::Resample2DAxes::kAny:
+        NOTREACHED();
     }
+
+    input_operand_id =
+        InsertInputTranspose(operand_to_id_map, input_operand,
+                             *input_permutation, graph_info, options->label());
+
+    output_operand_id = InsertTemporaryOperand(
+        operand_to_id_map,
+        *webnn::OperandDescriptor::Create(
+            output_operand->DataType(),
+            PermuteShape(output_operand->Shape(), *input_permutation)),
+        graph_info);
   }
 
   resample2d_mojo->input_operand_id = input_operand_id;
@@ -1350,9 +1480,9 @@ void SerializeResample2dOperation(
   graph_info->operations.push_back(
       blink_mojom::Operation::NewResample2d(std::move(resample2d_mojo)));
 
-  if (input_layout) {
-    const std::optional<base::span<const uint32_t>> output_permutation =
-        GetOutputOperandPermutation(*input_layout, context_properties);
+  if (input_permutation) {
+    const std::optional<std::vector<uint32_t>> output_permutation =
+        GetInversePermutation(*input_permutation);
     if (output_permutation) {
       auto output_transpose = blink_mojom::Transpose::New();
       output_transpose->input_operand_id = output_operand_id;
@@ -1391,6 +1521,25 @@ OperationPtr CreateReshapeOperation(const OperandToIdMap& operand_to_id_map,
       static_cast<const blink::MLOperatorOptions*>(reshape->Options());
   reshape_mojo->label = options->label();
   return blink_mojom::Operation::NewReshape(std::move(reshape_mojo));
+}
+
+OperationPtr CreateScatterNDOperation(const OperandToIdMap& operand_to_id_map,
+                                      const MLOperator* scatter_nd) {
+  auto scatter_nd_mojo = webnn::mojom::blink::ScatterND::New();
+  scatter_nd_mojo->input_operand_id =
+      GetOperatorInputId(scatter_nd, operand_to_id_map, 0);
+  scatter_nd_mojo->indices_operand_id =
+      GetOperatorInputId(scatter_nd, operand_to_id_map, 1);
+  scatter_nd_mojo->updates_operand_id =
+      GetOperatorInputId(scatter_nd, operand_to_id_map, 2);
+  scatter_nd_mojo->output_operand_id =
+      GetOperatorOutputId(scatter_nd, operand_to_id_map);
+
+  const auto* options =
+      static_cast<const blink::MLOperatorOptions*>(scatter_nd->Options());
+  scatter_nd_mojo->label = options->label();
+  return webnn::mojom::blink::Operation::NewScatterNd(
+      std::move(scatter_nd_mojo));
 }
 
 OperationPtr CreateSigmoidOperation(const OperandToIdMap& operand_to_id_map,
@@ -1474,6 +1623,21 @@ OperationPtr CreateTanhOperation(const OperandToIdMap& operand_to_id_map,
       static_cast<const blink::MLOperatorOptions*>(tanh->Options());
   tanh_mojo->label = options->label();
   return blink_mojom::Operation::NewTanh(std::move(tanh_mojo));
+}
+
+OperationPtr CreateTileOperation(const OperandToIdMap& operand_to_id_map,
+                                 const MLOperator* tile) {
+  auto tile_mojo = blink_mojom::Tile::New();
+  tile_mojo->input_operand_id = GetOperatorInputId(tile, operand_to_id_map);
+  tile_mojo->output_operand_id = GetOperatorOutputId(tile, operand_to_id_map);
+
+  const auto* tile_operator = static_cast<const MLTileOperator*>(tile);
+  tile_mojo->repetitions = tile_operator->Repetitions();
+  const auto* options =
+      static_cast<const blink::MLOperatorOptions*>(tile->Options());
+  tile_mojo->label = options->label();
+
+  return blink_mojom::Operation::NewTile(std::move(tile_mojo));
 }
 
 OperationPtr CreateTransposeOperation(const OperandToIdMap& operand_to_id_map,
@@ -1580,6 +1744,14 @@ std::optional<String> SerializeMojoOperation(
       }
       break;
     }
+    case blink_mojom::Operation::Tag::kCumulativeSum:
+      graph_info->operations.push_back(
+          CreateCumulativeSumOperation(operand_to_id_map, op));
+      break;
+    case blink_mojom::Operation::Tag::kDequantizeLinear:
+      graph_info->operations.push_back(
+          CreateDequantizeLinearOperation(operand_to_id_map, op));
+      break;
     case blink_mojom::Operation::Tag::kElementWiseBinary:
       graph_info->operations.push_back(CreateElementWiseBinaryOperator(
           operand_to_id_map, op,
@@ -1601,6 +1773,10 @@ std::optional<String> SerializeMojoOperation(
     case blink_mojom::Operation::Tag::kGather:
       graph_info->operations.push_back(
           CreateGatherOperation(operand_to_id_map, op));
+      break;
+    case blink_mojom::Operation::Tag::kGatherElements:
+      graph_info->operations.push_back(
+          CreateGatherElementsOperation(operand_to_id_map, op));
       break;
     case blink_mojom::Operation::Tag::kGelu:
       graph_info->operations.push_back(
@@ -1671,6 +1847,10 @@ std::optional<String> SerializeMojoOperation(
       graph_info->operations.push_back(
           CreatePreluOperation(operand_to_id_map, op));
       break;
+    case blink_mojom::Operation::Tag::kQuantizeLinear:
+      graph_info->operations.push_back(
+          CreateQuantizeLinearOperation(operand_to_id_map, op));
+      break;
     case blink_mojom::Operation::Tag::kReduce:
       graph_info->operations.push_back(CreateReduceOperator(
           operand_to_id_map, op, op->SubKind<blink_mojom::Reduce::Kind>()));
@@ -1686,6 +1866,10 @@ std::optional<String> SerializeMojoOperation(
     case blink_mojom::Operation::Tag::kReshape:
       graph_info->operations.push_back(
           CreateReshapeOperation(operand_to_id_map, op));
+      break;
+    case blink_mojom::Operation::Tag::kScatterNd:
+      graph_info->operations.push_back(
+          CreateScatterNDOperation(operand_to_id_map, op));
       break;
     case blink_mojom::Operation::Tag::kSigmoid:
       graph_info->operations.push_back(
@@ -1713,6 +1897,10 @@ std::optional<String> SerializeMojoOperation(
     case blink_mojom::Operation::Tag::kTanh:
       graph_info->operations.push_back(
           CreateTanhOperation(operand_to_id_map, op));
+      break;
+    case blink_mojom::Operation::Tag::kTile:
+      graph_info->operations.push_back(
+          CreateTileOperation(operand_to_id_map, op));
       break;
     case blink_mojom::Operation::Tag::kTranspose:
       graph_info->operations.push_back(

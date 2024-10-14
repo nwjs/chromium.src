@@ -5,10 +5,10 @@
 #ifndef IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_SYSTEM_FLAGS_H_
 #define IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_SYSTEM_FLAGS_H_
 
+#import <Foundation/Foundation.h>
+
 #import <optional>
 #import <string>
-
-#import <Foundation/Foundation.h>
 
 enum class UpdateChromeSafetyCheckState;
 enum class PasswordSafetyCheckState;
@@ -150,6 +150,17 @@ bool ShouldIgnoreHistorySyncDeclineLimits();
 // Whether the developer-mode Switch Profile UI will be be displayed, returns
 // the number of test profiles that should be created.
 std::optional<int> DisplaySwitchProfile();
+
+// Returns the inactivity threshold to be used for displaying Safety Check
+// notifications, overriding the default value stored in the code or any value
+// set by Finch.
+//
+// Returns `std::nullopt` if no override is specified.
+std::optional<int> GetForcedInactivityThresholdForSafetyCheckNotifications();
+
+// Returns the override for Tab Resumption decoration.
+// Returns nil is not set.
+NSString* GetTabResumptionDecorationOverride();
 
 }  // namespace experimental_flags
 

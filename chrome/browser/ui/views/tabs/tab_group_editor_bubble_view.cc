@@ -73,6 +73,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/dialog_model_field.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/events/types/event_type.h"
@@ -274,7 +275,7 @@ TabGroupEditorBubbleView::TabGroupEditorBubbleView(
   set_margins(gfx::Insets());
 
   SetModalType(ui::mojom::ModalType::kNone);
-  SetButtons(ui::DIALOG_BUTTON_NONE);
+  SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   SetCloseCallback(base::BindOnce(&TabGroupEditorBubbleView::OnBubbleClose,
                                   base::Unretained(this)));
 
@@ -500,22 +501,28 @@ TabGroupEditorBubbleView::BuildMoveGroupToNewWindowButton() {
 
 std::unique_ptr<views::LabelButton>
 TabGroupEditorBubbleView::BuildManageSharedGroupButton() {
-  return CreateMenuItem(
+  auto menu_item = CreateMenuItem(
       TAB_GROUP_HEADER_CXMENU_MANAGE_SHARING,
       l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_CXMENU_MANAGE_GROUP),
       base::BindRepeating(&TabGroupEditorBubbleView::ShareOrManagePressed,
                           base::Unretained(this)),
       ui::ImageModel::FromVectorIcon(kTabGroupSharingIcon));
+  menu_item->SetProperty(views::kElementIdentifierKey,
+                         kTabGroupEditorBubbleManageSharedGroupButtonId);
+  return menu_item;
 }
 
 std::unique_ptr<views::LabelButton>
 TabGroupEditorBubbleView::BuildShareGroupButton() {
-  return CreateMenuItem(
+  auto menu_item = CreateMenuItem(
       TAB_GROUP_HEADER_CXMENU_SHARE,
       l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_CXMENU_SHARE_GROUP),
       base::BindRepeating(&TabGroupEditorBubbleView::ShareOrManagePressed,
                           base::Unretained(this)),
       ui::ImageModel::FromVectorIcon(kTabGroupSharingIcon));
+  menu_item->SetProperty(views::kElementIdentifierKey,
+                         kTabGroupEditorBubbleShareGroupButtonId);
+  return menu_item;
 }
 
 TabGroupEditorBubbleView::~TabGroupEditorBubbleView() = default;
@@ -651,19 +658,17 @@ bool TabGroupEditorBubbleView::ShouldShowSavedFooter() const {
 void TabGroupEditorBubbleView::OnSaveTogglePressed() {
   // TODO(crbug.com/356886508): When V2 launches remove this function as it will
   // no longer be used.
-  tab_groups::SavedTabGroupKeyedService* const saved_tab_group_service =
-      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
-          browser_->profile());
-  CHECK(saved_tab_group_service);
+  tab_groups::TabGroupSyncService* tab_group_service =
+      tab_groups::SavedTabGroupUtils::GetServiceForProfile(browser_->profile());
+  CHECK(tab_group_service);
 
   if (save_group_toggle_->GetIsOn()) {
     base::RecordAction(
         base::UserMetricsAction("TabGroups_TabGroupBubble_GroupSaved"));
 
-    saved_tab_group_service->SaveGroup(
-        group_,
-        /*is_pinned=*/tab_groups::SavedTabGroupUtils::ShouldAutoPinNewTabGroups(
-            browser_->profile()));
+    tab_groups::SavedTabGroup group =
+        tab_groups::SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(group_);
+    tab_group_service->AddGroup(std::move(group));
 
     views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
         kTabGroupSavedCustomEventId, save_group_toggle_);
@@ -678,8 +683,7 @@ void TabGroupEditorBubbleView::OnSaveTogglePressed() {
   } else {
     base::RecordAction(
         base::UserMetricsAction("TabGroups_TabGroupBubble_GroupUnsaved"));
-    saved_tab_group_service->UnsaveGroup(
-        group_, tab_groups::ClosingSource::kDeletedByUser);
+    tab_group_service->RemoveGroup(group_);
   }
 
   save_group_toggle_->GetViewAccessibility().SetName(
@@ -721,11 +725,9 @@ void TabGroupEditorBubbleView::UngroupPressed() {
 }
 
 void TabGroupEditorBubbleView::ShareOrManagePressed() {
-  // TODO(b/353577560): Placeholder impl for ease of testing. Add real impl
-  // later.
   DataSharingBubbleController::GetOrCreateForBrowser(
       const_cast<Browser*>(browser_.get()))
-      ->Show();
+      ->Show(group_);
 }
 
 // static

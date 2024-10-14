@@ -67,7 +67,6 @@
 #include "components/omnibox/browser/on_device_head_provider.h"
 #include "components/omnibox/browser/open_tab_provider.h"
 #include "components/omnibox/browser/page_classification_functions.h"
-#include "components/omnibox/browser/query_tile_provider.h"
 #include "components/omnibox/browser/search_provider.h"
 #include "components/omnibox/browser/search_scoring_signals_annotator.h"
 #include "components/omnibox/browser/shortcuts_provider.h"
@@ -419,11 +418,6 @@ void AutocompleteController::ExtendMatchSubtypes(
       } else if (match.type == AutocompleteMatchType::SEARCH_SUGGEST) {
         subtypes->emplace(omnibox::SUBTYPE_URL_BASED);
       }
-    } else if (match.provider->type() ==
-               AutocompleteProvider::TYPE_QUERY_TILE) {
-      DCHECK(is_android);
-      // QueryTiles are now shown in zero-prefix context on Android.
-      subtypes->emplace(omnibox::SUBTYPE_ZERO_PREFIX_QUERY_TILE);
     } else if (match.provider->type() ==
                AutocompleteProvider::TYPE_ON_DEVICE_HEAD) {
       // This subtype indicates a match from an on-device head provider.
@@ -985,8 +979,7 @@ void AutocompleteController::SetMatchDestinationURL(
 
   // Append an extra header to navigations from the @gemini scope.
   const TemplateURL* turl = match->GetTemplateURL(template_url_service_, false);
-  if (turl &&
-      turl->starter_pack_id() == TemplateURLStarterPackData::kAskGoogle &&
+  if (turl && turl->starter_pack_id() == TemplateURLStarterPackData::kGemini &&
       !encoded_search_terms.empty() &&
       net::HttpUtil::IsValidHeaderValue(encoded_search_terms)) {
     DCHECK(net::HttpUtil::IsValidHeaderName(kOmniboxGeminiHeader));
@@ -1045,12 +1038,14 @@ bool AutocompleteController::ShouldRunProvider(
 
     if (keyword_turl && keyword_turl->starter_pack_id() > 0) {
       switch (provider->type()) {
-        // Search provider and keyword provider are still run because we would
-        // lose the suggestion the keyword chip is attached to otherwise. Search
-        // provider suggestions are curbed for starter pack scopes in
-        // `SearchProvider::ShouldCurbDefaultSuggestions()`.
+        // Keyword provider creates the suggestion attached to the keyword chip
+        // and search provider creates the SEARCH_OTHER_ENGINE suggestion
+        // required for keyword mode to work. These still need to be run or
+        // keyword mode breaks.
+        // search-what-you-typed suggestions from the DSE are usually provided
+        // by the search provider, but are skipped within the search provider
+        // logic when in keyword mode, so do not need to be handled here..
         case AutocompleteProvider::TYPE_SEARCH:
-          return true;
         case AutocompleteProvider::TYPE_KEYWORD:
           return true;
 
@@ -1080,32 +1075,23 @@ bool AutocompleteController::ShouldRunProvider(
     }
 
     // Outside of the starter pack scopes, keyword mode should still restrict
-    // certain providers (when LimitKeywordModeSuggestions is enabled).
-    if (omnibox_feature_configs::LimitKeywordModeSuggestions::Get().enabled) {
-      switch (provider->type()) {
-        // Don't run history cluster provider.
-        case AutocompleteProvider::TYPE_HISTORY_CLUSTER_PROVIDER:
-          return !(omnibox_feature_configs::LimitKeywordModeSuggestions::Get()
-                       .limit_history_cluster_suggestions);
+    // certain providers.
+    switch (provider->type()) {
+      // Don't run history cluster provider or on device head provider.
+      case AutocompleteProvider::TYPE_HISTORY_CLUSTER_PROVIDER:
+      case AutocompleteProvider::TYPE_ON_DEVICE_HEAD:
+        return false;
 
-        // Don't run document provider, except for Google Drive.
-        case AutocompleteProvider::TYPE_DOCUMENT:
-          return !(omnibox_feature_configs::LimitKeywordModeSuggestions::Get()
-                       .limit_document_suggestions) ||
-                 (keyword_turl &&
-                  base::StartsWith(keyword_turl->url(),
-                                   "https://drive.google.com",
-                                   base::CompareCase::INSENSITIVE_ASCII));
+      // Don't run document provider, except for Google Drive.
+      case AutocompleteProvider::TYPE_DOCUMENT:
+        return (keyword_turl &&
+                base::StartsWith(keyword_turl->url(),
+                                 "https://drive.google.com",
+                                 base::CompareCase::INSENSITIVE_ASCII));
 
-        // Don't run on device head provider.
-        case AutocompleteProvider::TYPE_ON_DEVICE_HEAD:
-          return !(omnibox_feature_configs::LimitKeywordModeSuggestions::Get()
-                       .limit_on_device_head_suggestions);
-
-        // Treat all other providers as usual.
-        default:
-          break;
-      }
+      // Treat all other providers as usual.
+      default:
+        break;
     }
   }
 
@@ -1136,8 +1122,7 @@ GURL AutocompleteController::ComputeURLFromSearchTermsArgs(
   // Skip search term replacement when in the @gemini scope.
   // TODO(crbug.com/41494524): Replace this logic with a proper fix to support
   // keywords that do not do search term replacement in omnibox.
-  if (template_url->starter_pack_id() ==
-      TemplateURLStarterPackData::kAskGoogle) {
+  if (template_url->starter_pack_id() == TemplateURLStarterPackData::kGemini) {
     return GURL(OmniboxFieldTrial::kGeminiUrlOverride.Get());
   }
 
@@ -1245,8 +1230,6 @@ void AutocompleteController::InitializeSyncProviders(int provider_types) {
       providers_.push_back(clipboard_provider_.get());
     }
   }
-  if (provider_types & AutocompleteProvider::TYPE_QUERY_TILE)
-    providers_.push_back(new QueryTileProvider(provider_client_.get(), this));
   if (provider_types & AutocompleteProvider::TYPE_VOICE_SUGGEST) {
     voice_suggest_provider_ = new VoiceSuggestProvider(provider_client_.get());
     providers_.push_back(voice_suggest_provider_.get());
@@ -1742,8 +1725,7 @@ void AutocompleteController::UpdateSearchboxStats(AutocompleteResult* result) {
           subtypes.contains(omnibox::SUBTYPE_ZERO_PREFIX) ||
           subtypes.contains(omnibox::SUBTYPE_CLIPBOARD_IMAGE) ||
           subtypes.contains(omnibox::SUBTYPE_CLIPBOARD_TEXT) ||
-          subtypes.contains(omnibox::SUBTYPE_CLIPBOARD_URL) ||
-          subtypes.contains(omnibox::SUBTYPE_ZERO_PREFIX_QUERY_TILE)) {
+          subtypes.contains(omnibox::SUBTYPE_CLIPBOARD_URL)) {
         num_zero_prefix_suggestions_shown++;
       }
     }

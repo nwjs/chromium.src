@@ -25,6 +25,7 @@
 #include "base/trace_event/memory_dump_provider.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "components/viz/common/frame_sinks/begin_frame_source.h"
 #include "components/viz/service/display_embedder/compositor_gpu_thread.h"
 #include "components/viz/service/viz_service_export.h"
 #include "gpu/command_buffer/client/gpu_memory_buffer_manager.h"
@@ -115,7 +116,8 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
 #if BUILDFLAG(IS_WIN)
       public gl::DirectCompositionOverlayCapsObserver,
 #endif
-      public mojom::GpuService {
+      public mojom::GpuService,
+      public BeginFrameObserverBase {
  public:
   struct VIZ_SERVICE_EXPORT InitParams {
     InitParams();
@@ -306,6 +308,17 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
       gpu::error::ContextLostReason context_lost_reason) override;
   bool IsExiting() const override;
   gpu::Scheduler* GetGpuScheduler() override;
+
+  // BeginFrameObserverBase implementation, which called from
+  // VizCompositorThread.
+  bool OnBeginFrameDerivedImpl(const BeginFrameArgs& args) override;
+  void OnBeginFrameSourcePausedChanged(bool paused) override;
+
+  using RequestBeginFrameForGpuServiceCB =
+      base::RepeatingCallback<void(bool toggle)>;
+  void SetRequestBeginFrameForGpuServiceCB(RequestBeginFrameForGpuServiceCB cb);
+  void SetMjpegDecodeAcceleratorBeginFrameCB(
+      std::optional<base::RepeatingClosure> cb);
 
 #if BUILDFLAG(IS_WIN)
   // DirectCompositionOverlayCapsObserver implementation.
@@ -543,6 +556,8 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
 #endif
   }
 
+  void OnBeginFrameOnIO(const BeginFrameArgs& args);
+
   scoped_refptr<base::SingleThreadTaskRunner> main_runner_;
   scoped_refptr<base::SingleThreadTaskRunner> io_runner_;
 
@@ -584,6 +599,12 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
 
   // Display compositor gpu thread.
   std::unique_ptr<CompositorGpuThread> compositor_gpu_thread_;
+
+  // Toggle gpu service on begin frame source which is used in main thread.
+  RequestBeginFrameForGpuServiceCB request_begin_frame_for_gpu_service_cb_;
+  // Used in GPU IO thread.
+  std::optional<base::RepeatingClosure>
+      mjpeg_decode_accelerator_begin_frame_cb_;
 
   // On some platforms (e.g. android webview), SyncPointManager,
   // SharedImageManager and Scheduler come from external sources.
@@ -655,6 +676,13 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   base::RepeatingClosure wake_up_closure_;
 
   std::string shader_prefix_key_;
+
+  // This is flag is controlled by the finch experiment
+  // ClearGrShaderDiskCacheOnInvalidPrefix. Earlier this flag was assigned in
+  // ::LoadedBlob() instead of the constructor which was causing users to fall
+  // out of the finch experiment as ::LoadedBlob() is not called in the next
+  // browser start after the disk cache is cleared.
+  const bool clear_shader_cache_;
 
   base::WeakPtr<GpuServiceImpl> weak_ptr_;
   base::WeakPtrFactory<GpuServiceImpl> weak_ptr_factory_{this};

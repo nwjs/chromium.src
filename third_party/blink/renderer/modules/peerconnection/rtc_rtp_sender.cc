@@ -20,6 +20,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_encoding_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_insertable_streams.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_resolution_restriction.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtcp_parameters.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_capabilities.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_codec_parameters.h"
@@ -57,6 +58,7 @@
 #include "third_party/blink/renderer/platform/privacy_budget/identifiability_digest_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
+#include "third_party/webrtc/api/video/resolution.h"
 
 namespace blink {
 
@@ -557,6 +559,18 @@ webrtc::RtpEncodingParameters ToRtpEncodingParameters(
     if (encoding->hasScaleResolutionDownBy()) {
       webrtc_encoding.scale_resolution_down_by =
           encoding->scaleResolutionDownBy();
+    }
+    if (encoding->hasScaleResolutionDownTo()) {
+      RTCResolutionRestriction* resolution_restriction =
+          encoding->scaleResolutionDownTo();
+      webrtc::Resolution requested_resolution;
+      if (resolution_restriction->hasMaxWidth()) {
+        requested_resolution.width = resolution_restriction->maxWidth();
+      }
+      if (resolution_restriction->hasMaxHeight()) {
+        requested_resolution.height = resolution_restriction->maxHeight();
+      }
+      webrtc_encoding.requested_resolution = requested_resolution;
     }
     if (encoding->hasMaxFramerate()) {
       webrtc_encoding.max_framerate = encoding->maxFramerate();
@@ -1195,7 +1209,8 @@ RTCInsertableStreams* RTCRtpSender::CreateEncodedAudioStreams(
     // Set up writable.
     audio_to_packetizer_underlying_sink_ =
         MakeGarbageCollected<RTCEncodedAudioUnderlyingSink>(
-            script_state, encoded_audio_transformer_);
+            script_state, encoded_audio_transformer_,
+            /*detach_frame_data_on_write=*/false);
 
     auto set_underlying_sink =
         WTF::CrossThreadBindOnce(&RTCRtpSender::SetAudioUnderlyingSink,
@@ -1333,7 +1348,8 @@ RTCInsertableStreams* RTCRtpSender::CreateEncodedVideoStreams(
     // Set up writable.
     video_to_packetizer_underlying_sink_ =
         MakeGarbageCollected<RTCEncodedVideoUnderlyingSink>(
-            script_state, encoded_video_transformer_);
+            script_state, encoded_video_transformer_,
+            /*detach_frame_data_on_write=*/false);
 
     auto set_underlying_sink =
         WTF::CrossThreadBindOnce(&RTCRtpSender::SetVideoUnderlyingSink,

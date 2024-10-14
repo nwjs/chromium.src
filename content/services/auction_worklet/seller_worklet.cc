@@ -519,8 +519,6 @@ void SellerWorklet::ScoreAd(
     const std::optional<blink::AdCurrency>& component_expect_bid_currency,
     const url::Origin& browser_signal_interest_group_owner,
     const GURL& browser_signal_render_url,
-    const std::optional<bool>
-        browser_signal_selected_buyer_and_seller_reporting_id_required,
     const std::optional<std::string>&
         browser_signal_selected_buyer_and_seller_reporting_id,
     const std::optional<std::string>&
@@ -555,9 +553,6 @@ void SellerWorklet::ScoreAd(
   score_ad_task->browser_signal_interest_group_owner =
       browser_signal_interest_group_owner;
   score_ad_task->browser_signal_render_url = browser_signal_render_url;
-  score_ad_task
-      ->browser_signal_selected_buyer_and_seller_reporting_id_required =
-      browser_signal_selected_buyer_and_seller_reporting_id_required;
   score_ad_task->browser_signal_selected_buyer_and_seller_reporting_id =
       browser_signal_selected_buyer_and_seller_reporting_id;
   score_ad_task->browser_signal_buyer_and_seller_reporting_id =
@@ -831,8 +826,6 @@ void SellerWorklet::V8State::ScoreAd(
     const std::optional<blink::AdCurrency>& component_expect_bid_currency,
     const url::Origin& browser_signal_interest_group_owner,
     const GURL& browser_signal_render_url,
-    const std::optional<bool>&
-        browser_signal_selected_buyer_and_seller_reporting_id_required,
     const std::optional<std::string>&
         browser_signal_selected_buyer_and_seller_reporting_id,
     const std::optional<std::string>&
@@ -979,11 +972,6 @@ void SellerWorklet::V8State::ScoreAd(
           browser_signal_interest_group_owner.Serialize()) ||
       !browser_signals_dict.Set("renderURL",
                                 browser_signal_render_url.spec()) ||
-      (browser_signal_selected_buyer_and_seller_reporting_id_required
-           .has_value() &&
-       !browser_signals_dict.Set(
-           "selectedBuyerAndSellerReportingIdRequired",
-           *browser_signal_selected_buyer_and_seller_reporting_id_required)) ||
       (browser_signal_selected_buyer_and_seller_reporting_id.has_value() &&
        !browser_signals_dict.Set(
            "selectedBuyerAndSellerReportingId",
@@ -1104,7 +1092,8 @@ void SellerWorklet::V8State::ScoreAd(
     }
     context_recycler->AddForDebuggingOnlyBindings();
     context_recycler->AddPrivateAggregationBindings(
-        permissions_policy_state_->private_aggregation_allowed);
+        permissions_policy_state_->private_aggregation_allowed,
+        /*reserved_once_allowed=*/true);
     context_recycler->AddRealTimeReportingBindings();
     if (base::FeatureList::IsEnabled(blink::features::kSharedStorageAPI)) {
       context_recycler->AddSharedStorageBindings(
@@ -1668,7 +1657,8 @@ void SellerWorklet::V8State::ReportResult(
   context_recycler.AddReportBindings();
   context_recycler.AddRegisterAdBeaconBindings();
   context_recycler.AddPrivateAggregationBindings(
-      permissions_policy_state_->private_aggregation_allowed);
+      permissions_policy_state_->private_aggregation_allowed,
+      /*reserved_once_allowed=*/false);
 
   if (base::FeatureList::IsEnabled(blink::features::kSharedStorageAPI)) {
     context_recycler.AddSharedStorageBindings(
@@ -1856,6 +1846,7 @@ void SellerWorklet::Start() {
       "Ads.InterestGroup.Net.RequestUrlSizeBytes.ScoringScriptJS",
       script_source_url_.spec().size());
 
+  code_download_start_ = base::TimeTicks::Now();
   worklet_loader_ = std::make_unique<WorkletLoader>(
       url_loader_factory_.get(), /*auction_network_events_handler=*/
       CreateNewAuctionNetworkEventsHandlerRemote(
@@ -1872,6 +1863,7 @@ void SellerWorklet::OnDownloadComplete(
   DCHECK_CALLED_ON_VALID_SEQUENCE(user_sequence_checker_);
 
   DCHECK_EQ(worklet_scripts.size(), v8_helpers_.size());
+  js_fetch_latency_ = base::TimeTicks::Now() - code_download_start_;
 
   // Use `worklet_scripts[0]` for metrics and for the failure check. All the
   // results should be the same.
@@ -2008,8 +2000,8 @@ void SellerWorklet::OnTrustedScoringSignalsDownloaded(
     std::optional<std::string> error_msg) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(user_sequence_checker_);
 
-  task->trusted_scoring_signals_result = std::move(result);
   task->trusted_bidding_signals_fetch_failed = !result ? true : false;
+  task->trusted_scoring_signals_result = std::move(result);
   task->trusted_scoring_signals_error_msg = std::move(error_msg);
   // Clean up single-use object, now that it has done its job.
   task->trusted_scoring_signals_request.reset();
@@ -2145,8 +2137,6 @@ void SellerWorklet::ScoreAdIfReady(ScoreAdTaskList::iterator task) {
           std::move(task->browser_signal_interest_group_owner),
           std::move(task->browser_signal_render_url),
           std::move(
-              task->browser_signal_selected_buyer_and_seller_reporting_id_required),
-          std::move(
               task->browser_signal_selected_buyer_and_seller_reporting_id),
           std::move(task->browser_signal_buyer_and_seller_reporting_id),
           std::move(task->browser_signal_ad_components),
@@ -2192,7 +2182,10 @@ void SellerWorklet::DeliverScoreAdCallbackOnUserThread(
       score, reject_reason, std::move(component_auction_modified_bid_params),
       std::move(bid_in_seller_currency), scoring_signals_data_version,
       debug_loss_report_url, debug_win_report_url, std::move(pa_requests),
-      std::move(real_time_contributions), scoring_latency,
+      std::move(real_time_contributions),
+      mojom::SellerTimingMetrics::New(
+          /*js_fetch_latency=*/js_fetch_latency_,
+          /*script_latency=*/scoring_latency),
       mojom::ScoreAdDependencyLatencies::New(
           /*code_ready_latency=*/NullOptIfZero(task->wait_code),
           /*direct_from_seller_signals_latency=*/
@@ -2314,7 +2307,11 @@ void SellerWorklet::DeliverReportResultCallbackOnUserThread(
 
   std::move(task->callback)
       .Run(signals_for_winner, report_url, ad_beacon_map,
-           std::move(pa_requests), reporting_latency, std::move(errors));
+           std::move(pa_requests),
+           mojom::SellerTimingMetrics::New(
+               /*js_fetch_latency=*/js_fetch_latency_,
+               /*script_latency=*/reporting_latency),
+           std::move(errors));
   report_result_tasks_.erase(task);
 }
 

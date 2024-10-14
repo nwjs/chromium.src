@@ -63,6 +63,28 @@ constexpr char kFindElementWithTextActionJs[] = R"(
   })";
 
 // This JavaScript defines a function "action" that returns `true` if `el`
+// and a sibling of the element contains the expected inner texts.
+constexpr char kFindMatchingTextsInElementAndSibling[] = R"(
+  function action(el) {
+    if (!el) {
+      return false;
+    }
+
+    var textElement = el.shadowRoot.querySelector(%s);
+    if (!textElement || textElement.innerText.indexOf(%s) == -1) {
+      return false;
+    }
+
+    var siblingElement = el.shadowRoot.querySelector(%s);
+    if (!siblingElement || siblingElement.innerText.indexOf(%s) == -1) {
+      return false;
+    }
+
+    return true;
+  }
+)";
+
+// This JavaScript defines a function "action" that returns `true` if `el`
 // contains the expected inner text. Before returning `el` is clicked.
 constexpr char kClickElementWithTextActionJs[] = R"(
   function action(el) {
@@ -291,9 +313,103 @@ InteractiveAshTest::OpenAddBuiltInVpnDialog(
 }
 
 ui::test::internal::InteractiveTestPrivate::MultiStep
+InteractiveAshTest::OpenAddWifiDialog(const ui::ElementIdentifier& element_id) {
+  return Steps(
+      NavigateSettingsToNetworkSubpage(element_id,
+                                       ash::NetworkTypePattern::WiFi()),
+      WaitForElementExists(element_id, ash::settings::wifi::AddWifiButton()),
+      ClickElement(element_id, ash::settings::wifi::AddWifiButton()),
+      WaitForElementExists(element_id,
+                           ash::settings::wifi::ConfigureWifiDialog()));
+}
+
+ui::test::internal::InteractiveTestPrivate::MultiStep
+InteractiveAshTest::CompleteAddWifiDialog(
+    const ui::ElementIdentifier& element_id,
+    const WifiDialogConfig& config) {
+  CHECK(!config.ssid.empty());
+  ui::test::internal::InteractiveTestPrivate::MultiStep steps = Steps(
+      Log(base::StringPrintf("Entering SSID \"%s\" for the network",
+                             config.ssid.c_str())),
+      WaitForElementExists(element_id,
+                           ash::settings::wifi::ConfigureWifiDialogSsidInput()),
+      ClearInputAndEnterText(
+          element_id, ash::settings::wifi::ConfigureWifiDialogSsidInput(),
+          config.ssid.c_str()),
+      Log("Ensuring the network has the correct security"));
+
+  if (config.security_type !=
+      ::chromeos::network_config::mojom::SecurityType::kNone) {
+    // TODO(cros-connectivity@google.com): Add logic for selecting security type
+    // and filling out the relevant fields.
+    NOTREACHED();
+  }
+
+  AddStep(steps,
+          Log(base::StringPrintf("Configuring the network as %s",
+                                 config.is_shared ? "shared" : "not shared")));
+  if (config.security_type ==
+      ::chromeos::network_config::mojom::SecurityType::kNone) {
+    AddStep(steps, WaitForElementChecked(
+                       element_id,
+                       ash::settings::wifi::ConfigureWifiDialogShareToggle()));
+    if (!config.is_shared) {
+      AddStep(
+          steps,
+          Steps(ClickElement(
+                    element_id,
+                    ash::settings::wifi::ConfigureWifiDialogShareToggle()),
+                WaitForElementUnchecked(
+                    element_id,
+                    ash::settings::wifi::ConfigureWifiDialogShareToggle())));
+    }
+  } else {
+    // TODO(cros-connectivity@google.com): Add logic for marking the network as
+    // that it is shared.
+    NOTREACHED();
+  }
+
+  AddStep(steps,
+          Steps(Log("Clicking the connect button and waiting for the dialog "
+                    "to disappear"),
+                WaitForElementEnabled(
+                    element_id,
+                    ash::settings::wifi::ConfigureWifiDialogConnectButton()),
+                ClickElement(
+                    element_id,
+                    ash::settings::wifi::ConfigureWifiDialogConnectButton()),
+                WaitForElementDoesNotExist(
+                    element_id, ash::settings::wifi::ConfigureWifiDialog())));
+  return steps;
+}
+
+ui::test::internal::InteractiveTestPrivate::MultiStep
 InteractiveAshTest::NavigateQuickSettingsToHotspotPage() {
   return NavigateQuickSettingsToPage(
       ash::kHotspotFeatureTileDrillInArrowElementId);
+}
+
+ui::test::internal::InteractiveTestPrivate::MultiStep
+InteractiveAshTest::NavigateSettingsToNetworkSubpage(
+    const ui::ElementIdentifier& element_id,
+    const ash::NetworkTypePattern network_pattern) {
+  WebContentsInteractionTestUtil::DeepQuery internet_summary_row;
+
+  if (network_pattern.MatchesPattern(ash::NetworkTypePattern::Mobile())) {
+    internet_summary_row = ash::settings::cellular::CellularSummaryItem();
+  } else if (network_pattern.MatchesPattern(ash::NetworkTypePattern::VPN())) {
+    internet_summary_row = ash::settings::vpn::VpnSummaryItem();
+  } else if (network_pattern.MatchesPattern(ash::NetworkTypePattern::WiFi())) {
+    internet_summary_row = ash::settings::wifi::WifiSummaryItem();
+  } else {
+    // Unsupported Network pattern.
+    NOTREACHED();
+  }
+
+  return Steps(NavigateSettingsToInternetPage(element_id),
+               WaitForElementExists(element_id, internet_summary_row),
+               ScrollIntoView(element_id, internet_summary_row),
+               MoveMouseTo(element_id, internet_summary_row), ClickMouse());
 }
 
 ui::test::internal::InteractiveTestPrivate::MultiStep
@@ -301,7 +417,6 @@ InteractiveAshTest::NavigateToInternetDetailsPage(
     const ui::ElementIdentifier& element_id,
     const ash::NetworkTypePattern network_pattern,
     const std::string& network_name) {
-  WebContentsInteractionTestUtil::DeepQuery internet_summary_row;
   WebContentsInteractionTestUtil::DeepQuery network_list;
   WebContentsInteractionTestUtil::DeepQuery network_list_item(
       {"network-list-item"});
@@ -313,22 +428,17 @@ InteractiveAshTest::NavigateToInternetDetailsPage(
 
   // TODO: Add other network types.
   if (network_pattern.MatchesPattern(ash::NetworkTypePattern::Mobile())) {
-    internet_summary_row = ash::settings::cellular::CellularSummaryItem();
     network_list = ash::settings::cellular::CellularNetworksList();
     network_list_item = WebContentsInteractionTestUtil::DeepQuery(
         {"network-list", "network-list-item"});
   } else if (network_pattern.MatchesPattern(ash::NetworkTypePattern::VPN())) {
-    internet_summary_row = ash::settings::vpn::VpnSummaryItem();
     network_list = ash::settings::vpn::VpnNetworksList();
   } else {
     // Unsupported Network pattern.
     NOTREACHED();
   }
 
-  return Steps(NavigateSettingsToInternetPage(element_id),
-               WaitForElementExists(element_id, internet_summary_row),
-               ScrollIntoView(element_id, internet_summary_row),
-               MoveMouseTo(element_id, internet_summary_row), ClickMouse(),
+  return Steps(NavigateSettingsToNetworkSubpage(element_id, network_pattern),
                FindElementAndDoActionOnChildren(
                    element_id, network_list, network_list_item,
                    ClickElementWithSiblingContainsText(
@@ -356,6 +466,42 @@ InteractiveAshTest::NavigateToBluetoothDeviceDetailsPage(
                WaitForElementTextContains(
                    element_id, ash::settings::bluetooth::BluetoothDeviceName(),
                    device_name));
+}
+
+ui::test::internal::InteractiveTestPrivate::MultiStep
+InteractiveAshTest::NavigateToKnownNetworksPage(
+    const ui::ElementIdentifier& element_id) {
+  return Steps(
+      NavigateSettingsToInternetPage(element_id),
+      WaitForElementEnabled(element_id, ash::settings::wifi::WifiSummaryItem()),
+      ClickElement(element_id, ash::settings::wifi::WifiSummaryItem()),
+      WaitForElementEnabled(
+          element_id, ash::settings::wifi::WifiKnownNetworksSubpageButton()),
+      ClickElement(element_id,
+                   ash::settings::wifi::WifiKnownNetworksSubpageButton()),
+      WaitForElementExists(element_id,
+                           ash::settings::wifi::KnownNetworksSubpage()));
+}
+
+ui::test::internal::InteractiveTestPrivate::MultiStep
+InteractiveAshTest::NavigateToPasspointSubscriptionSubpage(
+    const ui::ElementIdentifier& element_id,
+    const std::string& passpoint_name) {
+  const WebContentsInteractionTestUtil::DeepQuery
+      passpoint_subscription_item_name(
+          {"cr-link-row#subscriptionItem", "div#label"});
+
+  return Steps(
+      NavigateToKnownNetworksPage(element_id),
+      WaitForElementExists(
+          element_id,
+          ash::settings::wifi::KnownNetworksSubpagePasspointSubsciptions()),
+      ClickAnyElementTextContains(
+          element_id, ash::settings::wifi::KnownNetworksSubpage(),
+          passpoint_subscription_item_name, passpoint_name),
+      WaitForElementTextContains(element_id,
+                                 ash::settings::InternetSettingsSubpageTitle(),
+                                 /*text=*/passpoint_name.c_str()));
 }
 
 Profile* InteractiveAshTest::GetActiveUserProfile() {
@@ -429,6 +575,29 @@ InteractiveAshTest::WaitForElementEnabled(
   state_change.type = StateChange::Type::kExistsAndConditionTrue;
   state_change.test_function = "(el) => { return !el.disabled; }";
   return WaitForStateChange(element_id, state_change);
+}
+
+ui::test::internal::InteractiveTestPrivate::MultiStep
+InteractiveAshTest::WaitForElementWithManagedPropertyBoolean(
+    const ui::ElementIdentifier& element_id,
+    const WebContentsInteractionTestUtil::DeepQuery& query,
+    const std::string& property,
+    bool expected_value) {
+  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kManagedBooleanChange);
+  StateChange managed_boolean_change;
+  managed_boolean_change.event = kManagedBooleanChange;
+  managed_boolean_change.where = query;
+  managed_boolean_change.type = StateChange::Type::kExistsAndConditionTrue;
+  managed_boolean_change.test_function =
+      base::StringPrintf(R"(
+    (el) => {
+      return el &&
+             el.managedProperties_ &&
+             el.managedProperties_.%s.activeValue === %s;
+    }
+  )",
+                         property.c_str(), expected_value ? "true" : "false");
+  return WaitForStateChange(element_id, managed_boolean_change);
 }
 
 ui::test::internal::InteractiveTestPrivate::MultiStep
@@ -559,6 +728,22 @@ InteractiveAshTest::WaitForAnyElementTextContains(
 }
 
 ui::test::internal::InteractiveTestPrivate::MultiStep
+InteractiveAshTest::WaitForAnyElementAndSiblingTextContains(
+    const ui::ElementIdentifier& element_id,
+    const WebContentsInteractionTestUtil::DeepQuery& root,
+    const WebContentsInteractionTestUtil::DeepQuery& selectors,
+    const WebContentsInteractionTestUtil::DeepQuery& element_with_text,
+    const std::string& expected_text,
+    const WebContentsInteractionTestUtil::DeepQuery& sibling_element,
+    const std::string& sibling_expected_text) {
+  return FindElementAndDoActionOnChildren(
+      element_id, root, selectors,
+      FindMatchingTextsInElementAndSibling(element_with_text, expected_text,
+                                           sibling_element,
+                                           sibling_expected_text));
+}
+
+ui::test::internal::InteractiveTestPrivate::MultiStep
 InteractiveAshTest::WaitForElementHasAttribute(
     const ui::ElementIdentifier& element_id,
     WebContentsInteractionTestUtil::DeepQuery element,
@@ -571,6 +756,22 @@ InteractiveAshTest::WaitForElementHasAttribute(
   state_change.type = StateChange::Type::kExistsAndConditionTrue;
   state_change.test_function = base::StringPrintf(
       "(el) => { return el.hasAttribute('%s'); }", attribute.c_str());
+  return WaitForStateChange(element_id, state_change);
+}
+
+ui::test::internal::InteractiveTestPrivate::MultiStep
+InteractiveAshTest::WaitForElementDoesNotHaveAttribute(
+    const ui::ElementIdentifier& element_id,
+    WebContentsInteractionTestUtil::DeepQuery element,
+    const std::string& attribute) {
+  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kElementHasAttribute);
+
+  WebContentsInteractionTestUtil::StateChange state_change;
+  state_change.event = kElementHasAttribute;
+  state_change.where = element;
+  state_change.type = StateChange::Type::kExistsAndConditionTrue;
+  state_change.test_function = base::StringPrintf(
+      "(el) => { return !el.hasAttribute('%s'); }", attribute.c_str());
   return WaitForStateChange(element_id, state_change);
 }
 
@@ -710,6 +911,8 @@ InteractiveAshTest::SendTextAsKeyEvents(const ui::ElementIdentifier& element_id,
       modifiers = ui::EF_SHIFT_DOWN;
     } else if (c == '\n') {
       key_code = ui::VKEY_RETURN;
+    } else if (c == ' ') {
+      key_code = ui::VKEY_SPACE;
     }
 
     if (!key_code.has_value()) {
@@ -785,4 +988,17 @@ const std::string InteractiveAshTest::ClickElementWithSiblingContainsText(
                             DeepQueryToSelectors(element_with_text).c_str(),
                             base::GetQuotedJSONString(expected).c_str(),
                             DeepQueryToSelectors(element_to_click).c_str());
+}
+
+const std::string InteractiveAshTest::FindMatchingTextsInElementAndSibling(
+    const WebContentsInteractionTestUtil::DeepQuery& element_with_text,
+    const std::string& expected_text,
+    const WebContentsInteractionTestUtil::DeepQuery& sibling_element,
+    const std::string& sibling_expected_text) {
+  return base::StringPrintf(
+      kFindMatchingTextsInElementAndSibling,
+      DeepQueryToSelectors(element_with_text).c_str(),
+      base::GetQuotedJSONString(expected_text).c_str(),
+      DeepQueryToSelectors(sibling_element).c_str(),
+      base::GetQuotedJSONString(sibling_expected_text).c_str());
 }

@@ -441,23 +441,6 @@ BASE_EXPORT ScopedFILE CreateAndOpenTemporaryStream(FilePath* path);
 BASE_EXPORT ScopedFILE CreateAndOpenTemporaryStreamInDir(const FilePath& dir,
                                                          FilePath* path);
 
-#if BUILDFLAG(IS_WIN)
-// Retrieves the path `%systemroot%\SystemTemp`, if available, else retrieves
-// `%programfiles%`.
-// Returns the path in `temp` and `true` if the path is writable by the caller,
-// which is usually only when the caller is running as admin or system.
-// Returns `false` otherwise.
-// Both paths are only accessible to admin and system processes, and are
-// therefore secure.
-BASE_EXPORT bool GetSecureSystemTemp(FilePath* temp);
-
-// Set whether or not the use of %systemroot%\SystemTemp or %programfiles% is
-// permitted for testing. This is so tests that run as admin will still continue
-// to use %TMP% so their files will be correctly cleaned up by the test
-// launcher.
-BASE_EXPORT void SetDisableSecureSystemTempForTesting(bool disabled);
-#endif  // BUILDFLAG(IS_WIN)
-
 // Do NOT USE in new code. Use ScopedTempDir instead.
 // TODO(crbug.com/40446440) Remove existing usage and make this an
 // implementation detail inside ScopedTempDir.
@@ -632,8 +615,9 @@ BASE_EXPORT FilePath GetUniquePath(const FilePath& path);
 // suffix printf format string in cases where the default format doesn't work
 // (for example because you need a filename without spaces in it). Passing
 // " (%d)" as `suffix_format` makes this behave identical to `GetUniquePath()`.
-BASE_EXPORT FilePath GetUniquePathWithSuffixFormat(const FilePath& path,
-                                                   cstring_view suffix_format);
+BASE_EXPORT FilePath
+GetUniquePathWithSuffixFormat(const FilePath& path,
+                              base::cstring_view suffix_format);
 
 // Sets the given |fd| to non-blocking mode.
 // Returns true if it was able to set it in the non-blocking mode, otherwise

@@ -11,9 +11,13 @@ code. Some code is used on Android.
 
 ## Structure, modularity:
 * Features should be modular.
-    * For most features, all business logic should live in some combination of
-      //chrome/browser/<feature>, //chrome/browser/ui/<feature> or
-      //component/<feature>.
+    * For most features, all code should live in some combination of
+      //component/<feature> and //chrome/browser/<feature> (or
+      //chrome/browser/ui/<feature>), and not in //chrome/browser/ui/views.
+        * The historical rule restricting access to views in //chrome/browser
+          and //chrome/browser/ui has been removed.
+        * The historical rule disallowing ui code in //chrome/browser has been
+          removed.
     * WebUI resources are the only exception. They will continue to live in
       //chrome/browser/resources/<feature> alongside standalone BUILD.gn files.
     * This directory should have a standalone BUILD.gn and OWNERs file.
@@ -56,6 +60,11 @@ code. Some code is used on Android.
         * `chrome::FindBrowserWithTab` (and everything in browser_finder.h)
         * `GetBrowserViewForNativeWindow`  (via browser_view.h)
         * `FindBrowserWindowWithWebContents` (via browser_window.h)
+    * Corollary: Don't use `Browser*`. This is functionally a container of
+      hundreds of other pointers. It is impossible to specify dependencies,
+      since `Browser*` functionally depends on everything. Instead, pass in the
+      relevant pointers, e.g. `Profile*`, `FooFeatureController`, etc.
+        * Code that uses `Browser*` is also impossible to properly unit test.
     * Rationale: Modularity enforces the creation of API surfaces and explicit
       dependencies. This has several positive externalities:
         * Separation of interface from implementation prevents unnecessarly
@@ -70,6 +79,16 @@ code. Some code is used on Android.
           from production behavior, and logic is added to production code to
           work around test-only behaviors.
 
+```cpp
+// Do not do this:
+FooFeature(Browser* browser) : browser_(browser) {}
+FooFeature::DoStuff() { DoStuffWith(browser_->profile()->GetPrefs()); }
+
+// Do this:
+FooFeature(PrefService* prefs) : prefs_(prefs) {}
+FooFeature::DoStuff() { DoStuffWith(prefs_); }
+```
+
 * Features should have a core controller with precise lifetime semantics. The
   core controller for most desktop features should be owned and instantiated by
   one of the following classes:
@@ -77,7 +96,7 @@ code. Some code is used on Android.
         * This class should own all tab-centric features. e.g. print preview,
           lens overlay, compose, find-in-page, etc.
             * If the feature requires instantiation of
-              `WebContents::SupportsUserData`, it should be done in this class.
+              `content::WebContentsUserData`, it should be done in this class.
         * For desktop chrome, `TabHelpers::AttachTabHelpers` will become a
           remove-only method. Clank/WebView may continue to use section 2 of
           `TabHelpers::AttachTabHelpers` (Clank/WebView only).
@@ -87,7 +106,7 @@ code. Some code is used on Android.
             * We defer to //components/OWNERS for expertise and feedback on the
               architecture of these features, and encourage feature-owners to
               proactively reach out to them.
-        * Lazy instantiation of `WebContents::SupportsUserData` is an
+        * Lazy instantiation of `content::WebContentsUserData` is an
           anti-pattern.
     * `BrowserWindowFeatures` (member of `Browser`)
         * example: omnibox, security chip, bookmarks bar, side panel
@@ -134,6 +153,48 @@ code. Some code is used on Android.
             * This is not making any statements about initialization (e.g.
               performing non-trivial setup).
     * The core controller should not be a `NoDestructor` singleton.
+
+```cpp
+// Properly scoped state avoids categories of bugs and subtle issues. For
+// example: one common mistake is to store window-scoped state on a tab-scoped
+// object. This results in subtle bugs (or crashes) when tab is dragged into a
+// new window.
+
+// Do not do this:
+FooTabFeature {
+  // As per (1) above, we shouldn't be passing or storing Browser* anyways.
+  // Another common anti-pattern is to dynamically look up Browser* via
+  // browser_finder methods. These often result in the wrong Browser*
+  Browser* browser_;
+
+  // This will point to the wrong BrowserView if the tab is dragged into a new
+  // window. Furthermore, BrowserView* itself is a container of hundreds of
+  // other views. The tab-scoped feature typically wants something much more
+  // specific.
+  BrowserView* browser_view_;
+
+  // Extensions are profile-scoped, and thus any state/logic should be in a
+  // ProfileKeyedService. If the user has multiple tabs (possibly across
+  // multiple windows) simultaneously interacting with FooTabFeature, then it's
+  // likely that the extension will uninstall while it's still in use.
+  void InstallExtension();
+  void UninstallExtension();
+};
+
+// Instead do this:
+FooTabFeature {
+  // Guaranteed to remain valid for the lifetime of this class. This can be used
+  // to dynamically access relevant window state via
+  // tab_->GetBrowserWindowInterface()->GetFeatures().GetFooWindowFeature()
+  TabInterface* tab_;
+};
+
+FooService : public KeyedService {
+  void InstallExtension();
+  void UninstallExtension();
+};
+```
+
 * Global functions should not access non-global state.
     * Pure functions do not access global state and are allowed. e.g. `base::UTF8ToWide()`
     * Global functions that wrap global state are allowed, e.g.
@@ -184,6 +245,46 @@ code. Some code is used on Android.
 * Threaded code should have DCHECKs asserting correct sequence.
     * Provides documentation and correctness checks.
     * See base/sequence_checker.h.
+* Avoid tight coupling of unrelated features.
+    * This results in O(N^2) complexity, since every pair of features ends up
+      implicitly coupled.
+    * The proper solution is to work with UX to use consistent design language,
+      which in turn results in O(N) complexity.
+```cpp
+// Good, complexity is O(N) and no tight coupling using a well-understood and
+// common design pattern: modality. Similar logic will be needed in other modal
+// UIs. The logic in this class does not change regardless of how many other new
+// modal features are created.
+class Sparkles {
+  // Shows sparkles over the entire tab. Should not be shown over other Chrome
+  // contents (e.g. print preview)
+  void Show() {
+    if (tab_->CanShowModalUI()) {
+      MakeSparkles();
+      // Prevents other modals from showing until the member is reset.
+      modal_ui_ = tab_->ShowModalUI();
+    }
+  }
+
+  std::unique_ptr<ScopedTabModalUI> modal_ui_;
+  raw_ptr<TabInterface> tab_;
+};
+
+// Bad. Introduces tight coupling between unrelated features. Similar logic is
+// needed in PrintPreview and DevTools. Complexity will scale with O(N^2). When
+// a new modal feature is created, every modal feature will need to be updated.
+class Sparkles {
+  void Show() {
+    if (PrintPreview::Showing()) {
+      return;
+    }
+    if (DevTools::Showing()) {
+      return;
+    }
+    MakeSparkles();
+  }
+};
+```
 * Most features should be gated by base::Feature, API keys and/or gn build
   configuration, not C preprocessor conditionals e.g. `#if
   BUILDFLAG(FEATURE_FOO)`.
@@ -214,6 +315,11 @@ code. Some code is used on Android.
       flag (e.g. `BUILDFLAG(ENABLE_EXTENSIONS)`) to glue this into the main source
       is allowed. The glue code should be kept to a minimum.
 * Avoid run-time channel checking.
+* Macros are rarely appropriate. See google [style
+  guide](https://google.github.io/styleguide/cppguide.html#Preprocessor_Macros)
+    * As a rule of thumb, the macros themselves should not contain conditional
+      logic. Macros should not be triply (or more deeply) nested. When in doubt,
+      ask a member of //chrome/OWNERS.
 * Avoid test only conditionals
     * This was historically common in unit_tests, because it was not possible to
       stub out dependencies due to lack of a clear API surface. By requiring
@@ -222,6 +328,57 @@ code. Some code is used on Android.
       that can be nullptr in tests.
     * In the event that they are necessary, document and enforce via
       `CHECK_IS_TEST()`.
+    * As a corollary: do not use BrowserWithTestWindowTest. In production code,
+      there is a 1:1 correspondence between "class Browser" and "class
+      BrowserView". Features that span the two classes (which is most UI
+      features) should be able to unconditionally reference "class BrowserView".
+      The existence of this test suite forces features tested by these tests to
+      have "if (!browser_view)" test-only checks in production code. Either
+      write a browser test (where both classes are provided by the test fixture)
+      or a unit test that requires neither.
+        * This also comes from a corollary of don't use "class Browser".
+          Historically, features were written that take a "class Browser" as an
+          input parameter. "class Browser" cannot be stubbed/faked/mocked, and
+          BrowserWithTestWindowTest was written as a workaround as a way to
+          provide a "class Browser" without a "class BrowserView". New features
+          should not be taking "class Browser" as input, and should instead
+          perform dependency injection.
+* Every UI feature should have at least 1 CUJ test.
+    * New UI features should write these tests using InteractiveBrowserTest.
+* Do not write change detector unit tests. The purpose of a unit test is to
+  validate behavior of common and edge cases for a block of code that has many
+  possible valid inputs.
+```cpp
+// Good. Depending on context, this can be broken into separate tests.
+bool IsPrime(int input);
+TEST(Math, CheckIsPrime) {
+  EXPECT_TRUE(IsPrime(2));
+  EXPECT_TRUE(IsPrime(3));
+  EXPECT_FALSE(IsPrime(99));
+  EXPECT_FALSE(IsPrime(-2));
+  EXPECT_FALSE(IsPrime(0));
+  EXPECT_FALSE(IsPrime(1));
+}
+
+// Bad. This is a change detector test. Change detector tests are easy to spot
+// because the test logic looks the same as the production logic.
+class ShowButtonOnBrowserActivation : public BrowserActivationListener {
+  void ShowButton();
+  bool DidShowButton();
+
+  // BrowserActivationListener overrides:
+  void BrowserDidActivate() override {
+    ShowButton();
+  }
+};
+
+Test(ShowButtonOnBrowserActivationTest, ShowButtonOnActivate) {
+  ShowButtonOnBrowserActivation listener;
+  listener.BrowserDidActivate();
+  EXPECT_TRUE(listener.DidShowButton());
+}
+
+```
 * Avoid unreachable branches.
     * We should have a semantic understanding of each path of control flow. How
       is this reached? If we don't know, then we should not have a conditional.

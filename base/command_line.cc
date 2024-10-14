@@ -623,8 +623,7 @@ void CommandLine::RemoveSwitch(std::string_view switch_key_without_prefix) {
                                  return IsSwitchWithKey(arg, switch_key_native);
                                });
   if (expell == argv_switches_end) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
   begin_args_ -= argv_switches_end - expell;
   argv_.erase(expell, argv_switches_end);
@@ -700,8 +699,9 @@ void CommandLine::PrependWrapper(StringViewType wrapper) {
   CommandLineTokenizer tokenizer(wrapper_string, FILE_PATH_LITERAL(" "));
   tokenizer.set_quote_chars(FILE_PATH_LITERAL("'\""));
   std::vector<StringType> wrapper_argv;
-  while (tokenizer.GetNext())
-    wrapper_argv.emplace_back(tokenizer.token());
+  while (std::optional<StringViewType> token = tokenizer.GetNextTokenView()) {
+    wrapper_argv.emplace_back(token.value());
+  }
 
   // Prepend the wrapper and update the switches/arguments |begin_args_|.
   argv_.insert(argv_.begin(), wrapper_argv.begin(), wrapper_argv.end());

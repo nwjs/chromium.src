@@ -40,6 +40,9 @@ namespace {
 constexpr base::TimeDelta kCreateBondTimeout = base::Seconds(15);
 // Advertisement flag indicating BR/EDR support
 constexpr uint8_t kBrEdrNotSupportedFlag = 0x04;
+// Key-based Pairing Extended Response Flag indicating if the Provider is LE
+// only device
+constexpr uint8_t kLEOnly = 0x80;
 // Key-based Pairing Extended Response Flag indicating if the Provider prefers
 // LE bonding
 constexpr uint8_t kPrefersLEBonding = 0x40;
@@ -91,20 +94,21 @@ std::unique_ptr<FastPairPairer> FastPairPairerImpl::Factory::Create(
         pair_failed_callback,
     base::OnceCallback<void(scoped_refptr<Device>, AccountKeyFailure)>
         account_key_failure_callback,
+    base::OnceCallback<void(std::u16string, uint32_t)> display_passkey,
     base::OnceCallback<void(scoped_refptr<Device>)>
         pairing_procedure_complete) {
   if (g_test_factory_) {
     return g_test_factory_->CreateInstance(
         std::move(adapter), std::move(device), std::move(paired_callback),
         std::move(pair_failed_callback),
-        std::move(account_key_failure_callback),
+        std::move(account_key_failure_callback), std::move(display_passkey),
         std::move(pairing_procedure_complete));
   }
 
   return base::WrapUnique(new FastPairPairerImpl(
       std::move(adapter), std::move(device), std::move(paired_callback),
       std::move(pair_failed_callback), std::move(account_key_failure_callback),
-      std::move(pairing_procedure_complete)));
+      std::move(display_passkey), std::move(pairing_procedure_complete)));
 }
 
 // static
@@ -123,12 +127,14 @@ FastPairPairerImpl::FastPairPairerImpl(
         pair_failed_callback,
     base::OnceCallback<void(scoped_refptr<Device>, AccountKeyFailure)>
         account_key_failure_callback,
+    base::OnceCallback<void(std::u16string, uint32_t)> display_passkey,
     base::OnceCallback<void(scoped_refptr<Device>)> pairing_procedure_complete)
     : adapter_(std::move(adapter)),
       device_(std::move(device)),
       paired_callback_(std::move(paired_callback)),
       pair_failed_callback_(std::move(pair_failed_callback)),
       account_key_failure_callback_(std::move(account_key_failure_callback)),
+      display_passkey_(std::move(display_passkey)),
       pairing_procedure_complete_(std::move(pairing_procedure_complete)) {
   adapter_observation_.Observe(adapter_.get());
 
@@ -210,10 +216,11 @@ void FastPairPairerImpl::StartPairing() {
               base::BindOnce(&FastPairPairerImpl::OnCreateBondTimeout,
                              weak_ptr_factory_.GetWeakPtr()));
           // On Floss, always connect via classic unless device explicitly
-          // doesn't support BREDR
+          // doesn't support BREDR or indicates it prefers LE.
           if (floss::features::IsFlossEnabled() &&
               !(bt_device->GetAdvertisingDataFlags().value_or(0) &
-                kBrEdrNotSupportedFlag)) {
+                    kBrEdrNotSupportedFlag ||
+                pairing_flags & kLEOnly || pairing_flags & kPrefersLEBonding)) {
             bt_device->ConnectClassic(
                 /*pairing_delegate=*/this,
                 base::BindOnce(&FastPairPairerImpl::OnConnected,
@@ -261,10 +268,12 @@ void FastPairPairerImpl::StartPairing() {
       if (bt_device) {
         pairing_flow_ = FastPairPairingFlow::kPair;
         // On Floss, always connect via classic unless device explicitly
-        // doesn't support BREDR. ConnectClassic is equivalent to Pair.
+        // doesn't support BREDR or indicates it prefers LE. ConnectClassic is
+        // equivalent to Pair.
         if (floss::features::IsFlossEnabled() &&
             !(bt_device->GetAdvertisingDataFlags().value_or(0) &
-              kBrEdrNotSupportedFlag)) {
+                  kBrEdrNotSupportedFlag ||
+              pairing_flags & kLEOnly || pairing_flags & kPrefersLEBonding)) {
           bt_device->ConnectClassic(
               /*pairing_delegate=*/this,
               base::BindOnce(&FastPairPairerImpl::OnPairConnected,
@@ -308,9 +317,12 @@ void FastPairPairerImpl::OnConnectDevice(device::BluetoothDevice* device) {
     CD_LOG(INFO, Feature::FP) << __func__ << " on Floss";
 
     // Always connect via classic unless device explicitly
-    // doesn't support BREDR. ConnectClassic is equivalent to Pair.
+    // doesn't support BREDR or indicates it prefers LE. ConnectClassic is
+    // equivalent to Pair.
+    uint8_t pairing_flags = device_->key_based_pairing_flags().value_or(0);
     if (!(device->GetAdvertisingDataFlags().value_or(0) &
-          kBrEdrNotSupportedFlag)) {
+              kBrEdrNotSupportedFlag ||
+          pairing_flags & kLEOnly || pairing_flags & kPrefersLEBonding)) {
       device->ConnectClassic(
           /*pairing_delegate=*/this,
           base::BindOnce(&FastPairPairerImpl::OnPairConnected,
@@ -751,7 +763,10 @@ void FastPairPairerImpl::DisplayPinCode(device::BluetoothDevice* device,
 
 void FastPairPairerImpl::DisplayPasskey(device::BluetoothDevice* device,
                                         uint32_t passkey) {
-  // Left unimplemented.
+  if (ash::features::IsFastPairKeyboardsEnabled() &&
+      floss::features::IsFlossEnabled()) {
+    std::move(display_passkey_).Run(device->GetNameForDisplay(), passkey);
+  }
 }
 
 void FastPairPairerImpl::KeysEntered(device::BluetoothDevice* device,

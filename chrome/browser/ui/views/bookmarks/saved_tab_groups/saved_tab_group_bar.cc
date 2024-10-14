@@ -42,6 +42,7 @@
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
+#include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/compositor/layer_tree_owner.h"
@@ -201,9 +202,9 @@ SavedTabGroupBar::SavedTabGroupBar(Browser* browser,
   // feature flag is turned off, there is no SavedTabGroupModel.
   DCHECK(browser_->profile()->IsRegularProfile());
   DCHECK(tab_group_service);
-  GetViewAccessibility().SetProperties(
-      ax::mojom::Role::kToolbar,
-      /*name=*/l10n_util::GetStringUTF16(IDS_ACCNAME_SAVED_TAB_GROUPS));
+  GetViewAccessibility().SetRole(ax::mojom::Role::kToolbar);
+  GetViewAccessibility().SetName(
+      l10n_util::GetStringUTF16(IDS_ACCNAME_SAVED_TAB_GROUPS));
 
   SetProperty(views::kElementIdentifierKey, kSavedTabGroupBarElementId);
 
@@ -215,14 +216,10 @@ SavedTabGroupBar::SavedTabGroupBar(Browser* browser,
           gfx::Insets::VH(kButtonPadding, 0), kBetweenElementSpacing);
   SetLayoutManager(std::move(layout_manager));
 
-  overflow_button_ = AddChildView(std::make_unique<SavedTabGroupOverflowButton>(
-      base::BindRepeating(IsTabGroupsSaveUIUpdateEnabled()
-                              ? &SavedTabGroupBar::ShowEverythingMenu
-                              : &SavedTabGroupBar::MaybeShowOverflowMenu,
-                          base::Unretained(this))));
+  overflow_button_ = AddChildView(CreateOverflowButton());
 
   // Add the observer.
-  // TODO(crbug.com/359715038): Consider consolidating logic by forwarding
+  // TODO(crbug.com/361110303): Consider consolidating logic by forwarding
   // observer in proxy.
   if (tab_groups::IsTabGroupSyncServiceDesktopMigrationEnabled()) {
     tab_group_service_->AddObserver(this);
@@ -261,7 +258,7 @@ SavedTabGroupBar::~SavedTabGroupBar() {
   // Remove all buttons from the hierarchy
   RemoveAllButtons();
 
-  // TODO(crbug.com/359715038): Consider consolidating logic by forwarding
+  // TODO(crbug.com/361110303): Consider consolidating logic by forwarding
   // observer in proxy.
   if (tab_groups::IsTabGroupSyncServiceDesktopMigrationEnabled()) {
     tab_group_service_->RemoveObserver(this);
@@ -499,8 +496,9 @@ void SavedTabGroupBar::SavedTabGroupReorderedFromSync() {
   SavedTabGroupReordered();
 }
 
-void SavedTabGroupBar::SavedTabGroupTabsReorderedLocally(
-    const base::Uuid& group_guid) {
+void SavedTabGroupBar::SavedTabGroupTabMovedLocally(
+    const base::Uuid& group_guid,
+    const base::Uuid& tab_guid) {
   SavedTabGroupUpdated(group_guid);
 }
 
@@ -520,9 +518,10 @@ void SavedTabGroupBar::SavedTabGroupUpdatedFromSync(
 }
 
 void SavedTabGroupBar::OnInitialized() {
+  RemoveAllChildViews();
   LoadAllButtonsFromModel();
+  overflow_button_ = AddChildView(CreateOverflowButton());
   InvalidateLayout();
-  ReorderChildView(overflow_button_, children().size());
 }
 
 void SavedTabGroupBar::OnTabGroupAdded(const SavedTabGroup& group,
@@ -535,14 +534,20 @@ void SavedTabGroupBar::OnTabGroupUpdated(const SavedTabGroup& group,
   SavedTabGroupUpdated(group.saved_guid());
 }
 
-void SavedTabGroupBar::OnTabGroupRemoved(const LocalTabGroupID& local_id,
-                                         TriggerSource source) {
-  NOTIMPLEMENTED();
+void SavedTabGroupBar::OnTabGroupLocalIdChanged(
+    const base::Uuid& sync_id,
+    const std::optional<LocalTabGroupID>& local_id) {
+  SavedTabGroupUpdated(sync_id);
+  MaybeShowClosePromo(sync_id);
 }
 
 void SavedTabGroupBar::OnTabGroupRemoved(const base::Uuid& sync_id,
                                          TriggerSource source) {
   SavedTabGroupRemoved(sync_id);
+}
+
+void SavedTabGroupBar::OnTabGroupsReordered(TriggerSource source) {
+  SavedTabGroupReordered();
 }
 
 void SavedTabGroupBar::OnWidgetDestroying(views::Widget* widget) {
@@ -690,6 +695,7 @@ void SavedTabGroupBar::SavedTabGroupUpdated(const base::Uuid& guid) {
   }
 
   const std::optional<SavedTabGroup> group = tab_group_service_->GetGroup(guid);
+  CHECK(group);
   SavedTabGroupButton* button =
       views::AsViewClass<SavedTabGroupButton>(GetButton(group->saved_guid()));
 
@@ -706,8 +712,7 @@ void SavedTabGroupBar::SavedTabGroupUpdated(const base::Uuid& guid) {
     } else {
       button->UpdateButtonData(*group);
     }
-  } else {
-    DCHECK(button);
+  } else if (button) {
     button->UpdateButtonData(*group);
   }
 
@@ -803,6 +808,15 @@ void SavedTabGroupBar::OnTabGroupButtonPressed(const base::Uuid& id,
   }
 }
 
+std::unique_ptr<SavedTabGroupOverflowButton>
+SavedTabGroupBar::CreateOverflowButton() {
+  return std::make_unique<SavedTabGroupOverflowButton>(
+      base::BindRepeating(IsTabGroupsSaveUIUpdateEnabled()
+                              ? &SavedTabGroupBar::ShowEverythingMenu
+                              : &SavedTabGroupBar::MaybeShowOverflowMenu,
+                          base::Unretained(this)));
+}
+
 void SavedTabGroupBar::MaybeShowOverflowMenu() {
   // Don't show the menu if it's already showing.
   if (overflow_menu_) {
@@ -831,7 +845,7 @@ void SavedTabGroupBar::MaybeShowOverflowMenu() {
   bubble_delegate->set_adjust_if_offscreen(true);
   bubble_delegate->set_close_on_deactivate(true);
   bubble_delegate->SetShowTitle(false);
-  bubble_delegate->SetButtons(ui::DIALOG_BUTTON_NONE);
+  bubble_delegate->SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   bubble_delegate->SetShowCloseButton(false);
   bubble_delegate->SetEnableArrowKeyTraversal(true);
   bubble_delegate->SetContentsView(std::move(overflow_menu));

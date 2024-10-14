@@ -86,6 +86,15 @@ void AutofillClient::OfferPlusAddressCreation(
     const url::Origin& main_frame_origin,
     PlusAddressCallback callback) {}
 
+void AutofillClient::ShowPlusAddressError(
+    PlusAddressErrorDialogType error_dialog_type,
+    base::OnceClosure on_accepted) {}
+
+void AutofillClient::ShowPlusAddressAffiliationError(
+    std::u16string affiliated_domain,
+    std::u16string affiliated_plus_address,
+    base::OnceClosure on_accepted) {}
+
 payments::PaymentsAutofillClient* AutofillClient::GetPaymentsAutofillClient() {
   return nullptr;
 }
@@ -115,13 +124,6 @@ profile_metrics::BrowserProfileType AutofillClient::GetProfileType() const {
 FastCheckoutClient* AutofillClient::GetFastCheckoutClient() {
   return nullptr;
 }
-
-#if !BUILDFLAG(IS_IOS)
-std::unique_ptr<webauthn::InternalAuthenticator>
-AutofillClient::CreateCreditCardInternalAuthenticator(AutofillDriver* driver) {
-  return nullptr;
-}
-#endif
 
 LogManager* AutofillClient::GetLogManager() const {
   return nullptr;
@@ -153,15 +155,29 @@ void AutofillClient::HideAutofillFieldIphForManualFallbackFeature() {}
 
 void AutofillClient::NotifyAutofillManualFallbackUsed() {}
 
+void AutofillClient::ShowSaveAutofillPredictionImprovementsBubble() {}
+
 std::optional<AutofillClient::PopupScreenLocation>
 AutofillClient::GetPopupScreenLocation() const {
   NOTIMPLEMENTED();
   return std::nullopt;
 }
 
+std::optional<AutofillClient::SuggestionUiSessionId>
+AutofillClient::GetSessionIdForCurrentAutofillSuggestions() const {
+  return std::nullopt;
+}
+
 base::span<const Suggestion> AutofillClient::GetAutofillSuggestions() const {
   NOTIMPLEMENTED();
   return {};
+}
+
+void AutofillClient::UpdateAutofillSuggestions(
+    const std::vector<Suggestion>& suggestions,
+    FillingProduct main_filling_product,
+    AutofillSuggestionTriggerSource trigger_source) {
+  NOTIMPLEMENTED();
 }
 
 void AutofillClient::set_test_addresses(
@@ -171,10 +187,10 @@ base::span<const AutofillProfile> AutofillClient::GetTestAddresses() const {
   return {};
 }
 
-AutofillClient::PasswordFormClassification
-AutofillClient::ClassifyAsPasswordForm(AutofillManager& manager,
-                                       FormGlobalId form_id,
-                                       FieldGlobalId field_id) const {
+PasswordFormClassification AutofillClient::ClassifyAsPasswordForm(
+    AutofillManager& manager,
+    FormGlobalId form_id,
+    FieldGlobalId field_id) const {
   return {};
 }
 

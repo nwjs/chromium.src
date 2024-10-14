@@ -31,9 +31,9 @@
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
@@ -69,13 +69,13 @@
 #import "ios/chrome/browser/ui/main_content/main_content_ui_broadcasting_util.h"
 #import "ios/chrome/browser/ui/main_content/main_content_ui_state.h"
 #import "ios/chrome/browser/ui/main_content/web_scroll_view_main_content_ui_forwarder.h"
-#import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_ui_features.h"
 #import "ios/chrome/browser/ui/popup_menu/overflow_menu/feature_flags.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_coordinator.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_strip/coordinator/tab_strip_coordinator.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_strip/ui/tab_strip_utils.h"
 #import "ios/chrome/browser/ui/toolbar/accessory/toolbar_accessory_presenter.h"
+#import "ios/chrome/browser/ui/toolbar/buttons/toolbar_configuration.h"
 #import "ios/chrome/browser/ui/toolbar/fullscreen/toolbar_ui.h"
 #import "ios/chrome/browser/ui/toolbar/fullscreen/toolbar_ui_broadcasting_util.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_coordinator.h"
@@ -1012,7 +1012,7 @@ enum HeaderBehaviour {
     }
   }
 
-  // After `-shutdown` is called, browserState is invalid and will cause a
+  // After `-shutdown` is called, profile is invalid and will cause a
   // crash.
   if (_isShutdown) {
     return;
@@ -1120,11 +1120,6 @@ enum HeaderBehaviour {
       completion:^(id<UIViewControllerTransitionCoordinatorContext>) {
         [weakSelf completedTransition];
       }];
-
-  if (self.currentWebState) {
-    id<CRWWebViewProxy> webViewProxy = self.currentWebState->GetWebViewProxy();
-    [webViewProxy surfaceSizeChanged];
-  }
 
   crash_keys::SetCurrentOrientation(GetInterfaceOrientation(),
                                     [[UIDevice currentDevice] orientation]);
@@ -1329,7 +1324,7 @@ enum HeaderBehaviour {
 }
 
 // Builds the UI parts of tab strip and the toolbar. Does not matter whether
-// or not browser state and browser are valid.
+// or not profile and browser are valid.
 - (void)buildToolbarAndTabStrip {
   DCHECK([self isViewLoaded]);
 
@@ -1831,6 +1826,13 @@ enum HeaderBehaviour {
 - (UIViewController*)popupParentViewControllerForPresenter:
     (OmniboxPopupPresenter*)presenter {
   return self;
+}
+
+- (UIColor*)popupBackgroundColorForPresenter:(OmniboxPopupPresenter*)presenter {
+  ToolbarConfiguration* configuration = [[ToolbarConfiguration alloc]
+      initWithStyle:_isOffTheRecord ? ToolbarStyle::kIncognito
+                                    : ToolbarStyle::kNormal];
+  return configuration.backgroundColor;
 }
 
 - (GuideName*)omniboxGuideNameForPresenter:(OmniboxPopupPresenter*)presenter {

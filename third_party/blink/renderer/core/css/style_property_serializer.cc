@@ -73,9 +73,14 @@ inline WhiteSpaceCollapse ToWhiteSpaceCollapse(const CSSValue* value) {
       value, ComputedStyleInitialValues::InitialWhiteSpaceCollapse());
 }
 
-inline TextWrap ToTextWrap(const CSSValue* value) {
-  return ConvertIdentifierTo<TextWrap>(
-      value, ComputedStyleInitialValues::InitialTextWrap());
+inline TextWrapMode ToTextWrapMode(const CSSValue* value) {
+  return ConvertIdentifierTo<TextWrapMode>(
+      value, ComputedStyleInitialValues::InitialTextWrapMode());
+}
+
+inline TextWrapStyle ToTextWrapStyle(const CSSValue* value) {
+  return ConvertIdentifierTo<TextWrapStyle>(
+      value, ComputedStyleInitialValues::InitialTextWrapStyle());
 }
 
 bool IsZeroPercent(const CSSValue* value) {
@@ -425,6 +430,7 @@ static bool AllowInitialInShorthand(CSSPropertyID property_id) {
     case CSSPropertyID::kListStyle:
     case CSSPropertyID::kTextDecoration:
     case CSSPropertyID::kTextEmphasis:
+    case CSSPropertyID::kTextWrap:
     case CSSPropertyID::kMask:
     case CSSPropertyID::kWebkitTextStroke:
     case CSSPropertyID::kWhiteSpace:
@@ -625,6 +631,8 @@ String StylePropertySerializer::SerializeShorthand(
       return Get2Values(marginBlockShorthand());
     case CSSPropertyID::kMarginInline:
       return Get2Values(marginInlineShorthand());
+    case CSSPropertyID::kMasonryTrack:
+      return GetShorthandValueForMasonryTrack();
     case CSSPropertyID::kOffset:
       return OffsetValue();
     case CSSPropertyID::kOverflow:
@@ -655,6 +663,8 @@ String StylePropertySerializer::SerializeShorthand(
       return TextSpacingValue();
     case CSSPropertyID::kWebkitTextStroke:
       return GetShorthandValue(webkitTextStrokeShorthand());
+    case CSSPropertyID::kTextWrap:
+      return TextWrapValue();
     case CSSPropertyID::kMarker: {
       if (const CSSValue* start =
               property_set_.GetPropertyCSSValue(GetCSSPropertyMarkerStart())) {
@@ -1669,34 +1679,32 @@ String StylePropertySerializer::GetLayeredShorthandValue(
           omit_value = true;
         }
       }
-      if (RuntimeEnabledFeatures::CSSTransitionShorterSerializationEnabled()) {
-        // The transition shorthand should only serialize values which aren't
-        // set to their default value:
-        // https://github.com/web-platform-tests/wpt/issues/43574
-        if (property->IDEquals(CSSPropertyID::kTransitionDelay) ||
-            property->IDEquals(CSSPropertyID::kTransitionDuration)) {
-          auto* numeric_value = DynamicTo<CSSNumericLiteralValue>(value);
-          if (numeric_value &&
-              numeric_value->IsZero() == CSSPrimitiveValue::BoolStatus::kTrue) {
+      // The transition shorthand should only serialize values which aren't
+      // set to their default value:
+      // https://github.com/web-platform-tests/wpt/issues/43574
+      if (property->IDEquals(CSSPropertyID::kTransitionDelay) ||
+          property->IDEquals(CSSPropertyID::kTransitionDuration)) {
+        auto* numeric_value = DynamicTo<CSSNumericLiteralValue>(value);
+        if (numeric_value &&
+            numeric_value->IsZero() == CSSPrimitiveValue::BoolStatus::kTrue) {
+          omit_value = true;
+        }
+      } else if (property->IDEquals(
+                     CSSPropertyID::kTransitionTimingFunction)) {
+        if (auto* ident = DynamicTo<CSSIdentifierValue>(value)) {
+          if (ident->GetValueID() == CSSValueID::kEase) {
             omit_value = true;
           }
-        } else if (property->IDEquals(
-                       CSSPropertyID::kTransitionTimingFunction)) {
-          if (auto* ident = DynamicTo<CSSIdentifierValue>(value)) {
-            if (ident->GetValueID() == CSSValueID::kEase) {
-              omit_value = true;
-            }
+        }
+      } else if (property->IDEquals(CSSPropertyID::kTransitionProperty)) {
+        if (auto* custom_ident = DynamicTo<CSSCustomIdentValue>(value)) {
+          if (custom_ident->IsKnownPropertyID() &&
+              custom_ident->ValueAsPropertyID() == CSSPropertyID::kAll) {
+            omit_value = true;
           }
-        } else if (property->IDEquals(CSSPropertyID::kTransitionProperty)) {
-          if (auto* custom_ident = DynamicTo<CSSCustomIdentValue>(value)) {
-            if (custom_ident->IsKnownPropertyID() &&
-                custom_ident->ValueAsPropertyID() == CSSPropertyID::kAll) {
-              omit_value = true;
-            }
-          } else if (auto* ident = DynamicTo<CSSIdentifierValue>(value)) {
-            if (ident->GetValueID() == CSSValueID::kAll) {
-              omit_value = true;
-            }
+        } else if (auto* ident = DynamicTo<CSSIdentifierValue>(value)) {
+          if (ident->GetValueID() == CSSValueID::kAll) {
+            omit_value = true;
           }
         }
       }
@@ -1795,8 +1803,7 @@ String StylePropertySerializer::GetLayeredShorthandValue(
     if (shorthand.id() == CSSPropertyID::kMask && layer_result.empty()) {
       layer_result.Append(getValueName(CSSValueID::kNone));
     }
-    if (RuntimeEnabledFeatures::CSSTransitionShorterSerializationEnabled() &&
-        shorthand.id() == CSSPropertyID::kTransition && layer_result.empty()) {
+    if (shorthand.id() == CSSPropertyID::kTransition && layer_result.empty()) {
       // When serializing the transition shorthand, we omit all values which are
       // set to their defaults. If everything is set to the default, then emit
       // "all" instead of an empty string.
@@ -2143,6 +2150,30 @@ String StylePropertySerializer::GetShorthandValueForGridLine(
   return result.ReleaseString();
 }
 
+String StylePropertySerializer::GetShorthandValueForMasonryTrack() const {
+  CHECK_EQ(masonryTrackShorthand().length(), 2u);
+  CHECK_EQ(masonryTrackShorthand().properties()[0],
+           &GetCSSPropertyMasonryTrackStart());
+  CHECK_EQ(masonryTrackShorthand().properties()[1],
+           &GetCSSPropertyMasonryTrackEnd());
+
+  const auto* track_start =
+      property_set_.GetPropertyCSSValue(GetCSSPropertyMasonryTrackStart());
+  const auto* track_end =
+      property_set_.GetPropertyCSSValue(GetCSSPropertyMasonryTrackStart());
+
+  StringBuilder result;
+
+  // `masonry-track-start` is always included.
+  result.Append(track_start->CssText());
+  if (CSSOMUtils::IncludeDependentGridLineEndValue(track_start, track_end)) {
+    result.Append(" / ");
+    result.Append(track_end->CssText());
+  }
+
+  return result.ReleaseString();
+}
+
 String StylePropertySerializer::GetShorthandValueForGridTemplate(
     const StylePropertyShorthand& shorthand) const {
   const CSSValue* template_row_values =
@@ -2383,11 +2414,41 @@ String StylePropertySerializer::TextSpacingValue() const {
   return result.ToString();
 }
 
+String StylePropertySerializer::TextWrapValue() const {
+  const CSSValue* mode_value =
+      property_set_.GetPropertyCSSValue(GetCSSPropertyTextWrapMode());
+  const CSSValue* style_value =
+      property_set_.GetPropertyCSSValue(GetCSSPropertyTextWrapStyle());
+  if (!mode_value || !style_value) {
+    // If any longhands are missing, don't serialize as a shorthand.
+    return g_empty_string;
+  }
+
+  // If `text-wrap-style` is initial, return `text-wrap-mode`.
+  const TextWrapMode mode = ToTextWrapMode(mode_value);
+  const TextWrapStyle style = ToTextWrapStyle(style_value);
+  if (style == ComputedStyleInitialValues::InitialTextWrapStyle()) {
+    return getValueName(PlatformEnumToCSSValueID(mode));
+  }
+
+  // Otherwise, if `text-wrap-mode` is initial, return `text-wrap-style`.
+  if (mode == ComputedStyleInitialValues::InitialTextWrapMode()) {
+    return getValueName(PlatformEnumToCSSValueID(style));
+  }
+
+  // If neither is initial, return a list.
+  StringBuilder result;
+  result.Append(getValueName(PlatformEnumToCSSValueID(mode)));
+  result.Append(kSpaceCharacter);
+  result.Append(getValueName(PlatformEnumToCSSValueID(style)));
+  return result.ToString();
+}
+
 String StylePropertySerializer::WhiteSpaceValue() const {
   const CSSValue* collapse_value =
       property_set_.GetPropertyCSSValue(GetCSSPropertyWhiteSpaceCollapse());
   const CSSValue* wrap_value =
-      property_set_.GetPropertyCSSValue(GetCSSPropertyTextWrap());
+      property_set_.GetPropertyCSSValue(GetCSSPropertyTextWrapMode());
   if (!collapse_value || !wrap_value) {
     // If any longhands are missing, don't serialize as a shorthand.
     return g_empty_string;
@@ -2395,7 +2456,7 @@ String StylePropertySerializer::WhiteSpaceValue() const {
 
   // Check if longhands are one of pre-defined keywords of `white-space`.
   const WhiteSpaceCollapse collapse = ToWhiteSpaceCollapse(collapse_value);
-  const TextWrap wrap = ToTextWrap(wrap_value);
+  const TextWrapMode wrap = ToTextWrapMode(wrap_value);
   const EWhiteSpace whitespace = ToWhiteSpace(collapse, wrap);
   if (IsValidWhiteSpace(whitespace)) {
     return getValueName(PlatformEnumToCSSValueID(whitespace));
@@ -2406,7 +2467,7 @@ String StylePropertySerializer::WhiteSpaceValue() const {
   if (collapse != ComputedStyleInitialValues::InitialWhiteSpaceCollapse()) {
     result.Append(getValueName(PlatformEnumToCSSValueID(collapse)));
   }
-  if (wrap != ComputedStyleInitialValues::InitialTextWrap()) {
+  if (wrap != ComputedStyleInitialValues::InitialTextWrapMode()) {
     if (!result.empty()) {
       result.Append(kSpaceCharacter);
     }

@@ -692,13 +692,11 @@ void StyleEngine::UpdateCounterStyles() {
 
 void StyleEngine::MarkPositionTryStylesDirty(
     const HeapHashSet<Member<RuleSet>>& changed_rule_sets) {
-  if (RuntimeEnabledFeatures::LastSuccessfulPositionOptionEnabled()) {
-    for (RuleSet* rule_set : changed_rule_sets) {
-      CHECK(rule_set);
-      for (StyleRulePositionTry* try_rule : rule_set->PositionTryRules()) {
-        if (try_rule) {
-          dirty_position_try_names_.insert(try_rule->Name());
-        }
+  for (RuleSet* rule_set : changed_rule_sets) {
+    CHECK(rule_set);
+    for (StyleRulePositionTry* try_rule : rule_set->PositionTryRules()) {
+      if (try_rule) {
+        dirty_position_try_names_.insert(try_rule->Name());
       }
     }
   }
@@ -738,7 +736,7 @@ void StyleEngine::UpdateActiveStyle() {
   DCHECK(GetDocument().IsActive());
   DCHECK(IsMainThread());
   TRACE_EVENT0("blink", "Document::updateActiveStyle");
-  InvalidationSetToSelectorMap::StartOrStopTrackingIfNeeded();
+  InvalidationSetToSelectorMap::StartOrStopTrackingIfNeeded(*this);
   UpdateViewport();
   UpdateActiveStyleSheets();
   UpdateGlobalRuleSet();
@@ -2626,7 +2624,7 @@ class StyleEngine::AtRuleCascadeMap {
   struct Priority {
     DISALLOW_NEW();
     bool is_user_style;
-    unsigned layer_order;
+    uint16_t layer_order;
 
     bool operator<(const Priority& other) const {
       if (is_user_style != other.is_user_style) {
@@ -2655,7 +2653,7 @@ class StyleEngine::AtRuleCascadeMap {
   }
 
  private:
-  unsigned GetLayerOrder(bool is_user_style, const CascadeLayer* layer) {
+  uint16_t GetLayerOrder(bool is_user_style, const CascadeLayer* layer) {
     if (!layer) {
       return CascadeLayerMap::kImplicitOuterLayerOrder;
     }
@@ -4476,11 +4474,6 @@ bool InvalidatePositionTryNames(Element* root,
 }  // namespace
 
 bool StyleEngine::UpdateLastSuccessfulPositionFallbacks() {
-  if (!RuntimeEnabledFeatures::LastSuccessfulPositionOptionEnabled()) {
-    CHECK(dirty_position_try_names_.empty());
-    CHECK(last_successful_option_dirty_set_.empty());
-    return false;
-  }
   bool invalidated = false;
   if (!dirty_position_try_names_.empty()) {
     // Added, removed, or modified @position-try rules.
@@ -4502,6 +4495,46 @@ bool StyleEngine::UpdateLastSuccessfulPositionFallbacks() {
     last_successful_option_dirty_set_.clear();
   }
   return invalidated;
+}
+
+void StyleEngine::RevisitActiveStyleSheetsForInspector() {
+  // TODO(crbug.com/337076014): Also revisit other stylesheets such as those in
+  // shadow trees, user sheets, and UA sheets.
+  const RuleFeatureSet& global_features = GetRuleFeatureSet();
+  const ActiveStyleSheetVector& active_style_sheets =
+      GetDocumentStyleSheetCollection().ActiveStyleSheets();
+  for (const ActiveStyleSheet& sheet : active_style_sheets) {
+    // We need to revisit each sheet twice, once with the global rule set and
+    // once with the sheet's associated rule set.
+    // The global rule set contains the rule invalidation data we're currently
+    // using for style invalidations. However, if a stylesheet change occurs,
+    // we may throw out the global rule set data and rebuild it from the
+    // individual sheets' data, so the inspector needs to know about both.
+    StyleSheetContents* contents = sheet.first->Contents();
+    RevisitStyleRulesForInspector(global_features, contents->ChildRules());
+    if (contents->HasRuleSet()) {
+      RevisitStyleRulesForInspector(contents->GetRuleSet().Features(),
+                                    contents->ChildRules());
+    }
+  }
+}
+
+void StyleEngine::RevisitStyleRulesForInspector(
+    const RuleFeatureSet& features,
+    const HeapVector<Member<StyleRuleBase>>& rules) {
+  for (StyleRuleBase* rule : rules) {
+    if (StyleRule* style_rule = DynamicTo<StyleRule>(rule)) {
+      for (const CSSSelector* selector = style_rule->FirstSelector(); selector;
+           selector = CSSSelectorList::Next(*selector)) {
+        InvalidationSetToSelectorMap::SelectorScope selector_scope(
+            style_rule, style_rule->SelectorIndex(*selector));
+        features.RevisitSelectorForInspector(*selector);
+      }
+    } else if (StyleRuleGroup* style_rule_group =
+                   DynamicTo<StyleRuleGroup>(rule)) {
+      RevisitStyleRulesForInspector(features, style_rule_group->ChildRules());
+    }
+  }
 }
 
 }  // namespace blink

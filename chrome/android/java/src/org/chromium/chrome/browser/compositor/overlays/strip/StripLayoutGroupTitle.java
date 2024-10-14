@@ -11,7 +11,6 @@ import android.util.FloatProperty;
 import androidx.annotation.ColorInt;
 
 import org.chromium.base.MathUtils;
-import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.ui.base.LocalizationUtils;
@@ -25,25 +24,8 @@ public class StripLayoutGroupTitle extends StripLayoutView {
 
     private final Context mContext;
 
-    /**
-     * Get the bounds of the view w.r.t screen.
-     *
-     * @param out Screen coordinates of the view to populate.
-     * @param windowRectSupplier Supplier for holder window bounds for computation.
-     */
-    public void getDrawBoundsOnScreen(Rect out, Supplier<Rect> windowRectSupplier) {
-        float dpToPx = mContext.getResources().getDisplayMetrics().density;
-        int leftWithOffset = (int) (getPaddedX() * dpToPx) + windowRectSupplier.get().left;
-        int topWithOffset = (int) (getPaddedY() * dpToPx) + windowRectSupplier.get().top;
-        out.set(
-                leftWithOffset,
-                topWithOffset,
-                (int) (leftWithOffset + (getPaddedWidth() * dpToPx)),
-                (int) (topWithOffset + (getPaddedHeight() * dpToPx)));
-    }
-
     /** Delegate for additional group title functionality. */
-    public interface StripLayoutGroupTitleDelegate {
+    public interface StripLayoutGroupTitleDelegate extends StripLayoutViewOnClickHandler {
         /**
          * Releases the resources associated with this group indicator.
          *
@@ -57,13 +39,6 @@ public class StripLayoutGroupTitle extends StripLayoutView {
          * @param groupTitle This group indicator.
          */
         void rebuildResourcesForGroupTitle(StripLayoutGroupTitle groupTitle);
-
-        /**
-         * Handles group title click action.
-         *
-         * @param groupTitle The group title that was clicked.
-         */
-        void handleGroupTitleClick(StripLayoutGroupTitle groupTitle);
     }
 
     /** A property for animations to use for changing the width of the bottom indicator. */
@@ -121,7 +96,7 @@ public class StripLayoutGroupTitle extends StripLayoutView {
             StripLayoutGroupTitleDelegate delegate,
             boolean incognito,
             int rootId) {
-        super(incognito);
+        super(incognito, delegate);
         assert rootId != Tab.INVALID_TAB_ID : "Tried to create a group title for an invalid group.";
         mRootId = rootId;
         mContext = context;
@@ -153,11 +128,6 @@ public class StripLayoutGroupTitle extends StripLayoutView {
         return false;
     }
 
-    @Override
-    public void handleClick(long time) {
-        mDelegate.handleGroupTitleClick(this);
-    }
-
     /**
      * @return DrawX accounting for padding.
      */
@@ -184,6 +154,20 @@ public class StripLayoutGroupTitle extends StripLayoutView {
      */
     public float getPaddedHeight() {
         return getHeight() - MARGIN_TOP_DP - MARGIN_BOTTOM_DP;
+    }
+
+    /**
+     * Get padded bounds for this view.
+     *
+     * @param out Rect to set the bounds.
+     */
+    public void getPaddedBoundsPx(Rect out) {
+        float dpToPx = mContext.getResources().getDisplayMetrics().density;
+        out.set(
+                (int) (getPaddedX() * dpToPx),
+                (int) (getPaddedY() * dpToPx),
+                (int) ((getPaddedX() + getPaddedWidth()) * dpToPx),
+                (int) ((getPaddedY() + getPaddedHeight()) * dpToPx));
     }
 
     /**

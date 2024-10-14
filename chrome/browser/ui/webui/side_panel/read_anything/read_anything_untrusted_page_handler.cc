@@ -15,6 +15,8 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/values.h"
+#include "chrome/browser/accessibility/phrase_segmentation/dependency_parser_model_loader.h"
+#include "chrome/browser/accessibility/phrase_segmentation/dependency_parser_model_loader_factory.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/language/language_model_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -238,6 +240,11 @@ void ReadAnythingWebContentsObserver::AccessibilityEventReceived(
   page_handler_->AccessibilityEventReceived(details);
 }
 
+void ReadAnythingWebContentsObserver::AccessibilityLocationChangesReceived(
+    const std::vector<ui::AXLocationChanges>& details) {
+  page_handler_->AccessibilityLocationChangesReceived(details);
+}
+
 void ReadAnythingWebContentsObserver::PrimaryPageChanged(content::Page& page) {
   page_handler_->PrimaryPageChanged();
 }
@@ -257,10 +264,9 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
   ax_action_handler_observer_.Observe(
       ui::AXActionHandlerRegistry::GetInstance());
 
-  auto* tab = chrome::FindLastActive()->GetActiveTabInterface();
-  CHECK(tab);
-  side_panel_controller_ =
-      tab->GetTabFeatures()->read_anything_side_panel_controller();
+  side_panel_controller_ = ReadAnythingSidePanelControllerGlue::FromWebContents(
+                               web_ui_->GetWebContents())
+                               ->controller();
   side_panel_controller_->AddPageHandlerAsObserver(weak_factory_.GetWeakPtr());
 
   PrefService* prefs = profile_->GetPrefs();
@@ -332,7 +338,8 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
   // This causes AXTreeSerializer to reset and send accessibility events of
   // the AXTree when it is re-serialized.
   main_observer_ = std::make_unique<ReadAnythingWebContentsObserver>(
-      weak_factory_.GetSafeRef(), tab->GetContents(), kReadAnythingAXMode);
+      weak_factory_.GetSafeRef(), side_panel_controller_->tab()->GetContents(),
+      kReadAnythingAXMode);
   SetUpPdfObserver();
   OnActiveAXTreeIDChanged();
 
@@ -346,7 +353,7 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
 
 ReadAnythingUntrustedPageHandler::~ReadAnythingUntrustedPageHandler() {
   translate_observation_.Reset();
-  web_snapshotter_.reset();
+  web_screenshotter_.reset();
   main_observer_.reset();
   pdf_observer_.reset();
   LogTextStyle();
@@ -382,6 +389,13 @@ void ReadAnythingUntrustedPageHandler::AccessibilityEventReceived(
                                     details.events);
 }
 
+void ReadAnythingUntrustedPageHandler::AccessibilityLocationChangesReceived(
+    const std::vector<ui::AXLocationChanges>& details) {
+  if (features::IsReadAnythingDocsIntegrationEnabled()) {
+    page_->AccessibilityLocationChangesReceived(details);
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // ui::AXActionHandlerObserver:
 ///////////////////////////////////////////////////////////////////////////////
@@ -393,6 +407,33 @@ void ReadAnythingUntrustedPageHandler::TreeRemoved(ui::AXTreeID ax_tree_id) {
 ///////////////////////////////////////////////////////////////////////////////
 // read_anything::mojom::UntrustedPageHandler:
 ///////////////////////////////////////////////////////////////////////////////
+
+void ReadAnythingUntrustedPageHandler::GetDependencyParserModel(
+    GetDependencyParserModelCallback callback) {
+  DependencyParserModelLoader* loader =
+      DependencyParserModelLoaderFactory::GetForProfile(profile_);
+  if (!loader) {
+    std::move(callback).Run(base::File());
+    return;
+  }
+
+  // If the model file is unavailable, request the dependency parser loader to
+  // notify this instance when it becomes available. The two-step process is to
+  // ensure that the model file and callback lifetimes are carefully managed, so
+  // they are not freed without being handled on the appropriate thread,
+  // particularly for the model file.
+  // TODO(b/339037155): Investigate the feasibility of moving this logic into
+  // the dependency parser model loader.
+  if (!loader->IsModelAvailable()) {
+    loader->NotifyOnModelFileAvailable(
+        base::BindOnce(&ReadAnythingUntrustedPageHandler::
+                           OnDependencyParserModelFileAvailabilityChanged,
+                       weak_factory_.GetWeakPtr(), std::move(callback)));
+    return;
+  }
+
+  OnDependencyParserModelFileAvailabilityChanged(std::move(callback), true);
+}
 
 void ReadAnythingUntrustedPageHandler::GetVoicePackInfo(
     const std::string& language,
@@ -615,7 +656,7 @@ void ReadAnythingUntrustedPageHandler::OnCollapseSelection() {
   }
 }
 
-void ReadAnythingUntrustedPageHandler::OnSnapshotRequested() {
+void ReadAnythingUntrustedPageHandler::OnScreenshotRequested() {
   if (!features::IsDataCollectionModeForScreen2xEnabled()) {
     return;
   }
@@ -624,11 +665,11 @@ void ReadAnythingUntrustedPageHandler::OnSnapshotRequested() {
     return;
   }
 
-  if (!web_snapshotter_) {
-    web_snapshotter_ = std::make_unique<ReadAnythingSnapshotter>();
+  if (!web_screenshotter_) {
+    web_screenshotter_ = std::make_unique<ReadAnythingScreenshotter>();
   }
-  VLOG(2) << "Requesting a snapshot for the main web contents";
-  web_snapshotter_->RequestSnapshot(main_observer_->web_contents());
+  VLOG(2) << "Requesting a screenshot for the main web contents";
+  web_screenshotter_->RequestScreenshot(main_observer_->web_contents());
 }
 
 void ReadAnythingUntrustedPageHandler::SetDefaultLanguageCode(
@@ -638,7 +679,7 @@ void ReadAnythingUntrustedPageHandler::SetDefaultLanguageCode(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// ReadAnythingCoordinator::Observer:
+// ReadAnythingSidePanelController::Observer:
 ///////////////////////////////////////////////////////////////////////////////
 
 void ReadAnythingUntrustedPageHandler::Activate(bool active) {
@@ -703,15 +744,6 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
     return;
   }
 
-#if BUILDFLAG(ENABLE_PDF)
-  bool is_pdf;
-  if (chrome_pdf::features::IsOopifPdfEnabled()) {
-    is_pdf = !!pdf::PdfViewerStreamManager::FromWebContents(contents);
-  } else {
-    is_pdf = !!pdf_observer_;
-  }
-#endif  // BUILDFLAG(ENABLE_PDF)
-
 #if 0
   // Observe the new contents so we can get the page language once it's
   // determined.
@@ -740,6 +772,9 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
 #endif
 
 #if BUILDFLAG(ENABLE_PDF)
+  bool is_pdf = chrome_pdf::features::IsOopifPdfEnabled()
+                    ? !!pdf::PdfViewerStreamManager::FromWebContents(contents)
+                    : !!pdf_observer_;
   if (is_pdf) {
     // What happens if there are multiple such `rfhs`?
     contents->ForEachRenderFrameHost([this](content::RenderFrameHost* rfh) {
@@ -754,13 +789,6 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
 #endif  // BUILDFLAG(ENABLE_PDF)
 
   content::RenderFrameHost* rfh = contents->GetPrimaryMainFrame();
-  if (!rfh) {
-    // This case doesn't seem possible.
-    page_->OnActiveAXTreeIDChanged(ui::AXTreeIDUnknown(), ukm::kInvalidSourceId,
-                                   /*is_pdf=*/false);
-    return;
-  }
-
   page_->OnActiveAXTreeIDChanged(rfh->GetAXTreeID(), rfh->GetPageUkmSourceId(),
                                  /*is_pdf=*/false);
 }
@@ -818,6 +846,20 @@ void ReadAnythingUntrustedPageHandler::LogTextStyle() {
           prefs->GetInteger(prefs::kAccessibilityReadAnythingLetterSpacing));
   base::UmaHistogramEnumeration(string_constants::kLetterSpacingHistogramName,
                                 letter_spacing);
+}
+
+void ReadAnythingUntrustedPageHandler::
+    OnDependencyParserModelFileAvailabilityChanged(
+        GetDependencyParserModelCallback callback,
+        bool is_available) {
+  if (!is_available) {
+    std::move(callback).Run(base::File());
+    return;
+  }
+
+  DependencyParserModelLoader* loader =
+      DependencyParserModelLoaderFactory::GetForProfile(profile_);
+  std::move(callback).Run(loader->GetDependencyParserModelFile());
 }
 
 // ash::SessionObserver

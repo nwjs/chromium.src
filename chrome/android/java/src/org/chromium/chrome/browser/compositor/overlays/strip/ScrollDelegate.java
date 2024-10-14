@@ -5,11 +5,14 @@
 package org.chromium.chrome.browser.compositor.overlays.strip;
 
 import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.content.Context;
 import android.util.FloatProperty;
 
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.MathUtils;
+import org.chromium.chrome.browser.compositor.layouts.phone.stack.StackScroller;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimator;
 import org.chromium.ui.base.LocalizationUtils;
@@ -19,7 +22,7 @@ import java.util.List;
 /** Delegate to manage the scrolling logic for the tab strip. */
 public class ScrollDelegate {
     /** A property for animations to use for changing the X offset of the tab. */
-    public static final FloatProperty<ScrollDelegate> SCROLL_OFFSET =
+    private static final FloatProperty<ScrollDelegate> SCROLL_OFFSET =
             new FloatProperty<>("scrollOffset") {
                 @Override
                 public void setValue(ScrollDelegate object, float value) {
@@ -32,9 +35,19 @@ public class ScrollDelegate {
                 }
             };
 
+    // Constants.
     private static final int ANIM_TAB_SLIDE_OUT_MS = 250;
+    private static final int SCROLL_DURATION_MS = 250;
+    private static final int SCROLL_DURATION_MS_MEDIUM = 350;
+    private static final int SCROLL_DURATION_MS_LONG = 450;
+    private static final int SCROLL_DISTANCE_SHORT = 960;
+    private static final int SCROLL_DISTANCE_MEDIUM = 1920;
     private static final float EPSILON = 0.001f;
 
+    // External influences.
+    private StackScroller mScroller;
+
+    // Internal state.
     /**
      * mScrollOffset represents how far left or right the tab strip is currently scrolled. This is 0
      * when scrolled all the way left and mMinScrollOffset when scrolled all the way right.
@@ -58,6 +71,15 @@ public class ScrollDelegate {
     private float mReorderExtraMinScrollOffset;
 
     /**
+     * Updates all internal resources and dimensions.
+     *
+     * @param context The current Android {@link Context}.
+     */
+    public void onContextChanged(Context context) {
+        mScroller = new StackScroller(context);
+    }
+
+    /**
      * This is only meant to be used to support the SCROLL_OFFSET animator. Skip clamping, since
      * some animations occur as the width of the views (and thus the minScrollOffset) is changing.
      *
@@ -70,10 +92,6 @@ public class ScrollDelegate {
 
     float getScrollOffset() {
         return mScrollOffset;
-    }
-
-    float getMinScrollOffset() {
-        return mMinScrollOffset;
     }
 
     void setReorderMinScrollOffset(float reorderMinScrollOffset) {
@@ -95,6 +113,20 @@ public class ScrollDelegate {
 
         return MathUtils.flipSignIf(
                 oldScrollOffset - mScrollOffset, LocalizationUtils.isLayoutRtl());
+    }
+
+    /**
+     * Update any scrolls based on the current time.
+     *
+     * @param time The current time of the app in ms.
+     * @return Whether a scroll is still in progress or not.
+     */
+    boolean updateScrollInProgress(long time) {
+        if (mScroller.computeScrollOffset(time)) {
+            setClampedScrollOffset(mScroller.getCurrX());
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -151,7 +183,7 @@ public class ScrollDelegate {
             }
         }
 
-        // 3. Correct fencepost error in tabswidth;
+        // 3. Correct fencepost error in totalViewWidth;
         totalViewWidth = totalViewWidth + tabOverlapWidth;
 
         // 4. Calculate the minimum scroll offset.  Round > -EPSILON to 0.
@@ -162,22 +194,140 @@ public class ScrollDelegate {
         setClampedScrollOffset(mScrollOffset);
     }
 
-    void maybeAnimateScrollOffset(
+    /**
+     * Returns whether we are still visually scrolling the tab strip or not. This does not account
+     * for the reorder auto-scroll.
+     */
+    boolean isFinished() {
+        return mScroller.isFinished();
+    }
+
+    /**
+     * Stops the currently running scroll, if any. This keeps the scroll offset at its current
+     * position, without causing the scroller to move to its final x position. This does not account
+     * for the reorder auto-scroll.
+     */
+    void stopScroll() {
+        mScroller.forceFinished(true);
+    }
+
+    /**
+     * Scroll a given distance from the current position.
+     *
+     * @param time The current time of the app in ms.
+     * @param delta The signed distance to scroll from the current position.
+     * @param animate Whether or not this should be animated.
+     */
+    void startScroll(long time, float delta, boolean animate) {
+        if (animate) {
+            mScroller.startScroll(
+                    Math.round(mScrollOffset),
+                    /* startY= */ 0,
+                    (int) delta,
+                    /* dy= */ 0,
+                    time,
+                    getScrollDuration(delta));
+        } else {
+            setClampedScrollOffset(mScrollOffset + delta);
+        }
+    }
+
+    /**
+     * Scroll in response to a fling.
+     *
+     * @param time The current time of the app in ms.
+     * @param velocity The velocity in the x direction.
+     */
+    void fling(long time, float velocity) {
+        // 1. If we're fast scrolling, figure out the destination of the scroll so we can apply it
+        // to the end of this fling.
+        int scrollDeltaRemaining = 0;
+        if (!mScroller.isFinished()) {
+            scrollDeltaRemaining = mScroller.getFinalX() - Math.round(mScrollOffset);
+            mScroller.forceFinished(true);
+        }
+
+        // 2. Kick off the fling.
+        mScroller.fling(
+                Math.round(mScrollOffset),
+                /* startY= */ 0,
+                (int) velocity,
+                /* velocityY= */ 0,
+                (int) mMinScrollOffset,
+                /* maxX= */ 0,
+                /* minY= */ 0,
+                /* maxY= */ 0,
+                /* overX= */ 0,
+                /* overY= */ 0,
+                time);
+        mScroller.setFinalX(mScroller.getFinalX() + scrollDeltaRemaining);
+    }
+
+    /**
+     * Sets the new tab strip's start margin and auto-scrolls the required amount to make it appear
+     * as though the interacting tab does not move. Done through a CompositorAnimator to keep in
+     * sync with the other strip animations that may affect the min scroll offset. This doesn't
+     * visually scroll the strip, but instead makes it so the interacting tab appears to stay in the
+     * same place.
+     *
+     * @param animationHandler The {@link CompositorAnimationHandler}.
+     * @param resetOffset True when we are auto-scrolling when exiting reorder mode. This will clear
+     *     the additional min offset that was allocated for reorder, if any.
+     * @param numMarginsToSlide The number of margins to slide to make it appear as through the
+     *     interacting tab does not move.
+     * @param tabMarginWidth Width of a tab margin.
+     * @param startMarginDelta The change in start margin for the tab strip.
+     * @param stripStartMarginForReorder The empty space allocated at the start of the tab strip to
+     *     allow for dragging a tab past a group.
+     * @param isVisibleAreaFilled Whether or not there are enough tabs to fill the visible area on
+     *     the strip.
+     * @param animationList The list to add the animation to, or {@code null} if not animating.
+     */
+    void autoScrollForTabGroupMargins(
             CompositorAnimationHandler animationHandler,
-            List<Animator> animationList,
-            float startValue,
-            float endValue) {
+            boolean resetOffset,
+            int numMarginsToSlide,
+            float tabMarginWidth,
+            float startMarginDelta,
+            float stripStartMarginForReorder,
+            boolean isVisibleAreaFilled,
+            List<Animator> animationList) {
+        float delta = (numMarginsToSlide * tabMarginWidth);
+        float startValue = mScrollOffset - startMarginDelta;
+        float endValue = startValue - delta;
+
+        // If there are not enough tabs to fill the visible area on the tab strip, then there is not
+        // enough room to auto-scroll for tab group margins. Allocate additional space to account
+        // for this. See http://crbug.com/1374918 for additional details.
+        if (!isVisibleAreaFilled) {
+            mReorderExtraMinScrollOffset = stripStartMarginForReorder + Math.abs(delta);
+        }
+
+        // Animate if needed. Otherwise, set to final value immediately.
         if (animationList != null) {
-            animationList.add(
+            Animator autoScrollAnimator =
                     CompositorAnimator.ofFloatProperty(
                             animationHandler,
                             this,
                             ScrollDelegate.SCROLL_OFFSET,
                             startValue,
                             endValue,
-                            ANIM_TAB_SLIDE_OUT_MS));
+                            ANIM_TAB_SLIDE_OUT_MS);
+            animationList.add(autoScrollAnimator);
+            if (resetOffset) {
+                autoScrollAnimator.addListener(
+                        new AnimatorListenerAdapter() {
+                            @Override
+                            public void onAnimationEnd(Animator animation) {
+                                mReorderExtraMinScrollOffset = 0.f;
+                            }
+                        });
+            }
         } else {
             setScrollOffset(endValue);
+            if (resetOffset) {
+                mReorderExtraMinScrollOffset = 0.f;
+            }
         }
     }
 
@@ -194,5 +344,44 @@ public class ScrollDelegate {
         float scrollOffset = mScrollOffset;
 
         return -(useUnadjustedScrollOffset ? scrollOffset : (mMinScrollOffset - scrollOffset));
+    }
+
+    /**
+     * Scales the scroll duration based on the scroll distance.
+     *
+     * @param scrollDelta The signed delta to scroll from the current position.
+     * @return the duration in ms.
+     */
+    @VisibleForTesting
+    int getScrollDuration(float scrollDelta) {
+        float scrollDistance = Math.abs(scrollDelta);
+        if (scrollDistance <= SCROLL_DISTANCE_SHORT) {
+            return SCROLL_DURATION_MS;
+        } else if (scrollDistance <= SCROLL_DISTANCE_MEDIUM) {
+            return SCROLL_DURATION_MS_MEDIUM;
+        } else {
+            return SCROLL_DURATION_MS_LONG;
+        }
+    }
+
+    /**
+     * @param minScrollOffset The minimum scroll offset.
+     */
+    void setMinScrollOffsetForTesting(float minScrollOffset) {
+        mMinScrollOffset = minScrollOffset;
+    }
+
+    /**
+     * @return The minimum scroll offset.
+     */
+    float getMinScrollOffsetForTesting() {
+        return mMinScrollOffset;
+    }
+
+    /**
+     * @return The scroller.
+     */
+    StackScroller getScrollerForTesting() {
+        return mScroller;
     }
 }

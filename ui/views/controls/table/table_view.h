@@ -54,7 +54,7 @@ class TableViewTestHelper;
 // - only text
 // - a small icon (16x16) and some text
 // - a check box and some text
-enum class TableType { kTextOnly, kIconAndText };
+enum class TableType : bool { kTextOnly, kIconAndText };
 
 class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   METADATA_HEADER(TableView, View)
@@ -63,7 +63,7 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // Used by AdvanceActiveVisibleColumn(), AdvanceSelection() and
   // ResizeColumnViaKeyboard() to determine the direction to change the
   // selection.
-  enum class AdvanceDirection {
+  enum class AdvanceDirection : bool {
     kDecrement,
     kIncrement,
   };
@@ -260,6 +260,7 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   std::u16string GetTooltipText(const gfx::Point& p) const override;
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
   bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
+  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
 
   // ui::TableModelObserver overrides:
   void OnModelChanged() override;
@@ -405,6 +406,8 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // updated yet, e.g. showing or hiding a column via SetColumnVisibility().
   void ClearVirtualAccessibilityChildren();
 
+  void UpdateVirtualAccessibilityChildrenVisibilityState();
+
   void SetAccessibleSelectionForIndex(size_t view_index, bool selected) const;
   void SetAccessibleSelectionForRange(size_t start_view_index,
                                       size_t end_view_index,
@@ -484,16 +487,6 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   bool UpdateVirtualAccessibilityRowData(AXVirtualView* ax_row,
                                          int view_index,
                                          int model_index);
-
-  // The accessibility view |ax_row| callback function that populates the
-  // accessibility data for a table row.
-  void PopulateAccessibilityRowData(AXVirtualView* ax_row,
-                                    ui::AXNodeData* data);
-
-  // The accessibility view |ax_cell| callback function that populates the
-  // accessibility data for a table cell.
-  void PopulateAccessibilityCellData(AXVirtualView* ax_cell,
-                                     ui::AXNodeData* data);
 
   // Updates the focus rings of the TableView and the TableHeader if necessary.
   void UpdateFocusRings();

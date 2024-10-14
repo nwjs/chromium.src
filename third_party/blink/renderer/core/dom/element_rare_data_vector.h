@@ -11,10 +11,10 @@
 #include "third_party/blink/renderer/core/dom/node_rare_data.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element_data.h"
-#include "third_party/blink/renderer/core/paint/sparse_vector.h"
 #include "third_party/blink/renderer/platform/heap/trace_traits.h"
 #include "third_party/blink/renderer/platform/region_capture_crop_id.h"
 #include "third_party/blink/renderer/platform/restriction_target_id.h"
+#include "third_party/blink/renderer/platform/sparse_vector.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 
 namespace blink {
@@ -30,6 +30,7 @@ typedef HeapVector<Member<Attr>> AttrNodeList;
 class ElementIntersectionObserverData;
 class ContainerQueryEvaluator;
 class EditContext;
+class ScrollMarkerPseudoElement;
 class AnchorElementObserver;
 class InlineStylePropertyMap;
 class ElementInternals;
@@ -159,6 +160,10 @@ class CORE_EXPORT ElementRareDataVector final : public NodeRareData {
       PseudoId,
       const AtomicString& document_transition_tag = g_null_atom) const;
   PseudoElementData::PseudoElementVector GetPseudoElements() const;
+  void AddColumnScrollMarker(ScrollMarkerPseudoElement&);
+  const PseudoElementData::ColumnScrollMarkersVector* GetColumnScrollMarkers()
+      const;
+  void ClearColumnScrollMarkers();
 
   CSSStyleDeclaration& EnsureInlineCSSStyleDeclaration(Element* owner_element);
 

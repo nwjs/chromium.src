@@ -24,6 +24,7 @@
 #include "remoting/base/errors.h"
 #include "remoting/base/logging.h"
 #include "remoting/base/session_options.h"
+#include "remoting/base/session_policies.h"
 #include "remoting/host/action_executor.h"
 #include "remoting/host/action_message_handler.h"
 #include "remoting/host/active_display_monitor.h"
@@ -40,6 +41,7 @@
 #include "remoting/host/mouse_shape_pump.h"
 #include "remoting/host/remote_open_url/remote_open_url_constants.h"
 #include "remoting/host/remote_open_url/remote_open_url_message_handler.h"
+#include "remoting/host/remote_open_url/remote_open_url_util.h"
 #include "remoting/host/remote_open_url/url_forwarder_configurator.h"
 #include "remoting/host/remote_open_url/url_forwarder_control_message_handler.h"
 #include "remoting/host/security_key/security_key_extension.h"
@@ -53,6 +55,7 @@
 #include "remoting/protocol/capability_names.h"
 #include "remoting/protocol/client_stub.h"
 #include "remoting/protocol/clipboard_thread_proxy.h"
+#include "remoting/protocol/network_settings.h"
 #include "remoting/protocol/pairing_registry.h"
 #include "remoting/protocol/peer_connection_controls.h"
 #include "remoting/protocol/session.h"
@@ -85,7 +88,7 @@ ClientSession::ClientSession(
     const DesktopEnvironmentOptions& desktop_environment_options,
     scoped_refptr<protocol::PairingRegistry> pairing_registry,
     const std::vector<raw_ptr<HostExtension, VectorExperimental>>& extensions,
-    const SessionPolicies& local_policies)
+    const LocalSessionPoliciesProvider* local_session_policies_provider)
     : event_handler_(event_handler),
       desktop_environment_factory_(desktop_environment_factory),
       desktop_environment_options_(desktop_environment_options),
@@ -101,7 +104,7 @@ ClientSession::ClientSession(
       pairing_registry_(pairing_registry),
       connection_(std::move(connection)),
       client_jid_(connection_->session()->jid()),
-      effective_policies_(local_policies) {
+      local_session_policies_provider_(local_session_policies_provider) {
   connection_->session()->AddPlugin(&host_experiment_session_plugin_);
   connection_->SetEventHandler(this);
 
@@ -495,7 +498,8 @@ void ClientSession::OnConnectionAuthenticating() {
   event_handler_->OnSessionAuthenticating(this);
 }
 
-void ClientSession::OnConnectionAuthenticated() {
+void ClientSession::OnConnectionAuthenticated(
+    const SessionPolicies* session_policies) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!audio_stream_);
   DCHECK(!desktop_environment_);
@@ -507,8 +511,20 @@ void ClientSession::OnConnectionAuthenticated() {
 
   desktop_display_info_.Reset();
 
-  HOST_LOG << "Connection authenticated with session policies: "
-           << effective_policies_;
+  if (session_policies) {
+    effective_policies_ = *session_policies;
+    HOST_LOG << "Connection authenticated with remote session policies: "
+             << effective_policies_;
+  } else {
+    effective_policies_ =
+        local_session_policies_provider_->get_local_policies();
+    local_session_policy_update_subscription_ =
+        local_session_policies_provider_->AddLocalPoliciesChangedCallback(
+            base::BindRepeating(&ClientSession::OnLocalSessionPoliciesChanged,
+                                weak_factory_.GetWeakPtr()));
+    HOST_LOG << "Connection authenticated with local session policies: "
+             << effective_policies_;
+  }
 
   base::TimeDelta max_duration =
       effective_policies_.maximum_session_duration.value_or(base::TimeDelta());
@@ -526,14 +542,15 @@ void ClientSession::OnConnectionAuthenticated() {
       host_experiment_session_plugin_.configuration());
 
   connection_->ApplySessionOptions(session_options);
+  connection_->ApplyNetworkSettings(
+      protocol::NetworkSettings(effective_policies_));
 
   DesktopEnvironmentOptions options = desktop_environment_options_;
   options.ApplySessionOptions(session_options);
   // Create the desktop environment. Drop the connection if it could not be
   // created for any reason (for instance the curtain could not initialize).
   desktop_environment_ = desktop_environment_factory_->Create(
-      client_session_control_weak_factory_.GetWeakPtr(),
-      client_session_events_weak_factory_.GetWeakPtr(), options);
+      weak_factory_.GetWeakPtr(), weak_factory_.GetWeakPtr(), options);
   if (!desktop_environment_) {
     DisconnectSession(ErrorCode::HOST_CONFIGURATION_ERROR);
     return;
@@ -560,6 +577,15 @@ void ClientSession::OnConnectionAuthenticated() {
     host_capabilities_.append(" ");
     host_capabilities_.append(protocol::kTouchEventsCapability);
   }
+  if (effective_policies_.allow_file_transfer.value_or(true)) {
+    host_capabilities_.append(" ");
+    host_capabilities_.append(protocol::kFileTransferCapability);
+  }
+  if (effective_policies_.allow_uri_forwarding.value_or(true) &&
+      IsRemoteOpenUrlSupported()) {
+    host_capabilities_.append(" ");
+    host_capabilities_.append(protocol::kRemoteOpenUrlCapability);
+  }
 
   // Create the object that controls the screen resolution.
   screen_controls_ = desktop_environment_->CreateScreenControls();
@@ -571,8 +597,8 @@ void ClientSession::OnConnectionAuthenticated() {
   connection_->set_input_stub(&disable_input_filter_);
   input_tracker_.set_input_stub(input_injector_.get());
 
-  if (desktop_environment_options_.clipboard_size().has_value()) {
-    int max_size = desktop_environment_options_.clipboard_size().value();
+  if (effective_policies_.clipboard_size_bytes.has_value()) {
+    int max_size = *effective_policies_.clipboard_size_bytes;
 
     client_clipboard_filter_.set_max_size(max_size);
     host_clipboard_filter_.set_max_size(max_size);
@@ -727,8 +753,7 @@ void ClientSession::OnConnectionClosed(protocol::ErrorCode error) {
            << "; error = " << ErrorCodeToString(error);
 
   // Ignore any further callbacks.
-  client_session_control_weak_factory_.InvalidateWeakPtrs();
-  client_session_events_weak_factory_.InvalidateWeakPtrs();
+  weak_factory_.InvalidateWeakPtrs();
 
   // If the client never authenticated then the session failed.
   if (!is_authenticated_) {
@@ -984,20 +1009,13 @@ void ClientSession::UpdateMouseClampingFilterOffset() {
   mouse_clamping_filter_.set_output_offset(origin);
 }
 
-void ClientSession::OnLocalPoliciesChanged(const SessionPolicies& policies) {
-  // TODO: crbug.com/359977809 - add a test for overridden local policies.
-  if (local_session_policies_overridden_) {
-    return;
-  }
-  if (policies != effective_policies_) {
-    // Update `effective_policies_` anyway so that tests can check the latest
-    // known policies.
-    effective_policies_ = policies;
-    HOST_LOG << "Effective policies have changed. Terminating session.";
-    // TODO: crbug.com/359977809 - create a new error code for session policy
-    // changed.
-    DisconnectSession(ErrorCode::HOST_CONFIGURATION_ERROR);
-  }
+void ClientSession::OnLocalSessionPoliciesChanged(
+    const SessionPolicies& new_policies) {
+  DCHECK(local_session_policy_update_subscription_);
+  HOST_LOG << "Effective policies have changed. Terminating session.";
+  // TODO: crbug.com/359977809 - create a new error code for session policy
+  // changed.
+  DisconnectSession(ErrorCode::HOST_CONFIGURATION_ERROR);
 }
 
 void ClientSession::OnVideoSizeChanged(protocol::VideoStream* video_stream,

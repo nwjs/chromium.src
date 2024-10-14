@@ -136,11 +136,13 @@ class IdpTestServer {
   std::unique_ptr<HttpResponse> HandleRequest(const HttpRequest& request) {
     // RP files are fetched from the /test base directory. Assume anything
     // to other paths is directed to the IdP.
-    if (request.relative_url.rfind("/test", 0) == 0)
+    if (request.relative_url.rfind("/test", 0) == 0) {
       return nullptr;
+    }
 
-    if (request.relative_url.rfind("/header/", 0) == 0)
+    if (request.relative_url.rfind("/header/", 0) == 0) {
       return BuildIdpHeaderResponse(request);
+    }
 
     if (request.all_headers.find(kIdpForbiddenHeader) != std::string::npos) {
       EXPECT_EQ(request.headers.at(kIdpForbiddenHeader), "?1");
@@ -1196,7 +1198,7 @@ std::string BuildDigitalIdentityValidJsRequestDictionary() {
   return R"({
     digital: {
       providers: [{
-        protocol: "urn:openid.net:oid4vp",
+        protocol: "openid4vp",
         request: JSON.stringify({
           // Based on https://github.com/openid/OpenID4VP/issues/125
           client_id: "client.example.org",
@@ -1231,17 +1233,15 @@ EvalJsResult RunDigitalIdentityValidRequest(
   return EvalJsAndReturnToken(execution_target, script);
 }
 
-// Leniently parses string as JSON and compares parsed JSON.
-MATCHER_P(JsonMatchesLenient, ref, "") {
+// Leniently parses the input string as JSON and compares it to already-parsed
+// JSON.
+MATCHER_P(JsonMatches, ref, "") {
   int json_parsing_options =
       base::JSONParserOptions::JSON_PARSE_CHROMIUM_EXTENSIONS |
       base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS;
   auto ref_json =
       base::JSONReader::ReadAndReturnValueWithError(ref, json_parsing_options);
-  auto arg_json =
-      base::JSONReader::ReadAndReturnValueWithError(arg, json_parsing_options);
-  return ref_json.has_value() && arg_json.has_value() &&
-         (ref_json.value() == arg_json.value());
+  return ref_json.has_value() && (ref_json.value() == arg);
 }
 
 // Test that a Verifiable Credential can be requested via the navigator.identity
@@ -1259,7 +1259,7 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
   std::string_view request = R"(
   {
    "providers": [ {
-      "protocol": "urn:openid.net:oid4vp",
+      "protocol": "openid4vp",
       "request": "{
         \"client_id\": \"client.example.org\",
         \"client_id_scheme\": \"web-origin\",
@@ -1277,8 +1277,7 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
   // JSON comparison in IsJson below.
   base::RemoveChars(request, "\n ", &json);
 
-  EXPECT_CALL(*digital_identity_provider,
-              Request(_, _, JsonMatchesLenient(json), _))
+  EXPECT_CALL(*digital_identity_provider, Request(_, _, JsonMatches(json), _))
       .WillOnce(WithArg<3>(
           [kIdentityProviderResponse](
               DigitalIdentityProvider::DigitalIdentityCallback callback) {
@@ -1286,6 +1285,52 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
           }));
 
   EXPECT_EQ(kIdentityProviderResponse, RunDigitalIdentityValidRequest(shell()));
+}
+
+// Test that a Verifiable Credential can be requested via the
+// navigator.credentials JS API too.
+IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
+                       NavigatorCredentialsApi) {
+  constexpr char kIdentityProviderResponse[] =
+      "&vp_token=token&presentation_submission=bar";
+
+  idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
+  MockDigitalIdentityProvider* digital_identity_provider =
+      static_cast<MockDigitalIdentityProvider*>(
+          test_browser_client_->GetDigitalIdentityProviderForTests());
+
+  std::string_view request = R"(
+  {
+   "providers": [ {
+      "protocol": "openid4vp",
+      "request": "{
+        \"client_id\": \"client.example.org\",
+        \"client_id_scheme\": \"web-origin\",
+        \"nonce\": \"n-0S6_WzA2Mj\",
+        \"presentation_definition\": {
+        }
+      }",
+   } ]
+  }
+  )";
+
+  std::string json;
+  // Invalid whitespace and newlines are added to the request string to make it
+  // easier to read in this test, so we remove them before actually making the
+  // JSON comparison in IsJson below.
+  base::RemoveChars(request, "\n ", &json);
+
+  EXPECT_CALL(*digital_identity_provider, Request(_, _, JsonMatches(json), _))
+      .WillOnce(WithArg<3>(
+          [kIdentityProviderResponse](
+              DigitalIdentityProvider::DigitalIdentityCallback callback) {
+            std::move(callback).Run(kIdentityProviderResponse);
+          }));
+
+  std::string script = base::StringPrintf(
+      "const {data} = await navigator.credentials.get(%s);return data;",
+      BuildDigitalIdentityValidJsRequestDictionary().c_str());
+  EXPECT_EQ(kIdentityProviderResponse, EvalJsAndReturnToken(shell(), script));
 }
 
 // Test that when there's a pending mdoc request, a second `get` call should be
@@ -1531,7 +1576,7 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_openPopUpWindow) {
 
   // Expects the account chooser to be opened. Selects the first account.
   EXPECT_CALL(*controller, ShowAccountsDialog)
-      .WillOnce(::testing::WithArg<5>([&config_url](auto on_selected) {
+      .WillOnce(::testing::WithArg<6>([&config_url](auto on_selected) {
         std::move(on_selected)
             .Run(config_url,
                  /* account_id=*/"not_real_account",

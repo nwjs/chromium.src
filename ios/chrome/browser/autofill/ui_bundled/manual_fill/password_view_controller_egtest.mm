@@ -11,6 +11,7 @@
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/form_input_accessory/form_input_accessory_app_interface.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
+#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_matchers.h"
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/passwords/ui_bundled/bottom_sheet/password_suggestion_bottom_sheet_app_interface.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -22,7 +23,6 @@
 #import "ios/chrome/browser/ui/settings/password/password_manager_egtest_utils.h"
 #import "ios/chrome/browser/ui/settings/password/password_settings_app_interface.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_table_view_constants.h"
-#import "ios/chrome/common/ui/elements/form_input_accessory_view.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -37,16 +37,6 @@
 
 using chrome_test_util::ButtonWithAccessibilityLabelId;
 using chrome_test_util::CancelButton;
-using chrome_test_util::ManualFallbackKeyboardIconMatcher;
-using chrome_test_util::ManualFallbackManagePasswordsMatcher;
-using chrome_test_util::ManualFallbackManageSettingsMatcher;
-using chrome_test_util::ManualFallbackOtherPasswordsDismissMatcher;
-using chrome_test_util::ManualFallbackOtherPasswordsMatcher;
-using chrome_test_util::ManualFallbackPasswordButtonMatcher;
-using chrome_test_util::ManualFallbackPasswordIconMatcher;
-using chrome_test_util::ManualFallbackPasswordSearchBarMatcher;
-using chrome_test_util::ManualFallbackPasswordTableViewMatcher;
-using chrome_test_util::ManualFallbackSuggestPasswordMatcher;
 using chrome_test_util::NavigationBarCancelButton;
 using chrome_test_util::NavigationBarDoneButton;
 using chrome_test_util::SettingsAccountButton;
@@ -94,15 +84,6 @@ id<GREYMatcher> CancelUsingOtherPasswordButton() {
                     grey_interactable(), nullptr);
 }
 
-// Matcher for the expanded password manual fill view button.
-id<GREYMatcher> PasswordManualFillViewButton() {
-  return grey_allOf(grey_accessibilityLabel(l10n_util::GetNSString(
-                        IDS_IOS_AUTOFILL_PASSWORD_AUTOFILL_DATA)),
-                    grey_ancestor(grey_accessibilityID(
-                        kFormInputAccessoryViewAccessibilityID)),
-                    nil);
-}
-
 // Matcher for the overflow menu button shown in the password cells.
 id<GREYMatcher> OverflowMenuButton() {
   return grey_allOf(
@@ -136,11 +117,11 @@ void OpenPasswordManualFillView(bool has_suggestions) {
     button_to_tap = has_suggestions
                         ? grey_accessibilityLabel(l10n_util::GetNSString(
                               IDS_IOS_AUTOFILL_ACCNAME_AUTOFILL_DATA))
-                        : PasswordManualFillViewButton();
+                        : manual_fill::PasswordManualFillViewButton();
   } else {
-    button_to_tap = ManualFallbackPasswordIconMatcher();
-    [[EarlGrey selectElementWithMatcher:
-                   chrome_test_util::ManualFallbackFormSuggestionViewMatcher()]
+    button_to_tap = manual_fill::PasswordIconMatcher();
+    [[EarlGrey
+        selectElementWithMatcher:manual_fill::FormSuggestionViewMatcher()]
         performAction:grey_scrollToContentEdge(kGREYContentEdgeRight)];
   }
 
@@ -148,7 +129,7 @@ void OpenPasswordManualFillView(bool has_suggestions) {
   [[EarlGrey selectElementWithMatcher:button_to_tap] performAction:grey_tap()];
 
   // Verify the password controller table view is visible.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordTableViewMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordTableViewMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
@@ -192,8 +173,7 @@ void CheckPasswordManagerUIDismissesAfterFailedAuthentication(
   // Simulate failed authentication.
   [PasswordSettingsAppInterface mockReauthenticationModuleExpectedResult:
                                     ReauthenticationResult::kFailure];
-  [PasswordSettingsAppInterface
-      mockReauthenticationModuleShouldReturnSynchronously:NO];
+  [PasswordSettingsAppInterface mockReauthenticationModuleShouldSkipReAuth:NO];
 
   // Tap the action in the manual fallback UI.
   [[EarlGrey selectElementWithMatcher:manual_fallback_action_matcher]
@@ -220,7 +200,7 @@ void CheckPasswordFillingOptionIsVisible(NSString* site) {
   [[EarlGrey selectElementWithMatcher:UsernameButtonMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordButtonMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordButtonMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
@@ -236,7 +216,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   }
 
   [ChromeEarlGrey waitForNotSufficientlyVisibleElementWithMatcher:
-                      ManualFallbackPasswordTableViewMatcher()];
+                      manual_fill::PasswordTableViewMatcher()];
 }
 
 }  // namespace
@@ -315,7 +295,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Tap the "Select Password..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackOtherPasswordsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::OtherPasswordsMatcher()]
       performAction:grey_tap()];
 
   std::u16string origin = base::ASCIIToUTF16(
@@ -380,11 +360,11 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Verify the password controller contains the "Manage Passwords..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackManagePasswordsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::ManagePasswordsMatcher()]
       assertWithMatcher:grey_interactable()];
 
   // Verify the password controller contains the "Manage Settings..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackManageSettingsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::ManageSettingsMatcher()]
       assertWithMatcher:grey_interactable()];
 }
 
@@ -398,7 +378,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Tap the "Manage Passwords..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackManagePasswordsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::ManagePasswordsMatcher()]
       performAction:grey_tap()];
 
   // Verify that the Password Manager opened.
@@ -412,8 +392,13 @@ void CheckKeyboardIsUpAndNotCovered() {
 // Tests that the Password Manager is dismissed when local authentication fails
 // after tapping "Manage Passwords...".
 - (void)testManagePasswordsActionWithFailedAuthDismissesPasswordManager {
+  // TODO(crbug.com/363172305): Re-enable when flake fixed.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test flaky failing on iPad.")
+  }
+
   CheckPasswordManagerUIDismissesAfterFailedAuthentication(
-      ManualFallbackManagePasswordsMatcher());
+      manual_fill::ManagePasswordsMatcher());
 
   // The keyboard should be visible.
   CheckKeyboardIsUpAndNotCovered();
@@ -429,7 +414,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Tap the "Manage Passwords..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackManageSettingsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::ManageSettingsMatcher()]
       performAction:grey_tap()];
 
   // Verify the password settings opened.
@@ -443,7 +428,7 @@ void CheckKeyboardIsUpAndNotCovered() {
 // after tapping "Manage Settings...".
 - (void)testManageSettingsActionWithFailedAuthDismissesPasswordSettings {
   CheckPasswordManagerUIDismissesAfterFailedAuthentication(
-      ManualFallbackManageSettingsMatcher());
+      manual_fill::ManageSettingsMatcher());
 
   // The keyboard should be visible.
   CheckKeyboardIsUpAndNotCovered();
@@ -463,7 +448,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Tap the "Manage Passwords..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackManagePasswordsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::ManagePasswordsMatcher()]
       performAction:grey_tap()];
 
   // Verify that the Password Manager opened.
@@ -488,7 +473,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Tap the "Manage Settings..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackManageSettingsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::ManageSettingsMatcher()]
       performAction:grey_tap()];
 
   // Verify the password settings opened.
@@ -507,13 +492,18 @@ void CheckKeyboardIsUpAndNotCovered() {
   [self openOtherPasswords];
 
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
 // Tests that returning from "Manage Settings..." leaves the keyboard and the
 // icons in the right state.
 - (void)testPasswordsStateAfterPresentingManageSettings {
+  // TODO(crbug.com/363172305): Re-enable when flake fixed.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test flaky failing on iPad.")
+  }
+
   // Bring up the keyboard.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementUsername)];
@@ -525,12 +515,12 @@ void CheckKeyboardIsUpAndNotCovered() {
   // enabled.
   if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
     // Verify the status of the icon.
-    [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+    [[EarlGrey selectElementWithMatcher:manual_fill::PasswordIconMatcher()]
         assertWithMatcher:grey_not(grey_userInteractionEnabled())];
   }
 
   // Tap the "Manage Passwords..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackManageSettingsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::ManageSettingsMatcher()]
       performAction:grey_tap()];
 
   // Verify the password settings opened.
@@ -550,11 +540,11 @@ void CheckKeyboardIsUpAndNotCovered() {
     // enabled.
     if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
       // Verify the status of the icons.
-      [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+      [[EarlGrey selectElementWithMatcher:manual_fill::PasswordIconMatcher()]
           assertWithMatcher:grey_sufficientlyVisible()];
-      [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+      [[EarlGrey selectElementWithMatcher:manual_fill::PasswordIconMatcher()]
           assertWithMatcher:grey_userInteractionEnabled()];
-      [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+      [[EarlGrey selectElementWithMatcher:manual_fill::KeyboardIconMatcher()]
           assertWithMatcher:grey_not(grey_sufficientlyVisible())];
     }
   }
@@ -565,10 +555,15 @@ void CheckKeyboardIsUpAndNotCovered() {
 
 // Tests that the "Select Password..." action works.
 - (void)testSelectPasswordActionOpensOtherPasswordList {
+  // TODO(crbug.com/363172305): Re-enable when flake fixed.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test flaky failing on iPad.")
+  }
+
   [self openOtherPasswords];
 
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
@@ -582,7 +577,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Tap the "Select Password..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackOtherPasswordsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::OtherPasswordsMatcher()]
       performAction:grey_tap()];
 
   // Cancel using other passwords on a website.
@@ -591,31 +586,36 @@ void CheckKeyboardIsUpAndNotCovered() {
 
   // Verify that the other password list is not opened.
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       assertWithMatcher:grey_nil()];
 }
 
 // Tests that the other password list can be dismissed with a swipe down.
 - (void)testClosingOtherPasswordListViaSwipeDown {
+  // TODO(crbug.com/363172305): Re-enable when flake fixed.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test flaky failing on iPad.")
+  }
+
   [self openOtherPasswords];
 
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Dismiss Other Passwords via swipe.
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
 
   [ChromeEarlGrey waitForNotSufficientlyVisibleElementWithMatcher:
-                      ManualFallbackOtherPasswordsDismissMatcher()];
+                      manual_fill::OtherPasswordsDismissMatcher()];
 
   // Open it again to make sure the old coordinator was properly cleaned up.
   [self openOtherPasswords];
 
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
@@ -639,7 +639,7 @@ void CheckKeyboardIsUpAndNotCovered() {
 
   // The "Select Password..." action shouldn't be visible as there a no saved
   // passwords.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackOtherPasswordsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::OtherPasswordsMatcher()]
       assertWithMatcher:grey_notVisible()];
 
   // Save a password.
@@ -647,18 +647,22 @@ void CheckKeyboardIsUpAndNotCovered() {
 
   // The "Select Password..." action should now be visible as there's a saved
   // password available.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackOtherPasswordsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::OtherPasswordsMatcher()]
       assertWithMatcher:grey_interactable()];
 }
 
 // Tests that the "Select Password..." UI is dismissed after failed local
 // authentication.
 - (void)testOtherPasswordListUIDismissedAfterFailedAuth {
+  // TODO(crbug.com/363172305): Re-enable when flake fixed.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Test flaky failing on iPad.")
+  }
+
   // Setup failed authentication.
   [PasswordSettingsAppInterface mockReauthenticationModuleExpectedResult:
                                     ReauthenticationResult::kFailure];
-  [PasswordSettingsAppInterface
-      mockReauthenticationModuleShouldReturnSynchronously:NO];
+  [PasswordSettingsAppInterface mockReauthenticationModuleShouldSkipReAuth:NO];
 
   [self openOtherPasswords];
 
@@ -668,7 +672,7 @@ void CheckKeyboardIsUpAndNotCovered() {
       assertWithMatcher:grey_sufficientlyVisible()];
   // Passwords UI shouldn't be visible.
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       assertWithMatcher:grey_notVisible()];
 
   // Deliver authentication result should dismiss the UI.
@@ -679,7 +683,7 @@ void CheckKeyboardIsUpAndNotCovered() {
       waitForUIElementToDisappearWithMatcher:password_manager_test_utils::
                                                  ReauthenticationController()];
   [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
-                      ManualFallbackOtherPasswordsDismissMatcher()];
+                      manual_fill::OtherPasswordsDismissMatcher()];
 
   // The keyboard should be visible.
   CheckKeyboardIsUpAndNotCovered();
@@ -691,7 +695,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   [self openOtherPasswords];
 
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Tap Done Button.
@@ -707,11 +711,11 @@ void CheckKeyboardIsUpAndNotCovered() {
     // enabled.
     if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
       // Verify the status of the icons.
-      [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+      [[EarlGrey selectElementWithMatcher:manual_fill::PasswordIconMatcher()]
           assertWithMatcher:grey_sufficientlyVisible()];
-      [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+      [[EarlGrey selectElementWithMatcher:manual_fill::PasswordIconMatcher()]
           assertWithMatcher:grey_userInteractionEnabled()];
-      [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+      [[EarlGrey selectElementWithMatcher:manual_fill::KeyboardIconMatcher()]
           assertWithMatcher:grey_not(grey_sufficientlyVisible())];
     }
   }
@@ -722,7 +726,8 @@ void CheckKeyboardIsUpAndNotCovered() {
 
 // Tests that the Password View Controller is still present after tapping the
 // search bar.
-- (void)testPasswordControllerWhileSearching {
+// TODO(crbug.com/362893177): Deflake and reenable the test.
+- (void)DISABLED_testPasswordControllerWhileSearching {
   // Bring up the keyboard.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
       performAction:TapWebElementWithId(kFormElementUsername)];
@@ -731,7 +736,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Tap the "Select Password..." action.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackOtherPasswordsMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::OtherPasswordsMatcher()]
       performAction:grey_tap()];
 
   // Acknowledge concerns using other passwords on a website.
@@ -740,29 +745,29 @@ void CheckKeyboardIsUpAndNotCovered() {
 
   // Verify that the all saved password list is visible.
   [[EarlGrey
-      selectElementWithMatcher:ManualFallbackOtherPasswordsDismissMatcher()]
+      selectElementWithMatcher:manual_fill::OtherPasswordsDismissMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
   CheckPasswordFillingOptionIsVisible(/*site=*/@"example.com");
 
   // Tap the password search.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordSearchBarMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordSearchBarMatcher()]
       performAction:grey_tap()];
 
   // Verify keyboard is shown and that the password controller is still present
   // in the background.
   [ChromeEarlGrey waitForKeyboardToAppear];
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordTableViewMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordTableViewMatcher()]
       assertWithMatcher:grey_minimumVisiblePercent(0.5)];
   CheckPasswordFillingOptionIsVisible(/*site=*/@"example.com");
 
   // Search for a term that shouldn't give any results.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordSearchBarMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordSearchBarMatcher()]
       performAction:grey_replaceText(@"example1")];
   [[EarlGrey selectElementWithMatcher:grey_text(@"example.com")]
       assertWithMatcher:grey_notVisible()];
 
   // Search for a term that matches with the saved credential.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordSearchBarMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordSearchBarMatcher()]
       performAction:grey_replaceText(@"AMPL")];
   CheckPasswordFillingOptionIsVisible(/*site=*/@"example.com");
 }
@@ -785,14 +790,14 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Tap on the keyboard icon.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::KeyboardIconMatcher()]
       performAction:grey_tap()];
 
   // Verify the password controller table view and the password icon is NOT
   // visible.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordTableViewMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordTableViewMatcher()]
       assertWithMatcher:grey_notVisible()];
-  [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::KeyboardIconMatcher()]
       assertWithMatcher:grey_notVisible()];
 }
 
@@ -809,18 +814,17 @@ void CheckKeyboardIsUpAndNotCovered() {
   // Open the password manual fill view.
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
-  [ChromeEarlGreyUI
-      dismissByTappingOnTheWindowOfPopover:
-          chrome_test_util::ManualFallbackPasswordTableViewMatcher()];
+  [ChromeEarlGreyUI dismissByTappingOnTheWindowOfPopover:
+                        manual_fill::PasswordTableViewMatcher()];
 
   // Verify the password controller table view is not visible and the password
   // icon is visible.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordTableViewMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordTableViewMatcher()]
       assertWithMatcher:grey_notVisible()];
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordIconMatcher()]
       assertWithMatcher:grey_interactable()];
   // Verify the interaction status of the password icon.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordIconMatcher()]
       assertWithMatcher:grey_userInteractionEnabled()];
 }
 
@@ -839,14 +843,14 @@ void CheckKeyboardIsUpAndNotCovered() {
   // Open the password manual fill view.
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordTableViewMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordTableViewMatcher()]
       performAction:grey_replaceText(@"text")];
 
   // Verify the password controller table view and the password icon is NOT
   // visible.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordTableViewMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordTableViewMatcher()]
       assertWithMatcher:grey_notVisible()];
-  [[EarlGrey selectElementWithMatcher:ManualFallbackKeyboardIconMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::KeyboardIconMatcher()]
       assertWithMatcher:grey_notVisible()];
 }
 
@@ -863,7 +867,7 @@ void CheckKeyboardIsUpAndNotCovered() {
                                 error:nil];
 
   // Verify the password controller table view is still visible.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordTableViewMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordTableViewMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
@@ -929,7 +933,7 @@ void CheckKeyboardIsUpAndNotCovered() {
       /*site=*/base::SysUTF8ToNSString(self.URL.host()));
 
   // Select a password.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordButtonMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordButtonMatcher()]
       performAction:grey_tap()];
 
   // Look for the alert.
@@ -957,7 +961,7 @@ void CheckKeyboardIsUpAndNotCovered() {
       performAction:TapWebElementWithId(kFormElementUsername)];
 
   // Assert the password icon is not enabled and not visible.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackPasswordIconMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::PasswordIconMatcher()]
       assertWithMatcher:grey_notVisible()];
 }
 
@@ -1011,7 +1015,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Select a suggest password option.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackSuggestPasswordMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::SuggestPasswordMatcher()]
       performAction:grey_tap()];
 
   // Confirm by tapping on the 'Use Suggested Password' button.
@@ -1041,11 +1045,11 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Verify a suggest password option is showing.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackSuggestPasswordMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::SuggestPasswordMatcher()]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Select a suggest password option.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackSuggestPasswordMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::SuggestPasswordMatcher()]
       performAction:grey_tap()];
 }
 
@@ -1075,7 +1079,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Verify the suggest password option is not shown.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackSuggestPasswordMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::SuggestPasswordMatcher()]
       assertWithMatcher:grey_notVisible()];
 }
 
@@ -1111,7 +1115,7 @@ void CheckKeyboardIsUpAndNotCovered() {
   OpenPasswordManualFillView(/*has_suggestions=*/false);
 
   // Verify the suggest password option is not shown.
-  [[EarlGrey selectElementWithMatcher:ManualFallbackSuggestPasswordMatcher()]
+  [[EarlGrey selectElementWithMatcher:manual_fill::SuggestPasswordMatcher()]
       assertWithMatcher:grey_notVisible()];
 }
 
@@ -1183,8 +1187,10 @@ void CheckKeyboardIsUpAndNotCovered() {
   [[EarlGrey selectElementWithMatcher:grey_text(base::SysUTF8ToNSString(
                                           kExampleUsername))]
       performAction:grey_replaceText(@"new username")];
+  [[EarlGrey selectElementWithMatcher:NavigationBarDoneButton()]
+      performAction:grey_tap()];
 
-  // Tap Done Button.
+  // Tap the "Done" button to dismiss the view.
   [[EarlGrey selectElementWithMatcher:NavigationBarDoneButton()]
       performAction:grey_tap()];
 

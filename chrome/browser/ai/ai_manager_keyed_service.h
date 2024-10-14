@@ -10,8 +10,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/ai/ai_context_bound_object_set.h"
+#include "chrome/browser/ai/ai_summarizer.h"
 #include "chrome/browser/ai/ai_text_session.h"
-#include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "content/public/browser/browser_context.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -41,9 +41,13 @@ class AIManagerKeyedService : public KeyedService,
       const AITextSession::Context& context,
       CreateTextSessionCallback callback);
 
+  size_t GetReceiversSizeForTesting() { return receivers_.size(); }
+
  private:
   FRIEND_TEST_ALL_PREFIXES(AIManagerKeyedServiceTest,
                            NoUAFWithInvalidOnDeviceModelPath);
+  FRIEND_TEST_ALL_PREFIXES(AISummarizerUnitTest,
+                           CreateSummarizerWithoutService);
 
   // `blink::mojom::AIManager` implementation.
   void CanCreateTextSession(CanCreateTextSessionCallback callback) override;
@@ -51,26 +55,33 @@ class AIManagerKeyedService : public KeyedService,
       mojo::PendingReceiver<blink::mojom::AITextSession> receiver,
       blink::mojom::AITextSessionSamplingParamsPtr sampling_params,
       const std::optional<std::string>& system_prompt,
+      std::vector<blink::mojom::AIAssistantInitialPromptPtr> initial_prompts,
       CreateTextSessionCallback callback) override;
   void GetTextModelInfo(GetTextModelInfoCallback callback) override;
   void CreateWriter(
-      const std::optional<std::string>& shared_context,
-      mojo::PendingRemote<blink::mojom::AIManagerCreateWriterClient> client)
-      override;
+      mojo::PendingRemote<blink::mojom::AIManagerCreateWriterClient> client,
+      blink::mojom::AIWriterCreateOptionsPtr options) override;
+  void CanCreateSummarizer(CanCreateSummarizerCallback callback) override;
+  void CreateSummarizer(
+      mojo::PendingRemote<blink::mojom::AIManagerCreateSummarizerClient> client,
+      blink::mojom::AISummarizerCreateOptionsPtr options) override;
   void CreateRewriter(
-      const std::optional<std::string>& shared_context,
-      blink::mojom::AIRewriterTone tone,
-      blink::mojom::AIRewriterLength length,
-      mojo::PendingRemote<blink::mojom::AIManagerCreateRewriterClient> client)
-      override;
+      mojo::PendingRemote<blink::mojom::AIManagerCreateRewriterClient> client,
+      blink::mojom::AIRewriterCreateOptionsPtr options) override;
 
   void OnModelPathValidationComplete(const std::string& model_path,
                                      bool is_valid_path);
 
+  void CheckModelPathOverrideCanCreateSession(
+      const std::string& model_path,
+      optimization_guide::ModelBasedCapabilityKey capability);
   void CanOptimizationGuideKeyedServiceCreateGenericSession(
+      optimization_guide::ModelBasedCapabilityKey capability,
       CanCreateTextSessionCallback callback);
 
-  // Creates an `AITextSession`, either as a new session, or as a clone of
+  void RemoveReceiver(mojo::ReceiverId receiver_id);
+
+  // Creates an `AIAssistant`, either as a new session, or as a clone of
   // an existing session with its context copied.
   std::unique_ptr<AITextSession> CreateTextSessionInternal(
       mojo::PendingReceiver<blink::mojom::AITextSession> receiver,

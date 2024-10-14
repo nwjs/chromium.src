@@ -29,6 +29,7 @@
 #include "chrome/test/base/testing_browser_process_platform_part.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
+#include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
@@ -218,9 +219,13 @@ TEST_F(ContentSettingImageModelTest, CookieAccessed) {
   PageSpecificContentSettings::CreateForWebContents(
       web_contents(),
       std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
-  HostContentSettingsMapFactory::GetForProfile(profile())
-      ->SetDefaultContentSetting(ContentSettingsType::COOKIES,
-                                 CONTENT_SETTING_BLOCK);
+  auto* content_settings =
+      HostContentSettingsMapFactory::GetForProfile(profile());
+  content_settings->SetDefaultContentSetting(ContentSettingsType::COOKIES,
+                                             CONTENT_SETTING_BLOCK);
+  content_settings->SetContentSettingDefaultScope(
+      web_contents()->GetLastCommittedURL(), GURL(),
+      ContentSettingsType::COOKIES, CONTENT_SETTING_ALLOW);
   auto content_setting_image_model =
       ContentSettingImageModel::CreateForContentType(
           ContentSettingImageModel::ImageType::COOKIES);
@@ -237,11 +242,67 @@ TEST_F(ContentSettingImageModelTest, CookieAccessed) {
                            origin,
                            origin,
                            {{*cookie}},
-                           /* count = */ 1u,
                            /* blocked_by_policy = */ false});
   UpdateModelAndVerifyStates(content_setting_image_model.get(),
                              /* is_visible = */ true,
                              /* tooltip_empty = */ false);
+}
+
+TEST_F(ContentSettingImageModelTest, ThirdPartyCookieAccessed) {
+  PageSpecificContentSettings::CreateForWebContents(
+      web_contents(),
+      std::make_unique<PageSpecificContentSettingsDelegate>(web_contents()));
+  HostContentSettingsMapFactory::GetForProfile(profile())
+      ->SetDefaultContentSetting(ContentSettingsType::COOKIES,
+                                 CONTENT_SETTING_ALLOW);
+  auto content_setting_image_model =
+      ContentSettingImageModel::CreateForContentType(
+          ContentSettingImageModel::ImageType::COOKIES);
+  EXPECT_FALSE(content_setting_image_model->is_visible());
+  EXPECT_TRUE(content_setting_image_model->get_tooltip().empty());
+
+  GURL top_level_url("https://google.com");
+  GURL third_party_url("https://example.com");
+  std::unique_ptr<net::CanonicalCookie> cookie(
+      net::CanonicalCookie::CreateForTesting(
+          third_party_url, "A=B;SameSite=None;Secure", base::Time::Now()));
+  ASSERT_TRUE(cookie);
+
+  // A blocked third-party cookie access, should not cause the indicator to be
+  // shown regardless of the CookieControlsMode.
+  profile()->GetPrefs()->SetInteger(
+      prefs::kCookieControlsMode,
+      static_cast<int>(content_settings::CookieControlsMode::kOff));
+  PageSpecificContentSettings::GetForFrame(
+      web_contents()->GetPrimaryMainFrame())
+      ->OnCookiesAccessed({content::CookieAccessDetails::Type::kChange,
+                           third_party_url,
+                           top_level_url,
+                           {{*cookie}},
+                           /* blocked_by_policy = */ true,
+                           /* is_ad_tagged = */ false,
+                           net::CookieSettingOverrides(),
+                           net::SiteForCookies::FromUrl(top_level_url)});
+  UpdateModelAndVerifyStates(content_setting_image_model.get(),
+                             /* is_visible = */ false,
+                             /* tooltip_empty = */ true);
+
+  profile()->GetPrefs()->SetInteger(
+      prefs::kCookieControlsMode,
+      static_cast<int>(content_settings::CookieControlsMode::kBlockThirdParty));
+  PageSpecificContentSettings::GetForFrame(
+      web_contents()->GetPrimaryMainFrame())
+      ->OnCookiesAccessed({content::CookieAccessDetails::Type::kChange,
+                           third_party_url,
+                           top_level_url,
+                           {{*cookie}},
+                           /* blocked_by_policy = */ true,
+                           /* is_ad_tagged = */ false,
+                           net::CookieSettingOverrides(),
+                           net::SiteForCookies::FromUrl(top_level_url)});
+  UpdateModelAndVerifyStates(content_setting_image_model.get(),
+                             /* is_visible = */ false,
+                             /* tooltip_empty = */ true);
 }
 
 TEST_F(ContentSettingImageModelTest, SensorAccessed) {

@@ -24,10 +24,12 @@
 class Profile;
 class TabGroup;
 
+namespace tabs {
+class TabModel;
+}
+
 namespace syncer {
-
 class DeviceInfoTracker;
-
 }
 
 namespace tab_groups {
@@ -91,7 +93,7 @@ class SavedTabGroupKeyedService : public KeyedService,
 
   // Saves a restored group. This can be called prior to the saved tab
   // group model is loaded. These groups are saved when the model is loaded.
-  void SaveRestoredGroup(const tab_groups::TabGroupId& group_id);
+  void SaveRestoredGroup(SavedTabGroup group);
 
   void UpdateAttributions(
       const LocalTabGroupID& group_id,
@@ -141,29 +143,30 @@ class SavedTabGroupKeyedService : public KeyedService,
       const SavedTabGroup* const saved_group,
       const gfx::Range& tab_range);
 
-  // Connects all SavedTabGroupTabs from a SavedTabGroup to their respective
-  // WebContents in the local TabGroup.
-  std::map<content::WebContents*, base::Uuid>
-  GetWebContentsToTabGuidMappingForSavedGroup(
+  // Given a `tab_range` which is indexes of tabs in the `tab_strip_model` that
+  // should be part of `saved_group` outputs a mapping of tab to guid. This
+  // method performs no checks to make sure that the tabs are the correct ones
+  // that should be connected.
+  std::map<tabs::TabModel*, base::Uuid> GetTabToGuidMappingForSavedGroup(
       const TabStripModel* const tab_strip_model,
       const SavedTabGroup* const saved_group,
       const gfx::Range& tab_range);
 
-  // Connects all SavedTabGroupTabs from a SavedTabGroup to their respective
-  // WebContents that will open.
-  std::map<content::WebContents*, base::Uuid>
-  GetWebContentsToTabGuidMappingForOpening(
+  // Opens a saved tab group into the tabstrip of the `browser` and returns a
+  // mapping of the tabs to the SavedTabGroupTab. This method does not check
+  // that the browser is accepting of groups so this must be done by callers.
+  // This method does not check that the saved group is already open so that
+  // must be done by callers. This method does not check if the saved_group is
+  // part of the model, this must be done by callers.
+  std::map<tabs::TabModel*, base::Uuid> OpenSavedTabGroupAndGetTabToGuidMapping(
       Browser* browser,
-      const SavedTabGroup* const saved_group,
-      const base::Uuid& saved_group_guid);
+      const SavedTabGroup* const saved_group);
 
-  // Helper function that adds the opened tabs obtained from calling
-  // `GetWebContentsToTabGuidMappingForOpening` into a new tab group in the
-  // TabStrip.
+  // Helper method that takes the list of tabs that were created specifically
+  // for the saved group, and then groups them in the tabstrip model.
   tab_groups::TabGroupId AddOpenedTabsToGroup(
       TabStripModel* const tab_strip_model_for_creation,
-      const std::map<content::WebContents*, base::Uuid>&
-          opened_web_contents_to_uuid,
+      const std::map<tabs::TabModel*, base::Uuid>& tab_guid_mapping,
       const SavedTabGroup& saved_group);
 
   // Returns a pointer to the TabStripModel which contains `local_group_id`.
@@ -219,7 +222,7 @@ class SavedTabGroupKeyedService : public KeyedService,
       restored_groups_to_connect_on_load_;
 
   // Keeps track of the groups to save on model load.
-  std::vector<tab_groups::TabGroupId> restored_groups_to_save_on_load_;
+  std::vector<SavedTabGroup> restored_groups_to_save_on_load_;
 };
 
 }  // namespace tab_groups

@@ -4,6 +4,9 @@
 
 #include "content/public/app/content_main.h"
 
+#include <memory>
+#include <optional>
+
 #include "content/nw/src/nw_base.h"
 
 #include "base/allocator/partition_alloc_support.h"
@@ -16,11 +19,13 @@
 #include "base/feature_list.h"
 #include "base/i18n/icu_util.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/process/launch.h"
 #include "base/process/memory.h"
 #include "base/process/process.h"
 #include "base/process/set_process_title.h"
+#include "base/profiler/sample_metadata.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/synchronization/condition_variable.h"
@@ -164,6 +169,23 @@ void InitTimeTicksAtUnixEpoch() {
   base::TimeTicks::SetSharedUnixEpoch(time_ticks_at_unix_epoch);
 }
 
+// Apply metadata to samples collected by the StackSamplingProfiler when tracing
+// is enabled. This helps distinguish profiles with tracing overhead, e.g. due
+// to background tracing, from those without.
+class TracingEnabledStateObserver
+    : public base::trace_event::TraceLog::EnabledStateObserver {
+ public:
+  void OnTraceLogEnabled() override {
+    apply_sample_metadata_.emplace("TracingEnabled", 1,
+                                   base::SampleMetadataScope::kProcess);
+  }
+
+  void OnTraceLogDisabled() override { apply_sample_metadata_.reset(); }
+
+ private:
+  std::optional<base::ScopedSampleMetadata> apply_sample_metadata_;
+};
+
 }  // namespace
 
 ContentMainParams::ContentMainParams(ContentMainDelegate* delegate)
@@ -176,9 +198,9 @@ ContentMainParams& ContentMainParams::operator=(ContentMainParams&&) = default;
 
 // This function must be marked with NO_STACK_PROTECTOR or it may crash on
 // return, see the --change-stack-guard-on-fork command line flag.
-int NO_STACK_PROTECTOR
-RunContentProcess(ContentMainParams params,
-                  ContentMainRunner* content_main_runner) {
+NO_STACK_PROTECTOR int RunContentProcess(
+    ContentMainParams params,
+    ContentMainRunner* content_main_runner) {
   base::FeatureList::FailOnFeatureAccessWithoutFeatureList();
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   // Lacros is launched with inherited priority. Revert to normal priority
@@ -319,6 +341,9 @@ RunContentProcess(ContentMainParams params,
     }
 #endif
 
+    base::trace_event::TraceLog::GetInstance()->AddOwnedEnabledStateObserver(
+        base::WrapUnique(new TracingEnabledStateObserver));
+
     if (base::CommandLine::ForCurrentProcess()->HasSwitch(
             ::switches::kTraceToConsole)) {
       base::trace_event::TraceConfig trace_config =
@@ -346,7 +371,7 @@ RunContentProcess(ContentMainParams params,
 
 // This function must be marked with NO_STACK_PROTECTOR or it may crash on
 // return, see the --change-stack-guard-on-fork command line flag.
-int NO_STACK_PROTECTOR ContentMain(ContentMainParams params) {
+NO_STACK_PROTECTOR int ContentMain(ContentMainParams params) {
   auto runner = ContentMainRunner::Create();
   return RunContentProcess(std::move(params), runner.get());
 }

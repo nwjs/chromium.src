@@ -343,23 +343,27 @@ class AutocompleteMediator
      * presented suggestions in the event where Native counterpart is not yet initialized.
      *
      * <p>Note: the only supported page context right now is the ANDROID_SEARCH_WIDGET.
+     *
+     * @param isOnFocusContext Whether the request is made on focus (as opposed to on a text
+     *     change).
      */
-    void startCachedZeroSuggest() {
+    void startCachedZeroSuggest(boolean isOnFocusContext) {
         maybeServeCachedResult();
-        postAutocompleteRequest(this::startZeroSuggest, SCHEDULE_FOR_IMMEDIATE_EXECUTION);
+        postAutocompleteRequest(
+                () -> startZeroSuggest(isOnFocusContext), SCHEDULE_FOR_IMMEDIATE_EXECUTION);
     }
 
     private void maybeCacheResult(@NonNull AutocompleteResult result) {
         if (mIsInZeroPrefixContext
                 && !result.isFromCachedResult()
-                && mDataProvider.getPageClassification(false, false)
+                && mDataProvider.getPageClassification(false)
                         == PageClassification.ANDROID_SEARCH_WIDGET_VALUE) {
             CachedZeroSuggestionsManager.saveToCache(result);
         }
     }
 
     private void maybeServeCachedResult() {
-        int pageClass = mDataProvider.getPageClassification(false, false);
+        int pageClass = mDataProvider.getPageClassification(false);
         if (mAutocomplete.isPresent()
                 || !mIsInZeroPrefixContext
                 || (pageClass != PageClassification.ANDROID_SEARCH_WIDGET_VALUE
@@ -415,10 +419,7 @@ class AutocompleteMediator
             mRefineActionUsage = RefineActionUsage.NOT_USED;
             mOmniboxFocusResultedInNavigation = false;
             mSuggestionsListScrolled = false;
-            mPageClassification =
-                    OptionalInt.of(
-                            mDataProvider.getPageClassification(
-                                    mDelegate.didFocusUrlFromFakebox(), /* isPrefetch= */ false));
+            mPageClassification = OptionalInt.of(mDataProvider.getPageClassification(false));
             mUrlFocusTime = System.currentTimeMillis();
 
             // Ask directly for zero-suggestions related to current input, unless the user is
@@ -430,7 +431,8 @@ class AutocompleteMediator
             // This is tracked by MobileStartup.LaunchCause / EXTERNAL_SEARCH_ACTION_INTENT
             // metric.
             String text = mUrlBarEditingTextProvider.getTextWithoutAutocomplete();
-            onTextChanged(text);
+            onTextChanged(
+                    text, /* isOnFocusContext= */ OmniboxFeatures.shouldRetainOmniboxOnFocus());
         } else {
             mDeferredIMEWindowInsetApplicationCallback.detach();
             stopMeasuringSuggestionRequestToUiModelTime();
@@ -602,7 +604,9 @@ class AutocompleteMediator
         if (isSearchSuggestion) refineText = TextUtils.concat(refineText, " ").toString();
 
         mDelegate.setOmniboxEditingText(refineText);
-        onTextChanged(mUrlBarEditingTextProvider.getTextWithoutAutocomplete());
+        onTextChanged(
+                mUrlBarEditingTextProvider.getTextWithoutAutocomplete(),
+                /* isOnFocusContext= */ false);
 
         if (isSearchSuggestion) {
             // Note: the logic below toggles assumes individual values to be represented by
@@ -820,8 +824,11 @@ class AutocompleteMediator
     /**
      * Notifies the autocomplete system that the text has changed that drives autocomplete and the
      * autocomplete suggestions should be updated.
+     *
+     * @param textWithoutAutocomplete The text that does not include autocomplete information.
+     * @param isOnFocusContext Whether the request is made on focus (as opposed to on text change).
      */
-    public void onTextChanged(@NonNull String textWithoutAutocomplete) {
+    public void onTextChanged(@NonNull String textWithoutAutocomplete, boolean isOnFocusContext) {
         if (mShouldPreventOmniboxAutocomplete) return;
 
         mIgnoreOmniboxItemSelection = true;
@@ -834,11 +841,14 @@ class AutocompleteMediator
         }
 
         stopAutocomplete(false);
-        mIsInZeroPrefixContext = TextUtils.isEmpty(textWithoutAutocomplete);
+
+        boolean isTextWithoutAutocompleteEmpty = TextUtils.isEmpty(textWithoutAutocomplete);
+        mIsInZeroPrefixContext = isOnFocusContext || isTextWithoutAutocompleteEmpty;
+        isOnFocusContext = isOnFocusContext && !isTextWithoutAutocompleteEmpty;
 
         if (mIsInZeroPrefixContext) {
             clearSuggestions();
-            startCachedZeroSuggest();
+            startCachedZeroSuggest(isOnFocusContext);
         } else if (mDataProvider.hasTab()) {
             boolean preventAutocomplete = !mUrlBarEditingTextProvider.shouldAutocomplete();
             int cursorPosition =
@@ -1044,9 +1054,7 @@ class AutocompleteMediator
 
     /** Sends a zero suggest request to the server in order to pre-populate the result cache. */
     /* package */ void startPrefetch() {
-        int pageClassification =
-                mDataProvider.getPageClassification(
-                        /* isFocusedFromFakebox= */ false, /* isPrefetch= */ true);
+        int pageClassification = mDataProvider.getPageClassification(true);
         postAutocompleteRequest(
                 () ->
                         mAutocomplete.ifPresent(
@@ -1061,8 +1069,10 @@ class AutocompleteMediator
      * Make a zero suggest request if: - The URL bar has focus. - The the tab/overview is not
      * incognito. This method should not be called directly. Schedule execution using
      * postAutocompleteRequest.
+     *
+     * @param isOnFocusContext Whether the request is made on focus (as opposed to on text change).
      */
-    private void startZeroSuggest() {
+    private void startZeroSuggest(boolean isOnFocusContext) {
         // Reset "edited" state in the omnibox if zero suggest is triggered -- new edits
         // now count as a new session.
         mEditSessionState = EditSessionState.INACTIVE;
@@ -1077,7 +1087,8 @@ class AutocompleteMediator
                                 mUrlBarEditingTextProvider.getTextWithAutocomplete(),
                                 mDataProvider.getCurrentGurl(),
                                 mPageClassification.getAsInt(),
-                                mDataProvider.getTitle());
+                                mDataProvider.getTitle(),
+                                isOnFocusContext);
                     });
         }
     }
@@ -1138,9 +1149,7 @@ class AutocompleteMediator
                     a ->
                             a.start(
                                     mDataProvider.getCurrentGurl(),
-                                    mDataProvider.getPageClassification(
-                                            /* isFocusedFromFakebox= */ false,
-                                            /* isPrefetch= */ false),
+                                    mDataProvider.getPageClassification(false),
                                     query,
                                     -1,
                                     false));

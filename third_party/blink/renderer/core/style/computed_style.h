@@ -219,6 +219,9 @@ class ComputedStyle final : public ComputedStyleBase {
   // Used by CSS animations. We can't allow them to animate based off visited
   // colors.
   friend class CSSPropertyEquality;
+  // Access Visibility()
+  friend class CSSVisibilityInterpolationType;
+  friend class InheritedVisibilityChecker;
 
   // Accesses GetColor().
   friend class ComputedStyleUtils;
@@ -403,12 +406,12 @@ class ComputedStyle final : public ComputedStyleBase {
   ContentDistributionType ResolvedAlignContentDistribution(
       const StyleContentAlignmentData& normal_value_behavior) const;
   StyleSelfAlignmentData ResolvedAlignSelf(
-      ItemPosition normal_value_behaviour,
+      const StyleSelfAlignmentData& normal_value_behavior,
       const ComputedStyle* parent_style = nullptr) const;
   StyleContentAlignmentData ResolvedAlignContent(
       const StyleContentAlignmentData& normal_behaviour) const;
   StyleSelfAlignmentData ResolvedJustifySelf(
-      ItemPosition normal_value_behaviour,
+      const StyleSelfAlignmentData& normal_value_behavior,
       const ComputedStyle* parent_style = nullptr) const;
   StyleContentAlignmentData ResolvedJustifyContent(
       const StyleContentAlignmentData& normal_behaviour) const;
@@ -597,7 +600,7 @@ class ComputedStyle final : public ComputedStyleBase {
   ContentData* GetContentData() const { return ContentInternal().Get(); }
 
   // Returns the value of `line-clamp` or of `-webkit-line-clamp`, whichever
-  // applies (i.e. `-webkit-line-clamp` doesn't apply without
+  // applies (i.e. `-webkit-line-clamp` doesn't apply without specifying
   // `display: -webkit-box`). To get the raw value of the properties, use
   // `StandardLineClamp()` or `WebkitLineClamp()`.
   int LineClamp() const {
@@ -605,8 +608,15 @@ class ComputedStyle final : public ComputedStyleBase {
       DCHECK(RuntimeEnabledFeatures::CSSLineClampEnabled());
       return StandardLineClamp();
     }
-    if (IsDeprecatedWebkitBox() && BoxOrient() == EBoxOrient::kVertical) {
-      return WebkitLineClamp();
+    if (RuntimeEnabledFeatures::CSSLineClampWebkitBoxBlockificationEnabled()) {
+      if (IsSpecifiedDisplayWebkitBox()) {
+        DCHECK_EQ(BoxOrient(), EBoxOrient::kVertical);
+        return WebkitLineClamp();
+      }
+    } else {
+      if (IsDeprecatedWebkitBox() && BoxOrient() == EBoxOrient::kVertical) {
+        return WebkitLineClamp();
+      }
     }
     return 0;
   }
@@ -943,10 +953,15 @@ class ComputedStyle final : public ComputedStyleBase {
            Display() == EDisplay::kWebkitInlineBox;
   }
   bool IsDeprecatedFlexboxUsingFlexLayout() const {
+    if (RuntimeEnabledFeatures::CSSLineClampWebkitBoxBlockificationEnabled()) {
+      return IsDeprecatedWebkitBox();
+    }
     return IsDeprecatedWebkitBox() &&
            !IsDeprecatedWebkitBoxWithVerticalLineClamp();
   }
   bool IsDeprecatedWebkitBoxWithVerticalLineClamp() const {
+    DCHECK(
+        !RuntimeEnabledFeatures::CSSLineClampWebkitBoxBlockificationEnabled());
     return IsDeprecatedWebkitBox() && BoxOrient() == EBoxOrient::kVertical &&
            HasLineClamp();
   }
@@ -1694,7 +1709,7 @@ class ComputedStyle final : public ComputedStyleBase {
     // TODO: `visibility: hidden` shouldn't prevent focusability, see
     // https://html.spec.whatwg.org/multipage/interaction.html#focusable-area
     return !IsEnsuredInDisplayNone() && !IsInert() &&
-           Visibility() == EVisibility::kVisible &&
+           UsedVisibility() == EVisibility::kVisible &&
            (Display() != EDisplay::kContents ||
             RuntimeEnabledFeatures::DisplayContentsFocusableEnabled());
   }
@@ -1843,9 +1858,25 @@ class ComputedStyle final : public ComputedStyleBase {
     return ScrollsOverflowX() || ScrollsOverflowY();
   }
 
+  // Returns true if the element is HTML inert, or if the visibility computes to
+  // 'inert'.
+  bool IsInert() const {
+    return IsHTMLInert() || Visibility() == EVisibility::kInert;
+  }
+
+  // Return the visibility property value with 'inert' translated into
+  // 'visible'. Use IsInert() to query inertness.
+  EVisibility UsedVisibility() const {
+    EVisibility visibility = Visibility();
+    if (visibility == EVisibility::kInert) {
+      visibility = EVisibility::kVisible;
+    }
+    return visibility;
+  }
+
   // Visibility utility functions.
   bool VisibleToHitTesting() const {
-    return Visibility() == EVisibility::kVisible &&
+    return UsedVisibility() == EVisibility::kVisible &&
            UsedPointerEvents() != EPointerEvents::kNone;
   }
 
@@ -2110,7 +2141,7 @@ class ComputedStyle final : public ComputedStyleBase {
   // This function may return values not defined as the enum values. See
   // `EWhiteSpace`. Prefer using semantic functions below.
   EWhiteSpace WhiteSpace() const {
-    return ToWhiteSpace(GetWhiteSpaceCollapse(), GetTextWrap());
+    return ToWhiteSpace(GetWhiteSpaceCollapse(), GetTextWrapMode());
   }
 
   // Semantic functions for the `white-space` property and its longhands.
@@ -2137,7 +2168,12 @@ class ComputedStyle final : public ComputedStyleBase {
     return false;
   }
 
-  bool ShouldWrapLine() const { return blink::ShouldWrapLine(GetTextWrap()); }
+  bool ShouldWrapLine() const {
+    return blink::ShouldWrapLine(GetTextWrapMode());
+  }
+  bool ShouldWrapLineGreedy() const {
+    return blink::ShouldWrapLineGreedy(GetTextWrapStyle());
+  }
   bool ShouldBreakSpaces() const {
     return blink::ShouldBreakSpaces(GetWhiteSpaceCollapse());
   }
@@ -3290,11 +3326,11 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   }
 
   EWhiteSpace WhiteSpace() const {
-    return ToWhiteSpace(GetWhiteSpaceCollapse(), GetTextWrap());
+    return ToWhiteSpace(GetWhiteSpaceCollapse(), GetTextWrapMode());
   }
   void SetWhiteSpace(EWhiteSpace whitespace) {
     SetWhiteSpaceCollapse(ToWhiteSpaceCollapse(whitespace));
-    SetTextWrap(ToTextWrap(whitespace));
+    SetTextWrapMode(ToTextWrapMode(whitespace));
   }
 
   // WritingMode

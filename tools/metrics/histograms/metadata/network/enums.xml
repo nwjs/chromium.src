@@ -595,6 +595,15 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="kWifiWithCellularNotConnected"/>
 </enum>
 
+<enum name="InstallationAttemptStep">
+  <int value="0" label="kInstallationRequested"/>
+  <int value="1" label="kHermesUnavailable"/>
+  <int value="2" label="kInstallationStarted"/>
+  <int value="3" label="kInstallationSucceeded"/>
+  <int value="4" label="kInstallationNoResponse"/>
+  <int value="5" label="kInstallationFailed"/>
+</enum>
+
 <enum name="IpProtectionEligibility">
   <int value="0" label="Unknown"/>
   <int value="1" label="Ineligible"/>
@@ -628,6 +637,16 @@ chromium-metrics-reviews@google.com.
 <enum name="IpProtectionProxyLayer">
   <int value="0" label="Proxy A"/>
   <int value="1" label="Proxy B"/>
+</enum>
+
+<enum name="IpProtectionTokenBatchRequestError">
+  <int value="58877100" label="Failed to read timestamp"/>
+  <int value="354921842" label="At least one extension is required"/>
+  <int value="1218093704" label="Failed to read extensions"/>
+  <int value="2528366448" label="Failed to parse GetInitialDataResponse"/>
+  <int value="2867080750" label="Failed to read timestamp_precision"/>
+  <int value="3336018440"
+      label="Non-Privacy Pass tokens are no longer supported"/>
 </enum>
 
 <enum name="IpProtectionTokenBatchRequestResult">

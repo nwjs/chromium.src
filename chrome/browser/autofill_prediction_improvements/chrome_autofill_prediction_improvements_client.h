@@ -38,6 +38,9 @@ class ChromeAutofillPredictionImprovementsClient
   GetManager() override;
   autofill_prediction_improvements::AutofillPredictionImprovementsFillingEngine*
   GetFillingEngine() override;
+  const GURL& GetLastCommittedURL() override;
+  user_annotations::UserAnnotationsService* GetUserAnnotationsService()
+      override;
 
  protected:
   explicit ChromeAutofillPredictionImprovementsClient(
@@ -52,7 +55,7 @@ class ChromeAutofillPredictionImprovementsClient
       filling_engine_;
 
   autofill_prediction_improvements::AutofillPredictionImprovementsManager
-      manager_{this};
+      prediction_improvements_manager_;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

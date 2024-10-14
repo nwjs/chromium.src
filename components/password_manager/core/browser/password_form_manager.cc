@@ -25,7 +25,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
+#include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/common/form_data.h"
+#include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/password_form_generation_data.h"
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -38,6 +40,7 @@
 #include "components/password_manager/core/browser/password_feature_manager.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_filling.h"
+#include "components/password_manager/core/browser/password_generation_frame_helper.h"
 #include "components/password_manager/core/browser/password_generation_manager.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_driver.h"
@@ -1138,6 +1141,17 @@ void PasswordFormManager::FillNow() {
       ParseFormAndMakeLogging(*observed_form(), FormDataParser::Mode::kFilling);
   parsed_observed_form_ = std::move(form_parsing_result.password_form);
 
+  // Server predicts new password field on a text field. Enable manual
+  // generation on such fields.
+  if (!form_parsing_result.manual_generation_enabled_field.is_null()) {
+    PasswordGenerationFrameHelper* password_generation_helper =
+        driver_->GetPasswordGenerationHelper();
+    if (password_generation_helper) {
+      password_generation_helper->AddManualGenerationEnabledField(
+          form_parsing_result.manual_generation_enabled_field);
+    }
+  }
+
   RecordMetricOnReadonly(parser_.readonly_status(), !!parsed_observed_form_,
                          FormDataParser::Mode::kFilling);
   if (!parsed_observed_form_) {
@@ -1157,16 +1171,6 @@ void PasswordFormManager::FillNow() {
             parsed_observed_form_->confirmation_password_element_renderer_id,
     });
   }
-
-#if BUILDFLAG(IS_IOS)
-  // On iOS, filling on username first flow is only supported when the feature
-  // is enabled.
-  if (parsed_observed_form_->IsSingleUsername() &&
-      !base::FeatureList::IsEnabled(
-          password_manager::features::kIOSPasswordSignInUff)) {
-    return;
-  }
-#endif
 
   if (parsed_observed_form_->HasPasswordElement() &&
       !parsed_observed_form_->IsSingleUsername()) {
@@ -1499,6 +1503,27 @@ void PasswordFormManager::UpdatePredictionsForObservedForm(
     return;
   }
 
+  // Don't accept server predictions if they do not have 1:1 match by field
+  // renderer id for credential fields predictions. Otherwise, the field
+  // predictions can not be matched to the corresponding field at the form
+  // parsing stage. Number of text fields are the same due to the form signature
+  // match and each field renderer id is assumed to be unique within one form.
+  // The correct predictions will be loaded by autofill calling
+  // `PasswordManager::ProcessAutofillPredictions` at some point.
+  for (const PasswordFieldPrediction& field_prediction : it->second.fields) {
+    if (DeriveFromFieldType(field_prediction.type) ==
+        CredentialFieldType::kNone) {
+      continue;
+    }
+    auto matched_iterator = base::ranges::find_if(
+        observed_form()->fields(),
+        [&field_prediction](const autofill::FormFieldData& field) {
+          return field_prediction.renderer_id == field.renderer_id();
+        });
+    if (matched_iterator == observed_form()->fields().end()) {
+      return;
+    }
+  }
   ReportTimeBetweenStoreAndServerUMA();
   parser_.set_predictions(it->second);
 }

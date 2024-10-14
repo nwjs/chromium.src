@@ -8,13 +8,12 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/supports_user_data.h"
+#include "base/task/current_thread.h"
 #include "base/test/mock_callback.h"
 #include "chrome/browser/ai/ai_manager_keyed_service_factory.h"
+#include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/ai/ai_text_session.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
-#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
-#include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/optimization_guide/core/mock_optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
@@ -28,74 +27,48 @@
 using optimization_guide::MockSession;
 using optimization_guide::MockSessionWrapper;
 using testing::_;
-using testing::An;
 using testing::AtMost;
 using testing::Invoke;
 using testing::NiceMock;
-using testing::Return;
-namespace {
 
-class MockSupportsUserData : public base::SupportsUserData {};
-
-const optimization_guide::TokenLimits& GetFakeTokenLimits() {
-  static const optimization_guide::TokenLimits limits{
-      .max_tokens = 4096,
-      .max_context_tokens = 2048,
-      .max_execute_tokens = 1024,
-      .max_output_tokens = 1024,
-  };
-  return limits;
-}
-
-}  // namespace
-
-class AIManagerKeyedServiceTest : public ChromeRenderViewHostTestHarness {
- public:
-  void SetUp() override {
-    ChromeRenderViewHostTestHarness::SetUp();
-    SetUpOptimizationGuide();
-  }
-
-  void TearDown() override {
-    mock_optimization_guide_keyed_service_ = nullptr;
-    ChromeRenderViewHostTestHarness::TearDown();
-  }
-
+class AIManagerKeyedServiceTest : public AITestUtils::AITestBase {
  protected:
-  MockSupportsUserData* mock_host() { return &mock_host_; }
-
- private:
-  void SetUpOptimizationGuide() {
-    mock_optimization_guide_keyed_service_ =
-        static_cast<NiceMock<MockOptimizationGuideKeyedService>*>(
-            OptimizationGuideKeyedServiceFactory::GetInstance()
-                ->SetTestingFactoryAndUse(
-                    profile(),
-                    base::BindRepeating([](content::BrowserContext* context)
-                                            -> std::unique_ptr<KeyedService> {
-                      return std::make_unique<
-                          NiceMock<MockOptimizationGuideKeyedService>>();
-                    })));
+  void SetupMockOptimizationGuideKeyedService() {
+    AITestUtils::AITestBase::SetupMockOptimizationGuideKeyedService();
 
     ON_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
         .WillByDefault(
             [&] { return std::make_unique<MockSessionWrapper>(&session_); });
-    ON_CALL(session_, GetTokenLimits()).WillByDefault(GetFakeTokenLimits);
+    ON_CALL(session_, GetTokenLimits())
+        .WillByDefault(AITestUtils::GetFakeTokenLimits);
+    ON_CALL(session_, GetOnDeviceFeatureMetadata())
+        .WillByDefault(AITestUtils::GetFakeFeatureMetadata);
   }
 
-  raw_ptr<testing::NiceMock<MockOptimizationGuideKeyedService>>
-      mock_optimization_guide_keyed_service_;
+ private:
   testing::NiceMock<MockSession> session_;
-  MockSupportsUserData mock_host_;
 };
 
 // Tests that involve invalid on-device model file paths should not crash when
 // the associated RFH is destroyed.
 TEST_F(AIManagerKeyedServiceTest, NoUAFWithInvalidOnDeviceModelPath) {
+  SetupMockOptimizationGuideKeyedService();
+
   auto* command_line = base::CommandLine::ForCurrentProcess();
   command_line->AppendSwitchASCII(
       optimization_guide::switches::kOnDeviceModelExecutionOverride,
       "invalid-on-device-model-file-path");
+
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
+              CanCreateOnDeviceSession(_, _))
+      .Times(AtMost(1))
+      .WillOnce(Invoke([](optimization_guide::ModelBasedCapabilityKey feature,
+                          optimization_guide::OnDeviceModelEligibilityReason*
+                              on_device_model_eligibility_reason) {
+        *on_device_model_eligibility_reason = optimization_guide::
+            OnDeviceModelEligibilityReason::kFeatureNotEnabled;
+        return false;
+      }));
 
   base::MockCallback<blink::mojom::AIManager::CanCreateTextSessionCallback>
       callback;
@@ -122,6 +95,8 @@ TEST_F(AIManagerKeyedServiceTest, NoUAFWithInvalidOnDeviceModelPath) {
 // Tests the `AIUserDataSet`'s behavior of managing the lifetime of
 // `AITextSession`s.
 TEST_F(AIManagerKeyedServiceTest, AIContextBoundObjectSet) {
+  SetupMockOptimizationGuideKeyedService();
+
   base::MockCallback<blink::mojom::AIManager::CreateTextSessionCallback>
       callback;
   base::RunLoop run_loop;
@@ -132,30 +107,48 @@ TEST_F(AIManagerKeyedServiceTest, AIContextBoundObjectSet) {
         run_loop.Quit();
       }));
 
-  AIManagerKeyedService* ai_manager =
-      AIManagerKeyedServiceFactory::GetAIManagerKeyedService(
-          main_rfh()->GetBrowserContext());
-
-  mojo::Remote<blink::mojom::AIManager> mock_remote;
+  mojo::Remote<blink::mojom::AIManager> mock_remote = GetAIManagerRemote();
   mojo::Remote<blink::mojom::AITextSession> mock_session;
-  ai_manager->AddReceiver(mock_remote.BindNewPipeAndPassReceiver(),
-                          mock_host());
-  // Initially the `AIUserDataSet` is empty.
+  // Initially the `AIContextBoundObjectSet` only contains the
+  // `AIManagerReceiverRemover`.
   base::WeakPtr<AIContextBoundObjectSet> context_bound_objects =
       AIContextBoundObjectSet::GetFromContext(mock_host())
           ->GetWeakPtrForTesting();
-  ASSERT_EQ(0u, context_bound_objects->GetSizeForTesting());
-
-  // After creating one `AITextSession`, the `AIUserDataSet` contains 1
-  // element.
-  mock_remote->CreateTextSession(mock_session.BindNewPipeAndPassReceiver(),
-                                 nullptr, std::nullopt, callback.Get());
-  run_loop.Run();
   ASSERT_EQ(1u, context_bound_objects->GetSizeForTesting());
 
-  // After resetting the session, the `AIUserDataSet` becomes empty again and
-  // should be removed from the context.
+  // After creating one `AIAssistant`, the `AIContextBoundObjectSet` contains 2
+  // elements.
+  mock_remote->CreateTextSession(mock_session.BindNewPipeAndPassReceiver(),
+                                 /*sampling_params=*/nullptr,
+                                 /*system_prompt=*/std::nullopt,
+                                 /*initial_prompts=*/{}, callback.Get());
+  run_loop.Run();
+  ASSERT_EQ(2u, context_bound_objects->GetSizeForTesting());
+
+  // After resetting the session, the size of `AIContextBoundObjectSet` becomes
+  // 1 again and should be removed from the context.
   mock_session.reset();
-  task_environment()->RunUntilIdle();
-  ASSERT_FALSE(context_bound_objects);
+  ASSERT_TRUE(base::test::RunUntil([&context_bound_objects] {
+    return context_bound_objects->GetSizeForTesting() == 1u;
+  }));
+}
+
+// Tests that the receiver will be removed after the `ReceiverContext` is
+// destroyed.
+TEST_F(AIManagerKeyedServiceTest, ClearReceiverAfterResetHost) {
+  SetupMockOptimizationGuideKeyedService();
+
+  // Initially, the receiver set is empty.
+  ASSERT_EQ(0u, GetAIManagerReceiversSize());
+
+  mojo::Remote<blink::mojom::AIManager> mock_remote = GetAIManagerRemote();
+
+  // After getting the `AIManager`, the receiver set contains 1 element.
+  ASSERT_EQ(1u, GetAIManagerReceiversSize());
+
+  // After resetting the host, the corresponding receivers should be cleared
+  // from the set.
+  ResetMockHost();
+  ASSERT_TRUE(base::test::RunUntil(
+      [this] { return GetAIManagerReceiversSize() == 0u; }));
 }

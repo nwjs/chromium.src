@@ -18,6 +18,9 @@ WebContentsInteractionTestUtil::DeepQuery InternetPageErrorToast();
 // The error toast shown on the internet page.
 WebContentsInteractionTestUtil::DeepQuery InternetPageErrorToastMessage();
 
+// The details subpage for a particular network.
+WebContentsInteractionTestUtil::DeepQuery InternetDetailsSubpage();
+
 // The "more options" / "three dots" button on the network details page.
 WebContentsInteractionTestUtil::DeepQuery NetworkMoreDetailsMenuButton();
 
@@ -26,6 +29,9 @@ WebContentsInteractionTestUtil::DeepQuery InternetSettingsSubpageTitle();
 
 // The network state shown on a settings subpage.
 WebContentsInteractionTestUtil::DeepQuery SettingsSubpageNetworkState();
+
+// The policy icon shown on a settings subpage.
+WebContentsInteractionTestUtil::DeepQuery SettingsSubpagePolicyIcon();
 
 // The network state shown on a settings subpage.
 WebContentsInteractionTestUtil::DeepQuery SettingsSubpagePropertyList();
@@ -151,6 +157,9 @@ WebContentsInteractionTestUtil::DeepQuery ApnSubpageZeroStateContent();
 // The cellular "row" on the top-level internet page.
 WebContentsInteractionTestUtil::DeepQuery CellularSummaryItem();
 
+// The cellular inhibited element in Mobile data subpage.
+WebContentsInteractionTestUtil::DeepQuery CellularInhibitedItem();
+
 // The "add eSIM" dialog.
 WebContentsInteractionTestUtil::DeepQuery EsimDialog();
 
@@ -193,11 +202,11 @@ WebContentsInteractionTestUtil::DeepQuery MobileDataToggle();
 // The cellular networks list page.
 WebContentsInteractionTestUtil::DeepQuery CellularNetworksList();
 
+// The policy icon shown on the network list item row in cellular networks list.
+WebContentsInteractionTestUtil::DeepQuery CellularNetworkListItemPolicyIcon();
+
 // The cellular networks subpage pSIM networks list title.
 WebContentsInteractionTestUtil::DeepQuery CellularSubpagePsimListTitle();
-
-// The cellular network details subpage title.
-WebContentsInteractionTestUtil::DeepQuery CellularDetailsSubpageTitle();
 
 // The auto connect toggle in cellular network details subpage.
 WebContentsInteractionTestUtil::DeepQuery
@@ -305,11 +314,98 @@ WebContentsInteractionTestUtil::DeepQuery HotspotSSID();
 // Hotspot SSID input in the hotspot config dialog.
 WebContentsInteractionTestUtil::DeepQuery HotspotSSIDInput();
 
+// Hotspot client count item in the hotspot detail page.
+WebContentsInteractionTestUtil::DeepQuery HotspotClientCountItem();
+
 }  // namespace hotspot
 
 namespace wifi {
+
+// The network list under the WiFi subpage.
+WebContentsInteractionTestUtil::DeepQuery WifiNetworksList();
+
+// The WiFi toggle in WiFi subpage page.
+WebContentsInteractionTestUtil::DeepQuery WifiSubpageEnableToggle();
+
 // The wifi "row" on the top-level internet page.
 WebContentsInteractionTestUtil::DeepQuery WifiSummaryItem();
+
+// The "add Wi-Fi" button on the Wi-Fi subpage.
+WebContentsInteractionTestUtil::DeepQuery AddWifiButton();
+
+// The dialog opened when the "add Wi-Fi" button on the Wi-Fi subpage is
+// clicked.
+WebContentsInteractionTestUtil::DeepQuery ConfigureWifiDialog();
+
+// The SSID input field on the "add Wi-Fi" dialog.
+WebContentsInteractionTestUtil::DeepQuery ConfigureWifiDialogSsidInput();
+
+// The "share this network" toggle on the "add Wi-Fi" dialog.
+WebContentsInteractionTestUtil::DeepQuery ConfigureWifiDialogShareToggle();
+
+// The connect button on the "add Wi-Fi" dialog.
+WebContentsInteractionTestUtil::DeepQuery ConfigureWifiDialogConnectButton();
+
+// The Known networks subpage button on the network page.
+WebContentsInteractionTestUtil::DeepQuery WifiKnownNetworksSubpageButton();
+
+// The known networks subpage.
+WebContentsInteractionTestUtil::DeepQuery KnownNetworksSubpage();
+
+// The passpoint subscription list on the known network subpage.
+WebContentsInteractionTestUtil::DeepQuery
+KnownNetworksSubpagePasspointSubsciptions();
+
+// The passpoint subscription list item on the known network subpage passpoint
+// section.
+WebContentsInteractionTestUtil::DeepQuery
+KnownNetworksSubpagePasspointSubscriptionItem();
+
+// The dots button on the subscription item in the passpoint subscriptions
+// section of the Known Networks subpage.
+WebContentsInteractionTestUtil::DeepQuery
+KnownNetworksSubpagePasspointMoreButton();
+
+// The dots menu on the subscription item in the passpoint subscriptions
+// section of the Known Networks subpage.
+WebContentsInteractionTestUtil::DeepQuery
+KnownNetworksSubpagePasspointDotsMenu();
+
+// The Forget button in the dots menu on the subscription item in the passpoint
+// subscriptions section of the Known Networks subpage.
+WebContentsInteractionTestUtil::DeepQuery
+KnownNetworksSubpagePasspointSubscriptionForget();
+
+// The expiration date on the passpoint subscription subpage.
+WebContentsInteractionTestUtil::DeepQuery PasspointSubpageExpirationDate();
+
+// The source provider on the passpoint subscription subpage.
+WebContentsInteractionTestUtil::DeepQuery PasspointSubpageProviderSource();
+
+// The associated network list item on the passpoint subscription subpage.
+WebContentsInteractionTestUtil::DeepQuery
+PasspointSubpageAssociatedNetworksListItem();
+
+// The domain list expansion button on the passpoint subscription subpage.
+WebContentsInteractionTestUtil::DeepQuery
+PasspointSubpageDomainExpansionButton();
+
+// The domain list on the passpoint subscription subpage.
+WebContentsInteractionTestUtil::DeepQuery PasspointSubpageDomainList();
+
+// The domain item on the passpoint subscription subpage.
+WebContentsInteractionTestUtil::DeepQuery PasspointSubpageDomainListItem();
+
+// The Remove button on the passpoint subscription subpage.
+WebContentsInteractionTestUtil::DeepQuery PasspointSubpageRemoveButton();
+
+// The remove confirmation dialog when removing subscription.
+WebContentsInteractionTestUtil::DeepQuery PasspointSubpageRemoveDialog();
+
+// The confirm button on the subscription removal dialog.
+WebContentsInteractionTestUtil::DeepQuery
+PasspointSubpageRemoveDialogConfirmButton();
+
 }  // namespace wifi
 
 namespace vpn {
@@ -375,6 +471,9 @@ WebContentsInteractionTestUtil::DeepQuery BluetoothPairingDialog();
 
 // The Bluetooth device list page.
 WebContentsInteractionTestUtil::DeepQuery BluetoothDeviceList();
+
+// The Bluetooth state toggle in Bluetooth subpage.
+WebContentsInteractionTestUtil::DeepQuery BluetoothSubpageToggle();
 
 // The Bluetooth device details subpage.
 WebContentsInteractionTestUtil::DeepQuery BluetoothDeviceDetailSubpage();

@@ -4,9 +4,7 @@
 
 #import "ios/chrome/browser/signin/model/trusted_vault_client_backend.h"
 
-BASE_FEATURE(kTrustedVaultSecurityDomainKillSwitch,
-             "TrustedVaultSecurityDomainKillSwitch",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#import "base/functional/callback.h"
 
 TrustedVaultClientBackend::TrustedVaultClientBackend() = default;
 
@@ -14,22 +12,22 @@ TrustedVaultClientBackend::~TrustedVaultClientBackend() = default;
 
 void TrustedVaultClientBackend::AddObserver(
     TrustedVaultClientBackend::Observer* observer,
-    const std::string& security_domain_path) {
-  observer_lists_per_security_domain_path_[security_domain_path].AddObserver(
+    trusted_vault::SecurityDomainId security_domain_id) {
+  observer_lists_per_security_domain_id_[security_domain_id].AddObserver(
       observer);
 }
 
 void TrustedVaultClientBackend::RemoveObserver(
     Observer* observer,
-    const std::string& security_domain_path) {
-  observer_lists_per_security_domain_path_[security_domain_path].RemoveObserver(
+    trusted_vault::SecurityDomainId security_domain_id) {
+  observer_lists_per_security_domain_id_[security_domain_id].RemoveObserver(
       observer);
 }
 
 void TrustedVaultClientBackend::NotifyKeysChanged(
-    const std::string& security_domain_path) {
-  auto it = observer_lists_per_security_domain_path_.find(security_domain_path);
-  if (it == observer_lists_per_security_domain_path_.end()) {
+    trusted_vault::SecurityDomainId security_domain_id) {
+  auto it = observer_lists_per_security_domain_id_.find(security_domain_id);
+  if (it == observer_lists_per_security_domain_id_.end()) {
     return;
   }
   for (Observer& observer : it->second) {
@@ -38,9 +36,9 @@ void TrustedVaultClientBackend::NotifyKeysChanged(
 }
 
 void TrustedVaultClientBackend::NotifyRecoverabilityChanged(
-    const std::string& security_domain_path) {
-  auto it = observer_lists_per_security_domain_path_.find(security_domain_path);
-  if (it == observer_lists_per_security_domain_path_.end()) {
+    trusted_vault::SecurityDomainId security_domain_id) {
+  auto it = observer_lists_per_security_domain_id_.find(security_domain_id);
+  if (it == observer_lists_per_security_domain_id_.end()) {
     return;
   }
   for (Observer& observer : it->second) {

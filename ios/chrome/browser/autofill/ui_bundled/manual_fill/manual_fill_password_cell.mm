@@ -9,6 +9,7 @@
 #import "base/strings/strcat.h"
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_cell_utils.h"
+#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_content_injector.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_credential.h"
 #import "ios/chrome/browser/favicon/model/favicon_loader.h"
@@ -22,8 +23,6 @@
 #import "ui/base/l10n/l10n_util_mac.h"
 #import "ui/gfx/favicon_size.h"
 #import "url/gurl.h"
-
-NSString* const kMaskedPasswordTitle = @"••••••••";
 
 namespace {
 
@@ -126,6 +125,10 @@ CGFloat GetFaviconSize() {
 
 - (NSString*)uniqueIdentifier {
   return base::SysUTF8ToNSString(self.credential.URL.spec());
+}
+
+- (NSString*)username {
+  return self.credential.username;
 }
 
 @end
@@ -249,8 +252,12 @@ static const CGFloat kOffsetForConnectedCell = 16;
     self.siteNameLabel.hidden = YES;
     self.faviconView.hidden = YES;
   } else {
+    BOOL shouldShowHost =
+        credential.host && credential.host.length &&
+        ![credential.host isEqualToString:credential.siteName];
+
     NSAttributedString* attributedText =
-        CreateSiteNameLabelAttributedText(credential);
+        CreateSiteNameLabelAttributedText(credential, shouldShowHost);
     self.siteNameLabel.attributedText = attributedText;
     if (IsKeyboardAccessoryUpgradeEnabled()) {
       self.siteNameLabel.numberOfLines = 0;
@@ -304,7 +311,7 @@ static const CGFloat kOffsetForConnectedCell = 16;
 
   // Password chip button.
   if (credential.password.length) {
-    [self.passwordButton setTitle:kMaskedPasswordTitle
+    [self.passwordButton setTitle:manual_fill::kMaskedPasswordButtonText
                          forState:UIControlStateNormal];
     self.passwordButton.accessibilityLabel = l10n_util::GetNSString(
         IsKeyboardAccessoryUpgradeEnabled()

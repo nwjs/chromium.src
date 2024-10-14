@@ -45,8 +45,8 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/model/web_state_list/browser_util.h"
@@ -785,7 +785,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   ChromeBrowserState* browser_state = self.regularBrowser->GetBrowserState();
   _mediator = [[TabGridMediator alloc]
-       initWithIdentityManager:IdentityManagerFactory::GetForBrowserState(
+       initWithIdentityManager:IdentityManagerFactory::GetForProfile(
                                    browser_state)
                    prefService:browser_state->GetPrefs()
       featureEngagementTracker:feature_engagement::TrackerFactory::
@@ -880,7 +880,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   self.incognitoTabsMediator = _incognitoGridCoordinator.incognitoGridMediator;
   [self.incognitoTabsMediator
       initializeSupervisedUserCapabilitiesObserver:
-          IdentityManagerFactory::GetForBrowserState(browser_state)];
+          IdentityManagerFactory::GetForProfile(browser_state)];
 
   baseViewController.incognitoGridHandler =
       _incognitoGridCoordinator.gridHandler;
@@ -932,7 +932,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     sync_sessions::SessionSyncService* syncService =
         SessionSyncServiceFactory::GetForBrowserState(regularBrowserState);
     signin::IdentityManager* identityManager =
-        IdentityManagerFactory::GetForBrowserState(regularBrowserState);
+        IdentityManagerFactory::GetForProfile(regularBrowserState);
     sessions::TabRestoreService* restoreService =
         IOSChromeTabRestoreServiceFactory::GetForBrowserState(
             regularBrowserState);
@@ -1604,7 +1604,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   } else {
     // The user journey to bring recent tabs on Android to iOS has finished.
     // Reload the service to update/clear the tabs.
-    BringAndroidTabsToIOSServiceFactory::GetForBrowserStateIfExists(
+    BringAndroidTabsToIOSServiceFactory::GetForProfileIfExists(
         self.regularBrowser->GetBrowserState())
         ->LoadTabs();
   }
@@ -1844,7 +1844,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   return self.baseViewController.view.bounds;
 }
 
-// Returns wether there is a selected pinned cell.
+// Returns whether there is a selected pinned cell.
 - (BOOL)isPinnedCellSelected {
   if (!IsPinnedTabsEnabled() ||
       self.baseViewController.currentPage != TabGridPageRegularTabs) {

@@ -5,10 +5,12 @@
 #include "chromeos/ash/components/growth/campaigns_configuration_provider.h"
 
 #include <cstring>
+#include <string>
 
 #include "ash/constants/ash_switches.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "chromeos/ash/components/growth/campaigns_utils.h"
 #include "components/feature_engagement/public/configuration.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/feature_list.h"
@@ -20,7 +22,6 @@ namespace growth {
 namespace {
 
 constexpr char kGrowthFramework[] = "ChromeOS Growth Framework";
-constexpr char kGrowthCampaignsEventNamePrefix[] = "ChromeOSAshGrowthCampaigns";
 constexpr char kGrowthCampaignsEventUsed[] =
     "ChromeOSAshGrowthCampaigns_EventUsed";
 constexpr char kGrowthCampaignsEventTrigger[] =
@@ -92,7 +93,7 @@ CampaignsConfigurationProvider::MaybeProvideAllowedEventPrefixes(
   if (HasDebugClearEventsSwitch()) {
     return {};
   } else {
-    return {kGrowthCampaignsEventNamePrefix};
+    return {std::string(growth::GetGrowthCampaignsEventNamePrefix())};
   }
 }
 

@@ -10,6 +10,28 @@
 
 namespace enterprise_obfuscation {
 
+// Default key and derived key size, nonce length and max tag length in
+// BoringSSL's implementation of AES-256 GCM used by the crypto library.
+// TODO(b/356473947): Consider switching to 128-bit key for performance.
+static constexpr size_t kKeySize = 32u;
+static constexpr size_t kNonceSize = 12u;
+static constexpr size_t kAuthTagSize = 16u;
+
+// Nonce prefix and header size based on Tink streaming AEAD implementation
+// (https://developers.google.com/tink/streaming-aead/aes_gcm_hkdf_streaming).
+static constexpr size_t kNoncePrefixSize = 7u;
+static constexpr size_t kSaltSize = kKeySize;
+static constexpr size_t kHeaderSize = 1u + kSaltSize + kNoncePrefixSize;
+
+// Maximum size of a data chunk for obfuscation/deobfuscation.
+//
+// This size is chosen to be the default buffer size in bytes used for downloads
+// (kDefaultDownloadFileBufferSize = 524288) plus the auth tag length.
+static constexpr size_t kMaxChunkSize = 512 * 1024 + kAuthTagSize;
+
+// Size of the chunk size prefix for variable size.
+static constexpr size_t kChunkSizePrefixSize = 4u;
+
 // Feature to enable insecure obfuscation and deobfuscation of files sent to
 // WebProtect deep scanning service for enterprise users.
 BASE_DECLARE_FEATURE(kEnterpriseFileObfuscation);
@@ -37,14 +59,18 @@ base::expected<std::vector<uint8_t>, Error> CreateHeader(
 // (https://crsrc.org/c/crypto/aead.h) in an insecure way to act as a file
 // access deterrent. Master key is stored in memory and can be leaked.
 // Counter increments every chunk to protect against reordering/truncation.
-// TODO(b/351151997): Change to add padding and support for data chunks of
-// variable size.
+// The size of the encrypted chunk is prepended to the returned encrypted chunk.
 base::expected<std::vector<uint8_t>, Error> ObfuscateDataChunk(
     base::span<const uint8_t> data,
     const std::vector<uint8_t>& key,
     const std::vector<uint8_t>& nonce_prefix,
     uint32_t counter,
     bool is_last_chunk);
+
+// Extracts the size of the obfuscated data chunk from the beginning of the
+// provided data.
+base::expected<size_t, Error> GetObfuscatedChunkSize(
+    base::span<const uint8_t> data);
 
 // Computes the derived key and extracts the nonce prefix from the header.
 base::expected<std::pair</*derived key*/ std::vector<uint8_t>,
@@ -56,6 +82,8 @@ GetHeaderData(const std::vector<uint8_t>& header);
 // in an insecure way to act as a file access deterrent. Master key is stored in
 // memory and can be leaked. Counter increments every chunk to protect against
 // reordering/truncation.
+// The size of the encrypted chunk is expected to be prepended to the input
+// data.
 base::expected<std::vector<uint8_t>, Error> DeobfuscateDataChunk(
     base::span<const uint8_t> data,
     const std::vector<uint8_t>& key,

@@ -206,7 +206,10 @@ PopupRowView::PopupRowView(
           controller->ShouldIgnoreMouseObservedOutsideItemBoundsCheck()),
       suggestion_is_acceptable_(
           controller && line_number < controller->GetLineCount() &&
-          controller->GetSuggestionAt(line_number).is_acceptable) {
+          controller->GetSuggestionAt(line_number).is_acceptable),
+      highlight_on_select_(
+          controller && line_number < controller->GetLineCount() &&
+          controller->GetSuggestionAt(line_number).highlight_on_select) {
   CHECK(content_view);
   CHECK(controller_);
   CHECK_LT(line_number_, controller_->GetLineCount());
@@ -270,11 +273,13 @@ PopupRowView::PopupRowView(
   content_view_->GetViewAccessibility().SetSetSize(set_size);
   content_view_->GetViewAccessibility().SetIsSelected(false);
 
-  if (controller_ && line_number_ < controller_->GetLineCount()) {
-    GetViewAccessibility().SetPosInSet(position);
-    GetViewAccessibility().SetSetSize(set_size);
-    GetViewAccessibility().SetRole(ax::mojom::Role::kListBoxOption);
-  }
+  GetViewAccessibility().SetRole(ax::mojom::Role::kListBoxOption);
+  GetViewAccessibility().SetName(
+      GetSuggestionA11yString(suggestion,
+                              /*add_call_to_action_if_expandable=*/false));
+  GetViewAccessibility().SetPosInSet(position);
+  GetViewAccessibility().SetSetSize(set_size);
+
   content_event_handler_ =
       set_exit_enter_callbacks(CellType::kContent, *content_view_);
   layout->SetFlexForView(content_view_.get(), 1);
@@ -373,16 +378,6 @@ void PopupRowView::OnVisibleBoundsChanged() {
   }
 }
 
-void PopupRowView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  views::View::GetAccessibleNodeData(node_data);
-
-  if (controller_ && line_number_ < controller_->GetLineCount()) {
-    node_data->SetName(
-        GetSuggestionA11yString(controller_->GetSuggestionAt(line_number_),
-                                /*add_call_to_action_if_expandable=*/false));
-  }
-}
-
 void PopupRowView::OnViewFocused(views::View* view) {
   CHECK(view == content_view_ || view == expand_child_suggestions_view_);
 
@@ -419,7 +414,7 @@ void PopupRowView::SetSelectedCell(std::optional<CellType> new_cell) {
     selected_cell_ = new_cell;
   } else if (new_cell == CellType::kContent) {
     controller_->SelectSuggestion(line_number_);
-    content_view_->UpdateStyle(/*selected=*/true);
+    content_view_->UpdateStyle(/*selected=*/highlight_on_select_);
     content_view_->GetViewAccessibility().SetIsSelected(true);
     GetA11ySelectionDelegate().NotifyAXSelection(*content_view_);
     NotifyAccessibilityEvent(ax::mojom::Event::kSelectedChildrenChanged, true);
@@ -490,19 +485,27 @@ void PopupRowView::UpdateUI() {
 }
 
 void PopupRowView::UpdateBackground() {
-  // The whole row is highlighted when:
-  // * The subpopup is open, or
-  // * The expanding control view is being hovered, or
-  // * The suggestion is not acceptable and either the control or content part
-  //   is being hovered.
-  ui::ColorId kBackgroundColorId =
-      child_suggestions_displayed_ || (selected_cell_ == CellType::kControl) ||
-              (!suggestion_is_acceptable_ && selected_cell_)
-          ? ui::kColorDropdownBackgroundSelected
-          : ui::kColorDropdownBackground;
+  const bool is_highlighted = [&]() {
+    if (!highlight_on_select_) {
+      return false;
+    }
+    // The whole row is highlighted when the subpopup is open, or ...
+    if (child_suggestions_displayed_) {
+      return true;
+    }
+    // the expanding control view is being hovered, or ...
+    if (selected_cell_ == CellType::kControl) {
+      return true;
+    }
+    // the suggestion is not acceptable and either the control or content part
+    // is being hovered.
+    return !suggestion_is_acceptable_ && selected_cell_;
+  }();
   SetBackground(views::CreateThemedRoundedRectBackground(
-      kBackgroundColorId, ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
-                              views::Emphasis::kMedium)));
+      is_highlighted ? ui::kColorDropdownBackgroundSelected
+                     : ui::kColorDropdownBackground,
+      ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
+          views::Emphasis::kMedium)));
 }
 
 void PopupRowView::UpdateOpenSubPopupIconVisibility() {
@@ -529,7 +532,13 @@ bool PopupRowView::IsViewVisibleEnough() const {
     return true;
   }
 
-  return barrier_for_accepting_ && barrier_for_accepting_->value();
+  bool visible_enough =
+      barrier_for_accepting_ && barrier_for_accepting_->value();
+
+  base::UmaHistogramBoolean(
+      "Autofill.AcceptedSuggestionDesktopRowViewVisibleEnough", visible_enough);
+
+  return visible_enough;
 }
 
 BEGIN_METADATA(PopupRowView)

@@ -199,7 +199,15 @@ bool RenderFrameHostDelegate::IsPopup() const {
   return false;
 }
 
+bool RenderFrameHostDelegate::IsPartitionedPopin() const {
+  return false;
+}
+
 RenderFrameHostImpl* RenderFrameHostDelegate::PartitionedPopinOpener() const {
+  return nullptr;
+}
+
+WebContents* RenderFrameHostDelegate::OpenedPartitionedPopin() const {
   return nullptr;
 }
 

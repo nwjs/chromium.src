@@ -15,8 +15,7 @@ namespace syncer {
 // API requires transferring ownership, but the calling site also wants to keep
 // ownership of the actual implementation, and can guarantee the lifetime
 // constraints.
-class ForwardingDataTypeControllerDelegate
-    : public DataTypeControllerDelegate {
+class ForwardingDataTypeControllerDelegate : public DataTypeControllerDelegate {
  public:
   // Except for tests, |other| must not be null and must outlive this object.
   explicit ForwardingDataTypeControllerDelegate(
@@ -43,8 +42,7 @@ class ForwardingDataTypeControllerDelegate
   void ReportBridgeErrorForTest() override;
 
  private:
-  const raw_ptr<DataTypeControllerDelegate, AcrossTasksDanglingUntriaged>
-      other_;
+  const raw_ptr<DataTypeControllerDelegate> other_;
 };
 
 }  // namespace syncer

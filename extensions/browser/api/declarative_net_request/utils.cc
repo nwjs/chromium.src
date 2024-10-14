@@ -50,7 +50,7 @@ namespace flat_rule = url_pattern_index::flat;
 // url_pattern_index.fbs. Whenever an extension with an indexed ruleset format
 // version different from the one currently used by Chrome is loaded, the
 // extension ruleset will be reindexed.
-constexpr int kIndexedRulesetFormatVersion = 33;
+constexpr int kIndexedRulesetFormatVersion = 34;
 
 // This static assert is meant to catch cases where
 // url_pattern_index::kUrlPatternIndexFormatVersion is incremented without
@@ -902,6 +902,11 @@ bool IsResponseHeaderMatchingEnabled() {
   // added back such as channel restrictions.
   return base::FeatureList::IsEnabled(
       extensions_features::kDeclarativeNetRequestResponseHeaderMatching);
+}
+
+bool IsHeaderSubstitutionEnabled() {
+  return base::FeatureList::IsEnabled(
+      extensions_features::kDeclarativeNetRequestHeaderSubstitution);
 }
 
 }  // namespace extensions::declarative_net_request

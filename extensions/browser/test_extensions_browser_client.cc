@@ -33,8 +33,9 @@ namespace extensions {
 TestExtensionsBrowserClient::TestExtensionsBrowserClient(
     BrowserContext* main_context)
     : extension_cache_(std::make_unique<NullExtensionCache>()) {
-  if (main_context)
+  if (main_context) {
     SetMainContext(main_context);
+  }
 }
 
 TestExtensionsBrowserClient::TestExtensionsBrowserClient()
@@ -90,8 +91,9 @@ bool TestExtensionsBrowserClient::HasOffTheRecordContext(
 
 BrowserContext* TestExtensionsBrowserClient::GetOffTheRecordContext(
     BrowserContext* context) {
-  if (context == main_context_)
+  if (context == main_context_) {
     return incognito_context_;
+  }
   return nullptr;
 }
 
@@ -129,8 +131,9 @@ bool TestExtensionsBrowserClient::AreExtensionsDisabledForContext(
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 std::string TestExtensionsBrowserClient::GetUserIdHashFromContext(
     content::BrowserContext* context) {
-  if (context != main_context_ || !ash::LoginState::IsInitialized())
+  if (context != main_context_ || !ash::LoginState::IsInitialized()) {
     return "";
+  }
   return ash::LoginState::Get()->primary_user_hash();
 }
 #endif
@@ -209,7 +212,7 @@ ProcessManagerDelegate* TestExtensionsBrowserClient::GetProcessManagerDelegate()
 mojo::PendingRemote<network::mojom::URLLoaderFactory>
 TestExtensionsBrowserClient::GetControlledFrameEmbedderURLLoader(
     const url::Origin& app_origin,
-    int frame_tree_node_id,
+    content::FrameTreeNodeId frame_tree_node_id,
     content::BrowserContext* browser_context) {
   return mojo::PendingRemote<network::mojom::URLLoaderFactory>();
 }
@@ -290,6 +293,9 @@ bool TestExtensionsBrowserClient::IsMinBrowserVersionSupported(
     const std::string& min_version) {
   return true;
 }
+
+void TestExtensionsBrowserClient::CreateExtensionWebContentsObserver(
+    content::WebContents* web_contents) {}
 
 ExtensionWebContentsObserver*
 TestExtensionsBrowserClient::GetExtensionWebContentsObserver(

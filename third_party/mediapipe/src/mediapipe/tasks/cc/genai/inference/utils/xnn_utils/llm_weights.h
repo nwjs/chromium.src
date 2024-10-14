@@ -23,6 +23,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -46,7 +47,8 @@ struct LlmParams {
   size_t head_dim_H = 0;
   size_t n_heads_N = 0;
   size_t voc_size_V = 0;
-  size_t draft_size_G = 1;
+  size_t draft_size_G = 0;
+  float query_rescale_factor = 1.f;
 
   // Number of kv heads. In case of Multi-Head-Attention (MHA), num_kv_heads is
   // the same as n_heads_N, which is number of query heads; In case of
@@ -74,6 +76,8 @@ struct LlmParams {
     SILU = 2,
     // Rectified Linear Unit.
     RELU = 3,
+    // Rectified Linear Unit 1p5
+    RELU1P5 = 4,
   };
 
   enum class Norm {
@@ -122,6 +126,7 @@ struct LlmParams {
   struct FinalProjectParams {
     // If `no_bias`, final fully connect will degrade to matrix multiply.
     bool no_bias = false;
+    float soft_cap_value = 0.0f;
   } final_proj_params;
 
   /*
@@ -132,7 +137,8 @@ struct LlmParams {
   bool enable_kv_cache = false;
   // If true, inference engine will optimize tensor shape according to current
   // sequence length to avoid computation waste.
-  bool enable_dynamic_shape = false;
+  bool enable_dynamic_shape ABSL_DEPRECATED(
+      "This is always enabled if enable_kv_cache is true.") = false;
 
   // If provided, the runtime will prepare cache at the provided directory.
   // Otherwise, cache will be prepared besides the original model.

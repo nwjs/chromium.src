@@ -234,7 +234,23 @@ try_.builder(
     name = "chromeos-arm64-generic-rel",
     branch_selector = branches.selector.CROS_LTS_BRANCHES,
     mirrors = ["ci/chromeos-arm64-generic-rel"],
-    gn_args = "ci/chromeos-arm64-generic-rel",
+    gn_args = gn_args.config(
+        configs = [
+            "ci/chromeos-arm64-generic-rel",
+            "dcheck_always_on",
+        ],
+    ),
+    builderless = not settings.is_main,
+    experiments = {
+        # crbug/940930
+        "chromium.enable_cleandead": 100,
+        # b/346598710
+        "chromium.luci_analysis_v2": 100,
+    },
+    main_list_view = "try",
+    tryjob = try_.job(
+        experiment_percentage = 100,
+    ),
 )
 
 try_.builder(
@@ -479,8 +495,6 @@ try_.builder(
             "try_builder",
             "no_symbols",
             "also_build_lacros_chrome",
-            "use_clang_coverage",
-            "partial_code_coverage_instrumentation",
             "enable_dangling_raw_ptr_feature_flag",
             "enable_backup_ref_ptr_feature_flag",
         ],
@@ -507,18 +521,4 @@ try_.builder(
             "chrome/browser/ash/chromebox_for_meetings/.+",
         ],
     ),
-)
-
-try_.builder(
-    name = "linux-lacros-rel-dangling-ptr-fyi",
-    mirrors = [
-        "ci/linux-lacros-rel-dangling-ptr-fyi",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/linux-lacros-rel-dangling-ptr-fyi",
-        ],
-    ),
-    contact_team_email = "chrome-desktop-engprod@google.com",
-    execution_timeout = 8 * time.hour,
 )

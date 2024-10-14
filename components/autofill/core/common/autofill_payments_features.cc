@@ -68,6 +68,12 @@ BASE_FEATURE(kAutofillEnableCvcStorageAndFilling,
              "AutofillEnableCvcStorageAndFilling",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, will enhance CVV storage project. Provide better suggestion,
+// resolve conflict with COF project and add logging.
+BASE_FEATURE(kAutofillEnableCvcStorageAndFillingEnhancement,
+             "AutofillEnableCvcStorageAndFillingEnhancement",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, user's will see network card art images and network icons which
 // are larger, having a white border, and don't have the standard grey overlay
 // applied to them.
@@ -88,6 +94,14 @@ BASE_FEATURE(kAutofillEnableLocalIban,
              "AutofillEnableLocalIban",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+// When enabled, a form event will log to all of the parsed forms of the same
+// type on a webpage. This means credit card form events will log to all credit
+// card form types and address form events will log to all address form types."
+// TODO(crbug.com/359934323): Clean up when launched
+BASE_FEATURE(kAutofillEnableLogFormEventsToAllParsedFormTypes,
+             "AutofillEnableLogFormEventsToAllParsedFormTypes",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the merchant_domain field is included in requests to unmask a
 // card.
@@ -112,6 +126,20 @@ BASE_FEATURE(kAutofillEnableMovingGPayLogoToTheRightOnClank,
 BASE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory,
              "AutofillEnableOffersInClankKeyboardAccessory",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, the payment settings page will show a card promo and allow for
+// card scans.
+BASE_FEATURE(kAutofillEnablePaymentSettingsCardPromoAndScanCard,
+             "AutofillEnablePaymentSettingsCardPromoAndScanCard",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the payment settings page will save new cards to the payment
+// server instead of locally.
+BASE_FEATURE(kAutofillEnablePaymentSettingsServerCardSave,
+             "AutofillEnablePaymentSettingsServerCardSave",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // When enabled, risk data is prefetched during payments autofill flows to
 // reduce user-perceived latency.

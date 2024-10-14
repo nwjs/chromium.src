@@ -99,6 +99,7 @@
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_details_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
+#include "third_party/blink/renderer/core/html/html_directory_element.h"
 #include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/core/html/html_dlist_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
@@ -939,18 +940,9 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
     // If we have an element with inline
     // block specified, we should include. There are some roles where we
     // shouldn't include even if inline block, or we'll get test failures.
-    //
-    // We also only want to include in the tree if the inline block element has
-    // siblings.
-    // Otherwise we will include nodes that we don't need for anything.
-    // Consider a structure where we have a subtree of 12 layers, where each
-    // layer has an inline-block node with a single child that points to the
-    // next layer. All nodes have a single child, meaning that this child has no
-    // siblings.
     if (!IsExemptFromInlineBlockCheck(native_role_) && GetLayoutObject() &&
         GetLayoutObject()->IsInline() &&
-        GetLayoutObject()->IsAtomicInlineLevel() &&
-        node->parentNode()->childElementCount() > 1) {
+        GetLayoutObject()->IsAtomicInlineLevel()) {
       return kIncludeObject;
     }
   }
@@ -993,15 +985,17 @@ bool AXNodeObject::ComputeIsIgnored(
   Node* node = GetNode();
 
   if (ShouldIgnoreForHiddenOrInert(ignored_reasons)) {
-    // Keep structure of <select size=1> even when collapsed
-    if (RoleValue() == ax::mojom::blink::Role::kMenuListPopup ||
-        RoleValue() == ax::mojom::blink::Role::kMenuListOption ||
-        IsA<HTMLOptGroupElement>(node)) {
-      return ParentObject()->IsIgnored();
+    if (IsAriaHidden()) {
+      return true;
     }
+    // Keep structure of <select size=1> even when collapsed.
+    if (const AXObject* ax_menu_list = ParentObject()->AncestorMenuList()) {
+      return ax_menu_list->IsIgnored();
+    }
+
     // Fallback elements inside of a <canvas> are invisible, but are not ignored
-    if (IsAriaHidden() || IsHiddenViaStyle() || !node ||
-        !node->parentElement() || !node->parentElement()->IsInCanvasSubtree()) {
+    if (IsHiddenViaStyle() || !node || !node->parentElement() ||
+        !node->parentElement()->IsInCanvasSubtree()) {
       return true;
     }
   }
@@ -2102,9 +2096,8 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
     }
   }
 
-  // Look for a special <slot> that is the popup for a <select size=1>.
-  if (IsA<HTMLSlotElement>(GetNode()) &&
-      ParentObject()->RoleValue() == ax::mojom::blink::Role::kComboBoxSelect) {
+  if (ParentObjectIfPresent() && ParentObjectIfPresent()->RoleValue() ==
+                                     ax::mojom::blink::Role::kComboBoxSelect) {
     return ax::mojom::blink::Role::kMenuListPopup;
   }
 
@@ -2172,6 +2165,10 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
 
   if (IsA<HTMLDListElement>(*GetNode()))
     return ax::mojom::blink::Role::kDescriptionList;
+
+  if (IsA<HTMLDirectoryElement>(*GetNode())) {
+    return ax::mojom::blink::Role::kList;
+  }
 
   if (IsA<HTMLAudioElement>(*GetNode()))
     return ax::mojom::blink::Role::kAudio;
@@ -2636,17 +2633,29 @@ bool AXNodeObject::IsNativeImage() const {
 bool AXNodeObject::IsVisible() const {
   // Any descendant of a <select size=1> should be considered invisible if
   // the select is collapsed.
-  // TODO(aleventhal, jarhar): do this for any descendant of stylable selects.
   if (RoleValue() == ax::mojom::blink::Role::kMenuListPopup) {
     CHECK(parent_);
     return parent_->IsExpanded() == kExpandedExpanded;
   }
-  if (AXObject* tree_parent = ParentObjectUnignored()) {
-    if (tree_parent->RoleValue() == ax::mojom::blink::Role::kMenuListPopup ||
-        IsA<HTMLOptGroupElement>(tree_parent->GetNode())) {
-      // Visible if the parent is visible.
-      // The selected item is also visible in the collapsed <select>..
-      return tree_parent->IsVisible() || IsSelected() == kSelectedStateTrue;
+
+  if (IsRoot()) {
+    return true;
+  }
+
+  // Anything else inside of a collapsed select is also invisible.
+  if (const AXObject* ax_select = ParentObject()->AncestorMenuList()) {
+    // If the select is invisible, so is everything inside of it.
+    if (!ax_select->IsVisible()) {
+      return false;
+    }
+    // Inside of a collapsed select:
+    // - The selected option's subtree is visible.
+    // - Everything else is invisible.
+    if (ax_select->IsExpanded() == kExpandedCollapsed) {
+      if (const AXObject* ax_option = AncestorMenuListOption()) {
+        return ax_option->IsSelected() == kSelectedStateTrue;
+      }
+      return false;
     }
   }
 
@@ -2982,13 +2991,6 @@ AccessibilityExpanded AXNodeObject::IsExpanded() const {
     DCHECK(IsA<HTMLSelectElement>(element));
     bool is_expanded = To<HTMLSelectElement>(element)->PopupIsVisible();
     return is_expanded ? kExpandedExpanded : kExpandedCollapsed;
-  }
-
-  // For stylable select.
-  if (auto* button = DynamicTo<HTMLButtonElement>(element)) {
-    if (auto* select_list = button->OwnerSelectList()) {
-      return select_list->open() ? kExpandedExpanded : kExpandedCollapsed;
-    }
   }
 
   // For form controls that act as triggering elements for popovers, then set
@@ -4441,6 +4443,9 @@ ax::mojom::blink::IsPopup AXNodeObject::IsPopup() const {
   if (!html_element) {
     return ax::mojom::blink::IsPopup::kNone;
   }
+  if (RoleValue() == ax::mojom::blink::Role::kMenuListPopup) {
+    return ax::mojom::blink::IsPopup::kAuto;
+  }
   switch (html_element->PopoverType()) {
     case PopoverValueType::kNone:
       return ax::mojom::blink::IsPopup::kNone;
@@ -4623,21 +4628,25 @@ String AXNodeObject::TextAlternative(
   bool found_text_alternative = false;
   Node* node = GetNode();
 
+  name_from = ax::mojom::blink::NameFrom::kNone;
   if (!node && !GetLayoutObject()) {
     return String();
   }
 
-  if (IsA<HTMLSlotElement>(node) && node->IsInUserAgentShadowRoot()) {
-    // User agent slots do not have a name.
+  if (IsA<HTMLSlotElement>(node) && node->IsInUserAgentShadowRoot() &&
+      !recursive) {
+    // User agent slots do not have their own name, but their subtrees can
+    // contribute to ancestor names (where recursive == true).
     return String();
   }
 
   if (GetLayoutObject()) {
     std::optional<String> text_alternative = GetCSSAltText(GetElement());
     if (text_alternative) {
+      name_from = ax::mojom::blink::NameFrom::kCssAltText;
       if (name_sources) {
         name_sources->push_back(NameSource(false));
-        name_sources->back().type = ax::mojom::blink::NameFrom::kAttribute;
+        name_sources->back().type = name_from;
         name_sources->back().text = text_alternative.value();
       }
       return text_alternative.value();
@@ -4701,8 +4710,15 @@ String AXNodeObject::TextAlternative(
   if (recursive && !visited.Contains(this)) {
     String value_for_name = GetValueContributionToName(visited);
     // TODO(accessibility): Consider using `empty` check instead of `IsNull`.
-    if (!value_for_name.IsNull())
+    if (!value_for_name.IsNull()) {
+      name_from = ax::mojom::blink::NameFrom::kValue;
+      if (name_sources) {
+        name_sources->push_back(NameSource(false));
+        name_sources->back().type = ax::mojom::blink::NameFrom::kValue;
+        name_sources->back().text = value_for_name;
+      }
       return value_for_name;
+    }
   }
 
   // Step 2C from: http://www.w3.org/TR/accname-aam-1.1 -- aria-label.
@@ -4850,6 +4866,7 @@ static bool ShouldInsertSpaceBetweenObjectsIfNeeded(
       break;
     case ax::mojom::blink::NameFrom::kAttribute:
     case ax::mojom::blink::NameFrom::kCaption:
+    case ax::mojom::blink::NameFrom::kCssAltText:
     case ax::mojom::blink::NameFrom::kPlaceholder:
     case ax::mojom::blink::NameFrom::kRelatedElement:
     case ax::mojom::blink::NameFrom::kTitle:
@@ -4866,6 +4883,7 @@ static bool ShouldInsertSpaceBetweenObjectsIfNeeded(
       break;
     case ax::mojom::blink::NameFrom::kAttribute:
     case ax::mojom::blink::NameFrom::kCaption:
+    case ax::mojom::blink::NameFrom::kCssAltText:
     case ax::mojom::blink::NameFrom::kPlaceholder:
     case ax::mojom::blink::NameFrom::kRelatedElement:
     case ax::mojom::blink::NameFrom::kTitle:
@@ -5029,14 +5047,16 @@ bool AXNodeObject::IsRedundantLabel(HTMLLabelElement* label) {
     return false;
 
   if (!input->GetLayoutObject() ||
-      input->GetLayoutObject()->Style()->Visibility() != EVisibility::kVisible)
+      input->GetLayoutObject()->Style()->UsedVisibility() !=
+          EVisibility::kVisible) {
     return false;
-
-  if (!input->IsCheckable())
+  }
+  if (!input->IsCheckable()) {
     return false;
-
-  if (!IsNameFromLabelElement(input))
+  }
+  if (!IsNameFromLabelElement(input)) {
     return false;
+  }
 
   DCHECK_NE(input->labels()->length(), 0U);
 
@@ -5584,6 +5604,43 @@ void AXNodeObject::AddNodeChildren() {
   }
 }
 
+void AXNodeObject::AddMenuListChildren() {
+  auto* select = To<HTMLSelectElement>(GetNode());
+
+  if (select->IsAppearanceBasePicker()) {
+    // In appearance: base-select (customizable select), the children of the
+    // combobox is the displayed data list.
+    AddNodeChild(select->PopoverForAppearanceBase());
+    return;
+  }
+
+  AddNodeChildren();
+}
+
+void AXNodeObject::AddMenuListPopupChildren() {
+  auto* select = To<HTMLSelectElement>(ParentObject()->GetNode());
+
+  if (select->IsAppearanceBasePicker()) {
+    // In appearance: base-select (customizable select), the children of the
+    // popup are all of the natural dom children of the <select>.
+    for (Node* child = NodeTraversal::FirstChild(*select); child;
+         child = NodeTraversal::NextSibling(*child)) {
+      if (child == select->DisplayedButton()) {
+        // The displayed button does not need to be part of the a11y tree. It
+        // is not in the popup, and for accessibility purposes it is redundant
+        // with the <select>.
+        continue;
+      }
+      AddNodeChild(child);
+    }
+    return;
+  }
+
+  // In appearance: auto/none, the children of the popup are the flat tree
+  // children of the slot associated with the popup.
+  AddNodeChildren();
+}
+
 void AXNodeObject::AddAccessibleNodeChildren() {
   Element* element = GetElement();
   if (!element)
@@ -5644,12 +5701,17 @@ void AXNodeObject::AddChildrenImpl() {
     AddValidationMessageChild();
   CHECK_ATTACHED();
 
-  if (HasValidHTMLTableStructureAndLayout())
+  if (RoleValue() == ax::mojom::blink::Role::kComboBoxSelect) {
+    AddMenuListChildren();
+  } else if (RoleValue() == ax::mojom::blink::Role::kMenuListPopup) {
+    AddMenuListPopupChildren();
+  } else if (HasValidHTMLTableStructureAndLayout()) {
     AddTableChildren();
-  else if (ShouldUseLayoutObjectTraversalForChildren())
+  } else if (ShouldUseLayoutObjectTraversalForChildren()) {
     AddPseudoElementChildrenFromLayoutTree();
-  else
+  } else {
     AddNodeChildren();
+  }
   CHECK_ATTACHED();
 
   AddPopupChildren();
@@ -5858,7 +5920,6 @@ bool AXNodeObject::CanHaveChildren() const {
   switch (native_role_) {
     case ax::mojom::blink::Role::kCheckBox:
     case ax::mojom::blink::Role::kListBoxOption:
-    case ax::mojom::blink::Role::kMenuListOption:
     case ax::mojom::blink::Role::kMenuItem:
     case ax::mojom::blink::Role::kMenuItemCheckBox:
     case ax::mojom::blink::Role::kMenuItemRadio:
@@ -6077,6 +6138,15 @@ bool AXNodeObject::OnNativeFocusAction() {
   if (!element) {
     document->ClearFocusedElement();
     return true;
+  }
+
+  // Forward the focus in an appearance:base-select <select> to the button,
+  // which actually handles the focus.
+  // TODO(accessibility) Try to remove after crrev.com/c/5800883 lands.
+  if (auto* select = DynamicTo<HTMLSelectElement>(element)) {
+    if (auto* button = select->DisplayedButton()) {
+      element = button;
+    }
   }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -6422,16 +6492,21 @@ String AXNodeObject::NativeTextAlternative(
   AXRelatedObjectVector local_related_objects;
 
   if (auto* option_element = DynamicTo<HTMLOptionElement>(GetNode())) {
-    name_from = ax::mojom::blink::NameFrom::kContents;
-    text_alternative = option_element->DisplayLabel();
-    if (!text_alternative.empty()) {
-      if (name_sources) {
-        name_sources->push_back(NameSource(*found_text_alternative));
-        name_sources->back().type = name_from;
-        name_sources->back().text = text_alternative;
-        *found_text_alternative = true;
+    if (option_element->HasOneTextChild()) {
+      // Use the DisplayLabel() method if there are no interesting children.
+      // If there are interesting children, fall through and compute the name
+      // from contents rather, so that descendant markup is respected.
+      name_from = ax::mojom::blink::NameFrom::kContents;
+      text_alternative = option_element->DisplayLabel();
+      if (!text_alternative.empty()) {
+        if (name_sources) {
+          name_sources->push_back(NameSource(*found_text_alternative));
+          name_sources->back().type = name_from;
+          name_sources->back().text = text_alternative;
+          *found_text_alternative = true;
+        }
+        return text_alternative;
       }
-      return text_alternative;
     }
   }
 
@@ -7636,12 +7711,14 @@ AXObject* AXNodeObject::AccessibilityHitTest(const gfx::Point& point) const {
   result = result->ElementAccessibilityHitTest(point);
 
   while (result && result->IsIgnored()) {
+    CHECK(!result->IsDetached());
     // If this element is the label of a control, a hit test should return the
     // control. The label is ignored because it's already reflected in the name.
     if (auto* label = DynamicTo<HTMLLabelElement>(result->GetNode())) {
       if (HTMLElement* control = label->Control()) {
         if (AXObject* ax_control = AXObjectCache().Get(control)) {
-          return ax_control;
+          result = ax_control;
+          break;
         }
       }
     }
@@ -7649,7 +7726,8 @@ AXObject* AXNodeObject::AccessibilityHitTest(const gfx::Point& point) const {
     result = result->ParentObject();
   }
 
-  return result;
+  return result->IsIncludedInTree() ? result
+                                    : result->ParentObjectIncludedInTree();
 }
 
 AXObject* AXNodeObject::AccessibilityImageMapHitTest(
@@ -7735,6 +7813,48 @@ AXObject* AXNodeObject::GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(
                : result->DeepestLastChildIncludingIgnored();
 }
 
+void AXNodeObject::MaybeResetCache() const {
+  uint64_t generation = AXObjectCache().GenerationalCacheId();
+  if (!generational_cache_) {
+    generational_cache_ = MakeGarbageCollected<GenerationalCache>();
+  }
+  DCHECK(AXObjectCache().IsFrozen());
+  if (generation != generational_cache_->generation) {
+    generational_cache_->generation = generation;
+    generational_cache_->next_on_line = nullptr;
+    generational_cache_->previous_on_line = nullptr;
+  } else {
+#if DCHECK_IS_ON()
+    // AXObjects cannot be detached while the tree is frozen.
+    // These are sanity checks. Limited to DCHECK enabled builds due to
+    // potential performance impact with to the sheer volume of calls.
+    if (AXObject* next = generational_cache_->next_on_line) {
+      CHECK(!next->IsDetached());
+    }
+    if (AXObject* previous = generational_cache_->previous_on_line) {
+      CHECK(!previous->IsDetached());
+    }
+#endif
+  }
+}
+
+void AXNodeObject::GenerationalCache::Trace(Visitor* visitor) const {
+  visitor->Trace(next_on_line);
+  visitor->Trace(previous_on_line);
+}
+
+AXObject* AXNodeObject::SetNextOnLine(AXObject* next_on_line) const {
+  CHECK(generational_cache_) << "Must call MaybeResetCache ahead of this call";
+  generational_cache_->next_on_line = next_on_line;
+  return next_on_line;
+}
+
+AXObject* AXNodeObject::SetPreviousOnLine(AXObject* previous_on_line) const {
+  CHECK(generational_cache_) << "Must call MaybeResetCache ahead of this call";
+  generational_cache_->previous_on_line = previous_on_line;
+  return previous_on_line;
+}
+
 AXObject* AXNodeObject::NextOnLine() const {
   // If this is the last object on the line, nullptr is returned. Otherwise, all
   // AXNodeObjects, regardless of role and tree depth, are connected to the
@@ -7742,13 +7862,18 @@ AXObject* AXNodeObject::NextOnLine() const {
   // are connected to the next leaf AXObject.
   DCHECK(!IsDetached());
 
+  MaybeResetCache();
+  if (generational_cache_->next_on_line) {
+    return generational_cache_->next_on_line;
+  }
+
   const LayoutObject* layout_object = GetLayoutObject();
   if (!layout_object) {
-    return nullptr;
+    return SetNextOnLine(nullptr);
   }
 
   if (DisplayLockUtilities::LockedAncestorPreventingPaint(*layout_object)) {
-    return nullptr;
+    return SetNextOnLine(nullptr);
   }
 
   if (layout_object->IsLayoutOutsideListMarker()) {
@@ -7759,15 +7884,15 @@ AXObject* AXNodeObject::NextOnLine() const {
       return GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(
           NextSiblingIncludingIgnored(), true);
     }
-    return nullptr;
+    return SetNextOnLine(nullptr);
   }
 
   if (!ShouldUseLayoutNG(*layout_object)) {
-    return nullptr;
+    return SetNextOnLine(nullptr);
   }
 
   if (!layout_object->IsInLayoutNGInlineFormattingContext()) {
-    return nullptr;
+    return SetNextOnLine(nullptr);
   }
 
   InlineCursor cursor;
@@ -7808,7 +7933,7 @@ AXObject* AXNodeObject::NextOnLine() const {
       result =
           GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(result, true);
       if (result && !should_keep_looking) {
-        return result;
+        return SetNextOnLine(result);
       }
 
       if (!should_keep_looking) {
@@ -7822,14 +7947,14 @@ AXObject* AXNodeObject::NextOnLine() const {
   // before attempting to connect to the next AXObject that is on the same
   // line as its first line.
   if (layout_object->NextSibling()) {
-    return nullptr;  // Not at end of parent layout object.
+    return SetNextOnLine(nullptr);  // Not at end of parent layout object.
   }
   // Fallback: Use AX parent's next on line.
   AXObject* ax_parent = ParentObject();
   DCHECK(ax_parent);
   AXObject* ax_result = ax_parent->NextOnLine();
   if (!ax_result) {
-    return nullptr;
+    return SetNextOnLine(nullptr);
   }
 
   if (!AXObjectCache().IsAriaOwned(this) && ax_result->ParentObject() == this) {
@@ -7838,10 +7963,10 @@ AXObject* AXNodeObject::NextOnLine() const {
     // parents, using a descendant can cause a previous position to be
     // reused, which appears as a loop in the nextOnLine data, and
     // can cause an infinite loop in consumers of the nextOnLine data.
-    return nullptr;
+    return SetNextOnLine(nullptr);
   }
 
-  return ax_result;
+  return SetNextOnLine(ax_result);
 }
 
 AXObject* AXNodeObject::PreviousOnLine() const {
@@ -7851,17 +7976,22 @@ AXObject* AXNodeObject::PreviousOnLine() const {
   // box, they are connected to the previous leaf AXObject.
   DCHECK(!IsDetached());
 
+  MaybeResetCache();
+  if (generational_cache_->previous_on_line) {
+    return generational_cache_->previous_on_line;
+  }
+
   const LayoutObject* layout_object = GetLayoutObject();
   if (!layout_object) {
-    return nullptr;
+    return SetPreviousOnLine(nullptr);
   }
 
   if (!ShouldUseLayoutNG(*layout_object)) {
-    return nullptr;
+    return SetPreviousOnLine(nullptr);
   }
 
   if (DisplayLockUtilities::LockedAncestorPreventingPaint(*layout_object)) {
-    return nullptr;
+    return SetPreviousOnLine(nullptr);
   }
 
   AXObject* previous_sibling = IsIncludedInTree()
@@ -7876,7 +8006,7 @@ AXObject* AXNodeObject::PreviousOnLine() const {
 
   if (layout_object->IsLayoutOutsideListMarker() ||
       !layout_object->IsInLayoutNGInlineFormattingContext()) {
-    return nullptr;
+    return SetPreviousOnLine(nullptr);
   }
 
   InlineCursor cursor;
@@ -7917,7 +8047,7 @@ AXObject* AXNodeObject::PreviousOnLine() const {
       result =
           GetFirstInlineBlockOrDeepestInlineAXChildInLayoutTree(result, false);
       if (result && !should_keep_looking) {
-        return result;
+        return SetPreviousOnLine(result);
       }
 
       // We want to continue searching for the previous inline leaf if the
@@ -7933,7 +8063,7 @@ AXObject* AXNodeObject::PreviousOnLine() const {
   // before attempting to connect to the previous AXObject that is on the same
   // line as its first line.
   if (layout_object->PreviousSibling()) {
-    return nullptr;  // Not at start of parent layout object.
+    return SetPreviousOnLine(nullptr);  // Not at start of parent layout object.
   }
 
   // Fallback: Use AX parent's previous on line.
@@ -7941,7 +8071,7 @@ AXObject* AXNodeObject::PreviousOnLine() const {
   DCHECK(ax_parent);
   AXObject* ax_result = ax_parent->PreviousOnLine();
   if (!ax_result) {
-    return nullptr;
+    return SetPreviousOnLine(nullptr);
   }
 
   if (!AXObjectCache().IsAriaOwned(this) && ax_result->ParentObject() == this) {
@@ -7950,10 +8080,10 @@ AXObject* AXNodeObject::PreviousOnLine() const {
     // parents, using a descendant can cause a previous position to be
     // reused, which appears as a loop in the previousOnLine data, and
     // can cause an infinite loop in consumers of the previousOnLine data.
-    return nullptr;
+    return SetPreviousOnLine(nullptr);
   }
 
-  return ax_result;
+  return SetPreviousOnLine(ax_result);
 }
 
 void AXNodeObject::HandleAutofillSuggestionAvailabilityChanged(
@@ -7992,6 +8122,7 @@ void AXNodeObject::GetWordBoundaries(Vector<int>& word_starts,
 void AXNodeObject::Trace(Visitor* visitor) const {
   visitor->Trace(node_);
   visitor->Trace(layout_object_);
+  visitor->Trace(generational_cache_);
   AXObject::Trace(visitor);
 }
 

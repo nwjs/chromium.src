@@ -40,7 +40,7 @@ import org.chromium.android_webview.AwBrowserProcess;
 import org.chromium.android_webview.AwContentsStatics;
 import org.chromium.android_webview.AwSettings;
 import org.chromium.android_webview.BrowserSafeModeActionList;
-import org.chromium.android_webview.ProductConfig;
+import org.chromium.android_webview.ManifestMetadataUtil;
 import org.chromium.android_webview.R;
 import org.chromium.android_webview.WebViewChromiumRunQueue;
 import org.chromium.android_webview.common.AwSwitches;
@@ -341,16 +341,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                                 && Build.VERSION.SDK_INT <= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
             }
 
-            // Enable if the device is *not* a Samsung and any of the following are true:
-            // - We found a shared pref to enable the feature as part of an experiment.
-            // - The command line switch is enabled (overrides experiment value).
-            // - The app is one of Walton's launcher apps.
-            if (!"SAMSUNG".equalsIgnoreCase(Build.MANUFACTURER)
-                    && (sUseWebViewContext
-                            || CommandLine.getInstance()
-                                    .hasSwitch(AwSwitches.WEBVIEW_USE_SEPARATE_RESOURCE_CONTEXT)
-                            || "com.aurora.launcher".equals(ctx.getPackageName())
-                            || "com.qiku.android.launcher3".equals(ctx.getPackageName()))) {
+            if (shouldEnableContextExperiment(ctx)) {
                 try {
                     Context override =
                             ctx.createPackageContext(
@@ -412,9 +403,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
             AndroidXProcessGlobalConfig.extractConfigFromApp(application.getClassLoader());
 
-            // Temporarily disable CHIPS until the CookieManager API supports the feature.
             CommandLine cl = CommandLine.getInstance();
-            cl.appendSwitch("disable-partitioned-cookies");
 
             boolean multiProcess = webViewDelegate.isMultiProcessEnabled();
             if (multiProcess) {
@@ -426,7 +415,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                     VersionConstants.PRODUCT_VERSION,
                     BuildConfig.VERSION_CODE,
                     BuildConfig.MIN_SDK_VERSION,
-                    ProductConfig.IS_BUNDLE,
+                    BuildConfig.IS_BUNDLE,
                     multiProcess,
                     packageId);
 
@@ -496,6 +485,10 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                 }
 
                 deleteContentsOnPackageDowngrade(packageInfo);
+            }
+
+            if (!androidXConfig.getPartitionedCookiesEnabled()) {
+                cl.appendSwitch("disable-partitioned-cookies");
             }
 
             // Now safe to use WebView data directory.
@@ -608,7 +601,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     }
 
     public static boolean preloadInZygote() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P && ProductConfig.IS_BUNDLE) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P && BuildConfig.IS_BUNDLE) {
             // Apply workaround if we're a bundle on O, where the split APK handling bug exists.
             SplitApkWorkaround.apply();
         }
@@ -900,5 +893,28 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
     public InitInfo getInitInfo() {
         return mInitInfo;
+    }
+
+    private boolean shouldEnableContextExperiment(Context ctx) {
+        // Disable for Samsung devices.
+        if ("SAMSUNG".equalsIgnoreCase(Build.MANUFACTURER)) {
+            return false;
+        }
+
+        ManifestMetadataUtil.ensureMetadataCacheInitialized(ctx);
+        if (ManifestMetadataUtil.isAppOptedOutFromContextExperiment()) {
+            return false;
+        }
+
+        // The command line switch overrides the pref/Android version check.
+        // We also want to enable by default on the listed package names.
+        if (sUseWebViewContext
+                || CommandLine.getInstance()
+                        .hasSwitch(AwSwitches.WEBVIEW_USE_SEPARATE_RESOURCE_CONTEXT)
+                || "com.aurora.launcher".equals(ctx.getPackageName())
+                || "com.qiku.android.launcher3".equals(ctx.getPackageName())) {
+            return true;
+        }
+        return false;
     }
 }

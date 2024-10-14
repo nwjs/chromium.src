@@ -10,7 +10,7 @@
 #include "components/keyed_service/ios/browser_state_dependency_manager.h"
 #include "components/sync/model/data_type_store_service_impl.h"
 #include "ios/chrome/browser/shared/model/browser_state/browser_state_otr_helper.h"
-#include "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#include "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
 // static
 DataTypeStoreServiceFactory* DataTypeStoreServiceFactory::GetInstance() {
@@ -20,9 +20,15 @@ DataTypeStoreServiceFactory* DataTypeStoreServiceFactory::GetInstance() {
 
 // static
 syncer::DataTypeStoreService* DataTypeStoreServiceFactory::GetForBrowserState(
-    ChromeBrowserState* browser_state) {
+    ProfileIOS* profile) {
+  return GetForProfile(profile);
+}
+
+// static
+syncer::DataTypeStoreService* DataTypeStoreServiceFactory::GetForProfile(
+    ProfileIOS* profile) {
   return static_cast<syncer::DataTypeStoreService*>(
-      GetInstance()->GetServiceForBrowserState(browser_state, true));
+      GetInstance()->GetServiceForBrowserState(profile, true));
 }
 
 DataTypeStoreServiceFactory::DataTypeStoreServiceFactory()

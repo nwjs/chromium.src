@@ -36,7 +36,7 @@ static_library("app_install") {
     "//chrome/browser/apps/almanac_api_client",
     "//chrome/browser/apps/app_service/app_install",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui/webui/ash",
+    "//chrome/browser/ui/webui/ash/system_web_dialog",
     "//components/services/app_service",
     "//content/public/browser",
     "//mojo/public/cpp/bindings",
@@ -54,7 +54,7 @@ static_library("app_install") {
     "//chrome/browser/apps/app_service/app_icon",
     "//chrome/browser/resources/chromeos/app_install:resources",
     "//chrome/browser/ui",
-    "//chrome/browser/ui/webui",
+    "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/web_applications",
     "//chrome/common",
     "//chromeos/constants",
@@ -113,7 +113,7 @@ source_set("test_support") {
 
   deps = [
     "//base",
-    "//chrome/browser/ui/webui/ash",
+    "//chrome/browser/ui/webui/ash/system_web_dialog",
     "//chrome/common",
     "//content/test:test_support",
   ]

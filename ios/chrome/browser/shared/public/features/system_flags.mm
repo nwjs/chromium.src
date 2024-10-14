@@ -54,9 +54,13 @@ NSString* const kSafetyCheckCompromisedPasswordsCountOverride =
 NSString* const kSimulatePostDeviceRestore = @"SimulatePostDeviceRestore";
 NSString* const kShouldIgnoreHistorySyncDeclineLimits =
     @"ShouldIgnoreHistorySyncDeclineLimits";
+NSString* const kSafetyCheckNotificationsInactivityThreshold =
+    @"SafetyCheckNotificationsInactivityThreshold";
 BASE_FEATURE(kEnableThirdPartyKeyboardWorkaround,
              "EnableThirdPartyKeyboardWorkaround",
              base::FEATURE_ENABLED_BY_DEFAULT);
+NSString* const kTabResumptionDecorationOverride =
+    @"TabResumptionDecorationOverride";
 
 }  // namespace
 
@@ -290,6 +294,26 @@ std::optional<int> DisplaySwitchProfile() {
   }
 
   return switchProfileCount;
+}
+
+std::optional<int> GetForcedInactivityThresholdForSafetyCheckNotifications() {
+  int threshold = [[NSUserDefaults standardUserDefaults]
+      integerForKey:kSafetyCheckNotificationsInactivityThreshold];
+
+  if (threshold == 0) {
+    return std::nullopt;
+  }
+
+  return threshold;
+}
+
+NSString* GetTabResumptionDecorationOverride() {
+  NSString* override_value = [[NSUserDefaults standardUserDefaults]
+      stringForKey:kTabResumptionDecorationOverride];
+  if ([override_value length]) {
+    return override_value;
+  }
+  return nil;
 }
 
 }  // namespace experimental_flags

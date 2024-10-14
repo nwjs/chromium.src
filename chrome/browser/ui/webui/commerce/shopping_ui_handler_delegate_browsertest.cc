@@ -192,7 +192,7 @@ IN_PROC_BROWSER_TEST_F(ShoppingUiHandlerDelegateBrowserTest,
   std::optional<base::Value::Dict> meta_data = base::JSONReader::ReadDict(
       FeedbackDialog::GetInstanceForTest()->GetDialogArgs());
   ASSERT_TRUE(meta_data.has_value());
-  ASSERT_EQ(*meta_data->FindString("categoryTag"), "product_specifications");
+  ASSERT_EQ(*meta_data->FindString("categoryTag"), "compare");
   std::optional<base::Value::Dict> ai_meta_data =
       base::JSONReader::ReadDict(*meta_data->FindString("aiMetadata"));
   ASSERT_TRUE(ai_meta_data.has_value());
@@ -204,9 +204,10 @@ IN_PROC_BROWSER_TEST_F(ShoppingUiHandlerDelegateBrowserTest,
                        TestShowProductSpecificationsDisclosureDialog) {
   std::vector<GURL> urls = {GURL(kExampleUrl)};
   std::string name = "test_name";
+  std::string id = "test_id";
   auto delegate =
       std::make_unique<commerce::ShoppingUiHandlerDelegate>(nullptr, profile_);
-  delegate->ShowProductSpecificationsDisclosureDialog(urls, name);
+  delegate->ShowProductSpecificationsDisclosureDialog(urls, name, id);
 
   auto* dialog = commerce::ProductSpecificationsDisclosureDialog::
       current_instance_for_testing();
@@ -222,6 +223,9 @@ IN_PROC_BROWSER_TEST_F(ShoppingUiHandlerDelegateBrowserTest,
   ASSERT_TRUE(url_list);
   ASSERT_EQ(1u, url_list->size());
   ASSERT_EQ(urls[0].spec(), (*url_list)[0].GetString());
+  auto* set_id = dict->FindString(commerce::kDialogArgsSetId);
+  ASSERT_TRUE(set_id);
+  ASSERT_EQ(id, *set_id);
   auto new_tab = dict->FindBool(commerce::kDialogArgsInNewTab);
   ASSERT_TRUE(new_tab.has_value());
   ASSERT_FALSE(new_tab.value());

@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/webauthn/authenticator_request_dialog.h"
+#include "chrome/browser/webauthn/authenticator_request_dialog_controller.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
 #include "chrome/browser/webauthn/enclave_manager.h"
 #include "chrome/browser/webauthn/enclave_manager_factory.h"
@@ -125,6 +126,8 @@ class AuthenticatorDialogTest : public DialogBrowserTest {
           device::AuthenticatorAttachment::kAny;
       transport_availability.request_type =
           device::FidoRequestType::kMakeCredential;
+      transport_availability.attestation_conveyance_preference =
+          device::AttestationConveyancePreference::kNone;
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kMechanismSelection);
     } else if (name == "activate_usb") {
@@ -208,18 +211,18 @@ class AuthenticatorDialogTest : public DialogBrowserTest {
       controller_->StartInlineBioEnrollment(base::DoNothing());
       timer_.Start(
           FROM_HERE, base::Seconds(2),
-          base::BindLambdaForTesting([&, weak_controller =
-                                             controller_->GetWeakPtr()] {
-            if (!weak_controller || weak_controller->model()->step() !=
-                                        AuthenticatorRequestDialogController::
-                                            Step::kInlineBioEnrollment) {
-              return;
-            }
-            weak_controller->OnSampleCollected(--bio_samples_remaining_);
-            if (bio_samples_remaining_ <= 0) {
-              timer_.Stop();
-            }
-          }));
+          base::BindLambdaForTesting(
+              [&, weak_controller = controller_->GetWeakPtr()] {
+                if (!weak_controller || weak_controller->model()->step() !=
+                                            AuthenticatorRequestDialogModel::
+                                                Step::kInlineBioEnrollment) {
+                  return;
+                }
+                weak_controller->OnSampleCollected(--bio_samples_remaining_);
+                if (bio_samples_remaining_ <= 0) {
+                  timer_.Stop();
+                }
+              }));
     } else if (name == "retry_uv") {
       controller_->OnRetryUserVerification(5);
     } else if (name == "retry_uv_two_tries_remaining") {
@@ -347,10 +350,6 @@ class AuthenticatorDialogTest : public DialogBrowserTest {
       controller_->SelectAccount(
           std::move(responses),
           base::BindOnce([](device::AuthenticatorGetAssertionResponse) {}));
-    } else if (name == "request_attestation_permission") {
-      controller_->RequestAttestationPermission(false, base::DoNothing());
-    } else if (name == "request_enterprise_attestation_permission") {
-      controller_->RequestAttestationPermission(true, base::DoNothing());
     } else if (name == "server_link_title_UNLOCK_YOUR_PHONE") {
       controller_->set_cable_transport_info(
           /*extension_is_v2=*/true, /*paired_phones=*/{},
@@ -586,16 +585,6 @@ IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest,
 }
 
 IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest,
-                       InvokeUi_request_attestation_permission) {
-  ShowAndVerifyUi();
-}
-
-IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest,
-                       InvokeUi_request_enterprise_attestation_permission) {
-  ShowAndVerifyUi();
-}
-
-IN_PROC_BROWSER_TEST_F(AuthenticatorDialogTest,
                        InvokeUi_server_link_title_UNLOCK_YOUR_PHONE) {
   ShowAndVerifyUi();
 }
@@ -756,6 +745,8 @@ class GPMPasskeysAuthenticatorDialogTest : public AuthenticatorDialogTest {
           /*contact_phone_callback=*/base::DoNothing(), "fido://qrcode");
       transport_availability.request_type =
           device::FidoRequestType::kMakeCredential;
+      transport_availability.attestation_conveyance_preference =
+          device::AttestationConveyancePreference::kDirect;
       transport_availability.ble_status = BleStatus::kOn;
       transport_availability.available_transports = {
           AuthenticatorTransport::kHybrid,
@@ -768,6 +759,8 @@ class GPMPasskeysAuthenticatorDialogTest : public AuthenticatorDialogTest {
           /*contact_phone_callback=*/base::DoNothing(), "fido://qrcode");
       transport_availability.request_type =
           device::FidoRequestType::kMakeCredential;
+      transport_availability.attestation_conveyance_preference =
+          device::AttestationConveyancePreference::kDirect;
       transport_availability.ble_status = BleStatus::kOn;
       transport_availability.available_transports = {
           AuthenticatorTransport::kHybrid,
@@ -784,6 +777,8 @@ class GPMPasskeysAuthenticatorDialogTest : public AuthenticatorDialogTest {
     } else if (name == "touchid") {
       transport_availability.request_type =
           device::FidoRequestType::kMakeCredential;
+      transport_availability.attestation_conveyance_preference =
+          device::AttestationConveyancePreference::kNone;
       transport_availability.make_credential_attachment =
           device::AuthenticatorAttachment::kAny;
       controller_->SetCurrentStepForTesting(

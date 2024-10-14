@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
@@ -174,11 +175,20 @@ bool DOMSelection::isCollapsed() const {
   DomWindow()->document()->UpdateStyleAndLayout(
       DocumentUpdateReason::kSelection);
 
-  Node* node =
-      Selection().ComputeVisibleSelectionInDOMTree().Anchor().AnchorNode();
-  if (node && node->IsInShadowTree() &&
-      DomWindow()->document()->AncestorInThisScope(node)) {
-    return true;
+  if (!RuntimeEnabledFeatures::SelectionIsCollapsedShadowDOMSupportEnabled()) {
+    Node* node =
+        Selection().ComputeVisibleSelectionInDOMTree().Anchor().AnchorNode();
+    if (node && node->IsInShadowTree() &&
+        DomWindow()->document()->AncestorInThisScope(node)) {
+      // Count if range is not collapsed, but we are returning true because
+      // feature is disabled and anchor node is in shadow tree.
+      TemporaryRange temp_range(this, PrimaryRangeOrNull());
+      if (temp_range.GetRange() && !temp_range.GetRange()->collapsed()) {
+        UseCounter::Count(DomWindow(),
+                          WebFeature::kSelectionIsCollapsedBehaviorChange);
+      }
+      return true;
+    }
   }
 
   TemporaryRange temp_range(this, PrimaryRangeOrNull());

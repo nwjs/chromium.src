@@ -19,9 +19,11 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/hash/hash.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/bind_post_task.h"
@@ -40,6 +42,7 @@
 #include "content/services/auction_worklet/for_debugging_only_bindings.h"
 #include "content/services/auction_worklet/private_aggregation_bindings.h"
 #include "content/services/auction_worklet/public/cpp/auction_network_events_delegate.h"
+#include "content/services/auction_worklet/public/cpp/private_aggregation_reporting.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom-shared.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
@@ -133,26 +136,6 @@ v8::Local<v8::Value> GetDirectFromSellerSignals(
   }
 
   return subresource_bundle_result.GetSignals(v8_helper, context, errors);
-}
-
-bool HasKAnonFailureComponent(
-    const auction_worklet::mojom::PrivateAggregationRequestPtr& request) {
-  if (request->contribution->is_histogram_contribution()) {
-    return false;
-  }
-  const auction_worklet::mojom::AggregatableReportForEventContributionPtr&
-      event_contribution = request->contribution->get_for_event_contribution();
-  if (event_contribution->bucket->is_signal_bucket() &&
-      event_contribution->bucket->get_signal_bucket()->base_value ==
-          auction_worklet::mojom::BaseValue::kBidRejectReason) {
-    return true;
-  }
-  if (event_contribution->value->is_signal_value() &&
-      event_contribution->value->get_signal_value()->base_value ==
-          auction_worklet::mojom::BaseValue::kBidRejectReason) {
-    return true;
-  }
-  return false;
 }
 
 std::optional<base::TimeDelta> NullOptIfZero(base::TimeDelta delta) {
@@ -264,7 +247,7 @@ std::vector<mojom::BidderWorkletBidPtr> ClassifyBidsAndApplyComponentAdLimits(
   for (auto& candidate : bid_info) {
     if (kanon_mode == mojom::KAnonymityBidMode::kNone ||
         !BidderWorklet::IsMainAdKAnon(bidder_worklet_non_shared_params,
-                                      script_source_url, candidate.bid)) {
+                                      script_source_url, candidate)) {
       DCHECK_EQ(candidate.bid->bid_role, mojom::BidRole::kUnenforcedKAnon);
       TrimAndCollectBid(std::move(candidate.bid),
                         candidate.target_num_ad_components, bids);
@@ -364,7 +347,8 @@ BidderWorklet::BidderWorklet(
     mojom::AuctionWorkletPermissionsPolicyStatePtr permissions_policy_state,
     std::optional<uint16_t> experiment_group_id,
     mojom::TrustedSignalsPublicKeyPtr public_key)
-    : url_loader_factory_(std::move(pending_url_loader_factory)),
+    : join_origin_hash_salt_(base::NumberToString(base::RandUint64())),
+      url_loader_factory_(std::move(pending_url_loader_factory)),
       script_source_url_(script_source_url),
       wasm_helper_url_(wasm_helper_url),
       top_window_origin_(top_window_origin),
@@ -446,16 +430,33 @@ bool BidderWorklet::IsKAnon(
 bool BidderWorklet::IsMainAdKAnon(
     const mojom::BidderWorkletNonSharedParams* bidder_worklet_non_shared_params,
     const GURL& script_source_url,
-    const mojom::BidderWorkletBidPtr& bid) {
+    const SetBidBindings::BidAndWorkletOnlyMetadata& bid_and_metadata) {
+  const mojom::BidderWorkletBidPtr& bid = bid_and_metadata.bid;
   if (!bid) {
     return true;
   }
+
+  url::Origin owner = url::Origin::Create(script_source_url);
   if (!BidderWorklet::IsKAnon(
           bidder_worklet_non_shared_params,
-          blink::HashedKAnonKeyForAdBid(url::Origin::Create(script_source_url),
-                                        script_source_url,
+          blink::HashedKAnonKeyForAdBid(owner, script_source_url,
                                         bid->ad_descriptor.url.spec()))) {
     return false;
+  }
+  if (bid->selected_buyer_and_seller_reporting_id.has_value()) {
+    if (!BidderWorklet::IsKAnon(
+            bidder_worklet_non_shared_params,
+            blink::HashedKAnonKeyForAdNameReportingWithoutInterestGroup(
+                /*interest_group_owner=*/owner,
+                /*interest_group_name=*/bidder_worklet_non_shared_params->name,
+                /*interest_group_bidding_url=*/script_source_url,
+                /*ad_render_url=*/bid->ad_descriptor.url.spec(),
+                bid_and_metadata.buyer_reporting_id,
+                bid_and_metadata.buyer_and_seller_reporting_id,
+                bid_and_metadata.bid
+                    ->selected_buyer_and_seller_reporting_id))) {
+      return false;
+    }
   }
   return true;
 }
@@ -1059,7 +1060,8 @@ void BidderWorklet::V8State::ReportWin(
   context_recycler.AddRegisterAdMacroBindings();
 
   context_recycler.AddPrivateAggregationBindings(
-      permissions_policy_state_->private_aggregation_allowed);
+      permissions_policy_state_->private_aggregation_allowed,
+      /*reserved_once_allowed=*/false);
 
   if (base::FeatureList::IsEnabled(blink::features::kSharedStorageAPI)) {
     context_recycler.AddSharedStorageBindings(
@@ -1184,6 +1186,18 @@ void BidderWorklet::V8State::GenerateBid(
 
     // If bids were returned, and none were k-anon, we re-run the script with
     // only k-anon ads available to it.
+    //
+    // At this point, we don't need to worry about the impact of k-anonymity
+    // for reporting on k-anon where a bid returns a value for
+    // `selectedBuyerAndSellerReportingId`. Assuming we find some
+    // k-anon ads in the loop below that would encourage us to make the
+    // k-anon-restricted call to `generateBid()`, we're only going to pass
+    // `selectableBuyerAndSellerReportingIds` that would, in combination with
+    // the renderUrl and other reporting ids, cause that bid to be k-anonymous
+    // for reporting. If no `selectableBuyerAndSellerReportingIds` meet that
+    // criteria, that's still fine: The bid could be returned with no
+    // `selectedBuyerAndSellerReportingId`, such that the k-anonymous bid
+    // would remain k-anonymous, even if it isn't k-anonymous for reporting.
     if (!bids.empty() && !found_kanon_bid) {
       bool has_kanon_ads = false;
       for (const auto& ad : *bidder_worklet_non_shared_params->ads) {
@@ -1249,7 +1263,7 @@ void BidderWorklet::V8State::GenerateBid(
         std::erase_if(
             non_kanon_pa_requests,
             [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
-                   request) { return !HasKAnonFailureComponent(request); });
+                   request) { return !HasKAnonFailureComponent(*request); });
 
         // We are enforcing the k-anonymity, so the restricted result is the one
         // to use for reporting, etc., and needs to succeed.
@@ -1481,6 +1495,36 @@ BidderWorklet::V8State::RunGenerateBidOnce(
           },
           restrict_to_kanon_ads, &bidder_worklet_non_shared_params);
 
+  base::RepeatingCallback<bool(const std::string&,
+                               base::optional_ref<const std::string>,
+                               base::optional_ref<const std::string>,
+                               base::optional_ref<const std::string>)>
+      should_exclude_reporting_id_set_due_to_kanon = base::BindRepeating(
+          [](bool restrict_to_kanon_ads,
+             const mojom::BidderWorkletNonSharedParams* params,
+             const url::Origin* owner, const GURL* bidding_url,
+             const std::string& ad_url_from_gurl_spec,
+             base::optional_ref<const std::string> buyer_reporting_id,
+             base::optional_ref<const std::string>
+                 buyer_and_seller_reporting_id,
+             base::optional_ref<const std::string>
+                 selected_buyer_and_seller_reporting_id) {
+            return restrict_to_kanon_ads &&
+                   !BidderWorklet::IsKAnon(
+                       params,
+                       blink::
+                           HashedKAnonKeyForAdNameReportingWithoutInterestGroup(
+                               /*interest_group_owner=*/*owner,
+                               /*interest_group_name=*/params->name,
+                               /*interest_group_bidding_url=*/*bidding_url,
+                               /*ad_render_url=*/ad_url_from_gurl_spec,
+                               buyer_reporting_id,
+                               buyer_and_seller_reporting_id,
+                               selected_buyer_and_seller_reporting_id));
+          },
+          restrict_to_kanon_ads, &bidder_worklet_non_shared_params, &owner_,
+          &script_source_url_);
+
   ContextRecyclerScope context_recycler_scope(*context_recycler);
   v8::Local<v8::Context> context = context_recycler_scope.GetContext();
 
@@ -1488,7 +1532,8 @@ BidderWorklet::V8State::RunGenerateBidOnce(
       start, browser_signal_top_level_seller_origin != nullptr,
       &bidder_worklet_non_shared_params, expected_buyer_currency,
       multi_bid_limit, should_exclude_ad_due_to_kanon,
-      should_exclude_component_ad_due_to_kanon);
+      should_exclude_component_ad_due_to_kanon,
+      should_exclude_reporting_id_set_due_to_kanon);
 
   v8::LocalVector<v8::Value> args(isolate);
   v8::Local<v8::Object> interest_group_object = v8::Object::New(isolate);
@@ -1516,7 +1561,8 @@ BidderWorklet::V8State::RunGenerateBidOnce(
       &bidder_worklet_non_shared_params);
   if (!context_recycler->interest_group_lazy_filler()->FillInObject(
           interest_group_object, should_exclude_ad_due_to_kanon,
-          should_exclude_component_ad_due_to_kanon)) {
+          should_exclude_component_ad_due_to_kanon,
+          should_exclude_reporting_id_set_due_to_kanon)) {
     return std::nullopt;
   }
 
@@ -1777,7 +1823,8 @@ BidderWorklet::V8State::CreateContextRecyclerAndRunTopLevelForGenerateBid(
 
   context_recycler->AddForDebuggingOnlyBindings();
   context_recycler->AddPrivateAggregationBindings(
-      permissions_policy_state_->private_aggregation_allowed);
+      permissions_policy_state_->private_aggregation_allowed,
+      /*reserved_once_allowed=*/true);
   context_recycler->AddRealTimeReportingBindings();
 
   if (base::FeatureList::IsEnabled(blink::features::kSharedStorageAPI)) {
@@ -1913,6 +1960,7 @@ void BidderWorklet::Start() {
   base::UmaHistogramCounts100000(
       "Ads.InterestGroup.Net.RequestUrlSizeBytes.BiddingScriptJS",
       script_source_url_.spec().size());
+  code_download_start_ = base::TimeTicks::Now();
   worklet_loader_ = std::make_unique<WorkletLoader>(
       url_loader_factory_.get(),
       /*auction_network_events_handler=*/
@@ -1944,6 +1992,7 @@ void BidderWorklet::OnScriptDownloaded(
   DCHECK_CALLED_ON_VALID_SEQUENCE(user_sequence_checker_);
 
   DCHECK_EQ(worklet_scripts.size(), v8_helpers_.size());
+  js_fetch_latency_ = base::TimeTicks::Now() - code_download_start_;
 
   // Use `worklet_scripts[0]` for metrics and for the failure check. All the
   // results should be the same.
@@ -1984,6 +2033,7 @@ void BidderWorklet::OnWasmDownloaded(
   DCHECK_CALLED_ON_VALID_SEQUENCE(user_sequence_checker_);
 
   DCHECK_EQ(worklet_scripts.size(), v8_helpers_.size());
+  wasm_fetch_latency_ = base::TimeTicks::Now() - code_download_start_;
 
   // Use `worklet_scripts[0]` for metrics and for the failure check. All the
   // results should be the same.
@@ -2069,8 +2119,8 @@ void BidderWorklet::OnTrustedBiddingSignalsDownloaded(
         result->GetPerGroupData(task->bidder_worklet_non_shared_params->name);
   }
 
-  task->trusted_bidding_signals_result = std::move(result);
   task->trusted_bidding_signals_fetch_failed = !result ? true : false;
+  task->trusted_bidding_signals_result = std::move(result);
   task->trusted_bidding_signals_error_msg = std::move(error_msg);
   task->trusted_bidding_signals_request.reset();
 
@@ -2246,6 +2296,20 @@ void BidderWorklet::GenerateBidIfReady(GenerateBidTaskList::iterator task) {
           base::BindOnce(&BidderWorklet::CleanUpBidTaskOnUserThread,
                          weak_ptr_factory_.GetWeakPtr(), task));
 
+  // In 'group-by-origin' mode, make the thread assignment sticky to
+  // join_origin. This favors context reuse to save memory. The per-worklet
+  // random salt is added to make sure certain origins won't always be grouped
+  // together.
+  int thread_index = 0;
+  if (task->bidder_worklet_non_shared_params->execution_mode ==
+      blink::mojom::InterestGroup::ExecutionMode::kGroupedByOriginMode) {
+    size_t join_origin_hash = base::FastHash(
+        join_origin_hash_salt_ + task->interest_group_join_origin.Serialize());
+    thread_index = join_origin_hash % v8_helpers_.size();
+  } else {
+    thread_index = GetNextThreadIndex();
+  }
+
   // Other than the `generate_bid_client` and `task_id` fields, no fields of
   // `task` are needed after this point, so can consume them instead of copying
   // them.
@@ -2255,7 +2319,6 @@ void BidderWorklet::GenerateBidIfReady(GenerateBidTaskList::iterator task) {
   // deleted by the caller (unless the BidderWorklet  itself is deleted).
   // Therefore, it's safe to post a callback with the `task`  iterator the v8
   // thread.
-  int thread_index = GetNextThreadIndex();
   task->generate_bid_start_time = base::TimeTicks::Now();
   task->task_id = cancelable_task_tracker_.PostTask(
       v8_runners_[thread_index].get(), FROM_HERE,
@@ -2414,7 +2477,10 @@ void BidderWorklet::DeliverBidCallbackOnUserThread(
       debug_win_report_url, set_priority,
       std::move(update_priority_signals_overrides), std::move(pa_requests),
       std::move(non_kanon_pa_requests), std::move(real_time_contributions),
-      bidding_latency,
+      mojom::BidderTimingMetrics::New(
+          /*js_fetch_latency=*/js_fetch_latency_,
+          /*wasm_fetch_latency=*/wasm_fetch_latency_,
+          /*script_latency=*/bidding_latency),
       mojom::GenerateBidDependencyLatencies::New(
           /*code_ready_latency=*/NullOptIfZero(task->wait_code),
           /*config_promises_latency=*/NullOptIfZero(task->wait_promises),
@@ -2454,7 +2520,11 @@ void BidderWorklet::DeliverReportWinOnUserThread(
                 load_code_error_msgs_.end());
   std::move(task->callback)
       .Run(std::move(report_url), std::move(ad_beacon_map),
-           std::move(ad_macro_map), std::move(pa_requests), reporting_latency,
+           std::move(ad_macro_map), std::move(pa_requests),
+           mojom::BidderTimingMetrics::New(
+               /*js_fetch_latency=*/js_fetch_latency_,
+               /*wasm_fetch_latency=*/wasm_fetch_latency_,
+               /*script_latency=*/reporting_latency),
            std::move(errors));
   report_win_tasks_.erase(task);
 }

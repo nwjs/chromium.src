@@ -49,6 +49,8 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/passwords/passwords_client_ui_delegate.h"
+#include "chrome/browser/ui/webauthn/user_actions.h"
+#include "chrome/browser/webauthn/authenticator_request_dialog_controller.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
 #include "chrome/browser/webauthn/cablev2_devices.h"
 #include "chrome/browser/webauthn/enclave_manager.h"
@@ -77,6 +79,7 @@
 #include "components/sync_device_info/device_info_tracker.h"
 #include "components/trusted_vault/frontend_trusted_vault_connection.h"
 #include "components/user_prefs/user_prefs.h"
+#include "components/webauthn/core/browser/passkey_change_quota_tracker.h"
 #include "components/webauthn/core/browser/passkey_model.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/browser_context.h"
@@ -214,10 +217,6 @@ bool ExtensionCanAssertRpId(const extensions::Extension& extension,
   // will be prefixed with the extension scheme to isolate it from web origins.
   if (extension.id() == rp_id) {
     return true;
-  }
-  if (!base::FeatureList::IsEnabled(
-          device::kAllowExtensionsToSetWebAuthnRpIds)) {
-    return false;
   }
 
   // Extensions may not claim eTLDs as RP IDs, even if WebAuthn does not
@@ -644,7 +643,6 @@ void ChromeWebAuthenticationDelegate::DeletePasskey(
   webauthn::PasskeyModel* passkey_store =
       PasskeyModelFactory::GetInstance()->GetForProfile(
           Profile::FromBrowserContext(web_contents->GetBrowserContext()));
-
   std::string credential_id(passkey_credential_id.begin(),
                             passkey_credential_id.end());
   std::optional<sync_pb::WebauthnCredentialSpecifics> credential_specifics =
@@ -690,10 +688,18 @@ void ChromeWebAuthenticationDelegate::DeleteUnacceptedPasskeys(
 
 void ChromeWebAuthenticationDelegate::UpdateUserPasskeys(
     content::WebContents* web_contents,
+    const url::Origin& origin,
     const std::string& relying_party_id,
     std::vector<uint8_t>& user_id,
     const std::string& name,
     const std::string& display_name) {
+  webauthn::PasskeyChangeQuotaTracker* quota_tracker =
+      webauthn::PasskeyChangeQuotaTracker::GetInstance();
+  if (!quota_tracker->CanMakeChange(origin)) {
+    FIDO_LOG(ERROR) << "Dropping update request from " << origin
+                    << ": quota exceeded.";
+    return;
+  }
   webauthn::PasskeyModel* passkey_store =
       PasskeyModelFactory::GetInstance()->GetForProfile(
           Profile::FromBrowserContext(web_contents->GetBrowserContext()));
@@ -711,6 +717,8 @@ void ChromeWebAuthenticationDelegate::UpdateUserPasskeys(
     }
   }
   if (is_passkey_updated) {
+    FIDO_LOG(EVENT) << "Updating passkey user details for " << origin;
+    quota_tracker->TrackChange(origin);
     PasswordsClientUIDelegate* manage_passwords_ui_controller =
         PasswordsClientUIDelegateFromWebContents(web_contents);
     if (manage_passwords_ui_controller) {
@@ -1003,11 +1011,10 @@ void ChromeAuthenticatorRequestDelegate::OnTransactionSuccessful(
     RequestSource request_source,
     device::FidoRequestType request_type,
     device::AuthenticatorType authenticator_type) {
-#if BUILDFLAG(IS_MAC)
   if (request_source != RequestSource::kWebAuthentication) {
     return;
   }
-
+#if BUILDFLAG(IS_MAC)
   if (authenticator_type == device::AuthenticatorType::kTouchID) {
     Profile::FromBrowserContext(GetBrowserContext())
         ->GetPrefs()
@@ -1015,6 +1022,7 @@ void ChromeAuthenticatorRequestDelegate::OnTransactionSuccessful(
             kWebAuthnTouchIdLastUsed,
             base::UnlocalizedTimeFormatWithPattern(
                 base::Time::Now(), "yyyy-MM-dd", icu::TimeZone::getGMT()));
+    webauthn::user_actions::RecordChromeProfileSuccess();
   }
   if (authenticator_type == device::AuthenticatorType::kICloudKeychain) {
     webauthn::user_actions::RecordICloudSuccess();
@@ -1022,7 +1030,14 @@ void ChromeAuthenticatorRequestDelegate::OnTransactionSuccessful(
 
   dialog_controller_->RecordMacOsSuccessHistogram(request_type,
                                                   authenticator_type);
-#endif
+#elif BUILDFLAG(IS_WIN)
+  if (authenticator_type == device::AuthenticatorType::kWinNative) {
+    webauthn::user_actions::RecordWindowsHelloSuccess();
+  }
+#endif  // BUILDFLAG(IS_MAC)
+  if (authenticator_type == device::AuthenticatorType::kEnclave) {
+    webauthn::user_actions::RecordGpmSuccess();
+  }
 }
 
 void ChromeAuthenticatorRequestDelegate::RegisterActionCallbacks(
@@ -1046,46 +1061,6 @@ void ChromeAuthenticatorRequestDelegate::RegisterActionCallbacks(
       bluetooth_adapter_power_on_callback);
   dialog_controller_->SetRequestBlePermissionCallback(
       request_ble_permission_callback);
-}
-
-void ChromeAuthenticatorRequestDelegate::ShouldReturnAttestation(
-    const std::string& relying_party_id,
-    const device::FidoAuthenticator* authenticator,
-    bool is_enterprise_attestation,
-    base::OnceCallback<void(bool)> callback) {
-  if (disable_ui_ && IsVirtualEnvironmentEnabled()) {
-    std::move(callback).Run(true);
-    return;
-  }
-  if (IsWebAuthnRPIDListedInSecurityKeyPermitAttestationPolicy(
-          GetBrowserContext(), relying_party_id)) {
-    // Enterprise attestations should have been approved already and not reach
-    // this point.
-    DCHECK(!is_enterprise_attestation);
-    std::move(callback).Run(true);
-    return;
-  }
-
-  // AuthenticatorCommon can't evaluate attestation decisions with the UI
-  // disabled.
-  if (disable_ui_) {
-    NOTREACHED_IN_MIGRATION();
-    std::move(callback).Run(false);
-    return;
-  }
-
-#if BUILDFLAG(IS_WIN)
-  if (authenticator->GetType() == device::AuthenticatorType::kWinNative &&
-      static_cast<const device::WinWebAuthnApiAuthenticator*>(authenticator)
-          ->ShowsPrivacyNotice()) {
-    // The OS' native API includes an attestation prompt.
-    std::move(callback).Run(true);
-    return;
-  }
-#endif  // BUILDFLAG(IS_WIN)
-
-  dialog_controller_->RequestAttestationPermission(is_enterprise_attestation,
-                                                   std::move(callback));
 }
 
 std::vector<std::unique_ptr<device::FidoDiscoveryBase>>
@@ -1123,7 +1098,8 @@ void ChromeAuthenticatorRequestDelegate::ConfigureDiscoveries(
     return;
   }
 
-  if (browser_provided_passkeys_available && !IsVirtualEnvironmentEnabled()) {
+  if (browser_provided_passkeys_available && !IsVirtualEnvironmentEnabled() &&
+      request_source == RequestSource::kWebAuthentication) {
     // Creating credentials in GPM can be disabled by policy, but get() is
     // always allowed.
     if (request_type == device::FidoRequestType::kGetAssertion ||
@@ -1294,22 +1270,7 @@ void ChromeAuthenticatorRequestDelegate::ConfigureDiscoveries(
   }
 
 #if BUILDFLAG(IS_MAC)
-  {
-    content::WebContents* web_contents =
-        content::WebContents::FromRenderFrameHost(GetRenderFrameHost());
-    // Not all contexts in which this code runs have a BrowserWindow.
-    // Notably the dialog containing a WebContents that is used for signing
-    // into a new profile does not. Thus the NSWindow is fetched more directly.
-    const views::Widget* widget = views::Widget::GetTopLevelWidgetForNativeView(
-        web_contents->GetNativeView());
-    if (widget) {
-      const gfx::NativeWindow window = widget->GetNativeWindow();
-      if (window) {
-        discovery_factory->set_nswindow(
-            reinterpret_cast<uintptr_t>(window.GetNativeNSWindow()));
-      }
-    }
-  }
+  ConfigureNSWindow(discovery_factory);
 #endif
 
   if (enclave_controller_) {
@@ -1791,6 +1752,32 @@ bool ChromeAuthenticatorRequestDelegate::ShouldCreateInICloudKeychain(
   return base::FeatureList::IsEnabled(*feature);
 }
 
+void ChromeAuthenticatorRequestDelegate::ConfigureNSWindow(
+    device::FidoDiscoveryFactory* discovery_factory) {
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(GetRenderFrameHost());
+  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  if (browser && browser->is_type_app()) {
+    // PWAs render the UI in an out-of-process window, thus there is no valid
+    // NSWindow* available in the browser process.
+    // TODO: crbug.com/364926914 - potentially do iCloud Keychain operations out
+    // of process so that they can work in PWAs.
+    return;
+  }
+
+  // Not all contexts in which this code runs have a BrowserWindow.
+  // Notably the dialog containing a WebContents that is used for signing
+  // into a new profile does not. Thus the NSWindow is fetched more directly.
+  const views::Widget* widget = views::Widget::GetTopLevelWidgetForNativeView(
+      web_contents->GetNativeView());
+  if (widget) {
+    const gfx::NativeWindow window = widget->GetNativeWindow();
+    if (window) {
+      discovery_factory->set_nswindow(
+          reinterpret_cast<uintptr_t>(window.GetNativeNSWindow()));
+    }
+  }
+}
 void ChromeAuthenticatorRequestDelegate::ConfigureICloudKeychain(
     RequestSource request_source,
     const std::string& rp_id) {

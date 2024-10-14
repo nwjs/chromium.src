@@ -169,7 +169,7 @@ void AutofillOptimizationGuide::OnDidParseForm(
       optimization_types;
 
   bool has_iban_field =
-      base::ranges::any_of(form_structure, [](const auto& field) {
+      std::ranges::any_of(form_structure, [](const auto& field) {
         return field->Type().GetStorableType() == IBAN_VALUE;
       });
   if (has_iban_field) {
@@ -177,7 +177,7 @@ void AutofillOptimizationGuide::OnDidParseForm(
   }
   if (personal_data_manager) {
     bool has_credit_card_field =
-        base::ranges::any_of(form_structure, [](const auto& field) {
+        std::ranges::any_of(form_structure, [](const auto& field) {
           return field->Type().group() == FieldTypeGroup::kCreditCard;
         });
 
@@ -194,7 +194,9 @@ void AutofillOptimizationGuide::OnDidParseForm(
         base::FeatureList::IsEnabled(
             features::kAutofillEnableAmountExtractionDesktop)) {
       optimization_types.insert(
-          optimization_guide::proto::AMOUNT_EXTRACTION_ALLOWLIST);
+          optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_AFFIRM);
+      optimization_types.insert(
+          optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP);
     }
 #endif
   }

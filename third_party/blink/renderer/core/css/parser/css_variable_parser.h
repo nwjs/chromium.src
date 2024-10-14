@@ -7,7 +7,7 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/css/parser/css_parser_token_range.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_token.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_view.h"
@@ -18,17 +18,15 @@ class CSSParserContext;
 class CSSParserTokenStream;
 class CSSUnparsedDeclarationValue;
 class CSSVariableData;
-struct CSSTokenizedValue;
 
 class CORE_EXPORT CSSVariableParser {
  public:
-  // TODO(sesse): Get rid of this (and then a lot of utility functions can go
-  // away, too).
-  static CSSValue* ParseDeclarationIncludingCSSWide(const CSSTokenizedValue&,
-                                                    bool is_animation_tainted,
-                                                    const CSSParserContext&);
+  static const CSSValue* ParseDeclarationIncludingCSSWide(
+      CSSParserTokenStream&,
+      bool is_animation_tainted,
+      const CSSParserContext&);
   static CSSUnparsedDeclarationValue* ParseDeclarationValue(
-      const CSSTokenizedValue&,
+      StringView,
       bool is_animation_tainted,
       const CSSParserContext&);
 
@@ -73,7 +71,7 @@ class CORE_EXPORT CSSVariableParser {
   //
   // https://drafts.css-houdini.org/css-properties-values-api-1/#universal-syntax-definition
   static CSSUnparsedDeclarationValue* ParseUniversalSyntaxValue(
-      CSSTokenizedValue,
+      StringView,
       const CSSParserContext&,
       bool is_animation_tainted);
 

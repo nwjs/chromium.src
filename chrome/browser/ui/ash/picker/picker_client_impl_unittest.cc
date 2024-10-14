@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/constants/ash_features.h"
 #include "ash/picker/picker_controller.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -289,46 +290,28 @@ TEST_F(PickerClientImplTest, StartCrosSearch) {
   EXPECT_CALL(mock_search_callback, Call(_, _)).Times(AnyNumber());
   EXPECT_CALL(
       mock_search_callback,
-      Call(ash::AppListSearchResultType::kOmnibox,
-           IsSupersetOf({
-               Property(
-                   "data", &ash::PickerSearchResult::data,
-                   VariantWith<
-                       ash::PickerSearchResult::BrowsingHistoryData>(AllOf(
-                       Field("url",
-                             &ash::PickerSearchResult::BrowsingHistoryData::url,
-                             GURL("http://foo.com/history")),
-                       Field("best_match",
-                             &ash::PickerSearchResult::BrowsingHistoryData::
-                                 best_match,
-                             false)))),
-               Property(
-                   "data", &ash::PickerSearchResult::data,
-                   VariantWith<
-                       ash::PickerSearchResult::BrowsingHistoryData>(AllOf(
-                       Field("url",
-                             &ash::PickerSearchResult::BrowsingHistoryData::url,
-                             GURL("http://foo.com/tab")),
-                       Field("best_match",
-                             &ash::PickerSearchResult::BrowsingHistoryData::
-                                 best_match,
-                             true)))),
-               Property(
-                   "data", &ash::PickerSearchResult::data,
-                   VariantWith<
-                       ash::PickerSearchResult::BrowsingHistoryData>(AllOf(
-                       Field(
-                           "title",
-                           &ash::PickerSearchResult::BrowsingHistoryData::title,
-                           u"Foobaz"),
-                       Field("url",
-                             &ash::PickerSearchResult::BrowsingHistoryData::url,
-                             GURL("http://foo.com/bookmarks")),
-                       Field("best_match",
-                             &ash::PickerSearchResult::BrowsingHistoryData::
-                                 best_match,
-                             false)))),
-           })))
+      Call(
+          ash::AppListSearchResultType::kOmnibox,
+          IsSupersetOf({
+              VariantWith<ash::PickerBrowsingHistoryResult>(AllOf(
+                  Field("url", &ash::PickerBrowsingHistoryResult::url,
+                        GURL("http://foo.com/history")),
+                  Field("best_match",
+                        &ash::PickerBrowsingHistoryResult::best_match, false))),
+              VariantWith<ash::PickerBrowsingHistoryResult>(AllOf(
+                  Field("url", &ash::PickerBrowsingHistoryResult::url,
+                        GURL("http://foo.com/tab")),
+                  Field("best_match",
+                        &ash::PickerBrowsingHistoryResult::best_match, true))),
+
+              VariantWith<ash::PickerBrowsingHistoryResult>(AllOf(
+                  Field("title", &ash::PickerBrowsingHistoryResult::title,
+                        u"Foobaz"),
+                  Field("url", &ash::PickerBrowsingHistoryResult::url,
+                        GURL("http://foo.com/bookmarks")),
+                  Field("best_match",
+                        &ash::PickerBrowsingHistoryResult::best_match, false))),
+          })))
       .WillOnce([&]() { test_done.SetValue(); });
 
   client.StartCrosSearch(
@@ -363,7 +346,8 @@ TEST_F(PickerClientImplTest, GetRecentLocalFilesWithNoFiles) {
   PickerClientImpl client(&controller, user_manager());
   base::test::TestFuture<std::vector<ash::PickerSearchResult>> future;
 
-  client.GetRecentLocalFileResults(/*max_files=*/100, future.GetCallback());
+  client.GetRecentLocalFileResults(
+      /*max_files=*/100, /*now_delta=*/base::Days(30), future.GetCallback());
 
   EXPECT_THAT(future.Get(), IsEmpty());
 }
@@ -394,14 +378,13 @@ TEST_F(PickerClientImplTest, GetRecentLocalFilesReturnsOnlyLocalFiles) {
           },
       });
 
-  client.GetRecentLocalFileResults(/*max_files=*/100, future.GetCallback());
+  client.GetRecentLocalFileResults(
+      /*max_files=*/100, /*now_delta=*/base::Days(30), future.GetCallback());
 
-  EXPECT_THAT(future.Get(),
-              UnorderedElementsAre(Property(
-                  "data", &ash::PickerSearchResult::data,
-                  VariantWith<ash::PickerSearchResult::LocalFileData>(Field(
-                      "title", &ash::PickerSearchResult::LocalFileData::title,
-                      u"local.png")))));
+  EXPECT_THAT(
+      future.Get(),
+      UnorderedElementsAre(VariantWith<ash::PickerLocalFileResult>(
+          Field("title", &ash::PickerLocalFileResult::title, u"local.png"))));
 }
 
 TEST_F(PickerClientImplTest, GetRecentLocalFilesDoesNotReturnOldFiles) {
@@ -423,7 +406,8 @@ TEST_F(PickerClientImplTest, GetRecentLocalFilesDoesNotReturnOldFiles) {
           },
       });
 
-  client.GetRecentLocalFileResults(/*max_files=*/100, future.GetCallback());
+  client.GetRecentLocalFileResults(
+      /*max_files=*/100, /*now_delta=*/base::Days(30), future.GetCallback());
 
   EXPECT_THAT(future.Get(), IsEmpty());
 }
@@ -468,13 +452,10 @@ TEST_F(PickerClientImplTest, GetRecentDriveFilesReturnsOnlyDriveFiles) {
 
   EXPECT_THAT(
       future.Get(),
-      UnorderedElementsAre(Property(
-          "data", &ash::PickerSearchResult::data,
-          VariantWith<ash::PickerSearchResult::DriveFileData>(AllOf(
-              Field("title", &ash::PickerSearchResult::DriveFileData::title,
-                    u"drive.png"),
-              Field("url", &ash::PickerSearchResult::DriveFileData::url,
-                    GURL("https://file_alternate_link/drive.png")))))));
+      UnorderedElementsAre(VariantWith<ash::PickerDriveFileResult>(AllOf(
+          Field("title", &ash::PickerDriveFileResult::title, u"drive.png"),
+          Field("url", &ash::PickerDriveFileResult::url,
+                GURL("https://file_alternate_link/drive.png"))))));
 }
 
 TEST_F(PickerClientImplTest, GetRecentDriveFilesDoesNotReturnOldFiles) {
@@ -496,7 +477,8 @@ TEST_F(PickerClientImplTest, GetRecentDriveFilesDoesNotReturnOldFiles) {
           },
       });
 
-  client.GetRecentLocalFileResults(/*max_files=*/100, future.GetCallback());
+  client.GetRecentLocalFileResults(
+      /*max_files=*/100, /*now_delta=*/base::Days(30), future.GetCallback());
 
   EXPECT_THAT(future.Get(), IsEmpty());
 }
@@ -521,7 +503,8 @@ TEST_F(PickerClientImplTest, GetRecentLocalFilesTruncates) {
           },
       });
 
-  client.GetRecentLocalFileResults(/*max_files=*/1, future.GetCallback());
+  client.GetRecentLocalFileResults(
+      /*max_files=*/1, /*now_delta=*/base::Days(30), future.GetCallback());
 
   EXPECT_THAT(future.Get(), SizeIs(1));
 }
@@ -565,19 +548,13 @@ TEST_F(PickerClientImplTest, GetSuggestedLinkResultsReturnsLinks) {
   base::test::TestFuture<std::vector<ash::PickerSearchResult>> future;
   client.GetSuggestedLinkResults(100u, future.GetRepeatingCallback());
 
-  EXPECT_THAT(
-      future.Get(),
-      ElementsAre(
-          Property(
-              "data", &ash::PickerSearchResult::data,
-              VariantWith<ash::PickerSearchResult::BrowsingHistoryData>(Field(
-                  "url", &ash::PickerSearchResult::BrowsingHistoryData::url,
-                  GURL("http://b.com/history")))),
-          Property(
-              "data", &ash::PickerSearchResult::data,
-              VariantWith<ash::PickerSearchResult::BrowsingHistoryData>(Field(
-                  "url", &ash::PickerSearchResult::BrowsingHistoryData::url,
-                  GURL("http://a.com/history"))))));
+  EXPECT_THAT(future.Get(),
+              ElementsAre(VariantWith<ash::PickerBrowsingHistoryResult>(Field(
+                              "url", &ash::PickerBrowsingHistoryResult::url,
+                              GURL("http://b.com/history"))),
+                          VariantWith<ash::PickerBrowsingHistoryResult>(Field(
+                              "url", &ash::PickerBrowsingHistoryResult::url,
+                              GURL("http://a.com/history")))));
   EXPECT_EQ(favicon_service.page_url_, GURL("http://a.com/history"));
 }
 
@@ -595,14 +572,35 @@ TEST_F(PickerClientImplTest, GetSuggestedLinkResultsAreTruncatedToMostRecent) {
   base::test::TestFuture<std::vector<ash::PickerSearchResult>> future;
   client.GetSuggestedLinkResults(1u, future.GetRepeatingCallback());
 
-  EXPECT_THAT(
-      future.Get(),
-      ElementsAre(Property(
-          "data", &ash::PickerSearchResult::data,
-          VariantWith<ash::PickerSearchResult::BrowsingHistoryData>(
-              Field("url", &ash::PickerSearchResult::BrowsingHistoryData::url,
-                    GURL("http://b.com/history"))))));
+  EXPECT_THAT(future.Get(),
+              ElementsAre(VariantWith<ash::PickerBrowsingHistoryResult>(
+                  Field("url", &ash::PickerBrowsingHistoryResult::url,
+                        GURL("http://b.com/history")))));
   EXPECT_EQ(favicon_service.page_url_, GURL("http://b.com/history"));
+}
+
+TEST_F(PickerClientImplTest,
+       GetSuggestedLinkResultsFiltersOutPersonalizedLinks) {
+  base::test::ScopedFeatureList features(ash::features::kPickerFilterLinks);
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  const base::Time now = base::Time::Now();
+  AddSearchToHistory(profile(),
+                     GURL("https://mail.google.com/mail/u/0/#inbox/aaa"), now);
+  AddSearchToHistory(profile(),
+                     GURL("https://mail.google.com/chat/u/0/#chat/aaa"), now);
+  AddSearchToHistory(profile(), GURL("https://mail.google.com"), now);
+  TestFaviconService favicon_service;
+  client.get_link_suggester_for_test()->set_favicon_service_for_test(
+      &favicon_service);
+
+  base::test::TestFuture<std::vector<ash::PickerSearchResult>> future;
+  client.GetSuggestedLinkResults(100u, future.GetRepeatingCallback());
+
+  EXPECT_THAT(future.Get(),
+              ElementsAre(VariantWith<ash::PickerBrowsingHistoryResult>(
+                  Field("url", &ash::PickerBrowsingHistoryResult::url,
+                        GURL("https://mail.google.com")))));
 }
 
 class PickerClientImplEditorTest : public PickerClientImplTest {

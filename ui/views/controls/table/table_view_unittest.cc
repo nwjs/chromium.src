@@ -487,7 +487,7 @@ class TableViewTest : public ViewsTestBase,
 
     widget_ = std::make_unique<Widget>();
     Widget::InitParams params =
-        CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+        CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                      Widget::InitParams::TYPE_WINDOW_FRAMELESS);
     params.bounds = gfx::Rect(0, 0, 650, 650);
     params.delegate = ConfigureWidgetDelegate();
@@ -591,6 +591,12 @@ class TableViewTest : public ViewsTestBase,
           ui::AXCoordinateSystem::kScreenDIPs,
           ui::AXClippingBehavior::kUnclipped, &offscreen_result);
       EXPECT_EQ(row_custom_bounds, expected_bounds[row_index][0]);
+      if (table_->GetVisibleBounds().Intersects(
+              expected_bounds[row_index][0])) {
+        EXPECT_FALSE(row_data.HasState(ax::mojom::State::kInvisible));
+      } else {
+        EXPECT_TRUE(row_data.HasState(ax::mojom::State::kInvisible));
+      }
 
       EXPECT_EQ(row->children().size(), expected_bounds[row_index].size() - 1U);
       EXPECT_EQ(row->children().size(), helper_->visible_col_count());
@@ -613,6 +619,12 @@ class TableViewTest : public ViewsTestBase,
             ui::AXClippingBehavior::kUnclipped, &offscreen_result);
         EXPECT_EQ(cell_custom_bounds,
                   expected_bounds[row_index][expected_bounds_index]);
+        if (table_->GetVisibleBounds().Intersects(
+                expected_bounds[row_index][expected_bounds_index])) {
+          EXPECT_FALSE(cell_data.HasState(ax::mojom::State::kInvisible));
+        } else {
+          EXPECT_TRUE(cell_data.HasState(ax::mojom::State::kInvisible));
+        }
       }
     }
   }
@@ -649,7 +661,7 @@ class TableViewTest : public ViewsTestBase,
 
   std::unique_ptr<TableViewTestHelper> helper_;
 
-  UniqueWidgetPtr widget_;
+  std::unique_ptr<Widget> widget_;
 
  private:
   gfx::Point GetPointForRow(int row) {
@@ -2418,7 +2430,7 @@ TEST_P(TableViewFocusTest, FocusClearedDuringWidgetDestruction) {
 
   // Now destroy the widget. This should *not* cause a DCHECK in
   // View::DoRemoveChildView(...).
-  widget_.reset();
+  widget_->Close();
   ASSERT_EQ(1u, listener()->focus_changes().size());
   EXPECT_EQ(listener()->focus_changes()[0], ViewPair(table_, nullptr));
 }
@@ -2436,7 +2448,7 @@ class TableViewDefaultConstructabilityTest : public ViewsTestBase {
     ViewsTestBase::SetUp();
     widget_ = std::make_unique<Widget>();
     Widget::InitParams params =
-        CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+        CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                      Widget::InitParams::TYPE_WINDOW);
     params.bounds = gfx::Rect(0, 0, 650, 650);
     widget_->Init(std::move(params));
@@ -2509,7 +2521,7 @@ class TableViewPaintIconBoundsTest : public ViewsTestBase {
 
     widget_ = std::make_unique<Widget>();
     Widget::InitParams params =
-        CreateParams(Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+        CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
                      Widget::InitParams::TYPE_WINDOW_FRAMELESS);
     params.bounds = gfx::Rect(0, 0, 650, 650);
     widget_->Init(std::move(params));

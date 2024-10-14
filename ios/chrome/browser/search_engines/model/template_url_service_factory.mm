@@ -17,7 +17,7 @@
 #import "ios/chrome/browser/search_engines/model/template_url_service_client_impl.h"
 #import "ios/chrome/browser/search_engines/model/ui_thread_search_terms_data.h"
 #import "ios/chrome/browser/shared/model/browser_state/browser_state_otr_helper.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/webdata_services/model/web_data_service_factory.h"
 #import "rlz/buildflags/buildflags.h"
 
@@ -47,7 +47,7 @@ std::unique_ptr<KeyedService> BuildTemplateURLService(
       CHECK_DEREF(ios::SearchEngineChoiceServiceFactory::GetForBrowserState(
           browser_state)),
       std::make_unique<ios::UIThreadSearchTermsData>(),
-      ios::WebDataServiceFactory::GetKeywordWebDataForBrowserState(
+      ios::WebDataServiceFactory::GetKeywordWebDataForProfile(
           browser_state, ServiceAccessType::EXPLICIT_ACCESS),
       std::make_unique<ios::TemplateURLServiceClientImpl>(
           ios::HistoryServiceFactory::GetForBrowserState(
@@ -59,9 +59,15 @@ std::unique_ptr<KeyedService> BuildTemplateURLService(
 
 // static
 TemplateURLService* TemplateURLServiceFactory::GetForBrowserState(
-    ChromeBrowserState* browser_state) {
+    ProfileIOS* profile) {
+  return GetForProfile(profile);
+}
+
+// static
+TemplateURLService* TemplateURLServiceFactory::GetForProfile(
+    ProfileIOS* profile) {
   return static_cast<TemplateURLService*>(
-      GetInstance()->GetServiceForBrowserState(browser_state, true));
+      GetInstance()->GetServiceForBrowserState(profile, true));
 }
 
 // static

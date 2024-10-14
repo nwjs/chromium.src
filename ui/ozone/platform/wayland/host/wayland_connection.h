@@ -160,6 +160,9 @@ class WaylandConnection {
   zcr_extended_drag_v1* extended_drag_v1() const {
     return extended_drag_v1_.get();
   }
+  xdg_toplevel_drag_manager_v1* xdg_toplevel_drag_manager_v1() const {
+    return xdg_toplevel_drag_manager_v1_.get();
+  }
 
   zxdg_output_manager_v1* xdg_output_manager_v1() const {
     return xdg_output_manager_.get();
@@ -407,12 +410,11 @@ class WaylandConnection {
   friend class ZwpPrimarySelectionDeviceManager;
 
   // A correct display must be chosen when creating objects or calling
-  // roundrips.  That is, all the methods that deal with polling, pulling event
+  // roundtrips. That is, all the methods that deal with polling, pulling event
   // queues, etc, must use original display. All the other methods that create
   // various wayland objects must use |display_wrapper_| so that the new objects
-  // are associated with the correct event queue. Otherwise, they will use a
-  // default event queue, which we do not use. See the comment below about the
-  // |event_queue_|.
+  // are associated with the correct event queue. See the comment below about
+  // the |event_queue_|.
   wl_display* display() const { return display_.get(); }
   wl_display* display_wrapper() const {
     return reinterpret_cast<wl_display*>(wrapped_display_.get());
@@ -475,6 +477,12 @@ class WaylandConnection {
   // latter is destroyed first. This prevents libwayland warnings about the
   // queue being destroyed while the proxy is still attached.
   wl::Object<wl_event_queue> event_queue_;
+  // A non-default display that Ozone/Wayland uses for event dispatching
+  // (a non-default `event_queue_` is created using this display). This is
+  // necessary to avoid any possible deadlocks (in case of API's misuse. See
+  // https://crrev.com/c/2844573 for more context) or to avoid cases when other
+  // clients' events are consumed (such as GTK and others) if both Ozone/Wayland
+  // and those clients use the default display returned by |wl_display_connect|.
   wl::Object<wl_proxy> wrapped_display_;
   wl::Object<wl_registry> registry_;
   wl::Object<wl_compositor> compositor_;
@@ -495,6 +503,7 @@ class WaylandConnection {
       linux_explicit_synchronization_;
   wl::Object<zxdg_decoration_manager_v1> xdg_decoration_manager_;
   wl::Object<zcr_extended_drag_v1> extended_drag_v1_;
+  wl::Object<::xdg_toplevel_drag_manager_v1> xdg_toplevel_drag_manager_v1_;
   wl::Object<zxdg_output_manager_v1> xdg_output_manager_;
   wl::Object<wp_fractional_scale_manager_v1> fractional_scale_manager_v1_;
   wl::Object<xdg_toplevel_icon_manager_v1> toplevel_icon_manager_v1_;

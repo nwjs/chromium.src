@@ -40,6 +40,7 @@ chromium-metrics-reviews@google.com.
 <enum name="ActiveSessionAuthControllerReason">
   <int value="0" label="PasswordManager"/>
   <int value="1" label="Settings"/>
+  <int value="2" label="WebAuthN"/>
 </enum>
 
 <enum name="AltTabMode">
@@ -218,6 +219,7 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
 <enum name="AuthInputType">
   <int value="0" label="Password"/>
   <int value="1" label="PIN"/>
+  <int value="2" label="Fingerprint"/>
 </enum>
 
 <enum name="AuthMethod">
@@ -606,6 +608,7 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="7" label="Create a new desk to ensure the default desk exists"/>
   <int value="8" label="Desk Floating Workspace"/>
   <int value="9" label="Button pressed on desk button desk bar"/>
+  <int value="10" label="Coral button on birch bar pressed"/>
 </enum>
 
 <enum name="DesksMoveWindowFromActiveDeskSource">
@@ -639,6 +642,7 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
       label="Desk switch by clicking on a mini view in the desk button desk
              bar"/>
   <int value="16" label="Desk switch due to session restore"/>
+  <int value="17" label="Coral button on birch bar pressed"/>
 </enum>
 
 <enum name="DisclaimerViewAction">
@@ -1541,6 +1545,8 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="33" label="Switch Caps Lock Key Pressed Nudge"/>
   <int value="34" label="Help Me Read Nudge"/>
   <int value="35" label="Birch Privacy Nudge"/>
+  <int value="36" label="Video Conference Tray Sidetone Not Supported"/>
+  <int value="37" label="Video Conference Tray Sidetone Enabled"/>
 </enum>
 
 <enum name="OnDeviceToServerSpeechRecognitionFallbackReason">
@@ -1616,6 +1622,7 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="21" label="DEPRECATED: Showing glanceables"/>
   <int value="22" label="Exiting overview due to window deactivation"/>
   <int value="23" label="Window restored from previous session"/>
+  <int value="24" label="After user login, close dialog for full restore"/>
 </enum>
 
 <enum name="OverviewStartAction">
@@ -1636,27 +1643,6 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="13"
       label="After user login, if full restore settings is ask everytime"/>
   <int value="14" label="Entering overview by clicking on wallpaper."/>
-</enum>
-
-<enum name="PaletteModeCancelType">
-  <int value="0" label="Palette laser pointer mode is cancelled."/>
-  <int value="1" label="Palette laser pointer mode is switched out of"/>
-  <int value="2" label="Palette magnify mode is cancelled."/>
-  <int value="3" label="Palette magnify mode is switched out of."/>
-</enum>
-
-<enum name="PaletteTrayOptions">
-  <int value="0" label="Palette being closed or dismissed with no action"/>
-  <int value="1" label="Click on the settings button"/>
-  <int value="2" label="Click on the help button"/>
-  <int value="3" label="Capture region"/>
-  <int value="4" label="Capture screen"/>
-  <int value="5" label="Add new note"/>
-  <int value="6" label="Magnifying glass mode"/>
-  <int value="7" label="Laser pointer mode"/>
-  <int value="8" label="Assistant mode"/>
-  <int value="9" label="Enter capture mode"/>
-  <int value="10" label="Marker mode"/>
 </enum>
 
 <enum name="PanelButton">
@@ -2254,6 +2240,11 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
   <int value="48" label="Video Conference Speak On Mute Opt In Confirmation"/>
   <int value="50" label="Game Dashboard Disabled In Tablet Mode"/>
   <int value="51" label="Informed Restore Onboarding Turn On Ask Every Time"/>
+</enum>
+
+<enum name="TogglePickerAction">
+  <int value="0" label="ToggleCapsLock"/>
+  <int value="1" label="TogglePicker"/>
 </enum>
 
 <enum name="TrayBackgroundViewCatalogName">

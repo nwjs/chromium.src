@@ -263,7 +263,7 @@ class PdfViewWebPlugin final : public PDFiumEngineClient,
       const blink::WebCoalescedInputEvent& event,
       ui::Cursor* cursor) override;
   void DidReceiveResponse(const blink::WebURLResponse& response) override;
-  void DidReceiveData(const char* data, size_t data_length) override;
+  void DidReceiveData(base::span<const char> data) override;
   void DidFinishLoading() override;
   void DidFailLoading(const blink::WebURLError& error) override;
   bool SupportsPaginatedPrint() override;
@@ -363,12 +363,16 @@ class PdfViewWebPlugin final : public PDFiumEngineClient,
   void SetSelectedText(const std::string& selected_text) override;
   void SetLinkUnderCursor(const std::string& link_under_cursor) override;
   bool IsValidLink(const std::string& url) override;
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  bool IsInAnnotationMode() const override;
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
   // pdf::mojom::PdfListener:
   void SetCaretPosition(const gfx::PointF& position) override;
   void MoveRangeSelectionExtent(const gfx::PointF& extent) override;
   void SetSelectionBounds(const gfx::PointF& base,
                           const gfx::PointF& extent) override;
+  void GetPdfBytes(GetPdfBytesCallback callback) override;
 
   // UrlLoader::Client:
   bool IsValid() const override;
@@ -409,8 +413,10 @@ class PdfViewWebPlugin final : public PDFiumEngineClient,
   gfx::Vector2dF GetViewportOriginOffset() override;
   float GetZoom() const override;
   bool IsPageVisible(int page_index) override;
+  void OnAnnotationModeToggled(bool enable) override;
   void StrokeFinished() override;
   void UpdateInkCursorImage(SkBitmap bitmap) override;
+  void UpdateThumbnail(int page_index) override;
   int VisiblePageIndexFromPoint(const gfx::PointF& point) override;
 #endif
 
@@ -424,6 +430,10 @@ class PdfViewWebPlugin final : public PDFiumEngineClient,
   const gfx::Rect& GetPluginRectForTesting() const { return plugin_rect_; }
 
   float GetDeviceScaleForTesting() const { return device_scale_; }
+
+  void SendThumbnailForTesting(base::Value::Dict reply,
+                               int page_index,
+                               Thumbnail thumbnail);
 
   DocumentLoadState document_load_state_for_testing() const {
     return document_load_state_;
@@ -593,13 +603,19 @@ class PdfViewWebPlugin final : public PDFiumEngineClient,
   // Records metrics about the document metadata.
   void RecordDocumentMetrics();
 
-  // Sends the attachments data.
+  // Sends the attachments data to the frontend.
   void SendAttachments();
 
-  // Sends the bookmarks data.
+  // Sends the bookmarks data to the frontend.
   void SendBookmarks();
 
-  // Send document metadata data.
+  // Notifies the frontend that `edit_command` got executed.
+  void SendExecutedEditCommand(std::string_view edit_command);
+
+  // Notifies the frontend that find-in-page started.
+  void SendStartedFindInPage();
+
+  // Sends document metadata data to the frontend.
   void SendMetadata();
 
   // Sends the loading progress, where `percentage` represents the progress, or
@@ -625,7 +641,13 @@ class PdfViewWebPlugin final : public PDFiumEngineClient,
   void SendPrintPreviewLoadedNotification();
 
   // Sends the thumbnail image data.
-  void SendThumbnail(base::Value::Dict reply, Thumbnail thumbnail);
+  void SendThumbnail(base::Value::Dict reply,
+                     int page_index,
+                     Thumbnail thumbnail);
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  void GenerateAndSendInkThumbnail(int page_index, const gfx::Size& size);
+#endif
 
   // Converts `frame_coordinates` to PDF coordinates.
   gfx::Point FrameToPdfCoordinates(const gfx::PointF& frame_coordinates) const;

@@ -25,12 +25,13 @@
 #import "components/policy/core/browser/configuration_policy_handler.h"
 #import "components/policy/core/browser/configuration_policy_handler_list.h"
 #import "components/policy/core/browser/configuration_policy_handler_parameters.h"
+#import "components/policy/core/browser/gen_ai_default_settings_policy_handler.h"
 #import "components/policy/core/browser/url_blocklist_policy_handler.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/policy/policy_constants.h"
 #import "components/safe_browsing/core/common/safe_browsing_policy_handler.h"
 #import "components/safe_browsing/core/common/safe_browsing_prefs.h"
-#import "components/search_engines/default_search_policy_handler.h"
+#import "components/search_engines/enterprise/default_search_policy_handler.h"
 #import "components/security_interstitials/core/https_only_mode_policy_handler.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/sync/service/sync_policy_handler.h"
@@ -223,5 +224,14 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
           chrome_schema));
   handlers->AddHandler(
       std::make_unique<enterprise_idle::IdleTimeoutPolicyHandler>());
+
+  std::vector<policy::GenAiDefaultSettingsPolicyHandler::GenAiPolicyDetails>
+      gen_ai_default_policies;
+  // No GenAI policies are currently covered by GenAiDefaultSettings on iOS.
+  // When eligible policies are added, they will be handled here.
+  handlers->AddHandler(
+      std::make_unique<policy::GenAiDefaultSettingsPolicyHandler>(
+          std::move(gen_ai_default_policies)));
+
   return handlers;
 }

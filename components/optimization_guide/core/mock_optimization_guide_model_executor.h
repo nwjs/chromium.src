@@ -20,7 +20,7 @@ class MockOptimizationGuideModelExecutor
   MOCK_METHOD(bool,
               CanCreateOnDeviceSession,
               (ModelBasedCapabilityKey feature,
-               raw_ptr<OnDeviceModelEligibilityReason> debug_reason),
+               OnDeviceModelEligibilityReason* debug_reason),
               (override));
 
   MOCK_METHOD(std::unique_ptr<Session>,
@@ -62,8 +62,16 @@ class MockSession : public OptimizationGuideModelExecutor::Session {
               GetSizeInTokens,
               (const std::string& text,
                OptimizationGuideModelSizeInTokenCallback callback));
+  MOCK_METHOD(void,
+              GetContextSizeInTokens,
+              (const google::protobuf::MessageLite& request_metadata,
+               OptimizationGuideModelSizeInTokenCallback callback));
   MOCK_METHOD(const optimization_guide::SamplingParams,
               GetSamplingParams,
+              (),
+              (const override));
+  MOCK_METHOD(const proto::Any&,
+              GetOnDeviceFeatureMetadata,
               (),
               (const override));
 };
@@ -90,7 +98,12 @@ class MockSessionWrapper : public OptimizationGuideModelExecutor::Session {
       const std::string& text,
       optimization_guide::OptimizationGuideModelSizeInTokenCallback callback)
       override;
+  void GetContextSizeInTokens(
+      const google::protobuf::MessageLite& request_metadata,
+      optimization_guide::OptimizationGuideModelSizeInTokenCallback callback)
+      override;
   const SamplingParams GetSamplingParams() const override;
+  const proto::Any& GetOnDeviceFeatureMetadata() const override;
 
  private:
   raw_ptr<MockSession> session_;

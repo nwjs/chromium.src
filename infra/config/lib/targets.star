@@ -277,6 +277,7 @@ def _skylab(
         cros_build_target = "",
         use_lkgm = False,
         cros_model = None,
+        cros_cbx = False,
         autotest_name = None,
         bucket = None,
         dut_pool = None,
@@ -297,6 +298,8 @@ def _skylab(
         use_lkgm: If True, use a ChromeOS image version derived from
             chromeos/CHROMEOS_LKGM file.
         cros_model: Optional ChromeOS DUT model.
+        cros_cbx: Whether to require a CBX DUT for given cros_board. For a
+             board, not all models are CBX-capable.
         autotest_name: The name of the autotest to be executed in
             Skylab.
         bucket: Optional Google Storage bucket where the specified
@@ -319,6 +322,7 @@ def _skylab(
         cros_img = cros_img,
         use_lkgm = use_lkgm,
         cros_model = cros_model,
+        cros_cbx = cros_cbx,
         autotest_name = autotest_name,
         bucket = bucket,
         dut_pool = dut_pool,
@@ -535,7 +539,7 @@ def _variant(
 
     graph.add_edge(keys.project(), key)
 
-def _bundle(*, name = None, additional_compile_targets = None, targets = None, mixins = None, per_test_modifications = None):
+def _bundle(*, name = None, additional_compile_targets = None, targets = None, mixins = None, variants = None, per_test_modifications = None):
     """Define a targets bundle.
 
     A bundle is a grouping of targets to build and test.
@@ -550,6 +554,7 @@ def _bundle(*, name = None, additional_compile_targets = None, targets = None, m
         additional_compile_targets = args.listify(additional_compile_targets),
         targets = args.listify(targets),
         mixins = args.listify(mixins),
+        variants = args.listify(variants),
         per_test_modifications = per_test_modifications or {},
     ))
 
@@ -575,9 +580,20 @@ def _legacy_basic_suite(*, name, tests):
     basic_suite_key = _targets_nodes.LEGACY_BASIC_SUITE.add(name)
     graph.add_edge(keys.project(), basic_suite_key)
 
-    bundle_key = _targets_common.create_bundle(
+    def _per_test_modification(test_config):
+        mixins = args.listify(_mixin(**(test_config.mixin_values or {})), test_config.mixins)
+        return _targets_common.per_test_modification(
+            mixins = mixins,
+            remove_mixins = test_config.remove_mixins,
+        )
+
+    _targets_common.create_bundle(
         name = name,
         targets = tests.keys(),
+        per_test_modifications = {
+            t: _per_test_modification(config)
+            for t, config in tests.items()
+        },
     )
 
     for t, config in tests.items():
@@ -594,16 +610,9 @@ def _legacy_basic_suite(*, name, tests):
         graph.add_edge(basic_suite_key, config_key)
         graph.add_edge(config_key, _targets_nodes.LEGACY_TEST.key(t))
 
-        modification_key = _targets_nodes.PER_TEST_MODIFICATION.add(name, t)
-        graph.add_edge(bundle_key, modification_key)
-
-        basic_config_mixin = _mixin(**(config.mixin_values or {}))
-        graph.add_edge(modification_key, _targets_nodes.MIXIN.key(basic_config_mixin))
-
         for m in mixins:
             mixin_key = _targets_nodes.MIXIN.key(m)
             graph.add_edge(config_key, mixin_key)
-            graph.add_edge(modification_key, mixin_key)
         for r in remove_mixins:
             _targets_nodes.LEGACY_BASIC_SUITE_REMOVE_MIXIN.link(config_key, _targets_nodes.MIXIN.key(r))
 
@@ -694,6 +703,7 @@ def _legacy_matrix_compound_suite(*, name, basic_suites):
     key = _targets_nodes.LEGACY_MATRIX_COMPOUND_SUITE.add(name)
     graph.add_edge(keys.project(), key)
 
+    dep_targets = []
     for basic_suite_name, config in basic_suites.items():
         # This edge won't actually be used, but it ensures that the basic suite exists
         graph.add_edge(key, _targets_nodes.LEGACY_BASIC_SUITE.key(basic_suite_name))
@@ -702,10 +712,20 @@ def _legacy_matrix_compound_suite(*, name, basic_suites):
         config = config or _legacy_matrix_config()
         for m in config.mixins:
             graph.add_edge(matrix_config_key, _targets_nodes.MIXIN.key(m))
-        for v in config.variants:
-            graph.add_edge(matrix_config_key, _targets_nodes.VARIANT.key(v))
+        if config.variants:
+            dep_targets.append(_bundle(
+                targets = basic_suite_name,
+                variants = config.variants,
+            ))
+            for v in config.variants:
+                graph.add_edge(matrix_config_key, _targets_nodes.VARIANT.key(v))
+        else:
+            dep_targets.append(basic_suite_name)
 
-    # TODO: crbug.com/1420012 - Make matrix compound suites usable as bundles
+    _targets_common.create_bundle(
+        name = name,
+        targets = dep_targets,
+    )
 
 def _legacy_matrix_config(*, mixins = [], variants = []):
     """Define the matrix details for a basic suite.
@@ -750,6 +770,7 @@ targets = struct(
 
     # Functions for declaring bundles
     bundle = _bundle,
+    per_test_modification = _targets_common.per_test_modification,
     builder_defaults = _targets_common.builder_defaults,
     settings = _targets_common.settings,
     settings_defaults = _targets_common.settings_defaults,

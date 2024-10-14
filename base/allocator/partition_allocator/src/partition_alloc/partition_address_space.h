@@ -320,7 +320,7 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionAddressSpace {
   // reserved for the regular and brp shadow. However the result |true| doesn't
   // mean the given |ptr| is valid. Because we don't use the entire address
   // space for the shadow. We only use 2 SystemPageSize() / kSuperPageSize(%)
-  // of the space. See PoolShadowOffset().
+  // of the space.
   //
   // TODO(crbug.com/40238514) This is an unused function. Start using it in
   // tests and/or in production code.
@@ -475,7 +475,7 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionAddressSpace {
   // These are write-once fields, frequently accessed thereafter. Make sure they
   // don't share a cacheline with other, potentially writeable data, through
   // alignment and padding.
-  static PoolSetup setup_ PA_CONSTINIT;
+  PA_CONSTINIT static PoolSetup setup_;
 
 #if PA_CONFIG(ENABLE_SHADOW_METADATA)
   static std::ptrdiff_t regular_pool_shadow_offset_;

@@ -1481,9 +1481,10 @@ void FFmpegDemuxer::OnFindStreamInfoDone(int result) {
           audio_config, stream_enabled, track_id, MediaTrack::Kind("main"),
           track_label, track_language);
       media_track->set_id(MediaTrack::Id(base::NumberToString(track_id)));
-      DCHECK(track_id_to_demux_stream_map_.find(media_track->id()) ==
+      DCHECK(track_id_to_demux_stream_map_.find(media_track->track_id()) ==
              track_id_to_demux_stream_map_.end());
-      track_id_to_demux_stream_map_[media_track->id()] = streams_[i].get();
+      track_id_to_demux_stream_map_[media_track->track_id()] =
+          streams_[i].get();
     } else if (codec_type == AVMEDIA_TYPE_VIDEO) {
       VideoDecoderConfig video_config = streams_[i]->video_decoder_config();
 
@@ -1494,9 +1495,10 @@ void FFmpegDemuxer::OnFindStreamInfoDone(int result) {
           video_config, stream_enabled, track_id, MediaTrack::Kind("main"),
           track_label, track_language);
       media_track->set_id(MediaTrack::Id(base::NumberToString(track_id)));
-      DCHECK(track_id_to_demux_stream_map_.find(media_track->id()) ==
+      DCHECK(track_id_to_demux_stream_map_.find(media_track->track_id()) ==
              track_id_to_demux_stream_map_.end());
-      track_id_to_demux_stream_map_[media_track->id()] = streams_[i].get();
+      track_id_to_demux_stream_map_[media_track->track_id()] =
+          streams_[i].get();
     }
 
     max_duration = std::max(max_duration, streams_[i]->duration());
@@ -1787,7 +1789,7 @@ void FFmpegDemuxer::FindAndEnableProperTracks(
 
   std::vector<DemuxerStream*> streams(enabled_streams.begin(),
                                       enabled_streams.end());
-  std::move(change_completed_cb).Run(track_type, streams);
+  std::move(change_completed_cb).Run(streams);
 }
 
 void FFmpegDemuxer::OnEnabledAudioTracksChanged(
@@ -1810,22 +1812,20 @@ void FFmpegDemuxer::OnVideoSeekedForTrackChange(
 void FFmpegDemuxer::SeekOnVideoTrackChange(
     base::TimeDelta seek_to_time,
     TrackChangeCB seek_completed_cb,
-    DemuxerStream::Type stream_type,
     const std::vector<DemuxerStream*>& streams) {
-  DCHECK_EQ(stream_type, DemuxerStream::VIDEO);
   if (streams.size() != 1u) {
     // If FFmpegDemuxer::FindAndEnableProperTracks() was not able to find the
     // selected streams in the ID->DemuxerStream map, then its possible for
     // this vector to be empty. If that's the case, we don't want to bother
     // with seeking, and just call the callback immediately.
-    std::move(seek_completed_cb).Run(stream_type, streams);
+    std::move(seek_completed_cb).Run(streams);
     return;
   }
-  SeekInternal(seek_to_time,
-               base::BindOnce(&FFmpegDemuxer::OnVideoSeekedForTrackChange,
-                              weak_factory_.GetWeakPtr(), streams[0],
-                              base::BindOnce(std::move(seek_completed_cb),
-                                             DemuxerStream::VIDEO, streams)));
+  SeekInternal(
+      seek_to_time,
+      base::BindOnce(&FFmpegDemuxer::OnVideoSeekedForTrackChange,
+                     weak_factory_.GetWeakPtr(), streams[0],
+                     base::BindOnce(std::move(seek_completed_cb), streams)));
 }
 
 void FFmpegDemuxer::OnSelectedVideoTrackChanged(

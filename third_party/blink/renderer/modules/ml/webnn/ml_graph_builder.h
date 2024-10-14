@@ -30,6 +30,7 @@ class MLContext;
 class MLClampOptions;
 class MLConv2dOptions;
 class MLConvTranspose2dOptions;
+class MLCumulativeSumOptions;
 class MLEluOptions;
 class MLGatherOptions;
 class MLGemmOptions;
@@ -128,6 +129,11 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                              const MLConvTranspose2dOptions* options,
                              ExceptionState& exception_state);
 
+  MLOperand* cumulativeSum(const MLOperand* input,
+                           const uint32_t axis,
+                           const MLCumulativeSumOptions* options,
+                           ExceptionState& exception_state);
+
   // Element-wise binary operations
   MLOperand* add(const MLOperand* a,
                  const MLOperand* b,
@@ -200,6 +206,9 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
   MLOperand* neg(const MLOperand* input,
                  const MLOperatorOptions* options,
                  ExceptionState& exception_state);
+  MLOperand* sign(const MLOperand* input,
+                  const MLOperatorOptions* options,
+                  ExceptionState& exception_state);
   MLOperand* sin(const MLOperand* input,
                  const MLOperatorOptions* options,
                  ExceptionState& exception_state);
@@ -227,6 +236,12 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                   const MLOperatorOptions* options,
                   ExceptionState& exception_state);
 
+  MLOperand* dequantizeLinear(const MLOperand* input,
+                              const MLOperand* scale,
+                              const MLOperand* zeroPoint,
+                              const MLOperatorOptions* options,
+                              ExceptionState& exception_state);
+
   MLOperand* elu(const MLOperand* input,
                  const MLEluOptions* options,
                  ExceptionState& exception_state);
@@ -240,6 +255,11 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                     const MLOperand* indices,
                     const MLGatherOptions* options,
                     ExceptionState& exception_state);
+
+  MLOperand* gatherElements(const MLOperand* input,
+                            const MLOperand* indices,
+                            const MLGatherOptions* options,
+                            ExceptionState& exception_state);
 
   MLOperand* gelu(const MLOperand* input,
                   const MLOperatorOptions* options,
@@ -337,6 +357,12 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                    const MLOperatorOptions* options,
                    ExceptionState& exception_state);
 
+  MLOperand* quantizeLinear(const MLOperand* input,
+                            const MLOperand* scale,
+                            const MLOperand* zeroPoint,
+                            const MLOperatorOptions* options,
+                            ExceptionState& exception_state);
+
   // Reduction operations
   MLOperand* reduceL1(const MLOperand* input,
                       const MLReduceOptions* options,
@@ -383,6 +409,12 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                         const MLResample2dOptions* options,
                         ExceptionState& exception_state);
 
+  MLOperand* scatterND(const MLOperand* input,
+                       const MLOperand* indices,
+                       const MLOperand* updates,
+                       const MLOperatorOptions* options,
+                       ExceptionState& exception_state);
+
   MLOperand* sigmoid(const MLOperand* input,
                      const MLOperatorOptions* options,
                      ExceptionState& exception_state);
@@ -419,6 +451,11 @@ class MODULES_EXPORT MLGraphBuilder final : public ScriptWrappable {
                                             ExceptionState& exception_state);
 
   MLOperand* tanh(const MLOperand* input,
+                  const MLOperatorOptions* options,
+                  ExceptionState& exception_state);
+
+  MLOperand* tile(const MLOperand* input,
+                  const Vector<uint32_t>& repetitions,
                   const MLOperatorOptions* options,
                   ExceptionState& exception_state);
 

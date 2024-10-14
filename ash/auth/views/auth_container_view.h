@@ -11,6 +11,7 @@
 #include "ash/ash_export.h"
 #include "ash/auth/views/auth_common.h"
 #include "ash/auth/views/auth_input_row_view.h"
+#include "ash/auth/views/fingerprint_view.h"
 #include "ash/auth/views/pin_container_view.h"
 #include "ash/auth/views/pin_status_view.h"
 #include "ash/login/ui/animated_rounded_image_view.h"
@@ -26,6 +27,10 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/view.h"
+
+namespace cryptohome {
+class PinStatus;
+}  // namespace cryptohome
 
 namespace ash {
 
@@ -65,6 +70,8 @@ class ASH_EXPORT AuthContainerView : public views::View {
 
     raw_ptr<PinStatusView> GetPinStatusView();
 
+    raw_ptr<FingerprintView> GetFingerprintView();
+
     AuthInputType GetCurrentInputType();
 
     raw_ptr<AuthContainerView> GetView();
@@ -97,7 +104,8 @@ class ASH_EXPORT AuthContainerView : public views::View {
 
   void SetHasPin(bool has_pin);
   bool HasPin() const;
-  void SetPinStatus(const std::u16string& status_str);
+  void SetPinStatus(std::unique_ptr<cryptohome::PinStatus> pin_status);
+  const std::u16string& GetPinStatusMessage() const;
 
   // Enables or disables the following UI elements:
   // - View
@@ -117,12 +125,17 @@ class ASH_EXPORT AuthContainerView : public views::View {
   // Reset the input fields text and visibility.
   void ResetInputfields();
 
+  // FingerprintView actions:
+  void SetFingerprintState(FingerprintState state);
+  void NotifyFingerprintAuthFailure();
+
  private:
   // Internal methods for managing views.
   void AddPasswordView();
   void AddPinView();
   void AddSwitchButton();
   void AddPinStatusView();
+  void AddFingerprintView();
   void UpdateAuthInput();
   void UpdateSwitchButtonState();
 
@@ -133,6 +146,7 @@ class ASH_EXPORT AuthContainerView : public views::View {
   raw_ptr<AuthInputRowView> password_view_ = nullptr;
   std::unique_ptr<AuthInputRowView::Observer> password_observer_;
   raw_ptr<PinStatusView> pin_status_ = nullptr;
+  raw_ptr<FingerprintView> fingerprint_view_ = nullptr;
 
   // Switch Button and Spacer. When the switch button is hidden
   // this also should be hidden.

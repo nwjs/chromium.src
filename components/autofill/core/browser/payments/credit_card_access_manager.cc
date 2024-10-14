@@ -126,8 +126,8 @@ bool CreditCardAccessManager::ShouldClearPreviewedForm() {
 void CreditCardAccessManager::PrepareToFetchCreditCard() {
 #if !BUILDFLAG(IS_IOS)
   // No need to fetch details if there are no server cards.
-  if (!base::ranges::any_of(payments_data_manager().GetCreditCardsToSuggest(),
-                            std::not_fn(&CreditCard::IsLocalCard))) {
+  if (!std::ranges::any_of(payments_data_manager().GetCreditCardsToSuggest(),
+                           std::not_fn(&CreditCard::IsLocalCard))) {
     return;
   }
 
@@ -142,6 +142,14 @@ void CreditCardAccessManager::PrepareToFetchCreditCard() {
 
   // Reset in case a late response was ignored.
   ready_to_start_authentication_.Reset();
+
+  // Prefetching risk data for latency optimization and caching it for upcoming
+  // use in retrieval.
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnablePrefetchingRiskDataForRetrieval)) {
+    autofill_client().GetPaymentsAutofillClient()->LoadRiskData(
+        base::DoNothing());
+  }
 
   // If `is_user_verifiable_` is set, then directly call
   // `GetUnmaskDetailsIfUserIsVerifiable()`, otherwise fetch value for
@@ -1654,8 +1662,11 @@ CreditCardAccessManager::GetCardUnmaskChallengeOptionForChallengeId(
 
 bool CreditCardAccessManager::ShouldLogServerCardUnmaskAttemptMetrics(
     CreditCard::RecordType record_type) {
+  // Full server cards exist only in a temporarily cached state and should never
+  // be attempted to be unmasked.
+  CHECK_NE(record_type, CreditCard::RecordType::kFullServerCard);
+
   return record_type == CreditCard::RecordType::kMaskedServerCard ||
-      record_type == CreditCard::RecordType::kFullServerCard ||
       record_type == CreditCard::RecordType::kVirtualCard;
 }
 
@@ -1757,14 +1768,30 @@ void CreditCardAccessManager::OnDeviceAuthenticationResponseForFilling(
 
 void CreditCardAccessManager::OnVcn3dsAuthenticationComplete(
     payments::PaymentsWindowManager::Vcn3dsAuthenticationResponse response) {
-  if (response.card.has_value()) {
+  if (response.result ==
+      payments::PaymentsWindowManager::Vcn3dsAuthenticationResult::kSuccess) {
+    CHECK(response.card.has_value());
     // `on_credit_card_fetched_callback_` makes a copy of `card` and `cvc`
     // before it asynchronously fills them into the form. Thus it is safe to
     // pass the address of `response.card.value()` here, as by the time it goes
     // out of scope, a copy will have already been made to fill the form.
     std::move(on_credit_card_fetched_callback_)
         .Run(CreditCardFetchResult::kSuccess, &response.card.value());
+    autofill_metrics::LogServerCardUnmaskResult(
+        autofill_metrics::ServerCardUnmaskResult::kAuthenticationUnmasked,
+        PaymentsRpcCardType::kVirtualCard,
+        autofill_metrics::ServerCardUnmaskFlowType::kThreeDomainSecure);
+    form_event_logger_->LogCardUnmaskAuthenticationPromptCompleted(
+        unmask_auth_flow_type_);
   } else {
+    autofill_metrics::LogServerCardUnmaskResult(
+        response.result == payments::PaymentsWindowManager::
+                               Vcn3dsAuthenticationResult::kAuthenticationFailed
+            ? autofill_metrics::ServerCardUnmaskResult::
+                  kVirtualCardRetrievalError
+            : autofill_metrics::ServerCardUnmaskResult::kFlowCancelled,
+        PaymentsRpcCardType::kVirtualCard,
+        autofill_metrics::ServerCardUnmaskFlowType::kThreeDomainSecure);
     std::move(on_credit_card_fetched_callback_)
         .Run(CreditCardFetchResult::kTransientError, nullptr);
   }

@@ -25,7 +25,7 @@
 #import "components/sync_sessions/synced_window_delegates_getter.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/sync/model/data_type_store_service_factory.h"
 #import "ios/chrome/browser/sync/model/device_info_sync_service_factory.h"
@@ -141,9 +141,15 @@ bool SessionSyncServiceFactory::ShouldSyncURLForTesting(const GURL& url) {
 
 // static
 SessionSyncService* SessionSyncServiceFactory::GetForBrowserState(
-    ChromeBrowserState* browser_state) {
+    ProfileIOS* profile) {
+  return GetForProfile(profile);
+}
+
+// static
+SessionSyncService* SessionSyncServiceFactory::GetForProfile(
+    ProfileIOS* profile) {
   return static_cast<SessionSyncService*>(
-      GetInstance()->GetServiceForBrowserState(browser_state, true));
+      GetInstance()->GetServiceForBrowserState(profile, true));
 }
 
 SessionSyncServiceFactory::SessionSyncServiceFactory()

@@ -23,6 +23,7 @@
 #include "base/time/time.h"
 #include "base/version.h"
 #include "base/version_info/version_info.h"
+#include "chromeos/ash/components/growth/campaigns_logger.h"
 #include "chromeos/ash/components/growth/campaigns_model.h"
 #include "chromeos/ash/components/growth/growth_metrics.h"
 #include "chromeos/ash/components/growth/mock_campaigns_manager_client.h"
@@ -545,9 +546,11 @@ class CampaignsManagerTest : public testing::Test {
           )",
                                         runtime_targeting.c_str());
     LoadComponentAndVerifyLoadComplete(
-        base::StringPrintf(has_group_id ? kValidCampaignsFileWithGroupIdTemplate
-                                        : kValidCampaignsFileTemplate,
-                           targeting.c_str()));
+        has_group_id
+            ? base::StringPrintf(kValidCampaignsFileWithGroupIdTemplate,
+                                 targeting.c_str())
+            : base::StringPrintf(kValidCampaignsFileTemplate,
+                                 targeting.c_str()));
   }
 
   void LoadComponentWithMultiTargetings(const std::string& targetings) {
@@ -1045,6 +1048,7 @@ TEST_F(CampaignsManagerTest, LoadCampaignsFailed) {
   EXPECT_CALL(mock_client_, LoadCampaignsComponent(_))
       .WillOnce(InvokeCallbackArgument<0, CampaignComponentLoadedCallback>(
           std::nullopt));
+  EXPECT_FALSE(CampaignsLogger::Get()->HasLogForTesting());
 
   campaigns_manager_->LoadCampaigns(base::DoNothing());
   observer.Wait();
@@ -1056,6 +1060,7 @@ TEST_F(CampaignsManagerTest, LoadCampaignsFailed) {
   ASSERT_TRUE(observer.load_completed());
 
   ASSERT_EQ(nullptr, campaigns_manager_->GetCampaignBySlot(Slot::kDemoModeApp));
+  EXPECT_TRUE(CampaignsLogger::Get()->HasLogForTesting());
 
   histogram_tester.ExpectBucketCount(
       kCampaignsManagerErrorHistogramName,

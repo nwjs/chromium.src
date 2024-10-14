@@ -10,6 +10,18 @@ interface AI
     getter summarizer
     getter writer
     method constructor
+interface AIAssistant
+    attribute @@toStringTag
+    getter maxTokens
+    getter temperature
+    getter tokensLeft
+    getter tokensSoFar
+    getter topK
+    method clone
+    method constructor
+    method destroy
+    method prompt
+    method promptStreaming
 interface AIAssistantCapabilities
     attribute @@toStringTag
     getter available
@@ -37,6 +49,10 @@ interface AIRewriterFactory
     method create
 interface AISummarizer
     attribute @@toStringTag
+    getter format
+    getter length
+    getter sharedContext
+    getter type
     method constructor
     method destroy
     method summarize
@@ -45,23 +61,15 @@ interface AISummarizerCapabilities
     attribute @@toStringTag
     getter available
     method constructor
+    method supportsFormat
+    method supportsInputLanguage
+    method supportsLength
+    method supportsType
 interface AISummarizerFactory
     attribute @@toStringTag
     method capabilities
     method constructor
     method create
-interface AITextSession
-    attribute @@toStringTag
-    getter maxTokens
-    getter temperature
-    getter tokensLeft
-    getter tokensSoFar
-    getter topK
-    method clone
-    method constructor
-    method destroy
-    method prompt
-    method promptStreaming
 interface AIWriter
     attribute @@toStringTag
     getter sharedContext
@@ -919,6 +927,11 @@ interface CSSNamespaceRule : CSSRule
     getter namespaceURI
     getter prefix
     method constructor
+interface CSSNestedDeclarations : CSSRule
+    attribute @@toStringTag
+    getter style
+    method constructor
+    setter style
 interface CSSNumericArray
     attribute @@toStringTag
     getter length
@@ -1680,7 +1693,6 @@ interface CredentialsContainer
     method create
     method get
     method preventSilentAccess
-    method report
     method store
 interface CropTarget
     static method fromElement
@@ -2012,7 +2024,6 @@ interface DelayNode : AudioNode
     method constructor
 interface DelegatedInkTrailPresenter
     attribute @@toStringTag
-    getter expectedImprovement
     getter presentationArea
     method constructor
     method updateInkTrailStartPoint
@@ -6802,7 +6813,9 @@ interface Navigator
     method getBattery
     method getGamepads
     method getInstalledRelatedApps
+    method getInterestGroupAdAuctionData
     method getUserMedia
+    method install
     method javaEnabled
     method joinAdInterestGroup
     method leaveAdInterestGroup
@@ -6984,6 +6997,7 @@ interface OTPCredential : Credential
 interface Observable
     static method from
     attribute @@toStringTag
+    method catch
     method constructor
     method drop
     method every
@@ -6995,6 +7009,7 @@ interface Observable
     method inspect
     method last
     method map
+    method reduce
     method some
     method subscribe
     method switchMap
@@ -7694,10 +7709,14 @@ interface ProtectedAudience
     method constructor
     method queryFeatureSupport
 interface PublicKeyCredential : Credential
+    static method getClientCapabilities
     static method isConditionalMediationAvailable
     static method isUserVerifyingPlatformAuthenticatorAvailable
     static method parseCreationOptionsFromJSON
     static method parseRequestOptionsFromJSON
+    static method signalAllAcceptedCredentials
+    static method signalCurrentUserDetails
+    static method signalUnknownCredential
     attribute @@toStringTag
     getter authenticatorAttachment
     getter rawId
@@ -10548,6 +10567,10 @@ interface ViewTransitionTypeSet
     method has
     method keys
     method values
+interface Viewport
+    attribute @@toStringTag
+    getter segments
+    method constructor
 interface VirtualKeyboard : EventTarget
     attribute @@toStringTag
     getter boundingRect
@@ -10575,7 +10598,6 @@ interface VisualViewport : EventTarget
     getter pageLeft
     getter pageTop
     getter scale
-    getter segments
     getter width
     method constructor
     setter onresize
@@ -13088,6 +13110,7 @@ namespace console
     getter top
     getter translation
     getter trustedTypes
+    getter viewport
     getter visualViewport
     getter window
     method NodeFilter
@@ -13121,6 +13144,8 @@ namespace console
     method moveTo
     method open
     method openDatabase
+    method popinContextType
+    method popinContextTypesSupported
     method postMessage
     method print
     method prompt
@@ -13315,6 +13340,7 @@ namespace console
     setter statusbar
     setter toolbar
     setter translation
+    setter viewport
     setter visualViewport
 PASS successfullyParsed is true
 

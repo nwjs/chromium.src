@@ -47,6 +47,7 @@ bool IsPropertyAllowedInRule(const CSSProperty& property,
     case StyleRule::kStyle:
       return true;
     case StyleRule::kPage:
+    case StyleRule::kPageMargin:
       // TODO(sesse): Limit the allowed properties here.
       // https://www.w3.org/TR/css-page-3/#page-property-list
       // https://www.w3.org/TR/css-page-3/#margin-property-list
@@ -99,7 +100,7 @@ bool CSSPropertyParser::ParseValue(
   return parse_success;
 }
 
-// NOTE: “range” cannot include !important; this is for setting properties
+// NOTE: “stream” cannot include !important; this is for setting properties
 // from CSSOM or similar.
 const CSSValue* CSSPropertyParser::ParseSingleValue(
     CSSPropertyID property,
@@ -373,8 +374,9 @@ static CSSPropertyID UnresolvedCSSPropertyID(
 CSSPropertyID UnresolvedCSSPropertyID(const ExecutionContext* execution_context,
                                       StringView string,
                                       CSSParserMode mode) {
-  return WTF::VisitCharacters(string, [&](const auto* chars, unsigned length) {
-    return UnresolvedCSSPropertyID(execution_context, chars, length, mode);
+  return WTF::VisitCharacters(string, [&](auto chars) {
+    return UnresolvedCSSPropertyID(execution_context, chars.data(),
+                                   chars.size(), mode);
   });
 }
 
@@ -468,22 +470,8 @@ bool CSSPropertyParser::ParseFontFaceDescriptor(
     return false;
   }
 
-  // ParseFontFaceDescriptor() could want the original text,
-  // for re-tokenization for the specific case of the “unicode-range”
-  // property (which is the only property where UnicodeRange productions
-  // are allowed). Thus, we need to keep track of exactly what
-  // we tokenized, so that we can also send in the original text.
-  //
-  // This should obviously go away when everything uses
-  // the streaming parser.
-  wtf_size_t start_offset = stream_.LookAheadOffset();
-  CSSParserTokenRange range = stream_.ConsumeUntilPeekedTypeIs();
-  wtf_size_t end_offset = stream_.Offset();
-  StringView original_text =
-      stream_.StringRangeAt(start_offset, end_offset - start_offset);
-
-  CSSValue* parsed_value = AtRuleDescriptorParser::ParseFontFaceDescriptor(
-      id, {range, original_text}, *context_);
+  CSSValue* parsed_value =
+      AtRuleDescriptorParser::ParseFontFaceDescriptor(id, stream_, *context_);
   if (!parsed_value) {
     return false;
   }

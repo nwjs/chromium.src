@@ -42,6 +42,7 @@
     "linux-lacros-dbg": "ci/linux-lacros-dbg/gn-args.json"
   },
   "chromium.dawn": {
+    "Dawn Chromium Presubmit": "ci/Dawn Chromium Presubmit/gn-args.json",
     "Dawn Linux x64 DEPS Builder": "ci/Dawn Linux x64 DEPS Builder/gn-args.json",
     "Dawn Mac arm64 DEPS Builder": "ci/Dawn Mac arm64 DEPS Builder/gn-args.json",
     "Dawn Mac x64 DEPS Builder": "ci/Dawn Mac x64 DEPS Builder/gn-args.json",
@@ -70,7 +71,11 @@
   "chromium.linux": {
     "Linux Builder": "ci/Linux Builder/gn-args.json",
     "Linux Builder (Wayland)": "ci/Linux Builder (Wayland)/gn-args.json",
-    "Linux Builder (dbg)": "ci/Linux Builder (dbg)/gn-args.json"
+    "Linux Builder (dbg)": "ci/Linux Builder (dbg)/gn-args.json",
+    "linux-cast-arm-rel": "ci/linux-cast-arm-rel/gn-args.json",
+    "linux-cast-arm64-rel": "ci/linux-cast-arm64-rel/gn-args.json",
+    "linux-cast-x64-dbg": "ci/linux-cast-x64-dbg/gn-args.json",
+    "linux-cast-x64-rel": "ci/linux-cast-x64-rel/gn-args.json"
   },
   "chromium.mac": {
     "Mac Builder": "ci/Mac Builder/gn-args.json",
@@ -121,6 +126,7 @@
     "android-arm64-rel": "try/android-arm64-rel/gn-args.json",
     "android-binary-size": "try/android-binary-size/gn-args.json",
     "android-cronet-arm-dbg": "try/android-cronet-arm-dbg/gn-args.json",
+    "android-cronet-arm-rel": "try/android-cronet-arm-rel/gn-args.json",
     "android-cronet-mainline-clang-x86-dbg": "try/android-cronet-mainline-clang-x86-dbg/gn-args.json",
     "android-cronet-x64-dbg": "try/android-cronet-x64-dbg/gn-args.json",
     "android-cronet-x86-dbg-10-tests": "try/android-cronet-x86-dbg-10-tests/gn-args.json",
@@ -134,7 +140,6 @@
     "android_compile_dbg": "try/android_compile_dbg/gn-args.json",
     "android_compile_x64_dbg": "try/android_compile_x64_dbg/gn-args.json",
     "android_compile_x86_dbg": "try/android_compile_x86_dbg/gn-args.json",
-    "android_cronet": "try/android_cronet/gn-args.json",
     "android_optional_gpu_tests_rel": "try/android_optional_gpu_tests_rel/gn-args.json",
     "gpu-fyi-cq-android-arm64": "try/gpu-fyi-cq-android-arm64/gn-args.json"
   },
@@ -157,6 +162,7 @@
     "linux-lacros-rel": "try/linux-lacros-rel/gn-args.json"
   },
   "tryserver.chromium.dawn": {
+    "dawn-chromium-presubmit": "try/dawn-chromium-presubmit/gn-args.json",
     "dawn-linux-x64-deps-rel": "try/dawn-linux-x64-deps-rel/gn-args.json",
     "dawn-mac-arm64-deps-rel": "try/dawn-mac-arm64-deps-rel/gn-args.json",
     "dawn-mac-x64-deps-rel": "try/dawn-mac-x64-deps-rel/gn-args.json",
@@ -171,6 +177,10 @@
   },
   "tryserver.chromium.linux": {
     "linux-afl-asan-rel": "try/linux-afl-asan-rel/gn-args.json",
+    "linux-cast-arm-rel": "try/linux-cast-arm-rel/gn-args.json",
+    "linux-cast-arm64-rel": "try/linux-cast-arm64-rel/gn-args.json",
+    "linux-cast-x64-dbg": "try/linux-cast-x64-dbg/gn-args.json",
+    "linux-cast-x64-rel": "try/linux-cast-x64-rel/gn-args.json",
     "linux-centipede-asan-rel": "try/linux-centipede-asan-rel/gn-args.json",
     "linux-libfuzzer-asan-rel": "try/linux-libfuzzer-asan-rel/gn-args.json",
     "linux-rel": "try/linux-rel/gn-args.json",

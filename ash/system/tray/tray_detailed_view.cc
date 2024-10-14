@@ -177,6 +177,7 @@ void TrayDetailedView::CreateScrollableList() {
   auto vertical_scroll = std::make_unique<RoundedScrollBar>(
       views::ScrollBar::Orientation::kVertical);
   vertical_scroll->SetInsets(kScrollBarInsets);
+  vertical_scroll->SetAlwaysShowThumb(true);
   scroller_->SetVerticalScrollBar(std::move(vertical_scroll));
   scroller_->SetProperty(views::kMarginsKey, delegate_->GetScrollViewMargin());
   scroller_->SetPaintToLayer();
@@ -342,15 +343,18 @@ void TrayDetailedView::Layout(PassKey) {
   }
 }
 
-int TrayDetailedView::GetHeightForWidth(int width) const {
+gfx::Size TrayDetailedView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  gfx::Size preferred_size =
+      views::View::CalculatePreferredSize(available_size);
   if (bounds().IsEmpty()) {
-    return views::View::GetHeightForWidth(width);
+    return preferred_size;
   }
 
   // The height of the bubble that contains this detailed view is set to
   // the preferred height of the default view, and that determines the
   // initial height of |this|. Always request to stay the same height.
-  return height();
+  return gfx::Size(preferred_size.width(), height());
 }
 
 BEGIN_METADATA(TrayDetailedView)

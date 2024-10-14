@@ -12,6 +12,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "content/browser/aggregation_service/aggregation_service_features.h"
+#include "content/browser/interest_group/interest_group_features.h"
 #include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -134,15 +135,19 @@ base::Value::Dict CreateResponseDictWithPAggResponse(
 }
 
 base::Value::Dict CreateResponseDictWithDebugReports(
-    std::optional<bool> maybe_is_win_report,
-    std::optional<bool> maybe_component_win) {
+    std::optional<bool> maybe_component_win,
+    std::optional<bool> maybe_is_seller_report,
+    std::optional<bool> maybe_is_win_report) {
   base::Value::Dict report;
   report.Set("url", kDebugReportingURL);
-  if (maybe_is_win_report.has_value()) {
-    report.Set("isWinReport", *maybe_is_win_report);
-  }
   if (maybe_component_win.has_value()) {
     report.Set("componentWin", *maybe_component_win);
+  }
+  if (maybe_is_seller_report.has_value()) {
+    report.Set("isSellerReport", *maybe_is_seller_report);
+  }
+  if (maybe_is_win_report.has_value()) {
+    report.Set("isWinReport", *maybe_is_win_report);
   }
 
   return CreateValidResponseDict().Set(
@@ -810,6 +815,37 @@ TEST(BiddingAndAuctionResponseTest, ParseSucceeds) {
   }
 }
 
+TEST(BiddingAndAuctionResponseTest, RemovingFramingSucceeds) {
+  struct {
+    std::vector<uint8_t> input;
+    std::vector<uint8_t> expected_output;
+  } kTestCases[] = {
+      // Small one to test basic functionality
+      {
+          {0x02, 0x00, 0x00, 0x00, 0x01, 0xFE, 0x02},
+          {0xFE},
+      },
+      // Bigger one to check that we have the size right.
+      {
+          []() {
+            std::vector<uint8_t> unframed_input(1000, ' ');
+            std::vector<uint8_t> framing = {0x02, 0x00, 0x00, 0x02, 0xFF};
+            std::copy(framing.begin(), framing.end(),
+                      std::inserter(unframed_input, unframed_input.begin()));
+            return unframed_input;
+          }(),
+          std::vector<uint8_t>(0x2FF, ' '),
+      },
+  };
+
+  for (const auto& test_case : kTestCases) {
+    std::optional<base::span<const uint8_t>> result =
+        ExtractCompressedBiddingAndAuctionResponse(test_case.input);
+    ASSERT_TRUE(result);
+    EXPECT_THAT(*result, testing::ElementsAreArray(test_case.expected_output));
+  }
+}
+
 TEST(BiddingAndAuctionResponseTest, PrivateAggregationDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndDisableFeature(
@@ -831,6 +867,52 @@ TEST(BiddingAndAuctionResponseTest, PrivateAggregationDisabled) {
   EXPECT_TRUE(result->server_filtered_pagg_requests_non_reserved.empty());
 }
 
+TEST(BiddingAndAuctionResponseTest, BAndAPrivateAggregationDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{blink::features::kPrivateAggregationApi,
+        {{"enabled_in_fledge", "true"}}},
+       {blink::features::kPrivateAggregationApiFilteringIds, {}},
+       {kPrivacySandboxAggregationServiceFilteringIds, {}}},
+      /*disabled_features=*/{features::kEnableBandAPrivateAggregation});
+
+  base::Value::Dict response = CreateResponseDictWithPAggResponse(
+      CreateBasicContributions(), "reserved.win",
+      /*component_win=*/true);
+
+  std::optional<BiddingAndAuctionResponse> result =
+      BiddingAndAuctionResponse::TryParse(base::Value(response.Clone()),
+                                          GroupNames(),
+                                          GroupAggregationCoordinators());
+  ASSERT_TRUE(result);
+  BiddingAndAuctionResponse output = CreateExpectedValidResponse();
+  EXPECT_THAT(*result, EqualsBiddingAndAuctionResponse(std::ref(output)));
+  EXPECT_TRUE(result->component_win_pagg_requests.empty());
+  EXPECT_TRUE(result->server_filtered_pagg_requests_reserved.empty());
+  EXPECT_TRUE(result->server_filtered_pagg_requests_non_reserved.empty());
+}
+
+TEST(BiddingAndAuctionResponseTest, BAndASampleDebugReportsDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kEnableBandASampleDebugReports);
+
+  base::Value::Dict response = CreateResponseDictWithDebugReports(
+      /*maybe_component_win=*/false, /*maybe_is_seller_report=*/std::nullopt,
+      /*maybe_is_win_report=*/false);
+
+  std::optional<BiddingAndAuctionResponse> result =
+      BiddingAndAuctionResponse::TryParse(base::Value(response.Clone()),
+                                          GroupNames(),
+                                          GroupAggregationCoordinators());
+  ASSERT_TRUE(result);
+  BiddingAndAuctionResponse output = CreateExpectedValidResponse();
+  EXPECT_THAT(*result, EqualsBiddingAndAuctionResponse(std::ref(output)));
+  EXPECT_TRUE(result->component_win_debugging_only_reports.empty());
+  EXPECT_TRUE(result->server_filtered_debugging_only_reports.empty());
+}
+
 class BiddingAndAuctionPAggResponseTest : public testing::Test {
  public:
   BiddingAndAuctionPAggResponseTest() {
@@ -839,7 +921,8 @@ class BiddingAndAuctionPAggResponseTest : public testing::Test {
         {{blink::features::kPrivateAggregationApi,
           {{"enabled_in_fledge", "true"}}},
          {blink::features::kPrivateAggregationApiFilteringIds, {}},
-         {kPrivacySandboxAggregationServiceFilteringIds, {}}},
+         {kPrivacySandboxAggregationServiceFilteringIds, {}},
+         {features::kEnableBandAPrivateAggregation, {}}},
         /*disabled_features=*/{});
   }
 
@@ -1221,7 +1304,19 @@ TEST_F(BiddingAndAuctionPAggResponseTest,
     }
   }
 }
-TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReports) {
+
+class BiddingAndAuctionSampleDebugReportsTest : public testing::Test {
+ public:
+  BiddingAndAuctionSampleDebugReportsTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kEnableBandASampleDebugReports);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(BiddingAndAuctionSampleDebugReportsTest, ForDebuggingOnlyReports) {
   BiddingAndAuctionResponse output = CreateExpectedValidResponse();
   base::Value::List reports;
   reports.Append(base::Value::Dict()
@@ -1247,15 +1342,13 @@ TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReports) {
   ASSERT_TRUE(result);
   EXPECT_THAT(*result, EqualsBiddingAndAuctionResponse(std::ref(output)));
 
-  EXPECT_EQ(2u, result->component_winner_debugging_only_reports.size());
-  EXPECT_THAT(result->component_winner_debugging_only_reports[std::make_pair(
-                  url::Origin::Create(GURL(kOwnerOrigin)), true)],
-              testing::UnorderedElementsAre(
-                  GURL("https://component-win.win-debug-report.com")));
-  EXPECT_THAT(result->component_winner_debugging_only_reports[std::make_pair(
-                  url::Origin::Create(GURL(kOwnerOrigin)), false)],
-              testing::UnorderedElementsAre(
-                  GURL("https://component-win.loss-debug-report.com")));
+  EXPECT_EQ(2u, result->component_win_debugging_only_reports.size());
+  EXPECT_THAT(result->component_win_debugging_only_reports
+                  [BiddingAndAuctionResponse::DebugReportKey(false, true)],
+              GURL("https://component-win.win-debug-report.com"));
+  EXPECT_THAT(result->component_win_debugging_only_reports
+                  [BiddingAndAuctionResponse::DebugReportKey(false, false)],
+              GURL("https://component-win.loss-debug-report.com"));
 
   EXPECT_EQ(1u, result->server_filtered_debugging_only_reports.size());
   EXPECT_THAT(
@@ -1264,7 +1357,8 @@ TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReports) {
       testing::UnorderedElementsAre(kDebugReportingURL));
 }
 
-TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReportsIgnoreErrors) {
+TEST_F(BiddingAndAuctionSampleDebugReportsTest,
+       ForDebuggingOnlyReportsIgnoreErrors) {
   BiddingAndAuctionResponse output = CreateExpectedValidResponse();
   static const base::Value kTestCases[] = {
       {
@@ -1315,12 +1409,49 @@ TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReportsIgnoreErrors) {
     ASSERT_TRUE(result);
     EXPECT_THAT(*result, EqualsBiddingAndAuctionResponse(std::ref(output)));
 
-    EXPECT_TRUE(result->component_winner_debugging_only_reports.empty());
+    EXPECT_TRUE(result->component_win_debugging_only_reports.empty());
     EXPECT_TRUE(result->server_filtered_debugging_only_reports.empty());
   }
 }
 
-TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReportsComponentWinner) {
+TEST_F(BiddingAndAuctionSampleDebugReportsTest,
+       ForDebuggingOnlyReportsComponentWinner) {
+  BiddingAndAuctionResponse output = CreateExpectedValidResponse();
+  static const struct {
+    std::optional<bool> is_seller_report;
+    std::optional<bool> is_win_report;
+  } kTestCases[] = {
+      {true, true},         {true, false},         {true, std::nullopt},
+      {false, true},        {false, false},        {false, std::nullopt},
+      {std::nullopt, true}, {std::nullopt, false}, {std::nullopt, std::nullopt},
+  };
+
+  for (const auto& test_case : kTestCases) {
+    base::Value::Dict response = CreateResponseDictWithDebugReports(
+        /*maybe_component_win=*/true, test_case.is_seller_report,
+        test_case.is_win_report);
+    SCOPED_TRACE(response.DebugString());
+    std::optional<BiddingAndAuctionResponse> result =
+        BiddingAndAuctionResponse::TryParse(base::Value(response.Clone()),
+                                            GroupNames(),
+                                            /*group_pagg_coordinators=*/{});
+    ASSERT_TRUE(result);
+    EXPECT_THAT(*result, EqualsBiddingAndAuctionResponse(std::ref(output)));
+    EXPECT_EQ(1u, result->component_win_debugging_only_reports.size());
+    bool is_seller_report =
+        test_case.is_seller_report.has_value() && *test_case.is_seller_report;
+    bool is_win_report =
+        test_case.is_win_report.has_value() && *test_case.is_win_report;
+    EXPECT_THAT(result->component_win_debugging_only_reports
+                    [BiddingAndAuctionResponse::DebugReportKey(is_seller_report,
+                                                               is_win_report)],
+                kDebugReportingURL);
+    EXPECT_TRUE(result->server_filtered_debugging_only_reports.empty());
+  }
+}
+
+TEST_F(BiddingAndAuctionSampleDebugReportsTest,
+       ForDebuggingOnlyReportsServerFiltered) {
   BiddingAndAuctionResponse output = CreateExpectedValidResponse();
   static const std::optional<bool> kTestCases[] = {
       true,
@@ -1329,7 +1460,8 @@ TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReportsComponentWinner) {
   };
   for (const auto& test_case : kTestCases) {
     base::Value::Dict response = CreateResponseDictWithDebugReports(
-        test_case, /*maybe_component_win=*/true);
+        /*maybe_component_win=*/false, /*maybe_is_seller_report=*/std::nullopt,
+        /*maybe_is_win_report=*/test_case);
     SCOPED_TRACE(response.DebugString());
     std::optional<BiddingAndAuctionResponse> result =
         BiddingAndAuctionResponse::TryParse(base::Value(response.Clone()),
@@ -1337,69 +1469,12 @@ TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReportsComponentWinner) {
                                             /*group_pagg_coordinators=*/{});
     ASSERT_TRUE(result);
     EXPECT_THAT(*result, EqualsBiddingAndAuctionResponse(std::ref(output)));
-    EXPECT_EQ(1u, result->component_winner_debugging_only_reports.size());
-    bool is_win_report = test_case.has_value() && *test_case;
-    EXPECT_THAT(result->component_winner_debugging_only_reports[std::make_pair(
-                    url::Origin::Create(GURL(kOwnerOrigin)), is_win_report)],
-                testing::UnorderedElementsAre(kDebugReportingURL));
-    EXPECT_TRUE(result->server_filtered_debugging_only_reports.empty());
-  }
-}
-
-TEST(BiddingAndAuctionResponseTest, ForDebuggingOnlyReportsServerFiltered) {
-  BiddingAndAuctionResponse output = CreateExpectedValidResponse();
-  static const std::optional<bool> kTestCases[] = {
-      true,
-      false,
-      std::nullopt,
-  };
-  for (const auto& test_case : kTestCases) {
-    base::Value::Dict response = CreateResponseDictWithDebugReports(
-        test_case, /*maybe_component_win=*/false);
-    SCOPED_TRACE(response.DebugString());
-    std::optional<BiddingAndAuctionResponse> result =
-        BiddingAndAuctionResponse::TryParse(base::Value(response.Clone()),
-                                            GroupNames(),
-                                            /*group_pagg_coordinators=*/{});
-    ASSERT_TRUE(result);
-    EXPECT_THAT(*result, EqualsBiddingAndAuctionResponse(std::ref(output)));
-    EXPECT_TRUE(result->component_winner_debugging_only_reports.empty());
+    EXPECT_TRUE(result->component_win_debugging_only_reports.empty());
     EXPECT_EQ(1u, result->server_filtered_debugging_only_reports.size());
     EXPECT_THAT(
         result->server_filtered_debugging_only_reports[url::Origin::Create(
             GURL(kOwnerOrigin))],
         testing::UnorderedElementsAre(kDebugReportingURL));
-  }
-}
-
-TEST(BiddingAndAuctionResponseTest, RemovingFramingSucceeds) {
-  struct {
-    std::vector<uint8_t> input;
-    std::vector<uint8_t> expected_output;
-  } kTestCases[] = {
-      // Small one to test basic functionality
-      {
-          {0x02, 0x00, 0x00, 0x00, 0x01, 0xFE, 0x02},
-          {0xFE},
-      },
-      // Bigger one to check that we have the size right.
-      {
-          []() {
-            std::vector<uint8_t> unframed_input(1000, ' ');
-            std::vector<uint8_t> framing = {0x02, 0x00, 0x00, 0x02, 0xFF};
-            std::copy(framing.begin(), framing.end(),
-                      std::inserter(unframed_input, unframed_input.begin()));
-            return unframed_input;
-          }(),
-          std::vector<uint8_t>(0x2FF, ' '),
-      },
-  };
-
-  for (const auto& test_case : kTestCases) {
-    std::optional<base::span<const uint8_t>> result =
-        ExtractCompressedBiddingAndAuctionResponse(test_case.input);
-    ASSERT_TRUE(result);
-    EXPECT_THAT(*result, testing::ElementsAreArray(test_case.expected_output));
   }
 }
 

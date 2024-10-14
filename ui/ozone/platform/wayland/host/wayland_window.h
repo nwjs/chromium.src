@@ -199,6 +199,7 @@ class WaylandWindow : public PlatformWindow,
                  mojom::DragEventSource source,
                  gfx::NativeCursor cursor,
                  bool can_grab_pointer,
+                 base::OnceClosure drag_started_callback,
                  WmDragHandler::DragFinishedCallback drag_finished_callback,
                  WmDragHandler::LocationDelegate* delegate) override;
   void CancelDrag() override;
@@ -415,6 +416,10 @@ class WaylandWindow : public PlatformWindow,
   // Clears the state of the |frame_manager_| when the GPU channel is
   // destroyed.
   void OnChannelDestroyed();
+
+  // Triggers window UI resize and relayout in reaction to system-wide font
+  // scale changes, eg: accessibility's "large text" setting.
+  void OnFontScaleFactorChanged(float new_font_scale);
 
   virtual void DumpState(std::ostream& out) const;
 

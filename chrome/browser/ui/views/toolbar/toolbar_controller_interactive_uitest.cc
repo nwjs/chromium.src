@@ -50,9 +50,9 @@ constexpr int kBrowserContentAllowedMinimumWidth =
     BrowserViewLayout::kMainBrowserContentsMinimumWidth;
 }  // namespace
 
-class ToolbarControllerUiTest2 : public InteractiveFeaturePromoTest {
+class ToolbarControllerUiTest : public InteractiveFeaturePromoTest {
  public:
-  ToolbarControllerUiTest2()
+  ToolbarControllerUiTest()
       : InteractiveFeaturePromoTest(UseDefaultTrackerAllowingPromos(
             {feature_engagement::kIPHTabSearchFeature})) {
     ToolbarControllerUtil::SetPreventOverflowForTesting(false);
@@ -78,6 +78,8 @@ class ToolbarControllerUiTest2 : public InteractiveFeaturePromoTest {
     element_flex_order_start_ = toolbar_controller_->element_flex_order_start_;
     MaybeAddDummyButtonsToToolbarView();
     overflow_threshold_width_ = GetOverflowThresholdWidthInToolbarContainer();
+    default_browser_width_ = browser()->window()->GetBounds().width();
+    ASSERT_GT(default_browser_width_, overflow_threshold_width_);
   }
 
   void TearDownOnMainThread() override {
@@ -307,8 +309,8 @@ class ToolbarControllerUiTest2 : public InteractiveFeaturePromoTest {
                  WaitForHide(kSidePanelElementId));
   }
 
-  auto SetBrowserSuperWide() {
-    return Steps(Do([this]() { SetBrowserWidth(3000); }),
+  auto RestoreBrowserWidth() {
+    return Steps(Do([this]() { SetBrowserWidth(default_browser_width_); }),
                  WaitForHide(kToolbarOverflowButtonElementId));
   }
 
@@ -386,6 +388,8 @@ class ToolbarControllerUiTest2 : public InteractiveFeaturePromoTest {
 
   // The minimum width the toolbar view can be without any elements dropped out.
   int overflow_threshold_width_;
+
+  int default_browser_width_;
 };
 
 // TODO(crbug.com/41495158): Flaky on Windows.
@@ -395,7 +399,7 @@ class ToolbarControllerUiTest2 : public InteractiveFeaturePromoTest {
 #else
 #define MAYBE_StartBrowserWithThresholdWidth StartBrowserWithThresholdWidth
 #endif
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        MAYBE_StartBrowserWithThresholdWidth) {
   // Start browser with threshold width. Should not see overflow.
   SetBrowserWidth(overflow_threshold_width());
@@ -438,7 +442,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
 #define MAYBE_StartBrowserWithWidthSmallerThanThreshold \
   StartBrowserWithWidthSmallerThanThreshold
 #endif
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        MAYBE_StartBrowserWithWidthSmallerThanThreshold) {
   // Start browser with a smaller width than threshold. Should see overflow.
   SetBrowserWidth(overflow_threshold_width() - 1);
@@ -461,7 +465,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
   EXPECT_TRUE(overflow_button()->GetVisible());
 }
 
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        StartBrowserWithWidthLargerThanThreshold) {
   // Start browser with a larger width than threshold. Should not see overflow.
   SetBrowserWidth(overflow_threshold_width() + 1);
@@ -484,8 +488,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
   EXPECT_FALSE(overflow_button()->GetVisible());
 }
 
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
-                       MenuMatchesOverflowedElements) {
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest, MenuMatchesOverflowedElements) {
   RunTestSequence(
       Do([this]() { SetBrowserWidth(overflow_threshold_width() - 1); }),
       WaitForShow(kToolbarOverflowButtonElementId),
@@ -494,8 +497,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
       CheckMenuMatchesOverflowedElements());
 }
 
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
-                       ActivateActionElementFromMenu) {
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest, ActivateActionElementFromMenu) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryTabPageElementId);
   const auto back_url = embedded_test_server()->GetURL("/back");
   const auto forward_url = embedded_test_server()->GetURL("/forward");
@@ -525,13 +527,15 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
 
 // TODO(crbug.com/360465388): Lacros failures are because resize doesn't
 // actually stick.
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
+// TODO(crbug/361296257): ActionItemsOverflowAndReappear is flaky on
+// linux64-rel-ready.
+#if BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_LINUX)
 #define MAYBE_ActionItemsOverflowAndReappear \
   DISABLED_ActionItemsOverflowAndReappear
 #else
 #define MAYBE_ActionItemsOverflowAndReappear ActionItemsOverflowAndReappear
 #endif
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        MAYBE_ActionItemsOverflowAndReappear) {
   RunTestSequence(PinBookmarkToToolbar(),
                   // Pinned bookmark button is visible.
@@ -541,8 +545,8 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
                   AddDummyButtonsToToolbarTillElementOverflows(
                       ChromeActionIds::kActionSidePanelShowBookmarks),
 
-                  // Set browser super wide action item reappears.
-                  SetBrowserSuperWide(),
+                  // Set browser wider; action item reappears.
+                  RestoreBrowserWidth(),
                   WaitForShow(kPinnedToolbarActionsContainerElementId),
                   CheckActionItemOverflowed(
                       ChromeActionIds::kActionSidePanelShowBookmarks, false));
@@ -557,7 +561,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
 #define MAYBE_ActionItemsShowInMenuAndActivateFromMenu \
   ActionItemsShowInMenuAndActivateFromMenu
 #endif
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        MAYBE_ActionItemsShowInMenuAndActivateFromMenu) {
   RunTestSequence(
       PinBookmarkToToolbar(),
@@ -576,7 +580,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
       }));
 }
 
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        ActivatedActionItemsDoNotOverflow) {
   RunTestSequence(
       PinBookmarkToToolbar(),
@@ -595,14 +599,14 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
       CheckActionItemOverflowed(ChromeActionIds::kActionSidePanelShowBookmarks,
                                 false),
 
-      // Set browser wide still no overflow.
-      SetBrowserSuperWide(),
+      // Set browser wider; still no overflow.
+      RestoreBrowserWidth(),
       CheckActionItemOverflowed(ChromeActionIds::kActionSidePanelShowBookmarks,
                                 false));
 }
 
 // TODO(crbug.com/41495158): Flaky on multiple platforms.
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        DISABLED_DeactivatedActionItemsOverflow) {
   RunTestSequence(PinBookmarkToToolbar(),
                   AddDummyButtonsToToolbarTillElementOverflows(
@@ -621,7 +625,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
                       ChromeActionIds::kActionSidePanelShowBookmarks, true));
 }
 
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        EveryElementHasActionMetricName) {
   for (auto& it : ToolbarController::GetDefaultResponsiveElements(browser())) {
     absl::visit(
@@ -658,7 +662,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
 #else
 #define MAYBE_ExtensionHasNoAnimationLoop ExtensionHasNoAnimationLoop
 #endif
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        MAYBE_ExtensionHasNoAnimationLoop) {
   RunTestSequence(
       LoadAndPinExtensionButton(), PinBookmarkToToolbar(),
@@ -683,7 +687,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
 #else
 #define MAYBE_DoNotShowIphWhenOverflowed DoNotShowIphWhenOverflowed
 #endif
-IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest2,
+IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest,
                        MAYBE_DoNotShowIphWhenOverflowed) {
   RunTestSequence(
       ResizeRelativeToOverflow(-1),

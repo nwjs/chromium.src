@@ -57,8 +57,8 @@ class FakeWebNNGraphImpl final : public WebNNGraphImpl {
   }
 
   void DispatchImpl(
-      const base::flat_map<std::string_view, WebNNBufferImpl*>& named_inputs,
-      const base::flat_map<std::string_view, WebNNBufferImpl*>& named_outputs)
+      const base::flat_map<std::string_view, WebNNTensorImpl*>& named_inputs,
+      const base::flat_map<std::string_view, WebNNTensorImpl*>& named_outputs)
       override {
     NOTIMPLEMENTED();
   }
@@ -104,10 +104,10 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
             std::move(callback)));
   }
 
-  void CreateBufferImpl(
-      mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
-      mojom::BufferInfoPtr buffer_info,
-      CreateBufferImplCallback callback) override {
+  void CreateTensorImpl(
+      mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
+      mojom::TensorInfoPtr tensor_info,
+      CreateTensorImplCallback callback) override {
     NOTIMPLEMENTED();
   }
 

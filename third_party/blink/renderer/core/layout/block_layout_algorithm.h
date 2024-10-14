@@ -155,7 +155,7 @@ struct BlockLineClampData {
 
   // Returns false if we need to relayout with a different clamp BFC offset.
   bool UpdateAfterLayout(const LayoutResult* layout_result,
-                         const std::optional<LayoutUnit>& bfc_block_offset,
+                         LayoutUnit bfc_block_offset,
                          const PreviousInflowPosition& previous_inflow_position,
                          LayoutUnit block_end_padding) {
     if (data.state == LineClampData::kClampByLines) {
@@ -195,8 +195,7 @@ struct BlockLineClampData {
                      -block_end_padding);
       }
 
-      DCHECK(bfc_block_offset);
-      LayoutUnit bfc_offset = *bfc_block_offset +
+      LayoutUnit bfc_offset = bfc_block_offset +
                               previous_inflow_position.logical_block_offset +
                               padding_annotation_overflow +
                               (collapsed_strut.Sum() - end_margin_strut.Sum());
@@ -266,9 +265,7 @@ class CORE_EXPORT BlockLayoutAlgorithm
   NOINLINE const LayoutResult* HandleNonsuccessfulLayoutResult(
       const LayoutResult*);
 
-  const LayoutResult* LayoutInlineChild(const InlineNode& child);
-  NOINLINE const LayoutResult* LayoutWithSimpleInlineChildLayoutContext(
-      const InlineNode& child);
+  NOINLINE const LayoutResult* LayoutInlineChild(const InlineNode& child);
   template <wtf_size_t capacity>
   NOINLINE const LayoutResult* LayoutWithOptimalInlineChildLayoutContext(
       const InlineNode& child);
@@ -427,8 +424,7 @@ class CORE_EXPORT BlockLayoutAlgorithm
   // clipped box gets overflowed past the fragmentation line). The return value
   // can be checked for this. Only if kContinue is returned, can a fragment be
   // created.
-  BreakStatus FinalizeForFragmentation(
-      LayoutUnit block_end_border_padding_added);
+  BreakStatus FinalizeForFragmentation();
 
   // Insert a fragmentainer break before the child if necessary.
   // See |::blink::BreakBeforeChildIfNeeded()| for more documentation.

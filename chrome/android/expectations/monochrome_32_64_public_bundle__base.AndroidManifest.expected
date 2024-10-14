@@ -77,7 +77,7 @@
   <uses-permission-sdk-23 android:name="android.permission.SCENE_UNDERSTANDING"/>
   <uses-permission-sdk-23 android:name="android.permission.USE_BIOMETRIC"/>
   <uses-permission-sdk-23 android:name="android.permission.USE_FINGERPRINT"/>
-  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
+  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34"/>
   <application
       android:name="org.chromium.chrome.browser.base.SplitMonochromeApplication"
       android:allowAudioPlaybackCapture="false"
@@ -181,13 +181,6 @@
         android:visibleToInstantApps="true">
       <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/provider_paths"/>
     </provider>  # DIFF-ANCHOR: d3ae412b
-    <provider  # DIFF-ANCHOR: bc0a9a7a
-        android:name="com.google.firebase.provider.FirebaseInitProvider"
-        android:authorities="$PACKAGE.firebaseinitprovider"
-        android:directBootAware="true"
-        android:exported="false"
-        android:initOrder="100">
-    </provider>  # DIFF-ANCHOR: bc0a9a7a
     <provider  # DIFF-ANCHOR: a5e78e63
         android:name="org.chromium.android_webview.nonembedded.LicenseContentProvider"
         android:authorities="$PACKAGE.LicenseContentProvider"
@@ -359,6 +352,7 @@
         android:name="org.chromium.android_webview.services.StartupFeatureMetadataHolder"
         android:enabled="false"
         android:exported="true">
+      <meta-data android:name="STARTUP_FEATURE_CONFIGURE_PARTITIONED_COOKIES" android:value="true"/>
       <meta-data android:name="STARTUP_FEATURE_SET_DATA_DIRECTORY_SUFFIX" android:value="true"/>
       <meta-data android:name="STARTUP_FEATURE_SET_DIRECTORY_BASE_PATH" android:value="true"/>
     </service>  # DIFF-ANCHOR: c52936d7

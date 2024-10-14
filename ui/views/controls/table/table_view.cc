@@ -190,6 +190,7 @@ TableView::TableView() : weak_factory_(this) {
         CHECK(v);
         return v->HasFocus() && !v->header_row_is_active_;
       }));
+  GetViewAccessibility().SetRole(ax::mojom::Role::kListGrid);
 }
 
 TableView::TableView(ui::TableModel* model,
@@ -197,6 +198,7 @@ TableView::TableView(ui::TableModel* model,
                      TableType table_type,
                      bool single_selection)
     : TableView() {
+  GetViewAccessibility().SetRole(ax::mojom::Role::kListGrid);
   Init(model, std::move(columns), table_type, single_selection);
 }
 
@@ -740,7 +742,6 @@ std::u16string TableView::GetTooltipText(const gfx::Point& p) const {
 void TableView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   // ID, class name and relative bounds are added by ViewAccessibility for all
   // non-virtual views, so we don't need to add them here.
-  node_data->role = ax::mojom::Role::kListGrid;
   node_data->SetRestriction(ax::mojom::Restriction::kReadOnly);
   node_data->SetDefaultActionVerb(ax::mojom::DefaultActionVerb::kActivate);
   // Subclasses should overwrite the name with the control's associated label.
@@ -834,6 +835,12 @@ bool TableView::HandleAccessibleAction(const ui::AXActionData& action_data) {
   return true;
 }
 
+void TableView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
+  // If the bounds change, we need to update the bounds of our AXVirtualView
+  // children.
+  UpdateVirtualAccessibilityChildrenVisibilityState();
+}
+
 void TableView::OnModelChanged() {
   selection_model_.Clear();
   RebuildVirtualAccessibilityChildren();
@@ -861,6 +868,11 @@ void TableView::OnItemsAdded(size_t start, size_t length) {
   }
 
   SortItemsAndUpdateMapping(/*schedule_paint=*/true);
+  // This has to be done after updating the mapping.
+  // If we don't do this, the view indices and the model indices will be out of
+  // sync, since new AXVirtualViews were added. This will cause CHECKS to hit
+  // when trying to access the model indices.
+  UpdateVirtualAccessibilityChildrenVisibilityState();
   PreferredSizeChanged();
   NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged, true);
 }
@@ -1558,6 +1570,11 @@ void TableView::RebuildVirtualAccessibilityChildren() {
   }
 
   SortItemsAndUpdateMapping(/*schedule_paint=*/true);
+  // This has to be done after updating the mapping.
+  // If we don't do this, the view indices and the model indices will be out of
+  // sync, since new AXVirtualViews were added. This will cause CHECKS to hit
+  // when trying to access the model indices.
+  UpdateVirtualAccessibilityChildrenVisibilityState();
   NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged, true);
 }
 
@@ -1605,6 +1622,39 @@ void TableView::UpdateAccessibleNameForIndex(size_t start_view_index,
 
 void TableView::ClearVirtualAccessibilityChildren() {
   GetViewAccessibility().RemoveAllVirtualChildViews();
+}
+
+void TableView::UpdateVirtualAccessibilityChildrenVisibilityState() {
+  for (size_t i = 0; i < GetRowCount(); ++i) {
+    AXVirtualView* ax_row = GetVirtualAccessibilityBodyRow(i);
+    CHECK(ax_row);
+
+    auto ax_index = GetViewAccessibility().GetIndexOf(ax_row);
+    size_t row_index = ax_index.value() - (header_ ? 1 : 0);
+    size_t model_index = ViewToModel(row_index);
+
+    gfx::Rect row_bounds = GetRowBounds(model_index);
+    // TODO(crbug.com/325137417): This should be undone, its incorrect to set
+    // the invisible state when view is offscreen. Once ViewsAX is finished we
+    // should remove this and compute the IsOffscreen property from the bounds
+    // of the view and its parent.
+    if (!GetVisibleBounds().Intersects(row_bounds)) {
+      ax_row->GetCustomData().AddState(ax::mojom::State::kInvisible);
+    } else {
+      ax_row->GetCustomData().RemoveState(ax::mojom::State::kInvisible);
+    }
+    for (auto& ax_cell : ax_row->children()) {
+      auto column_index = ax_row->GetIndexOf(ax_cell.get());
+      DCHECK(column_index.has_value());
+
+      gfx::Rect cell_bounds = GetCellBounds(row_index, column_index.value());
+      if (!GetVisibleBounds().Intersects(cell_bounds)) {
+        ax_cell->GetCustomData().AddState(ax::mojom::State::kInvisible);
+      } else {
+        ax_cell->GetCustomData().RemoveState(ax::mojom::State::kInvisible);
+      }
+    }
+  }
 }
 
 void TableView::SetAccessibleSelectionForIndex(size_t view_index,
@@ -1683,11 +1733,6 @@ std::unique_ptr<AXVirtualView> TableView::CreateRowAccessibilityView(
   if (!single_selection_)
     row_data.AddState(ax::mojom::State::kMultiselectable);
 
-  // Add a dynamic accessibility data callback for each row.
-  ax_row->SetPopulateDataCallback(
-      base::BindRepeating(&TableView::PopulateAccessibilityRowData,
-                          base::Unretained(this), ax_row.get()));
-
   for (size_t visible_column_index = 0;
        visible_column_index < visible_columns_.size(); ++visible_column_index) {
     std::unique_ptr<AXVirtualView> ax_cell =
@@ -1740,44 +1785,7 @@ std::unique_ptr<AXVirtualView> TableView::CreateCellAccessibilityView(
   cell_data.AddIntAttribute(ax::mojom::IntAttribute::kSortDirection,
                             static_cast<int32_t>(sort_direction));
 
-  // Add a dynamic accessibility data callback for each cell.
-  ax_cell->SetPopulateDataCallback(
-      base::BindRepeating(&TableView::PopulateAccessibilityCellData,
-                          base::Unretained(this), ax_cell.get()));
-
   return ax_cell;
-}
-
-void TableView::PopulateAccessibilityRowData(AXVirtualView* ax_row,
-                                             ui::AXNodeData* data) {
-  auto ax_index = GetViewAccessibility().GetIndexOf(ax_row);
-  DCHECK(ax_index.has_value());
-
-  size_t row_index = ax_index.value() - (header_ ? 1 : 0);
-  size_t model_index = ViewToModel(row_index);
-
-  gfx::Rect row_bounds = GetRowBounds(model_index);
-
-  if (!GetVisibleBounds().Intersects(row_bounds))
-    data->AddState(ax::mojom::State::kInvisible);
-}
-
-void TableView::PopulateAccessibilityCellData(AXVirtualView* ax_cell,
-                                              ui::AXNodeData* data) {
-  AXVirtualView* ax_row = ax_cell->virtual_parent_view();
-  DCHECK(ax_row);
-
-  auto ax_index = GetViewAccessibility().GetIndexOf(ax_row);
-  DCHECK(ax_index.has_value());
-
-  size_t row_index = ax_index.value() - (header_ ? 1 : 0);
-  auto column_index = ax_row->GetIndexOf(ax_cell);
-  DCHECK(column_index.has_value());
-
-  gfx::Rect cell_bounds = GetCellBounds(row_index, column_index.value());
-
-  if (!GetVisibleBounds().Intersects(cell_bounds))
-    data->AddState(ax::mojom::State::kInvisible);
 }
 
 void TableView::UpdateFocusRings() {

@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 #include <stdlib.h>
 
+#include <array>
+#include <cstdint>
 #include <cstring>
 #include <vector>
 
@@ -195,6 +197,11 @@ void fct() {
   buf2[1] = 'a';
 
   // Expected rewrite:
+  // base::span<unsigned short> buf2 = get_buffer<uint16_t>();
+  base::span<unsigned short> buf3 = get_buffer<uint16_t>();
+  buf3[1] = 256;
+
+  // Expected rewrite:
   // memcpy(buf2.data(), buf.data(), 10
   memcpy(buf2.data(), buf.data(), 10);
 
@@ -219,3 +226,30 @@ void fct() {
 }
 
 }  // namespace templated_stuff
+
+namespace buffers_into_arrays {
+void fct() {
+  // Expected rewrite:
+  // std::array<int, 4> buf = {1, 2, 3, 4};
+  std::array<int, 4> buf = {1, 2, 3, 4};
+  int index = 0;
+  buf[index] = 11;
+}
+}  // namespace buffers_into_arrays
+
+namespace namespace_stuff {
+namespace ns1 {
+struct B {
+  int b = 0;
+};
+}  // namespace ns1
+
+void fct() {
+  // Expected rewrite:
+  // base::span<namespace_stuff::ns1::B> ptr = new ns1::B[32];
+  base::span<namespace_stuff::ns1::B> buf = new ns1::B[32];
+  // However since there is no viable conversion from `B*` into
+  // `base::span<ns1::B>`, the rewrite will cause compile error.
+  buf[0].b = -1;
+}
+}  // namespace namespace_stuff

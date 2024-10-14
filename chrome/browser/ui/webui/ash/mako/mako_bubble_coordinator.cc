@@ -19,6 +19,8 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/orca_resources.h"
 #include "chrome/grit/orca_resources_map.h"
+#include "chromeos/components/magic_boost/public/cpp/magic_boost_state.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "content/public/common/url_constants.h"
 #include "net/base/url_util.h"
 #include "ui/base/ime/ash/ime_bridge.h"
@@ -63,6 +65,7 @@ void MakoBubbleCoordinator::LoadEditorUI(
     Profile* profile,
     MakoEditorMode mode,
     bool can_fallback_to_center_position,
+    bool feedback_enabled,
     std::optional<std::string_view> preset_query_id,
     std::optional<std::string_view> freeform_text) {
   if (IsShowingUI()) {
@@ -78,6 +81,15 @@ void MakoBubbleCoordinator::LoadEditorUI(
                                            freeform_text);
   url = net::AppendOrReplaceQueryParameter(url, kOrcaHostLanguageParamKey,
                                            GetSystemLocale());
+  url = net::AppendOrReplaceQueryParameter(url, kOrcaFeedbackEnabledParamKey,
+                                           feedback_enabled ? "true" : "false");
+  auto* magic_boost_state = chromeos::MagicBoostState::Get();
+  url = net::AppendOrReplaceQueryParameter(
+      url, kOrcaMagicBoostParamKey,
+      magic_boost_state && magic_boost_state->IsMagicBoostAvailable()
+          ? "true"
+          : "false");
+
   if (base::FeatureList::IsEnabled(ash::features::kOrcaResizingSupport)) {
     url = net::AppendOrReplaceQueryParameter(url, kOrcaResizingEnabledParamKey,
                                              "true");

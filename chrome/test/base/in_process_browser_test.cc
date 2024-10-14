@@ -84,7 +84,6 @@
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/os_crypt/async/browser/key_provider.h"
 #include "components/os_crypt/sync/os_crypt_mocker.h"
-#include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/common/content_paths.h"
@@ -188,6 +187,7 @@ class FakeDeviceSyncImplFactory
   // ash::device_sync::DeviceSyncImpl::Factory:
   std::unique_ptr<ash::device_sync::DeviceSyncBase> CreateInstance(
       signin::IdentityManager* identity_manager,
+      gcm::GCMDriver* gcm_driver,
       instance_id::InstanceIDDriver* instance_id_driver,
       PrefService* profile_prefs,
       const ash::device_sync::GcmDeviceInfoProvider* gcm_device_info_provider,
@@ -686,11 +686,8 @@ void InProcessBrowserTest::SetUp() {
   // The Search Engine Choice service may attempt to show a modal dialog to the
   // profile on browser start, which is unexpected by mosts tests. Tests which
   // expect this can allow the prompt as desired.
-  if (search_engines::IsChoiceScreenFlagEnabled(
-          search_engines::ChoicePromo::kDialog)) {
-    SearchEngineChoiceDialogService::SetDialogDisabledForTests(
-        /*dialog_disabled=*/true);
-  }
+  SearchEngineChoiceDialogService::SetDialogDisabledForTests(
+      /*dialog_disabled=*/true);
 #endif
 
   EnsureBrowserContextKeyedServiceFactoriesForTestingBuilt();

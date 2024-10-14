@@ -9,12 +9,12 @@
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
 #import "base/ios/ios_util.h"
+#import "ios/chrome/browser/incognito_interstitial/ui_bundled/incognito_interstitial_constants.h"
+#import "ios/chrome/browser/ntp/ui_bundled/incognito/incognito_view.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/util/attributed_string_util.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
-#import "ios/chrome/browser/incognito_interstitial/ui_bundled/incognito_interstitial_constants.h"
-#import "ios/chrome/browser/ui/ntp/incognito/incognito_view.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
@@ -200,13 +200,30 @@ const CGFloat kTitleLabelLineHeightMultiple = 1.3;
         constraintEqualToAnchor:self.view.trailingAnchor],
     [self.navigationBar.topAnchor constraintEqualToAnchor:self.view.topAnchor],
   ]];
+
+  if (@available(iOS 17, *)) {
+    NSArray<UITrait>* traits =
+        TraitCollectionSetForTraits(@[ UITraitVerticalSizeClass.self ]);
+    __weak __typeof(self) weakSelf = self;
+    UITraitChangeHandler handler = ^(id<UITraitEnvironment> traitEnvironment,
+                                     UITraitCollection* previousCollection) {
+      weakSelf.shouldHideBanner = IsCompactHeight(traitEnvironment);
+      [weakSelf updateNavigationBarAppearance];
+    };
+    [self registerForTraitChanges:traits withHandler:handler];
+  }
 }
 
+#if !defined(__IPHONE_17_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_17_0
 - (void)traitCollectionDidChange:(UITraitCollection*)previousTraitCollection {
   [super traitCollectionDidChange:previousTraitCollection];
+  if (@available(iOS 17, *)) {
+    return;
+  }
   self.shouldHideBanner = IsCompactHeight(self.traitCollection);
   [self updateNavigationBarAppearance];
 }
+#endif
 
 - (void)viewDidLayoutSubviews {
   if (self.URLIsExpanded) {

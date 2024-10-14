@@ -12,10 +12,12 @@ import {
   Textfield,
 } from 'chrome://resources/cros_components/textfield/textfield.js';
 import {
+  createRef,
   css,
   html,
   nothing,
   PropertyDeclarations,
+  ref,
 } from 'chrome://resources/mwc/lit/index.js';
 
 import {i18n} from '../core/i18n.js';
@@ -30,8 +32,9 @@ import {
 import {computed, signal} from '../core/reactive/signal.js';
 import {RecordingMetadata} from '../core/recording_data_manager.js';
 import {settings, SummaryEnableState} from '../core/state/settings.js';
-import {assertInstanceof} from '../core/utils/assert.js';
+import {assertExists, assertInstanceof} from '../core/utils/assert.js';
 
+import {CraIconButton} from './cra/cra-icon-button.js';
 import {RecordingTitleSuggestion} from './recording-title-suggestion.js';
 
 /**
@@ -50,9 +53,14 @@ export class RecordingTitle extends ReactiveLitElement {
     }
 
     recording-title-suggestion {
+      /*
+       * TODO: b/361221415 - Remove the old properties when stable Chrome
+       * supports new one.
+       */
+      inset-area: bottom span-right;
       position: absolute;
       position-anchor: --title-textfield;
-      inset-area: bottom span-right;
+      position-area: bottom span-right;
       margin-top: 4.5px;
       max-width: 402px;
       min-width: 360px;
@@ -100,13 +108,34 @@ export class RecordingTitle extends ReactiveLitElement {
 
   private readonly platformHandler = usePlatformHandler();
 
+  private readonly renameContainer = createRef<HTMLDivElement>();
+
+  private readonly suggestTitleButton = createRef<CraIconButton>();
+
+  private readonly recordingTitleSuggestion =
+    createRef<RecordingTitleSuggestion>();
+
+  get renameContainerForTest(): HTMLDivElement {
+    return assertExists(this.renameContainer.value);
+  }
+
+  get suggestTitleButtonForTest(): CraIconButton {
+    return assertExists(this.suggestTitleButton.value);
+  }
+
+  get titleSuggestionForTest(): RecordingTitleSuggestion {
+    return assertExists(this.recordingTitleSuggestion.value);
+  }
+
+  private readonly recordingId = computed(() => {
+    return this.recordingMetadataSignal.value?.id ?? null;
+  });
+
   private readonly transcription = new ScopedAsyncComputed(this, async () => {
-    if (this.recordingMetadataSignal.value === null) {
+    if (this.recordingId.value === null) {
       return null;
     }
-    return this.recordingDataManager.getTranscription(
-      this.recordingMetadataSignal.value.id,
-    );
+    return this.recordingDataManager.getTranscription(this.recordingId.value);
   });
 
   private readonly shouldShowTitleSuggestion = computed(() => {
@@ -121,31 +150,31 @@ export class RecordingTitle extends ReactiveLitElement {
   private readonly suggestedTitles = new ScopedAsyncComputed(this, async () => {
     // TODO(pihsun): Cache title suggestion between hide/show the suggestion
     // dialog?
-    if (!this.suggestionShown.value || this.recordingMetadata === null ||
-        !this.shouldShowTitleSuggestion.value) {
+    if (!this.suggestionShown.value || !this.shouldShowTitleSuggestion.value) {
       return null;
     }
     if (this.transcription.value === null) {
       return null;
     }
+
     // TODO(pihsun): Have a specific format for transcription to be used as
     // model input.
     const text = this.transcription.value.toPlainText();
-    const model = await this.platformHandler.titleSuggestionModelLoader.load();
-    try {
-      return await model.execute(text);
-      // TODO(pihsun): Handle error.
-    } finally {
-      model.close();
-    }
+
+    this.platformHandler.perfLogger.start({
+      kind: 'titleSuggestion',
+      wordCount: this.transcription.value.wordCount,
+    });
+
+    const {titleSuggestionModelLoader} = this.platformHandler;
+    const suggestions = await titleSuggestionModelLoader.loadAndExecute(text);
+    this.platformHandler.perfLogger.finish('titleSuggestion');
+
+    return suggestions;
   });
 
   private get editTextfield(): Textfield|null {
     return this.shadowRoot?.querySelector('cros-textfield') ?? null;
-  }
-
-  private get titleSuggestionDialog(): RecordingTitleSuggestion|null {
-    return this.shadowRoot?.querySelector('recording-title-suggestion') ?? null;
   }
 
   private async startEditTitle() {
@@ -161,16 +190,17 @@ export class RecordingTitle extends ReactiveLitElement {
   }
 
   private onFocusout(ev: FocusEvent) {
+    if (this.suggestionShown.value) {
+      // Suggestion dialog is shown, don't auto-close everything on focus out.
+      return;
+    }
     const newTarget = ev.relatedTarget;
-    if (newTarget !== null && newTarget instanceof Node &&
-        (this.editTextfield?.contains(newTarget) ||
-         this.titleSuggestionDialog?.contains(newTarget))) {
+    if (newTarget instanceof Node && this.editTextfield?.contains(newTarget)) {
       // New target is a child of the textfield or title suggestion, don't stop
       // editing.
       return;
     }
     this.editing.value = false;
-    this.suggestionShown.value = false;
     // TODO(pihsun): The focusout/blur event got triggered synchronously on
     // render when an element is removed, which breaks the assumption in the
     // reactive/lit.ts implementation of ReactiveLitElement, so setting values
@@ -200,10 +230,6 @@ export class RecordingTitle extends ReactiveLitElement {
   }
 
   private openSuggestionDialog() {
-    // We focus on the text field before showing the suggestion, so the
-    // focusout event from the icon button won't cause edit to be exited.
-    // TODO(pihsun): Check a11y on where we should focus in this case.
-    this.editTextfield?.focusTextfield();
     this.suggestionShown.value = true;
   }
 
@@ -220,10 +246,11 @@ export class RecordingTitle extends ReactiveLitElement {
     }
 
     return html`<recording-title-suggestion
-      @focusout=${this.onFocusout}
       @close=${this.closeSuggestionDialog}
       @change=${this.onSuggestTitle}
       .suggestedTitles=${this.suggestedTitles}
+      .wordCount=${this.transcription.value?.wordCount ?? 0}
+      ${ref(this.recordingTitleSuggestion)}
     ></recording-title-suggestion>`;
   }
 
@@ -238,6 +265,8 @@ export class RecordingTitle extends ReactiveLitElement {
               slot="trailing"
               shape="circle"
               @click=${this.openSuggestionDialog}
+              ${ref(this.suggestTitleButton)}
+              aria-label=${i18n.titleSuggestionButtonTooltip}
             >
               <cra-icon slot="icon" name="pen_spark"></cra-icon>
             </cra-icon-button>`;
@@ -247,6 +276,7 @@ export class RecordingTitle extends ReactiveLitElement {
           .value=${this.recordingMetadata?.title ?? ''}
           @change=${this.onChangeTitle}
           @focusout=${this.onFocusout}
+          aria-label=${i18n.titleTextfieldAriaLabel}
         >
           ${suggestionIconButton}
         </cros-textfield>
@@ -260,6 +290,7 @@ export class RecordingTitle extends ReactiveLitElement {
         tabindex="0"
         @focus=${this.startEditTitle}
         @click=${this.startEditTitle}
+        ${ref(this.renameContainer)}
       >
         ${this.recordingMetadata?.title ?? ''}
         <cra-tooltip>${i18n.titleRenameTooltip}</cra-tooltip>

@@ -16,7 +16,6 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.library_loader.LibraryLoader;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.ProfileManager;
@@ -26,7 +25,6 @@ import org.chromium.chrome.browser.search_engines.SearchEnginePromoState;
 import org.chromium.chrome.browser.search_engines.SearchEnginePromoType;
 import org.chromium.chrome.browser.search_engines.SogouPromoDialog;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.search_engines.choice_screen.ChoiceDialogCoordinator;
 import org.chromium.chrome.browser.search_engines.settings.SearchEngineSettings;
 import org.chromium.chrome.browser.settings.SettingsLauncherFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
@@ -192,8 +190,7 @@ public class LocaleManagerDelegate {
                     } else {
                         @SearchEnginePromoType int promoType = getSearchEnginePromoShowType();
                         if (promoType == SearchEnginePromoType.SHOW_EXISTING
-                                || promoType == SearchEnginePromoType.SHOW_NEW
-                                || promoType == SearchEnginePromoType.SHOW_WAFFLE) {
+                                || promoType == SearchEnginePromoType.SHOW_NEW) {
                             onUserLeavePromoDialogWithNoConfirmedChoice(promoType);
                         }
                     }
@@ -228,16 +225,6 @@ public class LocaleManagerDelegate {
                                                 activity,
                                                 mSearchEngineHelperDelegate,
                                                 shouldShow,
-                                                finalizeInternalCallback)
-                                        .show();
-                break;
-            case SearchEnginePromoType.SHOW_WAFFLE:
-                assert ChromeFeatureList.isEnabled(ChromeFeatureList.SEARCH_ENGINE_CHOICE);
-                dialogPresenter =
-                        () ->
-                                new ChoiceDialogCoordinator(
-                                                activity,
-                                                mSearchEngineHelperDelegate,
                                                 finalizeInternalCallback)
                                         .show();
                 break;

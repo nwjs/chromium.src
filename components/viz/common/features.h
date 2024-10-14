@@ -11,7 +11,6 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
-#include "components/viz/common/delegated_ink_prediction_configuration.h"
 #include "components/viz/common/viz_common_export.h"
 
 // See the following for guidance on adding new viz feature flags:
@@ -20,8 +19,10 @@
 namespace features {
 
 #if BUILDFLAG(IS_ANDROID)
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidBrowserControlsInViz);
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidBcivPhoneOnly);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidBcivWithSuppression);
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidBcivZeroBrowserFrames);
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidBrowserControlsInViz);
 #endif  // BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBackdropFilterMirrorEdgeMode);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDelegatedCompositing);
@@ -44,7 +45,10 @@ enum class DelegatedCompositingMode {
 };
 extern const VIZ_COMMON_EXPORT base::FeatureParam<DelegatedCompositingMode>
     kDelegatedCompositingModeParam;
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseDCompSurfacesForDelegatedInk);
+
+#if BUILDFLAG(IS_WIN)
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDCompSurfacesForDelegatedInk);
+#endif
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kRenderPassDrawnRect);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kRecordSkPicture);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseDrmBlackFullscreenOptimization);
@@ -140,11 +144,13 @@ VIZ_COMMON_EXPORT bool IsDynamicColorGamutEnabled();
 VIZ_COMMON_EXPORT int DrawQuadSplitLimit();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 VIZ_COMMON_EXPORT bool IsDelegatedCompositingEnabled();
+#if BUILDFLAG(IS_WIN)
+VIZ_COMMON_EXPORT bool ShouldUseDCompSurfacesForDelegatedInk();
+#endif
 VIZ_COMMON_EXPORT bool IsUsingVizFrameSubmissionForWebView();
 VIZ_COMMON_EXPORT bool IsUsingPreferredIntervalForVideo();
 VIZ_COMMON_EXPORT bool ShouldWebRtcLogCapturePipeline();
-VIZ_COMMON_EXPORT std::optional<int> ShouldDrawPredictedInkPoints();
-VIZ_COMMON_EXPORT std::string InkPredictor();
+VIZ_COMMON_EXPORT bool ShouldDrawPredictedInkPoints();
 VIZ_COMMON_EXPORT bool UseWebViewNewInvalidateHeuristic();
 VIZ_COMMON_EXPORT bool UseSurfaceLayerForVideo();
 VIZ_COMMON_EXPORT int MaxOverlaysConsidered();
@@ -165,6 +171,9 @@ VIZ_COMMON_EXPORT bool ShouldAckOnSurfaceActivationWhenInteractive();
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 VIZ_COMMON_EXPORT bool IsCrosContentAdjustedRefreshRateEnabled();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_ANDROID)
+VIZ_COMMON_EXPORT bool IsBrowserControlsInVizEnabled();
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace features
 

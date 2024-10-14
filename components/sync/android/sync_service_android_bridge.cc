@@ -161,8 +161,7 @@ SyncServiceAndroidBridge::SyncServiceAndroidBridge(
   DCHECK(native_sync_service_);
 
   java_ref_.Reset(Java_SyncServiceImpl_Constructor(
-      base::android::AttachCurrentThread(),
-      reinterpret_cast<intptr_t>(this)));
+      base::android::AttachCurrentThread(), reinterpret_cast<intptr_t>(this)));
 
   native_sync_service_->AddObserver(this);
 }
@@ -206,11 +205,6 @@ jboolean SyncServiceAndroidBridge::IsSyncDisabledByEnterprisePolicy(
 
 jboolean SyncServiceAndroidBridge::IsEngineInitialized(JNIEnv* env) {
   return native_sync_service_->IsEngineInitialized();
-}
-
-jboolean SyncServiceAndroidBridge::IsTransportStateActive(JNIEnv* env) {
-  return native_sync_service_->GetTransportState() ==
-         SyncService::TransportState::ACTIVE;
 }
 
 void SyncServiceAndroidBridge::SetSetupInProgress(JNIEnv* env,
@@ -357,9 +351,13 @@ jint SyncServiceAndroidBridge::GetPassphraseType(JNIEnv* env) {
   // TODO(crbug.com/40923935): Mapping nullopt -> kImplicitPassphrase preserves
   // the historic behavior, but ideally we should propagate the nullopt state to
   // Java.
-  return static_cast<unsigned>(
+  return static_cast<jint>(
       native_sync_service_->GetUserSettings()->GetPassphraseType().value_or(
           PassphraseType::kImplicitPassphrase));
+}
+
+jint SyncServiceAndroidBridge::GetTransportState(JNIEnv* env) {
+  return static_cast<jint>(native_sync_service_->GetTransportState());
 }
 
 void SyncServiceAndroidBridge::SetEncryptionPassphrase(

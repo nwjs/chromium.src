@@ -48,7 +48,7 @@ constexpr char kModifierSplitHashKey[] =
     "\x10\x99";
 
 // Whether checking the mahi secret key is ignored.
-bool g_ignore_modifier_split_secret_key = false;
+bool g_ignore_modifier_split_secret_key = true;
 
 // The hash value for the secret key of the sparky feature.
 constexpr char kSparkyHashKey[] =
@@ -598,10 +598,6 @@ const char kEnterpriseEnableForcedReEnrollmentOnFlex[] =
 const char kEnterpriseEnableInitialEnrollment[] =
     "enterprise-enable-initial-enrollment";
 
-// Enables the zero-touch enterprise enrollment flow.
-const char kEnterpriseEnableZeroTouchEnrollment[] =
-    "enterprise-enable-zero-touch-enrollment";
-
 // Power of the power-of-2 initial modulus that will be used by the
 // auto-enrollment client. E.g. "4" means the modulus will be 2^4 = 16.
 const char kEnterpriseEnrollmentInitialModulus[] =
@@ -666,6 +662,9 @@ const char kFingerprintSensorLocation[] = "fingerprint-sensor-location";
 // Not passed on restart after sign out.
 const char kFirstExecAfterBoot[] = "first-exec-after-boot";
 
+// Forces a chip with fake coral data to be shown.
+const char kForceBirchFakeCoral[] = "force-birch-fake-coral";
+
 // Forces a fetch of Birch data whenever an informed restore session starts.
 const char kForceBirchFetch[] = "force-birch-fetch";
 
@@ -712,9 +711,6 @@ const char kForceShowReleaseTrack[] = "force-show-release-track";
 // If set, tablet-like power button behavior (i.e. tapping the button turns the
 // screen off) is used even if the device is in laptop mode.
 const char kForceTabletPowerButton[] = "force-tablet-power-button";
-
-// Supply secret key for the Forest feature.
-const char kForestFeatureKey[] = "forest-feature-key";
 
 // Specifies the device's form factor. If provided, this flag overrides the
 // value from the LSB release info. Possible values are: "CHROMEBASE",
@@ -934,8 +930,6 @@ const char kEnableLacrosForTesting[] = "enable-lacros-for-testing";
 // Supply secret key for the mahi feature.
 const char kMahiFeatureKey[] = "mahi-feature-key";
 
-const char kMahiRestrictionsOverride[] = "mahi-restrictions-override";
-
 // Supply secret key for the sparky feature.
 const char kSparkyFeatureKey[] = "sparky-feature-key";
 
@@ -1014,6 +1008,11 @@ const char kOobeSkipNewUserCheckForTesting[] =
 
 // Skips all other OOBE pages after user login.
 const char kOobeSkipPostLogin[] = "oobe-skip-postlogin";
+
+// Returns true if we should skip split modifier check on the split modifier
+// info screen.
+const char kOobeSkipSplitModifierCheckForTesting[] =
+    "oobe-skip-split-modifier-check-for-testing";
 
 // Skip to login screen.
 const char kOobeSkipToLogin[] = "oobe-skip-to-login";
@@ -1261,6 +1260,11 @@ bool ShouldTetherHostScansIgnoreWiredConnections() {
 bool ShouldSkipNewUserCheckForTesting() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       kOobeSkipNewUserCheckForTesting);
+}
+
+bool ShouldSkipSplitModifierCheckForTesting() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      kOobeSkipSplitModifierCheckForTesting);
 }
 
 bool ShouldSkipOobePostLogin() {

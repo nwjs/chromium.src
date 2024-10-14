@@ -73,28 +73,12 @@
         'cros_dut_pool': 'vmlab',
         'run_cft': True,
       },
-      'chromeos-betty-pi-arc-cfi-thin-lto-chrome': {
+      'chromeos-brya-chrome': {
         'additional_compile_targets': [
           'chromiumos_preflight',
         ],
-        'test_suites': {
-          'gtest_tests': 'chromeos_device_no_gtests',
-        },
-        'mixins': [
-          'chromeos-betty',
-        ],
-      },
-      'chromeos-betty-pi-arc-chrome': {
-        'additional_compile_targets': [
-          'chromiumos_preflight',
-        ],
-        'mixins': [
-          'chromeos-betty',
-        ],
-        'test_suites': {
-          'gtest_tests': 'chromeos_vm_gtests_and_tast',
-          'isolated_scripts': 'chromeos_isolated_scripts',
-        },
+        'os_type': 'chromeos',
+        'cros_board': 'brya',
       },
       'chromeos-brya-chrome-skylab': {
         'additional_compile_targets': [
@@ -102,13 +86,24 @@
         ],
         'mixins': [
           'skylab-cft',
+          'cros-cbx-dut',
         ],
         'test_suites': {
           'skylab_tests': 'chromeos_brya_skylab_tests',
         },
         'os_type': 'chromeos',
         'cros_board': 'brya',
-        'cros_dut_pool': 'chrome',
+      },
+      'chromeos-brya-chrome-tests': {
+        'mixins': [
+            'skylab-cft',
+            'cros-cbx-dut',
+        ],
+        'test_suites': {
+          'skylab_tests': 'chromeos_brya_skylab_tests',
+        },
+        'os_type': 'chromeos',
+        'cros_board': 'brya',
       },
       'chromeos-jacuzzi-chrome': {
         'additional_compile_targets': [
@@ -144,6 +139,20 @@
         'cros_board': 'reven-vmtest',
         'cros_dut_pool': 'vmlab',
         'run_cft': True,
+      },
+      'chromeos-trogdor-chrome': {
+        'additional_compile_targets': [
+          'chromiumos_preflight',
+        ],
+        'os_type': 'chromeos',
+        'cros_board': 'trogdor',
+      },
+      'chromeos-trogdor-chrome-tests': {
+        'test_suites': {
+          'skylab_tests': 'chromeos_trogdor_skylab_tests',
+        },
+        'os_type': 'chromeos',
+        'cros_board': 'trogdor',
       },
       'chromeos-volteer-chrome-skylab': {
         'additional_compile_targets': [
@@ -362,23 +371,12 @@
           'skylab-cft',
         ],
         'test_suites': {
-          'skylab_tests': 'chromeos_ctp_preuprev_tests_extended',
+          'skylab_tests': 'chromeos_ctp_preuprev_tests',
         },
         'os_type': 'chromeos',
         'cros_board': 'betty',
         'cros_dut_pool': 'vmlab',
         'run_cft': True,
-      },
-      'chromeos-betty-pi-arc-chrome-preuprev': {
-        'additional_compile_targets': [
-          'chromiumos_preflight',
-        ],
-        'mixins': [
-          'chromeos-betty',
-        ],
-        'test_suites': {
-          'gtest_tests': 'chromeos_vm_preuprev_tast',
-        },
       },
       'chromeos-brya-chrome-preuprev': {
         'additional_compile_targets': [
@@ -386,13 +384,13 @@
         ],
         'mixins': [
           'skylab-cft',
+          'cros-cbx-dut',
         ],
         'test_suites': {
           'skylab_tests': 'chromeos_ctp_preuprev_tests',
         },
         'os_type': 'chromeos',
         'cros_board': 'brya',
-        'cros_dut_pool': 'chrome',
       },
       'chromeos-jacuzzi-chrome-preuprev': {
         'additional_compile_targets': [
@@ -402,7 +400,7 @@
           'skylab-cft',
         ],
         'test_suites': {
-          'skylab_tests': 'chromeos_jacuzzi_preuprev_tests',
+          'skylab_tests': 'chromeos_ctp_preuprev_tests_slow_boards',
         },
         'os_type': 'chromeos',
         'cros_board': 'jacuzzi',
@@ -415,7 +413,7 @@
           'skylab-cft',
         ],
         'test_suites': {
-          'skylab_tests': 'chromeos_ctp_preuprev_tests_extended',
+          'skylab_tests': 'chromeos_ctp_preuprev_tests',
         },
         'os_type': 'chromeos',
         'cros_board': 'volteer',
@@ -446,67 +444,52 @@
     # The following builders in this group have been migrated to set their
     # targets in the builders' declarations in
     # //infra/config/subprojects/ci/chromium.android.star
+    #   Android ASAN (dbg)
     #   Android WebView O (dbg)
     #   Android WebView P (dbg)
     #   Android arm Builder (dbg)
     #   Android arm64 Builder (dbg)
+    #   Android arm64 Builder All Targets (dbg)
+    #   Android x64 Builder All Targets (dbg)
+    #   Android x86 Builder (dbg)
+    #   Cast Android (dbg)
     #   Oreo Phone Tester
+    #   android-10-arm64-rel
+    #   android-12-x64-rel
+    #   android-arm64-proguard-rel
+    #   android-cronet-arm-dbg
+    #   android-cronet-arm-rel
+    #   android-cronet-arm64-dbg
+    #   android-cronet-arm64-rel
+    #   android-cronet-asan-arm-rel
+    #   android-cronet-mainline-clang-arm64-dbg
+    #   android-cronet-mainline-clang-arm64-rel
+    #   android-cronet-mainline-clang-riscv64-dbg
+    #   android-cronet-mainline-clang-riscv64-rel
+    #   android-cronet-mainline-clang-x86-dbg
+    #   android-cronet-mainline-clang-x86-rel
+    #   android-cronet-riscv64-dbg
+    #   android-cronet-riscv64-rel
+    #   android-cronet-x64-dbg
+    #   android-cronet-x64-dbg-12-tests
+    #   android-cronet-x64-dbg-13-tests
+    #   android-cronet-x64-dbg-14-tests
+    #   android-cronet-x64-rel
+    #   android-cronet-x86-dbg
+    #   android-cronet-x86-dbg-10-tests
+    #   android-cronet-x86-dbg-11-tests
+    #   android-cronet-x86-dbg-lollipop-tests
+    #   android-cronet-x86-dbg-marshmallow-tests
+    #   android-cronet-x86-dbg-nougat-tests
+    #   android-cronet-x86-dbg-oreo-tests
+    #   android-cronet-x86-dbg-pie-tests
+    #   android-cronet-x86-rel
+    #   android-bfcache-rel
     #   android-pie-arm64-dbg
     'name': 'chromium.android',
     'mixins': ['chromium-tester-service-account'],
     'machines': {
-      'Android ASAN (dbg)': {
-        'additional_compile_targets': [
-          'all',
-        ],
-      },
-      'Android arm64 Builder All Targets (dbg)': {
-        'additional_compile_targets': [
-          'all',
-        ],
-      },
       'Android x64 Builder (dbg)': {},
-      'Android x64 Builder All Targets (dbg)': {
-        'additional_compile_targets': [
-          'all',
-        ],
-      },
-      'Android x86 Builder (dbg)': {
-        'additional_compile_targets': [
-          'all',
-        ],
-      },
-      'Cast Android (dbg)': {
-        'additional_compile_targets': [
-          'cast_junit_test_lists',
-          'cast_shell_apk',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cast_junit_tests',
-        },
-        'mixins': [
-            'has_native_resultdb_integration',
-        ],
-      },
-      'android-10-arm64-rel': {
-        'swarming': {
-          'dimensions': {
-            'device_os': 'QQ1A.191205.008',
-            'device_os_flavor': 'google',
-          },
-        },
-        'additional_compile_targets': [
-          'check_chrome_static_initializers',
-        ],
-        'test_suites': {
-          'gtest_tests': 'android_10_rel_gtests',
-        },
-        'os_type': 'android',
-        'mixins': [
-          'has_native_resultdb_integration',
-          'walleye',
-        ],
-      },
       'android-11-x86-rel': {
         'mixins': [
           '11-x86-emulator',
@@ -518,24 +501,6 @@
         'os_type': 'android',
         'test_suites': {
           'gtest_tests': 'android_11_emulator_gtests',
-        }
-      },
-      'android-12-x64-rel': {
-        'mixins': [
-          '12-x64-emulator',
-          'emulator-8-cores',
-          'has_native_resultdb_integration',
-          'isolate_profile_data',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'args': [
-          '--use-persistent-shell',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'android_12_emulator_gtests',
-          'isolated_scripts': 'private_code_failure_test_isolated_scripts',
         }
       },
       'android-12l-landscape-x64-dbg-tests': {
@@ -575,7 +540,7 @@
         'os_type': 'android',
         'test_suites': {
           'gtest_tests': 'android_13_emulator_gtests',
-          'isolated_scripts': 'private_code_failure_test_isolated_scripts',
+          'isolated_scripts': 'android_rel_isolated_scripts',
         }
       },
       'android-14-arm64-rel': {
@@ -603,418 +568,21 @@
           'gtest_tests': 'android_14_emulator_gtests',
         }
       },
-      'android-arm64-proguard-rel': {
-        'additional_compile_targets': [
-          'all',
-        ],
+      'android-15-x64-rel': {
         'mixins': [
-          'has_native_resultdb_integration',
-          'pie_fleet',
-          'walleye',
-        ],
-        'test_suites': {
-          'gtest_tests': 'android_marshmallow_gtests',
-          'isolated_scripts': 'chromium_junit_tests_scripts',
-        },
-        'os_type': 'android',
-      },
-      'android-bfcache-rel': {
-        'mixins': [
-          'has_native_resultdb_integration',
-          'oreo-x86-emulator',
-          'emulator-8-cores',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'bfcache_android_gtests',
-        },
-      },
-      'android-cronet-arm-dbg': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_dbg_isolated_scripts',
-        },
-      },
-      'android-cronet-arm-rel': {
-        'additional_compile_targets': [
-          'cronet_package',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_rel_isolated_scripts',
-        },
-      },
-      'android-cronet-arm64-dbg': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_package_ci',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_dbg_isolated_scripts',
-        },
-      },
-      'android-cronet-arm64-rel': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_package_ci',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_rel_isolated_scripts',
-        },
-      },
-      'android-cronet-asan-arm-rel': {
-        'mixins': [
-          'has_native_resultdb_integration',
-          'bullhead',
-          'marshmallow',
-        ],
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-        ],
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-        'os_type': 'android',
-      },
-      'android-cronet-mainline-clang-arm64-dbg': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-      },
-      'android-cronet-mainline-clang-arm64-rel': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-      },
-      'android-cronet-mainline-clang-riscv64-dbg': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-      },
-      'android-cronet-mainline-clang-riscv64-rel': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-      },
-      'android-cronet-mainline-clang-x86-dbg': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-      },
-      'android-cronet-mainline-clang-x86-rel': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-      },
-      'android-cronet-riscv64-dbg': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_dbg_isolated_scripts',
-        },
-      },
-      'android-cronet-riscv64-rel': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_rel_isolated_scripts',
-        },
-      },
-      'android-cronet-x64-dbg': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_dbg_isolated_scripts',
-        },
-      },
-      'android-cronet-x64-dbg-12-tests': {
-        'mixins': [
-          '12-x64-emulator',
+          '15-x64-emulator',
           'emulator-8-cores',
           'has_native_resultdb_integration',
           'linux-jammy',
           'x86-64',
         ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x64-dbg-13-tests': {
-        'mixins': [
-          '13-x64-emulator',
-          'emulator-8-cores',
-          'has_native_resultdb_integration',
-          'linux-jammy',
-          'x86-64',
+        'args': [
+            '--emulator-debug-tags=all,-qemud,-sensors',
         ],
         'os_type': 'android',
         'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x64-dbg-14-tests': {
-        'mixins': [
-          '14-x64-emulator',
-          'emulator-8-cores',
-          'has_native_resultdb_integration',
-          'isolate_profile_data',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x64-rel': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_package_ci',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_rel_isolated_scripts',
-        },
-      },
-      'android-cronet-x86-dbg': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_dbg_isolated_scripts',
-        },
-      },
-      'android-cronet-x86-dbg-10-tests': {
-        'mixins': [
-          '10-x86-emulator',
-          'emulator-4-cores',
-          'has_native_resultdb_integration',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x86-dbg-11-tests': {
-        'mixins': [
-          '11-x86-emulator',
-          'emulator-4-cores',
-          'has_native_resultdb_integration',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x86-dbg-lollipop-tests': {
-        'mixins': [
-          'lollipop-x86-emulator',
-          'emulator-4-cores',
-          'has_native_resultdb_integration',
-          'isolate_profile_data',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x86-dbg-marshmallow-tests': {
-        'mixins': [
-          'marshmallow-x86-emulator',
-          'emulator-4-cores',
-          'has_native_resultdb_integration',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x86-dbg-nougat-tests': {
-        'mixins': [
-          'nougat-x86-emulator',
-          'emulator-4-cores',
-          'has_native_resultdb_integration',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x86-dbg-oreo-tests': {
-        'mixins': [
-          'oreo-x86-emulator',
-          'emulator-4-cores',
-          'has_native_resultdb_integration',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x86-dbg-pie-tests': {
-        'mixins': [
-          'pie-x86-emulator',
-          'emulator-4-cores',
-          'has_native_resultdb_integration',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'os_type': 'android',
-        'test_suites': {
-          'gtest_tests': 'cronet_gtests',
-        },
-      },
-      'android-cronet-x86-rel': {
-        'additional_compile_targets': [
-          'cronet_package',
-          'cronet_package_ci',
-          'cronet_perf_test_apk',
-          'cronet_sample_test_apk',
-          'cronet_smoketests_apk',
-          'cronet_smoketests_missing_native_library_instrumentation_apk',
-          'cronet_smoketests_platform_only_instrumentation_apk',
-          'cronet_test_instrumentation_apk',
-          'cronet_tests_android',
-          'cronet_unittests_android',
-          'net_unittests',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'cronet_rel_isolated_scripts',
-        },
+          'gtest_tests': 'android_15_emulator_gtests',
+        }
       },
       'android-oreo-x86-rel': {
         'mixins': [
@@ -1176,11 +744,11 @@
           'x86-64',
         ],
         'args': [
-            '--emulator-debug-tags=all',
+            '--emulator-debug-tags=all,-qemud,-sensors',
         ],
         'os_type': 'android',
         'test_suites': {
-          'gtest_tests': 'android_15_emulator_gtests',
+          'gtest_tests': 'android_15_emulator_fyi_gtests',
         }
       },
       'android-annotator-rel': {
@@ -1315,13 +883,13 @@
     ],
     'machines': {
       'android-angle-chromium-arm64-builder': {},
-      'android-angle-chromium-arm64-nexus5x': {
+      'android-angle-chromium-arm64-pixel2': {
         'browser_config': 'android-chromium',
         'os_type': 'android',
         'mixins': [
           'has_native_resultdb_integration',
-          'oreo_fleet',
-          'bullhead',
+          'pie_fleet',
+          'walleye',
         ],
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_webgl_conformance_gles_passthrough_telemetry_tests',
@@ -1661,25 +1229,17 @@
           'scripts': 'chromeos_annotation_scripts',
         },
       },
-      'linux-lacros-dbg': {
-        'additional_compile_targets': [
-          'all',
-        ],
-      },
-      'linux-lacros-tester-rel': {
-        'mixins': [
-          'isolate_profile_data',
-          'linux-jammy',
-          'x86-64',
-        ],
+      'linux-lacros-builder-rel': {
         'additional_compile_targets': [
           'chrome',
           'chrome_sandbox',
           'symupload'
         ],
-        'test_suites': {
-          'gtest_tests': 'linux_lacros_gtests',
-        },
+      },
+      'linux-lacros-dbg': {
+        'additional_compile_targets': [
+          'all',
+        ],
       },
     },
   },
@@ -2410,19 +1970,6 @@
           'gtest_tests': 'js_code_coverage_browser_tests_suite'
         },
       },
-      'linux-lacros-code-coverage': {
-        'additional_compile_targets': [
-          'chrome'
-        ],
-        'mixins': [
-          'isolate_profile_data',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'test_suites': {
-          'gtest_tests': 'linux_lacros_gtests',
-        },
-      },
       'mac-code-coverage': {
         'mixins': [
           'isolate_profile_data',
@@ -2514,7 +2061,7 @@
           'gpu_pixel_6_stable',
         ],
         'test_suites': {
-          'gpu_telemetry_tests': 'gpu_dawn_android_telemetry_tests',
+          'gpu_telemetry_tests': 'gpu_dawn_android_compat_telemetry_tests',
           'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
           'isolated_scripts': 'gpu_dawn_android_isolated_scripts',
         },
@@ -2531,7 +2078,7 @@
         # the gpu_noop_sleep_telemetry_test test should be used. Otherwise, this
         # should have the same test_suites as 'Dawn Android arm64 Release (Pixel 6)'.
         'test_suites': {
-          'gpu_telemetry_tests': 'gpu_dawn_android_telemetry_tests',
+          'gpu_telemetry_tests': 'gpu_dawn_android_compat_telemetry_tests',
           'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
           'isolated_scripts': 'gpu_dawn_android_isolated_scripts',
         },
@@ -2544,7 +2091,7 @@
           'gpu_pixel_6_stable',
         ],
         'test_suites': {
-          'gpu_telemetry_tests': 'gpu_dawn_android_telemetry_tests',
+          'gpu_telemetry_tests': 'gpu_dawn_android_compat_telemetry_tests',
           'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
           'isolated_scripts': 'gpu_dawn_android_isolated_scripts',
         },
@@ -2576,6 +2123,15 @@
           'skylab_gpu_telemetry_tests': 'dawn_chromeos_release_telemetry_tests_volteer_skylab',
           # TODO(crbug.com/340815322): Add isolated_scripts once Skylab
           # incompatibilities are resolved.
+        },
+      },
+      'Dawn Chromium Presubmit': {
+        'os_type': 'linux',
+        'mixins': [
+          'linux-jammy',
+        ],
+        'test_suites': {
+          'isolated_scripts': 'gpu_dawn_common_isolated_scripts',
         },
       },
       'Dawn Linux TSAN Release': {
@@ -2697,7 +2253,7 @@
         ],
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_dawn_telemetry_tests',
-          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
+          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough_macos',
           'isolated_scripts': 'gpu_dawn_isolated_scripts',
         },
       },
@@ -2723,7 +2279,7 @@
         ],
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_dawn_telemetry_tests',
-          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
+          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough_macos',
           'isolated_scripts': 'gpu_dawn_isolated_scripts',
         },
       },
@@ -2737,7 +2293,7 @@
         ],
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_dawn_telemetry_tests',
-          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
+          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough_macos',
           'isolated_scripts': 'gpu_dawn_isolated_scripts',
         },
       },
@@ -2749,7 +2305,7 @@
         ],
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_dawn_telemetry_tests',
-          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
+          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough_macos',
           'isolated_scripts': 'gpu_dawn_isolated_scripts',
         },
       },
@@ -2765,7 +2321,7 @@
         # should have the same test_suites as 'Dawn Mac x64 Release (AMD)'.
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_dawn_telemetry_tests',
-          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
+          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough_macos',
           'isolated_scripts': 'gpu_dawn_isolated_scripts',
         },
       },
@@ -2781,7 +2337,7 @@
         # should have the same test_suites as 'Dawn Mac x64 Release (Intel)'.
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_dawn_telemetry_tests',
-          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
+          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough_macos',
           'isolated_scripts': 'gpu_dawn_isolated_scripts',
         },
       },
@@ -2793,7 +2349,7 @@
         ],
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_dawn_telemetry_tests',
-          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
+          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough_macos',
           'isolated_scripts': 'gpu_dawn_isolated_scripts',
         },
       },
@@ -2809,7 +2365,7 @@
         ],
         'test_suites': {
           'gpu_telemetry_tests': 'gpu_dawn_telemetry_tests',
-          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough',
+          'gtest_tests': 'gpu_dawn_integration_gtests_passthrough_macos',
           'isolated_scripts': 'gpu_dawn_isolated_scripts',
         },
       },
@@ -3556,7 +3112,7 @@
           'mac_default_arm64',
           'mac_toolchain',
           'out_dir_arg',
-          'xcode_15_beta',
+          'xcode_16_1_beta',
           'xctest',
         ],
         'test_suites': {
@@ -3577,7 +3133,7 @@
           'mac_14_arm64',
           'mac_toolchain',
           'out_dir_arg',
-          'xcode_15_beta',
+          'xcode_16_1_beta',
           'xctest',
         ],
         'test_suites': {
@@ -3672,57 +3228,6 @@
         ],
         'test_suites': {
           'gtest_tests': 'headless_browser_gtests',
-        },
-      },
-      'linux-lacros-dbg-tests-fyi': {
-        'mixins': [
-          'linux-jammy',
-        ],
-        'additional_compile_targets': [
-          'chrome',
-          'chrome_sandbox',
-          'symupload'
-        ],
-        'swarming': {
-          'dimensions': {
-            'ssd': '0',
-          },
-        },
-        'test_suites': {
-          'gtest_tests': 'linux_lacros_gtests',
-        },
-      },
-      'linux-lacros-rel-dangling-ptr-fyi': {
-        'mixins': [
-          'isolate_profile_data',
-          'linux-jammy',
-          'x86-64',
-        ],
-        'additional_compile_targets': [
-          'chrome',
-          'chrome_sandbox',
-          'symupload'
-        ],
-        'test_suites': {
-          'gtest_tests': 'linux_lacros_gtests',
-        },
-      },
-      'linux-lacros-tester-fyi-rel': {
-        'additional_compile_targets': [
-          'chrome',
-          'chrome_sandbox',
-          'symupload'
-        ],
-        'mixins': [
-          'linux-jammy',
-        ],
-        'swarming': {
-          'dimensions': {
-            'ssd': '0',
-          },
-        },
-        'test_suites': {
-          'gtest_tests': 'linux_lacros_gtests',
         },
       },
       'linux-multiscreen-fyi-rel': {
@@ -4885,6 +4390,14 @@
           'all',
         ],
       },
+      'mac-skia-alt-arm64-rel-tests': {
+        'mixins': [
+          'mac_default_arm64',
+        ],
+        'test_suites': {
+          'isolated_scripts': 'chromium_web_tests_graphite_isolated_scripts',
+        },
+      },
       'mac11-arm64-rel-tests': {
         'mixins': [
             'mac_11_arm64',
@@ -4914,14 +4427,6 @@
         'test_suites': {
           'gtest_tests': 'chromium_mac_gtests_no_nacl',
           'isolated_scripts': 'chromium_mac_rel_isolated_scripts',
-        },
-      },
-      'mac13-skia-alt-arm64-rel-tests': {
-        'mixins': [
-          'mac_13_arm64',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'chromium_web_tests_graphite_isolated_scripts',
         },
       },
       'mac14-arm64-rel-tests': {
@@ -5050,6 +4555,7 @@
       'WebKit Linux Leak': {
         'mixins': [
           'linux-jammy',
+          'web-test-leak',
         ],
         'test_suites': {
           'isolated_scripts': 'chromium_webkit_isolated_scripts',
@@ -5910,10 +5416,7 @@
           'out_dir_arg',
           'xcode_16_main',
           'xctest',
-        ],
-        'test_suites': {
-          'isolated_scripts': 'ios_webrtc_fyi_tests',
-        },
+        ]
       },
     },
   },
@@ -6432,42 +5935,19 @@
         },
         'os_type': 'chromeos',
       },
-      'chromeos-betty-pi-arc-chrome-accessibility-fyi': {
-        'additional_compile_targets': [
-          'chromiumos_preflight',
-        ],
-        'mixins': [
-          'chromeos-betty',
-        ],
-        'test_suites': {
-          'gtest_tests': 'chromeos_browser_all_tast_tests',
-        },
-      },
-      'chromeos-betty-pi-arc-chrome-dchecks': {
-        'additional_compile_targets': [
-          'chromiumos_preflight',
-        ],
-        'mixins': [
-          'chromeos-betty',
-        ],
-        'test_suites': {
-          'gtest_tests': 'chromeos_vm_gtests_and_tast',
-          'isolated_scripts': 'chromeos_isolated_scripts',
-        },
-      },
       'chromeos-brya-chrome-dchecks-skylab': {
         'additional_compile_targets': [
           'chromiumos_preflight',
         ],
         'mixins': [
           'skylab-cft',
+          'cros-cbx-dut',
         ],
         'test_suites': {
           'skylab_tests': 'chromeos_brya_skylab_tests',
         },
         'os_type': 'chromeos',
         'cros_board': 'brya',
-        'cros_dut_pool': 'chrome',
       },
       'chromeos-eve-chrome': {
         # This builder is build only.
@@ -6489,6 +5969,7 @@
         'os_type': 'chromeos',
         'cros_board': 'jacuzzi',
       },
+      # TODO(b/330335155): Remove after infra config changed to non-fyi builder.
       'chromeos-trogdor-chrome-skylab-fyi': {
         'additional_compile_targets': [
           'chromiumos_preflight',
@@ -6545,7 +6026,7 @@
         ],
         'test_suites': {
            'gtest_tests': 'optimization_guide_desktop_gtests',
-           'isolated_scripts': 'optimization_guide_desktop_script_tests',
+           'isolated_scripts': 'optimization_guide_mac_script_tests',
         },
         'os_type': 'mac',
       },
@@ -6560,7 +6041,7 @@
         ],
         'test_suites': {
            'gtest_tests': 'optimization_guide_desktop_gtests',
-           'isolated_scripts': 'optimization_guide_desktop_script_tests',
+           'isolated_scripts': 'optimization_guide_mac_script_tests',
         },
         'os_type': 'mac',
       },
@@ -6575,7 +6056,7 @@
         ],
         'test_suites': {
            'gtest_tests': 'optimization_guide_desktop_gtests',
-           'isolated_scripts': 'optimization_guide_desktop_script_tests',
+           'isolated_scripts': 'optimization_guide_win_arm64_script_tests',
         },
         'os_type': 'win',
       },
@@ -6832,6 +6313,17 @@
     'name': 'tryserver.chromium.win',
     'mixins': ['chromium-tester-service-account'],
     'machines': {
+      'win11-23h2-rel': {
+        'mixins': [
+          'x86-64',
+          'win11-23h2',
+          'isolate_profile_data',
+        ],
+        'test_suites': {
+          'gtest_tests': 'chromium_win10_gtests',
+          'isolated_scripts': 'chromium_win_rel_isolated_scripts',
+        },
+      },
       'win_optional_gpu_tests_rel': {
         'os_type': 'win',
         'browser_config': 'release_x64',

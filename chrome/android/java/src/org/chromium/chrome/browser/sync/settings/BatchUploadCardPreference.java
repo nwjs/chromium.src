@@ -15,6 +15,7 @@ import android.widget.TextView;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.device_reauth.DeviceAuthSource;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
@@ -28,6 +29,7 @@ import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.sync.DataType;
 import org.chromium.components.sync.LocalDataDescription;
 import org.chromium.components.sync.SyncService;
+import org.chromium.components.sync.TransportState;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
@@ -41,7 +43,7 @@ public class BatchUploadCardPreference extends Preference
     private SyncService mSyncService;
     private HashMap<Integer, LocalDataDescription> mLocalDataDescriptionsMap;
     private ModalDialogManager mDialogManager;
-    private SnackbarManager mSnackbarManager;
+    private OneshotSupplier<SnackbarManager> mSnackbarManagerSupplier;
     private ReauthenticatorBridge mReauthenticatorBridge;
 
     public BatchUploadCardPreference(Context context, AttributeSet attrs) {
@@ -73,8 +75,9 @@ public class BatchUploadCardPreference extends Preference
         update();
     }
 
-    public void setSnackbarManager(SnackbarManager snackbarManager) {
-        mSnackbarManager = snackbarManager;
+    public void setSnackbarManagerSupplier(
+            OneshotSupplier<SnackbarManager> snackbarManagerSupplier) {
+        mSnackbarManagerSupplier = snackbarManagerSupplier;
     }
 
     @Override
@@ -129,17 +132,27 @@ public class BatchUploadCardPreference extends Preference
                                         .getIdentityManager(mProfile)
                                         .getPrimaryAccountInfo(ConsentLevel.SIGNIN)
                                         .getEmail());
-        mSnackbarManager.showSnackbar(
-                Snackbar.make(
-                                snackbarMessage,
-                                /* controller= */ null,
-                                Snackbar.TYPE_ACTION,
-                                Snackbar.UMA_SETTINGS_BATCH_UPLOAD)
-                        .setSingleLine(false));
+        mSnackbarManagerSupplier
+                .get()
+                .showSnackbar(
+                        Snackbar.make(
+                                        snackbarMessage,
+                                        /* controller= */ null,
+                                        Snackbar.TYPE_ACTION,
+                                        Snackbar.UMA_SETTINGS_BATCH_UPLOAD)
+                                .setSingleLine(false));
         hideBatchUploadCardAndUpdate();
     }
 
     private void update() {
+        // Calling getLocalDataDescriptions() API when sync is in configuring state should be
+        // avoided. Since it will return an empty map, which could be inconsistent with the actual
+        // local data. Also update() will be triggered again after the state changes from
+        // CONFIGURING to ACTIVE.
+        if (mSyncService.getTransportState() == TransportState.CONFIGURING) {
+            return;
+        }
+
         mSyncService.getLocalDataDescriptions(
                 mReauthenticatorBridge.canUseAuthenticationWithBiometricOrScreenLock()
                         ? Set.of(DataType.BOOKMARKS, DataType.READING_LIST, DataType.PASSWORDS)

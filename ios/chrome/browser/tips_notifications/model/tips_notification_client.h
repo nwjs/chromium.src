@@ -12,6 +12,7 @@
 #import "components/prefs/pref_change_registrar.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client.h"
 
+class Browser;
 @class CommandDispatcher;
 class PrefRegistrySimple;
 enum class TipsNotificationType;
@@ -25,9 +26,9 @@ class TipsNotificationClient : public PushNotificationClient {
   ~TipsNotificationClient() override;
 
   // Override PushNotificationClient::
-  void HandleNotificationInteraction(
+  bool HandleNotificationInteraction(
       UNNotificationResponse* notification_response) override;
-  UIBackgroundFetchResult HandleNotificationReception(
+  std::optional<UIBackgroundFetchResult> HandleNotificationReception(
       NSDictionary<NSString*, id>* notification) override;
   NSArray<UNNotificationCategory*>* RegisterActionableNotifications() override;
   void OnSceneActiveForegroundBrowserReady() override;
@@ -92,18 +93,26 @@ class TipsNotificationClient : public PushNotificationClient {
   // Returns true if an Omnibox Position promo notification should be sent.
   bool ShouldSendOmniboxPosition();
 
+  // Returns true if a Lens promo notification should be sent.
+  bool ShouldSendLens();
+
+  // Returns true if an Enhanced Safe Browsing promo notification should be
+  // sent.
+  bool ShouldSendEnhancedSafeBrowsing();
+
   // Returns `true` if there is foreground active browser.
   bool IsSceneLevelForegroundActive();
 
   // Helpers to handle notification interactions.
-  CommandDispatcher* Dispatcher();
-  void ShowUIForNotificationType(TipsNotificationType type);
-  void ShowDefaultBrowserPromo();
-  void ShowWhatsNew();
-  void ShowSignin();
-  void ShowSetUpListContinuation();
-  void ShowDocking();
-  void ShowOmniboxPosition();
+  void ShowUIForNotificationType(TipsNotificationType type, Browser* browser);
+  void ShowDefaultBrowserPromo(Browser* browser);
+  void ShowWhatsNew(Browser* browser);
+  void ShowSignin(Browser* browser);
+  void ShowSetUpListContinuation(Browser* browser);
+  void ShowDocking(Browser* browser);
+  void ShowOmniboxPosition(Browser* browser);
+  void ShowLensPromo(Browser* browser);
+  void ShowEnhancedSafeBrowsingPromo(Browser* browser);
 
   // Helpers to store state in local state prefs.
   void MarkNotificationTypeSent(TipsNotificationType type);
@@ -120,6 +129,9 @@ class TipsNotificationClient : public PushNotificationClient {
 
   // Returns true if Tips notifications are permitted.
   bool IsPermitted();
+
+  // Returns true if the Dismiss Limit has been reached.
+  bool DismissLimitReached();
 
   // Called when the pref that stores whether Tips notifications are permitted
   // changes.

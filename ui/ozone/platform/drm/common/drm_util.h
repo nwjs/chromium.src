@@ -50,6 +50,9 @@ const size_t kMaxDrmCount =
 const size_t kMaxDrmConnectors =
     display::features::IsEdidBasedDisplayIdsEnabled() ? 256u : 16u;
 
+// Using a moderate size e.g. 256 for the cursor is enough in most cases.
+const int kMaxCursorBufferSize = 256;
+
 // DRM property names.
 const char kContentProtectionKey[] = "Content Protection Key";
 const char kContentProtection[] = "Content Protection";
@@ -186,6 +189,13 @@ uint64_t GetEnumValueForName(const DrmWrapper& drm,
                              int property_id,
                              const char* str);
 
+// Checks if |mode_size| corresponds to a tile mode size according to
+// |tile_property|. Note that this method does not return true for
+// tile-composited mode.
+bool IsTileMode(const gfx::Size mode_size, const TileProperty& tile_property);
+
+const gfx::Point GetTileCrtcOffset(const TileProperty& tiled_property);
+
 std::vector<uint64_t> ParsePathBlob(const drmModePropertyBlobRes& path_blob);
 
 std::optional<TileProperty> ParseTileBlob(
@@ -302,6 +312,21 @@ void ConsolidateTiledDisplayInfo(
 
 // Get the total tile-composited size of a tiled display.
 gfx::Size GetTotalTileDisplaySize(const TileProperty& tile_property);
+
+// A custom comparator of gfx::Size used to sort cursor sizes.
+struct CursorSizeComparator {
+  bool operator()(const gfx::Size& a, const gfx::Size& b) const {
+    if (a.GetArea() == b.GetArea()) {
+      if (a.width() == b.width()) {
+        return a.height() < b.height();
+      } else {
+        return a.width() < b.width();
+      }
+    } else {
+      return a.GetArea() < b.GetArea();
+    }
+  }
+};
 }  // namespace ui
 
 #endif  // UI_OZONE_PLATFORM_DRM_COMMON_DRM_UTIL_H_

@@ -24,8 +24,8 @@
 #include "chrome/browser/ash/login/test/oobe_base_test.h"
 #include "chrome/browser/ash/login/test/oobe_screen_waiter.h"
 #include "chrome/browser/ash/login/test/oobe_screens_utils.h"
-#include "chrome/browser/ash/login/ui/login_display_host.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
+#include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/network_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/quick_start_screen_handler.h"
@@ -437,17 +437,15 @@ class QuickStartBrowserTestWithBluetoothDisabled
 
   void WaitForBluetoothDialogToOpen() {
     test::OobeJS()
-        .CreateWaiter(
-            test::GetOobeElementPath({kQuickStartBluetoothDialogPath}) +
-            ".open")
+        .CreateWaiter(test::GetOobeElementPath(kQuickStartBluetoothDialogPath) +
+                      ".open")
         ->Wait();
   }
 
   void WaitForBluetoothDialogToClose() {
     test::OobeJS()
-        .CreateWaiter(
-            test::GetOobeElementPath({kQuickStartBluetoothDialogPath}) +
-            ".open === false")
+        .CreateWaiter(test::GetOobeElementPath(kQuickStartBluetoothDialogPath) +
+                      ".open === false")
         ->Wait();
   }
 };
@@ -905,8 +903,10 @@ IN_PROC_BROWSER_TEST_F(
 
   // Expect the network screen to be shown without the QuickStart entry point.
   OobeScreenWaiter(NetworkScreenView::kScreenId).Wait();
-  test::OobeJS().ExpectTrue(NetworkElementSelector(kQuickStartEntryPointName) +
-                            " == null");
+  test::OobeJS()
+      .CreateWaiter(NetworkElementSelector(kQuickStartEntryPointName) +
+                    " == null")
+      ->Wait();
 }
 
 // Simulate the phone cancelling the flow when the user is prompted to connect

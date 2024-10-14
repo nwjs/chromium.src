@@ -23,6 +23,7 @@
 #include "content/public/common/url_constants.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -44,6 +45,17 @@ bool WebContentsDelegate::CanLoadFileSubresource(const GURL& url) {
 bool WebContentsDelegate::ShouldAllowRendererInitiatedCrossProcessNavigation(
     bool is_outermost_main_frame_navigation) {
   return true;
+}
+
+WebContents* WebContentsDelegate::AddNewContents(
+    WebContents* source,
+    std::unique_ptr<WebContents> new_contents,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& window_features,
+    bool user_gesture,
+    bool* was_blocked) {
+  return nullptr;
 }
 
 bool WebContentsDelegate::CanOverscrollContent() {
@@ -171,8 +183,8 @@ bool WebContentsDelegate::GetCanResize() {
   return false;
 }
 
-ui::WindowShowState WebContentsDelegate::GetWindowShowState() const {
-  return ui::SHOW_STATE_DEFAULT;
+ui::mojom::WindowShowState WebContentsDelegate::GetWindowShowState() const {
+  return ui::mojom::WindowShowState::kDefault;
 }
 
 bool WebContentsDelegate::IsFullscreenForTabOrPending(

@@ -45,8 +45,8 @@ struct WrapperTypeInfo;
 
 namespace bindings {
 
-class DictionaryBase;
 class EnumerationBase;
+class InputDictionaryBase;
 class UnionBase;
 
 CORE_EXPORT void NativeValueTraitsInterfaceNotOfType(
@@ -1134,7 +1134,8 @@ NativeValueTraits<IDLSequence<T>>::NativeValue(
   // 3. If method is undefined, throw a TypeError.
   // 4. Return the result of creating a sequence from V and method.
   auto script_iterator = ScriptIterator::FromIterable(
-      isolate, value.As<v8::Object>(), exception_state);
+      isolate, value.As<v8::Object>(), exception_state,
+      ScriptIterator::Kind::kSync);
   if (exception_state.HadException())
     return ImplType();
   if (script_iterator.IsNull()) {
@@ -1462,7 +1463,7 @@ struct NativeValueTraits<IDLNullable<T>>
 
 // Dictionary types
 template <typename T>
-  requires std::derived_from<T, bindings::DictionaryBase>
+  requires std::derived_from<T, bindings::InputDictionaryBase>
 struct NativeValueTraits<T> : public NativeValueTraitsBase<T*> {
   static T* NativeValue(v8::Isolate* isolate,
                         v8::Local<v8::Value> value,
@@ -1474,7 +1475,7 @@ struct NativeValueTraits<T> : public NativeValueTraitsBase<T*> {
 // We don't support nullable dictionary types in general since it's quite
 // confusing and often misused.
 template <typename T>
-  requires std::derived_from<T, bindings::DictionaryBase> &&
+  requires std::derived_from<T, bindings::InputDictionaryBase> &&
            (std::same_as<T, GPUColorTargetState> ||
             std::same_as<T, GPURenderPassColorAttachment> ||
             std::same_as<T, GPUVertexBufferLayout>)
@@ -1811,8 +1812,8 @@ struct NativeValueTraits<T> : public NativeValueTraitsBase<T> {
                                               v8::Local<v8::Value> value,
                                               ExceptionState& exception_state) {
     typename T::ReturnType result;
-    if (bindings::internal::TypedArrayElementTraits<ElementType>::IsViewOfType(
-            value)) {
+    using Traits = bindings::internal::TypedArrayElementTraits<ElementType>;
+    if (Traits::IsViewOfType(value)) {
       v8::Local<v8::ArrayBufferView> view = value.As<v8::ArrayBufferView>();
       if (!T::allow_shared && view->HasBuffer() &&
           view->Buffer()->GetBackingStore()->IsShared()) {
@@ -1822,6 +1823,14 @@ struct NativeValueTraits<T> : public NativeValueTraitsBase<T> {
       }
       result.Assign(
           bindings::internal::GetViewData(view, result.GetInlineStorage()));
+      return result;
+    }
+    if constexpr (T::allow_sequence) {
+      auto&& vec = NativeValueTraits<IDLSequence<typename Traits::IDLType>>::
+          ArgumentValue(isolate, argument_index, value, exception_state);
+      if (!exception_state.HadException()) [[likely]] {
+        result.Assign(std::move(vec));
+      }
       return result;
     }
     exception_state.ThrowTypeError(

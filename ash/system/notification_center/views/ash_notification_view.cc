@@ -187,7 +187,8 @@ views::Builder<views::View> CreateMainRightViewBuilder() {
       .SetLayoutManager(std::move(layout_manager))
       .SetProperty(
           views::kFlexBehaviorKey,
-          views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+          views::FlexSpecification(views::LayoutOrientation::kHorizontal,
+                                   views::MinimumFlexSizeRule::kScaleToZero,
                                    views::MaximumFlexSizeRule::kUnbounded));
 }
 
@@ -1522,6 +1523,11 @@ AshNotificationView::GetActionButtonsForTest() {
 
 views::Label* AshNotificationView::GetTitleRowLabelForTest() {
   return title_row_->title_view();
+}
+
+message_center::NotificationInputContainer*
+AshNotificationView::GetInlineReplyForTest() {
+  return inline_reply();
 }
 
 void AshNotificationView::OnNotificationRemoved(

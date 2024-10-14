@@ -51,6 +51,7 @@ InteractionSequence::StepBuilder InteractiveTestApi::PressButton(
 InteractionSequence::StepBuilder InteractiveTestApi::SelectMenuItem(
     ElementSpecifier menu_item,
     InputType input_type) {
+  RequireInteractiveTest();
   StepBuilder builder;
   builder.SetDescription("SelectMenuItem()");
   internal::SpecifyElement(builder, menu_item);
@@ -115,6 +116,13 @@ InteractionSequence::StepBuilder InteractiveTestApi::SelectDropdownItem(
     ElementSpecifier collection,
     size_t item,
     InputType input_type) {
+  // "Don't care" option directly sets the value; the other actually require
+  // popping out the dropdown menu and selecting an item which is not reliable
+  // in non-interactive tests.
+  if (input_type != InputType::kDontCare) {
+    RequireInteractiveTest();
+  }
+
   StepBuilder builder;
   builder.SetDescription(base::StringPrintf("SelectDropdownItem( %zu )", item));
   internal::SpecifyElement(builder, collection);
@@ -150,6 +158,7 @@ InteractionSequence::StepBuilder InteractiveTestApi::EnterText(
 
 InteractionSequence::StepBuilder InteractiveTestApi::ActivateSurface(
     ElementSpecifier element) {
+  RequireInteractiveTest();
   StepBuilder builder;
   builder.SetDescription("ActivateSurface()");
   internal::SpecifyElement(builder, element);
@@ -340,6 +349,18 @@ InteractiveTestApi::StepBuilder InteractiveTestApi::SetOnIncompatibleAction(
         test->private_test_impl().on_incompatible_action_reason_ = reason;
       },
       base::Unretained(this), action, std::string(reason)));
+}
+
+void InteractiveTestApi::RequireInteractiveTest() {
+  CHECK(internal::InteractiveTestPrivate::allow_interactive_test_verbs_)
+      << "The test verb you are trying to use requires an interactive test."
+         " environment. This is one in which the test can safely control things"
+         " like mouse movement and window activation, without having to worry"
+         " about other processes making changes that can cause flakiness."
+         "\n"
+         "\nFor chromium browser tests, you can fix this issue by using "
+         "different verbs (e.g. PressButton() instead of MoveMouseTo(),"
+         " ClickMouse()), or you can move the test to interactive_ui_tests.";
 }
 
 bool InteractiveTestApi::RunTestSequenceImpl(

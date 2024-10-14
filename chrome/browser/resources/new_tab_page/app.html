@@ -15,8 +15,8 @@
       .dark="${this.isThemeDark_()}" .backgroundColor="${this.backgroundColor_}"
       ?hidden="${!this.logoEnabled_}">
   </ntp-logo>
-  <div id="realboxContainer">
-    <cr-searchbox id="realbox" ?is-dark="${this.isThemeDark_()}"
+  <div id="searchboxContainer">
+    <cr-searchbox id="searchbox" ?is-dark="${this.isThemeDark_()}"
         ?color-source-is-baseline="${this.colorSourceIsBaseline}"
         @open-lens-search="${this.onOpenLensSearch_}"
         @open-voice-search="${this.onOpenVoiceSearch_}" ?shown="${this.realboxShown_}"
@@ -84,7 +84,7 @@
       </div>
     </a>
     <div id="customizeButtons">
-      ${this.wallpaperSearchButtonEnabled_ ? html`
+      ${this.showWallpaperSearchButton_ ? html`
         <cr-button id="wallpaperSearchButton"
             class="customize-button" @click="${this.onWallpaperSearchClick_}"
             title="$i18n{customizeThisPageWallpaperSearch}"

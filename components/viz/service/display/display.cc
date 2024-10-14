@@ -37,6 +37,7 @@
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/quads/draw_quad.h"
 #include "components/viz/common/quads/shared_quad_state.h"
+#include "components/viz/common/switches.h"
 #include "components/viz/common/viz_utils.h"
 #include "components/viz/service/debugger/viz_debugger.h"
 #include "components/viz/service/display/aggregated_frame.h"
@@ -54,6 +55,7 @@
 #include "components/viz/service/display/null_renderer.h"
 #include "components/viz/service/display/occlusion_culler.h"
 #include "components/viz/service/display/output_surface.h"
+#include "components/viz/service/display/overdraw_tracker.h"
 #include "components/viz/service/display/overlay_candidate_factory.h"
 #include "components/viz/service/display/renderer_utils.h"
 #include "components/viz/service/display/skia_output_surface.h"
@@ -825,6 +827,18 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
     return false;
   }
 
+  ++swapped_trace_id_;
+  TRACE_EVENT(
+      "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
+      perfetto::Flow::Global(swapped_trace_id_),
+      [this](perfetto::EventContext ctx) {
+        auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+        auto* data = event->set_chrome_graphics_pipeline();
+        data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
+                           StepName::STEP_DRAW_AND_SWAP);
+        data->set_display_trace_id(swapped_trace_id_);
+      });
+
   if (params.max_pending_swaps >= 0 && skia_output_surface_ &&
       skia_output_surface_->capabilities()
           .supports_dynamic_frame_buffer_allocation) {
@@ -889,7 +903,7 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
     frame = aggregator_->Aggregate(
         current_surface_id_, params.expected_display_time,
         current_display_transform, target_damage_bounding_rect,
-        ++swapped_trace_id_);
+        swapped_trace_id_);
   }
   DebugDrawFrame(frame, resource_provider_);
 
@@ -1008,6 +1022,8 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
                                                    base::TimeTicks::Now());
     }
 
+    OverdrawTracker::EstimateAndRecordOverdrawAsUMAMetric(&frame);
+
     draw_timer.emplace();
     overlay_processor_->SetFrameSequenceNumber(frame_sequence_number_);
     overlay_processor_->SetIsPageFullscreen(frame.page_fullscreen_mode);
@@ -1056,10 +1072,6 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
                                  "Graphics.Pipeline.DrawAndSwap",
                                  swapped_trace_id_, "WaitForSwap");
     swapped_since_resize_ = true;
-
-    ui::LatencyInfo::TraceIntermediateFlowEvents(
-        frame.latency_info,
-        perfetto::protos::pbzero::ChromeLatencyInfo::STEP_DRAW_AND_SWAP);
 
     IssueDisplayRenderingStatsEvent();
     DirectRenderer::SwapFrameData swap_frame_data;
@@ -1412,6 +1424,29 @@ void Display::PreserveChildSurfaceControls() {
 void Display::InitDelegatedInkPointRendererReceiver(
     mojo::PendingReceiver<gfx::mojom::DelegatedInkPointRenderer>
         pending_receiver) {
+  if (std::optional<switches::DelegatedInkRendererMode> mode =
+          switches::GetDelegatedInkRendererMode()) {
+    switch (mode.value()) {
+      case switches::DelegatedInkRendererMode::kSkia:
+        if (DelegatedInkPointRendererBase* ink_renderer =
+                renderer_->GetDelegatedInkPointRenderer(
+                    /*create_if_necessary=*/true)) {
+          ink_renderer->InitMessagePipeline(std::move(pending_receiver));
+        }
+        break;
+      case switches::DelegatedInkRendererMode::kSystem:
+        if (DoesPlatformSupportDelegatedInk()) {
+          output_surface_->InitDelegatedInkPointRendererReceiver(
+              std::move(pending_receiver));
+        }
+        break;
+      case switches::DelegatedInkRendererMode::kNone:
+        // Do not initialize a receiver for `kNone` or any other values.
+        return;
+    }
+    return;
+  }
+
   if (DoesPlatformSupportDelegatedInk() && output_surface_) {
     output_surface_->InitDelegatedInkPointRendererReceiver(
         std::move(pending_receiver));

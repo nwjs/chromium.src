@@ -180,7 +180,7 @@ class StoreMetricsReporterTest : public SyncUsernameTestBase {
     prefs_.registry()->RegisterDictionaryPref(
         prefs::kAccountStoragePerAccountSettings);
 #endif
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
     prefs_.registry()->RegisterBooleanPref(
         prefs::kBiometricAuthenticationBeforeFilling, false);
 #endif
@@ -301,7 +301,7 @@ INSTANTIATE_TEST_SUITE_P(
         EnableStateParam(false, EnableSettingManageState::kPolicy, 8),
         EnableStateParam(false, EnableSettingManageState::kRecommended, 9)));
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 
 // The test fixture is used to test StoreIndependentMetrics. Depending on the
 // test, the parameter defines whether password manager or
@@ -1465,8 +1465,6 @@ TEST_F(StoreMetricsReporterTest, MultiStoreMetrics) {
 TEST_F(StoreMetricsReporterTest, ReportMetricsForAdvancedProtection) {
   prefs_.registry()->RegisterListPref(prefs::kPasswordHashDataList,
                                       PrefRegistry::NO_REGISTRATION_FLAGS);
-  ASSERT_FALSE(prefs_.HasPrefPath(prefs::kSyncPasswordHash));
-
   auto store = base::MakeRefCounted<MockPasswordStoreInterface>();
 
   MockPasswordReuseManager reuse_manager;

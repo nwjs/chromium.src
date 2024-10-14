@@ -145,6 +145,7 @@ class SyncService : public KeyedService {
   // The overall state of Sync-the-transport, in ascending order of
   // "activeness". Note that this refers to the transport layer, which may be
   // active even if Sync-the-feature is turned off.
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.sync
   enum class TransportState {
     // Sync is inactive, e.g. due to enterprise policy, or simply because there
     // is no authenticated user.
@@ -436,10 +437,6 @@ class SyncService : public KeyedService {
   //////////////////////////////////////////////////////////////////////////////
   // ACTIONS / STATE CHANGE REQUESTS
   //////////////////////////////////////////////////////////////////////////////
-
-  // Stops and disables Sync-the-feature and clears all local data.
-  // Sync-the-transport may remain active after calling this.
-  virtual void StopAndClear() = 0;
 
   // Called when a datatype (SyncableService) has a need for sync to start
   // ASAP, presumably because a local change event has occurred but we're

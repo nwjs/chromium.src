@@ -6,7 +6,7 @@
 #define CHROMEOS_COMPONENTS_MAGIC_BOOST_PUBLIC_CPP_MAGIC_BOOST_STATE_H_
 
 #include "base/component_export.h"
-#include "base/functional/callback_forward.h"
+#include "base/functional/callback.h"
 #include "base/observer_list.h"
 #include "base/types/expected.h"
 
@@ -73,6 +73,15 @@ class COMPONENT_EXPORT(MAGIC_BOOST) MagicBoostState {
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
+  // Check if the feature is available to use. It will be unavailable in lacros
+  // and if mahi is not available.
+  virtual bool IsMagicBoostAvailable() = 0;
+
+  // Check if HMR requires the notice banner to appear in the settings page.
+  // It will be false in lacros and if the HMR consent status is anything other
+  // than Declined.
+  virtual bool CanShowNoticeBannerForHMR() = 0;
+
   // Increments HMRWindowDismissCount count and returns an incremented value.
   // Note that this method is not thread safe, i.e., this increment does NOT
   // operate as an atomic operation. Reading HMRWindowDismissCount immediately
@@ -89,8 +98,16 @@ class COMPONENT_EXPORT(MAGIC_BOOST) MagicBoostState {
   // immediately after the write can read a stale value.
   virtual void AsyncWriteHMREnabled(bool enabled) = 0;
 
+  // Indicates if the Orca feature should be included in the opt-in flow.
+  virtual void ShouldIncludeOrcaInOptIn(
+      base::OnceCallback<void(bool)> callback) {}
+
   // Marks Orca consent status as rejected and disable the feature.
   virtual void DisableOrcaFeature() = 0;
+
+  // Returns true if Quick Answers or Mahi card should be shown (either consent
+  // is approved or pending).
+  bool ShouldShowHmrCard();
 
   base::expected<bool, Error> magic_boost_enabled() const {
     return magic_boost_enabled_;

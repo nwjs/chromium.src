@@ -15,6 +15,7 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/containers/map_util.h"
+#import "base/debug/crash_logging.h"
 #import "base/feature_list.h"
 #import "base/format_macros.h"
 #import "base/functional/bind.h"
@@ -317,6 +318,11 @@ bool ContainsFocusableField(const FormData& form, FieldRendererId field_id) {
           completionHandler:(SuggestionHandledCompletion)completion {
   [[UIDevice currentDevice] playInputClick];
   DCHECK(completion);
+  // TODO(crbug.com/366247033): This double-checks the assumption that this
+  // crash is caused by an unexpected suggestion type, and not a nil suggestion.
+  // It can be removed once a root cause for the issue is known.
+  CHECK(suggestion, base::NotFatalUntil::M133);
+
   _suggestionHandledCompletion = [completion copy];
 
   if (suggestion.acceptanceA11yAnnouncement != nil) {
@@ -420,8 +426,11 @@ bool ContainsFocusableField(const FormData& form, FieldRendererId field_id) {
       autofillManager->OnUserAcceptedCardsFromAccountOption();
     }
   } else {
-    NOTREACHED_IN_MIGRATION()
-        << "unknown identifier " << base::to_underlying(suggestion.type);
+    // TODO(crbug.com/366247033): Remove this crash key once the underlying
+    // crash has been fixed.
+    SCOPED_CRASH_KEY_NUMBER("Bug366247033", "suggestion_type",
+                            static_cast<int>(suggestion.type));
+    NOTREACHED(base::NotFatalUntil::M133);
   }
 }
 
@@ -684,8 +693,11 @@ bool ContainsFocusableField(const FormData& form, FieldRendererId field_id) {
 
   [self onSuggestionsReady:suggestions suggestionDelegate:delegate];
 
-  if (delegate)
-    delegate->OnSuggestionsShown();
+  // TODO(crbug.com/363958046): Pass the actually shown suggestions instead of
+  // `popup_suggestions`.
+  if (delegate) {
+    delegate->OnSuggestionsShown(popup_suggestions);
+  }
 }
 
 - (void)hideAutofillPopup {
@@ -869,11 +881,6 @@ bool ContainsFocusableField(const FormData& form, FieldRendererId field_id) {
 - (void)webState:(web::WebState*)webState
     didRegisterFormRemoval:(const autofill::FormRemovalParams&)params
                    inFrame:(web::WebFrame*)frame {
-  if (!base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableXHRSubmissionDetectionIOS)) {
-    return;
-  }
-
   CHECK_EQ(_webState, webState);
   CHECK(!params.removed_forms.empty() || !params.removed_unowned_fields.empty())
       << "Invalid params. Form removal events with missing input should have "
@@ -1313,10 +1320,6 @@ bool ContainsFocusableField(const FormData& form, FieldRendererId field_id) {
       frame, base::FeatureList::IsEnabled(
                  autofill::features::kAutofillAcrossIframesIos));
 
-  FormUtilJavaScriptFeature::GetInstance()->SetAutofillXHRSubmissionDetection(
-      frame, base::FeatureList::IsEnabled(
-                 autofill::features::kAutofillEnableXHRSubmissionDetectionIOS));
-
   FormUtilJavaScriptFeature::GetInstance()->SetAutofillIsolatedContentWorld(
       frame,
       base::FeatureList::IsEnabled(kAutofillIsolatedWorldForJavascriptIos));
@@ -1335,10 +1338,8 @@ bool ContainsFocusableField(const FormData& form, FieldRendererId field_id) {
   // Use a delay of 200ms when tracking form mutations to reduce the
   // communication overhead (as mutations are likely to come in batch).
   constexpr int kMutationTrackingEnabledDelayInMs = 200;
-  const bool allowMsgBatching =
-      base::FeatureList::IsEnabled(kAutofillFormActivityMsgBatchingIos);
-  formHandlerFeature->TrackFormMutations(
-      frame, kMutationTrackingEnabledDelayInMs, allowMsgBatching);
+  formHandlerFeature->TrackFormMutations(frame,
+                                         kMutationTrackingEnabledDelayInMs);
 
   formHandlerFeature->ToggleTrackingUserEditedFields(
       frame,

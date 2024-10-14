@@ -8,10 +8,12 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
 import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
+import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
@@ -21,7 +23,12 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
+import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesColor;
+import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesCoordinator;
+import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesType;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -32,10 +39,10 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupUtils;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
-import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -47,10 +54,7 @@ import java.util.List;
  * A coordinator for TabGroupUi component. Manages the communication with {@link TabListCoordinator}
  * as well as the life-cycle of shared component objects.
  */
-public class TabGroupUiCoordinator
-        implements TabGroupUiMediator.ResetHandler,
-                TabGroupUi,
-                TabGroupUiMediator.TabGroupUiController {
+public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, TabGroupUi {
     static final String COMPONENT_NAME = "TabStrip";
 
     /** Set by {@code mMediator}, but owned by the coordinator so access is safe pre-native. */
@@ -68,11 +72,9 @@ public class TabGroupUiCoordinator
     private final ObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
     private final BottomSheetController mBottomSheetController;
     private final DataSharingTabManager mDataSharingTabManager;
-    private final ViewGroup mRootView;
     private final TabModelSelector mTabModelSelector;
     private final LazyOneshotSupplier<ActionConfirmationManager> mActionConfirmationSupplier;
     private final OneshotSupplier<LayoutStateProvider> mLayoutStateProviderSupplier;
-    private final SnackbarManager mSnackbarManager;
     private final TabCreatorManager mTabCreatorManager;
     private final TabContentManager mTabContentManager;
     private final ModalDialogManager mModalDialogManager;
@@ -95,10 +97,8 @@ public class TabGroupUiCoordinator
             @NonNull DataSharingTabManager dataSharingTabManager,
             @NonNull TabModelSelector tabModelSelector,
             @NonNull TabContentManager tabContentManager,
-            @NonNull ViewGroup rootView,
             @NonNull TabCreatorManager tabCreatorManager,
             @NonNull OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
-            @NonNull SnackbarManager snackbarManager,
             @NonNull ModalDialogManager modalDialogManager) {
         try (TraceEvent e = TraceEvent.scoped("TabGroupUiCoordinator.constructor")) {
             mActivity = activity;
@@ -108,10 +108,15 @@ public class TabGroupUiCoordinator
             mScrimCoordinator = scrimCoordinator;
             mOmniboxFocusStateSupplier = omniboxFocusStateSupplier;
             mModel = new PropertyModel(TabGroupUiProperties.ALL_KEYS);
+
+            @LayoutRes
+            int layoutId =
+                    ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)
+                            ? R.layout.dynamic_bottom_tab_strip_toolbar
+                            : R.layout.bottom_tab_strip_toolbar;
             mToolbarView =
                     (TabGroupUiToolbarView)
-                            LayoutInflater.from(mContext)
-                                    .inflate(R.layout.bottom_tab_strip_toolbar, parentView, false);
+                            LayoutInflater.from(mContext).inflate(layoutId, parentView, false);
             mTabListContainerView = mToolbarView.getViewContainer();
             mBottomSheetController = bottomSheetController;
             mDataSharingTabManager = dataSharingTabManager;
@@ -119,8 +124,6 @@ public class TabGroupUiCoordinator
             mActionConfirmationSupplier =
                     LazyOneshotSupplier.fromSupplier(this::createActionConfirmationManager);
             mLayoutStateProviderSupplier = layoutStateProviderSupplier;
-            mRootView = rootView;
-            mSnackbarManager = snackbarManager;
             mTabCreatorManager = tabCreatorManager;
             mTabContentManager = tabContentManager;
             mModalDialogManager = modalDialogManager;
@@ -158,7 +161,6 @@ public class TabGroupUiCoordinator
                         null,
                         mScrimCoordinator,
                         mTabStripCoordinator.getTabGroupTitleEditor(),
-                        mRootView,
                         mActionConfirmationSupplier.get(),
                         mModalDialogManager);
         return mTabGridDialogCoordinator;
@@ -216,6 +218,23 @@ public class TabGroupUiCoordinator
                 mTabGridDialogControllerSupplier = null;
             }
 
+            @Nullable SharedImageTilesCoordinator sharedImageTilesCoordinator = null;
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)) {
+                DataSharingService dataSharingService =
+                        DataSharingServiceFactory.getForProfile(
+                                mTabModelSelector.getModel(/* incognito= */ false).getProfile());
+                sharedImageTilesCoordinator =
+                        new SharedImageTilesCoordinator(
+                                activity,
+                                SharedImageTilesType.CLICKABLE,
+                                SharedImageTilesColor.DYNAMIC,
+                                dataSharingService);
+                FrameLayout container =
+                        mToolbarView.findViewById(R.id.toolbar_image_tiles_container);
+                TabUiUtils.attachSharedImageTilesCoordinatorToFrameLayout(
+                        sharedImageTilesCoordinator, container);
+            }
+
             mMediator =
                     new TabGroupUiMediator(
                             mActivity,
@@ -229,7 +248,8 @@ public class TabGroupUiCoordinator
                             mLayoutStateProviderSupplier,
                             mIncognitoStateProvider,
                             mTabGridDialogControllerSupplier,
-                            mOmniboxFocusStateSupplier);
+                            mOmniboxFocusStateSupplier,
+                            sharedImageTilesCoordinator);
 
             TabGroupUtils.startObservingForCreationIPH();
         }
@@ -308,18 +328,5 @@ public class TabGroupUiCoordinator
         if (mMediator != null) {
             mMediator.destroy();
         }
-    }
-
-    // TabGroupUiController implementation.
-    @Override
-    public void setupLeftButtonDrawable(int drawableId) {
-        assert mMediator != null;
-        mMediator.setupLeftButtonDrawable(drawableId);
-    }
-
-    @Override
-    public void setupLeftButtonOnClickListener(View.OnClickListener listener) {
-        assert mMediator != null;
-        mMediator.setupLeftButtonOnClickListener(listener);
     }
 }

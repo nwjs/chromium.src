@@ -100,14 +100,6 @@ public class TabResumptionModuleUtils {
                     TAB_RESUMPTION_FETCH_HISTORY_BACKEND_PARAM,
                     false);
 
-    private static final String TAB_RESUMPTION_FETCH_LOCAL_TABS_BACKEND_PARAM =
-            "fetch_local_tabs_backend";
-    public static final BooleanCachedFieldTrialParameter TAB_RESUMPTION_FETCH_LOCAL_TABS_BACKEND =
-            ChromeFeatureList.newBooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.TAB_RESUMPTION_MODULE_ANDROID,
-                    TAB_RESUMPTION_FETCH_LOCAL_TABS_BACKEND_PARAM,
-                    false);
-
     private static final String TAB_RESUMPTION_SHOW_DEFAULT_REASON_PARAM = "show_default_reason";
     public static final BooleanCachedFieldTrialParameter TAB_RESUMPTION_SHOW_DEFAULT_REASON =
             ChromeFeatureList.newBooleanCachedFieldTrialParameter(
@@ -176,5 +168,19 @@ public class TabResumptionModuleUtils {
         long minutesElapsed = Math.max(1L, TimeUnit.MILLISECONDS.toMinutes(timeDeltaMs));
         return res.getQuantityString(
                 R.plurals.n_minutes_ago_narrow, (int) minutesElapsed, minutesElapsed);
+    }
+
+    /**
+     * Returns whether the suggestions to show are finalized, i.e., don't need to match local Tabs.
+     */
+    static boolean areSuggestionsFinalized(SuggestionBundle bundle) {
+        if (bundle == null || bundle.entries == null || bundle.entries.isEmpty()) return true;
+
+        if (bundle.entries.size() == 1) {
+            return !bundle.entries.get(0).getNeedMatchLocalTab();
+        } else {
+            return !bundle.entries.get(0).getNeedMatchLocalTab()
+                    && !bundle.entries.get(1).getNeedMatchLocalTab();
+        }
     }
 }

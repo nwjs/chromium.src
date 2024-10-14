@@ -239,8 +239,7 @@ void PopupViewViews::OnMouseExited(const ui::MouseEvent& event) {
 
 void PopupViewViews::OnPaint(gfx::Canvas* canvas) {
   views::View::OnPaint(canvas);
-  if (controller_ && base::FeatureList::IsEnabled(
-                         features::kAutofillPopupMeasureTimeAfterPaint)) {
+  if (controller_) {
     controller_->OnPopupPainted();
   }
 }
@@ -795,18 +794,13 @@ void PopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
   // educational messages. The promo bubble should only be shown once in one
   // session and has a limit for how many times it can be shown at most in a
   // period of time.
-  browser->window()->MaybeShowFeaturePromo(
-      feature_engagement::kIPHAutofillDisabledVirtualCardSuggestionFeature);
-  browser->window()->MaybeShowFeaturePromo(
-      feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature);
-  browser->window()->MaybeShowFeaturePromo(
-      feature_engagement::kIPHAutofillVirtualCardSuggestionFeature);
-  browser->window()->MaybeShowFeaturePromo(
-      feature_engagement::kIPHAutofillExternalAccountProfileSuggestionFeature);
-  browser->window()->MaybeShowFeaturePromo(
-      feature_engagement::kIPHAutofillCreditCardBenefitFeature);
-  browser->window()->MaybeShowFeaturePromo(
-      feature_engagement::kIPHPlusAddressCreateSuggestionFeature);
+  for (auto feature : base::MakeFlatSet<raw_ptr<const base::Feature>>(
+           controller_->GetSuggestions(), /*comp=*/{},
+           &Suggestion::feature_for_iph)) {
+    if (feature) {
+      browser->window()->MaybeShowFeaturePromo(*feature);
+    }
+  }
 }
 
 void PopupViewViews::SearchBarOnInputChanged(const std::u16string& query) {
@@ -980,11 +974,11 @@ void PopupViewViews::CreateSuggestionViews() {
   // a non-empty filter query means that there are no results matching
   // the query. Show a corresponding message.
   if ((kSuggestions.empty() ||
-       base::ranges::all_of(kSuggestions,
-                            [](const Suggestion& suggestion) {
-                              return suggestion.filtration_policy ==
-                                     Suggestion::FiltrationPolicy::kStatic;
-                            })) &&
+       std::ranges::all_of(kSuggestions,
+                           [](const Suggestion& suggestion) {
+                             return suggestion.filtration_policy ==
+                                    Suggestion::FiltrationPolicy::kStatic;
+                           })) &&
       search_bar_ && controller_->HasFilteredOutSuggestions()) {
     suggestions_container_->AddChildView(
         std::make_unique<PopupNoSuggestionsView>(

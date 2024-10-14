@@ -99,7 +99,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mobile.ContextMenu.EntryPoints" enum="IOSMenuScenario"
-    expires_after="2025-01-05">
+    expires_after="2025-03-09">
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@chromium.org</owner>
   <summary>
@@ -180,6 +180,8 @@ chromium-metrics-reviews@google.com.
         summary="Autofill manual fallback password entry"/>
     <variant name="AutofillManualFallbackPaymentEntry"
         summary="Autofill manual fallback payment entry"/>
+    <variant name="AutofillManualFallbackPlusAddressEntry"
+        summary="Autofill manual fallback plus address entry"/>
     <variant name="BookmarkEntry" summary="Bookmark entry"/>
     <variant name="BookmarkFolder" summary="Bookmark folder"/>
     <variant name="HistoryEntry" summary="History entry"/>
@@ -191,11 +193,17 @@ chromium-metrics-reviews@google.com.
     <variant name="ReadingListEntry" summary="Reading List entry"/>
     <variant name="RecentTabsEntry" summary="Recent Tabs entry"/>
     <variant name="RecentTabsHeader" summary="Recent Tabs header/device"/>
+    <variant name="SelectDriveIdentityEntry"
+        summary="Select Drive Identity Entry"/>
+    <variant name="SortDriveItemsEntry" summary="Sort Drive Items Entry"/>
     <variant name="TabGrid" summary="Tab Grid Entry"/>
     <variant name="TabGridAddTo" summary="Tab Grid Add To"/>
     <variant name="TabGridEdit" summary="Tab Grid Edit"/>
     <variant name="TabGridSearchResult" summary="Tab Grid Search Result"/>
     <variant name="TabGroupEntry" summary="Tab group view entry"/>
+    <variant name="TabGroupIndicatorEntry" summary="Tab Group Indicator Entry"/>
+    <variant name="TabGroupIndicatorNTPEntry"
+        summary="Tab Group Indicator on NTP Entry"/>
     <variant name="TabGroupsPanelEntry" summary="Tab group panel entry"/>
     <variant name="TabGroupViewEntry"
         summary="Tab group view entry in tab grid"/>
@@ -229,7 +237,30 @@ chromium-metrics-reviews@google.com.
   <owner>nyquist@chromium.org</owner>
   <summary>
     Android: Whether or not the device has a default browser and whether or not
-    it is a system installed browser. Logged when a new session is started.
+    it is a part of the original system image. Logged when a new session is
+    started.
+
+    This can be subtly misleading. Read the information below!
+
+    Some manufacturers have their initial setup program configured to install
+    apps rather than have the apps come pre-installed as part of the system
+    image. These apps that are installed during the initial setup will not be
+    counted as coming pre-installed in the system image. For example, on a
+    Samsung Galaxy Tab S7 used for testing, after a factory reset you get to
+    choose whether you want to install Samsung Internet Browser or not. If you
+    say yes and choose it, Samsung Internet Browser will be marked as not part
+    the system image.
+
+    Also, manufacturers may change how they set up devices over time. A
+    manufacturer can go from shipping a browser app as part of the system image
+    to downloading it during the initial setup. As a result, these metrics can
+    change over time even if the user preferences did not.
+
+    Consequently, browsers that are marked as &quot;not part of the system
+    image&quot; does not mean the user had to go out of their way to install
+    those apps. It also means that decisions made by manufacturers (when an app
+    gets installed)--not users--may affect the balance between &quot;in original
+    system image&quot; and &quot;not in original system image&quot;.
   </summary>
 </histogram>
 
@@ -260,7 +291,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mobile.Messages.Badge.Tapped.{MobileInfobarType}"
-    enum="MobileMessagesBadgeState" expires_after="2024-12-30">
+    enum="MobileMessagesBadgeState" expires_after="2025-03-02">
   <owner>thegreenfrog@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>
@@ -270,7 +301,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mobile.Messages.Banner.Dismiss.{MobileInfobarType}"
-    enum="MobileMessagesBannerDismissType" expires_after="2024-12-30">
+    enum="MobileMessagesBannerDismissType" expires_after="2025-03-02">
   <owner>thegreenfrog@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>
@@ -280,7 +311,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mobile.Messages.Banner.Event.{MobileInfobarType}"
-    enum="MobileMessagesBannerEvent" expires_after="2025-01-05">
+    enum="MobileMessagesBannerEvent" expires_after="2025-03-09">
   <owner>thegreenfrog@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>Records infobar banner events. {MobileInfobarType}</summary>
@@ -333,7 +364,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mobile.Messages.Modal.Event.{MobileInfobarType}"
-    enum="MobileMessagesModalEvent" expires_after="2024-12-30">
+    enum="MobileMessagesModalEvent" expires_after="2025-03-02">
   <owner>thegreenfrog@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>Records generic infobar modal events. {MobileInfobarType}</summary>
@@ -626,6 +657,23 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="Mobile.SystemNotification.Permission.OneTapUnsubscribe.DuplicatePreUnsubscribeRealDelay"
+    units="ms" expires_after="2025-01-26">
+  <owner>engedy@chromium.org</owner>
+  <owner>peter@chromium.org</owner>
+  <summary>
+    Recorded for each `PRE_UNSUBSCRIBE` intent that is identified as a
+    duplicate; and measures the time elapsed starting when the most recent
+    non-duplicate `PRE_UNSUBSCRIBE` intent was dispatched and stopping when this
+    duplicate intent is dispatched.
+
+    Measure time as `elapsedRealtime`, which includes time spent in power-saving
+    modes and/or display being dark, to approximate delays as perceived by the
+    user.
+  </summary>
+</histogram>
+
+<histogram
     name="Mobile.SystemNotification.Permission.OneTapUnsubscribe.IsDuplicatePreUnsubscribe"
     enum="Boolean" expires_after="2025-01-26">
   <owner>engedy@chromium.org</owner>
@@ -634,6 +682,42 @@ chromium-metrics-reviews@google.com.
     state when a tap on the `PRE_UNSUBSCRIBE` action button was processed. This
     can happen in case the native startup takes a long time and the user hits
     the button twice while waiting.
+  </summary>
+</histogram>
+
+<histogram
+    name="Mobile.SystemNotification.Permission.OneTapUnsubscribe.PreUnsubscribePreNativeDuration"
+    units="ms" expires_after="2025-01-26">
+  <owner>engedy@chromium.org</owner>
+  <owner>peter@chromium.org</owner>
+  <summary>
+    Records how long the pre-native processing for the `PRE_UNSUBSCRIBE` action
+    button intent took. The clocks starts when the broadcast receiver
+    syncronously calls into `onNotificationPreUnsubcribe`; and ends when the
+    posted task to show the `provisionally unsubscribed` notification and
+    suspend all other notifications is completed. Only recorded for each
+    non-duplicate tap on the `PRE_UNSUBSCRIBE` action.
+
+    Measures time as `uptimeMillis`, which stops the clock when in power-saving
+    modes and/or display being dark.
+  </summary>
+</histogram>
+
+<histogram
+    name="Mobile.SystemNotification.Permission.OneTapUnsubscribe.PreUnsubscribePreNativeRealDuration"
+    units="ms" expires_after="2025-01-26">
+  <owner>engedy@chromium.org</owner>
+  <owner>peter@chromium.org</owner>
+  <summary>
+    Records how long the pre-native processing for the `PRE_UNSUBSCRIBE` action
+    button intent took. The clocks starts when the broadcast receiver
+    syncronously calls into `onNotificationPreUnsubcribe`; and ends when the
+    posted task to show the `provisionally unsubscribed` notification and
+    suspend all other notifications is completed. Only recorded for each
+    non-duplicate tap on the `PRE_UNSUBSCRIBE` action.
+
+    Measures time as `elapsedRealtime`, which includes time spent in
+    power-saving modes and/or display being dark.
   </summary>
 </histogram>
 
@@ -884,7 +968,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MobileFre.FromLaunch.{Target}" units="ms"
-    expires_after="2024-12-22">
+    expires_after="2025-02-23">
   <owner>skym@chromium.org</owner>
   <owner>wenyufu@chromium.org</owner>
   <summary>
@@ -922,12 +1006,10 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="MobileFre.Progress" enum="MobileFreProgress"
-    expires_after="2025-01-05">
+<histogram name="MobileFre.Progress.{MobileFreEntryType}"
+    enum="MobileFreProgress" expires_after="2025-03-09">
   <owner>bsazonov@chromium.org</owner>
-  <owner>msarda@chromium.org</owner>
-  <owner>droger@chromium.org</owner>
-  <owner>gogerald@chromium.org</owner>
+  <owner>samarchehade@google.com</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
     Android: Records which states of the &quot;first run experience&quot; have
@@ -935,6 +1017,10 @@ chromium-metrics-reviews@google.com.
     state changed. Pages can be double counted if the user goes backwards in the
     flow.
   </summary>
+  <token key="MobileFreEntryType">
+    <variant name="MainIntent" summary="Launcher icon click"/>
+    <variant name="ViewIntent" summary="VIEW intent (click on a link)"/>
+  </token>
 </histogram>
 
 <histogram name="MobileFre.SignInChoice" enum="MobileFreSignInChoice"
@@ -1078,7 +1164,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MobileOmnibox.PressedClipboardSuggestionAge" units="ms"
-    expires_after="2025-01-05">
+    expires_after="2025-03-09">
   <owner>jdonnelly@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <summary>
@@ -1126,8 +1212,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MobileSignInPromo.NTPFeedTop.ImpressionsTilDismiss"
-    units="impressions" expires_after="2024-09-15">
-  <owner>mrefaat@chromium.org</owner>
+    units="impressions" expires_after="2025-09-15">
   <owner>jlebel@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -1137,8 +1222,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MobileSignInPromo.NTPFeedTop.ImpressionsTilSigninButtons"
-    units="impressions" expires_after="2023-06-01">
-  <owner>mrefaat@chromium.org</owner>
+    units="impressions" expires_after="2025-09-15">
   <owner>jlebel@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -1150,8 +1234,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MobileSignInPromo.NTPFeedTop.ImpressionsTilXButton"
-    units="impressions" expires_after="2024-10-06">
-  <owner>mrefaat@chromium.org</owner>
+    units="impressions" expires_after="2025-09-15">
   <owner>jlebel@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -1231,7 +1314,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MobileStartup.IntentToCreationTime" units="ms"
-    expires_after="2025-01-05">
+    expires_after="2025-03-09">
   <owner>tedchoc@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <owner>yfriedman@chromium.org</owner>

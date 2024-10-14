@@ -30,6 +30,8 @@
 #import "ios/chrome/browser/lens/model/lens_browser_agent.h"
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_component_factory.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
@@ -37,8 +39,8 @@
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state_manager.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
@@ -63,8 +65,6 @@
 #import "ios/chrome/browser/tabs/ui_bundled/tab_strip_legacy_coordinator.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_view_controller.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller.h"
-#import "ios/chrome/browser/ui/ntp/new_tab_page_component_factory.h"
-#import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_coordinator.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_strip/coordinator/tab_strip_coordinator.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_coordinator.h"
@@ -95,47 +95,46 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
     scene_state_ = [[SceneState alloc] initWithAppState:nil];
 
-    // Set up a TestChromeBrowserState instance.
-    TestChromeBrowserState::Builder test_cbs_builder;
+    // Set up a TestProfileIOS instance.
+    TestProfileIOS::Builder test_profile_builder;
 
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         IOSChromeTabRestoreServiceFactory::GetInstance(),
         IOSChromeTabRestoreServiceFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         ios::TemplateURLServiceFactory::GetInstance(),
         ios::TemplateURLServiceFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         IOSChromeLargeIconServiceFactory::GetInstance(),
         IOSChromeLargeIconServiceFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         IOSChromeFaviconLoaderFactory::GetInstance(),
         IOSChromeFaviconLoaderFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         ios::FaviconServiceFactory::GetInstance(),
         ios::FaviconServiceFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         ios::HistoryServiceFactory::GetInstance(),
         ios::HistoryServiceFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         ios::BookmarkModelFactory::GetInstance(),
         ios::BookmarkModelFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetDefaultFactory());
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         segmentation_platform::SegmentationPlatformServiceFactory::
             GetInstance(),
         segmentation_platform::SegmentationPlatformServiceFactory::
             GetDefaultFactory());
 
-    browser_state_ = browser_state_manager_.AddBrowserStateWithBuilder(
-        std::move(test_cbs_builder));
+    profile_ =
+        profile_manager_.AddProfileWithBuilder(std::move(test_profile_builder));
 
     AuthenticationServiceFactory::CreateAndInitializeForBrowserState(
-        GetBrowserState(),
-        std::make_unique<FakeAuthenticationServiceDelegate>());
+        GetProfile(), std::make_unique<FakeAuthenticationServiceDelegate>());
 
-    browser_ = std::make_unique<TestBrowser>(GetBrowserState(), scene_state_);
+    browser_ = std::make_unique<TestBrowser>(GetProfile(), scene_state_);
     WebUsageEnablerBrowserAgent::CreateForBrowser(browser_.get());
     UrlLoadingNotifierBrowserAgent::CreateForBrowser(browser_.get());
     LensBrowserAgent::CreateForBrowser(browser_.get());
@@ -204,7 +203,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
     // Create three web states.
     for (int i = 0; i < 3; i++) {
-      web::WebState::CreateParams params(GetBrowserState());
+      web::WebState::CreateParams params(GetProfile());
       std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
       AttachTabHelpers(webState.get());
       browser_->GetWebStateList()->InsertWebState(std::move(webState));
@@ -213,7 +212,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
     // Load TemplateURLService.
     TemplateURLService* template_url_service =
-        ios::TemplateURLServiceFactory::GetForBrowserState(GetBrowserState());
+        ios::TemplateURLServiceFactory::GetForProfile(GetProfile());
     template_url_service->Load();
 
     ClipboardRecentContent::SetInstance(
@@ -289,13 +288,14 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     tab_events_mediator_ = [[TabEventsMediator alloc]
         initWithWebStateList:browser_.get()->GetWebStateList()
               ntpCoordinator:NTPCoordinator_
-                browserState:GetBrowserState()
+                     profile:GetProfile()
              loadingNotifier:url_loading_notifier];
     tab_events_mediator_.consumer = bvc_;
 
     // Force the view to load.
     UIWindow* window = [[UIWindow alloc] initWithFrame:CGRectZero];
-    [window addSubview:[bvc_ view]];
+    window.rootViewController = bvc_;
+    [window makeKeyAndVisible];
     window_ = window;
   }
 
@@ -315,7 +315,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     BlockCleanupTest::TearDown();
   }
 
-  TestChromeBrowserState* GetBrowserState() { return browser_state_.get(); }
+  TestProfileIOS* GetProfile() { return profile_.get(); }
 
   web::WebState* ActiveWebState() {
     return browser_->GetWebStateList()->GetActiveWebState();
@@ -329,7 +329,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
   }
 
   std::unique_ptr<web::WebState> CreateWebState() {
-    web::WebState::CreateParams params(GetBrowserState());
+    web::WebState::CreateParams params(GetProfile());
     auto web_state = web::WebState::Create(params);
     AttachTabHelpers(web_state.get());
     return web_state;
@@ -337,8 +337,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
   std::unique_ptr<web::WebState> CreateOffTheRecordWebState() {
     web::WebState::CreateParams params(
-        GetBrowserState()
-            ->CreateOffTheRecordBrowserStateWithTestingFactories());
+        GetProfile()->CreateOffTheRecordBrowserStateWithTestingFactories());
     auto web_state = web::WebState::Create(params);
     AttachTabHelpers(web_state.get());
     return web_state;
@@ -385,8 +384,8 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  TestChromeBrowserStateManager browser_state_manager_;
-  raw_ptr<TestChromeBrowserState> browser_state_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_;
   std::unique_ptr<Browser> browser_;
   KeyCommandsProvider* key_commands_provider_;
   BrowserContainerViewController* container_;

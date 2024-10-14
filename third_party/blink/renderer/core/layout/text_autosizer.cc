@@ -67,10 +67,8 @@ namespace {
 inline int GetLayoutInlineSize(const Document& document,
                                const LocalFrameView& main_frame_view) {
   gfx::Size size = main_frame_view.GetLayoutSize();
-  const LayoutView* layout_view = document.GetLayoutView();
-  if (IsHorizontalWritingMode(layout_view->StyleRef().GetWritingMode()))
-    return size.width();
-  return size.height();
+  return document.GetLayoutView()->IsHorizontalWritingMode() ? size.width()
+                                                             : size.height();
 }
 
 }  // namespace
@@ -659,8 +657,8 @@ void TextAutosizer::UpdatePageInfo() {
       page_info_.shared_info_.main_frame_layout_width =
           GetLayoutInlineSize(*document_, *main_frame.View());
 
-      // If the page has a meta viewport or @viewport, don't apply the device
-      // scale adjustment.
+      // If the page has a meta viewport, don't apply the device scale
+      // adjustment.
       if (!main_frame.GetDocument()
                ->GetViewportData()
                .GetViewportDescription()

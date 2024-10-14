@@ -9,6 +9,7 @@
 #import "components/country_codes/country_codes.h"
 #import "components/version_info/channel.h"
 #import "ios/chrome/app/background_mode_buildflags.h"
+#import "ios/chrome/browser/safety_check_notifications/utils/constants.h"
 #import "ios/chrome/common/channel_info.h"
 #import "ui/base/device_form_factor.h"
 
@@ -18,22 +19,6 @@ namespace {
 // is enabled, not if the capability was enabled at startup.
 bool IsFeedBackgroundRefreshEnabledOnly() {
   return base::FeatureList::IsEnabled(kEnableFeedBackgroundRefresh);
-}
-
-// Declares the GetFieldTrialParamByFeatureAsString that was added on M130.
-std::string GetFieldTrialParamByFeatureAsString(
-    const base::Feature& feature,
-    const std::string& param_name,
-    const std::string& default_value) {
-  base::FieldTrialParams params;
-  if (!base::GetFieldTrialParamsByFeature(feature, &params)) {
-    return default_value;
-  }
-  auto it = params.find(param_name);
-  if (it == params.end()) {
-    return default_value;
-  }
-  return it->second;
 }
 
 }  // namespace
@@ -71,8 +56,67 @@ BASE_FEATURE(kOmahaServiceRefactor,
 const char kSafetyCheckNotificationsExperimentType[] =
     "SafetyCheckNotificationsExperimentType";
 
+const char kSafetyCheckNotificationsImpressionTrigger[] =
+    "SafetyCheckNotificationsImpressionTrigger";
+
+const char kSafetyCheckNotificationsImpressionLimit[] =
+    "SafetyCheckNotificationsImpressionLimit";
+
+const char kSafetyCheckAllowPasswordsNotifications[] =
+    "SafetyCheckAllowPasswordsNotifications";
+
+const char kSafetyCheckAllowSafeBrowsingNotifications[] =
+    "SafetyCheckAllowSafeBrowsingNotifications";
+
+const char kSafetyCheckAllowUpdateChromeNotifications[] =
+    "SafetyCheckAllowUpdateChromeNotifications";
+
 const char kSafetyCheckMagicStackAutorunHoursThreshold[] =
     "SafetyCheckMagicStackAutorunHoursThreshold";
+
+const char kSafetyCheckNotificationsProvisionalEnabled[] =
+    "SafetyCheckNotificationsProvisionalEnabled";
+
+const char kSafetyCheckNotificationsUserInactiveThreshold[] =
+    "SafetyCheckNotificationsUserInactiveThreshold";
+
+// This helper should return true by default, as this parameter primarily serves
+// as a killswitch.
+bool AreSafetyCheckPasswordsNotificationsAllowed() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kSafetyCheckNotifications, kSafetyCheckAllowPasswordsNotifications,
+      /*default_value=*/true);
+}
+
+// This helper should return true by default, as this parameter primarily serves
+// as a killswitch.
+bool AreSafetyCheckSafeBrowsingNotificationsAllowed() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kSafetyCheckNotifications, kSafetyCheckAllowSafeBrowsingNotifications,
+      /*default_value=*/true);
+}
+
+// This helper should return true by default, as this parameter primarily serves
+// as a killswitch.
+bool AreSafetyCheckUpdateChromeNotificationsAllowed() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kSafetyCheckNotifications, kSafetyCheckAllowUpdateChromeNotifications,
+      /*default_value=*/true);
+}
+
+bool ProvisionalSafetyCheckNotificationsEnabled() {
+  return base::GetFieldTrialParamByFeatureAsBool(
+      kSafetyCheckNotifications, kSafetyCheckNotificationsProvisionalEnabled,
+      /*default_value=*/
+      true);
+}
+
+const base::TimeDelta InactiveThresholdForSafetyCheckNotifications() {
+  return base::GetFieldTrialParamByFeatureAsTimeDelta(
+      kSafetyCheckNotifications, kSafetyCheckNotificationsUserInactiveThreshold,
+      /*default_value=*/
+      kSafetyCheckNotificationDefaultDelay);
+}
 
 // How many hours between each autorun of the Safety Check in the Magic Stack.
 const base::TimeDelta TimeDelayForSafetyCheckAutorun() {
@@ -317,10 +361,6 @@ BASE_FEATURE(kThemeColorInTopToolbar,
              "ThemeColorInTopToolbar",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTabGridAlwaysBounce,
-             "TabGridAlwaysBounce",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 bool IsSafetyCheckMagicStackEnabled() {
   return base::FeatureList::IsEnabled(kSafetyCheckMagicStack);
 }
@@ -345,6 +385,22 @@ SafetyCheckNotificationsExperimentTypeEnabled() {
           kSafetyCheckNotifications, kSafetyCheckNotificationsExperimentType,
           /*default_value=*/
           (int)SafetyCheckNotificationsExperimentalArm::kVerbose));
+}
+
+SafetyCheckNotificationsImpressionTrigger
+SafetyCheckNotificationsImpressionTriggerEnabled() {
+  return static_cast<SafetyCheckNotificationsImpressionTrigger>(
+      base::GetFieldTrialParamByFeatureAsInt(
+          kSafetyCheckNotifications, kSafetyCheckNotificationsImpressionTrigger,
+          /*default_value=*/
+          (int)SafetyCheckNotificationsImpressionTrigger::kAlways));
+}
+
+int SafetyCheckNotificationsImpressionLimit() {
+  return base::GetFieldTrialParamByFeatureAsInt(
+      kSafetyCheckNotifications, kSafetyCheckNotificationsImpressionLimit,
+      /*default_value=*/
+      3);
 }
 
 BASE_FEATURE(kIOSChooseFromDrive,
@@ -423,7 +479,7 @@ BASE_FEATURE(kFullscreenImprovement,
 
 BASE_FEATURE(kTabGroupsInGrid,
              "TabGroupsInGrid",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabGroupsIPad,
              "TabGroupsIPad",
@@ -442,6 +498,32 @@ BASE_FEATURE(kTabGroupSync, "TabGroupSync", base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsTabGroupSyncEnabled() {
   return IsTabGroupInGridEnabled() &&
          base::FeatureList::IsEnabled(kTabGroupSync);
+}
+
+BASE_FEATURE(kSharedTabGroups,
+             "SharedTabGroups",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsSharedTabGroupsEnabled() {
+  return IsTabGroupSyncEnabled() &&
+         base::FeatureList::IsEnabled(kSharedTabGroups);
+}
+
+BASE_FEATURE(kTabGroupIndicator,
+             "TabGroupIndicator",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsTabGroupIndicatorEnabled() {
+  return IsTabGroupInGridEnabled() &&
+         base::FeatureList::IsEnabled(kTabGroupIndicator);
+}
+
+BASE_FEATURE(kNewSyncOptInIllustration,
+             "NewSyncOptInIllustration",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsNewSyncOptInIllustration() {
+  return base::FeatureList::IsEnabled(kNewSyncOptInIllustration);
 }
 
 BASE_FEATURE(kDisableLensCamera,
@@ -791,16 +873,16 @@ const char kTR15SeeMoreButtonParam[] = "tr15-see-more-button";
 
 bool IsTabResumption1_5SalientImageEnabled() {
   return IsTabResumption1_5Enabled() &&
-         GetFieldTrialParamByFeatureAsString(
+         base::GetFieldTrialParamByFeatureAsString(
              kTabResumption1_5, kTR15SalientImageParam, "true") == "true";
 }
 
 bool IsTabResumption1_5ThumbnailsImageEnabled() {
   return IsTabResumption1_5Enabled() &&
-         (GetFieldTrialParamByFeatureAsString(
+         (base::GetFieldTrialParamByFeatureAsString(
               kTabResumption1_5, kTR15SalientImageParam, "true") == "true" ||
-          GetFieldTrialParamByFeatureAsString(kTabResumption1_5,
-                                              kTR15SalientImageParam, "true") ==
+          base::GetFieldTrialParamByFeatureAsString(
+              kTabResumption1_5, kTR15SalientImageParam, "true") ==
               kTR15SalientImageThumbnailsOnly);
   ;
 }
@@ -846,6 +928,9 @@ const char kIOSTipsNotificationsActiveSeekerTriggerTimeParam[] =
 const char kIOSTipsNotificationsLessEngagedTriggerTimeParam[] =
     "less_engaged_trigger_time";
 const char kIOSTipsNotificationsEnabledParam[] = "enabled";
+const char kIOSTipsNotificationsOrderParam[] = "tips_notifications_order";
+const char kIOSTipsNotificationsDismissLimitParam[] =
+    "tips_notifications_dismiss_limit";
 
 bool IsIOSTipsNotificationsEnabled() {
   return base::FeatureList::IsEnabled(kIOSTipsNotifications);
@@ -861,11 +946,11 @@ bool IsPinnedTabsEnabled() {
 
 BASE_FEATURE(kPrefetchSystemCapabilitiesOnFirstRun,
              "PrefetchSystemCapabilitiesOnFirstRun",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrefetchSystemCapabilitiesOnAppStartup,
              "PrefetchSystemCapabilitiesOnAppStartup",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsPrefetchingSystemCapabilitiesOnFirstRun() {
   return base::FeatureList::IsEnabled(kPrefetchSystemCapabilitiesOnFirstRun);
@@ -969,16 +1054,29 @@ BASE_FEATURE(kIdentityConfirmationSnackbar,
 
 // Feature parameters for kIdentityConfirmationSnackbar.
 constexpr base::FeatureParam<base::TimeDelta>
-    kIdentityConfirmationMinDisplayInterval{
+    kIdentityConfirmationMinDisplayInterval1{
         &kIdentityConfirmationSnackbar,
-        /*name=*/"IdentityConfirmationMinDisplayInterval",
-        /*default_value=*/base::Days(14)};
+        /*name=*/"IdentityConfirmationMinDisplayInterval1",
+        /*default_value=*/base::Days(1)};
 constexpr base::FeatureParam<base::TimeDelta>
-    kIdentityConfirmationMinTimeSinceSignin{
+    kIdentityConfirmationMinDisplayInterval2{
         &kIdentityConfirmationSnackbar,
-        /*name=*/"IdentityConfirmationMinTimeSinceSignin",
-        /*default_value=*/base::Hours(24)};
+        /*name=*/"IdentityConfirmationMinDisplayInterval2",
+        /*default_value=*/base::Days(7)};
+constexpr base::FeatureParam<base::TimeDelta>
+    kIdentityConfirmationMinDisplayInterval3{
+        &kIdentityConfirmationSnackbar,
+        /*name=*/"IdentityConfirmationMinDisplayInterval3",
+        /*default_value=*/base::Days(30)};
 
 BASE_FEATURE(kEnableTraitCollectionRegistration,
              "EnableTraitCollectionRegistration",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kBlueDotOnToolsMenuButton,
+             "BlueDotOnToolsMenuButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsBlueDotOnToolsMenuButtoneEnabled() {
+  return base::FeatureList::IsEnabled(kBlueDotOnToolsMenuButton);
+}

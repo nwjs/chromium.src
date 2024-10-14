@@ -26,11 +26,12 @@
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state_manager.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -161,7 +162,7 @@ class SettingsTableViewControllerTest
             &password_manager::BuildPasswordStore<
                 web::BrowserState, password_manager::TestPasswordStore>));
     chrome_browser_state_ =
-        browser_state_manager_.AddBrowserStateWithBuilder(std::move(builder));
+        profile_manager_.AddProfileWithBuilder(std::move(builder));
 
     // Prepare mocks for PushNotificationClient dependency
     browser_ = std::make_unique<TestBrowser>(chrome_browser_state_.get());
@@ -213,6 +214,7 @@ class SettingsTableViewControllerTest
         OCMProtocolMock(@protocol(ApplicationCommands));
     id mock_settings_handler = OCMProtocolMock(@protocol(SettingsCommands));
     id mock_snackbar_handler = OCMProtocolMock(@protocol(SnackbarCommands));
+    mock_popup_menu_handler_ = OCMProtocolMock(@protocol(PopupMenuCommands));
 
     CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
     [dispatcher startDispatchingToTarget:mock_application_handler
@@ -221,6 +223,8 @@ class SettingsTableViewControllerTest
                              forProtocol:@protocol(SettingsCommands)];
     [dispatcher startDispatchingToTarget:mock_snackbar_handler
                              forProtocol:@protocol(SnackbarCommands)];
+    [dispatcher startDispatchingToTarget:mock_popup_menu_handler_
+                             forProtocol:@protocol(PopupMenuCommands)];
 
     SettingsTableViewController* controller =
         [[SettingsTableViewController alloc]
@@ -283,7 +287,7 @@ class SettingsTableViewControllerTest
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   ScopedVariationsService scoped_variations_service_;
-  TestChromeBrowserStateManager browser_state_manager_;
+  TestProfileManagerIOS profile_manager_;
 
   FakeSystemIdentity* fake_identity_ = nullptr;
   raw_ptr<AuthenticationService> auth_service_ = nullptr;
@@ -295,6 +299,7 @@ class SettingsTableViewControllerTest
 
   SettingsTableViewController* controller_ = nullptr;
   BOOL has_default_browser_blue_dot_ = false;
+  id<PopupMenuCommands> mock_popup_menu_handler_;
 };
 
 // Verifies that the Sync icon displays the on state when the user has turned
@@ -617,4 +622,38 @@ TEST_F(SettingsTableViewControllerTest, TestHasDefaultBrowserBlueDot) {
 // Verifies that the default browser blue dot is not displayed when indicated.
 TEST_F(SettingsTableViewControllerTest, TestHasNoDefaultBrowserBlueDot) {
   VerifyDefaultBrowwserBlueDot(false);
+}
+
+// Verifies that blue dot will be updated when default browser settings are
+// viewed while blue dot was showing.
+TEST_F(SettingsTableViewControllerTest,
+       TestUpdateToolsMenuBlueDotVisibilityCalled) {
+  has_default_browser_blue_dot_ = true;
+  CreateController();
+  CheckController();
+
+  OCMExpect([mock_popup_menu_handler_ updateToolsMenuBlueDotVisibility]);
+
+  // Tap on the default browser settings.
+  [controller() tableView:controller().tableView
+      didSelectRowAtIndexPath:[NSIndexPath indexPathForItem:0 inSection:1]];
+
+  EXPECT_OCMOCK_VERIFY((id)mock_popup_menu_handler_);
+}
+
+// Verifies that blue dot will not be updated when default browser settings
+// are viewed with no blue dot showing.
+TEST_F(SettingsTableViewControllerTest,
+       TestUpdateToolsMenuBlueDotVisibilityNotCalled) {
+  has_default_browser_blue_dot_ = false;
+  CreateController();
+  CheckController();
+
+  OCMReject([mock_popup_menu_handler_ updateToolsMenuBlueDotVisibility]);
+
+  // Tap on the default browser settings.
+  [controller() tableView:controller().tableView
+      didSelectRowAtIndexPath:[NSIndexPath indexPathForItem:0 inSection:1]];
+
+  EXPECT_OCMOCK_VERIFY((id)mock_popup_menu_handler_);
 }

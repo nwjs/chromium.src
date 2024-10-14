@@ -138,7 +138,8 @@ std::map<tab_groups::TabGroupId, std::set<int>> GetTabGroupsWithTabsToClose(
 void CloseTabs(WebStateList* web_state_list,
                base::Time begin_time,
                base::Time end_time,
-               const WebStateIDToTime& cached_tabs_to_close) {
+               const WebStateIDToTime& cached_tabs_to_close,
+               bool keep_active_tab) {
   CHECK(web_state_list);
 
   std::set<web::WebStateID> web_state_ids_to_close = GetTabsToClose(
@@ -153,6 +154,10 @@ void CloseTabs(WebStateList* web_state_list,
   for (int index = web_state_list->pinned_tabs_count();
        index < web_state_list->count(); ++index) {
     web::WebState* web_state = web_state_list->GetWebStateAt(index);
+    if (keep_active_tab && index == web_state_list->active_index()) {
+      continue;
+    }
+
     if (web_state_ids_to_close.contains(web_state->GetUniqueIdentifier())) {
       indices_to_close.push_back(index);
     }
@@ -164,7 +169,7 @@ void CloseTabs(WebStateList* web_state_list,
 
   auto lock = web_state_list->StartBatchOperation();
   web_state_list->CloseWebStatesAtIndices(
-      WebStateList::CLOSE_NO_FLAGS,
+      WebStateList::CLOSE_TABS_CLEANUP,
       RemovingIndexes(std::move(indices_to_close)));
 }
 }  // namespace tabs_closure_util

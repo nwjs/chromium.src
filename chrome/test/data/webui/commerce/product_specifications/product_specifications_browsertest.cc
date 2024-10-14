@@ -4,6 +4,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "build/buildflag.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -68,7 +69,8 @@ class ProductSpecificationsTest : public WebUIMochaBrowserTest {
   base::WeakPtrFactory<ProductSpecificationsTest> weak_ptr_factory_{this};
 };
 
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, App) {
+// TODO(crbug.com/364441518): Flaky on all platforms.
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, DISABLED_App) {
   RunTest("commerce/product_specifications/app_test.js", "mocha.run()");
 }
 
@@ -92,7 +94,14 @@ IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, DisclosureApp) {
           "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, DragAndDropManager) {
+// TODO(crbug.com/365430929): Flaky on
+// linux-blink-web-tests-force-accessibility-rel.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_DragAndDropManager DISABLED_DragAndDropManager
+#else
+#define MAYBE_DragAndDropManager DragAndDropManager
+#endif
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, MAYBE_DragAndDropManager) {
   RunTest("commerce/product_specifications/drag_and_drop_manager_test.js",
           "mocha.run()");
 }
@@ -101,12 +110,30 @@ IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, Header) {
   RunTest("commerce/product_specifications/header_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, HorizontalCarousel) {
+// TODO(crbug.com/370252258): Flaky on win11-arm64-rel-tests.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_HorizontalCarousel DISABLED_HorizontalCarousel
+#else
+#define MAYBE_HorizontalCarousel HorizontalCarousel
+#endif
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, MAYBE_HorizontalCarousel) {
   RunTest("commerce/product_specifications/horizontal_carousel_test.js",
           "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, Table) {
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, LoadingState) {
+  RunTest("commerce/product_specifications/loading_state_test.js",
+          "mocha.run()");
+}
+
+// TODO(crbug.com/365430929): Flaky on
+// linux-blink-web-tests-force-accessibility-rel.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_Table DISABLED_Table
+#else
+#define MAYBE_Table Table
+#endif
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, MAYBE_Table) {
   RunTest("commerce/product_specifications/table_test.js", "mocha.run()");
 }
 

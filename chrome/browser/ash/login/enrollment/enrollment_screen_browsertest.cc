@@ -22,12 +22,12 @@
 #include "chrome/browser/ash/login/test/js_checker.h"
 #include "chrome/browser/ash/login/test/oobe_base_test.h"
 #include "chrome/browser/ash/login/test/oobe_screen_waiter.h"
-#include "chrome/browser/ash/login/ui/login_display_host.h"
-#include "chrome/browser/ash/login/ui/webui_login_view.h"
 #include "chrome/browser/ash/login/wizard_context.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/policy/enrollment/enrollment_config.h"
 #include "chrome/browser/ash/policy/enrollment/enrollment_status.h"
+#include "chrome/browser/ui/ash/login/login_display_host.h"
+#include "chrome/browser/ui/ash/login/webui_login_view.h"
 #include "chrome/browser/ui/webui/ash/login/error_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/online_login_utils.h"
 #include "chrome/browser/ui/webui/ash/login/tpm_error_screen_handler.h"
@@ -787,7 +787,9 @@ IN_PROC_BROWSER_TEST_P(AttestationEnrollmentErrorScreenTest,
                        AttestationEnrollmentErrorAndScreenData) {
   enrollment_ui_.SetExitHandler();
   const policy::EnrollmentConfig enrollment_config = GetEnrollmentConfigParam();
-  ASSERT_TRUE(enrollment_config.should_enroll_with_attestation());
+  ASSERT_NE(
+      enrollment_config.auth_mechanism,
+      policy::EnrollmentConfig::AuthMechanism::AUTH_MECHANISM_INTERACTIVE);
   ASSERT_TRUE(enrollment_config.is_mode_attestation());
 
   // The test expects the error screen to be shown. Avoid automatic fallback
@@ -973,98 +975,6 @@ INSTANTIATE_TEST_SUITE_P(All,
                                            ::tpm_manager::STATUS_DEVICE_ERROR,
                                            ::tpm_manager::STATUS_NOT_AVAILABLE,
                                            ::tpm_manager::STATUS_DBUS_ERROR));
-
-class AttestationAuthEnrollmentScreenTest : public EnrollmentScreenTest {
- public:
-  AttestationAuthEnrollmentScreenTest() = default;
-
-  AttestationAuthEnrollmentScreenTest(
-      const AttestationAuthEnrollmentScreenTest&) = delete;
-  AttestationAuthEnrollmentScreenTest& operator=(
-      const AttestationAuthEnrollmentScreenTest&) = delete;
-
-  ~AttestationAuthEnrollmentScreenTest() override = default;
-
- private:
-  // EnrollmentScreenTest:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    EnrollmentScreenTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitch(switches::kEnterpriseEnableZeroTouchEnrollment);
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(AttestationAuthEnrollmentScreenTest, TestCancel) {
-  enrollment_helper_.SetupClearAuth();
-  ASSERT_FALSE(enrollment_screen()->AdvanceToNextAuth());
-  enrollment_ui_.SetExitHandler();
-  enrollment_screen()->OnCancel();
-  EnrollmentScreen::Result screen_result = enrollment_ui_.WaitForScreenExit();
-  EXPECT_EQ(EnrollmentScreen::Result::BACK, screen_result);
-}
-
-class ForcedAttestationAuthEnrollmentScreenTest : public EnrollmentScreenTest {
- public:
-  ForcedAttestationAuthEnrollmentScreenTest() = default;
-
-  ForcedAttestationAuthEnrollmentScreenTest(
-      const ForcedAttestationAuthEnrollmentScreenTest&) = delete;
-  ForcedAttestationAuthEnrollmentScreenTest& operator=(
-      const ForcedAttestationAuthEnrollmentScreenTest&) = delete;
-
-  ~ForcedAttestationAuthEnrollmentScreenTest() override = default;
-
- private:
-  // EnrollmentScreenTest:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    EnrollmentScreenTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitchASCII(
-        switches::kEnterpriseEnableZeroTouchEnrollment, "forced");
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(ForcedAttestationAuthEnrollmentScreenTest, TestCancel) {
-  enrollment_helper_.SetupClearAuth();
-  ASSERT_FALSE(enrollment_screen()->AdvanceToNextAuth());
-  enrollment_ui_.SetExitHandler();
-  enrollment_screen()->OnCancel();
-  EnrollmentScreen::Result screen_result = enrollment_ui_.WaitForScreenExit();
-  EXPECT_EQ(EnrollmentScreen::Result::BACK_TO_AUTO_ENROLLMENT_CHECK,
-            screen_result);
-}
-
-class MultiAuthEnrollmentScreenTest : public EnrollmentScreenTest {
- public:
-  MultiAuthEnrollmentScreenTest() = default;
-
-  MultiAuthEnrollmentScreenTest(const MultiAuthEnrollmentScreenTest&) = delete;
-  MultiAuthEnrollmentScreenTest& operator=(
-      const MultiAuthEnrollmentScreenTest&) = delete;
-
-  ~MultiAuthEnrollmentScreenTest() override = default;
-
- private:
-  // EnrollmentScreenTest:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    EnrollmentScreenTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitch(switches::kEnterpriseEnableZeroTouchEnrollment);
-    // Kiosk mode will force OAuth enrollment.
-    base::FilePath test_data_dir;
-    ASSERT_TRUE(chromeos::test_utils::GetTestDataPath(
-        "app_mode", "kiosk_manifest", &test_data_dir));
-    command_line->AppendSwitchPath(
-        switches::kAppOemManifestFile,
-        test_data_dir.AppendASCII("kiosk_manifest.json"));
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(MultiAuthEnrollmentScreenTest, TestCancel) {
-  ASSERT_TRUE(enrollment_screen()->AdvanceToNextAuth());
-  enrollment_ui_.SetExitHandler();
-  enrollment_screen()->OnCancel();
-  EnrollmentScreen::Result screen_result = enrollment_ui_.WaitForScreenExit();
-  EXPECT_EQ(EnrollmentScreen::Result::BACK_TO_AUTO_ENROLLMENT_CHECK,
-            screen_result);
-}
 
 class ProvisionedEnrollmentScreenTest : public EnrollmentScreenTest {
  public:

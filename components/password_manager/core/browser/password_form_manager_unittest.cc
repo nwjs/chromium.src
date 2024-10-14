@@ -290,7 +290,8 @@ void CheckPasswordGenerationUKM(const ukm::TestAutoSetUkmRecorder& recorder,
 // Create predictions for |form| using field predictions |field_predictions|.
 std::map<FormSignature, FormPredictions> CreatePredictions(
     const FormData& form,
-    std::vector<std::pair<int, FieldType>> field_predictions) {
+    std::vector<std::pair<int, FieldType>> field_predictions,
+    bool is_override = false) {
   FormPredictions predictions;
   for (const auto& index_prediction : field_predictions) {
     autofill::FieldRendererId renderer_id =
@@ -300,7 +301,7 @@ std::map<FormSignature, FormPredictions> CreatePredictions(
     FieldType server_type = index_prediction.second;
     predictions.fields.emplace_back(renderer_id, field_signature, server_type,
                                     /*may_use_prefilled_placeholder=*/false,
-                                    /*is_override=*/false);
+                                    is_override);
   }
   FormSignature form_signature = CalculateFormSignature(form);
   return {{form_signature, predictions}};
@@ -386,7 +387,7 @@ class PasswordFormManagerTest : public testing::Test,
         password_manager::prefs::kUnenrolledFromGoogleMobileServicesDueToErrors,
         false);
 #endif
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
     pref_service_.registry()->RegisterBooleanPref(
         password_manager::prefs::kBiometricAuthenticationBeforeFilling, true);
 #endif
@@ -759,18 +760,18 @@ TEST_P(PasswordFormManagerTest, AutofillSignUpForm) {
 #endif
 }
 
-// Check that generation signal is sent the the renderer when new password
+// Checks that generation signal is sent to the renderer when new password
 // fields are marked with autocomplete attribute.
 TEST_P(PasswordFormManagerTest, GenerationOnNewAndConfirmPasswordFields) {
   // Make |observed_form_| to be sign-up form.
   test_api(observed_form_).field(-1).set_autocomplete_attribute("new-password");
-  const autofill::FieldRendererId new_password_render_id =
+  const autofill::FieldRendererId new_password_renderer_id =
       observed_form_.fields().back().renderer_id();
   // Add a confirmation field.
   FormFieldData field;
-  const autofill::FieldRendererId confirm_password_render_id(
-      new_password_render_id.value() + 1);
-  field.set_renderer_id(confirm_password_render_id);
+  const autofill::FieldRendererId confirm_password_renderer_id(
+      new_password_renderer_id.value() + 1);
+  field.set_renderer_id(confirm_password_renderer_id);
   field.set_form_control_type(autofill::FormControlType::kInputPassword);
   field.set_autocomplete_attribute("new-password");
   test_api(observed_form_).Append(field);
@@ -786,9 +787,36 @@ TEST_P(PasswordFormManagerTest, GenerationOnNewAndConfirmPasswordFields) {
 #if BUILDFLAG(IS_IOS)
   EXPECT_EQ(observed_form_.renderer_id(), generation_data.form_renderer_id);
 #else
-  EXPECT_EQ(new_password_render_id, generation_data.new_password_renderer_id);
-  EXPECT_EQ(confirm_password_render_id,
+  EXPECT_EQ(new_password_renderer_id, generation_data.new_password_renderer_id);
+  EXPECT_EQ(confirm_password_renderer_id,
             generation_data.confirmation_password_renderer_id);
+#endif
+}
+
+// Checks that `FormDataParser` classifies text field with `NEW_PASSWORD`
+// override as a new password field.
+TEST_P(PasswordFormManagerTest, GenerationOnTextFieldsDueToOverride) {
+  test_api(observed_form_)
+      .field(kPasswordFieldIndex)
+      .set_form_control_type(autofill::FormControlType::kInputText);
+  auto predictions = CreatePredictions(
+      observed_form_, {{kPasswordFieldIndex, FieldType::NEW_PASSWORD}},
+      /*is_override=*/true);
+
+  PasswordFormGenerationData generation_data;
+  EXPECT_CALL(driver_, FormEligibleForGenerationFound(_))
+      .WillOnce(SaveArg<0>(&generation_data));
+
+  CreateFormManager(observed_form_);
+  form_manager_->ProcessServerPredictions(predictions);
+  fetcher_->NotifyFetchCompleted();
+
+  task_environment_.FastForwardUntilNoTasksRemain();
+#if BUILDFLAG(IS_IOS)
+  EXPECT_EQ(observed_form_.renderer_id(), generation_data.form_renderer_id);
+#else
+  EXPECT_EQ(generation_data.new_password_renderer_id,
+            observed_form_.fields()[kPasswordFieldIndex].renderer_id());
 #endif
 }
 
@@ -3539,11 +3567,6 @@ TEST_P(PasswordFormManagerTest, UsernameFirstFlowSendVotesOnRecentFields) {
 
 // Test that the username field in a single username form can be filled.
 TEST_P(PasswordFormManagerTest, UsernameFirstFlowFillSingleUsernameForm) {
-#if BUILDFLAG(IS_IOS)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kIOSPasswordSignInUff);
-#endif  // BUILDFLAG(IS_IOS)
-
   // Create the form manager for a form with only a username in it.
   CreateFormManager(non_password_form_);
 
@@ -3569,32 +3592,6 @@ TEST_P(PasswordFormManagerTest, UsernameFirstFlowFillSingleUsernameForm) {
   EXPECT_EQ(saved_match_.password_value,
             fill_data.preferred_login.password_value);
 }
-
-#if BUILDFLAG(IS_IOS)
-// TODO(b/305833151): Remove this test once sign-in uff on iOS is launched.
-// Test that the username field in a single username form isn't filled if the
-// feature isn't enabled.
-TEST_P(PasswordFormManagerTest,
-       UsernameFirstFlowFillSingleUsernameForm_SingleUsernameNotEnabledOnIos) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(features::kIOSPasswordSignInUff);
-
-  // Create the form manager for a form with only a username in it.
-  CreateFormManager(non_password_form_);
-
-  SetNonFederatedAndNotifyFetchCompleted({saved_match_});
-
-  PasswordFormFillData fill_data;
-  EXPECT_CALL(driver_, SetPasswordFillData).Times(0);
-
-  // Provide server predictions for the single username form, which will trigger
-  // FillNow().
-  std::map<FormSignature, FormPredictions> predictions =
-      CreatePredictions(non_password_form_,
-                        {std::make_pair(kUsernameFieldIndex, SINGLE_USERNAME)});
-  form_manager_->ProcessServerPredictions(predictions);
-}
-#endif
 
 // Tests that a negative vote is sent when a single username candidate is
 // populated in a prompt, but then is removed by the user in the prompt.

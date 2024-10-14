@@ -160,17 +160,6 @@ std::string ComponentsPrefix(const std::string& error_prefix) {
   return base::StrCat({error_prefix, "adComponents entry: "});
 }
 
-// Verifies if the selectedBuyerAndSellerReportingId is present within the
-// matching ad's selectableBuyerAndSellerReportingId array.
-bool IsSelectedReportingIdValid(
-    base::optional_ref<const std::vector<std::string>> selectable_ids,
-    const std::string& selected_id) {
-  if (!selectable_ids.has_value()) {
-    return false;
-  }
-  return base::Contains(*selectable_ids, selected_id);
-}
-
 }  // namespace
 
 SetBidBindings::BidAndWorkletOnlyMetadata::BidAndWorkletOnlyMetadata() =
@@ -212,7 +201,6 @@ struct SetBidBindings::GenerateBidOutput {
   std::optional<std::vector<AdRender>> ad_components;
   std::optional<double> ad_cost;
   std::optional<UnrestrictedDouble> modeling_signals;
-  bool selected_buyer_and_seller_reporting_id_required = false;
   std::optional<std::string> selected_buyer_and_seller_reporting_id;
   bool allow_component_auction = false;
   uint32_t num_mandatory_ad_components = 0;
@@ -232,8 +220,12 @@ void SetBidBindings::ReInitialize(
     const std::optional<blink::AdCurrency>& per_buyer_currency,
     uint16_t multi_bid_limit,
     base::RepeatingCallback<bool(const std::string&)> is_ad_excluded,
-    base::RepeatingCallback<bool(const std::string&)>
-        is_component_ad_excluded) {
+    base::RepeatingCallback<bool(const std::string&)> is_component_ad_excluded,
+    base::RepeatingCallback<bool(const std::string&,
+                                 base::optional_ref<const std::string>,
+                                 base::optional_ref<const std::string>,
+                                 base::optional_ref<const std::string>)>
+        is_reporting_id_set_excluded) {
   DCHECK(bidder_worklet_non_shared_params->ads.has_value());
   start_ = start;
   has_top_level_seller_origin_ = has_top_level_seller_origin;
@@ -242,6 +234,7 @@ void SetBidBindings::ReInitialize(
   multi_bid_limit_ = multi_bid_limit;
   is_ad_excluded_ = std::move(is_ad_excluded);
   is_component_ad_excluded_ = std::move(is_component_ad_excluded);
+  is_reporting_id_set_excluded_ = std::move(is_reporting_id_set_excluded);
 }
 
 void SetBidBindings::AttachToContext(v8::Local<v8::Context> context) {
@@ -264,6 +257,7 @@ void SetBidBindings::Reset() {
   multi_bid_limit_ = 1;
   is_ad_excluded_.Reset();
   is_component_ad_excluded_.Reset();
+  is_reporting_id_set_excluded_.Reset();
 }
 
 IdlConvert::Status SetBidBindings::SetBidImpl(v8::Local<v8::Value> value,
@@ -435,14 +429,6 @@ SetBidBindings::ConvertBidToIDL(
           blink::features::kFledgeAuctionDealSupport)) {
     convert_set_bid.GetOptional("selectedBuyerAndSellerReportingId",
                                 idl.selected_buyer_and_seller_reporting_id);
-    std::optional<bool> selected_buyer_and_seller_reporting_id_required;
-    convert_set_bid.GetOptional(
-        "selectedBuyerAndSellerReportingIdRequired",
-        selected_buyer_and_seller_reporting_id_required);
-    if (selected_buyer_and_seller_reporting_id_required.has_value() &&
-        selected_buyer_and_seller_reporting_id_required.value()) {
-      idl.selected_buyer_and_seller_reporting_id_required = true;
-    }
   }
 
   if (support_multi_bid_) {
@@ -559,20 +545,18 @@ SetBidBindings::SemanticCheckBid(
         IdlConvert::Status::MakeErrorMessage(std::move(error_msg)));
   }
 
-  if (idl.selected_buyer_and_seller_reporting_id_required &&
-      !idl.selected_buyer_and_seller_reporting_id.has_value()) {
-    return base::unexpected(IdlConvert::Status::MakeErrorMessage(base::StrCat(
-        {error_prefix,
-         "Selected buyer and seller reporting id is required, but not "
-         "specified"})));
+  if (idl.selected_buyer_and_seller_reporting_id.has_value()) {
+    if (!IsSelectedReportingIdValid(
+            *maybe_ad, *idl.selected_buyer_and_seller_reporting_id)) {
+      return base::unexpected(IdlConvert::Status::MakeErrorMessage(base::StrCat(
+          {error_prefix, "Invalid selected buyer and seller reporting id"})));
+    }
   }
-  if (idl.selected_buyer_and_seller_reporting_id.has_value() &&
-      !IsSelectedReportingIdValid(
-          maybe_ad->selectable_buyer_and_seller_reporting_ids,
-          idl.selected_buyer_and_seller_reporting_id.value())) {
-    return base::unexpected(IdlConvert::Status::MakeErrorMessage(base::StrCat(
-        {error_prefix, "Invalid selected buyer and seller reporting id"})));
-  }
+
+  bid_and_worklet_only_metadata.buyer_reporting_id =
+      maybe_ad->buyer_reporting_id;
+  bid_and_worklet_only_metadata.buyer_and_seller_reporting_id =
+      maybe_ad->buyer_and_seller_reporting_id;
 
   std::optional<std::vector<blink::AdDescriptor>> ad_component_descriptors;
   const size_t kMaxAdAuctionAdComponents = blink::MaxAdAuctionAdComponents();
@@ -680,12 +664,30 @@ SetBidBindings::SemanticCheckBid(
       auction_worklet::mojom::BidRole::kUnenforcedKAnon, std::move(ad_json),
       *idl.bid, std::move(bid_currency), std::move(idl.ad_cost),
       blink::AdDescriptor(render_url, render_size),
-      std::move(idl.selected_buyer_and_seller_reporting_id_required),
       std::move(idl.selected_buyer_and_seller_reporting_id),
       std::move(ad_component_descriptors),
       static_cast<std::optional<uint16_t>>(modeling_signals),
       /*bid_duration=*/base::TimeDelta());
   return bid_and_worklet_only_metadata;
+}
+
+bool SetBidBindings::IsSelectedReportingIdValid(
+    const blink::InterestGroup::Ad& ad,
+    const std::string& selected_buyer_and_seller_reporting_id) {
+  if (!ad.selectable_buyer_and_seller_reporting_ids.has_value()) {
+    return false;
+  }
+  if (!base::Contains(*ad.selectable_buyer_and_seller_reporting_ids,
+                      selected_buyer_and_seller_reporting_id)) {
+    return false;
+  }
+  if (is_reporting_id_set_excluded_.Run(
+          ad.render_url(), ad.buyer_reporting_id,
+          ad.buyer_and_seller_reporting_id,
+          selected_buyer_and_seller_reporting_id)) {
+    return false;
+  }
+  return true;
 }
 
 // static

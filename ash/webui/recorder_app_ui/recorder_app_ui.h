@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "ash/webui/metrics/structured_metrics_service_wrapper.h"
 #include "ash/webui/recorder_app_ui/mojom/recorder_app.mojom.h"
 #include "ash/webui/recorder_app_ui/recorder_app_ui_delegate.h"
 #include "ash/webui/recorder_app_ui/url_constants.h"
@@ -18,6 +19,7 @@
 #include "components/soda/soda_installer.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
+#include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 #include "services/on_device_model/public/mojom/on_device_model_service.mojom.h"
 #include "ui/message_center/message_center_observer.h"
 #include "ui/webui/color_change_listener/color_change_handler.h"
@@ -64,6 +66,8 @@ class RecorderAppUI
   void BindInterface(
       mojo::PendingReceiver<color_change_listener::mojom::PageHandler>
           receiver);
+  void BindInterface(
+      mojo::PendingReceiver<crosapi::mojom::StructuredMetricsService> receiver);
 
   static constexpr std::string GetWebUIName() { return "RecorderApp"; }
 
@@ -109,6 +113,12 @@ class RecorderAppUI
                         const base::flat_map<std::string, std::string>& fields,
                         FormatModelInputCallback callback) override;
 
+  void ValidateSafetyResult(
+      on_device_model::mojom::SafetyFeature safety_feature,
+      const std::string& text,
+      on_device_model::mojom::SafetyInfoPtr safety_info,
+      ValidateSafetyResultCallback callback) override;
+
   void AddModelMonitor(
       const base::Uuid& model_id,
       ::mojo::PendingRemote<recorder_app::mojom::ModelStateMonitor> monitor,
@@ -134,6 +144,17 @@ class RecorderAppUI
       AddQuietModeMonitorCallback callback) override;
 
   void SetQuietMode(bool quiet_mode) override;
+
+  void CanUseSpeakerLabelForCurrentProfile(
+      CanUseSpeakerLabelForCurrentProfileCallback callback) override;
+
+  void RecordSpeakerLabelConsent(
+      bool consent_given,
+      const std::vector<std::string>& consent_description_names,
+      const std::string& consent_confirmation_name) override;
+
+  void CanCaptureSystemAudioWithLoopback(
+      CanCaptureSystemAudioWithLoopbackCallback callback) override;
 
   // speech::SodaInstaller::Observer
   void OnSodaInstalled(speech::LanguageCode language_code) override;
@@ -176,6 +197,9 @@ class RecorderAppUI
   bool in_quiet_mode_;
 
   std::unique_ptr<ui::ColorChangeHandler> color_provider_handler_;
+
+  std::unique_ptr<ash::StructuredMetricsServiceWrapper>
+      structured_metrics_service_wrapper_;
 
   DeviceIdMappingCallback device_id_mapping_callback_;
 

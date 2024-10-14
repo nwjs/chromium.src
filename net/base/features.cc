@@ -164,6 +164,8 @@ BASE_FEATURE(kPostQuantumKyber,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+BASE_FEATURE(kUseMLKEM, "UseMLKEM", base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kNetUnusedIdleSocketTimeout,
              "NetUnusedIdleSocketTimeout",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -286,10 +288,6 @@ BASE_FEATURE(kShouldKillSessionOnAcceptChMalformed,
              "ShouldKillSessionOnAcceptChMalformed",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCaseInsensitiveCookiePrefix,
-             "CaseInsensitiveCookiePrefix",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kEnableWebsocketsOverHttp3,
              "EnableWebsocketsOverHttp3",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -383,6 +381,10 @@ const base::FeatureParam<base::TimeDelta> kIpPrivacyProxyListFetchInterval{
 const base::FeatureParam<base::TimeDelta> kIpPrivacyProxyListMinFetchInterval{
     &kEnableIpProtectionProxy, /*name=*/"IpPrivacyProxyMinListFetchInterval",
     /*default_value=*/base::Minutes(1)};
+
+const base::FeatureParam<base::TimeDelta> kIpPrivacyProxyListFetchIntervalFuzz{
+    &kEnableIpProtectionProxy, /*name=*/"IpPrivacyProxyListFetchIntervalFuzz",
+    /*default_value=*/base::Minutes(30)};
 
 const base::FeatureParam<bool> kIpPrivacyDirectOnly{
     &kEnableIpProtectionProxy, /*name=*/"IpPrivacyDirectOnly",
@@ -493,10 +495,6 @@ BASE_FEATURE(kForceThirdPartyCookieBlocking,
              "ForceThirdPartyCookieBlockingEnabled",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kThirdPartyCookieTopLevelSiteCorsException,
-             "ThirdPartyCookieTopLevelSiteCorsException",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kEnableEarlyHintsOnHttp11,
              "EnableEarlyHintsOnHttp11",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -560,10 +558,6 @@ BASE_FEATURE(kPartitionProxyChains,
              "PartitionProxyChains",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kStorageAccessHeaders,
-             "StorageAccessHeaders",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSpdySessionForProxyAdditionalChecks,
              "SpdySessionForProxyAdditionalChecks",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -578,7 +572,7 @@ BASE_FEATURE(kCompressionDictionaryTransportOverHttp2,
 
 BASE_FEATURE(kCompressionDictionaryTransportRequireKnownRootCert,
              "CompressionDictionaryTransportRequireKnownRootCert",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kReportingApiEnableEnterpriseCookieIssues,
              "ReportingApiEnableEnterpriseCookieIssues",
@@ -592,6 +586,14 @@ BASE_FEATURE(kOptimizeParsingDataUrls,
 // if we haven't had to turn this off.
 BASE_FEATURE(kLegacyPKCS1ForTLS13,
              "LegacyPKCS1ForTLS13",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kKeepWhitespaceForDataUrls,
+             "KeepWhitespaceForDataUrls",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys,
+             "NoVarySearchIgnoreUnrecognizedKeys",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace net::features

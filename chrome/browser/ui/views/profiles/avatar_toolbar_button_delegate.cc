@@ -138,10 +138,11 @@ enum class ButtonState {
   kIncognitoProfile,
   kExplicitTextShowing,
   kShowIdentityName,
-  // An error in sync-the-feature or sync-the-transport or SyncPaused (use
-  // `IsErrorSyncPaused()` to differentiate).
-  kSyncError,
   kSigninPending,
+  kSyncPaused,
+  kPassphraseError,
+  // Catch-all for remaining errors in sync-the-feature or sync-the-transport.
+  kSyncError,
   // Includes Work and School.
   kManagement,
   kNormal
@@ -489,13 +490,21 @@ class ShowIdentityNameStateProvider : public StateProvider,
   base::WeakPtrFactory<ShowIdentityNameStateProvider> weak_ptr_factory_{this};
 };
 
+// This provider observes sync errors (including transport mode). It can be
+// configured to listen to a specific error with `sync_error_type`, or to all
+// errors by passing nullopt. That way specific `SyncErrorStateProvider`s can
+// handle some sync errors, while a generic `SyncErrorStateProvider` with
+// lower priority can handle the remaining errors.
 class SyncErrorStateProvider : public StateProvider,
                                public syncer::SyncServiceObserver {
  public:
-  explicit SyncErrorStateProvider(StateObserver& state_observer,
-                                  Profile& profile)
+  explicit SyncErrorStateProvider(
+      StateObserver& state_observer,
+      Profile& profile,
+      std::optional<AvatarSyncErrorType> sync_error_type)
       : StateProvider(state_observer),
         profile_(profile),
+        sync_error_type_(sync_error_type),
         last_avatar_error_(::GetAvatarSyncErrorType(&profile)) {
     if (auto* sync_service = SyncServiceFactory::GetForProfile(&profile)) {
       sync_service_observation_.Observe(sync_service);
@@ -505,18 +514,14 @@ class SyncErrorStateProvider : public StateProvider,
   // StateProvider:
   bool IsActive() const override {
     return SyncServiceFactory::IsSyncAllowed(&profile_.get()) &&
-           last_avatar_error_.has_value();
+           HasError(last_avatar_error_);
   }
 
-  // Returning true for non sync paused error.
-  bool IsErrorSyncPaused() const {
-    return last_avatar_error_ == AvatarSyncErrorType::kSyncPaused &&
-           AccountConsistencyModeManager::IsDiceEnabledForProfile(
-               &profile_.get());
-  }
-
+  // Returns the last sync error if it matches the requested type. Returns
+  // std::nullopt if there is no error or if the error does not match
+  // `sync_error_type_`.
   std::optional<AvatarSyncErrorType> GetLastAvatarSyncErrorType() const {
-    return last_avatar_error_;
+    return HasError(last_avatar_error_) ? last_avatar_error_ : std::nullopt;
   }
 
  private:
@@ -531,7 +536,14 @@ class SyncErrorStateProvider : public StateProvider,
       return;
     }
 
+    bool previous_error_state = HasError(last_avatar_error_);
+    bool new_error_state = HasError(error);
     last_avatar_error_ = error;
+
+    if (previous_error_state == new_error_state) {
+      return;
+    }
+
     RequestUpdate();
   }
 
@@ -539,7 +551,27 @@ class SyncErrorStateProvider : public StateProvider,
     sync_service_observation_.Reset();
   }
 
+  // Returns true if `avatar_sync_error` has a value and the value matches
+  // `sync_error_type_`. If `sync_error_type_` is std::nullopt then any
+  // non-nullopt `avatar_sync_error` is a match.
+  bool HasError(
+      const std::optional<AvatarSyncErrorType>& avatar_sync_error) const {
+    if (!avatar_sync_error) {
+      return false;  // No sync error.
+    }
+
+    if (sync_error_type_.has_value() && avatar_sync_error != sync_error_type_) {
+      return false;  // Error has the wrong type.
+    }
+
+    return true;
+  }
+
   raw_ref<Profile> profile_;
+
+  // std::nullopt to be active on all errors.
+  const std::optional<AvatarSyncErrorType> sync_error_type_;
+
   // Caches the value of the last error so the class can detect when it
   // changes and notify changes.
   std::optional<AvatarSyncErrorType> last_avatar_error_;
@@ -951,10 +983,26 @@ class StateManager : public StateObserver,
           std::make_unique<ShowIdentityNameStateProvider>(
               /*state_observer=*/*this, *profile, avatar_toolbar_button_.get());
 
-      // Will also be active for SyncPaused state.
+      if (switches::IsImprovedSigninUIOnDesktopEnabled()) {
+        states_[ButtonState::kPassphraseError] =
+            std::make_unique<SyncErrorStateProvider>(
+                /*state_observer=*/*this, *profile,
+                AvatarSyncErrorType::kPassphraseError);
+      }
+
+      if (AccountConsistencyModeManager::IsDiceEnabledForProfile(profile)) {
+        states_[ButtonState::kSyncPaused] =
+            std::make_unique<SyncErrorStateProvider>(
+                /*state_observer=*/*this, *profile,
+                AvatarSyncErrorType::kSyncPaused);
+      }
+
+      // Generic catch-all providers for sync errors not handled by higher
+      // priority providers.
       states_[ButtonState::kSyncError] =
           std::make_unique<SyncErrorStateProvider>(
-              /*state_observer=*/*this, *profile);
+              /*state_observer=*/*this, *profile,
+              /*sync_error_type=*/std::nullopt);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
       if (base::FeatureList::IsEnabled(features::kEnterpriseProfileBadging)) {
@@ -1303,21 +1351,19 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
       color = color_provider->GetColor(kColorAvatarButtonHighlightExplicitText);
       break;
     }
-    case ButtonState::kSyncError: {
-      const internal::SyncErrorStateProvider* sync_error_state =
-          internal::StateProviderGetter(
-              *state_manager_->GetActiveStateProvider())
-              .AsSyncError();
-      CHECK(sync_error_state);
-      if (sync_error_state->IsErrorSyncPaused()) {
-        color = color_provider->GetColor(kColorAvatarButtonHighlightSyncPaused);
-        text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_PAUSED);
-      } else {
-        color = color_provider->GetColor(kColorAvatarButtonHighlightSyncError);
-        text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_ERROR);
-      }
+    case ButtonState::kSyncPaused:
+      color = color_provider->GetColor(kColorAvatarButtonHighlightSyncPaused);
+      text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_PAUSED);
       break;
-    }
+    case ButtonState::kPassphraseError:
+      color = color_provider->GetColor(kColorAvatarButtonHighlightSyncPaused);
+      text =
+          l10n_util::GetStringUTF16(IDS_SYNC_ERROR_USER_MENU_PASSPHRASE_BUTTON);
+      break;
+    case ButtonState::kSyncError:
+      color = color_provider->GetColor(kColorAvatarButtonHighlightSyncError);
+      text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_ERROR);
+      break;
     case ButtonState::kSigninPending: {
       const internal::SigninPendingStateProvider* signin_pending_state =
           internal::StateProviderGetter(
@@ -1385,7 +1431,9 @@ AvatarToolbarButtonDelegate::GetAccessibilityLabel() const {
     case ButtonState::kShowIdentityName:
     case ButtonState::kIncognitoProfile:
     case ButtonState::kManagement:
+    case ButtonState::kPassphraseError:
     case ButtonState::kSyncError:
+    case ButtonState::kSyncPaused:
     case ButtonState::kNormal:
       break;
     case ButtonState::kSigninPending: {
@@ -1419,22 +1467,15 @@ SkColor AvatarToolbarButtonDelegate::GetHighlightTextColor(
     case ButtonState::kIncognitoProfile:
       return color_provider->GetColor(
           kColorAvatarButtonHighlightIncognitoForeground);
-    case ButtonState::kSyncError: {
-      const internal::SyncErrorStateProvider* sync_error_state =
-          internal::StateProviderGetter(
-              *state_manager_->GetActiveStateProvider())
-              .AsSyncError();
-      CHECK(sync_error_state);
-      if (sync_error_state->IsErrorSyncPaused()) {
-        return color_provider->GetColor(
-            kColorAvatarButtonHighlightNormalForeground);
-      } else {
-        return color_provider->GetColor(
-            kColorAvatarButtonHighlightSyncErrorForeground);
-      }
-    }
+    case ButtonState::kSyncPaused:
+      return color_provider->GetColor(
+          kColorAvatarButtonHighlightNormalForeground);
+    case ButtonState::kSyncError:
+      return color_provider->GetColor(
+          kColorAvatarButtonHighlightSyncErrorForeground);
     case ButtonState::kManagement:
     case ButtonState::kSigninPending:
+    case ButtonState::kPassphraseError:
       return color_provider->GetColor(
           kColorAvatarButtonHighlightNormalForeground);
     case ButtonState::kExplicitTextShowing:
@@ -1454,6 +1495,8 @@ std::u16string AvatarToolbarButtonDelegate::GetAvatarTooltipText() const {
       return l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_GUEST_TOOLTIP);
     case ButtonState::kShowIdentityName:
       return GetShortProfileName();
+    case ButtonState::kPassphraseError:
+    case ButtonState::kSyncPaused:
     case ButtonState::kSyncError: {
       const internal::SyncErrorStateProvider* sync_error_state =
           internal::StateProviderGetter(
@@ -1488,23 +1531,15 @@ AvatarToolbarButtonDelegate::GetInkdropColors() const {
       case ButtonState::kIncognitoProfile:
         hover_color_id = kColorAvatarButtonIncognitoHover;
         break;
-      case ButtonState::kSyncError: {
-        const internal::SyncErrorStateProvider* sync_error_state =
-            internal::StateProviderGetter(
-                *state_manager_->GetActiveStateProvider())
-                .AsSyncError();
-        CHECK(sync_error_state);
-        if (sync_error_state->IsErrorSyncPaused()) {
-          ripple_color_id = kColorAvatarButtonNormalRipple;
-        }
-        break;
-      }
       case ButtonState::kGuestSession:
       case ButtonState::kExplicitTextShowing:
       case ButtonState::kShowIdentityName:
+      case ButtonState::kSyncError:
         break;
       case ButtonState::kManagement:
       case ButtonState::kSigninPending:
+      case ButtonState::kSyncPaused:
+      case ButtonState::kPassphraseError:
         ripple_color_id = kColorAvatarButtonNormalRipple;
         break;
       case ButtonState::kNormal:
@@ -1529,12 +1564,14 @@ ui::ImageModel AvatarToolbarButtonDelegate::GetAvatarIcon(
     case ButtonState::kShowIdentityName:
     // TODO(crbug.com/40756583): If sync-the-feature is disabled, the icon
     // should be different.
+    case ButtonState::kSyncPaused:
     case ButtonState::kSyncError:
     case ButtonState::kManagement:
     case ButtonState::kNormal:
       return ui::ImageModel::FromImage(profiles::GetSizedAvatarIcon(
           GetProfileAvatarImage(icon_size), icon_size, icon_size,
           profiles::SHAPE_CIRCLE));
+    case ButtonState::kPassphraseError:
     case ButtonState::kSigninPending:
       // First shrink the icon from it's regular size in order to accommodate
       // for the dotted circle that is drawn around it in `PaintIcon()`.
@@ -1563,6 +1600,8 @@ bool AvatarToolbarButtonDelegate::ShouldPaintBorder() const {
     case ButtonState::kExplicitTextShowing:
     case ButtonState::kManagement:
     case ButtonState::kSigninPending:
+    case ButtonState::kPassphraseError:
+    case ButtonState::kSyncPaused:
     case ButtonState::kSyncError:
       return false;
   }
@@ -1636,9 +1675,11 @@ void AvatarToolbarButtonDelegate::PaintIcon(
     case ButtonState::kIncognitoProfile:
     case ButtonState::kExplicitTextShowing:
     case ButtonState::kManagement:
+    case ButtonState::kSyncPaused:
     case ButtonState::kSyncError:
       return;
     case ButtonState::kSigninPending:
+    case ButtonState::kPassphraseError:
       // Paints the dotted circle around the shrunk icon (from
       // `GetAvatarIcon()`).
       PaintRingDottedPath(canvas, icon_bounds,

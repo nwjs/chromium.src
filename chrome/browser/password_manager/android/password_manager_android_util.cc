@@ -20,8 +20,8 @@
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_manager_buildflags.h"
 #include "components/password_manager/core/browser/password_manager_constants.h"
-#include "components/password_manager/core/browser/password_store/split_stores_and_local_upm.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
+#include "components/password_manager/core/browser/split_stores_and_local_upm.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -342,10 +342,9 @@ void MaybeDeactivateSplitStoresAndLocalUpm(
                            static_cast<int>(kOff));
 }
 
-bool HasPasswordsInProfileStore(PrefService* pref_service) {
-  int total_passwords_in_profile_store = pref_service->GetInteger(
-      password_manager::prefs::kTotalPasswordsAvailableForProfile);
-  return total_passwords_in_profile_store > 0;
+bool EmptyProfileStore(PrefService* pref_service) {
+  return pref_service->GetBoolean(
+      password_manager::prefs::kEmptyProfileStoreLoginDatabase);
 }
 
 }  // namespace
@@ -422,7 +421,7 @@ PasswordAccessLossWarningType GetPasswordAccessLossWarningType(
     PrefService* pref_service) {
   // No warning should be displayed to the users, who don't have any passwords
   // in the profile store.
-  if (!HasPasswordsInProfileStore(pref_service)) {
+  if (EmptyProfileStore(pref_service)) {
     return PasswordAccessLossWarningType::kNone;
   }
 

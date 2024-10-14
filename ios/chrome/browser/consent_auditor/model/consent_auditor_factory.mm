@@ -22,24 +22,23 @@
 #import "components/sync/model/data_type_store_service.h"
 #import "components/version_info/version_info.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/sync/model/data_type_store_service_factory.h"
 #import "ios/chrome/common/channel_info.h"
 #import "ios/web/public/browser_state.h"
 
 // static
 consent_auditor::ConsentAuditor* ConsentAuditorFactory::GetForBrowserState(
-    ChromeBrowserState* browser_state) {
+    ProfileIOS* profile) {
   return static_cast<consent_auditor::ConsentAuditor*>(
-      GetInstance()->GetServiceForBrowserState(browser_state, true));
+      GetInstance()->GetServiceForBrowserState(profile, true));
 }
 
 // static
-consent_auditor::ConsentAuditor*
-ConsentAuditorFactory::GetForBrowserStateIfExists(
-    ChromeBrowserState* browser_state) {
+consent_auditor::ConsentAuditor* ConsentAuditorFactory::GetForProfileIfExists(
+    ProfileIOS* profile) {
   return static_cast<consent_auditor::ConsentAuditor*>(
-      GetInstance()->GetServiceForBrowserState(browser_state, false));
+      GetInstance()->GetServiceForBrowserState(profile, false));
 }
 
 // static

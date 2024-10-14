@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/webid/account_selection_bubble_view.h"
 
+#include <array>
 #include <string>
 
 #include "base/feature_list.h"
@@ -15,7 +16,6 @@
 #include "chrome/browser/ui/views/webid/account_selection_view_base.h"
 #include "chrome/browser/ui/views/webid/account_selection_view_test_base.h"
 #include "chrome/browser/ui/views/webid/fake_delegate.h"
-#include "chrome/browser/ui/views/webid/identity_provider_display_data.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
@@ -43,12 +43,26 @@
 #include "ui/views/view.h"
 #include "ui/views/view_utils.h"
 
+using IdentityProviderDataPtr = scoped_refptr<content::IdentityProviderData>;
+using IdentityRequestAccountPtr =
+    scoped_refptr<content::IdentityRequestAccount>;
 using LoginState = content::IdentityRequestAccount::LoginState;
+
+namespace {
+constexpr char kAccountSuffix[] = "suffix";
+}  // namespace
 
 class AccountSelectionBubbleViewTest : public ChromeViewsTestBase,
                                        public AccountSelectionViewTestBase {
  public:
-  AccountSelectionBubbleViewTest() = default;
+  AccountSelectionBubbleViewTest() {
+    content::IdentityProviderMetadata idp_metadata;
+    idp_metadata.brand_icon_url = GURL(kIdpBrandIconUrl);
+    idp_data_ = base::MakeRefCounted<content::IdentityProviderData>(
+        kIdpForDisplay, idp_metadata, CreateTestClientMetadata(),
+        blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+        /*has_login_status_mismatch=*/false);
+  }
 
  protected:
   void CreateAccountSelectionBubble(bool exclude_title) {
@@ -71,42 +85,35 @@ class AccountSelectionBubbleViewTest : public ChromeViewsTestBase,
   }
 
   void CreateAndShowSingleAccountPicker(
-      bool show_back_button,
-      const content::IdentityRequestAccount& account,
-      const content::IdentityProviderMetadata& idp_metadata,
-      const std::string& terms_of_service_url,
-      bool request_permission = true) {
+      LoginState login_state = LoginState::kSignUp) {
+    IdentityRequestAccountPtr account = CreateTestIdentityRequestAccount(
+        kAccountSuffix, idp_data_, login_state);
+
     CreateAccountSelectionBubble(/*exclude_title=*/false);
-    IdentityProviderDisplayData idp_data(
-        kIdpETLDPlusOne, idp_metadata,
-        CreateTestClientMetadata(terms_of_service_url), {account},
-        request_permission, /*has_login_status_mismatch=*/false);
-    dialog_->ShowSingleAccountConfirmDialog(
-        account, idp_data, show_back_button);
+    account->identity_provider = idp_data_;
+    dialog_->ShowSingleAccountConfirmDialog(*account,
+                                            /*show_back_button=*/false);
   }
 
   void CreateAndShowMultiAccountPicker(
       const std::vector<std::string>& account_suffixes,
       bool supports_add_account = false) {
-    std::vector<content::IdentityRequestAccount> account_list =
-        CreateTestIdentityRequestAccounts(account_suffixes);
+    idp_data_->idp_metadata.supports_add_account = supports_add_account;
+    std::vector<IdentityRequestAccountPtr> account_list =
+        CreateTestIdentityRequestAccounts(account_suffixes, idp_data_);
 
     CreateAccountSelectionBubble(/*exclude_title=*/false);
-    std::vector<IdentityProviderDisplayData> idp_data;
-    content::IdentityProviderMetadata metadata;
-    metadata.supports_add_account = supports_add_account;
-    idp_data.emplace_back(
-        kIdpETLDPlusOne, metadata,
-        CreateTestClientMetadata(/*terms_of_service_url=*/""), account_list,
-        /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-    dialog_->ShowMultiAccountPicker(idp_data, /*show_back_button=*/false,
+    dialog_->ShowMultiAccountPicker(account_list, {idp_data_},
+                                    /*show_back_button=*/false,
                                     /*is_choose_an_account=*/false);
   }
 
   void CreateAndShowMultiIdpAccountPicker(
-      const std::vector<IdentityProviderDisplayData>& idp_data_list) {
+      const std::vector<IdentityRequestAccountPtr>& accounts,
+      const std::vector<IdentityProviderDataPtr>& idp_list) {
     CreateAccountSelectionBubble(/*exclude_title=*/true);
-    dialog_->ShowMultiAccountPicker(idp_data_list, /*show_back_button=*/false,
+    dialog_->ShowMultiAccountPicker(accounts, idp_list,
+                                    /*show_back_button=*/false,
                                     /*is_choose_an_account=*/false);
   }
 
@@ -136,6 +143,13 @@ class AccountSelectionBubbleViewTest : public ChromeViewsTestBase,
         static_cast<views::Label*>(GetViewWithClassName(header, "Label"));
     ASSERT_TRUE(title_view);
     EXPECT_EQ(title_view->GetText(), expected_title);
+
+    if (expect_idp_brand_icon_in_header) {
+      views::ImageView* idp_brand_icon = static_cast<views::ImageView*>(
+          GetViewWithClassName(header, "BrandIconImageView"));
+      ASSERT_TRUE(idp_brand_icon);
+      EXPECT_TRUE(idp_brand_icon->GetVisible());
+    }
   }
 
   void PerformMultiAccountChecks(views::View* container,
@@ -211,12 +225,7 @@ class AccountSelectionBubbleViewTest : public ChromeViewsTestBase,
 
   void TestSingleAccount(const std::u16string expected_title,
                          bool expect_idp_brand_icon_in_header) {
-    const std::string kAccountSuffix = "suffix";
-    content::IdentityRequestAccount account(
-        CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignUp));
-    CreateAndShowSingleAccountPicker(
-        /*show_back_button=*/false, account,
-        content::IdentityProviderMetadata(), kTermsOfServiceUrl);
+    CreateAndShowSingleAccountPicker();
 
     std::vector<raw_ptr<views::View, VectorExperimental>> children =
         dialog()->children();
@@ -271,14 +280,9 @@ class AccountSelectionBubbleViewTest : public ChromeViewsTestBase,
 
   void TestFailureDialog(const std::u16string expected_title,
                          bool expect_idp_brand_icon_in_header) {
-    const std::string kAccountSuffix = "suffix";
-    content::IdentityRequestAccount account =
-        CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignIn);
-
     CreateAccountSelectionBubble(
         /*exclude_title=*/false);
-    dialog_->ShowFailureDialog(
-        kIdpETLDPlusOne, content::IdentityProviderMetadata());
+    dialog_->ShowFailureDialog(kIdpETLDPlusOne, idp_data_->idp_metadata);
 
     const std::vector<raw_ptr<views::View, VectorExperimental>> children =
         dialog()->children();
@@ -317,7 +321,7 @@ class AccountSelectionBubbleViewTest : public ChromeViewsTestBase,
     CreateAccountSelectionBubble(
         /*exclude_title=*/false);
     dialog_->ShowErrorDialog(
-        kIdpETLDPlusOne, content::IdentityProviderMetadata(),
+        kIdpETLDPlusOne, idp_data_->idp_metadata,
         content::IdentityCredentialTokenError(error_code, error_url));
 
     const std::vector<raw_ptr<views::View, VectorExperimental>> children =
@@ -449,6 +453,8 @@ class AccountSelectionBubbleViewTest : public ChromeViewsTestBase,
 
   raw_ptr<AccountSelectionBubbleView, DanglingUntriaged> dialog_;
 
+  IdentityProviderDataPtr idp_data_;
+
  private:
   base::test::ScopedFeatureList feature_list_;
   TestingProfile profile_;
@@ -469,12 +475,8 @@ TEST_F(AccountSelectionBubbleViewTest, SingleAccount) {
 }
 
 TEST_F(AccountSelectionBubbleViewTest, SingleAccountNoTermsOfService) {
-  const std::string kAccountSuffix = "suffix";
-  content::IdentityRequestAccount account =
-      CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignUp);
-  CreateAndShowSingleAccountPicker(
-      /*show_back_button=*/false, account, content::IdentityProviderMetadata(),
-      /*terms_of_service_url=*/"");
+  idp_data_->client_metadata.terms_of_service_url = GURL("");
+  CreateAndShowSingleAccountPicker();
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -497,6 +499,40 @@ TEST_F(AccountSelectionBubbleViewTest, SingleAccountNoTermsOfService) {
   CheckDisclosureText(single_account_chooser->children()[2],
                       /*expect_terms_of_service=*/false,
                       /*expect_privacy_policy=*/true);
+}
+
+TEST_F(AccountSelectionBubbleViewTest, SingleAccountOnlyTwoDisclosureFields) {
+  idp_data_->disclosure_fields = {
+      content::IdentityRequestDialogDisclosureField::kName,
+      content::IdentityRequestDialogDisclosureField::kEmail};
+  idp_data_->client_metadata.terms_of_service_url = GURL();
+  CreateAndShowSingleAccountPicker();
+
+  std::vector<raw_ptr<views::View, VectorExperimental>> children =
+      dialog()->children();
+  ASSERT_EQ(children.size(), 3u);
+  PerformHeaderChecks(children[0], kTitleSignIn,
+                      /*expect_idp_brand_icon_in_header=*/true);
+  EXPECT_TRUE(IsViewClass<views::Separator>(children[1]));
+
+  views::View* single_account_chooser = children[2];
+  ASSERT_EQ(single_account_chooser->children().size(), 3u);
+
+  // Check the "Continue as" button.
+  views::MdTextButton* button =
+      static_cast<views::MdTextButton*>(single_account_chooser->children()[1]);
+  ASSERT_TRUE(button);
+  EXPECT_EQ(button->GetText(),
+            base::UTF8ToUTF16("Continue as " + std::string(kGivenNameBase) +
+                              kAccountSuffix));
+
+  constexpr char16_t kExpectedText[] =
+      u"To continue, idp-example.com will share your name and email address "
+      u"with this site. See this site's privacy policy.";
+
+  views::StyledLabel* disclosure_label =
+      static_cast<views::StyledLabel*>(single_account_chooser->children()[2]);
+  EXPECT_EQ(disclosure_label->GetText(), kExpectedText);
 }
 
 TEST_F(AccountSelectionBubbleViewTest, MultipleAccounts) {
@@ -525,12 +561,7 @@ TEST_F(AccountSelectionBubbleViewTest, UseDifferentAccount) {
 }
 
 TEST_F(AccountSelectionBubbleViewTest, ReturningAccount) {
-  const std::string kAccountSuffix = "suffix";
-  content::IdentityRequestAccount account =
-      CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignIn);
-  CreateAndShowSingleAccountPicker(
-      /*show_back_button=*/false, account, content::IdentityProviderMetadata(),
-      /*terms_of_service_url=*/"");
+  CreateAndShowSingleAccountPicker(LoginState::kSignIn);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -556,12 +587,8 @@ TEST_F(AccountSelectionBubbleViewTest, ReturningAccount) {
 }
 
 TEST_F(AccountSelectionBubbleViewTest, NewAccountWithoutRequestPermission) {
-  const std::string kAccountSuffix = "suffix";
-  content::IdentityRequestAccount account =
-      CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignUp);
-  CreateAndShowSingleAccountPicker(
-      /*show_back_button=*/false, account, content::IdentityProviderMetadata(),
-      /*terms_of_service_url=*/"", /*request_permission=*/false);
+  idp_data_->disclosure_fields = {};
+  CreateAndShowSingleAccountPicker();
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -588,10 +615,6 @@ TEST_F(AccountSelectionBubbleViewTest, NewAccountWithoutRequestPermission) {
 
 TEST_F(AccountSelectionBubbleViewTest,
        ContinueButtonWithProperBackgroundColor) {
-  const std::string kAccountSuffix = "suffix";
-  content::IdentityRequestAccount account =
-      CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignIn);
-
   CreateAccountSelectionBubble(/*exclude_title=*/false);
 
   // Set the dialog background color to white.
@@ -601,16 +624,11 @@ TEST_F(AccountSelectionBubbleViewTest,
   SkColor bg_color;
   // A blue background sufficiently contracts with the dialog background.
   content::ParseCssColorString(kDarkBlue, &bg_color);
-  content::IdentityProviderMetadata idp_metadata =
-      content::IdentityProviderMetadata();
-  idp_metadata.brand_background_color = SkColorSetA(bg_color, 0xff);
+  idp_data_->idp_metadata.brand_background_color = SkColorSetA(bg_color, 0xff);
+  IdentityRequestAccountPtr account = CreateTestIdentityRequestAccount(
+      kAccountSuffix, idp_data_, LoginState::kSignIn);
 
-  IdentityProviderDisplayData idp_data(
-      kIdpETLDPlusOne, idp_metadata,
-      CreateTestClientMetadata(/*terms_of_service_url=*/""), {account},
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-
-  dialog()->ShowSingleAccountConfirmDialog(account, idp_data,
+  dialog()->ShowSingleAccountConfirmDialog(*account,
                                            /*show_back_button=*/false);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
@@ -630,10 +648,6 @@ TEST_F(AccountSelectionBubbleViewTest,
 
 TEST_F(AccountSelectionBubbleViewTest,
        ContinueButtonWithImproperBackgroundColor) {
-  const std::string kAccountSuffix = "suffix";
-  content::IdentityRequestAccount account =
-      CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignIn);
-
   CreateAccountSelectionBubble(/*exclude_title=*/false);
 
   // Set the dialog background color to white.
@@ -646,14 +660,11 @@ TEST_F(AccountSelectionBubbleViewTest,
   content::ParseCssColorString(kWhite, &bg_color);
   content::IdentityProviderMetadata idp_metadata =
       content::IdentityProviderMetadata();
-  idp_metadata.brand_background_color = SkColorSetA(bg_color, 0xff);
+  idp_data_->idp_metadata.brand_background_color = SkColorSetA(bg_color, 0xff);
+  IdentityRequestAccountPtr account = CreateTestIdentityRequestAccount(
+      kAccountSuffix, idp_data_, LoginState::kSignIn);
 
-  IdentityProviderDisplayData idp_data(
-      kIdpETLDPlusOne, idp_metadata,
-      CreateTestClientMetadata(/*terms_of_service_url=*/""), {account},
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-
-  dialog()->ShowSingleAccountConfirmDialog(account, idp_data,
+  dialog()->ShowSingleAccountConfirmDialog(*account,
                                            /*show_back_button=*/false);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
@@ -673,17 +684,12 @@ TEST_F(AccountSelectionBubbleViewTest,
 }
 
 TEST_F(AccountSelectionBubbleViewTest, Verifying) {
-  const std::string kAccountSuffix = "suffix";
-  content::IdentityRequestAccount account =
-      CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignIn);
-  IdentityProviderDisplayData idp_data(
-      kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      content::ClientMetadata(GURL(), GURL(), GURL()), {account},
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
+  IdentityRequestAccountPtr account = CreateTestIdentityRequestAccount(
+      kAccountSuffix, idp_data_, LoginState::kSignIn);
 
   CreateAccountSelectionBubble(/*exclude_title=*/false);
   dialog_->ShowVerifyingSheet(
-      account, idp_data, l10n_util::GetStringUTF16(IDS_VERIFY_SHEET_TITLE));
+      *account, l10n_util::GetStringUTF16(IDS_VERIFY_SHEET_TITLE));
 
   const std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -698,18 +704,12 @@ TEST_F(AccountSelectionBubbleViewTest, Verifying) {
 }
 
 TEST_F(AccountSelectionBubbleViewTest, VerifyingForAutoReauthn) {
-  const std::string kAccountSuffix = "suffix";
-  content::IdentityRequestAccount account =
-      CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignIn);
-  IdentityProviderDisplayData idp_data(
-      kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      content::ClientMetadata(GURL(), GURL(), GURL()), {account},
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-
+  IdentityRequestAccountPtr account = CreateTestIdentityRequestAccount(
+      kAccountSuffix, idp_data_, LoginState::kSignIn);
   CreateAccountSelectionBubble(/*exclude_title=*/false);
   const auto title =
       l10n_util::GetStringUTF16(IDS_VERIFY_SHEET_TITLE_AUTO_REAUTHN);
-  dialog_->ShowVerifyingSheet(account, idp_data, title);
+  dialog_->ShowVerifyingSheet(*account, title);
 
   const std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -765,19 +765,23 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest,
        MultipleAccountsMultipleIdps) {
   const std::vector<std::string> kAccountSuffixes1 = {"1", "2"};
   const std::vector<std::string> kAccountSuffixes2 = {"3", "4"};
-  std::vector<IdentityProviderDisplayData> idp_data;
-  std::vector<Account> accounts_first_idp =
-      CreateTestIdentityRequestAccounts(kAccountSuffixes1);
-  idp_data.emplace_back(
-      kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata(kTermsOfServiceUrl), accounts_first_idp,
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  idp_data.emplace_back(
-      kSecondIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-2.com"),
-      CreateTestIdentityRequestAccounts(kAccountSuffixes2),
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  CreateAndShowMultiIdpAccountPicker(idp_data);
+  std::vector<IdentityProviderDataPtr> idp_list = {
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata(kTermsOfServiceUrl),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kSecondIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-2.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false)};
+  std::vector<IdentityRequestAccountPtr> account_list = {
+      CreateTestIdentityRequestAccount(kAccountSuffixes1[0], idp_list[0]),
+      CreateTestIdentityRequestAccount(kAccountSuffixes1[1], idp_list[0]),
+      CreateTestIdentityRequestAccount(kAccountSuffixes2[0], idp_list[1]),
+      CreateTestIdentityRequestAccount(kAccountSuffixes2[1], idp_list[1])};
+  CreateAndShowMultiIdpAccountPicker(account_list, idp_list);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -803,20 +807,20 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest,
 
 TEST_F(MultipleIdpAccountSelectionBubbleViewTest, OneIdpWithMismatch) {
   const std::vector<std::string> kAccountSuffixes1 = {"1", "2"};
-  std::vector<IdentityProviderDisplayData> idp_data;
-  std::vector<Account> accounts_first_idp =
-      CreateTestIdentityRequestAccounts(kAccountSuffixes1);
-  idp_data.emplace_back(
-      kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata(kTermsOfServiceUrl), accounts_first_idp,
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  idp_data.emplace_back(
-      kSecondIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-2.com"),
-      CreateTestIdentityRequestAccounts(
-          /*account_suffixes=*/{}),
-      /*request_permission=*/true, /*has_login_status_mismatch=*/true);
-  CreateAndShowMultiIdpAccountPicker(idp_data);
+  std::vector<IdentityProviderDataPtr> idp_list = {
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata(kTermsOfServiceUrl),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kSecondIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-2.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/true)};
+  std::vector<IdentityRequestAccountPtr> accounts_list =
+      CreateTestIdentityRequestAccounts(kAccountSuffixes1, idp_list[0]);
+  CreateAndShowMultiIdpAccountPicker(accounts_list, idp_list);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -843,22 +847,25 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest, OneIdpWithMismatch) {
 TEST_F(MultipleIdpAccountSelectionBubbleViewTest, MultiIdpUseOtherAccount) {
   const std::vector<std::string> kAccountSuffixes1 = {"1", "2"};
   const std::vector<std::string> kAccountSuffixes2 = {"3"};
-  std::vector<IdentityProviderDisplayData> idp_data;
-  std::vector<Account> accounts_first_idp =
-      CreateTestIdentityRequestAccounts(kAccountSuffixes1);
   content::IdentityProviderMetadata idp_with_supports_add =
       content::IdentityProviderMetadata();
   idp_with_supports_add.supports_add_account = true;
-  idp_data.emplace_back(
-      kIdpETLDPlusOne, idp_with_supports_add,
-      CreateTestClientMetadata(kTermsOfServiceUrl), accounts_first_idp,
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  idp_data.emplace_back(kSecondIdpETLDPlusOne, idp_with_supports_add,
-                        CreateTestClientMetadata("https://tos-2.com"),
-                        CreateTestIdentityRequestAccounts(kAccountSuffixes2),
-                        /*request_permission=*/true,
-                        /*has_login_status_mismatch=*/false);
-  CreateAndShowMultiIdpAccountPicker(idp_data);
+  std::vector<IdentityProviderDataPtr> idp_list = {
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kIdpForDisplay, idp_with_supports_add,
+          CreateTestClientMetadata(kTermsOfServiceUrl),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kSecondIdpForDisplay, idp_with_supports_add,
+          CreateTestClientMetadata("https://tos-2.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false)};
+  std::vector<IdentityRequestAccountPtr> accounts_list = {
+      CreateTestIdentityRequestAccount(kAccountSuffixes1[0], idp_list[0]),
+      CreateTestIdentityRequestAccount(kAccountSuffixes1[1], idp_list[0]),
+      CreateTestIdentityRequestAccount(kAccountSuffixes2[0], idp_list[1])};
+  CreateAndShowMultiIdpAccountPicker(accounts_list, idp_list);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -888,31 +895,34 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest,
        ShowSingleReturningAccountDialog) {
   const std::vector<std::string> kAccountSuffixes1 = {"1", "2"};
   const std::vector<std::string> kAccountSuffixes2 = {"3"};
-  std::vector<IdentityProviderDisplayData> idp_data;
-  std::vector<Account> accounts_first_idp =
-      CreateTestIdentityRequestAccounts(kAccountSuffixes1);
-  idp_data.emplace_back(
-      kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata(kTermsOfServiceUrl), accounts_first_idp,
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  idp_data.emplace_back(
-      kSecondIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-2.com"),
-      CreateTestIdentityRequestAccounts(kAccountSuffixes2,
-                                        {LoginState::kSignIn}),
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  idp_data.emplace_back(
-      u"idp3.com", content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-3.com"),
-      CreateTestIdentityRequestAccounts(/*account_suffixes=*/{}),
-      /*request_permission=*/true, /*has_login_status_mismatch=*/true);
-  idp_data.emplace_back(
-      u"idp4.com", content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-4.com"),
-      CreateTestIdentityRequestAccounts(/*account_suffixes=*/{}),
-      /*request_permission=*/true, /*has_login_status_mismatch=*/true);
+  std::vector<IdentityProviderDataPtr> idp_list = {
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata(kTermsOfServiceUrl),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kSecondIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-2.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          "idp3.com", content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-3.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/true),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          "idp4.com", content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-4.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/true)};
+  std::vector<IdentityRequestAccountPtr> accounts_list = {
+      CreateTestIdentityRequestAccount(kAccountSuffixes2[0], idp_list[1],
+                                       LoginState::kSignIn),
+      CreateTestIdentityRequestAccount(kAccountSuffixes1[0], idp_list[0]),
+      CreateTestIdentityRequestAccount(kAccountSuffixes1[1], idp_list[0])};
   CreateAccountSelectionBubble(/*exclude_title=*/true);
-  dialog_->ShowSingleReturningAccountDialog(idp_data);
+  dialog_->ShowSingleReturningAccountDialog(accounts_list, idp_list);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -942,7 +952,8 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest,
                        u"idp3.com, idp4.com, idp-example.com");
 
   // Simulate clicking on the choose an account button.
-  dialog_->ShowMultiAccountPicker(idp_data, /*show_back_button=*/true,
+  dialog_->ShowMultiAccountPicker(accounts_list, idp_list,
+                                  /*show_back_button=*/true,
                                   /*is_choose_an_account=*/true);
 
   children = dialog()->children();
@@ -957,18 +968,19 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest,
 }
 
 TEST_F(MultipleIdpAccountSelectionBubbleViewTest, MultiIdpWithAllIdpsMismatch) {
-  std::vector<IdentityProviderDisplayData> idp_data;
-  idp_data.emplace_back(
-      kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata(kTermsOfServiceUrl),
-      CreateTestIdentityRequestAccounts(/*account_suffixes=*/{}),
-      /*request_permission=*/true, /*has_login_status_mismatch=*/true);
-  idp_data.emplace_back(
-      kSecondIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-2.com"),
-      CreateTestIdentityRequestAccounts(/*account_suffixes=*/{}),
-      /*request_permission=*/true, /*has_login_status_mismatch=*/true);
-  CreateAndShowMultiIdpAccountPicker(idp_data);
+  std::vector<IdentityProviderDataPtr> idp_list = {
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata(kTermsOfServiceUrl),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/true),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kSecondIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-2.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/true)};
+  CreateAndShowMultiIdpAccountPicker(std::vector<IdentityRequestAccountPtr>(),
+                                     idp_list);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -987,23 +999,28 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest, MultiIdpWithAllIdpsMismatch) {
 }
 
 TEST_F(MultipleIdpAccountSelectionBubbleViewTest, MultipleReturningAccounts) {
-  const std::vector<std::string> kAccountSuffixes1 = {"new1", "returning1"};
-  const std::vector<std::string> kAccountSuffixes2 = {"new2", "returning2"};
-  std::vector<IdentityProviderDisplayData> idp_data;
-  std::vector<Account> accounts_first_idp = CreateTestIdentityRequestAccounts(
-      kAccountSuffixes1, {LoginState::kSignUp, LoginState::kSignIn});
-  idp_data.emplace_back(
-      kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata(kTermsOfServiceUrl), accounts_first_idp,
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
+  std::vector<IdentityProviderDataPtr> idp_list = {
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata(kTermsOfServiceUrl),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kSecondIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-2.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false)};
+  // The UI code receives the accounts sorted in the order in which they should
+  // be displayed.
+  std::vector<IdentityRequestAccountPtr> accounts_list = {
+      CreateTestIdentityRequestAccount("returning1", idp_list[0],
+                                       LoginState::kSignIn),
+      CreateTestIdentityRequestAccount("returning2", idp_list[1],
+                                       LoginState::kSignIn),
+      CreateTestIdentityRequestAccount("new1", idp_list[0]),
+      CreateTestIdentityRequestAccount("new2", idp_list[1])};
 
-  std::vector<Account> accounts_second_idp = CreateTestIdentityRequestAccounts(
-      kAccountSuffixes2, {LoginState::kSignUp, LoginState::kSignIn});
-  idp_data.emplace_back(
-      kSecondIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-2.com"), accounts_second_idp,
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  CreateAndShowMultiIdpAccountPicker(idp_data);
+  CreateAndShowMultiIdpAccountPicker(accounts_list, idp_list);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -1031,26 +1048,35 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest,
                                                       "returning2"};
   const std::vector<std::string> kAccountSuffixes2 = {"new2", "returning3",
                                                       "returning4"};
-  std::vector<IdentityProviderDisplayData> idp_data;
-  std::vector<Account> accounts_first_idp = CreateTestIdentityRequestAccounts(
-      kAccountSuffixes1,
-      {LoginState::kSignUp, LoginState::kSignIn, LoginState::kSignIn},
-      {std::nullopt, base::Time() + base::Microseconds(1), base::Time()});
-  idp_data.emplace_back(
-      kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata(kTermsOfServiceUrl), accounts_first_idp,
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
+  std::vector<IdentityProviderDataPtr> idp_list = {
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata(kTermsOfServiceUrl),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kSecondIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-2.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false)};
+  // Note that `new2` is last despite having last_used_timestamp because it is
+  // not considered a returning account.
+  std::vector<IdentityRequestAccountPtr> accounts_list = {
+      CreateTestIdentityRequestAccount("returning3", idp_list[1],
+                                       LoginState::kSignIn,
+                                       base::Time() + base::Microseconds(2)),
+      CreateTestIdentityRequestAccount("returning1", idp_list[0],
+                                       LoginState::kSignIn,
+                                       base::Time() + base::Microseconds(1)),
+      CreateTestIdentityRequestAccount("returning2", idp_list[0],
+                                       LoginState::kSignIn, base::Time()),
+      CreateTestIdentityRequestAccount("returning4", idp_list[1],
+                                       LoginState::kSignIn, base::Time()),
+      CreateTestIdentityRequestAccount("new1", idp_list[0]),
+      CreateTestIdentityRequestAccount("new2", idp_list[1], LoginState::kSignUp,
+                                       base::Time() + base::Microseconds(3))};
 
-  std::vector<Account> accounts_second_idp = CreateTestIdentityRequestAccounts(
-      kAccountSuffixes2,
-      {LoginState::kSignUp, LoginState::kSignIn, LoginState::kSignIn},
-      {base::Time() + base::Microseconds(3),
-       base::Time() + base::Microseconds(2), base::Time()});
-  idp_data.emplace_back(
-      kSecondIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-2.com"), accounts_second_idp,
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  CreateAndShowMultiIdpAccountPicker(idp_data);
+  CreateAndShowMultiIdpAccountPicker(accounts_list, idp_list);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -1065,12 +1091,6 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest,
   std::vector<raw_ptr<views::View, VectorExperimental>> accounts =
       GetAccounts(children[1]);
 
-  // The expected order is as follows:
-  // 1. "returning3" since it is returning and has the latest timestamp.
-  // 2. "returning1": returning, has a timestamp.
-  // 3. "returning2" and "returning4": returning ones without timestamp.
-  // 4. "new1", "new2": non returning. Note that the last used timestamp from
-  // "new2" does not impact its place since it is considered not returning.
   const std::vector<std::string> expected_account_order = {
       "returning3", "returning1", "returning2", "returning4", "new1", "new2"};
   size_t accounts_index = 0;
@@ -1082,20 +1102,24 @@ TEST_F(MultipleIdpAccountSelectionBubbleViewTest,
 // the background circle containing the IDP icon.
 TEST_F(MultipleIdpAccountSelectionBubbleViewTest, HoverChangesIdpCircle) {
   // Need two IDPs to show the multi IDP UI.
-  const std::vector<std::string> kAccountSuffixes1 = {"1"};
-  const std::vector<std::string> kAccountSuffixes2 = {"2"};
-  std::vector<IdentityProviderDisplayData> idp_data;
-  idp_data.emplace_back(kIdpETLDPlusOne, content::IdentityProviderMetadata(),
-                        CreateTestClientMetadata(kTermsOfServiceUrl),
-                        CreateTestIdentityRequestAccounts(kAccountSuffixes1),
-                        /*request_permission=*/true,
-                        /*has_login_status_mismatch=*/false);
-  idp_data.emplace_back(
-      kSecondIdpETLDPlusOne, content::IdentityProviderMetadata(),
-      CreateTestClientMetadata("https://tos-2.com"),
-      CreateTestIdentityRequestAccounts(kAccountSuffixes2),
-      /*request_permission=*/true, /*has_login_status_mismatch=*/false);
-  CreateAndShowMultiIdpAccountPicker(idp_data);
+  constexpr char kAccountSuffix1[] = "1";
+  constexpr char kAccountSuffix2[] = "2";
+  std::vector<IdentityProviderDataPtr> idp_list = {
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata(kTermsOfServiceUrl),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false),
+      base::MakeRefCounted<content::IdentityProviderData>(
+          kSecondIdpForDisplay, content::IdentityProviderMetadata(),
+          CreateTestClientMetadata("https://tos-2.com"),
+          blink::mojom::RpContext::kSignIn, kDefaultDisclosureFields,
+          /*has_login_status_mismatch=*/false)};
+  std::vector<IdentityRequestAccountPtr> accounts_list = {
+      CreateTestIdentityRequestAccount(kAccountSuffix1, idp_list[0]),
+      CreateTestIdentityRequestAccount(kAccountSuffix2, idp_list[1])};
+
+  CreateAndShowMultiIdpAccountPicker(accounts_list, idp_list);
 
   std::vector<raw_ptr<views::View, VectorExperimental>> children =
       dialog()->children();
@@ -1300,13 +1324,8 @@ TEST_F(AccountSelectionBubbleViewTest, BoundsChangedAfterWebContentsDestroyed) {
 
 // Tests that the brand icon view is hidden if the brand icon URL is invalid.
 TEST_F(AccountSelectionBubbleViewTest, InvalidBrandIconUrlHidesBrandIcon) {
-  const std::string kAccountSuffix = "suffix";
-  content::IdentityRequestAccount account(
-      CreateTestIdentityRequestAccount(kAccountSuffix, LoginState::kSignUp));
-  content::IdentityProviderMetadata idp_metadata;
-  idp_metadata.brand_icon_url = GURL("invalid url");
-  CreateAndShowSingleAccountPicker(
-      /*show_back_button=*/false, account, idp_metadata, kTermsOfServiceUrl);
+  idp_data_->idp_metadata.brand_icon_url = GURL("invalid url");
+  CreateAndShowSingleAccountPicker();
 
   views::View* brand_icon_image_view = static_cast<views::View*>(
       GetViewWithClassName(dialog()->children()[0], "BrandIconImageView"));

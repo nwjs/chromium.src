@@ -346,7 +346,7 @@ BASE_FEATURE(kPlatformHEVCDecoderSupport,
 // Enables HEVC hardware accelerated encoding for Windows, Mac, and Android.
 BASE_FEATURE(kPlatformHEVCEncoderSupport,
              "PlatformHEVCEncoderSupport",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_ANDROID)
 #endif  // BUILDFLAG(ENABLE_PLATFORM_HEVC)
 
@@ -366,6 +366,13 @@ BASE_FEATURE(kResumeBackgroundVideo,
 // macOS 13.0+.
 BASE_FEATURE(kMacLoopbackAudioForScreenShare,
              "MacLoopbackAudioForScreenShare",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Use the built-in MacOS screen-sharing picker (SCContentSharingPicker). This
+// flag will only use the built-in picker on MacOS 15 Sequoia and later where it
+// is required to avoid recurring permission dialogs.
+BASE_FEATURE(kUseSCContentSharingPicker,
+             "UseSCContentSharingPicker",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_MAC)
 
@@ -568,12 +575,10 @@ BASE_FEATURE(kCrOSDspBasedAgcAllowed,
              "CrOSDspBasedAgcAllowed",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kIgnoreUiGains,
-             "IgnoreUiGains",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIgnoreUiGains, "IgnoreUiGains", base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kShowForceRespectUiGainsToggle,
              "ShowForceRespectUiGainsToggle",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCrOSSystemVoiceIsolationOption,
              "CrOSSystemVoiceIsolationOption",
@@ -590,12 +595,6 @@ BASE_FEATURE(kAudioFlexibleLoopbackForSystemLoopback,
 BASE_FEATURE(kMemoryPressureBasedSourceBufferGC,
              "MemoryPressureBasedSourceBufferGC",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables writing pixels together for all planes to a multi-planar shared
-// image.
-BASE_FEATURE(kUseWritePixelsYUV,
-             "UseWritePixelsYUV",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the Mirroring Service will fetch, analyze, and store
 // information on the quality of the session using RTCP logs.
@@ -673,6 +672,13 @@ BASE_FEATURE(kFeatureManagementLiveTranslateCrOS,
              "FeatureManagementLiveTranslateCrOS",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if !BUILDFLAG(IS_ANDROID)
+// Blocks picture-in-picture windows while file dialogs are open.
+BASE_FEATURE(kFileDialogsBlockPictureInPicture,
+             "FileDialogsBlockPictureInPicture",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 // Show toolbar button that opens dialog for controlling media sessions.
 BASE_FEATURE(kGlobalMediaControls,
              "GlobalMediaControls",
@@ -688,17 +694,12 @@ BASE_FEATURE(kGlobalMediaControlsAutoDismiss,
              "GlobalMediaControlsAutoDismiss",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_CHROMEOS)
-// Updated global media controls UI for CrOS.
-BASE_FEATURE(kGlobalMediaControlsCrOSUpdatedUI,
-             "GlobalMediaControlsCrOSUpdatedUI",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#else   // BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_CHROMEOS)
 // Updated global media controls UI for all the non-CrOS desktop platforms.
 BASE_FEATURE(kGlobalMediaControlsUpdatedUI,
              "GlobalMediaControlsUpdatedUI",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 #if !BUILDFLAG(IS_ANDROID)
 // If enabled, users can request Media Remoting without fullscreen-in-tab.
@@ -827,6 +828,11 @@ BASE_FEATURE(kGlobalVaapiLock,
 BASE_FEATURE(kVaapiH264TemporalLayerHWEncoding,
              "VaapiH264TemporalLayerEncoding",
              base::FEATURE_ENABLED_BY_DEFAULT);
+// Enable software bitrate controller for H264 temporal layer encoding with HW
+// encoder on ChromeOS.
+BASE_FEATURE(kVaapiH264SWBitrateController,
+             "VaapiH264SWBitrateController",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // Enable VP8 temporal layer encoding with HW encoder on ChromeOS.
 BASE_FEATURE(kVaapiVp8TemporalLayerHWEncoding,
              "VaapiVp8TemporalLayerEncoding",
@@ -835,6 +841,10 @@ BASE_FEATURE(kVaapiVp8TemporalLayerHWEncoding,
 BASE_FEATURE(kVaapiVp9SModeHWEncoding,
              "VaapiVp9SModeHWEncoding",
              base::FEATURE_ENABLED_BY_DEFAULT);
+// Enables VSync aligned MJPEG decoding.
+BASE_FEATURE(kVSyncMjpegDecoding,
+             "VSyncMjpegDecoding",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 // Enables the new V4L2StatefulVideoDecoder instead of V4L2VideoDecoder.
@@ -864,9 +874,9 @@ BASE_FEATURE(kVideoFrameUseClientSITextureTarget,
              "VideoFrameUseClientSITextureTarget",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Displays a minimize button on video picture-in-picture windows.
-BASE_FEATURE(kVideoPictureInPictureMinimizeButton,
-             "VideoPictureInPictureMinimizeButton",
+// Displays new video picture-in-picture controls for the 2024 UI update.
+BASE_FEATURE(kVideoPictureInPictureControlsUpdate2024,
+             "VideoPictureInPictureControlsUpdate2024",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // A video encoder is allowed to drop a frame in cast mirroring.
@@ -882,7 +892,7 @@ BASE_FEATURE(kWebCodecsVideoEncoderFrameDrop,
 // A hardware video encoder is allowed to drop a frame in WebRTC.
 BASE_FEATURE(kWebRTCHardwareVideoEncoderFrameDrop,
              "WebRTCHardwareVideoEncoderFrameDrop",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Inform webrtc with correct video color space information whenever
 // possible.
@@ -1132,10 +1142,10 @@ BASE_FEATURE(kAllowNonSecureOverlays,
              "AllowNonSecureOverlays",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables support for playback of encrypted AV1 content.
-BASE_FEATURE(kEnableEncryptedAV1,
-             "EnableEncryptedAV1",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Enables block model (LinearBlock) on supported devices.
+BASE_FEATURE(kMediaCodecBlockModel,
+             "MediaCodecBlockModel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Allow FrameInfoHelper to guess coded size information for MediaCodec frames.
 BASE_FEATURE(kMediaCodecCodedSizeGuessing,
@@ -1300,10 +1310,11 @@ BASE_FEATURE(kEnableArmHwdrm10bitOverlays,
 #if BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
 // Enable use of HW based L1 Widevine DRM via the cdm-oemcrypto daemon on
 // ChromeOS. This flag is temporary while we finish development.
-// Expiry: M128
+// Expiry: M133
+// TODO(b/364969273): Remove this flag later.
 BASE_FEATURE(kEnableArmHwdrm,
              "EnableArmHwdrm",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
 #endif  // defined(ARCH_CPU_ARM_FAMILY)
 #endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
@@ -1409,7 +1420,12 @@ const base::FeatureParam<int> kBatchReadCount{&kMediaFoundationBatchRead,
 // ENABLE_PLATFORM_ENCRYPTED_DOLBY_VISION is disabled.
 BASE_FEATURE(kPlatformEncryptedDolbyVision,
              "PlatformEncryptedDolbyVision",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // When ENABLE_PLATFORM_ENCRYPTED_DOLBY_VISION is enabled at build time and
 // `kPlatformEncryptedDolbyVision` is enabled at run time, encrypted Dolby
@@ -1715,6 +1731,13 @@ BASE_FEATURE(kCastStreamingMacHardwareH264,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+#if BUILDFLAG(IS_WIN)
+// Controls whether hardware H264 is default enabled on Windows.
+BASE_FEATURE(kCastStreamingWinHardwareH264,
+             "CastStreamingWinHardwareH264",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 #if BUILDFLAG(IS_FUCHSIA)
 // Enables use of Fuchsia's Mediacodec service for encoding.
 BASE_FEATURE(kFuchsiaMediacodecVideoEncoder,
@@ -1726,11 +1749,7 @@ BASE_FEATURE(kFuchsiaMediacodecVideoEncoder,
 // smaller than maximum supported decodes as advertiszed by decoder.
 BASE_FEATURE(kVideoDecodeBatching,
              "VideoDecodeBatching",
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
              base::FEATURE_DISABLED_BY_DEFAULT
-#endif
 );
 
 // Safety switch to allow us to revert to the previous behavior of using the
@@ -1854,10 +1873,6 @@ bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
 #else
   return false;
 #endif
-}
-
-bool IsWritePixelsYUVEnabled() {
-  return base::FeatureList::IsEnabled(kUseWritePixelsYUV);
 }
 
 #if BUILDFLAG(IS_WIN)

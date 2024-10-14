@@ -13,6 +13,8 @@
 namespace autofill {
 namespace {
 
+const char kGuidA[] = "EDC609ED-7EEE-4F27-B00C-423242A9C44A";
+
 class AutofillFieldTest : public testing::Test {
  public:
   AutofillFieldTest() = default;
@@ -20,6 +22,41 @@ class AutofillFieldTest : public testing::Test {
  private:
   test::AutofillUnitTestEnvironment autofill_test_environment_;
 };
+
+TEST_F(AutofillFieldTest, ValueWasIdentifiedAsPotentiallySensitive) {
+  AutofillField field;
+
+  // Initially the value should not be identified as sensitive.
+  EXPECT_FALSE(field.value_identified_as_potentially_sensitive());
+
+  // We should be able to set the value and retrieve the state.
+  field.set_value_identified_as_potentially_sensitive(true);
+  EXPECT_TRUE(field.value_identified_as_potentially_sensitive());
+}
+
+TEST_F(AutofillFieldTest, FieldIsEligableForPredictionImprovementsFlag) {
+  AutofillField field;
+
+  // Initially the value should not be identified as sensitive.
+  EXPECT_FALSE(
+      field.field_is_eligible_for_prediction_improvements().has_value());
+
+  // Test that settings the value works.
+  field.set_field_is_eligible_for_prediction_improvements(true);
+  ASSERT_TRUE(
+      field.field_is_eligible_for_prediction_improvements().has_value());
+  EXPECT_TRUE(field.field_is_eligible_for_prediction_improvements().value());
+
+  field.set_field_is_eligible_for_prediction_improvements(false);
+  ASSERT_TRUE(
+      field.field_is_eligible_for_prediction_improvements().has_value());
+  EXPECT_FALSE(field.field_is_eligible_for_prediction_improvements().value());
+
+  // Verify that the state can also be reset.
+  field.set_field_is_eligible_for_prediction_improvements(std::nullopt);
+  EXPECT_FALSE(
+      field.field_is_eligible_for_prediction_improvements().has_value());
+}
 
 // Tests that if both autocomplete attributes and server agree it's a phone
 // field, always use server predicted type. If they disagree with autocomplete
@@ -101,6 +138,20 @@ TEST_F(AutofillFieldTest, IsFieldFillable) {
   // prediction, it is still considered a fillable field.
   field.set_should_autocomplete(false);
   EXPECT_TRUE(field.IsFieldFillable());
+}
+
+TEST_F(AutofillFieldTest, SetAndGetPossibleProfileValueSources) {
+  AutofillField field;
+
+  PossibleProfileValueSources sources;
+  sources.AddPossibleValueSource(kGuidA, NAME_FIRST);
+  PossibleProfileValueSources copy = sources;
+
+  field.set_possible_profile_value_sources(sources);
+
+  EXPECT_THAT(
+      field.possible_profile_value_sources()->GetAllPossibleValueSources(),
+      testing::ElementsAre(ProfileValueSource(kGuidA, NAME_FIRST)));
 }
 
 // Parameters for `PrecedenceOverAutocompleteTest`
@@ -218,10 +269,6 @@ class AutofillLocalHeuristicsOverridesTest
     : public testing::TestWithParam<AutofillLocalHeuristicsOverridesParams> {
  public:
   AutofillLocalHeuristicsOverridesTest() = default;
-
- private:
-  base::test::ScopedFeatureList feature_{
-      features::kAutofillLocalHeuristicsOverrides};
 };
 
 // Tests the correctness of local heuristic overrides while computing the

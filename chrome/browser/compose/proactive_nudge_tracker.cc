@@ -274,12 +274,13 @@ void ProactiveNudgeTracker::OnAfterCaretMovedInFormField(
       !selection_valid) {
     // Cancel the timer if the selection is no longer valid.
     state_->timer_canceled = true;
-  } else if (state_->timer.IsRunning()) {
-    // Extend the timer if it is currently running. This will restart with
-    // the correct delay if the state has changed.
-    StartOrRestartTimer();
-  } else if (selection_valid) {
-    state_->selection_nudge_requested = true;
+  } else {
+    state_->selection_nudge_requested = selection_valid;
+    if (IsTimerRunning()) {
+      // Extend the timer if it is currently running. This will restart with
+      // the correct delay if the state has changed.
+      StartOrRestartTimer();
+    }
   }
   UpdateStateForCurrentFormField();
 }
@@ -429,7 +430,8 @@ bool ProactiveNudgeTracker::CanStartSelectionTimer() {
       state_->selection_nudge_shown) {
     return false;
   }
-  return state_->selection_nudge_requested;
+  return GetComposeConfig().selection_nudge_delay > base::Seconds(0) &&
+         state_->selection_nudge_requested;
 }
 
 void ProactiveNudgeTracker::StartOrRestartTimer() {
@@ -495,8 +497,12 @@ void ProactiveNudgeTracker::BeginWaitingForProactiveNudgeRequest() {
     // is no need to request the nudge again.
     return;
   }
+  compose::ComposeEntryPoint entry_point =
+      state_->selection_nudge_requested
+          ? compose::ComposeEntryPoint::kSelectionNudge
+          : compose::ComposeEntryPoint::kProactiveNudge;
   delegate_->ShowProactiveNudge(state_->signals.field.renderer_form_id(),
-                                state_->signals.field.global_id());
+                                state_->signals.field.global_id(), entry_point);
 }
 
 void ProactiveNudgeTracker::BeginBlockedBySegmentation() {
@@ -505,7 +511,6 @@ void ProactiveNudgeTracker::BeginBlockedBySegmentation() {
   }
 
   if (state_->selection_nudge_requested) {
-    // TODO(http://b/331822409): Log selection nudge metrics.
     state_->selection_nudge_requested = false;
     return;
   }
@@ -522,14 +527,15 @@ void ProactiveNudgeTracker::BeginShown() {
   }
 
   if (state_->selection_nudge_requested) {
-    // TODO(http://b/331822409): Log selection nudge metrics.
     state_->selection_nudge_requested = false;
     state_->selection_nudge_shown = true;
+    compose::LogComposeSelectionNudgeCtr(
+        compose::ComposeNudgeCtrEvent::kNudgeDisplayed);
     return;
   }
 
   compose::LogComposeProactiveNudgeCtr(
-      compose::ComposeProactiveNudgeCtrEvent::kNudgeDisplayed);
+      compose::ComposeNudgeCtrEvent::kNudgeDisplayed);
   compose::LogComposeProactiveNudgeShowStatus(
       compose::ComposeShowStatus::kShouldShow);
   delegate_->GetPageUkmTracker()->ProactiveNudgeShown();
@@ -610,6 +616,7 @@ void ProactiveNudgeTracker::ComposeSessionCompleted(
     iter->second->ComposeSessionCompleted(session_close_reason, events);
     engagement_trackers_.erase(iter);
   }
+  ResetState();
 }
 
 void ProactiveNudgeTracker::OnUserDisabledNudge(bool single_site_only) {

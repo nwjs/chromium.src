@@ -97,9 +97,9 @@ MigrationNotificationManager::~MigrationNotificationManager() {
 
 void MigrationNotificationManager::ShowMigrationInfoDialog(
     CloudProvider provider,
-    base::TimeDelta migration_delay,
+    base::Time migration_start_time,
     base::OnceClosure migration_callback) {
-  LocalFilesMigrationDialog::Show(provider, migration_delay,
+  LocalFilesMigrationDialog::Show(provider, migration_start_time,
                                   std::move(migration_callback));
 }
 
@@ -218,7 +218,7 @@ MigrationNotificationManager::ShowOneDriveSignInNotification(
     policy::skyvault_ui_utils::ShowSignInNotification(
         Profile::FromBrowserContext(context_), /*id=*/0,
         ash::cloud_upload::OdfsSkyvaultUploader::FileType::kMigration,
-        /*file_name=*/"",
+        /*file_path=*/base::FilePath(),
         base::BindOnce(&MigrationNotificationManager::OnSignInResponse,
                        weak_factory_.GetWeakPtr()));
   }

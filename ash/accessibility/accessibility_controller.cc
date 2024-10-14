@@ -21,6 +21,7 @@
 #include "ash/accessibility/accessibility_observer.h"
 #include "ash/accessibility/autoclick/autoclick_controller.h"
 #include "ash/accessibility/disable_trackpad_event_rewriter.h"
+#include "ash/accessibility/filter_keys_event_rewriter.h"
 #include "ash/accessibility/flash_screen_controller.h"
 #include "ash/accessibility/mouse_keys/mouse_keys_controller.h"
 #include "ash/accessibility/sticky_keys/sticky_keys_controller.h"
@@ -40,6 +41,7 @@
 #include "ash/login_status.h"
 #include "ash/policy/policy_recommendation_restorer.h"
 #include "ash/public/cpp/accessibility_controller_client.h"
+#include "ash/public/cpp/accessibility_controller_enums.h"
 #include "ash/public/cpp/ash_constants.h"
 #include "ash/public/cpp/notification_utils.h"
 #include "ash/public/cpp/session/session_observer.h"
@@ -274,6 +276,7 @@ constexpr const char* const kCopiedOnSigninAccessibilityPrefs[]{
     prefs::kAccessibilityDictationLocale,
     prefs::kAccessibilityDictationLocaleOfflineNudge,
     prefs::kAccessibilityDisableTrackpadEnabled,
+    prefs::kAccessibilityDisableTrackpadMode,
     prefs::kAccessibilityFocusHighlightEnabled,
     prefs::kAccessibilityHighContrastEnabled,
     prefs::kAccessibilityLargeCursorEnabled,
@@ -1202,6 +1205,8 @@ void AccessibilityController::RegisterProfilePrefs(
   registry->RegisterBooleanPref(prefs::kAccessibilityFaceGazeEnabled, false);
   registry->RegisterBooleanPref(prefs::kAccessibilityDisableTrackpadEnabled,
                                 false);
+  registry->RegisterIntegerPref(prefs::kAccessibilityDisableTrackpadMode,
+                                static_cast<int>(DisableTrackpadMode::kNever));
 
   // Not syncable because it might change depending on application locale,
   // user settings, and because different languages can cause speech recognition
@@ -1471,6 +1476,9 @@ void AccessibilityController::RegisterProfilePrefs(
     registry->RegisterBooleanPref(
         prefs::kAccessibilityFaceGazeCursorUseAcceleration,
         kDefaultFaceGazeCursorUseAcceleration,
+        user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
+    registry->RegisterDictionaryPref(
+        prefs::kAccessibilityFaceGazeGesturesToKeyCombos,
         user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
     registry->RegisterDictionaryPref(
         prefs::kAccessibilityFaceGazeGesturesToMacros,
@@ -1944,6 +1952,16 @@ void AccessibilityController::SetDisableTrackpadEventRewriter(
   disable_trackpad_event_rewriter_ = rewriter;
 }
 
+void AccessibilityController::EnableInternalTrackpad() {
+  active_user_prefs_->SetInteger(prefs::kAccessibilityDisableTrackpadMode,
+                                 static_cast<int>(DisableTrackpadMode::kNever));
+}
+
+void AccessibilityController::SetFilterKeysEventRewriter(
+    FilterKeysEventRewriter* rewriter) {
+  filter_keys_event_rewriter_ = rewriter;
+}
+
 void AccessibilityController::HideSwitchAccessBackButton() {
   if (IsSwitchAccessRunning()) {
     switch_access_bubble_controller_->HideBackButton();
@@ -2414,6 +2432,11 @@ AccessibilityController::GetDisableTrackpadEventRewriterForTest() {
   return disable_trackpad_event_rewriter_;
 }
 
+FilterKeysEventRewriter*
+AccessibilityController::GetFilterKeysEventRewriterForTest() {
+  return filter_keys_event_rewriter_;
+}
+
 void AccessibilityController::DisableAutoClickConfirmationDialogForTest() {
   no_auto_click_confirmation_dialog_for_testing_ = true;
 }
@@ -2596,6 +2619,13 @@ void AccessibilityController::ObservePrefs(PrefService* prefs) {
             &AccessibilityController::UpdateFlashNotificationsFromPrefs,
             base::Unretained(this)));
   }
+  if (::features::IsAccessibilityDisableTrackpadEnabled()) {
+    pref_change_registrar_->Add(
+        prefs::kAccessibilityDisableTrackpadMode,
+        base::BindRepeating(
+            &AccessibilityController::UpdateDisableTrackpadFromPrefs,
+            base::Unretained(this)));
+  }
 
   for (const std::unique_ptr<Feature>& feature : features_) {
     // Log previous duration and clear duration metric if necessary
@@ -2632,6 +2662,9 @@ void AccessibilityController::ObservePrefs(PrefService* prefs) {
   }
   if (::features::IsAccessibilityFlashScreenFeatureEnabled()) {
     UpdateFlashNotificationsFromPrefs();
+  }
+  if (::features::IsAccessibilityDisableTrackpadEnabled()) {
+    UpdateDisableTrackpadFromPrefs();
   }
 }
 
@@ -2857,6 +2890,23 @@ void AccessibilityController::UpdateFlashNotificationsFromPrefs() {
       prefs::kAccessibilityFlashNotificationsEnabled));
   flash_screen_controller_->set_color(active_user_prefs_->GetInteger(
       prefs::kAccessibilityFlashNotificationsColor));
+}
+
+void AccessibilityController::UpdateDisableTrackpadFromPrefs() {
+  if (!disable_trackpad_event_rewriter_ ||
+      !::features::IsAccessibilityDisableTrackpadEnabled()) {
+    return;
+  }
+  // TODO(b:354176487): Send trackpad mode to event rewriter
+  disable_trackpad_event_rewriter_->SetEnabled(
+      active_user_prefs_->GetInteger(
+          prefs::kAccessibilityDisableTrackpadMode) !=
+      static_cast<int>(DisableTrackpadMode::kNever));
+}
+
+DisableTrackpadMode AccessibilityController::GetDisableTrackpadMode() {
+  return static_cast<DisableTrackpadMode>(
+      active_user_prefs_->GetInteger(prefs::kAccessibilityDisableTrackpadMode));
 }
 
 void AccessibilityController::UpdateColorCorrectionFromPrefs() {

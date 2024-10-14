@@ -13,7 +13,7 @@
 #include "chrome/browser/password_manager/android/built_in_backend_to_android_backend_migrator.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
-#include "components/password_manager/core/browser/password_store/split_stores_and_local_upm.h"
+#include "components/password_manager/core/browser/split_stores_and_local_upm.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -63,12 +63,15 @@ void PasswordStoreBackendMigrationDecorator::InitBackend(
       base::BindRepeating(remote_changes_callback,
                           android_backend_->AsWeakPtr()),
       base::NullCallback(), pending_initialization_calls);
-
-  // Post delayed task to start migration of local passwords to avoid extra load
-  // on start-up.
-
+  if (password_manager::features::kSimulateFailedMigration.Get()) {
+    // Don't try to migrate to simulate a failed migration. This causes the
+    // pref to remain 'kOffAndMigrationPending' and no passwords to be migrated.
+    return;
+  }
   metrics_util::LogLocalPwdMigrationProgressState(
       metrics_util::LocalPwdMigrationProgressState::kScheduled);
+  // Post delayed task to start migration of local passwords to avoid extra load
+  // on start-up.
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&BuiltInBackendToAndroidBackendMigrator::

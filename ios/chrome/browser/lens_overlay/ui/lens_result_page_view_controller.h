@@ -11,7 +11,8 @@
 #import "ios/chrome/browser/lens_overlay/ui/lens_toolbar_consumer.h"
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_presenter.h"
 
-@protocol LensOmniboxMutator;
+@protocol LensToolbarMutator;
+@protocol LensResultPageMutator;
 @protocol TextFieldViewContaining;
 
 /// View controller of the lens result page.
@@ -23,7 +24,9 @@
 /// Container for the web view.
 @property(nonatomic, strong, readonly) UIView* webViewContainer;
 /// Mutator of the lens omnibox.
-@property(nonatomic, weak) id<LensOmniboxMutator> omniboxMutator;
+@property(nonatomic, weak) id<LensToolbarMutator> toolbarMutator;
+/// Mutator of the lens result page.
+@property(nonatomic, weak) id<LensResultPageMutator> mutator;
 
 /// Sets the omnibox edit view.
 - (void)setEditView:(UIView<TextFieldViewContaining>*)editView;

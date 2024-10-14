@@ -39,10 +39,10 @@
   UIBarButtonItem* _shareButton;
   BOOL _undoActive;
   BOOL _scrolledToEdge;
-  UIView* _scrolledToBottomBackgroundView;
   UIView* _scrolledBackgroundView;
   // Configures the responder following the receiver in the responder chain.
   UIResponder* _followingNextResponder;
+  UIView* _scrolledToBottomBackgroundView;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -139,6 +139,10 @@
   _doneButton.enabled = enabled;
 }
 
+- (void)setDoneButtonHidden:(BOOL)hidden {
+  _doneButton.hidden = hidden;
+}
+
 - (void)setCloseAllButtonEnabled:(BOOL)enabled {
   _closeAllOrUndoButton.enabled = enabled;
 }
@@ -226,6 +230,10 @@
 
 - (void)setEditButtonEnabled:(BOOL)enabled {
   _editButton.enabled = enabled;
+}
+
+- (void)setEditButtonHidden:(BOOL)hidden {
+  _editButton.hidden = hidden;
 }
 
 #pragma mark - Private
@@ -455,7 +463,8 @@
 // Updates the visibility of the backgrounds based on the state of the TabGrid.
 - (void)updateBackgroundVisibility {
   _scrolledToBottomBackgroundView.hidden =
-      [self isShowingFloatingButton] || !_scrolledToEdge;
+      _hideScrolledToEdgeBackground ||
+      ([self isShowingFloatingButton] || !_scrolledToEdge);
   _scrolledBackgroundView.hidden =
       [self isShowingFloatingButton] || _scrolledToEdge;
 }
@@ -536,6 +545,16 @@
   if (_shareButton.enabled) {
     [self.buttonsDelegate shareSelectedTabs:sender];
   }
+}
+
+#pragma mark - Setters
+
+- (void)setHideScrolledToEdgeBackground:(BOOL)hideScrolledToEdgeBackground {
+  if (_hideScrolledToEdgeBackground == hideScrolledToEdgeBackground) {
+    return;
+  }
+  _hideScrolledToEdgeBackground = hideScrolledToEdgeBackground;
+  [self updateBackgroundVisibility];
 }
 
 @end

@@ -321,7 +321,6 @@ bool UtilityProcessHost::StartProcess() {
 #if BUILDFLAG(IS_MAC)
         sandbox::policy::switches::kDisableMetalShaderCache,
         sandbox::policy::switches::kEnableSandboxLogging,
-        os_crypt::switches::kUseMockKeychain,
 #endif
         switches::kEnableBackgroundThreadPool,
         switches::kEnableExperimentalCookieFeatures,
@@ -330,7 +329,6 @@ bool UtilityProcessHost::StartProcess() {
         switches::kIgnoreCertificateErrors,
         switches::kOverrideUseSoftwareGLForTests,
         switches::kOverrideEnabledCdmInterfaceVersion,
-        switches::kProxyServer,
         switches::kDisableAcceleratedMjpegDecode,
         switches::kUseFakeDeviceForMediaStream,
         switches::kUseFakeMjpegDecodeAccelerator,

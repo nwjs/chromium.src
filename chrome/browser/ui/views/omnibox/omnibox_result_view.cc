@@ -189,7 +189,8 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
       std::make_unique<views::FlexLayout>());
   suggestion_and_buttons->SetProperty(
       views::kFlexBehaviorKey,
-      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+      views::FlexSpecification(views::LayoutOrientation::kHorizontal,
+                               views::MinimumFlexSizeRule::kScaleToZero,
                                views::MaximumFlexSizeRule::kUnbounded));
 
   suggestion_view_ = suggestion_and_buttons->AddChildView(
@@ -283,7 +284,6 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
   mouse_enter_exit_handler_.ObserveMouseEnterExitOn(this);
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kListBoxOption);
-  UpdateAccessibilitySelectedState();
   GetViewAccessibility().SetPosInSet(model_index_ + 1);
 }
 
@@ -479,9 +479,6 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
 void OmniboxResultView::OnSelectionStateChanged() {
   UpdateFeedbackButtonsVisibility();
   UpdateRemoveSuggestionVisibility();
-  // The accessible selected state of the view must be updated before the event
-  // is fired below. If this is not done, the event will be fired with the old
-  // state, and ATs could get stale data.
   UpdateAccessibilitySelectedState();
   if (GetMatchSelected()) {
     // Immediately before notifying screen readers that the selected item has

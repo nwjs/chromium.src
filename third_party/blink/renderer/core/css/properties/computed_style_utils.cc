@@ -103,7 +103,6 @@ CSSValue* ConvertFontPaletteToCSSValue(const blink::FontPalette* palette) {
       // palette-mix(<color-interpolation-method> , [ [normal | light | dark |
       // <palette-identifier> | <palette-mix()> ] && <percentage [0,100]>?
       // ]#{2})
-      DCHECK(RuntimeEnabledFeatures::FontPaletteAnimationEnabled());
       CSSFunctionValue* result =
           MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kPaletteMix);
 
@@ -246,8 +245,8 @@ CSSValue* ComputedStyleUtils::ValueForOffset(const ComputedStyle& style,
 
 const CSSValue* ComputedStyleUtils::ValueForColor(
     const StyleColor& style_color) {
-  if (style_color.IsUnresolvedColorMixFunction()) {
-    return style_color.GetUnresolvedColorMix().ToCSSColorMixValue();
+  if (style_color.IsUnresolvedColorFunction()) {
+    return style_color.GetUnresolvedColorFunction().ToCSSValue();
   }
   if (style_color.IsCurrentColor()) {
     return CSSIdentifierValue::Create(CSSValueID::kCurrentcolor);
@@ -2217,6 +2216,13 @@ CSSValue* ComputedStyleUtils::ValueForGridPosition(
         *MakeGarbageCollected<CSSCustomIdentValue>(position.NamedGridLine()));
   }
   return list;
+}
+
+CSSValue* ComputedStyleUtils::ValueForMasonrySlack(
+    const std::optional<Length>& slack_length,
+    const ComputedStyle& style) {
+  return slack_length ? ZoomAdjustedPixelValueForLength(*slack_length, style)
+                      : CSSIdentifierValue::Create(CSSValueID::kNormal);
 }
 
 CSSValue* ComputedStyleUtils::ValueForMasonryTrackList(

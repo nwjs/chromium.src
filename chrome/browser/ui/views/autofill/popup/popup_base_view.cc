@@ -364,7 +364,9 @@ void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
       {"PopupSuggestionView", "PopupPasswordSuggestionView", "PopupFooterView",
        "PopupSeparatorView", "PopupWarningView", "PopupBaseView",
        "PasswordGenerationPopupViewViews::GeneratedPasswordBox", "PopupRowView",
-       "PopupRowContentView", "MdTextButton"});
+       "PopupRowContentView", "MdTextButton",
+       "PopupRowPredictionImprovementsFeedbackView",
+       "PopupRowPredictionImprovementsDetailsView"});
   DCHECK(kDerivedClasses.contains(selected_view.GetClassName()))
       << "If you add a new derived class from AutofillPopupRowView, add it "
          "here and to onSelection(evt) in "
@@ -373,7 +375,6 @@ void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
          "announces the item when selected. Missing class: "
       << selected_view.GetClassName();
 #endif
-  selected_view.NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
 }
 
 void PopupBaseView::OnWidgetBoundsChanged(views::Widget* widget,

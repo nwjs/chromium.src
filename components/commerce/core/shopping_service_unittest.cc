@@ -19,9 +19,11 @@
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/test/test_bookmark_client.h"
 #include "components/commerce/core/commerce_feature_list.h"
+#include "components/commerce/core/commerce_utils.h"
 #include "components/commerce/core/feature_utils.h"
 #include "components/commerce/core/mock_account_checker.h"
 #include "components/commerce/core/mock_discounts_storage.h"
+#include "components/commerce/core/mock_tab_restore_service.h"
 #include "components/commerce/core/pref_names.h"
 #include "components/commerce/core/proto/shopping_page_types.pb.h"
 #include "components/commerce/core/shopping_service_test_base.h"
@@ -37,6 +39,8 @@
 #include "components/power_bookmarks/core/proto/shopping_specifics.pb.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/search/ntp_features.h"
+#include "components/sessions/core/serialized_navigation_entry.h"
+#include "components/sessions/core/tab_restore_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/base/features.h"
@@ -95,7 +99,6 @@ const char kDiscountValueText[] = "10% off";
 const double kDiscountExpiryTime = 1000000;
 const char kDiscountCode[] = "discount code";
 const uint64_t kDiscountId1 = 111;
-const uint64_t kDiscountId2 = 222;
 const uint64_t kDiscountOfferId = 123456;
 
 const std::vector<std::vector<std::string>> kProductCategories = {
@@ -748,6 +751,39 @@ TEST_P(ShoppingServiceTest, TestProductSpecificationsSetUrlsRetained) {
   // There should no longer be any references in the cache.
   ASSERT_EQ(0u, GetCache().GetUrlRefCount(url1));
   ASSERT_EQ(0u, GetCache().GetUrlRefCount(url2));
+}
+
+TEST_P(ShoppingServiceTest, TestRecentTabsCleanedUpOnDeletion) {
+  const GURL url("http://example.com/");
+  base::Uuid id = base::Uuid::GenerateRandomV4();
+
+  ProductSpecificationsSet spec_set(id.AsLowercaseString(), 0, 0, {url},
+                                    "specs");
+
+  EXPECT_CALL(*GetMockTabRestoreService(), DeleteNavigationEntries).Times(1);
+  ON_CALL(*GetMockTabRestoreService(), DeleteNavigationEntries)
+      .WillByDefault(
+          [spec_set = spec_set](
+              const sessions::TabRestoreService::DeletionPredicate& predicate) {
+            // A totally unrelated URL should be ignored.
+            sessions::SerializedNavigationEntry entry1;
+            entry1.set_virtual_url(GURL("http://example.com"));
+            ASSERT_FALSE(predicate.Run(entry1));
+
+            // An exact match should be removed.
+            sessions::SerializedNavigationEntry entry2;
+            entry2.set_virtual_url(GetProductSpecsTabUrlForID(spec_set.uuid()));
+            ASSERT_TRUE(predicate.Run(entry2));
+
+            // A matching URL with extra params should be removed as well.
+            sessions::SerializedNavigationEntry entry3;
+            entry3.set_virtual_url(
+                GURL(GetProductSpecsTabUrlForID(spec_set.uuid()).spec() +
+                     "?param=1"));
+            ASSERT_TRUE(predicate.Run(entry3));
+          });
+
+  shopping_service_->OnProductSpecificationsSetRemoved(spec_set);
 }
 
 TEST_P(ShoppingServiceTest, TestProductSpecificationsUrlCountMetrics) {
@@ -1936,35 +1972,27 @@ TEST_P(ShoppingServiceTest, TestDiscountInfoResponse) {
   valid_info.expiry_time_sec = kDiscountExpiryTime;
   valid_info.offer_id = kDiscountOfferId;
   infos.push_back(valid_info);
-  // Another valid info with different cluster type.
-  DiscountInfo valid_info_2 = valid_info;
-  valid_info_2.id = kDiscountId2;
-  valid_info_2.cluster_type = DiscountClusterType::kUnspecified;
-  infos.push_back(valid_info_2);
 
-  opt_guide_->SetResponse(GURL(kDiscountsUrl2),
+  opt_guide_->SetResponse(GURL(kDiscountsUrl1),
                           OptimizationType::SHOPPING_DISCOUNTS,
                           OptimizationGuideDecision::kTrue,
                           opt_guide_->BuildDiscountsResponse(infos));
 
   std::unique_ptr<MockDiscountsStorage> storage =
       std::make_unique<MockDiscountsStorage>();
-  EXPECT_CALL(*storage, HandleServerDiscounts(
-                            std::vector<std::string>{kDiscountsUrl1}, _, _));
+  EXPECT_CALL(*storage, HandleServerDiscounts(GURL(kDiscountsUrl1), _, _));
   SetDiscountsStorageForTesting(std::move(storage));
 
   base::HistogramTester histogram_tester;
   histogram_tester.ExpectTotalCount(kDiscountsFetchResultHistogramName, 0);
 
   base::RunLoop run_loop;
-  shopping_service_->GetDiscountInfoForUrls(
-      std::vector<GURL>{GURL(kDiscountsUrl1), GURL(kDiscountsUrl2)},
+  shopping_service_->GetDiscountInfoForUrl(
+      GURL(kDiscountsUrl1),
       base::BindOnce(
-          [](base::RunLoop* run_loop, const DiscountsMap& map) {
-            ASSERT_EQ(1, (int)map.size());
-
-            auto discounts = map.find(GURL(kDiscountsUrl2))->second;
-            ASSERT_EQ(2, (int)discounts.size());
+          [](base::RunLoop* run_loop, const GURL& url,
+             const std::vector<DiscountInfo> discounts) {
+            ASSERT_EQ(1, (int)discounts.size());
 
             ASSERT_EQ(DiscountClusterType::kOfferLevel,
                       discounts[0].cluster_type);
@@ -1978,10 +2006,6 @@ TEST_P(ShoppingServiceTest, TestDiscountInfoResponse) {
             ASSERT_EQ(true, discounts[0].is_merchant_wide);
             ASSERT_EQ(kDiscountExpiryTime, discounts[0].expiry_time_sec);
             ASSERT_EQ(kDiscountOfferId, discounts[0].offer_id);
-
-            ASSERT_EQ(kDiscountId2, discounts[1].id);
-            ASSERT_EQ(DiscountClusterType::kUnspecified,
-                      discounts[1].cluster_type);
 
             run_loop->Quit();
           },
@@ -2016,24 +2040,21 @@ TEST_P(ShoppingServiceTest, TestDiscountInfoResponse_InfoWithoutId) {
   invalid_info.id = kInvalidDiscountId;
   infos.push_back(invalid_info);
 
-  opt_guide_->SetResponse(GURL(kDiscountsUrl2),
+  opt_guide_->SetResponse(GURL(kDiscountsUrl1),
                           OptimizationType::SHOPPING_DISCOUNTS,
                           OptimizationGuideDecision::kTrue,
                           opt_guide_->BuildDiscountsResponse(infos));
 
   base::RunLoop run_loop;
-  shopping_service_->GetDiscountInfoForUrls(
-      std::vector<GURL>{GURL(kDiscountsUrl1), GURL(kDiscountsUrl2)},
-      base::BindOnce(
-          [](base::RunLoop* run_loop, const DiscountsMap& map) {
-            ASSERT_EQ(1, (int)map.size());
-
-            auto discounts = map.find(GURL(kDiscountsUrl2))->second;
-            ASSERT_EQ(1, (int)discounts.size());
-            ASSERT_EQ(kDiscountId1, discounts[0].id);
-            run_loop->Quit();
-          },
-          &run_loop));
+  shopping_service_->GetDiscountInfoForUrl(
+      GURL(kDiscountsUrl1), base::BindOnce(
+                                [](base::RunLoop* run_loop, const GURL& url,
+                                   const std::vector<DiscountInfo> discounts) {
+                                  ASSERT_EQ(1, (int)discounts.size());
+                                  ASSERT_EQ(kDiscountId1, discounts[0].id);
+                                  run_loop->Quit();
+                                },
+                                &run_loop));
   run_loop.Run();
 }
 
@@ -2057,19 +2078,17 @@ TEST_P(ShoppingServiceTest, TestDiscountInfoResponse_InfoWithoutTerms) {
   valid_info.offer_id = kDiscountOfferId;
   infos.push_back(valid_info);
 
-  opt_guide_->SetResponse(GURL(kDiscountsUrl2),
+  opt_guide_->SetResponse(GURL(kDiscountsUrl1),
                           OptimizationType::SHOPPING_DISCOUNTS,
                           OptimizationGuideDecision::kTrue,
                           opt_guide_->BuildDiscountsResponse(infos));
 
   base::RunLoop run_loop;
-  shopping_service_->GetDiscountInfoForUrls(
-      std::vector<GURL>{GURL(kDiscountsUrl1), GURL(kDiscountsUrl2)},
+  shopping_service_->GetDiscountInfoForUrl(
+      GURL(kDiscountsUrl1),
       base::BindOnce(
-          [](base::RunLoop* run_loop, const DiscountsMap& map) {
-            ASSERT_EQ(1, (int)map.size());
-
-            auto discounts = map.find(GURL(kDiscountsUrl2))->second;
+          [](base::RunLoop* run_loop, const GURL& key,
+             const std::vector<DiscountInfo> discounts) {
             ASSERT_EQ(1, (int)discounts.size());
             ASSERT_EQ(kDiscountId1, discounts[0].id);
             ASSERT_FALSE(discounts[0].terms_and_conditions.has_value());
@@ -2105,15 +2124,55 @@ TEST_P(ShoppingServiceTest, TestDiscountInfoResponse_InfoWithoutDiscountCode) {
                           opt_guide_->BuildDiscountsResponse(infos));
 
   base::RunLoop run_loop;
-  shopping_service_->GetDiscountInfoForUrls(
-      std::vector<GURL>{GURL(kDiscountsUrl1), GURL(kDiscountsUrl2)},
-      base::BindOnce(
-          [](base::RunLoop* run_loop, const DiscountsMap& map) {
-            ASSERT_EQ(0, (int)map.size());
-            run_loop->Quit();
-          },
-          &run_loop));
+  shopping_service_->GetDiscountInfoForUrl(
+      GURL(kDiscountsUrl1), base::BindOnce(
+                                [](base::RunLoop* run_loop, const GURL& key,
+                                   const std::vector<DiscountInfo> discounts) {
+                                  ASSERT_EQ(0, (int)discounts.size());
+                                  run_loop->Quit();
+                                },
+                                &run_loop));
   run_loop.Run();
+}
+
+TEST_P(ShoppingServiceTest, TestProductSpecificationsCache) {
+  test_features_.InitWithFeatures({kProductSpecifications}, {});
+
+  const GURL url("http://example.com");
+  OptimizationMetadata meta = opt_guide_->BuildPriceTrackingResponse(
+      kTitle, kImageUrl, kOfferId, kClusterId, kCountryCode, kPrice,
+      kCurrencyCode, kGpcTitle, kProductCategories);
+  opt_guide_->SetResponse(url, OptimizationType::PRICE_TRACKING,
+                          OptimizationGuideDecision::kTrue, meta);
+
+  ProductSpecifications specs;
+  specs.product_dimension_map[1L] = kTitle;
+  MockProductSpecificationsServerProxy* mock_server_proxy =
+      new MockProductSpecificationsServerProxy();
+  mock_server_proxy->SetGetProductSpecificationsForClusterIdsResponse(
+      std::move(specs));
+  SetProductSpecificationsServerProxy(base::WrapUnique(mock_server_proxy));
+
+  base::RunLoop run_loop[2];
+
+  shopping_service_->GetProductSpecificationsForUrls(
+      {url}, base::BindOnce([](std::vector<uint64_t> cluster_ids,
+                               std::optional<ProductSpecifications> specs) {
+             }).Then(run_loop[0].QuitClosure()));
+  run_loop[0].Run();
+
+  // The first product specs should be cached, so this empty value should not be
+  // returned.
+  mock_server_proxy->SetGetProductSpecificationsForClusterIdsResponse(
+      std::nullopt);
+
+  shopping_service_->GetProductSpecificationsForUrls(
+      {url}, base::BindOnce([](std::vector<uint64_t> cluster_ids,
+                               std::optional<ProductSpecifications> specs) {
+               ASSERT_TRUE(specs.has_value());
+               ASSERT_TRUE(specs->product_dimension_map[1L] == kTitle);
+             }).Then(run_loop[1].QuitClosure()));
+  run_loop[1].Run();
 }
 
 INSTANTIATE_TEST_SUITE_P(All, ShoppingServiceTest, ::testing::Bool());

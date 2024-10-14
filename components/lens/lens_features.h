@@ -55,6 +55,10 @@ BASE_DECLARE_FEATURE(kLensOverlay);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayTranslateButton);
 
+// Enables the Lens overlay searchbox.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOverlayContextualSearchbox);
+
 // The base URL for Lens.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern const base::FeatureParam<std::string> kHomepageURLForLens;
@@ -234,6 +238,10 @@ extern bool GetLensOverlaySendLatencyGen204();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool GetLensOverlaySendTaskCompletionGen204();
 
+// Returns whether or not to send semantic event pings.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool GetLensOverlaySendSemanticEventGen204();
+
 // Returns the finch configured max image height for the Lens overlay feature
 // when tiered downscaling approach is disabled.
 COMPONENT_EXPORT(LENS_FEATURES)
@@ -332,6 +340,17 @@ extern bool UseSearchContextForTextOnlyLensOverlayRequests();
 // requests.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool UseSearchContextForMultimodalLensOverlayRequests();
+
+// Returns whether to include PDFs from the underlying page in the request to be
+// used as page context.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UsePdfsAsContext();
+
+// Returns whether to include the inner text from the underlying page in the
+// request to be used as page context. This is for webpages and sends text
+// equivalent to document.body.innerText.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UseInnerTextAsContext();
 
 // Returns the margin in pixels to add to the top and bottom of word bounding
 // boxes.
@@ -453,6 +472,30 @@ extern double GetLensOverlayPostSelectionComparisonThreshold();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern int GetLensOverlayLivePageBlurRadiusPixels();
 
+// Enables our custom blur layer instead of that built into the ui::Layer.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool GetLensOverlayUseCustomBlur();
+
+// The radius of blur in pixels for the custom blur. This is separate from
+// LivePageBlurRadiusPixels because the custom blur applies a lower blur since
+// it is being applied to a downsampled image.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern int GetLensOverlayCustomBlurBlurRadiusPixels();
+
+// Sets the quality of the custom blur layer. This is a number between 0 and 1
+// used to down sample the screenshot and apply the blur to less pixels. For
+// example, a value of 0.5 on a viewport of 1000x500 will take a down sampled
+// screenshot of 500x250 and blur that then upsampled instead of the blurring
+// the entire viewport.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern double GetLensOverlayCustomBlurQuality();
+
+// The amount of times per second to update the background blur. This should be
+// a value in Hertz. Meaning, a value of 30 will refresh the blur 30 times a
+// second, while a value of 0.5 will update once every two seconds.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern double GetLensOverlayCustomBlurRefreshRateHertz();
+
 // The timeout set for every request from the browser to the server in
 // milliseconds.
 COMPONENT_EXPORT(LENS_FEATURES)
@@ -486,6 +529,23 @@ extern int GetLensOverlayFindBarStringsVariant();
 // of the screenshot of the page.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlayTranslateButtonEnabled();
+
+// Whether to show the copy as image context menu option.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensOverlayCopyAsImageEnabled();
+
+// Whether to show the save as image context menu option.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensOverlaySaveAsImageEnabled();
+
+// Time to wait for Lens text response before displaying the selected region
+// context menu, in milliseconds.
+COMPONENT_EXPORT(LENS_FEATURES)
+int GetLensOverlayImageContextMenuActionsTextReceivedTimeout();
+
+// Whether to show the contextual searchbox in the Lens Overlay.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensOverlayContextualSearchboxEnabled();
 
 }  // namespace lens::features
 

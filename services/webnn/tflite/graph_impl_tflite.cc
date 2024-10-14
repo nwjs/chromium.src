@@ -21,10 +21,10 @@
 #include "services/webnn/queueable_resource_state_base.h"
 #include "services/webnn/resource_task.h"
 #include "services/webnn/tflite/buffer_content.h"
-#include "services/webnn/tflite/buffer_impl_tflite.h"
 #include "services/webnn/tflite/context_impl_tflite.h"
 #include "services/webnn/tflite/graph_builder_tflite.h"
 #include "services/webnn/tflite/op_resolver.h"
+#include "services/webnn/tflite/tensor_impl_tflite.h"
 #include "services/webnn/webnn_graph_impl.h"
 #include "third_party/flatbuffers/src/include/flatbuffers/flatbuffers.h"
 #include "third_party/tflite/src/tensorflow/lite/interpreter_builder.h"
@@ -390,24 +390,24 @@ void GraphImplTflite::ComputeImpl(NamedBuffers named_inputs,
 }
 
 void GraphImplTflite::DispatchImpl(
-    const base::flat_map<std::string_view, WebNNBufferImpl*>& named_inputs,
-    const base::flat_map<std::string_view, WebNNBufferImpl*>& named_outputs) {
+    const base::flat_map<std::string_view, WebNNTensorImpl*>& named_inputs,
+    const base::flat_map<std::string_view, WebNNTensorImpl*>& named_outputs) {
   std::vector<std::pair<std::string,
                         scoped_refptr<QueueableResourceState<BufferContent>>>>
       named_input_buffer_states, named_output_buffer_states;
   named_input_buffer_states.reserve(named_inputs.size());
   named_output_buffer_states.reserve(named_outputs.size());
 
-  for (const auto& [name, buffer] : named_inputs) {
+  for (const auto& [name, tensor] : named_inputs) {
     named_input_buffer_states.emplace_back(
-        name, static_cast<BufferImplTflite*>(buffer)->GetBufferState());
+        name, static_cast<TensorImplTflite*>(tensor)->GetBufferState());
   }
-  for (const auto& [name, buffer] : named_outputs) {
+  for (const auto& [name, tensor] : named_outputs) {
     named_output_buffer_states.emplace_back(
-        name, static_cast<BufferImplTflite*>(buffer)->GetBufferState());
+        name, static_cast<TensorImplTflite*>(tensor)->GetBufferState());
   }
 
-  // Input buffers will be read from while the graph is executing, so lock them
+  // Input tensors will be read from while the graph is executing, so lock them
   // them as shared/read-only.
   std::vector<scoped_refptr<QueueableResourceStateBase>> shared_resources;
   shared_resources.reserve(named_inputs.size());
@@ -415,7 +415,7 @@ void GraphImplTflite::DispatchImpl(
     shared_resources.push_back(buffer_state);
   }
 
-  // Exclusively reserve all output buffers - which will be written to - and
+  // Exclusively reserve all output tensors - which will be written to - and
   // this graph's compute resources while the graph is executing.
   std::vector<scoped_refptr<QueueableResourceStateBase>> exclusive_resources;
   // Extra +1 is for the compute resources.

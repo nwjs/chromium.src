@@ -198,16 +198,23 @@
 #include "chrome/browser/background/background_mode_manager.h"
 #endif
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/common/initialize_extensions_client.h"
+#endif
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/apps/platform_apps/chrome_apps_browser_api_provider.h"
 #include "chrome/browser/extensions/chrome_extensions_browser_client.h"
 #include "chrome/browser/media_galleries/media_file_system_registry.h"
 #include "chrome/browser/ui/apps/chrome_app_window_client.h"
 #include "chrome/common/extensions/chrome_extensions_client.h"
-#include "chrome/common/initialize_extensions_client.h"
 #include "components/storage_monitor/storage_monitor.h"
 #include "extensions/common/context_data.h"
 #include "extensions/common/extension_l10n_util.h"
+#endif
+
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+#include "chrome/browser/extensions/desktop_android/desktop_android_extensions_browser_client.h"
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
@@ -247,6 +254,11 @@
 #include "chrome/browser/screen_ai/screen_ai_downloader_non_chromeos.h"
 #include "chrome/browser/usb/usb_status_icon.h"
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_controller.h"
+#endif
+
+#if BUILDFLAG(IS_LINUX)
+#include "chrome/browser/browser_features.h"
+#include "components/os_crypt/async/browser/secret_portal_key_provider.h"
 #endif
 
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
@@ -308,11 +320,21 @@ void BrowserProcessImpl::Init() {
   ui::InitIdleMonitor();
 #endif
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  extensions::AppWindowClient::Set(ChromeAppWindowClient::GetInstance());
-
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   EnsureExtensionsClientInitialized();
 
+  // Initialize the ExtensionsBrowserClient. This isn't in extension-specific
+  // code because a number of external concepts that extensions shouldn't know
+  // about leverage the extensions system, such as platform apps and controlled
+  // frame.
+  // TODO(devlin): Move this block out of BrowserProcessImpl to somewhere like
+  // //chrome/browser/initialize_extensions_browser_client, analogous to
+  // `EnsureExtensionsClientInitialized()` above?
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+  extensions_browser_client_ =
+      std::make_unique<extensions::DesktopAndroidExtensionsBrowserClient>();
+#elif BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::AppWindowClient::Set(ChromeAppWindowClient::GetInstance());
   extensions_browser_client_ =
       std::make_unique<extensions::ChromeExtensionsBrowserClient>();
   extensions_browser_client_->AddAPIProvider(
@@ -320,15 +342,19 @@ void BrowserProcessImpl::Init() {
   extensions_browser_client_->AddAPIProvider(
       std::make_unique<
           controlled_frame::ControlledFrameExtensionsBrowserAPIProvider>());
-  extensions::ExtensionsBrowserClient::Set(extensions_browser_client_.get());
-
 #if BUILDFLAG(IS_CHROMEOS)
   extensions_browser_client_->AddAPIProvider(
       std::make_unique<
           chromeos::ChromeOSTelemetryExtensionsBrowserAPIProvider>());
 #endif  // BUILDFLAG(IS_CHROMEOS)
+#else
+  // Neither ENABLE_EXTENSIONS nor ENABLE_DESKTOP_ANDROID_EXTENSIONS are
+  // enabled. Unknown configuration.
+#error "Unknown configuration."
+#endif
 
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::ExtensionsBrowserClient::Set(extensions_browser_client_.get());
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 #if BUILDFLAG(ENABLE_CHROME_NOTIFICATIONS)
   message_center::MessageCenter::Initialize();
@@ -489,7 +515,7 @@ void BrowserProcessImpl::StartTearDown() {
 
   battery_metrics_.reset();
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // The Extensions Browser Client needs to teardown some members while the
   // profile manager is still alive.
   extensions_browser_client_->StartTearDown();
@@ -1097,6 +1123,10 @@ void BrowserProcessImpl::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(metrics::prefs::kMetricsReportingEnabled,
                                 GoogleUpdateSettings::GetCollectStatsConsent());
   registry->RegisterBooleanPref(prefs::kDevToolsRemoteDebuggingAllowed, true);
+
+#if BUILDFLAG(IS_LINUX)
+  os_crypt_async::SecretPortalKeyProvider::RegisterLocalPrefs(registry);
+#endif
 }
 
 GlobalFeatures* BrowserProcessImpl::GetFeatures() {
@@ -1378,6 +1408,17 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
                 features::kUseAppBoundEncryptionProviderForEncryption))));
   }
 #endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_LINUX)
+  if (base::FeatureList::IsEnabled(features::kDbusSecretPortal)) {
+    providers.emplace_back(
+        /*precedence=*/10u,
+        std::make_unique<os_crypt_async::SecretPortalKeyProvider>(
+            local_state(),
+            base::FeatureList::IsEnabled(
+                features::kSecretPortalKeyProviderUseForEncryption)));
+  }
+#endif  // BUILDFLAG(IS_LINUX)
 
   os_crypt_async_ =
       std::make_unique<os_crypt_async::OSCryptAsync>(std::move(providers));

@@ -25,11 +25,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_PARSER_CSS_PROPERTY_PARSER_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_PARSER_CSS_PROPERTY_PARSER_H_
 
-#include "css_tokenized_value.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_mode.h"
-#include "third_party/blink/renderer/core/css/parser/css_parser_token_range.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
 #include "third_party/blink/renderer/core/css/style_rule.h"
@@ -42,7 +40,7 @@ class CSSParserTokenStream;
 class CSSValue;
 class ExecutionContext;
 
-// Inputs: PropertyID, isImportant bool, CSSParserTokenRange.
+// Inputs: PropertyID, isImportant bool, CSSParserTokenStream.
 // Outputs: Vector of CSSProperties
 
 class CORE_EXPORT CSSPropertyParser {

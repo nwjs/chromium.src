@@ -12,15 +12,6 @@
 load("//lib/targets.star", "targets")
 
 targets.legacy_compound_suite(
-    name = "android_10_rel_gtests",
-    basic_suites = [
-        "android_trichrome_smoke_tests",
-        "android_ar_gtests",
-        "vr_android_specific_chromium_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "android_12_dbg_emulator_gtests",
     basic_suites = [
         "android_trichrome_smoke_tests",
@@ -32,21 +23,6 @@ targets.legacy_compound_suite(
     basic_suites = [
         "cronet_clang_coverage_additional_gtests",
         "cronet_gtests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "android_marshmallow_gtests",
-    basic_suites = [
-        "android_smoke_tests",
-        "android_specific_chromium_gtests",  # Already includes gl_gtests.
-        "chromium_gtests",
-        "chromium_gtests_for_devices_with_graphical_output",
-        "chrome_public_tests",
-        "linux_flavor_specific_chromium_gtests",
-        "vr_android_specific_chromium_tests",
-        "vr_platform_specific_chromium_gtests",
-        "webview_instrumentation_test_apk_single_process_mode_gtests",
     ],
 )
 
@@ -123,16 +99,6 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "bfcache_android_gtests",
-    basic_suites = [
-        "bfcache_android_specific_gtests",
-        "bfcache_generic_gtests",
-        "webview_bot_instrumentation_test_apk_bfcache_mutations_gtest",
-        "webview_cts_tests_bfcache_mutations_gtest",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "bfcache_linux_gtests",
     basic_suites = [
         "bfcache_generic_gtests",
@@ -149,43 +115,11 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "chromeos_device_no_gtests",
-    basic_suites = [
-        "chromeos_browser_all_tast_tests",
-        "chromeos_browser_criticalstaging_tast_tests",
-        "chromeos_browser_disabled_tast_tests",
-        "chromeos_browser_integration_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "chromeos_vm_gtests",
     basic_suites = [
         "chromeos_system_friendly_gtests",
         "chromeos_vaapi_fakelib_gtests",
         "chromeos_integration_tests_suite",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "chromeos_vm_gtests_and_tast",
-    basic_suites = [
-        "chromeos_browser_all_tast_tests",
-        "chromeos_browser_criticalstaging_tast_tests",
-        "chromeos_browser_disabled_tast_tests",
-        "chromeos_browser_integration_tests",
-        "chromeos_system_friendly_gtests",
-        "chromeos_vaapi_fakelib_gtests",
-        "chromeos_integration_tests_suite",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "chromeos_vm_preuprev_tast",
-    basic_suites = [
-        "chromeos_browser_cq_medium_tast_tests",
-        "chromeos_integration_tests_suite",
-        "chromeos_device_only_gtests",
     ],
 )
 
@@ -531,21 +465,6 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "cronet_dbg_isolated_scripts",
-    basic_suites = [
-        "cronet_sizes_suite",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "cronet_rel_isolated_scripts",
-    basic_suites = [
-        "cronet_resource_sizes",
-        "cronet_sizes_suite",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "devtools_gtests",
     basic_suites = [
         "devtools_browser_tests_suite",
@@ -676,6 +595,16 @@ targets.legacy_compound_suite(
     ],
 )
 
+# Same as gpu_dawn_compat_telemetry_tests, but without SwiftShader tests since
+# SwiftShader is not used on Android.
+targets.legacy_compound_suite(
+    name = "gpu_dawn_android_compat_telemetry_tests",
+    basic_suites = [
+        "gpu_dawn_webgpu_compat_cts",
+        "gpu_dawn_webgpu_cts",
+    ],
+)
+
 # Same as gpu_dawn_telemetry_tests, but without SwiftShader tests since
 # SwiftShader is not used on Android.
 targets.legacy_compound_suite(
@@ -731,6 +660,17 @@ targets.legacy_compound_suite(
         "gpu_dawn_gtests_with_validation",
         "gpu_dawn_gtests_no_dxc",
         "gpu_dawn_gtests_no_dxc_with_validation",
+        "gpu_common_gtests_passthrough",
+    ],
+)
+
+# TODO(crbug.com/364675466): Remove this when Tint IR is launched on macOS.
+targets.legacy_compound_suite(
+    name = "gpu_dawn_integration_gtests_passthrough_macos",
+    basic_suites = [
+        "gpu_dawn_gtests",
+        "gpu_dawn_gtests_with_validation",
+        "gpu_dawn_gtests_use_tint_ir",
         "gpu_common_gtests_passthrough",
     ],
 )

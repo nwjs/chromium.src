@@ -9,7 +9,6 @@
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-blink.h"
 #include "third_party/blink/public/mojom/ai/ai_text_session_info.mojom-blink.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
-#include "third_party/blink/renderer/modules/ai/ai_metrics.h"
 #include "third_party/blink/renderer/modules/ai/ai_text_session.h"
 #include "third_party/blink/renderer/modules/ai/exception_helpers.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
@@ -44,9 +43,10 @@ HeapMojoRemote<mojom::blink::AIManager>& AITextSessionFactory::GetAIRemote() {
 }
 
 void AITextSessionFactory::CanCreateTextSession(
+    AIMetrics::AISessionType session_type,
     CanCreateTextSessionCallback callback) {
   base::UmaHistogramEnumeration(
-      AIMetrics::GetAIAPIUsageMetricName(AIMetrics::AISessionType::kText),
+      AIMetrics::GetAIAPIUsageMetricName(session_type),
       AIMetrics::AIAPI::kCanCreateSession);
   if (!GetAIRemote().is_connected()) {
     std::move(callback).Run(
@@ -56,40 +56,25 @@ void AITextSessionFactory::CanCreateTextSession(
   }
 
   GetAIRemote()->CanCreateTextSession(WTF::BindOnce(
-      [](AITextSessionFactory* factory, CanCreateTextSessionCallback callback,
+      [](AITextSessionFactory* factory, AIMetrics::AISessionType session_type,
+         CanCreateTextSessionCallback callback,
          mojom::blink::ModelAvailabilityCheckResult result) {
-        AICapabilityAvailability availability;
-        if (result == mojom::blink::ModelAvailabilityCheckResult::kReadily) {
-          availability = AICapabilityAvailability::kReadily;
-        } else if (result ==
-                   mojom::blink::ModelAvailabilityCheckResult::kAfterDownload) {
-          // TODO(crbug.com/345357441): Implement the
-          // `ontextmodeldownloadprogress` event.
-          availability = AICapabilityAvailability::kAfterDownload;
-        } else {
-          // If the text session cannot be created, logs the error message to
-          // the console.
-          availability = AICapabilityAvailability::kNo;
-          factory->GetExecutionContext()->AddConsoleMessage(
-              mojom::blink::ConsoleMessageSource::kJavaScript,
-              mojom::blink::ConsoleMessageLevel::kWarning,
-              ConvertModelAvailabilityCheckResultToDebugString(result));
-        }
-        base::UmaHistogramEnumeration(
-            AIMetrics::GetAICapabilityAvailabilityMetricName(
-                AIMetrics::AISessionType::kText),
-            availability);
+        AICapabilityAvailability availability =
+            HandleModelAvailabilityCheckResult(factory->GetExecutionContext(),
+                                               session_type, result);
         std::move(callback).Run(availability, result);
       },
-      WrapWeakPersistent(this), std::move(callback)));
+      WrapWeakPersistent(this), session_type, std::move(callback)));
 }
 
 void AITextSessionFactory::CreateTextSession(
+    AIMetrics::AISessionType session_type,
     mojom::blink::AITextSessionSamplingParamsPtr sampling_params,
     const WTF::String& system_prompt,
+    Vector<mojom::blink::AIAssistantInitialPromptPtr> initial_prompts,
     CreateTextSessionCallback callback) {
   base::UmaHistogramEnumeration(
-      AIMetrics::GetAIAPIUsageMetricName(AIMetrics::AISessionType::kText),
+      AIMetrics::GetAIAPIUsageMetricName(session_type),
       AIMetrics::AIAPI::kCreateSession);
   if (!GetAIRemote().is_connected()) {
     std::move(callback).Run(
@@ -100,7 +85,7 @@ void AITextSessionFactory::CreateTextSession(
       MakeGarbageCollected<AITextSession>(GetExecutionContext(), task_runner_);
   GetAIRemote()->CreateTextSession(
       text_session->GetModelSessionReceiver(), std::move(sampling_params),
-      system_prompt,
+      system_prompt, std::move(initial_prompts),
       WTF::BindOnce(
           [](CreateTextSessionCallback callback, AITextSession* text_session,
              blink::mojom::blink::AITextSessionInfoPtr info) {

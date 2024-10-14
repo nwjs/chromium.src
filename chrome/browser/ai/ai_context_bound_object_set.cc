@@ -41,11 +41,6 @@ class AIContextBoundObjectSetSupportsUserData
         host->GetUserData(kAIContextBoundObjectSetUserDataKey));
   }
 
- protected:
-  void OnAllContextBoundObjectsRemoved() override {
-    host_->RemoveUserData(kAIContextBoundObjectSetUserDataKey);
-  }
-
  private:
   raw_ptr<base::SupportsUserData> host_;
 };
@@ -63,17 +58,37 @@ class AIContextBoundObjectSetDocumentUserData
       : content::DocumentUserData<AIContextBoundObjectSetDocumentUserData>(
             rfh) {}
 
-  void OnAllContextBoundObjectsRemoved() override {
-    content::RemoveDocumentUserData(&render_frame_host(),
-                                    kAIContextBoundObjectSetUserDataKey);
-  }
-
  private:
   friend DocumentUserData;
   DOCUMENT_USER_DATA_KEY_DECL();
 };
 
 DOCUMENT_USER_DATA_KEY_IMPL(AIContextBoundObjectSetDocumentUserData);
+
+// static
+AIContextBoundObjectSet::ReceiverContextRawRef
+AIContextBoundObjectSet::ToReceiverContextRawRef(ReceiverContext context) {
+  if (std::holds_alternative<content::RenderFrameHost*>(context)) {
+    return raw_ref<content::RenderFrameHost>(
+        *std::get<content::RenderFrameHost*>(context));
+  }
+  CHECK(std::holds_alternative<base::SupportsUserData*>(context));
+  return raw_ref<base::SupportsUserData>(
+      *std::get<base::SupportsUserData*>(context));
+}
+
+// static
+AIContextBoundObjectSet::ReceiverContext
+AIContextBoundObjectSet::ToReceiverContext(
+    ReceiverContextRawRef context_raw_ref) {
+  if (std::holds_alternative<raw_ref<content::RenderFrameHost>>(
+          context_raw_ref)) {
+    return &std::get<raw_ref<content::RenderFrameHost>>(context_raw_ref).get();
+  }
+  CHECK(
+      std::holds_alternative<raw_ref<base::SupportsUserData>>(context_raw_ref));
+  return &std::get<raw_ref<base::SupportsUserData>>(context_raw_ref).get();
+}
 
 AIContextBoundObjectSet::AIContextBoundObjectSet() = default;
 AIContextBoundObjectSet::~AIContextBoundObjectSet() = default;
@@ -99,10 +114,6 @@ void AIContextBoundObjectSet::AddContextBoundObject(
 void AIContextBoundObjectSet::RemoveContextBoundObject(
     AIContextBoundObject* object) {
   context_bound_object_set_.erase(object);
-
-  if (context_bound_object_set_.empty()) {
-    OnAllContextBoundObjectsRemoved();
-  }
 }
 
 AIContextBoundObjectSet* AIContextBoundObjectSet::GetFromContext(

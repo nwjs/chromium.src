@@ -21,18 +21,11 @@ config("nearby_include_config") {
 
     # For bloom filter.
     "//third_party/smhasher",
-
-    # For beto-core apis
-    "//third_party/beto-core/src/nearby/presence/np_cpp_ffi/include",
-    "//third_party/beto-core/src/nearby/presence/np_c_ffi/include/cpp",
   ]
 }
 
 config("nearby_defines") {
-  defines = [
-    "NEARBY_CHROMIUM=1",
-    "USE_RUST_DECODER=1",
-  ]
+  defines = [ "NEARBY_CHROMIUM=1" ]
 }
 
 ###############################################################################
@@ -664,7 +657,6 @@ source_set("platform_base") {
     "src/internal/platform/base64_utils.cc",
     "src/internal/platform/bluetooth_utils.cc",
     "src/internal/platform/input_stream.cc",
-    "src/internal/platform/nsd_service_info.cc",
     "src/internal/platform/prng.cc",
   ]
   public = [
@@ -706,7 +698,7 @@ source_set("platform_base_error_code_recorder") {
   public_deps = [
     ":connections_enums_proto",
     ":error_code_enums_proto",
-    ":platform_base_logging",
+    ":platform_public_logging",
   ]
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]
@@ -718,7 +710,10 @@ source_set("platform_base_uuid") {
   ]
   sources = [ "src/internal/platform/uuid.cc" ]
   public = [ "src/internal/platform/uuid.h" ]
-  public_deps = [ ":platform_api_types" ]
+  public_deps = [
+    ":platform_base",
+    "//crypto:crypto",
+  ]
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]
 }
@@ -733,11 +728,9 @@ source_set("platform_base_util") {
   ]
   public = [
     "src/internal/platform/base_input_stream.h",
-    "src/internal/platform/base_mutex_lock.h",
     "src/internal/platform/byte_utils.h",
   ]
   public_deps = [
-    ":platform_api_types",
     ":platform_base",
     "//third_party/abseil-cpp:absl",
   ]
@@ -1054,7 +1047,7 @@ source_set("presence_internal") {
   ]
   sources = [
     "src/presence/implementation/action_factory.cc",
-    "src/presence/implementation/advertisement_decoder_rust_impl.cc",
+    "src/presence/implementation/advertisement_decoder_impl.cc",
     "src/presence/implementation/advertisement_factory.cc",
     "src/presence/implementation/advertisement_filter.cc",
     "src/presence/implementation/base_broadcast_request.cc",
@@ -1068,7 +1061,7 @@ source_set("presence_internal") {
   public = [
     "src/presence/implementation/action_factory.h",
     "src/presence/implementation/advertisement_decoder.h",
-    "src/presence/implementation/advertisement_decoder_rust_impl.h",
+    "src/presence/implementation/advertisement_decoder_impl.h",
     "src/presence/implementation/advertisement_factory.h",
     "src/presence/implementation/advertisement_filter.h",
     "src/presence/implementation/base_broadcast_request.h",
@@ -1097,7 +1090,6 @@ source_set("presence_internal") {
     "//crypto:crypto",
     "//third_party/abseil-cpp:absl",
     "//third_party/beto-core:ldt_np_adv_ffi",
-    "//third_party/beto-core:np_cpp_ffi",
     "//third_party/boringssl:boringssl",
   ]
   configs -= [ "//build/config/compiler:chromium_code" ]

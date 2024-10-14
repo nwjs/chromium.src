@@ -14,7 +14,6 @@
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/common/quads/draw_quad.h"
 #include "components/viz/common/quads/texture_draw_quad.h"
-#include "components/viz/common/quads/yuv_video_draw_quad.h"
 #include "components/viz/service/display/output_surface.h"
 #include "media/base/media_switches.h"
 #include "media/base/video_frame.h"
@@ -336,20 +335,10 @@ TEST(VideoLayerImplTest, SoftwareVideoFrameGeneratesYUVQuad) {
   EXPECT_EQ(1u, impl.quad_list().size());
   const viz::DrawQuad* draw_quad = impl.quad_list().ElementAt(0);
 
-  if (media::IsWritePixelsYUVEnabled()) {
-    ASSERT_EQ(viz::DrawQuad::Material::kTextureContent, draw_quad->material);
-    const auto* texture_draw_quad =
-        static_cast<const viz::TextureDrawQuad*>(draw_quad);
-    EXPECT_TRUE(texture_draw_quad->is_video_frame);
-  } else {
-    ASSERT_EQ(viz::DrawQuad::Material::kYuvVideoContent, draw_quad->material);
-    const auto* yuv_draw_quad =
-        static_cast<const viz::YUVVideoDrawQuad*>(draw_quad);
-    EXPECT_EQ(yuv_draw_quad->uv_tex_size().height(),
-              (yuv_draw_quad->ya_tex_size().height() + 1) / 2);
-    EXPECT_EQ(yuv_draw_quad->uv_tex_size().width(),
-              (yuv_draw_quad->ya_tex_size().width() + 1) / 2);
-  }
+  ASSERT_EQ(viz::DrawQuad::Material::kTextureContent, draw_quad->material);
+  const auto* texture_draw_quad =
+      static_cast<const viz::TextureDrawQuad*>(draw_quad);
+  EXPECT_TRUE(texture_draw_quad->is_video_frame);
 }
 
 TEST(VideoLayerImplTest, HibitSoftwareVideoFrameGeneratesYUVQuad) {
@@ -383,18 +372,10 @@ TEST(VideoLayerImplTest, HibitSoftwareVideoFrameGeneratesYUVQuad) {
   EXPECT_EQ(1u, impl.quad_list().size());
   const viz::DrawQuad* draw_quad = impl.quad_list().ElementAt(0);
 
-  if (media::IsWritePixelsYUVEnabled()) {
-    ASSERT_EQ(viz::DrawQuad::Material::kTextureContent, draw_quad->material);
-    const auto* texture_draw_quad =
-        static_cast<const viz::TextureDrawQuad*>(draw_quad);
-    EXPECT_TRUE(texture_draw_quad->is_video_frame);
-  } else {
-    ASSERT_EQ(viz::DrawQuad::Material::kYuvVideoContent, draw_quad->material);
-    const auto* yuv_draw_quad =
-        static_cast<const viz::YUVVideoDrawQuad*>(draw_quad);
-    EXPECT_EQ(5, yuv_draw_quad->uv_tex_size().height());
-    EXPECT_EQ(10, yuv_draw_quad->uv_tex_size().width());
-  }
+  ASSERT_EQ(viz::DrawQuad::Material::kTextureContent, draw_quad->material);
+  const auto* texture_draw_quad =
+      static_cast<const viz::TextureDrawQuad*>(draw_quad);
+  EXPECT_TRUE(texture_draw_quad->is_video_frame);
 }
 
 TEST(VideoLayerImplTest, NativeYUVFrameGeneratesYUVQuad) {

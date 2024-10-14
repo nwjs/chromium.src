@@ -7,9 +7,9 @@
 #import <CoreML/CoreML.h>
 
 #include "base/sequence_checker.h"
-#include "services/webnn/coreml/buffer_impl_coreml.h"
 #include "services/webnn/coreml/graph_builder_coreml.h"
 #include "services/webnn/coreml/graph_impl_coreml.h"
+#include "services/webnn/coreml/tensor_impl_coreml.h"
 #include "services/webnn/public/cpp/context_properties.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "services/webnn/webnn_context_impl.h"
@@ -42,12 +42,12 @@ void ContextImplCoreml::CreateGraphImpl(
       options().Clone(), properties(), std::move(callback));
 }
 
-void ContextImplCoreml::CreateBufferImpl(
-    mojo::PendingAssociatedReceiver<mojom::WebNNBuffer> receiver,
-    mojom::BufferInfoPtr buffer_info,
-    CreateBufferImplCallback callback) {
-  std::move(callback).Run(BufferImplCoreml::Create(std::move(receiver), this,
-                                                   std::move(buffer_info)));
+void ContextImplCoreml::CreateTensorImpl(
+    mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
+    mojom::TensorInfoPtr tensor_info,
+    CreateTensorImplCallback callback) {
+  std::move(callback).Run(TensorImplCoreml::Create(std::move(receiver), this,
+                                                   std::move(tensor_info)));
 }
 
 }  // namespace webnn::coreml

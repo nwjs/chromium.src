@@ -546,7 +546,8 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
        (IsRenderingContext2D() &&
         RuntimeEnabledFeatures::Canvas2dImageChromiumEnabled()));
 
-  uint32_t shared_image_usage_flags = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
+  gpu::SharedImageUsageSet shared_image_usage_flags =
+      gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
   if (use_scanout) {
     shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
   }
@@ -624,7 +625,7 @@ void OffscreenCanvas::SetFilterQualityInResource(
 
   SetFilterQuality(filter_quality);
   if (ResourceProvider())
-    GetOrCreateResourceProvider()->SetFilterQuality(filter_quality);
+    ResourceProvider()->SetFilterQuality(filter_quality);
   if (context_ && (IsWebGL() || IsWebGPU())) {
     context_->SetFilterQuality(filter_quality);
   }
@@ -689,6 +690,14 @@ void OffscreenCanvas::CheckForGpuContextLost() {
       ResourceProvider()->IsAccelerated() &&
       ResourceProvider()->IsGpuContextLost()) {
     set_context_lost(true);
+    NotifyGpuContextLost();
+  }
+
+  // For software rendering.
+  if (!shared_bitmap_gpu_channel_lost() && ResourceProvider() &&
+      ResourceProvider()->GetType() == CanvasResourceProvider::kSharedBitmap &&
+      ResourceProvider()->IsSharedBitmapGpuChannelLost()) {
+    set_shared_bitmap_gpu_channel_lost(true);
     NotifyGpuContextLost();
   }
 }

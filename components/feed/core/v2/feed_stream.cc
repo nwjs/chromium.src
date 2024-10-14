@@ -71,6 +71,7 @@
 namespace feed {
 namespace {
 constexpr size_t kMaxRecentFeedNavigations = 10;
+constexpr base::TimeDelta kFeedCloseRefreshDelay = base::Minutes(30);
 
 void UpdateDebugStreamData(
     const UploadActionsTask::Result& upload_actions_result,
@@ -1535,7 +1536,7 @@ void FeedStream::ReportOpenAction(const GURL& url,
     privacy_notice_card_tracker_.OnOpenAction(
         stream.model->FindContentId(ToContentRevision(slice_id)));
   }
-  ScheduleFeedCloseRefreshOnInteraction(surface->GetStreamType());
+  ScheduleFeedCloseRefresh(surface->GetStreamType());
 }
 
 void FeedStream::ReportOpenVisitComplete(SurfaceId /*surface_id*/,
@@ -1597,12 +1598,6 @@ void FeedStream::ReportFeedViewed(SurfaceId surface_id) {
     return;
   }
 
-  // Skip feed-close refresh scheduling if this surface was already viewed.
-  // entry should never be null, but if it is, we will skip rescheduling.
-  StreamSurfaceSet::Entry* entry = stream->surfaces.FindSurface(surface_id);
-  if (entry && !entry->feed_viewed)
-    ScheduleFeedCloseRefreshOnFirstView(stream->type);
-
   stream->surfaces.FeedViewed(surface_id);
   MaybeNotifyHasUnreadContent(stream->type);
 }
@@ -1617,7 +1612,7 @@ void FeedStream::ReportStreamScrolled(SurfaceId surface_id, int distance_dp) {
   }
   metrics_reporter_->StreamScrolled(surface->GetStreamType(), distance_dp);
   if (GetStream(surface->GetStreamType()).surfaces.HasSurfaceShowingContent()) {
-    ScheduleFeedCloseRefreshOnInteraction(surface->GetStreamType());
+    ScheduleFeedCloseRefresh(surface->GetStreamType());
   }
 }
 void FeedStream::ReportStreamScrollStart(SurfaceId /*surface_id*/) {
@@ -1743,20 +1738,6 @@ ContentOrder FeedStream::GetContentOrderFromPrefs(
   return prefs::GetWebFeedContentOrder(*profile_prefs_);
 }
 
-void FeedStream::ScheduleFeedCloseRefreshOnInteraction(const StreamType& type) {
-  if (!base::FeatureList::IsEnabled(kFeedCloseRefresh))
-    return;
-  ScheduleFeedCloseRefresh(type);
-}
-
-void FeedStream::ScheduleFeedCloseRefreshOnFirstView(const StreamType& type) {
-  if (!base::FeatureList::IsEnabled(kFeedCloseRefresh) ||
-      kFeedCloseRefreshRequireInteraction.Get()) {
-    return;
-  }
-  ScheduleFeedCloseRefresh(type);
-}
-
 void FeedStream::ScheduleFeedCloseRefresh(const StreamType& type) {
   // To avoid causing jank, only schedule the refresh once every several
   // minutes.
@@ -1766,7 +1747,7 @@ void FeedStream::ScheduleFeedCloseRefresh(const StreamType& type) {
 
   last_refresh_scheduled_on_interaction_time_ = now;
 
-  base::TimeDelta delay = base::Minutes(kFeedCloseRefreshDelayMinutes.Get());
+  base::TimeDelta delay = kFeedCloseRefreshDelay;
   RequestSchedule schedule;
   schedule.anchor_time = base::Time::Now();
   schedule.refresh_offsets = {delay, delay * 2, delay * 3};
@@ -1825,12 +1806,13 @@ void FeedStream::CheckDuplicatedContentsOnRefresh() {
       if (pos < 10 &&
           most_recent_content_hashes.contains(hash_list.hashes(0))) {
         duplicate_count_for_top_10++;
-        if (pos == 0)
+        if (pos == 0) {
           is_duplicated_at_pos_1 = true;
-        else if (pos == 1)
+        } else if (pos == 1) {
           is_duplicated_at_pos_2 = true;
-        else if (pos == 2)
+        } else if (pos == 2) {
           is_duplicated_at_pos_3 = true;
+        }
       }
 
       for (uint32_t hash : hash_list.hashes()) {

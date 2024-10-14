@@ -75,6 +75,8 @@ message TransformerParameters {
     // RELU stands for Rectified Linear Unit, see
     // https://dl.acm.org/doi/10.5555/3104322.3104425 for details.
     RELU = 3;
+    // The output of RELU is multiplied by its square root.
+    RELU1P5 = 4;
   }
 
   enum Norm {
@@ -162,7 +164,7 @@ message TransformerParameters {
   // before the attention.
   bool skip_absolute_positional_embeddings = 18;
 
-  reserved 19, 20, 21;
+  reserved 19, 20, 21, 23, 24;
 
   // Audio parameters
   // Describes where to interleave residual adapters with transformer layers.
@@ -183,4 +185,7 @@ message TransformerParameters {
   }
 
   optional ResidualAdapterParameters residual_adapter_parameters = 22;
+
+  // Scale the queries by this value.
+  optional float query_rescale_factor = 25;
 }

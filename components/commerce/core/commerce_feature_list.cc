@@ -202,6 +202,11 @@ BASE_FEATURE(kPriceTrackingIconColors,
              "PriceTrackingIconColors",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Promotion in Magic Stack for Price Tracking users from other platforms.
+BASE_FEATURE(kPriceTrackingPromo,
+             "PriceTrackingPromo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kProductSpecifications,
              "ProductSpecifications",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -223,6 +228,10 @@ BASE_FEATURE(kProductSpecificationsMultiSpecifics,
              "ProductSpecificationsMultiSpecifics",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kProductSpecificationsCache,
+             "ProductSpecificationsCache",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kShoppingIconColorVariant,
              "ShoppingIconColorVariant",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -236,8 +245,8 @@ const char kDiscountOnShoppyPageParam[] = "discount-on-shoppy-page";
 const base::FeatureParam<bool> kDiscountOnShoppyPage{
     &kEnableDiscountInfoApi, kDiscountOnShoppyPageParam, false};
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kEnableDiscountInfoApiRegionLaunched,
              "EnableDiscountInfoApiRegionLaunched",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -478,7 +487,7 @@ const char kProductSpecificationsUseServerClusteringParam[] =
     "use-server-clustering";
 const base::FeatureParam<bool> kProductSpecificationsUseServerClustering{
     &commerce::kProductSpecifications,
-    kProductSpecificationsUseServerClusteringParam, false};
+    kProductSpecificationsUseServerClusteringParam, true};
 const char kProductSpecificationsEnableQualityLoggingParam[] =
     "enable-quality-logging";
 const base::FeatureParam<bool> kProductSpecificationsEnableQualityLogging{
@@ -506,7 +515,7 @@ bool IsCouponDiscountPartnerMerchant(const GURL& url) {
 bool IsCartDiscountFeatureEnabled() {
   return base::GetFieldTrialParamByFeatureAsBool(
       ntp_features::kNtpChromeCartModule,
-      ntp_features::kNtpChromeCartModuleAbandonedCartDiscountParam, true);
+      ntp_features::kNtpChromeCartModuleAbandonedCartDiscountParam, false);
 }
 
 bool IsCouponWithCodeEnabled() {

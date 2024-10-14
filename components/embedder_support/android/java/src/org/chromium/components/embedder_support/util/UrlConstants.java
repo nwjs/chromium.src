@@ -57,7 +57,8 @@ public class UrlConstants {
     public static final String NEW_TAB_PAGE_URL_LEGACY = "chrome://new-tab-page/";
 
     public static final String BOOKMARKS_HOST = "bookmarks";
-    public static final String BOOKMARKS_URL = "chrome-native://bookmarks/";
+    public static final String BOOKMARKS_URL = "chrome://bookmarks/";
+    public static final String BOOKMARKS_NATIVE_URL = "chrome-native://bookmarks/";
     public static final String BOOKMARKS_FOLDER_URL = "chrome-native://bookmarks/folder/";
     public static final String BOOKMARKS_UNCATEGORIZED_URL =
             "chrome-native://bookmarks/uncategorized/";
@@ -117,6 +118,9 @@ public class UrlConstants {
 
     public static final String MY_ACTIVITY_URL_IN_QD =
             "https://myactivity.google.com/myactivity?utm_source=chrome_qd";
+
+    public static final String GOOGLE_EMBEDDED_PRIVACY_POLICY =
+            "https://policies.google.com/privacy/embedded";
 
     public static final String GOOGLE_URL = "https://www.google.com/";
 

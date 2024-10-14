@@ -71,7 +71,7 @@ class TestDataSourceFactory
     : public HlsDataSourceProviderImpl::DataSourceFactory {
  public:
   ~TestDataSourceFactory() override = default;
-  void CreateDataSource(GURL uri, DataSourceCb callback) override {
+  void CreateDataSource(GURL uri, bool, DataSourceCb callback) override {
     auto file_data_source = std::make_unique<FileDataSource>();
     base::FilePath file_path(uri.GetContent());
     CHECK(file_data_source->Initialize(file_path))
@@ -214,8 +214,8 @@ void PipelineIntegrationTestBase::DemuxerMediaTracksUpdatedCB(
   // Verify that track ids are unique.
   std::set<MediaTrack::Id> track_ids;
   for (const auto& track : tracks->tracks()) {
-    EXPECT_EQ(track_ids.end(), track_ids.find(track->id()));
-    track_ids.insert(track->id());
+    EXPECT_EQ(track_ids.end(), track_ids.find(track->track_id()));
+    track_ids.insert(track->track_id());
   }
 }
 

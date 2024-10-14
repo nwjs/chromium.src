@@ -11,6 +11,12 @@
 - (void)requestRemoveIdentityWithGaiaID:(NSString*)gaiaID
                                itemView:(UIView*)itemView;
 
+// Called when the user taps to add account from the accounts management UI.
+- (void)requestAddIdentityToDevice;
+
+// Called when the user taps to sign out from the accounts management UI.
+- (void)requestSignOutWithItemView:(UIView*)itemView;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_UI_SETTINGS_GOOGLE_SERVICES_MANAGE_ACCOUNTS_ACCOUNTS_MUTATOR_H_

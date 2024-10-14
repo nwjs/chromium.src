@@ -21,11 +21,12 @@
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/ui/settings/clear_browsing_data/fake_browsing_data_counter_wrapper_producer.h"
 #import "ios/chrome/browser/ui/settings/clear_browsing_data/quick_delete_consumer.h"
+#import "ios/chrome/browser/ui/settings/clear_browsing_data/quick_delete_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -75,7 +76,7 @@ class QuickDeleteMediatorTest : public PlatformTest {
             initWithBrowserState:browser_state_.get()];
 
     signin::IdentityManager* identityManager =
-        IdentityManagerFactory::GetForBrowserState(browser_state_.get());
+        IdentityManagerFactory::GetForProfile(browser_state_.get());
     BrowsingDataRemover* browsing_data_remover =
         BrowsingDataRemoverFactory::GetForBrowserState(browser_state_.get());
     DiscoverFeedService* discover_feed_service =
@@ -122,6 +123,11 @@ class QuickDeleteMediatorTest : public PlatformTest {
     prefs()->SetBoolean(browsing_data::prefs::kDeleteFormData, false);
   }
 
+  browsing_data::TimePeriod timeRange() {
+    return static_cast<browsing_data::TimePeriod>(
+        prefs()->GetInteger(browsing_data::prefs::kDeleteTimePeriod));
+  }
+
   // Triggers the history callback passed to
   // `FakeBrowsingDataCounterWrapperProducer` with a `HistoryResult` with
   // `num_history_items`.
@@ -137,7 +143,9 @@ class QuickDeleteMediatorTest : public PlatformTest {
                         browsing_data::BrowsingDataCounter::ResultCallback());
     const browsing_data::HistoryCounter::HistoryResult historyResult(
         &historyCounter, num_history_items, false, false);
-    OCMExpect([consumer_ updateHistoryWithResult:historyResult]);
+    OCMExpect([consumer_
+        setHistorySummary:quick_delete_util::GetCounterTextFromResult(
+                              historyResult, timeRange())]);
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:historyResult];
   }
@@ -152,7 +160,9 @@ class QuickDeleteMediatorTest : public PlatformTest {
             browser_state_.get()));
     const TabsCounter::TabsResult tabsResult(&tabsCounter, num_tabs,
                                              /*num_windows=*/0, {});
-    OCMExpect([consumer_ updateTabsWithResult:tabsResult]);
+    OCMExpect(
+        [consumer_ setTabsSummary:quick_delete_util::GetCounterTextFromResult(
+                                      tabsResult, timeRange())]);
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:tabsResult];
   }
@@ -165,9 +175,11 @@ class QuickDeleteMediatorTest : public PlatformTest {
     browsing_data::PasswordsCounter passwordsCounter(password_store_.get(),
                                                      nullptr, nullptr, nullptr);
     const browsing_data::PasswordsCounter::PasswordsResult passwordsResult(
-        &passwordsCounter, num_passwords, 0, 0, std::vector<std::string>(),
-        std::vector<std::string>());
-    OCMExpect([consumer_ updatePasswordsWithResult:passwordsResult]);
+        &passwordsCounter, num_passwords, 0, false,
+        std::vector<std::string>(num_passwords, "test.com"), {});
+    OCMExpect([consumer_
+        setPasswordsSummary:quick_delete_util::GetCounterTextFromResult(
+                                passwordsResult, timeRange())]);
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:passwordsResult];
   }
@@ -178,10 +190,12 @@ class QuickDeleteMediatorTest : public PlatformTest {
   void triggerUpdateUICallbackForAutofillResults(int num_suggestions,
                                                  int num_cards,
                                                  int num_addresses) {
-    browsing_data::AutofillCounter autofillCounter(nullptr, nullptr);
+    browsing_data::AutofillCounter autofillCounter(nullptr, nullptr, nullptr);
     const browsing_data::AutofillCounter::AutofillResult autofillResult(
         &autofillCounter, num_suggestions, num_cards, num_addresses, false);
-    OCMExpect([consumer_ updateAutofillWithResult:autofillResult]);
+    OCMExpect([consumer_
+        setAutofillSummary:quick_delete_util::GetCounterTextFromResult(
+                               autofillResult, timeRange())]);
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:autofillResult];
   }
@@ -247,7 +261,9 @@ TEST_F(QuickDeleteMediatorTest, TestBrowsingHistorySummary) {
         &counter, test_case.num_sites, test_case.sync_enabled,
         test_case.sync_enabled);
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
-    OCMExpect([consumer_ updateHistoryWithResult:result]);
+    OCMExpect([consumer_
+        setHistorySummary:quick_delete_util::GetCounterTextFromResult(
+                              result, timeRange())]);
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:result];
     EXPECT_OCMOCK_VERIFY(consumer_);
@@ -303,7 +319,9 @@ TEST_F(QuickDeleteMediatorTest, TestTabsSummary) {
     const TabsCounter::TabsResult result(&counter, test_case.num_tabs,
                                          test_case.num_windows, {});
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
-    OCMExpect([consumer_ updateTabsWithResult:result]);
+    OCMExpect(
+        [consumer_ setTabsSummary:quick_delete_util::GetCounterTextFromResult(
+                                      result, timeRange())]);
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:result];
     EXPECT_OCMOCK_VERIFY(consumer_);
@@ -343,12 +361,12 @@ TEST_F(QuickDeleteMediatorTest, TestPasswordsSummary) {
                    IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_PASSWORDS,
                    2)},
         {2, 0, true, l10n_util::GetPluralNSStringF(
-                   IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_PASSWORDS,
-                   2)},
+                        IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_PASSWORDS,
+                        2)},
         {1, 0, false, l10n_util::GetPluralNSStringF(
                    IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_PASSWORDS, 1)},
         {2, 0, false, l10n_util::GetPluralNSStringF(
-                   IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_PASSWORDS, 2)},
+                         IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_PASSWORDS, 2)},
     };
   // clang-format on
 
@@ -359,9 +377,12 @@ TEST_F(QuickDeleteMediatorTest, TestPasswordsSummary) {
     const browsing_data::PasswordsCounter::PasswordsResult result(
         &counter, test_case.num_profile_passwords,
         test_case.num_account_passwords, test_case.sync_enabled,
-        std::vector<std::string>(), std::vector<std::string>());
+        std::vector<std::string>(test_case.num_profile_passwords, "test.com"),
+        std::vector<std::string>(test_case.num_account_passwords, "test.com"));
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
-    OCMExpect([consumer_ updatePasswordsWithResult:result]);
+    OCMExpect([consumer_
+        setPasswordsSummary:quick_delete_util::GetCounterTextFromResult(
+                                result, timeRange())]);
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:result];
     EXPECT_OCMOCK_VERIFY(consumer_);
@@ -405,13 +426,15 @@ TEST_F(QuickDeleteMediatorTest, TestAddressesSummary) {
     };
   // clang-format on
 
-  browsing_data::AutofillCounter counter(nullptr, nullptr);
+  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr);
 
   for (const TestCase& test_case : kTestCases) {
     const browsing_data::AutofillCounter::AutofillResult result(
         &counter, 0, 0, test_case.num_addresses, test_case.sync_enabled);
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
-    OCMExpect([consumer_ updateAutofillWithResult:result]);
+    OCMExpect([consumer_
+        setAutofillSummary:quick_delete_util::GetCounterTextFromResult(
+                               result, timeRange())]);
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:result];
     EXPECT_OCMOCK_VERIFY(consumer_);
@@ -455,14 +478,16 @@ TEST_F(QuickDeleteMediatorTest, TestCardsSummary) {
     };
   // clang-format on
 
-  browsing_data::AutofillCounter counter(nullptr, nullptr);
+  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr);
 
   for (const TestCase& test_case : kTestCases) {
     const browsing_data::AutofillCounter::AutofillResult result(
         &counter, 0, test_case.num_cards, 0, test_case.sync_enabled);
 
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
-    OCMExpect([consumer_ updateAutofillWithResult:result]);
+    OCMExpect([consumer_
+        setAutofillSummary:quick_delete_util::GetCounterTextFromResult(
+                               result, timeRange())]);
 
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:result];
@@ -509,13 +534,15 @@ TEST_F(QuickDeleteMediatorTest, TestSuggestionsSummary) {
     };
   // clang-format on
 
-  browsing_data::AutofillCounter counter(nullptr, nullptr);
+  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr);
 
   for (const TestCase& test_case : kTestCases) {
     const browsing_data::AutofillCounter::AutofillResult result(
         &counter, test_case.num_suggestions, 0, 0, test_case.sync_enabled);
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
-    OCMExpect([consumer_ updateAutofillWithResult:result]);
+    OCMExpect([consumer_
+        setAutofillSummary:quick_delete_util::GetCounterTextFromResult(
+                               result, timeRange())]);
 
     [fake_browsing_data_counter_wrapper_producer_
         triggerUpdateUICallbackForResult:result];

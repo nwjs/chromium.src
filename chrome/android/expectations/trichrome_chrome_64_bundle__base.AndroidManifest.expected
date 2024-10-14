@@ -77,7 +77,7 @@
   <uses-permission-sdk-23 android:name="android.permission.SCENE_UNDERSTANDING"/>
   <uses-permission-sdk-23 android:name="android.permission.USE_BIOMETRIC"/>
   <uses-permission-sdk-23 android:name="android.permission.USE_FINGERPRINT"/>
-  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="35"/>
+  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="34"/>
   <application
       android:name="org.chromium.chrome.browser.base.SplitChromeApplication"
       android:allowAudioPlaybackCapture="false"
@@ -118,13 +118,6 @@
     <meta-data android:name="com.samsung.android.sdk.multiwindow.penwindow.enable" android:value="true"/>
     <meta-data android:name="org.chromium.content.browser.NUM_PRIVILEGED_SERVICES" android:value="5"/>
     <meta-data android:name="org.chromium.content.browser.NUM_SANDBOXED_SERVICES" android:value="40"/>
-    <provider  # DIFF-ANCHOR: bc0a9a7a
-        android:name="com.google.firebase.provider.FirebaseInitProvider"
-        android:authorities="$PACKAGE.firebaseinitprovider"
-        android:directBootAware="true"
-        android:exported="false"
-        android:initOrder="100">
-    </provider>  # DIFF-ANCHOR: bc0a9a7a
     <provider  # DIFF-ANCHOR: b73a881a
         android:name="org.chromium.chrome.browser.download.DownloadFileProvider"
         android:authorities="$PACKAGE.DownloadFileProvider"

@@ -54,6 +54,9 @@ from telemetry import decorators
 #           # Arguments to pass to the test suite as a list of strings.
 #           'extra_args': ['--arg1', '--arg2', ...],
 #
+#           # Arguments to be removed from the test suite (as a list of strings).
+#           'remove_args': ['--arg1', '--arg2', ...],
+#
 #           # Name of the isolate to run as a string.
 #           'isolate': 'isolate_name',
 #
@@ -565,6 +568,8 @@ BUILDERS = {
         'tests': [{
             'isolate':
             'performance_test_suite_android_clank_trichrome_chrome_google_64_32_bundle',
+            'extra_args': ['--benchmark-max-runs=3'],
+            'remove_args': ['--ignore-benchmark-exit-code'],
         }],
         'platform':
         'android-trichrome-chrome-google-64-32-bundle',
@@ -944,24 +949,6 @@ BUILDERS = {
             'pool': 'chrome.tests.perf',
         },
     },
-    'mac-m1_mini_2020-perf-local': {
-        'tests': [
-            {
-                'isolate': 'performance_test_suite',
-                'extra_args': [
-                    '--assert-gpu-compositing',
-                ],
-            },
-        ],
-        'platform':
-        'mac',
-        'dimension': {
-            'cpu': 'arm',
-            'mac_model': 'Macmini9,1',
-            'os': 'Mac',
-            'pool': 'chrome.tests.perf',
-        },
-    },
     'mac-m1_mini_2020-perf-pgo': {
         'tests': [
             {
@@ -1180,148 +1167,7 @@ BUILDERS = {
     'mac-laptop_high_end-processor-perf': {
         'platform': 'linux',
         'perf_processor': True,
-    },
-    'chromecast-linux-builder-perf': {
-        'additional_compile_targets': ['cast_shell'],
-        'tests': [
-            {
-                'name': 'resource_sizes_chromecast',
-                'isolate': 'resource_sizes_chromecast',
-                'type': TEST_TYPES.GENERIC,
-                'resultdb': {
-                    'has_native_resultdb_integration': True,
-                },
-            },
-        ],
-        'dimension': {
-            'cpu': 'x86-64',
-            'os': 'Ubuntu-22.04',
-            'pool': 'chrome.tests',
-        },
-        'perf_trigger':
-        False,
-    },
-    'chromeos-amd64-generic-lacros-builder-perf': {
-        'additional_compile_targets': ['chrome'],
-        'tests': [
-            {
-                'name': 'resource_sizes_lacros_chrome',
-                'isolate': 'resource_sizes_lacros_chrome',
-                'type': TEST_TYPES.GENERIC,
-                'resultdb': {
-                    'has_native_resultdb_integration': True,
-                },
-                'extra_args': [
-                    '--arch=amd64',
-                ],
-            },
-        ],
-        'dimension': {
-            'cpu': 'x86-64',
-            'os': 'Ubuntu-22.04',
-            'pool': 'chrome.tests',
-        },
-        'perf_trigger':
-        False,
-    },
-    'chromeos-arm-generic-lacros-builder-perf': {
-        'additional_compile_targets': ['chrome'],
-        'tests': [
-            {
-                'name': 'resource_sizes_lacros_chrome',
-                'isolate': 'resource_sizes_lacros_chrome',
-                'type': TEST_TYPES.GENERIC,
-                'resultdb': {
-                    'has_native_resultdb_integration': True,
-                },
-                'extra_args': [
-                    '--arch=arm32',
-                ],
-            },
-        ],
-        'dimension': {
-            'cpu': 'x86-64',
-            'os': 'Ubuntu-22.04',
-            'pool': 'chrome.tests',
-        },
-        'perf_trigger':
-        False,
-    },
-    'chromeos-arm64-generic-lacros-builder-perf': {
-        'additional_compile_targets': ['chrome'],
-        'tests': [
-            {
-                'name': 'resource_sizes_lacros_chrome',
-                'isolate': 'resource_sizes_lacros_chrome',
-                'type': TEST_TYPES.GENERIC,
-                'resultdb': {
-                    'has_native_resultdb_integration': True,
-                },
-                'extra_args': [
-                    '--arch=arm64',
-                ],
-            },
-        ],
-        'dimension': {
-            'cpu': 'x86-64',
-            'os': 'Ubuntu-22.04',
-            'pool': 'chrome.tests',
-        },
-        'perf_trigger':
-        False,
-    },
-    'lacros-eve-perf': {
-        'tests': [
-            {
-                'isolate':
-                'performance_test_suite_eve',
-                'extra_args': [
-                    # The magic hostname that resolves to a CrOS device in the test lab
-                    '--remote=variable_chromeos_device_hostname',
-                ],
-                'timeout':
-                12 * 60 * 60,  # 12 hours, due to small number of devices
-            },
-        ],
-        'platform':
-        'lacros',
-        'target_bits':
-        64,
-        'dimension': {
-            'pool': 'chrome.tests.perf',
-            # TODO(crbug.com/41463380): Explicitly set the gpu to None to make
-            # chromium_swarming recipe_module ignore this dimension.
-            'gpu': None,
-            'os': 'ChromeOS',
-            'device_status': 'available',
-            'device_type': 'eve',
-        },
-    },
-    'lacros-x86-perf': {
-        'tests': [
-            {
-                'isolate':
-                'performance_test_suite_octopus',
-                'extra_args': [
-                    # The magic hostname that resolves to a CrOS device in the test lab
-                    '--remote=variable_chromeos_device_hostname',
-                ],
-            },
-        ],
-        'platform':
-        'lacros',
-        'target_bits':
-        64,
-        'dimension': {
-            'pool': 'chrome.tests.perf',
-            # TODO(crbug.com/41463380): Explicitly set the gpu to None to make
-            # chromium_swarming recipe_module ignore this dimension.
-            'gpu': None,
-            'os': 'ChromeOS',
-            'device_status': 'available',
-            'device_type': 'octopus',
-        },
-    },
+    }
 }
 
 # pylint: enable=line-too-long
@@ -1450,6 +1296,10 @@ GTEST_BENCHMARKS = {
         'enga@chromium.org', 'Dawn',
         'https://dawn.googlesource.com/dawn/+/HEAD/src/tests/perf_tests/README.md'
     ),
+    'tint_benchmark':
+    BenchmarkMetadata(
+        'jrprice@google.com, dsinclair@chromium.org', 'Dawn>Tint',
+        'https://dawn.googlesource.com/dawn/+/HEAD/docs/tint/benchmark.md'),
 }
 
 RESOURCE_SIZES_METADATA = BenchmarkMetadata(
@@ -1468,28 +1318,6 @@ OTHER_BENCHMARKS.update({
     BenchmarkMetadata(
         emails='chonggu@chromium.org',
         component='Build',
-        documentation_url=(
-            'https://chromium.googlesource.com/chromium/'
-            'src/+/HEAD/tools/binary_size/README.md#resource_sizes_py'),
-    ),
-})
-
-OTHER_BENCHMARKS.update({
-    'resource_sizes_chromecast':
-    BenchmarkMetadata(
-        emails='vigeni@chromium.org',
-        component='Chromecast',
-        documentation_url=(
-            'https://chromium.googlesource.com/chromium/'
-            'src/+/HEAD/tools/binary_size/README.md#resource_sizes_py'),
-    ),
-})
-
-OTHER_BENCHMARKS.update({
-    'resource_sizes_lacros_chrome':
-    BenchmarkMetadata(
-        emails='skuhne@chromium.org, huangs@chromium.org',
-        component='OS>LaCrOS',
         documentation_url=(
             'https://chromium.googlesource.com/chromium/'
             'src/+/HEAD/tools/binary_size/README.md#resource_sizes_py'),
@@ -1845,6 +1673,9 @@ def generate_performance_test(tester_config, test, builder_name):
     assert shards
   # Append any additional args specific to an isolate
   test_args += test.get('extra_args', [])
+  test_args = [
+      arg for arg in test_args if arg not in test.get('remove_args', [])
+  ]
 
   result = {
       'args': test_args,

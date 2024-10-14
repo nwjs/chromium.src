@@ -109,26 +109,27 @@
 </if>
 
       <template is="dom-if" route-path="/content/v8" no-search>
-        <settings-subpage page-title="$i18n{siteSettingsCategoryJavascriptJit}"
+        <settings-subpage
+            page-title="$i18n{siteSettingsCategoryJavascriptOptimizer}"
             search-label="$i18n{siteSettingsAllSitesSearch}"
             search-term="{{searchFilter_}}">
           <div class="content-settings-header secondary">
-            $i18n{siteSettingsJavascriptJitDescription}
+            $i18n{siteSettingsJavascriptOptimizerDescription}
           </div>
           <settings-category-default-radio-group
-              category="[[contentSettingsTypesEnum_.JAVASCRIPT_JIT]]"
+              category="[[contentSettingsTypesEnum_.JAVASCRIPT_OPTIMIZER]]"
               allow-option-label=
-                  "$i18n{siteSettingsJavascriptJitAllowed}"
+                  "$i18n{siteSettingsJavascriptOptimizerAllowed}"
               allow-option-sub-label=
-                  "$i18n{siteSettingsJavascriptJitAllowedSubLabel}"
-              block-option-label="$i18n{siteSettingsJavascriptJitBlocked}"
+                  "$i18n{siteSettingsJavascriptOptimizerAllowedSubLabel}"
+              block-option-label="$i18n{siteSettingsJavascriptOptimizerBlocked}"
               block-option-sub-label=
-                  "$i18n{siteSettingsJavascriptJitBlockedSubLabel}">
+                  "$i18n{siteSettingsJavascriptOptimizerBlockedSubLabel}">
           </settings-category-default-radio-group>
           <category-setting-exceptions
-              category="[[contentSettingsTypesEnum_.JAVASCRIPT_JIT]]"
-              allow-header="$i18n{siteSettingsJavascriptJitAllowedExceptions}"
-              block-header="$i18n{siteSettingsJavascriptJitBlockedExceptions}"
+              category="[[contentSettingsTypesEnum_.JAVASCRIPT_OPTIMIZER]]"
+              allow-header="$i18n{siteSettingsJavascriptOptimizerAllowedExceptions}"
+              block-header="$i18n{siteSettingsJavascriptOptimizerBlockedExceptions}"
               search-filter="[[searchFilter_]]">
           </category-setting-exceptions>
         </settings-subpage>
@@ -178,7 +179,7 @@
           <settings-subpage id="safetyHub" page-title="$i18n{safetyHub}"
               class="multi-card" no-search
               learn-more-url="$i18n{safetyHubHelpCenterURL}">
-            <settings-safety-hub-page>
+            <settings-safety-hub-page prefs="{{prefs}}">
             </settings-safety-hub-page>
           </settings-subpage>
         </template>
@@ -517,7 +518,7 @@
                 <cr-radio-button no-collapse
                     name="location-ask-radio-button"
                     checked$="[[isLocationAllowed_]]">
-                  <iron-icon icon="settings:location-on"></iron-icon>
+                  <cr-icon icon="settings:location-on"></cr-icon>
                   $i18n{siteSettingsLocationAllowed}
                 </cr-radio-button>
 
@@ -548,7 +549,7 @@
                     name="location-block-radio-button"
                     sub-label="$i18n{siteSettingsLocationBlockedSubLabel}"
                     checked$="[[!isLocationAllowed_]]">
-                  <iron-icon icon="privacy:location-off"></iron-icon>
+                  <cr-icon icon="privacy:location-off"></cr-icon>
                   $i18n{siteSettingsLocationBlocked}
                 </cr-radio-button>
               </cr-radio-group>
@@ -787,7 +788,7 @@
                     id="notification-ask-radio-button"
                     name="notification-ask-radio-button"
                     checked$="[[isNotificationAllowed_]]">
-                  <iron-icon icon="privacy:notifications"></iron-icon>
+                  <cr-icon icon="privacy:notifications"></cr-icon>
                   $i18n{siteSettingsNotificationsAskState}
                 </cr-radio-button>
 
@@ -822,7 +823,7 @@
                     name="notification-block-radio-button"
                     sub-label="$i18n{siteSettingsNotificationsBlockedSubLabel}"
                     checked$="[[!isNotificationAllowed_]]">
-                  <iron-icon icon="privacy:notifications-off"></iron-icon>
+                  <cr-icon icon="privacy:notifications-off"></cr-icon>
                   $i18n{siteSettingsNotificationsBlocked}
                 </cr-radio-button>
               </cr-radio-group>
@@ -1228,6 +1229,31 @@
           </category-setting-exceptions>
         </settings-subpage>
       </template>
+      <template is="dom-if" if="[[enableHandTrackingContentSetting_]]">
+        <template is="dom-if" route-path="/content/handTracking" no-search>
+        <settings-subpage page-title="$i18n{siteSettingsHandTracking}"
+            search-label="$i18n{siteSettingsAllSitesSearch}"
+            search-term="{{searchFilter_}}">
+          <div class="content-settings-header secondary">
+            $i18n{siteSettingsHandTrackingDescription}
+          </div>
+          <settings-category-default-radio-group
+              category="[[contentSettingsTypesEnum_.HAND_TRACKING]]"
+              allow-option-label="$i18n{siteSettingsHandTrackingAsk}"
+              allow-option-icon="privacy:hand-gesture"
+              block-option-label="$i18n{siteSettingsHandTrackingBlock}"
+              block-option-icon="privacy:hand-gesture-off">
+          </settings-category-default-radio-group>
+          <category-setting-exceptions
+              category="[[contentSettingsTypesEnum_.HAND_TRACKING]]"
+              read-only-list
+              allow-header="$i18n{siteSettingsHandTrackingAllowedExceptions}"
+              block-header="$i18n{siteSettingsHandTrackingBlockedExceptions}"
+              search-filter="[[searchFilter_]]">
+          </category-setting-exceptions>
+        </settings-subpage>
+      </template>
+      </template>
       <template is="dom-if" route-path="/content/idleDetection" no-search>
         <settings-subpage page-title="$i18n{siteSettingsIdleDetection}"
             search-label="$i18n{siteSettingsAllSitesSearch}"
@@ -1382,6 +1408,14 @@
           </settings-subpage>
        </template>
       </template>
+      <template is="dom-if" if="[[enableSmartCardReadersContentSetting_]]">
+        <template is="dom-if" route-path="/content/smartCardReaders" no-search>
+          <settings-subpage page-title="$i18n{siteSettingsSmartCardReaders}">
+            <settings-smart-card-readers-page filter="[[searchFilter_]]">
+            </settings-smart-card-readers-page>
+          </settings-subpage>
+       </template>
+      </template>
       <template is="dom-if" if="[[enableAutomaticFullscreenContentSetting_]]">
         <template is="dom-if" route-path="/content/automaticFullScreen"
             no-search>
@@ -1450,6 +1484,32 @@
                     "$i18n{siteSettingsPointerLockAllowedExceptions}"
                 block-header=
                     "$i18n{siteSettingsPointerLockBlockedExceptions}"
+                search-filter="[[searchFilter_]]">
+            </category-setting-exceptions>
+          </settings-subpage>
+        </template>
+      </template>
+      <template is="dom-if" if="[[enableWebAppInstallation_]]">
+        <template is="dom-if" route-path="/content/webApplications" no-search>
+          <settings-subpage page-title="$i18n{siteSettingsWebAppInstallation}"
+              search-label="$i18n{siteSettingsAllSitesSearch}"
+              search-term="{{searchFilter_}}">
+            <div class="content-settings-header secondary">
+              $i18n{siteSettingsWebAppInstallationDescription}
+            </div>
+            <settings-category-default-radio-group
+                category="[[contentSettingsTypesEnum_.WEB_APP_INSTALLATION]]"
+                allow-option-label="$i18n{siteSettingsWebAppInstallationAsk}"
+                allow-option-icon="settings:install-desktop"
+                block-option-label="$i18n{siteSettingsWebAppInstallationBlock}"
+                block-option-icon="settings:install-desktop-off">
+            </settings-category-default-radio-group>
+            <category-setting-exceptions
+                category="[[contentSettingsTypesEnum_.WEB_APP_INSTALLATION]]"
+                block-header=
+                    "$i18n{siteSettingsWebAppInstallationBlockedExceptions}"
+                allow-header=
+                    "$i18n{siteSettingsWebAppInstallationAllowedExceptions}"
                 search-filter="[[searchFilter_]]">
             </category-setting-exceptions>
           </settings-subpage>

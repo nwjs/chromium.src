@@ -7,10 +7,12 @@
 #include "ash/clipboard/clipboard_history_item.h"
 #include "ash/clipboard/test_support/clipboard_history_item_builder.h"
 #include "ash/clipboard/test_support/mock_clipboard_history_controller.h"
+#include "ash/constants/ash_features.h"
 #include "ash/picker/model/picker_model.h"
 #include "ash/public/cpp/picker/mock_picker_client.h"
 #include "ash/test/ash_test_base.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "ui/base/ime/ash/fake_ime_keyboard.h"
 #include "ui/base/ime/fake_text_input_client.h"
@@ -50,10 +52,7 @@ TEST_F(PickerSuggestionsControllerTest,
 
   base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
   EXPECT_CALL(callback, Run(_)).Times(AnyNumber());
-  EXPECT_CALL(callback,
-              Run(Contains(
-                  Property(&PickerSearchResult::data,
-                           VariantWith<PickerSearchResult::NewWindowData>(_)))))
+  EXPECT_CALL(callback, Run(Contains(VariantWith<PickerNewWindowResult>(_))))
       .Times(1);
 
   controller.GetSuggestions(model, callback.Get());
@@ -64,8 +63,7 @@ TEST_F(PickerSuggestionsControllerTest,
   NiceMock<MockPickerClient> client;
   EXPECT_CALL(client, GetSuggestedEditorResults)
       .WillRepeatedly(RunCallbackArgWith(std::vector<PickerSearchResult>{
-          PickerSearchResult::Editor(
-              PickerSearchResult::EditorData::Mode::kRewrite, u"", {}, {}),
+          PickerEditorResult(PickerEditorResult::Mode::kRewrite, u"", {}, {}),
       }));
   PickerSuggestionsController controller(&client);
   ui::FakeTextInputClient input_field({.type = ui::TEXT_INPUT_TYPE_TEXT});
@@ -76,14 +74,10 @@ TEST_F(PickerSuggestionsControllerTest,
 
   base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
   EXPECT_CALL(callback, Run(_)).Times(AnyNumber());
-  EXPECT_CALL(
-      callback,
-      Run(AllOf(Not(IsEmpty()),
-                Each(Property(
-                    "data", &PickerSearchResult::data,
-                    VariantWith<PickerSearchResult::EditorData>(Field(
-                        &PickerSearchResult::EditorData::mode,
-                        PickerSearchResult::EditorData::Mode::kRewrite)))))))
+  EXPECT_CALL(callback, Run(AllOf(Not(IsEmpty()),
+                                  Each(VariantWith<PickerEditorResult>(Field(
+                                      &PickerEditorResult::mode,
+                                      PickerEditorResult::Mode::kRewrite))))))
       .Times(1);
 
   controller.GetSuggestions(model, callback.Get());
@@ -99,10 +93,7 @@ TEST_F(PickerSuggestionsControllerTest,
                     &keyboard, PickerModel::EditorStatus::kEnabled);
 
   base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
-  EXPECT_CALL(callback,
-              Run(Contains(
-                  Property(&PickerSearchResult::data,
-                           VariantWith<PickerSearchResult::NewWindowData>(_)))))
+  EXPECT_CALL(callback, Run(Contains(VariantWith<PickerNewWindowResult>(_))))
       .Times(0);
   EXPECT_CALL(callback, Run(_)).Times(AnyNumber());
 
@@ -120,10 +111,10 @@ TEST_F(PickerSuggestionsControllerTest,
 
   base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
   EXPECT_CALL(callback, Run(_)).Times(AnyNumber());
-  EXPECT_CALL(callback,
-              Run(Contains(PickerSearchResult::CapsLock(
-                  /*enabled=*/true,
-                  PickerSearchResult::CapsLockData::Shortcut::kAltSearch))))
+  EXPECT_CALL(
+      callback,
+      Run(Contains(PickerCapsLockResult(
+          /*enabled=*/true, PickerCapsLockResult::Shortcut::kAltSearch))))
       .Times(1);
 
   controller.GetSuggestions(model, callback.Get());
@@ -140,10 +131,10 @@ TEST_F(PickerSuggestionsControllerTest,
 
   base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
   EXPECT_CALL(callback, Run(_)).Times(AnyNumber());
-  EXPECT_CALL(callback,
-              Run(Contains(PickerSearchResult::CapsLock(
-                  /*enabled=*/false,
-                  PickerSearchResult::CapsLockData::Shortcut::kAltSearch))))
+  EXPECT_CALL(
+      callback,
+      Run(Contains(PickerCapsLockResult(
+          /*enabled=*/false, PickerCapsLockResult::Shortcut::kAltSearch))))
       .Times(1);
 
   controller.GetSuggestions(model, callback.Get());
@@ -161,16 +152,14 @@ TEST_F(PickerSuggestionsControllerTest,
 
   base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
   EXPECT_CALL(callback, Run(_)).Times(AnyNumber());
-  EXPECT_CALL(
-      callback,
-      Run(IsSupersetOf({
-          PickerSearchResult::CaseTransform(
-              PickerSearchResult::CaseTransformData::Type::kUpperCase),
-          PickerSearchResult::CaseTransform(
-              PickerSearchResult::CaseTransformData::Type::kLowerCase),
-          PickerSearchResult::CaseTransform(
-              PickerSearchResult::CaseTransformData::Type::kTitleCase),
-      })))
+  EXPECT_CALL(callback, Run(IsSupersetOf({
+                            PickerCaseTransformResult(
+                                PickerCaseTransformResult::Type::kUpperCase),
+                            PickerCaseTransformResult(
+                                PickerCaseTransformResult::Type::kLowerCase),
+                            PickerCaseTransformResult(
+                                PickerCaseTransformResult::Type::kTitleCase),
+                        })))
       .Times(1);
 
   controller.GetSuggestions(model, callback.Get());
@@ -187,17 +176,14 @@ TEST_F(PickerSuggestionsControllerTest,
 
   base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
   EXPECT_CALL(callback, Run(_)).Times(AnyNumber());
-  EXPECT_CALL(callback,
-              Run(Contains(PickerSearchResult::CaseTransform(
-                  PickerSearchResult::CaseTransformData::Type::kUpperCase))))
+  EXPECT_CALL(callback, Run(Contains(PickerCaseTransformResult(
+                            PickerCaseTransformResult::Type::kUpperCase))))
       .Times(0);
-  EXPECT_CALL(callback,
-              Run(Contains(PickerSearchResult::CaseTransform(
-                  PickerSearchResult::CaseTransformData::Type::kLowerCase))))
+  EXPECT_CALL(callback, Run(Contains(PickerCaseTransformResult(
+                            PickerCaseTransformResult::Type::kLowerCase))))
       .Times(0);
-  EXPECT_CALL(callback,
-              Run(Contains(PickerSearchResult::CaseTransform(
-                  PickerSearchResult::CaseTransformData::Type::kTitleCase))))
+  EXPECT_CALL(callback, Run(Contains(PickerCaseTransformResult(
+                            PickerCaseTransformResult::Type::kTitleCase))))
       .Times(0);
 
   controller.GetSuggestions(model, callback.Get());
@@ -205,28 +191,30 @@ TEST_F(PickerSuggestionsControllerTest,
 
 TEST_F(PickerSuggestionsControllerTest,
        GetSuggestionsRequestsAndReturnsOneSuggestionPerCategory) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(ash::features::kPickerGrid);
   NiceMock<MockPickerClient> client;
-  EXPECT_CALL(client, GetSuggestedLinkResults(1, _))
+  EXPECT_CALL(client, GetSuggestedLinkResults(_, _))
       .WillRepeatedly(
           WithArg<1>(RunCallbackArgWith(std::vector<PickerSearchResult>{
-              PickerSearchResult::BrowsingHistory(GURL("a.com"), u"a",
-                                                  /*icon=*/{}),
-              PickerSearchResult::BrowsingHistory(GURL("b.com"), u"b",
-                                                  /*icon=*/{}),
+              PickerBrowsingHistoryResult(GURL("a.com"), u"a",
+                                          /*icon=*/{}),
+              PickerBrowsingHistoryResult(GURL("b.com"), u"b",
+                                          /*icon=*/{}),
           })));
   EXPECT_CALL(client, GetRecentDriveFileResults(5, _))
       .WillRepeatedly(
           WithArg<1>(RunCallbackArgWith(std::vector<PickerSearchResult>{
-              PickerSearchResult::DriveFile(/*id=*/{}, u"a", GURL("a.com"),
-                                            /*file_path=*/{}),
-              PickerSearchResult::DriveFile(/*id=*/{}, u"b", GURL("b.com"),
-                                            /*file_path=*/{}),
+              PickerDriveFileResult(/*id=*/{}, u"a", GURL("a.com"),
+                                    /*file_path=*/{}),
+              PickerDriveFileResult(/*id=*/{}, u"b", GURL("b.com"),
+                                    /*file_path=*/{}),
           })));
-  EXPECT_CALL(client, GetRecentLocalFileResults(1, _))
+  EXPECT_CALL(client, GetRecentLocalFileResults(1, _, _))
       .WillRepeatedly(
-          WithArg<1>(RunCallbackArgWith(std::vector<PickerSearchResult>{
-              PickerSearchResult::LocalFile(u"a", /*file_path=*/{}),
-              PickerSearchResult::LocalFile(u"b", /*file_path=*/{}),
+          WithArg<2>(RunCallbackArgWith(std::vector<PickerSearchResult>{
+              PickerLocalFileResult(u"a", /*file_path=*/{}),
+              PickerLocalFileResult(u"b", /*file_path=*/{}),
           })));
   PickerSuggestionsController controller(&client);
   input_method::FakeImeKeyboard keyboard;
@@ -236,19 +224,59 @@ TEST_F(PickerSuggestionsControllerTest,
   base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
   EXPECT_CALL(callback, Run).Times(AnyNumber());
   EXPECT_CALL(callback,
-              Run(ElementsAre(Property(
-                  &PickerSearchResult::data,
-                  VariantWith<PickerSearchResult::BrowsingHistoryData>(_)))))
+              Run(ElementsAre(VariantWith<PickerBrowsingHistoryResult>(_))))
       .Times(1);
-  EXPECT_CALL(callback,
-              Run(ElementsAre(
-                  Property(&PickerSearchResult::data,
-                           VariantWith<PickerSearchResult::DriveFileData>(_)))))
+  EXPECT_CALL(callback, Run(ElementsAre(VariantWith<PickerDriveFileResult>(_))))
       .Times(1);
+  EXPECT_CALL(callback, Run(ElementsAre(VariantWith<PickerLocalFileResult>(_))))
+      .Times(1);
+
+  controller.GetSuggestions(model, callback.Get());
+}
+
+TEST_F(PickerSuggestionsControllerTest,
+       GetSuggestionsRequestsAndReturnsSuggestionsPerCategory) {
+  base::test::ScopedFeatureList feature_list(ash::features::kPickerGrid);
+  NiceMock<MockPickerClient> client;
+  EXPECT_CALL(client, GetSuggestedLinkResults(_, _))
+      .WillRepeatedly(
+          WithArg<1>(RunCallbackArgWith(std::vector<PickerSearchResult>{
+              PickerBrowsingHistoryResult(GURL("a.com"), u"a",
+                                          /*icon=*/{}),
+              PickerBrowsingHistoryResult(GURL("b.com"), u"b",
+                                          /*icon=*/{}),
+          })));
+  EXPECT_CALL(client, GetRecentDriveFileResults(5, _))
+      .WillRepeatedly(
+          WithArg<1>(RunCallbackArgWith(std::vector<PickerSearchResult>{
+              PickerDriveFileResult(/*id=*/{}, u"a", GURL("a.com"),
+                                    /*file_path=*/{}),
+              PickerDriveFileResult(/*id=*/{}, u"b", GURL("b.com"),
+                                    /*file_path=*/{}),
+          })));
+  EXPECT_CALL(client, GetRecentLocalFileResults(3, _, _))
+      .WillRepeatedly(
+          WithArg<2>(RunCallbackArgWith(std::vector<PickerSearchResult>{
+              PickerLocalFileResult(u"a", /*file_path=*/{}),
+              PickerLocalFileResult(u"b", /*file_path=*/{}),
+              PickerLocalFileResult(u"c", /*file_path=*/{}),
+              PickerLocalFileResult(u"d", /*file_path=*/{}),
+          })));
+  PickerSuggestionsController controller(&client);
+  input_method::FakeImeKeyboard keyboard;
+  PickerModel model(/*prefs=*/nullptr, /*focused_client=*/nullptr, &keyboard,
+                    PickerModel::EditorStatus::kEnabled);
+
+  base::MockCallback<PickerSuggestionsController::SuggestionsCallback> callback;
+  EXPECT_CALL(callback, Run).Times(AnyNumber());
   EXPECT_CALL(callback,
-              Run(ElementsAre(
-                  Property(&PickerSearchResult::data,
-                           VariantWith<PickerSearchResult::LocalFileData>(_)))))
+              Run(ElementsAre(VariantWith<PickerBrowsingHistoryResult>(_))))
+      .Times(1);
+  EXPECT_CALL(callback, Run(ElementsAre(VariantWith<PickerDriveFileResult>(_))))
+      .Times(1);
+  EXPECT_CALL(callback, Run(ElementsAre(VariantWith<PickerLocalFileResult>(_),
+                                        VariantWith<PickerLocalFileResult>(_),
+                                        VariantWith<PickerLocalFileResult>(_))))
       .Times(1);
 
   controller.GetSuggestions(model, callback.Get());
@@ -256,8 +284,8 @@ TEST_F(PickerSuggestionsControllerTest,
 
 TEST_F(PickerSuggestionsControllerTest, GetSuggestionsForLinkCategory) {
   const std::vector<PickerSearchResult> suggested_links = {
-      PickerSearchResult::BrowsingHistory(GURL("a.com"), u"a", /*icon=*/{}),
-      PickerSearchResult::BrowsingHistory(GURL("b.com"), u"b", /*icon=*/{}),
+      PickerBrowsingHistoryResult(GURL("a.com"), u"a", /*icon=*/{}),
+      PickerBrowsingHistoryResult(GURL("b.com"), u"b", /*icon=*/{}),
   };
   NiceMock<MockPickerClient> client;
   EXPECT_CALL(client, GetSuggestedLinkResults)
@@ -273,10 +301,10 @@ TEST_F(PickerSuggestionsControllerTest, GetSuggestionsForLinkCategory) {
 
 TEST_F(PickerSuggestionsControllerTest, GetSuggestionsForDriveFileCategory) {
   const std::vector<PickerSearchResult> suggested_files = {
-      PickerSearchResult::DriveFile(/*id=*/{}, u"a", GURL("a.com"),
-                                    /*file_path=*/{}),
-      PickerSearchResult::DriveFile(/*id=*/{}, u"b", GURL("b.com"),
-                                    /*file_path=*/{}),
+      PickerDriveFileResult(/*id=*/{}, u"a", GURL("a.com"),
+                            /*file_path=*/{}),
+      PickerDriveFileResult(/*id=*/{}, u"b", GURL("b.com"),
+                            /*file_path=*/{}),
   };
   NiceMock<MockPickerClient> client;
   EXPECT_CALL(client, GetRecentDriveFileResults)
@@ -292,12 +320,12 @@ TEST_F(PickerSuggestionsControllerTest, GetSuggestionsForDriveFileCategory) {
 
 TEST_F(PickerSuggestionsControllerTest, GetSuggestionsForLocalFileCategory) {
   const std::vector<PickerSearchResult> suggested_files = {
-      PickerSearchResult::LocalFile(u"a", /*file_path=*/{}),
-      PickerSearchResult::LocalFile(u"b", /*file_path=*/{}),
+      PickerLocalFileResult(u"a", /*file_path=*/{}),
+      PickerLocalFileResult(u"b", /*file_path=*/{}),
   };
   NiceMock<MockPickerClient> client;
   EXPECT_CALL(client, GetRecentLocalFileResults)
-      .WillRepeatedly(WithArg<1>(RunCallbackArgWith(suggested_files)));
+      .WillRepeatedly(WithArg<2>(RunCallbackArgWith(suggested_files)));
   PickerSuggestionsController controller(&client);
 
   base::test::TestFuture<std::vector<PickerSearchResult>> future;
@@ -350,11 +378,8 @@ TEST_F(PickerSuggestionsControllerTest, GetSuggestionsForClipboardCategory) {
 
   EXPECT_THAT(
       future.Take(),
-      ElementsAre(Property(
-          "data", &PickerSearchResult::data,
-          VariantWith<PickerSearchResult::ClipboardData>(FieldsAre(
-              _, PickerSearchResult::ClipboardData::DisplayFormat::kText, _,
-              u"abc", _, _)))));
+      ElementsAre(VariantWith<PickerClipboardResult>(FieldsAre(
+          _, PickerClipboardResult::DisplayFormat::kText, _, u"abc", _, _))));
 }
 
 }  // namespace

@@ -47,7 +47,6 @@ constexpr int kMaxNumberOfTimesBiometricAuthForFillingPromoWillBeShown = 3;
 }
 
 class AccountChooserPrompt;
-struct AccountInfo;
 class AutoSigninFirstRunPrompt;
 class CredentialLeakPrompt;
 class ManagePasswordsIconView;
@@ -122,8 +121,7 @@ class ManagePasswordsUIController
       const std::u16string& username,
       const password_manager::PasswordForm& form_to_update) override;
   void OnKeychainError() override;
-  void OnPasskeySaved(const std::u16string& username,
-                      bool gpm_pin_created) override;
+  void OnPasskeySaved(bool gpm_pin_created) override;
   void OnPasskeyDeleted() override;
   void OnPasskeyUpdated() override;
   void OnPasskeyNotAccepted() override;
@@ -174,7 +172,6 @@ class ManagePasswordsUIController
   bool DidAuthForAccountStoreOptInFail() const override;
   bool BubbleIsManualFallbackForSaving() const override;
   bool GpmPinCreatedDuringRecentPasskeyCreation() const override;
-  std::u16string GetRecentlySavedPasskeyUsername() const override;
   void OnBubbleShown() override;
   void OnBubbleHidden() override;
   void OnNoInteraction() override;
@@ -188,6 +185,10 @@ class ManagePasswordsUIController
       override;
   void DiscardUnsyncedCredentials() override;
   void MovePasswordToAccountStore() override;
+  void MovePendingPasswordToAccountStoreUsingHelper(
+      const password_manager::PasswordForm& form,
+      password_manager::metrics_util::MoveToAccountStoreTrigger trigger)
+      override;
   void BlockMovingPasswordToAccountStore() override;
   void PromptSaveBubbleAfterDefaultStoreChanged() override;
   void ChooseCredential(
@@ -200,8 +201,6 @@ class ManagePasswordsUIController
       password_manager::ManagePasswordsReferrer referrer) override;
   void NavigateToPasswordManagerSettingsAccountStoreToggle(
       password_manager::ManagePasswordsReferrer referrer) override;
-  void SignIn(const AccountInfo& account,
-              const password_manager::PasswordForm& password_to_move) override;
   void OnDialogHidden() override;
   void AuthenticateUserWithMessage(const std::u16string& message,
                                    AvailabilityCallback callback) override;
@@ -353,11 +352,6 @@ class ManagePasswordsUIController
   // Returns true if the password that is about to be changed was previously
   // phished.
   bool IsPendingPasswordPhished() const;
-
-  // Moves pending password to the account storage.
-  void MovePendingPasswordToAccountStoreUsingHelper(
-      const password_manager::PasswordForm& form,
-      password_manager::metrics_util::MoveToAccountStoreTrigger trigger);
 
   // Timeout in seconds for the manual fallback for saving.
   static int save_fallback_timeout_in_seconds_;

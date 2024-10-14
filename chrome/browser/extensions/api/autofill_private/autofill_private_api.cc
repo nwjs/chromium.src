@@ -113,24 +113,24 @@ autofill::BrowserAutofillManager* GetBrowserAutofillManager(
 autofill::AutofillProfile CreateNewAutofillProfile(
     autofill::PersonalDataManager* personal_data,
     std::optional<std::string_view> country_code) {
-  autofill::AutofillProfile::Source source =
+  autofill::AutofillProfile::RecordType record_type =
       personal_data->address_data_manager().IsEligibleForAddressAccountStorage()
-          ? autofill::AutofillProfile::Source::kAccount
-          : autofill::AutofillProfile::Source::kLocalOrSyncable;
+          ? autofill::AutofillProfile::RecordType::kAccount
+          : autofill::AutofillProfile::RecordType::kLocalOrSyncable;
   if (country_code &&
       !personal_data->address_data_manager().IsCountryEligibleForAccountStorage(
           country_code.value())) {
     // Note: addresses from unsupported countries can't be saved in account.
     // TODO(crbug.com/40263955): remove temporary unsupported countries
     // filtering.
-    source = autofill::AutofillProfile::Source::kLocalOrSyncable;
+    record_type = autofill::AutofillProfile::RecordType::kLocalOrSyncable;
   }
 
   AddressCountryCode address_country_code =
       country_code.has_value()
           ? AddressCountryCode(std::string(*country_code))
           : autofill::i18n_model_definition::kLegacyHierarchyCountryCode;
-  return autofill::AutofillProfile(source, address_country_code);
+  return autofill::AutofillProfile(record_type, address_country_code);
 }
 
 }  // namespace
@@ -1041,6 +1041,54 @@ AutofillPrivateSetAutofillSyncToggleEnabledFunction::Run() {
   personal_data->address_data_manager().SetAutofillSelectableTypeEnabled(
       parameters->enabled);
 
+  return RespondNow(NoArguments());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateGetUserAnnotationsEntriesFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivateGetUserAnnotationsEntriesFunction::Run() {
+  std::vector<autofill_private::UserAnnotationsEntry> result;
+
+  // TODO(crbug.com/361437117): Replace stubby data with real API call result.
+  result.emplace_back();
+  result.back().entry_id = 1;
+  result.back().key = "Date of birth";
+  result.back().value = "15/02/1989";
+
+  result.emplace_back();
+  result.back().entry_id = 2;
+  result.back().key = "Frequent flyer program";
+  result.back().value = "Aadvantage";
+
+  return RespondNow(ArgumentList(
+      api::autofill_private::GetUserAnnotationsEntries::Results::Create(
+          result)));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateDeleteUserAnnotationsEntryFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivateDeleteUserAnnotationsEntryFunction::Run() {
+  std::optional<api::autofill_private::DeleteUserAnnotationsEntry::Params>
+      parameters =
+          api::autofill_private::DeleteUserAnnotationsEntry::Params::Create(
+              args());
+  EXTENSION_FUNCTION_VALIDATE(parameters);
+
+  // TODO(crbug.com/361437117): Replace stubby data with real API call result.
+
+  return RespondNow(NoArguments());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateDeleteAllUserAnnotationsEntriesFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivateDeleteAllUserAnnotationsEntriesFunction::Run() {
+  // TODO(crbug.com/361437117): Add real API call.
   return RespondNow(NoArguments());
 }
 

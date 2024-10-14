@@ -886,7 +886,7 @@ gfx::Size WebLocalFrameImpl::DocumentSize() const {
 bool WebLocalFrameImpl::HasVisibleContent() const {
   auto* layout_object = GetFrame()->OwnerLayoutObject();
   if (layout_object &&
-      layout_object->StyleRef().Visibility() != EVisibility::kVisible) {
+      layout_object->StyleRef().UsedVisibility() != EVisibility::kVisible) {
     return false;
   }
 
@@ -1108,6 +1108,10 @@ void WebLocalFrameImpl::RequestExecuteScript(
       world_id, sources, user_gesture, evaluation_timing, blocking_option,
       std::move(callback), back_forward_cache_aware, want_result_option,
       promise_behavior);
+}
+
+bool WebLocalFrameImpl::IsInspectorConnected() {
+  return LocalRoot()->DevToolsAgentImpl(/*create_if_necessary=*/false);
 }
 
 v8::MaybeLocal<v8::Value> WebLocalFrameImpl::CallFunctionEvenIfScriptDisabled(
@@ -3322,6 +3326,11 @@ void WebLocalFrameImpl::SetLCPPHint(
     unused_preloads.emplace_back(url);
   }
   lcpp->set_unused_preloads(std::move(unused_preloads));
+}
+
+bool WebLocalFrameImpl::IsFeatureEnabled(
+    const mojom::blink::PermissionsPolicyFeature& feature) const {
+  return GetFrame()->DomWindow()->IsFeatureEnabled(feature);
 }
 
 void WebLocalFrameImpl::AddHitTestOnTouchStartCallback(

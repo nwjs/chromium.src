@@ -32,6 +32,13 @@ BASE_FEATURE(kAdaptiveScreenBrightnessLogging,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+#if !BUILDFLAG(IS_ANDROID)
+// Enable revamp of AI settings page.
+BASE_FEATURE(kAiSettingsPageRefresh,
+             "AiSettingsPageRefresh",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 BASE_FEATURE(kAppPreloadService,
              "AppPreloadService",
@@ -132,6 +139,10 @@ BASE_FEATURE(kChangePictureVideoMode,
 
 BASE_FEATURE(kEnableCertManagementUIV2,
              "EnableCertManagementUIV2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableCertManagementUIV2Write,
+             "EnableCertManagementUIV2Write",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -279,24 +290,7 @@ BASE_FEATURE(kDesktopPWAsIconHealthChecks,
              "DesktopPWAsIconHealthChecks",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDesktopPWAsLinkCapturing,
-             "DesktopPWAsLinkCapturing",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<LinkCapturingState>::Option kLinkCapturingParams[] = {
-    {LinkCapturingState::kDefaultOn, "on_by_default"},
-    {LinkCapturingState::kDefaultOff, "off_by_default"},
-    {LinkCapturingState::kReimplDefaultOn, "reimpl_default_on"},
-    {LinkCapturingState::kReimplDefaultOff, "reimpl_default_off"}};
-
-const base::FeatureParam<LinkCapturingState> kLinkCapturingDefaultState{
-    &kDesktopPWAsLinkCapturing, "link_capturing_state",
-    LinkCapturingState::kDefaultOn, &kLinkCapturingParams};
-
-const base::FeatureParam<int> kLinkCapturingIPHGuardrailStorageDuration{
-    &kDesktopPWAsLinkCapturing, "link_capturing_guardrail_storage_duration",
-    kTotalDaysToStoreLinkCapturingIPHGuardrails};
-
-BASE_FEATURE(kDesktopPWAsLinkCapturingWithScopeExtensions,
+BASE_FEATURE(kPwaNavigationCapturingWithScopeExtensions,
              "DesktopPWAsLinkCapturingWithScopeExtensions",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -564,19 +558,6 @@ extern const base::FeatureParam<bool>
     kHappinessTrackingSurveysForSecurityPageRequireInteraction{
         &kHappinessTrackingSurveysForSecurityPage,
         "security-page-require-interaction", false};
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-// Enables or disables the Happiness Tracking System for the Get the most out of
-// Chrome page.
-BASE_FEATURE(kHappinessTrackingSurveysGetMostChrome,
-             "HappinessTrackingSurveysGetMostChrome",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<base::TimeDelta>
-    kHappinessTrackingSurveysGetMostChromeTime{
-        &kHappinessTrackingSurveysGetMostChrome, "get-most-chrome-time",
-        base::Seconds(15)};
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -744,7 +725,7 @@ BASE_FEATURE(kHttpsUpgrades, "HttpsUpgrades", base::FEATURE_ENABLED_BY_DEFAULT);
 // are available for opting out of this default behavior.)
 BASE_FEATURE(kHttpsFirstModeIncognito,
              "HttpsFirstModeIncognito",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Changes the binary opt-in to HTTPS-First Mode with a tri-state setting (HFM
 // everywhere, HFM in Incognito, or no HFM) with HFM-in-Incognito the new
@@ -773,6 +754,13 @@ BASE_FEATURE(kImmersiveFullscreenTabs,
 BASE_FEATURE(kImmersiveFullscreenPWAs,
              "ImmersiveFullscreenPWAs",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Slide tabs out of the way during the reveal of the close, minimize and
+// maximize (traffic lights) buttons. kImmersiveFullscreenTabs must be enabled
+// for this feature to have an effect.
+BASE_FEATURE(kFullscreenAnimateTabs,
+             "FullscreenAnimateTabs",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1041,16 +1029,6 @@ BASE_FEATURE(kPrerenderFallbackToPreconnect,
 BASE_FEATURE(kPrintPreviewCrosPrimary,
              "PrintPreviewCrosPrimary",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enable improved printer state and error state messaging for Print Preview.
-BASE_FEATURE(kPrintPreviewSetupAssistance,
-             "PrintPreviewSetupAssistance",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// Enables the observing of local printers to provide UI surfaces with live
-// updates.
-BASE_FEATURE(kLocalPrinterObserving,
-             "LocalPrinterObserving",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enables or disables push subscriptions keeping Chrome running in the
@@ -1099,7 +1077,7 @@ BASE_FEATURE(kSafetyHubExtensionsUwSTrigger,
 // Safety Hub Extension Reivew Panel.
 BASE_FEATURE(kSafetyHubExtensionsNoPrivacyPracticesTrigger,
              "SafetyHubExtensionsNoPrivacyPracticesTrigger",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables offstore extensions to be shown in the Safety Hub Extension
 // review panel.
 BASE_FEATURE(kSafetyHubExtensionsOffStoreTrigger,
@@ -1139,10 +1117,28 @@ constexpr base::FeatureParam<std::string> kSafetyHubAndroidTriggerId(
     /*default_value=*/"");
 #endif  // BUILDFLAG(IS_ANDROID)
 
+#if !BUILDFLAG(IS_ANDROID)
 // Enables or disables the Trust Safety Sentiment Survey for Safety Hub.
 BASE_FEATURE(kSafetyHubTrustSafetySentimentSurvey,
              "TrustSafetySentimentSurveyForSafetyHub",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables or disables the A/B Experiment Survey for Safety Hub.
+BASE_FEATURE(kSafetyHubHaTSOneOffSurvey,
+             "SafetyHubHaTSOneOffSurvey",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<std::string>
+    kHatsSurveyTriggerSafetyHubOneOffExperimentControlTriggerId{
+        &kSafetyHubHaTSOneOffSurvey, "safety-hub-ab-control-trigger-id", ""};
+const base::FeatureParam<std::string>
+    kHatsSurveyTriggerSafetyHubOneOffExperimentNotificationTriggerId{
+        &kSafetyHubHaTSOneOffSurvey, "safety-hub-ab-notification-trigger-id",
+        ""};
+const base::FeatureParam<std::string>
+    kHatsSurveyTriggerSafetyHubOneOffExperimentInteractionTriggerId{
+        &kSafetyHubHaTSOneOffSurvey, "safety-hub-ab-interaction-trigger-id",
+        ""};
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Time between automated runs of the password check.
 const base::FeatureParam<base::TimeDelta> kBackgroundPasswordCheckInterval{

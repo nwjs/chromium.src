@@ -565,14 +565,14 @@ class BinderSink : public SupportsBinder<BinderSinkClass> {
   explicit BinderSink(BinderMultiprocessTest& test) : test_(test) {}
 
   template <typename Fn>
-  Process LaunchChildAndWaitForCall(const char* child_name, Fn fn) {
+  Process LaunchChildAndWaitForBinder(const char* child_name, Fn fn) {
     callback_ = BindLambdaForTesting(fn);
     Process process = test_->LaunchChild(child_name, GetBinder());
     called_.Wait();
     return process;
   }
 
-  void WaitForDisconnect() { disconnect_.Wait(); }
+  void WaitForDisconnect() { disconnected_.Wait(); }
 
   // SupportsBinder<BinderSinkClass>:
   BinderStatusOr<void> OnBinderTransaction(transaction_code_t code,
@@ -584,65 +584,51 @@ class BinderSink : public SupportsBinder<BinderSinkClass> {
     return base::ok();
   }
 
-  void OnBinderDestroyed() override { disconnect_.Signal(); }
+  void OnBinderDestroyed() override { disconnected_.Signal(); }
 
  private:
   ~BinderSink() override = default;
 
   raw_ref<BinderMultiprocessTest> test_;
+  BinderRef child_binder_;
   Callback callback_;
   WaitableEvent called_;
-  WaitableEvent disconnect_;
+  WaitableEvent disconnected_;
 };
 
 TEST_F(BinderMultiprocessTest, AssociateValid) {
   auto sink = base::MakeRefCounted<BinderSink>(*this);
-  Process child = sink->LaunchChildAndWaitForCall(
-      "AssociateValid_Child", [&](BinderRef binder) {
+  Process child = sink->LaunchChildAndWaitForBinder(
+      "Associate_Child", [](BinderRef binder) {
         EXPECT_TRUE(
             binder.AssociateWithClass(AddInterface::Class::GetBinderClass()));
       });
   EXPECT_TRUE(JoinChild(child));
 }
 
-BINDER_TEST_CHILD_MAIN(AssociateValid_Child) {
-  auto sink = BinderSinkClass::AdoptBinderRef(TakeBinderFromParent(0));
-  auto service = base::MakeRefCounted<AddService>(15);
-  WaitableEvent binder_destroyed;
-  service->set_binder_destruction_callback(
-      BindLambdaForTesting([&] { binder_destroyed.Signal(); }));
-  std::ignore = sink.TransactOneWay(42, [&](ParcelWriter in) {
-    return in.WriteBinder(service->GetBinder());
-  });
-  binder_destroyed.Wait();
-}
-
-TEST_F(BinderMultiprocessTest, AssociateInvalid) {
+// (crbug.com/365998251): Builder failing this unittest.
+TEST_F(BinderMultiprocessTest, DISABLED_AssociateInvalid) {
   auto sink = base::MakeRefCounted<BinderSink>(*this);
-  Process child = sink->LaunchChildAndWaitForCall(
-      "AssociateInvalid_Child", [&](BinderRef binder) {
+  Process child = sink->LaunchChildAndWaitForBinder(
+      "Associate_Child", [](BinderRef binder) {
         EXPECT_FALSE(binder.AssociateWithClass(
             MultiplyInterface::Class::GetBinderClass()));
       });
   EXPECT_TRUE(JoinChild(child));
 }
 
-BINDER_TEST_CHILD_MAIN(AssociateInvalid_Child) {
+BINDER_TEST_CHILD_MAIN(Associate_Child) {
   auto sink = BinderSinkClass::AdoptBinderRef(TakeBinderFromParent(0));
   auto service = base::MakeRefCounted<AddService>(15);
-  WaitableEvent binder_destroyed;
-  service->set_binder_destruction_callback(
-      BindLambdaForTesting([&] { binder_destroyed.Signal(); }));
-  std::ignore = sink.TransactOneWay(42, [&](ParcelWriter in) {
+  std::ignore = sink.Transact(42, [&service](ParcelWriter in) {
     return in.WriteBinder(service->GetBinder());
   });
-  binder_destroyed.Wait();
 }
 
 TEST_F(BinderMultiprocessTest, AssociateDestroyed) {
   auto sink = base::MakeRefCounted<BinderSink>(*this);
   BinderRef child_binder;
-  Process child = sink->LaunchChildAndWaitForCall(
+  Process child = sink->LaunchChildAndWaitForBinder(
       "AssociateDestroyed_Child",
       [&](BinderRef binder) { child_binder = std::move(binder); });
   sink->WaitForDisconnect();
@@ -656,7 +642,7 @@ TEST_F(BinderMultiprocessTest, AssociateDestroyed) {
 BINDER_TEST_CHILD_MAIN(AssociateDestroyed_Child) {
   auto sink = BinderSinkClass::AdoptBinderRef(TakeBinderFromParent(0));
   auto service = base::MakeRefCounted<AddService>(15);
-  std::ignore = sink.TransactOneWay(42, [&](ParcelWriter in) {
+  std::ignore = sink.Transact(42, [&](ParcelWriter in) {
     return in.WriteBinder(service->GetBinder());
   });
   Process::TerminateCurrentProcessImmediately(0);

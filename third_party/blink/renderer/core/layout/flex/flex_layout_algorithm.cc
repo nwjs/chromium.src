@@ -283,12 +283,14 @@ void FlexLayoutAlgorithm::HandleOutOfFlowPositionedItems(
       if (is_column_) {
         const ItemPosition normalized_alignment =
             FlexibleBoxAlgorithm::AlignmentForChild(style, child_style);
-        const ItemPosition default_justify_self_behavior =
-            child.IsReplaced() ? ItemPosition::kStart : ItemPosition::kStretch;
         const ItemPosition normalized_justify =
             FlexibleBoxAlgorithm::TranslateItemPosition(
                 style, child_style,
-                child_style.ResolvedJustifySelf(default_justify_self_behavior)
+                child_style
+                    .ResolvedJustifySelf({child.IsReplaced()
+                                              ? ItemPosition::kStart
+                                              : ItemPosition::kStretch,
+                                          OverflowAlignment::kDefault})
                     .GetPosition());
 
         const bool are_cross_axis_insets_auto =
@@ -1104,8 +1106,7 @@ const LayoutResult* FlexLayoutAlgorithm::LayoutInternal() {
   }
 
   if (InvolvedInBlockFragmentation(container_builder_)) [[unlikely]] {
-    BreakStatus break_status = FinishFragmentation(
-        BorderScrollbarPadding().block_end, &container_builder_);
+    BreakStatus break_status = FinishFragmentation(&container_builder_);
     if (break_status != BreakStatus::kContinue) {
       if (break_status == BreakStatus::kNeedsEarlierBreak) {
         return container_builder_.Abort(LayoutResult::kNeedsEarlierBreak);

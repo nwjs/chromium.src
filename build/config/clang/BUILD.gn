@@ -87,13 +87,12 @@ config("find_bad_constructs") {
       "-Xclang",
       "-plugin-arg-find-bad-constructs",
       "-Xclang",
-      "check-stack-allocated",
+      "raw-span-template-as-trivial-member",
 
-      # TODO(danakj): Delete this after the next clang roll.
       "-Xclang",
       "-plugin-arg-find-bad-constructs",
       "-Xclang",
-      "check-allow-auto-typedefs-better-nested",
+      "check-stack-allocated",
     ]
 
     if (is_linux || is_chromeos || is_android || is_fuchsia) {

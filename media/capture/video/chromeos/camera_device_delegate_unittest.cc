@@ -425,6 +425,7 @@ class CameraDeviceDelegateTest : public ::testing::Test {
         .Times(1)
         .WillOnce(
             Invoke(this, &CameraDeviceDelegateTest::ConfigureFakeStreams));
+
     EXPECT_CALL(mock_gpu_memory_buffer_manager_,
                 CreateGpuMemoryBuffer(
                     _, gfx::BufferFormat::YUV_420_BIPLANAR,
@@ -450,7 +451,7 @@ class CameraDeviceDelegateTest : public ::testing::Test {
         .Times(1)
         .WillOnce(Invoke(&unittest_internal::MockGpuMemoryBufferManager::
                              CreateFakeGpuMemoryBuffer));
-  EXPECT_CALL(mock_gpu_memory_buffer_manager_,
+    EXPECT_CALL(mock_gpu_memory_buffer_manager_,
                 CreateGpuMemoryBuffer(
                     gfx::Size(kJpegMaxBufferSize, 1), gfx::BufferFormat::R_8,
                     gfx::BufferUsage::CAMERA_AND_CPU_READ_WRITE,

@@ -7,9 +7,9 @@
 #import "base/check.h"
 #import "ios/chrome/browser/drive_file_picker/ui/drive_file_picker_constants.h"
 #import "ios/chrome/browser/drive_file_picker/ui/drive_file_picker_consumer.h"
+#import "ios/chrome/browser/drive_file_picker/ui/drive_file_picker_item.h"
 #import "ios/chrome/browser/drive_file_picker/ui/drive_file_picker_mutator.h"
 #import "ios/chrome/browser/drive_file_picker/ui/drive_file_picker_navigation_controller.h"
-#import "ios/chrome/browser/drive_file_picker/ui/drive_item.h"
 #import "ios/chrome/browser/shared/public/commands/drive_file_picker_commands.h"
 #import "ios/chrome/browser/shared/ui/elements/branded_navigation_item_title_view.h"
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
@@ -69,11 +69,19 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
 @end
 
 @implementation RootDriveFilePickerTableViewController {
-  UITableViewDiffableDataSource<NSString*, DriveItem*>* _diffableDataSource;
+  UITableViewDiffableDataSource<NSNumber*, DriveFilePickerItem*>*
+      _diffableDataSource;
+
+  // Account chooser button.
+  UIBarButtonItem* _accountButton;
 }
 
 - (instancetype)init {
-  return [super initWithStyle:ChromeTableViewStyle()];
+  self = [super initWithStyle:ChromeTableViewStyle()];
+  if (self) {
+    _accountButton = [[UIBarButtonItem alloc] init];
+  }
+  return self;
 }
 
 #pragma mark - UIViewController
@@ -117,7 +125,7 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
   __weak __typeof(self) weakSelf = self;
   auto cellProvider = ^UITableViewCell*(UITableView* tableView,
                                         NSIndexPath* indexPath,
-                                        DriveItem* itemIdentifier) {
+                                        DriveFilePickerItem* itemIdentifier) {
     return [weakSelf cellForIndexPath:indexPath itemIdentifier:itemIdentifier];
   };
 
@@ -165,9 +173,9 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
 
 - (void)tableView:(UITableView*)tableView
     didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
-  DriveItem* driveItem =
+  DriveFilePickerItem* item =
       [_diffableDataSource itemIdentifierForIndexPath:indexPath];
-  [self.mutator selectDriveItem:driveItem];
+  [self.mutator selectDriveItem:item.identifier];
 }
 #pragma mark - Private
 
@@ -184,7 +192,7 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
                                        style:UIBarButtonItemStylePlain
                                       target:self
                                       action:nil];
-  filterButton.enabled = YES;
+  filterButton.enabled = NO;
 
   UIImage* sortIcon = DefaultSymbolTemplateWithPointSize(
       kSortSymbol, kSymbolAccessoryPointSize);
@@ -195,20 +203,14 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
                                        style:UIBarButtonItemStylePlain
                                       target:self
                                       action:nil];
-  sortButton.enabled =
-      self != self.navigationController.viewControllers.firstObject;
-
-  // TODO(crbug.com/344812548): Add the menu and the title of the account button
-  // based of the current identity.
-  UIBarButtonItem* accountButton =
-      [[UIBarButtonItem alloc] initWithTitle:@"dummyEmail@gmail.com" menu:nil];
+  sortButton.enabled = NO;
 
   UIBarButtonItem* spaceButton = [[UIBarButtonItem alloc]
       initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace
                            target:nil
                            action:nil];
   [self setToolbarItems:@[
-    filterButton, spaceButton, accountButton, spaceButton, sortButton
+    filterButton, spaceButton, _accountButton, spaceButton, sortButton
   ]
                animated:NO];
 }
@@ -238,21 +240,23 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
 
 // Returns the items in the main folder section (My drive, shared drives and
 // starred).
-- (NSArray<DriveItem*>*)mainFoldersSectionItems {
+- (NSArray<DriveFilePickerItem*>*)mainFoldersSectionItems {
   return @[
-    [DriveItem myDriveItem], [DriveItem sharedDrivesItem],
-    [DriveItem computersItem], [DriveItem starredItem]
+    [DriveFilePickerItem myDriveItem], [DriveFilePickerItem sharedDrivesItem],
+    [DriveFilePickerItem computersItem], [DriveFilePickerItem starredItem]
   ];
 }
 
 // Returns the items in the secondary folder section (recent and shared drives).
-- (NSArray<DriveItem*>*)secondaryFoldersSectionItems {
-  return @[ [DriveItem recentItem], [DriveItem sharedWithMeItem] ];
+- (NSArray<DriveFilePickerItem*>*)secondaryFoldersSectionItems {
+  return @[
+    [DriveFilePickerItem recentItem], [DriveFilePickerItem sharedWithMeItem]
+  ];
 }
 
 // Deques and sets up a cell for a drive item.
 - (UITableViewCell*)cellForIndexPath:(NSIndexPath*)indexPath
-                      itemIdentifier:(DriveItem*)itemIdentifier {
+                      itemIdentifier:(DriveFilePickerItem*)itemIdentifier {
   TableViewDetailIconCell* cell =
       DequeueTableViewCell<TableViewDetailIconCell>(self.tableView);
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -266,6 +270,49 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
          cornerRadius:kCellIconCornerRadius];
   cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
   return cell;
+}
+
+#pragma mark - DriveFilePickerConsumer
+
+- (void)setSelectedUserIdentityEmail:(NSString*)selectedUserIdentityEmail {
+  _accountButton.title = selectedUserIdentityEmail;
+}
+
+- (void)setCurrentDriveFolderTitle:(NSString*)currentDriveFolderTitle {
+}
+
+- (void)populateItems:(NSArray<DriveFilePickerItem*>*)driveItems
+               append:(BOOL)append
+    nextPageAvailable:(BOOL)nextPageAvailable {
+}
+
+- (void)setEmailsMenu:(UIMenu*)emailsMenu {
+  _accountButton.menu = emailsMenu;
+}
+
+- (void)setIcon:(UIImage*)iconImage forItem:(NSString*)itemIdentifier {
+}
+
+- (void)setDownloadStatus:(DriveFileDownloadStatus)downloadStatus {
+}
+
+- (void)setEnabledItems:(NSSet<NSString*>*)identifiers {
+}
+
+- (void)setAllFilesEnabled:(BOOL)allFilesEnabled {
+}
+
+- (void)setFilter:(DriveFilePickerFilter)filter {
+}
+
+- (void)setSortingCriteria:(DriveItemsSortingType)criteria
+                 direction:(DriveItemsSortingOrder)direction {
+}
+
+- (void)showInterruptionAlertWithBlock:(ProceduralBlock)block {
+}
+
+- (void)setSelectedItemIdentifier:(NSString*)selectedIdentifier {
 }
 
 @end

@@ -126,5 +126,18 @@ TEST(ProtoEnumConversionsTest,
       sync_pb::TrustedVaultAutoUpgradeExperimentGroup::Type);
 }
 
+TEST(ProtoEnumConversionsTest, GetBrowserColorVariantString) {
+  TestEnumStringsNonEmpty(
+      sync_pb::ThemeSpecifics::UserColorTheme::BrowserColorVariant);
+}
+
+TEST(ProtoEnumConversionsTest, GetBrowserColorSchemeString) {
+  TestEnumStringsNonEmpty(sync_pb::ThemeSpecifics::BrowserColorScheme);
+}
+
+TEST(ProtoEnumConversionsTest, GetContactInfoAddressType) {
+  TestEnumStringsNonEmpty(sync_pb::ContactInfoSpecifics::AddressType);
+}
+
 }  // namespace
 }  // namespace syncer

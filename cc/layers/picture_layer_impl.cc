@@ -190,7 +190,7 @@ void PictureLayerImpl::PushPropertiesTo(LayerImpl* base_layer) {
     // updates, so replacement is safe.
     layer_impl->updated_tiles_ = std::move(updated_tiles_);
     updated_tiles_.clear();
-    layer_impl->layer_tree_impl()->MarkLayerUpdated(layer_impl);
+    layer_impl->SetNeedsPushProperties();
   }
 
   layer_impl->SanityCheckTilingState();
@@ -1063,12 +1063,6 @@ const PaintWorkletRecordMap& PictureLayerImpl::GetPaintWorkletRecords() const {
 
 bool PictureLayerImpl::IsDirectlyCompositedImage() const {
   return directly_composited_image_default_raster_scale_ > 0.f;
-}
-
-void PictureLayerImpl::OnAllTilesDoneCleared() {
-  // This is called when a PictureLayerTiling's |all_tiles_done_| is cleared.
-  // We need to clear the PictureLayerTilingSet's |all_tiles_done_|.
-  tilings_->set_all_tiles_done(false);
 }
 
 std::vector<const DrawImage*> PictureLayerImpl::GetDiscardableImagesInRect(

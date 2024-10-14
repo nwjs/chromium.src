@@ -39,9 +39,6 @@ InlineItemsBuilderTemplate<MappingBuilder>::InlineItemsBuilderTemplate(
       items_(items),
       text_chunk_offsets_(chunk_offsets),
       is_text_combine_(block_flow_->IsLayoutTextCombine()) {
-  if (!RuntimeEnabledFeatures::RecollectInlinesReserveCapacityEnabled()) {
-    return;
-  }
   const LayoutObject* child = block_flow->FirstChild();
   if (!previous_text_content.IsNull() && child && child->NextSibling()) {
     // 10 avoids reallocations in many cases of Speedometer3.
@@ -515,8 +512,9 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
       // The following should be true, but some unit tests fail.
       // DCHECK_EQ(item->Type(), InlineItem::kControl);
     }
-    InlineItem adjusted_item(item, start, end, adjusted_shape_result);
 
+    InlineItem& adjusted_item =
+        items_->emplace_back(item, start, end, adjusted_shape_result);
 #if DCHECK_IS_ON()
     DCHECK_EQ(start, adjusted_item.StartOffset());
     DCHECK_EQ(end, adjusted_item.EndOffset());
@@ -526,8 +524,6 @@ bool InlineItemsBuilderTemplate<MappingBuilder>::AppendTextReusing(
     }
     DCHECK_EQ(item.IsEmptyItem(), adjusted_item.IsEmptyItem());
 #endif
-
-    items_->push_back(adjusted_item);
     DidAppendTextReusing(adjusted_item);
   }
   return true;
@@ -1660,10 +1656,6 @@ template <typename MappingBuilder>
 void InlineItemsBuilderTemplate<MappingBuilder>::DidFinishCollectInlines(
     InlineNodeData* data) {
   data->text_content = ToString();
-  if (!RuntimeEnabledFeatures::
-          LayoutSegmentationFastPathForObjectReplacementEnabled()) {
-    has_non_orc_16bit_ = !data->text_content.Is8Bit();
-  }
   data->has_non_orc_16bit_ = has_non_orc_16bit_;
 
   // Set |is_bidi_enabled_| for all UTF-16 strings for now, because at this

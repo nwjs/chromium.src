@@ -18,7 +18,7 @@
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_profile_edit_mediator_delegate.h"
 #import "ios/chrome/browser/autofill/ui_bundled/cells/country_item.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
 #import "ios/chrome/browser/webdata_services/model/web_data_service_factory.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -38,7 +38,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
     : NSObject <AutofillProfileEditConsumer>
 // Stores the value displayed in the fields.
 
-// YES, if the profile's source is autofill::AutofillProfile::Source::kAccount.
+// YES, if the profile's record type is
+// autofill::AutofillProfile::RecordType::kAccount.
 @property(nonatomic, assign) BOOL accountProfile;
 
 @property(nonatomic, assign) NSString* countrySelected;
@@ -85,17 +86,16 @@ typedef NS_ENUM(NSInteger, ItemType) {
 class AutofillProfileEditMediatorTest : public PlatformTest {
  protected:
   AutofillProfileEditMediatorTest() {
-    TestChromeBrowserState::Builder test_cbs_builder;
+    TestProfileIOS::Builder test_profile_builder;
     // Profile edit requires a PersonalDataManager which itself needs the
-    // WebDataService; this is not initialized on a TestChromeBrowserState by
+    // WebDataService; this is not initialized on a TestProfileIOS by
     // default.
-    test_cbs_builder.AddTestingFactory(
+    test_profile_builder.AddTestingFactory(
         ios::WebDataServiceFactory::GetInstance(),
         ios::WebDataServiceFactory::GetDefaultFactory());
-    chrome_browser_state_ = std::move(test_cbs_builder).Build();
+    profileIOS_ = std::move(test_profile_builder).Build();
     personal_data_manager_ =
-        autofill::PersonalDataManagerFactory::GetForBrowserState(
-            chrome_browser_state_.get());
+        autofill::PersonalDataManagerFactory::GetForProfile(profileIOS_.get());
     personal_data_manager_->SetSyncServiceForTest(nullptr);
 
     personal_data_manager_->address_data_manager()
@@ -143,7 +143,7 @@ class AutofillProfileEditMediatorTest : public PlatformTest {
  private:
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  std::unique_ptr<TestChromeBrowserState> chrome_browser_state_;
+  std::unique_ptr<TestProfileIOS> profileIOS_;
   raw_ptr<autofill::PersonalDataManager> personal_data_manager_;
   autofill::CountryComboboxModel country_model_;
   std::unique_ptr<autofill::AutofillProfile> profile_;

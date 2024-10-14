@@ -111,6 +111,7 @@ void PictureLayerTilingSet::CopyTilingsAndPropertiesFromPendingTwin(
     }
     this_tiling->TakeTilesAndPropertiesFrom(pending_twin_tiling.get(),
                                             layer_invalidation);
+    all_tiles_done_ &= this_tiling->all_tiles_done();
   }
 
   if (tiling_sort_required) {
@@ -156,6 +157,8 @@ void PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForActivation(
     // low resolution to not lose them.
     if (tiling->resolution() != LOW_RESOLUTION)
       tiling->set_resolution(NON_IDEAL_RESOLUTION);
+
+    all_tiles_done_ &= tiling->all_tiles_done();
   }
 
   VerifyTilings(pending_twin_set);
@@ -172,7 +175,8 @@ void PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForCommit(
   raster_source_ = raster_source;
 
   // Invalidate tiles and update them to the new raster source.
-  for (const std::unique_ptr<PictureLayerTiling>& tiling : tilings_) {
+  all_tiles_done_ = true;
+  for (const auto& tiling : tilings_) {
     DCHECK(tree_ != PENDING_TREE || !tiling->has_tiles());
     // Force |UpdateTilePriorities| on commit for cases when tiling needs update
     state_since_last_tile_priority_update_.tiling_needs_update |=
@@ -194,14 +198,18 @@ void PictureLayerTilingSet::UpdateTilingsToCurrentRasterSourceForCommit(
     // recordings exist in the raster source that did not exist on the last
     // raster source.
     tiling->CreateMissingTilesInLiveTilesRect();
+
+    all_tiles_done_ &= tiling->all_tiles_done();
   }
   VerifyTilings(nullptr /* pending_twin_set */);
 }
 
 void PictureLayerTilingSet::Invalidate(const Region& layer_invalidation) {
+  all_tiles_done_ = true;
   for (const auto& tiling : tilings_) {
     tiling->Invalidate(layer_invalidation);
     tiling->CreateMissingTilesInLiveTilesRect();
+    all_tiles_done_ &= tiling->all_tiles_done();
   }
   state_since_last_tile_priority_update_.invalidated = true;
 }
@@ -494,10 +502,7 @@ void PictureLayerTilingSet::UpdatePriorityRects(
     const gfx::Rect& visible_rect_in_layer_space,
     double current_frame_time_in_seconds,
     float ideal_contents_scale) {
-  visible_rect_in_layer_space_ = gfx::Rect();
-  eventually_rect_in_layer_space_ = gfx::Rect();
-
-  // We keep things as floats in here.
+  bool has_visible_rects = false;
   if (!visible_rect_in_layer_space.IsEmpty()) {
     gfx::RectF eventually_rectf(visible_rect_in_layer_space);
     eventually_rectf.Inset(-tiling_interest_area_padding_ /
@@ -506,14 +511,26 @@ void PictureLayerTilingSet::UpdatePriorityRects(
             gfx::RectF(raster_source_->recorded_bounds()))) {
       visible_rect_in_layer_space_ = visible_rect_in_layer_space;
       eventually_rect_in_layer_space_ = gfx::ToEnclosingRect(eventually_rectf);
+      has_visible_rects = true;
     }
   }
 
-  skewport_in_layer_space_ =
+  if (!has_visible_rects) {
+    visible_rect_in_layer_space_ = gfx::Rect();
+    eventually_rect_in_layer_space_ = gfx::Rect();
+    skewport_rect_in_layer_space_ = gfx::Rect();
+    soon_border_rect_in_layer_space_ = gfx::Rect();
+    // If we have no visible rect, clear all interest rects.
+    visible_rect_history_.clear();
+    return;
+  }
+
+  skewport_rect_in_layer_space_ =
       ComputeSkewport(visible_rect_in_layer_space_,
                       current_frame_time_in_seconds, ideal_contents_scale);
-  DCHECK(skewport_in_layer_space_.Contains(visible_rect_in_layer_space_));
-  DCHECK(eventually_rect_in_layer_space_.Contains(skewport_in_layer_space_));
+  DCHECK(skewport_rect_in_layer_space_.Contains(visible_rect_in_layer_space_));
+  DCHECK(
+      eventually_rect_in_layer_space_.Contains(skewport_rect_in_layer_space_));
 
   soon_border_rect_in_layer_space_ =
       ComputeSoonBorderRect(visible_rect_in_layer_space_, ideal_contents_scale);
@@ -553,7 +570,7 @@ bool PictureLayerTilingSet::UpdateTilePriorities(
     tiling->set_can_require_tiles_for_activation(
         can_require_tiles_for_activation);
     tiling->ComputeTilePriorityRects(
-        visible_rect_in_layer_space_, skewport_in_layer_space_,
+        visible_rect_in_layer_space_, skewport_rect_in_layer_space_,
         soon_border_rect_in_layer_space_, eventually_rect_in_layer_space_,
         ideal_contents_scale, occlusion_in_layer_space);
     all_tiles_done_ &= tiling->all_tiles_done();

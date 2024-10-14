@@ -32,7 +32,8 @@ class CONTENT_EXPORT SetBidBindings : public Bindings {
   // Bid plus information needed to filter subset of component ads to given
   // target #, considering k-anonymity. This is done entirely by the worklet,
   // and isn't in the Mojo bid type. This also includes the reporting ids
-  // needed to enforce `selectedBuyerAndSellerReportingIdRequired`.
+  // needed to enforce k-anonymity for reporting on bids that include a
+  // `selectedBuyerAndSellerReportingId`.
   struct CONTENT_EXPORT BidAndWorkletOnlyMetadata {
     BidAndWorkletOnlyMetadata();
     BidAndWorkletOnlyMetadata(BidAndWorkletOnlyMetadata&&);
@@ -52,6 +53,12 @@ class CONTENT_EXPORT SetBidBindings : public Bindings {
     // This many ad components from the beginning of the array absolutely must
     // be there and k-anonymous. Only used if `target_num_ad_components` is set.
     size_t num_mandatory_ad_components = 0;
+
+    // The buyerReportingId from the InterestGroup.ad, if provided.
+    std::optional<std::string> buyer_reporting_id;
+
+    // The buyerAndSellerReportingId from the InterestGroup.ad, if provided.
+    std::optional<std::string> buyer_and_seller_reporting_id;
   };
 
   explicit SetBidBindings(AuctionV8Helper* v8_helper);
@@ -70,7 +77,12 @@ class CONTENT_EXPORT SetBidBindings : public Bindings {
       uint16_t multi_bid_limit,
       base::RepeatingCallback<bool(const std::string&)> is_ad_excluded,
       base::RepeatingCallback<bool(const std::string&)>
-          is_component_ad_excluded);
+          is_component_ad_excluded,
+      base::RepeatingCallback<bool(const std::string&,
+                                   base::optional_ref<const std::string>,
+                                   base::optional_ref<const std::string>,
+                                   base::optional_ref<const std::string>)>
+          is_reporting_id_set_excluded);
 
   void AttachToContext(v8::Local<v8::Context> context) override;
   void Reset() override;
@@ -122,6 +134,15 @@ class CONTENT_EXPORT SetBidBindings : public Bindings {
                    const std::string& render_prefix,
                    const std::string& components_prefix);
 
+  // Verifies if the selectedBuyerAndSellerReportingId is present within the
+  // matching ad's selectableBuyerAndSellerReportingId array, and that (for
+  // the k-anon restricted run), the reporting ids, collectively, are
+  // k-anonymous for reporting, as indicated by the
+  // `is_reporting_id_set_excluded_` callback.
+  bool IsSelectedReportingIdValid(
+      const blink::InterestGroup::Ad& ad,
+      const std::string& selected_buyer_and_seller_reporting_id);
+
   const raw_ptr<AuctionV8Helper> v8_helper_;
 
   base::TimeTicks start_;
@@ -140,6 +161,11 @@ class CONTENT_EXPORT SetBidBindings : public Bindings {
   // can be used in a valid bid. Used to check the bid for non-k-anonymous ads.
   base::RepeatingCallback<bool(const std::string&)> is_ad_excluded_;
   base::RepeatingCallback<bool(const std::string&)> is_component_ad_excluded_;
+  base::RepeatingCallback<bool(const std::string&,
+                               base::optional_ref<const std::string>,
+                               base::optional_ref<const std::string>,
+                               base::optional_ref<const std::string>)>
+      is_reporting_id_set_excluded_;
 
   std::vector<BidAndWorkletOnlyMetadata> bids_;
 };

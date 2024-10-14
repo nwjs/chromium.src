@@ -4,6 +4,7 @@
 
 import("//build/buildflag_header.gni")
 import("//build/config/chromeos/ui_mode.gni")
+import("//build/config/ui.gni")
 import("//chrome/version.gni")
 import("//components/optimization_guide/features.gni")
 import("//extensions/buildflags/buildflags.gni")
@@ -133,6 +134,7 @@ static_library("test_support") {
   deps = [
     "//chrome/browser/autofill:autofill",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/autofill",
     "//components/autofill/content/browser:browser",
     "//components/autofill/content/common/mojom",
     "//components/autofill/core/browser:test_support",
@@ -181,6 +183,7 @@ if (!is_android) {
 
     deps = [
       "//chrome/browser/autofill",
+      "//chrome/browser/ui:browser_navigator_params_headers",
       "//chrome/test:test_support",
       "//components/autofill/content/browser:test_support",
       "//components/autofill/core/common:test_support",
@@ -206,6 +209,8 @@ if (!is_android) {
 
     deps = [
       "//chrome/browser/autofill",
+      "//chrome/browser/ui/autofill",
+      "//chrome/browser/ui/autofill:test_support",
       "//chrome/test:test_support",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
@@ -229,6 +234,7 @@ if (!is_android) {
       "//chrome/browser",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/autofill",
       "//chrome/common:chrome_features",
       "//chrome/common:non_code_constants",
       "//chrome/test:test_support",
@@ -258,12 +264,15 @@ if (!is_android) {
 
     if (is_chromeos_ash && enable_extensions) {
       deps += [
-        "//chrome/browser/ash",
         "//chrome/browser/ash/accessibility",
         "//chrome/browser/ash/accessibility:test_support",
         "//extensions/browser:test_support",
         "//ui/base:test_support",
       ]
+    }
+
+    if (use_aura) {
+      deps += [ "//chrome/browser/ui/aura/accessibility" ]
     }
   }
 }
@@ -278,6 +287,8 @@ if (!is_android) {
 
     deps = [
       "//chrome/browser/autofill:test_support_ui",
+      "//chrome/browser/ui/autofill",
+      "//chrome/browser/ui/autofill:test_support",
       "//chrome/test:test_support",
       "//components/autofill/core/common:autofill_regex",
     ]

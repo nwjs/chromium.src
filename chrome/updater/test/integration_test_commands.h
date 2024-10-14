@@ -54,7 +54,8 @@ class IntegrationTestCommands
       const std::string& child_window_text_to_find,
       bool always_launch_cmd,
       bool verify_app_logo_loaded,
-      bool expect_success) const = 0;
+      bool expect_success,
+      bool wait_for_the_installer) const = 0;
   virtual void SetActive(const std::string& app_id) const = 0;
   virtual void ExpectActive(const std::string& app_id) const = 0;
   virtual void ExpectNotActive(const std::string& app_id) const = 0;
@@ -196,6 +197,9 @@ class IntegrationTestCommands
   virtual void DMPushEnrollmentToken(const std::string& enrollment_token) = 0;
   virtual void DMDeregisterDevice() = 0;
   virtual void DMCleanup() = 0;
+  virtual void InstallEnterpriseCompanionApp(
+      const base::Value::Dict& external_overrides) = 0;
+  virtual void UninstallEnterpriseCompanionApp() = 0;
 
  protected:
   friend class base::RefCountedThreadSafe<IntegrationTestCommands>;

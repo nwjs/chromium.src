@@ -20,6 +20,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_functions_internal_overloads.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
@@ -45,11 +46,6 @@
 #include "components/signin/public/identity_manager/tribool.h"
 #include "google_apis/gaia/core_account_id.h"
 #include "ui/gfx/image/image.h"
-
-#if BUILDFLAG(IS_ANDROID)
-#include "base/android/jni_array.h"
-#include "components/signin/public/android/jni_headers/AccountTrackerService_jni.h"
-#endif
 
 #if !(BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS))
 #include "components/supervised_user/core/common/features.h"
@@ -82,6 +78,17 @@ const base::FilePath::CharType kAccountsFolder[] =
     FILE_PATH_LITERAL("Accounts");
 const base::FilePath::CharType kAvatarImagesFolder[] =
     FILE_PATH_LITERAL("Avatar Images");
+
+// Marks the state of the account that are read from prefs.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class AccountInPrefState {
+  kValid = 0,
+  kEmptyAccount = 1,
+  kEmptyEmailOrGaiaId = 2,
+
+  kMaxValue = kEmptyEmailOrGaiaId,
+};
 
 // Reads a PNG image from disk and decodes it. If the reading/decoding attempt
 // was unsuccessful, an empty image is returned.
@@ -181,21 +188,10 @@ std::string AccountsToString(
 }  // namespace
 
 AccountTrackerService::AccountTrackerService() {
-#if BUILDFLAG(IS_ANDROID)
-  JNIEnv* env = jni_zero::AttachCurrentThread();
-  base::android::ScopedJavaLocalRef<jobject> java_ref =
-      signin::Java_AccountTrackerService_Constructor(
-          env, reinterpret_cast<intptr_t>(this));
-  java_ref_.Reset(env, java_ref.obj());
-#endif
 }
 
 AccountTrackerService::~AccountTrackerService() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-#if BUILDFLAG(IS_ANDROID)
-  JNIEnv* env = jni_zero::AttachCurrentThread();
-  signin::Java_AccountTrackerService_destroy(env, java_ref_);
-#endif
   pref_service_ = nullptr;
   accounts_.clear();
 }
@@ -331,6 +327,15 @@ void AccountTrackerService::SetAccountInfoFromUserInfo(
   DCHECK(base::Contains(accounts_, account_id));
   AccountInfo& account_info = accounts_[account_id];
 
+  AccountInPrefState state = AccountInPrefState::kValid;
+  if (account_info.IsEmpty()) {
+    state = AccountInPrefState::kEmptyAccount;
+  } else if (account_info.gaia.empty() || account_info.email.empty()) {
+    // This may happen if account capabilities are fetched first.
+    state = AccountInPrefState::kEmptyEmailOrGaiaId;
+  }
+  base::UmaHistogramEnumeration("Signin.AccountInPref.State", state);
+
   std::optional<AccountInfo> maybe_account_info =
       AccountInfoFromUserInfo(user_info);
   if (maybe_account_info) {
@@ -339,7 +344,13 @@ void AccountTrackerService::SetAccountInfoFromUserInfo(
     maybe_account_info->account_id = PickAccountIdForAccount(
         maybe_account_info->gaia, maybe_account_info->email);
 
-    if (maybe_account_info->account_id == account_info.account_id) {
+    // Whether the existing account in pref matches the fetched account.
+    bool accounts_matching =
+        maybe_account_info->account_id == account_info.account_id;
+    base::UmaHistogramBoolean("Signin.AccountInPref.MatchingFetchedAccount",
+                              accounts_matching);
+
+    if (accounts_matching) {
       account_info.UpdateWith(maybe_account_info.value());
     } else {
       DLOG(ERROR) << "Cannot set account info from user info as account ids "
@@ -919,48 +930,3 @@ bool AccountTrackerService::UpdateAccountInfoChildStatus(
   account_info.is_child_account = new_status;
   return true;
 }
-
-#if BUILDFLAG(IS_ANDROID)
-base::android::ScopedJavaLocalRef<jobject>
-AccountTrackerService::GetJavaObject() {
-  return base::android::ScopedJavaLocalRef<jobject>(java_ref_);
-}
-
-// static
-AccountTrackerService* AccountTrackerService::FromAccountTrackerServiceAndroid(
-    const jni_zero::JavaRef<jobject>& j_account_tracker_service) {
-  return reinterpret_cast<AccountTrackerService*>(
-      signin::Java_AccountTrackerService_getNativePointer(
-          jni_zero::AttachCurrentThread(), j_account_tracker_service));
-}
-
-void AccountTrackerService::LegacySeedAccountsInfo(
-    JNIEnv* env,
-    const base::android::JavaParamRef<jobjectArray>& core_account_infos) {
-  std::vector<CoreAccountInfo> curr_core_account_infos;
-  // As |GetArrayLength| makes no guarantees about the returned value (e.g., it
-  // may be -1 if |array| is not a valid Java array), wrap it with std::max
-  // to always get a valid, non-negative size.
-  size_t len = std::max(0, env->GetArrayLength(core_account_infos.obj()));
-  for (size_t i = 0; i < len; i++) {
-    base::android::ScopedJavaLocalRef<jobject> core_account_info_java(
-        env, env->GetObjectArrayElement(core_account_infos.obj(), i));
-    curr_core_account_infos.push_back(
-        ConvertFromJavaCoreAccountInfo(env, core_account_info_java));
-  }
-
-  DVLOG(1) << "AccountTrackerService.LegacySeedAccountsInfo: "
-           << " number of accounts " << curr_core_account_infos.size();
-
-  // Remove the accounts deleted from device
-  for (const auto& account : GetAccounts()) {
-    if (!base::Contains(curr_core_account_infos, account.account_id,
-                        &CoreAccountInfo::account_id)) {
-      RemoveAccount(account.account_id);
-    }
-  }
-  for (const auto& core_account_info : curr_core_account_infos) {
-    SeedAccountInfo(core_account_info.gaia, core_account_info.email);
-  }
-}
-#endif

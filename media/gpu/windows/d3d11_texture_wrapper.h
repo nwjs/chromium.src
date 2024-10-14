@@ -27,16 +27,11 @@
 
 namespace media {
 
-BASE_DECLARE_FEATURE(kUseClientSharedImageForD3D11Video);
-
 class D3D11PictureBuffer;
 
 using CommandBufferHelperPtr = scoped_refptr<CommandBufferHelper>;
 using GetCommandBufferHelperCB =
     base::RepeatingCallback<CommandBufferHelperPtr()>;
-
-using ClientSharedImageOrMailboxHolder =
-    absl::variant<scoped_refptr<gpu::ClientSharedImage>, gpu::MailboxHolder>;
 
 // Support different strategies for processing pictures - some may need copying,
 // for example.  Each wrapper owns the resources for a single texture, so it's
@@ -73,7 +68,7 @@ class MEDIA_GPU_EXPORT Texture2DWrapper {
   // used to refer to it.
   virtual D3D11Status ProcessTexture(
       const gfx::ColorSpace& input_color_space,
-      media::ClientSharedImageOrMailboxHolder& shared_image_dest_out) = 0;
+      scoped_refptr<gpu::ClientSharedImage>& shared_image_dest_out) = 0;
 };
 
 // The default texture wrapper that uses GPUResources to talk to hardware
@@ -112,7 +107,7 @@ class MEDIA_GPU_EXPORT DefaultTexture2DWrapper : public Texture2DWrapper {
 
   D3D11Status ProcessTexture(
       const gfx::ColorSpace& input_color_space,
-      ClientSharedImageOrMailboxHolder& shared_image_dest) override;
+      scoped_refptr<gpu::ClientSharedImage>& shared_image_dest) override;
 
   void OnGPUResourceInitDone(
       scoped_refptr<media::D3D11PictureBuffer> picture_buffer,
@@ -130,7 +125,6 @@ class MEDIA_GPU_EXPORT DefaultTexture2DWrapper : public Texture2DWrapper {
    public:
     GpuResources(OnErrorCB on_error_cb,
                  GetCommandBufferHelperCB get_helper_cb,
-                 const gpu::Mailbox& mailbox,
                  const gfx::Size& size,
                  const gfx::ColorSpace& color_space,
                  DXGI_FORMAT dxgi_format,
@@ -158,7 +152,7 @@ class MEDIA_GPU_EXPORT DefaultTexture2DWrapper : public Texture2DWrapper {
   gfx::Size size_;
   gfx::ColorSpace color_space_;
   base::SequenceBound<GpuResources> gpu_resources_;
-  ClientSharedImageOrMailboxHolder shared_image_;
+  scoped_refptr<gpu::ClientSharedImage> shared_image_;
   DXGI_FORMAT dxgi_format_;
 
   std::unique_ptr<gpu::VideoImageRepresentation> shared_image_rep_;

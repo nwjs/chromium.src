@@ -24,6 +24,7 @@
 #include "base/timer/timer.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "pdf/buildflags.h"
 #include "pdf/document_attachment_info.h"
 #include "pdf/document_layout.h"
 #include "pdf/document_metadata.h"
@@ -204,7 +205,7 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   void RotateClockwise();
   void RotateCounterclockwise();
   bool IsReadOnly() const;
-  void SetReadOnly(bool enable);
+  void SetReadOnly(bool read_only);
   void SetDocumentLayout(DocumentLayout::PageSpread page_spread);
   void DisplayAnnotations(bool display);
 
@@ -241,6 +242,8 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   virtual bool HasPermission(DocumentPermission permission) const;
 
   virtual void SelectAll();
+
+  virtual void ClearTextSelection();
 
   // Gets the list of DocumentAttachmentInfo from the document.
   virtual const std::vector<DocumentAttachmentInfo>&
@@ -399,6 +402,10 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   void RequestThumbnail(int page_index,
                         float device_pixel_ratio,
                         SendThumbnailCallback send_callback);
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  // Virtual to support testing.
+  virtual gfx::Size GetThumbnailSize(int page_index, float device_pixel_ratio);
+#endif
 
   // DocumentLoader::Client:
   std::unique_ptr<URLLoaderWrapper> CreateURLLoader() override;
@@ -422,6 +429,9 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   PDFiumPage* GetPage(size_t index);
 
   bool IsValidLink(const std::string& url);
+
+  // Sets whether form highlight should be enabled or cleared.
+  virtual void SetFormHighlight(bool enable_form);
 
  private:
   // This helper class is used to detect the difference in selection between

@@ -4,9 +4,14 @@
 
 #include "chrome/browser/ui/tabs/tab_model.h"
 
+#include "base/check.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -49,6 +54,9 @@ TabModel::TabModel(std::unique_ptr<content::WebContents> contents,
       soon_to_be_owning_model_(soon_to_be_owning_model) {
   TabLookupFromWebContents::CreateForWebContents(contents_, this);
 
+  // TODO(https://crbug.com/362038317): Tab-helpers should be created in exactly
+  // one place, which is here.
+  TabHelpers::AttachTabHelpers(contents_);
   tab_features_ = TabFeatures::CreateTabFeatures();
 
   // Once tabs are pulled into a standalone module, TabFeatures and its
@@ -164,6 +172,19 @@ tabs::TabFeatures* TabModel::GetTabFeatures() {
   return tab_features_.get();
 }
 
+uint32_t TabModel::GetTabHandle() {
+  return GetHandle().raw_value();
+}
+
+void TabModel::Close() {
+  auto* window_interface = GetBrowserWindowInterface();
+  auto* tab_strip = window_interface->GetTabStripModel();
+  CHECK(tab_strip);
+  int tab_idx = tab_strip->GetIndexOfTab(GetHandle());
+  CHECK(tab_idx != TabStripModel::kNoTab);
+  tab_strip->CloseWebContentsAt(tab_idx, TabCloseTypes::CLOSE_NONE);
+}
+
 void TabModel::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
     const TabStripModelChange& change,
@@ -239,6 +260,12 @@ TabInterface* TabInterface::MaybeGetFromContents(
     return nullptr;
   }
   return lookup->model();
+}
+
+// static
+TabInterface* TabInterface::MaybeGetFromHandle(uint32_t handle_id) {
+  auto& helper = internal::HandleHelper<TabModel, int>::GetInstance();
+  return helper.LookupObject(handle_id);
 }
 
 }  // namespace tabs

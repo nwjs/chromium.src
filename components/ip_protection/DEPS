@@ -1,5 +1,7 @@
 include_rules = [
   "+components/privacy_sandbox/masked_domain_list",
+  "+mojo/public/cpp/bindings",
+  "+mojo/core/embedder",
   "+net",
   "+net/third_party/quiche/src",
   "+services/network/public/cpp",
@@ -13,5 +15,6 @@ specific_include_rules = {
   ".*(\.cc|\.h)": [
     "+third_party/abseil-cpp/absl/time/time.h",
     "+third_party/abseil-cpp/absl/status/statusor.h",
+    "+third_party/abseil-cpp/absl/types/span.h",
   ]
 }

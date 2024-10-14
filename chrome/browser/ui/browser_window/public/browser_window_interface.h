@@ -17,6 +17,10 @@
 // your feature needs. This comment will be deleted after there are 10+ features
 // in BrowserWindowFeatures.
 
+namespace user_education {
+class FeaturePromoController;
+}  // namespace user_education
+
 namespace tabs {
 class TabInterface;
 }  // namespace tabs
@@ -36,6 +40,7 @@ class ExclusiveAccessManager;
 class GURL;
 class Profile;
 class SessionID;
+class TabStripModel;
 
 class BrowserWindowInterface : public content::PageNavigator {
  public:
@@ -44,7 +49,10 @@ class BrowserWindowInterface : public content::PageNavigator {
   // the instance itself remains the same.
   virtual views::WebView* GetWebView() = 0;
 
-  // Returns the profile that semantically owns this browser window.
+  // Returns the profile that semantically owns this browser window. This value
+  // is never null, and never changes for the lifetime of a given browser
+  // window. All tabs contained in a browser window have the same
+  // profile/BrowserContext as the browser window itself.
   virtual Profile* GetProfile() = 0;
 
   // Opens a URL, with the given disposition. This is a convenience wrapper
@@ -55,10 +63,15 @@ class BrowserWindowInterface : public content::PageNavigator {
   // Returns a session-unique ID.
   virtual const SessionID& GetSessionID() = 0;
 
+  virtual TabStripModel* GetTabStripModel() = 0;
+
   // Returns true if the tab strip is currently visible for this browser window.
   // Will return false on browser initialization before the tab strip is
   // initialized.
   virtual bool IsTabStripVisible() = 0;
+
+  // Returns true if the browser controls are hidden due to being in fullscreen.
+  virtual bool ShouldHideUIForFullscreen() const = 0;
 
   // Returns the top container view.
   virtual views::View* TopContainer() = 0;
@@ -68,6 +81,17 @@ class BrowserWindowInterface : public content::PageNavigator {
   virtual tabs::TabInterface* GetActiveTabInterface() = 0;
 
   // Returns the feature controllers scoped to this browser window.
+  // BrowserWindowFeatures that depend on other BrowserWindowFeatures should not
+  // use this method. Instead they should use use dependency injection to pass
+  // dependencies at construction or initialization. This method exists for
+  // three purposes:
+  //   (1) TabFeatures often depend on state of BrowserWindowFeatures for the
+  //   attached window, which can change. TabFeatures need a way to dynamically
+  //   fetch BrowserWindowFeatures.
+  //   (2) To expose BrowserWindowFeatures for tests.
+  //   (3) It is not possible to perform dependency injection for legacy code
+  //   that is conceptually a BrowserWindowFeature and needs access to other
+  //   BrowserWindowFeature.
   virtual BrowserWindowFeatures& GetFeatures() = 0;
 
   // Returns the web contents modal dialog host pertaining to this
@@ -138,6 +162,11 @@ class BrowserWindowInterface : public content::PageNavigator {
     // BrowserTest.StartMaximized.
   };
   virtual Type GetType() const = 0;
+
+  // Gets the windows's FeaturePromoController which manages display of
+  // in-product help. Will return null in incognito and guest profiles.
+  virtual user_education::FeaturePromoController*
+  GetFeaturePromoController() = 0;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_INTERFACE_H_

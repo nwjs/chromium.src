@@ -7,6 +7,7 @@ import("//build/config/python.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/util/process_version.gni")
 import("//chrome/updater/branding.gni")
+import("//chrome/updater/zip.gni")
 import("//components/crx_file/crx3.gni")
 import("//testing/test.gni")
 
@@ -153,7 +154,11 @@ if (is_win || is_mac || is_linux) {
       "//base",
       "//base:i18n",
       "//build:chromeos_buildflags",
+      "//chrome/enterprise_companion:client",
+      "//chrome/enterprise_companion:constants_prod",
+      "//chrome/enterprise_companion:installer_paths",
       "//chrome/enterprise_companion/device_management_storage",
+      "//chrome/enterprise_companion/mojom",
       "//chrome/updater/protos:omaha_proto",
       "//components/crash/core/common",
       "//components/crx_file",
@@ -479,6 +484,8 @@ if (is_win || is_mac || is_linux) {
       "-e",
       "COMPANY_SHORTNAME=\"$updater_company_short_name\"",
       "-e",
+      "COMPANY_SHORTNAME_LOWERCASE=\"$updater_company_short_name_lowercase\"",
+      "-e",
       "COMPANY_SHORTNAME_UPPERCASE=\"$updater_company_short_name_uppercase\"",
       "-e",
       "COPYRIGHT=\"updater_copyright\"",
@@ -498,6 +505,8 @@ if (is_win || is_mac || is_linux) {
       "PRIVILEGED_HELPER_NAME=\"$privileged_helper_name\"",
       "-e",
       "PRODUCT_FULLNAME=\"$updater_product_full_name\"",
+      "-e",
+      "PRODUCT_FULLNAME_DASHED_LOWERCASE=\"$updater_product_full_name_dashed_lowercase\"",
       "-e",
       "MAC_BROWSER_BUNDLE_IDENTIFIER=\"$mac_browser_bundle_identifier\"",
       "-e",
@@ -808,6 +817,8 @@ if (is_win || is_mac || is_linux) {
       "//base",
       "//base/test:test_support",
       "//chrome/common:constants",
+      "//chrome/enterprise_companion:constants_test",
+      "//chrome/enterprise_companion:installer_paths",
       "//chrome/enterprise_companion/device_management_storage",
       "//chrome/updater/protos:omaha_proto",
       "//components/crx_file",
@@ -847,6 +858,7 @@ if (is_win || is_mac || is_linux) {
 
     data_deps = [
       ":updater_selfupdate_test_crx",
+      "//chrome/enterprise_companion:enterprise_companion_test",
       "//chrome/updater/test/test_installer:app_installers",
     ]
 
@@ -930,7 +942,9 @@ if (is_win || is_mac || is_linux) {
             [ "enterprise/win/google/build_group_policy_template_unittest.cc" ]
         data += [
           "enterprise/win/google/build_group_policy_template_unittest.py",
+          "enterprise/win/google/generate_group_policy_template_adm.py",
           "enterprise/win/google/generate_group_policy_template_admx.py",
+          "test/data/enterprise/win/google/test_gold.adm",
           "test/data/enterprise/win/google/test_gold.admx",
           "test/data/enterprise/win/google/test_gold.adml",
         ]
@@ -1024,6 +1038,7 @@ if (is_win || is_mac || is_linux) {
       data_deps += [
         "//chrome/updater/mac:ksadmin_test",
         "//chrome/updater/mac:updater_bundle_test",
+        "//chrome/updater/mac/client_lib/test_helpers/app_bundle:registration_test_app_bundle",
       ]
 
       if (target_cpu == "arm64") {
@@ -1114,6 +1129,7 @@ if (is_win || is_mac || is_linux) {
     if (is_mac) {
       data_deps = [
         "//chrome/updater/mac:updater_bundle_test",
+        "//chrome/updater/mac/client_lib/test_helpers/app_bundle:registration_test_app_bundle",
         "//third_party/updater:old_updater",
       ]
     }
@@ -1154,6 +1170,7 @@ if (is_win || is_mac || is_linux) {
     if (is_mac) {
       data_deps += [
         "//chrome/updater/mac:updater_bundle_test",
+        "//chrome/updater/mac/client_lib/test_helpers/app_bundle:registration_test_app_bundle",
         "//third_party/updater:old_updater",
       ]
     }

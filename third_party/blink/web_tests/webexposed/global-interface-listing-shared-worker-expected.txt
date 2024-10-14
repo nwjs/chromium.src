@@ -11,6 +11,18 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter summarizer
 [Worker]     getter writer
 [Worker]     method constructor
+[Worker] interface AIAssistant
+[Worker]     attribute @@toStringTag
+[Worker]     getter maxTokens
+[Worker]     getter temperature
+[Worker]     getter tokensLeft
+[Worker]     getter tokensSoFar
+[Worker]     getter topK
+[Worker]     method clone
+[Worker]     method constructor
+[Worker]     method destroy
+[Worker]     method prompt
+[Worker]     method promptStreaming
 [Worker] interface AIAssistantCapabilities
 [Worker]     attribute @@toStringTag
 [Worker]     getter available
@@ -38,6 +50,10 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method create
 [Worker] interface AISummarizer
 [Worker]     attribute @@toStringTag
+[Worker]     getter format
+[Worker]     getter length
+[Worker]     getter sharedContext
+[Worker]     getter type
 [Worker]     method constructor
 [Worker]     method destroy
 [Worker]     method summarize
@@ -46,23 +62,15 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     getter available
 [Worker]     method constructor
+[Worker]     method supportsFormat
+[Worker]     method supportsInputLanguage
+[Worker]     method supportsLength
+[Worker]     method supportsType
 [Worker] interface AISummarizerFactory
 [Worker]     attribute @@toStringTag
 [Worker]     method capabilities
 [Worker]     method constructor
 [Worker]     method create
-[Worker] interface AITextSession
-[Worker]     attribute @@toStringTag
-[Worker]     getter maxTokens
-[Worker]     getter temperature
-[Worker]     getter tokensLeft
-[Worker]     getter tokensSoFar
-[Worker]     getter topK
-[Worker]     method clone
-[Worker]     method constructor
-[Worker]     method destroy
-[Worker]     method prompt
-[Worker]     method promptStreaming
 [Worker] interface AIWriter
 [Worker]     attribute @@toStringTag
 [Worker]     getter sharedContext
@@ -1118,10 +1126,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter storageFormat
 [Worker]     getter width
 [Worker]     method constructor
-[Worker] interface LanguageDetector
-[Worker]     attribute @@toStringTag
-[Worker]     method constructor
-[Worker]     method detect
 [Worker] interface LanguageTranslator
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
@@ -1290,6 +1294,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker] interface Observable
 [Worker]     static method from
 [Worker]     attribute @@toStringTag
+[Worker]     method catch
 [Worker]     method constructor
 [Worker]     method drop
 [Worker]     method every
@@ -1301,6 +1306,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method inspect
 [Worker]     method last
 [Worker]     method map
+[Worker]     method reduce
 [Worker]     method some
 [Worker]     method subscribe
 [Worker]     method switchMap
@@ -1897,10 +1903,8 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method terminate
 [Worker] interface Translation
 [Worker]     attribute @@toStringTag
-[Worker]     method canDetect
 [Worker]     method canTranslate
 [Worker]     method constructor
-[Worker]     method createDetector
 [Worker]     method createTranslator
 [Worker] interface TrustedHTML
 [Worker]     static method fromLiteral

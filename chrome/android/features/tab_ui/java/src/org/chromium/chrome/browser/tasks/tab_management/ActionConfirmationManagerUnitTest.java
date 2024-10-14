@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -236,7 +235,25 @@ public class ActionConfirmationManagerUnitTest {
                 DialogDismissalCause.NEGATIVE_BUTTON_CLICKED);
 
         verify(mOnResult).onResult(ConfirmationResult.CONFIRMATION_NEGATIVE);
-        verify(mPrefService, never()).setBoolean(any(), anyBoolean());
+        verify(mPrefService).setBoolean(any(), eq(true));
+    }
+
+    @Test
+    public void testProcessRemoveTabAttempt_NoIdentityManager() {
+        when(mIdentityServicesProvider.getIdentityManager(mProfile)).thenReturn(mIdentityManager);
+
+        ActionConfirmationManager actionConfirmationManager =
+                new ActionConfirmationManager(
+                        mProfile, mActivity, mTabGroupModelFilter, mModalDialogManager);
+        actionConfirmationManager.processRemoveTabAttempt(Arrays.asList(TAB1_ID), mOnResult);
+        verify(mModalDialogManager).showDialog(mPropertyModelArgumentCaptor.capture(), anyInt());
+
+        View customView =
+                mPropertyModelArgumentCaptor.getValue().get(ModalDialogProperties.CUSTOM_VIEW);
+        TextView descriptionTextView = customView.findViewById(R.id.description_text_view);
+        assertEquals(
+                "This will permanently delete the group from your device",
+                descriptionTextView.getText());
     }
 
     @Test

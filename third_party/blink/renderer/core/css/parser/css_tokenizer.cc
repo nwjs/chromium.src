@@ -8,9 +8,10 @@
 #endif
 
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
+
 #include "third_party/blink/renderer/core/css/parser/css_parser_idioms.h"
-#include "third_party/blink/renderer/core/css/parser/css_parser_token_range.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
+#include "third_party/blink/renderer/core/html/parser/input_stream_preprocessor.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
 
 #ifdef __SSE2__
@@ -20,15 +21,8 @@
 #endif
 
 namespace blink {
-namespace {
 
-// To avoid resizing we err on the side of reserving too much space.
-// Most strings we tokenize have about 3.5 to 5 characters per token.
-constexpr wtf_size_t kEstimatedCharactersPerToken = 3;
-
-}  // namespace
-
-CSSTokenizer::CSSTokenizer(const String& string, wtf_size_t offset)
+CSSTokenizer::CSSTokenizer(StringView string, wtf_size_t offset)
     : input_(string) {
   // According to the spec, we should perform preprocessing here.
   // See: https://drafts.csswg.org/css-syntax/#input-preprocessing
@@ -41,55 +35,6 @@ CSSTokenizer::CSSTokenizer(const String& string, wtf_size_t offset)
   input_.Advance(offset);
 }
 
-CSSTokenizer::CSSTokenizer(StringView string, wtf_size_t offset)
-    : input_(string) {
-  input_.Advance(offset);
-}
-
-Vector<CSSParserToken, 32> CSSTokenizer::TokenizeToEOF() {
-  Vector<CSSParserToken, 32> tokens;
-  tokens.ReserveInitialCapacity((input_.length() - Offset()) /
-                                kEstimatedCharactersPerToken);
-
-  while (true) {
-    const CSSParserToken token =
-        NextToken</*SkipComments=*/true, /*StoreOffset=*/false>();
-    if (token.GetType() == kEOFToken) {
-      return tokens;
-    } else {
-      tokens.push_back(token);
-    }
-  }
-}
-
-std::pair<Vector<CSSParserToken, 32>, Vector<wtf_size_t, 32>>
-CSSTokenizer::TokenizeToEOFWithOffsets() {
-  wtf_size_t estimated_tokens =
-      (input_.length() - Offset()) / kEstimatedCharactersPerToken;
-  Vector<CSSParserToken, 32> tokens;
-  tokens.ReserveInitialCapacity(estimated_tokens);
-  Vector<wtf_size_t, 32> offsets;
-  offsets.ReserveInitialCapacity(estimated_tokens + 1);
-
-  while (true) {
-    offsets.push_back(input_.Offset());
-    const CSSParserToken token =
-        NextToken</*SkipComments=*/true, /*StoreOffset=*/false>();
-    if (token.GetType() == kEOFToken) {
-      return {tokens, offsets};
-    } else {
-      tokens.push_back(token);
-    }
-  }
-}
-
-Vector<CSSParserToken, 32> CSSTokenizer::TokenizeToEOFWithUnicodeRanges() {
-  unicode_ranges_allowed_ = true;
-  Vector<CSSParserToken, 32> tokens = TokenizeToEOF();
-  unicode_ranges_allowed_ = false;
-  return tokens;
-}
-
 StringView CSSTokenizer::StringRangeFrom(wtf_size_t start) const {
   return input_.RangeFrom(start);
 }
@@ -100,20 +45,14 @@ StringView CSSTokenizer::StringRangeAt(wtf_size_t start,
 }
 
 CSSParserToken CSSTokenizer::TokenizeSingle() {
-  return NextToken</*SkipComments=*/true, /*StoreOffset=*/true>();
+  return NextToken</*SkipComments=*/true>();
 }
 
 CSSParserToken CSSTokenizer::TokenizeSingleWithComments() {
-  return NextToken</*SkipComments=*/false, /*StoreOffset=*/true>();
+  return NextToken</*SkipComments=*/false>();
 }
 
-void CSSTokenizer::PersistStrings(CSSTokenizer& destination) {
-  for (String& s : string_pool_) {
-    destination.string_pool_.push_back(std::move(s));
-  }
-}
-
-wtf_size_t CSSTokenizer::TokenCount() {
+wtf_size_t CSSTokenizer::TokenCount() const {
   return token_count_;
 }
 
@@ -188,12 +127,10 @@ CSSParserToken CSSTokenizer::LetterU(UChar cc) {
   return ConsumeIdentLikeToken();
 }
 
-template <bool SkipComments, bool StoreOffset>
+template <bool SkipComments>
 CSSParserToken CSSTokenizer::NextToken() {
   do {
-    if (StoreOffset) {
-      prev_offset_ = input_.Offset();
-    }
+    prev_offset_ = input_.Offset();
     // Unlike the HTMLTokenizer, the CSS Syntax spec is written
     // as a stateless, (fixed-size) look-ahead tokenizer.
     // We could move to the stateful model and instead create

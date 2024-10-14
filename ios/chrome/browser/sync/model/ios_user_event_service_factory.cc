@@ -19,7 +19,7 @@
 #include "components/sync_user_events/user_event_service_impl.h"
 #include "components/sync_user_events/user_event_sync_bridge.h"
 #include "ios/chrome/browser/shared/model/browser_state/browser_state_otr_helper.h"
-#include "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#include "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #include "ios/chrome/browser/sync/model/data_type_store_service_factory.h"
 #include "ios/chrome/browser/sync/model/session_sync_service_factory.h"
 #include "ios/chrome/common/channel_info.h"
@@ -27,9 +27,15 @@
 
 // static
 syncer::UserEventService* IOSUserEventServiceFactory::GetForBrowserState(
-    ChromeBrowserState* browser_state) {
+    ProfileIOS* profile) {
+  return GetForProfile(profile);
+}
+
+// static
+syncer::UserEventService* IOSUserEventServiceFactory::GetForProfile(
+    ProfileIOS* profile) {
   return static_cast<syncer::UserEventService*>(
-      GetInstance()->GetServiceForBrowserState(browser_state, true));
+      GetInstance()->GetServiceForBrowserState(profile, true));
 }
 
 // static

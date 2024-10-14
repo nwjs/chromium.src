@@ -6,16 +6,20 @@ import 'chrome://resources/cros_components/card/card.js';
 import './cra/cra-icon.js';
 import './cra/cra-icon-button.js';
 
+import {Card} from 'chrome://resources/cros_components/card/card.js';
 import {
   classMap,
+  createRef,
   css,
   html,
   map,
   nothing,
   PropertyDeclarations,
+  ref,
   styleMap,
 } from 'chrome://resources/mwc/lit/index.js';
 
+import {i18n} from '../core/i18n.js';
 import {usePlatformHandler} from '../core/lit/context.js';
 import {ReactiveLitElement} from '../core/reactive/lit.js';
 import {signal} from '../core/reactive/signal.js';
@@ -23,14 +27,16 @@ import {
   RecordingMetadata,
   TimelineSegmentKind,
 } from '../core/recording_data_manager.js';
-import {assertExhaustive} from '../core/utils/assert.js';
+import {assertExhaustive, assertExists} from '../core/utils/assert.js';
 import {
   formatDate,
   formatDuration,
   formatTime,
 } from '../core/utils/datetime.js';
 import {stopPropagation} from '../core/utils/event_handler.js';
+import {clamp} from '../core/utils/utils.js';
 
+import {CraIconButton} from './cra/cra-icon-button.js';
 import {
   getNumSpeakerClass,
   SPEAKER_LABEL_COLORS,
@@ -78,6 +84,22 @@ export class RecordingFileListItem extends ReactiveLitElement {
             display: flex;
             flex-flow: row;
             gap: 16px;
+          }
+
+          & > .play-button.has-progress {
+            position: relative;
+
+            &::before {
+              background: conic-gradient(
+                var(--cros-sys-primary) calc(1% * var(--progress)),
+                var(--cros-sys-primary_container) calc(1% * var(--progress))
+              );
+              border-radius: 50%;
+              content: "";
+              inset: -4px;
+              position: absolute;
+              z-index: -1;
+            }
           }
         }
       }
@@ -185,15 +207,39 @@ export class RecordingFileListItem extends ReactiveLitElement {
   static override properties: PropertyDeclarations = {
     recording: {attribute: false},
     searchHighlight: {attribute: false},
+    playing: {type: Boolean},
+    playProgress: {type: Number},
   };
 
   recording: RecordingMetadata|null = null;
 
   searchHighlight: [number, number]|null = null;
 
+  /**
+   * Whether the inline playing of this item is ongoing.
+   */
+  playing = false;
+
+  /**
+   * The progress of the inline playing, should be a number between [0, 100].
+   */
+  playProgress: number|null = null;
+
   private readonly menuShown = signal(false);
 
   private readonly platformHandler = usePlatformHandler();
+
+  private readonly recordingCard = createRef<Card>();
+
+  private readonly optionsButtonRef = createRef<CraIconButton>();
+
+  get recordingCardForTest(): Card {
+    return assertExists(this.recordingCard.value);
+  }
+
+  focusOnOption(): void {
+    this.optionsButtonRef.value?.focus();
+  }
 
   private onRecordingClick() {
     if (this.recording === null) {
@@ -255,12 +301,21 @@ export class RecordingFileListItem extends ReactiveLitElement {
     // TODO: b/336963138 - Implements inline playing.
     ev.preventDefault();
     ev.stopPropagation();
+
+    if (this.recording === null) {
+      return;
+    }
+
+    this.dispatchEvent(
+      new CustomEvent('play-recording-clicked', {
+        detail: this.recording.id,
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
-  private onOptionsClick(ev: PointerEvent) {
-    // TODO: b/336963138 - Implements options.
-    ev.preventDefault();
-    ev.stopPropagation();
+  private onOptionsClick() {
     this.menuShown.update((s) => !s);
   }
 
@@ -349,6 +404,34 @@ export class RecordingFileListItem extends ReactiveLitElement {
     ];
   }
 
+  private renderPlayButton() {
+    const playIcon = this.playing ? 'pause' : 'play_arrow';
+    const classes = {
+      'has-progress': this.playProgress !== null,
+    };
+    const styles = {
+      '--progress':
+        this.playProgress === null ? null : clamp(this.playProgress, 0, 100),
+    };
+    const title = assertExists(this.recording?.title);
+    const ariaLabel = this.playing ?
+      i18n.recordingItemPauseButtonAriaLabel(title) :
+      i18n.recordingItemPlayButtonAriaLabel(title);
+
+    return html`
+      <cra-icon-button
+        class="play-button ${classMap(classes)}"
+        style=${styleMap(styles)}
+        shape="circle"
+        @click=${this.onPlayClick}
+        @pointerdown=${/* To prevent ripple on card. */ stopPropagation}
+        aria-label=${ariaLabel}
+      >
+        <cra-icon slot="icon" .name=${playIcon}></cra-icon>
+      </cra-icon-button>
+    `;
+  }
+
   override render(): RenderResult {
     if (this.recording === null) {
       return nothing;
@@ -357,6 +440,8 @@ export class RecordingFileListItem extends ReactiveLitElement {
     const classes = {
       'menu-shown': this.menuShown.value,
     };
+    const title = this.recording.title;
+
     // TODO(pihsun): Check why the ripple sometimes doesn't happen on touch
     // long-press but sometimes does.
     // TODO: b/336963138 - Implements swipe left/right on the card to open/close
@@ -369,16 +454,11 @@ export class RecordingFileListItem extends ReactiveLitElement {
             cardstyle="filled"
             tabindex="0"
             interactive
+            ${ref(this.recordingCard)}
           >
-            <cra-icon-button
-              shape="circle"
-              @click=${this.onPlayClick}
-              @pointerdown=${/* To prevent ripple on card. */ stopPropagation}
-            >
-              <cra-icon slot="icon" name="play_arrow"></cra-icon>
-            </cra-icon-button>
+            ${this.renderPlayButton()}
             <div id="recording-info">
-              ${this.renderTitle(this.recording.title, this.searchHighlight)}
+              ${this.renderTitle(title, this.searchHighlight)}
               ${this.renderDescription(this.recording.description)}
               ${this.renderRecordingTimeline(this.recording)}
             </div>
@@ -387,6 +467,9 @@ export class RecordingFileListItem extends ReactiveLitElement {
             buttonstyle="floating"
             id="options"
             @click=${this.onOptionsClick}
+            aria-label=${i18n.recordingItemOptionsButtonAriaLabel(title)}
+            aria-expanded=${this.menuShown.value}
+            ${ref(this.optionsButtonRef)}
           >
             <cra-icon slot="icon" name="more_vertical"></cra-icon>
           </cra-icon-button>
@@ -395,21 +478,27 @@ export class RecordingFileListItem extends ReactiveLitElement {
           <cra-icon-button
             buttonstyle="floating"
             ?disabled=${!this.menuShown.value}
+            aria-hidden=${!this.menuShown.value}
             @click=${this.onShowRecordingInfoClick}
+            aria-label=${i18n.playbackMenuShowDetailOption}
           >
             <cra-icon slot="icon" name="info"></cra-icon>
           </cra-icon-button>
           <cra-icon-button
             buttonstyle="floating"
             ?disabled=${!this.menuShown.value}
+            aria-hidden=${!this.menuShown.value}
             @click=${this.onExportRecordingClick}
+            aria-label=${i18n.playbackMenuExportOption}
           >
             <cra-icon slot="icon" name="export"></cra-icon>
           </cra-icon-button>
           <cra-icon-button
             buttonstyle="floating"
             ?disabled=${!this.menuShown.value}
+            aria-hidden=${!this.menuShown.value}
             @click=${this.onDeleteRecordingClick}
+            aria-label=${i18n.playbackMenuDeleteOption}
           >
             <cra-icon slot="icon" name="delete"></cra-icon>
           </cra-icon-button>

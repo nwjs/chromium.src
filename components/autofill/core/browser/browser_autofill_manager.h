@@ -42,6 +42,7 @@
 #include "components/autofill/core/browser/metrics/form_events/credit_card_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
 #include "components/autofill/core/browser/metrics/manual_fallback_metrics.h"
+#include "components/autofill/core/browser/password_form_classification.h"
 #include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/card_unmask_delegate.h"
 #include "components/autofill/core/browser/payments/full_card_request.h"
@@ -60,6 +61,10 @@
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
+
+namespace optimization_guide::proto {
+class UserAnnotationsEntry;
+}
 
 namespace autofill {
 
@@ -164,7 +169,7 @@ class BrowserAutofillManager : public AutofillManager {
                             const FormFieldData& trigger_field);
   // Virtual for testing
   virtual void DidShowSuggestions(
-      base::span<const SuggestionType> shown_suggestions_types,
+      DenseSet<SuggestionType> shown_suggestion_types,
       const FormData& form,
       const FormFieldData& field);
 
@@ -185,6 +190,20 @@ class BrowserAutofillManager : public AutofillManager {
       const FormFieldData& field,
       const CreditCard& credit_card,
       const AutofillTriggerDetails& trigger_details);
+
+  /////////////////
+  // DO NOT USE! //
+  /////////////////
+  // See `FormFiller::FillOrPreviewFormExperimental()`.
+  // TODO(crbug.com/40227071): Clean up the API.
+  virtual void FillOrPreviewFormExperimental(
+      mojom::ActionPersistence action_persistence,
+      FillingProduct filling_product,
+      const FieldTypeSet& field_types_to_fill,
+      const DenseSet<FieldFillingSkipReason>& ignorable_skip_reasons,
+      const FormData& form,
+      const FormFieldData& trigger_field,
+      const base::flat_map<FieldGlobalId, std::u16string>& values_to_fill);
 
   // Remove the credit card or Autofill profile that matches |backend_id|
   // from the database. Returns true if deletion is allowed.
@@ -451,8 +470,30 @@ class BrowserAutofillManager : public AutofillManager {
   };
 
   // Triggers the possible import of submitted data at submission time.
-  void MaybeImportFromSubmittedForm(const FormData& form,
-                                    const FormStructure* const form_structure);
+  void MaybeImportFromSubmittedForm(
+      const FormData& form,
+      const FormStructure* const form_structure,
+      bool attempt_to_import_into_form_data_importer);
+
+  // Event handler for
+  // `AutofillPredictionImprovementsDelegate::MaybeImportForm()` which is bound
+  // on form submission if the delegate exists.
+  void OnUserAnnotationsMaybeImportableFormFound(
+      const FormData& form,
+      std::unique_ptr<FormStructure> submitted_form,
+      mojom::SubmissionSource source,
+      base::TimeTicks form_submitted_timestamp,
+      std::vector<optimization_guide::proto::UserAnnotationsEntry>
+          to_be_upserted_entries,
+      base::OnceCallback<void(bool prompt_was_accepted)>
+          prompt_acceptance_callback);
+
+  // Method containing logic to be run in `OnFormSubmittedImpl()` after any
+  // import attempts of the submitted form occurred.
+  void OnFormSubmittedAfterImport(const FormData& form,
+                                  std::unique_ptr<FormStructure> submitted_form,
+                                  mojom::SubmissionSource source,
+                                  base::TimeTicks form_submitted_timestamp);
 
   // Emits all metrics that should be recorded at submission time.
   void LogSubmissionMetrics(const FormStructure* submitted_form,
@@ -519,13 +560,6 @@ class BrowserAutofillManager : public AutofillManager {
       FieldType trigger_field_type,
       AutofillSuggestionTriggerSource trigger_source,
       autofill_metrics::SuggestionRankingContext& ranking_context);
-
-  // Returns a mapping of credit card guid values to virtual card last fours for
-  // standalone CVC field. Cards will only be added to the returned map if they
-  // have usage data on the webpage and the VCN last four was found on webpage
-  // DOM.
-  base::flat_map<std::string, VirtualCardUsageData::VirtualCardLastFour>
-  GetVirtualCreditCardsForStandaloneCvcField(const url::Origin& origin) const;
 
   // If `metrics_->initial_interaction_timestamp` is unset or is set to a later
   // time than `interaction_timestamp`, updates the cached timestamp.  The
@@ -601,7 +635,7 @@ class BrowserAutofillManager : public AutofillManager {
   // `OnGenerateSuggestionsCallback`.
   void OnGeneratedPlusAddressAndSingleFieldFormFillSuggestions(
       AutofillPlusAddressDelegate::SuggestionContext suggestions_context,
-      AutofillClient::PasswordFormClassification::Type password_form_type,
+      PasswordFormClassification::Type password_form_type,
       const FormData& form,
       const FormFieldData& field,
       OnGenerateSuggestionsCallback callback,
@@ -633,7 +667,7 @@ class BrowserAutofillManager : public AutofillManager {
 
   void OnGetPlusAddressSuggestions(
       AutofillPlusAddressDelegate::SuggestionContext suggestions_context,
-      AutofillClient::PasswordFormClassification::Type password_form_type,
+      PasswordFormClassification::Type password_form_type,
       const FormData& form,
       const FormFieldData& field,
       std::vector<Suggestion> address_suggestions,

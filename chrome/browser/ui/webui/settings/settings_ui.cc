@@ -116,6 +116,7 @@
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/content_features.h"
 #include "crypto/crypto_buildflags.h"
+#include "device/vr/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/features.h"
@@ -184,15 +185,12 @@
 #include "chrome/browser/ui/webui/settings/native_certificates_handler.h"
 #endif  // BUILDFLAG(USE_NSS_CERTS)
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/browser_process_platform_part.h"
-#include "components/password_manager/core/browser/password_manager_util.h"
-#include "components/password_manager/core/common/password_manager_pref_names.h"
-#endif
-
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/webui/settings/mac_system_settings_handler.h"
+#endif
+
+#if BUILDFLAG(ENABLE_VR)
+#include "device/vr/public/cpp/features.h"
 #endif
 
 namespace settings {
@@ -333,12 +331,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
         ->FetchPriceEmailPref();
   }
 
-  const bool is_search_engine_choice_settings_ui =
-      search_engines::IsChoiceScreenFlagEnabled(
-          search_engines::ChoicePromo::kAny);
-  html_source->AddBoolean("searchEngineChoiceSettingsUi",
-                          is_search_engine_choice_settings_ui);
-
   search_engines::SearchEngineChoiceService*
       search_engine_choice_dialog_service =
           search_engines::SearchEngineChoiceServiceFactory::GetForProfile(
@@ -376,6 +368,13 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "enableCbdTimeframeRequired",
       base::FeatureList::IsEnabled(features::kCbdTimeframeRequired));
 
+  html_source->AddBoolean("enableHandTrackingContentSetting",
+#if BUILDFLAG(ENABLE_VR)
+                          device::features::IsHandTrackingEnabled());
+#else
+                          false);
+#endif
+
   html_source->AddBoolean("enableHashPrefixRealTimeLookups",
                           safe_browsing::hash_realtime_utils::
                               IsHashRealTimeLookupEligibleInSession());
@@ -405,20 +404,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "downloadBubblePartialViewControlledByPref",
       download::IsDownloadBubbleEnabled() &&
           download::IsDownloadBubblePartialViewControlledByPref());
-
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  html_source->AddBoolean(
-      "biometricAuthenticationForFilling",
-      password_manager_util::
-          ShouldBiometricAuthenticationForFillingToggleBeVisible(
-              g_browser_process->local_state()));
-#endif
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  html_source->AddBoolean(
-      "showGetTheMostOutOfChromeSection",
-      base::FeatureList::IsEnabled(features::kGetTheMostOutOfChrome));
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   html_source->AddBoolean(
       "extendedReportingRemovePrefDependency",
@@ -551,11 +536,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(
           privacy_sandbox::kPrivacySandboxProactiveTopicsBlocking));
 
-  html_source->AddBoolean(
-      "isPrivacySandboxPrivacyGuideAdTopicsEnabled",
-      base::FeatureList::IsEnabled(
-          privacy_sandbox::kPrivacySandboxPrivacyGuideAdTopics));
-
   // Performance
   AddSettingsPageUIHandler(std::make_unique<PerformanceHandler>());
   html_source->AddBoolean(
@@ -582,12 +562,20 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                           base::FeatureList::IsEnabled(
                               features::kAutomaticFullscreenContentSetting));
 
+  html_source->AddBoolean(
+      "enableSmartCardReadersContentSetting",
+      base::FeatureList::IsEnabled(blink::features::kSmartCard));
+
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // System
   html_source->AddBoolean(
       "showFeatureNotificationsSetting",
       base::FeatureList::IsEnabled(features::kRegisterOsUpdateHandlerWin));
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
+  html_source->AddBoolean(
+      "enableWebAppInstallation",
+      base::FeatureList::IsEnabled(blink::features::kWebAppInstallation));
 
   // AI
   optimization_guide::UserVisibleFeatureKey optimization_guide_features[4] = {
@@ -623,6 +611,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                           optimization_guide_feature_visible[3]);
   html_source->AddBoolean("showHistorySearchControl",
                           optimization_guide_feature_visible[4]);
+
+  html_source->AddBoolean(
+      "enableAiSettingsPageRefresh",
+      base::FeatureList::IsEnabled(features::kAiSettingsPageRefresh));
 
   TryShowHatsSurveyWithTimeout();
 }

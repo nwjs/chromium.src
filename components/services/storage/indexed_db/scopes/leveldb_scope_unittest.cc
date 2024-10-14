@@ -22,7 +22,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/leveldatabase/src/include/leveldb/slice.h"
 
-namespace content {
+namespace content::indexed_db {
 namespace {
 
 class LevelDBScopeTest : public LevelDBScopesTestBase {
@@ -37,7 +37,7 @@ class LevelDBScopeTest : public LevelDBScopesTestBase {
     base::RunLoop loop;
     PartitionedLockHolder locks_receiver;
     lock_manager->AcquireLocks(
-        lock_requests, locks_receiver.AsWeakPtr(),
+        lock_requests, locks_receiver,
         base::BindLambdaForTesting([&loop]() { loop.Quit(); }));
     loop.Run();
     return std::move(locks_receiver.locks);
@@ -613,4 +613,4 @@ TEST_F(LevelDBScopeTest, DeleteNonExistentRangeDoesNotWrite) {
 }
 
 }  // namespace
-}  // namespace content
+}  // namespace content::indexed_db

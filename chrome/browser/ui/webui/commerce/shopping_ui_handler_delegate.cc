@@ -159,7 +159,7 @@ void ShoppingUiHandlerDelegate::ShowFeedbackForProductSpecifications(
       /*description_template=*/std::string(),
       /*description_placeholder_text=*/
       l10n_util::GetStringUTF8(IDS_COMPARE_FEEDBACK_PLACEHOLDER),
-      /*category_tag=*/"product_specifications",
+      /*category_tag=*/"compare",
       /*extra_diagnostics=*/std::string(),
       /*autofill_metadata=*/base::Value::Dict(), std::move(feedback_metadata));
 }
@@ -198,7 +198,8 @@ ukm::SourceId ShoppingUiHandlerDelegate::GetCurrentTabUkmSourceId() {
 
 void ShoppingUiHandlerDelegate::ShowProductSpecificationsDisclosureDialog(
     const std::vector<GURL>& urls,
-    const std::string& name) {
+    const std::string& name,
+    const std::string& set_id) {
   auto* browser = chrome::FindTabbedBrowser(profile_, false);
   content::WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
@@ -207,7 +208,7 @@ void ShoppingUiHandlerDelegate::ShowProductSpecificationsDisclosureDialog(
   }
   // Currently this method is only used to trigger the dialog which will open
   // the potential product specification set in the current tab.
-  DialogArgs dialog_args(urls, name, /*in_new_tab=*/false);
+  DialogArgs dialog_args(urls, name, set_id, /*in_new_tab=*/false);
   ProductSpecificationsDisclosureDialog::ShowDialog(profile_, web_contents,
                                                     std::move(dialog_args));
 }

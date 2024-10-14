@@ -17,18 +17,19 @@ namespace ash {
 namespace {
 
 constexpr base::TimeDelta kRecencyThreshold = base::Seconds(60);
+constexpr int kMaxTextLength = 10000;
 
-std::optional<PickerSearchResult::ClipboardData::DisplayFormat>
-GetDisplayFormat(const ClipboardHistoryItem& item) {
+std::optional<PickerClipboardResult::DisplayFormat> GetDisplayFormat(
+    const ClipboardHistoryItem& item) {
   switch (item.display_format()) {
     case crosapi::mojom::ClipboardHistoryDisplayFormat::kFile:
-      return PickerSearchResult::ClipboardData::DisplayFormat::kFile;
+      return PickerClipboardResult::DisplayFormat::kFile;
     case crosapi::mojom::ClipboardHistoryDisplayFormat::kText:
       return GURL(item.display_text()).is_valid()
-                 ? PickerSearchResult::ClipboardData::DisplayFormat::kUrl
-                 : PickerSearchResult::ClipboardData::DisplayFormat::kText;
+                 ? PickerClipboardResult::DisplayFormat::kUrl
+                 : PickerClipboardResult::DisplayFormat::kText;
     case crosapi::mojom::ClipboardHistoryDisplayFormat::kPng:
-      return PickerSearchResult::ClipboardData::DisplayFormat::kImage;
+      return PickerClipboardResult::DisplayFormat::kImage;
     case crosapi::mojom::ClipboardHistoryDisplayFormat::kHtml:
       // TODO: b/348102522 - Show HTML content once it's possible to render them
       // inside Picker.
@@ -40,6 +41,9 @@ GetDisplayFormat(const ClipboardHistoryItem& item) {
 bool MatchQuery(const ClipboardHistoryItem& item, std::u16string_view query) {
   if (query.empty()) {
     return true;
+  }
+  if (item.display_text().length() > kMaxTextLength) {
+    return false;
   }
   if (item.display_format() !=
           crosapi::mojom::ClipboardHistoryDisplayFormat::kText &&
@@ -80,10 +84,10 @@ void PickerClipboardHistoryProvider::OnFetchHistory(
     if (!MatchQuery(item, query)) {
       continue;
     }
-    if (std::optional<PickerSearchResult::ClipboardData::DisplayFormat>
-            display_format = GetDisplayFormat(item);
+    if (std::optional<PickerClipboardResult::DisplayFormat> display_format =
+            GetDisplayFormat(item);
         display_format.has_value()) {
-      results.push_back(PickerSearchResult::Clipboard(
+      results.push_back(PickerClipboardResult(
           item.id(), *display_format, item.file_count(), item.display_text(),
           item.display_image(),
           (clock_->Now() - item.time_copied()) < kRecencyThreshold));

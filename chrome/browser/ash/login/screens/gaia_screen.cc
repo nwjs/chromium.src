@@ -12,12 +12,12 @@
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "chrome/browser/ash/login/demo_mode/demo_setup_controller.h"
-#include "chrome/browser/ash/login/ui/login_display_host.h"
 #include "chrome/browser/ash/login/wizard_context.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/policy/enrollment/account_status_check_fetcher.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
+#include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_screen_handler.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
@@ -201,6 +201,13 @@ void GaiaScreen::ShowImpl() {
   if (!backlights_forced_off_observation_.IsObserving()) {
     backlights_forced_off_observation_.Observe(
         Shell::Get()->backlights_forced_off_setter());
+  }
+
+  // --- Automatic Sign In After Enrollment ---
+  // If the device was just enrolled, sign-in using the previous credentials.
+  if (features::IsOobeAddUserDuringEnrollmentEnabled() &&
+      MaybeLoginWithCachedCredentials()) {
+    return;
   }
 
   LoadOnlineGaia();
@@ -430,6 +437,36 @@ void GaiaScreen::SetQuickStartButtonVisibility(bool visible) {
   if (view_) {
     view_->SetQuickStartEntryPointVisibility(visible);
   }
+}
+
+bool GaiaScreen::MaybeLoginWithCachedCredentials() {
+  CHECK(features::IsOobeAddUserDuringEnrollmentEnabled());
+  CHECK(LoginDisplayHost::default_host());
+  WizardContext* wizard_context =
+      LoginDisplayHost::default_host()->GetWizardContext();
+  CHECK(wizard_context);
+
+  UserContext* user_context = wizard_context->user_context.get();
+  const bool user_context_available =
+      user_context && !user_context->GetAccountId().empty() &&
+      user_context->GetPassword() && !user_context->GetRefreshToken().empty();
+  if (!wizard_context->add_user_from_cached_credentials ||
+      !user_context_available) {
+    return false;
+  }
+
+  CHECK(user_context->GetAuthCode().empty());
+  if (view_) {
+    // Show the gaia screen without loading the gaia-dialog.
+    view_->ToggleLoadingUI(true);
+    view_->Show();
+  }
+
+  wizard_context->add_user_from_cached_credentials = false;
+  LoginDisplayHost::default_host()->CompleteLogin(
+      *std::move(wizard_context->user_context));
+
+  return true;
 }
 
 }  // namespace ash

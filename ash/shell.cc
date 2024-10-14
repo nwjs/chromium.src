@@ -118,6 +118,7 @@
 #include "ash/projector/projector_controller_impl.h"
 #include "ash/public/cpp/accelerator_keycode_lookup_cache.h"
 #include "ash/public/cpp/ash_prefs.h"
+#include "ash/public/cpp/coral_delegate.h"
 #include "ash/public/cpp/holding_space/holding_space_controller.h"
 #include "ash/public/cpp/login/local_authentication_request_controller.h"
 #include "ash/public/cpp/nearby_share_delegate.h"
@@ -125,7 +126,6 @@
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shell_window_ids.h"
-#include "ash/public/cpp/system_sounds_delegate.h"
 #include "ash/public/cpp/tab_cluster/tab_cluster_ui_controller.h"
 #include "ash/public/cpp/views_text_services_context_menu_ash.h"
 #include "ash/quick_pair/keyed_service/quick_pair_mediator.h"
@@ -258,6 +258,7 @@
 #include "base/ranges/algorithm.h"
 #include "base/system/sys_info.h"
 #include "base/trace_event/trace_event.h"
+#include "chromeos/ash/components/audio/system_sounds_delegate.h"
 #include "chromeos/ash/components/dbus/fwupd/fwupd_client.h"
 #include "chromeos/ash/components/dbus/typecd/typecd_client.h"
 #include "chromeos/ash/components/dbus/usb/usbguard_client.h"
@@ -750,6 +751,8 @@ Shell::~Shell() {
 
   ash_dbus_services_.reset();
 
+  coral_delegate_.reset();
+
   saved_desk_controller_.reset();
   saved_desk_delegate_.reset();
   desks_controller_->Shutdown();
@@ -821,6 +824,7 @@ Shell::~Shell() {
   // accessing invalid memory (see b/315127220).
   AccessibilityController::Get()->SetAccessibilityEventRewriter(nullptr);
   AccessibilityController::Get()->SetDisableTrackpadEventRewriter(nullptr);
+  AccessibilityController::Get()->SetFilterKeysEventRewriter(nullptr);
   event_rewriter_controller_.reset();
   keyboard_modifier_metrics_recorder_.reset();
   touchscreen_metrics_recorder_.reset();
@@ -1815,6 +1819,9 @@ void Shell::Init(
   if (features::IsCoralFeatureEnabled() &&
       CoralController::IsSecretKeyMatched()) {
     coral_controller_ = std::make_unique<CoralController>();
+  }
+  if (features::IsBirchCoralEnabled()) {
+    coral_delegate_ = shell_delegate_->CreateCoralDelegate();
   }
 
   if (features::IsPickerUpdateEnabled()) {

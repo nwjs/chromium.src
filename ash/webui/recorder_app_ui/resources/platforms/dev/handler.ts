@@ -8,12 +8,18 @@
  * implementation other than mojo to exist in release image.
  */
 import 'chrome://resources/cros_components/dropdown/dropdown_option.js';
+import 'chrome://resources/cros_components/switch/switch.js';
 import '../../components/cra/cra-dropdown.js';
+import './error-view.js';
 
-import {html, nothing, styleMap} from 'chrome://resources/mwc/lit/index.js';
+import {
+  Switch as CrosSwitch,
+} from 'chrome://resources/cros_components/switch/switch.js';
+import {html, styleMap} from 'chrome://resources/mwc/lit/index.js';
 
 import {CraDropdown} from '../../components/cra/cra-dropdown.js';
 import {SAMPLE_RATE} from '../../core/audio_constants.js';
+import {NoArgStringName} from '../../core/i18n.js';
 import {InternalMicInfo} from '../../core/microphone_manager.js';
 import {
   Model,
@@ -21,10 +27,11 @@ import {
   ModelResponse,
   ModelState,
 } from '../../core/on_device_model/types.js';
+import {PerfLogger} from '../../core/perf.js';
 import {
   PlatformHandler as PlatformHandlerBase,
 } from '../../core/platform_handler.js';
-import {signal} from '../../core/reactive/signal.js';
+import {computed, signal} from '../../core/reactive/signal.js';
 import {
   HypothesisPart,
   SodaEvent,
@@ -37,21 +44,16 @@ import {
   assertExists,
   assertInstanceof,
 } from '../../core/utils/assert.js';
-import * as localStorage from '../../core/utils/local_storage.js';
 import {
   Observer,
   ObserverList,
   Unsubscribe,
 } from '../../core/utils/observer_list.js';
-import {ValidationError} from '../../core/utils/schema.js';
 import {sleep} from '../../core/utils/utils.js';
 
-import {
-  ColorTheme,
-  devSettings,
-  devSettingsSchema,
-  init as settingsInit,
-} from './settings.js';
+import {ErrorView} from './error-view.js';
+import {EventsSender} from './metrics.js';
+import {ColorTheme, devSettings, init as settingsInit} from './settings.js';
 import {strings} from './strings.js';
 
 class TitleSuggestionModelDev implements Model<string[]> {
@@ -106,6 +108,15 @@ class ModelLoaderDev<T> extends ModelLoader<T> {
       }
     }
     return this.model;
+  }
+
+  override async loadAndExecute(content: string): Promise<ModelResponse<T>> {
+    const model = await this.load();
+    try {
+      return await model.execute(content);
+    } finally {
+      model.close();
+    }
   }
 }
 
@@ -326,7 +337,28 @@ export class PlatformHandler extends PlatformHandlerBase {
 
   override readonly sodaState = signal<ModelState>({kind: 'notInstalled'});
 
+  override readonly canUseSpeakerLabel = computed(
+    () => devSettings.value.canUseSpeakerLabel,
+  );
+
+  readonly errorView = new ErrorView();
+
+  static override getStringF(id: string, ...args: Array<number|string>):
+    string {
+    const label = strings[id];
+    if (label === undefined) {
+      console.error(`Unknown string ${id}`);
+      return '';
+    }
+    return substituteI18nString(label, ...args);
+  }
+
+  override readonly canCaptureSystemAudioWithLoopback = computed(
+    () => devSettings.value.canCaptureSystemAudioWithLoopback,
+  );
+
   override async init(): Promise<void> {
+    document.body.appendChild(this.errorView);
     settingsInit();
     if (devSettings.value.sodaInstalled) {
       // TODO(pihsun): Remember the whole state in devSettings instead?
@@ -339,6 +371,10 @@ export class PlatformHandler extends PlatformHandlerBase {
   override titleSuggestionModelLoader = new ModelLoaderDev(
     new TitleSuggestionModelDev(),
   );
+
+  override eventsSender = new EventsSender();
+
+  override perfLogger = new PerfLogger(this.eventsSender);
 
   override installSoda(): void {
     console.log('SODA installation requested');
@@ -376,22 +412,25 @@ export class PlatformHandler extends PlatformHandlerBase {
     return {isDefault: false, isInternal: false};
   }
 
-  override getStringF(id: string, ...args: Array<number|string>): string {
-    const label = strings[id];
-    if (label === undefined) {
-      console.error(`Unknown string ${id}`);
-      return '';
-    }
-    return substituteI18nString(label, ...args);
-  }
-
   override renderDevUi(): RenderResult {
-    function handleChange(ev: Event) {
+    function handleColorModeChange(ev: Event) {
       devSettings.mutate((s) => {
         s.forceTheme = assertEnumVariant(
           ColorTheme,
           assertInstanceof(ev.target, CraDropdown).value,
         );
+      });
+    }
+    function handleCanUseSpeakerLabelChange(ev: Event) {
+      const target = assertInstanceof(ev.target, CrosSwitch);
+      devSettings.mutate((s) => {
+        s.canUseSpeakerLabel = target.selected;
+      });
+    }
+    function handleCanCaptureSystemAudioWithLoopbackChange(ev: Event) {
+      const target = assertInstanceof(ev.target, CrosSwitch);
+      devSettings.mutate((s) => {
+        s.canCaptureSystemAudioWithLoopback = target.selected;
       });
     }
     // TODO(pihsun): Move the dev toggle to a separate component, so we don't
@@ -406,7 +445,7 @@ export class PlatformHandler extends PlatformHandlerBase {
         <label style=${styleMap(labelStyle)}>
           <cra-dropdown
             label="dark/light mode"
-            @change=${handleChange}
+            @change=${handleColorModeChange}
             .value=${devSettings.value.forceTheme ?? ColorTheme.SYSTEM}
           >
             <cros-dropdown-option
@@ -421,20 +460,39 @@ export class PlatformHandler extends PlatformHandlerBase {
           </cra-dropdown>
         </label>
       </div>
+      <div class="section">
+        <label style=${styleMap(labelStyle)}>
+          <!--
+            TODO(pihsun): cros-switch doesn't automatically makes clicking the
+            surrounding label toggles the switch, unlike md-switch.
+          -->
+          <cros-switch
+            @change=${handleCanUseSpeakerLabelChange}
+            .selected=${this.canUseSpeakerLabel.value}
+          >
+          </cros-switch>
+          Toggle can use speaker label
+        </label>
+      </div>
+      <div class="section">
+        <label style=${styleMap(labelStyle)}>
+          <!--
+            TODO(hsuanling): cros-switch doesn't automatically makes clicking
+            the surrounding label toggles the switch, unlike md-switch.
+          -->
+          <cros-switch
+            @change=${handleCanCaptureSystemAudioWithLoopbackChange}
+            .selected=${this.canCaptureSystemAudioWithLoopback.value}
+          >
+          </cros-switch>
+          Toggle can capture system audio via getDisplayMedia
+        </label>
+      </div>
     `;
   }
 
-  override handleUncaughtError(error: unknown): RenderResult|null {
-    if (error instanceof ValidationError &&
-        error.issue.schema === devSettingsSchema) {
-      // This is caused by dev settings schema change, clear the localStorage
-      // and refresh.
-      console.error('Detected dev settings schema change...');
-      localStorage.remove(localStorage.Key.DEV_SETTINGS);
-      window.location.reload();
-      return nothing;
-    }
-    return null;
+  override handleUncaughtError(error: unknown): void {
+    this.errorView.error = error;
   }
 
   override showAiFeedbackDialog(description: string): void {
@@ -447,7 +505,11 @@ export class PlatformHandler extends PlatformHandlerBase {
     // DISPLAY_MEDIA_SYSTEM_AUDIO permission is not granted, so we need to
     // remove the video tracks manually.
     const stream = await navigator.mediaDevices.getDisplayMedia({
-      audio: true,
+      audio: {
+        autoGainControl: {ideal: false},
+        echoCancellation: {ideal: false},
+        noiseSuppression: {ideal: false},
+      },
       systemAudio: 'include',
     });
     const videoTracks = stream.getVideoTracks();
@@ -461,5 +523,18 @@ export class PlatformHandler extends PlatformHandlerBase {
     // Always use en-US in dev mode, since mock for the main i18n also use en-US
     // translations.
     return 'en-US';
+  }
+
+  override recordSpeakerLabelConsent(
+    consentGiven: boolean,
+    consentDescriptionNames: NoArgStringName[],
+    consentConfirmationName: NoArgStringName,
+  ): void {
+    console.info(
+      'Recorded speaker label consent: ',
+      consentGiven,
+      consentDescriptionNames,
+      consentConfirmationName,
+    );
   }
 }

@@ -816,7 +816,9 @@ void CheckOutput(
       auto force_chrome_build =
           GetItemValueForKey<bool>(InputKey::kForceChromeBuild, input);
       privacy_sandbox_service->ForceChromeBuildForTests(force_chrome_build);
-      EXPECT_EQ(prompt_type, privacy_sandbox_service->GetRequiredPromptType());
+      // TODO(crbug.com/359902106): Test various SurfaceTypes here.
+      EXPECT_EQ(prompt_type,
+                privacy_sandbox_service->GetRequiredPromptType(/*kDesktop*/ 0));
       return;
     }
     case (OutputKey::kM1PromptSuppressedReason): {
@@ -1023,6 +1025,37 @@ void CheckOutput(
         ASSERT_EQ(*actual_out_is_block_site_specific,
                   *expected_out_is_block_site_specific);
       }
+      return;
+    }
+    case (OutputKey::kIsLocalUnpartitionedDataAccessAllowed): {
+      SCOPED_TRACE("Check Output: IsLocalUnpartitionedDataAccessAllowed()");
+      auto top_frame_origin =
+          GetItemValueForKey<url::Origin>(InputKey::kTopFrameOrigin, input);
+      auto accessing_origin =
+          GetItemValueForKey<url::Origin>(InputKey::kAccessingOrigin, input);
+      auto return_value = GetItemValue<bool>(output_value);
+      ASSERT_EQ(return_value,
+                privacy_sandbox_settings->IsLocalUnpartitionedDataAccessAllowed(
+                    top_frame_origin, accessing_origin,
+                    /*console_frame=*/nullptr));
+      return;
+    }
+    case (OutputKey::kIsLocalUnpartitionedDataAccessAllowedMetric): {
+      SCOPED_TRACE(
+          "Check Output: PrivacySandbox.IsLocalUnpartitionedDataAccessAllowed");
+      base::HistogramTester histogram_tester;
+      auto top_frame_origin =
+          GetItemValueForKey<url::Origin>(InputKey::kTopFrameOrigin, input);
+      auto accessing_origin =
+          GetItemValueForKey<url::Origin>(InputKey::kAccessingOrigin, input);
+      std::ignore =
+          privacy_sandbox_settings->IsLocalUnpartitionedDataAccessAllowed(
+              top_frame_origin, accessing_origin,
+              /*console_frame=*/nullptr);
+      auto histogram_value = GetItemValue<int>(output_value);
+      histogram_tester.ExpectUniqueSample(
+          "PrivacySandbox.IsLocalUnpartitionedDataAccessAllowed",
+          histogram_value, 1);
       return;
     }
   }

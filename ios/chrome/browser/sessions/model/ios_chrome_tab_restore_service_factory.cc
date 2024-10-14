@@ -11,7 +11,7 @@
 #include "components/sessions/core/tab_restore_service_impl.h"
 #include "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_service_client.h"
 #include "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
-#include "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#include "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
 namespace {
 
@@ -32,10 +32,15 @@ std::unique_ptr<KeyedService> BuildTabRestoreService(
 
 // static
 sessions::TabRestoreService*
-IOSChromeTabRestoreServiceFactory::GetForBrowserState(
-    ChromeBrowserState* browser_state) {
+IOSChromeTabRestoreServiceFactory::GetForBrowserState(ProfileIOS* profile) {
+  return GetForProfile(profile);
+}
+
+// static
+sessions::TabRestoreService* IOSChromeTabRestoreServiceFactory::GetForProfile(
+    ProfileIOS* profile) {
   return static_cast<sessions::TabRestoreService*>(
-      GetInstance()->GetServiceForBrowserState(browser_state, true));
+      GetInstance()->GetServiceForBrowserState(profile, true));
 }
 
 // static

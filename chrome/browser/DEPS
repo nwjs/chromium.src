@@ -32,7 +32,6 @@ include_rules = [
   "+chrome/services/mac_notifications/public",
   "+chrome/services/machine_learning/public",
   "+chrome/services/media_gallery_util/public",
-  "+chrome/services/on_device_translation/public",
   "+chrome/services/pdf/public",
   "+chrome/services/printing/public",
   "+chrome/services/sharing/public",
@@ -194,6 +193,7 @@ include_rules = [
   "+components/language/core/browser",
   "+components/language/core/common",
   "+components/language/core/language_model",
+  "+components/language_detection/core/browser",
   "+components/lens",
   "+components/leveldb_proto/content",
   "+components/leveldb_proto/public",
@@ -269,6 +269,7 @@ include_rules = [
   "+components/performance_manager/embedder",
   "+components/performance_manager/test_support",
   "+components/permissions",
+  "+components/sampling_profiler",
   "+components/webid",
   "+components/pdf/browser",
   "+components/pdf/common",
@@ -326,6 +327,7 @@ include_rules = [
   "+components/services/heap_profiling",
   "+components/services/language_detection/public/cpp",
   "+components/services/language_detection/public/mojom",
+  "+components/services/on_device_translation/public",
   "+components/services/paint_preview_compositor/public/mojom",
   "+components/services/patch/content",
   "+components/services/patch/public",
@@ -370,6 +372,8 @@ include_rules = [
   "+components/tracing/common",
   "+components/translate/content/android",
   "+components/translate/content/browser",
+  "+components/language_detection/content/browser",
+  "+components/language_detection/content/common",
   "+components/translate/content/common",
   "+components/translate/core/browser",
   "+components/translate/core/common",
@@ -623,6 +627,9 @@ specific_include_rules = {
   "browsing_data_model_browsertest.cc" : [
     "+components/services/storage/shared_storage/shared_storage_manager.h",
   ],
+  "ash_session_restore_page_load_metrics_observer_browsertest\.cc": [
+    "+ash/wm/window_restore/window_restore_util.h",
+  ],
   "render_view_context_menu_browsertest.cc" : [
     "+third_party/libwebp/src/src/webp/decode.h",
   ],
@@ -631,5 +638,11 @@ specific_include_rules = {
   ],
   "shared_storage_browsertest.cc": [
     "+components/services/storage/shared_storage/shared_storage_manager.h",
+  ],
+  "certificate_manager_model.cc": [
+    "+ash/components/kcer",
+  ],
+  "certificate_manager_model_unittest.cc": [
+    "+ash/components/kcer/extra_instances.h",
   ],
 }

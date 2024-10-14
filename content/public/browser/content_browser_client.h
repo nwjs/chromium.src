@@ -13,6 +13,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include "base/containers/flat_map.h"
@@ -31,6 +32,7 @@
 #include "components/file_access/scoped_file_access.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/allow_service_worker_result.h"
+#include "content/public/browser/auction_result.h"
 #include "content/public/browser/certificate_request_result_type.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/clipboard_types.h"
@@ -38,6 +40,7 @@
 #include "content/public/browser/digital_identity_interstitial_type.h"
 #include "content/public/browser/digital_identity_provider.h"
 #include "content/public/browser/file_system_access_permission_context.h"
+#include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/generated_code_cache_settings.h"
 #include "content/public/browser/interest_group_api_operation.h"
 #include "content/public/browser/interest_group_manager.h"
@@ -45,6 +48,7 @@
 #include "content/public/browser/login_delegate.h"
 #include "content/public/browser/mojo_binder_policy_map.h"
 #include "content/public/browser/privacy_sandbox_invoking_api.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/common/alternative_error_page_override_info.mojom-forward.h"
 #include "content/public/common/page_visibility_state.h"
@@ -974,10 +978,19 @@ class CONTENT_EXPORT ContentBrowserClient {
       content::PrivacySandboxInvokingAPI invoking_api,
       bool post_impression_reporting);
 
+  // Called when a Fledge auction is complete (without being aborted). If there
+  // is a winner, `winner_data_key` should be non-null. `is_server_auction`
+  // should be true if any component of the auction was a B&A server auction.
+  // `is_on_device_auction` should be true if any component of the auction was
+  // on-device. If the auction contained both B&A server and on-device auctions,
+  // both `is_server_auction` and `is_on_device_auction` should be true.
   virtual void OnAuctionComplete(
       RenderFrameHost* render_frame_host,
       std::optional<content::InterestGroupManager::InterestGroupDataKey>
-          winner_data_key);
+          winner_data_key,
+      bool is_server_auction,
+      bool is_on_device_auction,
+      AuctionResult result);
 
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
@@ -1717,11 +1730,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // This is called on the UI thread.
   virtual bool IsRendererCodeIntegrityEnabled();
 
-  // Returns whether PDF fallback fonts are proxied to child processes. If false
-  // they may require direct file system access. This is a short-term API and
-  // will be removed once crbug.com/344643689 is launched.
-  virtual bool IsPdfFontProxyEnabled();
-
   // Performs a fast and orderly shutdown of the browser. If present,
   // `control_type` is a CTRL_* value from a Windows console control handler;
   // see https://learn.microsoft.com/en-us/windows/console/handlerroutine.
@@ -1755,8 +1763,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   //
   // |navigation_ui_data| is only valid if this is a navigation request.
   //
-  // |frame_tree_node_id| is also invalid (kNoFrameTreeNodeId) in some cases
-  // (e.g., requests for web workers).
+  // |frame_tree_node_id| is also invalid in some cases (e.g., requests for web
+  // workers).
   //
   // |navigation_id| is only valid if this is a navigation request.
   //
@@ -1767,7 +1775,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       BrowserContext* browser_context,
       const base::RepeatingCallback<WebContents*()>& wc_getter,
       NavigationUIData* navigation_ui_data,
-      int frame_tree_node_id,
+      FrameTreeNodeId frame_tree_node_id,
       std::optional<int64_t> navigation_id);
 
   // Allows the embedder to register one or more URLLoaderThrottles for handling
@@ -1798,7 +1806,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // available. It can return nullptr for requests for which it there are no
   // WebContents (e.g., requests for web workers).
   //
-  // |frame_tree_node_id| is also invalid (kNoFrameTreeNodeId) in some cases
+  // |frame_tree_node_id| is also invalid in some cases
   // (e.g., requests for web workers).
   //
   // This is called on the UI thread.
@@ -1807,7 +1815,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       const network::ResourceRequest& request,
       BrowserContext* browser_context,
       const base::RepeatingCallback<WebContents*()>& wc_getter,
-      int frame_tree_node_id);
+      FrameTreeNodeId frame_tree_node_id);
 
   // Allows the embedder to register per-scheme URLLoaderFactory implementations
   // to handle navigation URL requests for schemes not handled by the Network
@@ -1820,8 +1828,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Note that a RenderFrameHost or RenderProcessHost aren't passed in because
   // these can change during a navigation (e.g. depending on redirects).
   virtual mojo::PendingRemote<network::mojom::URLLoaderFactory>
-  CreateNonNetworkNavigationURLLoaderFactory(const std::string& scheme,
-                                             int frame_tree_node_id);
+  CreateNonNetworkNavigationURLLoaderFactory(
+      const std::string& scheme,
+      FrameTreeNodeId frame_tree_node_id);
 
   using NonNetworkURLLoaderFactoryMap =
       std::map<std::string,
@@ -1904,9 +1913,20 @@ class CONTENT_EXPORT ContentBrowserClient {
   //
   // |type| indicates the type of requests the factory will be used for.
   //
-  // |frame| is nullptr for type kWorkerSubResource, kServiceWorkerSubResource
-  // and kServiceWorkerScript. For kNavigation type, it's the RenderFrameHost
-  // the navigation might commit in. Else it's the initiating frame.
+  // |frame| is set upon |type|:
+  // - For kServiceWorkerSubResource type and kServiceWorkerScript type,
+  //   nullptr is set.
+  // - For kWorkerSubResource type used for SharedWorker, nullptr is set.
+  // - For kWorkerSubResource type used for DedicatedWorker
+  //   (Note: used only in PlzDedicatedWorker cases),
+  //   the worker's ancestor RenderFrameHost, which is always non-null, is set
+  //   for preserving non-PlzDedicatedWorker behavior for WebViewClient.
+  //   See: crbug.com/356827071.
+  //   However, if the feature flag kUseAncestorRenderFrameForWorker is
+  //   disabled, nullptr is set instead.
+  // - For kNavigation type, it's the RenderFrameHost the navigation might
+  //   commit in.
+  // - Else, it's the initiating frame.
   //
   // |render_process_id| is the id of a render process host in which the
   // URLLoaderFactory will be used.
@@ -2099,7 +2119,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual std::vector<std::unique_ptr<URLLoaderRequestInterceptor>>
   WillCreateURLLoaderRequestInterceptors(
       content::NavigationUIData* navigation_ui_data,
-      int frame_tree_node_id,
+      FrameTreeNodeId frame_tree_node_id,
       int64_t navigation_id,
       bool force_no_https_upgrade,
       scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner);
@@ -2119,7 +2139,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // callback, the default behavior will be used to fetch the request.
   virtual URLLoaderRequestHandler
   CreateURLLoaderHandlerForServiceWorkerNavigationPreload(
-      int frame_tree_node_id,
+      FrameTreeNodeId frame_tree_node_id,
       const network::ResourceRequest& resource_request);
 
   // Called when the NetworkService, accessible through
@@ -2178,7 +2198,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   //           make JNI calls, because of the uncleared exception.
   //           Callers should return to the message loop as soon as
   //           possible, so that the exception can be rethrown.
-  virtual bool ShouldOverrideUrlLoading(int frame_tree_node_id,
+  virtual bool ShouldOverrideUrlLoading(FrameTreeNodeId frame_tree_node_id,
                                         bool browser_initiated,
                                         const GURL& gurl,
                                         const std::string& request_method,
@@ -2355,7 +2375,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool HandleExternalProtocol(
       const GURL& url,
       base::RepeatingCallback<WebContents*()> web_contents_getter,
-      int frame_tree_node_id,
+      FrameTreeNodeId frame_tree_node_id,
       NavigationUIData* navigation_data,
       bool is_primary_main_frame,
       bool is_in_fenced_frame_tree,

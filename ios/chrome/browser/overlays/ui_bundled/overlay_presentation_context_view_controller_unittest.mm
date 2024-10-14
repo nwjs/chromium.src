@@ -9,12 +9,12 @@
 #import "ios/chrome/browser/overlays/model/public/overlay_request.h"
 #import "ios/chrome/browser/overlays/model/public/test_modality/test_presented_overlay_request_config.h"
 #import "ios/chrome/browser/overlays/model/public/test_modality/test_resizing_presented_overlay_request_config.h"
-#import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
 #import "ios/chrome/browser/overlays/ui_bundled/overlay_presentation_context_impl.h"
 #import "ios/chrome/browser/overlays/ui_bundled/test/fake_overlay_request_coordinator_delegate.h"
 #import "ios/chrome/browser/overlays/ui_bundled/test_modality/test_presented_overlay_coordinator.h"
 #import "ios/chrome/browser/overlays/ui_bundled/test_modality/test_resizing_presented_overlay_coordinator.h"
+#import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/test/scoped_key_window.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/platform_test.h"
@@ -75,13 +75,7 @@ class OverlayPresentationContextViewControllerTest : public PlatformTest {
 
 // Tests that `view_controller_`'s frame is CGRectZero when there is no overlay
 // UI presented upon it.
-// TODO(crbug.com/360817336): Fix this flaky test on simulator and asan.
-#if TARGET_OS_SIMULATOR || defined(ADDRESS_SANITIZER)
-#define MAYBE_NoPresentedUI FLAKY_NoPresentedUI
-#else
-#define MAYBE_NoPresentedUI NoPresentedUI
-#endif
-TEST_F(OverlayPresentationContextViewControllerTest, MAYBE_NoPresentedUI) {
+TEST_F(OverlayPresentationContextViewControllerTest, NoPresentedUI) {
   CGRect container_view_frame =
       view_controller_.presentationController.containerView.frame;
   EXPECT_TRUE(CGRectEqualToRect(container_view_frame, CGRectZero));
@@ -151,14 +145,7 @@ TEST_F(OverlayPresentationContextViewControllerTest,
 // Tests that `view_controller_`'s frame is the same as its presented view's
 // container view if it is shown using custom UIViewController presentation that
 // resizes the contianer view.
-// TODO(crbug.com/360817336): Fix this flaky test on simulator and asan.
-#if TARGET_OS_SIMULATOR || defined(ADDRESS_SANITIZER)
-#define MAYBE_ResizingPresentedOverlay FLAKY_ResizingPresentedOverlay
-#else
-#define MAYBE_ResizingPresentedOverlay ResizingPresentedOverlay
-#endif
-TEST_F(OverlayPresentationContextViewControllerTest,
-       MAYBE_ResizingPresentedOverlay) {
+TEST_F(OverlayPresentationContextViewControllerTest, ResizingPresentedOverlay) {
   if (@available(iOS 15.7.1, *)) {
     if (@available(iOS 15.7.2, *)) {
     } else {

@@ -47,6 +47,12 @@ ContentIDs ContentIDsForType(TipsNotificationType type) {
     case TipsNotificationType::kOmniboxPosition:
       return {IDS_IOS_NOTIFICATIONS_TIPS_OMNIBOX_POSITION_TITLE,
               IDS_IOS_NOTIFICATIONS_TIPS_OMNIBOX_POSITION_BODY};
+    case TipsNotificationType::kLens:
+      return {IDS_IOS_NOTIFICATIONS_TIPS_LENS_TITLE,
+              IDS_IOS_NOTIFICATIONS_TIPS_LENS_BODY};
+    case TipsNotificationType::kEnhancedSafeBrowsing:
+      return {IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_TITLE,
+              IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_BODY};
     case TipsNotificationType::kError:
       NOTREACHED();
   }
@@ -84,6 +90,8 @@ const char kTipsNotificationsLastTriggered[] =
 const char kTipsNotificationsLastRequestedTime[] =
     "tips_notifications.last_requested.time";
 const char kTipsNotificationsUserType[] = "tips_notifications.user_type";
+const char kTipsNotificationsDismissCount[] =
+    "tips_notifications.dismiss_count";
 
 bool IsTipsNotification(UNNotificationRequest* request) {
   return [request.identifier isEqualToString:kTipsNotificationId];
@@ -158,4 +166,70 @@ int TipsNotificationsEnabledBitfield() {
   return GetFieldTrialParamByFeatureAsInt(kIOSTipsNotifications,
                                           kIOSTipsNotificationsEnabledParam,
                                           kEnableAllNotifications);
+}
+
+std::vector<TipsNotificationType> TipsNotificationsTypesOrder() {
+  int order_num = GetFieldTrialParamByFeatureAsInt(
+      kIOSTipsNotifications, kIOSTipsNotificationsOrderParam, 1);
+  switch (order_num) {
+    case 1:
+      // The default order.
+      return {
+          TipsNotificationType::kSetUpListContinuation,
+          TipsNotificationType::kWhatsNew,
+          TipsNotificationType::kLens,
+          TipsNotificationType::kOmniboxPosition,
+          TipsNotificationType::kEnhancedSafeBrowsing,
+          TipsNotificationType::kDefaultBrowser,
+          TipsNotificationType::kDocking,
+          TipsNotificationType::kSignin,
+      };
+
+    // Reordered with Lens first.
+    case 2:
+      return {
+          TipsNotificationType::kLens,
+          TipsNotificationType::kWhatsNew,
+          TipsNotificationType::kSetUpListContinuation,
+          TipsNotificationType::kOmniboxPosition,
+          TipsNotificationType::kEnhancedSafeBrowsing,
+          TipsNotificationType::kDefaultBrowser,
+          TipsNotificationType::kDocking,
+          TipsNotificationType::kSignin,
+      };
+
+    // Reordered with ESB first.
+    case 3:
+      return {
+          TipsNotificationType::kEnhancedSafeBrowsing,
+          TipsNotificationType::kWhatsNew,
+          TipsNotificationType::kLens,
+          TipsNotificationType::kOmniboxPosition,
+          TipsNotificationType::kSetUpListContinuation,
+          TipsNotificationType::kDefaultBrowser,
+          TipsNotificationType::kDocking,
+          TipsNotificationType::kSignin,
+      };
+
+    // Reordered with Lens, Omnibox position, and ESB first, and SetUpList
+    // removed.
+    case 4:
+      return {
+          TipsNotificationType::kLens,
+          TipsNotificationType::kOmniboxPosition,
+          TipsNotificationType::kEnhancedSafeBrowsing,
+          TipsNotificationType::kWhatsNew,
+          TipsNotificationType::kDefaultBrowser,
+          TipsNotificationType::kDocking,
+          TipsNotificationType::kSignin,
+      };
+
+    default:
+      NOTREACHED();
+  }
+}
+
+int TipsNotificationsDismissLimit() {
+  return GetFieldTrialParamByFeatureAsInt(
+      kIOSTipsNotifications, kIOSTipsNotificationsDismissLimitParam, 0);
 }

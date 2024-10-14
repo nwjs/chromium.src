@@ -57,6 +57,8 @@ import org.chromium.base.test.util.Features;
 import org.chromium.blink.mojom.ViewportFit;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.fullscreen.FullscreenManager;
+import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
@@ -131,6 +133,7 @@ public class EdgeToEdgeControllerTest {
 
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock private LayoutManager mLayoutManager;
+    @Mock private FullscreenManager mFullscreenManager;
 
     @Implements(EdgeToEdgeControllerFactory.class)
     static class ShadowEdgeToEdgeControllerFactory extends EdgeToEdgeControllerFactory {
@@ -145,7 +148,6 @@ public class EdgeToEdgeControllerTest {
         ChromeFeatureList.sDrawEdgeToEdge.setForTesting(true);
         ChromeFeatureList.sEdgeToEdgeBottomChin.setForTesting(true);
         ChromeFeatureList.sDrawNativeEdgeToEdge.setForTesting(false);
-        ChromeFeatureList.sDrawWebEdgeToEdge.setForTesting(false);
 
         MockitoAnnotations.openMocks(this);
         when(mWindowAndroid.getInsetObserver()).thenReturn(mInsetObserver);
@@ -177,7 +179,8 @@ public class EdgeToEdgeControllerTest {
                         mTabProvider,
                         mOsWrapper,
                         mBrowserControlsStateProvider,
-                        mLayoutManager);
+                        mLayoutManager,
+                        mFullscreenManager);
         assertNotNull(mEdgeToEdgeControllerImpl);
         verify(mOsWrapper, times(1)).setDecorFitsSystemWindows(any(), eq(false));
         verify(mOsWrapper, times(1))
@@ -200,27 +203,27 @@ public class EdgeToEdgeControllerTest {
 
     @Test
     public void drawEdgeToEdge_ToEdgeAndToNormal() {
-        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowInsets= */ false);
+        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowState= */ false);
         assertToEdgeExpectations();
 
-        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowInsets= */ false);
+        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowState= */ false);
         assertToNormalExpectations();
     }
 
     @Test
     public void drawEdgeToEdge_UpdateWindowInsets_toNormal() {
         mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS);
-        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowInsets= */ false);
+        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowState= */ false);
         verify(mOsWrapper).setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(BOTTOM_INSET));
 
         mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS_LANDSCAPE);
-        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowInsets= */ true);
+        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowState= */ true);
         verify(mOsWrapper)
                 .setPadding(
                         any(), eq(0), eq(TOP_INSET_LANDSCAPE), eq(0), eq(BOTTOM_INSET_LANDSCAPE));
 
         mEdgeToEdgeControllerImpl.setKeyboardInsetsForTesting(IME_INSETS_KEYBOARD);
-        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowInsets= */ true);
+        mEdgeToEdgeControllerImpl.drawToEdge(false, /* changedWindowState= */ true);
         verify(mOsWrapper)
                 .setPadding(
                         any(), eq(0), eq(TOP_INSET_LANDSCAPE), eq(0), eq(BOTTOM_KEYBOARD_INSET));
@@ -229,15 +232,15 @@ public class EdgeToEdgeControllerTest {
     @Test
     public void drawEdgeToEdge_UpdateWindowInsets_toEdge() {
         mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS);
-        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowInsets= */ false);
+        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowState= */ false);
         verify(mOsWrapper).setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(0));
 
         mEdgeToEdgeControllerImpl.setSystemInsetsForTesting(SYSTEM_INSETS_LANDSCAPE);
-        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowInsets= */ true);
+        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowState= */ true);
         verify(mOsWrapper).setPadding(any(), eq(0), eq(TOP_INSET_LANDSCAPE), eq(0), eq(0));
 
         mEdgeToEdgeControllerImpl.setKeyboardInsetsForTesting(IME_INSETS_KEYBOARD);
-        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowInsets= */ true);
+        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowState= */ true);
         verify(mOsWrapper)
                 .setPadding(
                         any(), eq(0), eq(TOP_INSET_LANDSCAPE), eq(0), eq(BOTTOM_KEYBOARD_INSET));
@@ -295,7 +298,7 @@ public class EdgeToEdgeControllerTest {
 
     @Test
     public void onObservingDifferentTab_changeToWebEnabled() {
-        ChromeFeatureList.sDrawWebEdgeToEdge.setForTesting(true);
+        EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
         when(mTab.isNativePage()).thenReturn(false);
         mTabProvider.set(mTab);
         verifyInteractions(mTab);
@@ -307,7 +310,7 @@ public class EdgeToEdgeControllerTest {
 
     @Test
     public void onObservingDifferentTab_changeToWebEnabled_SetsDecor() {
-        ChromeFeatureList.sDrawWebEdgeToEdge.setForTesting(true);
+        EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
         when(mTab.isNativePage()).thenReturn(false);
         mTabProvider.set(mTab);
         verifyInteractions(mTab);
@@ -320,9 +323,7 @@ public class EdgeToEdgeControllerTest {
     @Test
     public void onObservingDifferentTab_viewportFitChanged() {
         // Start with web always-enabled.
-        ChromeFeatureList.sDrawWebEdgeToEdge.setForTesting(true);
-        // Enable the bottom chin.
-        ChromeFeatureList.sEdgeToEdgeBottomChin.setForTesting(true);
+        EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
         when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
         when(mTab.isNativePage()).thenReturn(false);
         mTabProvider.set(mTab);
@@ -335,7 +336,7 @@ public class EdgeToEdgeControllerTest {
         // Now switch the viewport-fit value of that page back and forth,
         // with web NOT always enabled. The page opt-in should switch with the viewport fit value,
         // but the page should still draw toEdge to properly show the bottom chin.
-        ChromeFeatureList.sDrawWebEdgeToEdge.setForTesting(false);
+        EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(false);
         mEdgeToEdgeControllerImpl.getWebContentsObserver().viewportFitChanged(ViewportFit.AUTO);
         assertFalse(mEdgeToEdgeControllerImpl.isPageOptedIntoEdgeToEdge());
         assertTrue(mEdgeToEdgeControllerImpl.isDrawingToEdge());
@@ -360,7 +361,8 @@ public class EdgeToEdgeControllerTest {
                                 mWindowAndroid,
                                 liveSupplier,
                                 mBrowserControlsStateProvider,
-                                mLayoutManager);
+                                mLayoutManager,
+                                mFullscreenManager);
         assertNotNull(liveController);
         liveController.setIsOptedIntoEdgeToEdgeForTesting(true);
         liveController.setIsDrawingToEdgeForTesting(true);
@@ -469,6 +471,18 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
+    public void switchFullscreenMode_NoStatusBarNoNavBar() {
+        doReturn(true).when(mFullscreenManager).getPersistentFullscreenMode();
+        mEdgeToEdgeControllerImpl.onEnterFullscreen(mTab, new FullscreenOptions(false, false));
+
+        verify(mOsWrapper, atLeastOnce()).setPadding(any(), eq(0), eq(0), eq(0), eq(0));
+
+        mEdgeToEdgeControllerImpl.onExitFullscreen(mTab);
+        assertToNormalExpectations();
+        assertBottomInsetForSafeArea(0);
+    }
+
+    @Test
     public void isSupportedConfiguration_default() {
         assertTrue(
                 "The default setup should be a supported configuration but it not!",
@@ -490,8 +504,9 @@ public class EdgeToEdgeControllerTest {
     public void disabledWhenNotPhone() {
         // Even these always-draw flags do not override the device abilities.
         ChromeFeatureList.sDrawNativeEdgeToEdge.setForTesting(true);
-        ChromeFeatureList.sDrawWebEdgeToEdge.setForTesting(true);
 
+        EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
+        // Even the always-draw flags do not override the device abilities.
         assertFalse(
                 EdgeToEdgeControllerFactory.isSupportedConfiguration(
                         Robolectric.buildActivity(AppCompatActivity.class).setup().get()));
@@ -501,8 +516,9 @@ public class EdgeToEdgeControllerTest {
     public void disabledWhenNotGestureEnabled() {
         // Even these always-draw flags do not override the device abilities.
         ChromeFeatureList.sDrawNativeEdgeToEdge.setForTesting(true);
-        ChromeFeatureList.sDrawWebEdgeToEdge.setForTesting(true);
 
+        EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
+        // Even the always-draw flags do not override the device abilities.
         EdgeToEdgeControllerFactory.setHas3ButtonNavBar(true);
         assertFalse(
                 EdgeToEdgeControllerFactory.isSupportedConfiguration(

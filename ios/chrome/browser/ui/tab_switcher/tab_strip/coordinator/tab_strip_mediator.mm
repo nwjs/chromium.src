@@ -21,7 +21,7 @@
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
 #import "ios/chrome/browser/shared/model/web_state_list/all_web_state_observation_forwarder.h"
@@ -200,9 +200,6 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
   // Browser list.
   BrowserList* _browserList;
 
-  // ItemID of the dragged tab. Used to check if the dropped tab is from the
-  // same Chrome window.
-  web::WebStateID _dragItemID;
   // List of items in the tab strip when a drag operation starts.
   // Should be set back to `nil` when the drag operation ends.
   NSMutableArray<TabStripItemIdentifier*>* _dragItems;
@@ -215,7 +212,7 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
              tabGroupSyncService:
                  (tab_groups::TabGroupSyncService*)tabGroupSyncService
                      browserList:(BrowserList*)browserList {
-  if (self = [super init]) {
+  if ((self = [super init])) {
     CHECK(browserList);
     _browserList = browserList;
     _tabGroupSyncService = tabGroupSyncService;
@@ -888,7 +885,6 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
 }
 
 - (void)dragWillBeginForTabSwitcherItem:(TabSwitcherItem*)item {
-  _dragItemID = item.identifier;
   _dragItems = CreateItemIdentifiers(_webStateList,
                                      /*including_hidden_tab_items=*/false);
   // When a tab is dragged, it is visually removed from the collection view.
@@ -910,7 +906,6 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
 }
 
 - (void)dragSessionDidEnd {
-  _dragItemID = web::WebStateID();
   _dragItems = nil;
 }
 
@@ -1111,11 +1106,6 @@ NSMutableArray<TabStripItemIdentifier*>* CreateItemIdentifiers(
         });
       };
   [itemProvider loadObjectOfClass:[NSURL class] completionHandler:loadHandler];
-}
-
-- (NSArray<UIDragItem*>*)allSelectedDragItems {
-  NOTREACHED() << "You should not be able to drag and drop multiple "
-                  "items. There is no selection mode in tab strip.";
 }
 
 #pragma mark - Private

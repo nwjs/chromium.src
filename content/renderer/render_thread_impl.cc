@@ -639,7 +639,7 @@ void RenderThreadImpl::Init() {
       discardable_memory_allocator_.get());
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  ChildProcess::current()->SetIOThreadType(base::ThreadType::kCompositing);
+  ChildProcess::current()->SetIOThreadType(base::ThreadType::kDisplayCritical);
 #endif
 
   process_foregrounded_count_ = 0;
@@ -1125,7 +1125,7 @@ RenderThreadImpl::GetVideoFrameCompositorContextProvider(
 }
 
 scoped_refptr<gpu::ClientSharedImageInterface>
-RenderThreadImpl::GetVideoFrameCompositorSharedImageInterface() {
+RenderThreadImpl::GetRenderThreadSharedImageInterface() {
   if (shared_image_interface_ &&
       !shared_image_interface_->gpu_channel()->IsLost()) {
     return shared_image_interface_;
@@ -1572,8 +1572,6 @@ void RenderThreadImpl::UpdateScrollbarTheme(
 
 void RenderThreadImpl::OnSystemColorsChanged(int32_t aqua_color_variant) {
 #if BUILDFLAG(IS_MAC)
-  SystemColorsDidChange(aqua_color_variant);
-
   // Let blink know it should invalidate and recalculate styles for elements
   // that rely on system colors, such as the accent and highlight colors.
   blink::SystemColorsChanged();
@@ -1648,9 +1646,9 @@ RenderThreadImpl::GetMediaSequencedTaskRunner() {
 #if BUILDFLAG(IS_FUCHSIA)
     // Start IO thread on Fuchsia to make that thread usable for FIDL.
     base::Thread::Options options(base::MessagePumpType::IO, 0);
-    // TODO(crbug.com/40250424): Use kCompositing to address media latency on
-    // Fuchsia until alignment on new media thread types is achieved.
-    options.thread_type = base::ThreadType::kCompositing;
+    // TODO(crbug.com/40250424): Use kDisplayCritical to address media latency
+    // on Fuchsia until alignment on new media thread types is achieved.
+    options.thread_type = base::ThreadType::kDisplayCritical;
 #else
     base::Thread::Options options;
 #endif

@@ -25,7 +25,6 @@
 
 #include "base/check.h"
 #include "base/clang_profiling_buildflags.h"
-#include "base/debug/alias.h"
 #include "base/feature_list.h"
 #include "base/features.h"
 #include "base/files/file_enumerator.h"
@@ -63,8 +62,6 @@ namespace base {
 namespace {
 
 int g_extra_allowed_path_for_no_execute = 0;
-
-bool g_disable_secure_system_temp_for_testing = false;
 
 constexpr DWORD kFileShareAll =
     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
@@ -408,10 +405,11 @@ bool IsPathSafeToSetAclOn(const FilePath& path) {
     valid_paths.push_back(valid_path);
   }
 
-  // Admin users create temporary files in `GetSecureSystemTemp`, see
+  // Admin users create temporary files in SystemTemp; see
   // `CreateNewTempDirectory` below.
   FilePath secure_system_temp;
-  if (::IsUserAnAdmin() && GetSecureSystemTemp(&secure_system_temp)) {
+  if (::IsUserAnAdmin() &&
+      PathService::Get(DIR_SYSTEM_TEMP, &secure_system_temp)) {
     valid_paths.push_back(secure_system_temp);
   }
 
@@ -473,15 +471,6 @@ bool ReplaceFile(const FilePath& from_path,
                  const FilePath& to_path,
                  File::Error* error) {
   ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
-
-  // Alias paths for investigation of shutdown hangs. crbug.com/1054164
-  FilePath::CharType from_path_str[MAX_PATH];
-  base::wcslcpy(from_path_str, from_path.value().c_str(),
-                std::size(from_path_str));
-  base::debug::Alias(from_path_str);
-  FilePath::CharType to_path_str[MAX_PATH];
-  base::wcslcpy(to_path_str, to_path.value().c_str(), std::size(to_path_str));
-  base::debug::Alias(to_path_str);
 
   // Assume that |to_path| already exists and try the normal replace. This will
   // fail with ERROR_FILE_NOT_FOUND if |to_path| does not exist. When writing to
@@ -692,48 +681,15 @@ bool CreateTemporaryDirInDir(const FilePath& base_dir,
   return false;
 }
 
-bool GetSecureSystemTemp(FilePath* temp) {
-  if (g_disable_secure_system_temp_for_testing) {
-    return false;
-  }
-
-  ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
-
-  CHECK(temp);
-
-  for (const auto key : {DIR_WINDOWS, DIR_PROGRAM_FILES}) {
-    FilePath secure_system_temp;
-    if (!PathService::Get(key, &secure_system_temp)) {
-      continue;
-    }
-
-    if (key == DIR_WINDOWS) {
-      secure_system_temp = secure_system_temp.AppendASCII("SystemTemp");
-    }
-
-    if (PathExists(secure_system_temp) && PathIsWritable(secure_system_temp)) {
-      *temp = secure_system_temp;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-void SetDisableSecureSystemTempForTesting(bool disabled) {
-  g_disable_secure_system_temp_for_testing = disabled;
-}
-
-// The directory is created under `GetSecureSystemTemp` for security reasons if
-// the caller is admin to avoid attacks from lower privilege processes.
+// The directory is created under SystemTemp for security reasons if the caller
+// is admin to avoid attacks from lower privilege processes.
 //
-// If unable to create a dir under `GetSecureSystemTemp`, the dir is created
-// under %TEMP%. The reasons for not being able to create a dir under
-// `GetSecureSystemTemp` could be because `%systemroot%\SystemTemp` does not
-// exist, or unable to resolve `DIR_WINDOWS` or `DIR_PROGRAM_FILES`, say due to
-// registry redirection, or unable to create a directory due to
-// `GetSecureSystemTemp` being read-only or having atypical ACLs. Tests can also
-// disable this behavior resulting in false being returned.
+// If unable to create a dir under SystemTemp, the dir is created under
+// %TEMP%. The reasons for not being able to create a dir under SystemTemp could
+// be because `%systemroot%\SystemTemp` does not exist, or unable to resolve
+// `DIR_WINDOWS` or `DIR_PROGRAM_FILES`, say due to registry redirection, or
+// unable to create a directory due to SystemTemp being read-only or having
+// atypical ACLs. An override of `DIR_SYSTEM_TEMP` by tests will be respected.
 bool CreateNewTempDirectory(const FilePath::StringType& prefix,
                             FilePath* new_temp_path) {
   ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
@@ -741,7 +697,7 @@ bool CreateNewTempDirectory(const FilePath::StringType& prefix,
   DCHECK(new_temp_path);
 
   FilePath parent_dir;
-  if (::IsUserAnAdmin() && GetSecureSystemTemp(&parent_dir) &&
+  if (::IsUserAnAdmin() && PathService::Get(DIR_SYSTEM_TEMP, &parent_dir) &&
       CreateTemporaryDirInDir(parent_dir,
                               prefix.empty() ? kDefaultTempDirPrefix : prefix,
                               new_temp_path)) {

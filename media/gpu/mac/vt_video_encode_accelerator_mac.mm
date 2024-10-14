@@ -144,7 +144,13 @@ VideoEncoderInfo GetVideoEncoderInfo(VTSessionRef compression_session,
     int32_t frame_delay;
     if (CFNumberGetValue(max_frame_delay_count.get(), kCFNumberSInt32Type,
                          &frame_delay) &&
-        frame_delay != kVTUnlimitedFrameDelayCount) {
+        frame_delay != kVTUnlimitedFrameDelayCount &&
+        // For Apple Silicon Macs using macOS 15.0, it seems we can't
+        // set `kVTCompressionPropertyKey_MaxFrameDelayCount` property
+        // successfully, and its value is always equal to 0 instead of
+        // `kVTUnlimitedFrameDelayCount`, we should use the default
+        // value of `VideoEncoderInfo` instead.
+        frame_delay != 0) {
       max_frame_delay_property = frame_delay;
     }
   }
@@ -158,8 +164,7 @@ VideoEncoderInfo GetVideoEncoderInfo(VTSessionRef compression_session,
     info.frame_delay = 0;
     info.input_capacity = 10;
   } else {
-    info.frame_delay =
-        profile == H264PROFILE_BASELINE || profile == HEVCPROFILE_MAIN ? 0 : 13;
+    info.frame_delay = profile == H264PROFILE_BASELINE ? 0 : 13;
     info.input_capacity = info.frame_delay.value() + 4;
   }
   if (max_frame_delay_property.has_value()) {
@@ -858,13 +863,14 @@ bool VTVideoEncodeAccelerator::ConfigureCompressionSession(VideoCodec codec) {
 
   if (session_property_setter.IsSupported(
           kVTCompressionPropertyKey_MaxFrameDelayCount)) {
+    // macOS 15.0 will reject encode if we set max frame delay count to 3,
+    // don't fail the whole encode session if this property can not be set
+    // properly.
     if (!session_property_setter.Set(
             kVTCompressionPropertyKey_MaxFrameDelayCount,
             static_cast<int>(kNumInputBuffers))) {
-      NotifyErrorStatus({EncoderStatus::Codes::kEncoderUnsupportedConfig,
-                         "Failed to set max frame delay count to " +
-                             base::NumberToString(kNumInputBuffers)});
-      return false;
+      DLOG(ERROR) << "Failed to set max frame delay count to "
+                  << base::NumberToString(kNumInputBuffers);
     }
   } else {
     DLOG(WARNING) << "MaxFrameDelayCount is not supported";

@@ -15,9 +15,11 @@ class SharingService;
 // ChromeBrowserState.
 class IOSSharingServiceFactory : public BrowserStateKeyedServiceFactory {
  public:
+  // TODO(crbug.com/358301380): remove this method.
   static SharingService* GetForBrowserState(ChromeBrowserState* browser_state);
-  static SharingService* GetForBrowserStateIfExists(
-      ChromeBrowserState* browser_state);
+
+  static SharingService* GetForProfile(ProfileIOS* profile);
+  static SharingService* GetForProfileIfExists(ProfileIOS* profile);
   static IOSSharingServiceFactory* GetInstance();
 
   IOSSharingServiceFactory(const IOSSharingServiceFactory&) = delete;
@@ -32,6 +34,7 @@ class IOSSharingServiceFactory : public BrowserStateKeyedServiceFactory {
   // BrowserStateKeyedServiceFactory implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
       web::BrowserState* context) const override;
+  bool ServiceIsCreatedWithBrowserState() const override;
 };
 
 #endif  // IOS_CHROME_BROWSER_SHARING_MESSAGE_MODEL_IOS_SHARING_SERVICE_FACTORY_H_

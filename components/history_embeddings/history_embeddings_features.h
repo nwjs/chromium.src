@@ -117,13 +117,20 @@ extern const base::FeatureParam<bool> kUseUrlFilter;
 // for before being torn down to reduce memory usage.
 extern const base::FeatureParam<base::TimeDelta> kEmbeddingsServiceTimeout;
 
-// Comma-separated list, all ASCII, expected to be lowercased; may contain a mix
-// of words and phrases.
-extern const base::FeatureParam<std::string> kFilterTerms;
-
 // Comma-separated list of decimal integer hash values to decode as a set of
 // uint32_t. These can match against either one or two word phrases.
+// TODO(b/365559465): Remove this param once ComponentInstaller is set up.
 extern const base::FeatureParam<std::string> kFilterHashes;
+
+// Specifies whether the history clusters side panel UI also searches and shows
+// history embeddings.
+extern const base::FeatureParam<bool> kEnableSidePanel;
+
+// These control score boosting from passage text word matching.
+extern const base::FeatureParam<double> kWordMatchMinEmbeddingScore;
+extern const base::FeatureParam<int> kWordMatchMinTermLength;
+extern const base::FeatureParam<double> kWordMatchScoreBoostFactor;
+extern const base::FeatureParam<int> kWordMatchLimit;
 
 // Whether the history embeddings feature is enabled. This only checks if the
 // feature flags are enabled and does not check the user's opt-in preference.

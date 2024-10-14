@@ -17,10 +17,14 @@
 #include "ash/shell.h"
 #include "ash/system/mahi/mahi_panel_widget.h"
 #include "ash/system/mahi/mahi_ui_controller.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/location.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/values.h"
 #include "chrome/browser/ash/crosapi/crosapi_ash.h"
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
@@ -45,6 +49,7 @@ namespace {
 using chromeos::MahiResponseStatus;
 using crosapi::mojom::MahiContextMenuActionType;
 constexpr int kMaxConsecutiveTurns = 20;
+constexpr base::TimeDelta kWaitBeforeAdditionalCall = base::Seconds(2);
 
 ash::MahiBrowserDelegateAsh* GetMahiBrowserDelgateAsh() {
   auto* mahi_browser_delegate_ash = crosapi::CrosapiManager::Get()
@@ -62,7 +67,8 @@ SparkyManagerImpl::SparkyManagerImpl(Profile* profile,
     : profile_(profile),
       sparky_provider_(manta_service->CreateSparkyProvider(
           std::make_unique<SparkyDelegateImpl>(profile),
-          std::make_unique<sparky::SystemInfoDelegateImpl>())) {
+          std::make_unique<sparky::SystemInfoDelegateImpl>())),
+      timer_(std::make_unique<base::OneShotTimer>()) {
   CHECK(manta::features::IsMantaServiceEnabled());
 }
 
@@ -108,10 +114,7 @@ void SparkyManagerImpl::AnswerQuestionRepeating(
     sparky_context->page_url = current_page_info_->url.spec();
     sparky_context->files = sparky_provider_->GetFilesSummary();
 
-    sparky_provider_->QuestionAndAnswer(
-        std::move(sparky_context),
-        base::BindOnce(&SparkyManagerImpl::OnSparkyProviderQAResponse,
-                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+    RequestProviderWithQuestion(std::move(sparky_context), std::move(callback));
     return;
   }
 
@@ -143,18 +146,16 @@ void SparkyManagerImpl::OnContextMenuClicked(
     case MahiContextMenuActionType::kSummary:
     case MahiContextMenuActionType::kOutline:
       // TODO(b/318565610): Update the behaviour of kOutline.
-      ui_controller_.OpenMahiPanel(
-          context_menu_request->display_id,
-          context_menu_request->mahi_menu_bounds.has_value()
-              ? context_menu_request->mahi_menu_bounds.value()
-              : gfx::Rect());
+      OpenMahiPanel(context_menu_request->display_id,
+                    context_menu_request->mahi_menu_bounds.has_value()
+                        ? context_menu_request->mahi_menu_bounds.value()
+                        : gfx::Rect());
       return;
     case MahiContextMenuActionType::kQA:
-      ui_controller_.OpenMahiPanel(
-          context_menu_request->display_id,
-          context_menu_request->mahi_menu_bounds.has_value()
-              ? context_menu_request->mahi_menu_bounds.value()
-              : gfx::Rect());
+      OpenMahiPanel(context_menu_request->display_id,
+                    context_menu_request->mahi_menu_bounds.has_value()
+                        ? context_menu_request->mahi_menu_bounds.value()
+                        : gfx::Rect());
 
       // Ask question.
       if (!context_menu_request->question) {
@@ -173,6 +174,18 @@ void SparkyManagerImpl::OnContextMenuClicked(
     case MahiContextMenuActionType::kNone:
       return;
   }
+}
+
+void SparkyManagerImpl::OpenFeedbackDialog() {}
+
+void SparkyManagerImpl::OpenMahiPanel(int64_t display_id,
+                                      const gfx::Rect& mahi_menu_bounds) {
+  // When receiving a new open panel request, we treat it as a new session and
+  // clear the previous conversations.
+  std::vector<manta::DialogTurn> empty;
+  dialog_turns_.swap(empty);
+
+  ui_controller_.OpenMahiPanel(display_id, mahi_menu_bounds);
 }
 
 bool SparkyManagerImpl::IsEnabled() {
@@ -206,6 +219,15 @@ void SparkyManagerImpl::OnGetPageContentForSummary(
   latest_response_status_ = MahiResponseStatus::kUnknownError;
   std::move(callback).Run(u"Couldn't get summary", latest_response_status_);
   return;
+}
+
+void SparkyManagerImpl::RequestProviderWithQuestion(
+    std::unique_ptr<manta::SparkyContext> sparky_context,
+    MahiAnswerQuestionCallbackRepeating callback) {
+  sparky_provider_->QuestionAndAnswer(
+      std::move(sparky_context),
+      base::BindOnce(&SparkyManagerImpl::OnSparkyProviderQAResponse,
+                     weak_ptr_factory_.GetWeakPtr(), callback));
 }
 
 void SparkyManagerImpl::OnSparkyProviderQAResponse(
@@ -242,10 +264,11 @@ void SparkyManagerImpl::OnSparkyProviderQAResponse(
     if (!latest_turn->actions.empty() &&
         (latest_turn->actions.back().type != manta::ActionType::kAllDone ||
          !latest_turn->actions.back().all_done)) {
-      sparky_provider_->QuestionAndAnswer(
-          std::move(sparky_context),
-          base::BindOnce(&SparkyManagerImpl::OnSparkyProviderQAResponse,
-                         weak_ptr_factory_.GetWeakPtr(), callback));
+      timer_->Start(
+          FROM_HERE, kWaitBeforeAdditionalCall,
+          base::BindOnce(&SparkyManagerImpl::RequestProviderWithQuestion,
+                         weak_ptr_factory_.GetWeakPtr(),
+                         std::move(sparky_context), callback));
     }
 
   } else {
@@ -301,10 +324,7 @@ void SparkyManagerImpl::OnGetPageContentForQA(
   sparky_context->page_url = current_page_info_->url.spec();
   sparky_context->files = sparky_provider_->GetFilesSummary();
 
-  sparky_provider_->QuestionAndAnswer(
-      std::move(sparky_context),
-      base::BindOnce(&SparkyManagerImpl::OnSparkyProviderQAResponse,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  RequestProviderWithQuestion(std::move(sparky_context), std::move(callback));
 }
 
 // This function will never be called as Sparky uses a repeating callback to
@@ -318,7 +338,5 @@ void SparkyManagerImpl::AnswerQuestion(const std::u16string& question,
 bool SparkyManagerImpl::AllowRepeatingAnswers() {
   return true;
 }
-
-void SparkyManagerImpl::OpenFeedbackDialog() {}
 
 }  // namespace ash

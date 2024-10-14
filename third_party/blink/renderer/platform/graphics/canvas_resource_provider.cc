@@ -15,6 +15,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/strings/stringprintf.h"
+#include "base/task/bind_post_task.h"
 #include "base/time/time.h"
 #include "base/trace_event/memory_allocator_dump.h"
 #include "base/trace_event/memory_dump_manager.h"
@@ -31,6 +32,7 @@
 #include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
 #include "gpu/command_buffer/common/shared_image_trace_utils.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/config/gpu_driver_bug_workaround_type.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_feature_type.h"
@@ -183,7 +185,8 @@ class CanvasResourceProviderBitmap : public CanvasResourceProvider {
 
 // * Renders to a shared memory bitmap.
 // * Uses SharedBitmaps to pass frames directly to the compositor.
-class CanvasResourceProviderSharedBitmap : public CanvasResourceProviderBitmap {
+class CanvasResourceProviderSharedBitmap : public CanvasResourceProviderBitmap,
+                                           public BitmapGpuChannelLostObserver {
  public:
   CanvasResourceProviderSharedBitmap(
       const SkImageInfo& info,
@@ -199,23 +202,39 @@ class CanvasResourceProviderSharedBitmap : public CanvasResourceProviderBitmap {
             shared_image_interface_provider
                 ? shared_image_interface_provider->GetWeakPtr()
                 : nullptr) {
-    DCHECK(!features::IsCanvasSharedBitmapConversionEnabled() ||
-           shared_image_interface_provider_);
     DCHECK(ResourceDispatcher());
     type_ = kSharedBitmap;
+
+    if (shared_image_interface_provider_) {
+      shared_image_interface_provider_->AddGpuChannelLostObserver(this);
+    }
   }
-  ~CanvasResourceProviderSharedBitmap() override = default;
+
+  ~CanvasResourceProviderSharedBitmap() override {
+    if (shared_image_interface_provider_) {
+      shared_image_interface_provider_->RemoveGpuChannelLostObserver(this);
+    }
+  }
+
+  // BitmapGpuChannelLostObserver implementation.
+  void OnGpuChannelLost() override { resource_host()->NotifyGpuContextLost(); }
 
   bool IsValid() const final {
-    bool invalid_shared_image_interface =
-        features::IsCanvasSharedBitmapConversionEnabled() &&
-        !shared_image_interface_provider_;
-    return !invalid_shared_image_interface && GetSkSurface();
+    return !IsSharedBitmapGpuChannelLost() && GetSkSurface();
   }
 
   bool SupportsDirectCompositing() const override { return true; }
   base::WeakPtr<WebGraphicsSharedImageInterfaceProvider>
       shared_image_interface_provider_;
+
+  bool IsSharedBitmapGpuChannelLost() const override {
+    if (!features::IsCanvasSharedBitmapConversionEnabled()) {
+      return false;
+    }
+
+    return !shared_image_interface_provider_ ||
+           !shared_image_interface_provider_->SharedImageInterface();
+  }
 
  private:
   scoped_refptr<CanvasResource> CreateResource() final {
@@ -261,7 +280,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
           context_provider_wrapper,
       bool is_origin_top_left,
       bool is_accelerated,
-      uint32_t shared_image_usage_flags,
+      gpu::SharedImageUsageSet shared_image_usage_flags,
       CanvasResourceHost* resource_host)
       : CanvasResourceProvider(kSharedImage,
                                info,
@@ -301,8 +320,8 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
   }
 
   bool SupportsSingleBuffering() const override {
-    return shared_image_usage_flags_ &
-           gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
+    return shared_image_usage_flags_.Has(
+        gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE);
   }
   scoped_refptr<gpu::ClientSharedImage>
   GetBackingClientSharedImageForOverwrite() override {
@@ -315,12 +334,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     return resource_->GetClientSharedImage();
   }
 
-  gpu::Mailbox GetBackingMailboxForOverwrite() override {
-    auto client_si = GetBackingClientSharedImageForOverwrite();
-    return client_si ? client_si->mailbox() : gpu::Mailbox();
-  }
-
-  uint32_t GetSharedImageUsageFlags() const override {
+  gpu::SharedImageUsageSet GetSharedImageUsageFlags() const override {
     return shared_image_usage_flags_;
   }
 
@@ -338,9 +352,16 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     if (IsGpuContextLost())
       return false;
 
+    // TODO(crbug.com/352263194): This code calls WillDrawInternal(true)
+    // followed immediately by GetBackingClientSharedImageForOverwrite(), which
+    // calls WillDrawInternal(false). The former calls EnsureWriteAccess() and
+    // then the latter immediately calls EndWriteAccess(). Figure out what is
+    // actually intended here and either don't call the former (preserving
+    // current behavior) or call resource()->GetClientSharedImage() rather than
+    // the latter (if the current behavior is a bug).
     WillDrawInternal(true);
     RasterInterface()->WritePixels(
-        GetBackingMailboxForOverwrite(), x, y,
+        GetBackingClientSharedImageForOverwrite()->mailbox(), x, y,
         resource()->GetClientSharedImage()->GetTextureTarget(),
         SkPixmap(orig_info, pixels, row_bytes));
 
@@ -739,7 +760,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
   }
 
   const bool is_accelerated_;
-  const uint32_t shared_image_usage_flags_;
+  const gpu::SharedImageUsageSet shared_image_usage_flags_;
   bool current_resource_has_write_access_ = false;
   const bool use_oop_rasterization_;
   bool is_cleared_ = false;
@@ -1019,7 +1040,7 @@ CanvasResourceProvider::CreateSharedImageProvider(
     ShouldInitialize should_initialize,
     base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper,
     RasterMode raster_mode,
-    uint32_t shared_image_usage_flags,
+    gpu::SharedImageUsageSet shared_image_usage_flags,
     CanvasResourceHost* resource_host) {
   // IsGpuCompositingEnabled can re-create the context if it has been lost, do
   // this up front so that we can fail early and not expose ourselves to
@@ -1048,8 +1069,8 @@ CanvasResourceProvider::CreateSharedImageProvider(
   // Overriding the info to use RGBA instead of N32 is needed because code
   // elsewhere assumes RGBA. OTOH the software path seems to be assuming N32
   // somewhere in the later pipeline but for offscreen canvas only.
-  if (!(shared_image_usage_flags & (gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
-                                    gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE))) {
+  if (!shared_image_usage_flags.HasAny(gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
+                                       gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE)) {
     adjusted_info = adjusted_info.makeColorType(
         is_accelerated && info.colorType() != kRGBA_F16_SkColorType
             ? kRGBA_8888_SkColorType
@@ -1070,8 +1091,9 @@ CanvasResourceProvider::CreateSharedImageProvider(
                                       ->GetCapabilities();
   if (!is_gpu_memory_buffer_image_allowed ||
       (is_accelerated && !shared_image_caps.supports_scanout_shared_images)) {
-    shared_image_usage_flags &= ~gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
-    shared_image_usage_flags &= ~gpu::SHARED_IMAGE_USAGE_SCANOUT;
+    shared_image_usage_flags.RemoveAll(
+        gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE |
+        gpu::SHARED_IMAGE_USAGE_SCANOUT);
   }
 
 #if BUILDFLAG(IS_MAC)
@@ -1103,7 +1125,7 @@ CanvasResourceProvider::CreateSharedImageProvider(
 std::unique_ptr<CanvasResourceProvider>
 CanvasResourceProvider::CreateWebGPUImageProvider(
     const SkImageInfo& info,
-    uint32_t shared_image_usage_flags,
+    gpu::SharedImageUsageSet shared_image_usage_flags,
     CanvasResourceHost* resource_host) {
   auto context_provider_wrapper = SharedGpuContext::ContextProviderWrapper();
   // The SharedImages created by this provider serve as a means of import/export
@@ -1709,6 +1731,10 @@ bool CanvasResourceProvider::IsGpuContextLost() const {
   auto* raster_interface = RasterInterface();
   return !raster_interface ||
          raster_interface->GetGraphicsResetStatusKHR() != GL_NO_ERROR;
+}
+
+bool CanvasResourceProvider::IsSharedBitmapGpuChannelLost() const {
+  return false;
 }
 
 bool CanvasResourceProvider::WritePixels(const SkImageInfo& orig_info,

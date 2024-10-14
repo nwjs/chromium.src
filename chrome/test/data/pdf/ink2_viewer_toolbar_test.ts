@@ -21,15 +21,17 @@ function getUndoRedoModifier() {
 
 chrome.test.runTests([
   // Test that clicking the annotation button toggles annotation mode.
-  function testAnnotationButton() {
+  async function testAnnotationButton() {
     chrome.test.assertFalse(viewerToolbar.annotationMode);
 
     const annotateButton = getRequiredElement(viewerToolbar, '#annotate');
 
     annotateButton.click();
+    await microtasksFinished();
     chrome.test.assertTrue(viewerToolbar.annotationMode);
 
     annotateButton.click();
+    await microtasksFinished();
     chrome.test.assertFalse(viewerToolbar.annotationMode);
     chrome.test.succeed();
   },
@@ -189,6 +191,8 @@ chrome.test.runTests([
 
     chrome.test.assertFalse(undoButton.disabled);
     chrome.test.assertTrue(redoButton.disabled);
+
+    viewerToolbar.resetStrokesForTesting();
     chrome.test.succeed();
   },
   // Test that the undo and redo buttons are disabled when a text form field is
@@ -213,6 +217,7 @@ chrome.test.runTests([
     // enabled.
     finishInkStroke(controller);
     finishInkStroke(controller);
+    await microtasksFinished();
 
     undoButton.click();
     await microtasksFinished();
@@ -227,8 +232,8 @@ chrome.test.runTests([
     // Simulate focusing on a text form field. Both buttons should be disabled.
     mockPlugin.dispatchEvent(new MessageEvent(
         'message', {data: {type: 'formFocusChange', focused: 'text'}}));
-
     await microtasksFinished();
+
     chrome.test.assertTrue(undoButton.disabled);
     chrome.test.assertTrue(redoButton.disabled);
 
@@ -236,18 +241,20 @@ chrome.test.runTests([
     // enabled.
     mockPlugin.dispatchEvent(new MessageEvent(
         'message', {data: {type: 'formFocusChange', focused: 'non-text'}}));
-
     await microtasksFinished();
+
     chrome.test.assertFalse(undoButton.disabled);
     chrome.test.assertFalse(redoButton.disabled);
 
     // Simulate removing focus from the form. Both buttons should be enabled.
     mockPlugin.dispatchEvent(new MessageEvent(
         'message', {data: {type: 'formFocusChange', focused: 'none'}}));
-
     await microtasksFinished();
+
     chrome.test.assertFalse(undoButton.disabled);
     chrome.test.assertFalse(redoButton.disabled);
+
+    viewerToolbar.resetStrokesForTesting();
     chrome.test.succeed();
   },
   // Test the behavior of the undo redo keyboard shortcuts.
@@ -276,6 +283,8 @@ chrome.test.runTests([
 
     chrome.test.assertTrue(
         mockPlugin.findMessage('annotationRedo') !== undefined);
+
+    viewerToolbar.resetStrokesForTesting();
     chrome.test.succeed();
   },
   // Test that the undo and redo keyboard shortcuts are disabled when a text
@@ -289,8 +298,8 @@ chrome.test.runTests([
     // enabled.
     finishInkStroke(controller);
     finishInkStroke(controller);
-
     await microtasksFinished();
+
     getRequiredElement<HTMLButtonElement>(viewerToolbar, '#undo').click();
 
     // Exit annotation mode, since form fields can only be focused outside of
@@ -305,6 +314,7 @@ chrome.test.runTests([
     // disabled.
     mockPlugin.dispatchEvent(new MessageEvent(
         'message', {data: {type: 'formFocusChange', focused: 'text'}}));
+    await microtasksFinished();
 
     keyDownOn(viewerToolbar, 0, getUndoRedoModifier(), 'z');
     keyDownOn(viewerToolbar, 0, getUndoRedoModifier(), 'y');
@@ -318,6 +328,7 @@ chrome.test.runTests([
     // enabled.
     mockPlugin.dispatchEvent(new MessageEvent(
         'message', {data: {type: 'formFocusChange', focused: 'non-text'}}));
+    await microtasksFinished();
 
     keyDownOn(viewerToolbar, 0, getUndoRedoModifier(), 'z');
     keyDownOn(viewerToolbar, 0, getUndoRedoModifier(), 'y');
@@ -332,6 +343,7 @@ chrome.test.runTests([
     // Simulate removing focus from the form. Both shortcuts should be enabled.
     mockPlugin.dispatchEvent(new MessageEvent(
         'message', {data: {type: 'formFocusChange', focused: 'none'}}));
+    await microtasksFinished();
 
     keyDownOn(viewerToolbar, 0, getUndoRedoModifier(), 'z');
     keyDownOn(viewerToolbar, 0, getUndoRedoModifier(), 'y');
@@ -340,6 +352,8 @@ chrome.test.runTests([
         mockPlugin.findMessage('annotationUndo') !== undefined);
     chrome.test.assertTrue(
         mockPlugin.findMessage('annotationRedo') !== undefined);
+
+    viewerToolbar.resetStrokesForTesting();
     chrome.test.succeed();
   },
 ]);

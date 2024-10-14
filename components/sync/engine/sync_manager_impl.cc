@@ -261,8 +261,9 @@ void SyncManagerImpl::UpdateCredentials(const SyncCredentials& credentials) {
   cycle_context_->set_account_name(credentials.email);
 
   observing_network_connectivity_changes_ = true;
-  if (!connection_manager_->SetAccessToken(credentials.access_token))
+  if (!connection_manager_->SetAccessToken(credentials.access_token)) {
     return;  // Auth token is known to be invalid, so exit early.
+  }
 
   scheduler_->OnCredentialsUpdated();
 
@@ -307,8 +308,9 @@ void SyncManagerImpl::ShutdownOnSyncThread() {
   // initialization mode).
   //
   // TODO(akalin): Fix this behavior.
-  if (connection_manager_)
+  if (connection_manager_) {
     connection_manager_->RemoveListener(this);
+  }
   connection_manager_.reset();
 
   network_connection_tracker_->RemoveNetworkConnectionObserver(this);
@@ -487,10 +489,6 @@ std::string SyncManagerImpl::bag_of_chips() {
   DCHECK(initialized_);
   DCHECK(cycle_context_);
   return cycle_context_->bag_of_chips();
-}
-
-DataTypeSet SyncManagerImpl::GetTypesWithUnsyncedData() {
-  return data_type_registry_->GetTypesWithUnsyncedData();
 }
 
 bool SyncManagerImpl::HasUnsyncedItemsForTest() {

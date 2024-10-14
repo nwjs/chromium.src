@@ -26,7 +26,8 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) SessionAccessor {
   static Ptr Create(const ChromeML& chrome_ml,
                     scoped_refptr<base::SequencedTaskRunner> task_runner,
                     ChromeMLModel model,
-                    base::File adaptation_data = base::File());
+                    on_device_model::AdaptationAssets adaptation_assets =
+                        on_device_model::AdaptationAssets());
 
   ~SessionAccessor();
 
@@ -37,7 +38,7 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) SessionAccessor {
                            ChromeMLExecutionOutputFn output_fn,
                            ChromeMLContextSavedFn context_saved_fn);
   void Score(const std::string& text, ChromeMLScoreFn score_fn);
-  void SizeInTokens(const std::string& text,
+  void SizeInTokens(on_device_model::mojom::InputPtr input,
                     ChromeMLSizeInTokensFn size_in_tokens_fn);
 
  private:
@@ -48,13 +49,13 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) SessionAccessor {
                   ChromeMLModel model);
 
   void CloneFrom(SessionAccessor* other);
-  void CreateInternal(base::File adaptation_data);
+  void CreateInternal(on_device_model::AdaptationAssets adaptation_assets);
   void ExecuteInternal(on_device_model::mojom::InputOptionsPtr input,
                        ChromeMLExecutionOutputFn output_fn,
                        ChromeMLContextSavedFn context_saved_fn,
                        scoped_refptr<Canceler> canceler);
   void ScoreInternal(const std::string& text, ChromeMLScoreFn score_fn);
-  void SizeInTokensInternal(const std::string& text,
+  void SizeInTokensInternal(on_device_model::mojom::InputPtr input,
                             ChromeMLSizeInTokensFn size_in_tokens_fn);
 
   const raw_ref<const ChromeML> chrome_ml_;

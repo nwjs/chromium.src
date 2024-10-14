@@ -9,16 +9,22 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/apps/app_service/app_registry_cache_waiter.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/apps/app_service/browser_app_launcher.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
 #include "chrome/browser/sessions/session_service_test_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
@@ -145,8 +151,16 @@ bool WaitForPaintAsActive(bool expected, views::FrameCaptionButton* button) {
 
 }  // namespace
 
-using BrowserNonClientFrameViewChromeOSTest =
-    TopChromeMdParamTest<ChromeOSBrowserUITest>;
+class BrowserNonClientFrameViewChromeOSTest
+    : public TopChromeMdParamTest<ChromeOSBrowserUITest> {
+ protected:
+  BrowserNonClientFrameViewChromeOSTest()
+      : scoped_features_(
+            chromeos::features::kOverviewSessionInitOptimizations) {}
+
+  base::test::ScopedFeatureList scoped_features_;
+};
+
 using BrowserNonClientFrameViewChromeOSTestNoWebUiTabStrip =
     WebUiTabStripOverrideTest<false, BrowserNonClientFrameViewChromeOSTest>;
 using BrowserNonClientFrameViewChromeOSTestWithWebUiTabStrip =
@@ -994,6 +1008,16 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTest,
 
   EnterOverviewMode();
   EXPECT_FALSE(frame_view->caption_button_container()->GetVisible());
+#if !BUILDFLAG(IS_CHROMEOS_LACROS)
+  // b/362835104: Browser windows that are not web apps do not require a layout
+  // after the header is made invisible. This is an optimization with no visual
+  // impact. Depends on `kOverviewSessionInitOptimizations` being enabled.
+  //
+  // Lacros builds require a layout of the browser view for unrelated reasons.
+  ASSERT_FALSE(browser_view->GetIsWebAppType());
+  EXPECT_FALSE(browser_view->needs_layout());
+#endif
+
   ExitOverviewMode();
 
   // Caption buttons are not supported when using the WebUI tab strip.
@@ -1737,10 +1761,19 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewAshThemeChangeTest,
   }
 
   const webapps::AppId app_id = WaitForAppInstall();
-  auto* browser = web_app::LaunchWebAppBrowser(profile(), app_id);
+
+  // Trigger the launch but do not wait for the web contents to load.
+  content::WebContents* web_contents =
+      apps::AppServiceProxyFactory::GetForProfile(profile())
+          ->BrowserAppLauncher()
+          ->LaunchAppWithParamsForTesting(apps::AppLaunchParams(
+              app_id, apps::LaunchContainer::kLaunchContainerWindow,
+              WindowOpenDisposition::CURRENT_TAB,
+              apps::LaunchSource::kFromTest));
+  ASSERT_TRUE(web_contents);
+  Browser* browser = chrome::FindBrowserWithTab(web_contents);
   auto* contents_web_view =
       BrowserView::GetBrowserViewForBrowser(browser)->contents_web_view();
-  auto* web_contents = contents_web_view->GetWebContents();
 
   // Verify background color is immediately resolved from the app controller
   // despite the fact that the web contents background color hasn't loaded

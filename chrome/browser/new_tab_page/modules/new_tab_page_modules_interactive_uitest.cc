@@ -63,7 +63,7 @@ ModuleDetails kMostRelevantTabResumptionModuleDetails = {
     {"ntp-app", "ntp-modules-v2", "ntp-module-wrapper",
      "ntp-most-relevant-tab-resumption", "ntp-module-header-v2", "#disable"},
     {{{"ntp-app", "ntp-modules-v2", "ntp-module-wrapper",
-       "ntp-most-relevant-tab-resumption", "#tabs", "a"},
+       "ntp-most-relevant-tab-resumption", "#urlVisits", "a"},
       kGooglePageUrl}},
 };
 
@@ -236,15 +236,8 @@ INSTANTIATE_TEST_SUITE_P(All,
                          ::testing::ValuesIn(kAllModules));
 
 // TODO(crbug.com/335214502): Re-enable this test.
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_MAC)
-#define MAYBE_ClickingHideButtonDismissesModule \
-  DISABLED_ClickingHideButtonDismissesModule
-#else
-#define MAYBE_ClickingHideButtonDismissesModule \
-  ClickingHideButtonDismissesModule
-#endif
 IN_PROC_BROWSER_TEST_P(NewTabPageModulesInteractiveUiTest,
-                       MAYBE_ClickingHideButtonDismissesModule) {
+                       DISABLED_ClickingHideButtonDismissesModule) {
   RunTestSequence(
       // 1. Wait for new tab page to load.
       LoadNewTabPage(),

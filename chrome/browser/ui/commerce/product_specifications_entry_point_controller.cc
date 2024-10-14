@@ -14,7 +14,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/views/commerce/product_specifications_button.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/commerce/product_specifications_disclosure_dialog.h"
 #include "components/commerce/core/commerce_constants.h"
 #include "components/commerce/core/commerce_feature_list.h"
@@ -24,6 +23,7 @@
 #include "components/commerce/core/pref_names.h"
 #include "components/commerce/core/shopping_service.h"
 #include "components/strings/grit/components_strings.h"
+#include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/webui/resources/cr_components/commerce/shopping_service.mojom.h"
 
@@ -80,14 +80,14 @@ namespace commerce {
 
 // TODO(b/340252809): No need to have browser as a dependency.
 ProductSpecificationsEntryPointController::
-    ProductSpecificationsEntryPointController(Browser* browser)
+    ProductSpecificationsEntryPointController(BrowserWindowInterface* browser)
     : browser_(browser) {
   CHECK(browser_);
-  if (browser_->profile()->IsRegularProfile()) {
-    browser->tab_strip_model()->AddObserver(this);
+  if (browser_->GetProfile()->IsRegularProfile()) {
+    browser_->GetTabStripModel()->AddObserver(this);
   }
   shopping_service_ =
-      ShoppingServiceFactory::GetForBrowserContext(browser->profile());
+      ShoppingServiceFactory::GetForBrowserContext(browser_->GetProfile());
   if (shopping_service_) {
     product_specifications_service_ =
         shopping_service_->GetProductSpecificationsService();
@@ -131,18 +131,6 @@ void ProductSpecificationsEntryPointController::OnTabStripModelChanged(
                      weak_ptr_factory_.GetWeakPtr(), old_url, new_url));
 }
 
-void ProductSpecificationsEntryPointController::TabChangedAt(
-    content::WebContents* contents,
-    int index,
-    TabChangeType change_type) {
-  if (change_type == TabChangeType::kAll) {
-    // TODO(b/343109556): Instead of hiding, sometimes we'll need to update the
-    // showing entry point.
-    MaybeHideEntryPoint();
-    ProductSpecificationsDisclosureDialog::CloseDialog();
-  }
-}
-
 void ProductSpecificationsEntryPointController::AddObserver(
     Observer* observer) {
   observers_.AddObserver(observer);
@@ -166,7 +154,7 @@ void ProductSpecificationsEntryPointController::OnEntryPointExecuted() {
     }
   }
   std::vector<GURL> urls_in_set(urls.begin(), urls.end());
-  auto* prefs = browser_->profile()->GetPrefs();
+  auto* prefs = browser_->GetProfile()->GetPrefs();
   if (!prefs) {
     return;
   }
@@ -176,15 +164,16 @@ void ProductSpecificationsEntryPointController::OnEntryPointExecuted() {
       static_cast<int>(shopping_service::mojom::
                            ProductSpecificationsDisclosureVersion::kV1)) {
     DialogArgs dialog_args(urls_in_set, current_entry_point_info_->title,
+                           /*set_id=*/"",
                            /*in_new_tab=*/true);
     ProductSpecificationsDisclosureDialog::ShowDialog(
-        browser_->profile(),
-        browser_->tab_strip_model()->GetActiveWebContents(),
+        browser_->GetProfile(),
+        browser_->GetTabStripModel()->GetActiveWebContents(),
         std::move(dialog_args));
     return;
   }
   // Reset entry point show gap time.
-  browser_->profile()->GetPrefs()->SetInteger(
+  browser_->GetProfile()->GetPrefs()->SetInteger(
       commerce::kProductSpecificationsEntryPointShowIntervalInDays, 0);
   std::vector<commerce::UrlInfo> url_infos;
   for (const auto& url : urls_in_set) {
@@ -194,9 +183,12 @@ void ProductSpecificationsEntryPointController::OnEntryPointExecuted() {
       product_specifications_service_->AddProductSpecificationsSet(
           current_entry_point_info_->title, std::move(url_infos));
   if (set.has_value()) {
-    chrome::AddTabAt(browser_,
+    // TODO(https://issues.chromium.org/issues/365046217)
+    // Have to downcast here to get this to work. Migration from Browser* to
+    // BrowserWindowInterface* in progress.
+    chrome::AddTabAt(static_cast<Browser*>(browser_),
                      commerce::GetProductSpecsTabUrlForID(set->uuid()),
-                     browser_->tab_strip_model()->count(), true, std::nullopt);
+                     browser_->GetTabStripModel()->count(), true, std::nullopt);
   }
 }
 
@@ -204,7 +196,7 @@ void ProductSpecificationsEntryPointController::OnEntryPointDismissed() {
   DCHECK(current_entry_point_info_.has_value());
   current_entry_point_info_.reset();
 
-  auto* prefs = browser_->profile()->GetPrefs();
+  auto* prefs = browser_->GetProfile()->GetPrefs();
   int current_gap_time_days = prefs->GetInteger(
       commerce::kProductSpecificationsEntryPointShowIntervalInDays);
   // Double the gap time for every dismiss, starting from one day.
@@ -230,7 +222,7 @@ void ProductSpecificationsEntryPointController::OnEntryPointHidden() {
 
 bool ProductSpecificationsEntryPointController::ShouldExecuteEntryPointShow() {
   DCHECK(current_entry_point_info_.has_value());
-  GURL current_url = browser_->tab_strip_model()
+  GURL current_url = browser_->GetTabStripModel()
                          ->GetActiveWebContents()
                          ->GetLastCommittedURL();
   std::map<GURL, uint64_t> candidate_products =
@@ -240,12 +232,8 @@ bool ProductSpecificationsEntryPointController::ShouldExecuteEntryPointShow() {
 
 void ProductSpecificationsEntryPointController::OnClusterFinishedForNavigation(
     const GURL& url) {
-  // Cluster finished for a navigation that didn't happen in this window, or the
-  // clustering took so long to finish that the user has navigated away.
-  GURL current_url = browser_->tab_strip_model()
-                         ->GetActiveWebContents()
-                         ->GetLastCommittedURL();
-  if (current_url != url || !cluster_manager_) {
+  // Cluster finished for a navigation that didn't happen in this window.
+  if (!browser_->IsActive()) {
     return;
   }
 
@@ -253,6 +241,16 @@ void ProductSpecificationsEntryPointController::OnClusterFinishedForNavigation(
       url, base::BindOnce(&ProductSpecificationsEntryPointController::
                               CheckEntryPointInfoForNavigation,
                           weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ProductSpecificationsEntryPointController::DidFinishNavigation(
+    content::WebContents* contents) {
+  // TODO(b/343109556): Instead of hiding, sometimes we'll need to update
+  // the showing entry point.
+  MaybeHideEntryPoint();
+  if (contents == browser_->GetTabStripModel()->GetActiveWebContents()) {
+    ProductSpecificationsDisclosureDialog::CloseDialog();
+  }
 }
 
 void ProductSpecificationsEntryPointController::CheckEntryPointInfoForSelection(
@@ -317,7 +315,7 @@ void ProductSpecificationsEntryPointController::
     return;
   }
 
-  if (!IsNavigationEligibleForEntryPoint(browser_->tab_strip_model(),
+  if (!IsNavigationEligibleForEntryPoint(browser_->GetTabStripModel(),
                                          entry_point_info.value())) {
     return;
   }
@@ -346,7 +344,7 @@ void ProductSpecificationsEntryPointController::
     return;
   }
 
-  if (!IsNavigationEligibleForEntryPoint(browser_->tab_strip_model(),
+  if (!IsNavigationEligibleForEntryPoint(browser_->GetTabStripModel(),
                                          entry_point_info.value())) {
     base::RecordAction(
         base::UserMetricsAction("Commerce.Compare.CandidateClusterRejected"));
@@ -366,11 +364,11 @@ void ProductSpecificationsEntryPointController::ShowEntryPointWithTitle(
   }
 
   // Entry point should never show for windows with non-regular profile.
-  if (!browser_->profile()->IsRegularProfile()) {
+  if (!browser_->GetProfile()->IsRegularProfile()) {
     return;
   }
 
-  auto* prefs = browser_->profile()->GetPrefs();
+  auto* prefs = browser_->GetProfile()->GetPrefs();
   int current_gap_time = prefs->GetInteger(
       commerce::kProductSpecificationsEntryPointShowIntervalInDays);
   // Back off triggering if gap time is not finished yet.
@@ -398,7 +396,7 @@ void ProductSpecificationsEntryPointController::ShowEntryPointWithTitle(
 
 void ProductSpecificationsEntryPointController::MaybeHideEntryPoint() {
   if (!current_entry_point_info_.has_value() ||
-      IsWindowValidForEntryPoint(browser_->tab_strip_model(),
+      IsWindowValidForEntryPoint(browser_->GetTabStripModel(),
                                  current_entry_point_info_.value())) {
     return;
   }

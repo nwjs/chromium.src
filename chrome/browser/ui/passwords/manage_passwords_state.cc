@@ -200,7 +200,7 @@ void ManagePasswordsState::OnPasswordAutofilled(
     base::span<const PasswordForm> password_forms,
     url::Origin origin,
     base::span<const PasswordForm> federated_matches) {
-  DCHECK(!password_forms.empty() || !federated_matches.empty());
+  CHECK(!password_forms.empty() || !federated_matches.empty());
   auto local_credentials_forms = DeepCopyNonPSLVector(password_forms);
   AppendDeepCopyVector(federated_matches, &local_credentials_forms);
 
@@ -242,10 +242,8 @@ void ManagePasswordsState::OnKeychainError() {
   SetState(password_manager::ui::KEYCHAIN_ERROR_STATE);
 }
 
-void ManagePasswordsState::OnPasskeySaved(const std::u16string& username,
-                                          bool gpm_pin_created) {
+void ManagePasswordsState::OnPasskeySaved(bool gpm_pin_created) {
   ClearData();
-  recently_saved_passkey_username_ = username;
   gpm_pin_created_during_recent_passkey_creation_ = gpm_pin_created;
   SetState(password_manager::ui::PASSKEY_SAVED_CONFIRMATION_STATE);
 }

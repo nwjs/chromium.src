@@ -50,6 +50,9 @@
 #include "content/browser/web_contents/web_contents_view.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/common/features.h"
+#include "content/common/frame.mojom-forward.h"
+#include "content/common/frame.mojom-shared.h"
+#include "content/common/frame.mojom-test-utils.h"
 #include "content/common/frame_messages.mojom.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/cors_origin_pattern_setter.h"
@@ -64,6 +67,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/isolated_world_ids.h"
 #include "content/public/common/page_visibility_state.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/back_forward_cache_util.h"
@@ -191,8 +195,9 @@ class FirstPartySchemeContentBrowserClient
   }
 
   mojo::PendingRemote<network::mojom::URLLoaderFactory>
-  CreateNonNetworkNavigationURLLoaderFactory(const std::string& scheme,
-                                             int frame_tree_node_id) override {
+  CreateNonNetworkNavigationURLLoaderFactory(
+      const std::string& scheme,
+      FrameTreeNodeId frame_tree_node_id) override {
     if (scheme == "trustme") {
       mojo::PendingRemote<network::mojom::URLLoaderFactory> trustme_remote;
       trustme_factory_->Clone(trustme_remote.InitWithNewPipeAndPassReceiver());
@@ -369,7 +374,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // dropped. In https://crbug.com/1154852, this causes future messages sent via
   // GetAssociatedLocalFrame to also be dropped.
   web_contents->GetPrimaryMainFrame()->ExecuteJavaScriptForTests(
-      u"'foo'", base::NullCallback());
+      u"'foo'", base::NullCallback(), ISOLATED_WORLD_ID_GLOBAL);
 
   // Navigating will create the RenderFrame.
   GURL url(embedded_test_server()->GetURL("/title1.html"));
@@ -424,25 +429,27 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, RemoveFocusedFrame) {
   EXPECT_EQ("frame4", web_contents()->GetFocusedFrame()->GetFrameName());
   EXPECT_EQ("frame3",
             web_contents()->GetFocusedFrame()->GetParent()->GetFrameName());
-  EXPECT_NE(-1,
-            web_contents()->GetPrimaryFrameTree().focused_frame_tree_node_id_);
+  EXPECT_TRUE(
+      web_contents()->GetPrimaryFrameTree().focused_frame_tree_node_id_);
 
   EXPECT_TRUE(ExecJs(web_contents()->GetPrimaryMainFrame(), "detachframe(3)"));
   EXPECT_EQ(nullptr, web_contents()->GetFocusedFrame());
-  EXPECT_EQ(-1,
-            web_contents()->GetPrimaryFrameTree().focused_frame_tree_node_id_);
+  EXPECT_TRUE(web_contents()
+                  ->GetPrimaryFrameTree()
+                  .focused_frame_tree_node_id_.is_null());
 
   EXPECT_TRUE(ExecJs(web_contents()->GetPrimaryMainFrame(), "focusframe2()"));
   EXPECT_NE(nullptr, web_contents()->GetFocusedFrame());
   EXPECT_NE(web_contents()->GetPrimaryMainFrame(),
             web_contents()->GetFocusedFrame());
-  EXPECT_NE(-1,
-            web_contents()->GetPrimaryFrameTree().focused_frame_tree_node_id_);
+  EXPECT_TRUE(
+      web_contents()->GetPrimaryFrameTree().focused_frame_tree_node_id_);
 
   EXPECT_TRUE(ExecJs(web_contents()->GetPrimaryMainFrame(), "detachframe(2)"));
   EXPECT_EQ(nullptr, web_contents()->GetFocusedFrame());
-  EXPECT_EQ(-1,
-            web_contents()->GetPrimaryFrameTree().focused_frame_tree_node_id_);
+  EXPECT_TRUE(web_contents()
+                  ->GetPrimaryFrameTree()
+                  .focused_frame_tree_node_id_.is_null());
 }
 
 // Test that a frame is visible/hidden depending on its WebContents visibility
@@ -666,7 +673,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   web_contents()->GetPrimaryMainFrame()->ForEachRenderFrameHost(
       [](content::RenderFrameHostImpl* render_frame_host) {
         render_frame_host->ExecuteJavaScriptWithUserGestureForTests(
-            std::u16string(), base::NullCallback());
+            std::u16string(), base::NullCallback(), ISOLATED_WORLD_ID_GLOBAL);
       });
 
   // Force a process switch by going to a privileged page. The beforeunload
@@ -718,8 +725,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // should be a dialog. If there is no dialog, the call to Wait will hang.
   web_contents()
       ->GetPrimaryMainFrame()
-      ->ExecuteJavaScriptWithUserGestureForTests(std::u16string(),
-                                                 base::NullCallback());
+      ->ExecuteJavaScriptWithUserGestureForTests(
+          std::u16string(), base::NullCallback(), ISOLATED_WORLD_ID_GLOBAL);
   web_contents()->GetController().Reload(ReloadType::NORMAL, false);
   dialog_manager.Wait();
 
@@ -3437,8 +3444,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // without any dialog being seen.
   web_contents()
       ->GetPrimaryMainFrame()
-      ->ExecuteJavaScriptWithUserGestureForTests(std::u16string(),
-                                                 base::NullCallback());
+      ->ExecuteJavaScriptWithUserGestureForTests(
+          std::u16string(), base::NullCallback(), ISOLATED_WORLD_ID_GLOBAL);
   web_contents()->GetPrimaryMainFrame()->DispatchBeforeUnload(
       RenderFrameHostImpl::BeforeUnloadType::DISCARD, false);
   dialog_manager.Wait();
@@ -3468,13 +3475,14 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   // without any dialog being seen.
   web_contents()
       ->GetPrimaryMainFrame()
-      ->ExecuteJavaScriptWithUserGestureForTests(std::u16string(),
-                                                 base::NullCallback());
+      ->ExecuteJavaScriptWithUserGestureForTests(
+          std::u16string(), base::NullCallback(), ISOLATED_WORLD_ID_GLOBAL);
 
   // Launch an alert javascript dialog. This pending dialog should block a
   // subsequent discarding before unload request.
   web_contents()->GetPrimaryMainFrame()->ExecuteJavaScriptForTests(
-      u"setTimeout(function(){alert('hello');}, 10);", base::NullCallback());
+      u"setTimeout(function(){alert('hello');}, 10);", base::NullCallback(),
+      ISOLATED_WORLD_ID_GLOBAL);
   dialog_manager.Wait();
   EXPECT_EQ(0, dialog_manager.num_beforeunload_dialogs_seen());
   EXPECT_EQ(0, dialog_manager.num_beforeunload_fired_seen());
@@ -3812,10 +3820,10 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   // Call RequestAXSnapshotTree method. The browser process should not crash.
   auto params = mojom::SnapshotAccessibilityTreeParams::New();
-  rfh->RequestAXTreeSnapshot(
-      base::BindOnce(
-          [](const ui::AXTreeUpdate& snapshot) { NOTREACHED_IN_MIGRATION(); }),
-      std::move(params));
+  rfh->RequestAXTreeSnapshot(base::BindOnce([](ui::AXTreeUpdate& snapshot) {
+                               NOTREACHED_IN_MIGRATION();
+                             }),
+                             std::move(params));
 
   base::RunLoop().RunUntilIdle();
 
@@ -8006,6 +8014,128 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   EXPECT_FALSE(root->render_manager()->speculative_frame_host());
 }
 
+// Intercept calls to RenderFramHostImpl's CreateNewWindow mojo method to
+// overwrite the target url.
+class FrameHostInterceptorForPopins
+    : public mojom::FrameHostInterceptorForTesting {
+ public:
+  explicit FrameHostInterceptorForPopins(RenderFrameHostImpl* render_frame_host,
+                                         const GURL& target_url)
+      : swapped_impl_(render_frame_host->frame_host_receiver_for_testing(),
+                      this),
+        target_url_(target_url) {}
+
+  ~FrameHostInterceptorForPopins() override = default;
+
+  FrameHostInterceptorForPopins(const FrameHostInterceptorForPopins&) = delete;
+  FrameHostInterceptorForPopins& operator=(
+      const FrameHostInterceptorForPopins&) = delete;
+
+  mojom::FrameHost* GetForwardingInterface() override {
+    return swapped_impl_.old_impl();
+  }
+
+  void CreateNewWindow(mojom::CreateNewWindowParamsPtr params,
+                       CreateNewWindowCallback callback) override {
+    params->target_url = target_url_;
+    static_cast<RenderFrameHostImpl*>(GetForwardingInterface())
+        ->CreateNewWindow(std::move(params), std::move(callback));
+  }
+
+ private:
+  mojo::test::ScopedSwapImplForTesting<mojom::FrameHost> swapped_impl_;
+  GURL target_url_;
+};
+
+class RenderFrameHostImplPartitionedPopinBrowserTest
+    : public RenderFrameHostImplBrowserTest {
+ public:
+  RenderFrameHostImplPartitionedPopinBrowserTest() {
+    feature_list_.InitAndEnableFeature(blink::features::kPartitionedPopins);
+  }
+  ~RenderFrameHostImplPartitionedPopinBrowserTest() override = default;
+
+ private:
+  void SetUpOnMainThread() override {
+    host_resolver()->AddRule("*", "127.0.0.1");
+    embedded_https_test_server().SetSSLConfig(
+        net::EmbeddedTestServer::CERT_TEST_NAMES);
+    net::test_server::RegisterDefaultHandlers(&embedded_https_test_server());
+    ASSERT_TRUE(embedded_https_test_server().Start());
+  }
+
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPartitionedPopinBrowserTest,
+                       CreateNewWindow_FailsWithEmptyTargetUrl) {
+  FrameHostInterceptorForPopins interceptor(
+      static_cast<content::RenderFrameHostImpl*>(
+          web_contents()->GetPrimaryMainFrame()),
+      GURL());
+  GURL url(embedded_https_test_server().GetURL("a.test", "/empty.html"));
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+  ASSERT_EQ(ListValueOf("partitioned"),
+            EvalJs(web_contents(), "window.popinContextTypesSupported()"));
+  content::RenderProcessHostBadMojoMessageWaiter crash_observer(
+      web_contents()->GetPrimaryMainFrame()->GetProcess());
+  // ExecJs will sometimes finish before the renderer gets killed, so we must
+  // ignore the result.
+  std::ignore = ExecJs(web_contents(),
+                       "window.open('" + url.spec() + "', '_blank', 'popin');");
+  EXPECT_EQ(
+      "Received bad user message: "
+      "Partitioned popins can only open https URLs.",
+      crash_observer.Wait());
+  // The test passes if the renderer crashes but not the browser.
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPartitionedPopinBrowserTest,
+                       CreateNewWindow_FailsWithAboutBlankTargetUrl) {
+  FrameHostInterceptorForPopins interceptor(
+      static_cast<content::RenderFrameHostImpl*>(
+          web_contents()->GetPrimaryMainFrame()),
+      GURL("about:blank"));
+  GURL url(embedded_https_test_server().GetURL("a.test", "/empty.html"));
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+  ASSERT_EQ(ListValueOf("partitioned"),
+            EvalJs(web_contents(), "window.popinContextTypesSupported()"));
+  content::RenderProcessHostBadMojoMessageWaiter crash_observer(
+      web_contents()->GetPrimaryMainFrame()->GetProcess());
+  // ExecJs will sometimes finish before the renderer gets killed, so we must
+  // ignore the result.
+  std::ignore = ExecJs(web_contents(),
+                       "window.open('" + url.spec() + "', '_blank', 'popin');");
+  EXPECT_EQ(
+      "Received bad user message: "
+      "Partitioned popins can only open https URLs.",
+      crash_observer.Wait());
+  // The test passes if the renderer crashes but not the browser.
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPartitionedPopinBrowserTest,
+                       CreateNewWindow_FailsWithHttpTargetUrl) {
+  FrameHostInterceptorForPopins interceptor(
+      static_cast<content::RenderFrameHostImpl*>(
+          web_contents()->GetPrimaryMainFrame()),
+      GURL("http://a.test"));
+  GURL url(embedded_https_test_server().GetURL("a.test", "/empty.html"));
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+  ASSERT_EQ(ListValueOf("partitioned"),
+            EvalJs(web_contents(), "window.popinContextTypesSupported()"));
+  content::RenderProcessHostBadMojoMessageWaiter crash_observer(
+      web_contents()->GetPrimaryMainFrame()->GetProcess());
+  // ExecJs will sometimes finish before the renderer gets killed, so we must
+  // ignore the result.
+  std::ignore = ExecJs(web_contents(),
+                       "window.open('" + url.spec() + "', '_blank', 'popin');");
+  EXPECT_EQ(
+      "Received bad user message: "
+      "Partitioned popins can only open https URLs.",
+      crash_observer.Wait());
+  // The test passes if the renderer crashes but not the browser.
+}
+
 class RenderFrameHostImplBrowserTestWithBFCache
     : public RenderFrameHostImplBrowserTest {
  public:
@@ -8454,7 +8584,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPrerenderBrowserTest,
   FrameTreeNode* expected_ftn = rfh_a->frame_tree_node();
 
   // Load a page in the prerender.
-  int host_id = prerender_helper().AddPrerender(prerender_url);
+  FrameTreeNodeId host_id = prerender_helper().AddPrerender(prerender_url);
   RenderFrameHostImpl* prerender_frame_host = static_cast<RenderFrameHostImpl*>(
       prerender_helper().GetPrerenderedMainFrameHost(host_id));
 
@@ -8475,7 +8605,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPrerenderBrowserTest,
   EXPECT_TRUE(NavigateToURL(shell(), url_a));
 
   // Load a page in the prerender.
-  int host_id = prerender_helper().AddPrerender(prerender_url);
+  FrameTreeNodeId host_id = prerender_helper().AddPrerender(prerender_url);
   RenderFrameHostImpl* prerender_frame_host = static_cast<RenderFrameHostImpl*>(
       prerender_helper().GetPrerenderedMainFrameHost(host_id));
   EXPECT_TRUE(prerender_frame_host);

@@ -13,8 +13,8 @@
 #include "base/numerics/checked_math.h"
 #include "base/strings/strcat.h"
 #include "base/trace_event/trace_event.h"
-#include "services/webnn/dml/buffer_impl_dml.h"
 #include "services/webnn/dml/error.h"
+#include "services/webnn/dml/tensor_impl_dml.h"
 #include "services/webnn/public/cpp/webnn_errors.h"
 
 namespace webnn::dml {
@@ -211,23 +211,23 @@ void ReadbackBufferWithBarrier(
   command_recorder->ResourceBarrier(barriers);
 }
 
-void UploadBufferWithBarrier(CommandRecorder* command_recorder,
-                             BufferImplDml* dst_buffer,
+void UploadTensorWithBarrier(CommandRecorder* command_recorder,
+                             TensorImplDml* dst_tensor,
                              Microsoft::WRL::ComPtr<ID3D12Resource> src_buffer,
                              size_t buffer_size) {
-  UploadBufferWithBarrier(command_recorder, dst_buffer->buffer(),
+  UploadBufferWithBarrier(command_recorder, dst_tensor->buffer(),
                           std::move(src_buffer), buffer_size);
-  command_recorder->OnBufferAccessed(dst_buffer);
+  command_recorder->OnTensorAccessed(dst_tensor);
 }
 
-void ReadbackBufferWithBarrier(
+void ReadbackTensorWithBarrier(
     CommandRecorder* command_recorder,
     Microsoft::WRL::ComPtr<ID3D12Resource> dst_buffer,
-    BufferImplDml* src_buffer,
+    TensorImplDml* src_tensor,
     size_t buffer_size) {
-  ReadbackBufferWithBarrier(command_recorder, dst_buffer, src_buffer->buffer(),
+  ReadbackBufferWithBarrier(command_recorder, dst_buffer, src_tensor->buffer(),
                             buffer_size);
-  command_recorder->OnBufferAccessed(src_buffer);
+  command_recorder->OnTensorAccessed(src_tensor);
 }
 
 mojom::ErrorPtr CreateError(mojom::Error::Code error_code,

@@ -14,6 +14,7 @@
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
 #include "device/fido/fido_types.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
+#include "ui/gfx/vector_icon_types.h"
 
 namespace webauthn::user_actions {
 
@@ -171,8 +172,63 @@ void RecordPriorityOptionShown(const Mechanism& mechanism) {
   }
 }
 
+void RecordMechanismClick(const Mechanism& mech) {
+  std::string_view metric_to_emit;
+  switch (CategoryFromMechanism(mech)) {
+    case AuthenticatorCategory::kGpm:
+      metric_to_emit = kGpmOnly;
+      break;
+    case AuthenticatorCategory::kProfile:
+      metric_to_emit = kProfileOnly;
+      break;
+    case AuthenticatorCategory::kICloud:
+      metric_to_emit = kICloudOnly;
+      break;
+    case AuthenticatorCategory::kWindows:
+      metric_to_emit = kWinOnly;
+      break;
+    case AuthenticatorCategory::kOther:
+      metric_to_emit = kOthers;
+      break;
+  }
+
+  base::RecordAction(base::UserMetricsAction(
+      base::StrCat({"WebAuthn.Dialog.UserSelected.", metric_to_emit}).c_str()));
+}
+
 void RecordCancelClick() {
   base::RecordAction(base::UserMetricsAction("WebAuthn.Dialog.Cancelled"));
+}
+
+void RecordAcceptClick() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.Dialog.Accepted"));
+}
+
+void RecordTrustDialogShown(bool is_create) {
+  std::string type = is_create ? "MakeCredential" : "GetAssertion";
+  base::RecordAction(base::UserMetricsAction(
+      base::StrCat({"WebAuthn.", type, ".TrustGpmDialogShown"}).c_str()));
+}
+
+void RecordCreateGpmDialogShown() {
+  base::RecordAction(
+      base::UserMetricsAction("WebAuthn.MakeCredential.CreateGpmDialogShown"));
+}
+
+void RecordRecoveryShown(bool is_create) {
+  std::string type = is_create ? "MakeCredential" : "GetAssertion";
+  base::RecordAction(base::UserMetricsAction(
+      base::StrCat({"WebAuthn.", type, ".RecoverGpmShown"}).c_str()));
+}
+
+void RecordRecoveryCancelled() {
+  base::RecordAction(
+      base::UserMetricsAction("WebAuthn.Window.RecoverGpmCancelled"));
+}
+
+void RecordRecoverySucceeded() {
+  base::RecordAction(
+      base::UserMetricsAction("WebAuthn.Window.RecoverGpmSucceeded"));
 }
 
 void RecordICloudShown(bool is_create) {
@@ -187,6 +243,97 @@ void RecordICloudCancelled() {
 
 void RecordICloudSuccess() {
   base::RecordAction(base::UserMetricsAction("WebAuthn.ICloud.Success"));
+}
+
+void RecordGpmTouchIdDialogShown(bool is_create) {
+  if (is_create) {
+    base::RecordAction(base::UserMetricsAction(
+        "WebAuthn.MakeCredential.GpmTouchIdDialogShown"));
+  } else {
+    base::RecordAction(
+        base::UserMetricsAction("WebAuthn.GetAssertion.GpmTouchIdDialogShown"));
+  }
+}
+
+void RecordGpmPinSheetShown(bool is_credential_creation,
+                            bool is_pin_creation,
+                            bool is_arbitrary) {
+  std::string_view webauthn_request_type =
+      is_credential_creation ? "MakeCredential." : "GetAssertion.";
+  std::string_view pin_mode = is_pin_creation ? "GpmCreate" : "GpmEnter";
+  std::string_view pin_type = is_arbitrary ? "Arbitrary" : "";
+
+  base::RecordAction(base::UserMetricsAction(
+      base::StrCat({"WebAuthn.", webauthn_request_type, pin_mode, pin_type,
+                    "PinDialogShown"})
+          .c_str()));
+}
+
+void RecordGpmForgotPinClick() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.Gpm.ForgotPinClicked"));
+}
+
+void RecordGpmPinOptionChangeClick() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.Gpm.PinOptionChanged"));
+}
+
+void RecordGpmLockedShown() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.Gpm.LockedDialogShown"));
+}
+
+void RecordGpmWinUvShown(bool is_create) {
+  if (is_create) {
+    base::RecordAction(
+        base::UserMetricsAction("WebAuthn.MakeCredential.GpmWinUvShown"));
+  } else {
+    base::RecordAction(
+        base::UserMetricsAction("WebAuthn.GetAssertion.GpmWinUvShown"));
+  }
+}
+
+void RecordGpmSuccess() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.Gpm.Success"));
+}
+
+void RecordGpmFailureShown() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.Gpm.Failure"));
+}
+
+void RecordChromeProfileAuthenticatorShown(bool is_create) {
+  if (is_create) {
+    base::RecordAction(base::UserMetricsAction(
+        "WebAuthn.MakeCredential.ChromeProfileAuthenticatorShown"));
+  } else {
+    base::RecordAction(base::UserMetricsAction(
+        "WebAuthn.GetAssertion.ChromeProfileAuthenticatorShown"));
+  }
+}
+
+void RecordChromeProfileCancelled() {
+  base::RecordAction(
+      base::UserMetricsAction("WebAuthn.ChromeProfile.Cancelled"));
+}
+
+void RecordChromeProfileSuccess() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.ChromeProfile.Success"));
+}
+
+void RecordWindowsHelloShown(bool is_create) {
+  if (is_create) {
+    base::RecordAction(
+        base::UserMetricsAction("WebAuthn.MakeCredential.WinHelloShown"));
+  } else {
+    base::RecordAction(
+        base::UserMetricsAction("WebAuthn.GetAssertion.WinHelloShown"));
+  }
+}
+
+void RecordWindowsHelloCancelled() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.WinHello.Cancelled"));
+}
+
+void RecordWindowsHelloSuccess() {
+  base::RecordAction(base::UserMetricsAction("WebAuthn.WinHello.Success"));
 }
 
 }  // namespace webauthn::user_actions

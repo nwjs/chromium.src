@@ -66,6 +66,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/crash_keys.h"
 #include "chrome/common/logging_chrome.h"
+#include "chrome/common/profiler/chrome_thread_profiler_client.h"
 #include "chrome/common/profiler/main_thread_stack_sampling_profiler.h"
 #include "chrome/common/profiler/process_type.h"
 #include "chrome/common/profiler/unwind_util.h"
@@ -84,6 +85,7 @@
 #include "components/memory_system/parameters.h"
 #include "components/metrics/persistent_histograms.h"
 #include "components/nacl/common/buildflags.h"
+#include "components/sampling_profiler/thread_profiler.h"
 #include "components/startup_metric_utils/common/startup_metric_utils.h"
 #include "components/version_info/channel.h"
 #include "components/version_info/version_info.h"
@@ -124,7 +126,6 @@
 #include "chrome/browser/win/browser_util.h"
 #include "chrome/child/v8_crashpad_support_win.h"
 #include "chrome/chrome_elf/chrome_elf_main.h"
-#include "chrome/common/child_process_logging.h"
 #include "chrome/common/chrome_version.h"
 #include "sandbox/win/src/sandbox.h"
 #include "sandbox/win/src/sandbox_factory.h"
@@ -201,10 +202,6 @@
 #if BUILDFLAG(IS_LINUX)
 #include "base/nix/scoped_xdg_activation_token_injector.h"
 #include "ui/linux/display_server_utils.h"
-#endif
-
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-#include "base/message_loop/message_pump_libevent.h"
 #endif
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
@@ -1130,6 +1127,12 @@ bool ChromeMainDelegate::ShouldInitializeMojo(InvokedIn invoked_in) {
 
 void ChromeMainDelegate::CreateThreadPool(std::string_view name) {
   base::ThreadPoolInstance::Create(name);
+
+  // The ThreadProfiler client must be set before main thread profiling is
+  // started (below).
+  sampling_profiler::ThreadProfiler::SetClient(
+      std::make_unique<ChromeThreadProfilerClient>());
+
 // `ChromeMainDelegateAndroid::PreSandboxStartup` creates the profiler a little
 // later.
 #if !BUILDFLAG(IS_ANDROID)
@@ -1243,12 +1246,7 @@ void ChromeMainDelegate::SetupTracing() {
   // sampler profiler because it can support java frames which is essential for
   // the main thread.
   base::RepeatingCallback tracing_factory =
-#if BUILDFLAG(IS_ANDROID)
-      base::BindRepeating(&CreateCoreUnwindersFactory,
-                          /*is_java_name_hashing_enabled=*/false);
-#else
       base::BindRepeating(&CreateCoreUnwindersFactory);
-#endif  // BUILDFLAG(IS_ANDROID)
   tracing::TracingSamplerProfiler::UnwinderType unwinder_type =
       tracing::TracingSamplerProfiler::UnwinderType::kCustomAndroid;
 #if BUILDFLAG(IS_ANDROID)
@@ -1636,9 +1634,6 @@ void ChromeMainDelegate::PreSandboxStartup() {
   SetUpInstallerPreferences(command_line);
 #endif
 
-#if BUILDFLAG(IS_WIN)
-  child_process_logging::Init();
-#endif
 #if defined(ARCH_CPU_ARM_FAMILY) && \
     (BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
   // Create an instance of the CPU class to parse /proc/cpuinfo and cache
@@ -1708,13 +1703,6 @@ void ChromeMainDelegate::PreSandboxStartup() {
 
 #if 1
   // command line flags. Maybe move the chrome PathProvider down here also?
-  int alt_preinstalled_components_dir =
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-      ash::DIR_PREINSTALLED_COMPONENTS;
-#else
-      chrome::DIR_INTERNAL_PLUGINS;
-#endif
-
   int updated_components_dir =
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
       static_cast<int>(chromeos::lacros_paths::LACROS_SHARED_DIR);
@@ -1723,7 +1711,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
 #endif
 
   component_updater::RegisterPathProvider(chrome::DIR_COMPONENTS,
-                                          alt_preinstalled_components_dir,
+                                          chrome::DIR_INTERNAL_PLUGINS,
                                           updated_components_dir);
 #endif
 

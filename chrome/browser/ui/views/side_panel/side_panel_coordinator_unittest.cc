@@ -13,6 +13,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/icu_test_util.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/extensions/api/side_panel/side_panel_api.h"
@@ -47,6 +48,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/crx_file/id_util.h"
+#include "components/lens/lens_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/extension_system.h"
@@ -54,6 +56,7 @@
 #include "extensions/test/test_extension_dir.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/models/simple_menu_model.h"
 #include "ui/views/layout/animating_layout_manager_test_util.h"
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/test/views_test_utils.h"
@@ -119,6 +122,16 @@ class SidePanelCoordinatorTest : public TestWithBrowserView {
                                          ->GetTabFeatures()
                                          ->side_panel_registry());
 
+    // Add a kLensOverlayResults entry to the contextual registry for the second
+    // tab.
+    registry->Register(std::make_unique<SidePanelEntry>(
+        SidePanelEntry::Id::kLensOverlayResults,
+        base::BindRepeating([]() { return std::make_unique<views::View>(); }),
+        std::nullopt, base::BindRepeating([]() {
+          return std::unique_ptr<ui::MenuModel>(
+              new ui::SimpleMenuModel(nullptr));
+        })));
+
     // Add a kCustomizeChrome entry to the contextual registry for the second
     // tab.
     registry->Register(std::make_unique<SidePanelEntry>(
@@ -142,20 +155,22 @@ class SidePanelCoordinatorTest : public TestWithBrowserView {
     EXPECT_EQ(contextual_registry->entries()[1]->key().id(),
               SidePanelEntry::Id::kCustomizeChrome);
 
-    // Verify the second tab has 3 entries, kReadAnything, kLens and
-    // kCustomizeChrome.
+    // Verify the second tab has 3 entries, kReadAnything, kLens,
+    // kLensOverlayResults and kCustomizeChrome.
     browser_view()->browser()->tab_strip_model()->ActivateTabAt(1);
     contextual_registry = browser_view()
                               ->browser()
                               ->GetActiveTabInterface()
                               ->GetTabFeatures()
                               ->side_panel_registry();
-    EXPECT_EQ(contextual_registry->entries().size(), 3u);
+    EXPECT_EQ(contextual_registry->entries().size(), 4u);
     EXPECT_EQ(contextual_registry->entries()[0]->key().id(),
               SidePanelEntry::Id::kReadAnything);
     EXPECT_EQ(contextual_registry->entries()[1]->key().id(),
               SidePanelEntry::Id::kLens);
     EXPECT_EQ(contextual_registry->entries()[2]->key().id(),
+              SidePanelEntry::Id::kLensOverlayResults);
+    EXPECT_EQ(contextual_registry->entries()[3]->key().id(),
               SidePanelEntry::Id::kCustomizeChrome);
 
     extensions::SidePanelService::GetFactoryInstance()->SetTestingFactory(
@@ -324,6 +339,26 @@ TEST_F(SidePanelCoordinatorTest, ToggleSidePanel) {
   coordinator_->Toggle(SidePanelEntry::Key(SidePanelEntry::Id::kBookmarks),
                        SidePanelOpenTrigger::kPinnedEntryToolbarButton);
   EXPECT_FALSE(browser_view()->unified_side_panel()->GetVisible());
+}
+
+TEST_F(SidePanelCoordinatorTest, OpenWhileClosing) {
+  // Wait for the side panel to be visible, although it may not be fully shown.
+  coordinator_->Show(SidePanelEntry::Key(SidePanelEntry::Id::kBookmarks));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return browser_view()->unified_side_panel()->GetVisible(); }));
+
+  // Closing the side panel is asynchronous and thus it should still be visible.
+  coordinator_->Close();
+  EXPECT_TRUE(browser_view()->unified_side_panel()->GetVisible());
+
+  // Opening the same entry should cancel the close.
+  coordinator_->Show(SidePanelEntry::Key(SidePanelEntry::Id::kBookmarks));
+
+  views::View* content_wrapper =
+      browser_view()->unified_side_panel()->GetViewByID(
+          SidePanelCoordinator::kSidePanelContentWrapperViewId);
+  EXPECT_EQ(content_wrapper->GetProperty(kSidePanelContentStateKey),
+            static_cast<int>(SidePanelContentState::kReadyToShow));
 }
 
 TEST_F(SidePanelCoordinatorTest, ChangeSidePanelWidth) {
@@ -557,16 +592,6 @@ TEST_F(SidePanelCoordinatorTest, SidePanelToggleWithEntriesTest) {
 
   // Toggle reading list sidepanel to close.
   coordinator_->Toggle(SidePanelEntry::Key(SidePanelEntry::Id::kReadingList),
-                       SidePanelOpenTrigger::kPinnedEntryToolbarButton);
-  EXPECT_FALSE(browser_view()->unified_side_panel()->GetVisible());
-
-  // If the same entry is loading, close the sidepanel.
-  coordinator_->SetNoDelaysForTesting(false);
-  coordinator_->Toggle(SidePanelEntry::Key(SidePanelEntry::Id::kBookmarks),
-                       SidePanelOpenTrigger::kPinnedEntryToolbarButton);
-  EXPECT_FALSE(browser_view()->unified_side_panel()->GetVisible());
-  coordinator_->SetNoDelaysForTesting(true);
-  coordinator_->Toggle(SidePanelEntry::Key(SidePanelEntry::Id::kBookmarks),
                        SidePanelOpenTrigger::kPinnedEntryToolbarButton);
   EXPECT_FALSE(browser_view()->unified_side_panel()->GetVisible());
 
@@ -1712,6 +1737,37 @@ TEST_F(SidePanelCoordinatorTest, ExtensionSidePanelHasPinButton) {
   EXPECT_TRUE(pin_button->GetVisible());
   EXPECT_TRUE(pin_button->GetToggled());
   EXPECT_EQ(1u, model->pinned_action_ids().size());
+}
+
+class SidePanelCoordinatorLensOverlayTest : public SidePanelCoordinatorTest {
+ public:
+  SidePanelCoordinatorLensOverlayTest() {
+    scoped_feature_list_.Reset();
+    scoped_feature_list_.InitWithFeatures(
+        {features::kSidePanelResizing, lens::features::kLensOverlay}, {});
+  }
+};
+
+TEST_F(SidePanelCoordinatorLensOverlayTest,
+       ShowMoreInfoButtonWhenCallbackProvided) {
+  browser_view()->browser()->tab_strip_model()->ActivateTabAt(1);
+  coordinator_->Show(SidePanelEntry::Id::kLensOverlayResults);
+  VerifyEntryExistenceAndValue(contextual_registries_[1]->active_entry(),
+                               SidePanelEntry::Id::kLensOverlayResults);
+  views::ImageButton* more_info_button =
+      coordinator_->GetHeaderMoreInfoButtonForTesting();
+  EXPECT_TRUE(more_info_button->GetVisible());
+}
+
+TEST_F(SidePanelCoordinatorLensOverlayTest,
+       HideMoreInfoButtonWhenNoCallbackProvided) {
+  browser_view()->browser()->tab_strip_model()->ActivateTabAt(1);
+  coordinator_->Show(SidePanelEntry::Id::kLens);
+  VerifyEntryExistenceAndValue(contextual_registries_[1]->active_entry(),
+                               SidePanelEntry::Id::kLens);
+  views::ImageButton* more_info_button =
+      coordinator_->GetHeaderMoreInfoButtonForTesting();
+  EXPECT_FALSE(more_info_button->GetVisible());
 }
 
 // Test that the SidePanelCoordinator behaves and updates corrected when dealing

@@ -264,6 +264,10 @@ void OptimizationGuideKeyedService::DeterminePerformanceClass(
   controller->GetEstimatedPerformanceClass(base::BindOnce(
       [](base::WeakPtr<optimization_guide::OnDeviceModelComponentStateManager>
              on_device_component_state_manager,
+         // Keep a reference to the controller to avoid it being deleted and
+         // killing the service.
+         scoped_refptr<optimization_guide::OnDeviceModelServiceController>
+             controller,
          std::optional<on_device_model::mojom::PerformanceClass>
              performance_class) {
         auto optimization_guide_performance_class =
@@ -281,7 +285,7 @@ void OptimizationGuideKeyedService::DeterminePerformanceClass(
                 optimization_guide_performance_class),
             variations::SyntheticTrialAnnotationMode::kCurrentLog);
       },
-      on_device_component_state_manager));
+      on_device_component_state_manager, controller));
 }
 
 OptimizationGuideKeyedService::OptimizationGuideKeyedService(
@@ -605,17 +609,18 @@ void OptimizationGuideKeyedService::CanApplyOptimizationOnDemand(
 
 bool OptimizationGuideKeyedService::CanCreateOnDeviceSession(
     optimization_guide::ModelBasedCapabilityKey feature,
-    raw_ptr<optimization_guide::OnDeviceModelEligibilityReason> debug_reason) {
+    optimization_guide::OnDeviceModelEligibilityReason*
+        on_device_model_eligibility_reason) {
   if (!model_execution_manager_) {
-    if (debug_reason) {
-      *debug_reason = optimization_guide::OnDeviceModelEligibilityReason::
-          kFeatureNotEnabled;
+    if (on_device_model_eligibility_reason) {
+      *on_device_model_eligibility_reason = optimization_guide::
+          OnDeviceModelEligibilityReason::kFeatureNotEnabled;
     }
     return false;
   }
 
-  return model_execution_manager_->CanCreateOnDeviceSession(feature,
-                                                            debug_reason);
+  return model_execution_manager_->CanCreateOnDeviceSession(
+      feature, on_device_model_eligibility_reason);
 }
 
 std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>

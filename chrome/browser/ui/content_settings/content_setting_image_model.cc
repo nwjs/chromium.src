@@ -59,7 +59,7 @@
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chrome/browser/media/webrtc/system_media_capture_permissions_mac.h"
+#include "chrome/browser/permissions/system/system_media_capture_permissions_mac.h"
 #include "chrome/browser/web_applications/os_integration/mac/app_shim_registry.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #endif
@@ -573,18 +573,25 @@ bool ContentSettingBlockedImageModel::UpdateAndGetVisibility(
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   auto* map = HostContentSettingsMapFactory::GetForProfile(profile);
 
-  // For allowed cookies, don't show the cookie page action unless cookies are
-  // blocked by default.
-  if (!is_blocked && type == ContentSettingsType::COOKIES &&
-      map->GetDefaultContentSetting(type, nullptr) != CONTENT_SETTING_BLOCK) {
-    return false;
-  }
-
-  // TODO(crbug.com/40675739): Handle first-party blocking with new ui.
-  if (type == ContentSettingsType::COOKIES &&
-      CookieSettingsFactory::GetForProfile(profile)
-          ->ShouldBlockThirdPartyCookies()) {
-    return false;
+  if (type == ContentSettingsType::COOKIES) {
+    auto cookie_settings = CookieSettingsFactory::GetForProfile(profile);
+    const auto& url = web_contents->GetLastCommittedURL();
+    bool blocked_via_setting = cookie_settings->GetCookieSetting(
+                                   url, net::SiteForCookies::FromUrl(url), url,
+                                   {}) == CONTENT_SETTING_BLOCK;
+    // We check the cookie setting here as well because 3PC access influences
+    // the allowed/blocked status even though the icon is meant for 1PC control.
+    is_blocked = is_blocked && blocked_via_setting;
+    // True if the user blocked 1PCs by default but allowed them for this site.
+    bool allowed_for_site =
+        is_allowed && !blocked_via_setting &&
+        map->GetDefaultContentSetting(type) == CONTENT_SETTING_BLOCK;
+    // Only show the cookie page action if 1PCs are allowed via site-level
+    // exception on the current site OR blocked AND 3PCs are allowed.
+    if ((!allowed_for_site && !is_blocked) ||
+        cookie_settings->ShouldBlockThirdPartyCookies()) {
+      return false;
+    }
   }
 
   if (!is_blocked) {
@@ -592,7 +599,7 @@ bool ContentSettingBlockedImageModel::UpdateAndGetVisibility(
     explanation_id = 0;
   }
 
-  SetIcon(type, content_settings->IsContentBlocked(type));
+  SetIcon(type, is_blocked);
   set_explanatory_string_id(explanation_id);
   DCHECK(tooltip_id);
   set_tooltip(l10n_util::GetStringUTF16(tooltip_id));
@@ -955,26 +962,26 @@ bool ContentSettingMediaImageModel::IsCameraBlockedOnSiteLevel() {
 bool ContentSettingMediaImageModel::
     DidCameraAccessFailBecauseOfSystemLevelBlock() {
   return (IsCamAccessed() && !IsCameraBlockedOnSiteLevel() &&
-          system_media_permissions::CheckSystemVideoCapturePermission() ==
-              system_media_permissions::SystemPermission::kDenied);
+          system_permission_settings::CheckSystemVideoCapturePermission() ==
+              system_permission_settings::SystemPermission::kDenied);
 }
 
 bool ContentSettingMediaImageModel::
     DidMicAccessFailBecauseOfSystemLevelBlock() {
   return (IsMicAccessed() && !IsMicBlockedOnSiteLevel() &&
-          system_media_permissions::CheckSystemAudioCapturePermission() ==
-              system_media_permissions::SystemPermission::kDenied);
+          system_permission_settings::CheckSystemAudioCapturePermission() ==
+              system_permission_settings::SystemPermission::kDenied);
 }
 
 bool ContentSettingMediaImageModel::IsCameraAccessPendingOnSystemLevelPrompt() {
-  return (system_media_permissions::CheckSystemVideoCapturePermission() ==
-              system_media_permissions::SystemPermission::kNotDetermined &&
+  return (system_permission_settings::CheckSystemVideoCapturePermission() ==
+              system_permission_settings::SystemPermission::kNotDetermined &&
           IsCamAccessed() && !IsCameraBlockedOnSiteLevel());
 }
 
 bool ContentSettingMediaImageModel::IsMicAccessPendingOnSystemLevelPrompt() {
-  return (system_media_permissions::CheckSystemAudioCapturePermission() ==
-              system_media_permissions::SystemPermission::kNotDetermined &&
+  return (system_permission_settings::CheckSystemAudioCapturePermission() ==
+              system_permission_settings::SystemPermission::kNotDetermined &&
           IsMicAccessed() && !IsMicBlockedOnSiteLevel());
 }
 

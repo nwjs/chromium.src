@@ -342,7 +342,7 @@ bool InspectorPageAgent::SegmentedBufferContent(
 
   const SegmentedBuffer::DeprecatedFlatData flat_buffer(buffer);
   if (decoder) {
-    text_content = decoder->Decode(flat_buffer.data(), flat_buffer.size());
+    text_content = decoder->Decode(flat_buffer);
     text_content = text_content + decoder->Flush();
   } else if (encoding.IsValid()) {
     text_content = encoding.Decode(
@@ -1060,7 +1060,7 @@ void InspectorPageAgent::DidCreateMainWorldContext(LocalFrame* frame) {
     return;
   }
   ScriptState* script_state = ToScriptStateForMainWorld(frame);
-  if (!script_state) {
+  if (!script_state || !v8_session_) {
     return;
   }
 
@@ -1085,7 +1085,7 @@ void InspectorPageAgent::EvaluateScriptOnNewDocument(
                       *DOMWrapperWorld::EnsureIsolatedWorld(
                           ToIsolate(window->GetFrame()), world->GetWorldId()));
   }
-  if (!script_state) {
+  if (!script_state || !v8_session_) {
     return;
   }
 
@@ -1166,6 +1166,11 @@ void InspectorPageAgent::FrameDetachedFromParent(LocalFrame* frame,
 
   GetFrontend()->frameDetached(IdentifiersFactory::FrameId(frame),
                                FrameDetachTypeToProtocol(type));
+}
+
+void InspectorPageAgent::FrameSubtreeWillBeDetached(Frame* frame) {
+  GetFrontend()->frameSubtreeWillBeDetached(IdentifiersFactory::FrameId(frame));
+  GetFrontend()->flush();
 }
 
 bool InspectorPageAgent::ScreencastEnabled() {
@@ -1995,6 +2000,11 @@ void InspectorPageAgent::Trace(Visitor* visitor) const {
   visitor->Trace(inspector_resource_content_loader_);
   visitor->Trace(isolated_worlds_);
   InspectorBaseAgent::Trace(visitor);
+}
+
+void InspectorPageAgent::Dispose() {
+  InspectorBaseAgent::Dispose();
+  v8_session_ = nullptr;
 }
 
 protocol::Response InspectorPageAgent::getOriginTrials(

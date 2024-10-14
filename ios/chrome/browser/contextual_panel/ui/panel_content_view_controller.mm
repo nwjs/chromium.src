@@ -58,6 +58,12 @@ const CGFloat kContentBottomMargin = 16;
 // Threshold for how long a view is onscreen to count as visible.
 const base::TimeDelta kVisibleTimeThreshold = base::Milliseconds(10);
 
+// The time range's expected min, max values and bucket count for custom
+// histograms.
+constexpr base::TimeDelta kVisibleTimeHistogramMin = base::Milliseconds(1);
+constexpr base::TimeDelta kVisibleTimeHistogramMax = base::Minutes(10);
+constexpr int kVisibleTimeHistogramBucketCount = 100;
+
 // Identifier for the one section in this collection view.
 NSString* const kSectionIdentifier = @"section1";
 
@@ -249,16 +255,6 @@ UIImage* CloseButtonImage(BOOL highlighted) {
            object:nil];
 }
 
-- (void)viewWillAppear:(BOOL)animated {
-  [super viewWillAppear:animated];
-
-  [[NSNotificationCenter defaultCenter]
-      addObserver:self
-         selector:@selector(handleKeyboardWillShow:)
-             name:UIKeyboardWillShowNotification
-           object:nil];
-}
-
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
   _appearanceTime = base::Time::Now();
@@ -269,8 +265,10 @@ UIImage* CloseButtonImage(BOOL highlighted) {
 - (void)viewWillDisappear:(BOOL)animated {
   [super viewWillDisappear:animated];
 
-  base::UmaHistogramTimes("IOS.ContextualPanel.VisibleTime",
-                          base::Time::Now() - _appearanceTime);
+  base::UmaHistogramCustomTimes(
+      "IOS.ContextualPanel.VisibleTime", base::Time::Now() - _appearanceTime,
+      kVisibleTimeHistogramMin, kVisibleTimeHistogramMax,
+      kVisibleTimeHistogramBucketCount);
 
   // First alert all visible cells that they will disappear.
   for (NSIndexPath* indexPath in _collectionView.indexPathsForVisibleItems) {
@@ -629,22 +627,6 @@ UIImage* CloseButtonImage(BOOL highlighted) {
 
   UIPointerStyle* style = [UIPointerStyle styleWithEffect:effect shape:shape];
   return style;
-}
-
-#pragma mark - Keyboard notifications
-
-- (void)handleKeyboardWillShow:(NSNotification*)notification {
-  // Sometimes, this triggers during dismissal (maybe if the website had the
-  // keyboard open before presenting?), and re-entering closeContextualSheet
-  // crashes because all the coordinators get deallocated during the inner
-  // close.
-  if (self.isBeingDismissed) {
-    return;
-  }
-
-  base::UmaHistogramEnumeration("IOS.ContextualPanel.DismissedReason",
-                                ContextualPanelDismissedReason::KeyboardOpened);
-  [self.contextualSheetCommandHandler closeContextualSheet];
 }
 
 @end

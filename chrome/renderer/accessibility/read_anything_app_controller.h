@@ -44,6 +44,7 @@ class MojoUkmRecorder;
 }  // namespace ukm
 
 class AXTreeDistiller;
+class DependencyParserModel;
 class ReadAnythingAppControllerTest;
 class ReadAnythingAppControllerScreen2xDataCollectionModeTest;
 
@@ -112,6 +113,8 @@ class ReadAnythingAppController
       const ui::AXTreeID& tree_id,
       const std::vector<ui::AXTreeUpdate>& updates,
       const std::vector<ui::AXEvent>& events) override;
+  void AccessibilityLocationChangesReceived(
+      const std::vector<ui::AXLocationChanges>& details) override;
   void OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id,
                                ukm::SourceId ukm_source_id,
                                bool is_pdf) override;
@@ -170,6 +173,11 @@ class ReadAnythingAppController
   int DarkTheme() const;
   int YellowTheme() const;
   int BlueTheme() const;
+  int AutoHighlighting() const;
+  int WordHighlighting() const;
+  int PhraseHighlighting() const;
+  int SentenceHighlighting() const;
+  int NoHighlighting() const;
   std::string GetStoredVoice() const;
   std::vector<std::string> GetLanguagesEnabledInPref() const;
   std::vector<ui::AXNodeID> GetChildren(ui::AXNodeID ax_node_id) const;
@@ -204,6 +212,7 @@ class ReadAnythingAppController
   bool IsAutoVoiceSwitchingEnabled() const;
   bool IsLanguagePackDownloadingEnabled() const;
   bool IsAutomaticWordHighlightingEnabled() const;
+  bool IsPhraseHighlightingEnabled() const;
   void OnLetterSpacingChange(int value);
   void OnLineSpacingChange(int value);
   void OnThemeChange(int value);
@@ -212,8 +221,7 @@ class ReadAnythingAppController
   void OnVoiceChange(const std::string& voice, const std::string& lang);
   void OnLanguagePrefChange(const std::string& lang, bool enabled);
   bool RequiresDistillation();
-  void TurnedHighlightOn();
-  void TurnedHighlightOff();
+  void OnHighlightGranularityChanged(int granularity);
   double GetLineSpacingValue(int line_spacing) const;
   double GetLetterSpacingValue(int letter_spacing) const;
   std::vector<std::string> GetSupportedFonts();
@@ -224,6 +232,7 @@ class ReadAnythingAppController
   std::string GetValidatedFontName(const std::string& font) const;
   std::vector<std::string> GetAllFonts();
   void OnScrolledToBottom();
+  bool IsDocsLoadMoreButtonVisible() const;
 
   // The language code that should be used to determine which voices are
   // supported for speech.
@@ -298,16 +307,6 @@ class ReadAnythingAppController
   // segment.
   int GetCurrentTextStartIndex(ui::AXNodeID node_id);
 
-  // Given a node id and the boundary position of the highlight start, return
-  // convert to the starting index that should be used for highlighting the
-  // next granularity.
-  // Note that this is only needed for custom granularity highlighting.
-  // Sentence highlighting is able to be handled directly in WebUI because the
-  // entire speech segment is highlighted at once.
-  // This allows us to correctly position the highlight within the current
-  // text segment.
-  int GetHighlightStartIndex(ui::AXNodeID node_id, int index);
-
   // Returns the Read Aloud ending text index for a node. For example,
   // if the entire text of the node should be read by Read Aloud at a particular
   // moment, this will return the length of the node's text. Returns -1 if the
@@ -318,9 +317,22 @@ class ReadAnythingAppController
   // when the active tree changes.
   void RecordNumSelections();
 
-  ui::AXNodeID GetNodeIdForCurrentSegmentIndex(int index);
-
-  int GetNextWordHighlightLength(int index);
+  // Given a boundary position within the current granularity, identifies the
+  // nodes that needs to be highlighted (e.g. until the word boundary), and
+  // returns a list containing nodes and the ranges within those nodes. The
+  // ranges are represented as a start offset and a length. Multiple nodes are
+  // returned if the highlight spans over more than one node. This allows us to
+  // correctly position the highlight within the current text segment. The
+  // return value is thus a list containing node id, start, and length.
+  //
+  //  If the `phrases` argument is `true`, the text ranges for the containing
+  //  phrase are returned, otherwise the text ranges for the word are returned.
+  //
+  // Note that this is only needed for custom granularity highlighting. Sentence
+  // highlighting is able to be handled directly in WebUI because the entire
+  // speech segment is highlighted at once.
+  v8::Local<v8::Value> GetHighlightForCurrentSegmentIndex(int index,
+                                                          bool phrases);
 
   // SetContentForTesting and SetLanguageForTesting are used by
   // ReadAnythingAppTest and thus need to be kept in ReadAnythingAppController
@@ -349,6 +361,12 @@ class ReadAnythingAppController
   // Helpers for logging UmaHistograms based on times recorded in WebUI.
   void IncrementMetricCount(const std::string& metric);
   void LogSpeechEventCounts();
+
+  // Called when a new dependency parser model file has been loaded and is
+  // available.
+  void UpdateDependencyParserModel(base::File model_file);
+
+  DependencyParserModel& GetDependencyParserModelForTesting();
 
   std::unique_ptr<AXTreeDistiller> distiller_;
   mojo::Remote<read_anything::mojom::UntrustedPageHandlerFactory>

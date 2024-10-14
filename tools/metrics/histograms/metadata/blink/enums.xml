@@ -217,6 +217,13 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="(obsolete) kImageJXL"/>
 </enum>
 
+<enum name="DigitalIdentityInterstitialClosedReason">
+  <int value="0" label="kOther"/>
+  <int value="1" label="kOkButton"/>
+  <int value="2" label="kCancelButton"/>
+  <int value="3" label="kPageNavigated"/>
+</enum>
+
 <enum name="DigitalIdentityRequestStatus">
   <int value="0" label="kSuccess"/>
   <int value="1" label="kErrorOther"/>
@@ -323,6 +330,16 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="First mismatch of the request, with hints"/>
   <int value="2" label="Repeated mismatch in a request, without hints"/>
   <int value="3" label="Repeated mismatch in a request, with hints"/>
+</enum>
+
+<enum name="FedCmPopupInteraction">
+  <int value="0" label="User loses focus of pop-up and pop-up closed by IDP"/>
+  <int value="1"
+      label="User loses focus of pop-up and pop-up not closed by IDP"/>
+  <int value="2"
+      label="User never loses focus of pop-up and pop-up closed by IDP"/>
+  <int value="3"
+      label="User never loses focus of pop-up and pop-up not closed by IDP"/>
 </enum>
 
 <enum name="FedCmPopupWindowResult">

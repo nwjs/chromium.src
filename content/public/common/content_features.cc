@@ -253,6 +253,11 @@ const char kCookieDeprecationTestingDisableAdsAPIsName[] = "disable_ads_apis";
 // Adiitional FeatureParams for CookieDeprecationFacilitatedTesting are defined
 // in chrome/browser/tpcd/experiment/tpcd_experiment_features.cc.
 
+// When enabled, the DevTools Privacy UI is displayed.
+BASE_FEATURE(kDevToolsPrivacyUI,
+             "DevToolsPrivacyUI",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables Blink cooperative scheduling.
 BASE_FEATURE(kCooperativeScheduling,
              "CooperativeScheduling",
@@ -382,6 +387,12 @@ BASE_FEATURE(kWebRtcHWEncoding,
              "webrtc-hw-encoding",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables a discard operation on WebContents to free associated resources.
+// Eliminates the need to destroy the WebContents object to free its resources.
+BASE_FEATURE(kWebContentsDiscard,
+             "WebContentsDiscard",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables disconnecting the `ExtensionMessagePort` when the page using the port
 // enters BFCache.
 BASE_FEATURE(kDisconnectExtensionMessagePortWhenPageEntersBFCache,
@@ -501,6 +512,11 @@ BASE_FEATURE(kNetworkQualityEstimatorWebHoldback,
 // (activated by kUserAgentClientHint)
 BASE_FEATURE(kGreaseUACH, "GreaseUACH", base::FEATURE_ENABLED_BY_DEFAULT);
 
+// See crbug.com/359623664
+BASE_FEATURE(kIdbPrioritizeForegroundClients,
+             "IdbPrioritizeForegroundClients",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Kill switch for the GetInstalledRelatedApps API.
 BASE_FEATURE(kInstalledApp, "InstalledApp", base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -579,7 +595,7 @@ BASE_FEATURE(kLogJsConsoleMessages,
 #endif
 );
 
-// Uses ThreadType::kCompositing for the main thread
+// Uses ThreadType::kDisplayCritical for the main thread
 BASE_FEATURE(kMainThreadCompositingPriority,
              "MainThreadCompositingPriority",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -699,12 +715,6 @@ BASE_FEATURE(kPersistentOriginTrials,
 BASE_FEATURE(kPrefetchBrowserInitiatedTriggers,
              "PrefetchBrowserInitiatedTriggers",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, then an updated prefetch request limit policy will be used that
-// separates eager and non-eager prefetches, and allows for evictions.
-BASE_FEATURE(kPrefetchNewLimits,
-             "PrefetchNewLimits",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables exposure of ads APIs in the renderer: Attribution Reporting,
 // FLEDGE, Topics, along with a number of other features actively in development
@@ -1068,6 +1078,23 @@ BASE_FEATURE(kStrictOriginIsolation,
              "StrictOriginIsolation",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether subframe process reuse should be restricted according to
+// resource usage policies. Namely, a process that is already consuming too
+// much memory is not attempted to be reused.
+BASE_FEATURE(kSubframeProcessReuseThresholds,
+             "SubframeProcessReuseThresholds",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Specifies the memory threshold for the `kSubframeProcessReuseThresholds`
+// feature, which only allows a process to be reused for another subframe if the
+// process's memory footprint stays below this threshold. Similar to
+// `kProcessPerSiteMainFrameTotalMemoryLimit`, and only provided as a separate
+// knob so that it can be independently controlled in subframe and main frame
+// process reuse experiments.
+constexpr base::FeatureParam<double> kSubframeProcessReuseMemoryThreshold{
+    &kSubframeProcessReuseThresholds, "SubframeProcessReuseMemoryThreshold",
+    2 * 1024 * 1024 * 1024u};
+
 // Disallows window.{alert, prompt, confirm} if triggered inside a subframe that
 // is not same origin with the main frame.
 BASE_FEATURE(kSuppressDifferentOriginSubframeJSDialogs,
@@ -1143,6 +1170,11 @@ BASE_FEATURE(kV8VmFuture, "V8VmFuture", base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kWebAppSystemMediaControls,
              "WebAppSystemMediaControls",
 #if BUILDFLAG(IS_WIN)
+             // Windows enabled since 124.
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#elif BUILDFLAG(IS_MAC)
+             // macOS enabled in 130. If a kill switch is needed, it should be
+             // safe to only disable the failing platform (ie. macOS here).
              base::FEATURE_ENABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1313,14 +1345,6 @@ BASE_FEATURE(kWebViewSuppressTapDuringFling,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_CHROMEOS)
-// If true, then GpuMemoryBuffer video frames are enabled only if HW support for
-// NV12 is present (as determined by the relevant command-line flags).
-BASE_FEATURE(kGateNV12GMBVideoFramesOnHWSupport,
-             "GateNV12GMBVideoFramesOnHWSupport",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(IS_MAC)
 // Enables backgrounding hidden renderers on Mac.
 BASE_FEATURE(kMacAllowBackgroundingRenderProcesses,
@@ -1352,6 +1376,24 @@ BASE_FEATURE(kWebRtcPipeWireCapturer,
              "WebRTCPipeWireCapturer",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // defined(WEBRTC_USE_PIPEWIRE)
+
+// Default amount of days after which the global navigation capturing IPH
+// guardrails are cleared from storage.
+const base::FeatureParam<int> kNavigationCapturingIPHGuardrailStorageDuration{
+    &kPwaNavigationCapturing, "link_capturing_guardrail_storage_duration", 30};
+
+BASE_FEATURE(kPwaNavigationCapturing,
+             "PwaNavigationCapturing",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<CapturingState>::Option kNavigationCapturingParams[] =
+    {{CapturingState::kDefaultOn, "on_by_default"},
+     {CapturingState::kDefaultOff, "off_by_default"},
+     {CapturingState::kReimplDefaultOn, "reimpl_default_on"},
+     {CapturingState::kReimplDefaultOff, "reimpl_default_off"}};
+
+const base::FeatureParam<CapturingState> kNavigationCapturingDefaultState{
+    &kPwaNavigationCapturing, "link_capturing_state",
+    CapturingState::kDefaultOn, &kNavigationCapturingParams};
 
 namespace {
 enum class VideoCaptureServiceConfiguration {

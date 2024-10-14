@@ -111,6 +111,7 @@ ts_modules = [
   "common/command_store.ts",
   "common/earcon_id.ts",
   "common/event_source_type.ts",
+  "common/gesture.ts",
   "common/gesture_command_data.ts",
   "common/keyboard_handler.ts",
   "common/key_map.ts",
@@ -464,8 +465,9 @@ if (is_chromeos_ash) {
     deps = [
       "//ash",
       "//base",
-      "//chrome/browser/ash",
+      "//chrome/browser/ash/accessibility",
       "//chrome/browser/ash/crosapi",
+      "//chrome/browser/ash/system_web_apps",
       "//chrome/common",
     ]
     test_deps_js_outputs = get_target_outputs(":chromevox_test_deps_js")

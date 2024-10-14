@@ -325,8 +325,8 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/accelerators.h"
 #include "ash/public/cpp/metrics_util.h"
+#include "ash/wm/window_properties.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
-#include "chrome/browser/ui/ash/window_properties.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "ui/compositor/throughput_tracker.h"
 #else
@@ -722,6 +722,25 @@ class TabContainerOverlayView : public views::View {
 
 BEGIN_METADATA(TabContainerOverlayView)
 END_METADATA
+
+#else  // !BUILDFLAG(IS_MAC)
+
+// Calls |method| which is either WebContents::Cut, ::Copy, or ::Paste on
+// the given WebContents, returning true if it consumed the event.
+bool DoCutCopyPasteForWebContents(content::WebContents* contents,
+                                  void (content::WebContents::*method)()) {
+  // It's possible for a non-null WebContents to have a null RWHV if it's
+  // crashed or otherwise been killed.
+  content::RenderWidgetHostView* rwhv = contents->GetRenderWidgetHostView();
+  if (!rwhv || !rwhv->HasFocus()) {
+    return false;
+  }
+  // Calling |method| rather than using a fake key event is important since a
+  // fake event might be consumed by the web content.
+  (contents->*method)();
+  return true;
+}
+
 #endif  // BUILDFLAG(IS_MAC)
 
 }  // namespace
@@ -2263,9 +2282,19 @@ void BrowserView::FullscreenStateChanging() {
 
 void BrowserView::FullscreenStateChanged() {
 #if BUILDFLAG(IS_CHROMEOS)
-  if (platform_util::IsBrowserLockedFullscreen(browser_.get())) {
-    // Never use immersive in locked fullscreen as it allows the user to exit
-    // the locked mode.
+  // Avoid using immersive mode in locked fullscreen as it allows the user to
+  // exit the locked mode. Keep immersive mode enabled if the webapp is locked
+  // for OnTask (only relevant for non-web browser scenarios).
+  // TODO(b/365146870): Remove once we consolidate locked fullscreen with
+  // OnTask.
+  bool avoid_using_immersive_mode =
+      platform_util::IsBrowserLockedFullscreen(browser_.get());
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (browser_->IsLockedForOnTask()) {
+    avoid_using_immersive_mode = false;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+  if (avoid_using_immersive_mode) {
     immersive_mode_controller_->SetEnabled(false);
   } else {
     // Enable immersive before the browser refreshes its list of enabled
@@ -2696,6 +2725,10 @@ views::WebView* BrowserView::GetContentsWebView() {
   return contents_web_view_;
 }
 
+BrowserView* BrowserView::AsBrowserView() {
+  return this;
+}
+
 bool BrowserView::AppUsesBorderlessMode() const {
   return browser()->app_controller() &&
          browser()->app_controller()->AppUsesBorderlessMode();
@@ -2782,7 +2815,7 @@ bool BrowserView::ActivateFirstInactiveBubbleForAccessibility() {
     for (auto* view : std::initializer_list<views::View*>{
              toolbar_->app_menu_button(), GetLocationBarView(),
              toolbar_button_provider_->GetAvatarToolbarButton(),
-             toolbar_button_provider_->GetDownloadButton()}) {
+             toolbar_button_provider_->GetDownloadButton(), top_container_}) {
       if (view) {
         if (auto* dialog = view->GetProperty(views::kAnchoredDialogKey);
             dialog && !user_education::HelpBubbleView::IsHelpBubble(dialog)) {
@@ -3554,6 +3587,19 @@ remote_cocoa::mojom::CutCopyPasteCommand CommandFromBrowserCommand(
 }  // namespace
 #endif
 
+void BrowserView::Cut() {
+  base::RecordAction(UserMetricsAction("Cut"));
+  CutCopyPaste(IDC_CUT);
+}
+void BrowserView::Copy() {
+  base::RecordAction(UserMetricsAction("Copy"));
+  CutCopyPaste(IDC_COPY);
+}
+void BrowserView::Paste() {
+  base::RecordAction(UserMetricsAction("Paste"));
+  CutCopyPaste(IDC_PASTE);
+}
+
 // TODO(devint): http://b/issue?id=1117225 Cut, Copy, and Paste are always
 // enabled in the page menu regardless of whether the command will do
 // anything. When someone selects the menu item, we just act as if they hit
@@ -4137,7 +4183,7 @@ ui::ImageModel BrowserView::GetWindowIcon() {
   }
   auto* window = GetNativeWindow();
   int override_window_icon_resource_id =
-      window ? window->GetProperty(kOverrideWindowIconResourceIdKey) : -1;
+      window ? window->GetProperty(ash::kOverrideWindowIconResourceIdKey) : -1;
   if (override_window_icon_resource_id >= 0)
     return ui::ImageModel::FromImage(
         rb.GetImageNamed(override_window_icon_resource_id));
@@ -5467,14 +5513,15 @@ void BrowserView::MaybeShowProfileSwitchIPH() {
 
 void BrowserView::ShowHatsDialog(
     const std::string& site_id,
-    const std::optional<std::string>& histogram_name,
+    const std::optional<std::string>& hats_histogram_name,
+    const std::optional<uint64_t> hats_survey_ukm_id,
     base::OnceClosure success_callback,
     base::OnceClosure failure_callback,
     const SurveyBitsData& product_specific_bits_data,
     const SurveyStringData& product_specific_string_data) {
   // Self deleting on close.
-  new HatsNextWebDialog(browser(), site_id, histogram_name,
-                        std::move(success_callback),
+  new HatsNextWebDialog(browser(), site_id, hats_histogram_name,
+                        hats_survey_ukm_id, std::move(success_callback),
                         std::move(failure_callback), product_specific_bits_data,
                         product_specific_string_data);
 }
@@ -5615,19 +5662,6 @@ user_education::DisplayNewBadge BrowserView::MaybeShowNewBadgeFor(
     return user_education::DisplayNewBadge();
   }
   return service->new_badge_controller()->MaybeShowNewBadge(feature);
-}
-
-bool BrowserView::DoCutCopyPasteForWebContents(WebContents* contents,
-                                               void (WebContents::*method)()) {
-  // It's possible for a non-null WebContents to have a null RWHV if it's
-  // crashed or otherwise been killed.
-  content::RenderWidgetHostView* rwhv = contents->GetRenderWidgetHostView();
-  if (!rwhv || !rwhv->HasFocus())
-    return false;
-  // Calling |method| rather than using a fake key event is important since a
-  // fake event might be consumed by the web content.
-  (contents->*method)();
-  return true;
 }
 
 void BrowserView::ActivateAppModalDialog() const {

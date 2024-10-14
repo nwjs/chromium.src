@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "chrome/browser/ui/browser.h"
+
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/values.h"

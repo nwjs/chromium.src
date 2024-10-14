@@ -120,8 +120,8 @@ class MockShoppingService : public commerce::ShoppingService {
   MOCK_METHOD(bool, IsDiscountEligibleToShowOnNavigation, (), (override));
   MOCK_METHOD(bool, IsParcelTrackingEligible, (), (override));
   MOCK_METHOD(void,
-              GetDiscountInfoForUrls,
-              (const std::vector<GURL>& urls, DiscountInfoCallback callback),
+              GetDiscountInfoForUrl,
+              (const GURL& url, DiscountInfoCallback callback),
               (override));
   MOCK_METHOD(void,
               GetAllParcelStatuses,
@@ -182,7 +182,8 @@ class MockShoppingService : public commerce::ShoppingService {
       std::vector<const bookmarks::BookmarkNode*> bookmarks);
   void SetIsPriceInsightsEligible(bool is_eligible);
   void SetIsDiscountEligibleToShowOnNavigation(bool is_eligible);
-  void SetResponseForGetDiscountInfoForUrls(const DiscountsMap& discounts_map);
+  void SetResponseForGetDiscountInfoForUrl(
+      const std::vector<DiscountInfo>& infos);
   void SetIsParcelTrackingEligible(bool is_eligible);
   void SetGetAllParcelStatusesCallbackValue(
       std::vector<ParcelTrackingStatus> parcels);
@@ -193,9 +194,6 @@ class MockShoppingService : public commerce::ShoppingService {
   void SetQueryHistoryForUrlCallbackValue(history::QueryURLResult result);
 
  private:
-  // Since the discount API wants a const ref to some map, keep a default
-  // instance here.
-  DiscountsMap default_discounts_map_;
   std::unique_ptr<MockProductSpecificationsService>
       product_specifications_service_;
   std::unique_ptr<MockClusterManager> cluster_manager_;

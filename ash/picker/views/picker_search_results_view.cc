@@ -14,7 +14,6 @@
 #include "ash/picker/model/picker_search_results_section.h"
 #include "ash/picker/picker_asset_fetcher.h"
 #include "ash/picker/views/picker_emoji_item_view.h"
-#include "ash/picker/views/picker_emoticon_item_view.h"
 #include "ash/picker/views/picker_image_item_view.h"
 #include "ash/picker/views/picker_item_view.h"
 #include "ash/picker/views/picker_list_item_view.h"
@@ -24,7 +23,6 @@
 #include "ash/picker/views/picker_section_view.h"
 #include "ash/picker/views/picker_skeleton_loader_view.h"
 #include "ash/picker/views/picker_strings.h"
-#include "ash/picker/views/picker_symbol_item_view.h"
 #include "ash/picker/views/picker_traversable_item_container.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/typography.h"
@@ -76,6 +74,16 @@ std::u16string GetAccessibleNameForSeeMoreButton(
     case PickerSectionType::kEditorWrite:
     case PickerSectionType::kEditorRewrite:
       return u"";
+  }
+}
+
+PickerSectionView::LocalFileResultStyle ConvertLocalFileResultStyle(
+    PickerSearchResultsView::LocalFileResultStyle style) {
+  switch (style) {
+    case PickerSearchResultsView::LocalFileResultStyle::kList:
+      return PickerSectionView::LocalFileResultStyle::kList;
+    case PickerSearchResultsView::LocalFileResultStyle::kGrid:
+      return PickerSectionView::LocalFileResultStyle::kGrid;
   }
 }
 
@@ -136,6 +144,11 @@ PickerSearchResultsView::PickerSearchResultsView(
 
 PickerSearchResultsView::~PickerSearchResultsView() = default;
 
+void PickerSearchResultsView::SetLocalFileResultStyle(
+    LocalFileResultStyle style) {
+  local_file_result_style_ = style;
+}
+
 views::View* PickerSearchResultsView::GetTopItem() {
   return section_list_view_->GetTopItem();
 }
@@ -173,14 +186,14 @@ views::View* PickerSearchResultsView::GetItemBelow(views::View* item) {
 }
 
 views::View* PickerSearchResultsView::GetItemLeftOf(views::View* item) {
-  if (!Contains(item) || !views::IsViewClass<PickerItemView>(item)) {
+  if (!Contains(item)) {
     return nullptr;
   }
   return section_list_view_->GetItemLeftOf(item);
 }
 
 views::View* PickerSearchResultsView::GetItemRightOf(views::View* item) {
-  if (!Contains(item) || !views::IsViewClass<PickerItemView>(item)) {
+  if (!Contains(item)) {
     return nullptr;
   }
   return section_list_view_->GetItemRightOf(item);
@@ -268,11 +281,15 @@ void PickerSearchResultsView::AddResultToSection(
   // takes this callback.
   PickerItemView* view = section_view->AddResult(
       result, preview_controller_,
+      ConvertLocalFileResultStyle(local_file_result_style_),
       base::BindRepeating(&PickerSearchResultsView::SelectSearchResult,
                           base::Unretained(this), result));
 
   if (auto* list_item_view = views::AsViewClass<PickerListItemView>(view)) {
     list_item_view->SetBadgeAction(delegate_->GetActionForResult(result));
+  } else if (auto* image_item_view =
+                 views::AsViewClass<PickerImageItemView>(view)) {
+    image_item_view->SetAction(delegate_->GetActionForResult(result));
   }
 }
 
@@ -319,7 +336,9 @@ void PickerSearchResultsView::StopLoadingAnimation() {
 }
 
 void PickerSearchResultsView::UpdateAccessibleName() {
-  if (!section_views_.empty()) {
+  // If the sections are empty but the no results view is not visible, it means
+  // we are in a pending state, which should not have an announcement.
+  if (!section_views_.empty() || !no_results_view_->GetVisible()) {
     GetViewAccessibility().SetName(u"");
     return;
   }

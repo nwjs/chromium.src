@@ -30,13 +30,19 @@ suite('CertificateSubpageV2Test', () => {
       {
         headerText: 'CRS',
         hideExport: false,
+        hideIfEmpty: false,
+        hideHeader: true,
         showImport: false,
+        showImportAndBind: false,
         certSource: CertificateSource.kChromeRootStore,
       },
       {
         headerText: 'EnterpriseTrusted',
         hideExport: true,
+        hideIfEmpty: true,
+        hideHeader: false,
         showImport: true,
+        showImportAndBind: true,
         certSource: CertificateSource.kEnterpriseTrustedCerts,
       },
     ];
@@ -78,6 +84,10 @@ suite('CertificateSubpageV2Test', () => {
         'crs list certsource wrong');
     assertFalse(lists[0]!.hideExport, 'crs hideexport value incorrect');
     assertFalse(lists[0]!.showImport, 'crs showimport value incorrect');
+    assertFalse(
+        lists[0]!.showImportAndBind, 'crs showimportAndBind value incorrect');
+    assertFalse(lists[0]!.hideIfEmpty, 'crs hideIfEmpty value incorrect');
+    assertTrue(lists[0]!.hideHeader, 'crs hideHeader value incorrect');
 
     assertEquals(
         'EnterpriseTrusted', lists[1]!.headerText,
@@ -89,5 +99,12 @@ suite('CertificateSubpageV2Test', () => {
         lists[1]!.hideExport, 'enterprisetrusted hideexport value incorrect');
     assertTrue(
         lists[1]!.showImport, 'enterprisetrusted showimport value incorrect');
+    assertTrue(
+        lists[1]!.showImportAndBind,
+        'enterprisetrusted showimportAndBind value incorrect');
+    assertTrue(
+        lists[1]!.hideIfEmpty, 'enterprisetrusted hideifEmpty value incorrect');
+    assertFalse(
+        lists[1]!.hideHeader, 'enterprisetrusted hideHeader value incorrect');
   });
 });

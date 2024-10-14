@@ -17,8 +17,10 @@
 #include "base/types/cxx23_to_underlying.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
+#include "components/autofill/core/browser/field_filling_skip_reason.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/ui/suggestion_type.h"
+#include "components/autofill/core/common/unique_ids.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
@@ -58,13 +60,62 @@ struct Suggestion {
                            const PasswordSuggestionDetails&) = default;
   };
 
+  struct PlusAddressPayload final {
+    PlusAddressPayload();
+    explicit PlusAddressPayload(std::optional<std::u16string> address);
+    PlusAddressPayload(const PlusAddressPayload&);
+    PlusAddressPayload(PlusAddressPayload&&);
+    PlusAddressPayload& operator=(const PlusAddressPayload&);
+    PlusAddressPayload& operator=(PlusAddressPayload&&);
+    ~PlusAddressPayload();
+
+    friend bool operator==(const PlusAddressPayload&,
+                           const PlusAddressPayload&) = default;
+
+    // The proposed plus address string. If it is `nullopt`, then it is
+    // currently loading and nothing is previewed.
+    std::optional<std::u16string> address;
+    // Whether the suggestion should display a refresh button.
+    bool offer_refresh = true;
+  };
+
+  struct PredictionImprovementsPayload final {
+    PredictionImprovementsPayload();
+    PredictionImprovementsPayload(
+        const base::flat_map<FieldGlobalId, std::u16string>& values_to_fill,
+        const FieldTypeSet& field_types_to_fill,
+        const DenseSet<FieldFillingSkipReason>& ignorable_skip_reasons);
+    PredictionImprovementsPayload(const PredictionImprovementsPayload&);
+    PredictionImprovementsPayload(PredictionImprovementsPayload&&);
+    PredictionImprovementsPayload& operator=(
+        const PredictionImprovementsPayload&);
+    PredictionImprovementsPayload& operator=(PredictionImprovementsPayload&&);
+    ~PredictionImprovementsPayload();
+
+    friend bool operator==(const PredictionImprovementsPayload&,
+                           const PredictionImprovementsPayload&) = default;
+
+    // Values to be filled into fields with corresponding ids.
+    base::flat_map<FieldGlobalId, std::u16string> values_to_fill;
+    // Field types to be filled. Fields not matching a type in the set will be
+    // skipped during filling.
+    FieldTypeSet field_types_to_fill;
+    // Autofill skip reasons that need to be ignored for filling improved
+    // predictions.
+    DenseSet<FieldFillingSkipReason> ignorable_skip_reasons;
+  };
+
   using IsLoading = base::StrongAlias<class IsLoadingTag, bool>;
   using Guid = base::StrongAlias<class GuidTag, std::string>;
   using InstrumentId = base::StrongAlias<class InstrumentIdTag, uint64_t>;
   using BackendId = absl::variant<Guid, InstrumentId>;
   using ValueToFill = base::StrongAlias<struct ValueToFill, std::u16string>;
-  using Payload =
-      absl::variant<BackendId, GURL, ValueToFill, PasswordSuggestionDetails>;
+  using Payload = absl::variant<BackendId,
+                                GURL,
+                                ValueToFill,
+                                PasswordSuggestionDetails,
+                                PlusAddressPayload,
+                                PredictionImprovementsPayload>;
 
   // This struct is used to provide password suggestions with custom icons,
   // using the favicon of the website associated with the credentials. While
@@ -126,6 +177,7 @@ struct Suggestion {
     kEdit,
     kEmail,
     kEmpty,
+    kError,
     kGlobe,
     kGoogle,
     kGoogleMonochrome,
@@ -225,6 +277,9 @@ struct Suggestion {
 #if DCHECK_IS_ON()
   bool Invariant() const {
     switch (type) {
+      case SuggestionType::kCreateNewPlusAddressInline:
+      case SuggestionType::kPlusAddressError:
+        return absl::holds_alternative<PlusAddressPayload>(payload);
       case SuggestionType::kPasswordEntry:
         // Manual fallback password suggestions store the password to preview or
         // fill in the suggestion's payload. Regular per-domain contain empty
@@ -241,6 +296,9 @@ struct Suggestion {
       case SuggestionType::kIbanEntry:
         return absl::holds_alternative<ValueToFill>(payload) ||
                absl::holds_alternative<BackendId>(payload);
+      case SuggestionType::kFillPredictionImprovements:
+        return absl::holds_alternative<ValueToFill>(payload) ||
+               absl::holds_alternative<PredictionImprovementsPayload>(payload);
       default:
         return absl::holds_alternative<BackendId>(payload);
     }
@@ -344,6 +402,17 @@ struct Suggestion {
   // form. This field should be true only when `is_acceptable` is false  which
   // will make the suggestion deactivated and unclickable.
   bool apply_deactivated_style = false;
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  // If true, selecting a suggestion or, when it exists, expanding its
+  // sub-popup, highlights the background of the suggestion row and its
+  // contained cells.
+  bool highlight_on_select = true;
+#endif
+
+  // If true, the user will be presented with the terms message alongside the
+  // suggestions.
+  bool should_display_terms_available = false;
 };
 
 std::string_view ConvertIconToPrintableString(Suggestion::Icon icon);

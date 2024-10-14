@@ -13,9 +13,8 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/side_panel/read_anything/read_anything_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller.h"
-#include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_snapshotter.h"
+#include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_screenshotter.h"
 #include "chrome/common/accessibility/read_anything.mojom.h"
 #include "chrome/common/accessibility/read_anything_constants.h"
 #include "components/translate/core/browser/translate_client.h"
@@ -57,6 +56,8 @@ class ReadAnythingWebContentsObserver : public content::WebContentsObserver {
   // content::WebContentsObserver:
   void AccessibilityEventReceived(
       const ui::AXUpdatesAndEvents& details) override;
+  void AccessibilityLocationChangesReceived(
+      const std::vector<ui::AXLocationChanges>& details) override;
   void PrimaryPageChanged(content::Page& page) override;
   void WebContentsDestroyed() override;
 
@@ -85,7 +86,6 @@ class ReadAnythingUntrustedPageHandler :
 #endif
     public ui::AXActionHandlerObserver,
     public read_anything::mojom::UntrustedPageHandler,
-    public ReadAnythingCoordinator::Observer,
     public ReadAnythingSidePanelController::Observer,
     public translate::TranslateDriver::LanguageDetectionObserver {
  public:
@@ -101,6 +101,8 @@ class ReadAnythingUntrustedPageHandler :
   ~ReadAnythingUntrustedPageHandler() override;
 
   void AccessibilityEventReceived(const ui::AXUpdatesAndEvents& details);
+  void AccessibilityLocationChangesReceived(
+      const std::vector<ui::AXLocationChanges>& details);
   void PrimaryPageChanged();
   void WebContentsDestroyed();
 
@@ -124,6 +126,8 @@ class ReadAnythingUntrustedPageHandler :
   void TreeRemoved(ui::AXTreeID ax_tree_id) override;
 
   // read_anything::mojom::UntrustedPageHandler:
+  void GetDependencyParserModel(
+      GetDependencyParserModelCallback callback) override;
   void GetVoicePackInfo(const std::string& language,
                         GetVoicePackInfoCallback mojo_remote_callback) override;
   void InstallVoicePack(const std::string& language,
@@ -160,9 +164,9 @@ class ReadAnythingUntrustedPageHandler :
                          ui::AXNodeID focus_node_id,
                          int focus_offset) override;
   void OnCollapseSelection() override;
-  void OnSnapshotRequested() override;
+  void OnScreenshotRequested() override;
 
-  // ReadAnythingCoordinator::Observer:
+  // ReadAnythingSidePanelController::Observer:
   void Activate(bool active) override;
 
   void SetDefaultLanguageCode(const std::string& code);
@@ -198,9 +202,9 @@ class ReadAnythingUntrustedPageHandler :
   // contained.
   std::unique_ptr<ReadAnythingWebContentsObserver> pdf_observer_;
 
-  // `web_snapshotter_` is used to capture a screenshot of the main web
+  // `web_screenshotter_` is used to capture a screenshot of the main web
   // contents requested.
-  std::unique_ptr<ReadAnythingSnapshotter> web_snapshotter_;
+  std::unique_ptr<ReadAnythingScreenshotter> web_screenshotter_;
 
   const mojo::Receiver<read_anything::mojom::UntrustedPageHandler> receiver_;
   const mojo::Remote<read_anything::mojom::UntrustedPage> page_;
@@ -224,6 +228,16 @@ class ReadAnythingUntrustedPageHandler :
   base::ScopedObservation<translate::TranslateDriver,
                           translate::TranslateDriver::LanguageDetectionObserver>
       translate_observation_{this};
+
+  // Called to notify this instance that the dependency parser loader
+  // is available for model requests or is invalidating existing requests
+  // specified by "is_available". The "callback" will be either forwarded to a
+  // request to get the actual model file or will be run with an empty file if
+  // the dependency parser loader is rejecting requests because the pending
+  // model request queue is already full (100 requests maximum).
+  void OnDependencyParserModelFileAvailabilityChanged(
+      GetDependencyParserModelCallback callback,
+      bool is_available);
 
   base::WeakPtrFactory<ReadAnythingUntrustedPageHandler> weak_factory_{this};
 };

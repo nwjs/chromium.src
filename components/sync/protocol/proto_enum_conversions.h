@@ -58,6 +58,9 @@ const char* ProtoEnumToString(
     sync_pb::CommitResponse::ResponseType response_type);
 
 const char* ProtoEnumToString(
+    sync_pb::ContactInfoSpecifics::AddressType address_type);
+
+const char* ProtoEnumToString(
     sync_pb::ContactInfoSpecifics::VerificationStatus verification_status);
 
 const char* ProtoEnumToString(
@@ -222,6 +225,13 @@ const char* ProtoEnumToString(
 const char* ProtoEnumToString(
     sync_pb::SharingMessageSpecifics::ChannelConfiguration::
         ChimeChannelConfiguration::ChimeChannelType channel_type);
+
+const char* ProtoEnumToString(
+    sync_pb::ThemeSpecifics::UserColorTheme::BrowserColorVariant
+        browser_color_variant);
+
+const char* ProtoEnumToString(
+    sync_pb::ThemeSpecifics::BrowserColorScheme browser_color_scheme);
 
 }  // namespace syncer
 

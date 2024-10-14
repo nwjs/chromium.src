@@ -15,6 +15,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -75,6 +76,31 @@ std::u16string PossibleResidentKeyWarning(
   }
   NOTREACHED_IN_MIGRATION();
   return std::u16string();
+}
+
+// Return a warning about attestation if attestation was requested, otherwise
+// return an empty string.
+std::u16string PossibleAttestationWarning(
+    AuthenticatorRequestDialogModel* dialog_model) {
+  if (!dialog_model->attestation_conveyance_preference) {
+    return std::u16string();
+  }
+
+  switch (*dialog_model->attestation_conveyance_preference) {
+    case device::AttestationConveyancePreference::kNone:
+      return std::u16string();
+    case device::AttestationConveyancePreference::kIndirect:
+    case device::AttestationConveyancePreference::kDirect:
+      return l10n_util::GetStringFUTF16(
+          IDS_WEBAUTHN_ATTESTATION_WARNING,
+          AuthenticatorSheetModelBase::GetRelyingPartyIdString(dialog_model));
+    case device::AttestationConveyancePreference::
+        kEnterpriseIfRPListedOnAuthenticator:
+    case device::AttestationConveyancePreference::kEnterpriseApprovedByBrowser:
+      return l10n_util::GetStringFUTF16(
+          IDS_WEBAUTHN_ENTERPRISE_ATTESTATION_WARNING,
+          AuthenticatorSheetModelBase::GetRelyingPartyIdString(dialog_model));
+  }
 }
 
 }  // namespace
@@ -164,8 +190,8 @@ void AuthenticatorSheetModelBase::OnAccept() {
 
 void AuthenticatorSheetModelBase::OnCancel() {
   if (dialog_model()) {
-    dialog_model()->CancelAuthenticatorRequest();
     webauthn::user_actions::RecordCancelClick();
+    dialog_model()->CancelAuthenticatorRequest();
   }
 }
 
@@ -226,9 +252,10 @@ std::u16string AuthenticatorInsertAndActivateUsbSheetModel::GetStepDescription()
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_USB_ACTIVATE_DESCRIPTION);
 }
 
-std::u16string
-AuthenticatorInsertAndActivateUsbSheetModel::GetAdditionalDescription() const {
-  return PossibleResidentKeyWarning(dialog_model());
+std::vector<std::u16string>
+AuthenticatorInsertAndActivateUsbSheetModel::GetAdditionalDescriptions() const {
+  return {PossibleAttestationWarning(dialog_model()),
+          PossibleResidentKeyWarning(dialog_model())};
 }
 
 // AuthenticatorTimeoutErrorModel ---------------------------------------------
@@ -541,7 +568,10 @@ void AuthenticatorBlePermissionMacSheetModel::OnAccept() {
 AuthenticatorTouchIdSheetModel::AuthenticatorTouchIdSheetModel(
     AuthenticatorRequestDialogModel* dialog_model)
     : AuthenticatorSheetModelBase(dialog_model,
-                                  OtherMechanismButtonVisibility::kVisible) {}
+                                  OtherMechanismButtonVisibility::kVisible) {
+  webauthn::user_actions::RecordGpmTouchIdDialogShown(
+      dialog_model->request_type == device::FidoRequestType::kMakeCredential);
+}
 
 std::u16string AuthenticatorTouchIdSheetModel::GetStepTitle() const {
   const std::u16string rp_id = GetRelyingPartyIdString(dialog_model());
@@ -585,6 +615,7 @@ void AuthenticatorTouchIdSheetModel::OnAccept() {
   if (touch_id_completed_) {
     return;
   }
+  webauthn::user_actions::RecordAcceptClick();
   touch_id_completed_ = true;
   dialog_model()->OnTouchIDComplete(false);
 }
@@ -660,7 +691,7 @@ AuthenticatorOffTheRecordInterstitialSheetModel::GetCancelButtonLabel() const {
 AuthenticatorPaaskSheetModel::AuthenticatorPaaskSheetModel(
     AuthenticatorRequestDialogModel* dialog_model)
     : AuthenticatorSheetModelBase(dialog_model,
-                                  OtherMechanismButtonVisibility::kVisible) {
+                                  OtherMechanismButtonVisibility::kHidden) {
   vector_illustrations_.emplace(kPasskeyPhoneIcon, kPasskeyPhoneDarkIcon);
 }
 
@@ -695,10 +726,6 @@ std::u16string AuthenticatorPaaskSheetModel::GetStepDescription() const {
           base::UTF8ToUTF16(dialog_model()->selected_phone_name.value_or("")));
     }
   }
-}
-
-bool AuthenticatorPaaskSheetModel::IsOtherMechanismButtonVisible() const {
-  return false;
 }
 
 bool AuthenticatorPaaskSheetModel::IsManageDevicesButtonVisible() const {
@@ -859,9 +886,10 @@ std::u16string AuthenticatorClientPinTapAgainSheetModel::GetStepDescription()
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_PIN_TAP_AGAIN_DESCRIPTION);
 }
 
-std::u16string
-AuthenticatorClientPinTapAgainSheetModel::GetAdditionalDescription() const {
-  return PossibleResidentKeyWarning(dialog_model());
+std::vector<std::u16string>
+AuthenticatorClientPinTapAgainSheetModel::GetAdditionalDescriptions() const {
+  return {PossibleAttestationWarning(dialog_model()),
+          PossibleResidentKeyWarning(dialog_model())};
 }
 
 // AuthenticatorBioEnrollmentSheetModel ----------------------------------
@@ -1176,76 +1204,6 @@ std::u16string AuthenticatorSelectAccountSheetModel::GetAcceptButtonLabel()
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_CONTINUE);
 }
 
-// AttestationPermissionRequestSheetModel -------------------------------------
-
-// TODO(crbug.com/40237082): Add more specific illustration once available.
-AttestationPermissionRequestSheetModel::AttestationPermissionRequestSheetModel(
-    AuthenticatorRequestDialogModel* dialog_model)
-    : AuthenticatorSheetModelBase(dialog_model) {
-  vector_illustrations_.emplace(kPasskeyUsbIcon, kPasskeyUsbDarkIcon);
-}
-
-AttestationPermissionRequestSheetModel::
-    ~AttestationPermissionRequestSheetModel() = default;
-
-void AttestationPermissionRequestSheetModel::OnAccept() {
-  dialog_model()->OnAttestationPermissionResponse(true);
-}
-
-void AttestationPermissionRequestSheetModel::OnCancel() {
-  dialog_model()->OnAttestationPermissionResponse(false);
-}
-
-std::u16string AttestationPermissionRequestSheetModel::GetStepTitle() const {
-  return l10n_util::GetStringUTF16(
-      IDS_WEBAUTHN_REQUEST_ATTESTATION_PERMISSION_TITLE);
-}
-
-std::u16string AttestationPermissionRequestSheetModel::GetStepDescription()
-    const {
-  return l10n_util::GetStringFUTF16(
-      IDS_WEBAUTHN_REQUEST_ATTESTATION_PERMISSION_DESC,
-      GetRelyingPartyIdString(dialog_model()));
-}
-
-bool AttestationPermissionRequestSheetModel::IsAcceptButtonVisible() const {
-  return true;
-}
-
-std::u16string AttestationPermissionRequestSheetModel::GetAcceptButtonLabel()
-    const {
-  return l10n_util::GetStringUTF16(IDS_WEBAUTHN_ALLOW_ATTESTATION);
-}
-
-bool AttestationPermissionRequestSheetModel::IsCancelButtonVisible() const {
-  return true;
-}
-
-std::u16string AttestationPermissionRequestSheetModel::GetCancelButtonLabel()
-    const {
-  return l10n_util::GetStringUTF16(IDS_WEBAUTHN_DENY_ATTESTATION);
-}
-
-// EnterpriseAttestationPermissionRequestSheetModel ---------------------------
-
-EnterpriseAttestationPermissionRequestSheetModel::
-    EnterpriseAttestationPermissionRequestSheetModel(
-        AuthenticatorRequestDialogModel* dialog_model)
-    : AttestationPermissionRequestSheetModel(dialog_model) {}
-
-std::u16string EnterpriseAttestationPermissionRequestSheetModel::GetStepTitle()
-    const {
-  return l10n_util::GetStringUTF16(
-      IDS_WEBAUTHN_REQUEST_ENTERPRISE_ATTESTATION_PERMISSION_TITLE);
-}
-
-std::u16string
-EnterpriseAttestationPermissionRequestSheetModel::GetStepDescription() const {
-  return l10n_util::GetStringFUTF16(
-      IDS_WEBAUTHN_REQUEST_ENTERPRISE_ATTESTATION_PERMISSION_DESC,
-      GetRelyingPartyIdString(dialog_model()));
-}
-
 // AuthenticatorQRSheetModel --------------------------------------------------
 
 // No illustration since there already is the QR code.
@@ -1278,20 +1236,29 @@ std::u16string AuthenticatorQRSheetModel::GetStepDescription() const {
   }
 }
 
-bool AuthenticatorQRSheetModel::ShowSecurityKeyLabel() const {
-  return dialog_model()->security_key_is_possible;
-}
+std::vector<std::u16string> AuthenticatorQRSheetModel::GetSecurityKeyLabels()
+    const {
+  if (!dialog_model()->show_security_key_on_qr_sheet) {
+    return {};
+  }
 
-std::u16string AuthenticatorQRSheetModel::GetSecurityKeyLabel() const {
   switch (dialog_model()->request_type) {
-    case device::FidoRequestType::kMakeCredential:
-      return l10n_util::GetStringFUTF16(
+    case device::FidoRequestType::kMakeCredential: {
+      std::u16string body_text = l10n_util::GetStringFUTF16(
           IDS_WEBAUTHN_QR_CREATE_PASSKEY_ON_SECURITY_KEY_LABEL,
           GetRelyingPartyIdString(dialog_model()));
+      std::u16string attestation_warning =
+          PossibleAttestationWarning(dialog_model());
+      if (attestation_warning.empty()) {
+        return {body_text};
+      } else {
+        return {body_text, attestation_warning};
+      }
+    }
     case device::FidoRequestType::kGetAssertion:
-      return l10n_util::GetStringFUTF16(
+      return {l10n_util::GetStringFUTF16(
           IDS_WEBAUTHN_QR_USE_PASSKEY_ON_SECURITY_KEY_LABEL,
-          GetRelyingPartyIdString(dialog_model()));
+          GetRelyingPartyIdString(dialog_model()))};
   }
 }
 
@@ -1350,10 +1317,6 @@ AuthenticatorCableErrorSheetModel::AuthenticatorCableErrorSheetModel(
 
 AuthenticatorCableErrorSheetModel::~AuthenticatorCableErrorSheetModel() =
     default;
-
-bool AuthenticatorCableErrorSheetModel::IsOtherMechanismButtonVisible() const {
-  return false;
-}
 
 std::u16string AuthenticatorCableErrorSheetModel::GetStepTitle() const {
   return l10n_util::GetStringUTF16(IDS_WEBAUTHN_ERROR_GENERIC_TITLE);
@@ -1426,6 +1389,7 @@ AuthenticatorGPMErrorSheetModel::AuthenticatorGPMErrorSheetModel(
     : AuthenticatorSheetModelBase(dialog_model,
                                   OtherMechanismButtonVisibility::kHidden) {
   vector_illustrations_.emplace(kPasskeyErrorIcon, kPasskeyErrorDarkIcon);
+  webauthn::user_actions::RecordGpmFailureShown();
 }
 
 AuthenticatorGPMErrorSheetModel::~AuthenticatorGPMErrorSheetModel() = default;
@@ -1714,10 +1678,12 @@ bool AuthenticatorGpmPinSheetModelBase::IsGPMPinOptionsButtonVisible() const {
 }
 
 void AuthenticatorGpmPinSheetModelBase::OnAccept() {
+  webauthn::user_actions::RecordAcceptClick();
   dialog_model()->OnGPMPinEntered(pin_);
 }
 
 void AuthenticatorGpmPinSheetModelBase::OnForgotGPMPin() const {
+  webauthn::user_actions::RecordGpmForgotPinClick();
   dialog_model()->OnForgotGPMPinPressed();
 }
 
@@ -1737,7 +1703,7 @@ void AuthenticatorGpmPinSheetModelBase::OnGPMPinOptionChosen(
     // The sheet already facilitates entering six digit pin.
     return;
   }
-
+  webauthn::user_actions::RecordGpmPinOptionChangeClick();
   dialog_model()->OnGPMPinOptionChanged(is_arbitrary);
 }
 
@@ -1748,7 +1714,13 @@ AuthenticatorGpmPinSheetModel::AuthenticatorGpmPinSheetModel(
     int pin_digits_count,
     Mode mode)
     : AuthenticatorGpmPinSheetModelBase(dialog_model, mode),
-      pin_digits_count_(pin_digits_count) {}
+      pin_digits_count_(pin_digits_count) {
+  webauthn::user_actions::RecordGpmPinSheetShown(
+      /*is_credential_creation=*/dialog_model->request_type ==
+          device::FidoRequestType::kMakeCredential,
+      /*is_pin_creation=*/mode == Mode::kPinCreate,
+      /*is_arbitrary=*/false);
+}
 
 AuthenticatorGpmPinSheetModel::~AuthenticatorGpmPinSheetModel() = default;
 
@@ -1815,7 +1787,13 @@ std::u16string AuthenticatorGpmPinSheetModel::GetHint() const {
 AuthenticatorGpmArbitraryPinSheetModel::AuthenticatorGpmArbitraryPinSheetModel(
     AuthenticatorRequestDialogModel* dialog_model,
     Mode mode)
-    : AuthenticatorGpmPinSheetModelBase(dialog_model, mode) {}
+    : AuthenticatorGpmPinSheetModelBase(dialog_model, mode) {
+  webauthn::user_actions::RecordGpmPinSheetShown(
+      /*is_credential_creation=*/dialog_model->request_type ==
+          device::FidoRequestType::kMakeCredential,
+      /*is_pin_creation=*/mode == Mode::kPinCreate,
+      /*is_arbitrary=*/true);
+}
 
 AuthenticatorGpmArbitraryPinSheetModel::
     ~AuthenticatorGpmArbitraryPinSheetModel() = default;
@@ -1871,6 +1849,8 @@ AuthenticatorTrustThisComputerAssertionSheetModel::
                                   OtherMechanismButtonVisibility::kHidden) {
   lottie_illustrations_.emplace(IDR_WEBAUTHN_LAPTOP_LIGHT,
                                 IDR_WEBAUTHN_LAPTOP_DARK);
+
+  webauthn::user_actions::RecordTrustDialogShown(/*is_create=*/false);
 }
 
 AuthenticatorTrustThisComputerAssertionSheetModel::
@@ -1931,6 +1911,7 @@ void AuthenticatorTrustThisComputerAssertionSheetModel::OnBack() {
 }
 
 void AuthenticatorTrustThisComputerAssertionSheetModel::OnAccept() {
+  webauthn::user_actions::RecordAcceptClick();
   dialog_model()->OnTrustThisComputer();
 }
 
@@ -1943,6 +1924,8 @@ AuthenticatorCreateGpmPasskeySheetModel::
                                   OtherMechanismButtonVisibility::kVisible) {
   lottie_illustrations_.emplace(IDR_WEBAUTHN_GPM_PASSKEY_LIGHT,
                                 IDR_WEBAUTHN_GPM_PASSKEY_DARK);
+
+  webauthn::user_actions::RecordCreateGpmDialogShown();
 }
 
 AuthenticatorCreateGpmPasskeySheetModel::
@@ -1979,6 +1962,7 @@ std::u16string AuthenticatorCreateGpmPasskeySheetModel::GetAcceptButtonLabel()
 }
 
 void AuthenticatorCreateGpmPasskeySheetModel::OnAccept() {
+  webauthn::user_actions::RecordAcceptClick();
   dialog_model()->OnGPMCreatePasskey();
 }
 
@@ -2036,6 +2020,8 @@ AuthenticatorTrustThisComputerCreationSheetModel::
                                   OtherMechanismButtonVisibility::kVisible) {
   lottie_illustrations_.emplace(IDR_WEBAUTHN_LAPTOP_LIGHT,
                                 IDR_WEBAUTHN_LAPTOP_DARK);
+
+  webauthn::user_actions::RecordTrustDialogShown(/*is_create=*/true);
 }
 
 AuthenticatorTrustThisComputerCreationSheetModel::
@@ -2081,6 +2067,7 @@ AuthenticatorTrustThisComputerCreationSheetModel::GetOtherMechanismButtonLabel()
 }
 
 void AuthenticatorTrustThisComputerCreationSheetModel::OnAccept() {
+  webauthn::user_actions::RecordAcceptClick();
   dialog_model()->OnTrustThisComputer();
 }
 
@@ -2092,6 +2079,7 @@ AuthenticatorGPMLockedPinSheetModel::AuthenticatorGPMLockedPinSheetModel(
                                   OtherMechanismButtonVisibility::kHidden) {
   lottie_illustrations_.emplace(IDR_WEBAUTHN_GPM_PIN_LOCKED_LIGHT,
                                 IDR_WEBAUTHN_GPM_PIN_LOCKED_DARK);
+  webauthn::user_actions::RecordGpmLockedShown();
 }
 
 AuthenticatorGPMLockedPinSheetModel::~AuthenticatorGPMLockedPinSheetModel() =
@@ -2119,5 +2107,6 @@ std::u16string AuthenticatorGPMLockedPinSheetModel::GetAcceptButtonLabel()
 }
 
 void AuthenticatorGPMLockedPinSheetModel::OnAccept() {
+  webauthn::user_actions::RecordAcceptClick();
   dialog_model()->OnForgotGPMPinPressed();
 }

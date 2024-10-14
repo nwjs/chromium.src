@@ -57,6 +57,7 @@ export class ViewerPdfSidenavElement extends CrLitElement {
       bookmarks: {type: Array},
       clockwiseRotations: {type: Number},
       docLength: {type: Number},
+      pdfCr23Enabled: {type: Boolean},
       selectedTab_: {type: Number},
       tabs_: {type: Array},
     };
@@ -67,6 +68,7 @@ export class ViewerPdfSidenavElement extends CrLitElement {
   bookmarks: Bookmark[] = [];
   clockwiseRotations: number = 0;
   docLength: number = 0;
+  pdfCr23Enabled: boolean = false;
   private selectedTab_: number = 0;
   protected tabs_: Tab[] = [];
 
@@ -79,11 +81,15 @@ export class ViewerPdfSidenavElement extends CrLitElement {
     }
   }
 
+  private iconsetName_(): string {
+    return this.pdfCr23Enabled ? 'pdf-cr23' : 'pdf';
+  }
+
   private computeTabs_(): Tab[] {
     const tabs = [
       {
         id: TabId.THUMBNAIL,
-        icon: 'pdf:thumbnails',
+        icon: this.iconsetName_() + ':thumbnails',
         title: '$i18n{tooltipThumbnails}',
       },
     ];
@@ -91,7 +97,7 @@ export class ViewerPdfSidenavElement extends CrLitElement {
     if (this.bookmarks.length > 0) {
       tabs.push({
         id: TabId.OUTLINE,
-        icon: 'pdf:doc-outline',
+        icon: this.iconsetName_() + ':doc-outline',
         title: '$i18n{tooltipDocumentOutline}',
       });
     }
@@ -99,7 +105,7 @@ export class ViewerPdfSidenavElement extends CrLitElement {
     if (this.attachments.length > 0) {
       tabs.push({
         id: TabId.ATTACHMENT,
-        icon: 'pdf:attach-file',
+        icon: this.iconsetName_() + ':attach-file',
         title: '$i18n{tooltipAttachments}',
       });
     }
@@ -111,15 +117,15 @@ export class ViewerPdfSidenavElement extends CrLitElement {
   }
 
   protected getTabAriaSelected_(tabId: number): string {
-    return this.tabs_[this.selectedTab_].id === tabId ? 'true' : 'false';
+    return this.tabs_[this.selectedTab_]!.id === tabId ? 'true' : 'false';
   }
 
   protected getTabIndex_(tabId: number): string {
-    return this.tabs_[this.selectedTab_].id === tabId ? '0' : '-1';
+    return this.tabs_[this.selectedTab_]!.id === tabId ? '0' : '-1';
   }
 
   protected getTabSelectedClass_(tabId: number): string {
-    return this.tabs_[this.selectedTab_].id === tabId ? 'selected' : '';
+    return this.tabs_[this.selectedTab_]!.id === tabId ? 'selected' : '';
   }
 
   protected onTabClick_(e: Event) {
@@ -144,15 +150,15 @@ export class ViewerPdfSidenavElement extends CrLitElement {
   }
 
   protected hideThumbnailView_(): boolean {
-    return this.tabs_[this.selectedTab_].id !== TabId.THUMBNAIL;
+    return this.tabs_[this.selectedTab_]!.id !== TabId.THUMBNAIL;
   }
 
   protected hideOutlineView_(): boolean {
-    return this.tabs_[this.selectedTab_].id !== TabId.OUTLINE;
+    return this.tabs_[this.selectedTab_]!.id !== TabId.OUTLINE;
   }
 
   protected hideAttachmentView_(): boolean {
-    return this.tabs_[this.selectedTab_].id !== TabId.ATTACHMENT;
+    return this.tabs_[this.selectedTab_]!.id !== TabId.ATTACHMENT;
   }
 
   protected onKeydown_(e: KeyboardEvent) {

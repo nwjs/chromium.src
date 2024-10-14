@@ -588,26 +588,13 @@ void DownloadItemImpl::ValidateInsecureDownload() {
   MaybeCompleteDownload();
 }
 
-void DownloadItemImpl::StealDangerousDownload(bool delete_file_afterward,
-                                              AcquireFileCallback callback) {
+void DownloadItemImpl::CopyDownload(AcquireFileCallback callback) {
   DVLOG(20) << __func__ << "() download = " << DebugString(true);
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(IsDangerous());
   DCHECK(AllDataSaved());
 
-  if (delete_file_afterward) {
-    if (download_file_) {
-      GetDownloadTaskRunner()->PostTaskAndReplyWithResult(
-          FROM_HERE,
-          base::BindOnce(&DownloadFileDetach, std::move(download_file_)),
-          std::move(callback));
-    } else {
-      std::move(callback).Run(GetFullPath());
-    }
-    destination_info_.current_path.clear();
-    Remove();
-    // Download item has now been deleted.
-  } else if (download_file_) {
+  if (download_file_) {
     GetDownloadTaskRunner()->PostTaskAndReplyWithResult(
         FROM_HERE,
         base::BindOnce(&MakeCopyOfDownloadFile, download_file_.get()),
@@ -1791,6 +1778,7 @@ void DownloadItemImpl::OnDownloadTargetDetermined(
   if (state_ == TARGET_PENDING_INTERNAL &&
       target_info.interrupt_reason != DOWNLOAD_INTERRUPT_REASON_NONE) {
     deferred_interrupt_reason_ = target_info.interrupt_reason;
+    insecure_download_status_ = target_info.insecure_download_status;
     TransitionTo(INTERRUPTED_TARGET_PENDING_INTERNAL);
     OnTargetResolved();
     return;
@@ -1978,13 +1966,14 @@ void DownloadItemImpl::OnDownloadCompleting() {
 
   GetDownloadTaskRunner()->PostTask(
       FROM_HERE,
-      base::BindOnce(&DownloadFile::RenameAndAnnotate,
-                     base::Unretained(download_file_.get()),
-                     GetTargetFilePath(),
-                     delegate_->GetApplicationClientIdForFileScanning(),
-                     delegate_->IsOffTheRecord() ? GURL() : GetURL(),
-                     delegate_->IsOffTheRecord() ? GURL() : GetReferrerUrl(),
-                     std::move(quarantine), std::move(rename_callback)));
+      base::BindOnce(
+          &DownloadFile::RenameAndAnnotate,
+          base::Unretained(download_file_.get()), GetTargetFilePath(),
+          delegate_->GetApplicationClientIdForFileScanning(),
+          delegate_->IsOffTheRecord() ? GURL() : GetURL(),
+          delegate_->IsOffTheRecord() ? GURL() : GetReferrerUrl(),
+          delegate_->IsOffTheRecord() ? std::nullopt : GetRequestInitiator(),
+          std::move(quarantine), std::move(rename_callback)));
 }
 
 void DownloadItemImpl::OnRenameAndAnnotateDone(

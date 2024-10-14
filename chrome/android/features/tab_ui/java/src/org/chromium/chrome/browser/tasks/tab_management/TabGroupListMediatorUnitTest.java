@@ -25,9 +25,8 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProper
 import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProperties.OPEN_RUNNABLE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProperties.TITLE_DATA;
 
-import android.graphics.drawable.Drawable;
-
 import androidx.core.util.Pair;
+import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -60,6 +59,7 @@ import org.chromium.components.data_sharing.DataSharingService.GroupDataOrFailur
 import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.GroupMember;
 import org.chromium.components.data_sharing.PeopleGroupActionFailure;
+import org.chromium.components.data_sharing.PeopleGroupActionOutcome;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -71,15 +71,16 @@ import org.chromium.components.tab_group_sync.SavedTabGroupTab;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_group_sync.TriggerSource;
 import org.chromium.components.tab_groups.TabGroupColorId;
+import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.modaldialog.ModalDialogProperties;
+import org.chromium.ui.modaldialog.ModalDialogProperties.ButtonType;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.test.util.MockitoHelper;
-import org.chromium.url.GURL;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BiConsumer;
 
 /** Tests for {@link TabGroupListMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -108,13 +109,14 @@ public class TabGroupListMediatorUnitTest {
     @Mock private DataSharingService mDataSharingService;
     @Mock private IdentityManager mIdentityManager;
     @Mock private PaneManager mPaneManager;
-    @Mock private BiConsumer<GURL, Callback<Drawable>> mFaviconResolver;
+    @Mock private FaviconResolver mFaviconResolver;
     @Mock private TabSwitcherPaneBase mTabSwitcherPaneBase;
     @Mock private TabGroupUiActionHandler mTabGroupUiActionHandler;
     @Mock private ActionConfirmationManager mActionConfirmationManager;
     @Mock private SyncService mSyncService;
     @Mock private Tab mTab1;
     @Mock private Tab mTab2;
+    @Mock private ModalDialogManager mModalDialogManager;
 
     @Captor private ArgumentCaptor<TabModelObserver> mTabModelObserver;
     @Captor private ArgumentCaptor<TabGroupSyncService.Observer> mTabGroupSyncObserverCaptor;
@@ -124,6 +126,8 @@ public class TabGroupListMediatorUnitTest {
     private ArgumentCaptor<SyncService.SyncStateChangedListener> mSyncStateChangedListenerCaptor;
 
     @Captor private ArgumentCaptor<Callback<GroupDataOrFailureOutcome>> mReadGroupCallbackCaptor;
+    @Captor private ArgumentCaptor<Callback<Integer>> mActionOutcomeCallbackCaptor;
+    @Captor private ArgumentCaptor<PropertyModel> mModalPropertyModelCaptor;
 
     private PropertyModel mPropertyModel;
     private ModelList mModelList;
@@ -140,6 +144,7 @@ public class TabGroupListMediatorUnitTest {
 
     private TabGroupListMediator createMediator() {
         return new TabGroupListMediator(
+                ApplicationProvider.getApplicationContext(),
                 mModelList,
                 mPropertyModel,
                 mTabGroupModelFilter,
@@ -150,7 +155,8 @@ public class TabGroupListMediatorUnitTest {
                 mPaneManager,
                 mTabGroupUiActionHandler,
                 mActionConfirmationManager,
-                mSyncService);
+                mSyncService,
+                mModalDialogManager);
     }
 
     @Test
@@ -356,6 +362,9 @@ public class TabGroupListMediatorUnitTest {
                         })
                 .when(mTabGroupUiActionHandler)
                 .openTabGroup(SYNC_GROUP_ID2);
+
+        ShadowLooper.idleMainLooper();
+
         PropertyModel model2 = mModelList.get(1).model;
         model2.get(OPEN_RUNNABLE).run();
         verify(mTabGroupUiActionHandler).openTabGroup(SYNC_GROUP_ID2);
@@ -645,6 +654,7 @@ public class TabGroupListMediatorUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.DATA_SHARING)
     public void testDeleteRunnable_SharedGroup() {
         CoreAccountInfo coreAccountInfo = CoreAccountInfo.createFromEmailAndGaiaId(EMAIL, GAIA_ID1);
         when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(coreAccountInfo);
@@ -703,10 +713,15 @@ public class TabGroupListMediatorUnitTest {
                 .getValue()
                 .onResult(ConfirmationResult.CONFIRMATION_POSITIVE);
 
-        verify(mDataSharingService).deleteGroup(eq(COLLABORATION_ID1), any());
+        verify(mDataSharingService)
+                .deleteGroup(eq(COLLABORATION_ID1), mActionOutcomeCallbackCaptor.capture());
+        mActionOutcomeCallbackCaptor.getValue().onResult(PeopleGroupActionOutcome.SUCCESS);
+        verify(mModalDialogManager, never())
+                .showDialog(mModalPropertyModelCaptor.capture(), anyInt());
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.DATA_SHARING)
     public void testLeaveRunnable() {
         CoreAccountInfo coreAccountInfo = CoreAccountInfo.createFromEmailAndGaiaId(EMAIL, GAIA_ID1);
         when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(coreAccountInfo);
@@ -770,6 +785,60 @@ public class TabGroupListMediatorUnitTest {
                 .getValue()
                 .onResult(ConfirmationResult.CONFIRMATION_POSITIVE);
 
-        verify(mDataSharingService).removeMember(eq(COLLABORATION_ID1), eq(EMAIL), any());
+        verify(mDataSharingService)
+                .removeMember(
+                        eq(COLLABORATION_ID1), eq(EMAIL), mActionOutcomeCallbackCaptor.capture());
+        mActionOutcomeCallbackCaptor
+                .getValue()
+                .onResult(PeopleGroupActionOutcome.TRANSIENT_FAILURE);
+
+        verify(mModalDialogManager).showDialog(mModalPropertyModelCaptor.capture(), anyInt());
+
+        ModalDialogProperties.Controller controller =
+                mModalPropertyModelCaptor.getValue().get(ModalDialogProperties.CONTROLLER);
+        controller.onClick(mModalPropertyModelCaptor.getValue(), ButtonType.POSITIVE);
+        verify(mModalDialogManager).dismissDialog(any(), anyInt());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DATA_SHARING)
+    public void testDeleteRunnable_shareReadFailure() {
+        CoreAccountInfo coreAccountInfo = CoreAccountInfo.createFromEmailAndGaiaId(EMAIL, GAIA_ID1);
+        when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(coreAccountInfo);
+
+        SavedTabGroup group1 = new SavedTabGroup();
+        group1.syncId = SYNC_GROUP_ID1;
+        group1.savedTabs = Arrays.asList(new SavedTabGroupTab());
+        group1.localId = new LocalTabGroupId(LOCAL_GROUP_ID1);
+        group1.collaborationId = COLLABORATION_ID1;
+
+        when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[] {SYNC_GROUP_ID1});
+        when(mTabGroupSyncService.getGroup(SYNC_GROUP_ID1)).thenReturn(group1);
+        when(mTabGroupModelFilter.getRootIdFromStableId(LOCAL_GROUP_ID1)).thenReturn(ROOT_ID1);
+        when(mTabGroupModelFilter.getRelatedTabListForRootId(ROOT_ID1))
+                .thenReturn(Arrays.asList(mTab1));
+        when(mComprehensiveModel.getCount()).thenReturn(1);
+        when(mComprehensiveModel.getTabAt(0)).thenReturn(mTab1);
+        when(mTab1.getRootId()).thenReturn(ROOT_ID1);
+        when(mTab1.getTabGroupId()).thenReturn(LOCAL_GROUP_ID1);
+        when(mTab1.isClosing()).thenReturn(false);
+
+        createMediator();
+
+        assertEquals(1, mModelList.size());
+        PropertyModel model = mModelList.get(0).model;
+        assertNull(model.get(DELETE_RUNNABLE));
+
+        verify(mDataSharingService)
+                .readGroup(eq(COLLABORATION_ID1), mReadGroupCallbackCaptor.capture());
+
+        GroupDataOrFailureOutcome outcome =
+                new GroupDataOrFailureOutcome(
+                        /* groupData= */ null, PeopleGroupActionFailure.TRANSIENT_FAILURE);
+        mReadGroupCallbackCaptor.getValue().onResult(outcome);
+
+        assertNotNull(model.get(DELETE_RUNNABLE));
+        model.get(DELETE_RUNNABLE).run();
+        verify(mActionConfirmationManager).processDeleteGroupAttempt(any());
     }
 }

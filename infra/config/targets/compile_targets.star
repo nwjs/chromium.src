@@ -194,6 +194,16 @@ targets.compile_target(
 )
 
 targets.compile_target(
+    name = "core_runtime_simple",
+    label = "//chromecast/cast_core:core_runtime_simple",
+)
+
+targets.compile_target(
+    name = "core_runtime_starboard",
+    label = "//chromecast/cast_core:core_runtime_starboard",
+)
+
+targets.compile_target(
     name = "cronet_package",
     label = "//components/cronet:cronet_package",
 )
@@ -355,6 +365,11 @@ targets.compile_target(
 targets.compile_target(
     name = "traffic_annotation_auditor_dependencies",
     label = "//:traffic_annotation_auditor_dependencies",
+)
+
+targets.compile_target(
+    name = "traffic_annotation_proto",
+    label = "//chrome/browser/privacy:traffic_annotation_proto",
 )
 
 targets.compile_target(

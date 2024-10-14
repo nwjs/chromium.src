@@ -682,11 +682,14 @@ public class TabsTest {
                 2,
                 focusListener.getTimesUnfocused());
         Assert.assertFalse("oldTab should not have focus.", focusListener.hasFocus());
-        Assert.assertTrue(
-                "Keyboard should show",
-                sActivityTestRule
-                        .getKeyboardDelegate()
-                        .isKeyboardShowing(sActivityTestRule.getActivity(), urlBar));
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    boolean keyboardVisible =
+                            sActivityTestRule
+                                    .getKeyboardDelegate()
+                                    .isKeyboardShowing(sActivityTestRule.getActivity(), urlBar);
+                    Criteria.checkThat(keyboardVisible, Matchers.is(true));
+                });
 
         // Check refocus doesn't happen again on the closure being finalized.
         ThreadUtils.runOnUiThreadBlocking(() -> model.commitAllTabClosures());
@@ -701,11 +704,14 @@ public class TabsTest {
                 focusListener.getTimesUnfocused());
         Assert.assertFalse("oldTab should remain unfocused.", focusListener.hasFocus());
 
-        Assert.assertTrue(
-                "Keyboard should show",
-                sActivityTestRule
-                        .getKeyboardDelegate()
-                        .isKeyboardShowing(sActivityTestRule.getActivity(), urlBar));
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    boolean keyboardVisible =
+                            sActivityTestRule
+                                    .getKeyboardDelegate()
+                                    .isKeyboardShowing(sActivityTestRule.getActivity(), urlBar);
+                    Criteria.checkThat(keyboardVisible, Matchers.is(true));
+                });
 
         // Ensure the keyboard is hidden so we are in a clean-slate for next test.
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> urlBar.clearFocus());
@@ -714,11 +720,14 @@ public class TabsTest {
                 .runOnMainSync(() -> oldTab.getView().requestFocus());
         UiUtils.settleDownUI(InstrumentationRegistry.getInstrumentation());
 
-        Assert.assertFalse(
-                "Keyboard should no longer show",
-                sActivityTestRule
-                        .getKeyboardDelegate()
-                        .isKeyboardShowing(sActivityTestRule.getActivity(), urlBar));
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    boolean keyboardVisible =
+                            sActivityTestRule
+                                    .getKeyboardDelegate()
+                                    .isKeyboardShowing(sActivityTestRule.getActivity(), urlBar);
+                    Criteria.checkThat(keyboardVisible, Matchers.is(false));
+                });
     }
 
     @Test
@@ -859,6 +868,7 @@ public class TabsTest {
     @MediumTest
     @Feature({"Android-TabSwitcher"})
     @DisableFeatures(ChromeFeatureList.ANDROID_TAB_DECLUTTER)
+    @DisabledTest(message = "https://crbug.com/361535551")
     public void testIncognitoTabsNotRestoredAfterSwipe() throws Exception {
         sActivityTestRule.loadUrl(getUrl(TEST_PAGE_FILE_PATH));
 
@@ -898,6 +908,42 @@ public class TabsTest {
         sActivityTestRule.startMainActivityOnBlankPage();
         assertFileExists(normalTabFile, true);
         assertFileExists(incognitoTabFile, false);
+    }
+
+    @Test
+    @MediumTest
+    public void testTabModelSelectorCloseTabInUndoableState() {
+        ChromeTabUtils.newTabFromMenu(
+                InstrumentationRegistry.getInstrumentation(), sActivityTestRule.getActivity());
+        TabModelSelectorImpl selector =
+                (TabModelSelectorImpl) sActivityTestRule.getActivity().getTabModelSelector();
+        Tab tab = sActivityTestRule.getActivity().getActivityTab();
+
+        // Start undoable tab closure.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    Assert.assertFalse(tab.isClosing());
+                    Assert.assertFalse(tab.isDestroyed());
+
+                    selector.getModel(/* incognito= */ false)
+                            .closeTabs(TabClosureParams.closeTab(tab).allowUndo(true).build());
+                    Assert.assertTrue(tab.isClosing());
+                    Assert.assertFalse(tab.isDestroyed());
+                });
+
+        // Later something calls `TabModelSelector#closeTab`.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    Assert.assertTrue(tab.isClosing());
+                    Assert.assertFalse(tab.isDestroyed());
+
+                    // Prior to fixing crbug.com/40067160 this would assert as the tab could not be
+                    // found in
+                    // any model as it was in the undoable tab closure state.
+                    selector.closeTab(tab);
+                    Assert.assertTrue(tab.isClosing());
+                    Assert.assertTrue(tab.isDestroyed());
+                });
     }
 
     private void assertFileExists(final File fileToCheck, final boolean expected) {

@@ -12,6 +12,9 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "chrome/browser/ui/hats/hats_service.h"
+#include "chrome/browser/ui/hats/hats_service_factory.h"
+#include "chrome/browser/ui/hats/survey_config.h"
 #include "chrome/browser/ui/safety_hub/menu_notification.h"
 #include "chrome/browser/ui/safety_hub/notification_permission_review_service.h"
 #include "chrome/browser/ui/safety_hub/safe_browsing_result.h"
@@ -116,7 +119,8 @@ SafetyHubMenuNotificationService::SafetyHubMenuNotificationService(
         stored_notifications);
   }
 #else   // !BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(features::kSafetyHubFollowup)) {
+  if (base::FeatureList::IsEnabled(features::kSafetyHub) &&
+      base::FeatureList::IsEnabled(features::kSafetyHubFollowup)) {
     pref_dict_key_map_.emplace(safety_hub::SafetyHubModuleType::PASSWORDS,
                                "passwords");
     SetInfoElement(
@@ -137,6 +141,20 @@ SafetyHubMenuNotificationService::SafetyHubMenuNotificationService(
       base::BindRepeating(
           &SafetyHubMenuNotificationService::OnSafeBrowsingPrefUpdate,
           base::Unretained(this)));
+
+#if !BUILDFLAG(IS_ANDROID)
+  // If any notification is not shown yet, trigger Hats survey control group.
+  if (base::FeatureList::IsEnabled(features::kSafetyHubHaTSOneOffSurvey) &&
+      !HasAnyNotificationBeenShown()) {
+    HatsService* hats_service = HatsServiceFactory::GetForProfile(
+        profile, /*create_if_necessary=*/true);
+    if (!hats_service) {
+      return;
+    }
+    hats_service->LaunchSurvey(
+        kHatsSurveyTriggerSafetyHubOneOffExperimentControl);
+  }
+#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void SafetyHubMenuNotificationService::UpdateResultGetterForTesting(
@@ -301,4 +319,15 @@ void SafetyHubMenuNotificationService::DismissActiveNotificationOfModule(
 std::optional<safety_hub::SafetyHubModuleType>
 SafetyHubMenuNotificationService::GetLastShownNotificationModule() const {
   return last_shown_module_;
+}
+
+bool SafetyHubMenuNotificationService::HasAnyNotificationBeenShown() const {
+  for (auto const& it : pref_dict_key_map_) {
+    SafetyHubModuleInfoElement* info_element =
+        module_info_map_.find(it.first)->second.get();
+    if (info_element->notification.get()->HasAnyNotificationBeenShown()) {
+      return true;
+    }
+  }
+  return false;
 }

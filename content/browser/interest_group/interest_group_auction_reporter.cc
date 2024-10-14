@@ -43,6 +43,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/privacy_sandbox_invoking_api.h"
 #include "content/public/common/content_client.h"
+#include "content/services/auction_worklet/public/cpp/private_aggregation_reporting.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
 #include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
 #include "content/services/auction_worklet/public/mojom/seller_worklet.mojom.h"
@@ -155,6 +156,28 @@ void SetReportWinReportingIds(
   interest_group_name_reporting_id = interest_group_name;
 }
 
+// If any of private aggregation request is wrong, calls ReportBadMessage and
+// returns false.
+bool ValidateReportingPrivateAggregationRequests(
+    const PrivateAggregationRequests& pa_requests) {
+  std::optional<std::string> error =
+      content::ValidatePrivateAggregationRequests(pa_requests);
+  if (error.has_value()) {
+    mojo::ReportBadMessage(*error);
+    return false;
+  }
+
+  for (const auto& request : pa_requests) {
+    if (IsPrivateAggregationRequestReservedOnce(*request)) {
+      mojo::ReportBadMessage(
+          "Reporting Private Aggregation request using reserved.once");
+      return false;
+    }
+  }
+
+  return true;
+}
+
 }  // namespace
 
 BASE_FEATURE(kFledgeRounding,
@@ -212,6 +235,7 @@ InterestGroupAuctionReporter::InterestGroupAuctionReporter(
         private_aggregation_requests_reserved,
     std::map<std::string, PrivateAggregationRequests>
         private_aggregation_requests_non_reserved,
+    PrivateAggregationAllParticipantsData all_participants_data,
     std::map<url::Origin, RealTimeReportingContributions>
         real_time_contributions)
     : interest_group_manager_(interest_group_manager),
@@ -241,6 +265,7 @@ InterestGroupAuctionReporter::InterestGroupAuctionReporter(
           std::move(private_aggregation_requests_reserved)),
       private_aggregation_requests_non_reserved_(
           std::move(private_aggregation_requests_non_reserved)),
+      all_participants_data_(std::move(all_participants_data)),
       real_time_contributions_(std::move(real_time_contributions)),
       fenced_frame_reporter_(FencedFrameReporter::CreateForFledge(
           url_loader_factory_,
@@ -353,7 +378,7 @@ void InterestGroupAuctionReporter::InitializeFromServerResponse(
 
 base::RepeatingClosure
 InterestGroupAuctionReporter::OnNavigateToWinningAdCallback(
-    int frame_tree_node_id) {
+    FrameTreeNodeId frame_tree_node_id) {
   return base::BindRepeating(
       &InterestGroupAuctionReporter::OnNavigateToWinningAd,
       weak_ptr_factory_.GetWeakPtr(), frame_tree_node_id);
@@ -487,14 +512,16 @@ void InterestGroupAuctionReporter::OnSellerWorkletFatalError(
     const std::vector<std::string>& errors) {
   // On a seller load failure or crash, act as if the worklet returned no
   // results to advance to the next worklet.
-  OnSellerReportResultComplete(seller_info,
-                               /*winning_bid=*/0.0,
-                               /*highest_scoring_other_bid=*/0.0,
-                               /*signals_for_winner=*/std::nullopt,
-                               /*seller_report_url=*/std::nullopt,
-                               /*seller_ad_beacon_map=*/{},
-                               /*pa_requests=*/{},
-                               /*reporting_latency=*/base::TimeDelta(), errors);
+  OnSellerReportResultComplete(
+      seller_info,
+      /*winning_bid=*/0.0,
+      /*highest_scoring_other_bid=*/0.0,
+      /*signals_for_winner=*/std::nullopt,
+      /*seller_report_url=*/std::nullopt,
+      /*seller_ad_beacon_map=*/{},
+      /*pa_requests=*/{},
+      /*timing_metrics=*/auction_worklet::mojom::SellerTimingMetrics::New(),
+      errors);
 }
 
 void InterestGroupAuctionReporter::OnSellerWorkletReceived(
@@ -614,38 +641,40 @@ void InterestGroupAuctionReporter::OnSellerReportResultComplete(
     const std::optional<GURL>& seller_report_url,
     const base::flat_map<std::string, GURL>& seller_ad_beacon_map,
     PrivateAggregationRequests pa_requests,
-    base::TimeDelta reporting_latency,
+    auction_worklet::mojom::SellerTimingMetricsPtr timing_metrics,
     const std::vector<std::string>& errors) {
   TRACE_EVENT_NESTABLE_ASYNC_END0("fledge", "seller_worklet_report_result",
                                   seller_info->trace_id);
   seller_worklet_handle_.reset();
 
-  // The mojom API declaration should ensure none of these are null.
-  DCHECK(base::ranges::none_of(
-      pa_requests,
-      [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
-             request_ptr) { return request_ptr.is_null(); }));
-
   log_private_aggregation_requests_callback_.Run(pa_requests);
 
   PrivateAggregationTimings timings;
-  timings.script_run_time = reporting_latency;
+  timings.script_run_time = timing_metrics->script_latency;
+
+  PrivateAggregationParticipantData& participant_data =
+      all_participants_data_[static_cast<size_t>(
+          seller_info == &top_level_seller_winning_bid_info_
+              ? PrivateAggregationPhase::kTopLevelSeller
+              : PrivateAggregationPhase::kNonTopLevelSeller)];
+  participant_data.average_code_fetch_time =
+      timing_metrics->js_fetch_latency.value_or(base::TimeDelta());
+
+  if (!ValidateReportingPrivateAggregationRequests(pa_requests)) {
+    pa_requests.clear();
+  }
   for (auction_worklet::mojom::PrivateAggregationRequestPtr& request :
        pa_requests) {
-    if (!HasValidFilteringId(request)) {
-      mojo::ReportBadMessage("Private Aggregation filtering ID invalid");
-    }
-
     // reportResult() only gets executed for seller when there was an auction
     // winner so we consider is_winner to be true, which results in
     // "reserved.loss" reports not being reported. Bid reject reason is not
     // meaningful thus not supported in reportResult(), so it is set to
     // std::nullopt.
     std::optional<PrivateAggregationRequestWithEventType> converted_request =
-        FillInPrivateAggregationRequest(std::move(request), winning_bid,
-                                        highest_scoring_other_bid,
-                                        /*reject_reason=*/std::nullopt, timings,
-                                        /*is_winner=*/true);
+        FillInPrivateAggregationRequest(
+            std::move(request), winning_bid, highest_scoring_other_bid,
+            /*reject_reason=*/std::nullopt, participant_data, timings,
+            /*is_winner=*/true);
 
     // Only private aggregation requests with reserved event types are kept for
     // seller.
@@ -911,13 +940,15 @@ void InterestGroupAuctionReporter::OnBidderWorkletFatalError(
     const std::vector<std::string>& errors) {
   // Nothing more to do. Act as if the worklet completed as normal, with no
   // results.
-  OnBidderReportWinComplete(/*winning_bid=*/0.0,
-                            /*highest_scoring_other_bid=*/0.0,
-                            /*bidder_report_url=*/std::nullopt,
-                            /*bidder_ad_beacon_map=*/{},
-                            /*bidder_ad_macro_map=*/{},
-                            /*pa_requests=*/{},
-                            /*reporting_latency=*/base::TimeDelta(), errors);
+  OnBidderReportWinComplete(
+      /*winning_bid=*/0.0,
+      /*highest_scoring_other_bid=*/0.0,
+      /*bidder_report_url=*/std::nullopt,
+      /*bidder_ad_beacon_map=*/{},
+      /*bidder_ad_macro_map=*/{},
+      /*pa_requests=*/{},
+      /*timing_metrics=*/auction_worklet::mojom::BidderTimingMetrics::New(),
+      errors);
 }
 
 void InterestGroupAuctionReporter::OnBidderReportWinComplete(
@@ -927,7 +958,7 @@ void InterestGroupAuctionReporter::OnBidderReportWinComplete(
     const base::flat_map<std::string, GURL>& bidder_ad_beacon_map,
     const base::flat_map<std::string, std::string>& bidder_ad_macro_map,
     PrivateAggregationRequests pa_requests,
-    base::TimeDelta reporting_latency,
+    auction_worklet::mojom::BidderTimingMetricsPtr timing_metrics,
     const std::vector<std::string>& errors) {
   TRACE_EVENT_NESTABLE_ASYNC_END0("fledge", "bidder_worklet_report_win",
                                   top_level_seller_winning_bid_info_.trace_id);
@@ -936,12 +967,6 @@ void InterestGroupAuctionReporter::OnBidderReportWinComplete(
 
   bidder_worklet_handle_.reset();
 
-  // The mojom API declaration should ensure none of these are null.
-  DCHECK(base::ranges::none_of(
-      pa_requests,
-      [](const auction_worklet::mojom::PrivateAggregationRequestPtr&
-             request_ptr) { return request_ptr.is_null(); }));
-
   log_private_aggregation_requests_callback_.Run(pa_requests);
 
   PrivateAggregationKey agg_key = {
@@ -949,13 +974,28 @@ void InterestGroupAuctionReporter::OnBidderReportWinComplete(
       winning_bid_info_.storage_interest_group->interest_group
           .aggregation_coordinator_origin};
   PrivateAggregationTimings timings;
-  timings.script_run_time = reporting_latency;
+
+  timings.script_run_time = timing_metrics->script_latency;
+
+  PrivateAggregationParticipantData& participant_data =
+      all_participants_data_[static_cast<size_t>(
+          PrivateAggregationPhase::kBidder)];
+  AuctionMetricsRecorder::LatencyAggregator code_fetch_time;
+  if (timing_metrics->js_fetch_latency.has_value()) {
+    code_fetch_time.RecordLatency(*timing_metrics->js_fetch_latency);
+  }
+  if (timing_metrics->wasm_fetch_latency.has_value()) {
+    code_fetch_time.RecordLatency(*timing_metrics->wasm_fetch_latency);
+  }
+  participant_data.average_code_fetch_time =
+      code_fetch_time.GetNumRecords() != 0 ? code_fetch_time.GetMeanLatency()
+                                           : base::TimeDelta();
+
+  if (!ValidateReportingPrivateAggregationRequests(pa_requests)) {
+    pa_requests.clear();
+  }
   for (auction_worklet::mojom::PrivateAggregationRequestPtr& request :
        pa_requests) {
-    if (!HasValidFilteringId(request)) {
-      mojo::ReportBadMessage("Private Aggregation filtering ID invalid");
-    }
-
     // Only winner's reportWin() gets executed, so is_winner is true, which
     // results in "reserved.loss" reports not being reported. Bid reject reason
     // is not meaningful thus not supported in reportWin(), so it is set to
@@ -964,7 +1004,7 @@ void InterestGroupAuctionReporter::OnBidderReportWinComplete(
         FillInPrivateAggregationRequest(
             std::move(request), winning_bid,
             /*highest_scoring_other_bid=*/highest_scoring_other_bid,
-            /*reject_reason=*/std::nullopt, timings,
+            /*reject_reason=*/std::nullopt, participant_data, timings,
             /*is_winner=*/true);
 
     if (converted_request.has_value()) {
@@ -1062,7 +1102,7 @@ void InterestGroupAuctionReporter::OnReportingComplete(
 }
 
 void InterestGroupAuctionReporter::OnNavigateToWinningAd(
-    int frame_tree_node_id) {
+    FrameTreeNodeId frame_tree_node_id) {
   if (navigated_to_winning_ad_) {
     return;
   }
@@ -1160,7 +1200,8 @@ void InterestGroupAuctionReporter::SendPendingReportsIfNavigated() {
   if (!navigated_to_winning_ad_) {
     return;
   }
-  int frame_tree_node_id = auction_worklet_manager_->GetFrameTreeNodeID();
+  FrameTreeNodeId frame_tree_node_id =
+      auction_worklet_manager_->GetFrameTreeNodeID();
   interest_group_manager_->EnqueueReports(
       InterestGroupManagerImpl::ReportType::kSendReportTo,
       std::move(pending_report_urls_), frame_tree_node_id, frame_origin_,

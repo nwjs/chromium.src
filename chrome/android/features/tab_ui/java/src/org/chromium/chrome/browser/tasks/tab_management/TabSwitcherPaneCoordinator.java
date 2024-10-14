@@ -236,7 +236,6 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                                                         ::getTabGridDialogAnimationSourceView,
                                                 scrimCoordinator,
                                                 getTabGroupTitleEditor(),
-                                                /* rootView= */ coordinatorView,
                                                 actionConfirmationManager,
                                                 mModalDialogManager);
                                 return mTabGridDialogCoordinator.getDialogController();

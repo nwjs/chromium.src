@@ -257,9 +257,9 @@ class DedicatedWorkerObjectProxyForTest final
   }
 
  private:
-  std::bitset<static_cast<size_t>(WebFeature::kNumberOfFeatures)>
+  std::bitset<static_cast<size_t>(WebFeature::kMaxValue) + 1>
       reported_features_;
-  std::bitset<static_cast<size_t>(WebDXFeature::kNumberOfFeatures)>
+  std::bitset<static_cast<size_t>(WebDXFeature::kMaxValue) + 1>
       reported_webdx_features_;
 };
 

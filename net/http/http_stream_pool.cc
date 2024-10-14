@@ -4,6 +4,7 @@
 
 #include "net/http/http_stream_pool.h"
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <set>
@@ -16,12 +17,15 @@
 #include "net/base/completion_once_callback.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/load_states.h"
+#include "net/base/net_errors.h"
 #include "net/base/network_change_notifier.h"
+#include "net/base/port_util.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/session_usage.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_stream_key.h"
 #include "net/http/http_stream_pool_group.h"
+#include "net/http/http_stream_pool_job_controller.h"
 #include "net/http/http_stream_request.h"
 #include "net/log/net_log_with_source.h"
 #include "net/quic/quic_http_stream.h"
@@ -36,7 +40,7 @@ namespace net {
 // An implementation of HttpStreamRequest::Helper that is used to create a
 // request when the pool can immediately provide an HttpStream from existing
 // QUIC/SPDY sessions. This eliminates unnecessary creation/destruction of
-// Group/Job when QUIC/SPDY sessions are already available.
+// Group/AttemptManager when QUIC/SPDY sessions are already available.
 class HttpStreamPool::PooledStreamRequestHelper
     : public HttpStreamRequest::Helper {
  public:
@@ -139,13 +143,19 @@ HttpStreamPool::~HttpStreamPool() {
 
 std::unique_ptr<HttpStreamRequest> HttpStreamPool::RequestStream(
     HttpStreamRequest::Delegate* delegate,
-    const HttpStreamKey& stream_key,
+    HttpStreamPoolSwitchingInfo switching_info,
     RequestPriority priority,
     const std::vector<SSLConfig::CertAndStatus>& allowed_bad_certs,
     bool enable_ip_based_pooling,
     bool enable_alternative_services,
-    quic::ParsedQuicVersion quic_version,
     const NetLogWithSource& net_log) {
+  CHECK(switching_info.proxy_info.is_direct());
+
+  const HttpStreamKey& stream_key = switching_info.stream_key;
+  if (delegate_for_testing_) {
+    delegate_for_testing_->OnRequestStream(stream_key);
+  }
+
   QuicSessionKey quic_session_key = stream_key.ToQuicSessionKey();
   if (CanUseExistingQuicSession(stream_key, quic_session_key,
                                 enable_ip_based_pooling,
@@ -172,17 +182,29 @@ std::unique_ptr<HttpStreamRequest> HttpStreamPool::RequestStream(
                                      NextProto::kProtoHTTP2, net_log);
   }
 
-  return GetOrCreateGroup(stream_key)
-      .RequestStream(delegate, priority, allowed_bad_certs,
-                     enable_ip_based_pooling, enable_alternative_services,
-                     quic_version, net_log);
+  auto controller = std::make_unique<JobController>(this);
+  JobController* controller_raw_ptr = controller.get();
+  // Put `controller` into `job_controllers_` before calling RequestStream() to
+  // make sure `job_controllers_` always contains `controller` when
+  // OnJobControllerComplete() is called.
+  job_controllers_.emplace(std::move(controller));
+
+  return controller_raw_ptr->RequestStream(
+      delegate, std::move(switching_info), priority, allowed_bad_certs,
+      enable_ip_based_pooling, enable_alternative_services, net_log);
 }
 
-int HttpStreamPool::Preconnect(const HttpStreamKey& stream_key,
+int HttpStreamPool::Preconnect(HttpStreamPoolSwitchingInfo switching_info,
                                size_t num_streams,
-                               quic::ParsedQuicVersion quic_version,
                                CompletionOnceCallback callback) {
-  CHECK_GE(kMaxStreamSocketsPerGroup, num_streams);
+  num_streams = std::min(kMaxStreamSocketsPerGroup, num_streams);
+
+  const HttpStreamKey& stream_key = switching_info.stream_key;
+  if (!IsPortAllowedForScheme(stream_key.destination().port(),
+                              stream_key.destination().scheme())) {
+    return ERR_UNSAFE_PORT;
+  }
+
   QuicSessionKey quic_session_key = stream_key.ToQuicSessionKey();
   if (CanUseExistingQuicSession(stream_key, quic_session_key,
                                 /*enable_ip_based_pooling=*/true,
@@ -204,8 +226,19 @@ int HttpStreamPool::Preconnect(const HttpStreamKey& stream_key,
     return ERR_HTTP_1_1_REQUIRED;
   }
 
+  if (delegate_for_testing_) {
+    // Some tests expect OnPreconnect() is called after checking existing
+    // sessions.
+    std::optional<int> result =
+        delegate_for_testing_->OnPreconnect(stream_key, num_streams);
+    if (result.has_value()) {
+      return *result;
+    }
+  }
+
   return GetOrCreateGroup(stream_key)
-      .Preconnect(num_streams, quic_version, std::move(callback));
+      .Preconnect(num_streams, switching_info.quic_version,
+                  std::move(callback));
 }
 
 void HttpStreamPool::IncrementTotalIdleStreamCount() {
@@ -241,8 +274,7 @@ void HttpStreamPool::DecrementTotalConnectingStreamCount(size_t amount) {
 void HttpStreamPool::OnIPAddressChanged() {
   CHECK(cleanup_on_ip_address_change_);
   for (const auto& group : groups_) {
-    group.second->Refresh(kIpAddressChanged);
-    group.second->CancelRequests(ERR_NETWORK_CHANGED);
+    group.second->FlushWithError(ERR_NETWORK_CHANGED, kIpAddressChanged);
   }
 }
 
@@ -270,6 +302,20 @@ void HttpStreamPool::OnGroupComplete(Group* group) {
   auto it = groups_.find(group->stream_key());
   CHECK(it != groups_.end());
   groups_.erase(it);
+}
+
+void HttpStreamPool::OnJobControllerComplete(JobController* job_controller) {
+  auto it = job_controllers_.find(job_controller);
+  CHECK(it != job_controllers_.end());
+  job_controllers_.erase(it);
+}
+
+void HttpStreamPool::FlushWithError(
+    int error,
+    std::string_view net_log_close_reason_utf8) {
+  for (auto& group : groups_) {
+    group.second->FlushWithError(error, net_log_close_reason_utf8);
+  }
 }
 
 void HttpStreamPool::CloseIdleStreams(
@@ -322,10 +368,41 @@ bool HttpStreamPool::CanUseExistingQuicSession(
     const QuicSessionKey& quic_session_key,
     bool enable_ip_based_pooling,
     bool enable_alternative_services) {
-  return CanUseQuic(stream_key, enable_ip_based_pooling,
-                    enable_alternative_services) &&
+  const bool force_quic = http_network_session()->ShouldForceQuic(
+      stream_key.destination(), ProxyInfo::Direct(),
+      /*is_websocket=*/false);
+  return (force_quic || CanUseQuic(stream_key, enable_ip_based_pooling,
+                                   enable_alternative_services)) &&
          http_network_session()->quic_session_pool()->CanUseExistingSession(
              quic_session_key, stream_key.destination());
+}
+
+void HttpStreamPool::SetDelegateForTesting(
+    std::unique_ptr<TestDelegate> delegate) {
+  delegate_for_testing_ = std::move(delegate);
+}
+
+base::Value::Dict HttpStreamPool::GetInfoAsValue() const {
+  // Using "socket" instead of "stream" for compatibility with ClientSocketPool.
+  base::Value::Dict dict;
+  dict.Set("handed_out_socket_count",
+           static_cast<int>(total_handed_out_stream_count_));
+  dict.Set("connecting_socket_count",
+           static_cast<int>(total_connecting_stream_count_));
+  dict.Set("idle_socket_count", static_cast<int>(total_idle_stream_count_));
+  dict.Set("max_socket_count", static_cast<int>(max_stream_sockets_per_pool_));
+  dict.Set("max_sockets_per_group",
+           static_cast<int>(max_stream_sockets_per_group_));
+
+  base::Value::Dict group_dicts;
+  for (const auto& [key, group] : groups_) {
+    group_dicts.Set(key.ToString(), group->GetInfoAsValue());
+  }
+
+  if (!group_dicts.empty()) {
+    dict.Set("groups", std::move(group_dicts));
+  }
+  return dict;
 }
 
 HttpStreamPool::Group& HttpStreamPool::GetOrCreateGroupForTesting(

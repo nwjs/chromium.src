@@ -81,8 +81,6 @@ class CORE_EXPORT ScriptPromiseUntyped {
   ScriptPromise<IDLAny> Then(ScriptFunction* on_fulfilled,
                              ScriptFunction* on_rejected = nullptr);
 
-  ScriptValue AsScriptValue() const { return promise_; }
-
   v8::Local<v8::Value> V8Value() const { return promise_.V8Value(); }
   v8::Local<v8::Promise> V8Promise() const {
     // This is safe because `promise_` always stores a promise value as long
@@ -237,6 +235,13 @@ namespace WTF {
 template <>
 struct VectorTraits<blink::ScriptPromiseUntyped>
     : VectorTraitsBase<blink::ScriptPromiseUntyped> {
+  STATIC_ONLY(VectorTraits);
+  static constexpr bool kCanClearUnusedSlotsWithMemset = true;
+};
+
+template <typename T>
+struct VectorTraits<blink::ScriptPromise<T>>
+    : VectorTraitsBase<blink::ScriptPromise<T>> {
   STATIC_ONLY(VectorTraits);
   static constexpr bool kCanClearUnusedSlotsWithMemset = true;
 };

@@ -129,12 +129,12 @@ class PLATFORM_EXPORT CanvasResourceProvider
       ShouldInitialize initialize_provider,
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
       RasterMode raster_mode,
-      uint32_t shared_image_usage_flags,
+      gpu::SharedImageUsageSet shared_image_usage_flags,
       CanvasResourceHost* resource_host = nullptr);
 
   static std::unique_ptr<CanvasResourceProvider> CreateWebGPUImageProvider(
       const SkImageInfo& info,
-      uint32_t shared_image_usage_flags = 0,
+      gpu::SharedImageUsageSet shared_image_usage_flags = {},
       CanvasResourceHost* resource_host = nullptr);
 
   static std::unique_ptr<CanvasResourceProvider> CreatePassThroughProvider(
@@ -216,6 +216,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   SkSurface* GetSkSurface() const;
   bool IsGpuContextLost() const;
+  virtual bool IsSharedBitmapGpuChannelLost() const;
   virtual bool WritePixels(const SkImageInfo& orig_info,
                            const void* pixels,
                            size_t row_bytes,
@@ -227,17 +228,9 @@ class PLATFORM_EXPORT CanvasResourceProvider
     NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
-  virtual gpu::Mailbox GetBackingMailboxForOverwrite() {
+  virtual gpu::SharedImageUsageSet GetSharedImageUsageFlags() const {
     NOTREACHED_IN_MIGRATION();
-    return gpu::Mailbox();
-  }
-  virtual void* GetPixelBufferAddressForOverwrite() {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
-  virtual uint32_t GetSharedImageUsageFlags() const {
-    NOTREACHED_IN_MIGRATION();
-    return 0;
+    return gpu::SharedImageUsageSet();
   }
 
   CanvasResourceProvider(const CanvasResourceProvider&) = delete;
@@ -377,6 +370,8 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   virtual void OnFlushForImage(cc::PaintImage::ContentId content_id);
   void OnMemoryDump(base::trace_event::ProcessMemoryDump*) override;
+
+  CanvasResourceHost* resource_host() { return resource_host_; }
 
  private:
   friend class FlushForImageListener;

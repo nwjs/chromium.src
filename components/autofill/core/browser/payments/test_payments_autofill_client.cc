@@ -22,12 +22,19 @@
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/autofill/core/browser/ui/touch_to_fill_delegate.h"
 
-#if !BUILDFLAG(IS_ANDROID)
-#include "components/autofill/core/browser/payments/local_card_migration_manager.h"
-#else
+#if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
 #include "base/test/gmock_callback_support.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_ANDROID)
+
+#if !BUILDFLAG(IS_IOS)
+#include "components/autofill/core/browser/payments/test_internal_authenticator.h"
+#include "components/webauthn/core/browser/internal_authenticator.h"
+#endif  // !BUILDFLAG(IS_IOS)
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#include "components/autofill/core/browser/payments/local_card_migration_manager.h"
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 namespace autofill::payments {
 
@@ -38,6 +45,7 @@ TestPaymentsAutofillClient::~TestPaymentsAutofillClient() = default;
 
 void TestPaymentsAutofillClient::LoadRiskData(
     base::OnceCallback<void(const std::string&)> callback) {
+  risk_data_loaded_ = true;
   std::move(callback).Run("some risk data");
 }
 
@@ -222,7 +230,15 @@ bool TestPaymentsAutofillClient::ShowTouchToFillCreditCard(
   return false;
 }
 
-payments::MockMandatoryReauthManager*
+#if !BUILDFLAG(IS_IOS)
+std::unique_ptr<webauthn::InternalAuthenticator>
+TestPaymentsAutofillClient::CreateCreditCardInternalAuthenticator(
+    AutofillDriver* driver) {
+  return std::make_unique<TestInternalAuthenticator>();
+}
+#endif
+
+MockMandatoryReauthManager*
 TestPaymentsAutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
   if (!mock_payments_mandatory_reauth_manager_) {
     mock_payments_mandatory_reauth_manager_ = std::make_unique<
@@ -269,7 +285,10 @@ void TestPaymentsAutofillClient::
           payments::MandatoryReauthAuthenticationMethod::kBiometric));
 
   ON_CALL(mandatory_reauth_manager, Authenticate)
-      .WillByDefault(base::test::RunOnceCallback<0>(true));
+      .WillByDefault(testing::WithArg<0>(
+          testing::Invoke([](base::OnceCallback<void(bool)> callback) {
+            std::move(callback).Run(true);
+          })));
 }
 #endif
 

@@ -97,7 +97,6 @@ source_set("onc") {
       "//chrome/browser/ash/login/session",
       "//chrome/browser/ash/policy/core",
       "//chrome/browser/ash/profiles",
-      "//chrome/browser/ui/webui/ash/login",
       "//chromeos/ash/components/install_attributes",
       "//chromeos/ash/components/network",
       "//chromeos/ash/components/settings",
@@ -109,7 +108,6 @@ source_set("onc") {
     allow_circular_includes_from = [
       "//chrome/browser/ash/login",
       "//chrome/browser/ash/policy/core",
-      "//chrome/browser/ui/webui/ash/login",
     ]
   }
 }
@@ -224,6 +222,7 @@ source_set("policy_specific_browser_tests") {
     "//chrome/app:command_ids",
     "//chrome/browser",
     "//chrome/browser/media/webrtc",
+    "//chrome/browser/ui/autofill",
     "//chrome/common",
     "//chrome/test:test_support",
     "//components/policy/core/common",
@@ -251,6 +250,7 @@ source_set("policy_specific_browser_tests") {
       "//chrome/browser/ash/login/lock:test_support",
       "//chrome/browser/ash/login/saml:test_support",
       "//chrome/browser/ash/net",
+      "//chrome/browser/ash/note_taking",
       "//components/session_manager/core",
       "//components/user_manager",
     ]
@@ -263,6 +263,7 @@ source_set("policy_specific_browser_tests") {
       "test/autoplay_policy_browsertest.cc",
       "test/bookmark_bar_enabled_browsertest.cc",
       "test/component_updater_policy_browsertest.cc",
+      "test/data_url_policy_browsertest.cc",
       "test/developer_tools_policy_browsertest.cc",
       "test/download_directory_browsertest.cc",
       "test/ipv6_reachability_override_policy_browsertest.cc",
@@ -362,6 +363,7 @@ source_set("browser_tests") {
 
   if (enable_dice_support) {
     sources += [ "cloud/user_policy_signin_service_browsertest.cc" ]
+    deps += [ "//chrome/browser/ui/webui/signin" ]
   }
 
   if (enable_extensions) {
@@ -406,7 +408,6 @@ source_set("browser_tests") {
       "//ash/components/arc:prefs",
       "//ash/components/arc/session:session",
       "//chrome/browser/apps/app_service/app_icon",
-      "//chrome/browser/ash",
       "//chrome/browser/ash/accessibility",
       "//chrome/browser/ash/arc/session",
       "//chrome/browser/ash/crostini:test_support",
@@ -415,6 +416,7 @@ source_set("browser_tests") {
       "//chrome/browser/ash/login/users/avatar",
       "//chrome/browser/ash/login/users/avatar:test_support",
       "//chrome/browser/ash/login/users/default_user_image",
+      "//chrome/browser/ash/note_taking",
       "//chrome/browser/ash/policy/core",
       "//chrome/browser/ash/policy/handlers",
       "//chrome/browser/ash/system_web_apps/apps/personalization_app",
@@ -537,7 +539,6 @@ source_set("unit_tests") {
 
   if (is_chromeos_ash) {
     deps += [
-      "//chrome/browser/ash",
       "//chrome/browser/ash/login/users:test_support",
       "//chrome/browser/ash/settings",
       "//chrome/browser/ash/settings:test_support",

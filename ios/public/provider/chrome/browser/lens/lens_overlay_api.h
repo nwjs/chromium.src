@@ -26,22 +26,39 @@
 // The user tapped on the close button in the Lens overlay.
 - (void)lensOverlayDidTapOnCloseButton:(id<ChromeLensOverlay>)lensOverlay;
 
+// The lens overlay has suggest signals available for the given result.
+- (void)lensOverlay:(id<ChromeLensOverlay>)lensOverlay
+    suggestSignalsAvailableOnResult:(id<ChromeLensOverlayResult>)result;
+
 @end
 
 // Defines the interface for interacting with a Chrome Lens Overlay.
 @protocol ChromeLensOverlay
 
+// Whether the user is currently panning the selection UI.
+@property(nonatomic, readonly) BOOL isPanningSelectionUI;
+
 // Sets the delegate for `ChromeLensOverlay`.
 - (void)setLensOverlayDelegate:(id<ChromeLensOverlayDelegate>)delegate;
 
 // Called when the text is added into the multimodal omnibox.
-- (void)setQueryText:(NSString*)text;
+// If `clearSelection` is YES, the current visual selection will be cleared.
+- (void)setQueryText:(NSString*)text clearSelection:(BOOL)clearSelection;
 
 // Starts executing requests.
 - (void)start;
 
 // Reloads a previous result in the overlay.
 - (void)reloadResult:(id<ChromeLensOverlayResult>)result;
+
+// Removes the current selection and optionally clears the query text.
+- (void)removeSelectionWithClearText:(BOOL)clearText;
+
+// Updates the occluder insets. If there is a current selection, the scrollview
+// may update to satisfy the new insets (optionally animated).
+- (void)setOcclusionInsets:(UIEdgeInsets)occlusionInsets
+                reposition:(BOOL)reposition
+                  animated:(BOOL)animated;
 
 @end
 
@@ -52,7 +69,8 @@ namespace provider {
 // communication with the downstream Lens controller.
 UIViewController<ChromeLensOverlay>* NewChromeLensOverlay(
     UIImage* snapshot,
-    LensConfiguration* config);
+    LensConfiguration* config,
+    NSArray<UIAction*>* additionalMenuItems);
 
 }  // namespace provider
 }  // namespace ios

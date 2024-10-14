@@ -19,13 +19,21 @@ export enum RecentlyClosedItemOpenAction {
 export interface TabSearchApiProxy {
   closeTab(tabId: number): void;
 
-  acceptTabOrganization(
-      sessionId: number, organizationId: number, name: string,
-      tabs: Tab[]): void;
+  declutterTabs(tabIds: number[]): void;
+
+  acceptTabOrganization(sessionId: number, organizationId: number, tabs: Tab[]):
+      void;
 
   rejectTabOrganization(sessionId: number, organizationId: number): void;
 
+  renameTabOrganization(
+      sessionId: number, organizationId: number, name: string): void;
+
+  excludeFromStaleTabs(tabId: number): void;
+
   getProfileData(): Promise<{profileData: ProfileData}>;
+
+  getStaleTabs(): Promise<{tabs: Tab[]}>;
 
   getTabOrganizationSession(): Promise<{session: TabOrganizationSession}>;
 
@@ -85,18 +93,35 @@ export class TabSearchApiProxyImpl implements TabSearchApiProxy {
     this.handler.closeTab(tabId);
   }
 
+  declutterTabs(tabIds: number[]) {
+    this.handler.declutterTabs(tabIds);
+  }
+
   acceptTabOrganization(
-      sessionId: number, organizationId: number, name: string, tabs: Tab[]) {
-    this.handler.acceptTabOrganization(
-        sessionId, organizationId, stringToMojoString16(name), tabs);
+      sessionId: number, organizationId: number, tabs: Tab[]) {
+    this.handler.acceptTabOrganization(sessionId, organizationId, tabs);
   }
 
   rejectTabOrganization(sessionId: number, organizationId: number) {
     this.handler.rejectTabOrganization(sessionId, organizationId);
   }
 
+  renameTabOrganization(
+      sessionId: number, organizationId: number, name: string) {
+    this.handler.renameTabOrganization(
+        sessionId, organizationId, stringToMojoString16(name));
+  }
+
+  excludeFromStaleTabs(tabId: number) {
+    this.handler.excludeFromStaleTabs(tabId);
+  }
+
   getProfileData() {
     return this.handler.getProfileData();
+  }
+
+  getStaleTabs() {
+    return this.handler.getStaleTabs();
   }
 
   getTabOrganizationSession() {

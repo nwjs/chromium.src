@@ -22,6 +22,7 @@
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/device_accounts_synchronizer.h"
 #import "components/signin/public/identity_manager/primary_account_mutator.h"
+#import "components/sync/service/account_pref_utils.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "google_apis/gaia/gaia_auth_util.h"
@@ -233,6 +234,21 @@ void AuthenticationService::OnApplicationWillEnterForeground() {
   }
 }
 
+bool AuthenticationService::IsAccountSwitchInProgress() {
+  return accountSwitchInProgress_;
+}
+
+base::ScopedClosureRunner
+AuthenticationService::DeclareAccountSwitchInProgress() {
+  CHECK(!accountSwitchInProgress_);
+  accountSwitchInProgress_ = true;
+  return base::ScopedClosureRunner(base::BindOnce(
+      [](AuthenticationService* service) {
+        service->accountSwitchInProgress_ = false;
+      },
+      this));
+}
+
 void AuthenticationService::SetReauthPromptForSignInAndSync() {
   pref_service_->SetBoolean(prefs::kSigninShouldPromptForSigninAgain, true);
 }
@@ -347,6 +363,10 @@ void AuthenticationService::SignIn(id<SystemIdentity> identity,
   CHECK(!primary_account.empty());
   CHECK_EQ(account_id, primary_account);
   pref_service_->SetTime(prefs::kLastSigninTimestamp, base::Time::Now());
+  pref_service_->SetTime(prefs::kIdentityConfirmationSnackbarLastPromptTime,
+                         base::Time::Now());
+  pref_service_->SetInteger(prefs::kIdentityConfirmationSnackbarDisplayCount,
+                            0);
   crash_keys::SetCurrentlySignedIn(true);
 }
 
@@ -374,8 +394,6 @@ void AuthenticationService::GrantSyncConsent(
 
   // When sync is disabled by enterprise, sync consent is not removed.
   // Consent can be skipped.
-  // TODO(crbug.com/40797392): Remove this if once the sync consent is removed
-  // when enteprise disable sync.
   if (!HasPrimaryIdentity(signin::ConsentLevel::kSync)) {
     const signin::PrimaryAccountMutator::PrimaryAccountError error =
         identity_manager_->GetPrimaryAccountMutator()->SetPrimaryAccount(
@@ -648,8 +666,8 @@ void AuthenticationService::HandleForgottenIdentity(
     bool history_sync_enabled = user_settings->GetSelectedTypes().HasAll(
         {syncer::UserSelectableType::kHistory,
          syncer::UserSelectableType::kTabs});
-    StorePreRestoreIdentity(GetApplicationContext()->GetLocalState(),
-                            extended_account_info, history_sync_enabled);
+    StorePreRestoreIdentity(pref_service_, extended_account_info,
+                            history_sync_enabled);
   }
 
   // Sign the user out.
@@ -721,6 +739,9 @@ void AuthenticationService::ClearAccountSettingsPrefsOfRemovedAccounts() {
     available_gaia_ids.push_back(gaia_id_hash);
   }
   sync_service_->GetUserSettings()->KeepAccountSettingsPrefsOnlyForUsers(
+      available_gaia_ids);
+  syncer::KeepAccountKeyedPrefValuesOnlyForUsers(
+      pref_service_, prefs::kSigninHasAcceptedManagementDialog,
       available_gaia_ids);
 }
 

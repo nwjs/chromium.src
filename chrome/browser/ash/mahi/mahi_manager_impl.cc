@@ -71,6 +71,7 @@ const char kMahiCacheHit[] = "ChromeOS.Mahi.CacheStateOnAccess";
 const char kMahiResponseStatus[] = "ChromeOS.Mahi.ResponseStatusOnRequest";
 const char kMahiProviderCreationStatus[] =
     "ChromeOS.Mahi.ProviderCreationStatus";
+const char kMediaAppPDFUrlPrefix[] = "file:///media-app/";
 
 // The following enum classes are persisted to logs. Entries should not be
 // renumbered and numeric values should never be reused.
@@ -97,6 +98,15 @@ void LogProviderCreationStatus(ProviderCreationStatus status) {
   base::UmaHistogramEnumeration(kMahiProviderCreationStatus, status);
 }
 
+std::optional<std::string> MaybeGetUrl(
+    const crosapi::mojom::MahiPageInfoPtr& mahi_page_info) {
+  // Do not send the fake URL of media app PDF files.
+  return chromeos::features::IsMahiSendingUrl() &&
+                 !mahi_page_info->url.spec().starts_with(kMediaAppPDFUrlPrefix)
+             ? std::make_optional(mahi_page_info->url.spec())
+             : std::nullopt;
+}
+
 // OnConsentStateUpdateClosureRunner -------------------------------------------
 
 // Runs the specified closures when the consent state becomes approved or
@@ -109,7 +119,7 @@ class OnConsentStateUpdateClosureRunner
                                     base::OnceClosure on_declined_closure)
       : on_approved_closure_(std::move(on_approved_closure)),
         on_declined_closure_(std::move(on_declined_closure)) {
-    CHECK(chromeos::features::IsMagicBoostEnabled());
+    CHECK(chromeos::MagicBoostState::Get()->IsMagicBoostAvailable());
     magic_boost_state_observation_.Observe(chromeos::MagicBoostState::Get());
   }
 
@@ -218,7 +228,7 @@ std::unique_ptr<manta::MahiProvider> CreateProvider() {
 // 1. The magic boost feature is disabled; OR
 // 2. The Mahi feature has been approved before.
 bool IsMahiApproved() {
-  return !chromeos::features::IsMagicBoostEnabled() ||
+  return !chromeos::MagicBoostState::Get()->IsMagicBoostAvailable() ||
          chromeos::MagicBoostState::Get()->hmr_consent_status() ==
              chromeos::HMRConsentStatus::kApproved;
 }
@@ -334,7 +344,9 @@ void MahiManagerImpl::AnswerQuestion(const std::u16string& question,
   if (current_panel_content) {
     mahi_provider_->QuestionAndAnswer(
         base::UTF16ToUTF8(current_panel_content_->page_content),
-        current_panel_qa_, base::UTF16ToUTF8(question),
+        base::UTF16ToUTF8(current_panel_info_->title),
+        MaybeGetUrl(current_page_info_), current_panel_qa_,
+        base::UTF16ToUTF8(question),
         base::BindOnce(&MahiManagerImpl::OnMahiProviderQAResponse,
                        weak_ptr_factory_for_requests_.GetWeakPtr(),
                        current_panel_info_->Clone(), question,
@@ -497,9 +509,8 @@ void MahiManagerImpl::OpenMahiPanel(int64_t display_id,
 }
 
 bool MahiManagerImpl::IsEnabled() {
-  return chromeos::features::IsMahiEnabled() &&
-         chromeos::MagicBoostState::Get()->hmr_enabled().value_or(false) &&
-         CanUseMahiService();
+  return mahi_availability::IsMahiAvailable() &&
+         chromeos::MagicBoostState::Get()->hmr_enabled().value_or(false);
 }
 
 void MahiManagerImpl::SetMediaAppPDFFocused() {
@@ -524,7 +535,7 @@ void MahiManagerImpl::SetMediaAppPDFFocused() {
   current_page_info_ = crosapi::mojom::MahiPageInfo::New(
       media_app_client_id_,
       /*page_id=*/media_app_client_id_,
-      GURL{base::StrCat({"file:///media-app/", file_name.value()})},
+      GURL{base::StrCat({kMediaAppPDFUrlPrefix, file_name.value()})},
       /*title=*/base::UTF8ToUTF16(file_name.value()), gfx::ImageSkia(),
       /*distillable=*/true, /*is_incognito=*/false);
 
@@ -637,7 +648,7 @@ void MahiManagerImpl::MaybeObserveHistoryService() {
 
 void MahiManagerImpl::InterrputRequestHandlingWithDisclaimerView(
     crosapi::mojom::MahiContextMenuRequestPtr context_menu_request) {
-  CHECK(chromeos::features::IsMagicBoostEnabled());
+  CHECK(chromeos::MagicBoostState::Get()->IsMagicBoostAvailable());
 
   // Cache the display id before moving `context_menu_request`.
   const int64_t display_id = context_menu_request->display_id;
@@ -700,8 +711,11 @@ void MahiManagerImpl::OnGetPageContentForSummary(
   }
 
   CHECK(mahi_provider_);
+
   mahi_provider_->Summarize(
       base::UTF16ToUTF8(current_panel_content_->page_content),
+      base::UTF16ToUTF8(request_page_info->title),
+      MaybeGetUrl(request_page_info),
       base::BindOnce(&MahiManagerImpl::OnMahiProviderSummaryResponse,
                      weak_ptr_factory_for_requests_.GetWeakPtr(),
                      std::move(request_page_info), std::move(callback)));
@@ -739,7 +753,9 @@ void MahiManagerImpl::OnGetPageContentForQA(
 
   mahi_provider_->QuestionAndAnswer(
       base::UTF16ToUTF8(current_panel_content_->page_content),
-      current_panel_qa_, base::UTF16ToUTF8(question),
+      base::UTF16ToUTF8(request_page_info->title),
+      MaybeGetUrl(request_page_info), current_panel_qa_,
+      base::UTF16ToUTF8(question),
       base::BindOnce(&MahiManagerImpl::OnMahiProviderQAResponse,
                      weak_ptr_factory_for_requests_.GetWeakPtr(),
                      std::move(request_page_info), question,

@@ -22,6 +22,9 @@ import {getCss} from './power_bookmark_row.css.js';
 import {getHtml} from './power_bookmark_row.html.js';
 import type {PowerBookmarksService} from './power_bookmarks_service.js';
 
+export const NESTED_BOOKMARKS_BASE_MARGIN = 45;
+export const NESTED_BOOKMARKS_MARGIN_PER_DEPTH = 17;
+
 export interface PowerBookmarkRowElement {
   $: {
     crUrlListItem: CrUrlListItemElement,
@@ -47,6 +50,10 @@ export class PowerBookmarkRowElement extends CrLitElement {
       compact: {type: Boolean},
       bookmarksTreeViewEnabled: {type: Boolean},
       contextMenuBookmark: {type: Object},
+      depth: {
+        type: Number,
+        reflect: true,
+      },
       hasCheckbox: {
         type: Boolean,
         reflect: true,
@@ -56,7 +63,6 @@ export class PowerBookmarkRowElement extends CrLitElement {
       searchQuery: {type: String},
       shoppingCollectionFolderId: {type: String},
       rowAriaDescription: {type: String},
-      trailingIcon: {type: String},
       trailingIconTooltip: {type: String},
       listItemSize: {type: String},
       bookmarksService: {type: Object},
@@ -70,13 +76,13 @@ export class PowerBookmarkRowElement extends CrLitElement {
   contextMenuBookmark: chrome.bookmarks.BookmarkTreeNode|undefined;
   bookmarksTreeViewEnabled: boolean =
       loadTimeData.getBoolean('bookmarksTreeViewEnabled');
+  depth: number = 0;
   forceHover: boolean = false;
   hasCheckbox: boolean = false;
   renamingId: string = '';
   searchQuery: string|undefined;
   shoppingCollectionFolderId: string = '';
   rowAriaDescription: string = '';
-  trailingIcon: string = '';
   trailingIconTooltip: string = '';
   toggleExpand: boolean = false;
   imageUrls: {[key: string]: string} = {};
@@ -98,6 +104,13 @@ export class PowerBookmarkRowElement extends CrLitElement {
     if (changedProperties.has('compact')) {
       this.listItemSize =
           this.compact ? CrUrlListItemSize.COMPACT : CrUrlListItemSize.LARGE;
+      if (this.bookmarksTreeViewEnabled && this.compact) {
+        // Set custom margins for nested bookmarks in tree view.
+        this.style.setProperty(
+            '--base-margin', `${NESTED_BOOKMARKS_BASE_MARGIN}px`);
+        this.style.setProperty(
+            '--margin-per-depth', `${NESTED_BOOKMARKS_MARGIN_PER_DEPTH}px`);
+      }
     }
   }
 
@@ -112,6 +125,9 @@ export class PowerBookmarkRowElement extends CrLitElement {
     }
     if (changedProperties.has('listItemSize')) {
       this.handleListItemSizeChanged_();
+    }
+    if (changedProperties.has('depth')) {
+      this.style.setProperty('--depth', `${this.depth}`);
     }
   }
 

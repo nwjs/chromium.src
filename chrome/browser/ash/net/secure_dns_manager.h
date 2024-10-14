@@ -17,6 +17,7 @@
 #include "chromeos/ash/components/network/network_state_handler.h"
 #include "chromeos/ash/components/network/network_state_handler_observer.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "net/dns/public/dns_over_https_server_config.h"
 
@@ -25,6 +26,12 @@ namespace ash {
 // Responds to changes in the SecureDNS preferences from the local state and
 // generates and updates the corresponding shill property which can then be used
 // by downstream services.
+// The enterprise policies which control secure DNS settings in the browser are
+// cross-platform policies that map to local state. This is required because the
+// DNS config is global in the Network Service. On ChromeOS, local state is
+// shared between all user sessions (including guest). For this reason, the
+// user-set preferences map to the pref service that belongs to the primary
+// profile.
 class SecureDnsManager : public NetworkStateHandlerObserver {
  public:
   // Observes changes in the DNS-over-HTTPS configuration.
@@ -45,14 +52,27 @@ class SecureDnsManager : public NetworkStateHandlerObserver {
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
-  explicit SecureDnsManager(PrefService* local_state);
+  SecureDnsManager(PrefService* local_state,
+                   PrefService* profile_prefs,
+                   bool is_profile_managed);
   SecureDnsManager(const SecureDnsManager&) = delete;
   SecureDnsManager& operator=(const SecureDnsManager&) = delete;
   ~SecureDnsManager() override;
 
+  static void RegisterProfilePrefs(PrefRegistrySimple* registry);
+  static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
+
   void SetDoHTemplatesUriResolverForTesting(
       std::unique_ptr<dns_over_https::TemplatesUriResolver>
           doh_templates_uri_resolver);
+
+  // If the URI templates for the DNS-over-HTTPS resolver contain user or device
+  // identifiers (which are hashed before being used), this method returns the
+  // plain text version of the URI templates. Otherwise returns nullopt.
+  std::optional<std::string> GetDohWithIdentifiersDisplayServers() const;
+
+  void SetPrimaryProfilePropertiesForTesting(PrefService* profile_prefs,
+                                             bool is_profile_managed);
 
  private:
   void DefaultNetworkChanged(const NetworkState* network) override;
@@ -67,13 +87,16 @@ class SecureDnsManager : public NetworkStateHandlerObserver {
   base::Value::Dict GetProviders(const std::string& mode,
                                  const std::string& templates) const;
 
+  // Starts tracking user-configured secure DNS settings. This settings are
+  // mapped to the pref service that belongs to the profile associated with the
+  // primary user.
+  void MonitorUserPrefs();
+  void OnPrefChanged();
+
   // Starts tracking secure DNS enterprise policy changes. The policy values are
   // mapped by the policy service to the local state pref service.
-  void MonitorPolicyPrefs();
-
-  // Callback for the registrar. Evaluates the current settings and publishes
-  // the result to shill.
-  void OnPolicyPrefChanged();
+  void MonitorLocalStatePrefs();
+  void OnLocalStatePrefsChanged();
 
   void OnDoHIncludedDomainsPrefChanged();
   void OnDoHExcludedDomainsPrefChanged();
@@ -93,8 +116,8 @@ class SecureDnsManager : public NetworkStateHandlerObserver {
   base::ScopedObservation<NetworkStateHandler, NetworkStateHandlerObserver>
       network_state_handler_observer_{this};
 
-  PrefChangeRegistrar local_state_registrar_;
-  raw_ptr<PrefService> local_state_;
+  PrefChangeRegistrar local_state_registrar_, profile_prefs_registrar_;
+  raw_ptr<PrefService> local_state_, profile_prefs_;
 
   // Maps secure DNS provider URL templates to their corresponding standard DNS
   // name servers. Providers that are either disabled or not applicable for the
@@ -107,7 +130,9 @@ class SecureDnsManager : public NetworkStateHandlerObserver {
 
   std::string cached_template_uris_;
   std::string cached_mode_;
+
   bool cached_is_config_managed_ = false;
+  bool is_profile_managed_ = false;
 
   base::ObserverList<Observer> observers_;
 };

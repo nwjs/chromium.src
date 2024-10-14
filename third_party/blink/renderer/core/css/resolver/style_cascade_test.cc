@@ -24,7 +24,6 @@
 #include "third_party/blink/renderer/core/css/media_query_evaluator.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_local_context.h"
-#include "third_party/blink/renderer/core/css/parser/css_parser_token_range.h"
 #include "third_party/blink/renderer/core/css/parser/css_property_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
 #include "third_party/blink/renderer/core/css/parser/css_variable_parser.h"
@@ -88,7 +87,7 @@ class TestCascadeResolver {
 struct AddOptions {
   CascadeOrigin origin = CascadeOrigin::kAuthor;
   unsigned link_match_type = CSSSelector::kMatchAll;
-  unsigned layer_order = CascadeLayerMap::kImplicitOuterLayerOrder;
+  uint16_t layer_order = CascadeLayerMap::kImplicitOuterLayerOrder;
   bool is_inline_style = false;
   bool is_try_style = false;
   bool is_try_tactics_style = false;
@@ -142,12 +141,15 @@ class TestCascade {
         << "Please add declarations in order";
     EnsureAtLeast(options.origin);
     cascade_.MutableMatchResult().AddMatchedProperties(
-        set, options.origin,
-        {.link_match_type = options.link_match_type,
-         .layer_order = options.layer_order,
-         .is_inline_style = options.is_inline_style,
-         .is_try_style = options.is_try_style,
-         .is_try_tactics_style = options.is_try_tactics_style});
+        set,
+        {
+            .link_match_type = static_cast<uint8_t>(options.link_match_type),
+            .is_inline_style = options.is_inline_style,
+            .is_try_style = options.is_try_style,
+            .origin = options.origin,
+            .layer_order = options.layer_order,
+            .is_try_tactics_style = options.is_try_tactics_style,
+        });
   }
 
   void Apply(CascadeFilter filter = CascadeFilter()) {

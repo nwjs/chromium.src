@@ -17,6 +17,8 @@
 #include "components/supervised_user/core/common/supervised_users.h"
 #include "content/public/browser/navigation_throttle.h"
 
+class Profile;
+
 class SupervisedUserNavigationThrottle : public content::NavigationThrottle {
  public:
   enum CallbackActions { kCancelNavigation = 0, kCancelWithInterstitial };

@@ -18,7 +18,6 @@
 #include "ash/public/cpp/auth/active_session_auth_controller.h"
 #include "ash/public/cpp/session/session_observer.h"
 #include "ash/public/cpp/shelf_types.h"
-#include "ash/public/cpp/system_sounds_delegate.h"
 #include "ash/public/cpp/tab_strip_delegate.h"
 #include "ash/quick_pair/keyed_service/quick_pair_mediator.h"
 #include "ash/system/input_device_settings/touchscreen_metrics_recorder.h"
@@ -136,6 +135,7 @@ class CaptureModeController;
 class ColorPaletteController;
 class ControlVHistogramRecorder;
 class CoralController;
+class CoralDelegate;
 class CrosDisplayConfig;
 class DarkLightModeControllerImpl;
 class DeskProfilesDelegate;
@@ -877,6 +877,11 @@ class ASH_EXPORT Shell : public SessionObserver,
   }
 
   CoralController* coral_controller() { return coral_controller_.get(); }
+  CoralDelegate* coral_delegate() { return coral_delegate_.get(); }
+
+  DragDropController* drag_drop_controller() {
+    return drag_drop_controller_.get();
+  }
 
   // Does the primary display have status area?
   bool HasPrimaryStatusArea();
@@ -1303,6 +1308,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<display::NativeDisplayDelegate> native_display_delegate_;
 
   std::unique_ptr<CoralController> coral_controller_;
+  std::unique_ptr<CoralDelegate> coral_delegate_;
 
   base::WeakPtrFactory<Shell> weak_factory_{this};
 };

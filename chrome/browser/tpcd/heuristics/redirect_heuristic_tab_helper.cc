@@ -96,6 +96,8 @@ void RedirectHeuristicTabHelper::MaybeRecordRedirectHeuristic(
   const size_t sites_passed_count =
       first_party_site_index - third_party_site_index;
 
+  CHECK(dips_service_);
+  CHECK(!dips_service_->storage()->is_null());
   dips_service_->storage()
       ->AsyncCall(&DIPSStorage::LastInteractionTime)
       .WithArgs(details.url)
@@ -174,7 +176,9 @@ void RedirectHeuristicTabHelper::CreateAllRedirectHeuristicGrants(
   std::map<std::string, std::pair<GURL, bool>>
       sites_to_url_and_current_interaction =
           detector_->CommittedRedirectContext().GetRedirectHeuristicURLs(
-              first_party_url, sites_with_aba_flow);
+              first_party_url, sites_with_aba_flow,
+              tpcd::experiment::kTpcdRedirectHeuristicRequireCurrentInteraction
+                  .Get());
 
   for (const auto& kv : sites_to_url_and_current_interaction) {
     auto [url, is_current_interaction] = kv.second;
@@ -199,6 +203,8 @@ void RedirectHeuristicTabHelper::CreateAllRedirectHeuristicGrants(
                   weak_factory_.GetWeakPtr(), url, first_party_url,
                   grant_duration));
 
+      CHECK(dips_service_);
+      CHECK(!dips_service_->storage()->is_null());
       dips_service_->storage()
           ->AsyncCall(&DIPSStorage::LastInteractionTime)
           .WithArgs(url)

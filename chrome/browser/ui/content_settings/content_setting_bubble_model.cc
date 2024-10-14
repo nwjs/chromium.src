@@ -97,7 +97,7 @@
 #if BUILDFLAG(IS_MAC)
 #include "base/apple/bundle_locations.h"
 #include "base/mac/mac_util.h"
-#include "chrome/browser/media/webrtc/system_media_capture_permissions_mac.h"
+#include "chrome/browser/permissions/system/system_media_capture_permissions_mac.h"
 #include "chrome/browser/web_applications/os_integration/mac/web_app_shortcut_mac.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #endif
@@ -271,10 +271,24 @@ ContentSettingSimpleBubbleModel::AsSimpleBubbleModel() {
   return this;
 }
 
-void ContentSettingSimpleBubbleModel::SetTitle() {
+bool ContentSettingSimpleBubbleModel::IsContentAllowed() {
   PageSpecificContentSettings* content_settings =
       PageSpecificContentSettings::GetForFrame(&GetPage().GetMainDocument());
 
+  if (content_type() == ContentSettingsType::COOKIES) {
+    ContentSetting setting;
+    GetSettingManagedByUser(web_contents()->GetLastCommittedURL(),
+                            content_type(), GetProfile(), &setting);
+    // We check the content setting here as well because 3PC access influences
+    // the allowed/blocked status even though the icon is meant for 1PC control.
+    return content_settings->IsContentAllowed(content_type()) &&
+           setting == CONTENT_SETTING_ALLOW;
+  }
+  return content_settings->IsContentAllowed(content_type()) &&
+         !content_settings->IsContentBlocked(content_type());
+}
+
+void ContentSettingSimpleBubbleModel::SetTitle() {
   static const ContentSettingsTypeIdEntry kBlockedTitleIDs[] = {
       {ContentSettingsType::COOKIES, IDS_BLOCKED_ON_DEVICE_SITE_DATA_TITLE},
       {ContentSettingsType::IMAGES, IDS_BLOCKED_IMAGES_TITLE},
@@ -297,8 +311,7 @@ void ContentSettingSimpleBubbleModel::SetTitle() {
   };
   const ContentSettingsTypeIdEntry* title_ids = kBlockedTitleIDs;
   size_t num_title_ids = std::size(kBlockedTitleIDs);
-  if (content_settings->IsContentAllowed(content_type()) &&
-      !content_settings->IsContentBlocked(content_type())) {
+  if (IsContentAllowed()) {
     title_ids = kAccessedTitleIDs;
     num_title_ids = std::size(kAccessedTitleIDs);
   }
@@ -308,9 +321,6 @@ void ContentSettingSimpleBubbleModel::SetTitle() {
 }
 
 void ContentSettingSimpleBubbleModel::SetMessage() {
-  PageSpecificContentSettings* content_settings =
-      PageSpecificContentSettings::GetForFrame(&GetPage().GetMainDocument());
-
   // TODO(crbug.com/40633805): Make the two arrays below static again once
   // we no longer need to check base::FeatureList.
   const ContentSettingsTypeIdEntry kBlockedMessageIDs[] = {
@@ -343,8 +353,7 @@ void ContentSettingSimpleBubbleModel::SetMessage() {
   };
   const ContentSettingsTypeIdEntry* message_ids = kBlockedMessageIDs;
   size_t num_message_ids = std::size(kBlockedMessageIDs);
-  if (content_settings->IsContentAllowed(content_type()) &&
-      !content_settings->IsContentBlocked(content_type())) {
+  if (IsContentAllowed()) {
     message_ids = kAccessedMessageIDs;
     num_message_ids = std::size(kAccessedMessageIDs);
   }
@@ -608,10 +617,7 @@ bool ContentSettingSingleRadioGroup::settings_changed() const {
 void ContentSettingSingleRadioGroup::SetRadioGroup() {
   const GURL& url = web_contents()->GetURL();
   const std::u16string& display_url = GetUrlForDisplay(GetProfile(), url);
-
-  PageSpecificContentSettings* content_settings =
-      PageSpecificContentSettings::GetForFrame(&GetPage().GetMainDocument());
-  bool allowed = !content_settings->IsContentBlocked(content_type());
+  bool allowed = IsContentAllowed();
 
   // For the frame busting case the content is blocked but its content type is
   // popup, and the popup PageSpecificContentSettings is unaware of the frame
@@ -620,7 +626,9 @@ void ContentSettingSingleRadioGroup::SetRadioGroup() {
   if (content_type() == ContentSettingsType::POPUPS)
     allowed = false;
 
-  DCHECK(!allowed || content_settings->IsContentAllowed(content_type()));
+  DCHECK(!allowed ||
+         PageSpecificContentSettings::GetForFrame(&GetPage().GetMainDocument())
+             ->IsContentAllowed(content_type()));
 
   RadioGroup radio_group;
   radio_group.url = url;
@@ -1230,10 +1238,10 @@ void ContentSettingMediaStreamBubbleModel::
       base::UserMetricsAction("Media.ShowSystemMediaPermissionBubble"));
   int title_id = 0;
   if (MicrophoneAccessed() && CameraAccessed() &&
-      (system_media_permissions::CheckSystemVideoCapturePermission() ==
-           system_media_permissions::SystemPermission::kDenied ||
-       system_media_permissions::CheckSystemAudioCapturePermission() ==
-           system_media_permissions::SystemPermission::kDenied)) {
+      (system_permission_settings::CheckSystemVideoCapturePermission() ==
+           system_permission_settings::SystemPermission::kDenied ||
+       system_permission_settings::CheckSystemAudioCapturePermission() ==
+           system_permission_settings::SystemPermission::kDenied)) {
     title_id = IDS_CAMERA_MIC_TURNED_OFF_IN_MACOS;
     AddListItem(ContentSettingBubbleModel::ListItem(
         &vector_icons::kVideocamIcon, l10n_util::GetStringUTF16(IDS_CAMERA),
@@ -1242,15 +1250,15 @@ void ContentSettingMediaStreamBubbleModel::
         &vector_icons::kMicIcon, l10n_util::GetStringUTF16(IDS_MIC),
         l10n_util::GetStringUTF16(IDS_TURNED_OFF), false, true, 1));
   } else if (CameraAccessed() &&
-             system_media_permissions::CheckSystemVideoCapturePermission() ==
-                 system_media_permissions::SystemPermission::kDenied) {
+             system_permission_settings::CheckSystemVideoCapturePermission() ==
+                 system_permission_settings::SystemPermission::kDenied) {
     title_id = IDS_CAMERA_TURNED_OFF_IN_MACOS;
     AddListItem(ContentSettingBubbleModel::ListItem(
         &vector_icons::kVideocamIcon, l10n_util::GetStringUTF16(IDS_CAMERA),
         l10n_util::GetStringUTF16(IDS_TURNED_OFF), false, true, 0));
   } else if (MicrophoneAccessed() &&
-             system_media_permissions::CheckSystemAudioCapturePermission() ==
-                 system_media_permissions::SystemPermission::kDenied) {
+             system_permission_settings::CheckSystemAudioCapturePermission() ==
+                 system_permission_settings::SystemPermission::kDenied) {
     title_id = IDS_MIC_TURNED_OFF_IN_MACOS;
     AddListItem(ContentSettingBubbleModel::ListItem(
         &vector_icons::kMicIcon, l10n_util::GetStringUTF16(IDS_MIC),
@@ -1266,11 +1274,11 @@ void ContentSettingMediaStreamBubbleModel::
 
 bool ContentSettingMediaStreamBubbleModel::ShouldShowSystemMediaPermissions() {
 #if BUILDFLAG(IS_MAC)
-  return (((system_media_permissions::CheckSystemVideoCapturePermission() ==
-                system_media_permissions::SystemPermission::kDenied &&
+  return (((system_permission_settings::CheckSystemVideoCapturePermission() ==
+                system_permission_settings::SystemPermission::kDenied &&
             CameraAccessed() && !CameraBlocked()) ||
-           (system_media_permissions::CheckSystemAudioCapturePermission() ==
-                system_media_permissions::SystemPermission::kDenied &&
+           (system_permission_settings::CheckSystemAudioCapturePermission() ==
+                system_permission_settings::SystemPermission::kDenied &&
             MicrophoneAccessed() && !MicrophoneBlocked())) &&
           !(CameraAccessed() && CameraBlocked()) &&
           !(MicrophoneAccessed() && MicrophoneBlocked()));

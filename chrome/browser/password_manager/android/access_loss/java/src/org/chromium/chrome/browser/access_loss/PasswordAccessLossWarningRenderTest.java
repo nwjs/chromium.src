@@ -18,6 +18,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -31,10 +32,14 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
+import org.chromium.chrome.browser.password_manager.CustomTabIntentHelper;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.test.util.RenderTestRule.Component;
 
 import java.io.IOException;
@@ -65,12 +70,15 @@ public class PasswordAccessLossWarningRenderTest {
     @Rule
     public final ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(0)
+                    .setRevision(3)
                     .setBugComponent(Component.UI_BROWSER_PASSWORDS)
                     .build();
 
+    @Mock private Profile mProfile;
+    @Mock private CustomTabIntentHelper mCustomTabIntentHelper;
+
     private BottomSheetController mBottomSheetController;
-    private PasswordAccessLossWarningBridge mBridge;
+    private PasswordAccessLossWarningHelper mHelper;
 
     public PasswordAccessLossWarningRenderTest(boolean nightModeEnabled, boolean useRtlLayout) {
         setRtlForTesting(useRtlLayout);
@@ -91,9 +99,14 @@ public class PasswordAccessLossWarningRenderTest {
                         .getBottomSheetController();
         runOnUiThreadBlocking(
                 () -> {
-                    mBridge =
-                            PasswordAccessLossWarningBridge.create(
-                                    mActivityTestRule.getActivity().getWindowAndroid());
+                    WindowAndroid windowAndroid =
+                            mActivityTestRule.getActivity().getWindowAndroid();
+                    mHelper =
+                            new PasswordAccessLossWarningHelper(
+                                    mActivityTestRule.getActivity(),
+                                    BottomSheetControllerProvider.from(windowAndroid),
+                                    mProfile,
+                                    mCustomTabIntentHelper);
                 });
     }
 
@@ -114,11 +127,11 @@ public class PasswordAccessLossWarningRenderTest {
     public void testShowsAccessLossWarningSheetWithNoGmsCore() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mBridge.show(PasswordAccessLossWarningType.NO_GMS_CORE);
+                    mHelper.show(PasswordAccessLossWarningType.NO_GMS_CORE);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
         View bottomSheetView = mActivityTestRule.getActivity().findViewById(R.id.bottom_sheet);
-        mRenderTestRule.render(bottomSheetView, "simple_notice_bottom_sheet");
+        mRenderTestRule.render(bottomSheetView, "access_loss_warning_sheet");
     }
 }

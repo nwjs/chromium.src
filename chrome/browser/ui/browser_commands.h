@@ -200,7 +200,6 @@ bool CanRouteMedia(Browser* browser);
 // from the app menu. That will need to be changed if this is to be invoked from
 // elsewhere.
 void RouteMediaInvokedFromAppMenu(Browser* browser);
-void CutCopyPaste(Browser* browser, int command_id);
 void Find(Browser* browser);
 void FindNext(Browser* browser);
 void FindPrevious(Browser* browser);
@@ -245,7 +244,7 @@ void SetAndroidOsForTabletSite(content::WebContents* current_tab);
 void ToggleFullscreenMode(Browser* browser);
 void ClearCache(Browser* browser);
 bool IsDebuggerAttachedToCurrentTab(Browser* browser);
-void CopyURL(content::WebContents* web_contents);
+void CopyURL(Browser* browser, content::WebContents* web_contents);
 bool CanCopyUrl(const Browser* browser);
 // Returns true if the browser window is for a web app or custom tab.
 bool IsWebAppOrCustomTab(const Browser* browser);

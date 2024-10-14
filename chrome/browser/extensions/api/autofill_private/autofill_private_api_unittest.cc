@@ -25,9 +25,9 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-#include "base/test/gmock_callback_support.h"
+namespace {
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 using autofill::autofill_metrics::MandatoryReauthAuthenticationFlowEvent;
 
 // There are 2 boolean params set in the test suites.
@@ -111,7 +111,11 @@ IN_PROC_BROWSER_TEST_P(MandatoryReauthSettingsPageMetricsTest,
                   ->GetPaymentsAutofillClient()
                   ->GetOrCreatePaymentsMandatoryReauthManager()),
           AuthenticateWithMessage)
-      .WillByDefault(base::test::RunOnceCallback<1>(IsUserAuthSuccessful()));
+      .WillByDefault(
+          testing::WithArg<1>([auth_success = IsUserAuthSuccessful()](
+                                  base::OnceCallback<void(bool)> callback) {
+            std::move(callback).Run(auth_success);
+          }));
 
   RunAutofillSubtest("authenticateUserAndFlipMandatoryAuthToggle");
 
@@ -251,3 +255,5 @@ IN_PROC_BROWSER_TEST_F(AutofillPrivateApiUnitTest, BulkDeleteAllCvcs) {
     }
   }
 }
+
+}  // namespace

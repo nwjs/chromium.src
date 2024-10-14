@@ -6,6 +6,14 @@
 
 #include "services/webnn/public/mojom/webnn_graph.mojom-blink.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_arg_min_max_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_cumulative_sum_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_cell_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_gru_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_cell_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_lstm_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_pad_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_split_options.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_graph_builder.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_operand.h"
 
@@ -70,6 +78,12 @@ String MLOperator::OperatorKindToString(
           return "convTranspose2d";
       }
     }
+    case webnn::mojom::blink::Operation::Tag::kCumulativeSum:
+      CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
+      return "cumulativeSum";
+    case webnn::mojom::blink::Operation::Tag::kDequantizeLinear:
+      CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
+      return "dequantizeLinear";
     case webnn::mojom::blink::Operation::Tag::kElementWiseUnary: {
       switch (
           absl::get<webnn::mojom::blink::ElementWiseUnary::Kind>(sub_kind)) {
@@ -89,6 +103,8 @@ String MLOperator::OperatorKindToString(
           return "log";
         case webnn::mojom::blink::ElementWiseUnary::Kind::kNeg:
           return "neg";
+        case webnn::mojom::blink::ElementWiseUnary::Kind::kSign:
+          return "sign";
         case webnn::mojom::blink::ElementWiseUnary::Kind::kSin:
           return "sin";
         case webnn::mojom::blink::ElementWiseUnary::Kind::kTan:
@@ -132,6 +148,9 @@ String MLOperator::OperatorKindToString(
     case webnn::mojom::blink::Operation::Tag::kGather:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "gather";
+    case webnn::mojom::blink::Operation::Tag::kGatherElements:
+      CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
+      return "gatherElements";
     case webnn::mojom::blink::Operation::Tag::kGelu:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "gelu";
@@ -169,6 +188,9 @@ String MLOperator::OperatorKindToString(
     case webnn::mojom::blink::Operation::Tag::kPrelu:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "prelu";
+    case webnn::mojom::blink::Operation::Tag::kQuantizeLinear:
+      CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
+      return "quantizeLinear";
     case webnn::mojom::blink::Operation::Tag::kReduce: {
       switch (absl::get<webnn::mojom::blink::Reduce::Kind>(sub_kind)) {
         case webnn::mojom::blink::Reduce::Kind::kL1:
@@ -202,6 +224,9 @@ String MLOperator::OperatorKindToString(
     case webnn::mojom::blink::Operation::Tag::kResample2d:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "resample2d";
+    case webnn::mojom::blink::Operation::Tag::kScatterNd:
+      CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
+      return "scatterND";
     case webnn::mojom::blink::Operation::Tag::kSigmoid:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "sigmoid";
@@ -223,6 +248,9 @@ String MLOperator::OperatorKindToString(
     case webnn::mojom::blink::Operation::Tag::kTanh:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "tanh";
+    case webnn::mojom::blink::Operation::Tag::kTile:
+      CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
+      return "tile";
     case webnn::mojom::blink::Operation::Tag::kTranspose:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "transpose";
@@ -237,7 +265,7 @@ String MLOperator::OperatorKindToString(
 
 MLOperator::MLOperator(MLGraphBuilder* builder,
                        webnn::mojom::blink::Operation::Tag kind,
-                       const bindings::DictionaryBase* options,
+                       const MLOperatorOptions* options,
                        OperationSubKind sub_kind)
     : builder_(builder), kind_(kind), options_(options), sub_kind_(sub_kind) {}
 
@@ -258,7 +286,7 @@ MLOperator::OperationSubKind MLOperator::SubKind() const {
   return sub_kind_;
 }
 
-const bindings::DictionaryBase* MLOperator::Options() const {
+const MLOperatorOptions* MLOperator::Options() const {
   return options_.Get();
 }
 
@@ -278,11 +306,10 @@ void MLOperator::Connect(HeapVector<Member<const MLOperand>> inputs,
   outputs_ = std::move(outputs);
 }
 
-MLArgMinMaxOperator::MLArgMinMaxOperator(
-    MLGraphBuilder* builder,
-    OperationSubKind sub_kind,
-    const uint32_t axis,
-    const bindings::DictionaryBase* options)
+MLArgMinMaxOperator::MLArgMinMaxOperator(MLGraphBuilder* builder,
+                                         OperationSubKind sub_kind,
+                                         const uint32_t axis,
+                                         const MLArgMinMaxOptions* options)
     : MLOperator(builder,
                  webnn::mojom::blink::Operation::Tag::kArgMinMax,
                  options,
@@ -293,7 +320,7 @@ MLArgMinMaxOperator::~MLArgMinMaxOperator() = default;
 
 MLConcatOperator::MLConcatOperator(MLGraphBuilder* builder,
                                    const uint32_t axis,
-                                   const bindings::DictionaryBase* options)
+                                   const MLOperatorOptions* options)
     : MLOperator(builder,
                  webnn::mojom::blink::Operation::Tag::kConcat,
                  options),
@@ -305,13 +332,22 @@ uint32_t MLConcatOperator::Axis() const {
   return axis_;
 }
 
+MLCumulativeSumOperator::MLCumulativeSumOperator(
+    MLGraphBuilder* builder,
+    const uint32_t axis,
+    const MLCumulativeSumOptions* options)
+    : MLOperator(builder,
+                 webnn::mojom::blink::Operation::Tag::kCumulativeSum,
+                 options),
+      axis_(axis) {}
+
+MLCumulativeSumOperator::~MLCumulativeSumOperator() = default;
+
 MLLstmOperator::MLLstmOperator(MLGraphBuilder* builder,
                                uint32_t steps,
                                uint32_t hidden_size,
-                               const bindings::DictionaryBase* options)
-    : MLOperator(builder,
-                 webnn::mojom::blink::Operation::Tag::kLstm,
-                 options),
+                               const MLLstmOptions* options)
+    : MLOperator(builder, webnn::mojom::blink::Operation::Tag::kLstm, options),
       steps_(steps),
       hidden_size_(hidden_size) {}
 
@@ -327,7 +363,7 @@ uint32_t MLLstmOperator::hidden_size() const {
 
 MLLstmCellOperator::MLLstmCellOperator(MLGraphBuilder* builder,
                                        uint32_t hidden_size,
-                                       const bindings::DictionaryBase* options)
+                                       const MLLstmCellOptions* options)
     : MLOperator(builder,
                  webnn::mojom::blink::Operation::Tag::kLstmCell,
                  options),
@@ -342,10 +378,8 @@ uint32_t MLLstmCellOperator::hidden_size() const {
 MLGruOperator::MLGruOperator(MLGraphBuilder* builder,
                              uint32_t steps,
                              uint32_t hidden_size,
-                             const bindings::DictionaryBase* options)
-    : MLOperator(builder,
-                 webnn::mojom::blink::Operation::Tag::kGru,
-                 options),
+                             const MLOperatorOptions* options)
+    : MLOperator(builder, webnn::mojom::blink::Operation::Tag::kGru, options),
       steps_(steps),
       hidden_size_(hidden_size) {}
 
@@ -353,7 +387,7 @@ MLGruOperator::~MLGruOperator() = default;
 
 MLGruCellOperator::MLGruCellOperator(MLGraphBuilder* builder,
                                      uint32_t hidden_size,
-                                     const bindings::DictionaryBase* options)
+                                     const MLGruCellOptions* options)
     : MLOperator(builder,
                  webnn::mojom::blink::Operation::Tag::kGruCell,
                  options),
@@ -364,10 +398,8 @@ MLGruCellOperator::~MLGruCellOperator() = default;
 MLPadOperator::MLPadOperator(MLGraphBuilder* builder,
                              const Vector<uint32_t>& beginning_padding,
                              const Vector<uint32_t>& ending_padding,
-                             const bindings::DictionaryBase* options)
-    : MLOperator(builder,
-                 webnn::mojom::blink::Operation::Tag::kPad,
-                 options),
+                             const MLPadOptions* options)
+    : MLOperator(builder, webnn::mojom::blink::Operation::Tag::kPad, options),
       beginning_padding_(beginning_padding),
       ending_padding_(ending_padding) {}
 
@@ -384,7 +416,7 @@ const Vector<uint32_t>& MLPadOperator::EndingPadding() const {
 MLSliceOperator::MLSliceOperator(MLGraphBuilder* builder,
                                  const Vector<uint32_t>& starts,
                                  const Vector<uint32_t>& sizes,
-                                 const bindings::DictionaryBase* options)
+                                 const MLOperatorOptions* options)
     : MLOperator(builder, webnn::mojom::blink::Operation::Tag::kSlice, options),
       starts_(starts),
       sizes_(sizes) {}
@@ -401,7 +433,7 @@ const Vector<uint32_t>& MLSliceOperator::Sizes() const {
 
 MLSoftmaxOperator::MLSoftmaxOperator(MLGraphBuilder* builder,
                                      const uint32_t axis,
-                                     const bindings::DictionaryBase* options)
+                                     const MLOperatorOptions* options)
     : MLOperator(builder,
                  webnn::mojom::blink::Operation::Tag::kSoftmax,
                  options),
@@ -411,19 +443,15 @@ MLSoftmaxOperator::~MLSoftmaxOperator() = default;
 
 MLSplitOperator::MLSplitOperator(MLGraphBuilder* builder,
                                  const uint32_t splits,
-                                 const bindings::DictionaryBase* options)
-    : MLOperator(builder,
-                 webnn::mojom::blink::Operation::Tag::kSplit,
-                 options),
+                                 const MLSplitOptions* options)
+    : MLOperator(builder, webnn::mojom::blink::Operation::Tag::kSplit, options),
       is_even_split_(true),
       split_number_(splits) {}
 
 MLSplitOperator::MLSplitOperator(MLGraphBuilder* builder,
                                  const Vector<uint32_t>& splits,
-                                 const bindings::DictionaryBase* options)
-    : MLOperator(builder,
-                 webnn::mojom::blink::Operation::Tag::kSplit,
-                 options),
+                                 const MLSplitOptions* options)
+    : MLOperator(builder, webnn::mojom::blink::Operation::Tag::kSplit, options),
       is_even_split_(false),
       split_sizes_(splits) {}
 
@@ -442,4 +470,17 @@ const Vector<uint32_t>& MLSplitOperator::SplitSizes() const {
   CHECK(!is_even_split_);
   return split_sizes_;
 }
+
+MLTileOperator::MLTileOperator(MLGraphBuilder* builder,
+                               const Vector<uint32_t>& repetitions,
+                               const MLOperatorOptions* options)
+    : MLOperator(builder, webnn::mojom::blink::Operation::Tag::kTile, options),
+      repetitions_(repetitions) {}
+
+MLTileOperator::~MLTileOperator() = default;
+
+const Vector<uint32_t>& MLTileOperator::Repetitions() const {
+  return repetitions_;
+}
+
 }  // namespace blink

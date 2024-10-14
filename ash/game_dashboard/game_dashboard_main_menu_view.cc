@@ -10,6 +10,7 @@
 #include "ash/capture_mode/capture_mode_controller.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/notifier_catalogs.h"
+#include "ash/game_dashboard/game_dashboard_battery_view.h"
 #include "ash/game_dashboard/game_dashboard_context.h"
 #include "ash/game_dashboard/game_dashboard_controller.h"
 #include "ash/game_dashboard/game_dashboard_metrics.h"
@@ -33,6 +34,7 @@
 #include "ash/style/switch.h"
 #include "ash/style/typography.h"
 #include "ash/system/model/system_tray_model.h"
+#include "ash/system/power/power_status.h"
 #include "ash/system/time/time_view.h"
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
 #include "ash/system/unified/feature_pod_button.h"
@@ -49,6 +51,7 @@
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/layer.h"
@@ -112,7 +115,7 @@ constexpr gfx::Insets kTileIconPadding = gfx::Insets::TLBR(12, 8, 4, 8);
 // Primary Feature Tile Label Padding.
 constexpr gfx::Insets kPrimaryTileLabelPadding = gfx::Insets::TLBR(0, 0, 0, 15);
 // Clock View Padding.
-constexpr gfx::Insets kClockViewPadding = gfx::Insets::TLBR(10, 10, 10, 10);
+constexpr gfx::Insets kClockViewPadding = gfx::Insets::VH(10, 0);
 
 // Row corners used for the top row of a multi-feature row collection.
 constexpr gfx::RoundedCornersF kTopMultiRowCorners =
@@ -817,7 +820,7 @@ GameDashboardMainMenuView::GameDashboardMainMenuView(
   set_fixed_width(kMainMenuFixedWidth);
   SetAnchorView(context_->game_dashboard_button_widget()->GetContentsView());
   SetArrow(views::BubbleBorder::Arrow::NONE);
-  SetButtons(ui::DIALOG_BUTTON_NONE);
+  SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical,
       gfx::Insets::VH(kPaddingHeight, kPaddingWidth),
@@ -1198,6 +1201,12 @@ void GameDashboardMainMenuView::AddUtilityFeatureViews(views::View* container) {
       Shell::Get()->system_tray_model()->clock(), TimeView::kTime));
   clock_view_->SetAmPmClockType(base::AmPmClockType::kKeepAmPm);
   clock_view_->SetProperty(views::kMarginsKey, kClockViewPadding);
+
+  // Add battery view.
+  battery_view_ =
+      container->AddChildView(std::make_unique<GameDashboardBatteryView>());
+  battery_view_->SetProperty(views::kMarginsKey, gfx::Insets::VH(10, 0));
+  battery_view_->SetTooltipText(PowerStatus::Get()->GetInlinedStatusString());
 }
 
 void GameDashboardMainMenuView::AddUtilityClusterRow() {
@@ -1208,6 +1217,11 @@ void GameDashboardMainMenuView::AddUtilityClusterRow() {
       views::BoxLayout::Orientation::kHorizontal,
       /*inside_border_insets=*/gfx::Insets(),
       /*between_child_spacing=*/16));
+
+  // The clock and battery icons increase the height of the utility cluster row.
+  // Centering the elements inside the row prevents them from stretching or
+  // sticking to the boundaries of the row as its size changes.
+  layout->set_cross_axis_alignment(views::LayoutAlignment::kCenter);
 
   auto* feedback_button =
       container->AddChildView(std::make_unique<ash::PillButton>(

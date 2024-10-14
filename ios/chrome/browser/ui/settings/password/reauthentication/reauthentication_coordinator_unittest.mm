@@ -2,16 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#import "ios/chrome/browser/ui/settings/password/reauthentication/reauthentication_coordinator.h"
+
 #import <UIKit/UIKit.h>
 
 #import "base/test/ios/wait_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
-#import "ios/chrome/browser/ui/settings/password/reauthentication/reauthentication_coordinator.h"
 #import "ios/chrome/browser/ui/settings/password/reauthentication/reauthentication_view_controller.h"
 #import "ios/chrome/test/app/mock_reauthentication_module.h"
 #import "ios/chrome/test/scoped_key_window.h"
@@ -20,6 +21,9 @@
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
+
+using base::test::ios::kWaitForActionTimeout;
+using base::test::ios::WaitUntilConditionOrTimeout;
 
 @interface FakeReauthenticationCoordinatorDelegate
     : NSObject <ReauthenticationCoordinatorDelegate>
@@ -97,7 +101,10 @@ class ReauthenticationCoordinatorTest : public PlatformTest {
   // navigation controller.
   void CheckReauthenticationViewControllerIsPresented() {
     // Check that reauth vc was pushed to navigation vc.
-    ASSERT_EQ(base_navigation_controller_.viewControllers.count, 2LU);
+    ASSERT_TRUE(
+        WaitUntilConditionOrTimeout(kWaitForActionTimeout, true, ^bool() {
+          return base_navigation_controller_.viewControllers.count == 2LU;
+        }));
     ASSERT_TRUE([base_navigation_controller_.topViewController
         isKindOfClass:[ReauthenticationViewController class]]);
     EXPECT_TRUE(delegate_.willPushReauthVCCalled);
@@ -106,7 +113,10 @@ class ReauthenticationCoordinatorTest : public PlatformTest {
   void CheckReauthenticationViewControllerNotPresented() {
     // Check that reauth vc is not in the navigation vc, only the root vc is
     // there.
-    ASSERT_EQ(base_navigation_controller_.viewControllers.count, 1LU);
+    ASSERT_TRUE(
+        WaitUntilConditionOrTimeout(kWaitForActionTimeout, true, ^bool() {
+          return base_navigation_controller_.viewControllers.count == 1LU;
+        }));
     ASSERT_FALSE([base_navigation_controller_.topViewController
         isKindOfClass:[ReauthenticationViewController class]]);
   }
@@ -226,10 +236,12 @@ TEST_F(ReauthenticationCoordinatorTest,
   // Reauth vc shouldn't be removed.
   CheckReauthenticationViewControllerIsPresented();
 
-  ASSERT_FALSE(delegate_.successfulReauth);
-
   // Cancelling reauth should close settings.
-  ASSERT_TRUE(delegate_.dismissUICalled);
+  ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForActionTimeout, true, ^bool() {
+    return delegate_.dismissUICalled;
+  }));
+
+  ASSERT_FALSE(delegate_.successfulReauth);
 }
 
 // Tests that ReauthenticationCoordinator dismissed its view controller after a
@@ -237,7 +249,7 @@ TEST_F(ReauthenticationCoordinatorTest,
 TEST_F(ReauthenticationCoordinatorTest,
        ReauthViewControllerDismissedBeforeTheSceneIsForegrounded) {
   CheckReauthenticationViewControllerNotPresented();
-  mock_reauth_module_.shouldReturnSynchronously = NO;
+  mock_reauth_module_.shouldSkipReAuth = NO;
   mock_reauth_module_.expectedResult = ReauthenticationResult::kSuccess;
 
   // Simulate transition to inactive state before background state.

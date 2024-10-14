@@ -69,12 +69,7 @@ using captured_sites_test_utils::TestRecipeReplayer;
 using captured_sites_test_utils::WebPageReplayServerWrapper;
 
 namespace autofill {
-
 namespace {
-
-// This flag allows a caller to specify a different parsing pattern for the
-// test run. When not given, will use "experimental".
-constexpr char kParsingPatternFlag[] = "parsing_pattern";
 
 // The timeout for actions like bringing up the Autofill popup or showing the
 // preview of suggestions.
@@ -102,15 +97,6 @@ base::FilePath GetReplayFilesRootDirectory() {
 autofill::ElementExpr GetElementByXpath(const std::string& xpath) {
   return autofill::ElementExpr(base::StringPrintf(
       "automation_helper.getElementByXpath(`%s`)", xpath.c_str()));
-}
-
-std::string GetParsingPatternProvider() {
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  // The command-line flag to specify the parsing pattern.
-  if (command_line && command_line->HasSwitch(kParsingPatternFlag)) {
-    return command_line->GetSwitchValueASCII(kParsingPatternFlag);
-  }
-  return "experimental";
 }
 
 // Implements the `kAutofillCapturedSiteTestsMetricsScraper` testing feature.
@@ -173,7 +159,6 @@ class MetricsScraper {
   const base::HistogramTester histogram_tester_;
 };
 
-}  // namespace
 
 class AutofillCapturedSitesInteractiveTest
     : public AutofillUiTest,
@@ -305,6 +290,8 @@ class AutofillCapturedSitesInteractiveTest
     recipe_replayer_ =
         std::make_unique<captured_sites_test_utils::TestRecipeReplayer>(
             browser(), this);
+    profile_controller_ =
+        std::make_unique<captured_sites_test_utils::ProfileDataController>();
 
     SetServerUrlLoader(std::make_unique<test::ServerUrlLoader>(
         std::make_unique<test::ServerCacheReplayer>(
@@ -346,9 +333,6 @@ class AutofillCapturedSitesInteractiveTest
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    std::string prediction_source = GetParsingPatternProvider();
-    VLOG(1) << "Using '" << prediction_source << "' Parsing Pattern Provider.";
-
     // Enable the autofill show typed prediction feature. When active this
     // feature forces input elements on a form to display their autofill type
     // prediction. Test will check this attribute on all the relevant input
@@ -358,8 +342,6 @@ class AutofillCapturedSitesInteractiveTest
                                {}},
                               {features::test::kAutofillShowTypePredictions,
                                {}},
-                              {features::kAutofillParsingPatternProvider,
-                               {{"prediction_source", prediction_source}}},
                               {features::test::
                                    kAutofillCapturedSiteTestsUseAutofillFlow,
                                {}}},
@@ -494,8 +476,7 @@ class AutofillCapturedSitesInteractiveTest
   std::unique_ptr<captured_sites_test_utils::TestRecipeReplayer>
       recipe_replayer_;
   std::unique_ptr<captured_sites_test_utils::ProfileDataController>
-      profile_controller_ =
-          std::make_unique<captured_sites_test_utils::ProfileDataController>();
+      profile_controller_;
 
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<test::ServerUrlLoader> server_url_loader_;
@@ -642,4 +623,5 @@ INSTANTIATE_TEST_SUITE_P(
     testing::ValuesIn(GetCapturedSites(GetReplayFilesRootDirectory())),
     captured_sites_test_utils::GetParamAsString());
 
+}  // namespace
 }  // namespace autofill

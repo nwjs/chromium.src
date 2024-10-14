@@ -45,7 +45,6 @@ class FakePictureLayerTilingClient : public PictureLayerTilingClient {
       const PictureLayerTiling* tiling) const override;
   bool RequiresHighResToDraw() const override;
   const PaintWorkletRecordMap& GetPaintWorkletRecords() const override;
-  void OnAllTilesDoneCleared() override;
   std::vector<const DrawImage*> GetDiscardableImagesInRect(
       const gfx::Rect& rect) const override;
   ScrollOffsetMap GetRasterInducingScrollOffsets() const override;
@@ -68,6 +67,10 @@ class FakePictureLayerTilingClient : public PictureLayerTilingClient {
 
   TileManager* tile_manager() const {
     return tile_manager_.get();
+  }
+
+  void set_memory_limit_policy(TileMemoryLimitPolicy policy) {
+    global_tile_state_.memory_limit_policy = policy;
   }
 
  protected:

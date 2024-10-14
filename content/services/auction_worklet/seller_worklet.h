@@ -136,8 +136,6 @@ class CONTENT_EXPORT SellerWorklet : public mojom::SellerWorklet {
       const std::optional<blink::AdCurrency>& component_expect_bid_currency,
       const url::Origin& browser_signal_interest_group_owner,
       const GURL& browser_signal_render_url,
-      const std::optional<bool>
-          browser_signal_selected_buyer_and_seller_reporting_id_required,
       const std::optional<std::string>&
           browser_signal_selected_buyer_and_seller_reporting_id,
       const std::optional<std::string>&
@@ -203,8 +201,6 @@ class CONTENT_EXPORT SellerWorklet : public mojom::SellerWorklet {
     std::optional<blink::AdCurrency> component_expect_bid_currency;
     url::Origin browser_signal_interest_group_owner;
     GURL browser_signal_render_url;
-    std::optional<bool>
-        browser_signal_selected_buyer_and_seller_reporting_id_required;
     std::optional<std::string>
         browser_signal_selected_buyer_and_seller_reporting_id;
     std::optional<std::string> browser_signal_buyer_and_seller_reporting_id;
@@ -384,8 +380,6 @@ class CONTENT_EXPORT SellerWorklet : public mojom::SellerWorklet {
         const std::optional<blink::AdCurrency>& component_expect_bid_currency,
         const url::Origin& browser_signal_interest_group_owner,
         const GURL& browser_signal_render_url,
-        const std::optional<bool>&
-            browser_signal_selected_buyer_and_seller_reporting_id_required,
         const std::optional<std::string>&
             browser_signal_selected_buyer_and_seller_reporting_id,
         const std::optional<std::string>&
@@ -639,6 +633,8 @@ class CONTENT_EXPORT SellerWorklet : public mojom::SellerWorklet {
 
   // Deleted once load has completed.
   std::unique_ptr<WorkletLoader> worklet_loader_;
+  base::TimeTicks code_download_start_;
+  std::optional<base::TimeDelta> js_fetch_latency_;
 
   // Lives on `v8_runners_`. Since it's deleted there, tasks can be safely
   // posted from main thread to it with an Unretained pointer.

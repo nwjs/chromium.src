@@ -23,11 +23,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/extensions/component_loader.h"
-#include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/extensions/extension_web_ui.h"
-#include "chrome/browser/extensions/extension_webkit_preferences.h"
-#include "chrome/browser/media_galleries/fileapi/media_file_system_backend.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_selections.h"
@@ -38,7 +33,6 @@
 #include "chrome/common/url_constants.h"
 #include "components/dom_distiller/core/url_constants.h"
 #include "components/download/public/common/quarantine_connection.h"
-#include "components/guest_view/common/guest_view.mojom.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browser_url_handler.h"
@@ -58,8 +52,7 @@
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
-#include "extensions/browser/guest_view/web_view/web_view_guest.h"
-#include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
+#include "extensions/browser/process_manager.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/browser/renderer_startup_helper.h"
 #include "extensions/browser/service_worker/service_worker_task_queue.h"
@@ -80,6 +73,20 @@
 #include "pdf/buildflags.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/component_loader.h"
+#include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_web_ui.h"
+#include "chrome/browser/extensions/extension_webkit_preferences.h"
+#include "chrome/browser/media_galleries/fileapi/media_file_system_backend.h"
+#endif
+
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
+#include "components/guest_view/common/guest_view.mojom.h"
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/chromeos/extensions/vpn_provider/vpn_service_factory.h"
@@ -436,6 +443,7 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
   // the webview permission.  (Some extensions are allowlisted for webviews as
   // well, but their pages load in their own extension process and are allowed
   // through above.)
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
   bool is_guest =
       WebViewRendererState::GetInstance()->IsGuest(process_host->GetID());
   if (is_guest) {
@@ -449,6 +457,7 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
                mojom::APIPermissionID::kWebView) &&
            extension->id() == owner_extension_id;
   }
+#endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 
   // Otherwise, the process is wrong for this extension URL.
   return false;
@@ -721,6 +730,9 @@ void ChromeContentBrowserClientExtensionsPart::OverrideURLLoaderFactoryParams(
 bool ChromeContentBrowserClientExtensionsPart::IsBuiltinComponent(
     content::BrowserContext* browser_context,
     const url::Origin& origin) {
+#if !BUILDFLAG(ENABLE_EXTENSIONS)
+  return false;
+#else
   if (origin.scheme() != kExtensionScheme) {
     return false;
   }
@@ -749,6 +761,7 @@ bool ChromeContentBrowserClientExtensionsPart::IsBuiltinComponent(
       ->extension_service()
       ->component_loader()
       ->Exists(extension_id);
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 }
 
 // static
@@ -783,6 +796,8 @@ void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcessAndSite(
 
   if (extension->is_nwjs_app() && !content::RenderProcessHostImpl::main_host())
     ((content::RenderProcessHostImpl*)site_instance->GetProcess())->set_main_host();
+
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
   // Don't consider guests that load extension URLs as extension processes,
   // except for the PDF Viewer extension URL. This is possible when an embedder
   // app navigates <webview> to a webview-accessible app resource; the resulting
@@ -797,9 +812,11 @@ void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcessAndSite(
 #else
   constexpr bool is_oopif_pdf_extension = false;
 #endif  // BUILDFLAG(ENABLE_PDF)
+
   if (site_instance->IsGuest() && !is_oopif_pdf_extension) {
     return;
   }
+#endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 
   // Manifest-sandboxed documents, and data: or or about:srcdoc urls, do not get
   // access to the extension APIs. We trust that the given SiteInstance is only
@@ -840,6 +857,7 @@ bool ChromeContentBrowserClientExtensionsPart::
   if (!site_url.SchemeIs(kExtensionScheme))
     return false;
 
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
   // If a webview navigates to a webview accessible resource, extension
   // preferences should not be applied to the webview.
   // TODO(crbug.com/40265045): Once it is possible to clear extension settings
@@ -849,10 +867,13 @@ bool ChromeContentBrowserClientExtensionsPart::
   if (WebViewGuest::FromWebContents(web_contents)) {
     return false;
   }
+#endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   const Extension* extension =
       registry->enabled_extensions().GetByID(site_url.host());
   extension_webkit_preferences::SetPreferences(extension, web_prefs);
+#endif
   return true;
 }
 
@@ -864,10 +885,12 @@ void ChromeContentBrowserClientExtensionsPart::OverrideWebkitPrefs(
 
 void ChromeContentBrowserClientExtensionsPart::BrowserURLHandlerCreated(
     BrowserURLHandler* handler) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   handler->AddHandlerPair(&ExtensionWebUI::HandleChromeURLOverride,
                           BrowserURLHandler::null_handler());
   handler->AddHandlerPair(BrowserURLHandler::null_handler(),
                           &ExtensionWebUI::HandleChromeURLOverrideReverse);
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 }
 
 void ChromeContentBrowserClientExtensionsPart::
@@ -878,8 +901,10 @@ void ChromeContentBrowserClientExtensionsPart::
 
 void ChromeContentBrowserClientExtensionsPart::GetURLRequestAutoMountHandlers(
     std::vector<storage::URLRequestAutoMountHandler>* handlers) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   handlers->push_back(base::BindRepeating(
       MediaFileSystemBackend::AttemptAutoMountForURLRequest));
+#endif
 }
 
 void ChromeContentBrowserClientExtensionsPart::GetAdditionalFileSystemBackends(
@@ -888,12 +913,14 @@ void ChromeContentBrowserClientExtensionsPart::GetAdditionalFileSystemBackends(
     download::QuarantineConnectionCallback quarantine_connection_callback,
     std::vector<std::unique_ptr<storage::FileSystemBackend>>*
         additional_backends) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   additional_backends->push_back(std::make_unique<MediaFileSystemBackend>(
       storage_partition_path, std::move(quarantine_connection_callback)));
 
   additional_backends->push_back(
       std::make_unique<sync_file_system::SyncFileSystemBackend>(
           Profile::FromBrowserContext(browser_context)));
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 }
 
 void ChromeContentBrowserClientExtensionsPart::

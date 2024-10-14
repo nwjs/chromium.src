@@ -46,6 +46,12 @@
 
 namespace {
 
+#if BUILDFLAG(IS_ANDROID)
+constexpr base::TimeDelta kPermissionsDelay = base::Milliseconds(0);
+#else
+constexpr base::TimeDelta kPermissionsDelay = base::Milliseconds(300);
+#endif
+
 device::mojom::XRRuntimeSessionOptionsPtr GetRuntimeOptions(
     device::mojom::XRSessionOptions* options) {
   device::mojom::XRRuntimeSessionOptionsPtr runtime_options =
@@ -565,6 +571,21 @@ void VRServiceImpl::RequestSession(
   GetPermissionStatus(std::move(request), runtime);
 }
 
+void VRServiceImpl::DoRequestPermissions(
+    const std::vector<blink::PermissionType> request_permissions,
+    base::OnceCallback<void(const std::vector<blink::mojom::PermissionStatus>&)>
+        result_callback) {
+  PermissionController* permission_controller =
+      GetWebContents()->GetBrowserContext()->GetPermissionController();
+  CHECK(permission_controller);
+
+  permission_controller->RequestPermissionsFromCurrentDocument(
+      render_frame_host_,
+      PermissionRequestDescription(request_permissions,
+                                   /*user_gesture=*/true),
+      std::move(result_callback));
+}
+
 void VRServiceImpl::GetPermissionStatus(SessionRequestData request,
                                         BrowserXRRuntimeImpl* runtime) {
   DVLOG(2) << __func__;
@@ -579,30 +600,16 @@ void VRServiceImpl::GetPermissionStatus(SessionRequestData request,
   }
 #endif
 
-  PermissionController* permission_controller =
-      GetWebContents()->GetBrowserContext()->GetPermissionController();
-  DCHECK(permission_controller);
-
   // Need to calculate the permissions before the call below, as otherwise
   // std::move nulls options out before `GetRequiredPermissions()` runs.
   const std::vector<blink::PermissionType> permissions_for_mode =
       GetRequiredPermissionsForMode(request.options->mode);
 
-  // Note that if we prompt for any permissions because of *features*, we could
-  // cause re-entrant behavior if those permissions would preempt the permission
-  // that we just queried for. To that end, post a task to handle the result of
-  // the permissions query to avoid that re-entrant behavior.
-  // TODO(crbug.com/357776212): Remove this if the re-entrant behavior is fixed
-  // on the permissions side.
-  permission_controller->RequestPermissionsFromCurrentDocument(
-      render_frame_host_,
-      PermissionRequestDescription(permissions_for_mode,
-                                   /*user_gesture=*/true),
-      base::BindPostTask(
-          base::SequencedTaskRunner::GetCurrentDefault(),
-          base::BindOnce(&VRServiceImpl::OnPermissionResultsForMode,
-                         weak_ptr_factory_.GetWeakPtr(), std::move(request),
-                         permissions_for_mode)));
+  DoRequestPermissions(
+      permissions_for_mode,
+      base::BindOnce(&VRServiceImpl::OnPermissionResultsForMode,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(request),
+                     permissions_for_mode));
 }
 
 void VRServiceImpl::OnPermissionResultsForMode(
@@ -635,21 +642,27 @@ void VRServiceImpl::OnPermissionResultsForMode(
     return;
   }
 
-  PermissionController* permission_controller =
-      GetWebContents()->GetBrowserContext()->GetPermissionController();
-  DCHECK(permission_controller);
-
   const std::vector<blink::PermissionType> permissions_for_features =
       GetRequiredPermissionsForFeatures(request.required_features,
                                         request.optional_features);
 
-  permission_controller->RequestPermissionsFromCurrentDocument(
-      render_frame_host_,
-      PermissionRequestDescription(permissions_for_features,
-                                   /* user_gesture = */ true),
+  auto result_callback =
       base::BindOnce(&VRServiceImpl::OnPermissionResultsForFeatures,
                      weak_ptr_factory_.GetWeakPtr(), std::move(request),
-                     permissions_for_features));
+                     permissions_for_features);
+  if (permissions_for_features.empty()) {
+    std::move(result_callback).Run({});
+    return;
+  }
+
+  // TODO(https://crbug.com/364669911): Remove posted task once permissions code
+  // is fixed.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&VRServiceImpl::DoRequestPermissions,
+                     weak_ptr_factory_.GetWeakPtr(), permissions_for_features,
+                     std::move(result_callback)),
+      kPermissionsDelay);
 }
 
 void VRServiceImpl::OnPermissionResultsForFeatures(

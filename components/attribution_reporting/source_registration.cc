@@ -143,8 +143,12 @@ base::expected<SourceRegistration, SourceRegistrationError> ParseDict(
       result.aggregation_keys,
       AggregationKeys::FromJSON(registration.Find(kAggregationKeys)));
 
-  ASSIGN_OR_RETURN(result.attribution_scopes_data,
-                   AttributionScopesData::FromJSON(registration));
+  if (base::Value* scopes_value = registration.Find(kAttributionScopes);
+      scopes_value &&
+      base::FeatureList::IsEnabled(features::kAttributionScopes)) {
+    ASSIGN_OR_RETURN(result.attribution_scopes_data,
+                     AttributionScopesData::FromJSON(*scopes_value));
+  }
 
   result.debug_key = ParseDebugKey(registration);
 
@@ -172,6 +176,16 @@ base::expected<SourceRegistration, SourceRegistrationError> ParseDict(
 
   CHECK(result.IsValid());
   CHECK(result.IsValidForSourceType(source_type));
+
+  base::UmaHistogramExactLinear(
+      "Conversions.ScopesPerSourceRegistration",
+      result.attribution_scopes_data.has_value()
+          ? result.attribution_scopes_data->attribution_scopes_set()
+                .scopes()
+                .size()
+          : 0,
+      /*exclusive_max=*/attribution_reporting::kMaxScopesPerSource + 1);
+
   return result;
 }
 
@@ -237,7 +251,10 @@ base::Value::Dict SourceRegistration::ToJson() const {
 
   aggregatable_debug_reporting_config.Serialize(dict);
 
-  attribution_scopes_data.Serialize(dict);
+  if (attribution_scopes_data.has_value() &&
+      base::FeatureList::IsEnabled(features::kAttributionScopes)) {
+    dict.Set(kAttributionScopes, attribution_scopes_data->ToJson());
+  }
 
   if (base::FeatureList::IsEnabled(attribution_reporting::features::
                                        kAttributionSourceDestinationLimit)) {

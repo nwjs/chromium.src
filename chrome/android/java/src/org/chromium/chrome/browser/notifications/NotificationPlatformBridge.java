@@ -132,6 +132,11 @@ public class NotificationPlatformBridge {
             sOriginsWithProvisionallyRevokedPermissions =
                     new HashMap<String, Map<String, Notification>>();
 
+    // The `realtimeMillis` timestamp corresponding to the last time the pre-native processing for
+    // the `PRE_UNSUBSCRIBE` intent was started. Used to measure the time, as perceived by the user,
+    // that elapses until we see a duplicate intent being dispatched.
+    private static long sLastPreUnsubscribePreNativeTaskStartRealMillis = -1;
+
     private TrustedWebActivityClient mTwaClient;
 
     /** Encapsulates attributes that identify a notification and where it originates from. */
@@ -1309,6 +1314,11 @@ public class NotificationPlatformBridge {
      */
     private static void onNotificationPreUnsubcribe(
             NotificationIdentifyingAttributes identifyingAttributes) {
+        // Measure both real time, which includes CPU in power-saving modes and/or display going
+        // dark; and uptime, which does not.
+        long taskStartRealtimeMillis = SystemClock.elapsedRealtime();
+        long taskStartUptimeMillis = SystemClock.uptimeMillis();
+
         // The user might tap on the PRE_UNSUBSCRIBE action multiple times if they are fast and/or
         // if the system is under load and it takes some time to dispatch the broadcast intent.
         // Record how often this happens and ignore duplicate unsubscribe actions.
@@ -1318,12 +1328,18 @@ public class NotificationPlatformBridge {
         NotificationUmaTracker.getInstance()
                 .recordIsDuplicatePreUnsubscribe(duplicatePreUnsubscribe);
         if (duplicatePreUnsubscribe) {
+            assert sLastPreUnsubscribePreNativeTaskStartRealMillis >= 0;
+            NotificationUmaTracker.getInstance()
+                    .recordDuplicatePreUnsubscribeRealDelay(
+                            taskStartRealtimeMillis
+                                    - sLastPreUnsubscribePreNativeTaskStartRealMillis);
             return;
         }
 
         var otherNotificationsBackups = new HashMap<String, Notification>();
         sOriginsWithProvisionallyRevokedPermissions.put(
                 identifyingAttributes.origin, otherNotificationsBackups);
+        sLastPreUnsubscribePreNativeTaskStartRealMillis = taskStartRealtimeMillis;
 
         Predicate<NotificationWrapper> isTappedNotification =
                 (nw -> {
@@ -1371,6 +1387,13 @@ public class NotificationPlatformBridge {
                                                     nw -> nw.getNotification())));
                     suspender.cancelNotificationsWithIds(
                             new ArrayList<String>(otherNotificationsBackups.keySet()));
+
+                    NotificationUmaTracker.getInstance()
+                            .recordPreUnsubscribeRealDuration(
+                                    SystemClock.elapsedRealtime() - taskStartRealtimeMillis);
+                    NotificationUmaTracker.getInstance()
+                            .recordPreUnsubscribeDuration(
+                                    SystemClock.uptimeMillis() - taskStartUptimeMillis);
                 });
     }
 

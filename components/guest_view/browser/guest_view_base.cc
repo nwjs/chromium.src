@@ -5,6 +5,7 @@
 #include "components/guest_view/browser/guest_view_base.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -18,6 +19,7 @@
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/isolated_web_apps_policy.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/permission_result.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
@@ -268,8 +270,7 @@ void GuestViewBase::SetSize(const SetSizeParams& params) {
   enable_auto_size &= !min_auto_size_.IsEmpty() && !max_auto_size_.IsEmpty() &&
                       IsAutoSizeSupported();
 
-  content::RenderWidgetHostView* rwhv =
-      web_contents()->GetRenderWidgetHostView();
+  content::RenderWidgetHostView* rwhv = GetGuestMainFrame()->GetView();
   if (enable_auto_size) {
     // Autosize is being enabled.
     if (rwhv)
@@ -486,15 +487,9 @@ void GuestViewBase::AttachToOuterWebContentsFrame(
     owned_guest_contents->SetOwnerLocationForDebug(std::nullopt);
   }
 
-  // Since this inner WebContents is created from the browser side we do
-  // not have RemoteFrame mojo channels so we pass in
-  // NullAssociatedRemote/Receivers. New channels will be bound when the
-  // `CreateView` IPC is sent.
-  owner_web_contents()->AttachInnerWebContents(
-      std::move(owned_guest_contents), outer_contents_frame,
-      /*remote_frame=*/mojo::NullAssociatedRemote(),
-      /*remote_frame_host_receiver=*/mojo::NullAssociatedReceiver(),
-      is_full_page_plugin);
+  owner_web_contents()->AttachInnerWebContents(std::move(owned_guest_contents),
+                                               outer_contents_frame,
+                                               is_full_page_plugin);
 
   // We don't ACK until after AttachToOuterWebContentsFrame, so that
   // |outer_contents_frame| gets swapped before the AttachToEmbedderFrame
@@ -902,6 +897,11 @@ bool GuestViewBase::RequiresSslInterstitials() const {
 
 bool GuestViewBase::IsPermissionRequestable(ContentSettingsType type) const {
   return true;
+}
+
+std::optional<content::PermissionResult>
+GuestViewBase::OverridePermissionResult(ContentSettingsType type) const {
+  return std::nullopt;
 }
 
 content::RenderFrameHost* GuestViewBase::GetGuestMainFrame() const {

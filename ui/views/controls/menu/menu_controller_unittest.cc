@@ -303,7 +303,7 @@ END_METADATA
 struct MenuBoundsOptions {
   gfx::Rect anchor_bounds = gfx::Rect(500, 500, 10, 10);
   gfx::Rect monitor_bounds = gfx::Rect(0, 0, 1000, 1000);
-  gfx::Size menu_size = gfx::Size(100, 100);
+  gfx::Size menu_size = gfx::Size(100, 150);
   MenuAnchorPosition menu_anchor = MenuAnchorPosition::kTopLeft;
   MenuItemView::MenuPosition menu_position =
       MenuItemView::MenuPosition::kBestFit;
@@ -531,9 +531,8 @@ void MenuControllerTest::SetUp() {
   ASSERT_TRUE(base::CurrentUIThread::IsSet());
 
   owner_ = std::make_unique<GestureTestWidget>();
-  Widget::InitParams params =
-      CreateParams(Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
-                   Widget::InitParams::TYPE_POPUP);
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_POPUP);
   owner_->Init(std::move(params));
   event_generator_ =
       std::make_unique<ui::test::EventGenerator>(GetRootWindow(owner()));
@@ -1098,6 +1097,25 @@ TEST_F(MenuControllerTest, InitialSelectedItem) {
   check_has_command(FindInitialSelectableMenuItemDown(menu_item()), 2);
   // The last selectable item should be item "Two".
   check_has_command(FindInitialSelectableMenuItemUp(menu_item()), 2);
+}
+
+// Verifies that the scroll arrow is shown when the menu content
+// does not fit within the available bounds.
+// (https://crbug.com/338585369)
+TEST_F(MenuControllerTest, VerifyScrollArrowShown) {
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  auto* const scroll_container = submenu->GetScrollViewContainer();
+
+  MenuHost::InitParams params;
+  params.parent = owner();
+  params.bounds = gfx::Rect(GetPreferredSizeForSubmenu(*submenu));
+  // Show the menu at its preferred size without restriction
+  submenu->ShowAt(params);
+  EXPECT_FALSE(scroll_container->scroll_down_button()->GetVisible());
+  // decrease the available space by 1 so the contents no longer fit
+  params.bounds.set_height(params.bounds.height() - 1);
+  submenu->ShowAt(params);
+  EXPECT_TRUE(scroll_container->scroll_down_button()->GetVisible());
 }
 
 // Verifies that the context menu bubble should prioritize its cached menu
@@ -2133,15 +2151,14 @@ TEST_F(MenuControllerTest, CalculateMenuBoundsAnchorTest) {
   EXPECT_EQ(expected, CalculateMenuBounds(options));
 
   // Menu does not fit above -> placed below.
-  options.anchor_bounds = gfx::Rect(options.menu_size.height() / 2,
-                                    options.menu_size.width(), 0, 0);
+  options.anchor_bounds = gfx::Rect(options.menu_size.width(),
+                                    options.menu_size.height() / 2, 0, 0);
   expected.set_origin(
       {options.anchor_bounds.x() +
            (options.anchor_bounds.width() - options.menu_size.width()) / 2,
-       options.anchor_bounds.y() +
-           (ShouldIgnoreScreenBoundsForMenus()
-                ? (-options.anchor_bounds.bottom() - kTouchYPadding)
-                : kTouchYPadding)});
+       (ShouldIgnoreScreenBoundsForMenus()
+            ? (-options.anchor_bounds.bottom() - kTouchYPadding)
+            : options.anchor_bounds.y() + kTouchYPadding)});
   EXPECT_EQ(expected, CalculateMenuBounds(options));
 }
 
@@ -2971,6 +2988,16 @@ TEST_F(MenuControllerTest, SetSelectionIndices_NestedButtons) {
   EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
 }
 
+TEST_F(MenuControllerTest, AccessibleProperties) {
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  MenuScrollViewContainer* scroll_view_container =
+      submenu->GetScrollViewContainer();
+
+  ui::AXNodeData data;
+  scroll_view_container->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.role, ax::mojom::Role::kMenuBar);
+}
+
 TEST_F(MenuControllerTest, SetSelectionIndices_ChildrenChanged) {
   AddButtonMenuItems(/*single_child=*/false);
   SubmenuView* const submenu = menu_item()->GetSubmenu();
@@ -3058,6 +3085,28 @@ TEST_F(MenuControllerTest, AccessibilityEmitsSelectChildrenChanged) {
 
   DispatchKey(ui::VKEY_DOWN);
   EXPECT_EQ(ax_counter.GetCount(ax::mojom::Event::kSelectedChildrenChanged), 2);
+}
+
+TEST_F(MenuControllerTest, AccessibilityEmitsMenuOpenedClosedEvents) {
+  const test::AXEventCounter ax_counter(views::AXEventManager::Get());
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kMenuStart));
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kMenuEnd));
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kMenuPopupStart));
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kMenuPopupEnd));
+
+  menu_controller()->Run(owner(), nullptr, menu_item(), gfx::Rect(),
+                         MenuAnchorPosition::kTopLeft, false, false);
+  EXPECT_EQ(1, ax_counter.GetCount(ax::mojom::Event::kMenuStart));
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kMenuEnd));
+  EXPECT_EQ(1, ax_counter.GetCount(ax::mojom::Event::kMenuPopupStart));
+  EXPECT_EQ(0, ax_counter.GetCount(ax::mojom::Event::kMenuPopupEnd));
+
+  menu_controller()->Cancel(MenuController::ExitType::kAll);
+
+  EXPECT_EQ(1, ax_counter.GetCount(ax::mojom::Event::kMenuStart));
+  EXPECT_EQ(1, ax_counter.GetCount(ax::mojom::Event::kMenuEnd));
+  EXPECT_EQ(1, ax_counter.GetCount(ax::mojom::Event::kMenuPopupStart));
+  EXPECT_EQ(1, ax_counter.GetCount(ax::mojom::Event::kMenuPopupEnd));
 }
 
 // Test that in accessibility mode disabled menu items are taken into account

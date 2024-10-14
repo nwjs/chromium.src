@@ -11,9 +11,16 @@
   <dist:module dist:onDemand="false">  # DIFF-ANCHOR: 2805007f
     <dist:fusing dist:include="true"/>
   </dist:module>  # DIFF-ANCHOR: 2805007f
+  <queries>  # DIFF-ANCHOR: ac70d2a8
+    <intent>  # DIFF-ANCHOR: dd112d1c
+      <action android:name="android.intent.action.VIEW"/>
+      <category android:name="android.intent.category.BROWSABLE"/>
+      <data android:scheme="https"/>
+    </intent>  # DIFF-ANCHOR: dd112d1c
+  </queries>  # DIFF-ANCHOR: ac70d2a8
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
-  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
+  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34"/>
   <application>
     <activity  # DIFF-ANCHOR: 28dc9019
         android:name="com.google.ar.core.InstallActivity"
@@ -492,9 +499,11 @@
         android:screenOrientation="landscape"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
         android:windowSoftInputMode="adjustResize">
-      <intent-filter>  # DIFF-ANCHOR: 48f4c2ef
+      <intent-filter>  # DIFF-ANCHOR: a5330430
+        <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.XR"/>
-      </intent-filter>  # DIFF-ANCHOR: 48f4c2ef
+        <category android:name="org.khronos.openxr.intent.category.IMMERSIVE_HMD"/>
+      </intent-filter>  # DIFF-ANCHOR: a5330430
       <property android:name="android.window.PROPERTY_ACTIVITY_STARTS_IN_IMMERSIVE_XR" android:value="true"/>
     </activity>  # DIFF-ANCHOR: 5d3091ca
     <activity-alias  # DIFF-ANCHOR: 9da0e5b6
@@ -846,6 +855,7 @@
         android:exported="false">
     </receiver>  # DIFF-ANCHOR: 2553238b
     <service android:name="androidx.browser.customtabs.PostMessageService"/>
+    <service android:name="androidx.pdf.service.PdfDocumentService" android:isolatedProcess="true"/>
     <service  # DIFF-ANCHOR: 4c2196d9
         android:name="com.google.ipc.invalidation.ticl.android2.channel.GcmRegistrationTaskService"
         android:exported="true"

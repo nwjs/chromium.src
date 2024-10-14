@@ -14,12 +14,12 @@
 #include "base/system/sys_info.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "components/viz/common/delegated_ink_prediction_configuration.h"
 #include "components/viz/common/switches.h"
 #include "components/viz/common/viz_utils.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_switches.h"
 #include "media/media_buildflags.h"
+#include "ui/base/device_form_factor.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
@@ -35,8 +35,19 @@ BASE_FEATURE(kAndroidBrowserControlsInViz,
              "AndroidBrowserControlsInViz",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// TODO(b/361804880) Bug is a blocker for experimenting on stable. This flag
+// exists only to allow experiments for BCIV to run on stable. Remove when
+// bug is fixed.
+BASE_FEATURE(kAndroidBcivPhoneOnly,
+             "AndroidBcivPhoneOnly",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAndroidBcivWithSuppression,
              "AndroidBcivWithSuppression",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAndroidBcivZeroBrowserFrames,
+             "AndroidBcivZeroBrowserFrames",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -108,13 +119,15 @@ const base::FeatureParam<DelegatedCompositingMode>
         &kDelegatedCompositingModeOption,
 };
 
+#if BUILDFLAG(IS_WIN)
 // If enabled, the overlay processor will force the use of dcomp surfaces as the
 // render pass backing while delegated ink is being employed. This will avoid
 // the need for finding what surface to synchronize ink updates with by making
 // all surfaces synchronize with dcomp commit
-BASE_FEATURE(kUseDCompSurfacesForDelegatedInk,
-             "UseDCompSurfacesForDelegatedInk",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDCompSurfacesForDelegatedInk,
+             "DCompSurfacesForDelegatedInk",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kRenderPassDrawnRect,
              "RenderPassDrawnRect",
@@ -189,16 +202,7 @@ BASE_FEATURE(kWebViewFrameRateHints,
 
 BASE_FEATURE(kDrawPredictedInkPoint,
              "DrawPredictedInkPoint",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const char kDraw1Point12Ms[] = "1-pt-12ms";
-const char kDraw2Points6Ms[] = "2-pt-6ms";
-const char kDraw1Point6Ms[] = "1-pt-6ms";
-const char kDraw2Points3Ms[] = "2-pt-3ms";
-const char kPredictorKalman[] = "kalman";
-const char kPredictorLinearResampling[] = "linear-resampling";
-const char kPredictorLinear1[] = "linear-1";
-const char kPredictorLinear2[] = "linear-2";
-const char kPredictorLsq[] = "lsq";
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_APPLE)
 // Increase the max CALayer number allowed for CoreAnimation.
@@ -487,30 +491,8 @@ bool ShouldWebRtcLogCapturePipeline() {
   return base::FeatureList::IsEnabled(kWebRtcLogCapturePipeline);
 }
 
-std::optional<int> ShouldDrawPredictedInkPoints() {
-  if (!base::FeatureList::IsEnabled(kDrawPredictedInkPoint))
-    return std::nullopt;
-
-  std::string predicted_points = GetFieldTrialParamValueByFeature(
-      kDrawPredictedInkPoint, "predicted_points");
-  if (predicted_points == kDraw1Point12Ms)
-    return viz::PredictionConfig::k1Point12Ms;
-  else if (predicted_points == kDraw2Points6Ms)
-    return viz::PredictionConfig::k2Points6Ms;
-  else if (predicted_points == kDraw1Point6Ms)
-    return viz::PredictionConfig::k1Point6Ms;
-  else if (predicted_points == kDraw2Points3Ms)
-    return viz::PredictionConfig::k2Points3Ms;
-
-  NOTREACHED_IN_MIGRATION();
-  return std::nullopt;
-}
-
-std::string InkPredictor() {
-  if (!base::FeatureList::IsEnabled(kDrawPredictedInkPoint))
-    return "";
-
-  return GetFieldTrialParamValueByFeature(kDrawPredictedInkPoint, "predictor");
+bool ShouldDrawPredictedInkPoints() {
+  return base::FeatureList::IsEnabled(kDrawPredictedInkPoint);
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -635,5 +617,28 @@ bool IsCrosContentAdjustedRefreshRateEnabled() {
   return false;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_WIN)
+bool ShouldUseDCompSurfacesForDelegatedInk() {
+  // kDCompSurfacesForDelegatedInk is for delegated ink to work with partial
+  // delegated compositing. This function should return true if the feature
+  // is enabled or partial delegated compositing is enabled - a condition
+  // which requires the use of DCOMP surfaces for delegated ink.
+  if (IsDelegatedCompositingEnabled() &&
+      kDelegatedCompositingModeParam.Get() ==
+          DelegatedCompositingMode::kLimitToUi) {
+    return true;
+  }
+  return base::FeatureList::IsEnabled(kDCompSurfacesForDelegatedInk);
+}
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+bool IsBrowserControlsInVizEnabled() {
+  return base::FeatureList::IsEnabled(features::kAndroidBrowserControlsInViz) &&
+         (!base::FeatureList::IsEnabled(features::kAndroidBcivPhoneOnly) ||
+          ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE);
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace features

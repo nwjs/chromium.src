@@ -18,6 +18,7 @@ import {
   assertNotReached,
 } from './utils/assert.js';
 import {AsyncJobInfo, AsyncJobQueue} from './utils/async_job_queue.js';
+import {InteriorMutableArray} from './utils/interior_mutable_array.js';
 import {Unsubscribe} from './utils/observer_list.js';
 import {clamp} from './utils/utils.js';
 
@@ -38,16 +39,18 @@ interface RecordingProgress {
   // All samples of the power. To conserve space while saving metadata with
   // JSON and since this is used for visualization only, the value will be
   // integer in range [0, 255], scaled from the original value of [0, 1].
-  powers: number[];
+  powers: InteriorMutableArray<number>;
   // Transcription of the ongoing recording. null if transcription is never
   // enabled throughout the recording.
   transcription: Transcription|null;
 }
 
-function getMicrophoneStream(micId: string): Promise<MediaStream> {
+function getMicrophoneStream(micId: string, echoCancellation: boolean):
+  Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
     audio: {
       deviceId: {exact: micId},
+      echoCancellation: {exact: echoCancellation},
     },
   });
 }
@@ -57,13 +60,16 @@ interface RecordingSessionConfig {
   micId: string;
   platformHandler: PlatformHandler;
   speakerLabelEnabled: boolean;
+  canCaptureSystemAudioWithLoopback: boolean;
 }
 
 let audioCtxGlobal: AudioContext|null = null;
 
 async function getAudioContext(): Promise<AudioContext> {
   if (audioCtxGlobal === null) {
-    audioCtxGlobal = new AudioContext({sampleRate: SAMPLE_RATE});
+    // Set null output device when recording.
+    audioCtxGlobal =
+      new AudioContext({sampleRate: SAMPLE_RATE, sinkId: {type: 'none'}});
     await audioCtxGlobal.audioWorklet.addModule('./static/audio_worklet.js');
   }
   return audioCtxGlobal;
@@ -87,7 +93,7 @@ export class RecordingSession {
 
   private readonly sodaEnableQueue = new AsyncJobQueue('keepLatest');
 
-  private readonly powers = signal<number[]>([]);
+  private readonly powers = signal(new InteriorMutableArray<number>([]));
 
   private readonly transcription = signal<Transcription|null>(null);
 
@@ -99,7 +105,15 @@ export class RecordingSession {
 
   private readonly combinedInputNode: MediaStreamAudioDestinationNode;
 
-  private readonly sourceStreams: MediaStream[];
+  private micAudioSourceNode: MediaStreamAudioSourceNode|null = null;
+
+  private systemAudioSourceNode: MediaStreamAudioSourceNode|null = null;
+
+  private micMuted = false;
+
+  private everPausedInternal = false;
+
+  private everMutedInternal = false;
 
   readonly progress = computed<RecordingProgress>(() => {
     const powers = this.powers.value;
@@ -112,18 +126,12 @@ export class RecordingSession {
   });
 
   private constructor(
-    private readonly platformHandler: PlatformHandler,
     private readonly audioCtx: AudioContext,
-    private readonly micStream: MediaStream,
-    systemAudioStream: MediaStream|null,
-    speakerLabelEnabled: boolean,
+    private readonly config: RecordingSessionConfig,
   ) {
-    this.sourceStreams = [micStream];
-    if (systemAudioStream !== null) {
-      this.sourceStreams.push(systemAudioStream);
-    }
-
-    this.sodaEventTransformer = new SodaEventTransformer(speakerLabelEnabled);
+    this.sodaEventTransformer = new SodaEventTransformer(
+      config.speakerLabelEnabled,
+    );
     this.combinedInputNode = audioCtx.createMediaStreamDestination();
     this.audioProcessor = new AudioWorkletNode(audioCtx, 'audio-processor');
     this.mediaRecorder = new MediaRecorder(this.combinedInputNode.stream, {
@@ -150,9 +158,7 @@ export class RecordingSession {
           0,
           POWER_SCALE_FACTOR - 1,
         );
-        // TODO(pihsun): This still copies the whole array and can be optimized
-        // further.
-        this.powers.value = [...this.powers.value, scaledPower];
+        this.powers.value = this.powers.value.push(scaledPower);
         this.currentSodaSession?.session.addAudio(samples);
         this.processedSamples += samples.length;
       },
@@ -166,8 +172,97 @@ export class RecordingSession {
    * mute button is intended to only mute the mic stream.
    */
   setMicMuted(muted: boolean): void {
-    for (const track of this.micStream.getAudioTracks()) {
-      track.enabled = !muted;
+    this.micMuted = muted;
+    if (muted) {
+      this.everMutedInternal = true;
+    }
+    if (this.micAudioSourceNode !== null) {
+      for (const track of this.micAudioSourceNode.mediaStream.getTracks()) {
+        track.enabled = !muted;
+      }
+    }
+  }
+
+  get everPaused(): boolean {
+    return this.everPausedInternal;
+  }
+
+  get everMuted(): boolean {
+    return this.everMutedInternal;
+  }
+
+  private connectSourceNode(node: MediaStreamAudioSourceNode) {
+    node.connect(this.combinedInputNode);
+    node.connect(this.audioProcessor);
+  }
+
+  private async initMicAudioSourceNode() {
+    if (this.micAudioSourceNode !== null) {
+      return;
+    }
+
+    // Turn on AEC when capturing system audio via getDisplayMedia.
+    const micStream = await getMicrophoneStream(
+      this.config.micId, this.config.canCaptureSystemAudioWithLoopback
+    );
+    this.micAudioSourceNode = this.audioCtx.createMediaStreamSource(micStream);
+    this.connectSourceNode(this.micAudioSourceNode);
+
+    // Set the mic muted setting again onto the new mic stream.
+    this.setMicMuted(this.micMuted);
+  }
+
+  private async initSystemAudioSourceNode() {
+    if (this.systemAudioSourceNode !== null) {
+      return;
+    }
+
+    if (!this.config.includeSystemAudio ||
+      !this.config.canCaptureSystemAudioWithLoopback) {
+      return;
+    }
+
+    const systemAudioStream =
+      await this.config.platformHandler.getSystemAudioMediaStream();
+    this.systemAudioSourceNode =
+      this.audioCtx.createMediaStreamSource(systemAudioStream);
+    this.connectSourceNode(this.systemAudioSourceNode);
+  }
+
+  private closeAudioSourceNode(node: MediaStreamAudioSourceNode) {
+    for (const track of node.mediaStream.getTracks()) {
+      track.stop();
+    }
+    node.disconnect();
+  }
+
+  private closeMicAudioSourceNode() {
+    if (this.micAudioSourceNode !== null) {
+      this.closeAudioSourceNode(this.micAudioSourceNode);
+      this.micAudioSourceNode = null;
+    }
+  }
+
+  private closeSystemAudioSourceNode() {
+    if (this.systemAudioSourceNode !== null) {
+      this.closeAudioSourceNode(this.systemAudioSourceNode);
+      this.systemAudioSourceNode = null;
+    }
+  }
+
+  async setPaused(paused: boolean): Promise<void> {
+    if (paused) {
+      await this.audioCtx.suspend();
+      // We still need to explicitly pause the media recorder, otherwise the
+      // exported webm will have wrong timestamps.
+      this.mediaRecorder.pause();
+      // Close the mic when paused, so the "mic in use" indicator would go away.
+      this.closeMicAudioSourceNode();
+      this.everPausedInternal = true;
+    } else {
+      await this.initMicAudioSourceNode();
+      this.mediaRecorder.resume();
+      await this.audioCtx.resume();
     }
   }
 
@@ -182,7 +277,8 @@ export class RecordingSession {
   }
 
   private async ensureSodaInstalled(): Promise<void> {
-    const sodaState = this.platformHandler.sodaState;
+    const {platformHandler} = this.config;
+    const sodaState = platformHandler.sodaState;
     assert(
       sodaState.value.kind !== 'unavailable',
       `Trying to install SODA when it's unavailable`,
@@ -190,7 +286,7 @@ export class RecordingSession {
     if (sodaState.value.kind === 'installed') {
       return;
     }
-    this.platformHandler.installSoda();
+    platformHandler.installSoda();
     await new Promise<void>((resolve, reject) => {
       effect(({dispose}) => {
         switch (sodaState.value.kind) {
@@ -230,7 +326,7 @@ export class RecordingSession {
         return;
       }
 
-      const session = await this.platformHandler.newSodaSession();
+      const session = await this.config.platformHandler.newSodaSession();
       const unsubscribe = session.subscribeEvent((ev) => {
         this.sodaEventTransformer.addEvent(
           ev,
@@ -254,6 +350,11 @@ export class RecordingSession {
       }
       await this.currentSodaSession.session.stop();
       this.currentSodaSession.unsubscribe();
+      // TODO: b/369277555 - Investigate why SODA does not convert all results
+      // to final.
+      this.transcription.value = this.sodaEventTransformer.getTranscription(
+        /* shouldFinalizeTranscription= */ true
+      );
       this.currentSodaSession = null;
     });
   }
@@ -262,9 +363,11 @@ export class RecordingSession {
    * Starts the recording session.
    *
    * Note that each recording session is intended to only be started once.
-   * TODO(pihsun): Have function for pause/resume the recording.
    */
   async start(transcriptionEnabled: boolean): Promise<void> {
+    // Suspend the context while initializing the source nodes.
+    await this.audioCtx.suspend();
+
     if (transcriptionEnabled) {
       // If the transcription is enabled from the beginning, await for the soda
       // session to start to avoid having start of audio not transcribed.
@@ -272,16 +375,18 @@ export class RecordingSession {
       // audio buffered?
       await this.startNewSodaSession().result;
     }
+
+    await Promise.all([
+      this.initMicAudioSourceNode(),
+      this.initSystemAudioSourceNode(),
+    ]);
+
+    // Resume the context and start the recorder & audio processor after we've
+    // initialized all sources.
+    await this.audioCtx.resume();
+
     this.audioProcessor.port.start();
     this.mediaRecorder.start(TIME_SLICE_MS);
-
-    // Connect the input to the MediaRecorder and processor, to make sure both
-    // only starts after soda is initialized.
-    for (const stream of this.sourceStreams) {
-      const source = this.audioCtx.createMediaStreamSource(stream);
-      source.connect(this.combinedInputNode);
-      source.connect(this.audioProcessor);
-    }
   }
 
   async finish(): Promise<Blob> {
@@ -293,12 +398,8 @@ export class RecordingSession {
     await this.stopSodaSession().result;
     await stopped;
 
-    const streams = [this.combinedInputNode.stream, ...this.sourceStreams];
-    for (const stream of streams) {
-      for (const track of stream.getTracks()) {
-        track.stop();
-      }
-    }
+    this.closeMicAudioSourceNode();
+    this.closeSystemAudioSourceNode();
 
     return new Blob(this.dataChunks, {type: AUDIO_MIME_TYPE});
   }
@@ -306,23 +407,7 @@ export class RecordingSession {
   static async create(
     config: RecordingSessionConfig,
   ): Promise<RecordingSession> {
-    const micStreamPromise = getMicrophoneStream(config.micId);
-    const systemAudioStreamPromise = config.includeSystemAudio ?
-      config.platformHandler.getSystemAudioMediaStream() :
-      null;
-    const [micStream, systemAudioStream] = await Promise.all([
-      micStreamPromise,
-      systemAudioStreamPromise,
-    ]);
-
     const audioCtx = await getAudioContext();
-
-    return new RecordingSession(
-      config.platformHandler,
-      audioCtx,
-      micStream,
-      systemAudioStream,
-      config.speakerLabelEnabled,
-    );
+    return new RecordingSession(audioCtx, config);
   }
 }

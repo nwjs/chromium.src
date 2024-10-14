@@ -24,7 +24,7 @@ namespace tabs {
 class TabCollection;
 class TabFeatures;
 
-class TabModel final : public SupportsHandles<const TabModel>,
+class TabModel final : public SupportsHandles<TabModel>,
                        public TabInterface,
                        public TabStripModelObserver {
  public:
@@ -128,6 +128,8 @@ class TabModel final : public SupportsHandles<const TabModel>,
   bool IsInNormalWindow() const override;
   BrowserWindowInterface* GetBrowserWindowInterface() override;
   tabs::TabFeatures* GetTabFeatures() override;
+  uint32_t GetTabHandle() override;
+  void Close() override;
 
  private:
   // Overridden from TabStripModelObserver:

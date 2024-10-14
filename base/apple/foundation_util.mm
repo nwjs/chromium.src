@@ -16,10 +16,10 @@
 #include "base/apple/bundle_locations.h"
 #include "base/apple/osstatus_logging.h"
 #include "base/apple/scoped_cftyperef.h"
+#include "base/check.h"
 #include "base/containers/adapters.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
-#include "base/notreached.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
@@ -85,9 +85,7 @@ bool AmIBundled() {
 void SetOverrideAmIBundled(bool value) {
 #if BUILDFLAG(IS_IOS)
   // It doesn't make sense not to be bundled on iOS.
-  if (!value) {
-    NOTREACHED_IN_MIGRATION();
-  }
+  CHECK(value);
 #endif
   g_override_am_i_bundled = true;
   g_override_am_i_bundled_value = value;
@@ -450,6 +448,14 @@ bool CFRangeToNSRange(CFRange range, NSRange* range_out) {
     return true;
   }
   return false;
+}
+
+span<const uint8_t> CFDataToSpan(CFDataRef data) {
+  return NSDataToSpan(apple::CFToNSPtrCast(data));
+}
+
+span<uint8_t> CFMutableDataToSpan(CFMutableDataRef data) {
+  return NSMutableDataToSpan(apple::CFToNSPtrCast(data));
 }
 
 }  // namespace base::apple

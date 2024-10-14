@@ -11,6 +11,8 @@ import androidx.preference.Preference;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
+import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -21,6 +23,7 @@ import org.chromium.chrome.browser.tab.TabArchiveSettings;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
+import org.chromium.components.browser_ui.settings.TextMessagePreference;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 
@@ -38,13 +41,29 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
     @VisibleForTesting
     static final String PREF_TAB_ARCHIVE_SETTINGS = "archive_settings_entrypoint";
 
+    @VisibleForTesting
+    static final String PREF_SHARE_TITLES_AND_URLS_WITH_OS_SWITCH =
+            "share_titles_and_urls_with_os_switch";
+
+    @VisibleForTesting
+    static final String PREF_SHARE_TITLES_AND_URLS_WITH_OS_LEARN_MORE =
+            "share_titles_and_urls_with_os_learn_more";
+
+    private final ObservableSupplierImpl<String> mPageTitle = new ObservableSupplierImpl<>();
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         SettingsUtils.addPreferencesFromResource(this, R.xml.tabs_settings);
-        getActivity().setTitle(R.string.tabs_settings_title);
+        mPageTitle.set(getString(R.string.tabs_settings_title));
 
         configureAutoOpenSyncedTabGroupsSwitch();
         configureShowCreationDialogSwitch();
+        configureShareTitlesAndUrlsWithOsSwitch();
+    }
+
+    @Override
+    public ObservableSupplier<String> getPageTitle() {
+        return mPageTitle;
     }
 
     @Override
@@ -123,5 +142,16 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
                     getResources().getString(R.string.archive_settings_time_delta_never));
         }
         archiveSettings.destroy();
+    }
+
+    private void configureShareTitlesAndUrlsWithOsSwitch() {
+        ChromeSwitchPreference shareTitlesAndUrlsWithOsSwitch =
+                (ChromeSwitchPreference) findPreference(PREF_SHARE_TITLES_AND_URLS_WITH_OS_SWITCH);
+        TextMessagePreference learnMoreTextMessagePreference =
+                (TextMessagePreference)
+                        findPreference(PREF_SHARE_TITLES_AND_URLS_WITH_OS_LEARN_MORE);
+
+        shareTitlesAndUrlsWithOsSwitch.setVisible(false);
+        learnMoreTextMessagePreference.setVisible(false);
     }
 }

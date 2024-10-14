@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {
-  useRecordingDataManager,
-} from './lit/context.js';
+import {RecorderApp} from '../pages/recorder-app.js';
+
+import {usePlatformHandler, useRecordingDataManager} from './lit/context.js';
 import {TextToken, Transcription} from './soda/soda.js';
 import {navigateTo} from './state/route.js';
 import {
@@ -52,7 +52,7 @@ export class TestHelper {
    * to start the test.
    */
   static goToMainPage(): void {
-    navigateTo('/');
+    navigateTo('main');
   }
 
   /**
@@ -111,4 +111,140 @@ export class TestHelper {
       await useRecordingDataManager().createRecording(params, blob);
     }
   }
+
+  /**
+   * Installs the model used for transcription.
+   */
+  static installTranscriptionModel(): void {
+    usePlatformHandler().installSoda();
+  }
+
+  /**
+   * Returns whether the transcription model is installed.
+   *
+   * @return Boolean indicating if the transcription model is installed.
+   */
+  static isTranscriptionModelInstalled(): boolean {
+    const state = usePlatformHandler().sodaState.value;
+    return state.kind === 'installed';
+  }
+
+  /**
+   * Installs the model used for summarize recordings.
+   */
+  static installSummaryModel(): void {
+    usePlatformHandler().summaryModelLoader.download();
+  }
+
+  /**
+   * Returns whether the summary model is installed.
+   *
+   * @return Boolean indicating if the summary model is installed.
+   */
+  static isSummaryModelInstalled(): boolean {
+    const state = usePlatformHandler().summaryModelLoader.state.value;
+    return state.kind === 'installed';
+  }
+
+  /**
+   * Installs the model used for suggest recording titles.
+   */
+  static installTitleSuggestionModel(): void {
+    usePlatformHandler().titleSuggestionModelLoader.download();
+  }
+
+  /**
+   * Returns whether the title suggestion model is installed.
+   *
+   * @return Boolean indicating if the title suggestion model is installed.
+   */
+  static isTitleSuggestionModelInstalled(): boolean {
+    const state = usePlatformHandler().titleSuggestionModelLoader.state.value;
+    return state.kind === 'installed';
+  }
+
+  // UI-related functions.
+  /**
+   * Returns the UI from the given key, throws an error if not exists.
+   *
+   * @param key UI key listed in `UI_COMPONENTS` object.
+   * @return The resolved UI element.
+   */
+  static resolveComponent(key: ComponentKey): Element {
+    return UI_COMPONENTS[key]();
+  }
+
+  /**
+   * Returns the number of the recording files in the main page.
+   *
+   * @return Number of recording files in the main Page.
+   */
+  static getRecordingFileCount(): number {
+    return app().mainPage.recordingFileListForTest.recordingFileCountForTest();
+  }
+
+  /**
+   * Returns the title suggestion given the index.
+   *
+   * @param index Zero-based index.
+   * @return An element of the n-th title suggestion.
+   */
+  static getNthSuggestedTitle(index: number): Element {
+    return app()
+      .playbackPageForTest.recordingTitleForTest.titleSuggestionForTest
+      .nthSuggestedTitleForTest(
+        index,
+      );
+  }
+
+  /**
+   * Returns the summary shown in the playback page.
+   *
+   * @return A string containing the recording summary, may contains `\n`.
+   */
+  static getSummaryContent(): string {
+    return app()
+      .playbackPageForTest.summarizationViewForTest.getSummaryContentForTest();
+  }
 }
+
+/**
+ * Returns the `RecorderApp` queried from the document.
+ *
+ * @return `RecorderApp` object.
+ */
+function app(): RecorderApp {
+  return assertExists(document.querySelector('recorder-app'));
+}
+
+// TODO: b/361015174 - Simplify the approach to access UI components.
+const UI_COMPONENTS = {
+  firstSuggestedTitle: () =>
+    app()
+      .playbackPageForTest.recordingTitleForTest.titleSuggestionForTest
+      .firstSuggestedTitleForTest,
+  firstRecordingCard: () => app()
+                              .mainPage.recordingFileListForTest
+                              .firstRecordingForTest.recordingCardForTest,
+  mainPage: () => app().mainPage,
+  playbackBackButton: () => app().playbackPageForTest.backButtonForTest,
+  playbackPage: () => app().playbackPageForTest,
+  playbackPauseButton: () => app().playbackPageForTest.pauseButtonForTest,
+  playbackRecordingTitle: () => app().playbackPageForTest.recordingTitleForTest,
+  playbackTranscriptionToggleButton: () =>
+    app().playbackPageForTest.transcriptionToggleButtonForTest,
+  recordPage: () => app().recordPageForTest,
+  renameTitleText: () =>
+    app().playbackPageForTest.recordingTitleForTest.renameContainerForTest,
+  suggestTitleButton: () =>
+    app().playbackPageForTest.recordingTitleForTest.suggestTitleButtonForTest,
+  summaryContainer: () =>
+    app().playbackPageForTest.summarizationViewForTest.summaryContainerForTest,
+  startRecordingButton: () => app().mainPage.startRecordingButtonForTest,
+  stopRecordingButton: () => app().recordPageForTest.stopRecordingButtonForTest,
+  // TODO: b/355374546 - Add back the toggleSummary UI component.
+  // Currently tast side doesn't use the toggleSummaryButton component, and
+  // directly selects the inner cros-icon-button in cros-accordion-item, but we
+  // might only want to expose the cros-accordion-item and click on it.
+};
+type ComponentKey = keyof typeof UI_COMPONENTS;

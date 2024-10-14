@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "components/viz/service/display_embedder/skia_output_surface_impl_on_gpu.h"
 
 #include <memory>
@@ -16,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -83,7 +79,7 @@
 #include "third_party/skia/include/core/SkSwizzle.h"
 #include "third_party/skia/include/core/SkYUVAInfo.h"
 #include "third_party/skia/include/gpu/GpuTypes.h"
-#include "third_party/skia/include/gpu/GrTypes.h"
+#include "third_party/skia/include/gpu/ganesh/GrTypes.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "third_party/skia/include/gpu/ganesh/gl/GrGLBackendSurface.h"
 #include "third_party/skia/include/gpu/graphite/Context.h"
@@ -718,7 +714,10 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass(
       gpu::AddCleanupTaskForGraphiteRecording(std::move(on_finished), &info);
     }
     graphite_context()->insertRecording(info);
-    graphite_context()->submit();
+    if (local_scoped_access &&
+        local_scoped_access->NeedGraphiteContextSubmit()) {
+      graphite_context()->submit();
+    }
     skia_representation->SetCleared();
     return;
   }
@@ -1103,9 +1102,11 @@ void SkiaOutputSurfaceImplOnGpu::CopyOutputRGBAInTexture(
     return;
   }
 
-  if (graphite_context() && !graphite_context()->submit()) {
-    DLOG(ERROR) << "CopyOutputRGBA graphite_context->submit() failed";
-    return;
+  if (graphite_context() && scoped_write->NeedGraphiteContextSubmit()) {
+    if (!graphite_context()->submit()) {
+      DLOG(ERROR) << "CopyOutputRGBA graphite_context->submit() failed";
+      return;
+    }
   }
 
   representation->SetCleared();
@@ -1511,9 +1512,12 @@ void SkiaOutputSurfaceImplOnGpu::CopyOutputNV12(
     return;
   }
 
-  if (graphite_context() && !graphite_context()->submit()) {
-    DLOG(ERROR) << "CopyOutputNV12 graphite_context->submit() failed";
-    return;
+  if (graphite_context() &&
+      mailbox_access_data.scoped_write->NeedGraphiteContextSubmit()) {
+    if (!graphite_context()->submit()) {
+      DLOG(ERROR) << "CopyOutputNV12 graphite_context->submit() failed";
+      return;
+    }
   }
 
   if (should_wait_for_gpu_work) {
@@ -2342,6 +2346,18 @@ void SkiaOutputSurfaceImplOnGpu::PostSubmit(
 #endif
 
   if (frame) {
+    TRACE_EVENT(
+        "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
+        perfetto::Flow::Global(frame->data.swap_trace_id),
+        [swap_trace_id =
+             frame->data.swap_trace_id](perfetto::EventContext ctx) {
+          auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+          auto* data = event->set_chrome_graphics_pipeline();
+          data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
+                             StepName::STEP_BUFFER_SWAP_POST_SUBMIT);
+          data->set_display_trace_id(swap_trace_id);
+        });
+
     if (waiting_for_full_damage_) {
       // If we're using partial swap, we need to check whether the sub-buffer
       // rect is actually the entire screen, but otherwise, the damage is
@@ -2390,19 +2406,6 @@ void SkiaOutputSurfaceImplOnGpu::PostSubmit(
     output_device_->SetViewportSize(frame->size);
 
     DCHECK(!frame->sub_buffer_rect || capabilities().supports_post_sub_buffer);
-
-    TRACE_EVENT(
-        "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
-        perfetto::Flow::Global(frame->data.swap_trace_id),
-        [swap_trace_id =
-             frame->data.swap_trace_id](perfetto::EventContext ctx) {
-          auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
-          auto* data = event->set_chrome_graphics_pipeline();
-          data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
-                             StepName::STEP_BUFFER_SWAP_POST_SUBMIT);
-          data->set_display_trace_id(swap_trace_id);
-        });
-
     output_device_->Present(frame->sub_buffer_rect, buffer_presented_callback_,
                             std::move(*frame));
   }
@@ -2690,8 +2693,7 @@ void SkiaOutputSurfaceImplOnGpu::CreateSolidColorSharedImage(
   if (solid_color_image_format_ == SinglePlaneFormat::kBGRA_8888) {
     SkSwapRB(&premul_bytes, &premul_rgba_bytes, 1);
   }
-  auto pixel_span = base::make_span(
-      reinterpret_cast<const uint8_t*>(&premul_bytes), sizeof(uint32_t));
+  auto pixel_span = base::byte_span_from_ref(premul_bytes);
 
   // TODO(crbug.com/40237688) Some work is needed to properly support F16
   // format.
@@ -2822,5 +2824,36 @@ void SkiaOutputSurfaceImplOnGpu::CleanupImageProcessor() {
   vulkan_overlay_adaptor_ = nullptr;
 }
 #endif
+
+void SkiaOutputSurfaceImplOnGpu::ReadbackForTesting(
+    CopyOutputRequest::CopyOutputRequestCallback result_callback) {
+  std::optional<gpu::raster::GrShaderCache::ScopedCacheUse> cache_use;
+  if (dependency_->GetGrShaderCache()) {
+    cache_use.emplace(dependency_->GetGrShaderCache(),
+                      gpu::kDisplayCompositorClientId);
+  }
+
+  output_device_->ReadbackForTesting(base::BindOnce(  // IN-TEST
+      [](std::optional<gpu::raster::GrShaderCache::ScopedCacheUse> cache_use,
+         bool is_emulated_rgbx,
+         CopyOutputRequest::CopyOutputRequestCallback result_callback,
+         SkBitmap bitmap) {
+        // Discard alpha if emulating RGBX.
+        if (is_emulated_rgbx) {
+          SkPaint paint;
+          paint.setColor(SkColors::kBlack);
+          paint.setBlendMode(SkBlendMode::kDstATop);
+          SkCanvas canvas(bitmap);
+          canvas.drawPaint(paint);
+        }
+
+        std::move(result_callback)
+            .Run(std::make_unique<CopyOutputSkBitmapResult>(
+                gfx::Rect(gfx::SkISizeToSize(bitmap.dimensions())),
+                std::move(bitmap)));
+      },
+      std::move(cache_use), output_device_->is_emulated_rgbx(),
+      std::move(result_callback)));
+}
 
 }  // namespace viz

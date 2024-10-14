@@ -952,10 +952,6 @@ WidgetBase::GetBeginMainFrameMetrics() {
   return client_->GetBeginMainFrameMetrics();
 }
 
-std::unique_ptr<cc::WebVitalMetrics> WidgetBase::GetWebVitalMetrics() {
-  return client_->GetWebVitalMetrics();
-}
-
 void WidgetBase::BeginUpdateLayers() {
   client_->BeginUpdateLayers();
 }
@@ -1498,13 +1494,6 @@ void WidgetBase::SetEditCommandsForNextKeyEvent(
 
 void WidgetBase::CursorVisibilityChange(bool is_visible) {
   client_->SetCursorVisibilityState(is_visible);
-}
-
-void WidgetBase::SetMouseCapture(bool capture) {
-  if (mojom::blink::WidgetInputHandlerHost* host =
-          widget_input_handler_manager_->GetWidgetInputHandlerHost()) {
-    host->SetMouseCapture(capture);
-  }
 }
 
 void WidgetBase::ImeSetComposition(

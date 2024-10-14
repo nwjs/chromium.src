@@ -100,6 +100,7 @@ TEST(SourceRegistrationTest, Parse) {
                     mojom::TriggerDataMatching::kModulus),
               Field(&SourceRegistration::aggregatable_debug_reporting_config,
                     SourceAggregatableDebugReportingConfig()),
+              Field(&SourceRegistration::attribution_scopes_data, std::nullopt),
               Field(&SourceRegistration::destination_limit_priority, 0))),
       },
       {
@@ -755,10 +756,12 @@ TEST(SourceRegistrationTest, ParseAttributionScopesConfig) {
       {
           "valid",
           R"json({
-            "attribution_scope_limit": 1,
-            "max_event_states": 1,
-            "attribution_scopes": ["1"],
-            "destination": "https://d.example"
+            "destination": "https://d.example",
+            "attribution_scopes": {
+              "limit": 1,
+              "max_event_states": 1,
+              "values": ["1"]
+            }
           })json",
           ValueIs(Field(
               &SourceRegistration::attribution_scopes_data,
@@ -767,11 +770,21 @@ TEST(SourceRegistrationTest, ParseAttributionScopesConfig) {
                                              /*max_event_states=*/1))),
       },
       {
+          "no_scopes",
+          R"json({
+            "destination": "https://d.example"
+          })json",
+          ValueIs(Field(&SourceRegistration::attribution_scopes_data,
+                        std::nullopt)),
+      },
+      {
           "invalid",
           R"json({
-            "max_event_states": 1,
-            "attribution_scopes": ["1"],
-            "destination": "https://d.example"
+              "destination": "https://d.example",
+            "attribution_scopes": {
+              "max_event_states": 1,
+              "values": ["1"]
+            }
           })json",
           ErrorIs(SourceRegistrationError::kAttributionScopeLimitRequired),
       },
@@ -781,11 +794,18 @@ TEST(SourceRegistrationTest, ParseAttributionScopesConfig) {
       features::kAttributionScopes);
 
   for (const auto& test_case : kTestCases) {
+    base::HistogramTester histograms;
     SCOPED_TRACE(test_case.desc);
 
-    EXPECT_THAT(
-        SourceRegistration::Parse(test_case.json, SourceType::kNavigation),
-        test_case.matches);
+    auto source =
+        SourceRegistration::Parse(test_case.json, SourceType::kNavigation);
+    EXPECT_THAT(source, test_case.matches);
+
+    if (source.has_value()) {
+      histograms.ExpectUniqueSample(
+          "Conversions.ScopesPerSourceRegistration",
+          source->attribution_scopes_data.has_value() ? 1 : 0, 1);
+    }
   }
 }
 

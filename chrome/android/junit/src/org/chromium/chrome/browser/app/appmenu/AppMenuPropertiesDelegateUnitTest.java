@@ -70,7 +70,6 @@ import org.chromium.chrome.browser.device.DeviceConditions;
 import org.chromium.chrome.browser.device.ShadowDeviceConditions;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtils;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtilsJni;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.incognito.IncognitoUtilsJni;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
@@ -260,7 +259,6 @@ public class AppMenuPropertiesDelegateUnitTest {
     private void setupFeatureDefaults() {
         setShoppingListEligible(false);
         setShoppingListEligible(false);
-        mTestValues.addFeatureFlagOverride(ChromeFeatureList.PWA_UNIVERSAL_INSTALL_UI, false);
         FeatureList.setTestValues(mTestValues);
     }
 
@@ -392,6 +390,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             R.id.all_bookmarks_menu_id,
             R.id.recent_tabs_menu_id,
             R.id.divider_line_id,
+            R.id.share_row_menu_id,
             R.id.find_in_page_id,
             R.id.divider_line_id,
             R.id.preferences_id,
@@ -429,7 +428,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             R.id.share_row_menu_id,
             R.id.find_in_page_id,
             R.id.translate_id,
-            R.id.add_to_homescreen_id,
+            R.id.universal_install,
             R.id.request_desktop_site_row_menu_id,
             R.id.auto_dark_web_contents_row_menu_id,
             R.id.divider_line_id,
@@ -479,11 +478,6 @@ public class AppMenuPropertiesDelegateUnitTest {
                         .withShowTranslate()
                         .withShowAddToHomeScreen()
                         .withAutoDarkEnabled());
-        doReturn(
-                        new AppBannerManager.InstallStringPair(
-                                R.string.menu_install_webapp, R.string.app_banner_install))
-                .when(mAppMenuPropertiesDelegate)
-                .getAddToHomeScreenTitle(mTab);
 
         Assert.assertEquals(MenuGroup.PAGE_MENU, mAppMenuPropertiesDelegate.getMenuGroup());
         Menu menu = createTestMenu();
@@ -504,7 +498,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             R.id.translate_id,
             R.id.share_row_menu_id,
             R.id.find_in_page_id,
-            R.id.install_webapp_id,
+            R.id.universal_install,
             R.id.request_desktop_site_row_menu_id,
             R.id.auto_dark_web_contents_row_menu_id,
             R.id.divider_line_id,
@@ -526,7 +520,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             0,
             R.string.menu_find_in_page,
             R.string.menu_translate,
-            R.string.menu_install_webapp,
+            R.string.menu_add_to_homescreen,
             0,
             0,
             0,
@@ -575,7 +569,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             R.id.share_row_menu_id,
             R.id.find_in_page_id,
             R.id.translate_id,
-            R.id.add_to_homescreen_id,
+            R.id.universal_install,
             R.id.request_desktop_site_row_menu_id,
             R.id.auto_dark_web_contents_row_menu_id,
             R.id.divider_line_id,
@@ -617,7 +611,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             R.id.share_row_menu_id,
             R.id.find_in_page_id,
             R.id.translate_id,
-            R.id.add_to_homescreen_id,
+            R.id.universal_install,
             // Request desktop site is hidden.
             R.id.auto_dark_web_contents_row_menu_id,
             R.id.divider_line_id,
@@ -668,7 +662,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             R.id.recent_tabs_menu_id,
             R.id.translate_id,
             R.id.find_in_page_id,
-            R.id.add_to_homescreen_id,
+            R.id.universal_install,
             R.id.reader_mode_prefs_id,
             R.id.preferences_id,
             R.id.help_id
@@ -737,11 +731,6 @@ public class AppMenuPropertiesDelegateUnitTest {
         doReturn(false)
                 .when(mAppMenuPropertiesDelegate)
                 .shouldShowTranslateMenuItem(any(Tab.class));
-        doReturn(
-                        new AppBannerManager.InstallStringPair(
-                                R.string.menu_add_to_homescreen, R.string.add))
-                .when(mAppMenuPropertiesDelegate)
-                .getAddToHomeScreenTitle(mTab);
 
         // Ensure the get image descriptions option is shown as needed
         when(mPrefService.getBoolean(Pref.ACCESSIBILITY_IMAGE_LABELS_ENABLED_ANDROID))
@@ -769,7 +758,7 @@ public class AppMenuPropertiesDelegateUnitTest {
             R.id.share_row_menu_id,
             R.id.get_image_descriptions_id,
             R.id.find_in_page_id,
-            R.id.add_to_homescreen_id,
+            R.id.universal_install,
             R.id.request_desktop_site_row_menu_id,
             R.id.auto_dark_web_contents_row_menu_id,
             R.id.divider_line_id,
@@ -1736,13 +1725,6 @@ public class AppMenuPropertiesDelegateUnitTest {
         doReturn(options.showReaderModePrefs())
                 .when(mAppMenuPropertiesDelegate)
                 .shouldShowReaderModePrefs(any(Tab.class));
-        if (options.showAddToHomeScreen()) {
-            doReturn(
-                            new AppBannerManager.InstallStringPair(
-                                    R.string.menu_add_to_homescreen, R.string.add))
-                    .when(mAppMenuPropertiesDelegate)
-                    .getAddToHomeScreenTitle(mTab);
-        }
         doReturn(options.showPaintPreview())
                 .when(mAppMenuPropertiesDelegate)
                 .shouldShowPaintPreview(anyBoolean(), any(Tab.class), anyBoolean());

@@ -14,10 +14,12 @@
 #include "base/observer_list_types.h"
 #include "base/threading/thread_checker.h"
 #include "chrome/browser/themes/theme_service_observer.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "components/sync/model/sync_change.h"
 #include "components/sync/model/sync_data.h"
 #include "components/sync/model/syncable_service.h"
 
+class PrefService;
 class Profile;
 class ThemeService;
 class ThemeSyncableServiceTest;
@@ -36,6 +38,7 @@ enum class ThemePrefInMigration {
 };
 
 std::string_view GetThemePrefNameInMigration(ThemePrefInMigration theme_pref);
+void MigrateSyncingThemePrefsToNonSyncingIfNeeded(PrefService* prefs);
 
 class ThemeSyncableService final : public syncer::SyncableService,
                                    public ThemeServiceObserver {
@@ -100,7 +103,9 @@ class ThemeSyncableService final : public syncer::SyncableService,
   static const char kSyncEntityTitle[];
 
  private:
-  static bool AreThemeSpecificsEqual(
+  class PrefServiceSyncableObserver;
+
+  static bool AreThemeSpecificsEquivalent(
       const sync_pb::ThemeSpecifics& a,
       const sync_pb::ThemeSpecifics& b,
       bool is_system_theme_distinct_from_default_theme);
@@ -138,14 +143,31 @@ class ThemeSyncableService final : public syncer::SyncableService,
   // we're not on one.
   bool use_system_theme_by_default_;
 
+  // Tracks whether changes from the syncer are being processed.
+  bool processing_syncer_changes_ = false;
+
   // Captures the state of theme sync after initial data merge.
   std::optional<ThemeSyncState> startup_state_;
 
   base::ThreadChecker thread_checker_;
 
+  PrefChangeRegistrar pref_change_registrar_;
+
+  std::unique_ptr<PrefServiceSyncableObserver> pref_service_syncable_observer_;
+
   base::WeakPtrFactory<ThemeSyncableService> weak_ptr_factory_{this};
 
-  FRIEND_TEST_ALL_PREFIXES(ThemeSyncableServiceTest, AreThemeSpecificsEqual);
+  FRIEND_TEST_ALL_PREFIXES(ThemeSyncableServiceTest,
+                           AreThemeSpecificsEquivalent);
+  FRIEND_TEST_ALL_PREFIXES(
+      ThemeSyncableServiceWithMigrationFlagEnabledTest,
+      ShouldPrioritizeExtensionThemeInAreThemeSpecificsEquivalent);
+  FRIEND_TEST_ALL_PREFIXES(
+      ThemeSyncableServiceWithMigrationFlagEnabledTest,
+      ShouldConsiderBrowserColorSchemeInAreThemeSpecificsEquivalent);
+  FRIEND_TEST_ALL_PREFIXES(
+      ThemeSyncableServiceWithMigrationFlagEnabledTest,
+      ShouldConsiderNtpBackgroundInAreThemeSpecificsEquivalent);
 };
 
 #endif  // CHROME_BROWSER_THEMES_THEME_SYNCABLE_SERVICE_H_

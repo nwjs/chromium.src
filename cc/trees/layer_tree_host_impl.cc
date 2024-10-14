@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "cc/trees/trace_utils.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
 #pragma allow_unsafe_buffers
@@ -140,7 +141,7 @@
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_latency_info.pbzero.h"
 #include "third_party/skia/include/core/SkSurface.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/geometry/point_conversions.h"
@@ -652,7 +653,7 @@ void LayerTreeHostImpl::ReadyToCommit(
 }
 
 void LayerTreeHostImpl::BeginCommit(int source_frame_number,
-                                    uint64_t trace_id) {
+                                    BeginMainFrameTraceId trace_id) {
   TRACE_EVENT0("cc", "LayerTreeHostImpl::BeginCommit");
 
   if (!CommitsToActiveTree()) {
@@ -734,7 +735,13 @@ void LayerTreeHostImpl::RecordGpuRasterizationHistogram() {
 void LayerTreeHostImpl::CommitComplete() {
   DCHECK(!settings_.is_display_tree);
 
-  TRACE_EVENT0("cc", "LayerTreeHostImpl::CommitComplete");
+  TRACE_EVENT(
+      "cc,benchmark", "LayerTreeHostImpl::CommitComplete",
+      [&](perfetto::EventContext ctx) {
+        EmitMainFramePipelineStep(
+            ctx, sync_tree()->trace_id(),
+            perfetto::protos::pbzero::MainFramePipeline::Step::COMMIT_COMPLETE);
+      });
 
   if (input_delegate_)
     input_delegate_->DidCommit();
@@ -1626,6 +1633,7 @@ DrawResult LayerTreeHostImpl::PrepareToDraw(FrameData* frame) {
         auto* data = event->set_chrome_graphics_pipeline();
         data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
                            StepName::STEP_GENERATE_RENDER_PASS);
+        data->set_display_trace_id(CurrentBeginFrameArgs().trace_id);
       });
   if (input_delegate_)
     input_delegate_->WillDraw();
@@ -2458,7 +2466,7 @@ viz::CompositorFrameMetadata LayerTreeHostImpl::MakeCompositorFrameMetadata() {
     metadata.top_controls_visible_height.emplace(visible_height);
 
 #if BUILDFLAG(IS_ANDROID)
-    if (base::FeatureList::IsEnabled(features::kAndroidBrowserControlsInViz)) {
+    if (features::IsBrowserControlsInVizEnabled()) {
       const viz::OffsetTag& tag =
           browser_controls_offset_manager_->TopControlsOffsetTag();
       if (tag) {
@@ -2596,7 +2604,7 @@ RenderFrameMetadata LayerTreeHostImpl::MakeRenderFrameMetadata(
         last_draw_render_frame_metadata_->has_transparent_background !=
             metadata.has_transparent_background;
 
-    if (!base::FeatureList::IsEnabled(features::kAndroidBrowserControlsInViz)) {
+    if (!features::IsBrowserControlsInVizEnabled()) {
       allocate_new_local_surface_id |=
           last_draw_render_frame_metadata_->top_controls_shown_ratio !=
               metadata.top_controls_shown_ratio ||
@@ -2696,15 +2704,9 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
                        compositor_frame.render_pass_list);
 
   base::TimeTicks submit_time = base::TimeTicks::Now();
-  {
-    TRACE_EVENT_WITH_FLOW0(
-        "viz,benchmark", "MainFrame.SubmitCompositorFrame",
-        TRACE_ID_GLOBAL(active_tree()->trace_id()),
-        TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
-    layer_tree_frame_sink_->SubmitCompositorFrame(
-        std::move(compositor_frame),
-        /*hit_test_data_changed=*/false);
-  }
+  layer_tree_frame_sink_->SubmitCompositorFrame(
+      std::move(compositor_frame),
+      /*hit_test_data_changed=*/false);
 
 #if DCHECK_IS_ON()
   if (!doing_sync_draw_) {
@@ -2785,6 +2787,7 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
         auto* data = event->set_chrome_graphics_pipeline();
         data->set_step(perfetto::protos::pbzero::ChromeGraphicsPipeline::
                            StepName::STEP_GENERATE_COMPOSITOR_FRAME);
+        data->set_display_trace_id(CurrentBeginFrameArgs().trace_id);
       });
 
   rendering_stats_instrumentation_->IncrementFrameCount(1);
@@ -3583,7 +3586,13 @@ void LayerTreeHostImpl::PushScrollbarOpacitiesFromActiveToPending() {
 }
 
 void LayerTreeHostImpl::ActivateSyncTree() {
-  TRACE_EVENT0("cc,benchmark", "LayerTreeHostImpl::ActivateSyncTree()");
+  TRACE_EVENT(
+      "cc,benchmark", "LayerTreeHostImpl::ActivateSyncTree",
+      [&](perfetto::EventContext ctx) {
+        EmitMainFramePipelineStep(
+            ctx, sync_tree()->trace_id(),
+            perfetto::protos::pbzero::MainFramePipeline::Step::ACTIVATE);
+      });
   if (pending_tree_) {
     TRACE_EVENT_NESTABLE_ASYNC_END1(
         "cc", "PendingTree:waiting", TRACE_ID_LOCAL(pending_tree_.get()),
@@ -3599,6 +3608,10 @@ void LayerTreeHostImpl::ActivateSyncTree() {
     if (pending_tree_->needs_full_tree_sync()) {
       TreeSynchronizer::SynchronizeTrees(pending_tree_.get(),
                                          active_tree_.get());
+
+      // If this tree uses a LayerContext for display, ensure the new layer list
+      // is pushed to Viz during the next update.
+      active_tree_->set_needs_full_tree_sync(true);
     }
 
     PushScrollbarOpacitiesFromActiveToPending();
@@ -4881,6 +4894,12 @@ void LayerTreeHostImpl::SetDebugState(
   SetFullViewportDamage();
 }
 
+// TODO(https://crbug.com/365813260): Remove once the bug is analyzed and
+// solved.
+void LayerTreeHostImpl::CrashWhenMaxTextureSizeIsUninitialized() const {
+  CHECK_GT(raster_caps().max_texture_size, 0);
+}
+
 void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
                                          const UIResourceBitmap& bitmap) {
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
@@ -4916,6 +4935,10 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
   bool scaled = false;
   // UIResources are assumed to be rastered in SRGB.
   const gfx::ColorSpace& color_space = gfx::ColorSpace::CreateSRGB();
+
+  // TODO(https://crbug.com/365813260): Remove once the bug is analyzed and
+  // solved.
+  CrashWhenMaxTextureSizeIsUninitialized();
 
   if (source_size.width() > raster_caps().max_texture_size ||
       source_size.height() > raster_caps().max_texture_size) {

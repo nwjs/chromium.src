@@ -530,7 +530,10 @@ const char kProxyBypassList[] = "proxy-bypass-list";
 // Uses the pac script at the given URL
 const char kProxyPacUrl[] = "proxy-pac-url";
 
-// Porvides a list of addresses to discover DevTools remote debugging targets.
+// Uses a specified proxy server, overrides system settings.
+const char kProxyServer[] = "proxy-server";
+
+// Provides a list of addresses to discover DevTools remote debugging targets.
 // The format is <host>:<port>,...,<host>:port.
 const char kRemoteDebuggingTargets[] = "remote-debugging-targets";
 
@@ -597,9 +600,6 @@ const char kSSLVersionTLSv12[] = "tls1.2";
 
 // TLS 1.3 mode for |kSSLVersionMax| and |kSSLVersionMin| switches.
 const char kSSLVersionTLSv13[] = "tls1.3";
-
-// Use the thread pool for stack profiler.
-const char kStackProfilerUseThreadPool[] = "stack-profiler-thread-pool";
 
 // Starts the browser maximized, regardless of any previous settings.
 const char kStartMaximized[] = "start-maximized";

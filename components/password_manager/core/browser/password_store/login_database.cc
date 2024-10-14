@@ -310,6 +310,7 @@ class ScopedDbErrorHandler {
 
   ~ScopedDbErrorHandler() { db_->reset_error_callback(); }
 
+  // Error codes are defined in the sql::SqliteResultCode enum.
   void reset_error_code() { sqlite_error_code_ = 0; }
   int get_error_code() const { return sqlite_error_code_; }
 
@@ -1598,8 +1599,18 @@ bool LoginDatabase::RemoveLogin(const PasswordForm& form,
   s.BindString16(2, form.username_value);
   s.BindString16(3, form.password_element);
   s.BindString(4, form.signon_realm);
+  ScopedDbErrorHandler db_error_handler(&db_);
 
-  if (!s.Run() || db_.GetLastChangeCount() == 0) {
+  if (!s.Run()) {
+    std::string_view suffix_for_store =
+        is_account_store_.value() ? ".AccountStore" : ".ProfileStore";
+    sql::UmaHistogramSqliteResult(
+        base::StrCat(
+            {kPasswordManager, suffix_for_store, ".RemoveLoginDBError"}),
+        db_error_handler.get_error_code());
+    return false;
+  }
+  if (db_.GetLastChangeCount() == 0) {
     return false;
   }
   if (changes) {
@@ -1676,7 +1687,7 @@ bool LoginDatabase::RemoveLoginsCreatedBetween(
   sql::Statement s(
       db_.GetCachedStatement(SQL_FROM_HERE,
                              "DELETE FROM logins WHERE "
-                             "date_created >= ? AND date_created < ?"));
+                             "date_created >= ? AND date_created <= ?"));
   s.BindTime(0, delete_begin);
   s.BindTime(1, delete_end.is_null() ? base::Time::Max() : delete_end);
 
@@ -2456,7 +2467,7 @@ void LoginDatabase::InitializeStatementStrings(const SQLTableBuilder& builder) {
   DCHECK(created_statement_.empty());
   created_statement_ =
       "SELECT " + all_column_names +
-      " FROM logins WHERE date_created >= ? AND date_created < "
+      " FROM logins WHERE date_created >= ? AND date_created <= "
       "? ORDER BY origin_url";
   DCHECK(blocklisted_statement_.empty());
   blocklisted_statement_ =

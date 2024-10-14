@@ -91,6 +91,20 @@ void AttributionReportNetworkSender::SendReport(
   GURL url = report.ReportURL(is_debug_report);
   std::string body = SerializeAttributionJson(report.ReportBody());
 
+  if (!is_debug_report) {
+    switch (report.GetReportType()) {
+      case AttributionReport::Type::kEventLevel:
+        base::UmaHistogramCounts1000(
+            "Conversions.EventLevelReport.ReportBodySize", body.size());
+        break;
+      case AttributionReport::Type::kAggregatableAttribution:
+      case AttributionReport::Type::kNullAggregatable:
+        base::UmaHistogramCounts10000(
+            "Conversions.AggregatableReport.ReportBodySize", body.size());
+        break;
+    }
+  }
+
   url::Origin origin(report.reporting_origin());
   SendReport(std::move(url), std::move(origin), body,
              base::BindOnce(&AttributionReportNetworkSender::OnReportSent,
@@ -259,7 +273,18 @@ void AttributionReportNetworkSender::OnReportSent(
                                has_trigger_context_id, *retry_succeed);
             }
           },
-          [](const AttributionReport::NullAggregatableData&) {},
+          [&](const AttributionReport::NullAggregatableData& data) {
+            has_trigger_context_id =
+                data.common_data.aggregatable_trigger_config
+                    .trigger_context_id()
+                    .has_value();
+            NetworkHistogram("ReportStatusAggregatableNull",
+                             &base::UmaHistogramEnumeration, is_debug_report,
+                             has_trigger_context_id, status);
+            NetworkHistogram("HttpResponseOrNetErrorCodeAggregatableNull",
+                             &base::UmaHistogramSparse, is_debug_report,
+                             has_trigger_context_id, response_or_net_error);
+          },
       },
       report.data());
 

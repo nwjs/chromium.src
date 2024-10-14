@@ -157,7 +157,7 @@ NSString* GroupGridCellAccessibilityIdentifier(NSUInteger index) {
 }
 
 - (instancetype)init {
-  if (self = [super init]) {
+  if ((self = [super init])) {
     _dropAnimationInProgress = NO;
     _localDragActionInProgress = NO;
     _notSelectedTabCellOpacity = 1.0;
@@ -195,8 +195,7 @@ NSString* GroupGridCellAccessibilityIdentifier(NSUInteger index) {
   // If this stays as the default `YES`, then cells aren't highlighted
   // immediately on touch, but after a short delay.
   collectionView.delaysContentTouches = NO;
-  collectionView.alwaysBounceVertical =
-      base::FeatureList::IsEnabled(kTabGridAlwaysBounce);
+  collectionView.alwaysBounceVertical = YES;
 
   [self createRegistrations];
 
@@ -617,8 +616,15 @@ NSString* GroupGridCellAccessibilityIdentifier(NSUInteger index) {
 }
 
 - (UIContextMenuConfiguration*)collectionView:(UICollectionView*)collectionView
-    contextMenuConfigurationForItemAtIndexPath:(NSIndexPath*)indexPath
-                                         point:(CGPoint)point {
+    contextMenuConfigurationForItemsAtIndexPaths:
+        (NSArray<NSIndexPath*>*)indexPaths
+                                           point:(CGPoint)point {
+  if (indexPaths.count != 1) {
+    return nil;
+  }
+
+  NSIndexPath* indexPath = indexPaths[0];
+
   // Context menu shouldn't appear in the selection mode.
   if (_mode == TabGridMode::kSelection) {
     return nil;
@@ -701,9 +707,6 @@ NSString* GroupGridCellAccessibilityIdentifier(NSUInteger index) {
     case GridItemType::kInactiveTabsButton:
       NOTREACHED();
     case GridItemType::kTab: {
-      [self.dragDropHandler
-          dragWillBeginForTabSwitcherItem:_draggedItemIdentifier
-                                              .tabSwitcherItem];
       base::UmaHistogramEnumeration(kUmaGridViewDragDropTabsEvent,
                                     DragDropItem::kDragBegin);
       [self.delegate gridViewControllerDragSessionWillBeginForTab:self];
@@ -948,6 +951,20 @@ NSString* GroupGridCellAccessibilityIdentifier(NSUInteger index) {
     }
     // Notify the delegate that a drag cames from another app.
     [self.delegate gridViewControllerDragSessionWillBeginForTab:self];
+  }
+  if (!_localDragActionInProgress) {
+    // Disable buttons toolbar if no items are dragged in the current collection
+    // view.
+    [self.delegate gridViewControllerDropSessionDidEnter:self];
+  }
+}
+
+- (void)collectionView:(UICollectionView*)collectionView
+    dropSessionDidExit:(id<UIDropSession>)session {
+  if (!_localDragActionInProgress) {
+    // Enable back toolbar buttons if no items are dragged in the current
+    // collection view.
+    [self.delegate gridViewControllerDropSessionDidExit:self];
   }
 }
 
@@ -1376,7 +1393,7 @@ NSString* GroupGridCellAccessibilityIdentifier(NSUInteger index) {
   if (numberOfTabs > 0) {
     [self updateSelectedCollectionViewItemRingAndBringIntoView:NO];
   }
-  [self.delegate gridViewController:self didRemoveItemWIthID:removedItemID];
+  [self.delegate gridViewController:self didRemoveItemWithID:removedItemID];
 }
 
 // Makes the required changes to the data source when an existing item is moved.

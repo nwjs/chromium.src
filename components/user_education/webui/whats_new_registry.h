@@ -49,19 +49,33 @@ class WhatsNewModule {
   WhatsNewModule(const base::Feature& feature,
                  std::string owner,
                  std::optional<BrowserCommand> browser_command = std::nullopt)
-      : feature_(&feature), owner_(owner), browser_command_(browser_command) {}
+      : feature_(&feature),
+        metric_name_(""),
+        owner_(owner),
+        browser_command_(browser_command) {}
 
   // Creates a default-enabled WhatsNewModule in order to enable
   // a browser command on the embedded page.
   //
   // Default-enabled modules do not reference a base::Feature, but must
-  // include an owner string and a browser command.
-  WhatsNewModule(std::string owner,
+  // include a metric string, an owner string and a browser command.
+  WhatsNewModule(std::string metric_name,
+                 std::string owner,
                  std::optional<BrowserCommand> browser_command)
-      : feature_(nullptr), owner_(owner), browser_command_(browser_command) {}
+      : feature_(nullptr),
+        metric_name_(metric_name),
+        owner_(owner),
+        browser_command_(browser_command) {}
 
   std::optional<BrowserCommand> browser_command() const {
     return browser_command_;
+  }
+
+  std::string metric_name() const {
+    if (HasFeature()) {
+      return GetFeatureName();
+    }
+    return metric_name_;
   }
 
   // Return true if the module has a feature, i.e. is not default-enabled.
@@ -83,13 +97,14 @@ class WhatsNewModule {
 
  private:
   raw_ptr<const base::Feature> feature_ = nullptr;
+  std::string metric_name_;
   std::string owner_;
   std::optional<BrowserCommand> browser_command_;
 };
 
 // What's New editions represent an entire What's New page with content
 // relevant to a single feature or set of features. Editions are always
-// tied to a base::Feature.
+// tied to a base::Feature, but this Feature may be enabled by default.
 //
 // As with modules, remember to add user action and histogram variants
 // with the same name as the base::Feature for your edition.
@@ -106,9 +121,7 @@ class WhatsNewEdition {
     return browser_commands_;
   }
 
-  // Return true if the feature is enabled, but not by default.
-  // This indicates a feature is in the process of rolling out.
-  bool HasActiveFeature() const;
+  std::string metric_name() const { return GetFeatureName(); }
 
   // Return true if the feature is enabled.
   bool IsFeatureEnabled() const;

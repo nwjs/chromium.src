@@ -34,7 +34,7 @@
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
-#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
 #import "ios/chrome/browser/shared/model/web_state_list/browser_util.h"
@@ -150,9 +150,7 @@ Browser* GetBrowserForNonPinnedTabWithId(BrowserList* browser_list,
       base::ScopedMultiSourceObservation<web::WebState, web::WebStateObserver>>
       _scopedWebStateObservation;
 
-  // ItemID of the dragged tab. Used to check if the dropped tab is from the
-  // same Chrome window.
-  web::WebStateID _dragItemID;
+  // The current Browser.
   base::WeakPtr<Browser> _browser;
 
   // Items selected for editing.
@@ -163,7 +161,7 @@ Browser* GetBrowserForNonPinnedTabWithId(BrowserList* browser_list,
 }
 
 - (instancetype)initWithModeHolder:(TabGridModeHolder*)modeHolder {
-  if (self = [super init]) {
+  if ((self = [super init])) {
     CHECK(modeHolder);
     _modeHolder = modeHolder;
     [modeHolder addObserver:self];
@@ -539,7 +537,6 @@ Browser* GetBrowserForNonPinnedTabWithId(BrowserList* browser_list,
     // consumer will filter it out in the method's implementation.
     [self.consumer removeItemWithIdentifier:identifierToRemove
                      selectedItemIdentifier:[self activeIdentifier]];
-    [self removeFromSelectionItemID:identifierToRemove];
   }
 
   // The pinned WebState could be detached only in case it was displayed in
@@ -1267,7 +1264,7 @@ Browser* GetBrowserForNonPinnedTabWithId(BrowserList* browser_list,
   for (GridItemIdentifier* itemID in _selectedEditingItems.itemsIdentifiers) {
     switch (itemID.type) {
       case GridItemType::kInactiveTabsButton:
-        // Inactive Tabs button is not dragable and not stored in
+        // Inactive Tabs button is not draggable and not stored in
         // `_selectedEditingItems`.
         NOTREACHED();
       case GridItemType::kTab: {
@@ -1303,16 +1300,7 @@ Browser* GetBrowserForNonPinnedTabWithId(BrowserList* browser_list,
   return [self dragItemForItemWithID:item.identifier];
 }
 
-- (void)dragWillBeginForTabSwitcherItem:(TabSwitcherItem*)item {
-  _dragItemID = item.identifier;
-}
-
-- (void)dragWillBeginForTabGroupItem:(TabSwitcherItem*)item {
-  NOTREACHED_IN_MIGRATION();
-}
-
 - (void)dragSessionDidEnd {
-  _dragItemID = web::WebStateID();
   // Update buttons as the number of items or the number of selected items might
   // have changed.
   [self.toolbarsMutator setButtonsEnabled:YES];
@@ -1333,16 +1321,6 @@ Browser* GetBrowserForNonPinnedTabWithId(BrowserList* browser_list,
       return UIDropOperationForbidden;
     }
 
-    // If the dropped tab is from the same Chrome window and has been removed,
-    // cancel the drop operation.
-    if (_dragItemID == tabInfo.tabID &&
-        GetWebStateIndex(self.webStateList,
-                         WebStateSearchCriteria{
-                             .identifier = tabInfo.tabID,
-                             .pinned_state = PinnedState::kNonPinned,
-                         }) == WebStateList::kInvalidIndex) {
-      return UIDropOperationCancel;
-    }
     if (self.browserState->IsOffTheRecord() == tabInfo.incognito) {
       return UIDropOperationMove;
     }

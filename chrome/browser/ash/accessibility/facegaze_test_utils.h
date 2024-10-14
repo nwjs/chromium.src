@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "base/containers/flat_map.h"
 #include "base/values.h"
@@ -46,6 +47,8 @@ class FaceGazeTestUtils {
     MOUTH_SMILE,
     MOUTH_UPPER_UP,
   };
+
+  static std::string ToString(const FaceGazeGesture& gesture);
 
   // Macros used by accessibility features on ChromeOS.
   // Ensure this enum stays in sync with the source of truth in
@@ -100,6 +103,7 @@ class FaceGazeTestUtils {
     TOGGLE_VIRTUAL_KEYBOARD = 48,
     MOUSE_CLICK_LEFT_DOUBLE = 49,
     TOGGLE_SCROLL_MODE = 50,
+    CUSTOM_KEY_COMBINATION = 51,
   };
 
   // Facial gestures recognized by Mediapipe. Ensure this enum stays in sync
@@ -134,6 +138,8 @@ class FaceGazeTestUtils {
     MOUTH_UPPER_UP_RIGHT,
   };
 
+  static std::string ToString(const MediapipeGesture& gesture);
+
   // A struct that holds cursor speed values.
   struct CursorSpeeds {
     int up;
@@ -163,11 +169,15 @@ class FaceGazeTestUtils {
         const base::flat_map<FaceGazeGesture, int>& gesture_confidences);
     Config& WithCursorSpeeds(const CursorSpeeds& speeds);
     Config& WithGestureRepeatDelayMs(int delay);
+    Config& WithLandmarkWeights(bool use_weights);
+    Config& WithVelocityThreshold(bool use_threshold);
 
     const gfx::PointF& forehead_location() const { return forehead_location_; }
     const gfx::Point& cursor_location() const { return cursor_location_; }
     int buffer_size() const { return buffer_size_; }
     bool use_cursor_acceleration() const { return use_cursor_acceleration_; }
+    bool use_landmark_weights() const { return use_landmark_weights_; }
+    bool use_velocity_threshold() const { return use_velocity_threshold_; }
     bool dialog_accepted() const { return dialog_accepted_; }
     const std::optional<base::flat_map<FaceGazeGesture, MacroName>>&
     gestures_to_macros() const {
@@ -190,6 +200,8 @@ class FaceGazeTestUtils {
     gfx::Point cursor_location_;
     int buffer_size_;
     bool use_cursor_acceleration_;
+    bool use_landmark_weights_;
+    bool use_velocity_threshold_;
     bool dialog_accepted_;
 
     // Optional properties.
@@ -209,8 +221,8 @@ class FaceGazeTestUtils {
     MockFaceLandmarkerResult& operator=(const MockFaceLandmarkerResult&) =
         delete;
 
-    MockFaceLandmarkerResult& WithNormalizedForeheadLocation(double x,
-                                                             double y);
+    MockFaceLandmarkerResult& WithNormalizedForeheadLocation(
+        const std::pair<double, double>& location);
     MockFaceLandmarkerResult& WithGesture(const MediapipeGesture& gesture,
                                           int confidence);
 
@@ -253,23 +265,24 @@ class FaceGazeTestUtils {
 
   void AssertScrollMode(bool active);
 
+  void WaitForFaceLandmarker();
+
  private:
   void ExecuteAccessibilityCommonScript(const std::string& script);
 
   // Setup-related methods.
   void SetUpMediapipeDir();
   void WaitForJSReady();
-  void SkipInitializeWebCamFaceLandmarker();
   void SetUpJSTestSupport();
   void CancelMouseControllerInterval();
-  // Creates and initializes the FaceLandmarker API within the extension.
-  void CreateFaceLandmarker();
   void ConfigureFaceGaze(const Config& config);
 
   // Preference-related methods.
   void SetCursorSpeeds(const CursorSpeeds& speeds);
   void SetBufferSize(int size);
   void SetCursorAcceleration(bool use_acceleration);
+  void SetLandmarkWeights(bool use_weights);
+  void SetVelocityThreshold(bool use_threshold);
   void SetGesturesToMacros(
       const base::flat_map<FaceGazeGesture, MacroName>& gestures_to_macros);
   void SetGestureConfidences(

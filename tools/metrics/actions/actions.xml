@@ -2483,12 +2483,37 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Actions.PinnedToolbarButton.Pinned">
+  <owner>corising@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    Recorded when the suffixed action is pinned to the toolbar.
+  </description>
+</action>
+
 <action name="Actions.PinnedToolbarButton.Pinned.ByContextMenu">
   <owner>corising@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
-    Recorded when the suffxied action is pinned to the toolbar through the
+    Recorded when the suffixed action is pinned to the toolbar through the
     context menu.
+  </description>
+</action>
+
+<action name="Actions.PinnedToolbarButton.Pinned.ByCustomizeChromeSidePanel">
+  <owner>corising@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    Recorded when the suffixed action is pinned to the toolbar through the
+    customize chrome side panel.
+  </description>
+</action>
+
+<action name="Actions.PinnedToolbarButton.Unpinned">
+  <owner>corising@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    Recorded when the suffixed action is unpinned from the toolbar.
   </description>
 </action>
 
@@ -2496,8 +2521,18 @@ should be able to be added at any place in this file.
   <owner>corising@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
-    Recorded when the suffxied action unpinned from the toolbar through the
+    Recorded when the suffixed action unpinned from the toolbar through the
     context menu.
+  </description>
+</action>
+
+<action name="Actions.PinnedToolbarButton.Unpinned.ByCustomizeChromeSidePanel">
+  <owner>corising@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    Recorded when the suffixed action (or any action if there is no suffixed
+    action) is unpinned from the toolbar through the customize chrome side
+    panel.
   </description>
 </action>
 
@@ -2505,7 +2540,8 @@ should be able to be added at any place in this file.
   <owner>corising@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
-    Recorded when an action pinned to the toolbar is activated.
+    Recorded when the suffixed action (or any action if there is no suffixed
+    action) is activated.
   </description>
 </action>
 
@@ -2586,7 +2622,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="AltBasedKeyRewrite_Delete">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Alt+Backspace to produce the Delete key.
@@ -2594,7 +2630,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="AltBasedKeyRewrite_End">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Alt+Ctrl+DownArrow to produce the End key.
@@ -2602,7 +2638,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="AltBasedKeyRewrite_Home">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Alt+Ctrl+UpArrow to produce the Home key.
@@ -2610,7 +2646,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="AltBasedKeyRewrite_PageDown">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Alt+DownArrow to produce the PageDown key.
@@ -2618,13 +2654,14 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="AltBasedKeyRewrite_PageUp">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Alt+UpArrow to produce the PageUp key.</description>
 </action>
 
 <action name="AltClickMappedToRightClick">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
+  <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed alt click on a touchpad device to generate right click.
   </description>
@@ -6272,7 +6309,7 @@ should be able to be added at any place in this file.
 
 <action name="CapsLock_Toggled">
   <owner>dpad@google.com</owner>
-  <owner>zentaro@google.com</owner>
+  <owner>jimmyxgong@chromium.org</owner>
   <description>
     User toggled capslock via capslock key press or keyboard shortcut (alt +
     search).
@@ -6281,7 +6318,7 @@ should be able to be added at any place in this file.
 
 <action name="CapsLock_Toggled_Using_CapsLockKey">
   <owner>dpad@google.com</owner>
-  <owner>zentaro@google.com</owner>
+  <owner>jimmyxgong@chromium.org</owner>
   <description>User toggled capslock via capslock key press.</description>
 </action>
 
@@ -7270,6 +7307,81 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Commerce.PriceTracking.MagicStackPromo.Allow">
+  <owner>ayman@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <description>
+    Records when the user taps 'Allow price tracking notifications' upon viewing
+    the price tracking promotion in the magic stack. The price tracking
+    promotion is for users who use price tracking on another platform (e.g.
+    Desktop) but haven't discovered the feature on mobile yet.
+  </description>
+</action>
+
+<action name="Commerce.PriceTracking.MagicStackPromo.FirstTime.Allow">
+  <owner>ayman@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <description>
+    Records when the user allows notifications for the app for the first time
+    when prompted to do so upon tapping 'Allow price tracking notifications' on
+    the price tracking promotion in the magic stack. The price tracking
+    promotion is for users who use price tracking on another platform (e.g.
+    Desktop) but haven't discovered the feature on mobile yet.
+  </description>
+</action>
+
+<action name="Commerce.PriceTracking.MagicStackPromo.FirstTime.Deny">
+  <owner>ayman@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <description>
+    Records when the user denies notifications for the app for the first time
+    when prompted to do so upon tapping 'Allow price tracking notifications' on
+    the price tracking promotion in the magic stack. The price tracking
+    promotion is for users who use price tracking on another platform (e.g.
+    Desktop) but haven't discovered the feature on mobile yet.
+  </description>
+</action>
+
+<action name="Commerce.PriceTracking.MagicStackPromo.Hidden">
+  <owner>ayman@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <description>
+    Records when the user hides the price tracking promotion in the magic stack.
+    The price tracking promotion is for users who use price tracking on another
+    platform (e.g. Desktop) but haven't discovered the feature on mobile yet.
+  </description>
+</action>
+
+<action name="Commerce.PriceTracking.MagicStackPromo.Reenable.Allow">
+  <owner>ayman@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <description>
+    Records when the user allows notifications for the app after they have been
+    previously turned off when prompted to do so upon tapping 'Allow price
+    tracking notifications' on the price tracking promotion in the magic stack.
+    The price tracking promotion is for users who use price tracking on another
+    platform (e.g. Desktop) but haven't discovered the feature on mobile yet.
+  </description>
+</action>
+
+<action name="Commerce.PriceTracking.MagicStackPromo.Reenable.Deny">
+  <owner>ayman@chromium.org</owner>
+  <owner>davidjm@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <description>
+    Records when the user denies notifications for the app after they have been
+    previously turned off when prompted to do so upon tapping 'Allow price
+    tracking notifications' on the price tracking promotion in the magic stack.
+    The price tracking promotion is for users who use price tracking on another
+    platform (e.g. Desktop) but haven't discovered the feature on mobile yet.
+  </description>
+</action>
+
 <action name="Commerce.PriceTracking.OmniboxChip.Tracked">
   <owner>meiliang@chromium.org</owner>
   <owner>chrome-shopping@google.com</owner>
@@ -7660,6 +7772,15 @@ should be able to be added at any place in this file.
   <owner>chrome-compose-frontend@google.com</owner>
   <description>
     Records when a Compose session is started from the proactive nudge. This is
+    emitted once when a session is created.
+  </description>
+</action>
+
+<action name="Compose.StartedSession.SelectionNudge">
+  <owner>perrier@chromium.org</owner>
+  <owner>chrome-compose-frontend@google.com</owner>
+  <description>
+    Records when a Compose session is started from the selection nudge. This is
     emitted once when a session is created.
   </description>
 </action>
@@ -14217,6 +14338,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="IOS.Notifications.SendTab.Interaction">
+  <owner>hiramahmood@google.com</owner>
+  <owner>bling-get-set-up@google.com</owner>
+  <description>
+    Recorded when a user taps on a Send Tab push notification.
+  </description>
+</action>
+
 <action name="IOS.Notifications.Tips.NotSentError" not_user_triggered="true">
   <owner>scottyoder@google.com</owner>
   <owner>hiramahmood@google.com</owner>
@@ -19918,6 +20047,42 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ManualFallback_PlusAddress_OpenCreatePlusAddress">
+  <owner>vidhanj@google.com</owner>
+  <owner>jkeitel@google.com</owner>
+  <description>
+    The user tapped on &quot;Create plus address&quot; in the Address/Password
+    Manual Fallback view.
+  </description>
+</action>
+
+<action name="ManualFallback_PlusAddress_OpenManagePlusAddress">
+  <owner>vidhanj@google.com</owner>
+  <owner>jkeitel@google.com</owner>
+  <description>
+    The user tapped on &quot;Manage plus addresses&quot; in the Address/Password
+    Manual Fallback view.
+  </description>
+</action>
+
+<action name="ManualFallback_PlusAddress_OpenSelectPlusAddress">
+  <owner>vidhanj@google.com</owner>
+  <owner>jkeitel@google.com</owner>
+  <description>
+    The user tapped on &quot;Select plus addresses&quot; in the Address/Password
+    Manual Fallback view.
+  </description>
+</action>
+
+<action name="ManualFallback_PlusAddress_SelectPlusAddress">
+  <owner>vidhanj@google.com</owner>
+  <owner>jkeitel@google.com</owner>
+  <description>
+    The user tapped on the plus address in the Address/Password manual fill
+    view.
+  </description>
+</action>
+
 <action name="ManualFallback_Profiles_Address1">
   <owner>djean@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
@@ -25490,6 +25655,24 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileTabGroupIndicatorShowMenu">
+  <owner>ewannpv@chromium.org</owner>
+  <owner>chromeleon@google.com</owner>
+  <description>
+    Logged on iOS when the user triggered action menu by tapping the tab group
+    indicator view.
+  </description>
+</action>
+
+<action name="MobileTabGroupIndicatorShowNTPMenu">
+  <owner>ewannpv@chromium.org</owner>
+  <owner>chromeleon@google.com</owner>
+  <description>
+    Logged on iOS when the user triggered action menu by tapping the tab group
+    indicator view on NTP.
+  </description>
+</action>
+
 <action name="MobileTabGroupUserCanceledGroupEdition">
   <owner>alionadangla@chromium.org</owner>
   <owner>chromeleon@google.com</owner>
@@ -30059,6 +30242,37 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="OsDefaultsChoiceDialogClosed">
+  <owner>dgn@google.com</owner>
+  <owner>triploblastic@google.com</owner>
+  <owner>chrome-waffle-eng@google.com</owner>
+  <description>
+    Recorded when a choice dialog to invite users to finish choosing their
+    default browser app and search engine choice from OS is closed. In rare
+    occassions this may be closed by the backend if the dialog is not required.
+  </description>
+</action>
+
+<action name="OsDefaultsChoiceDialogShown" not_user_triggered="true">
+  <owner>dgn@google.com</owner>
+  <owner>triploblastic@google.com</owner>
+  <owner>chrome-waffle-eng@google.com</owner>
+  <description>
+    Recorded when a choice dialog to invite users to finish choosing their
+    default browser app and search engine choice from OS is shown.
+  </description>
+</action>
+
+<action name="OsDefaultsChoiceDialogUnblocked" not_user_triggered="true">
+  <owner>dgn@google.com</owner>
+  <owner>triploblastic@google.com</owner>
+  <owner>chrome-waffle-eng@google.com</owner>
+  <description>
+    Recorded when a choice dialog to invite users to finish choosing their
+    default browser app and search engine choice from OS is unblocked.
+  </description>
+</action>
+
 <action name="OutdatedPluginInfobar.AllowThisTime">
   <obsolete>Removed in M107</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
@@ -31692,6 +31906,16 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="PrivacyPage_DeleteBrowsingData">
+  <owner>fsenra@google.com</owner>
+  <owner>alimariam@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    The user has tapped on the delete browsing data entry point on the privacy
+    settings page. iOS only.
+  </description>
+</action>
+
 <action name="ProcessSwapBindingsMismatch_RVHM">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -32968,7 +33192,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SearchBasedKeyRewrite_Delete">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Search+Backspace to produce the Delete key.
@@ -32976,7 +33200,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SearchBasedKeyRewrite_End">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Search+RightArrow to produce the End key.
@@ -32984,7 +33208,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SearchBasedKeyRewrite_Home">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Search+LeftArrow to produce the Home key.
@@ -32992,7 +33216,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SearchBasedKeyRewrite_Insert">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Search+Period to produce the Insert key.
@@ -33000,7 +33224,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SearchBasedKeyRewrite_PageDown">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Search+DownArrow to produce the PageDown key.
@@ -33008,7 +33232,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SearchBasedKeyRewrite_PageUp">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed Search+UpArrow to produce the PageUp key.
@@ -33016,7 +33240,8 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SearchClickMappedToRightClick">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
+  <owner>jimmyxgong@chromium.org</owner>
   <description>
     User pressed search click on a touchpad device to generate right click. This
     is measuring the transition of use from the legacy alt click behaviour that
@@ -33101,73 +33326,73 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SearchPlusDigitRewrite_F1">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+1 to produce the F1 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F10">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+0 to produce the F10 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F11">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+Minus to produce the F11 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F12">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+Equals to produce the F12 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F2">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+2 to produce the F2 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F3">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+3 to produce the F3 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F4">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+4 to produce the F4 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F5">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+5 to produce the F5 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F6">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+6 to produce the F6 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F7">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+7 to produce the F7 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F8">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+8 to produce the F8 key.</description>
 </action>
 
 <action name="SearchPlusDigitRewrite_F9">
-  <owner>zentaro@chromium.org</owner>
+  <owner>dpad@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <description>User pressed Search+9 to produce the F9 key.</description>
 </action>
@@ -33435,6 +33660,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.GetTheMostOutOfChrome.FirstSectionExpanded">
+  <obsolete>Feature was removed.</obsolete>
   <owner>jochen@chromium.org</owner>
   <owner>dwarren@google.com</owner>
   <description>
@@ -33444,6 +33670,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.GetTheMostOutOfChrome.SecondSectionExpanded">
+  <obsolete>Feature was removed.</obsolete>
   <owner>jochen@chromium.org</owner>
   <owner>dwarren@google.com</owner>
   <description>
@@ -33453,6 +33680,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.GetTheMostOutOfChrome.ThirdSectionExpanded">
+  <obsolete>Feature was removed.</obsolete>
   <owner>jochen@chromium.org</owner>
   <owner>dwarren@google.com</owner>
   <description>
@@ -36529,6 +36757,13 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Impression_FromAddressBubble">
+  <owner>amelies@chromium.com</owner>
+  <description>
+    Recorded when showing sign in entry in the saving address bubble.
+  </description>
+</action>
+
 <action name="Signin_Impression_FromAppsPageLink" not_user_triggered="true">
   <owner>gogerald@chromium.org</owner>
   <description>
@@ -37222,9 +37457,27 @@ should be able to be added at any place in this file.
 
 <action name="Signin_Signin_FromAccountMenu">
   <owner>arthurmilchior@chromium.org</owner>
+  <owner>chrome-signin-team@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU.
+  </description>
+</action>
+
+<action name="Signin_Signin_FromAccountMenuFailedSwitch">
+  <owner>arthurmilchior@chromium.org</owner>
+  <owner>chrome-signin-team@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU_FAILED_SWITCH.
+  </description>
+</action>
+
+<action name="Signin_Signin_FromAddressBubble">
+  <owner>amelies@chromium.com</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_ADDRESS_BUBBLE.
   </description>
 </action>
 
@@ -40205,6 +40458,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="SupervisedUserProfileSignIn_IPHPromo_ParentalControlsPageOpened">
+  <owner>anthie@google.com</owner>
+  <owner>chrome-kids-eng@google.com</owner>
+  <description>
+    The parental controls page is opened from the supervised user signing in to
+    a profile.
+  </description>
+</action>
+
 <action name="SupervisedUsers_Extensions_ApprovalGranted">
   <owner>tobyhuang@chromium.org</owner>
   <owner>agawronska@chromium.org</owner>
@@ -42172,6 +42434,24 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Toast.ActionButtonClicked">
+  <owner>agale@chromium.org</owner>
+  <owner>stluong@chromium.org</owner>
+  <owner>chrome-performance-ui-sea@google.com</owner>
+  <description>
+    Recorded when the user clicks on toast's action button.
+  </description>
+</action>
+
+<action name="Toast.CloseButtonClicked">
+  <owner>agale@chromium.org</owner>
+  <owner>stluong@chromium.org</owner>
+  <owner>chrome-performance-ui-sea@google.com</owner>
+  <description>
+    Recorded when the user clicks on the toast's close button.
+  </description>
+</action>
+
 <action name="TodayExtension.ExtensionDismissed">
   <obsolete>
     Deprecated. Replaced by IOS.SearchExtension.Action histogram.
@@ -42387,54 +42667,6 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the Touchview controller is initialized such that TouchView
     mode is disabled initially.
-  </description>
-</action>
-
-<action name="TrackingProtection.Notice.Closed">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <description>
-    User Closed the Tracking Protection onboarding notice.
-  </description>
-</action>
-
-<action name="TrackingProtection.Notice.DismissedOther">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <description>
-    User dismissed the Tracking Protection onboarding notice some other way.
-  </description>
-</action>
-
-<action name="TrackingProtection.Notice.GotItClicked">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <description>
-    User clicked 'Got it' on the Tracking Protection onboarding notice.
-  </description>
-</action>
-
-<action name="TrackingProtection.Notice.LearnMoreClicked">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <description>
-    User clicked 'Learn More' on the Tracking Protection onboarding notice.
-  </description>
-</action>
-
-<action name="TrackingProtection.Notice.SettingsClicked">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <description>
-    User clicked 'Settings' on the Tracking Protection onboarding notice.
-  </description>
-</action>
-
-<action name="TrackingProtection.Notice.Shown" not_user_triggered="true">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <description>
-    User is shown the Tracking Protection onboarding notice.
   </description>
 </action>
 
@@ -43542,12 +43774,147 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="WebAuthn.ChromeProfile.Cancelled">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded after the user selected a passkey stored in their Chrome profile
+    when the user clicked Cancel on the MacOS system prompt.
+  </description>
+</action>
+
+<action name="WebAuthn.ChromeProfile.Success">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded after the user selected a passkey stored in their Chrome profile
+    and passed the OS authentication prompt successfully.
+  </description>
+</action>
+
+<action name="WebAuthn.Dialog.Accepted">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user clicked accept / continue in the current WebAuthn
+    dialog.
+  </description>
+</action>
+
 <action name="WebAuthn.Dialog.Cancelled">
   <owner>derinel@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <description>
     Recorded when the user cancelled the request while the WebAuthn dialog is
     shown.
+  </description>
+</action>
+
+<action name="WebAuthn.Dialog.UserSelected.GpmOnly">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>User selected a GPM option in the WebAuthn dialog.</description>
+</action>
+
+<action name="WebAuthn.Dialog.UserSelected.ICloudOnly">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    User selected an iCloud option in the WebAuthn dialog.
+  </description>
+</action>
+
+<action name="WebAuthn.Dialog.UserSelected.Others">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    User selected a different option other than GPM, iCloud, Chrome Profile nor
+    Windows Hello in the WebAuthn dialog.
+  </description>
+</action>
+
+<action name="WebAuthn.Dialog.UserSelected.ProfileOnly">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    User selected a Chrome profile option in the WebAuthn dialog.
+  </description>
+</action>
+
+<action name="WebAuthn.Dialog.UserSelected.WinOnly">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    User selected a Windows option in the WebAuthn dialog.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.ChromeProfileAuthenticatorShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed the system authentication UI to sign in
+    with a passkey stored in the Chrome profile.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.GpmCreateArbitraryPinDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog where they can create an
+    arbitrary PIN for GPM. Recorded for GetAssertion requests.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.GpmCreatePinDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog where they can create a 6 digit
+    PIN for GPM. Recorded for GetAssertion requests.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.GpmEnterArbitraryPinDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog where they can enter their
+    arbitrary PIN for GPM. Recorded for GetAssertion requests.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.GpmEnterPinDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog where they can enter their 6
+    digit PIN for GPM. Recorded for GetAssertion requests.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.GpmTouchIdDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed the Touch ID dialog to sign in with a
+    passkey stored in GPM.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.GpmWinUvShown" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user selected a GPM passkey and displayed the native
+    Windows UI for user verification. Recorded for GetAssertion requests only.
   </description>
 </action>
 
@@ -43715,6 +44082,81 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="WebAuthn.GetAssertion.RecoverGpmShown" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed the window to enter the recovery factor
+    in order to use GPM passkeys. Recorded during a GetAssertion flow.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.TrustGpmDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed the dialog to bootstrap the device in
+    order to use GPM passkeys. Recorded during a GetAssertion flow.
+  </description>
+</action>
+
+<action name="WebAuthn.GetAssertion.WinHelloShown" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed the Windows Hello UI to sign in with a
+    credential in Windows Hello. In some Windows versions this UI may also
+    display an option to use the Hybrid flow.
+  </description>
+</action>
+
+<action name="WebAuthn.Gpm.Failure" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user selected a GPM credential but the request to enclave
+    failed.
+  </description>
+</action>
+
+<action name="WebAuthn.Gpm.ForgotPinClicked">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user clicked on &quot;Forgot PIN&quot; button in a GPM PIN
+    entry dialog.
+  </description>
+</action>
+
+<action name="WebAuthn.Gpm.LockedDialogShown" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog which informs them that their
+    passkeys in GPM are locked and they cannot try to unlock it. This can happen
+    when they enter wrong PIN 5 times in a PIN dialog.
+  </description>
+</action>
+
+<action name="WebAuthn.Gpm.PinOptionChanged">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user changed the type of PIN in one of the GPM PIN
+    creation dialogs. The user may select a 6 digit PIN or an arbitrary PIN.
+  </description>
+</action>
+
+<action name="WebAuthn.Gpm.Success" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user selected a GPM credential and the request to enclave
+    completed successfully.
+  </description>
+</action>
+
 <action name="WebAuthn.ICloud.Cancelled">
   <owner>derinel@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
@@ -43729,6 +44171,84 @@ should be able to be added at any place in this file.
   <description>
     Recorded when a request is successful (e.g. UV completed via biometrics) in
     the ICloud Keychain Window.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.ChromeProfileAuthenticatorShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user selected Chrome Profile to save their credential and
+    is shown the OS authentication UI.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.CreateGpmDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog to create a passkey in GPM.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.GpmCreateArbitraryPinDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog where they can create an
+    arbitrary PIN for GPM. Recorded for MakeCredential requests.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.GpmCreatePinDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog where they can create a 6 digit
+    PIN for GPM. Recorded for MakeCredential requests.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.GpmEnterArbitraryPinDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog where they can enter their
+    arbitrary PIN for GPM. Recorded for MakeCredential requests.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.GpmEnterPinDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed a dialog where they can enter their 6
+    digit PIN for GPM. Recorded for MakeCredential requests.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.GpmTouchIdDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user selected GPM to save their credential and is shown
+    the Touch ID dialog.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.GpmWinUvShown" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user selected GPM and is displayed the native Windows UI
+    for user verification. Recorded for MakeCredential requests only.
   </description>
 </action>
 
@@ -43847,6 +44367,70 @@ should be able to be added at any place in this file.
     Recorded when the user is displayed options to store passkeys in Windows
     only in the selection dialog. The dialog may also contain an entry point to
     hybrid flow.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.RecoverGpmShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed the window to enter the recovery factor
+    in order to use GPM passkeys. Recorded during a MakeCredential flow.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.TrustGpmDialogShown"
+    not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed the dialog to bootstrap the device in
+    order to use GPM passkeys. Recorded during a MakeCredential flow.
+  </description>
+</action>
+
+<action name="WebAuthn.MakeCredential.WinHelloShown" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user is displayed the Windows Hello UI to create a passkey
+    in Windows Hello. In some Windows versions this UI may also display an
+    option to use the Hybrid flow.
+  </description>
+</action>
+
+<action name="WebAuthn.Window.RecoverGpmCancelled">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>Recorded when the user closes MagicArch window.</description>
+</action>
+
+<action name="WebAuthn.Window.RecoverGpmSucceeded" not_user_triggered="true">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the recovery is successful in the MagicArch window. This means
+    that the user successfully entered an existing recovery factor.
+  </description>
+</action>
+
+<action name="WebAuthn.WinHello.Cancelled">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user was displayed the Windows Hello UI for WebAuthn
+    MakeCredential / GetAssertion request and the request was cancelled by the
+    user.
+  </description>
+</action>
+
+<action name="WebAuthn.WinHello.Success">
+  <owner>derinel@google.com</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>
+    Recorded when the user was displayed the Windows Hello UI for WebAuthn
+    MakeCredential / GetAssertion request and the request was successful.
   </description>
 </action>
 
@@ -44733,6 +45317,7 @@ should be able to be added at any place in this file.
   <suffix name="SearchBoxSuggestions" label="Search Box Suggestions"/>
   <suffix name="SidePanelPinning" label="Side Panel Pinning"/>
   <suffix name="TabOrganizer" label="Tab Organizer"/>
+  <suffix name="TestDefaultModule" label="Test default module"/>
   <suffix name="TestModule" label="Test module"/>
   <suffix name="TranslationSettings" label="Translation Settings"/>
   <affected-action name="UserEducation.WhatsNew.ModuleLinkClicked"/>
@@ -44740,6 +45325,7 @@ should be able to be added at any place in this file.
 </action-suffix>
 
 <action-suffix separator="." ordering="suffix">
+  <suffix name="SafetyAwareness" label="Safety Awareness edition."/>
   <suffix name="TestEdition" label="Test edition."/>
   <affected-action name="UserEducation.WhatsNew.EditionShown"/>
 </action-suffix>
@@ -44993,6 +45579,8 @@ should be able to be added at any place in this file.
       label="For iOSHistoryOnOverflowMenuFeature feature"/>
   <suffix name="iOSInlineEnhancedSafeBrowsingPromoFeature"
       label="For Enhanced Safe Browsing Promo feature"/>
+  <suffix name="iOSLensOverlayEntrypointTip"
+      label="For iOSLensOverlayEntrypoint IPH feature"/>
   <suffix name="iOSNewTabToolbarItemFeature"
       label="For iOSNewTabToolbarItemFeature feature"/>
   <suffix name="iOSOverflowMenuCustomization"
@@ -45042,6 +45630,12 @@ should be able to be added at any place in this file.
       label="For iOSTabGridSwipeRightForIncognito feature"/>
   <suffix name="iOSTabGridToolbarItemFeature"
       label="For iOSTabGridToolbarItemFeature feature"/>
+  <suffix name="IPH_DefaultBrowserPromoMagicStack"
+      label="For Default browser promo in Magic Stack."/>
+  <suffix name="IPH_DefaultBrowserPromoMessages"
+      label="For Default browser promo with messages on omnibox paste."/>
+  <suffix name="IPH_DefaultBrowserPromoSettingCard"
+      label="For Default browser promo in Chrome settings."/>
   <suffix name="KeyboardAccessoryAddressFilling"
       label="For KeyboardAccessoryAddressFilling feature."/>
   <suffix name="KeyboardAccessoryBarSwiping"
@@ -45218,8 +45812,6 @@ should be able to be added at any place in this file.
       label="For ShoppingListMenuItem feature."/>
   <suffix name="ShoppingListSaveFlow"
       label="For ShoppingListSaveFlow feature."/>
-  <suffix name="SidePanelGenericMenuFeature"
-      label="For Side Panel Pinning menu entries."/>
   <suffix name="SidePanelGenericPinnableFeature"
       label="For Side Panel Pinning pin feature."/>
   <suffix name="SidePanelLensOverlayPinnableFeature"
@@ -45232,6 +45824,8 @@ should be able to be added at any place in this file.
   <suffix name="SideSearchPageActionLabel"
       label="For side search feature page action label triggering."/>
   <suffix name="SignoutWebIntercept" label="For web signout IPH feature."/>
+  <suffix name="SupervisedUserProfileSignin"
+      label="For displaying the supervised user sign-in IPH."/>
   <suffix name="TabAudioMuting" label="For TabAudioMuting feature."/>
   <suffix name="TabGroupsDragAndDrop" label="For drop-to-merge in tab group."/>
   <suffix name="TabGroupsQuicklyComparePages"
@@ -45253,6 +45847,8 @@ should be able to be added at any place in this file.
   <suffix name="TabPinnedFeature" label="For tab pinned overflow hint."/>
   <suffix name="TabSearch" label="For the tab search feature."/>
   <suffix name="TabSwitcherButton" label="For tab switcher button."/>
+  <suffix name="TabSwitcherButtonSwitchIncognito"
+      label="For tab switcher button switch to incognito."/>
   <suffix name="TabSwitcherFloatingActionButton"
       label="For tab switcher new tab floating action button."/>
   <suffix name="ToolbarManagementButton"
@@ -45863,11 +46459,28 @@ should be able to be added at any place in this file.
 </action-suffix>
 
 <action-suffix separator="." ordering="suffix">
+  <suffix name="kActionClearBrowsingData" label="Clear browsing data action"/>
+  <suffix name="kActionCopyUrl" label="Copy url action"/>
+  <suffix name="kActionDevTools" label="Developer tools action"/>
+  <suffix name="kActionNewIncognitoWindow" label="New incognito window action"/>
+  <suffix name="kActionPrint" label="Print action"/>
+  <suffix name="kActionQrCodeGenerator" label="QR code generator action"/>
+  <suffix name="kActionSendTabToSelf" label="Send tab to self action"/>
+  <suffix name="kActionShowAddressesBubbleOrPage"
+      label="Show addresses action"/>
+  <suffix name="kActionShowChromeLabs" label="Show Chrome Labs action"/>
+  <suffix name="kActionShowPasswordsBubbleOrPage"
+      label="Show passwords bubble or page action"/>
+  <suffix name="kActionShowPaymentsBubbleOrPage"
+      label="Show payments bubble or page action"/>
+  <suffix name="kActionShowTranslate" label="Show translate action"/>
   <suffix name="kActionSidePanelShowBookmarks"
       label="Show bookmarks side panel action"/>
   <suffix name="kActionSidePanelShowFeed" label="Show feed side panel action"/>
   <suffix name="kActionSidePanelShowHistoryCluster"
       label="Show history clusster side panel action"/>
+  <suffix name="kActionSidePanelShowLensOverlayResults"
+      label="Show lens overlay action"/>
   <suffix name="kActionSidePanelShowReadAnything"
       label="Show read anything side panel action"/>
   <suffix name="kActionSidePanelShowReadingList"
@@ -45876,8 +46489,16 @@ should be able to be added at any place in this file.
       label="Show search companion side panel action"/>
   <suffix name="kActionSidePanelShowUserNote"
       label="Show user note side panel action"/>
+  <suffix name="kActionTaskManager" label="Task manager action"/>
+  <affected-action name="Actions.PinnedToolbarButton.Pinned"/>
   <affected-action name="Actions.PinnedToolbarButton.Pinned.ByContextMenu"/>
+  <affected-action
+      name="Actions.PinnedToolbarButton.Pinned.ByCustomizeChromeSidePanel"/>
+  <affected-action name="Actions.PinnedToolbarButton.Unpinned"/>
   <affected-action name="Actions.PinnedToolbarButton.Unpinned.ByContextMenu"/>
+  <affected-action
+      name="Actions.PinnedToolbarButton.Unpinned.ByCustomizeChromeSidePanel"/>
+  <affected-action name="Actions.PinnedToolbarButtonActivation"/>
 </action-suffix>
 
 <action-suffix separator="." ordering="suffix">
@@ -45887,6 +46508,12 @@ should be able to be added at any place in this file.
   <affected-action name="IOS.Omnibox.Promo.PositionValidated"/>
   <affected-action name="IOS.Omnibox.Promo.Presented"/>
   <affected-action name="IOS.Omnibox.Promo.Skipped"/>
+</action-suffix>
+
+<action-suffix separator="." ordering="suffix">
+  <suffix name="AddedToReadingList" label="Added to reading list"/>
+  <affected-action name="Toast.ActionButtonClicked"/>
+  <affected-action name="Toast.CloseButtonClicked"/>
 </action-suffix>
 
 </actions>

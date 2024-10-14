@@ -83,14 +83,16 @@ AudioRendererImpl::AudioRendererImpl(
   // won't remove the observer until we're destructed on |task_runner_| so we
   // must post it here if we're on the wrong thread.
   if (task_runner_->RunsTasksInCurrentSequence()) {
-    base::PowerMonitor::AddPowerSuspendObserver(this);
+    base::PowerMonitor::GetInstance()->GetInstance()->AddPowerSuspendObserver(
+        this);
   } else {
     // Safe to post this without a WeakPtr because this class must be destructed
     // on the same thread and construction has not completed yet.
     task_runner_->PostTask(
         FROM_HERE,
         base::BindOnce(
-            IgnoreResult(&base::PowerMonitor::AddPowerSuspendObserver), this));
+            base::IgnoreResult(&base::PowerMonitor::AddPowerSuspendObserver),
+            base::Unretained(base::PowerMonitor::GetInstance()), this));
   }
 
   // Do not add anything below this line since the above actions are only safe
@@ -100,7 +102,8 @@ AudioRendererImpl::AudioRendererImpl(
 AudioRendererImpl::~AudioRendererImpl() {
   DVLOG(1) << __func__;
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  base::PowerMonitor::RemovePowerSuspendObserver(this);
+  base::PowerMonitor::GetInstance()->GetInstance()->RemovePowerSuspendObserver(
+      this);
 
   // If Render() is in progress, this call will wait for Render() to finish.
   // After this call, the |sink_| will not call back into |this| anymore.
@@ -862,10 +865,11 @@ void AudioRendererImpl::SetPreservesPitch(bool preserves_pitch) {
     algorithm_->SetPreservesPitch(preserves_pitch);
 }
 
-void AudioRendererImpl::SetWasPlayedWithUserActivation(
-    bool was_played_with_user_activation) {
+void AudioRendererImpl::SetWasPlayedWithUserActivationAndHighMediaEngagement(
+    bool was_played_with_user_activation_and_high_media_engagement) {
   base::AutoLock auto_lock(lock_);
-  was_played_with_user_activation_ = was_played_with_user_activation;
+  was_played_with_user_activation_and_high_media_engagement_ =
+      was_played_with_user_activation_and_high_media_engagement;
 }
 
 void AudioRendererImpl::OnSuspend() {
@@ -1064,7 +1068,8 @@ bool AudioRendererImpl::HandleDecodedBuffer_Locked(
     // Do not transcribe muted streams initiated by autoplay if the stream was
     // never unmuted.
     if (transcribe_audio_callback_ &&
-        (was_played_with_user_activation_ || was_unmuted_)) {
+        (was_played_with_user_activation_and_high_media_engagement_ ||
+         was_unmuted_)) {
       transcribe_audio_callback_.Run(buffer);
     }
 #endif

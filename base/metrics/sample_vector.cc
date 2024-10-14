@@ -651,11 +651,7 @@ PersistentSampleVector::~PersistentSampleVector() = default;
 
 bool PersistentSampleVector::IsDefinitelyEmpty() const {
   // Not implemented.
-  NOTREACHED_IN_MIGRATION();
-
-  // Always return false. If we are wrong, this will just make the caller
-  // perform some extra work thinking that |this| is non-empty.
-  return false;
+  NOTREACHED();
 }
 
 bool PersistentSampleVector::MountExistingCountsStorage() const {

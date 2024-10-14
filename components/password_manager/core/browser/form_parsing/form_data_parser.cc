@@ -198,6 +198,9 @@ struct SignificantFields {
   raw_ptr<const FormFieldData> password = nullptr;
   raw_ptr<const FormFieldData> new_password = nullptr;
   raw_ptr<const FormFieldData> confirmation_password = nullptr;
+  // If server has new password prediction on the text field, such field will be
+  // stored in `manual_generation_enabled_field`.
+  raw_ptr<const FormFieldData> manual_generation_enabled_field = nullptr;
   // True if the information about fields could only be derived after relaxing
   // some constraints. The resulting PasswordForm should only be used for
   // fallback UI.
@@ -470,16 +473,33 @@ void ParseUsingPredictions(std::vector<ProcessedField>& processed_fields,
         if (!result->new_password) {
           processed_field = FindField(processed_fields, prediction);
           if (processed_field) {
-            result->new_password = processed_field->field;
-            processed_field->is_predicted_as_password = true;
+            if (processed_field->is_password || prediction.is_override) {
+              // Overrides ignore field type since the overrides are curated by
+              // developers.
+              result->new_password = processed_field->field;
+              processed_field->is_predicted_as_password = true;
+            } else {
+              // Don't show automatic password generation suggestion, but allow
+              // the manual generation.
+              result->manual_generation_enabled_field = processed_field->field;
+            }
           }
         }
         break;
       case CredentialFieldType::kConfirmationPassword:
         processed_field = FindField(processed_fields, prediction);
-        if (processed_field) {
+        if (processed_field &&
+            (processed_field->is_password || prediction.is_override)) {
           result->confirmation_password = processed_field->field;
           processed_field->is_predicted_as_password = true;
+        }
+        break;
+      case CredentialFieldType::kNonCredential:
+        // Fields with non credential fields predictions do not participate in
+        // filling/saving.
+        processed_field = FindField(processed_fields, prediction);
+        if (processed_field) {
+          processed_field->server_hints_non_credential_field = true;
         }
         break;
       case CredentialFieldType::kNone:
@@ -526,22 +546,6 @@ void ParseUsingPredictions(std::vector<ProcessedField>& processed_fields,
   // something went wrong. Sanitize the result.
   if (result->confirmation_password && !result->new_password) {
     result->confirmation_password = nullptr;
-  }
-
-  // Fields with non credential fields predictions do not participate in
-  // filling/saving.
-  for (const PasswordFieldPrediction& prediction : predictions.fields) {
-    ProcessedField* current_field = FindField(processed_fields, prediction);
-    if (!current_field) {
-      continue;
-    }
-    if (prediction.type == autofill::ONE_TIME_CODE ||
-        prediction.type == autofill::NOT_PASSWORD ||
-        prediction.type == autofill::NOT_USERNAME ||
-        GroupTypeOfFieldType(prediction.type) ==
-            autofill::FieldTypeGroup::kCreditCard) {
-      current_field->server_hints_non_credential_field = true;
-    }
   }
 }
 
@@ -1095,11 +1099,16 @@ FormParsingResult::FormParsingResult(
     std::unique_ptr<PasswordForm> password_form,
     UsernameDetectionMethod username_detection_method,
     bool is_new_password_reliable,
-    std::vector<autofill::FieldRendererId> suggestion_banned_fields)
+    std::vector<autofill::FieldRendererId> suggestion_banned_fields,
+    const FormFieldData* manual_generation_enabled_field)
     : password_form(std::move(password_form)),
       username_detection_method(username_detection_method),
       is_new_password_reliable(is_new_password_reliable),
-      suggestion_banned_fields(std::move(suggestion_banned_fields)) {}
+      suggestion_banned_fields(std::move(suggestion_banned_fields)),
+      manual_generation_enabled_field(
+          manual_generation_enabled_field
+              ? manual_generation_enabled_field->renderer_id()
+              : autofill::FieldRendererId()) {}
 
 FormParsingResult::FormParsingResult(FormParsingResult&& other) = default;
 
@@ -1260,7 +1269,8 @@ FormParsingResult FormDataParser::ParseAndReturnParsingResult(
       AssemblePasswordForm(form_data, significant_fields,
                            std::move(all_alternative_passwords),
                            std::move(all_alternative_usernames), predictions_),
-      method, is_new_password_reliable, suggestion_banned_fields);
+      method, is_new_password_reliable, suggestion_banned_fields,
+      significant_fields.manual_generation_enabled_field);
 }
 
 std::unique_ptr<PasswordForm> FormDataParser::Parse(

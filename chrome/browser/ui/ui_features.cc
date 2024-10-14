@@ -112,11 +112,6 @@ BASE_FEATURE(kFewerUpdateConfirmations,
 #endif
 
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-// Enables showing the "Get the most out of Chrome" section in settings.
-BASE_FEATURE(kGetTheMostOutOfChrome,
-             "GetTheMostOutOfChrome",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // This feature controls whether the user can be shown the Chrome for iOS promo
 // when saving or updating passwords.
 BASE_FEATURE(kIOSPromoRefreshedPasswordBubble,
@@ -209,7 +204,8 @@ const base::FeatureParam<bool> kPreloadTopChromeWebUIDelayPreload{
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen,
              "PressAndHoldEscToExitBrowserFullscreen",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT
+);
 #endif
 
 // Enable responsive toolbar. Toolbar buttons overflow to a chevron button when
@@ -262,6 +258,10 @@ BASE_FEATURE(kSidePanelResizing,
              "SidePanelResizing",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTabDuplicateMetrics,
+             "TabDuplicateMetrics",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables buttons when scrolling the tabstrip https://crbug.com/951078
 BASE_FEATURE(kTabScrollingButtonPosition,
              "TabScrollingButtonPosition",
@@ -297,7 +297,7 @@ const char kTabHoverCardAdditionalMaxWidthDelay[] =
 
 BASE_FEATURE(kTabOrganization,
              "TabOrganization",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsTabOrganization() {
   return base::FeatureList::IsEnabled(features::kTabOrganization);
@@ -307,7 +307,7 @@ BASE_FEATURE(kTabstripDeclutter,
              "TabstripDeclutter",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsTabstripDeclutter() {
+bool IsTabstripDeclutterEnabled() {
   return base::FeatureList::IsEnabled(features::kTabstripDeclutter);
 }
 
@@ -329,6 +329,10 @@ BASE_FEATURE(kTabReorganizationDivider,
 
 BASE_FEATURE(kTabOrganizationModelStrategy,
              "TabOrganizationModelStrategy",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabOrganizationEnableNudgeForEnterprise,
+             "TabOrganizationEnableNudgeForEnterprise",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kTabOrganizationTriggerPeriod{
@@ -424,12 +428,6 @@ BASE_FEATURE(kEnterpriseUpdatedProfileCreationScreen,
              "EnterpriseUpdatedProfileCreationScreen",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// This enables enables persistence of a WebContents in a 1-to-1 association
-// with the current Profile for WebUI bubbles. See https://crbug.com/1177048.
-BASE_FEATURE(kWebUIBubblePerProfilePersistence,
-             "WebUIBubblePerProfilePersistence",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables a web-based tab strip. See https://crbug.com/989131. Note this
 // feature only works when the ENABLE_WEBUI_TAB_STRIP buildflag is enabled.
 BASE_FEATURE(kWebUITabStrip,
@@ -476,5 +474,9 @@ BASE_FEATURE(kUsePortalAccentColor,
 #endif
 
 BASE_FEATURE(kCompactMode, "CompactMode", base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPageSpecificDataDialogRelatedInstalledAppsSection,
+             "PageSpecificDataDialogRelatedInstalledAppsSection",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

@@ -281,6 +281,15 @@ void FakeShillServiceClient::Connect(const dbus::ObjectPath& service_path,
     return;
   }
 
+  // This should be a no-op if it's already connecting or connected.
+  const std::string* state =
+      service_properties->FindString(shill::kStateProperty);
+  if (state &&
+      (*state == shill::kStateAssociation || *state == shill::kStateOnline)) {
+    std::move(callback).Run();
+    return;
+  }
+
   if (connect_error_name_) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
@@ -383,7 +392,12 @@ void FakeShillServiceClient::GetWiFiPassphrase(
 
   const std::string* passphrase =
       service_properties->FindString(shill::kPassphraseProperty);
-  std::move(callback).Run(passphrase ? *passphrase : std::string());
+  if (!passphrase) {
+    std::move(error_callback)
+        .Run("Error.PassphraseNotFound", "Passphrase not found");
+    return;
+  }
+  std::move(callback).Run(*passphrase);
 }
 
 void FakeShillServiceClient::GetEapPassphrase(
@@ -565,18 +579,22 @@ bool FakeShillServiceClient::SetServiceProperty(const std::string& service_path,
     changed_property = property;
   }
 
-  // Make PSK networks connectable if 'Passphrase' is set.
   if (changed_property == shill::kPassphraseProperty ||
       changed_property == shill::kSecurityClassProperty) {
     const std::string* passphrase =
         dict->FindString(shill::kPassphraseProperty);
+    const std::string* security =
+        dict->FindString(shill::kSecurityClassProperty);
+    // Make PSK networks connectable if 'Passphrase' is set.
     if (passphrase && !passphrase->empty()) {
       dict->Set(shill::kPassphraseRequiredProperty, false);
-      const std::string* security =
-          dict->FindString(shill::kSecurityClassProperty);
       if (security && *security == shill::kSecurityClassPsk) {
         dict->Set(shill::kConnectableProperty, true);
       }
+    }
+    // Make open networks always connectable.
+    if (security && *security == shill::kSecurityClassNone) {
+      dict->Set(shill::kConnectableProperty, true);
     }
   }
 

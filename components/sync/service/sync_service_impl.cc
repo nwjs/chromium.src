@@ -82,10 +82,6 @@ BASE_FEATURE(kSyncUnsubscribeFromTypesWithPermanentErrors,
              "SyncUnsubscribeFromTypesWithPermanentErrors",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGetTypesWithUnsyncedDataViaController,
-             "GetTypesWithUnsyncedDataViaController",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_ANDROID)
 constexpr int kMinGmsVersionCodeWithCustomPassphraseApi = 235204000;
 
@@ -517,7 +513,7 @@ ShutdownReason SyncServiceImpl::ShutdownReasonForResetEngineReason(
     case ResetEngineReason::kUnrecoverableError:
     case ResetEngineReason::kDisabledAccount:
     case ResetEngineReason::kResetLocalData:
-    case ResetEngineReason::kStopAndClear:
+    case ResetEngineReason::kUpgradeClientError:
     case ResetEngineReason::kNotSignedIn:
     case ResetEngineReason::kEnterprisePolicy:
     case ResetEngineReason::kDisableSyncOnClient:
@@ -530,7 +526,7 @@ bool SyncServiceImpl::ShouldClearTransportDataForAccount(
   switch (reset_reason) {
     case ResetEngineReason::kShutdown:
     case ResetEngineReason::kDisabledAccount:
-    case ResetEngineReason::kStopAndClear:
+    case ResetEngineReason::kUpgradeClientError:
     case ResetEngineReason::kCredentialsChanged:
     case ResetEngineReason::kNotSignedIn:
     case ResetEngineReason::kEnterprisePolicy:
@@ -1155,7 +1151,7 @@ void SyncServiceImpl::OnActionableProtocolError(
   switch (error.action) {
     case UPGRADE_CLIENT:
       if (IsSetupInProgress()) {
-        StopAndClear();
+        StopAndClear(ResetEngineReason::kUpgradeClientError);
       }
       // Trigger an unrecoverable error to stop syncing.
       OnUnrecoverableErrorImpl(FROM_HERE,
@@ -2212,10 +2208,6 @@ void SyncServiceImpl::SendExplicitPassphraseToPlatformClient() {
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
-void SyncServiceImpl::StopAndClear() {
-  StopAndClear(ResetEngineReason::kStopAndClear);
-}
-
 void SyncServiceImpl::StopAndClear(ResetEngineReason reset_engine_reason) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
@@ -2413,21 +2405,6 @@ void SyncServiceImpl::OnSetupInProgressHandleDestroyed() {
 void SyncServiceImpl::GetTypesWithUnsyncedData(
     DataTypeSet requested_types,
     base::OnceCallback<void(DataTypeSet)> callback) const {
-  if (!base::FeatureList::IsEnabled(kGetTypesWithUnsyncedDataViaController)) {
-    if (!engine_ || !engine_->IsInitialized()) {
-      // TODO(crbug.com/40071018): Wait for the sync engine to be initialized.
-      std::move(callback).Run(DataTypeSet());
-      return;
-    }
-    engine_->GetTypesWithUnsyncedData(base::BindOnce(
-        [](DataTypeSet requested_types,
-           base::OnceCallback<void(DataTypeSet)> callback, DataTypeSet types) {
-          std::move(callback).Run(base::Intersection(types, requested_types));
-        },
-        requested_types, std::move(callback)));
-    return;
-  }
-
   // NIGORI currently isn't supported, because its controller isn't managed by
   // DataTypeManager. If needed, support could be added via SyncEngine.
   CHECK(!requested_types.Has(NIGORI));
@@ -2457,6 +2434,21 @@ void SyncServiceImpl::GetTypesWithUnsyncedData(
 }
 
 void SyncServiceImpl::GetLocalDataDescriptions(
+    DataTypeSet types,
+    base::OnceCallback<void(std::map<DataType, LocalDataDescription>)>
+        callback) {
+  // Some code paths in GetLocalDataDescriptionsImpl() are synchronous, e.g.
+  // if `types` have synchronous DataTypeLocalDataBatchUploader implementations.
+  // Having an API that is sometime sync and sometimes async can be unexpected
+  // to the caller and lead to bugs such as crbug.com/361088051. To avoid those,
+  // post a task here to ensure the call is always async.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&SyncServiceImpl::GetLocalDataDescriptionsImpl,
+                     weak_factory_.GetWeakPtr(), types, std::move(callback)));
+}
+
+void SyncServiceImpl::GetLocalDataDescriptionsImpl(
     DataTypeSet types,
     base::OnceCallback<void(std::map<DataType, LocalDataDescription>)>
         callback) {

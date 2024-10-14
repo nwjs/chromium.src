@@ -9,11 +9,13 @@ import static org.chromium.base.test.util.ApplicationTestUtils.finishActivity;
 import static org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils.tearDownNightModeAfterChromeActivityDestroyed;
 import static org.chromium.ui.base.LocalizationUtils.setRtlForTesting;
 
+import android.text.SpannableString;
 import android.view.View;
 
 import androidx.test.filters.MediumTest;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -66,14 +68,15 @@ public class SimpleNoticeSheetRenderTest {
     @Rule
     public final ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(0)
+                    .setRevision(1)
                     .setBugComponent(Component.UI_BROWSER_PASSWORDS)
                     .build();
 
     private BottomSheetController mBottomSheetController;
     private SimpleNoticeSheetCoordinator mCoordinator;
     private static final String sTitle = "Simple notice sheet title";
-    private static final String sText = "The text about the simple notice sheet";
+    private static final SpannableString sText =
+            SpannableString.valueOf("The text about the simple notice sheet");
     private static final String sButtonText = "Button";
 
     public SimpleNoticeSheetRenderTest(boolean nightModeEnabled, boolean useRtlLayout) {
@@ -123,6 +126,7 @@ public class SimpleNoticeSheetRenderTest {
                                     .with(SimpleNoticeSheetProperties.SHEET_TITLE, sTitle)
                                     .with(SimpleNoticeSheetProperties.SHEET_TEXT, sText)
                                     .with(SimpleNoticeSheetProperties.BUTTON_TITLE, sButtonText)
+                                    .with(SimpleNoticeSheetProperties.BUTTON_ACTION, Assert::fail)
                                     .build();
                     mCoordinator.showSheet(model);
                 });

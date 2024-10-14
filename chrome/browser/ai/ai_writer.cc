@@ -15,8 +15,11 @@
 AIWriter::AIWriter(
     std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
         session,
-    const std::optional<std::string>& shared_context)
-    : session_(std::move(session)), shared_context_(shared_context) {}
+    blink::mojom::AIWriterCreateOptionsPtr options,
+    mojo::PendingReceiver<blink::mojom::AIWriter> receiver)
+    : session_(std::move(session)),
+      options_(std::move(options)),
+      receiver_(this, std::move(receiver)) {}
 
 AIWriter::~AIWriter() {
   for (auto& responder : responder_set_) {
@@ -26,13 +29,18 @@ AIWriter::~AIWriter() {
   }
 }
 
+void AIWriter::SetDeletionCallback(base::OnceClosure deletion_callback) {
+  receiver_.set_disconnect_handler(std::move(deletion_callback));
+}
+
 void AIWriter::Write(const std::string& input,
                      const std::optional<std::string>& context,
                      mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
                          pending_responder) {
   optimization_guide::proto::ComposePageMetadata page_metadata;
-  const std::string context_string = base::JoinString(
-      {shared_context_.value_or(""), context.value_or("")}, "\n");
+  std::string context_string = base::JoinString(
+      {options_->shared_context.value_or(""), context.value_or("")}, "\n");
+  base::TrimString(context_string, "\n", &context_string);
   page_metadata.set_trimmed_page_inner_text(
       context_string.substr(0, AIUtils::kTrimmedInnerTextMaxChars));
   page_metadata.set_page_inner_text(context_string);

@@ -8,11 +8,9 @@
 
 #include "base/run_loop.h"
 #include "base/test/bind.h"
-#include "base/test/mock_callback.h"
 #include "chrome/browser/ai/ai_manager_keyed_service_factory.h"
+#include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
-#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
-#include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/optimization_guide/core/mock_optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
@@ -22,8 +20,6 @@
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
 
 using ::testing::_;
-using ::testing::AtMost;
-using ::testing::NiceMock;
 
 namespace {
 
@@ -48,48 +44,22 @@ class MockCreateRewriterClient
 
   MOCK_METHOD(void,
               OnResult,
-              (mojo::PendingRemote<::blink::mojom::AIRewriter> writer),
+              (mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter),
               (override));
 
  private:
   mojo::Receiver<blink::mojom::AIManagerCreateRewriterClient> receiver_{this};
 };
 
-// TODO(crbug.com/358214322): Move MockResponder to a common utils file.
-class MockResponder : public blink::mojom::ModelStreamingResponder {
- public:
-  MockResponder() = default;
-  ~MockResponder() override = default;
-  MockResponder(const MockResponder&) = delete;
-  MockResponder& operator=(const MockResponder&) = delete;
-
-  mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
-  BindNewPipeAndPassRemote() {
-    return receiver_.BindNewPipeAndPassRemote();
-  }
-
-  MOCK_METHOD(void,
-              OnResponse,
-              (blink::mojom::ModelStreamingResponseStatus status,
-               const std::optional<std::string>& text,
-               std::optional<uint64_t> current_tokens),
-              (override));
-
- private:
-  mojo::Receiver<blink::mojom::ModelStreamingResponder> receiver_{this};
-};
-
-class MockSupportsUserData : public base::SupportsUserData {};
-
 optimization_guide::OptimizationGuideModelStreamingExecutionResult
-CreateExecutionResult(const std::string_view outpt, bool is_complete) {
+CreateExecutionResult(const std::string_view output, bool is_complete) {
   optimization_guide::proto::ComposeResponse response;
-  *response.mutable_output() = outpt;
+  *response.mutable_output() = output;
   std::string serialized_metadata;
   response.SerializeToString(&serialized_metadata);
   optimization_guide::proto::Any any;
   any.set_value(serialized_metadata);
-  any.set_type_url("type.googleapis.com/" + response.GetTypeName());
+  any.set_type_url(AITestUtils::GetTypeURLForProto(response.GetTypeName()));
   return optimization_guide::OptimizationGuideModelStreamingExecutionResult(
       optimization_guide::StreamingResponse{
           .response = any,
@@ -155,51 +125,8 @@ void CheckComposeRequestRewriteParamsRegenerateFlag(
 
 }  // namespace
 
-class AIRewriterTest : public ChromeRenderViewHostTestHarness {
- public:
-  void SetUp() override {
-    ChromeRenderViewHostTestHarness::SetUp();
-    mock_host_ = std::make_unique<MockSupportsUserData>();
-  }
-
-  void TearDown() override {
-    optimization_guide_keyed_service_ = nullptr;
-    mock_host_.reset();
-    ChromeRenderViewHostTestHarness::TearDown();
-  }
-
+class AIRewriterTest : public AITestUtils::AITestBase {
  protected:
-  // Setting up MockOptimizationGuideKeyedService.
-  void SetupMockOptimizationGuideKeyedService() {
-    optimization_guide_keyed_service_ =
-        static_cast<MockOptimizationGuideKeyedService*>(
-            OptimizationGuideKeyedServiceFactory::GetInstance()
-                ->SetTestingFactoryAndUse(
-                    profile(),
-                    base::BindRepeating([](content::BrowserContext* context)
-                                            -> std::unique_ptr<KeyedService> {
-                      return std::make_unique<
-                          NiceMock<MockOptimizationGuideKeyedService>>();
-                    })));
-  }
-  void SetupNullOptimizationGuideKeyedService() {
-    OptimizationGuideKeyedServiceFactory::GetInstance()
-        ->SetTestingFactoryAndUse(
-            profile(),
-            base::BindRepeating(
-                [](content::BrowserContext* context)
-                    -> std::unique_ptr<KeyedService> { return nullptr; }));
-  }
-
-  mojo::Remote<blink::mojom::AIManager> GetAIManagerRemote() {
-    AIManagerKeyedService* ai_manager_keyed_service =
-        AIManagerKeyedServiceFactory::GetAIManagerKeyedService(
-            main_rfh()->GetBrowserContext());
-    mojo::Remote<blink::mojom::AIManager> ai_manager;
-    ai_manager_keyed_service->AddReceiver(
-        ai_manager.BindNewPipeAndPassReceiver(), mock_host_.get());
-    return ai_manager;
-  }
   void RunSimpleRewriteTest(
       blink::mojom::AIRewriterTone tone,
       blink::mojom::AIRewriterLength length,
@@ -208,11 +135,6 @@ class AIRewriterTest : public ChromeRenderViewHostTestHarness {
   void RunRewriteOptionCombinationFailureTest(
       blink::mojom::AIRewriterTone tone,
       blink::mojom::AIRewriterLength length);
-
-  raw_ptr<MockOptimizationGuideKeyedService> optimization_guide_keyed_service_;
-
- private:
-  std::unique_ptr<MockSupportsUserData> mock_host_;
 };
 
 void AIRewriterTest::RunSimpleRewriteTest(
@@ -221,7 +143,7 @@ void AIRewriterTest::RunSimpleRewriteTest(
     base::OnceCallback<void(const google::protobuf::MessageLite&
                                 request_metadata)> request_check_callback) {
   SetupMockOptimizationGuideKeyedService();
-  EXPECT_CALL(*optimization_guide_keyed_service_, StartSession(_, _))
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
       .WillOnce(testing::Invoke([&](optimization_guide::ModelBasedCapabilityKey
                                         feature,
                                     const std::optional<
@@ -253,26 +175,27 @@ void AIRewriterTest::RunSimpleRewriteTest(
 
   mojo::Remote<blink::mojom::AIRewriter> rewriter_remote;
   {
-    MockCreateRewriterClient mock_create_write_client;
-    base::RunLoop run_roop;
-    EXPECT_CALL(mock_create_write_client, OnResult(_))
+    MockCreateRewriterClient mock_create_rewriter_client;
+    base::RunLoop run_loop;
+    EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
         .WillOnce(testing::Invoke(
-            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-              EXPECT_TRUE(writer);
+            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+              EXPECT_TRUE(rewriter);
               rewriter_remote =
-                  mojo::Remote<blink::mojom::AIRewriter>(std::move(writer));
-              run_roop.Quit();
+                  mojo::Remote<blink::mojom::AIRewriter>(std::move(rewriter));
+              run_loop.Quit();
             }));
 
     mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
     ai_manager->CreateRewriter(
-        kSharedContextString, tone, length,
-        mock_create_write_client.BindNewPipeAndPassRemote());
-    run_roop.Run();
+        mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+        blink::mojom::AIRewriterCreateOptions::New(kSharedContextString, tone,
+                                                   length));
+    run_loop.Run();
   }
-  MockResponder mock_responder;
+  AITestUtils::MockModelStreamingResponder mock_responder;
 
-  base::RunLoop run_roop;
+  base::RunLoop run_loop;
   EXPECT_CALL(mock_responder, OnResponse(_, _, _))
       .WillOnce(
           testing::Invoke([&](blink::mojom::ModelStreamingResponseStatus status,
@@ -288,76 +211,268 @@ void AIRewriterTest::RunSimpleRewriteTest(
                               std::optional<uint64_t> current_tokens) {
             EXPECT_EQ(status,
                       blink::mojom::ModelStreamingResponseStatus::kComplete);
-            run_roop.Quit();
+            run_loop.Quit();
           }));
 
   rewriter_remote->Rewrite(kInputString, kContextString,
                            mock_responder.BindNewPipeAndPassRemote());
-  run_roop.Run();
+  run_loop.Run();
 }
 
 void AIRewriterTest::RunRewriteOptionCombinationFailureTest(
     blink::mojom::AIRewriterTone tone,
     blink::mojom::AIRewriterLength length) {
-  MockCreateRewriterClient mock_create_write_client;
-  base::RunLoop run_roop;
-  EXPECT_CALL(mock_create_write_client, OnResult(_))
+  MockCreateRewriterClient mock_create_rewriter_client;
+  base::RunLoop run_loop;
+  EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
       .WillOnce(testing::Invoke(
-          [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-            EXPECT_FALSE(writer);
-            run_roop.Quit();
+          [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+            EXPECT_FALSE(rewriter);
+            run_loop.Quit();
           }));
 
   mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
   ai_manager->CreateRewriter(
-      kSharedContextString, tone, length,
-      mock_create_write_client.BindNewPipeAndPassRemote());
-  run_roop.Run();
+      mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+      blink::mojom::AIRewriterCreateOptions::New(kSharedContextString, tone,
+                                                 length));
+  run_loop.Run();
 }
 
 TEST_F(AIRewriterTest, CreateRewriterNoService) {
   SetupNullOptimizationGuideKeyedService();
 
-  MockCreateRewriterClient mock_create_write_client;
-  base::RunLoop run_roop;
-  EXPECT_CALL(mock_create_write_client, OnResult(_))
+  MockCreateRewriterClient mock_create_rewriter_client;
+  base::RunLoop run_loop;
+  EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
       .WillOnce(testing::Invoke(
-          [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-            EXPECT_FALSE(writer);
-            run_roop.Quit();
+          [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+            EXPECT_FALSE(rewriter);
+            run_loop.Quit();
           }));
 
   mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
   ai_manager->CreateRewriter(
-      kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
-      blink::mojom::AIRewriterLength::kAsIs,
-      mock_create_write_client.BindNewPipeAndPassRemote());
-  run_roop.Run();
+      mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+      blink::mojom::AIRewriterCreateOptions::New(
+          kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+          blink::mojom::AIRewriterLength::kAsIs));
+  run_loop.Run();
 }
 
-TEST_F(AIRewriterTest, CreateRewriterStartSessionError) {
+TEST_F(AIRewriterTest, CreateRewriterModelNotAvailable) {
   SetupMockOptimizationGuideKeyedService();
-  EXPECT_CALL(*optimization_guide_keyed_service_, StartSession(_, _))
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              const std::optional<optimization_guide::SessionConfigParams>&
+                  config_params) { return nullptr; }));
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
+              CanCreateOnDeviceSession(_, _))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              optimization_guide::OnDeviceModelEligibilityReason*
+                  on_device_model_eligibility_reason) {
+            *on_device_model_eligibility_reason = optimization_guide::
+                OnDeviceModelEligibilityReason::kModelNotAvailable;
+            return false;
+          }));
+
+  MockCreateRewriterClient mock_create_rewriter_client;
+  base::RunLoop run_loop;
+  EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
+      .WillOnce(testing::Invoke(
+          [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+            EXPECT_FALSE(rewriter);
+            run_loop.Quit();
+          }));
+
+  mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
+  ai_manager->CreateRewriter(
+      mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+      blink::mojom::AIRewriterCreateOptions::New(
+          kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+          blink::mojom::AIRewriterLength::kAsIs));
+  run_loop.Run();
+}
+
+TEST_F(AIRewriterTest, CreateRewriterRetryAfterConfigNotAvailableForFeature) {
+  SetupMockOptimizationGuideKeyedService();
+
+  // StartSession must be called twice.
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              const std::optional<optimization_guide::SessionConfigParams>&
+                  config_params) {
+            // Returns a nullptr for the first call.
+            return nullptr;
+          }))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              const std::optional<optimization_guide::SessionConfigParams>&
+                  config_params) {
+            // Returns a MockSession for the second call.
+            return std::make_unique<optimization_guide::MockSession>();
+          }));
+
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
+              CanCreateOnDeviceSession(_, _))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              optimization_guide::OnDeviceModelEligibilityReason*
+                  on_device_model_eligibility_reason) {
+            // Setting kConfigNotAvailableForFeature should trigger retry.
+            *on_device_model_eligibility_reason = optimization_guide::
+                OnDeviceModelEligibilityReason::kConfigNotAvailableForFeature;
+            return false;
+          }));
+
+  optimization_guide::OnDeviceModelAvailabilityObserver* availability_observer =
+      nullptr;
+  base::RunLoop run_loop_for_add_observer;
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
+              AddOnDeviceModelAvailabilityChangeObserver(_, _))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              optimization_guide::OnDeviceModelAvailabilityObserver* observer) {
+            availability_observer = observer;
+            run_loop_for_add_observer.Quit();
+          }));
+
+  mojo::Remote<blink::mojom::AIRewriter> rewriter_remote;
+  MockCreateRewriterClient mock_create_rewriter_client;
+  base::RunLoop run_loop;
+  EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
+      .WillOnce(testing::Invoke(
+          [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+            // Create rewriter should succeed.
+            EXPECT_TRUE(rewriter);
+            run_loop.Quit();
+          }));
+
+  mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
+  ai_manager->CreateRewriter(
+      mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+      blink::mojom::AIRewriterCreateOptions::New(
+          kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+          blink::mojom::AIRewriterLength::kAsIs));
+
+  run_loop_for_add_observer.Run();
+  CHECK(availability_observer);
+  // Send `kConfigNotAvailableForFeature` first to the observer.
+  availability_observer->OnDeviceModelAvailabilityChanged(
+      optimization_guide::ModelBasedCapabilityKey::kCompose,
+      optimization_guide::OnDeviceModelEligibilityReason::
+          kConfigNotAvailableForFeature);
+
+  // And then send `kConfigNotAvailableForFeature` to the observer.
+  availability_observer->OnDeviceModelAvailabilityChanged(
+      optimization_guide::ModelBasedCapabilityKey::kCompose,
+      optimization_guide::OnDeviceModelEligibilityReason::kSuccess);
+
+  // OnResult() should be called.
+  run_loop.Run();
+}
+
+TEST_F(AIRewriterTest, CreateRewriterAbortAfterConfigNotAvailableForFeature) {
+  SetupMockOptimizationGuideKeyedService();
+
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
       .WillOnce(testing::Invoke(
           [&](optimization_guide::ModelBasedCapabilityKey feature,
               const std::optional<optimization_guide::SessionConfigParams>&
                   config_params) { return nullptr; }));
 
-  MockCreateRewriterClient mock_create_write_client;
-  base::RunLoop run_roop;
-  EXPECT_CALL(mock_create_write_client, OnResult(_))
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
+              CanCreateOnDeviceSession(_, _))
       .WillOnce(testing::Invoke(
-          [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-            EXPECT_FALSE(writer);
-            run_roop.Quit();
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              optimization_guide::OnDeviceModelEligibilityReason*
+                  on_device_model_eligibility_reason) {
+            // Setting kConfigNotAvailableForFeature should trigger retry.
+            *on_device_model_eligibility_reason = optimization_guide::
+                OnDeviceModelEligibilityReason::kConfigNotAvailableForFeature;
+            return false;
           }));
 
+  optimization_guide::OnDeviceModelAvailabilityObserver* availability_observer =
+      nullptr;
+  base::RunLoop run_loop_for_add_observer;
+  base::RunLoop run_loop_for_remove_observer;
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
+              AddOnDeviceModelAvailabilityChangeObserver(_, _))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              optimization_guide::OnDeviceModelAvailabilityObserver* observer) {
+            availability_observer = observer;
+            run_loop_for_add_observer.Quit();
+          }));
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
+              RemoveOnDeviceModelAvailabilityChangeObserver(_, _))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              optimization_guide::OnDeviceModelAvailabilityObserver* observer) {
+            EXPECT_EQ(availability_observer, observer);
+            run_loop_for_remove_observer.Quit();
+          }));
+
+  auto mock_create_rewriter_client =
+      std::make_unique<MockCreateRewriterClient>();
   mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
   ai_manager->CreateRewriter(
-      kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
-      blink::mojom::AIRewriterLength::kAsIs,
-      mock_create_write_client.BindNewPipeAndPassRemote());
-  run_roop.Run();
+      mock_create_rewriter_client->BindNewPipeAndPassRemote(),
+      blink::mojom::AIRewriterCreateOptions::New(
+          kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+          blink::mojom::AIRewriterLength::kAsIs));
+
+  run_loop_for_add_observer.Run();
+  CHECK(availability_observer);
+
+  // Reset `mock_create_rewriter_client` to abort the task of CreateRewriter().
+  mock_create_rewriter_client.reset();
+
+  // RemoveOnDeviceModelAvailabilityChangeObserver should be called.
+  run_loop_for_remove_observer.Run();
+}
+
+TEST_F(AIRewriterTest, ContextDestroyed) {
+  SetupMockOptimizationGuideKeyedService();
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
+      .WillOnce(testing::Invoke(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              const std::optional<optimization_guide::SessionConfigParams>&
+                  config_params) {
+            return std::make_unique<optimization_guide::MockSession>();
+          }));
+
+  mojo::Remote<blink::mojom::AIRewriter> rewriter_remote;
+  {
+    MockCreateRewriterClient mock_create_rewriter_client;
+    base::RunLoop run_loop;
+    EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
+        .WillOnce(testing::Invoke(
+            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+              rewriter_remote =
+                  mojo::Remote<blink::mojom::AIRewriter>(std::move(rewriter));
+              run_loop.Quit();
+            }));
+
+    mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
+    ai_manager->CreateRewriter(
+        mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+        blink::mojom::AIRewriterCreateOptions::New(
+            kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+            blink::mojom::AIRewriterLength::kAsIs));
+    run_loop.Run();
+  }
+
+  // Resetting mock host must delete the AIRewriter.
+  base::RunLoop run_loop;
+  rewriter_remote.set_disconnect_handler(
+      base::BindLambdaForTesting([&]() { run_loop.Quit(); }));
+  ResetMockHost();
+  run_loop.Run();
 }
 
 TEST_F(AIRewriterTest, RewriteRegenerate) {
@@ -440,7 +555,7 @@ TEST_F(AIRewriterTest, RewriteOptionCombinationFailureTest) {
 
 TEST_F(AIRewriterTest, RewriteError) {
   SetupMockOptimizationGuideKeyedService();
-  EXPECT_CALL(*optimization_guide_keyed_service_, StartSession(_, _))
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
       .WillOnce(testing::Invoke([&](optimization_guide::ModelBasedCapabilityKey
                                         feature,
                                     const std::optional<
@@ -474,27 +589,28 @@ TEST_F(AIRewriterTest, RewriteError) {
 
   mojo::Remote<blink::mojom::AIRewriter> rewriter_remote;
   {
-    MockCreateRewriterClient mock_create_write_client;
-    base::RunLoop run_roop;
-    EXPECT_CALL(mock_create_write_client, OnResult(_))
+    MockCreateRewriterClient mock_create_rewriter_client;
+    base::RunLoop run_loop;
+    EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
         .WillOnce(testing::Invoke(
-            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-              EXPECT_TRUE(writer);
+            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+              EXPECT_TRUE(rewriter);
               rewriter_remote =
-                  mojo::Remote<blink::mojom::AIRewriter>(std::move(writer));
-              run_roop.Quit();
+                  mojo::Remote<blink::mojom::AIRewriter>(std::move(rewriter));
+              run_loop.Quit();
             }));
 
     mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
     ai_manager->CreateRewriter(
-        kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
-        blink::mojom::AIRewriterLength::kAsIs,
-        mock_create_write_client.BindNewPipeAndPassRemote());
-    run_roop.Run();
+        mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+        blink::mojom::AIRewriterCreateOptions::New(
+            kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+            blink::mojom::AIRewriterLength::kAsIs));
+    run_loop.Run();
   }
-  MockResponder mock_responder;
+  AITestUtils::MockModelStreamingResponder mock_responder;
 
-  base::RunLoop run_roop;
+  base::RunLoop run_loop;
   EXPECT_CALL(mock_responder, OnResponse(_, _, _))
       .WillOnce(testing::Invoke([&](blink::mojom::ModelStreamingResponseStatus
                                         status,
@@ -503,17 +619,17 @@ TEST_F(AIRewriterTest, RewriteError) {
         EXPECT_EQ(
             status,
             blink::mojom::ModelStreamingResponseStatus::kErrorPermissionDenied);
-        run_roop.Quit();
+        run_loop.Quit();
       }));
 
   rewriter_remote->Rewrite(kInputString, kContextString,
                            mock_responder.BindNewPipeAndPassRemote());
-  run_roop.Run();
+  run_loop.Run();
 }
 
 TEST_F(AIRewriterTest, RewriteMultipleResponse) {
   SetupMockOptimizationGuideKeyedService();
-  EXPECT_CALL(*optimization_guide_keyed_service_, StartSession(_, _))
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
       .WillOnce(testing::Invoke([&](optimization_guide::ModelBasedCapabilityKey
                                         feature,
                                     const std::optional<
@@ -547,27 +663,28 @@ TEST_F(AIRewriterTest, RewriteMultipleResponse) {
 
   mojo::Remote<blink::mojom::AIRewriter> rewriter_remote;
   {
-    MockCreateRewriterClient mock_create_write_client;
-    base::RunLoop run_roop;
-    EXPECT_CALL(mock_create_write_client, OnResult(_))
+    MockCreateRewriterClient mock_create_rewriter_client;
+    base::RunLoop run_loop;
+    EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
         .WillOnce(testing::Invoke(
-            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-              EXPECT_TRUE(writer);
+            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+              EXPECT_TRUE(rewriter);
               rewriter_remote =
-                  mojo::Remote<blink::mojom::AIRewriter>(std::move(writer));
-              run_roop.Quit();
+                  mojo::Remote<blink::mojom::AIRewriter>(std::move(rewriter));
+              run_loop.Quit();
             }));
 
     mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
     ai_manager->CreateRewriter(
-        kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
-        blink::mojom::AIRewriterLength::kAsIs,
-        mock_create_write_client.BindNewPipeAndPassRemote());
-    run_roop.Run();
+        mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+        blink::mojom::AIRewriterCreateOptions::New(
+            kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+            blink::mojom::AIRewriterLength::kAsIs));
+    run_loop.Run();
   }
-  MockResponder mock_responder;
+  AITestUtils::MockModelStreamingResponder mock_responder;
 
-  base::RunLoop run_roop;
+  base::RunLoop run_loop;
   EXPECT_CALL(mock_responder, OnResponse(_, _, _))
       .WillOnce(
           testing::Invoke([&](blink::mojom::ModelStreamingResponseStatus status,
@@ -591,17 +708,17 @@ TEST_F(AIRewriterTest, RewriteMultipleResponse) {
                               std::optional<uint64_t> current_tokens) {
             EXPECT_EQ(status,
                       blink::mojom::ModelStreamingResponseStatus::kComplete);
-            run_roop.Quit();
+            run_loop.Quit();
           }));
 
   rewriter_remote->Rewrite(kInputString, kContextString,
                            mock_responder.BindNewPipeAndPassRemote());
-  run_roop.Run();
+  run_loop.Run();
 }
 
 TEST_F(AIRewriterTest, MultipleRewrite) {
   SetupMockOptimizationGuideKeyedService();
-  EXPECT_CALL(*optimization_guide_keyed_service_, StartSession(_, _))
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
       .WillOnce(testing::Invoke([&](optimization_guide::ModelBasedCapabilityKey
                                         feature,
                                     const std::optional<
@@ -647,27 +764,28 @@ TEST_F(AIRewriterTest, MultipleRewrite) {
 
   mojo::Remote<blink::mojom::AIRewriter> rewriter_remote;
   {
-    MockCreateRewriterClient mock_create_write_client;
-    base::RunLoop run_roop;
-    EXPECT_CALL(mock_create_write_client, OnResult(_))
+    MockCreateRewriterClient mock_create_rewriter_client;
+    base::RunLoop run_loop;
+    EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
         .WillOnce(testing::Invoke(
-            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-              EXPECT_TRUE(writer);
+            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+              EXPECT_TRUE(rewriter);
               rewriter_remote =
-                  mojo::Remote<blink::mojom::AIRewriter>(std::move(writer));
-              run_roop.Quit();
+                  mojo::Remote<blink::mojom::AIRewriter>(std::move(rewriter));
+              run_loop.Quit();
             }));
 
     mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
     ai_manager->CreateRewriter(
-        kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
-        blink::mojom::AIRewriterLength::kAsIs,
-        mock_create_write_client.BindNewPipeAndPassRemote());
-    run_roop.Run();
+        mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+        blink::mojom::AIRewriterCreateOptions::New(
+            kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+            blink::mojom::AIRewriterLength::kAsIs));
+    run_loop.Run();
   }
   {
-    MockResponder mock_responder;
-    base::RunLoop run_roop;
+    AITestUtils::MockModelStreamingResponder mock_responder;
+    base::RunLoop run_loop;
     EXPECT_CALL(mock_responder, OnResponse(_, _, _))
         .WillOnce(testing::Invoke(
             [&](blink::mojom::ModelStreamingResponseStatus status,
@@ -683,16 +801,16 @@ TEST_F(AIRewriterTest, MultipleRewrite) {
                 std::optional<uint64_t> current_tokens) {
               EXPECT_EQ(status,
                         blink::mojom::ModelStreamingResponseStatus::kComplete);
-              run_roop.Quit();
+              run_loop.Quit();
             }));
 
     rewriter_remote->Rewrite(kInputString, kContextString,
                              mock_responder.BindNewPipeAndPassRemote());
-    run_roop.Run();
+    run_loop.Run();
   }
   {
-    MockResponder mock_responder;
-    base::RunLoop run_roop;
+    AITestUtils::MockModelStreamingResponder mock_responder;
+    base::RunLoop run_loop;
     EXPECT_CALL(mock_responder, OnResponse(_, _, _))
         .WillOnce(testing::Invoke(
             [&](blink::mojom::ModelStreamingResponseStatus status,
@@ -708,22 +826,22 @@ TEST_F(AIRewriterTest, MultipleRewrite) {
                 std::optional<uint64_t> current_tokens) {
               EXPECT_EQ(status,
                         blink::mojom::ModelStreamingResponseStatus::kComplete);
-              run_roop.Quit();
+              run_loop.Quit();
             }));
 
     rewriter_remote->Rewrite("input string 2", "test context 2",
                              mock_responder.BindNewPipeAndPassRemote());
-    run_roop.Run();
+    run_loop.Run();
   }
 }
 
 TEST_F(AIRewriterTest, ResponderDisconnected) {
   SetupMockOptimizationGuideKeyedService();
 
-  base::RunLoop run_roop_for_callback;
+  base::RunLoop run_loop_for_callback;
   optimization_guide::OptimizationGuideModelExecutionResultStreamingCallback
       streaming_callback;
-  EXPECT_CALL(*optimization_guide_keyed_service_, StartSession(_, _))
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
       .WillOnce(testing::Invoke([&](optimization_guide::ModelBasedCapabilityKey
                                         feature,
                                     const std::optional<
@@ -747,33 +865,34 @@ TEST_F(AIRewriterTest, ResponderDisconnected) {
                   CheckComposeRequestRewriteParamsPreviousResponse(
                       request_metadata, kInputString);
                   streaming_callback = std::move(callback);
-                  run_roop_for_callback.Quit();
+                  run_loop_for_callback.Quit();
                 }));
         return session;
       }));
 
   mojo::Remote<blink::mojom::AIRewriter> rewriter_remote;
   {
-    MockCreateRewriterClient mock_create_write_client;
-    base::RunLoop run_roop;
-    EXPECT_CALL(mock_create_write_client, OnResult(_))
+    MockCreateRewriterClient mock_create_rewriter_client;
+    base::RunLoop run_loop;
+    EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
         .WillOnce(testing::Invoke(
-            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-              EXPECT_TRUE(writer);
+            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+              EXPECT_TRUE(rewriter);
               rewriter_remote =
-                  mojo::Remote<blink::mojom::AIRewriter>(std::move(writer));
-              run_roop.Quit();
+                  mojo::Remote<blink::mojom::AIRewriter>(std::move(rewriter));
+              run_loop.Quit();
             }));
 
     mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
     ai_manager->CreateRewriter(
-        kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
-        blink::mojom::AIRewriterLength::kAsIs,
-        mock_create_write_client.BindNewPipeAndPassRemote());
-    run_roop.Run();
+        mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+        blink::mojom::AIRewriterCreateOptions::New(
+            kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+            blink::mojom::AIRewriterLength::kAsIs));
+    run_loop.Run();
   }
-  std::unique_ptr<MockResponder> mock_responder =
-      std::make_unique<MockResponder>();
+  std::unique_ptr<AITestUtils::MockModelStreamingResponder> mock_responder =
+      std::make_unique<AITestUtils::MockModelStreamingResponder>();
   rewriter_remote->Rewrite(kInputString, kContextString,
                            mock_responder->BindNewPipeAndPassRemote());
   mock_responder.reset();
@@ -781,7 +900,7 @@ TEST_F(AIRewriterTest, ResponderDisconnected) {
   // interface in AIRewriter.
   task_environment()->RunUntilIdle();
 
-  run_roop_for_callback.Run();
+  run_loop_for_callback.Run();
   ASSERT_TRUE(streaming_callback);
   streaming_callback.Run(CreateExecutionResult("Result text",
                                                /*is_complete=*/true));
@@ -791,10 +910,10 @@ TEST_F(AIRewriterTest, ResponderDisconnected) {
 TEST_F(AIRewriterTest, RewriterDisconnected) {
   SetupMockOptimizationGuideKeyedService();
 
-  base::RunLoop run_roop_for_callback;
+  base::RunLoop run_loop_for_callback;
   optimization_guide::OptimizationGuideModelExecutionResultStreamingCallback
       streaming_callback;
-  EXPECT_CALL(*optimization_guide_keyed_service_, StartSession(_, _))
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
       .WillOnce(testing::Invoke([&](optimization_guide::ModelBasedCapabilityKey
                                         feature,
                                     const std::optional<
@@ -818,34 +937,35 @@ TEST_F(AIRewriterTest, RewriterDisconnected) {
                   CheckComposeRequestRewriteParamsPreviousResponse(
                       request_metadata, kInputString);
                   streaming_callback = std::move(callback);
-                  run_roop_for_callback.Quit();
+                  run_loop_for_callback.Quit();
                 }));
         return session;
       }));
 
   mojo::Remote<blink::mojom::AIRewriter> rewriter_remote;
   {
-    MockCreateRewriterClient mock_create_write_client;
-    base::RunLoop run_roop;
-    EXPECT_CALL(mock_create_write_client, OnResult(_))
+    MockCreateRewriterClient mock_create_rewriter_client;
+    base::RunLoop run_loop;
+    EXPECT_CALL(mock_create_rewriter_client, OnResult(_))
         .WillOnce(testing::Invoke(
-            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> writer) {
-              EXPECT_TRUE(writer);
+            [&](mojo::PendingRemote<::blink::mojom::AIRewriter> rewriter) {
+              EXPECT_TRUE(rewriter);
               rewriter_remote =
-                  mojo::Remote<blink::mojom::AIRewriter>(std::move(writer));
-              run_roop.Quit();
+                  mojo::Remote<blink::mojom::AIRewriter>(std::move(rewriter));
+              run_loop.Quit();
             }));
 
     mojo::Remote<blink::mojom::AIManager> ai_manager = GetAIManagerRemote();
     ai_manager->CreateRewriter(
-        kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
-        blink::mojom::AIRewriterLength::kAsIs,
-        mock_create_write_client.BindNewPipeAndPassRemote());
-    run_roop.Run();
+        mock_create_rewriter_client.BindNewPipeAndPassRemote(),
+        blink::mojom::AIRewriterCreateOptions::New(
+            kSharedContextString, blink::mojom::AIRewriterTone::kAsIs,
+            blink::mojom::AIRewriterLength::kAsIs));
+    run_loop.Run();
   }
 
-  MockResponder mock_responder;
-  base::RunLoop run_roop_for_response;
+  AITestUtils::MockModelStreamingResponder mock_responder;
+  base::RunLoop run_loop_for_response;
   EXPECT_CALL(mock_responder, OnResponse(_, _, _))
       .WillOnce(testing::Invoke([&](blink::mojom::ModelStreamingResponseStatus
                                         status,
@@ -855,13 +975,13 @@ TEST_F(AIRewriterTest, RewriterDisconnected) {
         EXPECT_EQ(
             status,
             blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
-        run_roop_for_response.Quit();
+        run_loop_for_response.Quit();
       }));
 
   rewriter_remote->Rewrite(kInputString, kContextString,
                            mock_responder.BindNewPipeAndPassRemote());
 
-  run_roop_for_callback.Run();
+  run_loop_for_callback.Run();
 
   // Disconnect the rewriter handle.
   rewriter_remote.reset();
@@ -872,5 +992,5 @@ TEST_F(AIRewriterTest, RewriterDisconnected) {
   ASSERT_TRUE(streaming_callback);
   streaming_callback.Run(CreateExecutionResult("Result text",
                                                /*is_complete=*/true));
-  run_roop_for_response.Run();
+  run_loop_for_response.Run();
 }

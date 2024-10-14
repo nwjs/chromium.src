@@ -28,6 +28,10 @@ export const textPartSchema = z.object({
   timeRange: z.nullable(timeRangeSchema),
   leadingSpace: z.nullable(z.boolean()),
   speakerLabel: z.autoNullOptional(z.string()),
+  // Since the transcription saved to the disk are always finalResult, and this
+  // is only used in intermediate partialResult, only include this field in
+  // partialResult to save some disk space.
+  partial: z.optional(z.literal(true)),
 });
 
 export type TextPart = Infer<typeof textPartSchema>;
@@ -70,6 +74,7 @@ function flattenEvent(
   ev: FinalResult|PartialResult,
   offsetMs: number,
   speakerLabelEnabled: boolean,
+  isPartialResult = false,
 ): TextPart[] {
   const {hypothesisPart, timingEvent} = ev;
 
@@ -110,6 +115,7 @@ function flattenEvent(
       timeRange,
       leadingSpace: part.leadingSpace,
       speakerLabel: speakerLabelEnabled ? part.speakerLabel : null,
+      partial: isPartialResult ? true : undefined,
     });
   }
   return result;
@@ -124,13 +130,24 @@ export class SodaEventTransformer {
 
   constructor(private readonly speakerLabelEnabled: boolean) {}
 
-  getTranscription(): Transcription {
+  getTranscription(shouldFinalizeTranscription: boolean = false):
+    Transcription {
     const tokens = [...this.tokens];
     if (this.partialResultTokens !== null) {
       if (tokens.length > 0) {
         tokens.push(textSeparator);
       }
-      tokens.push(...this.partialResultTokens);
+      if (shouldFinalizeTranscription) {
+        const partialResultTokens = structuredClone(this.partialResultTokens);
+        for (const token of partialResultTokens) {
+          if (token.kind === 'textPart') {
+            delete token.partial;
+          }
+        }
+        tokens.push(...partialResultTokens);
+      } else {
+        tokens.push(...this.partialResultTokens);
+      }
     }
     return new Transcription(tokens);
   }
@@ -139,6 +156,10 @@ export class SodaEventTransformer {
     ev: SpeakerLabelCorrectionEvent,
     offsetMs: number,
   ) {
+    if (!this.speakerLabelEnabled) {
+      // Don't handle speaker label correction event when it's not enabled.
+      return;
+    }
     const {hypothesisParts} = ev;
     for (const correctionPart of hypothesisParts) {
       const speakerLabel = correctionPart.speakerLabel ?? null;
@@ -192,6 +213,7 @@ export class SodaEventTransformer {
         event.partialResult,
         offsetMs,
         this.speakerLabelEnabled,
+        /* isPartialResult= */ true,
       );
       // Don't update tokens since it'll be added in getTokens.
       return;
@@ -259,6 +281,12 @@ export class Transcription {
     return this.textTokens.length === 0;
   }
 
+  get wordCount(): number {
+    // TODO(kamchonlathorn): The definition of "word count" can be ambiguous and
+    // the word count for non-English languages can be different.
+    return this.textTokens.filter((token) => token.kind === 'textPart').length;
+  }
+
   /**
    * Concatenates textTokens into the string representation of the
    * transcription.
@@ -310,7 +338,8 @@ export class Transcription {
   getSpeakerLabels = lazyInit((): string[] => {
     const speakerLabels = new Set<string>();
     for (const token of this.textTokens) {
-      if (token.kind === 'textPart' && token.speakerLabel !== null) {
+      if (token.kind === 'textPart' && token.speakerLabel !== null &&
+          !token.partial) {
         speakerLabels.add(token.speakerLabel);
       }
     }
@@ -336,7 +365,10 @@ export class Transcription {
         // time ranges are always continuous.
         return true;
       }
-      if (a.speakerLabel !== b.speakerLabel) {
+      if (a.partial !== b.partial) {
+        return true;
+      }
+      if (!a.partial && a.speakerLabel !== b.speakerLabel) {
         return true;
       }
       return false;
