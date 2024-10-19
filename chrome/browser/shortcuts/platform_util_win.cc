@@ -19,8 +19,9 @@ constexpr base::FilePath::CharType kChromeProxyExecutable[] =
 
 base::FilePath GetChromeProxyPath() {
   base::FilePath chrome_dir;
-  CHECK(base::PathService::Get(base::DIR_EXE, &chrome_dir));
-  return chrome_dir.Append(kChromeProxyExecutable);
+  // Fixes https://github.com/nwjs/nw.js/issues/8227  
+  CHECK(base::PathService::Get(base::FILE_EXE, &chrome_dir));
+  return chrome_dir;
 }
 
 }  // namespace shortcuts
