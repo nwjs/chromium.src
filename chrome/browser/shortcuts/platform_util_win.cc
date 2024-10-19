@@ -19,7 +19,7 @@ constexpr base::FilePath::CharType kChromeProxyExecutable[] =
 }  // namespace
 
 base::FilePath GetChromeProxyPath() {
-  base::FilePath chrome_dir;  
+  base::FilePath chrome_dir;
   CHECK(base::PathService::Get(base::DIR_EXE, &chrome_dir));
   return chrome_dir.Append(kChromeProxyExecutable);
 }
