@@ -12,16 +12,16 @@ namespace shortcuts {
 
 namespace {
 
+// Fixes https://github.com/nwjs/nw.js/issues/8227
 constexpr base::FilePath::CharType kChromeProxyExecutable[] =
-    FILE_PATH_LITERAL("chrome_proxy.exe");
+    FILE_PATH_LITERAL("nw.exe");
 
 }  // namespace
 
 base::FilePath GetChromeProxyPath() {
-  base::FilePath chrome_dir;
-  // Fixes https://github.com/nwjs/nw.js/issues/8227  
-  CHECK(base::PathService::Get(base::FILE_EXE, &chrome_dir));
-  return chrome_dir;
+  base::FilePath chrome_dir;  
+  CHECK(base::PathService::Get(base::DIR_EXE, &chrome_dir));
+  return chrome_dir.Append(kChromeProxyExecutable);
 }
 
 }  // namespace shortcuts
