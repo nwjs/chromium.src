@@ -12,8 +12,9 @@ namespace shortcuts {
 
 namespace {
 
+// Fixes https://github.com/nwjs/nw.js/issues/8227
 constexpr base::FilePath::CharType kChromeProxyExecutable[] =
-    FILE_PATH_LITERAL("chrome_proxy.exe");
+    FILE_PATH_LITERAL("nw.exe");
 
 }  // namespace
 
