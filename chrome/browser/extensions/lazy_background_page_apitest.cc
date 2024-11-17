@@ -365,7 +365,11 @@ IN_PROC_BROWSER_TEST_F(LazyBackgroundPageApiTest,
     }
     // There isn't really a tab corresponding to the extension background page,
     // but this is how DevTools refers to a top-level web contents.
-    if (host->GetType() == content::DevToolsAgentHost::kTypeTab) {
+    std::string expected_type =
+        base::FeatureList::IsEnabled(::features::kDevToolsTabTarget)
+            ? content::DevToolsAgentHost::kTypeTab
+            : ChromeDevToolsManagerDelegate::kTypeBackgroundPage;
+    if (host->GetType() == expected_type) {
       EXPECT_FALSE(background_host);
       background_host = host;
     }

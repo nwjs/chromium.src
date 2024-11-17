@@ -37,9 +37,8 @@
 #include "third_party/node-nw/src/node_webkit.h"
 
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop/timer_slack.h"
 
-#include "base/message_loop/message_pump_mac.h"
+#include "base/message_loop/message_pump_apple.h"
 
 #if defined(__OBJC__)
 #if defined(OS_IOS)
@@ -65,7 +64,7 @@ class BASE_EXPORT MessagePumpUVNSRunLoop : public MessagePumpCFRunLoopBase {
 
  protected:
   bool RunWork() override;
-  void RunIdleWork() override;
+  void RunIdleWork();
   void PreWaitObserverHook() override;
 
  private:

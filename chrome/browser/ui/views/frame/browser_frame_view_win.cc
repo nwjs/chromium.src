@@ -271,7 +271,7 @@ void BrowserFrameViewWin::PaintAsActiveChanged() {
   }
 }
 
-gfx::Size GlassBrowserFrameView::GetMaximumSize() const {
+gfx::Size BrowserFrameViewWin::GetMaximumSize() const {
   gfx::Size max_size(browser_view()->GetMaximumSize());
   if (max_size.height() > 0 || max_size.width() > 0)
     max_size.Enlarge(0, GetTopInset(false));
@@ -290,7 +290,7 @@ gfx::Rect BrowserFrameViewWin::GetWindowBoundsForClientBounds(
     const gfx::Rect& client_bounds) const {
   HWND hwnd = views::HWNDForWidget(frame());
   if (!browser_view()->GetTabStripVisible() && hwnd) {
-    if (ShouldCustomDrawSystemTitlebar()) {
+    if (ShouldBrowserCustomDrawTitlebar(browser_view())) {
       const int top_inset = GetTopInset(false);
       const int thickness = std::floor(
         FrameTopBorderThicknessPx(false) /

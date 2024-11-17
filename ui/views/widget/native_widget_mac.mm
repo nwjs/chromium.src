@@ -686,7 +686,7 @@ void NativeWidgetMac::Show(ui::mojom::WindowShowState show_state,
   }
   GetNSWindowHost()->SetVisibilityState(window_state);
   if (show_state == ui::SHOW_STATE_MAXIMIZED)
-    GetNSWindowHost()->SetRestoredBounds(restore_bounds);
+    GetNSWindowMojo()->SetRestoredBounds(restore_bounds);
 
   // Ignore the SetInitialFocus() result. BridgedContentView should get
   // firstResponder status regardless.
@@ -933,10 +933,6 @@ void NativeWidgetMac::SetVisibilityAnimationTransition(
   }
   if (GetNSWindowMojo())
     GetNSWindowMojo()->SetTransitionsToAnimate(transitions);
-}
-
-bool NativeWidgetMac::IsTranslucentWindowOpacitySupported() const {
-  return content::g_support_transparency;
 }
 
 ui::GestureRecognizer* NativeWidgetMac::GetGestureRecognizer() {

@@ -444,9 +444,8 @@ void CreateIconAndSetRelaunchDetails(const base::FilePath& web_app_path,
           shortcut_info.url, shortcut_info.app_id, shortcut_info.profile_path,
           "");
 
-  command_line.SetProgram(shortcuts::GetChromeProxyPath());
 #endif
-  command_line.SetProgram(GetChromeProxyPath());
+  command_line.SetProgram(shortcuts::GetChromeProxyPath());
   const base::CommandLine::StringVector& args = base::CommandLine::ForCurrentProcess()->GetArgs();
   if (args.size())
 	  command_line.AppendArgNative(args[0]);

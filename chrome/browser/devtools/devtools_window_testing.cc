@@ -138,7 +138,10 @@ DevToolsWindow* DevToolsWindowTesting::OpenDevToolsWindowSync(
       "{\"isUnderTest\": true, \"currentDockState\":\"\\\"bottom\\\"\"}" :
       "{\"isUnderTest\": true, \"currentDockState\":\"\\\"undocked\\\"\"}";
   scoped_refptr<content::DevToolsAgentHost> agent(
-      content::DevToolsAgentHost::GetOrCreateForTab(inspected_web_contents));
+      base::FeatureList::IsEnabled(::features::kDevToolsTabTarget)
+          ? content::DevToolsAgentHost::GetOrCreateForTab(
+                inspected_web_contents)
+          : content::DevToolsAgentHost::GetOrCreateFor(inspected_web_contents));
   DevToolsWindow::ToggleDevToolsWindow(inspected_web_contents, profile, true,
                                        DevToolsToggleAction::Show(), settings);
   DevToolsWindow* window = DevToolsWindow::FindDevToolsWindow(agent.get());

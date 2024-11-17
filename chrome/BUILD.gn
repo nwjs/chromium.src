@@ -1203,6 +1203,7 @@ if (is_win || (is_linux && !is_component_build)) {
       "//headless:headless_shell_lib",
       #"//third_party/cld_3/src/src:cld_3",
       "//ui/events:dom_keycode_converter",
+      "//tools/v8_context_snapshot:buildflags",
     ]
 
     if (is_chromeos) {
@@ -1219,10 +1220,10 @@ if (is_win || (is_linux && !is_component_build)) {
       ":chrome_dll_symbol_order",
       "//build/config/compiler:wexit_time_destructors",
     ]
-    if (!is_component_build && !using_sanitizer) {
+    if (false && !is_component_build && !using_sanitizer) {
       configs += [ ":chrome_dll_symbol_exports" ]
     }
-    configs += [ "//tools/v8_context_snapshot:use_v8_context_snapshot" ]
+    configs += [ "//v8:external_startup_data" ]
   }
 
   mac_framework_bundle("chrome_framework") {
@@ -1272,7 +1273,7 @@ if (is_win || (is_linux && !is_component_build)) {
     }
 
     configs += [ ":chrome_dll_symbol_order" ]
-    if (!is_component_build && !using_sanitizer) {
+    if (false && !is_component_build && !using_sanitizer) {
       configs += [ ":chrome_dll_symbol_exports" ]
     }
 
@@ -1382,7 +1383,6 @@ if (is_win || (is_linux && !is_component_build)) {
                            root_build_dir),
                "-d",
                "-m",
-               "-a", "x86_64",
                "-g",
                rebase_path(
                    "$root_out_dir/{{source_file_part}}.dSYM/Contents/Resources/DWARF/{{source_file_part}}",

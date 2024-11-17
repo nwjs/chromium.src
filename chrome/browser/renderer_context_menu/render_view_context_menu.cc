@@ -2118,6 +2118,7 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
 
   MaybePrepareForLensQuery();
 
+#if 0
   auto* service = TemplateURLServiceFactory::GetForProfile(GetProfile());
 
   if (base::FeatureList::IsEnabled(lens::features::kLensStandalone) &&
@@ -2137,6 +2138,7 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
     }
 #endif
   }
+#endif
 }
 
 void RenderViewContextMenu::AppendAudioItems() {

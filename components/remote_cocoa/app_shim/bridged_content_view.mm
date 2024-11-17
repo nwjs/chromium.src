@@ -300,7 +300,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 
 - (void)drawRect:(NSRect)dirty {
   if (content::g_force_cpu_draw) {
-    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] CGContext];
     CGContextClipToRect(ctx, NSRectToCGRect(dirty));
     //get the flipped layer from forceCPUDrawLayer_ and do renderInContext
     [forceCPUDrawLayer_ renderInContext:ctx];

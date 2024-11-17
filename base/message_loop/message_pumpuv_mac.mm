@@ -4,7 +4,7 @@
 // Copyright Plask, (c) Dean McNamee <dean@gmail.com>, 2011.  BSD license
 
 
-#import "base/message_loop/message_pump_mac.h"
+#import "base/message_loop/message_pump_apple.h"
 #import "base/message_loop/message_pumpuv_mac.h"
 
 #include <dlfcn.h>
@@ -15,8 +15,10 @@
 #include <limits>
 
 #include "base/logging.h"
-#include "base/mac/scoped_cftyperef.h"
-#include "base/message_loop/timer_slack.h"
+#include "base/apple/scoped_cftyperef.h"
+#include "base/apple/scoped_nsautorelease_pool.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_policy.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/time/time.h"
@@ -32,7 +34,7 @@
 
 #include <vector>
 #include "third_party/node-nw/src/node_webkit.h"
-#include "content/nw/src/nw_content.h"
+#include "content/nw/src/renderer/nw_content_renderer_hooks.h"
 
 #define EVENTLOOP_DEBUG 0
 
@@ -162,20 +164,22 @@ void UvNoOp(void* handle) {
 
 }  // namespace
 
-// A scoper for autorelease pools created from message pump run loops.
-// Avoids dirtying up the ScopedNSAutoreleasePool interface for the rare
-// case where an autorelease pool needs to be passed in.
-class MessagePumpScopedAutoreleasePool {
+// A scoper for an optional autorelease pool.
+class OptionalAutoreleasePool {
+ STACK_ALLOCATED();
+
  public:
-  explicit MessagePumpScopedAutoreleasePool(MessagePumpCFRunLoopBase* pump) :
-      pool_(pump->CreateAutoreleasePool()) {
-  }
-   ~MessagePumpScopedAutoreleasePool() {
-    [pool_ drain];
+  explicit OptionalAutoreleasePool(MessagePumpCFRunLoopBase* pump) {
+    if (pump->ShouldCreateAutoreleasePool()) {
+      pool_.emplace();
+    }
   }
 
+  OptionalAutoreleasePool(const OptionalAutoreleasePool&) = delete;
+  OptionalAutoreleasePool& operator=(const OptionalAutoreleasePool&) = delete;
+
  private:
-  NSAutoreleasePool* pool_;
+  std::optional<base::apple::ScopedNSAutoreleasePool> pool_;
 };
 
 bool MessagePumpUVNSRunLoop::RunWork() {
@@ -192,14 +196,14 @@ bool MessagePumpUVNSRunLoop::RunWork() {
   // CFRunLoopSource target that's run.  Use a local pool for any autoreleased
   // objects if the app is not currently handling a UI event to ensure they're
   // released promptly even in the absence of UI events.
-  MessagePumpScopedAutoreleasePool autorelease_pool(this);
+  OptionalAutoreleasePool autorelease_pool(this);
 
   PopWorkItemScope();
   Delegate::NextWorkInfo next_work_info = delegate_->DoWork();
   PushWorkItemScope();
   
   if (next_work_info.is_immediate()) {
-    CFRunLoopSourceSignal(work_source_);
+    CFRunLoopSourceSignal(work_source_.get());
     return true;
   } else {
     ScheduleDelayedWork(next_work_info);
@@ -213,7 +217,6 @@ void MessagePumpUVNSRunLoop::RunIdleWork() {
     // This point can be reached with a NULL delegate_ if Run is not on the
     // stack but foreign code is spinning the CFRunLoop.  Arrange to come back
     // here when a delegate is available.
-    delegateless_idle_work_ = true;
     return;
   }
 
@@ -222,14 +225,13 @@ void MessagePumpUVNSRunLoop::RunIdleWork() {
   // CFRunLoopSource target that's run.  Use a local pool for any autoreleased
   // objects if the app is not currently handling a UI event to ensure they're
   // released promptly even in the absence of UI events.
-  MessagePumpScopedAutoreleasePool autorelease_pool(this);
+  OptionalAutoreleasePool autorelease_pool(this);
 
   // Call DoIdleWork once, and if something was done, arrange to come back here
   // again as long as the loop is still running.
-  bool did_work = delegate_->DoIdleWork();
-  if (did_work) {
-    CFRunLoopSourceSignal(idle_work_source_);
-  }
+  PopWorkItemScope();
+  delegate_->DoIdleWork();
+  PushWorkItemScope();
 
   return;
 }
@@ -318,7 +320,8 @@ void MessagePumpUVNSRunLoop::EmbedThreadRunner(void *arg) {
 
   base::MessagePumpUVNSRunLoop* message_pump = static_cast<base::MessagePumpUVNSRunLoop*>(arg);
 
-  NSAutoreleasePool* pool = [NSAutoreleasePool new];  // To avoid the warning.
+  std::optional<base::apple::ScopedNSAutoreleasePool> pool;
+  pool.emplace();
 
   while (true) {
     int nfds = g_kqueue_thread_pipe_fd + 1;
@@ -355,8 +358,6 @@ void MessagePumpUVNSRunLoop::EmbedThreadRunner(void *arg) {
       check_kqueue = msg == '~';  // ~ - start, ! - stop.
     }
   }
-
-  [pool drain];
 
 }
 

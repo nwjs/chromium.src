@@ -716,6 +716,7 @@ source_set("extensions") {
     "//chrome/browser/ui/tabs:tab_strip_model_observer",
     "//chrome/common",
     "//chrome/common/extensions/api",
+    "//content/nw/src/api:nw_api_registration",
     "//components/omnibox/browser",
     "//components/safe_browsing/core/browser/db:util",
     "//components/safe_browsing/core/common/proto:csd_proto",

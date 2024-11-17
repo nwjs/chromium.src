@@ -7583,6 +7583,7 @@ void ChromeContentBrowserClient::ReportLegacyTechEvent(
     uint64_t line,
     uint64_t column,
     std::optional<content::LegacyTechCookieIssueDetails> cookie_issue_details) {
+#if 0
   WebContents* web_contents =
       WebContents::FromRenderFrameHost(render_frame_host);
   DCHECK(web_contents);
@@ -7598,6 +7599,7 @@ void ChromeContentBrowserClient::ReportLegacyTechEvent(
   }
   service->ReportEvent(type, url, frame_url, filename, line, column,
                        cookie_issue_details);
+#endif
 }
 
 bool ChromeContentBrowserClient::CanAcceptUntrustedExchangesIfNeeded() {

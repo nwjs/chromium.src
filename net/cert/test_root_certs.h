@@ -72,6 +72,7 @@ class NET_EXPORT TestRootCerts {
   TestRootCerts();
   ~TestRootCerts();
 
+public:
   // Marks |certificate| as trusted in the effective trust store
   // used by CertVerifier::Verify(). Returns false if the
   // certificate could not be marked trusted.

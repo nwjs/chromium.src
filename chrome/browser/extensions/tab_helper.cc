@@ -6,6 +6,7 @@
 
 #include <memory>
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/common/chrome_render_frame.mojom.h"
 
 #include "base/check_op.h"
 #include "base/functional/bind.h"
@@ -247,6 +248,22 @@ void TabHelper::InvokeForContentRulesRegistries(const Func& func) {
 
 void TabHelper::RenderFrameCreated(content::RenderFrameHost* host) {
   SetTabId(host);
+  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  if (browser && browser->is_frameless()) {
+    mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> client;
+    host->GetRemoteAssociatedInterfaces()->GetInterface(&client);
+    client->SetSupportsDraggableRegions(true);
+  }
+}
+
+void TabHelper::PrimaryPageChanged(content::Page& page) {
+  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  if (browser && browser->is_frameless()) {
+    mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> client;
+    content::RenderFrameHost& host = page.GetMainDocument();
+    host.GetRemoteAssociatedInterfaces()->GetInterface(&client);
+    client->SetSupportsDraggableRegions(true);
+  }
 }
 
 void TabHelper::DidFinishNavigation(
@@ -286,10 +303,7 @@ void TabHelper::DidFinishNavigation(
 }
 
 void TabHelper::UpdateDraggableRegions(
-    content::RenderFrameHost* sender,
     const std::vector<blink::mojom::DraggableRegionPtr>& regions) {
-  if (sender->GetParent())
-    return;
   Browser* browser = chrome::FindBrowserWithTab(web_contents());
   if (!browser)
     return;

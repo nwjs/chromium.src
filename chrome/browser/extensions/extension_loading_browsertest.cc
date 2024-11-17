@@ -215,7 +215,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionLoadingTest,
   // It bumps them each time it sees a DevToolsAgentHost associated to an
   // extension, and in case of the tab target mode, there's one agent host for
   // the WebContents and one for the render frame.
-  const int expected_keepalive_count = 2;
+  const int expected_keepalive_count =
+      base::FeatureList::IsEnabled(::features::kDevToolsTabTarget) ? 2 : 1;
 
   EXPECT_EQ(expected_keepalive_count,
             process_manager->GetLazyKeepaliveCount(extension));
@@ -333,7 +334,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionLoadingTest,
 
   // Tidy up.
   scoped_refptr<content::DevToolsAgentHost> agent_host(
-      content::DevToolsAgentHost::GetOrCreateForTab(bg_contents));
+      base::FeatureList::IsEnabled(::features::kDevToolsTabTarget)
+          ? content::DevToolsAgentHost::GetOrCreateForTab(bg_contents)
+          : content::DevToolsAgentHost::GetOrCreateFor(bg_contents));
   DevToolsWindowTesting::CloseDevToolsWindowSync(
       DevToolsWindow::FindDevToolsWindow(agent_host.get()));
 }

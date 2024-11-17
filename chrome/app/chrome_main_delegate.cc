@@ -12,6 +12,7 @@
 
 #include "chrome/chrome_elf/chrome_elf_main.h"
 #include "base/files/file_util.h"
+#include "tools/v8_context_snapshot/buildflags.h"
 
 #include <stddef.h>
 
@@ -257,7 +258,7 @@
 #include "base/native_library.h"
 #include "base/strings/utf_string_conversions.h"
 #if defined(OS_MAC)
-#include "base/mac/bundle_locations.h"
+#include "base/apple/bundle_locations.h"
 #include "base/strings/sys_string_conversions.h"
 #endif
 
@@ -1259,9 +1260,8 @@ std::optional<int> ChromeMainDelegate::BasicStartupComplete() {
         base::PathExists(fp) && !base::DirectoryExists(fp) && !reader.Open(fp)) {
       base::NativeLibraryLoadError error;
 #if defined(OS_MAC)
-      base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
-      base::ScopedCFTypeRef<CFStringRef> natives_file_name(base::SysUTF8ToCFStringRef(V8_CONTEXT_SNAPSHOT_FILENAME));
-      std::string blob_path = base::mac::PathForFrameworkBundleResource(natives_file_name).AsUTF8Unsafe();
+      base::FilePath node_dll_path = base::apple::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
+      std::string blob_path = base::apple::PathForFrameworkBundleResource(BUILDFLAG(V8_CONTEXT_SNAPSHOT_FILENAME)).AsUTF8Unsafe();
 #else
       base::FilePath node_dll_path = base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node"));
 #endif
@@ -1542,15 +1542,15 @@ void ChromeMainDelegate::PreSandboxStartup() {
   if (str) {
     product_string = *str;
     std::string helperProcessExecutablePath = (product_string + " Helper.app/Contents/MacOS/" + product_string + " Helper");
-    base::PathService::Override(content::CHILD_PROCESS_EXE,
+    base::PathService::OverrideAndCreateIfNeeded(content::CHILD_PROCESS_EXE,
                                 chrome::GetFrameworkBundlePath()
                                 .Append("Helpers")
-                                .Append(helperProcessExecutablePath));
+                                .Append(helperProcessExecutablePath), true, false);
   }else{
-    base::PathService::Override(content::CHILD_PROCESS_EXE,
+    base::PathService::OverrideAndCreateIfNeeded(content::CHILD_PROCESS_EXE,
                                 chrome::GetFrameworkBundlePath()
                                 .Append("Helpers")
-                                .Append(chrome::kHelperProcessExecutablePath));
+                                .Append(chrome::kHelperProcessExecutablePath), true, false);
   }
 
   InitMacCrashReporter(command_line, process_type);

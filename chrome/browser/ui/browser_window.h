@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
+
 #include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"

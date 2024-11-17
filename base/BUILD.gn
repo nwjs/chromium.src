@@ -2015,6 +2015,8 @@ component("base") {
       "message_loop/message_pump_apple.h",
       "message_loop/message_pump_apple.mm",
       "native_library_apple.mm",
+      "message_loop/message_pumpuv_mac.h",
+      "message_loop/message_pumpuv_mac.mm",
       "process/process_metrics_apple.cc",
       "profiler/module_cache_apple.cc",
       "strings/sys_string_conversions_apple.mm",

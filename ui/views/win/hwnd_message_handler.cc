@@ -2736,12 +2736,12 @@ void HWNDMessageHandler::OnSizing(UINT param, RECT* rect) {
   *rect = window_rect.ToRECT();
 }
 
-void HWNDMessageHandler::OnStyleChanging(int nStyleType, LPSTYLESTRUCT lpStyleStruct) {
+void HWNDMessageHandler::OnStyleChanging(UINT nStyleType, LPSTYLESTRUCT lpStyleStruct) {
   if (!content::g_support_transparency)
     return;
-  if (nStyleType == GWL_EXSTYLE)
+  if (nStyleType == (UINT)GWL_EXSTYLE)
     set_window_ex_style(lpStyleStruct->styleNew);
-  else if (nStyleType == GWL_STYLE)
+  else if (nStyleType == (UINT)GWL_STYLE)
     set_window_style(lpStyleStruct->styleNew);
 }
 
@@ -3545,7 +3545,7 @@ void HWNDMessageHandler::PerformDwmTransition() {
 
   dwm_transition_desired_ = false;
   if (content::g_support_transparency && !content::g_force_cpu_draw && is_translucent_) {
-    const int im = ui::win::IsAeroGlassEnabled() ? -1 : 0;
+    const int im = -1;
     MARGINS m = { im, im, im, im };
     DwmExtendFrameIntoClientArea(hwnd(), &m);
   }

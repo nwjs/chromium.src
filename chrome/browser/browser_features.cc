@@ -99,6 +99,12 @@ BASE_FEATURE(kDestroySystemProfiles,
              "DestroySystemProfiles",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Let DevTools front-end talk to the target of type "tab" rather than
+// "frame" when inspecting a WebContents.
+BASE_FEATURE(kDevToolsTabTarget,
+             "DevToolsTabTarget",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_CHROMEOS)
 // Enables being able to zoom a web page by double tapping in Chrome OS tablet
 // mode.

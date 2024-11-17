@@ -253,8 +253,6 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>${CHROMIUM_MIN_SYSTEM_VERSION}</string>
-	<key>LSRequiresNativeExecution</key>
-	<true/>
 	<key>NSCameraReactionEffectGesturesEnabledDefault</key>
 	<false/>
 	<key>NSPrincipalClass</key>

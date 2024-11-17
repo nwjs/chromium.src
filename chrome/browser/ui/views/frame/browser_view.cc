@@ -2350,9 +2350,11 @@ void BrowserView::FullscreenStateChanged() {
 
   browser_->WindowFullscreenStateChanged();
 
+  if (GetExclusiveAccessManager() && GetExclusiveAccessManager()->fullscreen_controller()) {
   GetExclusiveAccessManager()
       ->fullscreen_controller()
       ->FullscreenTransitionCompleted();
+  }
 
   if (base::FeatureList::IsEnabled(features::kAsyncFullscreenWindowState)) {
     ToolbarSizeChanged(false);

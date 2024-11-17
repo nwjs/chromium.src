@@ -292,7 +292,9 @@ void AllowDevTools(Browser* browser) {
 
 scoped_refptr<DevToolsAgentHost> GetOrCreateDevToolsHostForWebContents(
     WebContents* wc) {
-  return content::DevToolsAgentHost::GetOrCreateForTab(wc);
+  return base::FeatureList::IsEnabled(::features::kDevToolsTabTarget)
+             ? content::DevToolsAgentHost::GetOrCreateForTab(wc)
+             : content::DevToolsAgentHost::GetOrCreateFor(wc);
 }
 
 }  // namespace
@@ -1942,9 +1944,22 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
           base::StrCat({kArbitraryPage, "#", file_url}));
 }
 
+class DevToolsExtensionSidePanelTest
+    : public DevToolsExtensionTest,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  DevToolsExtensionSidePanelTest() {
+    feature_list_.InitWithFeatureState(::features::kDevToolsTabTarget,
+                                       GetParam());
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
 // Test that an extension's side panel view is inspectable whether or not the
 // `kDevToolsTabTarget` flag is enabled.
-IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
+IN_PROC_BROWSER_TEST_P(DevToolsExtensionSidePanelTest,
                        CanInspectExtensionSidePanelView) {
   base::FilePath side_panel_extension_dir =
       base::PathService::CheckedGet(chrome::DIR_TEST_DATA)
@@ -1984,6 +1999,14 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
   DevToolsWindowTesting::CloseDevToolsWindowSync(window);
 }
 
+INSTANTIATE_TEST_SUITE_P(All,
+                         DevToolsExtensionSidePanelTest,
+                         ::testing::Bool(),
+                         [](const testing::TestParamInfo<
+                             DevToolsExtensionSidePanelTest::ParamType>& info) {
+                           return info.param ? "DevToolsTabTargetEnabled"
+                                             : "DevToolsTabTargetDisabled";
+                         });
 // TODO(crbug.com/41495883): Re-enable on linux.
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_CanInspectExtensionOffscreenDoc \
@@ -3170,7 +3193,12 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessDevToolsTest, InspectElement) {
   DevToolsWindowTesting::CloseDevToolsWindowSync(window);
 }
 
-IN_PROC_BROWSER_TEST_F(DevToolsTest, InspectElement) {
+class DevToolsTabTargetTest : public DevToolsTest {
+  base::test::ScopedFeatureList scoped_feature_list_{
+      ::features::kDevToolsTabTarget};
+};
+
+IN_PROC_BROWSER_TEST_F(DevToolsTabTargetTest, InspectElement) {
   GURL url(
       embedded_test_server()->GetURL("a.com", "/devtools/oopif_frame.html"));
 
@@ -3198,7 +3226,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, InspectElement) {
   DevToolsWindowTesting::CloseDevToolsWindowSync(window);
 }
 
-IN_PROC_BROWSER_TEST_F(DevToolsTest, UKMTest) {
+IN_PROC_BROWSER_TEST_F(DevToolsTabTargetTest, UKMTest) {
   ukm::TestAutoSetUkmRecorder test_ukm_recorder;
   GURL url(
       embedded_test_server()->GetURL("a.com", "/devtools/oopif_frame.html"));

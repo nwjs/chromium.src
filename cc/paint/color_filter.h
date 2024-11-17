@@ -18,6 +18,7 @@ namespace cc {
 
 class PaintOpWriter;
 class PaintOpReader;
+class PaintFlags;
 
 class CC_PAINT_EXPORT ColorFilter : public SkRefCnt {
  public:

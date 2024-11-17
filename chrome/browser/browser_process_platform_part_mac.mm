@@ -5,7 +5,7 @@
 #include "chrome/browser/browser_process_platform_part_mac.h"
 
 #include "base/feature_list.h"
-#include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
 
 #include "base/apple/foundation_util.h"
 #include "base/metrics/histogram_macros.h"

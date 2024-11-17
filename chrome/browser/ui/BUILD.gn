@@ -1684,12 +1684,6 @@ static_library("ui") {
         "webui/password_manager/promo_cards/web_password_manager_promo.h",
       ]
     }
-    if (!nwjs_sdk) {
-      sources -= [
-        #"webui/extensions/extensions_ui.cc",
-        #"webui/extensions/extensions_ui.h",
-      ]
-    }
 
     if (is_chrome_for_testing) {
       sources += [
